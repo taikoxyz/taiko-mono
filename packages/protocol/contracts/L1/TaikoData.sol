@@ -9,7 +9,7 @@ pragma solidity ^0.8.18;
 library TaikoData {
     struct FeeConfig {
         uint16 avgTimeMAF;
-        uint16 startBips;
+        uint16 dampingFactorBips;
     }
 
     struct Config {

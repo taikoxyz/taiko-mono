@@ -166,7 +166,7 @@ library LibTokenomics {
             return (feeBase, 0);
         }
         unchecked {
-            uint p = feeConfig.startBips; // [0-10000]
+            uint p = feeConfig.dampingFactorBips; // [0-10000]
             uint a = timeAverage;
             uint t = (timeUsed * 1000).min(a * 2); // millisconds
 

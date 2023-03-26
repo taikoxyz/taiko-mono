@@ -206,7 +206,7 @@ library LibVerifying {
     function _checkFeeConfig(
         TaikoData.FeeConfig memory feeConfig
     ) private pure {
-        if (feeConfig.avgTimeMAF <= 1 || feeConfig.startBips > 10000)
+        if (feeConfig.avgTimeMAF <= 1 || feeConfig.dampingFactorBips > 10000)
             revert L1_INVALID_CONFIG();
     }
 }

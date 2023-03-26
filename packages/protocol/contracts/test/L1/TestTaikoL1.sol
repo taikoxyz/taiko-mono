@@ -39,12 +39,12 @@ contract TestTaikoL1 is TaikoL1 {
 
         config.proposingConfig = TaikoData.FeeConfig({
             avgTimeMAF: 64,
-            startBips: 5000
+            dampingFactorBips: 5000
         });
 
         config.provingConfig = TaikoData.FeeConfig({
             avgTimeMAF: 64,
-            startBips: 5000
+            dampingFactorBips: 5000
         });
     }
 }

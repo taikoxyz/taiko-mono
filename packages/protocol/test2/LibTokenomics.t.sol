@@ -22,7 +22,7 @@ contract TaikoL1WithConfig is Test {
             timeAverageSec: 40 seconds,
             timeUsedSec: 0 seconds,
             isProposal: true,
-            startBips: 4000, // 40%
+            dampingFactorBips: 4000, // 40%
             expectedFeeBase: 140 ether,
             expectedPreimumRate: 0
         });
@@ -32,7 +32,7 @@ contract TaikoL1WithConfig is Test {
             timeAverageSec: 40 seconds,
             timeUsedSec: 20 seconds,
             isProposal: true,
-            startBips: 4000, // 40%
+            dampingFactorBips: 4000, // 40%
             expectedFeeBase: 120 ether,
             expectedPreimumRate: 0
         });
@@ -42,7 +42,7 @@ contract TaikoL1WithConfig is Test {
             timeAverageSec: 40 seconds,
             timeUsedSec: 40 seconds,
             isProposal: true,
-            startBips: 4000, // 40%
+            dampingFactorBips: 4000, // 40%
             expectedFeeBase: 100 ether,
             expectedPreimumRate: 0
         });
@@ -52,7 +52,7 @@ contract TaikoL1WithConfig is Test {
             timeAverageSec: 40 seconds,
             timeUsedSec: 60 seconds,
             isProposal: true,
-            startBips: 4000, // 40%
+            dampingFactorBips: 4000, // 40%
             expectedFeeBase: 80 ether,
             expectedPreimumRate: 0
         });
@@ -62,7 +62,7 @@ contract TaikoL1WithConfig is Test {
             timeAverageSec: 40 seconds,
             timeUsedSec: 80 seconds,
             isProposal: true,
-            startBips: 4000, // 40%
+            dampingFactorBips: 4000, // 40%
             expectedFeeBase: 60 ether,
             expectedPreimumRate: 0
         });
@@ -72,7 +72,7 @@ contract TaikoL1WithConfig is Test {
             timeAverageSec: 40 seconds,
             timeUsedSec: 81 seconds,
             isProposal: true,
-            startBips: 4000, // 40%
+            dampingFactorBips: 4000, // 40%
             expectedFeeBase: 60 ether,
             expectedPreimumRate: 0
         });
@@ -84,7 +84,7 @@ contract TaikoL1WithConfig is Test {
             timeAverageSec: 40 seconds,
             timeUsedSec: 0 seconds,
             isProposal: true,
-            startBips: 0, // 0%
+            dampingFactorBips: 0, // 0%
             expectedFeeBase: 100 ether,
             expectedPreimumRate: 0
         });
@@ -94,7 +94,7 @@ contract TaikoL1WithConfig is Test {
             timeAverageSec: 40 seconds,
             timeUsedSec: 20 seconds,
             isProposal: true,
-            startBips: 0, // 0%
+            dampingFactorBips: 0, // 0%
             expectedFeeBase: 100 ether,
             expectedPreimumRate: 0
         });
@@ -104,7 +104,7 @@ contract TaikoL1WithConfig is Test {
             timeAverageSec: 40 seconds,
             timeUsedSec: 40 seconds,
             isProposal: true,
-            startBips: 0, // 0%
+            dampingFactorBips: 0, // 0%
             expectedFeeBase: 100 ether,
             expectedPreimumRate: 0
         });
@@ -114,7 +114,7 @@ contract TaikoL1WithConfig is Test {
             timeAverageSec: 40 seconds,
             timeUsedSec: 60 seconds,
             isProposal: true,
-            startBips: 0, // 0%
+            dampingFactorBips: 0, // 0%
             expectedFeeBase: 100 ether,
             expectedPreimumRate: 0
         });
@@ -124,7 +124,7 @@ contract TaikoL1WithConfig is Test {
             timeAverageSec: 40 seconds,
             timeUsedSec: 80 seconds,
             isProposal: true,
-            startBips: 0, // 0%
+            dampingFactorBips: 0, // 0%
             expectedFeeBase: 100 ether,
             expectedPreimumRate: 0
         });
@@ -134,7 +134,7 @@ contract TaikoL1WithConfig is Test {
             timeAverageSec: 40 seconds,
             timeUsedSec: 81 seconds,
             isProposal: true,
-            startBips: 0, // 0%
+            dampingFactorBips: 0, // 0%
             expectedFeeBase: 100 ether,
             expectedPreimumRate: 0
         });
@@ -146,7 +146,7 @@ contract TaikoL1WithConfig is Test {
             timeAverageSec: 40 seconds,
             timeUsedSec: 0 seconds,
             isProposal: false,
-            startBips: 4000, // 40%
+            dampingFactorBips: 4000, // 40%
             expectedFeeBase: 60 ether,
             expectedPreimumRate: 0
         });
@@ -156,7 +156,7 @@ contract TaikoL1WithConfig is Test {
             timeAverageSec: 40 seconds,
             timeUsedSec: 20 seconds,
             isProposal: false,
-            startBips: 4000, // 40%
+            dampingFactorBips: 4000, // 40%
             expectedFeeBase: 80 ether,
             expectedPreimumRate: 0
         });
@@ -166,7 +166,7 @@ contract TaikoL1WithConfig is Test {
             timeAverageSec: 40 seconds,
             timeUsedSec: 40 seconds,
             isProposal: false,
-            startBips: 4000, // 40%
+            dampingFactorBips: 4000, // 40%
             expectedFeeBase: 100 ether,
             expectedPreimumRate: 0
         });
@@ -176,7 +176,7 @@ contract TaikoL1WithConfig is Test {
             timeAverageSec: 40 seconds,
             timeUsedSec: 60 seconds,
             isProposal: false,
-            startBips: 4000, // 40%
+            dampingFactorBips: 4000, // 40%
             expectedFeeBase: 120 ether,
             expectedPreimumRate: 5000
         });
@@ -186,7 +186,7 @@ contract TaikoL1WithConfig is Test {
             timeAverageSec: 40 seconds,
             timeUsedSec: 80 seconds,
             isProposal: false,
-            startBips: 4000, // 40%
+            dampingFactorBips: 4000, // 40%
             expectedFeeBase: 140 ether,
             expectedPreimumRate: 10000
         });
@@ -196,7 +196,7 @@ contract TaikoL1WithConfig is Test {
             timeAverageSec: 40 seconds,
             timeUsedSec: 81 seconds,
             isProposal: false,
-            startBips: 4000, // 40%
+            dampingFactorBips: 4000, // 40%
             expectedFeeBase: 140 ether,
             expectedPreimumRate: 10000
         });
@@ -208,7 +208,7 @@ contract TaikoL1WithConfig is Test {
             timeAverageSec: 40 seconds,
             timeUsedSec: 0 seconds,
             isProposal: false,
-            startBips: 0, // 0%
+            dampingFactorBips: 0, // 0%
             expectedFeeBase: 100 ether,
             expectedPreimumRate: 0
         });
@@ -218,7 +218,7 @@ contract TaikoL1WithConfig is Test {
             timeAverageSec: 40 seconds,
             timeUsedSec: 20 seconds,
             isProposal: false,
-            startBips: 0, // 0%
+            dampingFactorBips: 0, // 0%
             expectedFeeBase: 100 ether,
             expectedPreimumRate: 0
         });
@@ -228,7 +228,7 @@ contract TaikoL1WithConfig is Test {
             timeAverageSec: 40 seconds,
             timeUsedSec: 40 seconds,
             isProposal: false,
-            startBips: 0, // 0%
+            dampingFactorBips: 0, // 0%
             expectedFeeBase: 100 ether,
             expectedPreimumRate: 0
         });
@@ -238,7 +238,7 @@ contract TaikoL1WithConfig is Test {
             timeAverageSec: 40 seconds,
             timeUsedSec: 60 seconds,
             isProposal: false,
-            startBips: 0, // 0%
+            dampingFactorBips: 0, // 0%
             expectedFeeBase: 100 ether,
             expectedPreimumRate: 0
         });
@@ -248,7 +248,7 @@ contract TaikoL1WithConfig is Test {
             timeAverageSec: 40 seconds,
             timeUsedSec: 80 seconds,
             isProposal: false,
-            startBips: 0, // 0%
+            dampingFactorBips: 0, // 0%
             expectedFeeBase: 100 ether,
             expectedPreimumRate: 0
         });
@@ -258,7 +258,7 @@ contract TaikoL1WithConfig is Test {
             timeAverageSec: 40 seconds,
             timeUsedSec: 81 seconds,
             isProposal: false,
-            startBips: 0, // 0%
+            dampingFactorBips: 0, // 0%
             expectedFeeBase: 100 ether,
             expectedPreimumRate: 0
         });
@@ -269,13 +269,13 @@ contract TaikoL1WithConfig is Test {
         uint256 timeAverageSec,
         uint256 timeUsedSec,
         bool isProposal,
-        uint16 startBips,
+        uint16 dampingFactorBips,
         uint256 expectedFeeBase,
         uint256 expectedPreimumRate
     ) private {
         TaikoData.FeeConfig memory feeConfig = TaikoData.FeeConfig({
             avgTimeMAF: 1024,
-            startBips: startBips
+            dampingFactorBips: dampingFactorBips
         });
 
         (uint256 _feeBase, uint256 _premiumRate) = LibTokenomics
