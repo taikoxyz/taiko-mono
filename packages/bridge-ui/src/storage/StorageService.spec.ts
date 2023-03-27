@@ -1,7 +1,7 @@
 import { BigNumber, BigNumberish } from 'ethers';
 import { MessageStatus } from '../domain/message';
 import { StorageService } from './StorageService';
-import type { BridgeTransaction } from '../domain/transactions';
+import type { BridgeTransaction } from '../domain/transaction';
 import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
 import { TKOToken } from '../token/tokens';
 import { providers } from '../provider/providers';

@@ -5,7 +5,7 @@ import ERC20_ABI from '../constants/abi/ERC20';
 import TokenVaultABI from '../constants/abi/TokenVault';
 import { MessageStatus } from '../domain/message';
 
-import type { BridgeTransaction } from '../domain/transactions';
+import type { BridgeTransaction } from '../domain/transaction';
 import type {
   APIRequestParams,
   APIResponse,

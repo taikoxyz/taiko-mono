@@ -14,6 +14,7 @@ export type BridgeTransaction = {
   fromChainId: number;
   toChainId: number;
 };
+
 export interface Transactioner {
   GetAllByAddress(
     address: string,

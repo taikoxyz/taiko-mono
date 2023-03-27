@@ -1,4 +1,4 @@
-import type { BridgeTransaction, Transactioner } from '../domain/transactions';
+import type { BridgeTransaction, Transactioner } from '../domain/transaction';
 import { BigNumber, Contract, ethers } from 'ethers';
 import BridgeABI from '../constants/abi/Bridge';
 import TokenVaultABI from '../constants/abi/TokenVault';

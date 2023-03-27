@@ -4,7 +4,7 @@
   import { _ } from 'svelte-i18n';
   import { addressSubsection } from '../utils/addressSubsection';
   import { signer } from '../store/signer';
-  import { pendingTransactions } from '../store/transactions';
+  import { pendingTransactions } from '../store/transaction';
   import { getAddressAvatarFromIdenticon } from '../utils/addressAvatar';
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
   import { ethers, Signer } from 'ethers';

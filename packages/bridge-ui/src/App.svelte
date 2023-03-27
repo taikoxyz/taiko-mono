@@ -11,32 +11,26 @@
 
   import Home from './pages/home/Home.svelte';
   import { setupI18n } from './i18n';
-  import {
-    pendingTransactions,
-    transactioner,
-    transactions,
-  } from './store/transactions';
+  import { pendingTransactions, transactions } from './store/transaction';
   import Navbar from './components/Navbar.svelte';
   import Toast, { successToast } from './components/Toast.svelte';
   import { signer } from './store/signer';
-  import type { BridgeTransaction, Transactioner } from './domain/transactions';
+  import type { BridgeTransaction } from './domain/transaction';
   import { wagmiClient } from './store/wagmi';
 
   setupI18n({ withLocale: 'en' });
   import SwitchEthereumChainModal from './components/modals/SwitchEthereumChainModal.svelte';
   import { ethers } from 'ethers';
-  import { StorageService } from './storage/StorageService';
   import { MessageStatus } from './domain/message';
   import BridgeABI from './constants/abi/Bridge';
-  import type { TokenService } from './domain/token';
-  import { CustomTokenService } from './storage/CustomTokenService';
-  import { userTokens, tokenService } from './store/userToken';
   import { RelayerAPIService } from './relayer-api/RelayerAPIService';
   import type { RelayerAPI } from './domain/relayerApi';
   import { relayerApi, relayerBlockInfoMap } from './store/relayerApi';
   import { chains, mainnetWagmiChain, taikoWagmiChain } from './chain/chains';
   import { providers } from './provider/providers';
   import { RELAYER_URL } from './constants/envVars';
+  import { storageService, tokenService } from './storage/services';
+  import { userTokens } from './store/token';
 
   const { chains: wagmiChains, provider } = configureChains(
     [mainnetWagmiChain, taikoWagmiChain],
@@ -72,21 +66,11 @@
     ],
   });
 
-  const storageTransactioner: Transactioner = new StorageService(
-    window.localStorage,
-    providers,
-  );
-
   const relayerApiService: RelayerAPI = new RelayerAPIService(
     RELAYER_URL,
     providers,
   );
 
-  const tokenStore: TokenService = new CustomTokenService(window.localStorage);
-
-  tokenService.set(tokenStore);
-
-  transactioner.set(storageTransactioner);
   relayerApi.set(relayerApiService);
 
   signer.subscribe(async (store) => {
@@ -99,7 +83,7 @@
       const blockInfoMap = await $relayerApi.GetBlockInfo();
       relayerBlockInfoMap.set(blockInfoMap);
 
-      const txs = await $transactioner.GetAllByAddress(userAddress);
+      const txs = await storageService.GetAllByAddress(userAddress);
       const hashToApiTxsMap = new Map(
         apiTxs.map((tx) => {
           return [tx.hash.toLowerCase(), 1];
@@ -118,11 +102,11 @@
       //   return true;
       // });
 
-      $transactioner.UpdateStorageByAddress(userAddress, updatedStorageTxs);
+      storageService.UpdateStorageByAddress(userAddress, updatedStorageTxs);
 
       transactions.set([...updatedStorageTxs, ...apiTxs]);
 
-      const tokens = $tokenService.GetTokens(userAddress);
+      const tokens = tokenService.GetTokens(userAddress);
       userTokens.set(tokens);
     }
   });

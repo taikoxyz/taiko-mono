@@ -20,9 +20,10 @@
   import MetaMask from '../icons/MetaMask.svelte';
   import WalletConnect from '../icons/WalletConnect.svelte';
   import CoinbaseWallet from '../icons/CoinbaseWallet.svelte';
-  import { transactioner, transactions } from '../../store/transactions';
+  import { transactions } from '../../store/transaction';
   import { mainnetChain, taikoChain } from '../../chain/chains';
   import { errorToast, successToast } from '../Toast.svelte';
+  import { storageService } from '../../storage/services';
 
   export let isConnectWalletModalOpen = false;
 
@@ -60,7 +61,7 @@
       const wagmiSigner = await setSigner();
       if (wagmiSigner) {
         const signerAddress = await wagmiSigner.getAddress();
-        const signerTransactions = await $transactioner.GetAllByAddress(
+        const signerTransactions = await storageService.GetAllByAddress(
           signerAddress,
         );
         transactions.set(signerTransactions);

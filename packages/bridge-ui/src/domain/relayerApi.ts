@@ -1,4 +1,4 @@
-import type { BridgeTransaction } from './transactions';
+import type { BridgeTransaction } from './transaction';
 
 export interface RelayerAPI {
   GetAllBridgeTransactionByAddress(

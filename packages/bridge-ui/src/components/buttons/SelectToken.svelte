@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getProvider } from '@wagmi/core';
-  import { token } from '../../store/token';
+  import { selectedToken, userTokens } from '../../store/token';
   import { bridgeType } from '../../store/bridge';
   import type { Token } from '../../domain/token';
   import { BridgeType, type HTMLBridgeForm } from '../../domain/bridge';
@@ -8,21 +8,21 @@
   import { ethers } from 'ethers';
   import ERC20_ABI from '../../constants/abi/ERC20';
   import { signer } from '../../store/signer';
-  import { userTokens, tokenService } from '../../store/userToken';
   import { fromChain, toChain } from '../../store/chain';
   import Erc20 from '../icons/ERC20.svelte';
   import AddCustomErc20 from '../form/AddCustomERC20.svelte';
   import { ETHToken, tokens } from '../../token/tokens';
   import { errorToast, successToast } from '../Toast.svelte';
+  import { tokenService } from '../../storage/services';
 
   let dropdownElement: HTMLDivElement;
   let showAddressField = false;
   let loading = false;
 
   function select(t: Token) {
-    if (t === $token) return;
+    if (t === $selectedToken) return;
 
-    token.set(t);
+    selectedToken.set(t);
 
     if (t.symbol.toLowerCase() === ETHToken.symbol.toLowerCase()) {
       bridgeType.set(BridgeType.ETH);
@@ -84,7 +84,7 @@
         logoComponent: null,
       } as Token;
 
-      const updateTokensList = $tokenService.StoreToken(token, userAddress);
+      const updateTokensList = tokenService.StoreToken(token, userAddress);
 
       select(token);
 
@@ -108,12 +108,12 @@
     role="button"
     tabindex="0"
     class="flex items-center justify-center hover:cursor-pointer">
-    {#if $token.logoComponent}
-      <svelte:component this={$token.logoComponent} />
+    {#if $selectedToken.logoComponent}
+      <svelte:component this={$selectedToken.logoComponent} />
     {:else}
       <Erc20 />
     {/if}
-    <p class="px-2 text-sm">{$token.symbol.toUpperCase()}</p>
+    <p class="px-2 text-sm">{$selectedToken.symbol.toUpperCase()}</p>
     <ChevronDown size="20" />
   </label>
 

@@ -1,11 +1,11 @@
 <script lang="ts">
-  import type { BridgeTransaction } from '../domain/transactions';
+  import type { BridgeTransaction } from '../domain/transaction';
   import type { Chain } from '../domain/chain';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
   import { MessageStatus } from '../domain/message';
   import { Contract, ethers } from 'ethers';
   import { signer } from '../store/signer';
-  import { pendingTransactions } from '../store/transactions';
+  import { pendingTransactions } from '../store/transaction';
   import { _ } from 'svelte-i18n';
   import {
     fromChain as fromChainStore,

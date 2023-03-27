@@ -3,7 +3,7 @@
   import { processingFee } from '../../store/fee';
   import { ProcessingFeeMethod } from '../../domain/fee';
   import { toChain, fromChain } from '../../store/chain';
-  import { token } from '../../store/token';
+  import { selectedToken } from '../../store/token';
   import { signer } from '../../store/signer';
   import { recommendProcessingFee } from '../../utils/recommendProcessingFee';
   import TooltipModal from '../modals/TooltipModal.svelte';
@@ -19,7 +19,7 @@
     $toChain,
     $fromChain,
     $processingFee,
-    $token,
+    $selectedToken,
     $signer,
   )
     .then((fee) => (recommendedFee = fee))
