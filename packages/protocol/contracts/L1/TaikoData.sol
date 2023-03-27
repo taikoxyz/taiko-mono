@@ -25,7 +25,6 @@ library TaikoData {
         uint256 maxBytesPerTxList;
         uint256 minTxGasLimit;
         uint256 slotSmoothingFactor;
-        uint256 anchorTxGasLimit;
         uint256 rewardBurnBips;
         uint256 proposerDepositPctg;
         // Moving average factors
@@ -88,7 +87,6 @@ library TaikoData {
         bytes32 blockHash;
         bytes32 signalRoot;
         address prover;
-        uint32 gasUsed;
     }
 
     // 3 slots

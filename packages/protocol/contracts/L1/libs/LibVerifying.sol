@@ -35,7 +35,7 @@ library LibVerifying {
     ) internal {
         _checkConfig(config);
 
-        uint64 timeNow = uint64(block.number);
+        uint64 timeNow = uint64(block.timestamp);
         state.genesisHeight = timeNow;
         state.genesisTimestamp = timeNow;
         state.feeBase = feeBase;
@@ -193,7 +193,6 @@ library LibVerifying {
             config.maxBytesPerTxList > 128 * 1024 ||
             config.minTxGasLimit == 0 ||
             config.slotSmoothingFactor == 0 ||
-            config.anchorTxGasLimit == 0 ||
             // EIP-4844 blob deleted after 30 days
             config.txListCacheExpiry > 30 * 24 hours ||
             config.rewardBurnBips >= 10000
