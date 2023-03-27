@@ -279,7 +279,7 @@
       tx.chainId = $fromChain.id;
       const userAddress = await $signer.getAddress();
       let transactions: BridgeTransaction[] =
-        await storageService.GetAllByAddress(userAddress);
+        await storageService.getAllByAddress(userAddress);
 
       let bridgeTransaction: BridgeTransaction = {
         fromChainId: $fromChain.id,
@@ -296,7 +296,7 @@
         transactions.push(bridgeTransaction);
       }
 
-      storageService.UpdateStorageByAddress(userAddress, transactions);
+      storageService.updateStorageByAddress(userAddress, transactions);
 
       pendingTransactions.update((store) => {
         store.push(tx);
@@ -306,7 +306,7 @@
       const allTransactions = $transactionsStore;
 
       // get full BridgeTransaction object
-      bridgeTransaction = await storageService.GetTransactionByHash(
+      bridgeTransaction = await storageService.getTransactionByHash(
         userAddress,
         tx.hash,
       );

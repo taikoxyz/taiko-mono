@@ -41,7 +41,7 @@ export class RelayerAPIService implements RelayerAPI {
     return response.data;
   }
 
-  async GetAllBridgeTransactionByAddress(
+  async getAllBridgeTransactionByAddress(
     address: string,
     chainID?: number,
   ): Promise<BridgeTransaction[]> {
@@ -178,7 +178,7 @@ export class RelayerAPIService implements RelayerAPI {
     return bridgeTxs;
   }
 
-  async GetBlockInfo(): Promise<Map<number, RelayerBlockInfo>> {
+  async getBlockInfo(): Promise<Map<number, RelayerBlockInfo>> {
     const requestURL = `${this.baseUrl}/blockInfo`;
     const { data } = await axios.get(requestURL);
     const blockInfoMap: Map<number, RelayerBlockInfo> = new Map();

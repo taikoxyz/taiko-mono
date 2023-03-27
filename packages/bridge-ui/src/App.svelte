@@ -26,12 +26,12 @@
       const userAddress = await newSigner.getAddress();
 
       // Get transactions from API
-      const apiTxs = await relayerApi.GetAllBridgeTransactionByAddress(
+      const apiTxs = await relayerApi.getAllBridgeTransactionByAddress(
         userAddress,
       );
 
       // Get transactions from local storage
-      const localTxs = await storageService.GetAllByAddress(userAddress);
+      const localTxs = await storageService.getAllByAddress(userAddress);
 
       // Create a map of hashes to API transactions to help us
       // filter out transactions from local storage.
@@ -46,13 +46,13 @@
         return !hashToApiTxsMap.has(tx.hash.toLowerCase());
       });
 
-      storageService.UpdateStorageByAddress(userAddress, updatedStorageTxs);
+      storageService.updateStorageByAddress(userAddress, updatedStorageTxs);
 
       // Merge transactions from API and local storage
       transactions.set([...updatedStorageTxs, ...apiTxs]);
 
       // Get tokens based on current user address (signer)
-      const tokens = tokenService.GetTokens(userAddress);
+      const tokens = tokenService.getTokens(userAddress);
       userTokens.set(tokens);
     }
   });

@@ -1,12 +1,12 @@
 import type { BridgeTransaction } from './transaction';
 
 export interface RelayerAPI {
-  GetAllBridgeTransactionByAddress(
+  getAllBridgeTransactionByAddress(
     address: string,
     chainID?: number,
   ): Promise<BridgeTransaction[]>;
 
-  GetBlockInfo(): Promise<Map<number, RelayerBlockInfo>>;
+  getBlockInfo(): Promise<Map<number, RelayerBlockInfo>>;
 }
 
 export type APIResponseTransaction = {

@@ -20,7 +20,7 @@ export class StorageService implements Transactioner {
     this.providers = providers;
   }
 
-  async GetAllByAddress(address: string): Promise<BridgeTransaction[]> {
+  async getAllByAddress(address: string): Promise<BridgeTransaction[]> {
     const txs: BridgeTransaction[] = JSON.parse(
       this.storage.getItem(`transactions-${address.toLowerCase()}`),
     );
@@ -139,7 +139,7 @@ export class StorageService implements Transactioner {
     return bridgeTxs;
   }
 
-  async GetTransactionByHash(
+  async getTransactionByHash(
     address: string,
     hash: string,
   ): Promise<BridgeTransaction> {
@@ -247,7 +247,7 @@ export class StorageService implements Transactioner {
     return bridgeTx;
   }
 
-  UpdateStorageByAddress(address: string, txs: BridgeTransaction[]) {
+  updateStorageByAddress(address: string, txs: BridgeTransaction[]) {
     this.storage.setItem(
       `transactions-${address.toLowerCase()}`,
       JSON.stringify(txs),
