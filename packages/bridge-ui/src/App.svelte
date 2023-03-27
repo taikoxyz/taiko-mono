@@ -10,7 +10,6 @@
   import { MetaMaskConnector } from '@wagmi/core/connectors/metaMask';
 
   import Home from './pages/home/Home.svelte';
-  import { setupI18n } from './i18n';
   import { pendingTransactions, transactions } from './store/transaction';
   import Navbar from './components/Navbar.svelte';
   import Toast, { successToast } from './components/Toast.svelte';
@@ -18,19 +17,16 @@
   import type { BridgeTransaction } from './domain/transaction';
   import { wagmiClient } from './store/wagmi';
 
-  setupI18n({ withLocale: 'en' });
   import SwitchEthereumChainModal from './components/modals/SwitchEthereumChainModal.svelte';
   import { ethers } from 'ethers';
   import { MessageStatus } from './domain/message';
   import BridgeABI from './constants/abi/Bridge';
-  import { RelayerAPIService } from './relayer-api/RelayerAPIService';
-  import type { RelayerAPI } from './domain/relayerApi';
-  import { relayerApi, relayerBlockInfoMap } from './store/relayerApi';
+  import { relayerBlockInfoMap } from './store/relayerApi';
   import { chains, mainnetWagmiChain, taikoWagmiChain } from './chain/chains';
   import { providers } from './provider/providers';
-  import { RELAYER_URL } from './constants/envVars';
   import { storageService, tokenService } from './storage/services';
   import { userTokens } from './store/token';
+  import { relayerApi } from './relayer-api/services';
 
   const { chains: wagmiChains, provider } = configureChains(
     [mainnetWagmiChain, taikoWagmiChain],
@@ -66,21 +62,14 @@
     ],
   });
 
-  const relayerApiService: RelayerAPI = new RelayerAPIService(
-    RELAYER_URL,
-    providers,
-  );
-
-  relayerApi.set(relayerApiService);
-
   signer.subscribe(async (store) => {
     if (store) {
       const userAddress = await store.getAddress();
 
-      const apiTxs = await $relayerApi.GetAllBridgeTransactionByAddress(
+      const apiTxs = await relayerApi.GetAllBridgeTransactionByAddress(
         userAddress,
       );
-      const blockInfoMap = await $relayerApi.GetBlockInfo();
+      const blockInfoMap = await relayerApi.GetBlockInfo();
       relayerBlockInfoMap.set(blockInfoMap);
 
       const txs = await storageService.GetAllByAddress(userAddress);

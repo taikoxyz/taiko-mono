@@ -1,6 +1,8 @@
-import { _, dictionary, locale } from 'svelte-i18n';
+import { dictionary, locale } from 'svelte-i18n';
+export { _ } from 'svelte-i18n';
 
-function setupI18n({ withLocale: _locale } = { withLocale: 'en' }) {
+// TODO: how about a JSON file?
+export function setupI18n({ withLocale: _locale } = { withLocale: 'en' }) {
   dictionary.set({
     en: {
       home: {
@@ -38,5 +40,3 @@ function setupI18n({ withLocale: _locale } = { withLocale: 'en' }) {
 
   locale.set(_locale);
 }
-
-export { _, setupI18n };
