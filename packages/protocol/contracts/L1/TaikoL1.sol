@@ -30,7 +30,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         address _addressManager,
         bytes32 _genesisBlockHash,
         uint64 _feeBase,
-        uint256 _gasExcess
+        uint64 _gasExcess
     ) external initializer {
         EssentialContract._init(_addressManager);
         LibVerifying.init({
@@ -218,7 +218,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     }
 
     function get1559Basefee(
-        uint256 gasLimit
+        uint32 gasLimit
     ) public view returns (uint64 basefee) {
         (, basefee, ) = LibL2Tokenomics.get1559Basefee(
             state,

@@ -22,7 +22,7 @@ abstract contract TaikoL1TestBase is Test {
     bytes32 public constant GENESIS_BLOCK_HASH =
         keccak256("GENESIS_BLOCK_HASH");
     uint64 feeBase = 1E8; // 1 TKO
-    uint256 gasExcess = 1E18;
+    uint64 gasExcess = 1E18;
 
     address public constant Treasure =
         0x859d74b52762d9ed07D1b2B8d7F93d26B1EA78Bb;

@@ -32,7 +32,7 @@ library LibVerifying {
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
         uint64 feeBase,
-        uint256 gasExcess
+        uint64 gasExcess
     ) internal {
         _checkConfig(config);
 

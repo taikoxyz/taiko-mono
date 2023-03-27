@@ -11,10 +11,10 @@ import {
 contract TestLibL2Tokenomics is Test {
     using SafeCastUpgradeable for uint256;
 
-    uint256 initialBaseFee = 5000000000;
-    uint256 gasTargetPerSecond = 1000000;
-    uint256 gasExcess = gasTargetPerSecond * 100;
-    uint256 gasPoolProduct = gasExcess ** 2 * initialBaseFee;
+    uint64 initialBaseFee = 5000000000;
+    uint32 gasTargetPerSecond = 1000000;
+    uint64 gasExcess = gasTargetPerSecond * 100;
+    uint256 gasPoolProduct = uint(gasExcess) * uint(gasExcess) * initialBaseFee;
 
     function test1559Basefee() public {
         (uint64 basefee1, uint256 cost1) = _purchaseGas(
@@ -65,8 +65,8 @@ contract TestLibL2Tokenomics is Test {
     }
 
     function _purchaseGas(
-        uint256 amount,
-        uint256 blockTime
+        uint32 amount,
+        uint64 blockTime
     ) private returns (uint64 basefee, uint256 gasPurchaseCost) {
         (gasExcess, basefee, gasPurchaseCost) = LibL2Tokenomics.calc1559Basefee(
             gasExcess,

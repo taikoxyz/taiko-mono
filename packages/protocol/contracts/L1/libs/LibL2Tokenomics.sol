@@ -23,11 +23,11 @@ library LibL2Tokenomics {
     function get1559Basefee(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        uint256 gasInBlock
+        uint32 gasInBlock
     )
         internal
         view
-        returns (uint256 newGasExcess, uint64 basefee, uint256 gasPurchaseCost)
+        returns (uint64 newGasExcess, uint64 basefee, uint256 gasPurchaseCost)
     {
         return
             calc1559Basefee(
@@ -35,7 +35,7 @@ library LibL2Tokenomics {
                 config.gasTargetPerSecond,
                 config.gasPoolProduct,
                 gasInBlock,
-                block.timestamp - state.lastProposedAt
+                uint64(block.timestamp - state.lastProposedAt)
             );
     }
 
@@ -44,21 +44,25 @@ library LibL2Tokenomics {
     //      But the current implementation use AMM style math as we don't yet
     //      have a solidity exp(uint256 x) implementation.
     function calc1559Basefee(
-        uint256 gasExcess,
-        uint256 gasTargetPerSecond,
+        uint64 gasExcess,
+        uint64 gasTargetPerSecond,
         uint256 gasPoolProduct,
-        uint256 gasInBlock,
-        uint256 blockTime
+        uint32 gasInBlock,
+        uint64 blockTime
     )
         internal
         pure
-        returns (uint256 newGasExcess, uint64 basefee, uint256 gasPurchaseCost)
+        returns (uint64 newGasExcess, uint64 basefee, uint256 gasPurchaseCost)
     {
         unchecked {
-            uint256 _gasExcess = gasExcess + (gasTargetPerSecond * blockTime);
+            uint256 _gasExcess = uint256(gasExcess) +
+                (gasTargetPerSecond * blockTime);
+
+            _gasExcess = _gasExcess.min(type(uint64).max);
 
             if (gasInBlock >= _gasExcess) revert L1_OUT_OF_BLOCK_SPACE();
-            newGasExcess = _gasExcess - gasInBlock;
+
+            newGasExcess = uint64(_gasExcess - gasInBlock);
 
             gasPurchaseCost =
                 (gasPoolProduct / newGasExcess) -
