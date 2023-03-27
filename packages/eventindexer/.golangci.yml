@@ -40,6 +40,3 @@ issues:
       linters:
         - funlen
 
-run:
-  skip-dirs:
-    - contracts/*
