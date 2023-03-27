@@ -154,10 +154,16 @@ export async function deployContracts(hre: any) {
     );
 
     const feeBase = hre.ethers.BigNumber.from(10).pow(18);
+    const gasExcess = hre.ethers.BigNumber.from(100000000);
 
     await utils.waitTx(
         hre,
-        await TaikoL1.init(AddressManager.address, l2GenesisBlockHash, feeBase)
+        await TaikoL1.init(
+            AddressManager.address,
+            l2GenesisBlockHash,
+            feeBase,
+            gasExcess
+        )
     );
 
     // Used by LibBridgeRead
