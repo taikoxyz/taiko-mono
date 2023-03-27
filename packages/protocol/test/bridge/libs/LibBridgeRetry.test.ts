@@ -2,12 +2,6 @@ import * as helpers from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import hre, { ethers } from "hardhat";
 import {
-    getMessageStatusSlot,
-    Message,
-    MessageStatus,
-} from "../../utils/message";
-import { decode } from "../../../tasks/utils";
-import {
     AddressManager,
     EtherVault,
     TestBadReceiver,
@@ -16,6 +10,11 @@ import {
     TestReceiver,
 } from "../../../typechain";
 import deployAddressManager from "../../utils/addressManager";
+import {
+    getMessageStatusSlot,
+    Message,
+    MessageStatus,
+} from "../../utils/message";
 
 // TODO(roger): we should deprecate these test and test Bridge.sol
 // as a whole.
@@ -194,7 +193,7 @@ describe("LibBridgeRetry", function () {
             await badLibRetry.retryMessage(message, false);
             const newToBalance = await testReceiver.getBalance();
             expect(
-                await decode(
+                decode(
                     hre,
                     "uint256",
                     await ethers.provider.getStorageAt(
@@ -244,7 +243,7 @@ describe("LibBridgeRetry", function () {
             const balancePlusRefund = await refundAddress.getBalance();
 
             expect(
-                await decode(
+                decode(
                     hre,
                     "uint256",
                     await ethers.provider.getStorageAt(
@@ -300,7 +299,7 @@ describe("LibBridgeRetry", function () {
             );
 
             expect(
-                await decode(
+                decode(
                     hre,
                     "uint256",
                     await ethers.provider.getStorageAt(
@@ -350,7 +349,7 @@ describe("LibBridgeRetry", function () {
             const newToBalance = await testReceiver.getBalance();
 
             expect(
-                await decode(
+                decode(
                     hre,
                     "uint256",
                     await ethers.provider.getStorageAt(
@@ -366,3 +365,7 @@ describe("LibBridgeRetry", function () {
         });
     });
 });
+
+function decode(hre: any, type: any, data: any) {
+    return hre.ethers.utils.defaultAbiCoder.decode([type], data).toString();
+}

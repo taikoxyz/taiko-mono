@@ -73,7 +73,6 @@
     "hardhat-contract-sizer": "^2.8.0",
     "hardhat-docgen": "^1.3.0",
     "hardhat-gas-reporter": "^1.0.9",
-    "hardhat-preprocessor": "^0.1.5",
     "lint-staged": "^12.5.0",
     "merkle-patricia-tree": "^4.2.4",
     "prettier": "^2.8.4",
