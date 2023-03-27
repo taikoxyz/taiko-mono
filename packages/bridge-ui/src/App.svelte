@@ -3,74 +3,77 @@
   import Navbar from './components/Navbar.svelte';
   import Toast, { successToast } from './components/Toast.svelte';
   import { signer } from './store/signer';
-  import type { BridgeTransaction } from './domain/transaction';
 
   import SwitchEthereumChainModal from './components/modals/SwitchEthereumChainModal.svelte';
   import { ethers } from 'ethers';
   import { MessageStatus } from './domain/message';
   import BridgeABI from './constants/abi/Bridge';
-  import { relayerBlockInfoMap } from './store/relayerApi';
   import { chains } from './chain/chains';
   import { providers } from './provider/providers';
-  import { storageService, tokenService } from './storage/services';
-  import { userTokens } from './store/token';
-  import { relayerApi } from './relayer-api/relayerApi';
   import Router from './components/Router.svelte';
+  import { relayerApi } from './relayer-api/relayerApi';
+  import { storageService, tokenService } from './storage/services';
+  import type { BridgeTransaction } from './domain/transaction';
+  import { userTokens } from './store/token';
 
-  signer.subscribe(async (store) => {
-    if (store) {
-      const userAddress = await store.getAddress();
+  /**
+   * Subscribe to signer changes.
+   * When there is a new signer, we need to get the address and
+   * merge API transactions with local stored transactions for that address.
+   */
+  signer.subscribe(async (newSigner) => {
+    if (newSigner) {
+      const userAddress = await newSigner.getAddress();
 
+      // Get transactions from API
       const apiTxs = await relayerApi.GetAllBridgeTransactionByAddress(
         userAddress,
       );
-      const blockInfoMap = await relayerApi.GetBlockInfo();
-      relayerBlockInfoMap.set(blockInfoMap);
 
-      const txs = await storageService.GetAllByAddress(userAddress);
+      // Get transactions from local storage
+      const localTxs = await storageService.GetAllByAddress(userAddress);
+
+      // Create a map of hashes to API transactions to help us
+      // filter out transactions from local storage.
       const hashToApiTxsMap = new Map(
         apiTxs.map((tx) => {
           return [tx.hash.toLowerCase(), 1];
         }),
       );
 
-      const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
+      // Filter out transactions that are already in the API
+      const updatedStorageTxs: BridgeTransaction[] = localTxs.filter((tx) => {
         return !hashToApiTxsMap.has(tx.hash.toLowerCase());
       });
 
-      // const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
-      //   const blockInfo = blockInfoMap.get(tx.fromChainId);
-      //   if (blockInfo?.latestProcessedBlock >= tx.receipt?.blockNumber) {
-      //     return false;
-      //   }
-      //   return true;
-      // });
-
       storageService.UpdateStorageByAddress(userAddress, updatedStorageTxs);
 
+      // Merge transactions from API and local storage
       transactions.set([...updatedStorageTxs, ...apiTxs]);
 
+      // Get tokens based on current user address (signer)
       const tokens = tokenService.GetTokens(userAddress);
       userTokens.set(tokens);
     }
   });
 
-  pendingTransactions.subscribe((store) => {
-    (async () => {
-      const confirmedPendingTxIndex = await Promise.race(
-        store.map((tx, index) => {
-          return new Promise<number>((resolve) => {
-            $signer.provider
-              .waitForTransaction(tx.hash, 1)
-              .then(() => resolve(index));
-          });
-        }),
-      );
-      successToast('Transaction completed!');
-      let s = store;
-      s = s.slice(confirmedPendingTxIndex, 0);
-      pendingTransactions.set(s);
-    })();
+  /**
+   * Subscribe to pendingTransactions changes.
+   */
+  pendingTransactions.subscribe(async (newPendingTxs) => {
+    const promiseIndexes = newPendingTxs.map(async (tx, index) => {
+      // Returns a Promise which will not resolve until transactionHash is mined
+      await $signer.provider.waitForTransaction(tx.hash, 1);
+      return index;
+    });
+
+    // Gets the index of the first transaction that's mined
+    const confirmedPendingTxIndex = await Promise.race(promiseIndexes);
+
+    successToast('Transaction completed!');
+
+    const s = newPendingTxs.slice(confirmedPendingTxIndex, 0);
+    pendingTransactions.set(s);
   });
 
   const transactionToIntervalMap = new Map();
