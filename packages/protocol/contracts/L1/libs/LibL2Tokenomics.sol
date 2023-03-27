@@ -6,8 +6,6 @@
 
 pragma solidity ^0.8.18;
 
-import {console2} from "forge-std/console2.sol";
-
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibMath} from "../../libs/LibMath.sol";
 import {LibRealMath} from "../../libs/LibRealMath.sol";
@@ -53,28 +51,22 @@ library LibL2Tokenomics {
         uint256 blockTime
     )
         internal
-        view
+        pure
         returns (uint256 newGasExcess, uint64 basefee, uint256 gasPurchaseCost)
     {
         unchecked {
             uint256 _gasExcess = gasExcess + (gasTargetPerSecond * blockTime);
-            console2.log("----- _gasExcess:", _gasExcess);
-            console2.log("----- newGasExcess:", _gasExcess - gasInBlock);
-            console2.log("----- gasInBlock:", gasInBlock);
 
             if (gasInBlock >= _gasExcess) revert L1_OUT_OF_BLOCK_SPACE();
             newGasExcess = _gasExcess - gasInBlock;
-
-            console2.log("----- larger:", (gasPoolProduct / newGasExcess));
-            console2.log("----- smaller:", (gasPoolProduct / _gasExcess));
 
             gasPurchaseCost =
                 (gasPoolProduct / newGasExcess) -
                 (gasPoolProduct / _gasExcess);
 
-            basefee = uint64(
-                (gasPurchaseCost / gasInBlock).min(type(uint64).max)
-            );
+            basefee = (gasInBlock == 0)
+                ? 0
+                : uint64((gasPurchaseCost / gasInBlock).min(type(uint64).max));
         }
     }
 }

@@ -172,6 +172,7 @@ library LibProposing {
 
         if (
             input.beneficiary == address(0) ||
+            input.gasLimit == 0 ||
             input.gasLimit > config.blockMaxGasLimit
         ) revert L1_INVALID_METADATA();
 
