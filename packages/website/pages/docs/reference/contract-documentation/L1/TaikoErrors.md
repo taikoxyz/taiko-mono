@@ -34,6 +34,12 @@ error L1_EVIDENCE_MISMATCH()
 error L1_FORK_CHOICE_NOT_FOUND()
 ```
 
+### L1_INSUFFICIENT_ETHER
+
+```solidity
+error L1_INSUFFICIENT_ETHER()
+```
+
 ### L1_INSUFFICIENT_TOKEN
 
 ```solidity
@@ -80,6 +86,12 @@ error L1_NOT_ORACLE_PROVER()
 
 ```solidity
 error L1_NOT_SOLO_PROPOSER()
+```
+
+### L1_OUT_OF_BLOCK_SPACE
+
+```solidity
+error L1_OUT_OF_BLOCK_SPACE()
 ```
 
 ### L1_TOO_MANY_BLOCKS

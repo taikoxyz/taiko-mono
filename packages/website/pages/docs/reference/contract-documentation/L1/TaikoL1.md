@@ -13,13 +13,13 @@ struct TaikoData.State state
 ### init
 
 ```solidity
-function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _feeBase) external
+function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _feeBase, uint64 _gasExcess) external
 ```
 
 ### proposeBlock
 
 ```solidity
-function proposeBlock(bytes input, bytes txList) external
+function proposeBlock(bytes input, bytes txList) external payable
 ```
 
 Propose a Taiko L2 block.
@@ -113,6 +113,12 @@ function getXchainBlockHash(uint256 blockId) public view returns (bytes32)
 
 ```solidity
 function getXchainSignalRoot(uint256 blockId) public view returns (bytes32)
+```
+
+### get1559Basefee
+
+```solidity
+function get1559Basefee(uint32 gasLimit) public view returns (uint64 basefee)
 ```
 
 ### getStateVariables

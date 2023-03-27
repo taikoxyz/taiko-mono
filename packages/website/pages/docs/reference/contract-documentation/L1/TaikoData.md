@@ -23,6 +23,8 @@ struct Config {
   uint256 maxNumVerifiedBlocks;
   uint256 maxVerificationsPerTx;
   uint256 blockMaxGasLimit;
+  uint64 gasTargetPerSecond;
+  uint256 gasPoolProduct;
   uint256 maxTransactionsPerBlock;
   uint256 maxBytesPerTxList;
   uint256 minTxGasLimit;
@@ -30,7 +32,6 @@ struct Config {
   uint256 rewardBurnBips;
   uint256 proposerDepositPctg;
   uint256 feeBaseMAF;
-  uint64 bootstrapDiscountHalvingPeriod;
   uint64 constantFeeRewardBlocks;
   uint64 txListCacheExpiry;
   bool enableSoloProposer;
@@ -54,6 +55,8 @@ struct StateVariables {
   uint64 avgBlockTime;
   uint64 avgProofTime;
   uint64 lastProposedAt;
+  uint64 basefee;
+  uint64 gasExcess;
 }
 ```
 
@@ -77,12 +80,13 @@ struct BlockMetadata {
   uint64 id;
   uint64 timestamp;
   uint64 l1Height;
-  uint32 gasLimit;
+  uint64 basefee;
   bytes32 l1Hash;
   bytes32 mixHash;
   bytes32 txListHash;
   uint24 txListByteStart;
   uint24 txListByteEnd;
+  uint32 gasLimit;
   address beneficiary;
 }
 ```
@@ -159,11 +163,11 @@ struct State {
   uint64 numBlocks;
   uint64 lastProposedAt;
   uint64 avgBlockTime;
-  uint64 __reserved3;
-  uint64 __reserved4;
+  uint64 gasExcess;
   uint64 lastVerifiedBlockId;
+  uint64 __reserved4;
   uint64 avgProofTime;
   uint64 feeBase;
-  uint256[42] __gap;
+  uint256[43] __gap;
 }
 ```
