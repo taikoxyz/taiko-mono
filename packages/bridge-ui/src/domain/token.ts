@@ -22,7 +22,7 @@ export type TokenDetails = {
 };
 
 export interface TokenService {
-  StoreToken(token: Token, address: string): Token[];
-  GetTokens(address: string): Token[];
-  RemoveToken(token: Token, address: string): Token[];
+  storeToken(token: Token, address: string): Token[];
+  getTokens(address: string): Token[];
+  removeToken(token: Token, address: string): Token[];
 }
