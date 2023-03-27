@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "forge-std/console2.sol";
 import "../contracts/L2/TaikoL2.sol";
 
-contract ReadBlockhashVsCalldata is Test {
+contract TestTaikoL2 is Test {
     TaikoL2 public L2;
 
     function setUp() public {

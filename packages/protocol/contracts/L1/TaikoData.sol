@@ -9,11 +9,7 @@ pragma solidity ^0.8.18;
 library TaikoData {
     struct FeeConfig {
         uint16 avgTimeMAF;
-        uint64 avgTimeCap; // miliseconds
-        uint16 gracePeriodPctg;
-        uint16 maxPeriodPctg;
-        // extra fee/reward on top of baseFee
-        uint16 multiplerPctg;
+        uint16 dampingFactorBips;
     }
 
     struct Config {

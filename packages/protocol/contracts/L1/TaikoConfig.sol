@@ -46,17 +46,11 @@ library TaikoConfig {
                 skipZKPVerification: false,
                 proposingConfig: TaikoData.FeeConfig({
                     avgTimeMAF: 1024,
-                    avgTimeCap: 60 seconds * 1000,
-                    gracePeriodPctg: 200,
-                    maxPeriodPctg: 400,
-                    multiplerPctg: 300
+                    dampingFactorBips: 2500 // [125% -> 75%]
                 }),
                 provingConfig: TaikoData.FeeConfig({
                     avgTimeMAF: 1024,
-                    avgTimeCap: 30 minutes * 1000,
-                    gracePeriodPctg: 200,
-                    maxPeriodPctg: 400,
-                    multiplerPctg: 300
+                    dampingFactorBips: 2500 // [75% -> 125%]
                 })
             });
     }

@@ -98,12 +98,6 @@ error TOKENVAULT_INVALID_TO()
 error TOKENVAULT_INVALID_VALUE()
 ```
 
-### TOKENVAULT_INVALID_CALL_VALUE
-
-```solidity
-error TOKENVAULT_INVALID_CALL_VALUE()
-```
-
 ### TOKENVAULT_INVALID_TOKEN
 
 ```solidity
@@ -160,6 +154,9 @@ function sendEther(uint256 destChainId, address to, uint256 gasLimit, uint256 pr
 
 Receives Ether and constructs a Bridge message. Sends the Ether and
 message along to the Bridge.
+
+_This function doesn't' seem to belong here as it has nothing to
+do with ERC20 tokens. It's added here only for convenience._
 
 #### Parameters
 
