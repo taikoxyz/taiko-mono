@@ -54,23 +54,26 @@ library LibL2Tokenomics {
         pure
         returns (uint64 newGasExcess, uint64 basefee, uint256 gasPurchaseCost)
     {
-        unchecked {
-            uint256 _gasExcess = uint256(gasExcess) +
-                (gasTargetPerSecond * blockTime);
+        if (gasInBlock == 0) {
+            return (gasExcess, 0, 0);
+        } else {
+            unchecked {
+                uint256 _gasExcess = uint256(gasExcess) +
+                    (gasTargetPerSecond * blockTime);
 
-            _gasExcess = _gasExcess.min(type(uint64).max);
+                _gasExcess = _gasExcess.min(type(uint64).max);
 
-            if (gasInBlock >= _gasExcess) revert L1_OUT_OF_BLOCK_SPACE();
+                if (gasInBlock >= _gasExcess) revert L1_OUT_OF_BLOCK_SPACE();
 
-            newGasExcess = uint64(_gasExcess - gasInBlock);
+                newGasExcess = uint64(_gasExcess - gasInBlock);
 
-            gasPurchaseCost =
-                (gasPoolProduct / newGasExcess) -
-                (gasPoolProduct / _gasExcess);
+                gasPurchaseCost =
+                    (gasPoolProduct / newGasExcess) -
+                    (gasPoolProduct / _gasExcess);
 
-            basefee = (gasInBlock == 0)
-                ? 0
-                : uint64((gasPurchaseCost / gasInBlock).min(type(uint64).max));
+                uint256 _basefee = gasPurchaseCost / gasInBlock;
+                basefee = uint64(_basefee.min(type(uint64).max));
+            }
         }
     }
 }
