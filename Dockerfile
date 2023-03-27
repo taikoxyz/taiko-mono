@@ -12,11 +12,7 @@ COPY . .
 
 RUN go mod download
 
-RUN dir -s
-
 WORKDIR /taiko-mono/packages/$PACKAGE
-
-RUN dir -s
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /taiko-mono/packages/$PACKAGE/bin/${PACKAGE} /taiko-mono/packages/$PACKAGE/cmd/main.go
 
