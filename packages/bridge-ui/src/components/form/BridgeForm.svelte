@@ -38,6 +38,7 @@
   import { chains } from '../../chain/chains';
   import { providers } from '../../provider/providers';
   import { tokenVaults } from '../../vault/tokenVaults';
+  import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
 
   let amount: string;
   let amountInput: HTMLInputElement;
@@ -129,13 +130,17 @@
     tokenBalance: string,
     requiresAllowance: boolean,
     memoError: string,
+    fromChain: Chain,
   ) {
     if (!signer) return true;
     if (!tokenBalance) return true;
-
-    const chainId = $fromChain.id;
+    if (!fromChain) return true;
+    const chainId = fromChain.id;
 
     if (!chainId || !chains[chainId.toString()]) return true;
+
+    if (!(await isOnCorrectChain(signer, fromChain.id))) return true;
+
     if (!amount || ethers.utils.parseUnits(amount).eq(BigNumber.from(0)))
       return true;
     if (isNaN(parseFloat(amount))) return true;
@@ -176,7 +181,7 @@
 
       requiresAllowance = false;
     } catch (e) {
-      console.log(e);
+      console.error(e);
       errorToast($_('toast.errorSendingTransaction'));
     } finally {
       loading = false;
@@ -217,6 +222,11 @@
         throw Error('Invalid custom recipient address');
       }
 
+      if (!(await isOnCorrectChain($signer, $fromChain.id))) {
+        errorToast('You are connected to the wrong chain in your wallet');
+        return;
+      }
+
       const amountInWei = ethers.utils.parseUnits(amount, $token.decimals);
 
       const provider = providers[$toChain.id];
@@ -230,14 +240,17 @@
           $fromChain,
         );
 
+      const bridgeAddress = chains[$fromChain.id].bridgeAddress;
+      const tokenVaultAddress = tokenVaults[$fromChain.id];
+
       const bridgeOpts: BridgeOpts = {
         amountInWei: amountInWei,
         signer: $signer,
         tokenAddress: await addrForToken(),
         fromChainId: $fromChain.id,
         toChainId: $toChain.id,
-        tokenVaultAddress: tokenVaults[$fromChain.id],
-        bridgeAddress: chains[$fromChain.id].bridgeAddress,
+        tokenVaultAddress: tokenVaultAddress,
+        bridgeAddress: bridgeAddress,
         processingFeeInWei: getProcessingFee(),
         memo: memo,
         isBridgedTokenAlreadyDeployed,
@@ -298,7 +311,7 @@
       await $signer.provider.waitForTransaction(tx.hash, 1);
       memo = '';
     } catch (e) {
-      console.log(e);
+      console.error(e);
       errorToast($_('toast.errorSendingTransaction'));
     } finally {
       loading = false;
@@ -331,7 +344,7 @@
         amount = ethers.utils.formatEther(balanceAvailableForTx);
         amountInput.value = ethers.utils.formatEther(balanceAvailableForTx);
       } catch (error) {
-        console.log(error);
+        console.error(error);
 
         // In case of error default to using the full amount of ETH available.
         // The user would still not be able to make the restriction and will have to manually set the amount.
@@ -371,13 +384,14 @@
     tokenBalance,
     requiresAllowance,
     memoError,
+    $fromChain,
   )
     .then((d) => (btnDisabled = d))
-    .catch((e) => console.log(e));
+    .catch((e) => console.error(e));
 
   $: checkAllowance(amount, $token, $bridgeType, $fromChain, $signer)
     .then((a) => (requiresAllowance = a))
-    .catch((e) => console.log(e));
+    .catch((e) => console.error(e));
 
   // TODO: we need to simplify this crazy condition
   $: showFaucet =

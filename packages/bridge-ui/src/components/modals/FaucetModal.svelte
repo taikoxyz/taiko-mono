@@ -84,7 +84,7 @@
 
       await onMint();
     } catch (e) {
-      console.log(e);
+      console.error(e);
       errorToast($_('toast.errorSendingTransaction'));
     }
   }
@@ -97,7 +97,7 @@
     ? import.meta.env.VITE_TAIKO_CHAIN_NAME
     : 'Taiko A2';
 
-  onMount(async () => {
+  onMount(() => {
     shouldEnableButton();
   });
 </script>

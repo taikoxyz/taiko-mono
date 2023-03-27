@@ -25,6 +25,7 @@
   import { providers } from '../provider/providers';
   import { bridges } from '../bridge/bridges';
   import { tokenVaults } from '../vault/tokenVaults';
+  import { isOnCorrectChain } from '../utils/isOnCorrectChain';
 
   export let transaction: BridgeTransaction;
   export let fromChain: Chain;
@@ -77,6 +78,12 @@
         await switchChainAndSetSigner(chain);
       }
 
+      // confirm after switch chain that it worked.
+      if (!(await isOnCorrectChain($signer, bridgeTx.toChainId))) {
+        errorToast('You are connected to the wrong chain in your wallet');
+        return;
+      }
+
       // For now just handling this case for when the user has near 0 balance during their first bridge transaction to L2
       // TODO: estimate Claim transaction
       const userBalance = await $signer.getBalance('latest');
@@ -120,6 +127,12 @@
         await switchChainAndSetSigner(chain);
       }
 
+      // confirm after switch chain that it worked.
+      if (!(await isOnCorrectChain($signer, bridgeTx.fromChainId))) {
+        errorToast('You are connected to the wrong chain in your wallet');
+        return;
+      }
+
       const tx = await bridges[
         bridgeTx.message?.data === '0x' || !bridgeTx.message?.data
           ? BridgeType.ETH
@@ -141,7 +154,7 @@
 
       successToast($_('toast.transactionSent'));
     } catch (e) {
-      console.log(e);
+      console.error(e);
       errorToast($_('toast.errorSendingTransaction'));
     } finally {
       loading = false;
