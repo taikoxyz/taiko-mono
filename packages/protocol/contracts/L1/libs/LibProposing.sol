@@ -41,6 +41,110 @@ library LibProposing {
         TaikoData.BlockMetadataInput memory input,
         bytes calldata txList
     ) internal {
+        bool cacheTxList = _validateBlock({
+            state: state,
+            config: config,
+            resolver: resolver,
+            input: input,
+            txList: txList
+        });
+
+        if (cacheTxList) {
+            state.txListInfo[input.txListHash] = TaikoData.TxListInfo({
+                validSince: uint64(block.timestamp),
+                size: uint24(txList.length)
+            });
+        }
+
+        // After The Merge, L1 mixHash contains the prevrandao
+        // from the beacon chain. Since multiple Taiko blocks
+        // can be proposed in one Ethereum block, we need to
+        // add salt to this random number as L2 mixHash
+        TaikoData.BlockMetadata memory meta;
+        unchecked {
+            meta = TaikoData.BlockMetadata({
+                id: state.numBlocks,
+                timestamp: uint64(block.timestamp),
+                l1Height: uint64(block.number - 1),
+                gasLimit: input.gasLimit,
+                l1Hash: blockhash(block.number - 1),
+                mixHash: bytes32(block.prevrandao * state.numBlocks),
+                txListHash: input.txListHash,
+                txListByteStart: input.txListByteStart,
+                txListByteEnd: input.txListByteEnd,
+                beneficiary: input.beneficiary
+            });
+        }
+
+        TaikoData.Block storage blk = state.blocks[
+            state.numBlocks % config.ringBufferSize
+        ];
+
+        blk.blockId = state.numBlocks;
+        blk.proposedAt = meta.timestamp;
+        blk.deposit = 0;
+        blk.nextForkChoiceId = 1;
+        blk.verifiedForkChoiceId = 0;
+        blk.metaHash = LibUtils.hashMetadata(meta);
+        blk.proposer = msg.sender;
+
+        if (config.enableTokenomics) {
+            (uint256 newFeeBase, uint256 fee, uint256 deposit) = LibTokenomics
+                .getBlockFee(state, config);
+
+            uint256 burnAmount = fee + deposit;
+            if (state.balances[msg.sender] < burnAmount)
+                revert L1_INSUFFICIENT_TOKEN();
+
+            unchecked {
+                state.balances[msg.sender] -= burnAmount;
+            }
+
+            // Update feeBase and avgBlockTime
+            state.feeBase = LibUtils
+                .movingAverage({
+                    maValue: state.feeBase,
+                    newValue: newFeeBase,
+                    maf: config.feeBaseMAF
+                })
+                .toUint64();
+
+            blk.deposit = uint64(deposit);
+        }
+
+        unchecked {
+            state.avgBlockTime = LibUtils
+                .movingAverage({
+                    maValue: state.avgBlockTime,
+                    newValue: (meta.timestamp - state.lastProposedAt) * 1000,
+                    maf: config.proposingConfig.avgTimeMAF
+                })
+                .toUint64();
+            state.lastProposedAt = meta.timestamp;
+        }
+
+        emit BlockProposed(state.numBlocks, meta, cacheTxList);
+        unchecked {
+            ++state.numBlocks;
+        }
+    }
+
+    function getBlock(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        uint256 blockId
+    ) internal view returns (TaikoData.Block storage blk) {
+        blk = state.blocks[blockId % config.ringBufferSize];
+        if (blk.blockId != blockId) revert L1_BLOCK_ID();
+    }
+
+    function _validateBlock(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        AddressResolver resolver,
+        TaikoData.BlockMetadataInput memory input,
+        bytes calldata txList
+    ) private view returns (bool cacheTxList) {
         // For alpha-2 testnet, the network only allows an special address
         // to propose but anyone to prove. This is the first step of testing
         // the tokenomics.
@@ -60,8 +164,6 @@ library LibProposing {
         ) revert L1_TOO_MANY_BLOCKS();
 
         uint64 timeNow = uint64(block.timestamp);
-        bool txListCached;
-
         // hanlding txList
         {
             uint24 size = uint24(txList.length);
@@ -94,103 +196,9 @@ library LibProposing {
                     if (input.txListHash != keccak256(txList))
                         revert L1_TX_LIST_HASH();
 
-                    if (input.cacheTxListInfo != 0) {
-                        state.txListInfo[input.txListHash] = TaikoData
-                            .TxListInfo({validSince: timeNow, size: size});
-                        txListCached = true;
-                    }
+                    cacheTxList = (input.cacheTxListInfo != 0);
                 }
             }
         }
-
-        // After The Merge, L1 mixHash contains the prevrandao
-        // from the beacon chain. Since multiple Taiko blocks
-        // can be proposed in one Ethereum block, we need to
-        // add salt to this random number as L2 mixHash
-        uint256 mixHash;
-        unchecked {
-            mixHash = block.prevrandao * state.numBlocks;
-        }
-
-        TaikoData.BlockMetadata memory meta = TaikoData.BlockMetadata({
-            id: state.numBlocks,
-            timestamp: timeNow,
-            l1Height: uint64(block.number - 1),
-            gasLimit: input.gasLimit,
-            l1Hash: blockhash(block.number - 1),
-            mixHash: bytes32(mixHash),
-            txListHash: input.txListHash,
-            txListByteStart: input.txListByteStart,
-            txListByteEnd: input.txListByteEnd,
-            beneficiary: input.beneficiary
-        });
-
-        uint256 deposit;
-        if (config.enableTokenomics) {
-            uint256 newFeeBase;
-            {
-                uint256 fee;
-                (newFeeBase, fee, deposit) = LibTokenomics.getBlockFee(
-                    state,
-                    config
-                );
-
-                uint256 burnAmount = fee + deposit;
-                if (state.balances[msg.sender] <= burnAmount)
-                    revert L1_INSUFFICIENT_TOKEN();
-
-                state.balances[msg.sender] -= burnAmount;
-            }
-            // Update feeBase and avgBlockTime
-            state.feeBase = LibUtils
-                .movingAverage({
-                    maValue: state.feeBase,
-                    newValue: newFeeBase,
-                    maf: config.feeBaseMAF
-                })
-                .toUint64();
-        }
-
-        TaikoData.Block storage blk = state.blocks[
-            state.numBlocks % config.ringBufferSize
-        ];
-
-        blk.blockId = state.numBlocks;
-        blk.proposedAt = meta.timestamp;
-        blk.deposit = uint64(deposit);
-        blk.nextForkChoiceId = 1;
-        blk.verifiedForkChoiceId = 0;
-        blk.metaHash = LibUtils.hashMetadata(meta);
-        blk.proposer = msg.sender;
-
-        if (state.lastProposedAt > 0) {
-            uint256 blockTime;
-            unchecked {
-                blockTime = (meta.timestamp - state.lastProposedAt) * 1000;
-            }
-            state.avgBlockTime = LibUtils
-                .movingAverage({
-                    maValue: state.avgBlockTime,
-                    newValue: blockTime,
-                    maf: config.proposingConfig.avgTimeMAF
-                })
-                .toUint64();
-        }
-
-        state.lastProposedAt = meta.timestamp;
-
-        emit BlockProposed(state.numBlocks, meta, txListCached);
-        unchecked {
-            ++state.numBlocks;
-        }
-    }
-
-    function getBlock(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        uint256 blockId
-    ) internal view returns (TaikoData.Block storage blk) {
-        blk = state.blocks[blockId % config.ringBufferSize];
-        if (blk.blockId != blockId) revert L1_BLOCK_ID();
     }
 }
