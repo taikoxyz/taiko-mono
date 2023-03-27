@@ -10,8 +10,8 @@
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
   import { ethers } from 'ethers';
   import ERC20 from '../../constants/abi/ERC20';
-  import { errorToast } from '../../utils/toast';
   import { ETHToken } from '../../token/tokens';
+  import { errorToast } from '../Toast.svelte';
 
   export let showAddressField: boolean = false;
   export let addERC20: (event: SubmitEvent) => Promise<void>;

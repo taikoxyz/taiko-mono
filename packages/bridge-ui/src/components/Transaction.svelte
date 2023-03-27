@@ -6,7 +6,6 @@
   import { Contract, ethers } from 'ethers';
   import { signer } from '../store/signer';
   import { pendingTransactions } from '../store/transactions';
-  import { errorToast, successToast } from '../utils/toast';
   import { _ } from 'svelte-i18n';
   import {
     fromChain as fromChainStore,
@@ -16,6 +15,7 @@
   import { onDestroy, onMount } from 'svelte';
 
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
+  import { errorToast, successToast } from './Toast.svelte';
   import HeaderSyncABI from '../constants/abi/HeaderSync';
   import { fetchSigner, switchNetwork } from '@wagmi/core';
   import BridgeABI from '../constants/abi/Bridge';
@@ -25,6 +25,7 @@
   import { providers } from '../provider/providers';
   import { bridges } from '../bridge/bridges';
   import { tokenVaults } from '../vault/tokenVaults';
+  import { isOnCorrectChain } from '../utils/isOnCorrectChain';
 
   export let transaction: BridgeTransaction;
   export let fromChain: Chain;
@@ -77,6 +78,12 @@
         await switchChainAndSetSigner(chain);
       }
 
+      // confirm after switch chain that it worked.
+      if (!(await isOnCorrectChain($signer, bridgeTx.toChainId))) {
+        errorToast('You are connected to the wrong chain in your wallet');
+        return;
+      }
+
       // For now just handling this case for when the user has near 0 balance during their first bridge transaction to L2
       // TODO: estimate Claim transaction
       const userBalance = await $signer.getBalance('latest');
@@ -120,6 +127,12 @@
         await switchChainAndSetSigner(chain);
       }
 
+      // confirm after switch chain that it worked.
+      if (!(await isOnCorrectChain($signer, bridgeTx.fromChainId))) {
+        errorToast('You are connected to the wrong chain in your wallet');
+        return;
+      }
+
       const tx = await bridges[
         bridgeTx.message?.data === '0x' || !bridgeTx.message?.data
           ? BridgeType.ETH
@@ -141,7 +154,7 @@
 
       successToast($_('toast.transactionSent'));
     } catch (e) {
-      console.log(e);
+      console.error(e);
       errorToast($_('toast.errorSendingTransaction'));
     } finally {
       loading = false;
@@ -177,6 +190,11 @@
       );
 
       transaction.status = await contract.getMessageStatus(transaction.msgHash);
+
+      if (transaction.receipt && transaction.receipt.status !== 1) {
+        clearInterval(interval);
+        return;
+      }
 
       if (transaction.status === MessageStatus.Failed) {
         if (transaction.message?.data !== '0x') {
@@ -226,7 +244,11 @@
   <td>
     {transaction.message &&
     (transaction.message?.data === '0x' || !transaction.message?.data)
-      ? ethers.utils.formatEther(transaction.message?.depositValue)
+      ? ethers.utils.formatEther(
+          transaction.message?.depositValue.eq(0)
+            ? transaction.message?.callValue.toString()
+            : transaction.message?.depositValue,
+        )
       : ethers.utils.formatUnits(transaction.amountInWei)}
     {transaction.symbol ?? 'ETH'}
   </td>
@@ -234,7 +256,9 @@
   <td>
     <ButtonWithTooltip onClick={() => onTooltipClick(false)}>
       <span slot="buttonText">
-        {#if !processable}
+        {#if transaction.receipt && transaction.receipt.status !== 1}
+          <span class="border border-transparent p-0">Failed</span>
+        {:else if !processable}
           Pending
         {:else if (!transaction.receipt && transaction.status === MessageStatus.New) || loading}
           <div class="inline-block">

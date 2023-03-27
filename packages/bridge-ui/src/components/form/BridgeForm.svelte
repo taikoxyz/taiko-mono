@@ -23,13 +23,14 @@
   } from '../../store/transactions';
   import { ProcessingFeeMethod } from '../../domain/fee';
   import Memo from './Memo.svelte';
-  import { errorToast, successToast } from '../../utils/toast';
   import ERC20_ABI from '../../constants/abi/ERC20';
   import TokenVaultABI from '../../constants/abi/TokenVault';
   import type { BridgeTransaction } from '../../domain/transactions';
   import { MessageStatus } from '../../domain/message';
   import { Funnel } from 'svelte-heros-v2';
   import FaucetModal from '../modals/FaucetModal.svelte';
+  import { errorToast, successToast } from '../Toast.svelte';
+  import { L1_CHAIN_ID } from '../../constants/envVars';
   import { fetchFeeData } from '@wagmi/core';
   import { checkIfTokenIsDeployedCrossChain } from '../../utils/checkIfTokenIsDeployedCrossChain';
   import To from './To.svelte';
@@ -37,6 +38,7 @@
   import { chains } from '../../chain/chains';
   import { providers } from '../../provider/providers';
   import { tokenVaults } from '../../vault/tokenVaults';
+  import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
 
   let amount: string;
   let amountInput: HTMLInputElement;
@@ -52,7 +54,8 @@
   let to: string = '';
   let showTo: boolean = false;
 
-  $: getUserBalance($signer, $token, $fromChain);
+  // TODO: too much going on here. We need to extract
+  //       logic and unit test the hell out of all this.
 
   async function addrForToken() {
     let addr = $token.addresses.find(
@@ -78,6 +81,7 @@
     }
     return addr;
   }
+
   async function getUserBalance(
     signer: ethers.Signer,
     token: Token,
@@ -99,21 +103,6 @@
       }
     }
   }
-
-  $: isBtnDisabled(
-    $signer,
-    amount,
-    $token,
-    tokenBalance,
-    requiresAllowance,
-    memoError,
-  )
-    .then((d) => (btnDisabled = d))
-    .catch((e) => console.log(e));
-
-  $: checkAllowance(amount, $token, $bridgeType, $fromChain, $signer)
-    .then((a) => (requiresAllowance = a))
-    .catch((e) => console.log(e));
 
   async function checkAllowance(
     amt: string,
@@ -141,14 +130,21 @@
     tokenBalance: string,
     requiresAllowance: boolean,
     memoError: string,
+    fromChain: Chain,
   ) {
     if (!signer) return true;
     if (!tokenBalance) return true;
-    const chainId = await signer.getChainId();
+    if (!fromChain) return true;
+    const chainId = fromChain.id;
+
     if (!chainId || !chains[chainId.toString()]) return true;
+
+    if (!(await isOnCorrectChain(signer, fromChain.id))) return true;
+
     if (!amount || ethers.utils.parseUnits(amount).eq(BigNumber.from(0)))
       return true;
     if (isNaN(parseFloat(amount))) return true;
+
     if (
       BigNumber.from(ethers.utils.parseUnits(tokenBalance, token.decimals)).lt(
         ethers.utils.parseUnits(amount, token.decimals),
@@ -185,7 +181,7 @@
 
       requiresAllowance = false;
     } catch (e) {
-      console.log(e);
+      console.error(e);
       errorToast($_('toast.errorSendingTransaction'));
     } finally {
       loading = false;
@@ -226,6 +222,11 @@
         throw Error('Invalid custom recipient address');
       }
 
+      if (!(await isOnCorrectChain($signer, $fromChain.id))) {
+        errorToast('You are connected to the wrong chain in your wallet');
+        return;
+      }
+
       const amountInWei = ethers.utils.parseUnits(amount, $token.decimals);
 
       const provider = providers[$toChain.id];
@@ -239,13 +240,17 @@
           $fromChain,
         );
 
+      const bridgeAddress = chains[$fromChain.id].bridgeAddress;
+      const tokenVaultAddress = tokenVaults[$fromChain.id];
+
       const bridgeOpts: BridgeOpts = {
         amountInWei: amountInWei,
         signer: $signer,
         tokenAddress: await addrForToken(),
         fromChainId: $fromChain.id,
         toChainId: $toChain.id,
-        tokenVaultAddress: tokenVaults[$fromChain.id],
+        tokenVaultAddress: tokenVaultAddress,
+        bridgeAddress: bridgeAddress,
         processingFeeInWei: getProcessingFee(),
         memo: memo,
         isBridgedTokenAlreadyDeployed,
@@ -306,7 +311,7 @@
       await $signer.provider.waitForTransaction(tx.hash, 1);
       memo = '';
     } catch (e) {
-      console.log(e);
+      console.error(e);
       errorToast($_('toast.errorSendingTransaction'));
     } finally {
       loading = false;
@@ -339,7 +344,7 @@
         amount = ethers.utils.formatEther(balanceAvailableForTx);
         amountInput.value = ethers.utils.formatEther(balanceAvailableForTx);
       } catch (error) {
-        console.log(error);
+        console.error(error);
 
         // In case of error default to using the full amount of ETH available.
         // The user would still not be able to make the restriction and will have to manually set the amount.
@@ -369,6 +374,35 @@
       return BigNumber.from(ethers.utils.parseEther(recommendedFee));
     }
   }
+
+  $: getUserBalance($signer, $token, $fromChain);
+
+  $: isBtnDisabled(
+    $signer,
+    amount,
+    $token,
+    tokenBalance,
+    requiresAllowance,
+    memoError,
+    $fromChain,
+  )
+    .then((d) => (btnDisabled = d))
+    .catch((e) => console.error(e));
+
+  $: checkAllowance(amount, $token, $bridgeType, $fromChain, $signer)
+    .then((a) => (requiresAllowance = a))
+    .catch((e) => console.error(e));
+
+  // TODO: we need to simplify this crazy condition
+  $: showFaucet =
+    $fromChain && // chain selected?
+    $fromChain.id === L1_CHAIN_ID && // are we in L1?
+    $token.symbol !== ETHToken.symbol && // bridging ERC20?
+    $signer && // wallet connected?
+    tokenBalance &&
+    ethers.utils
+      .parseUnits(tokenBalance, $token.decimals)
+      .eq(BigNumber.from(0)); // balance == 0?
 </script>
 
 <div class="form-control my-4 md:my-8">
@@ -408,9 +442,7 @@
   </label>
 </div>
 
-{#if $token.symbol !== ETHToken.symbol && $signer && tokenBalance && ethers.utils
-    .parseUnits(tokenBalance, $token.decimals)
-    .eq(BigNumber.from(0))}
+{#if showFaucet}
   <div class="flex" style="flex-direction:row-reverse">
     <div class="flex items-start">
       <button class="btn" on:click={() => (isFaucetModalOpen = true)}>
@@ -452,7 +484,7 @@
   </button>
 {:else}
   <button
-    class="btn btn-accent w-full mt-4"
+    class="btn btn-accent approve-btn w-full mt-4"
     on:click={approve}
     disabled={btnDisabled}>
     {$_('home.approve')}
@@ -466,5 +498,16 @@
     -webkit-appearance: none;
     margin: 0;
     -moz-appearance: textfield !important;
+  }
+
+  .btn.btn-accent.approve-btn {
+    background-color: #4c1d95;
+    border-color: #4c1d95;
+    color: #ffffff;
+  }
+
+  .btn.btn-accent.approve-btn:hover {
+    background-color: #5b21b6;
+    border-color: #5b21b6;
   }
 </style>

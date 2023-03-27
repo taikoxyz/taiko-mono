@@ -1,4 +1,4 @@
-import type { Token, TokenService } from 'src/domain/token';
+import type { Token, TokenService } from '../domain/token';
 
 export class CustomTokenService implements TokenService {
   private readonly storage: Storage;
@@ -7,7 +7,7 @@ export class CustomTokenService implements TokenService {
     this.storage = storage;
   }
 
-  async storeToken(token: Token, address: string): Promise<Token[]> {
+  storeToken(token: Token, address: string): Token[] {
     const customTokens = this.storage.getItem(
       `custom-tokens-${address.toLowerCase()}`,
     );

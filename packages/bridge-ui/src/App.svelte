@@ -2,8 +2,6 @@
   import { wrap } from 'svelte-spa-router/wrap';
   import QueryProvider from './components/providers/QueryProvider.svelte';
   import Router from 'svelte-spa-router';
-  import { SvelteToast } from '@zerodevx/svelte-toast';
-  import type { SvelteToastOptions } from '@zerodevx/svelte-toast';
   import { configureChains, createClient } from '@wagmi/core';
   import { publicProvider } from '@wagmi/core/providers/public';
   import { jsonRpcProvider } from '@wagmi/core/providers/jsonRpc';
@@ -19,6 +17,7 @@
     transactions,
   } from './store/transactions';
   import Navbar from './components/Navbar.svelte';
+  import Toast, { successToast } from './components/Toast.svelte';
   import { signer } from './store/signer';
   import type { BridgeTransaction, Transactioner } from './domain/transactions';
   import { wagmiClient } from './store/wagmi';
@@ -26,7 +25,6 @@
   setupI18n({ withLocale: 'en' });
   import SwitchEthereumChainModal from './components/modals/SwitchEthereumChainModal.svelte';
   import { ethers } from 'ethers';
-  import { successToast } from './utils/toast';
   import { StorageService } from './storage/StorageService';
   import { MessageStatus } from './domain/message';
   import BridgeABI from './constants/abi/Bridge';
@@ -102,30 +100,29 @@
       relayerBlockInfoMap.set(blockInfoMap);
 
       const txs = await $transactioner.getAllByAddress(userAddress);
-      // const hashToApiTxsMap = new Map(apiTxs.map((tx) => {
-      //   return [tx.hash, tx];
-      // }))
+      const hashToApiTxsMap = new Map(
+        apiTxs.map((tx) => {
+          return [tx.hash.toLowerCase(), 1];
+        }),
+      );
+
+      const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
+        return !hashToApiTxsMap.has(tx.hash.toLowerCase());
+      });
 
       // const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
-      //   if (apiTxs.find((apiTx) => apiTx.hash.toLowerCase() === tx.hash)) {
+      //   const blockInfo = blockInfoMap.get(tx.fromChainId);
+      //   if (blockInfo?.latestProcessedBlock >= tx.receipt?.blockNumber) {
       //     return false;
       //   }
       //   return true;
       // });
 
-      const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
-        const blockInfo = blockInfoMap.get(tx.fromChainId);
-        if (blockInfo?.latestProcessedBlock >= tx.receipt?.blockNumber) {
-          return false;
-        }
-        return true;
-      });
-
       $transactioner.updateStorageByAddress(userAddress, updatedStorageTxs);
 
       transactions.set([...updatedStorageTxs, ...apiTxs]);
 
-      const tokens = await $tokenService.getTokens(userAddress);
+      const tokens = $tokenService.getTokens(userAddress);
       userTokens.set(tokens);
     }
   });
@@ -134,9 +131,10 @@
     (async () => {
       const confirmedPendingTxIndex = await Promise.race(
         store.map((tx, index) => {
-          return new Promise<number>(async (resolve) => {
-            await $signer.provider.waitForTransaction(tx.hash, 1);
-            resolve(index);
+          return new Promise<number>((resolve) => {
+            $signer.provider
+              .waitForTransaction(tx.hash, 1)
+              .then(() => resolve(index));
           });
         }),
       );
@@ -151,7 +149,7 @@
 
   transactions.subscribe((store) => {
     if (store) {
-      store.forEach(async (tx) => {
+      store.forEach((tx) => {
         const txInterval = transactionToIntervalMap.get(tx.hash);
         if (txInterval) {
           clearInterval(txInterval);
@@ -192,13 +190,6 @@
     }
   });
 
-  const toastOptions: SvelteToastOptions = {
-    dismissable: false,
-    duration: 4000,
-    pausable: false,
-  };
-
-  // TODO: Not found route
   const routes = {
     '/:tab?': wrap({
       component: Home,
@@ -213,11 +204,11 @@
     <Navbar />
     <Router {routes} />
   </main>
-  <SvelteToast options={toastOptions} />
+  <Toast />
   <SwitchEthereumChainModal />
 </QueryProvider>
 
-<style global lang="postcss">
+<style>
   main {
     font-family: 'Inter', sans-serif;
   }

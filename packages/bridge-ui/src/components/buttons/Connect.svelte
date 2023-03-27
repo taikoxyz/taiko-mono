@@ -15,7 +15,6 @@
 
   import { fromChain, toChain } from '../../store/chain';
   import { isSwitchEthereumChainModalOpen } from '../../store/modal';
-  import { errorToast, successToast } from '../../utils/toast';
   import Modal from '../modals/Modal.svelte';
   import { wagmiClient } from '../../store/wagmi';
   import MetaMask from '../icons/MetaMask.svelte';
@@ -23,10 +22,11 @@
   import CoinbaseWallet from '../icons/CoinbaseWallet.svelte';
   import { transactioner, transactions } from '../../store/transactions';
   import { mainnetChain, taikoChain } from '../../chain/chains';
+  import { errorToast, successToast } from '../Toast.svelte';
 
   export let isConnectWalletModalOpen = false;
 
-  const changeChain = async (chainId: number) => {
+  const changeChain = (chainId: number) => {
     if (chainId === taikoChain.id) {
       fromChain.set(taikoChain);
       toChain.set(mainnetChain);
@@ -47,13 +47,24 @@
   async function onConnect() {
     const { chain } = getNetwork();
     await setSigner();
-    await changeChain(chain.id);
-    watchNetwork(async (network) => await changeChain(network.chain.id));
+
+    changeChain(chain.id);
+
+    watchNetwork((network) => {
+      if (network.chain?.id) {
+        changeChain(network.chain.id);
+      }
+    });
+
     watchAccount(async () => {
-      const s = await setSigner();
-      transactions.set(
-        await $transactioner.getAllByAddress(await s.getAddress()),
-      );
+      const wagmiSigner = await setSigner();
+      if (wagmiSigner) {
+        const signerAddress = await wagmiSigner.getAddress();
+        const signerTransactions = await $transactioner.getAllByAddress(
+          signerAddress,
+        );
+        transactions.set(signerTransactions);
+      }
     });
   }
 
