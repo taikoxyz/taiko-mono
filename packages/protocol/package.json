@@ -5,7 +5,6 @@
   "scripts": {
     "compile": "pnpm hardhat compile",
     "compile:foundry": "forge build",
-    "compile:yul": "LOG_LEVEL=debug pnpm hardhat compile_yul",
     "export:abi": "pnpm hardhat clear-abi && pnpm hardhat export-abi",
     "export:docs": "pnpm hardhat docgen && pnpm prettier --write ../website/pages/docs/reference/contract-documentation/**/*.md",
     "clean": "rm -rf abis cache && pnpm hardhat clean",
