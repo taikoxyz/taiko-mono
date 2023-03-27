@@ -26,7 +26,7 @@
 
   async function remove(token) {
     const address = await $signer.getAddress();
-    const updatedTokensList = $tokenService.RemoveToken(token, address);
+    const updatedTokensList = $tokenService.removeToken(token, address);
     userTokens.set(updatedTokensList);
     tokenStore.set(ETHToken);
   }
