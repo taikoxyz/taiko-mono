@@ -138,8 +138,8 @@ contract TaikoL1Test is TaikoL1TestBase {
         printVariables("after verify");
     }
 
-    /// @dev Test block timeincrease and fee shall decrease.
-    function test_block_time_increases_but_fee_decreases() external {
+    /// @dev Test block time increases and fee decreases.
+    function test_block_time_increases_and_fee_decreases() external {
         _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
         _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
         _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
@@ -165,8 +165,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         printVariables("");
     }
 
-    /// @dev Test block time goes down lover time and the fee should remain
-    // the same.
+    /// @dev Test block time decreases and the fee increases
     function test_block_time_decreases_but_fee_remains() external {
         _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
         _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
