@@ -1,65 +1,21 @@
 <script lang="ts">
-  import { wrap } from 'svelte-spa-router/wrap';
-  import Router from 'svelte-spa-router';
-  import { configureChains, createClient } from '@wagmi/core';
-  import { publicProvider } from '@wagmi/core/providers/public';
-  import { jsonRpcProvider } from '@wagmi/core/providers/jsonRpc';
-  import { CoinbaseWalletConnector } from '@wagmi/core/connectors/coinbaseWallet';
-  import { WalletConnectConnector } from '@wagmi/core/connectors/walletConnect';
-  import { MetaMaskConnector } from '@wagmi/core/connectors/metaMask';
-
-  import Home from './pages/home/Home.svelte';
   import { pendingTransactions, transactions } from './store/transaction';
   import Navbar from './components/Navbar.svelte';
   import Toast, { successToast } from './components/Toast.svelte';
   import { signer } from './store/signer';
   import type { BridgeTransaction } from './domain/transaction';
-  import { wagmiClient } from './store/wagmi';
 
   import SwitchEthereumChainModal from './components/modals/SwitchEthereumChainModal.svelte';
   import { ethers } from 'ethers';
   import { MessageStatus } from './domain/message';
   import BridgeABI from './constants/abi/Bridge';
   import { relayerBlockInfoMap } from './store/relayerApi';
-  import { chains, mainnetWagmiChain, taikoWagmiChain } from './chain/chains';
+  import { chains } from './chain/chains';
   import { providers } from './provider/providers';
   import { storageService, tokenService } from './storage/services';
   import { userTokens } from './store/token';
-  import { relayerApi } from './relayer-api/services';
-
-  const { chains: wagmiChains, provider } = configureChains(
-    [mainnetWagmiChain, taikoWagmiChain],
-    [
-      publicProvider(),
-      jsonRpcProvider({
-        rpc: (chain) => ({
-          http: providers[chain.id].connection.url,
-        }),
-      }),
-    ],
-  );
-
-  $wagmiClient = createClient({
-    autoConnect: true,
-    provider,
-    connectors: [
-      new MetaMaskConnector({
-        chains: wagmiChains,
-      }),
-      new CoinbaseWalletConnector({
-        chains: wagmiChains,
-        options: {
-          appName: 'Taiko Bridge',
-        },
-      }),
-      new WalletConnectConnector({
-        chains: wagmiChains,
-        options: {
-          qrcode: true,
-        },
-      }),
-    ],
-  });
+  import { relayerApi } from './relayer-api/relayerApi';
+  import Router from './components/Router.svelte';
 
   signer.subscribe(async (store) => {
     if (store) {
@@ -161,19 +117,11 @@
       });
     }
   });
-
-  const routes = {
-    '/:tab?': wrap({
-      component: Home,
-      props: {},
-      userData: {},
-    }),
-  };
 </script>
 
 <main>
   <Navbar />
-  <Router {routes} />
+  <Router />
 </main>
 
 <Toast />

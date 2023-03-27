@@ -16,7 +16,6 @@
   import { fromChain, toChain } from '../../store/chain';
   import { isSwitchEthereumChainModalOpen } from '../../store/modal';
   import Modal from '../modals/Modal.svelte';
-  import { wagmiClient } from '../../store/wagmi';
   import MetaMask from '../icons/MetaMask.svelte';
   import WalletConnect from '../icons/WalletConnect.svelte';
   import CoinbaseWallet from '../icons/CoinbaseWallet.svelte';
@@ -24,6 +23,7 @@
   import { mainnetChain, taikoChain } from '../../chain/chains';
   import { errorToast, successToast } from '../Toast.svelte';
   import { storageService } from '../../storage/services';
+  import { client as wagmiClient } from '../../wagmi/client';
 
   export let isConnectWalletModalOpen = false;
 
@@ -108,7 +108,8 @@
   isOpen={isConnectWalletModalOpen}
   onClose={() => (isConnectWalletModalOpen = false)}>
   <div class="flex flex-col items-center space-y-4 space-x-0 p-8">
-    {#each $wagmiClient.connectors as connector}
+    <!-- TODO: list of connectors as prop? -->
+    {#each wagmiClient.connectors as connector}
       <button
         class="btn flex items-center justify-start md:pl-32 space-x-4 w-full"
         on:click={() => connectWithConnector(connector)}>
