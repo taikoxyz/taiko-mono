@@ -21,5 +21,8 @@ cache_forge
 cache_hardhat
 out
 
+# Foundary
+broadcast
+
 # Editors
 .vscode
