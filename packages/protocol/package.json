@@ -22,7 +22,7 @@
     "test:integration": "TEST_TYPE=integration ./test/test_integration.sh",
     "test:tokenomics": "TEST_TYPE=tokenomics ./test/test_integration.sh",
     "test:all": "pnpm run test && pnpm run test:integration && pnpm run test:tokenomics && pnpm run test:genesis",
-    "deploy:foundry": "./script/download_solc.sh && PRIVATE_KEY=2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6 ORACLE_PROVER_ADDRESS=0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 SOLO_PROPOSER=0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 PROXY_ADMIN=0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 TAIKO_L2_ADDRESS=0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 L2_GENESIS_HASH=0xee1950562d42f0da28bd4550d88886bc90894c77c9c9eaefef775d4c8223f259 L2_CHAIN_ID=167001 forge script script/deploy.s.sol:DeployOnL1 --fork-url http://localhost:8588 --broadcast --ffi -vvvv --via-ir",
+    "deploy:foundry": "./script/download_solc.sh && PRIVATE_KEY=2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6 ORACLE_PROVER_ADDRESS=0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 SOLO_PROPOSER=0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 PROXY_ADMIN=0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 TAIKO_L2_ADDRESS=0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 L2_GENESIS_HASH=0xee1950562d42f0da28bd4550d88886bc90894c77c9c9eaefef775d4c8223f259 L2_CHAIN_ID=167001 forge script script/deploy.s.sol:DeployOnL1 --fork-url http://localhost:8545 --broadcast --ffi -vvvv --via-ir",
     "lint-staged": "lint-staged --allow-empty",
     "sizer": "pnpm hardhat size-contracts"
   },
