@@ -92,6 +92,8 @@ jobs:
         with:
           platforms: linux/amd64
           push: true
-          context: packages/eventindexer
+          context: .
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            PACKAGE=eventindexer
