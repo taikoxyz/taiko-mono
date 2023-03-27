@@ -6,6 +6,8 @@
 
 pragma solidity ^0.8.18;
 
+import {console2} from "forge-std/console2.sol";
+
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibMath} from "../../libs/LibMath.sol";
 import {LibRealMath} from "../../libs/LibRealMath.sol";
@@ -18,6 +20,8 @@ library LibL2Tokenomics {
     using LibMath for uint256;
     using SafeCastUpgradeable for uint256;
 
+    error L1_OUT_OF_BLOCK_SPACE();
+
     function get1559Basefee(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -25,13 +29,13 @@ library LibL2Tokenomics {
     )
         internal
         view
-        returns (uint256 newGasExcess, uint32 basefee, uint256 gasPurchaseCost)
+        returns (uint256 newGasExcess, uint64 basefee, uint256 gasPurchaseCost)
     {
         return
-            calculate1559Basefee(
+            calc1559Basefee(
                 state.gasExcess,
-                config.gasTarget,
-                config.adjustmentQuotient,
+                config.gasTargetPerSecond,
+                config.gasPoolProduct,
                 gasInBlock,
                 block.timestamp - state.lastProposedAt
             );
@@ -39,37 +43,36 @@ library LibL2Tokenomics {
 
     // @dev Return adjusted basefee per gas for the next L2 block.
     //      See https://ethresear.ch/t/make-eip-1559-more-like-an-amm-curve/9082
-    function calculate1559Basefee(
+    //      But the current implementation use AMM style math as we don't yet
+    //      have a solidity exp(uint256 x) implementation.
+    function calc1559Basefee(
         uint256 gasExcess,
-        uint256 gasTarget,
-        uint256 adjustmentQuotient,
+        uint256 gasTargetPerSecond,
+        uint256 gasPoolProduct,
         uint256 gasInBlock,
         uint256 blockTime
     )
         internal
-        pure
-        returns (uint256 newGasExcess, uint32 basefee, uint256 gasPurchaseCost)
+        view
+        returns (uint256 newGasExcess, uint64 basefee, uint256 gasPurchaseCost)
     {
-        uint256 adjustment = gasTarget * blockTime;
-        newGasExcess = gasExcess.max(adjustment) - adjustment;
+        unchecked {
+            uint256 _gasExcess = gasExcess + (gasTargetPerSecond * blockTime);
+            console2.log("----- _gasExcess:", _gasExcess);
+            console2.log("----- newGasExcess:", _gasExcess - gasInBlock);
+            console2.log("----- gasInBlock:", gasInBlock);
 
-        gasPurchaseCost =
-            _ethAmount(
-                newGasExcess + gasInBlock,
-                gasTarget,
-                adjustmentQuotient
-            ) -
-            _ethAmount(newGasExcess, gasTarget, adjustmentQuotient);
-        basefee = (gasPurchaseCost / gasInBlock).toUint32();
-        newGasExcess += gasInBlock;
-    }
+            if (gasInBlock >= _gasExcess) revert L1_OUT_OF_BLOCK_SPACE();
+            newGasExcess = _gasExcess - gasInBlock;
 
-    function _ethAmount(
-        uint256 gasExcess,
-        uint256 gasTarget,
-        uint256 adjustmentQuotient
-    ) internal pure returns (uint256) {
-        uint128 x = (gasExcess / gasTarget / adjustmentQuotient).toUint128();
-        return LibRealMath.exp(x);
+            console2.log("----- larger:", (gasPoolProduct / newGasExcess));
+            console2.log("----- smaller:", (gasPoolProduct / _gasExcess));
+
+            gasPurchaseCost =
+                (gasPoolProduct / newGasExcess) -
+                (gasPoolProduct / _gasExcess);
+
+            basefee = (gasPurchaseCost / gasInBlock).toUint64();
+        }
     }
 }

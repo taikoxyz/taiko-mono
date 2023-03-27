@@ -71,13 +71,13 @@ library LibProposing {
                 id: state.numBlocks,
                 timestamp: uint64(block.timestamp),
                 l1Height: uint64(block.number - 1),
-                gasLimit: input.gasLimit,
                 basefee: 0, // will be set later
                 l1Hash: blockhash(block.number - 1),
                 mixHash: bytes32(block.prevrandao * state.numBlocks),
                 txListHash: input.txListHash,
                 txListByteStart: input.txListByteStart,
                 txListByteEnd: input.txListByteEnd,
+                gasLimit: input.gasLimit,
                 beneficiary: input.beneficiary
             });
         }

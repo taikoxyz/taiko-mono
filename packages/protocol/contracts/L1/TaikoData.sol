@@ -21,8 +21,8 @@ library TaikoData {
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;
         uint256 blockMaxGasLimit;
-        uint256 gasTarget;
-        uint256 adjustmentQuotient;
+        uint256 gasTargetPerSecond;
+        uint256 gasPoolProduct;
         uint256 maxTransactionsPerBlock;
         uint256 maxBytesPerTxList;
         uint256 minTxGasLimit;
@@ -67,13 +67,13 @@ library TaikoData {
         uint64 id;
         uint64 timestamp;
         uint64 l1Height;
-        uint32 gasLimit;
-        uint32 basefee; // L2 1559 basefee TODO(daniel): uint32 good enough?
+        uint64 basefee;
         bytes32 l1Hash;
         bytes32 mixHash;
         bytes32 txListHash;
         uint24 txListByteStart;
         uint24 txListByteEnd;
+        uint32 gasLimit;
         address beneficiary;
     }
 
