@@ -15,18 +15,18 @@ import {TaikoData} from "../TaikoData.sol";
 
 library LibL2Tokenomics {
     using LibMath for uint256;
+    using SafeCastUpgradeable for uint256;
+
     uint256 private constant ETH_BLOCK_TIME = 12 seconds;
 
     function get1559Basefee(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        uint256 gasInBlock,
-        uint256 blockTime,
-        uint256 adjustmentQuotient
+        uint256 gasInBlock
     )
         internal
         view
-        returns (uint256 newGasExcess, uint256 basefee, uint256 gasPurchaseCost)
+        returns (uint256 newGasExcess, uint32 basefee, uint256 gasPurchaseCost)
     {
         return
             calculate1559Basefee(
@@ -47,7 +47,7 @@ library LibL2Tokenomics {
     )
         internal
         pure
-        returns (uint256 newGasExcess, uint256 basefee, uint256 gasPurchaseCost)
+        returns (uint256 newGasExcess, uint32 basefee, uint256 gasPurchaseCost)
     {
         uint256 adjustment = (gasTarget * blockTime) / ETH_BLOCK_TIME;
         newGasExcess = gasExcess.max(adjustment) - adjustment;
@@ -57,7 +57,7 @@ library LibL2Tokenomics {
                 (newGasExcess + gasInBlock) / gasTarget / adjustmentQuotient
             ) -
             LibMath.exp(newGasExcess / gasTarget / adjustmentQuotient);
-        basefee = gasPurchaseCost / gasInBlock;
+        basefee = (gasPurchaseCost / gasInBlock).toUint32();
         newGasExcess += gasInBlock;
     }
 }

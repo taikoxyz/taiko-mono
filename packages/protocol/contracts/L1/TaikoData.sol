@@ -69,6 +69,7 @@ library TaikoData {
         uint64 timestamp;
         uint64 l1Height;
         uint32 gasLimit;
+        uint32 basefee; // L2 1559 basefee TODO(daniel): uint32 good enough?
         bytes32 l1Hash;
         bytes32 mixHash;
         bytes32 txListHash;

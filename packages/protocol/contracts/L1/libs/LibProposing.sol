@@ -7,7 +7,9 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
+import {LibAddress} from "../../libs/LibAddress.sol";
 import {LibL1Tokenomics} from "./LibL1Tokenomics.sol";
+import {LibL2Tokenomics} from "./LibL2Tokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {
     SafeCastUpgradeable
@@ -16,6 +18,7 @@ import {TaikoData} from "../TaikoData.sol";
 
 library LibProposing {
     using SafeCastUpgradeable for uint256;
+    using LibAddress for address;
     using LibUtils for TaikoData.State;
 
     event BlockProposed(
@@ -25,6 +28,7 @@ library LibProposing {
     );
 
     error L1_BLOCK_ID();
+    error L1_INSUFFICIENT_ETHER();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
     error L1_NOT_SOLO_PROPOSER();
@@ -67,6 +71,7 @@ library LibProposing {
                 timestamp: uint64(block.timestamp),
                 l1Height: uint64(block.number - 1),
                 gasLimit: input.gasLimit,
+                basefee: 0, // will be set later
                 l1Hash: blockhash(block.number - 1),
                 mixHash: bytes32(block.prevrandao * state.numBlocks),
                 txListHash: input.txListHash,
@@ -74,6 +79,15 @@ library LibProposing {
                 txListByteEnd: input.txListByteEnd,
                 beneficiary: input.beneficiary
             });
+        }
+
+        {
+            // calculate L2 EIP-1559 gas fee and cost
+            uint256 gasPurchaseCost;
+            (state.gasExcess, meta.basefee, gasPurchaseCost) = LibL2Tokenomics
+                .get1559Basefee(state, config, input.gasLimit);
+            if (msg.value < gasPurchaseCost) revert L1_INSUFFICIENT_ETHER();
+            msg.sender.sendEther(msg.value - gasPurchaseCost);
         }
 
         TaikoData.Block storage blk = state.blocks[
@@ -89,7 +103,7 @@ library LibProposing {
         blk.proposer = msg.sender;
 
         if (config.enableTokenomics) {
-            (uint256 newFeeBase, uint256 fee, uint256 deposit) = LibL1Tokenomics
+            (uint256 newFeeBase, uint256 fee, uint64 deposit) = LibL1Tokenomics
                 .getBlockFee(state, config);
 
             uint256 burnAmount = fee + deposit;

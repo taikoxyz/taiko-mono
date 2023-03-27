@@ -9,7 +9,8 @@ pragma solidity ^0.8.18;
 import {AddressResolver} from "../common/AddressResolver.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {IXchainSync} from "../common/IXchainSync.sol";
-import {LibL1Tokenomics} from "./libs/LibVerifying.sol";
+import {LibL1Tokenomics} from "./libs/LibL1Tokenomics.sol";
+import {LibL2Tokenomics} from "./libs/LibL2Tokenomics.sol";
 import {LibProposing} from "./libs/LibProposing.sol";
 import {LibProving} from "./libs/LibProving.sol";
 import {LibUtils} from "./libs/LibUtils.sol";
@@ -53,7 +54,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     function proposeBlock(
         bytes calldata input,
         bytes calldata txList
-    ) external nonReentrant {
+    ) external payable nonReentrant {
         TaikoData.Config memory config = getConfig();
         LibProposing.proposeBlock({
             state: state,
@@ -212,6 +213,16 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             found
                 ? blk.forkChoices[blk.verifiedForkChoiceId].signalRoot
                 : bytes32(0);
+    }
+
+    function get1559Basefee(
+        uint256 gasLimit
+    )
+        public
+        view
+        returns (uint256 newGasExcess, uint256 basefee, uint256 gasPurchaseCost)
+    {
+        return LibL2Tokenomics.get1559Basefee(state, getConfig(), gasLimit);
     }
 
     function getStateVariables()
