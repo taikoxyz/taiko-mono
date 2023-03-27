@@ -60,7 +60,7 @@
       const wagmiSigner = await setSigner();
       if (wagmiSigner) {
         const signerAddress = await wagmiSigner.getAddress();
-        const signerTransactions = await $transactioner.GetAllByAddress(
+        const signerTransactions = await $transactioner.getAllByAddress(
           signerAddress,
         );
         transactions.set(signerTransactions);
