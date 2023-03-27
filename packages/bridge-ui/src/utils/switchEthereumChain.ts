@@ -14,25 +14,21 @@ export const switchEthereumChain = async (ethereum: Ethereum, chain: Chain) => {
       switchError.code === 4902 ||
       switchError?.data?.originalError?.code === 4902
     ) {
-      try {
-        await ethereum.request({
-          method: 'wallet_addEthereumChain',
-          params: [
-            {
-              chainId: ethers.utils.hexValue(chain.id),
-              chainName: chain.name,
-              rpcUrls: [chain.rpc],
-              nativeCurrency: {
-                symbol: 'ETH',
-                decimals: 18,
-                name: 'Ethereum',
-              },
+      await ethereum.request({
+        method: 'wallet_addEthereumChain',
+        params: [
+          {
+            chainId: ethers.utils.hexValue(chain.id),
+            chainName: chain.name,
+            rpcUrls: [chain.rpc],
+            nativeCurrency: {
+              symbol: 'ETH',
+              decimals: 18,
+              name: 'Ethereum',
             },
-          ],
-        });
-      } catch (addError) {
-        throw addError;
-      }
+          },
+        ],
+      });
     } else {
       throw switchError;
     }

@@ -37,6 +37,7 @@ importers:
       buffer: ^6.0.3
       daisyui: 1.16.6
       eslint-plugin-jest: ^27.2.1
+      eslint-plugin-simple-import-sort: ^10.0.0
       eslint-plugin-svelte3: ^4.0.0
       ethers: ^5.7.1
       identicon.js: ^2.3.3
@@ -97,6 +98,7 @@ importers:
       babel-plugin-transform-es2015-modules-commonjs: 6.26.2
       daisyui: 1.16.6
       eslint-plugin-jest: 27.2.1_jnnvroutqvszjic6xgfk2wgrhu
+      eslint-plugin-simple-import-sort: 10.0.0
       eslint-plugin-svelte3: 4.0.0_svelte@3.53.1
       jest: 27.5.1
       lint-staged: 12.5.0
@@ -4531,7 +4533,7 @@ packages:
   /@types/bn.js/4.11.6:
     resolution: {integrity: sha512-pqr857jrp2kPuO9uRjZ3PwnJTjoQy+fcdxvBTvHm6dkmEL9q+hDD/2j/0ELOBPtPnS8LjCX0gI9nbl8lVkadpg==}
     dependencies:
-      '@types/node': 18.14.2
+      '@types/node': 18.15.1
 
   /@types/bn.js/5.1.1:
     resolution: {integrity: sha512-qNrYbZqMx0uJAfKnKclPh+dTwK33KfLHYqtyODwd5HnXOjnkhc4qgn3BrK6RWyGZm5+sIFE7Q7Vz6QQtJB7w7g==}
@@ -4772,7 +4774,6 @@ packages:
 
   /@types/node/18.15.1:
     resolution: {integrity: sha512-U2TWca8AeHSmbpi314QBESRk7oPjSZjDsR+c+H4ECC1l+kFgpZf8Ydhv3SJpPy51VyZHHqxlb6mTTqYNNRVAIw==}
-    dev: true
 
   /@types/node/8.10.66:
     resolution: {integrity: sha512-tktOkFUA4kXx2hhhrB8bIFb5TbwzS4uOhKEmwiD+NoiL0qtP2OQ9mFldbgD4dV1djrlBYP6eBuQZiWjuHUpqFw==}
@@ -10034,6 +10035,12 @@ packages:
       eslint: ^7.0.0
     dependencies:
       eslint: 7.32.0
+    dev: true
+
+  /eslint-plugin-simple-import-sort/10.0.0:
+    resolution: {integrity: sha512-AeTvO9UCMSNzIHRkg8S6c3RPy5YEwKWSQPx3DYghLedo2ZQxowPFLGDN1AZ2evfg6r6mjBSZSLxLFsWSu3acsw==}
+    peerDependencies:
+      eslint: '>=5.0.0'
     dev: true
 
   /eslint-plugin-svelte3/4.0.0_svelte@3.53.1:

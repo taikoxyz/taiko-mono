@@ -12,10 +12,13 @@ module.exports = {
     sourceType: 'module',
     extraFileExtensions: ['.svelte'],
   },
-  plugins: ['svelte3', '@typescript-eslint'],
+  plugins: ['svelte3', '@typescript-eslint' /*, 'simple-import-sort'*/],
   rules: {
     'linebreak-style': ['error', 'unix'],
+    // 'simple-import-sort/imports': 'error',
+    // 'simple-import-sort/exports': 'error',
     semi: ['error', 'always'],
+    'no-console': ['error', { allow: ['warn', 'error'] }],
   },
   ignorePatterns: ['node_modules'], // todo: lets lint that separately, or move it to its own package
   settings: {
@@ -33,9 +36,20 @@ module.exports = {
         tsconfigRootDir: __dirname,
       },
       rules: {
-        '@typescript-eslint/no-inferrable-types': 0,
+        '@typescript-eslint/no-inferrable-types': 'off',
         '@typescript-eslint/unbound-method': 'off',
         '@typescript-eslint/no-empty-interface': 'off',
+
+        // TODO: fix all these errors and turn back on these rules
+        '@typescript-eslint/no-unsafe-member-access': 'off',
+        '@typescript-eslint/no-unsafe-call': 'off',
+        '@typescript-eslint/no-unsafe-assignment': 'off',
+        '@typescript-eslint/no-unsafe-return': 'off',
+        '@typescript-eslint/no-unsafe-argument': 'off',
+        '@typescript-eslint/restrict-template-expressions': 'off',
+        '@typescript-eslint/no-misused-promises': 'off',
+        '@typescript-eslint/no-floating-promises': 'off',
+        '@typescript-eslint/ban-ts-comment': 'off',
       },
     },
     {

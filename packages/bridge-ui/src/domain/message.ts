@@ -1,14 +1,15 @@
 import type { BigNumber } from 'ethers';
 
-enum MessageStatus {
+export enum MessageStatus {
   New,
   Retriable,
   Done,
   Failed,
   FailedReleased,
+  ClaimInProgress,
 }
 
-type Message = {
+export type Message = {
   id: number;
   sender: string;
   srcChainId: BigNumber;
@@ -23,5 +24,3 @@ type Message = {
   data: string;
   memo: string;
 };
-
-export { Message, MessageStatus };

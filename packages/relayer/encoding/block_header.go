@@ -3,12 +3,19 @@ package encoding
 import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
 func BlockToBlockHeader(block *types.Block) BlockHeader {
 	baseFee := block.BaseFee()
 	if baseFee == nil {
 		baseFee = common.Big0
+	}
+
+	withdrawalsRoot := relayer.ZeroHash
+
+	if block.Header().WithdrawalsHash != nil {
+		withdrawalsRoot = *block.Header().WithdrawalsHash
 	}
 
 	return BlockHeader{
@@ -28,5 +35,6 @@ func BlockToBlockHeader(block *types.Block) BlockHeader {
 		StateRoot:        block.Root(),
 		LogsBloom:        logsBloomToBytes(block.Bloom()),
 		BaseFeePerGas:    baseFee,
+		WithdrawalsRoot:  withdrawalsRoot,
 	}
 }

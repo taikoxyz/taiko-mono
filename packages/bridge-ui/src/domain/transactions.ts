@@ -20,5 +20,10 @@ export interface Transactioner {
     chainID?: number,
   ): Promise<BridgeTransaction[]>;
 
+  GetTransactionByHash(
+    address: string,
+    hash: string,
+  ): Promise<BridgeTransaction>;
+
   UpdateStorageByAddress(address: string, txs: BridgeTransaction[]): void;
 }

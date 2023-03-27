@@ -1,15 +1,12 @@
 {
   "index": {
-    "title": "Introduction 👋"
+    "title": "Hello 👋"
   },
   "concepts": {
     "title": "Concepts"
   },
   "guides": {
     "title": "Guides"
-  },
-  "tutorials": {
-    "title": "Tutorials"
   },
   "reference": {
     "title": "Reference"

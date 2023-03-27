@@ -1,8 +1,17 @@
 {
-  "block-proposal-and-verification": {
-    "title": "Block proposal & verification"
+  "overview": {
+    "title": "Overview"
+  },
+  "creating-taiko-blocks": {
+    "title": "Creating Taiko blocks"
+  },
+  "proving-taiko-blocks": {
+    "title": "Proving Taiko blocks"
   },
   "bridging": {
     "title": "Bridging"
+  },
+  "taiko-nodes": {
+    "title": "Taiko nodes"
   }
 }

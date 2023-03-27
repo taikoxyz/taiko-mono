@@ -1,55 +1,92 @@
 import axios from 'axios';
 import { BigNumber, Contract, ethers } from 'ethers';
-import Bridge from '../constants/abi/Bridge';
-import ERC20 from '../constants/abi/ERC20';
-import TokenVault from '../constants/abi/TokenVault';
-import { chains } from '../domain/chain';
+import BridgeABI from '../constants/abi/Bridge';
+import ERC20_ABI from '../constants/abi/ERC20';
+import TokenVaultABI from '../constants/abi/TokenVault';
 import { MessageStatus } from '../domain/message';
 
 import type { BridgeTransaction } from '../domain/transactions';
-import { chainIdToTokenVaultAddress } from '../store/bridge';
-import { get } from 'svelte/store';
-import type { RelayerAPI, RelayerBlockInfo } from 'src/domain/relayerApi';
+import type {
+  APIRequestParams,
+  APIResponse,
+  APIResponseTransaction,
+  RelayerAPI,
+  RelayerBlockInfo,
+} from '../domain/relayerApi';
+import { chains } from '../chain/chains';
+import { tokenVaults } from '../vault/tokenVaults';
+import type { ChainID } from '../domain/chain';
 
 export class RelayerAPIService implements RelayerAPI {
-  private readonly providerMap: Map<number, ethers.providers.JsonRpcProvider>;
+  private readonly providers: Record<ChainID, ethers.providers.JsonRpcProvider>;
   private readonly baseUrl: string;
 
   constructor(
-    providerMap: Map<number, ethers.providers.JsonRpcProvider>,
     baseUrl: string,
+    providers: Record<ChainID, ethers.providers.JsonRpcProvider>,
   ) {
-    this.providerMap = providerMap;
-    this.baseUrl = baseUrl;
+    this.providers = providers;
+
+    // There is a chance that by accident the env var
+    // does (or does not) have trailing slash for
+    // this baseURL. Normalize it, preventing errors
+    this.baseUrl = baseUrl.replace(/\/$/, '');
   }
 
-  async GetAllByAddress(
+  async getTransactionsFromAPI(params: APIRequestParams): Promise<APIResponse> {
+    const requestURL = `${this.baseUrl}/events`;
+
+    const response = await axios.get<APIResponse>(requestURL, { params });
+
+    return response.data;
+  }
+
+  async GetAllBridgeTransactionByAddress(
     address: string,
     chainID?: number,
   ): Promise<BridgeTransaction[]> {
     if (!address) {
       throw new Error('Address need to passed to fetch transactions');
     }
+
     const params = {
       address,
       chainID,
+      event: 'MessageSent',
     };
 
-    const requestURL = `${this.baseUrl}events`;
+    const apiTxs: APIResponse = await this.getTransactionsFromAPI(params);
 
-    const { data } = await axios.get(requestURL, { params });
-
-    if (data?.items?.length === 0) {
+    if (apiTxs?.items?.length === 0) {
       return [];
     }
 
-    const txs: BridgeTransaction[] = data.items.map((tx) => {
+    const txs = apiTxs.items.map((tx: APIResponseTransaction) => {
+      let data = tx.data.Message.Data;
+      if (data === '') {
+        data = '0x'; // ethers does not allow "" for empty bytes value
+      } else if (data !== '0x') {
+        const buffer = Buffer.from(data, 'base64');
+        data = `0x${buffer.toString('hex')}`;
+      }
+
       return {
         status: tx.status,
+        amountInWei: BigNumber.from(tx.amount),
+        symbol: tx.canonicalTokenSymbol,
+        hash: tx.data.Raw.transactionHash,
+        from: tx.messageOwner,
+        fromChainId: tx.data.Message.SrcChainId,
+        toChainId: tx.data.Message.DestChainId,
+        msgHash: tx.msgHash,
+        canonicalTokenAddress: tx.canonicalTokenAddress,
+        canonicalTokenSymbol: tx.canonicalTokenSymbol,
+        canonicalTokenName: tx.canonicalTokenName,
+        canonicalTokenDecimals: tx.canonicalTokenDecimals,
         message: {
           id: tx.data.Message.Id,
           to: tx.data.Message.To,
-          data: tx.data.Message.Data,
+          data,
           memo: tx.data.Message.Memo,
           owner: tx.data.Message.Owner,
           sender: tx.data.Message.Sender,
@@ -61,78 +98,42 @@ export class RelayerAPIService implements RelayerAPI {
           processingFee: BigNumber.from(`${tx.data.Message.ProcessingFee}`),
           refundAddress: tx.data.Message.RefundAddress,
         },
-        amountInWei: tx.amount,
-        symbol: tx.canonicalTokenSymbol,
-        fromChainId: tx.data.Message.SrcChainId,
-        toChainId: tx.data.Message.DestChainId,
-        hash: tx.data.Raw.transactionHash,
-        from: tx.data.Message.Owner,
       };
     });
 
     const bridgeTxs: BridgeTransaction[] = await Promise.all(
       (txs || []).map(async (tx) => {
-        if (tx.message.owner.toLowerCase() !== address.toLowerCase()) return;
+        if (tx.from.toLowerCase() !== address.toLowerCase()) return;
 
         const destChainId = tx.toChainId;
-        const destProvider = this.providerMap.get(destChainId);
-
-        const srcProvider = this.providerMap.get(tx.fromChainId);
-
+        const destProvider = this.providers[destChainId];
+        const srcProvider = this.providers[tx.fromChainId];
         const receipt = await srcProvider.getTransactionReceipt(tx.hash);
 
         if (!receipt) {
           return tx;
         }
 
-        tx.receipt = receipt;
-
         const destBridgeAddress = chains[destChainId].bridgeAddress;
-
-        const srcBridgeAddress = chains[tx.fromChainId].bridgeAddress;
 
         const destContract: Contract = new Contract(
           destBridgeAddress,
-          Bridge,
+          BridgeABI,
           destProvider,
         );
 
-        const srcContract: Contract = new Contract(
-          srcBridgeAddress,
-          Bridge,
-          srcProvider,
-        );
-
-        const events = await srcContract.queryFilter(
-          'MessageSent',
-          receipt.blockNumber,
-          receipt.blockNumber,
-        );
-
-        // A block could have multiple events being triggered so we need to find this particular tx
-        const event = events.find(
-          (e) =>
-            e.args.message.owner.toLowerCase() === address.toLowerCase() &&
-            e.args.message.depositValue.eq(tx.message.depositValue) &&
-            e.args.msgHash === tx.msgHash,
-        );
-
-        if (!event) {
-          return tx;
-        }
-
-        const msgHash = event.args.msgHash;
+        const msgHash = tx.msgHash;
 
         const messageStatus: number = await destContract.getMessageStatus(
           msgHash,
         );
 
-        let amountInWei: BigNumber;
+        let amountInWei: BigNumber = tx.amountInWei;
         let symbol: string;
-        if (event.args.message.data !== '0x') {
+        if (tx.canonicalTokenAddress !== ethers.constants.AddressZero) {
           const tokenVaultContract = new Contract(
-            get(chainIdToTokenVaultAddress).get(tx.fromChainId),
-            TokenVault,
+            tokenVaults[tx.fromChainId],
+            TokenVaultABI,
             srcProvider,
           );
           const filter = tokenVaultContract.filters.ERC20Sent(msgHash);
@@ -149,7 +150,7 @@ export class RelayerAPIService implements RelayerAPI {
 
           const erc20Contract = new Contract(
             erc20Event.args.token,
-            ERC20,
+            ERC20_ABI,
             srcProvider,
           );
           symbol = await erc20Contract.symbol();
@@ -157,9 +158,9 @@ export class RelayerAPIService implements RelayerAPI {
         }
 
         const bridgeTx: BridgeTransaction = {
-          message: event.args.message,
+          message: tx.message,
           receipt: receipt,
-          msgHash: event.args.msgHash,
+          msgHash: tx.msgHash,
           status: messageStatus,
           amountInWei: amountInWei,
           symbol: symbol,
@@ -168,7 +169,6 @@ export class RelayerAPIService implements RelayerAPI {
           hash: tx.hash,
           from: tx.from,
         };
-
         return bridgeTx;
       }),
     );
@@ -179,7 +179,7 @@ export class RelayerAPIService implements RelayerAPI {
   }
 
   async GetBlockInfo(): Promise<Map<number, RelayerBlockInfo>> {
-    const requestURL = `${this.baseUrl}blockInfo`;
+    const requestURL = `${this.baseUrl}/blockInfo`;
     const { data } = await axios.get(requestURL);
     const blockInfoMap: Map<number, RelayerBlockInfo> = new Map();
     if (data?.data.length > 0) {

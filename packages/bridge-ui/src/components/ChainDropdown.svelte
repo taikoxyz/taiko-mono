@@ -1,12 +1,13 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
   import { fromChain, toChain } from '../store/chain';
-  import { CHAIN_MAINNET, CHAIN_TKO } from '../domain/chain';
   import type { Chain } from '../domain/chain';
   import { ethers } from 'ethers';
   import { signer } from '../store/signer';
   import { switchNetwork } from '@wagmi/core';
   import { ChevronDown, ExclamationTriangle } from 'svelte-heros-v2';
+  import { mainnetChain, taikoChain } from '../chain/chains';
+
   const changeChain = async (chain: Chain) => {
     await switchNetwork({
       chainId: chain.id,
@@ -15,17 +16,21 @@
     await provider.send('eth_requestAccounts', []);
 
     fromChain.set(chain);
-    if (chain === CHAIN_MAINNET) {
-      toChain.set(CHAIN_TKO);
+    if (chain === mainnetChain) {
+      toChain.set(taikoChain);
     } else {
-      toChain.set(CHAIN_MAINNET);
+      toChain.set(mainnetChain);
     }
     signer.set(provider.getSigner());
   };
 </script>
 
 <div class="dropdown dropdown-end mr-4">
-  <label tabindex="0" class="btn btn-md justify-around md:w-[194px]">
+  <!-- svelte-ignore a11y-label-has-associated-control -->
+  <label
+    role="button"
+    tabindex="0"
+    class="btn btn-md justify-around md:w-[194px]">
     <span class="font-normal flex-1 text-left mr-2">
       {#if $fromChain}
         <svelte:component this={$fromChain.icon} />
@@ -40,26 +45,27 @@
     <ChevronDown size="20" />
   </label>
   <ul
+    role="listbox"
     tabindex="0"
     class="dropdown-content address-dropdown-content flex my-2 menu p-2 shadow bg-dark-2 rounded-sm w-[194px]">
     <li>
       <button
         class="flex items-center px-2 py-4 hover:bg-dark-5 rounded-xl justify-around"
         on:click={async () => {
-          await changeChain(CHAIN_MAINNET);
+          await changeChain(mainnetChain);
         }}>
-        <svelte:component this={CHAIN_MAINNET.icon} height={24} />
-        <span class="pl-1.5 text-left flex-1">{CHAIN_MAINNET.name}</span>
+        <svelte:component this={mainnetChain.icon} height={24} />
+        <span class="pl-1.5 text-left flex-1">{mainnetChain.name}</span>
       </button>
     </li>
     <li>
       <button
         class="flex items-center px-2 py-4 hover:bg-dark-5 rounded-xl justify-around"
         on:click={async () => {
-          await changeChain(CHAIN_TKO);
+          await changeChain(taikoChain);
         }}>
-        <svelte:component this={CHAIN_TKO.icon} height={24} />
-        <span class="pl-1.5 text-left flex-1">{CHAIN_TKO.name}</span>
+        <svelte:component this={taikoChain.icon} height={24} />
+        <span class="pl-1.5 text-left flex-1">{taikoChain.name}</span>
       </button>
     </li>
   </ul>

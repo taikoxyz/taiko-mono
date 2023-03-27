@@ -1,15 +1,15 @@
 <script>
+  import { switchNetwork } from '@wagmi/core';
   import { ArrowRight } from 'svelte-heros-v2';
   import { fromChain, toChain } from '../../store/chain';
-  import { CHAIN_MAINNET, CHAIN_TKO } from '../../domain/chain';
   import { signer } from '../../store/signer';
   import { ethers } from 'ethers';
-  import { errorToast, successToast } from '../../utils/toast';
-  import { switchNetwork } from '@wagmi/core';
+  import { mainnetChain, taikoChain } from '../../chain/chains';
+  import { errorToast, successToast } from '../Toast.svelte';
 
   const toggleChains = async () => {
     try {
-      const chain = $fromChain === CHAIN_MAINNET ? CHAIN_TKO : CHAIN_MAINNET;
+      const chain = $fromChain === mainnetChain ? taikoChain : mainnetChain;
       await switchNetwork({
         chainId: chain.id,
       });
@@ -17,7 +17,7 @@
       await provider.send('eth_requestAccounts', []);
 
       fromChain.set(chain);
-      toChain.set(chain === CHAIN_MAINNET ? CHAIN_TKO : CHAIN_MAINNET);
+      toChain.set(chain === mainnetChain ? taikoChain : mainnetChain);
 
       signer.set(provider.getSigner());
       successToast('Successfully changed chain');
@@ -35,8 +35,8 @@
       <svelte:component this={$fromChain.icon} />
       <span class="ml-2">{$fromChain.name}</span>
     {:else}
-      <svelte:component this={CHAIN_MAINNET.icon} />
-      <span class="ml-2">{CHAIN_MAINNET.name}</span>
+      <svelte:component this={mainnetChain.icon} />
+      <span class="ml-2">{mainnetChain.name}</span>
     {/if}
   </div>
 
@@ -49,8 +49,8 @@
       <svelte:component this={$toChain.icon} />
       <span class="ml-2">{$toChain.name}</span>
     {:else}
-      <svelte:component this={CHAIN_TKO.icon} />
-      <span class="ml-2">{CHAIN_TKO.name}</span>
+      <svelte:component this={taikoChain.icon} />
+      <span class="ml-2">{taikoChain.name}</span>
     {/if}
   </div>
 </div>

@@ -1,17 +1,24 @@
 {
-  "configure-wallet": {
-    "title": "Configure your wallet"
+  "configure-your-wallet": {
+    "title": "👛 Configure your wallet"
   },
-  "request-from-faucet": {
-    "title": "Request from faucet"
+  "receive-tokens": {
+    "title": "💦 Receive tokens"
   },
   "use-the-bridge": {
-    "title": "Use the bridge"
+    "title": "🌉 Use the bridge"
   },
-  "deploy-a-contract": {
-    "title": "Deploy a basic contract"
+  "swap-tokens": {
+    "title": "🔀 Swap tokens"
   },
   "run-a-node": {
-    "title": "Run a Taiko node"
-  }
+    "title": "🌐 Run a node"
+  },
+  "enable-a-prover": {
+    "title": "🔐 Enable a prover"
+  },
+  "deploy-a-contract": {
+    "title": "🧙 Deploy a contract"
+  },
+  "build-a-dapp": "🛠️ Build a dapp"
 }

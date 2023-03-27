@@ -1,27 +1,28 @@
 import type { BigNumber, ethers, Transaction } from 'ethers';
 import type { Message } from './message';
 
-enum BridgeType {
+export enum BridgeType {
   ERC20 = 'ERC20',
   ETH = 'ETH',
   ERC721 = 'ERC721',
   ERC1155 = 'ERC1155',
 }
 
-type ApproveOpts = {
+export type ApproveOpts = {
   amountInWei: BigNumber;
   contractAddress: string;
   signer: ethers.Signer;
   spenderAddress: string;
 };
 
-type BridgeOpts = {
+export type BridgeOpts = {
   amountInWei: BigNumber;
   signer: ethers.Signer;
   tokenAddress: string;
   fromChainId: number;
   toChainId: number;
-  tokenVaultAddress: string;
+  tokenVaultAddress?: string;
+  bridgeAddress?: string;
   processingFeeInWei?: BigNumber;
   tokenId?: string;
   memo?: string;
@@ -29,7 +30,7 @@ type BridgeOpts = {
   to: string;
 };
 
-type ClaimOpts = {
+export type ClaimOpts = {
   message: Message;
   msgHash: string;
   signer: ethers.Signer;
@@ -37,7 +38,7 @@ type ClaimOpts = {
   srcBridgeAddress: string;
 };
 
-type ReleaseOpts = {
+export type ReleaseOpts = {
   message: Message;
   msgHash: string;
   signer: ethers.Signer;
@@ -47,7 +48,7 @@ type ReleaseOpts = {
   srcTokenVaultAddress: string;
 };
 
-interface Bridge {
+export interface Bridge {
   RequiresAllowance(opts: ApproveOpts): Promise<boolean>;
   Approve(opts: ApproveOpts): Promise<Transaction>;
   Bridge(opts: BridgeOpts): Promise<Transaction>;
@@ -56,16 +57,7 @@ interface Bridge {
   ReleaseTokens(opts: ReleaseOpts): Promise<Transaction>;
 }
 
-interface HTMLBridgeForm extends HTMLFormElement {
+// TODO: this should not be here
+export interface HTMLBridgeForm extends HTMLFormElement {
   customTokenAddress: HTMLInputElement;
 }
-
-export {
-  ApproveOpts,
-  BridgeOpts,
-  BridgeType,
-  Bridge,
-  ClaimOpts,
-  ReleaseOpts,
-  HTMLBridgeForm,
-};

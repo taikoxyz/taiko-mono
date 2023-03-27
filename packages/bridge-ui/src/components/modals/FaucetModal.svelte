@@ -1,21 +1,22 @@
 <script lang="ts">
-  import { BigNumber, ethers, Signer } from 'ethers';
+  import { BigNumber, ethers } from 'ethers';
   import { pendingTransactions } from '../../store/transactions';
   import { signer } from '../../store/signer';
-  import { errorToast, successToast } from '../../utils/toast';
   import { _ } from 'svelte-i18n';
   import MintableERC20 from '../../constants/abi/MintableERC20';
   import { fromChain } from '../../store/chain';
   import { fetchSigner, switchNetwork } from '@wagmi/core';
-  import { CHAIN_MAINNET } from '../../domain/chain';
   import Modal from './Modal.svelte';
   import { onMount } from 'svelte';
   import { token } from '../../store/token';
+  import { L1_CHAIN_ID } from '../../constants/envVars';
+  import { errorToast, successToast } from '../Toast.svelte';
 
   export let isOpen: boolean = false;
   export let onMint: () => Promise<void>;
 
   let disabled: boolean = true;
+  let errorReason: string;
 
   async function shouldEnableButton() {
     if (!$signer || !$token) {
@@ -34,6 +35,14 @@
       $signer,
     );
 
+    const userHasAlreadyClaimed = await contract.minters(address);
+
+    if (userHasAlreadyClaimed) {
+      disabled = true;
+      errorReason = 'You have already claimed';
+      return;
+    }
+
     const gas = await contract.estimateGas.mint(address);
     const gasPrice = await $signer.getGasPrice();
     const estimatedGas = BigNumber.from(gas).mul(gasPrice);
@@ -49,7 +58,7 @@
     try {
       if ($fromChain.id !== $token.addresses[0].chainId) {
         await switchNetwork({
-          chainId: CHAIN_MAINNET.id,
+          chainId: L1_CHAIN_ID,
         });
         const wagmiSigner = await fetchSigner();
 
@@ -75,7 +84,7 @@
 
       await onMint();
     } catch (e) {
-      console.log(e);
+      console.error(e);
       errorToast($_('toast.errorSendingTransaction'));
     }
   }
@@ -88,7 +97,7 @@
     ? import.meta.env.VITE_TAIKO_CHAIN_NAME
     : 'Taiko A2';
 
-  onMount(async () => {
+  onMount(() => {
     shouldEnableButton();
   });
 </script>
@@ -106,7 +115,7 @@
       await mint();
     }}>
     {#if disabled}
-      Insufficient ETH
+      {errorReason ?? 'Insufficient ETH'}
     {:else}
       Mint
     {/if}

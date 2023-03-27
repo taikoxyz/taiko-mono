@@ -1,12 +1,11 @@
 import { BigNumber, Contract, ethers, Signer } from 'ethers';
-import TokenVault from '../constants/abi/TokenVault';
+import TokenVaultABI from '../constants/abi/TokenVault';
 import type { Chain } from '../domain/chain';
 import type { ProcessingFeeMethod } from '../domain/fee';
 import type { Token } from '../domain/token';
-import { ETH } from '../domain/token';
-import { chainIdToTokenVaultAddress } from '../store/bridge';
-import { providers } from '../store/providers';
-import { get } from 'svelte/store';
+import { ETHToken } from '../token/tokens';
+import { providers } from '../provider/providers';
+import { tokenVaults } from '../vault/tokenVaults';
 
 export const ethGasLimit = 900000;
 export const erc20NotDeployedGasLimit = 3100000;
@@ -20,13 +19,12 @@ export async function recommendProcessingFee(
   signer: Signer,
 ): Promise<string> {
   if (!toChain || !fromChain || !token || !signer || !feeType) return '0';
-  const p = get(providers);
-  const provider = p.get(toChain.id);
+  const provider = providers[toChain.id];
   const gasPrice = await provider.getGasPrice();
   // gasLimit for processMessage call for ETH is about ~800k.
   // to make it enticing, we say 900k.
   let gasLimit = ethGasLimit;
-  if (token.symbol.toLowerCase() !== ETH.symbol.toLowerCase()) {
+  if (token.symbol.toLowerCase() !== ETHToken.symbol.toLowerCase()) {
     let srcChainAddr = token.addresses.find(
       (t) => t.chainId === fromChain.id,
     ).address;
@@ -37,10 +35,9 @@ export async function recommendProcessingFee(
       ).address;
     }
 
-    const chainIdsToTokenVault = get(chainIdToTokenVaultAddress);
     const tokenVault = new Contract(
-      chainIdsToTokenVault.get(fromChain.id),
-      TokenVault,
+      tokenVaults[fromChain.id],
+      TokenVaultABI,
       signer,
     );
 

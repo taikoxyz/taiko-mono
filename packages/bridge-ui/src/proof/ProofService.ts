@@ -1,6 +1,6 @@
 import { Contract, ethers } from 'ethers';
 import { RLP } from 'ethers/lib/utils.js';
-import HeaderSync from '../constants/abi/HeaderSync';
+import HeaderSyncABI from '../constants/abi/HeaderSync';
 import type { Block, BlockHeader } from '../domain/block';
 import type {
   Prover,
@@ -10,10 +10,10 @@ import type {
 } from '../domain/proof';
 
 export class ProofService implements Prover {
-  private readonly providerMap: Map<number, ethers.providers.JsonRpcProvider>;
+  private readonly providers: Record<number, ethers.providers.JsonRpcProvider>;
 
-  constructor(providerMap: Map<number, ethers.providers.JsonRpcProvider>) {
-    this.providerMap = providerMap;
+  constructor(providers: Record<number, ethers.providers.JsonRpcProvider>) {
+    this.providers = providers;
   }
 
   private static getKey(opts: GenerateProofOpts | GenerateReleaseProofOpts) {
@@ -57,6 +57,7 @@ export class ProofService implements Prover {
       mixHash: block.mixHash,
       nonce: block.nonce,
       baseFeePerGas: block.baseFeePerGas ? parseInt(block.baseFeePerGas) : 0,
+      withdrawalsRoot: block.withdrawalsRoot ?? ethers.constants.HashZero,
     };
 
     return { block, blockHeader };
@@ -75,7 +76,7 @@ export class ProofService implements Prover {
     // encode the SignalProof struct from LibBridgeSignal
     const signalProof = ethers.utils.defaultAbiCoder.encode(
       [
-        'tuple(tuple(bytes32 parentHash, bytes32 ommersHash, address beneficiary, bytes32 stateRoot, bytes32 transactionsRoot, bytes32 receiptsRoot, bytes32[8] logsBloom, uint256 difficulty, uint128 height, uint64 gasLimit, uint64 gasUsed, uint64 timestamp, bytes extraData, bytes32 mixHash, uint64 nonce, uint256 baseFeePerGas) header, bytes proof)',
+        'tuple(tuple(bytes32 parentHash, bytes32 ommersHash, address beneficiary, bytes32 stateRoot, bytes32 transactionsRoot, bytes32 receiptsRoot, bytes32[8] logsBloom, uint256 difficulty, uint128 height, uint64 gasLimit, uint64 gasUsed, uint64 timestamp, bytes extraData, bytes32 mixHash, uint64 nonce, uint256 baseFeePerGas, bytes32 withdrawalsRoot) header, bytes proof)',
       ],
       [{ header: blockHeader, proof: encodedProof }],
     );
@@ -86,12 +87,12 @@ export class ProofService implements Prover {
   async GenerateProof(opts: GenerateProofOpts): Promise<string> {
     const key = ProofService.getKey(opts);
 
-    const provider = this.providerMap.get(opts.srcChain);
+    const provider = this.providers[opts.srcChain];
 
     const contract = new Contract(
       opts.destHeaderSyncAddress,
-      HeaderSync,
-      this.providerMap.get(opts.destChain),
+      HeaderSyncABI,
+      this.providers[opts.destChain],
     );
 
     const { block, blockHeader } = await ProofService.getBlockAndBlockHeader(
@@ -110,18 +111,19 @@ export class ProofService implements Prover {
       throw Error('invalid proof');
     }
 
-    return ProofService.getSignalProof(proof, blockHeader);
+    const p = ProofService.getSignalProof(proof, blockHeader);
+    return p;
   }
 
   async GenerateReleaseProof(opts: GenerateReleaseProofOpts): Promise<string> {
     const key = ProofService.getKey(opts);
 
-    const provider = this.providerMap.get(opts.destChain);
+    const provider = this.providers[opts.destChain];
 
     const contract = new Contract(
       opts.srcHeaderSyncAddress,
-      HeaderSync,
-      this.providerMap.get(opts.srcChain),
+      HeaderSyncABI,
+      this.providers[opts.srcChain],
     );
 
     const { block, blockHeader } = await ProofService.getBlockAndBlockHeader(
@@ -140,6 +142,7 @@ export class ProofService implements Prover {
       throw Error('invalid proof');
     }
 
-    return ProofService.getSignalProof(proof, blockHeader);
+    const p = ProofService.getSignalProof(proof, blockHeader);
+    return p;
   }
 }

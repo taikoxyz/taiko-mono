@@ -10,8 +10,7 @@ import (
 )
 
 func (p *Processor) waitForConfirmations(ctx context.Context, txHash common.Hash, blockNumber uint64) error {
-	// TODO: make timeout a config var
-	ctx, cancelFunc := context.WithTimeout(ctx, 5*time.Minute)
+	ctx, cancelFunc := context.WithTimeout(ctx, time.Duration(p.confTimeoutInSeconds)*time.Second)
 
 	defer cancelFunc()
 

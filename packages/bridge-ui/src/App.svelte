@@ -2,8 +2,6 @@
   import { wrap } from 'svelte-spa-router/wrap';
   import QueryProvider from './components/providers/QueryProvider.svelte';
   import Router from 'svelte-spa-router';
-  import { SvelteToast } from '@zerodevx/svelte-toast';
-  import type { SvelteToastOptions } from '@zerodevx/svelte-toast';
   import { configureChains, createClient } from '@wagmi/core';
   import { publicProvider } from '@wagmi/core/providers/public';
   import { jsonRpcProvider } from '@wagmi/core/providers/jsonRpc';
@@ -13,69 +11,40 @@
 
   import Home from './pages/home/Home.svelte';
   import { setupI18n } from './i18n';
-  import { BridgeType } from './domain/bridge';
-  import { ETHBridge } from './eth/ETHBridge';
-  import { bridges, chainIdToTokenVaultAddress } from './store/bridge';
-  import { ERC20Bridge } from './erc20/ERC20Bridge';
   import {
     pendingTransactions,
     transactioner,
     transactions,
   } from './store/transactions';
   import Navbar from './components/Navbar.svelte';
+  import Toast, { successToast } from './components/Toast.svelte';
   import { signer } from './store/signer';
   import type { BridgeTransaction, Transactioner } from './domain/transactions';
   import { wagmiClient } from './store/wagmi';
 
   setupI18n({ withLocale: 'en' });
-  import {
-    chains,
-    CHAIN_ID_MAINNET,
-    CHAIN_ID_TAIKO,
-    CHAIN_MAINNET,
-    CHAIN_TKO,
-    mainnet,
-    taiko,
-  } from './domain/chain';
   import SwitchEthereumChainModal from './components/modals/SwitchEthereumChainModal.svelte';
-  import { ProofService } from './proof/ProofService';
   import { ethers } from 'ethers';
-  import type { Prover } from './domain/proof';
-  import { successToast } from './utils/toast';
   import { StorageService } from './storage/StorageService';
   import { MessageStatus } from './domain/message';
   import BridgeABI from './constants/abi/Bridge';
-  import { providers } from './store/providers';
-  import HeaderAnnouncement from './components/HeaderAnnouncement.svelte';
   import type { TokenService } from './domain/token';
   import { CustomTokenService } from './storage/CustomTokenService';
   import { userTokens, tokenService } from './store/userToken';
   import { RelayerAPIService } from './relayer-api/RelayerAPIService';
   import type { RelayerAPI } from './domain/relayerApi';
   import { relayerApi, relayerBlockInfoMap } from './store/relayerApi';
-
-  const providerMap: Map<number, ethers.providers.JsonRpcProvider> = new Map<
-    number,
-    ethers.providers.JsonRpcProvider
-  >();
-
-  providerMap.set(
-    CHAIN_ID_MAINNET,
-    new ethers.providers.JsonRpcProvider(import.meta.env.VITE_L1_RPC_URL),
-  );
-  providerMap.set(
-    CHAIN_ID_TAIKO,
-    new ethers.providers.JsonRpcProvider(import.meta.env.VITE_L2_RPC_URL),
-  );
-  providers.set(providerMap);
+  import { chains, mainnetWagmiChain, taikoWagmiChain } from './chain/chains';
+  import { providers } from './provider/providers';
+  import { RELAYER_URL } from './constants/envVars';
 
   const { chains: wagmiChains, provider } = configureChains(
-    [mainnet, taiko],
+    [mainnetWagmiChain, taikoWagmiChain],
     [
       publicProvider(),
       jsonRpcProvider({
         rpc: (chain) => ({
-          http: providerMap.get(chain.id).connection.url,
+          http: providers[chain.id].connection.url,
         }),
       }),
     ],
@@ -103,34 +72,14 @@
     ],
   });
 
-  const prover: Prover = new ProofService(providerMap);
-
-  const ethBridge = new ETHBridge(prover);
-  const erc20Bridge = new ERC20Bridge(prover);
-
-  bridges.update((store) => {
-    store.set(BridgeType.ETH, ethBridge);
-    store.set(BridgeType.ERC20, erc20Bridge);
-    return store;
-  });
-
-  chainIdToTokenVaultAddress.update((store) => {
-    store.set(CHAIN_TKO.id, import.meta.env.VITE_TAIKO_TOKEN_VAULT_ADDRESS);
-    store.set(
-      CHAIN_MAINNET.id,
-      import.meta.env.VITE_MAINNET_TOKEN_VAULT_ADDRESS,
-    );
-    return store;
-  });
-
   const storageTransactioner: Transactioner = new StorageService(
     window.localStorage,
-    providerMap,
+    providers,
   );
 
   const relayerApiService: RelayerAPI = new RelayerAPIService(
-    providerMap,
-    import.meta.env.VITE_RELAYER_URL,
+    RELAYER_URL,
+    providers,
   );
 
   const tokenStore: TokenService = new CustomTokenService(window.localStorage);
@@ -144,37 +93,36 @@
     if (store) {
       const userAddress = await store.getAddress();
 
-      const apiTxs = await $relayerApi.GetAllByAddress(userAddress);
-
+      const apiTxs = await $relayerApi.GetAllBridgeTransactionByAddress(
+        userAddress,
+      );
       const blockInfoMap = await $relayerApi.GetBlockInfo();
       relayerBlockInfoMap.set(blockInfoMap);
 
       const txs = await $transactioner.GetAllByAddress(userAddress);
+      const hashToApiTxsMap = new Map(
+        apiTxs.map((tx) => {
+          return [tx.hash.toLowerCase(), 1];
+        }),
+      );
 
-      // const hashToApiTxsMap = new Map(apiTxs.map((tx) => {
-      //   return [tx.hash, tx];
-      // }))
+      const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
+        return !hashToApiTxsMap.has(tx.hash.toLowerCase());
+      });
 
       // const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
-      //   if (apiTxs.find((apiTx) => apiTx.hash.toLowerCase() === tx.hash)) {
+      //   const blockInfo = blockInfoMap.get(tx.fromChainId);
+      //   if (blockInfo?.latestProcessedBlock >= tx.receipt?.blockNumber) {
       //     return false;
       //   }
       //   return true;
       // });
 
-      const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
-        const blockInfo = blockInfoMap.get(tx.fromChainId);
-        if (blockInfo?.latestProcessedBlock >= tx.receipt.blockNumber) {
-          return false;
-        }
-        return true;
-      });
-
       $transactioner.UpdateStorageByAddress(userAddress, updatedStorageTxs);
 
       transactions.set([...updatedStorageTxs, ...apiTxs]);
 
-      const tokens = await $tokenService.GetTokens(userAddress);
+      const tokens = $tokenService.GetTokens(userAddress);
       userTokens.set(tokens);
     }
   });
@@ -183,9 +131,10 @@
     (async () => {
       const confirmedPendingTxIndex = await Promise.race(
         store.map((tx, index) => {
-          return new Promise<number>(async (resolve) => {
-            await $signer.provider.waitForTransaction(tx.hash, 1);
-            resolve(index);
+          return new Promise<number>((resolve) => {
+            $signer.provider
+              .waitForTransaction(tx.hash, 1)
+              .then(() => resolve(index));
           });
         }),
       );
@@ -200,7 +149,7 @@
 
   transactions.subscribe((store) => {
     if (store) {
-      store.forEach(async (tx) => {
+      store.forEach((tx) => {
         const txInterval = transactionToIntervalMap.get(tx.hash);
         if (txInterval) {
           clearInterval(txInterval);
@@ -208,7 +157,7 @@
         }
 
         if (tx.status === MessageStatus.New) {
-          const provider = providerMap.get(tx.toChainId);
+          const provider = providers[tx.toChainId];
 
           const interval = setInterval(async () => {
             const txInterval = transactionToIntervalMap.get(tx.hash);
@@ -241,12 +190,6 @@
     }
   });
 
-  const toastOptions: SvelteToastOptions = {
-    dismissable: false,
-    duration: 4000,
-    pausable: false,
-  };
-
   const routes = {
     '/:tab?': wrap({
       component: Home,
@@ -258,15 +201,14 @@
 
 <QueryProvider>
   <main>
-    <HeaderAnnouncement />
     <Navbar />
     <Router {routes} />
   </main>
-  <SvelteToast options={toastOptions} />
+  <Toast />
   <SwitchEthereumChainModal />
 </QueryProvider>
 
-<style global lang="postcss">
+<style>
   main {
     font-family: 'Inter', sans-serif;
   }
