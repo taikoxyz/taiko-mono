@@ -50,7 +50,7 @@
         proverDetailsOpen = true;
       },
       tooltip:
-        "The numbe of unique provers who successfully submitted a proof to the TaikoL1 smart contract.",
+        "The number of unique provers who successfully submitted a proof to the TaikoL1 smart contract.",
     },
     {
       statusFunc: getLatestSyncedHeader,
