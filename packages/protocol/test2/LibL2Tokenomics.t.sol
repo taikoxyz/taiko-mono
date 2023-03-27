@@ -11,15 +11,21 @@ import {
 contract TestLibL2Tokenomics is Test {
     using SafeCastUpgradeable for uint256;
 
+    uint64 initialBaseFee = 5000000000;
+
     // Ethereum offers 15M gas per 12 seconds, if we scale it by 24 times,
     // then each second, Taiko can offer 30M gas.
-    uint64 initialBaseFee = 5000000000;
+
     uint32 gasTargetPerSecond = 30000000; // 30M gas per second
     uint64 gasExcess0 = uint64(gasTargetPerSecond) * 200;
     uint256 gasPoolProduct =
         uint(gasExcess0) * uint(gasExcess0) * initialBaseFee;
 
     uint64 gasExcess = gasExcess0;
+
+    function setUp() public view {
+        console2.log("gasPoolProduct:", gasPoolProduct);
+    }
 
     function test1559PurchaseMaxSizeGasWontOverflow() public {
         gasExcess = type(uint64).max;

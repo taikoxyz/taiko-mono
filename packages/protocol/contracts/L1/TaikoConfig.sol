@@ -24,7 +24,7 @@ library TaikoConfig {
                 // testnet's circuits.
                 blockMaxGasLimit: 6000000,
                 gasTargetPerSecond: 30000000,
-                gasPoolProduct: (6000000 * 12) ** 2 * 50000000000,
+                gasPoolProduct: (30000000 * 200) ** 2 * 5000000000,
                 //   Set it to 79  (+1 TaikoL2.anchor transaction = 80),
                 // and 80 is the upper limit of the Alpha-2 testnet's circuits.
                 maxTransactionsPerBlock: 79,
