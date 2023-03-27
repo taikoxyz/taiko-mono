@@ -72,8 +72,9 @@
 
     successToast('Transaction completed!');
 
-    const s = newPendingTxs.slice(confirmedPendingTxIndex, 0);
-    pendingTransactions.set(s);
+    const copyPendingTransactions = newPendingTxs.slice(); // prevents mutation
+    copyPendingTransactions.splice(confirmedPendingTxIndex, 1);
+    pendingTransactions.set(copyPendingTransactions);
   });
 
   const transactionToIntervalMap = new Map();

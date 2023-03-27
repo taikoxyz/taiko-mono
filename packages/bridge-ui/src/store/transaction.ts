@@ -2,7 +2,6 @@ import { writable } from 'svelte/store';
 
 import type { Transaction } from 'ethers';
 import type { BridgeTransaction } from '../domain/transaction';
-import { signer } from './signer';
 
 export const pendingTransactions = writable<Transaction[]>([]);
 
