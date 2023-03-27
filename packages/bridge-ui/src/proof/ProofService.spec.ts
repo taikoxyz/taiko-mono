@@ -116,7 +116,7 @@ const destChain = 31336;
 const map = {
   [srcChain]: mockProvider,
   [destChain]: mockProvider,
-} as unknown as Record<string, ethers.providers.JsonRpcProvider>;
+} as unknown as Record<string, ethers.providers.StaticJsonRpcProvider>;
 
 describe('prover tests', () => {
   beforeEach(() => {

@@ -427,7 +427,7 @@ describe('bridge tests', () => {
         srcBridgeAddress: '0x',
         destBridgeAddress: '0x',
         signer: wallet,
-        destProvider: new ethers.providers.JsonRpcProvider(),
+        destProvider: new ethers.providers.StaticJsonRpcProvider(),
         srcTokenVaultAddress: '0x',
       }),
     ).rejects.toThrowError('message already processed');
@@ -462,7 +462,7 @@ describe('bridge tests', () => {
       srcBridgeAddress: '0x',
       destBridgeAddress: '0x',
       signer: wallet,
-      destProvider: new ethers.providers.JsonRpcProvider(),
+      destProvider: new ethers.providers.StaticJsonRpcProvider(),
       srcTokenVaultAddress: '0x',
     });
 
