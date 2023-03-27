@@ -7,7 +7,7 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
-import {LibTokenomics} from "./LibTokenomics.sol";
+import {LibL1Tokenomics} from "./LibL1Tokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {
     SafeCastUpgradeable
@@ -120,7 +120,7 @@ library LibVerifying {
                 uint256 newFeeBase,
                 uint256 amount,
                 uint256 premiumRate
-            ) = LibTokenomics.getProofReward({
+            ) = LibL1Tokenomics.getProofReward({
                     state: state,
                     config: config,
                     provenAt: fc.provenAt,

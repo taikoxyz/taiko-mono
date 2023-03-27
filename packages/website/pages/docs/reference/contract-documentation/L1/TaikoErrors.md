@@ -16,12 +16,6 @@ error L1_ALREADY_PROVEN()
 error L1_BLOCK_ID()
 ```
 
-### L1_CONFLICT_PROOF
-
-```solidity
-error L1_CONFLICT_PROOF()
-```
-
 ### L1_CONTRACT_NOT_ALLOWED
 
 ```solidity

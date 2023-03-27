@@ -4,9 +4,9 @@ pragma solidity ^0.8.18;
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 import {TaikoData} from "../contracts/L1/TaikoData.sol";
-import {LibTokenomics} from "../contracts/L1/libs/LibTokenomics.sol";
+import {LibL1Tokenomics} from "../contracts/L1/libs/LibL1Tokenomics.sol";
 
-contract TaikoL1WithConfig is Test {
+contract TestLibL1Tokenomics is Test {
     struct FeeConfig {
         uint64 avgTimeMAF;
         uint64 avgTimeCap;
@@ -278,7 +278,7 @@ contract TaikoL1WithConfig is Test {
             dampingFactorBips: dampingFactorBips
         });
 
-        (uint256 _feeBase, uint256 _premiumRate) = LibTokenomics
+        (uint256 _feeBase, uint256 _premiumRate) = LibL1Tokenomics
             .getTimeAdjustedFee(
                 feeConfig,
                 feeBase,
