@@ -39,7 +39,6 @@ library TaikoConfig {
                 proposerDepositPctg: 25, // - 25%
                 // Moving average factors
                 feeBaseMAF: 1024,
-                bootstrapDiscountHalvingPeriod: 1 seconds, // owner:daniel
                 constantFeeRewardBlocks: 1024,
                 txListCacheExpiry: 0,
                 enableSoloProposer: false,

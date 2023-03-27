@@ -50,22 +50,6 @@ describe("tokenomics: blockFee", function () {
         expect(blockFee).to.be.eq(0);
     });
 
-    it("block fee should increase as the halving period passes, while no blocks are proposed", async function () {
-        const iterations: number = 5;
-        const period: number = config.bootstrapDiscountHalvingPeriod
-            .mul(1000)
-            .toNumber();
-
-        let lastBlockFee: BigNumber = await taikoL1.getBlockFee();
-
-        for (let i = 0; i < iterations; i++) {
-            await sleep(period);
-            const blockFee = await taikoL1.getBlockFee();
-            expect(blockFee).to.be.gt(lastBlockFee);
-            lastBlockFee = blockFee;
-        }
-    });
-
     it(
         "proposes blocks on interval, proposer's balance for TkoToken should decrease as it pays proposer fee, " +
             "proofReward should increase since more slots are used and " +

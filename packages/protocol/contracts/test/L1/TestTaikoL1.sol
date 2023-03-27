@@ -31,7 +31,6 @@ contract TestTaikoL1 is TaikoL1 {
         config.rewardBurnBips = 100; // 100 basis points or 1%
         config.proposerDepositPctg = 25; // 25%
 
-        config.bootstrapDiscountHalvingPeriod = 1 seconds;
         config.enableTokenomics = false;
         config.skipZKPVerification = true;
         config.feeBaseMAF = 1024;

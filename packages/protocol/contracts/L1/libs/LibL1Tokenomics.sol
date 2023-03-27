@@ -8,15 +8,11 @@ pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibMath} from "../../libs/LibMath.sol";
-import {
-    SafeCastUpgradeable
-} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {TaikoData} from "../TaikoData.sol";
 import {TaikoToken} from "../TaikoToken.sol";
 
 library LibL1Tokenomics {
     using LibMath for uint256;
-    using SafeCastUpgradeable for uint256;
 
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_PARAM();
@@ -80,19 +76,8 @@ library LibL1Tokenomics {
             });
         }
 
-        if (config.bootstrapDiscountHalvingPeriod > 0) {
-            unchecked {
-                uint256 halves = uint256(
-                    block.timestamp - state.genesisTimestamp
-                ) / config.bootstrapDiscountHalvingPeriod;
-                uint256 gamma = 1024 - (1024 >> (1 + halves));
-                fee = ((fee * gamma) / 1024).toUint64();
-            }
-        }
-
         unchecked {
-            depositAmount = ((fee * config.proposerDepositPctg) / 100)
-                .toUint64();
+            depositAmount = uint64((fee * config.proposerDepositPctg) / 100);
         }
     }
 
@@ -128,8 +113,7 @@ library LibL1Tokenomics {
             });
         }
         unchecked {
-            reward = ((reward * (10000 - config.rewardBurnBips)) / 10000)
-                .toUint64();
+            reward = uint64((reward * (10000 - config.rewardBurnBips)) / 10000);
         }
     }
 
@@ -150,7 +134,7 @@ library LibL1Tokenomics {
                 (state.numBlocks - state.lastVerifiedBlockId - 1);
             // k is `m − n + 1` or `m − n - 1`in the whitepaper
             uint256 k = isProposal ? m - n - 1000 : m - n + 1000;
-            return ((feeBase * (m - 1000) * m) / (m - n) / k).toUint64();
+            return uint64((feeBase * (m - 1000) * m) / (m - n) / k);
         }
     }
 
@@ -166,17 +150,16 @@ library LibL1Tokenomics {
             return (feeBase, 0);
         }
         unchecked {
-            uint p = feeConfig.dampingFactorBips; // [0-10000]
-            uint a = timeAverage;
-            uint t = (timeUsed * 1000).min(a * 2); // millisconds
+            uint256 p = feeConfig.dampingFactorBips; // [0-10000]
+            uint256 a = timeAverage;
+            uint256 t = (timeUsed * 1000).min(a * 2); // millisconds
 
-            newFeeBase = ((feeBase * (10000 + (t * p) / a - p)) / 10000)
-                .toUint64();
+            newFeeBase = uint64((feeBase * (10000 + (t * p) / a - p)) / 10000);
 
             if (isProposal) {
                 newFeeBase = (feeBase * 2) - newFeeBase;
             } else if (p > 0) {
-                premiumRate = (((t.max(a) - a) * 10000) / a).toUint64();
+                premiumRate = uint64(((t.max(a) - a) * 10000) / a);
             }
         }
     }

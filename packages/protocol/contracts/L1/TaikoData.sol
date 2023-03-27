@@ -31,7 +31,6 @@ library TaikoData {
         uint256 proposerDepositPctg;
         // Moving average factors
         uint256 feeBaseMAF;
-        uint64 bootstrapDiscountHalvingPeriod;
         uint64 constantFeeRewardBlocks;
         uint64 txListCacheExpiry;
         bool enableSoloProposer;
