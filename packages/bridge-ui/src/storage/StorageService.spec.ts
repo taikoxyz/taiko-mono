@@ -96,7 +96,7 @@ describe('storage tests', () => {
 
     const svc = new StorageService(mockStorage as any, providers);
 
-    const addresses = await svc.GetAllByAddress('0x123', L2_CHAIN_ID);
+    const addresses = await svc.GetAllByAddress('0x123');
 
     expect(addresses).toEqual([]);
   });
@@ -120,7 +120,7 @@ describe('storage tests', () => {
 
     const svc = new StorageService(mockStorage as any, providers);
 
-    const addresses = await svc.GetAllByAddress('0x123', L1_CHAIN_ID);
+    const addresses = await svc.GetAllByAddress('0x123');
 
     expect(addresses).toEqual([
       {
@@ -156,7 +156,7 @@ describe('storage tests', () => {
 
     const svc = new StorageService(mockStorage as any, providers);
 
-    const addresses = await svc.GetAllByAddress('0x123', L1_CHAIN_ID);
+    const addresses = await svc.GetAllByAddress('0x123');
 
     expect(addresses).toEqual([
       {
@@ -201,7 +201,7 @@ describe('storage tests', () => {
 
     const svc = new StorageService(mockStorage as any, providers);
 
-    const addresses = await svc.GetAllByAddress('0x123', L1_CHAIN_ID);
+    const addresses = await svc.GetAllByAddress('0x123');
 
     expect(addresses).toEqual([
       {
@@ -253,7 +253,7 @@ describe('storage tests', () => {
 
     const svc = new StorageService(mockStorage as any, providers);
 
-    const addresses = await svc.GetAllByAddress('0x123', L2_CHAIN_ID);
+    const addresses = await svc.GetAllByAddress('0x123');
 
     expect(addresses).toEqual([
       {

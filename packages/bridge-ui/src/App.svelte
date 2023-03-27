@@ -1,6 +1,5 @@
 <script lang="ts">
   import { wrap } from 'svelte-spa-router/wrap';
-  import QueryProvider from './components/providers/QueryProvider.svelte';
   import Router from 'svelte-spa-router';
   import { configureChains, createClient } from '@wagmi/core';
   import { publicProvider } from '@wagmi/core/providers/public';
@@ -172,14 +171,14 @@
   };
 </script>
 
-<QueryProvider>
-  <main>
-    <Navbar />
-    <Router {routes} />
-  </main>
-  <Toast />
-  <SwitchEthereumChainModal />
-</QueryProvider>
+<main>
+  <Navbar />
+  <Router {routes} />
+</main>
+
+<Toast />
+
+<SwitchEthereumChainModal />
 
 <style>
   main {

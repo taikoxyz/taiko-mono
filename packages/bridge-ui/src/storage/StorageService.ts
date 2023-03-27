@@ -20,10 +20,7 @@ export class StorageService implements Transactioner {
     this.providers = providers;
   }
 
-  async GetAllByAddress(
-    address: string,
-    chainID?: number,
-  ): Promise<BridgeTransaction[]> {
+  async GetAllByAddress(address: string): Promise<BridgeTransaction[]> {
     const txs: BridgeTransaction[] = JSON.parse(
       this.storage.getItem(`transactions-${address.toLowerCase()}`),
     );
