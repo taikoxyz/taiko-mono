@@ -140,8 +140,8 @@ library TaikoData {
         uint64 avgBlockTime; // miliseconds
         uint64 gasExcess;
         // Changed when a block is proven/finalized
-        uint64 __reserved4;
         uint64 lastVerifiedBlockId;
+        uint64 __reserved4;
         // the proof time moving average, note that for each block, only the
         // first proof's time is considered.
         uint64 avgProofTime; // miliseconds
