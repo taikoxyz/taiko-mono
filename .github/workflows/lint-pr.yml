@@ -20,6 +20,7 @@ jobs:
             repo
             branding
             bridge-ui
+            eventindexer
             protocol
             relayer
             status-page
