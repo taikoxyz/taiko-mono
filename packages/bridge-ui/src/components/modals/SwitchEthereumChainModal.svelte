@@ -27,6 +27,7 @@
 
 <Modal
   title={$_('switchChainModal.title')}
+  showXButton={false}
   isOpen={$isSwitchEthereumChainModalOpen}>
   <div class="w-100 text-center px-4">
     <span class="font-light text-sm">{$_('switchChainModal.subtitle')}</span>

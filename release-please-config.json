@@ -3,6 +3,7 @@
     ".": {},
     "packages/branding": {},
     "packages/bridge-ui": {},
+    "packages/eventindexer": {},
     "packages/protocol": {},
     "packages/relayer": {},
     "packages/status-page": {},
