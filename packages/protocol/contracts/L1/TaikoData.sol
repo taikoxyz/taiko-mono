@@ -147,6 +147,6 @@ library TaikoData {
         uint64 avgProofTime; // miliseconds
         uint64 feeBase;
         // Reserved
-        uint256[41] __gap;
+        uint256[43] __gap;
     }
 }
