@@ -8,6 +8,7 @@ pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibMath} from "../../libs/LibMath.sol";
+import {LibRealMath} from "../../libs/LibRealMath.sol";
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
@@ -53,11 +54,22 @@ library LibL2Tokenomics {
         newGasExcess = gasExcess.max(adjustment) - adjustment;
 
         gasPurchaseCost =
-            LibMath.exp(
-                (newGasExcess + gasInBlock) / gasTarget / adjustmentQuotient
+            _ethAmount(
+                newGasExcess + gasInBlock,
+                gasTarget,
+                adjustmentQuotient
             ) -
-            LibMath.exp(newGasExcess / gasTarget / adjustmentQuotient);
+            _ethAmount(newGasExcess, gasTarget, adjustmentQuotient);
         basefee = (gasPurchaseCost / gasInBlock).toUint32();
         newGasExcess += gasInBlock;
+    }
+
+    function _ethAmount(
+        uint256 gasExcess,
+        uint256 gasTarget,
+        uint256 adjustmentQuotient
+    ) internal pure returns (uint256) {
+        uint128 x = (gasExcess / gasTarget / adjustmentQuotient).toUint128();
+        return LibRealMath.exp(x);
     }
 }
