@@ -19,6 +19,7 @@ import {TaikoData} from "../TaikoData.sol";
 library LibProposing {
     using SafeCastUpgradeable for uint256;
     using LibAddress for address;
+    using LibAddress for address payable;
     using LibUtils for TaikoData.State;
 
     event BlockProposed(
@@ -87,6 +88,8 @@ library LibProposing {
             (state.gasExcess, meta.basefee, gasPurchaseCost) = LibL2Tokenomics
                 .get1559Basefee(state, config, input.gasLimit);
             if (msg.value < gasPurchaseCost) revert L1_INSUFFICIENT_ETHER();
+
+            resolver.resolve("treasure", false).sendEther(gasPurchaseCost);
             msg.sender.sendEther(msg.value - gasPurchaseCost);
         }
 
