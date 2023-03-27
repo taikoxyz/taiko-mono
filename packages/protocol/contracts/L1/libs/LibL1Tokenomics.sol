@@ -16,7 +16,6 @@ import {TaikoToken} from "../TaikoToken.sol";
 
 library LibL1Tokenomics {
     using LibMath for uint256;
-    uint256 private constant TWEI_TO_WEI = 1E12;
 
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_PARAM();

@@ -21,6 +21,8 @@ library TaikoData {
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;
         uint256 blockMaxGasLimit;
+        uint256 gasTarget;
+        uint256 adjustmentQuotient;
         uint256 maxTransactionsPerBlock;
         uint256 maxBytesPerTxList;
         uint256 minTxGasLimit;
@@ -124,6 +126,7 @@ library TaikoData {
         mapping(uint256 blockId => mapping(bytes32 parentHash => uint256 forkChoiceId)) forkChoiceIds;
         mapping(address account => uint256 balance) balances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
+        uint256 gasExcess;
         // Never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
@@ -143,6 +146,6 @@ library TaikoData {
         uint64 avgProofTime; // miliseconds
         uint64 feeBase;
         // Reserved
-        uint256[42] __gap;
+        uint256[41] __gap;
     }
 }

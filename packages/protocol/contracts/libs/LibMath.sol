@@ -30,4 +30,13 @@ library LibMath {
     function max(uint256 a, uint256 b) internal pure returns (uint256) {
         return a > b ? a : b;
     }
+
+    /**
+     * @notice Returns the power of Eular number.
+     * @param x The base.
+     * @return The power of Eular number.
+     */
+    function exp(uint256 x) internal pure returns (uint256) {
+        // TODO(Daniel): Implement & test this function.
+    }
 }
