@@ -20,6 +20,7 @@ import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
 
 contract DeployOnL1 is Script {
     function run() external {
+        string memory l1ChainId = vm.toString(block.chainid);
         string memory l2ChainId = vm.envString("L2_CHAIN_ID");
         bytes32 l2GensisHash = vm.envBytes32("L2_GENESIS_HASH");
         address taikoL2Address = vm.envAddress("TAIKO_L2_ADDRESS");
@@ -27,8 +28,6 @@ contract DeployOnL1 is Script {
         address soloProposer = vm.envAddress("SOLO_PROPOSER");
         address proxyAdmin = vm.envAddress("PROXY_ADMIN");
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-
-        string memory l1ChainId = vm.toString(block.chainid);
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -171,10 +170,10 @@ contract DeployOnL1 is Script {
 
     function deployPlonkVerifiers(address addressManagerProxy) internal {
         address[] memory plonkVerifiers = new address[](2);
-        plonkVerifiers[0] = compileYulContract(
+        plonkVerifiers[0] = deployYulContract(
             "contracts/libs/yul/PlonkVerifier_10_txs.yulp"
         );
-        plonkVerifiers[1] = compileYulContract(
+        plonkVerifiers[1] = deployYulContract(
             "contracts/libs/yul/PlonkVerifier_80_txs.yulp"
         );
 
@@ -186,7 +185,7 @@ contract DeployOnL1 is Script {
         }
     }
 
-    function compileYulContract(
+    function deployYulContract(
         string memory contractPath
     ) internal returns (address) {
         string[] memory cmds = new string[](3);
