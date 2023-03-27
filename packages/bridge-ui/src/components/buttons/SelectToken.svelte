@@ -84,7 +84,7 @@
         logoComponent: null,
       } as Token;
 
-      const updateTokensList = $tokenService.StoreToken(token, userAddress);
+      const updateTokensList = $tokenService.storeToken(token, userAddress);
 
       select(token);
 

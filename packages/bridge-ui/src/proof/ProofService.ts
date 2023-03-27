@@ -84,7 +84,7 @@ export class ProofService implements Prover {
     return signalProof;
   }
 
-  async GenerateProof(opts: GenerateProofOpts): Promise<string> {
+  async generateProof(opts: GenerateProofOpts): Promise<string> {
     const key = ProofService.getKey(opts);
 
     const provider = this.providers[opts.srcChain];
@@ -115,7 +115,7 @@ export class ProofService implements Prover {
     return p;
   }
 
-  async GenerateReleaseProof(opts: GenerateReleaseProofOpts): Promise<string> {
+  async generateReleaseProof(opts: GenerateReleaseProofOpts): Promise<string> {
     const key = ProofService.getKey(opts);
 
     const provider = this.providers[opts.destChain];
