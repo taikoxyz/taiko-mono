@@ -24,7 +24,7 @@ contract TestLibL2Tokenomics is Test {
     uint64 gasExcess = gasExcess0;
 
     function setUp() public view {
-        console2.log("gasPoolProduct:", gasPoolProduct);
+        // console2.log("gasPoolProduct:", gasPoolProduct);
     }
 
     function test1559PurchaseMaxSizeGasWontOverflow() public {
