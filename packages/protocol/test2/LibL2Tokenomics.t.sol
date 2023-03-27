@@ -27,6 +27,7 @@ contract TestLibL2Tokenomics is Test {
         );
         assertEq(basefee, 0);
         assertEq(cost, 0);
+        gasExcess = gasExcess0;
     }
 
     function test1559Basefee_NoChangeAfterRefillTheSameAmount() public {
@@ -68,7 +69,7 @@ contract TestLibL2Tokenomics is Test {
         );
     }
 
-    function test1559Basefee() public {
+    function test1559Basefee_EverIncreaseing() public {
         uint64 basefee;
         for (uint i = 0; i < 5; i++) {
             (uint64 _basefee, ) = _purchaseGas(gasTargetPerSecond * 12, 0);
