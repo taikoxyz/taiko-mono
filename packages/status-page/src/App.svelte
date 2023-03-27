@@ -29,6 +29,7 @@
         oracleProverAddress:
           import.meta.env.ORACLE_PROVER_ADDRESS ||
           "0x1567CDAb5F7a69154e61A16D8Ff5eE6A3e991b39",
+        eventIndexerApiUrl: import.meta.env.VITE_EVENT_INDEXER_API_URL,
       },
       userData: {},
     }),

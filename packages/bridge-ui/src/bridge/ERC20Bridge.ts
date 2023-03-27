@@ -172,7 +172,7 @@ export class ERC20Bridge implements Bridge {
     }
 
     if (messageStatus === MessageStatus.New) {
-      const proof = await this.prover.GenerateProof({
+      const proof = await this.prover.generateProof({
         srcChain: opts.message.srcChainId.toNumber(),
         msgHash: opts.msgHash,
         sender: opts.srcBridgeAddress,
@@ -245,7 +245,7 @@ export class ERC20Bridge implements Bridge {
           chains[opts.message.srcChainId.toNumber()].headerSyncAddress,
       };
 
-      const proof = await this.prover.GenerateReleaseProof(proofOpts);
+      const proof = await this.prover.generateReleaseProof(proofOpts);
 
       const srcTokenVaultContract: Contract = new Contract(
         opts.srcTokenVaultAddress,

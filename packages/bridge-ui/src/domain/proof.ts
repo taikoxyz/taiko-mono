@@ -34,6 +34,6 @@ export type GenerateReleaseProofOpts = {
 };
 
 export interface Prover {
-  GenerateProof(opts: GenerateProofOpts): Promise<string>;
-  GenerateReleaseProof(opts: GenerateReleaseProofOpts): Promise<string>;
+  generateProof(opts: GenerateProofOpts): Promise<string>;
+  generateReleaseProof(opts: GenerateReleaseProofOpts): Promise<string>;
 }
