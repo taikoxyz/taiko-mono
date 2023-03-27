@@ -17,10 +17,9 @@ type Block struct {
 
 // SaveBlockOpts is required to store a new block
 type SaveBlockOpts struct {
-	Height    uint64
-	Hash      common.Hash
-	ChainID   *big.Int
-	EventName string
+	Height  uint64
+	Hash    common.Hash
+	ChainID *big.Int
 }
 
 // BlockRepository defines methods necessary for interacting with
