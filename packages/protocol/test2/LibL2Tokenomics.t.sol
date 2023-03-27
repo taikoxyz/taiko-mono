@@ -11,11 +11,14 @@ import {
 contract TestLibL2Tokenomics is Test {
     using SafeCastUpgradeable for uint256;
 
+    // Ethereum offers 15M gas per 12 seconds, if we scale it by 24 times,
+    // then each second, Taiko can offer 30M gas.
     uint64 initialBaseFee = 5000000000;
-    uint32 gasTargetPerSecond = 1000000;
-    uint64 gasExcess0 = gasTargetPerSecond * 512;
+    uint32 gasTargetPerSecond = 30000000; // 30M gas per second
+    uint64 gasExcess0 = uint64(gasTargetPerSecond) * 200;
     uint256 gasPoolProduct =
         uint(gasExcess0) * uint(gasExcess0) * initialBaseFee;
+
     uint64 gasExcess = gasExcess0;
 
     function test1559PurchaseMaxSizeGasWontOverflow() public {
@@ -47,22 +50,24 @@ contract TestLibL2Tokenomics is Test {
     }
 
     function test1559Basefee_Compare_T_vs_2T() public {
+        uint32 blockMaxGasLimit = 6000000;
+
         (uint64 basefee, ) = _purchaseGas(1, 24 seconds);
         gasExcess = gasExcess0;
 
-        (uint64 basefeeT, ) = _purchaseGas(gasTargetPerSecond * 12, 0 seconds);
+        (uint64 basefeeT, ) = _purchaseGas(blockMaxGasLimit / 2, 0 seconds);
         gasExcess = gasExcess0;
 
-        (uint64 basefee2T, ) = _purchaseGas(gasTargetPerSecond * 24, 0 seconds);
+        (uint64 basefee2T, ) = _purchaseGas(blockMaxGasLimit, 0 seconds);
         gasExcess = gasExcess0;
 
-        console2.log("when purchase a block of size gasTargetPerSecond * 12:");
+        console2.log("when purchase a block of size blockMaxGasLimit/2:");
         console2.log(
             unicode"👉 basefee increases by %%:",
             (basefeeT * 100) / basefee - 100
         );
 
-        console2.log("when purchase a block of size gasTargetPerSecond * 24:");
+        console2.log("when purchase a block of size blockMaxGasLimit:");
         console2.log(
             unicode"👉 basefee increases by %%:",
             (basefee2T * 100) / basefee - 100

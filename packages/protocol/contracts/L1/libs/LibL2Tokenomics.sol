@@ -45,10 +45,10 @@ library LibL2Tokenomics {
     //      have a solidity exp(uint256 x) implementation.
     function calc1559Basefee(
         uint64 gasExcess,
-        uint64 gasTargetPerSecond,
+        uint256 gasTargetPerSecond,
         uint256 gasPoolProduct,
         uint32 gasInBlock,
-        uint64 blockTime
+        uint256 blockTime
     )
         internal
         pure
@@ -56,24 +56,23 @@ library LibL2Tokenomics {
     {
         if (gasInBlock == 0) {
             return (gasExcess, 0, 0);
-        } else {
-            unchecked {
-                uint256 _gasExcess = uint256(gasExcess) +
-                    (gasTargetPerSecond * blockTime);
+        }
+        unchecked {
+            uint256 _gasExcess = gasTargetPerSecond * blockTime + gasExcess;
 
-                _gasExcess = _gasExcess.min(type(uint64).max);
+            _gasExcess = _gasExcess.min(type(uint64).max);
 
-                if (gasInBlock >= _gasExcess) revert L1_OUT_OF_BLOCK_SPACE();
+            if (gasInBlock >= _gasExcess) revert L1_OUT_OF_BLOCK_SPACE();
 
-                newGasExcess = uint64(_gasExcess - gasInBlock);
+            newGasExcess = uint64(_gasExcess - gasInBlock);
 
-                gasPurchaseCost =
-                    (gasPoolProduct / newGasExcess) -
-                    (gasPoolProduct / _gasExcess);
+            gasPurchaseCost =
+                (gasPoolProduct / newGasExcess) -
+                (gasPoolProduct / _gasExcess);
 
-                uint256 _basefee = gasPurchaseCost / gasInBlock;
-                basefee = uint64(_basefee.min(type(uint64).max));
-            }
+            uint256 _basefee = gasPurchaseCost / gasInBlock;
+            basefee = uint64(_basefee.min(type(uint64).max));
+            gasPurchaseCost = uint256(basefee) * gasInBlock;
         }
     }
 }
