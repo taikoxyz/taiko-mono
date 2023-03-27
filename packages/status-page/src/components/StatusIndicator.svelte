@@ -7,6 +7,7 @@
   import { fade } from "svelte/transition";
   import Tooltip from "./Tooltip.svelte";
   import TooltipModal from "./TooltipModal.svelte";
+  import DetailsModal from "./DetailsModal.svelte";
 
   export let provider: ethers.providers.JsonRpcProvider;
   export let contractAddress: string;
@@ -39,6 +40,8 @@
   let statusValue: Status;
 
   let tooltipOpen: boolean = false;
+
+  let detailsOpen: boolean = false;
 
   onMount(async () => {
     try {
