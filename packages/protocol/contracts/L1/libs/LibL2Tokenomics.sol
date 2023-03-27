@@ -38,6 +38,8 @@ library LibL2Tokenomics {
             );
     }
 
+    // @dev Return adjusted basefee per gas for the next L2 block.
+    //      See https://ethresear.ch/t/make-eip-1559-more-like-an-amm-curve/9082
     function calculate1559Basefee(
         uint256 gasExcess,
         uint256 gasTarget,
