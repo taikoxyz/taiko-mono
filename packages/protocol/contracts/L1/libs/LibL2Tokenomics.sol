@@ -72,7 +72,9 @@ library LibL2Tokenomics {
                 (gasPoolProduct / newGasExcess) -
                 (gasPoolProduct / _gasExcess);
 
-            basefee = (gasPurchaseCost / gasInBlock).toUint64();
+            basefee = uint64(
+                (gasPurchaseCost / gasInBlock).min(type(uint64).max)
+            );
         }
     }
 }

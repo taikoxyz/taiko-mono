@@ -50,6 +50,8 @@ library TaikoData {
         uint64 avgBlockTime;
         uint64 avgProofTime;
         uint64 lastProposedAt;
+        uint64 basefee;
+        uint256 gasExcess;
     }
 
     // 3 slots

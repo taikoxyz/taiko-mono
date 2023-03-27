@@ -29,14 +29,16 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
-        uint64 _feeBase
+        uint64 _feeBase,
+        uint256 _gasExcess
     ) external initializer {
         EssentialContract._init(_addressManager);
         LibVerifying.init({
             state: state,
             config: getConfig(),
             genesisBlockHash: _genesisBlockHash,
-            feeBase: _feeBase
+            feeBase: _feeBase,
+            gasExcess: _gasExcess
         });
     }
 
@@ -230,7 +232,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         view
         returns (TaikoData.StateVariables memory)
     {
-        return state.getStateVariables();
+        return state.getStateVariables(getConfig());
     }
 
     function getConfig() public pure virtual returns (TaikoData.Config memory) {

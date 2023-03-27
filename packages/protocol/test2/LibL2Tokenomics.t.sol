@@ -16,10 +16,6 @@ contract TestLibL2Tokenomics is Test {
     uint256 gasExcess = gasTargetPerSecond * 1000;
     uint256 gasPoolProduct = gasExcess ** 2 * initialBaseFee;
 
-    function setUp() public {
-        console2.log("===== gasPoolProduct:", gasPoolProduct);
-    }
-
     function test1559Basefee() public {
         _purchaseGas(gasTargetPerSecond * 12, 12);
         _purchaseGas(gasTargetPerSecond * 12, 12);

@@ -29,7 +29,8 @@ library LibUtils {
     }
 
     function getStateVariables(
-        TaikoData.State storage state
+        TaikoData.State storage state,
+        TaikoData.Config memory config
     ) internal view returns (TaikoData.StateVariables memory) {
         return
             TaikoData.StateVariables({
@@ -40,7 +41,13 @@ library LibUtils {
                 lastProposedAt: state.lastProposedAt,
                 avgBlockTime: state.avgBlockTime,
                 lastVerifiedBlockId: state.lastVerifiedBlockId,
-                avgProofTime: state.avgProofTime
+                avgProofTime: state.avgProofTime,
+                basefee: uint64(
+                    (config.gasPoolProduct / state.gasExcess).min(
+                        type(uint64).max
+                    )
+                ),
+                gasExcess: state.gasExcess
             });
     }
 
