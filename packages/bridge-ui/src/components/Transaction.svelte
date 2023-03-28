@@ -189,12 +189,12 @@
         providers[chains[transaction.toChainId].id],
       );
 
-      transaction.status = await contract.getMessageStatus(transaction.msgHash);
-
       if (transaction.receipt && transaction.receipt.status !== 1) {
         clearInterval(interval);
         return;
       }
+
+      transaction.status = await contract.getMessageStatus(transaction.msgHash);
 
       if (transaction.status === MessageStatus.Failed) {
         if (transaction.message?.data !== '0x') {
