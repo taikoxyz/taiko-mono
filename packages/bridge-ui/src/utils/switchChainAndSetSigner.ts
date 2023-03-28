@@ -6,10 +6,11 @@ import { mainnetChain, taikoChain } from '../chain/chains';
 import { signer } from '../store/signer';
 
 export async function switchChainAndSetSigner(chain: Chain) {
-  await switchNetwork({
-    chainId: chain.id,
-  });
-  const provider = new ethers.providers.Web3Provider(window.ethereum);
+  const chainId = chain.id;
+
+  await switchNetwork({ chainId });
+
+  const provider = new ethers.providers.Web3Provider(globalThis.ethereum);
   await provider.send('eth_requestAccounts', []);
 
   fromChain.set(chain);
@@ -18,6 +19,8 @@ export async function switchChainAndSetSigner(chain: Chain) {
   } else {
     toChain.set(mainnetChain);
   }
-  const wagmiSigner = await fetchSigner();
+
+  const wagmiSigner = await fetchSigner({ chainId });
+
   signer.set(wagmiSigner);
 }

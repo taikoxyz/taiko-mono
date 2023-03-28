@@ -1,11 +1,14 @@
 <script>
   import { onMount } from 'svelte';
-  import { localStoragePrefix } from '../../../config';
-  import TooltipModal from '../../modals/TooltipModal.svelte';
+  import { localStoragePrefix } from '../config';
+  import TooltipModal from './modals/TooltipModal.svelte';
+  import Button from './buttons/Button.svelte';
 
   export let show = false;
+  export let name = 'OptInOutTooltip';
+  export let title = 'Notice';
 
-  let noShowAgainLocalStorageKey = `${localStoragePrefix}_NoneFeeTooltip_noShowAgain`;
+  let noShowAgainLocalStorageKey = `${localStoragePrefix}_${name}_noShowAgain`;
   let noShowAgainStorage = false;
   let noShowAgainCheckbox = false;
 
@@ -34,17 +37,9 @@
         the user will have to refresh the page to see the message again
         if they delete the localStorage entry.
 -->
-<TooltipModal
-  title="Notice"
-  isOpen={show && !noShowAgainStorage}
-  showXButton={false}>
+<TooltipModal {title} isOpen={show && !noShowAgainStorage} showXButton={false}>
   <div slot="body" class="space-y-6">
-    <!-- TODO: translations? -->
-    <div class="text-center">
-      Selecting <strong>None</strong> means that you'll require ETH on the receiving
-      chain in otder to claim the bridged token. Pleas, come back later to manually
-      claim.
-    </div>
+    <slot />
 
     <div class="text-left flex items-center">
       <input
@@ -57,18 +52,7 @@
     </div>
 
     <div class="flex justify-center">
-      <button
-        class="confirm btn btn-accent btn-md btn-wide"
-        on:click={onConfirmNotice}>
-        Confirm
-      </button>
+      <Button type="accent" on:click={onConfirmNotice}>Confirm</Button>
     </div>
   </div>
 </TooltipModal>
-
-<style>
-  .confirm {
-    /* TODO: design needed for buttons */
-    height: 54px;
-  }
-</style>

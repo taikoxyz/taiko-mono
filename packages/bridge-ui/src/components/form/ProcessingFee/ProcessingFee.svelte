@@ -8,7 +8,7 @@
   import ButtonWithTooltip from '../../ButtonWithTooltip.svelte';
   import { processingFees } from '../../../fee/processingFees';
   import GeneralTooltip from './ProcessingFeeTooltip.svelte';
-  import NoneFeeTooltip from './NoneFeeTooltip.svelte';
+  import OptInOutTooltip from '../../../components/OptInOutTooltip.svelte';
 
   export let method: ProcessingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
   export let amount: string = '0';
@@ -86,7 +86,14 @@
 </div>
 
 <GeneralTooltip bind:show={showProcessingFeeTooltip} />
-<NoneFeeTooltip bind:show={showNoneFeeTooltip} />
+<OptInOutTooltip bind:show={showNoneFeeTooltip} name="NoneFeeTooltip">
+  <!-- TODO: translations? -->
+  <div class="text-center">
+    Selecting <strong>None</strong> means that you'll require ETH on the receiving
+    chain in otder to claim the bridged token. Pleas, come back later to manually
+    claim.
+  </div>
+</OptInOutTooltip>
 
 <style>
   /* hide number input arrows */
