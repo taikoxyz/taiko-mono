@@ -27,18 +27,11 @@
       <tbody class="text-sm md:text-base">
         {#each $transactions as transaction}
           <Transaction
-            onTooltipClick={(showInsufficientBalanceMessage = false) => {
-              if (showInsufficientBalanceMessage) {
-                showInsufficientBalance = true;
-              } else {
-                showMessageStatusTooltip = true;
-              }
-            }}
-            onShowTransactionDetailsClick={() => {
+            on:tooltipClick={() => (showMessageStatusTooltip = true)}
+            on:insufficientBalance={() => (showInsufficientBalance = true)}
+            on:transactionDetailsClick={() => {
               selectedTransaction = transaction;
             }}
-            toChain={chains[transaction.toChainId]}
-            fromChain={chains[transaction.fromChainId]}
             {transaction} />
         {/each}
       </tbody>

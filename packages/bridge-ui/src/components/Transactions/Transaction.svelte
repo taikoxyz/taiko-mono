@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { createEventDispatcher } from 'svelte';
   import type { BridgeTransaction } from '../../domain/transactions';
   import type { Chain } from '../../domain/chain';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
@@ -7,38 +8,37 @@
   import { signer } from '../../store/signer';
   import { pendingTransactions } from '../../store/transactions';
   import { _ } from 'svelte-i18n';
-  import {
-    fromChain as fromChainStore,
-    toChain as toChainStore,
-  } from '../../store/chain';
+  import { fromChain, toChain } from '../../store/chain';
   import { BridgeType } from '../../domain/bridge';
   import { onDestroy, onMount } from 'svelte';
 
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
   import { errorToast, successToast } from '../Toast.svelte';
   import HeaderSyncABI from '../../constants/abi/HeaderSync';
-  import { fetchSigner, switchNetwork } from '@wagmi/core';
   import BridgeABI from '../../constants/abi/Bridge';
   import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
   import TokenVaultABI from '../../constants/abi/TokenVault';
-  import { chains, mainnetChain, taikoChain } from '../../chain/chains';
+  import { chains } from '../../chain/chains';
   import { providers } from '../../provider/providers';
   import { bridges } from '../../bridge/bridges';
   import { tokenVaults } from '../../vault/tokenVaults';
   import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
   import Button from '../buttons/Button.svelte';
+  import { switchChainAndSetSigner } from '../../utils/switchChainAndSetSigner';
 
   export let transaction: BridgeTransaction;
-  export let fromChain: Chain;
-  export let toChain: Chain;
 
-  export let onTooltipClick: (showInsufficientBalanceMessage: boolean) => void;
-  export let onShowTransactionDetailsClick: () => void;
+  const dispatch = createEventDispatcher<{
+    tooltipClick: void;
+    insufficientBalance: void;
+    transactionDetailsClick: BridgeTransaction;
+  }>();
 
   let loading: boolean;
-
   let processable: boolean = false;
   let interval: ReturnType<typeof setInterval>;
+  let txToChain = chains[transaction.toChainId];
+  let txFromChain = chains[transaction.fromChainId];
 
   onMount(async () => {
     processable = await isProcessable();
@@ -51,30 +51,14 @@
     }
   });
 
-  async function switchChainAndSetSigner(chain: Chain) {
-    await switchNetwork({
-      chainId: chain.id,
-    });
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    await provider.send('eth_requestAccounts', []);
-
-    fromChainStore.set(chain);
-    if (chain === mainnetChain) {
-      toChainStore.set(taikoChain);
-    } else {
-      toChainStore.set(mainnetChain);
-    }
-    const wagmiSigner = await fetchSigner();
-    signer.set(wagmiSigner);
-  }
-
+  // TODO: move outside of component
   async function claim(bridgeTx: BridgeTransaction) {
     try {
       loading = true;
       // if the current "from chain", ie, the chain youre connected to, is not the destination
       // of the bridge transaction, we need to change chains so your wallet is pointed
       // to the right network.
-      if ($fromChainStore.id !== bridgeTx.toChainId) {
+      if ($fromChain.id !== bridgeTx.toChainId) {
         const chain = chains[bridgeTx.toChainId];
         await switchChainAndSetSigner(chain);
       }
@@ -89,7 +73,7 @@
       // TODO: estimate Claim transaction
       const userBalance = await $signer.getBalance('latest');
       if (!userBalance.gt(ethers.utils.parseEther('0.0001'))) {
-        onTooltipClick(true);
+        dispatch('insufficientBalance');
         return;
       }
 
@@ -120,10 +104,11 @@
     }
   }
 
+  // TODO: move outside of component
   async function releaseTokens(bridgeTx: BridgeTransaction) {
     try {
       loading = true;
-      if (fromChain.id !== bridgeTx.fromChainId) {
+      if (txFromChain.id !== bridgeTx.fromChainId) {
         const chain = chains[bridgeTx.fromChainId];
         await switchChainAndSetSigner(chain);
       }
@@ -162,6 +147,7 @@
     }
   }
 
+  // TODO: move outside of component: isTransactionProcessable?
   async function isProcessable() {
     if (!transaction.receipt) return false;
     if (!transaction.message) return false;
@@ -181,6 +167,7 @@
     return transaction.receipt.blockNumber <= srcBlock.number;
   }
 
+  // TODO: web worker?
   function startInterval() {
     return setInterval(async () => {
       processable = await isProcessable();
@@ -235,14 +222,15 @@
 
 <tr class="text-transaction-table">
   <td>
-    <svelte:component this={fromChain.icon} height={18} width={18} />
-    <span class="ml-2 hidden md:inline-block">{fromChain.name}</span>
+    <svelte:component this={txFromChain.icon} height={18} width={18} />
+    <span class="ml-2 hidden md:inline-block">{txFromChain.name}</span>
   </td>
   <td>
-    <svelte:component this={toChain.icon} height={18} width={18} />
-    <span class="ml-2 hidden md:inline-block">{toChain.name}</span>
+    <svelte:component this={txToChain.icon} height={18} width={18} />
+    <span class="ml-2 hidden md:inline-block">{txToChain.name}</span>
   </td>
   <td>
+    <!-- TODO: function to check is we're dealing with ETH or ERC20 -->
     {transaction.message &&
     (transaction.message?.data === '0x' || !transaction.message?.data)
       ? ethers.utils.formatEther(
@@ -255,7 +243,7 @@
   </td>
 
   <td>
-    <ButtonWithTooltip onClick={() => onTooltipClick(false)}>
+    <ButtonWithTooltip onClick={() => dispatch('tooltipClick')}>
       <span slot="buttonText">
         {#if !processable}
           Pending
@@ -273,10 +261,13 @@
               controlsLayout={[]} />
           </div>
         {:else if transaction.receipt && [MessageStatus.New, MessageStatus.ClaimInProgress].includes(transaction.status)}
+          <!-- TODO: think about destructuring transaction -->
           <Button
             type="accent"
             size="sm"
-            on:click={async () => await claim(transaction)}
+            on:click={async () => {
+              await claim(transaction);
+            }}
             disabled={transaction.status === MessageStatus.ClaimInProgress}>
             Claim
           </Button>
@@ -309,7 +300,7 @@
   <td>
     <button
       class="cursor-pointer inline-block"
-      on:click={onShowTransactionDetailsClick}>
+      on:click={() => dispatch('transactionDetailsClick', transaction)}>
       <ArrowTopRightOnSquare />
     </button>
   </td>
