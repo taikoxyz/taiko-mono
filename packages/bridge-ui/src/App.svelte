@@ -140,7 +140,7 @@
       );
       successToast('Transaction completed!');
       let s = store;
-      s = s.slice(confirmedPendingTxIndex, 0);
+      s.splice(confirmedPendingTxIndex, 1);
       pendingTransactions.set(s);
     })();
   });
