@@ -58,24 +58,4 @@ library LibUtils {
         uint256 _ma = (maValue * (maf - 1) + newValue) / maf;
         return _ma > 0 ? _ma : maValue;
     }
-
-    function hashMetadata(
-        TaikoData.BlockMetadata memory meta
-    ) internal pure returns (bytes32 hash) {
-        bytes32[5] memory inputs;
-        inputs[0] =
-            bytes32(uint256(meta.id) << 192) |
-            bytes32(uint256(meta.gasLimit) << 128) |
-            bytes32(uint256(meta.timestamp) << 64) |
-            bytes32(uint256(meta.l1Height));
-
-        inputs[1] = meta.l1Hash;
-        inputs[2] = meta.mixHash;
-        inputs[3] = meta.txListHash;
-        inputs[4] = bytes32(uint256(uint160(meta.beneficiary)));
-
-        assembly {
-            hash := keccak256(inputs, mul(5, 32))
-        }
-    }
 }
