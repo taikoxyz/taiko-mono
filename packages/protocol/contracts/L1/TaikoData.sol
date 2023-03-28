@@ -14,7 +14,7 @@ library TaikoData {
 
     struct FeeAndRewardConfig {
         uint256 baseFeeProof;
-        uint64 rewardIssued;
+        uint256 rewardIssued;
         // avgProofTimeMAF is known already
         //uint16 avgProofTimeMAF;
         uint64 rewardTargetPerGas;

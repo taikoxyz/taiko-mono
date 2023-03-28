@@ -6,6 +6,9 @@
 
 pragma solidity ^0.8.18;
 
+import {Test} from "forge-std/Test.sol";
+import {console2} from "forge-std/console2.sol";
+
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibAddress} from "../../libs/LibAddress.sol";
 import {LibL1Tokenomics} from "./LibL1Tokenomics.sol";
@@ -107,6 +110,19 @@ library LibProposing {
         blk.verifiedForkChoiceId = 0;
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.proposer = msg.sender;
+        blk.gasLimit = input.gasLimit;
+
+        // Let's see if calculations are correct so first just
+        // debug them. (Curly braces due to stack too deep error)
+        {
+            uint256 feeNew = input.gasLimit * config.feeConfig.baseFeeProof;
+
+            console2.log("Current (new) fee would be:", feeNew);
+            console2.log(
+                "Current (new) basefee would be:",
+                config.feeConfig.baseFeeProof
+            );
+        }
 
         if (config.enableTokenomics) {
             (uint256 newFeeBase, uint256 fee, uint64 deposit) = LibL1Tokenomics

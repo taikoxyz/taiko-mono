@@ -6,6 +6,9 @@
 
 pragma solidity ^0.8.18;
 
+import {Test} from "forge-std/Test.sol";
+import {console2} from "forge-std/console2.sol";
+
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibL1Tokenomics} from "./LibL1Tokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
@@ -155,25 +158,54 @@ library LibVerifying {
 
         // Calculate block reward multiplier
         uint256 blockRewardMultiplier;
+        console2.log(
+            "---------In _markBlockVerified() of LibVerifying -------"
+        );
         if (proofTime > state.avgProofTime) {
-            blockRewardMultiplier = LibL1Tokenomics.getBlockRewardMultiplier(
+            console2.log("ProofTime is bigger than average");
+            console2.log(
+                "What is the diff between proof and avg: ",
+                (proofTime - state.avgProofTime)
+            );
+            blockRewardMultiplier = LibL1Tokenomics.getBlockRewardFactor(
                 config,
                 blk.gasLimit,
-                proofTime - state.avgProofTime
+                (proofTime - state.avgProofTime) * 1000
+            );
+            console2.log("blockRewardMultiplier is: ", blockRewardMultiplier);
+
+            // Function for verification the result is the same as eip1559.py
+            uint256 xCheckPythonValue = LibL1Tokenomics.getBlockRewardFactor(
+                config,
+                uint32(5000000),
+                uint256(300000)
+            );
+            console2.log(
+                "Calculated xCheckPythonValue value is: ",
+                xCheckPythonValue
             );
         } else {
-            blockRewardMultiplier = LibL1Tokenomics.getBlockRewardMultiplier(
+            console2.log("ProofTime is smaller than average");
+            blockRewardMultiplier = LibL1Tokenomics.getBlockRewardFactor(
                 config,
                 blk.gasLimit,
                 state.avgProofTime
             );
         }
 
-        LibL1Tokenomics.updateBaseProof(
-            config.feeConfig,
-            blockRewardMultiplier,
-            blk.gasLimit
-        );
+        (uint256 rewardIssued, uint256 newBaseFeeProof) = LibL1Tokenomics
+            .updateBaseProof(
+                config.feeConfig,
+                blockRewardMultiplier,
+                blk.gasLimit
+            );
+
+        TaikoData.FeeAndRewardConfig memory feeAndRewardConf = config.feeConfig;
+
+        feeAndRewardConf.rewardIssued = rewardIssued;
+        feeAndRewardConf.baseFeeProof = newBaseFeeProof;
+
+        config.feeConfig = feeAndRewardConf;
 
         state.avgProofTime = LibUtils
             .movingAverage({
