@@ -1,21 +1,40 @@
 <script>
+  import { onMount } from 'svelte';
   import { localStoragePrefix } from '../../../config';
   import TooltipModal from '../../modals/TooltipModal.svelte';
 
   export let show = false;
 
   let noShowAgainLocalStorageKey = `${localStoragePrefix}_NoneFeeTooltip_noShowAgain`;
-  let noShowAgain = Boolean(localStorage.getItem(noShowAgainLocalStorageKey));
+  let noShowAgainStorage = false;
+  let noShowAgainCheckbox = false;
+
+  onMount(() => {
+    // Has the user opted out of seeing this message?
+    noShowAgainStorage = Boolean(
+      localStorage.getItem(noShowAgainLocalStorageKey),
+    );
+    noShowAgainCheckbox = noShowAgainStorage;
+  });
 
   function onConfirmNotice() {
-    if (noShowAgain) {
+    if (noShowAgainCheckbox) {
+      // If checkbox is checked, store it in localStorage so
+      // the user doesn't see the message again.
       localStorage.setItem(noShowAgainLocalStorageKey, 'true');
+      noShowAgainStorage = true;
     }
+
     show = false;
   }
 </script>
 
-<TooltipModal title="Notice" isOpen={show}>
+<!-- 
+  TODO: we might want noShowAgainStorage to be dynamic, otherwise
+        the user will have to refresh the page to see the message again
+        if they delete the localStorage entry.
+-->
+<TooltipModal title="Notice" isOpen={show && !noShowAgainStorage}>
   <div slot="body" class="space-y-6">
     <!-- TODO: translations? -->
     <div class="text-center">
@@ -29,7 +48,7 @@
         style:border-radius="0.5rem"
         type="checkbox"
         id="noShowAgain"
-        bind:checked={noShowAgain}
+        bind:checked={noShowAgainCheckbox}
         class="checkbox checkbox-secundary mr-2" />
       <label for="noShowAgain">Do not show this message again</label>
     </div>
