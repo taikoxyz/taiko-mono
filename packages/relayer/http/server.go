@@ -109,7 +109,7 @@ func LogSkipper(c echo.Context) bool {
 	case "/metrics":
 		return true
 	default:
-		return false
+		return true
 	}
 }
 
