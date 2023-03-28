@@ -125,6 +125,10 @@ func (b *Bridge) GetMessageStatus(opts *bind.CallOpts, msgHash [32]byte) (uint8,
 		return uint8(relayer.EventStatusNew), nil
 	}
 
+	if msgHash == FailSignal {
+		return uint8(relayer.EventStatusFailed), nil
+	}
+
 	return uint8(relayer.EventStatusDone), nil
 }
 
