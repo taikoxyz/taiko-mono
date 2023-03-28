@@ -3,6 +3,7 @@ package message
 import (
 	"context"
 	"crypto/ecdsa"
+	"math/big"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -17,6 +18,7 @@ type ethClient interface {
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 	BlockNumber(ctx context.Context) (uint64, error)
 	HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error)
+	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 }
 type Processor struct {
 	eventRepo     relayer.EventRepository

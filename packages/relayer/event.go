@@ -23,6 +23,7 @@ const (
 	EventStatusNew EventStatus = iota
 	EventStatusRetriable
 	EventStatusDone
+	EventStatusFailed
 	EventStatusNewOnlyOwner
 )
 
