@@ -7,21 +7,11 @@
 
   export let type: TypeButton = '';
   export let size: SizeButton = 'md';
+  export let disabled = false;
 
-  const classes = `btn ${`btn-${type}`} ${`btn-${size}`} ${
-    $$restProps.class ?? ''
-  }`;
-
-  const { class: _, ...restProps } = $$restProps; // remove class from rest of props
+  const classes = `btn ${`btn-${type}`} ${`btn-${size}`} ${$$props.class}`;
 </script>
 
-<!--
-  TODO: theme daisyUI and then use btn-${type}
--->
-<button class={classes} {...restProps}>
+<button {...$$restProps} class={classes} {disabled}>
   <slot />
 </button>
-
-<style>
-  /* TODO: design needed. We're using daisyUI, how about theming? */
-</style>
