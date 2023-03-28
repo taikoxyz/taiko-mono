@@ -22,7 +22,7 @@
             : 'Taiko A2'} should be available to claim within minutes.
         </li>
         <li class="mb-2">
-          <strong>Claimable</strong>: Your asset is ready to be claimed on the
+          <strong>Claim</strong>: Your asset is ready to be claimed on the
           destination chain and requires a transaction.
         </li>
         <li class="mb-2">
