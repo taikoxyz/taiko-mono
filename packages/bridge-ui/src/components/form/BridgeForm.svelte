@@ -3,12 +3,11 @@
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
 
   import { token } from '../../store/token';
-  import { processingFee } from '../../store/fee';
   import { fromChain, toChain } from '../../store/chain';
   import { activeBridge, bridgeType } from '../../store/bridge';
   import { signer } from '../../store/signer';
   import { BigNumber, Contract, ethers, Signer } from 'ethers';
-  import ProcessingFee from './ProcessingFee.svelte';
+  import ProcessingFee from './ProcessingFee';
   import SelectToken from '../buttons/SelectToken.svelte';
 
   import type { Token } from '../../domain/token';
@@ -21,7 +20,6 @@
     transactioner,
     transactions as transactionsStore,
   } from '../../store/transactions';
-  import { ProcessingFeeMethod } from '../../domain/fee';
   import Memo from './Memo.svelte';
   import ERC20_ABI from '../../constants/abi/ERC20';
   import TokenVaultABI from '../../constants/abi/TokenVault';
@@ -39,20 +37,21 @@
   import { providers } from '../../provider/providers';
   import { tokenVaults } from '../../vault/tokenVaults';
   import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
+  import { ProcessingFeeMethod } from '../../domain/fee';
 
   let amount: string;
   let amountInput: HTMLInputElement;
   let requiresAllowance: boolean = false;
   let btnDisabled: boolean = true;
   let tokenBalance: string;
-  let customFee: string = '0';
-  let recommendedFee: string = '0';
   let memo: string = '';
   let loading: boolean = false;
   let isFaucetModalOpen: boolean = false;
   let memoError: string;
   let to: string = '';
   let showTo: boolean = false;
+  let feeMethod: ProcessingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
+  let feeAmount: string = '0';
 
   // TODO: too much going on here. We need to extract
   //       logic and unit test the hell out of all this.
@@ -333,10 +332,12 @@
           memo: memo,
           to: showTo && to ? to : await $signer.getAddress(),
         });
+
         const requiredGas = gasEstimate.mul(feeData.gasPrice);
         const userBalance = await $signer.getBalance('latest');
         const processingFee = getProcessingFee();
         let balanceAvailableForTx = userBalance.sub(requiredGas);
+
         if (processingFee) {
           balanceAvailableForTx = balanceAvailableForTx.sub(processingFee);
         }
@@ -362,17 +363,11 @@
   }
 
   function getProcessingFee() {
-    if ($processingFee === ProcessingFeeMethod.NONE) {
+    if (feeMethod === ProcessingFeeMethod.NONE) {
       return undefined;
     }
 
-    if ($processingFee === ProcessingFeeMethod.CUSTOM) {
-      return BigNumber.from(ethers.utils.parseEther(customFee));
-    }
-
-    if ($processingFee === ProcessingFeeMethod.RECOMMENDED) {
-      return BigNumber.from(ethers.utils.parseEther(recommendedFee));
-    }
+    return BigNumber.from(ethers.utils.parseEther(feeAmount));
   }
 
   $: getUserBalance($signer, $token, $fromChain);
@@ -458,7 +453,7 @@
 
 <To bind:showTo bind:to />
 
-<ProcessingFee bind:customFee bind:recommendedFee />
+<ProcessingFee bind:method={feeMethod} bind:amount={feeAmount} />
 
 <Memo bind:memo bind:memoError />
 
