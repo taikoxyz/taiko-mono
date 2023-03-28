@@ -18,12 +18,15 @@ import { tokenVaults } from '../vault/tokenVaults';
 import type { ChainID } from '../domain/chain';
 
 export class RelayerAPIService implements RelayerAPI {
-  private readonly providers: Record<ChainID, ethers.providers.JsonRpcProvider>;
+  private readonly providers: Record<
+    ChainID,
+    ethers.providers.StaticJsonRpcProvider
+  >;
   private readonly baseUrl: string;
 
   constructor(
     baseUrl: string,
-    providers: Record<ChainID, ethers.providers.JsonRpcProvider>,
+    providers: Record<ChainID, ethers.providers.StaticJsonRpcProvider>,
   ) {
     this.providers = providers;
 

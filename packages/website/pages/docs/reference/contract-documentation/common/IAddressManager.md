@@ -1,7 +1,3 @@
----
-title: IAddressManager
----
-
 ## IAddressManager
 
 Interface to set and get an address for a name.

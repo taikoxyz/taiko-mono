@@ -1,7 +1,3 @@
----
-title: BridgeErrors
----
-
 ## BridgeErrors
 
 ### B_CANNOT_RECEIVE
