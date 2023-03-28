@@ -1,7 +1,3 @@
----
-title: IHeaderSync
----
-
 ## IHeaderSync
 
 Interface implemented by both the TaikoL1 and TaikoL2 contracts. It exposes

@@ -93,13 +93,13 @@
     if (store) {
       const userAddress = await store.getAddress();
 
-      const apiTxs = await $relayerApi.GetAllBridgeTransactionByAddress(
+      const apiTxs = await $relayerApi.getAllBridgeTransactionByAddress(
         userAddress,
       );
-      const blockInfoMap = await $relayerApi.GetBlockInfo();
+      const blockInfoMap = await $relayerApi.getBlockInfo();
       relayerBlockInfoMap.set(blockInfoMap);
 
-      const txs = await $transactioner.GetAllByAddress(userAddress);
+      const txs = await $transactioner.getAllByAddress(userAddress);
       const hashToApiTxsMap = new Map(
         apiTxs.map((tx) => {
           return [tx.hash.toLowerCase(), 1];
@@ -118,11 +118,11 @@
       //   return true;
       // });
 
-      $transactioner.UpdateStorageByAddress(userAddress, updatedStorageTxs);
+      $transactioner.updateStorageByAddress(userAddress, updatedStorageTxs);
 
       transactions.set([...updatedStorageTxs, ...apiTxs]);
 
-      const tokens = $tokenService.GetTokens(userAddress);
+      const tokens = $tokenService.getTokens(userAddress);
       userTokens.set(tokens);
     }
   });
@@ -140,7 +140,7 @@
       );
       successToast('Transaction completed!');
       let s = store;
-      s = s.slice(confirmedPendingTxIndex, 0);
+      s.splice(confirmedPendingTxIndex, 1);
       pendingTransactions.set(s);
     })();
   });

@@ -25,6 +25,10 @@ var (
 type EthClient struct {
 }
 
+func (c *EthClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
+	return big.NewInt(100), nil
+}
+
 func (c *EthClient) ChainID(ctx context.Context) (*big.Int, error) {
 	return MockChainID, nil
 }

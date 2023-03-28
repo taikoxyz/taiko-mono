@@ -53,6 +53,13 @@ func Test_canProcessMessage(t *testing.T) {
 			false,
 		},
 		{
+			"cantProcess, eventStatusFailed",
+			relayer.EventStatusFailed,
+			common.HexToAddress("0x"),
+			relayerAddr,
+			false,
+		},
+		{
 			"canProcess, eventStatusOnlyOwner and relayer address is owner",
 			relayer.EventStatusNewOnlyOwner,
 			relayerAddr,
@@ -91,6 +98,14 @@ func Test_eventStatusFromMsgHash(t *testing.T) {
 			[32]byte{},
 			nil,
 			relayer.EventStatusDone,
+		},
+		{
+			"eventStatusFailed",
+			context.Background(),
+			nil,
+			mock.FailSignal,
+			nil,
+			relayer.EventStatusFailed,
 		},
 		{
 			"eventStatusNewOnlyOwner, 0GasLimit",

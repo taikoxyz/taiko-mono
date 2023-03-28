@@ -10,17 +10,20 @@ import type { ChainID } from '../domain/chain';
 
 export class StorageService implements Transactioner {
   private readonly storage: Storage;
-  private readonly providers: Record<ChainID, ethers.providers.JsonRpcProvider>;
+  private readonly providers: Record<
+    ChainID,
+    ethers.providers.StaticJsonRpcProvider
+  >;
 
   constructor(
     storage: Storage,
-    providers: Record<ChainID, ethers.providers.JsonRpcProvider>,
+    providers: Record<ChainID, ethers.providers.StaticJsonRpcProvider>,
   ) {
     this.storage = storage;
     this.providers = providers;
   }
 
-  async GetAllByAddress(
+  async getAllByAddress(
     address: string,
     chainID?: number,
   ): Promise<BridgeTransaction[]> {
@@ -142,7 +145,7 @@ export class StorageService implements Transactioner {
     return bridgeTxs;
   }
 
-  async GetTransactionByHash(
+  async getTransactionByHash(
     address: string,
     hash: string,
   ): Promise<BridgeTransaction> {
@@ -250,7 +253,7 @@ export class StorageService implements Transactioner {
     return bridgeTx;
   }
 
-  UpdateStorageByAddress(address: string, txs: BridgeTransaction[]) {
+  updateStorageByAddress(address: string, txs: BridgeTransaction[]) {
     this.storage.setItem(
       `transactions-${address.toLowerCase()}`,
       JSON.stringify(txs),

@@ -20,8 +20,8 @@ const mockContract = {
 };
 
 const mockProver = {
-  GenerateProof: jest.fn(),
-  GenerateReleaseProof: jest.fn(),
+  generateProof: jest.fn(),
+  generateReleaseProof: jest.fn(),
 };
 
 jest.mock('ethers', () => ({
@@ -224,7 +224,7 @@ describe('bridge tests', () => {
 
     expect(mockContract.processMessage).not.toHaveBeenCalled();
 
-    expect(mockProver.GenerateProof).not.toHaveBeenCalled();
+    expect(mockProver.generateProof).not.toHaveBeenCalled();
 
     await bridge.Claim({
       message: {
@@ -240,7 +240,7 @@ describe('bridge tests', () => {
       signer: wallet,
     });
 
-    expect(mockProver.GenerateProof).toHaveBeenCalled();
+    expect(mockProver.generateProof).toHaveBeenCalled();
 
     expect(mockContract.processMessage).toHaveBeenCalled();
   });
@@ -260,7 +260,7 @@ describe('bridge tests', () => {
 
     expect(mockContract.retryMessage).not.toHaveBeenCalled();
 
-    expect(mockProver.GenerateProof).not.toHaveBeenCalled();
+    expect(mockProver.generateProof).not.toHaveBeenCalled();
 
     await bridge.Claim({
       message: {
@@ -276,7 +276,7 @@ describe('bridge tests', () => {
       signer: wallet,
     });
 
-    expect(mockProver.GenerateProof).not.toHaveBeenCalled();
+    expect(mockProver.generateProof).not.toHaveBeenCalled();
 
     expect(mockContract.retryMessage).toHaveBeenCalled();
   });
@@ -296,7 +296,7 @@ describe('bridge tests', () => {
 
     expect(mockContract.releaseEther).not.toHaveBeenCalled();
 
-    expect(mockProver.GenerateReleaseProof).not.toHaveBeenCalled();
+    expect(mockProver.generateReleaseProof).not.toHaveBeenCalled();
 
     await expect(
       bridge.ReleaseTokens({
@@ -311,7 +311,7 @@ describe('bridge tests', () => {
         srcBridgeAddress: '0x',
         destBridgeAddress: '0x',
         signer: wallet,
-        destProvider: new ethers.providers.JsonRpcProvider(),
+        destProvider: new ethers.providers.StaticJsonRpcProvider(),
         srcTokenVaultAddress: '0x',
       }),
     ).rejects.toThrowError('message already processed');
@@ -332,7 +332,7 @@ describe('bridge tests', () => {
 
     expect(mockContract.releaseEther).not.toHaveBeenCalled();
 
-    expect(mockProver.GenerateReleaseProof).not.toHaveBeenCalled();
+    expect(mockProver.generateReleaseProof).not.toHaveBeenCalled();
 
     await bridge.ReleaseTokens({
       message: {
@@ -346,11 +346,11 @@ describe('bridge tests', () => {
       srcBridgeAddress: '0x',
       destBridgeAddress: '0x',
       signer: wallet,
-      destProvider: new ethers.providers.JsonRpcProvider(),
+      destProvider: new ethers.providers.StaticJsonRpcProvider(),
       srcTokenVaultAddress: '0x',
     });
 
-    expect(mockProver.GenerateReleaseProof).toHaveBeenCalled();
+    expect(mockProver.generateReleaseProof).toHaveBeenCalled();
 
     expect(mockContract.releaseEther).toHaveBeenCalled();
   });

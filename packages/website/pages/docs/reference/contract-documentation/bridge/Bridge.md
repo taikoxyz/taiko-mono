@@ -1,7 +1,3 @@
----
-title: Bridge
----
-
 ## Bridge
 
 Bridge contract which is deployed on both L1 and L2. Mostly a thin wrapper

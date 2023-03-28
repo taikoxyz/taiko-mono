@@ -10,9 +10,14 @@ import type {
 } from '../domain/proof';
 
 export class ProofService implements Prover {
-  private readonly providers: Record<number, ethers.providers.JsonRpcProvider>;
+  private readonly providers: Record<
+    number,
+    ethers.providers.StaticJsonRpcProvider
+  >;
 
-  constructor(providers: Record<number, ethers.providers.JsonRpcProvider>) {
+  constructor(
+    providers: Record<number, ethers.providers.StaticJsonRpcProvider>,
+  ) {
     this.providers = providers;
   }
 
@@ -29,7 +34,7 @@ export class ProofService implements Prover {
 
   private static async getBlockAndBlockHeader(
     contract: ethers.Contract,
-    provider: ethers.providers.JsonRpcProvider,
+    provider: ethers.providers.StaticJsonRpcProvider,
   ): Promise<{ block: Block; blockHeader: BlockHeader }> {
     const latestSyncedHeader = await contract.getLatestSyncedHeader();
 
@@ -84,7 +89,7 @@ export class ProofService implements Prover {
     return signalProof;
   }
 
-  async GenerateProof(opts: GenerateProofOpts): Promise<string> {
+  async generateProof(opts: GenerateProofOpts): Promise<string> {
     const key = ProofService.getKey(opts);
 
     const provider = this.providers[opts.srcChain];
@@ -115,7 +120,7 @@ export class ProofService implements Prover {
     return p;
   }
 
-  async GenerateReleaseProof(opts: GenerateReleaseProofOpts): Promise<string> {
+  async generateReleaseProof(opts: GenerateReleaseProofOpts): Promise<string> {
     const key = ProofService.getKey(opts);
 
     const provider = this.providers[opts.destChain];
