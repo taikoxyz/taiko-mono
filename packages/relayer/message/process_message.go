@@ -161,7 +161,7 @@ func (p *Processor) sendProcessMessageCall(
 		// we can get unable to estimet gas for contract deployments within the contract code.
 		// if we get an error or the gas is 0, lets manual set high gas limit and ignore error,
 		// and try to actually send.
-		auth.GasLimit = 3000000
+		auth.GasLimit = 1500000
 	}
 
 	if bool(p.profitableOnly) {
