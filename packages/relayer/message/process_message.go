@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -175,8 +174,6 @@ func (p *Processor) sendProcessMessageCall(
 	if err != nil {
 		return nil, errors.Wrap(err, "p.destBridge.SuggestGasPrice")
 	}
-
-	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(2))
 
 	auth.GasPrice = gasPrice
 
