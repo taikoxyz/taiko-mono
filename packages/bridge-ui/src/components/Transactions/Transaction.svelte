@@ -1,14 +1,13 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import type { BridgeTransaction } from '../../domain/transactions';
-  import type { Chain } from '../../domain/chain';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
   import { MessageStatus } from '../../domain/message';
   import { Contract, ethers } from 'ethers';
   import { signer } from '../../store/signer';
   import { pendingTransactions } from '../../store/transactions';
   import { _ } from 'svelte-i18n';
-  import { fromChain, toChain } from '../../store/chain';
+  import { fromChain } from '../../store/chain';
   import { BridgeType } from '../../domain/bridge';
   import { onDestroy, onMount } from 'svelte';
 
@@ -32,6 +31,7 @@
     tooltipClick: void;
     insufficientBalance: void;
     transactionDetailsClick: BridgeTransaction;
+    relayerAutoClaim: (informed: boolean) => Promise<void>;
   }>();
 
   let loading: boolean;
@@ -39,6 +39,7 @@
   let interval: ReturnType<typeof setInterval>;
   let txToChain = chains[transaction.toChainId];
   let txFromChain = chains[transaction.fromChainId];
+  let alreadyInformedAboutClaim = false;
 
   onMount(async () => {
     processable = await isProcessable();
@@ -50,6 +51,26 @@
       clearInterval(interval);
     }
   });
+
+  async function onClaimClick() {
+    // Has the user sent processing fees?
+    const processingFee = transaction.message?.processingFee.toString();
+    if (processingFee && processingFee !== '0') {
+      // The user has sent processing fees, so we need to inform
+      // about the relayer and auto-claim.
+      dispatch(
+        'relayerAutoClaim',
+        // TODO: this is a hack. The idea is to move all these
+        //       functions outside of the component.
+        async (informed) => {
+          alreadyInformedAboutClaim = informed;
+          await claim(transaction);
+        },
+      );
+    } else {
+      await claim(transaction);
+    }
+  }
 
   // TODO: move outside of component
   async function claim(bridgeTx: BridgeTransaction) {
@@ -261,23 +282,16 @@
               controlsLayout={[]} />
           </div>
         {:else if transaction.receipt && [MessageStatus.New, MessageStatus.ClaimInProgress].includes(transaction.status)}
-          <!-- TODO: think about destructuring transaction -->
+          <!-- TODO: we need some destructuring here -->
           <Button
             type="accent"
             size="sm"
-            on:click={async () => {
-              await claim(transaction);
-            }}
+            on:click={onClaimClick}
             disabled={transaction.status === MessageStatus.ClaimInProgress}>
             Claim
           </Button>
         {:else if transaction.status === MessageStatus.Retriable}
-          <Button
-            type="accent"
-            size="sm"
-            on:click={async () => await claim(transaction)}>
-            Retry
-          </Button>
+          <Button type="accent" size="sm" on:click={onClaimClick}>Retry</Button>
         {:else if transaction.status === MessageStatus.Failed}
           <!-- todo: releaseTokens() on src bridge with proof from destBridge-->
           <Button

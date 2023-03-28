@@ -11,6 +11,10 @@
   let showMessageStatusTooltip: boolean;
   let showInsufficientBalance: boolean;
   let showRelayerAutoclaimTooltip: boolean;
+
+  // TODO: temporary hack until we move the claim and release functions
+  //       outside of the Transaction component.
+  let confirmNotice: (informed: boolean) => Promise<void>;
 </script>
 
 <div class="my-4 md:px-4">
@@ -30,6 +34,10 @@
           <Transaction
             on:tooltipClick={() => (showMessageStatusTooltip = true)}
             on:insufficientBalance={() => (showInsufficientBalance = true)}
+            on:relayerAutoClaim={({ detail }) => {
+              confirmNotice = detail;
+              showRelayerAutoclaimTooltip = true;
+            }}
             on:transactionDetailsClick={() => {
               selectedTransaction = transaction;
             }}
@@ -48,14 +56,16 @@
   {/if}
 
   <MessageStatusTooltip bind:show={showMessageStatusTooltip} />
+
   <InsufficientBalanceTooltip bind:show={showInsufficientBalance} />
 
   <OptInOutTooltip
     bind:show={showRelayerAutoclaimTooltip}
+    onConfirm={confirmNotice}
     name="RelayerAutoclaim">
     <!-- TODO: translations? -->
     <div class="text-center">
-      When bridging, you selected the <strong>Recommended</strong> amount or the
+      When bridging, you selected the <strong>Recommended</strong> amount for the
       Processing Fee. You can wait the relayer to auto-claim then bridged token or
       you can manually claim it now.
     </div>

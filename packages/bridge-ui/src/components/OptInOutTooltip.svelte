@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { onMount } from 'svelte';
   import { localStoragePrefix } from '../config';
   import TooltipModal from './modals/TooltipModal.svelte';
@@ -7,6 +7,7 @@
   export let show = false;
   export let name = 'OptInOutTooltip';
   export let title = 'Notice';
+  export let onConfirm: (noShowAgain: boolean) => void;
 
   let noShowAgainLocalStorageKey = `${localStoragePrefix}_${name}_noShowAgain`;
   let noShowAgainStorage = false;
@@ -29,6 +30,8 @@
     }
 
     show = false;
+
+    onConfirm?.(noShowAgainCheckbox);
   }
 </script>
 

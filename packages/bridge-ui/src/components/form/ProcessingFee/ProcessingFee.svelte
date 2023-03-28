@@ -86,6 +86,7 @@
 </div>
 
 <GeneralTooltip bind:show={showProcessingFeeTooltip} />
+
 <OptInOutTooltip bind:show={showNoneFeeTooltip} name="NoneFeeTooltip">
   <!-- TODO: translations? -->
   <div class="text-center">
