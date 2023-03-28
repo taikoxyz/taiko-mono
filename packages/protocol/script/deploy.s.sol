@@ -19,39 +19,41 @@ import "../contracts/test/erc20/FreeMintERC20.sol";
 import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
 
 contract DeployOnL1 is Script {
+    string l1ChainId = vm.toString(block.chainid);
+    string l2ChainId = vm.envString("L2_CHAIN_ID");
+    bytes32 l2GensisHash = vm.envBytes32("L2_GENESIS_HASH");
+    uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+    address taikoL2Address = vm.envAddress("TAIKO_L2_ADDRESS");
+    address proxyAdmin = vm.envAddress("PROXY_ADMIN");
+    address oracleProver = vm.envAddress("ORACLE_PROVER_ADDRESS");
+    address soloProposer = vm.envAddress("SOLO_PROPOSER");
+    address taikoTokenPremintRecipient =
+        vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
+    uint256 taikoTokenPremintAmount = vm.envUint("TAIKO_TOKEN_PREMINT_AMOUNT");
+    address addressManagerProxy;
+
     error FAILED_TO_DEPLOY_PLONK_VERIFIER(string contractPath);
 
     function run() external {
-        string memory l1ChainId = vm.toString(block.chainid);
-        string memory l2ChainId = vm.envString("L2_CHAIN_ID");
-        bytes32 l2GensisHash = vm.envBytes32("L2_GENESIS_HASH");
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address taikoL2Address = vm.envAddress("TAIKO_L2_ADDRESS");
-        address proxyAdmin = vm.envAddress("PROXY_ADMIN");
-        address oracleProver = vm.envAddress("ORACLE_PROVER_ADDRESS");
-        address soloProposer = vm.envAddress("SOLO_PROPOSER");
-        address taikoTokenPremintRecipient = vm.envAddress(
-            "TAIKO_TOKEN_PREMINT_RECIPIENT"
-        );
-        uint256 taikoTokenPremintAmount = vm.envUint(
-            "TAIKO_TOKEN_PREMINT_AMOUNT"
-        );
-
         vm.startBroadcast(deployerPrivateKey);
 
         // AddressManager
         AddressManager addressManager = new AddressManager();
-        address addressManagerProxy = deployUupsProxy(
+        addressManagerProxy = deployUupsProxy(
+            "AddressManager",
             address(addressManager),
             proxyAdmin,
             bytes.concat(addressManager.init.selector)
         );
-        AddressManager(addressManagerProxy).setAddress(
-            string.concat(l2ChainId, ".taiko"),
-            taikoL2Address
-        );
-        console.log("AddressManager:", address(addressManager));
-        console.log("AddressManagerProxy:", addressManagerProxy);
+
+        setAddressWithCustomChainId(l2ChainId, "taiko", taikoL2Address);
+
+        if (oracleProver != address(0)) {
+            setAddress("oracle_prover", oracleProver);
+        }
+        if (soloProposer != address(0)) {
+            setAddress("solo_proposer", soloProposer);
+        }
 
         // TaikoToken
         TaikoToken taikoToken = new TaikoToken();
@@ -61,7 +63,8 @@ contract DeployOnL1 is Script {
         premintRecipients[0] = taikoTokenPremintRecipient;
         premintAmounts[0] = taikoTokenPremintAmount;
 
-        address taikoTokenProxy = deployUupsProxy(
+        deployUupsProxy(
+            "TaiToken",
             address(taikoToken),
             proxyAdmin,
             bytes.concat(
@@ -75,8 +78,6 @@ contract DeployOnL1 is Script {
                 )
             )
         );
-        console.log("TaikoToken:", address(taikoToken));
-        console.log("TaikoTokenProxy:", taikoTokenProxy);
 
         // HorseToken && BullToken
         FreeMintERC20 horseToken = new FreeMintERC20("Horse Token", "HORSE");
@@ -84,13 +85,14 @@ contract DeployOnL1 is Script {
             "Bull Token",
             "BLL"
         );
-        console.log("HorseToken:", address(horseToken));
-        console.log("BullToken:", address(bullToken));
+        console.log("HorseToken", address(horseToken));
+        console.log("BullToken", address(bullToken));
 
         // TaikoL1
         TaikoL1 taikoL1 = new TaikoL1();
         uint64 feeBase = 10 ** 18;
         address taikoL1Proxy = deployUupsProxy(
+            "TaikoL1",
             address(taikoL1),
             proxyAdmin,
             bytes.concat(
@@ -98,32 +100,25 @@ contract DeployOnL1 is Script {
                 abi.encode(addressManagerProxy, l2GensisHash, feeBase)
             )
         );
-        console.log("TaikoL1:", address(taikoL1));
-        console.log("TaikoL1Proxy:", taikoL1Proxy);
 
         // Used by TaikoToken
-        AddressManager(addressManagerProxy).setAddress(
-            string.concat(l1ChainId, ".proto_broker"),
-            address(taikoL1Proxy)
-        );
+        setAddress("proto_broker", taikoL1Proxy);
         // Used by LibBridgeRead
-        AddressManager(addressManagerProxy).setAddress(
-            string.concat(l1ChainId, ".taiko"),
-            address(taikoL1Proxy)
-        );
+        setAddress("taiko", taikoL1Proxy);
 
         // Bridge
         Bridge bridge = new Bridge();
         address bridgeProxy = deployUupsProxy(
+            "Bridge",
             address(bridge),
             proxyAdmin,
             bytes.concat(bridge.init.selector, abi.encode(addressManagerProxy))
         );
-        console.log("Bridge:", address(bridge));
-        console.log("BridgeProxy:", bridgeProxy);
 
+        // TokenVault
         TokenVault tokenVault = new TokenVault();
-        address tokenVaultProxy = deployUupsProxy(
+        deployUupsProxy(
+            "TokenVault",
             address(tokenVault),
             proxyAdmin,
             bytes.concat(
@@ -131,18 +126,14 @@ contract DeployOnL1 is Script {
                 abi.encode(addressManagerProxy)
             )
         );
-        console.log("TokenVault:", address(tokenVault));
-        console.log("TokenVaultProxy:", tokenVaultProxy);
 
         // Used by TokenVault
-        AddressManager(addressManagerProxy).setAddress(
-            string.concat(l1ChainId, ".bridge"),
-            bridgeProxy
-        );
+        setAddress("bridge", bridgeProxy);
 
         // SignalService
         SignalService signalService = new SignalService();
         address signalServiceProxy = deployUupsProxy(
+            "SignalService",
             address(signalService),
             proxyAdmin,
             bytes.concat(
@@ -150,35 +141,17 @@ contract DeployOnL1 is Script {
                 abi.encode(addressManagerProxy)
             )
         );
-        console.log("SignalService:", address(signalService));
-        console.log("SignalServiceProxy:", signalServiceProxy);
 
         // Used by Bridge
-        AddressManager(addressManagerProxy).setAddress(
-            string.concat(l1ChainId, ".signal_service"),
-            address(signalServiceProxy)
-        );
+        setAddress("signal_service", signalServiceProxy);
 
         // PlonkVerifier
-        deployPlonkVerifiers(addressManagerProxy);
-
-        if (oracleProver != address(0)) {
-            AddressManager(addressManagerProxy).setAddress(
-                string.concat(l1ChainId, ".oracle_prover"),
-                oracleProver
-            );
-        }
-        if (soloProposer != address(0)) {
-            AddressManager(addressManagerProxy).setAddress(
-                string.concat(l1ChainId, ".solo_proposer"),
-                soloProposer
-            );
-        }
+        deployPlonkVerifiers();
 
         vm.stopBroadcast();
     }
 
-    function deployPlonkVerifiers(address addressManagerProxy) internal {
+    function deployPlonkVerifiers() private {
         address[] memory plonkVerifiers = new address[](2);
         plonkVerifiers[0] = deployYulContract(
             "contracts/libs/yul/PlonkVerifier_10_txs.yulp"
@@ -188,7 +161,7 @@ contract DeployOnL1 is Script {
         );
 
         for (uint256 i = 0; i < plonkVerifiers.length; ++i) {
-            AddressManager(addressManagerProxy).setAddress(
+            setAddress(
                 string(abi.encodePacked("verifier_", i)),
                 plonkVerifiers[i]
             );
@@ -218,19 +191,50 @@ contract DeployOnL1 is Script {
         if (deployedAddress == address(0))
             revert FAILED_TO_DEPLOY_PLONK_VERIFIER(contractPath);
 
-        console.log(string.concat(contractPath, ":"), deployedAddress);
+        console.log(contractPath, deployedAddress);
 
         return deployedAddress;
     }
 
     function deployUupsProxy(
+        string memory name,
         address implementation,
         address admin,
         bytes memory data
     ) private returns (address) {
-        return
-            address(
-                new TransparentUpgradeableProxy(implementation, admin, data)
-            );
+        address proxy = address(
+            new TransparentUpgradeableProxy(implementation, admin, data)
+        );
+
+        console.log(name, implementation);
+        console.log(string.concat(name, "Proxy"), proxy);
+
+        return proxy;
+    }
+
+    // Address Manager
+    function setAddress(string memory name, address addr) private {
+        AddressManager(addressManagerProxy).setAddress(
+            getAddressMangerKey(l1ChainId, name),
+            addr
+        );
+    }
+
+    function setAddressWithCustomChainId(
+        string memory chainId,
+        string memory name,
+        address addr
+    ) private {
+        AddressManager(addressManagerProxy).setAddress(
+            getAddressMangerKey(chainId, name),
+            addr
+        );
+    }
+
+    function getAddressMangerKey(
+        string memory chainId,
+        string memory name
+    ) private pure returns (string memory) {
+        return string.concat(chainId, ".", name);
     }
 }
