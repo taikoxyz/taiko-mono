@@ -1,6 +1,5 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
-  import { processingFee } from '../../../store/fee';
   import { ProcessingFeeMethod } from '../../../domain/fee';
   import { toChain, fromChain } from '../../../store/chain';
   import { token } from '../../../store/token';
