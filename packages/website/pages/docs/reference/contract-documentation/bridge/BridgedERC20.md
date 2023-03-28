@@ -1,7 +1,3 @@
----
-title: BridgedERC20
----
-
 ## BridgedERC20
 
 ### srcToken

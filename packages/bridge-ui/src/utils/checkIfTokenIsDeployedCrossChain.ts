@@ -6,7 +6,7 @@ import type { Token } from '../domain/token';
 
 export const checkIfTokenIsDeployedCrossChain = async (
   token: Token,
-  provider: ethers.providers.JsonRpcProvider,
+  provider: ethers.providers.StaticJsonRpcProvider,
   destTokenVaultAddress: string,
   toChain: Chain,
   fromChain: Chain,

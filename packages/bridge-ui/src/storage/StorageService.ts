@@ -10,11 +10,14 @@ import type { ChainID } from '../domain/chain';
 
 export class StorageService implements Transactioner {
   private readonly storage: Storage;
-  private readonly providers: Record<ChainID, ethers.providers.JsonRpcProvider>;
+  private readonly providers: Record<
+    ChainID,
+    ethers.providers.StaticJsonRpcProvider
+  >;
 
   constructor(
     storage: Storage,
-    providers: Record<ChainID, ethers.providers.JsonRpcProvider>,
+    providers: Record<ChainID, ethers.providers.StaticJsonRpcProvider>,
   ) {
     this.storage = storage;
     this.providers = providers;
