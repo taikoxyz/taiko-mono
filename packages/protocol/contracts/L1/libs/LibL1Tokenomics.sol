@@ -14,7 +14,7 @@ import {
 import {TaikoData} from "../TaikoData.sol";
 import {TaikoToken} from "../TaikoToken.sol";
 
-library LibTokenomics {
+library LibL1Tokenomics {
     using LibMath for uint256;
     uint256 private constant TWEI_TO_WEI = 1E12;
 
@@ -69,9 +69,8 @@ library LibTokenomics {
                 feeConfig: config.proposingConfig,
                 feeBase: state.feeBase,
                 isProposal: true,
-                tNow: block.timestamp,
-                tLast: state.lastProposedAt,
-                tAvg: state.avgBlockTime
+                timeUsed: block.timestamp - state.lastProposedAt,
+                timeAverage: state.avgBlockTime
             });
             fee = getSlotsAdjustedFee({
                 state: state,
@@ -104,22 +103,21 @@ library LibTokenomics {
     )
         internal
         view
-        returns (uint256 newFeeBase, uint256 reward, uint256 tRelBp)
+        returns (uint256 newFeeBase, uint256 reward, uint256 premiumRate)
     {
         if (proposedAt > provenAt) revert L1_INVALID_PARAM();
 
         if (state.lastVerifiedBlockId <= config.constantFeeRewardBlocks) {
             reward = state.feeBase;
             newFeeBase = state.feeBase;
-            // tRelBp = 0;
+            // premiumRate = 0;
         } else {
-            (newFeeBase, tRelBp) = getTimeAdjustedFee({
+            (newFeeBase, premiumRate) = getTimeAdjustedFee({
                 feeConfig: config.provingConfig,
                 feeBase: state.feeBase,
                 isProposal: false,
-                tNow: provenAt,
-                tLast: proposedAt,
-                tAvg: state.avgProofTime
+                timeUsed: provenAt - proposedAt,
+                timeAverage: state.avgProofTime
             });
             reward = getSlotsAdjustedFee({
                 state: state,
@@ -159,26 +157,23 @@ library LibTokenomics {
         TaikoData.FeeConfig memory feeConfig,
         uint256 feeBase,
         bool isProposal,
-        uint256 tNow, // seconds
-        uint256 tLast, // seconds
-        uint256 tAvg // milliseconds
-    ) internal pure returns (uint256 newFeeBase, uint256 tRelBp) {
-        if (tAvg == 0 || tNow == tLast) {
+        uint256 timeUsed, // seconds
+        uint256 timeAverage // milliseconds
+    ) internal pure returns (uint256 newFeeBase, uint256 premiumRate) {
+        if (timeAverage == 0) {
             return (feeBase, 0);
         }
-
         unchecked {
-            tAvg = tAvg.min(feeConfig.avgTimeCap);
-            uint256 max = (feeConfig.maxPeriodPctg * tAvg) / 100;
-            uint256 grace = (feeConfig.gracePeriodPctg * tAvg) / 100;
-            uint256 t = ((tNow - tLast) * 1000).max(grace).min(max);
-            tRelBp = (10000 * (t - grace)) / (max - grace); // [0-10000]
-            uint256 alpha = 10000 + (tRelBp * feeConfig.multiplerPctg) / 100;
+            uint p = feeConfig.dampingFactorBips; // [0-10000]
+            uint a = timeAverage;
+            uint t = (timeUsed * 1000).min(a * 2); // millisconds
+
+            newFeeBase = (feeBase * (10000 + (t * p) / a - p)) / 10000;
 
             if (isProposal) {
-                newFeeBase = (feeBase * 10000) / alpha; // fee
-            } else {
-                newFeeBase = (feeBase * alpha) / 10000; // reward
+                newFeeBase = (feeBase * 2) - newFeeBase;
+            } else if (p > 0) {
+                premiumRate = ((t.max(a) - a) * 10000) / a;
             }
         }
     }

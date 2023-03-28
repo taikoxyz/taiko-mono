@@ -9,10 +9,7 @@ title: TaikoData
 ```solidity
 struct FeeConfig {
   uint16 avgTimeMAF;
-  uint64 avgTimeCap;
-  uint16 gracePeriodPctg;
-  uint16 maxPeriodPctg;
-  uint16 multiplerPctg;
+  uint16 dampingFactorBips;
 }
 ```
 
@@ -30,7 +27,6 @@ struct Config {
   uint256 maxBytesPerTxList;
   uint256 minTxGasLimit;
   uint256 slotSmoothingFactor;
-  uint256 anchorTxGasLimit;
   uint256 rewardBurnBips;
   uint256 proposerDepositPctg;
   uint256 feeBaseMAF;
@@ -110,7 +106,6 @@ struct BlockEvidence {
   bytes32 blockHash;
   bytes32 signalRoot;
   address prover;
-  uint32 gasUsed;
 }
 ```
 
