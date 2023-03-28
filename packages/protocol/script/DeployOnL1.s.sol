@@ -64,7 +64,7 @@ contract DeployOnL1 is Script {
         premintAmounts[0] = taikoTokenPremintAmount;
 
         deployUupsProxy(
-            "TaiToken",
+            "TaikoToken",
             address(taikoToken),
             proxyAdmin,
             bytes.concat(
