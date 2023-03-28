@@ -80,13 +80,14 @@ contract DeployOnL1 is Script {
         );
 
         // HorseToken && BullToken
-        FreeMintERC20 horseToken = new FreeMintERC20("Horse Token", "HORSE");
-        MayFailFreeMintERC20 bullToken = new MayFailFreeMintERC20(
-            "Bull Token",
-            "BLL"
+        console.log(
+            "HorseToken",
+            address(new FreeMintERC20("Horse Token", "HORSE"))
         );
-        console.log("HorseToken", address(horseToken));
-        console.log("BullToken", address(bullToken));
+        console.log(
+            "BullToken",
+            address(new MayFailFreeMintERC20("Bull Token", "BLL"))
+        );
 
         // TaikoL1
         TaikoL1 taikoL1 = new TaikoL1();
@@ -215,7 +216,7 @@ contract DeployOnL1 is Script {
     // Address Manager
     function setAddress(string memory name, address addr) private {
         AddressManager(addressManagerProxy).setAddress(
-            getAddressMangerKey(l1ChainId, name),
+            getAddressManagerKey(l1ChainId, name),
             addr
         );
     }
@@ -226,12 +227,12 @@ contract DeployOnL1 is Script {
         address addr
     ) private {
         AddressManager(addressManagerProxy).setAddress(
-            getAddressMangerKey(chainId, name),
+            getAddressManagerKey(chainId, name),
             addr
         );
     }
 
-    function getAddressMangerKey(
+    function getAddressManagerKey(
         string memory chainId,
         string memory name
     ) private pure returns (string memory) {
