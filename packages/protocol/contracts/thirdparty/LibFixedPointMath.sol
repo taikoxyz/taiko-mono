@@ -10,7 +10,7 @@ library LibFixedPointMath {
     // @returns floor(log2(x)) if x is nonzero, otherwise 0. This is the same
     //          as the location of the highest set bit.
     // Consumes 232 gas. This could have been an 3 gas EVM opcode though.
-    function ilog2(uint256 x) internal returns (uint256 r) {
+    function ilog2(uint256 x) internal pure returns (uint256 r) {
         assembly {
             r := shl(7, lt(0xffffffffffffffffffffffffffffffff, x))
             r := or(r, shl(6, lt(0xffffffffffffffff, shr(r, x))))
@@ -26,7 +26,7 @@ library LibFixedPointMath {
     // Computes ln(x) in 1e18 fixed point.
     // Reverts if x is negative or zero.
     // Consumes 670 gas.
-    function ln(int256 x) internal returns (int256 r) {
+    function ln(int256 x) internal pure returns (int256 r) {
         unchecked {
             if (x < 1) {
                 if (x < 0) revert LnNegativeUndefined();

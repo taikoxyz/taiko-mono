@@ -26,11 +26,7 @@ library LibL2Tokenomics {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint32 gasInBlock
-    )
-        internal
-        view
-        returns (uint64 newGasExcess, uint64 basefee, uint256 gasPurchaseCost)
-    {
+    ) internal view returns (uint64 newGasExcess, uint64 basefee) {
         return
             calc1559Basefee(
                 state.gasExcess,
@@ -51,17 +47,13 @@ library LibL2Tokenomics {
         uint64 gasAdjustmentQuotient,
         uint32 gasInBlock,
         uint64 blockTime
-    )
-        internal
-        view
-        returns (uint64 newGasExcess, uint64 basefee, uint256 gasPurchaseCost)
-    {
+    ) internal view returns (uint64 newGasExcess, uint64 basefee) {
         if (gasInBlock == 0) {
             uint256 _basefee = ethQty(gasExcess, gasAdjustmentQuotient) /
                 gasAdjustmentQuotient;
             basefee = uint64(_basefee.min(type(uint64).max));
 
-            return (gasExcess, basefee, 0);
+            return (gasExcess, basefee);
         }
         unchecked {
             uint64 newGas = gasTargetPerSecond * blockTime;
@@ -80,10 +72,8 @@ library LibL2Tokenomics {
                 _gasExcess, // smaller
                 gasAdjustmentQuotient
             );
-            gasPurchaseCost = a - b;
-            uint256 _basefee = gasPurchaseCost / gasInBlock;
+            uint256 _basefee = (a - b) / gasInBlock;
             basefee = uint64(_basefee.min(type(uint64).max));
-            gasPurchaseCost = uint256(basefee) * gasInBlock;
 
             console2.log("-----------------------");
             console2.log("gasExcess:", gasExcess);
@@ -94,7 +84,6 @@ library LibL2Tokenomics {
             console2.log("b:", b);
             console2.log("_basefee:", _basefee);
             console2.log("basefee:", basefee);
-            console2.log("gasPurchaseCost:", gasPurchaseCost);
         }
     }
 
@@ -105,11 +94,24 @@ library LibL2Tokenomics {
         uint x = gasAmount / gasAdjustmentQuotient;
         int y = LibFixedPointMath.exp(int256(uint256(x)));
         qty = y > 0 ? uint256(y) : 0;
-        console2.log("    gasAmount:", gasAmount);
-        console2.log("    qty:", qty);
+        console2.log("   -  gasAmount:", gasAmount);
+        console2.log("   -  qty:", qty);
     }
 
-    // function calcGasExcess(uint64 basefee, uint64 gasAdjustmentQuotient) internal view returns (uint256 gasExcess) {
-    //     return basefee * gasAdjustmentQuotient;
-    // }
+    function calcGasExcess(
+        uint64 basefee,
+        uint64 gasAdjustmentQuotient
+    ) internal view returns (uint64 gasExcess) {
+        console2.log("   =  basefee:", basefee);
+        console2.log("   =  gasAdjustmentQuotient:", gasAdjustmentQuotient);
+        uint x = basefee * gasAdjustmentQuotient * 1E8;
+        console2.log("   =  x:", x);
+        console2.log("   =  ln:", LibFixedPointMath.ln(int(x)));
+
+        uint64 y = uint256(LibFixedPointMath.ln(int(x))).toUint64();
+        gasExcess = y * gasAdjustmentQuotient;
+
+        console2.log("   =  y:", y);
+        console2.log("   =  gasExcess:", gasExcess);
+    }
 }

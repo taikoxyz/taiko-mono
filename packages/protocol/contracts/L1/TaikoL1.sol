@@ -56,7 +56,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     function proposeBlock(
         bytes calldata input,
         bytes calldata txList
-    ) external payable nonReentrant {
+    ) external nonReentrant {
         TaikoData.Config memory config = getConfig();
         LibProposing.proposeBlock({
             state: state,
@@ -220,7 +220,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     function get1559Basefee(
         uint32 gasLimit
     ) public view returns (uint64 basefee) {
-        (, basefee, ) = LibL2Tokenomics.get1559Basefee(
+        (, basefee) = LibL2Tokenomics.get1559Basefee(
             state,
             getConfig(),
             gasLimit
