@@ -154,7 +154,7 @@ export async function deployContracts(hre: any) {
     );
 
     const feeBase = hre.ethers.BigNumber.from(10).pow(18);
-    const gasExcess = hre.ethers.BigNumber.from(100000000);
+    const gasAccumulated = hre.ethers.BigNumber.from(100000000);
 
     await utils.waitTx(
         hre,
@@ -162,7 +162,7 @@ export async function deployContracts(hre: any) {
             AddressManager.address,
             l2GenesisBlockHash,
             feeBase,
-            gasExcess
+            gasAccumulated
         )
     );
 

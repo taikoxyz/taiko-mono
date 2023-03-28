@@ -85,8 +85,11 @@ library LibProposing {
         {
             // calculate L2 EIP-1559 gas fee and cost
             uint256 gasPurchaseCost;
-            (state.gasExcess, meta.basefee, gasPurchaseCost) = LibL2Tokenomics
-                .get1559Basefee(state, config, input.gasLimit);
+            (
+                state.gasAccumulated,
+                meta.basefee,
+                gasPurchaseCost
+            ) = LibL2Tokenomics.get1559Basefee(state, config, input.gasLimit);
             if (msg.value < gasPurchaseCost) revert L1_INSUFFICIENT_ETHER();
 
             resolver.resolve("treasure", false).sendEther(gasPurchaseCost);

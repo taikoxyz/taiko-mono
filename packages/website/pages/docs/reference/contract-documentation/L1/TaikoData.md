@@ -23,7 +23,7 @@ struct Config {
   uint256 maxNumVerifiedBlocks;
   uint256 maxVerificationsPerTx;
   uint256 blockMaxGasLimit;
-  uint64 gasTargetPerSecond;
+  uint64 gasAccumulatedPerSecond;
   uint256 gasPoolProduct;
   uint256 maxTransactionsPerBlock;
   uint256 maxBytesPerTxList;
@@ -56,7 +56,7 @@ struct StateVariables {
   uint64 avgProofTime;
   uint64 lastProposedAt;
   uint64 basefee;
-  uint64 gasExcess;
+  uint64 gasAccumulated;
 }
 ```
 
@@ -163,7 +163,7 @@ struct State {
   uint64 numBlocks;
   uint64 lastProposedAt;
   uint64 avgBlockTime;
-  uint64 gasExcess;
+  uint64 gasAccumulated;
   uint64 lastVerifiedBlockId;
   uint64 __reserved4;
   uint64 avgProofTime;

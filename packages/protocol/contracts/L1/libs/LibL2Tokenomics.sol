@@ -27,12 +27,16 @@ library LibL2Tokenomics {
     )
         internal
         view
-        returns (uint64 newGasExcess, uint64 basefee, uint256 gasPurchaseCost)
+        returns (
+            uint64 newGasAccumulated,
+            uint64 basefee,
+            uint256 gasPurchaseCost
+        )
     {
         return
             calc1559Basefee(
-                state.gasExcess,
-                config.gasTargetPerSecond,
+                state.gasAccumulated,
+                config.gasAccumulatedPerSecond,
                 config.gasPoolProduct,
                 gasInBlock,
                 uint64(block.timestamp - state.lastProposedAt)
@@ -44,31 +48,41 @@ library LibL2Tokenomics {
     //      But the current implementation use AMM style math as we don't yet
     //      have a solidity exp(uint256 x) implementation.
     function calc1559Basefee(
-        uint64 gasExcess,
-        uint256 gasTargetPerSecond,
+        uint64 gasAccumulated,
+        uint256 gasAccumulatedPerSecond,
         uint256 gasPoolProduct,
         uint32 gasInBlock,
         uint256 blockTime
     )
         internal
         pure
-        returns (uint64 newGasExcess, uint64 basefee, uint256 gasPurchaseCost)
+        returns (
+            uint64 newGasAccumulated,
+            uint64 basefee,
+            uint256 gasPurchaseCost
+        )
     {
         if (gasInBlock == 0) {
-            return (gasExcess, 0, 0);
+            return (
+                gasAccumulated,
+                uint64(gasPoolProduct / gasAccumulated / gasAccumulated),
+                0
+            );
         }
         unchecked {
-            uint256 _gasExcess = gasTargetPerSecond * blockTime + gasExcess;
+            uint256 _gasAccumulated = gasAccumulatedPerSecond *
+                blockTime +
+                gasAccumulated;
 
-            _gasExcess = _gasExcess.min(type(uint64).max);
+            _gasAccumulated = _gasAccumulated.min(type(uint64).max);
 
-            if (gasInBlock >= _gasExcess) revert L1_OUT_OF_BLOCK_SPACE();
+            if (gasInBlock >= _gasAccumulated) revert L1_OUT_OF_BLOCK_SPACE();
 
-            newGasExcess = uint64(_gasExcess - gasInBlock);
+            newGasAccumulated = uint64(_gasAccumulated - gasInBlock);
 
             gasPurchaseCost =
-                (gasPoolProduct / newGasExcess) -
-                (gasPoolProduct / _gasExcess);
+                (gasPoolProduct / newGasAccumulated) -
+                (gasPoolProduct / _gasAccumulated);
 
             uint256 _basefee = gasPurchaseCost / gasInBlock;
             basefee = uint64(_basefee.min(type(uint64).max));
