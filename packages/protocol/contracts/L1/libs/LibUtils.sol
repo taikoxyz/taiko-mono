@@ -42,12 +42,8 @@ library LibUtils {
                 avgBlockTime: state.avgBlockTime,
                 lastVerifiedBlockId: state.lastVerifiedBlockId,
                 avgProofTime: state.avgProofTime,
-                basefee: uint64(
-                    (config.gasAdjustmentFactor / state.gasAccumulated).min(
-                        type(uint64).max
-                    )
-                ),
-                gasAccumulated: state.gasAccumulated
+                basefee: 0, // TODO
+                gasExcess: state.gasExcess
             });
     }
 

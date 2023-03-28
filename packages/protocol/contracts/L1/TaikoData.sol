@@ -22,7 +22,7 @@ library TaikoData {
         uint256 maxVerificationsPerTx;
         uint256 blockMaxGasLimit;
         uint64 gasTargetPerSecond;
-        uint256 gasAdjustmentFactor;
+        uint64 gasAdjustmentQuotient;
         uint256 maxTransactionsPerBlock;
         uint256 maxBytesPerTxList;
         uint256 minTxGasLimit;
@@ -51,7 +51,7 @@ library TaikoData {
         uint64 avgProofTime;
         uint64 lastProposedAt;
         uint64 basefee;
-        uint64 gasAccumulated;
+        uint64 gasExcess;
     }
 
     // 3 slots
@@ -138,7 +138,7 @@ library TaikoData {
         uint64 numBlocks;
         uint64 lastProposedAt; // Timestamp when the last block is proposed.
         uint64 avgBlockTime; // miliseconds
-        uint64 gasAccumulated;
+        uint64 gasExcess;
         // Changed when a block is proven/finalized
         uint64 lastVerifiedBlockId;
         uint64 __reserved4;

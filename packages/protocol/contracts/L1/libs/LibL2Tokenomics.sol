@@ -8,11 +8,13 @@ pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibMath} from "../../libs/LibMath.sol";
-import {LibRealMath} from "../../libs/LibRealMath.sol";
+import {LibFixedPointMath} from "../../thirdparty/LibFixedPointMath.sol";
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {TaikoData} from "../TaikoData.sol";
+
+import {console2} from "forge-std/console2.sol";
 
 library LibL2Tokenomics {
     using LibMath for uint256;
@@ -27,17 +29,13 @@ library LibL2Tokenomics {
     )
         internal
         view
-        returns (
-            uint64 newGasAccumulated,
-            uint64 basefee,
-            uint256 gasPurchaseCost
-        )
+        returns (uint64 newGasExcess, uint64 basefee, uint256 gasPurchaseCost)
     {
         return
             calc1559Basefee(
-                state.gasAccumulated,
+                state.gasExcess,
                 config.gasTargetPerSecond,
-                config.gasAdjustmentFactor,
+                config.gasAdjustmentQuotient,
                 gasInBlock,
                 uint64(block.timestamp - state.lastProposedAt)
             );
@@ -48,45 +46,70 @@ library LibL2Tokenomics {
     //      But the current implementation use AMM style math as we don't yet
     //      have a solidity exp(uint256 x) implementation.
     function calc1559Basefee(
-        uint64 gasAccumulated,
-        uint256 gasTargetPerSecond,
-        uint256 gasAdjustmentFactor,
+        uint64 gasExcess,
+        uint64 gasTargetPerSecond,
+        uint64 gasAdjustmentQuotient,
         uint32 gasInBlock,
-        uint256 blockTime
+        uint64 blockTime
     )
         internal
-        pure
-        returns (
-            uint64 newGasAccumulated,
-            uint64 basefee,
-            uint256 gasPurchaseCost
-        )
+        view
+        returns (uint64 newGasExcess, uint64 basefee, uint256 gasPurchaseCost)
     {
         if (gasInBlock == 0) {
-            return (
-                gasAccumulated,
-                uint64(gasAdjustmentFactor / gasAccumulated / gasAccumulated),
-                0
-            );
+            uint256 _basefee = ethQty(gasExcess, gasAdjustmentQuotient) /
+                gasAdjustmentQuotient;
+            basefee = uint64(_basefee.min(type(uint64).max));
+
+            return (gasExcess, basefee, 0);
         }
         unchecked {
-            uint256 _gasAccumulated = gasTargetPerSecond *
-                blockTime +
-                gasAccumulated;
+            uint64 newGas = gasTargetPerSecond * blockTime;
+            uint64 _gasExcess = gasExcess > newGas ? gasExcess - newGas : 0;
 
-            _gasAccumulated = _gasAccumulated.min(type(uint64).max);
+            if (uint256(_gasExcess) + gasInBlock >= type(uint64).max)
+                revert L1_OUT_OF_BLOCK_SPACE();
 
-            if (gasInBlock >= _gasAccumulated) revert L1_OUT_OF_BLOCK_SPACE();
+            newGasExcess = _gasExcess + gasInBlock;
 
-            newGasAccumulated = uint64(_gasAccumulated - gasInBlock);
-
-            gasPurchaseCost =
-                (gasAdjustmentFactor / newGasAccumulated) -
-                (gasAdjustmentFactor / _gasAccumulated);
-
+            uint256 a = ethQty(
+                newGasExcess, // larger
+                gasAdjustmentQuotient
+            );
+            uint256 b = ethQty(
+                _gasExcess, // smaller
+                gasAdjustmentQuotient
+            );
+            gasPurchaseCost = a - b;
             uint256 _basefee = gasPurchaseCost / gasInBlock;
             basefee = uint64(_basefee.min(type(uint64).max));
             gasPurchaseCost = uint256(basefee) * gasInBlock;
+
+            console2.log("-----------------------");
+            console2.log("gasExcess:", gasExcess);
+            console2.log("newGas:", newGas);
+            console2.log("_gasExcess:", _gasExcess);
+            console2.log("newGasExcess:", newGasExcess);
+            console2.log("a:", a);
+            console2.log("b:", b);
+            console2.log("_basefee:", _basefee);
+            console2.log("basefee:", basefee);
+            console2.log("gasPurchaseCost:", gasPurchaseCost);
         }
     }
+
+    function ethQty(
+        uint64 gasAmount,
+        uint64 gasAdjustmentQuotient
+    ) internal view returns (uint256 qty) {
+        uint x = gasAmount / gasAdjustmentQuotient;
+        int y = LibFixedPointMath.exp(int256(uint256(x)));
+        qty = y > 0 ? uint256(y) : 0;
+        console2.log("    gasAmount:", gasAmount);
+        console2.log("    qty:", qty);
+    }
+
+    // function calcGasExcess(uint64 basefee, uint64 gasAdjustmentQuotient) internal view returns (uint256 gasExcess) {
+    //     return basefee * gasAdjustmentQuotient;
+    // }
 }

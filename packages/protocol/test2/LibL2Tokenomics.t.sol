@@ -17,18 +17,16 @@ contract TestLibL2Tokenomics is Test {
     // then each second, Taiko can offer 30M gas.
 
     uint32 gasTargetPerSecond = 30000000; // 30M gas per second
-    uint64 gasAccumulated0 = uint64(gasTargetPerSecond) * 200;
-    uint256 gasAdjustmentFactor =
-        uint(gasAccumulated0) * uint(gasAccumulated0) * initialBaseFee;
-
-    uint64 gasAccumulated = gasAccumulated0;
+    uint64 gasExcess0 = uint64(gasTargetPerSecond) * 200;
+    uint64 gasAdjustmentQuotient = 16;
+    uint64 gasExcess = gasExcess0;
 
     function setUp() public view {
-        // console2.log("gasAdjustmentFactor:", gasAdjustmentFactor);
+        // console2.log("gasAdjustmentQuotient:", gasAdjustmentQuotient);
     }
 
     function test1559PurchaseMaxSizeGasWontOverflow() public {
-        gasAccumulated = type(uint64).max;
+        gasExcess = type(uint64).max;
 
         (uint64 basefee, uint256 cost) = _purchaseGas(
             type(uint32).max,
@@ -36,7 +34,7 @@ contract TestLibL2Tokenomics is Test {
         );
         assertEq(basefee, 0);
         assertEq(cost, 0);
-        gasAccumulated = gasAccumulated0;
+        gasExcess = gasExcess0;
     }
 
     function test1559Basefee_NoChangeAfterRefillTheSameAmount() public {
@@ -52,31 +50,35 @@ contract TestLibL2Tokenomics is Test {
 
         assertEq(basefee1, basefee2);
         assertEq(cost1, cost2);
-        gasAccumulated = gasAccumulated0;
+        gasExcess = gasExcess0;
     }
 
     function test1559Basefee_Compare_T_vs_2T() public {
         uint32 blockMaxGasLimit = 6000000;
 
         (uint64 basefee, ) = _purchaseGas(1, 24 seconds);
-        gasAccumulated = gasAccumulated0;
+        gasExcess = gasExcess0;
 
         (uint64 basefeeT, ) = _purchaseGas(blockMaxGasLimit / 2, 0 seconds);
-        gasAccumulated = gasAccumulated0;
+        gasExcess = gasExcess0;
 
         (uint64 basefee2T, ) = _purchaseGas(blockMaxGasLimit, 0 seconds);
-        gasAccumulated = gasAccumulated0;
+        gasExcess = gasExcess0;
 
         console2.log("when purchase a block of size blockMaxGasLimit/2:");
         console2.log(
             unicode"👉 basefee increases by %%:",
-            (basefeeT * 100) / basefee - 100
+            basefee,
+            basefeeT
+            // (basefeeT * 100) / basefee - 100
         );
 
         console2.log("when purchase a block of size blockMaxGasLimit:");
         console2.log(
             unicode"👉 basefee increases by %%:",
-            (basefee2T * 100) / basefee - 100
+            basefee,
+            basefee2T
+            // (basefee2T * 100) / basefee - 100
         );
     }
 
@@ -94,20 +96,19 @@ contract TestLibL2Tokenomics is Test {
             }
             basefee = _basefee;
         }
-        gasAccumulated = gasAccumulated0;
+        gasExcess = gasExcess0;
     }
 
     function _purchaseGas(
         uint32 amount,
         uint64 blockTime
     ) private returns (uint64 basefee, uint256 gasPurchaseCost) {
-        (gasAccumulated, basefee, gasPurchaseCost) = LibL2Tokenomics
-            .calc1559Basefee(
-                gasAccumulated,
-                gasTargetPerSecond,
-                gasAdjustmentFactor,
-                amount,
-                blockTime
-            );
+        (gasExcess, basefee, gasPurchaseCost) = LibL2Tokenomics.calc1559Basefee(
+            gasExcess,
+            gasTargetPerSecond,
+            gasAdjustmentQuotient,
+            amount,
+            blockTime
+        );
     }
 }
