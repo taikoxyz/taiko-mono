@@ -16,8 +16,8 @@ contract TestLibL2Tokenomics is Test {
     // Ethereum offers 15M gas per 12 seconds, if we scale it by 24 times,
     // then each second, Taiko can offer 30M gas.
 
-    uint32 gasAccumulatedPerSecond = 30000000; // 30M gas per second
-    uint64 gasAccumulated0 = uint64(gasAccumulatedPerSecond) * 200;
+    uint32 gasTargetPerSecond = 30000000; // 30M gas per second
+    uint64 gasAccumulated0 = uint64(gasTargetPerSecond) * 200;
     uint256 gasPoolProduct =
         uint(gasAccumulated0) * uint(gasAccumulated0) * initialBaseFee;
 
@@ -41,12 +41,12 @@ contract TestLibL2Tokenomics is Test {
 
     function test1559Basefee_NoChangeAfterRefillTheSameAmount() public {
         (uint64 basefee1, uint256 cost1) = _purchaseGas(
-            gasAccumulatedPerSecond * 12,
+            gasTargetPerSecond * 12,
             12 seconds
         );
 
         (uint64 basefee2, uint256 cost2) = _purchaseGas(
-            gasAccumulatedPerSecond * 12,
+            gasTargetPerSecond * 12,
             12 seconds
         );
 
@@ -83,7 +83,7 @@ contract TestLibL2Tokenomics is Test {
     function test1559Basefee_EverIncreaseing() public {
         uint64 basefee;
         for (uint i = 0; i < 5; i++) {
-            (uint64 _basefee, ) = _purchaseGas(gasAccumulatedPerSecond * 12, 0);
+            (uint64 _basefee, ) = _purchaseGas(gasTargetPerSecond * 12, 0);
             assertGt(_basefee, basefee);
             if (basefee > 0) {
                 console2.log(
@@ -104,7 +104,7 @@ contract TestLibL2Tokenomics is Test {
         (gasAccumulated, basefee, gasPurchaseCost) = LibL2Tokenomics
             .calc1559Basefee(
                 gasAccumulated,
-                gasAccumulatedPerSecond,
+                gasTargetPerSecond,
                 gasPoolProduct,
                 amount,
                 blockTime

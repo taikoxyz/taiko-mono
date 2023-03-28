@@ -36,7 +36,7 @@ library LibL2Tokenomics {
         return
             calc1559Basefee(
                 state.gasAccumulated,
-                config.gasAccumulatedPerSecond,
+                config.gasTargetPerSecond,
                 config.gasPoolProduct,
                 gasInBlock,
                 uint64(block.timestamp - state.lastProposedAt)
@@ -49,7 +49,7 @@ library LibL2Tokenomics {
     //      have a solidity exp(uint256 x) implementation.
     function calc1559Basefee(
         uint64 gasAccumulated,
-        uint256 gasAccumulatedPerSecond,
+        uint256 gasTargetPerSecond,
         uint256 gasPoolProduct,
         uint32 gasInBlock,
         uint256 blockTime
@@ -70,7 +70,7 @@ library LibL2Tokenomics {
             );
         }
         unchecked {
-            uint256 _gasAccumulated = gasAccumulatedPerSecond *
+            uint256 _gasAccumulated = gasTargetPerSecond *
                 blockTime +
                 gasAccumulated;
 
