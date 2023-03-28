@@ -107,7 +107,7 @@ library LibProposing {
         blk.deposit = 0;
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = 0;
-        blk.metaHash = keccak256(abi.encode(meta));
+        blk.metaHash = LibUtils.hashMetadata(meta);
         blk.proposer = msg.sender;
 
         if (config.enableTokenomics) {
