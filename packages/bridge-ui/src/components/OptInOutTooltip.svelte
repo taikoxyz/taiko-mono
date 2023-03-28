@@ -7,7 +7,7 @@
   export let show = false;
   export let name = 'OptInOutTooltip';
   export let title = 'Notice';
-  export let onConfirm: (noShowAgain: boolean) => void;
+  export let onConfirm: (noShowAgain: boolean) => void = null;
 
   let noShowAgainLocalStorageKey = `${localStoragePrefix}_${name}_noShowAgain`;
   let noShowAgainStorage = false;

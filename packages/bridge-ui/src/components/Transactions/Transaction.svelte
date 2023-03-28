@@ -55,7 +55,7 @@
   async function onClaimClick() {
     // Has the user sent processing fees?
     const processingFee = transaction.message?.processingFee.toString();
-    if (processingFee && processingFee !== '0') {
+    if (processingFee && processingFee !== '0' && !alreadyInformedAboutClaim) {
       // The user has sent processing fees, so we need to inform
       // about the relayer and auto-claim.
       dispatch(
