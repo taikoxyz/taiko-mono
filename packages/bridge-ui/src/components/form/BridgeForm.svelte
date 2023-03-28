@@ -38,6 +38,7 @@
   import { tokenVaults } from '../../vault/tokenVaults';
   import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
   import { ProcessingFeeMethod } from '../../domain/fee';
+  import Button from '../buttons/Button.svelte';
 
   let amount: string;
   let amountInput: HTMLInputElement;
@@ -458,7 +459,7 @@
 <Memo bind:memo bind:memoError />
 
 {#if loading}
-  <button class="btn btn-accent w-full" disabled={true}>
+  <Button type="accent" size="lg" class="w-full" disabled={true}>
     <LottiePlayer
       src="/lottie/loader.json"
       autoplay={true}
@@ -469,21 +470,24 @@
       height={26}
       width={26}
       controlsLayout={[]} />
-  </button>
+  </Button>
 {:else if !requiresAllowance}
-  <button
-    class="btn btn-accent w-full mt-4"
+  <Button
+    type="accent"
+    size="lg"
+    class="w-full"
     on:click={bridge}
     disabled={btnDisabled}>
     {$_('home.bridge')}
-  </button>
+  </Button>
 {:else}
-  <button
-    class="btn btn-accent approve-btn w-full mt-4"
+  <Button
+    type="accent"
+    class="w-full"
     on:click={approve}
     disabled={btnDisabled}>
     {$_('home.approve')}
-  </button>
+  </Button>
 {/if}
 
 <style>

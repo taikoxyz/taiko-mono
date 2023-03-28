@@ -1,5 +1,5 @@
 <script lang="ts">
-  import TooltipModal from './modals/TooltipModal.svelte';
+  import TooltipModal from '../modals/TooltipModal.svelte';
 
   export let show: boolean;
 </script>

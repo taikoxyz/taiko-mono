@@ -1,31 +1,32 @@
 <script lang="ts">
-  import type { BridgeTransaction } from '../domain/transactions';
-  import type { Chain } from '../domain/chain';
+  import type { BridgeTransaction } from '../../domain/transactions';
+  import type { Chain } from '../../domain/chain';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
-  import { MessageStatus } from '../domain/message';
+  import { MessageStatus } from '../../domain/message';
   import { Contract, ethers } from 'ethers';
-  import { signer } from '../store/signer';
-  import { pendingTransactions } from '../store/transactions';
+  import { signer } from '../../store/signer';
+  import { pendingTransactions } from '../../store/transactions';
   import { _ } from 'svelte-i18n';
   import {
     fromChain as fromChainStore,
     toChain as toChainStore,
-  } from '../store/chain';
-  import { BridgeType } from '../domain/bridge';
+  } from '../../store/chain';
+  import { BridgeType } from '../../domain/bridge';
   import { onDestroy, onMount } from 'svelte';
 
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
-  import { errorToast, successToast } from './Toast.svelte';
-  import HeaderSyncABI from '../constants/abi/HeaderSync';
+  import { errorToast, successToast } from '../Toast.svelte';
+  import HeaderSyncABI from '../../constants/abi/HeaderSync';
   import { fetchSigner, switchNetwork } from '@wagmi/core';
-  import BridgeABI from '../constants/abi/Bridge';
-  import ButtonWithTooltip from './ButtonWithTooltip.svelte';
-  import TokenVaultABI from '../constants/abi/TokenVault';
-  import { chains, mainnetChain, taikoChain } from '../chain/chains';
-  import { providers } from '../provider/providers';
-  import { bridges } from '../bridge/bridges';
-  import { tokenVaults } from '../vault/tokenVaults';
-  import { isOnCorrectChain } from '../utils/isOnCorrectChain';
+  import BridgeABI from '../../constants/abi/Bridge';
+  import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
+  import TokenVaultABI from '../../constants/abi/TokenVault';
+  import { chains, mainnetChain, taikoChain } from '../../chain/chains';
+  import { providers } from '../../provider/providers';
+  import { bridges } from '../../bridge/bridges';
+  import { tokenVaults } from '../../vault/tokenVaults';
+  import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
+  import Button from '../buttons/Button.svelte';
 
   export let transaction: BridgeTransaction;
   export let fromChain: Chain;
@@ -256,9 +257,7 @@
   <td>
     <ButtonWithTooltip onClick={() => onTooltipClick(false)}>
       <span slot="buttonText">
-        {#if transaction.receipt && transaction.receipt.status !== 1}
-          <span class="border border-transparent p-0">Failed</span>
-        {:else if !processable}
+        {#if !processable}
           Pending
         {:else if (!transaction.receipt && transaction.status === MessageStatus.New) || loading}
           <div class="inline-block">
@@ -274,29 +273,34 @@
               controlsLayout={[]} />
           </div>
         {:else if transaction.receipt && [MessageStatus.New, MessageStatus.ClaimInProgress].includes(transaction.status)}
-          <button
-            class="cursor-pointer border rounded p-1 btn btn-sm border-white disabled:border-gray-800"
+          <Button
+            type="accent"
+            size="sm"
             on:click={async () => await claim(transaction)}
             disabled={transaction.status === MessageStatus.ClaimInProgress}>
             Claim
-          </button>
+          </Button>
         {:else if transaction.status === MessageStatus.Retriable}
-          <button
-            class="cursor-pointer border rounded p-1 btn btn-sm border-white"
+          <Button
+            type="accent"
+            size="sm"
             on:click={async () => await claim(transaction)}>
             Retry
-          </button>
+          </Button>
         {:else if transaction.status === MessageStatus.Failed}
           <!-- todo: releaseTokens() on src bridge with proof from destBridge-->
-          <button
-            class="cursor-pointer border rounded p-1 btn btn-sm border-white"
+          <Button
+            type="accent"
+            size="sm"
             on:click={async () => await releaseTokens(transaction)}>
             Release
-          </button>
+          </Button>
         {:else if transaction.status === MessageStatus.Done}
           <span class="border border-transparent p-0">Claimed</span>
         {:else if transaction.status === MessageStatus.FailedReleased}
           <span class="border border-transparent p-0">Released</span>
+        {:else if transaction.receipt && transaction.receipt.status !== 1}
+          <span class="border border-transparent p-0">Failed</span>
         {/if}
       </span>
     </ButtonWithTooltip>
