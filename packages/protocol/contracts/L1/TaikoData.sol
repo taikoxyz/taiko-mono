@@ -64,7 +64,8 @@ library TaikoData {
         uint8 cacheTxListInfo; // non-zero = True
     }
 
-    // 5 slots
+    // 6 slots
+    // Changing this struct requires chaing LibUtils.hashMetadata accordingly.
     struct BlockMetadata {
         uint64 id;
         uint64 timestamp;
