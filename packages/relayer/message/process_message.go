@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -169,6 +170,15 @@ func (p *Processor) sendProcessMessageCall(
 			return nil, relayer.ErrUnprofitable
 		}
 	}
+
+	gasPrice, err := p.destEthClient.SuggestGasPrice(context.Background())
+	if err != nil {
+		return nil, errors.Wrap(err, "p.destBridge.SuggestGasPrice")
+	}
+
+	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(2))
+
+	auth.GasPrice = gasPrice
 
 	// process the message on the destination bridge.
 	tx, err := p.destBridge.ProcessMessage(auth, event.Message, proof)
