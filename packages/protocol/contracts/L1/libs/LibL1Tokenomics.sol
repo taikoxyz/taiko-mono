@@ -13,12 +13,15 @@ import {
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {TaikoData} from "../TaikoData.sol";
 import {TaikoToken} from "../TaikoToken.sol";
+import {ABDKMath64x64} from "../../thirdparty/ABDKMath64x64.sol";
 
 library LibL1Tokenomics {
     using LibMath for uint256;
+    using LibMath for uint64;
 
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_PARAM();
+    error L1_NO_GAS();
 
     function withdraw(
         TaikoData.State storage state,
@@ -165,5 +168,65 @@ library LibL1Tokenomics {
                 premiumRate = uint64(((t.max(a) - a) * 10000) / a);
             }
         }
+    }
+
+    /// @notice Calculate the block reward multiplier based on delay
+    /// @dev Bigger delays and smaller the blocks results greater the reward
+    /// @dev Smaller the block - greater the reward.
+    /// @param config - Config, containing FeeAndRewardConfig
+    /// @param usedGas - Gas in the block
+    /// @param delay - Delay compare to avgProofTime
+    function getBlockRewardMultiplier(
+        TaikoData.Config memory config,
+        uint32 usedGas,
+        uint256 delay
+    ) internal pure returns (uint256 blockReward) {
+        if (usedGas == 0) revert L1_NO_GAS();
+
+        blockReward =
+            config.feeConfig.rewardTargetPerGas *
+            (delay / (config.feeConfig.targetDelayBonusPerGas * usedGas));
+    }
+
+    /// @notice Update the baseFee for proofs
+    /// @param feeConfig - Config, containing FeeAndRewardConfig
+    /// @param usedGas - Gas in the block
+    /// @param blockRewardMultiplier - Block reward
+    function updateBaseProof(
+        TaikoData.FeeAndRewardConfig memory feeConfig,
+        uint256 blockRewardMultiplier,
+        uint32 usedGas
+    ) internal pure returns (uint64 rewardIssued, uint256 newBaseFeeProof) {
+        rewardIssued = uint64(
+            (uint64(0)).max(
+                feeConfig.rewardIssued +
+                    blockRewardMultiplier -
+                    feeConfig.rewardTargetPerGas *
+                    usedGas
+            )
+        );
+        newBaseFeeProof =
+            ethAmount(
+                rewardIssued / usedGas,
+                feeConfig.rewardTargetPerGas,
+                feeConfig.adjustmentQuotient
+            ) -
+            (feeConfig.rewardTargetPerGas * feeConfig.adjustmentQuotient);
+    }
+
+    /// @notice Calculating the exponential via ABDKMath64x64
+    /// @param value - Result of rewardIssued / usedGas
+    /// @param target - Reward targer per gas
+    /// @param quotient - Quotient
+    function ethAmount(
+        uint256 value,
+        uint256 target,
+        uint256 quotient
+    ) internal pure returns (uint256) {
+        int128 valueInt128 = ABDKMath64x64.exp(
+            ABDKMath64x64.divu(value, target * quotient)
+        );
+
+        return uint256(ABDKMath64x64.toUInt(valueInt128));
     }
 }

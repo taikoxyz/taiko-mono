@@ -12,6 +12,16 @@ library TaikoData {
         uint16 dampingFactorBips;
     }
 
+    struct FeeAndRewardConfig {
+        uint256 baseFeeProof;
+        uint64 rewardIssued;
+        // avgProofTimeMAF is known already
+        //uint16 avgProofTimeMAF;
+        uint64 rewardTargetPerGas;
+        uint64 targetDelayBonusPerGas;
+        uint8 adjustmentQuotient;
+    }
+
     struct Config {
         uint256 chainId;
         uint256 maxNumProposedBlocks;
@@ -39,6 +49,8 @@ library TaikoData {
         bool skipZKPVerification;
         FeeConfig proposingConfig;
         FeeConfig provingConfig;
+        // Hopefully the above 2 can be deleted later if that fits
+        FeeAndRewardConfig feeConfig;
     }
 
     struct StateVariables {
@@ -108,6 +120,7 @@ library TaikoData {
         uint64 blockId;
         uint64 proposedAt;
         uint64 deposit;
+        uint32 gasLimit;
         uint24 nextForkChoiceId;
         uint24 verifiedForkChoiceId;
         bytes32 metaHash;

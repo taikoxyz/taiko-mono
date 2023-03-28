@@ -152,6 +152,29 @@ library LibVerifying {
         unchecked {
             proofTime = (fc.provenAt - blk.proposedAt) * 1000;
         }
+
+        // Calculate block reward multiplier
+        uint256 blockRewardMultiplier;
+        if (proofTime > state.avgProofTime) {
+            blockRewardMultiplier = LibL1Tokenomics.getBlockRewardMultiplier(
+                config,
+                blk.gasLimit,
+                proofTime - state.avgProofTime
+            );
+        } else {
+            blockRewardMultiplier = LibL1Tokenomics.getBlockRewardMultiplier(
+                config,
+                blk.gasLimit,
+                state.avgProofTime
+            );
+        }
+
+        LibL1Tokenomics.updateBaseProof(
+            config.feeConfig,
+            blockRewardMultiplier,
+            blk.gasLimit
+        );
+
         state.avgProofTime = LibUtils
             .movingAverage({
                 maValue: state.avgProofTime,
