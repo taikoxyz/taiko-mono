@@ -37,7 +37,7 @@ library LibL2Tokenomics {
             calc1559Basefee(
                 state.gasAccumulated,
                 config.gasTargetPerSecond,
-                config.gasPoolProduct,
+                config.gasAdjustmentFactor,
                 gasInBlock,
                 uint64(block.timestamp - state.lastProposedAt)
             );
@@ -50,7 +50,7 @@ library LibL2Tokenomics {
     function calc1559Basefee(
         uint64 gasAccumulated,
         uint256 gasTargetPerSecond,
-        uint256 gasPoolProduct,
+        uint256 gasAdjustmentFactor,
         uint32 gasInBlock,
         uint256 blockTime
     )
@@ -65,7 +65,7 @@ library LibL2Tokenomics {
         if (gasInBlock == 0) {
             return (
                 gasAccumulated,
-                uint64(gasPoolProduct / gasAccumulated / gasAccumulated),
+                uint64(gasAdjustmentFactor / gasAccumulated / gasAccumulated),
                 0
             );
         }
@@ -81,8 +81,8 @@ library LibL2Tokenomics {
             newGasAccumulated = uint64(_gasAccumulated - gasInBlock);
 
             gasPurchaseCost =
-                (gasPoolProduct / newGasAccumulated) -
-                (gasPoolProduct / _gasAccumulated);
+                (gasAdjustmentFactor / newGasAccumulated) -
+                (gasAdjustmentFactor / _gasAccumulated);
 
             uint256 _basefee = gasPurchaseCost / gasInBlock;
             basefee = uint64(_basefee.min(type(uint64).max));

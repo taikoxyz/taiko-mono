@@ -18,13 +18,13 @@ contract TestLibL2Tokenomics is Test {
 
     uint32 gasTargetPerSecond = 30000000; // 30M gas per second
     uint64 gasAccumulated0 = uint64(gasTargetPerSecond) * 200;
-    uint256 gasPoolProduct =
+    uint256 gasAdjustmentFactor =
         uint(gasAccumulated0) * uint(gasAccumulated0) * initialBaseFee;
 
     uint64 gasAccumulated = gasAccumulated0;
 
     function setUp() public view {
-        // console2.log("gasPoolProduct:", gasPoolProduct);
+        // console2.log("gasAdjustmentFactor:", gasAdjustmentFactor);
     }
 
     function test1559PurchaseMaxSizeGasWontOverflow() public {
@@ -105,7 +105,7 @@ contract TestLibL2Tokenomics is Test {
             .calc1559Basefee(
                 gasAccumulated,
                 gasTargetPerSecond,
-                gasPoolProduct,
+                gasAdjustmentFactor,
                 amount,
                 blockTime
             );

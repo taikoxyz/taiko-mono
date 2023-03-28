@@ -22,7 +22,7 @@ library TaikoData {
         uint256 maxVerificationsPerTx;
         uint256 blockMaxGasLimit;
         uint64 gasTargetPerSecond;
-        uint256 gasPoolProduct;
+        uint256 gasAdjustmentFactor;
         uint256 maxTransactionsPerBlock;
         uint256 maxBytesPerTxList;
         uint256 minTxGasLimit;

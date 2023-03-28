@@ -43,7 +43,7 @@ library LibUtils {
                 lastVerifiedBlockId: state.lastVerifiedBlockId,
                 avgProofTime: state.avgProofTime,
                 basefee: uint64(
-                    (config.gasPoolProduct / state.gasAccumulated).min(
+                    (config.gasAdjustmentFactor / state.gasAccumulated).min(
                         type(uint64).max
                     )
                 ),
