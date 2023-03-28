@@ -3,9 +3,10 @@
 
   export let title: string;
   export let isOpen: boolean = false;
+  export let showXButton: boolean = true;
 </script>
 
-<Modal {title} bind:isOpen>
+<Modal {title} bind:isOpen {showXButton}>
   <div class="flex h-full min-h-tooltip-modal w-full flex-col justify-between">
     <div class="tip-body mb-4 flex-auto">
       <slot name="body" />

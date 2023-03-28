@@ -7,11 +7,10 @@
 
   export let type: TypeButton = '';
   export let size: SizeButton = 'md';
-  export let disabled = false;
 
   const classes = `btn ${`btn-${type}`} ${`btn-${size}`} ${$$props.class}`;
 </script>
 
-<button {...$$restProps} class={classes} {disabled}>
+<button {...$$restProps} on:click class={classes}>
   <slot />
 </button>

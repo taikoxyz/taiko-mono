@@ -34,7 +34,10 @@
         the user will have to refresh the page to see the message again
         if they delete the localStorage entry.
 -->
-<TooltipModal title="Notice" isOpen={show && !noShowAgainStorage}>
+<TooltipModal
+  title="Notice"
+  isOpen={show && !noShowAgainStorage}
+  showXButton={false}>
   <div slot="body" class="space-y-6">
     <!-- TODO: translations? -->
     <div class="text-center">
