@@ -1,7 +1,3 @@
----
-title: AddressResolver
----
-
 ## AddressResolver
 
 This abstract contract provides a name-to-address lookup. Under the hood,

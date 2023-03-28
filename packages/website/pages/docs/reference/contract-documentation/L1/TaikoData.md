@@ -1,7 +1,3 @@
----
-title: TaikoData
----
-
 ## TaikoData
 
 ### Config

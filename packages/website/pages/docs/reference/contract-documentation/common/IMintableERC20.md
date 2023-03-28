@@ -1,7 +1,3 @@
----
-title: IMintableERC20
----
-
 ## IMintableERC20
 
 ### mint
