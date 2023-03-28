@@ -77,25 +77,25 @@ library LibUtils {
     function hashMetadata(
         TaikoData.BlockMetadata memory meta
     ) internal pure returns (bytes32 hash) {
-        bytes32[6] memory inputs;
+        uint256[6] memory inputs;
 
         inputs[0] =
-            bytes32(uint256(meta.id) << 192) |
-            bytes32(uint256(meta.timestamp) << 128) |
-            bytes32(uint256(meta.l1Height) << 64) |
-            bytes32(uint256(meta.basefee));
+            (uint256(meta.id) << 192) |
+            (uint256(meta.timestamp) << 128) |
+            (uint256(meta.l1Height) << 64) |
+            uint256(meta.basefee);
 
-        inputs[1] = meta.l1Hash;
-        inputs[2] = meta.mixHash;
-        inputs[3] = meta.txListHash;
+        inputs[1] = uint256(meta.l1Hash);
+        inputs[2] = uint256(meta.mixHash);
+        inputs[3] = uint256(meta.txListHash);
 
         inputs[4] =
-            bytes32(uint256(meta.txListByteStart) << 232) |
-            bytes32(uint256(meta.txListByteEnd) << 208) |
-            bytes32(uint256(meta.gasLimit) << 176) |
-            bytes32(uint256(uint160(meta.beneficiary)) << 16);
+            (uint256(meta.txListByteStart) << 232) |
+            (uint256(meta.txListByteEnd) << 208) |
+            (uint256(meta.gasLimit) << 176) |
+            (uint256(uint160(meta.beneficiary)) << 16);
 
-        inputs[5] = bytes32(uint256(uint160(meta.treasure)) << 96);
+        inputs[5] = (uint256(uint160(meta.treasure)) << 96);
 
         assembly {
             hash := keccak256(inputs, mul(6, 32))
