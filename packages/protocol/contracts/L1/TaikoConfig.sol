@@ -45,7 +45,6 @@ library TaikoConfig {
                 enableOracleProver: true,
                 enableTokenomics: true,
                 skipZKPVerification: false,
-                treasure: address(0),
                 proposingConfig: TaikoData.FeeConfig({
                     avgTimeMAF: 1024,
                     dampingFactorBips: 2500 // [125% -> 75%]
