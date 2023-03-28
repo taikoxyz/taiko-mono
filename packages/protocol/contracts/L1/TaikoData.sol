@@ -37,6 +37,7 @@ library TaikoData {
         bool enableOracleProver;
         bool enableTokenomics;
         bool skipZKPVerification;
+        address treasure;
         FeeConfig proposingConfig;
         FeeConfig provingConfig;
     }
@@ -77,6 +78,7 @@ library TaikoData {
         uint24 txListByteEnd;
         uint32 gasLimit;
         address beneficiary;
+        address treasure;
     }
 
     struct ZKProof {
