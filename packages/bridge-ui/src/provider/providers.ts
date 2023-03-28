@@ -6,6 +6,12 @@ export const providers: Record<
   ChainID,
   ethers.providers.StaticJsonRpcProvider
 > = {
-  [L1_CHAIN_ID]: new ethers.providers.StaticJsonRpcProvider(L1_RPC),
-  [L2_CHAIN_ID]: new ethers.providers.StaticJsonRpcProvider(L2_RPC),
+  [L1_CHAIN_ID]: new ethers.providers.StaticJsonRpcProvider(
+    L1_RPC,
+    L1_CHAIN_ID,
+  ),
+  [L2_CHAIN_ID]: new ethers.providers.StaticJsonRpcProvider(
+    L2_RPC,
+    L2_CHAIN_ID,
+  ),
 };
