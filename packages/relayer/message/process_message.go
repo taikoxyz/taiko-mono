@@ -173,7 +173,7 @@ func (p *Processor) sendProcessMessageCall(
 
 	gasPrice, err := p.destEthClient.SuggestGasPrice(context.Background())
 	if err != nil {
-		log.Fatal(err)
+		return nil, errors.Wrap(err, "p.destBridge.SuggestGasPrice")
 	}
 
 	gasPrice = gasPrice.Mul(gasPrice, big.NewInt(2))
