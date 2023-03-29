@@ -35,6 +35,8 @@
             on:tooltipClick={() => (showMessageStatusTooltip = true)}
             on:insufficientBalance={() => (showInsufficientBalance = true)}
             on:relayerAutoClaim={({ detail }) => {
+              // We're passing the claiming of the transaction here, which
+              // will be called after confirming the notice.
               confirmNotice = detail;
               showRelayerAutoclaimTooltip = true;
             }}

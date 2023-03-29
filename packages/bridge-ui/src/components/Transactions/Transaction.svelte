@@ -53,15 +53,16 @@
   });
 
   async function onClaimClick() {
-    // Has the user sent processing fees?
+    // Has the user sent processing fees?. We also check if the user
+    // has already been informed about the relayer auto-claim.
     const processingFee = transaction.message?.processingFee.toString();
     if (processingFee && processingFee !== '0' && !alreadyInformedAboutClaim) {
-      // The user has sent processing fees, so we need to inform
-      // about the relayer and auto-claim.
       dispatch(
         'relayerAutoClaim',
         // TODO: this is a hack. The idea is to move all these
-        //       functions outside of the component.
+        //       functions outside of the component, where they
+        //       make more sense. We don't need to repeat the same
+        //       logic per transaction.
         async (informed) => {
           alreadyInformedAboutClaim = informed;
           await claim(transaction);
@@ -168,7 +169,7 @@
     }
   }
 
-  // TODO: move outside of component: isTransactionProcessable?
+  // TODO: this could also live in an utility: isTransactionProcessable?
   async function isProcessable() {
     if (!transaction.receipt) return false;
     if (!transaction.message) return false;
@@ -251,7 +252,7 @@
     <span class="ml-2 hidden md:inline-block">{txToChain.name}</span>
   </td>
   <td>
-    <!-- TODO: function to check is we're dealing with ETH or ERC20 -->
+    <!-- TODO: function to check is we're dealing with ETH or ERC20? -->
     {transaction.message &&
     (transaction.message?.data === '0x' || !transaction.message?.data)
       ? ethers.utils.formatEther(
@@ -282,7 +283,11 @@
               controlsLayout={[]} />
           </div>
         {:else if transaction.receipt && [MessageStatus.New, MessageStatus.ClaimInProgress].includes(transaction.status)}
-          <!-- TODO: we need some destructuring here -->
+          <!-- 
+            TODO: we need some destructuring here. 
+                  We keep on accessing transaction props
+                  over and over again.
+          -->
           <Button
             type="accent"
             size="sm"
@@ -305,6 +310,7 @@
         {:else if transaction.status === MessageStatus.FailedReleased}
           <span class="border border-transparent p-0">Released</span>
         {:else if transaction.receipt && transaction.receipt.status !== 1}
+          <!-- TODO: make sure this is now respecting the correct flow -->
           <span class="border border-transparent p-0">Failed</span>
         {/if}
       </span>
