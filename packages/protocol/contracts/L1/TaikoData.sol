@@ -133,8 +133,8 @@ library TaikoData {
         // Never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 __reserved1;
-        uint64 __reserved2;
+        uint64 xscale;
+        uint64 yscale;
         // Changed when a block is proposed or proven/finalized
         // Changed when a block is proposed
         uint64 numBlocks;

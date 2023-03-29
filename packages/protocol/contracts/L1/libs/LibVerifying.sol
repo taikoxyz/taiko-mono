@@ -8,6 +8,7 @@ pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibL1Tokenomics} from "./LibL1Tokenomics.sol";
+import {LibL2Tokenomics} from "./LibL2Tokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {
     SafeCastUpgradeable
@@ -32,25 +33,37 @@ library LibVerifying {
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
         uint64 feeBase,
-        uint64 gasExcess
+        uint64 l2GasExcessMax,
+        uint64 l2BasefeeInitial,
+        uint64 l2GasTarget,
+        uint64 l2Expected2X1XRatio
     ) internal {
         _checkConfig(config);
 
-        uint64 timeNow = uint64(block.timestamp);
-        state.genesisHeight = timeNow;
-        state.genesisTimestamp = timeNow;
-        state.feeBase = feeBase;
-        state.numBlocks = 1;
-        state.gasExcess = gasExcess;
+        {
+            uint64 timeNow = uint64(block.timestamp);
+            state.genesisHeight = timeNow;
+            state.genesisTimestamp = timeNow;
+            state.feeBase = feeBase;
+            state.numBlocks = 1;
 
-        TaikoData.Block storage blk = state.blocks[0];
-        blk.proposedAt = timeNow;
-        blk.nextForkChoiceId = 2;
-        blk.verifiedForkChoiceId = 1;
+            TaikoData.Block storage blk = state.blocks[0];
+            blk.proposedAt = timeNow;
+            blk.nextForkChoiceId = 2;
+            blk.verifiedForkChoiceId = 1;
 
-        TaikoData.ForkChoice storage fc = state.blocks[0].forkChoices[1];
-        fc.blockHash = genesisBlockHash;
-        fc.provenAt = timeNow;
+            TaikoData.ForkChoice storage fc = state.blocks[0].forkChoices[1];
+            fc.blockHash = genesisBlockHash;
+            fc.provenAt = timeNow;
+        }
+
+        (state.gasExcess, state.xscale, state.yscale) = LibL2Tokenomics
+            .calc1559Params(
+                l2GasExcessMax,
+                l2BasefeeInitial,
+                l2GasTarget,
+                l2Expected2X1XRatio
+            );
 
         emit BlockVerified(0, genesisBlockHash);
     }

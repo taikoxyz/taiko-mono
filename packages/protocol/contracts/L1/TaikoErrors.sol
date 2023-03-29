@@ -8,6 +8,10 @@ pragma solidity ^0.8.18;
 
 abstract contract TaikoErrors {
     // The following custom errors must match the definitions in other V1 libraries.
+    error L1_1559_GAS_CHANGE_NOT_MATCH(
+        uint64 expectedRatio,
+        uint64 actualRatio
+    );
     error L1_ALREADY_PROVEN();
     error L1_BLOCK_ID();
     error L1_CONTRACT_NOT_ALLOWED();

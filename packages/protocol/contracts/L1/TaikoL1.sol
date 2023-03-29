@@ -30,7 +30,10 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         address _addressManager,
         bytes32 _genesisBlockHash,
         uint64 _feeBase,
-        uint64 _gasExcess
+        uint64 _l2GasExcessMax,
+        uint64 _l2BasefeeInitial,
+        uint64 _l2GasTarget,
+        uint64 _l2Expected2X1XRatio
     ) external initializer {
         EssentialContract._init(_addressManager);
         LibVerifying.init({
@@ -38,7 +41,10 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             config: getConfig(),
             genesisBlockHash: _genesisBlockHash,
             feeBase: _feeBase,
-            gasExcess: _gasExcess
+            l2GasExcessMax: _l2GasExcessMax,
+            l2BasefeeInitial: _l2BasefeeInitial,
+            l2GasTarget: _l2GasTarget,
+            l2Expected2X1XRatio: _l2Expected2X1XRatio
         });
     }
 

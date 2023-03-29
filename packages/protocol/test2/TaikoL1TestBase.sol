@@ -43,12 +43,20 @@ abstract contract TaikoL1TestBase is Test {
         addressManager = new AddressManager();
         addressManager.init();
 
+        uint64 basefeeInitial = 5000000000;
+        uint64 gasExcessMax = 15000000 * 256;
+        uint64 gasTarget = 6000000;
+        uint64 expected2X1XRatio = 111; // 11 %%
+
         L1 = deployTaikoL1();
         L1.init(
             address(addressManager),
             GENESIS_BLOCK_HASH,
             feeBase,
-            gasExcess
+            gasExcessMax,
+            basefeeInitial,
+            gasTarget,
+            expected2X1XRatio
         );
         conf = L1.getConfig();
 
