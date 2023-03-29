@@ -25,31 +25,30 @@ library LibL2Tokenomics {
 
     uint256 public constant MAX_EXP_INPUT = 135305999368893231588;
 
+    error L1_1559_GAS_CHANGE_MISMATCH(uint64 expectedRatio, uint64 actualRatio);
+    error L1_1559_X_SCALE_TOO_LARGE();
+    error L1_1559_Y_SCALE_TOO_LARGE();
     error L1_OUT_OF_BLOCK_SPACE();
-    error L1_1559_GAS_CHANGE_NOT_MATCH(
-        uint64 expectedRatio,
-        uint64 actualRatio
-    );
 
-    function update1559Basefee(
+    function get1559Basefee(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint32 gasLimit
-    ) internal returns (uint64 basefee) {
+    ) internal view returns (uint64 basefee, uint64 newGasExcess) {
+        uint64 newGasExcess;
         unchecked {
             uint256 reduced = (block.timestamp - state.lastProposedAt) *
                 config.gasTargetPerSecond;
-            state.gasExcess = uint64(reduced.max(state.gasExcess) - reduced);
+            newGasExcess = uint64(reduced.max(state.gasExcess) - reduced);
         }
 
         basefee = calc1559Basefee({
-            excess: state.gasExcess,
+            gasExcess: newGasExcess,
             xscale: state.xscale,
-            yscale: state.yscale << 64,
-            amount: gasLimit
+            yscale: uint256(state.yscale) << 64,
+            gasAmount: gasLimit
         }).toUint64();
-
-        state.gasExcess += gasLimit;
+        newGasExcess += gasLimit;
     }
 
     function calc1559Params(
@@ -57,59 +56,77 @@ library LibL2Tokenomics {
         uint64 basefeeInitial,
         uint64 gasTarget,
         uint64 expected2X1XRatio
-    ) internal pure returns (uint64 excess, uint64 xscale, uint64 yscale) {
+    ) internal pure returns (uint64 gasExcess, uint64 xscale, uint64 yscale) {
         assert(excessMax != 0);
 
-        excess = excessMax / 2;
-        xscale = (MAX_EXP_INPUT / excessMax).toUint64();
+        gasExcess = excessMax / 2;
 
-        uint256 _yscale = calc1559Basefee(
-            excess,
-            xscale,
-            basefeeInitial,
-            gasTarget
-        );
-        yscale = (_yscale >> 64).toUint64();
-        assert(xscale < type(uint64).max);
-
+        // calculate xscale
         {
-            uint256 price1x = calc1559Basefee(
-                excess,
+            uint256 _xscale = MAX_EXP_INPUT / excessMax;
+            if (_xscale >= type(uint64).max) {
+                revert L1_1559_X_SCALE_TOO_LARGE();
+            }
+            xscale = uint64(_xscale);
+        }
+
+        // calculate yscale
+        {
+            uint256 _yscale = calc1559Basefee(
+                gasExcess,
                 xscale,
-                uint256(yscale) << 64,
+                basefeeInitial,
+                gasTarget
+            );
+            if ((_yscale >> 64) >= type(uint64).max) {
+                revert L1_1559_Y_SCALE_TOO_LARGE();
+            }
+
+            yscale = uint64(_yscale >> 64);
+        }
+
+        // verify the gas price ratio between two blocks, one has
+        // 2*gasTarget gas and the other one has gasTarget gas.
+        {
+            uint _yscale = uint256(yscale) << 64;
+            uint256 price1x = calc1559Basefee(
+                gasExcess,
+                xscale,
+                _yscale,
                 gasTarget
             );
             uint256 price2x = calc1559Basefee(
-                excess,
+                gasExcess,
                 xscale,
-                uint256(yscale) << 64,
+                _yscale,
                 gasTarget * 2
             );
 
             uint64 ratio = uint64((price2x * 100) / price1x);
 
-            if (expected2X1XRatio != ratio)
-                revert L1_1559_GAS_CHANGE_NOT_MATCH(expected2X1XRatio, ratio);
+            if (expected2X1XRatio != ratio) {
+                revert L1_1559_GAS_CHANGE_MISMATCH(expected2X1XRatio, ratio);
+            }
         }
     }
 
     function calc1559Basefee(
-        uint64 excess,
+        uint64 gasExcess,
         uint64 xscale,
         uint256 yscale,
-        uint64 amount
+        uint64 gasAmount
     ) internal pure returns (uint256) {
-        assert(amount != 0 && xscale != 0 && yscale != 0);
-        uint256 _before = _ethqty(excess, xscale);
-        uint256 _after = _ethqty(excess + amount, xscale);
-        return (_after - _before) / amount / yscale;
+        assert(gasAmount != 0 && xscale != 0 && yscale != 0);
+        uint256 _before = _ethqty(gasExcess, xscale);
+        uint256 _after = _ethqty(gasExcess + gasAmount, xscale);
+        return (_after - _before) / gasAmount / yscale;
     }
 
     function _ethqty(
-        uint256 excess,
+        uint256 gasExcess,
         uint256 xscale
     ) private pure returns (uint256) {
-        uint256 x = excess * xscale;
+        uint256 x = gasExcess * xscale;
         if (x > MAX_EXP_INPUT) revert L1_OUT_OF_BLOCK_SPACE();
         return uint256(Math.exp(int256(x)));
     }

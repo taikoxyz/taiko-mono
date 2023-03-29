@@ -92,11 +92,11 @@ library LibProposing {
         //
         // On L2, EIP-1559's basefee will not be burned but send to a Taiko
         // treasure address.
-        meta.basefee = LibL2Tokenomics.update1559Basefee(
-            state,
-            config,
-            input.gasLimit
-        );
+        (meta.basefee, state.gasExcess) = LibL2Tokenomics.get1559Basefee({
+            state: state,
+            config: config,
+            gasLimit: input.gasLimit
+        });
 
         TaikoData.Block storage blk = state.blocks[
             state.numBlocks % config.ringBufferSize
