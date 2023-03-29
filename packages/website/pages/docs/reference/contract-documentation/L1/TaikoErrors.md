@@ -4,6 +4,24 @@ title: TaikoErrors
 
 ## TaikoErrors
 
+### L1_1559_GAS_CHANGE_MISMATCH
+
+```solidity
+error L1_1559_GAS_CHANGE_MISMATCH(uint64 expectedRatio, uint64 actualRatio)
+```
+
+### L1_1559_X_SCALE_TOO_LARGE
+
+```solidity
+error L1_1559_X_SCALE_TOO_LARGE()
+```
+
+### L1_1559_Y_SCALE_TOO_LARGE
+
+```solidity
+error L1_1559_Y_SCALE_TOO_LARGE()
+```
+
 ### L1_ALREADY_PROVEN
 
 ```solidity

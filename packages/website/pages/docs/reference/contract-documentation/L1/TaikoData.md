@@ -23,8 +23,8 @@ struct Config {
   uint256 maxNumVerifiedBlocks;
   uint256 maxVerificationsPerTx;
   uint256 blockMaxGasLimit;
-  uint64 gasAccumulatedPerSecond;
-  uint256 gasPoolProduct;
+  uint64 gasTargetPerSecond;
+  uint64 gasAdjustmentQuotient;
   uint256 maxTransactionsPerBlock;
   uint256 maxBytesPerTxList;
   uint256 minTxGasLimit;
@@ -56,7 +56,7 @@ struct StateVariables {
   uint64 avgProofTime;
   uint64 lastProposedAt;
   uint64 basefee;
-  uint64 gasAccumulated;
+  uint64 gasExcess;
 }
 ```
 
@@ -88,6 +88,7 @@ struct BlockMetadata {
   uint24 txListByteEnd;
   uint32 gasLimit;
   address beneficiary;
+  address treasure;
 }
 ```
 
@@ -158,12 +159,12 @@ struct State {
   mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
-  uint64 __reserved1;
-  uint64 __reserved2;
+  uint64 xscale;
+  uint64 yscale;
   uint64 numBlocks;
   uint64 lastProposedAt;
   uint64 avgBlockTime;
-  uint64 gasAccumulated;
+  uint64 gasExcess;
   uint64 lastVerifiedBlockId;
   uint64 __reserved4;
   uint64 avgProofTime;
