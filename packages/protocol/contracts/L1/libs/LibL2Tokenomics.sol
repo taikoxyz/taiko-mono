@@ -8,7 +8,10 @@ pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibMath} from "../../libs/LibMath.sol";
-import {LibFixedPointMath} from "../../thirdparty/LibFixedPointMath.sol";
+import {
+    LibFixedPointMath as Math
+} from "../../thirdparty/LibFixedPointMath.sol";
+
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
@@ -19,6 +22,8 @@ import {console2} from "forge-std/console2.sol";
 library LibL2Tokenomics {
     using LibMath for uint256;
     using SafeCastUpgradeable for uint256;
+
+    uint public constant MAX_EXP_INPUT = 135305999368893231588;
 
     error L1_OUT_OF_BLOCK_SPACE();
 
@@ -93,9 +98,25 @@ library LibL2Tokenomics {
         uint64 gasAdjustmentQuotient
     ) internal view returns (uint256 qty) {
         uint x = gasAmount / gasAdjustmentQuotient;
-        int y = LibFixedPointMath.exp(int256(uint256(x)));
+        int y = Math.exp(int256(uint256(x)));
         qty = y > 0 ? uint256(y) : 0;
         console2.log("   -  gasAmount:", gasAmount);
         console2.log("   -  qty:", qty);
+    }
+
+    function ethqty(uint excess, uint xscale) internal pure returns (uint256) {
+        uint x = excess * xscale;
+        assert(x <= MAX_EXP_INPUT);
+        return uint256(Math.exp(int256(x)));
+    }
+
+    function basefee(
+        uint excess,
+        uint xscale,
+        uint yscale,
+        uint amount
+    ) internal pure returns (uint256) {
+        return
+            (ethqty(excess + amount, xscale) - ethqty(excess, xscale)) / yscale;
     }
 }

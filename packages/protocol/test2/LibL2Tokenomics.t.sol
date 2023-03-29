@@ -3,7 +3,7 @@ pragma solidity ^0.8.18;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {LibL2Tokenomics} from "../contracts/L1/libs/LibL2Tokenomics.sol";
+import {LibL2Tokenomics as T} from "../contracts/L1/libs/LibL2Tokenomics.sol";
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
@@ -15,52 +15,54 @@ import {
 contract TestLibL2Tokenomics is Test {
     using SafeCastUpgradeable for uint256;
 
-    // Ethereum offers 15M gas per 12 seconds, if we scale it by 24 times,
-    // then each second, Taiko can offer 30M gas.
-
-    uint256 public constant gasTargetPerSecond = 15000000; // 15M gas per second
-    uint256 xScale;
-    uint256 yScale;
-    uint256 gasExcess;
-
-    uint256 maxGasToBuy = gasTargetPerSecond * 512;
-
-    uint256 initialBasefee = 5000000000;
-
-    function setUp() public {
-        gasExcess = maxGasToBuy / 2;
-
-        calcScales(maxGasToBuy, initialBasefee);
-        console2.log("xScale", xScale);
-        console2.log("yScale", yScale);
-    }
-
-    function calcScales(uint maxGasToBuy, uint initialBasefee) internal {
-        xScale = 135305999368893231588 / maxGasToBuy;
-        yScale = 1;
-        yScale =
-            (ethqty(maxGasToBuy / 2 + 1) - ethqty(maxGasToBuy / 2)) /
-            initialBasefee;
+    function calcScales(
+        uint _maxGasExcess,
+        uint _initialBasefee,
+        uint256 _target
+    ) internal view returns (uint _excess, uint _xscale, uint _yscale) {
+        _excess = _maxGasExcess / 2;
+        _xscale = 135305999368893231588 / _maxGasExcess;
+        _yscale = T.basefee(_excess, _xscale, _initialBasefee, _target);
+        console2.log("xscale =", _xscale);
+        console2.log("yscale =", _yscale);
+        console2.log("uint64.max", type(uint64).max);
+        console2.log("uint128.max", type(uint128).max);
+        console2.log("initial basefee (configged)   =", _initialBasefee);
+        console2.log(
+            "initial basefee (recauculated)=",
+            T.basefee(_excess, _xscale, _yscale, _target)
+        );
     }
 
     function test1559PurchaseMaxSizeGasWontOverflow() public {
-        // buy 30000000 gas
+        uint256 initialBasefee = 5000000000;
+        uint256 maxGasToBuy = 15000000 * 512;
         uint target = 6000000;
-        uint pricePrev = initialBasefee;
+
+        (uint gasExcess, uint xscale, uint yscale) = calcScales(
+            maxGasToBuy,
+            initialBasefee,
+            target
+        );
+
+        uint expectedBaseFeeChange = 11; // 11 %%
+
+        uint _basefee = initialBasefee;
+        console2.log("basefee", _basefee);
+        gasExcess += target;
+
         for (uint i = 0; i < 10; ++i) {
-            uint fee = basefee(target);
-            console2.log("fee", fee);
-            console2.log("%", (fee * 100) / pricePrev);
-            pricePrev = fee;
+            uint newBasefee = T.basefee(gasExcess, xscale, yscale, target);
+            uint ratio = (newBasefee * 100) / _basefee - 100;
+            console2.log(
+                "basefee",
+                newBasefee,
+                "+%",
+                (newBasefee * 100) / _basefee - 100
+            );
+            assertEq(ratio, expectedBaseFeeChange);
+            _basefee = newBasefee;
             gasExcess += target;
         }
-    }
-
-    function ethqty(uint excess) internal view returns (uint256) {
-        return uint256(M.exp(int256(excess * xScale)));
-    }
-
-    function basefee(uint amount) internal view returns (uint256) {
-        return (ethqty(gasExcess + amount) - ethqty(gasExcess)) / yScale;
     }
 }
