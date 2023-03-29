@@ -68,8 +68,8 @@
     <!-- TODO: translations? -->
     <div class="text-center">
       When bridging, you selected the <strong>Recommended</strong> or
-      <strong>Custom</strong> amount for the Processing Fee. You can wait the relayer
-      to auto-claim then bridged token or you can manually claim it now.
+      <strong>Custom</strong> amount for the Processing Fee. You can wait for the
+      relayer to auto-claim the bridged token or manually claim it now.
     </div>
   </NoticeModal>
 </div>
