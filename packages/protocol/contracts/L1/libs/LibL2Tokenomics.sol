@@ -9,7 +9,6 @@ pragma solidity ^0.8.18;
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibMath} from "../../libs/LibMath.sol";
 import {LibFixedPointMath} from "../../thirdparty/LibFixedPointMath.sol";
-
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
@@ -29,7 +28,6 @@ library LibL2Tokenomics {
         TaikoData.Config memory config,
         uint32 gasLimit
     ) internal view returns (uint64 basefee, uint64 newGasExcess) {
-        uint64 newGasExcess;
         unchecked {
             uint256 reduced = (block.timestamp - state.lastProposedAt) *
                 config.gasTargetPerSecond;
