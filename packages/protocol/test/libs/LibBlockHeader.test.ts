@@ -1,5 +1,4 @@
 import { expect } from "chai";
-import * as log from "../../tasks/log";
 const hre = require("hardhat");
 const ethers = hre.ethers;
 const EBN = ethers.BigNumber;
@@ -52,7 +51,7 @@ describe("LibBlockHeader tests", function () {
         const headerComputed = await libBlockHeader.hashBlockHeader(
             l2BlockHeader
         );
-        log.debug("headerComputed:", headerComputed);
+        console.debug("headerComputed:", headerComputed);
 
         expect(headerComputed).to.equal(blockHash);
     });
@@ -138,7 +137,7 @@ describe("LibBlockHeader tests", function () {
         const headerComputed = await libBlockHeader.hashBlockHeader(
             l2BlockHeader
         );
-        log.debug("headerComputed:", headerComputed);
+        console.debug("headerComputed:", headerComputed);
 
         expect(headerComputed).to.equal(blockHash);
     });
@@ -183,7 +182,7 @@ describe("LibBlockHeader tests", function () {
         const headerComputed = await libBlockHeader.hashBlockHeader(
             l2BlockHeader
         );
-        log.debug("headerComputed:", headerComputed);
+        console.debug("headerComputed:", headerComputed);
 
         expect(headerComputed).to.equal(blockHash);
     });
