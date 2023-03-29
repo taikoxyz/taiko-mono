@@ -62,33 +62,29 @@ library LibL2Tokenomics {
         gasExcess = excessMax / 2;
 
         // calculate xscale
-        {
-            uint256 _xscale = MAX_EXP_INPUT / excessMax;
-            if (_xscale >= type(uint64).max) {
-                revert L1_1559_X_SCALE_TOO_LARGE();
-            }
-            xscale = uint64(_xscale);
+        uint256 _xscale = MAX_EXP_INPUT / excessMax;
+        if (_xscale >= type(uint64).max) {
+            revert L1_1559_X_SCALE_TOO_LARGE();
         }
+        xscale = uint64(_xscale);
 
         // calculate yscale
-        {
-            uint256 _yscale = calc1559Basefee(
-                gasExcess,
-                xscale,
-                basefeeInitial,
-                gasTarget
-            );
-            if ((_yscale >> 64) >= type(uint64).max) {
-                revert L1_1559_Y_SCALE_TOO_LARGE();
-            }
-
-            yscale = uint64(_yscale >> 64);
+        uint256 _yscale = calc1559Basefee(
+            gasExcess,
+            xscale,
+            basefeeInitial,
+            gasTarget
+        );
+        if ((_yscale >> 64) >= type(uint64).max) {
+            revert L1_1559_Y_SCALE_TOO_LARGE();
         }
+
+        yscale = uint64(_yscale >> 64);
 
         // verify the gas price ratio between two blocks, one has
         // 2*gasTarget gas and the other one has gasTarget gas.
         {
-            uint _yscale = uint256(yscale) << 64;
+            _yscale = uint256(yscale) << 64;
             uint256 price1x = calc1559Basefee(
                 gasExcess,
                 xscale,
