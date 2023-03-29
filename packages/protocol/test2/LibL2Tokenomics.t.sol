@@ -8,109 +8,59 @@ import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
+import {
+    LibFixedPointMath as M
+} from "../contracts/thirdparty/LibFixedPointMath.sol";
+
 contract TestLibL2Tokenomics is Test {
     using SafeCastUpgradeable for uint256;
-
-    uint64 initialBaseFee = 5000000000;
 
     // Ethereum offers 15M gas per 12 seconds, if we scale it by 24 times,
     // then each second, Taiko can offer 30M gas.
 
-    uint32 gasTargetPerSecond = 30000000; // 30M gas per second
-    uint64 gasExcess0 = uint64(gasTargetPerSecond) * 200;
-    uint64 gasAdjustmentQuotient = 16;
-    uint64 gasExcess = gasExcess0;
+    uint256 public constant gasTargetPerSecond = 15000000; // 15M gas per second
+    uint256 xScale;
+    uint256 yScale;
+    uint256 gasExcess;
 
-    function setUp() public view {
-        // uint64  _gasExcess =
-        LibL2Tokenomics.calcGasExcess(initialBaseFee, gasAdjustmentQuotient);
-        // console2.log("gasAdjustmentQuotient:", gasAdjustmentQuotient);
+    uint256 maxGasToBuy = gasTargetPerSecond * 512;
+
+    uint256 initialBasefee = 5000000000;
+
+    function setUp() public {
+        gasExcess = maxGasToBuy / 2;
+
+        calcScales(maxGasToBuy, initialBasefee);
+        console2.log("xScale", xScale);
+        console2.log("yScale", yScale);
+    }
+
+    function calcScales(uint maxGasToBuy, uint initialBasefee) internal {
+        xScale = 135305999368893231588 / maxGasToBuy;
+        yScale = 1;
+        yScale =
+            (ethqty(maxGasToBuy / 2 + 1) - ethqty(maxGasToBuy / 2)) /
+            initialBasefee;
     }
 
     function test1559PurchaseMaxSizeGasWontOverflow() public {
-        gasExcess = type(uint64).max;
-
-        // (uint64 basefee, uint256 cost) = _purchaseGas(
-        //     type(uint32).max,
-        //     0 seconds
-        // );
-        // assertEq(basefee, 0);
-        // assertEq(cost, 0);
-        // gasExcess = gasExcess0;
+        // buy 30000000 gas
+        uint target = 6000000;
+        uint pricePrev = initialBasefee;
+        for (uint i = 0; i < 10; ++i) {
+            uint fee = basefee(target);
+            console2.log("fee", fee);
+            console2.log("%", (fee * 100) / pricePrev);
+            pricePrev = fee;
+            gasExcess += target;
+        }
     }
 
-    // function test1559Basefee_NoChangeAfterRefillTheSameAmount() public {
-    //     (uint64 basefee1, uint256 cost1) = _purchaseGas(
-    //         gasTargetPerSecond * 12,
-    //         12 seconds
-    //     );
+    function ethqty(uint excess) internal view returns (uint256) {
+        return uint256(M.exp(int256(excess * xScale)));
+    }
 
-    //     (uint64 basefee2, uint256 cost2) = _purchaseGas(
-    //         gasTargetPerSecond * 12,
-    //         12 seconds
-    //     );
-
-    //     assertEq(basefee1, basefee2);
-    //     assertEq(cost1, cost2);
-    //     gasExcess = gasExcess0;
-    // }
-
-    // function test1559Basefee_Compare_T_vs_2T() public {
-    //     uint32 blockMaxGasLimit = 6000000;
-
-    //     (uint64 basefee, ) = _purchaseGas(1, 24 seconds);
-    //     gasExcess = gasExcess0;
-
-    //     (uint64 basefeeT, ) = _purchaseGas(blockMaxGasLimit / 2, 0 seconds);
-    //     gasExcess = gasExcess0;
-
-    //     (uint64 basefee2T, ) = _purchaseGas(blockMaxGasLimit, 0 seconds);
-    //     gasExcess = gasExcess0;
-
-    //     console2.log("when purchase a block of size blockMaxGasLimit/2:");
-    //     console2.log(
-    //         unicode"👉 basefee increases by %%:",
-    //         basefee,
-    //         basefeeT
-    //         // (basefeeT * 100) / basefee - 100
-    //     );
-
-    //     console2.log("when purchase a block of size blockMaxGasLimit:");
-    //     console2.log(
-    //         unicode"👉 basefee increases by %%:",
-    //         basefee,
-    //         basefee2T
-    //         // (basefee2T * 100) / basefee - 100
-    //     );
-    // }
-
-    // function test1559Basefee_EverIncreaseing() public {
-    //     uint64 basefee;
-    //     for (uint i = 0; i < 5; i++) {
-    //         (uint64 _basefee, ) = _purchaseGas(gasTargetPerSecond * 12, 0);
-    //         assertGt(_basefee, basefee);
-    //         if (basefee > 0) {
-    //             console2.log(
-    //                 unicode"👉 gas price %%",
-    //                 (_basefee * 100) / basefee - 100,
-    //                 "larger than parent"
-    //             );
-    //         }
-    //         basefee = _basefee;
-    //     }
-    //     gasExcess = gasExcess0;
-    // }
-
-    function _purchaseGas(
-        uint32 amount,
-        uint64 blockTime
-    ) private returns (uint64 basefee) {
-        (gasExcess, basefee) = LibL2Tokenomics.calc1559Basefee(
-            gasExcess,
-            gasTargetPerSecond,
-            gasAdjustmentQuotient,
-            amount,
-            blockTime
-        );
+    function basefee(uint amount) internal view returns (uint256) {
+        return (ethqty(gasExcess + amount) - ethqty(gasExcess)) / yScale;
     }
 }

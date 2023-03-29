@@ -22,6 +22,7 @@ library LibL2Tokenomics {
 
     error L1_OUT_OF_BLOCK_SPACE();
 
+    //TODO(daniel): return a fixed base fee.
     function get1559Basefee(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -96,22 +97,5 @@ library LibL2Tokenomics {
         qty = y > 0 ? uint256(y) : 0;
         console2.log("   -  gasAmount:", gasAmount);
         console2.log("   -  qty:", qty);
-    }
-
-    function calcGasExcess(
-        uint64 basefee,
-        uint64 gasAdjustmentQuotient
-    ) internal view returns (uint64 gasExcess) {
-        console2.log("   =  basefee:", basefee);
-        console2.log("   =  gasAdjustmentQuotient:", gasAdjustmentQuotient);
-        uint x = basefee * gasAdjustmentQuotient * 1E8;
-        console2.log("   =  x:", x);
-        console2.log("   =  ln:", LibFixedPointMath.ln(int(x)));
-
-        uint64 y = uint256(LibFixedPointMath.ln(int(x))).toUint64();
-        gasExcess = y * gasAdjustmentQuotient;
-
-        console2.log("   =  y:", y);
-        console2.log("   =  gasExcess:", gasExcess);
     }
 }
