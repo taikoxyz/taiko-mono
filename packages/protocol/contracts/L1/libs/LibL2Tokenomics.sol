@@ -104,19 +104,46 @@ library LibL2Tokenomics {
         console2.log("   -  qty:", qty);
     }
 
-    function ethqty(uint excess, uint xscale) internal pure returns (uint256) {
+    function calcScales(
+        uint excessMax,
+        uint basefeeInitial,
+        uint256 gasTarget
+    ) internal view returns (uint excess, uint xscale, uint yscale) {
+        assert(excessMax != 0);
+
+        excess = excessMax / 2;
+        xscale = MAX_EXP_INPUT / excessMax;
+        console2.log("xscale =", xscale);
+        assert(xscale < type(uint64).max);
+
+        yscale =
+            calc1559Basefee(excess, xscale, basefeeInitial, gasTarget) >>
+            64;
+        console2.log("yscale =", yscale);
+        assert(xscale < type(uint64).max);
+
+        console2.log("initial basefee (configged)   =", basefeeInitial);
+        console2.log(
+            "initial basefee (recauculated)=",
+            calc1559Basefee(excess, xscale, yscale << 64, gasTarget)
+        );
+    }
+
+    function _ethqty(uint excess, uint xscale) private pure returns (uint256) {
         uint x = excess * xscale;
         assert(x <= MAX_EXP_INPUT);
         return uint256(Math.exp(int256(x)));
     }
 
-    function basefee(
+    function calc1559Basefee(
         uint excess,
         uint xscale,
         uint yscale,
         uint amount
     ) internal pure returns (uint256) {
-        return
-            (ethqty(excess + amount, xscale) - ethqty(excess, xscale)) / yscale;
+        assert(amount != 0 && xscale != 0 && yscale != 0);
+        uint _before = _ethqty(excess, xscale);
+        uint _after = _ethqty(excess + amount, xscale);
+        return (_after - _before) / yscale;
     }
 }
