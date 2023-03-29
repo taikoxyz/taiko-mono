@@ -1,4 +1,4 @@
-import { Chain, configureChains, createClient } from '@wagmi/core';
+import { type Chain, configureChains, createClient } from '@wagmi/core';
 import { publicProvider } from '@wagmi/core/providers/public';
 import { jsonRpcProvider } from '@wagmi/core/providers/jsonRpc';
 import { CoinbaseWalletConnector } from '@wagmi/core/connectors/coinbaseWallet';

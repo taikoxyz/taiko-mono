@@ -1,93 +1,36 @@
 <script lang="ts">
-  import { setupI18n } from './i18n';
   import { pendingTransactions, transactions } from './store/transaction';
   import Navbar from './components/Navbar.svelte';
   import Toast, { successToast } from './components/Toast.svelte';
   import { signer } from './store/signer';
-  import type { BridgeTransaction } from './domain/transaction';
-
-  setupI18n({ withLocale: 'en' });
   import SwitchEthereumChainModal from './components/modals/SwitchEthereumChainModal.svelte';
   import { ethers } from 'ethers';
   import { MessageStatus } from './domain/message';
   import BridgeABI from './constants/abi/Bridge';
-  import { relayerBlockInfoMap } from './store/relayerApi';
   import { chains } from './chain/chains';
   import { providers } from './provider/providers';
   import Router from './components/Router.svelte';
-  import { relayerApi } from './relayer-api/relayerApi';
-  import { storageService, tokenService } from './storage/services';
-  import { userTokens } from './store/token';
 
   /**
-   * Subscribe to signer changes.
-   * When there is a new signer, we need to get the address and
-   * merge API transactions with local stored transactions for that address.
+   * Subscribe to pendingTransactions changes.
    */
-  signer.subscribe(async (newSigner) => {
-    if (newSigner) {
-      const userAddress = await newSigner.getAddress();
+  pendingTransactions.subscribe(async (newPendingTxs) => {
+    const promiseIndexes = newPendingTxs.map(async (tx, index) => {
+      // Returns a Promise which will not resolve until transactionHash is mined
+      await $signer.provider.waitForTransaction(tx.hash, 1);
+      return index;
+    });
 
-      // Get transactions from API
-      const apiTxs = await relayerApi.getAllBridgeTransactionByAddress(
-        userAddress,
-      );
+    // Gets the index of the first transaction that's mined
+    const confirmedPendingTxIndex = await Promise.race(promiseIndexes);
 
-      // TODO: this will be used in the future
-      const blockInfoMap = await relayerApi.getBlockInfo();
-      relayerBlockInfoMap.set(blockInfoMap);
+    successToast('Transaction completed!');
 
-      // Get transactions from local storage
-      const txs = await storageService.getAllByAddress(userAddress);
+    // Removes the confirmed transaction from the pendingTransactions store
+    const copyPendingTransactions = newPendingTxs.slice(); // prevents mutation
+    copyPendingTransactions.splice(confirmedPendingTxIndex, 1);
 
-      // Create a map of hashes to API transactions to help us
-      // filter out transactions from local storage.
-      const hashToApiTxsMap = new Map(
-        apiTxs.map((tx) => {
-          return [tx.hash.toLowerCase(), 1];
-        }),
-      );
-
-      // Filter out transactions that are already in the API
-      const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
-        return !hashToApiTxsMap.has(tx.hash.toLowerCase());
-      });
-
-      // const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
-      //   const blockInfo = blockInfoMap.get(tx.fromChainId);
-      //   if (blockInfo?.latestProcessedBlock >= tx.receipt?.blockNumber) {
-      //     return false;
-      //   }
-      //   return true;
-      // });
-
-      storageService.updateStorageByAddress(userAddress, updatedStorageTxs);
-
-      // Merge transactions from API and local storage
-      transactions.set([...updatedStorageTxs, ...apiTxs]);
-
-      // Get tokens based on current user address (signer)
-      const tokens = tokenService.getTokens(userAddress);
-      userTokens.set(tokens);
-    }
-  });
-
-  pendingTransactions.subscribe((store) => {
-    (async () => {
-      const confirmedPendingTxIndex = await Promise.race(
-        store.map((tx, index) => {
-          return new Promise<number>((resolve) => {
-            $signer.provider
-              .waitForTransaction(tx.hash, 1)
-              .then(() => resolve(index));
-          });
-        }),
-      );
-      successToast('Transaction completed!');
-      let s = store;
-      s.splice(confirmedPendingTxIndex, 1);
-      pendingTransactions.set(s);
-    })();
+    pendingTransactions.set(copyPendingTransactions);
   });
 
   const transactionToIntervalMap = new Map();
