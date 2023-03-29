@@ -9,6 +9,7 @@ pragma solidity ^0.8.18;
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "../contracts/common/AddressResolver.sol";
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/bridge/Bridge.sol";
@@ -18,42 +19,57 @@ import "../contracts/thirdparty/AddressManager.sol";
 import "../contracts/test/erc20/FreeMintERC20.sol";
 import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
 
-contract DeployOnL1 is Script {
-    string l1ChainId = vm.toString(block.chainid);
-    string l2ChainId = vm.envString("L2_CHAIN_ID");
-    bytes32 l2GensisHash = vm.envBytes32("L2_GENESIS_HASH");
-    uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-    address taikoL2Address = vm.envAddress("TAIKO_L2_ADDRESS");
-    address proxyAdmin = vm.envAddress("PROXY_ADMIN");
-    address oracleProver = vm.envAddress("ORACLE_PROVER_ADDRESS");
-    address soloProposer = vm.envAddress("SOLO_PROPOSER");
-    address taikoTokenPremintRecipient =
+contract DeployOnL1 is Script, AddressResolver {
+    uint256 public l2ChainId = vm.envUint("L2_CHAIN_ID");
+
+    bytes32 public l2GensisHash = vm.envBytes32("L2_GENESIS_HASH");
+
+    uint256 public deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+
+    address public taikoL2Address = vm.envAddress("TAIKO_L2_ADDRESS");
+
+    address public owner = vm.envAddress("OWNER");
+
+    address public oracleProver = vm.envAddress("ORACLE_PROVER_ADDRESS");
+
+    address public soloProposer = vm.envAddress("SOLO_PROPOSER");
+
+    address public taikoTokenPremintRecipient =
         vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
-    uint256 taikoTokenPremintAmount = vm.envUint("TAIKO_TOKEN_PREMINT_AMOUNT");
-    address addressManagerProxy;
+
+    uint256 public taikoTokenPremintAmount =
+        vm.envUint("TAIKO_TOKEN_PREMINT_AMOUNT");
+
+    address public addressManagerProxy;
 
     error FAILED_TO_DEPLOY_PLONK_VERIFIER(string contractPath);
 
     function run() external {
+        require(l2ChainId != block.chainid, "same chainid");
+        require(owner != address(0), "owner is zero");
+        require(taikoL2Address != address(0), "taikoL2Address is zero");
+        require(
+            taikoTokenPremintRecipient != address(0),
+            "taikoTokenPremintRecipient is zero"
+        );
+        require(
+            taikoTokenPremintAmount < type(uint64).max,
+            "premint too large"
+        );
+
         vm.startBroadcast(deployerPrivateKey);
 
         // AddressManager
         AddressManager addressManager = new AddressManager();
-        addressManagerProxy = deployUupsProxy(
-            "AddressManager",
+        addressManagerProxy = deployProxy(
+            "address_manager",
             address(addressManager),
-            proxyAdmin,
             bytes.concat(addressManager.init.selector)
         );
 
-        setAddressWithCustomChainId(l2ChainId, "taiko", taikoL2Address);
-
-        if (oracleProver != address(0)) {
-            setAddress("oracle_prover", oracleProver);
-        }
-        if (soloProposer != address(0)) {
-            setAddress("solo_proposer", soloProposer);
-        }
+        setAddress(l2ChainId, "taiko", taikoL2Address);
+        setAddress("oracle_prover", oracleProver);
+        setAddress("solo_proposer", soloProposer);
 
         // TaikoToken
         TaikoToken taikoToken = new TaikoToken();
@@ -63,10 +79,9 @@ contract DeployOnL1 is Script {
         premintRecipients[0] = taikoTokenPremintRecipient;
         premintAmounts[0] = taikoTokenPremintAmount;
 
-        deployUupsProxy(
-            "TaikoToken",
+        deployProxy(
+            "taiko_token",
             address(taikoToken),
-            proxyAdmin,
             bytes.concat(
                 taikoToken.init.selector,
                 abi.encode(
@@ -80,71 +95,56 @@ contract DeployOnL1 is Script {
         );
 
         // HorseToken && BullToken
-        console.log(
-            "HorseToken",
-            address(new FreeMintERC20("Horse Token", "HORSE"))
+        address horseToken = address(new FreeMintERC20("Horse Token", "HORSE"));
+        console.log("HorseToken", horseToken);
+
+        address bullToken = address(
+            new MayFailFreeMintERC20("Bull Token", "BLL")
         );
-        console.log(
-            "BullToken",
-            address(new MayFailFreeMintERC20("Bull Token", "BLL"))
-        );
+        console.log("BullToken", bullToken);
 
         // TaikoL1
         TaikoL1 taikoL1 = new TaikoL1();
-        uint64 feeBase = 10 ** 18;
-        address taikoL1Proxy = deployUupsProxy(
-            "TaikoL1",
+        uint64 feeBase = 1 ** 8; // Taiko Token's decimals is 8, not 18
+        address taikoL1Proxy = deployProxy(
+            "taiko",
             address(taikoL1),
-            proxyAdmin,
             bytes.concat(
                 taikoL1.init.selector,
                 abi.encode(addressManagerProxy, l2GensisHash, feeBase)
             )
         );
-
-        // Used by TaikoToken
         setAddress("proto_broker", taikoL1Proxy);
-        // Used by LibBridgeRead
-        setAddress("taiko", taikoL1Proxy);
 
         // Bridge
         Bridge bridge = new Bridge();
-        address bridgeProxy = deployUupsProxy(
-            "Bridge",
+        deployProxy(
+            "bridge",
             address(bridge),
-            proxyAdmin,
             bytes.concat(bridge.init.selector, abi.encode(addressManagerProxy))
         );
 
         // TokenVault
         TokenVault tokenVault = new TokenVault();
-        deployUupsProxy(
-            "TokenVault",
+        deployProxy(
+            "token_vault",
             address(tokenVault),
-            proxyAdmin,
             bytes.concat(
                 tokenVault.init.selector,
                 abi.encode(addressManagerProxy)
             )
         );
 
-        // Used by TokenVault
-        setAddress("bridge", bridgeProxy);
-
         // SignalService
         SignalService signalService = new SignalService();
-        address signalServiceProxy = deployUupsProxy(
-            "SignalService",
+        deployProxy(
+            "signal_service",
             address(signalService),
-            proxyAdmin,
             bytes.concat(
                 signalService.init.selector,
                 abi.encode(addressManagerProxy)
             )
         );
-
-        // Used by Bridge
-        setAddress("signal_service", signalServiceProxy);
 
         // PlonkVerifier
         deployPlonkVerifiers();
@@ -161,7 +161,7 @@ contract DeployOnL1 is Script {
             "contracts/libs/yul/PlonkVerifier_80_txs.yulp"
         );
 
-        for (uint256 i = 0; i < plonkVerifiers.length; ++i) {
+        for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
             setAddress(
                 string(abi.encodePacked("verifier_", i)),
                 plonkVerifiers[i]
@@ -197,45 +197,41 @@ contract DeployOnL1 is Script {
         return deployedAddress;
     }
 
-    function deployUupsProxy(
+    function deployProxy(
         string memory name,
         address implementation,
-        address admin,
         bytes memory data
-    ) private returns (address) {
-        address proxy = address(
-            new TransparentUpgradeableProxy(implementation, admin, data)
+    ) private returns (address proxy) {
+        proxy = address(
+            new TransparentUpgradeableProxy(implementation, owner, data)
         );
 
-        console.log(name, implementation);
-        console.log(string.concat(name, "Proxy"), proxy);
+        console.log(name, "(impl) ->", implementation);
+        console.log(name, "(proxy) ->", proxy);
 
-        return proxy;
+        if (addressManagerProxy != address(0)) {
+            AddressManager(addressManagerProxy).setAddress(
+                keyForName(block.chainid, name),
+                proxy
+            );
+        }
     }
 
-    // Address Manager
     function setAddress(string memory name, address addr) private {
-        AddressManager(addressManagerProxy).setAddress(
-            getAddressManagerKey(l1ChainId, name),
-            addr
-        );
+        setAddress(block.chainid, name, addr);
     }
 
-    function setAddressWithCustomChainId(
-        string memory chainId,
+    function setAddress(
+        uint256 chainId,
         string memory name,
         address addr
     ) private {
-        AddressManager(addressManagerProxy).setAddress(
-            getAddressManagerKey(chainId, name),
-            addr
-        );
-    }
-
-    function getAddressManagerKey(
-        string memory chainId,
-        string memory name
-    ) private pure returns (string memory) {
-        return string.concat(chainId, ".", name);
+        console.log(chainId, name, "--->", addr);
+        if (addr != address(0)) {
+            AddressManager(addressManagerProxy).setAddress(
+                keyForName(chainId, name),
+                addr
+            );
+        }
     }
 }
