@@ -11,30 +11,32 @@
   import { providers } from './provider/providers';
   import Router from './components/Router.svelte';
 
-  /**
-   * Subscribe to pendingTransactions changes.
-   */
-  pendingTransactions.subscribe(async (newPendingTxs) => {
-    const promiseIndexes = newPendingTxs.map(async (tx, index) => {
-      // Returns a Promise which will not resolve until transactionHash is mined
-      await $signer.provider.waitForTransaction(tx.hash, 1);
-      return index;
-    });
-
-    // Gets the index of the first transaction that's mined
-    const confirmedPendingTxIndex = await Promise.race(promiseIndexes);
-
-    successToast('Transaction completed!');
-
-    // Removes the confirmed transaction from the pendingTransactions store
-    const copyPendingTransactions = newPendingTxs.slice(); // prevents mutation
-    copyPendingTransactions.splice(confirmedPendingTxIndex, 1);
-
-    pendingTransactions.set(copyPendingTransactions);
+  // TODO: hmmm, nope. This is dangerous and hard to follow.
+  //       There might be a risk of infinite loop. Looping over
+  //       pending transactions and removing only the first one
+  //       that's mined, setting the new list, which will trigger
+  //       the subscribe again, and so on... it's a no-go.
+  pendingTransactions.subscribe((store) => {
+    (async () => {
+      const confirmedPendingTxIndex = await Promise.race(
+        store.map((tx, index) => {
+          return new Promise<number>((resolve) => {
+            $signer.provider
+              .waitForTransaction(tx.hash, 1)
+              .then(() => resolve(index));
+          });
+        }),
+      );
+      successToast('Transaction completed!');
+      let s = store;
+      s.splice(confirmedPendingTxIndex, 1);
+      pendingTransactions.set(s);
+    })();
   });
 
   const transactionToIntervalMap = new Map();
 
+  // TODO: look into this one
   transactions.subscribe((store) => {
     if (store) {
       store.forEach((tx) => {
