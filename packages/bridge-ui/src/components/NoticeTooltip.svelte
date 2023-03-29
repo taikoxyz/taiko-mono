@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { localStoragePrefix } from '../config';
-  import TooltipModal from './modals/TooltipModal.svelte';
   import Button from './buttons/Button.svelte';
+  import Modal from './modals/Modal.svelte';
 
   export let show = false;
   export let name = 'NoticeTooltip';
@@ -40,8 +40,15 @@
         the user will have to refresh the page to see the message again
         if they delete the localStorage entry.
 -->
-<TooltipModal {title} isOpen={show && !noShowAgainStorage} showXButton={false}>
-  <div slot="body" class="space-y-6">
+<Modal {title} isOpen={show && !noShowAgainStorage} showXButton={false}>
+  <div
+    class="
+      flex
+      w-full
+      flex-col
+      justify-between
+      space-y-6
+    ">
     <slot />
 
     <div class="text-left flex items-center">
@@ -58,4 +65,4 @@
       <Button type="accent" on:click={onConfirmNotice}>Confirm</Button>
     </div>
   </div>
-</TooltipModal>
+</Modal>

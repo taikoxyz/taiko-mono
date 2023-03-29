@@ -8,9 +8,9 @@ import type {
   ReleaseOpts,
 } from '../domain/bridge';
 import type { Prover } from '../domain/proof';
-import { Message, MessageStatus } from '../domain/message';
 import BridgeABI from '../constants/abi/Bridge';
 import { chains } from '../chain/chains';
+import { type Message, MessageStatus } from '../domain/message';
 
 export class ETHBridge implements Bridge {
   private readonly prover: Prover;
