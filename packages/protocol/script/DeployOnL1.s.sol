@@ -161,7 +161,7 @@ contract DeployOnL1 is Script, AddressResolver {
             "contracts/libs/yul/PlonkVerifier_80_txs.yulp"
         );
 
-        for (uint256 i = 0; i < plonkVerifiers.length; ++i) {
+        for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
             setAddress(
                 string(abi.encodePacked("verifier_", i)),
                 plonkVerifiers[i]
@@ -207,7 +207,7 @@ contract DeployOnL1 is Script, AddressResolver {
         );
 
         console.log(name, "(impl) ->", implementation);
-        console.log(name, "(proxy)->", proxy);
+        console.log(name, "(proxy) ->", proxy);
 
         if (addressManagerProxy != address(0)) {
             AddressManager(addressManagerProxy).setAddress(
