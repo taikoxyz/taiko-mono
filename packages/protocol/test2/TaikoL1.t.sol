@@ -191,7 +191,7 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     /// @dev Test we can propose, prove, then verify more blocks than 'maxNumProposedBlocks'
-    function xtest_reward_and_fee_if_proof_time_increases() external {
+    function test_reward_and_fee_if_proof_time_increases() external {
         mine(1);
         _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
         _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);

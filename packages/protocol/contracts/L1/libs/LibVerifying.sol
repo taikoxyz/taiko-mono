@@ -174,10 +174,6 @@ library LibVerifying {
         state.baseFeeProof = newBaseFeeProof;
         state.proofTimeIssued = proofTimeIssued;
 
-        //config.feeConfig = feeAndRewardConf;
-
-        console2.log("A mooving average az:", state.avgProofTime);
-
         state.avgProofTime = LibUtils
             .movingAverage({
                 maValue: state.avgProofTime,
