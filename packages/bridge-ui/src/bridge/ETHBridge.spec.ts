@@ -99,7 +99,7 @@ describe('bridge tests', () => {
         callValue: BigNumber.from('0x01'), // callValue !== 0 because message owner is NOT the same as recipient
         data: '0x',
         depositValue: BigNumber.from('0x00'),
-        destChainId: 167004,
+        destChainId: 167001,
         gasLimit: BigNumber.from('0x0222e0'),
         id: 1,
         memo: 'memo',
@@ -139,7 +139,7 @@ describe('bridge tests', () => {
         callValue: BigNumber.from('0x00'), // callValue == 0 because message owner is same as recipient
         data: '0x',
         depositValue: BigNumber.from('0x01'),
-        destChainId: 167004,
+        destChainId: 167001,
         gasLimit: BigNumber.from('0x00'),
         id: 1,
         memo: '',

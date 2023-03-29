@@ -17,7 +17,7 @@ export const L1_CHAIN_NAME = 'Ethereum A2';
 
 export const L1_EXPLORER_URL = 'https://l1explorer.internal.taiko.xyz';
 
-export const L2_RPC = 'https://rpc.a2.taiko.xyz';
+export const L2_RPC = 'https://l2rpc.internal.taiko.xyz';
 
 export const L2_TOKEN_VAULT_ADDRESS =
   '0x0000777700000000000000000000000000000002';
@@ -32,7 +32,7 @@ export const L2_HEADER_SYNC_ADDRESS =
 export const L2_SIGNAL_SERVICE_ADDRESS =
   '0x0000777700000000000000000000000000000007';
 
-export const L2_CHAIN_ID = 167004;
+export const L2_CHAIN_ID = 167001;
 
 export const L2_CHAIN_NAME = 'Taiko A2';
 
