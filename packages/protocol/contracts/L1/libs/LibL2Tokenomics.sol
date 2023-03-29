@@ -15,8 +15,6 @@ import {
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {TaikoData} from "../TaikoData.sol";
 
-import {console2} from "forge-std/console2.sol";
-
 library LibL2Tokenomics {
     using LibMath for uint256;
     using SafeCastUpgradeable for uint256;
@@ -78,7 +76,7 @@ library LibL2Tokenomics {
 
         yscale = uint64(_yscale >> 64);
 
-        // verify the gas price ratio between two blocks, one has
+        // Verify the gas price ratio between two blocks, one has
         // 2*gasTarget gas and the other one has gasTarget gas.
         {
             _yscale = uint256(yscale) << 64;
