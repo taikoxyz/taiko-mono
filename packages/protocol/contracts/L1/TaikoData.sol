@@ -12,16 +12,6 @@ library TaikoData {
         uint16 dampingFactorBips;
     }
 
-    struct FeeAndRewardConfig {
-        uint256 baseFeeProof;
-        uint256 rewardIssued;
-        // avgProofTimeMAF is known already
-        //uint16 avgProofTimeMAF;
-        uint64 rewardTargetPerGas;
-        uint64 targetDelayBonusPerGas;
-        uint8 adjustmentQuotient;
-    }
-
     struct Config {
         uint256 chainId;
         uint256 maxNumProposedBlocks;
@@ -43,18 +33,18 @@ library TaikoData {
         uint256 feeBaseMAF;
         uint64 constantFeeRewardBlocks;
         uint64 txListCacheExpiry;
+        uint8 adjustmentQuotient;
         bool enableSoloProposer;
         bool enableOracleProver;
         bool enableTokenomics;
         bool skipZKPVerification;
         FeeConfig proposingConfig;
         FeeConfig provingConfig;
-        // Hopefully the above 2 can be deleted later if that fits
-        FeeAndRewardConfig feeConfig;
     }
 
     struct StateVariables {
         uint64 feeBase;
+        uint64 baseFeeProof;
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 numBlocks;
@@ -141,6 +131,10 @@ library TaikoData {
         mapping(uint256 blockId => mapping(bytes32 parentHash => uint256 forkChoiceId)) forkChoiceIds;
         mapping(address account => uint256 balance) balances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
+        // Cummulated proofTime for reward calculation - changed in verifyBlock()
+        uint256 proofTimeIssued;
+        // Changing baseFee for proving - changed in verifyBlock()
+        uint64 baseFeeProof;
         // Never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;

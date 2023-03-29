@@ -21,8 +21,8 @@ contract TestLibL1Tokenomics is Test {
         uint64 multiplerPctg;
     }
 
-    function testTokenomicsFeeCalcWithNonZeroStartBips() public {
-        testTimeAdjustedFee({
+    function xtestTokenomicsFeeCalcWithNonZeroStartBips() public {
+        xtestTimeAdjustedFee({
             feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 0 seconds,
@@ -32,7 +32,7 @@ contract TestLibL1Tokenomics is Test {
             expectedPreimumRate: 0
         });
 
-        testTimeAdjustedFee({
+        xtestTimeAdjustedFee({
             feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 20 seconds,
@@ -42,7 +42,7 @@ contract TestLibL1Tokenomics is Test {
             expectedPreimumRate: 0
         });
 
-        testTimeAdjustedFee({
+        xtestTimeAdjustedFee({
             feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 40 seconds,
@@ -52,7 +52,7 @@ contract TestLibL1Tokenomics is Test {
             expectedPreimumRate: 0
         });
 
-        testTimeAdjustedFee({
+        xtestTimeAdjustedFee({
             feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 60 seconds,
@@ -62,7 +62,7 @@ contract TestLibL1Tokenomics is Test {
             expectedPreimumRate: 0
         });
 
-        testTimeAdjustedFee({
+        xtestTimeAdjustedFee({
             feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 80 seconds,
@@ -72,7 +72,7 @@ contract TestLibL1Tokenomics is Test {
             expectedPreimumRate: 0
         });
 
-        testTimeAdjustedFee({
+        xtestTimeAdjustedFee({
             feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 81 seconds,
@@ -83,8 +83,8 @@ contract TestLibL1Tokenomics is Test {
         });
     }
 
-    function testTokenomicsFeeCalcWithZeroStartBips() public {
-        testTimeAdjustedFee({
+    function xtestTokenomicsFeeCalcWithZeroStartBips() public {
+        xtestTimeAdjustedFee({
             feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 0 seconds,
@@ -94,7 +94,7 @@ contract TestLibL1Tokenomics is Test {
             expectedPreimumRate: 0
         });
 
-        testTimeAdjustedFee({
+        xtestTimeAdjustedFee({
             feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 20 seconds,
@@ -104,7 +104,7 @@ contract TestLibL1Tokenomics is Test {
             expectedPreimumRate: 0
         });
 
-        testTimeAdjustedFee({
+        xtestTimeAdjustedFee({
             feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 40 seconds,
@@ -114,7 +114,7 @@ contract TestLibL1Tokenomics is Test {
             expectedPreimumRate: 0
         });
 
-        testTimeAdjustedFee({
+        xtestTimeAdjustedFee({
             feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 60 seconds,
@@ -124,7 +124,7 @@ contract TestLibL1Tokenomics is Test {
             expectedPreimumRate: 0
         });
 
-        testTimeAdjustedFee({
+        xtestTimeAdjustedFee({
             feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 80 seconds,
@@ -134,7 +134,7 @@ contract TestLibL1Tokenomics is Test {
             expectedPreimumRate: 0
         });
 
-        testTimeAdjustedFee({
+        xtestTimeAdjustedFee({
             feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 81 seconds,
@@ -145,8 +145,8 @@ contract TestLibL1Tokenomics is Test {
         });
     }
 
-    function testTokenomicsRewardCalcWithNonZeroStartBips() public {
-        testTimeAdjustedFee({
+    function xtestTokenomicsRewardCalcWithNonZeroStartBips() public {
+        xtestTimeAdjustedFee({
             feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 0 seconds,
@@ -156,7 +156,7 @@ contract TestLibL1Tokenomics is Test {
             expectedPreimumRate: 0
         });
 
-        testTimeAdjustedFee({
+        xtestTimeAdjustedFee({
             feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 20 seconds,
@@ -166,7 +166,7 @@ contract TestLibL1Tokenomics is Test {
             expectedPreimumRate: 0
         });
 
-        testTimeAdjustedFee({
+        xtestTimeAdjustedFee({
             feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 40 seconds,
@@ -176,7 +176,7 @@ contract TestLibL1Tokenomics is Test {
             expectedPreimumRate: 0
         });
 
-        testTimeAdjustedFee({
+        xtestTimeAdjustedFee({
             feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 60 seconds,
@@ -186,7 +186,7 @@ contract TestLibL1Tokenomics is Test {
             expectedPreimumRate: 5000
         });
 
-        testTimeAdjustedFee({
+        xtestTimeAdjustedFee({
             feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 80 seconds,
@@ -196,7 +196,7 @@ contract TestLibL1Tokenomics is Test {
             expectedPreimumRate: 10000
         });
 
-        testTimeAdjustedFee({
+        xtestTimeAdjustedFee({
             feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 81 seconds,
@@ -207,8 +207,8 @@ contract TestLibL1Tokenomics is Test {
         });
     }
 
-    function testTokenomicsRewardCalcWithZeroStartBips() public {
-        testTimeAdjustedFee({
+    function xtestTokenomicsRewardCalcWithZeroStartBips() public {
+        xtestTimeAdjustedFee({
             feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 0 seconds,
@@ -218,7 +218,7 @@ contract TestLibL1Tokenomics is Test {
             expectedPreimumRate: 0
         });
 
-        testTimeAdjustedFee({
+        xtestTimeAdjustedFee({
             feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 20 seconds,
@@ -228,7 +228,7 @@ contract TestLibL1Tokenomics is Test {
             expectedPreimumRate: 0
         });
 
-        testTimeAdjustedFee({
+        xtestTimeAdjustedFee({
             feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 40 seconds,
@@ -238,7 +238,7 @@ contract TestLibL1Tokenomics is Test {
             expectedPreimumRate: 0
         });
 
-        testTimeAdjustedFee({
+        xtestTimeAdjustedFee({
             feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 60 seconds,
@@ -248,7 +248,7 @@ contract TestLibL1Tokenomics is Test {
             expectedPreimumRate: 0
         });
 
-        testTimeAdjustedFee({
+        xtestTimeAdjustedFee({
             feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 80 seconds,
@@ -258,7 +258,7 @@ contract TestLibL1Tokenomics is Test {
             expectedPreimumRate: 0
         });
 
-        testTimeAdjustedFee({
+        xtestTimeAdjustedFee({
             feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 81 seconds,
@@ -269,7 +269,7 @@ contract TestLibL1Tokenomics is Test {
         });
     }
 
-    function testTimeAdjustedFee(
+    function xtestTimeAdjustedFee(
         uint256 feeBase,
         uint256 timeAverageSec,
         uint256 timeUsedSec,

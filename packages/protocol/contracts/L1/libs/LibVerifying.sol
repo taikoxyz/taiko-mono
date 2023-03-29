@@ -156,56 +156,27 @@ library LibVerifying {
             proofTime = (fc.provenAt - blk.proposedAt) * 1000;
         }
 
-        // Calculate block reward multiplier
-        uint256 blockRewardMultiplier;
-        console2.log(
-            "---------In _markBlockVerified() of LibVerifying -------"
-        );
-        if (proofTime > state.avgProofTime) {
-            console2.log("ProofTime is bigger than average");
-            console2.log(
-                "What is the diff between proof and avg: ",
-                (proofTime - state.avgProofTime)
-            );
-            blockRewardMultiplier = LibL1Tokenomics.getBlockRewardFactor(
-                config,
+        console2.log("----------------------------------------------------");
+        console2.log("------------------In verifyBlock()------------------");
+
+        (
+            uint256 reward,
+            uint256 proofTimeIssued,
+            uint64 newBaseFeeProof
+        ) = LibL1Tokenomics.calculateBaseProof(
+                state.proofTimeIssued,
+                state.avgProofTime,
+                uint64(proofTime),
                 blk.gasLimit,
-                (proofTime - state.avgProofTime) * 1000
-            );
-            console2.log("blockRewardMultiplier is: ", blockRewardMultiplier);
-
-            // Function for verification the result is the same as eip1559.py
-            uint256 xCheckPythonValue = LibL1Tokenomics.getBlockRewardFactor(
-                config,
-                uint32(5000000),
-                uint256(300000)
-            );
-            console2.log(
-                "Calculated xCheckPythonValue value is: ",
-                xCheckPythonValue
-            );
-        } else {
-            console2.log("ProofTime is smaller than average");
-            blockRewardMultiplier = LibL1Tokenomics.getBlockRewardFactor(
-                config,
-                blk.gasLimit,
-                state.avgProofTime
-            );
-        }
-
-        (uint256 rewardIssued, uint256 newBaseFeeProof) = LibL1Tokenomics
-            .updateBaseProof(
-                config.feeConfig,
-                blockRewardMultiplier,
-                blk.gasLimit
+                config.adjustmentQuotient
             );
 
-        TaikoData.FeeAndRewardConfig memory feeAndRewardConf = config.feeConfig;
+        state.baseFeeProof = newBaseFeeProof;
+        state.proofTimeIssued = proofTimeIssued;
 
-        feeAndRewardConf.rewardIssued = rewardIssued;
-        feeAndRewardConf.baseFeeProof = newBaseFeeProof;
+        //config.feeConfig = feeAndRewardConf;
 
-        config.feeConfig = feeAndRewardConf;
+        console2.log("A mooving average az:", state.avgProofTime);
 
         state.avgProofTime = LibUtils
             .movingAverage({

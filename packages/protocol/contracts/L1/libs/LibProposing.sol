@@ -25,6 +25,8 @@ library LibProposing {
     using LibAddress for address payable;
     using LibUtils for TaikoData.State;
 
+    uint256 constant SCALING_FACTOR = 1e8; // 10^8 for 8 decimal places = 1 TKO token
+
     event BlockProposed(
         uint256 indexed id,
         TaikoData.BlockMetadata meta,
@@ -114,14 +116,18 @@ library LibProposing {
 
         // Let's see if calculations are correct so first just
         // debug them. (Curly braces due to stack too deep error)
+        console2.log("----------------------------------------------------");
+        console2.log("------------------In proposeBlock()-----------------");
         {
-            uint256 feeNew = input.gasLimit * config.feeConfig.baseFeeProof;
+            // Need to scale 'down', because baseFeeProof is scaled 'up'
+            // Todo: Could you please Brecht advise on the math ?
+            // So since in baseFee() function i needed to scale up, otherwise divison with zero
+            // somewhere we need to scale down..
+            uint256 feeNew = (input.gasLimit *
+                state.baseFeeProof); /*  / SCALING_FACTOR; (??) */
 
-            console2.log("Current (new) fee would be:", feeNew);
-            console2.log(
-                "Current (new) basefee would be:",
-                config.feeConfig.baseFeeProof
-            );
+            console2.log("proposer_fee:", feeNew);
+            console2.log("baseFeeProof:", state.baseFeeProof);
         }
 
         if (config.enableTokenomics) {

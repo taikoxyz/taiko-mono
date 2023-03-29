@@ -21,11 +21,22 @@ import {ABDKMath64x64} from "../../thirdparty/ABDKMath.sol";
 library LibL1Tokenomics {
     using LibMath for uint256;
 
-    uint256 constant SCALING_FACTOR = 1e18; // 10^18 for 18 decimal places
+    uint256 constant SCALING_FACTOR = 1e8; // 10^8 for 8 decimal places = 1 TKO token
+
+    // So floating point as is - in solidity is nonexitent. With exponential calculation
+    // we loose a lot of value because we are restricted to integer. So the ABDKMath gives
+    // us an int128 value which is a 64.64 fixed point decimal representation number of the
+    // float value. In order to get back the floating point, this is the math:
+    // floating_point_number = fixed_point_number / 2^64
+    // But as mentioned we loose a lot on the .01-.99 range, so instead we shall calculate this
+    // floating_point_number = fixed_point_number / 2^57 , meaning we get a 2^7 times bigger number
+    // but on the other hand we have higher precision - and can divide the overall result.
+    uint8 constant EXPONENTIAL_REWARD_FACTOR = 128;
 
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_PARAM();
     error L1_NO_GAS();
+    error L1_IMPOSSIBLE_CONVERSION();
 
     function withdraw(
         TaikoData.State storage state,
@@ -174,117 +185,104 @@ library LibL1Tokenomics {
         }
     }
 
-    /// @notice Calculate the block reward factor based on the delay
-    /// @dev Bigger delays and smaller the blocks results greater the reward
-    /// @dev Smaller the block - greater the reward
-    /// @param config - Config, containing FeeAndRewardConfig
-    /// @param usedGas - Gas in the block
-    /// @param delay - Delay compared to avgProofTime (in milliseconde * 1000 - so that the division not get zerod)
-    /// @return blockReward - This function calculates the block reward factor based on the amount of gas in a block and the delay
-    function getBlockRewardFactor(
-        TaikoData.Config memory config,
-        uint32 usedGas,
-        uint256 delay
-    ) internal view returns (uint256 blockReward) {
-        if (usedGas == 0) revert L1_NO_GAS();
-
-        console2.log(
-            "----In getBlockRewardFactorben() of LibL1Tokenomics.sol -----"
-        );
-        console2.log(
-            "config.feeConfig.rewardTargetPerGas is: ",
-            config.feeConfig.rewardTargetPerGas
-        );
-        console2.log("delay is: ", delay);
-        console2.log(
-            "config.feeConfig.targetDelayBonusPerGas is: ",
-            config.feeConfig.targetDelayBonusPerGas
-        );
-        console2.log("usedGas is: ", usedGas);
-
-        blockReward =
-            (config.feeConfig.rewardTargetPerGas *
-                ((delay * SCALING_FACTOR) /
-                    (config.feeConfig.targetDelayBonusPerGas * usedGas))) /
-            SCALING_FACTOR;
-    }
-
     /// @notice Update the baseFee for proofs
-    /// @param feeConfig - Config, containing FeeAndRewardConfig
+    /// @param cumulativeProofTime - Current proof time issued
+    /// @param proofTimeTarget - Proof time target
+    /// @param actProofTime - The actual proof time
     /// @param usedGas - Gas in the block
-    /// @param blockReward - Block reward
-    /// @return rewardIssued - Amount of reward issued
-    /// @return newBaseFeeProof - New baseFeeProof
-    function updateBaseProof(
-        TaikoData.FeeAndRewardConfig memory feeConfig,
-        uint256 blockReward,
-        uint32 usedGas
-    ) internal view returns (uint256 rewardIssued, uint256 newBaseFeeProof) {
-        console2.log("----In updateBaseProof() of LibL1Tokenomics.sol -----");
-
+    /// @param quotient - Adjustmnet quotient
+    function calculateBaseProof(
+        uint256 cumulativeProofTime,
+        uint64 proofTimeTarget,
+        uint64 actProofTime,
+        uint32 usedGas,
+        uint8 quotient
+    )
+        internal
+        view
+        returns (
+            uint256 reward,
+            uint256 newProofTimeIssued,
+            uint64 newBaseFeeProof
+        )
+    {
         console2.log("usedGas is: ", usedGas);
-        console2.log("feeConfig.rewardIssued is: ", feeConfig.rewardIssued);
-        console2.log(
-            "feeConfig.rewardTargetPerGas is: ",
-            feeConfig.rewardTargetPerGas
-        );
-        console2.log("blockReward is: ", blockReward);
+        console2.log("cumulativeProofTime is: ", cumulativeProofTime);
 
-        // Here, we are trying to subtract 0 + 2 - HIGH_NUMBER -> resulting in underflow
-        rewardIssued = (feeConfig.rewardIssued + blockReward >
-            feeConfig.rewardTargetPerGas * usedGas)
-            ? feeConfig.rewardIssued +
-                blockReward -
-                feeConfig.rewardTargetPerGas *
-                usedGas
+        console2.log("proofTimeTarget is: ", proofTimeTarget);
+        console2.log("actProofTime is: ", actProofTime);
+        if (proofTimeTarget == 0) {
+            // Let's discuss proper value, but make it 20 seconds first time user, so to
+            // be realistic a little bit while also avoid division by zero
+            proofTimeTarget = 20000;
+        }
+        // To protect underflow
+        newProofTimeIssued = (cumulativeProofTime > proofTimeTarget)
+            ? cumulativeProofTime - proofTimeTarget
             : uint256(0);
 
-        console2.log("All rewardIssued: ", rewardIssued);
-        uint256 ethAmount = tokenAmountCalc(
-            rewardIssued / usedGas,
-            feeConfig.rewardTargetPerGas,
-            feeConfig.adjustmentQuotient
+        newProofTimeIssued += actProofTime;
+
+        console2.log("Increased cumulativeProofTime is: ", newProofTimeIssued);
+
+        newBaseFeeProof = baseFee(
+            newProofTimeIssued / 1000, //Hence in milliseconds
+            proofTimeTarget / 1000, //Hence in milliseconds
+            quotient
         );
 
-        // Experiment to get the same value as whatever
-        uint256 crossCalculationWithPython = tokenAmountCalc(128, 2, 32);
+        reward =
+            ((newBaseFeeProof * usedGas) *
+                ((actProofTime * SCALING_FACTOR) / proofTimeTarget)) /
+            (SCALING_FACTOR * EXPONENTIAL_REWARD_FACTOR);
 
-        console2.log(
-            "The python-cross-check value for exp e2:",
-            crossCalculationWithPython
-        );
-
-        newBaseFeeProof = (ethAmount >
-            (feeConfig.rewardTargetPerGas * feeConfig.adjustmentQuotient))
-            ? ethAmount -
-                (feeConfig.rewardTargetPerGas * feeConfig.adjustmentQuotient)
-            : 0;
-
-        console2.log("The new baseFeeProof: ", newBaseFeeProof);
+        console2.log("All cumulativeProofTime: ", newProofTimeIssued);
+        console2.log("New newBaseFeeProof: ", newBaseFeeProof);
+        console2.log("Reward: ", reward);
     }
 
-    /// @notice Calculating the exponential via ABDKMath64x64
-    /// @param value - Result of rewardIssued / usedGas
+    /// @notice Calculating the exponential smoothened with (target/quotient)
+    /// @param value - Result of cumulativeProofTime / usedGas
     /// @param target - Reward targer per gas
     /// @param quotient - Quotient
-    function tokenAmountCalc(
+    function baseFee(
         uint256 value,
         uint256 target,
         uint256 quotient
-    ) internal view returns (uint256) {
-        console2.log("----In tokenAmountCalc() of LibL1Tokenomics.sol -----");
-        console2.log("ethAmount function-ban vunk");
-        console2.log("value: ", value);
-        console2.log("target: ", target);
-        console2.log("quotient: ", quotient);
+    ) internal view returns (uint64) {
+        // If SCALING_FACTOR not applied : target * quotient will be bigger, therefore the result is 0
+        return
+            uint64(
+                ((expCalculation(value, target, quotient) * SCALING_FACTOR) /
+                    (target * quotient))
+            );
+    }
+
+    /// @notice Calculating the exponential via ABDKMath64x64
+    /// @param value - Result of cumulativeProofTime / usedGas
+    /// @param target - Reward targer per gas
+    /// @param quotient - Quotient
+    function expCalculation(
+        uint256 value,
+        uint256 target,
+        uint256 quotient
+    ) internal view returns (uint64 retVal) {
+        console2.log("----In expCalculation() of LibL1Tokenomics.sol -----");
+        // console2.log("value: ", value);
+        // console2.log("target: ", target);
+        // console2.log("quotient: ", quotient);
 
         int128 valueInt128 = ABDKMath64x64.exp(
             ABDKMath64x64.divu(value, target * quotient)
         );
 
-        console2.log("valueInt128: ", valueInt128);
-        console2.log("converted:", ABDKMath64x64.toUInt(valueInt128));
+        unchecked {
+            if (!(valueInt128 >= 0)) {
+                revert L1_IMPOSSIBLE_CONVERSION();
+            }
 
-        return uint256(ABDKMath64x64.toUInt(valueInt128));
+            //On purpose downshift/divide only 2^57, so that we have higher precisions!!!
+            retVal = uint64(uint128(valueInt128 >> 57));
+        }
     }
 }

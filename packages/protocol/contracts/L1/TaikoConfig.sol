@@ -41,6 +41,7 @@ library TaikoConfig {
                 feeBaseMAF: 1024,
                 constantFeeRewardBlocks: 1024,
                 txListCacheExpiry: 0,
+                adjustmentQuotient: 16,
                 enableSoloProposer: false,
                 enableOracleProver: true,
                 enableTokenomics: true,
@@ -52,13 +53,6 @@ library TaikoConfig {
                 provingConfig: TaikoData.FeeConfig({
                     avgTimeMAF: 1024,
                     dampingFactorBips: 2500 // [75% -> 125%]
-                }),
-                feeConfig: TaikoData.FeeAndRewardConfig({
-                    baseFeeProof: 0,
-                    rewardIssued: 0,
-                    rewardTargetPerGas: 100000000, // 0.1 TAI
-                    targetDelayBonusPerGas: 1000000, // 0.001 TAI
-                    adjustmentQuotient: 32
                 })
             });
     }

@@ -35,6 +35,7 @@ library LibUtils {
         return
             TaikoData.StateVariables({
                 feeBase: state.feeBase,
+                baseFeeProof: state.baseFeeProof,
                 genesisHeight: state.genesisHeight,
                 genesisTimestamp: state.genesisTimestamp,
                 numBlocks: state.numBlocks,
