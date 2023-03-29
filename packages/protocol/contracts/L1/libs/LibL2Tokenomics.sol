@@ -8,9 +8,7 @@ pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibMath} from "../../libs/LibMath.sol";
-import {
-    LibFixedPointMath as Math
-} from "../../thirdparty/LibFixedPointMath.sol";
+import {LibFixedPointMath} from "../../thirdparty/LibFixedPointMath.sol";
 
 import {
     SafeCastUpgradeable
@@ -22,8 +20,6 @@ import {console2} from "forge-std/console2.sol";
 library LibL2Tokenomics {
     using LibMath for uint256;
     using SafeCastUpgradeable for uint256;
-
-    uint256 public constant MAX_EXP_INPUT = 135305999368893231588;
 
     error L1_1559_GAS_CHANGE_MISMATCH(uint64 expectedRatio, uint64 actualRatio);
     error L1_1559_X_SCALE_TOO_LARGE();
@@ -62,7 +58,7 @@ library LibL2Tokenomics {
         gasExcess = excessMax / 2;
 
         // calculate xscale
-        uint256 _xscale = MAX_EXP_INPUT / excessMax;
+        uint256 _xscale = LibFixedPointMath.MAX_EXP_INPUT / excessMax;
         if (_xscale >= type(uint64).max) {
             revert L1_1559_X_SCALE_TOO_LARGE();
         }
@@ -123,7 +119,7 @@ library LibL2Tokenomics {
         uint256 xscale
     ) private pure returns (uint256) {
         uint256 x = gasExcess * xscale;
-        if (x > MAX_EXP_INPUT) revert L1_OUT_OF_BLOCK_SPACE();
-        return uint256(Math.exp(int256(x)));
+        if (x > LibFixedPointMath.MAX_EXP_INPUT) revert L1_OUT_OF_BLOCK_SPACE();
+        return uint256(LibFixedPointMath.exp(int256(x)));
     }
 }

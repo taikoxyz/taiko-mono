@@ -3,6 +3,8 @@
 pragma solidity ^0.8.18;
 
 library LibFixedPointMath {
+    uint256 public constant MAX_EXP_INPUT = 135305999368893231588;
+
     error Overflow();
     error LnNegativeUndefined();
 
