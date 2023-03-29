@@ -44,6 +44,7 @@ library LibL2Tokenomics {
             yscale: uint256(state.yscale) << 64,
             gasAmount: gasLimit
         }).toUint64();
+
         newGasExcess += gasLimit;
     }
 
