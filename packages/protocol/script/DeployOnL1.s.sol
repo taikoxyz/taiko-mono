@@ -206,8 +206,8 @@ contract DeployOnL1 is Script, AddressResolver {
             new TransparentUpgradeableProxy(implementation, owner, data)
         );
 
-        console.log(name, implementation);
-        console.log(string.concat(name, "Proxy"), proxy);
+        console.log(name, "(impl) ->", implementation);
+        console.log(name, "(proxy)->", proxy);
 
         if (addressManagerProxy != address(0)) {
             AddressManager(addressManagerProxy).setAddress(
@@ -226,7 +226,7 @@ contract DeployOnL1 is Script, AddressResolver {
         string memory name,
         address addr
     ) private {
-        console.log(chainId, name, "=>", addr);
+        console.log(chainId, name, "--->", addr);
         if (addr != address(0)) {
             AddressManager(addressManagerProxy).setAddress(
                 keyForName(chainId, name),
