@@ -3,8 +3,7 @@
   import { Trash } from 'svelte-heros-v2';
   import type { Token, TokenDetails } from '../../domain/token';
   import { signer } from '../../store/signer';
-  import { token as tokenStore } from '../../store/token';
-  import { userTokens, tokenService } from '../../store/userToken';
+  import { selectedToken, userTokens } from '../../store/token';
   import Erc20 from '../icons/ERC20.svelte';
   import Modal from '../modals/Modal.svelte';
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
@@ -12,6 +11,7 @@
   import ERC20 from '../../constants/abi/ERC20';
   import { ETHToken } from '../../token/tokens';
   import { errorToast } from '../Toast.svelte';
+  import { tokenService } from '../../storage/services';
 
   export let showAddressField: boolean = false;
   export let addERC20: (event: SubmitEvent) => Promise<void>;
@@ -24,11 +24,12 @@
   let customTokens: Token[] = [];
   userTokens.subscribe((tokens) => (customTokens = tokens));
 
-  async function remove(token) {
+  async function remove(token: Token) {
     const address = await $signer.getAddress();
-    const updatedTokensList = $tokenService.removeToken(token, address);
-    userTokens.set(updatedTokensList);
-    tokenStore.set(ETHToken);
+    const updatedTokensList = tokenService.removeToken(token, address);
+
+    $userTokens = updatedTokensList;
+    $selectedToken = ETHToken;
   }
 
   $: onAddressChange(tokenAddress);
@@ -105,6 +106,7 @@
         <div class="min-h-[25px]" />
       {/if}
     </div>
+
     {#if loading}
       <button class="btn" disabled={true}>
         <LottiePlayer
@@ -122,6 +124,7 @@
       <button class="btn" type="submit">Add</button>
     {/if}
   </form>
+
   {#if customTokens.length > 0}
     <div class="flex h-full w-full flex-col justify-between bg-none mt-6">
       <h3>Tokens already added</h3>

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
   import { location } from 'svelte-spa-router';
-  import { transactions } from '../../store/transactions';
+  import { transactions } from '../../store/transaction';
   import BridgeForm from '../../components/form/BridgeForm.svelte';
   import TaikoBanner from '../../components/TaikoBanner.svelte';
   import Transactions from '../../components/Transactions';

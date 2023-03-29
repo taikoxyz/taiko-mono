@@ -14,6 +14,10 @@ export async function isOnCorrectChain(
   const bridgeAddress = chains[wantChain].bridgeAddress;
   const tokenVaultAddress = tokenVaults[wantChain];
 
+  // `signer.provider.getCode(address: string): Promise<string>)`
+  // Returns the contract code of address as of the blockTag block height.
+  // If there is no contract currently deployed, the result is '0x'
+  // See: https://docs.ethers.org/v5/api/providers/provider/#Provider-getCode
   const bridgeAddressCode = await signer.provider.getCode(bridgeAddress);
 
   const tokenVaultAddressCode = await signer.provider.getCode(

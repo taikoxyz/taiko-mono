@@ -2,7 +2,7 @@
   import { _ } from 'svelte-i18n';
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
 
-  import { token } from '../../store/token';
+  import { selectedToken } from '../../store/token';
   import { fromChain, toChain } from '../../store/chain';
   import { activeBridge, bridgeType } from '../../store/bridge';
   import { signer } from '../../store/signer';
@@ -17,13 +17,12 @@
   import { truncateString } from '../../utils/truncateString';
   import {
     pendingTransactions,
-    transactioner,
     transactions as transactionsStore,
-  } from '../../store/transactions';
+  } from '../../store/transaction';
   import Memo from './Memo.svelte';
   import ERC20_ABI from '../../constants/abi/ERC20';
   import TokenVaultABI from '../../constants/abi/TokenVault';
-  import type { BridgeTransaction } from '../../domain/transactions';
+  import type { BridgeTransaction } from '../../domain/transaction';
   import { MessageStatus } from '../../domain/message';
   import { Funnel } from 'svelte-heros-v2';
   import FaucetModal from '../modals/FaucetModal.svelte';
@@ -39,6 +38,7 @@
   import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
   import { ProcessingFeeMethod } from '../../domain/fee';
   import Button from '../buttons/Button.svelte';
+  import { storageService } from '../../storage/services';
 
   let amount: string;
   let amountInput: HTMLInputElement;
@@ -58,12 +58,16 @@
   //       logic and unit test the hell out of all this.
 
   async function addrForToken() {
-    let addr = $token.addresses.find(
-      (t) => t.chainId === $fromChain.id,
+    let addr = $selectedToken.addresses.find(
+      (chainAddress) => chainAddress.chainId === $fromChain.id,
     ).address;
-    if ($token.symbol !== ETHToken.symbol && (!addr || addr === '0x00')) {
-      const srcChainAddr = $token.addresses.find(
-        (t) => t.chainId === $toChain.id,
+
+    if (
+      $selectedToken.symbol !== ETHToken.symbol &&
+      (!addr || addr === '0x00')
+    ) {
+      const srcChainAddr = $selectedToken.addresses.find(
+        (chainAddress) => chainAddress.chainId === $toChain.id,
       ).address;
 
       const tokenVault = new Contract(
@@ -165,7 +169,7 @@
         throw Error('does not require additional allowance');
 
       const tx = await $activeBridge.Approve({
-        amountInWei: ethers.utils.parseUnits(amount, $token.decimals),
+        amountInWei: ethers.utils.parseUnits(amount, $selectedToken.decimals),
         signer: $signer,
         contractAddress: await addrForToken(),
         spenderAddress: tokenVaults[$fromChain.id],
@@ -202,7 +206,7 @@
 
       let balanceAvailableForTx = userBalance;
 
-      if ($token.symbol === ETHToken.symbol) {
+      if ($selectedToken.symbol === ETHToken.symbol) {
         balanceAvailableForTx = userBalance.sub(
           ethers.utils.parseEther(amount),
         );
@@ -227,13 +231,16 @@
         return;
       }
 
-      const amountInWei = ethers.utils.parseUnits(amount, $token.decimals);
+      const amountInWei = ethers.utils.parseUnits(
+        amount,
+        $selectedToken.decimals,
+      );
 
       const provider = providers[$toChain.id];
       const destTokenVaultAddress = tokenVaults[$toChain.id];
       let isBridgedTokenAlreadyDeployed =
         await checkIfTokenIsDeployedCrossChain(
-          $token,
+          $selectedToken,
           provider,
           destTokenVaultAddress,
           $toChain,
@@ -273,12 +280,12 @@
       tx.chainId = $fromChain.id;
       const userAddress = await $signer.getAddress();
       let transactions: BridgeTransaction[] =
-        await $transactioner.getAllByAddress(userAddress);
+        await storageService.getAllByAddress(userAddress);
 
       let bridgeTransaction: BridgeTransaction = {
         fromChainId: $fromChain.id,
         toChainId: $toChain.id,
-        symbol: $token.symbol,
+        symbol: $selectedToken.symbol,
         amountInWei: amountInWei,
         from: tx.from,
         hash: tx.hash,
@@ -290,7 +297,7 @@
         transactions.push(bridgeTransaction);
       }
 
-      $transactioner.updateStorageByAddress(userAddress, transactions);
+      storageService.updateStorageByAddress(userAddress, transactions);
 
       pendingTransactions.update((store) => {
         store.push(tx);
@@ -300,7 +307,7 @@
       const allTransactions = $transactionsStore;
 
       // get full BridgeTransaction object
-      bridgeTransaction = await $transactioner.getTransactionByHash(
+      bridgeTransaction = await storageService.getTransactionByHash(
         userAddress,
         tx.hash,
       );
@@ -319,7 +326,7 @@
   }
 
   async function useFullAmount() {
-    if ($token.symbol === ETHToken.symbol) {
+    if ($selectedToken.symbol === ETHToken.symbol) {
       try {
         const feeData = await fetchFeeData();
         const gasEstimate = await $activeBridge.EstimateGas({
@@ -371,12 +378,12 @@
     return BigNumber.from(ethers.utils.parseEther(feeAmount));
   }
 
-  $: getUserBalance($signer, $token, $fromChain);
+  $: getUserBalance($signer, $selectedToken, $fromChain);
 
   $: isBtnDisabled(
     $signer,
     amount,
-    $token,
+    $selectedToken,
     tokenBalance,
     requiresAllowance,
     memoError,
@@ -385,7 +392,7 @@
     .then((d) => (btnDisabled = d))
     .catch((e) => console.error(e));
 
-  $: checkAllowance(amount, $token, $bridgeType, $fromChain, $signer)
+  $: checkAllowance(amount, $selectedToken, $bridgeType, $fromChain, $signer)
     .then((a) => (requiresAllowance = a))
     .catch((e) => console.error(e));
 
@@ -393,11 +400,11 @@
   $: showFaucet =
     $fromChain && // chain selected?
     $fromChain.id === L1_CHAIN_ID && // are we in L1?
-    $token.symbol !== ETHToken.symbol && // bridging ERC20?
+    $selectedToken.symbol !== ETHToken.symbol && // bridging ERC20?
     $signer && // wallet connected?
     tokenBalance &&
     ethers.utils
-      .parseUnits(tokenBalance, $token.decimals)
+      .parseUnits(tokenBalance, $selectedToken.decimals)
       .eq(BigNumber.from(0)); // balance == 0?
 </script>
 
@@ -412,7 +419,7 @@
           {tokenBalance.length > 10
             ? `${truncateString(tokenBalance, 6)}...`
             : tokenBalance}
-          {$token.symbol}
+          {$selectedToken.symbol}
         </span>
 
         <button
@@ -448,7 +455,8 @@
   </div>
 
   <FaucetModal
-    onMint={async () => await getUserBalance($signer, $token, $fromChain)}
+    onMint={async () =>
+      await getUserBalance($signer, $selectedToken, $fromChain)}
     bind:isOpen={isFaucetModalOpen} />
 {/if}
 

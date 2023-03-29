@@ -1,4 +1,3 @@
-import type { Chain as WagmiChain } from '@wagmi/core';
 import {
   L1_BRIDGE_ADDRESS,
   L1_CHAIN_ID,
@@ -46,42 +45,4 @@ export const taikoChain: Chain = {
 export const chains: Record<ChainID, Chain> = {
   [L1_CHAIN_ID]: mainnetChain,
   [L2_CHAIN_ID]: taikoChain,
-};
-
-// TODO: can we not merge this chain into mainnetChain?
-export const mainnetWagmiChain: WagmiChain = {
-  id: L1_CHAIN_ID,
-  name: L1_CHAIN_NAME,
-  network: '',
-  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: {
-    default: {
-      http: [L1_RPC],
-    },
-  },
-  blockExplorers: {
-    default: {
-      name: 'Main',
-      url: L1_EXPLORER_URL,
-    },
-  },
-};
-
-// TODO: same here, merge it into taikoChain
-export const taikoWagmiChain: WagmiChain = {
-  id: L2_CHAIN_ID,
-  name: L2_CHAIN_NAME,
-  network: '',
-  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: {
-    default: {
-      http: [L2_RPC],
-    },
-  },
-  blockExplorers: {
-    default: {
-      name: 'Main',
-      url: L2_EXPLORER_URL,
-    },
-  },
 };

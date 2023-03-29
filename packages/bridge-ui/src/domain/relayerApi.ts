@@ -1,5 +1,5 @@
 import type { Address, ChainID } from './chain';
-import type { BridgeTransaction } from './transactions';
+import type { BridgeTransaction } from './transaction';
 
 export interface RelayerAPI {
   getAllBridgeTransactionByAddress(

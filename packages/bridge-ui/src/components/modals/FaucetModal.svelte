@@ -1,6 +1,6 @@
 <script lang="ts">
   import { BigNumber, ethers } from 'ethers';
-  import { pendingTransactions } from '../../store/transactions';
+  import { pendingTransactions } from '../../store/transaction';
   import { signer } from '../../store/signer';
   import { _ } from 'svelte-i18n';
   import MintableERC20 from '../../constants/abi/MintableERC20';
@@ -8,7 +8,7 @@
   import { fetchSigner, switchNetwork } from '@wagmi/core';
   import Modal from './Modal.svelte';
   import { onMount } from 'svelte';
-  import { token } from '../../store/token';
+  import { selectedToken } from '../../store/token';
   import { L1_CHAIN_ID } from '../../constants/envVars';
   import { errorToast, successToast } from '../Toast.svelte';
 
@@ -19,7 +19,7 @@
   let errorReason: string;
 
   async function shouldEnableButton() {
-    if (!$signer || !$token) {
+    if (!$signer || !$selectedToken) {
       // If signer or token is missing, the button
       // should remained disabled
       disabled = true;
@@ -30,7 +30,7 @@
     const address = await $signer.getAddress();
 
     const contract = new ethers.Contract(
-      $token.addresses[0].address,
+      $selectedToken.addresses[0].address,
       MintableERC20,
       $signer,
     );
@@ -56,7 +56,7 @@
 
   async function mint() {
     try {
-      if ($fromChain.id !== $token.addresses[0].chainId) {
+      if ($fromChain.id !== $selectedToken.addresses[0].chainId) {
         await switchNetwork({
           chainId: L1_CHAIN_ID,
         });
@@ -65,7 +65,7 @@
         signer.set(wagmiSigner);
       }
       const contract = new ethers.Contract(
-        $token.addresses[0].address,
+        $selectedToken.addresses[0].address,
         MintableERC20,
         $signer,
       );
@@ -103,10 +103,10 @@
 </script>
 
 <Modal title={'ERC20 Faucet'} bind:isOpen>
-  You can request 50 {$token.symbol}. {$token.symbol} is only available to be minted
-  on {mainnetName}. If you are on {taikonetName}, your network will be changed
-  first. You must have a small amount of ETH in your {mainnetName} wallet to send
-  the transaction.
+  You can request 50 {$selectedToken.symbol}. {$selectedToken.symbol} is only available
+  to be minted on {mainnetName}. If you are on {taikonetName}, your network will
+  be changed first. You must have a small amount of ETH in your {mainnetName} wallet
+  to send the transaction.
   <br />
   <button
     class="btn btn-dark-5 h-[60px] text-base"

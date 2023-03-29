@@ -1,11 +1,11 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import type { BridgeTransaction } from '../../domain/transactions';
+  import type { BridgeTransaction } from '../../domain/transaction';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
   import { MessageStatus } from '../../domain/message';
   import { Contract, ethers } from 'ethers';
   import { signer } from '../../store/signer';
-  import { pendingTransactions } from '../../store/transactions';
+  import { pendingTransactions } from '../../store/transaction';
   import { _ } from 'svelte-i18n';
   import { fromChain } from '../../store/chain';
   import { BridgeType } from '../../domain/bridge';

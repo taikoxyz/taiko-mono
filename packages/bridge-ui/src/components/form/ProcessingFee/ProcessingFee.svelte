@@ -2,7 +2,7 @@
   import { _ } from 'svelte-i18n';
   import { ProcessingFeeMethod } from '../../../domain/fee';
   import { toChain, fromChain } from '../../../store/chain';
-  import { token } from '../../../store/token';
+  import { selectedToken } from '../../../store/token';
   import { signer } from '../../../store/signer';
   import { recommendProcessingFee } from '../../../utils/recommendProcessingFee';
   import ButtonWithTooltip from '../../ButtonWithTooltip.svelte';
@@ -16,7 +16,13 @@
   let showProcessingFeeTooltip: boolean = false;
   let showNoneFeeTooltip: boolean = false;
 
-  $: recommendProcessingFee($toChain, $fromChain, method, $token, $signer)
+  $: recommendProcessingFee(
+    $toChain,
+    $fromChain,
+    method,
+    $selectedToken,
+    $signer,
+  )
     .then((recommendedFee) => (amount = recommendedFee))
     .catch((e) => console.error(e));
 

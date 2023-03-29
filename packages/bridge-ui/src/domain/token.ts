@@ -1,13 +1,13 @@
 import type { ComponentType } from 'svelte';
 
-type Address = {
+export type ChainAddress = {
   chainId: number;
   address: string;
 };
 
 export type Token = {
   name: string;
-  addresses: Address[];
+  addresses: ChainAddress[];
   symbol: string;
   decimals: number;
   logoUrl?: string;
