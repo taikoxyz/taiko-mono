@@ -55,10 +55,10 @@
       <input
         style:border-radius="0.5rem"
         type="checkbox"
-        id="noShowAgain"
+        id="noShowAgain_{name}"
         bind:checked={noShowAgainCheckbox}
         class="checkbox checkbox-secundary mr-2" />
-      <label for="noShowAgain">Do not show this message again</label>
+      <label for="noShowAgain_{name}">Do not show this message again</label>
     </div>
 
     <div class="flex justify-center">
