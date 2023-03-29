@@ -23,6 +23,7 @@ const (
 	EventStatusNew EventStatus = iota
 	EventStatusRetriable
 	EventStatusDone
+	EventStatusFailed
 	EventStatusNewOnlyOwner
 )
 
@@ -35,7 +36,7 @@ const (
 
 // String returns string representation of an event status for logging
 func (e EventStatus) String() string {
-	return [...]string{"new", "retriable", "done", "onlyOwner"}[e]
+	return [...]string{"new", "retriable", "done", "failed", "onlyOwner"}[e]
 }
 
 func (e EventType) String() string {
