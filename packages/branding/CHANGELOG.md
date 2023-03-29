@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/taikoxyz/taiko-mono/compare/branding-v0.1.0...branding-v0.1.1) (2023-03-29)
+
+
+### Bug Fixes
+
+* **branding:** remove deprecated logos and wordmarks ([#13393](https://github.com/taikoxyz/taiko-mono/issues/13393)) ([b14472c](https://github.com/taikoxyz/taiko-mono/commit/b14472c55e2109a0e3a6b6a9d44c80ca36992397))
+
 ## [0.1.0](https://github.com/taikoxyz/taiko-mono/compare/branding-v0.0.1...branding-v0.1.0) (2023-01-19)
 
 
