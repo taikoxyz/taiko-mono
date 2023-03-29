@@ -5,7 +5,7 @@
   import MessageStatusTooltip from './MessageStatusTooltip.svelte';
   import InsufficientBalanceTooltip from './InsufficientBalanceTooltip.svelte';
   import type { BridgeTransaction } from '../../domain/transactions';
-  import NoticeTooltip from '../NoticeTooltip.svelte';
+  import NoticeModal from '../modals/NoticeModal.svelte';
 
   let selectedTransaction: BridgeTransaction;
   let showMessageStatusTooltip: boolean;
@@ -61,7 +61,7 @@
 
   <InsufficientBalanceTooltip bind:show={showInsufficientBalance} />
 
-  <NoticeTooltip
+  <NoticeModal
     bind:show={showRelayerAutoclaimTooltip}
     onConfirm={confirmNotice}
     name="RelayerAutoclaim">
@@ -71,5 +71,5 @@
       <string>Custom</string> amount for the Processing Fee. You can wait the relayer
       to auto-claim then bridged token or you can manually claim it now.
     </div>
-  </NoticeTooltip>
+  </NoticeModal>
 </div>

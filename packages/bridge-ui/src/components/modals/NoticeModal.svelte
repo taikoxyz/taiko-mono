@@ -1,11 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { localStoragePrefix } from '../config';
-  import Button from './buttons/Button.svelte';
-  import Modal from './modals/Modal.svelte';
+  import { localStoragePrefix } from '../../config';
+  import Button from '../buttons/Button.svelte';
+  import Modal from './Modal.svelte';
 
   export let show = false;
-  export let name = 'NoticeTooltip';
+  export let name = 'NoticeModal';
   export let title = 'Notice';
   export let onConfirm: (noShowAgain: boolean) => void = null;
 
