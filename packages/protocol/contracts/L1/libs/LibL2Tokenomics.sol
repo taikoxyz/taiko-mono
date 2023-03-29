@@ -28,27 +28,26 @@ library LibL2Tokenomics {
     error L1_OUT_OF_BLOCK_SPACE();
 
     function calcScales(
-        uint excessMax,
-        uint basefeeInitial,
-        uint256 gasTarget
-    ) internal view returns (uint excess, uint xscale, uint yscale) {
+        uint64 excessMax,
+        uint64 basefeeInitial,
+        uint64 gasTarget
+    ) internal view returns (uint64 excess, uint64 xscale, uint64 yscale) {
         assert(excessMax != 0);
 
         excess = excessMax / 2;
-        xscale = MAX_EXP_INPUT / excessMax;
+        xscale = (MAX_EXP_INPUT / excessMax).toUint64();
         console2.log("xscale =", xscale);
         assert(xscale < type(uint64).max);
 
-        yscale =
-            calc1559Basefee(excess, xscale, basefeeInitial, gasTarget) >>
-            64;
+        yscale = (calc1559Basefee(excess, xscale, basefeeInitial, gasTarget) >>
+            64).toUint64();
         console2.log("yscale =", yscale);
         assert(xscale < type(uint64).max);
 
         console2.log("initial basefee (configged)   =", basefeeInitial);
         console2.log(
             "initial basefee (recauculated)=",
-            calc1559Basefee(excess, xscale, yscale << 64, gasTarget)
+            calc1559Basefee(excess, xscale, uint256(yscale) << 64, gasTarget)
         );
     }
 
@@ -59,10 +58,10 @@ library LibL2Tokenomics {
     }
 
     function calc1559Basefee(
-        uint excess,
-        uint xscale,
-        uint yscale,
-        uint amount
+        uint64 excess,
+        uint64 xscale,
+        uint256 yscale,
+        uint64 amount
     ) internal pure returns (uint256) {
         assert(amount != 0 && xscale != 0 && yscale != 0);
         uint _before = _ethqty(excess, xscale);
