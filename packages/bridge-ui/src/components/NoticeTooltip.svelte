@@ -5,7 +5,7 @@
   import Button from './buttons/Button.svelte';
 
   export let show = false;
-  export let name = 'OptInOutTooltip';
+  export let name = 'NoticeTooltip';
   export let title = 'Notice';
   export let onConfirm: (noShowAgain: boolean) => void = null;
 
