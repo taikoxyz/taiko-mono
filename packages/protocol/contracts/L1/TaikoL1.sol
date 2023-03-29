@@ -30,7 +30,10 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         address _addressManager,
         bytes32 _genesisBlockHash,
         uint64 _feeBase,
-        uint64 _gasAccumulated
+        uint64 _l2GasExcessMax,
+        uint64 _l2BasefeeInitial,
+        uint64 _l2GasTarget,
+        uint64 _l2Expected2X1XRatio
     ) external initializer {
         EssentialContract._init(_addressManager);
         LibVerifying.init({
@@ -38,7 +41,10 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             config: getConfig(),
             genesisBlockHash: _genesisBlockHash,
             feeBase: _feeBase,
-            gasAccumulated: _gasAccumulated
+            l2GasExcessMax: _l2GasExcessMax,
+            l2BasefeeInitial: _l2BasefeeInitial,
+            l2GasTarget: _l2GasTarget,
+            l2Expected2X1XRatio: _l2Expected2X1XRatio
         });
     }
 
@@ -56,7 +62,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     function proposeBlock(
         bytes calldata input,
         bytes calldata txList
-    ) external payable nonReentrant {
+    ) external nonReentrant {
         TaikoData.Config memory config = getConfig();
         LibProposing.proposeBlock({
             state: state,
@@ -217,15 +223,15 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
                 : bytes32(0);
     }
 
-    function get1559Basefee(
-        uint32 gasLimit
-    ) public view returns (uint64 basefee) {
-        (, basefee, ) = LibL2Tokenomics.get1559Basefee(
-            state,
-            getConfig(),
-            gasLimit
-        );
-    }
+    // function get1559Basefee(
+    //     uint32 gasLimit
+    // ) public view returns (uint64 basefee) {
+    //     (, basefee) = LibL2Tokenomics.get1559Basefee(
+    //         state,
+    //         getConfig(),
+    //         gasLimit
+    //     );
+    // }
 
     function getStateVariables()
         public

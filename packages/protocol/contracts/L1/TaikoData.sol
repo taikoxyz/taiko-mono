@@ -22,7 +22,7 @@ library TaikoData {
         uint256 maxVerificationsPerTx;
         uint256 blockMaxGasLimit;
         uint64 gasTargetPerSecond;
-        uint256 gasAdjustmentFactor;
+        uint64 gasAdjustmentQuotient;
         uint256 maxTransactionsPerBlock;
         uint256 maxBytesPerTxList;
         uint256 minTxGasLimit;
@@ -51,7 +51,7 @@ library TaikoData {
         uint64 avgProofTime;
         uint64 lastProposedAt;
         uint64 basefee;
-        uint64 gasAccumulated;
+        uint64 gasExcess;
     }
 
     // 3 slots
@@ -64,7 +64,8 @@ library TaikoData {
         uint8 cacheTxListInfo; // non-zero = True
     }
 
-    // 5 slots
+    // 6 slots
+    // Changing this struct requires chaing LibUtils.hashMetadata accordingly.
     struct BlockMetadata {
         uint64 id;
         uint64 timestamp;
@@ -77,6 +78,7 @@ library TaikoData {
         uint24 txListByteEnd;
         uint32 gasLimit;
         address beneficiary;
+        address treasure;
     }
 
     struct ZKProof {
@@ -131,14 +133,14 @@ library TaikoData {
         // Never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 __reserved1;
-        uint64 __reserved2;
+        uint64 xscale;
+        uint64 yscale;
         // Changed when a block is proposed or proven/finalized
         // Changed when a block is proposed
         uint64 numBlocks;
         uint64 lastProposedAt; // Timestamp when the last block is proposed.
         uint64 avgBlockTime; // miliseconds
-        uint64 gasAccumulated;
+        uint64 gasExcess;
         // Changed when a block is proven/finalized
         uint64 lastVerifiedBlockId;
         uint64 __reserved4;

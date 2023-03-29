@@ -78,23 +78,25 @@ library LibProposing {
                 txListByteStart: input.txListByteStart,
                 txListByteEnd: input.txListByteEnd,
                 gasLimit: input.gasLimit,
-                beneficiary: input.beneficiary
+                beneficiary: input.beneficiary,
+                treasure: resolver.resolve(config.chainId, "treasure", false)
             });
         }
 
-        {
-            // calculate L2 EIP-1559 gas fee and cost
-            uint256 gasPurchaseCost;
-            (
-                state.gasAccumulated,
-                meta.basefee,
-                gasPurchaseCost
-            ) = LibL2Tokenomics.get1559Basefee(state, config, input.gasLimit);
-            if (msg.value < gasPurchaseCost) revert L1_INSUFFICIENT_ETHER();
-
-            resolver.resolve("treasure", false).sendEther(gasPurchaseCost);
-            msg.sender.sendEther(msg.value - gasPurchaseCost);
-        }
+        // Calculate L2 EIP-1559 basefee per gas
+        //
+        // Note that we do not charge basefee * gaslimit on L1 as we do not
+        // know the actual gas used in the L2 block. If we charge the proposer
+        // here, the proposer may suffer a loss depends on how many enclosed
+        // transactions become invalid and are filtered out.
+        //
+        // On L2, EIP-1559's basefee will not be burned but send to a Taiko
+        // treasure address.
+        (meta.basefee, state.gasExcess) = LibL2Tokenomics.get1559Basefee({
+            state: state,
+            config: config,
+            gasLimit: input.gasLimit
+        });
 
         TaikoData.Block storage blk = state.blocks[
             state.numBlocks % config.ringBufferSize

@@ -22,7 +22,7 @@ abstract contract TaikoL1TestBase is Test {
     bytes32 public constant GENESIS_BLOCK_HASH =
         keccak256("GENESIS_BLOCK_HASH");
     uint64 feeBase = 1E8; // 1 TKO
-    uint64 gasAccumulated = 1E18;
+    uint64 gasExcess = 1E18;
 
     address public constant Treasure =
         0x859d74b52762d9ed07D1b2B8d7F93d26B1EA78Bb;
@@ -43,12 +43,20 @@ abstract contract TaikoL1TestBase is Test {
         addressManager = new AddressManager();
         addressManager.init();
 
+        uint64 basefeeInitial = 5000000000;
+        uint64 gasExcessMax = 15000000 * 256;
+        uint64 gasTarget = 6000000;
+        uint64 expected2X1XRatio = 111; // 11 %%
+
         L1 = deployTaikoL1();
         L1.init(
             address(addressManager),
             GENESIS_BLOCK_HASH,
             feeBase,
-            gasAccumulated
+            gasExcessMax,
+            basefeeInitial,
+            gasTarget,
+            expected2X1XRatio
         );
         conf = L1.getConfig();
 
