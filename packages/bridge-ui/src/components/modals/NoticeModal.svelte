@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
+  import { onMount } from 'svelte';
   import { localStoragePrefix } from '../../config';
   import Button from '../buttons/Button.svelte';
   import Modal from './Modal.svelte';
