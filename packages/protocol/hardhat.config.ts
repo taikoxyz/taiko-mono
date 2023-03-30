@@ -2,7 +2,6 @@ import "@nomiclabs/hardhat-etherscan";
 import "@nomiclabs/hardhat-waffle";
 // import "@nomicfoundation/hardhat-foundry";
 import "@openzeppelin/hardhat-upgrades";
-import "hardhat-preprocessor";
 import "@typechain/hardhat";
 import "hardhat-abi-exporter";
 import "hardhat-contract-sizer";
@@ -10,8 +9,6 @@ import "hardhat-gas-reporter";
 import { HardhatUserConfig } from "hardhat/config";
 import "solidity-coverage";
 import "solidity-docgen";
-import "./tasks/compile_yul";
-import "./tasks/deploy_L1";
 
 const hardhatMnemonic =
     "test test test test test test test test test test test taik";

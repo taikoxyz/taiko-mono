@@ -1,5 +1,4 @@
 import { expect } from "chai";
-// import * as log from "../tasks/log"
 
 const hre = require("hardhat");
 const ethers = hre.ethers;
