@@ -50,12 +50,12 @@ export type ReleaseOpts = {
 };
 
 export interface Bridge {
-  RequiresAllowance(opts: ApproveOpts): Promise<boolean>;
-  Approve(opts: ApproveOpts): Promise<Transaction>;
-  Bridge(opts: BridgeOpts): Promise<Transaction>;
-  EstimateGas(opts: BridgeOpts): Promise<BigNumber>;
-  Claim(opts: ClaimOpts): Promise<Transaction>;
-  ReleaseTokens(opts: ReleaseOpts): Promise<Transaction>;
+  requiresAllowance(opts: ApproveOpts): Promise<boolean>;
+  approve(opts: ApproveOpts): Promise<Transaction>;
+  bridge(opts: BridgeOpts): Promise<Transaction>;
+  estimateGas(opts: BridgeOpts): Promise<BigNumber>;
+  claim(opts: ClaimOpts): Promise<Transaction>;
+  releaseTokens(opts: ReleaseOpts): Promise<Transaction>;
 }
 
 // TODO: this should not be here

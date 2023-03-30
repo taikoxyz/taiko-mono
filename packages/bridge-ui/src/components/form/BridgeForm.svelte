@@ -85,11 +85,7 @@
     return addr;
   }
 
-  async function getUserBalance(
-    signer: ethers.Signer,
-    token: Token,
-    fromChain: Chain,
-  ) {
+  async function getUserBalance(signer: ethers.Signer, token: Token) {
     if (signer && token) {
       if (token.symbol == ETHToken.symbol) {
         const userBalance = await signer.getBalance('latest');
@@ -117,7 +113,7 @@
     if (!fromChain || !amt || !token || !bridgeType || !signer) return false;
 
     const addr = await addrForToken();
-    const allowance = await $activeBridge.RequiresAllowance({
+    const allowance = await $activeBridge.requiresAllowance({
       amountInWei: ethers.utils.parseUnits(amt, token.decimals),
       signer: signer,
       contractAddress: addr,
@@ -131,7 +127,6 @@
     amount: string,
     token: Token,
     tokenBalance: string,
-    requiresAllowance: boolean,
     memoError: string,
     fromChain: Chain,
   ) {
@@ -167,7 +162,7 @@
       if (!requiresAllowance)
         throw Error('does not require additional allowance');
 
-      const tx = await $activeBridge.Approve({
+      const tx = await $activeBridge.approve({
         amountInWei: ethers.utils.parseUnits(amount, $selectedToken.decimals),
         signer: $signer,
         contractAddress: await addrForToken(),
@@ -192,7 +187,7 @@
     bridgeOpts: BridgeOpts,
   ): Promise<boolean> {
     try {
-      const gasEstimate = await $activeBridge.EstimateGas({
+      const gasEstimate = await $activeBridge.estimateGas({
         ...bridgeOpts,
         amountInWei: BigNumber.from(1),
       });
@@ -269,7 +264,7 @@
         return;
       }
 
-      const tx = await $activeBridge.Bridge(bridgeOpts);
+      const tx = await $activeBridge.bridge(bridgeOpts);
 
       // tx.chainId is not set immediately but we need it later. set it
       // manually.
@@ -322,7 +317,7 @@
     if ($selectedToken.symbol === ETHToken.symbol) {
       try {
         const feeData = await fetchFeeData();
-        const gasEstimate = await $activeBridge.EstimateGas({
+        const gasEstimate = await $activeBridge.estimateGas({
           amountInWei: BigNumber.from(1),
           signer: $signer,
           tokenAddress: await addrForToken(),
@@ -371,14 +366,13 @@
     return BigNumber.from(ethers.utils.parseEther(feeAmount));
   }
 
-  $: getUserBalance($signer, $selectedToken, $fromChain);
+  $: getUserBalance($signer, $selectedToken);
 
   $: isBtnDisabled(
     $signer,
     amount,
     $selectedToken,
     tokenBalance,
-    requiresAllowance,
     memoError,
     $fromChain,
   )
@@ -448,8 +442,7 @@
   </div>
 
   <FaucetModal
-    onMint={async () =>
-      await getUserBalance($signer, $selectedToken, $fromChain)}
+    onMint={async () => await getUserBalance($signer, $selectedToken)}
     bind:isOpen={isFaucetModalOpen} />
 {/if}
 
@@ -498,16 +491,5 @@
     -webkit-appearance: none;
     margin: 0;
     -moz-appearance: textfield !important;
-  }
-
-  .btn.btn-accent.approve-btn {
-    background-color: #4c1d95;
-    border-color: #4c1d95;
-    color: #ffffff;
-  }
-
-  .btn.btn-accent.approve-btn:hover {
-    background-color: #5b21b6;
-    border-color: #5b21b6;
   }
 </style>

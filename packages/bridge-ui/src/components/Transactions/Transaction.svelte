@@ -103,7 +103,7 @@
         bridgeTx.message?.data === '0x' || !bridgeTx.message?.data
           ? BridgeType.ETH
           : BridgeType.ERC20
-      ].Claim({
+      ].claim({
         signer: $signer,
         message: bridgeTx.message,
         msgHash: bridgeTx.msgHash,
@@ -143,7 +143,7 @@
         bridgeTx.message?.data === '0x' || !bridgeTx.message?.data
           ? BridgeType.ETH
           : BridgeType.ERC20
-      ].ReleaseTokens({
+      ].releaseTokens({
         signer: $signer,
         message: bridgeTx.message,
         msgHash: bridgeTx.msgHash,

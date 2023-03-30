@@ -65,7 +65,7 @@ export class ERC20Bridge implements Bridge {
     return allowance.lt(amount);
   }
 
-  async RequiresAllowance(opts: ApproveOpts): Promise<boolean> {
+  async requiresAllowance(opts: ApproveOpts): Promise<boolean> {
     return await this.spenderRequiresAllowance(
       opts.contractAddress,
       opts.signer,
@@ -74,7 +74,7 @@ export class ERC20Bridge implements Bridge {
     );
   }
 
-  async Approve(opts: ApproveOpts): Promise<Transaction> {
+  async approve(opts: ApproveOpts): Promise<Transaction> {
     if (
       !(await this.spenderRequiresAllowance(
         opts.contractAddress,
@@ -96,7 +96,7 @@ export class ERC20Bridge implements Bridge {
     return tx;
   }
 
-  async Bridge(opts: BridgeOpts): Promise<Transaction> {
+  async bridge(opts: BridgeOpts): Promise<Transaction> {
     if (
       await this.spenderRequiresAllowance(
         opts.tokenAddress,
@@ -127,7 +127,7 @@ export class ERC20Bridge implements Bridge {
     return tx;
   }
 
-  async EstimateGas(opts: BridgeOpts): Promise<BigNumber> {
+  async estimateGas(opts: BridgeOpts): Promise<BigNumber> {
     const { contract, message } = await ERC20Bridge.prepareTransaction(opts);
 
     const gasEstimate = await contract.estimateGas.sendERC20(
@@ -147,7 +147,7 @@ export class ERC20Bridge implements Bridge {
     return gasEstimate;
   }
 
-  async Claim(opts: ClaimOpts): Promise<Transaction> {
+  async claim(opts: ClaimOpts): Promise<Transaction> {
     const contract: Contract = new Contract(
       opts.destBridgeAddress,
       BridgeABI,
@@ -212,7 +212,7 @@ export class ERC20Bridge implements Bridge {
     }
   }
 
-  async ReleaseTokens(opts: ReleaseOpts): Promise<Transaction> {
+  async releaseTokens(opts: ReleaseOpts): Promise<Transaction> {
     const destBridgeContract: Contract = new Contract(
       opts.destBridgeAddress,
       BridgeABI,
