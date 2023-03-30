@@ -173,15 +173,15 @@ export class ERC20Bridge implements Bridge {
 
     if (messageStatus === MessageStatus.New) {
       const proof = await this.prover.generateProof({
-        srcChain: opts.message.srcChainId.toNumber(),
+        srcChain: opts.message.srcChainId,
         msgHash: opts.msgHash,
         sender: opts.srcBridgeAddress,
         srcBridgeAddress: opts.srcBridgeAddress,
-        destChain: opts.message.destChainId.toNumber(),
+        destChain: opts.message.destChainId,
         destHeaderSyncAddress:
-          chains[opts.message.destChainId.toNumber()].headerSyncAddress,
+          chains[opts.message.destChainId].headerSyncAddress,
         srcSignalServiceAddress:
-          chains[opts.message.srcChainId.toNumber()].signalServiceAddress,
+          chains[opts.message.srcChainId].signalServiceAddress,
       });
 
       if (opts.message.gasLimit.gt(BigNumber.from(2500000))) {
@@ -234,15 +234,14 @@ export class ERC20Bridge implements Bridge {
 
     if (messageStatus === MessageStatus.Failed) {
       const proofOpts = {
-        srcChain: opts.message.srcChainId.toNumber(),
+        srcChain: opts.message.srcChainId,
         msgHash: opts.msgHash,
         sender: opts.srcBridgeAddress,
         destBridgeAddress: opts.destBridgeAddress,
-        destChain: opts.message.destChainId.toNumber(),
+        destChain: opts.message.destChainId,
         destHeaderSyncAddress:
-          chains[opts.message.destChainId.toNumber()].headerSyncAddress,
-        srcHeaderSyncAddress:
-          chains[opts.message.srcChainId.toNumber()].headerSyncAddress,
+          chains[opts.message.destChainId].headerSyncAddress,
+        srcHeaderSyncAddress: chains[opts.message.srcChainId].headerSyncAddress,
       };
 
       const proof = await this.prover.generateReleaseProof(proofOpts);

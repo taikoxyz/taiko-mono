@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { _ } from 'svelte-i18n';
   import { fromChain, toChain } from '../store/chain';
   import type { Chain } from '../domain/chain';
   import { ethers } from 'ethers';
