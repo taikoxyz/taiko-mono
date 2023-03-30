@@ -4,4 +4,4 @@ import { bridges } from '../bridge/bridges';
 
 export const bridgeType = writable<BridgeType>(BridgeType.ETH);
 
-export const activeBridge = derived(bridgeType, ($value) => bridges[$value]);
+export const activeBridge = derived(bridgeType, (value) => bridges[value]);
