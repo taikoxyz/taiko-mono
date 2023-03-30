@@ -127,7 +127,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
             number: block.number,
             parentHash: parentHash,
             timestamp: block.timestamp,
-            basefee: 0, //block.basefee,
+            basefee: block.basefee,
             prevrandao: block.prevrandao,
             coinbase: block.coinbase,
             gaslimit: block.gaslimit,
@@ -181,7 +181,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         }
 
         inputs[255] = bytes32(block.chainid);
-        // inputs[256] = bytes32(block.basefee);
 
         assembly {
             prevPIH := keccak256(inputs, mul(256, 32))
