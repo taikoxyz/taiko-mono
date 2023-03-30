@@ -14,5 +14,7 @@ export const getNumProvers = async (
   const resp = await axios.get<UniqueProverResponse>(
     `${eventIndexerApiUrl}/uniqueProvers`
   );
-  return resp.data;
+  let uniqueProverRes = resp.data;
+  uniqueProverRes.provers.sort((a, b) => b.count - a.count);
+  return uniqueProverRes;
 };
