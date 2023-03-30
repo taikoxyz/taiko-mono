@@ -23,6 +23,7 @@
     "@tsconfig/svelte": "^3.0.0",
     "@types/eslint": "^8.2.1",
     "@types/estree": "^0.0.50",
+    "@types/identicon.js": "^2.3.1",
     "@types/jest": "^27.0.2",
     "@types/mixpanel": "^2.14.3",
     "@types/sanitize-html": "^2.6.2",
