@@ -43,7 +43,8 @@
   // the next steps in the flow, also setting the prop back to false
   // (could be bound to the parent)
   // TODO: use promises here. API to open the modal should return a promise
-  //       which resolves when the user clicks on confirm.
+  //       which resolves when the user clicks on confirm. If noShowAgain is set
+  //       to true, the promise should resolve immediately.
   $: if (show && noShowAgainStorage) {
     closeAndContinue();
   }
