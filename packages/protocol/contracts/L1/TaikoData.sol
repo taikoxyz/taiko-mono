@@ -21,8 +21,7 @@ library TaikoData {
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;
         uint256 blockMaxGasLimit;
-        uint64 gasTargetPerSecond;
-        uint64 gasAdjustmentQuotient;
+        uint64 gasIssuedPerSecond;
         uint256 maxTransactionsPerBlock;
         uint256 maxBytesPerTxList;
         uint256 minTxGasLimit;
