@@ -21,7 +21,7 @@ library TaikoData {
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;
         uint256 blockMaxGasLimit;
-        uint64 gasIssuedPerSecond;
+        uint256 gasIssuedPerSecond;
         uint256 maxTransactionsPerBlock;
         uint256 maxBytesPerTxList;
         uint256 minTxGasLimit;
@@ -30,7 +30,6 @@ library TaikoData {
         uint256 proposerDepositPctg;
         // Moving average factors
         uint256 feeBaseMAF;
-        uint64 constantFeeRewardBlocks;
         uint64 txListCacheExpiry;
         bool enableSoloProposer;
         bool enableOracleProver;

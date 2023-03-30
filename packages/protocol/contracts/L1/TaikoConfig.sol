@@ -38,7 +38,6 @@ library TaikoConfig {
                 proposerDepositPctg: 25, // - 25%
                 // Moving average factors
                 feeBaseMAF: 1024,
-                constantFeeRewardBlocks: 1024,
                 txListCacheExpiry: 0,
                 enableSoloProposer: false,
                 enableOracleProver: true,

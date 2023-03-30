@@ -22,7 +22,6 @@ contract TaikoL1WithConfig is TaikoL1 {
         config = TaikoConfig.getConfig();
 
         config.enableTokenomics = true;
-        config.constantFeeRewardBlocks = 0;
         config.txListCacheExpiry = 5 minutes;
         config.proposerDepositPctg = 0;
         config.maxVerificationsPerTx = 0;

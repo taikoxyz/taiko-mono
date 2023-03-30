@@ -31,7 +31,6 @@ struct Config {
   uint256 rewardBurnBips;
   uint256 proposerDepositPctg;
   uint256 feeBaseMAF;
-  uint64 constantFeeRewardBlocks;
   uint64 txListCacheExpiry;
   bool enableSoloProposer;
   bool enableOracleProver;

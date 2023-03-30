@@ -60,24 +60,19 @@ library LibL1Tokenomics {
         view
         returns (uint64 newFeeBase, uint64 fee, uint64 depositAmount)
     {
-        if (state.numBlocks <= config.constantFeeRewardBlocks) {
-            fee = state.feeBase;
-            newFeeBase = state.feeBase;
-        } else {
-            (newFeeBase, ) = getTimeAdjustedFee({
-                feeConfig: config.proposingConfig,
-                feeBase: state.feeBase,
-                isProposal: true,
-                timeUsed: block.timestamp - state.lastProposedAt,
-                timeAverage: state.avgBlockTime
-            });
-            fee = getSlotsAdjustedFee({
-                state: state,
-                config: config,
-                isProposal: true,
-                feeBase: newFeeBase
-            });
-        }
+        (newFeeBase, ) = getTimeAdjustedFee({
+            feeConfig: config.proposingConfig,
+            feeBase: state.feeBase,
+            isProposal: true,
+            timeUsed: block.timestamp - state.lastProposedAt,
+            timeAverage: state.avgBlockTime
+        });
+        fee = getSlotsAdjustedFee({
+            state: state,
+            config: config,
+            isProposal: true,
+            feeBase: newFeeBase
+        });
 
         unchecked {
             depositAmount = uint64((fee * config.proposerDepositPctg) / 100);
@@ -96,25 +91,20 @@ library LibL1Tokenomics {
     {
         if (proposedAt > provenAt) revert L1_INVALID_PARAM();
 
-        if (state.lastVerifiedBlockId <= config.constantFeeRewardBlocks) {
-            reward = state.feeBase;
-            newFeeBase = state.feeBase;
-            // premiumRate = 0;
-        } else {
-            (newFeeBase, premiumRate) = getTimeAdjustedFee({
-                feeConfig: config.provingConfig,
-                feeBase: state.feeBase,
-                isProposal: false,
-                timeUsed: provenAt - proposedAt,
-                timeAverage: state.avgProofTime
-            });
-            reward = getSlotsAdjustedFee({
-                state: state,
-                config: config,
-                isProposal: false,
-                feeBase: newFeeBase
-            });
-        }
+        (newFeeBase, premiumRate) = getTimeAdjustedFee({
+            feeConfig: config.provingConfig,
+            feeBase: state.feeBase,
+            isProposal: false,
+            timeUsed: provenAt - proposedAt,
+            timeAverage: state.avgProofTime
+        });
+        reward = getSlotsAdjustedFee({
+            state: state,
+            config: config,
+            isProposal: false,
+            feeBase: newFeeBase
+        });
+
         unchecked {
             reward = uint64((reward * (10000 - config.rewardBurnBips)) / 10000);
         }
