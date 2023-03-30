@@ -75,7 +75,7 @@ library LibL1Tokenomics {
         });
 
         unchecked {
-            depositAmount = uint64((fee * config.proposerDepositPctg) / 100);
+            depositAmount = uint64((config.proposerDepositPctg * fee) / 100);
         }
     }
 
