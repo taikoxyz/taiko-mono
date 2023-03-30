@@ -106,7 +106,6 @@ contract DeployOnL1 is Script, AddressResolver {
         console.log("BullToken", bullToken);
 
         // TaikoL1
-
         TaikoL1 taikoL1 = new TaikoL1();
         uint64 l2GasExcessMax;
         uint64 l2Basefee;
@@ -115,9 +114,7 @@ contract DeployOnL1 is Script, AddressResolver {
 
         if (taikoL1.getConfig().gasIssuedPerSecond != 0) {
             l2GasExcessMax = vm.envUint("L2_GAS_EXCESS_MAX").toUint64();
-
             l2Basefee = vm.envUint("L2_BASE_FEE").toUint64();
-
             l2GasTarget = vm.envUint("L2_GAS_TARGET").toUint64();
             l2Expected2X1XRatio = vm
                 .envUint("L2_EXPECTED_2X1X_RATIO")
