@@ -23,6 +23,11 @@ func Test_EventStatus_String(t *testing.T) {
 			"retriable",
 		},
 		{
+			"failed",
+			EventStatusFailed,
+			"failed",
+		},
+		{
 			"done",
 			EventStatusDone,
 			"done",
