@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { localStoragePrefix } from '../../config';
   import Button from '../buttons/Button.svelte';
   import Modal from './Modal.svelte';
@@ -21,6 +21,11 @@
     noShowAgainCheckbox = noShowAgainStorage;
   });
 
+  function closeAndContinue() {
+    show = false;
+    onConfirm?.(noShowAgainCheckbox);
+  }
+
   function onConfirmNotice() {
     if (noShowAgainCheckbox) {
       // If checkbox is checked, store it in localStorage so
@@ -29,9 +34,18 @@
       noShowAgainStorage = true;
     }
 
-    show = false;
+    closeAndContinue();
+  }
 
-    onConfirm?.(noShowAgainCheckbox);
+  // It could happen that the modal is being opened via prop, but the user
+  // already opted out of seeing the message (we have localStorage set).
+  // In that case, we still want to run the onConfirm callback, which contains
+  // the next steps in the flow, also setting the prop back to false
+  // (could be bound to the parent)
+  // TODO: use promises here. API to open the modal should return a promise
+  //       which resolves when the user clicks on confirm.
+  $: if (show && noShowAgainStorage) {
+    closeAndContinue();
   }
 </script>
 
