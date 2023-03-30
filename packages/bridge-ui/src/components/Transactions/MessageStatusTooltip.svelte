@@ -13,7 +13,7 @@
       <ul class="list-disc ml-4">
         <li class="mb-2">
           <strong>Pending</strong>: Your asset is not ready to be bridged. Taiko
-          A2 => {L1_CHAIN_NAME} bridging can take several hours before being ready.
+          A2 => {L2_CHAIN_NAME} bridging can take several hours before being ready.
           {L1_CHAIN_NAME} => {L2_CHAIN_NAME} should be available to claim within
           minutes.
         </li>
