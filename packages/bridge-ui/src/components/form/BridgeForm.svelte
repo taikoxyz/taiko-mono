@@ -1,7 +1,6 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
-
   import { selectedToken } from '../../store/token';
   import { fromChain, toChain } from '../../store/chain';
   import { activeBridge, bridgeType } from '../../store/bridge';
