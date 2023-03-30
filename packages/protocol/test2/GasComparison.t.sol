@@ -23,19 +23,19 @@ struct MyStruct {
 }
 
 contract FooBar {
-    function loadBlockMetadata_1(bytes memory data) public {
-        MyStruct memory meta = abi.decode(data, (MyStruct));
+    function loadBlockMetadata_1(bytes memory data) public pure {
+        abi.decode(data, (MyStruct));
     }
 
-    function loadBlockMetadata_2(bytes calldata data) public {
-        MyStruct memory meta = abi.decode(data, (MyStruct));
+    function loadBlockMetadata_2(bytes calldata data) public pure {
+        abi.decode(data, (MyStruct));
     }
 
-    function loadBlockMetadata_3(MyStruct memory data) public {}
+    function loadBlockMetadata_3(MyStruct memory data) public pure {}
 
-    function loadBlockMetadata_4(MyStruct calldata data) public {}
+    function loadBlockMetadata_4(MyStruct calldata data) public pure {}
 
-    function loadBlockMetadata_5(bytes calldata data) public {
+    function loadBlockMetadata_5(bytes calldata data) public pure {
         MyStruct memory meta;
         meta.id = uint256(bytes32(data[0:32]));
         meta.l1Height = uint256(bytes32(data[32:64]));
@@ -44,7 +44,7 @@ contract FooBar {
         meta.timestamp = uint64(bytes8(data[104:112]));
     }
 
-    function loadBlockMetadata_6() public {
+    function loadBlockMetadata_6() public pure {
         MyStruct memory meta;
         uint256 a;
         assembly {
@@ -71,7 +71,11 @@ contract FooBar {
         meta.timestamp = uint64(uint256((a << (128 + 64)) >> (128 + 64)));
     }
 
-    function return_1() public returns (TaikoData.BlockMetadata memory meta) {
+    function return_1()
+        public
+        view
+        returns (TaikoData.BlockMetadata memory meta)
+    {
         meta = TaikoData.BlockMetadata({
             id: 1,
             l1Height: 1,
@@ -88,8 +92,8 @@ contract FooBar {
         });
     }
 
-    function return_2() public {
-        TaikoData.BlockMetadata memory meta = TaikoData.BlockMetadata({
+    function return_2() public view {
+        TaikoData.BlockMetadata({
             id: 1,
             l1Height: 1,
             l1Hash: bytes32(uint256(1)),
@@ -106,19 +110,26 @@ contract FooBar {
     }
 
     //------
-    function hashString_1(string memory str) public returns (bytes32 hash) {
+    function hashString_1(
+        string memory str
+    ) public pure returns (bytes32 hash) {
         assembly {
             hash := keccak256(add(str, 32), mload(str))
         }
     }
 
-    function hashString_2(string memory str) public returns (bytes32 hash) {
+    function hashString_2(
+        string memory str
+    ) public pure returns (bytes32 hash) {
         hash = keccak256(bytes(str));
     }
 
     //------
 
-    function hashTwo_1(address a, bytes32 b) public returns (bytes32 hash) {
+    function hashTwo_1(
+        address a,
+        bytes32 b
+    ) public pure returns (bytes32 hash) {
         assembly {
             // Load the free memory pointer and allocate memory for the concatenated arguments
             let input := mload(64)
@@ -134,7 +145,10 @@ contract FooBar {
         }
     }
 
-    function hashTwo_2(address a, bytes32 b) public returns (bytes32 hash) {
+    function hashTwo_2(
+        address a,
+        bytes32 b
+    ) public pure returns (bytes32 hash) {
         hash = keccak256(bytes.concat(bytes20(uint160(a)), b));
         // the following will work too.
         // hash = keccak256(abi.encodePacked(a, b));
@@ -142,21 +156,21 @@ contract FooBar {
 
     //------
 
-    function increment_1(uint256 count) public {
+    function increment_1(uint256 count) public pure {
         uint256 a;
         for (uint256 i = 0; i < count; i++) {
             a += i;
         }
     }
 
-    function increment_2(uint256 count) public {
+    function increment_2(uint256 count) public pure {
         uint256 a;
         for (uint256 i = 0; i < count; ++i) {
             a += i;
         }
     }
 
-    function increment_3(uint256 count) public {
+    function increment_3(uint256 count) public pure {
         uint256 a;
         for (uint256 i = 0; i < count; ) {
             a += i;
@@ -166,7 +180,7 @@ contract FooBar {
         }
     }
 
-    function increment_4(uint256 count) public {
+    function increment_4(uint256 count) public pure {
         uint256 a;
         for (uint256 i = 0; i < count; ) {
             a += i;
@@ -180,14 +194,14 @@ contract FooBar {
     function hashKey_1(
         uint256 chainId,
         string memory name
-    ) public view returns (bytes32) {
+    ) public pure returns (bytes32) {
         return keccak256(bytes(string.concat(Strings.toString(chainId), name)));
     }
 
     function hashKey_2(
         uint256 chainId,
         string memory name
-    ) public view returns (bytes32) {
+    ) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(chainId, name));
     }
 
@@ -209,32 +223,44 @@ contract GasComparisonTest is Test {
         foobar = new FooBar();
     }
 
-    function testCompareHashString(uint256 count) external {
+    function testCompare_hashString(uint256 count) public {
         vm.assume(count > 10 && count < 1000);
+
         string memory str = string(new bytes(count));
         assertEq(
             foobar.hashString_1(str),
             foobar.hashString_2(str) //best
         );
+    }
 
+    function testCompare_increment(uint256 count) public view {
+        vm.assume(count > 10 && count < 1000);
+        foobar.increment_1(count);
+        foobar.increment_2(count);
+        foobar.increment_3(count); // best
+        foobar.increment_4(count);
+    }
+
+    function testCompare_hashTwo() public {
         address a = address(this);
         bytes32 b = blockhash(block.number - 1);
         assertEq(
             foobar.hashTwo_1(a, b), //best
             foobar.hashTwo_2(a, b)
         );
+    }
 
-        foobar.increment_1(count);
-        foobar.increment_2(count);
-        foobar.increment_3(count); // best
-        foobar.increment_4(count);
-
-        foobar.return_1();
-        foobar.return_2(); // cheaper
-
+    function testCompare_hashKey() public view {
         foobar.hashKey_1(123, "abc");
         foobar.hashKey_2(123, "abc");
+    }
 
+    function testCompare_return() public view {
+        foobar.return_1();
+        foobar.return_2(); // cheaper
+    }
+
+    function testCompare_loadBlockMetadata() public {
         MyStruct memory meta = MyStruct({
             id: 123,
             l1Height: 456,
@@ -242,36 +268,33 @@ contract GasComparisonTest is Test {
             gasLimit: 333,
             timestamp: 999
         });
-        {
-            bytes memory b = abi.encode(meta);
-            foobar.loadBlockMetadata_1(b);
-            foobar.loadBlockMetadata_2(b);
-            foobar.loadBlockMetadata_3(meta);
-            foobar.loadBlockMetadata_4(meta); // best
-        }
-        {
-            bytes memory b = bytes.concat(
-                bytes32(meta.id),
-                bytes32(meta.l1Height),
-                meta.l1Hash,
-                bytes8(meta.gasLimit),
-                bytes8(meta.timestamp)
-            );
 
-            foobar.loadBlockMetadata_5(b);
+        bytes memory b;
 
-            bytes memory c = bytes.concat(
-                FooBar.loadBlockMetadata_6.selector,
-                b
-            );
+        b = abi.encode(meta);
+        foobar.loadBlockMetadata_1(b);
+        foobar.loadBlockMetadata_2(b);
+        foobar.loadBlockMetadata_3(meta);
+        foobar.loadBlockMetadata_4(meta); // best
 
-            address(foobar).call(c);
-        }
+        b = bytes.concat(
+            bytes32(meta.id),
+            bytes32(meta.l1Height),
+            meta.l1Hash,
+            bytes8(meta.gasLimit),
+            bytes8(meta.timestamp)
+        );
 
-        {
-            address to = 0x50081b12838240B1bA02b3177153Bca678a86078;
-            foobar.send0Ether_CheckInside(to, 0);
-            foobar.send0Ether_CheckOutside(to, 0);
-        }
+        foobar.loadBlockMetadata_5(b);
+
+        bytes memory c = bytes.concat(FooBar.loadBlockMetadata_6.selector, b);
+
+        address(foobar).call(c);
+    }
+
+    function testCompare_send0Ether() public {
+        address to = 0x50081b12838240B1bA02b3177153Bca678a86078;
+        foobar.send0Ether_CheckInside(to, 0);
+        foobar.send0Ether_CheckOutside(to, 0);
     }
 }
