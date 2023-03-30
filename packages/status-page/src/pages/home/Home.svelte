@@ -357,7 +357,10 @@
 
 {#if proverDetailsOpen}
   <DetailsModal title={"Prover Details"} bind:isOpen={proverDetailsOpen}>
-    <div class="grid grid-cols-2 gap-4 text-center my-10" slot="body">
+    <div
+      class="grid grid-cols-2 gap-4 text-center my-10 max-h-96 overflow-y-auto"
+      slot="body"
+    >
       {#await getNumProvers(eventIndexerApiUrl) then provers}
         {#each provers.provers as prover}
           <div>
