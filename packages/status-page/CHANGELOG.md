@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.5.0](https://github.com/taikoxyz/taiko-mono/compare/status-page-v0.4.0...status-page-v0.5.0) (2023-03-29)
+
+
+### Features
+
+* **eventindexer:** Event indexer ([#13439](https://github.com/taikoxyz/taiko-mono/issues/13439)) ([08b26d2](https://github.com/taikoxyz/taiko-mono/commit/08b26d21577ed8ecd14beed5a600108fe7a0f765))
+* **protocol:** merge alpha 2 to main ([#13369](https://github.com/taikoxyz/taiko-mono/issues/13369)) ([2b9cc64](https://github.com/taikoxyz/taiko-mono/commit/2b9cc6466509372f35109b48c00948d2234b0d59))
+* **relayer:** merge alpha-2 to main ([#13376](https://github.com/taikoxyz/taiko-mono/issues/13376)) ([3148f6b](https://github.com/taikoxyz/taiko-mono/commit/3148f6ba955e1b3918289332d2ee30f139edea8b))
+
+
+### Bug Fixes
+
+* **status-page:** add some padding to the status page ([#13392](https://github.com/taikoxyz/taiko-mono/issues/13392)) ([0034508](https://github.com/taikoxyz/taiko-mono/commit/0034508027be35595f4e9aafc23fee308604b25e))
+* **status-page:** hide fee related statuses ([#13450](https://github.com/taikoxyz/taiko-mono/issues/13450)) ([31ad254](https://github.com/taikoxyz/taiko-mono/commit/31ad2548387c712d77b0dcbb35b53222546d7417))
+
 ## [0.4.0](https://github.com/taikoxyz/taiko-mono/compare/status-page-v0.3.0...status-page-v0.4.0) (2023-03-01)
 
 

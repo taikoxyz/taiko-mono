@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.4.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.3.0...bridge-ui-v0.4.0) (2023-03-29)
+
+
+### Features
+
+* **bridge-ui:** add outgoing link to bridge docs ([#13391](https://github.com/taikoxyz/taiko-mono/issues/13391)) ([1b3c268](https://github.com/taikoxyz/taiko-mono/commit/1b3c268fb15f9a9e6be8ebc83d588ed4279237ff))
+* **bridge-ui:** switch to using StaticJsonRpcProvider ([#13482](https://github.com/taikoxyz/taiko-mono/issues/13482)) ([f175d39](https://github.com/taikoxyz/taiko-mono/commit/f175d3955e4d37e05f7bc3ba7e479dc257944876))
+* **bridge-ui:** Tabs Component ([#13380](https://github.com/taikoxyz/taiko-mono/issues/13380)) ([a046fa3](https://github.com/taikoxyz/taiko-mono/commit/a046fa3907efa85482bd9bce60de44ea2253be55))
+* **protocol:** merge alpha 2 to main ([#13369](https://github.com/taikoxyz/taiko-mono/issues/13369)) ([2b9cc64](https://github.com/taikoxyz/taiko-mono/commit/2b9cc6466509372f35109b48c00948d2234b0d59))
+* **relayer:** big Gas price ([#13492](https://github.com/taikoxyz/taiko-mono/issues/13492)) ([cb3f7b9](https://github.com/taikoxyz/taiko-mono/commit/cb3f7b9529addc25fe4d3067f2e2c3da3ae1b2bf))
+* **relayer:** merge alpha-2 to main ([#13376](https://github.com/taikoxyz/taiko-mono/issues/13376)) ([3148f6b](https://github.com/taikoxyz/taiko-mono/commit/3148f6ba955e1b3918289332d2ee30f139edea8b))
+
+
+### Bug Fixes
+
+* **bridge-ui:** Chain block ([#13452](https://github.com/taikoxyz/taiko-mono/issues/13452)) ([cb32862](https://github.com/taikoxyz/taiko-mono/commit/cb3286270c2a106b1492a78745b64b1b7dcc5ccf))
+* **bridge-ui:** Chain id check ([#13451](https://github.com/taikoxyz/taiko-mono/issues/13451)) ([7285947](https://github.com/taikoxyz/taiko-mono/commit/7285947a4e7a183ecad4555705b8d9eeb5de4341))
+
 ## [0.3.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.2.0...bridge-ui-v0.3.0) (2023-03-15)
 
 
