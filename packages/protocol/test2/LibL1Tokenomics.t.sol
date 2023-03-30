@@ -5,8 +5,13 @@ import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 import {TaikoData} from "../contracts/L1/TaikoData.sol";
 import {LibL1Tokenomics} from "../contracts/L1/libs/LibL1Tokenomics.sol";
+import {
+    SafeCastUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 contract TestLibL1Tokenomics is Test {
+    using SafeCastUpgradeable for uint256;
+
     struct FeeConfig {
         uint64 avgTimeMAF;
         uint64 avgTimeCap;
@@ -18,248 +23,248 @@ contract TestLibL1Tokenomics is Test {
 
     function testTokenomicsFeeCalcWithNonZeroStartBips() public {
         testTimeAdjustedFee({
-            feeBase: 100 ether,
+            feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 0 seconds,
             isProposal: true,
             dampingFactorBips: 4000, // 40%
-            expectedFeeBase: 140 ether,
+            expectedFeeBase: 140 * 1E8,
             expectedPreimumRate: 0
         });
 
         testTimeAdjustedFee({
-            feeBase: 100 ether,
+            feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 20 seconds,
             isProposal: true,
             dampingFactorBips: 4000, // 40%
-            expectedFeeBase: 120 ether,
+            expectedFeeBase: 120 * 1E8,
             expectedPreimumRate: 0
         });
 
         testTimeAdjustedFee({
-            feeBase: 100 ether,
+            feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 40 seconds,
             isProposal: true,
             dampingFactorBips: 4000, // 40%
-            expectedFeeBase: 100 ether,
+            expectedFeeBase: 100 * 1E8,
             expectedPreimumRate: 0
         });
 
         testTimeAdjustedFee({
-            feeBase: 100 ether,
+            feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 60 seconds,
             isProposal: true,
             dampingFactorBips: 4000, // 40%
-            expectedFeeBase: 80 ether,
+            expectedFeeBase: 80 * 1E8,
             expectedPreimumRate: 0
         });
 
         testTimeAdjustedFee({
-            feeBase: 100 ether,
+            feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 80 seconds,
             isProposal: true,
             dampingFactorBips: 4000, // 40%
-            expectedFeeBase: 60 ether,
+            expectedFeeBase: 60 * 1E8,
             expectedPreimumRate: 0
         });
 
         testTimeAdjustedFee({
-            feeBase: 100 ether,
+            feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 81 seconds,
             isProposal: true,
             dampingFactorBips: 4000, // 40%
-            expectedFeeBase: 60 ether,
+            expectedFeeBase: 60 * 1E8,
             expectedPreimumRate: 0
         });
     }
 
     function testTokenomicsFeeCalcWithZeroStartBips() public {
         testTimeAdjustedFee({
-            feeBase: 100 ether,
+            feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 0 seconds,
             isProposal: true,
             dampingFactorBips: 0, // 0%
-            expectedFeeBase: 100 ether,
+            expectedFeeBase: 100 * 1E8,
             expectedPreimumRate: 0
         });
 
         testTimeAdjustedFee({
-            feeBase: 100 ether,
+            feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 20 seconds,
             isProposal: true,
             dampingFactorBips: 0, // 0%
-            expectedFeeBase: 100 ether,
+            expectedFeeBase: 100 * 1E8,
             expectedPreimumRate: 0
         });
 
         testTimeAdjustedFee({
-            feeBase: 100 ether,
+            feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 40 seconds,
             isProposal: true,
             dampingFactorBips: 0, // 0%
-            expectedFeeBase: 100 ether,
+            expectedFeeBase: 100 * 1E8,
             expectedPreimumRate: 0
         });
 
         testTimeAdjustedFee({
-            feeBase: 100 ether,
+            feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 60 seconds,
             isProposal: true,
             dampingFactorBips: 0, // 0%
-            expectedFeeBase: 100 ether,
+            expectedFeeBase: 100 * 1E8,
             expectedPreimumRate: 0
         });
 
         testTimeAdjustedFee({
-            feeBase: 100 ether,
+            feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 80 seconds,
             isProposal: true,
             dampingFactorBips: 0, // 0%
-            expectedFeeBase: 100 ether,
+            expectedFeeBase: 100 * 1E8,
             expectedPreimumRate: 0
         });
 
         testTimeAdjustedFee({
-            feeBase: 100 ether,
+            feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 81 seconds,
             isProposal: true,
             dampingFactorBips: 0, // 0%
-            expectedFeeBase: 100 ether,
+            expectedFeeBase: 100 * 1E8,
             expectedPreimumRate: 0
         });
     }
 
     function testTokenomicsRewardCalcWithNonZeroStartBips() public {
         testTimeAdjustedFee({
-            feeBase: 100 ether,
+            feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 0 seconds,
             isProposal: false,
             dampingFactorBips: 4000, // 40%
-            expectedFeeBase: 60 ether,
+            expectedFeeBase: 60 * 1E8,
             expectedPreimumRate: 0
         });
 
         testTimeAdjustedFee({
-            feeBase: 100 ether,
+            feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 20 seconds,
             isProposal: false,
             dampingFactorBips: 4000, // 40%
-            expectedFeeBase: 80 ether,
+            expectedFeeBase: 80 * 1E8,
             expectedPreimumRate: 0
         });
 
         testTimeAdjustedFee({
-            feeBase: 100 ether,
+            feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 40 seconds,
             isProposal: false,
             dampingFactorBips: 4000, // 40%
-            expectedFeeBase: 100 ether,
+            expectedFeeBase: 100 * 1E8,
             expectedPreimumRate: 0
         });
 
         testTimeAdjustedFee({
-            feeBase: 100 ether,
+            feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 60 seconds,
             isProposal: false,
             dampingFactorBips: 4000, // 40%
-            expectedFeeBase: 120 ether,
+            expectedFeeBase: 120 * 1E8,
             expectedPreimumRate: 5000
         });
 
         testTimeAdjustedFee({
-            feeBase: 100 ether,
+            feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 80 seconds,
             isProposal: false,
             dampingFactorBips: 4000, // 40%
-            expectedFeeBase: 140 ether,
+            expectedFeeBase: 140 * 1E8,
             expectedPreimumRate: 10000
         });
 
         testTimeAdjustedFee({
-            feeBase: 100 ether,
+            feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 81 seconds,
             isProposal: false,
             dampingFactorBips: 4000, // 40%
-            expectedFeeBase: 140 ether,
+            expectedFeeBase: 140 * 1E8,
             expectedPreimumRate: 10000
         });
     }
 
     function testTokenomicsRewardCalcWithZeroStartBips() public {
         testTimeAdjustedFee({
-            feeBase: 100 ether,
+            feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 0 seconds,
             isProposal: false,
             dampingFactorBips: 0, // 0%
-            expectedFeeBase: 100 ether,
+            expectedFeeBase: 100 * 1E8,
             expectedPreimumRate: 0
         });
 
         testTimeAdjustedFee({
-            feeBase: 100 ether,
+            feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 20 seconds,
             isProposal: false,
             dampingFactorBips: 0, // 0%
-            expectedFeeBase: 100 ether,
+            expectedFeeBase: 100 * 1E8,
             expectedPreimumRate: 0
         });
 
         testTimeAdjustedFee({
-            feeBase: 100 ether,
+            feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 40 seconds,
             isProposal: false,
             dampingFactorBips: 0, // 0%
-            expectedFeeBase: 100 ether,
+            expectedFeeBase: 100 * 1E8,
             expectedPreimumRate: 0
         });
 
         testTimeAdjustedFee({
-            feeBase: 100 ether,
+            feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 60 seconds,
             isProposal: false,
             dampingFactorBips: 0, // 0%
-            expectedFeeBase: 100 ether,
+            expectedFeeBase: 100 * 1E8,
             expectedPreimumRate: 0
         });
 
         testTimeAdjustedFee({
-            feeBase: 100 ether,
+            feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 80 seconds,
             isProposal: false,
             dampingFactorBips: 0, // 0%
-            expectedFeeBase: 100 ether,
+            expectedFeeBase: 100 * 1E8,
             expectedPreimumRate: 0
         });
 
         testTimeAdjustedFee({
-            feeBase: 100 ether,
+            feeBase: 100 * 1E8,
             timeAverageSec: 40 seconds,
             timeUsedSec: 81 seconds,
             isProposal: false,
             dampingFactorBips: 0, // 0%
-            expectedFeeBase: 100 ether,
+            expectedFeeBase: 100 * 1E8,
             expectedPreimumRate: 0
         });
     }
@@ -281,7 +286,7 @@ contract TestLibL1Tokenomics is Test {
         (uint256 _feeBase, uint256 _premiumRate) = LibL1Tokenomics
             .getTimeAdjustedFee(
                 feeConfig,
-                feeBase,
+                feeBase.toUint64(),
                 isProposal,
                 timeUsedSec,
                 timeAverageSec * 1000

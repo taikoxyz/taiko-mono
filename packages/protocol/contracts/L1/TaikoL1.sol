@@ -9,7 +9,8 @@ pragma solidity ^0.8.18;
 import {AddressResolver} from "../common/AddressResolver.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {IXchainSync} from "../common/IXchainSync.sol";
-import {LibL1Tokenomics} from "./libs/LibVerifying.sol";
+import {LibL1Tokenomics} from "./libs/LibL1Tokenomics.sol";
+import {LibL2Tokenomics} from "./libs/LibL2Tokenomics.sol";
 import {LibProposing} from "./libs/LibProposing.sol";
 import {LibProving} from "./libs/LibProving.sol";
 import {LibUtils} from "./libs/LibUtils.sol";
@@ -25,17 +26,37 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     TaikoData.State public state;
     uint256[100] private __gap;
 
+    /**
+     * Initialize the rollup.
+     *
+     * @param _addressManager The AddressManager address.
+     * @param _genesisBlockHash The block hash of the genesis block.
+     * @param _feeBase The initial value of the proposer-fee/prover-reward feeBase.
+     * @param _l2GasExcessMax The max amount of L2 gas that can ever be purchased
+     *        under any possible circumstances before additional gas are issued.
+     * @param _l2Basefee The initial value of L2 EIP-1559 base fee per gas.
+     * @param _l2GasTarget A value to verify the correctness of L2 EIP-1559 config.
+     * @param _l2Expected2X1XRatio A value to verify the correctness of L2 EIP-1559 config.
+     */
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
-        uint64 _feeBase
+        uint64 _feeBase,
+        uint64 _l2GasExcessMax,
+        uint64 _l2Basefee,
+        uint64 _l2GasTarget,
+        uint64 _l2Expected2X1XRatio
     ) external initializer {
         EssentialContract._init(_addressManager);
         LibVerifying.init({
             state: state,
             config: getConfig(),
             genesisBlockHash: _genesisBlockHash,
-            feeBase: _feeBase
+            feeBase: _feeBase,
+            l2GasExcessMax: _l2GasExcessMax,
+            l2BasefeeInitial: _l2Basefee,
+            l2GasTarget: _l2GasTarget,
+            l2Expected2X1XRatio: _l2Expected2X1XRatio
         });
     }
 
@@ -214,12 +235,22 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
                 : bytes32(0);
     }
 
+    function getL2Basefee(
+        uint32 gasLimit
+    ) public view returns (uint64 basefee) {
+        (basefee, ) = LibL2Tokenomics.getL2Basefee(
+            state,
+            getConfig(),
+            gasLimit
+        );
+    }
+
     function getStateVariables()
         public
         view
         returns (TaikoData.StateVariables memory)
     {
-        return state.getStateVariables();
+        return state.getStateVariables(getConfig());
     }
 
     function getConfig() public pure virtual returns (TaikoData.Config memory) {

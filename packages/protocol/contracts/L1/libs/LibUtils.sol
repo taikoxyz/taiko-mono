@@ -8,6 +8,7 @@ pragma solidity ^0.8.18;
 
 import {LibMath} from "../../libs/LibMath.sol";
 import {LibL1Tokenomics} from "./LibL1Tokenomics.sol";
+import {LibL2Tokenomics} from "./LibL2Tokenomics.sol";
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
@@ -29,8 +30,14 @@ library LibUtils {
     }
 
     function getStateVariables(
-        TaikoData.State storage state
+        TaikoData.State storage state,
+        TaikoData.Config memory config
     ) internal view returns (TaikoData.StateVariables memory) {
+        (uint64 basefee1559, ) = LibL2Tokenomics.getL2Basefee({
+            state: state,
+            config: config,
+            gasLimit: 1
+        });
         return
             TaikoData.StateVariables({
                 feeBase: state.feeBase,
@@ -40,7 +47,9 @@ library LibUtils {
                 lastProposedAt: state.lastProposedAt,
                 avgBlockTime: state.avgBlockTime,
                 lastVerifiedBlockId: state.lastVerifiedBlockId,
-                avgProofTime: state.avgProofTime
+                avgProofTime: state.avgProofTime,
+                l2Basefee: basefee1559,
+                l2GasExcess: state.l2GasExcess
             });
     }
 
@@ -56,23 +65,46 @@ library LibUtils {
         return _ma > 0 ? _ma : maValue;
     }
 
+    struct BlockMetadata {
+        uint64 id;
+        uint64 timestamp;
+        uint64 l1Height;
+        uint64 basefee;
+        bytes32 l1Hash;
+        bytes32 mixHash;
+        bytes32 txListHash;
+        uint24 txListByteStart;
+        uint24 txListByteEnd;
+        uint32 gasLimit;
+        address beneficiary;
+        address treasure;
+    }
+
     function hashMetadata(
         TaikoData.BlockMetadata memory meta
     ) internal pure returns (bytes32 hash) {
-        bytes32[5] memory inputs;
-        inputs[0] =
-            bytes32(uint256(meta.id) << 192) |
-            bytes32(uint256(meta.gasLimit) << 128) |
-            bytes32(uint256(meta.timestamp) << 64) |
-            bytes32(uint256(meta.l1Height));
+        uint256[6] memory inputs;
 
-        inputs[1] = meta.l1Hash;
-        inputs[2] = meta.mixHash;
-        inputs[3] = meta.txListHash;
-        inputs[4] = bytes32(uint256(uint160(meta.beneficiary)));
+        inputs[0] =
+            (uint256(meta.id) << 192) |
+            (uint256(meta.timestamp) << 128) |
+            (uint256(meta.l1Height) << 64) |
+            uint256(meta.l2Basefee);
+
+        inputs[1] = uint256(meta.l1Hash);
+        inputs[2] = uint256(meta.mixHash);
+        inputs[3] = uint256(meta.txListHash);
+
+        inputs[4] =
+            (uint256(meta.txListByteStart) << 232) |
+            (uint256(meta.txListByteEnd) << 208) |
+            (uint256(meta.gasLimit) << 176) |
+            (uint256(uint160(meta.beneficiary)) << 16);
+
+        inputs[5] = (uint256(uint160(meta.treasure)) << 96);
 
         assembly {
-            hash := keccak256(inputs, mul(5, 32))
+            hash := keccak256(inputs, mul(6, 32))
         }
     }
 }

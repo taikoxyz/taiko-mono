@@ -21,6 +21,7 @@ library TaikoData {
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;
         uint256 blockMaxGasLimit;
+        uint256 gasIssuedPerSecond;
         uint256 maxTransactionsPerBlock;
         uint256 maxBytesPerTxList;
         uint256 minTxGasLimit;
@@ -29,9 +30,7 @@ library TaikoData {
         uint256 proposerDepositPctg;
         // Moving average factors
         uint256 feeBaseMAF;
-        uint64 bootstrapDiscountHalvingPeriod;
-        uint64 constantFeeRewardBlocks;
-        uint64 txListCacheExpiry;
+        uint256 txListCacheExpiry;
         bool enableSoloProposer;
         bool enableOracleProver;
         bool enableTokenomics;
@@ -49,6 +48,8 @@ library TaikoData {
         uint64 avgBlockTime;
         uint64 avgProofTime;
         uint64 lastProposedAt;
+        uint64 l2Basefee; // L2 1559
+        uint64 l2GasExcess; // L2 1559
     }
 
     // 3 slots
@@ -61,18 +62,21 @@ library TaikoData {
         uint8 cacheTxListInfo; // non-zero = True
     }
 
-    // 5 slots
+    // 6 slots
+    // Changing this struct requires chaing LibUtils.hashMetadata accordingly.
     struct BlockMetadata {
         uint64 id;
         uint64 timestamp;
         uint64 l1Height;
-        uint32 gasLimit;
+        uint64 l2Basefee;
         bytes32 l1Hash;
         bytes32 mixHash;
         bytes32 txListHash;
         uint24 txListByteStart;
         uint24 txListByteEnd;
+        uint32 gasLimit;
         address beneficiary;
+        address treasure;
     }
 
     struct ZKProof {
@@ -127,22 +131,22 @@ library TaikoData {
         // Never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 __reserved1;
-        uint64 __reserved2;
+        uint64 l2Xscale;
+        uint64 l2Yscale;
         // Changed when a block is proposed or proven/finalized
         // Changed when a block is proposed
         uint64 numBlocks;
         uint64 lastProposedAt; // Timestamp when the last block is proposed.
         uint64 avgBlockTime; // miliseconds
-        uint64 __reserved3;
+        uint64 l2GasExcess;
         // Changed when a block is proven/finalized
-        uint64 __reserved4;
         uint64 lastVerifiedBlockId;
+        uint64 __reserved4;
         // the proof time moving average, note that for each block, only the
         // first proof's time is considered.
         uint64 avgProofTime; // miliseconds
         uint64 feeBase;
         // Reserved
-        uint256[42] __gap;
+        uint256[43] __gap;
     }
 }

@@ -23,6 +23,7 @@ struct Config {
   uint256 maxNumVerifiedBlocks;
   uint256 maxVerificationsPerTx;
   uint256 blockMaxGasLimit;
+  uint256 gasIssuedPerSecond;
   uint256 maxTransactionsPerBlock;
   uint256 maxBytesPerTxList;
   uint256 minTxGasLimit;
@@ -30,9 +31,7 @@ struct Config {
   uint256 rewardBurnBips;
   uint256 proposerDepositPctg;
   uint256 feeBaseMAF;
-  uint64 bootstrapDiscountHalvingPeriod;
-  uint64 constantFeeRewardBlocks;
-  uint64 txListCacheExpiry;
+  uint256 txListCacheExpiry;
   bool enableSoloProposer;
   bool enableOracleProver;
   bool enableTokenomics;
@@ -54,6 +53,8 @@ struct StateVariables {
   uint64 avgBlockTime;
   uint64 avgProofTime;
   uint64 lastProposedAt;
+  uint64 l2Basefee;
+  uint64 l2GasExcess;
 }
 ```
 
@@ -77,13 +78,15 @@ struct BlockMetadata {
   uint64 id;
   uint64 timestamp;
   uint64 l1Height;
-  uint32 gasLimit;
+  uint64 l2Basefee;
   bytes32 l1Hash;
   bytes32 mixHash;
   bytes32 txListHash;
   uint24 txListByteStart;
   uint24 txListByteEnd;
+  uint32 gasLimit;
   address beneficiary;
+  address treasure;
 }
 ```
 
@@ -154,16 +157,16 @@ struct State {
   mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
-  uint64 __reserved1;
-  uint64 __reserved2;
+  uint64 l2Xscale;
+  uint64 l2Yscale;
   uint64 numBlocks;
   uint64 lastProposedAt;
   uint64 avgBlockTime;
-  uint64 __reserved3;
-  uint64 __reserved4;
+  uint64 l2GasExcess;
   uint64 lastVerifiedBlockId;
+  uint64 __reserved4;
   uint64 avgProofTime;
   uint64 feeBase;
-  uint256[42] __gap;
+  uint256[43] __gap;
 }
 ```

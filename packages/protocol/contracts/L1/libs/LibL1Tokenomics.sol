@@ -16,7 +16,6 @@ import {TaikoToken} from "../TaikoToken.sol";
 
 library LibL1Tokenomics {
     using LibMath for uint256;
-    uint256 private constant TWEI_TO_WEI = 1E12;
 
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_PARAM();
@@ -59,39 +58,24 @@ library LibL1Tokenomics {
     )
         internal
         view
-        returns (uint256 newFeeBase, uint256 fee, uint256 depositAmount)
+        returns (uint64 newFeeBase, uint64 fee, uint64 depositAmount)
     {
-        if (state.numBlocks <= config.constantFeeRewardBlocks) {
-            fee = state.feeBase;
-            newFeeBase = state.feeBase;
-        } else {
-            (newFeeBase, ) = getTimeAdjustedFee({
-                feeConfig: config.proposingConfig,
-                feeBase: state.feeBase,
-                isProposal: true,
-                timeUsed: block.timestamp - state.lastProposedAt,
-                timeAverage: state.avgBlockTime
-            });
-            fee = getSlotsAdjustedFee({
-                state: state,
-                config: config,
-                isProposal: true,
-                feeBase: newFeeBase
-            });
-        }
-
-        if (config.bootstrapDiscountHalvingPeriod > 0) {
-            unchecked {
-                uint256 halves = uint256(
-                    block.timestamp - state.genesisTimestamp
-                ) / config.bootstrapDiscountHalvingPeriod;
-                uint256 gamma = 1024 - (1024 >> (1 + halves));
-                fee = (fee * gamma) / 1024;
-            }
-        }
+        (newFeeBase, ) = getTimeAdjustedFee({
+            feeConfig: config.proposingConfig,
+            feeBase: state.feeBase,
+            isProposal: true,
+            timeUsed: block.timestamp - state.lastProposedAt,
+            timeAverage: state.avgBlockTime
+        });
+        fee = getSlotsAdjustedFee({
+            state: state,
+            config: config,
+            isProposal: true,
+            feeBase: newFeeBase
+        });
 
         unchecked {
-            depositAmount = (fee * config.proposerDepositPctg) / 100;
+            depositAmount = uint64((config.proposerDepositPctg * fee) / 100);
         }
     }
 
@@ -103,31 +87,26 @@ library LibL1Tokenomics {
     )
         internal
         view
-        returns (uint256 newFeeBase, uint256 reward, uint256 premiumRate)
+        returns (uint64 newFeeBase, uint64 reward, uint64 premiumRate)
     {
         if (proposedAt > provenAt) revert L1_INVALID_PARAM();
 
-        if (state.lastVerifiedBlockId <= config.constantFeeRewardBlocks) {
-            reward = state.feeBase;
-            newFeeBase = state.feeBase;
-            // premiumRate = 0;
-        } else {
-            (newFeeBase, premiumRate) = getTimeAdjustedFee({
-                feeConfig: config.provingConfig,
-                feeBase: state.feeBase,
-                isProposal: false,
-                timeUsed: provenAt - proposedAt,
-                timeAverage: state.avgProofTime
-            });
-            reward = getSlotsAdjustedFee({
-                state: state,
-                config: config,
-                isProposal: false,
-                feeBase: newFeeBase
-            });
-        }
+        (newFeeBase, premiumRate) = getTimeAdjustedFee({
+            feeConfig: config.provingConfig,
+            feeBase: state.feeBase,
+            isProposal: false,
+            timeUsed: provenAt - proposedAt,
+            timeAverage: state.avgProofTime
+        });
+        reward = getSlotsAdjustedFee({
+            state: state,
+            config: config,
+            isProposal: false,
+            feeBase: newFeeBase
+        });
+
         unchecked {
-            reward = (reward * (10000 - config.rewardBurnBips)) / 10000;
+            reward = uint64((reward * (10000 - config.rewardBurnBips)) / 10000);
         }
     }
 
@@ -136,8 +115,8 @@ library LibL1Tokenomics {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         bool isProposal,
-        uint256 feeBase
-    ) internal view returns (uint256) {
+        uint64 feeBase
+    ) internal view returns (uint64) {
         unchecked {
             // m is the `n'` in the whitepaper
             uint256 m = 1000 *
@@ -148,32 +127,32 @@ library LibL1Tokenomics {
                 (state.numBlocks - state.lastVerifiedBlockId - 1);
             // k is `m − n + 1` or `m − n - 1`in the whitepaper
             uint256 k = isProposal ? m - n - 1000 : m - n + 1000;
-            return (feeBase * (m - 1000) * m) / (m - n) / k;
+            return uint64((feeBase * (m - 1000) * m) / (m - n) / k);
         }
     }
 
     // Implement "Incentive Multipliers", see the whitepaper.
     function getTimeAdjustedFee(
         TaikoData.FeeConfig memory feeConfig,
-        uint256 feeBase,
+        uint64 feeBase,
         bool isProposal,
         uint256 timeUsed, // seconds
         uint256 timeAverage // milliseconds
-    ) internal pure returns (uint256 newFeeBase, uint256 premiumRate) {
+    ) internal pure returns (uint64 newFeeBase, uint64 premiumRate) {
         if (timeAverage == 0) {
             return (feeBase, 0);
         }
         unchecked {
-            uint p = feeConfig.dampingFactorBips; // [0-10000]
-            uint a = timeAverage;
-            uint t = (timeUsed * 1000).min(a * 2); // millisconds
+            uint256 p = feeConfig.dampingFactorBips; // [0-10000]
+            uint256 a = timeAverage;
+            uint256 t = (timeUsed * 1000).min(a * 2); // millisconds
 
-            newFeeBase = (feeBase * (10000 + (t * p) / a - p)) / 10000;
+            newFeeBase = uint64((feeBase * (10000 + (t * p) / a - p)) / 10000);
 
             if (isProposal) {
                 newFeeBase = (feeBase * 2) - newFeeBase;
             } else if (p > 0) {
-                premiumRate = ((t.max(a) - a) * 10000) / a;
+                premiumRate = uint64(((t.max(a) - a) * 10000) / a);
             }
         }
     }

@@ -23,6 +23,7 @@ library TaikoConfig {
                 // Set it to 6M, since its the upper limit of the Alpha-2
                 // testnet's circuits.
                 blockMaxGasLimit: 6000000,
+                gasIssuedPerSecond: 30000000,
                 //   Set it to 79  (+1 TaikoL2.anchor transaction = 80),
                 // and 80 is the upper limit of the Alpha-2 testnet's circuits.
                 maxTransactionsPerBlock: 79,
@@ -37,8 +38,6 @@ library TaikoConfig {
                 proposerDepositPctg: 25, // - 25%
                 // Moving average factors
                 feeBaseMAF: 1024,
-                bootstrapDiscountHalvingPeriod: 1 seconds, // owner:daniel
-                constantFeeRewardBlocks: 1024,
                 txListCacheExpiry: 0,
                 enableSoloProposer: false,
                 enableOracleProver: true,
