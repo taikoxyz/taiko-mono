@@ -30,7 +30,7 @@ library TaikoData {
         uint256 proposerDepositPctg;
         // Moving average factors
         uint256 feeBaseMAF;
-        uint64 txListCacheExpiry;
+        uint256 txListCacheExpiry;
         bool enableSoloProposer;
         bool enableOracleProver;
         bool enableTokenomics;

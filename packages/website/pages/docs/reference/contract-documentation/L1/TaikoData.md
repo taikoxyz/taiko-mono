@@ -23,7 +23,7 @@ struct Config {
   uint256 maxNumVerifiedBlocks;
   uint256 maxVerificationsPerTx;
   uint256 blockMaxGasLimit;
-  uint64 gasIssuedPerSecond;
+  uint256 gasIssuedPerSecond;
   uint256 maxTransactionsPerBlock;
   uint256 maxBytesPerTxList;
   uint256 minTxGasLimit;
@@ -31,7 +31,7 @@ struct Config {
   uint256 rewardBurnBips;
   uint256 proposerDepositPctg;
   uint256 feeBaseMAF;
-  uint64 txListCacheExpiry;
+  uint256 txListCacheExpiry;
   bool enableSoloProposer;
   bool enableOracleProver;
   bool enableTokenomics;
