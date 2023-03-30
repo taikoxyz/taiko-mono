@@ -82,7 +82,7 @@ abstract contract TaikoL1TestBase is Test {
         _registerAddress("taiko_token", address(tko));
         _registerAddress("proto_broker", address(L1));
         _registerAddress("signal_service", address(ss));
-        _registerAddress("treasure", Treasure);
+        _registerL2Address("treasure", Treasure);
         _registerL2Address("signal_service", address(L2SS));
         _registerL2Address("taiko_l2", address(L2TaikoL2));
 
