@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { _ } from 'svelte-i18n';
   import { location } from 'svelte-spa-router';
   import { transactions } from '../../store/transactions';
   import BridgeForm from '../../components/form/BridgeForm.svelte';
