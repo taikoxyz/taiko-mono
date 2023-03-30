@@ -26,6 +26,18 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     TaikoData.State public state;
     uint256[100] private __gap;
 
+    /**
+     * Initialize the rollup.
+     *
+     * @param _addressManager The AddressManager address.
+     * @param _genesisBlockHash The block hash of the genesis block.
+     * @param _feeBase The initial value of the proposer-fee/prover-reward feeBase.
+     * @param _l2GasExcessMax The max amount of L2 gas that can ever be purchased
+     *        under any possible circumstances before additional gas are issued.
+     * @param _l2Basefee The initial value of L2 EIP-1559 base fee per gas.
+     * @param _l2GasTarget A value to verify the correctness of L2 EIP-1559 config.
+     * @param _l2Expected2X1XRatio A value to verify the correctness of L2 EIP-1559 config.
+     */
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
