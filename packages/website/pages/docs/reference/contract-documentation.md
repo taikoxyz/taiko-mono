@@ -1,1 +1,24 @@
-Here you will find the documentation for the Taiko smart contracts.
+Here you will find the documentation for the Taiko smart contracts:
+
+- L1
+  - [IProofVerifier](/docs/reference/contract-documentation/L1/TaikoL1)
+  - [TaikoCustomErrors](/docs/reference/contract-documentation/L1/TaikoCustomErrors)
+  - [TaikoData](/docs/reference/contract-documentation/L1/TaikoData)
+  - [TaikoEvents](/docs/reference/contract-documentation/L1/TaikoEvents)
+  - [TaikoL1](/docs/reference/contract-documentation/L1/TaikoL1)
+  - [TaikoToken](/docs/reference/contract-documentation/L1/TaikoToken)
+- L2
+  - [TaikoL2](/docs/reference/contract-documentation/L2/TaikoL2)
+- Common
+  - [AddressResolver](/docs/reference/contract-documentation/common/AddressResolver)
+  - [IAddressManager](/docs/reference/contract-documentation/common/IAddressManager)
+  - [IHeaderSync](/docs/reference/contract-documentation/common/IHeaderSync)
+  - [IMintableERC20](/docs/reference/contract-documentation/common/IMintableERC20)
+- Signal
+  - [Bridge](/docs/reference/contract-documentation/bridge/Bridge)
+  - [BridgeCustomErrors](/docs/reference/contract-documentation/bridge/BridgeCustomErrors)
+  - [BridgedERC20](/docs/reference/contract-documentation/bridge/BridgedERC20)
+  - [BridgeErrors](/docs/reference/contract-documentation/bridge/BridgeErrors)
+  - [EtherVault](/docs/reference/contract-documentation/bridge/EtherVault)
+  - [IBridge](/docs/reference/contract-documentation/bridge/IBridge)
+  - [TokenVault](/docs/reference/contract-documentation/bridge/TokenVault)
