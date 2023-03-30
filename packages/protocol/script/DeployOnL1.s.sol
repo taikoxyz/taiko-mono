@@ -26,12 +26,6 @@ contract DeployOnL1 is Script, AddressResolver {
 
     bytes32 public l2GensisHash = vm.envBytes32("L2_GENESIS_HASH");
 
-    uint public l2GasExcessMax = vm.envUint("L2_GAS_EXCESS_MAX").toUint64();
-    uint64 l2Basefee = vm.envUint("L2_BASE_FEE").toUint64();
-    uint64 l2GasTarget = vm.envUint("L2_GAS_TARGET").toUint64();
-    uint64 l2Expected2X1XRatio =
-        vm.envUint("L2_EXPECTED_2X1X_RATIO").toUint64();
-
     uint256 public deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
     address public taikoL2Address = vm.envAddress("TAIKO_L2_ADDRESS");
@@ -112,7 +106,24 @@ contract DeployOnL1 is Script, AddressResolver {
         console.log("BullToken", bullToken);
 
         // TaikoL1
+
         TaikoL1 taikoL1 = new TaikoL1();
+        uint64 l2GasExcessMax;
+        uint64 l2Basefee;
+        uint64 l2GasTarget;
+        uint64 l2Expected2X1XRatio;
+
+        if (taikoL1.getConfig().gasIssuedPerSecond != 0) {
+            l2GasExcessMax = vm.envUint("L2_GAS_EXCESS_MAX").toUint64();
+
+            l2Basefee = vm.envUint("L2_BASE_FEE").toUint64();
+
+            l2GasTarget = vm.envUint("L2_GAS_TARGET").toUint64();
+            l2Expected2X1XRatio = vm
+                .envUint("L2_EXPECTED_2X1X_RATIO")
+                .toUint64();
+        }
+
         uint64 feeBase = 1 ** 8; // Taiko Token's decimals is 8, not 18
         address taikoL1Proxy = deployProxy(
             "taiko",

@@ -20,6 +20,7 @@ library LibVerifying {
     using LibUtils for TaikoData.State;
 
     error L1_INVALID_CONFIG();
+    error L1_INVALID_L21559_PARAMS();
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
     event XchainSynced(
@@ -58,6 +59,13 @@ library LibVerifying {
         }
 
         if (config.gasIssuedPerSecond != 0) {
+            if (
+                l2GasExcessMax == 0 ||
+                l2BasefeeInitial == 0 ||
+                l2GasTarget == 0 ||
+                l2Expected2X1XRatio == 0
+            ) revert L1_INVALID_L21559_PARAMS();
+
             (
                 state.l2GasExcess,
                 state.l2Xscale,

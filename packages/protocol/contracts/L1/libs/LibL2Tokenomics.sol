@@ -50,17 +50,17 @@ library LibL2Tokenomics {
     }
 
     function calcL2BasefeeParams(
-        uint64 excessMax,
+        uint64 gasExcessMax,
         uint64 basefeeInitial,
         uint64 gasTarget,
         uint64 expected2X1XRatio
     ) internal pure returns (uint64 l2GasExcess, uint64 xscale, uint64 yscale) {
-        assert(excessMax != 0);
+        assert(gasExcessMax != 0);
 
-        l2GasExcess = excessMax / 2;
+        l2GasExcess = gasExcessMax / 2;
 
         // calculate xscale
-        uint256 _xscale = LibFixedPointMath.MAX_EXP_INPUT / excessMax;
+        uint256 _xscale = LibFixedPointMath.MAX_EXP_INPUT / gasExcessMax;
         if (_xscale >= type(uint64).max) {
             revert L1_1559_X_SCALE_TOO_LARGE();
         }

@@ -20,6 +20,7 @@ abstract contract TaikoErrors {
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_CONFIG();
     error L1_INVALID_EVIDENCE();
+    error L1_INVALID_L21559_PARAMS();
     error L1_INVALID_METADATA();
     error L1_INVALID_PARAM();
     error L1_INVALID_PROOF();
