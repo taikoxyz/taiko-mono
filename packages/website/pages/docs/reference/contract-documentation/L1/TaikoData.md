@@ -53,7 +53,7 @@ struct StateVariables {
   uint64 avgBlockTime;
   uint64 avgProofTime;
   uint64 lastProposedAt;
-  uint64 basefee;
+  uint64 l2Basefee;
   uint64 l2GasExcess;
 }
 ```
@@ -78,7 +78,7 @@ struct BlockMetadata {
   uint64 id;
   uint64 timestamp;
   uint64 l1Height;
-  uint64 basefee;
+  uint64 l2Basefee;
   bytes32 l1Hash;
   bytes32 mixHash;
   bytes32 txListHash;
@@ -157,8 +157,8 @@ struct State {
   mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
-  uint64 xscale;
-  uint64 yscale;
+  uint64 l2Xscale;
+  uint64 l2Yscale;
   uint64 numBlocks;
   uint64 lastProposedAt;
   uint64 avgBlockTime;

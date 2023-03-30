@@ -21,12 +21,13 @@ contract TestLibL2Tokenomics is Test {
         uint64 gasTarget = 6000000;
         uint64 expected2X1XRatio = 111; // 11 %%
 
-        (uint64 l2GasExcess, uint64 xscale, uint256 yscale) = T.calc1559Params(
-            l2GasExcessMax,
-            basefeeInitial,
-            gasTarget,
-            expected2X1XRatio
-        );
+        (uint64 l2GasExcess, uint64 xscale, uint256 yscale) = T
+            .calcL2BasefeeParams(
+                l2GasExcessMax,
+                basefeeInitial,
+                gasTarget,
+                expected2X1XRatio
+            );
 
         uint64 _basefee = basefeeInitial;
         console2.log("basefee", _basefee);
@@ -34,7 +35,7 @@ contract TestLibL2Tokenomics is Test {
 
         for (uint i = 0; i < 10; ++i) {
             uint64 newBasefee = T
-                .calc1559Basefee(l2GasExcess, xscale, yscale << 64, gasTarget)
+                .calcL2Basefee(l2GasExcess, xscale, yscale << 64, gasTarget)
                 .toUint64();
             uint ratio = (newBasefee * 100) / _basefee - 100;
             console2.log("basefee", newBasefee, "+%", ratio);

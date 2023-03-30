@@ -16,6 +16,20 @@ struct TaikoData.State state
 function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _feeBase, uint64 _l2GasExcessMax, uint64 _l2Basefee, uint64 _l2GasTarget, uint64 _l2Expected2X1XRatio) external
 ```
 
+Initialize the rollup.
+
+#### Parameters
+
+| Name                  | Type    | Description                                                                                                            |
+| --------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------- |
+| \_addressManager      | address | The AddressManager address.                                                                                            |
+| \_genesisBlockHash    | bytes32 | The block hash of the genesis block.                                                                                   |
+| \_feeBase             | uint64  | The initial value of the proposer-fee/prover-reward feeBase.                                                           |
+| \_l2GasExcessMax      | uint64  | The max amount of L2 gas that can ever be purchased under any possible circumstances before additional gas are issued. |
+| \_l2Basefee           | uint64  | The initial value of L2 EIP-1559 base fee per gas.                                                                     |
+| \_l2GasTarget         | uint64  | A value to verify the correctness of L2 EIP-1559 config.                                                               |
+| \_l2Expected2X1XRatio | uint64  | A value to verify the correctness of L2 EIP-1559 config.                                                               |
+
 ### proposeBlock
 
 ```solidity
@@ -113,6 +127,12 @@ function getXchainBlockHash(uint256 blockId) public view returns (bytes32)
 
 ```solidity
 function getXchainSignalRoot(uint256 blockId) public view returns (bytes32)
+```
+
+### getL2Basefee
+
+```solidity
+function getL2Basefee(uint32 gasLimit) public view returns (uint64 basefee)
 ```
 
 ### getStateVariables

@@ -39,7 +39,7 @@ library LibL2Tokenomics {
             newGasExcess = uint64(reduced.max(state.l2GasExcess) - reduced);
         }
 
-        basefee = calc1559Basefee({
+        basefee = calcL2Basefee({
             l2GasExcess: newGasExcess,
             xscale: state.l2Xscale,
             yscale: uint256(state.l2Yscale) << 64,
@@ -49,7 +49,7 @@ library LibL2Tokenomics {
         newGasExcess += gasLimit;
     }
 
-    function calc1559Params(
+    function calcL2BasefeeParams(
         uint64 excessMax,
         uint64 basefeeInitial,
         uint64 gasTarget,
@@ -67,7 +67,7 @@ library LibL2Tokenomics {
         xscale = uint64(_xscale);
 
         // calculate yscale
-        uint256 _yscale = calc1559Basefee(
+        uint256 _yscale = calcL2Basefee(
             l2GasExcess,
             xscale,
             basefeeInitial,
@@ -83,13 +83,13 @@ library LibL2Tokenomics {
         // 2*gasTarget gas and the other one has gasTarget gas.
         {
             _yscale = uint256(yscale) << 64;
-            uint256 price1x = calc1559Basefee(
+            uint256 price1x = calcL2Basefee(
                 l2GasExcess,
                 xscale,
                 _yscale,
                 gasTarget
             );
-            uint256 price2x = calc1559Basefee(
+            uint256 price2x = calcL2Basefee(
                 l2GasExcess,
                 xscale,
                 _yscale,
@@ -104,7 +104,7 @@ library LibL2Tokenomics {
         }
     }
 
-    function calc1559Basefee(
+    function calcL2Basefee(
         uint64 l2GasExcess,
         uint64 xscale,
         uint256 yscale,

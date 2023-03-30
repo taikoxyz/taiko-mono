@@ -62,7 +62,7 @@ library LibVerifying {
                 state.l2GasExcess,
                 state.l2Xscale,
                 state.l2Yscale
-            ) = LibL2Tokenomics.calc1559Params(
+            ) = LibL2Tokenomics.calcL2BasefeeParams(
                 l2GasExcessMax,
                 l2BasefeeInitial,
                 l2GasTarget,
