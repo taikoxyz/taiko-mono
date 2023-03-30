@@ -6,9 +6,6 @@
 
 pragma solidity ^0.8.18;
 
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
-
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibL1Tokenomics} from "./LibL1Tokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
@@ -120,64 +117,35 @@ library LibVerifying {
         TaikoData.ForkChoice storage fc,
         uint24 fcId
     ) private returns (bytes32 blockHash, bytes32 signalRoot) {
-        if (config.enableTokenomics) {
-            (
-                uint256 newFeeBase,
-                uint256 amount,
-                uint256 premiumRate
-            ) = LibL1Tokenomics.getProofReward({
-                    state: state,
-                    config: config,
-                    provenAt: fc.provenAt,
-                    proposedAt: blk.proposedAt
-                });
-
-            // reward the prover
-            _addToBalance(state, fc.prover, amount);
-
-            unchecked {
-                // premiumRate in [0-10000]
-                amount = (blk.deposit * (10000 - premiumRate)) / 10000;
-            }
-            _addToBalance(state, blk.proposer, amount);
-
-            // Update feeBase and avgProofTime
-            state.feeBase = LibUtils
-                .movingAverage({
-                    maValue: state.feeBase,
-                    newValue: newFeeBase,
-                    maf: config.feeBaseMAF
-                })
-                .toUint64();
-        }
-
         uint256 proofTime;
         unchecked {
-            proofTime = (fc.provenAt - blk.proposedAt) * 1000;
+            proofTime = (fc.provenAt - blk.proposedAt);
         }
 
-        console2.log("----------------------------------------------------");
-        console2.log("------------------In verifyBlock()------------------");
+        if (config.enableTokenomics) {
+            (
+                uint256 reward,
+                uint256 proofTimeIssued,
+                uint64 newBaseFeeProof
+            ) = LibL1Tokenomics.calculateBaseProof(
+                    state.proofTimeIssued,
+                    config.proofTimeTarget,
+                    uint64(proofTime), // in milliseconds
+                    blk.gasConsumed,
+                    config.adjustmentQuotient
+                );
 
-        (
-            uint256 reward,
-            uint256 proofTimeIssued,
-            uint64 newBaseFeeProof
-        ) = LibL1Tokenomics.calculateBaseProof(
-                state.proofTimeIssued,
-                state.avgProofTime,
-                uint64(proofTime),
-                blk.gasLimit,
-                config.adjustmentQuotient
-            );
+            state.baseFeeProof = newBaseFeeProof;
+            state.proofTimeIssued = proofTimeIssued;
 
-        state.baseFeeProof = newBaseFeeProof;
-        state.proofTimeIssued = proofTimeIssued;
+            // reward the prover
+            _addToBalance(state, fc.prover, reward);
+        }
 
         state.avgProofTime = LibUtils
             .movingAverage({
                 maValue: state.avgProofTime,
-                newValue: proofTime,
+                newValue: proofTime * 1000,
                 maf: config.provingConfig.avgTimeMAF
             })
             .toUint64();

@@ -171,8 +171,9 @@ abstract contract TaikoL1TestBase is Test {
     }
 
     function printVariables(string memory comment) internal {
+        uint32 gasLimit = 1000000;
         TaikoData.StateVariables memory vars = L1.getStateVariables();
-        (uint256 fee, ) = L1.getBlockFee();
+        uint256 fee = L1.getBlockFee(gasLimit);
         string memory str = string.concat(
             Strings.toString(logCount++),
             ":[",
@@ -180,7 +181,7 @@ abstract contract TaikoL1TestBase is Test {
             unicode"→",
             Strings.toString(vars.numBlocks),
             "] feeBase:",
-            Strings.toString(vars.feeBase),
+            Strings.toString(vars.baseFeeProof),
             " fee:",
             Strings.toString(fee),
             " avgBlockTime:",

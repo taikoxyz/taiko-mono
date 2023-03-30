@@ -278,21 +278,6 @@ contract TestLibL1Tokenomics is Test {
         uint256 expectedFeeBase,
         uint256 expectedPreimumRate
     ) private {
-        TaikoData.FeeConfig memory feeConfig = TaikoData.FeeConfig({
-            avgTimeMAF: 1024,
-            dampingFactorBips: dampingFactorBips
-        });
-
-        (uint256 _feeBase, uint256 _premiumRate) = LibL1Tokenomics
-            .getTimeAdjustedFee(
-                feeConfig,
-                feeBase.toUint64(),
-                isProposal,
-                timeUsedSec,
-                timeAverageSec * 1000
-            );
-
-        assertEq(_premiumRate, expectedPreimumRate);
-        assertEq(_feeBase, expectedFeeBase);
+        // Todo:Implement the verification tests
     }
 }

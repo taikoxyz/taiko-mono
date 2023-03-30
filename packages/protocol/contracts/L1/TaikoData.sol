@@ -33,6 +33,7 @@ library TaikoData {
         uint256 feeBaseMAF;
         uint64 constantFeeRewardBlocks;
         uint64 txListCacheExpiry;
+        uint64 proofTimeTarget;
         uint8 adjustmentQuotient;
         bool enableSoloProposer;
         bool enableOracleProver;
@@ -110,7 +111,7 @@ library TaikoData {
         uint64 blockId;
         uint64 proposedAt;
         uint64 deposit;
-        uint32 gasLimit;
+        uint32 gasConsumed;
         uint24 nextForkChoiceId;
         uint24 verifiedForkChoiceId;
         bytes32 metaHash;

@@ -6,9 +6,6 @@
 
 pragma solidity ^0.8.18;
 
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
-
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibAddress} from "../../libs/LibAddress.sol";
 import {LibL1Tokenomics} from "./LibL1Tokenomics.sol";
@@ -24,8 +21,6 @@ library LibProposing {
     using LibAddress for address;
     using LibAddress for address payable;
     using LibUtils for TaikoData.State;
-
-    uint256 constant SCALING_FACTOR = 1e8; // 10^8 for 8 decimal places = 1 TKO token
 
     event BlockProposed(
         uint256 indexed id,
@@ -112,34 +107,20 @@ library LibProposing {
         blk.verifiedForkChoiceId = 0;
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.proposer = msg.sender;
-        blk.gasLimit = input.gasLimit;
-
-        // Let's see if calculations are correct so first just
-        // debug them. (Curly braces due to stack too deep error)
-        console2.log("----------------------------------------------------");
-        console2.log("------------------In proposeBlock()-----------------");
-        {
-            // Need to scale 'down', because baseFeeProof is scaled 'up'
-            // Todo: Could you please Brecht advise on the math ?
-            // So since in baseFee() function i needed to scale up, otherwise divison with zero
-            // somewhere we need to scale down..
-            uint256 feeNew = (input.gasLimit *
-                state.baseFeeProof); /*  / SCALING_FACTOR; (??) */
-
-            console2.log("proposer_fee:", feeNew);
-            console2.log("baseFeeProof:", state.baseFeeProof);
-        }
+        // Later on we might need to have actual gas consumed in that L2 block
+        blk.gasConsumed = input.gasLimit;
 
         if (config.enableTokenomics) {
-            (uint256 newFeeBase, uint256 fee, uint64 deposit) = LibL1Tokenomics
-                .getBlockFee(state, config);
+            (uint256 newFeeBase, uint256 fee) = LibL1Tokenomics.getBlockFee(
+                state,
+                input.gasLimit
+            );
 
-            uint256 burnAmount = fee + deposit;
-            if (state.balances[msg.sender] < burnAmount)
+            if (state.balances[msg.sender] < fee)
                 revert L1_INSUFFICIENT_TOKEN();
 
             unchecked {
-                state.balances[msg.sender] -= burnAmount;
+                state.balances[msg.sender] -= fee;
             }
 
             // Update feeBase and avgBlockTime
@@ -150,8 +131,6 @@ library LibProposing {
                     maf: config.feeBaseMAF
                 })
                 .toUint64();
-
-            blk.deposit = uint64(deposit);
         }
 
         unchecked {

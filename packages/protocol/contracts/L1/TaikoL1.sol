@@ -129,26 +129,23 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         return state.balances[addr];
     }
 
-    function getBlockFee()
-        public
-        view
-        returns (uint256 feeAmount, uint256 depositAmount)
-    {
-        (, feeAmount, depositAmount) = LibL1Tokenomics.getBlockFee(
-            state,
-            getConfig()
-        );
+    function getBlockFee(
+        uint32 gasUsed
+    ) public view returns (uint256 feeAmount) {
+        (, feeAmount) = LibL1Tokenomics.getBlockFee(state, gasUsed);
     }
 
     function getProofReward(
         uint64 provenAt,
-        uint64 proposedAt
+        uint64 proposedAt,
+        uint32 usedGas
     ) public view returns (uint256 reward) {
-        (, reward, ) = LibL1Tokenomics.getProofReward({
+        (, reward) = LibL1Tokenomics.getProofReward({
             state: state,
             config: getConfig(),
             provenAt: provenAt,
-            proposedAt: proposedAt
+            proposedAt: proposedAt,
+            usedGas: usedGas
         });
     }
 
