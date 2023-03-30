@@ -117,6 +117,7 @@
       });
 
       successToast($_('toast.transactionSent'));
+      // TODO: keep the MessageStatus as contract and use another way.
       transaction.status = MessageStatus.ClaimInProgress;
     } catch (e) {
       console.error(e);
