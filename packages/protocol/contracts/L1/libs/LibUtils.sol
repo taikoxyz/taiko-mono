@@ -33,7 +33,7 @@ library LibUtils {
         TaikoData.State storage state,
         TaikoData.Config memory config
     ) internal view returns (TaikoData.StateVariables memory) {
-        (uint64 basefee1559, ) = LibL2Tokenomics.get1559Basefee({
+        (uint64 basefee1559, ) = LibL2Tokenomics.getL2Basefee({
             state: state,
             config: config,
             gasLimit: 1

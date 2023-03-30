@@ -92,7 +92,7 @@ library LibProposing {
         //
         // On L2, EIP-1559's basefee will not be burned but send to a Taiko
         // treasure address.
-        (meta.basefee, state.gasExcess) = LibL2Tokenomics.get1559Basefee({
+        (meta.basefee, state.gasExcess) = LibL2Tokenomics.getL2Basefee({
             state: state,
             config: config,
             gasLimit: input.gasLimit

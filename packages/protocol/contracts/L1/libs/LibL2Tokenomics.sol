@@ -23,7 +23,7 @@ library LibL2Tokenomics {
     error L1_1559_Y_SCALE_TOO_LARGE();
     error L1_OUT_OF_BLOCK_SPACE();
 
-    function get1559Basefee(
+    function getL2Basefee(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint32 gasLimit
