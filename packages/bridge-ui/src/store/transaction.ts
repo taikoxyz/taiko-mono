@@ -26,7 +26,8 @@ export const pendingTransactions = {
       // New array with the new transaction appended
       const newPendingTransactions = [...txs, tx];
 
-      // Save the index of the new transaction
+      // Save the index of the new transaction to later on remove it
+      // from the list of pending transactions.
       const idxAppendedTransaction = newPendingTransactions.length - 1;
 
       // Next step is to wait for the transaction to be mined
