@@ -25,7 +25,7 @@ export const pendingTransactions = {
       // New array with the new transaction appended
       const newPendingTransactions = [...txs, tx];
 
-      // Index of the new transaction
+      // Save the index of the new transaction
       const idxAppendedTransaction = newPendingTransactions.length - 1;
 
       // TODO: how about exposing signer as a readable from its store file?
@@ -41,10 +41,11 @@ export const pendingTransactions = {
          */
         .provider.waitForTransaction(tx.hash, 1)
         .then(() => {
-          // Removes the transaction from the store once it's mined
-          update((txs: Transaction[]) => {
-            onMined?.(); // anything to run after the transaction has been mined?
+          // The transaction has been mined. Anything to run?
+          onMined?.();
 
+          // Removes the transaction from the store
+          update((txs: Transaction[]) => {
             const copyPendingTransactions = [...txs];
             copyPendingTransactions.splice(idxAppendedTransaction, 1);
             return copyPendingTransactions;
