@@ -1,4 +1,4 @@
-import { ethers, Wallet } from 'ethers';
+import { Wallet } from 'ethers';
 import { taikoChain } from '../chain/chains';
 import { isOnCorrectChain } from './isOnCorrectChain';
 

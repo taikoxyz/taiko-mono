@@ -17,5 +17,7 @@ it('should return a base64 avatar string', () => {
 it('should return default base64 avatar when no address is passed', () => {
   const dummyAddress = '';
 
-  expect(getAddressAvatarFromIdenticon('')).toStrictEqual(DEFAULT_IDENTICON);
+  expect(getAddressAvatarFromIdenticon(dummyAddress)).toStrictEqual(
+    DEFAULT_IDENTICON,
+  );
 });

@@ -16,5 +16,5 @@ it('should return string when < maxLength', () => {
 it('should return empty string if empty', () => {
   const dummyAddress = '';
 
-  expect(truncateString('')).toStrictEqual('');
+  expect(truncateString(dummyAddress)).toStrictEqual('');
 });

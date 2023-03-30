@@ -1,6 +1,15 @@
 /// <reference types="svelte" />
 /// <reference types="vite/client" />
 
+/* eslint-disable no-var */
+declare namespace globalThis {
+  var ethereum: import('ethers').providers.ExternalProvider;
+
+  // Add your custom global variables here.
+  // Note: use `var` instead of `const` or `let`.
+}
+/* eslint-enable no-var */
+
 interface ImportMetaEnv {
   readonly VITE_L1_RPC_URL: string;
   readonly VITE_L2_RPC_URL: string;
