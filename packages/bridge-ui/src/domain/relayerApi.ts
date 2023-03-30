@@ -1,3 +1,4 @@
+import type { Address, ChainID } from './chain';
 import type { BridgeTransaction } from './transactions';
 
 export interface RelayerAPI {
@@ -9,12 +10,31 @@ export interface RelayerAPI {
   getBlockInfo(): Promise<Map<number, RelayerBlockInfo>>;
 }
 
+export type TransactionData = {
+  Message: {
+    Id: number;
+    SrcChainId: ChainID;
+    DestChainId: ChainID;
+    To: string;
+    Memo: string;
+    Owner: Address;
+    Sender: Address;
+    GasLimit: number;
+    CallValue: number;
+    DepositValue: number;
+    ProcessingFee: number;
+    RefundAddress: Address;
+    Data: string;
+  };
+  Raw: {
+    transactionHash: string;
+  };
+};
+
 export type APIResponseTransaction = {
   id: number;
   name: string;
-  data: {
-    [key: string]: any;
-  };
+  data: TransactionData;
   status: number;
   eventType: number;
   chainID: number;

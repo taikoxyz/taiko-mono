@@ -1,4 +1,4 @@
-import type { Token, TokenService } from 'src/domain/token';
+import type { Token, TokenService } from '../domain/token';
 import { writable } from 'svelte/store';
 
 const tokenService = writable<TokenService>();
