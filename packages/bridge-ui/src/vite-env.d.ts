@@ -3,6 +3,7 @@
 
 /* eslint-disable no-var */
 declare namespace globalThis {
+  var Buffer: typeof import('buffer').Buffer;
   var ethereum: import('ethers').providers.ExternalProvider;
 
   // Add your custom global variables here.
