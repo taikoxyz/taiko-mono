@@ -31,8 +31,8 @@ library LibVerifying {
     function init(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        bytes32 genesisBlockHash,
         uint64 feeBase,
+        bytes32 l2GenesisBlockHash,
         uint64 l2GasExcessMax,
         uint64 l2BasefeeInitial,
         uint64 l2GasTarget,
@@ -53,7 +53,7 @@ library LibVerifying {
             blk.verifiedForkChoiceId = 1;
 
             TaikoData.ForkChoice storage fc = state.blocks[0].forkChoices[1];
-            fc.blockHash = genesisBlockHash;
+            fc.blockHash = l2GenesisBlockHash;
             fc.provenAt = timeNow;
         }
 
@@ -70,7 +70,7 @@ library LibVerifying {
             );
         }
 
-        emit BlockVerified(0, genesisBlockHash);
+        emit BlockVerified(0, l2GenesisBlockHash);
     }
 
     function verifyBlocks(

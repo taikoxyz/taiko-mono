@@ -13,7 +13,7 @@ struct TaikoData.State state
 ### init
 
 ```solidity
-function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _feeBase, uint64 _l2GasExcessMax, uint64 _l2Basefee, uint64 _l2GasTarget, uint64 _l2Expected2X1XRatio) external
+function init(address _addressManager, uint64 _feeBase, bytes32 _l2GenesisBlockHash, uint64 _l2GasExcessMax, uint64 _l2Basefee, uint64 _l2GasTarget, uint64 _l2Expected2X1XRatio) external
 ```
 
 Initialize the rollup.
@@ -23,8 +23,8 @@ Initialize the rollup.
 | Name                  | Type    | Description                                                                                                            |
 | --------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------- |
 | \_addressManager      | address | The AddressManager address.                                                                                            |
-| \_genesisBlockHash    | bytes32 | The block hash of the genesis block.                                                                                   |
 | \_feeBase             | uint64  | The initial value of the proposer-fee/prover-reward feeBase.                                                           |
+| \_l2GenesisBlockHash  | bytes32 | The block hash of the genesis block.                                                                                   |
 | \_l2GasExcessMax      | uint64  | The max amount of L2 gas that can ever be purchased under any possible circumstances before additional gas are issued. |
 | \_l2Basefee           | uint64  | The initial value of L2 EIP-1559 base fee per gas.                                                                     |
 | \_l2GasTarget         | uint64  | A value to verify the correctness of L2 EIP-1559 config.                                                               |

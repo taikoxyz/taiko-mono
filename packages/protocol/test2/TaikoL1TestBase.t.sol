@@ -51,8 +51,8 @@ abstract contract TaikoL1TestBase is Test {
         L1 = deployTaikoL1();
         L1.init(
             address(addressManager),
-            GENESIS_BLOCK_HASH,
             feeBase,
+            GENESIS_BLOCK_HASH,
             l2GasExcessMax,
             basefeeInitial,
             gasTarget,

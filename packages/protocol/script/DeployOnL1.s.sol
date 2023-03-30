@@ -9,6 +9,7 @@ pragma solidity ^0.8.18;
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import "../contracts/common/AddressResolver.sol";
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
@@ -20,9 +21,16 @@ import "../contracts/test/erc20/FreeMintERC20.sol";
 import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
 
 contract DeployOnL1 is Script, AddressResolver {
+    using SafeCastUpgradeable for uint256;
     uint256 public l2ChainId = vm.envUint("L2_CHAIN_ID");
 
     bytes32 public l2GensisHash = vm.envBytes32("L2_GENESIS_HASH");
+
+    uint public l2GasExcessMax = vm.envUint("L2_GAS_EXCESS_MAX").toUint64();
+    uint64 l2Basefee = vm.envUint("L2_BASE_FEE").toUint64();
+    uint64 l2GasTarget = vm.envUint("L2_GAS_TARGET").toUint64();
+    uint64 l2Expected2X1XRatio =
+        vm.envUint("L2_EXPECTED_2X1X_RATIO").toUint64();
 
     uint256 public deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
@@ -111,7 +119,15 @@ contract DeployOnL1 is Script, AddressResolver {
             address(taikoL1),
             bytes.concat(
                 taikoL1.init.selector,
-                abi.encode(addressManagerProxy, l2GensisHash, feeBase)
+                abi.encode(
+                    addressManagerProxy,
+                    feeBase,
+                    l2GensisHash,
+                    l2GasExcessMax,
+                    l2Basefee,
+                    l2GasTarget,
+                    l2Expected2X1XRatio
+                )
             )
         );
         setAddress("proto_broker", taikoL1Proxy);

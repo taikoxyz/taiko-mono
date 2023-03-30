@@ -30,8 +30,8 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      * Initialize the rollup.
      *
      * @param _addressManager The AddressManager address.
-     * @param _genesisBlockHash The block hash of the genesis block.
      * @param _feeBase The initial value of the proposer-fee/prover-reward feeBase.
+     * @param _l2GenesisBlockHash The block hash of the genesis block.
      * @param _l2GasExcessMax The max amount of L2 gas that can ever be purchased
      *        under any possible circumstances before additional gas are issued.
      * @param _l2Basefee The initial value of L2 EIP-1559 base fee per gas.
@@ -40,8 +40,8 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      */
     function init(
         address _addressManager,
-        bytes32 _genesisBlockHash,
         uint64 _feeBase,
+        bytes32 _l2GenesisBlockHash,
         uint64 _l2GasExcessMax,
         uint64 _l2Basefee,
         uint64 _l2GasTarget,
@@ -51,8 +51,8 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         LibVerifying.init({
             state: state,
             config: getConfig(),
-            genesisBlockHash: _genesisBlockHash,
             feeBase: _feeBase,
+            l2GenesisBlockHash: _l2GenesisBlockHash,
             l2GasExcessMax: _l2GasExcessMax,
             l2BasefeeInitial: _l2Basefee,
             l2GasTarget: _l2GasTarget,
