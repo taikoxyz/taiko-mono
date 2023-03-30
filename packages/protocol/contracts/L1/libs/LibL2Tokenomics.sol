@@ -30,7 +30,7 @@ library LibL2Tokenomics {
     ) internal view returns (uint64 basefee, uint64 newGasExcess) {
         unchecked {
             uint256 reduced = (block.timestamp - state.lastProposedAt) *
-                config.gasTargetPerSecond;
+                config.gasIssuedPerSecond;
             newGasExcess = uint64(reduced.max(state.gasExcess) - reduced);
         }
 
