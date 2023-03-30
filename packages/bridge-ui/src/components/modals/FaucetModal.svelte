@@ -73,10 +73,7 @@
       const address = await $signer.getAddress();
       const tx = await contract.mint(address);
 
-      pendingTransactions.update((store) => {
-        store.push(tx);
-        return store;
-      });
+      pendingTransactions.add(tx);
 
       successToast($_('toast.transactionSent'));
       isOpen = false;

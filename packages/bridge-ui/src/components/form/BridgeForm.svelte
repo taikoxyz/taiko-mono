@@ -175,10 +175,7 @@
         spenderAddress: tokenVaults[$fromChain.id],
       });
 
-      pendingTransactions.update((store) => {
-        store.push(tx);
-        return store;
-      });
+      pendingTransactions.add(tx);
 
       successToast($_('toast.transactionSent'));
       await $signer.provider.waitForTransaction(tx.hash, 1);
@@ -299,10 +296,7 @@
 
       storageService.updateStorageByAddress(userAddress, transactions);
 
-      pendingTransactions.update((store) => {
-        store.push(tx);
-        return store;
-      });
+      pendingTransactions.add(tx);
 
       const allTransactions = $transactionsStore;
 

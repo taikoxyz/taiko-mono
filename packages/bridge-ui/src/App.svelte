@@ -1,8 +1,7 @@
 <script lang="ts">
-  import { pendingTransactions, transactions } from './store/transaction';
+  import { transactions } from './store/transaction';
   import Navbar from './components/Navbar.svelte';
   import Toast, { successToast } from './components/Toast.svelte';
-  import { signer } from './store/signer';
   import SwitchEthereumChainModal from './components/modals/SwitchEthereumChainModal.svelte';
   import { ethers } from 'ethers';
   import { MessageStatus } from './domain/message';
@@ -10,29 +9,6 @@
   import { chains } from './chain/chains';
   import { providers } from './provider/providers';
   import Router from './components/Router.svelte';
-
-  // TODO: hmmm, nope. This is dangerous and hard to follow.
-  //       There might be a risk of infinite loop. Looping over
-  //       pending transactions and removing only the first one
-  //       that's mined, setting the new list, which will trigger
-  //       the subscribe again, and so on... it's a no-go.
-  pendingTransactions.subscribe((store) => {
-    (async () => {
-      const confirmedPendingTxIndex = await Promise.race(
-        store.map((tx, index) => {
-          return new Promise<number>((resolve) => {
-            $signer.provider
-              .waitForTransaction(tx.hash, 1)
-              .then(() => resolve(index));
-          });
-        }),
-      );
-      successToast('Transaction completed!');
-      let s = store;
-      s.splice(confirmedPendingTxIndex, 1);
-      pendingTransactions.set(s);
-    })();
-  });
 
   const transactionToIntervalMap = new Map();
 
