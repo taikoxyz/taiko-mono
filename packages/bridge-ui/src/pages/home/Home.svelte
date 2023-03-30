@@ -1,10 +1,9 @@
 <script lang="ts">
-  import { _ } from 'svelte-i18n';
   import { location } from 'svelte-spa-router';
   import { transactions } from '../../store/transactions';
   import BridgeForm from '../../components/form/BridgeForm.svelte';
   import TaikoBanner from '../../components/TaikoBanner.svelte';
-  import Transactions from '../../components/Transactions.svelte';
+  import Transactions from '../../components/Transactions';
   import { Tabs, TabList, Tab, TabPanel } from '../../components/Tabs';
 
   let bridgeWidth: number;

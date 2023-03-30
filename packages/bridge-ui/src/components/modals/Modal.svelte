@@ -1,23 +1,22 @@
 <script lang="ts">
   export let title: string = null;
   export let isOpen: boolean = false;
-  export let onClose: () => void = null;
   export let showXButton: boolean = true;
+  export let onClose: () => void = null;
 
   const onCloseClicked = () => {
     isOpen = false;
-    if (onClose) {
-      onClose();
+    onClose?.();
+  };
+
+  const onWindowKeydownPressed = (e) => {
+    if (e.key === 'Escape') {
+      onCloseClicked();
     }
   };
 </script>
 
-<svelte:window
-  on:keydown={function (e) {
-    if (e.key === 'Escape') {
-      onCloseClicked();
-    }
-  }} />
+<svelte:window on:keydown={onWindowKeydownPressed} />
 
 <div class="modal bg-black/60" class:modal-open={isOpen}>
   <div class="modal-box bg-dark-2">

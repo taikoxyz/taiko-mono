@@ -1,43 +1,45 @@
 <script lang="ts">
-  import type { BridgeTransaction } from '../domain/transactions';
-  import type { Chain } from '../domain/chain';
+  import { createEventDispatcher } from 'svelte';
+  import type { BridgeTransaction } from '../../domain/transactions';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
-  import { MessageStatus } from '../domain/message';
+  import { MessageStatus } from '../../domain/message';
   import { Contract, ethers } from 'ethers';
-  import { signer } from '../store/signer';
-  import { pendingTransactions } from '../store/transactions';
+  import { signer } from '../../store/signer';
+  import { pendingTransactions } from '../../store/transactions';
   import { _ } from 'svelte-i18n';
-  import {
-    fromChain as fromChainStore,
-    toChain as toChainStore,
-  } from '../store/chain';
-  import { BridgeType } from '../domain/bridge';
+  import { fromChain } from '../../store/chain';
+  import { BridgeType } from '../../domain/bridge';
   import { onDestroy, onMount } from 'svelte';
 
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
-  import { errorToast, successToast } from './Toast.svelte';
-  import HeaderSyncABI from '../constants/abi/HeaderSync';
-  import { fetchSigner, switchNetwork } from '@wagmi/core';
-  import BridgeABI from '../constants/abi/Bridge';
-  import ButtonWithTooltip from './ButtonWithTooltip.svelte';
-  import TokenVaultABI from '../constants/abi/TokenVault';
-  import { chains, mainnetChain, taikoChain } from '../chain/chains';
-  import { providers } from '../provider/providers';
-  import { bridges } from '../bridge/bridges';
-  import { tokenVaults } from '../vault/tokenVaults';
-  import { isOnCorrectChain } from '../utils/isOnCorrectChain';
+  import { errorToast, successToast } from '../Toast.svelte';
+  import HeaderSyncABI from '../../constants/abi/HeaderSync';
+  import BridgeABI from '../../constants/abi/Bridge';
+  import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
+  import TokenVaultABI from '../../constants/abi/TokenVault';
+  import { chains } from '../../chain/chains';
+  import { providers } from '../../provider/providers';
+  import { bridges } from '../../bridge/bridges';
+  import { tokenVaults } from '../../vault/tokenVaults';
+  import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
+  import Button from '../buttons/Button.svelte';
+  import { switchChainAndSetSigner } from '../../utils/switchChainAndSetSigner';
 
   export let transaction: BridgeTransaction;
-  export let fromChain: Chain;
-  export let toChain: Chain;
 
-  export let onTooltipClick: (showInsufficientBalanceMessage: boolean) => void;
-  export let onShowTransactionDetailsClick: () => void;
+  const dispatch = createEventDispatcher<{
+    tooltipClick: void;
+    insufficientBalance: void;
+    transactionDetailsClick: BridgeTransaction;
+    relayerAutoClaim: (informed: boolean) => Promise<void>;
+  }>();
 
   let loading: boolean;
-
   let processable: boolean = false;
   let interval: ReturnType<typeof setInterval>;
+  let txToChain = chains[transaction.toChainId];
+  let txFromChain = chains[transaction.fromChainId];
+  let alreadyInformedAboutClaim = false;
 
   onMount(async () => {
     processable = await isProcessable();
@@ -50,30 +52,35 @@
     }
   });
 
-  async function switchChainAndSetSigner(chain: Chain) {
-    await switchNetwork({
-      chainId: chain.id,
-    });
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    await provider.send('eth_requestAccounts', []);
-
-    fromChainStore.set(chain);
-    if (chain === mainnetChain) {
-      toChainStore.set(taikoChain);
+  async function onClaimClick() {
+    // Has the user sent processing fees?. We also check if the user
+    // has already been informed about the relayer auto-claim.
+    const processingFee = transaction.message?.processingFee.toString();
+    if (processingFee && processingFee !== '0' && !alreadyInformedAboutClaim) {
+      dispatch(
+        'relayerAutoClaim',
+        // TODO: this is a hack. The idea is to move all these
+        //       functions outside of the component, where they
+        //       make more sense. We don't need to repeat the same
+        //       logic per transaction.
+        async (informed) => {
+          alreadyInformedAboutClaim = informed;
+          await claim(transaction);
+        },
+      );
     } else {
-      toChainStore.set(mainnetChain);
+      await claim(transaction);
     }
-    const wagmiSigner = await fetchSigner();
-    signer.set(wagmiSigner);
   }
 
+  // TODO: move outside of component
   async function claim(bridgeTx: BridgeTransaction) {
     try {
       loading = true;
       // if the current "from chain", ie, the chain youre connected to, is not the destination
       // of the bridge transaction, we need to change chains so your wallet is pointed
       // to the right network.
-      if ($fromChainStore.id !== bridgeTx.toChainId) {
+      if ($fromChain.id !== bridgeTx.toChainId) {
         const chain = chains[bridgeTx.toChainId];
         await switchChainAndSetSigner(chain);
       }
@@ -88,7 +95,7 @@
       // TODO: estimate Claim transaction
       const userBalance = await $signer.getBalance('latest');
       if (!userBalance.gt(ethers.utils.parseEther('0.0001'))) {
-        onTooltipClick(true);
+        dispatch('insufficientBalance');
         return;
       }
 
@@ -110,6 +117,7 @@
       });
 
       successToast($_('toast.transactionSent'));
+      // TODO: keep the MessageStatus as contract and use another way.
       transaction.status = MessageStatus.ClaimInProgress;
     } catch (e) {
       console.error(e);
@@ -119,10 +127,11 @@
     }
   }
 
+  // TODO: move outside of component
   async function releaseTokens(bridgeTx: BridgeTransaction) {
     try {
       loading = true;
-      if (fromChain.id !== bridgeTx.fromChainId) {
+      if (txFromChain.id !== bridgeTx.fromChainId) {
         const chain = chains[bridgeTx.fromChainId];
         await switchChainAndSetSigner(chain);
       }
@@ -161,6 +170,7 @@
     }
   }
 
+  // TODO: this could also live in an utility: isTransactionProcessable?
   async function isProcessable() {
     if (!transaction.receipt) return false;
     if (!transaction.message) return false;
@@ -180,6 +190,7 @@
     return transaction.receipt.blockNumber <= srcBlock.number;
   }
 
+  // TODO: web worker?
   function startInterval() {
     return setInterval(async () => {
       processable = await isProcessable();
@@ -234,14 +245,15 @@
 
 <tr class="text-transaction-table">
   <td>
-    <svelte:component this={fromChain.icon} height={18} width={18} />
-    <span class="ml-2 hidden md:inline-block">{fromChain.name}</span>
+    <svelte:component this={txFromChain.icon} height={18} width={18} />
+    <span class="ml-2 hidden md:inline-block">{txFromChain.name}</span>
   </td>
   <td>
-    <svelte:component this={toChain.icon} height={18} width={18} />
-    <span class="ml-2 hidden md:inline-block">{toChain.name}</span>
+    <svelte:component this={txToChain.icon} height={18} width={18} />
+    <span class="ml-2 hidden md:inline-block">{txToChain.name}</span>
   </td>
   <td>
+    <!-- TODO: function to check is we're dealing with ETH or ERC20? -->
     {transaction.message &&
     (transaction.message?.data === '0x' || !transaction.message?.data)
       ? ethers.utils.formatEther(
@@ -254,11 +266,9 @@
   </td>
 
   <td>
-    <ButtonWithTooltip onClick={() => onTooltipClick(false)}>
+    <ButtonWithTooltip onClick={() => dispatch('tooltipClick')}>
       <span slot="buttonText">
-        {#if transaction.receipt && transaction.receipt.status !== 1}
-          <span class="border border-transparent p-0">Failed</span>
-        {:else if !processable}
+        {#if !processable}
           Pending
         {:else if (!transaction.receipt && transaction.status === MessageStatus.New) || loading}
           <div class="inline-block">
@@ -274,29 +284,35 @@
               controlsLayout={[]} />
           </div>
         {:else if transaction.receipt && [MessageStatus.New, MessageStatus.ClaimInProgress].includes(transaction.status)}
-          <button
-            class="cursor-pointer border rounded p-1 btn btn-sm border-white disabled:border-gray-800"
-            on:click={async () => await claim(transaction)}
+          <!-- 
+            TODO: we need some destructuring here. 
+                  We keep on accessing transaction props
+                  over and over again.
+          -->
+          <Button
+            type="accent"
+            size="sm"
+            on:click={onClaimClick}
             disabled={transaction.status === MessageStatus.ClaimInProgress}>
             Claim
-          </button>
+          </Button>
         {:else if transaction.status === MessageStatus.Retriable}
-          <button
-            class="cursor-pointer border rounded p-1 btn btn-sm border-white"
-            on:click={async () => await claim(transaction)}>
-            Retry
-          </button>
+          <Button type="accent" size="sm" on:click={onClaimClick}>Retry</Button>
         {:else if transaction.status === MessageStatus.Failed}
           <!-- todo: releaseTokens() on src bridge with proof from destBridge-->
-          <button
-            class="cursor-pointer border rounded p-1 btn btn-sm border-white"
+          <Button
+            type="accent"
+            size="sm"
             on:click={async () => await releaseTokens(transaction)}>
             Release
-          </button>
+          </Button>
         {:else if transaction.status === MessageStatus.Done}
           <span class="border border-transparent p-0">Claimed</span>
         {:else if transaction.status === MessageStatus.FailedReleased}
           <span class="border border-transparent p-0">Released</span>
+        {:else if transaction.receipt && transaction.receipt.status !== 1}
+          <!-- TODO: make sure this is now respecting the correct flow -->
+          <span class="border border-transparent p-0">Failed</span>
         {/if}
       </span>
     </ButtonWithTooltip>
@@ -305,7 +321,7 @@
   <td>
     <button
       class="cursor-pointer inline-block"
-      on:click={onShowTransactionDetailsClick}>
+      on:click={() => dispatch('transactionDetailsClick', transaction)}>
       <ArrowTopRightOnSquare />
     </button>
   </td>
