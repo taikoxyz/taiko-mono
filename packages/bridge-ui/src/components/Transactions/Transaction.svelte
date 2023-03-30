@@ -111,7 +111,7 @@
         srcBridgeAddress: chains[bridgeTx.fromChainId].bridgeAddress,
       });
 
-      pendingTransactions.add(tx);
+      pendingTransactions.add(tx, () => successToast('Transaction completed!'));
 
       successToast($_('toast.transactionSent'));
       // TODO: keep the MessageStatus as contract and use another way.
@@ -153,7 +153,7 @@
         srcTokenVaultAddress: tokenVaults[bridgeTx.fromChainId],
       });
 
-      pendingTransactions.add(tx);
+      pendingTransactions.add(tx, () => successToast('Transaction completed!'));
 
       successToast($_('toast.transactionSent'));
     } catch (e) {

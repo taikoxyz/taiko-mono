@@ -15,6 +15,7 @@ export const pendingTransactions = {
    */
   set,
   subscribe,
+  // update, // this method is optional.
 
   /**
    * Custom method, which will help us add a new transaction to the store
@@ -28,8 +29,8 @@ export const pendingTransactions = {
       // Save the index of the new transaction
       const idxAppendedTransaction = newPendingTransactions.length - 1;
 
-      // TODO: how about exposing signer as a readable from its store file?
-      //       export const readableSigner = get(signer);
+      // Next step is to wait for the transaction to be mined
+      // before removing it from the store.
       get(signer)
         /**
          * Returns a Promise which will not resolve until transactionHash is mined.
