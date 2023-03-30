@@ -1,4 +1,5 @@
 import type { BigNumber, ethers } from 'ethers';
+import type { ChainID } from './chain';
 import type { Message, MessageStatus } from './message';
 
 export type BridgeTransaction = {
@@ -11,8 +12,8 @@ export type BridgeTransaction = {
   interval?: NodeJS.Timer;
   amountInWei?: BigNumber;
   symbol?: string;
-  fromChainId: number;
-  toChainId: number;
+  fromChainId: ChainID;
+  toChainId: ChainID;
 };
 
 export interface Transactioner {

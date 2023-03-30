@@ -1,5 +1,4 @@
 <script>
-  import { _ } from 'svelte-i18n';
   import SelectChain from './form/SelectChain.svelte';
 </script>
 

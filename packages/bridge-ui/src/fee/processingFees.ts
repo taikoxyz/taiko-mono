@@ -6,6 +6,7 @@ export const processingFees: Map<ProcessingFeeMethod, ProcessingFeeDetails> =
     [
       ProcessingFeeMethod.RECOMMENDED,
       {
+        method: ProcessingFeeMethod.RECOMMENDED,
         displayText: 'Recommended',
         timeToConfirm: 15 * 60 * 1000,
       },
@@ -13,6 +14,7 @@ export const processingFees: Map<ProcessingFeeMethod, ProcessingFeeDetails> =
     [
       ProcessingFeeMethod.CUSTOM,
       {
+        method: ProcessingFeeMethod.CUSTOM,
         displayText: 'Custom',
         timeToConfirm: 15 * 60 * 1000,
       },
@@ -20,6 +22,7 @@ export const processingFees: Map<ProcessingFeeMethod, ProcessingFeeDetails> =
     [
       ProcessingFeeMethod.NONE,
       {
+        method: ProcessingFeeMethod.NONE,
         displayText: 'None',
         timeToConfirm: 15 * 60 * 1000,
       },

@@ -1,4 +1,5 @@
 import type { BigNumber } from 'ethers';
+import type { ChainID } from './chain';
 
 export enum MessageStatus {
   New,
@@ -12,8 +13,8 @@ export enum MessageStatus {
 export type Message = {
   id: number;
   sender: string;
-  srcChainId: BigNumber;
-  destChainId: BigNumber;
+  srcChainId: ChainID;
+  destChainId: ChainID;
   owner: string;
   to: string;
   refundAddress: string;
