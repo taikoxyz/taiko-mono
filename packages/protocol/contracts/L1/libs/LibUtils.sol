@@ -48,8 +48,8 @@ library LibUtils {
                 avgBlockTime: state.avgBlockTime,
                 lastVerifiedBlockId: state.lastVerifiedBlockId,
                 avgProofTime: state.avgProofTime,
-                basefee: basefee1559,
-                gasExcess: state.gasExcess
+                l2Basefee: basefee1559,
+                l2GasExcess: state.l2GasExcess
             });
     }
 
@@ -89,7 +89,7 @@ library LibUtils {
             (uint256(meta.id) << 192) |
             (uint256(meta.timestamp) << 128) |
             (uint256(meta.l1Height) << 64) |
-            uint256(meta.basefee);
+            uint256(meta.l2Basefee);
 
         inputs[1] = uint256(meta.l1Hash);
         inputs[2] = uint256(meta.mixHash);

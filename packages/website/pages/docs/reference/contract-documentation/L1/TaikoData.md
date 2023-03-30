@@ -54,7 +54,7 @@ struct StateVariables {
   uint64 avgProofTime;
   uint64 lastProposedAt;
   uint64 basefee;
-  uint64 gasExcess;
+  uint64 l2GasExcess;
 }
 ```
 
@@ -162,7 +162,7 @@ struct State {
   uint64 numBlocks;
   uint64 lastProposedAt;
   uint64 avgBlockTime;
-  uint64 gasExcess;
+  uint64 l2GasExcess;
   uint64 lastVerifiedBlockId;
   uint64 __reserved4;
   uint64 avgProofTime;

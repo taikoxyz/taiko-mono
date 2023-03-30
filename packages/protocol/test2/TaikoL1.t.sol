@@ -28,6 +28,7 @@ contract TaikoL1WithConfig is TaikoL1 {
         config.enableSoloProposer = false;
         config.enableOracleProver = false;
         config.maxNumProposedBlocks = 10;
+        config.gasIssuedPerSecond = 0;
         config.ringBufferSize = 12;
         // this value must be changed if `maxNumProposedBlocks` is changed.
         config.slotSmoothingFactor = 4160;

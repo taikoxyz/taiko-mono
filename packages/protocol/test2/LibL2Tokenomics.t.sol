@@ -17,12 +17,12 @@ contract TestLibL2Tokenomics is Test {
 
     function test1559PurchaseMaxSizeGasWontOverflow() public view {
         uint64 basefeeInitial = 5000000000;
-        uint64 gasExcessMax = 15000000 * 256;
+        uint64 l2GasExcessMax = 15000000 * 256;
         uint64 gasTarget = 6000000;
         uint64 expected2X1XRatio = 111; // 11 %%
 
-        (uint64 gasExcess, uint64 xscale, uint256 yscale) = T.calc1559Params(
-            gasExcessMax,
+        (uint64 l2GasExcess, uint64 xscale, uint256 yscale) = T.calc1559Params(
+            l2GasExcessMax,
             basefeeInitial,
             gasTarget,
             expected2X1XRatio
@@ -30,16 +30,16 @@ contract TestLibL2Tokenomics is Test {
 
         uint64 _basefee = basefeeInitial;
         console2.log("basefee", _basefee);
-        gasExcess += gasTarget;
+        l2GasExcess += gasTarget;
 
         for (uint i = 0; i < 10; ++i) {
             uint64 newBasefee = T
-                .calc1559Basefee(gasExcess, xscale, yscale << 64, gasTarget)
+                .calc1559Basefee(l2GasExcess, xscale, yscale << 64, gasTarget)
                 .toUint64();
             uint ratio = (newBasefee * 100) / _basefee - 100;
             console2.log("basefee", newBasefee, "+%", ratio);
             _basefee = newBasefee;
-            gasExcess += gasTarget;
+            l2GasExcess += gasTarget;
         }
     }
 }

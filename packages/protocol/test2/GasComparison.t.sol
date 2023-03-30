@@ -82,7 +82,7 @@ contract FooBar {
             txListByteStart: 0,
             txListByteEnd: 1000,
             gasLimit: 1,
-            basefee: 1000000,
+            l2Basefee: 1000000,
             mixHash: bytes32(uint256(1)),
             timestamp: 1
         });
@@ -99,7 +99,7 @@ contract FooBar {
             txListByteStart: 0,
             txListByteEnd: 1000,
             gasLimit: 1,
-            basefee: 1000000,
+            l2Basefee: 1000000,
             mixHash: bytes32(uint256(1)),
             timestamp: 1
         });

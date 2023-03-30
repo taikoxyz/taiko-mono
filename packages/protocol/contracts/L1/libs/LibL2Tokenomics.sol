@@ -28,16 +28,21 @@ library LibL2Tokenomics {
         TaikoData.Config memory config,
         uint32 gasLimit
     ) internal view returns (uint64 basefee, uint64 newGasExcess) {
+        if (config.gasIssuedPerSecond == 0) {
+            // L2 1559 disabled
+            return (0, 0);
+        }
+
         unchecked {
             uint256 reduced = (block.timestamp - state.lastProposedAt) *
                 config.gasIssuedPerSecond;
-            newGasExcess = uint64(reduced.max(state.gasExcess) - reduced);
+            newGasExcess = uint64(reduced.max(state.l2GasExcess) - reduced);
         }
 
         basefee = calc1559Basefee({
-            gasExcess: newGasExcess,
-            xscale: state.xscale,
-            yscale: uint256(state.yscale) << 64,
+            l2GasExcess: newGasExcess,
+            xscale: state.l2Xscale,
+            yscale: uint256(state.l2Yscale) << 64,
             gasAmount: gasLimit
         }).toUint64();
 
@@ -49,10 +54,10 @@ library LibL2Tokenomics {
         uint64 basefeeInitial,
         uint64 gasTarget,
         uint64 expected2X1XRatio
-    ) internal pure returns (uint64 gasExcess, uint64 xscale, uint64 yscale) {
+    ) internal pure returns (uint64 l2GasExcess, uint64 xscale, uint64 yscale) {
         assert(excessMax != 0);
 
-        gasExcess = excessMax / 2;
+        l2GasExcess = excessMax / 2;
 
         // calculate xscale
         uint256 _xscale = LibFixedPointMath.MAX_EXP_INPUT / excessMax;
@@ -63,7 +68,7 @@ library LibL2Tokenomics {
 
         // calculate yscale
         uint256 _yscale = calc1559Basefee(
-            gasExcess,
+            l2GasExcess,
             xscale,
             basefeeInitial,
             gasTarget
@@ -79,13 +84,13 @@ library LibL2Tokenomics {
         {
             _yscale = uint256(yscale) << 64;
             uint256 price1x = calc1559Basefee(
-                gasExcess,
+                l2GasExcess,
                 xscale,
                 _yscale,
                 gasTarget
             );
             uint256 price2x = calc1559Basefee(
-                gasExcess,
+                l2GasExcess,
                 xscale,
                 _yscale,
                 gasTarget * 2
@@ -100,22 +105,22 @@ library LibL2Tokenomics {
     }
 
     function calc1559Basefee(
-        uint64 gasExcess,
+        uint64 l2GasExcess,
         uint64 xscale,
         uint256 yscale,
         uint64 gasAmount
     ) internal pure returns (uint256) {
         assert(gasAmount != 0 && xscale != 0 && yscale != 0);
-        uint256 _before = _ethqty(gasExcess, xscale);
-        uint256 _after = _ethqty(gasExcess + gasAmount, xscale);
+        uint256 _before = _ethqty(l2GasExcess, xscale);
+        uint256 _after = _ethqty(l2GasExcess + gasAmount, xscale);
         return (_after - _before) / gasAmount / yscale;
     }
 
     function _ethqty(
-        uint256 gasExcess,
+        uint256 l2GasExcess,
         uint256 xscale
     ) private pure returns (uint256) {
-        uint256 x = gasExcess * xscale;
+        uint256 x = l2GasExcess * xscale;
         if (x > LibFixedPointMath.MAX_EXP_INPUT) revert L1_OUT_OF_BLOCK_SPACE();
         return uint256(LibFixedPointMath.exp(int256(x)));
     }

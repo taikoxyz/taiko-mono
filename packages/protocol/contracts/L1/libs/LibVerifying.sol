@@ -57,13 +57,18 @@ library LibVerifying {
             fc.provenAt = timeNow;
         }
 
-        (state.gasExcess, state.xscale, state.yscale) = LibL2Tokenomics
-            .calc1559Params(
+        if (config.gasIssuedPerSecond != 0) {
+            (
+                state.l2GasExcess,
+                state.l2Xscale,
+                state.l2Yscale
+            ) = LibL2Tokenomics.calc1559Params(
                 l2GasExcessMax,
                 l2BasefeeInitial,
                 l2GasTarget,
                 l2Expected2X1XRatio
             );
+        }
 
         emit BlockVerified(0, genesisBlockHash);
     }

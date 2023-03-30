@@ -71,7 +71,7 @@ library LibProposing {
                 id: state.numBlocks,
                 timestamp: uint64(block.timestamp),
                 l1Height: uint64(block.number - 1),
-                basefee: 0, // will be set later
+                l2Basefee: 0, // will be set later
                 l1Hash: blockhash(block.number - 1),
                 mixHash: bytes32(block.prevrandao * state.numBlocks),
                 txListHash: input.txListHash,
@@ -92,11 +92,13 @@ library LibProposing {
         //
         // On L2, EIP-1559's basefee will not be burned but send to a Taiko
         // treasure address.
-        (meta.basefee, state.gasExcess) = LibL2Tokenomics.getL2Basefee({
-            state: state,
-            config: config,
-            gasLimit: input.gasLimit
-        });
+        if (config.gasIssuedPerSecond != 0) {
+            (meta.l2Basefee, state.l2GasExcess) = LibL2Tokenomics.getL2Basefee({
+                state: state,
+                config: config,
+                gasLimit: input.gasLimit
+            });
+        }
 
         TaikoData.Block storage blk = state.blocks[
             state.numBlocks % config.ringBufferSize
