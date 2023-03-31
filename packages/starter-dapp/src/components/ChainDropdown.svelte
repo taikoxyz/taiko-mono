@@ -31,13 +31,13 @@
         <svelte:component this={$fromChain.icon} />
         <span class="ml-2 hidden md:inline-block">{$fromChain.name}</span>
       {:else}
-      <span class="ml-2 flex items-center">
-          <ExclamationTriangle class='mr-2' size='20' />
+        <span class="ml-2 flex items-center">
+          <ExclamationTriangle class="mr-2" size="20" />
           <span class="hidden md:block">Invalid Chain</span>
         </span>
       {/if}
     </span>
-    <ChevronDown size='20' />
+    <ChevronDown size="20" />
   </label>
   <ul
     tabindex="0"
