@@ -1,30 +1,20 @@
 import type { BridgeTransaction } from '../domain/transaction';
 import { chains } from '../chain/chains';
-import type { Chain } from '../domain/chain';
-import { switchChainAndSetSigner } from './switchChainAndSetSigner';
-import { isOnCorrectChain } from './isOnCorrectChain';
+import type { ChainID } from '../domain/chain';
 import { ethers, type Signer } from 'ethers';
 import { bridges } from '../bridge/bridges';
 import { BridgeType } from '../domain/bridge';
+import { chainCheck } from './chainCheck';
 
 // TODO: explain and unit test
 export async function claimToken(
   bridgeTx: BridgeTransaction,
-  currentChain: Chain,
+  currentChainId: ChainID,
   signer: Signer,
 ) {
   const { fromChainId, toChainId, message, msgHash } = bridgeTx;
 
-  if (currentChain.id !== fromChainId) {
-    const chain = chains[fromChainId];
-    await switchChainAndSetSigner(chain);
-  }
-
-  // confirm after switch chain that it worked.
-  const correctChain = await isOnCorrectChain(signer, toChainId);
-  if (!correctChain) {
-    throw Error('You are connected to the wrong chain in your wallet');
-  }
+  chainCheck(fromChainId, toChainId, currentChainId, signer);
 
   // For now just handling this case for when the user has near 0 balance during their first bridge transaction to L2
   // TODO: estimate Claim transaction

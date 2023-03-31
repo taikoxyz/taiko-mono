@@ -10,6 +10,7 @@ import { userTokens } from '../store/token';
  * Subscribe to signer changes.
  * When there is a new signer, we need to get the address and
  * merge API transactions with local stored transactions for that address.
+ * TODO: unit test
  */
 export async function subscribeToSigner(newSigner: Signer | null) {
   if (newSigner) {
