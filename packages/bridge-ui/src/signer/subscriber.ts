@@ -1,5 +1,5 @@
 import type { Signer } from 'ethers';
-import { relayerBlockInfoMap } from '../store/relayerApi';
+// import { relayerBlockInfoMap } from '../store/relayerApi';
 import { relayerApi } from '../relayer-api/relayerApi';
 import { storageService, tokenService } from '../storage/services';
 import type { BridgeTransaction } from '../domain/transaction';
@@ -24,8 +24,8 @@ export async function subscribeToSigner(newSigner: Signer | null) {
     );
 
     // TODO: this will be used in the future
-    const blockInfoMap = await relayerApi.getBlockInfo();
-    relayerBlockInfoMap.set(blockInfoMap);
+    // const blockInfoMap = await relayerApi.getBlockInfo();
+    // relayerBlockInfoMap.set(blockInfoMap);
 
     // Get transactions from local storage
     const txs = await storageService.getAllByAddress(userAddress);
