@@ -253,10 +253,12 @@
           const contract = new Contract(address, TaikoL1, provider);
           contract.on(
             "BlockProven",
-            (id, parentHash, blockHash, prover, provenAt) => {
+            (id, parentHash, blockHash, prover, provenAt, ...args) => {
               // ignore oracle prover
               if (prover.toLowerCase() !== oracleProverAddress.toLowerCase()) {
-                onEvent(new Date(provenAt.toNumber() * 1000).toString());
+                if(!provenAt.eq(0)) {
+                  onEvent(new Date(provenAt.toNumber() * 1000).toString());
+                }
               }
             }
           );
