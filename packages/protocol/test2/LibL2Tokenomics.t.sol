@@ -34,7 +34,8 @@ contract TestLibL2Tokenomics is Test {
 
         uint64 N = 50;
         // In the [gasExcessMax/2 - 50 * gasTarget, gasExcessMax/2 + 50 * gasTarget]
-        // gas range, the expected2X1XRatio holds.
+        // gas range, the expected2X1XRatio holds, and the gas price is still smaller
+        // than uint64.max
         for (
             uint64 l2GasExcess = gasExcessMax / 2 - N * gasTarget;
             l2GasExcess <= gasExcessMax / 2 + N * gasTarget;
@@ -46,12 +47,16 @@ contract TestLibL2Tokenomics is Test {
                 yscale,
                 gasTarget
             );
+            assertLt(basefee1, type(uint64).max);
+
             uint256 basefee2 = T.calcL2Basefee(
                 l2GasExcess,
                 xscale,
                 yscale,
                 2 * gasTarget
             );
+
+            assertLt(basefee2, type(uint64).max);
 
             if (basefee1 != 0) {
                 assertEq((basefee2 * 100) / basefee1, expected2X1XRatio);
