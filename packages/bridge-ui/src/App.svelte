@@ -10,9 +10,8 @@
   import { providers } from './provider/providers';
   import Router from './components/Router.svelte';
 
+  // TODO: pending to figure all this out
   const transactionToIntervalMap = new Map();
-
-  // TODO: look into this one
   transactions.subscribe((store) => {
     if (store) {
       store.forEach((tx) => {
