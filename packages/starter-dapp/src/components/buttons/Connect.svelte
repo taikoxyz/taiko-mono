@@ -48,7 +48,11 @@
     const { chain } = getNetwork();
     await setSigner();
     await changeChain(chain.id);
-    watchNetwork(async (network) => await changeChain(network.chain.id));
+    watchNetwork(async (network) => {
+      if (network.chain?.id) {
+        changeChain(network.chain.id);
+      }
+    });
   }
 
   async function connectWithConnector(connector: Connector) {
