@@ -60,14 +60,10 @@ library LibL2Tokenomics {
         uint64 basefeeInitial,
         uint64 gasTarget,
         uint64 expected2X1XRatio
-    )
-        internal
-        pure
-        returns (uint64 l2GasExcess, uint64 xscale, uint256 yscale)
-    {
+    ) internal pure returns (uint64 xscale, uint256 yscale) {
         assert(gasExcessMax != 0);
 
-        l2GasExcess = gasExcessMax / 2;
+        uint64 l2GasExcess = gasExcessMax / 2;
 
         // calculate xscale
         uint256 _xscale = LibFixedPointMath.MAX_EXP_INPUT / gasExcessMax;
@@ -75,11 +71,6 @@ library LibL2Tokenomics {
             revert L1_1559_X_SCALE_TOO_LARGE();
         }
         xscale = uint64(_xscale);
-
-        require(
-            uint(xscale) * gasExcessMax < LibFixedPointMath.MAX_EXP_INPUT,
-            "FFF"
-        );
 
         // calculate yscale
         yscale = calcL2Basefee(l2GasExcess, xscale, basefeeInitial, gasTarget);
@@ -117,10 +108,11 @@ library LibL2Tokenomics {
         uint256 yscale,
         uint64 gasAmount
     ) internal pure returns (uint256) {
-        assert(gasAmount != 0 && xscale != 0 && yscale != 0);
+        uint64 _gasAmount = gasAmount == 0 ? 1 : gasAmount;
+        assert(xscale != 0 && yscale != 0);
         uint256 _before = _ethqty(l2GasExcess, xscale);
-        uint256 _after = _ethqty(l2GasExcess + gasAmount, xscale);
-        return (_after - _before) / gasAmount / yscale;
+        uint256 _after = _ethqty(l2GasExcess + _gasAmount, xscale);
+        return (_after - _before) / _gasAmount / yscale;
     }
 
     function _ethqty(
