@@ -44,6 +44,6 @@ library LibBridgeData {
     function hashMessage(
         IBridge.Message memory message
     ) internal pure returns (bytes32) {
-        return keccak256(abi.encode("TAIKO_BRIDGE_MESSAGE", message));
+        return keccak256(abi.encode(message));
     }
 }
