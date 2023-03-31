@@ -4,6 +4,8 @@ import type { Token } from '../domain/token';
 import { subscribeToSigner } from './subscriber';
 import { relayerApi } from '../relayer-api/relayerApi';
 import { storageService, tokenService } from '../storage/services';
+import { transactions } from '../store/transaction';
+import { userTokens } from '../store/token';
 
 jest.mock('../constants/envVars');
 jest.mock('../relayer-api/relayerApi');
@@ -16,16 +18,23 @@ const signer = {
   getAddress: () => Promise.resolve(address),
 } as Signer;
 
-const apiTxs = [{ hash: '0x456' }, { hash: '0x789' }] as BridgeTransaction[];
-const txs = [{ hash: '0x123' }, { hash: '0x456' }] as Transaction[];
+const txsFromAPI = [
+  { hash: '0x456' },
+  { hash: '0x789' },
+] as BridgeTransaction[];
+
+const txsFromStorage = [{ hash: '0x123' }, { hash: '0x456' }] as Transaction[];
+
 const tokens = [{}, {}] as Token[];
 
 beforeAll(() => {
   (relayerApi.getAllBridgeTransactionByAddress as jest.Mock).mockResolvedValue(
-    apiTxs,
+    txsFromAPI,
   );
 
-  (storageService.getAllByAddress as jest.Mock).mockResolvedValue(txs);
+  (storageService.getAllByAddress as jest.Mock).mockResolvedValue(
+    txsFromStorage,
+  );
 
   (tokenService.getTokens as jest.Mock).mockReturnValue(tokens);
 });
@@ -39,5 +48,26 @@ describe('subscribeToSigner', () => {
     );
 
     expect(storageService.getAllByAddress).toHaveBeenCalledWith(address);
+
+    // We're expecting here to pass only the tx that's not in the API response,
+    // and that is { hash: '0x123' }
+    expect(storageService.updateStorageByAddress).toHaveBeenCalledWith(
+      address,
+      [{ hash: '0x123' }],
+    );
+
+    // We make sure that we pass what's been filtered from the storage, plus
+    // what we got from the API
+    expect(transactions.set).toHaveBeenCalledWith([
+      { hash: '0x123' },
+      ...txsFromAPI,
+    ]);
+
+    // Next we test functions are called with the right arguments:
+    expect(tokenService.getTokens).toHaveBeenCalledWith(address);
+
+    // We pass what's returned from the previos tokenService.getTokens
+    // and that is the tokens array
+    expect(userTokens.set).toHaveBeenCalledWith(tokens);
   });
 });
