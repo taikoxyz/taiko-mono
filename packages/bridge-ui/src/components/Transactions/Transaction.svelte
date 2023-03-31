@@ -24,6 +24,7 @@
   import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
   import Button from '../buttons/Button.svelte';
   import { switchChainAndSetSigner } from '../../utils/switchChainAndSetSigner';
+  import { isTransactionProcessable } from '../../utils/isTransactionProcessable';
 
   export let transaction: BridgeTransaction;
 
@@ -42,7 +43,7 @@
   let alreadyInformedAboutClaim = false;
 
   onMount(async () => {
-    processable = await isProcessable();
+    processable = await isTransactionProcessable(transaction);
     interval = startInterval();
   });
 
@@ -128,7 +129,7 @@
   async function releaseTokens(bridgeTx: BridgeTransaction) {
     try {
       loading = true;
-      if (txFromChain.id !== bridgeTx.fromChainId) {
+      if ($fromChain.id !== bridgeTx.fromChainId) {
         const chain = chains[bridgeTx.fromChainId];
         await switchChainAndSetSigner(chain);
       }
@@ -164,30 +165,12 @@
     }
   }
 
-  // TODO: this could also live in an utility: isTransactionProcessable?
-  async function isProcessable() {
-    if (!transaction.receipt) return false;
-    if (!transaction.message) return false;
-    if (transaction.status !== MessageStatus.New) return true;
-
-    const contract = new Contract(
-      chains[transaction.toChainId].headerSyncAddress,
-      HeaderSyncABI,
-      providers[chains[transaction.toChainId].id],
-    );
-
-    const latestSyncedHeader = await contract.getLatestSyncedHeader();
-    const srcBlock = await providers[
-      chains[transaction.fromChainId].id
-    ].getBlock(latestSyncedHeader);
-
-    return transaction.receipt.blockNumber <= srcBlock.number;
-  }
-
   // TODO: web worker?
   function startInterval() {
+    // TODO: what's going on here?
     return setInterval(async () => {
-      processable = await isProcessable();
+      processable = await isTransactionProcessable(transaction);
+
       const contract = new ethers.Contract(
         chains[transaction.toChainId].bridgeAddress,
         BridgeABI,
@@ -233,7 +216,7 @@
         )
       )
         clearInterval(interval);
-    }, 20 * 1000);
+    }, 20 * 1000); // TODO: magic numbers. Config?
   }
 </script>
 
