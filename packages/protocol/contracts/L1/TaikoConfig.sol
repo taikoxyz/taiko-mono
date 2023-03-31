@@ -36,12 +36,11 @@ library TaikoConfig {
                 slotSmoothingFactor: 946649,
                 // 100 basis points or 1%
                 rewardBurnBips: 100,
-                proposerDepositPctg: 0, // - 25%
                 // Moving average factors
                 feeBaseMAF: 1024,
                 constantFeeRewardBlocks: 1024,
                 txListCacheExpiry: 0,
-                proofTimeTarget: 60, // 60sec general
+                proofTimeTarget: 90, // 90sec general
                 adjustmentQuotient: 16,
                 enableSoloProposer: false,
                 enableOracleProver: true,

@@ -64,7 +64,7 @@ library LibL1Tokenomics {
         TaikoData.State storage state,
         uint32 gasUsed
     ) internal view returns (uint64 newFeeBase, uint64 fee) {
-        newFeeBase = fee = state.baseFeeProof;
+        newFeeBase = state.baseFeeProof;
         fee = newFeeBase * gasUsed;
     }
 

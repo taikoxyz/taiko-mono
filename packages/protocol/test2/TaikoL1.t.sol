@@ -44,12 +44,6 @@ contract TaikoL1WithConfig is TaikoL1 {
     }
 }
 
-contract Verifier {
-    fallback(bytes calldata) external returns (bytes memory) {
-        return bytes.concat(keccak256("taiko"));
-    }
-}
-
 contract TaikoL1Test is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1 taikoL1) {
         taikoL1 = new TaikoL1WithConfig();
@@ -57,14 +51,10 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     function setUp() public override {
         TaikoL1TestBase.setUp();
-        _registerAddress(
-            string(abi.encodePacked("verifier_", uint16(100))),
-            address(new Verifier())
-        );
     }
 
     /// @dev Test we can propose, prove, then verify more blocks than 'maxNumProposedBlocks'
-    function xtest_more_blocks_than_ring_buffer_size() external {
+    function test_more_blocks_than_ring_buffer_size() external {
         _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
         _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
         _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
@@ -92,7 +82,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     /// @dev Test more than one block can be proposed, proven, & verified in the
     ///      same L1 block.
-    function xtest_multiple_blocks_in_one_L1_block() external {
+    function test_multiple_blocks_in_one_L1_block() external {
         _depositTaikoToken(Alice, 1000 * 1E8, 1000 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
@@ -184,78 +174,6 @@ contract TaikoL1Test is TaikoL1TestBase {
             proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
             verifyBlock(Carol, 1);
             mine(total + 1 - blockId);
-            parentHash = blockHash;
-        }
-        printVariables("");
-    }
-
-    /// @dev Test what happens when proof time increases
-    function test_reward_and_fee_if_proof_time_increases() external {
-        mine(1);
-        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
-
-        bytes32 parentHash = GENESIS_BLOCK_HASH;
-
-        for (uint256 blockId = 1; blockId < 10; blockId++) {
-            printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
-            printVariables("after propose");
-            mine(blockId);
-
-            bytes32 blockHash = bytes32(1E10 + blockId);
-            bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
-            verifyBlock(Carol, 1);
-            parentHash = blockHash;
-        }
-        printVariables("");
-    }
-
-    /// @dev Test what happens when proof time decreases
-    function test_reward_and_fee_if_proof_time_decreases() external {
-        mine(1);
-        _depositTaikoToken(Alice, 1E7 * 1E8, 1 ether);
-        _depositTaikoToken(Bob, 1E7 * 1E8, 1 ether);
-        _depositTaikoToken(Carol, 1E7 * 1E8, 1 ether);
-
-        bytes32 parentHash = GENESIS_BLOCK_HASH;
-
-        for (uint256 blockId = 1; blockId < 10; blockId++) {
-            printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
-            mine(11 - blockId);
-
-            bytes32 blockHash = bytes32(1E10 + blockId);
-            bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
-            verifyBlock(Carol, 1);
-            printVariables("after proved");
-            parentHash = blockHash;
-        }
-        printVariables("");
-    }
-
-    /// @dev Test what happens when proof time stable
-    function test_reward_and_fee_if_proof_time_stable() external {
-        mine(1);
-        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
-
-        bytes32 parentHash = GENESIS_BLOCK_HASH;
-
-        for (uint256 blockId = 1; blockId < 10; blockId++) {
-            printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
-            printVariables("after propose");
-            mine(1);
-
-            bytes32 blockHash = bytes32(1E10 + blockId);
-            bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
-            verifyBlock(Carol, 1);
             parentHash = blockHash;
         }
         printVariables("");

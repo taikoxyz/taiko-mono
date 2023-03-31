@@ -11,6 +11,12 @@ import {TaikoToken} from "../contracts/L1/TaikoToken.sol";
 import {SignalService} from "../contracts/signal/SignalService.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
+contract Verifier {
+    fallback(bytes calldata) external returns (bytes memory) {
+        return bytes.concat(keccak256("taiko"));
+    }
+}
+
 abstract contract TaikoL1TestBase is Test {
     AddressManager public addressManager;
     TaikoToken public tko;
@@ -77,6 +83,11 @@ abstract contract TaikoL1TestBase is Test {
         _registerAddress("treasure", Treasure);
         _registerL2Address("signal_service", address(L2SS));
         _registerL2Address("taiko_l2", address(L2TaikoL2));
+
+        _registerAddress(
+            string(abi.encodePacked("verifier_", uint16(100))),
+            address(new Verifier())
+        );
 
         printVariables("init  ");
     }

@@ -28,7 +28,6 @@ library TaikoData {
         uint256 minTxGasLimit;
         uint256 slotSmoothingFactor;
         uint256 rewardBurnBips;
-        uint256 proposerDepositPctg;
         // Moving average factors
         uint256 feeBaseMAF;
         uint64 constantFeeRewardBlocks;

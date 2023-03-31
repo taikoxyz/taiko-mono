@@ -40,6 +40,7 @@ library LibVerifying {
         state.genesisHeight = timeNow;
         state.genesisTimestamp = timeNow;
         state.feeBase = feeBase;
+        state.baseFeeProof = 1; // Symbolic fee (TKO) for 1st proposal
         state.numBlocks = 1;
         state.gasAccumulated = gasAccumulated;
 
