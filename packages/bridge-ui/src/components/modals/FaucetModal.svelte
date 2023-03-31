@@ -73,7 +73,9 @@
       const address = await $signer.getAddress();
       const tx = await contract.mint(address);
 
-      pendingTransactions.add(tx, () => successToast('Transaction completed!'));
+      pendingTransactions.add(tx, $signer, () =>
+        successToast('Transaction completed!'),
+      );
 
       successToast($_('toast.transactionSent'));
       isOpen = false;

@@ -1,8 +1,6 @@
-import { writable, get } from 'svelte/store';
-
-import type { Transaction } from 'ethers';
+import { writable } from 'svelte/store';
+import type { Signer, Transaction } from 'ethers';
 import type { BridgeTransaction } from '../domain/transaction';
-import { signer } from './signer';
 
 export const transactions = writable<BridgeTransaction[]>([]);
 
@@ -21,7 +19,7 @@ export const pendingTransactions = {
    * Custom method, which will help us add a new transaction to the store
    * and get it removed onces the transaction is mined.
    */
-  add: (tx: Transaction, onMined?: () => void) => {
+  add: (tx: Transaction, signer: Signer, onMined?: () => void) => {
     update((txs: Transaction[]) => {
       // New array with the new transaction appended
       const newPendingTransactions = [...txs, tx];
@@ -32,27 +30,26 @@ export const pendingTransactions = {
 
       // Next step is to wait for the transaction to be mined
       // before removing it from the store.
-      get(signer)
-        /**
-         * Returns a Promise which will not resolve until transactionHash is mined.
-         * If confirms is 0, this method is non-blocking and if the transaction
-         * has not been mined returns null. Otherwise, this method will block until
-         * the transaction has confirms blocks mined on top of the block in which
-         * is was mined.
-         * See https://docs.ethers.org/v5/api/providers/provider/#Provider-waitForTransaction
-         */
-        .provider.waitForTransaction(tx.hash, 1)
-        .then(() => {
-          // The transaction has been mined. Anything to run?
-          onMined?.();
 
-          // Removes the transaction from the store
-          update((txs: Transaction[]) => {
-            const copyPendingTransactions = [...txs];
-            copyPendingTransactions.splice(idxAppendedTransaction, 1);
-            return copyPendingTransactions;
-          });
+      /**
+       * Returns a Promise which will not resolve until transactionHash is mined.
+       * If confirms is 0, this method is non-blocking and if the transaction
+       * has not been mined returns null. Otherwise, this method will block until
+       * the transaction has confirms blocks mined on top of the block in which
+       * is was mined.
+       * See https://docs.ethers.org/v5/api/providers/provider/#Provider-waitForTransaction
+       */
+      signer.provider.waitForTransaction(tx.hash, 1).then(() => {
+        // The transaction has been mined. Anything to run?
+        onMined?.();
+
+        // Removes the transaction from the store
+        update((txs: Transaction[]) => {
+          const copyPendingTransactions = [...txs];
+          copyPendingTransactions.splice(idxAppendedTransaction, 1);
+          return copyPendingTransactions;
         });
+      });
 
       return newPendingTransactions;
     });

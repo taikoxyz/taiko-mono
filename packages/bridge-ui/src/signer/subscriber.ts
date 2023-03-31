@@ -6,11 +6,13 @@ import type { BridgeTransaction } from '../domain/transaction';
 import { transactions } from '../store/transaction';
 import { userTokens } from '../store/token';
 
+// TODO: this is updating other stores, transactions and userTokens.
+//       This could lead to unexpected behaviour. Think about a better way.
+
 /**
  * Subscribe to signer changes.
  * When there is a new signer, we need to get the address and
  * merge API transactions with local stored transactions for that address.
- * TODO: unit test
  */
 export async function subscribeToSigner(newSigner: Signer | null) {
   if (newSigner) {
