@@ -39,13 +39,19 @@ library LibL2Tokenomics {
             newGasExcess = uint64(reduced.max(state.l2GasExcess) - reduced);
         }
 
-        basefee = calcL2Basefee({
+        uint256 _basefee = calcL2Basefee({
             l2GasExcess: newGasExcess,
             xscale: state.l2Xscale,
             yscale: uint256(state.l2Yscale) << 64,
             gasAmount: gasLimit
         }).toUint64();
 
+        if (_basefee >= type(uint64).max) {
+            // This is a valid case when the curve slope is large.
+            revert L1_OUT_OF_BLOCK_SPACE();
+        }
+
+        basefee = uint64(_basefee);
         newGasExcess += gasLimit;
     }
 
@@ -54,7 +60,11 @@ library LibL2Tokenomics {
         uint64 basefeeInitial,
         uint64 gasTarget,
         uint64 expected2X1XRatio
-    ) internal pure returns (uint64 l2GasExcess, uint64 xscale, uint64 yscale) {
+    )
+        internal
+        pure
+        returns (uint64 l2GasExcess, uint64 xscale, uint256 yscale)
+    {
         assert(gasExcessMax != 0);
 
         l2GasExcess = gasExcessMax / 2;
@@ -66,33 +76,30 @@ library LibL2Tokenomics {
         }
         xscale = uint64(_xscale);
 
-        // calculate yscale
-        uint256 _yscale = calcL2Basefee(
-            l2GasExcess,
-            xscale,
-            basefeeInitial,
-            gasTarget
+        require(
+            uint(xscale) * gasExcessMax < LibFixedPointMath.MAX_EXP_INPUT,
+            "FFF"
         );
-        if ((_yscale >> 64) >= type(uint64).max) {
+
+        // calculate yscale
+        yscale = calcL2Basefee(l2GasExcess, xscale, basefeeInitial, gasTarget);
+        if ((yscale >> 64) >= type(uint64).max) {
             revert L1_1559_Y_SCALE_TOO_LARGE();
         }
-
-        yscale = uint64(_yscale >> 64);
 
         // Verify the gas price ratio between two blocks, one has
         // 2*gasTarget gas and the other one has gasTarget gas.
         {
-            _yscale = uint256(yscale) << 64;
             uint256 price1x = calcL2Basefee(
                 l2GasExcess,
                 xscale,
-                _yscale,
+                yscale,
                 gasTarget
             );
             uint256 price2x = calcL2Basefee(
                 l2GasExcess,
                 xscale,
-                _yscale,
+                yscale,
                 gasTarget * 2
             );
 
@@ -121,7 +128,9 @@ library LibL2Tokenomics {
         uint256 xscale
     ) private pure returns (uint256) {
         uint256 x = l2GasExcess * xscale;
-        if (x > LibFixedPointMath.MAX_EXP_INPUT) revert L1_OUT_OF_BLOCK_SPACE();
+        if (x > LibFixedPointMath.MAX_EXP_INPUT) {
+            revert L1_OUT_OF_BLOCK_SPACE();
+        }
         return uint256(LibFixedPointMath.exp(int256(x)));
     }
 }

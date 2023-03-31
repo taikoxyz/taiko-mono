@@ -66,16 +66,16 @@ library LibVerifying {
                 l2Expected2X1XRatio == 0
             ) revert L1_INVALID_L21559_PARAMS();
 
-            (
-                state.l2GasExcess,
-                state.l2Xscale,
-                state.l2Yscale
-            ) = LibL2Tokenomics.calcL2BasefeeParams(
-                l2GasExcessMax,
-                l2BasefeeInitial,
-                l2GasTarget,
-                l2Expected2X1XRatio
-            );
+            uint256 yscale;
+            (state.l2GasExcess, state.l2Xscale, yscale) = LibL2Tokenomics
+                .calcL2BasefeeParams(
+                    l2GasExcessMax,
+                    l2BasefeeInitial,
+                    l2GasTarget,
+                    l2Expected2X1XRatio
+                );
+
+            state.l2Yscale = uint64(yscale >> 64);
         }
 
         emit BlockVerified(0, l2GenesisBlockHash);
