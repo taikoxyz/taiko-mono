@@ -11,7 +11,7 @@
     await switchNetwork({
       chainId: chain.id,
     });
-    const provider = new ethers.providers.Web3Provider(globalThis.ethereum);
+    const provider = new ethers.providers.Web3Provider(global.ethereum);
     await provider.send('eth_requestAccounts', []);
 
     fromChain.set(chain);

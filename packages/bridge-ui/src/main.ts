@@ -3,7 +3,7 @@ import App from './App.svelte';
 import { Buffer } from 'buffer';
 import { setupI18n } from './i18n';
 
-globalThis.Buffer = Buffer;
+global.Buffer = Buffer;
 
 setupI18n({ withLocale: 'en' });
 

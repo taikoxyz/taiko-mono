@@ -3,7 +3,7 @@
   import type { BridgeTransaction } from '../../domain/transaction';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
   import { MessageStatus } from '../../domain/message';
-  import { Contract, ethers } from 'ethers';
+  import { ethers } from 'ethers';
   import { signer } from '../../store/signer';
   import { pendingTransactions } from '../../store/transaction';
   import { _ } from 'svelte-i18n';
@@ -13,7 +13,6 @@
 
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
   import { errorToast, successToast } from '../Toast.svelte';
-  import HeaderSyncABI from '../../constants/abi/HeaderSync';
   import BridgeABI from '../../constants/abi/Bridge';
   import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
   import TokenVaultABI from '../../constants/abi/TokenVault';
