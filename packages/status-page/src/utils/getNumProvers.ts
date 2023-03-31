@@ -11,10 +11,10 @@ export type UniqueProverResponse = {
 export const getNumProvers = async (
   eventIndexerApiUrl: string
 ): Promise<UniqueProverResponse> => {
-  const resp = await axios.get<UniqueProverResponse>(
+  const uniqueProverResp = await axios.get<UniqueProverResponse>(
     `${eventIndexerApiUrl}/uniqueProvers`
   );
-  let uniqueProverRes = resp.data;
-  uniqueProverRes.provers.sort((a, b) => b.count - a.count);
-  return uniqueProverRes;
+  uniqueProverResp.data.provers.sort((a, b) => b.count - a.count);
+
+  return uniqueProverResp.data;
 };
