@@ -227,7 +227,7 @@ library LibVerifying {
         state.avgProofTime = LibUtils
             .movingAverage({
                 maValue: state.avgProofTime,
-                newValue: fc.provenAt - target.proposedAt,
+                newValue: (fc.provenAt - target.proposedAt) * 1000,
                 maf: config.proofTimeMAF
             })
             .toUint64();
