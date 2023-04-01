@@ -80,7 +80,8 @@ library LibUtils {
         uint64 tAvg,
         uint64 tCap
     ) internal view returns (uint256 newFeeBase, uint256 tRelBp) {
-        return state.feeBase;
+        newFeeBase = state.feeBase;
+        tRelBp = 0;
         // if (
         //     tCap == 0 ||
         //     tAvg == 0 ||
