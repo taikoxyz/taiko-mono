@@ -38,8 +38,7 @@ library LibBridgeData {
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
 
     /**
-     * @return msgHash The keccak256 hash of the message encoded with
-     * "TAIKO_BRIDGE_MESSAGE".
+     * @return msgHash The keccak256 hash of the message.
      */
     function hashMessage(
         IBridge.Message memory message
