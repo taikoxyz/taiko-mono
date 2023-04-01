@@ -111,7 +111,7 @@ library LibProposing {
         blk.gasConsumed = input.gasLimit;
 
         if (config.enableTokenomics) {
-            (uint256 newFeeBase, uint256 fee) = LibL1Tokenomics.getBlockFee(
+            (, uint256 fee) = LibL1Tokenomics.getBlockFee(
                 state,
                 input.gasLimit
             );
@@ -122,26 +122,6 @@ library LibProposing {
             unchecked {
                 state.balances[msg.sender] -= fee;
             }
-
-            // Update feeBase and avgBlockTime
-            state.feeBase = LibUtils
-                .movingAverage({
-                    maValue: state.feeBase,
-                    newValue: newFeeBase,
-                    maf: config.feeBaseMAF
-                })
-                .toUint64();
-        }
-
-        unchecked {
-            state.avgBlockTime = LibUtils
-                .movingAverage({
-                    maValue: state.avgBlockTime,
-                    newValue: (meta.timestamp - state.lastProposedAt) * 1000,
-                    maf: config.proposingConfig.avgTimeMAF
-                })
-                .toUint64();
-            state.lastProposedAt = meta.timestamp;
         }
 
         emit BlockProposed(state.numBlocks, meta, cacheTxList);

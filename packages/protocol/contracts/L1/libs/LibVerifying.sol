@@ -131,7 +131,7 @@ library LibVerifying {
             ) = LibL1Tokenomics.calculateBaseProof(
                     state.proofTimeIssued,
                     config.proofTimeTarget,
-                    uint64(proofTime), // in milliseconds
+                    uint64(proofTime),
                     blk.gasConsumed,
                     config.adjustmentQuotient
                 );
