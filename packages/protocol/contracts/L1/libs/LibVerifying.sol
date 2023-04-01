@@ -91,10 +91,11 @@ library LibVerifying {
             });
 
             // calculate extra basefee
-            {
+            uint256 totalGasIssued = config.gasIssuedPerSecond *
+                (block.timestamp - state.genesisTimestamp);
+
+            if (totalGasIssued != 0) {
                 state.totalGasUsed += fc.gasUsed;
-                uint256 totalGasIssued = config.gasIssuedPerSecond *
-                    (block.timestamp - state.genesisTimestamp);
 
                 if (state.totalGasUsed > totalGasIssued) {
                     uint256 extraFee = ((state.totalGasUsed - totalGasIssued) *
