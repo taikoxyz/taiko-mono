@@ -128,6 +128,7 @@ abstract contract TaikoL1TestBase is Test {
             parentHash: parentHash,
             blockHash: blockHash,
             signalRoot: signalRoot,
+            graffiti: 0x0,
             prover: prover,
             basefee: basefee,
             gasUsed: gasUsed
