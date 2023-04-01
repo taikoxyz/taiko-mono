@@ -99,6 +99,8 @@ library LibProving {
             } else {
                 fc.provenAt = uint64(block.timestamp);
                 fc.prover = evidence.prover;
+                fc.basefee = evidence.basefee;
+                fc.gasUsed = evidence.gasUsed;
             }
         } else {
             assert(fcId < blk.nextForkChoiceId);
@@ -123,6 +125,8 @@ library LibProving {
 
             fc.provenAt = uint64(block.timestamp);
             fc.prover = evidence.prover;
+            fc.basefee = evidence.basefee;
+            fc.gasUsed = evidence.gasUsed;
         }
 
         if (!oracleProving && !config.skipZKPVerification) {
@@ -144,15 +148,18 @@ library LibProving {
                     false
                 );
 
-                bytes32[8] memory inputs;
-                inputs[0] = bytes32(uint256(uint160(l1SignalService)));
-                inputs[1] = bytes32(uint256(uint160(l2SignalService)));
-                inputs[2] = bytes32(uint256(uint160(taikoL2)));
-                inputs[3] = evidence.parentHash;
-                inputs[4] = evidence.blockHash;
-                inputs[5] = evidence.signalRoot;
-                inputs[6] = bytes32(uint256(uint160(evidence.prover)));
-                inputs[7] = blk.metaHash;
+                uint256[8] memory inputs;
+                inputs[0] = uint256(uint160(l1SignalService));
+                inputs[1] = uint256(uint160(l2SignalService));
+                inputs[2] = uint256(uint160(taikoL2));
+                inputs[3] = uint256(evidence.parentHash);
+                inputs[4] = uint256(evidence.blockHash);
+                inputs[5] = uint256(evidence.signalRoot);
+                inputs[6] =
+                    (uint256(uint160(evidence.prover)) << 80) |
+                    (uint256(evidence.basefee) << 32) |
+                    uint256(evidence.gasUsed);
+                inputs[7] = uint256(blk.metaHash);
 
                 assembly {
                     instance := keccak256(inputs, mul(32, 8))

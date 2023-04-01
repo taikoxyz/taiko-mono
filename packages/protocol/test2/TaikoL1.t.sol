@@ -85,7 +85,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
+            proveBlock(Bob, meta, parentHash, blockHash, signalRoot, 1E6, 1E7);
             verifyBlock(Carol, 1);
             parentHash = blockHash;
         }
@@ -106,7 +106,15 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Alice, meta, parentHash, blockHash, signalRoot);
+            proveBlock(
+                Alice,
+                meta,
+                parentHash,
+                blockHash,
+                signalRoot,
+                1E6,
+                1E7
+            );
             verifyBlock(Alice, 2);
             parentHash = blockHash;
         }
@@ -130,7 +138,15 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Alice, meta, parentHash, blockHash, signalRoot);
+            proveBlock(
+                Alice,
+                meta,
+                parentHash,
+                blockHash,
+                signalRoot,
+                1E6,
+                1E7
+            );
             parentHash = blockHash;
         }
         verifyBlock(Alice, conf.maxNumProposedBlocks - 1);
@@ -158,7 +174,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
+            proveBlock(Bob, meta, parentHash, blockHash, signalRoot, 1E6, 1E7);
             verifyBlock(Carol, 1);
             mine(blockId);
             parentHash = blockHash;
@@ -183,7 +199,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
+            proveBlock(Bob, meta, parentHash, blockHash, signalRoot, 1E6, 1E7);
             verifyBlock(Carol, 1);
             mine(total + 1 - blockId);
             parentHash = blockHash;

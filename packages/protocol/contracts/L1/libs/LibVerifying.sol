@@ -90,6 +90,20 @@ library LibVerifying {
                 fc: fc
             });
 
+            // calculate extra basefee
+            {
+                state.totalGasUsed += fc.gasUsed;
+                uint256 totalGasIssued = config.gasIssuedPerSecond *
+                    (block.timestamp - state.genesisTimestamp);
+
+                if (state.totalGasUsed > totalGasIssued) {
+                    uint256 extraFee = ((state.totalGasUsed - totalGasIssued) *
+                        fc.basefee *
+                        fc.gasUsed) / totalGasIssued;
+                    // TODO: charge the proposer
+                }
+            }
+
             assert(blockHash != bytes32(0));
 
             emit BlockVerified(i, blockHash);

@@ -32,6 +32,7 @@ library TaikoData {
         uint64 bootstrapDiscountHalvingPeriod;
         uint64 constantFeeRewardBlocks;
         uint64 txListCacheExpiry;
+        uint64 gasIssuedPerSecond;
         bool enableSoloProposer;
         bool enableOracleProver;
         bool enableTokenomics;
@@ -87,6 +88,8 @@ library TaikoData {
         bytes32 blockHash;
         bytes32 signalRoot;
         address prover;
+        uint48 basefee;
+        uint32 gasUsed;
     }
 
     // 3 slots
@@ -95,6 +98,8 @@ library TaikoData {
         bytes32 signalRoot;
         uint64 provenAt;
         address prover;
+        uint48 basefee;
+        uint32 gasUsed;
     }
 
     // 4 slots
@@ -124,6 +129,7 @@ library TaikoData {
         mapping(uint256 blockId => mapping(bytes32 parentHash => uint256 forkChoiceId)) forkChoiceIds;
         mapping(address account => uint256 balance) balances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
+        uint256 totalGasUsed;
         // Never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;

@@ -40,6 +40,7 @@ library TaikoConfig {
                 bootstrapDiscountHalvingPeriod: 1 seconds, // owner:daniel
                 constantFeeRewardBlocks: 1024,
                 txListCacheExpiry: 0,
+                gasIssuedPerSecond: 6000000,
                 enableSoloProposer: false,
                 enableOracleProver: true,
                 enableTokenomics: true,
