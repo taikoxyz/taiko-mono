@@ -80,29 +80,31 @@ library LibUtils {
         uint64 tAvg,
         uint64 tCap
     ) internal view returns (uint256 newFeeBase, uint256 tRelBp) {
-        if (
-            tCap == 0 ||
-            tAvg == 0 ||
-            config.feeMaxPeriodPctg <= config.feeGracePeriodPctg ||
-            config.rewardMultiplierPctg <= 100
-        ) {
-            newFeeBase = state.feeBase;
-            // tRelBp = 0;
-        } else {
-            uint256 _tAvg = uint256(tAvg).min(tCap);
-            uint256 grace = (config.feeGracePeriodPctg * _tAvg) / 100;
-            uint256 max = (config.feeMaxPeriodPctg * _tAvg) / 100;
-            uint256 t = uint256(tNow - tLast).max(grace).min(max);
-            tRelBp = ((t - grace) * 10000) / (max - grace); // [0 - 10000]
-            uint256 alpha = 10000 +
-                ((config.rewardMultiplierPctg - 100) * tRelBp) /
-                100;
-            if (isProposal) {
-                newFeeBase = (state.feeBase * 10000) / alpha; // fee
-            } else {
-                newFeeBase = (state.feeBase * alpha) / 10000; // reward
-            }
-        }
+        newFeeBase = 1e18;
+        tRelBp = 0;
+        // if (
+        //     tCap == 0 ||
+        //     tAvg == 0 ||
+        //     config.feeMaxPeriodPctg <= config.feeGracePeriodPctg ||
+        //     config.rewardMultiplierPctg <= 100
+        // ) {
+        //     newFeeBase = state.feeBase;
+        //     // tRelBp = 0;
+        // } else {
+        //     uint256 _tAvg = uint256(tAvg).min(tCap);
+        //     uint256 grace = (config.feeGracePeriodPctg * _tAvg) / 100;
+        //     uint256 max = (config.feeMaxPeriodPctg * _tAvg) / 100;
+        //     uint256 t = uint256(tNow - tLast).max(grace).min(max);
+        //     tRelBp = ((t - grace) * 10000) / (max - grace); // [0 - 10000]
+        //     uint256 alpha = 10000 +
+        //         ((config.rewardMultiplierPctg - 100) * tRelBp) /
+        //         100;
+        //     if (isProposal) {
+        //         newFeeBase = (state.feeBase * 10000) / alpha; // fee
+        //     } else {
+        //         newFeeBase = (state.feeBase * alpha) / 10000; // reward
+        //     }
+        // }
     }
 
     // Implement "Slot-availability Multipliers", see the whitepaper.
@@ -112,15 +114,16 @@ library LibUtils {
         bool isProposal,
         uint256 feeBase
     ) internal view returns (uint256) {
-        // m is the `n'` in the whitepaper
-        uint256 m = 1000 *
-            (config.maxNumBlocks - 1) +
-            config.slotSmoothingFactor;
-        // n is the number of unverified blocks
-        uint256 n = 1000 * (state.nextBlockId - state.latestVerifiedId - 1);
-        // k is `m − n + 1` or `m − n - 1`in the whitepaper
-        uint256 k = isProposal ? m - n - 1000 : m - n + 1000;
-        return (feeBase * (m - 1000) * m) / (m - n) / k;
+        return feeBase;
+        // // m is the `n'` in the whitepaper
+        // uint256 m = 1000 *
+        //     (config.maxNumBlocks - 1) +
+        //     config.slotSmoothingFactor;
+        // // n is the number of unverified blocks
+        // uint256 n = 1000 * (state.nextBlockId - state.latestVerifiedId - 1);
+        // // k is `m − n + 1` or `m − n - 1`in the whitepaper
+        // uint256 k = isProposal ? m - n - 1000 : m - n + 1000;
+        // return (feeBase * (m - 1000) * m) / (m - n) / k;
     }
 
     // Implement "Bootstrap Discount Multipliers", see the whitepaper.
@@ -129,10 +132,11 @@ library LibUtils {
         TaikoData.Config memory config,
         uint256 feeBase
     ) internal view returns (uint256) {
-        uint256 halves = uint256(block.timestamp - state.genesisTimestamp) /
-            config.bootstrapDiscountHalvingPeriod;
-        uint256 gamma = 1024 - (1024 >> halves);
-        return (feeBase * gamma) / 1024;
+        return feeBase;
+        // uint256 halves = uint256(block.timestamp - state.genesisTimestamp) /
+        //     config.bootstrapDiscountHalvingPeriod;
+        // uint256 gamma = 1024 - (1024 >> halves);
+        // return (feeBase * gamma) / 1024;
     }
 
     function hashMetadata(
