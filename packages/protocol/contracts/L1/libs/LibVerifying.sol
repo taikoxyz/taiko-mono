@@ -36,7 +36,7 @@ library LibVerifying {
         _checkConfig(config);
 
         uint64 timeNow = uint64(block.timestamp);
-        state.genesisHeight = timeNow;
+        state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = timeNow;
         state.feeBase = feeBase;
         state.numBlocks = 1;
