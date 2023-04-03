@@ -71,7 +71,12 @@
 
   async function connectWithConnector(connector: Connector) {
     try {
-      await wagmiConnect({ connector });
+      if (
+        !$wagmiClient.connector ||
+        $wagmiClient.connector.id !== connector.id
+      ) {
+        await wagmiConnect({ connector });
+      }
       await onConnect();
       successToast('Connected');
     } catch (error) {

@@ -48,12 +48,18 @@
     const { chain } = getNetwork();
     await setSigner();
     await changeChain(chain.id);
-    watchNetwork(async (network) => await changeChain(network.chain.id));
+    watchNetwork(async (network) => {
+      if (network.chain?.id) {
+        changeChain(network.chain.id);
+      }
+    });
   }
 
   async function connectWithConnector(connector: Connector) {
     try {
-      await wagmiConnect({ connector });
+      if (!$wagmiClient.connector || $wagmiClient.connector.id !== connector.id) {
+        await wagmiConnect({ connector });
+      }
       await onConnect();
       successToast("Connected");
     } catch (error) {
