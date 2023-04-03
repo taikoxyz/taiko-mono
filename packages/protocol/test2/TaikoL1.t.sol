@@ -52,6 +52,8 @@ contract Verifier {
 }
 
 contract TaikoL1Test is TaikoL1TestBase {
+    uint64 public constant basefee = 0;
+
     function deployTaikoL1() internal override returns (TaikoL1 taikoL1) {
         taikoL1 = new TaikoL1WithConfig();
     }
@@ -84,7 +86,15 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
+            proveBlock(
+                Bob,
+                meta,
+                parentHash,
+                blockHash,
+                signalRoot,
+                1024,
+                basefee
+            );
             verifyBlock(Carol, 1);
             parentHash = blockHash;
         }
@@ -105,7 +115,15 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Alice, meta, parentHash, blockHash, signalRoot);
+            proveBlock(
+                Alice,
+                meta,
+                parentHash,
+                blockHash,
+                signalRoot,
+                1024,
+                basefee
+            );
             verifyBlock(Alice, 2);
             parentHash = blockHash;
         }
@@ -129,7 +147,15 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Alice, meta, parentHash, blockHash, signalRoot);
+            proveBlock(
+                Alice,
+                meta,
+                parentHash,
+                blockHash,
+                signalRoot,
+                1024,
+                basefee
+            );
             parentHash = blockHash;
         }
         verifyBlock(Alice, conf.maxNumProposedBlocks - 1);
@@ -157,7 +183,15 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
+            proveBlock(
+                Bob,
+                meta,
+                parentHash,
+                blockHash,
+                signalRoot,
+                1024,
+                basefee
+            );
             verifyBlock(Carol, 1);
             mine(blockId);
             parentHash = blockHash;
@@ -182,7 +216,15 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
+            proveBlock(
+                Bob,
+                meta,
+                parentHash,
+                blockHash,
+                signalRoot,
+                1024,
+                basefee
+            );
             verifyBlock(Carol, 1);
             mine(total + 1 - blockId);
             parentHash = blockHash;

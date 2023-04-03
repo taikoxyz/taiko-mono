@@ -195,14 +195,16 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
 
     function getForkChoice(
         uint256 blockId,
-        bytes32 parentHash
+        bytes32 parentHash,
+        uint64 basefee
     ) public view returns (TaikoData.ForkChoice memory) {
         return
             LibProving.getForkChoice({
                 state: state,
                 config: getConfig(),
                 blockId: blockId,
-                parentHash: parentHash
+                parentHash: parentHash,
+                basefee: basefee
             });
     }
 

@@ -95,6 +95,7 @@ library LibVerifying {
 
         bytes32 signalRoot;
         uint64 processed;
+        uint32 basefee; // 1559 basefee
         unchecked {
             ++i;
         }
@@ -102,7 +103,7 @@ library LibVerifying {
         while (i < state.numBlocks && processed < maxBlocks) {
             blk = state.blocks[i % config.ringBufferSize];
 
-            fcId = state.forkChoiceIds[i][blockHash];
+            fcId = state.forkChoiceIds[i][blockHash][basefee];
             if (fcId == 0) break;
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];

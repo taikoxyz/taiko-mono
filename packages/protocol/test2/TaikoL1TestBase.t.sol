@@ -134,7 +134,9 @@ abstract contract TaikoL1TestBase is Test {
         TaikoData.BlockMetadata memory meta,
         bytes32 parentHash,
         bytes32 blockHash,
-        bytes32 signalRoot
+        bytes32 signalRoot,
+        uint32 gasUsed,
+        uint64 basefee
     ) internal {
         TaikoData.ZKProof memory zkproof = TaikoData.ZKProof({
             data: new bytes(100),
@@ -148,7 +150,9 @@ abstract contract TaikoL1TestBase is Test {
             blockHash: blockHash,
             signalRoot: signalRoot,
             graffiti: 0x0,
-            prover: prover
+            prover: prover,
+            gasUsed: gasUsed,
+            basefee: basefee
         });
 
         vm.prank(prover, prover);

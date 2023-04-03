@@ -92,6 +92,8 @@ library TaikoData {
         bytes32 signalRoot;
         bytes32 graffiti;
         address prover;
+        uint32 gasUsed;
+        uint64 basefee;
     }
 
     // 3 slots
@@ -126,7 +128,7 @@ library TaikoData {
         mapping(uint256 blockId_mode_ringBufferSize => Block) blocks;
         // A mapping from (blockId, parentHash) to a reusable ForkChoice storage pointer.
         // solhint-disable-next-line max-line-length
-        mapping(uint256 blockId => mapping(bytes32 parentHash => uint256 forkChoiceId)) forkChoiceIds;
+        mapping(uint256 blockId => mapping(bytes32 parentHash => mapping(uint64 basefee => uint256 forkChoiceId))) forkChoiceIds;
         mapping(address account => uint256 balance) balances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         // Never or rarely changed
