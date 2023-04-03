@@ -38,7 +38,17 @@ export default {
     'json',
   ],
   coverageThreshold: {
-    // TODO: bring this coverage back up in the next PR. Ideally 90%
+    /**
+     * TODO: bring this coverage back up in the next PR. Ideally 90%
+     * Missing, or not yet finished, tests:
+     * - relayerApi/RelayerAPIService.spec.ts
+     * - storage/StorageService.spec.ts
+     * - storage/CustomerStorageService.spec.ts
+     * - utils/chainCheck.spec.ts
+     * - utils/claimToken.spec.ts
+     * - utils/releaseToken.spec.ts
+     * - utils/switchChainAndSetSigner.spec.ts
+     */
     global: {
       statements: 81,
       branches: 64,
