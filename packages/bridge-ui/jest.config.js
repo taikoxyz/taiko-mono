@@ -47,6 +47,7 @@ export default {
      * - utils/chainCheck.spec.ts
      * - utils/claimToken.spec.ts
      * - utils/releaseToken.spec.ts
+     * - utils/isTransactionProcessable.spec.ts
      * - utils/switchChainAndSetSigner.spec.ts
      */
     global: {
