@@ -10,10 +10,7 @@
   let selectedTransaction: BridgeTransaction;
   let showMessageStatusTooltip: boolean;
   let showInsufficientBalance: boolean;
-
-  // TODO: temporary hack until we move the claim and release functions
-  //       outside of the Transaction component.
-  let confirmNotice: (informed: boolean) => Promise<void>;
+  let noticeModal: NoticeModal;
 </script>
 
 <div class="my-4 md:px-4">
@@ -31,9 +28,10 @@
       <tbody class="text-sm md:text-base">
         {#each $transactions as transaction}
           <Transaction
-            on:tooltipClick={() => (showMessageStatusTooltip = true)}
+            on:claimNotice={({ detail }) => noticeModal.open(detail)}
+            on:tooltipStatus={() => (showMessageStatusTooltip = true)}
             on:insufficientBalance={() => (showInsufficientBalance = true)}
-            on:transactionDetailsClick={() => {
+            on:transactionDetails={() => {
               selectedTransaction = transaction;
             }}
             {transaction} />
@@ -54,7 +52,7 @@
 
   <InsufficientBalanceTooltip bind:show={showInsufficientBalance} />
 
-  <NoticeModal>
+  <NoticeModal bind:this={noticeModal}>
     <!-- TODO: translations? -->
     <div class="text-center">
       When bridging, you selected the <strong>Recommended</strong> or

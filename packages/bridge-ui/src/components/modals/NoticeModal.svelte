@@ -1,26 +1,10 @@
-<script lang="ts" context="module">
-  import { EventEmitter } from 'events';
-
-  const STORAGE_PREFIX = 'notice-modal';
-
-  type OpenArgs = {
-    name?: string;
-    title?: string;
-    onConfirm?: (noShowAgain: boolean) => void;
-  };
-
-  const emitter = new EventEmitter();
-
-  // API
-  export function noticeOpen(args: OpenArgs) {
-    emitter.emit('open', args);
-  }
-</script>
-
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
+  import { onMount } from 'svelte';
+  import type { NoticeOpenArgs } from '../../domain/modal';
   import Button from '../buttons/Button.svelte';
   import Modal from './Modal.svelte';
+
+  const STORAGE_PREFIX = 'notice-modal';
 
   export let show = false;
   export let name = 'NoticeModal';
@@ -51,11 +35,11 @@
     onConfirm?.(noShowAgainCheckbox);
   }
 
-  function onOpen({
+  export function open({
     name: _name = name,
     title: _title = title,
     onConfirm: _onConfirm = onConfirm,
-  }: OpenArgs) {
+  }: NoticeOpenArgs) {
     // Sets dynamically modal's state
     name = _name;
     title = _title;
@@ -86,12 +70,7 @@
   }
 
   onMount(() => {
-    emitter.on('open', onOpen);
     checkLocalStorage();
-  });
-
-  onDestroy(() => {
-    emitter.off('open', onOpen);
   });
 </script>
 
@@ -104,7 +83,7 @@
       justify-between
       space-y-6
     ">
-    <slot />
+    <slot {open} />
 
     <div class="text-left flex items-center">
       <input
