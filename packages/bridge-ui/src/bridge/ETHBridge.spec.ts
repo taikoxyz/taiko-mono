@@ -299,7 +299,7 @@ describe('bridge tests', () => {
     expect(mockProver.generateReleaseProof).not.toHaveBeenCalled();
 
     await expect(
-      bridge.releaseTokens({
+      bridge.releaseToken({
         message: {
           owner: '0x',
           srcChainId: BigNumber.from(L2_CHAIN_ID),
@@ -334,7 +334,7 @@ describe('bridge tests', () => {
 
     expect(mockProver.generateReleaseProof).not.toHaveBeenCalled();
 
-    await bridge.releaseTokens({
+    await bridge.releaseToken({
       message: {
         owner: '0x',
         srcChainId: BigNumber.from(L2_CHAIN_ID),

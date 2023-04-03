@@ -1,29 +1,27 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import type { BridgeTransaction } from '../../domain/transaction';
+  import type { BridgeTransaction, TransactFn } from '../../domain/transaction';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
   import { MessageStatus } from '../../domain/message';
   import { ethers } from 'ethers';
-  import { signer } from '../../store/signer';
-  import { pendingTransactions } from '../../store/transaction';
   import { _ } from 'svelte-i18n';
-  import { fromChain } from '../../store/chain';
-  import { BridgeType } from '../../domain/bridge';
   import { onDestroy, onMount } from 'svelte';
 
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
-  import { errorToast, successToast } from '../Toast.svelte';
   import BridgeABI from '../../constants/abi/Bridge';
   import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
   import TokenVaultABI from '../../constants/abi/TokenVault';
   import { chains } from '../../chain/chains';
   import { providers } from '../../provider/providers';
-  import { bridges } from '../../bridge/bridges';
   import { tokenVaults } from '../../vault/tokenVaults';
-  import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
   import Button from '../buttons/Button.svelte';
-  import { switchChainAndSetSigner } from '../../utils/switchChainAndSetSigner';
   import { isTransactionProcessable } from '../../utils/isTransactionProcessable';
+  import { claimToken } from '../../utils/claimToken';
+  import { fromChain } from '../../store/chain';
+  import { signer } from '../../store/signer';
+  import { pendingTransactions } from 'src/store/transaction';
+  import { errorToast, successToast } from '../Toast.svelte';
+  import { releaseToken } from '../../utils/releaseToken';
 
   export let transaction: BridgeTransaction;
 
@@ -39,7 +37,7 @@
   let interval: ReturnType<typeof setInterval>;
   let txToChain = chains[transaction.toChainId];
   let txFromChain = chains[transaction.fromChainId];
-  let alreadyInformedAboutClaim = false;
+  // let alreadyInformedAboutClaim = false;
 
   onMount(async () => {
     processable = await isTransactionProcessable(transaction);
@@ -52,114 +50,40 @@
     }
   });
 
-  async function onClaimClick() {
-    // Has the user sent processing fees?. We also check if the user
-    // has already been informed about the relayer auto-claim.
-    const processingFee = transaction.message?.processingFee.toString();
-    if (processingFee && processingFee !== '0' && !alreadyInformedAboutClaim) {
-      dispatch(
-        'relayerAutoClaim',
-        // TODO: this is a hack. The idea is to move all these
-        //       functions outside of the component, where they
-        //       make more sense. We don't need to repeat the same
-        //       logic per transaction.
-        async (informed) => {
-          alreadyInformedAboutClaim = informed;
-          await claim(transaction);
-        },
-      );
-    } else {
-      await claim(transaction);
-    }
-  }
+  // async function onClaimClick() {
+  //   // Has the user sent processing fees?. We also check if the user
+  //   // has already been informed about the relayer auto-claim.
+  //   const processingFee = transaction.message?.processingFee.toString();
+  //   if (processingFee && processingFee !== '0' && !alreadyInformedAboutClaim) {
+  //     dispatch(
+  //       'relayerAutoClaim',
+  //       // TODO: this is a hack. The idea is to move all these
+  //       //       functions outside of the component, where they
+  //       //       make more sense. We don't need to repeat the same
+  //       //       logic per transaction.
+  //       async (informed) => {
+  //         alreadyInformedAboutClaim = informed;
+  //         await claim(transaction);
+  //       },
+  //     );
+  //   } else {
+  //     await claim(transaction);
+  //   }
+  // }
 
-  // TODO: move outside of component
-  async function claim(bridgeTx: BridgeTransaction) {
+  async function transact(fn: TransactFn) {
     try {
       loading = true;
-      // if the current "from chain", ie, the chain youre connected to, is not the destination
-      // of the bridge transaction, we need to change chains so your wallet is pointed
-      // to the right network.
-      if ($fromChain.id !== bridgeTx.toChainId) {
-        const chain = chains[bridgeTx.toChainId];
-        await switchChainAndSetSigner(chain);
-      }
-
-      // confirm after switch chain that it worked.
-      if (!(await isOnCorrectChain($signer, bridgeTx.toChainId))) {
-        errorToast('You are connected to the wrong chain in your wallet');
-        return;
-      }
-
-      // For now just handling this case for when the user has near 0 balance during their first bridge transaction to L2
-      // TODO: estimate Claim transaction
-      const userBalance = await $signer.getBalance('latest');
-      if (!userBalance.gt(ethers.utils.parseEther('0.0001'))) {
-        dispatch('insufficientBalance');
-        return;
-      }
-
-      const tx = await bridges[
-        bridgeTx.message?.data === '0x' || !bridgeTx.message?.data
-          ? BridgeType.ETH
-          : BridgeType.ERC20
-      ].claim({
-        signer: $signer,
-        message: bridgeTx.message,
-        msgHash: bridgeTx.msgHash,
-        destBridgeAddress: chains[bridgeTx.toChainId].bridgeAddress,
-        srcBridgeAddress: chains[bridgeTx.fromChainId].bridgeAddress,
-      });
+      const tx = await fn(transaction, $fromChain.id, $signer);
 
       pendingTransactions.add(tx, $signer, () =>
         successToast('Transaction completed!'),
       );
 
       successToast($_('toast.transactionSent'));
+
       // TODO: keep the MessageStatus as contract and use another way.
       transaction.status = MessageStatus.ClaimInProgress;
-    } catch (e) {
-      console.error(e);
-      errorToast($_('toast.errorSendingTransaction'));
-    } finally {
-      loading = false;
-    }
-  }
-
-  // TODO: move outside of component
-  async function releaseTokens(bridgeTx: BridgeTransaction) {
-    try {
-      loading = true;
-      if ($fromChain.id !== bridgeTx.fromChainId) {
-        const chain = chains[bridgeTx.fromChainId];
-        await switchChainAndSetSigner(chain);
-      }
-
-      // confirm after switch chain that it worked.
-      if (!(await isOnCorrectChain($signer, bridgeTx.fromChainId))) {
-        errorToast('You are connected to the wrong chain in your wallet');
-        return;
-      }
-
-      const tx = await bridges[
-        bridgeTx.message?.data === '0x' || !bridgeTx.message?.data
-          ? BridgeType.ETH
-          : BridgeType.ERC20
-      ].releaseTokens({
-        signer: $signer,
-        message: bridgeTx.message,
-        msgHash: bridgeTx.msgHash,
-        destBridgeAddress: chains[bridgeTx.toChainId].bridgeAddress,
-        srcBridgeAddress: chains[bridgeTx.fromChainId].bridgeAddress,
-        destProvider: providers[bridgeTx.toChainId],
-        srcTokenVaultAddress: tokenVaults[bridgeTx.fromChainId],
-      });
-
-      pendingTransactions.add(tx, $signer, () =>
-        successToast('Transaction completed!'),
-      );
-
-      successToast($_('toast.transactionSent'));
     } catch (e) {
       console.error(e);
       errorToast($_('toast.errorSendingTransaction'));
@@ -272,18 +196,19 @@
           <Button
             type="accent"
             size="sm"
-            on:click={onClaimClick}
+            on:click={() => transact(claimToken)}
             disabled={transaction.status === MessageStatus.ClaimInProgress}>
             Claim
           </Button>
         {:else if transaction.status === MessageStatus.Retriable}
-          <Button type="accent" size="sm" on:click={onClaimClick}>Retry</Button>
+          <Button type="accent" size="sm" on:click={() => transact(claimToken)}
+            >Retry</Button>
         {:else if transaction.status === MessageStatus.Failed}
-          <!-- todo: releaseTokens() on src bridge with proof from destBridge-->
+          <!-- todo: releaseToken() on src bridge with proof from destBridge-->
           <Button
             type="accent"
             size="sm"
-            on:click={async () => await releaseTokens(transaction)}>
+            on:click={() => transact(releaseToken)}>
             Release
           </Button>
         {:else if transaction.status === MessageStatus.Done}

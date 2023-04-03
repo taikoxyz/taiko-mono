@@ -55,7 +55,7 @@ export interface Bridge {
   bridge(opts: BridgeOpts): Promise<Transaction>;
   estimateGas(opts: BridgeOpts): Promise<BigNumber>;
   claim(opts: ClaimOpts): Promise<Transaction>;
-  releaseTokens(opts: ReleaseOpts): Promise<Transaction>;
+  releaseToken(opts: ReleaseOpts): Promise<Transaction>;
 }
 
 // TODO: this should not be here

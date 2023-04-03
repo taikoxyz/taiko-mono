@@ -146,7 +146,7 @@ export class ETHBridge implements Bridge {
     }
   }
 
-  async releaseTokens(opts: ReleaseOpts): Promise<Transaction> {
+  async releaseToken(opts: ReleaseOpts): Promise<Transaction> {
     const destBridgeContract: Contract = new Contract(
       opts.destBridgeAddress,
       BridgeABI,

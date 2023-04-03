@@ -1,4 +1,4 @@
-import type { BigNumber, ethers } from 'ethers';
+import type { BigNumber, ethers, Signer, Transaction } from 'ethers';
 import type { ChainID } from './chain';
 import type { Message, MessageStatus } from './message';
 
@@ -34,3 +34,9 @@ export enum ReceiptStatus {
   Failed = 0,
   Successful = 1,
 }
+
+export type TransactFn = (
+  bridgeTx: BridgeTransaction,
+  currentChainId: ChainID,
+  signer: Signer,
+) => Promise<Transaction>;
