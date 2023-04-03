@@ -1,7 +1,7 @@
 <script lang="ts" context="module">
   import { EventEmitter } from 'events';
 
-  const STORAGE_PREFIX = 'custom-tokens';
+  const STORAGE_PREFIX = 'notice-modal';
 
   type OpenArgs = {
     name?: string;
