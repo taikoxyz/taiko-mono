@@ -161,8 +161,11 @@ library LibProving {
                 inputs[4] = uint256(evidence.blockHash);
                 inputs[5] = uint256(evidence.signalRoot);
                 inputs[6] = uint256(evidence.graffiti);
-                inputs[7] = uint160(evidence.prover);
-                inputs[8] = uint256(blk.metaHash);
+                inputs[7] = uint256(blk.metaHash);
+                inputs[8] =
+                    (uint256(uint160(evidence.prover)) << 96) |
+                    (uint256(evidence.gasUsed) << 64) |
+                    uint256(evidence.basefee);
 
                 assembly {
                     instance := keccak256(inputs, mul(32, 9))
