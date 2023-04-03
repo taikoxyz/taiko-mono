@@ -40,6 +40,8 @@ export class RelayerAPIService implements RelayerAPI {
 
     const response = await axios.get<APIResponse>(requestURL, { params });
 
+    // TODO: handle error
+
     return response.data;
   }
 
@@ -182,13 +184,16 @@ export class RelayerAPIService implements RelayerAPI {
 
   async getBlockInfo(): Promise<Map<number, RelayerBlockInfo>> {
     const requestURL = `${this.baseUrl}/blockInfo`;
-    const { data } = await axios.get(requestURL);
-    const blockInfoMap: Map<number, RelayerBlockInfo> = new Map();
-    if (data?.data.length > 0) {
-      data.data.forEach((blockInfoByChain) => {
-        blockInfoMap.set(blockInfoByChain.chainID, blockInfoByChain);
-      });
-    }
+    const { data } = await axios.get<RelayerBlockInfo[]>(requestURL);
+
+    // TODO: handle error
+
+    const blockInfoMap: Map<number, RelayerBlockInfo> = new Map(
+      data?.map((blockInfoByChain) => [
+        blockInfoByChain.ChainID,
+        blockInfoByChain,
+      ]),
+    );
 
     return blockInfoMap;
   }

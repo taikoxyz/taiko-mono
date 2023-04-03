@@ -49,9 +49,9 @@ export type APIResponseTransaction = {
 };
 
 export type RelayerBlockInfo = {
-  chainId: number;
-  latestProcessedBlock: number;
-  latestBlock: number;
+  ChainID: ChainID;
+  LatestProcessedBlock: number;
+  LatestBlock: number;
 };
 
 export type APIRequestParams = {
