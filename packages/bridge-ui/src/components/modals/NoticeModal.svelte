@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { NoticeOpenArgs } from '../../domain/modal';
+  import type { NoticeModalOpen, NoticeOpenArgs } from '../../domain/modal';
   import Button from '../buttons/Button.svelte';
   import Modal from './Modal.svelte';
 
@@ -35,11 +35,17 @@
     onConfirm?.(noShowAgainCheckbox);
   }
 
-  export function open({
+  /**
+   * Expose this method in case we want to open the modal
+   * via API:
+   *    <NoticeModal bind:this={noticeModal} />
+   *    noticeModal.open({ name, title, onConfirm })
+   */
+  export const open: NoticeModalOpen = ({
     name: _name = name,
     title: _title = title,
     onConfirm: _onConfirm = onConfirm,
-  }: NoticeOpenArgs) {
+  }) => {
     // Sets dynamically modal's state
     name = _name;
     title = _title;
@@ -56,7 +62,7 @@
       // Show the modal
       show = true;
     }
-  }
+  };
 
   function onConfirmNotice() {
     if (noShowAgainCheckbox) {
