@@ -38,6 +38,7 @@
   import { ProcessingFeeMethod } from '../../domain/fee';
   import Button from '../buttons/Button.svelte';
   import { storageService } from '../../storage/services';
+  import Loading from '../Loading.svelte';
 
   let amount: string;
   let amountInput: HTMLInputElement;
@@ -458,16 +459,7 @@
 
 {#if loading}
   <Button type="accent" size="lg" class="w-full" disabled={true}>
-    <LottiePlayer
-      src="/lottie/loader.json"
-      autoplay={true}
-      loop={true}
-      controls={false}
-      renderer="svg"
-      background="transparent"
-      height={26}
-      width={26}
-      controlsLayout={[]} />
+    <Loading />
   </Button>
 {:else if !requiresAllowance}
   <Button

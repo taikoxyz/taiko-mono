@@ -16,7 +16,7 @@ export async function releaseToken(
 ) {
   const { fromChainId, toChainId, message, msgHash } = bridgeTx;
 
-  chainCheck(fromChainId, toChainId, currentChainId, signer);
+  chainCheck(currentChainId, toChainId, signer);
 
   const bridgeType =
     message?.data === '0x' || !message?.data

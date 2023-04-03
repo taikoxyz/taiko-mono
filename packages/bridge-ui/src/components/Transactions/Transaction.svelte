@@ -24,7 +24,7 @@
   import { pendingTransactions } from '../../store/transaction';
   import { errorToast, successToast } from '../Toast.svelte';
   import { releaseToken } from '../../utils/releaseToken';
-  import LoadingTransaction from './LoadingTransaction.svelte';
+  import Loading from '../Loading.svelte';
 
   export let transaction: BridgeTransaction;
 
@@ -181,7 +181,7 @@
           Pending
         {:else if (!receipt && status === MessageStatus.New) || loading}
           <div class="inline-block">
-            <LoadingTransaction />
+            <Loading />
           </div>
         {:else if receipt && [MessageStatus.New, MessageStatus.ClaimInProgress].includes(status)}
           <Button
