@@ -1,13 +1,15 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import type { BridgeTransaction, TransactFn } from '../../domain/transaction';
+  import {
+    BridgeTransaction,
+    ReceiptStatus,
+    TransactFn,
+  } from '../../domain/transaction';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
   import { MessageStatus } from '../../domain/message';
   import { ethers } from 'ethers';
   import { _ } from 'svelte-i18n';
   import { onDestroy, onMount } from 'svelte';
-
-  import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
   import BridgeABI from '../../constants/abi/Bridge';
   import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
   import TokenVaultABI from '../../constants/abi/TokenVault';
@@ -19,9 +21,10 @@
   import { claimToken } from '../../utils/claimToken';
   import { fromChain } from '../../store/chain';
   import { signer } from '../../store/signer';
-  import { pendingTransactions } from 'src/store/transaction';
+  import { pendingTransactions } from '../../store/transaction';
   import { errorToast, successToast } from '../Toast.svelte';
   import { releaseToken } from '../../utils/releaseToken';
+  import LoadingTransaction from './LoadingTransaction.svelte';
 
   export let transaction: BridgeTransaction;
 
@@ -32,11 +35,21 @@
     relayerAutoClaim: (informed: boolean) => Promise<void>;
   }>();
 
+  const txToChain = chains[transaction.toChainId];
+  const txFromChain = chains[transaction.fromChainId];
+  const { message, amountInWei, symbol, receipt, status } = transaction;
+  const amount =
+    message && (!message.data || message.data === '0x')
+      ? ethers.utils.formatEther(
+          message?.depositValue.eq(0)
+            ? message?.callValue.toString()
+            : message?.depositValue,
+        )
+      : ethers.utils.formatEther(amountInWei);
+
   let loading: boolean;
-  let processable: boolean = false;
+  let processable: boolean = false; // TODO: ???
   let interval: ReturnType<typeof setInterval>;
-  let txToChain = chains[transaction.toChainId];
-  let txFromChain = chains[transaction.fromChainId];
   // let alreadyInformedAboutClaim = false;
 
   onMount(async () => {
@@ -157,16 +170,8 @@
     <span class="ml-2 hidden md:inline-block">{txToChain.name}</span>
   </td>
   <td>
-    <!-- TODO: function to check is we're dealing with ETH or ERC20? -->
-    {transaction.message &&
-    (transaction.message?.data === '0x' || !transaction.message?.data)
-      ? ethers.utils.formatEther(
-          transaction.message?.depositValue.eq(0)
-            ? transaction.message?.callValue.toString()
-            : transaction.message?.depositValue,
-        )
-      : ethers.utils.formatUnits(transaction.amountInWei)}
-    {transaction.symbol ?? 'ETH'}
+    {amount}
+    {symbol ?? 'ETH'}
   </td>
 
   <td>
@@ -174,35 +179,22 @@
       <span slot="buttonText">
         {#if !processable}
           Pending
-        {:else if (!transaction.receipt && transaction.status === MessageStatus.New) || loading}
+        {:else if (!receipt && status === MessageStatus.New) || loading}
           <div class="inline-block">
-            <LottiePlayer
-              src="/lottie/loader.json"
-              autoplay={true}
-              loop={true}
-              controls={false}
-              renderer="svg"
-              background="transparent"
-              height={26}
-              width={26}
-              controlsLayout={[]} />
+            <LoadingTransaction />
           </div>
-        {:else if transaction.receipt && [MessageStatus.New, MessageStatus.ClaimInProgress].includes(transaction.status)}
-          <!-- 
-            TODO: we need some destructuring here. 
-                  We keep on accessing transaction props
-                  over and over again.
-          -->
+        {:else if receipt && [MessageStatus.New, MessageStatus.ClaimInProgress].includes(status)}
           <Button
             type="accent"
             size="sm"
             on:click={() => transact(claimToken)}
-            disabled={transaction.status === MessageStatus.ClaimInProgress}>
+            disabled={status === MessageStatus.ClaimInProgress}>
             Claim
           </Button>
-        {:else if transaction.status === MessageStatus.Retriable}
-          <Button type="accent" size="sm" on:click={() => transact(claimToken)}
-            >Retry</Button>
+        {:else if status === MessageStatus.Retriable}
+          <Button type="accent" size="sm" on:click={() => transact(claimToken)}>
+            Retry
+          </Button>
         {:else if transaction.status === MessageStatus.Failed}
           <!-- todo: releaseToken() on src bridge with proof from destBridge-->
           <Button
@@ -211,11 +203,11 @@
             on:click={() => transact(releaseToken)}>
             Release
           </Button>
-        {:else if transaction.status === MessageStatus.Done}
+        {:else if status === MessageStatus.Done}
           <span class="border border-transparent p-0">Claimed</span>
-        {:else if transaction.status === MessageStatus.FailedReleased}
+        {:else if status === MessageStatus.FailedReleased}
           <span class="border border-transparent p-0">Released</span>
-        {:else if transaction.receipt && transaction.receipt.status !== 1}
+        {:else if receipt && receipt.status !== ReceiptStatus.Successful}
           <!-- TODO: make sure this is now respecting the correct flow -->
           <span class="border border-transparent p-0">Failed</span>
         {/if}
