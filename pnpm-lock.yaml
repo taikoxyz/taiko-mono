@@ -39,9 +39,6 @@ importers:
       ethers:
         specifier: ^5.7.1
         version: 5.7.2
-      events:
-        specifier: ^3.3.0
-        version: 3.3.0
       identicon.js:
         specifier: ^2.3.3
         version: 2.3.3
