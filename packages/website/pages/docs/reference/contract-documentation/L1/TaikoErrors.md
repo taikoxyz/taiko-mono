@@ -76,6 +76,12 @@ error L1_INVALID_CONFIG()
 error L1_INVALID_EVIDENCE()
 ```
 
+### L1_INVALID_L21559_PARAMS
+
+```solidity
+error L1_INVALID_L21559_PARAMS()
+```
+
 ### L1_INVALID_METADATA
 
 ```solidity

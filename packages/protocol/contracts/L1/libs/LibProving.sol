@@ -144,18 +144,19 @@ library LibProving {
                     false
                 );
 
-                uint256[8] memory inputs;
+                uint256[9] memory inputs;
                 inputs[0] = uint160(l1SignalService);
                 inputs[1] = uint160(l2SignalService);
                 inputs[2] = uint160(taikoL2);
                 inputs[3] = uint256(evidence.parentHash);
                 inputs[4] = uint256(evidence.blockHash);
                 inputs[5] = uint256(evidence.signalRoot);
-                inputs[6] = uint160(evidence.prover);
-                inputs[7] = uint256(blk.metaHash);
+                inputs[6] = uint256(evidence.graffiti);
+                inputs[7] = uint160(evidence.prover);
+                inputs[8] = uint256(blk.metaHash);
 
                 assembly {
-                    instance := keccak256(inputs, mul(32, 8))
+                    instance := keccak256(inputs, mul(32, 9))
                 }
             }
 

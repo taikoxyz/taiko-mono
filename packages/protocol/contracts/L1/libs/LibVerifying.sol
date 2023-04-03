@@ -41,22 +41,20 @@ library LibVerifying {
     ) internal {
         _checkConfig(config);
 
-        {
-            uint64 timeNow = uint64(block.timestamp);
-            state.genesisHeight = timeNow;
-            state.genesisTimestamp = timeNow;
-            state.feeBase = feeBase;
-            state.numBlocks = 1;
+        uint64 timeNow = uint64(block.timestamp);
+        state.genesisHeight = uint64(block.number);
+        state.genesisTimestamp = timeNow;
+        state.feeBase = feeBase;
+        state.numBlocks = 1;
 
-            TaikoData.Block storage blk = state.blocks[0];
-            blk.proposedAt = timeNow;
-            blk.nextForkChoiceId = 2;
-            blk.verifiedForkChoiceId = 1;
+        TaikoData.Block storage blk = state.blocks[0];
+        blk.proposedAt = timeNow;
+        blk.nextForkChoiceId = 2;
+        blk.verifiedForkChoiceId = 1;
 
-            TaikoData.ForkChoice storage fc = state.blocks[0].forkChoices[1];
-            fc.blockHash = l2GenesisBlockHash;
-            fc.provenAt = timeNow;
-        }
+        TaikoData.ForkChoice storage fc = state.blocks[0].forkChoices[1];
+        fc.blockHash = l2GenesisBlockHash;
+        fc.provenAt = timeNow;
 
         if (config.gasIssuedPerSecond != 0) {
             if (
