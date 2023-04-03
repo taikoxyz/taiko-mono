@@ -141,13 +141,13 @@ library TaikoData {
         uint64 numBlocks;
         uint64 lastProposedAt; // Timestamp when the last block is proposed.
         uint64 avgBlockTime; // miliseconds
-        uint64 l2GasExcess;
+        uint64 avgProofTime; // miliseconds
         // Changed when a block is proven/finalized
         uint64 lastVerifiedBlockId;
         uint64 l2Basefee;
+        uint64 l2GasExcess;
         // the proof time moving average, note that for each block, only the
         // first proof's time is considered.
-        uint64 avgProofTime; // miliseconds
         uint64 feeBase;
         // Reserved
         uint256[43] __gap;
