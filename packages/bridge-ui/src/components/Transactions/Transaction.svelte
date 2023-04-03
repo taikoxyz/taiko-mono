@@ -1,9 +1,9 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import {
-    BridgeTransaction,
     ReceiptStatus,
-    TransactFn,
+    type BridgeTransaction,
+    type TransactFn,
   } from '../../domain/transaction';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
   import { MessageStatus } from '../../domain/message';
