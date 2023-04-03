@@ -59,7 +59,10 @@
     if (processingFee && processingFee !== '0' && !alreadyInformedAboutClaim) {
       noticeOpen({
         name: transaction.hash,
-        onConfirm: () => (alreadyInformedAboutClaim = true),
+        onConfirm: async (informed: true) => {
+          alreadyInformedAboutClaim = informed;
+          await claim(transaction);
+        },
       });
     } else {
       await claim(transaction);

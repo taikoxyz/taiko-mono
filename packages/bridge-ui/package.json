@@ -72,6 +72,7 @@
     "axios": "^1.2.0",
     "buffer": "^6.0.3",
     "ethers": "^5.7.1",
+    "events": "^3.3.0",
     "identicon.js": "^2.3.3",
     "svelte-i18n": "^3.5.1",
     "svelte-spa-router": "^3.2.0"

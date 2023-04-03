@@ -65,7 +65,7 @@
     checkLocalStorage(name);
 
     if (noShowAgainStorage) {
-      // We don't show the modal, just to continue by running onConfirm.
+      // We don't show the modal, just continue by running onConfirm.
       closeAndContinue();
     } else {
       // Show the modal
