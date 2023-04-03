@@ -24,6 +24,7 @@
   import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
   import Button from '../buttons/Button.svelte';
   import { switchChainAndSetSigner } from '../../utils/switchChainAndSetSigner';
+  import { noticeOpen } from '../modals/NoticeModal.svelte';
 
   export let transaction: BridgeTransaction;
 
@@ -31,7 +32,6 @@
     tooltipClick: void;
     insufficientBalance: void;
     transactionDetailsClick: BridgeTransaction;
-    relayerAutoClaim: (informed: boolean) => Promise<void>;
   }>();
 
   let loading: boolean;
@@ -57,17 +57,10 @@
     // has already been informed about the relayer auto-claim.
     const processingFee = transaction.message?.processingFee.toString();
     if (processingFee && processingFee !== '0' && !alreadyInformedAboutClaim) {
-      dispatch(
-        'relayerAutoClaim',
-        // TODO: this is a hack. The idea is to move all these
-        //       functions outside of the component, where they
-        //       make more sense. We don't need to repeat the same
-        //       logic per transaction.
-        async (informed) => {
-          alreadyInformedAboutClaim = informed;
-          await claim(transaction);
-        },
-      );
+      noticeOpen({
+        name: transaction.hash,
+        onConfirm: () => (alreadyInformedAboutClaim = true),
+      });
     } else {
       await claim(transaction);
     }

@@ -10,7 +10,6 @@
   let selectedTransaction: BridgeTransaction;
   let showMessageStatusTooltip: boolean;
   let showInsufficientBalance: boolean;
-  let showRelayerAutoclaimTooltip: boolean;
 
   // TODO: temporary hack until we move the claim and release functions
   //       outside of the Transaction component.
@@ -34,12 +33,6 @@
           <Transaction
             on:tooltipClick={() => (showMessageStatusTooltip = true)}
             on:insufficientBalance={() => (showInsufficientBalance = true)}
-            on:relayerAutoClaim={({ detail }) => {
-              // We're passing the claiming of the transaction here, which
-              // will be called after confirming the notice.
-              confirmNotice = detail;
-              showRelayerAutoclaimTooltip = true;
-            }}
             on:transactionDetailsClick={() => {
               selectedTransaction = transaction;
             }}
@@ -61,10 +54,7 @@
 
   <InsufficientBalanceTooltip bind:show={showInsufficientBalance} />
 
-  <NoticeModal
-    bind:show={showRelayerAutoclaimTooltip}
-    onConfirm={confirmNotice}
-    name="RelayerAutoclaim">
+  <NoticeModal>
     <!-- TODO: translations? -->
     <div class="text-center">
       When bridging, you selected the <strong>Recommended</strong> or
