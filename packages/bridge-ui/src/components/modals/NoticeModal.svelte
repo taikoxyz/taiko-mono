@@ -1,6 +1,8 @@
 <script lang="ts" context="module">
   import { EventEmitter } from 'events';
 
+  const STORAGE_PREFIX = 'custom-tokens';
+
   type OpenArgs = {
     name?: string;
     title?: string;
@@ -17,7 +19,6 @@
 
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  import { localStoragePrefix } from '../../config';
   import Button from '../buttons/Button.svelte';
   import Modal from './Modal.svelte';
 
@@ -26,7 +27,7 @@
   export let title = 'Notice';
   export let onConfirm: (noShowAgain: boolean) => void = null;
 
-  let noShowAgainLocalStorageKey = `${localStoragePrefix}_${name}_noShowAgain`;
+  let noShowAgainLocalStorageKey = `${STORAGE_PREFIX}-${name}-noShowAgain`;
   let noShowAgainStorage = false;
   let noShowAgainCheckbox = false;
 
@@ -35,7 +36,7 @@
    * based on a namespace, which by default is the name of the modal.
    */
   function checkLocalStorage(ns: string = name) {
-    noShowAgainLocalStorageKey = `${localStoragePrefix}_${ns}_noShowAgain`;
+    noShowAgainLocalStorageKey = `${STORAGE_PREFIX}-${ns}-noShowAgain`;
 
     noShowAgainStorage = Boolean(
       localStorage.getItem(noShowAgainLocalStorageKey),
