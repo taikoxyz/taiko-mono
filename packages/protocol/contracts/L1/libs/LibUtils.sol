@@ -8,7 +8,6 @@ pragma solidity ^0.8.18;
 
 import {LibMath} from "../../libs/LibMath.sol";
 import {LibL1Tokenomics} from "./LibL1Tokenomics.sol";
-// import {LibL2Tokenomics} from "./LibL2Tokenomics.sol";
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
@@ -42,7 +41,9 @@ library LibUtils {
                 lastProposedAt: state.lastProposedAt,
                 avgBlockTime: state.avgBlockTime,
                 lastVerifiedBlockId: state.lastVerifiedBlockId,
-                avgProofTime: state.avgProofTime
+                avgProofTime: state.avgProofTime,
+                l2Basefee: state.l2Basefee,
+                l2GasExcess: state.l2GasExcess
             });
     }
 
