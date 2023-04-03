@@ -237,8 +237,8 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
                 : bytes32(0);
     }
 
-    function getL2Basefee() public view returns (uint64 basefee) {
-        (basefee, ) = LibL2Tokenomics.getL2Basefee(state, getConfig(), 0);
+    function getL2Basefee(uint64 gasUsed) public view returns (uint64 basefee) {
+        (basefee, ) = LibL2Tokenomics.getL2Basefee(state, getConfig(), gasUsed);
     }
 
     function getStateVariables()

@@ -26,7 +26,7 @@ library LibL2Tokenomics {
     function getL2Basefee(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        uint32 gasUsed
+        uint64 gasUsed
     ) internal view returns (uint64 basefee, uint64 newGasExcess) {
         if (config.gasIssuedPerSecond == 0) {
             // L2 1559 disabled
