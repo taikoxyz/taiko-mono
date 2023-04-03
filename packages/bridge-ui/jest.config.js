@@ -38,7 +38,7 @@ export default {
     'json',
   ],
   coverageThreshold: {
-    // TODO: bring this coverage back up. Ideally 90%
+    // TODO: bring this coverage back up in the next PR. Ideally 90%
     global: {
       statements: 81,
       branches: 64,
