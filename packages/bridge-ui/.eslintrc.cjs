@@ -82,7 +82,8 @@ module.exports = {
       files: ['*.spec.ts'],
       plugins: ['jest'],
       rules: {
-        // We might want to be able to use `var` in tests so the mocks can be hoisted.
+        // We might want to be able to use `var` in tests so
+        // the defined mocks can be hoisted.
         'no-var': 'off',
         '@typescript-eslint/no-explicit-any': 'off',
         '@typescript-eslint/no-empty-function': 'off',
