@@ -93,25 +93,8 @@
   onDestroy(() => {
     emitter.off('open', onOpen);
   });
-
-  // It could happen that the modal is being opened via prop, but the user
-  // already opted out of seeing the message (we have localStorage set).
-  // In that case, we still want to run the onConfirm callback, which contains
-  // the next steps in the flow, also setting the prop back to false
-  // (could be bound to the parent)
-  // TODO: use promises here. API to open the modal should return a promise
-  //       which resolves when the user clicks on confirm. If noShowAgain is set
-  //       to true, the promise should resolve immediately.
-  // $: if (show && noShowAgainStorage) {
-  //   closeAndContinue();
-  // }
 </script>
 
-<!-- 
-  TODO: we might want noShowAgainStorage to be dynamic, otherwise
-        the user will have to refresh the page to see the message again
-        if they delete the localStorage entry.
--->
 <Modal {title} isOpen={show && !noShowAgainStorage} showXButton={false}>
   <div
     class="
