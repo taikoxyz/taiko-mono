@@ -157,11 +157,11 @@ library LibProving {
                 inputs[0] = uint160(l1SignalService);
                 inputs[1] = uint160(l2SignalService);
                 inputs[2] = uint160(taikoL2);
-                inputs[3] = uint256(evidence.parentHash);
-                inputs[4] = uint256(evidence.blockHash);
-                inputs[5] = uint256(evidence.signalRoot);
-                inputs[6] = uint256(evidence.graffiti);
-                inputs[7] = uint256(blk.metaHash);
+                inputs[3] = uint256(blk.metaHash);
+                inputs[4] = uint256(evidence.parentHash);
+                inputs[5] = uint256(evidence.blockHash);
+                inputs[6] = uint256(evidence.signalRoot);
+                inputs[7] = uint256(evidence.graffiti);
                 inputs[8] =
                     (uint256(uint160(evidence.prover)) << 96) |
                     (uint256(evidence.gasUsed) << 64) |
