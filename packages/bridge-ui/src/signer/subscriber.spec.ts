@@ -23,20 +23,22 @@ const txsFromAPI = [
   { hash: '0x789' },
 ] as BridgeTransaction[];
 
-const txsFromStorage = [{ hash: '0x123' }, { hash: '0x456' }] as Transaction[];
+const txsFromStorage = [
+  { hash: '0x123' },
+  { hash: '0x456' },
+] as BridgeTransaction[];
 
 const tokens = [{}, {}] as Token[];
 
+// TODO: we might want to put the mocks under __mocks__
 beforeAll(() => {
-  (relayerApi.getAllBridgeTransactionByAddress as jest.Mock).mockResolvedValue(
-    txsFromAPI,
-  );
+  jest
+    .mocked(relayerApi)
+    .getAllBridgeTransactionByAddress.mockResolvedValue(txsFromAPI);
 
-  (storageService.getAllByAddress as jest.Mock).mockResolvedValue(
-    txsFromStorage,
-  );
+  jest.mocked(storageService).getAllByAddress.mockResolvedValue(txsFromStorage);
 
-  (tokenService.getTokens as jest.Mock).mockReturnValue(tokens);
+  jest.mocked(tokenService).getTokens.mockReturnValue(tokens);
 });
 
 describe('subscribeToSigner', () => {
