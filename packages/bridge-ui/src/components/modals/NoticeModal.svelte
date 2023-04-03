@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { NoticeModalOpen, NoticeOpenArgs } from '../../domain/modal';
+  import type { NoticeModalOpenMethod } from '../../domain/modal';
   import Button from '../buttons/Button.svelte';
   import Modal from './Modal.svelte';
 
@@ -41,7 +41,7 @@
    *    <NoticeModal bind:this={noticeModal} />
    *    noticeModal.open({ name, title, onConfirm })
    */
-  export const open: NoticeModalOpen = ({
+  export const open: NoticeModalOpenMethod = ({
     name: _name = name,
     title: _title = title,
     onConfirm: _onConfirm = onConfirm,

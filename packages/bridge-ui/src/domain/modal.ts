@@ -4,4 +4,4 @@ export type NoticeOpenArgs = {
   onConfirm?: (informed: boolean) => void;
 };
 
-export type NoticeModalOpen = (args: NoticeOpenArgs) => void;
+export type NoticeModalOpenMethod = (args: NoticeOpenArgs) => void;
