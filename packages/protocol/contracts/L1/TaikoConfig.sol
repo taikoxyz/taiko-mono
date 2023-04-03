@@ -46,10 +46,8 @@ library TaikoConfig {
                 enableOracleProver: true,
                 enableTokenomics: true,
                 skipZKPVerification: false,
-                proposingConfig: TaikoData.FeeConfig({
-                    avgTimeMAF: 1024,
-                    dampingFactorBips: 2500 // [125% -> 75%]
-                }),
+                allowMinting: true,
+                useTimeWeightedReward: false,
                 provingConfig: TaikoData.FeeConfig({
                     avgTimeMAF: 1024,
                     dampingFactorBips: 2500 // [75% -> 125%]

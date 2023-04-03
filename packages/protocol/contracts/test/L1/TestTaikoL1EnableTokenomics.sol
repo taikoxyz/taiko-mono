@@ -36,11 +36,6 @@ contract TestTaikoL1EnableTokenomics is TaikoL1 {
         config.enableTokenomics = true;
         config.skipZKPVerification = true;
 
-        config.proposingConfig = TaikoData.FeeConfig({
-            avgTimeMAF: 64,
-            dampingFactorBips: 5000
-        });
-
         config.provingConfig = TaikoData.FeeConfig({
             avgTimeMAF: 64,
             dampingFactorBips: 5000

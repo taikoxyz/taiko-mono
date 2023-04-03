@@ -129,16 +129,21 @@ library LibVerifying {
                 uint256 proofTimeIssued,
                 uint256 newBaseFeeProof
             ) = LibL1Tokenomics.calculateBaseProof(
-                    state.proofTimeIssued,
-                    state.baseFeeProof,
-                    config.proofTimeTarget,
+                    state,
+                    config,
                     uint64(proofTime),
-                    blk.gasConsumed,
-                    config.adjustmentQuotient
+                    blk.gasConsumed
                 );
 
             state.baseFeeProof = newBaseFeeProof;
             state.proofTimeIssued = proofTimeIssued;
+
+            if (!config.allowMinting) {
+                state.proofFeeTreasury -= reward;
+                if (config.useTimeWeightedReward) {
+                    state.accProposalTime -= blk.proposedAt;
+                }
+            }
 
             // reward the prover
             _addToBalance(state, fc.prover, reward);
@@ -192,7 +197,6 @@ library LibVerifying {
             config.rewardBurnBips >= 10000
         ) revert L1_INVALID_CONFIG();
 
-        _checkFeeConfig(config.proposingConfig);
         _checkFeeConfig(config.provingConfig);
     }
 

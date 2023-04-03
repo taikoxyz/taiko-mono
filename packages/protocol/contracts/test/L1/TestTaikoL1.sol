@@ -34,11 +34,6 @@ contract TestTaikoL1 is TaikoL1 {
         config.skipZKPVerification = true;
         config.feeBaseMAF = 1024;
 
-        config.proposingConfig = TaikoData.FeeConfig({
-            avgTimeMAF: 64,
-            dampingFactorBips: 5000
-        });
-
         config.provingConfig = TaikoData.FeeConfig({
             avgTimeMAF: 64,
             dampingFactorBips: 5000

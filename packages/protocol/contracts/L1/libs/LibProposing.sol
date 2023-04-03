@@ -121,6 +121,12 @@ library LibProposing {
 
             unchecked {
                 state.balances[msg.sender] -= fee;
+                if (!config.allowMinting) {
+                    state.proofFeeTreasury += fee;
+                    if (config.useTimeWeightedReward) {
+                        state.accProposalTime += meta.timestamp;
+                    }
+                }
             }
         }
 

@@ -33,11 +33,6 @@ contract TaikoL1WithConfig is TaikoL1 {
         // this value must be changed if `maxNumProposedBlocks` is changed.
         config.slotSmoothingFactor = 4160;
 
-        config.proposingConfig = TaikoData.FeeConfig({
-            avgTimeMAF: 1024,
-            dampingFactorBips: 5000
-        });
-
         config.provingConfig = TaikoData.FeeConfig({
             avgTimeMAF: 1024,
             dampingFactorBips: 5000

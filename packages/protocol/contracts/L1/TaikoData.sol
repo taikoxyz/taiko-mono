@@ -38,7 +38,8 @@ library TaikoData {
         bool enableOracleProver;
         bool enableTokenomics;
         bool skipZKPVerification;
-        FeeConfig proposingConfig;
+        bool allowMinting;
+        bool useTimeWeightedReward;
         FeeConfig provingConfig;
     }
 
@@ -135,11 +136,14 @@ library TaikoData {
         uint256 proofTimeIssued;
         // Changing baseFee for proving - changed in verifyBlock()
         uint256 baseFeeProof;
+        // Changing accumulated time for proposing - changed in proposeBlock() and in verifyBlock()
+        uint256 accProposalTime;
+        // Treasury amount - changed in proposeBlock() and in verifyBlock()
+        uint256 proofFeeTreasury;
         // Never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 __reserved1;
-        uint64 __reserved2;
         // Changed when a block is proposed or proven/finalized
         // Changed when a block is proposed
         uint64 numBlocks;
@@ -148,7 +152,6 @@ library TaikoData {
         uint64 gasAccumulated;
         // Changed when a block is proven/finalized
         uint64 lastVerifiedBlockId;
-        uint64 __reserved4;
         // the proof time moving average, note that for each block, only the
         // first proof's time is considered.
         uint64 avgProofTime; // miliseconds

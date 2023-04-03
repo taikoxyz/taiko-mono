@@ -77,55 +77,62 @@ library LibL1Tokenomics {
         uint32 usedGas
     ) internal view returns (uint256 newFeeBase, uint256 reward) {
         (reward, , newFeeBase) = calculateBaseProof(
-            state.proofTimeIssued,
-            state.baseFeeProof,
-            config.proofTimeTarget,
+            state,
+            config,
             (provenAt - proposedAt),
-            usedGas,
-            config.adjustmentQuotient
+            usedGas
         );
     }
 
     /// @notice Update the baseFee for proofs
-    /// @param cumulativeProofTime - Current proof time issued
-    /// @param prevBaseFeeProof - Previous fee base proof
-    /// @param proofTimeTarget - Proof time target
+    /// @param state - The actual state data
+    /// @param config - Config data
     /// @param actProofTime - The actual proof time
     /// @param usedGas - Gas in the block
-    /// @param quotient - Adjustmnet quotient
     function calculateBaseProof(
-        uint256 cumulativeProofTime,
-        uint256 prevBaseFeeProof,
-        uint64 proofTimeTarget,
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
         uint64 actProofTime,
-        uint32 usedGas,
-        uint8 quotient
+        uint32 usedGas
     )
         internal
-        pure
+        view
         returns (
             uint256 reward,
             uint256 newProofTimeIssued,
             uint256 newBaseFeeProof
         )
     {
+        uint256 proofTime = state.proofTimeIssued;
         // To protect underflow
-        cumulativeProofTime = (cumulativeProofTime > proofTimeTarget)
-            ? cumulativeProofTime - proofTimeTarget
+        proofTime = (proofTime > config.proofTimeTarget)
+            ? proofTime - config.proofTimeTarget
             : uint256(0);
 
-        cumulativeProofTime += actProofTime;
+        proofTime += actProofTime;
 
         newBaseFeeProof = baseFee(
-            cumulativeProofTime,
-            proofTimeTarget,
-            quotient
+            proofTime,
+            config.proofTimeTarget,
+            config.adjustmentQuotient
         );
 
-        reward = ((prevBaseFeeProof * usedGas * actProofTime) /
-            (proofTimeTarget * SCALING_FROM_18_TO_TKO_DEC));
+        if (config.allowMinting) {
+            reward = ((state.baseFeeProof * usedGas * actProofTime) /
+                (config.proofTimeTarget * SCALING_FROM_18_TO_TKO_DEC));
+        } else {
+            if (config.useTimeWeightedReward) {
+                reward = (state.proofFeeTreasury *
+                    (actProofTime /
+                        (((state.numBlocks - state.lastVerifiedBlockId) *
+                            block.timestamp) - state.accProposalTime)));
+            } else {
+                reward = (state.proofFeeTreasury /
+                    (state.numBlocks - state.lastVerifiedBlockId));
+            }
+        }
 
-        newProofTimeIssued = cumulativeProofTime;
+        newProofTimeIssued = proofTime;
     }
 
     /// @notice Calculating the exponential smoothened with (target/quotient)
