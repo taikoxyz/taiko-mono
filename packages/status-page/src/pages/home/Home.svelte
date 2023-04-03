@@ -4,7 +4,7 @@
   import StatusIndicator from "../../components/StatusIndicator.svelte";
   import { watchHeaderSynced } from "../../utils/watchHeaderSynced";
   import { getPendingTransactions } from "../../utils/getPendingTransactions";
-  import { getBlockFee } from "../../utils/getBlockFee";
+  import { getProverFee } from "../../utils/getProverFee";
   import { getAvailableSlots } from "../../utils/getAvailableSlots";
   import { getPendingBlocks } from "../../utils/getPendingBlocks";
   import { getLastVerifiedBlockId } from "../../utils/getLastVerifiedBlockId";
@@ -165,7 +165,7 @@
   onMount(async () => {
     try {
       statusIndicators.push({
-        statusFunc: getBlockFee,
+        statusFunc: getProverFee,
         watchStatusFunc: null,
         provider: l1Provider,
         contractAddress: l1TaikoAddress,

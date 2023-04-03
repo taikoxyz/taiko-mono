@@ -43,10 +43,10 @@ describe("tokenomics: blockFee", function () {
 
     afterEach(() => clearInterval(interval));
 
-    it("expects getBlockFee to return the initial feeBase at time of contract deployment", async function () {
+    it("expects getProverFee to return the initial feeBase at time of contract deployment", async function () {
         // deploy a new instance of TaikoL1 so no blocks have passed.
         const tL1 = await deployTaikoL1(l1AddressManager, genesisHash, true);
-        const blockFee = await tL1.getBlockFee();
+        const blockFee = await tL1.getProverFee();
         expect(blockFee).to.be.eq(0);
     });
 
@@ -64,7 +64,7 @@ describe("tokenomics: blockFee", function () {
 
             // we want to wait for enough blocks until the blockFee is no longer 0, then run our
             // tests.
-            while ((await taikoL1.getBlockFee()).eq(0)) {
+            while ((await taikoL1.getProverFee()).eq(0)) {
                 await sleep(500);
             }
 

@@ -38,7 +38,7 @@ async function onNewL2Block(
         ? await taikoTokenL1.balanceOf(await proposerSigner.getAddress())
         : BigNumber.from(0);
 
-    const newBlockFee = await taikoL1.getBlockFee();
+    const newBlockFee = await taikoL1.getProverFee();
 
     console.log("-------------------proposed----------", id);
 

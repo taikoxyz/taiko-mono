@@ -43,8 +43,8 @@ library TaikoData {
     }
 
     struct StateVariables {
+        uint256 baseFeeProof;
         uint64 feeBase;
-        uint64 baseFeeProof;
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 numBlocks;
@@ -134,7 +134,7 @@ library TaikoData {
         // Cummulated proofTime for reward calculation - changed in verifyBlock()
         uint256 proofTimeIssued;
         // Changing baseFee for proving - changed in verifyBlock()
-        uint64 baseFeeProof;
+        uint256 baseFeeProof;
         // Never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;

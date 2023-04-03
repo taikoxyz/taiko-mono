@@ -40,7 +40,7 @@ library LibVerifying {
         state.genesisHeight = timeNow;
         state.genesisTimestamp = timeNow;
         state.feeBase = feeBase;
-        state.baseFeeProof = 1; // Symbolic fee (TKO) for 1st proposal
+        state.baseFeeProof = 1e10; // Symbolic fee (TKO) for 1st proposal
         state.numBlocks = 1;
         state.gasAccumulated = gasAccumulated;
 
@@ -127,9 +127,10 @@ library LibVerifying {
             (
                 uint256 reward,
                 uint256 proofTimeIssued,
-                uint64 newBaseFeeProof
+                uint256 newBaseFeeProof
             ) = LibL1Tokenomics.calculateBaseProof(
                     state.proofTimeIssued,
+                    state.baseFeeProof,
                     config.proofTimeTarget,
                     uint64(proofTime),
                     blk.gasConsumed,

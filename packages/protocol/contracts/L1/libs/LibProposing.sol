@@ -111,7 +111,7 @@ library LibProposing {
         blk.gasConsumed = input.gasLimit;
 
         if (config.enableTokenomics) {
-            (, uint256 fee) = LibL1Tokenomics.getBlockFee(
+            (, uint256 fee) = LibL1Tokenomics.getProverFee(
                 state,
                 input.gasLimit
             );
@@ -127,6 +127,7 @@ library LibProposing {
         emit BlockProposed(state.numBlocks, meta, cacheTxList);
         unchecked {
             ++state.numBlocks;
+            state.lastProposedAt = meta.timestamp;
         }
     }
 
