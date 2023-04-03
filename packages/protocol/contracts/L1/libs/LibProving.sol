@@ -100,11 +100,13 @@ library LibProving {
                 oracleProving = true;
                 // we are reusing storage slots, still need to reset the
                 // [provenAt+prover] slot.
-                fc.provenAt = uint64(1);
                 fc.prover = address(0);
+                fc.gasUsed = 0;
+                fc.provenAt = uint64(1);
             } else {
-                fc.provenAt = uint64(block.timestamp);
                 fc.prover = evidence.prover;
+                fc.gasUsed = evidence.gasUsed;
+                fc.provenAt = uint64(block.timestamp);
             }
         } else {
             assert(fcId < blk.nextForkChoiceId);
@@ -127,8 +129,9 @@ library LibProving {
 
             if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
 
-            fc.provenAt = uint64(block.timestamp);
             fc.prover = evidence.prover;
+            fc.gasUsed = evidence.gasUsed;
+            fc.provenAt = uint64(block.timestamp);
         }
 
         if (!oracleProving && !config.skipZKPVerification) {

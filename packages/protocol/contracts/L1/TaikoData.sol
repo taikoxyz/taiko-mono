@@ -48,8 +48,6 @@ library TaikoData {
         uint64 avgBlockTime;
         uint64 avgProofTime;
         uint64 lastProposedAt;
-        uint64 l2Basefee; // L2 1559
-        uint64 l2GasExcess; // L2 1559
     }
 
     // 3 slots
@@ -68,7 +66,6 @@ library TaikoData {
         uint64 id;
         uint64 timestamp;
         uint64 l1Height;
-        uint64 l2Basefee;
         bytes32 l1Hash;
         bytes32 mixHash;
         bytes32 txListHash;
@@ -100,8 +97,9 @@ library TaikoData {
     struct ForkChoice {
         bytes32 blockHash;
         bytes32 signalRoot;
-        uint64 provenAt;
         address prover;
+        uint32 gasUsed;
+        uint64 provenAt;
     }
 
     // 4 slots
@@ -144,7 +142,7 @@ library TaikoData {
         uint64 l2GasExcess;
         // Changed when a block is proven/finalized
         uint64 lastVerifiedBlockId;
-        uint64 __reserved4;
+        uint64 l2Basefee;
         // the proof time moving average, note that for each block, only the
         // first proof's time is considered.
         uint64 avgProofTime; // miliseconds

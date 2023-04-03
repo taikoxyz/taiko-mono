@@ -93,9 +93,9 @@ library LibVerifying {
         bytes32 blockHash = blk.forkChoices[fcId].blockHash;
         assert(blockHash != bytes32(0));
 
+        uint32 basefee;
         bytes32 signalRoot;
         uint64 processed;
-        uint32 basefee; // 1559 basefee
         unchecked {
             ++i;
         }
@@ -103,7 +103,17 @@ library LibVerifying {
         while (i < state.numBlocks && processed < maxBlocks) {
             blk = state.blocks[i % config.ringBufferSize];
 
-            fcId = state.forkChoiceIds[i][blockHash][basefee];
+            // Calculate L2 EIP-1559 basefee per gas
+            //
+            // Note that we do not charge basefee * gaslimit on L1 as we do not
+            // know the actual gas used in the L2 block. If we charge the proposer
+            // here, the proposer may suffer a loss depends on how many enclosed
+            // transactions become invalid and are filtered out.
+            //
+            // On L2, EIP-1559's basefee will not be burned but send to a Taiko
+            // treasure address.
+
+            fcId = state.forkChoiceIds[i][blockHash][state.l2Basefee];
             if (fcId == 0) break;
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
@@ -118,6 +128,15 @@ library LibVerifying {
             });
 
             assert(blockHash != bytes32(0));
+
+            if (config.gasIssuedPerSecond != 0) {
+                (state.l2Basefee, state.l2GasExcess) = LibL2Tokenomics
+                    .getL2Basefee({
+                        state: state,
+                        config: config,
+                        gasUsed: fc.gasUsed
+                    });
+            }
 
             emit BlockVerified(i, blockHash);
 

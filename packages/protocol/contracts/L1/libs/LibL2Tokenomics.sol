@@ -26,7 +26,7 @@ library LibL2Tokenomics {
     function getL2Basefee(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        uint32 gasLimit
+        uint32 gasUsed
     ) internal view returns (uint64 basefee, uint64 newGasExcess) {
         if (config.gasIssuedPerSecond == 0) {
             // L2 1559 disabled
@@ -36,14 +36,16 @@ library LibL2Tokenomics {
         unchecked {
             uint256 reduced = (block.timestamp - state.lastProposedAt) *
                 config.gasIssuedPerSecond;
-            newGasExcess = uint64(reduced.max(state.l2GasExcess) - reduced);
+            newGasExcess = uint64(
+                reduced.max(state.l2GasExcess + gasUsed) - reduced
+            );
         }
 
         uint256 _basefee = calcL2Basefee({
             l2GasExcess: newGasExcess,
             xscale: state.l2Xscale,
             yscale: uint256(state.l2Yscale) << 64,
-            gasAmount: gasLimit
+            gasAmount: 1
         }).toUint64();
 
         if (_basefee >= type(uint64).max) {
@@ -52,7 +54,6 @@ library LibL2Tokenomics {
         }
 
         basefee = uint64(_basefee);
-        newGasExcess += gasLimit;
     }
 
     function calcL2BasefeeParams(

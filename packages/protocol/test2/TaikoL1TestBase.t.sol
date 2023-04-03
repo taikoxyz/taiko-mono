@@ -115,7 +115,6 @@ abstract contract TaikoL1TestBase is Test {
         meta.id = variables.numBlocks;
         meta.timestamp = uint64(block.timestamp);
         meta.l1Height = uint64(block.number - 1);
-        meta.l2Basefee = 0;
         meta.l1Hash = blockhash(block.number - 1);
         meta.mixHash = bytes32(_mixHash);
         meta.txListHash = keccak256(txList);
