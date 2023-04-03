@@ -8,6 +8,7 @@ import { tokenVaults } from '../vault/tokenVaults';
 import { bridges } from '../bridge/bridges';
 import { chainCheck } from './chainCheck';
 
+// TODO: explain and unit test
 export async function releaseTokens(
   bridgeTx: BridgeTransaction,
   currentChainId: ChainID,

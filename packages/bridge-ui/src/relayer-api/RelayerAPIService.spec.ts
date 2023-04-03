@@ -2,16 +2,31 @@ import axios from 'axios';
 import { providers } from '../provider/providers';
 import { RELAYER_URL } from '../constants/envVars';
 import { RelayerAPIService } from './RelayerAPIService';
-import type { BridgeTransaction } from '../domain/transaction';
-import type { RelayerBlockInfo } from '../domain/relayerApi';
+import type {
+  APIResponse,
+  RelayerBlockInfo,
+  TransactionData,
+} from '../domain/relayerApi';
 
 jest.mock('../constants/envVars');
 jest.mock('axios');
 
-const txsFromAPI = [
-  { hash: '0x456' },
-  { hash: '0x789' },
-] as BridgeTransaction[];
+const data1 = {
+  Message: {},
+  Raw: {},
+} as TransactionData;
+
+const data2 = {
+  Message: {},
+  Raw: {},
+} as TransactionData;
+
+const dataFromAPI = {
+  items: [
+    { id: 1, data: data1 },
+    { id: 2, data: data2 },
+  ],
+} as APIResponse;
 
 const blockInfoFromAPI = [
   {
@@ -32,10 +47,10 @@ const relayerApi = new RelayerAPIService(RELAYER_URL, providers);
 describe('RelayerAPIService', () => {
   it('should get transactions from API', async () => {
     axios.get = jest.fn().mockResolvedValue({
-      data: txsFromAPI,
+      data: dataFromAPI,
     });
 
-    const txs = await relayerApi.getTransactionsFromAPI({
+    const data = await relayerApi.getTransactionsFromAPI({
       address: '0x123',
       chainID: 1,
     });
@@ -46,17 +61,21 @@ describe('RelayerAPIService', () => {
     });
 
     // Test return value
-    expect(txs).toEqual(txsFromAPI);
+    expect(data).toEqual(dataFromAPI);
   });
 
+  // TODO: Finish this test
   // it('should get all bridge transaction by address', async () => {
-  //   const txs = await relayerApi.getAllBridgeTransactionByAddress('0x123');
-
-  //   expect(axios.get).toHaveBeenCalledWith(`${baseUrl}/events`, {
-  //     params: { address: '0x123' },
+  //   axios.get = jest.fn().mockResolvedValue({
+  //     data: dataFromAPI,
   //   });
 
-  //   expect(txs).toEqual(txsFromAPI);
+  //   const data = await relayerApi.getAllBridgeTransactionByAddress('0x123', 1);
+
+  //   // Test parameters
+  //   expect(axios.get).toHaveBeenCalledWith(`${baseUrl}/events`, {
+  //     params: { address: '0x123', chainID: 1, event: 'MessageSent' },
+  //   });
   // });
 
   it('should get block info', async () => {
