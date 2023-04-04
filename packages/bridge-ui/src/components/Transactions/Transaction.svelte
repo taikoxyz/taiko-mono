@@ -53,18 +53,18 @@
     }
   });
 
+  async function onConfirm(informed: true) {
+    alreadyInformedAboutClaim = informed;
+    await claim(transaction);
+  }
+
   async function onClaimClick() {
     // Has the user sent processing fees?. We also check if the user
     // has already been informed about the relayer auto-claim.
     const processingFee = transaction.message?.processingFee.toString();
     if (processingFee && processingFee !== '0' && !alreadyInformedAboutClaim) {
-      dispatch('claimNotice', {
-        name: transaction.hash,
-        onConfirm: async (informed: true) => {
-          alreadyInformedAboutClaim = informed;
-          await claim(transaction);
-        },
-      });
+      const name = transaction.hash;
+      dispatch('claimNotice', { name, onConfirm });
     } else {
       await claim(transaction);
     }
