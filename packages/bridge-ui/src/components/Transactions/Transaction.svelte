@@ -59,7 +59,6 @@
   function onConfirm(informed: true) {
     alreadyInformedAboutClaim = informed;
     return transact(claimToken);
-    // await claim(transaction);
   }
 
   function onClaim() {
