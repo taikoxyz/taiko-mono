@@ -150,27 +150,35 @@ contract TestTaikoL2 is Test {
         assertEq(_getBasefeeAndPrint(100, 10000000), 59644805);
     }
 
-
-    function _getBasefeeAndPrint( uint32 timeSinceNow,
-        uint64 gasLimit) private returns (uint64 _basefee) {
-
-
-
-      uint256 timeSinceParent=  timeSinceNow + block.timestamp - L2.parentTimestamp();
-      uint256 gasIssued = L2.gasIssuedPerSecond() * timeSinceParent;
-        string memory msg = string.concat("#",
+    function _getBasefeeAndPrint(
+        uint32 timeSinceNow,
+        uint64 gasLimit
+    ) private returns (uint64 _basefee) {
+        uint256 timeSinceParent = timeSinceNow +
+            block.timestamp -
+            L2.parentTimestamp();
+        uint256 gasIssued = L2.gasIssuedPerSecond() * timeSinceParent;
+        string memory msg = string.concat(
+            "#",
             Strings.toString(logIndex++),
-            ": gasExcess=", Strings.toString(L2.gasExcess()),
-            ", timeSinceParent=", Strings.toString(timeSinceParent),
-            ", gasIssued=", Strings.toString(gasIssued),
-            ", gasLimit=", Strings.toString(gasLimit)
-            );
+            ": gasExcess=",
+            Strings.toString(L2.gasExcess()),
+            ", timeSinceParent=",
+            Strings.toString(timeSinceParent),
+            ", gasIssued=",
+            Strings.toString(gasIssued),
+            ", gasLimit=",
+            Strings.toString(gasLimit)
+        );
         _basefee = L2.getBasefee(timeSinceNow, gasLimit);
 
-        msg = string.concat(msg,
-", gasExcess(changed)=", Strings.toString(L2.gasExcess()),
-", basefee=", Strings.toString(_basefee)
-            );
+        msg = string.concat(
+            msg,
+            ", gasExcess(changed)=",
+            Strings.toString(L2.gasExcess()),
+            ", basefee=",
+            Strings.toString(_basefee)
+        );
 
         console2.log(msg);
     }
