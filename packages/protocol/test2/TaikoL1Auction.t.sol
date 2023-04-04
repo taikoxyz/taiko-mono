@@ -107,9 +107,12 @@ contract TaikoL1AuctionTest is TaikoL1TestBase {
     function test_is_auction_open_returns_true_if_bid_but_auction_length_hasnt_passed()
         external
     {
+        _dealTaikoToken(Alice, 1E6 * 1E8);
+        _approveTaikoToken(Alice, address(L1), 1E6 * 1E8);
         uint256 batchId = 1;
         uint256 minFeePerGas = 1;
-        bidForBatch(Alice, minFeePerGas, batchId);
+        uint256 deposit = 1;
+        bidForBatch(Alice, minFeePerGas, deposit, batchId);
         vm.warp(block.timestamp - conf.auctionLengthInSeconds + 1);
         assertEq(L1.isAuctionOpen(batchId), true);
     }
@@ -117,9 +120,13 @@ contract TaikoL1AuctionTest is TaikoL1TestBase {
     function test_is_auction_open_returns_false_if_bid_but_auction_length_has_passed()
         external
     {
+        _dealTaikoToken(Alice, 1E6 * 1E8);
+        _approveTaikoToken(Alice, address(L1), 1E6 * 1E8);
+
         uint256 batchId = 1;
         uint256 minFeePerGas = 1;
-        bidForBatch(Alice, minFeePerGas, batchId);
+        uint256 deposit = 1;
+        bidForBatch(Alice, minFeePerGas, deposit, batchId);
         vm.warp(block.timestamp + conf.auctionLengthInSeconds + 1);
         assertEq(L1.isAuctionOpen(batchId), false);
     }
@@ -135,43 +142,60 @@ contract TaikoL1AuctionTest is TaikoL1TestBase {
     }
 
     function test_get_current_winning_bid_for_batch_existing_bid() external {
+        _dealTaikoToken(Alice, 1E6 * 1E8);
+        _approveTaikoToken(Alice, address(L1), 1E6 * 1E8);
+
         uint256 batchId = 1;
+        uint256 deposit = 1;
+
         vm.warp(1234);
-        bidForBatch(Alice, 1, batchId);
+        bidForBatch(Alice, 1, deposit, batchId);
         TaikoData.Bid memory bid = L1.getCurrentWinningBidForBatch(batchId);
         assertEq(bid.account, Alice);
         assertEq(bid.feePerGas, uint256(1));
-        assertEq(bid.deposit, uint256(0));
-        assertEq(bid.weight, uint256(100000000000000));
+        assertEq(bid.deposit, uint256(1));
+        assertEq(bid.weight, uint256(100000000000100));
         assertEq(bid.auctionStartedAt, uint256(1234));
         assertEq(bid.batchId, uint256(1));
     }
 
-    function test_bid_for_batch_second_higher_bid_wins() external {
+    function test_bid_for_batch_second_higher_bid_wins_same_deposit_higher_min_fee_per_gas()
+        external
+    {
+        _dealTaikoToken(Alice, 1E6 * 1E8);
+        _approveTaikoToken(Alice, address(L1), 1E6 * 1E8);
+        _dealTaikoToken(Bob, 1E6 * 1E8);
+        _approveTaikoToken(Bob, address(L1), 1E6 * 1E8);
+
         uint256 batchId = 1;
-        bidForBatch(Alice, 1, batchId);
-        bidForBatch(Bob, 2, batchId);
+        uint256 deposit = 1;
+        bidForBatch(Alice, 1, deposit, batchId);
+        bidForBatch(Bob, 2, deposit, batchId);
         TaikoData.Bid memory bid = L1.getCurrentWinningBidForBatch(batchId);
         assertEq(bid.account, Bob);
         assertEq(bid.feePerGas, uint256(2));
     }
 
     function test_bid_for_batch_revert_max_fee_per_gas_exceeded() external {
+        _dealTaikoToken(Alice, 1E6 * 1E8);
+        _approveTaikoToken(Alice, address(L1), 1E6 * 1E8);
         vm.expectRevert(
             abi.encodeWithSelector(
                 LibAuction.L1_MAX_FEE_PER_GAS_EXCEEDED.selector,
                 conf.maxFeePerGasForAuctionBid
             )
         );
-        bidForBatch(Alice, conf.maxFeePerGasForAuctionBid + 1, 1);
+        bidForBatch(Alice, conf.maxFeePerGasForAuctionBid + 1, 1, 1);
     }
 
     function test_bid_for_batch_auction_closed() external {
-        bidForBatch(Alice, 1, 1);
+        _dealTaikoToken(Alice, 1E6 * 1E8);
+        _approveTaikoToken(Alice, address(L1), 1E6 * 1E8);
+        bidForBatch(Alice, 1, 1, 1);
 
         vm.warp(block.timestamp + conf.auctionLengthInSeconds + 10000000);
         vm.expectRevert(LibAuction.L1_AUCTION_CLOSED_FOR_BATCH.selector);
-        bidForBatch(Bob, 2, 1);
+        bidForBatch(Bob, 2, 1, 1);
     }
 
     function print(

@@ -10,6 +10,7 @@ import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibL1Tokenomics} from "./LibL1Tokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
+import {TaikoToken} from "../TaikoToken.sol";
 
 library LibAuction {
     // EVENTS
@@ -29,6 +30,7 @@ library LibAuction {
     error L1_AUCTION_CLOSED_FOR_BATCH();
     error L1_INSUFFICIENT_WEIGHT(uint256 bidWeight, uint256 existingBidWeight);
     error L1_MAX_FEE_PER_GAS_EXCEEDED(uint256 maxFeePerGasAllowed);
+    error L1_TRANSFER_FROM_FAILED();
 
     // bidForBatch allows a user to claim a batch of blocks for
     // exclusive proving rights. User's bid the "mininimum amount they will accept as a proving fee per gas",
@@ -42,9 +44,11 @@ library LibAuction {
     // we should immediately close the auction and accept the first bid.
     // TODO: keep track of avgMinFeePerGas upon block being proven or verified?
     function bidForBatch(
+        AddressResolver resolver,
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint256 minFeePerGas,
+        uint256 deposit,
         uint256 batchId
     ) internal {
         // can only auction for a certain number of blocks past
@@ -69,7 +73,6 @@ library LibAuction {
             revert L1_AUCTION_CLOSED_FOR_BATCH();
         }
 
-        uint256 deposit = msg.value;
         uint256 weight = calculateBidWeight(deposit, minFeePerGas);
         uint256 existingBidWeight = state.blockAuctionBids[batchId].weight;
 
@@ -82,6 +85,21 @@ library LibAuction {
 
         TaikoData.Bid memory bid = state.blockAuctionBids[batchId];
 
+        TaikoToken tkoToken = TaikoToken(
+            resolver.resolve("taiko_token", false)
+        );
+
+        if (bid.account != address(0)) {
+            // refund deposit if there is an existing bid
+            try tkoToken.transfer(bid.account, bid.deposit) {} catch {
+                // allow to fail in case they have a bad onTokenReceived
+            }
+        }
+
+        if (!tkoToken.transferFrom(msg.sender, address(this), deposit)) {
+            revert L1_TRANSFER_FROM_FAILED();
+        }
+
         uint256 auctionStartedAt = bid.auctionStartedAt > 0
             ? bid.auctionStartedAt
             : block.timestamp;
@@ -89,7 +107,7 @@ library LibAuction {
         state.blockAuctionBids[batchId] = TaikoData.Bid({
             account: msg.sender,
             feePerGas: minFeePerGas,
-            deposit: msg.value,
+            deposit: deposit,
             weight: weight,
             auctionStartedAt: auctionStartedAt,
             batchId: batchId

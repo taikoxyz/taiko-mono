@@ -74,11 +74,13 @@ contract TaikoL1Test is TaikoL1TestBase {
     function test_more_blocks_than_ring_buffer_size() external {
         _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
         _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
+        _dealTaikoToken(Bob, 1E6 * 1E8);
+        _approveTaikoToken(Bob, address(L1), 1E6 * 1E8);
         _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint256 batchId = 1;
-        bidForBatchAndCloseAuction(Bob, 1, batchId);
+        bidForBatchAndCloseAuction(Bob, 1, 1, batchId);
         for (
             uint256 blockId = 1;
             blockId < conf.maxNumProposedBlocks * 10;
@@ -113,9 +115,12 @@ contract TaikoL1Test is TaikoL1TestBase {
     function test_multiple_blocks_in_one_L1_block() external {
         _depositTaikoToken(Alice, 1000 * 1E8, 1000 ether);
 
+        _dealTaikoToken(Alice, 1E6 * 1E8);
+        _approveTaikoToken(Alice, address(L1), 1E6 * 1E8);
+
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint256 batchId = 1;
-        bidForBatchAndCloseAuction(Alice, 1, batchId);
+        bidForBatchAndCloseAuction(Alice, 1, 1, batchId);
         for (uint256 blockId = 1; blockId <= 2; blockId++) {
             printVariables("before propose");
             mine(1);
@@ -142,11 +147,13 @@ contract TaikoL1Test is TaikoL1TestBase {
     /// @dev Test verifying multiple blocks in one transaction
     function test_verifying_multiple_blocks_once() external {
         _depositTaikoToken(Alice, 1E6 * 1E8, 1000 ether);
+        _dealTaikoToken(Alice, 1E6 * 1E8);
+        _approveTaikoToken(Alice, address(L1), 1E6 * 1E8);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         uint256 batchId = 1;
-        bidForBatchAndCloseAuction(Alice, 1, batchId);
+        bidForBatchAndCloseAuction(Alice, 1, 1, batchId);
 
         for (
             uint256 blockId = 1;
@@ -181,12 +188,14 @@ contract TaikoL1Test is TaikoL1TestBase {
     function test_block_time_increases_and_fee_decreases() external {
         _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
         _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
+        _dealTaikoToken(Bob, 1E6 * 1E8);
+        _approveTaikoToken(Bob, address(L1), 1E6 * 1E8);
         _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         uint256 batchId = 1;
-        bidForBatchAndCloseAuction(Bob, 1, batchId);
+        bidForBatchAndCloseAuction(Bob, 1, 1, batchId);
 
         for (
             uint256 blockId = 1;
@@ -220,6 +229,8 @@ contract TaikoL1Test is TaikoL1TestBase {
     function test_block_time_decreases_but_fee_remains() external {
         _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
         _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
+        _dealTaikoToken(Bob, 1E6 * 1E8);
+        _approveTaikoToken(Bob, address(L1), 1E6 * 1E8);
         _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
@@ -227,7 +238,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         uint256 total = conf.maxNumProposedBlocks * 10;
 
         uint256 batchId = 1;
-        bidForBatchAndCloseAuction(Bob, 1, batchId);
+        bidForBatchAndCloseAuction(Bob, 1, 1, batchId);
 
         for (uint256 blockId = 1; blockId < total; blockId++) {
             printVariables("before propose");

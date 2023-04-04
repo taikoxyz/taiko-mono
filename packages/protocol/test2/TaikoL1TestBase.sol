@@ -81,18 +81,20 @@ abstract contract TaikoL1TestBase is Test {
     function bidForBatch(
         address bidder,
         uint256 minFeePerGas,
+        uint256 deposit,
         uint256 batchId
     ) internal {
         vm.prank(bidder, bidder);
-        L1.bidForBatch(minFeePerGas, batchId);
+        L1.bidForBatch(minFeePerGas, deposit, batchId);
     }
 
     function bidForBatchAndCloseAuction(
         address bidder,
         uint256 minFeePerGas,
+        uint256 deposit,
         uint256 batchId
     ) internal {
-        bidForBatch(bidder, minFeePerGas, batchId);
+        bidForBatch(bidder, minFeePerGas, deposit, batchId);
         vm.warp(block.timestamp + conf.auctionLengthInSeconds + 1);
     }
 
@@ -177,6 +179,10 @@ abstract contract TaikoL1TestBase is Test {
         console2.log(key, unicode"→", addr);
     }
 
+    function _dealTaikoToken(address who, uint256 amountTko) internal {
+        tko.transfer(who, amountTko);
+    }
+
     function _depositTaikoToken(
         address who,
         uint256 amountTko,
@@ -186,6 +192,15 @@ abstract contract TaikoL1TestBase is Test {
         tko.transfer(who, amountTko);
         vm.prank(who, who);
         L1.deposit(amountTko);
+    }
+
+    function _approveTaikoToken(
+        address approver,
+        address spender,
+        uint256 amount
+    ) internal {
+        vm.prank(approver);
+        tko.approve(spender, amount);
     }
 
     function printVariables(string memory comment) internal {

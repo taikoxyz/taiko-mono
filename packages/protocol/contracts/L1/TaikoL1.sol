@@ -48,9 +48,12 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      */
     function bidForBatch(
         uint256 minFeePerGas,
+        uint256 tokenDeposit,
         uint256 batchId
     ) external nonReentrant {
         LibAuction.bidForBatch({
+            resolver: AddressResolver(this),
+            deposit: tokenDeposit,
             state: state,
             config: getConfig(),
             minFeePerGas: minFeePerGas,
@@ -160,20 +163,6 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
 
     function isAuctionOpen(uint256 batchId) public view returns (bool) {
         return LibAuction.isAuctionOpen(getConfig(), state, batchId);
-    }
-
-    function getAvailableBatchIds()
-        public
-        view
-        returns (uint256[] memory batchIds)
-    {
-        TaikoData.Config memory config = getConfig();
-        return
-            LibAuction.getAvailableBatchIds(
-                state.lastVerifiedBlockId,
-                config.auctionBlockBatchSize,
-                config.auctionBlockGap
-            );
     }
 
     function getCurrentWinningBidForBatch(
