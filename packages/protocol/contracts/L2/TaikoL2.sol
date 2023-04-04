@@ -60,13 +60,13 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     // Captures all block variables mentioned in
     // https://docs.soliditylang.org/en/v0.8.18/units-and-global-variables.html
     event BlockVars(
-        uint256 number,
+        uint64 number,
+        uint64 basefee,
+        uint64 gaslimit,
+        uint64 timestamp,
         bytes32 parentHash,
-        uint256 timestamp,
-        uint256 basefee,
         uint256 prevrandao,
         address coinbase,
-        uint256 gaslimit,
         uint256 chainid
     );
 
@@ -188,6 +188,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
 
             gasExcess += gasPurchase;
         }
+
         if (block.basefee != basefee) revert L2_INVALID_BASEFEE();
 
         parentTimestamp = uint64(block.timestamp);
@@ -195,14 +196,15 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         // We emit this event so circuits can grab its data to verify block variables.
         // If plonk lookup table already has all these data, we can still use this
         // event for debugging purpose.
+
         emit BlockVars({
-            number: block.number,
+            number: uint64(block.number),
+            basefee: basefee,
+            gaslimit: uint64(block.gaslimit),
+            timestamp: uint64(block.timestamp),
             parentHash: parentHash,
-            timestamp: block.timestamp,
-            basefee: block.basefee,
             prevrandao: block.prevrandao,
             coinbase: block.coinbase,
-            gaslimit: block.gaslimit,
             chainid: block.chainid
         });
     }
