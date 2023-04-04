@@ -37,15 +37,22 @@ contract TestTaikoL2 is Test {
     }
 
     function testAnchorTxsMultiple() external {
-        for (uint256 i = 0; i < 30; i++) {
-            uint64 expectedBasefee = L2.getBasefee(0, BLOCK_GAS_LIMIT);
-            vm.fee(expectedBasefee);
+        uint64 firstBasefee;
+        for (uint256 i = 0; i < 100; i++) {
+            console2.log("----\n", i);
+            uint64 basefee = L2.getBasefee(0, BLOCK_GAS_LIMIT);
+            vm.fee(basefee);
+
+            if (firstBasefee == 0) {
+                firstBasefee = basefee;
+            }
+            assertEq(firstBasefee, basefee);
 
             vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
             L2.anchor(12345, keccak256("a"), keccak256("b"));
 
             vm.roll(block.number + 1);
-            vm.warp(block.timestamp + 30 * i);
+            vm.warp(block.timestamp + 30);
         }
     }
 

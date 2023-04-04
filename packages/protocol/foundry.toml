@@ -10,4 +10,4 @@ optimizer = true
 optimizer_runs = 200
 
 # Do not change the block_gas_limit value, TaikoL2.t.sol depends on it.
-block_gas_limit = 30000000
+block_gas_limit = 30000000 #30M

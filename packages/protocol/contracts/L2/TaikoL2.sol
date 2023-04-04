@@ -280,9 +280,14 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         uint64 gasLimit
     ) private view returns (uint64 _basefee, uint64 _gasExcess) {
         uint256 gasIssued = gasIssuedPerSecond * timeSinceParent;
+        console2.log("gasIssued:", gasIssued);
+
+        console2.log("gasExcess:", gasExcess);
 
         _gasExcess = gasExcess > gasIssued ? uint64(gasExcess - gasIssued) : 0;
 
+        console2.log("_gasExcess2:", _gasExcess);
+        console2.log("gasLimit:", gasLimit);
         uint256 __basefee = Lib1559Math.calculatePrice({
             xscale: xscale,
             yscale: yscale,
@@ -298,8 +303,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
             (uint256(_gasExcess) + gasLimit).min(type(uint64).max)
         );
 
-        console2.log("excess:", _gasExcess);
-        console2.log("gasLimit:", gasLimit);
+        console2.log("_gasExcess3:", _gasExcess);
+
         console2.log("_basefee:", _basefee);
     }
 }
