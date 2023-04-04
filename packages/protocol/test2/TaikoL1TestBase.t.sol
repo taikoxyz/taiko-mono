@@ -28,9 +28,9 @@ abstract contract TaikoL1TestBase is Test {
     bytes32 public constant GENESIS_BLOCK_HASH =
         keccak256("GENESIS_BLOCK_HASH");
     uint64 feeBase = 1E8; // 1 TKO
-    uint64 gasAccumulated = 1E18;
+    uint64 l2GasExcess = 1E18;
 
-    address public constant Treasure =
+    address public constant L2Treasure =
         0x859d74b52762d9ed07D1b2B8d7F93d26B1EA78Bb;
     address public constant L2SS = 0xa008AE5Ba00656a3Cc384de589579e3E52aC030C;
     address public constant L2TaikoL2 =
@@ -50,12 +50,7 @@ abstract contract TaikoL1TestBase is Test {
         addressManager.init();
 
         L1 = deployTaikoL1();
-        L1.init(
-            address(addressManager),
-            GENESIS_BLOCK_HASH,
-            feeBase,
-            gasAccumulated
-        );
+        L1.init(address(addressManager), feeBase, GENESIS_BLOCK_HASH);
         conf = L1.getConfig();
 
         tko = new TaikoToken();
@@ -80,7 +75,7 @@ abstract contract TaikoL1TestBase is Test {
         _registerAddress("taiko_token", address(tko));
         _registerAddress("proto_broker", address(L1));
         _registerAddress("signal_service", address(ss));
-        _registerAddress("treasure", Treasure);
+        _registerL2Address("treasure", L2Treasure);
         _registerL2Address("signal_service", address(L2SS));
         _registerL2Address("taiko_l2", address(L2TaikoL2));
 
@@ -116,13 +111,17 @@ abstract contract TaikoL1TestBase is Test {
         }
 
         meta.id = variables.numBlocks;
-        meta.l1Height = uint64(block.number - 1);
-        meta.l1Hash = blockhash(block.number - 1);
-        meta.beneficiary = proposer;
-        meta.txListHash = keccak256(txList);
-        meta.mixHash = bytes32(_mixHash);
-        meta.gasLimit = gasLimit;
         meta.timestamp = uint64(block.timestamp);
+        meta.l1Height = uint64(block.number - 1);
+        meta.l2Basefee = 0;
+        meta.l1Hash = blockhash(block.number - 1);
+        meta.mixHash = bytes32(_mixHash);
+        meta.txListHash = keccak256(txList);
+        meta.txListByteStart = 0;
+        meta.txListByteEnd = txListSize;
+        meta.gasLimit = gasLimit;
+        meta.beneficiary = proposer;
+        meta.treasure = L2Treasure;
 
         vm.prank(proposer, proposer);
         L1.proposeBlock(abi.encode(input), txList);
@@ -146,6 +145,7 @@ abstract contract TaikoL1TestBase is Test {
             parentHash: parentHash,
             blockHash: blockHash,
             signalRoot: signalRoot,
+            graffiti: 0x0,
             prover: prover
         });
 

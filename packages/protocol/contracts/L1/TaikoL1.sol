@@ -9,8 +9,7 @@ pragma solidity ^0.8.18;
 import {AddressResolver} from "../common/AddressResolver.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {IXchainSync} from "../common/IXchainSync.sol";
-import {LibL1Tokenomics} from "./libs/LibL1Tokenomics.sol";
-import {LibL2Tokenomics} from "./libs/LibL2Tokenomics.sol";
+import {LibTokenomics} from "./libs/LibTokenomics.sol";
 import {LibProposing} from "./libs/LibProposing.sol";
 import {LibProving} from "./libs/LibProving.sol";
 import {LibUtils} from "./libs/LibUtils.sol";
@@ -26,19 +25,24 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     TaikoData.State public state;
     uint256[100] private __gap;
 
+    /**
+     * Initialize the rollup.
+     *
+     * @param _addressManager The AddressManager address.
+     * @param _feeBase The initial value of the proposer-fee/prover-reward feeBase.
+     * @param _genesisBlockHash The block hash of the genesis block.
+     */
     function init(
         address _addressManager,
-        bytes32 _genesisBlockHash,
         uint64 _feeBase,
-        uint64 _gasAccumulated
+        bytes32 _genesisBlockHash
     ) external initializer {
         EssentialContract._init(_addressManager);
         LibVerifying.init({
             state: state,
             config: getConfig(),
-            genesisBlockHash: _genesisBlockHash,
             feeBase: _feeBase,
-            gasAccumulated: _gasAccumulated
+            genesisBlockHash: _genesisBlockHash
         });
     }
 
@@ -118,11 +122,11 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     }
 
     function deposit(uint256 amount) external nonReentrant {
-        LibL1Tokenomics.deposit(state, AddressResolver(this), amount);
+        LibTokenomics.deposit(state, AddressResolver(this), amount);
     }
 
     function withdraw(uint256 amount) external nonReentrant {
-        LibL1Tokenomics.withdraw(state, AddressResolver(this), amount);
+        LibTokenomics.withdraw(state, AddressResolver(this), amount);
     }
 
     function getBalance(address addr) public view returns (uint256) {
@@ -132,7 +136,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     function getProverFee(
         uint32 gasUsed
     ) public view returns (uint256 feeAmount) {
-        (, feeAmount) = LibL1Tokenomics.getProverFee(state, gasUsed);
+        (, feeAmount) = LibTokenomics.getProverFee(state, gasUsed);
     }
 
     function getProofReward(
@@ -140,7 +144,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         uint64 proposedAt,
         uint32 usedGas
     ) public view returns (uint256 reward) {
-        (, reward) = LibL1Tokenomics.getProofReward({
+        (, reward) = LibTokenomics.getProofReward({
             state: state,
             config: getConfig(),
             provenAt: provenAt,
@@ -212,16 +216,6 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             found
                 ? blk.forkChoices[blk.verifiedForkChoiceId].signalRoot
                 : bytes32(0);
-    }
-
-    function get1559Basefee(
-        uint32 gasLimit
-    ) public view returns (uint64 basefee) {
-        (, basefee, ) = LibL2Tokenomics.get1559Basefee(
-            state,
-            getConfig(),
-            gasLimit
-        );
     }
 
     function getStateVariables()

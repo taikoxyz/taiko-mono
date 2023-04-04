@@ -7,7 +7,7 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
-import {LibL1Tokenomics} from "./LibL1Tokenomics.sol";
+import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {
     SafeCastUpgradeable
@@ -19,6 +19,7 @@ library LibVerifying {
     using LibUtils for TaikoData.State;
 
     error L1_INVALID_CONFIG();
+    error L1_INVALID_L21559_PARAMS();
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
     event XchainSynced(
@@ -30,19 +31,17 @@ library LibVerifying {
     function init(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        bytes32 genesisBlockHash,
         uint64 feeBase,
-        uint64 gasAccumulated
+        bytes32 genesisBlockHash
     ) internal {
         _checkConfig(config);
 
         uint64 timeNow = uint64(block.timestamp);
-        state.genesisHeight = timeNow;
+        state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = timeNow;
         state.feeBase = feeBase;
         state.baseFeeProof = 1e10; // Symbolic fee (TKO) for 1st proposal
         state.numBlocks = 1;
-        state.gasAccumulated = gasAccumulated;
 
         TaikoData.Block storage blk = state.blocks[0];
         blk.proposedAt = timeNow;
@@ -128,7 +127,7 @@ library LibVerifying {
                 uint256 reward,
                 uint256 proofTimeIssued,
                 uint256 newBaseFeeProof
-            ) = LibL1Tokenomics.calculateBaseFeeProof(
+            ) = LibTokenomics.calculateBaseFeeProof(
                     state,
                     config,
                     uint64(proofTime),

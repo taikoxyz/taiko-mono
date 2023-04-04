@@ -9,8 +9,9 @@ contract TestTaikoL2 is Test {
     TaikoL2 public L2;
 
     function setUp() public {
+        TaikoL2.EIP1559Params memory param1559;
         L2 = new TaikoL2();
-        L2.init(address(1)); // Dummy address manager address.
+        L2.init(address(1), param1559); // Dummy address manager address.
         vm.roll(block.number + 1);
     }
 

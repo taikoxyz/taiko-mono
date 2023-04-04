@@ -11,7 +11,7 @@ import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
 import {TaikoToken} from "../contracts/L1/TaikoToken.sol";
 import {SignalService} from "../contracts/signal/SignalService.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {TaikoL1TestBase} from "./TaikoL1TestBase.sol";
+import {TaikoL1TestBase} from "./TaikoL1TestBase.t.sol";
 
 contract TaikoL1WithConfig is TaikoL1 {
     function getConfig()
@@ -23,7 +23,6 @@ contract TaikoL1WithConfig is TaikoL1 {
         config = TaikoConfig.getConfig();
 
         config.enableTokenomics = true;
-        config.constantFeeRewardBlocks = 0;
         config.txListCacheExpiry = 5 minutes;
         config.maxVerificationsPerTx = 0;
         config.enableSoloProposer = false;
@@ -65,7 +64,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
     }
 
     /// @dev Test what happens when proof time increases
-    function xtest_reward_and_fee_if_proof_time_increases() external {
+    function test_reward_and_fee_if_proof_time_increases() external {
         mine(1);
         _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
         _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
@@ -89,7 +88,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
     }
 
     /// @dev Test what happens when proof time decreases
-    function xtest_reward_and_fee_if_proof_time_decreases() external {
+    function test_reward_and_fee_if_proof_time_decreases() external {
         mine(1);
         _depositTaikoToken(Alice, 1E7 * 1E8, 1 ether);
         _depositTaikoToken(Bob, 1E7 * 1E8, 1 ether);
@@ -113,7 +112,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
     }
 
     /// @dev Test what happens when proof time stable
-    function xtest_reward_and_fee_if_proof_time_stable_and_below_time_target()
+    function test_reward_and_fee_if_proof_time_stable_and_below_time_target()
         external
     {
         mine(1);
@@ -140,7 +139,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
     }
 
     /// @dev Test blockFee when proof target is stable but slightly above the target
-    function xtest_reward_and_fee_if_proof_time_stable_but_above_time_target()
+    function test_reward_and_fee_if_proof_time_stable_but_above_time_target()
         external
     {
         mine(1);
@@ -168,7 +167,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
     }
 
     /// @dev Test what happens when proof time decreasing then stabilizes
-    function xtest_reward_and_fee_if_proof_time_decreasing_then_stabilizes()
+    function test_reward_and_fee_if_proof_time_decreasing_then_stabilizes()
         external
     {
         mine(1);
@@ -199,12 +198,12 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
         }
 
         console2.log("Stable");
-        for (uint256 blockId = 1; blockId < 60; blockId++) {
+        for (uint256 blockId = 1; blockId < 100; blockId++) {
             printVariables(
                 "before proposing - affected by verification (verifyBlock() updates)"
             );
             TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
-            mine(1);
+            mine_proofTime();
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
@@ -233,7 +232,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
     }
 
     /// @dev Test what happens when proof time increasing then stabilizes at the same time as proof time target
-    function xtest_reward_and_fee_if_proof_time_increasing_then_stabilizes_at_the_proof_time_target()
+    function test_reward_and_fee_if_proof_time_increasing_then_stabilizes_at_the_proof_time_target()
         external
     {
         mine(1);
@@ -264,7 +263,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
         }
 
         console2.log("Stable");
-        for (uint256 blockId = 1; blockId < 100; blockId++) {
+        for (uint256 blockId = 1; blockId < 110; blockId++) {
             printVariables(
                 "before proposing - affected by verification (verifyBlock() updates)"
             );
@@ -337,7 +336,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
             parentHash = blockHash;
         }
 
-        console2.log("Stable");
+        console2.log("Stable - but under proof time");
         // To see the issue - adjust the max loop counter below.
         // The more the loops the bigger the deposits (compared to withrawals)
         for (uint256 blockId = 1; blockId < 100; blockId++) {
@@ -378,11 +377,13 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
 
         // Assert their balance changed relatively the same way
         // 1e18 == within 100 % delta -> 1e17 10%, let's see if this is within that range
+        // Unfortunately it is not ! The longer we run the algo with stable but under proof time
+        // the more unequal it will get
         assertApproxEqRel(aliceChange, bobChange, 1e17);
     }
 
     /// @dev Test what happens when proof time fluctuates then stabilizes
-    function xtest_reward_and_fee_if_proof_time_fluctuates_then_stabilizes()
+    function test_reward_and_fee_if_proof_time_fluctuates_then_stabilizes()
         external
     {
         mine(1);
@@ -428,7 +429,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
         }
 
         console2.log("Stable");
-        for (uint256 blockId = 1; blockId < 40; blockId++) {
+        for (uint256 blockId = 1; blockId < 150; blockId++) {
             printVariables(
                 "before proposing - affected by verification (verifyBlock() updates)"
             );

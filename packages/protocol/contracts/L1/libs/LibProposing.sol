@@ -8,8 +8,7 @@ pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibAddress} from "../../libs/LibAddress.sol";
-import {LibL1Tokenomics} from "./LibL1Tokenomics.sol";
-import {LibL2Tokenomics} from "./LibL2Tokenomics.sol";
+import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {
     SafeCastUpgradeable
@@ -71,29 +70,16 @@ library LibProposing {
                 id: state.numBlocks,
                 timestamp: uint64(block.timestamp),
                 l1Height: uint64(block.number - 1),
-                basefee: 0, // will be set later
+                l2Basefee: 0, // will be set later
                 l1Hash: blockhash(block.number - 1),
                 mixHash: bytes32(block.prevrandao * state.numBlocks),
                 txListHash: input.txListHash,
                 txListByteStart: input.txListByteStart,
                 txListByteEnd: input.txListByteEnd,
                 gasLimit: input.gasLimit,
-                beneficiary: input.beneficiary
+                beneficiary: input.beneficiary,
+                treasure: resolver.resolve(config.chainId, "treasure", false)
             });
-        }
-
-        {
-            // calculate L2 EIP-1559 gas fee and cost
-            uint256 gasPurchaseCost;
-            (
-                state.gasAccumulated,
-                meta.basefee,
-                gasPurchaseCost
-            ) = LibL2Tokenomics.get1559Basefee(state, config, input.gasLimit);
-            if (msg.value < gasPurchaseCost) revert L1_INSUFFICIENT_ETHER();
-
-            resolver.resolve("treasure", false).sendEther(gasPurchaseCost);
-            msg.sender.sendEther(msg.value - gasPurchaseCost);
         }
 
         TaikoData.Block storage blk = state.blocks[
@@ -111,10 +97,7 @@ library LibProposing {
         blk.gasConsumed = input.gasLimit;
 
         if (config.enableTokenomics) {
-            (, uint256 fee) = LibL1Tokenomics.getProverFee(
-                state,
-                input.gasLimit
-            );
+            (, uint256 fee) = LibTokenomics.getProverFee(state, input.gasLimit);
 
             if (state.balances[msg.sender] < fee)
                 revert L1_INSUFFICIENT_TOKEN();

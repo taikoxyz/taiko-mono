@@ -30,8 +30,7 @@ library TaikoData {
         uint256 rewardBurnBips;
         // Moving average factors
         uint256 feeBaseMAF;
-        uint64 constantFeeRewardBlocks;
-        uint64 txListCacheExpiry;
+        uint256 txListCacheExpiry;
         uint64 proofTimeTarget;
         uint8 adjustmentQuotient;
         bool enableSoloProposer;
@@ -53,8 +52,6 @@ library TaikoData {
         uint64 avgBlockTime;
         uint64 avgProofTime;
         uint64 lastProposedAt;
-        uint64 basefee;
-        uint64 gasAccumulated;
     }
 
     // 3 slots
@@ -67,12 +64,13 @@ library TaikoData {
         uint8 cacheTxListInfo; // non-zero = True
     }
 
-    // 5 slots
+    // 6 slots
+    // Changing this struct requires chaing LibUtils.hashMetadata accordingly.
     struct BlockMetadata {
         uint64 id;
         uint64 timestamp;
         uint64 l1Height;
-        uint64 basefee;
+        uint64 l2Basefee;
         bytes32 l1Hash;
         bytes32 mixHash;
         bytes32 txListHash;
@@ -80,6 +78,7 @@ library TaikoData {
         uint24 txListByteEnd;
         uint32 gasLimit;
         address beneficiary;
+        address treasure;
     }
 
     struct ZKProof {
@@ -93,6 +92,7 @@ library TaikoData {
         bytes32 parentHash;
         bytes32 blockHash;
         bytes32 signalRoot;
+        bytes32 graffiti;
         address prover;
     }
 

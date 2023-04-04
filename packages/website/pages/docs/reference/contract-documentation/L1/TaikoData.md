@@ -34,11 +34,14 @@ struct Config {
   uint256 feeBaseMAF;
   uint64 constantFeeRewardBlocks;
   uint64 txListCacheExpiry;
+  uint64 proofTimeTarget;
+  uint8 adjustmentQuotient;
   bool enableSoloProposer;
   bool enableOracleProver;
   bool enableTokenomics;
   bool skipZKPVerification;
-  struct TaikoData.FeeConfig proposingConfig;
+  bool allowMinting;
+  bool useTimeWeightedReward;
   struct TaikoData.FeeConfig provingConfig;
 }
 ```
@@ -55,8 +58,6 @@ struct StateVariables {
   uint64 avgBlockTime;
   uint64 avgProofTime;
   uint64 lastProposedAt;
-  uint64 basefee;
-  uint64 gasAccumulated;
 }
 ```
 
@@ -80,7 +81,7 @@ struct BlockMetadata {
   uint64 id;
   uint64 timestamp;
   uint64 l1Height;
-  uint64 basefee;
+  uint64 l2Basefee;
   bytes32 l1Hash;
   bytes32 mixHash;
   bytes32 txListHash;
@@ -88,6 +89,7 @@ struct BlockMetadata {
   uint24 txListByteEnd;
   uint32 gasLimit;
   address beneficiary;
+  address treasure;
 }
 ```
 
@@ -109,6 +111,7 @@ struct BlockEvidence {
   bytes32 parentHash;
   bytes32 blockHash;
   bytes32 signalRoot;
+  bytes32 graffiti;
   address prover;
 }
 ```
@@ -132,6 +135,7 @@ struct Block {
   uint64 blockId;
   uint64 proposedAt;
   uint64 deposit;
+  uint32 gasConsumed;
   uint24 nextForkChoiceId;
   uint24 verifiedForkChoiceId;
   bytes32 metaHash;
@@ -163,7 +167,11 @@ struct State {
   uint64 numBlocks;
   uint64 lastProposedAt;
   uint64 avgBlockTime;
+<<<<<<< HEAD
   uint64 gasAccumulated;
+=======
+  uint64 __reserved3;
+>>>>>>> origin/L2_1559_rebase_in_anchor
   uint64 lastVerifiedBlockId;
   uint64 __reserved4;
   uint64 avgProofTime;

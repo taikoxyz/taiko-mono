@@ -10,7 +10,7 @@ import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
 import {TaikoToken} from "../contracts/L1/TaikoToken.sol";
 import {SignalService} from "../contracts/signal/SignalService.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {TaikoL1TestBase} from "./TaikoL1TestBase.sol";
+import {TaikoL1TestBase} from "./TaikoL1TestBase.t.sol";
 
 contract TaikoL1WithConfig is TaikoL1 {
     function getConfig()
@@ -22,7 +22,6 @@ contract TaikoL1WithConfig is TaikoL1 {
         config = TaikoConfig.getConfig();
 
         config.enableTokenomics = true;
-        config.constantFeeRewardBlocks = 0;
         config.txListCacheExpiry = 5 minutes;
         config.maxVerificationsPerTx = 0;
         config.enableSoloProposer = false;

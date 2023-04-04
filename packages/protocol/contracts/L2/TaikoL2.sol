@@ -8,12 +8,26 @@ pragma solidity ^0.8.18;
 
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {IXchainSync} from "../common/IXchainSync.sol";
+import {Lib1559Math} from "../libs/Lib1559Math.sol";
 import {TaikoL2Signer} from "./TaikoL2Signer.sol";
+import {
+    SafeCastUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
+    using SafeCastUpgradeable for uint256;
+
     struct VerifiedBlock {
         bytes32 blockHash;
         bytes32 signalRoot;
+    }
+
+    struct EIP1559Params {
+        uint64 basefee;
+        uint64 gasIssuedPerSecond;
+        uint64 gasExcessMax;
+        uint64 gasTarget;
+        uint64 ratio2x1x;
     }
     /**********************
      * State Variables    *
@@ -28,10 +42,16 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     // A hash to check te integrity of public inputs.
     bytes32 public publicInputHash;
 
-    // The latest L1 block where a L2 block has been proposed.
-    uint256 public latestSyncedL1Height;
+    uint128 public yscale;
+    uint64 public xscale;
+    uint64 public gasIssuedPerSecond;
 
-    uint256[46] private __gap;
+    uint64 public parentTimestamp;
+    uint64 public latestSyncedL1Height;
+    uint64 public basefee;
+    uint64 public gasExcess;
+
+    uint256[45] private __gap;
 
     /**********************
      * Events and Errors  *
@@ -40,28 +60,62 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     // Captures all block variables mentioned in
     // https://docs.soliditylang.org/en/v0.8.18/units-and-global-variables.html
     event BlockVars(
-        uint256 number,
+        uint64 number,
+        uint64 basefee,
+        uint64 gaslimit,
+        uint64 timestamp,
         bytes32 parentHash,
-        uint256 timestamp,
-        uint256 basefee,
         uint256 prevrandao,
         address coinbase,
-        uint256 gaslimit,
-        uint256 chainid
+        uint32 chainid
     );
 
+    error L2_INVALID_1559_PARAMS();
+    error L2_INVALID_BASEFEE();
     error L2_INVALID_CHAIN_ID();
     error L2_INVALID_SENDER();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
 
+    error M1559_UNEXPECTED_CHANGE(uint64 expected, uint64 actual);
+    error M1559_OUT_OF_STOCK();
+
     /**********************
      * Constructor         *
      **********************/
 
-    function init(address _addressManager) external initializer {
-        if (block.chainid <= 1) revert L2_INVALID_CHAIN_ID();
+    function init(
+        address _addressManager,
+        EIP1559Params calldata _param1559
+    ) external initializer {
+        if (block.chainid <= 1 || block.chainid >= type(uint32).max)
+            revert L2_INVALID_CHAIN_ID();
         if (block.number > 1) revert L2_TOO_LATE();
+
+        if (_param1559.basefee != 0) {
+            if (
+                _param1559.gasIssuedPerSecond == 0 ||
+                _param1559.gasExcessMax == 0 ||
+                _param1559.gasTarget == 0 ||
+                _param1559.ratio2x1x == 0
+            ) revert L2_INVALID_1559_PARAMS();
+
+            uint128 _xscale;
+            (_xscale, yscale) = Lib1559Math.calculateScales({
+                xExcessMax: _param1559.gasExcessMax,
+                price: _param1559.basefee,
+                target: _param1559.gasTarget,
+                ratio2x1x: _param1559.ratio2x1x
+            });
+
+            if (_xscale == 0 || _xscale >= type(uint64).max || yscale == 0)
+                revert L2_INVALID_1559_PARAMS();
+            xscale = uint64(_xscale);
+
+            gasExcess = _param1559.gasExcessMax / 2;
+        }
+
+        parentTimestamp = uint64(block.timestamp);
 
         EssentialContract._init(_addressManager);
 
@@ -95,7 +149,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
      */
 
     function anchor(
-        uint256 l1Height,
+        uint64 l1Height,
         bytes32 l1Hash,
         bytes32 l1SignalRoot
     ) external {
@@ -111,7 +165,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         }
 
         // replace the oldest block hash with the parent's blockhash
-
         publicInputHash = currPIH;
         _l2Hashes[parentHeight] = parentHash;
 
@@ -120,24 +173,47 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
 
         emit XchainSynced(l1Height, l1Hash, l1SignalRoot);
 
+        // Check EIP-1559 basefee
+        if (basefee != 0) {
+            (basefee, gasExcess) = _calcBasefee(
+                block.timestamp - parentTimestamp,
+                uint64(block.gaslimit)
+            );
+        }
+
+        if (block.basefee != basefee) revert L2_INVALID_BASEFEE();
+
+        parentTimestamp = uint64(block.timestamp);
+
         // We emit this event so circuits can grab its data to verify block variables.
         // If plonk lookup table already has all these data, we can still use this
         // event for debugging purpose.
+
         emit BlockVars({
-            number: block.number,
+            number: uint64(block.number),
+            basefee: basefee,
+            gaslimit: uint64(block.gaslimit),
+            timestamp: uint64(block.timestamp),
             parentHash: parentHash,
-            timestamp: block.timestamp,
-            basefee: 0, //block.basefee,
             prevrandao: block.prevrandao,
             coinbase: block.coinbase,
-            gaslimit: block.gaslimit,
-            chainid: block.chainid
+            chainid: uint32(block.chainid)
         });
     }
 
     /**********************
      * Public Functions   *
      **********************/
+
+    function getBasefee(
+        uint32 timeSinceNow,
+        uint64 gasLimit
+    ) private view returns (uint64 _basefee) {
+        (_basefee, ) = _calcBasefee(
+            timeSinceNow + block.timestamp - parentTimestamp,
+            gasLimit
+        );
+    }
 
     function getXchainBlockHash(
         uint256 number
@@ -181,7 +257,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         }
 
         inputs[255] = bytes32(block.chainid);
-        // inputs[256] = bytes32(block.basefee);
 
         assembly {
             prevPIH := keccak256(inputs, mul(256, 32))
@@ -191,5 +266,24 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         assembly {
             currPIH := keccak256(inputs, mul(256, 32))
         }
+    }
+
+    function _calcBasefee(
+        uint256 timeSinceParent,
+        uint64 gasLimit
+    ) private view returns (uint64 _basefee, uint64 _gasExcess) {
+        uint64 gasIssued = (gasIssuedPerSecond * timeSinceParent).toUint64();
+        _gasExcess = gasExcess > gasIssued ? gasExcess - gasIssued : 0;
+
+        _basefee = Lib1559Math
+            .calculatePrice({
+                xscale: xscale,
+                yscale: yscale,
+                xExcess: _gasExcess,
+                xPurchase: gasLimit
+            })
+            .toUint64();
+        assert(_basefee != 0);
+        _gasExcess += gasLimit;
     }
 }

@@ -3,92 +3,9 @@
 pragma solidity ^0.8.18;
 
 library LibFixedPointMath {
+    uint128 public constant MAX_EXP_INPUT = 135305999368893231588;
+
     error Overflow();
-    error LnNegativeUndefined();
-
-    // Integer log2
-    // @returns floor(log2(x)) if x is nonzero, otherwise 0. This is the same
-    //          as the location of the highest set bit.
-    // Consumes 232 gas. This could have been an 3 gas EVM opcode though.
-    function ilog2(uint256 x) internal pure returns (uint256 r) {
-        assembly {
-            r := shl(7, lt(0xffffffffffffffffffffffffffffffff, x))
-            r := or(r, shl(6, lt(0xffffffffffffffff, shr(r, x))))
-            r := or(r, shl(5, lt(0xffffffff, shr(r, x))))
-            r := or(r, shl(4, lt(0xffff, shr(r, x))))
-            r := or(r, shl(3, lt(0xff, shr(r, x))))
-            r := or(r, shl(2, lt(0xf, shr(r, x))))
-            r := or(r, shl(1, lt(0x3, shr(r, x))))
-            r := or(r, lt(0x1, shr(r, x)))
-        }
-    }
-
-    // Computes ln(x) in 1e18 fixed point.
-    // Reverts if x is negative or zero.
-    // Consumes 670 gas.
-    function ln(int256 x) internal pure returns (int256 r) {
-        unchecked {
-            if (x < 1) {
-                if (x < 0) revert LnNegativeUndefined();
-                revert Overflow();
-            }
-
-            // We want to convert x from 10**18 fixed point to 2**96 fixed point.
-            // We do this by multiplying by 2**96 / 10**18.
-            // But since ln(x * C) = ln(x) + ln(C), we can simply do nothing here
-            // and add ln(2**96 / 10**18) at the end.
-
-            // Reduce range of x to (1, 2) * 2**96
-            // ln(2^k * x) = k * ln(2) + ln(x)
-            // Note: inlining ilog2 saves 8 gas.
-            int256 k = int256(ilog2(uint256(x))) - 96;
-            x <<= uint256(159 - k);
-            x = int256(uint256(x) >> 159);
-
-            // Evaluate using a (8, 8)-term rational approximation
-            // p is made monic, we will multiply by a scale factor later
-            int256 p = x + 3273285459638523848632254066296;
-            p = ((p * x) >> 96) + 24828157081833163892658089445524;
-            p = ((p * x) >> 96) + 43456485725739037958740375743393;
-            p = ((p * x) >> 96) - 11111509109440967052023855526967;
-            p = ((p * x) >> 96) - 45023709667254063763336534515857;
-            p = ((p * x) >> 96) - 14706773417378608786704636184526;
-            p = p * x - (795164235651350426258249787498 << 96);
-            //emit log_named_int("p", p);
-            // We leave p in 2**192 basis so we don't need to scale it back up for the division.
-            // q is monic by convention
-            int256 q = x + 5573035233440673466300451813936;
-            q = ((q * x) >> 96) + 71694874799317883764090561454958;
-            q = ((q * x) >> 96) + 283447036172924575727196451306956;
-            q = ((q * x) >> 96) + 401686690394027663651624208769553;
-            q = ((q * x) >> 96) + 204048457590392012362485061816622;
-            q = ((q * x) >> 96) + 31853899698501571402653359427138;
-            q = ((q * x) >> 96) + 909429971244387300277376558375;
-            assembly {
-                // Div in assembly because solidity adds a zero check despite the `unchecked`.
-                // The q polynomial is known not to have zeros in the domain. (All roots are complex)
-                // No scaling required because p is already 2**96 too large.
-                r := sdiv(p, q)
-            }
-            // r is in the range (0, 0.125) * 2**96
-
-            // Finalization, we need to
-            // * multiply by the scale factor s = 5.549…
-            // * add ln(2**96 / 10**18)
-            // * add k * ln(2)
-            // * multiply by 10**18 / 2**96 = 5**18 >> 78
-            // mul s * 5e18 * 2**96, base is now 5**18 * 2**192
-            r *= 1677202110996718588342820967067443963516166;
-            // add ln(2) * k * 5e18 * 2**192
-            r +=
-                16597577552685614221487285958193947469193820559219878177908093499208371 *
-                k;
-            // add ln(2**96 / 10**18) * 5e18 * 2**192
-            r += 600920179829731861736702779321621459595472258049074101567377883020018308;
-            // base conversion: mul 2**18 / 2**192
-            r >>= 174;
-        }
-    }
 
     // Computes e^x in 1e18 fixed point.
     function exp(int256 x) internal pure returns (int256 r) {

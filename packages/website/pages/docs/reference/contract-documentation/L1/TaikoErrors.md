@@ -4,6 +4,18 @@ title: TaikoErrors
 
 ## TaikoErrors
 
+### L1_1559_X_SCALE_TOO_LARGE
+
+```solidity
+error L1_1559_X_SCALE_TOO_LARGE()
+```
+
+### L1_1559_Y_SCALE_TOO_LARGE
+
+```solidity
+error L1_1559_Y_SCALE_TOO_LARGE()
+```
+
 ### L1_ALREADY_PROVEN
 
 ```solidity
@@ -56,6 +68,12 @@ error L1_INVALID_CONFIG()
 
 ```solidity
 error L1_INVALID_EVIDENCE()
+```
+
+### L1_INVALID_L21559_PARAMS
+
+```solidity
+error L1_INVALID_L21559_PARAMS()
 ```
 
 ### L1_INVALID_METADATA

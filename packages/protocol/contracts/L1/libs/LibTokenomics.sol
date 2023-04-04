@@ -17,7 +17,7 @@ import {
     LibFixedPointMath as Math
 } from "../../thirdparty/LibFixedPointMath.sol";
 
-library LibL1Tokenomics {
+library LibTokenomics {
     using LibMath for uint256;
 
     uint256 constant SCALING_FACTOR_1E18 = 1e18; // For fixed point representation factor
@@ -26,8 +26,6 @@ library LibL1Tokenomics {
 
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_PARAM();
-    error L1_NO_GAS();
-    error L1_IMPOSSIBLE_CONVERSION();
 
     function withdraw(
         TaikoData.State storage state,

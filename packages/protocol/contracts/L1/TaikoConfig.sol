@@ -38,7 +38,6 @@ library TaikoConfig {
                 rewardBurnBips: 100,
                 // Moving average factors
                 feeBaseMAF: 1024,
-                constantFeeRewardBlocks: 1024,
                 txListCacheExpiry: 0,
                 proofTimeTarget: 85, // 85s based on A2 testnet status
                 adjustmentQuotient: 16,
