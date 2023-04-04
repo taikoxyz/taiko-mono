@@ -8,7 +8,6 @@ pragma solidity ^0.8.18;
 
 abstract contract TaikoErrors {
     // The following custom errors must match the definitions in other V1 libraries.
-    error M1559_UNEXPECTED_CHANGE(uint64 expectedRatio, uint64 actualRatio);
     error L1_1559_X_SCALE_TOO_LARGE();
     error L1_1559_Y_SCALE_TOO_LARGE();
     error L1_ALREADY_PROVEN();
