@@ -23,7 +23,6 @@ struct Config {
   uint256 maxNumVerifiedBlocks;
   uint256 maxVerificationsPerTx;
   uint256 blockMaxGasLimit;
-  uint64 gasAccumulatedPerSecond;
   uint256 gasPoolProduct;
   uint256 maxTransactionsPerBlock;
   uint256 maxBytesPerTxList;
@@ -167,11 +166,7 @@ struct State {
   uint64 numBlocks;
   uint64 lastProposedAt;
   uint64 avgBlockTime;
-<<<<<<< HEAD
-  uint64 gasAccumulated;
-=======
   uint64 __reserved3;
->>>>>>> origin/L2_1559_rebase_in_anchor
   uint64 lastVerifiedBlockId;
   uint64 __reserved4;
   uint64 avgProofTime;
