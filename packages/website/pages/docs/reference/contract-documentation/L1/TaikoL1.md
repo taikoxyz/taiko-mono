@@ -79,10 +79,10 @@ function withdraw(uint256 amount) external
 function getBalance(address addr) public view returns (uint256)
 ```
 
-### getBlockFee
+### getProverFee
 
 ```solidity
-function getBlockFee() public view returns (uint256 feeAmount, uint256 depositAmount)
+function getProverFee() public view returns (uint256 feeAmount, uint256 depositAmount)
 ```
 
 ### getProofReward

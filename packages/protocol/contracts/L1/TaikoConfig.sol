@@ -40,7 +40,7 @@ library TaikoConfig {
                 feeBaseMAF: 1024,
                 constantFeeRewardBlocks: 1024,
                 txListCacheExpiry: 0,
-                proofTimeTarget: 100, // 90sec general
+                proofTimeTarget: 85, // 85s based on A2 testnet status
                 adjustmentQuotient: 16,
                 enableSoloProposer: false,
                 enableOracleProver: true,

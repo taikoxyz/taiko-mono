@@ -128,7 +128,7 @@ library LibVerifying {
                 uint256 reward,
                 uint256 proofTimeIssued,
                 uint256 newBaseFeeProof
-            ) = LibL1Tokenomics.calculateBaseProof(
+            ) = LibL1Tokenomics.calculateBaseFeeProof(
                     state,
                     config,
                     uint64(proofTime),

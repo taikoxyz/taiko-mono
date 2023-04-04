@@ -76,7 +76,7 @@ library LibL1Tokenomics {
         uint64 proposedAt,
         uint32 usedGas
     ) internal view returns (uint256 newFeeBase, uint256 reward) {
-        (reward, , newFeeBase) = calculateBaseProof(
+        (reward, , newFeeBase) = calculateBaseFeeProof(
             state,
             config,
             (provenAt - proposedAt),
@@ -87,12 +87,12 @@ library LibL1Tokenomics {
     /// @notice Update the baseFee for proofs
     /// @param state - The actual state data
     /// @param config - Config data
-    /// @param actProofTime - The actual proof time
+    /// @param proofTime - The actual proof time
     /// @param usedGas - Gas in the block
-    function calculateBaseProof(
+    function calculateBaseFeeProof(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        uint64 actProofTime,
+        uint64 proofTime,
         uint32 usedGas
     )
         internal
@@ -103,36 +103,43 @@ library LibL1Tokenomics {
             uint256 newBaseFeeProof
         )
     {
-        uint256 proofTime = state.proofTimeIssued;
+        uint256 proofTimeIssued = state.proofTimeIssued;
         // To protect underflow
-        proofTime = (proofTime > config.proofTimeTarget)
-            ? proofTime - config.proofTimeTarget
+        proofTimeIssued = (proofTimeIssued > config.proofTimeTarget)
+            ? proofTimeIssued - config.proofTimeTarget
             : uint256(0);
 
-        proofTime += actProofTime;
+        proofTimeIssued += proofTime;
 
         newBaseFeeProof = baseFee(
-            proofTime,
+            proofTimeIssued,
             config.proofTimeTarget,
             config.adjustmentQuotient
         );
 
         if (config.allowMinting) {
-            reward = ((state.baseFeeProof * usedGas * actProofTime) /
+            reward = ((state.baseFeeProof * usedGas * proofTime) /
                 (config.proofTimeTarget * SCALING_FROM_18_TO_TKO_DEC));
         } else {
+            /// TODO: Verify with functional tests
+            uint256 numBlocksBeingProven = state.numBlocks -
+                state.lastVerifiedBlockId;
             if (config.useTimeWeightedReward) {
-                reward = (state.proofFeeTreasury *
-                    (actProofTime /
-                        (((state.numBlocks - state.lastVerifiedBlockId) *
-                            block.timestamp) - state.accProposalTime)));
+                /// TODO: Theroetically there can be no underflow (in case numBlocksBeingProven == 0 then
+                /// state.accProposalTime is also 0) - but verify with unit tests !
+                uint256 totalNumProvingSeconds = numBlocksBeingProven *
+                    block.timestamp -
+                    state.accProposalTime;
+                reward =
+                    (state.proofFeeTreasury * proofTime) /
+                    totalNumProvingSeconds;
             } else {
-                reward = (state.proofFeeTreasury /
-                    (state.numBlocks - state.lastVerifiedBlockId));
+                /// TODO: Verify with functional tests
+                reward = state.proofFeeTreasury / numBlocksBeingProven;
             }
         }
 
-        newProofTimeIssued = proofTime;
+        newProofTimeIssued = proofTimeIssued;
     }
 
     /// @notice Calculating the exponential smoothened with (target/quotient)
@@ -144,8 +151,9 @@ library LibL1Tokenomics {
         uint256 target,
         uint256 quotient
     ) internal pure returns (uint256) {
-        uint256 newValue = (expCalculation(value, target, quotient));
-        return ((newValue / (target * quotient)));
+        return (
+            (expCalculation(value, target, quotient) / (target * quotient))
+        );
     }
 
     /// @notice Calculating the exponential via LibFixedPointMath.sol

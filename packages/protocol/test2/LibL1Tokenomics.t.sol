@@ -270,7 +270,8 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
             );
             TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             uint64 proposedAt = uint64(block.timestamp);
-            mine(5);
+
+            mine_proofTime();
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
@@ -339,7 +340,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
         console2.log("Stable");
         // To see the issue - adjust the max loop counter below.
         // The more the loops the bigger the deposits (compared to withrawals)
-        for (uint256 blockId = 1; blockId < 50; blockId++) {
+        for (uint256 blockId = 1; blockId < 100; blockId++) {
             printVariables(
                 "before proposing - affected by verification (verifyBlock() updates)"
             );
@@ -432,7 +433,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
                 "before proposing - affected by verification (verifyBlock() updates)"
             );
             TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
-            mine(1);
+            mine_proofTime();
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
@@ -529,5 +530,10 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
 
         actualFee = L1.getProverFee(gasLimit);
         assertGt(previousFee, actualFee);
+    }
+
+    function mine_proofTime() internal {
+        vm.warp(block.timestamp + 85);
+        vm.roll(block.number + 4);
     }
 }
