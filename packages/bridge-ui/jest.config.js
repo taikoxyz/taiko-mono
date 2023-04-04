@@ -64,8 +64,4 @@ export default {
   coveragePathIgnorePatterns: ['<rootDir>/src/components/'],
   testTimeout: 40 * 1000,
   watchPathIgnorePatterns: ['node_modules'],
-  moduleNameMapper: {
-    // https://github.com/axios/axios/issues/5101
-    axios: 'axios/dist/node/axios.cjs',
-  },
 };
