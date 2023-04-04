@@ -43,15 +43,15 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     bytes32 public publicInputHash;
 
     uint128 public yscale;
-    uint128 public xscale;
+    uint64 public xscale;
+    uint64 public gasIssuedPerSecond;
 
     uint64 public parentTimestamp;
     uint64 public latestSyncedL1Height;
-    uint64 public gasIssuedPerSecond;
     uint64 public basefee;
     uint64 public gasExcess;
 
-    uint256[44] private __gap;
+    uint256[45] private __gap;
 
     /**********************
      * Events and Errors  *
@@ -100,14 +100,17 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
                 _param1559.ratio2x1x == 0
             ) revert L2_INVALID_1559_PARAMS();
 
-            (xscale, yscale) = Lib1559Math.calculateScales({
+            uint128 _xscale;
+            (_xscale, yscale) = Lib1559Math.calculateScales({
                 xExcessMax: _param1559.gasExcessMax,
                 price: _param1559.basefee,
                 target: _param1559.gasTarget,
                 ratio2x1x: _param1559.ratio2x1x
             });
 
-            if (xscale == 0 || yscale == 0) revert L2_INVALID_1559_PARAMS();
+            if (_xscale == 0 || _xscale >= type(uint64).max || yscale == 0)
+                revert L2_INVALID_1559_PARAMS();
+            xscale = uint64(_xscale);
 
             gasExcess = _param1559.gasExcessMax / 2;
         }

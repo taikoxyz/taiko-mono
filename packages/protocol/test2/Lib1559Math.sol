@@ -18,42 +18,42 @@ contract TestLib1559Math is Test {
     function test1559_2X1XRatio(uint16 rand) public {
         vm.assume(rand != 0);
 
-        uint64 gasExcessMax = (uint(15000000) * 256 * rand).toUint64();
-        uint64 gasTarget = (uint(6000000) * rand).toUint64();
-        uint64 basefeeInitial = (uint(5000000000) * rand).toUint64();
+        uint64 xExcessMax = (uint(15000000) * 256 * rand).toUint64();
+        uint64 xTarget = (uint(6000000) * rand).toUint64();
+        uint64 price0 = (uint(5000000000) * rand).toUint64();
         uint64 ratio2x1x = 111;
         (uint128 xscale, uint128 yscale) = T.calculateScales({
-            xExcessMax: gasExcessMax,
-            price: basefeeInitial,
-            target: gasTarget,
+            xExcessMax: xExcessMax,
+            price: price0,
+            target: xTarget,
             ratio2x1x: ratio2x1x
         });
 
-        // basefee should be 0 when gasExcess is 0
-        assertEq(T.calculatePrice(xscale, yscale, 0, gasTarget), 0);
+        // basefee should be 0 when xExcess is 0
+        assertEq(T.calculatePrice(xscale, yscale, 0, xTarget), 0);
 
         uint64 N = 50;
-        // In the [gasExcessMax/2 - 50 * gasTarget, gasExcessMax/2 + 50 * gasTarget]
-        // gas range, the ratio2x1x holds, and the gas price is still smaller
+        // In the [xExcessMax/2 - 50 * xTarget, xExcessMax/2 + 50 * xTarget]
+        // x range, the ratio2x1x holds, and the price is still smaller
         // than uint64.max
         for (
-            uint64 l2GasExcess = gasExcessMax / 2 - N * gasTarget;
-            l2GasExcess <= gasExcessMax / 2 + N * gasTarget;
-            l2GasExcess += gasTarget
+            uint64 xExcess = xExcessMax / 2 - N * xTarget;
+            xExcess <= xExcessMax / 2 + N * xTarget;
+            xExcess += xTarget
         ) {
             uint256 basefee1 = T.calculatePrice(
                 xscale,
                 yscale,
-                l2GasExcess,
-                gasTarget
+                xExcess,
+                xTarget
             );
             assertLt(basefee1, type(uint64).max);
 
             uint256 basefee2 = T.calculatePrice(
                 xscale,
                 yscale,
-                l2GasExcess,
-                2 * gasTarget
+                xExcess,
+                2 * xTarget
             );
 
             assertLt(basefee2, type(uint64).max);
@@ -67,15 +67,15 @@ contract TestLib1559Math is Test {
     function test1559_SpecalCases(uint16 rand) public {
         vm.assume(rand != 0);
 
-        uint64 gasExcessMax = (uint(15000000) * 256 * rand).toUint64();
-        uint64 gasTarget = (uint(6000000) * rand).toUint64();
-        uint64 basefeeInitial = (uint(5000000000) * rand).toUint64();
+        uint64 xExcessMax = (uint(15000000) * 256 * rand).toUint64();
+        uint64 xTarget = (uint(6000000) * rand).toUint64();
+        uint64 price0 = (uint(5000000000) * rand).toUint64();
         uint64 ratio2x1x = 111;
 
         (uint128 xscale, uint128 yscale) = T.calculateScales({
-            xExcessMax: gasExcessMax,
-            price: basefeeInitial,
-            target: gasTarget,
+            xExcessMax: xExcessMax,
+            price: price0,
+            target: xTarget,
             ratio2x1x: ratio2x1x
         });
 
@@ -83,27 +83,17 @@ contract TestLib1559Math is Test {
         assertEq(T.calculatePrice(xscale, yscale, 0, 1), 0);
 
         assertGt(
-            T.calculatePrice(
-                xscale,
-                yscale,
-                gasExcessMax - gasTarget,
-                gasTarget
-            ),
+            T.calculatePrice(xscale, yscale, xExcessMax - xTarget, xTarget),
             type(uint64).max
         );
 
         assertGt(
-            T.calculatePrice(xscale, yscale, 0, gasExcessMax),
+            T.calculatePrice(xscale, yscale, 0, xExcessMax),
             type(uint64).max
         );
 
         assertGt(
-            T.calculatePrice(
-                xscale,
-                yscale,
-                gasExcessMax / 2,
-                gasExcessMax / 2
-            ),
+            T.calculatePrice(xscale, yscale, xExcessMax / 2, xExcessMax / 2),
             type(uint64).max
         );
     }
