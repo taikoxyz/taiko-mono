@@ -8,14 +8,18 @@ pragma solidity ^0.8.18;
 
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {IXchainSync} from "../common/IXchainSync.sol";
+import {LibMath} from "../libs/LibMath.sol";
 import {Lib1559Math} from "../libs/Lib1559Math.sol";
 import {TaikoL2Signer} from "./TaikoL2Signer.sol";
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
+import {console2} from "forge-std/console2.sol";
+
 contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     using SafeCastUpgradeable for uint256;
+    using LibMath for uint256;
 
     struct VerifiedBlock {
         bytes32 blockHash;
@@ -70,11 +74,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         uint32 chainid
     );
 
+    error L2_BASEFEE_MISMATCH(uint64 expected, uint64 actual);
     error L2_INVALID_1559_PARAMS();
-    error L2_INVALID_BASEFEE();
     error L2_INVALID_CHAIN_ID();
     error L2_INVALID_SENDER();
-    error L2_PUBLIC_INPUT_HASH_MISMATCH();
+    error L2_PUBLIC_INPUT_HASH_MISMATCH(bytes32 expected, bytes32 actual);
     error L2_TOO_LATE();
 
     error M1559_UNEXPECTED_CHANGE(uint64 expected, uint64 actual);
@@ -112,6 +116,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
                 revert L2_INVALID_1559_PARAMS();
             xscale = uint64(_xscale);
 
+            basefee = _param1559.basefee;
             gasExcess = _param1559.gasExcessMax / 2;
         }
 
@@ -161,7 +166,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         (bytes32 prevPIH, bytes32 currPIH) = _calcPublicInputHash(parentHeight);
 
         if (publicInputHash != prevPIH) {
-            revert L2_PUBLIC_INPUT_HASH_MISMATCH();
+            revert L2_PUBLIC_INPUT_HASH_MISMATCH(publicInputHash, prevPIH);
         }
 
         // replace the oldest block hash with the parent's blockhash
@@ -181,7 +186,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
             );
         }
 
-        if (block.basefee != basefee) revert L2_INVALID_BASEFEE();
+        if (block.basefee != basefee)
+            revert L2_BASEFEE_MISMATCH(basefee, uint64(block.basefee));
 
         parentTimestamp = uint64(block.timestamp);
 
@@ -208,7 +214,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     function getBasefee(
         uint32 timeSinceNow,
         uint64 gasLimit
-    ) private view returns (uint64 _basefee) {
+    ) public view returns (uint64 _basefee) {
         (_basefee, ) = _calcBasefee(
             timeSinceNow + block.timestamp - parentTimestamp,
             gasLimit
@@ -272,18 +278,36 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         uint256 timeSinceParent,
         uint64 gasLimit
     ) private view returns (uint64 _basefee, uint64 _gasExcess) {
-        uint64 gasIssued = (gasIssuedPerSecond * timeSinceParent).toUint64();
-        _gasExcess = gasExcess > gasIssued ? gasExcess - gasIssued : 0;
+        console2.log("-------_calcBasefee-----------");
+        console2.log("timeSinceParent=", timeSinceParent);
+        console2.log("gasLimit=", gasLimit);
 
-        _basefee = Lib1559Math
-            .calculatePrice({
-                xscale: xscale,
-                yscale: yscale,
-                xExcess: _gasExcess,
-                xPurchase: gasLimit
-            })
-            .toUint64();
+        uint256 gasIssued = gasIssuedPerSecond * timeSinceParent;
+        _gasExcess = gasExcess > gasIssued ? uint64(gasExcess - gasIssued) : 0;
+
+        console2.log("gasIssued=", gasIssued);
+        console2.log("gasExcess=", gasExcess);
+        console2.log("_gasExcess=", _gasExcess);
+
+        uint256 __basefee = Lib1559Math.calculatePrice({
+            xscale: xscale,
+            yscale: yscale,
+            xExcess: _gasExcess,
+            xPurchase: gasLimit
+        });
+
+        // Very important to cap basefee uint64
+        _basefee = uint64(__basefee.min(type(uint64).max));
         assert(_basefee != 0);
-        _gasExcess += gasLimit;
+
+        // Very important to cap _gasExcess uint64
+        _gasExcess = uint64(
+            (uint256(_gasExcess) + gasLimit).min(type(uint64).max)
+        );
+
+        console2.log("_gasExcess=", _gasExcess);
+        console2.log("_basefee=", _basefee);
+
+        console2.log("");
     }
 }
