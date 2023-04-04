@@ -27,8 +27,10 @@
   import Loading from '../Loading.svelte';
   import type { NoticeOpenArgs } from '../../domain/modal';
 
+  // Props
   export let transaction: BridgeTransaction;
 
+  // Events
   const dispatch = createEventDispatcher<{
     claimNotice: NoticeOpenArgs;
     tooltipStatus: void;
@@ -36,6 +38,7 @@
     transactionDetails: BridgeTransaction;
   }>();
 
+  // Internal state
   const txToChain = chains[transaction.toChainId];
   const txFromChain = chains[transaction.fromChainId];
   const { message, amountInWei, symbol, receipt, status } = transaction;
@@ -52,17 +55,6 @@
   let processable: boolean = false; // TODO: ???
   let interval: ReturnType<typeof setInterval>;
   let alreadyInformedAboutClaim = false;
-
-  onMount(async () => {
-    processable = await isTransactionProcessable(transaction);
-    interval = startInterval();
-  });
-
-  onDestroy(() => {
-    if (interval) {
-      clearInterval(interval);
-    }
-  });
 
   function onConfirm(informed: true) {
     alreadyInformedAboutClaim = informed;
@@ -91,8 +83,10 @@
       loading = true;
       const tx = await fn(transaction, $fromChain.id, $signer);
 
-      pendingTransactions.add(tx, $signer, () =>
-        successToast('Transaction completed!'),
+      pendingTransactions.add(
+        tx,
+        $signer,
+        () => successToast('Transaction completed!'), // TODO: i18n
       );
 
       successToast($_('toast.transactionSent'));
@@ -160,6 +154,18 @@
         clearInterval(interval);
     }, 20 * 1000); // TODO: magic numbers. Config?
   }
+
+  // Lifecycle hooks
+  onMount(async () => {
+    processable = await isTransactionProcessable(transaction);
+    interval = startInterval();
+  });
+
+  onDestroy(() => {
+    if (interval) {
+      clearInterval(interval);
+    }
+  });
 </script>
 
 <tr class="text-transaction-table">
