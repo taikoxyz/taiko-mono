@@ -23,7 +23,7 @@ contract TestLib1559Math is Test {
         uint64 basefeeInitial = (uint(5000000000) * rand).toUint64();
         uint64 ratio2x1x = 111;
         (uint128 xscale, uint128 yscale) = T.calculateScales({
-            xMax: gasExcessMax,
+            xExcessMax: gasExcessMax,
             price: basefeeInitial,
             target: gasTarget,
             ratio2x1x: ratio2x1x
@@ -73,7 +73,7 @@ contract TestLib1559Math is Test {
         uint64 ratio2x1x = 111;
 
         (uint128 xscale, uint128 yscale) = T.calculateScales({
-            xMax: gasExcessMax,
+            xExcessMax: gasExcessMax,
             price: basefeeInitial,
             target: gasTarget,
             ratio2x1x: ratio2x1x

@@ -4,12 +4,6 @@ title: TaikoErrors
 
 ## TaikoErrors
 
-### M1559_UNEXPECTED_CHANGE
-
-```solidity
-error M1559_UNEXPECTED_CHANGE(uint64 expectedRatio, uint64 actualRatio)
-```
-
 ### L1_1559_X_SCALE_TOO_LARGE
 
 ```solidity

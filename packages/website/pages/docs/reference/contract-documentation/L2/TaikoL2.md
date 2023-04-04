@@ -43,6 +43,18 @@ uint128 yscale
 uint128 xscale
 ```
 
+### parentTimestamp
+
+```solidity
+uint64 parentTimestamp
+```
+
+### latestSyncedL1Height
+
+```solidity
+uint64 latestSyncedL1Height
+```
+
 ### gasIssuedPerSecond
 
 ```solidity
@@ -61,16 +73,10 @@ uint64 basefee
 uint64 gasExcess
 ```
 
-### latestSyncedL1Height
-
-```solidity
-uint64 latestSyncedL1Height
-```
-
 ### BlockVars
 
 ```solidity
-event BlockVars(uint256 number, bytes32 parentHash, uint256 timestamp, uint256 basefee, uint256 prevrandao, address coinbase, uint256 gaslimit, uint256 chainid)
+event BlockVars(uint64 number, uint64 basefee, uint64 gaslimit, uint64 timestamp, bytes32 parentHash, uint256 prevrandao, address coinbase, uint32 chainid)
 ```
 
 ### L2_INVALID_1559_PARAMS

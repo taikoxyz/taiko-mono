@@ -23,7 +23,6 @@ struct Config {
   uint256 maxNumVerifiedBlocks;
   uint256 maxVerificationsPerTx;
   uint256 blockMaxGasLimit;
-  uint256 gasIssuedPerSecond;
   uint256 maxTransactionsPerBlock;
   uint256 maxBytesPerTxList;
   uint256 minTxGasLimit;

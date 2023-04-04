@@ -18,17 +18,17 @@ library Lib1559Math {
     error M1559_OUT_OF_STOCK();
 
     function calculateScales(
-        uint64 xMax,
+        uint64 xExcessMax,
         uint64 price,
         uint64 target,
         uint64 ratio2x1x
     ) internal pure returns (uint128 xscale, uint128 yscale) {
-        assert(xMax != 0);
+        assert(xExcessMax != 0);
 
-        uint64 x = xMax / 2;
+        uint64 x = xExcessMax / 2;
 
         // calculate xscale
-        xscale = LibFixedPointMath.MAX_EXP_INPUT / xMax;
+        xscale = LibFixedPointMath.MAX_EXP_INPUT / xExcessMax;
 
         // calculate yscale
         yscale = calculatePrice(xscale, price, x, target).toUint128();
@@ -46,13 +46,13 @@ library Lib1559Math {
     function calculatePrice(
         uint128 xscale,
         uint128 yscale,
-        uint64 x,
+        uint64 xExcess,
         uint64 xPurchase
     ) internal pure returns (uint256) {
         assert(xscale != 0 && yscale != 0);
         uint64 _xPurchase = xPurchase == 0 ? 1 : xPurchase;
-        uint256 _before = _calcY(x, xscale);
-        uint256 _after = _calcY(x + _xPurchase, xscale);
+        uint256 _before = _calcY(xExcess, xscale);
+        uint256 _after = _calcY(xExcess + _xPurchase, xscale);
         return (_after - _before) / _xPurchase / yscale;
     }
 
