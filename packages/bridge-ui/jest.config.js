@@ -51,10 +51,10 @@ export default {
      * - utils/switchChainAndSetSigner.spec.ts
      */
     global: {
-      statements: 81,
-      branches: 64,
-      functions: 80,
-      lines: 80,
+      statements: 83,
+      branches: 67,
+      functions: 81,
+      lines: 84,
     },
   },
   modulePathIgnorePatterns: ['<rootDir>/public/build/'],
@@ -64,8 +64,4 @@ export default {
   coveragePathIgnorePatterns: ['<rootDir>/src/components/'],
   testTimeout: 40 * 1000,
   watchPathIgnorePatterns: ['node_modules'],
-  moduleNameMapper: {
-    // https://github.com/axios/axios/issues/5101
-    axios: 'axios/dist/node/axios.cjs',
-  },
 };

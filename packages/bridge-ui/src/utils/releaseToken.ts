@@ -9,21 +9,21 @@ import { bridges } from '../bridge/bridges';
 import { chainCheck } from './chainCheck';
 
 // TODO: explain and unit test
-export async function releaseTokens(
+export async function releaseToken(
   bridgeTx: BridgeTransaction,
   currentChainId: ChainID,
   signer: Signer,
 ) {
   const { fromChainId, toChainId, message, msgHash } = bridgeTx;
 
-  chainCheck(fromChainId, toChainId, currentChainId, signer);
+  chainCheck(currentChainId, toChainId, signer);
 
   const bridgeType =
     message?.data === '0x' || !message?.data
       ? BridgeType.ETH
       : BridgeType.ERC20;
 
-  return bridges[bridgeType].releaseTokens({
+  return bridges[bridgeType].releaseToken({
     signer,
     message,
     msgHash,

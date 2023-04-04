@@ -20,7 +20,7 @@ module.exports = {
     semi: ['error', 'always'],
     'no-console': ['error', { allow: ['warn', 'error'] }],
   },
-  ignorePatterns: ['node_modules'], // todo: lets lint that separately, or move it to its own package
+  ignorePatterns: ['node_modules', '__mocks__'], // todo: lets lint that separately, or move it to its own package
   settings: {
     'svelte3/typescript': require('typescript'),
   },
@@ -90,7 +90,6 @@ module.exports = {
         '@typescript-eslint/no-unused-vars': 'off',
         '@typescript-eslint/no-unsafe-assignment': 'off',
         '@typescript-eslint/unbound-method': 'off',
-        'jest/unbound-method': 'error',
       },
     },
   ],

@@ -8,8 +8,8 @@ import type {
   TransactionData,
 } from '../domain/relayerApi';
 
-jest.mock('../constants/envVars');
 jest.mock('axios');
+jest.mock('../constants/envVars');
 
 const data1 = {
   Message: {},
@@ -46,7 +46,7 @@ const relayerApi = new RelayerAPIService(RELAYER_URL, providers);
 
 describe('RelayerAPIService', () => {
   it('should get transactions from API', async () => {
-    axios.get = jest.fn().mockResolvedValue({
+    jest.mocked(axios.get).mockResolvedValue({
       data: dataFromAPI,
     });
 
@@ -79,7 +79,7 @@ describe('RelayerAPIService', () => {
   // });
 
   it('should get block info', async () => {
-    axios.get = jest.fn().mockResolvedValue({
+    jest.mocked(axios.get).mockResolvedValue({
       data: blockInfoFromAPI,
     });
 
