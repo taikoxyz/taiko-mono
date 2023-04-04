@@ -15,7 +15,6 @@ import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
-import {console2} from "forge-std/console2.sol";
 
 contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     using SafeCastUpgradeable for uint256;
@@ -52,8 +51,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
 
     uint64 public parentTimestamp;
     uint64 public latestSyncedL1Height;
-    uint64 public basefee;
     uint64 public gasExcess;
+    uint64 public __reserved1;
 
     uint256[45] private __gap;
 
@@ -116,7 +115,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
                 revert L2_INVALID_1559_PARAMS();
             xscale = uint64(_xscale);
 
-            basefee = _param1559.basefee;
+            // basefee = _param1559.basefee;
             gasIssuedPerSecond = _param1559.gasIssuedPerSecond;
             gasExcess = _param1559.gasExcessMax / 2;
         }
@@ -180,6 +179,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         emit XchainSynced(l1Height, l1Hash, l1SignalRoot);
 
         // Check EIP-1559 basefee
+        uint64 basefee;
         if (gasIssuedPerSecond != 0) {
             (basefee, gasExcess) = _calcBasefee(
                 block.timestamp - parentTimestamp,
@@ -280,14 +280,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         uint64 gasLimit
     ) private view returns (uint64 _basefee, uint64 _gasExcess) {
         uint256 gasIssued = gasIssuedPerSecond * timeSinceParent;
-        console2.log("gasIssued:", gasIssued);
-
-        console2.log("gasExcess:", gasExcess);
 
         _gasExcess = gasExcess > gasIssued ? uint64(gasExcess - gasIssued) : 0;
 
-        console2.log("_gasExcess2:", _gasExcess);
-        console2.log("gasLimit:", gasLimit);
         uint256 __basefee = Lib1559Math.calculatePrice({
             xscale: xscale,
             yscale: yscale,
@@ -302,9 +297,5 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         _gasExcess = uint64(
             (uint256(_gasExcess) + gasLimit).min(type(uint64).max)
         );
-
-        console2.log("_gasExcess3:", _gasExcess);
-
-        console2.log("_basefee:", _basefee);
     }
 }
