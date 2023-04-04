@@ -5,7 +5,7 @@ import { MessageStatus } from '../domain/message';
 import type { BridgeTransaction } from '../domain/transaction';
 import { providers } from '../provider/providers';
 
-// TODO: explain and unit test
+// TODO: explain
 export async function isTransactionProcessable(transaction: BridgeTransaction) {
   const { receipt, message, status } = transaction;
 
@@ -20,7 +20,7 @@ export async function isTransactionProcessable(transaction: BridgeTransaction) {
   );
 
   const latestSyncedHeader = await headerSyncContract.getLatestSyncedHeader();
-  const srcBlock = await providers[chains[transaction.fromChainId].id].getBlock(
+  const srcBlock = await providers[transaction.fromChainId].getBlock(
     latestSyncedHeader,
   );
 
