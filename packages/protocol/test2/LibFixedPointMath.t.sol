@@ -22,7 +22,9 @@ contract LibFixedPointMathTest is Test {
     }
 
     function testExpLargest() public view {
-        int y = LibFixedPointMath.exp(int(LibFixedPointMath.MAX_EXP_INPUT));
+        int y = LibFixedPointMath.exp(
+            int(uint256(LibFixedPointMath.MAX_EXP_INPUT))
+        );
         console2.log(
             "LibFixedPointMath.exp(135305999368893231588)=",
             uint256(y)

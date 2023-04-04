@@ -48,8 +48,6 @@ library TaikoData {
         uint64 avgBlockTime;
         uint64 avgProofTime;
         uint64 lastProposedAt;
-        uint64 l2Basefee; // L2 1559
-        uint64 l2GasExcess; // L2 1559
     }
 
     // 3 slots
@@ -132,14 +130,14 @@ library TaikoData {
         // Never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 l2Xscale;
-        uint64 l2Yscale;
+        uint64 __reserved1;
+        uint64 __reserved2;
         // Changed when a block is proposed or proven/finalized
         // Changed when a block is proposed
         uint64 numBlocks;
         uint64 lastProposedAt; // Timestamp when the last block is proposed.
         uint64 avgBlockTime; // miliseconds
-        uint64 l2GasExcess;
+        uint64 __reserved3;
         // Changed when a block is proven/finalized
         uint64 lastVerifiedBlockId;
         uint64 __reserved4;

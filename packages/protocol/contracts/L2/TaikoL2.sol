@@ -9,11 +9,20 @@ pragma solidity ^0.8.18;
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {IXchainSync} from "../common/IXchainSync.sol";
 import {TaikoL2Signer} from "./TaikoL2Signer.sol";
+import {LibL2Tokenomics} from "../L1/libs/LibL2Tokenomics.sol";
 
 contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     struct VerifiedBlock {
         bytes32 blockHash;
         bytes32 signalRoot;
+    }
+
+    struct EIP1559Params {
+        uint64 basefee;
+        uint64 gasIssuedPerSecond;
+        uint64 gasExcessMax;
+        uint64 gasTarget;
+        uint64 expected2X1XRatio;
     }
     /**********************
      * State Variables    *
@@ -29,9 +38,16 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     bytes32 public publicInputHash;
 
     // The latest L1 block where a L2 block has been proposed.
-    uint256 public latestSyncedL1Height;
+    uint256 public latestSyncedL1Height; // TODO(daniel):change to uint64
 
-    uint256[46] private __gap;
+    uint128 public yscale;
+    uint128 public xscale;
+
+    uint64 public gasIssuedPerSecond;
+    uint64 public basefee;
+    uint64 public gasExcess;
+
+    uint256[44] private __gap;
 
     /**********************
      * Events and Errors  *
@@ -50,6 +66,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         uint256 chainid
     );
 
+    error L2_INVALID_1559_PARAMS();
+    error L2_INVALID_BASEFEE();
     error L2_INVALID_CHAIN_ID();
     error L2_INVALID_SENDER();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
@@ -59,9 +77,32 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
      * Constructor         *
      **********************/
 
-    function init(address _addressManager) external initializer {
+    function init(
+        address _addressManager,
+        EIP1559Params calldata _param1559
+    ) external initializer {
         if (block.chainid <= 1) revert L2_INVALID_CHAIN_ID();
         if (block.number > 1) revert L2_TOO_LATE();
+
+        if (_param1559.basefee != 0) {
+            if (
+                _param1559.gasIssuedPerSecond == 0 ||
+                _param1559.gasExcessMax == 0 ||
+                _param1559.gasTarget == 0 ||
+                _param1559.expected2X1XRatio == 0
+            ) revert L2_INVALID_1559_PARAMS();
+
+            (xscale, yscale) = LibL2Tokenomics.calcL2BasefeeParams(
+                _param1559.gasExcessMax,
+                _param1559.basefee,
+                _param1559.gasTarget,
+                _param1559.expected2X1XRatio
+            );
+
+            if (xscale == 0 || yscale == 0) revert L2_INVALID_1559_PARAMS();
+
+            gasExcess = _param1559.gasExcessMax / 2;
+        }
 
         EssentialContract._init(_addressManager);
 
@@ -111,7 +152,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         }
 
         // replace the oldest block hash with the parent's blockhash
-
         publicInputHash = currPIH;
         _l2Hashes[parentHeight] = parentHash;
 
@@ -119,6 +159,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         _l1VerifiedBlocks[l1Height] = VerifiedBlock(l1Hash, l1SignalRoot);
 
         emit XchainSynced(l1Height, l1Hash, l1SignalRoot);
+
+        // Check EIP-1559 basefee
+
+        if (block.basefee != basefee) revert L2_INVALID_BASEFEE();
 
         // We emit this event so circuits can grab its data to verify block variables.
         // If plonk lookup table already has all these data, we can still use this

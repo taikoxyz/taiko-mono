@@ -22,7 +22,7 @@ contract TestLibL2Tokenomics is Test {
         uint64 gasTarget = (uint(6000000) * rand).toUint64();
         uint64 basefeeInitial = (uint(5000000000) * rand).toUint64();
         uint64 expected2X1XRatio = 111;
-        (uint64 xscale, uint256 yscale) = T.calcL2BasefeeParams({
+        (uint128 xscale, uint128 yscale) = T.calcL2BasefeeParams({
             gasExcessMax: gasExcessMax,
             basefeeInitial: basefeeInitial,
             gasTarget: gasTarget,
@@ -72,7 +72,7 @@ contract TestLibL2Tokenomics is Test {
         uint64 basefeeInitial = (uint(5000000000) * rand).toUint64();
         uint64 expected2X1XRatio = 111;
 
-        (uint64 xscale, uint256 yscale) = T.calcL2BasefeeParams({
+        (uint128 xscale, uint128 yscale) = T.calcL2BasefeeParams({
             gasExcessMax: gasExcessMax,
             basefeeInitial: basefeeInitial,
             gasTarget: gasTarget,
