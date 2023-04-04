@@ -166,14 +166,13 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         emit XchainSynced(l1Height, l1Hash, l1SignalRoot);
 
         // Check EIP-1559 basefee
-
         if (basefee != 0) {
             basefee = Lib1559Math
                 .calculatePrice({
                     xscale: xscale,
                     yscale: yscale,
                     x: gasExcess,
-                    xPurchase: uint64(block.gaslimit)
+                    xPurchase: block.gaslimit.toUint64()
                 })
                 .toUint64();
             assert(basefee != 0);
