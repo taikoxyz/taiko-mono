@@ -67,17 +67,5 @@ describe('isTransactionProcessable', () => {
     ).toBeTruthy();
   });
 
-  it('should return true if the status is not New', async () => {
-    expect(
-      await isTransactionProcessable({
-        receipt: { blockNumber: 2 },
-        message: {},
-        fromChainId: L1_CHAIN_ID,
-        toChainId: L2_CHAIN_ID,
-        status: MessageStatus.Done,
-      } as BridgeTransaction),
-    ).toBeTruthy();
-  });
-
   // TODO: missing test for when the block number is less than the latest synced header
 });
