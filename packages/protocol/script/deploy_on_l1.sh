@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Please reference LibL2Tokenomics.t.sol for L2 EIP-1559 related variables.
+# Please reference Lib1559Math.t.sol for L2 EIP-1559 related variables.
 set -e
 
 PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \

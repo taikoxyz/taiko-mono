@@ -6,68 +6,63 @@
 
 pragma solidity ^0.8.18;
 
-/**
- * @notice This library offers two functions for EIP-1559-style math.
- *      See more at https://dankradfeist.de/ethereum/2022/03/16/exponential-eip1559.html
- */
+import {LibMath} from "./LibMath.sol";
+import {LibFixedPointMath} from "../thirdparty/LibFixedPointMath.sol";
+import {
+    SafeCastUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+
 library Lib1559Math {
-    /**
-     * @notice Calculates and returns the next round's target value using the equation below:
-     *
-     *      `nextTarget = prevTarget * ((A-1) * T + prevMeasured / (A * T)`
-     *      which implies if `prevMeasured` is larger than `T`, `nextTarget` will
-     *      become larger than `prevTarget`.
-     *
-     * @param prevTarget The previous round's target value.
-     * @param prevMeasured The previous round's measured value. It must be in the same unit as `T`.
-     * @param t The base target value. It must be in the same unit as `prevMeasured`.
-     * @param a The adjustment factor. Bigger values change the next round's target more slowly.
-     * @return nextTarget The next round's target value.
-     */
-    function adjustTarget(
-        uint256 prevTarget,
-        uint256 prevMeasured,
-        uint256 t,
-        uint256 a
-    ) internal pure returns (uint256 nextTarget) {
-        assert(prevTarget != 0 && t != 0 && a > 1);
+    using LibMath for uint256; // TODO(daniel)
+    using SafeCastUpgradeable for uint256;
 
-        uint256 x = prevTarget * ((a - 1) * t + prevMeasured);
-        uint256 y = a * t;
-        nextTarget = x / y;
+    error M1559_UNEXPECTED_CHANGE(uint64 expected, uint64 actual);
+    error M1559_OUT_OF_STOCK();
 
-        if (nextTarget == 0) {
-            nextTarget = prevTarget;
-        }
+    function calculateScales(
+        uint64 xMax,
+        uint64 price,
+        uint64 target,
+        uint64 ratio2x1x
+    ) internal pure returns (uint128 xscale, uint128 yscale) {
+        assert(xMax != 0);
+
+        uint64 x = xMax / 2;
+
+        // calculate xscale
+        xscale = LibFixedPointMath.MAX_EXP_INPUT / xMax;
+
+        // calculate yscale
+        yscale = calculatePrice(xscale, price, x, target).toUint128();
+
+        // Verify the gas price ratio between two blocks, one has
+        // 2*target gas and the other one has target gas.
+        uint256 price1x = calculatePrice(xscale, yscale, x, target);
+        uint256 price2x = calculatePrice(xscale, yscale, x, target * 2);
+        uint64 ratio = uint64((price2x * 100) / price1x);
+
+        if (ratio2x1x != ratio)
+            revert M1559_UNEXPECTED_CHANGE(ratio2x1x, ratio);
     }
 
-    /**
-     * @notice Calculates and returns the next round's target value using the equation below:
-     *
-     *      `nextTarget = prevTarget * A * T / ((A-1) * T + prevMeasured)`
-     *      which implies if `prevMeasured` is larger than `T`, `nextTarget` will
-     *      become smaller than `prevTarget`.
-     *
-     * @param prevTarget The previous round's target value.
-     * @param prevMeasured The previous round's measured value. It must be in the same unit as `T`.
-     * @param t The base target value. It must be in the same unit as `prevMeasured`.
-     * @param a The adjustment factor. Bigger values change the next round's target more slowly.
-     * @return nextTarget The next round's target value.
-     */
-    function adjustTargetReverse(
-        uint256 prevTarget,
-        uint256 prevMeasured,
-        uint256 t,
-        uint256 a
-    ) internal pure returns (uint256 nextTarget) {
-        assert(prevTarget != 0 && t != 0 && a > 1);
+    function calculatePrice(
+        uint128 xscale,
+        uint128 yscale,
+        uint64 x,
+        uint64 xPurchase
+    ) internal pure returns (uint256) {
+        assert(xscale != 0 && yscale != 0);
+        uint64 _xPurchase = xPurchase == 0 ? 1 : xPurchase;
+        uint256 _before = _calcY(x, xscale);
+        uint256 _after = _calcY(x + _xPurchase, xscale);
+        return (_after - _before) / _xPurchase / yscale;
+    }
 
-        uint256 x = prevTarget * a * t;
-        uint256 y = (a - 1) * t + prevMeasured;
-        nextTarget = x / y;
-
-        if (nextTarget == 0) {
-            nextTarget = prevTarget;
+    function _calcY(uint256 x, uint128 xscale) private pure returns (uint256) {
+        uint256 _x = x * xscale;
+        if (_x > LibFixedPointMath.MAX_EXP_INPUT) {
+            revert M1559_OUT_OF_STOCK();
         }
+        return uint256(LibFixedPointMath.exp(int256(_x)));
     }
 }

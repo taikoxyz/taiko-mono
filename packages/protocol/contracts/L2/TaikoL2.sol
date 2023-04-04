@@ -8,7 +8,7 @@ pragma solidity ^0.8.18;
 
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {IXchainSync} from "../common/IXchainSync.sol";
-import {LibL2Tokenomics} from "../L1/libs/LibL2Tokenomics.sol";
+import {Lib1559Math} from "../libs/Lib1559Math.sol";
 import {TaikoL2Signer} from "./TaikoL2Signer.sol";
 import {
     SafeCastUpgradeable
@@ -97,7 +97,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
                 _param1559.ratio2x1x == 0
             ) revert L2_INVALID_1559_PARAMS();
 
-            (xscale, yscale) = LibL2Tokenomics.calculateScales({
+            (xscale, yscale) = Lib1559Math.calculateScales({
                 xMax: _param1559.gasExcessMax,
                 price: _param1559.basefee,
                 target: _param1559.gasTarget,
@@ -168,7 +168,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         // Check EIP-1559 basefee
 
         if (basefee != 0) {
-            basefee = LibL2Tokenomics
+            basefee = Lib1559Math
                 .calculatePrice({
                     xscale: xscale,
                     yscale: yscale,

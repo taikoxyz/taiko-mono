@@ -3,16 +3,16 @@ pragma solidity ^0.8.18;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {LibL2Tokenomics as T} from "../contracts/L1/libs/LibL2Tokenomics.sol";
+import {Lib1559Math as T} from "../contracts/libs/Lib1559Math.sol";
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
-import {
-    LibFixedPointMath as M
-} from "../contracts/thirdparty/LibFixedPointMath.sol";
+// import {
+//     LibFixedPointMath as M
+// } from "../contracts/thirdparty/LibFixedPointMath.sol";
 
-contract TestLibL2Tokenomics is Test {
+contract TestLib1559Math is Test {
     using SafeCastUpgradeable for uint256;
 
     function test1559_2X1XRatio(uint16 rand) public {

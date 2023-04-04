@@ -10,7 +10,6 @@ import {AddressResolver} from "../common/AddressResolver.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {IXchainSync} from "../common/IXchainSync.sol";
 import {LibTokenomics} from "./libs/LibTokenomics.sol";
-import {LibL2Tokenomics} from "./libs/LibL2Tokenomics.sol";
 import {LibProposing} from "./libs/LibProposing.sol";
 import {LibProving} from "./libs/LibProving.sol";
 import {LibUtils} from "./libs/LibUtils.sol";
