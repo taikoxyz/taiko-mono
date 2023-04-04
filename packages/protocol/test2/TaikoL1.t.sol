@@ -46,7 +46,7 @@ contract TaikoL1WithConfig is TaikoL1 {
 
         config.auctionBlockBatchSize = 100;
         config.auctionBlockGap = 1000;
-        config.auctionLengthInSeconds = 1 seconds;
+        config.auctionLengthInSeconds = 5 seconds;
         config.maxFeePerGasForAuctionBid = 1e18;
     }
 }
@@ -77,14 +77,14 @@ contract TaikoL1Test is TaikoL1TestBase {
         _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
-
+        uint256 batchId = 1;
+        bidForBatchAndCloseAuction(Bob, 1, batchId);
         for (
             uint256 blockId = 1;
             blockId < conf.maxNumProposedBlocks * 10;
             blockId++
         ) {
             printVariables("before propose");
-            bidForBatch(1, 1);
             mine(1);
             TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             printVariables("after propose");
@@ -92,7 +92,16 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot, 1e18);
+            uint256 gasUsed = 1e18;
+            proveBlock(
+                Bob,
+                meta,
+                parentHash,
+                blockHash,
+                signalRoot,
+                gasUsed,
+                batchId
+            );
             verifyBlock(Carol, 1);
             parentHash = blockHash;
         }
@@ -105,17 +114,25 @@ contract TaikoL1Test is TaikoL1TestBase {
         _depositTaikoToken(Alice, 1000 * 1E8, 1000 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
-
+        uint256 batchId = 1;
+        bidForBatchAndCloseAuction(Alice, 1, batchId);
         for (uint256 blockId = 1; blockId <= 2; blockId++) {
             printVariables("before propose");
-            bidForBatch(1, 1);
             mine(1);
             TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Alice, meta, parentHash, blockHash, signalRoot, 1e18);
+            proveBlock(
+                Alice,
+                meta,
+                parentHash,
+                blockHash,
+                signalRoot,
+                1e18,
+                batchId
+            );
             verifyBlock(Alice, 2);
             parentHash = blockHash;
         }
@@ -128,20 +145,30 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
+        uint256 batchId = 1;
+        bidForBatchAndCloseAuction(Alice, 1, batchId);
+
         for (
             uint256 blockId = 1;
             blockId <= conf.maxNumProposedBlocks;
             blockId++
         ) {
             printVariables("before propose");
-            bidForBatch(1, 1);
             mine(1);
             TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Alice, meta, parentHash, blockHash, signalRoot, 1e18);
+            proveBlock(
+                Alice,
+                meta,
+                parentHash,
+                blockHash,
+                signalRoot,
+                1e18,
+                batchId
+            );
             parentHash = blockHash;
         }
         verifyBlock(Alice, conf.maxNumProposedBlocks - 1);
@@ -158,20 +185,30 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
+        uint256 batchId = 1;
+        bidForBatchAndCloseAuction(Bob, 1, batchId);
+
         for (
             uint256 blockId = 1;
             blockId < conf.maxNumProposedBlocks * 10;
             blockId++
         ) {
             printVariables("before propose");
-            bidForBatch(1, 1);
             mine(1);
             TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             mine(1);
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot, 1e18);
+            proveBlock(
+                Bob,
+                meta,
+                parentHash,
+                blockHash,
+                signalRoot,
+                1e18,
+                batchId
+            );
             verifyBlock(Carol, 1);
             mine(blockId);
             parentHash = blockHash;
@@ -189,16 +226,26 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         uint256 total = conf.maxNumProposedBlocks * 10;
 
+        uint256 batchId = 1;
+        bidForBatchAndCloseAuction(Bob, 1, batchId);
+
         for (uint256 blockId = 1; blockId < total; blockId++) {
             printVariables("before propose");
-            bidForBatch(1, 1);
             mine(1);
             TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             mine(1);
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot, 1e18);
+            proveBlock(
+                Bob,
+                meta,
+                parentHash,
+                blockHash,
+                signalRoot,
+                1e18,
+                batchId
+            );
             verifyBlock(Carol, 1);
             mine(total + 1 - blockId);
             parentHash = blockHash;

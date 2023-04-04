@@ -42,6 +42,7 @@ library LibProving {
     error L1_UNEXPECTED_FORK_CHOICE_ID();
     error L1_NOT_AUCTION_WINNER();
     error L1_BLOCK_ID_NOT_IN_BATCH();
+    error L1_AUCTION_NOT_CLOSED(uint256 closesAt);
 
     function proveBlock(
         TaikoData.State storage state,
@@ -86,6 +87,13 @@ library LibProving {
             )
         ) {
             revert L1_NOT_AUCTION_WINNER();
+        }
+
+        if (LibAuction.isAuctionOpen(config, state, batchId)) {
+            revert L1_AUCTION_NOT_CLOSED({
+                closesAt: state.blockAuctionBids[batchId].auctionStartedAt +
+                    config.auctionLengthInSeconds
+            });
         }
 
         TaikoData.Block storage blk = state.blocks[

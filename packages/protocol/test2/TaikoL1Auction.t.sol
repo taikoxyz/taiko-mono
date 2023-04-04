@@ -45,7 +45,7 @@ contract TaikoL1WithConfig is TaikoL1 {
             dampingFactorBips: 5000
         });
 
-        config.auctionBlockBatchSize = 100;
+        config.auctionBlockBatchSize = 10;
         config.auctionBlockGap = 1000;
         config.auctionLengthInSeconds = 5 seconds;
         config.maxFeePerGasForAuctionBid = 1e18;
@@ -76,13 +76,13 @@ contract TaikoL1AuctionTest is TaikoL1TestBase {
 
     function test_start_and_end_block_ids_for_batch() external {
         BatchTest[7] memory tests = [
-            BatchTest(1, 1, 100),
-            BatchTest(2, 101, 200),
-            BatchTest(3, 201, 300),
-            BatchTest(9, 801, 900),
-            BatchTest(10, 901, 1000),
-            BatchTest(11, 1001, 1100),
-            BatchTest(21, 2001, 2100)
+            BatchTest(1, 1, 10),
+            BatchTest(2, 11, 20),
+            BatchTest(3, 21, 30),
+            BatchTest(9, 81, 90),
+            BatchTest(10, 91, 100),
+            BatchTest(11, 101, 110),
+            BatchTest(21, 201, 210)
         ];
 
         for (uint256 i = 0; i < tests.length; i++) {
@@ -101,7 +101,7 @@ contract TaikoL1AuctionTest is TaikoL1TestBase {
     }
 
     function test_is_auction_open_returns_true_if_no_bids() external {
-        assertEq(L1.isAuctionOpen(493284932), true);
+        assertEq(L1.isAuctionOpen(1), true);
     }
 
     function test_is_auction_open_returns_true_if_bid_but_auction_length_hasnt_passed()
@@ -109,7 +109,7 @@ contract TaikoL1AuctionTest is TaikoL1TestBase {
     {
         uint256 batchId = 1;
         uint256 minFeePerGas = 1;
-        L1.bidForBatch(minFeePerGas, batchId);
+        bidForBatch(Alice, minFeePerGas, batchId);
         vm.warp(block.timestamp - conf.auctionLengthInSeconds + 1);
         assertEq(L1.isAuctionOpen(batchId), true);
     }
@@ -119,8 +119,8 @@ contract TaikoL1AuctionTest is TaikoL1TestBase {
     {
         uint256 batchId = 1;
         uint256 minFeePerGas = 1;
-        L1.bidForBatch(minFeePerGas, batchId);
-        vm.warp(block.timestamp + conf.auctionLengthInSeconds + 10000000);
+        bidForBatch(Alice, minFeePerGas, batchId);
+        vm.warp(block.timestamp + conf.auctionLengthInSeconds + 1);
         assertEq(L1.isAuctionOpen(batchId), false);
     }
 
@@ -136,9 +136,8 @@ contract TaikoL1AuctionTest is TaikoL1TestBase {
 
     function test_get_current_winning_bid_for_batch_existing_bid() external {
         uint256 batchId = 1;
-        vm.prank(Alice);
         vm.warp(1234);
-        L1.bidForBatch(1, batchId);
+        bidForBatch(Alice, 1, batchId);
         TaikoData.Bid memory bid = L1.getCurrentWinningBidForBatch(batchId);
         assertEq(bid.account, Alice);
         assertEq(bid.feePerGas, uint256(1));
@@ -150,10 +149,8 @@ contract TaikoL1AuctionTest is TaikoL1TestBase {
 
     function test_bid_for_batch_second_higher_bid_wins() external {
         uint256 batchId = 1;
-        vm.prank(Alice);
-        L1.bidForBatch(1, batchId);
-        vm.prank(Bob);
-        L1.bidForBatch(2, batchId);
+        bidForBatch(Alice, 1, batchId);
+        bidForBatch(Bob, 2, batchId);
         TaikoData.Bid memory bid = L1.getCurrentWinningBidForBatch(batchId);
         assertEq(bid.account, Bob);
         assertEq(bid.feePerGas, uint256(2));
@@ -166,15 +163,15 @@ contract TaikoL1AuctionTest is TaikoL1TestBase {
                 conf.maxFeePerGasForAuctionBid
             )
         );
-        L1.bidForBatch(conf.maxFeePerGasForAuctionBid + 1, 1);
+        bidForBatch(Alice, conf.maxFeePerGasForAuctionBid + 1, 1);
     }
 
     function test_bid_for_batch_auction_closed() external {
-        L1.bidForBatch(1, 1);
+        bidForBatch(Alice, 1, 1);
 
         vm.warp(block.timestamp + conf.auctionLengthInSeconds + 10000000);
         vm.expectRevert(LibAuction.L1_AUCTION_CLOSED_FOR_BATCH.selector);
-        L1.bidForBatch(2, 1);
+        bidForBatch(Bob, 2, 1);
     }
 
     function print(
