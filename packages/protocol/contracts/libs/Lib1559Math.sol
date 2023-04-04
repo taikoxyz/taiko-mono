@@ -6,14 +6,12 @@
 
 pragma solidity ^0.8.18;
 
-import {LibMath} from "./LibMath.sol";
 import {LibFixedPointMath} from "../thirdparty/LibFixedPointMath.sol";
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 library Lib1559Math {
-    using LibMath for uint256; // TODO(daniel)
     using SafeCastUpgradeable for uint256;
 
     error M1559_UNEXPECTED_CHANGE(uint64 expected, uint64 actual);
@@ -60,7 +58,7 @@ library Lib1559Math {
 
     function _calcY(uint256 x, uint128 xscale) private pure returns (uint256) {
         uint256 _x = x * xscale;
-        if (_x > LibFixedPointMath.MAX_EXP_INPUT) {
+        if (_x >= LibFixedPointMath.MAX_EXP_INPUT) {
             revert M1559_OUT_OF_STOCK();
         }
         return uint256(LibFixedPointMath.exp(int256(_x)));

@@ -16,6 +16,7 @@ import {
 
 contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     using SafeCastUpgradeable for uint256;
+
     struct VerifiedBlock {
         bytes32 blockHash;
         bytes32 signalRoot;

@@ -24,7 +24,7 @@ contract DeployOnL1 is Script, AddressResolver {
     using SafeCastUpgradeable for uint256;
     uint256 public l2ChainId = vm.envUint("L2_CHAIN_ID");
 
-    bytes32 public l2GensisHash = vm.envBytes32("L2_GENESIS_HASH");
+    bytes32 public gensisHash = vm.envBytes32("L2_GENESIS_HASH");
 
     uint256 public deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
@@ -107,19 +107,6 @@ contract DeployOnL1 is Script, AddressResolver {
 
         // TaikoL1
         TaikoL1 taikoL1 = new TaikoL1();
-        uint64 l2GasExcessMax;
-        uint64 l2Basefee;
-        uint64 l2GasTarget;
-        uint64 l2Expected2X1XRatio;
-
-        if (taikoL1.getConfig().gasIssuedPerSecond != 0) {
-            l2GasExcessMax = vm.envUint("L2_GAS_EXCESS_MAX").toUint64();
-            l2Basefee = vm.envUint("L2_BASE_FEE").toUint64();
-            l2GasTarget = vm.envUint("L2_GAS_TARGET").toUint64();
-            l2Expected2X1XRatio = vm
-                .envUint("L2_EXPECTED_2X1X_RATIO")
-                .toUint64();
-        }
 
         uint64 feeBase = 1 ** 8; // Taiko Token's decimals is 8, not 18
         address taikoL1Proxy = deployProxy(
@@ -127,15 +114,7 @@ contract DeployOnL1 is Script, AddressResolver {
             address(taikoL1),
             bytes.concat(
                 taikoL1.init.selector,
-                abi.encode(
-                    addressManagerProxy,
-                    feeBase,
-                    l2GensisHash,
-                    l2GasExcessMax,
-                    l2Basefee,
-                    l2GasTarget,
-                    l2Expected2X1XRatio
-                )
+                abi.encode(addressManagerProxy, feeBase, gensisHash)
             )
         );
         setAddress("proto_broker", taikoL1Proxy);
