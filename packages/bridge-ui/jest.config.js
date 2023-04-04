@@ -48,7 +48,6 @@ export default {
      * - utils/claimToken.spec.ts
      * - utils/releaseToken.spec.ts
      * - utils/isTransactionProcessable.spec.ts
-     * - utils/switchChainAndSetSigner.spec.ts
      */
     global: {
       statements: 83,
