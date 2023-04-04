@@ -36,7 +36,7 @@ contract TestTaikoL2 is Test {
         // console2.log("gasExcess =", uint256(L2.gasExcess()));
     }
 
-    function testAnchorTxsMultiple() external {
+    function testAnchorTxsFixedBlocktime() external {
         uint64 firstBasefee;
         for (uint256 i = 0; i < 100; i++) {
             console2.log("----\n", i);
@@ -45,14 +45,58 @@ contract TestTaikoL2 is Test {
 
             if (firstBasefee == 0) {
                 firstBasefee = basefee;
+            } else {
+                assertEq(firstBasefee, basefee);
             }
-            assertEq(firstBasefee, basefee);
 
             vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
             L2.anchor(12345, keccak256("a"), keccak256("b"));
 
             vm.roll(block.number + 1);
             vm.warp(block.timestamp + 30);
+        }
+    }
+
+    function testAnchorTxsDecreasingBlocktime() external {
+        uint64 prevBasefee;
+
+        for (uint256 i = 0; i < 3; i++) {
+            console2.log("----\n", i);
+            uint64 basefee = L2.getBasefee(0, BLOCK_GAS_LIMIT);
+            vm.fee(basefee);
+
+            assertGe(basefee, prevBasefee);
+            prevBasefee = basefee;
+
+            vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
+            L2.anchor(12345, keccak256("a"), keccak256("b"));
+
+            vm.roll(block.number + 1);
+            vm.warp(block.timestamp + 30 - i);
+        }
+    }
+
+    function testAnchorTxsIncreasingBlocktime() external {
+        uint64 prevBasefee;
+
+        for (uint256 i = 0; i < 3; i++) {
+            console2.log("----\n", i);
+            uint64 basefee = L2.getBasefee(0, BLOCK_GAS_LIMIT);
+            vm.fee(basefee);
+
+            if (prevBasefee != 0) {
+                assertLe(basefee, prevBasefee);
+            }
+            prevBasefee = basefee;
+
+            vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
+            L2.anchor(12345, keccak256("a"), keccak256("b"));
+
+            vm.roll(block.number + 1);
+
+            // uint avgBlocktime = 30;
+
+            vm.warp(block.timestamp + 30 + i);
         }
     }
 
