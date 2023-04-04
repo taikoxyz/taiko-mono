@@ -21,27 +21,27 @@ contract TestLibL2Tokenomics is Test {
         uint64 gasExcessMax = (uint(15000000) * 256 * rand).toUint64();
         uint64 gasTarget = (uint(6000000) * rand).toUint64();
         uint64 basefeeInitial = (uint(5000000000) * rand).toUint64();
-        uint64 expected2X1XRatio = 111;
-        (uint128 xscale, uint128 yscale) = T.calcL2BasefeeParams({
-            gasExcessMax: gasExcessMax,
-            basefeeInitial: basefeeInitial,
-            gasTarget: gasTarget,
-            expected2X1XRatio: expected2X1XRatio
+        uint64 ratio2x1x = 111;
+        (uint128 xscale, uint128 yscale) = T.calculateScales({
+            xMax: gasExcessMax,
+            price: basefeeInitial,
+            target: gasTarget,
+            ratio2x1x: ratio2x1x
         });
 
         // basefee should be 0 when gasExcess is 0
-        assertEq(T.calcL2Basefee(xscale, yscale, 0, gasTarget), 0);
+        assertEq(T.calculatePrice(xscale, yscale, 0, gasTarget), 0);
 
         uint64 N = 50;
         // In the [gasExcessMax/2 - 50 * gasTarget, gasExcessMax/2 + 50 * gasTarget]
-        // gas range, the expected2X1XRatio holds, and the gas price is still smaller
+        // gas range, the ratio2x1x holds, and the gas price is still smaller
         // than uint64.max
         for (
             uint64 l2GasExcess = gasExcessMax / 2 - N * gasTarget;
             l2GasExcess <= gasExcessMax / 2 + N * gasTarget;
             l2GasExcess += gasTarget
         ) {
-            uint256 basefee1 = T.calcL2Basefee(
+            uint256 basefee1 = T.calculatePrice(
                 xscale,
                 yscale,
                 l2GasExcess,
@@ -49,7 +49,7 @@ contract TestLibL2Tokenomics is Test {
             );
             assertLt(basefee1, type(uint64).max);
 
-            uint256 basefee2 = T.calcL2Basefee(
+            uint256 basefee2 = T.calculatePrice(
                 xscale,
                 yscale,
                 l2GasExcess,
@@ -59,7 +59,7 @@ contract TestLibL2Tokenomics is Test {
             assertLt(basefee2, type(uint64).max);
 
             if (basefee1 != 0) {
-                assertEq((basefee2 * 100) / basefee1, expected2X1XRatio);
+                assertEq((basefee2 * 100) / basefee1, ratio2x1x);
             }
         }
     }
@@ -70,20 +70,20 @@ contract TestLibL2Tokenomics is Test {
         uint64 gasExcessMax = (uint(15000000) * 256 * rand).toUint64();
         uint64 gasTarget = (uint(6000000) * rand).toUint64();
         uint64 basefeeInitial = (uint(5000000000) * rand).toUint64();
-        uint64 expected2X1XRatio = 111;
+        uint64 ratio2x1x = 111;
 
-        (uint128 xscale, uint128 yscale) = T.calcL2BasefeeParams({
-            gasExcessMax: gasExcessMax,
-            basefeeInitial: basefeeInitial,
-            gasTarget: gasTarget,
-            expected2X1XRatio: expected2X1XRatio
+        (uint128 xscale, uint128 yscale) = T.calculateScales({
+            xMax: gasExcessMax,
+            price: basefeeInitial,
+            target: gasTarget,
+            ratio2x1x: ratio2x1x
         });
 
-        assertEq(T.calcL2Basefee(xscale, yscale, 0, 0), 0);
-        assertEq(T.calcL2Basefee(xscale, yscale, 0, 1), 0);
+        assertEq(T.calculatePrice(xscale, yscale, 0, 0), 0);
+        assertEq(T.calculatePrice(xscale, yscale, 0, 1), 0);
 
         assertGt(
-            T.calcL2Basefee(
+            T.calculatePrice(
                 xscale,
                 yscale,
                 gasExcessMax - gasTarget,
@@ -93,12 +93,17 @@ contract TestLibL2Tokenomics is Test {
         );
 
         assertGt(
-            T.calcL2Basefee(xscale, yscale, 0, gasExcessMax),
+            T.calculatePrice(xscale, yscale, 0, gasExcessMax),
             type(uint64).max
         );
 
         assertGt(
-            T.calcL2Basefee(xscale, yscale, gasExcessMax / 2, gasExcessMax / 2),
+            T.calculatePrice(
+                xscale,
+                yscale,
+                gasExcessMax / 2,
+                gasExcessMax / 2
+            ),
             type(uint64).max
         );
     }

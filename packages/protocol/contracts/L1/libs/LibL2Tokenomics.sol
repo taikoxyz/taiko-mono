@@ -18,71 +18,57 @@ library LibL2Tokenomics {
     using LibMath for uint256;
     using SafeCastUpgradeable for uint256;
 
-    error M1559_UNEXPECTED_CHANGE(uint64 expectedRatio, uint64 actualRatio);
+    error M1559_UNEXPECTED_CHANGE(uint64 expected, uint64 actual);
     error M1559_OUT_OF_STOCK();
 
-    function calcL2BasefeeParams(
-        uint64 gasExcessMax,
-        uint64 basefeeInitial,
-        uint64 gasTarget,
-        uint64 expected2X1XRatio
+    function calculateScales(
+        uint64 xMax,
+        uint64 price,
+        uint64 target,
+        uint64 ratio2x1x
     ) internal pure returns (uint128 xscale, uint128 yscale) {
-        assert(gasExcessMax != 0);
+        assert(xMax != 0);
 
-        uint64 l2GasExcess = gasExcessMax / 2;
+        uint64 x = xMax / 2;
 
         // calculate xscale
-        xscale = LibFixedPointMath.MAX_EXP_INPUT / gasExcessMax;
+        xscale = LibFixedPointMath.MAX_EXP_INPUT / xMax;
 
         // calculate yscale
-        yscale = calcL2Basefee(xscale, basefeeInitial, l2GasExcess, gasTarget)
-            .toUint128();
+        yscale = calculatePrice(xscale, price, x, target).toUint128();
 
         // Verify the gas price ratio between two blocks, one has
-        // 2*gasTarget gas and the other one has gasTarget gas.
+        // 2*target gas and the other one has target gas.
         {
-            uint256 price1x = calcL2Basefee(
-                xscale,
-                yscale,
-                l2GasExcess,
-                gasTarget
-            );
-            uint256 price2x = calcL2Basefee(
-                xscale,
-                yscale,
-                l2GasExcess,
-                gasTarget * 2
-            );
+            uint256 price1x = calculatePrice(xscale, yscale, x, target);
+            uint256 price2x = calculatePrice(xscale, yscale, x, target * 2);
 
             uint64 ratio = uint64((price2x * 100) / price1x);
 
-            if (expected2X1XRatio != ratio) {
-                revert M1559_UNEXPECTED_CHANGE(expected2X1XRatio, ratio);
+            if (ratio2x1x != ratio) {
+                revert M1559_UNEXPECTED_CHANGE(ratio2x1x, ratio);
             }
         }
     }
 
-    function calcL2Basefee(
+    function calculatePrice(
         uint128 xscale,
         uint128 yscale,
-        uint64 l2GasExcess,
-        uint64 gasAmount
+        uint64 x,
+        uint64 xPurchase
     ) internal pure returns (uint256) {
-        uint64 _gasAmount = gasAmount == 0 ? 1 : gasAmount;
         assert(xscale != 0 && yscale != 0);
-        uint256 _before = _ethqty(l2GasExcess, xscale);
-        uint256 _after = _ethqty(l2GasExcess + _gasAmount, xscale);
-        return (_after - _before) / _gasAmount / yscale;
+        uint64 _xPurchase = xPurchase == 0 ? 1 : xPurchase;
+        uint256 _before = _calcY(x, xscale);
+        uint256 _after = _calcY(x + _xPurchase, xscale);
+        return (_after - _before) / _xPurchase / yscale;
     }
 
-    function _ethqty(
-        uint256 l2GasExcess,
-        uint128 xscale
-    ) private pure returns (uint256) {
-        uint256 x = l2GasExcess * xscale;
-        if (x > LibFixedPointMath.MAX_EXP_INPUT) {
+    function _calcY(uint256 x, uint128 xscale) private pure returns (uint256) {
+        uint256 _x = x * xscale;
+        if (_x > LibFixedPointMath.MAX_EXP_INPUT) {
             revert M1559_OUT_OF_STOCK();
         }
-        return uint256(LibFixedPointMath.exp(int256(x)));
+        return uint256(LibFixedPointMath.exp(int256(_x)));
     }
 }

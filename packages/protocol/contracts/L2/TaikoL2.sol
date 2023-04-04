@@ -26,7 +26,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         uint64 gasIssuedPerSecond;
         uint64 gasExcessMax;
         uint64 gasTarget;
-        uint64 expected2X1XRatio;
+        uint64 ratio2x1x;
     }
     /**********************
      * State Variables    *
@@ -75,7 +75,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
 
-    error M1559_UNEXPECTED_CHANGE(uint64 expectedRatio, uint64 actualRatio);
+    error M1559_UNEXPECTED_CHANGE(uint64 expected, uint64 actual);
     error M1559_OUT_OF_STOCK();
 
     /**********************
@@ -94,15 +94,15 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
                 _param1559.gasIssuedPerSecond == 0 ||
                 _param1559.gasExcessMax == 0 ||
                 _param1559.gasTarget == 0 ||
-                _param1559.expected2X1XRatio == 0
+                _param1559.ratio2x1x == 0
             ) revert L2_INVALID_1559_PARAMS();
 
-            (xscale, yscale) = LibL2Tokenomics.calcL2BasefeeParams(
-                _param1559.gasExcessMax,
-                _param1559.basefee,
-                _param1559.gasTarget,
-                _param1559.expected2X1XRatio
-            );
+            (xscale, yscale) = LibL2Tokenomics.calculateScales({
+                xMax: _param1559.gasExcessMax,
+                price: _param1559.basefee,
+                target: _param1559.gasTarget,
+                ratio2x1x: _param1559.ratio2x1x
+            });
 
             if (xscale == 0 || yscale == 0) revert L2_INVALID_1559_PARAMS();
 
@@ -169,11 +169,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
 
         if (basefee != 0) {
             basefee = LibL2Tokenomics
-                .calcL2Basefee({
-                    l2GasExcess: gasExcess,
+                .calculatePrice({
                     xscale: xscale,
                     yscale: yscale,
-                    gasAmount: uint64(block.gaslimit)
+                    x: gasExcess,
+                    xPurchase: uint64(block.gaslimit)
                 })
                 .toUint64();
             assert(basefee != 0);
