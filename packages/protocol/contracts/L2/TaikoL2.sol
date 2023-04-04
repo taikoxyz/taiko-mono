@@ -44,10 +44,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     uint128 public yscale;
     uint128 public xscale;
 
+    uint64 public parentTimestamp;
+    uint64 public latestSyncedL1Height;
     uint64 public gasIssuedPerSecond;
     uint64 public basefee;
     uint64 public gasExcess;
-    uint64 public latestSyncedL1Height;
 
     uint256[44] private __gap;
 
@@ -109,6 +110,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
             gasExcess = _param1559.gasExcessMax / 2;
         }
 
+        parentTimestamp = uint64(block.timestamp);
+
         EssentialContract._init(_addressManager);
 
         (publicInputHash, ) = _calcPublicInputHash(block.number);
@@ -167,17 +170,26 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
 
         // Check EIP-1559 basefee
         if (basefee != 0) {
+            uint64 gasIssued = (gasIssuedPerSecond *
+                (block.timestamp - parentTimestamp)).toUint64();
+            gasExcess = gasExcess > gasIssued ? gasExcess - gasIssued : 0;
+
+            uint64 gasPurchase = block.gaslimit.toUint64();
             basefee = Lib1559Math
                 .calculatePrice({
                     xscale: xscale,
                     yscale: yscale,
                     x: gasExcess,
-                    xPurchase: block.gaslimit.toUint64()
+                    xPurchase: gasPurchase
                 })
                 .toUint64();
             assert(basefee != 0);
+
+            gasExcess += gasPurchase;
         }
         if (block.basefee != basefee) revert L2_INVALID_BASEFEE();
+
+        parentTimestamp = uint64(block.timestamp);
 
         // We emit this event so circuits can grab its data to verify block variables.
         // If plonk lookup table already has all these data, we can still use this
