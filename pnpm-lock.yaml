@@ -64,9 +64,6 @@ importers:
       '@types/estree':
         specifier: ^0.0.50
         version: 0.0.50
-      '@types/identicon.js':
-        specifier: ^2.3.1
-        version: 2.3.1
       '@types/jest':
         specifier: ^27.0.2
         version: 27.5.2
@@ -4860,10 +4857,6 @@ packages:
     resolution: {integrity: sha512-SZs7ekbP8CN0txVG2xVRH6EgKmEm31BOxA07vkFaETzZz1xh+cbt8BcI0slpymvwhx5dlFnQG2rTlPVQn+iRPQ==}
     dev: true
     optional: true
-
-  /@types/identicon.js@2.3.1:
-    resolution: {integrity: sha512-QyPIfllzfVTHVJ/xX5+cOKpWuX7Zv0EKQbzTCbIn6QjMOg4bn1j73Av1LIIvRqkDV+TErJuonwZg/IOl4tbPDQ==}
-    dev: true
 
   /@types/istanbul-lib-coverage@2.0.4:
     resolution: {integrity: sha512-z/QT1XN4K4KYuslS23k62yDIDLwLFkzxOuMplDtObz0+y7VqJCaO2o+SPwHCvLFZh7xazvvoor2tA/hPz9ee7g==}
