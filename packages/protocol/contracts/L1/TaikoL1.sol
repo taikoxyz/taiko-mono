@@ -9,7 +9,7 @@ pragma solidity ^0.8.18;
 import {AddressResolver} from "../common/AddressResolver.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {IXchainSync} from "../common/IXchainSync.sol";
-import {LibL1Tokenomics} from "./libs/LibL1Tokenomics.sol";
+import {LibTokenomics} from "./libs/LibTokenomics.sol";
 import {LibL2Tokenomics} from "./libs/LibL2Tokenomics.sol";
 import {LibProposing} from "./libs/LibProposing.sol";
 import {LibProving} from "./libs/LibProving.sol";
@@ -123,11 +123,11 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     }
 
     function deposit(uint256 amount) external nonReentrant {
-        LibL1Tokenomics.deposit(state, AddressResolver(this), amount);
+        LibTokenomics.deposit(state, AddressResolver(this), amount);
     }
 
     function withdraw(uint256 amount) external nonReentrant {
-        LibL1Tokenomics.withdraw(state, AddressResolver(this), amount);
+        LibTokenomics.withdraw(state, AddressResolver(this), amount);
     }
 
     function getBalance(address addr) public view returns (uint256) {
@@ -139,7 +139,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         view
         returns (uint256 feeAmount, uint256 depositAmount)
     {
-        (, feeAmount, depositAmount) = LibL1Tokenomics.getBlockFee(
+        (, feeAmount, depositAmount) = LibTokenomics.getBlockFee(
             state,
             getConfig()
         );
@@ -149,7 +149,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         uint64 provenAt,
         uint64 proposedAt
     ) public view returns (uint256 reward) {
-        (, reward, ) = LibL1Tokenomics.getProofReward({
+        (, reward, ) = LibTokenomics.getProofReward({
             state: state,
             config: getConfig(),
             provenAt: provenAt,

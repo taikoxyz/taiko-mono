@@ -8,8 +8,7 @@ pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibAddress} from "../../libs/LibAddress.sol";
-import {LibL1Tokenomics} from "./LibL1Tokenomics.sol";
-import {LibL2Tokenomics} from "./LibL2Tokenomics.sol";
+import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {
     SafeCastUpgradeable
@@ -96,7 +95,7 @@ library LibProposing {
         blk.proposer = msg.sender;
 
         if (config.enableTokenomics) {
-            (uint256 newFeeBase, uint256 fee, uint64 deposit) = LibL1Tokenomics
+            (uint256 newFeeBase, uint256 fee, uint64 deposit) = LibTokenomics
                 .getBlockFee(state, config);
 
             uint256 burnAmount = fee + deposit;

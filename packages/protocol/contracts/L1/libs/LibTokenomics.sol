@@ -14,7 +14,7 @@ import {
 import {TaikoData} from "../TaikoData.sol";
 import {TaikoToken} from "../TaikoToken.sol";
 
-library LibL1Tokenomics {
+library LibTokenomics {
     using LibMath for uint256;
 
     error L1_INSUFFICIENT_TOKEN();

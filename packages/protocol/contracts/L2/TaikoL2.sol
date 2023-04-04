@@ -41,16 +41,13 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     // A hash to check te integrity of public inputs.
     bytes32 public publicInputHash;
 
-    // The latest L1 block where a L2 block has been proposed.
-    uint256 public latestSyncedL1Height; // TODO(daniel):change to uint64
-
     uint128 public yscale;
     uint128 public xscale;
 
     uint64 public gasIssuedPerSecond;
     uint64 public basefee;
     uint64 public gasExcess;
-    uint64 public __reserved1;
+    uint64 public latestSyncedL1Height;
 
     uint256[44] private __gap;
 
@@ -141,7 +138,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
      */
 
     function anchor(
-        uint256 l1Height,
+        uint64 l1Height,
         bytes32 l1Hash,
         bytes32 l1SignalRoot
     ) external {

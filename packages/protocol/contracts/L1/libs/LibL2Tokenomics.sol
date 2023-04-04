@@ -21,38 +21,6 @@ library LibL2Tokenomics {
     error L1_1559_GAS_CHANGE_MISMATCH(uint64 expectedRatio, uint64 actualRatio);
     error L1_OUT_OF_BLOCK_SPACE();
 
-    // function getL2Basefee(
-    //     TaikoData.State storage state,
-    //     TaikoData.Config memory config,
-    //     uint32 gasLimit
-    // ) internal view returns (uint64 basefee, uint64 newGasExcess) {
-    //     if (config.gasIssuedPerSecond == 0) {
-    //         // L2 1559 disabled
-    //         return (0, 0);
-    //     }
-
-    //     unchecked {
-    //         uint256 reduced = (block.timestamp - state.lastProposedAt) *
-    //             config.gasIssuedPerSecond;
-    //         newGasExcess = uint64(reduced.max(state.l2GasExcess) - reduced);
-    //     }
-
-    //     uint256 _basefee = calcL2Basefee({
-    //         l2GasExcess: newGasExcess,
-    //         xscale: state.l2Xscale,
-    //         yscale: state.l2Yscale,
-    //         gasAmount: gasLimit
-    //     }).toUint64();
-
-    //     if (_basefee >= type(uint64).max) {
-    //         // This is a valid case when the curve slope is large.
-    //         revert L1_OUT_OF_BLOCK_SPACE();
-    //     }
-
-    //     basefee = uint64(_basefee);
-    //     newGasExcess += gasLimit;
-    // }
-
     function calcL2BasefeeParams(
         uint64 gasExcessMax,
         uint64 basefeeInitial,

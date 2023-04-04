@@ -7,8 +7,7 @@
 pragma solidity ^0.8.18;
 
 import {LibMath} from "../../libs/LibMath.sol";
-import {LibL1Tokenomics} from "./LibL1Tokenomics.sol";
-import {LibL2Tokenomics} from "./LibL2Tokenomics.sol";
+import {LibTokenomics} from "./LibTokenomics.sol";
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
