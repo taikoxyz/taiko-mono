@@ -44,7 +44,6 @@ export default {
      * - relayerApi/RelayerAPIService.spec.ts
      * - storage/StorageService.spec.ts
      * - storage/CustomerStorageService.spec.ts
-     * - utils/chainCheck.spec.ts
      * - utils/claimToken.spec.ts
      * - utils/releaseToken.spec.ts
      * - utils/isTransactionProcessable.spec.ts
