@@ -116,34 +116,12 @@ library LibVerifying {
         uint24 fcId
     ) private returns (bytes32 blockHash, bytes32 signalRoot) {
         if (config.enableTokenomics) {
-            (
-                uint256 newFeeBase,
-                uint256 amount,
-                uint256 premiumRate
-            ) = LibL1Tokenomics.getProofReward({
-                    state: state,
-                    config: config,
-                    provenAt: fc.provenAt,
-                    proposedAt: blk.proposedAt
-                });
-
+            uint256 proofReward = fc.gasUsed * fc.feePerGas;
             // reward the prover
-            _addToBalance(state, fc.prover, amount);
+            _addToBalance(state, fc.prover, proofReward);
 
-            unchecked {
-                // premiumRate in [0-10000]
-                amount = (blk.deposit * (10000 - premiumRate)) / 10000;
-            }
-            _addToBalance(state, blk.proposer, amount);
-
-            // Update feeBase and avgProofTime
-            state.feeBase = LibUtils
-                .movingAverage({
-                    maValue: state.feeBase,
-                    newValue: newFeeBase,
-                    maf: config.feeBaseMAF
-                })
-                .toUint64();
+            // refund the proposer
+            _addToBalance(state, blk.proposer, blk.deposit);
         }
 
         uint256 proofTime;

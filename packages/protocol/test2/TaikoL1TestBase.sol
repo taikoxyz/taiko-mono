@@ -72,6 +72,16 @@ abstract contract TaikoL1TestBase is Test {
         printVariables("init  ");
     }
 
+    function startAndEndBlockIdsForBatch(
+        uint256 batchId
+    ) internal view returns (uint256 startBlockId, uint256 endBlockId) {
+        return L1.startAndEndBlockIdsForBatch(batchId);
+    }
+
+    function bidForBatch(uint256 minFeePerGas, uint256 batchId) internal {
+        L1.bidForBatch(minFeePerGas, batchId);
+    }
+
     function proposeBlock(
         address proposer,
         uint24 txListSize
@@ -113,7 +123,8 @@ abstract contract TaikoL1TestBase is Test {
         TaikoData.BlockMetadata memory meta,
         bytes32 parentHash,
         bytes32 blockHash,
-        bytes32 signalRoot
+        bytes32 signalRoot,
+        uint256 gasUsed
     ) internal {
         TaikoData.ZKProof memory zkproof = TaikoData.ZKProof({
             data: new bytes(100),
@@ -126,11 +137,12 @@ abstract contract TaikoL1TestBase is Test {
             parentHash: parentHash,
             blockHash: blockHash,
             signalRoot: signalRoot,
-            prover: prover
+            prover: prover,
+            gasUsed: gasUsed
         });
 
         vm.prank(prover, prover);
-        L1.proveBlock(meta.id, abi.encode(evidence));
+        L1.proveBlock(meta.id, 1, abi.encode(evidence));
     }
 
     function verifyBlock(address verifier, uint256 count) internal {

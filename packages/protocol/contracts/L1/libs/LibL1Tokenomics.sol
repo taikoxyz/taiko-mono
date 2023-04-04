@@ -95,42 +95,6 @@ library LibL1Tokenomics {
         }
     }
 
-    function getProofReward(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        uint64 provenAt,
-        uint64 proposedAt
-    )
-        internal
-        view
-        returns (uint256 newFeeBase, uint256 reward, uint256 premiumRate)
-    {
-        if (proposedAt > provenAt) revert L1_INVALID_PARAM();
-
-        if (state.lastVerifiedBlockId <= config.constantFeeRewardBlocks) {
-            reward = state.feeBase;
-            newFeeBase = state.feeBase;
-            // premiumRate = 0;
-        } else {
-            (newFeeBase, premiumRate) = getTimeAdjustedFee({
-                feeConfig: config.provingConfig,
-                feeBase: state.feeBase,
-                isProposal: false,
-                timeUsed: provenAt - proposedAt,
-                timeAverage: state.avgProofTime
-            });
-            reward = getSlotsAdjustedFee({
-                state: state,
-                config: config,
-                isProposal: false,
-                feeBase: newFeeBase
-            });
-        }
-        unchecked {
-            reward = (reward * (10000 - config.rewardBurnBips)) / 10000;
-        }
-    }
-
     // Implement "Slot-availability Multipliers", see the whitepaper.
     function getSlotsAdjustedFee(
         TaikoData.State storage state,

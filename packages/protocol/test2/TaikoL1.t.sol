@@ -43,6 +43,11 @@ contract TaikoL1WithConfig is TaikoL1 {
             avgTimeMAF: 64,
             dampingFactorBips: 5000
         });
+
+        config.auctionBlockBatchSize = 100;
+        config.auctionBlockGap = 1000;
+        config.auctionLengthInSeconds = 1 seconds;
+        config.maxFeePerGasForAuctionBid = 1e18;
     }
 }
 
@@ -79,13 +84,15 @@ contract TaikoL1Test is TaikoL1TestBase {
             blockId++
         ) {
             printVariables("before propose");
+            bidForBatch(1, 1);
+            mine(1);
             TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             printVariables("after propose");
             mine(1);
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
+            proveBlock(Bob, meta, parentHash, blockHash, signalRoot, 1e18);
             verifyBlock(Carol, 1);
             parentHash = blockHash;
         }
@@ -101,12 +108,14 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (uint256 blockId = 1; blockId <= 2; blockId++) {
             printVariables("before propose");
+            bidForBatch(1, 1);
+            mine(1);
             TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Alice, meta, parentHash, blockHash, signalRoot);
+            proveBlock(Alice, meta, parentHash, blockHash, signalRoot, 1e18);
             verifyBlock(Alice, 2);
             parentHash = blockHash;
         }
@@ -125,12 +134,14 @@ contract TaikoL1Test is TaikoL1TestBase {
             blockId++
         ) {
             printVariables("before propose");
+            bidForBatch(1, 1);
+            mine(1);
             TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Alice, meta, parentHash, blockHash, signalRoot);
+            proveBlock(Alice, meta, parentHash, blockHash, signalRoot, 1e18);
             parentHash = blockHash;
         }
         verifyBlock(Alice, conf.maxNumProposedBlocks - 1);
@@ -153,12 +164,14 @@ contract TaikoL1Test is TaikoL1TestBase {
             blockId++
         ) {
             printVariables("before propose");
+            bidForBatch(1, 1);
+            mine(1);
             TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             mine(1);
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
+            proveBlock(Bob, meta, parentHash, blockHash, signalRoot, 1e18);
             verifyBlock(Carol, 1);
             mine(blockId);
             parentHash = blockHash;
@@ -178,12 +191,14 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (uint256 blockId = 1; blockId < total; blockId++) {
             printVariables("before propose");
+            bidForBatch(1, 1);
+            mine(1);
             TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             mine(1);
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
+            proveBlock(Bob, meta, parentHash, blockHash, signalRoot, 1e18);
             verifyBlock(Carol, 1);
             mine(total + 1 - blockId);
             parentHash = blockHash;

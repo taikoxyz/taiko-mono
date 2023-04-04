@@ -51,7 +51,11 @@ library TaikoConfig {
                 provingConfig: TaikoData.FeeConfig({
                     avgTimeMAF: 1024,
                     dampingFactorBips: 2500 // [75% -> 125%]
-                })
+                }),
+                auctionBlockBatchSize: 100,
+                auctionBlockGap: 2048,
+                auctionLengthInSeconds: 5 minutes,
+                maxFeePerGasForAuctionBid: 100e18
             });
     }
 }

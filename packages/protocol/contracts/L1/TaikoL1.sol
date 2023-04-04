@@ -9,6 +9,7 @@ pragma solidity ^0.8.18;
 import {AddressResolver} from "../common/AddressResolver.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {IXchainSync} from "../common/IXchainSync.sol";
+import {LibAuction} from "./libs/LibAuction.sol";
 import {LibL1Tokenomics} from "./libs/LibVerifying.sol";
 import {LibProposing} from "./libs/LibProposing.sol";
 import {LibProving} from "./libs/LibProving.sol";
@@ -36,6 +37,24 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             config: getConfig(),
             genesisBlockHash: _genesisBlockHash,
             feeBase: _feeBase
+        });
+    }
+
+    /**
+     * Bid for proving rights for a Batch of blocks.
+     *
+     * @param minFeePerGas The minimum amount of gas the prover will accept as a feeReward.
+     * @param batchId The ID of the batch this bid for
+     */
+    function bidForBatch(
+        uint256 minFeePerGas,
+        uint256 batchId
+    ) external nonReentrant {
+        LibAuction.bidForBatch({
+            state: state,
+            config: getConfig(),
+            minFeePerGas: minFeePerGas,
+            batchId: batchId
         });
     }
 
@@ -82,6 +101,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
 
     function proveBlock(
         uint256 blockId,
+        uint256 batchId,
         bytes calldata input
     ) external nonReentrant {
         TaikoData.Config memory config = getConfig();
@@ -90,6 +110,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             config: config,
             resolver: AddressResolver(this),
             blockId: blockId,
+            batchId: batchId,
             evidence: abi.decode(input, (TaikoData.BlockEvidence))
         });
         if (config.maxVerificationsPerTx > 0) {
@@ -137,16 +158,40 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         );
     }
 
+    function isAuctionOpen(uint256 batchId) public view returns (bool) {
+        return LibAuction.isAuctionOpen(getConfig(), state, batchId);
+    }
+
+    function getCurrentWinningBidForBatch(
+        uint256 batchId
+    ) public view returns (TaikoData.Bid memory) {
+        return state.blockAuctionBids[batchId];
+    }
+
+    function startAndEndBlockIdsForBatch(
+        uint256 batchId
+    ) public pure returns (uint256 startBlockId, uint256 endBlockId) {
+        return
+            LibAuction.startAndEndBlockIdsForBatch(
+                getConfig().auctionBlockBatchSize,
+                batchId
+            );
+    }
+
+    function calculateBidWeight(
+        uint256 depositInWei,
+        uint256 minFeePerGas
+    ) public pure returns (uint256) {
+        return LibAuction.calculateBidWeight(depositInWei, minFeePerGas);
+    }
+
+    // TODO
     function getProofReward(
-        uint64 provenAt,
-        uint64 proposedAt
+        bytes32 parentHash,
+        uint256 gasUsed,
+        uint256 blockId
     ) public view returns (uint256 reward) {
-        (, reward, ) = LibL1Tokenomics.getProofReward({
-            state: state,
-            config: getConfig(),
-            provenAt: provenAt,
-            proposedAt: proposedAt
-        });
+        return 0;
     }
 
     function getBlock(

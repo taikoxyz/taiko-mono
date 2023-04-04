@@ -38,6 +38,10 @@ library TaikoData {
         bool skipZKPVerification;
         FeeConfig proposingConfig;
         FeeConfig provingConfig;
+        uint64 auctionBlockBatchSize;
+        uint64 auctionBlockGap;
+        uint256 auctionLengthInSeconds;
+        uint256 maxFeePerGasForAuctionBid;
     }
 
     struct StateVariables {
@@ -81,12 +85,13 @@ library TaikoData {
     }
 
     struct BlockEvidence {
-        TaikoData.BlockMetadata meta;
+        BlockMetadata meta;
         ZKProof zkproof;
         bytes32 parentHash;
         bytes32 blockHash;
         bytes32 signalRoot;
         address prover;
+        uint256 gasUsed;
     }
 
     // 3 slots
@@ -95,6 +100,8 @@ library TaikoData {
         bytes32 signalRoot;
         uint64 provenAt;
         address prover;
+        uint256 gasUsed;
+        uint256 feePerGas;
     }
 
     // 4 slots
@@ -116,6 +123,15 @@ library TaikoData {
         uint24 size;
     }
 
+    struct Bid {
+        address account;
+        uint256 feePerGas;
+        uint256 deposit;
+        uint256 weight;
+        uint256 auctionStartedAt;
+        uint256 batchId;
+    }
+
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint256 blockId_mode_ringBufferSize => Block) blocks;
@@ -124,6 +140,7 @@ library TaikoData {
         mapping(uint256 blockId => mapping(bytes32 parentHash => uint256 forkChoiceId)) forkChoiceIds;
         mapping(address account => uint256 balance) balances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
+        mapping(uint256 batchId => Bid bid) blockAuctionBids;
         // Never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
@@ -142,7 +159,8 @@ library TaikoData {
         // first proof's time is considered.
         uint64 avgProofTime; // miliseconds
         uint64 feeBase;
+        uint64 lastClaimedBlockId;
         // Reserved
-        uint256[42] __gap;
+        uint256[40] __gap;
     }
 }

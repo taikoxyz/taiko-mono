@@ -9,6 +9,7 @@ pragma solidity ^0.8.18;
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibL1Tokenomics} from "./LibL1Tokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
+import {LibAuction} from "./LibAuction.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 
 library LibProving {
@@ -39,12 +40,15 @@ library LibProving {
     error L1_INVALID_EVIDENCE();
     error L1_NOT_ORACLE_PROVER();
     error L1_UNEXPECTED_FORK_CHOICE_ID();
+    error L1_NOT_AUCTION_WINNER();
+    error L1_BLOCK_ID_NOT_IN_BATCH();
 
     function proveBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 blockId,
+        uint256 batchId,
         TaikoData.BlockEvidence memory evidence
     ) internal {
         TaikoData.BlockMetadata memory meta = evidence.meta;
@@ -63,6 +67,26 @@ library LibProving {
             // prover must not be zero
             evidence.prover == address(0)
         ) revert L1_INVALID_EVIDENCE();
+
+        if (
+            !LibAuction.isBlockIdInBatch(
+                config.auctionBlockBatchSize,
+                blockId,
+                batchId
+            )
+        ) {
+            revert L1_BLOCK_ID_NOT_IN_BATCH();
+        }
+
+        if (
+            !LibAuction.isAddressBlockAuctionWinner(
+                state,
+                batchId,
+                evidence.prover
+            )
+        ) {
+            revert L1_NOT_AUCTION_WINNER();
+        }
 
         TaikoData.Block storage blk = state.blocks[
             meta.id % config.ringBufferSize
@@ -86,6 +110,8 @@ library LibProving {
             fc = blk.forkChoices[fcId];
             fc.blockHash = evidence.blockHash;
             fc.signalRoot = evidence.signalRoot;
+            fc.gasUsed = evidence.gasUsed;
+            fc.feePerGas = state.blockAuctionBids[batchId].feePerGas;
 
             if (config.enableOracleProver) {
                 if (msg.sender != resolver.resolve("oracle_prover", false))
