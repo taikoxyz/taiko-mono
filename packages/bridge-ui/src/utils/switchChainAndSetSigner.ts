@@ -5,7 +5,6 @@ import type { Chain } from '../domain/chain';
 import { mainnetChain, taikoChain } from '../chain/chains';
 import { signer } from '../store/signer';
 
-// TODO: explain and unit test
 export async function switchChainAndSetSigner(chain: Chain) {
   const chainId = chain.id;
 

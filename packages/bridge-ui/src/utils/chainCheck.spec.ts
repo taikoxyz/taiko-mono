@@ -12,8 +12,14 @@ jest.mock('./isOnCorrectChain');
 
 const mockSigner = {} as Signer;
 
+const mockSwitchChainAndSetSigner = jest.mocked(switchChainAndSetSigner);
+
 beforeAll(() => {
-  jest.mocked(switchChainAndSetSigner).mockResolvedValue(undefined);
+  mockSwitchChainAndSetSigner.mockResolvedValue(undefined);
+});
+
+beforeEach(() => {
+  mockSwitchChainAndSetSigner.mockClear();
 });
 
 describe('chainCheck', () => {
