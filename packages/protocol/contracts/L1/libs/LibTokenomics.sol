@@ -121,7 +121,8 @@ library LibTokenomics {
         } else {
             /// TODO: Verify with functional tests
             uint256 numBlocksBeingProven = state.numBlocks -
-                state.lastVerifiedBlockId;
+                state.lastVerifiedBlockId -
+                1;
             if (config.useTimeWeightedReward) {
                 /// TODO: Theroetically there can be no underflow (in case numBlocksBeingProven == 0 then
                 /// state.accProposalTime is also 0) - but verify with unit tests !
