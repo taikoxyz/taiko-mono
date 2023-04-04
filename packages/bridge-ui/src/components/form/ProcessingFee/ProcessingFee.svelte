@@ -91,7 +91,7 @@
   <!-- TODO: translations? -->
   <div class="text-center">
     Selecting <strong>None</strong> means that you'll require ETH on the receiving
-    chain in otder to claim the bridged token. Pleas, come back later to manually
+    chain in order to claim the bridged token. Please, come back later to manually
     claim.
   </div>
 </NoticeModal>

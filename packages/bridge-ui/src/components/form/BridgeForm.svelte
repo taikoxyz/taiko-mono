@@ -498,15 +498,4 @@
     margin: 0;
     -moz-appearance: textfield !important;
   }
-
-  .btn.btn-accent.approve-btn {
-    background-color: #4c1d95;
-    border-color: #4c1d95;
-    color: #ffffff;
-  }
-
-  .btn.btn-accent.approve-btn:hover {
-    background-color: #5b21b6;
-    border-color: #5b21b6;
-  }
 </style>
