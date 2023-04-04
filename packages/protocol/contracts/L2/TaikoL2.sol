@@ -15,8 +15,6 @@ import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
-import {console2} from "forge-std/console2.sol";
-
 contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     using SafeCastUpgradeable for uint256;
     using LibMath for uint256;
@@ -278,16 +276,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         uint256 timeSinceParent,
         uint64 gasLimit
     ) private view returns (uint64 _basefee, uint64 _gasExcess) {
-        console2.log("-------_calcBasefee-----------");
-        console2.log("timeSinceParent=", timeSinceParent);
-        console2.log("gasLimit=", gasLimit);
-
         uint256 gasIssued = gasIssuedPerSecond * timeSinceParent;
         _gasExcess = gasExcess > gasIssued ? uint64(gasExcess - gasIssued) : 0;
-
-        console2.log("gasIssued=", gasIssued);
-        console2.log("gasExcess=", gasExcess);
-        console2.log("_gasExcess=", _gasExcess);
 
         uint256 __basefee = Lib1559Math.calculatePrice({
             xscale: xscale,
@@ -304,10 +294,5 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         _gasExcess = uint64(
             (uint256(_gasExcess) + gasLimit).min(type(uint64).max)
         );
-
-        console2.log("_gasExcess=", _gasExcess);
-        console2.log("_basefee=", _basefee);
-
-        console2.log("");
     }
 }

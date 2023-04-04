@@ -10,6 +10,7 @@ import {
 
 contract TestTaikoL2 is Test {
     using SafeCastUpgradeable for uint256;
+    uint32 public constant BLOCK_GAS_LIMIT = 30000000; // same as `block_gas_limit` in foundry.toml
 
     TaikoL2 public L2;
 
@@ -27,20 +28,15 @@ contract TestTaikoL2 is Test {
         L2.init(address(1), param1559); // Dummy address manager address.
         vm.roll(block.number + 1);
 
-        console2.log("basefee =", uint256(L2.basefee()));
-        console2.log("xscale =", uint256(L2.xscale()));
-        console2.log("yscale =", uint256(L2.yscale()));
-        console2.log("gasExcess =", uint256(L2.gasExcess()));
+        // console2.log("basefee =", uint256(L2.basefee()));
+        // console2.log("xscale =", uint256(L2.xscale()));
+        // console2.log("yscale =", uint256(L2.yscale()));
+        // console2.log("gasExcess =", uint256(L2.gasExcess()));
     }
 
     function testAnchorTxsMultiple() external {
-        uint32 gasLimit = 30000000; // same as `block_gas_limit` in foundry.toml
         for (uint256 i = 0; i < 100; i++) {
-            console2.log("i:", i);
-
-            uint64 expectedBasefee = L2.getBasefee(0, gasLimit);
-            console2.log("-----------__-,,,,");
-
+            uint64 expectedBasefee = L2.getBasefee(0, BLOCK_GAS_LIMIT);
             vm.fee(expectedBasefee);
             vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
             L2.anchor(12345, keccak256("a"), keccak256("b"));
@@ -51,6 +47,9 @@ contract TestTaikoL2 is Test {
 
     // calling anchor in the same block more than once should fail
     function testAnchorTxsFailInTheSameBlock() external {
+        uint64 expectedBasefee = L2.getBasefee(0, BLOCK_GAS_LIMIT);
+        vm.fee(expectedBasefee);
+
         vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
         L2.anchor(12345, keccak256("a"), keccak256("b"));
 
@@ -61,6 +60,8 @@ contract TestTaikoL2 is Test {
 
     // calling anchor in the same block more than once should fail
     function testAnchorTxsFailByNonTaikoL2Signer() external {
+        uint64 expectedBasefee = L2.getBasefee(0, BLOCK_GAS_LIMIT);
+        vm.fee(expectedBasefee);
         vm.expectRevert();
         L2.anchor(12345, keccak256("a"), keccak256("b"));
     }
