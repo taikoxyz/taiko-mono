@@ -1,5 +1,8 @@
 <script lang="ts">
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
+
+  export let width = 26;
+  export let height = 26;
 </script>
 
 <LottiePlayer
@@ -9,6 +12,6 @@
   controls={false}
   renderer="svg"
   background="transparent"
-  height={26}
-  width={26}
+  {height}
+  {width}
   controlsLayout={[]} />

@@ -3,7 +3,7 @@
   import { selectedToken, userTokens } from '../../store/token';
   import { bridgeType } from '../../store/bridge';
   import type { Token } from '../../domain/token';
-  import { BridgeType, type HTMLBridgeForm } from '../../domain/bridge';
+  import { BridgeType } from '../../domain/bridge';
   import { ChevronDown, PlusCircle } from 'svelte-heros-v2';
   import { ethers } from 'ethers';
   import ERC20_ABI from '../../constants/abi/ERC20';
@@ -14,6 +14,7 @@
   import { ETHToken, tokens } from '../../token/tokens';
   import { errorToast, successToast } from '../Toast.svelte';
   import { tokenService } from '../../storage/services';
+  import type { HTMLBridgeForm } from '../../domain/dom';
 
   let dropdownElement: HTMLDivElement;
   let showAddressField = false;

@@ -57,8 +57,3 @@ export interface Bridge {
   claim(opts: ClaimOpts): Promise<Transaction>;
   releaseToken(opts: ReleaseOpts): Promise<Transaction>;
 }
-
-// TODO: this should not be here
-export interface HTMLBridgeForm extends HTMLFormElement {
-  customTokenAddress: HTMLInputElement;
-}

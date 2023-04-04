@@ -6,12 +6,12 @@
   import { selectedToken, userTokens } from '../../store/token';
   import Erc20 from '../icons/ERC20.svelte';
   import Modal from '../modals/Modal.svelte';
-  import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
   import { ethers } from 'ethers';
   import ERC20 from '../../constants/abi/ERC20';
   import { ETHToken } from '../../token/tokens';
   import { errorToast } from '../Toast.svelte';
   import { tokenService } from '../../storage/services';
+  import Loading from '../Loading.svelte';
 
   export let showAddressField: boolean = false;
   export let addERC20: (event: SubmitEvent) => Promise<void>;
@@ -88,16 +88,7 @@
             >Balance: {tokenDetails.userTokenBalance}</span>
         </div>
       {:else if loadingTokenDetails}
-        <LottiePlayer
-          src="/lottie/loader.json"
-          autoplay={true}
-          loop={true}
-          controls={false}
-          renderer="svg"
-          background="transparent"
-          height={26}
-          width={26}
-          controlsLayout={[]} />
+        <Loading />
       {:else if showError}
         <div class="min-h-[25px] text-error text-sm">
           Couldn't fetch token details
@@ -109,16 +100,7 @@
 
     {#if loading}
       <button class="btn" disabled={true}>
-        <LottiePlayer
-          src="/lottie/loader.json"
-          autoplay={true}
-          loop={true}
-          controls={false}
-          renderer="svg"
-          background="transparent"
-          height={26}
-          width={26}
-          controlsLayout={[]} />
+        <Loading />
       </button>
     {:else}
       <button class="btn" type="submit">Add</button>
