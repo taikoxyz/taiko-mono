@@ -162,6 +162,20 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         return LibAuction.isAuctionOpen(getConfig(), state, batchId);
     }
 
+    function getAvailableBatchIds()
+        public
+        view
+        returns (uint256[] memory batchIds)
+    {
+        TaikoData.Config memory config = getConfig();
+        return
+            LibAuction.getAvailableBatchIds(
+                state.lastVerifiedBlockId,
+                config.auctionBlockBatchSize,
+                config.auctionBlockGap
+            );
+    }
+
     function getCurrentWinningBidForBatch(
         uint256 batchId
     ) public view returns (TaikoData.Bid memory) {
