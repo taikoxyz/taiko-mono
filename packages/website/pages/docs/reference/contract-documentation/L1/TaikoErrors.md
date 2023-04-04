@@ -4,10 +4,10 @@ title: TaikoErrors
 
 ## TaikoErrors
 
-### L1_1559_GAS_CHANGE_MISMATCH
+### M1559_UNEXPECTED_CHANGE
 
 ```solidity
-error L1_1559_GAS_CHANGE_MISMATCH(uint64 expectedRatio, uint64 actualRatio)
+error M1559_UNEXPECTED_CHANGE(uint64 expectedRatio, uint64 actualRatio)
 ```
 
 ### L1_1559_X_SCALE_TOO_LARGE
@@ -110,12 +110,6 @@ error L1_NOT_ORACLE_PROVER()
 
 ```solidity
 error L1_NOT_SOLO_PROPOSER()
-```
-
-### L1_OUT_OF_BLOCK_SPACE
-
-```solidity
-error L1_OUT_OF_BLOCK_SPACE()
 ```
 
 ### L1_TOO_MANY_BLOCKS

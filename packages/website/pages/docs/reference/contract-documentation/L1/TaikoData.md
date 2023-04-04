@@ -53,8 +53,6 @@ struct StateVariables {
   uint64 avgBlockTime;
   uint64 avgProofTime;
   uint64 lastProposedAt;
-  uint64 l2Basefee;
-  uint64 l2GasExcess;
 }
 ```
 
@@ -158,12 +156,12 @@ struct State {
   mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
-  uint64 l2Xscale;
-  uint64 l2Yscale;
+  uint64 __reserved1;
+  uint64 __reserved2;
   uint64 numBlocks;
   uint64 lastProposedAt;
   uint64 avgBlockTime;
-  uint64 l2GasExcess;
+  uint64 __reserved3;
   uint64 lastVerifiedBlockId;
   uint64 __reserved4;
   uint64 avgProofTime;
