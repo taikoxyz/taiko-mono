@@ -35,22 +35,22 @@ library LibL2Tokenomics {
         xscale = LibFixedPointMath.MAX_EXP_INPUT / gasExcessMax;
 
         // calculate yscale
-        yscale = calcL2Basefee(l2GasExcess, xscale, basefeeInitial, gasTarget)
+        yscale = calcL2Basefee(xscale, basefeeInitial, l2GasExcess, gasTarget)
             .toUint128();
 
         // Verify the gas price ratio between two blocks, one has
         // 2*gasTarget gas and the other one has gasTarget gas.
         {
             uint256 price1x = calcL2Basefee(
-                l2GasExcess,
                 xscale,
                 yscale,
+                l2GasExcess,
                 gasTarget
             );
             uint256 price2x = calcL2Basefee(
-                l2GasExcess,
                 xscale,
                 yscale,
+                l2GasExcess,
                 gasTarget * 2
             );
 
@@ -63,9 +63,9 @@ library LibL2Tokenomics {
     }
 
     function calcL2Basefee(
-        uint64 l2GasExcess,
         uint128 xscale,
         uint128 yscale,
+        uint64 l2GasExcess,
         uint64 gasAmount
     ) internal pure returns (uint256) {
         uint64 _gasAmount = gasAmount == 0 ? 1 : gasAmount;

@@ -30,7 +30,7 @@ contract TestLibL2Tokenomics is Test {
         });
 
         // basefee should be 0 when gasExcess is 0
-        assertEq(T.calcL2Basefee(0, xscale, yscale, gasTarget), 0);
+        assertEq(T.calcL2Basefee(xscale, yscale, 0, gasTarget), 0);
 
         uint64 N = 50;
         // In the [gasExcessMax/2 - 50 * gasTarget, gasExcessMax/2 + 50 * gasTarget]
@@ -42,17 +42,17 @@ contract TestLibL2Tokenomics is Test {
             l2GasExcess += gasTarget
         ) {
             uint256 basefee1 = T.calcL2Basefee(
-                l2GasExcess,
                 xscale,
                 yscale,
+                l2GasExcess,
                 gasTarget
             );
             assertLt(basefee1, type(uint64).max);
 
             uint256 basefee2 = T.calcL2Basefee(
-                l2GasExcess,
                 xscale,
                 yscale,
+                l2GasExcess,
                 2 * gasTarget
             );
 
@@ -79,26 +79,26 @@ contract TestLibL2Tokenomics is Test {
             expected2X1XRatio: expected2X1XRatio
         });
 
-        assertEq(T.calcL2Basefee(0, xscale, yscale, 0), 0);
-        assertEq(T.calcL2Basefee(0, xscale, yscale, 1), 0);
+        assertEq(T.calcL2Basefee(xscale, yscale, 0, 0), 0);
+        assertEq(T.calcL2Basefee(xscale, yscale, 0, 1), 0);
 
         assertGt(
             T.calcL2Basefee(
-                gasExcessMax - gasTarget,
                 xscale,
                 yscale,
+                gasExcessMax - gasTarget,
                 gasTarget
             ),
             type(uint64).max
         );
 
         assertGt(
-            T.calcL2Basefee(0, xscale, yscale, gasExcessMax),
+            T.calcL2Basefee(xscale, yscale, 0, gasExcessMax),
             type(uint64).max
         );
 
         assertGt(
-            T.calcL2Basefee(gasExcessMax / 2, xscale, yscale, gasExcessMax / 2),
+            T.calcL2Basefee(xscale, yscale, gasExcessMax / 2, gasExcessMax / 2),
             type(uint64).max
         );
     }
