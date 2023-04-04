@@ -37,13 +37,13 @@ contract LibFixedPointMathTest is Test {
     }
 
     function testExpGas() public view {
-        uint g0 = gasleft();
+        uint256 g0 = gasleft();
         LibFixedPointMath.exp(133e18);
-        uint g1 = gasleft();
+        uint256 g1 = gasleft();
         LibFixedPointMath.exp(-23e18);
-        uint g2 = gasleft();
+        uint256 g2 = gasleft();
         LibFixedPointMath.exp(5e18);
-        uint g3 = gasleft();
+        uint256 g3 = gasleft();
         console2.logUint(g0 - g1);
         console2.logUint(g1 - g2);
         console2.logUint(g2 - g3);

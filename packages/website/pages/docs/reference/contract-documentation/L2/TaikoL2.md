@@ -61,16 +61,16 @@ uint64 parentTimestamp
 uint64 latestSyncedL1Height
 ```
 
-### basefee
-
-```solidity
-uint64 basefee
-```
-
 ### gasExcess
 
 ```solidity
 uint64 gasExcess
+```
+
+### \_\_reserved1
+
+```solidity
+uint64 __reserved1
 ```
 
 ### BlockVars
@@ -79,16 +79,16 @@ uint64 gasExcess
 event BlockVars(uint64 number, uint64 basefee, uint64 gaslimit, uint64 timestamp, bytes32 parentHash, uint256 prevrandao, address coinbase, uint32 chainid)
 ```
 
+### L2_BASEFEE_MISMATCH
+
+```solidity
+error L2_BASEFEE_MISMATCH(uint64 expected, uint64 actual)
+```
+
 ### L2_INVALID_1559_PARAMS
 
 ```solidity
 error L2_INVALID_1559_PARAMS()
-```
-
-### L2_INVALID_BASEFEE
-
-```solidity
-error L2_INVALID_BASEFEE()
 ```
 
 ### L2_INVALID_CHAIN_ID
@@ -106,7 +106,7 @@ error L2_INVALID_SENDER()
 ### L2_PUBLIC_INPUT_HASH_MISMATCH
 
 ```solidity
-error L2_PUBLIC_INPUT_HASH_MISMATCH()
+error L2_PUBLIC_INPUT_HASH_MISMATCH(bytes32 expected, bytes32 actual)
 ```
 
 ### L2_TOO_LATE
@@ -159,6 +159,12 @@ This transaction shall be the first transaction in every L2 block.
 | l1Height     | uint64  | The latest L1 block height when this block was proposed.  |
 | l1Hash       | bytes32 | The latest L1 block hash when this block was proposed.    |
 | l1SignalRoot | bytes32 | The latest value of the L1 "signal service storage root". |
+
+### getBasefee
+
+```solidity
+function getBasefee(uint32 timeSinceNow, uint64 gasLimit) public view returns (uint64 _basefee)
+```
 
 ### getXchainBlockHash
 

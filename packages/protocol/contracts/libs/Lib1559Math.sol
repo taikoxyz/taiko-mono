@@ -24,7 +24,6 @@ library Lib1559Math {
         uint64 ratio2x1x
     ) internal pure returns (uint128 xscale, uint128 yscale) {
         assert(xExcessMax != 0);
-
         uint64 x = xExcessMax / 2;
 
         // calculate xscale
