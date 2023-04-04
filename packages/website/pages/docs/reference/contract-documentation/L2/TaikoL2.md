@@ -40,7 +40,13 @@ uint128 yscale
 ### xscale
 
 ```solidity
-uint128 xscale
+uint64 xscale
+```
+
+### gasIssuedPerSecond
+
+```solidity
+uint64 gasIssuedPerSecond
 ```
 
 ### parentTimestamp
@@ -53,12 +59,6 @@ uint64 parentTimestamp
 
 ```solidity
 uint64 latestSyncedL1Height
-```
-
-### gasIssuedPerSecond
-
-```solidity
-uint64 gasIssuedPerSecond
 ```
 
 ### basefee
