@@ -8,10 +8,14 @@ pragma solidity ^0.8.18;
 
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {IXchainSync} from "../common/IXchainSync.sol";
-import {TaikoL2Signer} from "./TaikoL2Signer.sol";
 import {LibL2Tokenomics} from "../L1/libs/LibL2Tokenomics.sol";
+import {TaikoL2Signer} from "./TaikoL2Signer.sol";
+import {
+    SafeCastUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
+    using SafeCastUpgradeable for uint256;
     struct VerifiedBlock {
         bytes32 blockHash;
         bytes32 signalRoot;
@@ -46,6 +50,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     uint64 public gasIssuedPerSecond;
     uint64 public basefee;
     uint64 public gasExcess;
+    uint64 public __reserved1;
 
     uint256[44] private __gap;
 
@@ -162,6 +167,17 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
 
         // Check EIP-1559 basefee
 
+        if (basefee != 0) {
+            basefee = LibL2Tokenomics
+                .calcL2Basefee({
+                    l2GasExcess: gasExcess,
+                    xscale: xscale,
+                    yscale: yscale,
+                    gasAmount: uint64(block.gaslimit)
+                })
+                .toUint64();
+            assert(basefee != 0);
+        }
         if (block.basefee != basefee) revert L2_INVALID_BASEFEE();
 
         // We emit this event so circuits can grab its data to verify block variables.
