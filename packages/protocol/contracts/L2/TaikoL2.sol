@@ -75,6 +75,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
 
+    error M1559_UNEXPECTED_CHANGE(uint64 expectedRatio, uint64 actualRatio);
+    error M1559_OUT_OF_STOCK();
+
     /**********************
      * Constructor         *
      **********************/

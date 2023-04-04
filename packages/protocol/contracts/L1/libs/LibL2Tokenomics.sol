@@ -18,8 +18,8 @@ library LibL2Tokenomics {
     using LibMath for uint256;
     using SafeCastUpgradeable for uint256;
 
-    error L1_1559_GAS_CHANGE_MISMATCH(uint64 expectedRatio, uint64 actualRatio);
-    error L1_OUT_OF_BLOCK_SPACE();
+    error M1559_UNEXPECTED_CHANGE(uint64 expectedRatio, uint64 actualRatio);
+    error M1559_OUT_OF_STOCK();
 
     function calcL2BasefeeParams(
         uint64 gasExcessMax,
@@ -57,7 +57,7 @@ library LibL2Tokenomics {
             uint64 ratio = uint64((price2x * 100) / price1x);
 
             if (expected2X1XRatio != ratio) {
-                revert L1_1559_GAS_CHANGE_MISMATCH(expected2X1XRatio, ratio);
+                revert M1559_UNEXPECTED_CHANGE(expected2X1XRatio, ratio);
             }
         }
     }
@@ -81,7 +81,7 @@ library LibL2Tokenomics {
     ) private pure returns (uint256) {
         uint256 x = l2GasExcess * xscale;
         if (x > LibFixedPointMath.MAX_EXP_INPUT) {
-            revert L1_OUT_OF_BLOCK_SPACE();
+            revert M1559_OUT_OF_STOCK();
         }
         return uint256(LibFixedPointMath.exp(int256(x)));
     }
