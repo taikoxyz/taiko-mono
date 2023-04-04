@@ -43,16 +43,15 @@ export default {
      * Missing, or not yet finished, tests:
      * - relayerApi/RelayerAPIService.spec.ts
      * - storage/StorageService.spec.ts
-     * - storage/CustomerStorageService.spec.ts
      * - utils/claimToken.spec.ts
      * - utils/releaseToken.spec.ts
      * - utils/isTransactionProcessable.spec.ts
      */
     global: {
-      statements: 83,
-      branches: 67,
-      functions: 81,
-      lines: 84,
+      statements: 86,
+      branches: 70,
+      functions: 88,
+      lines: 87,
     },
   },
   modulePathIgnorePatterns: ['<rootDir>/public/build/'],
