@@ -13,18 +13,17 @@ struct TaikoData.State state
 ### init
 
 ```solidity
-function init(address _addressManager, uint64 _feeBase, bytes32 _genesisBlockHash) external
+function init(address _addressManager, bytes32 _genesisBlockHash) external
 ```
 
 Initialize the rollup.
 
 #### Parameters
 
-| Name               | Type    | Description                                                  |
-| ------------------ | ------- | ------------------------------------------------------------ |
-| \_addressManager   | address | The AddressManager address.                                  |
-| \_feeBase          | uint64  | The initial value of the proposer-fee/prover-reward feeBase. |
-| \_genesisBlockHash | bytes32 | The block hash of the genesis block.                         |
+| Name               | Type    | Description                          |
+| ------------------ | ------- | ------------------------------------ |
+| \_addressManager   | address | The AddressManager address.          |
+| \_genesisBlockHash | bytes32 | The block hash of the genesis block. |
 
 ### proposeBlock
 
