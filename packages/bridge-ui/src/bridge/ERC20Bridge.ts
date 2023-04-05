@@ -7,10 +7,10 @@ import type {
   ClaimOpts,
   ReleaseOpts,
 } from '../domain/bridge';
-import TokenVault from '../constants/abi/TokenVault';
-import ERC20 from '../constants/abi/ERC20';
+import TokenVaultABI from '../constants/abi/TokenVault';
+import ERC20_ABI from '../constants/abi/ERC20';
 import type { Prover } from '../domain/proof';
-import { MessageStatus } from '../domain/message';
+import { Message, MessageStatus } from '../domain/message';
 import BridgeABI from '../constants/abi/Bridge';
 import { chains } from '../chain/chains';
 
@@ -22,14 +22,15 @@ export class ERC20Bridge implements Bridge {
   }
 
   static async prepareTransaction(opts: BridgeOpts) {
-    const contract: Contract = new Contract(
+    const tokenVaultContract: Contract = new Contract(
       opts.tokenVaultAddress,
-      TokenVault,
+      TokenVaultABI,
       opts.signer,
     );
 
     const owner = await opts.signer.getAddress();
-    const message = {
+
+    const message: Partial<Message> = {
       sender: owner,
       srcChainId: opts.fromChainId,
       destChainId: opts.toChainId,
@@ -37,7 +38,7 @@ export class ERC20Bridge implements Bridge {
       to: opts.to,
       refundAddress: owner,
       depositValue: opts.amountInWei,
-      callValue: 0,
+      callValue: BigNumber.from(0),
       processingFee: opts.processingFeeInWei ?? BigNumber.from(0),
       gasLimit: opts.processingFeeInWei
         ? BigNumber.from(140000)
@@ -49,7 +50,7 @@ export class ERC20Bridge implements Bridge {
       message.gasLimit = message.gasLimit.add(BigNumber.from(3000000));
     }
 
-    return { contract, owner, message };
+    return { tokenVaultContract, owner, message };
   }
 
   private async spenderRequiresAllowance(
@@ -58,15 +59,20 @@ export class ERC20Bridge implements Bridge {
     amount: BigNumber,
     bridgeAddress: string,
   ): Promise<boolean> {
-    const contract: Contract = new Contract(tokenAddress, ERC20, signer);
+    const erc20Contract = new Contract(tokenAddress, ERC20_ABI, signer);
+
     const owner = await signer.getAddress();
-    const allowance: BigNumber = await contract.allowance(owner, bridgeAddress);
+
+    const allowance: BigNumber = await erc20Contract.allowance(
+      owner,
+      bridgeAddress,
+    );
 
     return allowance.lt(amount);
   }
 
-  async requiresAllowance(opts: ApproveOpts): Promise<boolean> {
-    return await this.spenderRequiresAllowance(
+  requiresAllowance(opts: ApproveOpts): Promise<boolean> {
+    return this.spenderRequiresAllowance(
       opts.contractAddress,
       opts.signer,
       opts.amountInWei,
@@ -75,42 +81,47 @@ export class ERC20Bridge implements Bridge {
   }
 
   async approve(opts: ApproveOpts): Promise<Transaction> {
-    if (
-      !(await this.spenderRequiresAllowance(
-        opts.contractAddress,
-        opts.signer,
-        opts.amountInWei,
-        opts.spenderAddress,
-      ))
-    ) {
+    const requiresAllowance = await this.spenderRequiresAllowance(
+      opts.contractAddress,
+      opts.signer,
+      opts.amountInWei,
+      opts.spenderAddress,
+    );
+
+    if (!requiresAllowance) {
       throw Error('token vault already has required allowance');
     }
 
-    const contract: Contract = new Contract(
+    const erc20Contract: Contract = new Contract(
       opts.contractAddress,
-      ERC20,
+      ERC20_ABI,
       opts.signer,
     );
 
-    const tx = await contract.approve(opts.spenderAddress, opts.amountInWei);
+    const tx = await erc20Contract.approve(
+      opts.spenderAddress,
+      opts.amountInWei,
+    );
+
     return tx;
   }
 
   async bridge(opts: BridgeOpts): Promise<Transaction> {
-    if (
-      await this.spenderRequiresAllowance(
-        opts.tokenAddress,
-        opts.signer,
-        opts.amountInWei,
-        opts.tokenVaultAddress,
-      )
-    ) {
+    const requiresAllowance = await this.spenderRequiresAllowance(
+      opts.tokenAddress,
+      opts.signer,
+      opts.amountInWei,
+      opts.tokenVaultAddress,
+    );
+
+    if (requiresAllowance) {
       throw Error('token vault does not have required allowance');
     }
 
-    const { contract, message } = await ERC20Bridge.prepareTransaction(opts);
+    const { tokenVaultContract, message } =
+      await ERC20Bridge.prepareTransaction(opts);
 
-    const tx = await contract.sendERC20(
+    const tx = await tokenVaultContract.sendERC20(
       message.destChainId,
       message.to,
       opts.tokenAddress,
@@ -128,9 +139,10 @@ export class ERC20Bridge implements Bridge {
   }
 
   async estimateGas(opts: BridgeOpts): Promise<BigNumber> {
-    const { contract, message } = await ERC20Bridge.prepareTransaction(opts);
+    const { tokenVaultContract, message } =
+      await ERC20Bridge.prepareTransaction(opts);
 
-    const gasEstimate = await contract.estimateGas.sendERC20(
+    const gasEstimate = await tokenVaultContract.estimateGas.sendERC20(
       message.destChainId,
       message.to,
       opts.tokenAddress,
@@ -148,20 +160,21 @@ export class ERC20Bridge implements Bridge {
   }
 
   async claim(opts: ClaimOpts): Promise<Transaction> {
-    const contract: Contract = new Contract(
+    const destBridgeContract = new Contract(
       opts.destBridgeAddress,
       BridgeABI,
       opts.signer,
     );
 
-    const messageStatus: MessageStatus = await contract.getMessageStatus(
-      opts.msgHash,
-    );
+    const messageStatus: MessageStatus =
+      await destBridgeContract.getMessageStatus(opts.msgHash);
 
-    if (
-      messageStatus === MessageStatus.Done ||
-      messageStatus === MessageStatus.Failed
-    ) {
+    const isMessageProcessed = [
+      MessageStatus.Done,
+      MessageStatus.Failed,
+    ].includes(messageStatus);
+
+    if (isMessageProcessed) {
       throw Error('message already processed');
     }
 
@@ -185,17 +198,21 @@ export class ERC20Bridge implements Bridge {
       });
 
       if (opts.message.gasLimit.gt(BigNumber.from(2500000))) {
-        return await contract.processMessage(opts.message, proof, {
+        return destBridgeContract.processMessage(opts.message, proof, {
           gasLimit: opts.message.gasLimit,
         });
       }
 
-      let processMessageTx;
+      let processMessageTx: Transaction;
+
       try {
-        processMessageTx = await contract.processMessage(opts.message, proof);
+        processMessageTx = await destBridgeContract.processMessage(
+          opts.message,
+          proof,
+        );
       } catch (error) {
         if (error.code === ethers.errors.UNPREDICTABLE_GAS_LIMIT) {
-          processMessageTx = await contract.processMessage(
+          processMessageTx = await destBridgeContract.processMessage(
             opts.message,
             proof,
             {
@@ -203,12 +220,12 @@ export class ERC20Bridge implements Bridge {
             },
           );
         } else {
-          throw new Error(error);
+          throw Error(error);
         }
       }
       return processMessageTx;
     } else {
-      return await contract.retryMessage(opts.message, false);
+      return destBridgeContract.retryMessage(opts.message, false);
     }
   }
 
@@ -248,11 +265,11 @@ export class ERC20Bridge implements Bridge {
 
       const srcTokenVaultContract: Contract = new Contract(
         opts.srcTokenVaultAddress,
-        TokenVault,
+        TokenVaultABI,
         opts.signer,
       );
 
-      return await srcTokenVaultContract.releaseERC20(opts.message, proof);
+      return srcTokenVaultContract.releaseERC20(opts.message, proof);
     }
   }
 }
