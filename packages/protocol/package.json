@@ -14,7 +14,7 @@
     "test": "./script/download_solc.sh && pnpm hardhat test --grep '^[^integration]'",
     "coverage": "pnpm hardhat coverage --solcoverjs ./.solcover.js --show-stack-traces",
     "test:coverage": "pnpm coverage",
-    "test:foundry": "forge test -vvv --gas-report",
+    "test:foundry": "forge test -vvv --ffi --gas-report",
     "generate:genesis": "ts-node ./utils/generate_genesis/main.ts",
     "test:genesis": "./test/genesis/generate_genesis.test.sh",
     "test:bridge": "TEST_TYPE=integrationbridge ./test/test_integration.sh",
