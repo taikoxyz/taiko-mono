@@ -154,7 +154,7 @@ contract TestTaikoL2 is Test {
             block.timestamp -
             L2.parentTimestamp();
         uint256 gasIssued = L2.gasIssuedPerSecond() * timeSinceParent;
-        string memory msg = string.concat(
+        string memory _msg = string.concat(
             "#",
             Strings.toString(logIndex++),
             ": gasExcess=",
@@ -170,15 +170,15 @@ contract TestTaikoL2 is Test {
         );
         _basefee = L2.getBasefee(timeSinceNow, gasLimit, parentGasUsed);
 
-        msg = string.concat(
-            msg,
+        _msg = string.concat(
+            _msg,
             ", gasExcess(changed)=",
             Strings.toString(L2.gasExcess()),
             ", basefee=",
             Strings.toString(_basefee)
         );
 
-        console2.log(msg);
+        console2.log(_msg);
     }
 
     function _getBasefeeAndPrint(
