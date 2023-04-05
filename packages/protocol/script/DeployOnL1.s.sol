@@ -9,6 +9,7 @@ pragma solidity ^0.8.18;
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import "../contracts/common/AddressResolver.sol";
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
@@ -20,9 +21,10 @@ import "../contracts/test/erc20/FreeMintERC20.sol";
 import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
 
 contract DeployOnL1 is Script, AddressResolver {
+    using SafeCastUpgradeable for uint256;
     uint256 public l2ChainId = vm.envUint("L2_CHAIN_ID");
 
-    bytes32 public l2GensisHash = vm.envBytes32("L2_GENESIS_HASH");
+    bytes32 public gensisHash = vm.envBytes32("L2_GENESIS_HASH");
 
     uint256 public deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
@@ -105,13 +107,14 @@ contract DeployOnL1 is Script, AddressResolver {
 
         // TaikoL1
         TaikoL1 taikoL1 = new TaikoL1();
+
         uint64 feeBase = 1 ** 8; // Taiko Token's decimals is 8, not 18
         address taikoL1Proxy = deployProxy(
             "taiko",
             address(taikoL1),
             bytes.concat(
                 taikoL1.init.selector,
-                abi.encode(addressManagerProxy, l2GensisHash, feeBase)
+                abi.encode(addressManagerProxy, feeBase, gensisHash)
             )
         );
         setAddress("proto_broker", taikoL1Proxy);

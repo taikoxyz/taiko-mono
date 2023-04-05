@@ -34,7 +34,6 @@ contract TestTaikoL1EnableTokenomics is TaikoL1 {
         // Moving average factors
         config.feeBaseMAF = 1024;
 
-        config.bootstrapDiscountHalvingPeriod = 1 seconds;
         config.enableTokenomics = true;
         config.skipZKPVerification = true;
 

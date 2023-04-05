@@ -29,9 +29,7 @@ library TaikoData {
         uint256 proposerDepositPctg;
         // Moving average factors
         uint256 feeBaseMAF;
-        uint64 bootstrapDiscountHalvingPeriod;
-        uint64 constantFeeRewardBlocks;
-        uint64 txListCacheExpiry;
+        uint256 txListCacheExpiry;
         bool enableSoloProposer;
         bool enableOracleProver;
         bool enableTokenomics;
@@ -61,18 +59,21 @@ library TaikoData {
         uint8 cacheTxListInfo; // non-zero = True
     }
 
-    // 5 slots
+    // 6 slots
+    // Changing this struct requires chaing LibUtils.hashMetadata accordingly.
     struct BlockMetadata {
         uint64 id;
         uint64 timestamp;
         uint64 l1Height;
-        uint32 gasLimit;
+        uint64 l2Basefee;
         bytes32 l1Hash;
         bytes32 mixHash;
         bytes32 txListHash;
         uint24 txListByteStart;
         uint24 txListByteEnd;
+        uint32 gasLimit;
         address beneficiary;
+        address treasure;
     }
 
     struct ZKProof {
@@ -137,13 +138,13 @@ library TaikoData {
         uint64 avgBlockTime; // miliseconds
         uint64 __reserved3;
         // Changed when a block is proven/finalized
-        uint64 __reserved4;
         uint64 lastVerifiedBlockId;
+        uint64 __reserved4;
         // the proof time moving average, note that for each block, only the
         // first proof's time is considered.
         uint64 avgProofTime; // miliseconds
         uint64 feeBase;
         // Reserved
-        uint256[42] __gap;
+        uint256[43] __gap;
     }
 }

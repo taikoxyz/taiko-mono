@@ -26,9 +26,7 @@ struct Config {
   uint256 rewardBurnBips;
   uint256 proposerDepositPctg;
   uint256 feeBaseMAF;
-  uint64 bootstrapDiscountHalvingPeriod;
-  uint64 constantFeeRewardBlocks;
-  uint64 txListCacheExpiry;
+  uint256 txListCacheExpiry;
   bool enableSoloProposer;
   bool enableOracleProver;
   bool enableTokenomics;
@@ -73,13 +71,15 @@ struct BlockMetadata {
   uint64 id;
   uint64 timestamp;
   uint64 l1Height;
-  uint32 gasLimit;
+  uint64 l2Basefee;
   bytes32 l1Hash;
   bytes32 mixHash;
   bytes32 txListHash;
   uint24 txListByteStart;
   uint24 txListByteEnd;
+  uint32 gasLimit;
   address beneficiary;
+  address treasure;
 }
 ```
 
@@ -157,10 +157,10 @@ struct State {
   uint64 lastProposedAt;
   uint64 avgBlockTime;
   uint64 __reserved3;
-  uint64 __reserved4;
   uint64 lastVerifiedBlockId;
+  uint64 __reserved4;
   uint64 avgProofTime;
   uint64 feeBase;
-  uint256[42] __gap;
+  uint256[43] __gap;
 }
 ```

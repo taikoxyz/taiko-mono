@@ -1,5 +1,17 @@
 ## TaikoErrors
 
+### L1_1559_X_SCALE_TOO_LARGE
+
+```solidity
+error L1_1559_X_SCALE_TOO_LARGE()
+```
+
+### L1_1559_Y_SCALE_TOO_LARGE
+
+```solidity
+error L1_1559_Y_SCALE_TOO_LARGE()
+```
+
 ### L1_ALREADY_PROVEN
 
 ```solidity
@@ -21,13 +33,19 @@ error L1_CONTRACT_NOT_ALLOWED()
 ### L1_EVIDENCE_MISMATCH
 
 ```solidity
-error L1_EVIDENCE_MISMATCH()
+error L1_EVIDENCE_MISMATCH(bytes32 expected, bytes32 actual)
 ```
 
 ### L1_FORK_CHOICE_NOT_FOUND
 
 ```solidity
 error L1_FORK_CHOICE_NOT_FOUND()
+```
+
+### L1_INSUFFICIENT_ETHER
+
+```solidity
+error L1_INSUFFICIENT_ETHER()
 ```
 
 ### L1_INSUFFICIENT_TOKEN
@@ -46,6 +64,12 @@ error L1_INVALID_CONFIG()
 
 ```solidity
 error L1_INVALID_EVIDENCE()
+```
+
+### L1_INVALID_L21559_PARAMS
+
+```solidity
+error L1_INVALID_L21559_PARAMS()
 ```
 
 ### L1_INVALID_METADATA

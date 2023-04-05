@@ -7,7 +7,7 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
-import {LibL1Tokenomics} from "./LibL1Tokenomics.sol";
+import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 
@@ -33,7 +33,7 @@ library LibProving {
 
     error L1_ALREADY_PROVEN();
     error L1_BLOCK_ID();
-    error L1_EVIDENCE_MISMATCH();
+    error L1_EVIDENCE_MISMATCH(bytes32 expected, bytes32 actual);
     error L1_FORK_CHOICE_NOT_FOUND();
     error L1_INVALID_PROOF();
     error L1_INVALID_EVIDENCE();
@@ -68,8 +68,9 @@ library LibProving {
             meta.id % config.ringBufferSize
         ];
 
-        if (blk.metaHash != LibUtils.hashMetadata(meta))
-            revert L1_EVIDENCE_MISMATCH();
+        bytes32 _metaHash = LibUtils.hashMetadata(meta);
+        if (blk.metaHash != _metaHash)
+            revert L1_EVIDENCE_MISMATCH(blk.metaHash, _metaHash);
 
         TaikoData.ForkChoice storage fc;
         bool oracleProving;
@@ -144,16 +145,16 @@ library LibProving {
                     false
                 );
 
-                bytes32[9] memory inputs;
-                inputs[0] = bytes32(uint256(uint160(l1SignalService)));
-                inputs[1] = bytes32(uint256(uint160(l2SignalService)));
-                inputs[2] = bytes32(uint256(uint160(taikoL2)));
-                inputs[3] = evidence.parentHash;
-                inputs[4] = evidence.blockHash;
-                inputs[5] = evidence.signalRoot;
-                inputs[6] = evidence.graffiti;
-                inputs[7] = bytes32(uint256(uint160(evidence.prover)));
-                inputs[8] = blk.metaHash;
+                uint256[9] memory inputs;
+                inputs[0] = uint160(l1SignalService);
+                inputs[1] = uint160(l2SignalService);
+                inputs[2] = uint160(taikoL2);
+                inputs[3] = uint256(evidence.parentHash);
+                inputs[4] = uint256(evidence.blockHash);
+                inputs[5] = uint256(evidence.signalRoot);
+                inputs[6] = uint256(evidence.graffiti);
+                inputs[7] = uint160(evidence.prover);
+                inputs[8] = uint256(blk.metaHash);
 
                 assembly {
                     instance := keccak256(inputs, mul(32, 9))

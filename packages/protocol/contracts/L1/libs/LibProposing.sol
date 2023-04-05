@@ -7,7 +7,8 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
-import {LibL1Tokenomics} from "./LibL1Tokenomics.sol";
+import {LibAddress} from "../../libs/LibAddress.sol";
+import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {
     SafeCastUpgradeable
@@ -16,6 +17,8 @@ import {TaikoData} from "../TaikoData.sol";
 
 library LibProposing {
     using SafeCastUpgradeable for uint256;
+    using LibAddress for address;
+    using LibAddress for address payable;
     using LibUtils for TaikoData.State;
 
     event BlockProposed(
@@ -25,6 +28,7 @@ library LibProposing {
     );
 
     error L1_BLOCK_ID();
+    error L1_INSUFFICIENT_ETHER();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
     error L1_NOT_SOLO_PROPOSER();
@@ -66,13 +70,15 @@ library LibProposing {
                 id: state.numBlocks,
                 timestamp: uint64(block.timestamp),
                 l1Height: uint64(block.number - 1),
-                gasLimit: input.gasLimit,
+                l2Basefee: 0, // will be set later
                 l1Hash: blockhash(block.number - 1),
                 mixHash: bytes32(block.prevrandao * state.numBlocks),
                 txListHash: input.txListHash,
                 txListByteStart: input.txListByteStart,
                 txListByteEnd: input.txListByteEnd,
-                beneficiary: input.beneficiary
+                gasLimit: input.gasLimit,
+                beneficiary: input.beneficiary,
+                treasure: resolver.resolve(config.chainId, "treasure", false)
             });
         }
 
@@ -89,7 +95,7 @@ library LibProposing {
         blk.proposer = msg.sender;
 
         if (config.enableTokenomics) {
-            (uint256 newFeeBase, uint256 fee, uint256 deposit) = LibL1Tokenomics
+            (uint256 newFeeBase, uint256 fee, uint64 deposit) = LibTokenomics
                 .getBlockFee(state, config);
 
             uint256 burnAmount = fee + deposit;
@@ -155,6 +161,7 @@ library LibProposing {
 
         if (
             input.beneficiary == address(0) ||
+            input.gasLimit == 0 ||
             input.gasLimit > config.blockMaxGasLimit
         ) revert L1_INVALID_METADATA();
 
