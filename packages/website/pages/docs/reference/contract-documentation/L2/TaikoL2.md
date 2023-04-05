@@ -1,7 +1,3 @@
----
-title: TaikoL2
----
-
 ## TaikoL2
 
 ### ANCHOR_GAS_COST

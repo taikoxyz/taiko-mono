@@ -5,6 +5,7 @@ export enum ProcessingFeeMethod {
 }
 
 export interface ProcessingFeeDetails {
+  method: ProcessingFeeMethod;
   displayText: string;
   timeToConfirm: number;
 }

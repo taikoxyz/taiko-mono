@@ -160,7 +160,7 @@ func (p *Processor) sendProcessMessageCall(
 		// we can get unable to estimet gas for contract deployments within the contract code.
 		// if we get an error or the gas is 0, lets manual set high gas limit and ignore error,
 		// and try to actually send.
-		auth.GasLimit = 3000000
+		auth.GasLimit = 1500000
 	}
 
 	if bool(p.profitableOnly) {
@@ -169,6 +169,13 @@ func (p *Processor) sendProcessMessageCall(
 			return nil, relayer.ErrUnprofitable
 		}
 	}
+
+	gasPrice, err := p.destEthClient.SuggestGasPrice(context.Background())
+	if err != nil {
+		return nil, errors.Wrap(err, "p.destBridge.SuggestGasPrice")
+	}
+
+	auth.GasPrice = gasPrice
 
 	// process the message on the destination bridge.
 	tx, err := p.destBridge.ProcessMessage(auth, event.Message, proof)

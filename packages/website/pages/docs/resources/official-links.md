@@ -7,3 +7,4 @@
 | Reddit        | https://www.reddit.com/r/taiko_xyz                         |
 | Twitter       | https://twitter.com/taikoxyz                               |
 | Whitepaper    | https://taikoxyz.github.io/taiko-mono/taiko-whitepaper.pdf |
+| YouTube       | https://www.youtube.com/@taikoxyz                          |

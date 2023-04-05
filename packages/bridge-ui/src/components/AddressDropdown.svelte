@@ -8,12 +8,12 @@
   import { getAddressAvatarFromIdenticon } from '../utils/addressAvatar';
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
   import { ethers, Signer } from 'ethers';
-  import { errorToast, successToast } from '../utils/toast';
   import { ClipboardDocument, Power } from 'svelte-heros-v2';
   import { slide } from 'svelte/transition';
   import { fromChain } from '../store/chain';
   import { truncateString } from '../utils/truncateString';
   import { ChevronDown } from 'svelte-heros-v2';
+  import { errorToast, successToast } from './Toast.svelte';
 
   let address: string = '';
   let addressAvatarImgData: string = '';
@@ -60,7 +60,8 @@
 </script>
 
 <div class="dropdown dropdown-bottom dropdown-end">
-  <label tabindex="0" class="btn btn-md justify-around">
+  <!-- svelte-ignore a11y-label-has-associated-control -->
+  <label role="button" tabindex="0" class="btn btn-md justify-around">
     <span class="font-normal flex-1 text-left flex items-center">
       {#if $pendingTransactions && $pendingTransactions.length}
         <span>{$pendingTransactions.length} Pending</span>
@@ -92,6 +93,7 @@
     <ChevronDown size="20" />
   </label>
   <ul
+    role="listbox"
     tabindex="0"
     class="dropdown-content address-dropdown-content menu shadow bg-dark-2 rounded-sm w-48 mt-2 pb-2 text-sm">
     <div class="p-5 pb-0 flex flex-col items-center" transition:slide>

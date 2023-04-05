@@ -1,6 +1,6 @@
 import { Contract, ethers } from 'ethers';
 import { RLP } from 'ethers/lib/utils.js';
-import HeaderSync from '../constants/abi/HeaderSync';
+import HeaderSyncABI from '../constants/abi/HeaderSync';
 import type { Block, BlockHeader } from '../domain/block';
 import type {
   Prover,
@@ -10,10 +10,15 @@ import type {
 } from '../domain/proof';
 
 export class ProofService implements Prover {
-  private readonly providerMap: Map<number, ethers.providers.JsonRpcProvider>;
+  private readonly providers: Record<
+    number,
+    ethers.providers.StaticJsonRpcProvider
+  >;
 
-  constructor(providerMap: Map<number, ethers.providers.JsonRpcProvider>) {
-    this.providerMap = providerMap;
+  constructor(
+    providers: Record<number, ethers.providers.StaticJsonRpcProvider>,
+  ) {
+    this.providers = providers;
   }
 
   private static getKey(opts: GenerateProofOpts | GenerateReleaseProofOpts) {
@@ -29,7 +34,7 @@ export class ProofService implements Prover {
 
   private static async getBlockAndBlockHeader(
     contract: ethers.Contract,
-    provider: ethers.providers.JsonRpcProvider,
+    provider: ethers.providers.StaticJsonRpcProvider,
   ): Promise<{ block: Block; blockHeader: BlockHeader }> {
     const latestSyncedHeader = await contract.getLatestSyncedHeader();
 
@@ -81,15 +86,15 @@ export class ProofService implements Prover {
     return signalProof;
   }
 
-  async GenerateProof(opts: GenerateProofOpts): Promise<string> {
+  async generateProof(opts: GenerateProofOpts): Promise<string> {
     const key = ProofService.getKey(opts);
 
-    const provider = this.providerMap.get(opts.srcChain);
+    const provider = this.providers[opts.srcChain];
 
     const contract = new Contract(
       opts.destHeaderSyncAddress,
-      HeaderSync,
-      this.providerMap.get(opts.destChain),
+      HeaderSyncABI,
+      this.providers[opts.destChain],
     );
 
     const { block, blockHeader } = await ProofService.getBlockAndBlockHeader(
@@ -112,15 +117,15 @@ export class ProofService implements Prover {
     return p;
   }
 
-  async GenerateReleaseProof(opts: GenerateReleaseProofOpts): Promise<string> {
+  async generateReleaseProof(opts: GenerateReleaseProofOpts): Promise<string> {
     const key = ProofService.getKey(opts);
 
-    const provider = this.providerMap.get(opts.destChain);
+    const provider = this.providers[opts.destChain];
 
     const contract = new Contract(
       opts.srcHeaderSyncAddress,
-      HeaderSync,
-      this.providerMap.get(opts.srcChain),
+      HeaderSyncABI,
+      this.providers[opts.srcChain],
     );
 
     const { block, blockHeader } = await ProofService.getBlockAndBlockHeader(

@@ -1,4 +1,5 @@
 import type { BigNumber, ethers } from 'ethers';
+import type { ChainID } from './chain';
 import type { Message, MessageStatus } from './message';
 
 export type BridgeTransaction = {
@@ -11,19 +12,25 @@ export type BridgeTransaction = {
   interval?: NodeJS.Timer;
   amountInWei?: BigNumber;
   symbol?: string;
-  fromChainId: number;
-  toChainId: number;
+  fromChainId: ChainID;
+  toChainId: ChainID;
 };
+
 export interface Transactioner {
-  GetAllByAddress(
+  getAllByAddress(
     address: string,
     chainID?: number,
   ): Promise<BridgeTransaction[]>;
 
-  GetTransactionByHash(
+  getTransactionByHash(
     address: string,
     hash: string,
   ): Promise<BridgeTransaction>;
 
-  UpdateStorageByAddress(address: string, txs: BridgeTransaction[]): void;
+  updateStorageByAddress(address: string, txs: BridgeTransaction[]): void;
+}
+
+export enum ReceiptStatus {
+  Failed = 0,
+  Successful = 1,
 }

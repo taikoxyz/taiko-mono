@@ -1,7 +1,3 @@
----
-title: TaikoErrors
----
-
 ## TaikoErrors
 
 ### L1_1559_X_SCALE_TOO_LARGE

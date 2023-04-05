@@ -111,9 +111,10 @@ const expectedProofWithBaseFee =
 const srcChain = 167001;
 const destChain = 31336;
 
-const map = new Map<number, ethers.providers.JsonRpcProvider>();
-map.set(srcChain, mockProvider as unknown as ethers.providers.JsonRpcProvider);
-map.set(destChain, mockProvider as unknown as ethers.providers.JsonRpcProvider);
+const map = {
+  [srcChain]: mockProvider,
+  [destChain]: mockProvider,
+} as unknown as Record<string, ethers.providers.StaticJsonRpcProvider>;
 
 describe('prover tests', () => {
   beforeEach(() => {
@@ -137,7 +138,7 @@ describe('prover tests', () => {
     const prover: ProofService = new ProofService(map);
 
     await expect(
-      prover.GenerateProof({
+      prover.generateProof({
         msgHash: ethers.constants.HashZero,
         sender: ethers.constants.AddressZero,
         srcBridgeAddress: ethers.constants.AddressZero,
@@ -164,7 +165,7 @@ describe('prover tests', () => {
 
     const prover: ProofService = new ProofService(map);
 
-    const proof = await prover.GenerateProof({
+    const proof = await prover.generateProof({
       msgHash: ethers.constants.HashZero,
       sender: ethers.constants.AddressZero,
       srcBridgeAddress: ethers.constants.AddressZero,
@@ -193,7 +194,7 @@ describe('prover tests', () => {
 
     const prover: ProofService = new ProofService(map);
 
-    const proof = await prover.GenerateProof({
+    const proof = await prover.generateProof({
       msgHash: ethers.constants.HashZero,
       sender: ethers.constants.AddressZero,
       srcBridgeAddress: ethers.constants.AddressZero,
@@ -228,7 +229,7 @@ describe('generate release proof tests', () => {
     const prover: ProofService = new ProofService(map);
 
     await expect(
-      prover.GenerateReleaseProof({
+      prover.generateReleaseProof({
         msgHash: ethers.constants.HashZero,
         sender: ethers.constants.AddressZero,
         destBridgeAddress: ethers.constants.AddressZero,
@@ -255,7 +256,7 @@ describe('generate release proof tests', () => {
 
     const prover: ProofService = new ProofService(map);
 
-    const proof = await prover.GenerateReleaseProof({
+    const proof = await prover.generateReleaseProof({
       msgHash: ethers.constants.HashZero,
       sender: ethers.constants.AddressZero,
       destBridgeAddress: ethers.constants.AddressZero,
@@ -284,7 +285,7 @@ describe('generate release proof tests', () => {
 
     const prover: ProofService = new ProofService(map);
 
-    const proof = await prover.GenerateReleaseProof({
+    const proof = await prover.generateReleaseProof({
       msgHash: ethers.constants.HashZero,
       sender: ethers.constants.AddressZero,
       destBridgeAddress: ethers.constants.AddressZero,
