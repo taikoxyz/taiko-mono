@@ -19,11 +19,9 @@ import {TestERC20} from "../../contracts/test/thirdparty/TestERC20.sol";
 contract TestGenerateGenesis is Test, AddressResolver {
     using stdJson for string;
 
-    address public constant GOLDEN_TOUCH_ADDRESS =
-        0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
     string private configJSON =
         vm.readFile(
-            string.concat(vm.projectRoot(), "/test/genesis/test_config.json")
+            string.concat(vm.projectRoot(), "/test2/genesis/test_config.json")
         );
     string private genesisAllocJSON =
         vm.readFile(
@@ -62,17 +60,35 @@ contract TestGenerateGenesis is Test, AddressResolver {
     function testTaikoL2() public {
         TaikoL2 taikoL2 = TaikoL2(getPredeployedContractAddress("TaikoL2"));
 
+        vm.startPrank(taikoL2.GOLDEN_TOUCH_ADDRESS());
         for (uint64 i = 0; i < 300; i++) {
-            console2.log("i", i);
-            // taikoL2.getBasefee();
-            vm.prank(GOLDEN_TOUCH_ADDRESS);
+            vm.roll(block.number + 1);
+            vm.warp(taikoL2.parentTimestamp() + 12);
+            vm.fee(
+                taikoL2.getBasefee(
+                    0,
+                    uint64(10000000),
+                    i + taikoL2.ANCHOR_GAS_COST()
+                )
+            );
+
+            uint256 gasLeftBefore = gasleft();
+
             taikoL2.anchor(
                 bytes32(block.prevrandao),
                 bytes32(block.prevrandao),
                 i,
-                i
+                i + taikoL2.ANCHOR_GAS_COST()
             );
+
+            if (i == 299) {
+                console2.log(
+                    "TaikoL2.anchor gas cost after 256 L2 blocks:",
+                    gasLeftBefore - gasleft()
+                );
+            }
         }
+        vm.stopPrank();
     }
 
     function testBridge() public {

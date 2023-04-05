@@ -68,12 +68,12 @@ docker compose -f $TESTNET_CONFIG up -d
 echo ""
 echo "Start testing..."
 
-sleep 3
-
 forge test \
   -vvv \
   --gas-report \
   --fork-url http://localhost:18545 \
+  --fork-retry-backoff 120 \
+  --no-storage-caching \
   --match-path test2/genesis/GenerateGenesis.t.sol \
   --block-gas-limit 1000000000
 

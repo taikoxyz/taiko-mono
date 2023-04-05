@@ -284,6 +284,11 @@ async function generateContractConfigs(
                             ]),
                     ]
                 )}`,
+                yscale: ethers.BigNumber.from("358298803609133338137582400989"),
+                xscale: ethers.BigNumber.from("1488514844"),
+                gasIssuedPerSecond: 12500000,
+                parentTimestamp: Math.floor(new Date().getTime() / 1000),
+                gasExcess: 90900000000 / 2,
             },
         },
         Bridge: {
