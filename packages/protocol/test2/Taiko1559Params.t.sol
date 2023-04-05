@@ -30,9 +30,9 @@ contract TestTaiko1559Params is Test {
             ethereumBlockTime;
 
         // Turn this number manually so ratio2x1x is ~112.5%.
-        uint64 ___tuning = 7272;
+        uint64 maxSeconds = 7272;
 
-        uint64 gasExcessMaxMax = gasIssuedPerSecond * ___tuning;
+        uint64 gasExcessMaxMax = gasIssuedPerSecond * maxSeconds;
 
         uint64 initialBasefee = ethereumBasefeeNow / costFactor;
 
