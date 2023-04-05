@@ -28,7 +28,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
             string.concat(vm.projectRoot(), "/deployments/genesis_alloc.json")
         );
     address private owner = configJSON.readAddress(".contractOwner");
-    uint64 public constant BLOCK_GAS_LIMIT = 6000000;
+    uint64 public constant BLOCK_GAS_LIMIT = 30000000;
 
     function testContractDeployment() public {
         assertEq(block.chainid, 167);
