@@ -158,7 +158,7 @@ struct State {
   mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
   uint256 proofTimeIssued;
   uint256 baseFeeProof;
-  uint256 accProposalTime;
+  uint256 accProposedAt;
   uint256 proofFeeTreasury;
   uint64 genesisHeight;
   uint64 genesisTimestamp;

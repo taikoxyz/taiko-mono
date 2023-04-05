@@ -102,7 +102,7 @@ library LibProposing {
                 if (!config.allowMinting) {
                     state.proofFeeTreasury += fee;
                     if (config.useTimeWeightedReward) {
-                        state.accProposalTime += meta.timestamp;
+                        state.accProposedAt += meta.timestamp;
                     }
                 }
             }

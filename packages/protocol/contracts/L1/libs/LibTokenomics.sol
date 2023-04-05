@@ -125,10 +125,10 @@ library LibTokenomics {
                 1;
             if (config.useTimeWeightedReward) {
                 /// TODO: Theroetically there can be no underflow (in case numBlocksBeingProven == 0 then
-                /// state.accProposalTime is also 0) - but verify with unit tests !
+                /// state.accProposedAt is also 0) - but verify with unit tests !
                 uint256 totalNumProvingSeconds = numBlocksBeingProven *
                     block.timestamp -
-                    state.accProposalTime;
+                    state.accProposedAt;
                 reward =
                     (state.proofFeeTreasury * proofTime) /
                     totalNumProvingSeconds;

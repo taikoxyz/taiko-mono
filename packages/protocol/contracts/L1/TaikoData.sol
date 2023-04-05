@@ -136,7 +136,7 @@ library TaikoData {
         // Changing baseFee for proving - changed in verifyBlock()
         uint256 baseFeeProof;
         // Changing accumulated time for proposing - changed in proposeBlock() and in verifyBlock()
-        uint256 accProposalTime;
+        uint256 accProposedAt;
         // Treasury amount - changed in proposeBlock() and in verifyBlock()
         uint256 proofFeeTreasury;
         // Never or rarely changed
