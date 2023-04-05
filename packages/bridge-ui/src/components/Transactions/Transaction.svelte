@@ -240,7 +240,7 @@
   }
 </script>
 
-<tr class="text-transaction-table">
+<tr id={transaction.hash} class="text-transaction-table">
   <td>
     <svelte:component this={txFromChain.icon} height={18} width={18} />
     <span class="ml-2 hidden md:inline-block">{txFromChain.name}</span>
