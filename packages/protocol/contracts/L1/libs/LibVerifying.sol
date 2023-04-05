@@ -116,12 +116,11 @@ library LibVerifying {
         TaikoData.ForkChoice storage fc,
         uint24 fcId
     ) private returns (bytes32 blockHash, bytes32 signalRoot) {
-        uint256 proofTime;
-        unchecked {
-            proofTime = (fc.provenAt - blk.proposedAt);
-        }
-
         if (config.proofTimeTarget != 0) {
+            uint256 proofTime;
+            unchecked {
+                proofTime = (fc.provenAt - blk.proposedAt);
+            }
             (
                 uint256 reward,
                 uint256 proofTimeIssued,
@@ -137,9 +136,11 @@ library LibVerifying {
             state.proofTimeIssued = proofTimeIssued;
 
             if (!config.allowMinting) {
-                state.rewardPool -= reward;
-                if (config.useTimeWeightedReward) {
-                    state.accProposedAt -= blk.proposedAt;
+                unchecked {
+                    state.rewardPool -= reward;
+                    if (config.useTimeWeightedReward) {
+                        state.accProposedAt -= blk.proposedAt;
+                    }
                 }
             }
 
