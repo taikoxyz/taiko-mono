@@ -20,7 +20,7 @@ export async function switchChainAndSetSigner(chain: Chain) {
     toChain.set(mainnetChain);
   }
 
-  const wagmiSigner = await fetchSigner({ chainId });
+  const wagmiSigner = await fetchSigner();
 
   signer.set(wagmiSigner);
 }

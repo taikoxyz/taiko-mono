@@ -74,7 +74,7 @@
   }
 
   function onRelease() {
-    transact(releaseToken);
+    return transact(releaseToken);
   }
 
   async function transact(fn: TransactFn) {

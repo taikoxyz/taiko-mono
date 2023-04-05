@@ -14,7 +14,7 @@ export async function claimToken(
 ) {
   const { fromChainId, toChainId, message, msgHash } = bridgeTx;
 
-  chainCheck(currentChainId, toChainId, signer);
+  await chainCheck(currentChainId, toChainId, signer);
 
   // For now just handling this case for when the user has near 0 balance during their first bridge transaction to L2
   // TODO: estimate Claim transaction
