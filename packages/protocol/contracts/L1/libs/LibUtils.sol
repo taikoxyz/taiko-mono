@@ -33,7 +33,7 @@ library LibUtils {
     ) internal view returns (TaikoData.StateVariables memory) {
         return
             TaikoData.StateVariables({
-                baseFeeProof: state.baseFeeProof,
+                basefee: state.basefee,
                 genesisHeight: state.genesisHeight,
                 genesisTimestamp: state.genesisTimestamp,
                 numBlocks: state.numBlocks,

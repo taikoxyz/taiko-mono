@@ -39,7 +39,7 @@ contract TaikoL1WithConfig is TaikoL1 {
     }
 }
 
-// Since the fee/reward calculation heavily depends on the baseFeeProof and the proofTime
+// Since the fee/reward calculation heavily depends on the basefee and the proofTime
 // we need to simulate proposing/proving so that can calculate them.
 contract LibL1TokenomicsTest is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1 taikoL1) {
@@ -59,7 +59,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
         uint32 gasLimit = 10000000;
         uint256 fee = L1.getProverFee(gasLimit);
 
-        // First block propoal has a symbolic 1 unit of baseFeeProof so here gasLimit and fee shall be equal
+        // First block propoal has a symbolic 1 unit of basefee so here gasLimit and fee shall be equal
         assertEq(gasLimit, fee);
     }
 

@@ -39,7 +39,7 @@ library LibVerifying {
         state.genesisTimestamp = timeNow;
 
         // TODO(dani): should be a parameter in init().
-        state.baseFeeProof = 1e8; // 1 Taiko Token
+        state.basefee = 1e8; // 1 Taiko Token
         state.numBlocks = 1;
 
         TaikoData.Block storage blk = state.blocks[0];
@@ -125,7 +125,7 @@ library LibVerifying {
             (
                 uint256 reward,
                 uint256 proofTimeIssued,
-                uint256 newBaseFeeProof
+                uint256 newBasefee
             ) = LibTokenomics.calculateBaseFeeProof(
                     state,
                     config,
@@ -133,7 +133,7 @@ library LibVerifying {
                     fc.gasUsed
                 );
 
-            state.baseFeeProof = newBaseFeeProof;
+            state.basefee = newBasefee;
             state.proofTimeIssued = proofTimeIssued;
 
             if (!config.allowMinting) {

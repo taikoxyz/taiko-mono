@@ -63,7 +63,7 @@ library LibTokenomics {
         TaikoData.State storage state,
         uint32 gasUsed
     ) internal view returns (uint256 feeBase, uint256 fee) {
-        feeBase = state.baseFeeProof;
+        feeBase = state.basefee;
         fee = ((feeBase * gasUsed) / SCALING_FROM_18_TO_TKO_DEC);
     }
 
@@ -95,11 +95,7 @@ library LibTokenomics {
     )
         internal
         view
-        returns (
-            uint256 reward,
-            uint256 newProofTimeIssued,
-            uint256 newBaseFeeProof
-        )
+        returns (uint256 reward, uint256 newProofTimeIssued, uint256 newBasefee)
     {
         uint256 proofTimeIssued = state.proofTimeIssued;
         // To protect underflow
@@ -109,14 +105,14 @@ library LibTokenomics {
 
         proofTimeIssued += proofTime;
 
-        newBaseFeeProof = baseFee(
+        newBasefee = baseFee(
             proofTimeIssued,
             config.proofTimeTarget,
             config.adjustmentQuotient
         );
 
         if (config.allowMinting) {
-            reward = ((state.baseFeeProof * gasUsed * proofTime) /
+            reward = ((state.basefee * gasUsed * proofTime) /
                 (config.proofTimeTarget * SCALING_FROM_18_TO_TKO_DEC));
         } else {
             /// TODO: Verify with functional tests

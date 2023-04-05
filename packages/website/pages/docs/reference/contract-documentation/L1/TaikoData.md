@@ -46,7 +46,7 @@ struct Config {
 
 ```solidity
 struct StateVariables {
-  uint256 baseFeeProof;
+  uint256 basefee;
   uint64 feeBase;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
@@ -157,7 +157,7 @@ struct State {
   mapping(address => uint256) balances;
   mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
   uint256 proofTimeIssued;
-  uint256 baseFeeProof;
+  uint256 basefee;
   uint256 accProposedAt;
   uint256 rewardPool;
   uint64 genesisHeight;
