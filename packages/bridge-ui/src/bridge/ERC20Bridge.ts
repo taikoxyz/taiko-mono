@@ -89,6 +89,9 @@ export class ERC20Bridge implements Bridge {
     );
 
     if (!requiresAllowance) {
+      // TODO: how about error codes instead? will be better for i18n
+      //       and also to better handle errors in the UI by comparing
+      //       error codes instead of error messages.
       throw Error('token vault already has required allowance');
     }
 
