@@ -188,6 +188,20 @@
     }
   }
 
+  async function isBalanceGreaterThanRequireGas(gasEstimate: BigNumber) {
+    const feeData = await fetchFeeData();
+    const requiredGas = gasEstimate.mul(feeData.gasPrice);
+    const userBalance = await $signer.getBalance('latest');
+
+    let balanceAvailableForTx = userBalance;
+
+    if ($token.symbol === ETHToken.symbol) {
+      balanceAvailableForTx = userBalance.sub(ethers.utils.parseEther(amount));
+    }
+
+    return balanceAvailableForTx.gte(requiredGas);
+  }
+
   async function checkUserHasEnoughBalance(
     bridgeOpts: BridgeOpts,
   ): Promise<boolean> {
@@ -196,21 +210,20 @@
         ...bridgeOpts,
         amountInWei: BigNumber.from(1),
       });
-      const feeData = await fetchFeeData();
-      const requiredGas = gasEstimate.mul(feeData.gasPrice);
-      const userBalance = await $signer.getBalance('latest');
 
-      let balanceAvailableForTx = userBalance;
-
-      if ($token.symbol === ETHToken.symbol) {
-        balanceAvailableForTx = userBalance.sub(
-          ethers.utils.parseEther(amount),
-        );
-      }
-
-      return balanceAvailableForTx.gte(requiredGas);
+      return isBalanceGreaterThanRequireGas(gasEstimate);
     } catch (e) {
-      return false;
+      // TODO: how about using npm debug package instead of console.error?
+      console.error(e);
+      if (e.code === ethers.errors.UNPREDICTABLE_GAS_LIMIT) {
+        // TODO: fixed gas limit?
+        // What could be a good estimate here? we might want to use a different
+        // value depending on whether we're dealing with ETH or ERC20.
+        const gasEstimate = BigNumber.from(1e6);
+        return isBalanceGreaterThanRequireGas(gasEstimate);
+      } else {
+        throw Error(e);
+      }
     }
   }
 
