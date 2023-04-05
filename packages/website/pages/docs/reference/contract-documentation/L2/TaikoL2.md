@@ -1,11 +1,5 @@
 ## TaikoL2
 
-### ANCHOR_GAS_COST
-
-```solidity
-uint64 ANCHOR_GAS_COST
-```
-
 ### VerifiedBlock
 
 ```solidity
@@ -25,6 +19,12 @@ struct EIP1559Params {
   uint64 gasTarget;
   uint64 ratio2x1x;
 }
+```
+
+### ANCHOR_GAS_COST
+
+```solidity
+uint32 ANCHOR_GAS_COST
 ```
 
 ### publicInputHash

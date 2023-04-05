@@ -32,14 +32,14 @@ contract TestTaiko1559Params is Test {
         // Turn this number manually so ratio2x1x is ~112.5%.
         uint64 maxSeconds = 7272;
 
-        uint64 gasExcessMaxMax = gasIssuedPerSecond * maxSeconds;
+        uint64 gasExcessMax = gasIssuedPerSecond * maxSeconds;
 
         uint64 initialBasefee = ethereumBasefeeNow / costFactor;
 
         TaikoL2.EIP1559Params memory param1559 = TaikoL2.EIP1559Params({
             basefee: initialBasefee,
             gasIssuedPerSecond: gasIssuedPerSecond,
-            gasExcessMax: gasExcessMaxMax,
+            gasExcessMax: gasExcessMax,
             gasTarget: gasIssuedPerSecond * ethereumBlockTime,
             ratio2x1x: 11250 // ~12.5% increase
         });
