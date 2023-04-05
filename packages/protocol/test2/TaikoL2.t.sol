@@ -11,10 +11,11 @@ import {
 
 contract TestTaikoL2 is Test {
     using SafeCastUpgradeable for uint256;
-    uint32 public constant BLOCK_GAS_LIMIT = 30000000; // same as `block_gas_limit` in foundry.toml
+    uint64 public constant BLOCK_GAS_LIMIT = 30000000; // same as `block_gas_limit` in foundry.toml
 
     TaikoL2 public L2;
     uint private logIndex;
+    uint64 private ANCHOR_GAS_COST;
 
     function setUp() public {
         uint16 rand = 2;
@@ -28,14 +29,10 @@ contract TestTaikoL2 is Test {
 
         L2 = new TaikoL2();
         L2.init(address(1), param1559); // Dummy address manager address.
+        ANCHOR_GAS_COST = L2.ANCHOR_GAS_COST();
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);
-
-        // console2.log("basefee =", uint256(L2.basefee()));
-        // console2.log("xscale =", uint256(L2.xscale()));
-        // console2.log("yscale =", uint256(L2.yscale()));
-        // console2.log("gasExcess =", uint256(L2.gasExcess()));
     }
 
     function testAnchorTxsBlocktimeConstant() external {
@@ -51,7 +48,7 @@ contract TestTaikoL2 is Test {
             }
 
             vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
-            L2.anchor(12345, keccak256("a"), keccak256("b"));
+            _anchor(BLOCK_GAS_LIMIT);
 
             vm.roll(block.number + 1);
             vm.warp(block.timestamp + 30);
@@ -69,7 +66,7 @@ contract TestTaikoL2 is Test {
             prevBasefee = basefee;
 
             vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
-            L2.anchor(12345, keccak256("a"), keccak256("b"));
+            _anchor(BLOCK_GAS_LIMIT);
 
             vm.roll(block.number + 1);
             vm.warp(block.timestamp + 30 - i);
@@ -89,7 +86,7 @@ contract TestTaikoL2 is Test {
             prevBasefee = basefee;
 
             vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
-            L2.anchor(12345, keccak256("a"), keccak256("b"));
+            _anchor(BLOCK_GAS_LIMIT);
 
             vm.roll(block.number + 1);
 
@@ -103,11 +100,11 @@ contract TestTaikoL2 is Test {
         vm.fee(expectedBasefee);
 
         vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
-        L2.anchor(12345, keccak256("a"), keccak256("b"));
+        _anchor(BLOCK_GAS_LIMIT);
 
         vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
         vm.expectRevert();
-        L2.anchor(12345, keccak256("a"), keccak256("b"));
+        _anchor(BLOCK_GAS_LIMIT);
     }
 
     // calling anchor in the same block more than once should fail
@@ -115,7 +112,7 @@ contract TestTaikoL2 is Test {
         uint64 expectedBasefee = _getBasefeeAndPrint(0, BLOCK_GAS_LIMIT);
         vm.fee(expectedBasefee);
         vm.expectRevert();
-        L2.anchor(12345, keccak256("a"), keccak256("b"));
+        _anchor(BLOCK_GAS_LIMIT);
     }
 
     function testAnchorSigning(bytes32 digest) external {
@@ -134,25 +131,24 @@ contract TestTaikoL2 is Test {
         L2.signAnchor(digest, uint8(3));
     }
 
-    function testGetBasefee1() external {
-        assertEq(_getBasefeeAndPrint(0, 0), 317609019);
-        assertEq(_getBasefeeAndPrint(0, 1), 317609019);
-        assertEq(_getBasefeeAndPrint(0, 1000000), 320423332);
-        assertEq(_getBasefeeAndPrint(0, 5000000), 332018053);
-        assertEq(_getBasefeeAndPrint(0, 10000000), 347305199);
-    }
+    function testGetBasefee() external {
+        assertEq(_getBasefeeAndPrint(0, 0, 0), 317609019);
+        assertEq(_getBasefeeAndPrint(0, 1, 0), 317609019);
+        assertEq(_getBasefeeAndPrint(0, 1000000, 0), 320423332);
+        assertEq(_getBasefeeAndPrint(0, 5000000, 0), 332018053);
+        assertEq(_getBasefeeAndPrint(0, 10000000, 0), 347305199);
 
-    function testGetBasefee2() external {
-        assertEq(_getBasefeeAndPrint(100, 0), 54544902);
-        assertEq(_getBasefeeAndPrint(100, 1), 54544902);
-        assertEq(_getBasefeeAndPrint(100, 1000000), 55028221);
-        assertEq(_getBasefeeAndPrint(100, 5000000), 57019452);
-        assertEq(_getBasefeeAndPrint(100, 10000000), 59644805);
+        assertEq(_getBasefeeAndPrint(100, 0, 0), 54544902);
+        assertEq(_getBasefeeAndPrint(100, 1, 0), 54544902);
+        assertEq(_getBasefeeAndPrint(100, 1000000, 0), 55028221);
+        assertEq(_getBasefeeAndPrint(100, 5000000, 0), 57019452);
+        assertEq(_getBasefeeAndPrint(100, 10000000, 0), 59644805);
     }
 
     function _getBasefeeAndPrint(
         uint32 timeSinceNow,
-        uint64 gasLimit
+        uint64 gasLimit,
+        uint64 parentGasUsed
     ) private returns (uint64 _basefee) {
         uint256 timeSinceParent = timeSinceNow +
             block.timestamp -
@@ -168,9 +164,11 @@ contract TestTaikoL2 is Test {
             ", gasIssued=",
             Strings.toString(gasIssued),
             ", gasLimit=",
-            Strings.toString(gasLimit)
+            Strings.toString(gasLimit),
+            ", parentGasUsed=",
+            Strings.toString(parentGasUsed)
         );
-        _basefee = L2.getBasefee(timeSinceNow, gasLimit);
+        _basefee = L2.getBasefee(timeSinceNow, gasLimit, parentGasUsed);
 
         msg = string.concat(
             msg,
@@ -181,5 +179,26 @@ contract TestTaikoL2 is Test {
         );
 
         console2.log(msg);
+    }
+
+    function _getBasefeeAndPrint(
+        uint32 timeSinceNow,
+        uint64 gasLimit
+    ) private returns (uint64 _basefee) {
+        return
+            _getBasefeeAndPrint(
+                timeSinceNow,
+                gasLimit,
+                gasLimit + ANCHOR_GAS_COST
+            );
+    }
+
+    function _anchor(uint64 parentGasLimit) private {
+        L2.anchor(
+            keccak256("a"),
+            keccak256("b"),
+            12345,
+            parentGasLimit + ANCHOR_GAS_COST
+        );
     }
 }

@@ -4,6 +4,12 @@ title: TaikoL2
 
 ## TaikoL2
 
+### ANCHOR_GAS_COST
+
+```solidity
+uint64 ANCHOR_GAS_COST
+```
+
 ### VerifiedBlock
 
 ```solidity
@@ -136,7 +142,7 @@ function init(address _addressManager, struct TaikoL2.EIP1559Params _param1559) 
 ### anchor
 
 ```solidity
-function anchor(uint64 l1Height, bytes32 l1Hash, bytes32 l1SignalRoot) external
+function anchor(bytes32 l1Hash, bytes32 l1SignalRoot, uint64 l1Height, uint64 parentGasUsed) external
 ```
 
 Persist the latest L1 block height and hash to L2 for cross-layer
@@ -154,16 +160,17 @@ This transaction shall be the first transaction in every L2 block.
 
 #### Parameters
 
-| Name         | Type    | Description                                               |
-| ------------ | ------- | --------------------------------------------------------- |
-| l1Height     | uint64  | The latest L1 block height when this block was proposed.  |
-| l1Hash       | bytes32 | The latest L1 block hash when this block was proposed.    |
-| l1SignalRoot | bytes32 | The latest value of the L1 "signal service storage root". |
+| Name          | Type    | Description                                               |
+| ------------- | ------- | --------------------------------------------------------- |
+| l1Hash        | bytes32 | The latest L1 block hash when this block was proposed.    |
+| l1SignalRoot  | bytes32 | The latest value of the L1 "signal service storage root". |
+| l1Height      | uint64  | The latest L1 block height when this block was proposed.  |
+| parentGasUsed | uint64  | the gas used in the parent block.                         |
 
 ### getBasefee
 
 ```solidity
-function getBasefee(uint32 timeSinceNow, uint64 gasLimit) public view returns (uint64 _basefee)
+function getBasefee(uint32 timeSinceNow, uint64 gasLimit, uint64 parentGasUsed) public view returns (uint64 _basefee)
 ```
 
 ### getXchainBlockHash

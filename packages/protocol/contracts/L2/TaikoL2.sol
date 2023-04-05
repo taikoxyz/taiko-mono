@@ -19,6 +19,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     using SafeCastUpgradeable for uint256;
     using LibMath for uint256;
 
+    uint64 public ANCHOR_GAS_COST = 47000;
+
     struct VerifiedBlock {
         bytes32 blockHash;
         bytes32 signalRoot;
@@ -147,15 +149,17 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
      *
      * This transaction shall be the first transaction in every L2 block.
      *
-     * @param l1Height The latest L1 block height when this block was proposed.
      * @param l1Hash The latest L1 block hash when this block was proposed.
      * @param l1SignalRoot The latest value of the L1 "signal service storage root".
+     * @param l1Height The latest L1 block height when this block was proposed.
+     * @param parentGasUsed the gas used in the parent block.
      */
 
     function anchor(
-        uint64 l1Height,
         bytes32 l1Hash,
-        bytes32 l1SignalRoot
+        bytes32 l1SignalRoot,
+        uint64 l1Height,
+        uint64 parentGasUsed
     ) external {
         if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
 
@@ -182,7 +186,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         if (gasIssuedPerSecond != 0) {
             (basefee, gasExcess) = _calcBasefee(
                 block.timestamp - parentTimestamp,
-                uint64(block.gaslimit)
+                uint64(block.gaslimit),
+                parentGasUsed
             );
         }
 
@@ -213,11 +218,13 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
 
     function getBasefee(
         uint32 timeSinceNow,
-        uint64 gasLimit
+        uint64 gasLimit,
+        uint64 parentGasUsed
     ) public view returns (uint64 _basefee) {
         (_basefee, ) = _calcBasefee(
             timeSinceNow + block.timestamp - parentTimestamp,
-            gasLimit
+            gasLimit,
+            parentGasUsed
         );
     }
 
@@ -276,11 +283,19 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
 
     function _calcBasefee(
         uint256 timeSinceParent,
-        uint64 gasLimit
+        uint64 gasLimit,
+        uint64 parentGasUsed
     ) private view returns (uint64 _basefee, uint64 _gasExcess) {
         uint256 gasIssued = gasIssuedPerSecond * timeSinceParent;
 
-        _gasExcess = gasExcess > gasIssued ? uint64(gasExcess - gasIssued) : 0;
+        // Very important to cap _gasExcess uint64
+        uint64 parentGasUsedNet = parentGasUsed > ANCHOR_GAS_COST
+            ? parentGasUsed - ANCHOR_GAS_COST
+            : 0;
+
+        uint256 a = uint256(gasExcess) + parentGasUsedNet;
+        uint256 b = gasIssuedPerSecond * timeSinceParent;
+        _gasExcess = uint64((a.max(b) - b).min(type(uint64).max));
 
         uint256 __basefee = Lib1559Math.calculatePrice({
             xscale: xscale,
@@ -291,10 +306,5 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
 
         // Very important to cap basefee uint64
         _basefee = uint64(__basefee.min(type(uint64).max));
-
-        // Very important to cap _gasExcess uint64
-        _gasExcess = uint64(
-            (uint256(_gasExcess) + gasLimit).min(type(uint64).max)
-        );
     }
 }
