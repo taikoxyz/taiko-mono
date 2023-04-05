@@ -27,6 +27,9 @@ library LibProposing {
         bool txListCached
     );
 
+    // TODO(david): need you to confirm this value.
+    uint32 public constant ANCHOR_GAS_COST = 47000;
+
     error L1_BLOCK_ID();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
@@ -141,7 +144,7 @@ library LibProposing {
 
         if (
             input.beneficiary == address(0) ||
-            input.gasLimit == 0 ||
+            input.gasLimit < ANCHOR_GAS_COST ||
             input.gasLimit > config.blockMaxGasLimit
         ) revert L1_INVALID_METADATA();
 
