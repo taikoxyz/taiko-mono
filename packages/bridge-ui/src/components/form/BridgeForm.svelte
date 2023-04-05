@@ -207,6 +207,8 @@
 
       return balanceAvailableForTx.gte(requiredGas);
     } catch (e) {
+      // TODO: how about using npm debug package instead of console.error?
+      console.error(e);
       return false;
     }
   }
