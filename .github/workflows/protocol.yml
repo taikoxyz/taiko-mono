@@ -34,13 +34,20 @@ jobs:
           FOUNDRY_FUZZ_SEED: 0x${{ github.event.pull_request.base.sha || github.sha }}
 
       - name: Compare gas reports
-        uses: Rubilmax/foundry-gas-diff@v3.13.6
+        uses: Rubilmax/foundry-gas-diff@v3.13
         with:
-          summaryQuantile: 0.5 # only display the 10% most significant gas diffs in the summary (defaults to 20%)
-          sortCriteria: avg,max # sort diff rows by criteria
-          sortOrders: desc,asc # and directions
-          ignore: test-foundry/**/* # filter out gas reports from specific paths (test/ is included by default)
+          report: gasreport.ansi
+          ignore: test/**/*,lib/**/*
+          header: |
+            # Taiko gas diffs
         id: gas_diff
+
+      - name: Add gas diff to sticky comment
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          message: ${{ steps.gas_diff.outputs.markdown }}
+          delete: ${{ !steps.gas_diff.outputs.markdown }}
 
       - name: protocol - Run snapshot (foundry)
         run: forge snapshot
