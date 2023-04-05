@@ -37,7 +37,7 @@ error L1_CONTRACT_NOT_ALLOWED()
 ### L1_EVIDENCE_MISMATCH
 
 ```solidity
-error L1_EVIDENCE_MISMATCH()
+error L1_EVIDENCE_MISMATCH(bytes32 expected, bytes32 actual)
 ```
 
 ### L1_FORK_CHOICE_NOT_FOUND
