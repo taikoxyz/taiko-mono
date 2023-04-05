@@ -287,8 +287,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         uint64 gasLimit,
         uint64 parentGasUsed
     ) private view returns (uint64 _basefee, uint64 _gasExcess) {
-        uint256 gasIssued = gasIssuedPerSecond * timeSinceParent;
-
         // Very important to cap _gasExcess uint64
         uint64 parentGasUsedNet = parentGasUsed > ANCHOR_GAS_COST
             ? parentGasUsed - ANCHOR_GAS_COST
