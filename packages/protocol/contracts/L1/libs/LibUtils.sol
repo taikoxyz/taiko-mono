@@ -79,8 +79,7 @@ library LibUtils {
         inputs[0] =
             (uint256(meta.id) << 192) |
             (uint256(meta.timestamp) << 128) |
-            (uint256(meta.l1Height) << 64) |
-            uint256(meta.l2Basefee);
+            (uint256(meta.l1Height) << 64);
 
         inputs[1] = uint256(meta.l1Hash);
         inputs[2] = uint256(meta.mixHash);
