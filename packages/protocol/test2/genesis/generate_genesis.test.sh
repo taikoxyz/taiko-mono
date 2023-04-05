@@ -68,6 +68,13 @@ docker compose -f $TESTNET_CONFIG up -d
 echo ""
 echo "Start testing..."
 
-TEST_L2_GENESIS=true pnpm hardhat test --grep "Generate Genesis"
+sleep 3
+
+forge test \
+  -vvv \
+  --gas-report \
+  --fork-url http://localhost:18545 \
+  --match-path test2/genesis/GenerateGenesis.t.sol \
+  --block-gas-limit 1000000000
 
 docker compose -f $TESTNET_CONFIG down -v

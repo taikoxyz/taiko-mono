@@ -16,7 +16,7 @@
     "test:coverage": "pnpm coverage",
     "test:foundry": "forge test -vvv --gas-report",
     "generate:genesis": "ts-node ./utils/generate_genesis/main.ts",
-    "test:genesis": "./test/genesis/generate_genesis.test.sh",
+    "test:genesis": "./test2/genesis/generate_genesis.test.sh",
     "test:bridge": "TEST_TYPE=integrationbridge ./test/test_integration.sh",
     "test:integration": "TEST_TYPE=integration ./test/test_integration.sh",
     "test:tokenomics": "TEST_TYPE=tokenomics ./test/test_integration.sh",

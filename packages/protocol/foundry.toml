@@ -1,6 +1,4 @@
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
-
-
 [profile.default]
 src = 'contracts'
 out = 'out'
@@ -11,3 +9,9 @@ optimizer_runs = 200
 
 # Do not change the block_gas_limit value, TaikoL2.t.sol depends on it.
 block_gas_limit = 30000000 #30M
+
+fs_permissions = [
+  { access = "read", path = "./out"},
+  { access = "read", path = "./deployments"},
+  { access = "read", path = "./test2"}
+]
