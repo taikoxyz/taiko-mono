@@ -7,11 +7,6 @@
 pragma solidity ^0.8.18;
 
 library TaikoData {
-    struct FeeConfig {
-        uint16 avgTimeMAF;
-        uint16 dampingFactorBips;
-    }
-
     struct Config {
         uint256 chainId;
         uint256 maxNumProposedBlocks;
@@ -24,10 +19,7 @@ library TaikoData {
         uint256 maxTransactionsPerBlock;
         uint256 maxBytesPerTxList;
         uint256 minTxGasLimit;
-        uint256 slotSmoothingFactor;
-        uint256 rewardBurnBips;
         // Moving average factors
-        uint256 feeBaseMAF;
         uint256 txListCacheExpiry;
         uint64 proofTimeTarget;
         uint8 adjustmentQuotient;
@@ -37,7 +29,6 @@ library TaikoData {
         bool skipZKPVerification;
         bool allowMinting;
         bool useTimeWeightedReward;
-        FeeConfig provingConfig;
     }
 
     struct StateVariables {

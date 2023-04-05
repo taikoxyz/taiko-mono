@@ -126,7 +126,7 @@ library LibVerifying {
                 uint256 reward,
                 uint256 proofTimeIssued,
                 uint256 newBasefee
-            ) = LibTokenomics.calculateBaseFeeProof(
+            ) = LibTokenomics.calculateBasefee(
                     state,
                     config,
                     uint64(proofTime),
@@ -181,19 +181,8 @@ library LibVerifying {
             // EIP-4844 blob size up to 128K
             config.maxBytesPerTxList > 128 * 1024 ||
             config.minTxGasLimit == 0 ||
-            config.slotSmoothingFactor == 0 ||
             // EIP-4844 blob deleted after 30 days
-            config.txListCacheExpiry > 30 * 24 hours ||
-            config.rewardBurnBips >= 10000
+            config.txListCacheExpiry > 30 * 24 hours
         ) revert L1_INVALID_CONFIG();
-
-        _checkFeeConfig(config.provingConfig);
-    }
-
-    function _checkFeeConfig(
-        TaikoData.FeeConfig memory feeConfig
-    ) private pure {
-        if (feeConfig.avgTimeMAF <= 1 || feeConfig.dampingFactorBips > 10000)
-            revert L1_INVALID_CONFIG();
     }
 }

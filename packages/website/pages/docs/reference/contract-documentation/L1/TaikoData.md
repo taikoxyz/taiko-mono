@@ -4,15 +4,6 @@ title: TaikoData
 
 ## TaikoData
 
-### FeeConfig
-
-```solidity
-struct FeeConfig {
-  uint16 avgTimeMAF;
-  uint16 dampingFactorBips;
-}
-```
-
 ### Config
 
 ```solidity
@@ -26,9 +17,6 @@ struct Config {
   uint256 maxTransactionsPerBlock;
   uint256 maxBytesPerTxList;
   uint256 minTxGasLimit;
-  uint256 slotSmoothingFactor;
-  uint256 rewardBurnBips;
-  uint256 feeBaseMAF;
   uint256 txListCacheExpiry;
   uint64 proofTimeTarget;
   uint8 adjustmentQuotient;
@@ -38,7 +26,6 @@ struct Config {
   bool skipZKPVerification;
   bool allowMinting;
   bool useTimeWeightedReward;
-  struct TaikoData.FeeConfig provingConfig;
 }
 ```
 

@@ -20,9 +20,8 @@ import {
 library LibTokenomics {
     using LibMath for uint256;
 
-    uint256 constant SCALING_FACTOR_1E18 = 1e18; // For fixed point representation factor
-    /// @dev Since we keep the base fee in 10*18 but the actual TKO token is in 10**8
-    uint256 constant SCALING_FROM_18_TO_TKO_DEC = 1e10;
+    // @dev Since we keep the base fee in 10*18 but the actual TKO token is in 10**8
+    uint256 private constant SCALING_FROM_18_TO_TKO_DEC = 1e10;
 
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_PARAM();
@@ -62,9 +61,9 @@ library LibTokenomics {
     function getProverFee(
         TaikoData.State storage state,
         uint32 gasUsed
-    ) internal view returns (uint256 feeBase, uint256 fee) {
-        feeBase = state.basefee;
-        fee = ((feeBase * gasUsed) / SCALING_FROM_18_TO_TKO_DEC);
+    ) internal view returns (uint256 basefee, uint256 fee) {
+        basefee = state.basefee;
+        fee = ((basefee * gasUsed) / SCALING_FROM_18_TO_TKO_DEC);
     }
 
     function getProofReward(
@@ -73,8 +72,8 @@ library LibTokenomics {
         uint64 provenAt,
         uint64 proposedAt,
         uint32 gasUsed
-    ) internal view returns (uint256 newFeeBase, uint256 reward) {
-        (reward, , newFeeBase) = calculateBaseFeeProof(
+    ) internal view returns (uint256 newBasefee, uint256 reward) {
+        (reward, , newBasefee) = calculateBasefee(
             state,
             config,
             (provenAt - proposedAt),
@@ -87,7 +86,7 @@ library LibTokenomics {
     /// @param config - Config data
     /// @param proofTime - The actual proof time
     /// @param gasUsed - Gas in the block
-    function calculateBaseFeeProof(
+    function calculateBasefee(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint64 proofTime,
@@ -105,7 +104,7 @@ library LibTokenomics {
 
         proofTimeIssued += proofTime;
 
-        newBasefee = baseFee(
+        newBasefee = _calcBasefee(
             proofTimeIssued,
             config.proofTimeTarget,
             config.adjustmentQuotient
@@ -115,13 +114,14 @@ library LibTokenomics {
             reward = ((state.basefee * gasUsed * proofTime) /
                 (config.proofTimeTarget * SCALING_FROM_18_TO_TKO_DEC));
         } else {
-            /// TODO: Verify with functional tests
+            /// TODO(dani): Verify with functional tests
             uint256 numBlocksBeingProven = state.numBlocks -
                 state.lastVerifiedBlockId -
                 1;
             if (config.useTimeWeightedReward) {
-                /// TODO: Theroetically there can be no underflow (in case numBlocksBeingProven == 0 then
-                /// state.accProposedAt is also 0) - but verify with unit tests !
+                // TODO(dani): Theroetically there can be no underflow (in case
+                // numBlocksBeingProven == 0 then state.accProposedAt is
+                // also 0) - but verify with unit tests !
                 uint256 totalNumProvingSeconds = numBlocksBeingProven *
                     block.timestamp -
                     state.accProposedAt;
@@ -141,13 +141,13 @@ library LibTokenomics {
     /// @param value - Result of cumulativeProofTime
     /// @param target - Target proof time
     /// @param quotient - Quotient
-    function baseFee(
+    function _calcBasefee(
         uint256 value,
         uint256 target,
         uint256 quotient
-    ) internal pure returns (uint256) {
+    ) private pure returns (uint256) {
         return (
-            (expCalculation(value, target, quotient) / (target * quotient))
+            (_expCalculation(value, target, quotient) / (target * quotient))
         );
     }
 
@@ -155,17 +155,13 @@ library LibTokenomics {
     /// @param value - Result of cumulativeProofTime
     /// @param target - Target proof time
     /// @param quotient - Quotient
-    function expCalculation(
+    function _expCalculation(
         uint256 value,
         uint256 target,
         uint256 quotient
-    ) internal pure returns (uint256 retVal) {
+    ) private pure returns (uint256 retVal) {
         // Overflow handled by the code
-        return
-            uint256(
-                Math.exp(
-                    int256((value * SCALING_FACTOR_1E18) / (target * quotient))
-                )
-            );
+        uint256 x = (value * Math.SCALING_FACTOR_1E18) / (target * quotient);
+        return uint256(Math.exp(int256(x)));
     }
 }

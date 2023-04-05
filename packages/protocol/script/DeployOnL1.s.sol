@@ -108,13 +108,13 @@ contract DeployOnL1 is Script, AddressResolver {
         // TaikoL1
         TaikoL1 taikoL1 = new TaikoL1();
 
-        uint64 feeBase = 1 ** 8; // Taiko Token's decimals is 8, not 18
+        uint64 basefee = 1 ** 8; // Taiko Token's decimals is 8, not 18
         address taikoL1Proxy = deployProxy(
             "taiko",
             address(taikoL1),
             bytes.concat(
                 taikoL1.init.selector,
-                abi.encode(addressManagerProxy, feeBase, gensisHash)
+                abi.encode(addressManagerProxy, basefee, gensisHash)
             )
         );
         setAddress("proto_broker", taikoL1Proxy);

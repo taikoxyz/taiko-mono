@@ -186,7 +186,7 @@ abstract contract TaikoL1TestBase is Test {
             Strings.toString(vars.lastVerifiedBlockId),
             unicode"→",
             Strings.toString(vars.numBlocks),
-            "] feeBase:",
+            "] basefee:",
             Strings.toString(vars.basefee),
             " fee:",
             Strings.toString(fee),

@@ -31,11 +31,7 @@ library TaikoConfig {
                 // transactions list calldata, 8K for the remaining tx fields.
                 maxBytesPerTxList: 120000,
                 minTxGasLimit: 21000,
-                slotSmoothingFactor: 946649,
-                // 100 basis points or 1%
-                rewardBurnBips: 100,
                 // Moving average factors
-                feeBaseMAF: 1024,
                 txListCacheExpiry: 0,
                 proofTimeTarget: 85, // 85s based on A2 testnet status
                 adjustmentQuotient: 16,
@@ -44,11 +40,7 @@ library TaikoConfig {
                 enableTokenomics: true,
                 skipZKPVerification: false,
                 allowMinting: true,
-                useTimeWeightedReward: false,
-                provingConfig: TaikoData.FeeConfig({
-                    avgTimeMAF: 1024,
-                    dampingFactorBips: 2500 // [75% -> 125%]
-                })
+                useTimeWeightedReward: false
             });
     }
 }

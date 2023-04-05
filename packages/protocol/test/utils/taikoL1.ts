@@ -8,7 +8,7 @@ async function deployTaikoL1(
     addressManager: AddressManager,
     genesisHash: string,
     enableTokenomics: boolean,
-    feeBase?: BigNumber
+    basefee?: BigNumber
 ): Promise<TaikoL1> {
     // const libProposing = await (
     //     await ethers.getContractFactory("LibProposing")
@@ -39,7 +39,7 @@ async function deployTaikoL1(
         await taikoL1.init(
             addressManager.address,
             genesisHash,
-            feeBase ?? defaultFeeBase
+            basefee ?? defaultFeeBase
         )
     ).wait(1);
 
