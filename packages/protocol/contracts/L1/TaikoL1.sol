@@ -29,19 +29,16 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      * Initialize the rollup.
      *
      * @param _addressManager The AddressManager address.
-     * @param _feeBase The initial value of the proposer-fee/prover-reward feeBase.
      * @param _genesisBlockHash The block hash of the genesis block.
      */
     function init(
         address _addressManager,
-        uint64 _feeBase,
         bytes32 _genesisBlockHash
     ) external initializer {
         EssentialContract._init(_addressManager);
         LibVerifying.init({
             state: state,
             config: getConfig(),
-            feeBase: _feeBase,
             genesisBlockHash: _genesisBlockHash
         });
     }

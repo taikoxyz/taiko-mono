@@ -30,7 +30,6 @@ library LibVerifying {
     function init(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        uint64 feeBase,
         bytes32 genesisBlockHash
     ) internal {
         _checkConfig(config);
@@ -38,8 +37,9 @@ library LibVerifying {
         uint64 timeNow = uint64(block.timestamp);
         state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = timeNow;
-        state.feeBase = feeBase;
-        state.baseFeeProof = 1e10; // Symbolic fee (TKO) for 1st proposal
+
+        // TODO(dani): should be a parameter in init().
+        state.baseFeeProof = 1e8; // 1 Taiko Token
         state.numBlocks = 1;
 
         TaikoData.Block storage blk = state.blocks[0];

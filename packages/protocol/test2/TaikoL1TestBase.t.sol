@@ -27,7 +27,6 @@ abstract contract TaikoL1TestBase is Test {
 
     bytes32 public constant GENESIS_BLOCK_HASH =
         keccak256("GENESIS_BLOCK_HASH");
-    uint64 feeBase = 1E8; // 1 TKO
     uint64 l2GasExcess = 1E18;
 
     address public constant L2SS = 0xa008AE5Ba00656a3Cc384de589579e3E52aC030C;
@@ -48,7 +47,7 @@ abstract contract TaikoL1TestBase is Test {
         addressManager.init();
 
         L1 = deployTaikoL1();
-        L1.init(address(addressManager), feeBase, GENESIS_BLOCK_HASH);
+        L1.init(address(addressManager), GENESIS_BLOCK_HASH);
         conf = L1.getConfig();
 
         tko = new TaikoToken();
