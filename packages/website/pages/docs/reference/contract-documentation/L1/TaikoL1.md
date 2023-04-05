@@ -98,7 +98,7 @@ function getProverFee(uint32 gasUsed) public view returns (uint256 feeAmount)
 ### getProofReward
 
 ```solidity
-function getProofReward(uint64 provenAt, uint64 proposedAt, uint32 usedGas) public view returns (uint256 reward)
+function getProofReward(uint64 provenAt, uint64 proposedAt, uint32 gasUsed) public view returns (uint256 reward)
 ```
 
 ### getBlock

@@ -72,13 +72,13 @@ library LibTokenomics {
         TaikoData.Config memory config,
         uint64 provenAt,
         uint64 proposedAt,
-        uint32 usedGas
+        uint32 gasUsed
     ) internal view returns (uint256 newFeeBase, uint256 reward) {
         (reward, , newFeeBase) = calculateBaseFeeProof(
             state,
             config,
             (provenAt - proposedAt),
-            usedGas
+            gasUsed
         );
     }
 
@@ -86,12 +86,12 @@ library LibTokenomics {
     /// @param state - The actual state data
     /// @param config - Config data
     /// @param proofTime - The actual proof time
-    /// @param usedGas - Gas in the block
+    /// @param gasUsed - Gas in the block
     function calculateBaseFeeProof(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint64 proofTime,
-        uint32 usedGas
+        uint32 gasUsed
     )
         internal
         view
@@ -116,7 +116,7 @@ library LibTokenomics {
         );
 
         if (config.allowMinting) {
-            reward = ((state.baseFeeProof * usedGas * proofTime) /
+            reward = ((state.baseFeeProof * gasUsed * proofTime) /
                 (config.proofTimeTarget * SCALING_FROM_18_TO_TKO_DEC));
         } else {
             /// TODO: Verify with functional tests
