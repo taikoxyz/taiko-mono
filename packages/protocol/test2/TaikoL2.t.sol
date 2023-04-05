@@ -24,7 +24,7 @@ contract TestTaikoL2 is Test {
             gasIssuedPerSecond: 1000000,
             gasExcessMax: (uint(15000000) * 256 * rand).toUint64(),
             gasTarget: (uint(6000000) * rand).toUint64(),
-            ratio2x1x: 111
+            ratio2x1x: 11177
         });
 
         L2 = new TaikoL2();

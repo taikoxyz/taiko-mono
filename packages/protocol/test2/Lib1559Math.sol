@@ -17,7 +17,7 @@ contract TestLib1559Math is Test {
         uint64 xExcessMax = (uint(15000000) * 256 * rand).toUint64();
         uint64 xTarget = (uint(6000000) * rand).toUint64();
         uint64 price0 = (uint(5000000000) * rand).toUint64();
-        uint64 ratio2x1x = 111;
+        uint64 ratio2x1x = 11177;
         (uint128 xscale, uint128 yscale) = T.calculateScales({
             xExcessMax: xExcessMax,
             price: price0,
@@ -66,7 +66,7 @@ contract TestLib1559Math is Test {
         uint64 xExcessMax = (uint(15000000) * 256 * rand).toUint64();
         uint64 xTarget = (uint(6000000) * rand).toUint64();
         uint64 price0 = (uint(5000000000) * rand).toUint64();
-        uint64 ratio2x1x = 111;
+        uint64 ratio2x1x = 11177;
 
         (uint128 xscale, uint128 yscale) = T.calculateScales({
             xExcessMax: xExcessMax,
