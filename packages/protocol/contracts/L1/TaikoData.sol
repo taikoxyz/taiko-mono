@@ -32,7 +32,8 @@ library TaikoData {
     }
 
     struct StateVariables {
-        uint256 basefee;
+        uint64 basefee;
+        uint64 rewardPool;
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 numBlocks;
@@ -120,29 +121,26 @@ library TaikoData {
         mapping(address account => uint256 balance) balances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         // Cummulated proofTime for reward calculation - changed in verifyBlock()
-        uint256 proofTimeIssued;
+        uint64 proofTimeIssued;
         // Changing baseFee for proving - changed in verifyBlock()
-        uint256 basefee;
+        uint64 basefee;
+        // Changing last verified block to a new id - changed in verifyBlock()
+        uint64 lastVerifiedBlockId;
+        uint64 __reserved1;
         // Changing accumulated time for proposing - changed in proposeBlock() and in verifyBlock()
-        uint256 accProposedAt;
+        uint64 accProposedAt;
         // Treasury amount - changed in proposeBlock() and in verifyBlock()
-        uint256 rewardPool;
+        uint64 rewardPool;
+        uint128 __reserved2;
         // Never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 __reserved1;
-        // Changed when a block is proposed/finalized
+        uint128 __reserved3;
+        // Changing when a block is proposed - changed in proposeBlock()
         uint64 numBlocks;
-        uint64 lastProposedAt; // Timestamp when the last block is proposed.
-        uint64 __reserved3;
-        uint64 __reserved4;
-        // Changed when a block is proven/finalized
-        uint64 lastVerifiedBlockId;
-        // the proof time moving average, note that for each block, only the
-        // first proof's time is considered.
-        uint64 __reserved5;
-        uint64 __reserved6;
+        // Changing timestamp when a block is proposed - changed in proposeBlock()
+        uint64 lastProposedAt;
         // Reserved
-        uint256[43] __gap; // TODO(dani): recount
+        uint256[42] __gap; // TODO(dani): recount
     }
 }

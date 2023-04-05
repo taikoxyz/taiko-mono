@@ -121,15 +121,15 @@ library LibVerifying {
             unchecked {
                 proofTime = (fc.provenAt - blk.proposedAt);
             }
+
             (
-                uint256 reward,
-                uint256 proofTimeIssued,
-                uint256 newBasefee
+                uint64 reward,
+                uint64 proofTimeIssued,
+                uint64 newBasefee
             ) = LibTokenomics.calculateBasefee(
                     state,
                     config,
-                    uint64(proofTime),
-                    fc.gasUsed
+                    uint64(proofTime)
                 );
 
             state.basefee = newBasefee;

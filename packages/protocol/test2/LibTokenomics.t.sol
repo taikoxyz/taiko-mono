@@ -47,15 +47,6 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
         _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
     }
 
-    /// @dev Test blockFee for first block
-    function test_getProverFee() external {
-        uint32 gasLimit = 10000000;
-        uint256 fee = L1.getProverFee(gasLimit);
-
-        // First block propoal has a symbolic 1 unit of basefee so here gasLimit and fee shall be equal
-        assertEq(gasLimit, fee);
-    }
-
     /// @dev Test what happens when proof time increases
     function test_reward_and_fee_if_proof_time_increases() external {
         mine(1);
@@ -458,11 +449,10 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
 
     /// @dev Test blockFee start decreasing when the proof time goes below proof target (given gas used is the same)
     function test_getProverFee_is_higher_when_increasing_proof_time() external {
-        uint32 gasLimit = 10000000;
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         for (uint256 blockId = 1; blockId < 10; blockId++) {
-            uint256 previousFee = L1.getProverFee(gasLimit);
+            uint256 previousFee = L1.getProverFee();
             printVariables(
                 "before proposing - affected by verification (verifyBlock() updates)"
             );
@@ -474,7 +464,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
             proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
             verifyBlock(Carol, 1);
             parentHash = blockHash;
-            uint256 actualFee = L1.getProverFee(gasLimit);
+            uint256 actualFee = L1.getProverFee();
             // Check that fee always increasing in this scenario
             assertGt(actualFee, previousFee);
         }
@@ -485,14 +475,13 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
     function test_getProverFee_starts_decreasing_when_proof_time_falls_below_the_average()
         external
     {
-        uint32 gasLimit = 10000000;
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint256 blockId;
         uint256 previousFee;
         uint256 actualFee;
 
         for (blockId = 1; blockId < 10; blockId++) {
-            previousFee = L1.getProverFee(gasLimit);
+            previousFee = L1.getProverFee();
             printVariables(
                 "before proposing - affected by verification (verifyBlock() updates)"
             );
@@ -505,14 +494,14 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
             verifyBlock(Carol, 1);
             parentHash = blockHash;
 
-            actualFee = L1.getProverFee(gasLimit);
+            actualFee = L1.getProverFee();
             // Check that fee always increasing in this scenario
             assertGt(actualFee, previousFee);
         }
 
         // Start proving below proof time - will affect the next proposal only after
         mine(1);
-        previousFee = L1.getProverFee(gasLimit);
+        previousFee = L1.getProverFee();
         printVariables("See still higher");
         TaikoData.BlockMetadata memory meta2 = proposeBlock(Alice, 1024);
         mine(1);
@@ -523,7 +512,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
         //After this verification - the proof time falls below the target average, so it will start decreasing
         verifyBlock(Carol, 1);
 
-        actualFee = L1.getProverFee(gasLimit);
+        actualFee = L1.getProverFee();
         assertGt(previousFee, actualFee);
     }
 

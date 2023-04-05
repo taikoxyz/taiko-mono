@@ -93,7 +93,7 @@ library LibProposing {
         blk.proposer = msg.sender;
 
         if (config.proofTimeTarget != 0) {
-            (, uint256 fee) = LibTokenomics.getProverFee(state, input.gasLimit);
+            (, uint64 fee) = LibTokenomics.getProverFee(state);
 
             if (state.balances[msg.sender] < fee)
                 revert L1_INSUFFICIENT_TOKEN();
