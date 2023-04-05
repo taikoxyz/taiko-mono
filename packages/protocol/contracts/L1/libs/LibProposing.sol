@@ -28,7 +28,6 @@ library LibProposing {
     );
 
     error L1_BLOCK_ID();
-    error L1_INSUFFICIENT_ETHER();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
     error L1_NOT_SOLO_PROPOSER();
@@ -70,15 +69,13 @@ library LibProposing {
                 id: state.numBlocks,
                 timestamp: uint64(block.timestamp),
                 l1Height: uint64(block.number - 1),
-                l2Basefee: 0, // will be set later
                 l1Hash: blockhash(block.number - 1),
                 mixHash: bytes32(block.prevrandao * state.numBlocks),
                 txListHash: input.txListHash,
                 txListByteStart: input.txListByteStart,
                 txListByteEnd: input.txListByteEnd,
                 gasLimit: input.gasLimit,
-                beneficiary: input.beneficiary,
-                treasure: resolver.resolve(config.chainId, "treasure", false)
+                beneficiary: input.beneficiary
             });
         }
 
@@ -93,8 +90,6 @@ library LibProposing {
         blk.verifiedForkChoiceId = 0;
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.proposer = msg.sender;
-        // Later on we might need to have actual gas consumed in that L2 block
-        blk.gasConsumed = input.gasLimit;
 
         if (config.enableTokenomics) {
             (, uint256 fee) = LibTokenomics.getProverFee(state, input.gasLimit);

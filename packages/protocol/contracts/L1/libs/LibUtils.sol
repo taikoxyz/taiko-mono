@@ -29,8 +29,7 @@ library LibUtils {
     }
 
     function getStateVariables(
-        TaikoData.State storage state,
-        TaikoData.Config memory config
+        TaikoData.State storage state
     ) internal view returns (TaikoData.StateVariables memory) {
         return
             TaikoData.StateVariables({
@@ -70,19 +69,17 @@ library LibUtils {
         uint24 txListByteEnd;
         uint32 gasLimit;
         address beneficiary;
-        address treasure;
     }
 
     function hashMetadata(
         TaikoData.BlockMetadata memory meta
     ) internal pure returns (bytes32 hash) {
-        uint256[6] memory inputs;
+        uint256[5] memory inputs;
 
         inputs[0] =
             (uint256(meta.id) << 192) |
             (uint256(meta.timestamp) << 128) |
-            (uint256(meta.l1Height) << 64) |
-            uint256(meta.l2Basefee);
+            (uint256(meta.l1Height) << 64);
 
         inputs[1] = uint256(meta.l1Hash);
         inputs[2] = uint256(meta.mixHash);
@@ -94,10 +91,8 @@ library LibUtils {
             (uint256(meta.gasLimit) << 176) |
             (uint256(uint160(meta.beneficiary)) << 16);
 
-        inputs[5] = (uint256(uint160(meta.treasure)) << 96);
-
         assembly {
-            hash := keccak256(inputs, mul(6, 32))
+            hash := keccak256(inputs, mul(5, 32))
         }
     }
 }

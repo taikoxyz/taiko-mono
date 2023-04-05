@@ -23,16 +23,13 @@ struct Config {
   uint256 maxNumVerifiedBlocks;
   uint256 maxVerificationsPerTx;
   uint256 blockMaxGasLimit;
-  uint256 gasPoolProduct;
   uint256 maxTransactionsPerBlock;
   uint256 maxBytesPerTxList;
   uint256 minTxGasLimit;
   uint256 slotSmoothingFactor;
   uint256 rewardBurnBips;
-  uint256 proposerDepositPctg;
   uint256 feeBaseMAF;
-  uint64 constantFeeRewardBlocks;
-  uint64 txListCacheExpiry;
+  uint256 txListCacheExpiry;
   uint64 proofTimeTarget;
   uint8 adjustmentQuotient;
   bool enableSoloProposer;
@@ -49,6 +46,7 @@ struct Config {
 
 ```solidity
 struct StateVariables {
+  uint256 baseFeeProof;
   uint64 feeBase;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
@@ -80,7 +78,6 @@ struct BlockMetadata {
   uint64 id;
   uint64 timestamp;
   uint64 l1Height;
-  uint64 l2Basefee;
   bytes32 l1Hash;
   bytes32 mixHash;
   bytes32 txListHash;
@@ -88,7 +85,6 @@ struct BlockMetadata {
   uint24 txListByteEnd;
   uint32 gasLimit;
   address beneficiary;
-  address treasure;
 }
 ```
 
@@ -112,6 +108,7 @@ struct BlockEvidence {
   bytes32 signalRoot;
   bytes32 graffiti;
   address prover;
+  uint32 gasUsed;
 }
 ```
 
@@ -122,6 +119,7 @@ struct ForkChoice {
   bytes32 blockHash;
   bytes32 signalRoot;
   uint64 provenAt;
+  uint32 gasUsed;
   address prover;
 }
 ```
@@ -134,7 +132,6 @@ struct Block {
   uint64 blockId;
   uint64 proposedAt;
   uint64 deposit;
-  uint32 gasConsumed;
   uint24 nextForkChoiceId;
   uint24 verifiedForkChoiceId;
   bytes32 metaHash;
@@ -159,16 +156,18 @@ struct State {
   mapping(uint256 => mapping(bytes32 => uint256)) forkChoiceIds;
   mapping(address => uint256) balances;
   mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
+  uint256 proofTimeIssued;
+  uint256 baseFeeProof;
+  uint256 accProposalTime;
+  uint256 proofFeeTreasury;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 __reserved1;
-  uint64 __reserved2;
   uint64 numBlocks;
   uint64 lastProposedAt;
   uint64 avgBlockTime;
   uint64 __reserved3;
   uint64 lastVerifiedBlockId;
-  uint64 __reserved4;
   uint64 avgProofTime;
   uint64 feeBase;
   uint256[43] __gap;

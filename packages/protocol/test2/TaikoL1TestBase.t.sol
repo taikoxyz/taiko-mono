@@ -113,7 +113,6 @@ abstract contract TaikoL1TestBase is Test {
         meta.id = variables.numBlocks;
         meta.timestamp = uint64(block.timestamp);
         meta.l1Height = uint64(block.number - 1);
-        meta.l2Basefee = 0;
         meta.l1Hash = blockhash(block.number - 1);
         meta.mixHash = bytes32(_mixHash);
         meta.txListHash = keccak256(txList);
@@ -121,7 +120,6 @@ abstract contract TaikoL1TestBase is Test {
         meta.txListByteEnd = txListSize;
         meta.gasLimit = gasLimit;
         meta.beneficiary = proposer;
-        meta.treasure = L2Treasure;
 
         vm.prank(proposer, proposer);
         L1.proposeBlock(abi.encode(input), txList);
@@ -146,7 +144,8 @@ abstract contract TaikoL1TestBase is Test {
             blockHash: blockHash,
             signalRoot: signalRoot,
             graffiti: 0x0,
-            prover: prover
+            prover: prover,
+            gasUsed: 100000
         });
 
         vm.prank(prover, prover);

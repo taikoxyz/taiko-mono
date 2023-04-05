@@ -4,18 +4,6 @@ title: TaikoErrors
 
 ## TaikoErrors
 
-### L1_1559_X_SCALE_TOO_LARGE
-
-```solidity
-error L1_1559_X_SCALE_TOO_LARGE()
-```
-
-### L1_1559_Y_SCALE_TOO_LARGE
-
-```solidity
-error L1_1559_Y_SCALE_TOO_LARGE()
-```
-
 ### L1_ALREADY_PROVEN
 
 ```solidity
@@ -46,12 +34,6 @@ error L1_EVIDENCE_MISMATCH()
 error L1_FORK_CHOICE_NOT_FOUND()
 ```
 
-### L1_INSUFFICIENT_ETHER
-
-```solidity
-error L1_INSUFFICIENT_ETHER()
-```
-
 ### L1_INSUFFICIENT_TOKEN
 
 ```solidity
@@ -68,12 +50,6 @@ error L1_INVALID_CONFIG()
 
 ```solidity
 error L1_INVALID_EVIDENCE()
-```
-
-### L1_INVALID_L21559_PARAMS
-
-```solidity
-error L1_INVALID_L21559_PARAMS()
 ```
 
 ### L1_INVALID_METADATA
@@ -104,12 +80,6 @@ error L1_NOT_ORACLE_PROVER()
 
 ```solidity
 error L1_NOT_SOLO_PROPOSER()
-```
-
-### L1_OUT_OF_BLOCK_SPACE
-
-```solidity
-error L1_OUT_OF_BLOCK_SPACE()
 ```
 
 ### L1_TOO_MANY_BLOCKS

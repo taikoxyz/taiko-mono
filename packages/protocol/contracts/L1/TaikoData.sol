@@ -21,8 +21,6 @@ library TaikoData {
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;
         uint256 blockMaxGasLimit;
-        uint64 gasTargetPerSecond;
-        uint256 gasAdjustmentFactor;
         uint256 maxTransactionsPerBlock;
         uint256 maxBytesPerTxList;
         uint256 minTxGasLimit;
@@ -70,7 +68,6 @@ library TaikoData {
         uint64 id;
         uint64 timestamp;
         uint64 l1Height;
-        uint64 l2Basefee;
         bytes32 l1Hash;
         bytes32 mixHash;
         bytes32 txListHash;
@@ -78,7 +75,6 @@ library TaikoData {
         uint24 txListByteEnd;
         uint32 gasLimit;
         address beneficiary;
-        address treasure;
     }
 
     struct ZKProof {
@@ -94,6 +90,7 @@ library TaikoData {
         bytes32 signalRoot;
         bytes32 graffiti;
         address prover;
+        uint32 gasUsed;
     }
 
     // 3 slots
@@ -101,6 +98,7 @@ library TaikoData {
         bytes32 blockHash;
         bytes32 signalRoot;
         uint64 provenAt;
+        uint32 gasUsed;
         address prover;
     }
 
@@ -111,7 +109,6 @@ library TaikoData {
         uint64 blockId;
         uint64 proposedAt;
         uint64 deposit;
-        uint32 gasConsumed;
         uint24 nextForkChoiceId;
         uint24 verifiedForkChoiceId;
         bytes32 metaHash;
@@ -145,7 +142,6 @@ library TaikoData {
         uint64 genesisTimestamp;
         uint64 __reserved1;
         // Changed when a block is proposed or proven/finalized
-        // Changed when a block is proposed
         uint64 numBlocks;
         uint64 lastProposedAt; // Timestamp when the last block is proposed.
         uint64 avgBlockTime; // miliseconds
