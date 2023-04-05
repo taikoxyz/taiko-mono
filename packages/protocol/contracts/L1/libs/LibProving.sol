@@ -33,7 +33,7 @@ library LibProving {
 
     error L1_ALREADY_PROVEN();
     error L1_BLOCK_ID();
-    error L1_EVIDENCE_MISMATCH();
+    error L1_EVIDENCE_MISMATCH(bytes32 expected, bytes32 actual);
     error L1_FORK_CHOICE_NOT_FOUND();
     error L1_INVALID_PROOF();
     error L1_INVALID_EVIDENCE();
@@ -68,8 +68,9 @@ library LibProving {
             meta.id % config.ringBufferSize
         ];
 
-        if (blk.metaHash != LibUtils.hashMetadata(meta))
-            revert L1_EVIDENCE_MISMATCH();
+        bytes32 _metaHash = LibUtils.hashMetadata(meta);
+        if (blk.metaHash != _metaHash)
+            revert L1_EVIDENCE_MISMATCH(blk.metaHash, _metaHash);
 
         TaikoData.ForkChoice storage fc;
         bool oracleProving;
