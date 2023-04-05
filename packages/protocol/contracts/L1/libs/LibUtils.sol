@@ -7,8 +7,7 @@
 pragma solidity ^0.8.18;
 
 import {LibMath} from "../../libs/LibMath.sol";
-import {LibL1Tokenomics} from "./LibL1Tokenomics.sol";
-import {LibL2Tokenomics} from "./LibL2Tokenomics.sol";
+import {LibTokenomics} from "./LibTokenomics.sol";
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
@@ -30,14 +29,8 @@ library LibUtils {
     }
 
     function getStateVariables(
-        TaikoData.State storage state,
-        TaikoData.Config memory config
+        TaikoData.State storage state
     ) internal view returns (TaikoData.StateVariables memory) {
-        (uint64 basefee1559, ) = LibL2Tokenomics.getL2Basefee({
-            state: state,
-            config: config,
-            gasLimit: 1
-        });
         return
             TaikoData.StateVariables({
                 feeBase: state.feeBase,
@@ -47,9 +40,7 @@ library LibUtils {
                 lastProposedAt: state.lastProposedAt,
                 avgBlockTime: state.avgBlockTime,
                 lastVerifiedBlockId: state.lastVerifiedBlockId,
-                avgProofTime: state.avgProofTime,
-                l2Basefee: basefee1559,
-                l2GasExcess: state.l2GasExcess
+                avgProofTime: state.avgProofTime
             });
     }
 

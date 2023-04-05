@@ -7,8 +7,7 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
-import {LibL1Tokenomics} from "./LibL1Tokenomics.sol";
-import {LibL2Tokenomics} from "./LibL2Tokenomics.sol";
+import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {
     SafeCastUpgradeable
@@ -33,11 +32,7 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint64 feeBase,
-        bytes32 l2GenesisBlockHash,
-        uint64 l2GasExcessMax,
-        uint64 l2BasefeeInitial,
-        uint64 l2GasTarget,
-        uint64 l2Expected2X1XRatio
+        bytes32 genesisBlockHash
     ) internal {
         _checkConfig(config);
 
@@ -53,30 +48,10 @@ library LibVerifying {
         blk.verifiedForkChoiceId = 1;
 
         TaikoData.ForkChoice storage fc = state.blocks[0].forkChoices[1];
-        fc.blockHash = l2GenesisBlockHash;
+        fc.blockHash = genesisBlockHash;
         fc.provenAt = timeNow;
 
-        if (config.gasIssuedPerSecond != 0) {
-            if (
-                l2GasExcessMax == 0 ||
-                l2BasefeeInitial == 0 ||
-                l2GasTarget == 0 ||
-                l2Expected2X1XRatio == 0
-            ) revert L1_INVALID_L21559_PARAMS();
-
-            uint256 yscale;
-            (state.l2Xscale, yscale) = LibL2Tokenomics.calcL2BasefeeParams(
-                l2GasExcessMax,
-                l2BasefeeInitial,
-                l2GasTarget,
-                l2Expected2X1XRatio
-            );
-
-            state.l2Yscale = uint64(yscale >> 64);
-            state.l2GasExcess = l2GasExcessMax / 2;
-        }
-
-        emit BlockVerified(0, l2GenesisBlockHash);
+        emit BlockVerified(0, genesisBlockHash);
     }
 
     function verifyBlocks(
@@ -146,7 +121,7 @@ library LibVerifying {
                 uint256 newFeeBase,
                 uint256 amount,
                 uint256 premiumRate
-            ) = LibL1Tokenomics.getProofReward({
+            ) = LibTokenomics.getProofReward({
                     state: state,
                     config: config,
                     provenAt: fc.provenAt,

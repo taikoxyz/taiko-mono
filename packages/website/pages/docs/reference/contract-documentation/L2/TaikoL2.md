@@ -4,6 +4,12 @@ title: TaikoL2
 
 ## TaikoL2
 
+### ANCHOR_GAS_COST
+
+```solidity
+uint64 ANCHOR_GAS_COST
+```
+
 ### VerifiedBlock
 
 ```solidity
@@ -13,22 +19,82 @@ struct VerifiedBlock {
 }
 ```
 
+### EIP1559Params
+
+```solidity
+struct EIP1559Params {
+  uint64 basefee;
+  uint64 gasIssuedPerSecond;
+  uint64 gasExcessMax;
+  uint64 gasTarget;
+  uint64 ratio2x1x;
+}
+```
+
 ### publicInputHash
 
 ```solidity
 bytes32 publicInputHash
 ```
 
+### yscale
+
+```solidity
+uint128 yscale
+```
+
+### xscale
+
+```solidity
+uint64 xscale
+```
+
+### gasIssuedPerSecond
+
+```solidity
+uint64 gasIssuedPerSecond
+```
+
+### parentTimestamp
+
+```solidity
+uint64 parentTimestamp
+```
+
 ### latestSyncedL1Height
 
 ```solidity
-uint256 latestSyncedL1Height
+uint64 latestSyncedL1Height
+```
+
+### gasExcess
+
+```solidity
+uint64 gasExcess
+```
+
+### \_\_reserved1
+
+```solidity
+uint64 __reserved1
 ```
 
 ### BlockVars
 
 ```solidity
-event BlockVars(uint256 number, bytes32 parentHash, uint256 timestamp, uint256 basefee, uint256 prevrandao, address coinbase, uint256 gaslimit, uint256 chainid)
+event BlockVars(uint64 number, uint64 basefee, uint64 gaslimit, uint64 timestamp, bytes32 parentHash, uint256 prevrandao, address coinbase, uint32 chainid)
+```
+
+### L2_BASEFEE_MISMATCH
+
+```solidity
+error L2_BASEFEE_MISMATCH(uint64 expected, uint64 actual)
+```
+
+### L2_INVALID_1559_PARAMS
+
+```solidity
+error L2_INVALID_1559_PARAMS()
 ```
 
 ### L2_INVALID_CHAIN_ID
@@ -46,7 +112,7 @@ error L2_INVALID_SENDER()
 ### L2_PUBLIC_INPUT_HASH_MISMATCH
 
 ```solidity
-error L2_PUBLIC_INPUT_HASH_MISMATCH()
+error L2_PUBLIC_INPUT_HASH_MISMATCH(bytes32 expected, bytes32 actual)
 ```
 
 ### L2_TOO_LATE
@@ -55,16 +121,28 @@ error L2_PUBLIC_INPUT_HASH_MISMATCH()
 error L2_TOO_LATE()
 ```
 
+### M1559_UNEXPECTED_CHANGE
+
+```solidity
+error M1559_UNEXPECTED_CHANGE(uint64 expected, uint64 actual)
+```
+
+### M1559_OUT_OF_STOCK
+
+```solidity
+error M1559_OUT_OF_STOCK()
+```
+
 ### init
 
 ```solidity
-function init(address _addressManager) external
+function init(address _addressManager, struct TaikoL2.EIP1559Params _param1559) external
 ```
 
 ### anchor
 
 ```solidity
-function anchor(uint256 l1Height, bytes32 l1Hash, bytes32 l1SignalRoot) external
+function anchor(bytes32 l1Hash, bytes32 l1SignalRoot, uint64 l1Height, uint64 parentGasUsed) external
 ```
 
 Persist the latest L1 block height and hash to L2 for cross-layer
@@ -82,11 +160,18 @@ This transaction shall be the first transaction in every L2 block.
 
 #### Parameters
 
-| Name         | Type    | Description                                               |
-| ------------ | ------- | --------------------------------------------------------- |
-| l1Height     | uint256 | The latest L1 block height when this block was proposed.  |
-| l1Hash       | bytes32 | The latest L1 block hash when this block was proposed.    |
-| l1SignalRoot | bytes32 | The latest value of the L1 "signal service storage root". |
+| Name          | Type    | Description                                               |
+| ------------- | ------- | --------------------------------------------------------- |
+| l1Hash        | bytes32 | The latest L1 block hash when this block was proposed.    |
+| l1SignalRoot  | bytes32 | The latest value of the L1 "signal service storage root". |
+| l1Height      | uint64  | The latest L1 block height when this block was proposed.  |
+| parentGasUsed | uint64  | the gas used in the parent block.                         |
+
+### getBasefee
+
+```solidity
+function getBasefee(uint32 timeSinceNow, uint64 gasLimit, uint64 parentGasUsed) public view returns (uint64 _basefee)
+```
 
 ### getXchainBlockHash
 

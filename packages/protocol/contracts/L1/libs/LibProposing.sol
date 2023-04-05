@@ -8,8 +8,7 @@ pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibAddress} from "../../libs/LibAddress.sol";
-import {LibL1Tokenomics} from "./LibL1Tokenomics.sol";
-import {LibL2Tokenomics} from "./LibL2Tokenomics.sol";
+import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {
     SafeCastUpgradeable
@@ -83,23 +82,6 @@ library LibProposing {
             });
         }
 
-        // Calculate L2 EIP-1559 basefee per gas
-        //
-        // Note that we do not charge basefee * gaslimit on L1 as we do not
-        // know the actual gas used in the L2 block. If we charge the proposer
-        // here, the proposer may suffer a loss depends on how many enclosed
-        // transactions become invalid and are filtered out.
-        //
-        // On L2, EIP-1559's basefee will not be burned but send to a Taiko
-        // treasure address.
-        if (config.gasIssuedPerSecond != 0) {
-            (meta.l2Basefee, state.l2GasExcess) = LibL2Tokenomics.getL2Basefee({
-                state: state,
-                config: config,
-                gasLimit: input.gasLimit
-            });
-        }
-
         TaikoData.Block storage blk = state.blocks[
             state.numBlocks % config.ringBufferSize
         ];
@@ -113,7 +95,7 @@ library LibProposing {
         blk.proposer = msg.sender;
 
         if (config.enableTokenomics) {
-            (uint256 newFeeBase, uint256 fee, uint64 deposit) = LibL1Tokenomics
+            (uint256 newFeeBase, uint256 fee, uint64 deposit) = LibTokenomics
                 .getBlockFee(state, config);
 
             uint256 burnAmount = fee + deposit;

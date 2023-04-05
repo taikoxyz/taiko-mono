@@ -4,12 +4,12 @@ pragma solidity ^0.8.18;
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 import {TaikoData} from "../contracts/L1/TaikoData.sol";
-import {LibL1Tokenomics} from "../contracts/L1/libs/LibL1Tokenomics.sol";
+import {LibTokenomics} from "../contracts/L1/libs/LibTokenomics.sol";
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
-contract TestLibL1Tokenomics is Test {
+contract TestLibTokenomics is Test {
     using SafeCastUpgradeable for uint256;
 
     struct FeeConfig {
@@ -283,7 +283,7 @@ contract TestLibL1Tokenomics is Test {
             dampingFactorBips: dampingFactorBips
         });
 
-        (uint256 _feeBase, uint256 _premiumRate) = LibL1Tokenomics
+        (uint256 _feeBase, uint256 _premiumRate) = LibTokenomics
             .getTimeAdjustedFee(
                 feeConfig,
                 feeBase.toUint64(),

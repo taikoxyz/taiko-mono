@@ -4,12 +4,6 @@ title: TaikoErrors
 
 ## TaikoErrors
 
-### L1_1559_GAS_CHANGE_MISMATCH
-
-```solidity
-error L1_1559_GAS_CHANGE_MISMATCH(uint64 expectedRatio, uint64 actualRatio)
-```
-
 ### L1_1559_X_SCALE_TOO_LARGE
 
 ```solidity
@@ -43,7 +37,7 @@ error L1_CONTRACT_NOT_ALLOWED()
 ### L1_EVIDENCE_MISMATCH
 
 ```solidity
-error L1_EVIDENCE_MISMATCH()
+error L1_EVIDENCE_MISMATCH(bytes32 expected, bytes32 actual)
 ```
 
 ### L1_FORK_CHOICE_NOT_FOUND
@@ -110,12 +104,6 @@ error L1_NOT_ORACLE_PROVER()
 
 ```solidity
 error L1_NOT_SOLO_PROPOSER()
-```
-
-### L1_OUT_OF_BLOCK_SPACE
-
-```solidity
-error L1_OUT_OF_BLOCK_SPACE()
 ```
 
 ### L1_TOO_MANY_BLOCKS
