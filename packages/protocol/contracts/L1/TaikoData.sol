@@ -60,7 +60,7 @@ library TaikoData {
     }
 
     // 6 slots
-    // Changing this struct requires chaing LibUtils.hashMetadata accordingly.
+    // Changing this struct requires changing LibUtils.hashMetadata accordingly.
     struct BlockMetadata {
         uint64 id;
         uint64 timestamp;
