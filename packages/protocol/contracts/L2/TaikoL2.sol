@@ -19,9 +19,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     using SafeCastUpgradeable for uint256;
     using LibMath for uint256;
 
-    // TODO(david): need you to confirm this value.
-    uint64 public ANCHOR_GAS_COST = 47000;
-
     struct VerifiedBlock {
         bytes32 blockHash;
         bytes32 signalRoot;
@@ -37,6 +34,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     /**********************
      * State Variables    *
      **********************/
+
+    // TODO(david): need you to confirm this value.
+    uint64 public constant ANCHOR_GAS_COST = 47000;
 
     // Mapping from L2 block numbers to their block hashes.
     // All L2 block hashes will be saved in this mapping.

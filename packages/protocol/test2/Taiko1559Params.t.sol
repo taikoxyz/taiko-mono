@@ -29,8 +29,10 @@ contract TestTaiko1559Params is Test {
         uint64 gasIssuedPerSecond = (scaleFactor * ethereumBlockGasTarget) /
             ethereumBlockTime;
 
-        // 500 is just a random number picked
-        uint64 gasExcessMaxMax = gasIssuedPerSecond * 728;
+        // Turn this number manually so ratio2x1x is ~112.5%.
+        uint64 ___tuning = 7272;
+
+        uint64 gasExcessMaxMax = gasIssuedPerSecond * ___tuning;
 
         uint64 initialBasefee = ethereumBasefeeNow / costFactor;
 
@@ -38,16 +40,15 @@ contract TestTaiko1559Params is Test {
             basefee: initialBasefee,
             gasIssuedPerSecond: gasIssuedPerSecond,
             gasExcessMax: gasExcessMaxMax,
-            gasTarget: ethereumBlockGasTarget,
-            ratio2x1x: 11249 // ~12.5% increase
+            gasTarget: gasIssuedPerSecond * ethereumBlockTime,
+            ratio2x1x: 11250 // ~12.5% increase
         });
 
-        console2.log("Recommended basefee           :", param1559.basefee);
-        console2.log(
-            "Recommended gasIssuedPerSecond:",
-            param1559.gasIssuedPerSecond
-        );
-        console2.log("Recommended gasExcessMax      :", param1559.gasExcessMax);
+        console2.log("basefee           :", param1559.basefee);
+        console2.log("gasIssuedPerSecond:", param1559.gasIssuedPerSecond);
+        console2.log("gasExcessMax      :", param1559.gasExcessMax);
+        console2.log("gasTarget         :", param1559.gasTarget);
+        console2.log("ratio2x1x         :", param1559.ratio2x1x);
 
         TaikoL2 L2 = new TaikoL2();
         L2.init(address(1), param1559); // Dummy address manager address.
