@@ -31,7 +31,7 @@ var (
 
 // LibUtilsStateVariables is an auto generated low-level Go binding around an user-defined struct.
 type LibUtilsStateVariables struct {
-	FeeBase              *big.Int
+	Basefee              *big.Int
 	GenesisHeight        uint64
 	GenesisTimestamp     uint64
 	NextBlockId          uint64
@@ -72,7 +72,7 @@ type TaikoDataConfig struct {
 	SlotSmoothingFactor            *big.Int
 	RewardBurnBips                 *big.Int
 	ProposerDepositPctg            *big.Int
-	FeeBaseMAF                     *big.Int
+	BasefeeMAF                     *big.Int
 	BlockTimeMAF                   *big.Int
 	ProofTimeMAF                   *big.Int
 	RewardMultiplierPctg           uint64
@@ -744,7 +744,7 @@ func (_TaikoL1 *TaikoL1Caller) State(opts *bind.CallOpts) (struct {
 	GenesisTimestamp     uint64
 	ReservedA1           uint64
 	ReservedA2           uint64
-	FeeBase              *big.Int
+	Basefee              *big.Int
 	NextBlockId          uint64
 	LastProposedAt       uint64
 	AvgBlockTime         uint64
@@ -762,7 +762,7 @@ func (_TaikoL1 *TaikoL1Caller) State(opts *bind.CallOpts) (struct {
 		GenesisTimestamp     uint64
 		ReservedA1           uint64
 		ReservedA2           uint64
-		FeeBase              *big.Int
+		Basefee              *big.Int
 		NextBlockId          uint64
 		LastProposedAt       uint64
 		AvgBlockTime         uint64
@@ -780,7 +780,7 @@ func (_TaikoL1 *TaikoL1Caller) State(opts *bind.CallOpts) (struct {
 	outstruct.GenesisTimestamp = *abi.ConvertType(out[1], new(uint64)).(*uint64)
 	outstruct.ReservedA1 = *abi.ConvertType(out[2], new(uint64)).(*uint64)
 	outstruct.ReservedA2 = *abi.ConvertType(out[3], new(uint64)).(*uint64)
-	outstruct.FeeBase = *abi.ConvertType(out[4], new(*big.Int)).(**big.Int)
+	outstruct.Basefee = *abi.ConvertType(out[4], new(*big.Int)).(**big.Int)
 	outstruct.NextBlockId = *abi.ConvertType(out[5], new(uint64)).(*uint64)
 	outstruct.LastProposedAt = *abi.ConvertType(out[6], new(uint64)).(*uint64)
 	outstruct.AvgBlockTime = *abi.ConvertType(out[7], new(uint64)).(*uint64)
@@ -802,7 +802,7 @@ func (_TaikoL1 *TaikoL1Session) State() (struct {
 	GenesisTimestamp     uint64
 	ReservedA1           uint64
 	ReservedA2           uint64
-	FeeBase              *big.Int
+	Basefee              *big.Int
 	NextBlockId          uint64
 	LastProposedAt       uint64
 	AvgBlockTime         uint64
@@ -823,7 +823,7 @@ func (_TaikoL1 *TaikoL1CallerSession) State() (struct {
 	GenesisTimestamp     uint64
 	ReservedA1           uint64
 	ReservedA2           uint64
-	FeeBase              *big.Int
+	Basefee              *big.Int
 	NextBlockId          uint64
 	LastProposedAt       uint64
 	AvgBlockTime         uint64

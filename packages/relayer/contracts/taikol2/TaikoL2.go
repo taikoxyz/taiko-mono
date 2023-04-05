@@ -44,7 +44,7 @@ type TaikoDataConfig struct {
 	SlotSmoothingFactor            *big.Int
 	RewardBurnBips                 *big.Int
 	ProposerDepositPctg            *big.Int
-	FeeBaseMAF                     *big.Int
+	BasefeeMAF                     *big.Int
 	BlockTimeMAF                   *big.Int
 	ProofTimeMAF                   *big.Int
 	RewardMultiplierPctg           uint64
