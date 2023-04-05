@@ -27,9 +27,7 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
 
       - name: protocol - Unit Tests (foundry)
-        run: forge test --gas-report --ffi > gasreport.ansi
-        env:
-          FOUNDRY_FUZZ_SEED: 0x${{ github.event.pull_request.base.sha || github.sha }}
+        run: forge test --gas-report > gasreport.ansi
 
       - name: Compare gas reports
         uses: Rubilmax/foundry-gas-diff@v3.13.6
