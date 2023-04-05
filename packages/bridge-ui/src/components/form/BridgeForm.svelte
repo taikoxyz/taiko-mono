@@ -216,9 +216,8 @@
       // TODO: how about using npm debug package instead of console.error?
       console.error(e);
       if (e.code === ethers.errors.UNPREDICTABLE_GAS_LIMIT) {
-        // TODO: fixed gas limit?
-        // What could be a good estimate here? we might want to use a different
-        // value depending on whether we're dealing with ETH or ERC20.
+        // TODO: What could be a good estimate here? we might want to use a different
+        //       value depending on whether we're dealing with ETH or ERC20.
         const gasEstimate = BigNumber.from(1e6);
         return isBalanceGreaterThanRequireGas(gasEstimate);
       } else {
