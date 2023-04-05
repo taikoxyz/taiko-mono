@@ -10,7 +10,7 @@ import type {
 import TokenVaultABI from '../constants/abi/TokenVault';
 import ERC20_ABI from '../constants/abi/ERC20';
 import type { Prover } from '../domain/proof';
-import { Message, MessageStatus } from '../domain/message';
+import { type Message, MessageStatus } from '../domain/message';
 import BridgeABI from '../constants/abi/Bridge';
 import { chains } from '../chain/chains';
 
