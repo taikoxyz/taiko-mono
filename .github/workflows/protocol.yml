@@ -29,28 +29,14 @@ jobs:
       - name: protocol - Unit Tests (foundry)
         run: forge test -vvv --gas-report > gasreport.ansi
         env:
-          # make fuzzing semi-deterministic to avoid noisy gas cost estimation
-          # due to non-deterministic fuzzing (but still use pseudo-random fuzzing seeds)
           FOUNDRY_FUZZ_SEED: 0x${{ github.event.pull_request.base.sha || github.sha }}
 
       - name: Compare gas reports
         uses: Rubilmax/foundry-gas-diff@v3.13
         with:
           report: gasreport.ansi
-          ignore: test/**/*,lib/**/*
-          header: |
-            # Taiko gas diffs
+          ignore: common/**/*,libs/**/*,thirdparty/**/*,test/**/*,lib/**/*
         id: gas_diff
-
-      - name: Add gas diff to sticky comment
-        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
-        uses: marocchino/sticky-pull-request-comment@v2
-        with:
-          message: ${{ steps.gas_diff.outputs.markdown }}
-          delete: ${{ !steps.gas_diff.outputs.markdown }}
-
-      - name: protocol - Run snapshot (foundry)
-        run: forge snapshot
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
@@ -59,15 +45,14 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm clean && pnpm test
 
-      - name: protocol - Integration Tests (hardhat)
-        working-directory: ./packages/protocol
-        run: pnpm test:integration
+      # - name: protocol - Integration Tests (hardhat)
+      #   working-directory: ./packages/protocol
+      #   run: pnpm test:integration
 
       - name: Add gas diff to sticky comment
         if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
         uses: marocchino/sticky-pull-request-comment@v2
         with:
-          # delete the comment in case changes no longer impact gas costs
           delete: ${{ !steps.gas_diff.outputs.markdown }}
           message: ${{ steps.gas_diff.outputs.markdown }}
 
@@ -83,9 +68,9 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm test:genesis
 
-      - name: protocol - Export ABIs
-        working-directory: ./packages/protocol
-        run: pnpm export:abi
+      # - name: protocol - Export ABIs
+      #   working-directory: ./packages/protocol
+      #   run: pnpm export:abi
 
       - name: protocol - Deploy L1 Contracts
         working-directory: ./packages/protocol

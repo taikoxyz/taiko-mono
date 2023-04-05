@@ -61,7 +61,7 @@ contract TaikoL1RandomTest is TaikoL1TestBase, FoundryRandom {
 
         for (
             uint256 blockId = 1;
-            blockId < conf.maxNumProposedBlocks * 10;
+            blockId < conf.maxNumProposedBlocks * 100;
             blockId++
         ) {
             printBlockInfo("before propose");
