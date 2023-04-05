@@ -12,6 +12,7 @@ yarn-debug.log*
 yarn-error.log*
 package-lock.json
 npm-debug.log*
+blocks.txt
 
 # Hardhat files
 cache

@@ -13,6 +13,7 @@ import {SignalService} from "../contracts/signal/SignalService.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {TaikoL1TestBase} from "./TaikoL1TestBase.t.sol";
 
+// forge test  -vvv  --match-test testGeneratingManyRandomBlocks  --block-gas-limit  3000000000 > log.csv
 contract TaikoL1_b is TaikoL1 {
     function getConfig()
         public
@@ -61,7 +62,7 @@ contract TaikoL1RandomTest is TaikoL1TestBase, FoundryRandom {
 
         for (
             uint256 blockId = 1;
-            blockId < conf.maxNumProposedBlocks * 1;
+            blockId < conf.maxNumProposedBlocks * 10;
             blockId++
         ) {
             // printBlockInfo("before propose");
