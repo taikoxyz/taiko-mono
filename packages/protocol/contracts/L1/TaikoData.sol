@@ -127,6 +127,8 @@ library TaikoData {
         // A mapping from (blockId, parentHash) to a reusable ForkChoice storage pointer.
         // solhint-disable-next-line max-line-length
         mapping(uint256 blockId => mapping(bytes32 parentHash => uint256 forkChoiceId)) forkChoiceIds;
+        // TODO(dani): change to:
+        // mapping(address account => uint64 balance) balances;
         mapping(address account => uint256 balance) balances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         // Cummulated proofTime for reward calculation - changed in verifyBlock()
