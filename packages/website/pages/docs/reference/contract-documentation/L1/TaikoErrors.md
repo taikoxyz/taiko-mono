@@ -1,7 +1,3 @@
----
-title: TaikoErrors
----
-
 ## TaikoErrors
 
 ### L1_ALREADY_PROVEN

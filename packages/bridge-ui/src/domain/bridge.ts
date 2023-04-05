@@ -1,4 +1,5 @@
 import type { BigNumber, ethers, Transaction } from 'ethers';
+import type { ChainID } from './chain';
 import type { Message } from './message';
 
 export enum BridgeType {
@@ -19,9 +20,10 @@ export type BridgeOpts = {
   amountInWei: BigNumber;
   signer: ethers.Signer;
   tokenAddress: string;
-  fromChainId: number;
-  toChainId: number;
-  tokenVaultAddress: string;
+  fromChainId: ChainID;
+  toChainId: ChainID;
+  tokenVaultAddress?: string;
+  bridgeAddress?: string;
   processingFeeInWei?: BigNumber;
   tokenId?: string;
   memo?: string;

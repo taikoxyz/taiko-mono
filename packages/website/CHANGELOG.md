@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.5.0](https://github.com/taikoxyz/taiko-mono/compare/website-v0.4.1...website-v0.5.0) (2023-03-29)
+
+
+### Features
+
+* **website:** add link to the alpha-2 explainer blog post ([#13402](https://github.com/taikoxyz/taiko-mono/issues/13402)) ([0d588b1](https://github.com/taikoxyz/taiko-mono/commit/0d588b1cdc3b0c8ca59114266b0ad1d5f6537952))
+* **website:** add loopring to showcase page ([#13409](https://github.com/taikoxyz/taiko-mono/issues/13409)) ([5eb4eb0](https://github.com/taikoxyz/taiko-mono/commit/5eb4eb012d7cf3115894d317fc8b6658cad19f74))
+* **website:** add taiko addresses ([#13445](https://github.com/taikoxyz/taiko-mono/issues/13445)) ([81ba617](https://github.com/taikoxyz/taiko-mono/commit/81ba617fb8d3dee93d97fffc79c568bcb34aacbb))
+* **website:** alpha-2 testnet docs ([#13372](https://github.com/taikoxyz/taiko-mono/issues/13372)) ([e2fcd9b](https://github.com/taikoxyz/taiko-mono/commit/e2fcd9bf771334436a1f829e63a9982a162ed9d1))
+* **website:** refactor prover and node running guides and add warning ([#13414](https://github.com/taikoxyz/taiko-mono/issues/13414)) ([72d3d4e](https://github.com/taikoxyz/taiko-mono/commit/72d3d4e32da643e0f67cc8e0a5e30cd86fcd5200))
+* **website:** update run a prover troubleshooting ([#13407](https://github.com/taikoxyz/taiko-mono/issues/13407)) ([39ce0f2](https://github.com/taikoxyz/taiko-mono/commit/39ce0f2dcbc28270e57673a20d1f1c24b7502bb2))
+
+
+### Bug Fixes
+
+* **website:** add infura and update guidance on rpc providers ([#13473](https://github.com/taikoxyz/taiko-mono/issues/13473)) ([c0329fa](https://github.com/taikoxyz/taiko-mono/commit/c0329faef5998abf5a66ad5073132bf745ad4ba6))
+* **website:** add run a prover ([#13399](https://github.com/taikoxyz/taiko-mono/issues/13399)) ([9d68016](https://github.com/taikoxyz/taiko-mono/commit/9d6801615d24ea4998fe863e8a2f380d3f2821cc))
+* **website:** announcement status link ([#13398](https://github.com/taikoxyz/taiko-mono/issues/13398)) ([c056c71](https://github.com/taikoxyz/taiko-mono/commit/c056c7158b0f85938d173794a498dbee44f10c3a))
+* **website:** fix code block for copying script commands ([#13410](https://github.com/taikoxyz/taiko-mono/issues/13410)) ([5ad26ed](https://github.com/taikoxyz/taiko-mono/commit/5ad26eda8d2c18aa824dd3d5a60a6860cf901c57))
+* **website:** fix contributing link ([#13405](https://github.com/taikoxyz/taiko-mono/issues/13405)) ([b41504e](https://github.com/taikoxyz/taiko-mono/commit/b41504e9e7559b325fd79cbd7d5c239a160b4285))
+* **website:** fix run a node guide prover logs ([#13421](https://github.com/taikoxyz/taiko-mono/issues/13421)) ([71d85c2](https://github.com/taikoxyz/taiko-mono/commit/71d85c2f0ed42d0004c73c5f7ad001f008ccd083))
+* **website:** update homepage ([#13438](https://github.com/taikoxyz/taiko-mono/issues/13438)) ([62b4b02](https://github.com/taikoxyz/taiko-mono/commit/62b4b0295d0758d0412465aa8ec5ffec47a2b31c))
+* **website:** update run a prover docs ([#13401](https://github.com/taikoxyz/taiko-mono/issues/13401)) ([6f5bb9d](https://github.com/taikoxyz/taiko-mono/commit/6f5bb9dabf5140d72850b99996ac959b42458426))
+* **website:** Update swap-tokens.mdx ([#13487](https://github.com/taikoxyz/taiko-mono/issues/13487)) ([c082848](https://github.com/taikoxyz/taiko-mono/commit/c0828484ae0392467e1f06de06a29f0d3e701780))
+
 ## [0.4.1](https://github.com/taikoxyz/taiko-mono/compare/website-v0.4.0...website-v0.4.1) (2023-03-15)
 
 

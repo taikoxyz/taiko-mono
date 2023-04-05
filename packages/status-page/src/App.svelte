@@ -25,10 +25,11 @@
         l2TaikoAddress: import.meta.env.VITE_TAIKO_L2_ADDRESS,
         l1ExplorerUrl: import.meta.env.VITE_L1_EXPLORER_URL,
         l2ExplorerUrl: import.meta.env.VITE_L2_EXPLORER_URL,
-        feeTokenSymbol: import.meta.env.FEE_TOKEN_SYMBOL || "TKO",
+        feeTokenSymbol: import.meta.env.VITE_FEE_TOKEN_SYMBOL || "TKO",
         oracleProverAddress:
           import.meta.env.ORACLE_PROVER_ADDRESS ||
           "0x1567CDAb5F7a69154e61A16D8Ff5eE6A3e991b39",
+        eventIndexerApiUrl: import.meta.env.VITE_EVENT_INDEXER_API_URL,
       },
       userData: {},
     }),
@@ -36,7 +37,7 @@
 </script>
 
 <QueryProvider>
-  <main>
+  <main class="px-6">
     <Navbar />
     <Router {routes} />
   </main>

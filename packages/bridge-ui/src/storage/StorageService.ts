@@ -1,31 +1,33 @@
 import type { BridgeTransaction, Transactioner } from '../domain/transactions';
 import { BigNumber, Contract, ethers } from 'ethers';
-import Bridge from '../constants/abi/Bridge';
-import TokenVault from '../constants/abi/TokenVault';
-import { chainIdToTokenVaultAddress } from '../store/bridge';
-import { get } from 'svelte/store';
-import ERC20 from '../constants/abi/ERC20';
+import BridgeABI from '../constants/abi/Bridge';
+import TokenVaultABI from '../constants/abi/TokenVault';
+import ERC20_ABI from '../constants/abi/ERC20';
 import { MessageStatus } from '../domain/message';
-import { chainsRecord } from '../chain/chains';
+import { chains } from '../chain/chains';
+import { tokenVaults } from '../vault/tokenVaults';
+import type { ChainID } from '../domain/chain';
+
+const STORAGE_PREFIX = 'transactions';
 
 export class StorageService implements Transactioner {
   private readonly storage: Storage;
-  private readonly providerMap: Map<number, ethers.providers.JsonRpcProvider>;
+  private readonly providers: Record<
+    ChainID,
+    ethers.providers.StaticJsonRpcProvider
+  >;
 
   constructor(
     storage: Storage,
-    providerMap: Map<number, ethers.providers.JsonRpcProvider>,
+    providers: Record<ChainID, ethers.providers.StaticJsonRpcProvider>,
   ) {
     this.storage = storage;
-    this.providerMap = providerMap;
+    this.providers = providers;
   }
 
-  async GetAllByAddress(
-    address: string,
-    chainID?: number,
-  ): Promise<BridgeTransaction[]> {
+  async getAllByAddress(address: string): Promise<BridgeTransaction[]> {
     const txs: BridgeTransaction[] = JSON.parse(
-      this.storage.getItem(`transactions-${address.toLowerCase()}`),
+      this.storage.getItem(`${STORAGE_PREFIX}-${address.toLowerCase()}`),
     );
 
     const bridgeTxs: BridgeTransaction[] = [];
@@ -35,9 +37,9 @@ export class StorageService implements Transactioner {
         .map(async (tx) => {
           if (tx.from.toLowerCase() !== address.toLowerCase()) return;
           const destChainId = tx.toChainId;
-          const destProvider = this.providerMap.get(destChainId);
+          const destProvider = this.providers[destChainId];
 
-          const srcProvider = this.providerMap.get(tx.fromChainId);
+          const srcProvider = this.providers[tx.fromChainId];
 
           // Ignore transactions from chains not supported by the bridge
           if (!srcProvider) {
@@ -53,19 +55,19 @@ export class StorageService implements Transactioner {
 
           tx.receipt = receipt;
 
-          const destBridgeAddress = chainsRecord[destChainId].bridgeAddress;
+          const destBridgeAddress = chains[destChainId].bridgeAddress;
 
-          const srcBridgeAddress = chainsRecord[tx.fromChainId].bridgeAddress;
+          const srcBridgeAddress = chains[tx.fromChainId].bridgeAddress;
 
           const destContract: Contract = new Contract(
             destBridgeAddress,
-            Bridge,
+            BridgeABI,
             destProvider,
           );
 
           const srcContract: Contract = new Contract(
             srcBridgeAddress,
-            Bridge,
+            BridgeABI,
             srcProvider,
           );
 
@@ -94,8 +96,8 @@ export class StorageService implements Transactioner {
           let symbol: string;
           if (event.args.message.data !== '0x') {
             const tokenVaultContract = new Contract(
-              get(chainIdToTokenVaultAddress).get(tx.fromChainId),
-              TokenVault,
+              tokenVaults[tx.fromChainId],
+              TokenVaultABI,
               srcProvider,
             );
             const filter = tokenVaultContract.filters.ERC20Sent(msgHash);
@@ -112,7 +114,7 @@ export class StorageService implements Transactioner {
 
             const erc20Contract = new Contract(
               erc20Event.args.token,
-              ERC20,
+              ERC20_ABI,
               srcProvider,
             );
             symbol = await erc20Contract.symbol();
@@ -142,21 +144,21 @@ export class StorageService implements Transactioner {
     return bridgeTxs;
   }
 
-  async GetTransactionByHash(
+  async getTransactionByHash(
     address: string,
     hash: string,
   ): Promise<BridgeTransaction> {
     const txs: BridgeTransaction[] = JSON.parse(
-      this.storage.getItem(`transactions-${address.toLowerCase()}`),
+      this.storage.getItem(`${STORAGE_PREFIX}-${address.toLowerCase()}`),
     );
 
     const tx: BridgeTransaction = txs.find((tx) => tx.hash === hash);
 
     if (tx.from.toLowerCase() !== address.toLowerCase()) return;
     const destChainId = tx.toChainId;
-    const destProvider = this.providerMap.get(destChainId);
+    const destProvider = this.providers[destChainId];
 
-    const srcProvider = this.providerMap.get(tx.fromChainId);
+    const srcProvider = this.providers[tx.fromChainId];
 
     // Ignore transactions from chains not supported by the bridge
     if (!srcProvider) {
@@ -171,19 +173,19 @@ export class StorageService implements Transactioner {
 
     tx.receipt = receipt;
 
-    const destBridgeAddress = chainsRecord[destChainId].bridgeAddress;
+    const destBridgeAddress = chains[destChainId].bridgeAddress;
 
-    const srcBridgeAddress = chainsRecord[tx.fromChainId].bridgeAddress;
+    const srcBridgeAddress = chains[tx.fromChainId].bridgeAddress;
 
     const destContract: Contract = new Contract(
       destBridgeAddress,
-      Bridge,
+      BridgeABI,
       destProvider,
     );
 
     const srcContract: Contract = new Contract(
       srcBridgeAddress,
-      Bridge,
+      BridgeABI,
       srcProvider,
     );
 
@@ -209,8 +211,8 @@ export class StorageService implements Transactioner {
     let symbol: string;
     if (event.args.message.data !== '0x') {
       const tokenVaultContract = new Contract(
-        get(chainIdToTokenVaultAddress).get(tx.fromChainId),
-        TokenVault,
+        tokenVaults[tx.fromChainId],
+        TokenVaultABI,
         srcProvider,
       );
       const filter = tokenVaultContract.filters.ERC20Sent(msgHash);
@@ -227,7 +229,7 @@ export class StorageService implements Transactioner {
 
       const erc20Contract = new Contract(
         erc20Event.args.token,
-        ERC20,
+        ERC20_ABI,
         srcProvider,
       );
       symbol = await erc20Contract.symbol();
@@ -250,9 +252,9 @@ export class StorageService implements Transactioner {
     return bridgeTx;
   }
 
-  UpdateStorageByAddress(address: string, txs: BridgeTransaction[]) {
+  updateStorageByAddress(address: string, txs: BridgeTransaction[]) {
     this.storage.setItem(
-      `transactions-${address.toLowerCase()}`,
+      `${STORAGE_PREFIX}-${address.toLowerCase()}`,
       JSON.stringify(txs),
     );
   }
