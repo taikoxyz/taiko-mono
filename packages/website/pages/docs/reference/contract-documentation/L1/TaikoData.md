@@ -71,7 +71,6 @@ struct BlockMetadata {
   uint64 id;
   uint64 timestamp;
   uint64 l1Height;
-  uint64 l2Basefee;
   bytes32 l1Hash;
   bytes32 mixHash;
   bytes32 txListHash;

@@ -70,7 +70,6 @@ library LibProposing {
                 id: state.numBlocks,
                 timestamp: uint64(block.timestamp),
                 l1Height: uint64(block.number - 1),
-                l2Basefee: 0, // will be set later
                 l1Hash: blockhash(block.number - 1),
                 mixHash: bytes32(block.prevrandao * state.numBlocks),
                 txListHash: input.txListHash,
