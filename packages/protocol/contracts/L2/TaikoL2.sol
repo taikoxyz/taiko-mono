@@ -8,6 +8,7 @@ pragma solidity ^0.8.18;
 
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {IXchainSync} from "../common/IXchainSync.sol";
+import {LibL2Consts} from "./LibL2Consts.sol";
 import {LibMath} from "../libs/LibMath.sol";
 import {Lib1559Math} from "../libs/Lib1559Math.sol";
 import {TaikoL2Signer} from "./TaikoL2Signer.sol";
@@ -34,9 +35,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     /**********************
      * State Variables    *
      **********************/
-
-    // TODO(david): need you to confirm this value.
-    uint32 public constant ANCHOR_GAS_COST = 47000;
 
     // Mapping from L2 block numbers to their block hashes.
     // All L2 block hashes will be saved in this mapping.
@@ -222,11 +220,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         uint64 gasLimit,
         uint64 parentGasUsed
     ) public view returns (uint64 _basefee) {
-        (_basefee, ) = _calcBasefee(
-            timeSinceNow + block.timestamp - parentTimestamp,
-            gasLimit,
-            parentGasUsed
-        );
+        uint256 timeSinceParent;
+        unchecked {
+            timeSinceParent = timeSinceNow + block.timestamp - parentTimestamp;
+        }
+        (_basefee, ) = _calcBasefee(timeSinceParent, gasLimit, parentGasUsed);
     }
 
     function getXchainBlockHash(
@@ -288,13 +286,16 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         uint64 parentGasUsed
     ) private view returns (uint64 _basefee, uint64 _gasExcess) {
         // Very important to cap _gasExcess uint64
-        uint64 parentGasUsedNet = parentGasUsed > ANCHOR_GAS_COST
-            ? parentGasUsed - ANCHOR_GAS_COST
-            : 0;
+        unchecked {
+            uint64 parentGasUsedNet = parentGasUsed >
+                LibL2Consts.ANCHOR_GAS_COST
+                ? parentGasUsed - LibL2Consts.ANCHOR_GAS_COST
+                : 0;
 
-        uint256 a = uint256(gasExcess) + parentGasUsedNet;
-        uint256 b = gasIssuedPerSecond * timeSinceParent;
-        _gasExcess = uint64((a.max(b) - b).min(type(uint64).max));
+            uint256 a = uint256(gasExcess) + parentGasUsedNet;
+            uint256 b = gasIssuedPerSecond * timeSinceParent;
+            _gasExcess = uint64((a.max(b) - b).min(type(uint64).max));
+        }
 
         uint256 __basefee = Lib1559Math.calculatePrice({
             xscale: xscale,

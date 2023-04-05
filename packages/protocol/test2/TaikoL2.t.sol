@@ -3,6 +3,7 @@ pragma solidity ^0.8.18;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
+import {LibL2Consts} from "../contracts/L2/LibL2Consts.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {TaikoL2} from "../contracts/L2/TaikoL2.sol";
 import {
@@ -15,7 +16,7 @@ contract TestTaikoL2 is Test {
 
     TaikoL2 public L2;
     uint private logIndex;
-    uint64 private ANCHOR_GAS_COST;
+    uint64 private ANCHOR_GAS_COST = LibL2Consts.ANCHOR_GAS_COST;
 
     function setUp() public {
         uint16 rand = 2;
@@ -29,7 +30,6 @@ contract TestTaikoL2 is Test {
 
         L2 = new TaikoL2();
         L2.init(address(1), param1559); // Dummy address manager address.
-        ANCHOR_GAS_COST = L2.ANCHOR_GAS_COST();
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);
