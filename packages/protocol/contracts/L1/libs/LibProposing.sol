@@ -8,6 +8,7 @@ pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibAddress} from "../../libs/LibAddress.sol";
+import {LibL2Consts} from "../../L2/LibL2Consts.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {
@@ -26,9 +27,6 @@ library LibProposing {
         TaikoData.BlockMetadata meta,
         bool txListCached
     );
-
-    // TODO(david): need you to confirm this value.
-    uint32 public constant ANCHOR_GAS_COST = 47000;
 
     error L1_BLOCK_ID();
     error L1_INSUFFICIENT_TOKEN();
@@ -144,7 +142,7 @@ library LibProposing {
 
         if (
             input.beneficiary == address(0) ||
-            input.gasLimit < ANCHOR_GAS_COST ||
+            input.gasLimit < LibL2Consts.ANCHOR_GAS_COST ||
             input.gasLimit > config.blockMaxGasLimit
         ) revert L1_INVALID_METADATA();
 
