@@ -50,6 +50,12 @@ contract TestTaiko1559Params is Test {
         console2.log("gasTarget         :", param1559.gasTarget);
         console2.log("ratio2x1x         :", param1559.ratio2x1x);
 
+        // basefee           : 1120000000
+        // gasIssuedPerSecond: 12500000
+        // gasExcessMax      : 90900000000
+        // gasTarget         : 150000000
+        // ratio2x1x         : 11250
+
         TaikoL2 L2 = new TaikoL2();
         L2.init(address(1), param1559); // Dummy address manager address.
     }

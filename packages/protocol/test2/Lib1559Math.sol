@@ -55,7 +55,7 @@ contract TestLib1559Math is Test {
             assertLt(basefee2, type(uint64).max);
 
             if (basefee1 != 0) {
-                assertEq((basefee2 * 100) / basefee1, ratio2x1x);
+                assertEq((basefee2 * 10000) / basefee1, ratio2x1x);
             }
         }
     }
