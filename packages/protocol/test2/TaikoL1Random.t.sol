@@ -30,18 +30,6 @@ contract TaikoL1_b is TaikoL1 {
         config.enableOracleProver = false;
         config.maxNumProposedBlocks = 10;
         config.ringBufferSize = 12;
-        // this value must be changed if `maxNumProposedBlocks` is changed.
-        config.slotSmoothingFactor = 4160;
-
-        config.proposingConfig = TaikoData.FeeConfig({
-            avgTimeMAF: 64,
-            dampingFactorBips: 5000
-        });
-
-        config.provingConfig = TaikoData.FeeConfig({
-            avgTimeMAF: 64,
-            dampingFactorBips: 5000
-        });
     }
 }
 
@@ -64,13 +52,10 @@ contract TaikoL1RandomTest is TaikoL1TestBase, FoundryRandom {
         );
     }
 
-    /// @dev Test we can propose, prove, then verify more blocks than 'maxNumProposedBlocks'
     function testGeneratingManyRandomBlocks() external {
         uint256 randomNum = randomNumber(12);
 
-        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        _depositTaikoToken(Alice, 1E6 * 1E8, 10000 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
@@ -79,9 +64,9 @@ contract TaikoL1RandomTest is TaikoL1TestBase, FoundryRandom {
             blockId < conf.maxNumProposedBlocks * 10;
             blockId++
         ) {
-            printVariables("before propose");
+            printBlockInfo("before propose");
             TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
-            printVariables("after propose");
+            printBlockInfo("after propose");
             mine(1);
 
             bytes32 blockHash = bytes32(1E10 + blockId);
@@ -90,6 +75,25 @@ contract TaikoL1RandomTest is TaikoL1TestBase, FoundryRandom {
             verifyBlock(Carol, 1);
             parentHash = blockHash;
         }
-        printVariables("");
+        printBlockInfo("");
+    }
+
+    function printBlockInfo(string memory comment) internal {
+        TaikoData.StateVariables memory vars = L1.getStateVariables();
+        (uint256 fee, ) = L1.getBlockFee();
+        string memory str = string.concat(
+            Strings.toString(logCount++),
+            ":[",
+            Strings.toString(vars.lastVerifiedBlockId),
+            unicode"→",
+            Strings.toString(vars.numBlocks),
+            "] feeBase:",
+            Strings.toString(vars.feeBase),
+            " fee:",
+            Strings.toString(fee),
+            " lastProposedAt:",
+            Strings.toString(vars.lastProposedAt)
+        );
+        console2.log(str);
     }
 }
