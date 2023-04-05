@@ -38,9 +38,7 @@ library LibUtils {
                 genesisTimestamp: state.genesisTimestamp,
                 numBlocks: state.numBlocks,
                 lastProposedAt: state.lastProposedAt,
-                avgBlockTime: state.avgBlockTime,
-                lastVerifiedBlockId: state.lastVerifiedBlockId,
-                avgProofTime: state.avgProofTime
+                lastVerifiedBlockId: state.lastVerifiedBlockId
             });
     }
 

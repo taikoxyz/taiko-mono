@@ -147,14 +147,6 @@ library LibVerifying {
             _addToBalance(state, fc.prover, reward);
         }
 
-        state.avgProofTime = LibUtils
-            .movingAverage({
-                maValue: state.avgProofTime,
-                newValue: proofTime * 1000,
-                maf: config.provingConfig.avgTimeMAF
-            })
-            .toUint64();
-
         blockHash = fc.blockHash;
         signalRoot = fc.signalRoot;
 
