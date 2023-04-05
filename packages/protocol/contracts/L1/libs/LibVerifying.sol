@@ -121,7 +121,7 @@ library LibVerifying {
             proofTime = (fc.provenAt - blk.proposedAt);
         }
 
-        if (config.enableTokenomics) {
+        if (config.proofTimeTarget != 0) {
             (
                 uint256 reward,
                 uint256 proofTimeIssued,

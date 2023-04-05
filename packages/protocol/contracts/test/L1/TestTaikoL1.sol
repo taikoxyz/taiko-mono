@@ -28,7 +28,6 @@ contract TestTaikoL1 is TaikoL1 {
         config.maxBytesPerTxList = 120000;
         config.minTxGasLimit = 21000;
 
-        config.enableTokenomics = false;
         config.skipZKPVerification = true;
     }
 }

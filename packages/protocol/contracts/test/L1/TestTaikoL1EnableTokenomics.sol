@@ -30,7 +30,6 @@ contract TestTaikoL1EnableTokenomics is TaikoL1 {
 
         // Moving average factors
 
-        config.enableTokenomics = true;
         config.skipZKPVerification = true;
     }
 }

@@ -92,7 +92,7 @@ library LibProposing {
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.proposer = msg.sender;
 
-        if (config.enableTokenomics) {
+        if (config.proofTimeTarget != 0) {
             (, uint256 fee) = LibTokenomics.getProverFee(state, input.gasLimit);
 
             if (state.balances[msg.sender] < fee)
