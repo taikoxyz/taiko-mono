@@ -19,10 +19,10 @@ export type TransactionData = {
     Memo: string;
     Owner: Address;
     Sender: Address;
-    GasLimit: number;
-    CallValue: number;
-    DepositValue: number;
-    ProcessingFee: number;
+    GasLimit: string;
+    CallValue: string;
+    DepositValue: string;
+    ProcessingFee: string;
     RefundAddress: Address;
     Data: string;
   };

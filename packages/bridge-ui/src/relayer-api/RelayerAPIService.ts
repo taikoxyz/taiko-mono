@@ -94,12 +94,16 @@ export class RelayerAPIService implements RelayerAPI {
           memo: tx.data.Message.Memo,
           owner: tx.data.Message.Owner,
           sender: tx.data.Message.Sender,
-          gasLimit: BigNumber.from(tx.data.Message.GasLimit),
-          callValue: BigNumber.from(tx.data.Message.CallValue),
+          gasLimit: BigNumber.from(tx.data.Message.GasLimit.toString()),
+          callValue: BigNumber.from(tx.data.Message.CallValue.toString()),
           srcChainId: tx.data.Message.SrcChainId,
           destChainId: tx.data.Message.DestChainId,
-          depositValue: BigNumber.from(`${tx.data.Message.DepositValue}`),
-          processingFee: BigNumber.from(`${tx.data.Message.ProcessingFee}`),
+          depositValue: BigNumber.from(
+            `${tx.data.Message.DepositValue.toString()}`,
+          ),
+          processingFee: BigNumber.from(
+            `${tx.data.Message.ProcessingFee.toString()}`,
+          ),
           refundAddress: tx.data.Message.RefundAddress,
         },
       };
