@@ -31,6 +31,7 @@ library LibUtils {
     function getStateVariables(
         TaikoData.State storage state
     ) internal view returns (TaikoData.StateVariables memory) {
+        // TODO(dani): expose new state variables.
         return
             TaikoData.StateVariables({
                 basefee: state.basefee,

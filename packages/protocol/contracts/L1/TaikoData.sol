@@ -131,7 +131,7 @@ library TaikoData {
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 __reserved1;
-        // Changed when a block is proposed or proven/finalized
+        // Changed when a block is proposed/finalized
         uint64 numBlocks;
         uint64 lastProposedAt; // Timestamp when the last block is proposed.
         uint64 __reserved3;
@@ -143,6 +143,6 @@ library TaikoData {
         uint64 __reserved5;
         uint64 __reserved6;
         // Reserved
-        uint256[43] __gap;
+        uint256[43] __gap; // TODO(dani): recount
     }
 }
