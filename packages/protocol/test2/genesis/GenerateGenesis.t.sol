@@ -28,12 +28,11 @@ contract TestGenerateGenesis is Test, AddressResolver {
             string.concat(vm.projectRoot(), "/deployments/genesis_alloc.json")
         );
     address private owner = configJSON.readAddress(".contractOwner");
-
-    function setUp() public {
-        assertEq(block.chainid, 167);
-    }
+    uint64 public constant BLOCK_GAS_LIMIT = 6000000;
 
     function testContractDeployment() public {
+        assertEq(block.chainid, 167);
+
         checkDeployedCode("TaikoL2");
         checkDeployedCode("TokenVault");
         checkDeployedCode("EtherVault");
@@ -67,7 +66,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
             vm.fee(
                 taikoL2.getBasefee(
                     0,
-                    uint64(10000000),
+                    BLOCK_GAS_LIMIT,
                     i + taikoL2.ANCHOR_GAS_COST()
                 )
             );
