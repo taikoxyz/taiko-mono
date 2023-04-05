@@ -130,11 +130,11 @@ library LibTokenomics {
                     block.timestamp -
                     state.accProposedAt;
                 reward =
-                    (state.proofFeeTreasury * proofTime) /
+                    (state.rewardPool * proofTime) /
                     totalNumProvingSeconds;
             } else {
                 /// TODO: Verify with functional tests
-                reward = state.proofFeeTreasury / numBlocksBeingProven;
+                reward = state.rewardPool / numBlocksBeingProven;
             }
         }
 

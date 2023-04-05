@@ -138,7 +138,7 @@ library TaikoData {
         // Changing accumulated time for proposing - changed in proposeBlock() and in verifyBlock()
         uint256 accProposedAt;
         // Treasury amount - changed in proposeBlock() and in verifyBlock()
-        uint256 proofFeeTreasury;
+        uint256 rewardPool;
         // Never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;

@@ -137,7 +137,7 @@ library LibVerifying {
             state.proofTimeIssued = proofTimeIssued;
 
             if (!config.allowMinting) {
-                state.proofFeeTreasury -= reward;
+                state.rewardPool -= reward;
                 if (config.useTimeWeightedReward) {
                     state.accProposedAt -= blk.proposedAt;
                 }

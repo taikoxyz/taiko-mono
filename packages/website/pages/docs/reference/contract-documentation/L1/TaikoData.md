@@ -159,7 +159,7 @@ struct State {
   uint256 proofTimeIssued;
   uint256 baseFeeProof;
   uint256 accProposedAt;
-  uint256 proofFeeTreasury;
+  uint256 rewardPool;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 __reserved1;

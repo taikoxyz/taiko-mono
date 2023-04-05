@@ -100,7 +100,7 @@ library LibProposing {
             unchecked {
                 state.balances[msg.sender] -= fee;
                 if (!config.allowMinting) {
-                    state.proofFeeTreasury += fee;
+                    state.rewardPool += fee;
                     if (config.useTimeWeightedReward) {
                         state.accProposedAt += meta.timestamp;
                     }
