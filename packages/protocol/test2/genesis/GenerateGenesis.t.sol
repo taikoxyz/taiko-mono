@@ -130,13 +130,13 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         assertEq(owner, tokenVault.owner());
 
-        vm.prank(addressManager.owner());
+        vm.startPrank(addressManager.owner());
         addressManager.setAddress(keyForName(1, "bridge"), bridgeAddress);
-        vm.prank(addressManager.owner());
         addressManager.setAddress(
             keyForName(1, "token_vault"),
             tokenVaultAddress
         );
+        vm.stopPrank();
 
         tokenVault.sendEther{value: 1}(
             1,
