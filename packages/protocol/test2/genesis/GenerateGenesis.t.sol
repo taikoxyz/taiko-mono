@@ -14,7 +14,7 @@ import {TokenVault} from "../../contracts/bridge/TokenVault.sol";
 import {EtherVault} from "../../contracts/bridge/EtherVault.sol";
 import {SignalService} from "../../contracts/signal/SignalService.sol";
 import {LibBridgeStatus} from "../../contracts/bridge/libs/LibBridgeStatus.sol";
-import {TestERC20} from "../../contracts/test/thirdparty/TestERC20.sol";
+import {FooToken} from "../../contracts/test/FooToken.sol";
 
 contract TestGenerateGenesis is Test, AddressResolver {
     using stdJson for string;
@@ -37,7 +37,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkDeployedCode("TokenVault");
         checkDeployedCode("EtherVault");
         checkDeployedCode("Bridge");
-        checkDeployedCode("TestERC20");
+        checkDeployedCode("FooToken");
         checkDeployedCode("AddressManager");
         checkDeployedCode("SignalService");
     }
@@ -174,12 +174,10 @@ contract TestGenerateGenesis is Test, AddressResolver {
     }
 
     function testERC20() public {
-        TestERC20 testErc20 = TestERC20(
-            getPredeployedContractAddress("TestERC20")
-        );
+        FooToken fooErc20 = FooToken(getPredeployedContractAddress("FooToken"));
 
-        assertEq(testErc20.name(), "PredeployERC20");
-        assertEq(testErc20.symbol(), "PRE");
+        assertEq(fooErc20.name(), "FooToken");
+        assertEq(fooErc20.symbol(), "FOO");
     }
 
     function getPredeployedContractAddress(

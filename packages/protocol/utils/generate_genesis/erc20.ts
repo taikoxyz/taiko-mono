@@ -24,7 +24,7 @@ export async function deployERC20(
 
     const artifact = require(path.join(
         ARTIFACTS_PATH,
-        "./TestERC20.sol/TestERC20.json"
+        "./TestContracts.sol/TestERC20.json"
     ));
 
     artifact.contractName = "TestERC20";
