@@ -119,12 +119,18 @@ abstract contract TaikoL1TestBase is Test {
         address prover,
         uint256 blockId,
         bytes32 parentHash,
+        uint32 parentGasUsed,
         bytes32 blockHash,
         bytes32 signalRoot
     ) internal {
         TaikoData.BlockOracle[] memory oracles = new TaikoData.BlockOracle[](1);
 
-        oracles[0] = TaikoData.BlockOracle(parentHash, blockHash, signalRoot);
+        oracles[0] = TaikoData.BlockOracle(
+            parentHash,
+            blockHash,
+            signalRoot,
+            parentGasUsed
+        );
         vm.prank(prover, prover);
         L1.oracleProveBlocks(blockId, abi.encode(oracles));
     }
@@ -148,7 +154,9 @@ abstract contract TaikoL1TestBase is Test {
             blockHash: blockHash,
             signalRoot: signalRoot,
             graffiti: 0x0,
-            prover: prover
+            prover: prover,
+            parentGasUsed: 1000000,
+            gasUsed: 1000000
         });
 
         vm.prank(prover, prover);

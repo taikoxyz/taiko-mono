@@ -69,6 +69,8 @@ library LibVerifying {
         assert(blockHash != bytes32(0));
 
         bytes32 signalRoot;
+        uint32 gasUsed = blk.forkChoices[fcId].gasUsed;
+
         uint64 processed;
         unchecked {
             ++i;
@@ -77,19 +79,23 @@ library LibVerifying {
         while (i < state.numBlocks && processed < maxBlocks) {
             blk = state.blocks[i % config.ringBufferSize];
 
-            fcId = state.forkChoiceIds[i][blockHash];
+            fcId = state.forkChoiceIds[i][blockHash][gasUsed];
             if (fcId == 0) break;
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
             if (fc.prover == address(0)) break;
 
-            (blockHash, signalRoot) = _markBlockVerified({
+            _markBlockVerified({
                 state: state,
                 config: config,
                 blk: blk,
                 fcId: uint24(fcId),
                 fc: fc
             });
+
+            blockHash = fc.blockHash;
+            gasUsed = fc.gasUsed;
+            signalRoot = fc.signalRoot;
 
             assert(blockHash != bytes32(0));
 
@@ -158,9 +164,6 @@ library LibVerifying {
                 maf: config.provingConfig.avgTimeMAF
             })
             .toUint64();
-
-        blockHash = fc.blockHash;
-        signalRoot = fc.signalRoot;
 
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = fcId;
