@@ -29,7 +29,7 @@ contract TestTaiko1559Params is Test {
         uint64 gasIssuedPerSecond = (scaleFactor * ethereumBlockGasTarget) /
             ethereumBlockTime;
 
-        // Turn this number manually so ratio2x1x is ~112.5%.
+        // Tune this number manually so ratio2x1x is ~112.5%.
         uint64 maxSeconds = 7272;
 
         uint64 gasExcessMax = gasIssuedPerSecond * maxSeconds;
