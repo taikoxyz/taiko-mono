@@ -13,7 +13,6 @@ import {EtherVault} from "../bridge/EtherVault.sol";
 import {BridgedERC20} from "../bridge/BridgedERC20.sol";
 import {Bridge} from "../bridge/Bridge.sol";
 import {TaikoToken} from "../L1/TaikoToken.sol";
-
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 // The old implementation that is also used in hardhat tests.
