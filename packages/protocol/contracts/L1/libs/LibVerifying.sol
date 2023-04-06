@@ -66,10 +66,8 @@ library LibVerifying {
         assert(fcId > 0);
 
         bytes32 blockHash = blk.forkChoices[fcId].blockHash;
-        assert(blockHash != bytes32(0));
-
-        bytes32 signalRoot;
         uint32 gasUsed = blk.forkChoices[fcId].gasUsed;
+        bytes32 signalRoot;
 
         uint64 processed;
         unchecked {
@@ -96,8 +94,6 @@ library LibVerifying {
             blockHash = fc.blockHash;
             gasUsed = fc.gasUsed;
             signalRoot = fc.signalRoot;
-
-            assert(blockHash != bytes32(0));
 
             emit BlockVerified(i, blockHash);
 
