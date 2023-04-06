@@ -65,6 +65,7 @@ library LibProving {
             if (
                 oracle.parentHash == 0 ||
                 oracle.blockHash == 0 ||
+                oracle.blockHash == oracle.parentHash ||
                 oracle.signalRoot == 0
             ) revert L1_INVALID_ORACLE();
 
@@ -125,7 +126,6 @@ library LibProving {
         if (
             evidence.parentHash == 0 ||
             evidence.blockHash == 0 ||
-            // cannot be the same hash
             evidence.blockHash == evidence.parentHash ||
             evidence.signalRoot == 0 ||
             // prover must not be zero
