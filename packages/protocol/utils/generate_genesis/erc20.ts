@@ -7,8 +7,8 @@ const {
     getStorageLayout,
 } = require("@defi-wonderland/smock/dist/src/utils");
 
-export const TOKEN_NAME = "PredeployERC20";
-export const TOKEN_SYMBOL = "PRE";
+export const TOKEN_NAME = "RegularERC20";
+export const TOKEN_SYMBOL = "RGL";
 export const PREMINT_SEED_ACCOUNT_BALANCE = ethers.BigNumber.from(1024000);
 
 // deployERC20 generates a L2 genesis alloc of an ERC-20 contract,
@@ -24,10 +24,10 @@ export async function deployERC20(
 
     const artifact = require(path.join(
         ARTIFACTS_PATH,
-        "./TestERC20.sol/TestERC20.json"
+        "./RegularERC20.sol/RegularERC20.json"
     ));
 
-    artifact.contractName = "TestERC20";
+    artifact.contractName = "RegularERC20";
 
     let address: string;
     if (

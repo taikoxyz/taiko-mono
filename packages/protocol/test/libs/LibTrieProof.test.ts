@@ -50,7 +50,7 @@ describe("integration:LibTrieProof", function () {
             chainId
         );
 
-        const BridgeFactory = await ethers.getContractFactory("Bridge", {
+        const BridgeFactory = await ethers.getContractFactory("TestBridge", {
             libraries: {
                 LibTrieProof: testLibTrieProof.address,
             },

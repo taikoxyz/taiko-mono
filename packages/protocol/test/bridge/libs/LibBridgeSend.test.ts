@@ -38,7 +38,7 @@ describe("LibBridgeSend", function () {
         );
 
         const etherVault: EtherVault = await (
-            await ethers.getContractFactory("EtherVault")
+            await ethers.getContractFactory("TestEtherVault")
         )
             .connect(etherVaultOwner)
             .deploy();
