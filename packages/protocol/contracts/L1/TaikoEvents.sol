@@ -25,7 +25,7 @@ abstract contract TaikoEvents {
     );
 
     event ConflictingProof(
-        uint256 blockId,
+        uint256 id,
         bytes32 parentHash,
         bytes32 conflictingBlockHash,
         bytes32 conflictingSignalRoot,

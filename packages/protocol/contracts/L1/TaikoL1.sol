@@ -85,11 +85,11 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      *        to select the right implementation version.
      * @param input An abi-encoded TaikoData.BlockOracle[] object.
      */
-    function oracleBlocks(
+    function oracleProveBlocks(
         uint256 blockId,
         bytes calldata input
     ) external nonReentrant {
-        LibProving.oracleBlocks({
+        LibProving.oracleProveBlocks({
             state: state,
             config: getConfig(),
             blockId: blockId,

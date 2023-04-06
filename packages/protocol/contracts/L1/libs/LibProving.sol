@@ -23,7 +23,7 @@ library LibProving {
     );
 
     event ConflictingProof(
-        uint64 blockId,
+        uint256 id,
         bytes32 parentHash,
         bytes32 conflictingBlockHash,
         bytes32 conflictingSignalRoot,
@@ -43,7 +43,7 @@ library LibProving {
     error L1_NOT_ORACLE_PROVER();
     error L1_UNEXPECTED_FORK_CHOICE_ID();
 
-    function oracleBlocks(
+    function oracleProveBlocks(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
@@ -61,6 +61,7 @@ library LibProving {
 
             if (id <= state.lastVerifiedBlockId || id >= state.numBlocks)
                 revert L1_BLOCK_ID();
+
             if (
                 oracle.parentHash == 0 ||
                 oracle.blockHash == 0 ||
@@ -169,7 +170,7 @@ library LibProving {
                 fc.prover = evidence.prover;
             } else {
                 emit ConflictingProof({
-                    blockId: meta.id,
+                    id: meta.id,
                     parentHash: evidence.parentHash,
                     conflictingBlockHash: evidence.blockHash,
                     conflictingSignalRoot: evidence.signalRoot,
