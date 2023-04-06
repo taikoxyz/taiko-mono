@@ -1,14 +1,10 @@
 <script lang="ts">
   import SvelteRouter from 'svelte-spa-router';
-  import { wrap } from 'svelte-spa-router/wrap';
   import Home from '../pages/home/Home.svelte';
 
+  // TODO: add a NoFound component
   const routes = {
-    '/:tab?': wrap({
-      component: Home,
-      props: {},
-      userData: {},
-    }),
+    '/:tab?': Home,
   };
 </script>
 
