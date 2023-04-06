@@ -52,6 +52,8 @@ library LibProving {
         if (msg.sender != resolver.resolve("oracle_prover", false))
             revert L1_NOT_ORACLE_PROVER();
 
+        // todo: replacing old places
+
         for (uint i = 0; i < oracles.length; ++i) {
             TaikoData.BlockOracle memory oracle = oracles[i];
             uint256 id = blockId + i;
