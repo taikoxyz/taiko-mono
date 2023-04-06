@@ -20,7 +20,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     using LibMath for uint256;
 
     // TODO(david): need you to confirm this value.
-    uint64 public ANCHOR_GAS_COST = 47000;
+    uint64 public constant ANCHOR_GAS_COST = 47000;
 
     struct VerifiedBlock {
         bytes32 blockHash;

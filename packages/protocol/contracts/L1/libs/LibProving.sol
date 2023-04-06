@@ -37,8 +37,66 @@ library LibProving {
     error L1_FORK_CHOICE_NOT_FOUND();
     error L1_INVALID_PROOF();
     error L1_INVALID_EVIDENCE();
+    error L1_INVALID_ORACLE();
+    error L1_NOT_ORACLE_PROVEN();
     error L1_NOT_ORACLE_PROVER();
     error L1_UNEXPECTED_FORK_CHOICE_ID();
+
+    function oracleBlocks(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        AddressResolver resolver,
+        uint256 blockId,
+        TaikoData.BlockOracle[] memory oracles
+    ) internal {
+        if (msg.sender != resolver.resolve("oracle_prover", false))
+            revert L1_NOT_ORACLE_PROVER();
+
+        for (uint i = 0; i < oracles.length; ++i) {
+            TaikoData.BlockOracle memory oracle = oracles[i];
+            uint256 id = blockId + i;
+
+            if (id <= state.lastVerifiedBlockId || id >= state.numBlocks)
+                revert L1_BLOCK_ID();
+            if (
+                oracle.parentHash == 0 ||
+                oracle.blockHash == 0 ||
+                oracle.signalRoot == 0
+            ) revert L1_INVALID_ORACLE();
+
+            uint256 fcId = state.forkChoiceIds[id][oracle.parentHash];
+            if (fcId != 0) revert L1_ALREADY_PROVEN();
+
+            TaikoData.Block storage blk = state.blocks[
+                id % config.ringBufferSize
+            ];
+
+            fcId = blk.nextForkChoiceId;
+            unchecked {
+                ++blk.nextForkChoiceId;
+            }
+            assert(fcId > 0);
+
+            state.forkChoiceIds[id][oracle.parentHash] = fcId;
+
+            TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
+            fc.blockHash = oracle.blockHash;
+            fc.signalRoot = oracle.signalRoot;
+
+            // we are reusing storage slots, still need to reset the
+            // [provenAt+prover] slot.
+            fc.provenAt = uint64(block.timestamp);
+            fc.prover = address(0);
+
+            emit BlockProven({
+                id: id,
+                parentHash: oracle.parentHash,
+                blockHash: oracle.blockHash,
+                signalRoot: oracle.signalRoot,
+                prover: address(0)
+            });
+        }
+    }
 
     function proveBlock(
         TaikoData.State storage state,
@@ -72,38 +130,28 @@ library LibProving {
         if (blk.metaHash != _metaHash)
             revert L1_EVIDENCE_MISMATCH(blk.metaHash, _metaHash);
 
-        TaikoData.ForkChoice storage fc;
-        bool oracleProving;
-
         uint256 fcId = state.forkChoiceIds[blockId][evidence.parentHash];
+
         if (fcId == 0) {
+            if (config.enableOracleProver) revert L1_NOT_ORACLE_PROVEN();
+
             fcId = blk.nextForkChoiceId;
             unchecked {
                 ++blk.nextForkChoiceId;
             }
-
             assert(fcId > 0);
+
             state.forkChoiceIds[blockId][evidence.parentHash] = fcId;
-            fc = blk.forkChoices[fcId];
+
+            TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
             fc.blockHash = evidence.blockHash;
             fc.signalRoot = evidence.signalRoot;
-
-            if (config.enableOracleProver) {
-                if (msg.sender != resolver.resolve("oracle_prover", false))
-                    revert L1_NOT_ORACLE_PROVER();
-
-                oracleProving = true;
-                // we are reusing storage slots, still need to reset the
-                // [provenAt+prover] slot.
-                fc.provenAt = uint64(1);
-                fc.prover = address(0);
-            } else {
-                fc.provenAt = uint64(block.timestamp);
-                fc.prover = evidence.prover;
-            }
+            fc.provenAt = uint64(block.timestamp);
+            fc.prover = evidence.prover;
         } else {
             assert(fcId < blk.nextForkChoiceId);
-            fc = blk.forkChoices[fcId];
+
+            TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
 
             if (
                 fc.blockHash != evidence.blockHash ||
@@ -126,7 +174,7 @@ library LibProving {
             fc.prover = evidence.prover;
         }
 
-        if (!oracleProving && !config.skipZKPVerification) {
+        if (!config.skipZKPVerification) {
             bytes32 instance;
             {
                 // otherwise: stack too deep
