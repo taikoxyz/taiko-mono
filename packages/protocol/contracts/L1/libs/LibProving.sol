@@ -66,7 +66,6 @@ library LibProving {
                 oracle.blockHash == 0 ||
                 oracle.blockHash == oracle.parentHash ||
                 oracle.signalRoot == 0 ||
-                oracle.parentGasUsed == 0 ||
                 oracle.gasUsed == 0
             ) revert L1_INVALID_ORACLE();
 
@@ -136,7 +135,6 @@ library LibProving {
             evidence.signalRoot == 0 ||
             // prover must not be zero
             evidence.prover == address(0) ||
-            evidence.parentGasUsed == 0 ||
             evidence.gasUsed == 0
         ) revert L1_INVALID_EVIDENCE();
 
