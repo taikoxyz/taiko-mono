@@ -1,5 +1,7 @@
 # Starter dapp
 
+A starter dapp set up ready to go to make frontends in Svelte for the Taiko network.
+
 ## Installation
 
 `pnpm install`
@@ -8,7 +10,7 @@
 
 `pnpm start`
 
-## Environment Variables
+## Environment variables
 
 You can use the following values in the `.env` file to spin up the Starter dapp locally.
 
@@ -24,7 +26,3 @@ VITE_MAINNET_CHAIN_NAME="Ethereum A2"
 VITE_TAIKO_CHAIN_NAME="Taiko A2"
 VITE_APP_NAME="Starter"
 ```
-
-## Purpose
-
-A starter dapp set up ready to go to make frontends in Svelte for the Taiko network.
