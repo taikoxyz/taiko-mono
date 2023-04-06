@@ -26,7 +26,7 @@
         </tr>
       </thead>
       <tbody class="text-sm md:text-base">
-        {#each $transactions as transaction}
+        {#each $transactions as transaction (transaction.hash)}
           <Transaction
             on:claimNotice={({ detail }) => noticeModal.open(detail)}
             on:tooltipStatus={() => (showMessageStatusTooltip = true)}
