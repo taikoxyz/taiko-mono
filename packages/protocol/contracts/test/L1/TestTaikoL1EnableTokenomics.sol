@@ -49,6 +49,7 @@ contract TestTaikoL1EnableTokenomics is TaikoL1 {
         });
     }
 
+    // The old implementation that is also used in hardhat tests.
     function keyForName(
         uint256 chainId,
         string memory name
