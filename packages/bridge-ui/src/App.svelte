@@ -96,6 +96,7 @@
       const apiTxs = await $relayerApi.getAllBridgeTransactionByAddress(
         userAddress,
       );
+
       const blockInfoMap = await $relayerApi.getBlockInfo();
       relayerBlockInfoMap.set(blockInfoMap);
 
@@ -109,14 +110,6 @@
       const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
         return !hashToApiTxsMap.has(tx.hash.toLowerCase());
       });
-
-      // const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
-      //   const blockInfo = blockInfoMap.get(tx.fromChainId);
-      //   if (blockInfo?.latestProcessedBlock >= tx.receipt?.blockNumber) {
-      //     return false;
-      //   }
-      //   return true;
-      // });
 
       $transactioner.updateStorageByAddress(userAddress, updatedStorageTxs);
 
