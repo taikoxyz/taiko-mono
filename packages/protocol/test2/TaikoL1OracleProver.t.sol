@@ -119,13 +119,6 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32(uint256(0x101))
         );
 
-        // struct ForkChoice {
-        //       bytes32 blockHash;
-        //       bytes32 signalRoot;
-        //       uint64 provenAt;
-        //       address prover;
-        //   }
-
         fc = L1.getForkChoice(1, parentHash);
         assertEq(fc.blockHash, bytes32(uint256(0x100)));
         assertEq(fc.signalRoot, bytes32(uint256(0x101)));
