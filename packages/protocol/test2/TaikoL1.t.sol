@@ -163,7 +163,7 @@ contract TaikoL1Test is TaikoL1TestBase {
                 signalRoot
             );
             parentHash = blockHash;
-              parentGasUsed = gasUsed;
+            parentGasUsed = gasUsed;
         }
 
         verifyBlock(Alice, conf.maxNumProposedBlocks - 1);
@@ -202,8 +202,8 @@ contract TaikoL1Test is TaikoL1TestBase {
                 blockHash,
                 signalRoot
             );
-            parentHash = blockHash;  parentGasUsed = gasUsed;
-
+            parentHash = blockHash;
+            parentGasUsed = gasUsed;
 
             verifyBlock(Carol, 1);
             mine(blockId);

@@ -96,8 +96,6 @@ library LibVerifying {
             gasUsed = fc.gasUsed;
             signalRoot = fc.signalRoot;
 
-
-
             unchecked {
                 ++i;
                 ++processed;
@@ -165,7 +163,7 @@ library LibVerifying {
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = fcId;
 
-         emit BlockVerified(blk.blockId, fc.blockHash);
+        emit BlockVerified(blk.blockId, fc.blockHash);
     }
 
     function _addToBalance(
