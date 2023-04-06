@@ -220,16 +220,23 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32(uint256(0x104))
         );
 
-        // Alice can no longer oracle-proof the block again
-        vm.expectRevert();
+        // But Alice can still oracle-proof the block again
+        mine(1);
         oracleProveBlock(
             Alice,
             1,
             parentHash,
             123,
             789,
-            bytes32(uint256(0x103)),
-            bytes32(uint256(0x104))
+            bytes32(uint256(0x105)),
+            bytes32(uint256(0x106))
         );
+
+        fc = L1.getForkChoice(1, parentHash);
+        assertEq(fc.blockHash, bytes32(uint256(0x105)));
+        assertEq(fc.signalRoot, bytes32(uint256(0x106)));
+        assertEq(uint256(fc.provenAt), block.timestamp);
+        assertEq(fc.prover, address(0));
+        assertEq(fc.gasUsed, 789);
     }
 }
