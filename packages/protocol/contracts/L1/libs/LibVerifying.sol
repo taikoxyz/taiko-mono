@@ -76,6 +76,7 @@ library LibVerifying {
 
         while (i < state.numBlocks && processed < maxBlocks) {
             blk = state.blocks[i % config.ringBufferSize];
+            assert(blk.blockId == i);
 
             fcId = state.forkChoiceIds[i][blockHash][gasUsed];
             if (fcId == 0) break;
@@ -95,7 +96,7 @@ library LibVerifying {
             gasUsed = fc.gasUsed;
             signalRoot = fc.signalRoot;
 
-            emit BlockVerified(i, blockHash);
+
 
             unchecked {
                 ++i;
@@ -163,6 +164,8 @@ library LibVerifying {
 
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = fcId;
+
+         emit BlockVerified(blk.blockId, fc.blockHash);
     }
 
     function _addToBalance(

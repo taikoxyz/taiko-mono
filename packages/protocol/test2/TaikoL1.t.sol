@@ -94,10 +94,10 @@ contract TaikoL1Test is TaikoL1TestBase {
                 blockHash,
                 signalRoot
             );
-            parentGasUsed = gasUsed;
 
             verifyBlock(Carol, 1);
             parentHash = blockHash;
+            parentGasUsed = gasUsed;
         }
         printVariables("");
     }
@@ -127,9 +127,9 @@ contract TaikoL1Test is TaikoL1TestBase {
                 blockHash,
                 signalRoot
             );
-            parentGasUsed = gasUsed;
             verifyBlock(Alice, 2);
             parentHash = blockHash;
+            parentGasUsed = gasUsed;
         }
         printVariables("");
     }
@@ -163,6 +163,7 @@ contract TaikoL1Test is TaikoL1TestBase {
                 signalRoot
             );
             parentHash = blockHash;
+              parentGasUsed = gasUsed;
         }
 
         verifyBlock(Alice, conf.maxNumProposedBlocks - 1);
@@ -201,7 +202,8 @@ contract TaikoL1Test is TaikoL1TestBase {
                 blockHash,
                 signalRoot
             );
-            parentHash = blockHash;
+            parentHash = blockHash;  parentGasUsed = gasUsed;
+
 
             verifyBlock(Carol, 1);
             mine(blockId);
@@ -239,6 +241,7 @@ contract TaikoL1Test is TaikoL1TestBase {
                 signalRoot
             );
             parentHash = blockHash;
+            parentGasUsed = gasUsed;
 
             verifyBlock(Carol, 1);
             mine(total + 1 - blockId);
