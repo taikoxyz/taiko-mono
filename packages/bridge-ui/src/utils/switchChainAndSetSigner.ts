@@ -10,7 +10,10 @@ export async function switchChainAndSetSigner(chain: Chain) {
 
   await switchNetwork({ chainId });
 
-  const provider = new ethers.providers.Web3Provider(globalThis.ethereum);
+  const provider = new ethers.providers.Web3Provider(
+    globalThis.ethereum,
+    'any',
+  );
   await provider.send('eth_requestAccounts', []);
 
   fromChain.set(chain);

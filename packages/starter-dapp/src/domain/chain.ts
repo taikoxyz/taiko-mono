@@ -42,7 +42,7 @@ export type Chain = {
   bridgeAddress: string;
   headerSyncAddress: string;
   explorerUrl: string;
-  signalServiceAddress: string,
+  signalServiceAddress: string;
 };
 
 export const CHAIN_MAINNET = {
@@ -56,7 +56,7 @@ export const CHAIN_MAINNET = {
   bridgeAddress: L1_BRIDGE_ADDRESS,
   headerSyncAddress: L1_HEADER_SYNC_ADDRESS,
   explorerUrl: L1_EXPLORER_URL,
-  signalServiceAddress: L1_SIGNAL_SERVICE_ADDRESS
+  signalServiceAddress: L1_SIGNAL_SERVICE_ADDRESS,
 };
 
 export const CHAIN_TKO = {
@@ -79,8 +79,8 @@ export const chains: Record<string, Chain> = {
 export const mainnet: WagmiChain = {
   id: CHAIN_ID_MAINNET,
   name: import.meta.env
-  ? import.meta.env.VITE_MAINNET_CHAIN_NAME
-  : "Ethereum A2",
+    ? import.meta.env.VITE_MAINNET_CHAIN_NAME
+    : "Ethereum A2",
   network: "",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
