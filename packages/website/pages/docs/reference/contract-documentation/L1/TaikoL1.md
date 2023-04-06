@@ -121,7 +121,7 @@ function getBlock(uint256 blockId) public view returns (bytes32 _metaHash, uint2
 ### getForkChoice
 
 ```solidity
-function getForkChoice(uint256 blockId, bytes32 parentHash) public view returns (struct TaikoData.ForkChoice)
+function getForkChoice(uint256 blockId, bytes32 parentHash, uint32 parentGasUsed) public view returns (struct TaikoData.ForkChoice)
 ```
 
 ### getXchainBlockHash
