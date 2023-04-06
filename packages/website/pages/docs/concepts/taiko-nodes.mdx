@@ -78,7 +78,7 @@ To propose a block, the `proposer`:
 2. If there are too many pending transactions in the L2 execution engine, splits them into several smaller `txLists`. This is because the Taiko protocol restricts the max size of each proposed `txList`.
 3. Commits hashes of the `txLists` by sending `TaikoL1.commitBlock` transactions to L1.
 4. Waits for `TaikoData.Config.commitConfirmations` (currently `0`) L1 blocks confirmations.
-5. Proposse all splitted `txLists` by sending `TaikoL1.proposeBlock` transactions.
+5. Proposes all splitted `txLists` by sending `TaikoL1.proposeBlock` transactions.
 
 <Callout type="info" emoji="ℹ️">
 Read more about proposing blocks on Taiko [here](https://taiko.xyz/docs/concepts/creating-taiko-blocks/proposing-blocks) or see `5.2 Proposing Blocks` in the [whitepaper](https://taikoxyz.github.io/taiko-mono/taiko-whitepaper.pdf).
