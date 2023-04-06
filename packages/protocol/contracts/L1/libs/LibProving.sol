@@ -38,6 +38,7 @@ library LibProving {
     error L1_INVALID_PROOF();
     error L1_INVALID_EVIDENCE();
     error L1_INVALID_ORACLE();
+    error L1_ORACLE_DISABLED();
     error L1_NOT_ORACLE_PROVEN();
     error L1_NOT_ORACLE_PROVER();
     error L1_UNEXPECTED_FORK_CHOICE_ID();
@@ -49,6 +50,7 @@ library LibProving {
         uint256 blockId,
         TaikoData.BlockOracle[] memory oracles
     ) internal {
+        if (!config.enableOracleProver) revert L1_ORACLE_DISABLED();
         if (msg.sender != resolver.resolve("oracle_prover", false))
             revert L1_NOT_ORACLE_PROVER();
 
@@ -66,20 +68,20 @@ library LibProving {
                 oracle.signalRoot == 0
             ) revert L1_INVALID_ORACLE();
 
-            uint256 fcId = state.forkChoiceIds[id][oracle.parentHash];
-            if (fcId != 0) revert L1_ALREADY_PROVEN();
-
             TaikoData.Block storage blk = state.blocks[
                 id % config.ringBufferSize
             ];
 
-            fcId = blk.nextForkChoiceId;
-            unchecked {
-                ++blk.nextForkChoiceId;
-            }
-            assert(fcId > 0);
+            uint256 fcId = state.forkChoiceIds[id][oracle.parentHash];
+            if (fcId == 0) {
+                fcId = blk.nextForkChoiceId;
+                unchecked {
+                    ++blk.nextForkChoiceId;
+                }
+                assert(fcId > 0);
 
-            state.forkChoiceIds[id][oracle.parentHash] = fcId;
+                state.forkChoiceIds[id][oracle.parentHash] = fcId;
+            }
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
             fc.blockHash = oracle.blockHash;
