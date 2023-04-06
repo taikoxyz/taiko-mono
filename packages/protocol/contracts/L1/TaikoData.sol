@@ -90,6 +90,12 @@ library TaikoData {
         address prover;
     }
 
+    struct BlockOracle {
+        bytes32 parentHash;
+        bytes32 blockHash;
+        bytes32 signalRoot;
+    }
+
     // 3 slots
     struct ForkChoice {
         bytes32 blockHash;
