@@ -121,7 +121,7 @@ library LibVerifying {
         TaikoData.Block storage blk,
         TaikoData.ForkChoice storage fc,
         uint24 fcId
-    ) private  {
+    ) private {
         if (config.enableTokenomics) {
             (
                 uint256 newFeeBase,

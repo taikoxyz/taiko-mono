@@ -224,7 +224,8 @@ library LibProving {
                 inputs[6] = uint256(evidence.graffiti);
                 inputs[7] =
                     (uint256(uint160(evidence.prover)) << 96) |
-                    (uint256(evidence.gasUsed) << 64) | (uint256(evidence.parentGasUsed)<<32);
+                    (uint256(evidence.parentGasUsed) << 64) |
+                    (uint256(evidence.gasUsed) << 32);
                 inputs[8] = uint256(blk.metaHash);
 
                 assembly {
