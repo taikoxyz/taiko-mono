@@ -80,7 +80,7 @@ Optional:
 `event`: filter events by event name. Default: all event names. Options: `MessageSent`, `MessageStatusChanged`
 
 Pagination:
-`page`: page number to retrive. Default: 0.
+`page`: page number to retrieve. Default: 0.
 `size`: size to retrieve per page. Default: 100
 
 Example:

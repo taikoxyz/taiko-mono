@@ -21,7 +21,7 @@ func (p *Processor) waitHeaderSynced(ctx context.Context, event *bridge.BridgeMe
 			return ctx.Err()
 		case <-ticker.C:
 			log.Infof(
-				"msgHash: %v, txHash: %v is waiting to be processable. occured in block %v",
+				"msgHash: %v, txHash: %v is waiting to be processable. occurred in block %v",
 				common.Hash(event.MsgHash).Hex(),
 				event.Raw.TxHash.Hex(),
 				event.Raw.BlockNumber,
@@ -41,7 +41,7 @@ func (p *Processor) waitHeaderSynced(ctx context.Context, event *bridge.BridgeMe
 			// header is caught up and processible
 			if header.Number.Uint64() >= event.Raw.BlockNumber {
 				log.Infof(
-					"msgHash: %v, txHash: %v is processable. occured in block %v, latestSynced is block %v",
+					"msgHash: %v, txHash: %v is processable. occurred in block %v, latestSynced is block %v",
 					common.Hash(event.MsgHash).Hex(),
 					event.Raw.TxHash.Hex(),
 					event.Raw.BlockNumber,
@@ -52,7 +52,7 @@ func (p *Processor) waitHeaderSynced(ctx context.Context, event *bridge.BridgeMe
 			}
 
 			log.Infof(
-				"msgHash: %v, txHash: %v is waiting to be processable. occured in block %v, latestSynced is block %v",
+				"msgHash: %v, txHash: %v is waiting to be processable. occurred in block %v, latestSynced is block %v",
 				common.Hash(event.MsgHash).Hex(),
 				event.Raw.TxHash.Hex(),
 				event.Raw.BlockNumber,
