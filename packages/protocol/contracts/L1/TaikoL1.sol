@@ -30,16 +30,19 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      *
      * @param _addressManager The AddressManager address.
      * @param _genesisBlockHash The block hash of the genesis block.
+     * @param _initBasefee Initial (reasonable) basefee value.
      */
     function init(
         address _addressManager,
-        bytes32 _genesisBlockHash
+        bytes32 _genesisBlockHash,
+        uint64 _initBasefee
     ) external initializer {
         EssentialContract._init(_addressManager);
         LibVerifying.init({
             state: state,
             config: getConfig(),
-            genesisBlockHash: _genesisBlockHash
+            genesisBlockHash: _genesisBlockHash,
+            initBasefee: _initBasefee
         });
     }
 
@@ -130,16 +133,15 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         return state.balances[addr];
     }
 
-    function getProverFee() public view returns (uint64 feeAmount) {
-        (, feeAmount) = LibTokenomics.getProverFee(state);
+    function getProverFee() public view returns (uint64 fee) {
+        fee = LibTokenomics.getProverFee(state);
     }
 
     function getProofReward(
         uint64 provenAt,
-        uint64 proposedAt,
-        uint32 gasUsed // TODO(daniel): remove this one?
-    ) public view returns (uint256 reward) {
-        (, reward) = LibTokenomics.getProofReward({
+        uint64 proposedAt
+    ) public view returns (uint64 reward) {
+        reward = LibTokenomics.getProofReward({
             state: state,
             config: getConfig(),
             provenAt: provenAt,

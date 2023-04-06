@@ -45,9 +45,9 @@ abstract contract TaikoL1TestBase is Test {
         // vm.warp(1000000);
         addressManager = new AddressManager();
         addressManager.init();
-
+        uint64 initBasefee = 1e9; // 100 TKO : Only relevant for the first proposing
         L1 = deployTaikoL1();
-        L1.init(address(addressManager), GENESIS_BLOCK_HASH);
+        L1.init(address(addressManager), GENESIS_BLOCK_HASH, initBasefee);
         conf = L1.getConfig();
 
         tko = new TaikoToken();
@@ -185,9 +185,8 @@ abstract contract TaikoL1TestBase is Test {
             Strings.toString(vars.lastVerifiedBlockId),
             unicode"→",
             Strings.toString(vars.numBlocks),
-            "] basefee:",
-            Strings.toString(vars.basefee),
-            " fee:",
+            "]",
+            " fee (same as baseFee now):",
             Strings.toString(fee),
             " lastProposedAt:",
             Strings.toString(vars.lastProposedAt),

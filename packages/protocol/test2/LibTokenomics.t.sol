@@ -237,17 +237,23 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
                 "before proposing - affected by verification (verifyBlock() updates)"
             );
             TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
+            uint64 proposedAt = uint64(block.timestamp);
             mine(blockId);
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
             proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
+            uint64 provenAt = uint64(block.timestamp);
+            console2.log(
+                "Proof reward is:",
+                L1.getProofReward(provenAt, proposedAt)
+            );
             verifyBlock(Carol, 1);
             parentHash = blockHash;
         }
 
         console2.log("Stable");
-        for (uint256 blockId = 1; blockId < 110; blockId++) {
+        for (uint256 blockId = 1; blockId < 160; blockId++) {
             printVariables(
                 "before proposing - affected by verification (verifyBlock() updates)"
             );
@@ -263,7 +269,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
 
             console2.log(
                 "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAt, 1000000)
+                L1.getProofReward(provenAt, proposedAt)
             );
 
             verifyBlock(Carol, 1);
@@ -291,6 +297,8 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
 
     /// @dev Test what happens when proof time increasing then stabilizes below the target time
     /// @notice This test is failing - and disabled, but it is meant to demonstrate the behaviour
+    /// @notice This is where the more ahead in time, the more will be the gap (leftover TKO) and would
+    /// @notice need to deal with it (burn, buyback, etc..?) - I prefer the non-minting solution
     function xtest_reward_and_fee_if_proof_time_increasing_then_stabilizes_below_the_proof_time_target()
         external
     {
@@ -324,7 +332,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
         console2.log("Stable - but under proof time");
         // To see the issue - adjust the max loop counter below.
         // The more the loops the bigger the deposits (compared to withrawals)
-        for (uint256 blockId = 1; blockId < 100; blockId++) {
+        for (uint256 blockId = 1; blockId < 160; blockId++) {
             printVariables(
                 "before proposing - affected by verification (verifyBlock() updates)"
             );
@@ -339,7 +347,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
 
             console2.log(
                 "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAt, 1000000)
+                L1.getProofReward(provenAt, proposedAt)
             );
 
             verifyBlock(Carol, 1);
@@ -466,7 +474,9 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
             parentHash = blockHash;
             uint256 actualFee = L1.getProverFee();
             // Check that fee always increasing in this scenario
-            assertGt(actualFee, previousFee);
+            // Except the first block because it solely depends on the inital
+            // basefee so not necessarily true there
+            if (blockId != 1) assertGt(actualFee, previousFee);
         }
         printVariables("");
     }
@@ -480,13 +490,13 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
         uint256 previousFee;
         uint256 actualFee;
 
-        for (blockId = 1; blockId < 10; blockId++) {
+        for (blockId = 1; blockId < 20; blockId++) {
             previousFee = L1.getProverFee();
             printVariables(
                 "before proposing - affected by verification (verifyBlock() updates)"
             );
             TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
-            mine(50 - blockId);
+            mine(20 - blockId);
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
@@ -495,8 +505,14 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
             parentHash = blockHash;
 
             actualFee = L1.getProverFee();
-            // Check that fee always increasing in this scenario
-            assertGt(actualFee, previousFee);
+            // Check that fee always increasing in this scenario except when it reached inflection point
+            // Except the first block because it solely depends on the inital
+            // basefee so not necessarily true there
+            if (blockId != 1) {
+                // Why 16 ? Because mine(20-16->4). 4 means below average 4x20 = 80 sec, and average is 85
+                if (blockId < 16) assertGt(actualFee, previousFee);
+                else assertGt(previousFee, actualFee);
+            }
         }
 
         // Start proving below proof time - will affect the next proposal only after

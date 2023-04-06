@@ -20,23 +20,17 @@ import {
 library LibTokenomics {
     using LibMath for uint256;
 
-    // @dev Since we keep the base fee in 10*18 but the actual TKO token is in 10**8
-    uint256 private constant SCALING_FROM_18_TO_TKO_DEC = 1e10;
+    /// @dev Explanation of the scaling factor
+    // The calculation depends on the proofTime (and proofTimeTarget)
+    /// Since the exp function (or _calcBasefee() gives us:
+    // with proof time around 20 mins:
+    // somewhere around 0.000055442419735305 = 55442419735305 (in 10**18 fixed) = 5.5 (in TKO with 1e5 factor)
 
-    /// Todo: Daniel and Brecht: This is an idea to replace current gasLimit and play around
-    /// with the idea of having it a (fine tuneable) parameter - for now (testing) as a constant.
-    /// @notice Decimal factor, meaning this is the variable which will be used to multiply
-    /// the basefee (a constant =  input.gasLimit).
-    ///
-    /// @dev To give more context, the fee and reward: (if the proof arrives at around target time)
-    /// IF DECIMAL_FACTOR = 1_000_000;
-    /// with proofTImeTarget 85 sec (current testnet) apprx.: 782.7 TKO is the reward (both with and without minting)
-    /// with proofTimeTarget is 20 mins (on mainnet): apprx.: 55.4 TKO (approx. both with and without minting)
+    // with proof time around 85s (current testnet):
+    // somewhere around 0.000782716513910190 = 782716513910190 (in 10**18 fixed) = 78 (in TKO with 1e5 factor)
 
-    /// IF DECIMAL_FACTOR = 100_000;
-    /// with proofTImeTarget 85 sec (current testnet) apprx.: 78.27 TKO is the reward
-    /// with proofTimeTarget is 20 mins (on mainnet): apprx.: 5.54 TKO
-    uint32 private constant DECIMAL_FACTOR = 100_000;
+    /// @dev Fee will depends on the proofTime (and proofTimeTarget).
+    uint64 private constant SCALING_FROM_18_FIXED_EXP_TO_TKO_AMOUNT = 1e5;
 
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_PARAM();
@@ -75,12 +69,8 @@ library LibTokenomics {
 
     function getProverFee(
         TaikoData.State storage state
-    ) internal view returns (uint64 basefee, uint64 fee) {
-        basefee = state.basefee;
-        //Convert to uint256 to avoid overflow during multiplication
-        fee = uint64(
-            (uint256(basefee) * DECIMAL_FACTOR) / SCALING_FROM_18_TO_TKO_DEC
-        );
+    ) internal view returns (uint64 fee) {
+        return state.basefee;
     }
 
     function getProofReward(
@@ -88,12 +78,8 @@ library LibTokenomics {
         TaikoData.Config memory config,
         uint64 provenAt,
         uint64 proposedAt
-    ) internal view returns (uint64 newBasefee, uint64 reward) {
-        (reward, , newBasefee) = calculateBasefee(
-            state,
-            config,
-            (provenAt - proposedAt)
-        );
+    ) internal view returns (uint64 reward) {
+        (reward, , ) = calculateBasefee(state, config, (provenAt - proposedAt));
     }
 
     /// @notice Update the baseFee for proofs
@@ -117,18 +103,19 @@ library LibTokenomics {
 
         proofTimeIssued += proofTime;
 
-        newBasefee = _calcBasefee(
-            proofTimeIssued,
-            config.proofTimeTarget,
-            config.adjustmentQuotient
-        );
+        newBasefee =
+            _calcBasefee(
+                proofTimeIssued,
+                config.proofTimeTarget,
+                config.adjustmentQuotient
+            ) /
+            SCALING_FROM_18_FIXED_EXP_TO_TKO_AMOUNT;
 
         if (config.allowMinting) {
             // Upconvert 1 to uint256 and the rest will be upconverted too to avoid
             // overflow during multiplication
             reward = uint64(
-                (uint256(state.basefee) * DECIMAL_FACTOR * proofTime) /
-                    (config.proofTimeTarget * SCALING_FROM_18_TO_TKO_DEC)
+                (uint256(state.basefee) * proofTime) / (config.proofTimeTarget)
             );
         } else {
             /// TODO(dani): Verify with functional tests
