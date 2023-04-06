@@ -16,6 +16,8 @@ import {TaikoToken} from "../L1/TaikoToken.sol";
 
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
+// The old implementation that is also used in hardhat tests.
+
 contract TestERC20 is ERC20 {
     constructor(uint256 initialSupply) ERC20("TestERC20", "TEST") {
         _mint(msg.sender, initialSupply);
