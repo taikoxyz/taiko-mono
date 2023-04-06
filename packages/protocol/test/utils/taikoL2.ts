@@ -6,7 +6,9 @@ async function deployTaikoL2(
     signer: ethers.Signer,
     gasLimit: number | undefined = undefined
 ): Promise<TaikoL2> {
-    const taikoL2 = await (await hardhatEthers.getContractFactory("TaikoL2"))
+    const taikoL2 = await (
+        await hardhatEthers.getContractFactory("TestTaikoL2")
+    )
         .connect(signer)
         .deploy({ gasLimit });
 

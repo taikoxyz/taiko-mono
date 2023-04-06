@@ -24,7 +24,7 @@ async function deployBridge(
         .connect(signer)
         .deploy();
 
-    const BridgeFactory = await hardhatEthers.getContractFactory("Bridge", {
+    const BridgeFactory = await hardhatEthers.getContractFactory("TestBridge", {
         libraries: {
             LibTrieProof: libTrieProof.address,
         },
@@ -35,7 +35,7 @@ async function deployBridge(
     await bridge.connect(signer).init(addressManager.address);
 
     const etherVault: EtherVault = await (
-        await hardhatEthers.getContractFactory("EtherVault")
+        await hardhatEthers.getContractFactory("TestEtherVault")
     )
         .connect(signer)
         .deploy();

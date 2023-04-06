@@ -136,6 +136,10 @@ async function generateContractConfigs(
     };
 
     const addressMap: any = {};
+    const chianIdBytes32 = ethers.utils.hexZeroPad(
+        ethers.utils.hexlify(chainId),
+        32
+    );
 
     for (const [contractName, artifact] of Object.entries(contractArtifacts)) {
         let bytecode = (artifact as any).bytecode;
@@ -240,26 +244,51 @@ async function generateContractConfigs(
                 _owner: contractOwner,
                 // AddressManager
                 addresses: {
-                    // keccak256(abi.encodePacked(_name))
+                    // bytes.concat(bytes32(chainId), bytes(name));
                     [`${ethers.utils.solidityKeccak256(
-                        ["string"],
-                        [`${chainId}.taiko`]
+                        ["bytes"],
+                        [
+                            ethers.utils.concat([
+                                chianIdBytes32,
+                                ethers.utils.toUtf8Bytes("taiko"),
+                            ]),
+                        ]
                     )}`]: addressMap.TaikoL2,
                     [`${ethers.utils.solidityKeccak256(
-                        ["string"],
-                        [`${chainId}.bridge`]
+                        ["bytes"],
+                        [
+                            ethers.utils.concat([
+                                chianIdBytes32,
+                                ethers.utils.toUtf8Bytes("bridge"),
+                            ]),
+                        ]
                     )}`]: addressMap.Bridge,
                     [`${ethers.utils.solidityKeccak256(
-                        ["string"],
-                        [`${chainId}.token_vault`]
+                        ["bytes"],
+                        [
+                            ethers.utils.concat([
+                                chianIdBytes32,
+                                ethers.utils.toUtf8Bytes("token_vault"),
+                            ]),
+                        ]
                     )}`]: addressMap.TokenVault,
                     [`${ethers.utils.solidityKeccak256(
-                        ["string"],
-                        [`${chainId}.ether_vault`]
+                        ["bytes"],
+                        [
+                            ethers.utils.concat([
+                                chianIdBytes32,
+                                ethers.utils.toUtf8Bytes("ether_vault"),
+                            ]),
+                        ]
                     )}`]: addressMap.EtherVault,
                     [`${ethers.utils.solidityKeccak256(
-                        ["string"],
-                        [`${chainId}.signal_service`]
+                        ["bytes"],
+                        [
+                            ethers.utils.concat([
+                                chianIdBytes32,
+                                ethers.utils.toUtf8Bytes("signal_service"),
+                            ]),
+                        ]
                     )}`]: addressMap.SignalService,
                 },
             },

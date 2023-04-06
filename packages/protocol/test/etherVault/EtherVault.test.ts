@@ -21,7 +21,7 @@ describe("EtherVault", function () {
             owner
         );
 
-        etherVault = await (await ethers.getContractFactory("EtherVault"))
+        etherVault = await (await ethers.getContractFactory("TestEtherVault"))
             .connect(owner)
             .deploy();
         await etherVault.init(addressManager.address);
