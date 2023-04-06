@@ -101,5 +101,5 @@ forge test \
   --fork-url http://localhost:18545 \
   --fork-retry-backoff 120 \
   --no-storage-caching \
-  --match-path test2/genesis/GenerateGenesis.t.sol \
+  --match-path test2/genesis/*.g.sol \
   --block-gas-limit 1000000000
