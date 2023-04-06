@@ -42,7 +42,7 @@ describe("LibBridgeRetry", function () {
             owner
         );
 
-        etherVault = await (await ethers.getContractFactory("EtherVault"))
+        etherVault = await (await ethers.getContractFactory("TestEtherVault"))
             .connect(etherVaultOwner)
             .deploy();
 

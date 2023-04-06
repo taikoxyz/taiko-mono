@@ -36,7 +36,7 @@ describe("LibBridgeProcess", async function () {
         ).deploy();
         await addressManager.init();
 
-        etherVault = await (await ethers.getContractFactory("EtherVault"))
+        etherVault = await (await ethers.getContractFactory("TestEtherVault"))
             .connect(etherVaultOwner)
             .deploy();
 

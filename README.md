@@ -39,11 +39,12 @@ taiko-mono/
 ├── <a href="./README.md">README.md</a>
 ├── <a href="./packages">packages</a>
 │   ├── <a href="./packages/branding">branding</a>: Taiko branding materials
-│   ├── <a href="./packages/bridge-ui">bridge-ui</a>: Taiko Bridge frontend UI
+│   ├── <a href="./packages/bridge-ui">bridge-ui</a>: Taiko bridge frontend UI
 │   ├── <a href="./packages/eventindexer">eventindexer</a>: Event indexer
-│   ├── <a href="./packages/protocol">protocol</a>: Taiko ZK-Rollup L2 Protocol and Taiko Bridge smart contracts
-│   ├── <a href="./packages/relayer">relayer</a>: Bridge relayer (backend)
-│   ├── <a href="./packages/status-page">status-page</a>: Taiko Protocol status page
+│   ├── <a href="./packages/protocol">protocol</a>: Taiko protocol and bridge smart contracts
+│   ├── <a href="./packages/relayer">relayer</a>: Bridge backend relayer in Go
+│   ├── <a href="./packages/starter-dapp">starter-dapp</a>: Template for Taiko dapps
+│   ├── <a href="./packages/status-page">status-page</a>: Taiko protocol status page
 │   ├── <a href="./packages/tokenomics">tokenomics</a>: Taiko tokenomics simulations
 │   ├── <a href="./packages/website">website</a>: Main documentation website at taiko.xyz (https://taiko.xyz/)
 │   └── <a href="./packages/whitepaper">whitepaper</a>: Whitepaper source files with automated publishing
