@@ -53,7 +53,6 @@ library LibProving {
         if (msg.sender != resolver.resolve("oracle_prover", false))
             revert L1_NOT_ORACLE_PROVER();
 
-        TaikoData.ForkChoice storage fc;
         for (uint i = 0; i < oracles.length; ) {
             TaikoData.BlockOracle memory oracle = oracles[i];
             uint256 id = blockId + i;
@@ -80,13 +79,12 @@ library LibProving {
                 }
                 assert(fcId > 0);
 
-                fc = blk.forkChoices[fcId];
                 state.forkChoiceIds[id][oracle.parentHash] = fcId;
             } else {
-                fc = blk.forkChoices[fcId];
                 // The oracle prover can override any existing proofs.
             }
 
+            TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
             fc.blockHash = oracle.blockHash;
             fc.signalRoot = oracle.signalRoot;
 
