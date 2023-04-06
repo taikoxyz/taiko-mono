@@ -80,8 +80,6 @@ library LibProving {
                 assert(fcId > 0);
 
                 state.forkChoiceIds[id][oracle.parentHash] = fcId;
-            } else {
-                // The oracle prover can override any existing proofs.
             }
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
