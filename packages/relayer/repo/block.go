@@ -28,7 +28,7 @@ func (r *BlockRepository) startQuery() *gorm.DB {
 func (r *BlockRepository) Save(opts relayer.SaveBlockOpts) error {
 	exists := &relayer.Block{}
 	_ = r.startQuery().Where("block_height = ?", opts.Height).Where("chain_id = ?", opts.ChainID.Int64()).First(exists)
-	// block procesed already
+	// block processed already
 	if exists.Height == opts.Height {
 		return nil
 	}
