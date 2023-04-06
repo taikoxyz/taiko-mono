@@ -48,7 +48,7 @@ describe("TokenVault", function () {
         const addressManagerFactory: AddressManager__factory =
             await ethers.getContractFactory("AddressManager");
         const tokenVaultFactory: TokenVault__factory =
-            await ethers.getContractFactory("TokenVault");
+            await ethers.getContractFactory("TestTokenVault");
 
         tokenVaultAddressManager = await addressManagerFactory.deploy();
         await tokenVaultAddressManager.init();
