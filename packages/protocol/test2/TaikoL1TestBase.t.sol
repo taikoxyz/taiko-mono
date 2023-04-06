@@ -120,6 +120,7 @@ abstract contract TaikoL1TestBase is Test {
         uint256 blockId,
         bytes32 parentHash,
         uint32 parentGasUsed,
+        uint32 gasUsed,
         bytes32 blockHash,
         bytes32 signalRoot
     ) internal {
@@ -129,7 +130,8 @@ abstract contract TaikoL1TestBase is Test {
             parentHash,
             blockHash,
             signalRoot,
-            parentGasUsed
+            parentGasUsed,
+            gasUsed
         );
         vm.prank(prover, prover);
         L1.oracleProveBlocks(blockId, abi.encode(oracles));
@@ -139,6 +141,8 @@ abstract contract TaikoL1TestBase is Test {
         address prover,
         TaikoData.BlockMetadata memory meta,
         bytes32 parentHash,
+        uint32 parentGasUsed,
+        uint32 gasUsed,
         bytes32 blockHash,
         bytes32 signalRoot
     ) internal {
@@ -155,8 +159,8 @@ abstract contract TaikoL1TestBase is Test {
             signalRoot: signalRoot,
             graffiti: 0x0,
             prover: prover,
-            parentGasUsed: 1000000,
-            gasUsed: 1000000
+            parentGasUsed: parentGasUsed,
+            gasUsed: gasUsed
         });
 
         vm.prank(prover, prover);

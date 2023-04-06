@@ -66,7 +66,8 @@ library LibProving {
                 oracle.blockHash == 0 ||
                 oracle.blockHash == oracle.parentHash ||
                 oracle.signalRoot == 0 ||
-                oracle.parentGasUsed == 0
+                oracle.parentGasUsed == 0 ||
+                oracle.gasUsed == 0
             ) revert L1_INVALID_ORACLE();
 
             TaikoData.Block storage blk = state.blocks[
@@ -99,7 +100,7 @@ library LibProving {
             // [provenAt+prover] slot.
             fc.provenAt = uint64(block.timestamp);
             fc.prover = address(0);
-            fc.gasUsed = 0;
+            fc.gasUsed = oracle.gasUsed;
 
             emit BlockProven({
                 id: id,
@@ -177,13 +178,13 @@ library LibProving {
 
             if (
                 fc.blockHash == evidence.blockHash &&
-                fc.signalRoot == evidence.signalRoot
+                fc.signalRoot == evidence.signalRoot &&
+                fc.gasUsed == evidence.gasUsed
             ) {
                 if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
 
                 fc.provenAt = uint64(block.timestamp);
                 fc.prover = evidence.prover;
-                fc.gasUsed = evidence.gasUsed;
             } else {
                 revert L1_CONFLICTING_PROOF({
                     id: meta.id,

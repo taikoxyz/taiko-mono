@@ -97,6 +97,7 @@ library TaikoData {
         bytes32 blockHash;
         bytes32 signalRoot;
         uint32 parentGasUsed;
+        uint32 gasUsed;
     }
 
     // 3 slots
