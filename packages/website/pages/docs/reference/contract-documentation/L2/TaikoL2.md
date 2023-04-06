@@ -21,12 +21,6 @@ struct EIP1559Params {
 }
 ```
 
-### ANCHOR_GAS_COST
-
-```solidity
-uint32 ANCHOR_GAS_COST
-```
-
 ### publicInputHash
 
 ```solidity
