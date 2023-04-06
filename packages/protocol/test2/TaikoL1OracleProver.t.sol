@@ -76,7 +76,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         TaikoData.BlockMetadata memory meta = proposeBlock(Bob, 1024);
 
-        // Nobody can prove the block
+        // Alice cannot prove the forkchoice
         vm.expectRevert();
         proveBlock(
             Alice,
@@ -86,7 +86,17 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32(uint256(0x101))
         );
 
-        // Bob cannot oracle-prove the block
+        // Bob also cannot prove the forkchoice
+        vm.expectRevert();
+        proveBlock(
+            Bob,
+            meta,
+            parentHash,
+            bytes32(uint256(0x100)),
+            bytes32(uint256(0x101))
+        );
+
+        // Bob cannot oracle-prove the forkchoice
         vm.expectRevert();
         oracleProveBlock(
             Bob,
@@ -96,7 +106,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32(uint256(0x101))
         );
 
-        // Alice can oracle-prove the block
+        // Alice can oracle-prove the forkchoice
         oracleProveBlock(
             Alice,
             1,
@@ -105,7 +115,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32(uint256(0x101))
         );
 
-        // Alice can oracle-prove the block more than once
+        // Alice can oracle-prove the forkchoice more than once
         for (uint i = 0; i < 2; ++i) {
             oracleProveBlock(
                 Alice,
@@ -116,7 +126,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             );
         }
 
-        // Bob cannot prove the block with conflicting proof
+        // Bob cannot prove the forkchoice with conflicting proof
         vm.expectRevert();
         proveBlock(
             Bob,
@@ -126,7 +136,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32(uint256(0x101))
         );
 
-        // Bob can prove the block with same proof
+        // Bob can prove the forkchoice with a matching proof
         proveBlock(
             Bob,
             meta,
@@ -135,7 +145,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32(uint256(0x104))
         );
 
-        // Nobody can prove the block again
+        // Nobody can prove the forkchoice again
         vm.expectRevert();
         proveBlock(
             Carol,
@@ -145,7 +155,17 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32(uint256(0x104))
         );
 
-        // Even Alice cannot oracle-proof the block again
+        // Including Alice
+        vm.expectRevert();
+        proveBlock(
+            Alice,
+            meta,
+            parentHash,
+            bytes32(uint256(0x103)),
+            bytes32(uint256(0x104))
+        );
+
+        // Alice can no longer oracle-proof the block again
         vm.expectRevert();
         oracleProveBlock(
             Alice,
