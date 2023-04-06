@@ -72,9 +72,8 @@ abstract contract AddressResolver {
     function keyForName(
         uint256 chainId,
         string memory name
-    ) public pure virtual returns (string memory key) {
-        // key = string.concat(Strings.toString(chainId), ".", name);
-        key = string(bytes.concat(bytes32(chainId), bytes(name)));
+    ) public pure virtual returns (string memory) {
+        return string(bytes.concat(bytes32(chainId), bytes(name)));
     }
 
     function _init(address addressManager_) internal virtual {
