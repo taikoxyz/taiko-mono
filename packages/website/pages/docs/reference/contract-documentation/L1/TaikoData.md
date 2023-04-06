@@ -33,7 +33,8 @@ struct Config {
 
 ```solidity
 struct StateVariables {
-  uint256 basefee;
+  uint64 basefee;
+  uint64 rewardPool;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 numBlocks;
@@ -140,20 +141,18 @@ struct State {
   mapping(uint256 => mapping(bytes32 => uint256)) forkChoiceIds;
   mapping(address => uint256) balances;
   mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
-  uint256 proofTimeIssued;
-  uint256 basefee;
-  uint256 accProposedAt;
-  uint256 rewardPool;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
-  uint64 __reserved1;
-  uint64 numBlocks;
+  uint64 __reserved51;
+  uint64 __reserved52;
   uint64 lastProposedAt;
-  uint64 __reserved3;
-  uint64 __reserved4;
+  uint64 numBlocks;
+  uint64 accProposedAt;
+  uint64 rewardPool;
+  uint64 basefee;
+  uint64 proofTimeIssued;
   uint64 lastVerifiedBlockId;
-  uint64 __reserved5;
-  uint64 __reserved6;
+  uint64 __reserved81;
   uint256[43] __gap;
 }
 ```

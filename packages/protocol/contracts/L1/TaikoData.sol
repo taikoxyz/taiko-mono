@@ -120,27 +120,27 @@ library TaikoData {
         // mapping(address account => uint64 balance) balances;
         mapping(address account => uint256 balance) balances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
-        // Cummulated proofTime for reward calculation - changed in verifyBlock()
-        uint64 proofTimeIssued;
-        // Changing baseFee for proving - changed in verifyBlock()
-        uint64 basefee;
-        // Changing last verified block to a new id - changed in verifyBlock()
-        uint64 lastVerifiedBlockId;
-        uint64 __reserved1;
-        // Changing accumulated time for proposing - changed in proposeBlock() and in verifyBlock()
-        uint64 accProposedAt;
-        // Treasury amount - changed in proposeBlock() and in verifyBlock()
-        uint64 rewardPool;
-        uint128 __reserved2;
-        // Never or rarely changed
+        // Slot 5: never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint128 __reserved3;
-        // Changing when a block is proposed - changed in proposeBlock()
-        uint64 numBlocks;
-        // Changing timestamp when a block is proposed - changed in proposeBlock()
+        uint64 __reserved51;
+        uint64 __reserved52;
+        // Slot 6: changed by proposeBlock
         uint64 lastProposedAt;
+        uint64 numBlocks;
+        uint64 accProposedAt; // also by verifyBlocks
+        uint64 rewardPool; // also by verifyBlocks
+        // Slot 7: changed by proveBlock
+        // uint64 __reserved71;
+        // uint64 __reserved72;
+        // uint64 __reserved73;
+        // uint64 __reserved74;
+        // Slot 8: changed by verifyBlocks
+        uint64 basefee;
+        uint64 proofTimeIssued;
+        uint64 lastVerifiedBlockId;
+        uint64 __reserved81;
         // Reserved
-        uint256[42] __gap; // TODO(dani): recount
+        uint256[43] __gap;
     }
 }
