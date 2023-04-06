@@ -76,6 +76,10 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         TaikoData.BlockMetadata memory meta = proposeBlock(Bob, 1024);
 
+        // No forkchoice can be found
+        vm.expectRevert();
+        TaikoData.ForkChoice memory fc = L1.getForkChoice(1, parentHash);
+
         // Alice cannot prove the forkchoice
         vm.expectRevert();
         proveBlock(
@@ -115,8 +119,22 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32(uint256(0x101))
         );
 
+        // struct ForkChoice {
+        //       bytes32 blockHash;
+        //       bytes32 signalRoot;
+        //       uint64 provenAt;
+        //       address prover;
+        //   }
+
+        fc = L1.getForkChoice(1, parentHash);
+        assertEq(fc.blockHash, bytes32(uint256(0x100)));
+        assertEq(fc.signalRoot, bytes32(uint256(0x101)));
+        assertEq(uint256(fc.provenAt), block.timestamp);
+        assertEq(fc.prover, address(0));
+
         // Alice can oracle-prove the forkchoice more than once
         for (uint i = 0; i < 2; ++i) {
+            mine(1);
             oracleProveBlock(
                 Alice,
                 1,
@@ -125,6 +143,12 @@ contract TaikoL1Test is TaikoL1TestBase {
                 bytes32(uint256(0x104))
             );
         }
+
+        fc = L1.getForkChoice(1, parentHash);
+        assertEq(fc.blockHash, bytes32(uint256(0x103)));
+        assertEq(fc.signalRoot, bytes32(uint256(0x104)));
+        assertEq(uint256(fc.provenAt), block.timestamp);
+        assertEq(fc.prover, address(0));
 
         // Bob cannot prove the forkchoice with conflicting proof
         vm.expectRevert();
@@ -137,6 +161,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         );
 
         // Bob can prove the forkchoice with a matching proof
+        mine(1);
         proveBlock(
             Bob,
             meta,
@@ -144,6 +169,12 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32(uint256(0x103)),
             bytes32(uint256(0x104))
         );
+
+        fc = L1.getForkChoice(1, parentHash);
+        assertEq(fc.blockHash, bytes32(uint256(0x103)));
+        assertEq(fc.signalRoot, bytes32(uint256(0x104)));
+        assertEq(uint256(fc.provenAt), block.timestamp);
+        assertEq(fc.prover, Bob);
 
         // Nobody can prove the forkchoice again
         vm.expectRevert();
