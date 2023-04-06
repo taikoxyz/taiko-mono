@@ -84,7 +84,7 @@ library LibProving {
                 state.forkChoiceIds[id][oracle.parentHash] = fcId;
             } else {
                 fc = blk.forkChoices[fcId];
-                if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
+                // The oracle prover can override any existing proofs.
             }
 
             fc.blockHash = oracle.blockHash;
