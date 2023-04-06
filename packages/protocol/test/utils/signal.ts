@@ -20,7 +20,7 @@ async function deploySignalService(
         .deploy();
 
     const SignalServiceFactory = await hardhatEthers.getContractFactory(
-        "SignalService",
+        "TestSignalService",
         {
             libraries: {
                 LibTrieProof: libTrieProof.address,
