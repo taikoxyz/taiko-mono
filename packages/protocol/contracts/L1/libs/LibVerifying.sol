@@ -39,8 +39,7 @@ library LibVerifying {
         state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = timeNow;
 
-        // TODO(dani): should be a parameter in init().
-        state.basefee = initBasefee; // 1 Taiko Token (1**8 * 1**6 = tested starter fee - eliminating magic values like decimal_factor)
+        state.basefee = initBasefee;
         state.numBlocks = 1;
 
         TaikoData.Block storage blk = state.blocks[0];
@@ -140,9 +139,7 @@ library LibVerifying {
             if (!config.allowMinting) {
                 unchecked {
                     state.rewardPool -= reward;
-                    if (config.useTimeWeightedReward) {
-                        state.accProposedAt -= blk.proposedAt;
-                    }
+                    state.accProposedAt -= blk.proposedAt;
                 }
             }
 

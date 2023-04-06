@@ -122,22 +122,23 @@ library LibTokenomics {
             uint64 numBlocksBeingProven = state.numBlocks -
                 state.lastVerifiedBlockId -
                 1;
-            if (config.useTimeWeightedReward) {
-                // TODO(dani): Theroetically there can be no underflow (in case
-                // numBlocksBeingProven == 0 then state.accProposedAt is
-                // also 0) - but verify with unit tests !
+            if (numBlocksBeingProven == 0) {
+                reward = uint64(0);
+            } else {
                 uint64 totalNumProvingSeconds = uint64(
                     uint256(numBlocksBeingProven) *
                         block.timestamp -
                         state.accProposedAt
                 );
+
                 reward = uint64(
-                    (uint256(state.rewardPool) * proofTime) /
-                        totalNumProvingSeconds
+                    (
+                        uint256(
+                            (state.rewardPool * proofTime) /
+                                totalNumProvingSeconds
+                        )
+                    )
                 );
-            } else {
-                /// TODO: Verify with functional tests : done on a diff branch but cut this algo out later
-                reward = state.rewardPool / numBlocksBeingProven;
             }
         }
 
@@ -169,8 +170,11 @@ library LibTokenomics {
         uint256 target,
         uint256 quotient
     ) private pure returns (uint256 retVal) {
-        // Overflow handled by the code
         uint256 x = (value * Math.SCALING_FACTOR_1E18) / (target * quotient);
+        // Cap it or it would throw otherwise
+        if (x > Math.MAX_EXP_INPUT) {
+            x = Math.MAX_EXP_INPUT;
+        }
         return uint256(Math.exp(int256(x)));
     }
 }

@@ -28,7 +28,6 @@ library TaikoData {
         bool enableTokenomics;
         bool skipZKPVerification;
         bool allowMinting;
-        bool useTimeWeightedReward;
     }
 
     struct StateVariables {
