@@ -155,3 +155,9 @@ error L1_TX_LIST()
 ```solidity
 error L1_UNEXPECTED_FORK_CHOICE_ID()
 ```
+
+### L1_CONFLICTING_PROOF
+
+```solidity
+error L1_CONFLICTING_PROOF(uint256 id, bytes32 parentHash, bytes32 conflictingBlockHash, bytes32 conflictingSignalRoot, bytes32 blockHash, bytes32 signalRoot)
+```

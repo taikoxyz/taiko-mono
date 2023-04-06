@@ -115,6 +115,20 @@ abstract contract TaikoL1TestBase is Test {
         L1.proposeBlock(abi.encode(input), txList);
     }
 
+    function oracleProveBlock(
+        address prover,
+        uint256 blockId,
+        bytes32 parentHash,
+        bytes32 blockHash,
+        bytes32 signalRoot
+    ) internal {
+        TaikoData.BlockOracle[] memory oracles = new TaikoData.BlockOracle[](1);
+
+        oracles[0] = TaikoData.BlockOracle(parentHash, blockHash, signalRoot);
+        vm.prank(prover, prover);
+        L1.oracleProveBlocks(blockId, abi.encode(oracles));
+    }
+
     function proveBlock(
         address prover,
         TaikoData.BlockMetadata memory meta,
