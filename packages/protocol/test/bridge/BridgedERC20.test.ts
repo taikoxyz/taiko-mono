@@ -29,7 +29,9 @@ describe("BridgedERC20", function () {
 
     beforeEach(async function () {
         unInitAddressManager = await deployAddressManager(owner);
-        unInitERC20 = await (await ethers.getContractFactory("BridgedERC20"))
+        unInitERC20 = await (
+            await ethers.getContractFactory("TestBridgedERC20")
+        )
             .connect(owner)
             .deploy();
 
@@ -42,7 +44,7 @@ describe("BridgedERC20", function () {
             tokenVault.address
         );
 
-        erc20 = await (await ethers.getContractFactory("BridgedERC20"))
+        erc20 = await (await ethers.getContractFactory("TestBridgedERC20"))
             .connect(owner)
             .deploy();
 
