@@ -15,7 +15,7 @@ event BlockProven(uint256 id, bytes32 parentHash, bytes32 blockHash, bytes32 sig
 ### ConflictingProof
 
 ```solidity
-event ConflictingProof(uint64 blockId, bytes32 parentHash, bytes32 conflictingBlockHash, bytes32 conflictingSignalRoot, bytes32 blockHash, bytes32 signalRoot)
+event ConflictingProof(uint256 id, bytes32 parentHash, bytes32 conflictingBlockHash, bytes32 conflictingSignalRoot, bytes32 blockHash, bytes32 signalRoot)
 ```
 
 ### BlockVerified

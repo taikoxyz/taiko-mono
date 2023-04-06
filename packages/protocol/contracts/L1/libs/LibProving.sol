@@ -55,7 +55,7 @@ library LibProving {
             revert L1_NOT_ORACLE_PROVER();
 
         TaikoData.ForkChoice storage fc;
-        for (uint i = 0; i < oracles.length; ++i) {
+        for (uint i = 0; i < oracles.length; ) {
             TaikoData.BlockOracle memory oracle = oracles[i];
             uint256 id = blockId + i;
 
@@ -102,6 +102,9 @@ library LibProving {
                 signalRoot: oracle.signalRoot,
                 prover: address(0)
             });
+            unchecked {
+                ++i;
+            }
         }
     }
 

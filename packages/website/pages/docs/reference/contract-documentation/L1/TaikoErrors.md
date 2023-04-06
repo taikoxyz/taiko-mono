@@ -78,6 +78,12 @@ error L1_INVALID_L21559_PARAMS()
 error L1_INVALID_METADATA()
 ```
 
+### L1_INVALID_ORACLE
+
+```solidity
+error L1_INVALID_ORACLE()
+```
+
 ### L1_INVALID_PARAM
 
 ```solidity
@@ -90,6 +96,12 @@ error L1_INVALID_PARAM()
 error L1_INVALID_PROOF()
 ```
 
+### L1_NOT_ORACLE_PROVEN
+
+```solidity
+error L1_NOT_ORACLE_PROVEN()
+```
+
 ### L1_NOT_ORACLE_PROVER
 
 ```solidity
@@ -100,6 +112,12 @@ error L1_NOT_ORACLE_PROVER()
 
 ```solidity
 error L1_NOT_SOLO_PROPOSER()
+```
+
+### L1_ORACLE_DISABLED
+
+```solidity
+error L1_ORACLE_DISABLED()
 ```
 
 ### L1_TOO_MANY_BLOCKS
