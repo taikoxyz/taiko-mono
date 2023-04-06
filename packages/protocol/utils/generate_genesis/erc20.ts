@@ -1,7 +1,7 @@
 import { ethers } from "ethers";
 import { Result } from "./interface";
 const path = require("path");
-const ARTIFACTS_PATH = path.join(__dirname, "../../artifacts/contracts");
+const ARTIFACTS_PATH = path.join(__dirname, "../../out");
 const {
     computeStorageSlots,
     getStorageLayout,
@@ -24,8 +24,10 @@ export async function deployERC20(
 
     const artifact = require(path.join(
         ARTIFACTS_PATH,
-        "./test/thirdparty/TestERC20.sol/TestERC20.json"
+        "./TestERC20.sol/TestERC20.json"
     ));
+
+    artifact.contractName = "TestERC20";
 
     let address: string;
     if (
@@ -58,7 +60,7 @@ export async function deployERC20(
     alloc[address] = {
         contractName: artifact.contractName,
         storage: {},
-        code: artifact.deployedBytecode,
+        code: artifact.deployedBytecode.object,
         balance: "0x0",
     };
 
