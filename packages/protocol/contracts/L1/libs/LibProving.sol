@@ -252,9 +252,8 @@ library LibProving {
         if (blk.blockId != blockId) revert L1_BLOCK_ID();
 
         uint256 fcId = state.forkChoiceIds[blockId][parentHash];
-        if (fcId == 0) revert L1_FORK_CHOICE_NOT_FOUND();
-
-        assert(fcId < blk.nextForkChoiceId);
+        if (fcId == 0 || fcId >= blk.nextForkChoiceId)
+            revert L1_FORK_CHOICE_NOT_FOUND();
 
         return blk.forkChoices[fcId];
     }
