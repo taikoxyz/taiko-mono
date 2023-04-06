@@ -60,7 +60,7 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm test:coverage
 
-      - name: protocol - Generate Genesis (hardhat)
+      - name: protocol - Generate Genesis (foundry)
         working-directory: ./packages/protocol
         run: pnpm test:genesis
 
