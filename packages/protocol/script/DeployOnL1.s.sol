@@ -36,6 +36,8 @@ contract DeployOnL1 is Script, AddressResolver {
 
     address public soloProposer = vm.envAddress("SOLO_PROPOSER");
 
+    address public treasure = vm.envAddress("TREASURE");
+
     address public taikoTokenPremintRecipient =
         vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
 
@@ -50,6 +52,7 @@ contract DeployOnL1 is Script, AddressResolver {
         require(l2ChainId != block.chainid, "same chainid");
         require(owner != address(0), "owner is zero");
         require(taikoL2Address != address(0), "taikoL2Address is zero");
+        require(treasure != address(0), "treasure is zero");
         require(
             taikoTokenPremintRecipient != address(0),
             "taikoTokenPremintRecipient is zero"
@@ -72,6 +75,7 @@ contract DeployOnL1 is Script, AddressResolver {
         setAddress(l2ChainId, "taiko", taikoL2Address);
         setAddress("oracle_prover", oracleProver);
         setAddress("solo_proposer", soloProposer);
+        setAddress(l2ChainId, "treasure", treasure);
 
         // TaikoToken
         TaikoToken taikoToken = new TaikoToken();
