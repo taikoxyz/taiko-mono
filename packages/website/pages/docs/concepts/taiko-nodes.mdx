@@ -1,3 +1,5 @@
+import { Callout } from 'nextra-theme-docs'
+
 ## Overview
 
 Taiko nodes are minimally modified Ethereum execution clients that consist of two parts: `taiko-geth` and `taiko-client`. The two parts communicate with each other through the Engine API.
@@ -14,7 +16,7 @@ Like Ethereum mainnet execution engines, `taiko-geth` listens to new L2 transact
 
 The compiled binary `bin/taiko-client` is the main entrypoint. It includes three sub-commands:
 
-- `driver`: keeps the L2 execution engine's chain in sync with the `TaikoL1` contract by directing the L2 execution engine [execution engine](https://ethereum.org/en/glossary/#execution-client).
+- `driver`: keeps the L2 execution engine's chain in sync with the `TaikoL1` contract by directing the L2 [execution engine](https://ethereum.org/en/glossary/#execution-client).
 - [`proposer`](https://rollup-glossary.vercel.app/other-terms#proposer): proposes new transactions from the L2 execution engine's transaction pool to the `TaikoL1` contract.
 - [`prover`](https://rollup-glossary.vercel.app/other-terms#prover): requests [validity proofs](https://rollup-glossary.vercel.app/other-terms#validity-proof) from the [ZK-EVM](https://rollup-glossary.vercel.app/spicy-terms#zk-evm) and sends transactions to prove the proposed blocks are valid or invalid.
 
@@ -27,8 +29,6 @@ Taiko client's `driver` software serves as an L2 consensus client. It listens fo
 Taiko client's `driver` directs an L2 execution engine to insert new blocks or reorganize the local chain through the [Engine API](https://github.com/ethereum/execution-apis/tree/main/src/engine).
 
 #### Chain synchronization process
-
-import { Callout } from 'nextra-theme-docs'
 
 <Callout type="info" emoji="ℹ️">
 The Taiko protocol allows a block's timestamp to be equal to its parent block's timestamp, which differs from the original Ethereum protocol. So it's fine that there are two `TaikoL1.proposeBlock` transactions included in one L1 block.
@@ -55,8 +55,6 @@ If the `txList` is **invalid**, the driver:
 1. Creates a `TaikoL2.invalidateBlock` transaction and then assembles an L2 block including only this transaction.
 2. Directs the L2 execution engine to insert this block, but does not set it as the chain's head via the Engine API.
 
-import { Callout } from 'nextra-theme-docs'
-
 <Callout type="info" emoji="ℹ️">
 Read more about block metadata [here](https://taiko.xyz/docs/concepts/creating-taiko-blocks/intrinsic-validity-functions) or see `5.2.2 Block Metadata` in the [whitepaper](https://taikoxyz.github.io/taiko-mono/taiko-whitepaper.pdf).
 
@@ -81,8 +79,6 @@ To propose a block, the `proposer`:
 3. Commits hashes of the `txLists` by sending `TaikoL1.commitBlock` transactions to L1.
 4. Waits for `TaikoData.Config.commitConfirmations` (currently `0`) L1 blocks confirmations.
 5. Proposse all splitted `txLists` by sending `TaikoL1.proposeBlock` transactions.
-
-import { Callout } from 'nextra-theme-docs'
 
 <Callout type="info" emoji="ℹ️">
 Read more about proposing blocks on Taiko [here](https://taiko.xyz/docs/concepts/creating-taiko-blocks/proposing-blocks) or see `5.2 Proposing Blocks` in the [whitepaper](https://taikoxyz.github.io/taiko-mono/taiko-whitepaper.pdf).
@@ -111,8 +107,6 @@ If the proposed block has an **invalid** `txList`, the `prover`:
 
 1. Generates a Merkle proof of the block's `TaikoL2.invalidateBlock` transaction receipt to prove its existence in the `block.receiptRoot`'s MPT from the L2 execution engine.
 2. Submits the `TaikoL2.invalidateBlock` transaction receipt's RLP encoded bytes, the generated Merkle proof, and a validity proof to prove this block **invalid**, by sending a `TaikoL1.proveBlockInvalid` transaction.
-
-import { Callout } from 'nextra-theme-docs'
 
 <Callout type="info" emoji="ℹ️">
 Read more about why we need these Merkle proofs when proving in `5.5 Proving Blocks` in the [whitepaper](https://taikoxyz.github.io/taiko-mono/taiko-whitepaper.pdf).
