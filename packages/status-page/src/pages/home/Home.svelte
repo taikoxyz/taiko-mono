@@ -365,9 +365,13 @@
     >
       {#await getNumProvers(eventIndexerApiUrl) then provers}
         {#each provers.provers as prover}
-          <div>
+          <a
+            href="{l1ExplorerUrl}/address/{prover.address}"
+            target="_blank"
+            rel="noreferrer"
+          >
             {addressSubsection(prover.address)}
-          </div>
+          </a>
           <div>{prover.count}</div>
         {/each}
       {:catch error}

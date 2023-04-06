@@ -1,5 +1,7 @@
 import type { Token, TokenService } from '../domain/token';
 
+const STORAGE_PREFIX = 'custom-tokens';
+
 export class CustomTokenService implements TokenService {
   private readonly storage: Storage;
 
@@ -9,7 +11,7 @@ export class CustomTokenService implements TokenService {
 
   storeToken(token: Token, address: string): Token[] {
     const customTokens = this.storage.getItem(
-      `custom-tokens-${address.toLowerCase()}`,
+      `${STORAGE_PREFIX}-${address.toLowerCase()}`,
     );
     let tokens = [];
     if (customTokens) {
@@ -22,7 +24,7 @@ export class CustomTokenService implements TokenService {
       tokens.push({ ...token });
     }
     this.storage.setItem(
-      `custom-tokens-${address.toLowerCase()}`,
+      `${STORAGE_PREFIX}-${address.toLowerCase()}`,
       JSON.stringify(tokens),
     );
     return tokens;
@@ -31,14 +33,14 @@ export class CustomTokenService implements TokenService {
   getTokens(address: string): Token[] {
     return (
       JSON.parse(
-        this.storage.getItem(`custom-tokens-${address.toLowerCase()}`),
+        this.storage.getItem(`${STORAGE_PREFIX}-${address.toLowerCase()}`),
       ) ?? []
     );
   }
 
   removeToken(token: Token, address: string): Token[] {
     const customTokens = this.storage.getItem(
-      `custom-tokens-${address.toLowerCase()}`,
+      `${STORAGE_PREFIX}-${address.toLowerCase()}`,
     );
     let tokens = [];
     if (customTokens) {
@@ -46,7 +48,7 @@ export class CustomTokenService implements TokenService {
     }
     const updatedTokenList = tokens.filter((t) => t.symbol !== token.symbol);
     this.storage.setItem(
-      `custom-tokens-${address.toLowerCase()}`,
+      `${STORAGE_PREFIX}-${address.toLowerCase()}`,
       JSON.stringify(updatedTokenList),
     );
     return updatedTokenList;
