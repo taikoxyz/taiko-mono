@@ -21,7 +21,7 @@ library LibTxUtils {
         internal
         pure
         returns (
-            // transaction hash (without singature values)
+            // transaction hash (without signature values)
             bytes32 hash
         )
     {

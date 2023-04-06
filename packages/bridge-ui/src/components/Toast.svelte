@@ -31,7 +31,7 @@
     pausable: false,
   };
 
-  // TODO: props to control its possition:
+  // TODO: props to control its position:
   //       top, bottom, left, right...
 </script>
 
