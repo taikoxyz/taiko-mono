@@ -166,7 +166,7 @@ This transaction shall be the first transaction in every L2 block.
 ### getBasefee
 
 ```solidity
-function getBasefee(uint32 timeSinceNow, uint64 gasLimit, uint64 parentGasUsed) public view returns (uint64 _basefee)
+function getBasefee(uint32 timeSinceNow, uint64 gasLimit, uint64 parentGasUsed) public view returns (uint256 _basefee)
 ```
 
 ### getXchainBlockHash

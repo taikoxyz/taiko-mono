@@ -181,7 +181,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         emit XchainSynced(l1Height, l1Hash, l1SignalRoot);
 
         // Check EIP-1559 basefee
-        uint64 basefee;
+        uint256 basefee;
         if (gasIssuedPerSecond != 0) {
             (basefee, gasExcess) = _calcBasefee(
                 block.timestamp - parentTimestamp,
@@ -191,7 +191,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         }
 
         if (block.basefee != basefee)
-            revert L2_BASEFEE_MISMATCH(basefee, uint64(block.basefee));
+            revert L2_BASEFEE_MISMATCH(uint64(basefee), uint64(block.basefee));
 
         parentTimestamp = uint64(block.timestamp);
 
@@ -201,7 +201,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
 
         emit BlockVars({
             number: uint64(block.number),
-            basefee: basefee,
+            basefee: uint64(basefee),
             gaslimit: uint64(block.gaslimit),
             timestamp: uint64(block.timestamp),
             parentHash: parentHash,
@@ -219,7 +219,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         uint32 timeSinceNow,
         uint64 gasLimit,
         uint64 parentGasUsed
-    ) public view returns (uint64 _basefee) {
+    ) public view returns (uint256 _basefee) {
         uint256 timeSinceParent;
         unchecked {
             timeSinceParent = timeSinceNow + block.timestamp - parentTimestamp;
@@ -284,7 +284,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         uint256 timeSinceParent,
         uint64 gasLimit,
         uint64 parentGasUsed
-    ) private view returns (uint64 _basefee, uint64 _gasExcess) {
+    ) private view returns (uint256 _basefee, uint64 _gasExcess) {
         // Very important to cap _gasExcess uint64
         unchecked {
             uint64 parentGasUsedNet = parentGasUsed >
@@ -297,14 +297,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
             _gasExcess = uint64((a.max(b) - b).min(type(uint64).max));
         }
 
-        uint256 __basefee = Lib1559Math.calculatePrice({
+        _basefee = Lib1559Math.calculatePrice({
             xscale: xscale,
             yscale: yscale,
             xExcess: _gasExcess,
             xPurchase: gasLimit
         });
-
-        // Very important to cap basefee uint64
-        _basefee = uint64(__basefee.min(type(uint64).max));
     }
 }
