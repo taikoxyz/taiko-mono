@@ -59,8 +59,8 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed;
 
-        printInfoHeader();
-        printInfo();
+        printVariableHeaders();
+        printVariables();
 
         // Every 1000 blocks take about 40 seconds
         uint256 blocksToSimulate = 1000;
@@ -89,7 +89,7 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
                 blockHash,
                 signalRoot
             );
-            printInfo();
+            printVariables();
 
             parentHash = blockHash;
             parentGasUsed = gasUsed;
@@ -99,7 +99,7 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
     }
 
     // TODO(daniel|dani): log enough state variables for analysis.
-    function printInfoHeader() internal view {
+    function printVariableHeaders() internal view {
         string memory str = string.concat(
             "\nlogCount,",
             "time,",
@@ -113,7 +113,7 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
     }
 
     // TODO(daniel|dani): log enough state variables for analysis.
-    function printInfo() internal {
+    function printVariables() internal {
         TaikoData.StateVariables memory vars = L1.getStateVariables();
         string memory str = string.concat(
             Strings.toString(logCount++),
