@@ -3,6 +3,7 @@ pragma solidity ^0.8.18;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
+import {LibL2Consts} from "../contracts/L2/LibL2Consts.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {TaikoL2} from "../contracts/L2/TaikoL2.sol";
 import {
@@ -15,7 +16,7 @@ contract TestTaikoL2 is Test {
 
     TaikoL2 public L2;
     uint private logIndex;
-    uint64 private ANCHOR_GAS_COST;
+    uint64 private ANCHOR_GAS_COST = LibL2Consts.ANCHOR_GAS_COST;
 
     function setUp() public {
         uint16 rand = 2;
@@ -24,12 +25,11 @@ contract TestTaikoL2 is Test {
             gasIssuedPerSecond: 1000000,
             gasExcessMax: (uint(15000000) * 256 * rand).toUint64(),
             gasTarget: (uint(6000000) * rand).toUint64(),
-            ratio2x1x: 111
+            ratio2x1x: 11177
         });
 
         L2 = new TaikoL2();
         L2.init(address(1), param1559); // Dummy address manager address.
-        ANCHOR_GAS_COST = L2.ANCHOR_GAS_COST();
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);
@@ -153,7 +153,7 @@ contract TestTaikoL2 is Test {
         uint64 parentGasUsed
     ) private returns (uint256 _basefee) {
         uint256 gasIssued = L2.gasIssuedPerSecond() * timeSinceParent;
-        string memory msg = string.concat(
+        string memory _msg = string.concat(
             "#",
             Strings.toString(logIndex++),
             ": gasExcess=",
@@ -169,15 +169,15 @@ contract TestTaikoL2 is Test {
         );
         _basefee = L2.getBasefee(timeSinceParent, gasLimit, parentGasUsed);
 
-        msg = string.concat(
-            msg,
+        _msg = string.concat(
+            _msg,
             ", gasExcess(changed)=",
             Strings.toString(L2.gasExcess()),
             ", basefee=",
             Strings.toString(_basefee)
         );
 
-        console2.log(msg);
+        console2.log(_msg);
     }
 
     function _getBasefeeAndPrint(
