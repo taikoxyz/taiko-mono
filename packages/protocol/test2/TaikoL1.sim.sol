@@ -3,13 +3,10 @@ pragma solidity ^0.8.18;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {AddressManager} from "../contracts/thirdparty/AddressManager.sol";
 import {FoundryRandom} from "foundry-random/FoundryRandom.sol";
 import {TaikoConfig} from "../contracts/L1/TaikoConfig.sol";
 import {TaikoData} from "../contracts/L1/TaikoData.sol";
 import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
-import {TaikoToken} from "../contracts/L1/TaikoToken.sol";
-import {SignalService} from "../contracts/signal/SignalService.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {TaikoL1TestBase} from "./TaikoL1TestBase.t.sol";
 
@@ -40,7 +37,7 @@ contract Verifier {
     }
 }
 
-contract TaikoL1RandomTest is TaikoL1TestBase, FoundryRandom {
+contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
     function deployTaikoL1() internal override returns (TaikoL1 taikoL1) {
         taikoL1 = new TaikoL1_b();
     }
@@ -103,17 +100,16 @@ contract TaikoL1RandomTest is TaikoL1TestBase, FoundryRandom {
             "\nlogCount,",
             "time,",
             "lastVerifiedBlockId,",
-            "numBlocks,",
-            "feeBase,",
-            "fee,",
-            "lastProposedAt"
+            "numBlocks,"
+            // "feeBase,",
+            // "fee,",
+            // "lastProposedAt"
         );
         console2.log(str);
     }
 
     function printBlockInfo() internal {
         TaikoData.StateVariables memory vars = L1.getStateVariables();
-        (uint256 fee, ) = L1.getBlockFee();
         string memory str = string.concat(
             Strings.toString(logCount++),
             ",",
@@ -121,13 +117,13 @@ contract TaikoL1RandomTest is TaikoL1TestBase, FoundryRandom {
             ",",
             Strings.toString(vars.lastVerifiedBlockId),
             ",",
-            Strings.toString(vars.numBlocks),
-            ",",
-            Strings.toString(vars.feeBase),
-            ",",
-            Strings.toString(fee),
-            ",",
-            Strings.toString(vars.lastProposedAt)
+            Strings.toString(vars.numBlocks)
+            // ",",
+            // Strings.toString(vars.feeBase),
+            // ",",
+            // Strings.toString(fee),
+            // ",",
+            // Strings.toString(vars.lastProposedAt)
         );
         console2.log(str);
     }
