@@ -92,6 +92,7 @@ library LibProving {
             // [provenAt+prover] slot.
             fc.provenAt = uint64(block.timestamp);
             fc.prover = address(0);
+            fc.gasUsed = oracle.gasUsed;
 
             emit BlockProven({
                 id: id,

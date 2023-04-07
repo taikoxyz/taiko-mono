@@ -114,6 +114,8 @@ contract TaikoL1Test is TaikoL1TestBase {
             Bob,
             1,
             parentHash,
+            123,
+            456,
             bytes32(uint256(0x100)),
             bytes32(uint256(0x101))
         );
@@ -123,6 +125,8 @@ contract TaikoL1Test is TaikoL1TestBase {
             Alice,
             1,
             parentHash,
+            123,
+            456,
             bytes32(uint256(0x100)),
             bytes32(uint256(0x101))
         );
