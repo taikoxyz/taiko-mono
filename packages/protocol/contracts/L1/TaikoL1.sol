@@ -94,7 +94,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             config: getConfig(),
             blockId: blockId,
             resolver: AddressResolver(this),
-            oracles: abi.decode(input, (TaikoData.BlockOracle[]))
+            oracles: abi.decode(input, (TaikoData.BlockOracles))
         });
     }
 
@@ -200,14 +200,16 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
 
     function getForkChoice(
         uint256 blockId,
-        bytes32 parentHash
+        bytes32 parentHash,
+        uint32 parentGasUsed
     ) public view returns (TaikoData.ForkChoice memory) {
         return
             LibProving.getForkChoice({
                 state: state,
                 config: getConfig(),
                 blockId: blockId,
-                parentHash: parentHash
+                parentHash: parentHash,
+                parentGasUsed: parentGasUsed
             });
     }
 

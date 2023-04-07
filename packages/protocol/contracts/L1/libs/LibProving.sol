@@ -47,39 +47,41 @@ library LibProving {
         TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 blockId,
-        TaikoData.BlockOracle[] memory oracles
+        TaikoData.BlockOracles memory oracles
     ) internal {
         if (!config.enableOracleProver) revert L1_ORACLE_DISABLED();
         if (msg.sender != resolver.resolve("oracle_prover", false))
             revert L1_NOT_ORACLE_PROVER();
 
-        for (uint i = 0; i < oracles.length; ) {
-            TaikoData.BlockOracle memory oracle = oracles[i];
+        bytes32 parentHash = oracles.parentHash;
+        uint32 parentGasUsed = oracles.parentGasUsed;
+
+        for (uint i = 0; i < oracles.blks.length; ) {
             uint256 id = blockId + i;
 
             if (id <= state.lastVerifiedBlockId || id >= state.numBlocks)
                 revert L1_BLOCK_ID();
 
+            TaikoData.BlockOracle memory oracle = oracles.blks[i];
             if (
-                oracle.parentHash == 0 ||
                 oracle.blockHash == 0 ||
-                oracle.blockHash == oracle.parentHash ||
-                oracle.signalRoot == 0
+                oracle.blockHash == parentHash ||
+                oracle.signalRoot == 0 ||
+                oracle.gasUsed == 0
             ) revert L1_INVALID_ORACLE();
 
             TaikoData.Block storage blk = state.blocks[
                 id % config.ringBufferSize
             ];
 
-            uint256 fcId = state.forkChoiceIds[id][oracle.parentHash];
+            uint256 fcId = state.forkChoiceIds[id][parentHash][parentGasUsed];
             if (fcId == 0) {
                 fcId = blk.nextForkChoiceId;
                 unchecked {
                     ++blk.nextForkChoiceId;
                 }
                 assert(fcId > 0);
-
-                state.forkChoiceIds[id][oracle.parentHash] = fcId;
+                state.forkChoiceIds[id][parentHash][parentGasUsed] = fcId;
             }
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
@@ -90,16 +92,19 @@ library LibProving {
             // [provenAt+prover] slot.
             fc.provenAt = uint64(block.timestamp);
             fc.prover = address(0);
+            fc.gasUsed = oracle.gasUsed;
 
             emit BlockProven({
                 id: id,
-                parentHash: oracle.parentHash,
+                parentHash: parentHash,
                 blockHash: oracle.blockHash,
                 signalRoot: oracle.signalRoot,
                 prover: address(0)
             });
             unchecked {
                 ++i;
+                parentHash = oracle.blockHash;
+                parentGasUsed = oracle.gasUsed;
             }
         }
     }
@@ -124,7 +129,8 @@ library LibProving {
             evidence.blockHash == evidence.parentHash ||
             evidence.signalRoot == 0 ||
             // prover must not be zero
-            evidence.prover == address(0)
+            evidence.prover == address(0) ||
+            evidence.gasUsed == 0
         ) revert L1_INVALID_EVIDENCE();
 
         TaikoData.Block storage blk = state.blocks[
@@ -135,7 +141,9 @@ library LibProving {
         if (blk.metaHash != _metaHash)
             revert L1_EVIDENCE_MISMATCH(blk.metaHash, _metaHash);
 
-        uint256 fcId = state.forkChoiceIds[blockId][evidence.parentHash];
+        uint256 fcId = state.forkChoiceIds[blockId][evidence.parentHash][
+            evidence.parentGasUsed
+        ];
 
         if (fcId == 0) {
             if (config.enableOracleProver) revert L1_NOT_ORACLE_PROVEN();
@@ -145,14 +153,16 @@ library LibProving {
                 ++blk.nextForkChoiceId;
             }
             assert(fcId > 0);
-
-            state.forkChoiceIds[blockId][evidence.parentHash] = fcId;
+            state.forkChoiceIds[blockId][evidence.parentHash][
+                evidence.parentGasUsed
+            ] = fcId;
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
             fc.blockHash = evidence.blockHash;
             fc.signalRoot = evidence.signalRoot;
             fc.provenAt = uint64(block.timestamp);
             fc.prover = evidence.prover;
+            fc.gasUsed = evidence.gasUsed;
         } else {
             assert(fcId < blk.nextForkChoiceId);
 
@@ -160,7 +170,8 @@ library LibProving {
 
             if (
                 fc.blockHash == evidence.blockHash &&
-                fc.signalRoot == evidence.signalRoot
+                fc.signalRoot == evidence.signalRoot &&
+                fc.gasUsed == evidence.gasUsed
             ) {
                 if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
 
@@ -205,7 +216,10 @@ library LibProving {
                 inputs[4] = uint256(evidence.blockHash);
                 inputs[5] = uint256(evidence.signalRoot);
                 inputs[6] = uint256(evidence.graffiti);
-                inputs[7] = uint160(evidence.prover);
+                inputs[7] =
+                    (uint256(uint160(evidence.prover)) << 96) |
+                    (uint256(evidence.parentGasUsed) << 64) |
+                    (uint256(evidence.gasUsed) << 32);
                 inputs[8] = uint256(blk.metaHash);
 
                 assembly {
@@ -242,14 +256,15 @@ library LibProving {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint256 blockId,
-        bytes32 parentHash
+        bytes32 parentHash,
+        uint32 parentGasUsed
     ) internal view returns (TaikoData.ForkChoice storage) {
         TaikoData.Block storage blk = state.blocks[
             blockId % config.ringBufferSize
         ];
         if (blk.blockId != blockId) revert L1_BLOCK_ID();
 
-        uint256 fcId = state.forkChoiceIds[blockId][parentHash];
+        uint256 fcId = state.forkChoiceIds[blockId][parentHash][parentGasUsed];
         if (fcId == 0 || fcId >= blk.nextForkChoiceId)
             revert L1_FORK_CHOICE_NOT_FOUND();
 

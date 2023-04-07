@@ -78,7 +78,11 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         // No forkchoice can be found
         vm.expectRevert();
-        TaikoData.ForkChoice memory fc = L1.getForkChoice(1, parentHash);
+        TaikoData.ForkChoice memory fc = L1.getForkChoice({
+            blockId: 1,
+            parentHash: parentHash,
+            parentGasUsed: 123
+        });
 
         // Alice cannot prove the forkchoice
         vm.expectRevert();
@@ -86,6 +90,8 @@ contract TaikoL1Test is TaikoL1TestBase {
             Alice,
             meta,
             parentHash,
+            123,
+            456,
             bytes32(uint256(0x100)),
             bytes32(uint256(0x101))
         );
@@ -96,6 +102,8 @@ contract TaikoL1Test is TaikoL1TestBase {
             Bob,
             meta,
             parentHash,
+            123,
+            456,
             bytes32(uint256(0x100)),
             bytes32(uint256(0x101))
         );
@@ -106,6 +114,8 @@ contract TaikoL1Test is TaikoL1TestBase {
             Bob,
             1,
             parentHash,
+            123,
+            456,
             bytes32(uint256(0x100)),
             bytes32(uint256(0x101))
         );
@@ -115,94 +125,142 @@ contract TaikoL1Test is TaikoL1TestBase {
             Alice,
             1,
             parentHash,
+            123,
+            456,
             bytes32(uint256(0x100)),
             bytes32(uint256(0x101))
         );
 
-        fc = L1.getForkChoice(1, parentHash);
+        fc = L1.getForkChoice({
+            blockId: 1,
+            parentHash: parentHash,
+            parentGasUsed: 123
+        });
         assertEq(fc.blockHash, bytes32(uint256(0x100)));
         assertEq(fc.signalRoot, bytes32(uint256(0x101)));
         assertEq(uint256(fc.provenAt), block.timestamp);
         assertEq(fc.prover, address(0));
+        assertEq(fc.gasUsed, 456);
 
         // Alice can oracle-prove the forkchoice more than once
         for (uint i = 0; i < 2; ++i) {
             mine(1);
-            oracleProveBlock(
-                Alice,
-                1,
-                parentHash,
-                bytes32(uint256(0x103)),
-                bytes32(uint256(0x104))
-            );
+            oracleProveBlock({
+                prover: Alice,
+                blockId: 1,
+                parentHash: parentHash,
+                parentGasUsed: 123,
+                gasUsed: 789,
+                blockHash: bytes32(uint256(0x103)),
+                signalRoot: bytes32(uint256(0x104))
+            });
         }
 
-        fc = L1.getForkChoice(1, parentHash);
+        fc = L1.getForkChoice({
+            blockId: 1,
+            parentHash: parentHash,
+            parentGasUsed: 123
+        });
+
         assertEq(fc.blockHash, bytes32(uint256(0x103)));
         assertEq(fc.signalRoot, bytes32(uint256(0x104)));
         assertEq(uint256(fc.provenAt), block.timestamp);
         assertEq(fc.prover, address(0));
+        assertEq(fc.gasUsed, 789);
 
         // Bob cannot prove the forkchoice with conflicting proof
         vm.expectRevert();
-        proveBlock(
-            Bob,
-            meta,
-            parentHash,
-            bytes32(uint256(0x100)),
-            bytes32(uint256(0x101))
-        );
+        proveBlock({
+            prover: Bob,
+            meta: meta,
+            parentHash: parentHash,
+            parentGasUsed: 123,
+            gasUsed: 789,
+            blockHash: bytes32(uint256(0x100)),
+            signalRoot: bytes32(uint256(0x101))
+        });
+
+        vm.expectRevert();
+        proveBlock({
+            prover: Bob,
+            meta: meta,
+            parentHash: parentHash,
+            parentGasUsed: 123,
+            gasUsed: 456,
+            blockHash: bytes32(uint256(0x103)),
+            signalRoot: bytes32(uint256(0x104))
+        });
 
         // Bob can prove the forkchoice with a matching proof
         mine(1);
-        proveBlock(
-            Bob,
-            meta,
-            parentHash,
-            bytes32(uint256(0x103)),
-            bytes32(uint256(0x104))
-        );
+        proveBlock({
+            prover: Bob,
+            meta: meta,
+            parentHash: parentHash,
+            parentGasUsed: 123,
+            gasUsed: 789,
+            blockHash: bytes32(uint256(0x103)),
+            signalRoot: bytes32(uint256(0x104))
+        });
 
-        fc = L1.getForkChoice(1, parentHash);
+        fc = L1.getForkChoice({
+            blockId: 1,
+            parentHash: parentHash,
+            parentGasUsed: 123
+        });
+
         assertEq(fc.blockHash, bytes32(uint256(0x103)));
         assertEq(fc.signalRoot, bytes32(uint256(0x104)));
         assertEq(uint256(fc.provenAt), block.timestamp);
         assertEq(fc.prover, Bob);
+        assertEq(fc.gasUsed, 789);
 
         // Nobody can prove the forkchoice again
         vm.expectRevert();
-        proveBlock(
-            Carol,
-            meta,
-            parentHash,
-            bytes32(uint256(0x103)),
-            bytes32(uint256(0x104))
-        );
+        proveBlock({
+            prover: Carol,
+            meta: meta,
+            parentHash: parentHash,
+            parentGasUsed: 123,
+            gasUsed: 789,
+            blockHash: bytes32(uint256(0x103)),
+            signalRoot: bytes32(uint256(0x104))
+        });
 
         // Including Alice
         vm.expectRevert();
-        proveBlock(
-            Alice,
-            meta,
-            parentHash,
-            bytes32(uint256(0x103)),
-            bytes32(uint256(0x104))
-        );
+        proveBlock({
+            prover: Alice,
+            meta: meta,
+            parentHash: parentHash,
+            parentGasUsed: 123,
+            gasUsed: 789,
+            blockHash: bytes32(uint256(0x103)),
+            signalRoot: bytes32(uint256(0x104))
+        });
 
         // But Alice can still oracle-proof the block again
         mine(1);
-        oracleProveBlock(
-            Alice,
-            1,
-            parentHash,
-            bytes32(uint256(0x105)),
-            bytes32(uint256(0x106))
-        );
+        oracleProveBlock({
+            prover: Alice,
+            blockId: 1,
+            parentHash: parentHash,
+            parentGasUsed: 123,
+            gasUsed: 987,
+            blockHash: bytes32(uint256(0x105)),
+            signalRoot: bytes32(uint256(0x106))
+        });
 
-        fc = L1.getForkChoice(1, parentHash);
+        fc = L1.getForkChoice({
+            blockId: 1,
+            parentHash: parentHash,
+            parentGasUsed: 123
+        });
+
         assertEq(fc.blockHash, bytes32(uint256(0x105)));
         assertEq(fc.signalRoot, bytes32(uint256(0x106)));
         assertEq(uint256(fc.provenAt), block.timestamp);
         assertEq(fc.prover, address(0));
+        assertEq(fc.gasUsed, 987);
     }
 }

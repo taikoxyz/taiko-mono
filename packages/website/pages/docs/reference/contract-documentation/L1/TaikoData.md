@@ -102,6 +102,8 @@ struct BlockEvidence {
   bytes32 signalRoot;
   bytes32 graffiti;
   address prover;
+  uint32 parentGasUsed;
+  uint32 gasUsed;
 }
 ```
 
@@ -109,9 +111,19 @@ struct BlockEvidence {
 
 ```solidity
 struct BlockOracle {
-  bytes32 parentHash;
   bytes32 blockHash;
+  uint32 gasUsed;
   bytes32 signalRoot;
+}
+```
+
+### BlockOracles
+
+```solidity
+struct BlockOracles {
+  bytes32 parentHash;
+  uint32 parentGasUsed;
+  struct TaikoData.BlockOracle[] blks;
 }
 ```
 
@@ -123,6 +135,7 @@ struct ForkChoice {
   bytes32 signalRoot;
   uint64 provenAt;
   address prover;
+  uint32 gasUsed;
 }
 ```
 
@@ -155,7 +168,7 @@ struct TxListInfo {
 ```solidity
 struct State {
   mapping(uint256 => struct TaikoData.Block) blocks;
-  mapping(uint256 => mapping(bytes32 => uint256)) forkChoiceIds;
+  mapping(uint256 => mapping(bytes32 => mapping(uint32 => uint256))) forkChoiceIds;
   mapping(address => uint256) balances;
   mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
   uint64 genesisHeight;

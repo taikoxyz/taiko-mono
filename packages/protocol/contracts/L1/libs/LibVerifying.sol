@@ -66,9 +66,9 @@ library LibVerifying {
         assert(fcId > 0);
 
         bytes32 blockHash = blk.forkChoices[fcId].blockHash;
-        assert(blockHash != bytes32(0));
-
+        uint32 gasUsed = blk.forkChoices[fcId].gasUsed;
         bytes32 signalRoot;
+
         uint64 processed;
         unchecked {
             ++i;
@@ -76,14 +76,15 @@ library LibVerifying {
 
         while (i < state.numBlocks && processed < maxBlocks) {
             blk = state.blocks[i % config.ringBufferSize];
+            assert(blk.blockId == i);
 
-            fcId = state.forkChoiceIds[i][blockHash];
+            fcId = state.forkChoiceIds[i][blockHash][gasUsed];
             if (fcId == 0) break;
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
             if (fc.prover == address(0)) break;
 
-            (blockHash, signalRoot) = _markBlockVerified({
+            _markBlockVerified({
                 state: state,
                 config: config,
                 blk: blk,
@@ -91,9 +92,9 @@ library LibVerifying {
                 fc: fc
             });
 
-            assert(blockHash != bytes32(0));
-
-            emit BlockVerified(i, blockHash);
+            blockHash = fc.blockHash;
+            gasUsed = fc.gasUsed;
+            signalRoot = fc.signalRoot;
 
             unchecked {
                 ++i;
@@ -115,7 +116,7 @@ library LibVerifying {
         TaikoData.Block storage blk,
         TaikoData.ForkChoice storage fc,
         uint24 fcId
-    ) private returns (bytes32 blockHash, bytes32 signalRoot) {
+    ) private {
         if (config.enableTokenomics) {
             (
                 uint256 newFeeBase,
@@ -159,11 +160,10 @@ library LibVerifying {
             })
             .toUint64();
 
-        blockHash = fc.blockHash;
-        signalRoot = fc.signalRoot;
-
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = fcId;
+
+        emit BlockVerified(blk.blockId, fc.blockHash);
     }
 
     function _addToBalance(

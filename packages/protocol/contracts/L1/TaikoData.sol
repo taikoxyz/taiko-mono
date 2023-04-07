@@ -88,12 +88,20 @@ library TaikoData {
         bytes32 signalRoot;
         bytes32 graffiti;
         address prover;
+        uint32 parentGasUsed;
+        uint32 gasUsed;
     }
 
     struct BlockOracle {
-        bytes32 parentHash;
         bytes32 blockHash;
+        uint32 gasUsed;
         bytes32 signalRoot;
+    }
+
+    struct BlockOracles {
+        bytes32 parentHash;
+        uint32 parentGasUsed;
+        BlockOracle[] blks;
     }
 
     // 3 slots
@@ -102,6 +110,7 @@ library TaikoData {
         bytes32 signalRoot;
         uint64 provenAt;
         address prover;
+        uint32 gasUsed;
     }
 
     // 4 slots
@@ -126,9 +135,8 @@ library TaikoData {
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint256 blockId_mode_ringBufferSize => Block) blocks;
-        // A mapping from (blockId, parentHash) to a reusable ForkChoice storage pointer.
         // solhint-disable-next-line max-line-length
-        mapping(uint256 blockId => mapping(bytes32 parentHash => uint256 forkChoiceId)) forkChoiceIds;
+        mapping(uint256 blockId => mapping(bytes32 parentHash => mapping(uint32 parentGasUsed => uint256 forkChoiceId))) forkChoiceIds;
         mapping(address account => uint256 balance) balances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         // Never or rarely changed

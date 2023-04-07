@@ -63,7 +63,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
 
     // Captures all block variables mentioned in
     // https://docs.soliditylang.org/en/v0.8.18/units-and-global-variables.html
-    event BlockVars(
+    event Anchored(
         uint64 number,
         uint64 basefee,
         uint64 gaslimit,
@@ -199,8 +199,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         // We emit this event so circuits can grab its data to verify block variables.
         // If plonk lookup table already has all these data, we can still use this
         // event for debugging purpose.
-
-        emit BlockVars({
+        emit Anchored({
             number: uint64(block.number),
             basefee: uint64(basefee),
             gaslimit: uint64(block.gaslimit),
