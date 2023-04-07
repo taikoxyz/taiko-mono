@@ -61,4 +61,16 @@ describe('CustomTokenService', () => {
     // Since BLL is not in the list, it should return the same list
     expect(tokensEmpty).toEqual(mockStorageTokens);
   });
+
+  it('handles invalid JSON', () => {
+    jest.mocked(mockLocalStorage.getItem).mockImplementation(() => {
+      return 'invalid json';
+    });
+
+    const tokenService = new CustomTokenService(mockLocalStorage);
+
+    const tokens = tokenService.getTokens(address);
+
+    expect(tokens).toEqual([]);
+  });
 });

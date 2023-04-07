@@ -46,11 +46,7 @@ export class CustomTokenService implements TokenService {
   }
 
   getTokens(address: string): Token[] {
-    return (
-      JSON.parse(
-        this.storage.getItem(`${STORAGE_PREFIX}-${address.toLowerCase()}`),
-      ) ?? []
-    );
+    return this._getTokensFromStorage(address);
   }
 
   removeToken(token: Token, address: string): Token[] {
