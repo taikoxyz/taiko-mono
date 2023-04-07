@@ -8,6 +8,7 @@ pragma solidity ^0.8.18;
 
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {IXchainSync} from "../common/IXchainSync.sol";
+import {LibL2Consts} from "./LibL2Consts.sol";
 import {LibMath} from "../libs/LibMath.sol";
 import {Lib1559Math} from "../libs/Lib1559Math.sol";
 import {TaikoL2Signer} from "./TaikoL2Signer.sol";
@@ -18,8 +19,6 @@ import {
 contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     using SafeCastUpgradeable for uint256;
     using LibMath for uint256;
-
-    uint64 public ANCHOR_GAS_COST = 150000; // owner:david
 
     struct VerifiedBlock {
         bytes32 blockHash;
@@ -63,7 +62,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
 
     // Captures all block variables mentioned in
     // https://docs.soliditylang.org/en/v0.8.18/units-and-global-variables.html
-    event BlockVars(
+    event Anchored(
         uint64 number,
         uint64 basefee,
         uint64 gaslimit,
@@ -199,8 +198,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         // We emit this event so circuits can grab its data to verify block variables.
         // If plonk lookup table already has all these data, we can still use this
         // event for debugging purpose.
-
-        emit BlockVars({
+        emit Anchored({
             number: uint64(block.number),
             basefee: uint64(basefee),
             gaslimit: uint64(block.gaslimit),
@@ -221,11 +219,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         uint64 gasLimit,
         uint64 parentGasUsed
     ) public view returns (uint256 _basefee) {
-        (_basefee, ) = _calcBasefee(
-            timeSinceNow + block.timestamp - parentTimestamp,
-            gasLimit,
-            parentGasUsed
-        );
+        uint256 timeSinceParent;
+        unchecked {
+            timeSinceParent = timeSinceNow + block.timestamp - parentTimestamp;
+        }
+        (_basefee, ) = _calcBasefee(timeSinceParent, gasLimit, parentGasUsed);
     }
 
     function getXchainBlockHash(
@@ -287,13 +285,16 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         uint64 parentGasUsed
     ) private view returns (uint256 _basefee, uint64 _gasExcess) {
         // Very important to cap _gasExcess uint64
-        uint64 parentGasUsedNet = parentGasUsed > ANCHOR_GAS_COST
-            ? parentGasUsed - ANCHOR_GAS_COST
-            : 0;
+        unchecked {
+            uint64 parentGasUsedNet = parentGasUsed >
+                LibL2Consts.ANCHOR_GAS_COST
+                ? parentGasUsed - LibL2Consts.ANCHOR_GAS_COST
+                : 0;
 
-        uint256 a = uint256(gasExcess) + parentGasUsedNet;
-        uint256 b = gasIssuedPerSecond * timeSinceParent;
-        _gasExcess = uint64((a.max(b) - b).min(type(uint64).max));
+            uint256 a = uint256(gasExcess) + parentGasUsedNet;
+            uint256 b = gasIssuedPerSecond * timeSinceParent;
+            _gasExcess = uint64((a.max(b) - b).min(type(uint64).max));
+        }
 
         _basefee = Lib1559Math.calculatePrice({
             xscale: xscale,

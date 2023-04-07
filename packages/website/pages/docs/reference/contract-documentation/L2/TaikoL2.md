@@ -1,11 +1,5 @@
 ## TaikoL2
 
-### ANCHOR_GAS_COST
-
-```solidity
-uint64 ANCHOR_GAS_COST
-```
-
 ### VerifiedBlock
 
 ```solidity
@@ -75,10 +69,10 @@ uint64 gasExcess
 uint64 __reserved1
 ```
 
-### BlockVars
+### Anchored
 
 ```solidity
-event BlockVars(uint64 number, uint64 basefee, uint64 gaslimit, uint64 timestamp, bytes32 parentHash, uint256 prevrandao, address coinbase, uint32 chainid)
+event Anchored(uint64 number, uint64 basefee, uint64 gaslimit, uint64 timestamp, bytes32 parentHash, uint256 prevrandao, address coinbase, uint32 chainid)
 ```
 
 ### L2_BASEFEE_MISMATCH

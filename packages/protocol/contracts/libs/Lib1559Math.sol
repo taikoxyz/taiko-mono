@@ -36,7 +36,7 @@ library Lib1559Math {
         // 2*target gas and the other one has target gas.
         uint256 price1x = calculatePrice(xscale, yscale, x, target);
         uint256 price2x = calculatePrice(xscale, yscale, x, target * 2);
-        uint64 ratio = uint64((price2x * 100) / price1x);
+        uint64 ratio = uint64((price2x * 10000) / price1x);
 
         if (ratio2x1x != ratio)
             revert M1559_UNEXPECTED_CHANGE(ratio2x1x, ratio);

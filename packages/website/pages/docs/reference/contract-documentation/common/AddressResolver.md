@@ -91,7 +91,7 @@ Returns the AddressManager's address.
 ### keyForName
 
 ```solidity
-function keyForName(uint256 chainId, string name) public pure returns (string key)
+function keyForName(uint256 chainId, string name) public pure virtual returns (string)
 ```
 
 ### \_init
