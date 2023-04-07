@@ -170,6 +170,7 @@ export class StorageService implements Transactioner {
     return bridgeTxs;
   }
 
+  // TODO: there is a lot of duplicated code here. Refactor.
   async getTransactionByHash(
     address: string,
     hash: string,
@@ -180,98 +181,103 @@ export class StorageService implements Transactioner {
 
     if (tx.from.toLowerCase() !== address.toLowerCase()) return;
 
-    const destChainId = tx.toChainId;
-    const destProvider = this.providers[destChainId];
+    const { toChainId, fromChainId, from } = tx;
 
-    const srcProvider = this.providers[tx.fromChainId];
+    const destProvider = this.providers[toChainId];
+    const srcProvider = this.providers[fromChainId];
 
     // Ignore transactions from chains not supported by the bridge
-    if (!srcProvider) {
-      return null;
-    }
+    if (!srcProvider) return;
+
+    // Wait for transaction to be mined...
     await srcProvider.waitForTransaction(tx.hash);
+
+    // ... and then get the receipt.
     const receipt = await srcProvider.getTransactionReceipt(tx.hash);
 
-    if (!receipt) {
-      return;
-    }
+    if (!receipt) return;
 
     tx.receipt = receipt;
 
-    const destBridgeAddress = chains[destChainId].bridgeAddress;
+    const destBridgeAddress = chains[toChainId].bridgeAddress;
+    const srcBridgeAddress = chains[fromChainId].bridgeAddress;
 
-    const srcBridgeAddress = chains[tx.fromChainId].bridgeAddress;
-
-    const destContract: Contract = new Contract(
+    const destBridgeContract: Contract = new Contract(
       destBridgeAddress,
       BridgeABI,
       destProvider,
     );
 
-    const srcContract: Contract = new Contract(
+    const srcBridgeContract: Contract = new Contract(
       srcBridgeAddress,
       BridgeABI,
       srcProvider,
     );
 
-    const events = await srcContract.queryFilter(
+    // Gets the event MessageSent from the srcBridgeContract
+    // in the block where the transaction was mined.
+    const messageSentEventsList = await srcBridgeContract.queryFilter(
       'MessageSent',
       receipt.blockNumber,
       receipt.blockNumber,
     );
 
-    const event = events.find(
-      (e) => e.args.message.owner.toLowerCase() === address.toLowerCase(),
+    // Find our event MessageSent whose owner is the address passed in
+    const messageSentEvent = messageSentEventsList.find(
+      (event) =>
+        event.args.message.owner.toLowerCase() === address.toLowerCase(),
     );
 
-    if (!event) {
-      return;
-    }
+    if (!messageSentEvent) return;
 
-    const msgHash = event.args.msgHash;
+    const { msgHash, message } = messageSentEvent.args;
 
-    const messageStatus: number = await destContract.getMessageStatus(msgHash);
+    const status: number = await destBridgeContract.getMessageStatus(msgHash);
 
     let amountInWei: BigNumber;
     let symbol: string;
-    if (event.args.message.data !== '0x') {
-      const tokenVaultContract = new Contract(
-        tokenVaults[tx.fromChainId],
+
+    if (message.data !== '0x') {
+      // Dealing with an ERC20 transfer. Let's get the symbol
+      // and amount from the TokenVault contract.
+
+      const srcTokenVaultContract = new Contract(
+        tokenVaults[fromChainId],
         TokenVaultABI,
         srcProvider,
       );
-      const filter = tokenVaultContract.filters.ERC20Sent(msgHash);
-      const erc20Events = await tokenVaultContract.queryFilter(
+
+      const filter = srcTokenVaultContract.filters.ERC20Sent(msgHash);
+      const erc20Events = await srcTokenVaultContract.queryFilter(
         filter,
         receipt.blockNumber,
         receipt.blockNumber,
       );
 
       const erc20Event = erc20Events.find(
-        (e) => e.args.msgHash.toLowerCase() === msgHash.toLowerCase(),
+        (event) => event.args.msgHash.toLowerCase() === msgHash.toLowerCase(),
       );
+
       if (!erc20Event) return;
 
-      const erc20Contract = new Contract(
-        erc20Event.args.token,
-        ERC20_ABI,
-        srcProvider,
-      );
+      const { token, amount } = erc20Event.args;
+      const erc20Contract = new Contract(token, ERC20_ABI, srcProvider);
+
       symbol = await erc20Contract.symbol();
-      amountInWei = BigNumber.from(erc20Event.args.amount);
+      amountInWei = BigNumber.from(amount);
     }
 
     const bridgeTx: BridgeTransaction = {
-      hash: tx.hash,
-      from: tx.from,
-      message: event.args.message,
-      receipt: receipt,
-      msgHash: event.args.msgHash,
-      status: messageStatus,
-      amountInWei: amountInWei,
-      symbol: symbol,
-      fromChainId: tx.fromChainId,
-      toChainId: tx.toChainId,
+      hash,
+      from,
+      message,
+      receipt,
+      msgHash,
+      status,
+      amountInWei,
+      symbol,
+      fromChainId,
+      toChainId,
     };
 
     return bridgeTx;
