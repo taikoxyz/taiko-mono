@@ -64,6 +64,17 @@ export class RelayerAPIService implements RelayerAPI {
       return [];
     }
 
+    apiTxs.items.map((t, i) => {
+      apiTxs.items.map((tx, j) => {
+        if (
+          tx.data.Raw.transactionHash === t.data.Raw.transactionHash &&
+          i !== j
+        ) {
+          apiTxs.items = apiTxs.items.filter((_, index) => index !== j);
+        }
+      });
+    });
+
     const txs = apiTxs.items.map((tx: APIResponseTransaction) => {
       let data = tx.data.Message.Data;
       if (data === '') {

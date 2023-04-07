@@ -23,6 +23,7 @@ jobs:
             eventindexer
             protocol
             relayer
+            starter-dapp
             status-page
             tokenomics
             website

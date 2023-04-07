@@ -208,7 +208,7 @@ describe("Bridge", function () {
     });
 
     describe("context()", function () {
-        it("returns unitialized context", async () => {
+        it("returns uninitialized context", async () => {
             const ctx = await l1Bridge.context();
             expect(ctx[0]).to.be.eq(ethers.constants.HashZero);
             expect(ctx[1]).to.be.eq(ethers.constants.AddressZero);

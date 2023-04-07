@@ -39,7 +39,7 @@ library LibInvalidTxList {
     error ERR_PARAMS_NOT_DEFAULTS();
     error ERR_INVALID_TX_IDX();
     error ERR_INVALID_HINT();
-    error ERR_VERIFICAITON_FAILURE();
+    error ERR_VERIFICATION_FAILURE();
 
     enum Hint {
         NONE,
@@ -93,7 +93,7 @@ library LibInvalidTxList {
                 return;
             }
 
-            revert ERR_VERIFICAITON_FAILURE();
+            revert ERR_VERIFICATION_FAILURE();
         } catch (bytes memory) {
             _checkParams(hint, txIdx);
         }

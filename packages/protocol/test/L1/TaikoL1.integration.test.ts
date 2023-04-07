@@ -119,7 +119,7 @@ describe("integration:TaikoL1", function () {
             );
         });
 
-        it("should return valid block if it's been commmited and proposed", async function () {
+        it("should return valid block if it's been committed and proposed", async function () {
             const commitSlot = 0;
             const { proposedEvent } = await commitAndProposeLatestBlock(
                 taikoL1,
