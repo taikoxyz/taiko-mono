@@ -28,7 +28,6 @@ contract TaikoL1WithNonMintingConfig is TaikoL1 {
         config.enableOracleProver = false;
         config.maxNumProposedBlocks = 200;
         config.ringBufferSize = 240;
-        config.allowMinting = false;
     }
 }
 

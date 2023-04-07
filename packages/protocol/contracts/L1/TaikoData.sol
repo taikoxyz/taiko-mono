@@ -27,7 +27,6 @@ library TaikoData {
         bool enableOracleProver;
         bool enableTokenomics;
         bool skipZKPVerification;
-        bool allowMinting;
     }
 
     struct StateVariables {

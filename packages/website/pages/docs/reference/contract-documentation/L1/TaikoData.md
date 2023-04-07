@@ -24,8 +24,6 @@ struct Config {
   bool enableOracleProver;
   bool enableTokenomics;
   bool skipZKPVerification;
-  bool allowMinting;
-  bool useTimeWeightedReward;
 }
 ```
 

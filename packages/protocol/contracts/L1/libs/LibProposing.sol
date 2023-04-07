@@ -100,10 +100,8 @@ library LibProposing {
 
             unchecked {
                 state.balances[msg.sender] -= fee;
-                if (!config.allowMinting) {
-                    state.rewardPool += fee;
-                    state.accProposedAt += meta.timestamp;
-                }
+                state.rewardPool += fee;
+                state.accProposedAt += meta.timestamp;
             }
         }
 

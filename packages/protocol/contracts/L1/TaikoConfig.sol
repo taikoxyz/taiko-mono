@@ -38,8 +38,7 @@ library TaikoConfig {
                 enableSoloProposer: false,
                 enableOracleProver: true,
                 enableTokenomics: true,
-                skipZKPVerification: false,
-                allowMinting: true
+                skipZKPVerification: false
             });
     }
 }

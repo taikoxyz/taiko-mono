@@ -111,35 +111,26 @@ library LibTokenomics {
             ) /
             SCALING_FROM_18_FIXED_EXP_TO_TKO_AMOUNT;
 
-        if (config.allowMinting) {
-            // Upconvert 1 to uint256 and the rest will be upconverted too to avoid
-            // overflow during multiplication
-            reward = uint64(
-                (uint256(state.basefee) * proofTime) / (config.proofTimeTarget)
-            );
+        /// TODO(dani): Verify with functional tests
+        uint64 numBlocksBeingProven = state.numBlocks -
+            state.lastVerifiedBlockId -
+            1;
+        if (numBlocksBeingProven == 0) {
+            reward = uint64(0);
         } else {
-            /// TODO(dani): Verify with functional tests
-            uint64 numBlocksBeingProven = state.numBlocks -
-                state.lastVerifiedBlockId -
-                1;
-            if (numBlocksBeingProven == 0) {
-                reward = uint64(0);
-            } else {
-                uint64 totalNumProvingSeconds = uint64(
-                    uint256(numBlocksBeingProven) *
-                        block.timestamp -
-                        state.accProposedAt
-                );
+            uint64 totalNumProvingSeconds = uint64(
+                uint256(numBlocksBeingProven) *
+                    block.timestamp -
+                    state.accProposedAt
+            );
 
-                reward = uint64(
-                    (
-                        uint256(
-                            (state.rewardPool * proofTime) /
-                                totalNumProvingSeconds
-                        )
+            reward = uint64(
+                (
+                    uint256(
+                        (state.rewardPool * proofTime) / totalNumProvingSeconds
                     )
-                );
-            }
+                )
+            );
         }
 
         newProofTimeIssued = proofTimeIssued;

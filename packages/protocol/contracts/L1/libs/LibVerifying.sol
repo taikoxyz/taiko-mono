@@ -136,11 +136,9 @@ library LibVerifying {
             state.basefee = newBasefee;
             state.proofTimeIssued = proofTimeIssued;
 
-            if (!config.allowMinting) {
-                unchecked {
-                    state.rewardPool -= reward;
-                    state.accProposedAt -= blk.proposedAt;
-                }
+            unchecked {
+                state.rewardPool -= reward;
+                state.accProposedAt -= blk.proposedAt;
             }
 
             // reward the prover
