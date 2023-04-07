@@ -345,4 +345,16 @@ describe('storage tests', () => {
       JSON.stringify([newTx]),
     );
   });
+
+  it('handles invalid JSON', async () => {
+    mockStorage.getItem.mockImplementation(() => {
+      return 'invalid json';
+    });
+
+    const svc = new StorageService(mockStorage as any, providers);
+
+    const txs = await svc.getAllByAddress('0x123');
+
+    expect(txs).toEqual([]);
+  });
 });
