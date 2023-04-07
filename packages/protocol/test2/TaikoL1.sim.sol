@@ -59,15 +59,16 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed;
 
-        printBlockInfoHeader();
-        printBlockInfo();
+        printInfoHeader();
+        printInfo();
 
+        // Every 1000 blocks take about 40 seconds
+        uint256 blocksToSimulate = 1000;
         uint256 avgBlockTime = 10 seconds;
-        uint256 numBlocks = 100;
 
-        // Every 10000 blocks take about 400 seconds
-        for (uint256 blockId = 1; blockId < numBlocks; blockId++) {
+        for (uint256 blockId = 1; blockId < blocksToSimulate; blockId++) {
             time += randomNumber(avgBlockTime * 2);
+
             while ((time / 12) * 12 > block.timestamp) {
                 vm.warp(block.timestamp + 12);
                 vm.roll(block.number + 1);
@@ -88,14 +89,17 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
                 blockHash,
                 signalRoot
             );
-            printBlockInfo();
+            printInfo();
 
             parentHash = blockHash;
             parentGasUsed = gasUsed;
         }
+        console2.log("-----------------------------");
+        console2.log("avgBlockTime:", avgBlockTime);
     }
 
-    function printBlockInfoHeader() internal view {
+    // TODO(daniel|dani): log enough state variables for analysis.
+    function printInfoHeader() internal view {
         string memory str = string.concat(
             "\nlogCount,",
             "time,",
@@ -108,7 +112,8 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
         console2.log(str);
     }
 
-    function printBlockInfo() internal {
+    // TODO(daniel|dani): log enough state variables for analysis.
+    function printInfo() internal {
         TaikoData.StateVariables memory vars = L1.getStateVariables();
         string memory str = string.concat(
             Strings.toString(logCount++),
