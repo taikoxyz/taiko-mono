@@ -59,25 +59,40 @@ contract TaikoL1RandomTest is TaikoL1TestBase, FoundryRandom {
         _depositTaikoToken(Alice, 1E6 * 1E8, 10000 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
+        printBlockInfoHeader();
+        printBlockInfo();
 
         for (
             uint256 blockId = 1;
-            blockId < conf.maxNumProposedBlocks * 10;
+            blockId < conf.maxNumProposedBlocks * 1;
             blockId++
         ) {
-            // printBlockInfo("before propose");
             TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
-            // printBlockInfo("after propose");
-            mine(1);
+            printBlockInfo();
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
             proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
-            verifyBlock(Carol, 1);
             parentHash = blockHash;
-            mine(1);
+
+            vm.warp(block.timestamp + 20);
+            vm.roll(block.number);
         }
-        // printBlockInfo("");
+    }
+
+    function printBlockInfoHeader() internal {
+        TaikoData.StateVariables memory vars = L1.getStateVariables();
+        (uint256 fee, ) = L1.getBlockFee();
+        string memory str = string.concat(
+            "\nlogCount,",
+            "time,",
+            "lastVerifiedBlockId,",
+            "numBlocks,",
+            "feeBase,",
+            "fee,",
+            "lastProposedAt"
+        );
+        console2.log(str);
     }
 
     function printBlockInfo() internal {
@@ -85,15 +100,17 @@ contract TaikoL1RandomTest is TaikoL1TestBase, FoundryRandom {
         (uint256 fee, ) = L1.getBlockFee();
         string memory str = string.concat(
             Strings.toString(logCount++),
-            ":[",
+            ",",
+            Strings.toString(block.timestamp),
+            ",",
             Strings.toString(vars.lastVerifiedBlockId),
-            unicode"→",
+            ",",
             Strings.toString(vars.numBlocks),
-            "] feeBase:",
+            ",",
             Strings.toString(vars.feeBase),
-            " fee:",
+            ",",
             Strings.toString(fee),
-            " lastProposedAt:",
+            ",",
             Strings.toString(vars.lastProposedAt)
         );
         console2.log(str);
