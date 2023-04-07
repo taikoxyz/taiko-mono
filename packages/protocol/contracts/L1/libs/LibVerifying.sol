@@ -12,6 +12,7 @@ import {LibUtils} from "./LibUtils.sol";
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import {ISignalService} from "../../signal/ISignalService.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 
 library LibVerifying {
@@ -57,6 +58,7 @@ library LibVerifying {
     function verifyBlocks(
         TaikoData.State storage state,
         TaikoData.Config memory config,
+        AddressResolver resolver,
         uint256 maxBlocks
     ) internal {
         uint256 i = state.lastVerifiedBlockId;
@@ -106,6 +108,12 @@ library LibVerifying {
             unchecked {
                 state.lastVerifiedBlockId += processed;
             }
+
+            // Send the L2's signal root to the signal service so other TaikoL1
+            // deployments, if they share the same signal service, can relay the
+            // signal to their corresponding TaikoL2 contract.
+            ISignalService(resolver.resolve("signal_service", false))
+                .sendSignal(signalRoot);
             emit XchainSynced(state.lastVerifiedBlockId, blockHash, signalRoot);
         }
     }

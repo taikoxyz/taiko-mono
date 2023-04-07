@@ -73,6 +73,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             LibVerifying.verifyBlocks({
                 state: state,
                 config: config,
+                resolver: AddressResolver(this),
                 maxBlocks: config.maxVerificationsPerTx
             });
         }
@@ -122,6 +123,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             LibVerifying.verifyBlocks({
                 state: state,
                 config: config,
+                resolver: AddressResolver(this),
                 maxBlocks: config.maxVerificationsPerTx
             });
         }
@@ -136,6 +138,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         LibVerifying.verifyBlocks({
             state: state,
             config: getConfig(),
+            resolver: AddressResolver(this),
             maxBlocks: maxBlocks
         });
     }
