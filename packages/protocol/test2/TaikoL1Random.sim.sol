@@ -54,8 +54,7 @@ contract TaikoL1RandomTest is TaikoL1TestBase, FoundryRandom {
     }
 
     function testGeneratingManyRandomBlocks() external {
-
-uint256 time = block.timestamp;
+        uint256 time = block.timestamp;
         assertEq(time, 1);
 
         _depositTaikoToken(Alice, 1E6 * 1E8, 10000 ether);
@@ -63,20 +62,16 @@ uint256 time = block.timestamp;
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed;
 
-            printBlockInfoHeader();
+        printBlockInfoHeader();
         printBlockInfo();
 
         uint256 avgBlockTime = 10 seconds;
 
         // Every 10000 blocks take about 400 seconds
-        for (
-            uint256 blockId = 1;
-            blockId < 10000;
-            blockId++
-        ) {
-             time += randomNumber(avgBlockTime*2);
-            while ((time/12)*12 > block.timestamp) {
-                 vm.warp(block.timestamp + 12);
+        for (uint256 blockId = 1; blockId < 10000; blockId++) {
+            time += randomNumber(avgBlockTime * 2);
+            while ((time / 12) * 12 > block.timestamp) {
+                vm.warp(block.timestamp + 12);
                 vm.roll(block.number + 1);
             }
 
