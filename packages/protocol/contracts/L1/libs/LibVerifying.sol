@@ -80,9 +80,7 @@ library LibVerifying {
 
             fcId = LibUtils.getForkChoiceId(state, blk, i, blockHash, gasUsed);
 
-            if (fcId == 0) {
-                break;
-            }
+            if (fcId == 0) break;
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
             if (fc.prover == address(0)) break;
