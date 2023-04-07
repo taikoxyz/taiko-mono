@@ -40,7 +40,7 @@ library LibUtils {
         if (
             fcId == 0 &&
             blk.forkChoices[1].key ==
-            LibUtils.keyForForkChoice(parentHash, parentGasUsed)
+            keyForForkChoice(parentHash, parentGasUsed)
         ) return 1;
         return fcId;
     }

@@ -179,6 +179,13 @@ library LibProving {
             }
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
+            if (fcId == 1) {
+                // We only write the key when fcId is 1.
+                fc.key = LibUtils.keyForForkChoice(
+                    evidence.parentHash,
+                    evidence.parentGasUsed
+                );
+            }
             fc.blockHash = evidence.blockHash;
             fc.signalRoot = evidence.signalRoot;
             fc.provenAt = uint64(block.timestamp);
