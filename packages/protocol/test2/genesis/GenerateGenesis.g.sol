@@ -14,6 +14,7 @@ import {TokenVault} from "../../contracts/bridge/TokenVault.sol";
 import {EtherVault} from "../../contracts/bridge/EtherVault.sol";
 import {SignalService} from "../../contracts/signal/SignalService.sol";
 import {LibBridgeStatus} from "../../contracts/bridge/libs/LibBridgeStatus.sol";
+import {LibL2Consts} from "../../contracts/L2/LibL2Consts.sol";
 import {RegularERC20} from "../../contracts/test/erc20/RegularERC20.sol";
 
 contract TestGenerateGenesis is Test, AddressResolver {
@@ -67,7 +68,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
                 taikoL2.getBasefee(
                     0,
                     BLOCK_GAS_LIMIT,
-                    i + taikoL2.ANCHOR_GAS_COST()
+                    i + LibL2Consts.ANCHOR_GAS_COST
                 )
             );
 
@@ -77,7 +78,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
                 bytes32(block.prevrandao),
                 bytes32(block.prevrandao),
                 i,
-                i + taikoL2.ANCHOR_GAS_COST()
+                i + LibL2Consts.ANCHOR_GAS_COST
             );
 
             if (i == 299) {

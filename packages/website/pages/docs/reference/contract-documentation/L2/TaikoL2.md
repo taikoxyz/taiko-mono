@@ -1,11 +1,5 @@
 ## TaikoL2
 
-### ANCHOR_GAS_COST
-
-```solidity
-uint64 ANCHOR_GAS_COST
-```
-
 ### VerifiedBlock
 
 ```solidity
