@@ -31,7 +31,8 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
-        uint64 initBasefee
+        uint64 initBasefee,
+        uint64 initProofTimeIssued
     ) internal {
         _checkConfig(config);
 
@@ -40,6 +41,7 @@ library LibVerifying {
         state.genesisTimestamp = timeNow;
 
         state.basefee = initBasefee;
+        state.proofTimeIssued = initProofTimeIssued;
         state.numBlocks = 1;
 
         TaikoData.Block storage blk = state.blocks[0];

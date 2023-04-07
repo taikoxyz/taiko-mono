@@ -131,6 +131,24 @@ library LibTokenomics {
                     )
                 )
             );
+
+            // // todo:(dani) Validate algo and check which seems best among the 3
+            // reward_opt2 = uint64(
+            //     (
+            //         uint256(
+            //             (state.rewardPool * proofTime) / (totalNumProvingSeconds * 2)
+            //         )
+            //     )
+            // );
+
+            // reward_opt3 = uint64(
+            //     (
+            //         uint256(
+            //             (state.rewardPool * proofTime) /
+            //             (numBlocksBeingProven - 1) * config.proofTimeTarget + proofTime
+            //         )
+            //     )
+            // );
         }
 
         newProofTimeIssued = proofTimeIssued;

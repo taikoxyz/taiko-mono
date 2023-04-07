@@ -46,8 +46,15 @@ abstract contract TaikoL1TestBase is Test {
         addressManager = new AddressManager();
         addressManager.init();
         uint64 initBasefee = 1e9; // 100 TKO : Only relevant for the first proposing
+        // todo: 0 for now, but calculate it for our needs based on testnet/mainnet proof vars. See Brecht's comment https://github.com/taikoxyz/taiko-mono/pull/13564
+        uint64 initProofTimeIssued = 0;
         L1 = deployTaikoL1();
-        L1.init(address(addressManager), GENESIS_BLOCK_HASH, initBasefee);
+        L1.init(
+            address(addressManager),
+            GENESIS_BLOCK_HASH,
+            initBasefee,
+            initProofTimeIssued
+        );
         conf = L1.getConfig();
 
         tko = new TaikoToken();
