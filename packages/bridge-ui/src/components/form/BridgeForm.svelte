@@ -401,7 +401,7 @@
       .eq(BigNumber.from(0)); // balance == 0?
 </script>
 
-<div class="form-control my-4 md:my-8">
+<div class="form-control my-10 md:my-8">
   <label class="label" for="amount">
     <span class="label-text">{$_('bridgeForm.fieldLabel')}</span>
 

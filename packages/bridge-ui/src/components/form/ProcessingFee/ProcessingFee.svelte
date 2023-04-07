@@ -39,7 +39,7 @@
   }
 </script>
 
-<div class="my-10">
+<div class="my-10 md:my-8">
   <div class="flex flex-row justify-between">
     <ButtonWithTooltip onClick={() => (showProcessingFeeTooltip = true)}>
       <span slot="buttonText">{$_('bridgeForm.processingFeeLabel')}</span>
