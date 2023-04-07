@@ -1,7 +1,5 @@
 <script lang="ts">
-  import { wrap } from 'svelte-spa-router/wrap';
   import QueryProvider from './components/providers/QueryProvider.svelte';
-  import Router from 'svelte-spa-router';
   import { configureChains, createClient } from '@wagmi/core';
   import { publicProvider } from '@wagmi/core/providers/public';
   import { jsonRpcProvider } from '@wagmi/core/providers/jsonRpc';
@@ -9,7 +7,6 @@
   import { WalletConnectConnector } from '@wagmi/core/connectors/walletConnect';
   import { MetaMaskConnector } from '@wagmi/core/connectors/metaMask';
 
-  import Home from './pages/home/Home.svelte';
   import { setupI18n } from './i18n';
   import {
     pendingTransactions,
@@ -37,6 +34,7 @@
   import { chains, mainnetWagmiChain, taikoWagmiChain } from './chain/chains';
   import { providers } from './provider/providers';
   import { RELAYER_URL } from './constants/envVars';
+  import Router from './components/Router.svelte';
 
   const { chains: wagmiChains, provider } = configureChains(
     [mainnetWagmiChain, taikoWagmiChain],
@@ -182,20 +180,12 @@
       });
     }
   });
-
-  const routes = {
-    '/:tab?': wrap({
-      component: Home,
-      props: {},
-      userData: {},
-    }),
-  };
 </script>
 
 <QueryProvider>
   <main>
     <Navbar />
-    <Router {routes} />
+    <Router />
   </main>
   <Toast />
   <SwitchEthereumChainModal />
