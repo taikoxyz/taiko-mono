@@ -28,6 +28,23 @@ library LibUtils {
         found = (blk.blockId == id && blk.verifiedForkChoiceId != 0);
     }
 
+    function getForkChoiceId(
+        TaikoData.State storage state,
+        TaikoData.Block storage blk,
+        uint256 blockId,
+        bytes32 parentHash,
+        uint32 parentGasUsed
+    ) internal view returns (uint256) {
+        uint256 fcId = state.forkChoiceIds[blockId][parentHash][parentGasUsed];
+        if (fcId >= blk.nextForkChoiceId) return 0;
+        if (
+            fcId == 0 &&
+            blk.forkChoices[1].key ==
+            LibUtils.keyForForkChoice(parentHash, parentGasUsed)
+        ) return 1;
+        return fcId;
+    }
+
     function getStateVariables(
         TaikoData.State storage state
     ) internal view returns (TaikoData.StateVariables memory) {

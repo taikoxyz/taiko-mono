@@ -74,7 +74,14 @@ library LibProving {
                 id % config.ringBufferSize
             ];
 
-            uint256 fcId = state.forkChoiceIds[id][parentHash][parentGasUsed];
+            uint256 fcId = LibUtils.getForkChoiceId(
+                state,
+                blk,
+                id,
+                parentHash,
+                parentGasUsed
+            );
+
             if (fcId == 0) {
                 fcId = blk.nextForkChoiceId;
                 unchecked {
@@ -149,9 +156,13 @@ library LibProving {
         if (blk.metaHash != _metaHash)
             revert L1_EVIDENCE_MISMATCH(blk.metaHash, _metaHash);
 
-        uint256 fcId = state.forkChoiceIds[blockId][evidence.parentHash][
+        uint256 fcId = LibUtils.getForkChoiceId(
+            state,
+            blk,
+            blockId,
+            evidence.parentHash,
             evidence.parentGasUsed
-        ];
+        );
 
         if (fcId == 0) {
             if (config.enableOracleProver) revert L1_NOT_ORACLE_PROVEN();
@@ -161,9 +172,11 @@ library LibProving {
                 ++blk.nextForkChoiceId;
             }
             assert(fcId > 0);
-            state.forkChoiceIds[blockId][evidence.parentHash][
-                evidence.parentGasUsed
-            ] = fcId;
+            if (fcId != 1) {
+                state.forkChoiceIds[blockId][evidence.parentHash][
+                    evidence.parentGasUsed
+                ] = fcId;
+            }
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
             fc.blockHash = evidence.blockHash;
@@ -272,19 +285,14 @@ library LibProving {
         ];
         if (blk.blockId != blockId) revert L1_BLOCK_ID();
 
-        uint256 fcId = state.forkChoiceIds[blockId][parentHash][parentGasUsed];
-        if (fcId >= blk.nextForkChoiceId) revert L1_FORK_CHOICE_NOT_FOUND();
-
-        if (fcId == 0) {
-            if (
-                blk.forkChoices[1].key ==
-                LibUtils.keyForForkChoice(parentHash, parentGasUsed)
-            ) {
-                fcId = 1;
-            } else {
-                revert L1_FORK_CHOICE_NOT_FOUND();
-            }
-        }
+        uint256 fcId = LibUtils.getForkChoiceId(
+            state,
+            blk,
+            blockId,
+            parentHash,
+            parentGasUsed
+        );
+        if (fcId == 0) revert L1_FORK_CHOICE_NOT_FOUND();
 
         return blk.forkChoices[fcId];
     }
