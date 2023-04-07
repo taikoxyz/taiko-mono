@@ -54,6 +54,7 @@ const mockTxReceipt = {
 const mockEvent = {
   args: {
     message: {
+      data: '0x',
       owner: '0x123',
     },
     msgHash: '0x456',
@@ -65,6 +66,10 @@ const mockErc20Event = {
   args: {
     amount: '100',
     msgHash: '0x456',
+    message: {
+      owner: '0x123',
+      data: '0x789',
+    },
   },
 };
 
@@ -73,209 +78,7 @@ const mockQuery = [mockEvent];
 const mockErc20Query = [mockErc20Event];
 
 describe('storage tests', () => {
-  beforeEach(() => {
-    jest.resetAllMocks();
-  });
-
-  it('gets all transactions by address, no transactions in list', async () => {
-    mockStorage.getItem.mockImplementation(() => {
-      return '[]';
-    });
-
-    mockContract.symbol.mockImplementation(() => {
-      return TKOToken.symbol;
-    });
-
-    const svc = new StorageService(mockStorage as any, providers);
-
-    const addresses = await svc.getAllByAddress('0x123');
-
-    expect(addresses).toEqual([]);
-  });
-
-  it('gets all transactions by address, no receipt', async () => {
-    mockStorage.getItem.mockImplementation(() => {
-      return JSON.stringify(mockTxs);
-    });
-
-    mockContract.getMessageStatus.mockImplementation(() => {
-      return MessageStatus.New;
-    });
-
-    mockContract.queryFilter.mockImplementation(() => {
-      return mockQuery;
-    });
-
-    mockContract.symbol.mockImplementation(() => {
-      return TKOToken.symbol;
-    });
-
-    const svc = new StorageService(mockStorage as any, providers);
-
-    const addresses = await svc.getAllByAddress('0x123');
-
-    expect(addresses).toEqual([
-      {
-        from: '0x123',
-        hash: '0x123',
-        fromChainId: L1_CHAIN_ID,
-        status: 0,
-        toChainId: L2_CHAIN_ID,
-      },
-    ]);
-  });
-
-  it('gets all transactions by address, no event', async () => {
-    mockStorage.getItem.mockImplementation(() => {
-      return JSON.stringify(mockTxs);
-    });
-
-    mockProvider.getTransactionReceipt.mockImplementation(() => {
-      return mockTxReceipt;
-    });
-
-    mockContract.getMessageStatus.mockImplementation(() => {
-      return MessageStatus.New;
-    });
-
-    mockContract.queryFilter.mockImplementation(() => {
-      return [];
-    });
-
-    mockContract.symbol.mockImplementation(() => {
-      return TKOToken.symbol;
-    });
-
-    const svc = new StorageService(mockStorage as any, providers);
-
-    const addresses = await svc.getAllByAddress('0x123');
-
-    expect(addresses).toEqual([
-      {
-        from: '0x123',
-        hash: '0x123',
-        fromChainId: L1_CHAIN_ID,
-        receipt: {
-          blockNumber: 1,
-        },
-        status: 0,
-        toChainId: L2_CHAIN_ID,
-      },
-    ]);
-  });
-
-  it('gets all transactions by address', async () => {
-    mockStorage.getItem.mockImplementation(() => {
-      return JSON.stringify(mockTxs);
-    });
-
-    mockProvider.getTransactionReceipt.mockImplementation(() => {
-      return mockTxReceipt;
-    });
-
-    mockContract.getMessageStatus.mockImplementation(() => {
-      return MessageStatus.New;
-    });
-
-    mockContract.queryFilter.mockImplementation(
-      (name: string, from: BigNumberish, to: BigNumberish) => {
-        if (name === 'ERC20Sent') {
-          return mockErc20Query;
-        }
-
-        return mockQuery;
-      },
-    );
-
-    mockContract.symbol.mockImplementation(() => {
-      return TKOToken.symbol;
-    });
-
-    const svc = new StorageService(mockStorage as any, providers);
-
-    const addresses = await svc.getAllByAddress('0x123');
-
-    expect(addresses).toEqual([
-      {
-        amountInWei: BigNumber.from(0x64),
-        hash: '0x123',
-        from: '0x123',
-        message: {
-          owner: '0x123',
-        },
-        receipt: {
-          blockNumber: 1,
-        },
-        msgHash: '0x456',
-        status: 0,
-        fromChainId: L1_CHAIN_ID,
-        toChainId: L2_CHAIN_ID,
-        symbol: 'TKO',
-      },
-    ]);
-  });
-
-  it('gets all transactions by address, CHAIN_TKO', async () => {
-    mockTx.toChainId = L2_CHAIN_ID;
-    mockStorage.getItem.mockImplementation(() => {
-      return JSON.stringify(mockTxs);
-    });
-
-    mockProvider.getTransactionReceipt.mockImplementation(() => {
-      return mockTxReceipt;
-    });
-
-    mockContract.getMessageStatus.mockImplementation(() => {
-      return MessageStatus.New;
-    });
-
-    mockContract.queryFilter.mockImplementation(
-      (name: string, from: BigNumberish, to: BigNumberish) => {
-        if (name === 'ERC20Sent') {
-          return mockErc20Query;
-        }
-
-        return mockQuery;
-      },
-    );
-
-    mockContract.symbol.mockImplementation(() => {
-      return TKOToken.symbol;
-    });
-
-    const svc = new StorageService(mockStorage as any, providers);
-
-    const addresses = await svc.getAllByAddress('0x123');
-
-    expect(addresses).toEqual([
-      {
-        amountInWei: BigNumber.from(0x64),
-        from: '0x123',
-        hash: '0x123',
-        message: {
-          owner: '0x123',
-        },
-        receipt: {
-          blockNumber: 1,
-        },
-        msgHash: '0x456',
-        status: 0,
-        symbol: 'TKO',
-        fromChainId: L1_CHAIN_ID,
-        toChainId: L2_CHAIN_ID,
-      },
-    ]);
-  });
-
-  it('get transaction by hash', async () => {
-    mockStorage.getItem.mockImplementation(() => {
-      return JSON.stringify(mockTxs);
-    });
-
-    mockProvider.getTransactionReceipt.mockImplementation(() => {
-      return mockTxReceipt;
-    });
-
+  beforeAll(() => {
     mockProvider.waitForTransaction.mockImplementation(() => {
       return;
     });
@@ -283,16 +86,90 @@ describe('storage tests', () => {
     mockContract.getMessageStatus.mockImplementation(() => {
       return MessageStatus.New;
     });
+  });
 
-    mockContract.queryFilter.mockImplementation(
-      (name: string, from: BigNumberish, to: BigNumberish) => {
-        if (name === 'ERC20Sent') {
-          return mockErc20Query;
-        }
+  beforeEach(() => {
+    mockStorage.getItem.mockImplementation(() => {
+      return JSON.stringify(mockTxs);
+    });
 
-        return mockQuery;
+    mockProvider.getTransactionReceipt.mockImplementation(() => {
+      return mockTxReceipt;
+    });
+  });
+
+  it('gets all transactions by address, no transactions in list', async () => {
+    mockStorage.getItem.mockImplementation(() => {
+      return '[]';
+    });
+
+    const svc = new StorageService(mockStorage as any, providers);
+
+    const txs = await svc.getAllByAddress('0x123');
+
+    expect(txs).toEqual([]);
+  });
+
+  it('gets all transactions by address, no receipt', async () => {
+    mockProvider.getTransactionReceipt.mockImplementation(() => {
+      return null;
+    });
+
+    const svc = new StorageService(mockStorage as any, providers);
+
+    const txs = await svc.getAllByAddress('0x123');
+
+    expect(txs).toEqual([mockTx]);
+  });
+
+  it('gets all transactions by address, no event', async () => {
+    mockContract.queryFilter.mockImplementation(() => {
+      return [];
+    });
+
+    const svc = new StorageService(mockStorage as any, providers);
+
+    const txs = await svc.getAllByAddress('0x123');
+
+    expect(txs).toEqual([
+      {
+        ...mockTx,
+        receipt: {
+          blockNumber: 1,
+        },
       },
-    );
+    ]);
+  });
+
+  it('gets all transactions by address, ETH (message.data === "0x")', async () => {
+    mockContract.queryFilter.mockImplementation(() => {
+      return mockQuery;
+    });
+
+    mockContract.symbol.mockImplementation(() => {
+      return 'ETH';
+    });
+
+    const svc = new StorageService(mockStorage as any, providers);
+
+    const txs = await svc.getAllByAddress('0x123');
+
+    expect(txs).toEqual([
+      {
+        ...mockTx,
+        receipt: {
+          blockNumber: 1,
+        },
+        msgHash: mockEvent.args.msgHash,
+        message: mockEvent.args.message,
+      },
+    ]);
+  });
+
+  it('gets all transactions by address, ERC20 (message.data !== "0x")', async () => {
+    mockContract.queryFilter.mockImplementation(() => {
+      return mockErc20Query;
+    });
 
     mockContract.symbol.mockImplementation(() => {
       return TKOToken.symbol;
@@ -300,23 +177,93 @@ describe('storage tests', () => {
 
     const svc = new StorageService(mockStorage as any, providers);
 
-    const addresses = await svc.getTransactionByHash('0x123', mockTx.hash);
+    const txs = await svc.getAllByAddress('0x123');
 
-    expect(addresses).toEqual({
-      amountInWei: BigNumber.from(0x64),
-      hash: '0x123',
-      from: '0x123',
-      message: {
-        owner: '0x123',
+    expect(txs).toEqual([
+      {
+        ...mockTx,
+        amountInWei: BigNumber.from(0x64),
+        receipt: {
+          blockNumber: 1,
+        },
+        symbol: TKOToken.symbol,
+        msgHash: mockErc20Event.args.msgHash,
+        message: mockErc20Event.args.message,
       },
+    ]);
+  });
+
+  it('gets all transactions by address, no receipt', async () => {
+    mockProvider.getTransactionReceipt.mockImplementation(() => {
+      return null;
+    });
+
+    const svc = new StorageService(mockStorage as any, providers);
+
+    const tx = await svc.getTransactionByHash('0x123', mockTx.hash);
+
+    expect(tx).toBeUndefined();
+  });
+
+  it('gets all transactions by address, no event', async () => {
+    mockContract.queryFilter.mockImplementation(() => {
+      return [];
+    });
+
+    const svc = new StorageService(mockStorage as any, providers);
+
+    const tx = await svc.getTransactionByHash('0x123', mockTx.hash);
+
+    expect(tx).toBeUndefined();
+  });
+
+  it('get transaction by hash, ETH (message.data === "0x")', async () => {
+    mockContract.queryFilter.mockImplementation(() => {
+      return mockQuery;
+    });
+
+    mockContract.symbol.mockImplementation(() => {
+      return 'ETH';
+    });
+
+    const svc = new StorageService(mockStorage as any, providers);
+
+    const tx = await svc.getTransactionByHash('0x123', mockTx.hash);
+
+    expect(tx).toEqual({
+      ...mockTx,
+      message: mockEvent.args.message,
       receipt: {
         blockNumber: 1,
       },
-      msgHash: '0x456',
+      msgHash: mockEvent.args.msgHash,
       status: 0,
-      fromChainId: L1_CHAIN_ID,
-      toChainId: L2_CHAIN_ID,
-      symbol: 'TKO',
+    });
+  });
+
+  it('get transaction by hash, ERC20 (message.data !== "0x")', async () => {
+    mockContract.queryFilter.mockImplementation(() => {
+      return mockErc20Query;
+    });
+
+    mockContract.symbol.mockImplementation(() => {
+      return TKOToken.symbol;
+    });
+
+    const svc = new StorageService(mockStorage as any, providers);
+
+    const tx = await svc.getTransactionByHash('0x123', mockTx.hash);
+
+    expect(tx).toEqual({
+      ...mockTx,
+      amountInWei: BigNumber.from(0x64),
+      message: mockErc20Event.args.message,
+      receipt: {
+        blockNumber: 1,
+      },
+      msgHash: mockErc20Event.args.msgHash,
+      status: 0,
+      symbol: TKOToken.symbol,
     });
   });
 
