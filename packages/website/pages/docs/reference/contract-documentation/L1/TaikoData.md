@@ -131,6 +131,7 @@ struct BlockOracles {
 
 ```solidity
 struct ForkChoice {
+  bytes32 key;
   bytes32 blockHash;
   bytes32 signalRoot;
   uint64 provenAt;
