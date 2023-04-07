@@ -15,7 +15,7 @@
     "coverage": "pnpm hardhat coverage --solcoverjs ./.solcover.js --show-stack-traces",
     "test:coverage": "pnpm coverage",
     "test:foundry": "forge test -vvv --gas-report --fuzz-seed $(date +%s) --match-path test2/**/*.t.sol",
-    "test:sim": "forge test -vvv --fuzz-seed $(date +%s) --match-path test2/**/*.sim.sol --block-gas-limit 30000000000 --memory-limit 1073741824",
+    "test:sim": "forge test -vvv --gas-report --fuzz-seed $(date +%s) --match-path test2/**/*.sim.sol --block-gas-limit 30000000000 --memory-limit 1073741824",
     "generate:genesis": "ts-node ./utils/generate_genesis/main.ts",
     "test:genesis": "./test2/genesis/generate_genesis.test.sh",
     "test:bridge": "TEST_TYPE=integrationbridge ./test/test_integration.sh",
