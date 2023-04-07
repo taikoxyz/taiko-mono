@@ -92,7 +92,6 @@ library LibProving {
             // [provenAt+prover] slot.
             fc.provenAt = uint64(block.timestamp);
             fc.prover = address(0);
-            fc.gasUsed = oracle.gasUsed;
 
             emit BlockProven({
                 id: id,
@@ -153,7 +152,6 @@ library LibProving {
                 ++blk.nextForkChoiceId;
             }
             assert(fcId > 0);
-
             state.forkChoiceIds[blockId][evidence.parentHash][
                 evidence.parentGasUsed
             ] = fcId;

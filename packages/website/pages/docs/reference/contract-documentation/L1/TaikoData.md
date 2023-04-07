@@ -127,6 +127,16 @@ struct BlockOracles {
 }
 ```
 
+### BlockOracle
+
+```solidity
+struct BlockOracle {
+  bytes32 parentHash;
+  bytes32 blockHash;
+  bytes32 signalRoot;
+}
+```
+
 ### ForkChoice
 
 ```solidity

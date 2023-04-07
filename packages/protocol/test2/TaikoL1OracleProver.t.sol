@@ -114,8 +114,6 @@ contract TaikoL1Test is TaikoL1TestBase {
             Bob,
             1,
             parentHash,
-            123,
-            456,
             bytes32(uint256(0x100)),
             bytes32(uint256(0x101))
         );
@@ -125,8 +123,6 @@ contract TaikoL1Test is TaikoL1TestBase {
             Alice,
             1,
             parentHash,
-            123,
-            456,
             bytes32(uint256(0x100)),
             bytes32(uint256(0x101))
         );
@@ -145,7 +141,6 @@ contract TaikoL1Test is TaikoL1TestBase {
         // Alice can oracle-prove the forkchoice more than once
         for (uint i = 0; i < 2; ++i) {
             mine(1);
-
             oracleProveBlock({
                 prover: Alice,
                 blockId: 1,
@@ -162,6 +157,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             parentHash: parentHash,
             parentGasUsed: 123
         });
+
         assertEq(fc.blockHash, bytes32(uint256(0x103)));
         assertEq(fc.signalRoot, bytes32(uint256(0x104)));
         assertEq(uint256(fc.provenAt), block.timestamp);
@@ -208,6 +204,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             parentHash: parentHash,
             parentGasUsed: 123
         });
+
         assertEq(fc.blockHash, bytes32(uint256(0x103)));
         assertEq(fc.signalRoot, bytes32(uint256(0x104)));
         assertEq(uint256(fc.provenAt), block.timestamp);
@@ -255,6 +252,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             parentHash: parentHash,
             parentGasUsed: 123
         });
+
         assertEq(fc.blockHash, bytes32(uint256(0x105)));
         assertEq(fc.signalRoot, bytes32(uint256(0x106)));
         assertEq(uint256(fc.provenAt), block.timestamp);
