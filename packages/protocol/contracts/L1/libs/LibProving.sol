@@ -81,7 +81,7 @@ library LibProving {
                     ++blk.nextForkChoiceId;
                 }
                 assert(fcId > 0);
-                if (fcId > 1) {
+                if (fcId != 1) {
                     // Avoid a SSTORE when fcId is 1.
                     state.forkChoiceIds[id][parentHash][parentGasUsed] = fcId;
                 }
