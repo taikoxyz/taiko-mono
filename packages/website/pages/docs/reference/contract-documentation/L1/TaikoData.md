@@ -27,6 +27,7 @@ struct Config {
   uint256 proposerDepositPctg;
   uint256 feeBaseMAF;
   uint256 txListCacheExpiry;
+  bool relaySignalRoot;
   bool enableSoloProposer;
   bool enableOracleProver;
   bool enableTokenomics;

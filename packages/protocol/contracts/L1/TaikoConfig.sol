@@ -38,6 +38,7 @@ library TaikoConfig {
                 // Moving average factors
                 feeBaseMAF: 1024,
                 txListCacheExpiry: 0,
+                relaySignalRoot: false,
                 enableSoloProposer: false,
                 enableOracleProver: true,
                 enableTokenomics: true,

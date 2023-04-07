@@ -109,11 +109,13 @@ library LibVerifying {
                 state.lastVerifiedBlockId += processed;
             }
 
-            // Send the L2's signal root to the signal service so other TaikoL1
-            // deployments, if they share the same signal service, can relay the
-            // signal to their corresponding TaikoL2 contract.
-            ISignalService(resolver.resolve("signal_service", false))
-                .sendSignal(signalRoot);
+            if (config.relaySignalRoot) {
+                // Send the L2's signal root to the signal service so other TaikoL1
+                // deployments, if they share the same signal service, can relay the
+                // signal to their corresponding TaikoL2 contract.
+                ISignalService(resolver.resolve("signal_service", false))
+                    .sendSignal(signalRoot);
+            }
             emit XchainSynced(state.lastVerifiedBlockId, blockHash, signalRoot);
         }
     }
