@@ -75,7 +75,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (
             uint256 blockId = 1;
-            blockId < conf.ringBufferSize * 10;
+            blockId < conf.maxNumProposedBlocks * 10;
             blockId++
         ) {
             printVariables("before propose");
