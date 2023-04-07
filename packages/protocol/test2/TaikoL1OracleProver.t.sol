@@ -74,7 +74,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
-        TaikoData.BlockMetadata memory meta = proposeBlock(Bob, 1024);
+        TaikoData.BlockMetadata memory meta = proposeBlock(Bob, 1000000, 1024);
 
         // No forkchoice can be found
         vm.expectRevert();

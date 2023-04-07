@@ -63,7 +63,8 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
         printVariables();
 
         // Every 1000 blocks take about 40 seconds
-        uint256 blocksToSimulate = 1000;
+        // TODO(daniel|dani): change this to 10000
+        uint256 blocksToSimulate = 100;
         uint256 avgBlockTime = 10 seconds;
 
         for (uint256 blockId = 1; blockId < blocksToSimulate; blockId++) {
@@ -74,11 +75,17 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
                 vm.roll(block.number + 1);
             }
 
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
-
-            uint32 gasUsed = uint32(randomNumber(1000000, 1000000));
+            uint32 gasLimit = uint32(randomNumber(100E3, 30E6)); // 100K to 30M
+            uint32 gasUsed = uint32(randomNumber(gasLimit / 2, gasLimit));
+            uint24 txListSize = uint24(randomNumber(1, conf.maxBytesPerTxList));
             bytes32 blockHash = bytes32(randomNumber(type(uint256).max));
             bytes32 signalRoot = bytes32(randomNumber(type(uint256).max));
+
+            TaikoData.BlockMetadata memory meta = proposeBlock(
+                Alice,
+                gasLimit,
+                txListSize
+            );
 
             proveBlock(
                 Bob,
