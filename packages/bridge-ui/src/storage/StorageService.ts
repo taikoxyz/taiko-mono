@@ -30,10 +30,13 @@ export class StorageService implements Transactioner {
       `${STORAGE_PREFIX}-${address.toLowerCase()}`,
     );
 
-    // TODO: handle invalid JSON
-    const txs: BridgeTransaction[] = transactions
-      ? JSON.parse(transactions)
-      : [];
+    let txs: BridgeTransaction[];
+
+    try {
+      txs = transactions ? JSON.parse(transactions) : [];
+    } catch (e) {
+      txs = [];
+    }
 
     return txs;
   }
@@ -283,7 +286,7 @@ export class StorageService implements Transactioner {
     return bridgeTx;
   }
 
-  updateStorageByAddress(address: string, txs: BridgeTransaction[]) {
+  updateStorageByAddress(address: string, txs: BridgeTransaction[] = []) {
     this.storage.setItem(
       `${STORAGE_PREFIX}-${address.toLowerCase()}`,
       JSON.stringify(txs),
