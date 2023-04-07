@@ -106,7 +106,7 @@ library TaikoData {
 
     // 4 slots
     struct ForkChoice {
-        bytes32 key; // conditionally written
+        bytes32 key; // only written/read for the 1st fork choice.
         bytes32 blockHash;
         bytes32 signalRoot;
         uint64 provenAt;

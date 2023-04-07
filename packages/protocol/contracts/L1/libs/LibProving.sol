@@ -82,14 +82,14 @@ library LibProving {
                 }
                 assert(fcId > 0);
                 if (fcId > 1) {
-                    // We avoid writing the mapping when fcId is 1.
+                    // Avoid a SSTORE when fcId is 1.
                     state.forkChoiceIds[id][parentHash][parentGasUsed] = fcId;
                 }
             }
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
             if (fcId == 1) {
-                // We only write a key when fcId is 1.
+                // We only write the key when fcId is 1.
                 fc.key = LibUtils.keyForForkChoice(parentHash, parentGasUsed);
             }
 
