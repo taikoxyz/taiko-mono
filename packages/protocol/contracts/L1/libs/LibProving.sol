@@ -88,10 +88,10 @@ library LibProving {
                     ++blk.nextForkChoiceId;
                 }
                 assert(fcId > 0);
-                if (fcId != 1) {
-                    // Avoid a SSTORE when fcId is 1.
-                    state.forkChoiceIds[id][parentHash][parentGasUsed] = fcId;
-                }
+
+                state.forkChoiceIds[id][parentHash][parentGasUsed] = fcId == 1
+                    ? 0
+                    : fcId;
             }
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
@@ -172,11 +172,9 @@ library LibProving {
                 ++blk.nextForkChoiceId;
             }
             assert(fcId > 0);
-            if (fcId != 1) {
-                state.forkChoiceIds[blockId][evidence.parentHash][
-                    evidence.parentGasUsed
-                ] = fcId;
-            }
+            state.forkChoiceIds[blockId][evidence.parentHash][
+                evidence.parentGasUsed
+            ] = fcId == 1 ? 0 : fcId;
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
             if (fcId == 1) {
