@@ -93,11 +93,15 @@ library TaikoData {
     }
 
     struct BlockOracle {
-        bytes32 parentHash;
         bytes32 blockHash;
-        bytes32 signalRoot;
-        uint32 parentGasUsed;
         uint32 gasUsed;
+        bytes32 signalRoot;
+    }
+
+    struct BlockOracles {
+        bytes32 parentHash;
+        uint32 parentGasUsed;
+        BlockOracle[] blks;
     }
 
     // 3 slots

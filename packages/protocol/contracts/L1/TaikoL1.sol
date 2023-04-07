@@ -94,7 +94,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             config: getConfig(),
             blockId: blockId,
             resolver: AddressResolver(this),
-            oracles: abi.decode(input, (TaikoData.BlockOracle[]))
+            oracles: abi.decode(input, (TaikoData.BlockOracles))
         });
     }
 

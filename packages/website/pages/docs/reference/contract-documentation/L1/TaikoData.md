@@ -111,11 +111,19 @@ struct BlockEvidence {
 
 ```solidity
 struct BlockOracle {
-  bytes32 parentHash;
   bytes32 blockHash;
-  bytes32 signalRoot;
-  uint32 parentGasUsed;
   uint32 gasUsed;
+  bytes32 signalRoot;
+}
+```
+
+### BlockOracles
+
+```solidity
+struct BlockOracles {
+  bytes32 parentHash;
+  uint32 parentGasUsed;
+  struct TaikoData.BlockOracle[] blks;
 }
 ```
 

@@ -47,23 +47,25 @@ library LibProving {
         TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 blockId,
-        TaikoData.BlockOracle[] memory oracles
+        TaikoData.BlockOracles memory oracles
     ) internal {
         if (!config.enableOracleProver) revert L1_ORACLE_DISABLED();
         if (msg.sender != resolver.resolve("oracle_prover", false))
             revert L1_NOT_ORACLE_PROVER();
 
-        for (uint i = 0; i < oracles.length; ) {
-            TaikoData.BlockOracle memory oracle = oracles[i];
+        bytes32 parentHash = oracles.parentHash;
+        uint32 parentGasUsed = oracles.parentGasUsed;
+
+        for (uint i = 0; i < oracles.blks.length; ) {
             uint256 id = blockId + i;
 
             if (id <= state.lastVerifiedBlockId || id >= state.numBlocks)
                 revert L1_BLOCK_ID();
 
+            TaikoData.BlockOracle memory oracle = oracles.blks[i];
             if (
-                oracle.parentHash == 0 ||
                 oracle.blockHash == 0 ||
-                oracle.blockHash == oracle.parentHash ||
+                oracle.blockHash == parentHash ||
                 oracle.signalRoot == 0 ||
                 oracle.gasUsed == 0
             ) revert L1_INVALID_ORACLE();
@@ -72,18 +74,14 @@ library LibProving {
                 id % config.ringBufferSize
             ];
 
-            uint256 fcId = state.forkChoiceIds[id][oracle.parentHash][
-                oracle.parentGasUsed
-            ];
+            uint256 fcId = state.forkChoiceIds[id][parentHash][parentGasUsed];
             if (fcId == 0) {
                 fcId = blk.nextForkChoiceId;
                 unchecked {
                     ++blk.nextForkChoiceId;
                 }
                 assert(fcId > 0);
-                state.forkChoiceIds[id][oracle.parentHash][
-                    oracle.parentGasUsed
-                ] = fcId;
+                state.forkChoiceIds[id][parentHash][parentGasUsed] = fcId;
             }
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
@@ -98,13 +96,15 @@ library LibProving {
 
             emit BlockProven({
                 id: id,
-                parentHash: oracle.parentHash,
+                parentHash: parentHash,
                 blockHash: oracle.blockHash,
                 signalRoot: oracle.signalRoot,
                 prover: address(0)
             });
             unchecked {
                 ++i;
+                parentHash = oracle.blockHash;
+                parentGasUsed = oracle.gasUsed;
             }
         }
     }
