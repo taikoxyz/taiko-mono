@@ -18,9 +18,6 @@ const mockProvider = {
   waitForTransaction: jest.fn(),
 };
 
-providers[L1_CHAIN_ID] = mockProvider as any;
-providers[L2_CHAIN_ID] = mockProvider as any;
-
 const mockContract = {
   queryFilter: jest.fn(),
   getMessageStatus: jest.fn(),
@@ -89,6 +86,9 @@ describe('storage tests', () => {
   });
 
   beforeEach(() => {
+    providers[L1_CHAIN_ID] = mockProvider as any;
+    providers[L2_CHAIN_ID] = mockProvider as any;
+
     mockStorage.getItem.mockImplementation(() => {
       return JSON.stringify(mockTxs);
     });
@@ -96,6 +96,26 @@ describe('storage tests', () => {
     mockProvider.getTransactionReceipt.mockImplementation(() => {
       return mockTxReceipt;
     });
+  });
+
+  it('handles invalid JSON when getting all transactions', async () => {
+    mockStorage.getItem.mockImplementation(() => {
+      return 'invalid json';
+    });
+
+    const svc = new StorageService(mockStorage as any, providers);
+
+    const txs = await svc.getAllByAddress('0x123');
+
+    expect(txs).toEqual([]);
+  });
+
+  it('gets all transactions by address where tx.from !== address', async () => {
+    const svc = new StorageService(mockStorage as any, providers);
+
+    const txs = await svc.getAllByAddress('0x666');
+
+    expect(txs).toEqual([]);
   });
 
   it('gets all transactions by address, no transactions in list', async () => {
@@ -193,7 +213,29 @@ describe('storage tests', () => {
     ]);
   });
 
-  it('gets all transactions by address, no receipt', async () => {
+  it('ignore txs from unsupported chains when getting all txs', async () => {
+    providers[L1_CHAIN_ID] = undefined;
+
+    const svc = new StorageService(mockStorage as any, providers);
+
+    const txs = await svc.getAllByAddress('0x123');
+
+    expect(txs).toEqual([]);
+  });
+
+  it('handles invalid JSON when getting transaction by hash', async () => {
+    mockStorage.getItem.mockImplementation(() => {
+      return 'invalid json';
+    });
+
+    const svc = new StorageService(mockStorage as any, providers);
+
+    const tx = await svc.getTransactionByHash('0x123', mockTx.hash);
+
+    expect(tx).toBeUndefined();
+  });
+
+  it('get transaction by hash, no receipt', async () => {
     mockProvider.getTransactionReceipt.mockImplementation(() => {
       return null;
     });
@@ -205,7 +247,7 @@ describe('storage tests', () => {
     expect(tx).toBeUndefined();
   });
 
-  it('gets all transactions by address, no event', async () => {
+  it('get transaction by hash, no event', async () => {
     mockContract.queryFilter.mockImplementation(() => {
       return [];
     });
@@ -213,6 +255,14 @@ describe('storage tests', () => {
     const svc = new StorageService(mockStorage as any, providers);
 
     const tx = await svc.getTransactionByHash('0x123', mockTx.hash);
+
+    expect(tx).toBeUndefined();
+  });
+
+  it('get transaction by hash where tx.from !== address', async () => {
+    const svc = new StorageService(mockStorage as any, providers);
+
+    const tx = await svc.getTransactionByHash('0x666', mockTx.hash);
 
     expect(tx).toBeUndefined();
   });
@@ -267,6 +317,16 @@ describe('storage tests', () => {
     });
   });
 
+  it('ignore txs from unsupported chains when getting txs by hash', async () => {
+    providers[L1_CHAIN_ID] = undefined;
+
+    const svc = new StorageService(mockStorage as any, providers);
+
+    const tx = await svc.getTransactionByHash('0x123', mockTx.hash);
+
+    expect(tx).toBeUndefined();
+  });
+
   it('updates storage by address', () => {
     mockStorage.getItem.mockImplementation(() => {
       return JSON.stringify(mockTxs);
@@ -283,17 +343,5 @@ describe('storage tests', () => {
       'transactions-0x123',
       JSON.stringify([newTx]),
     );
-  });
-
-  it('handles invalid JSON', async () => {
-    mockStorage.getItem.mockImplementation(() => {
-      return 'invalid json';
-    });
-
-    const svc = new StorageService(mockStorage as any, providers);
-
-    const txs = await svc.getAllByAddress('0x123');
-
-    expect(txs).toEqual([]);
   });
 });

@@ -177,10 +177,12 @@ export class StorageService implements Transactioner {
   async getTransactionByHash(
     address: string,
     hash: string,
-  ): Promise<BridgeTransaction> {
+  ): Promise<BridgeTransaction | undefined> {
     const txs = this._getTransactionsFromStorage(address);
 
     const tx: BridgeTransaction = txs.find((tx) => tx.hash === hash);
+
+    if (!tx) return;
 
     if (tx.from.toLowerCase() !== address.toLowerCase()) return;
 
