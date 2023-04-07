@@ -13,7 +13,8 @@ import {SignalService} from "../contracts/signal/SignalService.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {TaikoL1TestBase} from "./TaikoL1TestBase.t.sol";
 
-// forge test  -vvv  --match-test testGeneratingManyRandomBlocks  --block-gas-limit  3000000000 > log.csv
+/// @dev Warning: this test will take 7-10 minutes and require 1GB memory.
+///      `pnpm test:sim`
 contract TaikoL1_b is TaikoL1 {
     function getConfig()
         public
@@ -24,13 +25,12 @@ contract TaikoL1_b is TaikoL1 {
         config = TaikoConfig.getConfig();
 
         config.enableTokenomics = true;
-        config.txListCacheExpiry = 5 minutes;
+        config.txListCacheExpiry = 0;
         config.proposerDepositPctg = 0;
-        config.maxVerificationsPerTx = 0;
         config.enableSoloProposer = false;
         config.enableOracleProver = false;
-        config.maxNumProposedBlocks = 10;
-        config.ringBufferSize = 12;
+        config.maxNumProposedBlocks = 36;
+        config.ringBufferSize = 40;
     }
 }
 
@@ -54,27 +54,39 @@ contract TaikoL1RandomTest is TaikoL1TestBase, FoundryRandom {
     }
 
     function testGeneratingManyRandomBlocks() external {
-        uint256 randomNum = randomNumber(12);
+
+uint256 time = block.timestamp;
+        assertEq(time, 1);
 
         _depositTaikoToken(Alice, 1E6 * 1E8, 10000 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed;
-        printBlockInfoHeader();
+
+            printBlockInfoHeader();
         printBlockInfo();
 
+        uint256 avgBlockTime = 10 seconds;
+
+        // Every 10000 blocks take about 400 seconds
         for (
             uint256 blockId = 1;
-            blockId < conf.maxNumProposedBlocks * 1;
+            blockId < 10000;
             blockId++
         ) {
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
-            printBlockInfo();
+             time += randomNumber(avgBlockTime*2);
+            while ((time/12)*12 > block.timestamp) {
+                 vm.warp(block.timestamp + 12);
+                vm.roll(block.number + 1);
+            }
 
-            uint32 gasUsed = uint32(randomNumber(1000000));
-            bytes32 blockHash = bytes32(1E10 + blockId);
-            bytes32 signalRoot = bytes32(1E9 + blockId);
-               proveBlock(
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
+
+            uint32 gasUsed = uint32(randomNumber(1000000, 1000000));
+            bytes32 blockHash = bytes32(randomNumber(type(uint256).max));
+            bytes32 signalRoot = bytes32(randomNumber(type(uint256).max));
+
+            proveBlock(
                 Bob,
                 meta,
                 parentHash,
@@ -83,19 +95,14 @@ contract TaikoL1RandomTest is TaikoL1TestBase, FoundryRandom {
                 blockHash,
                 signalRoot
             );
-
+            printBlockInfo();
 
             parentHash = blockHash;
             parentGasUsed = gasUsed;
-
-            vm.warp(block.timestamp + 20);
-            vm.roll(block.number);
         }
     }
 
-    function printBlockInfoHeader() internal {
-        TaikoData.StateVariables memory vars = L1.getStateVariables();
-        (uint256 fee, ) = L1.getBlockFee();
+    function printBlockInfoHeader() internal view {
         string memory str = string.concat(
             "\nlogCount,",
             "time,",
