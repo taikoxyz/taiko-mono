@@ -14,10 +14,8 @@ export class CustomTokenService implements TokenService {
       `${STORAGE_PREFIX}-${address.toLowerCase()}`,
     );
 
-    let tokens: Token[] = [];
-    if (customTokens) {
-      tokens = [...JSON.parse(customTokens)];
-    }
+    // TODO: handle invalid JSON
+    const tokens: Token[] = customTokens ? JSON.parse(customTokens) : [];
 
     return tokens;
   }

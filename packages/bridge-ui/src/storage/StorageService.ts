@@ -25,120 +25,146 @@ export class StorageService implements Transactioner {
     this.providers = providers;
   }
 
-  async getAllByAddress(address: string): Promise<BridgeTransaction[]> {
-    const txs: BridgeTransaction[] = JSON.parse(
-      this.storage.getItem(`${STORAGE_PREFIX}-${address.toLowerCase()}`),
+  private _getTransactionsFromStorage(address: string): BridgeTransaction[] {
+    const transactions = this.storage.getItem(
+      `${STORAGE_PREFIX}-${address.toLowerCase()}`,
     );
+
+    // TODO: handle invalid JSON
+    const txs: BridgeTransaction[] = transactions
+      ? JSON.parse(transactions)
+      : [];
+
+    return txs;
+  }
+
+  async getAllByAddress(address: string): Promise<BridgeTransaction[]> {
+    const txs = this._getTransactionsFromStorage(address);
 
     const bridgeTxs: BridgeTransaction[] = [];
 
+    // TODO: bridgeTxs = (await Promise.all(txs.map(...))).filter(tx => tx) ??
     await Promise.all(
       (txs || [])
         .map(async (tx) => {
           if (tx.from.toLowerCase() !== address.toLowerCase()) return;
-          const destChainId = tx.toChainId;
-          const destProvider = this.providers[destChainId];
 
-          const srcProvider = this.providers[tx.fromChainId];
+          const { toChainId, fromChainId, hash, from } = tx;
+
+          const destProvider = this.providers[toChainId];
+          const srcProvider = this.providers[fromChainId];
 
           // Ignore transactions from chains not supported by the bridge
-          if (!srcProvider) {
-            return null;
-          }
+          if (!srcProvider) return;
 
-          const receipt = await srcProvider.getTransactionReceipt(tx.hash);
+          // Returns the transaction receipt for hash or null
+          // if the transaction has not been mined.
+          const receipt = await srcProvider.getTransactionReceipt(hash);
 
           if (!receipt) {
             bridgeTxs.push(tx);
             return;
           }
 
-          tx.receipt = receipt;
+          tx.receipt = receipt; // null => no mined yet
 
-          const destBridgeAddress = chains[destChainId].bridgeAddress;
+          const destBridgeAddress = chains[toChainId].bridgeAddress;
+          const srcBridgeAddress = chains[fromChainId].bridgeAddress;
 
-          const srcBridgeAddress = chains[tx.fromChainId].bridgeAddress;
-
-          const destContract: Contract = new Contract(
+          const destBridgeContract: Contract = new Contract(
             destBridgeAddress,
             BridgeABI,
             destProvider,
           );
 
-          const srcContract: Contract = new Contract(
+          const srcBridgeContract: Contract = new Contract(
             srcBridgeAddress,
             BridgeABI,
             srcProvider,
           );
 
-          const events = await srcContract.queryFilter(
+          // Gets the event MessageSent from the srcBridgeContract
+          // in the block where the transaction was mined.
+          const messageSentEventsList = await srcBridgeContract.queryFilter(
             'MessageSent',
             receipt.blockNumber,
             receipt.blockNumber,
           );
 
-          const event = events.find(
-            (e) => e.args.message.owner.toLowerCase() === address.toLowerCase(),
+          // Find our event MessageSent whose owner is the address passed in
+          const messageSentEvent = messageSentEventsList.find(
+            (event) =>
+              event.args.message.owner.toLowerCase() === address.toLowerCase(),
           );
 
-          if (!event) {
+          if (!messageSentEvent) {
+            // No message yet, so we can't get more info from this transaction
             bridgeTxs.push(tx);
             return;
           }
 
-          const msgHash = event.args.msgHash;
+          const { msgHash, message } = messageSentEvent.args;
 
-          const messageStatus: number = await destContract.getMessageStatus(
+          const status: number = await destBridgeContract.getMessageStatus(
             msgHash,
           );
 
           let amountInWei: BigNumber;
           let symbol: string;
-          if (event.args.message.data !== '0x') {
-            const tokenVaultContract = new Contract(
-              tokenVaults[tx.fromChainId],
+
+          if (message.data !== '0x') {
+            // We're dealing with an ERC20 transfer.
+            // Let's get the symbol and amount from the TokenVault contract.
+
+            const srcTokenVaultContract = new Contract(
+              tokenVaults[fromChainId],
               TokenVaultABI,
               srcProvider,
             );
-            const filter = tokenVaultContract.filters.ERC20Sent(msgHash);
-            const erc20Events = await tokenVaultContract.queryFilter(
+
+            const filter = srcTokenVaultContract.filters.ERC20Sent(msgHash);
+            const erc20Events = await srcTokenVaultContract.queryFilter(
               filter,
               receipt.blockNumber,
               receipt.blockNumber,
             );
 
             const erc20Event = erc20Events.find(
-              (e) => e.args.msgHash.toLowerCase() === msgHash.toLowerCase(),
+              (event) =>
+                event.args.msgHash.toLowerCase() === msgHash.toLowerCase(),
             );
-            if (!erc20Event) return;
 
-            const erc20Contract = new Contract(
-              erc20Event.args.token,
-              ERC20_ABI,
-              srcProvider,
-            );
+            if (!erc20Event) return; // TODO: ???
+
+            const { token, amount } = erc20Event.args;
+            const erc20Contract = new Contract(token, ERC20_ABI, srcProvider);
+
             symbol = await erc20Contract.symbol();
-            amountInWei = BigNumber.from(erc20Event.args.amount);
+            amountInWei = BigNumber.from(amount);
           }
 
           const bridgeTx: BridgeTransaction = {
-            hash: tx.hash,
-            from: tx.from,
-            message: event.args.message,
-            receipt: receipt,
-            msgHash: event.args.msgHash,
-            status: messageStatus,
-            amountInWei: amountInWei,
-            symbol: symbol,
-            fromChainId: tx.fromChainId,
-            toChainId: tx.toChainId,
+            hash,
+            from,
+            message,
+            receipt,
+            msgHash,
+            status,
+            amountInWei,
+            symbol,
+            fromChainId,
+            toChainId,
           };
 
           bridgeTxs.push(bridgeTx);
         })
+
+        // TODO: these are not transactions but promises
+        //       This filter is doing nothing really. Remove it?
         .filter((tx) => tx),
     );
 
+    // Place new transactions at the top of the list
     bridgeTxs.sort((tx) => (tx.status === MessageStatus.New ? -1 : 1));
 
     return bridgeTxs;
@@ -148,13 +174,12 @@ export class StorageService implements Transactioner {
     address: string,
     hash: string,
   ): Promise<BridgeTransaction> {
-    const txs: BridgeTransaction[] = JSON.parse(
-      this.storage.getItem(`${STORAGE_PREFIX}-${address.toLowerCase()}`),
-    );
+    const txs = this._getTransactionsFromStorage(address);
 
     const tx: BridgeTransaction = txs.find((tx) => tx.hash === hash);
 
     if (tx.from.toLowerCase() !== address.toLowerCase()) return;
+
     const destChainId = tx.toChainId;
     const destProvider = this.providers[destChainId];
 
