@@ -59,6 +59,7 @@ contract TaikoL1RandomTest is TaikoL1TestBase, FoundryRandom {
         _depositTaikoToken(Alice, 1E6 * 1E8, 10000 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
+        uint32 parentGasUsed;
         printBlockInfoHeader();
         printBlockInfo();
 
@@ -70,10 +71,22 @@ contract TaikoL1RandomTest is TaikoL1TestBase, FoundryRandom {
             TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             printBlockInfo();
 
+            uint32 gasUsed = uint32(randomNumber(1000000));
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
+               proveBlock(
+                Bob,
+                meta,
+                parentHash,
+                parentGasUsed,
+                gasUsed,
+                blockHash,
+                signalRoot
+            );
+
+
             parentHash = blockHash;
+            parentGasUsed = gasUsed;
 
             vm.warp(block.timestamp + 20);
             vm.roll(block.number);
