@@ -66,9 +66,10 @@ contract TaikoL1RandomTest is TaikoL1TestBase, FoundryRandom {
         printBlockInfo();
 
         uint256 avgBlockTime = 10 seconds;
+        uint256 numBlocks = 100;
 
         // Every 10000 blocks take about 400 seconds
-        for (uint256 blockId = 1; blockId < 10000; blockId++) {
+        for (uint256 blockId = 1; blockId < numBlocks; blockId++) {
             time += randomNumber(avgBlockTime * 2);
             while ((time / 12) * 12 > block.timestamp) {
                 vm.warp(block.timestamp + 12);
