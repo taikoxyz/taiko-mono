@@ -132,27 +132,26 @@ contract TestTaikoL2 is Test {
     }
 
     function testGetBasefee() external {
-        assertEq(_getBasefeeAndPrint(0, 0, 0), 317609019);
-        assertEq(_getBasefeeAndPrint(0, 1, 0), 317609019);
-        assertEq(_getBasefeeAndPrint(0, 1000000, 0), 320423332);
-        assertEq(_getBasefeeAndPrint(0, 5000000, 0), 332018053);
-        assertEq(_getBasefeeAndPrint(0, 10000000, 0), 347305199);
+        uint32 timeSinceParent = uint32(block.timestamp - L2.parentTimestamp());
+        assertEq(_getBasefeeAndPrint(timeSinceParent, 0, 0), 317609019);
+        assertEq(_getBasefeeAndPrint(timeSinceParent, 1, 0), 317609019);
+        assertEq(_getBasefeeAndPrint(timeSinceParent, 1000000, 0), 320423332);
+        assertEq(_getBasefeeAndPrint(timeSinceParent, 5000000, 0), 332018053);
+        assertEq(_getBasefeeAndPrint(timeSinceParent, 10000000, 0), 347305199);
 
-        assertEq(_getBasefeeAndPrint(100, 0, 0), 54544902);
-        assertEq(_getBasefeeAndPrint(100, 1, 0), 54544902);
-        assertEq(_getBasefeeAndPrint(100, 1000000, 0), 55028221);
-        assertEq(_getBasefeeAndPrint(100, 5000000, 0), 57019452);
-        assertEq(_getBasefeeAndPrint(100, 10000000, 0), 59644805);
+        timeSinceParent = uint32(100 + block.timestamp - L2.parentTimestamp());
+        assertEq(_getBasefeeAndPrint(timeSinceParent, 0, 0), 54544902);
+        assertEq(_getBasefeeAndPrint(timeSinceParent, 1, 0), 54544902);
+        assertEq(_getBasefeeAndPrint(timeSinceParent, 1000000, 0), 55028221);
+        assertEq(_getBasefeeAndPrint(timeSinceParent, 5000000, 0), 57019452);
+        assertEq(_getBasefeeAndPrint(timeSinceParent, 10000000, 0), 59644805);
     }
 
     function _getBasefeeAndPrint(
-        uint32 timeSinceNow,
+        uint32 timeSinceParent,
         uint64 gasLimit,
         uint64 parentGasUsed
     ) private returns (uint256 _basefee) {
-        uint256 timeSinceParent = timeSinceNow +
-            block.timestamp -
-            L2.parentTimestamp();
         uint256 gasIssued = L2.gasIssuedPerSecond() * timeSinceParent;
         string memory msg = string.concat(
             "#",
@@ -168,7 +167,7 @@ contract TestTaikoL2 is Test {
             ", parentGasUsed=",
             Strings.toString(parentGasUsed)
         );
-        _basefee = L2.getBasefee(timeSinceNow, gasLimit, parentGasUsed);
+        _basefee = L2.getBasefee(timeSinceParent, gasLimit, parentGasUsed);
 
         msg = string.concat(
             msg,
@@ -187,7 +186,7 @@ contract TestTaikoL2 is Test {
     ) private returns (uint256 _basefee) {
         return
             _getBasefeeAndPrint(
-                timeSinceNow,
+                uint32(timeSinceNow + block.timestamp - L2.parentTimestamp()),
                 gasLimit,
                 gasLimit + ANCHOR_GAS_COST
             );
