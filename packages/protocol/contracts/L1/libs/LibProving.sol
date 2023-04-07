@@ -81,10 +81,18 @@ library LibProving {
                     ++blk.nextForkChoiceId;
                 }
                 assert(fcId > 0);
-                state.forkChoiceIds[id][parentHash][parentGasUsed] = fcId;
+                if (fcId > 1) {
+                    // We avoid writing the mapping when fcId is 1.
+                    state.forkChoiceIds[id][parentHash][parentGasUsed] = fcId;
+                }
             }
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
+            if (fcId == 1) {
+                // We only write a key when fcId is 1.
+                fc.key = LibUtils.keyForForkChoice(parentHash, parentGasUsed);
+            }
+
             fc.blockHash = oracle.blockHash;
             fc.signalRoot = oracle.signalRoot;
 
@@ -265,8 +273,18 @@ library LibProving {
         if (blk.blockId != blockId) revert L1_BLOCK_ID();
 
         uint256 fcId = state.forkChoiceIds[blockId][parentHash][parentGasUsed];
-        if (fcId == 0 || fcId >= blk.nextForkChoiceId)
-            revert L1_FORK_CHOICE_NOT_FOUND();
+        if (fcId >= blk.nextForkChoiceId) revert L1_FORK_CHOICE_NOT_FOUND();
+
+        if (fcId == 0) {
+            if (
+                blk.forkChoices[1].key ==
+                LibUtils.keyForForkChoice(parentHash, parentGasUsed)
+            ) {
+                fcId = 1;
+            } else {
+                revert L1_FORK_CHOICE_NOT_FOUND();
+            }
+        }
 
         return blk.forkChoices[fcId];
     }

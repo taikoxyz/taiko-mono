@@ -104,8 +104,9 @@ library TaikoData {
         BlockOracle[] blks;
     }
 
-    // 3 slots
+    // 4 slots
     struct ForkChoice {
+        bytes32 key; // conditionally written
         bytes32 blockHash;
         bytes32 signalRoot;
         uint64 provenAt;

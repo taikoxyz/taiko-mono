@@ -97,4 +97,25 @@ library LibUtils {
             hash := keccak256(inputs, mul(6, 32))
         }
     }
+
+    function keyForForkChoice(
+        bytes32 parentHash,
+        uint32 parentGasUsed
+    ) internal pure returns (bytes32 key) {
+        // Equivilance to `keccak256(abi.encodePacked(app, signal))`
+        assembly {
+            // Load the free memory pointer and allocate memory for the concatenated arguments
+            let ptr := mload(0x40)
+
+            // Store the app address and signal bytes32 value in the allocated memory
+            mstore(ptr, parentGasUsed)
+            mstore(add(ptr, 32), parentHash)
+
+            // Calculate the hash of the concatenated arguments using keccak256
+            key := keccak256(add(ptr, 28), 36)
+
+            // Update free memory pointer
+            mstore(0x40, add(ptr, 64))
+        }
+    }
 }

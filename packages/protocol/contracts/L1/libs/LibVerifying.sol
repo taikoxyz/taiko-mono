@@ -79,7 +79,16 @@ library LibVerifying {
             assert(blk.blockId == i);
 
             fcId = state.forkChoiceIds[i][blockHash][gasUsed];
-            if (fcId == 0) break;
+            if (fcId == 0) {
+                if (
+                    blk.forkChoices[1].key ==
+                    LibUtils.keyForForkChoice(blockHash, gasUsed)
+                ) {
+                    fcId = 1;
+                } else {
+                    break;
+                }
+            }
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
             if (fc.prover == address(0)) break;
