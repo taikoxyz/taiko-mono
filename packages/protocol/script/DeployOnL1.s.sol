@@ -32,9 +32,11 @@ contract DeployOnL1 is Script, AddressResolver {
 
     address public owner = vm.envAddress("OWNER");
 
-    address public oracleProver = vm.envAddress("ORACLE_PROVER_ADDRESS");
+    address public oracleProver = vm.envAddress("ORACLE_PROVER");
 
     address public soloProposer = vm.envAddress("SOLO_PROPOSER");
+
+    address public sharedSignalService = vm.envAddress("SHARED_SIGNAL_SERVICE");
 
     address public treasure = vm.envAddress("TREASURE");
 
@@ -143,15 +145,23 @@ contract DeployOnL1 is Script, AddressResolver {
         );
 
         // SignalService
-        SignalService signalService = new SignalService();
-        deployProxy(
-            "signal_service",
-            address(signalService),
-            bytes.concat(
-                signalService.init.selector,
-                abi.encode(addressManagerProxy)
-            )
-        );
+        if (sharedSignalService == address(0)) {
+            SignalService signalService = new SignalService();
+            deployProxy(
+                "signal_service",
+                address(signalService),
+                bytes.concat(
+                    signalService.init.selector,
+                    abi.encode(addressManagerProxy)
+                )
+            );
+        } else {
+            console.log(
+                "Warining: using shared signal service: ",
+                sharedSignalService
+            );
+            setAddress("signal_service", sharedSignalService);
+        }
 
         // PlonkVerifier
         deployPlonkVerifiers();

@@ -30,6 +30,7 @@ library TaikoData {
         // Moving average factors
         uint256 feeBaseMAF;
         uint256 txListCacheExpiry;
+        bool relaySignalRoot;
         bool enableSoloProposer;
         bool enableOracleProver;
         bool enableTokenomics;
