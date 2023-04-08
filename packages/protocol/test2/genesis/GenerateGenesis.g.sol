@@ -66,7 +66,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
             vm.warp(taikoL2.parentTimestamp() + 12);
             vm.fee(
                 taikoL2.getBasefee(
-                    0,
+                    12,
                     BLOCK_GAS_LIMIT,
                     i + LibL2Consts.ANCHOR_GAS_COST
                 )

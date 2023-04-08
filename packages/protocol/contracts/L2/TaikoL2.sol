@@ -215,14 +215,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
      **********************/
 
     function getBasefee(
-        uint32 timeSinceNow,
+        uint32 timeSinceParent,
         uint64 gasLimit,
         uint64 parentGasUsed
     ) public view returns (uint256 _basefee) {
-        uint256 timeSinceParent;
-        unchecked {
-            timeSinceParent = timeSinceNow + block.timestamp - parentTimestamp;
-        }
         (_basefee, ) = _calcBasefee(timeSinceParent, gasLimit, parentGasUsed);
     }
 
