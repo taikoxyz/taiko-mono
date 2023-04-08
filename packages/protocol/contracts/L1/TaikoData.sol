@@ -144,13 +144,13 @@ library TaikoData {
         uint64 genesisTimestamp;
         uint64 __reserved1;
         uint64 __reserved2;
-        // Changed when a block is proposed or proven/finalized
+        // Changed when a block is proposed or proven/verified
         // Changed when a block is proposed
         uint64 numBlocks;
         uint64 lastProposedAt; // Timestamp when the last block is proposed.
         uint64 avgBlockTime; // miliseconds
         uint64 __reserved3;
-        // Changed when a block is proven/finalized
+        // Changed when a block is proven/verified
         uint64 lastVerifiedBlockId;
         uint64 __reserved4;
         // the proof time moving average, note that for each block, only the
