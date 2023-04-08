@@ -78,7 +78,7 @@ library LibVerifying {
             blk = state.blocks[i % config.ringBufferSize];
             assert(blk.blockId == i);
 
-            fcId = LibUtils.getForkChoiceId(state, blk, i, blockHash, gasUsed);
+            fcId = LibUtils.getForkChoiceId(state, blk, blockHash, gasUsed);
 
             if (fcId == 0) break;
 
