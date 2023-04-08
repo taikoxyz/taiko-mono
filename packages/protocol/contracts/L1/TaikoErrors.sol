@@ -36,7 +36,8 @@ abstract contract TaikoErrors {
     error L1_UNEXPECTED_FORK_CHOICE_ID();
 
     error L1_CONFLICTING_PROOF(
-        uint256 id,
+        uint64 id,
+        uint32 parentGasUsed,
         bytes32 parentHash,
         bytes32 conflictingBlockHash,
         bytes32 conflictingSignalRoot,
