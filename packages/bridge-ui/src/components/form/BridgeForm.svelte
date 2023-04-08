@@ -439,7 +439,7 @@
 </div>
 
 {#if showFaucet}
-  <div class="flex" style="flex-direction:row-reverse">
+  <div class="flex my-10 md:my-8" style="flex-direction:row-reverse">
     <div class="flex items-start">
       <button class="btn" on:click={() => (isFaucetModalOpen = true)}>
         <Funnel class="mr-2" /> Faucet
