@@ -53,6 +53,7 @@
   let showTo: boolean = false;
   let feeMethod: ProcessingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
   let feeAmount: string = '0';
+  let isInsufficientBalance: boolean = false;
 
   // TODO: too much going on here. We need to extract
   //       logic and unit test the hell out of all this.
@@ -359,8 +360,53 @@
     }
   }
 
-  function updateAmount(e: any) {
+  async function getUsersTotalTransferableBalance() {
+    if ($token.symbol === ETHToken.symbol) {
+      try {
+        const feeData = await fetchFeeData();
+        const gasEstimate = await $activeBridge.EstimateGas({
+          amountInWei: BigNumber.from(1),
+          signer: $signer,
+          tokenAddress: await addrForToken(),
+          fromChainId: $fromChain.id,
+          toChainId: $toChain.id,
+          tokenVaultAddress: tokenVaults[$fromChain.id],
+          processingFeeInWei: getProcessingFee(),
+          memo: memo,
+          to: showTo && to ? to : await $signer.getAddress(),
+        });
+
+        const requiredGas = gasEstimate.mul(feeData.gasPrice);
+        const userBalance = await $signer.getBalance('latest');
+        const processingFee = getProcessingFee();
+        let balanceAvailableForTx = userBalance.sub(requiredGas);
+
+        if (processingFee) {
+          balanceAvailableForTx = balanceAvailableForTx.sub(processingFee);
+        }
+
+        return ethers.utils.formatEther(balanceAvailableForTx);
+      } catch (error) {
+        console.error(error);
+
+        // In case of error default to using the full amount of ETH available.
+        // The user would still not be able to make the restriction and will have to manually set the amount.
+        return tokenBalance.toString();
+      }
+    } else {
+      return tokenBalance.toString();
+    }
+  }
+
+  async function updateAmount(e: any) {
     amount = (e.target.value as number).toString();
+    const balance = await getUsersTotalTransferableBalance();
+
+    if (parseFloat(amount) > parseFloat(balance)) {
+      isInsufficientBalance = true;
+    } else {
+      isInsufficientBalance = false;
+    }
   }
 
   function getProcessingFee() {
@@ -436,6 +482,10 @@
       bind:this={amountInput} />
     <SelectToken />
   </label>
+
+  {#if isInsufficientBalance}
+    <div class="text-orange-500 font-bold my-2">Insufficient balance</div>
+  {/if}
 </div>
 
 {#if showFaucet}
