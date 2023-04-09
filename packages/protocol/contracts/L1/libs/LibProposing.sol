@@ -24,6 +24,8 @@ library LibProposing {
     event BlockProposed(
         uint256 indexed id,
         TaikoData.BlockMetadata meta,
+        uint64 withdrawlStartIndex,
+        uint64 withdrawlUntilIndex,
         bool txListCached
     );
 
@@ -93,6 +95,17 @@ library LibProposing {
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.proposer = msg.sender;
 
+        // calculatig withdrawalRoots
+        uint64 withdrawlStartIndex;
+        {
+            uint maxWithdrawalsPerBlock = 32;
+            (
+                blk.withdrawalsRoot,
+                withdrawlStartIndex,
+                state.nextWithdrawalToInclude
+            ) = _calcWithdrawalsRoot(32);
+        }
+
         if (config.enableTokenomics) {
             (uint256 newFeeBase, uint256 fee, uint64 deposit) = LibTokenomics
                 .getBlockFee(state, config);
@@ -128,7 +141,13 @@ library LibProposing {
             state.lastProposedAt = meta.timestamp;
         }
 
-        emit BlockProposed(state.numBlocks, meta, cacheTxList);
+        emit BlockProposed(
+            state.numBlocks,
+            meta,
+            withdrawlStartIndex,
+            state.nextWithdrawalToInclude,
+            cacheTxList
+        );
         unchecked {
             ++state.numBlocks;
         }
@@ -206,5 +225,15 @@ library LibProposing {
                 }
             }
         }
+    }
+
+    function _calcWithdrawalsRoot(
+        uint256 maxWithdrawalsPerBlock
+    )
+        private
+        view
+        returns (bytes32 withdrawalsRoot, uint64 startIndex, uint64 untilIndex)
+    {
+        // TODO
     }
 }

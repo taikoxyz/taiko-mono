@@ -125,6 +125,7 @@ library TaikoData {
         uint24 nextForkChoiceId;
         uint24 verifiedForkChoiceId;
         bytes32 metaHash;
+        bytes32 withdrawalsRoot;
         address proposer;
     }
 
@@ -134,6 +135,12 @@ library TaikoData {
         uint24 size;
     }
 
+    // Represents a L1-to-L2 Ether transfer
+    struct Withdrawal {
+        address account;
+        uint64 amount;
+    }
+
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint256 blockId_mode_ringBufferSize => Block) blocks;
@@ -141,6 +148,7 @@ library TaikoData {
         mapping(uint256 blockId => mapping(bytes32 parentHash => mapping(uint32 parentGasUsed => uint256 forkChoiceId))) forkChoiceIds;
         mapping(address account => uint256 balance) balances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
+        Withdrawal[] withdrawals;
         // Never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
@@ -151,7 +159,7 @@ library TaikoData {
         uint64 numBlocks;
         uint64 lastProposedAt; // Timestamp when the last block is proposed.
         uint64 avgBlockTime; // miliseconds
-        uint64 __reserved3;
+        uint64 nextWithdrawalToInclude;
         // Changed when a block is proven/verified
         uint64 lastVerifiedBlockId;
         uint64 __reserved4;
@@ -160,6 +168,6 @@ library TaikoData {
         uint64 avgProofTime; // miliseconds
         uint64 feeBase;
         // Reserved
-        uint256[43] __gap;
+        uint256[42] __gap;
     }
 }
