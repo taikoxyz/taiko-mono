@@ -5,7 +5,7 @@ import { BlockHeader, EthGetProofResponse } from "./rpc";
 import {
     AddressManager,
     TestSignalService,
-    LibTrieProof,
+    LibSecureMerkleTrie,
 } from "../../typechain";
 
 async function deploySignalService(
@@ -13,8 +13,8 @@ async function deploySignalService(
     addressManager: AddressManager,
     srcChain: number
 ): Promise<{ signalService: TestSignalService }> {
-    const libTrieProof: LibTrieProof = await (
-        await hardhatEthers.getContractFactory("LibTrieProof")
+    const libSecureMerkleTrie: LibSecureMerkleTrie = await (
+        await hardhatEthers.getContractFactory("LibSecureMerkleTrie")
     )
         .connect(signer)
         .deploy();
@@ -23,7 +23,7 @@ async function deploySignalService(
         "TestSignalService",
         {
             libraries: {
-                LibTrieProof: libTrieProof.address,
+                LibSecureMerkleTrie: libSecureMerkleTrie.address,
             },
         }
     );
