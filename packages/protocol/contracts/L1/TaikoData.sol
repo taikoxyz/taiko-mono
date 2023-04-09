@@ -74,6 +74,7 @@ library TaikoData {
         uint32 gasLimit;
         address beneficiary;
         address treasure;
+        uint8 cacheTxListInfo;
     }
 
     struct ZKProof {

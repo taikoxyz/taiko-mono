@@ -87,7 +87,8 @@ contract FooBar {
             txListByteEnd: 1000,
             gasLimit: 1,
             mixHash: bytes32(uint256(1)),
-            timestamp: 1
+            timestamp: 1,
+            cacheTxListInfo: 0
         });
     }
 
@@ -103,7 +104,8 @@ contract FooBar {
             txListByteEnd: 1000,
             gasLimit: 1,
             mixHash: bytes32(uint256(1)),
-            timestamp: 1
+            timestamp: 1,
+            cacheTxListInfo: 0
         });
     }
 
