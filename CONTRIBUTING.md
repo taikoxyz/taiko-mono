@@ -22,6 +22,8 @@ A Taiko Contributor GitPOAP is rewarded to anyone that merges in a pull request 
 
 After your pull request is merged, a bot will automatically leave a comment with instructions to receive your GitPOAP. You only receive a Taiko Contributor GitPOAP for the first pull request you merge in a given year.
 
+GitPoap only apply to taiko-mono, taiko-geth and taiko-client!
+
 # Coding standards
 
 ### Pull requests
