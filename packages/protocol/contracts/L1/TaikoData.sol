@@ -68,6 +68,9 @@ library TaikoData {
         uint64 l1Height;
         bytes32 l1Hash;
         bytes32 mixHash;
+        bytes32 withdrawalsRoot;
+        uint64 withdrawlStartIndex;
+        uint64 withdrawlUntilIndex;
         bytes32 txListHash;
         uint24 txListByteStart;
         uint24 txListByteEnd;
@@ -125,7 +128,6 @@ library TaikoData {
         uint24 nextForkChoiceId;
         uint24 verifiedForkChoiceId;
         bytes32 metaHash;
-        bytes32 withdrawalsRoot;
         address proposer;
     }
 

@@ -13,8 +13,6 @@ abstract contract TaikoEvents {
     event BlockProposed(
         uint256 indexed id,
         TaikoData.BlockMetadata meta,
-        uint64 withdrawlStartIndex,
-        uint64 withdrawlUntilIndex,
         bool txListCached
     );
 
