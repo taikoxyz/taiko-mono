@@ -180,6 +180,9 @@
       successToast('Transaction completed!');
     } catch (e) {
       console.error(e);
+      // TODO: if we have TransactionReceipt here means the tx failed
+      //       We might want to give the user a link to etherscan
+      //       to see the tx details
       errorToast($_('toast.errorSendingTransaction'));
     } finally {
       loading = false;
@@ -311,6 +314,7 @@
       successToast('Transaction completed!');
     } catch (e) {
       console.error(e);
+      // TODO: Same as in approve()
       errorToast($_('toast.errorSendingTransaction'));
     } finally {
       loading = false;
