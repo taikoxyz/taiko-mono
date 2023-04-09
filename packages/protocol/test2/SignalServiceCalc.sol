@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 import {LibRLPWriter} from "../contracts/thirdparty/LibRLPWriter.sol";
 
-contract TestSignalService is Test {
+contract TestSignalServiceCalc is Test {
     function setUp() public {}
 
     function testLibRLPWriterOne() public {
