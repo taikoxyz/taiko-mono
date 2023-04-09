@@ -9,7 +9,6 @@ pragma solidity ^0.8.18;
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {ISignalService} from "./ISignalService.sol";
 import {IXchainSync} from "../common/IXchainSync.sol";
-import {LibRLPWriter} from "../thirdparty/LibRLPWriter.sol";
 import {LibSecureMerkleTrie} from "../thirdparty/LibSecureMerkleTrie.sol";
 
 contract SignalService is ISignalService, EssentialContract {
