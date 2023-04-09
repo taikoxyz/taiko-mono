@@ -134,7 +134,6 @@ library LibVerifying {
                     uint64(proofTime)
                 );
 
-            // Todo (dani) kiiratast hogy a reward meg a basefee ugyan az-e !?
             state.basefee = newBasefee;
             state.proofTimeIssued = proofTimeIssued;
 

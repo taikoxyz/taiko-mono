@@ -52,54 +52,55 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
     //// - Blocks ever 10 seconds proposed
     //// - Proofs coming shifted 30 min / proposed block afterwards
     //// Foundry has some issues with the iterations (EVM revert) but the calculation mechnism can be seen from this
-    function xtest_possible_mainnet_scenarios() external {
+    function test_possible_mainnet_scenarios() external {
+        vm.pauseGasMetering();
         mine(1);
         //Needs lot of token here - because there is lots of time elapsed between 2 'propose' blocks, which will raise the fee
-        _depositTaikoToken(Alice, 1E8 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E8 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E8 * 1E8, 100 ether);
+        _depositTaikoToken(Alice, 1E8 * 1E8, 1000 ether);
+        _depositTaikoToken(Bob, 1E8 * 1E8, 1000 ether);
+        _depositTaikoToken(Carol, 1E8 * 1E8, 1000 ether);
 
         // Check balances
         uint256 Alice_start_balance = L1.getBalance(Alice);
         uint256 Bob_start_balance = L1.getBalance(Bob);
 
+        // Can play to adjust
+        uint32 iterationCnt = 240;
+
         /// 1.step: mine 180 blocks without proofs - then start prooving with a -180 offset
         TaikoData.BlockMetadata[] memory meta = new TaikoData.BlockMetadata[](
-            250
+            iterationCnt
         );
-        uint64[] memory proposedAt = new uint64[](250);
-        bytes32[] memory parentHashes = new bytes32[](250);
-        bytes32[] memory blockHashes = new bytes32[](250);
-        bytes32[] memory signalRoots = new bytes32[](250);
+        uint64[] memory proposedAt = new uint64[](iterationCnt);
+        bytes32[] memory parentHashes = new bytes32[](iterationCnt);
+        bytes32[] memory blockHashes = new bytes32[](iterationCnt);
+        bytes32[] memory signalRoots = new bytes32[](iterationCnt);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         console2.logBytes32(parentHash);
 
         // Run another session with huge times
-        for (uint256 blockId = 1; blockId < 215; blockId++) {
+        for (uint256 blockId = 1; blockId < iterationCnt; blockId++) {
             meta[blockId] = proposeBlock(Alice, 1024);
             proposedAt[blockId] = (uint64(block.timestamp));
             printVariables("after propose");
-
             blockHashes[blockId] = bytes32(1E10 + blockId);
             signalRoots[blockId] = bytes32(1E9 + blockId);
 
-            if (blockId > 99) {
-                //Start proving with an offset except parentHash because that's one index behind
-                // console2.logBytes32(parentHashes[blockId-179]);
-                // console2.logBytes32(blockHashes[blockId-179]);
-                // console2.logBytes32(signalRoots[blockId-179]);
+            if (blockId > 179) {
+                //Start proving with an offset
                 proveBlock(
                     Bob,
-                    meta[blockId - 99],
-                    parentHashes[blockId - 99],
-                    blockHashes[blockId - 99],
-                    signalRoots[blockId - 99]
+                    meta[blockId - 179],
+                    parentHashes[blockId - 179],
+                    blockHashes[blockId - 179],
+                    signalRoots[blockId - 179]
                 );
+
                 uint64 provenAt = uint64(block.timestamp);
                 console2.log(
                     "Proof reward is:",
-                    L1.getProofReward(provenAt, proposedAt[blockId - 99])
+                    L1.getProofReward(provenAt, proposedAt[blockId - 179])
                 );
                 verifyBlock(Carol, 1);
             }
@@ -118,19 +119,14 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
         deposits = Alice_start_balance - L1.getBalance(Alice);
         withdrawals = L1.getBalance(Bob) - Bob_start_balance;
 
-        // console2.log("Deposits:", deposits);
-        // console2.log("withdrawals:", withdrawals);
+        console2.log("Deposits:", deposits);
+        console2.log("withdrawals:", withdrawals);
         assertEq(deposits, withdrawals);
     }
 
     // Currently set to 85s proofTimeTarget
     function mine_every_10_sec() internal {
         vm.warp(block.timestamp + 10);
-        vm.roll(block.number + 1);
-    }
-
-    function mine_every_5_sec() internal {
-        vm.warp(block.timestamp + 5);
         vm.roll(block.number + 1);
     }
 }

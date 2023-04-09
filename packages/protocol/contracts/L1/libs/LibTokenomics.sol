@@ -162,9 +162,14 @@ library LibTokenomics {
         uint256 value,
         uint256 target,
         uint256 quotient
-    ) private pure returns (uint64) {
-        uint256 result = _expCalculation(value, target, quotient) /
-            (target * quotient);
+    ) private view returns (uint64) {
+        uint256 exp_result = _expCalculation(value, target, quotient);
+        uint256 result = exp_result / 1e4; // 1e4 is 'empirical' in a sense of experience that this works
+        // console2.log("result: ", result);
+        // console2.log("exp_result: ", exp_result);
+        // console2.log("value: ", value);
+        // console2.log("target: ", target);
+        // console2.log("quotient: ", quotient);
         if (result > type(uint64).max) return type(uint64).max;
 
         return uint64(result);
@@ -178,8 +183,14 @@ library LibTokenomics {
         uint256 value,
         uint256 target,
         uint256 quotient
-    ) private pure returns (uint256 retVal) {
-        uint256 x = (value * Math.SCALING_FACTOR_1E18) / (target * quotient);
+    ) private view returns (uint256 retVal) {
+        // x should be around 30 to give 10TKO back
+        uint256 x = (value) / (target * quotient);
+        // In order the newBaseFee be 10TKo, this equotion needs to be like this:
+        // 30 = (value * Math.SCALING_FACTOR_1E18) / 28.800 (28.800 comes from 1800 * 16)
+        // 864000 = value * Math.SCALING_FACTOR_1E18
+        // So basicall value is 864 and SCALING_FACTOR is 1e3
+        //console2.log("x: ", x);
         // Cap it or it would throw otherwise
         if (x > Math.MAX_EXP_INPUT) {
             x = Math.MAX_EXP_INPUT;
