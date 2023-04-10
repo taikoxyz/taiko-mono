@@ -19,16 +19,13 @@ library LibEthDepositing {
 
     function depositEtherToL2(
         TaikoData.State storage state,
-        address recipient,
         uint48 fee
     ) internal {
-        if (
-            (recipient == address(0) && msg.value < fee) ||
-            msg.value - fee > type(uint48).max
-        ) revert L1_INVALID_ETH_DEPOSIT();
+        if (msg.value < fee || msg.value - fee > type(uint48).max)
+            revert L1_INVALID_ETH_DEPOSIT();
 
         TaikoData.EthDeposit memory deposit = TaikoData.EthDeposit({
-            recipient: recipient,
+            recipient: msg.sender,
             amount: uint48(msg.value - fee),
             fee: fee
         });
