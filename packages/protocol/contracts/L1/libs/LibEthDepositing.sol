@@ -62,27 +62,35 @@ library LibEthDepositing {
         if (ethDepositIds.length >= config.maxEthDepositPerBlock)
             revert L1_TOO_MANY_ETH_DEPOSITS();
 
-        uint256[] memory inputs = new uint256[](config.maxEthDepositPerBlock);
-        uint96 totalFee;
+        TaikoData.EthDeposit[] memory inputs = new TaikoData.EthDeposit[](
+            config.maxEthDepositPerBlock
+        );
+        uint48 totalFee;
         uint j;
 
         unchecked {
             for (uint256 i; i < ethDepositIds.length; ++i) {
-                TaikoData.EthDeposit storage deposit = state.ethDeposits[i];
-                if (deposit.recipient != address(0)) {
-                    totalFee += deposit.fee;
+                uint256 id = ethDepositIds[i];
+                TaikoData.EthDeposit storage deposit = state.ethDeposits[id];
 
-                    inputs[j++] =
-                        (uint256(uint160(deposit.recipient)) << 96) |
-                        deposit.amount;
-                    delete state.ethDeposits[i];
-                }
+                if (deposit.recipient == address(0)) continue;
+
+                // Overflow will be fine
+                totalFee += deposit.fee;
+
+                inputs[j].recipient = deposit.recipient;
+                inputs[j].amount = deposit.amount;
+
+                ++j;
+                delete state.ethDeposits[id];
             }
 
-            inputs[j] = (uint256(uint160(beneficiary)) << 96) | totalFee;
+            inputs[j].recipient = beneficiary;
+            inputs[j].amount = totalFee;
         }
 
         assembly {
+            // Note that EthDeposit takes 32 bytes
             root := keccak256(inputs, mul(j, 32))
         }
     }
