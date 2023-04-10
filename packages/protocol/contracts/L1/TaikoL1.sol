@@ -155,10 +155,12 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         LibEthDepositing.cancelEtherDepositToL2(state, depositId);
     }
 
+    // TODO: rename to `depositTaikoToken`
     function deposit(uint256 amount) external nonReentrant {
         LibTokenomics.deposit(state, AddressResolver(this), amount);
     }
 
+    // TODO: rename to `withdrawTaikoToken`
     function withdraw(uint256 amount) external nonReentrant {
         LibTokenomics.withdraw(state, AddressResolver(this), amount);
     }
