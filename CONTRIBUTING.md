@@ -20,7 +20,7 @@ Here are some ways you can contribute:
 
 A Taiko Contributor GitPOAP is rewarded to anyone that merges in a pull request to one of Taiko's GitHub repositories (for example: [2023 Taiko Contributor GitPOAP](https://www.gitpoap.io/gp/893)).
 
-After your pull request is merged, a bot will automatically leave a comment with instructions to receive your GitPOAP. You only receive a Taiko Contributor GitPOAP for the first pull request you merge in a given year.
+After your pull request is merged, a bot will automatically leave a comment with instructions to receive your GitPOAP. You only receive a Taiko Contributor GitPOAP for the first pull request you merge in a given year.Contributor GitPOAP can apply only to taiko-mono, taiko-geth, taiko-client.
 
 # Coding standards
 
