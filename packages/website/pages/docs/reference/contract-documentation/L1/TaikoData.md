@@ -25,6 +25,7 @@ struct Config {
   uint256 slotSmoothingFactor;
   uint256 rewardBurnBips;
   uint256 proposerDepositPctg;
+  uint64 maxEthDepositPerBlock;
   uint256 feeBaseMAF;
   uint256 txListCacheExpiry;
   bool relaySignalRoot;
@@ -62,6 +63,7 @@ struct BlockMetadataInput {
   uint24 txListByteStart;
   uint24 txListByteEnd;
   uint8 cacheTxListInfo;
+  uint64[] ethDepositIds;
 }
 ```
 
@@ -74,6 +76,7 @@ struct BlockMetadata {
   uint64 l1Height;
   bytes32 l1Hash;
   bytes32 mixHash;
+  bytes32 depositsRoot;
   bytes32 txListHash;
   uint24 txListByteStart;
   uint24 txListByteEnd;
@@ -165,6 +168,16 @@ struct TxListInfo {
 }
 ```
 
+### EthDeposit
+
+```solidity
+struct EthDeposit {
+  address recipient;
+  uint48 amount;
+  uint48 fee;
+}
+```
+
 ### State
 
 ```solidity
@@ -173,6 +186,7 @@ struct State {
   mapping(uint256 => mapping(bytes32 => mapping(uint32 => uint256))) forkChoiceIds;
   mapping(address => uint256) balances;
   mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
+  mapping(uint256 => struct TaikoData.EthDeposit) ethDeposits;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 __reserved1;
@@ -180,7 +194,7 @@ struct State {
   uint64 numBlocks;
   uint64 lastProposedAt;
   uint64 avgBlockTime;
-  uint64 __reserved3;
+  uint64 nextEthDepositId;
   uint64 lastVerifiedBlockId;
   uint64 __reserved4;
   uint64 avgProofTime;

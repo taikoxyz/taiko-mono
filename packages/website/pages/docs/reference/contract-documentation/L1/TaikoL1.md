@@ -82,6 +82,18 @@ Verify up to N blocks.
 | --------- | ------- | ------------------------------- |
 | maxBlocks | uint256 | Max number of blocks to verify. |
 
+### depositEtherToL2
+
+```solidity
+function depositEtherToL2(address recipient, uint48 fee) external payable
+```
+
+### cancelEtherDepositToL2
+
+```solidity
+function cancelEtherDepositToL2(uint64 depositId) external
+```
+
 ### deposit
 
 ```solidity

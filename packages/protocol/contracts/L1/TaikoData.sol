@@ -27,7 +27,7 @@ library TaikoData {
         uint256 slotSmoothingFactor;
         uint256 rewardBurnBips;
         uint256 proposerDepositPctg;
-        uint64 numEthDepositPerBlock;
+        uint64 maxEthDepositPerBlock;
         // Moving average factors
         uint256 feeBaseMAF;
         uint256 txListCacheExpiry;
@@ -59,6 +59,7 @@ library TaikoData {
         uint24 txListByteStart; // byte-wise start index (inclusive)
         uint24 txListByteEnd; // byte-wise end index (exclusive)
         uint8 cacheTxListInfo; // non-zero = True
+        uint64[] ethDepositIds;
     }
 
     // 6 slots
@@ -138,9 +139,9 @@ library TaikoData {
 
     // 1 slot
     struct EthDeposit {
-        uint64 id;
-        uint64 amount;
         address recipient;
+        uint48 amount;
+        uint48 fee;
     }
 
     struct State {

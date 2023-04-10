@@ -8,6 +8,7 @@ pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibAddress} from "../../libs/LibAddress.sol";
+import {LibEthDepositing} from "./LibEthDepositing.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {
@@ -33,6 +34,7 @@ library LibProposing {
     error L1_INVALID_METADATA();
     error L1_NOT_SOLO_PROPOSER();
     error L1_TOO_MANY_BLOCKS();
+
     error L1_TX_LIST_NOT_EXIST();
     error L1_TX_LIST_HASH();
     error L1_TX_LIST_RANGE();
@@ -72,7 +74,12 @@ library LibProposing {
                 l1Height: uint64(block.number - 1),
                 l1Hash: blockhash(block.number - 1),
                 mixHash: bytes32(block.prevrandao * state.numBlocks),
-                depositsRoot: _calcDepositsRoot(state, config),
+                depositsRoot: LibEthDepositing.calcDepositsRoot(
+                    state,
+                    config,
+                    input.ethDepositIds,
+                    input.beneficiary
+                ),
                 txListHash: input.txListHash,
                 txListByteStart: input.txListByteStart,
                 txListByteEnd: input.txListByteEnd,
@@ -131,11 +138,6 @@ library LibProposing {
 
         emit BlockProposed(state.numBlocks, meta, cacheTxList);
         unchecked {
-            uint64 _nextEthDepositId = state.numBlocks *
-                config.numEthDepositPerBlock;
-            if (state.nextEthDepositId < _nextEthDepositId) {
-                state.nextEthDepositId = _nextEthDepositId;
-            }
             ++state.numBlocks;
         }
     }
@@ -211,28 +213,6 @@ library LibProposing {
                     cacheTxList = (input.cacheTxListInfo != 0);
                 }
             }
-        }
-    }
-
-    function _calcDepositsRoot(
-        TaikoData.State storage state,
-        TaikoData.Config memory config
-    ) private view returns (bytes32 root) {
-        uint n = config.numEthDepositPerBlock;
-        TaikoData.EthDeposit[] memory inputs = new TaikoData.EthDeposit[](n);
-
-        unchecked {
-            uint256 offset = (state.numBlocks - 1) * n;
-            for (uint256 i = 0; i < n; ++i) {
-                uint256 j = offset + i;
-                if (j >= state.nextEthDepositId) break;
-
-                inputs[i] = state.ethDeposits[j];
-            }
-        }
-
-        assembly {
-            root := keccak256(inputs, mul(n, 64))
         }
     }
 }
