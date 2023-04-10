@@ -74,7 +74,7 @@ library LibEthDepositing {
 
                     inputs[j++] =
                         (uint256(uint160(deposit.recipient)) << 96) |
-                        uint256(deposit.amount);
+                        deposit.amount;
                     delete state.ethDeposits[i];
                 }
             }
