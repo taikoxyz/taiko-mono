@@ -14,7 +14,8 @@ library LibEthDepositing {
     error L1_INVALID_ETH_DEPOSIT();
     error L1_TOO_MANY_ETH_DEPOSITS();
 
-    event EthDeposited(TaikoData.EthDeposit deposit);
+    event EthDepositRequested(uint64 id, TaikoData.EthDeposit deposit);
+    event EthDepositCanceled(uint64 id, TaikoData.EthDeposit deposit);
 
     function depositEtherToL2(
         TaikoData.State storage state,
@@ -33,21 +34,24 @@ library LibEthDepositing {
         });
 
         state.ethDeposits[state.nextEthDepositId] = deposit;
+        emit EthDepositRequested(state.nextEthDepositId, deposit);
+
         unchecked {
             ++state.nextEthDepositId;
         }
-        emit EthDeposited(deposit);
     }
 
     function cancelEtherDepositToL2(
         TaikoData.State storage state,
-        uint64 id
+        uint64 depositId
     ) internal {
-        TaikoData.EthDeposit storage deposit = state.ethDeposits[id];
+        TaikoData.EthDeposit memory deposit = state.ethDeposits[depositId];
         if (deposit.recipient == address(0)) revert L1_INVALID_ETH_DEPOSIT();
 
         deposit.recipient.sendEther(deposit.amount + deposit.fee);
-        delete state.ethDeposits[id];
+        delete state.ethDeposits[depositId];
+
+        emit EthDepositCanceled(depositId, deposit);
     }
 
     function calcDepositsRoot(
