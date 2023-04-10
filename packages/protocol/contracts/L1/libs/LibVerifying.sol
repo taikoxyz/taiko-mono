@@ -42,6 +42,7 @@ library LibVerifying {
         state.genesisTimestamp = timeNow;
         state.feeBase = feeBase;
         state.numBlocks = 1;
+        state.nextEthDepositId = 0;
 
         TaikoData.Block storage blk = state.blocks[0];
         blk.proposedAt = timeNow;

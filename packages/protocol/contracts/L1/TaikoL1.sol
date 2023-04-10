@@ -9,6 +9,7 @@ pragma solidity ^0.8.18;
 import {AddressResolver} from "../common/AddressResolver.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {IXchainSync} from "../common/IXchainSync.sol";
+import {LibEthDepositing} from "./libs/LibEthDepositing.sol";
 import {LibTokenomics} from "./libs/LibTokenomics.sol";
 import {LibProposing} from "./libs/LibProposing.sol";
 import {LibProving} from "./libs/LibProving.sol";
@@ -141,6 +142,10 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             resolver: AddressResolver(this),
             maxBlocks: maxBlocks
         });
+    }
+
+    function depositEtherToL2(address recipient) external payable nonReentrant {
+        LibEthDepositing.depositEtherToL2(state, recipient);
     }
 
     function deposit(uint256 amount) external nonReentrant {
