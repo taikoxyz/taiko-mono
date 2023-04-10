@@ -108,15 +108,16 @@
         srcBridgeAddress: chains[bridgeTx.fromChainId].bridgeAddress,
       });
 
-      pendingTransactions.update((store) => {
-        store.push(tx);
-        return store;
-      });
-
       successToast($_('toast.transactionSent'));
+
+      await pendingTransactions.add(tx, $signer);
+
       // TODO: keep the MessageStatus as contract and use another way.
       transaction.status = MessageStatus.ClaimInProgress;
+
+      successToast('Transaction completed!');
     } catch (e) {
+      // TODO: handle potential transaction failure
       console.error(e);
       errorToast($_('toast.errorSendingTransaction'));
     } finally {
@@ -153,13 +154,13 @@
         srcTokenVaultAddress: tokenVaults[bridgeTx.fromChainId],
       });
 
-      pendingTransactions.update((store) => {
-        store.push(tx);
-        return store;
-      });
-
       successToast($_('toast.transactionSent'));
+
+      pendingTransactions.add(tx, $signer);
+
+      successToast('Transaction completed!');
     } catch (e) {
+      // TODO: handle potential transaction failure
       console.error(e);
       errorToast($_('toast.errorSendingTransaction'));
     } finally {
