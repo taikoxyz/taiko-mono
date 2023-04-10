@@ -88,7 +88,8 @@ contract FooBar {
             gasLimit: 1,
             mixHash: bytes32(uint256(1)),
             depositsRoot: 0,
-            timestamp: 1
+            timestamp: 1,
+            depositsProcessed: new TaikoData.EthDeposit[](0)
         });
     }
 
@@ -105,7 +106,8 @@ contract FooBar {
             gasLimit: 1,
             mixHash: bytes32(uint256(1)),
             depositsRoot: 0,
-            timestamp: 1
+            timestamp: 1,
+            depositsProcessed: new TaikoData.EthDeposit[](0)
         });
     }
 

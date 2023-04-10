@@ -67,26 +67,28 @@ library LibProposing {
         // can be proposed in one Ethereum block, we need to
         // add salt to this random number as L2 mixHash
         TaikoData.BlockMetadata memory meta;
+
+        meta.id = state.numBlocks;
+        meta.txListHash = input.txListHash;
+        meta.txListByteStart = input.txListByteStart;
+        meta.txListByteEnd = input.txListByteEnd;
+        meta.gasLimit = input.gasLimit;
+        meta.beneficiary = input.beneficiary;
+        meta.treasure = resolver.resolve(config.chainId, "treasure", false);
+
+        (meta.depositsRoot, meta.depositsProcessed) = LibEthDepositing
+            .calcDepositsRoot(
+                state,
+                config,
+                input.ethDepositIds,
+                input.beneficiary
+            );
+
         unchecked {
-            meta = TaikoData.BlockMetadata({
-                id: state.numBlocks,
-                timestamp: uint64(block.timestamp),
-                l1Height: uint64(block.number - 1),
-                l1Hash: blockhash(block.number - 1),
-                mixHash: bytes32(block.prevrandao * state.numBlocks),
-                depositsRoot: LibEthDepositing.calcDepositsRoot(
-                    state,
-                    config,
-                    input.ethDepositIds,
-                    input.beneficiary
-                ),
-                txListHash: input.txListHash,
-                txListByteStart: input.txListByteStart,
-                txListByteEnd: input.txListByteEnd,
-                gasLimit: input.gasLimit,
-                beneficiary: input.beneficiary,
-                treasure: resolver.resolve(config.chainId, "treasure", false)
-            });
+            meta.timestamp = uint64(block.timestamp);
+            meta.l1Height = uint64(block.number - 1);
+            meta.l1Hash = blockhash(block.number - 1);
+            meta.mixHash = bytes32(block.prevrandao * state.numBlocks);
         }
 
         TaikoData.Block storage blk = state.blocks[
@@ -124,21 +126,24 @@ library LibProposing {
 
             blk.deposit = uint64(deposit);
         }
+        {
+            unchecked {
+                state.avgBlockTime = LibUtils
+                    .movingAverage({
+                        maValue: state.avgBlockTime,
+                        newValue: (meta.timestamp - state.lastProposedAt) *
+                            1000,
+                        maf: config.proposingConfig.avgTimeMAF
+                    })
+                    .toUint64();
+                state.lastProposedAt = meta.timestamp;
+            }
 
-        unchecked {
-            state.avgBlockTime = LibUtils
-                .movingAverage({
-                    maValue: state.avgBlockTime,
-                    newValue: (meta.timestamp - state.lastProposedAt) * 1000,
-                    maf: config.proposingConfig.avgTimeMAF
-                })
-                .toUint64();
-            state.lastProposedAt = meta.timestamp;
-        }
+            emit BlockProposed(state.numBlocks, meta, cacheTxList);
 
-        emit BlockProposed(state.numBlocks, meta, cacheTxList);
-        unchecked {
-            ++state.numBlocks;
+            unchecked {
+                ++state.numBlocks;
+            }
         }
     }
 

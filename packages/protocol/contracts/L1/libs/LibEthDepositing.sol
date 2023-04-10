@@ -16,6 +16,7 @@ library LibEthDepositing {
 
     event EthDepositRequested(uint64 id, TaikoData.EthDeposit deposit);
     event EthDepositCanceled(uint64 id, TaikoData.EthDeposit deposit);
+    event EthDepositProcessed(TaikoData.EthDeposit[] deposits);
 
     function depositEtherToL2(
         TaikoData.State storage state,
@@ -56,13 +57,17 @@ library LibEthDepositing {
         TaikoData.Config memory config,
         uint64[] memory ethDepositIds,
         address beneficiary
-    ) internal returns (bytes32 root) {
-        if (ethDepositIds.length == 0) return 0;
+    )
+        internal
+        returns (bytes32 root, TaikoData.EthDeposit[] memory depositsProcessed)
+    {
+        if (ethDepositIds.length == 0)
+            return (0, new TaikoData.EthDeposit[](0));
 
         if (ethDepositIds.length >= config.maxEthDepositPerBlock)
             revert L1_TOO_MANY_ETH_DEPOSITS();
 
-        TaikoData.EthDeposit[] memory inputs = new TaikoData.EthDeposit[](
+        depositsProcessed = new TaikoData.EthDeposit[](
             config.maxEthDepositPerBlock
         );
         uint48 totalFee;
@@ -78,20 +83,22 @@ library LibEthDepositing {
                 // Overflow will be fine
                 totalFee += deposit.fee;
 
-                inputs[j].recipient = deposit.recipient;
-                inputs[j].amount = deposit.amount;
+                depositsProcessed[j].recipient = deposit.recipient;
+                depositsProcessed[j].amount = deposit.amount;
 
                 ++j;
                 delete state.ethDeposits[id];
             }
 
-            inputs[j].recipient = beneficiary;
-            inputs[j].amount = totalFee;
+            depositsProcessed[j].recipient = beneficiary;
+            depositsProcessed[j].amount = totalFee;
         }
+
+        // TODO: resize depositsProcessed
 
         assembly {
             // Note that EthDeposit takes 32 bytes
-            root := keccak256(inputs, mul(j, 32))
+            root := keccak256(depositsProcessed, mul(j, 32))
         }
     }
 }

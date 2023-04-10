@@ -83,6 +83,7 @@ struct BlockMetadata {
   uint32 gasLimit;
   address beneficiary;
   address treasure;
+  struct TaikoData.EthDeposit[] depositsProcessed;
 }
 ```
 

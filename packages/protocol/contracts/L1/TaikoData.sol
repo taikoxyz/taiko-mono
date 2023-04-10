@@ -62,7 +62,6 @@ library TaikoData {
         uint64[] ethDepositIds;
     }
 
-    // 6 slots
     // Changing this struct requires changing LibUtils.hashMetadata accordingly.
     struct BlockMetadata {
         uint64 id;
@@ -77,6 +76,7 @@ library TaikoData {
         uint32 gasLimit;
         address beneficiary;
         address treasure;
+        TaikoData.EthDeposit[] depositsProcessed;
     }
 
     struct ZKProof {
