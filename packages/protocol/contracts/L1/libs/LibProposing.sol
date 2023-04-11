@@ -80,6 +80,7 @@ library LibProposing {
             .calcDepositsRoot(
                 state,
                 config,
+                resolver,
                 input.ethDepositIds,
                 input.beneficiary
             );

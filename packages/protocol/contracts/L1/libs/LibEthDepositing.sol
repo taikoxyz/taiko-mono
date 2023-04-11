@@ -7,10 +7,12 @@
 pragma solidity ^0.8.18;
 
 import {LibAddress} from "../../libs/LibAddress.sol";
+import {AddressResolver} from "../../common/AddressResolver.sol";
 import {TaikoData} from "../TaikoData.sol";
 
 library LibEthDepositing {
     using LibAddress for address;
+
     error L1_INVALID_ETH_DEPOSIT();
     error L1_TOO_MANY_ETH_DEPOSITS();
 
@@ -55,6 +57,7 @@ library LibEthDepositing {
     function calcDepositsRoot(
         TaikoData.State storage state,
         TaikoData.Config memory config,
+        AddressResolver resolver,
         uint64[] memory ethDepositIds,
         address beneficiary
     )
@@ -67,10 +70,9 @@ library LibEthDepositing {
         if (ethDepositIds.length >= config.maxEthDepositPerBlock)
             revert L1_TOO_MANY_ETH_DEPOSITS();
 
-        depositsProcessed = new TaikoData.EthDeposit[](
-            config.maxEthDepositPerBlock
-        );
+        depositsProcessed = new TaikoData.EthDeposit[](ethDepositIds.length);
         uint48 totalFee;
+        uint256 totalEther;
         uint j;
 
         unchecked {
@@ -82,6 +84,7 @@ library LibEthDepositing {
 
                 // Overflow will be fine
                 totalFee += deposit.fee;
+                totalEther += deposit.fee + deposit.amount;
 
                 depositsProcessed[j].recipient = deposit.recipient;
                 depositsProcessed[j].amount = deposit.amount;
@@ -94,11 +97,19 @@ library LibEthDepositing {
             depositsProcessed[j].amount = totalFee;
         }
 
-        // TODO: resize depositsProcessed
-
         assembly {
+            // Change the length of depositsProcessed
+            sstore(depositsProcessed, j)
             // Note that EthDeposit takes 32 bytes
             root := keccak256(depositsProcessed, mul(j, 32))
+        }
+
+        if (totalEther > 0) {
+            address to = resolver.resolve("ether_vault", true);
+            if (to == address(0)) {
+                to = resolver.resolve("bridge", false);
+            }
+            to.sendEther(totalEther);
         }
     }
 }
