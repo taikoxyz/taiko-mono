@@ -1,5 +1,5 @@
 import { get } from 'svelte/store';
-import type { Signer, Transaction } from 'ethers';
+import type { Signer, Transaction, ethers } from 'ethers';
 import { pendingTransactions } from './transactions';
 
 jest.mock('../constants/envVars');
@@ -10,36 +10,58 @@ const tx = { hash: '0x789' } as Transaction;
 // These are the pending transactions we'll have initially in the store
 const initialTxs = [{ hash: '0x123' }, { hash: '0x456' }] as Transaction[];
 
+const mockSigner = (receipt: ethers.providers.TransactionReceipt) => {
+  const waitForTransaction = jest
+    .fn()
+    .mockImplementation(() => Promise.resolve(receipt));
+
+  return {
+    provider: { waitForTransaction },
+  } as unknown as Signer;
+};
+
 describe('transaction stores', () => {
-  it('tests pendingTransactions custom store', async () => {
+  beforeEach(() => {
     pendingTransactions.set(initialTxs);
+  });
 
-    // Mock the waitForTransaction method
-    const waitForTransactionDone = Promise.resolve();
-    const waitForTransaction = jest
-      .fn()
-      .mockImplementation(() => waitForTransactionDone);
+  it('tests a successful pendingTransactions', () => {
+    const txTeceipt = { status: 1 } as ethers.providers.TransactionReceipt;
+    const signer = mockSigner(txTeceipt);
 
-    // Mock the signer
-    const signer = {
-      provider: {
-        waitForTransaction,
-      },
-    } as unknown as Signer;
+    pendingTransactions
+      .add(tx, signer)
+      .then((receipt) => {
+        // The transaction should have been removed from the store
+        expect(get(pendingTransactions)).toStrictEqual(initialTxs);
 
-    await pendingTransactions.add(tx, signer);
+        expect(receipt).toEqual(txTeceipt);
+      })
+      .catch(() => {
+        throw new Error('Should not have thrown');
+      });
 
-    // It should have added the transaction to the store
+    // The transaction should have added to the store
     expect(get(pendingTransactions)).toStrictEqual([...initialTxs, tx]);
+  });
 
-    // It should have called waitForTransaction with the correct parameters
-    expect(waitForTransaction).toHaveBeenCalledWith(tx.hash, 1);
+  it('tests a failed pendingTransactions custom store', () => {
+    const txTeceipt = { status: 0 } as ethers.providers.TransactionReceipt;
+    const signer = mockSigner(txTeceipt);
 
-    // We need to check if the right things happened after
-    // the transaction was mined
-    await waitForTransactionDone;
+    pendingTransactions
+      .add(tx, signer)
+      .then(() => {
+        throw new Error('Should have thrown');
+      })
+      .catch((receipt) => {
+        // The transaction should have been removed from the store
+        expect(get(pendingTransactions)).toStrictEqual(initialTxs);
 
-    // The transaction should have been removed from the store
-    expect(get(pendingTransactions)).toStrictEqual(initialTxs);
+        expect(receipt).toEqual(txTeceipt);
+      });
+
+    // The transaction should have added to the store
+    expect(get(pendingTransactions)).toStrictEqual([...initialTxs, tx]);
   });
 });
