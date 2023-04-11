@@ -21,14 +21,14 @@ library LibEthDepositing {
 
     function depositEtherToL2(
         TaikoData.State storage state,
-        uint48 fee
+        uint128 fee
     ) public {
-        if (msg.value < fee || msg.value - fee > type(uint48).max)
+        if (msg.value < fee || msg.value - fee > type(uint128).max)
             revert L1_INVALID_ETH_DEPOSIT();
 
         TaikoData.EthDeposit memory deposit = TaikoData.EthDeposit({
             recipient: msg.sender,
-            amount: uint48(msg.value - fee),
+            amount: uint128(msg.value - fee),
             fee: fee
         });
 
@@ -70,7 +70,7 @@ library LibEthDepositing {
             revert L1_TOO_MANY_ETH_DEPOSITS();
 
         depositsProcessed = new TaikoData.EthDeposit[](ethDepositIds.length);
-        uint48 totalFee;
+        uint128 totalFee;
         uint256 totalEther;
         uint j;
 
@@ -99,8 +99,8 @@ library LibEthDepositing {
         assembly {
             // Change the length of depositsProcessed
             sstore(depositsProcessed, j)
-            // Note that EthDeposit takes 32 bytes
-            root := keccak256(depositsProcessed, mul(j, 32))
+            // Note that EthDeposit takes 64 bytes
+            root := keccak256(depositsProcessed, mul(j, 64))
         }
 
         if (totalEther > 0) {

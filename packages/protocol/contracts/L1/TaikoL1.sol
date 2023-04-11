@@ -144,7 +144,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         });
     }
 
-    function depositEtherToL2(uint48 fee) external payable nonReentrant {
+    function depositEtherToL2(uint128 fee) external payable nonReentrant {
         LibEthDepositing.depositEtherToL2(state, fee);
     }
 
