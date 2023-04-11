@@ -88,8 +88,10 @@ library LibEthDepositing {
                 depositsProcessed[j].recipient = deposit.recipient;
                 depositsProcessed[j].amount = deposit.amount;
 
+                state.ethDeposits[id].recipient = address(0);
+                state.ethDeposits[id].amount = 0;
+                state.ethDeposits[id].fee = 0;
                 ++j;
-                delete state.ethDeposits[id];
             }
 
             depositsProcessed[j].recipient = beneficiary;
