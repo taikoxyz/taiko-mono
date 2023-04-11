@@ -23,7 +23,7 @@ library LibEthDepositing {
     function depositEtherToL2(
         TaikoData.State storage state,
         uint48 fee
-    ) internal {
+    ) public {
         if (msg.value < fee || msg.value - fee > type(uint48).max)
             revert L1_INVALID_ETH_DEPOSIT();
 
@@ -44,7 +44,7 @@ library LibEthDepositing {
     function cancelEtherDepositToL2(
         TaikoData.State storage state,
         uint64 depositId
-    ) internal {
+    ) public {
         TaikoData.EthDeposit memory deposit = state.ethDeposits[depositId];
         if (deposit.recipient == address(0)) revert L1_INVALID_ETH_DEPOSIT();
 
