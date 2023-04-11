@@ -18,7 +18,6 @@ library LibEthDepositing {
 
     event EthDepositRequested(uint64 id, TaikoData.EthDeposit deposit);
     event EthDepositCanceled(uint64 id, TaikoData.EthDeposit deposit);
-    event EthDepositProcessed(TaikoData.EthDeposit[] deposits);
 
     function depositEtherToL2(
         TaikoData.State storage state,
