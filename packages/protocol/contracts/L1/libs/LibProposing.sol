@@ -124,24 +124,22 @@ library LibProposing {
 
             blk.deposit = uint64(deposit);
         }
-        
-            unchecked {
-                state.avgBlockTime = LibUtils
-                    .movingAverage({
-                        maValue: state.avgBlockTime,
-                        newValue: (meta.timestamp - state.lastProposedAt) *
-                            1000,
-                        maf: config.proposingConfig.avgTimeMAF
-                    })
-                    .toUint64();
-                state.lastProposedAt = meta.timestamp;
-            }
 
-          
+        unchecked {
+            state.avgBlockTime = LibUtils
+                .movingAverage({
+                    maValue: state.avgBlockTime,
+                    newValue: (meta.timestamp - state.lastProposedAt) * 1000,
+                    maf: config.proposingConfig.avgTimeMAF
+                })
+                .toUint64();
+            state.lastProposedAt = meta.timestamp;
+        }
+
         emit BlockProposed(state.numBlocks, meta);
         unchecked {
             ++state.numBlocks;
-         }
+        }
     }
 
     function getBlock(
