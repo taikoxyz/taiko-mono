@@ -94,16 +94,16 @@ function depositEtherToL2(uint128 fee) external payable
 function cancelEtherDepositToL2(uint64 depositId) external
 ```
 
-### deposit
+### depositTaikoToken
 
 ```solidity
-function deposit(uint256 amount) external
+function depositTaikoToken(uint256 amount) external
 ```
 
-### withdraw
+### withdrawTaikoToken
 
 ```solidity
-function withdraw(uint256 amount) external
+function withdrawTaikoToken(uint256 amount) external
 ```
 
 ### getBalance
