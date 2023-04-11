@@ -30,7 +30,6 @@ library LibProposing {
     error L1_INVALID_METADATA();
     error L1_NOT_SOLO_PROPOSER();
     error L1_TOO_MANY_BLOCKS();
-
     error L1_TX_LIST_NOT_EXIST();
     error L1_TX_LIST_HASH();
     error L1_TX_LIST_RANGE();
