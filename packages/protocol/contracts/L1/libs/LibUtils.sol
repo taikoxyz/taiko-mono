@@ -109,7 +109,8 @@ library LibUtils {
             (uint256(meta.txListByteStart) << 232) |
             (uint256(meta.txListByteEnd) << 208) |
             (uint256(meta.gasLimit) << 176) |
-            (uint256(uint160(meta.beneficiary)) << 16);
+            (uint256(uint160(meta.beneficiary)) << 16) |
+            (uint256(meta.cacheTxListInfo) << 8);
 
         inputs[6] = (uint256(uint160(meta.treasure)) << 96);
 

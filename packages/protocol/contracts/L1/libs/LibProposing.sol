@@ -22,11 +22,7 @@ library LibProposing {
     using LibAddress for address payable;
     using LibUtils for TaikoData.State;
 
-    event BlockProposed(
-        uint256 indexed id,
-        TaikoData.BlockMetadata meta,
-        bool txListCached
-    );
+    event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
     error L1_BLOCK_ID();
     error L1_INSUFFICIENT_ETHER();
@@ -47,7 +43,7 @@ library LibProposing {
         TaikoData.BlockMetadataInput memory input,
         bytes calldata txList
     ) internal {
-        bool cacheTxList = _validateBlock({
+        uint8 cacheTxListInfo = _validateBlock({
             state: state,
             config: config,
             resolver: resolver,
@@ -55,7 +51,7 @@ library LibProposing {
             txList: txList
         });
 
-        if (cacheTxList) {
+        if (cacheTxListInfo != 0) {
             state.txListInfo[input.txListHash] = TaikoData.TxListInfo({
                 validSince: uint64(block.timestamp),
                 size: uint24(txList.length)
@@ -75,6 +71,7 @@ library LibProposing {
         meta.gasLimit = input.gasLimit;
         meta.beneficiary = input.beneficiary;
         meta.treasure = resolver.resolve(config.chainId, "treasure", false);
+        meta.cacheTxListInfo = cacheTxListInfo;
 
         (meta.depositsRoot, meta.depositsProcessed) = LibEthDepositing
             .calcDepositsRoot(
@@ -127,7 +124,7 @@ library LibProposing {
 
             blk.deposit = uint64(deposit);
         }
-        {
+        
             unchecked {
                 state.avgBlockTime = LibUtils
                     .movingAverage({
@@ -140,12 +137,11 @@ library LibProposing {
                 state.lastProposedAt = meta.timestamp;
             }
 
-            emit BlockProposed(state.numBlocks, meta, cacheTxList);
-
-            unchecked {
-                ++state.numBlocks;
-            }
-        }
+          
+        emit BlockProposed(state.numBlocks, meta);
+        unchecked {
+            ++state.numBlocks;
+         }
     }
 
     function getBlock(
@@ -163,7 +159,7 @@ library LibProposing {
         AddressResolver resolver,
         TaikoData.BlockMetadataInput memory input,
         bytes calldata txList
-    ) private view returns (bool cacheTxList) {
+    ) private view returns (uint8 cacheTxListInfo) {
         // For alpha-2 testnet, the network only allows an special address
         // to propose but anyone to prove. This is the first step of testing
         // the tokenomics.
@@ -216,7 +212,7 @@ library LibProposing {
                     if (input.txListHash != keccak256(txList))
                         revert L1_TX_LIST_HASH();
 
-                    cacheTxList = (input.cacheTxListInfo != 0);
+                    cacheTxListInfo = input.cacheTxListInfo;
                 }
             }
         }

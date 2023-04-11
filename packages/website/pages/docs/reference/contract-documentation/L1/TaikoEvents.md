@@ -3,7 +3,7 @@
 ### BlockProposed
 
 ```solidity
-event BlockProposed(uint256 id, struct TaikoData.BlockMetadata meta, bool txListCached)
+event BlockProposed(uint256 id, struct TaikoData.BlockMetadata meta)
 ```
 
 ### BlockProven

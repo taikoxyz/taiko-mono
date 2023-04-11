@@ -89,6 +89,7 @@ contract FooBar {
             mixHash: bytes32(uint256(1)),
             depositsRoot: 0,
             timestamp: 1,
+             cacheTxListInfo: 0,
             depositsProcessed: new TaikoData.EthDeposit[](0)
         });
     }
@@ -107,6 +108,7 @@ contract FooBar {
             mixHash: bytes32(uint256(1)),
             depositsRoot: 0,
             timestamp: 1,
+             cacheTxListInfo: 0,
             depositsProcessed: new TaikoData.EthDeposit[](0)
         });
     }

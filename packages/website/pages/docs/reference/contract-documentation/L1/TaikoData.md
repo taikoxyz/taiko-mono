@@ -82,6 +82,7 @@ struct BlockMetadata {
   uint24 txListByteEnd;
   uint32 gasLimit;
   address beneficiary;
+  uint8 cacheTxListInfo;
   address treasure;
   struct TaikoData.EthDeposit[] depositsProcessed;
 }
