@@ -18,8 +18,6 @@ function verifyMKP(bytes key, bytes value, bytes proof, bytes32 root) external p
 
 ---
 
-## title: ProofVerifier
-
 ## ProofVerifier
 
 ### init
