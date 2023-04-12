@@ -72,7 +72,7 @@
     ];
   }
 
-  let buttons = makeButtons(totalPages);
+  $: buttons = makeButtons(totalPages);
 </script>
 
 <div class="btn-group pagination justify-center mt-4">

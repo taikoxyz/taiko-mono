@@ -18,8 +18,9 @@
 
   let page = 1;
   let size = 10;
-  $: totalPagesInTransactionList =
-    Math.ceil($paginationInfo?.total / size) ?? 0;
+  $: totalPagesInTransactionList = $paginationInfo
+    ? Math.ceil($paginationInfo?.total / size)
+    : 0;
 
   $: transactionsToShow = $transactions.slice(
     (page - 1) * size,
