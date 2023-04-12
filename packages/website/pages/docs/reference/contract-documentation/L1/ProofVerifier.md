@@ -16,8 +16,6 @@ function verifyZKP(string verifierId, bytes zkproof, bytes32 instance) external 
 function verifyMKP(bytes key, bytes value, bytes proof, bytes32 root) external pure returns (bool verified)
 ```
 
----
-
 ## ProofVerifier
 
 ### init
