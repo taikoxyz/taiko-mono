@@ -55,9 +55,7 @@ library LibSecureMerkleTrie {
         bytes memory _proof,
         bytes32 _root
     ) internal pure returns (bool _verified) {
-        // bytes memory key = _getSecureKey(_key);
-        bytes memory key = _key;
-
+        bytes memory key = _getSecureKey(_key);
         return LibMerkleTrie.verifyInclusionProof(key, _value, _proof, _root);
     }
 
