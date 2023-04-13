@@ -7,7 +7,7 @@
     if (pages <= 5) {
       return new Array(pages).fill(0).map((_, index) => ({
         label: index + 1,
-        onClick: () => (page = index),
+        onClick: () => (page = index + 1),
         value: index + 1,
       }));
     } else {
