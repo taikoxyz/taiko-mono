@@ -1,3 +1,7 @@
+---
+title: IProofVerifier
+---
+
 ## IProofVerifier
 
 ### verifyZKP

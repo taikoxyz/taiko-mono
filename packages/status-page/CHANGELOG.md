@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.6.0](https://github.com/taikoxyz/taiko-mono/compare/status-page-v0.5.0...status-page-v0.6.0) (2023-04-08)
+
+
+### Features
+
+* **status-page:** order the provers by count descending ([#13504](https://github.com/taikoxyz/taiko-mono/issues/13504)) ([49db97d](https://github.com/taikoxyz/taiko-mono/commit/49db97d75019d71beb8466c646934bfabba5b13d))
+
+
+### Bug Fixes
+
+* **repo:** fix multiple typos ([#13558](https://github.com/taikoxyz/taiko-mono/issues/13558)) ([f54242a](https://github.com/taikoxyz/taiko-mono/commit/f54242aa95e5c5563f8f0a7f9af0a1eab20ab67b))
+* **status-page:** add max height and scrollable to prover details popup ([#13498](https://github.com/taikoxyz/taiko-mono/issues/13498)) ([d126791](https://github.com/taikoxyz/taiko-mono/commit/d126791775bbaa59a107975077b9d32811bd09ea))
+* **status-page:** latest proof time ([#13511](https://github.com/taikoxyz/taiko-mono/issues/13511)) ([c0bc671](https://github.com/taikoxyz/taiko-mono/commit/c0bc671572a13b48d33ea567fc884a72e51f2be0))
+
 ## [0.5.0](https://github.com/taikoxyz/taiko-mono/compare/status-page-v0.4.0...status-page-v0.5.0) (2023-03-29)
 
 
