@@ -29,8 +29,16 @@
   import { CustomTokenService } from './storage/CustomTokenService';
   import { userTokens, tokenService } from './store/userToken';
   import { RelayerAPIService } from './relayer-api/RelayerAPIService';
-  import type { RelayerAPI } from './domain/relayerApi';
-  import { relayerApi, relayerBlockInfoMap } from './store/relayerApi';
+  import {
+    DEFAULT_PAGE,
+    MAX_PAGE_SIZE,
+    type RelayerAPI,
+  } from './domain/relayerApi';
+  import {
+    paginationInfo,
+    relayerApi,
+    relayerBlockInfoMap,
+  } from './store/relayerApi';
   import { chains, mainnetWagmiChain, taikoWagmiChain } from './chain/chains';
   import { providers } from './provider/providers';
   import { RELAYER_URL } from './constants/envVars';
@@ -91,9 +99,13 @@
     if (store) {
       const userAddress = await store.getAddress();
 
-      const apiTxs = await $relayerApi.getAllBridgeTransactionByAddress(
-        userAddress,
-      );
+      const { txs: apiTxs, paginationInfo: info } =
+        await $relayerApi.getAllBridgeTransactionByAddress(userAddress, {
+          page: DEFAULT_PAGE,
+          size: MAX_PAGE_SIZE,
+        });
+
+      paginationInfo.set(info);
 
       const blockInfoMap = await $relayerApi.getBlockInfo();
       relayerBlockInfoMap.set(blockInfoMap);
