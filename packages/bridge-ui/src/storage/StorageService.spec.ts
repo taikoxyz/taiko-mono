@@ -78,7 +78,7 @@ const mockErc20Query = [mockErc20Event];
 describe('storage tests', () => {
   beforeAll(() => {
     mockProvider.waitForTransaction.mockImplementation(() => {
-      return;
+      return Promise.resolve(mockTxReceipt);
     });
 
     mockContract.getMessageStatus.mockImplementation(() => {
