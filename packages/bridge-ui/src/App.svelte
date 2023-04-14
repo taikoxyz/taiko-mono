@@ -16,17 +16,14 @@
   import Navbar from './components/Navbar.svelte';
   import Toast, { successToast } from './components/Toast.svelte';
   import { signer } from './store/signer';
-  import type { BridgeTransaction, Transactioner } from './domain/transactions';
+  import type { BridgeTransaction } from './domain/transactions';
   import { wagmiClient } from './store/wagmi';
 
   setupI18n({ withLocale: 'en' });
   import SwitchEthereumChainModal from './components/modals/SwitchEthereumChainModal.svelte';
   import { ethers } from 'ethers';
-  import { StorageService } from './storage/StorageService';
   import { MessageStatus } from './domain/message';
   import BridgeABI from './constants/abi/Bridge';
-  import type { TokenService } from './domain/token';
-  import { CustomTokenService } from './storage/CustomTokenService';
   import { userTokens, tokenService } from './store/userToken';
   import { RelayerAPIService } from './relayer-api/RelayerAPIService';
   import type { RelayerAPI } from './domain/relayerApi';
@@ -70,21 +67,11 @@
     ],
   });
 
-  const storageTransactioner: Transactioner = new StorageService(
-    window.localStorage,
-    providers,
-  );
-
   const relayerApiService: RelayerAPI = new RelayerAPIService(
     RELAYER_URL,
     providers,
   );
 
-  const tokenStore: TokenService = new CustomTokenService(window.localStorage);
-
-  tokenService.set(tokenStore);
-
-  transactioner.set(storageTransactioner);
   relayerApi.set(relayerApiService);
 
   signer.subscribe(async (store) => {
