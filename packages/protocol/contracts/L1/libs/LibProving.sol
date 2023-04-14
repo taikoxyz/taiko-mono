@@ -39,7 +39,6 @@ library LibProving {
         TaikoData.BlockEvidence memory evidence
     ) internal {
         bool isOracleProof = evidence.prover == address(0);
-        bytes32 key;
 
         if (isOracleProof) {
             address oracleProver = resolver.resolve("oracle_prover", true);
@@ -55,17 +54,16 @@ library LibProving {
                     r := mload(add(data, 32))
                     s := mload(add(data, 64))
                 }
-                key = LibUtils.keyForForkChoice(
-                    evidence.parentHash,
-                    evidence.parentGasUsed
-                );
-                address addr = ecrecover(
-                    key,
-                    uint8(evidence.zkproof.verifierId),
-                    r,
-                    s
-                );
-                if (addr != oracleProver) revert L1_NOT_ORACLE_PROVER();
+
+                if (
+                    oracleProver !=
+                    ecrecover(
+                        keccak256(abi.encode(evidence)),
+                        uint8(evidence.zkproof.verifierId),
+                        r,
+                        s
+                    )
+                ) revert L1_NOT_ORACLE_PROVER();
             }
         }
 
@@ -114,12 +112,10 @@ library LibProving {
 
             if (fcId == 1) {
                 // We only write the key when fcId is 1.
-                fc.key = key != 0
-                    ? key
-                    : LibUtils.keyForForkChoice(
-                        evidence.parentHash,
-                        evidence.parentGasUsed
-                    );
+                fc.key = LibUtils.keyForForkChoice(
+                    evidence.parentHash,
+                    evidence.parentGasUsed
+                );
             } else {
                 state.forkChoiceIds[blk.blockId][evidence.parentHash][
                     evidence.parentGasUsed
