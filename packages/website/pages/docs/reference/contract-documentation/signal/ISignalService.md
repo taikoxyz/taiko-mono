@@ -1,3 +1,7 @@
+---
+title: ISignalService
+---
+
 ## ISignalService
 
 ### sendSignal
