@@ -105,6 +105,7 @@ library LibProving {
 
         if (fcId == 0) {
             fcId = blk.nextForkChoiceId;
+
             unchecked {
                 ++blk.nextForkChoiceId;
             }

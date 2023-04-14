@@ -71,113 +71,119 @@ contract TaikoL1_OracleTest is TaikoL1TestBase {
         _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint32 parentGasUsed = 0;
 
-        TaikoData.BlockMetadata memory meta = proposeBlock(
-            Alice,
-            1000000,
-            1024
-        );
-        uint256 blockId = 1;
+        for (uint i = 0; i < 2; ++i) {
+            uint32 parentGasUsed = uint32(10000 + i);
+            TaikoData.BlockMetadata memory meta = proposeBlock(
+                Alice,
+                1000000,
+                1024
+            );
+            uint256 blockId = 1;
 
-        // Bob proves the block
-        proveBlock(
-            Bob,
-            meta,
-            parentHash,
-            parentGasUsed,
-            10001,
-            bytes32(uint256(0x11)),
-            bytes32(uint256(0x12)),
-            false
-        );
+            // Bob proves the block
+            proveBlock(
+                Bob,
+                meta,
+                parentHash,
+                parentGasUsed,
+                10001,
+                bytes32(uint256(0x11)),
+                bytes32(uint256(0x12)),
+                false
+            );
 
-        TaikoData.ForkChoice memory fc = L1.getForkChoice(
-            blockId,
-            parentHash,
-            parentGasUsed
-        );
+            TaikoData.ForkChoice memory fc = L1.getForkChoice(
+                blockId,
+                parentHash,
+                parentGasUsed
+            );
 
-        assertFalse(fc.key == 0);
-        assertEq(fc.blockHash, bytes32(uint256(0x11)));
-        assertEq(fc.signalRoot, bytes32(uint256(0x12)));
-        assertEq(fc.provenAt, block.timestamp);
-        assertEq(fc.prover, Bob);
-        assertEq(fc.gasUsed, 10001);
+            if (i == 0) {
+                assertFalse(fc.key == 0);
+            } else {
+                assertEq(fc.key, 0);
+            }
+            assertEq(fc.blockHash, bytes32(uint256(0x11)));
+            assertEq(fc.signalRoot, bytes32(uint256(0x12)));
+            assertEq(fc.provenAt, block.timestamp);
+            assertEq(fc.prover, Bob);
+            assertEq(fc.gasUsed, 10001);
 
-        // Carol cannot prove the fork choice again
-        vm.warp(block.timestamp + 10 seconds);
-        vm.expectRevert();
-        proveBlock(
-            Carol,
-            meta,
-            parentHash,
-            parentGasUsed,
-            10002,
-            bytes32(uint256(0x21)),
-            bytes32(uint256(0x22)),
-            false
-        );
+            // Carol cannot prove the fork choice again
+            vm.warp(block.timestamp + 10 seconds);
+            vm.expectRevert();
+            proveBlock(
+                Carol,
+                meta,
+                parentHash,
+                parentGasUsed,
+                10002,
+                bytes32(uint256(0x21)),
+                bytes32(uint256(0x22)),
+                false
+            );
 
-        // Alice, the oracle prover,  cannot prove the fork choice again
-        // as a normal prover.
-        vm.warp(block.timestamp + 10 seconds);
-        vm.expectRevert();
-        proveBlock(
-            Alice,
-            meta,
-            parentHash,
-            parentGasUsed,
-            10003,
-            bytes32(uint256(0x31)),
-            bytes32(uint256(0x32)),
-            false
-        );
+            // Alice, the oracle prover,  cannot prove the fork choice again
+            // as a normal prover.
+            vm.warp(block.timestamp + 10 seconds);
+            vm.expectRevert();
+            proveBlock(
+                Alice,
+                meta,
+                parentHash,
+                parentGasUsed,
+                10003,
+                bytes32(uint256(0x31)),
+                bytes32(uint256(0x32)),
+                false
+            );
 
-        // Alice, the oracle prover,  cannot oracle-prove the fork choice
-        vm.warp(block.timestamp + 10 seconds);
-        proveBlock(
-            Alice,
-            meta,
-            parentHash,
-            parentGasUsed,
-            10003,
-            bytes32(uint256(0x31)),
-            bytes32(uint256(0x32)),
-            true
-        );
+            // Alice, the oracle prover,  cannot oracle-prove the fork choice
+            vm.warp(block.timestamp + 10 seconds);
+            proveBlock(
+                Alice,
+                meta,
+                parentHash,
+                parentGasUsed,
+                10003,
+                bytes32(uint256(0x31)),
+                bytes32(uint256(0x32)),
+                true
+            );
 
-        fc = L1.getForkChoice(blockId, parentHash, parentGasUsed);
+            fc = L1.getForkChoice(blockId, parentHash, parentGasUsed);
 
-        assertFalse(fc.key == 0);
-        assertEq(fc.blockHash, bytes32(uint256(0x31)));
-        assertEq(fc.signalRoot, bytes32(uint256(0x32)));
-        assertEq(fc.provenAt, block.timestamp);
-        assertEq(fc.prover, address(0));
-        assertEq(fc.gasUsed, 10003);
+            assertFalse(fc.key == 0);
+            assertEq(fc.blockHash, bytes32(uint256(0x31)));
+            assertEq(fc.signalRoot, bytes32(uint256(0x32)));
+            assertEq(fc.provenAt, block.timestamp);
+            assertEq(fc.prover, address(0));
+            assertEq(fc.gasUsed, 10003);
 
-        // Alice, the oracle prover,  cannot oracle-prove the fork choice multiple times
-        vm.warp(block.timestamp + 10 seconds);
+            // Alice, the oracle prover,  cannot oracle-prove the fork choice multiple times
+            vm.warp(block.timestamp + 10 seconds);
 
-        proveBlock(
-            Alice,
-            meta,
-            parentHash,
-            parentGasUsed,
-            10004,
-            bytes32(uint256(0x41)),
-            bytes32(uint256(0x42)),
-            true
-        );
+            proveBlock(
+                Alice,
+                meta,
+                parentHash,
+                parentGasUsed,
+                10004,
+                bytes32(uint256(0x41)),
+                bytes32(uint256(0x42)),
+                true
+            );
 
-        fc = L1.getForkChoice(blockId, parentHash, parentGasUsed);
+            fc = L1.getForkChoice(blockId, parentHash, parentGasUsed);
 
-        assertFalse(fc.key == 0);
-        assertEq(fc.blockHash, bytes32(uint256(0x41)));
-        assertEq(fc.signalRoot, bytes32(uint256(0x42)));
-        assertEq(fc.provenAt, block.timestamp);
-        assertEq(fc.prover, address(0));
-        assertEq(fc.gasUsed, 10004);
+            assertFalse(fc.key == 0);
+            assertEq(fc.blockHash, bytes32(uint256(0x41)));
+            assertEq(fc.signalRoot, bytes32(uint256(0x42)));
+            assertEq(fc.provenAt, block.timestamp);
+            assertEq(fc.prover, address(0));
+            assertEq(fc.gasUsed, 10004);
+        }
     }
 
     /// @dev Test we can propose, prove, then verify more blocks than 'maxNumProposedBlocks'
