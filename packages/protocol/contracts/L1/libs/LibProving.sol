@@ -68,11 +68,10 @@ library LibProving {
             }
         }
 
-        TaikoData.BlockMetadata memory meta = evidence.meta;
         if (
-            meta.id != blockId ||
-            meta.id <= state.lastVerifiedBlockId ||
-            meta.id >= state.numBlocks
+            evidence.meta.id != blockId ||
+            evidence.meta.id <= state.lastVerifiedBlockId ||
+            evidence.meta.id >= state.numBlocks
         ) revert L1_BLOCK_ID();
 
         if (
@@ -85,10 +84,10 @@ library LibProving {
         ) revert L1_INVALID_EVIDENCE();
 
         TaikoData.Block storage blk = state.blocks[
-            meta.id % config.ringBufferSize
+            evidence.meta.id % config.ringBufferSize
         ];
 
-        bytes32 _metaHash = LibUtils.hashMetadata(meta);
+        bytes32 _metaHash = LibUtils.hashMetadata(evidence.meta);
         if (blk.metaHash != _metaHash)
             revert L1_EVIDENCE_MISMATCH(blk.metaHash, _metaHash);
 
