@@ -33,18 +33,19 @@ library LibUtils {
         TaikoData.Block storage blk,
         bytes32 parentHash,
         uint32 parentGasUsed
-    ) internal view returns (uint256) {
+    ) internal view returns (uint256 fcId) {
         if (
             blk.forkChoices[1].key ==
             keyForForkChoice(parentHash, parentGasUsed)
-        ) return 1;
+        ) {
+            fcId = 1;
+        } else {
+            fcId = state.forkChoiceIds[blk.blockId][parentHash][parentGasUsed];
+        }
 
-        uint256 fcId = state.forkChoiceIds[blk.blockId][parentHash][
-            parentGasUsed
-        ];
-        if (fcId >= blk.nextForkChoiceId) return 0;
-
-        return fcId;
+        if (fcId >= blk.nextForkChoiceId) {
+            fcId = 0;
+        }
     }
 
     function getStateVariables(
