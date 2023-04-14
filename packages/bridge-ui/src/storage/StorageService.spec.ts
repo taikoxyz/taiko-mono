@@ -1,4 +1,4 @@
-import { BigNumber, BigNumberish } from 'ethers';
+import { BigNumber, BigNumberish, ethers } from 'ethers';
 import { MessageStatus } from '../domain/message';
 import { StorageService } from './StorageService';
 import type { BridgeTransaction } from '../domain/transactions';
@@ -23,7 +23,9 @@ const mockContract = {
   getMessageStatus: jest.fn(),
   symbol: jest.fn(),
   filters: {
-    ERC20Sent: jest.fn(),
+    // Returns this string to help us
+    // identify the filter in the tests
+    ERC20Sent: () => 'ERC20Sent',
   },
 };
 
@@ -51,7 +53,6 @@ const mockTxReceipt = {
 const mockEvent = {
   args: {
     message: {
-      data: '0x',
       owner: '0x123',
     },
     msgHash: '0x456',
@@ -96,6 +97,8 @@ describe('storage tests', () => {
     mockProvider.getTransactionReceipt.mockImplementation(() => {
       return mockTxReceipt;
     });
+
+    mockContract.queryFilter.mockReset();
   });
 
   it('handles invalid JSON when getting all transactions', async () => {
@@ -142,7 +145,7 @@ describe('storage tests', () => {
     expect(txs).toEqual([mockTx]);
   });
 
-  it('gets all transactions by address, no event', async () => {
+  it('gets all transactions by address, no MessageSent event', async () => {
     mockContract.queryFilter.mockImplementation(() => {
       return [];
     });
@@ -154,14 +157,12 @@ describe('storage tests', () => {
     expect(txs).toEqual([
       {
         ...mockTx,
-        receipt: {
-          blockNumber: 1,
-        },
+        receipt: { blockNumber: 1 },
       },
     ]);
   });
 
-  it('gets all transactions by address, ETH (message.data === "0x")', async () => {
+  it('gets all transactions by address, ETH transfer', async () => {
     mockContract.queryFilter.mockImplementation(() => {
       return mockQuery;
     });
@@ -177,16 +178,35 @@ describe('storage tests', () => {
     expect(txs).toEqual([
       {
         ...mockTx,
-        receipt: {
-          blockNumber: 1,
-        },
+        receipt: { blockNumber: 1 },
         msgHash: mockEvent.args.msgHash,
         message: mockEvent.args.message,
       },
     ]);
   });
 
-  it('gets all transactions by address, ERC20 (message.data !== "0x")', async () => {
+  it('gets all transactions by address, no ERC20Sent event', async () => {
+    mockContract.queryFilter.mockImplementation((filter: string) => {
+      if (filter === 'ERC20Sent') return [];
+      return mockErc20Query; // MessageSent
+    });
+
+    const svc = new StorageService(mockStorage as any, providers);
+
+    const txs = await svc.getAllByAddress('0x123');
+
+    // There is no symbol nor amountInWei
+    expect(txs).toEqual([
+      {
+        ...mockTx,
+        receipt: { blockNumber: 1 },
+        msgHash: mockErc20Event.args.msgHash,
+        message: mockErc20Event.args.message,
+      },
+    ]);
+  });
+
+  it('gets all transactions by address, ERC20 transfer', async () => {
     mockContract.queryFilter.mockImplementation(() => {
       return mockErc20Query;
     });
@@ -202,13 +222,15 @@ describe('storage tests', () => {
     expect(txs).toEqual([
       {
         ...mockTx,
-        amountInWei: BigNumber.from(0x64),
         receipt: {
           blockNumber: 1,
         },
-        symbol: TKOToken.symbol,
         msgHash: mockErc20Event.args.msgHash,
         message: mockErc20Event.args.message,
+
+        // We should have these two
+        symbol: TKOToken.symbol,
+        amountInWei: BigNumber.from(0x64),
       },
     ]);
   });
@@ -244,7 +266,7 @@ describe('storage tests', () => {
 
     const tx = await svc.getTransactionByHash('0x123', mockTx.hash);
 
-    expect(tx).toBeUndefined();
+    expect(tx).toEqual(tx);
   });
 
   it('get transaction by hash, no event', async () => {
@@ -256,7 +278,10 @@ describe('storage tests', () => {
 
     const tx = await svc.getTransactionByHash('0x123', mockTx.hash);
 
-    expect(tx).toBeUndefined();
+    expect(tx).toEqual({
+      ...tx,
+      receipt: { blockNumber: 1 },
+    });
   });
 
   it('get transaction by hash where tx.from !== address', async () => {
@@ -267,7 +292,7 @@ describe('storage tests', () => {
     expect(tx).toBeUndefined();
   });
 
-  it('get transaction by hash, ETH (message.data === "0x")', async () => {
+  it('get transaction by hash, ETH transfer', async () => {
     mockContract.queryFilter.mockImplementation(() => {
       return mockQuery;
     });
@@ -283,15 +308,32 @@ describe('storage tests', () => {
     expect(tx).toEqual({
       ...mockTx,
       message: mockEvent.args.message,
-      receipt: {
-        blockNumber: 1,
-      },
+      receipt: { blockNumber: 1 },
       msgHash: mockEvent.args.msgHash,
       status: 0,
     });
   });
 
-  it('get transaction by hash, ERC20 (message.data !== "0x")', async () => {
+  it('get transaction by hash, no ERC20Sent event', async () => {
+    mockContract.queryFilter.mockImplementation((filter: string) => {
+      if (filter === 'ERC20Sent') return [];
+      return mockErc20Query; // MessageSent
+    });
+
+    const svc = new StorageService(mockStorage as any, providers);
+
+    const tx = await svc.getTransactionByHash('0x123', mockTx.hash);
+
+    // There is no symbol nor amountInWei
+    expect(tx).toEqual({
+      ...mockTx,
+      receipt: { blockNumber: 1 },
+      msgHash: mockErc20Event.args.msgHash,
+      message: mockErc20Event.args.message,
+    });
+  });
+
+  it('get transaction by hash, ERC20 transfer', async () => {
     mockContract.queryFilter.mockImplementation(() => {
       return mockErc20Query;
     });
