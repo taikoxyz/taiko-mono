@@ -28,6 +28,7 @@
   import { providers } from './provider/providers';
   import { RELAYER_URL } from './constants/envVars';
   import Router from './components/Router.svelte';
+  import { storageService, tokenService } from './storage/services';
 
   const { chains: wagmiChains, provider } = configureChains(
     [mainnetWagmiChain, taikoWagmiChain],
@@ -81,7 +82,7 @@
       const blockInfoMap = await $relayerApi.getBlockInfo();
       relayerBlockInfoMap.set(blockInfoMap);
 
-      const txs = await $transactioner.getAllByAddress(userAddress);
+      const txs = await storageService.getAllByAddress(userAddress);
       const hashToApiTxsMap = new Map(
         apiTxs.map((tx) => {
           return [tx.hash.toLowerCase(), 1];
@@ -92,11 +93,11 @@
         return !hashToApiTxsMap.has(tx.hash.toLowerCase());
       });
 
-      $transactioner.updateStorageByAddress(userAddress, updatedStorageTxs);
+      storageService.updateStorageByAddress(userAddress, updatedStorageTxs);
 
       transactions.set([...updatedStorageTxs, ...apiTxs]);
 
-      const tokens = $tokenService.getTokens(userAddress);
+      const tokens = tokenService.getTokens(userAddress);
       userTokens.set(tokens);
     }
   });
