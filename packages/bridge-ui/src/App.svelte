@@ -8,11 +8,7 @@
   import { MetaMaskConnector } from '@wagmi/core/connectors/metaMask';
 
   import { setupI18n } from './i18n';
-  import {
-    pendingTransactions,
-    transactioner,
-    transactions,
-  } from './store/transactions';
+  import { pendingTransactions, transactions } from './store/transactions';
   import Navbar from './components/Navbar.svelte';
   import Toast, { successToast } from './components/Toast.svelte';
   import { signer } from './store/signer';
@@ -24,7 +20,7 @@
   import { ethers } from 'ethers';
   import { MessageStatus } from './domain/message';
   import BridgeABI from './constants/abi/Bridge';
-  import { userTokens, tokenService } from './store/userToken';
+  import { userTokens } from './store/userToken';
   import { RelayerAPIService } from './relayer-api/RelayerAPIService';
   import type { RelayerAPI } from './domain/relayerApi';
   import { relayerApi, relayerBlockInfoMap } from './store/relayerApi';
