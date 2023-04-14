@@ -179,8 +179,6 @@ library LibVerifying {
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = fcId;
 
-        fc.provenAt = 0; // mark as deleted
-
         emit BlockVerified(blk.blockId, fc.blockHash);
     }
 

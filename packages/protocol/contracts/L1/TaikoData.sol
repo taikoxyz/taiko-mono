@@ -100,7 +100,7 @@ library TaikoData {
         bytes32 key;
         bytes32 blockHash;
         bytes32 signalRoot;
-        uint64 provenAt; // 0 to mark as 'deleted'
+        uint64 provenAt;
         address prover; // 0x0 to mark as 'oracle proof'
         uint32 gasUsed;
     }

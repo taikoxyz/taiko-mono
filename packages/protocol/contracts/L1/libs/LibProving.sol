@@ -218,8 +218,6 @@ library LibProving {
             parentGasUsed
         );
         if (fcId == 0) revert L1_FORK_CHOICE_NOT_FOUND();
-
         fc = blk.forkChoices[fcId];
-        if (fc.provenAt == 0) revert L1_FORK_CHOICE_NOT_FOUND();
     }
 }
