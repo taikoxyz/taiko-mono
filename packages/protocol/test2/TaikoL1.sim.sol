@@ -27,6 +27,8 @@ contract TaikoL1_b is TaikoL1 {
         config.enableSoloProposer = false;
         config.maxNumProposedBlocks = 36;
         config.ringBufferSize = 40;
+        config.maxVerificationsPerTx = 5;
+        config.proofCooldownPeriod = 1 minutes;
     }
 }
 
