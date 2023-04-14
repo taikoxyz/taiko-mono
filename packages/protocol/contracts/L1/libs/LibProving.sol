@@ -100,9 +100,6 @@ library LibProving {
                     evidence.parentHash,
                     evidence.parentGasUsed
                 );
-                state.forkChoiceIds[blk.blockId][evidence.parentHash][
-                    evidence.parentGasUsed
-                ] = 0;
             } else {
                 state.forkChoiceIds[blk.blockId][evidence.parentHash][
                     evidence.parentGasUsed
@@ -119,14 +116,6 @@ library LibProving {
         fc.gasUsed = evidence.gasUsed;
         fc.provenAt = uint64(block.timestamp);
         fc.prover = evidence.prover;
-
-        emit BlockProven({
-            id: blk.blockId,
-            parentHash: evidence.parentHash,
-            blockHash: evidence.blockHash,
-            signalRoot: evidence.signalRoot,
-            prover: evidence.prover
-        });
 
         if (isOracleProof || config.skipZKPVerification) {
             bytes32 instance;
@@ -181,6 +170,14 @@ library LibProving {
                 bytes32(ret) != keccak256("taiko")
             ) revert L1_INVALID_PROOF();
         }
+
+        emit BlockProven({
+            id: blk.blockId,
+            parentHash: evidence.parentHash,
+            blockHash: evidence.blockHash,
+            signalRoot: evidence.signalRoot,
+            prover: evidence.prover
+        });
     }
 
     function getForkChoice(
