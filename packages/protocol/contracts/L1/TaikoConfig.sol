@@ -32,7 +32,7 @@ library TaikoConfig {
                 maxBytesPerTxList: 120000,
                 minTxGasLimit: 21000,
                 slotSmoothingFactor: 946649,
-                proofCooldownPeriod: 5 minutes,
+                proofCooldownPeriod: 0 minutes,
                 // 100 basis points or 1%
                 rewardBurnBips: 100,
                 proposerDepositPctg: 25, // - 25%
