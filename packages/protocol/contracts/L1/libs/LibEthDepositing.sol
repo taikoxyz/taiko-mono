@@ -13,6 +13,13 @@ import {TaikoData} from "../TaikoData.sol";
 library LibEthDepositing {
     using LibAddress for address;
 
+    // If we allow 1 million ETH to be deposited per L2 block, if there
+    // is 1 block per second, and we premint type(uint128).max ETH,
+    //  then to overflow type(uint256).max, we need 3.67E45 years:
+    // (2^256-2^128) / (1000000 * 10^18 * 86400 * 365)
+    uint256 public constant MAX_ETH_DEPOSIT_PER_BLOCK = 1000000 ether;
+
+    error L1_EXCEED_MAX_ETH_DEPOSIT();
     error L1_INVALID_ETH_DEPOSIT();
     error L1_TOO_MANY_ETH_DEPOSITS();
 
@@ -97,6 +104,9 @@ library LibEthDepositing {
             depositsProcessed[j].recipient = beneficiary;
             depositsProcessed[j].amount = totalFee;
         }
+
+        if (totalEther > MAX_ETH_DEPOSIT_PER_BLOCK)
+            revert L1_EXCEED_MAX_ETH_DEPOSIT();
 
         assembly {
             // Change the length of depositsProcessed
