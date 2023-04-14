@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.4.0...relayer-v0.4.1) (2023-04-08)
+
+
+### Bug Fixes
+
+* **repo:** fix multiple typos ([#13558](https://github.com/taikoxyz/taiko-mono/issues/13558)) ([f54242a](https://github.com/taikoxyz/taiko-mono/commit/f54242aa95e5c5563f8f0a7f9af0a1eab20ab67b))
+
 ## [0.4.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.3.0...relayer-v0.4.0) (2023-03-29)
 
 

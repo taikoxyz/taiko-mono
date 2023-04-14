@@ -1,3 +1,7 @@
+---
+title: TaikoToken
+---
+
 ## TaikoToken
 
 _This is Taiko's governance and fee token._
