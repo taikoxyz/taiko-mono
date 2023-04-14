@@ -47,7 +47,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
     }
 
     /// @dev Test what happens when proof time increases
-    function xtest_balanced_state_reward_and_fee_if_proof_time_increases_slowly_then_drastically()
+    function test_balanced_state_reward_and_fee_if_proof_time_increases_slowly_then_drastically()
         external
     {
         mine(1);
@@ -133,7 +133,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
     }
 
     /// @dev Test what happens when proof time hectic couple of proposes, without prove, then some proofs
-    function xtest_balanced_state_reward_and_fee_if_proof_time_hectic()
+    function test_balanced_state_reward_and_fee_if_proof_time_hectic()
         external
     {
         mine(1);
@@ -228,7 +228,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
     }
 
     /// @dev Test and see what happens when proof time is stable below the target and proving consecutive
-    function xtest_balanced_state_reward_and_fee_if_proof_time_stable_below_target_prooving_consecutive()
+    function test_balanced_state_reward_and_fee_if_proof_time_stable_below_target_prooving_consecutive()
         external
     {
         mine(1);
@@ -285,7 +285,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
     }
 
     /// @dev Test and see what happens when proof time is stable below the target and proving non consecutive
-    function xtest_balanced_state_reward_and_fee_if_proof_time_stable_below_target_proving_non_consecutive()
+    function test_balanced_state_reward_and_fee_if_proof_time_stable_below_target_proving_non_consecutive()
         external
     {
         mine(1);
@@ -354,7 +354,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
     }
 
     /// @dev Test what happens when proof time decreases
-    function xtest_balanced_state_reward_and_fee_if_proof_time_decreases()
+    function test_balanced_state_reward_and_fee_if_proof_time_decreases()
         external
     {
         mine(1);
@@ -416,7 +416,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
     }
 
     /// @dev Test and see what happens when proof time is stable above the target and proving consecutive
-    function xtest_balanced_state_reward_and_fee_if_proof_time_stable_above_target_prooving_consecutive()
+    function test_balanced_state_reward_and_fee_if_proof_time_stable_above_target_prooving_consecutive()
         external
     {
         mine(1);
@@ -473,7 +473,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
     }
 
     /// @dev Test and see what happens when proof time is stable above the target and proving non consecutive
-    function xtest_balanced_state_reward_and_fee_if_proof_time_stable_above_target_proving_non_consecutive()
+    function test_balanced_state_reward_and_fee_if_proof_time_stable_above_target_proving_non_consecutive()
         external
     {
         mine(1);
@@ -542,7 +542,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
     }
 
     /// @dev Test what happens when proof time decreases
-    function xtest_balanced_state_reward_and_fee_if_proof_time_decreasses_then_stabilizes_consecutive()
+    function test_balanced_state_reward_and_fee_if_proof_time_decreasses_then_stabilizes_consecutive()
         external
     {
         mine(1);
@@ -627,7 +627,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
     }
 
     /// @dev Test what happens when proof time decreases
-    function xtest_balanced_state_reward_and_fee_if_proof_time_decreasses_then_stabilizes_non_consecutive()
+    function test_balanced_state_reward_and_fee_if_proof_time_decreasses_then_stabilizes_non_consecutive()
         external
     {
         mine(1);

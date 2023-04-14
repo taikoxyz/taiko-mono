@@ -20,18 +20,6 @@ import {
 library LibTokenomics {
     using LibMath for uint256;
 
-    /// @dev Explanation of the scaling factor
-    // The calculation depends on the proofTime (and proofTimeTarget)
-    /// Since the exp function (or _calcBasefee() gives us:
-    // with proof time around 20 mins:
-    // somewhere around 0.000055442419735305 = 55442419735305 (in 10**18 fixed) = 5.5 (in TKO with 1e5 factor)
-
-    // with proof time around 85s (current testnet):
-    // somewhere around 0.000782716513910190 = 782716513910190 (in 10**18 fixed) = 78 (in TKO with 1e5 factor)
-
-    /// @dev Fee will depends on the proofTime (and proofTimeTarget).
-    uint64 private constant SCALING_FROM_18_FIXED_EXP_TO_TKO_AMOUNT = 1e5;
-
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_PARAM();
 
@@ -103,15 +91,12 @@ library LibTokenomics {
 
         proofTimeIssued += proofTime;
 
-        newBasefee =
-            _calcBasefee(
-                proofTimeIssued,
-                config.proofTimeTarget,
-                config.adjustmentQuotient
-            ) /
-            SCALING_FROM_18_FIXED_EXP_TO_TKO_AMOUNT;
+        newBasefee = _calcBasefee(
+            proofTimeIssued,
+            config.proofTimeTarget,
+            config.adjustmentQuotient
+        );
 
-        /// TODO(dani): Verify with functional tests
         uint64 numBlocksBeingProven = state.numBlocks -
             state.lastVerifiedBlockId -
             1;
@@ -133,6 +118,7 @@ library LibTokenomics {
             );
 
             // // todo:(dani) Validate algo and check which seems best among the 3
+            // Can stay as is for now - until simulation validates which might be better!
             // reward_opt2 = uint64(
             //     (
             //         uint256(
@@ -163,13 +149,9 @@ library LibTokenomics {
         uint256 target,
         uint256 quotient
     ) private view returns (uint64) {
-        uint256 exp_result = _expCalculation(value, target, quotient);
-        uint256 result = exp_result / 1e4; // 1e4 is 'empirical' in a sense of experience that this works
-        // console2.log("result: ", result);
-        // console2.log("exp_result: ", exp_result);
-        // console2.log("value: ", value);
-        // console2.log("target: ", target);
-        // console2.log("quotient: ", quotient);
+        uint256 result = _expCalculation(value, target, quotient) /
+            (target * quotient);
+
         if (result > type(uint64).max) return type(uint64).max;
 
         return uint64(result);
@@ -184,17 +166,8 @@ library LibTokenomics {
         uint256 target,
         uint256 quotient
     ) private view returns (uint256 retVal) {
-        // x should be around 30 to give 10TKO back
-        uint256 x = (value) / (target * quotient);
-        // In order the newBaseFee be 10TKo, this equotion needs to be like this:
-        // 30 = (value * Math.SCALING_FACTOR_1E18) / 28.800 (28.800 comes from 1800 * 16)
-        // 864000 = value * Math.SCALING_FACTOR_1E18
-        // So basicall value is 864 and SCALING_FACTOR is 1e3
-        //console2.log("x: ", x);
-        // Cap it or it would throw otherwise
-        if (x > Math.MAX_EXP_INPUT) {
-            x = Math.MAX_EXP_INPUT;
-        }
-        return uint256(Math.exp(int256(x)));
+        uint256 x = (value * Math.SCALING_FACTOR_1E18) / (target * quotient);
+
+        return (uint256(Math.exp(int256(x))) / Math.SCALING_FACTOR_1E18);
     }
 }

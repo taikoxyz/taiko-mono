@@ -26,7 +26,6 @@ abstract contract TaikoL1TestBase is Test {
     TaikoData.Config conf;
     uint256 internal logCount;
 
-    uint64 private constant SCALING_FROM_18_FIXED_EXP_TO_TKO_AMOUNT = 1e5;
     uint256 private constant SCALING_E18 = 1e18;
 
     bytes32 public constant GENESIS_BLOCK_HASH =
@@ -43,34 +42,27 @@ abstract contract TaikoL1TestBase is Test {
     address public constant Dave = 0x400147C0Eb43D8D71b2B03037bB7B31f8f78EF5F;
     address public constant Eve = 0x50081b12838240B1bA02b3177153Bca678a86078;
 
+    uint32 private constant INIT_FEE = 1e9; // 10 TKO : Only relevant for the first proposing
+    uint16 private constant PROOF_TIME_TARGET = 1800;
+    uint8 private constant ADJUSTMENT_QUOTIENT = 16;
+
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
 
     function setUp() public virtual {
         // vm.warp(1000000);
         addressManager = new AddressManager();
         addressManager.init();
-        uint64 initBasefee = 1e9; // 10 TKO : Only relevant for the first proposing
+        uint64 initBasefee = INIT_FEE;
 
         // Calculating it for our needs based on testnet/mainnet proof vars.
         // See Brecht's comment https://github.com/taikoxyz/taiko-mono/pull/13564
-        // Formula
-        // scale = config.proofTimeTarget * config.adjustmentQuotient
-        // proof_time_issued = scale * math.log(initBasefee * scale)
-        // When TESTNET mode testing
-        // scale_testnet = 99 sec * 16 = 1584
-        // When MAINNET mock testing
-        // scale_miNNET = 1900 sec * 16 = 30400
-
-        uint256 scale = 1900 * 16;
+        uint256 scale = uint256(PROOF_TIME_TARGET * ADJUSTMENT_QUOTIENT);
         // ln_pub() expects 1e18 fixed format
         int256 logInput = int256((scale * initBasefee) * SCALING_E18);
-        // console2.log("logInput: ", logInput);
         int256 log_result = TestMath.ln_pub(logInput);
-        // console2.log("log_result: ", log_result);
         uint64 initProofTimeIssued = uint64(
             ((scale * (uint256(log_result))) / (SCALING_E18))
         );
-        console2.log("InitProofTimeIssued: ", initProofTimeIssued);
 
         L1 = deployTaikoL1();
         L1.init(
@@ -217,7 +209,7 @@ abstract contract TaikoL1TestBase is Test {
             unicode"→",
             Strings.toString(vars.numBlocks),
             "]",
-            " fee (same as baseFee now):",
+            " fee:",
             Strings.toString(fee),
             " lastProposedAt:",
             Strings.toString(vars.lastProposedAt),
