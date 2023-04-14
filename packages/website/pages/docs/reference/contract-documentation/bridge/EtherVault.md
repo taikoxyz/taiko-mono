@@ -1,3 +1,7 @@
+---
+title: EtherVault
+---
+
 ## EtherVault
 
 EtherVault is a special vault contract that:
