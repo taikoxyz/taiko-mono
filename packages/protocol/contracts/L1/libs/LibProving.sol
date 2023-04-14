@@ -44,8 +44,10 @@ library LibProving {
             address oracleProver = resolver.resolve("oracle_prover", true);
             if (oracleProver == address(0)) revert L1_ORACLE_DISABLED();
 
-            if (evidence.zkproof.data.length != 64) {
-                if (msg.sender != oracleProver) revert L1_NOT_ORACLE_PROVER();
+            if (msg.sender == oracleProver) {
+                // Do nothing
+            } else if (evidence.zkproof.data.length != 64) {
+                revert L1_NOT_ORACLE_PROVER();
             } else {
                 bytes32 r;
                 bytes32 s;
