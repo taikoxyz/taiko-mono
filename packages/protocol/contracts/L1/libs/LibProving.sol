@@ -64,6 +64,7 @@ library LibProving {
                     r,
                     s
                 );
+                if (addr != oracleProver) revert L1_NOT_ORACLE_PROVER();
             }
 
             // TODO(daniel): enable signature based auth.
