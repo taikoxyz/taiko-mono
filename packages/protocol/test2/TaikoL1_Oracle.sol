@@ -71,15 +71,15 @@ contract TaikoL1_OracleTest is TaikoL1TestBase {
         _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
+        uint256 blockId = 1;
+        TaikoData.BlockMetadata memory meta = proposeBlock(
+            Alice,
+            1000000,
+            1024
+        );
 
-        for (uint i = 0; i < 2; ++i) {
+        for (uint i = 0; i < 5; ++i) {
             uint32 parentGasUsed = uint32(10000 + i);
-            TaikoData.BlockMetadata memory meta = proposeBlock(
-                Alice,
-                1000000,
-                1024
-            );
-            uint256 blockId = 1;
 
             // Bob proves the block
             proveBlock(
@@ -154,7 +154,11 @@ contract TaikoL1_OracleTest is TaikoL1TestBase {
 
             fc = L1.getForkChoice(blockId, parentHash, parentGasUsed);
 
-            assertFalse(fc.key == 0);
+            if (i == 0) {
+                assertFalse(fc.key == 0);
+            } else {
+                assertEq(fc.key, 0);
+            }
             assertEq(fc.blockHash, bytes32(uint256(0x31)));
             assertEq(fc.signalRoot, bytes32(uint256(0x32)));
             assertEq(fc.provenAt, block.timestamp);
@@ -177,7 +181,11 @@ contract TaikoL1_OracleTest is TaikoL1TestBase {
 
             fc = L1.getForkChoice(blockId, parentHash, parentGasUsed);
 
-            assertFalse(fc.key == 0);
+            if (i == 0) {
+                assertFalse(fc.key == 0);
+            } else {
+                assertEq(fc.key, 0);
+            }
             assertEq(fc.blockHash, bytes32(uint256(0x41)));
             assertEq(fc.signalRoot, bytes32(uint256(0x42)));
             assertEq(fc.provenAt, block.timestamp);
