@@ -27,9 +27,9 @@ struct Config {
   uint256 proposerDepositPctg;
   uint256 feeBaseMAF;
   uint256 txListCacheExpiry;
+  uint256 proofCooldownPeriod;
   bool relaySignalRoot;
   bool enableSoloProposer;
-  bool enableOracleProver;
   bool enableTokenomics;
   bool skipZKPVerification;
   struct TaikoData.FeeConfig proposingConfig;
@@ -106,26 +106,6 @@ struct BlockEvidence {
   address prover;
   uint32 parentGasUsed;
   uint32 gasUsed;
-}
-```
-
-### BlockOracle
-
-```solidity
-struct BlockOracle {
-  bytes32 blockHash;
-  uint32 gasUsed;
-  bytes32 signalRoot;
-}
-```
-
-### BlockOracles
-
-```solidity
-struct BlockOracles {
-  bytes32 parentHash;
-  uint32 parentGasUsed;
-  struct TaikoData.BlockOracle[] blks;
 }
 ```
 

@@ -87,9 +87,11 @@ library LibProving {
             evidence.meta.id % config.ringBufferSize
         ];
 
-        bytes32 _metaHash = LibUtils.hashMetadata(evidence.meta);
-        if (blk.metaHash != _metaHash)
-            revert L1_EVIDENCE_MISMATCH(blk.metaHash, _metaHash);
+        {
+            bytes32 _metaHash = LibUtils.hashMetadata(evidence.meta);
+            if (blk.metaHash != _metaHash)
+                revert L1_EVIDENCE_MISMATCH(blk.metaHash, _metaHash);
+        }
 
         TaikoData.ForkChoice storage fc;
 

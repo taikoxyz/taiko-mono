@@ -78,12 +78,6 @@ error L1_INVALID_L21559_PARAMS()
 error L1_INVALID_METADATA()
 ```
 
-### L1_INVALID_ORACLE
-
-```solidity
-error L1_INVALID_ORACLE()
-```
-
 ### L1_INVALID_PARAM
 
 ```solidity
@@ -94,12 +88,6 @@ error L1_INVALID_PARAM()
 
 ```solidity
 error L1_INVALID_PROOF()
-```
-
-### L1_NOT_ORACLE_PROVEN
-
-```solidity
-error L1_NOT_ORACLE_PROVEN()
 ```
 
 ### L1_NOT_ORACLE_PROVER
@@ -148,16 +136,4 @@ error L1_TX_LIST_RANGE()
 
 ```solidity
 error L1_TX_LIST()
-```
-
-### L1_UNEXPECTED_FORK_CHOICE_ID
-
-```solidity
-error L1_UNEXPECTED_FORK_CHOICE_ID()
-```
-
-### L1_CONFLICTING_PROOF
-
-```solidity
-error L1_CONFLICTING_PROOF(uint64 id, uint32 parentGasUsed, bytes32 parentHash, bytes32 conflictingBlockHash, bytes32 conflictingSignalRoot, bytes32 blockHash, bytes32 signalRoot)
 ```
