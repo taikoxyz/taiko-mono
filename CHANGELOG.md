@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.10.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-mono-v0.9.0...taiko-mono-v0.10.0) (2023-04-08)
+
+
+### Features
+
+* **bridge-ui:** more informative processing fee ([#13488](https://github.com/taikoxyz/taiko-mono/issues/13488)) ([f5f7b7e](https://github.com/taikoxyz/taiko-mono/commit/f5f7b7ee2a99ec940a73e263fb12e9378d139734))
+* **status-page:** order the provers by count descending ([#13504](https://github.com/taikoxyz/taiko-mono/issues/13504)) ([49db97d](https://github.com/taikoxyz/taiko-mono/commit/49db97d75019d71beb8466c646934bfabba5b13d))
+* **website:** add index sections to reference and resources ([#13490](https://github.com/taikoxyz/taiko-mono/issues/13490)) ([d1768d4](https://github.com/taikoxyz/taiko-mono/commit/d1768d4224cce4b2148b0b467203c164b86ea238))
+
+
+### Bug Fixes
+
+* **bridge-ui:** fix issue with claim notice modal ([#13507](https://github.com/taikoxyz/taiko-mono/issues/13507)) ([a3e38fa](https://github.com/taikoxyz/taiko-mono/commit/a3e38faff37f01669e6be6878d35431cb24e40bb))
+* **bridge-ui:** fix relayer ([#13548](https://github.com/taikoxyz/taiko-mono/issues/13548)) ([5f60fd7](https://github.com/taikoxyz/taiko-mono/commit/5f60fd711c71ead82c7c147b4ff8dd12eab02c43))
+* **bridge-ui:** improve notice modal ([#13530](https://github.com/taikoxyz/taiko-mono/issues/13530)) ([3944ca8](https://github.com/taikoxyz/taiko-mono/commit/3944ca8bc5282c2ab0c4b11b2bb1b5f102329d59))
+* **bridge-ui:** NETWORK_ERROR exception ([#13562](https://github.com/taikoxyz/taiko-mono/issues/13562)) ([a779cdb](https://github.com/taikoxyz/taiko-mono/commit/a779cdb3433ea6cc2e0d203cecebde3d9c121f5a))
+* **bridge-ui:** only request connect if require ([#13519](https://github.com/taikoxyz/taiko-mono/issues/13519)) ([92e9032](https://github.com/taikoxyz/taiko-mono/commit/92e9032e88fb997db5e9e9801089671604f0a9bc))
+* **bridge-ui:** Typos in Update ProcessingFee.svelte ([#13518](https://github.com/taikoxyz/taiko-mono/issues/13518)) ([8edd302](https://github.com/taikoxyz/taiko-mono/commit/8edd302fc2ea0764c3fb96bbcc2454f154556167))
+* **bridge-ui:** URL change won't update activeTab ([#13485](https://github.com/taikoxyz/taiko-mono/issues/13485)) ([884e782](https://github.com/taikoxyz/taiko-mono/commit/884e78283d8f98f20b15ff7e3e5e371df30fcd13))
+* **repo:** fix multiple typos ([#13558](https://github.com/taikoxyz/taiko-mono/issues/13558)) ([f54242a](https://github.com/taikoxyz/taiko-mono/commit/f54242aa95e5c5563f8f0a7f9af0a1eab20ab67b))
+* **starter-dapp:** check network.chain non null ([#13515](https://github.com/taikoxyz/taiko-mono/issues/13515)) ([02eb83b](https://github.com/taikoxyz/taiko-mono/commit/02eb83b0b1e0d275627c000b00c20931727e619f))
+* **starter-dapp:** update some wrong style ([#13517](https://github.com/taikoxyz/taiko-mono/issues/13517)) ([728b8ad](https://github.com/taikoxyz/taiko-mono/commit/728b8ade74e5802066a43f0782ba7af169cafbbf))
+* **status-page:** add max height and scrollable to prover details popup ([#13498](https://github.com/taikoxyz/taiko-mono/issues/13498)) ([d126791](https://github.com/taikoxyz/taiko-mono/commit/d126791775bbaa59a107975077b9d32811bd09ea))
+* **status-page:** latest proof time ([#13511](https://github.com/taikoxyz/taiko-mono/issues/13511)) ([c0bc671](https://github.com/taikoxyz/taiko-mono/commit/c0bc671572a13b48d33ea567fc884a72e51f2be0))
+
 ## [0.9.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-mono-v0.8.0...taiko-mono-v0.9.0) (2023-03-29)
 
 

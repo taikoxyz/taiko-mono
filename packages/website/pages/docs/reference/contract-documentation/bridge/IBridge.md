@@ -1,3 +1,7 @@
+---
+title: IBridge
+---
+
 ## IBridge
 
 Bridge interface.
