@@ -93,7 +93,8 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
                 parentGasUsed,
                 gasUsed,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             printVariables();
 

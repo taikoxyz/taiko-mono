@@ -12,7 +12,7 @@ import {SignalService} from "../contracts/signal/SignalService.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {TaikoL1TestBase} from "./TaikoL1TestBase.t.sol";
 
-contract TaikoL1_a is TaikoL1 {
+contract TaikoL1_NoCooldown is TaikoL1 {
     function getConfig()
         public
         pure
@@ -40,6 +40,8 @@ contract TaikoL1_a is TaikoL1 {
             avgTimeMAF: 64,
             dampingFactorBips: 5000
         });
+
+        config.proofCooldownPeriod = 0;
     }
 }
 
@@ -51,7 +53,7 @@ contract Verifier {
 
 contract TaikoL1Test is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1 taikoL1) {
-        taikoL1 = new TaikoL1_a();
+        taikoL1 = new TaikoL1_NoCooldown();
     }
 
     function setUp() public override {
@@ -95,7 +97,8 @@ contract TaikoL1Test is TaikoL1TestBase {
                 parentGasUsed,
                 gasUsed,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
 
             verifyBlock(Carol, 1);
@@ -132,7 +135,8 @@ contract TaikoL1Test is TaikoL1TestBase {
                 parentGasUsed,
                 gasUsed,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             verifyBlock(Alice, 2);
             parentHash = blockHash;
@@ -171,7 +175,8 @@ contract TaikoL1Test is TaikoL1TestBase {
                 parentGasUsed,
                 gasUsed,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             parentHash = blockHash;
             parentGasUsed = gasUsed;
@@ -215,7 +220,8 @@ contract TaikoL1Test is TaikoL1TestBase {
                 parentGasUsed,
                 gasUsed,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             parentHash = blockHash;
             parentGasUsed = gasUsed;
@@ -257,7 +263,8 @@ contract TaikoL1Test is TaikoL1TestBase {
                 parentGasUsed,
                 gasUsed,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             parentHash = blockHash;
             parentGasUsed = gasUsed;

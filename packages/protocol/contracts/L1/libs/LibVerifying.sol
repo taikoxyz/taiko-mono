@@ -15,6 +15,8 @@ import {
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 
+import {console2} from "forge-std/console2.sol";
+
 library LibVerifying {
     using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.State;
@@ -86,8 +88,16 @@ library LibVerifying {
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
 
+            console2.log("block.timestamp", block.timestamp);
+            console2.log("fc.provenAt", fc.provenAt);
+            console2.log(
+                "config.proofCooldownPeriod",
+                config.proofCooldownPeriod
+            );
+            console2.log(
+                block.timestamp < fc.provenAt + config.proofCooldownPeriod
+            );
             if (
-                fc.provenAt == 0 || // deleted
                 fc.prover == address(0) || // oracle proof
                 block.timestamp < fc.provenAt + config.proofCooldownPeriod // too young
             ) break;

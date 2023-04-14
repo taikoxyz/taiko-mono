@@ -122,7 +122,8 @@ abstract contract TaikoL1TestBase is Test {
         uint32 parentGasUsed,
         uint32 gasUsed,
         bytes32 blockHash,
-        bytes32 signalRoot
+        bytes32 signalRoot,
+        bool oracle
     ) internal {
         TaikoData.ZKProof memory zkproof = TaikoData.ZKProof({
             data: new bytes(100),
@@ -136,7 +137,7 @@ abstract contract TaikoL1TestBase is Test {
             blockHash: blockHash,
             signalRoot: signalRoot,
             graffiti: 0x0,
-            prover: prover,
+            prover: oracle ? address(0) : prover,
             parentGasUsed: parentGasUsed,
             gasUsed: gasUsed
         });
