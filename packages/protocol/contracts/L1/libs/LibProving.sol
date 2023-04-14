@@ -66,8 +66,6 @@ library LibProving {
                 );
                 if (addr != oracleProver) revert L1_NOT_ORACLE_PROVER();
             }
-
-            // TODO(daniel): enable signature based auth.
         }
 
         TaikoData.BlockMetadata memory meta = evidence.meta;
