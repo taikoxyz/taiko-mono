@@ -10,5 +10,8 @@
   },
   "rpc-configuration": {
     "title": "RPC configuration"
+  },
+  "ethglobal-tokyo-reference": {
+    "title": "ETHGlobal Tokyo reference"
   }
 }
