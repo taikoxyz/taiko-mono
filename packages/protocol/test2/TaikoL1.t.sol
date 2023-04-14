@@ -26,7 +26,6 @@ contract TaikoL1_a is TaikoL1 {
         config.proposerDepositPctg = 0;
         config.maxVerificationsPerTx = 0;
         config.enableSoloProposer = false;
-        config.enableOracleProver = false;
         config.maxNumProposedBlocks = 10;
         config.ringBufferSize = 12;
         // this value must be changed if `maxNumProposedBlocks` is changed.

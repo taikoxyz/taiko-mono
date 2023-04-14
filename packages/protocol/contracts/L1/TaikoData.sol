@@ -33,7 +33,6 @@ library TaikoData {
         uint256 proofCooldownPeriod;
         bool relaySignalRoot;
         bool enableSoloProposer;
-        bool enableOracleProver;
         bool enableTokenomics;
         bool skipZKPVerification;
         FeeConfig proposingConfig;
@@ -93,18 +92,6 @@ library TaikoData {
         address prover;
         uint32 parentGasUsed;
         uint32 gasUsed;
-    }
-
-    struct BlockOracle {
-        bytes32 blockHash;
-        uint32 gasUsed;
-        bytes32 signalRoot;
-    }
-
-    struct BlockOracles {
-        bytes32 parentHash;
-        uint32 parentGasUsed;
-        BlockOracle[] blks;
     }
 
     // 4 slots

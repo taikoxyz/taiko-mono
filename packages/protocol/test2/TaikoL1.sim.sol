@@ -25,7 +25,6 @@ contract TaikoL1_b is TaikoL1 {
         config.txListCacheExpiry = 0;
         config.proposerDepositPctg = 0;
         config.enableSoloProposer = false;
-        config.enableOracleProver = false;
         config.maxNumProposedBlocks = 36;
         config.ringBufferSize = 40;
     }

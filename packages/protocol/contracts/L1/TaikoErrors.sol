@@ -21,10 +21,10 @@ abstract contract TaikoErrors {
     error L1_INVALID_EVIDENCE();
     error L1_INVALID_L21559_PARAMS();
     error L1_INVALID_METADATA();
-    error L1_INVALID_ORACLE();
+
     error L1_INVALID_PARAM();
     error L1_INVALID_PROOF();
-    error L1_NOT_ORACLE_PROVEN();
+
     error L1_NOT_ORACLE_PROVER();
     error L1_NOT_SOLO_PROPOSER();
     error L1_ORACLE_DISABLED();
@@ -33,15 +33,4 @@ abstract contract TaikoErrors {
     error L1_TX_LIST_HASH();
     error L1_TX_LIST_RANGE();
     error L1_TX_LIST();
-    error L1_UNEXPECTED_FORK_CHOICE_ID();
-
-    error L1_CONFLICTING_PROOF(
-        uint64 id,
-        uint32 parentGasUsed,
-        bytes32 parentHash,
-        bytes32 conflictingBlockHash,
-        bytes32 conflictingSignalRoot,
-        bytes32 blockHash,
-        bytes32 signalRoot
-    );
 }

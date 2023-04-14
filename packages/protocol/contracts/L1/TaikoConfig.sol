@@ -32,6 +32,7 @@ library TaikoConfig {
                 maxBytesPerTxList: 120000,
                 minTxGasLimit: 21000,
                 slotSmoothingFactor: 946649,
+                proofCooldownPeriod: 5 minutes,
                 // 100 basis points or 1%
                 rewardBurnBips: 100,
                 proposerDepositPctg: 25, // - 25%
@@ -40,7 +41,6 @@ library TaikoConfig {
                 txListCacheExpiry: 0,
                 relaySignalRoot: false,
                 enableSoloProposer: false,
-                enableOracleProver: true,
                 enableTokenomics: true,
                 skipZKPVerification: false,
                 proposingConfig: TaikoData.FeeConfig({

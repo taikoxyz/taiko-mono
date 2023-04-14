@@ -85,7 +85,16 @@ library LibVerifying {
             if (fcId == 0) break;
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
-            if (fc.prover == address(0)) break;
+
+            if (
+                fc.provenAt == 0 || // deleted
+                fc.prover == address(0) || // oracle proof
+                block.timestamp < fc.provenAt + config.proofCooldownPeriod // too young
+            ) break;
+
+            blockHash = fc.blockHash;
+            gasUsed = fc.gasUsed;
+            signalRoot = fc.signalRoot;
 
             _markBlockVerified({
                 state: state,
@@ -94,10 +103,6 @@ library LibVerifying {
                 fcId: uint24(fcId),
                 fc: fc
             });
-
-            blockHash = fc.blockHash;
-            gasUsed = fc.gasUsed;
-            signalRoot = fc.signalRoot;
 
             unchecked {
                 ++i;
@@ -173,6 +178,8 @@ library LibVerifying {
 
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = fcId;
+
+        fc.provenAt = 0; // mark as deleted
 
         emit BlockVerified(blk.blockId, fc.blockHash);
     }
