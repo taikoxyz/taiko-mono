@@ -41,16 +41,32 @@ library LibProving {
         bool isOracleProof = evidence.prover == address(0);
 
         if (isOracleProof) {
-            if (
-                evidence.zkproof.verifierId != 0 ||
-                evidence.zkproof.data.length != 0
-            ) revert L1_INVALID_EVIDENCE();
-
             address oracleProver = resolver.resolve("oracle_prover", true);
             if (oracleProver == address(0)) revert L1_ORACLE_DISABLED();
 
+            if (evidence.zkproof.data.length != 64) {
+                if (msg.sender != oracleProver) revert L1_NOT_ORACLE_PROVER();
+            } else {
+                bytes32 r;
+                bytes32 s;
+                bytes memory data = evidence.zkproof.data;
+                assembly {
+                    r := mload(add(data, 32))
+                    s := mload(add(data, 64))
+                }
+                bytes32 key = LibUtils.keyForForkChoice(
+                    evidence.parentHash,
+                    evidence.parentGasUsed
+                );
+                address addr = ecrecover(
+                    key,
+                    uint8(evidence.zkproof.verifierId),
+                    r,
+                    s
+                );
+            }
+
             // TODO(daniel): enable signature based auth.
-            if (msg.sender != oracleProver) revert L1_NOT_ORACLE_PROVER();
         }
 
         TaikoData.BlockMetadata memory meta = evidence.meta;
