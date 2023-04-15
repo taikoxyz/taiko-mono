@@ -10,14 +10,14 @@ export class CustomTokenService implements TokenService {
   }
 
   private _getTokensFromStorage(address: string): Token[] {
-    const customTokens = this.storage.getItem(
+    const existingCustomTokens = this.storage.getItem(
       `${STORAGE_PREFIX}-${address.toLowerCase()}`,
     );
 
-    let tokens: Token[];
+    let tokens: Token[] = [];
 
     try {
-      tokens = customTokens ? JSON.parse(customTokens) : [];
+      tokens = JSON.parse(existingCustomTokens);
     } catch (e) {
       tokens = [];
     }
