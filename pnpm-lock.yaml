@@ -180,6 +180,10 @@ importers:
         version: 0.12.0(vite@3.2.4)
 
   packages/bridge-ui-new:
+    dependencies:
+      daisyui:
+        specifier: 1.16.6
+        version: 1.16.6
     devDependencies:
       '@sveltejs/adapter-auto':
         specifier: ^2.0.0
@@ -8578,7 +8582,6 @@ packages:
 
   /daisyui@1.16.6:
     resolution: {integrity: sha512-kso740gqMVVqritCQliQCpfPwos9lxp7/TEiEev4w6GGQyLNRyfriWY+DWxfawMY/DwGDzBl2DZtekCMf73bzw==}
-    dev: true
 
   /dashdash@1.14.1:
     resolution: {integrity: sha512-jRFi8UDGo6j+odZiEpjazZaWqEal3w/basFjQHQEwVtZJGDpxbH1MeYluwCS8Xq5wmLJooDlMgvVarmWfGM44g==}

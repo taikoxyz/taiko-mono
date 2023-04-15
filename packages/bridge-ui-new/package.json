@@ -34,5 +34,8 @@
 		"vite": "^4.2.0",
 		"vitest": "^0.25.3"
 	},
-	"type": "module"
+	"type": "module",
+	"dependencies": {
+		"daisyui": "1.16.6"
+	}
 }
