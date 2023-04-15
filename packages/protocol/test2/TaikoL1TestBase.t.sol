@@ -129,21 +129,17 @@ abstract contract TaikoL1TestBase is Test {
         bytes32 signalRoot,
         bool oracle
     ) internal {
-        TaikoData.ZKProof memory zkproof = TaikoData.ZKProof({
-            data: new bytes(100),
-            verifierId: 100
-        });
-
         TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
             metaHash: LibUtils.hashMetadata(meta),
-            zkproof: zkproof,
             parentHash: parentHash,
             blockHash: blockHash,
             signalRoot: signalRoot,
             graffiti: 0x0,
             prover: oracle ? address(0) : prover,
             parentGasUsed: parentGasUsed,
-            gasUsed: gasUsed
+            gasUsed: gasUsed,
+            verifierId: 100,
+            proof: new bytes(100)
         });
 
         vm.prank(prover, prover);

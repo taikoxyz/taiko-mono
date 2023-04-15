@@ -82,21 +82,17 @@ contract TaikoL1_OracleTest is TaikoL1TestBase {
             false
         );
 
-        TaikoData.ZKProof memory zkproof = TaikoData.ZKProof({
-            data: new bytes(0),
-            verifierId: 0
-        });
-
         TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
             metaHash: LibUtils.hashMetadata(meta),
-            zkproof: zkproof,
             parentHash: GENESIS_BLOCK_HASH,
             blockHash: bytes32(uint256(0x11)),
             signalRoot: bytes32(uint256(0x12)),
             graffiti: 0x0,
             prover: address(0),
             parentGasUsed: 10000,
-            gasUsed: 40000
+            gasUsed: 40000,
+            verifierId: 0,
+            proof: new bytes(0)
         });
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(
@@ -104,8 +100,8 @@ contract TaikoL1_OracleTest is TaikoL1TestBase {
             keccak256(abi.encode(evidence))
         );
 
-        zkproof.verifierId = v;
-        zkproof.data = bytes.concat(r, s);
+        evidence.verifierId = v;
+        evidence.proof = bytes.concat(r, s);
 
         vm.prank(Carol, Carol);
         L1.proveBlock(meta.id, abi.encode(evidence));

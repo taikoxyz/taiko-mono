@@ -84,15 +84,6 @@ struct BlockMetadata {
 }
 ```
 
-### ZKProof
-
-```solidity
-struct ZKProof {
-  bytes data;
-  uint16 verifierId;
-}
-```
-
 ### BlockEvidence
 
 ```solidity
@@ -105,7 +96,8 @@ struct BlockEvidence {
   address prover;
   uint32 parentGasUsed;
   uint32 gasUsed;
-  struct TaikoData.ZKProof zkproof;
+  uint16 verifierId;
+  bytes proof;
 }
 ```
 

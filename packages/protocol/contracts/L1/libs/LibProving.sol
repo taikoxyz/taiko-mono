@@ -66,21 +66,21 @@ library LibProving {
 
             if (msg.sender == oracleProver) {
                 // Do nothing
-            } else if (evidence.zkproof.data.length != 64) {
+            } else if (evidence.proof.length != 64) {
                 revert L1_NOT_ORACLE_PROVER();
             } else {
-                uint8 v = uint8(evidence.zkproof.verifierId);
+                uint8 v = uint8(evidence.verifierId);
                 bytes32 r;
                 bytes32 s;
-                bytes memory data = evidence.zkproof.data;
+                bytes memory data = evidence.proof;
                 assembly {
                     r := mload(add(data, 32))
                     s := mload(add(data, 64))
                 }
 
                 // clear the proof before hasing evidence
-                evidence.zkproof.data = new bytes(0);
-                evidence.zkproof.verifierId = 0;
+                evidence.verifierId = 0;
+                evidence.proof = new bytes(0);
 
                 if (
                     oracleProver !=
@@ -170,12 +170,12 @@ library LibProving {
 
             bytes memory verifierId = abi.encodePacked(
                 "verifier_",
-                evidence.zkproof.verifierId
+                evidence.verifierId
             );
 
             (bool verified, bytes memory ret) = resolver
                 .resolve(string(verifierId), false)
-                .staticcall(bytes.concat(instance, evidence.zkproof.data));
+                .staticcall(bytes.concat(instance, evidence.proof));
 
             if (
                 !verified ||

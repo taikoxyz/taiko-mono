@@ -77,11 +77,6 @@ library TaikoData {
         address treasure;
     }
 
-    struct ZKProof {
-        bytes data;
-        uint16 verifierId;
-    }
-
     struct BlockEvidence {
         bytes32 metaHash;
         bytes32 parentHash;
@@ -91,7 +86,8 @@ library TaikoData {
         address prover;
         uint32 parentGasUsed;
         uint32 gasUsed;
-        ZKProof zkproof;
+        uint16 verifierId;
+        bytes proof;
     }
 
     // 4 slots
