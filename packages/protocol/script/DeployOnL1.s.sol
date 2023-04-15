@@ -38,6 +38,8 @@ contract DeployOnL1 is Script, AddressResolver {
 
     address public sharedSignalService = vm.envAddress("SHARED_SIGNAL_SERVICE");
 
+    address public l2SignalService = vm.envAddress("L2_SIGNAL_SERVICE");
+
     address public treasure = vm.envAddress("TREASURE");
 
     address public taikoTokenPremintRecipient =
@@ -78,6 +80,7 @@ contract DeployOnL1 is Script, AddressResolver {
         setAddress("oracle_prover", oracleProver);
         setAddress("solo_proposer", soloProposer);
         setAddress(l2ChainId, "treasure", treasure);
+        setAddress(l2ChainId, "signal_service", l2SignalService);
 
         // TaikoToken
         TaikoToken taikoToken = new TaikoToken();
@@ -149,6 +152,9 @@ contract DeployOnL1 is Script, AddressResolver {
             setAddress("signal_service", sharedSignalService);
         }
 
+        // PlonkVerifier
+        deployPlonkVerifiers();
+
         // TaikoL1
         // Only deploy after "signal_service"s and "taiko_l2" addresses have
         // been registered
@@ -164,9 +170,6 @@ contract DeployOnL1 is Script, AddressResolver {
             )
         );
         setAddress("proto_broker", taikoL1Proxy);
-
-        // PlonkVerifier
-        deployPlonkVerifiers();
 
         vm.stopBroadcast();
     }
