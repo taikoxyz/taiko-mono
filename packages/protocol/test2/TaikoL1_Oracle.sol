@@ -65,6 +65,63 @@ contract TaikoL1_OracleTest is TaikoL1TestBase {
         _registerAddress("oracle_prover", Alice);
     }
 
+    function testOracleProverWithSignature() external {
+        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
+        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+
+        TaikoData.BlockMetadata memory meta = proposeBlock(Bob, 1000000, 1024);
+        proveBlock(
+            Bob,
+            meta,
+            GENESIS_BLOCK_HASH,
+            10000,
+            10001,
+            bytes32(uint256(0x11)),
+            bytes32(uint256(0x12)),
+            false
+        );
+
+        TaikoData.ZKProof memory zkproof = TaikoData.ZKProof({
+            data: new bytes(0),
+            verifierId: 0
+        });
+
+        TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
+            meta: meta,
+            zkproof: zkproof,
+            parentHash: GENESIS_BLOCK_HASH,
+            blockHash: bytes32(uint256(0x11)),
+            signalRoot: bytes32(uint256(0x12)),
+            graffiti: 0x0,
+            prover: address(0),
+            parentGasUsed: 10000,
+            gasUsed: 40000
+        });
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+            AlicePK,
+            keccak256(abi.encode(evidence))
+        );
+
+        zkproof.verifierId = v;
+        zkproof.data = bytes.concat(r, s);
+
+        vm.prank(Carol, Carol);
+        L1.proveBlock(meta.id, abi.encode(evidence));
+
+        TaikoData.ForkChoice memory fc = L1.getForkChoice(
+            1,
+            GENESIS_BLOCK_HASH,
+            10000
+        );
+
+        assertEq(fc.blockHash, bytes32(uint256(0x11)));
+        assertEq(fc.signalRoot, bytes32(uint256(0x12)));
+        assertEq(fc.provenAt, block.timestamp);
+        assertEq(fc.prover, address(0));
+        assertEq(fc.gasUsed, 40000);
+    }
+
     function testOracleProverCanAlwaysOverwrite() external {
         _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
         _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);

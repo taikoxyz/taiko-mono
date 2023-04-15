@@ -49,6 +49,7 @@ library LibProving {
             } else if (evidence.zkproof.data.length != 64) {
                 revert L1_NOT_ORACLE_PROVER();
             } else {
+                uint8 v = uint8(evidence.zkproof.verifierId);
                 bytes32 r;
                 bytes32 s;
                 bytes memory data = evidence.zkproof.data;
@@ -57,14 +58,13 @@ library LibProving {
                     s := mload(add(data, 64))
                 }
 
+                // clear the proof before hasing evidence
+                evidence.zkproof.data = new bytes(0);
+                evidence.zkproof.verifierId = 0;
+
                 if (
                     oracleProver !=
-                    ecrecover(
-                        keccak256(abi.encode(evidence)),
-                        uint8(evidence.zkproof.verifierId),
-                        r,
-                        s
-                    )
+                    ecrecover(keccak256(abi.encode(evidence)), v, r, s)
                 ) revert L1_NOT_ORACLE_PROVER();
             }
         }
@@ -89,6 +89,8 @@ library LibProving {
         ];
 
         {
+            // Check the metadata matches the block's metadata. This is very
+            // necessary even for the oracle-proof to handle chain reorgs.
             bytes32 _metaHash = LibUtils.hashMetadata(evidence.meta);
             if (blk.metaHash != _metaHash)
                 revert L1_EVIDENCE_MISMATCH(blk.metaHash, _metaHash);
@@ -135,7 +137,7 @@ library LibProving {
         fc.provenAt = uint64(block.timestamp);
         fc.prover = evidence.prover;
 
-        if (isOracleProof || config.skipZKPVerification) {
+        if (!isOracleProof && !config.skipZKPVerification) {
             bytes32 instance;
             {
                 // otherwise: stack too deep

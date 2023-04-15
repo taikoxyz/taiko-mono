@@ -30,7 +30,10 @@ abstract contract TaikoL1TestBase is Test {
     address public constant L2TaikoL2 =
         0x0082D90249342980d011C58105a03b35cCb4A315;
 
-    address public constant Alice = 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4;
+    address public constant Alice = 0xa9bcF99f5eb19277f48b71F9b14f5960AEA58a89;
+    uint256 public constant AlicePK =
+        0x8fb342c39a93ad26e674cbcdc65dc45795107e1b51776aac15f9776c0e9d2cea;
+
     address public constant Bob = 0x200708D76eB1B69761c23821809d53F65049939e;
     address public constant Carol = 0x300C9b60E19634e12FC6D68B7FEa7bFB26c2E419;
     address public constant Dave = 0x400147C0Eb43D8D71b2B03037bB7B31f8f78EF5F;
