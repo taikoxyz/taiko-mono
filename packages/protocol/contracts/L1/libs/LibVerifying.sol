@@ -45,22 +45,14 @@ library LibVerifying {
         state.numBlocks = 1;
         // Set state.staticRefs
         {
-            address l1SignalService = resolver.resolve("signal_service", false);
-            address l2SignalService = resolver.resolve(
+            address[3] memory inputs;
+            inputs[0] = resolver.resolve("signal_service", false);
+            inputs[1] = resolver.resolve(
                 config.chainId,
                 "signal_service",
                 false
             );
-            address taikoL2 = resolver.resolve(
-                config.chainId,
-                "taiko_l2",
-                false
-            );
-
-            uint256[3] memory inputs;
-            inputs[0] = uint160(l1SignalService);
-            inputs[1] = uint160(l2SignalService);
-            inputs[2] = uint160(taikoL2);
+            inputs[2] = resolver.resolve(config.chainId, "taiko_l2", false);
             bytes32 staticRefs;
             assembly {
                 staticRefs := keccak256(inputs, mul(32, 3))
