@@ -10,6 +10,7 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test:unit": "vitest",
 		"lint": "prettier --plugin-search-dir . --check . && eslint .",
+		"lint:fix": "eslint . --fix",
 		"format": "prettier --plugin-search-dir . --write ."
 	},
 	"devDependencies": {
