@@ -1,6 +1,6 @@
 {
-	"name": "bridge-ui-new",
-	"version": "0.0.1",
+	"name": "@taiko/bridge-ui",
+	"version": "2.0.0",
 	"private": true,
 	"scripts": {
 		"dev": "vite dev",
