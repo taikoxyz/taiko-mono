@@ -9,7 +9,6 @@ export const getAvailableSlots = async (
   const contract: Contract = new Contract(contractAddress, TaikoL1, provider);
   const stateVariables = await contract.getStateVariables();
   const config = await getConfig(provider, contractAddress);
-  console.log(config);
 
   const nextBlockId = stateVariables.nextBlockId;
   const latestVerifiedId = stateVariables.latestVerifiedId;
