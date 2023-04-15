@@ -53,8 +53,8 @@ library LibProving {
             blockId % config.ringBufferSize
         ];
 
-        // Check the metadata matches the block's metadata. This is very
-        // necessary even for the oracle-proof to handle chain reorgs.
+        // Check the metadata hash matches the proposed block's. This is
+        // necessary to handle chain reorgs.
         if (blk.metaHash != evidence.metaHash)
             revert L1_EVIDENCE_MISMATCH(blk.metaHash, evidence.metaHash);
 
@@ -63,10 +63,9 @@ library LibProving {
         if (isOracleProof) {
             address oracleProver = resolver.resolve("oracle_prover", true);
             if (oracleProver == address(0)) revert L1_ORACLE_DISABLED();
-            
             if (msg.sender != oracleProver) {
-                if (evidence.zkproof.data.length == 64) {
-                   uint8 v = uint8(evidence.verifierId);
+                if (evidence.proof.length == 64) {
+                    uint8 v = uint8(evidence.verifierId);
                     bytes32 r;
                     bytes32 s;
                     bytes memory data = evidence.proof;
@@ -83,6 +82,9 @@ library LibProving {
                         oracleProver !=
                         ecrecover(keccak256(abi.encode(evidence)), v, r, s)
                     ) revert L1_NOT_ORACLE_PROVER();
+                }
+            } else {
+                revert L1_NOT_ORACLE_PROVER();
             }
         }
 
