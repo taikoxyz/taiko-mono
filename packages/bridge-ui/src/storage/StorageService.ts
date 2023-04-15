@@ -7,6 +7,7 @@ import { MessageStatus } from '../domain/message';
 import { chains } from '../chain/chains';
 import { tokenVaults } from '../vault/tokenVaults';
 import type { Address, ChainID } from '../domain/chain';
+import { jsonParseOrEmptyArray } from '../utils/jsonParseOrEmptyArray';
 
 const STORAGE_PREFIX = 'transactions';
 
@@ -24,23 +25,17 @@ async function getBridgeMessageSent(
   );
 
   // Gets the event MessageSent from the bridge contract
-  // in the block where the transaction was mined.
-  const messageSentEventsList = await bridgeContract.queryFilter(
-    'MessageSent',
-    blockNumber,
-    blockNumber,
+  // in the block where the transaction was mined, and find
+  // our event MessageSent whose owner is the address passed in
+  return (
+    await bridgeContract.queryFilter('MessageSent', blockNumber, blockNumber)
+  ).find(
+    ({ args }) =>
+      args.message.owner.toLowerCase() === userAddress.toLowerCase(),
   );
-
-  // Find our event MessageSent whose owner is the address passed in
-  const messageSentEvent = messageSentEventsList.find(
-    (event) =>
-      event.args.message.owner.toLowerCase() === userAddress.toLowerCase(),
-  );
-
-  return messageSentEvent;
 }
 
-async function getBridgeMessageStatus(
+function getBridgeMessageStatus(
   bridgeAddress: Address,
   bridgeAbi: ethers.ContractInterface,
   provider: ethers.providers.StaticJsonRpcProvider,
@@ -52,9 +47,7 @@ async function getBridgeMessageStatus(
     provider,
   );
 
-  const status: number = await bridgeContract.getMessageStatus(msgHash);
-
-  return status;
+  return bridgeContract.getMessageStatus(msgHash);
 }
 
 async function getTokenVaultERC20Event(
@@ -71,17 +64,10 @@ async function getTokenVaultERC20Event(
   );
 
   const filter = tokenVaultContract.filters.ERC20Sent(msgHash);
-  const erc20Events = await tokenVaultContract.queryFilter(
-    filter,
-    blockNumber,
-    blockNumber,
-  );
 
-  const erc20Event = erc20Events.find(
-    (event) => event.args.msgHash.toLowerCase() === msgHash.toLowerCase(),
-  );
-
-  return erc20Event;
+  return (
+    await tokenVaultContract.queryFilter(filter, blockNumber, blockNumber)
+  ).find(({ args }) => args.msgHash.toLowerCase() === msgHash.toLowerCase());
 }
 
 async function getERC20SymbolAndAmount(
@@ -114,19 +100,11 @@ export class StorageService implements Transactioner {
   }
 
   private _getTransactionsFromStorage(address: string): BridgeTransaction[] {
-    const transactions = this.storage.getItem(
+    const existingTransactions = this.storage.getItem(
       `${STORAGE_PREFIX}-${address.toLowerCase()}`,
     );
 
-    let txs: BridgeTransaction[];
-
-    try {
-      txs = transactions ? JSON.parse(transactions) : [];
-    } catch (e) {
-      txs = [];
-    }
-
-    return txs;
+    return jsonParseOrEmptyArray<BridgeTransaction>(existingTransactions);
   }
 
   async getAllByAddress(address: string): Promise<BridgeTransaction[]> {
