@@ -63,7 +63,7 @@ library LibVerifying {
             inputs[2] = uint160(taikoL2);
             bytes32 staticRefs;
             assembly {
-                staticRefs := keccak256(inputs, mul(32, 9))
+                staticRefs := keccak256(inputs, mul(32, 3))
             }
             state.staticRefs = staticRefs;
         }
