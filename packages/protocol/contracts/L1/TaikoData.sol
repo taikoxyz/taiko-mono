@@ -127,6 +127,7 @@ library TaikoData {
         mapping(uint256 blockId => mapping(bytes32 parentHash => mapping(uint32 parentGasUsed => uint256 forkChoiceId))) forkChoiceIds;
         mapping(address account => uint256 balance) balances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
+        bytes32 staticRefs;
         // Never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
@@ -146,6 +147,6 @@ library TaikoData {
         uint64 avgProofTime; // miliseconds
         uint64 feeBase;
         // Reserved
-        uint256[43] __gap;
+        uint256[42] __gap;
     }
 }

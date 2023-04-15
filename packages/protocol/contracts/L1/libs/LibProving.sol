@@ -132,40 +132,21 @@ library LibProving {
 
         if (!isOracleProof && !config.skipZKPVerification) {
             bytes32 instance;
-            {
-                // otherwise: stack too deep
-                address l1SignalService = resolver.resolve(
-                    "signal_service",
-                    false
-                );
-                address l2SignalService = resolver.resolve(
-                    config.chainId,
-                    "signal_service",
-                    false
-                );
-                address taikoL2 = resolver.resolve(
-                    config.chainId,
-                    "taiko_l2",
-                    false
-                );
 
-                uint256[9] memory inputs;
-                inputs[0] = uint160(l1SignalService);
-                inputs[1] = uint160(l2SignalService);
-                inputs[2] = uint160(taikoL2);
-                inputs[3] = uint256(evidence.parentHash);
-                inputs[4] = uint256(evidence.blockHash);
-                inputs[5] = uint256(evidence.signalRoot);
-                inputs[6] = uint256(evidence.graffiti);
-                inputs[7] =
-                    (uint256(uint160(evidence.prover)) << 96) |
-                    (uint256(evidence.parentGasUsed) << 64) |
-                    (uint256(evidence.gasUsed) << 32);
-                inputs[8] = uint256(blk.metaHash);
+            uint256[7] memory inputs;
+            inputs[0] = uint256(state.staticRefs);
+            inputs[1] = uint256(blk.metaHash);
+            inputs[2] = uint256(evidence.parentHash);
+            inputs[3] = uint256(evidence.blockHash);
+            inputs[4] = uint256(evidence.signalRoot);
+            inputs[5] = uint256(evidence.graffiti);
+            inputs[6] =
+                (uint256(uint160(evidence.prover)) << 96) |
+                (uint256(evidence.parentGasUsed) << 64) |
+                (uint256(evidence.gasUsed) << 32);
 
-                assembly {
-                    instance := keccak256(inputs, mul(32, 9))
-                }
+            assembly {
+                instance := keccak256(inputs, mul(32, 7))
             }
 
             bytes memory verifierId = abi.encodePacked(

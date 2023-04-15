@@ -43,15 +43,22 @@ abstract contract TaikoL1TestBase is Test {
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
 
     function setUp() public virtual {
-        // vm.warp(1000000);
+        L1 = deployTaikoL1();
+        conf = L1.getConfig();
+
         addressManager = new AddressManager();
         addressManager.init();
 
-        L1 = deployTaikoL1();
-        L1.init(address(addressManager), feeBase, GENESIS_BLOCK_HASH);
-        conf = L1.getConfig();
+        ss = new SignalService();
+        ss.init(address(addressManager));
+
+        _registerL2Address("treasure", L2Treasure);
+        _registerL2Address("taiko_l2", address(L2TaikoL2));
+        _registerAddress("signal_service", address(ss));
+        _registerL2Address("signal_service", address(L2SS));
 
         tko = new TaikoToken();
+        _registerAddress("taiko_token", address(tko));
         address[] memory premintRecipients;
         uint256[] memory premintAmounts;
         tko.init(
@@ -62,21 +69,13 @@ abstract contract TaikoL1TestBase is Test {
             premintAmounts
         );
 
-        ss = new SignalService();
-        ss.init(address(addressManager));
-
-        // set proto_broker to this address to mint some TKO
+        // Set protocol broker
         _registerAddress("proto_broker", address(this));
         tko.mint(address(this), 1E9 * 1E8);
-
-        // register all addresses
-        _registerAddress("taiko_token", address(tko));
         _registerAddress("proto_broker", address(L1));
-        _registerAddress("signal_service", address(ss));
-        _registerL2Address("treasure", L2Treasure);
-        _registerL2Address("signal_service", address(L2SS));
-        _registerL2Address("taiko_l2", address(L2TaikoL2));
 
+        // Lastly, init L1
+        L1.init(address(addressManager), feeBase, GENESIS_BLOCK_HASH);
         printVariables("init  ");
     }
 
