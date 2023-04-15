@@ -8,7 +8,8 @@ import (
 )
 
 var (
-	EventNameBlockProven = "BlockProven"
+	EventNameBlockProven   = "BlockProven"
+	EventNameBlockProposed = "BlockProposed"
 )
 
 // Event represents a stored EVM event. The fields will be serialized
@@ -43,4 +44,5 @@ type EventRepository interface {
 	FindUniqueProvers(
 		ctx context.Context,
 	) ([]UniqueProversResponse, error)
+	GetCountByAddressAndEventName(ctx context.Context, address string, event string) (int, error)
 }

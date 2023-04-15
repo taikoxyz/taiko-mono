@@ -51,3 +51,19 @@ func (r *EventRepository) FindUniqueProvers(
 
 	return addrs, nil
 }
+
+func (r *EventRepository) GetCountByAddressAndEventName(
+	ctx context.Context,
+	address string,
+	event string,
+) (int, error) {
+	var count int
+
+	if err := r.db.GormDB().
+		Raw("SELECT count(*) AS count FROM events WHERE event = ? AND address = ?", event, address).
+		FirstOrInit(&count).Error; err != nil {
+		return 0, errors.Wrap(err, "r.db.FirstOrInit")
+	}
+
+	return count, nil
+}
