@@ -185,7 +185,7 @@ contract DeployOnL1 is Script, AddressResolver {
 
         for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
             setAddress(
-                string(bytes.concat(bytes("verifier_"), bytes2(uint16(2)))),
+                string(bytes.concat(bytes("verifier_"), bytes2(i))),
                 plonkVerifiers[i]
             );
         }
