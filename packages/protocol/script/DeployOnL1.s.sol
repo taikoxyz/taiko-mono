@@ -111,20 +111,6 @@ contract DeployOnL1 is Script, AddressResolver {
         );
         console.log("BullToken", bullToken);
 
-        // TaikoL1
-        TaikoL1 taikoL1 = new TaikoL1();
-
-        uint64 feeBase = 1 ** 8; // Taiko Token's decimals is 8, not 18
-        address taikoL1Proxy = deployProxy(
-            "taiko",
-            address(taikoL1),
-            bytes.concat(
-                taikoL1.init.selector,
-                abi.encode(addressManagerProxy, feeBase, gensisHash)
-            )
-        );
-        setAddress("proto_broker", taikoL1Proxy);
-
         // Bridge
         Bridge bridge = new Bridge();
         deployProxy(
@@ -162,6 +148,22 @@ contract DeployOnL1 is Script, AddressResolver {
             );
             setAddress("signal_service", sharedSignalService);
         }
+
+        // TaikoL1
+        // Only deploy after "signal_service"s and "taiko_l2" addresses have
+        // been registered
+        TaikoL1 taikoL1 = new TaikoL1();
+
+        uint64 feeBase = 1 ** 8; // Taiko Token's decimals is 8, not 18
+        address taikoL1Proxy = deployProxy(
+            "taiko",
+            address(taikoL1),
+            bytes.concat(
+                taikoL1.init.selector,
+                abi.encode(addressManagerProxy, feeBase, gensisHash)
+            )
+        );
+        setAddress("proto_broker", taikoL1Proxy);
 
         // PlonkVerifier
         deployPlonkVerifiers();
