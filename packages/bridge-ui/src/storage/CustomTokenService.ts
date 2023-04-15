@@ -1,3 +1,4 @@
+import { jsonParseOrEmptyArray } from '../utils/jsonParseOrEmptyArray';
 import type { Token, TokenService } from '../domain/token';
 
 const STORAGE_PREFIX = 'custom-tokens';
@@ -10,19 +11,11 @@ export class CustomTokenService implements TokenService {
   }
 
   private _getTokensFromStorage(address: string): Token[] {
-    const customTokens = this.storage.getItem(
+    const existingCustomTokens = this.storage.getItem(
       `${STORAGE_PREFIX}-${address.toLowerCase()}`,
     );
 
-    let tokens: Token[];
-
-    try {
-      tokens = customTokens ? JSON.parse(customTokens) : [];
-    } catch (e) {
-      tokens = [];
-    }
-
-    return tokens;
+    return jsonParseOrEmptyArray<Token>(existingCustomTokens);
   }
 
   storeToken(token: Token, address: string): Token[] {
