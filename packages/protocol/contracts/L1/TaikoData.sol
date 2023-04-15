@@ -83,8 +83,7 @@ library TaikoData {
     }
 
     struct BlockEvidence {
-        TaikoData.BlockMetadata meta;
-        ZKProof zkproof;
+        bytes32 metaHash;
         bytes32 parentHash;
         bytes32 blockHash;
         bytes32 signalRoot;
@@ -92,6 +91,7 @@ library TaikoData {
         address prover;
         uint32 parentGasUsed;
         uint32 gasUsed;
+        ZKProof zkproof;
     }
 
     // 4 slots

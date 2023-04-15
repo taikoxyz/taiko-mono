@@ -38,6 +38,26 @@ library LibProving {
         uint256 blockId,
         TaikoData.BlockEvidence memory evidence
     ) internal {
+        if (
+            evidence.parentHash == 0 ||
+            evidence.blockHash == 0 ||
+            evidence.blockHash == evidence.parentHash ||
+            evidence.signalRoot == 0 ||
+            evidence.gasUsed == 0
+        ) revert L1_INVALID_EVIDENCE();
+
+        if (blockId <= state.lastVerifiedBlockId || blockId >= state.numBlocks)
+            revert L1_BLOCK_ID();
+
+        TaikoData.Block storage blk = state.blocks[
+            blockId % config.ringBufferSize
+        ];
+
+        // Check the metadata matches the block's metadata. This is very
+        // necessary even for the oracle-proof to handle chain reorgs.
+        if (blk.metaHash != evidence.metaHash)
+            revert L1_EVIDENCE_MISMATCH(blk.metaHash, evidence.metaHash);
+
         bool isOracleProof = evidence.prover == address(0);
 
         if (isOracleProof) {
@@ -67,32 +87,6 @@ library LibProving {
                     ecrecover(keccak256(abi.encode(evidence)), v, r, s)
                 ) revert L1_NOT_ORACLE_PROVER();
             }
-        }
-
-        if (
-            evidence.meta.id != blockId ||
-            evidence.meta.id <= state.lastVerifiedBlockId ||
-            evidence.meta.id >= state.numBlocks
-        ) revert L1_BLOCK_ID();
-
-        if (
-            evidence.parentHash == 0 ||
-            evidence.blockHash == 0 ||
-            evidence.blockHash == evidence.parentHash ||
-            evidence.signalRoot == 0 ||
-            evidence.gasUsed == 0
-        ) revert L1_INVALID_EVIDENCE();
-
-        TaikoData.Block storage blk = state.blocks[
-            evidence.meta.id % config.ringBufferSize
-        ];
-
-        {
-            // Check the metadata matches the block's metadata. This is very
-            // necessary even for the oracle-proof to handle chain reorgs.
-            bytes32 _metaHash = LibUtils.hashMetadata(evidence.meta);
-            if (blk.metaHash != _metaHash)
-                revert L1_EVIDENCE_MISMATCH(blk.metaHash, _metaHash);
         }
 
         TaikoData.ForkChoice storage fc;

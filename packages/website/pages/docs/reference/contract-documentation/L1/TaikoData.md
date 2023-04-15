@@ -97,8 +97,7 @@ struct ZKProof {
 
 ```solidity
 struct BlockEvidence {
-  struct TaikoData.BlockMetadata meta;
-  struct TaikoData.ZKProof zkproof;
+  bytes32 metaHash;
   bytes32 parentHash;
   bytes32 blockHash;
   bytes32 signalRoot;
@@ -106,6 +105,7 @@ struct BlockEvidence {
   address prover;
   uint32 parentGasUsed;
   uint32 gasUsed;
+  struct TaikoData.ZKProof zkproof;
 }
 ```
 

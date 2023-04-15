@@ -4,6 +4,7 @@ pragma solidity ^0.8.18;
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 import {AddressManager} from "../contracts/thirdparty/AddressManager.sol";
+import {LibUtils} from "../contracts/L1/libs/LibUtils.sol";
 import {TaikoConfig} from "../contracts/L1/TaikoConfig.sol";
 import {TaikoData} from "../contracts/L1/TaikoData.sol";
 import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
@@ -87,7 +88,7 @@ contract TaikoL1_OracleTest is TaikoL1TestBase {
         });
 
         TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
-            meta: meta,
+            metaHash: LibUtils.hashMetadata(meta),
             zkproof: zkproof,
             parentHash: GENESIS_BLOCK_HASH,
             blockHash: bytes32(uint256(0x11)),
