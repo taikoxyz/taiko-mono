@@ -149,9 +149,9 @@ library LibProving {
                 instance := keccak256(inputs, mul(32, 7))
             }
 
-            bytes memory verifierId = abi.encodePacked(
-                "verifier_",
-                evidence.verifierId
+            bytes memory verifierId = bytes.concat(
+                bytes("verifier_"),
+                bytes2(evidence.verifierId)
             );
 
             (bool verified, bytes memory ret) = resolver
