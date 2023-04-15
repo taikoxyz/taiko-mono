@@ -80,7 +80,6 @@ library LibProving {
             evidence.blockHash == 0 ||
             evidence.blockHash == evidence.parentHash ||
             evidence.signalRoot == 0 ||
-            // prover must not be zero
             evidence.gasUsed == 0
         ) revert L1_INVALID_EVIDENCE();
 
