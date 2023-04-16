@@ -132,6 +132,23 @@ library LibProving {
         if (!isOracleProof && !config.skipZKPVerification) {
             bytes32 instance;
 
+            // Set state.staticRefs
+            if (state.staticRefs == 0) {
+                address[3] memory inputs;
+                inputs[0] = resolver.resolve("signal_service", false);
+                inputs[1] = resolver.resolve(
+                    config.chainId,
+                    "signal_service",
+                    false
+                );
+                inputs[2] = resolver.resolve(config.chainId, "taiko_l2", false);
+                bytes32 staticRefs;
+                assembly {
+                    staticRefs := keccak256(inputs, mul(32, 3))
+                }
+                state.staticRefs = staticRefs;
+            }
+
             uint256[7] memory inputs;
             inputs[0] = uint256(state.staticRefs);
             inputs[1] = uint256(blk.metaHash);

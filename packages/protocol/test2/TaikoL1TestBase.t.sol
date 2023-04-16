@@ -28,7 +28,7 @@ abstract contract TaikoL1TestBase is Test {
     address public constant L2Treasure =
         0x859d74b52762d9ed07D1b2B8d7F93d26B1EA78Bb;
     address public constant L2SS = 0xa008AE5Ba00656a3Cc384de589579e3E52aC030C;
-    address public constant L2TaikoL2 =
+    address public constant TaikoL2 =
         0x0082D90249342980d011C58105a03b35cCb4A315;
 
     address public constant Alice = 0xa9bcF99f5eb19277f48b71F9b14f5960AEA58a89;
@@ -52,9 +52,9 @@ abstract contract TaikoL1TestBase is Test {
         ss = new SignalService();
         ss.init(address(addressManager));
 
-        _registerL2Address("treasure", L2Treasure);
-        _registerL2Address("taiko_l2", address(L2TaikoL2));
         _registerAddress("signal_service", address(ss));
+        _registerL2Address("treasure", L2Treasure);
+        _registerL2Address("taiko", address(TaikoL2));
         _registerL2Address("signal_service", address(L2SS));
 
         tko = new TaikoToken();
@@ -151,15 +151,13 @@ abstract contract TaikoL1TestBase is Test {
     }
 
     function _registerAddress(string memory name, address addr) internal {
-        string memory key = L1.keyForName(block.chainid, name);
-        addressManager.setAddress(key, addr);
-        console2.log(key, unicode"→", addr);
+        addressManager.setAddress(block.chainid, name, addr);
+        console2.log(block.chainid, name, unicode"→", addr);
     }
 
     function _registerL2Address(string memory name, address addr) internal {
-        string memory key = L1.keyForName(conf.chainId, name);
-        addressManager.setAddress(key, addr);
-        console2.log(key, unicode"→", addr);
+        addressManager.setAddress(conf.chainId, name, addr);
+        console2.log(conf.chainId, name, unicode"→", addr);
     }
 
     function _depositTaikoToken(

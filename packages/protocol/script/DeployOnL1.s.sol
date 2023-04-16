@@ -10,7 +10,6 @@ import "forge-std/Script.sol";
 import "forge-std/console2.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import "../contracts/common/AddressResolver.sol";
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/bridge/Bridge.sol";
@@ -20,11 +19,9 @@ import "../contracts/thirdparty/AddressManager.sol";
 import "../contracts/test/erc20/FreeMintERC20.sol";
 import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
 
-contract DeployOnL1 is Script, AddressResolver {
+contract DeployOnL1 is Script {
     using SafeCastUpgradeable for uint256;
-    uint256 public l2ChainId = vm.envUint("L2_CHAIN_ID");
-
-    bytes32 public gensisHash = vm.envBytes32("L2_GENESIS_HASH");
+    bytes32 public genesisHash = vm.envBytes32("L2_GENESIS_HASH");
 
     uint256 public deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
@@ -49,10 +46,17 @@ contract DeployOnL1 is Script, AddressResolver {
         vm.envUint("TAIKO_TOKEN_PREMINT_AMOUNT");
 
     address public addressManagerProxy;
+    uint256 public l2ChainId;
 
     error FAILED_TO_DEPLOY_PLONK_VERIFIER(string contractPath);
 
     function run() external {
+        // TaikoL1
+        // Only deploy after "signal_service"s and "taiko" on L2 addresses have
+        // been registered
+        TaikoL1 taikoL1 = new TaikoL1();
+        l2ChainId = taikoL1.getConfig().chainId;
+
         require(l2ChainId != block.chainid, "same chainid");
         require(owner != address(0), "owner is zero");
         require(taikoL2Address != address(0), "taikoL2Address is zero");
@@ -107,12 +111,12 @@ contract DeployOnL1 is Script, AddressResolver {
 
         // HorseToken && BullToken
         address horseToken = address(new FreeMintERC20("Horse Token", "HORSE"));
-        console.log("HorseToken", horseToken);
+        console.log("HorseToken: ", horseToken);
 
         address bullToken = address(
             new MayFailFreeMintERC20("Bull Token", "BLL")
         );
-        console.log("BullToken", bullToken);
+        console.log("BullToken: ", bullToken);
 
         // Bridge
         Bridge bridge = new Bridge();
@@ -155,20 +159,16 @@ contract DeployOnL1 is Script, AddressResolver {
         // PlonkVerifier
         deployPlonkVerifiers();
 
-        // TaikoL1
-        // Only deploy after "signal_service"s and "taiko_l2" addresses have
-        // been registered
-        TaikoL1 taikoL1 = new TaikoL1();
-
         uint64 feeBase = 1 ** 8; // Taiko Token's decimals is 8, not 18
         address taikoL1Proxy = deployProxy(
             "taiko",
             address(taikoL1),
             bytes.concat(
                 taikoL1.init.selector,
-                abi.encode(addressManagerProxy, feeBase, gensisHash)
+                abi.encode(addressManagerProxy, feeBase, genesisHash)
             )
         );
+
         setAddress("proto_broker", taikoL1Proxy);
 
         vm.stopBroadcast();
@@ -228,14 +228,11 @@ contract DeployOnL1 is Script, AddressResolver {
             new TransparentUpgradeableProxy(implementation, owner, data)
         );
 
-        console.log(name, "(impl) ->", implementation);
-        console.log(name, "(proxy) ->", proxy);
+        console.log(name, unicode"(impl): ", implementation);
+        console.log(name, unicode"(proxy): ", proxy);
 
         if (addressManagerProxy != address(0)) {
-            AddressManager(addressManagerProxy).setAddress(
-                keyForName(block.chainid, name),
-                proxy
-            );
+            setAddress(name, proxy);
         }
     }
 
@@ -248,12 +245,9 @@ contract DeployOnL1 is Script, AddressResolver {
         string memory name,
         address addr
     ) private {
-        console.log(chainId, name, "--->", addr);
+        console.log(chainId, name, unicode" ➡️ ", addr);
         if (addr != address(0)) {
-            AddressManager(addressManagerProxy).setAddress(
-                keyForName(chainId, name),
-                addr
-            );
+            AddressManager(addressManagerProxy).setAddress(chainId, name, addr);
         }
     }
 }

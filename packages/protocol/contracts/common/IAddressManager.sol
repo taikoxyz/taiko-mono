@@ -11,19 +11,25 @@ pragma solidity ^0.8.18;
  */
 interface IAddressManager {
     /**
-     * @notice Associate an address to a name.
-     * @dev The original address associated with the name, if exists, will be
-     *      replaced.
-     * @param name The name which an address will be associated with.
-     * @param addr The address to be associated with the given name.
+     * Changes the address associated with a particular name.
+     * @param class Uint256 class to assiciate an address with.
+     * @param name String name to associate an address with.
+     * @param newAddress Address to associate with the name.
      */
-    function setAddress(string memory name, address addr) external;
+    function setAddress(
+        uint256 class,
+        string memory name,
+        address newAddress
+    ) external;
 
     /**
-     * @notice Returns the address associated with the given name.
-     * @param name The name for which an address will be returned.
-     * @return The address associated with the given name. If no address is
-     *        found, `address(0)` will be returned.
+     * Retrieves the address associated with a given name.
+     * @param class Class to retrieve an address for.
+     * @param name Name to retrieve an address for.
+     * @return Address associated with the given name.
      */
-    function getAddress(string memory name) external view returns (address);
+    function getAddress(
+        uint256 class,
+        string memory name
+    ) external view returns (address);
 }

@@ -41,7 +41,6 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         LibVerifying.init({
             state: state,
             config: getConfig(),
-            resolver: AddressResolver(this),
             feeBase: _feeBase,
             genesisBlockHash: _genesisBlockHash
         });

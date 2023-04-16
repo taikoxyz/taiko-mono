@@ -32,7 +32,6 @@ library LibVerifying {
     function init(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        AddressResolver resolver,
         uint64 feeBase,
         bytes32 genesisBlockHash
     ) internal {
@@ -43,22 +42,6 @@ library LibVerifying {
         state.genesisTimestamp = timeNow;
         state.feeBase = feeBase;
         state.numBlocks = 1;
-        // Set state.staticRefs
-        {
-            address[3] memory inputs;
-            inputs[0] = resolver.resolve("signal_service", false);
-            inputs[1] = resolver.resolve(
-                config.chainId,
-                "signal_service",
-                false
-            );
-            inputs[2] = resolver.resolve(config.chainId, "taiko_l2", false);
-            bytes32 staticRefs;
-            assembly {
-                staticRefs := keccak256(inputs, mul(32, 3))
-            }
-            state.staticRefs = staticRefs;
-        }
 
         TaikoData.Block storage blk = state.blocks[0];
         blk.proposedAt = timeNow;

@@ -33,22 +33,25 @@ pragma solidity ^0.8.18;
 
 /* External Imports */
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "../common/IAddressManager.sol";
 
 /**
  * @title AddressManager
  */
-contract AddressManager is OwnableUpgradeable {
+contract AddressManager is OwnableUpgradeable, IAddressManager {
     /*************
      * Variables *
      *************/
 
-    mapping(bytes32 nameHash => address addr) private addresses;
+    mapping(uint256 class => mapping(string nameHash => address addr))
+        private addresses;
 
     /**********
      * Events *
      **********/
 
     event AddressSet(
+        uint256 indexed _class,
         string indexed _name,
         address _newAddress,
         address _oldAddress
@@ -65,17 +68,18 @@ contract AddressManager is OwnableUpgradeable {
 
     /**
      * Changes the address associated with a particular name.
+     * @param class Uint256 class to assiciate an address with.
      * @param name String name to associate an address with.
      * @param newAddress Address to associate with the name.
      */
     function setAddress(
+        uint256 class,
         string memory name,
         address newAddress
     ) external onlyOwner {
-        bytes32 nameHash = keccak256(bytes(name));
-        address oldAddress = addresses[nameHash];
-        addresses[nameHash] = newAddress;
-        emit AddressSet(name, newAddress, oldAddress);
+        address oldAddress = addresses[class][name];
+        addresses[class][name] = newAddress;
+        emit AddressSet(class, name, newAddress, oldAddress);
     }
 
     /********************
@@ -84,10 +88,14 @@ contract AddressManager is OwnableUpgradeable {
 
     /**
      * Retrieves the address associated with a given name.
+     * @param class Class to retrieve an address for.
      * @param name Name to retrieve an address for.
-     * @return Address associated with the given name.
+     * @return addr Address associated with the given name.
      */
-    function getAddress(string memory name) external view returns (address) {
-        return addresses[keccak256(bytes(name))];
+    function getAddress(
+        uint256 class,
+        string memory name
+    ) external view returns (address addr) {
+        addr = addresses[class][name];
     }
 }

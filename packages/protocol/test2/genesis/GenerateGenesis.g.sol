@@ -132,11 +132,8 @@ contract TestGenerateGenesis is Test, AddressResolver {
         assertEq(owner, tokenVault.owner());
 
         vm.startPrank(addressManager.owner());
-        addressManager.setAddress(keyForName(1, "bridge"), bridgeAddress);
-        addressManager.setAddress(
-            keyForName(1, "token_vault"),
-            tokenVaultAddress
-        );
+        addressManager.setAddress(1, "bridge", bridgeAddress);
+        addressManager.setAddress(1, "token_vault", tokenVaultAddress);
         vm.stopPrank();
 
         tokenVault.sendEther{value: 1}(
@@ -208,7 +205,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
     ) private {
         assertEq(
             getPredeployedContractAddress(contractName),
-            addressManager.getAddress(keyForName(block.chainid, key))
+            addressManager.getAddress(block.chainid, key)
         );
     }
 }
