@@ -21,7 +21,8 @@ import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
 
 contract DeployOnL1 is Script {
     using SafeCastUpgradeable for uint256;
-    bytes32 public genesisHash = vm.envBytes32("L2_GENESIS_HASH");
+
+    bytes32 public gensisHash = vm.envBytes32("L2_GENESIS_HASH");
 
     uint256 public deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
@@ -35,8 +36,6 @@ contract DeployOnL1 is Script {
 
     address public sharedSignalService = vm.envAddress("SHARED_SIGNAL_SERVICE");
 
-    address public l2SignalService = vm.envAddress("L2_SIGNAL_SERVICE");
-
     address public treasure = vm.envAddress("TREASURE");
 
     address public taikoTokenPremintRecipient =
@@ -46,18 +45,10 @@ contract DeployOnL1 is Script {
         vm.envUint("TAIKO_TOKEN_PREMINT_AMOUNT");
 
     address public addressManagerProxy;
-    uint256 public l2ChainId;
 
     error FAILED_TO_DEPLOY_PLONK_VERIFIER(string contractPath);
 
     function run() external {
-        // TaikoL1
-        // Only deploy after "signal_service"s and "taiko" on L2 addresses have
-        // been registered
-        TaikoL1 taikoL1 = new TaikoL1();
-        l2ChainId = taikoL1.getConfig().chainId;
-
-        require(l2ChainId != block.chainid, "same chainid");
         require(owner != address(0), "owner is zero");
         require(taikoL2Address != address(0), "taikoL2Address is zero");
         require(treasure != address(0), "treasure is zero");
@@ -80,11 +71,15 @@ contract DeployOnL1 is Script {
             bytes.concat(addressManager.init.selector)
         );
 
+        // TaikoL1
+        TaikoL1 taikoL1 = new TaikoL1();
+        uint256 l2ChainId = taikoL1.getConfig().chainId;
+        require(l2ChainId != block.chainid, "same chainid");
+
         setAddress(l2ChainId, "taiko", taikoL2Address);
         setAddress("oracle_prover", oracleProver);
         setAddress("solo_proposer", soloProposer);
         setAddress(l2ChainId, "treasure", treasure);
-        setAddress(l2ChainId, "signal_service", l2SignalService);
 
         // TaikoToken
         TaikoToken taikoToken = new TaikoToken();
@@ -111,12 +106,23 @@ contract DeployOnL1 is Script {
 
         // HorseToken && BullToken
         address horseToken = address(new FreeMintERC20("Horse Token", "HORSE"));
-        console.log("HorseToken: ", horseToken);
+        console.log("HorseToken", horseToken);
 
         address bullToken = address(
             new MayFailFreeMintERC20("Bull Token", "BLL")
         );
-        console.log("BullToken: ", bullToken);
+        console.log("BullToken", bullToken);
+
+        uint64 feeBase = 1 ** 8; // Taiko Token's decimals is 8, not 18
+        address taikoL1Proxy = deployProxy(
+            "taiko",
+            address(taikoL1),
+            bytes.concat(
+                taikoL1.init.selector,
+                abi.encode(addressManagerProxy, feeBase, gensisHash)
+            )
+        );
+        setAddress("proto_broker", taikoL1Proxy);
 
         // Bridge
         Bridge bridge = new Bridge();
@@ -159,18 +165,6 @@ contract DeployOnL1 is Script {
         // PlonkVerifier
         deployPlonkVerifiers();
 
-        uint64 feeBase = 1 ** 8; // Taiko Token's decimals is 8, not 18
-        address taikoL1Proxy = deployProxy(
-            "taiko",
-            address(taikoL1),
-            bytes.concat(
-                taikoL1.init.selector,
-                abi.encode(addressManagerProxy, feeBase, genesisHash)
-            )
-        );
-
-        setAddress("proto_broker", taikoL1Proxy);
-
         vm.stopBroadcast();
     }
 
@@ -185,7 +179,7 @@ contract DeployOnL1 is Script {
 
         for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
             setAddress(
-                string(bytes.concat(bytes("verifier_"), bytes2(i))),
+                string(abi.encodePacked("verifier_", i)),
                 plonkVerifiers[i]
             );
         }
@@ -228,11 +222,15 @@ contract DeployOnL1 is Script {
             new TransparentUpgradeableProxy(implementation, owner, data)
         );
 
-        console.log(name, unicode"(impl): ", implementation);
-        console.log(name, unicode"(proxy): ", proxy);
+        console.log(name, "(impl) ->", implementation);
+        console.log(name, "(proxy) ->", proxy);
 
         if (addressManagerProxy != address(0)) {
-            setAddress(name, proxy);
+            AddressManager(addressManagerProxy).setAddress(
+                block.chainid,
+                name,
+                proxy
+            );
         }
     }
 
@@ -245,7 +243,7 @@ contract DeployOnL1 is Script {
         string memory name,
         address addr
     ) private {
-        console.log(chainId, name, unicode" ➡️ ", addr);
+        console.log(chainId, name, "--->", addr);
         if (addr != address(0)) {
             AddressManager(addressManagerProxy).setAddress(chainId, name, addr);
         }
