@@ -31,7 +31,8 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
-        uint64 initBasefee
+        uint64 initBasefee,
+        uint64 initProofTimeIssued
     ) internal {
         _checkConfig(config);
 
@@ -39,8 +40,8 @@ library LibVerifying {
         state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = timeNow;
 
-        // TODO(dani): should be a parameter in init().
-        state.basefee = initBasefee; // 1 Taiko Token (1**8 * 1**6 = tested starter fee - eliminating magic values like decimal_factor)
+        state.basefee = initBasefee;
+        state.proofTimeIssued = initProofTimeIssued;
         state.numBlocks = 1;
 
         TaikoData.Block storage blk = state.blocks[0];
@@ -133,17 +134,12 @@ library LibVerifying {
                     uint64(proofTime)
                 );
 
-            // Todo (dani) kiiratast hogy a reward meg a basefee ugyan az-e !?
             state.basefee = newBasefee;
             state.proofTimeIssued = proofTimeIssued;
 
-            if (!config.allowMinting) {
-                unchecked {
-                    state.rewardPool -= reward;
-                    if (config.useTimeWeightedReward) {
-                        state.accProposedAt -= blk.proposedAt;
-                    }
-                }
+            unchecked {
+                state.rewardPool -= reward;
+                state.accProposedAt -= blk.proposedAt;
             }
 
             // reward the prover

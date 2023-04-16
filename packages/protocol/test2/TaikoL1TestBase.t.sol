@@ -10,6 +10,7 @@ import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
 import {TaikoToken} from "../contracts/L1/TaikoToken.sol";
 import {SignalService} from "../contracts/signal/SignalService.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {TestLn as TestMath} from "./TestLn.sol";
 
 contract Verifier {
     fallback(bytes calldata) external returns (bytes memory) {
@@ -25,6 +26,8 @@ abstract contract TaikoL1TestBase is Test {
     TaikoData.Config conf;
     uint256 internal logCount;
 
+    uint256 private constant SCALING_E18 = 1e18;
+
     bytes32 public constant GENESIS_BLOCK_HASH =
         keccak256("GENESIS_BLOCK_HASH");
     uint64 l2GasExcess = 1E18;
@@ -39,15 +42,35 @@ abstract contract TaikoL1TestBase is Test {
     address public constant Dave = 0x400147C0Eb43D8D71b2B03037bB7B31f8f78EF5F;
     address public constant Eve = 0x50081b12838240B1bA02b3177153Bca678a86078;
 
+    uint32 private constant INIT_FEE = 1e9; // 10 TKO : Only relevant for the first proposing
+    uint16 private constant PROOF_TIME_TARGET = 1800;
+    uint8 private constant ADJUSTMENT_QUOTIENT = 16;
+
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
 
     function setUp() public virtual {
         // vm.warp(1000000);
         addressManager = new AddressManager();
         addressManager.init();
-        uint64 initBasefee = 1e9; // 100 TKO : Only relevant for the first proposing
+        uint64 initBasefee = INIT_FEE;
+
+        // Calculating it for our needs based on testnet/mainnet proof vars.
+        // See Brecht's comment https://github.com/taikoxyz/taiko-mono/pull/13564
+        uint256 scale = uint256(PROOF_TIME_TARGET * ADJUSTMENT_QUOTIENT);
+        // ln_pub() expects 1e18 fixed format
+        int256 logInput = int256((scale * initBasefee) * SCALING_E18);
+        int256 log_result = TestMath.ln_pub(logInput);
+        uint64 initProofTimeIssued = uint64(
+            ((scale * (uint256(log_result))) / (SCALING_E18))
+        );
+
         L1 = deployTaikoL1();
-        L1.init(address(addressManager), GENESIS_BLOCK_HASH, initBasefee);
+        L1.init(
+            address(addressManager),
+            GENESIS_BLOCK_HASH,
+            initBasefee,
+            initProofTimeIssued
+        );
         conf = L1.getConfig();
 
         tko = new TaikoToken();
@@ -186,7 +209,7 @@ abstract contract TaikoL1TestBase is Test {
             unicode"→",
             Strings.toString(vars.numBlocks),
             "]",
-            " fee (same as baseFee now):",
+            " fee:",
             Strings.toString(fee),
             " lastProposedAt:",
             Strings.toString(vars.lastProposedAt),

@@ -94,17 +94,14 @@ library LibProposing {
 
         if (config.proofTimeTarget != 0) {
             uint64 fee = LibTokenomics.getProverFee(state);
+
             if (state.balances[msg.sender] < fee)
                 revert L1_INSUFFICIENT_TOKEN();
 
             unchecked {
                 state.balances[msg.sender] -= fee;
-                if (!config.allowMinting) {
-                    state.rewardPool += fee;
-                    if (config.useTimeWeightedReward) {
-                        state.accProposedAt += meta.timestamp;
-                    }
-                }
+                state.rewardPool += fee;
+                state.accProposedAt += meta.timestamp;
             }
         }
 

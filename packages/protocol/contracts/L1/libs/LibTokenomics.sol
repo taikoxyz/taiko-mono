@@ -20,18 +20,6 @@ import {
 library LibTokenomics {
     using LibMath for uint256;
 
-    /// @dev Explanation of the scaling factor
-    // The calculation depends on the proofTime (and proofTimeTarget)
-    /// Since the exp function (or _calcBasefee() gives us:
-    // with proof time around 20 mins:
-    // somewhere around 0.000055442419735305 = 55442419735305 (in 10**18 fixed) = 5.5 (in TKO with 1e5 factor)
-
-    // with proof time around 85s (current testnet):
-    // somewhere around 0.000782716513910190 = 782716513910190 (in 10**18 fixed) = 78 (in TKO with 1e5 factor)
-
-    /// @dev Fee will depends on the proofTime (and proofTimeTarget).
-    uint64 private constant SCALING_FROM_18_FIXED_EXP_TO_TKO_AMOUNT = 1e5;
-
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_PARAM();
 
@@ -103,42 +91,50 @@ library LibTokenomics {
 
         proofTimeIssued += proofTime;
 
-        newBasefee =
-            _calcBasefee(
-                proofTimeIssued,
-                config.proofTimeTarget,
-                config.adjustmentQuotient
-            ) /
-            SCALING_FROM_18_FIXED_EXP_TO_TKO_AMOUNT;
+        newBasefee = _calcBasefee(
+            proofTimeIssued,
+            config.proofTimeTarget,
+            config.adjustmentQuotient
+        );
 
-        if (config.allowMinting) {
-            // Upconvert 1 to uint256 and the rest will be upconverted too to avoid
-            // overflow during multiplication
-            reward = uint64(
-                (uint256(state.basefee) * proofTime) / (config.proofTimeTarget)
-            );
+        uint64 numBlocksBeingProven = state.numBlocks -
+            state.lastVerifiedBlockId -
+            1;
+        if (numBlocksBeingProven == 0) {
+            reward = uint64(0);
         } else {
-            /// TODO(dani): Verify with functional tests
-            uint64 numBlocksBeingProven = state.numBlocks -
-                state.lastVerifiedBlockId -
-                1;
-            if (config.useTimeWeightedReward) {
-                // TODO(dani): Theroetically there can be no underflow (in case
-                // numBlocksBeingProven == 0 then state.accProposedAt is
-                // also 0) - but verify with unit tests !
-                uint64 totalNumProvingSeconds = uint64(
-                    uint256(numBlocksBeingProven) *
-                        block.timestamp -
-                        state.accProposedAt
-                );
-                reward = uint64(
-                    (uint256(state.rewardPool) * proofTime) /
-                        totalNumProvingSeconds
-                );
-            } else {
-                /// TODO: Verify with functional tests : done on a diff branch but cut this algo out later
-                reward = state.rewardPool / numBlocksBeingProven;
-            }
+            uint64 totalNumProvingSeconds = uint64(
+                uint256(numBlocksBeingProven) *
+                    block.timestamp -
+                    state.accProposedAt
+            );
+
+            reward = uint64(
+                (
+                    uint256(
+                        (state.rewardPool * proofTime) / totalNumProvingSeconds
+                    )
+                )
+            );
+
+            // // todo:(dani) Validate algo and check which seems best among the 3
+            // Can stay as is for now - until simulation validates which might be better!
+            // reward_opt2 = uint64(
+            //     (
+            //         uint256(
+            //             (state.rewardPool * proofTime) / (totalNumProvingSeconds * 2)
+            //         )
+            //     )
+            // );
+
+            // reward_opt3 = uint64(
+            //     (
+            //         uint256(
+            //             (state.rewardPool * proofTime) /
+            //             (numBlocksBeingProven - 1) * config.proofTimeTarget + proofTime
+            //         )
+            //     )
+            // );
         }
 
         newProofTimeIssued = proofTimeIssued;
@@ -152,9 +148,10 @@ library LibTokenomics {
         uint256 value,
         uint256 target,
         uint256 quotient
-    ) private pure returns (uint64) {
+    ) private view returns (uint64) {
         uint256 result = _expCalculation(value, target, quotient) /
             (target * quotient);
+
         if (result > type(uint64).max) return type(uint64).max;
 
         return uint64(result);
@@ -168,9 +165,9 @@ library LibTokenomics {
         uint256 value,
         uint256 target,
         uint256 quotient
-    ) private pure returns (uint256 retVal) {
-        // Overflow handled by the code
+    ) private view returns (uint256 retVal) {
         uint256 x = (value * Math.SCALING_FACTOR_1E18) / (target * quotient);
-        return uint256(Math.exp(int256(x)));
+
+        return (uint256(Math.exp(int256(x))) / Math.SCALING_FACTOR_1E18);
     }
 }

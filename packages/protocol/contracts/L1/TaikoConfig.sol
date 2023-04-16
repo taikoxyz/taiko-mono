@@ -33,14 +33,12 @@ library TaikoConfig {
                 minTxGasLimit: 21000,
                 // Moving average factors
                 txListCacheExpiry: 0,
-                proofTimeTarget: 85, // 85s based on A2 testnet status
+                proofTimeTarget: 1800, // 85s based on A2 testnet status, or set to 1800 for 30mins (mainnet mock)
                 adjustmentQuotient: 16,
                 enableSoloProposer: false,
                 enableOracleProver: true,
                 enableTokenomics: true,
-                skipZKPVerification: false,
-                allowMinting: true,
-                useTimeWeightedReward: false
+                skipZKPVerification: false
             });
     }
 }
