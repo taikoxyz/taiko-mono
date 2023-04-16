@@ -91,7 +91,7 @@ function getBalance(address addr) public view returns (uint256)
 ### getProverFee
 
 ```solidity
-function getProverFee(uint32 gasUsed) public view returns (uint256 feeAmount)
+function getProverFee() public view returns (uint64 feeAmount)
 ```
 
 ### getProofReward

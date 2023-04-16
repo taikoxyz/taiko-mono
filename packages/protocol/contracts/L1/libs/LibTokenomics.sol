@@ -20,9 +20,6 @@ import {
 library LibTokenomics {
     using LibMath for uint256;
 
-    // @dev Since we keep the base fee in 10*18 but the actual TKO token is in 10**8
-    uint256 private constant SCALING_FROM_18_TO_TKO_DEC = 1e10;
-
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_PARAM();
 
@@ -59,48 +56,38 @@ library LibTokenomics {
     }
 
     function getProverFee(
-        TaikoData.State storage state,
-        uint32 gasUsed
-    ) internal view returns (uint256 basefee, uint256 fee) {
-        basefee = state.basefee;
-        fee = ((basefee * gasUsed) / SCALING_FROM_18_TO_TKO_DEC);
+        TaikoData.State storage state
+    ) internal view returns (uint64 fee) {
+        return state.basefee;
     }
 
     function getProofReward(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint64 provenAt,
-        uint64 proposedAt,
-        uint32 gasUsed
-    ) internal view returns (uint256 newBasefee, uint256 reward) {
-        (reward, , newBasefee) = calculateBasefee(
-            state,
-            config,
-            (provenAt - proposedAt),
-            gasUsed
-        );
+        uint64 proposedAt
+    ) internal view returns (uint64 reward) {
+        (reward, , ) = calculateBasefee(state, config, (provenAt - proposedAt));
     }
 
     /// @notice Update the baseFee for proofs
     /// @param state - The actual state data
     /// @param config - Config data
     /// @param proofTime - The actual proof time
-    /// @param gasUsed - Gas in the block
     function calculateBasefee(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        uint64 proofTime,
-        uint32 gasUsed
+        uint64 proofTime
     )
         internal
         view
-        returns (uint256 reward, uint256 newProofTimeIssued, uint256 newBasefee)
+        returns (uint64 reward, uint64 newProofTimeIssued, uint64 newBasefee)
     {
-        uint256 proofTimeIssued = state.proofTimeIssued;
+        uint64 proofTimeIssued = state.proofTimeIssued;
         // To protect underflow
         proofTimeIssued = (proofTimeIssued > config.proofTimeTarget)
             ? proofTimeIssued - config.proofTimeTarget
-            : uint256(0);
+            : uint64(0);
 
         proofTimeIssued += proofTime;
 
@@ -110,28 +97,44 @@ library LibTokenomics {
             config.adjustmentQuotient
         );
 
-        if (config.allowMinting) {
-            reward = ((state.basefee * gasUsed * proofTime) /
-                (config.proofTimeTarget * SCALING_FROM_18_TO_TKO_DEC));
+        uint64 numBlocksBeingProven = state.numBlocks -
+            state.lastVerifiedBlockId -
+            1;
+        if (numBlocksBeingProven == 0) {
+            reward = uint64(0);
         } else {
-            /// TODO(dani): Verify with functional tests
-            uint256 numBlocksBeingProven = state.numBlocks -
-                state.lastVerifiedBlockId -
-                1;
-            if (config.useTimeWeightedReward) {
-                // TODO(dani): Theroetically there can be no underflow (in case
-                // numBlocksBeingProven == 0 then state.accProposedAt is
-                // also 0) - but verify with unit tests !
-                uint256 totalNumProvingSeconds = numBlocksBeingProven *
+            uint64 totalNumProvingSeconds = uint64(
+                uint256(numBlocksBeingProven) *
                     block.timestamp -
-                    state.accProposedAt;
-                reward =
-                    (state.rewardPool * proofTime) /
-                    totalNumProvingSeconds;
-            } else {
-                /// TODO: Verify with functional tests
-                reward = state.rewardPool / numBlocksBeingProven;
-            }
+                    state.accProposedAt
+            );
+
+            reward = uint64(
+                (
+                    uint256(
+                        (state.rewardPool * proofTime) / totalNumProvingSeconds
+                    )
+                )
+            );
+
+            // // todo:(dani) Validate algo and check which seems best among the 3
+            // Can stay as is for now - until simulation validates which might be better!
+            // reward_opt2 = uint64(
+            //     (
+            //         uint256(
+            //             (state.rewardPool * proofTime) / (totalNumProvingSeconds * 2)
+            //         )
+            //     )
+            // );
+
+            // reward_opt3 = uint64(
+            //     (
+            //         uint256(
+            //             (state.rewardPool * proofTime) /
+            //             (numBlocksBeingProven - 1) * config.proofTimeTarget + proofTime
+            //         )
+            //     )
+            // );
         }
 
         newProofTimeIssued = proofTimeIssued;
@@ -145,10 +148,13 @@ library LibTokenomics {
         uint256 value,
         uint256 target,
         uint256 quotient
-    ) private pure returns (uint256) {
-        return (
-            (_expCalculation(value, target, quotient) / (target * quotient))
-        );
+    ) private view returns (uint64) {
+        uint256 result = _expCalculation(value, target, quotient) /
+            (target * quotient);
+
+        if (result > type(uint64).max) return type(uint64).max;
+
+        return uint64(result);
     }
 
     /// @notice Calculating the exponential via LibFixedPointMath.sol
@@ -159,9 +165,9 @@ library LibTokenomics {
         uint256 value,
         uint256 target,
         uint256 quotient
-    ) private pure returns (uint256 retVal) {
-        // Overflow handled by the code
+    ) private view returns (uint256 retVal) {
         uint256 x = (value * Math.SCALING_FACTOR_1E18) / (target * quotient);
-        return uint256(Math.exp(int256(x)));
+
+        return (uint256(Math.exp(int256(x))) / Math.SCALING_FACTOR_1E18);
     }
 }

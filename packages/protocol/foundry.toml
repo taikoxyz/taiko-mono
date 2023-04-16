@@ -10,4 +10,6 @@ optimizer = true
 optimizer_runs = 200
 
 # Do not change the block_gas_limit value, TaikoL2.t.sol depends on it.
-block_gas_limit = 30000000 #30M
+# block_gas_limit = 30000000 #30M
+# For mainnet_mock tokenomics test we need a huge value to run lots of iteration. Need to be revoked afterwards
+block_gas_limit = 3000000000 #30M
