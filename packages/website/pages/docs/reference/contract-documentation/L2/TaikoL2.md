@@ -1,3 +1,7 @@
+---
+title: TaikoL2
+---
+
 ## TaikoL2
 
 ### latestSyncedL1Height

@@ -1,3 +1,7 @@
+---
+title: TaikoCustomErrors
+---
+
 ## TaikoCustomErrors
 
 ### L1_0_FEE_BASE

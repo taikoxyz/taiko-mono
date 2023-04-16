@@ -1,3 +1,7 @@
+---
+title: TokenVault
+---
+
 ## TokenVault
 
 This vault holds all ERC20 tokens (but not Ether) that users have deposited.

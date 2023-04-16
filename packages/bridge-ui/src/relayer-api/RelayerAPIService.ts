@@ -10,6 +10,9 @@ import type {
   APIRequestParams,
   APIResponse,
   APIResponseTransaction,
+  GetAllByAddressResponse,
+  PaginationInfo,
+  PaginationParams,
   RelayerAPI,
   RelayerBlockInfo,
 } from '../domain/relayerApi';
@@ -46,8 +49,9 @@ export class RelayerAPIService implements RelayerAPI {
 
   async getAllBridgeTransactionByAddress(
     address: string,
+    paginationParams: PaginationParams,
     chainID?: number,
-  ): Promise<BridgeTransaction[]> {
+  ): Promise<GetAllByAddressResponse> {
     if (!address) {
       throw new Error('Address need to passed to fetch transactions');
     }
@@ -56,12 +60,23 @@ export class RelayerAPIService implements RelayerAPI {
       address,
       chainID,
       event: 'MessageSent',
+      ...paginationParams,
     };
 
     const apiTxs: APIResponse = await this.getTransactionsFromAPI(params);
 
+    const paginationInfo: PaginationInfo = {
+      page: apiTxs.page,
+      size: apiTxs.size,
+      total: apiTxs.total,
+      total_pages: apiTxs.total_pages,
+      first: apiTxs.first,
+      last: apiTxs.last,
+      max_page: apiTxs.max_page,
+    };
+
     if (apiTxs?.items?.length === 0) {
-      return [];
+      return { txs: [], paginationInfo };
     }
 
     apiTxs.items.map((t, i) => {
@@ -193,7 +208,7 @@ export class RelayerAPIService implements RelayerAPI {
 
     bridgeTxs.reverse();
     bridgeTxs.sort((tx) => (tx.status === MessageStatus.New ? -1 : 1));
-    return bridgeTxs;
+    return { txs: bridgeTxs, paginationInfo };
   }
 
   async getBlockInfo(): Promise<Map<number, RelayerBlockInfo>> {

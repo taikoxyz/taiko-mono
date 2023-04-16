@@ -1,5 +1,10 @@
 import { Callout, Steps, Tab, Tabs } from "nextra-theme-docs";
 
+<Callout>
+  Please use the [ETHTokyo network
+  config](/docs/reference/ethglobal-tokyo-reference.mdx) for the hackathon!
+</Callout>
+
 This guide will walk you through the process of operating a Taiko node via [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node). You will be able to:
 
 - Run a Taiko node easily from the command line on Windows, Mac, and Linux.
@@ -130,7 +135,7 @@ docker compose logs -f taiko_client_prover_relayer
 docker compose logs -f l2_execution_engine
 ```
 
-###### View the live data streams of your running containers 
+###### View the live data streams of your running containers
 This shows the CPU/MEM USAGE % and consumption of your machine's resources (add prefix "`docker stats -a`" to display all containers)
 ```sh
 docker stats
@@ -155,7 +160,7 @@ A [Grafana](https://grafana.com/) dashboard with a [Prometheus](https://promethe
 ### Node warning logs
 You can ignore any WARN logs.
 
-### Node error logs 
+### Node error logs
 
 #### `error: L1_ID`
 The block that you want to prove has already been verified, you can ignore this.
@@ -164,7 +169,7 @@ The block that you want to prove has already been verified, you can ignore this.
 This block has been proven by someone else, but its not verified yet, you can ignore it.
 
 #### `Fatal: Failed to register the Ethereum service: database contains incompatible genesis`
-Try to remove the node with `docker compose down -v` and then try again. 
+Try to remove the node with `docker compose down -v` and then try again.
 
 #### `Unhandled trie error: missing trie node`
 You can ignore this error, it doesn't affect you and goes away after a while.
@@ -179,11 +184,34 @@ The port is already in use by another service. You can either shut down the othe
 Your IP address is being geo-blocked due to sanctions lists. If you're affected, try changing hosting locations or utilize a VPN to change your IP address.
 
 #### `ERROR: The Compose file './docker-compose.yml' is invalid because: Unsupported config option for some_service 'pull_policy'`
-Your docker installation is out of date. You need to update your docker compose installation: https://docs.docker.com/compose/install/. 
+Your docker installation is out of date. You need to update your docker compose installation: https://docs.docker.com/compose/install/.
 
-#### `daemon docker is not running` <br></br> `Cannot connect to the Docker daemon` 
-Need to start the Docker before running the commands. 
+#### `daemon docker is not running` <br></br> `Cannot connect to the Docker daemon`
+Need to start the Docker before running the commands.
 
 #### `database contains incompatible genesis`
 If you ran an alpha-1 testnet node make sure to first run a docker compose down -v to remove the old volumes.
 
+#### `Bind for 0.0.0.0:port` failed: port already allocated
+This error just means that the port taiko-node is trying to allocate is already being used by either some other node you're running
+or by a left-over container of taiko node if you did not close down the node correctly, you can try running `docker compose down` in the simple-taiko-node folder and start it again using `docker compose up -d`
+or edit the `.env` and replace the problematic port with a different one.
+
+#### `Failed to fetch L1Origin from L2 execution engine <br></br> err="not found"`
+This seems to be a common issue if you're using Alchemy endpoints, switching to Infura should fix this issue.
+
+#### `no configuration file provided: not found`
+You are in the wrong directory, `cd simple-taiko-node` and run the command again.
+
+#### `unknown shorthand flag: 'd' in -d`
+You are using v1 of docker-compose, use the command: `docker-compose up -d` instead of `docker compose up -d`, I highly recommend that you upgrade to the v2 of docker compose plugin [Installation Guide](https://docs.docker.com/compose/install/linux/)
+
+#### `docker: 'compose' is not a docker command`
+You are missing the docker compose plugin [Installation Guide](https://docs.docker.com/compose/install/linux/)
+
+#### `taiko_client_prover_relayer not printing any logs`
+There could be several reasons, you can check the logs `docker compose logs -f` to make sure there are no errors but one of the most common cause for this is a typo in the `.env` file
+`ENABLE_PROVER=True/TRUE` when setting this to true `true` has to be in all lowercase or the script to start relayer won't run.
+
+#### `simple-taiko-node-taiko_client_prover_relayer-1  | /bin/sh: /script/start-prover-relayer.sh: not found`
+This issue occurs on windows because of the Control Characters in this case the Line Endings, a quick fix would be to delete the node folder, run this `git config --global core.autocrlf false` in the shell, then clone the repo again.

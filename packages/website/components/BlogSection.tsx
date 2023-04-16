@@ -1,28 +1,28 @@
 const posts = [
   {
-    title: "ZK-Roller-Coaster #1",
-    href: "https://mirror.xyz/labs.taiko.eth/Tn1JX-DVJyjYTOn81o1n9ZgJdRT5BaWN3L0zxaGbI2I",
+    title: "Alpha-2 Testnet Update",
+    href: "https://taiko.mirror.xyz/EM1IEpF_Pd9_WuPxw3EQPHNHmaXzh7kljMSolP754AI",
     description:
-      "This is the first edition of ZK-Roller-Coaster where we track and investigate the most exciting, meaningful, and crazy ZK-stuff of the prior two weeks.",
-    date: "Mar 20, 2023",
-    datetime: "2023-03-20",
+      "We launched our alpha-2 testnet a bit over two weeks ago, and it has been a very useful one in terms of testing, finding issues, and other takeaways.",
+    date: "Apr 6, 2023",
+    datetime: "2023-04-06",
     imageUrl:
-      "https://mirror-media.imgix.net/publication-images/RSqial9m7OhGBfPmOMb13.png?height=512&width=1024&h=512&w=1024&auto=compress",
-    readingTime: "2 min",
+      "https://mirror-media.imgix.net/publication-images/MkuJ4w2BaFA9_qMDhBA2P.png?height=512&width=1024&h=512&w=1024&auto=compress",
+    readingTime: "4 min",
     author: {
-      name: "Lisa A.",
-      imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",
+      name: "finestone",
+      imageUrl: "https://avatars.githubusercontent.com/u/36642873?v=4",
     },
   },
   {
-    title: "Taiko Roadmap",
-    href: "https://mirror.xyz/labs.taiko.eth/NfYQFzzkcEIy3jU9PTBo-nem2HlNiZre-3WwLnbGnwQ",
+    title: "ZK-Roller-Coaster #2",
+    href: "https://taiko.mirror.xyz/_Q6J3KXjPQEs0f29G6Lx-0bzUFH_X8lgn2UEHBNfNC4",
     description:
-      "Ethereum’s commitment to rollups is strong and credible; rollups’ commitment to Ethereum ought to be the same.",
-    date: "Mar 09, 2023",
-    datetime: "2023-03-09",
+      "This is the 2nd edition of ZK-Roller-Coaster where we track and investigate the most exciting, meaningful, and crazy ZK-stuff of the prior two weeks.",
+    date: "Apr 03, 2023",
+    datetime: "2023-04-03",
     imageUrl:
-      "https://mirror-media.imgix.net/publication-images/aAfT-Vi_yjEon2PQLAEk-.png?height=512&width=1024&h=512&w=1024&auto=compress",
+      "https://mirror-media.imgix.net/publication-images/UA6Tx4uMB6qMYU3p38Dpt.png?height=512&width=1024&h=512&w=1024&auto=compress",
     readingTime: "4 min",
     author: {
       name: "Lisa A.",
@@ -30,15 +30,15 @@ const posts = [
     },
   },
   {
-    title: "Taiko Community Update — Q4/2022",
-    href: "https://mirror.xyz/labs.taiko.eth/OBggtj2uy03WvbPmuWV9X9nKsRQt8I-CbWlqpkqqdyI",
+    title: "Taiko Alpha-2 Testnet is Live",
+    href: "https://taiko.mirror.xyz/A6G6TNN-CXDAhl42k_bNHg_20fyGcT0xH-LBBSOPNzU",
     description:
-      "Below is our brief summary of what happened in the fourth quarter of 2022. It was a super busy one to close out the year, and now we are excited to be writing from 2023...",
-    date: "Jan 23, 2023",
-    datetime: "2023-01-23",
+      "Taiko alpha-2 testnet (a2) is live! ZKPs (validity proofs) are partially integrated; Provers are in and are permissionless; Protocol economics are enabled.",
+    date: "Mar 22, 2023",
+    datetime: "2023-03-22",
     imageUrl:
-      "https://mirror-media.imgix.net/publication-images/wKVMvOhXKwdzbOgTKCKqY.png?height=512&width=1024&h=512&w=1024&auto=compress",
-    readingTime: "9 min",
+      "https://mirror-media.imgix.net/publication-images/2eHedtm-StXm7VYJe2JcB.png?height=512&width=1024&h=512&w=1024&auto=compress",
+    readingTime: "8 min",
     author: {
       name: "finestone",
       imageUrl: "https://avatars.githubusercontent.com/u/36642873?v=4",
