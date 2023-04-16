@@ -49,7 +49,8 @@ describe("LibBridgeProcess", async function () {
             .authorize(owner.address, true);
         const blockChainId = hre.network.config.chainId ?? 0;
         await addressManager.setAddress(
-            `${blockChainId}.ether_vault`,
+            blockChainId,
+            `ether_vault`,
             etherVault.address
         );
         // Sends initial value of 10 ether to EtherVault for releaseEther calls

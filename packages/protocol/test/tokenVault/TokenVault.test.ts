@@ -70,19 +70,23 @@ describe("TokenVault", function () {
         const testMessageSender2 = await TestMessageSenderFactory.deploy();
 
         await tokenVaultAddressManager.setAddress(
-            `${network.chainId}.bridge`,
+            network.chainId,
+            `bridge`,
             testMessageSender.address
         );
         await tokenVaultAddressManager.setAddress(
-            `${destChainId}.bridge`,
+            destChainId,
+            `bridge`,
             testMessageSender2.address
         );
         await tokenVaultAddressManager.setAddress(
-            `${network.chainId}.token_vault`,
+            network.chainId,
+            `token_vault`,
             L1TokenVault.address
         );
         await tokenVaultAddressManager.setAddress(
-            `${destChainId}.token_vault`,
+            destChainId,
+            `token_vault`,
             destChainTokenVault.address
         );
 

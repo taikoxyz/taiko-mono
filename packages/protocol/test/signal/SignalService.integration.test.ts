@@ -45,12 +45,13 @@ describe("integration:SignalService", function () {
         );
 
         await addressManager.setAddress(
-            `${enabledDestChainId}.signal_service`,
+            enabledDestChainId,
+            `signal_service`,
             l2SignalService.address
         );
 
         await l2AddressManager.setAddress(
-            `${srcChainId}.signal_service`,
+            srcChainId`signal_service`,
             l1SignalService.address
         );
 
@@ -61,7 +62,7 @@ describe("integration:SignalService", function () {
             .deploy();
 
         await l2AddressManager.setAddress(
-            `${enabledDestChainId}.taiko`,
+            enabledDestChainId`taiko`,
             xchainSync.address
         );
 

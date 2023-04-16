@@ -91,12 +91,14 @@ describe("integrationbridge:Bridge", function () {
 
         // TODO(): {ethers.utils.solidityPack(chainId, 'dao_vault')
         await addressManager.setAddress(
-            `${enabledDestChainId}.signal_service`,
+            enabledDestChainId,
+            `signal_service`,
             l2SignalService.address
         );
 
         await l2AddressManager.setAddress(
-            `${srcChainId}.signal_service`,
+            srcChainId,
+            `signal_service`,
             l1SignalService.address
         );
 
@@ -113,13 +115,14 @@ describe("integrationbridge:Bridge", function () {
         ));
 
         await addressManager.setAddress(
-            `${enabledDestChainId}.bridge`,
+            enabledDestChainId,
+            `bridge`,
             l2Bridge.address
         );
 
         await l2AddressManager
             .connect(l2Signer)
-            .setAddress(`${srcChainId}.bridge`, l1Bridge.address);
+            .setAddress(srcChainId, `bridge`, l1Bridge.address);
 
         l1XchainSync = await (await ethers.getContractFactory("TestXchainSync"))
             .connect(owner)
@@ -127,7 +130,7 @@ describe("integrationbridge:Bridge", function () {
 
         await addressManager
             .connect(owner)
-            .setAddress(`${srcChainId}.taiko`, l1XchainSync.address);
+            .setAddress(srcChainId, `taiko`, l1XchainSync.address);
 
         l2XchainSync = await (await ethers.getContractFactory("TestXchainSync"))
             .connect(l2Signer)
@@ -135,7 +138,7 @@ describe("integrationbridge:Bridge", function () {
 
         await l2AddressManager
             .connect(l2Signer)
-            .setAddress(`${enabledDestChainId}.taiko`, l2XchainSync.address);
+            .setAddress(enabledDestChainId, `taiko`, l2XchainSync.address);
 
         m = {
             id: 1,

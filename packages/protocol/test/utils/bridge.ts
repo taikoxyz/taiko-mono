@@ -46,10 +46,7 @@ async function deployBridge(
 
     await etherVault.connect(signer).authorize(await signer.getAddress(), true);
 
-    await addressManager.setAddress(
-        `${chainId}.ether_vault`,
-        etherVault.address
-    );
+    await addressManager.setAddress(chainId, `ether_vault`, etherVault.address);
 
     await signer.sendTransaction({
         to: etherVault.address,
@@ -57,7 +54,7 @@ async function deployBridge(
         gasLimit: 1000000,
     });
 
-    await addressManager.setAddress(`${chainId}.bridge`, bridge.address);
+    await addressManager.setAddress(chainId, `bridge`, bridge.address);
 
     return { bridge, etherVault };
 }

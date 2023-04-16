@@ -17,7 +17,8 @@ const deployTaikoToken = async (
     const network = await signer.provider?.getNetwork();
 
     await addressManager.setAddress(
-        `${network?.chainId}.proto_broker`,
+        network?.chainId,
+        `proto_broker`,
         protoBroker
     );
 

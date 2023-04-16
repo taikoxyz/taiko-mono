@@ -33,7 +33,8 @@ describe("LibBridgeSend", function () {
         await deploySignalService(owner, addressManager, blockChainId);
 
         await addressManager.setAddress(
-            `${enabledDestChainId}.bridge`,
+            enabledDestChainId,
+            `bridge`,
             "0x0000000000000000000000000000000000000001" // dummy address so chain is "enabled"
         );
 
@@ -47,7 +48,8 @@ describe("LibBridgeSend", function () {
         await etherVault.init(addressManager.address);
 
         await addressManager.setAddress(
-            `${blockChainId}.ether_vault`,
+            blockChainId,
+            `ether_vault`,
             etherVault.address
         );
 

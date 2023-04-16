@@ -55,12 +55,14 @@ describe("LibBridgeRetry", function () {
             .authorize(owner.address, true);
         const blockChainId = hre.network.config.chainId ?? 0;
         await addressManager.setAddress(
-            `${blockChainId}.ether_vault`,
+            blockChainId,
+            `ether_vault`,
             etherVault.address
         );
 
         await badAddressManager.setAddress(
-            `${blockChainId}.ether_vault`,
+            blockChainId,
+            `ether_vault`,
             ethers.constants.AddressZero
         );
 
