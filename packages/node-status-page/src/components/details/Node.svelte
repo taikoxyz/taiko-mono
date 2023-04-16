@@ -6,6 +6,9 @@
   import { getQueuedTransactions } from "../../utils/getQueuedTransactions";
   import { getSyncing } from "../../utils/getSyncing";
   import { onMount } from "svelte";
+  import { getPeers } from "../../utils/getPeerCount";
+  import { getListening } from "../../utils/getListening";
+  import { getNetVersion } from "../../utils/getNetVersion";
 
   export let l1Provider: ethers.providers.JsonRpcProvider;
   export let l1TaikoAddress: string;
@@ -39,6 +42,45 @@
       },
       tooltip:
         "The current transactions in the mempool where the transaction nonce is not in sequence. They are currently non-processable.",
+    },
+    {
+      statusFunc: getPeers,
+      watchStatusFunc: null,
+      provider: l2Provider,
+      contractAddress: "",
+      header: "Peers",
+      intervalInMs: 20000,
+      colorFunc: (value: Status) => {
+        if (Number(value) < 2) return "red";
+        return "green";
+      },
+      tooltip: "Currently connected peers to your node",
+    },
+    {
+      statusFunc: getListening,
+      watchStatusFunc: null,
+      provider: l2Provider,
+      contractAddress: "",
+      header: "Listening",
+      intervalInMs: 20000,
+      colorFunc: (value: Status) => {
+        if (!Boolean(value)) return "red";
+        return "green";
+      },
+      tooltip:
+        "Whether your node is actively listening for network connections",
+    },
+    {
+      statusFunc: getNetVersion,
+      watchStatusFunc: null,
+      provider: l2Provider,
+      contractAddress: "",
+      header: "Chain ID",
+      intervalInMs: 0,
+      colorFunc: (value: Status) => {
+        return "green";
+      },
+      tooltip: "Current chain ID of your node",
     },
   ];
 
@@ -93,7 +135,7 @@
           contractAddress: string
         ) => {
           const s = await getSyncing(l2Provider);
-          return s.currentBlock;
+          return s.highestBlock;
         },
         watchStatusFunc: null,
         provider: l2Provider,
