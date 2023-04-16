@@ -43,7 +43,7 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
      * Variables *
      *************/
 
-    mapping(uint256 class => mapping(string nameHash => address addr))
+    mapping(uint256 domain => mapping(string nameHash => address addr))
         private addresses;
 
     /**********
@@ -51,7 +51,7 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
      **********/
 
     event AddressSet(
-        uint256 indexed _class,
+        uint256 indexed _domain,
         string indexed _name,
         address _newAddress,
         address _oldAddress
@@ -68,18 +68,18 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
 
     /**
      * Changes the address associated with a particular name.
-     * @param class Uint256 class to assiciate an address with.
+     * @param domain Uint256 domain to assiciate an address with.
      * @param name String name to associate an address with.
      * @param newAddress Address to associate with the name.
      */
     function setAddress(
-        uint256 class,
+        uint256 domain,
         string memory name,
         address newAddress
     ) external onlyOwner {
-        address oldAddress = addresses[class][name];
-        addresses[class][name] = newAddress;
-        emit AddressSet(class, name, newAddress, oldAddress);
+        address oldAddress = addresses[domain][name];
+        addresses[domain][name] = newAddress;
+        emit AddressSet(domain, name, newAddress, oldAddress);
     }
 
     /********************
@@ -88,14 +88,14 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
 
     /**
      * Retrieves the address associated with a given name.
-     * @param class Class to retrieve an address for.
+     * @param domain Class to retrieve an address for.
      * @param name Name to retrieve an address for.
      * @return addr Address associated with the given name.
      */
     function getAddress(
-        uint256 class,
+        uint256 domain,
         string memory name
     ) external view returns (address addr) {
-        addr = addresses[class][name];
+        addr = addresses[domain][name];
     }
 }
