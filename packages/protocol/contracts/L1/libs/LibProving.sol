@@ -135,13 +135,13 @@ library LibProving {
             // Set state.staticRefs
             if (state.staticRefs == 0) {
                 address[3] memory inputs;
-                inputs[0] = resolver.resolve("signal_service", false);
-                inputs[1] = resolver.resolve(
-                    config.chainId,
-                    "signal_service",
-                    false
-                );
-                inputs[2] = resolver.resolve(config.chainId, "taiko_l2", false);
+                // inputs[0] = resolver.resolve("signal_service", false);
+                // inputs[1] = resolver.resolve(
+                //     config.chainId,
+                //     "signal_service",
+                //     false
+                // );
+                // inputs[2] = resolver.resolve(config.chainId, "taiko", false);
                 bytes32 staticRefs;
                 assembly {
                     staticRefs := keccak256(inputs, mul(32, 3))
