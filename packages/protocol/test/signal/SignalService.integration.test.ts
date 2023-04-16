@@ -51,7 +51,8 @@ describe("integration:SignalService", function () {
         );
 
         await l2AddressManager.setAddress(
-            srcChainId`signal_service`,
+            srcChainId,
+            `signal_service`,
             l1SignalService.address
         );
 
