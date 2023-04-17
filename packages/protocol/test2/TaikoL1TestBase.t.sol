@@ -92,7 +92,8 @@ abstract contract TaikoL1TestBase is Test {
                 txListHash: keccak256(txList),
                 txListByteStart: 0,
                 txListByteEnd: txListSize,
-                cacheTxListInfo: 0
+                cacheTxListInfo: 0,
+                ethDepositIds: new uint64[](0)
             });
 
         TaikoData.StateVariables memory variables = L1.getStateVariables();
@@ -174,7 +175,7 @@ abstract contract TaikoL1TestBase is Test {
         vm.deal(who, amountEth);
         tko.transfer(who, amountTko);
         vm.prank(who, who);
-        L1.deposit(amountTko);
+        L1.depositTaikoToken(amountTko);
     }
 
     function printVariables(string memory comment) internal {

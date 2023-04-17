@@ -27,6 +27,7 @@ library TaikoData {
         uint256 slotSmoothingFactor;
         uint256 rewardBurnBips;
         uint256 proposerDepositPctg;
+        uint64 maxEthDepositPerBlock;
         // Moving average factors
         uint256 feeBaseMAF;
         uint256 txListCacheExpiry;
@@ -58,9 +59,9 @@ library TaikoData {
         uint24 txListByteStart; // byte-wise start index (inclusive)
         uint24 txListByteEnd; // byte-wise end index (exclusive)
         uint8 cacheTxListInfo; // non-zero = True
+        uint64[] ethDepositIds;
     }
 
-    // 6 slots
     // Changing this struct requires changing LibUtils.hashMetadata accordingly.
     struct BlockMetadata {
         uint64 id;
@@ -68,6 +69,7 @@ library TaikoData {
         uint64 l1Height;
         bytes32 l1Hash;
         bytes32 mixHash;
+        bytes32 depositsRoot; // match L2 header's withdrawalsRoot
         bytes32 txListHash;
         uint24 txListByteStart;
         uint24 txListByteEnd;
@@ -75,6 +77,7 @@ library TaikoData {
         address beneficiary;
         uint8 cacheTxListInfo;
         address treasure;
+        TaikoData.EthDeposit[] depositsProcessed;
     }
 
     struct ZKProof {
@@ -124,6 +127,15 @@ library TaikoData {
         uint24 size;
     }
 
+    // 1 slot
+    // An uint64 can hold a maximum of approximately 18,446.74 Ether
+    // when using GWei as the unit.
+    struct EthDeposit {
+        address recipient;
+        uint48 amountGwei;
+        uint48 feeGwei;
+    }
+
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint256 blockId_mode_ringBufferSize => Block) blocks;
@@ -131,6 +143,7 @@ library TaikoData {
         mapping(uint256 blockId => mapping(bytes32 parentHash => mapping(uint32 parentGasUsed => uint256 forkChoiceId))) forkChoiceIds;
         mapping(address account => uint256 balance) balances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
+        mapping(uint256 id => EthDeposit) ethDeposits;
         // Never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
@@ -141,7 +154,7 @@ library TaikoData {
         uint64 numBlocks;
         uint64 lastProposedAt; // Timestamp when the last block is proposed.
         uint64 avgBlockTime; // miliseconds
-        uint64 __reserved3;
+        uint64 nextEthDepositId;
         // Changed when a block is proven/verified
         uint64 lastVerifiedBlockId;
         uint64 __reserved4;
