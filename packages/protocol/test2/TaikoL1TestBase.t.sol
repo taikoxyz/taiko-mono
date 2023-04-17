@@ -29,6 +29,8 @@ abstract contract TaikoL1TestBase is Test {
     address public constant L2SS = 0xa008AE5Ba00656a3Cc384de589579e3E52aC030C;
     address public constant L2TaikoL2 =
         0x0082D90249342980d011C58105a03b35cCb4A315;
+    address public constant L1EthVault =
+        0xDAFEA492D9c6733ae3d56b7Ed1ADB60692c98Bc5;
 
     address public constant Alice = 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4;
     address public constant Bob = 0x200708D76eB1B69761c23821809d53F65049939e;
@@ -69,6 +71,7 @@ abstract contract TaikoL1TestBase is Test {
         _registerAddress("taiko_token", address(tko));
         _registerAddress("proto_broker", address(L1));
         _registerAddress("signal_service", address(ss));
+        _registerAddress("ether_vault", address(L1EthVault));
         _registerL2Address("treasure", L2Treasure);
         _registerL2Address("signal_service", address(L2SS));
         _registerL2Address("taiko_l2", address(L2TaikoL2));
@@ -81,6 +84,21 @@ abstract contract TaikoL1TestBase is Test {
         uint32 gasLimit,
         uint24 txListSize
     ) internal returns (TaikoData.BlockMetadata memory meta) {
+        return
+            proposeBlockWithDeposits(
+                proposer,
+                gasLimit,
+                txListSize,
+                new uint64[](0)
+            );
+    }
+
+    function proposeBlockWithDeposits(
+        address proposer,
+        uint32 gasLimit,
+        uint24 txListSize,
+        uint64[] memory ethDepositIds
+    ) internal returns (TaikoData.BlockMetadata memory meta) {
         bytes memory txList = new bytes(txListSize);
         TaikoData.BlockMetadataInput memory input = TaikoData
             .BlockMetadataInput({
@@ -90,7 +108,7 @@ abstract contract TaikoL1TestBase is Test {
                 txListByteStart: 0,
                 txListByteEnd: txListSize,
                 cacheTxListInfo: 0,
-                ethDepositIds: new uint64[](0)
+                ethDepositIds: ethDepositIds
             });
 
         TaikoData.StateVariables memory variables = L1.getStateVariables();

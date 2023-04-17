@@ -26,7 +26,7 @@ library TaikoConfig {
                 // Set it to 79  (+1 TaikoL2.anchor transaction = 80),
                 // and 80 is the upper limit of the Alpha-2 testnet's circuits.
                 maxTransactionsPerBlock: 79,
-                maxEthDepositPerBlock: 16,
+                maxEthDepositPerBlock: 32,
                 // Set it to 120KB, since 128KB is the upper size limit
                 // of a geth transaction, so using 120KB for the proposed
                 // transactions list calldata, 8K for the remaining tx fields.

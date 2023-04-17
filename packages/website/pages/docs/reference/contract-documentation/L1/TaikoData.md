@@ -175,8 +175,7 @@ struct TxListInfo {
 ```solidity
 struct EthDeposit {
   address recipient;
-  uint48 amountGwei;
-  uint48 feeGwei;
+  uint96 amount;
 }
 ```
 

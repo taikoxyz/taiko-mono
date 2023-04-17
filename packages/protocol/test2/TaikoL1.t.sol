@@ -269,4 +269,61 @@ contract TaikoL1Test is TaikoL1TestBase {
         }
         printVariables("");
     }
+
+    function testEthDepositsToL2Reverts() external {
+        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
+        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
+
+        vm.prank(Alice, Alice);
+        // zero deposit is not allowed
+        vm.expectRevert();
+        L1.depositEtherToL2{value: 0}(Bob);
+
+        vm.prank(Alice, Alice);
+        // too large of a value
+        vm.expectRevert();
+        L1.depositEtherToL2{value: type(uint96).max + 1}(Bob);
+
+        uint256 count = conf.maxEthDepositPerBlock;
+        uint64[] memory depositIds = new uint64[](count);
+        for (uint256 i; i < count; ++i) {
+            depositIds[i] = uint64(i + 1);
+        }
+        vm.prank(Alice, Alice);
+        // too large of a value
+        vm.expectRevert();
+        proposeBlockWithDeposits(Alice, 1000000, 1024, depositIds);
+    }
+
+    function testEthDepositsToL2() external {
+        _depositTaikoToken(Alice, 1E6 * 1E8, 100000 ether);
+        uint256 count = conf.maxEthDepositPerBlock - 1;
+        uint64[] memory depositIds = new uint64[](count);
+        for (uint256 i; i < count; ++i) {
+            vm.prank(Alice, Alice);
+            uint64 id = L1.depositEtherToL2{value: (i + 1) * 1 ether}(Bob);
+            assertEq(id, i + 1);
+            depositIds[i] = id;
+        }
+
+        proposeBlock(Alice, 1000000, 1024);
+        proposeBlock(Alice, 1000000, 1024);
+
+        uint gas = gasleft();
+        vm.prank(Alice, Alice);
+        proposeBlockWithDeposits(Alice, 1000000, 1024, new uint64[](count));
+        uint gasUsedWithout = gas - gasleft();
+        console2.log("gas used without eth deposits:", gasUsedWithout);
+
+        gas = gasleft();
+        vm.prank(Alice, Alice);
+        proposeBlockWithDeposits(Alice, 1000000, 1024, depositIds);
+        uint gasUsedWith = gas - gasleft();
+        console2.log("gas used with eth deposits:", gasUsedWith);
+
+        uint gasPerEthDeposit = (gasUsedWith - gasUsedWithout) /
+            conf.maxEthDepositPerBlock;
+        console2.log("gas per eth deposit:", gasPerEthDeposit);
+        console2.log("maxEthDepositPerBlock:", conf.maxEthDepositPerBlock);
+    }
 }

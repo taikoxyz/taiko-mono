@@ -139,12 +139,9 @@ library TaikoData {
     }
 
     // 1 slot
-    // An uint64 can hold a maximum of approximately 18,446.74 Ether
-    // when using GWei as the unit.
     struct EthDeposit {
         address recipient;
-        uint48 amountGwei;
-        uint48 feeGwei;
+        uint96 amount;
     }
 
     struct State {
