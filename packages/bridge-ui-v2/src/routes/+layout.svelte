@@ -1,13 +1,14 @@
 <script>
-	import '../app.css';
-	import Header from '../components/Header';
-	import Footer from '../components/Footer';
+  import '../app.css'
+
+  import Footer from '../components/Footer'
+  import Header from '../components/Header'
 </script>
 
 <div>
-	<Header />
-	<main>
-		<slot />
-	</main>
-	<Footer />
+  <Header />
+  <main>
+    <slot />
+  </main>
+  <Footer />
 </div>

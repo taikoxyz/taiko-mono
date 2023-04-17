@@ -1,18 +1,19 @@
-import { configureChains, createClient, type Chain } from '@wagmi/core'
-import { publicProvider } from '@wagmi/core/providers/public'
-import { jsonRpcProvider } from '@wagmi/core/providers/jsonRpc'
+import { type Chain, configureChains, createClient } from '@wagmi/core'
 import { CoinbaseWalletConnector } from '@wagmi/core/connectors/coinbaseWallet'
-import { WalletConnectConnector } from '@wagmi/core/connectors/walletConnect'
 import { MetaMaskConnector } from '@wagmi/core/connectors/metaMask'
+import { WalletConnectConnector } from '@wagmi/core/connectors/walletConnect'
+import { jsonRpcProvider } from '@wagmi/core/providers/jsonRpc'
+import { publicProvider } from '@wagmi/core/providers/public'
+
 import {
   PUBLIC_L1_CHAIN_ID,
   PUBLIC_L1_CHAIN_NAME,
-  PUBLIC_L1_RPC,
   PUBLIC_L1_EXPLORER_URL,
+  PUBLIC_L1_RPC,
   PUBLIC_L2_CHAIN_ID,
   PUBLIC_L2_CHAIN_NAME,
-  PUBLIC_L2_RPC,
   PUBLIC_L2_EXPLORER_URL,
+  PUBLIC_L2_RPC,
 } from '$env/static/public'
 
 const chainIdToRpcUrl = {
