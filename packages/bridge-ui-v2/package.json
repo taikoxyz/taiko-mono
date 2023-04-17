@@ -1,5 +1,5 @@
 {
-  "name": "@taiko/bridge-ui",
+  "name": "@taiko/bridge-ui-v2",
   "version": "2.0.0",
   "private": true,
   "scripts": {
