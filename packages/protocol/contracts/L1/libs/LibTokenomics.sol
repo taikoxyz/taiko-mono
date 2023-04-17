@@ -84,7 +84,7 @@ library LibTokenomics {
         returns (uint64 reward, uint64 newProofTimeIssued, uint64 newBasefee)
     {
         uint64 proofTimeIssued = state.proofTimeIssued;
-        // To protect underflow
+
         proofTimeIssued = (proofTimeIssued > config.proofTimeTarget)
             ? proofTimeIssued - config.proofTimeTarget
             : uint64(0);
@@ -148,7 +148,7 @@ library LibTokenomics {
         uint256 value,
         uint256 target,
         uint256 quotient
-    ) private view returns (uint64) {
+    ) private pure returns (uint64) {
         uint256 result = _expCalculation(value, target, quotient) /
             (target * quotient);
 
@@ -165,7 +165,7 @@ library LibTokenomics {
         uint256 value,
         uint256 target,
         uint256 quotient
-    ) private view returns (uint256 retVal) {
+    ) private pure returns (uint256 retVal) {
         uint256 x = (value * Math.SCALING_FACTOR_1E18) / (target * quotient);
 
         return (uint256(Math.exp(int256(x))) / Math.SCALING_FACTOR_1E18);
