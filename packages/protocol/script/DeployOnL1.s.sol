@@ -15,7 +15,7 @@ import "../contracts/L1/TaikoL1.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/bridge/TokenVault.sol";
 import "../contracts/signal/SignalService.sol";
-import "../contracts/thirdparty/AddressManager.sol";
+import "../contracts/common/AddressManager.sol";
 import "../contracts/test/erc20/FreeMintERC20.sol";
 import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
 

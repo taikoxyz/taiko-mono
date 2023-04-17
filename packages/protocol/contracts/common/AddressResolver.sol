@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.18;
 
-import {IAddressManager} from "./IAddressManager.sol";
+import {IAddressManager} from "./AddressManager.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 /**

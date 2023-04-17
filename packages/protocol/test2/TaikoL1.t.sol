@@ -3,7 +3,7 @@ pragma solidity ^0.8.18;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {AddressManager} from "../contracts/thirdparty/AddressManager.sol";
+import {AddressManager} from "../contracts/common/AddressManager.sol";
 import {TaikoConfig} from "../contracts/L1/TaikoConfig.sol";
 import {TaikoData} from "../contracts/L1/TaikoData.sol";
 import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
