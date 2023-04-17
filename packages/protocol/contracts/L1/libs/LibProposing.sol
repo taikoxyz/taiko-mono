@@ -8,6 +8,7 @@ pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibAddress} from "../../libs/LibAddress.sol";
+import {LibEthDepositing} from "./LibEthDepositing.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {
@@ -61,21 +62,30 @@ library LibProposing {
         // can be proposed in one Ethereum block, we need to
         // add salt to this random number as L2 mixHash
         TaikoData.BlockMetadata memory meta;
+
+        meta.id = state.numBlocks;
+        meta.txListHash = input.txListHash;
+        meta.txListByteStart = input.txListByteStart;
+        meta.txListByteEnd = input.txListByteEnd;
+        meta.gasLimit = input.gasLimit;
+        meta.beneficiary = input.beneficiary;
+        meta.treasure = resolver.resolve(config.chainId, "treasure", false);
+        meta.cacheTxListInfo = cacheTxListInfo;
+
+        (meta.depositsRoot, meta.depositsProcessed) = LibEthDepositing
+            .calcDepositsRoot(
+                state,
+                config,
+                resolver,
+                input.ethDepositIds,
+                input.beneficiary
+            );
+
         unchecked {
-            meta = TaikoData.BlockMetadata({
-                id: state.numBlocks,
-                timestamp: uint64(block.timestamp),
-                l1Height: uint64(block.number - 1),
-                l1Hash: blockhash(block.number - 1),
-                mixHash: bytes32(block.prevrandao * state.numBlocks),
-                txListHash: input.txListHash,
-                txListByteStart: input.txListByteStart,
-                txListByteEnd: input.txListByteEnd,
-                gasLimit: input.gasLimit,
-                beneficiary: input.beneficiary,
-                treasure: resolver.resolve(config.chainId, "treasure", false),
-                cacheTxListInfo: cacheTxListInfo
-            });
+            meta.timestamp = uint64(block.timestamp);
+            meta.l1Height = uint64(block.number - 1);
+            meta.l1Hash = blockhash(block.number - 1);
+            meta.mixHash = bytes32(block.prevrandao * state.numBlocks);
         }
 
         TaikoData.Block storage blk = state.blocks[

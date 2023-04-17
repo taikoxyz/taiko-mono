@@ -9,6 +9,7 @@ pragma solidity ^0.8.18;
 import {AddressResolver} from "../common/AddressResolver.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {IXchainSync} from "../common/IXchainSync.sol";
+import {LibEthDepositing} from "./libs/LibEthDepositing.sol";
 import {LibTokenomics} from "./libs/LibTokenomics.sol";
 import {LibProposing} from "./libs/LibProposing.sol";
 import {LibProving} from "./libs/LibProving.sol";
@@ -143,12 +144,20 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         });
     }
 
-    function deposit(uint256 amount) external nonReentrant {
-        LibTokenomics.deposit(state, AddressResolver(this), amount);
+    function depositEtherToL2(uint128 fee) external payable nonReentrant {
+        LibEthDepositing.depositEtherToL2(state, fee);
     }
 
-    function withdraw(uint256 amount) external nonReentrant {
-        LibTokenomics.withdraw(state, AddressResolver(this), amount);
+    function cancelEtherDepositToL2(uint64 depositId) external nonReentrant {
+        LibEthDepositing.cancelEtherDepositToL2(state, depositId);
+    }
+
+    function depositTaikoToken(uint256 amount) external nonReentrant {
+        LibTokenomics.depositTaikoToken(state, AddressResolver(this), amount);
+    }
+
+    function withdrawTaikoToken(uint256 amount) external nonReentrant {
+        LibTokenomics.withdrawTaikoToken(state, AddressResolver(this), amount);
     }
 
     function getBalance(address addr) public view returns (uint256) {

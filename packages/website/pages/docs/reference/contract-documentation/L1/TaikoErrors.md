@@ -60,6 +60,12 @@ error L1_INSUFFICIENT_TOKEN()
 error L1_INVALID_CONFIG()
 ```
 
+### L1_INVALID_ETH_DEPOSIT
+
+```solidity
+error L1_INVALID_ETH_DEPOSIT()
+```
+
 ### L1_INVALID_EVIDENCE
 
 ```solidity
@@ -124,6 +130,12 @@ error L1_ORACLE_DISABLED()
 
 ```solidity
 error L1_TOO_MANY_BLOCKS()
+```
+
+### L1_TOO_MANY_ETH_DEPOSITS
+
+```solidity
+error L1_TOO_MANY_ETH_DEPOSITS()
 ```
 
 ### L1_TX_LIST_NOT_EXIST
