@@ -73,6 +73,7 @@ library TaikoData {
         uint24 txListByteEnd;
         uint32 gasLimit;
         address beneficiary;
+        uint8 cacheTxListInfo;
         address treasure;
     }
 
