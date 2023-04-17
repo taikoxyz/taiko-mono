@@ -36,6 +36,9 @@
 	},
 	"type": "module",
 	"dependencies": {
-		"daisyui": "1.16.6"
+		"@wagmi/core": "^0.8.0",
+		"daisyui": "1.16.6",
+		"events": "^3.3.0",
+		"svelte-i18n": "^3.5.1"
 	}
 }
