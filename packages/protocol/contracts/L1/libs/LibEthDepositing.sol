@@ -72,7 +72,10 @@ library LibEthDepositing {
         address beneficiary
     )
         internal
-        returns (bytes32 root, TaikoData.EthDeposit[] memory depositsProcessed)
+        returns (
+            bytes32 depositsRoot,
+            TaikoData.EthDeposit[] memory depositsProcessed
+        )
     {
         if (ethDepositIds.length == 0)
             return (0, new TaikoData.EthDeposit[](0));
@@ -113,8 +116,8 @@ library LibEthDepositing {
         assembly {
             // Change the length of depositsProcessed
             sstore(depositsProcessed, j)
-            // Note that EthDeposit takes 64 bytes
-            root := keccak256(depositsProcessed, mul(j, 64))
+            // Note that EthDeposit takes 1 slot each
+            depositsRoot := keccak256(depositsProcessed, mul(j, 32))
         }
 
         if (totalEtherGwei > 0) {

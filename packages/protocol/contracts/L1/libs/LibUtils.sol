@@ -114,7 +114,8 @@ library LibUtils {
 
         inputs[6] = (uint256(uint160(meta.treasure)) << 96);
 
-        // Ignore `depositsProcessed`
+        // Ignoring `meta.depositsProcessed` as `meta.depositsRoot`
+        // is a hash of it.
 
         assembly {
             hash := keccak256(inputs, mul(7, 32))
