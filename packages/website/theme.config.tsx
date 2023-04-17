@@ -8,10 +8,10 @@ export default {
     key: "banner",
     text: (
       <a
-        href="https://taiko.xyz/docs/reference/ethglobal-tokyo-reference"
+        href="https://mirror.xyz/labs.taiko.eth/A6G6TNN-CXDAhl42k_bNHg_20fyGcT0xH-LBBSOPNzU"
         target="_blank"
       >
-        📌 Please use the <u>ETHTokyo network config</u> for the hackathon →
+        🌋 Askja testnet is here! Learn more →
       </a>
     ),
   },
