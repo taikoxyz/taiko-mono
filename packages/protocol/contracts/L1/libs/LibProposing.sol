@@ -8,6 +8,7 @@ pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibAddress} from "../../libs/LibAddress.sol";
+import {LibL2Consts} from "../../L2/LibL2Consts.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {
@@ -28,7 +29,6 @@ library LibProposing {
     );
 
     error L1_BLOCK_ID();
-    error L1_INSUFFICIENT_ETHER();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
     error L1_NOT_SOLO_PROPOSER();
@@ -70,15 +70,13 @@ library LibProposing {
                 id: state.numBlocks,
                 timestamp: uint64(block.timestamp),
                 l1Height: uint64(block.number - 1),
-                l2Basefee: 0, // will be set later
                 l1Hash: blockhash(block.number - 1),
                 mixHash: bytes32(block.prevrandao * state.numBlocks),
                 txListHash: input.txListHash,
                 txListByteStart: input.txListByteStart,
                 txListByteEnd: input.txListByteEnd,
                 gasLimit: input.gasLimit,
-                beneficiary: input.beneficiary,
-                treasure: resolver.resolve(config.chainId, "treasure", false)
+                beneficiary: input.beneficiary
             });
         }
 
@@ -93,23 +91,17 @@ library LibProposing {
         blk.verifiedForkChoiceId = 0;
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.proposer = msg.sender;
-        // Later on we might need to have actual gas consumed in that L2 block
-        blk.gasConsumed = input.gasLimit;
 
-        if (config.enableTokenomics) {
-            (, uint256 fee) = LibTokenomics.getProverFee(state, input.gasLimit);
+        if (config.proofTimeTarget != 0) {
+            uint64 fee = LibTokenomics.getProverFee(state);
 
             if (state.balances[msg.sender] < fee)
                 revert L1_INSUFFICIENT_TOKEN();
 
             unchecked {
                 state.balances[msg.sender] -= fee;
-                if (!config.allowMinting) {
-                    state.proofFeeTreasury += fee;
-                    if (config.useTimeWeightedReward) {
-                        state.accProposalTime += meta.timestamp;
-                    }
-                }
+                state.rewardPool += fee;
+                state.accProposedAt += meta.timestamp;
             }
         }
 
@@ -146,7 +138,7 @@ library LibProposing {
 
         if (
             input.beneficiary == address(0) ||
-            input.gasLimit == 0 ||
+            input.gasLimit < LibL2Consts.ANCHOR_GAS_COST ||
             input.gasLimit > config.blockMaxGasLimit
         ) revert L1_INVALID_METADATA();
 

@@ -27,18 +27,9 @@ contract TestTaikoL1EnableTokenomics is TaikoL1 {
         config.maxTransactionsPerBlock = 20;
         config.maxBytesPerTxList = 120000;
         config.minTxGasLimit = 21000;
-        config.slotSmoothingFactor = 590000;
-        config.rewardBurnBips = 100; // 100 basis points or 1%
 
         // Moving average factors
-        config.feeBaseMAF = 1024;
 
-        config.enableTokenomics = true;
         config.skipZKPVerification = true;
-
-        config.provingConfig = TaikoData.FeeConfig({
-            avgTimeMAF: 64,
-            dampingFactorBips: 5000
-        });
     }
 }

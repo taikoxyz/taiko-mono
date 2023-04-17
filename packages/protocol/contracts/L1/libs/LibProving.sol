@@ -61,7 +61,8 @@ library LibProving {
             evidence.blockHash == evidence.parentHash ||
             evidence.signalRoot == 0 ||
             // prover must not be zero
-            evidence.prover == address(0)
+            evidence.prover == address(0) ||
+            evidence.gasUsed == 0
         ) revert L1_INVALID_EVIDENCE();
 
         TaikoData.Block storage blk = state.blocks[
@@ -96,9 +97,11 @@ library LibProving {
                 // [provenAt+prover] slot.
                 fc.provenAt = uint64(1);
                 fc.prover = address(0);
+                fc.gasUsed = 0;
             } else {
                 fc.provenAt = uint64(block.timestamp);
                 fc.prover = evidence.prover;
+                fc.gasUsed = evidence.gasUsed;
             }
         } else {
             assert(fcId < blk.nextForkChoiceId);
@@ -123,6 +126,7 @@ library LibProving {
 
             fc.provenAt = uint64(block.timestamp);
             fc.prover = evidence.prover;
+            fc.gasUsed = evidence.gasUsed;
         }
 
         if (!oracleProving && !config.skipZKPVerification) {
@@ -152,7 +156,9 @@ library LibProving {
                 inputs[4] = uint256(evidence.blockHash);
                 inputs[5] = uint256(evidence.signalRoot);
                 inputs[6] = uint256(evidence.graffiti);
-                inputs[7] = uint160(evidence.prover);
+                inputs[7] =
+                    (uint256(uint160(evidence.prover)) << 96) |
+                    (uint256(evidence.gasUsed) << 64);
                 inputs[8] = uint256(blk.metaHash);
 
                 assembly {

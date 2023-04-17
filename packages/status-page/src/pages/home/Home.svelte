@@ -293,7 +293,7 @@
         ) => {
           const stateVars = await getStateVariables(provider, address);
           return `${truncateString(
-            ethers.utils.formatEther(stateVars.feeBase),
+            ethers.utils.formatEther(stateVars.basefee),
             6
           )} ${feeTokenSymbol}`;
         },

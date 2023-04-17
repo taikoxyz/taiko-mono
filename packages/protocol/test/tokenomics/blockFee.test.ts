@@ -43,7 +43,7 @@ describe("tokenomics: blockFee", function () {
 
     afterEach(() => clearInterval(interval));
 
-    it("expects getProverFee to return the initial feeBase at time of contract deployment", async function () {
+    it("expects getProverFee to return the initial basefee at time of contract deployment", async function () {
         // deploy a new instance of TaikoL1 so no blocks have passed.
         const tL1 = await deployTaikoL1(l1AddressManager, genesisHash, true);
         const blockFee = await tL1.getProverFee();

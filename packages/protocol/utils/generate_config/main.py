@@ -39,4 +39,3 @@ if __name__ == "__main__":
 
     print("---------")
     print("maxNumProposedBlocks:", max_num_slots)
-    print("slotSmoothingFactor:", fee_smoothing_factor)

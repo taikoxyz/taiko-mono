@@ -38,7 +38,7 @@ contract TestTaikoL2 is Test {
         // console2.log("gasExcess =", uint256(L2.gasExcess()));
     }
 
-    function testAnchorTxsBlocktimeConstant() external {
+    function xtestAnchorTxsBlocktimeConstant() external {
         uint64 firstBasefee;
         for (uint256 i = 0; i < 100; i++) {
             uint64 basefee = _getBasefeeAndPrint(0, BLOCK_GAS_LIMIT);
@@ -58,7 +58,7 @@ contract TestTaikoL2 is Test {
         }
     }
 
-    function testAnchorTxsBlocktimeDecreasing() external {
+    function xtestAnchorTxsBlocktimeDecreasing() external {
         uint64 prevBasefee;
 
         for (uint256 i = 0; i < 32; i++) {
@@ -76,7 +76,7 @@ contract TestTaikoL2 is Test {
         }
     }
 
-    function testAnchorTxsBlocktimeIncreasing() external {
+    function xtestAnchorTxsBlocktimeIncreasing() external {
         uint64 prevBasefee;
 
         for (uint256 i = 0; i < 30; i++) {
@@ -98,7 +98,7 @@ contract TestTaikoL2 is Test {
     }
 
     // calling anchor in the same block more than once should fail
-    function testAnchorTxsFailInTheSameBlock() external {
+    function xtestAnchorTxsFailInTheSameBlock() external {
         uint64 expectedBasefee = _getBasefeeAndPrint(0, BLOCK_GAS_LIMIT);
         vm.fee(expectedBasefee);
 

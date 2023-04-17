@@ -19,7 +19,6 @@ library LibVerifying {
     using LibUtils for TaikoData.State;
 
     error L1_INVALID_CONFIG();
-    error L1_INVALID_L21559_PARAMS();
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
     event XchainSynced(
@@ -31,16 +30,18 @@ library LibVerifying {
     function init(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        uint64 feeBase,
-        bytes32 genesisBlockHash
+        bytes32 genesisBlockHash,
+        uint64 initBasefee,
+        uint64 initProofTimeIssued
     ) internal {
         _checkConfig(config);
 
         uint64 timeNow = uint64(block.timestamp);
         state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = timeNow;
-        state.feeBase = feeBase;
-        state.baseFeeProof = 1e10; // Symbolic fee (TKO) for 1st proposal
+
+        state.basefee = initBasefee;
+        state.proofTimeIssued = initProofTimeIssued;
         state.numBlocks = 1;
 
         TaikoData.Block storage blk = state.blocks[0];
@@ -117,44 +118,33 @@ library LibVerifying {
         TaikoData.ForkChoice storage fc,
         uint24 fcId
     ) private returns (bytes32 blockHash, bytes32 signalRoot) {
-        uint256 proofTime;
-        unchecked {
-            proofTime = (fc.provenAt - blk.proposedAt);
-        }
+        if (config.proofTimeTarget != 0) {
+            uint256 proofTime;
+            unchecked {
+                proofTime = (fc.provenAt - blk.proposedAt);
+            }
 
-        if (config.enableTokenomics) {
             (
-                uint256 reward,
-                uint256 proofTimeIssued,
-                uint256 newBaseFeeProof
-            ) = LibTokenomics.calculateBaseFeeProof(
+                uint64 reward,
+                uint64 proofTimeIssued,
+                uint64 newBasefee
+            ) = LibTokenomics.calculateBasefee(
                     state,
                     config,
-                    uint64(proofTime),
-                    blk.gasConsumed
+                    uint64(proofTime)
                 );
 
-            state.baseFeeProof = newBaseFeeProof;
+            state.basefee = newBasefee;
             state.proofTimeIssued = proofTimeIssued;
 
-            if (!config.allowMinting) {
-                state.proofFeeTreasury -= reward;
-                if (config.useTimeWeightedReward) {
-                    state.accProposalTime -= blk.proposedAt;
-                }
+            unchecked {
+                state.rewardPool -= reward;
+                state.accProposedAt -= blk.proposedAt;
             }
 
             // reward the prover
             _addToBalance(state, fc.prover, reward);
         }
-
-        state.avgProofTime = LibUtils
-            .movingAverage({
-                maValue: state.avgProofTime,
-                newValue: proofTime * 1000,
-                maf: config.provingConfig.avgTimeMAF
-            })
-            .toUint64();
 
         blockHash = fc.blockHash;
         signalRoot = fc.signalRoot;
@@ -190,19 +180,8 @@ library LibVerifying {
             // EIP-4844 blob size up to 128K
             config.maxBytesPerTxList > 128 * 1024 ||
             config.minTxGasLimit == 0 ||
-            config.slotSmoothingFactor == 0 ||
             // EIP-4844 blob deleted after 30 days
-            config.txListCacheExpiry > 30 * 24 hours ||
-            config.rewardBurnBips >= 10000
+            config.txListCacheExpiry > 30 * 24 hours
         ) revert L1_INVALID_CONFIG();
-
-        _checkFeeConfig(config.provingConfig);
-    }
-
-    function _checkFeeConfig(
-        TaikoData.FeeConfig memory feeConfig
-    ) private pure {
-        if (feeConfig.avgTimeMAF <= 1 || feeConfig.dampingFactorBips > 10000)
-            revert L1_INVALID_CONFIG();
     }
 }

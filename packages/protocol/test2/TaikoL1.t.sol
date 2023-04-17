@@ -21,7 +21,6 @@ contract TaikoL1WithConfig is TaikoL1 {
     {
         config = TaikoConfig.getConfig();
 
-        config.enableTokenomics = true;
         config.txListCacheExpiry = 5 minutes;
         config.maxVerificationsPerTx = 0;
         config.enableSoloProposer = false;
@@ -29,12 +28,6 @@ contract TaikoL1WithConfig is TaikoL1 {
         config.maxNumProposedBlocks = 10;
         config.ringBufferSize = 12;
         // this value must be changed if `maxNumProposedBlocks` is changed.
-        config.slotSmoothingFactor = 4160;
-
-        config.provingConfig = TaikoData.FeeConfig({
-            avgTimeMAF: 1024,
-            dampingFactorBips: 5000
-        });
     }
 }
 

@@ -23,8 +23,6 @@ library TaikoConfig {
                 // Set it to 6M, since its the upper limit of the Alpha-2
                 // testnet's circuits.
                 blockMaxGasLimit: 6000000,
-                gasTargetPerSecond: 30000000,
-                gasAdjustmentFactor: (30000000 * 200) ** 2 * 5000000000,
                 //   Set it to 79  (+1 TaikoL2.anchor transaction = 80),
                 // and 80 is the upper limit of the Alpha-2 testnet's circuits.
                 maxTransactionsPerBlock: 79,
@@ -33,24 +31,14 @@ library TaikoConfig {
                 // transactions list calldata, 8K for the remaining tx fields.
                 maxBytesPerTxList: 120000,
                 minTxGasLimit: 21000,
-                slotSmoothingFactor: 946649,
-                // 100 basis points or 1%
-                rewardBurnBips: 100,
                 // Moving average factors
-                feeBaseMAF: 1024,
                 txListCacheExpiry: 0,
-                proofTimeTarget: 85, // 85s based on A2 testnet status
+                proofTimeTarget: 1800, // 85s based on A2 testnet status, or set to 1800 for 30mins (mainnet mock)
                 adjustmentQuotient: 16,
                 enableSoloProposer: false,
                 enableOracleProver: true,
                 enableTokenomics: true,
-                skipZKPVerification: false,
-                allowMinting: true,
-                useTimeWeightedReward: false,
-                provingConfig: TaikoData.FeeConfig({
-                    avgTimeMAF: 1024,
-                    dampingFactorBips: 2500 // [75% -> 125%]
-                })
+                skipZKPVerification: false
             });
     }
 }

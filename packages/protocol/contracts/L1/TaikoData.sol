@@ -7,11 +7,6 @@
 pragma solidity ^0.8.18;
 
 library TaikoData {
-    struct FeeConfig {
-        uint16 avgTimeMAF;
-        uint16 dampingFactorBips;
-    }
-
     struct Config {
         uint256 chainId;
         uint256 maxNumProposedBlocks;
@@ -21,15 +16,10 @@ library TaikoData {
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;
         uint256 blockMaxGasLimit;
-        uint64 gasTargetPerSecond;
-        uint256 gasAdjustmentFactor;
         uint256 maxTransactionsPerBlock;
         uint256 maxBytesPerTxList;
         uint256 minTxGasLimit;
-        uint256 slotSmoothingFactor;
-        uint256 rewardBurnBips;
         // Moving average factors
-        uint256 feeBaseMAF;
         uint256 txListCacheExpiry;
         uint64 proofTimeTarget;
         uint8 adjustmentQuotient;
@@ -37,20 +27,15 @@ library TaikoData {
         bool enableOracleProver;
         bool enableTokenomics;
         bool skipZKPVerification;
-        bool allowMinting;
-        bool useTimeWeightedReward;
-        FeeConfig provingConfig;
     }
 
     struct StateVariables {
-        uint256 baseFeeProof;
-        uint64 feeBase;
+        uint64 basefee;
+        uint64 rewardPool;
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 numBlocks;
         uint64 lastVerifiedBlockId;
-        uint64 avgBlockTime;
-        uint64 avgProofTime;
         uint64 lastProposedAt;
     }
 
@@ -70,7 +55,6 @@ library TaikoData {
         uint64 id;
         uint64 timestamp;
         uint64 l1Height;
-        uint64 l2Basefee;
         bytes32 l1Hash;
         bytes32 mixHash;
         bytes32 txListHash;
@@ -78,7 +62,6 @@ library TaikoData {
         uint24 txListByteEnd;
         uint32 gasLimit;
         address beneficiary;
-        address treasure;
     }
 
     struct ZKProof {
@@ -94,6 +77,7 @@ library TaikoData {
         bytes32 signalRoot;
         bytes32 graffiti;
         address prover;
+        uint32 gasUsed;
     }
 
     // 3 slots
@@ -101,6 +85,7 @@ library TaikoData {
         bytes32 blockHash;
         bytes32 signalRoot;
         uint64 provenAt;
+        uint32 gasUsed;
         address prover;
     }
 
@@ -111,7 +96,6 @@ library TaikoData {
         uint64 blockId;
         uint64 proposedAt;
         uint64 deposit;
-        uint32 gasConsumed;
         uint24 nextForkChoiceId;
         uint24 verifiedForkChoiceId;
         bytes32 metaHash;
@@ -130,32 +114,30 @@ library TaikoData {
         // A mapping from (blockId, parentHash) to a reusable ForkChoice storage pointer.
         // solhint-disable-next-line max-line-length
         mapping(uint256 blockId => mapping(bytes32 parentHash => uint256 forkChoiceId)) forkChoiceIds;
+        // TODO(dani): change to:
+        // mapping(address account => uint64 balance) balances;
         mapping(address account => uint256 balance) balances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
-        // Cummulated proofTime for reward calculation - changed in verifyBlock()
-        uint256 proofTimeIssued;
-        // Changing baseFee for proving - changed in verifyBlock()
-        uint256 baseFeeProof;
-        // Changing accumulated time for proposing - changed in proposeBlock() and in verifyBlock()
-        uint256 accProposalTime;
-        // Treasury amount - changed in proposeBlock() and in verifyBlock()
-        uint256 proofFeeTreasury;
-        // Never or rarely changed
+        // Slot 5: never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 __reserved1;
-        // Changed when a block is proposed or proven/finalized
-        // Changed when a block is proposed
+        uint64 __reserved51;
+        uint64 __reserved52;
+        // Slot 6: changed by proposeBlock
+        uint64 lastProposedAt;
         uint64 numBlocks;
-        uint64 lastProposedAt; // Timestamp when the last block is proposed.
-        uint64 avgBlockTime; // miliseconds
-        uint64 __reserved3;
-        // Changed when a block is proven/finalized
+        uint64 accProposedAt; // also by verifyBlocks
+        uint64 rewardPool; // also by verifyBlocks
+        // Slot 7: changed by proveBlock
+        // uint64 __reserved71;
+        // uint64 __reserved72;
+        // uint64 __reserved73;
+        // uint64 __reserved74;
+        // Slot 8: changed by verifyBlocks
+        uint64 basefee;
+        uint64 proofTimeIssued;
         uint64 lastVerifiedBlockId;
-        // the proof time moving average, note that for each block, only the
-        // first proof's time is considered.
-        uint64 avgProofTime; // miliseconds
-        uint64 feeBase;
+        uint64 __reserved81;
         // Reserved
         uint256[43] __gap;
     }

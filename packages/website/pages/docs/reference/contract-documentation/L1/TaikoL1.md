@@ -13,18 +13,17 @@ struct TaikoData.State state
 ### init
 
 ```solidity
-function init(address _addressManager, uint64 _feeBase, bytes32 _genesisBlockHash) external
+function init(address _addressManager, bytes32 _genesisBlockHash) external
 ```
 
 Initialize the rollup.
 
 #### Parameters
 
-| Name               | Type    | Description                                                  |
-| ------------------ | ------- | ------------------------------------------------------------ |
-| \_addressManager   | address | The AddressManager address.                                  |
-| \_feeBase          | uint64  | The initial value of the proposer-fee/prover-reward feeBase. |
-| \_genesisBlockHash | bytes32 | The block hash of the genesis block.                         |
+| Name               | Type    | Description                          |
+| ------------------ | ------- | ------------------------------------ |
+| \_addressManager   | address | The AddressManager address.          |
+| \_genesisBlockHash | bytes32 | The block hash of the genesis block. |
 
 ### proposeBlock
 
@@ -92,13 +91,13 @@ function getBalance(address addr) public view returns (uint256)
 ### getProverFee
 
 ```solidity
-function getProverFee() public view returns (uint256 feeAmount, uint256 depositAmount)
+function getProverFee() public view returns (uint64 feeAmount)
 ```
 
 ### getProofReward
 
 ```solidity
-function getProofReward(uint64 provenAt, uint64 proposedAt) public view returns (uint256 reward)
+function getProofReward(uint64 provenAt, uint64 proposedAt, uint32 gasUsed) public view returns (uint256 reward)
 ```
 
 ### getBlock

@@ -81,12 +81,10 @@ contract FooBar {
             l1Height: 1,
             l1Hash: bytes32(uint256(1)),
             beneficiary: address(this),
-            treasure: address(this),
             txListHash: bytes32(uint256(1)),
             txListByteStart: 0,
             txListByteEnd: 1000,
             gasLimit: 1,
-            l2Basefee: 1000000,
             mixHash: bytes32(uint256(1)),
             timestamp: 1
         });
@@ -98,12 +96,10 @@ contract FooBar {
             l1Height: 1,
             l1Hash: bytes32(uint256(1)),
             beneficiary: address(this),
-            treasure: address(this),
             txListHash: bytes32(uint256(1)),
             txListByteStart: 0,
             txListByteEnd: 1000,
             gasLimit: 1,
-            l2Basefee: 1000000,
             mixHash: bytes32(uint256(1)),
             timestamp: 1
         });

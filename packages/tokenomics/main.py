@@ -96,7 +96,7 @@ class Protocol(sim.Component):
 
     def get_time_adjusted_fee(self, is_proposal, t_now, t_last, t_avg, t_cap):
         #  if (tAvg == 0) {
-        #      return s.feeBase;
+        #      return s.basefee;
         #  }
         #  uint256 _tAvg = tAvg > tCap ? tCap : tAvg;
         #  uint256 tGrace = (LibConstants.K_FEE_GRACE_PERIOD * _tAvg) / 100;
@@ -108,9 +108,9 @@ class Protocol(sim.Component):
         #      ((LibConstants.K_REWARD_MULTIPLIER - 100) * tRel) /
         #      100;
         #  if (isProposal) {
-        #      return (s.feeBase * 10000) / alpha; // fee
+        #      return (s.basefee * 10000) / alpha; // fee
         #  } else {
-        #      return (s.feeBase * alpha) / 10000; // reward
+        #      return (s.basefee * alpha) / 10000; // reward
         #  }
 
         if t_avg == 0:
