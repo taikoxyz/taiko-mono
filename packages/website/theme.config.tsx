@@ -8,10 +8,10 @@ export default {
     key: "banner",
     text: (
       <a
-        href="https://taiko.xyz/docs/reference/ethglobal-tokyo-reference"
+        href="https://twitter.com/taikoxyz/status/1647684931735396352"
         target="_blank"
       >
-        📌 Please use the <u>ETHTokyo network config</u> for the hackathon →
+        📌 Alpha-2 testnet has now been deprecated. Read more →
       </a>
     ),
   },
@@ -22,7 +22,7 @@ export default {
   docsRepositoryBase:
     "https://github.com/taikoxyz/taiko-mono/blob/main/packages/website",
   editLink: {
-    text: "Improve this page on GitHub ↗",
+    text: "Edit this page ↗",
   },
   feedback: {
     content: null,
