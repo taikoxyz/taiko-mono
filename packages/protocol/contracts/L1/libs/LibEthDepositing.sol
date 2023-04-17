@@ -8,35 +8,37 @@ pragma solidity ^0.8.18;
 
 import {LibAddress} from "../../libs/LibAddress.sol";
 import {AddressResolver} from "../../common/AddressResolver.sol";
+import {
+    SafeCastUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {TaikoData} from "../TaikoData.sol";
 
 library LibEthDepositing {
     using LibAddress for address;
+    using SafeCastUpgradeable for uint256;
 
-    // If we allow 1 million ETH to be deposited per L2 block, if there
-    // is 1 block per second, and we premint type(uint128).max ETH,
-    //  then to overflow type(uint256).max, we need 3.67E45 years:
-    // (2^256-2^128) / (1000000 * 10^18 * 86400 * 365)
-    uint256 public constant MAX_ETH_DEPOSIT_PER_BLOCK = 1000000 ether;
+    uint256 public constant GWEI_TO_WEI = 1000000000;
 
-    error L1_EXCEED_MAX_ETH_DEPOSIT();
     error L1_INVALID_ETH_DEPOSIT();
     error L1_TOO_MANY_ETH_DEPOSITS();
 
     event EthDepositRequested(uint64 id, TaikoData.EthDeposit deposit);
     event EthDepositCanceled(uint64 id, TaikoData.EthDeposit deposit);
 
+    /// @dev Each EthDeposit can carry  18,446.74 Ether. It will take forever
+    // for someone to overflow Ether balance on L2 if we limit the number of
+    // EthDeposits per L2 block.
     function depositEtherToL2(
         TaikoData.State storage state,
-        uint128 fee
+        uint256 fee
     ) public {
-        if (msg.value < fee || msg.value - fee > type(uint128).max)
-            revert L1_INVALID_ETH_DEPOSIT();
+        uint256 feeGwei = fee / GWEI_TO_WEI;
 
         TaikoData.EthDeposit memory deposit = TaikoData.EthDeposit({
             recipient: msg.sender,
-            amount: uint128(msg.value - fee),
-            fee: fee
+            amountGwei: ((msg.value - GWEI_TO_WEI * feeGwei) / GWEI_TO_WEI)
+                .toUint48(),
+            feeGwei: feeGwei.toUint48()
         });
 
         state.ethDeposits[state.nextEthDepositId] = deposit;
@@ -54,7 +56,9 @@ library LibEthDepositing {
         TaikoData.EthDeposit memory deposit = state.ethDeposits[depositId];
         if (deposit.recipient == address(0)) revert L1_INVALID_ETH_DEPOSIT();
 
-        deposit.recipient.sendEther(deposit.amount + deposit.fee);
+        uint256 amount = GWEI_TO_WEI *
+            (uint256(deposit.amountGwei) + deposit.feeGwei);
+        deposit.recipient.sendEther(amount);
         delete state.ethDeposits[depositId];
 
         emit EthDepositCanceled(depositId, deposit);
@@ -77,8 +81,8 @@ library LibEthDepositing {
             revert L1_TOO_MANY_ETH_DEPOSITS();
 
         depositsProcessed = new TaikoData.EthDeposit[](ethDepositIds.length);
-        uint128 totalFee;
-        uint256 totalEther;
+        uint48 totalFeeGwei;
+        uint256 totalEtherGwei;
         uint j;
 
         unchecked {
@@ -88,25 +92,23 @@ library LibEthDepositing {
 
                 if (deposit.recipient == address(0)) continue;
 
-                // Overflow will be fine
-                totalFee += deposit.fee;
-                totalEther += deposit.fee + deposit.amount;
-
                 depositsProcessed[j].recipient = deposit.recipient;
-                depositsProcessed[j].amount = deposit.amount;
+                depositsProcessed[j].amountGwei = deposit.amountGwei;
 
+                // sum up
+                totalFeeGwei += deposit.feeGwei; // may overflow then throw
+                totalEtherGwei += uint256(deposit.amountGwei) + deposit.feeGwei;
+
+                // delete this record
                 state.ethDeposits[id].recipient = address(0);
-                state.ethDeposits[id].amount = 0;
-                state.ethDeposits[id].fee = 0;
+                state.ethDeposits[id].amountGwei = 0;
+                state.ethDeposits[id].feeGwei = 0;
                 ++j;
             }
 
             depositsProcessed[j].recipient = beneficiary;
-            depositsProcessed[j].amount = totalFee;
+            depositsProcessed[j].amountGwei = totalFeeGwei;
         }
-
-        if (totalEther > MAX_ETH_DEPOSIT_PER_BLOCK)
-            revert L1_EXCEED_MAX_ETH_DEPOSIT();
 
         assembly {
             // Change the length of depositsProcessed
@@ -115,12 +117,12 @@ library LibEthDepositing {
             root := keccak256(depositsProcessed, mul(j, 64))
         }
 
-        if (totalEther > 0) {
+        if (totalEtherGwei > 0) {
             address to = resolver.resolve("ether_vault", true);
             if (to == address(0)) {
                 to = resolver.resolve("bridge", false);
             }
-            to.sendEther(totalEther);
+            to.sendEther(GWEI_TO_WEI * totalEtherGwei);
         }
     }
 }

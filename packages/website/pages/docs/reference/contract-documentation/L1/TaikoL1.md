@@ -85,7 +85,7 @@ Verify up to N blocks.
 ### depositEtherToL2
 
 ```solidity
-function depositEtherToL2(uint128 fee) external payable
+function depositEtherToL2(uint256 fee) external payable
 ```
 
 ### cancelEtherDepositToL2
