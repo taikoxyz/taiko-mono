@@ -67,16 +67,28 @@ Verify up to N blocks.
 | --------- | ------- | ------------------------------- |
 | maxBlocks | uint256 | Max number of blocks to verify. |
 
-### deposit
+### depositEtherToL2
 
 ```solidity
-function deposit(uint256 amount) external
+function depositEtherToL2(uint256 fee) external payable
 ```
 
-### withdraw
+### cancelEtherDepositToL2
 
 ```solidity
-function withdraw(uint256 amount) external
+function cancelEtherDepositToL2(uint64 depositId) external
+```
+
+### depositTaikoToken
+
+```solidity
+function depositTaikoToken(uint256 amount) external
+```
+
+### withdrawTaikoToken
+
+```solidity
+function withdrawTaikoToken(uint256 amount) external
 ```
 
 ### getBalance
