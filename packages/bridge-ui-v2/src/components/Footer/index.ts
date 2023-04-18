@@ -1,1 +1,1 @@
-export { default } from './Footer.svelte'
+export { default as Footer } from './Footer.svelte'
