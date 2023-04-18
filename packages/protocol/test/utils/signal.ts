@@ -2,30 +2,15 @@ import { ethers, Signer } from "ethers";
 import RLP from "rlp";
 import { ethers as hardhatEthers } from "hardhat";
 import { BlockHeader, EthGetProofResponse } from "./rpc";
-import {
-    AddressManager,
-    TestSignalService,
-    LibTrieProof,
-} from "../../typechain";
+import { AddressManager, TestSignalService } from "../../typechain";
 
 async function deploySignalService(
     signer: Signer,
     addressManager: AddressManager,
     srcChain: number
 ): Promise<{ signalService: TestSignalService }> {
-    const libTrieProof: LibTrieProof = await (
-        await hardhatEthers.getContractFactory("LibTrieProof")
-    )
-        .connect(signer)
-        .deploy();
-
     const SignalServiceFactory = await hardhatEthers.getContractFactory(
-        "TestSignalService",
-        {
-            libraries: {
-                LibTrieProof: libTrieProof.address,
-            },
-        }
+        "TestSignalService"
     );
 
     const signalService: TestSignalService = await SignalServiceFactory.connect(
