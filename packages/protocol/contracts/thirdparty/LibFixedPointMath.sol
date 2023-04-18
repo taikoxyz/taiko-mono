@@ -65,7 +65,8 @@ library LibFixedPointMath {
             // We do all of this at once, with an intermediate result in 2**213 basis
             // so the final right shift is always by a positive amount.
             r = int(
-                (uint(r) * 3822833074963236453042738258902158003155416615667) >>
+                (uint256(r) *
+                    3822833074963236453042738258902158003155416615667) >>
                     uint256(195 - k)
             );
         }

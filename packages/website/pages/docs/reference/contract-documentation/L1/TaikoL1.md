@@ -12,12 +12,6 @@ struct TaikoData.State state
 receive() external payable
 ```
 
-### fallback
-
-```solidity
-fallback() external
-```
-
 ### init
 
 ```solidity
@@ -37,7 +31,7 @@ Initialize the rollup.
 ### proposeBlock
 
 ```solidity
-function proposeBlock(bytes input, bytes txList) external
+function proposeBlock(bytes input, bytes txList) external returns (struct TaikoData.BlockMetadata meta)
 ```
 
 Propose a Taiko L2 block.

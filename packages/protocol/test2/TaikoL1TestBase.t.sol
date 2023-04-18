@@ -118,7 +118,7 @@ abstract contract TaikoL1TestBase is Test {
         meta.treasure = L2Treasure;
 
         vm.prank(proposer, proposer);
-        L1.proposeBlock(abi.encode(input), txList);
+        meta = L1.proposeBlock(abi.encode(input), txList);
     }
 
     function proveBlock(
@@ -198,7 +198,15 @@ abstract contract TaikoL1TestBase is Test {
             " avgProofTime:",
             Strings.toString(vars.avgProofTime),
             " lastProposedAt:",
-            Strings.toString(vars.lastProposedAt),
+            Strings.toString(vars.lastProposedAt)
+        );
+
+        str = string.concat(
+            str,
+            " nextEthDepositToProcess:",
+            Strings.toString(vars.nextEthDepositToProcess),
+            " numEthDeposits:",
+            Strings.toString(vars.numEthDeposits),
             " // ",
             comment
         );

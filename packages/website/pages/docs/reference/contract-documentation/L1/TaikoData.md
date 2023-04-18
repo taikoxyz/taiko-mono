@@ -183,6 +183,6 @@ struct State {
   uint64 __reserved4;
   uint64 avgProofTime;
   uint64 feeBase;
-  uint256[43] __gap;
+  uint256[42] __gap;
 }
 ```

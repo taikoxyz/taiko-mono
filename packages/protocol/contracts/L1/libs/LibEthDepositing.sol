@@ -70,7 +70,7 @@ library LibEthDepositing {
             config.numEthDepositPerBlock + 1
         );
         uint64 i = state.nextEthDepositToProcess;
-        uint j; // number of deposits to process on L2
+        uint256 j; // number of deposits to process on L2
 
         unchecked {
             uint96 feePerDeposit = uint96(tx.gasprice * GAS_PER_ETH_DEPOSIT);
