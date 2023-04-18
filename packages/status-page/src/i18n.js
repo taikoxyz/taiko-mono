@@ -23,7 +23,7 @@ function setupI18n({ withLocale: _locale } = { withLocale: "en" }) {
       toast: {
         transactionSent: "Transaction sent",
         errorSendingTransaction: "Error sending transaction",
-        errorDisconneting: "Could not disconnect",
+        errorDisconnecting: "Could not disconnect",
       },
       switchChainModal: {
         title: "Not on the right network",

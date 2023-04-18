@@ -17,6 +17,7 @@ import {
     LibFixedPointMath as Math
 } from "../../thirdparty/LibFixedPointMath.sol";
 
+
 library LibTokenomics {
     using LibMath for uint256;
 
@@ -55,10 +56,12 @@ library LibTokenomics {
         }
     }
 
+
     function getProverFee(
         TaikoData.State storage state
     ) internal view returns (uint64 fee) {
         return state.basefee;
+
     }
 
     function getProofReward(
@@ -66,6 +69,7 @@ library LibTokenomics {
         TaikoData.Config memory config,
         uint64 provenAt,
         uint64 proposedAt
+
     ) internal view returns (uint64 reward) {
         (reward, , ) = calculateBasefee(state, config, (provenAt - proposedAt));
     }
@@ -169,5 +173,6 @@ library LibTokenomics {
         uint256 x = (value * Math.SCALING_FACTOR_1E18) / (target * quotient);
 
         return (uint256(Math.exp(int256(x))) / Math.SCALING_FACTOR_1E18);
+
     }
 }

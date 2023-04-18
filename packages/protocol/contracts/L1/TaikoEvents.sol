@@ -10,11 +10,7 @@ import {TaikoData} from "./TaikoData.sol";
 
 abstract contract TaikoEvents {
     // The following events must match the definitions in corresponding L1 libraries.
-    event BlockProposed(
-        uint256 indexed id,
-        TaikoData.BlockMetadata meta,
-        bool txListCached
-    );
+    event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
     event BlockProven(
         uint256 indexed id,
@@ -22,15 +18,6 @@ abstract contract TaikoEvents {
         bytes32 blockHash,
         bytes32 signalRoot,
         address prover
-    );
-
-    event ConflictingProof(
-        uint64 blockId,
-        bytes32 parentHash,
-        bytes32 conflictingBlockHash,
-        bytes32 conflictingSignalRoot,
-        bytes32 blockHash,
-        bytes32 signalRoot
     );
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash);

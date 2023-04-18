@@ -1,7 +1,3 @@
----
-title: TaikoL1
----
-
 ## TaikoL1
 
 ### state
@@ -13,17 +9,20 @@ struct TaikoData.State state
 ### init
 
 ```solidity
-function init(address _addressManager, bytes32 _genesisBlockHash) external
+function init(address _addressManager, uint64 _feeBase, bytes32 _genesisBlockHash) external
+
 ```
 
 Initialize the rollup.
 
 #### Parameters
 
-| Name               | Type    | Description                          |
-| ------------------ | ------- | ------------------------------------ |
-| \_addressManager   | address | The AddressManager address.          |
-| \_genesisBlockHash | bytes32 | The block hash of the genesis block. |
+| Name               | Type    | Description                                                  |
+| ------------------ | ------- | ------------------------------------------------------------ |
+| \_addressManager   | address | The AddressManager address.                                  |
+| \_feeBase          | uint64  | The initial value of the proposer-fee/prover-reward feeBase. |
+| \_genesisBlockHash | bytes32 | The block hash of the genesis block.                         |
+
 
 ### proposeBlock
 
@@ -39,6 +38,21 @@ Propose a Taiko L2 block.
 | ------ | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | input  | bytes | An abi-encoded BlockMetadataInput that the actual L2 block header must satisfy.                                                                                                                                                                                             |
 | txList | bytes | A list of transactions in this block, encoded with RLP. Note, in the corresponding L2 block an _anchor transaction_ will be the first transaction in the block -- if there are `n` transactions in `txList`, then there will be up to `n + 1` transactions in the L2 block. |
+
+### oracleProveBlocks
+
+```solidity
+function oracleProveBlocks(uint256 blockId, bytes input) external
+```
+
+Oracle prove mutliple blocks in a row.
+
+#### Parameters
+
+| Name    | Type    | Description                                                                                          |
+| ------- | ------- | ---------------------------------------------------------------------------------------------------- |
+| blockId | uint256 | The index of the first block to prove. This is also used to select the right implementation version. |
+| input   | bytes   | An abi-encoded TaikoData.BlockOracle[] object.                                                       |
 
 ### proveBlock
 
@@ -109,7 +123,7 @@ function getBlock(uint256 blockId) public view returns (bytes32 _metaHash, uint2
 ### getForkChoice
 
 ```solidity
-function getForkChoice(uint256 blockId, bytes32 parentHash) public view returns (struct TaikoData.ForkChoice)
+function getForkChoice(uint256 blockId, bytes32 parentHash, uint32 parentGasUsed) public view returns (struct TaikoData.ForkChoice)
 ```
 
 ### getXchainBlockHash

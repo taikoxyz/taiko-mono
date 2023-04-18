@@ -6,6 +6,7 @@ export interface Config {
     }>;
     predeployERC20: boolean;
     contractAddresses: Object;
+    param1559: Object;
 }
 
 export interface Result {

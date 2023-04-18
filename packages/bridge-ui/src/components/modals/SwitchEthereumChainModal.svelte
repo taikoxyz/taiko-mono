@@ -5,8 +5,8 @@
   import { isSwitchEthereumChainModalOpen } from '../../store/modal';
   import Modal from './Modal.svelte';
   import { signer } from '../../store/signer';
-  import { errorToast, successToast } from '../../utils/toast';
   import { mainnetChain, taikoChain } from '../../chain/chains';
+  import { errorToast, successToast } from '../Toast.svelte';
 
   const switchChain = async (chain: Chain) => {
     try {
@@ -27,6 +27,7 @@
 
 <Modal
   title={$_('switchChainModal.title')}
+  showXButton={false}
   isOpen={$isSwitchEthereumChainModalOpen}>
   <div class="w-100 text-center px-4">
     <span class="font-light text-sm">{$_('switchChainModal.subtitle')}</span>

@@ -14,3 +14,7 @@
 	path = packages/protocol/lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
 	branch = chore/v1.5.1
+[submodule "packages/protocol/lib/foundry-random"]
+	path = packages/protocol/lib/foundry-random
+	url = https://github.com/joejordan/foundry-random
+	branch = v1.0.2

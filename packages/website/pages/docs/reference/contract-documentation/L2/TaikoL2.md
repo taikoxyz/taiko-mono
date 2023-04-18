@@ -1,7 +1,3 @@
----
-title: TaikoL2
----
-
 ## TaikoL2
 
 ### VerifiedBlock
@@ -71,9 +67,22 @@ uint64 gasExcess
 
 ```solidity
 uint64 __reserved1
+
 ```
 
-### BlockVars
+### Anchored
+
+```solidity
+event Anchored(uint64 number, uint64 basefee, uint64 gaslimit, uint64 timestamp, bytes32 parentHash, uint256 prevrandao, address coinbase, uint32 chainid)
+```
+
+### L2_BASEFEE_MISMATCH
+
+```solidity
+error L2_BASEFEE_MISMATCH(uint64 expected, uint64 actual)
+```
+
+### L2_INVALID_1559_PARAMS
 
 ```solidity
 event BlockVars(uint64 number, uint64 basefee, uint64 gaslimit, uint64 timestamp, bytes32 parentHash, uint256 prevrandao, address coinbase, uint32 chainid)
@@ -136,7 +145,7 @@ function init(address _addressManager, struct TaikoL2.EIP1559Params _param1559) 
 ### anchor
 
 ```solidity
-function anchor(uint64 l1Height, bytes32 l1Hash, bytes32 l1SignalRoot) external
+function anchor(bytes32 l1Hash, bytes32 l1SignalRoot, uint64 l1Height, uint64 parentGasUsed) external
 ```
 
 Persist the latest L1 block height and hash to L2 for cross-layer

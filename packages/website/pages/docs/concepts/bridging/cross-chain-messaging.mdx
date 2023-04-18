@@ -1,0 +1,31 @@
+Bridges are foundational for cross-chain users and applications. Users might come to another chain, such as Taiko (a ZK-rollup). To do this, they need to bridge over funds. Notoriously, bridging has been a dangerous operation. How do you make sure that this bridge is secure?
+
+Let's explain bridging on Taiko. We will answer the following questions:
+
+- How does the Taiko protocol enable secure cross-chain messaging?
+- What is the Taiko signal service?
+- What is the Taiko bridge dapp?
+- How does the bridge dapp work?
+
+The Taiko protocol's design, specifically its Ethereum-equivalency enables secure cross-chain messaging. Let's see how it works by simply using merkle proofs.
+
+### Taiko stores block hashes of each chain
+
+Taiko deploys two smart contracts which store the hashes of the other chain:
+
+- TaikoL1 stores a blockNumber->blockHash mapping `l2Hashes` (deployed on Ethereum)
+- TaikoL2 stores a blockNumber->blockHash mapping `l1Hashes` (deployed on Taiko)
+
+Every time an L2 block is created on Taiko, the hash of the enclosing block on L1 is stored in the TaikoL2 contract. And every time an L1 block is verified, the L2 hash is stored in the TaikoL1 contract (only the latest one, if multiple ones are verified at once).
+
+### Merkle trees enable verifying values exist on the other chain
+
+Merkle trees are a data storage structure that allows a lot of data to be fingerprinted with a single hash, called the merkle root. The way that they are structured enables one to verify that some value exists within this large data structure, without actually needing to have access to the entire merkle tree. To do this, the verifier would need:
+
+- The merkle root, this is the single "fingerprint" hash of the merkle tree
+- The value, this is the value we are checking is inside the merkle root
+- A list of intermediate sibling hashes, these are the hashes that enable the verifier to re-calculate the merkle root
+
+You can get the latest known merkle root stored on the destination chain by calling `getLatestSyncedHeader()` on the TaikoL1/TaikoL2 contract. You can get the value / message to verify and the sibling hashes for that latest known merkle root by asking for it with the standard RPC call `eth_getProof` on the "source chain". Then you just need to send them to be verified against that latest known block hash that is stored in a list on the "destination chain". 
+
+A verifier will take the value (a leaf in the merkle tree) and the sibling hashes to re-calculate the merkle root. If the calculated merkle root matches the one that is stored in the destination chain's list of block hashes (the block hashes of the source chain), then we have proved that the message was sent on the source chain, assuming the source chain block hashes stored on the destination chain were correct.

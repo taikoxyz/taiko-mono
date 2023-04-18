@@ -35,6 +35,7 @@ library TaikoConfig {
                 txListCacheExpiry: 0,
                 proofTimeTarget: 1800, // 85s based on A2 testnet status, or set to 1800 for 30mins (mainnet mock)
                 adjustmentQuotient: 16,
+
                 relaySignalRoot: false,
                 enableSoloProposer: false,
                 enableOracleProver: true,

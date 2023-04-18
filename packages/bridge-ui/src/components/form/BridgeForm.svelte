@@ -3,16 +3,11 @@
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
 
   import { token } from '../../store/token';
-  import { processingFee } from '../../store/fee';
   import { fromChain, toChain } from '../../store/chain';
-  import {
-    activeBridge,
-    chainIdToTokenVaultAddress,
-    bridgeType,
-  } from '../../store/bridge';
+  import { activeBridge, bridgeType } from '../../store/bridge';
   import { signer } from '../../store/signer';
   import { BigNumber, Contract, ethers, Signer } from 'ethers';
-  import ProcessingFee from './ProcessingFee.svelte';
+  import ProcessingFee from './ProcessingFee';
   import SelectToken from '../buttons/SelectToken.svelte';
 
   import type { Token } from '../../domain/token';
@@ -25,37 +20,42 @@
     transactioner,
     transactions as transactionsStore,
   } from '../../store/transactions';
-  import { ProcessingFeeMethod } from '../../domain/fee';
   import Memo from './Memo.svelte';
-  import { errorToast, successToast } from '../../utils/toast';
-  import ERC20 from '../../constants/abi/ERC20';
-  import TokenVault from '../../constants/abi/TokenVault';
+  import ERC20_ABI from '../../constants/abi/ERC20';
+  import TokenVaultABI from '../../constants/abi/TokenVault';
   import type { BridgeTransaction } from '../../domain/transactions';
   import { MessageStatus } from '../../domain/message';
   import { Funnel } from 'svelte-heros-v2';
   import FaucetModal from '../modals/FaucetModal.svelte';
+  import { errorToast, successToast } from '../Toast.svelte';
+  import { L1_CHAIN_ID } from '../../constants/envVars';
   import { fetchFeeData } from '@wagmi/core';
-  import { providers } from '../../store/providers';
   import { checkIfTokenIsDeployedCrossChain } from '../../utils/checkIfTokenIsDeployedCrossChain';
   import To from './To.svelte';
   import { ETHToken } from '../../token/tokens';
-  import { chainsRecord } from '../../chain/chains';
+  import { chains } from '../../chain/chains';
+  import { providers } from '../../provider/providers';
+  import { tokenVaults } from '../../vault/tokenVaults';
+  import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
+  import { ProcessingFeeMethod } from '../../domain/fee';
+  import Button from '../buttons/Button.svelte';
 
   let amount: string;
   let amountInput: HTMLInputElement;
   let requiresAllowance: boolean = false;
   let btnDisabled: boolean = true;
   let tokenBalance: string;
-  let customFee: string = '0';
-  let recommendedFee: string = '0';
   let memo: string = '';
   let loading: boolean = false;
   let isFaucetModalOpen: boolean = false;
   let memoError: string;
   let to: string = '';
   let showTo: boolean = false;
+  let feeMethod: ProcessingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
+  let feeAmount: string = '0';
 
-  $: getUserBalance($signer, $token, $fromChain);
+  // TODO: too much going on here. We need to extract
+  //       logic and unit test the hell out of all this.
 
   async function addrForToken() {
     let addr = $token.addresses.find(
@@ -67,8 +67,8 @@
       ).address;
 
       const tokenVault = new Contract(
-        $chainIdToTokenVaultAddress.get($fromChain.id),
-        TokenVault,
+        tokenVaults[$fromChain.id],
+        TokenVaultABI,
         $signer,
       );
 
@@ -81,6 +81,7 @@
     }
     return addr;
   }
+
   async function getUserBalance(
     signer: ethers.Signer,
     token: Token,
@@ -96,27 +97,12 @@
           tokenBalance = '0';
           return;
         }
-        const contract = new Contract(addr, ERC20, signer);
+        const contract = new Contract(addr, ERC20_ABI, signer);
         const userBalance = await contract.balanceOf(await signer.getAddress());
         tokenBalance = ethers.utils.formatUnits(userBalance, token.decimals);
       }
     }
   }
-
-  $: isBtnDisabled(
-    $signer,
-    amount,
-    $token,
-    tokenBalance,
-    requiresAllowance,
-    memoError,
-  )
-    .then((d) => (btnDisabled = d))
-    .catch((e) => console.log(e));
-
-  $: checkAllowance(amount, $token, $bridgeType, $fromChain, $signer)
-    .then((a) => (requiresAllowance = a))
-    .catch((e) => console.log(e));
 
   async function checkAllowance(
     amt: string,
@@ -132,7 +118,7 @@
       amountInWei: ethers.utils.parseUnits(amt, token.decimals),
       signer: signer,
       contractAddress: addr,
-      spenderAddress: $chainIdToTokenVaultAddress.get(fromChain.id),
+      spenderAddress: tokenVaults[fromChain.id],
     });
     return allowance;
   }
@@ -144,14 +130,21 @@
     tokenBalance: string,
     requiresAllowance: boolean,
     memoError: string,
+    fromChain: Chain,
   ) {
     if (!signer) return true;
     if (!tokenBalance) return true;
-    const chainId = await signer.getChainId();
-    if (!chainId || !chainsRecord[chainId.toString()]) return true;
+    if (!fromChain) return true;
+    const chainId = fromChain.id;
+
+    if (!chainId || !chains[chainId.toString()]) return true;
+
+    if (!(await isOnCorrectChain(signer, fromChain.id))) return true;
+
     if (!amount || ethers.utils.parseUnits(amount).eq(BigNumber.from(0)))
       return true;
     if (isNaN(parseFloat(amount))) return true;
+
     if (
       BigNumber.from(ethers.utils.parseUnits(tokenBalance, token.decimals)).lt(
         ethers.utils.parseUnits(amount, token.decimals),
@@ -175,7 +168,7 @@
         amountInWei: ethers.utils.parseUnits(amount, $token.decimals),
         signer: $signer,
         contractAddress: await addrForToken(),
-        spenderAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
+        spenderAddress: tokenVaults[$fromChain.id],
       });
 
       pendingTransactions.update((store) => {
@@ -188,7 +181,7 @@
 
       requiresAllowance = false;
     } catch (e) {
-      console.log(e);
+      console.error(e);
       errorToast($_('toast.errorSendingTransaction'));
     } finally {
       loading = false;
@@ -229,12 +222,15 @@
         throw Error('Invalid custom recipient address');
       }
 
+      if (!(await isOnCorrectChain($signer, $fromChain.id))) {
+        errorToast('You are connected to the wrong chain in your wallet');
+        return;
+      }
+
       const amountInWei = ethers.utils.parseUnits(amount, $token.decimals);
 
-      const provider = $providers.get($toChain.id);
-      const destTokenVaultAddress = $chainIdToTokenVaultAddress.get(
-        $toChain.id,
-      );
+      const provider = providers[$toChain.id];
+      const destTokenVaultAddress = tokenVaults[$toChain.id];
       let isBridgedTokenAlreadyDeployed =
         await checkIfTokenIsDeployedCrossChain(
           $token,
@@ -244,13 +240,17 @@
           $fromChain,
         );
 
+      const bridgeAddress = chains[$fromChain.id].bridgeAddress;
+      const tokenVaultAddress = tokenVaults[$fromChain.id];
+
       const bridgeOpts: BridgeOpts = {
         amountInWei: amountInWei,
         signer: $signer,
         tokenAddress: await addrForToken(),
         fromChainId: $fromChain.id,
         toChainId: $toChain.id,
-        tokenVaultAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
+        tokenVaultAddress: tokenVaultAddress,
+        bridgeAddress: bridgeAddress,
         processingFeeInWei: getProcessingFee(),
         memo: memo,
         isBridgedTokenAlreadyDeployed,
@@ -273,7 +273,7 @@
       tx.chainId = $fromChain.id;
       const userAddress = await $signer.getAddress();
       let transactions: BridgeTransaction[] =
-        await $transactioner.GetAllByAddress(userAddress);
+        await $transactioner.getAllByAddress(userAddress);
 
       let bridgeTransaction: BridgeTransaction = {
         fromChainId: $fromChain.id,
@@ -290,7 +290,7 @@
         transactions.push(bridgeTransaction);
       }
 
-      $transactioner.UpdateStorageByAddress(userAddress, transactions);
+      $transactioner.updateStorageByAddress(userAddress, transactions);
 
       pendingTransactions.update((store) => {
         store.push(tx);
@@ -300,7 +300,7 @@
       const allTransactions = $transactionsStore;
 
       // get full BridgeTransaction object
-      bridgeTransaction = await $transactioner.GetTransactionByHash(
+      bridgeTransaction = await $transactioner.getTransactionByHash(
         userAddress,
         tx.hash,
       );
@@ -311,7 +311,7 @@
       await $signer.provider.waitForTransaction(tx.hash, 1);
       memo = '';
     } catch (e) {
-      console.log(e);
+      console.error(e);
       errorToast($_('toast.errorSendingTransaction'));
     } finally {
       loading = false;
@@ -328,15 +328,17 @@
           tokenAddress: await addrForToken(),
           fromChainId: $fromChain.id,
           toChainId: $toChain.id,
-          tokenVaultAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
+          tokenVaultAddress: tokenVaults[$fromChain.id],
           processingFeeInWei: getProcessingFee(),
           memo: memo,
           to: showTo && to ? to : await $signer.getAddress(),
         });
+
         const requiredGas = gasEstimate.mul(feeData.gasPrice);
         const userBalance = await $signer.getBalance('latest');
         const processingFee = getProcessingFee();
         let balanceAvailableForTx = userBalance.sub(requiredGas);
+
         if (processingFee) {
           balanceAvailableForTx = balanceAvailableForTx.sub(processingFee);
         }
@@ -344,7 +346,7 @@
         amount = ethers.utils.formatEther(balanceAvailableForTx);
         amountInput.value = ethers.utils.formatEther(balanceAvailableForTx);
       } catch (error) {
-        console.log(error);
+        console.error(error);
 
         // In case of error default to using the full amount of ETH available.
         // The user would still not be able to make the restriction and will have to manually set the amount.
@@ -362,18 +364,41 @@
   }
 
   function getProcessingFee() {
-    if ($processingFee === ProcessingFeeMethod.NONE) {
+    if (feeMethod === ProcessingFeeMethod.NONE) {
       return undefined;
     }
 
-    if ($processingFee === ProcessingFeeMethod.CUSTOM) {
-      return BigNumber.from(ethers.utils.parseEther(customFee));
-    }
-
-    if ($processingFee === ProcessingFeeMethod.RECOMMENDED) {
-      return BigNumber.from(ethers.utils.parseEther(recommendedFee));
-    }
+    return BigNumber.from(ethers.utils.parseEther(feeAmount));
   }
+
+  $: getUserBalance($signer, $token, $fromChain);
+
+  $: isBtnDisabled(
+    $signer,
+    amount,
+    $token,
+    tokenBalance,
+    requiresAllowance,
+    memoError,
+    $fromChain,
+  )
+    .then((d) => (btnDisabled = d))
+    .catch((e) => console.error(e));
+
+  $: checkAllowance(amount, $token, $bridgeType, $fromChain, $signer)
+    .then((a) => (requiresAllowance = a))
+    .catch((e) => console.error(e));
+
+  // TODO: we need to simplify this crazy condition
+  $: showFaucet =
+    $fromChain && // chain selected?
+    $fromChain.id === L1_CHAIN_ID && // are we in L1?
+    $token.symbol !== ETHToken.symbol && // bridging ERC20?
+    $signer && // wallet connected?
+    tokenBalance &&
+    ethers.utils
+      .parseUnits(tokenBalance, $token.decimals)
+      .eq(BigNumber.from(0)); // balance == 0?
 </script>
 
 <div class="form-control my-4 md:my-8">
@@ -413,9 +438,7 @@
   </label>
 </div>
 
-{#if $token.symbol !== ETHToken.symbol && $signer && tokenBalance && ethers.utils
-    .parseUnits(tokenBalance, $token.decimals)
-    .eq(BigNumber.from(0))}
+{#if showFaucet}
   <div class="flex" style="flex-direction:row-reverse">
     <div class="flex items-start">
       <button class="btn" on:click={() => (isFaucetModalOpen = true)}>
@@ -431,12 +454,12 @@
 
 <To bind:showTo bind:to />
 
-<ProcessingFee bind:customFee bind:recommendedFee />
+<ProcessingFee bind:method={feeMethod} bind:amount={feeAmount} />
 
 <Memo bind:memo bind:memoError />
 
 {#if loading}
-  <button class="btn btn-accent w-full" disabled={true}>
+  <Button type="accent" size="lg" class="w-full" disabled={true}>
     <LottiePlayer
       src="/lottie/loader.json"
       autoplay={true}
@@ -447,21 +470,24 @@
       height={26}
       width={26}
       controlsLayout={[]} />
-  </button>
+  </Button>
 {:else if !requiresAllowance}
-  <button
-    class="btn btn-accent w-full mt-4"
+  <Button
+    type="accent"
+    size="lg"
+    class="w-full"
     on:click={bridge}
     disabled={btnDisabled}>
     {$_('home.bridge')}
-  </button>
+  </Button>
 {:else}
-  <button
-    class="btn btn-accent w-full mt-4"
+  <Button
+    type="accent"
+    class="w-full"
     on:click={approve}
     disabled={btnDisabled}>
     {$_('home.approve')}
-  </button>
+  </Button>
 {/if}
 
 <style>

@@ -1,8 +1,16 @@
----
-title: TaikoErrors
----
-
 ## TaikoErrors
+
+### L1_1559_X_SCALE_TOO_LARGE
+
+```solidity
+error L1_1559_X_SCALE_TOO_LARGE()
+```
+
+### L1_1559_Y_SCALE_TOO_LARGE
+
+```solidity
+error L1_1559_Y_SCALE_TOO_LARGE()
+```
 
 ### L1_ALREADY_PROVEN
 
@@ -25,13 +33,19 @@ error L1_CONTRACT_NOT_ALLOWED()
 ### L1_EVIDENCE_MISMATCH
 
 ```solidity
-error L1_EVIDENCE_MISMATCH()
+error L1_EVIDENCE_MISMATCH(bytes32 expected, bytes32 actual)
 ```
 
 ### L1_FORK_CHOICE_NOT_FOUND
 
 ```solidity
 error L1_FORK_CHOICE_NOT_FOUND()
+```
+
+### L1_INSUFFICIENT_ETHER
+
+```solidity
+error L1_INSUFFICIENT_ETHER()
 ```
 
 ### L1_INSUFFICIENT_TOKEN
@@ -52,10 +66,22 @@ error L1_INVALID_CONFIG()
 error L1_INVALID_EVIDENCE()
 ```
 
+### L1_INVALID_L21559_PARAMS
+
+```solidity
+error L1_INVALID_L21559_PARAMS()
+```
+
 ### L1_INVALID_METADATA
 
 ```solidity
 error L1_INVALID_METADATA()
+```
+
+### L1_INVALID_ORACLE
+
+```solidity
+error L1_INVALID_ORACLE()
 ```
 
 ### L1_INVALID_PARAM
@@ -70,6 +96,12 @@ error L1_INVALID_PARAM()
 error L1_INVALID_PROOF()
 ```
 
+### L1_NOT_ORACLE_PROVEN
+
+```solidity
+error L1_NOT_ORACLE_PROVEN()
+```
+
 ### L1_NOT_ORACLE_PROVER
 
 ```solidity
@@ -80,6 +112,12 @@ error L1_NOT_ORACLE_PROVER()
 
 ```solidity
 error L1_NOT_SOLO_PROPOSER()
+```
+
+### L1_ORACLE_DISABLED
+
+```solidity
+error L1_ORACLE_DISABLED()
 ```
 
 ### L1_TOO_MANY_BLOCKS
@@ -116,4 +154,10 @@ error L1_TX_LIST()
 
 ```solidity
 error L1_UNEXPECTED_FORK_CHOICE_ID()
+```
+
+### L1_CONFLICTING_PROOF
+
+```solidity
+error L1_CONFLICTING_PROOF(uint64 id, uint32 parentGasUsed, bytes32 parentHash, bytes32 conflictingBlockHash, bytes32 conflictingSignalRoot, bytes32 blockHash, bytes32 signalRoot)
 ```

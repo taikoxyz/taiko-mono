@@ -1,25 +1,15 @@
----
-title: TaikoEvents
----
-
 ## TaikoEvents
 
 ### BlockProposed
 
 ```solidity
-event BlockProposed(uint256 id, struct TaikoData.BlockMetadata meta, bool txListCached)
+event BlockProposed(uint256 id, struct TaikoData.BlockMetadata meta)
 ```
 
 ### BlockProven
 
 ```solidity
 event BlockProven(uint256 id, bytes32 parentHash, bytes32 blockHash, bytes32 signalRoot, address prover)
-```
-
-### ConflictingProof
-
-```solidity
-event ConflictingProof(uint64 blockId, bytes32 parentHash, bytes32 conflictingBlockHash, bytes32 conflictingSignalRoot, bytes32 blockHash, bytes32 signalRoot)
 ```
 
 ### BlockVerified

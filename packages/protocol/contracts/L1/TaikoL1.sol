@@ -31,6 +31,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      * @param _addressManager The AddressManager address.
      * @param _genesisBlockHash The block hash of the genesis block.
      * @param _initBasefee Initial (reasonable) basefee value.
+     * @param _initProofTimeIssued Initial proof time which keeps the inflow/outflow in balance
      */
     function init(
         address _addressManager,
@@ -166,6 +167,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         uint64 proposedAt
     ) public view returns (uint64 reward) {
         reward = LibTokenomics.getProofReward({
+
             state: state,
             config: getConfig(),
             provenAt: provenAt,

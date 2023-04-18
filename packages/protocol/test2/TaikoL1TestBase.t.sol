@@ -10,6 +10,7 @@ import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
 import {TaikoToken} from "../contracts/L1/TaikoToken.sol";
 import {SignalService} from "../contracts/signal/SignalService.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+
 import "./Ln.sol";
 
 contract Verifier {
@@ -17,6 +18,7 @@ contract Verifier {
         return bytes.concat(keccak256("taiko"));
     }
 }
+
 
 abstract contract TaikoL1TestBase is Test {
     AddressManager public addressManager;
@@ -72,6 +74,7 @@ abstract contract TaikoL1TestBase is Test {
             feeBase,
             initProofTimeIssued
         );
+
         conf = L1.getConfig();
 
         tko = new TaikoToken();
@@ -232,7 +235,9 @@ abstract contract TaikoL1TestBase is Test {
 
     function printVariables(string memory comment) internal {
         TaikoData.StateVariables memory vars = L1.getStateVariables();
+
         uint256 fee = L1.getProverFee();
+
         string memory str = string.concat(
             Strings.toString(logCount++),
             ":[",

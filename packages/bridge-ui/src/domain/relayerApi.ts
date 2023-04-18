@@ -1,20 +1,40 @@
+import type { Address, ChainID } from './chain';
 import type { BridgeTransaction } from './transactions';
 
 export interface RelayerAPI {
-  GetAllBridgeTransactionByAddress(
+  getAllBridgeTransactionByAddress(
     address: string,
     chainID?: number,
   ): Promise<BridgeTransaction[]>;
 
-  GetBlockInfo(): Promise<Map<number, RelayerBlockInfo>>;
+  getBlockInfo(): Promise<Map<number, RelayerBlockInfo>>;
 }
+
+export type TransactionData = {
+  Message: {
+    Id: number;
+    SrcChainId: ChainID;
+    DestChainId: ChainID;
+    To: string;
+    Memo: string;
+    Owner: Address;
+    Sender: Address;
+    GasLimit: string;
+    CallValue: string;
+    DepositValue: string;
+    ProcessingFee: string;
+    RefundAddress: Address;
+    Data: string;
+  };
+  Raw: {
+    transactionHash: string;
+  };
+};
 
 export type APIResponseTransaction = {
   id: number;
   name: string;
-  data: {
-    [key: string]: any;
-  };
+  data: TransactionData;
   status: number;
   eventType: number;
   chainID: number;

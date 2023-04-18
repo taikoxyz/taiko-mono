@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { _ } from 'svelte-i18n';
   import { fromChain, toChain } from '../store/chain';
   import type { Chain } from '../domain/chain';
   import { ethers } from 'ethers';
@@ -12,7 +11,7 @@
     await switchNetwork({
       chainId: chain.id,
     });
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    const provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
     await provider.send('eth_requestAccounts', []);
 
     fromChain.set(chain);

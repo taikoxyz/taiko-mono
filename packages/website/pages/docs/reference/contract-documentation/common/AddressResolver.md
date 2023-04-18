@@ -1,7 +1,3 @@
----
-title: AddressResolver
----
-
 ## AddressResolver
 
 This abstract contract provides a name-to-address lookup. Under the hood,
@@ -95,7 +91,7 @@ Returns the AddressManager's address.
 ### keyForName
 
 ```solidity
-function keyForName(uint256 chainId, string name) public pure returns (string key)
+function keyForName(uint256 chainId, string name) public pure virtual returns (string)
 ```
 
 ### \_init

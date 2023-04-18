@@ -35,6 +35,7 @@ library LibVerifying {
         bytes32 genesisBlockHash,
         uint64 initBasefee,
         uint64 initProofTimeIssued
+
     ) internal {
         _checkConfig(config);
 
@@ -158,9 +159,6 @@ library LibVerifying {
             // reward the prover
             _addToBalance(state, fc.prover, reward);
         }
-
-        blockHash = fc.blockHash;
-        signalRoot = fc.signalRoot;
 
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = fcId;

@@ -40,4 +40,12 @@ contract TestTaikoL1 is TaikoL1 {
     ) public pure override returns (string memory key) {
         key = string.concat(Strings.toString(chainId), ".", name);
     }
+
+    // The old implementation that is also used in hardhat tests.
+    function keyForName(
+        uint256 chainId,
+        string memory name
+    ) public pure override returns (string memory key) {
+        key = string.concat(Strings.toString(chainId), ".", name);
+    }
 }

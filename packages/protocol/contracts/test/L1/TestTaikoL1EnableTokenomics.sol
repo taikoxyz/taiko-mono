@@ -29,9 +29,16 @@ contract TestTaikoL1EnableTokenomics is TaikoL1 {
         config.maxBytesPerTxList = 120000;
         config.minTxGasLimit = 21000;
 
-        // Moving average factors
         config.enableTokenomics = true;
         config.skipZKPVerification = true;
+    }
+
+    // The old implementation that is also used in hardhat tests.
+    function keyForName(
+        uint256 chainId,
+        string memory name
+    ) public pure override returns (string memory key) {
+        key = string.concat(Strings.toString(chainId), ".", name);
     }
 
     // The old implementation that is also used in hardhat tests.

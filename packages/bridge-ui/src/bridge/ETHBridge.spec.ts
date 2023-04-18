@@ -4,12 +4,15 @@ import { ETHBridge } from './ETHBridge';
 import { Message, MessageStatus } from '../domain/message';
 import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
 
+jest.mock('../constants/envVars');
+
 const mockSigner = {
   getAddress: jest.fn(),
 };
 
 const mockContract = {
   sendEther: jest.fn(),
+  sendMessage: jest.fn(),
   getMessageStatus: jest.fn(),
   processMessage: jest.fn(),
   retryMessage: jest.fn(),
@@ -17,8 +20,8 @@ const mockContract = {
 };
 
 const mockProver = {
-  GenerateProof: jest.fn(),
-  GenerateReleaseProof: jest.fn(),
+  generateProof: jest.fn(),
+  generateReleaseProof: jest.fn(),
 };
 
 jest.mock('ethers', () => ({
@@ -66,9 +69,13 @@ describe('bridge tests', () => {
     });
   });
 
-  it('bridges with processing fee', async () => {
+  it('bridges with processing fee, owner !== to', async () => {
     const bridge: Bridge = new ETHBridge(null);
     const wallet = new Wallet('0x');
+
+    mockSigner.getAddress.mockImplementationOnce(() => {
+      return '0xfake';
+    });
 
     const opts: BridgeOpts = {
       amountInWei: BigNumber.from(1),
@@ -77,6 +84,7 @@ describe('bridge tests', () => {
       fromChainId: L1_CHAIN_ID,
       toChainId: L2_CHAIN_ID,
       tokenVaultAddress: '0x456',
+      bridgeAddress: '0x456',
       processingFeeInWei: BigNumber.from(2),
       memo: 'memo',
       to: '0x',
@@ -86,23 +94,33 @@ describe('bridge tests', () => {
     await bridge.Bridge(opts);
 
     expect(mockSigner.getAddress).toHaveBeenCalled();
-    expect(mockContract.sendEther).toHaveBeenCalledWith(
-      opts.toChainId,
-      '0x',
-      BigNumber.from(140000),
-      opts.processingFeeInWei,
-      wallet.getAddress(),
-      'memo',
+    expect(mockContract.sendMessage).toHaveBeenCalledWith(
       {
-        value: BigNumber.from(3),
+        callValue: BigNumber.from('0x01'), // callValue !== 0 because message owner is NOT the same as recipient
+        data: '0x',
+        depositValue: BigNumber.from('0x00'),
+        destChainId: 167001,
+        gasLimit: BigNumber.from('0x0222e0'),
+        id: 1,
+        memo: 'memo',
+        owner: '0xfake',
+        processingFee: BigNumber.from('0x02'),
+        refundAddress: '0xfake',
+        sender: '0xfake',
+        srcChainId: 31336,
+        to: '0x',
       },
+      { value: BigNumber.from('0x03') },
     );
   });
 
-  it('bridges without processing fee', async () => {
+  it('bridges without processing fee, owner === to', async () => {
     const bridge: Bridge = new ETHBridge(null);
 
     const wallet = new Wallet('0x');
+    mockSigner.getAddress.mockImplementation(() => {
+      return '0xfake';
+    });
 
     const opts: BridgeOpts = {
       amountInWei: BigNumber.from(1),
@@ -111,18 +129,28 @@ describe('bridge tests', () => {
       fromChainId: L1_CHAIN_ID,
       toChainId: L2_CHAIN_ID,
       tokenVaultAddress: '0x456',
+      bridgeAddress: '0x456',
       to: await wallet.getAddress(),
     };
 
     await bridge.Bridge(opts);
-    expect(mockContract.sendEther).toHaveBeenCalledWith(
-      opts.toChainId,
-      wallet.getAddress(),
-      BigNumber.from(0),
-      BigNumber.from(0),
-      wallet.getAddress(),
-      '',
-      { value: opts.amountInWei },
+    expect(mockContract.sendMessage).toHaveBeenCalledWith(
+      {
+        callValue: BigNumber.from('0x00'), // callValue == 0 because message owner is same as recipient
+        data: '0x',
+        depositValue: BigNumber.from('0x01'),
+        destChainId: 167001,
+        gasLimit: BigNumber.from('0x00'),
+        id: 1,
+        memo: '',
+        owner: '0xfake',
+        processingFee: BigNumber.from('0x00'),
+        refundAddress: '0xfake',
+        sender: '0xfake',
+        srcChainId: 31336,
+        to: '0xfake',
+      },
+      { value: BigNumber.from('0x01') },
     );
   });
 
@@ -196,7 +224,7 @@ describe('bridge tests', () => {
 
     expect(mockContract.processMessage).not.toHaveBeenCalled();
 
-    expect(mockProver.GenerateProof).not.toHaveBeenCalled();
+    expect(mockProver.generateProof).not.toHaveBeenCalled();
 
     await bridge.Claim({
       message: {
@@ -212,7 +240,7 @@ describe('bridge tests', () => {
       signer: wallet,
     });
 
-    expect(mockProver.GenerateProof).toHaveBeenCalled();
+    expect(mockProver.generateProof).toHaveBeenCalled();
 
     expect(mockContract.processMessage).toHaveBeenCalled();
   });
@@ -232,7 +260,7 @@ describe('bridge tests', () => {
 
     expect(mockContract.retryMessage).not.toHaveBeenCalled();
 
-    expect(mockProver.GenerateProof).not.toHaveBeenCalled();
+    expect(mockProver.generateProof).not.toHaveBeenCalled();
 
     await bridge.Claim({
       message: {
@@ -248,7 +276,7 @@ describe('bridge tests', () => {
       signer: wallet,
     });
 
-    expect(mockProver.GenerateProof).not.toHaveBeenCalled();
+    expect(mockProver.generateProof).not.toHaveBeenCalled();
 
     expect(mockContract.retryMessage).toHaveBeenCalled();
   });
@@ -268,7 +296,7 @@ describe('bridge tests', () => {
 
     expect(mockContract.releaseEther).not.toHaveBeenCalled();
 
-    expect(mockProver.GenerateReleaseProof).not.toHaveBeenCalled();
+    expect(mockProver.generateReleaseProof).not.toHaveBeenCalled();
 
     await expect(
       bridge.ReleaseTokens({
@@ -283,7 +311,7 @@ describe('bridge tests', () => {
         srcBridgeAddress: '0x',
         destBridgeAddress: '0x',
         signer: wallet,
-        destProvider: new ethers.providers.JsonRpcProvider(),
+        destProvider: new ethers.providers.StaticJsonRpcProvider(),
         srcTokenVaultAddress: '0x',
       }),
     ).rejects.toThrowError('message already processed');
@@ -304,7 +332,7 @@ describe('bridge tests', () => {
 
     expect(mockContract.releaseEther).not.toHaveBeenCalled();
 
-    expect(mockProver.GenerateReleaseProof).not.toHaveBeenCalled();
+    expect(mockProver.generateReleaseProof).not.toHaveBeenCalled();
 
     await bridge.ReleaseTokens({
       message: {
@@ -318,11 +346,11 @@ describe('bridge tests', () => {
       srcBridgeAddress: '0x',
       destBridgeAddress: '0x',
       signer: wallet,
-      destProvider: new ethers.providers.JsonRpcProvider(),
+      destProvider: new ethers.providers.StaticJsonRpcProvider(),
       srcTokenVaultAddress: '0x',
     });
 
-    expect(mockProver.GenerateReleaseProof).toHaveBeenCalled();
+    expect(mockProver.generateReleaseProof).toHaveBeenCalled();
 
     expect(mockContract.releaseEther).toHaveBeenCalled();
   });

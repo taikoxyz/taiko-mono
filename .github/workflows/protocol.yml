@@ -55,13 +55,13 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm test:coverage
 
-      - name: protocol - Generate Genesis (hardhat)
+      - name: protocol - Generate Genesis (foundry)
         working-directory: ./packages/protocol
         run: pnpm test:genesis
 
-      - name: protocol - Export ABIs
-        working-directory: ./packages/protocol
-        run: pnpm export:abi
+      # - name: protocol - Export ABIs
+      #   working-directory: ./packages/protocol
+      #   run: pnpm export:abi
 
       - name: protocol - Deploy L1 Contracts
         working-directory: ./packages/protocol

@@ -7,7 +7,7 @@ import { EthGetProofResponse } from "../utils/rpc";
 import { deploySignalService } from "../utils/signal";
 
 // TODO(roger): this test shall not use any file in contracts/bridge/*.sol
-// Instead, it should use the `writeStorageAt` function to manipulate stroage
+// Instead, it should use the `writeStorageAt` function to manipulate storage
 // values then verify the proof.
 describe("integration:LibTrieProof", function () {
     async function deployLibTrieProofFixture() {
@@ -50,7 +50,7 @@ describe("integration:LibTrieProof", function () {
             chainId
         );
 
-        const BridgeFactory = await ethers.getContractFactory("Bridge", {
+        const BridgeFactory = await ethers.getContractFactory("TestBridge", {
             libraries: {
                 LibTrieProof: testLibTrieProof.address,
             },
@@ -112,7 +112,7 @@ describe("integration:LibTrieProof", function () {
                 msgHash
             );
 
-            // use this instead of ethers.provider.getBlock() beccause it doesnt have stateRoot
+            // use this instead of ethers.provider.getBlock() because it doesnt have stateRoot
             // in the response
             const block: {
                 stateRoot: string;
