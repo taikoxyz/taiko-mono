@@ -75,7 +75,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (
             uint256 blockId = 1;
-            blockId < L1.getConfig().maxNumProposedBlocks * 10;
+            blockId < conf.maxNumProposedBlocks * 10;
             blockId++
         ) {
             printVariables("before propose");
@@ -152,7 +152,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (
             uint256 blockId = 1;
-            blockId <= L1.getConfig().maxNumProposedBlocks;
+            blockId <= conf.maxNumProposedBlocks;
             blockId++
         ) {
             printVariables("before propose");
@@ -178,9 +178,9 @@ contract TaikoL1Test is TaikoL1TestBase {
             parentGasUsed = gasUsed;
         }
 
-        verifyBlock(Alice, L1.getConfig().maxNumProposedBlocks - 1);
+        verifyBlock(Alice, conf.maxNumProposedBlocks - 1);
         printVariables("after verify");
-        verifyBlock(Alice, L1.getConfig().maxNumProposedBlocks);
+        verifyBlock(Alice, conf.maxNumProposedBlocks);
         printVariables("after verify");
     }
 
@@ -196,7 +196,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (
             uint256 blockId = 1;
-            blockId < L1.getConfig().maxNumProposedBlocks * 10;
+            blockId < conf.maxNumProposedBlocks * 10;
             blockId++
         ) {
             printVariables("before propose");
@@ -238,7 +238,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         uint32 parentGasUsed = 0;
         uint32 gasUsed = 1000000;
 
-        uint256 total = L1.getConfig().maxNumProposedBlocks * 10;
+        uint256 total = conf.maxNumProposedBlocks * 10;
 
         for (uint256 blockId = 1; blockId < total; blockId++) {
             printVariables("before propose");
@@ -271,8 +271,8 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     function testEthDepositsToL2Reverts() external {
-        uint96 minAmount = L1.getConfig().minEthDepositAmount;
-        uint96 maxAmount = L1.getConfig().maxEthDepositAmount;
+        uint96 minAmount = conf.minEthDepositAmount;
+        uint96 maxAmount = conf.maxEthDepositAmount;
 
         _depositTaikoToken(Alice, 0, maxAmount + 1 ether);
 
@@ -294,7 +294,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         proposeBlock(Alice, 1000000, 1024);
         proposeBlock(Alice, 1000000, 1024);
 
-        uint256 count = L1.getConfig().numEthDepositPerBlock;
+        uint256 count = conf.numEthDepositPerBlock;
 
         for (uint256 i; i < count; ++i) {
             vm.prank(Alice, Alice);

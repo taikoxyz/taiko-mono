@@ -16,6 +16,7 @@ abstract contract TaikoL1TestBase is Test {
     TaikoToken public tko;
     SignalService public ss;
     TaikoL1 public L1;
+    TaikoData.Config conf;
     uint256 internal logCount;
 
     bytes32 public constant GENESIS_BLOCK_HASH =
@@ -46,6 +47,7 @@ abstract contract TaikoL1TestBase is Test {
 
         L1 = deployTaikoL1();
         L1.init(address(addressManager), feeBase, GENESIS_BLOCK_HASH);
+        conf = L1.getConfig();
 
         tko = new TaikoToken();
         address[] memory premintRecipients;
@@ -183,7 +185,7 @@ abstract contract TaikoL1TestBase is Test {
     }
 
     function _registerL2Address(string memory name, address addr) internal {
-        string memory key = L1.keyForName(L1.getConfig().chainId, name);
+        string memory key = L1.keyForName(conf.chainId, name);
         addressManager.setAddress(key, addr);
         console2.log(key, unicode"→", addr);
     }

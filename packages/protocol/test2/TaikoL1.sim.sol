@@ -77,9 +77,7 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
 
             uint32 gasLimit = uint32(randomNumber(100E3, 30E6)); // 100K to 30M
             uint32 gasUsed = uint32(randomNumber(gasLimit / 2, gasLimit));
-            uint24 txListSize = uint24(
-                randomNumber(1, L1.getConfig().maxBytesPerTxList)
-            );
+            uint24 txListSize = uint24(randomNumber(1, conf.maxBytesPerTxList));
             bytes32 blockHash = bytes32(randomNumber(type(uint256).max));
             bytes32 signalRoot = bytes32(randomNumber(type(uint256).max));
 
