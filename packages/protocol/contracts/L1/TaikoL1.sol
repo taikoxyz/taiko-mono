@@ -30,10 +30,6 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         depositEtherToL2();
     }
 
-    fallback() external {
-        revert("");
-    }
-
     /**
      * Initialize the rollup.
      *
