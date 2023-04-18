@@ -27,9 +27,13 @@ async function getBridgeMessageSent(
   // Gets the event MessageSent from the bridge contract
   // in the block where the transaction was mined, and find
   // our event MessageSent whose owner is the address passed in
-  return (
-    await bridgeContract.queryFilter('MessageSent', blockNumber, blockNumber)
-  ).find(
+  const messageSentEvents = await bridgeContract.queryFilter(
+    'MessageSent',
+    blockNumber,
+    blockNumber,
+  );
+
+  return messageSentEvents.find(
     ({ args }) =>
       args.message.owner.toLowerCase() === userAddress.toLowerCase(),
   );
@@ -65,9 +69,15 @@ async function getTokenVaultERC20Event(
 
   const filter = tokenVaultContract.filters.ERC20Sent(msgHash);
 
-  return (
-    await tokenVaultContract.queryFilter(filter, blockNumber, blockNumber)
-  ).find(({ args }) => args.msgHash.toLowerCase() === msgHash.toLowerCase());
+  const events = await tokenVaultContract.queryFilter(
+    filter,
+    blockNumber,
+    blockNumber,
+  );
+
+  return events.find(
+    ({ args }) => args.msgHash.toLowerCase() === msgHash.toLowerCase(),
+  );
 }
 
 async function getERC20SymbolAndAmount(
