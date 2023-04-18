@@ -55,6 +55,7 @@ abstract contract TaikoL1TestBase is Test {
         ss.init(address(addressManager));
 
         _registerAddress("signal_service", address(ss));
+        _registerAddress("ether_vault", address(L1EthVault));
         _registerL2Address("treasure", L2Treasure);
         _registerL2Address("taiko", address(TaikoL2));
         _registerL2Address("signal_service", address(L2SS));
