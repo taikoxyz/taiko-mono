@@ -30,6 +30,8 @@ abstract contract TaikoL1TestBase is Test {
     address public constant L2SS = 0xa008AE5Ba00656a3Cc384de589579e3E52aC030C;
     address public constant TaikoL2 =
         0x0082D90249342980d011C58105a03b35cCb4A315;
+    address public constant L1EthVault =
+        0xDAFEA492D9c6733ae3d56b7Ed1ADB60692c98Bc5;
 
     address public constant Alice = 0xa9bcF99f5eb19277f48b71F9b14f5960AEA58a89;
     uint256 public constant AlicePK =
@@ -92,8 +94,7 @@ abstract contract TaikoL1TestBase is Test {
                 txListHash: keccak256(txList),
                 txListByteStart: 0,
                 txListByteEnd: txListSize,
-                cacheTxListInfo: 0,
-                ethDepositIds: new uint64[](0)
+                cacheTxListInfo: 0
             });
 
         TaikoData.StateVariables memory variables = L1.getStateVariables();
