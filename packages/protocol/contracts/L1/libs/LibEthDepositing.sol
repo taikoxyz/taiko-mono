@@ -17,58 +17,46 @@ library LibEthDepositing {
     using LibAddress for address;
     using SafeCastUpgradeable for uint256;
 
-    uint256 public constant GWEI_TO_WEI = 1000000000;
+    // When numEthDepositPerBlock is 32, the average gas cost per
+    // EthDeposit is about 2700 gas. We use 21000 so the proposer may
+    // earn a small profit if there are 32 deposits included
+    // in the block; if there are less EthDeposit to process, the
+    // proposer may suffer a loss so the proposer should simply wait
+    // for more EthDeposit be become available.
+    uint256 public constant GAS_PER_ETH_DEPOSIT = 21000;
 
     error L1_INVALID_ETH_DEPOSIT();
-    error L1_TOO_MANY_ETH_DEPOSITS();
 
-    event EthDepositRequested(uint64 id, TaikoData.EthDeposit deposit);
-    event EthDepositCanceled(uint64 id, TaikoData.EthDeposit deposit);
+    event EthDeposited(TaikoData.EthDeposit deposit);
 
-    /// @dev Each EthDeposit can carry  18,446.74 Ether. It will take forever
-    // for someone to overflow Ether balance on L2 if we limit the number of
-    // EthDeposits per L2 block.
     function depositEtherToL2(
         TaikoData.State storage state,
-        uint256 fee
+        TaikoData.Config memory config,
+        AddressResolver resolver
     ) public {
-        uint256 feeGwei = fee / GWEI_TO_WEI;
+        if (
+            msg.value < config.minEthDepositAmount ||
+            msg.value > config.maxEthDepositAmount
+        ) revert L1_INVALID_ETH_DEPOSIT();
 
         TaikoData.EthDeposit memory deposit = TaikoData.EthDeposit({
             recipient: msg.sender,
-            amountGwei: ((msg.value - GWEI_TO_WEI * feeGwei) / GWEI_TO_WEI)
-                .toUint48(),
-            feeGwei: feeGwei.toUint48()
+            amount: uint96(msg.value)
         });
 
-        state.ethDeposits[state.nextEthDepositId] = deposit;
-        emit EthDepositRequested(state.nextEthDepositId, deposit);
-
-        unchecked {
-            ++state.nextEthDepositId;
+        address to = resolver.resolve("ether_vault", true);
+        if (to == address(0)) {
+            to = resolver.resolve("bridge", false);
         }
+        to.sendEther(msg.value);
+
+        state.ethDeposits.push(deposit);
+        emit EthDeposited(deposit);
     }
 
-    function cancelEtherDepositToL2(
-        TaikoData.State storage state,
-        uint64 depositId
-    ) public {
-        TaikoData.EthDeposit memory deposit = state.ethDeposits[depositId];
-        if (deposit.recipient == address(0)) revert L1_INVALID_ETH_DEPOSIT();
-
-        uint256 amount = GWEI_TO_WEI *
-            (uint256(deposit.amountGwei) + deposit.feeGwei);
-        deposit.recipient.sendEther(amount);
-        delete state.ethDeposits[depositId];
-
-        emit EthDepositCanceled(depositId, deposit);
-    }
-
-    function calcDepositsRoot(
+    function processDeposits(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        AddressResolver resolver,
-        uint64[] memory ethDepositIds,
         address beneficiary
     )
         internal
@@ -77,55 +65,58 @@ library LibEthDepositing {
             TaikoData.EthDeposit[] memory depositsProcessed
         )
     {
-        if (ethDepositIds.length == 0)
-            return (0, new TaikoData.EthDeposit[](0));
-
-        if (ethDepositIds.length >= config.maxEthDepositPerBlock)
-            revert L1_TOO_MANY_ETH_DEPOSITS();
-
-        depositsProcessed = new TaikoData.EthDeposit[](ethDepositIds.length);
-        uint48 totalFeeGwei;
-        uint256 totalEtherGwei;
-        uint j;
+        // Allocate one extra slot for collecting fees on L2
+        depositsProcessed = new TaikoData.EthDeposit[](
+            config.numEthDepositPerBlock + 1
+        );
+        uint64 i = state.nextEthDepositToProcess;
+        uint j; // number of deposits to process on L2
 
         unchecked {
-            for (uint256 i; i < ethDepositIds.length; ++i) {
-                uint256 id = ethDepositIds[i];
-                TaikoData.EthDeposit storage deposit = state.ethDeposits[id];
+            uint96 feePerDeposit = uint96(tx.gasprice * GAS_PER_ETH_DEPOSIT);
+            uint96 totalFee;
+            while (
+                i < state.ethDeposits.length &&
+                i < state.nextEthDepositToProcess + 32
+            ) {
+                TaikoData.EthDeposit storage deposit = state.ethDeposits[i];
+                if (deposit.amount > feePerDeposit) {
+                    totalFee += feePerDeposit;
+                    depositsProcessed[j].recipient = deposit.recipient;
+                    depositsProcessed[j].amount =
+                        deposit.amount -
+                        feePerDeposit;
+                    ++j;
+                } else {
+                    totalFee += deposit.amount;
+                }
 
-                if (deposit.recipient == address(0)) continue;
+                // delete the deposit
+                deposit.recipient = address(0);
+                deposit.amount = 0;
+                ++i;
+            }
 
-                depositsProcessed[j].recipient = deposit.recipient;
-                depositsProcessed[j].amountGwei = deposit.amountGwei;
-
-                // sum up
-                totalFeeGwei += deposit.feeGwei; // may overflow then throw
-                totalEtherGwei += uint256(deposit.amountGwei) + deposit.feeGwei;
-
-                // delete this record
-                state.ethDeposits[id].recipient = address(0);
-                state.ethDeposits[id].amountGwei = 0;
-                state.ethDeposits[id].feeGwei = 0;
+            // Fee collecting deposit
+            if (totalFee > 0) {
+                depositsProcessed[j].recipient = beneficiary;
+                depositsProcessed[j].amount = totalFee;
                 ++j;
             }
-
-            depositsProcessed[j].recipient = beneficiary;
-            depositsProcessed[j].amountGwei = totalFeeGwei;
         }
 
+        // resize the length of depositsProcessed to j.
         assembly {
-            // Change the length of depositsProcessed
-            sstore(depositsProcessed, j)
-            // Note that EthDeposit takes 1 slot each
-            depositsRoot := keccak256(depositsProcessed, mul(j, 32))
+            mstore(depositsProcessed, j)
         }
 
-        if (totalEtherGwei > 0) {
-            address to = resolver.resolve("ether_vault", true);
-            if (to == address(0)) {
-                to = resolver.resolve("bridge", false);
+        // calculate hash if j > 0
+        if (j > 0) {
+            assembly {
+                depositsRoot := keccak256(depositsProcessed, mul(j, 32))
             }
-            to.sendEther(GWEI_TO_WEI * totalEtherGwei);
         }
+        // Advance cursor
+        state.nextEthDepositToProcess = i;
     }
 }

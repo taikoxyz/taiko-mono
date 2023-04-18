@@ -6,6 +6,18 @@
 struct TaikoData.State state
 ```
 
+### receive
+
+```solidity
+receive() external payable
+```
+
+### fallback
+
+```solidity
+fallback() external
+```
+
 ### init
 
 ```solidity
@@ -82,18 +94,6 @@ Verify up to N blocks.
 | --------- | ------- | ------------------------------- |
 | maxBlocks | uint256 | Max number of blocks to verify. |
 
-### depositEtherToL2
-
-```solidity
-function depositEtherToL2(uint256 fee) external payable
-```
-
-### cancelEtherDepositToL2
-
-```solidity
-function cancelEtherDepositToL2(uint64 depositId) external
-```
-
 ### depositTaikoToken
 
 ```solidity
@@ -104,6 +104,12 @@ function depositTaikoToken(uint256 amount) external
 
 ```solidity
 function withdrawTaikoToken(uint256 amount) external
+```
+
+### depositEtherToL2
+
+```solidity
+function depositEtherToL2() public payable
 ```
 
 ### getBalance

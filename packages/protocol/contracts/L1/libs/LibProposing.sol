@@ -73,13 +73,7 @@ library LibProposing {
         meta.cacheTxListInfo = cacheTxListInfo;
 
         (meta.depositsRoot, meta.depositsProcessed) = LibEthDepositing
-            .calcDepositsRoot(
-                state,
-                config,
-                resolver,
-                input.ethDepositIds,
-                input.beneficiary
-            );
+            .processDeposits(state, config, input.beneficiary);
 
         unchecked {
             meta.timestamp = uint64(block.timestamp);

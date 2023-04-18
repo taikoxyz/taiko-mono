@@ -59,7 +59,9 @@ library LibUtils {
                 lastProposedAt: state.lastProposedAt,
                 avgBlockTime: state.avgBlockTime,
                 lastVerifiedBlockId: state.lastVerifiedBlockId,
-                avgProofTime: state.avgProofTime
+                avgProofTime: state.avgProofTime,
+                nextEthDepositToProcess: state.nextEthDepositToProcess,
+                numEthDeposits: uint64(state.ethDeposits.length)
             });
     }
 
