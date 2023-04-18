@@ -132,12 +132,6 @@ error L1_ORACLE_DISABLED()
 error L1_TOO_MANY_BLOCKS()
 ```
 
-### L1_TOO_MANY_ETH_DEPOSITS
-
-```solidity
-error L1_TOO_MANY_ETH_DEPOSITS()
-```
-
 ### L1_TX_LIST_NOT_EXIST
 
 ```solidity

@@ -18,14 +18,8 @@ event BlockProven(uint256 id, bytes32 parentHash, bytes32 blockHash, bytes32 sig
 event BlockVerified(uint256 id, bytes32 blockHash)
 ```
 
-### EthDepositRequested
+### EthDeposited
 
 ```solidity
-event EthDepositRequested(uint64 id, struct TaikoData.EthDeposit deposit)
-```
-
-### EthDepositCanceled
-
-```solidity
-event EthDepositCanceled(uint64 id, struct TaikoData.EthDeposit deposit)
+event EthDeposited(struct TaikoData.EthDeposit deposit)
 ```
