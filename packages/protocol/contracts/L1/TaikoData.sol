@@ -23,6 +23,7 @@ library TaikoData {
         uint256 txListCacheExpiry;
         uint64 proofTimeTarget;
         uint8 adjustmentQuotient;
+        bool relaySignalRoot;
         bool enableSoloProposer;
         bool enableOracleProver;
         bool enableTokenomics;
@@ -50,7 +51,7 @@ library TaikoData {
     }
 
     // 6 slots
-    // Changing this struct requires chaing LibUtils.hashMetadata accordingly.
+    // Changing this struct requires changing LibUtils.hashMetadata accordingly.
     struct BlockMetadata {
         uint64 id;
         uint64 timestamp;
@@ -62,6 +63,8 @@ library TaikoData {
         uint24 txListByteEnd;
         uint32 gasLimit;
         address beneficiary;
+        uint8 cacheTxListInfo;
+        address treasure;
     }
 
     struct ZKProof {
@@ -77,16 +80,30 @@ library TaikoData {
         bytes32 signalRoot;
         bytes32 graffiti;
         address prover;
+        uint32 parentGasUsed;
         uint32 gasUsed;
     }
 
-    // 3 slots
+    struct BlockOracle {
+        bytes32 blockHash;
+        uint32 gasUsed;
+        bytes32 signalRoot;
+    }
+
+    struct BlockOracles {
+        bytes32 parentHash;
+        uint32 parentGasUsed;
+        BlockOracle[] blks;
+    }
+
+    // 4 slots
     struct ForkChoice {
+        bytes32 key; // only written/read for the 1st fork choice.
         bytes32 blockHash;
         bytes32 signalRoot;
         uint64 provenAt;
-        uint32 gasUsed;
         address prover;
+        uint32 gasUsed;
     }
 
     // 4 slots
@@ -111,11 +128,8 @@ library TaikoData {
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint256 blockId_mode_ringBufferSize => Block) blocks;
-        // A mapping from (blockId, parentHash) to a reusable ForkChoice storage pointer.
         // solhint-disable-next-line max-line-length
-        mapping(uint256 blockId => mapping(bytes32 parentHash => uint256 forkChoiceId)) forkChoiceIds;
-        // TODO(dani): change to:
-        // mapping(address account => uint64 balance) balances;
+        mapping(uint256 blockId => mapping(bytes32 parentHash => mapping(uint32 parentGasUsed => uint256 forkChoiceId))) forkChoiceIds;
         mapping(address account => uint256 balance) balances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         // Slot 5: never or rarely changed

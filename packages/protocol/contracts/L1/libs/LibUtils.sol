@@ -28,6 +28,25 @@ library LibUtils {
         found = (blk.blockId == id && blk.verifiedForkChoiceId != 0);
     }
 
+    function getForkChoiceId(
+        TaikoData.State storage state,
+        TaikoData.Block storage blk,
+        bytes32 parentHash,
+        uint32 parentGasUsed
+    ) internal view returns (uint256) {
+        if (
+            blk.forkChoices[1].key ==
+            keyForForkChoice(parentHash, parentGasUsed)
+        ) return 1;
+
+        uint256 fcId = state.forkChoiceIds[blk.blockId][parentHash][
+            parentGasUsed
+        ];
+        if (fcId >= blk.nextForkChoiceId) return 0;
+
+        return fcId;
+    }
+
     function getStateVariables(
         TaikoData.State storage state
     ) internal view returns (TaikoData.StateVariables memory) {
@@ -68,12 +87,13 @@ library LibUtils {
         uint24 txListByteEnd;
         uint32 gasLimit;
         address beneficiary;
+        address treasure;
     }
 
     function hashMetadata(
         TaikoData.BlockMetadata memory meta
     ) internal pure returns (bytes32 hash) {
-        uint256[5] memory inputs;
+        uint256[6] memory inputs;
 
         inputs[0] =
             (uint256(meta.id) << 192) |
@@ -88,10 +108,26 @@ library LibUtils {
             (uint256(meta.txListByteStart) << 232) |
             (uint256(meta.txListByteEnd) << 208) |
             (uint256(meta.gasLimit) << 176) |
-            (uint256(uint160(meta.beneficiary)) << 16);
+            (uint256(uint160(meta.beneficiary)) << 16) |
+            (uint256(meta.cacheTxListInfo) << 8);
+
+        inputs[5] = (uint256(uint160(meta.treasure)) << 96);
 
         assembly {
-            hash := keccak256(inputs, mul(5, 32))
+            hash := keccak256(inputs, mul(6, 32))
+        }
+    }
+
+    function keyForForkChoice(
+        bytes32 parentHash,
+        uint32 parentGasUsed
+    ) internal pure returns (bytes32 key) {
+        assembly {
+            let ptr := mload(0x40)
+            mstore(ptr, parentGasUsed)
+            mstore(add(ptr, 32), parentHash)
+            key := keccak256(add(ptr, 28), 36)
+            mstore(0x40, add(ptr, 64))
         }
     }
 }

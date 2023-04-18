@@ -8,6 +8,7 @@ pragma solidity ^0.8.18;
 
 import {TaikoL1} from "../../L1/TaikoL1.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract TestTaikoL1 is TaikoL1 {
     function getConfig()
@@ -28,6 +29,15 @@ contract TestTaikoL1 is TaikoL1 {
         config.maxBytesPerTxList = 120000;
         config.minTxGasLimit = 21000;
 
+        config.enableTokenomics = false;
         config.skipZKPVerification = true;
+    }
+
+    // The old implementation that is also used in hardhat tests.
+    function keyForName(
+        uint256 chainId,
+        string memory name
+    ) public pure override returns (string memory key) {
+        key = string.concat(Strings.toString(chainId), ".", name);
     }
 }

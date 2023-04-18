@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { BigNumber, Contract, ethers } from "ethers";
+  import { BigNumber, Contract, ethers, providers } from "ethers";
   import { getLatestSyncedHeader } from "../../utils/getLatestSyncedHeader";
   import StatusIndicator from "../../components/StatusIndicator.svelte";
   import { watchHeaderSynced } from "../../utils/watchHeaderSynced";
@@ -17,6 +17,9 @@
   import { getStateVariables } from "../../utils/getStateVariables";
   import { truncateString } from "../../utils/truncateString";
   import TaikoL1 from "../../constants/abi/TaikoL1";
+  import { getNumProvers } from "../../utils/getNumProvers";
+  import DetailsModal from "../../components/DetailsModal.svelte";
+  import { addressSubsection } from "../../utils/addressSubsection";
 
   export let l1Provider: ethers.providers.JsonRpcProvider;
   export let l1TaikoAddress: string;
@@ -26,8 +29,29 @@
   export let l2ExplorerUrl: string;
   export let feeTokenSymbol: string;
   export let oracleProverAddress: string;
+  export let eventIndexerApiUrl: string;
+
+  let proverDetailsOpen: boolean = false;
 
   let statusIndicators: StatusIndicatorProp[] = [
+    {
+      statusFunc: async (
+        provider: ethers.providers.JsonRpcProvider,
+        address: string
+      ) => (await getNumProvers(eventIndexerApiUrl)).uniqueProvers,
+      provider: l1Provider,
+      contractAddress: l1TaikoAddress,
+      header: "Unique Provers",
+      intervalInMs: 0,
+      colorFunc: (value: Status) => {
+        return "green";
+      },
+      onClick: (value: Status) => {
+        proverDetailsOpen = true;
+      },
+      tooltip:
+        "The number of unique provers who successfully submitted a proof to the TaikoL1 smart contract.",
+    },
     {
       statusFunc: getLatestSyncedHeader,
       watchStatusFunc: watchHeaderSynced,
@@ -164,33 +188,32 @@
 
   onMount(async () => {
     try {
-      statusIndicators.push({
-        statusFunc: getProverFee,
-        watchStatusFunc: null,
-        provider: l1Provider,
-        contractAddress: l1TaikoAddress,
-        header: "Block Fee",
-        intervalInMs: 15000,
-        colorFunc: function (status: Status) {
-          return "green"; // todo: whats green, yellow, red?
-        },
-        tooltip:
-          "The current fee to propose a block to the TaikoL1 smart contract.",
-      });
-
-      statusIndicators.push({
-        statusFunc: getProofReward,
-        watchStatusFunc: null,
-        provider: l1Provider,
-        contractAddress: l1TaikoAddress,
-        header: "Proof Reward",
-        intervalInMs: 15000,
-        colorFunc: function (status: Status) {
-          return "green"; // todo: whats green, yellow, red?
-        },
-        tooltip:
-          "The current reward for successfully submitting a proof for a proposed block on the TaikoL1 smart contract.",
-      });
+      // statusIndicators.push({
+      //   statusFunc: getBlockFee,
+      //   watchStatusFunc: null,
+      //   provider: l1Provider,
+      //   contractAddress: l1TaikoAddress,
+      //   header: "Block Fee",
+      //   intervalInMs: 15000,
+      //   colorFunc: function (status: Status) {
+      //     return "green"; // todo: whats green, yellow, red?
+      //   },
+      //   tooltip:
+      //     "The current fee to propose a block to the TaikoL1 smart contract.",
+      // });
+      // statusIndicators.push({
+      //   statusFunc: getProofReward,
+      //   watchStatusFunc: null,
+      //   provider: l1Provider,
+      //   contractAddress: l1TaikoAddress,
+      //   header: "Proof Reward",
+      //   intervalInMs: 15000,
+      //   colorFunc: function (status: Status) {
+      //     return "green"; // todo: whats green, yellow, red?
+      //   },
+      //   tooltip:
+      //     "The current reward for successfully submitting a proof for a proposed block on the TaikoL1 smart contract.",
+      // });
     } catch (e) {
       console.error(e);
     }
@@ -230,10 +253,12 @@
           const contract = new Contract(address, TaikoL1, provider);
           contract.on(
             "BlockProven",
-            (id, parentHash, blockHash, prover, provenAt) => {
+            (id, parentHash, blockHash, prover, provenAt, ...args) => {
               // ignore oracle prover
               if (prover.toLowerCase() !== oracleProverAddress.toLowerCase()) {
-                onEvent(new Date(provenAt.toNumber()).toString());
+                if(!provenAt.eq(0)) {
+                  onEvent(new Date(provenAt.toNumber() * 1000).toString());
+                }
               }
             }
           );
@@ -282,26 +307,26 @@
           "The current average block time, updated when a block is successfully proposed.",
       });
 
-      statusIndicators.push({
-        provider: l1Provider,
-        contractAddress: l1TaikoAddress,
-        header: "Fee Base",
-        intervalInMs: 0,
-        statusFunc: async (
-          provider: ethers.providers.JsonRpcProvider,
-          address: string
-        ) => {
-          const stateVars = await getStateVariables(provider, address);
-          return `${truncateString(
-            ethers.utils.formatEther(stateVars.basefee),
-            6
-          )} ${feeTokenSymbol}`;
-        },
-        colorFunc: function (status: Status) {
-          return "green"; // todo: whats green, yellow, red?
-        },
-        tooltip: "The current fee base for proposing and rewarding",
-      });
+      // statusIndicators.push({
+      //   provider: l1Provider,
+      //   contractAddress: l1TaikoAddress,
+      //   header: "Fee Base",
+      //   intervalInMs: 0,
+      //   statusFunc: async (
+      //     provider: ethers.providers.JsonRpcProvider,
+      //     address: string
+      //   ) => {
+      //     const stateVars = await getStateVariables(provider, address);
+      //     return `${truncateString(
+      //       ethers.utils.formatEther(stateVars.feeBase),
+      //       6
+      //     )} ${feeTokenSymbol}`;
+      //   },
+      //   colorFunc: function (status: Status) {
+      //     return "green"; // todo: whats green, yellow, red?
+      //   },
+      //   tooltip: "The current fee base for proposing and rewarding",
+      // });
     } catch (e) {
       console.error(e);
     }
@@ -331,3 +356,27 @@
     />
   {/each}
 </div>
+
+{#if proverDetailsOpen}
+  <DetailsModal title={"Prover Details"} bind:isOpen={proverDetailsOpen}>
+    <div
+      class="grid grid-cols-2 gap-4 text-center my-10 max-h-96 overflow-y-auto"
+      slot="body"
+    >
+      {#await getNumProvers(eventIndexerApiUrl) then provers}
+        {#each provers.provers as prover}
+          <a
+            href="{l1ExplorerUrl}/address/{prover.address}"
+            target="_blank"
+            rel="noreferrer"
+          >
+            {addressSubsection(prover.address)}
+          </a>
+          <div>{prover.count}</div>
+        {/each}
+      {:catch error}
+        <p class="red">{error.message}</p>
+      {/await}
+    </div>
+  </DetailsModal>
+{/if}

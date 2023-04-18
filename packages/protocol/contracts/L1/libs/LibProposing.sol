@@ -8,7 +8,6 @@ pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibAddress} from "../../libs/LibAddress.sol";
-import {LibL2Consts} from "../../L2/LibL2Consts.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {
@@ -22,13 +21,10 @@ library LibProposing {
     using LibAddress for address payable;
     using LibUtils for TaikoData.State;
 
-    event BlockProposed(
-        uint256 indexed id,
-        TaikoData.BlockMetadata meta,
-        bool txListCached
-    );
+    event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
     error L1_BLOCK_ID();
+    error L1_INSUFFICIENT_ETHER();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
     error L1_NOT_SOLO_PROPOSER();
@@ -45,7 +41,7 @@ library LibProposing {
         TaikoData.BlockMetadataInput memory input,
         bytes calldata txList
     ) internal {
-        bool cacheTxList = _validateBlock({
+        uint8 cacheTxListInfo = _validateBlock({
             state: state,
             config: config,
             resolver: resolver,
@@ -53,7 +49,7 @@ library LibProposing {
             txList: txList
         });
 
-        if (cacheTxList) {
+        if (cacheTxListInfo != 0) {
             state.txListInfo[input.txListHash] = TaikoData.TxListInfo({
                 validSince: uint64(block.timestamp),
                 size: uint24(txList.length)
@@ -76,7 +72,9 @@ library LibProposing {
                 txListByteStart: input.txListByteStart,
                 txListByteEnd: input.txListByteEnd,
                 gasLimit: input.gasLimit,
-                beneficiary: input.beneficiary
+                beneficiary: input.beneficiary,
+                treasure: resolver.resolve(config.chainId, "treasure", false),
+                cacheTxListInfo: cacheTxListInfo
             });
         }
 
@@ -105,7 +103,7 @@ library LibProposing {
             }
         }
 
-        emit BlockProposed(state.numBlocks, meta, cacheTxList);
+        emit BlockProposed(state.numBlocks, meta);
         unchecked {
             ++state.numBlocks;
             state.lastProposedAt = meta.timestamp;
@@ -127,7 +125,7 @@ library LibProposing {
         AddressResolver resolver,
         TaikoData.BlockMetadataInput memory input,
         bytes calldata txList
-    ) private view returns (bool cacheTxList) {
+    ) private view returns (uint8 cacheTxListInfo) {
         // For alpha-2 testnet, the network only allows an special address
         // to propose but anyone to prove. This is the first step of testing
         // the tokenomics.
@@ -138,7 +136,7 @@ library LibProposing {
 
         if (
             input.beneficiary == address(0) ||
-            input.gasLimit < LibL2Consts.ANCHOR_GAS_COST ||
+            input.gasLimit == 0 ||
             input.gasLimit > config.blockMaxGasLimit
         ) revert L1_INVALID_METADATA();
 
@@ -180,7 +178,7 @@ library LibProposing {
                     if (input.txListHash != keccak256(txList))
                         revert L1_TX_LIST_HASH();
 
-                    cacheTxList = (input.cacheTxListInfo != 0);
+                    cacheTxListInfo = input.cacheTxListInfo;
                 }
             }
         }

@@ -17,13 +17,13 @@ library TaikoConfig {
                 maxNumProposedBlocks: 120960,
                 ringBufferSize: 120960 + 10,
                 maxNumVerifiedBlocks: 4096,
-                //Each time one more block is verified, there will be ~20k
+                // Each time one more block is verified, there will be ~20k
                 // more gas cost.
                 maxVerificationsPerTx: 10,
                 // Set it to 6M, since its the upper limit of the Alpha-2
                 // testnet's circuits.
                 blockMaxGasLimit: 6000000,
-                //   Set it to 79  (+1 TaikoL2.anchor transaction = 80),
+                // Set it to 79  (+1 TaikoL2.anchor transaction = 80),
                 // and 80 is the upper limit of the Alpha-2 testnet's circuits.
                 maxTransactionsPerBlock: 79,
                 // Set it to 120KB, since 128KB is the upper size limit
@@ -35,6 +35,7 @@ library TaikoConfig {
                 txListCacheExpiry: 0,
                 proofTimeTarget: 1800, // 85s based on A2 testnet status, or set to 1800 for 30mins (mainnet mock)
                 adjustmentQuotient: 16,
+                relaySignalRoot: false,
                 enableSoloProposer: false,
                 enableOracleProver: true,
                 enableTokenomics: true,

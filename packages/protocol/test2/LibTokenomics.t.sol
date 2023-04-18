@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
 // Uncomment if you want to compare fee/vs reward
@@ -66,14 +66,18 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
         //parentHash = prove_with_increasing_time(parentHash, 10);
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(
+                Alice,
+                1000000,
+                1024
+            );
             uint64 proposedAt = uint64(block.timestamp);
             printVariables("after propose");
             mine(blockId);
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
+            proveBlock(Bob, meta, parentHash, 123, 456, blockHash, signalRoot);
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
                 "Proof reward is:",
@@ -105,14 +109,18 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
         // Run another session with huge times
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(
+                Alice,
+                1000000,
+                1024
+            );
             uint64 proposedAt = uint64(block.timestamp);
             printVariables("after propose");
             mine_huge();
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
+            proveBlock(Bob, meta, parentHash, 123, 456, blockHash, signalRoot);
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
                 "Proof reward is:",
@@ -158,7 +166,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
         // Propose blocks
         for (uint256 blockId = 1; blockId < 20; blockId++) {
             //printVariables("before propose");
-            metas[blockId] = proposeBlock(Alice, 1024);
+            metas[blockId] = proposeBlock(Alice, 1000000, 1024);
             proposedAtArr[blockId] = (uint64(block.timestamp));
             printVariables("after propose");
             mine(blockId);
@@ -170,7 +178,15 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
         for (uint256 blockId = 1; blockId < 20; blockId++) {
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, metas[blockId], parentHash, blockHash, signalRoot);
+            proveBlock(
+                Bob,
+                metas[blockId],
+                parentHash,
+                123,
+                456,
+                blockHash,
+                signalRoot
+            );
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
                 "Proof reward is:",
@@ -196,14 +212,18 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
         // Run another sessioins
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(
+                Alice,
+                1000000,
+                1024
+            );
             uint64 proposedAt = uint64(block.timestamp);
             printVariables("after propose");
             mine_proofTime();
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
+            proveBlock(Bob, meta, parentHash, 123, 456, blockHash, signalRoot);
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
                 "Proof reward is:",
@@ -247,14 +267,18 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
         //parentHash = prove_with_increasing_time(parentHash, 10);
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(
+                Alice,
+                1000000,
+                1024
+            );
             uint64 proposedAt = uint64(block.timestamp);
             printVariables("after propose");
             mine(2);
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
+            proveBlock(Bob, meta, parentHash, 123, 456, blockHash, signalRoot);
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
                 "Proof reward is:",
@@ -309,7 +333,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
         // Propose blocks
         for (uint256 blockId = 1; blockId < 30; blockId++) {
             //printVariables("before propose");
-            meta[blockId] = proposeBlock(Alice, 1024);
+            meta[blockId] = proposeBlock(Alice, 1000000, 1024);
             proposedAt[blockId] = (uint64(block.timestamp));
             printVariables("after propose");
             mine(blockId);
@@ -322,7 +346,15 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
 
-            proveBlock(Bob, meta[blockId], parentHash, blockHash, signalRoot);
+            proveBlock(
+                Bob,
+                meta[blockId],
+                parentHash,
+                123,
+                456,
+                blockHash,
+                signalRoot
+            );
 
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
@@ -378,7 +410,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
         // Propose blocks
         for (uint256 blockId = 1; blockId < 20; blockId++) {
             //printVariables("before propose");
-            meta[blockId] = proposeBlock(Alice, 1024);
+            meta[blockId] = proposeBlock(Alice, 1000000, 1024);
             proposedAt[blockId] = (uint64(block.timestamp));
             printVariables("after propose");
             mine(blockId);
@@ -390,7 +422,15 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
         for (uint256 blockId = 1; blockId < 20; blockId++) {
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta[blockId], parentHash, blockHash, signalRoot);
+            proveBlock(
+                Bob,
+                meta[blockId],
+                parentHash,
+                123,
+                456,
+                blockHash,
+                signalRoot
+            );
 
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
@@ -435,14 +475,18 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
         //parentHash = prove_with_increasing_time(parentHash, 10);
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(
+                Alice,
+                1000000,
+                1024
+            );
             uint64 proposedAt = uint64(block.timestamp);
             printVariables("after propose");
             mine(5);
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
+            proveBlock(Bob, meta, parentHash, 123, 456, blockHash, signalRoot);
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
                 "Proof reward is:",
@@ -497,7 +541,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
         // Propose  blocks
         for (uint256 blockId = 1; blockId < 30; blockId++) {
             //printVariables("before propose");
-            meta[blockId] = proposeBlock(Alice, 1024);
+            meta[blockId] = proposeBlock(Alice, 1000000, 1024);
             proposedAt[blockId] = (uint64(block.timestamp));
             printVariables("after propose");
             mine(blockId);
@@ -510,7 +554,15 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
 
-            proveBlock(Bob, meta[blockId], parentHash, blockHash, signalRoot);
+            proveBlock(
+                Bob,
+                meta[blockId],
+                parentHash,
+                123,
+                456,
+                blockHash,
+                signalRoot
+            );
 
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
@@ -560,14 +612,18 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
 
         //parentHash = prove_with_increasing_time(parentHash, 10);
         for (uint256 blockId = 1; blockId < 10; blockId++) {
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(
+                Alice,
+                1000000,
+                1024
+            );
             printVariables("after propose");
             uint64 proposedAt = uint64(block.timestamp);
             mine(11 - blockId);
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
+            proveBlock(Bob, meta, parentHash, 123, 456, blockHash, signalRoot);
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
                 "Proof reward is:",
@@ -599,14 +655,18 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
         // Run another session with huge times
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(
+                Alice,
+                1000000,
+                1024
+            );
             uint64 proposedAt = uint64(block.timestamp);
             printVariables("after propose");
             mine_proofTime();
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
+            proveBlock(Bob, meta, parentHash, 123, 456, blockHash, signalRoot);
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
                 "Proof reward is:",
@@ -651,7 +711,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
         // Propose blocks
         for (uint256 blockId = 1; blockId < 20; blockId++) {
             //printVariables("before propose");
-            metaArr[blockId] = proposeBlock(Alice, 1024);
+            metaArr[blockId] = proposeBlock(Alice, 1000000, 1024);
             proposedAtArr[blockId] = (uint64(block.timestamp));
             printVariables("after propose");
             mine(blockId);
@@ -667,6 +727,8 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
                 Bob,
                 metaArr[blockId],
                 parentHash,
+                123,
+                456,
                 blockHash,
                 signalRoot
             );
@@ -702,14 +764,18 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
         // Run another session with huge times
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(
+                Alice,
+                1000000,
+                1024
+            );
             uint64 proposedAt = uint64(block.timestamp);
             printVariables("after propose");
             mine_proofTime();
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
+            proveBlock(Bob, meta, parentHash, 123, 456, blockHash, signalRoot);
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
                 "Proof reward is:",

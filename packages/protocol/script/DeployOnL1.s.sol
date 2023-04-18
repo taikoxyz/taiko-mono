@@ -19,12 +19,14 @@ import "../contracts/signal/SignalService.sol";
 import "../contracts/thirdparty/AddressManager.sol";
 import "../contracts/test/erc20/FreeMintERC20.sol";
 import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
+import "../test2/Ln.sol";
 
 contract DeployOnL1 is Script, AddressResolver {
     using SafeCastUpgradeable for uint256;
+
     uint256 public l2ChainId = vm.envUint("L2_CHAIN_ID");
 
-    bytes32 public gensisHash = vm.envBytes32("L2_GENESIS_HASH");
+    bytes32 public genesisHash = vm.envBytes32("L2_GENESIS_HASH");
 
     uint256 public deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
@@ -32,9 +34,13 @@ contract DeployOnL1 is Script, AddressResolver {
 
     address public owner = vm.envAddress("OWNER");
 
-    address public oracleProver = vm.envAddress("ORACLE_PROVER_ADDRESS");
+    address public oracleProver = vm.envAddress("ORACLE_PROVER");
 
     address public soloProposer = vm.envAddress("SOLO_PROPOSER");
+
+    address public sharedSignalService = vm.envAddress("SHARED_SIGNAL_SERVICE");
+
+    address public treasure = vm.envAddress("TREASURE");
 
     address public taikoTokenPremintRecipient =
         vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
@@ -44,12 +50,18 @@ contract DeployOnL1 is Script, AddressResolver {
 
     address public addressManagerProxy;
 
+    // New fee/reward related variables
+    uint256 public constant SCALING_E18 = 1e18;
+    uint16 public constant PROOF_TIME_TARGET = 1800; // Mainnet it is 30 mins, choose carefully !
+    uint8 public constant ADJUSTMENT_QUOTIENT = 16;
+
     error FAILED_TO_DEPLOY_PLONK_VERIFIER(string contractPath);
 
     function run() external {
         require(l2ChainId != block.chainid, "same chainid");
         require(owner != address(0), "owner is zero");
         require(taikoL2Address != address(0), "taikoL2Address is zero");
+        require(treasure != address(0), "treasure is zero");
         require(
             taikoTokenPremintRecipient != address(0),
             "taikoTokenPremintRecipient is zero"
@@ -72,6 +84,7 @@ contract DeployOnL1 is Script, AddressResolver {
         setAddress(l2ChainId, "taiko", taikoL2Address);
         setAddress("oracle_prover", oracleProver);
         setAddress("solo_proposer", soloProposer);
+        setAddress(l2ChainId, "treasure", treasure);
 
         // TaikoToken
         TaikoToken taikoToken = new TaikoToken();
@@ -108,13 +121,30 @@ contract DeployOnL1 is Script, AddressResolver {
         // TaikoL1
         TaikoL1 taikoL1 = new TaikoL1();
 
-        uint64 basefee = 1 ** 8; // Taiko Token's decimals is 8, not 18
+        uint64 feeBase = 1 ** 8; // Taiko Token's decimals is 8, not 18
+
+        // Calculating it for our needs based on testnet/mainnet. We need it in
+        // order to make the fees on the same level - in ideal circumstences.
+        // See Brecht's comment https://github.com/taikoxyz/taiko-mono/pull/13564
+        uint256 scale = uint256(PROOF_TIME_TARGET * ADJUSTMENT_QUOTIENT);
+        // ln_pub() expects 1e18 fixed format
+        int256 logInput = int256((scale * feeBase) * SCALING_E18);
+        int256 log_result = Ln.ln_pub(logInput);
+        uint64 initProofTimeIssued = uint64(
+            ((scale * (uint256(log_result))) / (SCALING_E18))
+        );
+
         address taikoL1Proxy = deployProxy(
             "taiko",
             address(taikoL1),
             bytes.concat(
                 taikoL1.init.selector,
-                abi.encode(addressManagerProxy, basefee, gensisHash)
+                abi.encode(
+                    addressManagerProxy,
+                    genesisHash,
+                    feeBase,
+                    initProofTimeIssued
+                )
             )
         );
         setAddress("proto_broker", taikoL1Proxy);
@@ -139,15 +169,23 @@ contract DeployOnL1 is Script, AddressResolver {
         );
 
         // SignalService
-        SignalService signalService = new SignalService();
-        deployProxy(
-            "signal_service",
-            address(signalService),
-            bytes.concat(
-                signalService.init.selector,
-                abi.encode(addressManagerProxy)
-            )
-        );
+        if (sharedSignalService == address(0)) {
+            SignalService signalService = new SignalService();
+            deployProxy(
+                "signal_service",
+                address(signalService),
+                bytes.concat(
+                    signalService.init.selector,
+                    abi.encode(addressManagerProxy)
+                )
+            );
+        } else {
+            console.log(
+                "Warining: using shared signal service: ",
+                sharedSignalService
+            );
+            setAddress("signal_service", sharedSignalService);
+        }
 
         // PlonkVerifier
         deployPlonkVerifiers();

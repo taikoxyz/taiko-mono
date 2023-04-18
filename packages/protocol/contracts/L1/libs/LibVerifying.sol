@@ -7,6 +7,7 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
+import {ISignalService} from "../../signal/ISignalService.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {
@@ -19,6 +20,7 @@ library LibVerifying {
     using LibUtils for TaikoData.State;
 
     error L1_INVALID_CONFIG();
+    error L1_INVALID_L21559_PARAMS();
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
     event XchainSynced(
@@ -59,6 +61,7 @@ library LibVerifying {
     function verifyBlocks(
         TaikoData.State storage state,
         TaikoData.Config memory config,
+        AddressResolver resolver,
         uint256 maxBlocks
     ) internal {
         uint256 i = state.lastVerifiedBlockId;
@@ -68,9 +71,9 @@ library LibVerifying {
         assert(fcId > 0);
 
         bytes32 blockHash = blk.forkChoices[fcId].blockHash;
-        assert(blockHash != bytes32(0));
-
+        uint32 gasUsed = blk.forkChoices[fcId].gasUsed;
         bytes32 signalRoot;
+
         uint64 processed;
         unchecked {
             ++i;
@@ -78,14 +81,16 @@ library LibVerifying {
 
         while (i < state.numBlocks && processed < maxBlocks) {
             blk = state.blocks[i % config.ringBufferSize];
+            assert(blk.blockId == i);
 
-            fcId = state.forkChoiceIds[i][blockHash];
+            fcId = LibUtils.getForkChoiceId(state, blk, blockHash, gasUsed);
+
             if (fcId == 0) break;
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
             if (fc.prover == address(0)) break;
 
-            (blockHash, signalRoot) = _markBlockVerified({
+            _markBlockVerified({
                 state: state,
                 config: config,
                 blk: blk,
@@ -93,9 +98,9 @@ library LibVerifying {
                 fc: fc
             });
 
-            assert(blockHash != bytes32(0));
-
-            emit BlockVerified(i, blockHash);
+            blockHash = fc.blockHash;
+            gasUsed = fc.gasUsed;
+            signalRoot = fc.signalRoot;
 
             unchecked {
                 ++i;
@@ -106,6 +111,14 @@ library LibVerifying {
         if (processed > 0) {
             unchecked {
                 state.lastVerifiedBlockId += processed;
+            }
+
+            if (config.relaySignalRoot) {
+                // Send the L2's signal root to the signal service so other TaikoL1
+                // deployments, if they share the same signal service, can relay the
+                // signal to their corresponding TaikoL2 contract.
+                ISignalService(resolver.resolve("signal_service", false))
+                    .sendSignal(signalRoot);
             }
             emit XchainSynced(state.lastVerifiedBlockId, blockHash, signalRoot);
         }
@@ -151,6 +164,8 @@ library LibVerifying {
 
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = fcId;
+
+        emit BlockVerified(blk.blockId, fc.blockHash);
     }
 
     function _addToBalance(

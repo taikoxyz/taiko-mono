@@ -117,8 +117,8 @@ library LibTokenomics {
                 )
             );
 
-            // // todo:(dani) Validate algo and check which seems best among the 3
-            // Can stay as is for now - until simulation validates which might be better!
+            // // todo:(dani)
+            // Can stay as is for now - until simulation validates which might be better long term.
             // reward_opt2 = uint64(
             //     (
             //         uint256(

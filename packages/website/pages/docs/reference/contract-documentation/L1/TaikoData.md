@@ -1,7 +1,3 @@
----
-title: TaikoData
----
-
 ## TaikoData
 
 ### Config
@@ -17,9 +13,18 @@ struct Config {
   uint256 maxTransactionsPerBlock;
   uint256 maxBytesPerTxList;
   uint256 minTxGasLimit;
+<<<<<<< HEAD
   uint256 txListCacheExpiry;
   uint64 proofTimeTarget;
   uint8 adjustmentQuotient;
+=======
+  uint256 slotSmoothingFactor;
+  uint256 rewardBurnBips;
+  uint256 proposerDepositPctg;
+  uint256 feeBaseMAF;
+  uint256 txListCacheExpiry;
+  bool relaySignalRoot;
+>>>>>>> major_protocol_upgrade_rebase
   bool enableSoloProposer;
   bool enableOracleProver;
   bool enableTokenomics;
@@ -68,6 +73,8 @@ struct BlockMetadata {
   uint24 txListByteEnd;
   uint32 gasLimit;
   address beneficiary;
+  uint8 cacheTxListInfo;
+  address treasure;
 }
 ```
 
@@ -91,7 +98,32 @@ struct BlockEvidence {
   bytes32 signalRoot;
   bytes32 graffiti;
   address prover;
+<<<<<<< HEAD
   uint32 gasUsed;
+=======
+  uint32 parentGasUsed;
+  uint32 gasUsed;
+}
+```
+
+### BlockOracle
+
+```solidity
+struct BlockOracle {
+  bytes32 blockHash;
+  uint32 gasUsed;
+  bytes32 signalRoot;
+}
+```
+
+### BlockOracles
+
+```solidity
+struct BlockOracles {
+  bytes32 parentHash;
+  uint32 parentGasUsed;
+  struct TaikoData.BlockOracle[] blks;
+>>>>>>> major_protocol_upgrade_rebase
 }
 ```
 
@@ -99,11 +131,13 @@ struct BlockEvidence {
 
 ```solidity
 struct ForkChoice {
+  bytes32 key;
   bytes32 blockHash;
   bytes32 signalRoot;
   uint64 provenAt;
   uint32 gasUsed;
   address prover;
+  uint32 gasUsed;
 }
 ```
 
@@ -136,7 +170,7 @@ struct TxListInfo {
 ```solidity
 struct State {
   mapping(uint256 => struct TaikoData.Block) blocks;
-  mapping(uint256 => mapping(bytes32 => uint256)) forkChoiceIds;
+  mapping(uint256 => mapping(bytes32 => mapping(uint32 => uint256))) forkChoiceIds;
   mapping(address => uint256) balances;
   mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
   uint64 genesisHeight;
@@ -144,6 +178,7 @@ struct State {
   uint64 __reserved51;
   uint64 __reserved52;
   uint64 lastProposedAt;
+<<<<<<< HEAD
   uint64 numBlocks;
   uint64 accProposedAt;
   uint64 rewardPool;
@@ -151,6 +186,14 @@ struct State {
   uint64 proofTimeIssued;
   uint64 lastVerifiedBlockId;
   uint64 __reserved81;
+=======
+  uint64 avgBlockTime;
+  uint64 __reserved3;
+  uint64 lastVerifiedBlockId;
+  uint64 __reserved4;
+  uint64 avgProofTime;
+  uint64 feeBase;
+>>>>>>> major_protocol_upgrade_rebase
   uint256[43] __gap;
 }
 ```

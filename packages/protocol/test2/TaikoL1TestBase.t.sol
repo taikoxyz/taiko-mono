@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
 import {Test} from "forge-std/Test.sol";
@@ -10,7 +10,7 @@ import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
 import {TaikoToken} from "../contracts/L1/TaikoToken.sol";
 import {SignalService} from "../contracts/signal/SignalService.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {TestLn as TestMath} from "./TestLn.sol";
+import "./Ln.sol";
 
 contract Verifier {
     fallback(bytes calldata) external returns (bytes memory) {
@@ -30,8 +30,11 @@ abstract contract TaikoL1TestBase is Test {
 
     bytes32 public constant GENESIS_BLOCK_HASH =
         keccak256("GENESIS_BLOCK_HASH");
+    uint64 feeBase = 1E8; // 1 TKO
     uint64 l2GasExcess = 1E18;
 
+    address public constant L2Treasure =
+        0x859d74b52762d9ed07D1b2B8d7F93d26B1EA78Bb;
     address public constant L2SS = 0xa008AE5Ba00656a3Cc384de589579e3E52aC030C;
     address public constant L2TaikoL2 =
         0x0082D90249342980d011C58105a03b35cCb4A315;
@@ -42,7 +45,6 @@ abstract contract TaikoL1TestBase is Test {
     address public constant Dave = 0x400147C0Eb43D8D71b2B03037bB7B31f8f78EF5F;
     address public constant Eve = 0x50081b12838240B1bA02b3177153Bca678a86078;
 
-    uint32 private constant INIT_FEE = 1e9; // 10 TKO : Only relevant for the first proposing
     uint16 private constant PROOF_TIME_TARGET = 1800;
     uint8 private constant ADJUSTMENT_QUOTIENT = 16;
 
@@ -52,14 +54,13 @@ abstract contract TaikoL1TestBase is Test {
         // vm.warp(1000000);
         addressManager = new AddressManager();
         addressManager.init();
-        uint64 initBasefee = INIT_FEE;
 
         // Calculating it for our needs based on testnet/mainnet proof vars.
         // See Brecht's comment https://github.com/taikoxyz/taiko-mono/pull/13564
         uint256 scale = uint256(PROOF_TIME_TARGET * ADJUSTMENT_QUOTIENT);
         // ln_pub() expects 1e18 fixed format
-        int256 logInput = int256((scale * initBasefee) * SCALING_E18);
-        int256 log_result = TestMath.ln_pub(logInput);
+        int256 logInput = int256((scale * feeBase) * SCALING_E18);
+        int256 log_result = Ln.ln_pub(logInput);
         uint64 initProofTimeIssued = uint64(
             ((scale * (uint256(log_result))) / (SCALING_E18))
         );
@@ -68,7 +69,7 @@ abstract contract TaikoL1TestBase is Test {
         L1.init(
             address(addressManager),
             GENESIS_BLOCK_HASH,
-            initBasefee,
+            feeBase,
             initProofTimeIssued
         );
         conf = L1.getConfig();
@@ -95,6 +96,7 @@ abstract contract TaikoL1TestBase is Test {
         _registerAddress("taiko_token", address(tko));
         _registerAddress("proto_broker", address(L1));
         _registerAddress("signal_service", address(ss));
+        _registerL2Address("treasure", L2Treasure);
         _registerL2Address("signal_service", address(L2SS));
         _registerL2Address("taiko_l2", address(L2TaikoL2));
 
@@ -108,9 +110,9 @@ abstract contract TaikoL1TestBase is Test {
 
     function proposeBlock(
         address proposer,
+        uint32 gasLimit,
         uint24 txListSize
     ) internal returns (TaikoData.BlockMetadata memory meta) {
-        uint32 gasLimit = 1000000;
         bytes memory txList = new bytes(txListSize);
         TaikoData.BlockMetadataInput memory input = TaikoData
             .BlockMetadataInput({
@@ -139,15 +141,43 @@ abstract contract TaikoL1TestBase is Test {
         meta.txListByteEnd = txListSize;
         meta.gasLimit = gasLimit;
         meta.beneficiary = proposer;
+        meta.treasure = L2Treasure;
 
         vm.prank(proposer, proposer);
         L1.proposeBlock(abi.encode(input), txList);
+    }
+
+    function oracleProveBlock(
+        address prover,
+        uint256 blockId,
+        bytes32 parentHash,
+        uint32 parentGasUsed,
+        uint32 gasUsed,
+        bytes32 blockHash,
+        bytes32 signalRoot
+    ) internal {
+        TaikoData.BlockOracle[] memory blks = new TaikoData.BlockOracle[](1);
+
+        blks[0].blockHash = blockHash;
+        blks[0].signalRoot = signalRoot;
+        blks[0].gasUsed = gasUsed;
+
+        TaikoData.BlockOracles memory oracles = TaikoData.BlockOracles(
+            parentHash,
+            parentGasUsed,
+            blks
+        );
+
+        vm.prank(prover, prover);
+        L1.oracleProveBlocks(blockId, abi.encode(oracles));
     }
 
     function proveBlock(
         address prover,
         TaikoData.BlockMetadata memory meta,
         bytes32 parentHash,
+        uint32 parentGasUsed,
+        uint32 gasUsed,
         bytes32 blockHash,
         bytes32 signalRoot
     ) internal {
@@ -164,7 +194,8 @@ abstract contract TaikoL1TestBase is Test {
             signalRoot: signalRoot,
             graffiti: 0x0,
             prover: prover,
-            gasUsed: 100000
+            parentGasUsed: parentGasUsed,
+            gasUsed: gasUsed
         });
 
         vm.prank(prover, prover);

@@ -75,9 +75,30 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             LibVerifying.verifyBlocks({
                 state: state,
                 config: config,
+                resolver: AddressResolver(this),
                 maxBlocks: config.maxVerificationsPerTx
             });
         }
+    }
+
+    /**
+     * Oracle prove mutliple blocks in a row.
+     *
+     * @param blockId The index of the first block to prove. This is also used
+     *        to select the right implementation version.
+     * @param input An abi-encoded TaikoData.BlockOracle[] object.
+     */
+    function oracleProveBlocks(
+        uint256 blockId,
+        bytes calldata input
+    ) external nonReentrant {
+        LibProving.oracleProveBlocks({
+            state: state,
+            config: getConfig(),
+            blockId: blockId,
+            resolver: AddressResolver(this),
+            oracles: abi.decode(input, (TaikoData.BlockOracles))
+        });
     }
 
     /**
@@ -88,7 +109,6 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      *        to select the right implementation version.
      * @param input An abi-encoded TaikoData.ValidBlockEvidence object.
      */
-
     function proveBlock(
         uint256 blockId,
         bytes calldata input
@@ -105,6 +125,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             LibVerifying.verifyBlocks({
                 state: state,
                 config: config,
+                resolver: AddressResolver(this),
                 maxBlocks: config.maxVerificationsPerTx
             });
         }
@@ -119,6 +140,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         LibVerifying.verifyBlocks({
             state: state,
             config: getConfig(),
+            resolver: AddressResolver(this),
             maxBlocks: maxBlocks
         });
     }
@@ -176,14 +198,16 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
 
     function getForkChoice(
         uint256 blockId,
-        bytes32 parentHash
+        bytes32 parentHash,
+        uint32 parentGasUsed
     ) public view returns (TaikoData.ForkChoice memory) {
         return
             LibProving.getForkChoice({
                 state: state,
                 config: getConfig(),
                 blockId: blockId,
-                parentHash: parentHash
+                parentHash: parentHash,
+                parentGasUsed: parentGasUsed
             });
     }
 
