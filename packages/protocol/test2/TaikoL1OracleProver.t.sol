@@ -23,24 +23,11 @@ contract TaikoL1_withOracleProver is TaikoL1 {
 
         config.enableTokenomics = true;
         config.txListCacheExpiry = 5 minutes;
-        config.proposerDepositPctg = 0;
         config.maxVerificationsPerTx = 0;
         config.enableSoloProposer = false;
         config.enableOracleProver = true;
         config.maxNumProposedBlocks = 10;
         config.ringBufferSize = 12;
-        // this value must be changed if `maxNumProposedBlocks` is changed.
-        config.slotSmoothingFactor = 4160;
-
-        config.proposingConfig = TaikoData.FeeConfig({
-            avgTimeMAF: 64,
-            dampingFactorBips: 5000
-        });
-
-        config.provingConfig = TaikoData.FeeConfig({
-            avgTimeMAF: 64,
-            dampingFactorBips: 5000
-        });
     }
 }
 

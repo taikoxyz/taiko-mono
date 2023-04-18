@@ -83,7 +83,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
 
         // Run another session with huge times
         for (uint256 blockId = 1; blockId < iterationCnt; blockId++) {
-            meta[blockId] = proposeBlock(Alice, 1024);
+            meta[blockId] = proposeBlock(Alice, 1000000, 1024);
             proposedAt[blockId] = (uint64(block.timestamp));
             printVariables("after propose");
             blockHashes[blockId] = bytes32(1E10 + blockId);
@@ -95,6 +95,8 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
                     Bob,
                     meta[blockId - proofTime],
                     parentHashes[blockId - proofTime],
+                    123,
+                    456,
                     blockHashes[blockId - proofTime],
                     signalRoots[blockId - proofTime]
                 );
@@ -161,7 +163,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
         console2.logBytes32(parentHash);
 
         for (uint256 blockId = 1; blockId < iterationCnt; blockId++) {
-            meta[blockId] = proposeBlock(Alice, 1024);
+            meta[blockId] = proposeBlock(Alice, 1000000, 1024);
             proposedAt[blockId] = (uint64(block.timestamp));
             printVariables("after propose");
             blockHashes[blockId] = bytes32(1E10 + blockId);
@@ -173,6 +175,8 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
                     Bob,
                     meta[blockId - proofTime],
                     parentHashes[blockId - proofTime],
+                    123,
+                    456,
                     blockHashes[blockId - proofTime],
                     signalRoots[blockId - proofTime]
                 );
@@ -238,7 +242,7 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
         console2.logBytes32(parentHash);
 
         for (uint256 blockId = 1; blockId < iterationCnt; blockId++) {
-            meta[blockId] = proposeBlock(Alice, 1024);
+            meta[blockId] = proposeBlock(Alice, 1000000, 1024);
             proposedAt[blockId] = (uint64(block.timestamp));
             printVariables("after propose");
             blockHashes[blockId] = bytes32(1E10 + blockId);
@@ -250,6 +254,8 @@ contract LibL1TokenomicsTest is TaikoL1TestBase {
                     Bob,
                     meta[blockId - proofTime],
                     parentHashes[blockId - proofTime],
+                    123,
+                    456,
                     blockHashes[blockId - proofTime],
                     signalRoots[blockId - proofTime]
                 );

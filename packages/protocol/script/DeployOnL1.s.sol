@@ -26,7 +26,7 @@ contract DeployOnL1 is Script, AddressResolver {
 
     uint256 public l2ChainId = vm.envUint("L2_CHAIN_ID");
 
-    bytes32 public gensisHash = vm.envBytes32("L2_GENESIS_HASH");
+    bytes32 public genesisHash = vm.envBytes32("L2_GENESIS_HASH");
 
     uint256 public deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
@@ -145,7 +145,6 @@ contract DeployOnL1 is Script, AddressResolver {
                     feeBase,
                     initProofTimeIssued
                 )
-
             )
         );
         setAddress("proto_broker", taikoL1Proxy);

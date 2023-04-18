@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.10;
+pragma solidity ^0.8.18;
 
-library TestLn {
+library Ln {
     error Overflow();
     error LnNegativeUndefined();
 
