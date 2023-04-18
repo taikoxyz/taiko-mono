@@ -41,7 +41,7 @@ library LibProposing {
         AddressResolver resolver,
         TaikoData.BlockMetadataInput memory input,
         bytes calldata txList
-    ) internal {
+    ) internal returns (TaikoData.BlockMetadata memory meta) {
         uint8 cacheTxListInfo = _validateBlock({
             state: state,
             config: config,
@@ -61,7 +61,6 @@ library LibProposing {
         // from the beacon chain. Since multiple Taiko blocks
         // can be proposed in one Ethereum block, we need to
         // add salt to this random number as L2 mixHash
-        TaikoData.BlockMetadata memory meta;
 
         meta.id = state.numBlocks;
         meta.txListHash = input.txListHash;

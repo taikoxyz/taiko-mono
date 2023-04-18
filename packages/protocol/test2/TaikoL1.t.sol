@@ -299,23 +299,36 @@ contract TaikoL1Test is TaikoL1TestBase {
         _depositTaikoToken(Alice, 1E6 * 1E8, 100000 ether);
 
         proposeBlock(Alice, 1000000, 1024);
-        proposeBlock(Alice, 1000000, 1024);
+        TaikoData.BlockMetadata memory meta = proposeBlock(
+            Alice,
+            1000000,
+            1024
+        );
+        assertEq(meta.depositsRoot, 0);
+        assertEq(meta.depositsProcessed.length, 0);
 
         uint256 count = conf.numEthDepositPerBlock;
 
+        printVariables("before sending ethers");
         for (uint256 i; i < count; ++i) {
             vm.prank(Alice, Alice);
             L1.depositEtherToL2{value: (i + 1) * 1 ether}();
         }
+        printVariables("after sending ethers");
 
         uint gas = gasleft();
-        proposeBlock(Alice, 1000000, 1024);
+        meta = proposeBlock(Alice, 1000000, 1024);
         uint gasUsedWithDeposits = gas - gasleft();
         console2.log("gas used with eth deposits:", gasUsedWithDeposits);
 
+        printVariables("after processing send-ethers");
+        assertTrue(meta.depositsRoot != 0);
+        assertEq(meta.depositsProcessed.length, count + 1);
+
         gas = gasleft();
-        proposeBlock(Alice, 1000000, 1024);
+        meta = proposeBlock(Alice, 1000000, 1024);
         uint gasUsedWithoutDeposits = gas - gasleft();
+
         console2.log("gas used without eth deposits:", gasUsedWithoutDeposits);
 
         uint gasPerEthDeposit = (gasUsedWithDeposits - gasUsedWithoutDeposits) /
