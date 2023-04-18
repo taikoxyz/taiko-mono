@@ -27,7 +27,9 @@ library TaikoData {
         uint256 slotSmoothingFactor;
         uint256 rewardBurnBips;
         uint256 proposerDepositPctg;
-        uint64 maxEthDepositPerBlock;
+        uint64 numEthDepositPerBlock;
+        uint96 maxEthDepositAmount;
+        uint96 minEthDepositAmount;
         // Moving average factors
         uint256 feeBaseMAF;
         uint256 txListCacheExpiry;
@@ -49,6 +51,8 @@ library TaikoData {
         uint64 avgBlockTime;
         uint64 avgProofTime;
         uint64 lastProposedAt;
+        uint64 nextEthDepositToProcess;
+        uint64 numEthDeposits;
     }
 
     // 3 slots
@@ -59,7 +63,6 @@ library TaikoData {
         uint24 txListByteStart; // byte-wise start index (inclusive)
         uint24 txListByteEnd; // byte-wise end index (exclusive)
         uint8 cacheTxListInfo; // non-zero = True
-        uint64[] ethDepositIds;
     }
 
     // Changing this struct requires changing LibUtils.hashMetadata accordingly.
@@ -128,12 +131,9 @@ library TaikoData {
     }
 
     // 1 slot
-    // An uint64 can hold a maximum of approximately 18,446.74 Ether
-    // when using GWei as the unit.
     struct EthDeposit {
         address recipient;
-        uint48 amountGwei;
-        uint48 feeGwei;
+        uint96 amount;
     }
 
     struct State {
@@ -143,7 +143,7 @@ library TaikoData {
         mapping(uint256 blockId => mapping(bytes32 parentHash => mapping(uint32 parentGasUsed => uint256 forkChoiceId))) forkChoiceIds;
         mapping(address account => uint256 balance) balances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
-        mapping(uint256 id => EthDeposit) ethDeposits;
+        EthDeposit[] ethDeposits;
         // Never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
@@ -154,7 +154,7 @@ library TaikoData {
         uint64 numBlocks;
         uint64 lastProposedAt; // Timestamp when the last block is proposed.
         uint64 avgBlockTime; // miliseconds
-        uint64 nextEthDepositId;
+        uint64 nextEthDepositToProcess;
         // Changed when a block is proven/verified
         uint64 lastVerifiedBlockId;
         uint64 __reserved4;

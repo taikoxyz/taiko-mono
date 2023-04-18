@@ -76,7 +76,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (
             uint256 blockId = 1;
-            blockId < conf.maxNumProposedBlocks * 10;
+            blockId < L1.getConfig().maxNumProposedBlocks * 10;
             blockId++
         ) {
             printVariables("before propose");
@@ -155,7 +155,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (
             uint256 blockId = 1;
-            blockId <= conf.maxNumProposedBlocks;
+            blockId <= L1.getConfig().maxNumProposedBlocks;
             blockId++
         ) {
             printVariables("before propose");
@@ -182,9 +182,9 @@ contract TaikoL1Test is TaikoL1TestBase {
             parentGasUsed = gasUsed;
         }
 
-        verifyBlock(Alice, conf.maxNumProposedBlocks - 1);
+        verifyBlock(Alice, L1.getConfig().maxNumProposedBlocks - 1);
         printVariables("after verify");
-        verifyBlock(Alice, conf.maxNumProposedBlocks);
+        verifyBlock(Alice, L1.getConfig().maxNumProposedBlocks);
         printVariables("after verify");
     }
 
@@ -200,7 +200,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (
             uint256 blockId = 1;
-            blockId < conf.maxNumProposedBlocks * 10;
+            blockId < L1.getConfig().maxNumProposedBlocks * 10;
             blockId++
         ) {
             printVariables("before propose");
@@ -243,7 +243,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         uint32 parentGasUsed = 0;
         uint32 gasUsed = 1000000;
 
-        uint256 total = conf.maxNumProposedBlocks * 10;
+        uint256 total = L1.getConfig().maxNumProposedBlocks * 10;
 
         for (uint256 blockId = 1; blockId < total; blockId++) {
             printVariables("before propose");
@@ -274,5 +274,53 @@ contract TaikoL1Test is TaikoL1TestBase {
             parentHash = blockHash;
         }
         printVariables("");
+    }
+
+    function testEthDepositsToL2Reverts() external {
+        uint96 minAmount = L1.getConfig().minEthDepositAmount;
+        uint96 maxAmount = L1.getConfig().maxEthDepositAmount;
+
+        _depositTaikoToken(Alice, 0, maxAmount + 1 ether);
+
+        vm.prank(Alice, Alice);
+        vm.expectRevert();
+        L1.depositEtherToL2{value: minAmount - 1}();
+
+        vm.prank(Alice, Alice);
+        vm.expectRevert();
+        L1.depositEtherToL2{value: maxAmount + 1}();
+
+        assertEq(L1.getStateVariables().nextEthDepositToProcess, 0);
+        assertEq(L1.getStateVariables().numEthDeposits, 0);
+    }
+
+    function testEthDepositsToL2Gas() external {
+        _depositTaikoToken(Alice, 1E6 * 1E8, 100000 ether);
+
+        proposeBlock(Alice, 1000000, 1024);
+        proposeBlock(Alice, 1000000, 1024);
+
+        uint256 count = L1.getConfig().numEthDepositPerBlock;
+
+        for (uint256 i; i < count; ++i) {
+            vm.prank(Alice, Alice);
+            L1.depositEtherToL2{value: (i + 1) * 1 ether}();
+        }
+
+        uint gas = gasleft();
+        proposeBlock(Alice, 1000000, 1024);
+        uint gasUsedWithDeposits = gas - gasleft();
+        console2.log("gas used with eth deposits:", gasUsedWithDeposits);
+
+        gas = gasleft();
+        proposeBlock(Alice, 1000000, 1024);
+        uint gasUsedWithoutDeposits = gas - gasleft();
+        console2.log("gas used without eth deposits:", gasUsedWithoutDeposits);
+
+        uint gasPerEthDeposit = (gasUsedWithDeposits - gasUsedWithoutDeposits) /
+            count;
+
+        console2.log("gas per eth deposit:", gasPerEthDeposit);
+        console2.log("numEthDepositPerBlock:", count);
     }
 }

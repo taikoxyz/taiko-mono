@@ -26,6 +26,14 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     TaikoData.State public state;
     uint256[100] private __gap;
 
+    receive() external payable {
+        depositEtherToL2();
+    }
+
+    fallback() external {
+        revert("");
+    }
+
     /**
      * Initialize the rollup.
      *
@@ -124,20 +132,20 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         });
     }
 
-    function depositEtherToL2(uint256 fee) external payable nonReentrant {
-        LibEthDepositing.depositEtherToL2(state, fee);
-    }
-
-    function cancelEtherDepositToL2(uint64 depositId) external nonReentrant {
-        LibEthDepositing.cancelEtherDepositToL2(state, depositId);
-    }
-
     function depositTaikoToken(uint256 amount) external nonReentrant {
         LibTokenomics.depositTaikoToken(state, AddressResolver(this), amount);
     }
 
     function withdrawTaikoToken(uint256 amount) external nonReentrant {
         LibTokenomics.withdrawTaikoToken(state, AddressResolver(this), amount);
+    }
+
+    function depositEtherToL2() public payable {
+        LibEthDepositing.depositEtherToL2(
+            state,
+            getConfig(),
+            AddressResolver(this)
+        );
     }
 
     function getBalance(address addr) public view returns (uint256) {
