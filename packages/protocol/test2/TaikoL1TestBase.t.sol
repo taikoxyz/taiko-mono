@@ -16,7 +16,6 @@ abstract contract TaikoL1TestBase is Test {
     TaikoToken public tko;
     SignalService public ss;
     TaikoL1 public L1;
-    TaikoData.Config conf;
     uint256 internal logCount;
 
     bytes32 public constant GENESIS_BLOCK_HASH =
@@ -47,7 +46,6 @@ abstract contract TaikoL1TestBase is Test {
 
         L1 = deployTaikoL1();
         L1.init(address(addressManager), feeBase, GENESIS_BLOCK_HASH);
-        conf = L1.getConfig();
 
         tko = new TaikoToken();
         address[] memory premintRecipients;
@@ -84,21 +82,6 @@ abstract contract TaikoL1TestBase is Test {
         uint32 gasLimit,
         uint24 txListSize
     ) internal returns (TaikoData.BlockMetadata memory meta) {
-        return
-            proposeBlockWithDeposits(
-                proposer,
-                gasLimit,
-                txListSize,
-                new uint64[](0)
-            );
-    }
-
-    function proposeBlockWithDeposits(
-        address proposer,
-        uint32 gasLimit,
-        uint24 txListSize,
-        uint64[] memory ethDepositIds
-    ) internal returns (TaikoData.BlockMetadata memory meta) {
         bytes memory txList = new bytes(txListSize);
         TaikoData.BlockMetadataInput memory input = TaikoData
             .BlockMetadataInput({
@@ -107,8 +90,7 @@ abstract contract TaikoL1TestBase is Test {
                 txListHash: keccak256(txList),
                 txListByteStart: 0,
                 txListByteEnd: txListSize,
-                cacheTxListInfo: 0,
-                ethDepositIds: ethDepositIds
+                cacheTxListInfo: 0
             });
 
         TaikoData.StateVariables memory variables = L1.getStateVariables();
@@ -201,7 +183,7 @@ abstract contract TaikoL1TestBase is Test {
     }
 
     function _registerL2Address(string memory name, address addr) internal {
-        string memory key = L1.keyForName(conf.chainId, name);
+        string memory key = L1.keyForName(L1.getConfig().chainId, name);
         addressManager.setAddress(key, addr);
         console2.log(key, unicode"→", addr);
     }

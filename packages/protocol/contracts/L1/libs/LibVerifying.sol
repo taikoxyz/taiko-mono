@@ -42,7 +42,6 @@ library LibVerifying {
         state.genesisTimestamp = timeNow;
         state.feeBase = feeBase;
         state.numBlocks = 1;
-        state.nextEthDepositId = 1;
 
         TaikoData.Block storage blk = state.blocks[0];
         blk.proposedAt = timeNow;
@@ -206,7 +205,7 @@ library LibVerifying {
             config.maxBytesPerTxList > 128 * 1024 ||
             config.minTxGasLimit == 0 ||
             config.slotSmoothingFactor == 0 ||
-            config.maxEthDepositPerBlock == 0 ||
+            config.numEthDepositPerBlock == 0 ||
             // EIP-4844 blob deleted after 30 days
             config.txListCacheExpiry > 30 * 24 hours ||
             config.rewardBurnBips >= 10000
