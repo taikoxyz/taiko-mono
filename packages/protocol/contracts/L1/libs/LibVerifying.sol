@@ -35,7 +35,6 @@ library LibVerifying {
         bytes32 genesisBlockHash,
         uint64 initBasefee,
         uint64 initProofTimeIssued
-
     ) internal {
         _checkConfig(config);
 

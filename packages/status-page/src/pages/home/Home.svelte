@@ -4,7 +4,7 @@
   import StatusIndicator from "../../components/StatusIndicator.svelte";
   import { watchHeaderSynced } from "../../utils/watchHeaderSynced";
   import { getPendingTransactions } from "../../utils/getPendingTransactions";
-  import { getProverFee } from "../../utils/getProverFee";
+  import { getBlockFee } from "../../utils/getBlockFee";
   import { getAvailableSlots } from "../../utils/getAvailableSlots";
   import { getPendingBlocks } from "../../utils/getPendingBlocks";
   import { getLastVerifiedBlockId } from "../../utils/getLastVerifiedBlockId";

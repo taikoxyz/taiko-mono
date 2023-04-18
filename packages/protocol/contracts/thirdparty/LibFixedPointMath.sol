@@ -6,7 +6,6 @@ library LibFixedPointMath {
     uint128 public constant MAX_EXP_INPUT = 135305999368893231588;
     uint256 public constant SCALING_FACTOR_1E18 = 1e18; // For fixed point representation factor
 
-
     error Overflow();
 
     // Computes e^x in 1e18 fixed point.

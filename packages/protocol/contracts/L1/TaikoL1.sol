@@ -158,8 +158,8 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         return state.balances[addr];
     }
 
-    function getProverFee() public view returns (uint64 fee) {
-        fee = LibTokenomics.getProverFee(state);
+    function getBlockFee() public view returns (uint64 fee) {
+        fee = LibTokenomics.getBlockFee(state);
     }
 
     function getProofReward(
@@ -167,7 +167,6 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         uint64 proposedAt
     ) public view returns (uint64 reward) {
         reward = LibTokenomics.getProofReward({
-
             state: state,
             config: getConfig(),
             provenAt: provenAt,

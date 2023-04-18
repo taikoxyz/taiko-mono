@@ -19,7 +19,6 @@ contract Verifier {
     }
 }
 
-
 abstract contract TaikoL1TestBase is Test {
     AddressManager public addressManager;
     TaikoToken public tko;
@@ -236,7 +235,7 @@ abstract contract TaikoL1TestBase is Test {
     function printVariables(string memory comment) internal {
         TaikoData.StateVariables memory vars = L1.getStateVariables();
 
-        uint256 fee = L1.getProverFee();
+        uint256 fee = L1.getBlockFee();
 
         string memory str = string.concat(
             Strings.toString(logCount++),
