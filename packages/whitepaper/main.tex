@@ -297,7 +297,7 @@ $V^t(\texttt{RLP}'(L))$ yields a list of transactions that pass the tests; trans
 
 \subsection{Anchor Transaction} \label{sec:anchoring}
 
-The anchor transaction is a way for the protocol to make use of the programmability of the EVM (which we already need to be able to proof) to enforce certain protocol behavior. We can add additional tasks to anchor transactions to enrich Taiko's functionalities by writing standard smart contract code (instead of requiring more complicated changes to Taiko's ZK-EVM and node subsystems).
+The anchor transaction is a way for the protocol to make use of the programmability of the EVM (which we already need to generate proofs) to enforce certain protocol behavior. We can add additional tasks to anchor transactions to enrich Taiko's functionalities by writing standard smart contract code (instead of requiring more complicated changes to Taiko's ZK-EVM and node subsystems).
 
 The anchor transaction is required to be the first transaction in a Taiko block (which is important to make the block deterministic). The anchor transaction is currently used as follows:
 
