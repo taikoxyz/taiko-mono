@@ -68,7 +68,7 @@ const { chains, provider } = configureChains(
   ],
 )
 
-const client = createClient({
+export const client = createClient({
   provider,
   autoConnect: true,
   connectors: [
@@ -87,5 +87,3 @@ const client = createClient({
     // }),
   ],
 })
-
-export default client

@@ -1,3 +1,6 @@
 {
-  "connect_wallet": "Connect Wallet"
+  "connect_wallet": "Connect Wallet",
+  "processing_fees.recommended": "Recommended",
+  "processing_fees.custom": "Custom",
+  "processing_fees.none": "None"
 }
