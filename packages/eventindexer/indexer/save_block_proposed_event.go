@@ -18,7 +18,7 @@ func (svc *Service) saveBlockProposedEvents(
 	events *taikol1.TaikoL1BlockProposedIterator,
 ) error {
 	if !events.Next() || events.Event == nil {
-		log.Infof("no blockProven events")
+		log.Infof("no blockProposed events")
 		return nil
 	}
 
@@ -38,6 +38,8 @@ func (svc *Service) saveBlockProposedEvents(
 		if err != nil {
 			return errors.Wrap(err, "svc.ethClient.TransactionSender")
 		}
+
+		log.Infof("blockProposed by: %v", sender.Hex())
 
 		if err := svc.saveBlockProposedEvent(ctx, chainID, event, sender); err != nil {
 			return errors.Wrap(err, "svc.saveBlockProposedEvent")
