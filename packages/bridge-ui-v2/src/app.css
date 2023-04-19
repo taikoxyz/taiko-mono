@@ -4,8 +4,7 @@
 
 @layer base {
   html,
-  body,
-  .container {
+  body {
     @apply h-full;
   }
 }
