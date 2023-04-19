@@ -1,9 +1,10 @@
 <script lang="ts">
   import { getContext } from 'svelte'
-  import { t } from '../../libs/i18n'
-  import { Button } from '../Button'
-  import { WalletListModal } from '../WalletListModal'
   import type { Writable } from 'svelte/store'
+
+  import { t } from '../../../libs/i18n'
+  import { Button } from '../Button'
+  import { WalletListModal } from '../../modals/WalletListModal'
 
   const walletListModal = getContext<Writable<WalletListModal>>(WalletListModal.name)
 

@@ -1,5 +1,5 @@
 <script>
-  import { ConnectWalletButton } from '../ConnectWalletButton'
+  import { ConnectWalletButton } from '../buttons/ConnectWalletButton'
 </script>
 
 <header class="flex justify-between">

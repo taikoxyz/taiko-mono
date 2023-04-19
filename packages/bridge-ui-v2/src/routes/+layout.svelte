@@ -1,12 +1,13 @@
-<!-- Entry point component -->
+<!-- Root component and entry point -->
 <script lang="ts">
-  import { writable } from 'svelte/store'
   import '../app.css'
+
+  import { setContext } from 'svelte'
+  import { writable } from 'svelte/store'
 
   import { Footer } from '../components/Footer'
   import { Header } from '../components/Header'
-  import { WalletListModal } from '../components/WalletListModal'
-  import { setContext } from 'svelte'
+  import { WalletListModal } from '../components/modals/WalletListModal'
 
   // We should be able to open this modal from anywhere.
   // Let's make this context store available to all the children.
