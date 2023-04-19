@@ -73,17 +73,17 @@
       const address = await $signer.getAddress();
       const tx = await contract.mint(address);
 
-      pendingTransactions.update((store) => {
-        store.push(tx);
-        return store;
-      });
-
       successToast($_('toast.transactionSent'));
+
+      await pendingTransactions.add(tx, $signer);
+
       isOpen = false;
-      await $signer.provider.waitForTransaction(tx.hash, 1);
+
+      successToast('Transaction completed!');
 
       await onMint();
     } catch (e) {
+      // TODO: handle potential transaction failure
       console.error(e);
       errorToast($_('toast.errorSendingTransaction'));
     }
