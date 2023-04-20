@@ -77,7 +77,7 @@ library LibEthDepositing {
         ) {
             unchecked {
                 uint96 feePerDeposit = uint96(
-                    tx.gasprice * GAS_PER_ETH_DEPOSIT
+                    block.basefee * GAS_PER_ETH_DEPOSIT
                 );
                 uint96 totalFee;
                 uint64 i = state.nextEthDepositToProcess;
