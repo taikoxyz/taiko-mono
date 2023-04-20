@@ -4,12 +4,16 @@ pragma solidity ^0.8.18;
 import {AddressManager} from "../contracts/thirdparty/AddressManager.sol";
 import {AddressResolver} from "../contracts/common/AddressResolver.sol";
 import {Bridge} from "../contracts/bridge/Bridge.sol";
+import {BridgedERC20} from "../contracts/bridge/BridgedERC20.sol";
 import {BridgeErrors} from "../contracts/bridge/BridgeErrors.sol";
 import {FreeMintERC20} from "../contracts/test/erc20/FreeMintERC20.sol";
 import {SignalService} from "../contracts/signal/SignalService.sol";
 import {Test} from "forge-std/Test.sol";
 import {TokenVault} from "../contracts/bridge/TokenVault.sol";
 
+// PrankDestBridge lets us simulate a transaction to the TokenVault
+// from a named Bridge, without having to test/run through the real Bridge code,
+// outside the scope of the unit tests in the TokenVault.
 contract PrankDestBridge {
     TokenVault destTokenVault;
     Context ctx;
@@ -22,6 +26,10 @@ contract PrankDestBridge {
 
     constructor(TokenVault _tokenVault) {
         destTokenVault = _tokenVault;
+    }
+
+    function setTokenVault(address addr) public {
+        destTokenVault = TokenVault(addr);
     }
 
     function context() public view returns (Context memory) {
@@ -290,6 +298,36 @@ contract TestTokenVault is Test {
 
         uint256 toBalanceAfter = erc20.balanceOf(to);
         assertEq(toBalanceAfter - toBalanceBefore, amount);
+    }
+
+    function test_receive_erc20_non_canonical_to_dest_chain() public {
+        vm.startPrank(Alice);
+
+        uint256 srcChainId = block.chainid;
+        vm.chainId(destChainId);
+
+        uint256 amount = 1;
+
+        destChainIdBridge.setTokenVault(address(destChainIdTokenVault));
+
+        destChainIdBridge.sendReceiveERC20ToTokenVault(
+            erc20ToCanonicalERC20(srcChainId),
+            Alice,
+            Bob,
+            amount,
+            bytes32(0),
+            address(tokenVault),
+            srcChainId
+        );
+
+        address bridgedAddress = destChainIdTokenVault.canonicalToBridged(
+            srcChainId,
+            address(erc20)
+        );
+        assertEq(bridgedAddress != address(0), true);
+        BridgedERC20 bridgedERC20 = BridgedERC20(bridgedAddress);
+
+        assertEq(bridgedERC20.balanceOf(Bob), amount);
     }
 
     function erc20ToCanonicalERC20(
