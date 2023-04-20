@@ -17,7 +17,7 @@ library LibEthDepositing {
     using LibAddress for address;
     using SafeCastUpgradeable for uint256;
 
-    // When numEthDepositPerBlock is 32, the average gas cost per
+    // When maxEthDepositsPerBlock is 32, the average gas cost per
     // EthDeposit is about 2700 gas. We use 21000 so the proposer may
     // earn a small profit if there are 32 deposits included
     // in the block; if there are less EthDeposit to process, the
@@ -67,41 +67,52 @@ library LibEthDepositing {
     {
         // Allocate one extra slot for collecting fees on L2
         depositsProcessed = new TaikoData.EthDeposit[](
-            config.numEthDepositPerBlock + 1
+            config.maxEthDepositsPerBlock + 1
         );
-        uint64 i = state.nextEthDepositToProcess;
-        uint256 j; // number of deposits to process on L2
 
-        unchecked {
-            uint96 feePerDeposit = uint96(tx.gasprice * GAS_PER_ETH_DEPOSIT);
-            uint96 totalFee;
-            while (
-                i < state.ethDeposits.length &&
-                i < state.nextEthDepositToProcess + 32
-            ) {
-                TaikoData.EthDeposit storage deposit = state.ethDeposits[i];
-                if (deposit.amount > feePerDeposit) {
-                    totalFee += feePerDeposit;
-                    depositsProcessed[j].recipient = deposit.recipient;
-                    depositsProcessed[j].amount =
-                        deposit.amount -
-                        feePerDeposit;
-                    ++j;
-                } else {
-                    totalFee += deposit.amount;
+        uint256 j; // number of deposits to process on L2
+        if (
+            state.ethDeposits.length >=
+            state.nextEthDepositToProcess + config.minEthDepositsPerBlock
+        ) {
+            unchecked {
+                uint96 feePerDeposit = uint96(
+                    tx.gasprice * GAS_PER_ETH_DEPOSIT
+                );
+                uint96 totalFee;
+                uint64 i = state.nextEthDepositToProcess;
+                while (
+                    i < state.ethDeposits.length &&
+                    i <
+                    state.nextEthDepositToProcess +
+                        config.maxEthDepositsPerBlock
+                ) {
+                    TaikoData.EthDeposit storage deposit = state.ethDeposits[i];
+                    if (deposit.amount > feePerDeposit) {
+                        totalFee += feePerDeposit;
+                        depositsProcessed[j].recipient = deposit.recipient;
+                        depositsProcessed[j].amount =
+                            deposit.amount -
+                            feePerDeposit;
+                        ++j;
+                    } else {
+                        totalFee += deposit.amount;
+                    }
+
+                    // delete the deposit
+                    deposit.recipient = address(0);
+                    deposit.amount = 0;
+                    ++i;
                 }
 
-                // delete the deposit
-                deposit.recipient = address(0);
-                deposit.amount = 0;
-                ++i;
-            }
-
-            // Fee collecting deposit
-            if (totalFee > 0) {
-                depositsProcessed[j].recipient = beneficiary;
-                depositsProcessed[j].amount = totalFee;
-                ++j;
+                // Fee collecting deposit
+                if (totalFee > 0) {
+                    depositsProcessed[j].recipient = beneficiary;
+                    depositsProcessed[j].amount = totalFee;
+                    ++j;
+                }
+                // Advance cursor
+                state.nextEthDepositToProcess = i;
             }
         }
 
@@ -110,7 +121,5 @@ library LibEthDepositing {
             mstore(depositsProcessed, j)
             depositsRoot := keccak256(depositsProcessed, mul(j, 32))
         }
-        // Advance cursor
-        state.nextEthDepositToProcess = i;
     }
 }
