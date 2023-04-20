@@ -3,8 +3,8 @@
   import type { Writable } from 'svelte/store'
 
   import { t } from '../../../libs/i18n'
-  import { Button } from '../Button'
   import { WalletListModal } from '../../modals/WalletListModal'
+  import { Button } from '../Button'
 
   const walletListModal = getContext<Writable<WalletListModal>>(WalletListModal.name)
 

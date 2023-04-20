@@ -15,7 +15,7 @@ import {
   PUBLIC_L2_SIGNAL_SERVICE_ADDRESS,
 } from '$env/static/public'
 
-import type { Chain } from './types'
+import type { Chain, ChainsRecord } from './types'
 
 export const mainnetChain: Chain = {
   id: PUBLIC_L1_CHAIN_ID,
@@ -39,7 +39,7 @@ export const taikoChain: Chain = {
   signalServiceAddress: PUBLIC_L2_SIGNAL_SERVICE_ADDRESS,
 }
 
-export const chains: Record<string, Chain> = {
+export const chains: ChainsRecord = {
   [PUBLIC_L1_CHAIN_ID]: mainnetChain,
   [PUBLIC_L2_CHAIN_ID]: taikoChain,
 }

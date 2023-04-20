@@ -11,3 +11,5 @@ export type Chain = {
   explorerUrl: string
   signalServiceAddress: string
 }
+
+export type ChainsRecord = Record<string, Chain>
