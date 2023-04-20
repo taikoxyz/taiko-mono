@@ -21,4 +21,13 @@ module.exports = {
     es2017: true,
     node: true,
   },
+  overrides: [
+    {
+      files: ['*.spec.ts'],
+      rules: {
+        'no-var': 'off',
+        '@typescript-eslint/no-explicit-any': 'off',
+      },
+    },
+  ],
 }
