@@ -301,7 +301,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         assertEq(meta.depositsRoot, emptyDepositsRoot);
         assertEq(meta.depositsProcessed.length, 0);
 
-        uint256 count = conf.numEthDepositPerBlock;
+        uint256 count = conf.maxEthDepositsPerBlock;
 
         printVariables("before sending ethers");
         for (uint256 i; i < count; ++i) {
@@ -329,6 +329,6 @@ contract TaikoL1Test is TaikoL1TestBase {
             count;
 
         console2.log("gas per eth deposit:", gasPerEthDeposit);
-        console2.log("numEthDepositPerBlock:", count);
+        console2.log("maxEthDepositsPerBlock:", count);
     }
 }

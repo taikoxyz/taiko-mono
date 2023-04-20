@@ -26,7 +26,8 @@ library TaikoConfig {
                 // Set it to 79  (+1 TaikoL2.anchor transaction = 80),
                 // and 80 is the upper limit of the Alpha-2 testnet's circuits.
                 maxTransactionsPerBlock: 79,
-                numEthDepositPerBlock: 32,
+                minEthDepositsPerBlock: 8,
+                maxEthDepositsPerBlock: 32,
                 maxEthDepositAmount: 10000 ether,
                 minEthDepositAmount: 1 ether,
                 // Set it to 120KB, since 128KB is the upper size limit
