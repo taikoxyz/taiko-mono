@@ -135,6 +135,26 @@ contract TestGenerateGenesis is Test, AddressResolver {
         assertEq(etherVault.isAuthorized(etherVault.owner()), false);
     }
 
+    function testTokenVault() public {
+        address tokenVaultAddress = getPredeployedContractAddress("TokenVault");
+        address bridgeAddress = getPredeployedContractAddress("Bridge");
+
+        TokenVault tokenVault = TokenVault(tokenVaultAddress);
+        AddressManager addressManager = AddressManager(
+            getPredeployedContractAddress("AddressManager")
+        );
+
+        assertEq(owner, tokenVault.owner());
+
+        vm.startPrank(addressManager.owner());
+        addressManager.setAddress(keyForName(1, "bridge"), bridgeAddress);
+        addressManager.setAddress(
+            keyForName(1, "token_vault"),
+            tokenVaultAddress
+        );
+        vm.stopPrank();
+    }
+
     function testSignalService() public {
         SignalService signalService = SignalService(
             getPredeployedContractAddress("SignalService")
