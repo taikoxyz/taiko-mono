@@ -289,6 +289,7 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     function testEthDepositsToL2Gas() external {
+        bytes32 emptyDepositsRoot = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
         _depositTaikoToken(Alice, 1E6 * 1E8, 100000 ether);
 
         proposeBlock(Alice, 1000000, 1024);
@@ -297,7 +298,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             1000000,
             1024
         );
-        assertEq(meta.depositsRoot, 0);
+        assertEq(meta.depositsRoot, emptyDepositsRoot);
         assertEq(meta.depositsProcessed.length, 0);
 
         uint256 count = conf.numEthDepositPerBlock;
@@ -315,7 +316,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         console2.log("gas used with eth deposits:", gasUsedWithDeposits);
 
         printVariables("after processing send-ethers");
-        assertTrue(meta.depositsRoot != 0);
+        assertTrue(meta.depositsRoot != emptyDepositsRoot);
         assertEq(meta.depositsProcessed.length, count + 1);
 
         gas = gasleft();

@@ -108,13 +108,7 @@ library LibEthDepositing {
         // resize the length of depositsProcessed to j.
         assembly {
             mstore(depositsProcessed, j)
-        }
-
-        // calculate hash if j > 0
-        if (j > 0) {
-            assembly {
-                depositsRoot := keccak256(depositsProcessed, mul(j, 32))
-            }
+            depositsRoot := keccak256(depositsProcessed, mul(j, 32))
         }
         // Advance cursor
         state.nextEthDepositToProcess = i;
