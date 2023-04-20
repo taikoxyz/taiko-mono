@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.18;
 
-library Ln {
+// Taken from: https://github.com/recmo/experiment-solexp/blob/main/src/FixedPointMathLib.sol
+library LibLn {
     error Overflow();
     error LnNegativeUndefined();
+
+    // Helper, common variable for  'off-chain' initProofTimeTarget generation
+    uint256 public constant SCALING_E18 = 1e18;
 
     // Integer log2 (alternative implementation)
     // @returns floor(log2(x)) if x is nonzero, otherwise 0.
@@ -203,5 +207,20 @@ library Ln {
                     uint256(195 - k)
             );
         }
+    }
+
+    function calcInitProofTimeIssued(
+        uint64 basefee,
+        uint16 proofTimeTarget,
+        uint8 adjustmentQuotient
+    ) public pure returns (uint64 initProofTimeIssued) {
+        uint256 scale = uint256(proofTimeTarget) * adjustmentQuotient;
+        // ln_pub() expects 1e18 fixed format
+        uint256 lnReq = scale * basefee * SCALING_E18;
+        require(lnReq <= uint256(type(int256).max));
+        int256 log_result = ln_pub(int256(lnReq));
+        initProofTimeIssued = uint64(
+            ((scale * (uint256(log_result))) / (SCALING_E18))
+        );
     }
 }

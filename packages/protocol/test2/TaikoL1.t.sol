@@ -42,7 +42,7 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     /// @dev Test we can propose, prove, then verify more blocks than 'maxNumProposedBlocks'
-    function xtest_more_blocks_than_ring_buffer_size() external {
+    function test_more_blocks_than_ring_buffer_size() external {
         _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
         _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
         _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
@@ -86,7 +86,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     /// @dev Test more than one block can be proposed, proven, & verified in the
     ///      same L1 block.
-    function xtest_multiple_blocks_in_one_L1_block() external {
+    function test_multiple_blocks_in_one_L1_block() external {
         _depositTaikoToken(Alice, 1000 * 1E8, 1000 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
@@ -121,7 +121,7 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     /// @dev Test verifying multiple blocks in one transaction
-    function xtest_verifying_multiple_blocks_once() external {
+    function test_verifying_multiple_blocks_once() external {
         _depositTaikoToken(Alice, 1E6 * 1E8, 1000 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
@@ -160,91 +160,5 @@ contract TaikoL1Test is TaikoL1TestBase {
         printVariables("after verify");
         verifyBlock(Alice, conf.maxNumProposedBlocks);
         printVariables("after verify");
-    }
-
-    /// @dev Test block time increases and fee decreases.
-    function xtest_block_time_increases_and_fee_decreases() external {
-        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
-
-        bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint32 parentGasUsed = 0;
-        uint32 gasUsed = 1000000;
-
-        for (
-            uint256 blockId = 1;
-            blockId < conf.maxNumProposedBlocks * 10;
-            blockId++
-        ) {
-            printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(
-                Alice,
-                1000000,
-                1024
-            );
-            mine(1);
-
-            bytes32 blockHash = bytes32(1E10 + blockId);
-            bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(
-                Bob,
-                meta,
-                parentHash,
-                parentGasUsed,
-                gasUsed,
-                blockHash,
-                signalRoot
-            );
-            parentHash = blockHash;
-            parentGasUsed = gasUsed;
-
-            verifyBlock(Carol, 1);
-            mine(blockId);
-            parentHash = blockHash;
-        }
-        printVariables("");
-    }
-
-    /// @dev Test block time decreases and the fee increases
-    function xtest_block_time_decreases_but_fee_remains() external {
-        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
-
-        bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint32 parentGasUsed = 0;
-        uint32 gasUsed = 1000000;
-
-        uint256 total = conf.maxNumProposedBlocks * 10;
-
-        for (uint256 blockId = 1; blockId < total; blockId++) {
-            printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(
-                Alice,
-                1000000,
-                1024
-            );
-            mine(1);
-
-            bytes32 blockHash = bytes32(1E10 + blockId);
-            bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(
-                Bob,
-                meta,
-                parentHash,
-                parentGasUsed,
-                gasUsed,
-                blockHash,
-                signalRoot
-            );
-            parentHash = blockHash;
-            parentGasUsed = gasUsed;
-
-            verifyBlock(Carol, 1);
-            mine(total + 1 - blockId);
-            parentHash = blockHash;
-        }
-        printVariables("");
     }
 }

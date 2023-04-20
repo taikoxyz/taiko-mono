@@ -11,8 +11,6 @@ import {TaikoToken} from "../contracts/L1/TaikoToken.sol";
 import {SignalService} from "../contracts/signal/SignalService.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
-import "./Ln.sol";
-
 contract Verifier {
     fallback(bytes calldata) external returns (bytes memory) {
         return bytes.concat(keccak256("taiko"));
@@ -26,8 +24,6 @@ abstract contract TaikoL1TestBase is Test {
     TaikoL1 public L1;
     TaikoData.Config conf;
     uint256 internal logCount;
-
-    uint256 private constant SCALING_E18 = 1e18;
 
     bytes32 public constant GENESIS_BLOCK_HASH =
         keccak256("GENESIS_BLOCK_HASH");
@@ -46,8 +42,9 @@ abstract contract TaikoL1TestBase is Test {
     address public constant Dave = 0x400147C0Eb43D8D71b2B03037bB7B31f8f78EF5F;
     address public constant Eve = 0x50081b12838240B1bA02b3177153Bca678a86078;
 
-    uint16 private constant PROOF_TIME_TARGET = 1800;
-    uint8 private constant ADJUSTMENT_QUOTIENT = 16;
+    // Calculation shall be done in derived contracts - based on testnet or mainnet expected proof time
+    uint64 public initProofTimeIssued;
+    uint8 public constant ADJUSTMENT_QUOTIENT = 16;
 
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
 
@@ -56,16 +53,6 @@ abstract contract TaikoL1TestBase is Test {
         addressManager = new AddressManager();
         addressManager.init();
 
-        // Calculating it for our needs based on testnet/mainnet proof vars.
-        // See Brecht's comment https://github.com/taikoxyz/taiko-mono/pull/13564
-        uint256 scale = uint256(PROOF_TIME_TARGET * ADJUSTMENT_QUOTIENT);
-        // ln_pub() expects 1e18 fixed format
-        int256 logInput = int256((scale * feeBase) * SCALING_E18);
-        int256 log_result = Ln.ln_pub(logInput);
-        uint64 initProofTimeIssued = uint64(
-            ((scale * (uint256(log_result))) / (SCALING_E18))
-        );
-
         L1 = deployTaikoL1();
         L1.init(
             address(addressManager),
@@ -73,7 +60,6 @@ abstract contract TaikoL1TestBase is Test {
             feeBase,
             initProofTimeIssued
         );
-
         conf = L1.getConfig();
 
         tko = new TaikoToken();
@@ -101,7 +87,7 @@ abstract contract TaikoL1TestBase is Test {
         _registerL2Address("treasure", L2Treasure);
         _registerL2Address("signal_service", address(L2SS));
         _registerL2Address("taiko_l2", address(L2TaikoL2));
-
+        // TODO(daniel): update string key generation using bytes.concat
         _registerAddress(
             string(abi.encodePacked("verifier_", uint16(100))),
             address(new Verifier())

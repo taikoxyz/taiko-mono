@@ -69,7 +69,6 @@ library LibVerifying {
 
         uint256 fcId = blk.verifiedForkChoiceId;
         assert(fcId > 0);
-
         bytes32 blockHash = blk.forkChoices[fcId].blockHash;
         uint32 gasUsed = blk.forkChoices[fcId].gasUsed;
         bytes32 signalRoot;
@@ -97,7 +96,6 @@ library LibVerifying {
                 fcId: uint24(fcId),
                 fc: fc
             });
-
             blockHash = fc.blockHash;
             gasUsed = fc.gasUsed;
             signalRoot = fc.signalRoot;
@@ -130,7 +128,7 @@ library LibVerifying {
         TaikoData.Block storage blk,
         TaikoData.ForkChoice storage fc,
         uint24 fcId
-    ) private returns (bytes32 blockHash, bytes32 signalRoot) {
+    ) private {
         if (config.proofTimeTarget != 0) {
             uint256 proofTime;
             unchecked {
@@ -149,9 +147,8 @@ library LibVerifying {
 
             state.basefee = newBasefee;
             state.proofTimeIssued = proofTimeIssued;
-
             unchecked {
-                state.rewardPool -= reward;
+                state.accBlockFees -= reward;
                 state.accProposedAt -= blk.proposedAt;
             }
 
@@ -193,7 +190,9 @@ library LibVerifying {
             config.maxBytesPerTxList > 128 * 1024 ||
             config.minTxGasLimit == 0 ||
             // EIP-4844 blob deleted after 30 days
-            config.txListCacheExpiry > 30 * 24 hours
+            config.txListCacheExpiry > 30 * 24 hours ||
+            config.proofTimeTarget == 0 ||
+            config.adjustmentQuotient == 0
         ) revert L1_INVALID_CONFIG();
     }
 }

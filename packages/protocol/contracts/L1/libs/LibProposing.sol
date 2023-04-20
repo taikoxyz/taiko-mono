@@ -98,7 +98,7 @@ library LibProposing {
 
             unchecked {
                 state.balances[msg.sender] -= fee;
-                state.rewardPool += fee;
+                state.accBlockFees += fee;
                 state.accProposedAt += meta.timestamp;
             }
         }
@@ -106,8 +106,8 @@ library LibProposing {
         emit BlockProposed(state.numBlocks, meta);
         unchecked {
             ++state.numBlocks;
-            state.lastProposedAt = meta.timestamp;
         }
+        state.lastProposedAt = meta.timestamp;
     }
 
     function getBlock(

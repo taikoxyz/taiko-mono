@@ -42,6 +42,7 @@ library LibUtils {
         uint256 fcId = state.forkChoiceIds[blk.blockId][parentHash][
             parentGasUsed
         ];
+
         if (fcId >= blk.nextForkChoiceId) return 0;
 
         return fcId;
@@ -50,16 +51,17 @@ library LibUtils {
     function getStateVariables(
         TaikoData.State storage state
     ) internal view returns (TaikoData.StateVariables memory) {
-        // TODO(dani): expose new state variables.
         return
             TaikoData.StateVariables({
                 basefee: state.basefee,
-                rewardPool: state.rewardPool,
+                accBlockFees: state.accBlockFees,
                 genesisHeight: state.genesisHeight,
                 genesisTimestamp: state.genesisTimestamp,
                 numBlocks: state.numBlocks,
-                lastProposedAt: state.lastProposedAt,
-                lastVerifiedBlockId: state.lastVerifiedBlockId
+                proofTimeIssued: state.proofTimeIssued,
+                lastVerifiedBlockId: state.lastVerifiedBlockId,
+                accProposedAt: state.accProposedAt,
+                lastProposedAt: state.lastProposedAt
             });
     }
 

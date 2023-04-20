@@ -32,11 +32,13 @@ library TaikoData {
 
     struct StateVariables {
         uint64 basefee;
-        uint64 rewardPool;
+        uint64 accBlockFees;
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 numBlocks;
+        uint64 proofTimeIssued;
         uint64 lastVerifiedBlockId;
+        uint64 accProposedAt;
         uint64 lastProposedAt;
     }
 
@@ -141,7 +143,7 @@ library TaikoData {
         uint64 lastProposedAt;
         uint64 numBlocks;
         uint64 accProposedAt; // also by verifyBlocks
-        uint64 rewardPool; // also by verifyBlocks
+        uint64 accBlockFees; // also by verifyBlocks
         // Slot 7: changed by proveBlock
         // uint64 __reserved71;
         // uint64 __reserved72;

@@ -19,7 +19,7 @@ import "../contracts/signal/SignalService.sol";
 import "../contracts/thirdparty/AddressManager.sol";
 import "../contracts/test/erc20/FreeMintERC20.sol";
 import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
-import "../test2/Ln.sol";
+import "../test2/LibLn.sol";
 
 contract DeployOnL1 is Script, AddressResolver {
     using SafeCastUpgradeable for uint256;
@@ -51,8 +51,7 @@ contract DeployOnL1 is Script, AddressResolver {
     address public addressManagerProxy;
 
     // New fee/reward related variables
-    uint256 public constant SCALING_E18 = 1e18;
-    uint16 public constant PROOF_TIME_TARGET = 1800; // Mainnet it is 30 mins, choose carefully !
+    uint16 public constant PROOF_TIME_TARGET = 1800; // For mainnet it is around 30 mins, but choose carefully ! (Testnet is different !)
     uint8 public constant ADJUSTMENT_QUOTIENT = 16;
 
     error FAILED_TO_DEPLOY_PLONK_VERIFIER(string contractPath);
@@ -126,12 +125,10 @@ contract DeployOnL1 is Script, AddressResolver {
         // Calculating it for our needs based on testnet/mainnet. We need it in
         // order to make the fees on the same level - in ideal circumstences.
         // See Brecht's comment https://github.com/taikoxyz/taiko-mono/pull/13564
-        uint256 scale = uint256(PROOF_TIME_TARGET * ADJUSTMENT_QUOTIENT);
-        // ln_pub() expects 1e18 fixed format
-        int256 logInput = int256((scale * feeBase) * SCALING_E18);
-        int256 log_result = Ln.ln_pub(logInput);
-        uint64 initProofTimeIssued = uint64(
-            ((scale * (uint256(log_result))) / (SCALING_E18))
+        uint64 initProofTimeIssued = LibLn.calcInitProofTimeIssued(
+            feeBase,
+            PROOF_TIME_TARGET,
+            ADJUSTMENT_QUOTIENT
         );
 
         address taikoL1Proxy = deployProxy(

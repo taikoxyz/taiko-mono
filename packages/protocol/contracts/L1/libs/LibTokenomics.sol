@@ -70,10 +70,16 @@ library LibTokenomics {
         (reward, , ) = calculateBasefee(state, config, (provenAt - proposedAt));
     }
 
-    /// @notice Update the baseFee for proofs
-    /// @param state - The actual state data
-    /// @param config - Config data
-    /// @param proofTime - The actual proof time
+    /**
+     * Update the baseFee for proofs
+     *
+     * @param state The actual state data
+     * @param config Config data
+     * @param proofTime The actual proof time
+     * @return reward Amount of reward given - if blocked is proved and verified
+     * @return newProofTimeIssued Accumulated proof time
+     * @return newBasefee New basefee
+     */
     function calculateBasefee(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -83,16 +89,15 @@ library LibTokenomics {
         view
         returns (uint64 reward, uint64 newProofTimeIssued, uint64 newBasefee)
     {
-        uint64 proofTimeIssued = state.proofTimeIssued;
+        newProofTimeIssued = state.proofTimeIssued;
 
-        proofTimeIssued = (proofTimeIssued > config.proofTimeTarget)
-            ? proofTimeIssued - config.proofTimeTarget
+        newProofTimeIssued = (newProofTimeIssued > config.proofTimeTarget)
+            ? newProofTimeIssued - config.proofTimeTarget
             : uint64(0);
-
-        proofTimeIssued += proofTime;
+        newProofTimeIssued += proofTime;
 
         newBasefee = _calcBasefee(
-            proofTimeIssued,
+            newProofTimeIssued,
             config.proofTimeTarget,
             config.adjustmentQuotient
         );
@@ -108,66 +113,43 @@ library LibTokenomics {
                     block.timestamp -
                     state.accProposedAt
             );
+            ///@dev If block timestamp is equal to state.accProposedAt (not really, but theoretically possible)
+            ///@dev there will be division by 0 error
+            if (totalNumProvingSeconds == 0) {
+                totalNumProvingSeconds = 1;
+            }
 
             reward = uint64(
-                (
-                    uint256(
-                        (state.rewardPool * proofTime) / totalNumProvingSeconds
-                    )
-                )
+                (uint256(state.accBlockFees) * proofTime) /
+                    totalNumProvingSeconds
             );
-
-            // // todo:(dani)
-            // Can stay as is for now - until simulation validates which might be better long term.
-            // reward_opt2 = uint64(
-            //     (
-            //         uint256(
-            //             (state.rewardPool * proofTime) / (totalNumProvingSeconds * 2)
-            //         )
-            //     )
-            // );
-
-            // reward_opt3 = uint64(
-            //     (
-            //         uint256(
-            //             (state.rewardPool * proofTime) /
-            //             (numBlocksBeingProven - 1) * config.proofTimeTarget + proofTime
-            //         )
-            //     )
-            // );
         }
-
-        newProofTimeIssued = proofTimeIssued;
     }
 
-    /// @notice Calculating the exponential smoothened with (target/quotient)
-    /// @param value - Result of cumulativeProofTime
-    /// @param target - Target proof time
-    /// @param quotient - Quotient
+    /**
+     * Calculating the exponential smoothened with (target/quotient)
+     *
+     * @param value Result of cumulativeProofTime
+     * @param target Target proof time
+     * @param quotient Quotient
+     * @return uint64 Calculated new basefee
+     */
     function _calcBasefee(
         uint256 value,
         uint256 target,
         uint256 quotient
     ) private pure returns (uint64) {
-        uint256 result = _expCalculation(value, target, quotient) /
-            (target * quotient);
+        uint256 x = (value * Math.SCALING_FACTOR_1E18) / (target * quotient);
+
+        if (Math.MAX_EXP_INPUT <= x) {
+            x = Math.MAX_EXP_INPUT;
+        }
+
+        uint256 result = (uint256(Math.exp(int256(x))) /
+            Math.SCALING_FACTOR_1E18) / (target * quotient);
 
         if (result > type(uint64).max) return type(uint64).max;
 
         return uint64(result);
-    }
-
-    /// @notice Calculating the exponential via LibFixedPointMath.sol
-    /// @param value - Result of cumulativeProofTime
-    /// @param target - Target proof time
-    /// @param quotient - Quotient
-    function _expCalculation(
-        uint256 value,
-        uint256 target,
-        uint256 quotient
-    ) private pure returns (uint256 retVal) {
-        uint256 x = (value * Math.SCALING_FACTOR_1E18) / (target * quotient);
-
-        return (uint256(Math.exp(int256(x))) / Math.SCALING_FACTOR_1E18);
     }
 }
