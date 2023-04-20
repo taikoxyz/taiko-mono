@@ -1,14 +1,10 @@
 package indexer
 
 import (
-	"context"
-	"math/big"
 	"time"
 
 	"github.com/cyberhorsey/errors"
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
@@ -19,16 +15,10 @@ var (
 	ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
 )
 
-type ethClient interface {
-	ChainID(ctx context.Context) (*big.Int, error)
-	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
-	SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error)
-}
-
 type Service struct {
 	eventRepo eventindexer.EventRepository
 	blockRepo eventindexer.BlockRepository
-	ethClient ethClient
+	ethClient *ethclient.Client
 
 	processingBlockHeight uint64
 
