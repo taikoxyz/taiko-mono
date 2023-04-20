@@ -1,11 +1,25 @@
 import type { Address, ChainID } from './chain';
 import type { BridgeTransaction } from './transactions';
 
+export const MAX_PAGE_SIZE = 100;
+export const DEFAULT_PAGE = 0;
+
+export type GetAllByAddressResponse = {
+  txs: BridgeTransaction[];
+  paginationInfo: PaginationInfo;
+};
+
+export type PaginationParams = {
+  size: typeof MAX_PAGE_SIZE;
+  page: number;
+};
+
 export interface RelayerAPI {
   getAllBridgeTransactionByAddress(
     address: string,
+    pagination: PaginationParams,
     chainID?: number,
-  ): Promise<BridgeTransaction[]>;
+  ): Promise<GetAllByAddressResponse>;
 
   getBlockInfo(): Promise<Map<number, RelayerBlockInfo>>;
 }
@@ -19,10 +33,10 @@ export type TransactionData = {
     Memo: string;
     Owner: Address;
     Sender: Address;
-    GasLimit: number;
-    CallValue: number;
-    DepositValue: number;
-    ProcessingFee: number;
+    GasLimit: string;
+    CallValue: string;
+    DepositValue: string;
+    ProcessingFee: string;
     RefundAddress: Address;
     Data: string;
   };
@@ -71,3 +85,8 @@ export type APIResponse = {
   first: boolean;
   visible: number;
 };
+
+export type PaginationInfo = Pick<
+  APIResponse,
+  'page' | 'size' | 'max_page' | 'total_pages' | 'total' | 'last' | 'first'
+>;

@@ -8,12 +8,20 @@
   import { errorToast, successToast } from '../Toast.svelte';
 
   const toggleChains = async () => {
+    if (!$signer) {
+      errorToast('Please connect your wallet');
+      return;
+    }
+
     try {
       const chain = $fromChain === mainnetChain ? taikoChain : mainnetChain;
       await switchNetwork({
         chainId: chain.id,
       });
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const provider = new ethers.providers.Web3Provider(
+        window.ethereum,
+        'any',
+      );
       await provider.send('eth_requestAccounts', []);
 
       fromChain.set(chain);
@@ -40,10 +48,10 @@
     {/if}
   </div>
 
-  <button
-    on:click={toggleChains}
-    class="btn btn-square btn-sm toggle-chain"
-    disabled={!$signer}><ArrowRight size="16" /></button>
+  <button on:click={toggleChains} class="btn btn-square btn-sm toggle-chain">
+    <ArrowRight size="16" />
+  </button>
+
   <div class="flex items-center w-2/5 justify-center">
     {#if $toChain}
       <svelte:component this={$toChain.icon} />

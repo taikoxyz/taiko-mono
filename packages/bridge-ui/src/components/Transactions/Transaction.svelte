@@ -24,14 +24,15 @@
   import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
   import Button from '../buttons/Button.svelte';
   import { switchChainAndSetSigner } from '../../utils/switchChainAndSetSigner';
+  import type { NoticeOpenArgs } from '../../domain/modal';
 
   export let transaction: BridgeTransaction;
 
   const dispatch = createEventDispatcher<{
-    tooltipClick: void;
+    claimNotice: NoticeOpenArgs;
+    tooltipStatus: void;
     insufficientBalance: void;
-    transactionDetailsClick: BridgeTransaction;
-    relayerAutoClaim: (informed: boolean) => Promise<void>;
+    transactionDetails: BridgeTransaction;
   }>();
 
   let loading: boolean;
@@ -57,17 +58,13 @@
     // has already been informed about the relayer auto-claim.
     const processingFee = transaction.message?.processingFee.toString();
     if (processingFee && processingFee !== '0' && !alreadyInformedAboutClaim) {
-      dispatch(
-        'relayerAutoClaim',
-        // TODO: this is a hack. The idea is to move all these
-        //       functions outside of the component, where they
-        //       make more sense. We don't need to repeat the same
-        //       logic per transaction.
-        async (informed) => {
+      dispatch('claimNotice', {
+        name: transaction.hash,
+        onConfirm: async (informed: true) => {
           alreadyInformedAboutClaim = informed;
           await claim(transaction);
         },
-      );
+      });
     } else {
       await claim(transaction);
     }
@@ -111,15 +108,16 @@
         srcBridgeAddress: chains[bridgeTx.fromChainId].bridgeAddress,
       });
 
-      pendingTransactions.update((store) => {
-        store.push(tx);
-        return store;
-      });
-
       successToast($_('toast.transactionSent'));
+
+      await pendingTransactions.add(tx, $signer);
+
       // TODO: keep the MessageStatus as contract and use another way.
       transaction.status = MessageStatus.ClaimInProgress;
+
+      successToast('Transaction completed!');
     } catch (e) {
+      // TODO: handle potential transaction failure
       console.error(e);
       errorToast($_('toast.errorSendingTransaction'));
     } finally {
@@ -156,13 +154,13 @@
         srcTokenVaultAddress: tokenVaults[bridgeTx.fromChainId],
       });
 
-      pendingTransactions.update((store) => {
-        store.push(tx);
-        return store;
-      });
-
       successToast($_('toast.transactionSent'));
+
+      pendingTransactions.add(tx, $signer);
+
+      successToast('Transaction completed!');
     } catch (e) {
+      // TODO: handle potential transaction failure
       console.error(e);
       errorToast($_('toast.errorSendingTransaction'));
     } finally {
@@ -266,7 +264,7 @@
   </td>
 
   <td>
-    <ButtonWithTooltip onClick={() => dispatch('tooltipClick')}>
+    <ButtonWithTooltip onClick={() => dispatch('tooltipStatus')}>
       <span slot="buttonText">
         {#if !processable}
           Pending
@@ -321,7 +319,7 @@
   <td>
     <button
       class="cursor-pointer inline-block"
-      on:click={() => dispatch('transactionDetailsClick', transaction)}>
+      on:click={() => dispatch('transactionDetails', transaction)}>
       <ArrowTopRightOnSquare />
     </button>
   </td>

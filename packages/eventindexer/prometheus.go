@@ -20,6 +20,6 @@ var (
 	})
 	ErrorsEncounteredDuringSubscription = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "errors_encountered_during_subscription_opts_total",
-		Help: "The total number of errors that occured during active subscription",
+		Help: "The total number of errors that occurred during active subscription",
 	})
 )

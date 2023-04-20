@@ -154,7 +154,7 @@ library LibBlockHeaderDecoder {
             }
 
             // decodes all RLP encoded data and stores their DATA items
-            // [length, calldata offset] in a continous memory region.
+            // [length, calldata offset] in a continuous memory region.
             // Expects that the RLP starts with a list that defines the length
             // of the whole RLP region.
             function decodeFlat(_ptr) -> ptr, memStart, nItems, hash {

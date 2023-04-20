@@ -10,6 +10,9 @@ import type {
   APIRequestParams,
   APIResponse,
   APIResponseTransaction,
+  GetAllByAddressResponse,
+  PaginationInfo,
+  PaginationParams,
   RelayerAPI,
   RelayerBlockInfo,
 } from '../domain/relayerApi';
@@ -46,8 +49,9 @@ export class RelayerAPIService implements RelayerAPI {
 
   async getAllBridgeTransactionByAddress(
     address: string,
+    paginationParams: PaginationParams,
     chainID?: number,
-  ): Promise<BridgeTransaction[]> {
+  ): Promise<GetAllByAddressResponse> {
     if (!address) {
       throw new Error('Address need to passed to fetch transactions');
     }
@@ -56,13 +60,35 @@ export class RelayerAPIService implements RelayerAPI {
       address,
       chainID,
       event: 'MessageSent',
+      ...paginationParams,
     };
 
     const apiTxs: APIResponse = await this.getTransactionsFromAPI(params);
 
+    const paginationInfo: PaginationInfo = {
+      page: apiTxs.page,
+      size: apiTxs.size,
+      total: apiTxs.total,
+      total_pages: apiTxs.total_pages,
+      first: apiTxs.first,
+      last: apiTxs.last,
+      max_page: apiTxs.max_page,
+    };
+
     if (apiTxs?.items?.length === 0) {
-      return [];
+      return { txs: [], paginationInfo };
     }
+
+    apiTxs.items.map((t, i) => {
+      apiTxs.items.map((tx, j) => {
+        if (
+          tx.data.Raw.transactionHash === t.data.Raw.transactionHash &&
+          i !== j
+        ) {
+          apiTxs.items = apiTxs.items.filter((_, index) => index !== j);
+        }
+      });
+    });
 
     const txs = apiTxs.items.map((tx: APIResponseTransaction) => {
       let data = tx.data.Message.Data;
@@ -93,12 +119,16 @@ export class RelayerAPIService implements RelayerAPI {
           memo: tx.data.Message.Memo,
           owner: tx.data.Message.Owner,
           sender: tx.data.Message.Sender,
-          gasLimit: BigNumber.from(tx.data.Message.GasLimit),
-          callValue: BigNumber.from(tx.data.Message.CallValue),
+          gasLimit: BigNumber.from(tx.data.Message.GasLimit.toString()),
+          callValue: BigNumber.from(tx.data.Message.CallValue.toString()),
           srcChainId: tx.data.Message.SrcChainId,
           destChainId: tx.data.Message.DestChainId,
-          depositValue: BigNumber.from(`${tx.data.Message.DepositValue}`),
-          processingFee: BigNumber.from(`${tx.data.Message.ProcessingFee}`),
+          depositValue: BigNumber.from(
+            `${tx.data.Message.DepositValue.toString()}`,
+          ),
+          processingFee: BigNumber.from(
+            `${tx.data.Message.ProcessingFee.toString()}`,
+          ),
           refundAddress: tx.data.Message.RefundAddress,
         },
       };
@@ -178,7 +208,7 @@ export class RelayerAPIService implements RelayerAPI {
 
     bridgeTxs.reverse();
     bridgeTxs.sort((tx) => (tx.status === MessageStatus.New ? -1 : 1));
-    return bridgeTxs;
+    return { txs: bridgeTxs, paginationInfo };
   }
 
   async getBlockInfo(): Promise<Map<number, RelayerBlockInfo>> {
