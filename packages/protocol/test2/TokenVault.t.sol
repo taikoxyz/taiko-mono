@@ -269,7 +269,9 @@ contract TestTokenVault is Test {
         );
     }
 
-    function test_receive_erc20_canonical_to_dest_chain() public {
+    function test_receive_erc20_canonical_to_dest_chain_transfers_from_canonical_token()
+        public
+    {
         vm.startPrank(Alice);
 
         uint256 srcChainId = block.chainid;
@@ -300,7 +302,9 @@ contract TestTokenVault is Test {
         assertEq(toBalanceAfter - toBalanceBefore, amount);
     }
 
-    function test_receive_erc20_non_canonical_to_dest_chain() public {
+    function test_receive_erc20_non_canonical_to_dest_chain_deploys_new_bridged_token_and_mints()
+        public
+    {
         vm.startPrank(Alice);
 
         uint256 srcChainId = block.chainid;
@@ -309,6 +313,12 @@ contract TestTokenVault is Test {
         uint256 amount = 1;
 
         destChainIdBridge.setTokenVault(address(destChainIdTokenVault));
+
+        address bridgedAddressBefore = destChainIdTokenVault.canonicalToBridged(
+            srcChainId,
+            address(erc20)
+        );
+        assertEq(bridgedAddressBefore == address(0), true);
 
         destChainIdBridge.sendReceiveERC20ToTokenVault(
             erc20ToCanonicalERC20(srcChainId),
@@ -320,12 +330,12 @@ contract TestTokenVault is Test {
             srcChainId
         );
 
-        address bridgedAddress = destChainIdTokenVault.canonicalToBridged(
+        address bridgedAddressAfter = destChainIdTokenVault.canonicalToBridged(
             srcChainId,
             address(erc20)
         );
-        assertEq(bridgedAddress != address(0), true);
-        BridgedERC20 bridgedERC20 = BridgedERC20(bridgedAddress);
+        assertEq(bridgedAddressAfter != address(0), true);
+        BridgedERC20 bridgedERC20 = BridgedERC20(bridgedAddressAfter);
 
         assertEq(bridgedERC20.balanceOf(Bob), amount);
     }
