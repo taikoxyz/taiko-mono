@@ -152,17 +152,7 @@ export class TransactionStorage {
 
       const destBridgeAddress = this.chains[toChainId].bridgeAddress
 
-      const status = await getBridgeMessageStatus(
-        destBridgeAddress,
-        BRIDGE_ABI,
-        destProvider,
-        msgHash,
-      )
-
-      tx.status = status
-
-      let amountInWei: bigint | undefined
-      let symbol: string | undefined
+      tx.status = await getBridgeMessageStatus(destBridgeAddress, BRIDGE_ABI, destProvider, msgHash)
 
       // TODO: function isERC20Transfer(message: string): boolean?
       if (message.data && message.data !== '0x') {
@@ -258,9 +248,6 @@ export class TransactionStorage {
     )
 
     tx.status = status
-
-    let amountInWei: bigint | undefined
-    let symbol: string | undefined
 
     if (message.data && message.data !== '0x') {
       // Dealing with an ERC20 transfer. Let's get the symbol
