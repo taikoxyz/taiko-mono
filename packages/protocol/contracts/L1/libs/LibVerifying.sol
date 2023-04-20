@@ -209,7 +209,8 @@ library LibVerifying {
             config.maxBytesPerTxList > 128 * 1024 ||
             config.minTxGasLimit == 0 ||
             config.slotSmoothingFactor == 0 ||
-            config.numEthDepositPerBlock == 0 ||
+            config.maxEthDepositsPerBlock == 0 ||
+            config.maxEthDepositsPerBlock < config.minEthDepositsPerBlock ||
             // EIP-4844 blob deleted after 30 days
             config.txListCacheExpiry > 30 * 24 hours ||
             config.rewardBurnBips >= 10000

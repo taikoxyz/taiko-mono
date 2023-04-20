@@ -25,7 +25,8 @@ struct Config {
   uint256 slotSmoothingFactor;
   uint256 rewardBurnBips;
   uint256 proposerDepositPctg;
-  uint64 numEthDepositPerBlock;
+  uint64 minEthDepositsPerBlock;
+  uint64 maxEthDepositsPerBlock;
   uint96 maxEthDepositAmount;
   uint96 minEthDepositAmount;
   uint256 feeBaseMAF;
