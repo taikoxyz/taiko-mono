@@ -234,9 +234,7 @@ abstract contract TaikoL1TestBase is Test {
             Strings.toString(vars.numBlocks),
             "]",
             " fee:",
-            Strings.toString(fee),
-            " lastProposedAt:",
-            Strings.toString(vars.lastProposedAt)
+            Strings.toString(fee)
         );
 
         str = string.concat(

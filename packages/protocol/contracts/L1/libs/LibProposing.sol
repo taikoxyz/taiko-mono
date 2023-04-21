@@ -110,7 +110,6 @@ library LibProposing {
         unchecked {
             ++state.numBlocks;
         }
-        state.lastProposedAt = meta.timestamp;
     }
 
     function getBlock(

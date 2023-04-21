@@ -61,7 +61,6 @@ library LibUtils {
                 proofTimeIssued: state.proofTimeIssued,
                 lastVerifiedBlockId: state.lastVerifiedBlockId,
                 accProposedAt: state.accProposedAt,
-                lastProposedAt: state.lastProposedAt,
                 nextEthDepositToProcess: state.nextEthDepositToProcess,
                 numEthDeposits: uint64(state.ethDeposits.length)
             });

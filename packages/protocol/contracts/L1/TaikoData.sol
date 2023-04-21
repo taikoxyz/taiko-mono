@@ -43,7 +43,6 @@ library TaikoData {
         uint64 proofTimeIssued;
         uint64 lastVerifiedBlockId;
         uint64 accProposedAt;
-        uint64 lastProposedAt;
         uint64 nextEthDepositToProcess;
         uint64 numEthDeposits;
     }
@@ -154,15 +153,15 @@ library TaikoData {
         uint64 __reserved61;
         uint64 __reserved62;
         // Slot 7
-        uint64 lastProposedAt;
         uint64 accProposedAt;
         uint64 accBlockFees;
         uint64 numBlocks;
-        // Slot 8
         uint64 nextEthDepositToProcess;
+        // Slot 8
         uint64 basefee;
         uint64 proofTimeIssued;
         uint64 lastVerifiedBlockId;
+        uint64 __reserved81;
         // Reserved
         uint256[42] __gap;
     }
