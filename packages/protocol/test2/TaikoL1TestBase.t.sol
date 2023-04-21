@@ -11,6 +11,12 @@ import {TaikoToken} from "../contracts/L1/TaikoToken.sol";
 import {SignalService} from "../contracts/signal/SignalService.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
+contract Verifier {
+    fallback(bytes calldata) external returns (bytes memory) {
+        return bytes.concat(keccak256("taiko"));
+    }
+}
+
 abstract contract TaikoL1TestBase is Test {
     AddressManager public addressManager;
     TaikoToken public tko;
@@ -38,6 +44,10 @@ abstract contract TaikoL1TestBase is Test {
     address public constant Dave = 0x400147C0Eb43D8D71b2B03037bB7B31f8f78EF5F;
     address public constant Eve = 0x50081b12838240B1bA02b3177153Bca678a86078;
 
+    // Calculation shall be done in derived contracts - based on testnet or mainnet expected proof time
+    uint64 public initProofTimeIssued;
+    uint8 public constant ADJUSTMENT_QUOTIENT = 16;
+
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
 
     function setUp() public virtual {
@@ -46,7 +56,12 @@ abstract contract TaikoL1TestBase is Test {
         addressManager.init();
 
         L1 = deployTaikoL1();
-        L1.init(address(addressManager), feeBase, GENESIS_BLOCK_HASH);
+        L1.init(
+            address(addressManager),
+            GENESIS_BLOCK_HASH,
+            feeBase,
+            initProofTimeIssued
+        );
         conf = L1.getConfig();
 
         tko = new TaikoToken();
@@ -75,6 +90,11 @@ abstract contract TaikoL1TestBase is Test {
         _registerL2Address("treasure", L2Treasure);
         _registerL2Address("signal_service", address(L2SS));
         _registerL2Address("taiko_l2", address(L2TaikoL2));
+        // TODO(daniel): update string key generation using bytes.concat
+        _registerAddress(
+            string(abi.encodePacked("verifier_", uint16(100))),
+            address(new Verifier())
+        );
 
         printVariables("init  ");
     }
@@ -203,21 +223,18 @@ abstract contract TaikoL1TestBase is Test {
 
     function printVariables(string memory comment) internal {
         TaikoData.StateVariables memory vars = L1.getStateVariables();
-        (uint256 fee, ) = L1.getBlockFee();
+
+        uint256 fee = L1.getBlockFee();
+
         string memory str = string.concat(
             Strings.toString(logCount++),
             ":[",
             Strings.toString(vars.lastVerifiedBlockId),
             unicode"→",
             Strings.toString(vars.numBlocks),
-            "] feeBase:",
-            Strings.toString(vars.feeBase),
+            "]",
             " fee:",
             Strings.toString(fee),
-            " avgBlockTime:",
-            Strings.toString(vars.avgBlockTime),
-            " avgProofTime:",
-            Strings.toString(vars.avgProofTime),
             " lastProposedAt:",
             Strings.toString(vars.lastProposedAt)
         );

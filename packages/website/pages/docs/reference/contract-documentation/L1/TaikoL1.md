@@ -16,6 +16,7 @@ receive() external payable
 
 ```solidity
 function init(address _addressManager, uint64 _feeBase, bytes32 _genesisBlockHash) external
+
 ```
 
 Initialize the rollup.
@@ -28,10 +29,12 @@ Initialize the rollup.
 | \_feeBase          | uint64  | The initial value of the proposer-fee/prover-reward feeBase. |
 | \_genesisBlockHash | bytes32 | The block hash of the genesis block.                         |
 
+
 ### proposeBlock
 
 ```solidity
 function proposeBlock(bytes input, bytes txList) external returns (struct TaikoData.BlockMetadata meta)
+
 ```
 
 Propose a Taiko L2 block.
@@ -115,13 +118,13 @@ function getBalance(address addr) public view returns (uint256)
 ### getBlockFee
 
 ```solidity
-function getBlockFee() public view returns (uint256 feeAmount, uint256 depositAmount)
+function getBlockFee() public view returns (uint64 feeAmount)
 ```
 
 ### getProofReward
 
 ```solidity
-function getProofReward(uint64 provenAt, uint64 proposedAt) public view returns (uint256 reward)
+function getProofReward(uint64 provenAt, uint64 proposedAt, uint32 gasUsed) public view returns (uint256 reward)
 ```
 
 ### getBlock

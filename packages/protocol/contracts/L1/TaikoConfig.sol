@@ -35,26 +35,15 @@ library TaikoConfig {
                 // transactions list calldata, 8K for the remaining tx fields.
                 maxBytesPerTxList: 120000,
                 minTxGasLimit: 21000,
-                slotSmoothingFactor: 946649,
-                // 100 basis points or 1%
-                rewardBurnBips: 100,
-                proposerDepositPctg: 25, // - 25%
                 // Moving average factors
-                feeBaseMAF: 1024,
                 txListCacheExpiry: 0,
+                proofTimeTarget: 1800, // 85s based on A2 testnet status, or set to 1800 for 30mins (mainnet mock)
+                adjustmentQuotient: 16,
                 relaySignalRoot: false,
                 enableSoloProposer: false,
                 enableOracleProver: true,
                 enableTokenomics: true,
-                skipZKPVerification: false,
-                proposingConfig: TaikoData.FeeConfig({
-                    avgTimeMAF: 1024,
-                    dampingFactorBips: 2500 // [125% -> 75%]
-                }),
-                provingConfig: TaikoData.FeeConfig({
-                    avgTimeMAF: 1024,
-                    dampingFactorBips: 2500 // [75% -> 125%]
-                })
+                skipZKPVerification: false
             });
     }
 }

@@ -10,7 +10,7 @@ import {
     getL2Provider,
 } from "./provider";
 import { createAndSeedWallets, sendTinyEtherToZeroAddress } from "./seed";
-import { defaultFeeBase, deployTaikoL1 } from "./taikoL1";
+import { defaultBasefee, deployTaikoL1 } from "./taikoL1";
 import { deployTaikoL2 } from "./taikoL2";
 import deployTaikoToken from "./taikoToken";
 
@@ -51,7 +51,7 @@ async function initIntegrationFixture(
         l1AddressManager,
         genesisHash,
         enableTokenomics,
-        defaultFeeBase
+        defaultBasefee
     );
     const { chainId } = await l1Provider.getNetwork();
 

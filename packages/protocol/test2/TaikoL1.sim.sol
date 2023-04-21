@@ -23,7 +23,6 @@ contract TaikoL1_b is TaikoL1 {
 
         config.enableTokenomics = true;
         config.txListCacheExpiry = 0;
-        config.proposerDepositPctg = 0;
         config.enableSoloProposer = false;
         config.enableOracleProver = false;
         config.maxNumProposedBlocks = 36;
@@ -44,13 +43,18 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
 
     function setUp() public override {
         TaikoL1TestBase.setUp();
+        // TODO(daniel): update string key generation using bytes.concat
         _registerAddress(
             string(abi.encodePacked("verifier_", uint16(100))),
             address(new Verifier())
         );
     }
 
-    function testGeneratingManyRandomBlocks() external {
+    // Disabling this test for now. (We have someshting similar
+    // in TaikoL1LibTokenomicsXXXXXX.t.sol.)
+    // Rrandomization only matters at proofTime but not elsewhere
+    // since we dependant on proofTime (and proofTimetarget)
+    function xtestGeneratingManyRandomBlocks() external {
         uint256 time = block.timestamp;
         assertEq(time, 1);
 
@@ -86,7 +90,6 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
                 gasLimit,
                 txListSize
             );
-
             proveBlock(
                 Bob,
                 meta,
@@ -111,10 +114,10 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
             "\nlogCount,",
             "time,",
             "lastVerifiedBlockId,",
-            "numBlocks,"
-            // "feeBase,",
-            // "fee,",
-            // "lastProposedAt"
+            "numBlocks,",
+            "baseFee,",
+            "accProposedAt",
+            "lastProposedAt"
         );
         console2.log(str);
     }
@@ -129,13 +132,13 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
             ",",
             Strings.toString(vars.lastVerifiedBlockId),
             ",",
-            Strings.toString(vars.numBlocks)
-            // ",",
-            // Strings.toString(vars.feeBase),
-            // ",",
-            // Strings.toString(fee),
-            // ",",
-            // Strings.toString(vars.lastProposedAt)
+            Strings.toString(vars.numBlocks),
+            ",",
+            Strings.toString(vars.basefee),
+            ",",
+            Strings.toString(vars.accProposedAt),
+            ",",
+            Strings.toString(vars.lastProposedAt)
         );
         console2.log(str);
     }
