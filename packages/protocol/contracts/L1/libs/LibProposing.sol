@@ -67,6 +67,7 @@ library LibProposing {
                 timestamp: uint64(block.timestamp),
                 l1Height: uint64(block.number - 1),
                 l1Hash: blockhash(block.number - 1),
+                depositsRoot: 0x0,
                 mixHash: bytes32(block.prevrandao * state.numBlocks),
                 txListHash: input.txListHash,
                 txListByteStart: input.txListByteStart,
@@ -74,7 +75,8 @@ library LibProposing {
                 gasLimit: input.gasLimit,
                 beneficiary: input.beneficiary,
                 treasure: resolver.resolve(config.chainId, "treasure", false),
-                cacheTxListInfo: cacheTxListInfo
+                cacheTxListInfo: cacheTxListInfo,
+                depositsProcessed: new TaikoData.EthDeposit[](0)
             });
         }
 

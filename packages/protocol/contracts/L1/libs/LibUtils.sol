@@ -61,7 +61,9 @@ library LibUtils {
                 proofTimeIssued: state.proofTimeIssued,
                 lastVerifiedBlockId: state.lastVerifiedBlockId,
                 accProposedAt: state.accProposedAt,
-                lastProposedAt: state.lastProposedAt
+                lastProposedAt: state.lastProposedAt,
+                nextEthDepositToProcess: 0, // TODO(daniel)
+                numEthDeposits: 0
             });
     }
 

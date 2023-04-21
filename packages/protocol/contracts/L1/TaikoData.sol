@@ -19,6 +19,10 @@ library TaikoData {
         uint256 maxTransactionsPerBlock;
         uint256 maxBytesPerTxList;
         uint256 minTxGasLimit;
+        uint64 minEthDepositsPerBlock;
+        uint64 maxEthDepositsPerBlock;
+        uint96 maxEthDepositAmount;
+        uint96 minEthDepositAmount;
         // Moving average factors
         uint256 txListCacheExpiry;
         uint64 proofTimeTarget;
@@ -40,6 +44,8 @@ library TaikoData {
         uint64 lastVerifiedBlockId;
         uint64 accProposedAt;
         uint64 lastProposedAt;
+        uint64 nextEthDepositToProcess;
+        uint64 numEthDeposits;
     }
 
     // 3 slots
@@ -60,6 +66,7 @@ library TaikoData {
         uint64 l1Height;
         bytes32 l1Hash;
         bytes32 mixHash;
+        bytes32 depositsRoot; // match L2 header's withdrawalsRoot
         bytes32 txListHash;
         uint24 txListByteStart;
         uint24 txListByteEnd;
@@ -67,6 +74,7 @@ library TaikoData {
         address beneficiary;
         uint8 cacheTxListInfo;
         address treasure;
+        TaikoData.EthDeposit[] depositsProcessed;
     }
 
     struct ZKProof {
@@ -127,6 +135,12 @@ library TaikoData {
         uint24 size;
     }
 
+    // 1 slot
+    struct EthDeposit {
+        address recipient;
+        uint96 amount;
+    }
+
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint256 blockId_mode_ringBufferSize => Block) blocks;
@@ -134,6 +148,7 @@ library TaikoData {
         mapping(uint256 blockId => mapping(bytes32 parentHash => mapping(uint32 parentGasUsed => uint256 forkChoiceId))) forkChoiceIds;
         mapping(address account => uint256 balance) balances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
+        EthDeposit[] ethDeposits;
         // Slot 5: never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
@@ -145,7 +160,7 @@ library TaikoData {
         uint64 accProposedAt; // also by verifyBlocks
         uint64 accBlockFees; // also by verifyBlocks
         // Slot 7: changed by proveBlock
-        // uint64 __reserved71;
+        uint64 nextEthDepositToProcess; // TODO(daniel): optimize slots
         // uint64 __reserved72;
         // uint64 __reserved73;
         // uint64 __reserved74;
@@ -155,6 +170,6 @@ library TaikoData {
         uint64 lastVerifiedBlockId;
         uint64 __reserved81;
         // Reserved
-        uint256[43] __gap;
+        uint256[41] __gap;
     }
 }
