@@ -7,6 +7,7 @@ import {AddressManager} from "../contracts/thirdparty/AddressManager.sol";
 import {TaikoConfig} from "../contracts/L1/TaikoConfig.sol";
 import {TaikoData} from "../contracts/L1/TaikoData.sol";
 import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
+import {TaikoErrors} from "../contracts/L1/TaikoErrors.sol";
 import {TaikoToken} from "../contracts/L1/TaikoToken.sol";
 import {SignalService} from "../contracts/signal/SignalService.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
@@ -51,6 +52,14 @@ contract Verifier {
 }
 
 contract TaikoL1Test is TaikoL1TestBase {
+    uint256 public constant iterationCnt = 10;
+    // Declare here so that block prop/prove/verif. can be used in 1 place
+    TaikoData.BlockMetadata meta;
+    TaikoData.ForkChoice fk;
+    bytes32 blockHash;
+    bytes32 signalRoot;
+    bytes32[] parentHashes = new bytes32[](iterationCnt);
+
     function deployTaikoL1() internal override returns (TaikoL1 taikoL1) {
         taikoL1 = new TaikoL1_a();
     }
@@ -61,14 +70,43 @@ contract TaikoL1Test is TaikoL1TestBase {
             string(abi.encodePacked("verifier_", uint16(100))),
             address(new Verifier())
         );
+
+        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
+        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
+        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+    }
+
+    // 'Quickly propose, prove and verify so other functions can call this once at start
+    function propose_prove_verify() internal {
+        parentHashes[0] = GENESIS_BLOCK_HASH;
+
+        // Propose blocks
+        for (uint256 blockId = 1; blockId < iterationCnt; blockId++) {
+            //printVariables("before propose");
+            meta = proposeBlock(Alice, 1000000, 1024);
+            mine(5);
+
+            blockHash = bytes32(1E10 + blockId);
+            signalRoot = bytes32(1E9 + blockId);
+
+            proveBlock(
+                Bob,
+                meta,
+                parentHashes[blockId - 1],
+                blockId == 1 ? 0 : 1000000,
+                1000000,
+                blockHash,
+                signalRoot
+            );
+            verifyBlock(Carol, 1);
+
+            mine(5);
+            parentHashes[blockId] = blockHash;
+        }
     }
 
     /// @dev Test we can propose, prove, then verify more blocks than 'maxNumProposedBlocks'
     function test_more_blocks_than_ring_buffer_size() external {
-        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
-
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
         uint32 gasUsed = 1000000;
@@ -109,8 +147,6 @@ contract TaikoL1Test is TaikoL1TestBase {
     /// @dev Test more than one block can be proposed, proven, & verified in the
     ///      same L1 block.
     function test_multiple_blocks_in_one_L1_block() external {
-        _depositTaikoToken(Alice, 1000 * 1E8, 1000 ether);
-
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
         uint32 gasUsed = 1000000;
@@ -144,8 +180,6 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     /// @dev Test verifying multiple blocks in one transaction
     function test_verifying_multiple_blocks_once() external {
-        _depositTaikoToken(Alice, 1E6 * 1E8, 1000 ether);
-
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
         uint32 gasUsed = 1000000;
@@ -184,89 +218,66 @@ contract TaikoL1Test is TaikoL1TestBase {
         printVariables("after verify");
     }
 
-    /// @dev Test block time increases and fee decreases.
-    function test_block_time_increases_and_fee_decreases() external {
-        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
-
-        bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint32 parentGasUsed = 0;
-        uint32 gasUsed = 1000000;
-
-        for (
-            uint256 blockId = 1;
-            blockId < conf.maxNumProposedBlocks * 10;
-            blockId++
-        ) {
-            printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(
-                Alice,
-                1000000,
-                1024
-            );
-            mine(1);
-
-            bytes32 blockHash = bytes32(1E10 + blockId);
-            bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(
-                Bob,
-                meta,
-                parentHash,
-                parentGasUsed,
-                gasUsed,
-                blockHash,
-                signalRoot
-            );
-            parentHash = blockHash;
-            parentGasUsed = gasUsed;
-
-            verifyBlock(Carol, 1);
-            mine(blockId);
-            parentHash = blockHash;
-        }
-        printVariables("");
+    /// @dev getXchainBlockHash test
+    function test_getXchainBlockHash0() external {
+        bytes32 genHash = L1.getXchainBlockHash(0);
+        assertEq(GENESIS_BLOCK_HASH, genHash);
     }
 
-    /// @dev Test block time decreases and the fee increases
-    function test_block_time_decreases_but_fee_remains() external {
-        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+    /// @dev getXchainBlockHash when non exist return bytes32(0)
+    function test_getXchainBlockHash_not_found() external {
+        bytes32 genHash = L1.getXchainBlockHash(1);
+        assertEq(bytes32(0), genHash);
+    }
 
-        bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint32 parentGasUsed = 0;
-        uint32 gasUsed = 1000000;
+    /// @dev Test to see if returns the correct fork choice (hash)
+    function test_getForkChoice() external {
+        propose_prove_verify();
 
-        uint256 total = conf.maxNumProposedBlocks * 10;
+        fk = L1.getForkChoice(1, GENESIS_BLOCK_HASH, 0);
 
-        for (uint256 blockId = 1; blockId < total; blockId++) {
-            printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(
-                Alice,
-                1000000,
-                1024
-            );
-            mine(1);
+        // The queried FC blockchash has to be equal as the parent hash of block 2
+        assertEq(fk.blockHash, parentHashes[1]);
+    }
 
-            bytes32 blockHash = bytes32(1E10 + blockId);
-            bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(
-                Bob,
-                meta,
-                parentHash,
-                parentGasUsed,
-                gasUsed,
-                blockHash,
-                signalRoot
-            );
-            parentHash = blockHash;
-            parentGasUsed = gasUsed;
+    /// @dev Test to see if reverts properly
+    function test_getForkChoice_non_existing_blockId() external {
+        propose_prove_verify();
 
-            verifyBlock(Carol, 1);
-            mine(total + 1 - blockId);
-            parentHash = blockHash;
-        }
-        printVariables("");
+        vm.expectRevert(TaikoErrors.L1_BLOCK_ID.selector);
+        L1.getForkChoice((iterationCnt + 1), GENESIS_BLOCK_HASH, 0);
+    }
+
+    /// @dev Test to see if reverts properly
+    function test_getForkChoice_non_valid_parentHash_and_gasUsed() external {
+        propose_prove_verify();
+
+        // Parent gas used is wrong
+        vm.expectRevert(TaikoErrors.L1_FORK_CHOICE_NOT_FOUND.selector);
+        L1.getForkChoice(1, GENESIS_BLOCK_HASH, 1);
+
+        // Parent hash is wrong
+        vm.expectRevert(TaikoErrors.L1_FORK_CHOICE_NOT_FOUND.selector);
+        L1.getForkChoice(1, parentHashes[6], 1);
+    }
+
+    /// @dev Test getXchainSignalRoot
+    function test_getXchainSignalRoot() external {
+        propose_prove_verify();
+        uint256 queriedBlockId = 1;
+        bytes32 expectedSR = bytes32(1E9 + queriedBlockId);
+
+        assertEq(expectedSR, L1.getXchainSignalRoot(queriedBlockId));
+
+        queriedBlockId = 2;
+        expectedSR = bytes32(1E9 + queriedBlockId);
+        assertEq(expectedSR, L1.getXchainSignalRoot(queriedBlockId));
+    }
+
+    /// @dev Test to see if returns bytes32(0) if not found
+    function test_getXchainSignalRoot_not_found() external {
+        propose_prove_verify();
+
+        assertEq(bytes32(0), L1.getXchainSignalRoot((iterationCnt + 1)));
     }
 }
