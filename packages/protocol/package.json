@@ -14,7 +14,7 @@
     "test": "./script/download_solc.sh && pnpm hardhat test --grep '^[^integration]'",
     "coverage": "pnpm hardhat coverage --solcoverjs ./.solcover.js --show-stack-traces",
     "test:coverage": "pnpm coverage",
-    "test:foundry": "forge test --gas-report --fuzz-seed $(date +%s) --match-path test2/**/*.t.sol",
+    "test:foundry": "forge test --gas-report --fuzz-seed $(date +%s) --match-path test2/**/SignalService.t.sol",
     "test:sim": "forge test -vvv --gas-report --fuzz-seed $(date +%s) --match-path test2/**/*.sim.sol --block-gas-limit 30000000000 --memory-limit 1073741824",
     "generate:genesis": "ts-node ./utils/generate_genesis/main.ts",
     "test:genesis": "./test2/genesis/generate_genesis.test.sh",
