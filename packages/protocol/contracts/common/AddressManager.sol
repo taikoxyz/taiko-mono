@@ -41,7 +41,7 @@ interface IAddressManager {
  * @title AddressManager
  */
 contract AddressManager is OwnableUpgradeable, IAddressManager {
-    mapping(uint256 domain => mapping(string nameHash => address addr))
+    mapping(uint256 domain => mapping(bytes32 nameHash => address addr))
         private addresses;
 
     event AddressSet(
@@ -61,8 +61,8 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
         string memory name,
         address newAddress
     ) external onlyOwner {
-        address oldAddress = addresses[domain][name];
-        addresses[domain][name] = newAddress;
+        address oldAddress = addresses[domain][stringToBytes32(name)];
+        addresses[domain][stringToBytes32(name)] = newAddress;
         emit AddressSet(domain, name, newAddress, oldAddress);
     }
 
@@ -70,6 +70,18 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
         uint256 domain,
         string memory name
     ) external view returns (address addr) {
-        addr = addresses[domain][name];
+        addr = addresses[domain][stringToBytes32(name)];
+    }
+
+    function stringToBytes32(
+        string memory source
+    ) private pure returns (bytes32 result) {
+        if (bytes(source).length == 0) {
+            return 0x0;
+        }
+
+        assembly {
+            result := mload(add(source, 32))
+        }
     }
 }
