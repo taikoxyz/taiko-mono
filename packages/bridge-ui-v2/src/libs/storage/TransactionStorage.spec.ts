@@ -1,5 +1,5 @@
-import type { ethers } from 'ethers'
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ethers } from 'ethers'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID } from '$env/static/public'
 
@@ -10,48 +10,33 @@ import type { BridgeTransaction } from '../transaction/types'
 import { tokenVaults } from '../vault'
 import { TransactionStorage } from './TransactionStorage'
 
-var mockProvider = {
-  getTransactionReceipt: vi.fn(),
-  waitForTransaction: vi.fn(),
-}
-
-vi.mock('../provider', () => ({
-  providers: {
-    [PUBLIC_L1_CHAIN_ID]: mockProvider as any,
-    [PUBLIC_L2_CHAIN_ID]: mockProvider as any,
-  },
-}))
-
-var mockContract = {
-  queryFilter: vi.fn(),
-  getMessageStatus: vi.fn(),
-  symbol: vi.fn(),
-  filters: {
-    // Returns this string to help us
-    // identify the filter in the tests
-    ERC20Sent: () => 'ERC20Sent',
-  },
-}
+vi.mock('$env/static/public')
 
 vi.mock('ethers', async () => {
-  const ethersModule = await vi.importActual<typeof ethers>('ethers')
+  const actualEthers = (await vi.importActual('ethers')) as any
 
-  class Contract {
-    constructor() {
-      return mockContract
-    }
+  const MockContract = vi.fn()
+  MockContract.prototype = {
+    symbol: vi.fn(),
+    queryFilter: vi.fn(),
+    getMessageStatus: vi.fn().mockImplementation(() => Promise.resolve(MessageStatus.New)),
+    filters: {
+      // Returns this string to help us
+      // identify the filter in the tests
+      ERC20Sent: vi.fn().mockReturnValue('ERC20Sent'),
+    },
+  }
+
+  const mockEthers = {
+    ...actualEthers,
+    Contract: MockContract,
   }
 
   return {
-    ...ethersModule,
-    Contract,
+    ...mockEthers,
+    ethers: mockEthers,
   }
 })
-
-const mockStorage = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-}
 
 const mockTx: BridgeTransaction = {
   hash: '0xABC',
@@ -63,11 +48,24 @@ const mockTx: BridgeTransaction = {
 
 const mockTxs: BridgeTransaction[] = [mockTx]
 
+const mockStorage = {
+  getItem: vi.fn(),
+  setItem: vi.fn(),
+}
+
 const mockTxReceipt = { blockNumber: 1 }
+
+const mockProvider = {
+  getTransactionReceipt: vi.fn(),
+  waitForTransaction: vi.fn().mockResolvedValue(null),
+}
+
+providers[PUBLIC_L1_CHAIN_ID] = mockProvider as any
+providers[PUBLIC_L2_CHAIN_ID] = mockProvider as any
 
 const mockEvent = {
   args: {
-    message: { owner: '0x234' },
+    message: { owner: '0x123' },
     msgHash: '0xBCD',
     amount: '100',
   },
@@ -89,26 +87,14 @@ const mockQuery = [mockEvent]
 const mockErc20Query = [mockErc20Event]
 
 describe('storage tests', () => {
-  beforeAll(() => {
-    mockProvider.waitForTransaction.mockImplementation(() => {
-      return Promise.resolve(mockTxReceipt)
-    })
-
-    mockContract.getMessageStatus.mockImplementation(() => {
-      return MessageStatus.New
-    })
-  })
-
   beforeEach(() => {
-    mockStorage.getItem.mockImplementation(() => {
-      return JSON.stringify(mockTxs)
-    })
+    mockStorage.getItem.mockReturnValue(JSON.stringify(mockTxs))
 
-    mockProvider.getTransactionReceipt.mockImplementation(() => {
-      return mockTxReceipt
-    })
+    mockProvider.getTransactionReceipt.mockResolvedValue(mockTxReceipt)
 
-    mockContract.queryFilter.mockReset()
+    vi.mocked(ethers.Contract.prototype.queryFilter).mockReset()
+
+    vi.mocked(ethers.Contract.prototype.symbol).mockReset()
   })
 
   it('handles invalid JSON when getting all transactions', async () => {
@@ -126,124 +112,114 @@ describe('storage tests', () => {
   it('gets all transactions by address where tx.from !== address', async () => {
     const txStorage = new TransactionStorage(mockStorage as any, providers, chains, tokenVaults)
 
-    const txs = await txStorage.getAllByAddress('0x666')
+    const txs = await txStorage.getAllByAddress('0x666') // 0x666 !== mockTx.from
 
     expect(txs).toEqual([])
   })
 
-  // it('gets all transactions by address, no transactions in list', async () => {
-  //   mockStorage.getItem.mockImplementation(() => {
-  //     return '[]'
-  //   })
+  it('gets all transactions by address, no transactions in list', async () => {
+    mockStorage.getItem.mockImplementation(() => {
+      return '[]'
+    })
 
-  //   const svc = new StorageService(mockStorage as any, providers)
+    const txStorage = new TransactionStorage(mockStorage as any, providers, chains, tokenVaults)
 
-  //   const txs = await svc.getAllByAddress('0x123')
+    const txs = await txStorage.getAllByAddress('0x123')
 
-  //   expect(txs).toEqual([])
-  // })
+    expect(txs).toEqual([])
+  })
 
-  // it('gets all transactions by address, no receipt', async () => {
-  //   mockProvider.getTransactionReceipt.mockImplementation(() => {
-  //     return null
-  //   })
+  it('gets all transactions by address, no receipt', async () => {
+    mockProvider.getTransactionReceipt.mockImplementation(() => {
+      return null
+    })
 
-  //   const svc = new StorageService(mockStorage as any, providers)
+    const txStorage = new TransactionStorage(mockStorage as any, providers, chains, tokenVaults)
 
-  //   const txs = await svc.getAllByAddress('0x123')
+    const txs = await txStorage.getAllByAddress('0x123')
 
-  //   expect(txs).toEqual([mockTx])
-  // })
+    expect(txs).toEqual([mockTx])
+  })
 
-  // it('gets all transactions by address, no MessageSent event', async () => {
-  //   mockContract.queryFilter.mockImplementation(() => {
-  //     return []
-  //   })
+  it('gets all transactions by address, no MessageSent event', async () => {
+    vi.mocked(ethers.Contract.prototype.queryFilter).mockResolvedValue([])
 
-  //   const svc = new StorageService(mockStorage as any, providers)
+    const txStorage = new TransactionStorage(mockStorage as any, providers, chains, tokenVaults)
 
-  //   const txs = await svc.getAllByAddress('0x123')
+    const txs = await txStorage.getAllByAddress('0x123')
 
-  //   expect(txs).toEqual([
-  //     {
-  //       ...mockTx,
-  //       receipt: { blockNumber: 1 },
-  //     },
-  //   ])
-  // })
+    expect(txs).toEqual([
+      {
+        ...mockTx,
+        receipt: { blockNumber: 1 },
+      },
+    ])
+  })
 
-  // it('gets all transactions by address, ETH transfer', async () => {
-  //   mockContract.queryFilter.mockImplementation(() => {
-  //     return mockQuery
-  //   })
+  it('gets all transactions by address, ETH transfer', async () => {
+    vi.mocked(ethers.Contract.prototype.queryFilter).mockResolvedValue(mockQuery as any)
+    vi.mocked(ethers.Contract.prototype.symbol).mockResolvedValue('ETH')
 
-  //   mockContract.symbol.mockImplementation(() => {
-  //     return 'ETH'
-  //   })
+    const txStorage = new TransactionStorage(mockStorage as any, providers, chains, tokenVaults)
 
-  //   const svc = new StorageService(mockStorage as any, providers)
+    const txs = await txStorage.getAllByAddress('0x123')
 
-  //   const txs = await svc.getAllByAddress('0x123')
+    expect(txs).toEqual([
+      {
+        ...mockTx,
+        receipt: { blockNumber: 1 },
+        msgHash: mockEvent.args.msgHash,
+        message: mockEvent.args.message,
+      },
+    ])
+  })
 
-  //   expect(txs).toEqual([
-  //     {
-  //       ...mockTx,
-  //       receipt: { blockNumber: 1 },
-  //       msgHash: mockEvent.args.msgHash,
-  //       message: mockEvent.args.message,
-  //     },
-  //   ])
-  // })
+  it('gets all transactions by address, no ERC20Sent event', async () => {
+    vi.mocked(ethers.Contract.prototype.queryFilter).mockImplementation(
+      (event: ethers.ContractEventName): any => {
+        if (event === 'ERC20Sent') return []
+        return mockErc20Query // MessageSent
+      },
+    )
 
-  // it('gets all transactions by address, no ERC20Sent event', async () => {
-  //   mockContract.queryFilter.mockImplementation((filter: string) => {
-  //     if (filter === 'ERC20Sent') return []
-  //     return mockErc20Query // MessageSent
-  //   })
+    const txStorage = new TransactionStorage(mockStorage as any, providers, chains, tokenVaults)
 
-  //   const svc = new StorageService(mockStorage as any, providers)
+    const txs = await txStorage.getAllByAddress('0x123')
 
-  //   const txs = await svc.getAllByAddress('0x123')
+    // There is no symbol nor amountInWei
+    expect(txs).toEqual([
+      {
+        ...mockTx,
+        receipt: { blockNumber: 1 },
+        msgHash: mockErc20Event.args.msgHash,
+        message: mockErc20Event.args.message,
+      },
+    ])
+  })
 
-  //   // There is no symbol nor amountInWei
-  //   expect(txs).toEqual([
-  //     {
-  //       ...mockTx,
-  //       receipt: { blockNumber: 1 },
-  //       msgHash: mockErc20Event.args.msgHash,
-  //       message: mockErc20Event.args.message,
-  //     },
-  //   ])
-  // })
+  it.only('gets all transactions by address, ERC20 transfer', async () => {
+    vi.mocked(ethers.Contract.prototype.queryFilter).mockResolvedValue(mockErc20Query as any)
+    vi.mocked(ethers.Contract.prototype.symbol).mockResolvedValue('TKO')
 
-  // it('gets all transactions by address, ERC20 transfer', async () => {
-  //   mockContract.queryFilter.mockImplementation(() => {
-  //     return mockErc20Query
-  //   })
+    const txStorage = new TransactionStorage(mockStorage as any, providers, chains, tokenVaults)
 
-  //   mockContract.symbol.mockImplementation(() => {
-  //     return TKOToken.symbol
-  //   })
+    const txs = await txStorage.getAllByAddress('0x123')
 
-  //   const svc = new StorageService(mockStorage as any, providers)
+    expect(txs).toEqual([
+      {
+        ...mockTx,
+        receipt: {
+          blockNumber: 1,
+        },
+        msgHash: mockErc20Event.args.msgHash,
+        message: mockErc20Event.args.message,
 
-  //   const txs = await svc.getAllByAddress('0x123')
-
-  //   expect(txs).toEqual([
-  //     {
-  //       ...mockTx,
-  //       receipt: {
-  //         blockNumber: 1,
-  //       },
-  //       msgHash: mockErc20Event.args.msgHash,
-  //       message: mockErc20Event.args.message,
-
-  //       // We should have these two
-  //       symbol: TKOToken.symbol,
-  //       amountInWei: BigNumber.from(0x64),
-  //     },
-  //   ])
-  // })
+        // We should have these two
+        symbol: 'TKO',
+        amountInWei: BigInt(100),
+      },
+    ])
+  })
 
   // it('ignore txs from unsupported chains when getting all txs', async () => {
   //   providers[L1_CHAIN_ID] = undefined
