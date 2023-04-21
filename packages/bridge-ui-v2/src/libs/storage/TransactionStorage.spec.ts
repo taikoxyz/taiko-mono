@@ -130,9 +130,7 @@ describe('storage tests', () => {
   })
 
   it('gets all transactions by address, no receipt', async () => {
-    mockProvider.getTransactionReceipt.mockImplementation(() => {
-      return null
-    })
+    mockProvider.getTransactionReceipt.mockResolvedValue(null)
 
     const txStorage = new TransactionStorage(mockStorage as any, providers, chains, tokenVaults)
 
@@ -219,6 +217,28 @@ describe('storage tests', () => {
         amountInWei: BigInt(100),
       },
     ])
+  })
+
+  it('gets sorted transactions by address', async () => {
+    mockProvider.getTransactionReceipt.mockResolvedValue(null) // no receipt
+    vi.mocked(ethers.Contract.prototype.queryFilter).mockResolvedValue([]) // no message
+
+    const mockDoneTx = {
+      ...mockTx,
+      hash: '0xDEF',
+      status: MessageStatus.Done,
+    }
+
+    const unsortedTxs = [mockDoneTx, mockTx]
+    const sortedTsx = [mockTx, mockDoneTx]
+
+    mockStorage.getItem.mockReturnValue(JSON.stringify(unsortedTxs))
+
+    const txStorage = new TransactionStorage(mockStorage as any, providers, chains, tokenVaults)
+
+    const txs = await txStorage.getAllByAddress('0x123')
+
+    expect(txs).toEqual(sortedTsx)
   })
 
   it('ignores txs from unsupported chains when getting all txs', async () => {
@@ -357,5 +377,9 @@ describe('storage tests', () => {
     txStorage.updateStorageByAddress('0x123', [newTx])
 
     expect(mockStorage.setItem).toHaveBeenCalledWith('transactions-0x123', JSON.stringify([newTx]))
+
+    txStorage.updateStorageByAddress('0x123')
+
+    expect(mockStorage.setItem).toHaveBeenCalledWith('transactions-0x123', JSON.stringify([]))
   })
 })
