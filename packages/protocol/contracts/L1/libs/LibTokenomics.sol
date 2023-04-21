@@ -23,7 +23,7 @@ library LibTokenomics {
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_PARAM();
 
-    function withdraw(
+    function withdrawTaikoToken(
         TaikoData.State storage state,
         AddressResolver resolver,
         uint256 amount
@@ -41,7 +41,7 @@ library LibTokenomics {
         );
     }
 
-    function deposit(
+    function depositTaikoToken(
         TaikoData.State storage state,
         AddressResolver resolver,
         uint256 amount

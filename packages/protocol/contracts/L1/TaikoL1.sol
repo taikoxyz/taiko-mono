@@ -9,9 +9,10 @@ pragma solidity ^0.8.18;
 import {AddressResolver} from "../common/AddressResolver.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {IXchainSync} from "../common/IXchainSync.sol";
-import {LibTokenomics} from "./libs/LibTokenomics.sol";
+import {LibEthDepositing} from "./libs/LibEthDepositing.sol";
 import {LibProposing} from "./libs/LibProposing.sol";
 import {LibProving} from "./libs/LibProving.sol";
+import {LibTokenomics} from "./libs/LibTokenomics.sol";
 import {LibUtils} from "./libs/LibUtils.sol";
 import {LibVerifying} from "./libs/LibVerifying.sol";
 import {TaikoConfig} from "./TaikoConfig.sol";
@@ -24,6 +25,10 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
 
     TaikoData.State public state;
     uint256[100] private __gap;
+
+    receive() external payable {
+        depositEtherToL2();
+    }
 
     /**
      * Initialize the rollup.
@@ -63,9 +68,9 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     function proposeBlock(
         bytes calldata input,
         bytes calldata txList
-    ) external nonReentrant {
+    ) external nonReentrant returns (TaikoData.BlockMetadata memory meta) {
         TaikoData.Config memory config = getConfig();
-        LibProposing.proposeBlock({
+        meta = LibProposing.proposeBlock({
             state: state,
             config: config,
             resolver: AddressResolver(this),
@@ -146,12 +151,20 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         });
     }
 
-    function deposit(uint256 amount) external nonReentrant {
-        LibTokenomics.deposit(state, AddressResolver(this), amount);
+    function depositTaikoToken(uint256 amount) external nonReentrant {
+        LibTokenomics.depositTaikoToken(state, AddressResolver(this), amount);
     }
 
-    function withdraw(uint256 amount) external nonReentrant {
-        LibTokenomics.withdraw(state, AddressResolver(this), amount);
+    function withdrawTaikoToken(uint256 amount) external nonReentrant {
+        LibTokenomics.withdrawTaikoToken(state, AddressResolver(this), amount);
+    }
+
+    function depositEtherToL2() public payable {
+        LibEthDepositing.depositEtherToL2(
+            state,
+            getConfig(),
+            AddressResolver(this)
+        );
     }
 
     function getBalance(address addr) public view returns (uint256) {
