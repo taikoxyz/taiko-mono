@@ -35,6 +35,8 @@ abstract contract TaikoL1TestBase is Test {
     address public constant L2SS = 0xa008AE5Ba00656a3Cc384de589579e3E52aC030C;
     address public constant L2TaikoL2 =
         0x0082D90249342980d011C58105a03b35cCb4A315;
+    address public constant L1EthVault =
+        0xDAFEA492D9c6733ae3d56b7Ed1ADB60692c98Bc5;
 
     address public constant Alice = 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4;
     address public constant Bob = 0x200708D76eB1B69761c23821809d53F65049939e;
@@ -84,6 +86,7 @@ abstract contract TaikoL1TestBase is Test {
         _registerAddress("taiko_token", address(tko));
         _registerAddress("proto_broker", address(L1));
         _registerAddress("signal_service", address(ss));
+        _registerAddress("ether_vault", address(L1EthVault));
         _registerL2Address("treasure", L2Treasure);
         _registerL2Address("signal_service", address(L2SS));
         _registerL2Address("taiko_l2", address(L2TaikoL2));
@@ -132,7 +135,7 @@ abstract contract TaikoL1TestBase is Test {
         meta.treasure = L2Treasure;
 
         vm.prank(proposer, proposer);
-        L1.proposeBlock(abi.encode(input), txList);
+        meta = L1.proposeBlock(abi.encode(input), txList);
     }
 
     function oracleProveBlock(
@@ -220,9 +223,7 @@ abstract contract TaikoL1TestBase is Test {
 
     function printVariables(string memory comment) internal {
         TaikoData.StateVariables memory vars = L1.getStateVariables();
-
         uint256 fee = L1.getBlockFee();
-
         string memory str = string.concat(
             Strings.toString(logCount++),
             ":[",
@@ -233,11 +234,18 @@ abstract contract TaikoL1TestBase is Test {
             " fee:",
             Strings.toString(fee),
             " lastProposedAt:",
-            Strings.toString(vars.lastProposedAt),
+            Strings.toString(vars.lastProposedAt)
+        );
+
+        str = string.concat(
+            str,
+            " nextEthDepositToProcess:",
+            Strings.toString(vars.nextEthDepositToProcess),
+            " numEthDeposits:",
+            Strings.toString(vars.numEthDeposits),
             " // ",
             comment
         );
-        console2.log(str);
     }
 
     function mine(uint256 counts) internal {
