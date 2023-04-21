@@ -7,8 +7,8 @@ import type { ChainsRecord } from '../chain/types'
 import { MessageStatus } from '../message/types'
 import type { ProvidersRecord } from '../provider/types'
 import type { BridgeTransaction } from '../transaction/types'
+import { jsonParseOrEmptyArray } from '../util/jsonParseOrEmptyArray'
 import type { TokenVaultsRecord } from '../vault/types'
-import { jsonParseOrEmptyArray } from './jsonParseOrEmptyArray'
 
 const STORAGE_PREFIX = 'transactions'
 

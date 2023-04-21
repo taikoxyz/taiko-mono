@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { Token } from '../Token/types'
+import type { Token } from '../token/types'
 import { CustomTokenStorage } from './CustomTokenStorage'
 
 const mockStorageTokens = [{ symbol: 'ETH' }, { symbol: 'HORSE' }]
