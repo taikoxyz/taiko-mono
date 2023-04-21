@@ -69,6 +69,16 @@ func (svc *Service) FilterThenSubscribe(
 			return errors.Wrap(err, "svc.saveBlockProvenEvents")
 		}
 
+		blockProposedEvents, err := svc.taikol1.FilterBlockProposed(filterOpts, nil)
+		if err != nil {
+			return errors.Wrap(err, "svc.taikol1.FilterBlockProposed")
+		}
+
+		err = svc.saveBlockProposedEvents(ctx, chainID, blockProposedEvents)
+		if err != nil {
+			return errors.Wrap(err, "svc.saveBlockProposedEvents")
+		}
+
 		header, err := svc.ethClient.HeaderByNumber(ctx, big.NewInt(int64(end)))
 		if err != nil {
 			return errors.Wrap(err, "svc.ethClient.HeaderByNumber")
