@@ -12,13 +12,13 @@ import { jsonParseOrEmptyArray } from '../utils/jsonParseOrEmptyArray';
 const STORAGE_PREFIX = 'transactions';
 
 export class StorageService implements Transactioner {
-  private static _getBridgeMessageSent = async (
+  private static async _getBridgeMessageSent(
     userAddress: Address,
     bridgeAddress: Address,
     bridgeAbi: ethers.ContractInterface,
     provider: ethers.providers.StaticJsonRpcProvider,
     blockNumber: number,
-  ) => {
+  ) {
     const bridgeContract: Contract = new Contract(
       bridgeAddress,
       bridgeAbi,
@@ -38,14 +38,14 @@ export class StorageService implements Transactioner {
       ({ args }) =>
         args.message.owner.toLowerCase() === userAddress.toLowerCase(),
     );
-  };
+  }
 
-  private static _getBridgeMessageStatus = (
+  private static _getBridgeMessageStatus(
     bridgeAddress: Address,
     bridgeAbi: ethers.ContractInterface,
     provider: ethers.providers.StaticJsonRpcProvider,
     msgHash: string,
-  ) => {
+  ) {
     const bridgeContract: Contract = new Contract(
       bridgeAddress,
       bridgeAbi,
@@ -53,15 +53,15 @@ export class StorageService implements Transactioner {
     );
 
     return bridgeContract.getMessageStatus(msgHash);
-  };
+  }
 
-  private static _getTokenVaultERC20Event = async (
+  private static async _getTokenVaultERC20Event(
     tokenVaultAddress: Address,
     tokenVaultAbi: ethers.ContractInterface,
     provider: ethers.providers.StaticJsonRpcProvider,
     msgHash: string,
     blockNumber: number,
-  ) => {
+  ) {
     const tokenVaultContract = new Contract(
       tokenVaultAddress,
       tokenVaultAbi,
@@ -79,13 +79,13 @@ export class StorageService implements Transactioner {
     return events.find(
       ({ args }) => args.msgHash.toLowerCase() === msgHash.toLowerCase(),
     );
-  };
+  }
 
-  private static _getERC20SymbolAndAmount = async (
+  private static async _getERC20SymbolAndAmount(
     erc20Event: ethers.Event,
     erc20Abi: ethers.ContractInterface,
     provider: ethers.providers.StaticJsonRpcProvider,
-  ): Promise<[string, BigNumber]> => {
+  ): Promise<[string, BigNumber]> {
     const { token, amount } = erc20Event.args;
     const erc20Contract = new Contract(token, erc20Abi, provider);
 
@@ -93,7 +93,7 @@ export class StorageService implements Transactioner {
     const amountInWei: BigNumber = BigNumber.from(amount);
 
     return [symbol, amountInWei];
-  };
+  }
 
   private readonly storage: Storage;
   private readonly providers: Record<
