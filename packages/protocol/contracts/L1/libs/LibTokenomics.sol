@@ -102,16 +102,15 @@ library LibTokenomics {
             config.adjustmentQuotient
         );
 
-        uint64 numBlocksBeingProven = state.numBlocks -
+        uint64 numBlocksUnpaid = state.numBlocks -
             state.lastVerifiedBlockId -
             1;
-        if (numBlocksBeingProven == 0) {
+
+        if (numBlocksUnpaid == 0) {
             reward = uint64(0);
         } else {
             uint64 totalNumProvingSeconds = uint64(
-                uint256(numBlocksBeingProven) *
-                    block.timestamp -
-                    state.accProposedAt
+                uint256(numBlocksUnpaid) * block.timestamp - state.accProposedAt
             );
             ///@dev If block timestamp is equal to state.accProposedAt (not really, but theoretically possible)
             ///@dev there will be division by 0 error
