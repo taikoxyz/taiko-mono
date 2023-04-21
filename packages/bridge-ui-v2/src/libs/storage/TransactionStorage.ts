@@ -12,75 +12,75 @@ import { jsonParseOrEmptyArray } from './jsonParseOrEmptyArray'
 
 const STORAGE_PREFIX = 'transactions'
 
-async function getBridgeMessageSent(
-  userAddress: string,
-  bridgeAddress: string,
-  bridgeAbi: ethers.InterfaceAbi,
-  provider: ethers.JsonRpcProvider,
-  blockNumber: number,
-) {
-  const bridgeContract = new ethers.Contract(bridgeAddress, bridgeAbi, provider)
-
-  // Gets the event MessageSent from the bridge contract
-  // in the block where the transaction was mined, and find
-  // our event MessageSent whose owner is the address passed in
-  const messageSentEvents = (await bridgeContract.queryFilter(
-    'MessageSent',
-    blockNumber,
-    blockNumber,
-  )) as ethers.EventLog[]
-
-  return messageSentEvents.find(
-    ({ args }) => args.message.owner.toLowerCase() === userAddress.toLowerCase(),
-  )
-}
-
-function getBridgeMessageStatus(
-  bridgeAddress: string,
-  bridgeAbi: ethers.InterfaceAbi,
-  provider: ethers.JsonRpcProvider,
-  msgHash: string,
-): Promise<number> {
-  const bridgeContract = new ethers.Contract(bridgeAddress, bridgeAbi, provider)
-
-  return bridgeContract.getMessageStatus(msgHash)
-}
-
-async function getTokenVaultERC20Event(
-  tokenVaultAddress: string,
-  tokenVaultAbi: ethers.InterfaceAbi,
-  provider: ethers.JsonRpcProvider,
-  msgHash: string,
-  blockNumber: number,
-) {
-  const tokenVaultContract = new ethers.Contract(tokenVaultAddress, tokenVaultAbi, provider)
-
-  const filter = tokenVaultContract.filters.ERC20Sent(msgHash)
-
-  const events = (await tokenVaultContract.queryFilter(
-    filter,
-    blockNumber,
-    blockNumber,
-  )) as ethers.EventLog[]
-
-  return events.find(({ args }) => args.msgHash.toLowerCase() === msgHash.toLowerCase())
-}
-
-async function getERC20SymbolAndAmount(
-  erc20Event: ethers.EventLog,
-  erc20Abi: ethers.InterfaceAbi,
-  provider: ethers.JsonRpcProvider,
-): Promise<[string, bigint]> {
-  const { token, amount } = erc20Event.args
-  const erc20Contract = new ethers.Contract(token, erc20Abi, provider)
-
-  const symbol: string = await erc20Contract.symbol()
-  const amountInWei = BigInt(amount)
-
-  return [symbol, amountInWei]
-}
-
 export class TransactionStorage {
+  private static _getBridgeMessageSent = async (
+    userAddress: string,
+    bridgeAddress: string,
+    bridgeAbi: ethers.InterfaceAbi,
+    provider: ethers.JsonRpcProvider,
+    blockNumber: number,
+  ) => {
+    const bridgeContract = new ethers.Contract(bridgeAddress, bridgeAbi, provider)
+
+    // Gets the event MessageSent from the bridge contract
+    // in the block where the transaction was mined, and find
+    // our event MessageSent whose owner is the address passed in
+    const messageSentEvents = (await bridgeContract.queryFilter(
+      'MessageSent',
+      blockNumber,
+      blockNumber,
+    )) as ethers.EventLog[]
+
+    return messageSentEvents.find(
+      ({ args }) => args.message.owner.toLowerCase() === userAddress.toLowerCase(),
+    )
+  }
+
+  private static _getBridgeMessageStatus = async (
+    bridgeAddress: string,
+    bridgeAbi: ethers.InterfaceAbi,
+    provider: ethers.JsonRpcProvider,
+    msgHash: string,
+  ): Promise<number> => {
+    const bridgeContract = new ethers.Contract(bridgeAddress, bridgeAbi, provider)
+
+    return bridgeContract.getMessageStatus(msgHash)
+  }
+
+  private static _getTokenVaultERC20Event = async (
+    tokenVaultAddress: string,
+    tokenVaultAbi: ethers.InterfaceAbi,
+    provider: ethers.JsonRpcProvider,
+    msgHash: string,
+    blockNumber: number,
+  ) => {
+    const tokenVaultContract = new ethers.Contract(tokenVaultAddress, tokenVaultAbi, provider)
+
+    const filter = tokenVaultContract.filters.ERC20Sent(msgHash)
+
+    const events = (await tokenVaultContract.queryFilter(
+      filter,
+      blockNumber,
+      blockNumber,
+    )) as ethers.EventLog[]
+
+    return events.find(({ args }) => args.msgHash.toLowerCase() === msgHash.toLowerCase())
+  }
+
+  private static _getERC20SymbolAndAmount = async (
+    erc20Event: ethers.EventLog,
+    erc20Abi: ethers.InterfaceAbi,
+    provider: ethers.JsonRpcProvider,
+  ): Promise<[string, bigint]> => {
+    const { token, amount } = erc20Event.args
+    const erc20Contract = new ethers.Contract(token, erc20Abi, provider)
+
+    const symbol: string = await erc20Contract.symbol()
+    const amountInWei = BigInt(amount)
+
+    return [symbol, amountInWei]
+  }
+
   private readonly storage: Storage
   private readonly providers: ProvidersRecord
   private readonly chains: ChainsRecord
@@ -130,7 +130,7 @@ export class TransactionStorage {
 
       const srcBridgeAddress = this.chains[fromChainId].bridgeAddress
 
-      const messageSentEvent = await getBridgeMessageSent(
+      const messageSentEvent = await TransactionStorage._getBridgeMessageSent(
         address,
         srcBridgeAddress,
         BRIDGE_ABI,
@@ -152,7 +152,12 @@ export class TransactionStorage {
 
       const destBridgeAddress = this.chains[toChainId].bridgeAddress
 
-      tx.status = await getBridgeMessageStatus(destBridgeAddress, BRIDGE_ABI, destProvider, msgHash)
+      tx.status = await TransactionStorage._getBridgeMessageStatus(
+        destBridgeAddress,
+        BRIDGE_ABI,
+        destProvider,
+        msgHash,
+      )
 
       // TODO: function isERC20Transfer(message: string): boolean?
       if (message.data && message.data !== '0x') {
@@ -161,7 +166,7 @@ export class TransactionStorage {
 
         const srcTokenVaultAddress = this.tokenVaults[fromChainId]
 
-        const erc20Event = await getTokenVaultERC20Event(
+        const erc20Event = await TransactionStorage._getTokenVaultERC20Event(
           srcTokenVaultAddress,
           TOKEN_VAULT_ABI,
           srcProvider,
@@ -173,7 +178,7 @@ export class TransactionStorage {
           return tx
         }
 
-        ;[tx.symbol, tx.amountInWei] = await getERC20SymbolAndAmount(
+        ;[tx.symbol, tx.amountInWei] = await TransactionStorage._getERC20SymbolAndAmount(
           erc20Event,
           ERC20_ABI,
           srcProvider,
@@ -223,7 +228,7 @@ export class TransactionStorage {
 
     const srcBridgeAddress = this.chains[fromChainId].bridgeAddress
 
-    const messageSentEvent = await getBridgeMessageSent(
+    const messageSentEvent = await TransactionStorage._getBridgeMessageSent(
       address,
       srcBridgeAddress,
       BRIDGE_ABI,
@@ -240,7 +245,7 @@ export class TransactionStorage {
 
     const destBridgeAddress = this.chains[toChainId].bridgeAddress
 
-    const status = await getBridgeMessageStatus(
+    const status = await TransactionStorage._getBridgeMessageStatus(
       destBridgeAddress,
       BRIDGE_ABI,
       destProvider,
@@ -255,7 +260,7 @@ export class TransactionStorage {
 
       const srcTokenVaultAddress = this.tokenVaults[fromChainId]
 
-      const erc20Event = await getTokenVaultERC20Event(
+      const erc20Event = await TransactionStorage._getTokenVaultERC20Event(
         srcTokenVaultAddress,
         TOKEN_VAULT_ABI,
         srcProvider,
@@ -267,7 +272,7 @@ export class TransactionStorage {
         return tx
       }
 
-      ;[tx.symbol, tx.amountInWei] = await getERC20SymbolAndAmount(
+      ;[tx.symbol, tx.amountInWei] = await TransactionStorage._getERC20SymbolAndAmount(
         erc20Event,
         ERC20_ABI,
         srcProvider,
