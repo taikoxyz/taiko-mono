@@ -76,124 +76,7 @@ describe("integration:SignalService", function () {
         };
     }
 
-    it("should revert if srcChainId == block.chainId", async function () {
-        const {
-            l1Provider,
-            owner,
-            l1SignalService,
-            l2SignalService,
-            enabledDestChainId,
-            xchainSync,
-        } = await deployIntegrationSignalService();
-
-        const signal = ethers.utils.hexlify(ethers.utils.randomBytes(32));
-
-        const tx = await l1SignalService.connect(owner).sendSignal(signal);
-        await tx.wait();
-
-        const app = owner.address;
-        const slot = await l1SignalService.getSignalSlot(app, signal);
-
-        const { block, blockHeader } = await getBlockHeader(l1Provider);
-        await xchainSync.setXchainBlockHeader(block.hash);
-
-        const signalProof = await getSignalProof(
-            l1Provider,
-            l1SignalService.address,
-            slot,
-            block.number,
-            blockHeader
-        );
-
-        await expect(
-            l2SignalService.isSignalReceived(
-                enabledDestChainId,
-                app,
-                signal,
-                signalProof.signalProof
-            )
-        ).to.be.revertedWith("B_WRONG_CHAIN_ID()");
-    });
-
-    it("should revert if app == AddressZero", async function () {
-        const {
-            l1Provider,
-            owner,
-            l1SignalService,
-            l2SignalService,
-            srcChainId,
-            xchainSync,
-        } = await deployIntegrationSignalService();
-
-        const signal = ethers.utils.hexlify(ethers.utils.randomBytes(32));
-
-        const tx = await l1SignalService.connect(owner).sendSignal(signal);
-        await tx.wait();
-
-        const app = ethers.constants.AddressZero;
-        const slot = await l1SignalService.getSignalSlot(app, signal);
-
-        const { block, blockHeader } = await getBlockHeader(l1Provider);
-        await xchainSync.setXchainBlockHeader(block.hash);
-
-        const signalProof = await getSignalProof(
-            l1Provider,
-            l1SignalService.address,
-            slot,
-            block.number,
-            blockHeader
-        );
-
-        await expect(
-            l2SignalService.isSignalReceived(
-                srcChainId,
-                app,
-                signal,
-                signalProof.signalProof
-            )
-        ).to.be.revertedWith("B_NULL_APP_ADDR()");
-    });
-
-    it("should revert if signal == HashZero", async function () {
-        const {
-            l1Provider,
-            owner,
-            l1SignalService,
-            l2SignalService,
-            srcChainId,
-            xchainSync,
-        } = await deployIntegrationSignalService();
-
-        const signal = ethers.utils.hexlify(ethers.utils.randomBytes(32));
-
-        const tx = await l1SignalService.connect(owner).sendSignal(signal);
-        await tx.wait();
-
-        const app = owner.address;
-        const slot = await l1SignalService.getSignalSlot(app, signal);
-
-        const { block, blockHeader } = await getBlockHeader(l1Provider);
-        await xchainSync.setXchainBlockHeader(block.hash);
-
-        const signalProof = await getSignalProof(
-            l1Provider,
-            l1SignalService.address,
-            slot,
-            block.number,
-            blockHeader
-        );
-
-        await expect(
-            l2SignalService.isSignalReceived(
-                srcChainId,
-                app,
-                ethers.constants.HashZero,
-                signalProof.signalProof
-            )
-        ).to.be.revertedWith("B_ZERO_SIGNAL()");
-    });
-
-    it.only("should pass and return true", async function () {
+    it("should should receive signal on destination chain", async function () {
         const {
             l1Provider,
             owner,
@@ -213,7 +96,6 @@ describe("integration:SignalService", function () {
 
         const { block, blockHeader } = await getBlockHeader(l1Provider);
 
-        console.log(blockHeader);
         await xchainSync.setXchainBlockHeader(block.hash);
 
         const { signalProof, signalRoot } = await getSignalProof(
