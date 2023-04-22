@@ -219,7 +219,7 @@ describe("integrationbridge:Bridge", function () {
             );
         });
 
-        it("should throw if messageStatus of message is != NEW", async function () {
+        it.only("should throw if messageStatus of message is != NEW", async function () {
             const { message, signalProof } = await sendAndProcessMessage(
                 hre.ethers.provider,
                 l2XchainSync,

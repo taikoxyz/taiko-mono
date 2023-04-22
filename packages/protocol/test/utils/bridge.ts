@@ -73,7 +73,7 @@ async function sendMessage(
     tx: ethers.ContractTransaction;
 }> {
     const expectedAmount = m.depositValue + m.callValue + m.processingFee;
-
+    console.log("sent message", m);
     const tx = await bridge.sendMessage(m, {
         value: expectedAmount,
     });
@@ -119,6 +119,8 @@ async function processMessage(
         blockHeader
     );
 
+    console.log("proof", signalProof);
+
     await xchainSync.setXchainSignalRoot(signalRoot);
 
     const tx = await l2Bridge.processMessage(message, signalProof);
@@ -143,6 +145,7 @@ async function sendAndProcessMessage(
     signalProof: string;
 }> {
     const { msgHash, message } = await sendMessage(l1Bridge, m);
+    console.log("message", message);
     const { tx, signalProof } = await processMessage(
         l1SignalService,
         l1Bridge,
