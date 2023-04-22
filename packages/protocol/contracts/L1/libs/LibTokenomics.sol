@@ -109,37 +109,17 @@ library LibTokenomics {
             : uint64(0);
         newProofTimeIssued += proofTime;
 
-        newBasefee = _calcBasefee(
-            newProofTimeIssued,
-            config.proofTimeTarget,
-            config.adjustmentQuotient
-        );
-    }
-
-    /**
-     * Calculating the exponential smoothened with (target/quotient)
-     *
-     * @param value Result of cumulativeProofTime
-     * @param target Target proof time
-     * @param quotient Quotient
-     * @return uint64 Calculated new basefee
-     */
-    function _calcBasefee(
-        uint256 value,
-        uint256 target,
-        uint256 quotient
-    ) private pure returns (uint64) {
-        uint256 x = (value * Math.SCALING_FACTOR_1E18) / (target * quotient);
+        uint256 x = (newProofTimeIssued * Math.SCALING_FACTOR_1E18) /
+            (config.proofTimeTarget * config.adjustmentQuotient);
 
         if (Math.MAX_EXP_INPUT <= x) {
             x = Math.MAX_EXP_INPUT;
         }
 
         uint256 result = (uint256(Math.exp(int256(x))) /
-            Math.SCALING_FACTOR_1E18) / (target * quotient);
+            Math.SCALING_FACTOR_1E18) /
+            (config.proofTimeTarget * config.adjustmentQuotient);
 
-        if (result > type(uint64).max) return type(uint64).max;
-
-        return uint64(result);
+        newBasefee = uint64(result.min(type(uint64).max));
     }
 }
