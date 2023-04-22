@@ -533,7 +533,7 @@ export default [
           },
           {
             internalType: "uint256",
-            name: "feeBaseMAF",
+            name: "basefeeMAF",
             type: "uint256",
           },
           {
@@ -746,7 +746,7 @@ export default [
         components: [
           {
             internalType: "uint256",
-            name: "feeBase",
+            name: "basefee",
             type: "uint256",
           },
           {
@@ -831,7 +831,7 @@ export default [
       },
       {
         internalType: "uint256",
-        name: "_feeBase",
+        name: "_basefee",
         type: "uint256",
       },
     ],
@@ -1051,7 +1051,7 @@ export default [
       },
       {
         internalType: "uint256",
-        name: "feeBase",
+        name: "basefee",
         type: "uint256",
       },
       {

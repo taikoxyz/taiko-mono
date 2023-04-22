@@ -4,3 +4,4 @@ contracts/test/TestLibRLPReader.sol
 contracts/test/TestLibRLPWriter.sol
 **/contracts/thirdparty/**/*.sol
 test2/GasComparison.t.sol
+test2/TestLn.sol

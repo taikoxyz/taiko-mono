@@ -18,11 +18,11 @@ contract FreeMintERC20 is ERC20 {
     constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
 
     function mint(address to) public {
-        if (minters[msg.sender]) {
+        if (minters[to]) {
             revert HasMinted();
         }
 
-        minters[msg.sender] = true;
+        minters[to] = true;
         _mint(to, 50 * (10 ** decimals()));
     }
 }

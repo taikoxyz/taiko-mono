@@ -28,23 +28,9 @@ contract TestTaikoL1 is TaikoL1 {
         config.maxTransactionsPerBlock = 20;
         config.maxBytesPerTxList = 120000;
         config.minTxGasLimit = 21000;
-        config.slotSmoothingFactor = 590000;
-        config.rewardBurnBips = 100; // 100 basis points or 1%
-        config.proposerDepositPctg = 25; // 25%
 
         config.enableTokenomics = false;
         config.skipZKPVerification = true;
-        config.feeBaseMAF = 1024;
-
-        config.proposingConfig = TaikoData.FeeConfig({
-            avgTimeMAF: 64,
-            dampingFactorBips: 5000
-        });
-
-        config.provingConfig = TaikoData.FeeConfig({
-            avgTimeMAF: 64,
-            dampingFactorBips: 5000
-        });
     }
 
     // The old implementation that is also used in hardhat tests.

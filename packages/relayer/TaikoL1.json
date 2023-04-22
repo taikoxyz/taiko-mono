@@ -518,17 +518,12 @@
           },
           {
             "internalType": "uint256",
-            "name": "rewardBurnBips",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
             "name": "proposerDepositPctg",
             "type": "uint256"
           },
           {
             "internalType": "uint256",
-            "name": "feeBaseMAF",
+            "name": "basefeeMAF",
             "type": "uint256"
           },
           {
@@ -741,7 +736,7 @@
         "components": [
           {
             "internalType": "uint256",
-            "name": "feeBase",
+            "name": "basefee",
             "type": "uint256"
           },
           {
@@ -826,7 +821,7 @@
       },
       {
         "internalType": "uint256",
-        "name": "_feeBase",
+        "name": "_basefee",
         "type": "uint256"
       }
     ],
@@ -1046,7 +1041,7 @@
       },
       {
         "internalType": "uint256",
-        "name": "feeBase",
+        "name": "basefee",
         "type": "uint256"
       },
       {

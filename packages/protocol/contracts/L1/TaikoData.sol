@@ -7,11 +7,6 @@
 pragma solidity ^0.8.18;
 
 library TaikoData {
-    struct FeeConfig {
-        uint16 avgTimeMAF;
-        uint16 dampingFactorBips;
-    }
-
     struct Config {
         uint256 chainId;
         uint256 maxNumProposedBlocks;
@@ -24,34 +19,30 @@ library TaikoData {
         uint256 maxTransactionsPerBlock;
         uint256 maxBytesPerTxList;
         uint256 minTxGasLimit;
-        uint256 slotSmoothingFactor;
-        uint256 rewardBurnBips;
-        uint256 proposerDepositPctg;
         uint64 minEthDepositsPerBlock;
         uint64 maxEthDepositsPerBlock;
         uint96 maxEthDepositAmount;
         uint96 minEthDepositAmount;
         // Moving average factors
-        uint256 feeBaseMAF;
         uint256 txListCacheExpiry;
         uint256 proofCooldownPeriod;
+        uint64 proofTimeTarget;
+        uint8 adjustmentQuotient;
         bool relaySignalRoot;
         bool enableSoloProposer;
         bool enableTokenomics;
         bool skipZKPVerification;
-        FeeConfig proposingConfig;
-        FeeConfig provingConfig;
     }
 
     struct StateVariables {
-        uint64 feeBase;
+        uint64 basefee;
+        uint64 accBlockFees;
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 numBlocks;
+        uint64 proofTimeIssued;
         uint64 lastVerifiedBlockId;
-        uint64 avgBlockTime;
-        uint64 avgProofTime;
-        uint64 lastProposedAt;
+        uint64 accProposedAt;
         uint64 nextEthDepositToProcess;
         uint64 numEthDeposits;
     }
@@ -145,24 +136,21 @@ library TaikoData {
         mapping(address account => uint256 balance) balances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         EthDeposit[] ethDeposits;
-        // Never or rarely changed
+        // Slot 6: never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 __reserved1;
-        uint64 __reserved2;
-        // Changed when a block is proposed or proven/verified
-        // Changed when a block is proposed
+        uint64 __reserved61;
+        uint64 __reserved62;
+        // Slot 7
+        uint64 accProposedAt;
+        uint64 accBlockFees;
         uint64 numBlocks;
-        uint64 lastProposedAt; // Timestamp when the last block is proposed.
-        uint64 avgBlockTime; // miliseconds
         uint64 nextEthDepositToProcess;
-        // Changed when a block is proven/verified
+        // Slot 8
+        uint64 basefee;
+        uint64 proofTimeIssued;
         uint64 lastVerifiedBlockId;
-        uint64 __reserved4;
-        // the proof time moving average, note that for each block, only the
-        // first proof's time is considered.
-        uint64 avgProofTime; // miliseconds
-        uint64 feeBase;
+        uint64 __reserved81;
         // Reserved
         uint256[42] __gap;
     }
