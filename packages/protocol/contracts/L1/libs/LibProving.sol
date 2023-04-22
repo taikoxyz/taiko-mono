@@ -136,7 +136,7 @@ library LibProving {
         fc.provenAt = uint64(block.timestamp);
         fc.prover = evidence.prover;
 
-        if (!isOracleProof && !config.skipZKPVerification) {
+        if (!isOracleProof) {
             bytes32 instance;
             {
                 // otherwise: stack too deep

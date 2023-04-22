@@ -112,8 +112,9 @@ library LibTokenomics {
             uint64 totalNumProvingSeconds = uint64(
                 uint256(numBlocksUnpaid) * block.timestamp - state.accProposedAt
             );
-            ///@dev If block timestamp is equal to state.accProposedAt (not really, but theoretically possible)
-            ///@dev there will be division by 0 error
+            // @dev If block timestamp is equal to state.accProposedAt
+            // (not really, but theoretically possible)
+            // @dev there will be division by 0 error
             if (totalNumProvingSeconds == 0) {
                 totalNumProvingSeconds = 1;
             }

@@ -31,7 +31,6 @@ library TaikoData {
         bool relaySignalRoot;
         bool enableSoloProposer;
         bool enableTokenomics;
-        bool skipZKPVerification;
     }
 
     struct StateVariables {

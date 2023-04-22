@@ -24,7 +24,6 @@ struct Config {
   bool relaySignalRoot;
   bool enableSoloProposer;
   bool enableTokenomics;
-  bool skipZKPVerification;
 }
 ```
 

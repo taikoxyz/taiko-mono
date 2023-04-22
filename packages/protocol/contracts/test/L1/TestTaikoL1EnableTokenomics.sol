@@ -30,7 +30,6 @@ contract TestTaikoL1EnableTokenomics is TaikoL1 {
         config.minTxGasLimit = 21000;
 
         config.enableTokenomics = true;
-        config.skipZKPVerification = true;
     }
 
     // The old implementation that is also used in hardhat tests.
