@@ -91,7 +91,7 @@ library LibTokenomics {
     }
 
     /**
-     * Update the newProofTimeIssued and newBasefee
+     * Calculate the newProofTimeIssued and newBasefee
      *
      * @param state The actual state data
      * @param config Config data
