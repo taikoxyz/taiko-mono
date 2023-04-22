@@ -165,7 +165,7 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
 
     function pickRandomProveTime(
         uint256 randomNum
-    ) internal view returns (uint8) {
+    ) internal pure returns (uint8) {
         // Result shall be between 8-12 (inclusive)
         // so that it will result in a 160-240s proof time
         // while the proof time target is 200s

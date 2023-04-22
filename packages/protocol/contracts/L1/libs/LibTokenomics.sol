@@ -55,59 +55,23 @@ library LibTokenomics {
         }
     }
 
-    function getBlockFee(
-        TaikoData.State storage state
-    ) internal view returns (uint64 fee) {
-        return state.basefee;
-    }
-
-    function getProofReward(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        uint64 provenAt,
-        uint64 proposedAt
-    ) internal view returns (uint64 reward) {
-        (reward, , ) = calculateBasefee(state, config, (provenAt - proposedAt));
-    }
-
     /**
      * Update the baseFee for proofs
      *
      * @param state The actual state data
-     * @param config Config data
      * @param proofTime The actual proof time
      * @return reward Amount of reward given - if blocked is proved and verified
-     * @return newProofTimeIssued Accumulated proof time
-     * @return newBasefee New basefee
      */
-    function calculateBasefee(
+    function getProofReward(
         TaikoData.State storage state,
-        TaikoData.Config memory config,
         uint64 proofTime
-    )
-        internal
-        view
-        returns (uint64 reward, uint64 newProofTimeIssued, uint64 newBasefee)
-    {
-        newProofTimeIssued = state.proofTimeIssued;
-
-        newProofTimeIssued = (newProofTimeIssued > config.proofTimeTarget)
-            ? newProofTimeIssued - config.proofTimeTarget
-            : uint64(0);
-        newProofTimeIssued += proofTime;
-
-        newBasefee = _calcBasefee(
-            newProofTimeIssued,
-            config.proofTimeTarget,
-            config.adjustmentQuotient
-        );
-
+    ) internal view returns (uint64) {
         uint64 numBlocksUnpaid = state.numBlocks -
             state.lastVerifiedBlockId -
             1;
 
         if (numBlocksUnpaid == 0) {
-            reward = uint64(0);
+            return 0;
         } else {
             uint64 totalNumProvingSeconds = uint64(
                 uint256(numBlocksUnpaid) * block.timestamp - state.accProposedAt
@@ -118,11 +82,38 @@ library LibTokenomics {
                 totalNumProvingSeconds = 1;
             }
 
-            reward = uint64(
-                (uint256(state.accBlockFees) * proofTime) /
-                    totalNumProvingSeconds
-            );
+            return
+                uint64(
+                    (uint256(state.accBlockFees) * proofTime) /
+                        totalNumProvingSeconds
+                );
         }
+    }
+
+    /**
+     * Update the newProofTimeIssued and newBasefee
+     *
+     * @param state The actual state data
+     * @param config Config data
+     * @param proofTime The actual proof time
+     * @return newProofTimeIssued Accumulated proof time
+     * @return newBasefee New basefee
+     */
+    function getNewBaseFeeandProofTimeIssued(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        uint64 proofTime
+    ) internal view returns (uint64 newProofTimeIssued, uint64 newBasefee) {
+        newProofTimeIssued = (state.proofTimeIssued > config.proofTimeTarget)
+            ? state.proofTimeIssued - config.proofTimeTarget
+            : uint64(0);
+        newProofTimeIssued += proofTime;
+
+        newBasefee = _calcBasefee(
+            newProofTimeIssued,
+            config.proofTimeTarget,
+            config.adjustmentQuotient
+        );
     }
 
     /**
