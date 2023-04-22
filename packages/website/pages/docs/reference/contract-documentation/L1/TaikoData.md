@@ -23,7 +23,6 @@ struct Config {
   uint8 adjustmentQuotient;
   bool relaySignalRoot;
   bool enableSoloProposer;
-  bool enableTokenomics;
 }
 ```
 

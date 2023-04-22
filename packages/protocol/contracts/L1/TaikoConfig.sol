@@ -42,8 +42,7 @@ library TaikoConfig {
                 proofTimeTarget: 1800,
                 adjustmentQuotient: 16,
                 relaySignalRoot: false,
-                enableSoloProposer: false,
-                enableTokenomics: true
+                enableSoloProposer: false
             });
     }
 }

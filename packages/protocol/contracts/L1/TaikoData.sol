@@ -30,7 +30,6 @@ library TaikoData {
         uint8 adjustmentQuotient;
         bool relaySignalRoot;
         bool enableSoloProposer;
-        bool enableTokenomics;
     }
 
     struct StateVariables {

@@ -7,7 +7,6 @@ const defaultBasefee = BigNumber.from(10).pow(18);
 async function deployTaikoL1(
     addressManager: AddressManager,
     genesisHash: string,
-    enableTokenomics: boolean,
     basefee?: BigNumber
 ): Promise<TaikoL1> {
     // const libProposing = await (
@@ -24,7 +23,7 @@ async function deployTaikoL1(
 
     const taikoL1 = await (
         await ethers.getContractFactory(
-            enableTokenomics ? "TestTaikoL1EnableTokenomics" : "TestTaikoL1"
+            "TestTaikoL1EnableTokenomics"
             // {
             //     libraries: {
             //         LibVerifying: libVerifying.address,

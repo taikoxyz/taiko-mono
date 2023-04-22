@@ -21,7 +21,6 @@ contract TaikoL1_NoCooldown is TaikoL1 {
     {
         config = TaikoConfig.getConfig();
 
-        config.enableTokenomics = true;
         config.txListCacheExpiry = 5 minutes;
         config.maxVerificationsPerTx = 0;
         config.enableSoloProposer = false;
