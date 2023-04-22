@@ -19,12 +19,11 @@ library TaikoData {
         uint256 maxTransactionsPerBlock;
         uint256 maxBytesPerTxList;
         uint256 minTxGasLimit;
+        uint256 txListCacheExpiry;
         uint64 minEthDepositsPerBlock;
         uint64 maxEthDepositsPerBlock;
         uint96 maxEthDepositAmount;
         uint96 minEthDepositAmount;
-        // Moving average factors
-        uint256 txListCacheExpiry;
         uint64 proofTimeTarget;
         uint8 adjustmentQuotient;
         bool relaySignalRoot;

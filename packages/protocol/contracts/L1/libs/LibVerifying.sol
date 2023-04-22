@@ -129,32 +129,23 @@ library LibVerifying {
         TaikoData.ForkChoice storage fc,
         uint24 fcId
     ) private {
-        if (config.proofTimeTarget != 0) {
-            uint256 proofTime;
-            unchecked {
-                proofTime = (fc.provenAt - blk.proposedAt);
-            }
-
-            (
-                uint64 reward,
-                uint64 proofTimeIssued,
-                uint64 newBasefee
-            ) = LibTokenomics.calculateBasefee(
-                    state,
-                    config,
-                    uint64(proofTime)
-                );
-
-            state.basefee = newBasefee;
-            state.proofTimeIssued = proofTimeIssued;
-            unchecked {
-                state.accBlockFees -= reward;
-                state.accProposedAt -= blk.proposedAt;
-            }
-
-            // reward the prover
-            _addToBalance(state, fc.prover, reward);
+        uint64 proofTime;
+        unchecked {
+            proofTime = uint64(fc.provenAt - blk.proposedAt);
         }
+
+        uint64 reward = LibTokenomics.getProofReward(state, proofTime);
+
+        (state.proofTimeIssued, state.basefee) = LibTokenomics
+            .getNewBaseFeeandProofTimeIssued(state, config, proofTime);
+
+        unchecked {
+            state.accBlockFees -= reward;
+            state.accProposedAt -= blk.proposedAt;
+        }
+
+        // reward the prover
+        _addToBalance(state, fc.prover, reward);
 
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = fcId;

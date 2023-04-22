@@ -48,6 +48,7 @@ contract DeployOnL1 is Script, AddressResolver {
     uint256 public taikoTokenPremintAmount =
         vm.envUint("TAIKO_TOKEN_PREMINT_AMOUNT");
 
+    TaikoL1 taikoL1;
     address public addressManagerProxy;
 
     // New fee/reward related variables
@@ -118,7 +119,7 @@ contract DeployOnL1 is Script, AddressResolver {
         console.log("BullToken", bullToken);
 
         // TaikoL1
-        TaikoL1 taikoL1 = new TaikoL1();
+        taikoL1 = new TaikoL1();
 
         uint64 feeBase = 1 ** 8; // Taiko Token's decimals is 8, not 18
 
@@ -200,10 +201,7 @@ contract DeployOnL1 is Script, AddressResolver {
         );
 
         for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
-            setAddress(
-                string(abi.encodePacked("verifier_", i)),
-                plonkVerifiers[i]
-            );
+            setAddress(taikoL1.getVerifierName(i), plonkVerifiers[i]);
         }
     }
 

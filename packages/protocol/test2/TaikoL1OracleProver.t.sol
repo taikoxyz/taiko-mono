@@ -44,21 +44,16 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     function setUp() public override {
         TaikoL1TestBase.setUp();
-        // TODO(daniel): update string key generation using bytes.concat
-        _registerAddress(
-            string(abi.encodePacked("verifier_", uint16(100))),
-            address(new Verifier())
-        );
-
-        _registerAddress("oracle_prover", Alice);
+        registerAddress(L1.getVerifierName(100), address(new Verifier()));
+        registerAddress("oracle_prover", Alice);
     }
 
     // Test a block can be oracle-proven multiple times by the
     // oracle prover
     function testOracleProver() external {
-        _depositTaikoToken(Alice, 1000 * 1E8, 1000 ether);
-        _depositTaikoToken(Bob, 1000 * 1E8, 1000 ether);
-        _depositTaikoToken(Carol, 1000 * 1E8, 1000 ether);
+        depositTaikoToken(Alice, 1000 * 1E8, 1000 ether);
+        depositTaikoToken(Bob, 1000 * 1E8, 1000 ether);
+        depositTaikoToken(Carol, 1000 * 1E8, 1000 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 

@@ -142,29 +142,6 @@ error TOKENVAULT_INVALID_SENDER()
 function init(address addressManager) external
 ```
 
-### sendEther
-
-```solidity
-function sendEther(uint256 destChainId, address to, uint256 gasLimit, uint256 processingFee, address refundAddress, string memo) external payable
-```
-
-Receives Ether and constructs a Bridge message. Sends the Ether and
-message along to the Bridge.
-
-_This function doesn't' seem to belong here as it has nothing to
-do with ERC20 tokens. It's added here only for convenience._
-
-#### Parameters
-
-| Name          | Type    | Description                 |
-| ------------- | ------- | --------------------------- |
-| destChainId   | uint256 | @custom:see IBridge.Message |
-| to            | address | @custom:see IBridge.Message |
-| gasLimit      | uint256 | @custom:see IBridge.Message |
-| processingFee | uint256 | @custom:see IBridge.Message |
-| refundAddress | address | @custom:see IBridge.Message |
-| memo          | string  | @custom:see IBridge.Message |
-
 ### sendERC20
 
 ```solidity

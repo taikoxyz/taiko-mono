@@ -55,74 +55,74 @@ library LibTokenomics {
         }
     }
 
-    function getBlockFee(
-        TaikoData.State storage state
-    ) internal view returns (uint64 fee) {
-        return state.basefee;
-    }
-
-    function getProofReward(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        uint64 provenAt,
-        uint64 proposedAt
-    ) internal view returns (uint64 reward) {
-        (reward, , ) = calculateBasefee(state, config, (provenAt - proposedAt));
-    }
-
     /**
      * Update the baseFee for proofs
      *
      * @param state The actual state data
-     * @param config Config data
      * @param proofTime The actual proof time
      * @return reward Amount of reward given - if blocked is proved and verified
-     * @return newProofTimeIssued Accumulated proof time
-     * @return newBasefee New basefee
      */
-    function calculateBasefee(
+    function getProofReward(
         TaikoData.State storage state,
-        TaikoData.Config memory config,
         uint64 proofTime
-    )
-        internal
-        view
-        returns (uint64 reward, uint64 newProofTimeIssued, uint64 newBasefee)
-    {
-        newProofTimeIssued = state.proofTimeIssued;
-
-        newProofTimeIssued = (newProofTimeIssued > config.proofTimeTarget)
-            ? newProofTimeIssued - config.proofTimeTarget
-            : uint64(0);
-        newProofTimeIssued += proofTime;
-
-        newBasefee = _calcBasefee(
-            newProofTimeIssued,
-            config.proofTimeTarget,
-            config.adjustmentQuotient
-        );
-
-        uint64 numBlocksUnpaid = state.numBlocks -
+    ) internal view returns (uint64) {
+        uint64 numBlocksUnverified = state.numBlocks -
             state.lastVerifiedBlockId -
             1;
 
-        if (numBlocksUnpaid == 0) {
-            reward = uint64(0);
+        if (numBlocksUnverified == 0) {
+            return 0;
         } else {
             uint64 totalNumProvingSeconds = uint64(
-                uint256(numBlocksUnpaid) * block.timestamp - state.accProposedAt
+                uint256(numBlocksUnverified) *
+                    block.timestamp -
+                    state.accProposedAt
             );
-            ///@dev If block timestamp is equal to state.accProposedAt (not really, but theoretically possible)
-            ///@dev there will be division by 0 error
+            // If block timestamp is equal to state.accProposedAt (not really, but theoretically possible)
+            // there will be division by 0 error
             if (totalNumProvingSeconds == 0) {
                 totalNumProvingSeconds = 1;
             }
 
-            reward = uint64(
-                (uint256(state.accBlockFees) * proofTime) /
-                    totalNumProvingSeconds
-            );
+            return
+                uint64(
+                    (uint256(state.accBlockFees) * proofTime) /
+                        totalNumProvingSeconds
+                );
         }
+    }
+
+    /**
+     * Calculate the newProofTimeIssued and newBasefee
+     *
+     * @param state The actual state data
+     * @param config Config data
+     * @param proofTime The actual proof time
+     * @return newProofTimeIssued Accumulated proof time
+     * @return newBasefee New basefee
+     */
+    function getNewBaseFeeandProofTimeIssued(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        uint64 proofTime
+    ) internal view returns (uint64 newProofTimeIssued, uint64 newBasefee) {
+        newProofTimeIssued = (state.proofTimeIssued > config.proofTimeTarget)
+            ? state.proofTimeIssued - config.proofTimeTarget
+            : uint64(0);
+        newProofTimeIssued += proofTime;
+
+        uint256 x = (newProofTimeIssued * Math.SCALING_FACTOR_1E18) /
+            (config.proofTimeTarget * config.adjustmentQuotient);
+
+        if (Math.MAX_EXP_INPUT <= x) {
+            x = Math.MAX_EXP_INPUT;
+        }
+
+        uint256 result = (uint256(Math.exp(int256(x))) /
+            Math.SCALING_FACTOR_1E18) /
+            (config.proofTimeTarget * config.adjustmentQuotient);
+
+        newBasefee = uint64(result.min(type(uint64).max));
     }
 
     /**
