@@ -44,10 +44,7 @@ contract TaikoL1_OracleTest is TaikoL1TestBase {
 
     function setUp() public override {
         TaikoL1TestBase.setUp();
-        registerAddress(
-            string(abi.encodePacked("verifier_", uint16(100))),
-            address(new Verifier())
-        );
+        registerAddress(L1.getVerifierName(100), address(new Verifier()));
         registerAddress("oracle_prover", Alice);
     }
 
