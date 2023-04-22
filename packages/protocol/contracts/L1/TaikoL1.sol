@@ -167,8 +167,8 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         );
     }
 
-    function getBalance(address addr) public view returns (uint256) {
-        return state.balances[addr];
+    function getTaikoTokenBalance(address addr) public view returns (uint256) {
+        return state.taikoTokenBalances[addr];
     }
 
     function getBlockFee() public view returns (uint64) {}

@@ -88,7 +88,7 @@ describe("tokenomics: proofReward", function () {
 
             // proof reward can be 0. make sure there is a proof reward first
             if (proofReward.gt(0)) {
-                const rewardBalance = await taikoL1.getBalance(
+                const rewardBalance = await taikoL1.getTaikoTokenBalance(
                     await prover.getSigner().getAddress()
                 );
 

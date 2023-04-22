@@ -145,27 +145,20 @@ library LibVerifying {
         }
 
         // reward the prover
-        _addToBalance(state, fc.prover, reward);
+        if (reward != 0) {
+            if (state.taikoTokenBalances[fc.prover] == 0) {
+                // Reduce refund to 1 wei as a penalty if the proposer
+                // has 0 TKO outstanding balance.
+                state.taikoTokenBalances[fc.prover] = 1;
+            } else {
+                state.taikoTokenBalances[fc.prover] += reward;
+            }
+        }
 
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = fcId;
 
         emit BlockVerified(blk.blockId, fc.blockHash);
-    }
-
-    function _addToBalance(
-        TaikoData.State storage state,
-        address account,
-        uint256 amount
-    ) private {
-        if (amount == 0) return;
-        if (state.balances[account] == 0) {
-            // Reduce refund to 1 wei as a penalty if the proposer
-            // has 0 TKO outstanding balance.
-            state.balances[account] = 1;
-        } else {
-            state.balances[account] += amount;
-        }
     }
 
     function _checkConfig(TaikoData.Config memory config) private pure {

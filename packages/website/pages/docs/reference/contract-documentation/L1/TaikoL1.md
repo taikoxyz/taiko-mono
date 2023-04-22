@@ -107,10 +107,10 @@ function withdrawTaikoToken(uint256 amount) external
 function depositEtherToL2() public payable
 ```
 
-### getBalance
+### getTaikoTokenBalance
 
 ```solidity
-function getBalance(address addr) public view returns (uint256)
+function getTaikoTokenBalance(address addr) public view returns (uint256)
 ```
 
 ### getBlockFee

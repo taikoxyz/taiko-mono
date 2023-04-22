@@ -93,11 +93,11 @@ library LibProposing {
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.proposer = msg.sender;
 
-        if (state.balances[msg.sender] < state.basefee)
+        if (state.taikoTokenBalances[msg.sender] < state.basefee)
             revert L1_INSUFFICIENT_TOKEN();
 
         unchecked {
-            state.balances[msg.sender] -= state.basefee;
+            state.taikoTokenBalances[msg.sender] -= state.basefee;
             state.accBlockFees += state.basefee;
             state.accProposedAt += meta.timestamp;
         }

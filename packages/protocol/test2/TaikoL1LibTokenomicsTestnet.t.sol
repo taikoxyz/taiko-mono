@@ -69,8 +69,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         // Check balances
-        uint256 Alice_start_balance = L1.getBalance(Alice);
-        uint256 Bob_start_balance = L1.getBalance(Bob);
+        uint256 Alice_start_balance = L1.getTaikoTokenBalance(Alice);
+        uint256 Bob_start_balance = L1.getTaikoTokenBalance(Bob);
         console2.log("Alice balance:", Alice_start_balance);
         console2.log("Bob balance:", Bob_start_balance);
 
@@ -108,8 +108,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         }
 
         //Check end balances
-        uint256 deposits = Alice_start_balance - L1.getBalance(Alice);
-        uint256 withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         console2.log("Deposits:", deposits);
         console2.log("withdrawals:", withdrawals);
@@ -151,8 +151,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         }
 
         //Check end balances
-        deposits = Alice_start_balance - L1.getBalance(Alice);
-        withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         assertEq(deposits, withdrawals);
     }
@@ -175,8 +175,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         // Check balances
-        uint256 Alice_start_balance = L1.getBalance(Alice);
-        uint256 Bob_start_balance = L1.getBalance(Bob);
+        uint256 Alice_start_balance = L1.getTaikoTokenBalance(Alice);
+        uint256 Bob_start_balance = L1.getTaikoTokenBalance(Bob);
         console2.log("Alice balance:", Alice_start_balance);
         console2.log("Bob balance:", Bob_start_balance);
 
@@ -219,8 +219,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         }
 
         //Check end balances
-        uint256 deposits = Alice_start_balance - L1.getBalance(Alice);
-        uint256 withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         // Run another iteration
         for (uint256 blockId = 1; blockId < 10; blockId++) {
@@ -256,8 +256,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         }
 
         //Check end balances
-        deposits = Alice_start_balance - L1.getBalance(Alice);
-        withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         console2.log("Deposits:", deposits);
         console2.log("withdrawals:", withdrawals);
@@ -277,8 +277,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         // Check balances
-        uint256 Alice_start_balance = L1.getBalance(Alice);
-        uint256 Bob_start_balance = L1.getBalance(Bob);
+        uint256 Alice_start_balance = L1.getTaikoTokenBalance(Alice);
+        uint256 Bob_start_balance = L1.getTaikoTokenBalance(Bob);
         console2.log("Alice balance:", Alice_start_balance);
         console2.log("Bob balance:", Bob_start_balance);
 
@@ -317,8 +317,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         }
 
         //Check end balances
-        uint256 deposits = Alice_start_balance - L1.getBalance(Alice);
-        uint256 withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         console2.log("Deposits:", deposits);
         console2.log("withdrawals:", withdrawals);
@@ -344,8 +344,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         // Check balances
-        uint256 Alice_start_balance = L1.getBalance(Alice);
-        uint256 Bob_start_balance = L1.getBalance(Bob);
+        uint256 Alice_start_balance = L1.getTaikoTokenBalance(Alice);
+        uint256 Bob_start_balance = L1.getTaikoTokenBalance(Bob);
         console2.log("Alice balance:", Alice_start_balance);
         console2.log("Bob balance:", Bob_start_balance);
 
@@ -388,8 +388,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         }
 
         //Check end balances
-        uint256 deposits = Alice_start_balance - L1.getBalance(Alice);
-        uint256 withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         console2.log("Deposits:", deposits);
         console2.log("withdrawals:", withdrawals);
@@ -415,8 +415,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         // Check balances
-        uint256 Alice_start_balance = L1.getBalance(Alice);
-        uint256 Bob_start_balance = L1.getBalance(Bob);
+        uint256 Alice_start_balance = L1.getTaikoTokenBalance(Alice);
+        uint256 Bob_start_balance = L1.getTaikoTokenBalance(Bob);
         console2.log("Alice balance:", Alice_start_balance);
         console2.log("Bob balance:", Bob_start_balance);
 
@@ -457,8 +457,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         }
 
         //Check end balances
-        uint256 deposits = Alice_start_balance - L1.getBalance(Alice);
-        uint256 withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
         // console2.log("Deposits:", deposits);
         // console2.log("withdrawals:", withdrawals);
         assertEq(deposits, withdrawals);
@@ -477,8 +477,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         // Check balances
-        uint256 Alice_start_balance = L1.getBalance(Alice);
-        uint256 Bob_start_balance = L1.getBalance(Bob);
+        uint256 Alice_start_balance = L1.getTaikoTokenBalance(Alice);
+        uint256 Bob_start_balance = L1.getTaikoTokenBalance(Bob);
         console2.log("Alice balance:", Alice_start_balance);
         console2.log("Bob balance:", Bob_start_balance);
 
@@ -517,8 +517,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         }
 
         //Check end balances
-        uint256 deposits = Alice_start_balance - L1.getBalance(Alice);
-        uint256 withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         console2.log("Deposits:", deposits);
         console2.log("withdrawals:", withdrawals);
@@ -544,8 +544,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         // Check balances
-        uint256 Alice_start_balance = L1.getBalance(Alice);
-        uint256 Bob_start_balance = L1.getBalance(Bob);
+        uint256 Alice_start_balance = L1.getTaikoTokenBalance(Alice);
+        uint256 Bob_start_balance = L1.getTaikoTokenBalance(Bob);
         console2.log("Alice balance:", Alice_start_balance);
         console2.log("Bob balance:", Bob_start_balance);
 
@@ -587,8 +587,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         }
 
         //Check end balances
-        uint256 deposits = Alice_start_balance - L1.getBalance(Alice);
-        uint256 withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         console2.log("Deposits:", deposits);
         console2.log("withdrawals:", withdrawals);
@@ -609,8 +609,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         // Check balances
-        uint256 Alice_start_balance = L1.getBalance(Alice);
-        uint256 Bob_start_balance = L1.getBalance(Bob);
+        uint256 Alice_start_balance = L1.getTaikoTokenBalance(Alice);
+        uint256 Bob_start_balance = L1.getTaikoTokenBalance(Bob);
         console2.log("Alice balance:", Alice_start_balance);
         console2.log("Bob balance:", Bob_start_balance);
 
@@ -648,8 +648,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         }
 
         //Check end balances
-        uint256 deposits = Alice_start_balance - L1.getBalance(Alice);
-        uint256 withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         console2.log("Deposits:", deposits);
         console2.log("withdrawals:", withdrawals);
@@ -690,8 +690,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         }
 
         //Check end balances
-        deposits = Alice_start_balance - L1.getBalance(Alice);
-        withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         assertEq(deposits, withdrawals);
     }
@@ -714,8 +714,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         // Check balances
-        uint256 Alice_start_balance = L1.getBalance(Alice);
-        uint256 Bob_start_balance = L1.getBalance(Bob);
+        uint256 Alice_start_balance = L1.getTaikoTokenBalance(Alice);
+        uint256 Bob_start_balance = L1.getTaikoTokenBalance(Bob);
         console2.log("Alice balance:", Alice_start_balance);
         console2.log("Bob balance:", Bob_start_balance);
 
@@ -756,8 +756,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         }
 
         //Check end balances
-        uint256 deposits = Alice_start_balance - L1.getBalance(Alice);
-        uint256 withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         console2.log("Deposits:", deposits);
         console2.log("withdrawals:", withdrawals);
@@ -798,8 +798,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         }
 
         //Check end balances
-        deposits = Alice_start_balance - L1.getBalance(Alice);
-        withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         // console2.log("Deposits:", deposits);
         // console2.log("withdrawals:", withdrawals);
@@ -819,8 +819,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         // Check balances
-        uint256 Alice_start_balance = L1.getBalance(Alice);
-        uint256 Bob_start_balance = L1.getBalance(Bob);
+        uint256 Alice_start_balance = L1.getTaikoTokenBalance(Alice);
+        uint256 Bob_start_balance = L1.getTaikoTokenBalance(Bob);
         console2.log("Alice balance:", Alice_start_balance);
         console2.log("Bob balance:", Bob_start_balance);
 
@@ -859,8 +859,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         }
 
         //Check end balances
-        uint256 deposits = Alice_start_balance - L1.getBalance(Alice);
-        uint256 withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         console2.log("Deposits:", deposits);
         console2.log("withdrawals:", withdrawals);
@@ -872,8 +872,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
     function test_balanced_state_reward_and_fee_if_proof_time_stable_non_consecutive()
         external
     {
-        uint256 Alice_start_balance = L1.getBalance(Alice);
-        uint256 Bob_start_balance = L1.getBalance(Bob);
+        uint256 Alice_start_balance = L1.getTaikoTokenBalance(Alice);
+        uint256 Bob_start_balance = L1.getTaikoTokenBalance(Bob);
 
         // Need constants here and in loop counter to avoid stack too deep error
         TaikoData.BlockMetadata[] memory meta = new TaikoData.BlockMetadata[](
@@ -928,12 +928,12 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
             }
         }
         //Check end balances
-        uint256 deposits = Alice_start_balance - L1.getBalance(Alice);
-        uint256 withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         //Check end balances
-        deposits = Alice_start_balance - L1.getBalance(Alice);
-        withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         console2.log("Deposits:", deposits);
         console2.log("withdrawals:", withdrawals);

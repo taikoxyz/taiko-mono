@@ -63,8 +63,8 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase, FoundryRandom {
         depositTaikoToken(Bob, 1E8 * 1E8, 100 ether);
         depositTaikoToken(Carol, 1E8 * 1E8, 100 ether);
 
-        Alice_start_balance = L1.getBalance(Alice);
-        Bob_start_balance = L1.getBalance(Bob);
+        Alice_start_balance = L1.getTaikoTokenBalance(Alice);
+        Bob_start_balance = L1.getTaikoTokenBalance(Bob);
     }
 
     /// @dev A possible (close to) mainnet scenarios is the following:
@@ -82,8 +82,8 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase, FoundryRandom {
         depositTaikoToken(Carol, 1E8 * 1E8, 1000 ether);
 
         // Check balances
-        Alice_start_balance = L1.getBalance(Alice);
-        Bob_start_balance = L1.getBalance(Bob);
+        Alice_start_balance = L1.getTaikoTokenBalance(Alice);
+        Bob_start_balance = L1.getTaikoTokenBalance(Bob);
 
         // Can play to adjust
         proofTime = 179; // When proofs are coming, 179 means 1790 sec
@@ -134,12 +134,12 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase, FoundryRandom {
         }
 
         //Check end balances
-        uint256 deposits = Alice_start_balance - L1.getBalance(Alice);
-        uint256 withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         //Check end balances
-        deposits = Alice_start_balance - L1.getBalance(Alice);
-        withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         console2.log("Deposits:", deposits);
         console2.log("withdrawals:", withdrawals);
@@ -204,12 +204,12 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase, FoundryRandom {
             }
         }
         //Check end balances
-        uint256 deposits = Alice_start_balance - L1.getBalance(Alice);
-        uint256 withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         //Check end balances
-        deposits = Alice_start_balance - L1.getBalance(Alice);
-        withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         console2.log("Deposits:", deposits);
         console2.log("withdrawals:", withdrawals);
@@ -274,12 +274,12 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase, FoundryRandom {
         }
 
         //Check end balances
-        uint256 deposits = Alice_start_balance - L1.getBalance(Alice);
-        uint256 withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         //Check end balances
-        deposits = Alice_start_balance - L1.getBalance(Alice);
-        withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         console2.log("Deposits:", deposits);
         console2.log("withdrawals:", withdrawals);

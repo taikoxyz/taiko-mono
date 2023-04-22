@@ -28,11 +28,11 @@ library LibTokenomics {
         AddressResolver resolver,
         uint256 amount
     ) internal {
-        uint256 balance = state.balances[msg.sender];
+        uint256 balance = state.taikoTokenBalances[msg.sender];
         if (balance < amount) revert L1_INSUFFICIENT_TOKEN();
 
         unchecked {
-            state.balances[msg.sender] -= amount;
+            state.taikoTokenBalances[msg.sender] -= amount;
         }
 
         TaikoToken(resolver.resolve("taiko_token", false)).mint(
@@ -51,7 +51,7 @@ library LibTokenomics {
                 msg.sender,
                 amount
             );
-            state.balances[msg.sender] += amount;
+            state.taikoTokenBalances[msg.sender] += amount;
         }
     }
 
