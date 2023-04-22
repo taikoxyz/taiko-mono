@@ -45,6 +45,7 @@ contract DeployOnL1 is Script {
     uint256 public taikoTokenPremintAmount =
         vm.envUint("TAIKO_TOKEN_PREMINT_AMOUNT");
 
+    TaikoL1 taikoL1;
     address public addressManagerProxy;
 
     // New fee/reward related variables
@@ -77,7 +78,7 @@ contract DeployOnL1 is Script {
         );
 
         // TaikoL1
-        TaikoL1 taikoL1 = new TaikoL1();
+        taikoL1 = new TaikoL1();
         uint256 l2ChainId = taikoL1.getConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
@@ -198,10 +199,7 @@ contract DeployOnL1 is Script {
         );
 
         for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
-            setAddress(
-                string(abi.encodePacked("verifier_", i)),
-                plonkVerifiers[i]
-            );
+            setAddress(taikoL1.getVerifierName(i), plonkVerifiers[i]);
         }
     }
 

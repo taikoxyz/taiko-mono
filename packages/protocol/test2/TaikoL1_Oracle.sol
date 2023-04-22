@@ -44,16 +44,16 @@ contract TaikoL1_OracleTest is TaikoL1TestBase {
 
     function setUp() public override {
         TaikoL1TestBase.setUp();
-        _registerAddress(
-            string(bytes.concat(bytes("verifier_"), bytes2(uint16(100)))),
+        registerAddress(
+            string(abi.encodePacked("verifier_", uint16(100))),
             address(new Verifier())
         );
-        _registerAddress("oracle_prover", Alice);
+        registerAddress("oracle_prover", Alice);
     }
 
     function testOracleProverWithSignature() external {
-        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
 
         TaikoData.BlockMetadata memory meta = proposeBlock(Bob, 1000000, 1024);
         proveBlock(
@@ -105,9 +105,9 @@ contract TaikoL1_OracleTest is TaikoL1TestBase {
     }
 
     function testOracleProverCanAlwaysOverwrite() external {
-        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint256 blockId = 1;
@@ -235,9 +235,9 @@ contract TaikoL1_OracleTest is TaikoL1TestBase {
 
     /// @dev Test we can propose, prove, then verify more blocks than 'maxNumProposedBlocks'
     function test_cooldown_more_blocks_than_ring_buffer_size() external {
-        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;

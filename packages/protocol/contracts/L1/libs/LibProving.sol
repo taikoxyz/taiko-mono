@@ -165,13 +165,11 @@ library LibProving {
                 instance := keccak256(inputs, mul(32, 7))
             }
 
-            bytes memory verifierId = bytes.concat(
-                bytes("verifier_"),
-                bytes2(evidence.verifierId)
-            );
-
             (bool verified, bytes memory ret) = resolver
-                .resolve(string(verifierId), false)
+                .resolve(
+                    LibUtils.getVerifierName(evidence.verifierId),
+                    false
+                )
                 .staticcall(bytes.concat(instance, evidence.proof));
 
             if (

@@ -64,19 +64,15 @@ abstract contract TaikoL1TestBase is Test {
         ss = new SignalService();
         ss.init(address(addressManager));
 
-        _registerAddress("signal_service", address(ss));
-        _registerAddress("ether_vault", address(L1EthVault));
-        _registerL2Address("treasure", L2Treasure);
-        _registerL2Address("taiko", address(TaikoL2));
-        _registerL2Address("signal_service", address(L2SS));
-
-        _registerAddress(
-            string(abi.encodePacked("verifier_", uint16(100))), // TODO
-            address(new Verifier())
-        );
+        registerAddress("signal_service", address(ss));
+        registerAddress("ether_vault", address(L1EthVault));
+        registerL2Address("treasure", L2Treasure);
+        registerL2Address("taiko", address(TaikoL2));
+        registerL2Address("signal_service", address(L2SS));
+        registerAddress(L1.getVerifierName(100), address(new Verifier()));
 
         tko = new TaikoToken();
-        _registerAddress("taiko_token", address(tko));
+        registerAddress("taiko_token", address(tko));
         address[] memory premintRecipients;
         uint256[] memory premintAmounts;
         tko.init(
@@ -88,9 +84,9 @@ abstract contract TaikoL1TestBase is Test {
         );
 
         // Set protocol broker
-        _registerAddress("proto_broker", address(this));
+        registerAddress("proto_broker", address(this));
         tko.mint(address(this), 1E9 * 1E8);
-        _registerAddress("proto_broker", address(L1));
+        registerAddress("proto_broker", address(L1));
 
         // Lastly, init L1
         L1.init(
@@ -173,17 +169,19 @@ abstract contract TaikoL1TestBase is Test {
         L1.verifyBlocks(count);
     }
 
-    function _registerAddress(string memory name, address addr) internal {
-        addressManager.setAddress(block.chainid, name, addr);
-        console2.log(block.chainid, name, unicode"→", addr);
+    function registerAddress(string memory name, address addr) internal {
+        string memory key = L1.keyForName(block.chainid, name);
+        addressManager.setAddress(key, addr);
+        console2.log(key, unicode"→", addr);
     }
 
-    function _registerL2Address(string memory name, address addr) internal {
-        addressManager.setAddress(conf.chainId, name, addr);
-        console2.log(conf.chainId, name, unicode"→", addr);
+    function registerL2Address(string memory name, address addr) internal {
+        string memory key = L1.keyForName(conf.chainId, name);
+        addressManager.setAddress(key, addr);
+        console2.log(key, unicode"→", addr);
     }
 
-    function _depositTaikoToken(
+    function depositTaikoToken(
         address who,
         uint256 amountTko,
         uint256 amountEth

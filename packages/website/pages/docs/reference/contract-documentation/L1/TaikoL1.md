@@ -92,22 +92,22 @@ function withdrawTaikoToken(uint256 amount) external
 function depositEtherToL2() public payable
 ```
 
-### getBalance
+### getTaikoTokenBalance
 
 ```solidity
-function getBalance(address addr) public view returns (uint256)
+function getTaikoTokenBalance(address addr) public view returns (uint256)
 ```
 
 ### getBlockFee
 
 ```solidity
-function getBlockFee() public view returns (uint64 fee)
+function getBlockFee() public view returns (uint64)
 ```
 
 ### getProofReward
 
 ```solidity
-function getProofReward(uint64 provenAt, uint64 proposedAt) public view returns (uint64 reward)
+function getProofReward(uint64 provenAt, uint64 proposedAt) public view returns (uint64)
 ```
 
 ### getBlock
@@ -144,4 +144,10 @@ function getStateVariables() public view returns (struct TaikoData.StateVariable
 
 ```solidity
 function getConfig() public pure virtual returns (struct TaikoData.Config)
+```
+
+### getVerifierName
+
+```solidity
+function getVerifierName(uint16 id) public pure returns (string)
 ```

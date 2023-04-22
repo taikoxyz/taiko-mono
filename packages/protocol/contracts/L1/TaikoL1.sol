@@ -147,24 +147,23 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         );
     }
 
-    function getBalance(address addr) public view returns (uint256) {
-        return state.balances[addr];
+    function getTaikoTokenBalance(address addr) public view returns (uint256) {
+        return state.taikoTokenBalances[addr];
     }
 
-    function getBlockFee() public view returns (uint64 fee) {
-        fee = LibTokenomics.getBlockFee(state);
+    function getBlockFee() public view returns (uint64) {
+        return state.basefee;
     }
 
     function getProofReward(
         uint64 provenAt,
         uint64 proposedAt
-    ) public view returns (uint64 reward) {
-        reward = LibTokenomics.getProofReward({
-            state: state,
-            config: getConfig(),
-            provenAt: provenAt,
-            proposedAt: proposedAt
-        });
+    ) public view returns (uint64) {
+        return
+            LibTokenomics.getProofReward({
+                state: state,
+                proofTime: provenAt - proposedAt
+            });
     }
 
     function getBlock(
@@ -244,5 +243,9 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
 
     function getConfig() public pure virtual returns (TaikoData.Config memory) {
         return TaikoConfig.getConfig();
+    }
+
+    function getVerifierName(uint16 id) public pure returns (string memory) {
+        return LibUtils.getVerifierName(id);
     }
 }
