@@ -26,7 +26,6 @@ contract TaikoL1WithTestnetConfig is TaikoL1 {
         config.txListCacheExpiry = 5 minutes;
         config.maxVerificationsPerTx = 0;
         config.enableSoloProposer = false;
-        config.enableOracleProver = false;
         config.maxNumProposedBlocks = 40;
         config.ringBufferSize = 48;
         config.proofTimeTarget = 100; // Testnet example
@@ -91,7 +90,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
@@ -135,7 +135,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 1000000,
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
@@ -202,7 +203,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
@@ -242,7 +244,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 1000000,
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
@@ -301,7 +304,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
@@ -369,7 +373,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
 
             uint64 provenAt = uint64(block.timestamp);
@@ -438,7 +443,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
 
             uint64 provenAt = uint64(block.timestamp);
@@ -498,7 +504,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
@@ -566,7 +573,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
 
             uint64 provenAt = uint64(block.timestamp);
@@ -627,7 +635,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
@@ -670,7 +679,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 1000000,
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
@@ -733,7 +743,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 (blockId == 1 ? 0 : 1000000),
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
 
             uint64 provenAt = uint64(block.timestamp);
@@ -777,7 +788,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 1000000,
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
@@ -836,7 +848,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
@@ -898,7 +911,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                         (blockId - proofTime == 1) ? 0 : 1000000,
                         1000000,
                         blockHashes[blockId - proofTime],
-                        signalRoots[blockId - proofTime]
+                        signalRoots[blockId - proofTime],
+                        false
                     );
 
                     uint64 provenAt = uint64(block.timestamp);
