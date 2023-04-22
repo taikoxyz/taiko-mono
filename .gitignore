@@ -114,3 +114,6 @@ __pycache__/
 
 # whitepaper
 .pdf
+
+# Ignoring new Bridge UI work for the moment
+packages/bridge-ui-v2
