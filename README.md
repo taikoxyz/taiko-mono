@@ -45,7 +45,6 @@ taiko-mono/
 │   ├── <a href="./packages/relayer">relayer</a>: Bridge backend relayer in Go
 │   ├── <a href="./packages/starter-dapp">starter-dapp</a>: Template for Taiko dapps
 │   ├── <a href="./packages/status-page">status-page</a>: Taiko protocol status page
-│   ├── <a href="./packages/tokenomics">tokenomics</a>: Taiko tokenomics simulations
 │   ├── <a href="./packages/website">website</a>: Main documentation website at taiko.xyz (https://taiko.xyz/)
 │   └── <a href="./packages/whitepaper">whitepaper</a>: Whitepaper source files with automated publishing
 ...

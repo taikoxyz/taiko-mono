@@ -174,13 +174,11 @@ library LibProving {
                 }
             }
 
-            bytes memory verifierId = abi.encodePacked(
-                "verifier_",
-                evidence.zkproof.verifierId
-            );
-
             (bool verified, bytes memory ret) = resolver
-                .resolve(string(verifierId), false)
+                .resolve(
+                    LibUtils.getVerifierName(evidence.zkproof.verifierId),
+                    false
+                )
                 .staticcall(bytes.concat(instance, evidence.zkproof.data));
 
             if (

@@ -53,18 +53,14 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
         );
 
         TaikoL1TestBase.setUp();
-        // TODO(daniel): update string key generation using bytes.concat
-        _registerAddress(
-            string(abi.encodePacked("verifier_", uint16(100))),
-            address(new Verifier())
-        );
+        registerAddress(L1.getVerifierName(100), address(new Verifier()));
     }
 
     function testGeneratingManyRandomBlocks() external {
         uint256 time = block.timestamp;
         assertEq(time, 1);
 
-        _depositTaikoToken(Alice, 1E6 * 1E8, 10000 ether);
+        depositTaikoToken(Alice, 1E6 * 1E8, 10000 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed;
@@ -163,7 +159,7 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
 
     function pickRandomProveTime(
         uint256 randomNum
-    ) internal view returns (uint8) {
+    ) internal pure returns (uint8) {
         // Result shall be between 8-12 (inclusive)
         // so that it will result in a 160-240s proof time
         // while the proof time target is 200s

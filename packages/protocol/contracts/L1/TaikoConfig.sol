@@ -36,12 +36,9 @@ library TaikoConfig {
                 maxBytesPerTxList: 120000,
                 minTxGasLimit: 21000,
                 proofCooldownPeriod: 5 minutes,
-                // Moving average factors
                 txListCacheExpiry: 0,
-                // 85s based on A2 testnet status, or set to 1800 for 30mins (mainnet mock)
-                proofTimeTarget: 1800,
+                proofTimeTarget: 1800, // 85s based on A2 testnet status, or set to 1800 for 30mins (mainnet mock)
                 adjustmentQuotient: 16,
-                // relaySignalRoot shall be enabled for L3s.
                 relaySignalRoot: false,
                 enableSoloProposer: false
             });

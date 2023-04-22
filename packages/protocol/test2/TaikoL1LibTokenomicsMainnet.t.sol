@@ -29,8 +29,8 @@ contract TaikoL1MainnetMockConfig is TaikoL1 {
         config.enableSoloProposer = false;
         config.maxNumProposedBlocks = 200;
         config.ringBufferSize = 240;
-        config.proofTimeTarget = 1800;
         config.proofCooldownPeriod = 0;
+        config.proofTimeTarget = 2160;
     }
 }
 
@@ -48,7 +48,7 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase, FoundryRandom {
     }
 
     function setUp() public override {
-        uint16 proofTimeTarget = 1800; // Approx. mainnet value
+        uint16 proofTimeTarget = 2160; // Approx. mainnet value
         // Calculating it for our needs based on testnet/mainnet proof vars.
         // See Brecht's comment https://github.com/taikoxyz/taiko-mono/pull/13564
         initProofTimeIssued = LibLn.calcInitProofTimeIssued(
@@ -59,12 +59,12 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase, FoundryRandom {
 
         TaikoL1TestBase.setUp();
 
-        _depositTaikoToken(Alice, 1E8 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E8 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E8 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1E8 * 1E8, 100 ether);
+        depositTaikoToken(Bob, 1E8 * 1E8, 100 ether);
+        depositTaikoToken(Carol, 1E8 * 1E8, 100 ether);
 
-        Alice_start_balance = L1.getBalance(Alice);
-        Bob_start_balance = L1.getBalance(Bob);
+        Alice_start_balance = L1.getTaikoTokenBalance(Alice);
+        Bob_start_balance = L1.getTaikoTokenBalance(Bob);
     }
 
     /// @dev A possible (close to) mainnet scenarios is the following:
@@ -77,13 +77,13 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase, FoundryRandom {
         vm.pauseGasMetering();
         mine(1);
 
-        _depositTaikoToken(Alice, 1E8 * 1E8, 1000 ether);
-        _depositTaikoToken(Bob, 1E8 * 1E8, 1000 ether);
-        _depositTaikoToken(Carol, 1E8 * 1E8, 1000 ether);
+        depositTaikoToken(Alice, 1E8 * 1E8, 1000 ether);
+        depositTaikoToken(Bob, 1E8 * 1E8, 1000 ether);
+        depositTaikoToken(Carol, 1E8 * 1E8, 1000 ether);
 
         // Check balances
-        Alice_start_balance = L1.getBalance(Alice);
-        Bob_start_balance = L1.getBalance(Bob);
+        Alice_start_balance = L1.getTaikoTokenBalance(Alice);
+        Bob_start_balance = L1.getTaikoTokenBalance(Bob);
 
         // Can play to adjust
         proofTime = 179; // When proofs are coming, 179 means 1790 sec
@@ -128,19 +128,19 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase, FoundryRandom {
                 verifyBlock(Carol, 1);
             }
 
-            mine_every_10_sec();
+            mine_every_12_sec();
 
             parentHashes[blockId] = parentHash;
             parentHash = blockHashes[blockId];
         }
 
         //Check end balances
-        uint256 deposits = Alice_start_balance - L1.getBalance(Alice);
-        uint256 withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         //Check end balances
-        deposits = Alice_start_balance - L1.getBalance(Alice);
-        withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         console2.log("Deposits:", deposits);
         console2.log("withdrawals:", withdrawals);
@@ -199,19 +199,19 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase, FoundryRandom {
                     );
                 }
 
-                mine_every_10_sec();
+                mine_every_12_sec();
 
                 parentHashes[blockId] = parentHash;
                 parentHash = blockHashes[blockId];
             }
         }
         //Check end balances
-        uint256 deposits = Alice_start_balance - L1.getBalance(Alice);
-        uint256 withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         //Check end balances
-        deposits = Alice_start_balance - L1.getBalance(Alice);
-        withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         console2.log("Deposits:", deposits);
         console2.log("withdrawals:", withdrawals);
@@ -270,19 +270,20 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase, FoundryRandom {
                 verifyBlock(Carol, 1);
             }
 
-            mine_every_10_sec();
+            mine_every_12_sec();
 
             parentHashes[blockId] = parentHash;
             parentHash = blockHashes[blockId];
         }
 
         //Check end balances
-        uint256 deposits = Alice_start_balance - L1.getBalance(Alice);
-        uint256 withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        //Check end balances
+        uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         //Check end balances
-        deposits = Alice_start_balance - L1.getBalance(Alice);
-        withdrawals = L1.getBalance(Bob) - Bob_start_balance;
+        deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
         console2.log("Deposits:", deposits);
         console2.log("withdrawals:", withdrawals);
@@ -291,8 +292,8 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase, FoundryRandom {
         assertApproxEqRel(deposits, withdrawals, 1e17);
     }
 
-    function mine_every_10_sec() internal {
-        vm.warp(block.timestamp + 10);
+    function mine_every_12_sec() internal {
+        vm.warp(block.timestamp + 12);
         vm.roll(block.number + 1);
     }
 }

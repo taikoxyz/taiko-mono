@@ -41,9 +41,9 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     /// @dev Test we can propose, prove, then verify more blocks than 'maxNumProposedBlocks'
     function test_more_blocks_than_ring_buffer_size() external {
-        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -86,7 +86,7 @@ contract TaikoL1Test is TaikoL1TestBase {
     /// @dev Test more than one block can be proposed, proven, & verified in the
     ///      same L1 block.
     function test_multiple_blocks_in_one_L1_block() external {
-        _depositTaikoToken(Alice, 1000 * 1E8, 1000 ether);
+        depositTaikoToken(Alice, 1000 * 1E8, 1000 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -122,7 +122,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     /// @dev Test verifying multiple blocks in one transaction
     function test_verifying_multiple_blocks_once() external {
-        _depositTaikoToken(Alice, 1E6 * 1E8, 1000 ether);
+        depositTaikoToken(Alice, 1E6 * 1E8, 1000 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -167,7 +167,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         uint96 minAmount = conf.minEthDepositAmount;
         uint96 maxAmount = conf.maxEthDepositAmount;
 
-        _depositTaikoToken(Alice, 0, maxAmount + 1 ether);
+        depositTaikoToken(Alice, 0, maxAmount + 1 ether);
 
         vm.prank(Alice, Alice);
         vm.expectRevert();
@@ -185,7 +185,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         vm.fee(25 gwei);
 
         bytes32 emptyDepositsRoot = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
-        _depositTaikoToken(Alice, 1E6 * 1E8, 100000 ether);
+        depositTaikoToken(Alice, 1E6 * 1E8, 100000 ether);
 
         proposeBlock(Alice, 1000000, 1024);
         TaikoData.BlockMetadata memory meta = proposeBlock(
