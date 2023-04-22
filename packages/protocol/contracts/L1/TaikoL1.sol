@@ -29,20 +29,23 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      * Initialize the rollup.
      *
      * @param _addressManager The AddressManager address.
-     * @param _feeBase The initial value of the proposer-fee/prover-reward feeBase.
      * @param _genesisBlockHash The block hash of the genesis block.
+     * @param _initBasefee Initial (reasonable) basefee value.
+     * @param _initProofTimeIssued Initial proof time which keeps the inflow/outflow in balance
      */
     function init(
         address _addressManager,
-        uint64 _feeBase,
-        bytes32 _genesisBlockHash
+        bytes32 _genesisBlockHash,
+        uint64 _initBasefee,
+        uint64 _initProofTimeIssued
     ) external initializer {
         EssentialContract._init(_addressManager);
         LibVerifying.init({
             state: state,
             config: getConfig(),
-            feeBase: _feeBase,
-            genesisBlockHash: _genesisBlockHash
+            genesisBlockHash: _genesisBlockHash,
+            initBasefee: _initBasefee,
+            initProofTimeIssued: _initProofTimeIssued
         });
     }
 
@@ -155,27 +158,19 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         return state.balances[addr];
     }
 
-    function getBlockFee()
-        public
-        view
-        returns (uint256 feeAmount, uint256 depositAmount)
-    {
-        (, feeAmount, depositAmount) = LibTokenomics.getBlockFee(
-            state,
-            getConfig()
-        );
+    function getBlockFee() public view returns (uint64) {
+        return state.basefee;
     }
 
     function getProofReward(
         uint64 provenAt,
         uint64 proposedAt
-    ) public view returns (uint256 reward) {
-        (, reward, ) = LibTokenomics.getProofReward({
-            state: state,
-            config: getConfig(),
-            provenAt: provenAt,
-            proposedAt: proposedAt
-        });
+    ) public view returns (uint64) {
+        return
+            LibTokenomics.getProofReward({
+                state: state,
+                proofTime: provenAt - proposedAt
+            });
     }
 
     function getBlock(
@@ -255,5 +250,9 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
 
     function getConfig() public pure virtual returns (TaikoData.Config memory) {
         return TaikoConfig.getConfig();
+    }
+
+    function getVerifierName(uint16 id) public pure returns (string memory) {
+        return LibUtils.getVerifierName(id);
     }
 }

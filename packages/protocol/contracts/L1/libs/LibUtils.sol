@@ -42,6 +42,7 @@ library LibUtils {
         uint256 fcId = state.forkChoiceIds[blk.blockId][parentHash][
             parentGasUsed
         ];
+
         if (fcId >= blk.nextForkChoiceId) return 0;
 
         return fcId;
@@ -52,14 +53,15 @@ library LibUtils {
     ) internal view returns (TaikoData.StateVariables memory) {
         return
             TaikoData.StateVariables({
-                feeBase: state.feeBase,
+                basefee: state.basefee,
+                accBlockFees: state.accBlockFees,
                 genesisHeight: state.genesisHeight,
                 genesisTimestamp: state.genesisTimestamp,
                 numBlocks: state.numBlocks,
-                lastProposedAt: state.lastProposedAt,
-                avgBlockTime: state.avgBlockTime,
+                proofTimeIssued: state.proofTimeIssued,
                 lastVerifiedBlockId: state.lastVerifiedBlockId,
-                avgProofTime: state.avgProofTime
+                accProposedAt: state.accProposedAt,
+                lastProposedAt: state.lastProposedAt
             });
     }
 
@@ -129,5 +131,9 @@ library LibUtils {
             key := keccak256(add(ptr, 28), 36)
             mstore(0x40, add(ptr, 64))
         }
+    }
+
+    function getVerifierName(uint16 id) public pure returns (string memory) {
+        return string(bytes.concat(bytes("verifier_"), bytes2(id)));
     }
 }
