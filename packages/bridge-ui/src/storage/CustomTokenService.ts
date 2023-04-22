@@ -1,3 +1,4 @@
+import { jsonParseOrEmptyArray } from '../utils/jsonParseOrEmptyArray';
 import type { Token, TokenService } from '../domain/token';
 
 const STORAGE_PREFIX = 'custom-tokens';
@@ -9,48 +10,50 @@ export class CustomTokenService implements TokenService {
     this.storage = storage;
   }
 
-  storeToken(token: Token, address: string): Token[] {
-    const customTokens = this.storage.getItem(
+  private _getTokensFromStorage(address: string): Token[] {
+    const existingCustomTokens = this.storage.getItem(
       `${STORAGE_PREFIX}-${address.toLowerCase()}`,
     );
-    let tokens = [];
-    if (customTokens) {
-      tokens = [...JSON.parse(customTokens)];
+
+    return jsonParseOrEmptyArray<Token>(existingCustomTokens);
+  }
+
+  storeToken(token: Token, address: string): Token[] {
+    const tokens: Token[] = this._getTokensFromStorage(address);
+
+    const doesTokenAlreadyExist =
+      tokens.findIndex(
+        (tokenFromStorage) => tokenFromStorage.symbol === token.symbol,
+      ) >= 0;
+
+    if (!doesTokenAlreadyExist) {
+      tokens.push(token);
     }
-    const doesTokenAlreadyExist = tokens.findIndex(
-      (t) => t.symbol === token.symbol,
-    );
-    if (doesTokenAlreadyExist < 0) {
-      tokens.push({ ...token });
-    }
+
     this.storage.setItem(
       `${STORAGE_PREFIX}-${address.toLowerCase()}`,
       JSON.stringify(tokens),
     );
+
     return tokens;
   }
 
   getTokens(address: string): Token[] {
-    return (
-      JSON.parse(
-        this.storage.getItem(`${STORAGE_PREFIX}-${address.toLowerCase()}`),
-      ) ?? []
-    );
+    return this._getTokensFromStorage(address);
   }
 
   removeToken(token: Token, address: string): Token[] {
-    const customTokens = this.storage.getItem(
-      `${STORAGE_PREFIX}-${address.toLowerCase()}`,
+    const tokens: Token[] = this._getTokensFromStorage(address);
+
+    const updatedTokenList = tokens.filter(
+      (tokenFromStorage) => tokenFromStorage.symbol !== token.symbol,
     );
-    let tokens = [];
-    if (customTokens) {
-      tokens = [...JSON.parse(customTokens)];
-    }
-    const updatedTokenList = tokens.filter((t) => t.symbol !== token.symbol);
+
     this.storage.setItem(
       `${STORAGE_PREFIX}-${address.toLowerCase()}`,
       JSON.stringify(updatedTokenList),
     );
+
     return updatedTokenList;
   }
 }

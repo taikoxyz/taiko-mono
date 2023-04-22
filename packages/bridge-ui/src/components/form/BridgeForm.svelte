@@ -171,17 +171,18 @@
         spenderAddress: tokenVaults[$fromChain.id],
       });
 
-      pendingTransactions.update((store) => {
-        store.push(tx);
-        return store;
-      });
-
       successToast($_('toast.transactionSent'));
-      await $signer.provider.waitForTransaction(tx.hash, 1);
+
+      await pendingTransactions.add(tx, $signer);
 
       requiresAllowance = false;
+
+      successToast('Transaction completed!');
     } catch (e) {
       console.error(e);
+      // TODO: if we have TransactionReceipt here means the tx failed
+      //       We might want to give the user a link to etherscan
+      //       to see the tx details
       errorToast($_('toast.errorSendingTransaction'));
     } finally {
       loading = false;
@@ -274,11 +275,16 @@
       );
 
       if (!doesUserHaveEnoughBalance) {
+        // TODO: about custom errors and catch it in the catch block?
         errorToast('Insufficient ETH balance');
         return;
       }
 
       const tx = await $activeBridge.Bridge(bridgeOpts);
+
+      successToast($_('toast.transactionSent'));
+
+      await pendingTransactions.add(tx, $signer);
 
       // tx.chainId is not set immediately but we need it later. set it
       // manually.
@@ -296,6 +302,7 @@
         hash: tx.hash,
         status: MessageStatus.New,
       };
+
       if (!transactions) {
         transactions = [bridgeTransaction];
       } else {
@@ -303,11 +310,6 @@
       }
 
       $transactioner.updateStorageByAddress(userAddress, transactions);
-
-      pendingTransactions.update((store) => {
-        store.push(tx);
-        return store;
-      });
 
       const allTransactions = $transactionsStore;
 
@@ -319,11 +321,12 @@
 
       transactionsStore.set([bridgeTransaction, ...allTransactions]);
 
-      successToast($_('toast.transactionSent'));
-      await $signer.provider.waitForTransaction(tx.hash, 1);
       memo = '';
+
+      successToast('Transaction completed!');
     } catch (e) {
       console.error(e);
+      // TODO: Same as in approve()
       errorToast($_('toast.errorSendingTransaction'));
     } finally {
       loading = false;

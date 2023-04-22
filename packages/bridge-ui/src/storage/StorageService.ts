@@ -6,11 +6,95 @@ import ERC20_ABI from '../constants/abi/ERC20';
 import { MessageStatus } from '../domain/message';
 import { chains } from '../chain/chains';
 import { tokenVaults } from '../vault/tokenVaults';
-import type { ChainID } from '../domain/chain';
+import type { Address, ChainID } from '../domain/chain';
+import { jsonParseOrEmptyArray } from '../utils/jsonParseOrEmptyArray';
 
 const STORAGE_PREFIX = 'transactions';
 
 export class StorageService implements Transactioner {
+  private static async _getBridgeMessageSent(
+    userAddress: Address,
+    bridgeAddress: Address,
+    bridgeAbi: ethers.ContractInterface,
+    provider: ethers.providers.StaticJsonRpcProvider,
+    blockNumber: number,
+  ) {
+    const bridgeContract: Contract = new Contract(
+      bridgeAddress,
+      bridgeAbi,
+      provider,
+    );
+
+    // Gets the event MessageSent from the bridge contract
+    // in the block where the transaction was mined, and find
+    // our event MessageSent whose owner is the address passed in
+    const messageSentEvents = await bridgeContract.queryFilter(
+      'MessageSent',
+      blockNumber,
+      blockNumber,
+    );
+
+    return messageSentEvents.find(
+      ({ args }) =>
+        args.message.owner.toLowerCase() === userAddress.toLowerCase(),
+    );
+  }
+
+  private static _getBridgeMessageStatus(
+    bridgeAddress: Address,
+    bridgeAbi: ethers.ContractInterface,
+    provider: ethers.providers.StaticJsonRpcProvider,
+    msgHash: string,
+  ) {
+    const bridgeContract: Contract = new Contract(
+      bridgeAddress,
+      bridgeAbi,
+      provider,
+    );
+
+    return bridgeContract.getMessageStatus(msgHash);
+  }
+
+  private static async _getTokenVaultERC20Event(
+    tokenVaultAddress: Address,
+    tokenVaultAbi: ethers.ContractInterface,
+    provider: ethers.providers.StaticJsonRpcProvider,
+    msgHash: string,
+    blockNumber: number,
+  ) {
+    const tokenVaultContract = new Contract(
+      tokenVaultAddress,
+      tokenVaultAbi,
+      provider,
+    );
+
+    const filter = tokenVaultContract.filters.ERC20Sent(msgHash);
+
+    const events = await tokenVaultContract.queryFilter(
+      filter,
+      blockNumber,
+      blockNumber,
+    );
+
+    return events.find(
+      ({ args }) => args.msgHash.toLowerCase() === msgHash.toLowerCase(),
+    );
+  }
+
+  private static async _getERC20SymbolAndAmount(
+    erc20Event: ethers.Event,
+    erc20Abi: ethers.ContractInterface,
+    provider: ethers.providers.StaticJsonRpcProvider,
+  ): Promise<[string, BigNumber]> {
+    const { token, amount } = erc20Event.args;
+    const erc20Contract = new Contract(token, erc20Abi, provider);
+
+    const symbol: string = await erc20Contract.symbol();
+    const amountInWei: BigNumber = BigNumber.from(amount);
+
+    return [symbol, amountInWei];
+  }
+
   private readonly storage: Storage;
   private readonly providers: Record<
     ChainID,
@@ -25,120 +109,114 @@ export class StorageService implements Transactioner {
     this.providers = providers;
   }
 
+  private _getTransactionsFromStorage(address: string): BridgeTransaction[] {
+    const existingTransactions = this.storage.getItem(
+      `${STORAGE_PREFIX}-${address.toLowerCase()}`,
+    );
+
+    return jsonParseOrEmptyArray<BridgeTransaction>(existingTransactions);
+  }
+
   async getAllByAddress(address: string): Promise<BridgeTransaction[]> {
-    const txs: BridgeTransaction[] = JSON.parse(
-      this.storage.getItem(`${STORAGE_PREFIX}-${address.toLowerCase()}`),
-    );
+    const txs = this._getTransactionsFromStorage(address);
 
-    const bridgeTxs: BridgeTransaction[] = [];
+    const txsPromises = txs.map(async (tx) => {
+      if (tx.from.toLowerCase() !== address.toLowerCase()) return;
 
-    await Promise.all(
-      (txs || [])
-        .map(async (tx) => {
-          if (tx.from.toLowerCase() !== address.toLowerCase()) return;
-          const destChainId = tx.toChainId;
-          const destProvider = this.providers[destChainId];
+      const { toChainId, fromChainId, hash } = tx;
 
-          const srcProvider = this.providers[tx.fromChainId];
+      const destProvider = this.providers[toChainId];
+      const srcProvider = this.providers[fromChainId];
 
-          // Ignore transactions from chains not supported by the bridge
-          if (!srcProvider) {
-            return null;
-          }
+      // Ignore transactions from chains not supported by the bridge
+      if (!srcProvider) return;
 
-          const receipt = await srcProvider.getTransactionReceipt(tx.hash);
+      // Returns the transaction receipt for hash or null
+      // if the transaction has not been mined.
+      const receipt = await srcProvider.getTransactionReceipt(hash);
 
-          if (!receipt) {
-            bridgeTxs.push(tx);
-            return;
-          }
+      if (!receipt) {
+        return tx;
+      }
 
-          tx.receipt = receipt;
+      tx.receipt = receipt;
 
-          const destBridgeAddress = chains[destChainId].bridgeAddress;
+      // TODO: should we dependency-inject the chains?
+      const srcBridgeAddress = chains[fromChainId].bridgeAddress;
 
-          const srcBridgeAddress = chains[tx.fromChainId].bridgeAddress;
+      const messageSentEvent = await StorageService._getBridgeMessageSent(
+        address,
+        srcBridgeAddress,
+        BridgeABI,
+        srcProvider,
+        receipt.blockNumber,
+      );
 
-          const destContract: Contract = new Contract(
-            destBridgeAddress,
-            BridgeABI,
-            destProvider,
-          );
+      if (!messageSentEvent) {
+        // No message yet, so we can't get more info from this transaction
+        return tx;
+      }
 
-          const srcContract: Contract = new Contract(
-            srcBridgeAddress,
-            BridgeABI,
-            srcProvider,
-          );
+      const { msgHash, message } = messageSentEvent.args;
 
-          const events = await srcContract.queryFilter(
-            'MessageSent',
-            receipt.blockNumber,
-            receipt.blockNumber,
-          );
+      // Let's add this new info to the transaction in case something else
+      // fails, such as the filter for ERC20Sent events
+      tx.msgHash = msgHash;
+      tx.message = message;
 
-          const event = events.find(
-            (e) => e.args.message.owner.toLowerCase() === address.toLowerCase(),
-          );
+      const destBridgeAddress = chains[toChainId].bridgeAddress;
 
-          if (!event) {
-            bridgeTxs.push(tx);
-            return;
-          }
+      const status = await StorageService._getBridgeMessageStatus(
+        destBridgeAddress,
+        BridgeABI,
+        destProvider,
+        msgHash,
+      );
 
-          const msgHash = event.args.msgHash;
+      tx.status = status;
 
-          const messageStatus: number = await destContract.getMessageStatus(
-            msgHash,
-          );
+      let amountInWei: BigNumber;
+      let symbol: string;
 
-          let amountInWei: BigNumber;
-          let symbol: string;
-          if (event.args.message.data !== '0x') {
-            const tokenVaultContract = new Contract(
-              tokenVaults[tx.fromChainId],
-              TokenVaultABI,
-              srcProvider,
-            );
-            const filter = tokenVaultContract.filters.ERC20Sent(msgHash);
-            const erc20Events = await tokenVaultContract.queryFilter(
-              filter,
-              receipt.blockNumber,
-              receipt.blockNumber,
-            );
+      // TODO: function isERC20Transfer(message: string): boolean?
+      if (message.data && message.data !== '0x') {
+        // We're dealing with an ERC20 transfer.
+        // Let's get the symbol and amount from the TokenVault contract.
 
-            const erc20Event = erc20Events.find(
-              (e) => e.args.msgHash.toLowerCase() === msgHash.toLowerCase(),
-            );
-            if (!erc20Event) return;
+        const srcTokenVaultAddress = tokenVaults[fromChainId];
 
-            const erc20Contract = new Contract(
-              erc20Event.args.token,
-              ERC20_ABI,
-              srcProvider,
-            );
-            symbol = await erc20Contract.symbol();
-            amountInWei = BigNumber.from(erc20Event.args.amount);
-          }
+        const erc20Event = await StorageService._getTokenVaultERC20Event(
+          srcTokenVaultAddress,
+          TokenVaultABI,
+          srcProvider,
+          msgHash,
+          receipt.blockNumber,
+        );
 
-          const bridgeTx: BridgeTransaction = {
-            hash: tx.hash,
-            from: tx.from,
-            message: event.args.message,
-            receipt: receipt,
-            msgHash: event.args.msgHash,
-            status: messageStatus,
-            amountInWei: amountInWei,
-            symbol: symbol,
-            fromChainId: tx.fromChainId,
-            toChainId: tx.toChainId,
-          };
+        if (!erc20Event) {
+          return tx;
+        }
 
-          bridgeTxs.push(bridgeTx);
-        })
-        .filter((tx) => tx),
-    );
+        [symbol, amountInWei] = await StorageService._getERC20SymbolAndAmount(
+          erc20Event,
+          ERC20_ABI,
+          srcProvider,
+        );
+      }
 
+      return {
+        ...tx,
+        // Add the rest of the info
+        amountInWei,
+        symbol,
+      } as BridgeTransaction;
+    });
+
+    const bridgeTxs: BridgeTransaction[] = (
+      await Promise.all(txsPromises)
+    ).filter((tx) => Boolean(tx)); // Removes undefined values
+
+    // Place new transactions at the top of the list
     bridgeTxs.sort((tx) => (tx.status === MessageStatus.New ? -1 : 1));
 
     return bridgeTxs;
@@ -147,112 +225,96 @@ export class StorageService implements Transactioner {
   async getTransactionByHash(
     address: string,
     hash: string,
-  ): Promise<BridgeTransaction> {
-    const txs: BridgeTransaction[] = JSON.parse(
-      this.storage.getItem(`${STORAGE_PREFIX}-${address.toLowerCase()}`),
-    );
+  ): Promise<BridgeTransaction | undefined> {
+    const txs = this._getTransactionsFromStorage(address);
 
     const tx: BridgeTransaction = txs.find((tx) => tx.hash === hash);
 
-    if (tx.from.toLowerCase() !== address.toLowerCase()) return;
-    const destChainId = tx.toChainId;
-    const destProvider = this.providers[destChainId];
+    if (!tx || tx.from.toLowerCase() !== address.toLowerCase()) return;
 
-    const srcProvider = this.providers[tx.fromChainId];
+    const { toChainId, fromChainId } = tx;
+
+    const destProvider = this.providers[toChainId];
+    const srcProvider = this.providers[fromChainId];
 
     // Ignore transactions from chains not supported by the bridge
-    if (!srcProvider) {
-      return null;
-    }
+    if (!srcProvider) return;
+
+    // Wait for transaction to be mined...
     await srcProvider.waitForTransaction(tx.hash);
+
+    // ... and then get the receipt.
     const receipt = await srcProvider.getTransactionReceipt(tx.hash);
 
-    if (!receipt) {
-      return;
-    }
+    if (!receipt) return tx;
 
     tx.receipt = receipt;
 
-    const destBridgeAddress = chains[destChainId].bridgeAddress;
+    // TODO: should we dependency-inject the chains?
+    const srcBridgeAddress = chains[fromChainId].bridgeAddress;
 
-    const srcBridgeAddress = chains[tx.fromChainId].bridgeAddress;
-
-    const destContract: Contract = new Contract(
-      destBridgeAddress,
-      BridgeABI,
-      destProvider,
-    );
-
-    const srcContract: Contract = new Contract(
+    const messageSentEvent = await StorageService._getBridgeMessageSent(
+      address,
       srcBridgeAddress,
       BridgeABI,
       srcProvider,
-    );
-
-    const events = await srcContract.queryFilter(
-      'MessageSent',
-      receipt.blockNumber,
       receipt.blockNumber,
     );
 
-    const event = events.find(
-      (e) => e.args.message.owner.toLowerCase() === address.toLowerCase(),
+    if (!messageSentEvent) return tx;
+
+    const { msgHash, message } = messageSentEvent.args;
+
+    tx.msgHash = msgHash;
+    tx.message = message;
+
+    const destBridgeAddress = chains[toChainId].bridgeAddress;
+
+    const status = await StorageService._getBridgeMessageStatus(
+      destBridgeAddress,
+      BridgeABI,
+      destProvider,
+      msgHash,
     );
 
-    if (!event) {
-      return;
-    }
-
-    const msgHash = event.args.msgHash;
-
-    const messageStatus: number = await destContract.getMessageStatus(msgHash);
+    tx.status = status;
 
     let amountInWei: BigNumber;
     let symbol: string;
-    if (event.args.message.data !== '0x') {
-      const tokenVaultContract = new Contract(
-        tokenVaults[tx.fromChainId],
+
+    if (message.data && message.data !== '0x') {
+      // Dealing with an ERC20 transfer. Let's get the symbol
+      // and amount from the TokenVault contract.
+
+      const srcTokenVaultAddress = tokenVaults[fromChainId];
+
+      const erc20Event = await StorageService._getTokenVaultERC20Event(
+        srcTokenVaultAddress,
         TokenVaultABI,
         srcProvider,
-      );
-      const filter = tokenVaultContract.filters.ERC20Sent(msgHash);
-      const erc20Events = await tokenVaultContract.queryFilter(
-        filter,
-        receipt.blockNumber,
+        msgHash,
         receipt.blockNumber,
       );
 
-      const erc20Event = erc20Events.find(
-        (e) => e.args.msgHash.toLowerCase() === msgHash.toLowerCase(),
-      );
-      if (!erc20Event) return;
+      if (!erc20Event) {
+        return tx;
+      }
 
-      const erc20Contract = new Contract(
-        erc20Event.args.token,
+      [symbol, amountInWei] = await StorageService._getERC20SymbolAndAmount(
+        erc20Event,
         ERC20_ABI,
         srcProvider,
       );
-      symbol = await erc20Contract.symbol();
-      amountInWei = BigNumber.from(erc20Event.args.amount);
     }
 
-    const bridgeTx: BridgeTransaction = {
-      hash: tx.hash,
-      from: tx.from,
-      message: event.args.message,
-      receipt: receipt,
-      msgHash: event.args.msgHash,
-      status: messageStatus,
-      amountInWei: amountInWei,
-      symbol: symbol,
-      fromChainId: tx.fromChainId,
-      toChainId: tx.toChainId,
-    };
-
-    return bridgeTx;
+    return {
+      ...tx,
+      amountInWei,
+      symbol,
+    } as BridgeTransaction;
   }
 
-  updateStorageByAddress(address: string, txs: BridgeTransaction[]) {
+  updateStorageByAddress(address: string, txs: BridgeTransaction[] = []) {
     this.storage.setItem(
       `${STORAGE_PREFIX}-${address.toLowerCase()}`,
       JSON.stringify(txs),

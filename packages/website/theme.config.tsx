@@ -8,10 +8,10 @@ export default {
     key: "banner",
     text: (
       <a
-        href="https://mirror.xyz/labs.taiko.eth/A6G6TNN-CXDAhl42k_bNHg_20fyGcT0xH-LBBSOPNzU"
+        href="https://twitter.com/taikoxyz/status/1647684931735396352"
         target="_blank"
       >
-        🌋 Askja testnet is here! Learn more →
+        📌 Alpha-2 testnet has now been deprecated. Read more →
       </a>
     ),
   },
@@ -22,7 +22,7 @@ export default {
   docsRepositoryBase:
     "https://github.com/taikoxyz/taiko-mono/blob/main/packages/website",
   editLink: {
-    text: "Improve this page on GitHub ↗",
+    text: "Edit this page ↗",
   },
   feedback: {
     content: null,
