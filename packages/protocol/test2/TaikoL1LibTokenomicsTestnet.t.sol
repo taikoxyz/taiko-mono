@@ -40,10 +40,10 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
     }
 
     function setUp() public override {
-        uint16 proofTimeTarget = 85; // Approx. testnet value
+        uint16 proofTimeTarget = 100; // Approx. testnet value
         // Calculating it for our needs based on testnet/mainnet proof vars.
         // See Brecht's comment https://github.com/taikoxyz/taiko-mono/pull/13564
-        uint64 initProofTimeIssued = LibLn.calcInitProofTimeIssued(
+        initProofTimeIssued = LibLn.calcInitProofTimeIssued(
             feeBase,
             proofTimeTarget,
             ADJUSTMENT_QUOTIENT

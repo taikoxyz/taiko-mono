@@ -51,7 +51,7 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase, FoundryRandom {
         uint16 proofTimeTarget = 1800; // Approx. mainnet value
         // Calculating it for our needs based on testnet/mainnet proof vars.
         // See Brecht's comment https://github.com/taikoxyz/taiko-mono/pull/13564
-        uint64 initProofTimeIssued = LibLn.calcInitProofTimeIssued(
+        initProofTimeIssued = LibLn.calcInitProofTimeIssued(
             feeBase,
             proofTimeTarget,
             ADJUSTMENT_QUOTIENT
@@ -86,8 +86,7 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase, FoundryRandom {
         Bob_start_balance = L1.getBalance(Bob);
 
         // Can play to adjust
-        uint32 iterationCnt = 5000;
-        uint8 proofTime = 179; // When proofs are coming, 179 means 1790 sec
+        proofTime = 179; // When proofs are coming, 179 means 1790 sec
 
         TaikoData.BlockMetadata[] memory meta = new TaikoData.BlockMetadata[](
             iterationCnt
