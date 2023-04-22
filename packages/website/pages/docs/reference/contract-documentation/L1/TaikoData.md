@@ -21,6 +21,7 @@ struct Config {
   uint256 proofCooldownPeriod;
   uint64 proofTimeTarget;
   uint8 adjustmentQuotient;
+  bool relaySignalRoot;
   bool enableSoloProposer;
   bool enableTokenomics;
   bool skipZKPVerification;
@@ -36,8 +37,9 @@ struct StateVariables {
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 numBlocks;
+  uint64 proofTimeIssued;
   uint64 lastVerifiedBlockId;
-  uint64 lastProposedAt;
+  uint64 accProposedAt;
   uint64 nextEthDepositToProcess;
   uint64 numEthDeposits;
 }
@@ -110,7 +112,6 @@ struct ForkChoice {
   bytes32 blockHash;
   bytes32 signalRoot;
   uint64 provenAt;
-  uint32 gasUsed;
   address prover;
   uint32 gasUsed;
 }
@@ -160,9 +161,16 @@ struct State {
   struct TaikoData.EthDeposit[] ethDeposits;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
-  uint64 __reserved51;
-  uint64 __reserved52;
-  uint64 lastProposedAt;
-
+  uint64 __reserved61;
+  uint64 __reserved62;
+  uint64 accProposedAt;
+  uint64 accBlockFees;
+  uint64 numBlocks;
+  uint64 nextEthDepositToProcess;
+  uint64 basefee;
+  uint64 proofTimeIssued;
+  uint64 lastVerifiedBlockId;
+  uint64 __reserved81;
+  uint256[42] __gap;
 }
 ```
