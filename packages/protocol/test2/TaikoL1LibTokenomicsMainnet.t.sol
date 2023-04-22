@@ -30,6 +30,7 @@ contract TaikoL1MainnetMockConfig is TaikoL1 {
         config.maxNumProposedBlocks = 200;
         config.ringBufferSize = 240;
         config.proofTimeTarget = 1800;
+        config.proofCooldownPeriod = 0;
     }
 }
 

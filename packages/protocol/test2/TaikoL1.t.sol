@@ -183,6 +183,8 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     function testEthDepositsToL2Gas() external {
+        vm.fee(25 gwei);
+
         bytes32 emptyDepositsRoot = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
         _depositTaikoToken(Alice, 1E6 * 1E8, 100000 ether);
 

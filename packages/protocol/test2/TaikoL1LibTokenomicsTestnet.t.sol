@@ -29,6 +29,7 @@ contract TaikoL1WithTestnetConfig is TaikoL1 {
         config.maxNumProposedBlocks = 40;
         config.ringBufferSize = 48;
         config.proofTimeTarget = 100; // Testnet example
+        config.proofCooldownPeriod = 0;
     }
 }
 
