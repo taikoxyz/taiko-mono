@@ -11,90 +11,90 @@ import { jsonParseOrEmptyArray } from '../utils/jsonParseOrEmptyArray';
 
 const STORAGE_PREFIX = 'transactions';
 
-async function getBridgeMessageSent(
-  userAddress: Address,
-  bridgeAddress: Address,
-  bridgeAbi: ethers.ContractInterface,
-  provider: ethers.providers.StaticJsonRpcProvider,
-  blockNumber: number,
-) {
-  const bridgeContract: Contract = new Contract(
-    bridgeAddress,
-    bridgeAbi,
-    provider,
-  );
-
-  // Gets the event MessageSent from the bridge contract
-  // in the block where the transaction was mined, and find
-  // our event MessageSent whose owner is the address passed in
-  const messageSentEvents = await bridgeContract.queryFilter(
-    'MessageSent',
-    blockNumber,
-    blockNumber,
-  );
-
-  return messageSentEvents.find(
-    ({ args }) =>
-      args.message.owner.toLowerCase() === userAddress.toLowerCase(),
-  );
-}
-
-function getBridgeMessageStatus(
-  bridgeAddress: Address,
-  bridgeAbi: ethers.ContractInterface,
-  provider: ethers.providers.StaticJsonRpcProvider,
-  msgHash: string,
-) {
-  const bridgeContract: Contract = new Contract(
-    bridgeAddress,
-    bridgeAbi,
-    provider,
-  );
-
-  return bridgeContract.getMessageStatus(msgHash);
-}
-
-async function getTokenVaultERC20Event(
-  tokenVaultAddress: Address,
-  tokenVaultAbi: ethers.ContractInterface,
-  provider: ethers.providers.StaticJsonRpcProvider,
-  msgHash: string,
-  blockNumber: number,
-) {
-  const tokenVaultContract = new Contract(
-    tokenVaultAddress,
-    tokenVaultAbi,
-    provider,
-  );
-
-  const filter = tokenVaultContract.filters.ERC20Sent(msgHash);
-
-  const events = await tokenVaultContract.queryFilter(
-    filter,
-    blockNumber,
-    blockNumber,
-  );
-
-  return events.find(
-    ({ args }) => args.msgHash.toLowerCase() === msgHash.toLowerCase(),
-  );
-}
-
-async function getERC20SymbolAndAmount(
-  erc20Event: ethers.Event,
-  erc20Abi: ethers.ContractInterface,
-  provider: ethers.providers.StaticJsonRpcProvider,
-): Promise<[string, BigNumber]> {
-  const { token, amount } = erc20Event.args;
-  const erc20Contract = new Contract(token, erc20Abi, provider);
-
-  const symbol: string = await erc20Contract.symbol();
-  const amountInWei: BigNumber = BigNumber.from(amount);
-
-  return [symbol, amountInWei];
-}
-
 export class StorageService implements Transactioner {
+  private static async _getBridgeMessageSent(
+    userAddress: Address,
+    bridgeAddress: Address,
+    bridgeAbi: ethers.ContractInterface,
+    provider: ethers.providers.StaticJsonRpcProvider,
+    blockNumber: number,
+  ) {
+    const bridgeContract: Contract = new Contract(
+      bridgeAddress,
+      bridgeAbi,
+      provider,
+    );
+
+    // Gets the event MessageSent from the bridge contract
+    // in the block where the transaction was mined, and find
+    // our event MessageSent whose owner is the address passed in
+    const messageSentEvents = await bridgeContract.queryFilter(
+      'MessageSent',
+      blockNumber,
+      blockNumber,
+    );
+
+    return messageSentEvents.find(
+      ({ args }) =>
+        args.message.owner.toLowerCase() === userAddress.toLowerCase(),
+    );
+  }
+
+  private static _getBridgeMessageStatus(
+    bridgeAddress: Address,
+    bridgeAbi: ethers.ContractInterface,
+    provider: ethers.providers.StaticJsonRpcProvider,
+    msgHash: string,
+  ) {
+    const bridgeContract: Contract = new Contract(
+      bridgeAddress,
+      bridgeAbi,
+      provider,
+    );
+
+    return bridgeContract.getMessageStatus(msgHash);
+  }
+
+  private static async _getTokenVaultERC20Event(
+    tokenVaultAddress: Address,
+    tokenVaultAbi: ethers.ContractInterface,
+    provider: ethers.providers.StaticJsonRpcProvider,
+    msgHash: string,
+    blockNumber: number,
+  ) {
+    const tokenVaultContract = new Contract(
+      tokenVaultAddress,
+      tokenVaultAbi,
+      provider,
+    );
+
+    const filter = tokenVaultContract.filters.ERC20Sent(msgHash);
+
+    const events = await tokenVaultContract.queryFilter(
+      filter,
+      blockNumber,
+      blockNumber,
+    );
+
+    return events.find(
+      ({ args }) => args.msgHash.toLowerCase() === msgHash.toLowerCase(),
+    );
+  }
+
+  private static async _getERC20SymbolAndAmount(
+    erc20Event: ethers.Event,
+    erc20Abi: ethers.ContractInterface,
+    provider: ethers.providers.StaticJsonRpcProvider,
+  ): Promise<[string, BigNumber]> {
+    const { token, amount } = erc20Event.args;
+    const erc20Contract = new Contract(token, erc20Abi, provider);
+
+    const symbol: string = await erc20Contract.symbol();
+    const amountInWei: BigNumber = BigNumber.from(amount);
+
+    return [symbol, amountInWei];
+  }
+
   private readonly storage: Storage;
   private readonly providers: Record<
     ChainID,
@@ -144,7 +144,7 @@ export class StorageService implements Transactioner {
       // TODO: should we dependency-inject the chains?
       const srcBridgeAddress = chains[fromChainId].bridgeAddress;
 
-      const messageSentEvent = await getBridgeMessageSent(
+      const messageSentEvent = await StorageService._getBridgeMessageSent(
         address,
         srcBridgeAddress,
         BridgeABI,
@@ -166,7 +166,7 @@ export class StorageService implements Transactioner {
 
       const destBridgeAddress = chains[toChainId].bridgeAddress;
 
-      const status = await getBridgeMessageStatus(
+      const status = await StorageService._getBridgeMessageStatus(
         destBridgeAddress,
         BridgeABI,
         destProvider,
@@ -185,7 +185,7 @@ export class StorageService implements Transactioner {
 
         const srcTokenVaultAddress = tokenVaults[fromChainId];
 
-        const erc20Event = await getTokenVaultERC20Event(
+        const erc20Event = await StorageService._getTokenVaultERC20Event(
           srcTokenVaultAddress,
           TokenVaultABI,
           srcProvider,
@@ -197,7 +197,7 @@ export class StorageService implements Transactioner {
           return tx;
         }
 
-        [symbol, amountInWei] = await getERC20SymbolAndAmount(
+        [symbol, amountInWei] = await StorageService._getERC20SymbolAndAmount(
           erc20Event,
           ERC20_ABI,
           srcProvider,
@@ -253,7 +253,7 @@ export class StorageService implements Transactioner {
     // TODO: should we dependency-inject the chains?
     const srcBridgeAddress = chains[fromChainId].bridgeAddress;
 
-    const messageSentEvent = await getBridgeMessageSent(
+    const messageSentEvent = await StorageService._getBridgeMessageSent(
       address,
       srcBridgeAddress,
       BridgeABI,
@@ -270,7 +270,7 @@ export class StorageService implements Transactioner {
 
     const destBridgeAddress = chains[toChainId].bridgeAddress;
 
-    const status = await getBridgeMessageStatus(
+    const status = await StorageService._getBridgeMessageStatus(
       destBridgeAddress,
       BridgeABI,
       destProvider,
@@ -288,7 +288,7 @@ export class StorageService implements Transactioner {
 
       const srcTokenVaultAddress = tokenVaults[fromChainId];
 
-      const erc20Event = await getTokenVaultERC20Event(
+      const erc20Event = await StorageService._getTokenVaultERC20Event(
         srcTokenVaultAddress,
         TokenVaultABI,
         srcProvider,
@@ -300,7 +300,7 @@ export class StorageService implements Transactioner {
         return tx;
       }
 
-      [symbol, amountInWei] = await getERC20SymbolAndAmount(
+      [symbol, amountInWei] = await StorageService._getERC20SymbolAndAmount(
         erc20Event,
         ERC20_ABI,
         srcProvider,

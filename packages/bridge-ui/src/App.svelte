@@ -8,7 +8,7 @@
   import { MetaMaskConnector } from '@wagmi/core/connectors/metaMask';
 
   import { setupI18n } from './i18n';
-  import { pendingTransactions, transactions } from './store/transactions';
+  import { transactions } from './store/transactions';
   import Navbar from './components/Navbar.svelte';
   import Toast, { successToast } from './components/Toast.svelte';
   import { signer } from './store/signer';
@@ -112,24 +112,6 @@
       const tokens = tokenService.getTokens(userAddress);
       userTokens.set(tokens);
     }
-  });
-
-  pendingTransactions.subscribe((store) => {
-    (async () => {
-      const confirmedPendingTxIndex = await Promise.race(
-        store.map((tx, index) => {
-          return new Promise<number>((resolve) => {
-            $signer.provider
-              .waitForTransaction(tx.hash, 1)
-              .then(() => resolve(index));
-          });
-        }),
-      );
-      successToast('Transaction completed!');
-      let s = store;
-      s.splice(confirmedPendingTxIndex, 1);
-      pendingTransactions.set(s);
-    })();
   });
 
   const transactionToIntervalMap = new Map();

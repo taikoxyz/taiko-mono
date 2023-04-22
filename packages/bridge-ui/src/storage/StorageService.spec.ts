@@ -385,5 +385,13 @@ describe('storage tests', () => {
       'transactions-0x123',
       JSON.stringify([newTx]),
     );
+
+    // Should empty storerage if no txs are passed in
+    svc.updateStorageByAddress('0x123');
+
+    expect(mockStorage.setItem).toHaveBeenCalledWith(
+      'transactions-0x123',
+      JSON.stringify([]),
+    );
   });
 });
