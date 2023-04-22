@@ -41,6 +41,7 @@ library TaikoConfig {
                 // 85s based on A2 testnet status, or set to 1800 for 30mins (mainnet mock)
                 proofTimeTarget: 1800,
                 adjustmentQuotient: 16,
+                // relaySignalRoot shall be enabled for L3s.
                 relaySignalRoot: false,
                 enableSoloProposer: false
             });
