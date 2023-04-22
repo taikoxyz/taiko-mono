@@ -51,9 +51,9 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
 
         TaikoL1TestBase.setUp();
 
-        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
     }
 
     /// @dev Test what happens when proof time increases
@@ -61,9 +61,9 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         external
     {
         mine(1);
-        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
@@ -162,9 +162,9 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
     {
         mine(1);
         //Needs lot of token here - because there is lots of time elapsed between 2 'propose' blocks, which will raise the fee
-        _depositTaikoToken(Alice, 1E8 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E8 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E8 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1E8 * 1E8, 100 ether);
+        depositTaikoToken(Bob, 1E8 * 1E8, 100 ether);
+        depositTaikoToken(Carol, 1E8 * 1E8, 100 ether);
 
         TaikoData.BlockMetadata[] memory metas = new TaikoData.BlockMetadata[](
             20
@@ -268,9 +268,9 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         external
     {
         mine(1);
-        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
@@ -329,9 +329,9 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         external
     {
         mine(1);
-        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
 
         TaikoData.BlockMetadata[] memory meta = new TaikoData.BlockMetadata[](
             30
@@ -399,9 +399,9 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         external
     {
         mine(1);
-        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
 
         TaikoData.BlockMetadata[] memory meta = new TaikoData.BlockMetadata[](
             20
@@ -465,9 +465,9 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         external
     {
         mine(1);
-        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
@@ -526,9 +526,9 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         external
     {
         mine(1);
-        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
 
         TaikoData.BlockMetadata[] memory meta = new TaikoData.BlockMetadata[](
             30
@@ -595,9 +595,9 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         external
     {
         mine(1);
-        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
@@ -695,9 +695,9 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
     {
         mine(1);
         // Requires a bit more tokens
-        _depositTaikoToken(Alice, 1E8 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E8 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E8 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1E8 * 1E8, 100 ether);
+        depositTaikoToken(Bob, 1E8 * 1E8, 100 ether);
+        depositTaikoToken(Carol, 1E8 * 1E8, 100 ether);
 
         TaikoData.BlockMetadata[]
             memory metaArr = new TaikoData.BlockMetadata[](20);
@@ -803,9 +803,9 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         external
     {
         mine(1);
-        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 

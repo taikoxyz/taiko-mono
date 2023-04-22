@@ -132,4 +132,8 @@ library LibUtils {
             mstore(0x40, add(ptr, 64))
         }
     }
+
+    function getVerifierName(uint16 id) public pure returns (string memory) {
+        return string(bytes.concat(bytes("verifier_"), bytes2(id)));
+    }
 }
