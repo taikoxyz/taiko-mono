@@ -60,6 +60,12 @@ error L1_INSUFFICIENT_TOKEN()
 error L1_INVALID_CONFIG()
 ```
 
+### L1_INVALID_ETH_DEPOSIT
+
+```solidity
+error L1_INVALID_ETH_DEPOSIT()
+```
+
 ### L1_INVALID_EVIDENCE
 
 ```solidity

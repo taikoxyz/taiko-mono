@@ -23,16 +23,16 @@ library LibTokenomics {
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_PARAM();
 
-    function withdraw(
+    function withdrawTaikoToken(
         TaikoData.State storage state,
         AddressResolver resolver,
         uint256 amount
     ) internal {
-        uint256 balance = state.balances[msg.sender];
+        uint256 balance = state.taikoTokenBalances[msg.sender];
         if (balance < amount) revert L1_INSUFFICIENT_TOKEN();
 
         unchecked {
-            state.balances[msg.sender] -= amount;
+            state.taikoTokenBalances[msg.sender] -= amount;
         }
 
         TaikoToken(resolver.resolve("taiko_token", false)).mint(
@@ -41,7 +41,7 @@ library LibTokenomics {
         );
     }
 
-    function deposit(
+    function depositTaikoToken(
         TaikoData.State storage state,
         AddressResolver resolver,
         uint256 amount
@@ -51,7 +51,7 @@ library LibTokenomics {
                 msg.sender,
                 amount
             );
-            state.balances[msg.sender] += amount;
+            state.taikoTokenBalances[msg.sender] += amount;
         }
     }
 
@@ -123,5 +123,32 @@ library LibTokenomics {
             (config.proofTimeTarget * config.adjustmentQuotient);
 
         newBasefee = uint64(result.min(type(uint64).max));
+    }
+
+    /**
+     * Calculating the exponential smoothened with (target/quotient)
+     *
+     * @param value Result of cumulativeProofTime
+     * @param target Target proof time
+     * @param quotient Quotient
+     * @return uint64 Calculated new basefee
+     */
+    function _calcBasefee(
+        uint256 value,
+        uint256 target,
+        uint256 quotient
+    ) private pure returns (uint64) {
+        uint256 x = (value * Math.SCALING_FACTOR_1E18) / (target * quotient);
+
+        if (Math.MAX_EXP_INPUT <= x) {
+            x = Math.MAX_EXP_INPUT;
+        }
+
+        uint256 result = (uint256(Math.exp(int256(x))) /
+            Math.SCALING_FACTOR_1E18) / (target * quotient);
+
+        if (result > type(uint64).max) return type(uint64).max;
+
+        return uint64(result);
     }
 }

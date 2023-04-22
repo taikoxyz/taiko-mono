@@ -14,8 +14,13 @@ struct Config {
   uint256 maxBytesPerTxList;
   uint256 minTxGasLimit;
   uint256 txListCacheExpiry;
+  uint64 minEthDepositsPerBlock;
+  uint64 maxEthDepositsPerBlock;
+  uint96 maxEthDepositAmount;
+  uint96 minEthDepositAmount;
   uint64 proofTimeTarget;
   uint8 adjustmentQuotient;
+  bool relaySignalRoot;
   bool enableSoloProposer;
   bool enableOracleProver;
   bool enableTokenomics;
@@ -32,8 +37,11 @@ struct StateVariables {
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 numBlocks;
+  uint64 proofTimeIssued;
   uint64 lastVerifiedBlockId;
-  uint64 lastProposedAt;
+  uint64 accProposedAt;
+  uint64 nextEthDepositToProcess;
+  uint64 numEthDeposits;
 }
 ```
 
@@ -59,6 +67,7 @@ struct BlockMetadata {
   uint64 l1Height;
   bytes32 l1Hash;
   bytes32 mixHash;
+  bytes32 depositsRoot;
   bytes32 txListHash;
   uint24 txListByteStart;
   uint24 txListByteEnd;
@@ -66,6 +75,7 @@ struct BlockMetadata {
   address beneficiary;
   uint8 cacheTxListInfo;
   address treasure;
+  struct TaikoData.EthDeposit[] depositsProcessed;
 }
 ```
 
@@ -122,7 +132,6 @@ struct ForkChoice {
   bytes32 blockHash;
   bytes32 signalRoot;
   uint64 provenAt;
-  uint32 gasUsed;
   address prover;
   uint32 gasUsed;
 }
@@ -152,26 +161,36 @@ struct TxListInfo {
 }
 ```
 
+### EthDeposit
+
+```solidity
+struct EthDeposit {
+  address recipient;
+  uint96 amount;
+}
+```
+
 ### State
 
 ```solidity
 struct State {
   mapping(uint256 => struct TaikoData.Block) blocks;
   mapping(uint256 => mapping(bytes32 => mapping(uint32 => uint256))) forkChoiceIds;
-  mapping(address => uint256) balances;
+  mapping(address => uint256) taikoTokenBalances;
   mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
+  struct TaikoData.EthDeposit[] ethDeposits;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
-  uint64 __reserved51;
-  uint64 __reserved52;
-  uint64 lastProposedAt;
-  uint64 numBlocks;
+  uint64 __reserved61;
+  uint64 __reserved62;
   uint64 accProposedAt;
   uint64 accBlockFees;
+  uint64 numBlocks;
+  uint64 nextEthDepositToProcess;
   uint64 basefee;
   uint64 proofTimeIssued;
   uint64 lastVerifiedBlockId;
   uint64 __reserved81;
-  uint256[43] __gap;
+  uint256[42] __gap;
 }
 ```

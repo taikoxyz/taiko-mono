@@ -129,45 +129,36 @@ library LibVerifying {
         TaikoData.ForkChoice storage fc,
         uint24 fcId
     ) private {
-        if (config.proofTimeTarget != 0) {
-            uint64 proofTime;
-            unchecked {
-                proofTime = uint64(fc.provenAt - blk.proposedAt);
+        uint64 proofTime;
+        unchecked {
+            proofTime = uint64(fc.provenAt - blk.proposedAt);
+        }
+
+        uint64 reward = LibTokenomics.getProofReward(state, proofTime);
+
+        (state.proofTimeIssued, state.basefee) = LibTokenomics
+            .getNewBaseFeeandProofTimeIssued(state, config, proofTime);
+
+        unchecked {
+            state.accBlockFees -= reward;
+            state.accProposedAt -= blk.proposedAt;
+        }
+
+        // reward the prover
+        if (reward != 0) {
+            if (state.taikoTokenBalances[fc.prover] == 0) {
+                // Reduce refund to 1 wei as a penalty if the proposer
+                // has 0 TKO outstanding balance.
+                state.taikoTokenBalances[fc.prover] = 1;
+            } else {
+                state.taikoTokenBalances[fc.prover] += reward;
             }
-
-            uint64 reward = LibTokenomics.getProofReward(state, proofTime);
-
-            (state.proofTimeIssued, state.basefee) = LibTokenomics
-                .getNewBaseFeeandProofTimeIssued(state, config, proofTime);
-
-            unchecked {
-                state.accBlockFees -= reward;
-                state.accProposedAt -= blk.proposedAt;
-            }
-
-            // reward the prover
-            _addToBalance(state, fc.prover, reward);
         }
 
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = fcId;
 
         emit BlockVerified(blk.blockId, fc.blockHash);
-    }
-
-    function _addToBalance(
-        TaikoData.State storage state,
-        address account,
-        uint256 amount
-    ) private {
-        if (amount == 0) return;
-        if (state.balances[account] == 0) {
-            // Reduce refund to 1 wei as a penalty if the proposer
-            // has 0 TKO outstanding balance.
-            state.balances[account] = 1;
-        } else {
-            state.balances[account] += amount;
-        }
     }
 
     function _checkConfig(TaikoData.Config memory config) private pure {
@@ -182,6 +173,8 @@ library LibVerifying {
             // EIP-4844 blob size up to 128K
             config.maxBytesPerTxList > 128 * 1024 ||
             config.minTxGasLimit == 0 ||
+            config.maxEthDepositsPerBlock == 0 ||
+            config.maxEthDepositsPerBlock < config.minEthDepositsPerBlock ||
             // EIP-4844 blob deleted after 30 days
             config.txListCacheExpiry > 30 * 24 hours ||
             config.proofTimeTarget == 0 ||

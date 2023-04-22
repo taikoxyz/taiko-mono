@@ -19,8 +19,11 @@ library TaikoData {
         uint256 maxTransactionsPerBlock;
         uint256 maxBytesPerTxList;
         uint256 minTxGasLimit;
-        // Moving average factors
         uint256 txListCacheExpiry;
+        uint64 minEthDepositsPerBlock;
+        uint64 maxEthDepositsPerBlock;
+        uint96 maxEthDepositAmount;
+        uint96 minEthDepositAmount;
         uint64 proofTimeTarget;
         uint8 adjustmentQuotient;
         bool relaySignalRoot;
@@ -39,7 +42,8 @@ library TaikoData {
         uint64 proofTimeIssued;
         uint64 lastVerifiedBlockId;
         uint64 accProposedAt;
-        uint64 lastProposedAt;
+        uint64 nextEthDepositToProcess;
+        uint64 numEthDeposits;
     }
 
     // 3 slots
@@ -52,7 +56,6 @@ library TaikoData {
         uint8 cacheTxListInfo; // non-zero = True
     }
 
-    // 6 slots
     // Changing this struct requires changing LibUtils.hashMetadata accordingly.
     struct BlockMetadata {
         uint64 id;
@@ -60,6 +63,7 @@ library TaikoData {
         uint64 l1Height;
         bytes32 l1Hash;
         bytes32 mixHash;
+        bytes32 depositsRoot; // match L2 header's withdrawalsRoot
         bytes32 txListHash;
         uint24 txListByteStart;
         uint24 txListByteEnd;
@@ -67,6 +71,7 @@ library TaikoData {
         address beneficiary;
         uint8 cacheTxListInfo;
         address treasure;
+        TaikoData.EthDeposit[] depositsProcessed;
     }
 
     struct ZKProof {
@@ -127,34 +132,36 @@ library TaikoData {
         uint24 size;
     }
 
+    // 1 slot
+    struct EthDeposit {
+        address recipient;
+        uint96 amount;
+    }
+
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint256 blockId_mode_ringBufferSize => Block) blocks;
         // solhint-disable-next-line max-line-length
         mapping(uint256 blockId => mapping(bytes32 parentHash => mapping(uint32 parentGasUsed => uint256 forkChoiceId))) forkChoiceIds;
-        mapping(address account => uint256 balance) balances;
+        mapping(address account => uint256 balance) taikoTokenBalances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
-        // Slot 5: never or rarely changed
+        EthDeposit[] ethDeposits;
+        // Slot 6: never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 __reserved51;
-        uint64 __reserved52;
-        // Slot 6: changed by proposeBlock
-        uint64 lastProposedAt;
+        uint64 __reserved61;
+        uint64 __reserved62;
+        // Slot 7
+        uint64 accProposedAt;
+        uint64 accBlockFees;
         uint64 numBlocks;
-        uint64 accProposedAt; // also by verifyBlocks
-        uint64 accBlockFees; // also by verifyBlocks
-        // Slot 7: changed by proveBlock
-        // uint64 __reserved71;
-        // uint64 __reserved72;
-        // uint64 __reserved73;
-        // uint64 __reserved74;
-        // Slot 8: changed by verifyBlocks
+        uint64 nextEthDepositToProcess;
+        // Slot 8
         uint64 basefee;
         uint64 proofTimeIssued;
         uint64 lastVerifiedBlockId;
         uint64 __reserved81;
         // Reserved
-        uint256[43] __gap;
+        uint256[42] __gap;
     }
 }

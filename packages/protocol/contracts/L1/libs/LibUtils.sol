@@ -61,7 +61,8 @@ library LibUtils {
                 proofTimeIssued: state.proofTimeIssued,
                 lastVerifiedBlockId: state.lastVerifiedBlockId,
                 accProposedAt: state.accProposedAt,
-                lastProposedAt: state.lastProposedAt
+                nextEthDepositToProcess: state.nextEthDepositToProcess,
+                numEthDeposits: uint64(state.ethDeposits.length)
             });
     }
 
@@ -95,7 +96,7 @@ library LibUtils {
     function hashMetadata(
         TaikoData.BlockMetadata memory meta
     ) internal pure returns (bytes32 hash) {
-        uint256[6] memory inputs;
+        uint256[7] memory inputs;
 
         inputs[0] =
             (uint256(meta.id) << 192) |
@@ -104,19 +105,23 @@ library LibUtils {
 
         inputs[1] = uint256(meta.l1Hash);
         inputs[2] = uint256(meta.mixHash);
-        inputs[3] = uint256(meta.txListHash);
+        inputs[3] = uint256(meta.depositsRoot);
+        inputs[4] = uint256(meta.txListHash);
 
-        inputs[4] =
+        inputs[5] =
             (uint256(meta.txListByteStart) << 232) |
             (uint256(meta.txListByteEnd) << 208) |
             (uint256(meta.gasLimit) << 176) |
             (uint256(uint160(meta.beneficiary)) << 16) |
             (uint256(meta.cacheTxListInfo) << 8);
 
-        inputs[5] = (uint256(uint160(meta.treasure)) << 96);
+        inputs[6] = (uint256(uint160(meta.treasure)) << 96);
+
+        // Ignoring `meta.depositsProcessed` as `meta.depositsRoot`
+        // is a hash of it.
 
         assembly {
-            hash := keccak256(inputs, mul(6, 32))
+            hash := keccak256(inputs, mul(7, 32))
         }
     }
 

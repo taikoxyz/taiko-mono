@@ -57,7 +57,7 @@ library LibProving {
         bytes32 parentHash = oracles.parentHash;
         uint32 parentGasUsed = oracles.parentGasUsed;
 
-        for (uint i = 0; i < oracles.blks.length; ) {
+        for (uint256 i = 0; i < oracles.blks.length; ) {
             uint256 id = blockId + i;
 
             if (id <= state.lastVerifiedBlockId || id >= state.numBlocks)

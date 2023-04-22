@@ -18,6 +18,7 @@ abstract contract TaikoErrors {
     error L1_INSUFFICIENT_ETHER();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_CONFIG();
+    error L1_INVALID_ETH_DEPOSIT();
     error L1_INVALID_EVIDENCE();
     error L1_INVALID_L21559_PARAMS();
     error L1_INVALID_METADATA();

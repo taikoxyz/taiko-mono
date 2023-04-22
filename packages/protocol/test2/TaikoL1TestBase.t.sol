@@ -35,6 +35,8 @@ abstract contract TaikoL1TestBase is Test {
     address public constant L2SS = 0xa008AE5Ba00656a3Cc384de589579e3E52aC030C;
     address public constant L2TaikoL2 =
         0x0082D90249342980d011C58105a03b35cCb4A315;
+    address public constant L1EthVault =
+        0xDAFEA492D9c6733ae3d56b7Ed1ADB60692c98Bc5;
 
     address public constant Alice = 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4;
     address public constant Bob = 0x200708D76eB1B69761c23821809d53F65049939e;
@@ -128,7 +130,7 @@ abstract contract TaikoL1TestBase is Test {
         meta.treasure = L2Treasure;
 
         vm.prank(proposer, proposer);
-        L1.proposeBlock(abi.encode(input), txList);
+        meta = L1.proposeBlock(abi.encode(input), txList);
     }
 
     function oracleProveBlock(
@@ -211,7 +213,7 @@ abstract contract TaikoL1TestBase is Test {
         vm.deal(who, amountEth);
         tko.transfer(who, amountTko);
         vm.prank(who, who);
-        L1.deposit(amountTko);
+        L1.depositTaikoToken(amountTko);
     }
 
     function printVariables(string memory comment) internal {
@@ -227,9 +229,15 @@ abstract contract TaikoL1TestBase is Test {
             Strings.toString(vars.numBlocks),
             "]",
             " fee:",
-            Strings.toString(fee),
-            " lastProposedAt:",
-            Strings.toString(vars.lastProposedAt),
+            Strings.toString(fee)
+        );
+
+        str = string.concat(
+            str,
+            " nextEthDepositToProcess:",
+            Strings.toString(vars.nextEthDepositToProcess),
+            " numEthDeposits:",
+            Strings.toString(vars.numEthDeposits),
             " // ",
             comment
         );
