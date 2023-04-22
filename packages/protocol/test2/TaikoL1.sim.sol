@@ -53,9 +53,8 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
         );
 
         TaikoL1TestBase.setUp();
-        // TODO(daniel): update string key generation using bytes.concat
-        _registerAddress(
-            string(abi.encodePacked("verifier_", uint16(100))),
+        registerAddress(
+            string(bytes.concat(bytes("verifier_"), bytes2(uint16(100)))),
             address(new Verifier())
         );
     }
@@ -64,7 +63,7 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
         uint256 time = block.timestamp;
         assertEq(time, 1);
 
-        _depositTaikoToken(Alice, 1E6 * 1E8, 10000 ether);
+        depositTaikoToken(Alice, 1E6 * 1E8, 10000 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed;

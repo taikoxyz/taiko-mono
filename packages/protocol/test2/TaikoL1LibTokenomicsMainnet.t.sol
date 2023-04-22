@@ -59,9 +59,9 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase, FoundryRandom {
 
         TaikoL1TestBase.setUp();
 
-        _depositTaikoToken(Alice, 1E8 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E8 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E8 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1E8 * 1E8, 100 ether);
+        depositTaikoToken(Bob, 1E8 * 1E8, 100 ether);
+        depositTaikoToken(Carol, 1E8 * 1E8, 100 ether);
 
         Alice_start_balance = L1.getBalance(Alice);
         Bob_start_balance = L1.getBalance(Bob);
@@ -77,9 +77,9 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase, FoundryRandom {
         vm.pauseGasMetering();
         mine(1);
 
-        _depositTaikoToken(Alice, 1E8 * 1E8, 1000 ether);
-        _depositTaikoToken(Bob, 1E8 * 1E8, 1000 ether);
-        _depositTaikoToken(Carol, 1E8 * 1E8, 1000 ether);
+        depositTaikoToken(Alice, 1E8 * 1E8, 1000 ether);
+        depositTaikoToken(Bob, 1E8 * 1E8, 1000 ether);
+        depositTaikoToken(Carol, 1E8 * 1E8, 1000 ether);
 
         // Check balances
         Alice_start_balance = L1.getBalance(Alice);

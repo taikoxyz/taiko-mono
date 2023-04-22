@@ -77,19 +77,18 @@ abstract contract TaikoL1TestBase is Test {
         ss.init(address(addressManager));
 
         // set proto_broker to this address to mint some TKO
-        _registerAddress("proto_broker", address(this));
+        registerAddress("proto_broker", address(this));
         tko.mint(address(this), 1E9 * 1E8);
 
         // register all addresses
-        _registerAddress("taiko_token", address(tko));
-        _registerAddress("proto_broker", address(L1));
-        _registerAddress("signal_service", address(ss));
-        _registerL2Address("treasure", L2Treasure);
-        _registerL2Address("signal_service", address(L2SS));
-        _registerL2Address("taiko_l2", address(L2TaikoL2));
-        // TODO(daniel): update string key generation using bytes.concat
-        _registerAddress(
-            string(abi.encodePacked("verifier_", uint16(100))),
+        registerAddress("taiko_token", address(tko));
+        registerAddress("proto_broker", address(L1));
+        registerAddress("signal_service", address(ss));
+        registerL2Address("treasure", L2Treasure);
+        registerL2Address("signal_service", address(L2SS));
+        registerL2Address("taiko_l2", address(L2TaikoL2));
+        registerAddress(
+            string(bytes.concat(bytes("verifier_"), bytes2(uint16(100)))),
             address(new Verifier())
         );
 
@@ -195,19 +194,19 @@ abstract contract TaikoL1TestBase is Test {
         L1.verifyBlocks(count);
     }
 
-    function _registerAddress(string memory name, address addr) internal {
+    function registerAddress(string memory name, address addr) internal {
         string memory key = L1.keyForName(block.chainid, name);
         addressManager.setAddress(key, addr);
         console2.log(key, unicode"→", addr);
     }
 
-    function _registerL2Address(string memory name, address addr) internal {
+    function registerL2Address(string memory name, address addr) internal {
         string memory key = L1.keyForName(conf.chainId, name);
         addressManager.setAddress(key, addr);
         console2.log(key, unicode"→", addr);
     }
 
-    function _depositTaikoToken(
+    function depositTaikoToken(
         address who,
         uint256 amountTko,
         uint256 amountEth

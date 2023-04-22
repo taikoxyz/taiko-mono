@@ -201,9 +201,9 @@ library LibProving {
                 }
             }
 
-            bytes memory verifierId = abi.encodePacked(
-                "verifier_",
-                evidence.zkproof.verifierId
+            bytes memory verifierId = bytes.concat(
+                bytes("verifier_"),
+                bytes2(evidence.zkproof.verifierId)
             );
 
             (bool verified, bytes memory ret) = resolver
