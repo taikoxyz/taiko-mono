@@ -30,7 +30,7 @@ contract TaikoL1MainnetMockConfig is TaikoL1 {
         config.enableOracleProver = false;
         config.maxNumProposedBlocks = 200;
         config.ringBufferSize = 240;
-        config.proofTimeTarget = 1800;
+        config.proofTimeTarget = 2160;
     }
 }
 
@@ -48,7 +48,7 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase, FoundryRandom {
     }
 
     function setUp() public override {
-        uint16 proofTimeTarget = 1800; // Approx. mainnet value
+        uint16 proofTimeTarget = 2160; // Approx. mainnet value
         // Calculating it for our needs based on testnet/mainnet proof vars.
         // See Brecht's comment https://github.com/taikoxyz/taiko-mono/pull/13564
         initProofTimeIssued = LibLn.calcInitProofTimeIssued(
@@ -127,7 +127,7 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase, FoundryRandom {
                 verifyBlock(Carol, 1);
             }
 
-            mine_every_10_sec();
+            mine_every_12_sec();
 
             parentHashes[blockId] = parentHash;
             parentHash = blockHashes[blockId];
@@ -197,7 +197,7 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase, FoundryRandom {
                     );
                 }
 
-                mine_every_10_sec();
+                mine_every_12_sec();
 
                 parentHashes[blockId] = parentHash;
                 parentHash = blockHashes[blockId];
@@ -267,7 +267,7 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase, FoundryRandom {
                 verifyBlock(Carol, 1);
             }
 
-            mine_every_10_sec();
+            mine_every_12_sec();
 
             parentHashes[blockId] = parentHash;
             parentHash = blockHashes[blockId];
@@ -288,8 +288,8 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase, FoundryRandom {
         assertApproxEqRel(deposits, withdrawals, 1e17);
     }
 
-    function mine_every_10_sec() internal {
-        vm.warp(block.timestamp + 10);
+    function mine_every_12_sec() internal {
+        vm.warp(block.timestamp + 12);
         vm.roll(block.number + 1);
     }
 }

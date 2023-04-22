@@ -29,7 +29,7 @@ contract TaikoL1WithTestnetConfig is TaikoL1 {
         config.enableOracleProver = false;
         config.maxNumProposedBlocks = 40;
         config.ringBufferSize = 48;
-        config.proofTimeTarget = 100; // Testnet example
+        config.proofTimeTarget = 120; // Testnet example
     }
 }
 
@@ -40,7 +40,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
     }
 
     function setUp() public override {
-        uint16 proofTimeTarget = 100; // Approx. testnet value
+        uint16 proofTimeTarget = 120; // Approx. testnet value
         // Calculating it for our needs based on testnet/mainnet proof vars.
         // See Brecht's comment https://github.com/taikoxyz/taiko-mono/pull/13564
         initProofTimeIssued = LibLn.calcInitProofTimeIssued(
@@ -911,7 +911,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                     );
                 }
 
-                mine_every_10_sec();
+                mine_every_12_sec();
 
                 parentHashes[blockId] = parentHash;
                 parentHash = blockHashes[blockId];
@@ -938,13 +938,13 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         vm.roll(block.number + 300);
     }
 
-    function mine_every_10_sec() internal {
-        vm.warp(block.timestamp + 10);
+    function mine_every_12_sec() internal {
+        vm.warp(block.timestamp + 12);
         vm.roll(block.number + 1);
     }
 
     function mine_proofTime() internal {
-        vm.warp(block.timestamp + 100);
+        vm.warp(block.timestamp + 120);
         vm.roll(block.number + 5);
     }
 }
