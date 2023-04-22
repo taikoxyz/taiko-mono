@@ -1,5 +1,6 @@
 import { ethers } from 'ethers'
 import type { ProvidersRecord } from '../provider/types'
+import type { Block, BlockHeader } from '../block/types'
 
 export class Prover {
   private readonly providers: ProvidersRecord
@@ -9,15 +10,17 @@ export class Prover {
   }
 
   private static _getKey(sender: string, msgHash: string) {
-    return ethers.keccak256(ethers.solidityPacked(['address', 'bytes32'], [sender, msgHash]))
+    const packedValues = ethers.solidityPacked(['address', 'bytes32'], [sender, msgHash])
+    return ethers.keccak256(packedValues)
   }
 
-  private static async getBlockAndBlockHeader(
-    contract: ethers.Contract,
-    provider: ethers.providers.StaticJsonRpcProvider,
+  private static async _getBlockAndBlockHeader(
+    headerSyncContract: ethers.Contract,
+    provider: ethers.JsonRpcProvider,
   ): Promise<{ block: Block; blockHeader: BlockHeader }> {
-    const latestSyncedHeader = await contract.getLatestSyncedHeader()
+    const latestSyncedHeader = await headerSyncContract.getLatestSyncedHeader()
 
+    // See https://docs.alchemy.com/reference/eth-getblockbyhash
     const block: Block = await provider.send('eth_getBlockByHash', [latestSyncedHeader, false])
 
     const logsBloom = block.logsBloom.toString().substring(2)
@@ -39,7 +42,7 @@ export class Prover {
       mixHash: block.mixHash,
       nonce: block.nonce,
       baseFeePerGas: block.baseFeePerGas ? parseInt(block.baseFeePerGas) : 0,
-      withdrawalsRoot: block.withdrawalsRoot ?? ethers.constants.HashZero,
+      withdrawalsRoot: block.withdrawalsRoot ?? ethers.ZeroHash,
     }
 
     return { block, blockHeader }
