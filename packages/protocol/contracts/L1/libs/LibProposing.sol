@@ -90,15 +90,13 @@ library LibProposing {
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.proposer = msg.sender;
 
-        if (config.proofTimeTarget != 0) {
-            if (state.balances[msg.sender] < state.basefee)
-                revert L1_INSUFFICIENT_TOKEN();
+        if (state.balances[msg.sender] < state.basefee)
+            revert L1_INSUFFICIENT_TOKEN();
 
-            unchecked {
-                state.balances[msg.sender] -= state.basefee;
-                state.accBlockFees += state.basefee;
-                state.accProposedAt += meta.timestamp;
-            }
+        unchecked {
+            state.balances[msg.sender] -= state.basefee;
+            state.accBlockFees += state.basefee;
+            state.accProposedAt += meta.timestamp;
         }
 
         emit BlockProposed(state.numBlocks, meta);

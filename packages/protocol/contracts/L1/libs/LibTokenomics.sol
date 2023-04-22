@@ -66,15 +66,17 @@ library LibTokenomics {
         TaikoData.State storage state,
         uint64 proofTime
     ) internal view returns (uint64) {
-        uint64 numBlocksUnpaid = state.numBlocks -
+        uint64 numBlocksUnverified = state.numBlocks -
             state.lastVerifiedBlockId -
             1;
 
-        if (numBlocksUnpaid == 0) {
+        if (numBlocksUnverified == 0) {
             return 0;
         } else {
             uint64 totalNumProvingSeconds = uint64(
-                uint256(numBlocksUnpaid) * block.timestamp - state.accProposedAt
+                uint256(numBlocksUnverified) *
+                    block.timestamp -
+                    state.accProposedAt
             );
             ///@dev If block timestamp is equal to state.accProposedAt (not really, but theoretically possible)
             ///@dev there will be division by 0 error

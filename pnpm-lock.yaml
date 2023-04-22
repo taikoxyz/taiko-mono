@@ -639,8 +639,6 @@ importers:
         specifier: ^0.12.0
         version: 0.12.0(vite@3.2.4)
 
-  packages/tokenomics: {}
-
   packages/website:
     dependencies:
       next:
