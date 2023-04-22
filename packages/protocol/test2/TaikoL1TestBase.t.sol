@@ -87,10 +87,7 @@ abstract contract TaikoL1TestBase is Test {
         registerL2Address("treasure", L2Treasure);
         registerL2Address("signal_service", address(L2SS));
         registerL2Address("taiko_l2", address(L2TaikoL2));
-        registerAddress(
-            string(bytes.concat(bytes("verifier_"), bytes2(uint16(100)))),
-            address(new Verifier())
-        );
+        registerAddress(L1.getVerifierName(100), address(new Verifier()));
 
         printVariables("init  ");
     }

@@ -53,10 +53,7 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
         );
 
         TaikoL1TestBase.setUp();
-        registerAddress(
-            string(bytes.concat(bytes("verifier_"), bytes2(uint16(100)))),
-            address(new Verifier())
-        );
+        registerAddress(L1.getVerifierName(100), address(new Verifier()));
     }
 
     function testGeneratingManyRandomBlocks() external {

@@ -251,4 +251,8 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     function getConfig() public pure virtual returns (TaikoData.Config memory) {
         return TaikoConfig.getConfig();
     }
+
+    function getVerifierName(uint16 id) public pure returns (string memory) {
+        return LibUtils.getVerifierName(id);
+    }
 }
