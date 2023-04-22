@@ -18,11 +18,12 @@ import "../contracts/signal/SignalService.sol";
 import "../contracts/common/AddressManager.sol";
 import "../contracts/test/erc20/FreeMintERC20.sol";
 import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
+import "../test2/LibLn.sol";
 
 contract DeployOnL1 is Script {
     using SafeCastUpgradeable for uint256;
 
-    bytes32 public gensisHash = vm.envBytes32("L2_GENESIS_HASH");
+    bytes32 public genesisHash = vm.envBytes32("L2_GENESIS_HASH");
 
     uint256 public deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
@@ -45,6 +46,10 @@ contract DeployOnL1 is Script {
         vm.envUint("TAIKO_TOKEN_PREMINT_AMOUNT");
 
     address public addressManagerProxy;
+
+    // New fee/reward related variables
+    uint16 public constant PROOF_TIME_TARGET = 1800; // For mainnet it is around 30 mins, but choose carefully ! (Testnet is different !)
+    uint8 public constant ADJUSTMENT_QUOTIENT = 16;
 
     error FAILED_TO_DEPLOY_PLONK_VERIFIER(string contractPath);
 
@@ -114,12 +119,27 @@ contract DeployOnL1 is Script {
         console.log("BullToken", bullToken);
 
         uint64 feeBase = 1 ** 8; // Taiko Token's decimals is 8, not 18
+
+        // Calculating it for our needs based on testnet/mainnet. We need it in
+        // order to make the fees on the same level - in ideal circumstences.
+        // See Brecht's comment https://github.com/taikoxyz/taiko-mono/pull/13564
+        uint64 initProofTimeIssued = LibLn.calcInitProofTimeIssued(
+            feeBase,
+            PROOF_TIME_TARGET,
+            ADJUSTMENT_QUOTIENT
+        );
+
         address taikoL1Proxy = deployProxy(
             "taiko",
             address(taikoL1),
             bytes.concat(
                 taikoL1.init.selector,
-                abi.encode(addressManagerProxy, feeBase, gensisHash)
+                abi.encode(
+                    addressManagerProxy,
+                    genesisHash,
+                    feeBase,
+                    initProofTimeIssued
+                )
             )
         );
         setAddress("proto_broker", taikoL1Proxy);

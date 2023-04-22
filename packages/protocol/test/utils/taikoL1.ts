@@ -2,13 +2,12 @@ import { BigNumber } from "ethers";
 import { ethers } from "hardhat";
 import { AddressManager, TaikoL1 } from "../../typechain";
 
-const defaultFeeBase = BigNumber.from(10).pow(18);
+const defaultBasefee = BigNumber.from(10).pow(18);
 
 async function deployTaikoL1(
     addressManager: AddressManager,
     genesisHash: string,
-    enableTokenomics: boolean,
-    feeBase?: BigNumber
+    basefee?: BigNumber
 ): Promise<TaikoL1> {
     // const libProposing = await (
     //     await ethers.getContractFactory("LibProposing")
@@ -24,7 +23,7 @@ async function deployTaikoL1(
 
     const taikoL1 = await (
         await ethers.getContractFactory(
-            enableTokenomics ? "TestTaikoL1EnableTokenomics" : "TestTaikoL1"
+            "TestTaikoL1EnableTokenomics"
             // {
             //     libraries: {
             //         LibVerifying: libVerifying.address,
@@ -39,11 +38,11 @@ async function deployTaikoL1(
         await taikoL1.init(
             addressManager.address,
             genesisHash,
-            feeBase ?? defaultFeeBase
+            basefee ?? defaultBasefee
         )
     ).wait(1);
 
     return taikoL1 as TaikoL1;
 }
 
-export { deployTaikoL1, defaultFeeBase };
+export { deployTaikoL1, defaultBasefee };

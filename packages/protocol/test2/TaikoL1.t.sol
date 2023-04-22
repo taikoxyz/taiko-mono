@@ -21,26 +21,11 @@ contract TaikoL1_NoCooldown is TaikoL1 {
     {
         config = TaikoConfig.getConfig();
 
-        config.enableTokenomics = true;
         config.txListCacheExpiry = 5 minutes;
-        config.proposerDepositPctg = 0;
         config.maxVerificationsPerTx = 0;
         config.enableSoloProposer = false;
         config.maxNumProposedBlocks = 10;
         config.ringBufferSize = 12;
-        // this value must be changed if `maxNumProposedBlocks` is changed.
-        config.slotSmoothingFactor = 4160;
-
-        config.proposingConfig = TaikoData.FeeConfig({
-            avgTimeMAF: 64,
-            dampingFactorBips: 5000
-        });
-
-        config.provingConfig = TaikoData.FeeConfig({
-            avgTimeMAF: 64,
-            dampingFactorBips: 5000
-        });
-
         config.proofCooldownPeriod = 0;
     }
 }
@@ -189,94 +174,6 @@ contract TaikoL1Test is TaikoL1TestBase {
         printVariables("after verify");
     }
 
-    /// @dev Test block time increases and fee decreases.
-    function test_block_time_increases_and_fee_decreases() external {
-        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
-
-        bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint32 parentGasUsed = 0;
-        uint32 gasUsed = 1000000;
-
-        for (
-            uint256 blockId = 1;
-            blockId < conf.maxNumProposedBlocks * 10;
-            blockId++
-        ) {
-            printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(
-                Alice,
-                1000000,
-                1024
-            );
-            mine(1);
-
-            bytes32 blockHash = bytes32(1E10 + blockId);
-            bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(
-                Bob,
-                meta,
-                parentHash,
-                parentGasUsed,
-                gasUsed,
-                blockHash,
-                signalRoot,
-                false
-            );
-            parentHash = blockHash;
-            parentGasUsed = gasUsed;
-
-            verifyBlock(Carol, 1);
-            mine(blockId);
-            parentHash = blockHash;
-        }
-        printVariables("");
-    }
-
-    /// @dev Test block time decreases and the fee increases
-    function test_block_time_decreases_but_fee_remains() external {
-        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
-
-        bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint32 parentGasUsed = 0;
-        uint32 gasUsed = 1000000;
-
-        uint256 total = conf.maxNumProposedBlocks * 10;
-
-        for (uint256 blockId = 1; blockId < total; blockId++) {
-            printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(
-                Alice,
-                1000000,
-                1024
-            );
-            mine(1);
-
-            bytes32 blockHash = bytes32(1E10 + blockId);
-            bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(
-                Bob,
-                meta,
-                parentHash,
-                parentGasUsed,
-                gasUsed,
-                blockHash,
-                signalRoot,
-                false
-            );
-            parentHash = blockHash;
-            parentGasUsed = gasUsed;
-
-            verifyBlock(Carol, 1);
-            mine(total + 1 - blockId);
-            parentHash = blockHash;
-        }
-        printVariables("");
-    }
-
     function testEthDepositsToL2Reverts() external {
         uint96 minAmount = conf.minEthDepositAmount;
         uint96 maxAmount = conf.maxEthDepositAmount;
@@ -296,6 +193,8 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     function testEthDepositsToL2Gas() external {
+        vm.fee(25 gwei);
+
         bytes32 emptyDepositsRoot = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
         _depositTaikoToken(Alice, 1E6 * 1E8, 100000 ether);
 

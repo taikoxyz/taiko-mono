@@ -93,39 +93,17 @@ library LibProposing {
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.proposer = msg.sender;
 
-        if (config.enableTokenomics) {
-            (uint256 newFeeBase, uint256 fee, uint64 deposit) = LibTokenomics
-                .getBlockFee(state, config);
+        if (config.proofTimeTarget != 0) {
+            uint64 fee = LibTokenomics.getBlockFee(state);
 
-            uint256 burnAmount = fee + deposit;
-            if (state.balances[msg.sender] < burnAmount)
+            if (state.balances[msg.sender] < fee)
                 revert L1_INSUFFICIENT_TOKEN();
 
             unchecked {
-                state.balances[msg.sender] -= burnAmount;
+                state.balances[msg.sender] -= fee;
+                state.accBlockFees += fee;
+                state.accProposedAt += meta.timestamp;
             }
-
-            // Update feeBase and avgBlockTime
-            state.feeBase = LibUtils
-                .movingAverage({
-                    maValue: state.feeBase,
-                    newValue: newFeeBase,
-                    maf: config.feeBaseMAF
-                })
-                .toUint64();
-
-            blk.deposit = uint64(deposit);
-        }
-
-        unchecked {
-            state.avgBlockTime = LibUtils
-                .movingAverage({
-                    maValue: state.avgBlockTime,
-                    newValue: (meta.timestamp - state.lastProposedAt) * 1000,
-                    maf: config.proposingConfig.avgTimeMAF
-                })
-                .toUint64();
-            state.lastProposedAt = meta.timestamp;
         }
 
         emit BlockProposed(state.numBlocks, meta);

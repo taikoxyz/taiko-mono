@@ -15,18 +15,19 @@ receive() external payable
 ### init
 
 ```solidity
-function init(address _addressManager, uint64 _feeBase, bytes32 _genesisBlockHash) external
+function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _initBasefee, uint64 _initProofTimeIssued) external
 ```
 
 Initialize the rollup.
 
 #### Parameters
 
-| Name               | Type    | Description                                                  |
-| ------------------ | ------- | ------------------------------------------------------------ |
-| \_addressManager   | address | The AddressManager address.                                  |
-| \_feeBase          | uint64  | The initial value of the proposer-fee/prover-reward feeBase. |
-| \_genesisBlockHash | bytes32 | The block hash of the genesis block.                         |
+| Name                  | Type    | Description                                                  |
+| --------------------- | ------- | ------------------------------------------------------------ |
+| \_addressManager      | address | The AddressManager address.                                  |
+| \_genesisBlockHash    | bytes32 | The block hash of the genesis block.                         |
+| \_initBasefee         | uint64  | Initial (reasonable) basefee value.                          |
+| \_initProofTimeIssued | uint64  | Initial proof time which keeps the inflow/outflow in balance |
 
 ### proposeBlock
 
@@ -100,13 +101,13 @@ function getBalance(address addr) public view returns (uint256)
 ### getBlockFee
 
 ```solidity
-function getBlockFee() public view returns (uint256 feeAmount, uint256 depositAmount)
+function getBlockFee() public view returns (uint64 fee)
 ```
 
 ### getProofReward
 
 ```solidity
-function getProofReward(uint64 provenAt, uint64 proposedAt) public view returns (uint256 reward)
+function getProofReward(uint64 provenAt, uint64 proposedAt) public view returns (uint64 reward)
 ```
 
 ### getBlock

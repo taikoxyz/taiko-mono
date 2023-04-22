@@ -32,15 +32,18 @@ library LibVerifying {
     function init(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        uint64 feeBase,
-        bytes32 genesisBlockHash
+        bytes32 genesisBlockHash,
+        uint64 initBasefee,
+        uint64 initProofTimeIssued
     ) internal {
         _checkConfig(config);
 
         uint64 timeNow = uint64(block.timestamp);
         state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = timeNow;
-        state.feeBase = feeBase;
+
+        state.basefee = initBasefee;
+        state.proofTimeIssued = initProofTimeIssued;
         state.numBlocks = 1;
 
         TaikoData.Block storage blk = state.blocks[0];
@@ -66,7 +69,6 @@ library LibVerifying {
 
         uint256 fcId = blk.verifiedForkChoiceId;
         assert(fcId > 0);
-
         bytes32 blockHash = blk.forkChoices[fcId].blockHash;
         uint32 gasUsed = blk.forkChoices[fcId].gasUsed;
         bytes32 signalRoot;
@@ -132,48 +134,32 @@ library LibVerifying {
         TaikoData.ForkChoice storage fc,
         uint24 fcId
     ) private {
-        if (config.enableTokenomics) {
+        if (config.proofTimeTarget != 0) {
+            uint256 proofTime;
+            unchecked {
+                proofTime = (fc.provenAt - blk.proposedAt);
+            }
+
             (
-                uint256 newFeeBase,
-                uint256 amount,
-                uint256 premiumRate
-            ) = LibTokenomics.getProofReward({
-                    state: state,
-                    config: config,
-                    provenAt: fc.provenAt,
-                    proposedAt: blk.proposedAt
-                });
+                uint64 reward,
+                uint64 proofTimeIssued,
+                uint64 newBasefee
+            ) = LibTokenomics.calculateBasefee(
+                    state,
+                    config,
+                    uint64(proofTime)
+                );
+
+            state.basefee = newBasefee;
+            state.proofTimeIssued = proofTimeIssued;
+            unchecked {
+                state.accBlockFees -= reward;
+                state.accProposedAt -= blk.proposedAt;
+            }
 
             // reward the prover
-            _addToBalance(state, fc.prover, amount);
-
-            unchecked {
-                // premiumRate in [0-10000]
-                amount = (blk.deposit * (10000 - premiumRate)) / 10000;
-            }
-            _addToBalance(state, blk.proposer, amount);
-
-            // Update feeBase and avgProofTime
-            state.feeBase = LibUtils
-                .movingAverage({
-                    maValue: state.feeBase,
-                    newValue: newFeeBase,
-                    maf: config.feeBaseMAF
-                })
-                .toUint64();
+            _addToBalance(state, fc.prover, reward);
         }
-
-        uint256 proofTime;
-        unchecked {
-            proofTime = (fc.provenAt - blk.proposedAt) * 1000;
-        }
-        state.avgProofTime = LibUtils
-            .movingAverage({
-                maValue: state.avgProofTime,
-                newValue: proofTime,
-                maf: config.provingConfig.avgTimeMAF
-            })
-            .toUint64();
 
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = fcId;
@@ -208,22 +194,12 @@ library LibVerifying {
             // EIP-4844 blob size up to 128K
             config.maxBytesPerTxList > 128 * 1024 ||
             config.minTxGasLimit == 0 ||
-            config.slotSmoothingFactor == 0 ||
             config.maxEthDepositsPerBlock == 0 ||
             config.maxEthDepositsPerBlock < config.minEthDepositsPerBlock ||
             // EIP-4844 blob deleted after 30 days
             config.txListCacheExpiry > 30 * 24 hours ||
-            config.rewardBurnBips >= 10000
+            config.proofTimeTarget == 0 ||
+            config.adjustmentQuotient == 0
         ) revert L1_INVALID_CONFIG();
-
-        _checkFeeConfig(config.proposingConfig);
-        _checkFeeConfig(config.provingConfig);
-    }
-
-    function _checkFeeConfig(
-        TaikoData.FeeConfig memory feeConfig
-    ) private pure {
-        if (feeConfig.avgTimeMAF <= 1 || feeConfig.dampingFactorBips > 10000)
-            revert L1_INVALID_CONFIG();
     }
 }

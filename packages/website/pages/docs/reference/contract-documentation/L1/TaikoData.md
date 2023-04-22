@@ -1,14 +1,5 @@
 ## TaikoData
 
-### FeeConfig
-
-```solidity
-struct FeeConfig {
-  uint16 avgTimeMAF;
-  uint16 dampingFactorBips;
-}
-```
-
 ### Config
 
 ```solidity
@@ -22,22 +13,16 @@ struct Config {
   uint256 maxTransactionsPerBlock;
   uint256 maxBytesPerTxList;
   uint256 minTxGasLimit;
-  uint256 slotSmoothingFactor;
-  uint256 rewardBurnBips;
-  uint256 proposerDepositPctg;
   uint64 minEthDepositsPerBlock;
   uint64 maxEthDepositsPerBlock;
   uint96 maxEthDepositAmount;
   uint96 minEthDepositAmount;
-  uint256 feeBaseMAF;
   uint256 txListCacheExpiry;
   uint256 proofCooldownPeriod;
+  uint64 proofTimeTarget;
+  uint8 adjustmentQuotient;
   bool relaySignalRoot;
   bool enableSoloProposer;
-  bool enableTokenomics;
-  bool skipZKPVerification;
-  struct TaikoData.FeeConfig proposingConfig;
-  struct TaikoData.FeeConfig provingConfig;
 }
 ```
 
@@ -45,14 +30,14 @@ struct Config {
 
 ```solidity
 struct StateVariables {
-  uint64 feeBase;
+  uint64 basefee;
+  uint64 accBlockFees;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 numBlocks;
+  uint64 proofTimeIssued;
   uint64 lastVerifiedBlockId;
-  uint64 avgBlockTime;
-  uint64 avgProofTime;
-  uint64 lastProposedAt;
+  uint64 accProposedAt;
   uint64 nextEthDepositToProcess;
   uint64 numEthDeposits;
 }
@@ -167,16 +152,16 @@ struct State {
   bytes32 staticRefs;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
-  uint64 __reserved1;
-  uint64 __reserved2;
+  uint64 __reserved71;
+  uint64 __reserved72;
+  uint64 accProposedAt;
+  uint64 accBlockFees;
   uint64 numBlocks;
-  uint64 lastProposedAt;
-  uint64 avgBlockTime;
   uint64 nextEthDepositToProcess;
+  uint64 basefee;
+  uint64 proofTimeIssued;
   uint64 lastVerifiedBlockId;
-  uint64 __reserved4;
-  uint64 avgProofTime;
-  uint64 feeBase;
+  uint64 __reserved91;
   uint256[41] __gap;
 }
 ```

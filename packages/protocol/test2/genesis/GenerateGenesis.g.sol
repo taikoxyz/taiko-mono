@@ -120,6 +120,21 @@ contract TestGenerateGenesis is Test, AddressResolver {
         );
     }
 
+    function testEtherVault() public {
+        address payable etherVaultAddress = payable(
+            getPredeployedContractAddress("EtherVault")
+        );
+        EtherVault etherVault = EtherVault(etherVaultAddress);
+
+        assertEq(owner, etherVault.owner());
+
+        assertEq(
+            etherVault.isAuthorized(getPredeployedContractAddress("Bridge")),
+            true
+        );
+        assertEq(etherVault.isAuthorized(etherVault.owner()), false);
+    }
+
     function testTokenVault() public {
         address tokenVaultAddress = getPredeployedContractAddress("TokenVault");
         address bridgeAddress = getPredeployedContractAddress("Bridge");
@@ -135,30 +150,6 @@ contract TestGenerateGenesis is Test, AddressResolver {
         addressManager.setAddress(1, "bridge", bridgeAddress);
         addressManager.setAddress(1, "token_vault", tokenVaultAddress);
         vm.stopPrank();
-
-        tokenVault.sendEther{value: 1}(
-            1,
-            tokenVault.owner(),
-            100,
-            0,
-            tokenVault.owner(),
-            ""
-        );
-    }
-
-    function testEtherVault() public {
-        address payable etherVaultAddress = payable(
-            getPredeployedContractAddress("EtherVault")
-        );
-        EtherVault etherVault = EtherVault(etherVaultAddress);
-
-        assertEq(owner, etherVault.owner());
-
-        assertEq(
-            etherVault.isAuthorized(getPredeployedContractAddress("Bridge")),
-            true
-        );
-        assertEq(etherVault.isAuthorized(etherVault.owner()), false);
     }
 
     function testSignalService() public {

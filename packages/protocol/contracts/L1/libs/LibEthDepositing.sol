@@ -7,6 +7,7 @@
 pragma solidity ^0.8.18;
 
 import {LibAddress} from "../../libs/LibAddress.sol";
+import {LibMath} from "../../libs/LibMath.sol";
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {
     SafeCastUpgradeable
@@ -15,6 +16,7 @@ import {TaikoData} from "../TaikoData.sol";
 
 library LibEthDepositing {
     using LibAddress for address;
+    using LibMath for uint256;
     using SafeCastUpgradeable for uint256;
 
     // When maxEthDepositsPerBlock is 32, the average gas cost per
@@ -24,6 +26,7 @@ library LibEthDepositing {
     // proposer may suffer a loss so the proposer should simply wait
     // for more EthDeposit be become available.
     uint256 public constant GAS_PER_ETH_DEPOSIT = 21000;
+    uint256 public constant MAX_FEE_PER_ETH_DEPOSIT = 1 ether / 10; // 0.1 Ether.
 
     error L1_INVALID_ETH_DEPOSIT();
 
@@ -77,7 +80,9 @@ library LibEthDepositing {
         ) {
             unchecked {
                 uint96 feePerDeposit = uint96(
-                    tx.gasprice * GAS_PER_ETH_DEPOSIT
+                    MAX_FEE_PER_ETH_DEPOSIT.min(
+                        block.basefee * GAS_PER_ETH_DEPOSIT
+                    )
                 );
                 uint96 totalFee;
                 uint64 i = state.nextEthDepositToProcess;

@@ -138,58 +138,6 @@ contract TokenVault is EssentialContract {
     }
 
     /**
-     * Receives Ether and constructs a Bridge message. Sends the Ether and
-     * message along to the Bridge.
-     *
-     * @dev This function doesn't' seem to belong here as it has nothing to
-     *      do with ERC20 tokens. It's added here only for convenience.
-     *
-     * @param destChainId @custom:see IBridge.Message
-     * @param to @custom:see IBridge.Message
-     * @param gasLimit @custom:see IBridge.Message
-     * @param processingFee @custom:see IBridge.Message
-     * @param refundAddress @custom:see IBridge.Message
-     * @param memo @custom:see IBridge.Message
-     */
-    function sendEther(
-        uint256 destChainId,
-        address to,
-        uint256 gasLimit,
-        uint256 processingFee,
-        address refundAddress,
-        string memory memo
-    ) external payable nonReentrant {
-        if (
-            to == address(0) || to == resolve(destChainId, "token_vault", false)
-        ) revert TOKENVAULT_INVALID_TO();
-
-        if (msg.value <= processingFee) revert TOKENVAULT_INVALID_VALUE();
-
-        IBridge.Message memory message;
-        message.destChainId = destChainId;
-        message.owner = msg.sender;
-        message.to = to;
-        message.gasLimit = gasLimit;
-        message.processingFee = processingFee;
-        message.callValue = msg.value - processingFee;
-        message.refundAddress = refundAddress;
-        message.memo = memo;
-        // message.depositValue = 0;
-
-        bytes32 msgHash = IBridge(resolve("bridge", false)).sendMessage{
-            value: msg.value
-        }(message);
-
-        emit EtherSent({
-            msgHash: msgHash,
-            from: message.owner,
-            to: message.to,
-            destChainId: destChainId,
-            amount: message.callValue
-        });
-    }
-
-    /**
      * Transfers ERC20 tokens to this vault and sends a message to the
      * destination chain so the user can receive the same amount of tokens
      * by invoking the message call.

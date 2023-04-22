@@ -10,14 +10,11 @@ import {
     getL2Provider,
 } from "./provider";
 import { createAndSeedWallets, sendTinyEtherToZeroAddress } from "./seed";
-import { defaultFeeBase, deployTaikoL1 } from "./taikoL1";
+import { defaultBasefee, deployTaikoL1 } from "./taikoL1";
 import { deployTaikoL2 } from "./taikoL2";
 import deployTaikoToken from "./taikoToken";
 
-async function initIntegrationFixture(
-    mintTkoToProposer: boolean,
-    enableTokenomics: boolean = true
-) {
+async function initIntegrationFixture(mintTkoToProposer: boolean) {
     const l1Provider = getL1Provider();
 
     l1Provider.pollingInterval = 100;
@@ -50,8 +47,7 @@ async function initIntegrationFixture(
     const taikoL1 = await deployTaikoL1(
         l1AddressManager,
         genesisHash,
-        enableTokenomics,
-        defaultFeeBase
+        defaultBasefee
     );
     const { chainId } = await l1Provider.getNetwork();
 
