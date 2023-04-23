@@ -17,7 +17,7 @@
     "test:sim": "forge test -vvv --gas-report --fuzz-seed $(date +%s) --match-path test/**/*.sim.sol --block-gas-limit 30000000000 --memory-limit 1073741824",
     "generate:genesis": "ts-node ./utils/generate_genesis/main.ts",
     "test:genesis": "./test/genesis/generate_genesis.test.sh",
-    "deploy": "./script/download_solc.sh && ./script/test_deploy_on_l1.sh",
+    "deploy:foundry": "./script/download_solc.sh && ./script/test_deploy_on_l1.sh",
     "lint-staged": "lint-staged --allow-empty",
     "sizer": "pnpm hardhat size-contracts"
   },
