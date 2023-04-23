@@ -26,7 +26,7 @@ contract TaikoL1WithTestnetConfig is TaikoL1 {
         config.txListCacheExpiry = 5 minutes;
         config.maxVerificationsPerTx = 0;
         config.enableSoloProposer = false;
-        config.enableOracleProver = false;
+        config.proofCooldownPeriod = 0;
         config.maxNumProposedBlocks = 40;
         config.ringBufferSize = 48;
         config.proofTimeTarget = 120; // Testnet example
@@ -69,6 +69,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         // Check balances
+
         uint256 Alice_start_balance = L1.getTaikoTokenBalance(Alice);
         uint256 Bob_start_balance = L1.getTaikoTokenBalance(Bob);
         console2.log("Alice balance:", Alice_start_balance);
@@ -92,7 +93,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
@@ -108,6 +110,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         }
 
         //Check end balances
+
         uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
         uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
@@ -136,7 +139,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 1000000,
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
@@ -163,6 +167,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
     {
         mine(1);
         //Needs lot of token here - because there is lots of time elapsed between 2 'propose' blocks, which will raise the fee
+
         depositTaikoToken(Alice, 1E8 * 1E8, 100 ether);
         depositTaikoToken(Bob, 1E8 * 1E8, 100 ether);
         depositTaikoToken(Carol, 1E8 * 1E8, 100 ether);
@@ -175,6 +180,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         // Check balances
+
         uint256 Alice_start_balance = L1.getTaikoTokenBalance(Alice);
         uint256 Bob_start_balance = L1.getTaikoTokenBalance(Bob);
         console2.log("Alice balance:", Alice_start_balance);
@@ -203,7 +209,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
@@ -219,6 +226,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         }
 
         //Check end balances
+
         uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
         uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
@@ -243,7 +251,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 1000000,
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
@@ -256,6 +265,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         }
 
         //Check end balances
+
         deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
         withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
@@ -277,6 +287,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         // Check balances
+
         uint256 Alice_start_balance = L1.getTaikoTokenBalance(Alice);
         uint256 Bob_start_balance = L1.getTaikoTokenBalance(Bob);
         console2.log("Alice balance:", Alice_start_balance);
@@ -303,7 +314,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
@@ -317,6 +329,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         }
 
         //Check end balances
+
         uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
         uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
@@ -372,7 +385,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
 
             uint64 provenAt = uint64(block.timestamp);
@@ -388,6 +402,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         }
 
         //Check end balances
+
         uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
         uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
@@ -415,6 +430,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         // Check balances
+
         uint256 Alice_start_balance = L1.getTaikoTokenBalance(Alice);
         uint256 Bob_start_balance = L1.getTaikoTokenBalance(Bob);
         console2.log("Alice balance:", Alice_start_balance);
@@ -442,7 +458,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
 
             uint64 provenAt = uint64(block.timestamp);
@@ -457,6 +474,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         }
 
         //Check end balances
+
         uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
         uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
         // console2.log("Deposits:", deposits);
@@ -477,6 +495,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         // Check balances
+
         uint256 Alice_start_balance = L1.getTaikoTokenBalance(Alice);
         uint256 Bob_start_balance = L1.getTaikoTokenBalance(Bob);
         console2.log("Alice balance:", Alice_start_balance);
@@ -503,7 +522,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
@@ -517,6 +537,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         }
 
         //Check end balances
+
         uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
         uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
@@ -531,7 +552,6 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         external
     {
         mine(1);
-
         depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
         depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
         depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
@@ -544,6 +564,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         // Check balances
+
         uint256 Alice_start_balance = L1.getTaikoTokenBalance(Alice);
         uint256 Bob_start_balance = L1.getTaikoTokenBalance(Bob);
         console2.log("Alice balance:", Alice_start_balance);
@@ -572,7 +593,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
 
             uint64 provenAt = uint64(block.timestamp);
@@ -587,6 +609,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         }
 
         //Check end balances
+
         uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
         uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
@@ -609,6 +632,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         // Check balances
+
         uint256 Alice_start_balance = L1.getTaikoTokenBalance(Alice);
         uint256 Bob_start_balance = L1.getTaikoTokenBalance(Bob);
         console2.log("Alice balance:", Alice_start_balance);
@@ -634,7 +658,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
@@ -648,6 +673,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         }
 
         //Check end balances
+
         uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
         uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
@@ -677,7 +703,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 1000000,
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
@@ -702,7 +729,6 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
     {
         mine(1);
         // Requires a bit more tokens
-
         depositTaikoToken(Alice, 1E8 * 1E8, 100 ether);
         depositTaikoToken(Bob, 1E8 * 1E8, 100 ether);
         depositTaikoToken(Carol, 1E8 * 1E8, 100 ether);
@@ -741,7 +767,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 (blockId == 1 ? 0 : 1000000),
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
 
             uint64 provenAt = uint64(block.timestamp);
@@ -785,7 +812,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 1000000,
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
@@ -811,14 +839,13 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         external
     {
         mine(1);
-
         depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
         depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
         depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
-
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         // Check balances
+
         uint256 Alice_start_balance = L1.getTaikoTokenBalance(Alice);
         uint256 Bob_start_balance = L1.getTaikoTokenBalance(Bob);
         console2.log("Alice balance:", Alice_start_balance);
@@ -845,7 +872,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             uint64 provenAt = uint64(block.timestamp);
             console2.log(
@@ -859,6 +887,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         }
 
         //Check end balances
+
         uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
         uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 
@@ -907,7 +936,8 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                         (blockId - proofTime == 1) ? 0 : 1000000,
                         1000000,
                         blockHashes[blockId - proofTime],
-                        signalRoots[blockId - proofTime]
+                        signalRoots[blockId - proofTime],
+                        false
                     );
 
                     uint64 provenAt = uint64(block.timestamp);
@@ -928,6 +958,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
             }
         }
         //Check end balances
+
         uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
         uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
 

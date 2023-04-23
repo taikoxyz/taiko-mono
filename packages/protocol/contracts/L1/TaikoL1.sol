@@ -88,26 +88,6 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     }
 
     /**
-     * Oracle prove mutliple blocks in a row.
-     *
-     * @param blockId The index of the first block to prove. This is also used
-     *        to select the right implementation version.
-     * @param input An abi-encoded TaikoData.BlockOracle[] object.
-     */
-    function oracleProveBlocks(
-        uint256 blockId,
-        bytes calldata input
-    ) external nonReentrant {
-        LibProving.oracleProveBlocks({
-            state: state,
-            config: getConfig(),
-            blockId: blockId,
-            resolver: AddressResolver(this),
-            oracles: abi.decode(input, (TaikoData.BlockOracles))
-        });
-    }
-
-    /**
      * Prove a block is valid with a zero-knowledge proof, a transaction
      * merkel proof, and a receipt merkel proof.
      *
@@ -171,7 +151,9 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         return state.taikoTokenBalances[addr];
     }
 
-    function getBlockFee() public view returns (uint64) {}
+    function getBlockFee() public view returns (uint64) {
+        return state.basefee;
+    }
 
     function getProofReward(
         uint64 provenAt,

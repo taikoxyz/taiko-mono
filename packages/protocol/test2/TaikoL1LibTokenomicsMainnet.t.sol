@@ -27,9 +27,9 @@ contract TaikoL1MainnetMockConfig is TaikoL1 {
         config.txListCacheExpiry = 5 minutes;
         config.maxVerificationsPerTx = 1;
         config.enableSoloProposer = false;
-        config.enableOracleProver = false;
         config.maxNumProposedBlocks = 200;
         config.ringBufferSize = 240;
+        config.proofCooldownPeriod = 0;
         config.proofTimeTarget = 2160;
     }
 }
@@ -116,7 +116,8 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase, FoundryRandom {
                     (blockId - proofTime == 1) ? 0 : 1000000, // Genesis block has 0 gas used
                     1000000,
                     blockHashes[blockId - proofTime],
-                    signalRoots[blockId - proofTime]
+                    signalRoots[blockId - proofTime],
+                    false
                 );
 
                 uint64 provenAt = uint64(block.timestamp);
@@ -184,7 +185,8 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase, FoundryRandom {
                         (blockId - proofTime == 1) ? 0 : 1000000,
                         1000000,
                         blockHashes[blockId - proofTime],
-                        signalRoots[blockId - proofTime]
+                        signalRoots[blockId - proofTime],
+                        false
                     );
 
                     uint64 provenAt = uint64(block.timestamp);
@@ -256,7 +258,8 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase, FoundryRandom {
                     (blockId - proofTime == 1) ? 0 : 1000000,
                     1000000,
                     blockHashes[blockId - proofTime],
-                    signalRoots[blockId - proofTime]
+                    signalRoots[blockId - proofTime],
+                    false
                 );
 
                 uint64 provenAt = uint64(block.timestamp);
@@ -273,6 +276,7 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase, FoundryRandom {
             parentHash = blockHashes[blockId];
         }
 
+        //Check end balances
         //Check end balances
         uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
         uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;

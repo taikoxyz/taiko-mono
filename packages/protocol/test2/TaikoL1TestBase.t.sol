@@ -38,7 +38,10 @@ abstract contract TaikoL1TestBase is Test {
     address public constant L1EthVault =
         0xDAFEA492D9c6733ae3d56b7Ed1ADB60692c98Bc5;
 
-    address public constant Alice = 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4;
+    address public constant Alice = 0xa9bcF99f5eb19277f48b71F9b14f5960AEA58a89;
+    uint256 public constant AlicePK =
+        0x8fb342c39a93ad26e674cbcdc65dc45795107e1b51776aac15f9776c0e9d2cea;
+
     address public constant Bob = 0x200708D76eB1B69761c23821809d53F65049939e;
     address public constant Carol = 0x300C9b60E19634e12FC6D68B7FEa7bFB26c2E419;
     address public constant Dave = 0x400147C0Eb43D8D71b2B03037bB7B31f8f78EF5F;
@@ -86,6 +89,7 @@ abstract contract TaikoL1TestBase is Test {
         registerAddress("taiko_token", address(tko));
         registerAddress("proto_broker", address(L1));
         registerAddress("signal_service", address(ss));
+        registerAddress("ether_vault", address(L1EthVault));
         registerL2Address("treasure", L2Treasure);
         registerL2Address("signal_service", address(L2SS));
         registerL2Address("taiko_l2", address(L2TaikoL2));
@@ -133,31 +137,6 @@ abstract contract TaikoL1TestBase is Test {
         meta = L1.proposeBlock(abi.encode(input), txList);
     }
 
-    function oracleProveBlock(
-        address prover,
-        uint256 blockId,
-        bytes32 parentHash,
-        uint32 parentGasUsed,
-        uint32 gasUsed,
-        bytes32 blockHash,
-        bytes32 signalRoot
-    ) internal {
-        TaikoData.BlockOracle[] memory blks = new TaikoData.BlockOracle[](1);
-
-        blks[0].blockHash = blockHash;
-        blks[0].signalRoot = signalRoot;
-        blks[0].gasUsed = gasUsed;
-
-        TaikoData.BlockOracles memory oracles = TaikoData.BlockOracles(
-            parentHash,
-            parentGasUsed,
-            blks
-        );
-
-        vm.prank(prover, prover);
-        L1.oracleProveBlocks(blockId, abi.encode(oracles));
-    }
-
     function proveBlock(
         address prover,
         TaikoData.BlockMetadata memory meta,
@@ -165,7 +144,8 @@ abstract contract TaikoL1TestBase is Test {
         uint32 parentGasUsed,
         uint32 gasUsed,
         bytes32 blockHash,
-        bytes32 signalRoot
+        bytes32 signalRoot,
+        bool oracle
     ) internal {
         TaikoData.ZKProof memory zkproof = TaikoData.ZKProof({
             data: new bytes(100),
@@ -179,7 +159,7 @@ abstract contract TaikoL1TestBase is Test {
             blockHash: blockHash,
             signalRoot: signalRoot,
             graffiti: 0x0,
-            prover: prover,
+            prover: oracle ? address(0) : prover,
             parentGasUsed: parentGasUsed,
             gasUsed: gasUsed
         });

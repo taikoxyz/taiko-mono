@@ -44,21 +44,6 @@ Propose a Taiko L2 block.
 | input  | bytes | An abi-encoded BlockMetadataInput that the actual L2 block header must satisfy.                                                                                                                                                                                             |
 | txList | bytes | A list of transactions in this block, encoded with RLP. Note, in the corresponding L2 block an _anchor transaction_ will be the first transaction in the block -- if there are `n` transactions in `txList`, then there will be up to `n + 1` transactions in the L2 block. |
 
-### oracleProveBlocks
-
-```solidity
-function oracleProveBlocks(uint256 blockId, bytes input) external
-```
-
-Oracle prove mutliple blocks in a row.
-
-#### Parameters
-
-| Name    | Type    | Description                                                                                          |
-| ------- | ------- | ---------------------------------------------------------------------------------------------------- |
-| blockId | uint256 | The index of the first block to prove. This is also used to select the right implementation version. |
-| input   | bytes   | An abi-encoded TaikoData.BlockOracle[] object.                                                       |
-
 ### proveBlock
 
 ```solidity
