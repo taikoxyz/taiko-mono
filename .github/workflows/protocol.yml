@@ -24,11 +24,9 @@ jobs:
           submodules: recursive
 
       - name: Install Foundry
-        working-directory: ./packages/protocol
         uses: foundry-rs/foundry-toolchain@v1
 
       - name: Install pnpm dependencies
-        working-directory: ./packages/protocol
         uses: ./.github/actions/install-pnpm-dependencies
 
       - name: protocol - Unit Tests
