@@ -23,25 +23,21 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
-      - name: protocol - Unit Tests
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: protocol - Unit Tests (foundry)
         run: pnpm test:unit
 
-      - name: protocol - Generate Genesis
-        working-directory: ./packages/protocol
-        run: pnpm test:genesis
-
-      - name: protocol - Run Snapshot
+      - name: protocol - Run snapshot (foundry)
         run: forge snapshot
 
-      - name: protocol - Test Coverage
+      - name: protocol - Generate Genesis (foundry)
         working-directory: ./packages/protocol
-        run: pnpm coverage
+        run: pnpm test:genesis
 
       - name: protocol - Deploy L1 Contracts
         working-directory: ./packages/protocol
@@ -52,10 +48,10 @@ jobs:
           done
           pnpm deploy
 
-      - name: protocol - Upload Coverage to Codecov
+      - name: protocol - Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
-          directory: ./packages/protocol
+          directory: ./packages/protocol/coverage
           flags: protocol
 
   post-merge:
