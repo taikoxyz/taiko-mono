@@ -4,7 +4,7 @@
   import type { Token, TokenDetails } from '../../domain/token';
   import { signer } from '../../store/signer';
   import { token as tokenStore } from '../../store/token';
-  import { userTokens, tokenService } from '../../store/userToken';
+  import { userTokens } from '../../store/userToken';
   import Erc20 from '../icons/ERC20.svelte';
   import Modal from '../modals/Modal.svelte';
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
@@ -12,6 +12,7 @@
   import ERC20 from '../../constants/abi/ERC20';
   import { ETHToken } from '../../token/tokens';
   import { errorToast } from '../Toast.svelte';
+  import { tokenService } from '../../storage/services';
 
   export let showAddressField: boolean = false;
   export let addERC20: (event: SubmitEvent) => Promise<void>;
@@ -26,7 +27,7 @@
 
   async function remove(token) {
     const address = await $signer.getAddress();
-    const updatedTokensList = $tokenService.removeToken(token, address);
+    const updatedTokensList = tokenService.removeToken(token, address);
     userTokens.set(updatedTokensList);
     tokenStore.set(ETHToken);
   }
