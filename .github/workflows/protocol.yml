@@ -24,44 +24,28 @@ jobs:
           submodules: recursive
 
       - name: Install Foundry
+        working-directory: ./packages/protocol
         uses: foundry-rs/foundry-toolchain@v1
 
-      - name: protocol - Unit Tests (foundry)
-        run: forge test -vvv
-
-      - name: protocol - Run snapshot (foundry)
-        run: forge snapshot
-
       - name: Install pnpm dependencies
+        working-directory: ./packages/protocol
         uses: ./.github/actions/install-pnpm-dependencies
 
-      - name: protocol - Unit Tests (hardhat)
+      - name: protocol - Unit Tests
         working-directory: ./packages/protocol
         run: pnpm clean && pnpm test
 
-      - name: protocol - Integration Tests (hardhat)
-        working-directory: ./packages/protocol
-        run: pnpm test:integration
-
-      # - name: protocol - Tokenomics Tests (hardhat)
-      #   working-directory: ./packages/protocol
-      #   run: pnpm test:tokenomics
-
-      - name: protocol - Bridge Tests (hardhat)
-        working-directory: ./packages/protocol
-        run: pnpm test:bridge
-
-      - name: protocol - Test Coverage (hardhat)
-        working-directory: ./packages/protocol
-        run: pnpm test:coverage
-
-      - name: protocol - Generate Genesis (foundry)
+      - name: protocol - Generate Genesis
         working-directory: ./packages/protocol
         run: pnpm test:genesis
 
-      # - name: protocol - Export ABIs
-      #   working-directory: ./packages/protocol
-      #   run: pnpm export:abi
+      - name: protocol - Test Coverage
+        working-directory: ./packages/protocol
+        run: pnpm test:coverage
+
+      - name: protocol - Run snapshot (foundry)
+        working-directory: ./packages/protocol
+        run: forge snapshot
 
       - name: protocol - Deploy L1 Contracts
         working-directory: ./packages/protocol
@@ -70,7 +54,7 @@ jobs:
           while ! nc -z localhost 8545; do
             sleep 1
           done
-          pnpm deploy:foundry
+          pnpm deploy
 
       - name: protocol - Upload coverage to Codecov
         uses: codecov/codecov-action@v3

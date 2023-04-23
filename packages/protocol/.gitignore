@@ -26,3 +26,6 @@ broadcast
 
 # Editors
 .vscode
+
+#coverage
+lcov.info
