@@ -35,6 +35,10 @@ jobs:
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
+      - name: protocol - Compile (hardhat)
+        working-directory: ./packages/protocol
+        run: pnpm run compile
+
       - name: protocol - Test Coverage (foundry)
         working-directory: ./packages/protocol
         run: pnpm coverage
