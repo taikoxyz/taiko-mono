@@ -71,6 +71,9 @@ async function sendMessage(
 }> {
     const expectedAmount = m.depositValue + m.callValue + m.processingFee;
 
+    m.refundAddress = "0x10020FCb72e27650651B05eD2CEcA493bC807Ba4";
+    m.to = "0x200708D76eB1B69761c23821809d53F65049939e";
+    m.gasLimit = 1000000;
     const tx = await bridge.sendMessage(m, {
         value: expectedAmount,
     });
