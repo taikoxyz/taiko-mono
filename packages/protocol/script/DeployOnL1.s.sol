@@ -19,7 +19,7 @@ import "../contracts/signal/SignalService.sol";
 import "../contracts/thirdparty/AddressManager.sol";
 import "../contracts/test/erc20/FreeMintERC20.sol";
 import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
-import "../test2/LibLn.sol";
+import "../test/LibLn.sol";
 
 contract DeployOnL1 is Script, AddressResolver {
     using SafeCastUpgradeable for uint256;

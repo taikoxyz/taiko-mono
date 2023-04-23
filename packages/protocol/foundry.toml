@@ -3,7 +3,7 @@
 solc-version = "0.8.18"
 src = 'contracts'
 out = 'out'
-test = 'test2'
+test = 'test'
 libs = ['lib']
 gas_price = 10000000000 # gas price is 10 Gwei
 optimizer = true
@@ -21,7 +21,7 @@ block_gas_limit = 30000000 #30M
 fs_permissions = [
   { access = "read", path = "./out"},
   { access = "read", path = "./deployments"},
-  { access = "read", path = "./test2"}
+  { access = "read", path = "./test"}
 ]
 
 fuzz = { runs = 256 }
