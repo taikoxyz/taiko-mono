@@ -22,12 +22,12 @@ contract TaikoL1_b is TaikoL1 {
     {
         config = TaikoConfig.getConfig();
 
-        config.enableTokenomics = true;
         config.txListCacheExpiry = 0;
         config.enableSoloProposer = false;
-        config.enableOracleProver = false;
         config.maxNumProposedBlocks = 36;
         config.ringBufferSize = 40;
+        config.maxVerificationsPerTx = 5;
+        config.proofCooldownPeriod = 1 minutes;
         config.proofTimeTarget = 200;
     }
 }
@@ -113,7 +113,8 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
                 parentGasUsed,
                 gasUsed,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             printVariables();
 

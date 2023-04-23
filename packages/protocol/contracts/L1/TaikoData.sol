@@ -20,6 +20,7 @@ library TaikoData {
         uint256 maxBytesPerTxList;
         uint256 minTxGasLimit;
         uint256 txListCacheExpiry;
+        uint256 proofCooldownPeriod;
         uint64 minEthDepositsPerBlock;
         uint64 maxEthDepositsPerBlock;
         uint96 maxEthDepositAmount;
@@ -28,9 +29,6 @@ library TaikoData {
         uint8 adjustmentQuotient;
         bool relaySignalRoot;
         bool enableSoloProposer;
-        bool enableOracleProver;
-        bool enableTokenomics;
-        bool skipZKPVerification;
     }
 
     struct StateVariables {
@@ -91,25 +89,14 @@ library TaikoData {
         uint32 gasUsed;
     }
 
-    struct BlockOracle {
-        bytes32 blockHash;
-        uint32 gasUsed;
-        bytes32 signalRoot;
-    }
-
-    struct BlockOracles {
-        bytes32 parentHash;
-        uint32 parentGasUsed;
-        BlockOracle[] blks;
-    }
-
     // 4 slots
     struct ForkChoice {
-        bytes32 key; // only written/read for the 1st fork choice.
+        // Key is only written/read for the 1st fork choice.
+        bytes32 key;
         bytes32 blockHash;
         bytes32 signalRoot;
         uint64 provenAt;
-        address prover;
+        address prover; // 0x0 to mark as 'oracle proof'
         uint32 gasUsed;
     }
 

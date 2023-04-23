@@ -12,7 +12,7 @@ import {SignalService} from "../contracts/signal/SignalService.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {TaikoL1TestBase} from "./TaikoL1TestBase.t.sol";
 
-contract TaikoL1_a is TaikoL1 {
+contract TaikoL1_NoCooldown is TaikoL1 {
     function getConfig()
         public
         pure
@@ -21,20 +21,18 @@ contract TaikoL1_a is TaikoL1 {
     {
         config = TaikoConfig.getConfig();
 
-        config.enableTokenomics = true;
         config.txListCacheExpiry = 5 minutes;
         config.maxVerificationsPerTx = 0;
         config.enableSoloProposer = false;
-        config.enableOracleProver = false;
         config.maxNumProposedBlocks = 10;
         config.ringBufferSize = 12;
-        // this value must be changed if `maxNumProposedBlocks` is changed.
+        config.proofCooldownPeriod = 0;
     }
 }
 
 contract TaikoL1Test is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1 taikoL1) {
-        taikoL1 = new TaikoL1_a();
+        taikoL1 = new TaikoL1_NoCooldown();
     }
 
     function setUp() public override {
@@ -74,7 +72,8 @@ contract TaikoL1Test is TaikoL1TestBase {
                 parentGasUsed,
                 gasUsed,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
 
             verifyBlock(Carol, 1);
@@ -111,7 +110,8 @@ contract TaikoL1Test is TaikoL1TestBase {
                 parentGasUsed,
                 gasUsed,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             verifyBlock(Alice, 2);
             parentHash = blockHash;
@@ -150,7 +150,8 @@ contract TaikoL1Test is TaikoL1TestBase {
                 parentGasUsed,
                 gasUsed,
                 blockHash,
-                signalRoot
+                signalRoot,
+                false
             );
             parentHash = blockHash;
             parentGasUsed = gasUsed;
@@ -160,5 +161,69 @@ contract TaikoL1Test is TaikoL1TestBase {
         printVariables("after verify");
         verifyBlock(Alice, conf.maxNumProposedBlocks);
         printVariables("after verify");
+    }
+
+    function testEthDepositsToL2Reverts() external {
+        uint96 minAmount = conf.minEthDepositAmount;
+        uint96 maxAmount = conf.maxEthDepositAmount;
+
+        depositTaikoToken(Alice, 0, maxAmount + 1 ether);
+
+        vm.prank(Alice, Alice);
+        vm.expectRevert();
+        L1.depositEtherToL2{value: minAmount - 1}();
+
+        vm.prank(Alice, Alice);
+        vm.expectRevert();
+        L1.depositEtherToL2{value: maxAmount + 1}();
+
+        assertEq(L1.getStateVariables().nextEthDepositToProcess, 0);
+        assertEq(L1.getStateVariables().numEthDeposits, 0);
+    }
+
+    function testEthDepositsToL2Gas() external {
+        vm.fee(25 gwei);
+
+        bytes32 emptyDepositsRoot = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
+        depositTaikoToken(Alice, 1E6 * 1E8, 100000 ether);
+
+        proposeBlock(Alice, 1000000, 1024);
+        TaikoData.BlockMetadata memory meta = proposeBlock(
+            Alice,
+            1000000,
+            1024
+        );
+        assertEq(meta.depositsRoot, emptyDepositsRoot);
+        assertEq(meta.depositsProcessed.length, 0);
+
+        uint256 count = conf.maxEthDepositsPerBlock;
+
+        printVariables("before sending ethers");
+        for (uint256 i; i < count; ++i) {
+            vm.prank(Alice, Alice);
+            L1.depositEtherToL2{value: (i + 1) * 1 ether}();
+        }
+        printVariables("after sending ethers");
+
+        uint gas = gasleft();
+        meta = proposeBlock(Alice, 1000000, 1024);
+        uint gasUsedWithDeposits = gas - gasleft();
+        console2.log("gas used with eth deposits:", gasUsedWithDeposits);
+
+        printVariables("after processing send-ethers");
+        assertTrue(meta.depositsRoot != emptyDepositsRoot);
+        assertEq(meta.depositsProcessed.length, count + 1);
+
+        gas = gasleft();
+        meta = proposeBlock(Alice, 1000000, 1024);
+        uint gasUsedWithoutDeposits = gas - gasleft();
+
+        console2.log("gas used without eth deposits:", gasUsedWithoutDeposits);
+
+        uint gasPerEthDeposit = (gasUsedWithDeposits - gasUsedWithoutDeposits) /
+            count;
+
+        console2.log("gas per eth deposit:", gasPerEthDeposit);
+        console2.log("maxEthDepositsPerBlock:", count);
     }
 }

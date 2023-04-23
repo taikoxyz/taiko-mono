@@ -35,15 +35,12 @@ library TaikoConfig {
                 // transactions list calldata, 8K for the remaining tx fields.
                 maxBytesPerTxList: 120000,
                 minTxGasLimit: 21000,
-                // Moving average factors
+                proofCooldownPeriod: 5 minutes,
                 txListCacheExpiry: 0,
                 proofTimeTarget: 1800, // 85s based on A2 testnet status, or set to 1800 for 30mins (mainnet mock)
                 adjustmentQuotient: 16,
                 relaySignalRoot: false,
-                enableSoloProposer: false,
-                enableOracleProver: true,
-                enableTokenomics: true,
-                skipZKPVerification: false
+                enableSoloProposer: false
             });
     }
 }
