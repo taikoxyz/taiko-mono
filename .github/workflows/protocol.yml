@@ -35,23 +35,7 @@ jobs:
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
-      - name: protocol - Unit Tests (hardhat)
-        working-directory: ./packages/protocol
-        run: pnpm clean && pnpm test
-
-      - name: protocol - Integration Tests (hardhat)
-        working-directory: ./packages/protocol
-        run: pnpm test:integration
-
-      # - name: protocol - Tokenomics Tests (hardhat)
-      #   working-directory: ./packages/protocol
-      #   run: pnpm test:tokenomics
-
-      - name: protocol - Bridge Tests (hardhat)
-        working-directory: ./packages/protocol
-        run: pnpm test:bridge
-
-      - name: protocol - Test Coverage (hardhat)
+      - name: protocol - Test Coverage (foundry)
         working-directory: ./packages/protocol
         run: pnpm test:coverage
 
