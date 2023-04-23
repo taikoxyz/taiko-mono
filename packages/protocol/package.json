@@ -11,7 +11,7 @@
     "eslint": "pnpm exec eslint --ignore-path .eslintignore --ext .js,.ts .",
     "eslint:fix": "pnpm exec eslint --ignore-path .eslintignore --ext .js,.ts . --fix",
     "coverage": "forge coverage  --report lcov",
-    "test": "forge test -vvv --gas-report --fuzz-seed $(date +%s) --match-path test/**/*.t.sol",
+    "test:uint": "forge test -vvv --gas-report --fuzz-seed $(date +%s) --match-path test/**/*.t.sol",
     "test:sim": "forge test -vvv --gas-report --fuzz-seed $(date +%s) --match-path test/**/*.sim.sol --block-gas-limit 30000000000 --memory-limit 1073741824",
     "generate:genesis": "ts-node ./utils/generate_genesis/main.ts",
     "test:genesis": "./test/genesis/generate_genesis.test.sh",
