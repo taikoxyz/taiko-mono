@@ -1,3 +1,7 @@
+---
+title: SignalService
+---
+
 ## SignalService
 
 ### SignalProof

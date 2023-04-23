@@ -1,3 +1,7 @@
+---
+title: TaikoEvents
+---
+
 ## TaikoEvents
 
 ### BlockProposed

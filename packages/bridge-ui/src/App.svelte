@@ -8,11 +8,7 @@
   import { MetaMaskConnector } from '@wagmi/core/connectors/metaMask';
 
   import { setupI18n } from './i18n';
-  import {
-    pendingTransactions,
-    transactioner,
-    transactions,
-  } from './store/transactions';
+  import { transactioner, transactions } from './store/transactions';
   import Navbar from './components/Navbar.svelte';
   import Toast, { successToast } from './components/Toast.svelte';
   import { signer } from './store/signer';
@@ -29,8 +25,16 @@
   import { CustomTokenService } from './storage/CustomTokenService';
   import { userTokens, tokenService } from './store/userToken';
   import { RelayerAPIService } from './relayer-api/RelayerAPIService';
-  import type { RelayerAPI } from './domain/relayerApi';
-  import { relayerApi, relayerBlockInfoMap } from './store/relayerApi';
+  import {
+    DEFAULT_PAGE,
+    MAX_PAGE_SIZE,
+    type RelayerAPI,
+  } from './domain/relayerApi';
+  import {
+    paginationInfo,
+    relayerApi,
+    relayerBlockInfoMap,
+  } from './store/relayerApi';
   import { chains, mainnetWagmiChain, taikoWagmiChain } from './chain/chains';
   import { providers } from './provider/providers';
   import { RELAYER_URL } from './constants/envVars';
@@ -91,9 +95,13 @@
     if (store) {
       const userAddress = await store.getAddress();
 
-      const apiTxs = await $relayerApi.getAllBridgeTransactionByAddress(
-        userAddress,
-      );
+      const { txs: apiTxs, paginationInfo: info } =
+        await $relayerApi.getAllBridgeTransactionByAddress(userAddress, {
+          page: DEFAULT_PAGE,
+          size: MAX_PAGE_SIZE,
+        });
+
+      paginationInfo.set(info);
 
       const blockInfoMap = await $relayerApi.getBlockInfo();
       relayerBlockInfoMap.set(blockInfoMap);
@@ -116,24 +124,6 @@
       const tokens = $tokenService.getTokens(userAddress);
       userTokens.set(tokens);
     }
-  });
-
-  pendingTransactions.subscribe((store) => {
-    (async () => {
-      const confirmedPendingTxIndex = await Promise.race(
-        store.map((tx, index) => {
-          return new Promise<number>((resolve) => {
-            $signer.provider
-              .waitForTransaction(tx.hash, 1)
-              .then(() => resolve(index));
-          });
-        }),
-      );
-      successToast('Transaction completed!');
-      let s = store;
-      s.splice(confirmedPendingTxIndex, 1);
-      pendingTransactions.set(s);
-    })();
   });
 
   const transactionToIntervalMap = new Map();

@@ -44,10 +44,42 @@ func (r *EventRepository) FindUniqueProvers(
 	addrs := make([]eventindexer.UniqueProversResponse, 0)
 
 	if err := r.db.GormDB().
-		Raw("SELECT address, count(*) AS count FROM events GROUP BY address").
+		Raw("SELECT address, count(*) AS count FROM events WHERE event = ? GROUP BY address",
+			eventindexer.EventNameBlockProven).
 		FirstOrInit(&addrs).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.FirstOrInit")
 	}
 
 	return addrs, nil
+}
+
+func (r *EventRepository) FindUniqueProposers(
+	ctx context.Context,
+) ([]eventindexer.UniqueProposersResponse, error) {
+	addrs := make([]eventindexer.UniqueProposersResponse, 0)
+
+	if err := r.db.GormDB().
+		Raw("SELECT address, count(*) AS count FROM events WHERE event = ? GROUP BY address",
+			eventindexer.EventNameBlockProposed).
+		FirstOrInit(&addrs).Error; err != nil {
+		return nil, errors.Wrap(err, "r.db.FirstOrInit")
+	}
+
+	return addrs, nil
+}
+
+func (r *EventRepository) GetCountByAddressAndEventName(
+	ctx context.Context,
+	address string,
+	event string,
+) (int, error) {
+	var count int
+
+	if err := r.db.GormDB().
+		Raw("SELECT count(*) AS count FROM events WHERE event = ? AND address = ?", event, address).
+		FirstOrInit(&count).Error; err != nil {
+		return 0, errors.Wrap(err, "r.db.FirstOrInit")
+	}
+
+	return count, nil
 }

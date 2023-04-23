@@ -18,6 +18,7 @@
   import { truncateString } from "../../utils/truncateString";
   import TaikoL1 from "../../constants/abi/TaikoL1";
   import { getNumProvers } from "../../utils/getNumProvers";
+  import { getNumProposers } from "../../utils/getNumProposers";
   import DetailsModal from "../../components/DetailsModal.svelte";
   import { addressSubsection } from "../../utils/addressSubsection";
 
@@ -32,6 +33,7 @@
   export let eventIndexerApiUrl: string;
 
   let proverDetailsOpen: boolean = false;
+  let proposerDetailsOpen: boolean = false;
 
   let statusIndicators: StatusIndicatorProp[] = [
     {
@@ -51,6 +53,24 @@
       },
       tooltip:
         "The number of unique provers who successfully submitted a proof to the TaikoL1 smart contract.",
+    },
+    {
+      statusFunc: async (
+        provider: ethers.providers.JsonRpcProvider,
+        address: string
+      ) => (await getNumProposers(eventIndexerApiUrl)).uniqueProposers,
+      provider: l1Provider,
+      contractAddress: l1TaikoAddress,
+      header: "Unique Proposers",
+      intervalInMs: 0,
+      colorFunc: (value: Status) => {
+        return "green";
+      },
+      onClick: (value: Status) => {
+        proposerDetailsOpen = true;
+      },
+      tooltip:
+        "The number of unique proposers who successfully submitted a proposed block to the TaikoL1 smart contract.",
     },
     {
       statusFunc: getLatestSyncedHeader,
@@ -256,7 +276,7 @@
             (id, parentHash, blockHash, prover, provenAt, ...args) => {
               // ignore oracle prover
               if (prover.toLowerCase() !== oracleProverAddress.toLowerCase()) {
-                if(!provenAt.eq(0)) {
+                if (!provenAt.eq(0)) {
                   onEvent(new Date(provenAt.toNumber() * 1000).toString());
                 }
               }
@@ -373,6 +393,30 @@
             {addressSubsection(prover.address)}
           </a>
           <div>{prover.count}</div>
+        {/each}
+      {:catch error}
+        <p class="red">{error.message}</p>
+      {/await}
+    </div>
+  </DetailsModal>
+{/if}
+
+{#if proposerDetailsOpen}
+  <DetailsModal title={"Prover Details"} bind:isOpen={proposerDetailsOpen}>
+    <div
+      class="grid grid-cols-2 gap-4 text-center my-10 max-h-96 overflow-y-auto"
+      slot="body"
+    >
+      {#await getNumProposers(eventIndexerApiUrl) then proposers}
+        {#each proposers.proposers as proposer}
+          <a
+            href="{l1ExplorerUrl}/address/{proposer.address}"
+            target="_blank"
+            rel="noreferrer"
+          >
+            {addressSubsection(proposer.address)}
+          </a>
+          <div>{proposer.count}</div>
         {/each}
       {:catch error}
         <p class="red">{error.message}</p>
