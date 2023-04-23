@@ -37,6 +37,7 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm test:genesis
 
+      # TODO: CompilerError: Stack too deep
       # - name: protocol - Test Coverage
       #   working-directory: ./packages/protocol
       #   run: pnpm test:coverage
