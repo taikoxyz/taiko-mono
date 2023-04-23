@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import {AddressManager} from "../contracts/thirdparty/AddressManager.sol";
+import {AddressManager} from "../contracts/common/AddressManager.sol";
 import {IBridge, Bridge} from "../contracts/bridge/Bridge.sol";
 import {BridgeErrors} from "../contracts/bridge/BridgeErrors.sol";
 import {EtherVault} from "../contracts/bridge/EtherVault.sol";
@@ -81,14 +81,14 @@ contract BridgeTest is Test {
         xChainSync = new PrankXchainSync();
 
         addressManager.setAddress(
-            string(
-                bytes.concat(bytes32(block.chainid), bytes("signal_service"))
-            ),
+            block.chainid,
+            "signal_service",
             address(signalService)
         );
 
         addressManager.setAddress(
-            string(bytes.concat(bytes32(destChainId), bytes("bridge"))),
+            destChainId,
+            "bridge",
             address(destChainBridge)
         );
 
@@ -350,32 +350,25 @@ contract BridgeTest is Test {
         badReceiver = new BadReceiver();
 
         uint256 dest = 1337;
-        addressManager.setAddress(
-            string(bytes.concat(bytes32(dest), bytes("taiko"))),
-            address(xChainSync)
-        );
+        addressManager.setAddress(dest, "taiko", address(xChainSync));
 
         addressManager.setAddress(
-            string(bytes.concat(bytes32(uint256(1336)), bytes("bridge"))),
+            1336,
+            "bridge",
             0x564540a26Fb667306b3aBdCB4ead35BEb88698ab
         );
 
-        addressManager.setAddress(
-            string(bytes.concat(bytes32(dest), bytes("bridge"))),
-            address(destChainBridge)
-        );
+        addressManager.setAddress(dest, "bridge", address(destChainBridge));
 
-        addressManager.setAddress(
-            string(bytes.concat(bytes32(dest), bytes("ether_vault"))),
-            address(etherVault)
-        );
+        addressManager.setAddress(dest, "ether_vault", address(etherVault));
 
         etherVault.authorize(address(destChainBridge), true);
 
         vm.deal(address(etherVault), 100 ether);
 
         addressManager.setAddress(
-            string(bytes.concat(bytes32(dest), bytes("signal_service"))),
+            dest,
+            "signal_service",
             address(signalService)
         );
 

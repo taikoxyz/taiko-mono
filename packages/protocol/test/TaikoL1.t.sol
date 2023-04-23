@@ -3,7 +3,7 @@ pragma solidity ^0.8.18;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {AddressManager} from "../contracts/thirdparty/AddressManager.sol";
+import {AddressManager} from "../contracts/common/AddressManager.sol";
 import {TaikoConfig} from "../contracts/L1/TaikoConfig.sol";
 import {TaikoData} from "../contracts/L1/TaikoData.sol";
 import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
@@ -30,6 +30,12 @@ contract TaikoL1_NoCooldown is TaikoL1 {
     }
 }
 
+contract Verifier {
+    fallback(bytes calldata) external returns (bytes memory) {
+        return bytes.concat(keccak256("taiko"));
+    }
+}
+
 contract TaikoL1Test is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1 taikoL1) {
         taikoL1 = new TaikoL1_NoCooldown();
@@ -37,6 +43,8 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     function setUp() public override {
         TaikoL1TestBase.setUp();
+
+        registerAddress(L1.getVerifierName(100), address(new Verifier()));
     }
 
     /// @dev Test we can propose, prove, then verify more blocks than 'maxNumProposedBlocks'

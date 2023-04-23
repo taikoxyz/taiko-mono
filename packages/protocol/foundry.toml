@@ -13,15 +13,15 @@ gas_limit = '18446744073709551615'
 
 # Do not change the block_gas_limit value, TaikoL2.t.sol depends on it.
 block_gas_limit = 30000000 #30M
-# For mainnet_mock tokenomics test we need a huge value to run lots of iterations. 
+# For mainnet_mock tokenomics test we need a huge value to run lots of iterations.
 # Use the above 30M for TaikoL2.t.sol related tests, only use this number with mainnet simulation.
 #block_gas_limit = 3000000000 #3000M
 
 
 fs_permissions = [
   { access = "read", path = "./out"},
-  { access = "read", path = "./deployments"},
-  { access = "read", path = "./test"}
+  { access = "read", path = "./test"},
+  { access = "read-write", path = "./deployments"},
 ]
 
 fuzz = { runs = 256 }

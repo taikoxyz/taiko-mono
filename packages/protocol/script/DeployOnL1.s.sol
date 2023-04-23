@@ -10,27 +10,26 @@ import "forge-std/Script.sol";
 import "forge-std/console2.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import "../contracts/common/AddressResolver.sol";
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/bridge/TokenVault.sol";
 import "../contracts/signal/SignalService.sol";
-import "../contracts/thirdparty/AddressManager.sol";
+import "../contracts/common/AddressManager.sol";
 import "../contracts/test/erc20/FreeMintERC20.sol";
 import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
 import "../test/LibLn.sol";
 
-contract DeployOnL1 is Script, AddressResolver {
+contract DeployOnL1 is Script {
     using SafeCastUpgradeable for uint256;
-
-    uint256 public l2ChainId = vm.envUint("L2_CHAIN_ID");
 
     bytes32 public genesisHash = vm.envBytes32("L2_GENESIS_HASH");
 
     uint256 public deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
     address public taikoL2Address = vm.envAddress("TAIKO_L2_ADDRESS");
+
+    address public l2SignalService = vm.envAddress("L2_SIGNAL_SERVICE");
 
     address public owner = vm.envAddress("OWNER");
 
@@ -58,9 +57,9 @@ contract DeployOnL1 is Script, AddressResolver {
     error FAILED_TO_DEPLOY_PLONK_VERIFIER(string contractPath);
 
     function run() external {
-        require(l2ChainId != block.chainid, "same chainid");
         require(owner != address(0), "owner is zero");
         require(taikoL2Address != address(0), "taikoL2Address is zero");
+        require(l2SignalService != address(0), "l2SignalService is zero");
         require(treasure != address(0), "treasure is zero");
         require(
             taikoTokenPremintRecipient != address(0),
@@ -81,7 +80,13 @@ contract DeployOnL1 is Script, AddressResolver {
             bytes.concat(addressManager.init.selector)
         );
 
+        // TaikoL1
+        taikoL1 = new TaikoL1();
+        uint256 l2ChainId = taikoL1.getConfig().chainId;
+        require(l2ChainId != block.chainid, "same chainid");
+
         setAddress(l2ChainId, "taiko", taikoL2Address);
+        setAddress(l2ChainId, "signal_service", l2SignalService);
         setAddress("oracle_prover", oracleProver);
         setAddress("solo_proposer", soloProposer);
         setAddress(l2ChainId, "treasure", treasure);
@@ -117,9 +122,6 @@ contract DeployOnL1 is Script, AddressResolver {
             new MayFailFreeMintERC20("Bull Token", "BLL")
         );
         console.log("BullToken", bullToken);
-
-        // TaikoL1
-        taikoL1 = new TaikoL1();
 
         uint64 feeBase = 1 ** 8; // Taiko Token's decimals is 8, not 18
 
@@ -247,10 +249,16 @@ contract DeployOnL1 is Script, AddressResolver {
 
         if (addressManagerProxy != address(0)) {
             AddressManager(addressManagerProxy).setAddress(
-                keyForName(block.chainid, name),
+                block.chainid,
+                name,
                 proxy
             );
         }
+
+        vm.writeJson(
+            vm.serializeAddress("deployment", name, proxy),
+            string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
+        );
     }
 
     function setAddress(string memory name, address addr) private {
@@ -264,10 +272,7 @@ contract DeployOnL1 is Script, AddressResolver {
     ) private {
         console.log(chainId, name, "--->", addr);
         if (addr != address(0)) {
-            AddressManager(addressManagerProxy).setAddress(
-                keyForName(chainId, name),
-                addr
-            );
+            AddressManager(addressManagerProxy).setAddress(chainId, name, addr);
         }
     }
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import {AddressManager} from "../contracts/thirdparty/AddressManager.sol";
+import {AddressManager} from "../contracts/common/AddressManager.sol";
 import {AddressResolver} from "../contracts/common/AddressResolver.sol";
 import {Bridge} from "../contracts/bridge/Bridge.sol";
 import {BridgedERC20} from "../contracts/bridge/BridgedERC20.sol";
@@ -62,28 +62,24 @@ contract TestSignalService is Test {
         xChainSync = new PrankXchainSync();
 
         addressManager.setAddress(
-            string(
-                bytes.concat(bytes32(block.chainid), bytes("signal_service"))
-            ),
+            block.chainid,
+            "signal_service",
             address(signalService)
         );
 
         addressManager.setAddress(
-            string(bytes.concat(bytes32(destChainId), bytes("signal_service"))),
+            destChainId,
+            "signal_service",
             address(destSignalService)
         );
 
         addressManager.setAddress(
-            string(
-                bytes.concat(bytes32(block.chainid), bytes("signal_service"))
-            ),
+            block.chainid,
+            "signal_service",
             address(signalService)
         );
 
-        addressManager.setAddress(
-            string(bytes.concat(bytes32(destChainId), bytes("taiko"))),
-            address(xChainSync)
-        );
+        addressManager.setAddress(destChainId, "taiko", address(xChainSync));
 
         vm.stopPrank();
     }

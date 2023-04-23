@@ -26,30 +26,22 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
-      - name: protocol - Unit Tests (foundry)
-        run: forge test -vvv
-
-      - name: protocol - Run snapshot (foundry)
-        run: forge snapshot
-
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
-      - name: protocol - Compile (hardhat)
-        working-directory: ./packages/protocol
-        run: pnpm run compile
+      - name: protocol - Unit Tests
+        run: pnpm test
 
-      - name: protocol - Test Coverage (foundry)
+      - name: protocol - Run snapshot
+        run: forge snapshot
+
+      - name: protocol - Test Coverage
         working-directory: ./packages/protocol
         run: pnpm coverage
 
       - name: protocol - Generate Genesis (foundry)
         working-directory: ./packages/protocol
         run: pnpm test:genesis
-
-      # - name: protocol - Export ABIs
-      #   working-directory: ./packages/protocol
-      #   run: pnpm export:abi
 
       - name: protocol - Deploy L1 Contracts
         working-directory: ./packages/protocol
@@ -58,7 +50,7 @@ jobs:
           while ! nc -z localhost 8545; do
             sleep 1
           done
-          pnpm deploy:foundry
+          pnpm deploy
 
       - name: protocol - Upload coverage to Codecov
         uses: codecov/codecov-action@v3

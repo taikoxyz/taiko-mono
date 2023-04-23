@@ -38,43 +38,6 @@ library LibProving {
         uint256 blockId,
         TaikoData.BlockEvidence memory evidence
     ) internal {
-        bool isOracleProof = evidence.prover == address(0);
-
-        if (isOracleProof) {
-            address oracleProver = resolver.resolve("oracle_prover", true);
-            if (oracleProver == address(0)) revert L1_ORACLE_DISABLED();
-
-            if (msg.sender != oracleProver) {
-                if (evidence.zkproof.data.length == 64) {
-                    uint8 v = uint8(evidence.zkproof.verifierId);
-                    bytes32 r;
-                    bytes32 s;
-                    bytes memory data = evidence.zkproof.data;
-                    assembly {
-                        r := mload(add(data, 32))
-                        s := mload(add(data, 64))
-                    }
-
-                    // clear the proof before hasing evidence
-                    evidence.zkproof.data = new bytes(0);
-                    evidence.zkproof.verifierId = 0;
-
-                    if (
-                        oracleProver !=
-                        ecrecover(keccak256(abi.encode(evidence)), v, r, s)
-                    ) revert L1_NOT_ORACLE_PROVER();
-                } else {
-                    revert L1_NOT_ORACLE_PROVER();
-                }
-            }
-        }
-
-        if (
-            evidence.meta.id != blockId ||
-            evidence.meta.id <= state.lastVerifiedBlockId ||
-            evidence.meta.id >= state.numBlocks
-        ) revert L1_BLOCK_ID();
-
         if (
             evidence.parentHash == 0 ||
             evidence.blockHash == 0 ||
@@ -83,16 +46,46 @@ library LibProving {
             evidence.gasUsed == 0
         ) revert L1_INVALID_EVIDENCE();
 
+        if (blockId <= state.lastVerifiedBlockId || blockId >= state.numBlocks)
+            revert L1_BLOCK_ID();
+
         TaikoData.Block storage blk = state.blocks[
-            evidence.meta.id % config.ringBufferSize
+            blockId % config.ringBufferSize
         ];
 
-        {
-            // Check the metadata matches the block's metadata. This is very
-            // necessary even for the oracle-proof to handle chain reorgs.
-            bytes32 _metaHash = LibUtils.hashMetadata(evidence.meta);
-            if (blk.metaHash != _metaHash)
-                revert L1_EVIDENCE_MISMATCH(blk.metaHash, _metaHash);
+        // Check the metadata hash matches the proposed block's. This is
+        // necessary to handle chain reorgs.
+        if (blk.metaHash != evidence.metaHash)
+            revert L1_EVIDENCE_MISMATCH(blk.metaHash, evidence.metaHash);
+
+        bool isOracleProof = evidence.prover == address(0);
+
+        if (isOracleProof) {
+            address oracleProver = resolver.resolve("oracle_prover", true);
+            if (oracleProver == address(0)) revert L1_ORACLE_DISABLED();
+            if (msg.sender != oracleProver) {
+                if (evidence.proof.length == 64) {
+                    uint8 v = uint8(evidence.verifierId);
+                    bytes32 r;
+                    bytes32 s;
+                    bytes memory data = evidence.proof;
+                    assembly {
+                        r := mload(add(data, 32))
+                        s := mload(add(data, 64))
+                    }
+
+                    // clear the proof before hasing evidence
+                    evidence.verifierId = 0;
+                    evidence.proof = new bytes(0);
+
+                    if (
+                        oracleProver !=
+                        ecrecover(keccak256(abi.encode(evidence)), v, r, s)
+                    ) revert L1_NOT_ORACLE_PROVER();
+                }
+            } else {
+                revert L1_NOT_ORACLE_PROVER();
+            }
         }
 
         TaikoData.ForkChoice storage fc;
@@ -138,48 +131,43 @@ library LibProving {
 
         if (!isOracleProof) {
             bytes32 instance;
-            {
-                // otherwise: stack too deep
-                address l1SignalService = resolver.resolve(
-                    "signal_service",
-                    false
-                );
-                address l2SignalService = resolver.resolve(
+
+            // Set state.staticRefs
+            if (state.staticRefs == 0) {
+                address[3] memory addresses;
+                addresses[0] = resolver.resolve("signal_service", false);
+                addresses[1] = resolver.resolve(
                     config.chainId,
                     "signal_service",
                     false
                 );
-                address taikoL2 = resolver.resolve(
-                    config.chainId,
-                    "taiko_l2",
-                    false
-                );
-
-                uint256[9] memory inputs;
-                inputs[0] = uint160(l1SignalService);
-                inputs[1] = uint160(l2SignalService);
-                inputs[2] = uint160(taikoL2);
-                inputs[3] = uint256(evidence.parentHash);
-                inputs[4] = uint256(evidence.blockHash);
-                inputs[5] = uint256(evidence.signalRoot);
-                inputs[6] = uint256(evidence.graffiti);
-                inputs[7] =
-                    (uint256(uint160(evidence.prover)) << 96) |
-                    (uint256(evidence.parentGasUsed) << 64) |
-                    (uint256(evidence.gasUsed) << 32);
-                inputs[8] = uint256(blk.metaHash);
-
+                addresses[2] = resolver.resolve(config.chainId, "taiko", false);
+                bytes32 staticRefs;
                 assembly {
-                    instance := keccak256(inputs, mul(32, 9))
+                    staticRefs := keccak256(addresses, mul(32, 3))
                 }
+                state.staticRefs = staticRefs;
+            }
+
+            uint256[7] memory inputs;
+            inputs[0] = uint256(state.staticRefs);
+            inputs[1] = uint256(blk.metaHash);
+            inputs[2] = uint256(evidence.parentHash);
+            inputs[3] = uint256(evidence.blockHash);
+            inputs[4] = uint256(evidence.signalRoot);
+            inputs[5] = uint256(evidence.graffiti);
+            inputs[6] =
+                (uint256(uint160(evidence.prover)) << 96) |
+                (uint256(evidence.parentGasUsed) << 64) |
+                (uint256(evidence.gasUsed) << 32);
+
+            assembly {
+                instance := keccak256(inputs, mul(32, 7))
             }
 
             (bool verified, bytes memory ret) = resolver
-                .resolve(
-                    LibUtils.getVerifierName(evidence.zkproof.verifierId),
-                    false
-                )
-                .staticcall(bytes.concat(instance, evidence.zkproof.data));
+                .resolve(LibUtils.getVerifierName(evidence.verifierId), false)
+                .staticcall(bytes.concat(instance, evidence.proof));
 
             if (
                 !verified ||

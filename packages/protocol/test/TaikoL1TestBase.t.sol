@@ -3,7 +3,8 @@ pragma solidity ^0.8.18;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {AddressManager} from "../contracts/thirdparty/AddressManager.sol";
+import {AddressManager} from "../contracts/common/AddressManager.sol";
+import {LibUtils} from "../contracts/L1/libs/LibUtils.sol";
 import {TaikoConfig} from "../contracts/L1/TaikoConfig.sol";
 import {TaikoData} from "../contracts/L1/TaikoData.sol";
 import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
@@ -33,7 +34,7 @@ abstract contract TaikoL1TestBase is Test {
     address public constant L2Treasure =
         0x859d74b52762d9ed07D1b2B8d7F93d26B1EA78Bb;
     address public constant L2SS = 0xa008AE5Ba00656a3Cc384de589579e3E52aC030C;
-    address public constant L2TaikoL2 =
+    address public constant TaikoL2 =
         0x0082D90249342980d011C58105a03b35cCb4A315;
     address public constant L1EthVault =
         0xDAFEA492D9c6733ae3d56b7Ed1ADB60692c98Bc5;
@@ -54,20 +55,25 @@ abstract contract TaikoL1TestBase is Test {
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
 
     function setUp() public virtual {
-        // vm.warp(1000000);
+        L1 = deployTaikoL1();
+        conf = L1.getConfig();
+
         addressManager = new AddressManager();
         addressManager.init();
 
-        L1 = deployTaikoL1();
-        L1.init(
-            address(addressManager),
-            GENESIS_BLOCK_HASH,
-            feeBase,
-            initProofTimeIssued
-        );
-        conf = L1.getConfig();
+        ss = new SignalService();
+        ss.init(address(addressManager));
+
+        registerAddress("signal_service", address(ss));
+        registerAddress("ether_vault", address(L1EthVault));
+        registerL2Address("treasure", L2Treasure);
+        registerL2Address("taiko", address(TaikoL2));
+        registerL2Address("signal_service", address(L2SS));
+        registerL2Address("taiko_l2", address(TaikoL2));
+        registerAddress(L1.getVerifierName(100), address(new Verifier()));
 
         tko = new TaikoToken();
+        registerAddress("taiko_token", address(tko));
         address[] memory premintRecipients;
         uint256[] memory premintAmounts;
         tko.init(
@@ -78,23 +84,18 @@ abstract contract TaikoL1TestBase is Test {
             premintAmounts
         );
 
-        ss = new SignalService();
-        ss.init(address(addressManager));
-
-        // set proto_broker to this address to mint some TKO
+        // Set protocol broker
         registerAddress("proto_broker", address(this));
         tko.mint(address(this), 1E9 * 1E8);
-
-        // register all addresses
-        registerAddress("taiko_token", address(tko));
         registerAddress("proto_broker", address(L1));
-        registerAddress("signal_service", address(ss));
-        registerAddress("ether_vault", address(L1EthVault));
-        registerL2Address("treasure", L2Treasure);
-        registerL2Address("signal_service", address(L2SS));
-        registerL2Address("taiko_l2", address(L2TaikoL2));
-        registerAddress(L1.getVerifierName(100), address(new Verifier()));
 
+        // Lastly, init L1
+        L1.init(
+            address(addressManager),
+            GENESIS_BLOCK_HASH,
+            feeBase,
+            initProofTimeIssued
+        );
         printVariables("init  ");
     }
 
@@ -147,21 +148,17 @@ abstract contract TaikoL1TestBase is Test {
         bytes32 signalRoot,
         bool oracle
     ) internal {
-        TaikoData.ZKProof memory zkproof = TaikoData.ZKProof({
-            data: new bytes(100),
-            verifierId: 100
-        });
-
         TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
-            meta: meta,
-            zkproof: zkproof,
+            metaHash: LibUtils.hashMetadata(meta),
             parentHash: parentHash,
             blockHash: blockHash,
             signalRoot: signalRoot,
             graffiti: 0x0,
             prover: oracle ? address(0) : prover,
             parentGasUsed: parentGasUsed,
-            gasUsed: gasUsed
+            gasUsed: gasUsed,
+            verifierId: 100,
+            proof: new bytes(100)
         });
 
         vm.prank(prover, prover);
@@ -174,15 +171,13 @@ abstract contract TaikoL1TestBase is Test {
     }
 
     function registerAddress(string memory name, address addr) internal {
-        string memory key = L1.keyForName(block.chainid, name);
-        addressManager.setAddress(key, addr);
-        console2.log(key, unicode"→", addr);
+        addressManager.setAddress(block.chainid, name, addr);
+        console2.log(block.chainid, name, unicode"→", addr);
     }
 
     function registerL2Address(string memory name, address addr) internal {
-        string memory key = L1.keyForName(conf.chainId, name);
-        addressManager.setAddress(key, addr);
-        console2.log(key, unicode"→", addr);
+        addressManager.setAddress(conf.chainId, name, addr);
+        console2.log(conf.chainId, name, unicode"→", addr);
     }
 
     function depositTaikoToken(

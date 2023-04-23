@@ -23,60 +23,18 @@ contract TestERC20 is ERC20 {
     }
 }
 
-contract TestSignalService is SignalService {
-    function keyForName(
-        uint256 chainId,
-        string memory name
-    ) public pure override returns (string memory key) {
-        key = string.concat(Strings.toString(chainId), ".", name);
-    }
-}
+contract TestSignalService is SignalService {}
 
-contract TestTokenVault is TokenVault {
-    function keyForName(
-        uint256 chainId,
-        string memory name
-    ) public pure override returns (string memory key) {
-        key = string.concat(Strings.toString(chainId), ".", name);
-    }
-}
+contract TestTokenVault is TokenVault {}
 
-contract TestEtherVault is EtherVault {
-    function keyForName(
-        uint256 chainId,
-        string memory name
-    ) public pure override returns (string memory key) {
-        key = string.concat(Strings.toString(chainId), ".", name);
-    }
-}
+contract TestEtherVault is EtherVault {}
 
-contract TestBridgedERC20 is BridgedERC20 {
-    function keyForName(
-        uint256 chainId,
-        string memory name
-    ) public pure override returns (string memory key) {
-        key = string.concat(Strings.toString(chainId), ".", name);
-    }
-}
+contract TestBridgedERC20 is BridgedERC20 {}
 
-contract TestBridge is Bridge {
-    function keyForName(
-        uint256 chainId,
-        string memory name
-    ) public pure override returns (string memory key) {
-        key = string.concat(Strings.toString(chainId), ".", name);
-    }
-}
+contract TestBridge is Bridge {}
 
 contract TestTaikoToken is TaikoToken {
     function mintAnyone(address account, uint256 amount) public {
         _mint(account, amount);
-    }
-
-    function keyForName(
-        uint256 chainId,
-        string memory name
-    ) public pure override returns (string memory key) {
-        key = string.concat(Strings.toString(chainId), ".", name);
     }
 }

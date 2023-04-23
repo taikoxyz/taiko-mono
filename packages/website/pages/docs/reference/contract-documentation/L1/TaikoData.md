@@ -77,21 +77,11 @@ struct BlockMetadata {
 }
 ```
 
-### ZKProof
-
-```solidity
-struct ZKProof {
-  bytes data;
-  uint16 verifierId;
-}
-```
-
 ### BlockEvidence
 
 ```solidity
 struct BlockEvidence {
-  struct TaikoData.BlockMetadata meta;
-  struct TaikoData.ZKProof zkproof;
+  bytes32 metaHash;
   bytes32 parentHash;
   bytes32 blockHash;
   bytes32 signalRoot;
@@ -99,6 +89,8 @@ struct BlockEvidence {
   address prover;
   uint32 parentGasUsed;
   uint32 gasUsed;
+  uint16 verifierId;
+  bytes proof;
 }
 ```
 
@@ -157,10 +149,11 @@ struct State {
   mapping(address => uint256) taikoTokenBalances;
   mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
   struct TaikoData.EthDeposit[] ethDeposits;
+  bytes32 staticRefs;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
-  uint64 __reserved61;
-  uint64 __reserved62;
+  uint64 __reserved71;
+  uint64 __reserved72;
   uint64 accProposedAt;
   uint64 accBlockFees;
   uint64 numBlocks;
@@ -168,7 +161,7 @@ struct State {
   uint64 basefee;
   uint64 proofTimeIssued;
   uint64 lastVerifiedBlockId;
-  uint64 __reserved81;
-  uint256[42] __gap;
+  uint64 __reserved91;
+  uint256[41] __gap;
 }
 ```
