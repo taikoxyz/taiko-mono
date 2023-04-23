@@ -18,7 +18,7 @@ import "../contracts/signal/SignalService.sol";
 import "../contracts/common/AddressManager.sol";
 import "../contracts/test/erc20/FreeMintERC20.sol";
 import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
-import "../test2/LibLn.sol";
+import "../test/LibLn.sol";
 
 contract DeployOnL1 is Script {
     using SafeCastUpgradeable for uint256;

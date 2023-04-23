@@ -22,7 +22,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
     string private configJSON =
         vm.readFile(
-            string.concat(vm.projectRoot(), "/test2/genesis/test_config.json")
+            string.concat(vm.projectRoot(), "/test/genesis/test_config.json")
         );
     string private genesisAllocJSON =
         vm.readFile(
