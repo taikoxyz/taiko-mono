@@ -20,8 +20,8 @@ block_gas_limit = 30000000 #30M
 
 fs_permissions = [
   { access = "read", path = "./out"},
-  { access = "read", path = "./test"},
   { access = "read-write", path = "./deployments"},
+  { access = "read", path = "./test"},
 ]
 
 fuzz = { runs = 256 }

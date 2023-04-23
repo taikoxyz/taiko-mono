@@ -48,7 +48,7 @@ echo '
 echo "Starting generate_genesis tests..."
 
 # compile the contracts to get latest bytecode
-rm -rf out && pnpm compile:foundry
+rm -rf out && pnpm compile
 
 # run the task
 pnpm run generate:genesis $DIR/test_config.json
