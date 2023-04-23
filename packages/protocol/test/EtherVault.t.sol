@@ -2,7 +2,7 @@
 pragma solidity ^0.8.18;
 
 import {Test} from "forge-std/Test.sol";
-import {AddressManager} from "../contracts/thirdparty/AddressManager.sol";
+import {AddressManager} from "../contracts/common/AddressManager.sol";
 import {EtherVault} from "../contracts/bridge/EtherVault.sol";
 import {BridgeErrors} from "../contracts/bridge/BridgeErrors.sol";
 

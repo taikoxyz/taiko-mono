@@ -20,7 +20,8 @@ async function deploySignalService(
     await signalService.connect(signer).init(addressManager.address);
 
     await addressManager.setAddress(
-        `${srcChain}.signal_service`,
+        srcChain,
+        `signal_service`,
         signalService.address
     );
     return { signalService };

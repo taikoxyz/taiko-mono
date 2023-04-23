@@ -72,14 +72,8 @@ library TaikoData {
         TaikoData.EthDeposit[] depositsProcessed;
     }
 
-    struct ZKProof {
-        bytes data;
-        uint16 verifierId;
-    }
-
     struct BlockEvidence {
-        TaikoData.BlockMetadata meta;
-        ZKProof zkproof;
+        bytes32 metaHash;
         bytes32 parentHash;
         bytes32 blockHash;
         bytes32 signalRoot;
@@ -87,6 +81,8 @@ library TaikoData {
         address prover;
         uint32 parentGasUsed;
         uint32 gasUsed;
+        uint16 verifierId;
+        bytes proof;
     }
 
     // 4 slots
@@ -133,22 +129,24 @@ library TaikoData {
         mapping(address account => uint256 balance) taikoTokenBalances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         EthDeposit[] ethDeposits;
-        // Slot 6: never or rarely changed
+        bytes32 staticRefs;
+        // Never or rarely changed
+        // Slot 7: never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 __reserved61;
-        uint64 __reserved62;
-        // Slot 7
+        uint64 __reserved71;
+        uint64 __reserved72;
+        // Slot 8
         uint64 accProposedAt;
         uint64 accBlockFees;
         uint64 numBlocks;
         uint64 nextEthDepositToProcess;
-        // Slot 8
+        // Slot 9
         uint64 basefee;
         uint64 proofTimeIssued;
         uint64 lastVerifiedBlockId;
-        uint64 __reserved81;
+        uint64 __reserved91;
         // Reserved
-        uint256[42] __gap;
+        uint256[41] __gap;
     }
 }

@@ -8,7 +8,7 @@ import "../../contracts/common/AddressResolver.sol";
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 import {TaikoL2} from "../../contracts/L2/TaikoL2.sol";
-import {AddressManager} from "../../contracts/thirdparty/AddressManager.sol";
+import {AddressManager} from "../../contracts/common/AddressManager.sol";
 import {Bridge} from "../../contracts/bridge/Bridge.sol";
 import {TokenVault} from "../../contracts/bridge/TokenVault.sol";
 import {EtherVault} from "../../contracts/bridge/EtherVault.sol";
@@ -22,7 +22,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
     string private configJSON =
         vm.readFile(
-            string.concat(vm.projectRoot(), "/test2/genesis/test_config.json")
+            string.concat(vm.projectRoot(), "/test/genesis/test_config.json")
         );
     string private genesisAllocJSON =
         vm.readFile(
@@ -147,11 +147,8 @@ contract TestGenerateGenesis is Test, AddressResolver {
         assertEq(owner, tokenVault.owner());
 
         vm.startPrank(addressManager.owner());
-        addressManager.setAddress(keyForName(1, "bridge"), bridgeAddress);
-        addressManager.setAddress(
-            keyForName(1, "token_vault"),
-            tokenVaultAddress
-        );
+        addressManager.setAddress(1, "bridge", bridgeAddress);
+        addressManager.setAddress(1, "token_vault", tokenVaultAddress);
         vm.stopPrank();
     }
 
@@ -199,7 +196,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
     ) private {
         assertEq(
             getPredeployedContractAddress(contractName),
-            addressManager.getAddress(keyForName(block.chainid, key))
+            addressManager.getAddress(block.chainid, key)
         );
     }
 }

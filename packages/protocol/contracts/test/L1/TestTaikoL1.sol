@@ -29,12 +29,4 @@ contract TestTaikoL1 is TaikoL1 {
         config.maxBytesPerTxList = 120000;
         config.minTxGasLimit = 21000;
     }
-
-    // The old implementation that is also used in hardhat tests.
-    function keyForName(
-        uint256 chainId,
-        string memory name
-    ) public pure override returns (string memory key) {
-        key = string.concat(Strings.toString(chainId), ".", name);
-    }
 }

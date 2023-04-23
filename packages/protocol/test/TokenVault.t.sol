@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import {AddressManager} from "../contracts/thirdparty/AddressManager.sol";
+import {AddressManager} from "../contracts/common/AddressManager.sol";
 import {AddressResolver} from "../contracts/common/AddressResolver.sol";
 import {Bridge} from "../contracts/bridge/Bridge.sol";
 import {BridgedERC20} from "../contracts/bridge/BridgedERC20.sol";
@@ -94,30 +94,29 @@ contract TestTokenVault is Test {
         signalService = new SignalService();
         signalService.init(address(addressManager));
 
-        addressManager.setAddress(
-            string(bytes.concat(bytes32(block.chainid), bytes("bridge"))),
-            address(bridge)
-        );
+        addressManager.setAddress(block.chainid, "bridge", address(bridge));
 
         addressManager.setAddress(
-            string(
-                bytes.concat(bytes32(block.chainid), bytes("signal_service"))
-            ),
+            block.chainid,
+            "signal_service",
             address(signalService)
         );
 
         addressManager.setAddress(
-            string(bytes.concat(bytes32(block.chainid), bytes("token_vault"))),
+            block.chainid,
+            "token_vault",
             address(tokenVault)
         );
 
         addressManager.setAddress(
-            string(bytes.concat(bytes32(destChainId), bytes("token_vault"))),
+            destChainId,
+            "token_vault",
             address(destChainIdTokenVault)
         );
 
         addressManager.setAddress(
-            string(bytes.concat(bytes32(destChainId), bytes("bridge"))),
+            destChainId,
+            "bridge",
             address(destChainIdBridge)
         );
 

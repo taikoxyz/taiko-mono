@@ -64,7 +64,8 @@ async function initIntegrationFixture(mintTkoToProposer: boolean) {
 
     await (
         await l1AddressManager.setAddress(
-            `${chainId}.taiko_token`,
+            chainId,
+            `taiko_token`,
             taikoTokenL1.address
         )
     ).wait(1);
@@ -72,12 +73,13 @@ async function initIntegrationFixture(mintTkoToProposer: boolean) {
     const { chainId: l2ChainId } = await l2Provider.getNetwork();
 
     await (
-        await l1AddressManager.setAddress(`${l2ChainId}.taiko`, taikoL2.address)
+        await l1AddressManager.setAddress(l2ChainId, `taiko`, taikoL2.address)
     ).wait(1);
 
     await (
         await l1AddressManager.setAddress(
-            `${chainId}.proof_verifier`,
+            chainId,
+            `proof_verifier`,
             taikoL1.address
         )
     ).wait(1);

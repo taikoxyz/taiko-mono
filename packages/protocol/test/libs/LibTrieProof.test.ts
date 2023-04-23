@@ -33,12 +33,14 @@ describe("integration:LibTrieProof", function () {
         const enabledDestChainId = chainId + 1;
 
         await addressManager.setAddress(
-            `${chainId}.ether_vault`,
+            chainId,
+            `ether_vault`,
             "0xEA3dD11036f668F08940E13e3bcB097C93b09E07"
         );
 
         await addressManager.setAddress(
-            `${enabledDestChainId}.bridge`,
+            enabledDestChainId,
+            `bridge`,
             "0x0000000000000000000000000000000000000001" // dummy address so chain is "enabled"
         );
 

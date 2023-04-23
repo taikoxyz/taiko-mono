@@ -40,7 +40,8 @@ describe("BridgedERC20", function () {
         const network = await ethers.provider.getNetwork();
 
         await addressManager.setAddress(
-            `${network.chainId}.token_vault`,
+            network.chainId,
+            `token_vault`,
             tokenVault.address
         );
 

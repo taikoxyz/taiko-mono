@@ -3,7 +3,8 @@ pragma solidity ^0.8.18;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {AddressManager} from "../contracts/thirdparty/AddressManager.sol";
+import {AddressManager} from "../contracts/common/AddressManager.sol";
+import {LibUtils} from "../contracts/L1/libs/LibUtils.sol";
 import {TaikoConfig} from "../contracts/L1/TaikoConfig.sol";
 import {TaikoData} from "../contracts/L1/TaikoData.sol";
 import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
@@ -43,10 +44,7 @@ contract TaikoL1_OracleTest is TaikoL1TestBase {
 
     function setUp() public override {
         TaikoL1TestBase.setUp();
-        registerAddress(
-            string(abi.encodePacked("verifier_", uint16(100))),
-            address(new Verifier())
-        );
+        registerAddress(L1.getVerifierName(100), address(new Verifier()));
         registerAddress("oracle_prover", Alice);
     }
 
@@ -66,21 +64,17 @@ contract TaikoL1_OracleTest is TaikoL1TestBase {
             false
         );
 
-        TaikoData.ZKProof memory zkproof = TaikoData.ZKProof({
-            data: new bytes(0),
-            verifierId: 0
-        });
-
         TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
-            meta: meta,
-            zkproof: zkproof,
+            metaHash: LibUtils.hashMetadata(meta),
             parentHash: GENESIS_BLOCK_HASH,
             blockHash: bytes32(uint256(0x11)),
             signalRoot: bytes32(uint256(0x12)),
             graffiti: 0x0,
             prover: address(0),
             parentGasUsed: 10000,
-            gasUsed: 40000
+            gasUsed: 40000,
+            verifierId: 0,
+            proof: new bytes(0)
         });
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(
@@ -88,8 +82,8 @@ contract TaikoL1_OracleTest is TaikoL1TestBase {
             keccak256(abi.encode(evidence))
         );
 
-        zkproof.verifierId = v;
-        zkproof.data = bytes.concat(r, s);
+        evidence.verifierId = v;
+        evidence.proof = bytes.concat(r, s);
 
         vm.prank(Carol, Carol);
         L1.proveBlock(meta.id, abi.encode(evidence));
