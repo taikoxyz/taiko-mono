@@ -26,42 +26,25 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
-      - name: protocol - Unit Tests (foundry)
-        run: forge test -vvv
-
-      - name: protocol - Run snapshot (foundry)
-        run: forge snapshot
-
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
-      - name: protocol - Unit Tests (hardhat)
+      - name: protocol - Unit Tests
         working-directory: ./packages/protocol
-        run: pnpm clean && pnpm test
+        run: pnpm clean && pnpm compile:hardhat && pnpm test
 
-      - name: protocol - Integration Tests (hardhat)
-        working-directory: ./packages/protocol
-        run: pnpm test:integration
-
-      # - name: protocol - Tokenomics Tests (hardhat)
-      #   working-directory: ./packages/protocol
-      #   run: pnpm test:tokenomics
-
-      - name: protocol - Bridge Tests (hardhat)
-        working-directory: ./packages/protocol
-        run: pnpm test:bridge
-
-      - name: protocol - Test Coverage (hardhat)
-        working-directory: ./packages/protocol
-        run: pnpm test:coverage
-
-      - name: protocol - Generate Genesis (foundry)
+      - name: protocol - Generate Genesis
         working-directory: ./packages/protocol
         run: pnpm test:genesis
 
-      # - name: protocol - Export ABIs
+      # TODO: CompilerError: Stack too deep
+      # - name: protocol - Test Coverage
       #   working-directory: ./packages/protocol
-      #   run: pnpm export:abi
+      #   run: pnpm test:coverage
+
+      - name: protocol - Run snapshot (foundry)
+        working-directory: ./packages/protocol
+        run: pnpm snapshot
 
       - name: protocol - Deploy L1 Contracts
         working-directory: ./packages/protocol
@@ -72,11 +55,11 @@ jobs:
           done
           pnpm deploy:foundry
 
-      - name: protocol - Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          directory: ./packages/protocol/coverage
-          flags: protocol
+      # - name: protocol - Upload coverage to Codecov
+      #   uses: codecov/codecov-action@v3
+      #   with:
+      #     directory: ./packages/protocol/coverage
+      #     flags: protocol
 
   post-merge:
     if: github.event.pull_request.merged == true

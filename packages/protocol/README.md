@@ -66,7 +66,7 @@ The script will output two JSON files under `./deployments`:
 
 This project also integrates with Foundry for building and testing contracts.
 
-- To compile using foundry: `forge build` or `pnpm compile:foundry`
+- To compile using foundry: `forge build` or `pnpm compile`
 - To run foundry tests: `forge test --gas-report -vvv` or `pnpm test:foundry`
 
 Note that compiling with foundry uses dependencies inside the `lib` dir (instead of `node_modules`).
