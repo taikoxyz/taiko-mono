@@ -32,14 +32,14 @@ jobs:
       - name: protocol - Unit Tests
         run: pnpm test
 
-      - name: protocol - Run snapshot
+      - name: protocol - Run Snapshot
         run: forge snapshot
 
       - name: protocol - Test Coverage
         working-directory: ./packages/protocol
         run: pnpm coverage
 
-      - name: protocol - Generate Genesis (foundry)
+      - name: protocol - Generate Genesis
         working-directory: ./packages/protocol
         run: pnpm test:genesis
 
@@ -52,7 +52,7 @@ jobs:
           done
           pnpm deploy
 
-      - name: protocol - Upload coverage to Codecov
+      - name: protocol - Upload Coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
           directory: ./packages/protocol
