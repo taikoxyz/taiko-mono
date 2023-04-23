@@ -29,6 +29,8 @@ contract DeployOnL1 is Script {
 
     address public taikoL2Address = vm.envAddress("TAIKO_L2_ADDRESS");
 
+    address public l2SignalService = vm.envAddress("L2_SIGNAL_SERVICE");
+
     address public owner = vm.envAddress("OWNER");
 
     address public oracleProver = vm.envAddress("ORACLE_PROVER");
@@ -57,6 +59,7 @@ contract DeployOnL1 is Script {
     function run() external {
         require(owner != address(0), "owner is zero");
         require(taikoL2Address != address(0), "taikoL2Address is zero");
+        require(l2SignalService != address(0), "l2SignalService is zero");
         require(treasure != address(0), "treasure is zero");
         require(
             taikoTokenPremintRecipient != address(0),
@@ -83,6 +86,7 @@ contract DeployOnL1 is Script {
         require(l2ChainId != block.chainid, "same chainid");
 
         setAddress(l2ChainId, "taiko", taikoL2Address);
+        setAddress(l2ChainId, "signal_service", l2SignalService);
         setAddress("oracle_prover", oracleProver);
         setAddress("solo_proposer", soloProposer);
         setAddress(l2ChainId, "treasure", treasure);
@@ -250,6 +254,11 @@ contract DeployOnL1 is Script {
                 proxy
             );
         }
+
+        vm.writeJson(
+            vm.serializeAddress("deployment", name, proxy),
+            string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
+        );
     }
 
     function setAddress(string memory name, address addr) private {
