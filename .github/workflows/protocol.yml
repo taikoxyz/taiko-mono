@@ -32,16 +32,16 @@ jobs:
       - name: protocol - Unit Tests
         run: pnpm test
 
+      - name: protocol - Generate Genesis
+        working-directory: ./packages/protocol
+        run: pnpm test:genesis
+
       - name: protocol - Run Snapshot
         run: forge snapshot
 
       - name: protocol - Test Coverage
         working-directory: ./packages/protocol
         run: pnpm coverage
-
-      - name: protocol - Generate Genesis
-        working-directory: ./packages/protocol
-        run: pnpm test:genesis
 
       - name: protocol - Deploy L1 Contracts
         working-directory: ./packages/protocol
