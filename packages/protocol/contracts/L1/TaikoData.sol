@@ -7,11 +7,6 @@
 pragma solidity ^0.8.18;
 
 library TaikoData {
-    struct FeeConfig {
-        uint16 avgTimeMAF;
-        uint16 dampingFactorBips;
-    }
-
     struct Config {
         uint256 chainId;
         uint256 maxNumProposedBlocks;
@@ -24,30 +19,31 @@ library TaikoData {
         uint256 maxTransactionsPerBlock;
         uint256 maxBytesPerTxList;
         uint256 minTxGasLimit;
-        uint256 slotSmoothingFactor;
-        uint256 rewardBurnBips;
-        uint256 proposerDepositPctg;
-        // Moving average factors
-        uint256 feeBaseMAF;
         uint256 txListCacheExpiry;
+        uint64 minEthDepositsPerBlock;
+        uint64 maxEthDepositsPerBlock;
+        uint96 maxEthDepositAmount;
+        uint96 minEthDepositAmount;
+        uint64 proofTimeTarget;
+        uint8 adjustmentQuotient;
         bool relaySignalRoot;
         bool enableSoloProposer;
         bool enableOracleProver;
         bool enableTokenomics;
         bool skipZKPVerification;
-        FeeConfig proposingConfig;
-        FeeConfig provingConfig;
     }
 
     struct StateVariables {
-        uint64 feeBase;
+        uint64 basefee;
+        uint64 accBlockFees;
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 numBlocks;
+        uint64 proofTimeIssued;
         uint64 lastVerifiedBlockId;
-        uint64 avgBlockTime;
-        uint64 avgProofTime;
-        uint64 lastProposedAt;
+        uint64 accProposedAt;
+        uint64 nextEthDepositToProcess;
+        uint64 numEthDeposits;
     }
 
     // 3 slots
@@ -60,7 +56,6 @@ library TaikoData {
         uint8 cacheTxListInfo; // non-zero = True
     }
 
-    // 6 slots
     // Changing this struct requires changing LibUtils.hashMetadata accordingly.
     struct BlockMetadata {
         uint64 id;
@@ -68,6 +63,7 @@ library TaikoData {
         uint64 l1Height;
         bytes32 l1Hash;
         bytes32 mixHash;
+        bytes32 depositsRoot; // match L2 header's withdrawalsRoot
         bytes32 txListHash;
         uint24 txListByteStart;
         uint24 txListByteEnd;
@@ -75,6 +71,7 @@ library TaikoData {
         address beneficiary;
         uint8 cacheTxListInfo;
         address treasure;
+        TaikoData.EthDeposit[] depositsProcessed;
     }
 
     struct ZKProof {
@@ -135,32 +132,36 @@ library TaikoData {
         uint24 size;
     }
 
+    // 1 slot
+    struct EthDeposit {
+        address recipient;
+        uint96 amount;
+    }
+
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint256 blockId_mode_ringBufferSize => Block) blocks;
         // solhint-disable-next-line max-line-length
         mapping(uint256 blockId => mapping(bytes32 parentHash => mapping(uint32 parentGasUsed => uint256 forkChoiceId))) forkChoiceIds;
-        mapping(address account => uint256 balance) balances;
+        mapping(address account => uint256 balance) taikoTokenBalances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
-        // Never or rarely changed
+        EthDeposit[] ethDeposits;
+        // Slot 6: never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 __reserved1;
-        uint64 __reserved2;
-        // Changed when a block is proposed or proven/verified
-        // Changed when a block is proposed
+        uint64 __reserved61;
+        uint64 __reserved62;
+        // Slot 7
+        uint64 accProposedAt;
+        uint64 accBlockFees;
         uint64 numBlocks;
-        uint64 lastProposedAt; // Timestamp when the last block is proposed.
-        uint64 avgBlockTime; // miliseconds
-        uint64 __reserved3;
-        // Changed when a block is proven/verified
+        uint64 nextEthDepositToProcess;
+        // Slot 8
+        uint64 basefee;
+        uint64 proofTimeIssued;
         uint64 lastVerifiedBlockId;
-        uint64 __reserved4;
-        // the proof time moving average, note that for each block, only the
-        // first proof's time is considered.
-        uint64 avgProofTime; // miliseconds
-        uint64 feeBase;
+        uint64 __reserved81;
         // Reserved
-        uint256[43] __gap;
+        uint256[42] __gap;
     }
 }

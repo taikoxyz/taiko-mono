@@ -13,6 +13,9 @@ import {
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {TaikoData} from "../TaikoData.sol";
 import {TaikoToken} from "../TaikoToken.sol";
+import {
+    LibFixedPointMath as Math
+} from "../../thirdparty/LibFixedPointMath.sol";
 
 library LibTokenomics {
     using LibMath for uint256;
@@ -20,16 +23,16 @@ library LibTokenomics {
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_PARAM();
 
-    function withdraw(
+    function withdrawTaikoToken(
         TaikoData.State storage state,
         AddressResolver resolver,
         uint256 amount
     ) internal {
-        uint256 balance = state.balances[msg.sender];
+        uint256 balance = state.taikoTokenBalances[msg.sender];
         if (balance < amount) revert L1_INSUFFICIENT_TOKEN();
 
         unchecked {
-            state.balances[msg.sender] -= amount;
+            state.taikoTokenBalances[msg.sender] -= amount;
         }
 
         TaikoToken(resolver.resolve("taiko_token", false)).mint(
@@ -38,7 +41,7 @@ library LibTokenomics {
         );
     }
 
-    function deposit(
+    function depositTaikoToken(
         TaikoData.State storage state,
         AddressResolver resolver,
         uint256 amount
@@ -48,112 +51,104 @@ library LibTokenomics {
                 msg.sender,
                 amount
             );
-            state.balances[msg.sender] += amount;
+            state.taikoTokenBalances[msg.sender] += amount;
         }
     }
 
-    function getBlockFee(
-        TaikoData.State storage state,
-        TaikoData.Config memory config
-    )
-        internal
-        view
-        returns (uint64 newFeeBase, uint64 fee, uint64 depositAmount)
-    {
-        (newFeeBase, ) = getTimeAdjustedFee({
-            feeConfig: config.proposingConfig,
-            feeBase: state.feeBase,
-            isProposal: true,
-            timeUsed: block.timestamp - state.lastProposedAt,
-            timeAverage: state.avgBlockTime
-        });
-        fee = getSlotsAdjustedFee({
-            state: state,
-            config: config,
-            isProposal: true,
-            feeBase: newFeeBase
-        });
-
-        unchecked {
-            depositAmount = uint64((config.proposerDepositPctg * fee) / 100);
-        }
-    }
-
+    /**
+     * Update the baseFee for proofs
+     *
+     * @param state The actual state data
+     * @param proofTime The actual proof time
+     * @return reward Amount of reward given - if blocked is proved and verified
+     */
     function getProofReward(
         TaikoData.State storage state,
-        TaikoData.Config memory config,
-        uint64 provenAt,
-        uint64 proposedAt
-    )
-        internal
-        view
-        returns (uint64 newFeeBase, uint64 reward, uint64 premiumRate)
-    {
-        if (proposedAt > provenAt) revert L1_INVALID_PARAM();
+        uint64 proofTime
+    ) internal view returns (uint64) {
+        uint64 numBlocksUnverified = state.numBlocks -
+            state.lastVerifiedBlockId -
+            1;
 
-        (newFeeBase, premiumRate) = getTimeAdjustedFee({
-            feeConfig: config.provingConfig,
-            feeBase: state.feeBase,
-            isProposal: false,
-            timeUsed: provenAt - proposedAt,
-            timeAverage: state.avgProofTime
-        });
-        reward = getSlotsAdjustedFee({
-            state: state,
-            config: config,
-            isProposal: false,
-            feeBase: newFeeBase
-        });
+        if (numBlocksUnverified == 0) {
+            return 0;
+        } else {
+            uint64 totalNumProvingSeconds = uint64(
+                uint256(numBlocksUnverified) *
+                    block.timestamp -
+                    state.accProposedAt
+            );
+            // If block timestamp is equal to state.accProposedAt (not really, but theoretically possible)
+            // there will be division by 0 error
+            if (totalNumProvingSeconds == 0) {
+                totalNumProvingSeconds = 1;
+            }
 
-        unchecked {
-            reward = uint64((reward * (10000 - config.rewardBurnBips)) / 10000);
+            return
+                uint64(
+                    (uint256(state.accBlockFees) * proofTime) /
+                        totalNumProvingSeconds
+                );
         }
     }
 
-    // Implement "Slot-availability Multipliers", see the whitepaper.
-    function getSlotsAdjustedFee(
+    /**
+     * Calculate the newProofTimeIssued and newBasefee
+     *
+     * @param state The actual state data
+     * @param config Config data
+     * @param proofTime The actual proof time
+     * @return newProofTimeIssued Accumulated proof time
+     * @return newBasefee New basefee
+     */
+    function getNewBaseFeeandProofTimeIssued(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        bool isProposal,
-        uint64 feeBase
-    ) internal view returns (uint64) {
-        unchecked {
-            // m is the `n'` in the whitepaper
-            uint256 m = 1000 *
-                config.maxNumProposedBlocks +
-                config.slotSmoothingFactor;
-            // n is the number of unverified blocks
-            uint256 n = 1000 *
-                (state.numBlocks - state.lastVerifiedBlockId - 1);
-            // k is `m − n + 1` or `m − n - 1`in the whitepaper
-            uint256 k = isProposal ? m - n - 1000 : m - n + 1000;
-            return uint64((feeBase * (m - 1000) * m) / (m - n) / k);
+        uint64 proofTime
+    ) internal view returns (uint64 newProofTimeIssued, uint64 newBasefee) {
+        newProofTimeIssued = (state.proofTimeIssued > config.proofTimeTarget)
+            ? state.proofTimeIssued - config.proofTimeTarget
+            : uint64(0);
+        newProofTimeIssued += proofTime;
+
+        uint256 x = (newProofTimeIssued * Math.SCALING_FACTOR_1E18) /
+            (config.proofTimeTarget * config.adjustmentQuotient);
+
+        if (Math.MAX_EXP_INPUT <= x) {
+            x = Math.MAX_EXP_INPUT;
         }
+
+        uint256 result = (uint256(Math.exp(int256(x))) /
+            Math.SCALING_FACTOR_1E18) /
+            (config.proofTimeTarget * config.adjustmentQuotient);
+
+        newBasefee = uint64(result.min(type(uint64).max));
     }
 
-    // Implement "Incentive Multipliers", see the whitepaper.
-    function getTimeAdjustedFee(
-        TaikoData.FeeConfig memory feeConfig,
-        uint64 feeBase,
-        bool isProposal,
-        uint256 timeUsed, // seconds
-        uint256 timeAverage // milliseconds
-    ) internal pure returns (uint64 newFeeBase, uint64 premiumRate) {
-        if (timeAverage == 0) {
-            return (feeBase, 0);
-        }
-        unchecked {
-            uint256 p = feeConfig.dampingFactorBips; // [0-10000]
-            uint256 a = timeAverage;
-            uint256 t = (timeUsed * 1000).min(a * 2); // millisconds
+    /**
+     * Calculating the exponential smoothened with (target/quotient)
+     *
+     * @param value Result of cumulativeProofTime
+     * @param target Target proof time
+     * @param quotient Quotient
+     * @return uint64 Calculated new basefee
+     */
+    function _calcBasefee(
+        uint256 value,
+        uint256 target,
+        uint256 quotient
+    ) private pure returns (uint64) {
+        uint256 x = (value * Math.SCALING_FACTOR_1E18) / (target * quotient);
 
-            newFeeBase = uint64((feeBase * (10000 + (t * p) / a - p)) / 10000);
-
-            if (isProposal) {
-                newFeeBase = (feeBase * 2) - newFeeBase;
-            } else if (p > 0) {
-                premiumRate = uint64(((t.max(a) - a) * 10000) / a);
-            }
+        if (Math.MAX_EXP_INPUT <= x) {
+            x = Math.MAX_EXP_INPUT;
         }
+
+        uint256 result = (uint256(Math.exp(int256(x))) /
+            Math.SCALING_FACTOR_1E18) / (target * quotient);
+
+        if (result > type(uint64).max) return type(uint64).max;
+
+        return uint64(result);
     }
 }

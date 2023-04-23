@@ -8,6 +8,7 @@ pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibAddress} from "../../libs/LibAddress.sol";
+import {LibEthDepositing} from "./LibEthDepositing.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {
@@ -40,7 +41,7 @@ library LibProposing {
         AddressResolver resolver,
         TaikoData.BlockMetadataInput memory input,
         bytes calldata txList
-    ) internal {
+    ) internal returns (TaikoData.BlockMetadata memory meta) {
         uint8 cacheTxListInfo = _validateBlock({
             state: state,
             config: config,
@@ -60,22 +61,24 @@ library LibProposing {
         // from the beacon chain. Since multiple Taiko blocks
         // can be proposed in one Ethereum block, we need to
         // add salt to this random number as L2 mixHash
-        TaikoData.BlockMetadata memory meta;
+
+        meta.id = state.numBlocks;
+        meta.txListHash = input.txListHash;
+        meta.txListByteStart = input.txListByteStart;
+        meta.txListByteEnd = input.txListByteEnd;
+        meta.gasLimit = input.gasLimit;
+        meta.beneficiary = input.beneficiary;
+        meta.treasure = resolver.resolve(config.chainId, "treasure", false);
+        meta.cacheTxListInfo = cacheTxListInfo;
+
+        (meta.depositsRoot, meta.depositsProcessed) = LibEthDepositing
+            .processDeposits(state, config, input.beneficiary);
+
         unchecked {
-            meta = TaikoData.BlockMetadata({
-                id: state.numBlocks,
-                timestamp: uint64(block.timestamp),
-                l1Height: uint64(block.number - 1),
-                l1Hash: blockhash(block.number - 1),
-                mixHash: bytes32(block.prevrandao * state.numBlocks),
-                txListHash: input.txListHash,
-                txListByteStart: input.txListByteStart,
-                txListByteEnd: input.txListByteEnd,
-                gasLimit: input.gasLimit,
-                beneficiary: input.beneficiary,
-                treasure: resolver.resolve(config.chainId, "treasure", false),
-                cacheTxListInfo: cacheTxListInfo
-            });
+            meta.timestamp = uint64(block.timestamp);
+            meta.l1Height = uint64(block.number - 1);
+            meta.l1Hash = blockhash(block.number - 1);
+            meta.mixHash = bytes32(block.prevrandao * state.numBlocks);
         }
 
         TaikoData.Block storage blk = state.blocks[
@@ -90,39 +93,13 @@ library LibProposing {
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.proposer = msg.sender;
 
-        if (config.enableTokenomics) {
-            (uint256 newFeeBase, uint256 fee, uint64 deposit) = LibTokenomics
-                .getBlockFee(state, config);
-
-            uint256 burnAmount = fee + deposit;
-            if (state.balances[msg.sender] < burnAmount)
-                revert L1_INSUFFICIENT_TOKEN();
-
-            unchecked {
-                state.balances[msg.sender] -= burnAmount;
-            }
-
-            // Update feeBase and avgBlockTime
-            state.feeBase = LibUtils
-                .movingAverage({
-                    maValue: state.feeBase,
-                    newValue: newFeeBase,
-                    maf: config.feeBaseMAF
-                })
-                .toUint64();
-
-            blk.deposit = uint64(deposit);
-        }
+        if (state.taikoTokenBalances[msg.sender] < state.basefee)
+            revert L1_INSUFFICIENT_TOKEN();
 
         unchecked {
-            state.avgBlockTime = LibUtils
-                .movingAverage({
-                    maValue: state.avgBlockTime,
-                    newValue: (meta.timestamp - state.lastProposedAt) * 1000,
-                    maf: config.proposingConfig.avgTimeMAF
-                })
-                .toUint64();
-            state.lastProposedAt = meta.timestamp;
+            state.taikoTokenBalances[msg.sender] -= state.basefee;
+            state.accBlockFees += state.basefee;
+            state.accProposedAt += meta.timestamp;
         }
 
         emit BlockProposed(state.numBlocks, meta);

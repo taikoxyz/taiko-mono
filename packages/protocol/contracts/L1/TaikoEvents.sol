@@ -21,4 +21,6 @@ abstract contract TaikoEvents {
     );
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
+
+    event EthDeposited(TaikoData.EthDeposit deposit);
 }

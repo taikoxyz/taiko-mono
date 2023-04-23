@@ -11,6 +11,12 @@ import {TaikoToken} from "../contracts/L1/TaikoToken.sol";
 import {SignalService} from "../contracts/signal/SignalService.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
+contract Verifier {
+    fallback(bytes calldata) external returns (bytes memory) {
+        return bytes.concat(keccak256("taiko"));
+    }
+}
+
 abstract contract TaikoL1TestBase is Test {
     AddressManager public addressManager;
     TaikoToken public tko;
@@ -29,12 +35,18 @@ abstract contract TaikoL1TestBase is Test {
     address public constant L2SS = 0xa008AE5Ba00656a3Cc384de589579e3E52aC030C;
     address public constant L2TaikoL2 =
         0x0082D90249342980d011C58105a03b35cCb4A315;
+    address public constant L1EthVault =
+        0xDAFEA492D9c6733ae3d56b7Ed1ADB60692c98Bc5;
 
     address public constant Alice = 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4;
     address public constant Bob = 0x200708D76eB1B69761c23821809d53F65049939e;
     address public constant Carol = 0x300C9b60E19634e12FC6D68B7FEa7bFB26c2E419;
     address public constant Dave = 0x400147C0Eb43D8D71b2B03037bB7B31f8f78EF5F;
     address public constant Eve = 0x50081b12838240B1bA02b3177153Bca678a86078;
+
+    // Calculation shall be done in derived contracts - based on testnet or mainnet expected proof time
+    uint64 public initProofTimeIssued;
+    uint8 public constant ADJUSTMENT_QUOTIENT = 16;
 
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
 
@@ -44,7 +56,12 @@ abstract contract TaikoL1TestBase is Test {
         addressManager.init();
 
         L1 = deployTaikoL1();
-        L1.init(address(addressManager), feeBase, GENESIS_BLOCK_HASH);
+        L1.init(
+            address(addressManager),
+            GENESIS_BLOCK_HASH,
+            feeBase,
+            initProofTimeIssued
+        );
         conf = L1.getConfig();
 
         tko = new TaikoToken();
@@ -62,16 +79,17 @@ abstract contract TaikoL1TestBase is Test {
         ss.init(address(addressManager));
 
         // set proto_broker to this address to mint some TKO
-        _registerAddress("proto_broker", address(this));
+        registerAddress("proto_broker", address(this));
         tko.mint(address(this), 1E9 * 1E8);
 
         // register all addresses
-        _registerAddress("taiko_token", address(tko));
-        _registerAddress("proto_broker", address(L1));
-        _registerAddress("signal_service", address(ss));
-        _registerL2Address("treasure", L2Treasure);
-        _registerL2Address("signal_service", address(L2SS));
-        _registerL2Address("taiko_l2", address(L2TaikoL2));
+        registerAddress("taiko_token", address(tko));
+        registerAddress("proto_broker", address(L1));
+        registerAddress("signal_service", address(ss));
+        registerL2Address("treasure", L2Treasure);
+        registerL2Address("signal_service", address(L2SS));
+        registerL2Address("taiko_l2", address(L2TaikoL2));
+        registerAddress(L1.getVerifierName(100), address(new Verifier()));
 
         printVariables("init  ");
     }
@@ -112,7 +130,7 @@ abstract contract TaikoL1TestBase is Test {
         meta.treasure = L2Treasure;
 
         vm.prank(proposer, proposer);
-        L1.proposeBlock(abi.encode(input), txList);
+        meta = L1.proposeBlock(abi.encode(input), txList);
     }
 
     function oracleProveBlock(
@@ -175,19 +193,19 @@ abstract contract TaikoL1TestBase is Test {
         L1.verifyBlocks(count);
     }
 
-    function _registerAddress(string memory name, address addr) internal {
+    function registerAddress(string memory name, address addr) internal {
         string memory key = L1.keyForName(block.chainid, name);
         addressManager.setAddress(key, addr);
         console2.log(key, unicode"→", addr);
     }
 
-    function _registerL2Address(string memory name, address addr) internal {
+    function registerL2Address(string memory name, address addr) internal {
         string memory key = L1.keyForName(conf.chainId, name);
         addressManager.setAddress(key, addr);
         console2.log(key, unicode"→", addr);
     }
 
-    function _depositTaikoToken(
+    function depositTaikoToken(
         address who,
         uint256 amountTko,
         uint256 amountEth
@@ -195,28 +213,31 @@ abstract contract TaikoL1TestBase is Test {
         vm.deal(who, amountEth);
         tko.transfer(who, amountTko);
         vm.prank(who, who);
-        L1.deposit(amountTko);
+        L1.depositTaikoToken(amountTko);
     }
 
     function printVariables(string memory comment) internal {
         TaikoData.StateVariables memory vars = L1.getStateVariables();
-        (uint256 fee, ) = L1.getBlockFee();
+
+        uint256 fee = L1.getBlockFee();
+
         string memory str = string.concat(
             Strings.toString(logCount++),
             ":[",
             Strings.toString(vars.lastVerifiedBlockId),
             unicode"→",
             Strings.toString(vars.numBlocks),
-            "] feeBase:",
-            Strings.toString(vars.feeBase),
+            "]",
             " fee:",
-            Strings.toString(fee),
-            " avgBlockTime:",
-            Strings.toString(vars.avgBlockTime),
-            " avgProofTime:",
-            Strings.toString(vars.avgProofTime),
-            " lastProposedAt:",
-            Strings.toString(vars.lastProposedAt),
+            Strings.toString(fee)
+        );
+
+        str = string.concat(
+            str,
+            " nextEthDepositToProcess:",
+            Strings.toString(vars.nextEthDepositToProcess),
+            " numEthDeposits:",
+            Strings.toString(vars.numEthDeposits),
             " // ",
             comment
         );

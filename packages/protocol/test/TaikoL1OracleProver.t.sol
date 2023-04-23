@@ -23,24 +23,11 @@ contract TaikoL1_withOracleProver is TaikoL1 {
 
         config.enableTokenomics = true;
         config.txListCacheExpiry = 5 minutes;
-        config.proposerDepositPctg = 0;
         config.maxVerificationsPerTx = 0;
         config.enableSoloProposer = false;
         config.enableOracleProver = true;
         config.maxNumProposedBlocks = 10;
         config.ringBufferSize = 12;
-        // this value must be changed if `maxNumProposedBlocks` is changed.
-        config.slotSmoothingFactor = 4160;
-
-        config.proposingConfig = TaikoData.FeeConfig({
-            avgTimeMAF: 64,
-            dampingFactorBips: 5000
-        });
-
-        config.provingConfig = TaikoData.FeeConfig({
-            avgTimeMAF: 64,
-            dampingFactorBips: 5000
-        });
     }
 }
 
@@ -57,20 +44,16 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     function setUp() public override {
         TaikoL1TestBase.setUp();
-        _registerAddress(
-            string(abi.encodePacked("verifier_", uint16(100))),
-            address(new Verifier())
-        );
-
-        _registerAddress("oracle_prover", Alice);
+        registerAddress(L1.getVerifierName(100), address(new Verifier()));
+        registerAddress("oracle_prover", Alice);
     }
 
     // Test a block can be oracle-proven multiple times by the
     // oracle prover
     function testOracleProver() external {
-        _depositTaikoToken(Alice, 1000 * 1E8, 1000 ether);
-        _depositTaikoToken(Bob, 1000 * 1E8, 1000 ether);
-        _depositTaikoToken(Carol, 1000 * 1E8, 1000 ether);
+        depositTaikoToken(Alice, 1000 * 1E8, 1000 ether);
+        depositTaikoToken(Bob, 1000 * 1E8, 1000 ether);
+        depositTaikoToken(Carol, 1000 * 1E8, 1000 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 

@@ -9,6 +9,7 @@ import {TaikoData} from "../contracts/L1/TaikoData.sol";
 import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {TaikoL1TestBase} from "./TaikoL1TestBase.t.sol";
+import {LibLn} from "./LibLn.sol";
 
 /// @dev Warning: this test will take 7-10 minutes and require 1GB memory.
 ///      `pnpm test:sim`
@@ -23,11 +24,11 @@ contract TaikoL1_b is TaikoL1 {
 
         config.enableTokenomics = true;
         config.txListCacheExpiry = 0;
-        config.proposerDepositPctg = 0;
         config.enableSoloProposer = false;
         config.enableOracleProver = false;
         config.maxNumProposedBlocks = 36;
         config.ringBufferSize = 40;
+        config.proofTimeTarget = 200;
     }
 }
 
@@ -43,18 +44,23 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
     }
 
     function setUp() public override {
-        TaikoL1TestBase.setUp();
-        _registerAddress(
-            string(abi.encodePacked("verifier_", uint16(100))),
-            address(new Verifier())
+        uint16 proofTimeTarget = 200; // Approx. value which close to what is in the simulation
+
+        initProofTimeIssued = LibLn.calcInitProofTimeIssued(
+            feeBase,
+            proofTimeTarget,
+            ADJUSTMENT_QUOTIENT
         );
+
+        TaikoL1TestBase.setUp();
+        registerAddress(L1.getVerifierName(100), address(new Verifier()));
     }
 
     function testGeneratingManyRandomBlocks() external {
         uint256 time = block.timestamp;
         assertEq(time, 1);
 
-        _depositTaikoToken(Alice, 1E6 * 1E8, 10000 ether);
+        depositTaikoToken(Alice, 1E6 * 1E8, 10000 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed;
@@ -86,6 +92,19 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
                 gasLimit,
                 txListSize
             );
+            // Here we need to have some time elapsed between propose and prove
+            // Realistically lets make it somewhere 160-240 sec, it is realistic
+            // for a testnet. Created this function because randomNumber seems to
+            // be non-working properly.
+            uint8 proveTimeCnt = pickRandomProveTime(
+                uint256(
+                    keccak256(
+                        abi.encodePacked(time, msg.sender, block.timestamp)
+                    )
+                )
+            );
+
+            mine(proveTimeCnt);
 
             proveBlock(
                 Bob,
@@ -111,10 +130,9 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
             "\nlogCount,",
             "time,",
             "lastVerifiedBlockId,",
-            "numBlocks,"
-            // "feeBase,",
-            // "fee,",
-            // "lastProposedAt"
+            "numBlocks,",
+            "baseFee,",
+            "accProposedAt"
         );
         console2.log(str);
     }
@@ -129,14 +147,21 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
             ",",
             Strings.toString(vars.lastVerifiedBlockId),
             ",",
-            Strings.toString(vars.numBlocks)
-            // ",",
-            // Strings.toString(vars.feeBase),
-            // ",",
-            // Strings.toString(fee),
-            // ",",
-            // Strings.toString(vars.lastProposedAt)
+            Strings.toString(vars.numBlocks),
+            ",",
+            Strings.toString(vars.basefee),
+            ",",
+            Strings.toString(vars.accProposedAt)
         );
         console2.log(str);
+    }
+
+    function pickRandomProveTime(
+        uint256 randomNum
+    ) internal pure returns (uint8) {
+        // Result shall be between 8-12 (inclusive)
+        // so that it will result in a 160-240s proof time
+        // while the proof time target is 200s
+        return uint8(8 + (randomNum % 5));
     }
 }

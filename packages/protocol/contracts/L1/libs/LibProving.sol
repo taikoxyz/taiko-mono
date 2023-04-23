@@ -57,7 +57,7 @@ library LibProving {
         bytes32 parentHash = oracles.parentHash;
         uint32 parentGasUsed = oracles.parentGasUsed;
 
-        for (uint i = 0; i < oracles.blks.length; ) {
+        for (uint256 i = 0; i < oracles.blks.length; ) {
             uint256 id = blockId + i;
 
             if (id <= state.lastVerifiedBlockId || id >= state.numBlocks)
@@ -201,13 +201,11 @@ library LibProving {
                 }
             }
 
-            bytes memory verifierId = abi.encodePacked(
-                "verifier_",
-                evidence.zkproof.verifierId
-            );
-
             (bool verified, bytes memory ret) = resolver
-                .resolve(string(verifierId), false)
+                .resolve(
+                    LibUtils.getVerifierName(evidence.zkproof.verifierId),
+                    false
+                )
                 .staticcall(bytes.concat(instance, evidence.zkproof.data));
 
             if (

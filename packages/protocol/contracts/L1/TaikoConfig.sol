@@ -26,31 +26,24 @@ library TaikoConfig {
                 // Set it to 79  (+1 TaikoL2.anchor transaction = 80),
                 // and 80 is the upper limit of the Alpha-2 testnet's circuits.
                 maxTransactionsPerBlock: 79,
+                minEthDepositsPerBlock: 8,
+                maxEthDepositsPerBlock: 32,
+                maxEthDepositAmount: 10000 ether,
+                minEthDepositAmount: 1 ether,
                 // Set it to 120KB, since 128KB is the upper size limit
                 // of a geth transaction, so using 120KB for the proposed
                 // transactions list calldata, 8K for the remaining tx fields.
                 maxBytesPerTxList: 120000,
                 minTxGasLimit: 21000,
-                slotSmoothingFactor: 946649,
-                // 100 basis points or 1%
-                rewardBurnBips: 100,
-                proposerDepositPctg: 25, // - 25%
                 // Moving average factors
-                feeBaseMAF: 1024,
                 txListCacheExpiry: 0,
+                proofTimeTarget: 1800, // 85s based on A2 testnet status, or set to 1800 for 30mins (mainnet mock)
+                adjustmentQuotient: 16,
                 relaySignalRoot: false,
                 enableSoloProposer: false,
                 enableOracleProver: true,
                 enableTokenomics: true,
-                skipZKPVerification: false,
-                proposingConfig: TaikoData.FeeConfig({
-                    avgTimeMAF: 1024,
-                    dampingFactorBips: 2500 // [125% -> 75%]
-                }),
-                provingConfig: TaikoData.FeeConfig({
-                    avgTimeMAF: 1024,
-                    dampingFactorBips: 2500 // [75% -> 125%]
-                })
+                skipZKPVerification: false
             });
     }
 }
