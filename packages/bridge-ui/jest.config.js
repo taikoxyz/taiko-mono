@@ -41,7 +41,7 @@ export default {
     global: {
       statements: 95,
       branches: 85, // TODO: increase to 90
-      functions: 93,
+      functions: 94,
       lines: 95,
     },
   },
