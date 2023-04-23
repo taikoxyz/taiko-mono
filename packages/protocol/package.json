@@ -22,7 +22,7 @@
     "test:integration": "TEST_TYPE=integration ./test/test_integration.sh",
     "test:tokenomics": "TEST_TYPE=tokenomics ./test/test_integration.sh",
     "test:all": "pnpm run test && pnpm run test:integration && pnpm run test:tokenomics && pnpm run test:genesis",
-    "deploy:foundry": "./script/download_solc.sh && ./script/deploy_on_l1.sh",
+    "deploy:foundry": "./script/download_solc.sh && ./script/test_deploy_on_l1.sh",
     "lint-staged": "lint-staged --allow-empty",
     "sizer": "pnpm hardhat size-contracts"
   },
