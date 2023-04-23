@@ -8,7 +8,8 @@ import (
 )
 
 var (
-	EventNameBlockProven = "BlockProven"
+	EventNameBlockProven   = "BlockProven"
+	EventNameBlockProposed = "BlockProposed"
 )
 
 // Event represents a stored EVM event. The fields will be serialized
@@ -37,10 +38,19 @@ type UniqueProversResponse struct {
 	Count   int    `json:"count"`
 }
 
+type UniqueProposersResponse struct {
+	Address string `json:"address"`
+	Count   int    `json:"count"`
+}
+
 // EventRepository is used to interact with events in the store
 type EventRepository interface {
 	Save(ctx context.Context, opts SaveEventOpts) (*Event, error)
 	FindUniqueProvers(
 		ctx context.Context,
 	) ([]UniqueProversResponse, error)
+	FindUniqueProposers(
+		ctx context.Context,
+	) ([]UniqueProposersResponse, error)
+	GetCountByAddressAndEventName(ctx context.Context, address string, event string) (int, error)
 }
