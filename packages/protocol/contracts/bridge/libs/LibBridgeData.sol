@@ -7,10 +7,10 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
-import {LibAddress} from "../../libs/LibAddress.sol";
-import {LibBlockHeader, BlockHeader} from "../../libs/LibBlockHeader.sol";
-import {LibMath} from "../../libs/LibMath.sol";
+import {BlockHeader} from "../../libs/LibBlockHeader.sol";
 import {IBridge} from "../IBridge.sol";
+import {LibAddress} from "../../libs/LibAddress.sol";
+import {LibMath} from "../../libs/LibMath.sol";
 
 /**
  * Stores message metadata on the Bridge.
@@ -38,12 +38,11 @@ library LibBridgeData {
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
 
     /**
-     * @return msgHash The keccak256 hash of the message encoded with
-     * "TAIKO_BRIDGE_MESSAGE".
+     * @return msgHash The keccak256 hash of the message.
      */
     function hashMessage(
         IBridge.Message memory message
     ) internal pure returns (bytes32) {
-        return keccak256(abi.encode("TAIKO_BRIDGE_MESSAGE", message));
+        return keccak256(abi.encode(message));
     }
 }

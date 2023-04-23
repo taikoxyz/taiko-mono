@@ -101,11 +101,6 @@
   },
   {
     "inputs": [],
-    "name": "L1_CONFLICT_PROOF",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "L1_CONTRACT_NOT_ALLOWED",
     "type": "error"
   },
@@ -473,12 +468,12 @@
           },
           {
             "internalType": "uint256",
-            "name": "maxNumBlocks",
+            "name": "maxNumProposedBlocks",
             "type": "uint256"
           },
           {
             "internalType": "uint256",
-            "name": "blockHashHistory",
+            "name": "maxNumVerifiedBlocks",
             "type": "uint256"
           },
           {
@@ -523,17 +518,12 @@
           },
           {
             "internalType": "uint256",
-            "name": "rewardBurnBips",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
             "name": "proposerDepositPctg",
             "type": "uint256"
           },
           {
             "internalType": "uint256",
-            "name": "feeBaseMAF",
+            "name": "basefeeMAF",
             "type": "uint256"
           },
           {
@@ -548,7 +538,7 @@
           },
           {
             "internalType": "uint64",
-            "name": "rewardMultiplierPctg",
+            "name": "feeMultiplierPctg",
             "type": "uint64"
           },
           {
@@ -558,7 +548,7 @@
           },
           {
             "internalType": "uint64",
-            "name": "feeMaxPeriodPctg",
+            "name": "feeMaxPctg",
             "type": "uint64"
           },
           {
@@ -727,7 +717,7 @@
         "type": "address"
       }
     ],
-    "name": "getRewardBalance",
+    "name": "getBalance",
     "outputs": [
       {
         "internalType": "uint256",
@@ -746,7 +736,7 @@
         "components": [
           {
             "internalType": "uint256",
-            "name": "feeBase",
+            "name": "basefee",
             "type": "uint256"
           },
           {
@@ -781,7 +771,7 @@
           },
           {
             "internalType": "uint64",
-            "name": "latestVerifiedId",
+            "name": "lastBlockId",
             "type": "uint64"
           },
           {
@@ -831,7 +821,7 @@
       },
       {
         "internalType": "uint256",
-        "name": "_feeBase",
+        "name": "_basefee",
         "type": "uint256"
       }
     ],
@@ -1051,7 +1041,7 @@
       },
       {
         "internalType": "uint256",
-        "name": "feeBase",
+        "name": "basefee",
         "type": "uint256"
       },
       {
@@ -1081,7 +1071,7 @@
       },
       {
         "internalType": "uint64",
-        "name": "latestVerifiedId",
+        "name": "lastBlockId",
         "type": "uint64"
       },
       {

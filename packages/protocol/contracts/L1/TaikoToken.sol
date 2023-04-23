@@ -7,16 +7,15 @@
 pragma solidity ^0.8.18;
 
 import {
-    SafeCastUpgradeable
-} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-
+    ERC20Upgradeable,
+    IERC20Upgradeable
+} from "../thirdparty/ERC20Upgradeable.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {IMintableERC20} from "../common/IMintableERC20.sol";
 import {LibMath} from "../libs/LibMath.sol";
 import {
-    ERC20Upgradeable,
-    IERC20Upgradeable
-} from "../thirdparty/ERC20Upgradeable.sol";
+    SafeCastUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 /// @dev This is Taiko's governance and fee token.
 contract TaikoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
@@ -36,6 +35,8 @@ contract TaikoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
     event Burn(address account, uint256 amount);
 
     error TKO_INVALID_ADDR();
+    error TKO_INVALID_PREMINT_PARAMS();
+    error TKO_MINT_DISALLOWED();
 
     /*********************
      * External Functions*
@@ -45,16 +46,25 @@ contract TaikoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
     ///      Based on our simulation in simulate/tokenomics/index.js, both
     ///      amountMintToDAO and amountMintToDev shall be set to ~150,000,000.
     function init(
-        string memory _name,
-        string memory _symbol,
-        address _addressManager
+        address _addressManager,
+        string calldata _name,
+        string calldata _symbol,
+        address[] calldata _premintRecipients,
+        uint256[] calldata _premintAmounts
     ) external initializer {
+        if (_premintRecipients.length != _premintAmounts.length)
+            revert TKO_INVALID_PREMINT_PARAMS();
+
         EssentialContract._init(_addressManager);
         ERC20Upgradeable.__ERC20_init({
             name_: _name,
             symbol_: _symbol,
-            decimals_: 18
+            decimals_: 8
         });
+
+        for (uint256 i = 0; i < _premintRecipients.length; ++i) {
+            _mint(_premintRecipients[i], _premintAmounts[i]);
+        }
     }
 
     /*********************
@@ -106,5 +116,10 @@ contract TaikoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         if (account == address(0)) revert TKO_INVALID_ADDR();
         _burn(account, amount);
         emit Burn(account, amount);
+    }
+
+    function _mint(address account, uint256 amount) internal override {
+        ERC20Upgradeable._mint(account, amount);
+        if (totalSupply() > type(uint64).max) revert TKO_MINT_DISALLOWED();
     }
 }

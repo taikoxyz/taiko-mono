@@ -6,7 +6,9 @@
 
 pragma solidity ^0.8.18;
 
-import {LibBridgeData, IBridge, LibAddress} from "./LibBridgeData.sol";
+import {IBridge} from "../IBridge.sol";
+import {LibAddress} from "../../libs/LibAddress.sol";
+import {LibBridgeData} from "./LibBridgeData.sol";
 
 library LibBridgeInvoke {
     using LibAddress for address;

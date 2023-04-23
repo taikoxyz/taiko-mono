@@ -6,238 +6,184 @@
 
 pragma solidity ^0.8.18;
 
+import {AddressResolver} from "../../common/AddressResolver.sol";
+import {ISignalService} from "../../signal/ISignalService.sol";
+import {LibTokenomics} from "./LibTokenomics.sol";
+import {LibUtils} from "./LibUtils.sol";
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-
-import {AddressResolver} from "../../common/AddressResolver.sol";
-import {TaikoToken} from "../TaikoToken.sol";
-import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 
-/**
- * LibVerifying.
- */
 library LibVerifying {
     using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.State;
 
-    event BlockVerified(uint256 indexed id, bytes32 blockHash);
-    event HeaderSynced(uint256 indexed srcHeight, bytes32 srcHash);
-
-    error L1_0_FEE_BASE();
     error L1_INVALID_CONFIG();
-    error L1_INVALID_PARAM();
+    error L1_INVALID_L21559_PARAMS();
+
+    event BlockVerified(uint256 indexed id, bytes32 blockHash);
+    event XchainSynced(
+        uint256 indexed srcHeight,
+        bytes32 blockHash,
+        bytes32 signalRoot
+    );
 
     function init(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
-        uint feeBase
+        uint64 initBasefee,
+        uint64 initProofTimeIssued
     ) internal {
-        if (
-            config.chainId <= 1 ||
-            config.maxNumBlocks <= 1 ||
-            config.blockHashHistory == 0 ||
-            config.blockMaxGasLimit == 0 ||
-            config.maxTransactionsPerBlock == 0 ||
-            config.maxBytesPerTxList == 0 ||
-            config.minTxGasLimit == 0 ||
-            config.slotSmoothingFactor == 0 ||
-            config.rewardBurnBips >= 10000 ||
-            config.feeBaseMAF == 0 ||
-            config.blockTimeMAF == 0 ||
-            config.proofTimeMAF == 0 ||
-            config.blockTimeCap == 0 ||
-            config.proofTimeCap == 0 ||
-            config.feeGracePeriodPctg > config.feeMaxPeriodPctg ||
-            config.rewardMultiplierPctg < 100
-        ) revert L1_INVALID_CONFIG();
+        _checkConfig(config);
 
-        if (feeBase == 0) revert L1_0_FEE_BASE();
-
+        uint64 timeNow = uint64(block.timestamp);
         state.genesisHeight = uint64(block.number);
-        state.genesisTimestamp = uint64(block.timestamp);
-        state.feeBase = feeBase;
-        state.nextBlockId = 1;
-        state.lastProposedAt = uint64(block.timestamp);
-        state.l2Hashes[0] = genesisBlockHash;
+        state.genesisTimestamp = timeNow;
+
+        state.basefee = initBasefee;
+        state.proofTimeIssued = initProofTimeIssued;
+        state.numBlocks = 1;
+
+        TaikoData.Block storage blk = state.blocks[0];
+        blk.proposedAt = timeNow;
+        blk.nextForkChoiceId = 2;
+        blk.verifiedForkChoiceId = 1;
+
+        TaikoData.ForkChoice storage fc = state.blocks[0].forkChoices[1];
+        fc.blockHash = genesisBlockHash;
+        fc.provenAt = timeNow;
 
         emit BlockVerified(0, genesisBlockHash);
-        emit HeaderSynced(0, genesisBlockHash);
     }
 
     function verifyBlocks(
         TaikoData.State storage state,
         TaikoData.Config memory config,
+        AddressResolver resolver,
         uint256 maxBlocks
-    ) public {
-        uint64 latestL2Height = state.latestVerifiedHeight;
-        bytes32 latestL2Hash = state.l2Hashes[
-            latestL2Height % config.blockHashHistory
-        ];
+    ) internal {
+        uint256 i = state.lastVerifiedBlockId;
+        TaikoData.Block storage blk = state.blocks[i % config.ringBufferSize];
+
+        uint256 fcId = blk.verifiedForkChoiceId;
+        assert(fcId > 0);
+        bytes32 blockHash = blk.forkChoices[fcId].blockHash;
+        uint32 gasUsed = blk.forkChoices[fcId].gasUsed;
+        bytes32 signalRoot;
+
         uint64 processed;
+        unchecked {
+            ++i;
+        }
 
-        for (
-            uint256 i = state.latestVerifiedId + 1;
-            i < state.nextBlockId && processed < maxBlocks;
+        while (i < state.numBlocks && processed < maxBlocks) {
+            blk = state.blocks[i % config.ringBufferSize];
+            assert(blk.blockId == i);
 
-        ) {
-            TaikoData.ForkChoice storage fc = state.forkChoices[i][
-                latestL2Hash
-            ];
-            TaikoData.ProposedBlock storage target = state.getProposedBlock(
-                config.maxNumBlocks,
-                i
-            );
+            fcId = LibUtils.getForkChoiceId(state, blk, blockHash, gasUsed);
 
-            if (fc.prover == address(0)) {
-                break;
-            } else {
-                (latestL2Height, latestL2Hash) = _verifyBlock({
-                    state: state,
-                    config: config,
-                    fc: fc,
-                    target: target,
-                    latestL2Height: latestL2Height,
-                    latestL2Hash: latestL2Hash
-                });
-                processed += 1;
-                emit BlockVerified(i, fc.blockHash);
+            if (fcId == 0) break;
 
-                // clean up the fork choice
-                fc.blockHash = 0;
-                fc.prover = address(0);
-                fc.provenAt = 0;
-            }
+            TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
+
+            if (
+                fc.prover == address(0) || // oracle proof
+                block.timestamp < fc.provenAt + config.proofCooldownPeriod // too young
+            ) break;
+
+            blockHash = fc.blockHash;
+            gasUsed = fc.gasUsed;
+            signalRoot = fc.signalRoot;
+
+            _markBlockVerified({
+                state: state,
+                config: config,
+                blk: blk,
+                fcId: uint24(fcId),
+                fc: fc
+            });
 
             unchecked {
                 ++i;
+                ++processed;
             }
         }
 
         if (processed > 0) {
-            state.latestVerifiedId += processed;
-
-            if (latestL2Height > state.latestVerifiedHeight) {
-                state.latestVerifiedHeight = latestL2Height;
-
-                // Note: Not all L2 hashes are stored on L1, only the last
-                // verified one in a batch. This is sufficient because the last
-                // verified hash is the only one needed checking the existence
-                // of a cross-chain message with a merkle proof.
-                state.l2Hashes[
-                    latestL2Height % config.blockHashHistory
-                ] = latestL2Hash;
-                emit HeaderSynced(latestL2Height, latestL2Hash);
+            unchecked {
+                state.lastVerifiedBlockId += processed;
             }
+
+            if (config.relaySignalRoot) {
+                // Send the L2's signal root to the signal service so other TaikoL1
+                // deployments, if they share the same signal service, can relay the
+                // signal to their corresponding TaikoL2 contract.
+                ISignalService(resolver.resolve("signal_service", false))
+                    .sendSignal(signalRoot);
+            }
+            emit XchainSynced(state.lastVerifiedBlockId, blockHash, signalRoot);
         }
     }
 
-    function withdrawBalance(
-        TaikoData.State storage state,
-        AddressResolver resolver
-    ) public {
-        uint256 balance = state.balances[msg.sender];
-        if (balance <= 1) return;
-
-        state.balances[msg.sender] = 1;
-        TaikoToken(resolver.resolve("tko_token", false)).mint(
-            msg.sender,
-            balance - 1
-        );
-    }
-
-    function getProofReward(
+    function _markBlockVerified(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        uint64 provenAt,
-        uint64 proposedAt
-    ) public view returns (uint256 newFeeBase, uint256 reward, uint256 tRelBp) {
-        if (proposedAt > provenAt) revert L1_INVALID_PARAM();
-        (newFeeBase, tRelBp) = LibUtils.getTimeAdjustedFee({
-            state: state,
-            config: config,
-            isProposal: false,
-            tNow: provenAt,
-            tLast: proposedAt,
-            tAvg: state.avgProofTime,
-            tCap: config.proofTimeCap
-        });
-        reward = LibUtils.getSlotsAdjustedFee({
-            state: state,
-            config: config,
-            isProposal: false,
-            feeBase: newFeeBase
-        });
-        reward = (reward * (10000 - config.rewardBurnBips)) / 10000;
-    }
-
-    function _verifyBlock(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
+        TaikoData.Block storage blk,
         TaikoData.ForkChoice storage fc,
-        TaikoData.ProposedBlock storage target,
-        uint64 latestL2Height,
-        bytes32 latestL2Hash
-    ) private returns (uint64 _latestL2Height, bytes32 _latestL2Hash) {
-        if (config.enableTokenomics) {
-            uint256 newFeeBase;
-            {
-                uint256 reward;
-                uint256 tRelBp; // [0-10000], see the whitepaper
-                (newFeeBase, reward, tRelBp) = getProofReward({
-                    state: state,
-                    config: config,
-                    provenAt: fc.provenAt,
-                    proposedAt: target.proposedAt
-                });
+        uint24 fcId
+    ) private {
+        uint64 proofTime;
+        unchecked {
+            proofTime = uint64(fc.provenAt - blk.proposedAt);
+        }
 
-                // reward the prover
-                if (reward > 0) {
-                    if (state.balances[fc.prover] == 0) {
-                        // Reduce reward to 1 wei as a penalty if the prover
-                        // has 0 TKO outstanding balance.
-                        state.balances[fc.prover] = 1;
-                    } else {
-                        state.balances[fc.prover] += reward;
-                    }
-                }
+        uint64 reward = LibTokenomics.getProofReward(state, proofTime);
 
-                // refund proposer deposit
-                uint256 refund = (target.deposit * (10000 - tRelBp)) / 10000;
-                if (refund > 0) {
-                    if (state.balances[target.proposer] == 0) {
-                        // Reduce refund to 1 wei as a penalty if the proposer
-                        // has 0 TKO outstanding balance.
-                        state.balances[target.proposer] = 1;
-                    } else {
-                        state.balances[target.proposer] += refund;
-                    }
-                }
+        (state.proofTimeIssued, state.basefee) = LibTokenomics
+            .getNewBaseFeeandProofTimeIssued(state, config, proofTime);
+
+        unchecked {
+            state.accBlockFees -= reward;
+            state.accProposedAt -= blk.proposedAt;
+        }
+
+        // reward the prover
+        if (reward != 0) {
+            if (state.taikoTokenBalances[fc.prover] == 0) {
+                // Reduce refund to 1 wei as a penalty if the proposer
+                // has 0 TKO outstanding balance.
+                state.taikoTokenBalances[fc.prover] = 1;
+            } else {
+                state.taikoTokenBalances[fc.prover] += reward;
             }
-            // Update feeBase and avgProofTime
-            state.feeBase = LibUtils.movingAverage({
-                maValue: state.feeBase,
-                newValue: newFeeBase,
-                maf: config.feeBaseMAF
-            });
         }
 
-        state.avgProofTime = LibUtils
-            .movingAverage({
-                maValue: state.avgProofTime,
-                newValue: fc.provenAt - target.proposedAt,
-                maf: config.proofTimeMAF
-            })
-            .toUint64();
+        blk.nextForkChoiceId = 1;
+        blk.verifiedForkChoiceId = fcId;
 
-        if (fc.blockHash != LibUtils.BLOCK_DEADEND_HASH) {
-            _latestL2Height = latestL2Height + 1;
-            _latestL2Hash = fc.blockHash;
-        } else {
-            _latestL2Height = latestL2Height;
-            _latestL2Hash = latestL2Hash;
-        }
+        emit BlockVerified(blk.blockId, fc.blockHash);
+    }
+
+    function _checkConfig(TaikoData.Config memory config) private pure {
+        if (
+            config.chainId <= 1 ||
+            config.maxNumProposedBlocks == 1 ||
+            config.ringBufferSize <= config.maxNumProposedBlocks + 1 ||
+            config.maxNumVerifiedBlocks == 0 ||
+            config.blockMaxGasLimit == 0 ||
+            config.maxTransactionsPerBlock == 0 ||
+            config.maxBytesPerTxList == 0 ||
+            // EIP-4844 blob size up to 128K
+            config.maxBytesPerTxList > 128 * 1024 ||
+            config.minTxGasLimit == 0 ||
+            config.maxEthDepositsPerBlock == 0 ||
+            config.maxEthDepositsPerBlock < config.minEthDepositsPerBlock ||
+            // EIP-4844 blob deleted after 30 days
+            config.txListCacheExpiry > 30 * 24 hours ||
+            config.proofTimeTarget == 0 ||
+            config.adjustmentQuotient == 0
+        ) revert L1_INVALID_CONFIG();
     }
 }

@@ -6,22 +6,32 @@
 
 pragma solidity ^0.8.18;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {EssentialContract} from "../common/EssentialContract.sol";
+import {IXchainSync} from "../common/IXchainSync.sol";
+import {LibL2Consts} from "./LibL2Consts.sol";
+import {LibMath} from "../libs/LibMath.sol";
+import {Lib1559Math} from "../libs/Lib1559Math.sol";
+import {TaikoL2Signer} from "./TaikoL2Signer.sol";
 import {
-    ReentrancyGuard
-} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+    SafeCastUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
-import {AddressResolver} from "../common/AddressResolver.sol";
-import {IHeaderSync} from "../common/IHeaderSync.sol";
-import {LibAnchorSignature} from "../libs/LibAnchorSignature.sol";
-import {LibInvalidTxList} from "../libs/LibInvalidTxList.sol";
-import {LibSharedConfig} from "../libs/LibSharedConfig.sol";
-import {LibTxDecoder} from "../libs/LibTxDecoder.sol";
-import {TaikoData} from "../L1/TaikoData.sol";
+contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
+    using SafeCastUpgradeable for uint256;
+    using LibMath for uint256;
 
-contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
-    using LibTxDecoder for bytes;
+    struct VerifiedBlock {
+        bytes32 blockHash;
+        bytes32 signalRoot;
+    }
 
+    struct EIP1559Params {
+        uint64 basefee;
+        uint64 gasIssuedPerSecond;
+        uint64 gasExcessMax;
+        uint64 gasTarget;
+        uint64 ratio2x1x;
+    }
     /**********************
      * State Variables    *
      **********************/
@@ -30,50 +40,95 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     // All L2 block hashes will be saved in this mapping.
     mapping(uint256 blockNumber => bytes32 blockHash) private _l2Hashes;
 
-    // Mapping from L1 block numbers to their block hashes.
-    // Note that only hashes of L1 blocks where at least one L2
-    // block has been proposed will be saved in this mapping.
-    mapping(uint256 blockNumber => bytes32 blockHash) private _l1Hashes;
+    mapping(uint256 blockNumber => VerifiedBlock) private _l1VerifiedBlocks;
 
     // A hash to check te integrity of public inputs.
-    bytes32 private _publicInputHash;
+    bytes32 public publicInputHash;
 
-    // The latest L1 block where a L2 block has been proposed.
-    uint256 public latestSyncedL1Height;
+    uint128 public yscale;
+    uint64 public xscale;
+    uint64 public gasIssuedPerSecond;
 
-    uint256[46] private __gap;
+    uint64 public parentTimestamp;
+    uint64 public latestSyncedL1Height;
+    uint64 public gasExcess;
+    uint64 public __reserved1;
+
+    uint256[45] private __gap;
 
     /**********************
      * Events and Errors  *
      **********************/
 
-    event BlockInvalidated(bytes32 indexed txListHash);
+    // Captures all block variables mentioned in
+    // https://docs.soliditylang.org/en/v0.8.18/units-and-global-variables.html
+    event Anchored(
+        uint64 number,
+        uint64 basefee,
+        uint64 gaslimit,
+        uint64 timestamp,
+        bytes32 parentHash,
+        uint256 prevrandao,
+        address coinbase,
+        uint32 chainid
+    );
 
-    error L2_INVALID_SENDER();
+    error L2_BASEFEE_MISMATCH(uint64 expected, uint64 actual);
+    error L2_INVALID_1559_PARAMS();
     error L2_INVALID_CHAIN_ID();
-    error L2_INVALID_GAS_PRICE();
-    error L2_PUBLIC_INPUT_HASH_MISMATCH();
+    error L2_INVALID_SENDER();
+    error L2_PUBLIC_INPUT_HASH_MISMATCH(bytes32 expected, bytes32 actual);
+    error L2_TOO_LATE();
+
+    error M1559_UNEXPECTED_CHANGE(uint64 expected, uint64 actual);
+    error M1559_OUT_OF_STOCK();
 
     /**********************
      * Constructor         *
      **********************/
 
-    constructor(address _addressManager) {
-        if (block.chainid == 0) revert L2_INVALID_CHAIN_ID();
-        AddressResolver._init(_addressManager);
+    function init(
+        address _addressManager,
+        EIP1559Params calldata _param1559
+    ) external initializer {
+        if (block.chainid <= 1 || block.chainid >= type(uint32).max)
+            revert L2_INVALID_CHAIN_ID();
+        if (block.number > 1) revert L2_TOO_LATE();
 
-        bytes32[255] memory ancestors;
-        uint256 number = block.number;
-        for (uint256 i; i < 255 && number >= i + 2; ++i) {
-            ancestors[i] = blockhash(number - i - 2);
+        if (_param1559.gasIssuedPerSecond != 0) {
+            if (
+                _param1559.basefee == 0 ||
+                _param1559.gasExcessMax == 0 ||
+                _param1559.gasTarget == 0 ||
+                _param1559.ratio2x1x == 0
+            ) revert L2_INVALID_1559_PARAMS();
+
+            uint128 _xscale;
+            (_xscale, yscale) = Lib1559Math.calculateScales({
+                xExcessMax: _param1559.gasExcessMax,
+                price: _param1559.basefee,
+                target: _param1559.gasTarget,
+                ratio2x1x: _param1559.ratio2x1x
+            });
+
+            if (_xscale == 0 || _xscale >= type(uint64).max || yscale == 0)
+                revert L2_INVALID_1559_PARAMS();
+            xscale = uint64(_xscale);
+
+            // basefee = _param1559.basefee;
+            gasIssuedPerSecond = _param1559.gasIssuedPerSecond;
+            gasExcess = _param1559.gasExcessMax / 2;
         }
 
-        _publicInputHash = _hashPublicInputs({
-            chainId: block.chainid,
-            number: number,
-            baseFee: 0,
-            ancestors: ancestors
-        });
+        parentTimestamp = uint64(block.timestamp);
+
+        EssentialContract._init(_addressManager);
+
+        (publicInputHash, ) = _calcPublicInputHash(block.number);
+        if (block.number > 0) {
+            uint256 parentHeight = block.number - 1;
+            _l2Hashes[parentHeight] = blockhash(parentHeight);
+        }
     }
 
     /**********************
@@ -86,77 +141,99 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * certain block-level global variables because they are not part of the
      * Trie structure.
      *
-     * Note: This transaction shall be the first transaction in every L2 block.
+     * A circuit will verify the integrity among:
+     * -  l1Hash, l1SignalRoot, and l1SignalServiceAddress
+     * -  (l1Hash and l1SignalServiceAddress) are both hashed into of the
+     *    ZKP's instance.
      *
-     * @param l1Height The latest L1 block height when this block was proposed.
+     * This transaction shall be the first transaction in every L2 block.
+     *
      * @param l1Hash The latest L1 block hash when this block was proposed.
+     * @param l1SignalRoot The latest value of the L1 "signal service storage root".
+     * @param l1Height The latest L1 block height when this block was proposed.
+     * @param parentGasUsed the gas used in the parent block.
      */
-    function anchor(uint256 l1Height, bytes32 l1Hash) external {
-        TaikoData.Config memory config = getConfig();
-        if (config.enablePublicInputsCheck) {
-            _checkPublicInputs();
+
+    function anchor(
+        bytes32 l1Hash,
+        bytes32 l1SignalRoot,
+        uint64 l1Height,
+        uint64 parentGasUsed
+    ) external {
+        if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
+
+        uint256 parentHeight = block.number - 1;
+        bytes32 parentHash = blockhash(parentHeight);
+
+        (bytes32 prevPIH, bytes32 currPIH) = _calcPublicInputHash(parentHeight);
+
+        if (publicInputHash != prevPIH) {
+            revert L2_PUBLIC_INPUT_HASH_MISMATCH(publicInputHash, prevPIH);
         }
+
+        // replace the oldest block hash with the parent's blockhash
+        publicInputHash = currPIH;
+        _l2Hashes[parentHeight] = parentHash;
 
         latestSyncedL1Height = l1Height;
-        _l1Hashes[l1Height] = l1Hash;
-        emit HeaderSynced(l1Height, l1Hash);
-    }
+        _l1VerifiedBlocks[l1Height] = VerifiedBlock(l1Hash, l1SignalRoot);
 
-    /**
-     * Invalidate a L2 block by verifying its txList is not intrinsically valid.
-     *
-     * @param txList The L2 block's txlist.
-     * @param hint A hint for this method to invalidate the txList.
-     * @param txIdx If the hint is for a specific transaction in txList,
-     *        txIdx specifies which transaction to check.
-     */
-    function invalidateBlock(
-        bytes calldata txList,
-        LibInvalidTxList.Hint hint,
-        uint256 txIdx
-    ) external {
-        if (msg.sender != LibAnchorSignature.K_GOLDEN_TOUCH_ADDRESS)
-            revert L2_INVALID_SENDER();
+        emit XchainSynced(l1Height, l1Hash, l1SignalRoot);
 
-        if (tx.gasprice != 0) revert L2_INVALID_GAS_PRICE();
-
-        TaikoData.Config memory config = getConfig();
-        LibInvalidTxList.verifyTxListInvalid({
-            config: config,
-            encoded: txList,
-            hint: hint,
-            txIdx: txIdx
-        });
-
-        if (config.enablePublicInputsCheck) {
-            _checkPublicInputs();
+        // Check EIP-1559 basefee
+        uint256 basefee;
+        if (gasIssuedPerSecond != 0) {
+            (basefee, gasExcess) = _calcBasefee(
+                block.timestamp - parentTimestamp,
+                uint64(block.gaslimit),
+                parentGasUsed
+            );
         }
 
-        emit BlockInvalidated(txList.hashTxList());
+        if (block.basefee != basefee)
+            revert L2_BASEFEE_MISMATCH(uint64(basefee), uint64(block.basefee));
+
+        parentTimestamp = uint64(block.timestamp);
+
+        // We emit this event so circuits can grab its data to verify block variables.
+        // If plonk lookup table already has all these data, we can still use this
+        // event for debugging purpose.
+        emit Anchored({
+            number: uint64(block.number),
+            basefee: uint64(basefee),
+            gaslimit: uint64(block.gaslimit),
+            timestamp: uint64(block.timestamp),
+            parentHash: parentHash,
+            prevrandao: block.prevrandao,
+            coinbase: block.coinbase,
+            chainid: uint32(block.chainid)
+        });
     }
 
     /**********************
      * Public Functions   *
      **********************/
 
-    function getConfig()
-        public
-        view
-        virtual
-        returns (TaikoData.Config memory config)
-    {
-        config = LibSharedConfig.getConfig();
-        config.chainId = block.chainid;
+    function getBasefee(
+        uint32 timeSinceParent,
+        uint64 gasLimit,
+        uint64 parentGasUsed
+    ) public view returns (uint256 _basefee) {
+        (_basefee, ) = _calcBasefee(timeSinceParent, gasLimit, parentGasUsed);
     }
 
-    function getSyncedHeader(
+    function getXchainBlockHash(
         uint256 number
     ) public view override returns (bytes32) {
-        return _l1Hashes[number];
+        uint256 _number = number == 0 ? latestSyncedL1Height : number;
+        return _l1VerifiedBlocks[_number].blockHash;
     }
 
-    function getLatestSyncedHeader() public view override returns (bytes32) {
-        return _l1Hashes[latestSyncedL1Height];
+    function getXchainSignalRoot(
+        uint256 number
+    ) public view override returns (bytes32) {
+        uint256 _number = number == 0 ? latestSyncedL1Height : number;
+        return _l1VerifiedBlocks[_number].signalRoot;
     }
 
     function getBlockHash(uint256 number) public view returns (bytes32) {
@@ -173,51 +250,53 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * Private Functions  *
      **********************/
 
-    function _checkPublicInputs() private {
-        // Check the latest 256 block hashes (excluding the parent hash).
-        bytes32[255] memory ancestors;
-        uint256 number = block.number;
-        uint256 chainId = block.chainid;
-
-        // put the previous 255 blockhashes (excluding the parent's) into a
-        // ring buffer.
-        for (uint256 i = 2; i <= 256 && number >= i; ++i) {
-            ancestors[(number - i) % 255] = blockhash(number - i);
+    function _calcPublicInputHash(
+        uint256 blockNumber
+    ) private view returns (bytes32 prevPIH, bytes32 currPIH) {
+        bytes32[256] memory inputs;
+        unchecked {
+            // put the previous 255 blockhashes (excluding the parent's) into a
+            // ring buffer.
+            for (uint256 i; i < 255 && blockNumber >= i + 1; ++i) {
+                uint256 j = blockNumber - i - 1;
+                inputs[j % 255] = blockhash(j);
+            }
         }
 
-        uint256 parentHeight = number - 1;
-        bytes32 parentHash = blockhash(parentHeight);
+        inputs[255] = bytes32(block.chainid);
 
-        if (
-            _publicInputHash !=
-            _hashPublicInputs({
-                chainId: chainId,
-                number: parentHeight,
-                baseFee: 0,
-                ancestors: ancestors
-            })
-        ) {
-            revert L2_PUBLIC_INPUT_HASH_MISMATCH();
+        assembly {
+            prevPIH := keccak256(inputs, mul(256, 32))
         }
 
-        // replace the oldest block hash with the parent's blockhash
-        ancestors[parentHeight % 255] = parentHash;
-        _publicInputHash = _hashPublicInputs({
-            chainId: chainId,
-            number: number,
-            baseFee: 0,
-            ancestors: ancestors
-        });
-
-        _l2Hashes[parentHeight] = parentHash;
+        inputs[blockNumber % 255] = blockhash(blockNumber);
+        assembly {
+            currPIH := keccak256(inputs, mul(256, 32))
+        }
     }
 
-    function _hashPublicInputs(
-        uint256 chainId,
-        uint256 number,
-        uint256 baseFee,
-        bytes32[255] memory ancestors
-    ) private pure returns (bytes32) {
-        return keccak256(abi.encodePacked(chainId, number, baseFee, ancestors));
+    function _calcBasefee(
+        uint256 timeSinceParent,
+        uint64 gasLimit,
+        uint64 parentGasUsed
+    ) private view returns (uint256 _basefee, uint64 _gasExcess) {
+        // Very important to cap _gasExcess uint64
+        unchecked {
+            uint64 parentGasUsedNet = parentGasUsed >
+                LibL2Consts.ANCHOR_GAS_COST
+                ? parentGasUsed - LibL2Consts.ANCHOR_GAS_COST
+                : 0;
+
+            uint256 a = uint256(gasExcess) + parentGasUsedNet;
+            uint256 b = gasIssuedPerSecond * timeSinceParent;
+            _gasExcess = uint64((a.max(b) - b).min(type(uint64).max));
+        }
+
+        _basefee = Lib1559Math.calculatePrice({
+            xscale: xscale,
+            yscale: yscale,
+            xExcess: _gasExcess,
+            xPurchase: gasLimit
+        });
     }
 }

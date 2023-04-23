@@ -24,10 +24,22 @@ event Burn(address account, uint256 amount)
 error TKO_INVALID_ADDR()
 ```
 
+### TKO_INVALID_PREMINT_PARAMS
+
+```solidity
+error TKO_INVALID_PREMINT_PARAMS()
+```
+
+### TKO_MINT_DISALLOWED
+
+```solidity
+error TKO_MINT_DISALLOWED()
+```
+
 ### init
 
 ```solidity
-function init(string _name, string _symbol, address _addressManager) external
+function init(address _addressManager, string _name, string _symbol, address[] _premintRecipients, uint256[] _premintAmounts) external
 ```
 
 _Initializer to be called after being deployed behind a proxy.
@@ -77,3 +89,9 @@ the circulating supply._
 | ------- | ------- | ------------------------------------ |
 | account | address | The address to burn the tokens from. |
 | amount  | uint256 | The amount of tokens to burn.        |
+
+### \_mint
+
+```solidity
+function _mint(address account, uint256 amount) internal
+```
