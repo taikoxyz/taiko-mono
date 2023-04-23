@@ -30,7 +30,7 @@ jobs:
         uses: ./.github/actions/install-pnpm-dependencies
 
       - name: protocol - Unit Tests
-        run: pnpm test
+        run: pnpm test:unit
 
       - name: protocol - Generate Genesis
         working-directory: ./packages/protocol
