@@ -7,7 +7,7 @@ const mockProvider = {
 };
 
 const mockContract = {
-  getLatestSyncedHeader: jest.fn(),
+  getXchainBlockHash: jest.fn(),
 };
 
 jest.mock('ethers', () => ({

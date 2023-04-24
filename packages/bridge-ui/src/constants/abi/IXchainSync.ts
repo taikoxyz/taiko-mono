@@ -11,16 +11,28 @@ export default [
       {
         indexed: false,
         internalType: 'bytes32',
-        name: 'srcHash',
+        name: 'blockHash',
+        type: 'bytes32',
+      },
+      {
+        indexed: false,
+        internalType: 'bytes32',
+        name: 'signalRoot',
         type: 'bytes32',
       },
     ],
-    name: 'HeaderSynced',
+    name: 'XchainSynced',
     type: 'event',
   },
   {
-    inputs: [],
-    name: 'getLatestSyncedHeader',
+    inputs: [
+      {
+        internalType: 'uint256',
+        name: 'number',
+        type: 'uint256',
+      },
+    ],
+    name: 'getXchainBlockHash',
     outputs: [
       {
         internalType: 'bytes32',
@@ -39,7 +51,7 @@ export default [
         type: 'uint256',
       },
     ],
-    name: 'getSyncedHeader',
+    name: 'getXchainSignalRoot',
     outputs: [
       {
         internalType: 'bytes32',

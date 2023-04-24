@@ -6,5 +6,6 @@ export const getStateVariables = async (
   contractAddress: string
 ) => {
   const contract: Contract = new Contract(contractAddress, TaikoL1, provider);
-  return await contract.getStateVariables();
+  const vars = await contract.getStateVariables();
+  return vars;
 };
