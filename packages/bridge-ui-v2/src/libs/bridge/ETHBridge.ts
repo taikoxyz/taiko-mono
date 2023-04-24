@@ -3,9 +3,9 @@ import { Contract, type Transaction } from 'ethers'
 import { BRIDGE_ABI } from '../../abi/Bridge'
 import type { ChainsRecord } from '../chain/types'
 import { type Message, MessageStatus } from '../message/types'
-import type { Prover } from '../prover.old'
-import type { GenerateProofArgs } from '../prover.old/types'
-import type { GenerateReleaseProofArgs } from '../prover.old/types'
+import type { Prover } from '../prover'
+import type { GenerateProofArgs } from '../prover/types'
+import type { GenerateReleaseProofArgs } from '../prover/types'
 import type { Bridge, ClaimArgs, ETHBridgeArgs, ReleaseArgs } from './types'
 
 export class ETHBridge implements Bridge {

@@ -1,4 +1,4 @@
-import { Prover } from '../prover.old'
+import { Prover } from '../prover'
 import { providers } from '../provider'
 import { ERC20Bridge } from './ERC20Bridge'
 
