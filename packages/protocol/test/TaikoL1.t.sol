@@ -233,4 +233,71 @@ contract TaikoL1Test is TaikoL1TestBase {
         console2.log("gas per eth deposit:", gasPerEthDeposit);
         console2.log("maxEthDepositsPerBlock:", count);
     }
+
+    /// @dev getXchainBlockHash tests
+    function test_getXchainBlockHash0() external {
+        bytes32 genHash = L1.getXchainBlockHash(0);
+        assertEq(GENESIS_BLOCK_HASH, genHash);
+
+        // Not yet avail.
+        genHash = L1.getXchainBlockHash(1);
+        assertEq(bytes32(0), genHash);
+    }
+
+    /// @dev getXchainSignalRoot tests
+    function test_getXchainSignalRoot() external {
+        uint256 iterationCnt = 10;
+        // Declare here so that block prop/prove/verif. can be used in 1 place
+        TaikoData.BlockMetadata memory meta;
+        TaikoData.ForkChoice memory fk;
+        bytes32 blockHash;
+        bytes32 signalRoot;
+        bytes32[] memory parentHashes = new bytes32[](iterationCnt);
+        parentHashes[0] = GENESIS_BLOCK_HASH;
+
+        depositTaikoToken(Alice, 1E6 * 1E8, 100000 ether);
+
+        // Propose blocks
+        for (uint256 blockId = 1; blockId < iterationCnt; blockId++) {
+            //printVariables("before propose");
+            meta = proposeBlock(Alice, 1000000, 1024);
+            mine(5);
+
+            blockHash = bytes32(1E10 + blockId);
+            signalRoot = bytes32(1E9 + blockId);
+
+            proveBlock(
+                Bob,
+                meta,
+                parentHashes[blockId - 1],
+                blockId == 1 ? 0 : 1000000,
+                1000000,
+                blockHash,
+                signalRoot,
+                false
+            );
+            verifyBlock(Carol, 1);
+
+            // Querying written blockhash
+            bytes32 genHash = L1.getXchainBlockHash(blockId);
+            assertEq(blockHash, genHash);
+
+            mine(5);
+            parentHashes[blockId] = blockHash;
+        }
+
+        // 1st
+        uint256 queriedBlockId = 1;
+        bytes32 expectedSR = bytes32(1E9 + queriedBlockId);
+
+        assertEq(expectedSR, L1.getXchainSignalRoot(queriedBlockId));
+
+        // 2nd
+        queriedBlockId = 2;
+        expectedSR = bytes32(1E9 + queriedBlockId);
+        assertEq(expectedSR, L1.getXchainSignalRoot(queriedBlockId));
+
+        // Not found
+        assertEq(bytes32(0), L1.getXchainSignalRoot((iterationCnt + 1)));
+    }
 }
