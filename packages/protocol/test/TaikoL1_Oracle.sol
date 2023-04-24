@@ -24,7 +24,6 @@ contract TaikoL1_Oracle is TaikoL1 {
 
         config.txListCacheExpiry = 5 minutes;
         config.maxVerificationsPerTx = 0;
-        config.enableSoloProposer = false;
         config.maxNumProposedBlocks = 10;
         config.ringBufferSize = 12;
         config.proofCooldownPeriod = 5 minutes;

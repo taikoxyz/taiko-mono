@@ -21,7 +21,6 @@ library LibTokenomics {
     using LibMath for uint256;
 
     error L1_INSUFFICIENT_TOKEN();
-    error L1_INVALID_PARAM();
 
     function withdrawTaikoToken(
         TaikoData.State storage state,

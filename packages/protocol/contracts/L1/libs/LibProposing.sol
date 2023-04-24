@@ -25,10 +25,8 @@ library LibProposing {
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
     error L1_BLOCK_ID();
-    error L1_INSUFFICIENT_ETHER();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
-    error L1_NOT_SOLO_PROPOSER();
     error L1_TOO_MANY_BLOCKS();
     error L1_TX_LIST_NOT_EXIST();
     error L1_TX_LIST_HASH();
@@ -45,7 +43,6 @@ library LibProposing {
         uint8 cacheTxListInfo = _validateBlock({
             state: state,
             config: config,
-            resolver: resolver,
             input: input,
             txList: txList
         });
@@ -120,18 +117,9 @@ library LibProposing {
     function _validateBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        AddressResolver resolver,
         TaikoData.BlockMetadataInput memory input,
         bytes calldata txList
     ) private view returns (uint8 cacheTxListInfo) {
-        // For alpha-2 testnet, the network only allows an special address
-        // to propose but anyone to prove. This is the first step of testing
-        // the tokenomics.
-        if (
-            config.enableSoloProposer &&
-            msg.sender != resolver.resolve("solo_proposer", false)
-        ) revert L1_NOT_SOLO_PROPOSER();
-
         if (
             input.beneficiary == address(0) ||
             input.gasLimit == 0 ||

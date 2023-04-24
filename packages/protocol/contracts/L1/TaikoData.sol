@@ -28,7 +28,6 @@ library TaikoData {
         uint64 proofTimeTarget;
         uint8 adjustmentQuotient;
         bool relaySignalRoot;
-        bool enableSoloProposer;
     }
 
     struct StateVariables {

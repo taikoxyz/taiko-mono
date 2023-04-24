@@ -20,7 +20,6 @@ library LibVerifying {
     using LibUtils for TaikoData.State;
 
     error L1_INVALID_CONFIG();
-    error L1_INVALID_L21559_PARAMS();
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
     event XchainSynced(
