@@ -1,5 +1,5 @@
 import { chains } from '../chain'
-import { Prover } from '../prover'
+import { Prover } from '../prover.old'
 import { providers } from '../provider'
 import { ETHBridge } from './ETHBridge'
 
