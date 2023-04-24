@@ -13,7 +13,10 @@ export class Prover {
   }
 
   private static _getKey(sender: string, msgHash: string) {
+    // See https://docs.ethers.org/v6/api/hashing/#solidityPacked
     const packedValues = ethers.solidityPacked(['address', 'bytes32'], [sender, msgHash])
+
+    // See https://docs.ethers.org/v6/api/crypto/#keccak256
     return ethers.keccak256(packedValues)
   }
 
@@ -83,9 +86,16 @@ export class Prover {
     const srcProvider = this.providers[args.srcChain]
     const destProvider = this.providers[args.destChain]
 
-    const contract = new ethers.Contract(args.destHeaderSyncAddress, HEADER_SYNC_ABI, destProvider)
+    const destHeaderSyncContract = new ethers.Contract(
+      args.destHeaderSyncAddress,
+      HEADER_SYNC_ABI,
+      destProvider,
+    )
 
-    const { block, blockHeader } = await Prover._getBlockAndBlockHeader(contract, srcProvider)
+    const { block, blockHeader } = await Prover._getBlockAndBlockHeader(
+      destHeaderSyncContract,
+      srcProvider,
+    )
 
     // RPC call to get the merkle proof what value is at key on the SignalService contract
     // See https://docs.infura.io/infura/networks/ethereum/json-rpc-methods/eth_getproof
@@ -108,9 +118,16 @@ export class Prover {
     const srcProvider = this.providers[args.srcChain]
     const destProvider = this.providers[args.destChain]
 
-    const contract = new ethers.Contract(args.srcHeaderSyncAddress, HEADER_SYNC_ABI, srcProvider)
+    const srcDeaderSyncContract = new ethers.Contract(
+      args.srcHeaderSyncAddress,
+      HEADER_SYNC_ABI,
+      srcProvider,
+    )
 
-    const { block, blockHeader } = await Prover._getBlockAndBlockHeader(contract, destProvider)
+    const { block, blockHeader } = await Prover._getBlockAndBlockHeader(
+      srcDeaderSyncContract,
+      destProvider,
+    )
 
     // RPC call to get the merkle proof what value is at key on the SignalService contract
     const proof: EthGetProofResponse = await destProvider.send('eth_getProof', [
