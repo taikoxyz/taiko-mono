@@ -13,7 +13,7 @@
 
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
   import { errorToast, successToast } from '../Toast.svelte';
-  import HeaderSyncABI from '../../constants/abi/HeaderSync';
+  import HeaderSyncABI from '../../constants/abi/IXchainSync';
   import BridgeABI from '../../constants/abi/Bridge';
   import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
   import TokenVaultABI from '../../constants/abi/TokenVault';
@@ -180,7 +180,7 @@
       providers[chains[transaction.toChainId].id],
     );
 
-    const latestSyncedHeader = await contract.getLatestSyncedHeader();
+    const latestSyncedHeader = await contract.getXchainBlockHash(0);
     const srcBlock = await providers[
       chains[transaction.fromChainId].id
     ].getBlock(latestSyncedHeader);

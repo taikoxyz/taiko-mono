@@ -31,12 +31,12 @@ func (p *Processor) waitHeaderSynced(ctx context.Context, event *bridge.BridgeMe
 			// and later blocks still have the storage trie proof from previous blocks.
 			latestSyncedHeader, err := p.destHeaderSyncer.GetXchainBlockHash(&bind.CallOpts{}, big.NewInt(0))
 			if err != nil {
-				return errors.Wrap(err, "p.destHeaderSyncer.GetLatestSyncedHeader")
+				return errors.Wrap(err, "p.destHeaderSyncer.GetXchainBlockHash")
 			}
 
 			header, err := p.srcEthClient.HeaderByHash(ctx, latestSyncedHeader)
 			if err != nil {
-				return errors.Wrap(err, "p.destHeaderSyncer.GetLatestSyncedHeader")
+				return errors.Wrap(err, "p.destHeaderSyncer.GetXchainBlockHash")
 			}
 
 			// header is caught up and processible
