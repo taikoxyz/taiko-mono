@@ -8,12 +8,13 @@
   import { ethers } from 'ethers';
   import ERC20_ABI from '../../constants/abi/ERC20';
   import { signer } from '../../store/signer';
-  import { userTokens, tokenService } from '../../store/userToken';
+  import { userTokens } from '../../store/userToken';
   import { fromChain, toChain } from '../../store/chain';
   import Erc20 from '../icons/ERC20.svelte';
   import AddCustomErc20 from '../form/AddCustomERC20.svelte';
   import { ETHToken, tokens } from '../../token/tokens';
   import { errorToast, successToast } from '../Toast.svelte';
+  import { tokenService } from '../../storage/services';
 
   let dropdownElement: HTMLDivElement;
   let showAddressField = false;
@@ -84,7 +85,7 @@
         logoComponent: null,
       } as Token;
 
-      const updateTokensList = $tokenService.storeToken(token, userAddress);
+      const updateTokensList = tokenService.storeToken(token, userAddress);
 
       select(token);
 
