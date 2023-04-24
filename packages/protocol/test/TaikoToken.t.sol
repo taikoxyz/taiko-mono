@@ -125,7 +125,7 @@ contract TaikoTokenTest is Test {
 
     function test_burn_invalid_address() public {
         vm.prank(protoBroker);
-        vm.expectRevert(TaikoToken.TKO_INVALID_ADDR.selector);
+        vm.expectRevert("ERC20: burn from the zero address");
         tko.burn(address(0), 1 ether);
     }
 
@@ -172,6 +172,17 @@ contract TaikoTokenTest is Test {
         tko.transfer(address(0), amountToMint);
     }
 
+    function test_transfer_to_contract_address() public {
+        uint256 amountToMint = 1 ether;
+        vm.prank(protoBroker);
+        tko.mint(Eve, amountToMint);
+        assertEq(tko.balanceOf(Eve), amountToMint);
+
+        vm.prank(Eve);
+        vm.expectRevert(TaikoToken.TKO_INVALID_ADDR.selector);
+        tko.transfer(address(tko), amountToMint);
+    }
+
     function test_transfer_amount_exceeded() public {
         uint256 amountToMint = 1 ether;
         uint256 amountToTransfer = 2 ether;
@@ -213,6 +224,20 @@ contract TaikoTokenTest is Test {
         vm.prank(Dave);
         vm.expectRevert("ERC20: transfer to the zero address");
         tko.transferFrom(Eve, address(0), amountToMint);
+    }
+
+    function test_transferFrom_to_is_the_contract() public {
+        uint256 amountToMint = 1 ether;
+        vm.prank(protoBroker);
+        tko.mint(Eve, amountToMint);
+        assertEq(tko.balanceOf(Eve), amountToMint);
+
+        vm.prank(Eve);
+        tko.approve(Dave, 1 ether);
+
+        vm.prank(Dave);
+        vm.expectRevert(TaikoToken.TKO_INVALID_ADDR.selector);
+        tko.transferFrom(Eve, address(tko), amountToMint);
     }
 
     function test_transferFrom_from_is_invalid() public {

@@ -112,7 +112,6 @@ contract TaikoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         address account,
         uint256 amount
     ) public onlyFromNamed("proto_broker") {
-        if (account == address(0)) revert TKO_INVALID_ADDR();
         _burn(account, amount);
         emit Burn(account, amount);
     }
