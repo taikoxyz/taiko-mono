@@ -1,6 +1,9 @@
 import { ethers } from 'ethers'
-import type { ProvidersRecord } from '../provider/types'
+
+import { HEADER_SYNC_ABI } from '../../abi/HeaderSync'
 import type { Block, BlockHeader } from '../block/types'
+import type { ProvidersRecord } from '../provider/types'
+import type { EthGetProofResponse, GenerateProofArgs, GenerateReleaseProofArgs } from './types'
 
 export class Prover {
   private readonly providers: ProvidersRecord
@@ -20,10 +23,14 @@ export class Prover {
   ): Promise<{ block: Block; blockHeader: BlockHeader }> {
     const latestSyncedHeader = await headerSyncContract.getLatestSyncedHeader()
 
-    // See https://docs.alchemy.com/reference/eth-getblockbyhash
+    // See https://docs.infura.io/infura/networks/ethereum/json-rpc-methods/eth_getblockbyhash
     const block: Block = await provider.send('eth_getBlockByHash', [latestSyncedHeader, false])
 
-    const logsBloom = block.logsBloom.toString().substring(2)
+    const processedLogsBloom = block.logsBloom
+      .toString()
+      .substring(2) // remove `0x` prefix
+      .match(/.{1,64}/g) // splits into 64 character chunks
+      ?.map((chunk: string) => `0x${chunk}`)
 
     const blockHeader: BlockHeader = {
       parentHash: block.parentHash,
@@ -32,7 +39,7 @@ export class Prover {
       stateRoot: block.stateRoot,
       transactionsRoot: block.transactionsRoot,
       receiptsRoot: block.receiptsRoot,
-      logsBloom: logsBloom.match(/.{1,64}/g)!.map((s: string) => '0x' + s),
+      logsBloom: processedLogsBloom ?? [],
       difficulty: block.difficulty,
       height: block.number,
       gasLimit: block.gasLimit,
@@ -48,15 +55,19 @@ export class Prover {
     return { block, blockHeader }
   }
 
-  private static getSignalProof(proof: EthGetProofResponse, blockHeader: BlockHeader) {
+  private static _getSignalProof(proof: EthGetProofResponse, blockHeader: BlockHeader) {
+    const abiCoder = ethers.AbiCoder.defaultAbiCoder()
+
     // RLP encode the proof together for LibTrieProof to decode
-    const encodedProof = ethers.utils.defaultAbiCoder.encode(
+    // See https://docs.ethers.org/v6/api/abi/abi-coder/
+    // See https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/
+    const encodedProof = abiCoder.encode(
       ['bytes', 'bytes'],
-      [RLP.encode(proof.accountProof), RLP.encode(proof.storageProof[0].proof)],
+      [ethers.encodeRlp(proof.accountProof), ethers.encodeRlp(proof.storageProof[0].proof)],
     )
 
-    // encode the SignalProof struct from LibBridgeSignal
-    const signalProof = ethers.utils.defaultAbiCoder.encode(
+    // Encode the SignalProof struct from LibBridgeSignal
+    const signalProof = abiCoder.encode(
       [
         'tuple(tuple(bytes32 parentHash, bytes32 ommersHash, address beneficiary, bytes32 stateRoot, bytes32 transactionsRoot, bytes32 receiptsRoot, bytes32[8] logsBloom, uint256 difficulty, uint128 height, uint64 gasLimit, uint64 gasUsed, uint64 timestamp, bytes extraData, bytes32 mixHash, uint64 nonce, uint256 baseFeePerGas, bytes32 withdrawalsRoot) header, bytes proof)',
       ],
@@ -66,22 +77,20 @@ export class Prover {
     return signalProof
   }
 
-  async generateProof(opts: GenerateProofOpts): Promise<string> {
-    const key = ProofService.getKey(opts)
+  async generateProof(args: GenerateProofArgs): Promise<string> {
+    const key = Prover._getKey(args.sender, args.msgHash)
 
-    const provider = this.providers[opts.srcChain]
+    const srcProvider = this.providers[args.srcChain]
+    const destProvider = this.providers[args.destChain]
 
-    const contract = new Contract(
-      opts.destHeaderSyncAddress,
-      HeaderSyncABI,
-      this.providers[opts.destChain],
-    )
+    const contract = new ethers.Contract(args.destHeaderSyncAddress, HEADER_SYNC_ABI, destProvider)
 
-    const { block, blockHeader } = await ProofService.getBlockAndBlockHeader(contract, provider)
+    const { block, blockHeader } = await Prover._getBlockAndBlockHeader(contract, srcProvider)
 
-    // rpc call to get the merkle proof what value is at key on the SignalService contract
-    const proof: EthGetProofResponse = await provider.send('eth_getProof', [
-      opts.srcSignalServiceAddress,
+    // RPC call to get the merkle proof what value is at key on the SignalService contract
+    // See https://docs.infura.io/infura/networks/ethereum/json-rpc-methods/eth_getproof
+    const proof: EthGetProofResponse = await srcProvider.send('eth_getProof', [
+      args.srcSignalServiceAddress,
       [key],
       block.hash,
     ])
@@ -90,26 +99,22 @@ export class Prover {
       throw Error('invalid proof')
     }
 
-    const p = ProofService.getSignalProof(proof, blockHeader)
-    return p
+    return Prover._getSignalProof(proof, blockHeader)
   }
 
-  async generateReleaseProof(opts: GenerateReleaseProofOpts): Promise<string> {
-    const key = ProofService.getKey(opts)
+  async generateReleaseProof(args: GenerateReleaseProofArgs): Promise<string> {
+    const key = Prover._getKey(args.sender, args.msgHash)
 
-    const provider = this.providers[opts.destChain]
+    const srcProvider = this.providers[args.srcChain]
+    const destProvider = this.providers[args.destChain]
 
-    const contract = new Contract(
-      opts.srcHeaderSyncAddress,
-      HeaderSyncABI,
-      this.providers[opts.srcChain],
-    )
+    const contract = new ethers.Contract(args.srcHeaderSyncAddress, HEADER_SYNC_ABI, srcProvider)
 
-    const { block, blockHeader } = await ProofService.getBlockAndBlockHeader(contract, provider)
+    const { block, blockHeader } = await Prover._getBlockAndBlockHeader(contract, destProvider)
 
-    // rpc call to get the merkle proof what value is at key on the SignalService contract
-    const proof: EthGetProofResponse = await provider.send('eth_getProof', [
-      opts.destBridgeAddress,
+    // RPC call to get the merkle proof what value is at key on the SignalService contract
+    const proof: EthGetProofResponse = await destProvider.send('eth_getProof', [
+      args.destBridgeAddress,
       [key],
       block.hash,
     ])
@@ -118,7 +123,6 @@ export class Prover {
       throw Error('invalid proof')
     }
 
-    const p = ProofService.getSignalProof(proof, blockHeader)
-    return p
+    return Prover._getSignalProof(proof, blockHeader)
   }
 }
