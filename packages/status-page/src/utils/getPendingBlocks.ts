@@ -7,7 +7,7 @@ export const getPendingBlocks = async (
 ): Promise<number> => {
   const contract: Contract = new Contract(contractAddress, TaikoL1, provider);
   const stateVariables = await contract.getStateVariables();
-  const nextBlockId = stateVariables.nextBlockId;
-  const lastBlockId = stateVariables.lastBlockId;
+  const nextBlockId = stateVariables.numBlocks;
+  const lastBlockId = stateVariables.lastVerifiedBlockId;
   return nextBlockId - lastBlockId - 1;
 };

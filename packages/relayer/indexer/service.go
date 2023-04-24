@@ -15,7 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/iheadersync"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/ixchainsync"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/taikol1"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/message"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/proof"
@@ -137,7 +137,7 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		return nil, errors.Wrap(err, "proof.New")
 	}
 
-	destHeaderSyncer, err := iheadersync.NewIHeaderSync(opts.DestTaikoAddress, opts.DestEthClient)
+	destHeaderSyncer, err := ixchainsync.NewIXchainSync(opts.DestTaikoAddress, opts.DestEthClient)
 	if err != nil {
 		return nil, errors.Wrap(err, "contracts.NewTaikoL2")
 	}
