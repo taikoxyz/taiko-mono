@@ -1,10 +1,9 @@
 import { writable } from 'svelte/store';
 import type { Signer, Transaction, ethers } from 'ethers';
-import type { BridgeTransaction, Transactioner } from '../domain/transactions';
+import type { BridgeTransaction } from '../domain/transactions';
 import { Deferred } from '../utils/Deferred';
 
 export const transactions = writable<BridgeTransaction[]>([]);
-export const transactioner = writable<Transactioner>();
 
 // Custom store: pendingTransactions
 const { subscribe, set, update } = writable<Transaction[]>([]);
