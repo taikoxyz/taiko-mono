@@ -25,7 +25,6 @@ contract TaikoL1WithTestnetConfig is TaikoL1 {
 
         config.txListCacheExpiry = 5 minutes;
         config.maxVerificationsPerTx = 0;
-        config.enableSoloProposer = false;
         config.proofCooldownPeriod = 0;
         config.maxNumProposedBlocks = 40;
         config.ringBufferSize = 48;

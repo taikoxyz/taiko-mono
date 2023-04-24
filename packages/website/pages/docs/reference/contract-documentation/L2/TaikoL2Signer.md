@@ -1,3 +1,7 @@
+---
+title: TaikoL2Signer
+---
+
 ## TaikoL2Signer
 
 ### GOLDEN_TOUCH_ADDRESS

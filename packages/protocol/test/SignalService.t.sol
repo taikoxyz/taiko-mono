@@ -115,7 +115,7 @@ contract TestSignalService is Test {
     {
         vm.startPrank(Alice);
         for (uint8 i = 1; i < 100; i++) {
-            bytes32 signal = bytes32(block.prevrandao + i);
+            bytes32 signal = bytes32(block.difficulty + i);
             signalService.sendSignal(signal);
 
             bool isSent = signalService.isSignalSent(Alice, signal);

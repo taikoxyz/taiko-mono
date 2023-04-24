@@ -23,7 +23,6 @@ contract TaikoL1_b is TaikoL1 {
         config = TaikoConfig.getConfig();
 
         config.txListCacheExpiry = 0;
-        config.enableSoloProposer = false;
         config.maxNumProposedBlocks = 36;
         config.ringBufferSize = 40;
         config.maxVerificationsPerTx = 5;

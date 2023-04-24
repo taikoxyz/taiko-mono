@@ -19,24 +19,15 @@ library LibEthDepositing {
     using LibMath for uint256;
     using SafeCastUpgradeable for uint256;
 
-    // When maxEthDepositsPerBlock is 32, the average gas cost per
-    // EthDeposit is about 2700 gas. We use 21000 so the proposer may
-    // earn a small profit if there are 32 deposits included
-    // in the block; if there are less EthDeposit to process, the
-    // proposer may suffer a loss so the proposer should simply wait
-    // for more EthDeposit be become available.
-    uint256 public constant GAS_PER_ETH_DEPOSIT = 21000;
-    uint256 public constant MAX_FEE_PER_ETH_DEPOSIT = 1 ether / 10; // 0.1 Ether.
+    event EthDeposited(TaikoData.EthDeposit deposit);
 
     error L1_INVALID_ETH_DEPOSIT();
-
-    event EthDeposited(TaikoData.EthDeposit deposit);
 
     function depositEtherToL2(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver
-    ) public {
+    ) internal {
         if (
             msg.value < config.minEthDepositAmount ||
             msg.value > config.maxEthDepositAmount
@@ -79,9 +70,15 @@ library LibEthDepositing {
             state.nextEthDepositToProcess + config.minEthDepositsPerBlock
         ) {
             unchecked {
+                // When maxEthDepositsPerBlock is 32, the average gas cost per
+                // EthDeposit is about 2700 gas. We use 21000 so the proposer may
+                // earn a small profit if there are 32 deposits included
+                // in the block; if there are less EthDeposit to process, the
+                // proposer may suffer a loss so the proposer should simply wait
+                // for more EthDeposit be become available.
                 uint96 feePerDeposit = uint96(
-                    MAX_FEE_PER_ETH_DEPOSIT.min(
-                        block.basefee * GAS_PER_ETH_DEPOSIT
+                    config.ethDepositMaxFee.min(
+                        block.basefee * config.ethDepositGas
                     )
                 );
                 uint96 totalFee;

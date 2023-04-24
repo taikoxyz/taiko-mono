@@ -15,13 +15,13 @@ import {LibBridgeStatus} from "./LibBridgeStatus.sol";
 library LibBridgeRelease {
     using LibBridgeData for IBridge.Message;
 
+    event EtherReleased(bytes32 indexed msgHash, address to, uint256 amount);
+
     error B_ETHER_RELEASED_ALREADY();
     error B_FAILED_TRANSFER();
     error B_MSG_NOT_FAILED();
     error B_OWNER_IS_NULL();
     error B_WRONG_CHAIN_ID();
-
-    event EtherReleased(bytes32 indexed msgHash, address to, uint256 amount);
 
     /**
      * Release Ether to the message owner, only if the Taiko Bridge state says:

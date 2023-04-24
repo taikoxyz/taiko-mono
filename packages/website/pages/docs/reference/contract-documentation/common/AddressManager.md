@@ -1,3 +1,7 @@
+---
+title: IAddressManager
+---
+
 ## IAddressManager
 
 Interface to set and get an address for a name.
@@ -38,6 +42,10 @@ Retrieves the address associated with a given name.
 | Name | Type    | Description                             |
 | ---- | ------- | --------------------------------------- |
 | [0]  | address | Address associated with the given name. |
+
+---
+
+## title: AddressManager
 
 ## AddressManager
 
