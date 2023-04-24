@@ -75,7 +75,7 @@ library LibProposing {
             meta.timestamp = uint64(block.timestamp);
             meta.l1Height = uint64(block.number - 1);
             meta.l1Hash = blockhash(block.number - 1);
-            meta.mixHash = bytes32(block.prevrandao * state.numBlocks);
+            meta.mixHash = bytes32(block.difficulty * state.numBlocks);
         }
 
         TaikoData.Block storage blk = state.blocks[

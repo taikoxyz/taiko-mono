@@ -206,7 +206,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
             gaslimit: uint64(block.gaslimit),
             timestamp: uint64(block.timestamp),
             parentHash: parentHash,
-            prevrandao: block.prevrandao,
+            prevrandao: block.difficulty,
             coinbase: block.coinbase,
             chainid: uint32(block.chainid)
         });

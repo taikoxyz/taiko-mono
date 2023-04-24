@@ -77,8 +77,8 @@ library LibTokenomics {
                     block.timestamp -
                     state.accProposedAt
             );
-            // If block timestamp is equal to state.accProposedAt (not really, but theoretically possible)
-            // there will be division by 0 error
+            // If block timestamp is equal to state.accProposedAt (not really,
+            // but theoretically possible) there will be division by 0 error
             if (totalNumProvingSeconds == 0) {
                 totalNumProvingSeconds = 1;
             }

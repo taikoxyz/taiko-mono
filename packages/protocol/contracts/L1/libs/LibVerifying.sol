@@ -19,14 +19,15 @@ library LibVerifying {
     using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.State;
 
-    error L1_INVALID_CONFIG();
-
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
+
     event XchainSynced(
         uint256 indexed srcHeight,
         bytes32 blockHash,
         bytes32 signalRoot
     );
+
+    error L1_INVALID_CONFIG();
 
     function init(
         TaikoData.State storage state,
@@ -35,7 +36,27 @@ library LibVerifying {
         uint64 initBasefee,
         uint64 initProofTimeIssued
     ) internal {
-        _checkConfig(config);
+        if (
+            config.chainId <= 1 ||
+            config.maxNumProposedBlocks == 1 ||
+            config.ringBufferSize <= config.maxNumProposedBlocks + 1 ||
+            config.maxNumVerifiedBlocks == 0 ||
+            config.blockMaxGasLimit == 0 ||
+            config.maxTransactionsPerBlock == 0 ||
+            config.maxBytesPerTxList == 0 ||
+            // EIP-4844 blob size up to 128K
+            config.maxBytesPerTxList > 128 * 1024 ||
+            config.minTxGasLimit == 0 ||
+            config.maxEthDepositsPerBlock == 0 ||
+            config.maxEthDepositsPerBlock < config.minEthDepositsPerBlock ||
+            // EIP-4844 blob deleted after 30 days
+            config.txListCacheExpiry > 30 * 24 hours ||
+            config.ethDepositGas == 0 ||
+            config.ethDepositMaxFee == 0 ||
+            config.ethDepositMaxFee >= type(uint96).max ||
+            config.proofTimeTarget == 0 ||
+            config.adjustmentQuotient == 0
+        ) revert L1_INVALID_CONFIG();
 
         uint64 timeNow = uint64(block.timestamp);
         state.genesisHeight = uint64(block.number);
@@ -163,26 +184,5 @@ library LibVerifying {
         blk.verifiedForkChoiceId = fcId;
 
         emit BlockVerified(blk.blockId, fc.blockHash);
-    }
-
-    function _checkConfig(TaikoData.Config memory config) private pure {
-        if (
-            config.chainId <= 1 ||
-            config.maxNumProposedBlocks == 1 ||
-            config.ringBufferSize <= config.maxNumProposedBlocks + 1 ||
-            config.maxNumVerifiedBlocks == 0 ||
-            config.blockMaxGasLimit == 0 ||
-            config.maxTransactionsPerBlock == 0 ||
-            config.maxBytesPerTxList == 0 ||
-            // EIP-4844 blob size up to 128K
-            config.maxBytesPerTxList > 128 * 1024 ||
-            config.minTxGasLimit == 0 ||
-            config.maxEthDepositsPerBlock == 0 ||
-            config.maxEthDepositsPerBlock < config.minEthDepositsPerBlock ||
-            // EIP-4844 blob deleted after 30 days
-            config.txListCacheExpiry > 30 * 24 hours ||
-            config.proofTimeTarget == 0 ||
-            config.adjustmentQuotient == 0
-        ) revert L1_INVALID_CONFIG();
     }
 }

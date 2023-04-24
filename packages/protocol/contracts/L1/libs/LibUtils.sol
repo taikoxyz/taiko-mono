@@ -78,21 +78,6 @@ library LibUtils {
         return _ma > 0 ? _ma : maValue;
     }
 
-    struct BlockMetadata {
-        uint64 id;
-        uint64 timestamp;
-        uint64 l1Height;
-        uint64 basefee;
-        bytes32 l1Hash;
-        bytes32 mixHash;
-        bytes32 txListHash;
-        uint24 txListByteStart;
-        uint24 txListByteEnd;
-        uint32 gasLimit;
-        address beneficiary;
-        address treasure;
-    }
-
     function hashMetadata(
         TaikoData.BlockMetadata memory meta
     ) internal pure returns (bytes32 hash) {
@@ -138,7 +123,7 @@ library LibUtils {
         }
     }
 
-    function getVerifierName(uint16 id) public pure returns (string memory) {
+    function getVerifierName(uint16 id) internal pure returns (string memory) {
         return string(bytes.concat(bytes("verifier_"), bytes2(id)));
     }
 }

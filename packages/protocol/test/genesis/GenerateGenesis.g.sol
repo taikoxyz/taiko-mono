@@ -75,8 +75,8 @@ contract TestGenerateGenesis is Test, AddressResolver {
             uint256 gasLeftBefore = gasleft();
 
             taikoL2.anchor(
-                bytes32(block.prevrandao),
-                bytes32(block.prevrandao),
+                bytes32(block.difficulty),
+                bytes32(block.difficulty),
                 i,
                 i + LibL2Consts.ANCHOR_GAS_COST
             );
@@ -159,7 +159,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         assertEq(owner, signalService.owner());
 
-        signalService.sendSignal(bytes32(block.prevrandao));
+        signalService.sendSignal(bytes32(block.difficulty));
     }
 
     function testERC20() public {
