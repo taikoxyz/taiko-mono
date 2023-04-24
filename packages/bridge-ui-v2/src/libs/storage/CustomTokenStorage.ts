@@ -1,4 +1,4 @@
-import type { Token } from '../token/types'
+import type { Token } from '../token.old/types'
 import { jsonParseOrEmptyArray } from '../util/jsonParseOrEmptyArray'
 
 const STORAGE_PREFIX = 'custom-tokens'
