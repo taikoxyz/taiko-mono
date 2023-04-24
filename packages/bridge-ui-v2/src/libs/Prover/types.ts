@@ -13,22 +13,20 @@ export type EthGetProofResponse = {
   storageProof: StorageEntry[]
 }
 
-export type GenerateProofArgs = {
+type GenerateProofCommonArgs = {
   msgHash: string
   sender: string
-  srcBridgeAddress: string
-  destChain: number
+  srcChainId: string
+  destChainId: string
   destHeaderSyncAddress: string
-  srcChain: number
+}
+
+export type GenerateProofArgs = GenerateProofCommonArgs & {
+  srcBridgeAddress: string
   srcSignalServiceAddress: string
 }
 
-export type GenerateReleaseProofArgs = {
-  msgHash: string
-  sender: string
+export type GenerateReleaseProofArgs = GenerateProofCommonArgs & {
   destBridgeAddress: string
-  destChain: number
-  destHeaderSyncAddress: string
   srcHeaderSyncAddress: string
-  srcChain: number
 }

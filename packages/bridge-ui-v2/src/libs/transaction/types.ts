@@ -9,9 +9,8 @@ export type BridgeTransaction = {
   status: MessageStatus
   msgHash?: string
   message?: Message
-  interval?: NodeJS.Timer
   amountInWei?: bigint
   symbol?: string
-  fromChainId: string
-  toChainId: string
+  srcChainId: string
+  destChainId: string
 }

@@ -83,8 +83,8 @@ export class Prover {
   async generateProof(args: GenerateProofArgs): Promise<string> {
     const key = Prover._getKey(args.sender, args.msgHash)
 
-    const srcProvider = this.providers[args.srcChain]
-    const destProvider = this.providers[args.destChain]
+    const srcProvider = this.providers[args.srcChainId]
+    const destProvider = this.providers[args.destChainId]
 
     const destHeaderSyncContract = new ethers.Contract(
       args.destHeaderSyncAddress,
@@ -115,8 +115,8 @@ export class Prover {
   async generateReleaseProof(args: GenerateReleaseProofArgs): Promise<string> {
     const key = Prover._getKey(args.sender, args.msgHash)
 
-    const srcProvider = this.providers[args.srcChain]
-    const destProvider = this.providers[args.destChain]
+    const srcProvider = this.providers[args.srcChainId]
+    const destProvider = this.providers[args.destChainId]
 
     const srcDeaderSyncContract = new ethers.Contract(
       args.srcHeaderSyncAddress,

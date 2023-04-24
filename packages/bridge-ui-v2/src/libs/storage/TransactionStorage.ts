@@ -110,10 +110,10 @@ export class TransactionStorage {
     const txsPromises = txs.map(async (tx) => {
       if (tx.from.toLowerCase() !== address.toLowerCase()) return
 
-      const { toChainId, fromChainId, hash } = tx
+      const { destChainId, srcChainId, hash } = tx
 
-      const destProvider = this.providers[toChainId]
-      const srcProvider = this.providers[fromChainId]
+      const destProvider = this.providers[destChainId]
+      const srcProvider = this.providers[srcChainId]
 
       // Ignore transactions from chains not supported by the bridge
       if (!srcProvider) return
@@ -128,7 +128,7 @@ export class TransactionStorage {
 
       tx.receipt = receipt
 
-      const srcBridgeAddress = this.chains[fromChainId].bridgeAddress
+      const srcBridgeAddress = this.chains[srcChainId].bridgeAddress
 
       const messageSentEvent = await TransactionStorage._getBridgeMessageSent(
         address,
@@ -150,7 +150,7 @@ export class TransactionStorage {
       tx.msgHash = msgHash
       tx.message = message
 
-      const destBridgeAddress = this.chains[toChainId].bridgeAddress
+      const destBridgeAddress = this.chains[destChainId].bridgeAddress
 
       tx.status = await TransactionStorage._getBridgeMessageStatus(
         destBridgeAddress,
@@ -164,7 +164,7 @@ export class TransactionStorage {
         // We're dealing with an ERC20 transfer.
         // Let's get the symbol and amount from the TokenVault contract.
 
-        const srcTokenVaultAddress = this.tokenVaults[fromChainId]
+        const srcTokenVaultAddress = this.tokenVaults[srcChainId]
 
         const erc20Event = await TransactionStorage._getTokenVaultERC20Event(
           srcTokenVaultAddress,
@@ -208,10 +208,10 @@ export class TransactionStorage {
 
     if (!tx || tx.from.toLowerCase() !== address.toLowerCase()) return
 
-    const { toChainId, fromChainId } = tx
+    const { destChainId, srcChainId } = tx
 
-    const destProvider = this.providers[toChainId]
-    const srcProvider = this.providers[fromChainId]
+    const destProvider = this.providers[destChainId]
+    const srcProvider = this.providers[srcChainId]
 
     // Ignore transactions from chains not supported by the bridge
     if (!srcProvider) return
@@ -226,7 +226,7 @@ export class TransactionStorage {
 
     tx.receipt = receipt
 
-    const srcBridgeAddress = this.chains[fromChainId].bridgeAddress
+    const srcBridgeAddress = this.chains[srcChainId].bridgeAddress
 
     const messageSentEvent = await TransactionStorage._getBridgeMessageSent(
       address,
@@ -243,7 +243,7 @@ export class TransactionStorage {
     tx.msgHash = msgHash
     tx.message = message
 
-    const destBridgeAddress = this.chains[toChainId].bridgeAddress
+    const destBridgeAddress = this.chains[destChainId].bridgeAddress
 
     const status = await TransactionStorage._getBridgeMessageStatus(
       destBridgeAddress,
@@ -258,7 +258,7 @@ export class TransactionStorage {
       // Dealing with an ERC20 transfer. Let's get the symbol
       // and amount from the TokenVault contract.
 
-      const srcTokenVaultAddress = this.tokenVaults[fromChainId]
+      const srcTokenVaultAddress = this.tokenVaults[srcChainId]
 
       const erc20Event = await TransactionStorage._getTokenVaultERC20Event(
         srcTokenVaultAddress,

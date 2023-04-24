@@ -1,0 +1,64 @@
+import type { JsonRpcProvider, Signer, Transaction } from 'ethers'
+
+import type { Message } from '../message/types'
+
+export enum BridgeType {
+  ETH = 'ETH',
+
+  // https://ethereum.org/en/developers/docs/standards/tokens/erc-20/
+  ERC20 = 'ERC20',
+
+  // https://ethereum.org/en/developers/docs/standards/tokens/erc-721/
+  ERC721 = 'ERC721',
+
+  // https://ethereum.org/en/developers/docs/standards/tokens/erc-1155/
+  ERC1155 = 'ERC1155',
+}
+
+export type ApproveArgs = {
+  amountInWei: bigint
+  contractAddress: string
+  signer: Signer
+  spenderAddress: string
+}
+
+type BridgeArgs = {
+  to: string
+  signer: Signer
+  tokenAddress: string
+  srcChainId: string
+  destChainId: string
+  amountInWei: bigint
+  memo?: string
+  tokenId?: string
+  processingFeeInWei?: bigint
+  isBridgedTokenAlreadyDeployed?: boolean
+}
+
+export type ETHBridgeArgs = BridgeArgs & {
+  bridgeAddress: string
+}
+
+export type ERC20BridgeArgs = BridgeArgs & {
+  tokenVaultAddress: string
+}
+
+export type ClaimArgs = {
+  message: Message
+  msgHash: string
+  signer: Signer
+  destBridgeAddress: string
+  srcBridgeAddress: string
+}
+
+export type ReleaseArgs = ClaimArgs & {
+  destProvider: JsonRpcProvider
+  srcTokenVaultAddress: string
+}
+
+export interface Bridge {
+  estimateGas(args: BridgeArgs): Promise<bigint>
+  bridge(args: BridgeArgs): Promise<Transaction>
+  claim(args: ClaimArgs): Promise<Transaction>
+  releaseTokens(args: ReleaseArgs): Promise<Transaction | undefined>
+}
