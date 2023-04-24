@@ -171,7 +171,6 @@ library LibVerifying {
             config.chainId <= 1 ||
             config.maxNumProposedBlocks == 1 ||
             config.ringBufferSize <= config.maxNumProposedBlocks + 1 ||
-            config.maxNumVerifiedBlocks == 0 ||
             config.blockMaxGasLimit == 0 ||
             config.maxTransactionsPerBlock == 0 ||
             config.maxBytesPerTxList == 0 ||

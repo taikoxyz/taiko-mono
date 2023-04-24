@@ -478,11 +478,6 @@ export default [
           },
           {
             internalType: "uint256",
-            name: "maxNumVerifiedBlocks",
-            type: "uint256",
-          },
-          {
-            internalType: "uint256",
             name: "maxVerificationsPerTx",
             type: "uint256",
           },
