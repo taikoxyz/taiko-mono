@@ -1,3 +1,5 @@
+import type { BigNumber } from 'ethers'
+
 export enum MessageStatus {
   New,
   Retriable,
@@ -14,10 +16,10 @@ export type Message = {
   owner: string
   to: string
   refundAddress: string
-  depositValue: bigint
-  callValue: bigint
-  processingFee: bigint
-  gasLimit: bigint
+  depositValue: BigNumber
+  callValue: BigNumber
+  processingFee: BigNumber
+  gasLimit: BigNumber
   data: string
   memo: string
 }

@@ -1,4 +1,4 @@
-import { Contract, type Transaction } from 'ethers'
+import { BigNumber, Contract, type Transaction } from 'ethers'
 
 import { BRIDGE_ABI } from '../../abi'
 import type { ChainsRecord } from '../chain/types'
@@ -29,10 +29,12 @@ export class ETHBridge implements Bridge {
       owner: owner,
       to: args.to,
       refundAddress: owner,
-      depositValue: args.to.toLowerCase() === owner.toLowerCase() ? args.amountInWei : BigInt(0),
-      callValue: args.to.toLowerCase() === owner.toLowerCase() ? BigInt(0) : args.amountInWei,
-      processingFee: args.processingFeeInWei ?? BigInt(0),
-      gasLimit: args.processingFeeInWei ? BigInt(140000) : BigInt(0), // TODO: 140k ??
+      depositValue:
+        args.to.toLowerCase() === owner.toLowerCase() ? args.amountInWei : BigNumber.from(0),
+      callValue:
+        args.to.toLowerCase() === owner.toLowerCase() ? BigNumber.from(0) : args.amountInWei,
+      processingFee: args.processingFeeInWei ?? BigNumber.from(0),
+      gasLimit: args.processingFeeInWei ? BigNumber.from(140000) : BigNumber.from(0), // TODO: 140k ??
       memo: args.memo ?? '',
       id: 1, // will be set in contract,
       data: '0x',
@@ -41,11 +43,11 @@ export class ETHBridge implements Bridge {
     return { bridgeContract, owner, message }
   }
 
-  async estimateGas(args: ETHBridgeArgs): Promise<bigint> {
+  async estimateGas(args: ETHBridgeArgs): Promise<BigNumber> {
     const { bridgeContract, message } = await ETHBridge._prepareTransaction(args)
 
     const gasEstimate = await bridgeContract.sendMessage.estimateGas(message, {
-      value: message.depositValue + message.processingFee + message.callValue,
+      value: message.depositValue.add(message.processingFee).add(message.callValue),
     })
 
     return gasEstimate
@@ -55,7 +57,7 @@ export class ETHBridge implements Bridge {
     const { bridgeContract, message } = await ETHBridge._prepareTransaction(args)
 
     const tx: Transaction = await bridgeContract.sendMessage(message, {
-      value: message.depositValue + message.processingFee + message.callValue,
+      value: message.depositValue.add(message.processingFee).add(message.callValue),
     })
 
     return tx

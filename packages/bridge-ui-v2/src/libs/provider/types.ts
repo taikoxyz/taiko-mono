@@ -1,3 +1,3 @@
-import type { JsonRpcProvider } from 'ethers'
+import type { providers } from 'ethers'
 
-export type ProvidersRecord = Record<string, JsonRpcProvider>
+export type ProvidersRecord = Record<string, providers.JsonRpcProvider>

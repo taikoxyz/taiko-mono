@@ -1,4 +1,4 @@
-import type { JsonRpcProvider, Signer, Transaction } from 'ethers'
+import type { BigNumber, providers, Signer, Transaction } from 'ethers'
 
 import type { Message } from '../message/types'
 
@@ -16,7 +16,7 @@ export enum BridgeType {
 }
 
 export type ApproveArgs = {
-  amountInWei: bigint
+  amountInWei: BigNumber
   contractAddress: string
   signer: Signer
   spenderAddress: string
@@ -28,10 +28,10 @@ type BridgeArgs = {
   tokenAddress: string
   srcChainId: string
   destChainId: string
-  amountInWei: bigint
+  amountInWei: BigNumber
   memo?: string
   tokenId?: string
-  processingFeeInWei?: bigint
+  processingFeeInWei?: BigNumber
   isBridgedTokenAlreadyDeployed?: boolean
 }
 
@@ -52,12 +52,12 @@ export type ClaimArgs = {
 }
 
 export type ReleaseArgs = ClaimArgs & {
-  destProvider: JsonRpcProvider
+  destProvider: providers.JsonRpcProvider
   srcTokenVaultAddress: string
 }
 
 export interface Bridge {
-  estimateGas(args: BridgeArgs): Promise<bigint>
+  estimateGas(args: BridgeArgs): Promise<BigNumber>
   bridge(args: BridgeArgs): Promise<Transaction>
   claim(args: ClaimArgs): Promise<Transaction>
   releaseTokens(args: ReleaseArgs): Promise<Transaction | undefined>

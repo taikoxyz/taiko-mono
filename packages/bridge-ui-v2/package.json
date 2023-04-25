@@ -41,7 +41,7 @@
   "dependencies": {
     "@wagmi/core": "^0.8.0",
     "daisyui": "1.16.6",
-    "ethers": "^6.3.0",
+    "ethers": "^5.7",
     "events": "^3.3.0",
     "svelte-i18n": "^3.5.1"
   }

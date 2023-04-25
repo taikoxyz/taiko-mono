@@ -1,5 +1,4 @@
-import { ethers } from 'ethers'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { BigNumber, ethers, type EventFilter } from 'ethers'
 
 import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID } from '$env/static/public'
 
@@ -174,7 +173,7 @@ describe('storage tests', () => {
 
   it('gets all transactions by address, no ERC20Sent event', async () => {
     vi.mocked(ethers.Contract.prototype.queryFilter).mockImplementation(
-      (event: ethers.ContractEventName): any => {
+      (event: EventFilter | string): any => {
         if (event === 'ERC20Sent') return []
         return mockErc20Query // MessageSent
       },
@@ -214,7 +213,7 @@ describe('storage tests', () => {
 
         // We should have these two
         symbol: 'TKO',
-        amountInWei: BigInt(100),
+        amountInWei: BigNumber.from(100),
       },
     ])
   })
@@ -318,7 +317,7 @@ describe('storage tests', () => {
 
   it('get transaction by hash, no ERC20Sent event', async () => {
     vi.mocked(ethers.Contract.prototype.queryFilter).mockImplementation(
-      (event: ethers.ContractEventName): any => {
+      (event: EventFilter | string): any => {
         if (event === 'ERC20Sent') return []
         return mockErc20Query // MessageSent
       },
@@ -347,7 +346,7 @@ describe('storage tests', () => {
 
     expect(tx).toEqual({
       ...mockTx,
-      amountInWei: BigInt(100),
+      amountInWei: BigNumber.from(100),
       message: mockErc20Event.args.message,
       receipt: {
         blockNumber: 1,
