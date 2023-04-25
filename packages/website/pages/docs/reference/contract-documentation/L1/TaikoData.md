@@ -11,7 +11,6 @@ struct Config {
   uint256 chainId;
   uint256 maxNumProposedBlocks;
   uint256 ringBufferSize;
-  uint256 maxNumVerifiedBlocks;
   uint256 maxVerificationsPerTx;
   uint256 blockMaxGasLimit;
   uint256 maxTransactionsPerBlock;
