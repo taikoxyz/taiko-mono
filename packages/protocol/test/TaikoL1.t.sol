@@ -249,7 +249,6 @@ contract TaikoL1Test is TaikoL1TestBase {
         uint256 iterationCnt = 10;
         // Declare here so that block prop/prove/verif. can be used in 1 place
         TaikoData.BlockMetadata memory meta;
-        TaikoData.ForkChoice memory fk;
         bytes32 blockHash;
         bytes32 signalRoot;
         bytes32[] memory parentHashes = new bytes32[](iterationCnt);

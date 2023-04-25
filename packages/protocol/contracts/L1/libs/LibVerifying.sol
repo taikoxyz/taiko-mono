@@ -162,7 +162,7 @@ library LibVerifying {
         uint64 reward = LibTokenomics.getProofReward(state, proofTime);
 
         (state.proofTimeIssued, state.blockFee) = LibTokenomics
-            .getNewBaseFeeandProofTimeIssued(state, config, proofTime);
+            .getNewBlockFeeAndProofTimeIssued(state, config, proofTime);
 
         unchecked {
             state.accBlockFees -= reward;
