@@ -12,7 +12,7 @@ import { TransactionStorage } from './TransactionStorage'
 vi.mock('$env/static/public')
 
 vi.mock('ethers', async () => {
-  const actualEthers = (await vi.importActual('ethers')) as any
+  const actualEthers = (await vi.importActual('ethers')) as typeof ethers
 
   const MockContract = vi.fn()
   MockContract.prototype = {
@@ -85,7 +85,7 @@ const mockQuery = [mockEvent]
 
 const mockErc20Query = [mockErc20Event]
 
-describe('storage tests', () => {
+describe.only('storage tests', () => {
   beforeEach(() => {
     mockStorage.getItem.mockReturnValue(JSON.stringify(mockTxs))
 

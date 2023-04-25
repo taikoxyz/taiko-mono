@@ -6,9 +6,8 @@ export default defineConfig({
   test: {
     globals: true,
     include: ['src/**/*.{test,spec}.{js,ts}'],
-    coverage: {
-      provider: 'istanbul',
-      reporter: ['text', 'html'],
+    deps: {
+      inline: ['@ethersproject/signing-key', '@ethersproject/basex'],
     },
   },
 })
