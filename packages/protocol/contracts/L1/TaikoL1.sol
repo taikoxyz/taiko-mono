@@ -35,13 +35,13 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      *
      * @param _addressManager The AddressManager address.
      * @param _genesisBlockHash The block hash of the genesis block.
-     * @param _initBasefee Initial (reasonable) basefee value.
+     * @param _initBlockFee Initial (reasonable) block fee value.
      * @param _initProofTimeIssued Initial proof time which keeps the inflow/outflow in balance
      */
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
-        uint64 _initBasefee,
+        uint64 _initBlockFee,
         uint64 _initProofTimeIssued
     ) external initializer {
         EssentialContract._init(_addressManager);
@@ -49,7 +49,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             state: state,
             config: getConfig(),
             genesisBlockHash: _genesisBlockHash,
-            initBasefee: _initBasefee,
+            initBlockFee: _initBlockFee,
             initProofTimeIssued: _initProofTimeIssued
         });
     }
@@ -152,7 +152,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     }
 
     function getBlockFee() public view returns (uint64) {
-        return state.basefee;
+        return state.blockFee;
     }
 
     function getProofReward(

@@ -33,7 +33,7 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
-        uint64 initBasefee,
+        uint64 initBlockFee,
         uint64 initProofTimeIssued
     ) internal {
         if (
@@ -61,7 +61,7 @@ library LibVerifying {
         state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = timeNow;
 
-        state.basefee = initBasefee;
+        state.blockFee = initBlockFee;
         state.proofTimeIssued = initProofTimeIssued;
         state.numBlocks = 1;
 
@@ -160,8 +160,8 @@ library LibVerifying {
 
         uint64 reward = LibTokenomics.getProofReward(state, proofTime);
 
-        (state.proofTimeIssued, state.basefee) = LibTokenomics
-            .getNewBaseFeeandProofTimeIssued(state, config, proofTime);
+        (state.proofTimeIssued, state.blockFee) = LibTokenomics
+            .getNewBlockFeeAndProofTimeIssued(state, config, proofTime);
 
         unchecked {
             state.accBlockFees -= reward;
