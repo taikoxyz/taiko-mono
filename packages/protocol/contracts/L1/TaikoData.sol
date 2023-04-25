@@ -11,7 +11,6 @@ library TaikoData {
         uint256 chainId;
         uint256 maxNumProposedBlocks;
         uint256 ringBufferSize;
-        uint256 maxNumVerifiedBlocks;
         // This number is calculated from maxNumProposedBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;
