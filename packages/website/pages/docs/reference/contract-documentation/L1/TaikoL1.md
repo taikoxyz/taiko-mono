@@ -19,7 +19,7 @@ receive() external payable
 ### init
 
 ```solidity
-function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _initBasefee, uint64 _initProofTimeIssued) external
+function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _initBlockFee, uint64 _initProofTimeIssued) external
 ```
 
 Initialize the rollup.
@@ -30,7 +30,7 @@ Initialize the rollup.
 | --------------------- | ------- | ------------------------------------------------------------ |
 | \_addressManager      | address | The AddressManager address.                                  |
 | \_genesisBlockHash    | bytes32 | The block hash of the genesis block.                         |
-| \_initBasefee         | uint64  | Initial (reasonable) basefee value.                          |
+| \_initBlockFee        | uint64  | Initial (reasonable) basefee value.                          |
 | \_initProofTimeIssued | uint64  | Initial proof time which keeps the inflow/outflow in balance |
 
 ### proposeBlock

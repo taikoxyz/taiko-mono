@@ -131,7 +131,7 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
             "time,",
             "lastVerifiedBlockId,",
             "numBlocks,",
-            "baseFee,",
+            "blockFee,",
             "accProposedAt"
         );
         console2.log(str);
@@ -149,7 +149,7 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
             ",",
             Strings.toString(vars.numBlocks),
             ",",
-            Strings.toString(vars.basefee),
+            Strings.toString(vars.blockFee),
             ",",
             Strings.toString(vars.accProposedAt)
         );
