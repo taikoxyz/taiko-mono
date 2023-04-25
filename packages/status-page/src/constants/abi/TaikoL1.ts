@@ -474,12 +474,7 @@ export default [
           },
           {
             internalType: "uint256",
-            name: "ringBufferSize",
-            type: "uint256",
-          },
-          {
-            internalType: "uint256",
-            name: "maxNumVerifiedBlocks",
+            name: "maxVerificationsPerTx",
             type: "uint256",
           },
           {
