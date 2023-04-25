@@ -35,7 +35,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      *
      * @param _addressManager The AddressManager address.
      * @param _genesisBlockHash The block hash of the genesis block.
-     * @param _initBlockFee Initial (reasonable) basefee value.
+     * @param _initBlockFee Initial (reasonable) block fee value.
      * @param _initProofTimeIssued Initial proof time which keeps the inflow/outflow in balance
      */
     function init(

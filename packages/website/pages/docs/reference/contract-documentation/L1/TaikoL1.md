@@ -30,7 +30,7 @@ Initialize the rollup.
 | --------------------- | ------- | ------------------------------------------------------------ |
 | \_addressManager      | address | The AddressManager address.                                  |
 | \_genesisBlockHash    | bytes32 | The block hash of the genesis block.                         |
-| \_initBlockFee        | uint64  | Initial (reasonable) basefee value.                          |
+| \_initBlockFee        | uint64  | Initial (reasonable) block fee value.                        |
 | \_initProofTimeIssued | uint64  | Initial proof time which keeps the inflow/outflow in balance |
 
 ### proposeBlock

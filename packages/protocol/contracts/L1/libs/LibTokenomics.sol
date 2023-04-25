@@ -55,7 +55,7 @@ library LibTokenomics {
     }
 
     /**
-     * Update the baseFee for proofs
+     * Update the block reward for proofs
      *
      * @param state The actual state data
      * @param proofTime The actual proof time
@@ -98,7 +98,7 @@ library LibTokenomics {
      * @param config Config data
      * @param proofTime The actual proof time
      * @return newProofTimeIssued Accumulated proof time
-     * @return BlockFee New basefee
+     * @return BlockFee New block fee
      */
     function getNewBlockFeeAndProofTimeIssued(
         TaikoData.State storage state,
