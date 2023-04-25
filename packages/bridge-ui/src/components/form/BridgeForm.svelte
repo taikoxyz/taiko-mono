@@ -17,7 +17,6 @@
   import { truncateString } from '../../utils/truncateString';
   import {
     pendingTransactions,
-    transactioner,
     transactions as transactionsStore,
   } from '../../store/transactions';
   import Memo from './Memo.svelte';
@@ -39,6 +38,7 @@
   import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
   import { ProcessingFeeMethod } from '../../domain/fee';
   import Button from '../buttons/Button.svelte';
+  import { storageService } from '../../storage/services';
 
   let amount: string;
   let amountInput: HTMLInputElement;
@@ -279,7 +279,7 @@
       tx.chainId = $fromChain.id;
       const userAddress = await $signer.getAddress();
       let transactions: BridgeTransaction[] =
-        await $transactioner.getAllByAddress(userAddress);
+        await storageService.getAllByAddress(userAddress);
 
       let bridgeTransaction: BridgeTransaction = {
         fromChainId: $fromChain.id,
@@ -297,12 +297,12 @@
         transactions.push(bridgeTransaction);
       }
 
-      $transactioner.updateStorageByAddress(userAddress, transactions);
+      storageService.updateStorageByAddress(userAddress, transactions);
 
       const allTransactions = $transactionsStore;
 
       // get full BridgeTransaction object
-      bridgeTransaction = await $transactioner.getTransactionByHash(
+      bridgeTransaction = await storageService.getTransactionByHash(
         userAddress,
         tx.hash,
       );
