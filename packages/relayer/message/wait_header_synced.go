@@ -2,6 +2,7 @@ package message
 
 import (
 	"context"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -28,14 +29,14 @@ func (p *Processor) waitHeaderSynced(ctx context.Context, event *bridge.BridgeMe
 			)
 			// get latest synced header since not every header is synced from L1 => L2,
 			// and later blocks still have the storage trie proof from previous blocks.
-			latestSyncedHeader, err := p.destHeaderSyncer.GetLatestSyncedHeader(&bind.CallOpts{})
+			latestSyncedHeader, err := p.destHeaderSyncer.GetXchainBlockHash(&bind.CallOpts{}, big.NewInt(0))
 			if err != nil {
-				return errors.Wrap(err, "p.destHeaderSyncer.GetLatestSyncedHeader")
+				return errors.Wrap(err, "p.destHeaderSyncer.GetXchainBlockHash")
 			}
 
 			header, err := p.srcEthClient.HeaderByHash(ctx, latestSyncedHeader)
 			if err != nil {
-				return errors.Wrap(err, "p.destHeaderSyncer.GetLatestSyncedHeader")
+				return errors.Wrap(err, "p.destHeaderSyncer.GetXchainBlockHash")
 			}
 
 			// header is caught up and processible

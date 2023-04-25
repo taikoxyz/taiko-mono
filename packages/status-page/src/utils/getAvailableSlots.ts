@@ -10,8 +10,9 @@ export const getAvailableSlots = async (
   const stateVariables = await contract.getStateVariables();
   const config = await getConfig(provider, contractAddress);
 
-  const nextBlockId = stateVariables.nextBlockId;
-  const latestVerifiedId = stateVariables.latestVerifiedId;
+  const nextBlockId = stateVariables.numBlocks;
+  const latestVerifiedId = stateVariables.lastVerifiedBlockId;
   const pendingBlocks = nextBlockId - latestVerifiedId - 1;
-  return Math.abs(pendingBlocks - config.maxNumBlocks);
+
+  return Math.abs(pendingBlocks - config.maxNumProposedBlocks);
 };

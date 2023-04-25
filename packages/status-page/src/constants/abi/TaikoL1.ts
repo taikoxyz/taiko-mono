@@ -1,12 +1,7 @@
 export default [
   {
     inputs: [],
-    name: "L1_0_FEE_BASE",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "L1_0_FEE_BASE",
+    name: "L1_1559_X_SCALE_TOO_LARGE",
     type: "error",
   },
   {
@@ -16,92 +11,7 @@ export default [
   },
   {
     inputs: [],
-    name: "L1_ANCHOR_CALLDATA",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "L1_ANCHOR_DEST",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "L1_ANCHOR_GAS_LIMIT",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "L1_ANCHOR_RECEIPT_ADDR",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "L1_ANCHOR_RECEIPT_DATA",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "L1_ANCHOR_RECEIPT_LOGS",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "L1_ANCHOR_RECEIPT_PROOF",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "L1_ANCHOR_RECEIPT_STATUS",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "L1_ANCHOR_RECEIPT_TOPICS",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "L1_ANCHOR_SIG_R",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "L1_ANCHOR_SIG_S",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "L1_ANCHOR_TX_PROOF",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "L1_ANCHOR_TYPE",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "L1_BLOCK_NUMBER",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "L1_BLOCK_NUMBER",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "L1_CANNOT_BE_FIRST_PROVER",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "L1_COMMITTED",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "L1_CONFLICT_PROOF",
+    name: "L1_BLOCK_ID",
     type: "error",
   },
   {
@@ -110,43 +20,54 @@ export default [
     type: "error",
   },
   {
-    inputs: [],
-    name: "L1_DUP_PROVERS",
+    inputs: [
+      {
+        internalType: "bytes32",
+        name: "expected",
+        type: "bytes32",
+      },
+      {
+        internalType: "bytes32",
+        name: "actual",
+        type: "bytes32",
+      },
+    ],
+    name: "L1_EVIDENCE_MISMATCH",
     type: "error",
   },
   {
     inputs: [],
-    name: "L1_EXTRA_DATA",
+    name: "L1_FORK_CHOICE_NOT_FOUND",
     type: "error",
   },
   {
     inputs: [],
-    name: "L1_GAS_LIMIT",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "L1_ID",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "L1_ID",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "L1_INPUT_SIZE",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "L1_INVALID_CONFIG",
+    name: "L1_INSUFFICIENT_TOKEN",
     type: "error",
   },
   {
     inputs: [],
     name: "L1_INVALID_CONFIG",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_INVALID_ETH_DEPOSIT",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_INVALID_EVIDENCE",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_INVALID_L21559_PARAMS",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_INVALID_METADATA",
     type: "error",
   },
   {
@@ -156,17 +77,7 @@ export default [
   },
   {
     inputs: [],
-    name: "L1_METADATA_FIELD",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "L1_META_MISMATCH",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "L1_NOT_COMMITTED",
+    name: "L1_INVALID_PROOF",
     type: "error",
   },
   {
@@ -176,17 +87,12 @@ export default [
   },
   {
     inputs: [],
-    name: "L1_PROOF_LENGTH",
+    name: "L1_NOT_SOLO_PROPOSER",
     type: "error",
   },
   {
     inputs: [],
-    name: "L1_PROVER",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "L1_SOLO_PROPOSER",
+    name: "L1_ORACLE_DISABLED",
     type: "error",
   },
   {
@@ -201,7 +107,22 @@ export default [
   },
   {
     inputs: [],
-    name: "L1_ZKP",
+    name: "L1_TX_LIST_HASH",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_TX_LIST_NOT_EXIST",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_TX_LIST_RANGE",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "Overflow",
     type: "error",
   },
   {
@@ -218,25 +139,6 @@ export default [
     anonymous: false,
     inputs: [
       {
-        indexed: false,
-        internalType: "uint64",
-        name: "commitSlot",
-        type: "uint64",
-      },
-      {
-        indexed: false,
-        internalType: "bytes32",
-        name: "commitHash",
-        type: "bytes32",
-      },
-    ],
-    name: "BlockCommitted",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
         indexed: true,
         internalType: "uint256",
         name: "id",
@@ -245,43 +147,8 @@ export default [
       {
         components: [
           {
-            internalType: "uint256",
-            name: "id",
-            type: "uint256",
-          },
-          {
-            internalType: "uint256",
-            name: "l1Height",
-            type: "uint256",
-          },
-          {
-            internalType: "bytes32",
-            name: "l1Hash",
-            type: "bytes32",
-          },
-          {
-            internalType: "address",
-            name: "beneficiary",
-            type: "address",
-          },
-          {
-            internalType: "bytes32",
-            name: "txListHash",
-            type: "bytes32",
-          },
-          {
-            internalType: "bytes32",
-            name: "mixHash",
-            type: "bytes32",
-          },
-          {
-            internalType: "bytes",
-            name: "extraData",
-            type: "bytes",
-          },
-          {
             internalType: "uint64",
-            name: "gasLimit",
+            name: "id",
             type: "uint64",
           },
           {
@@ -291,13 +158,75 @@ export default [
           },
           {
             internalType: "uint64",
-            name: "commitHeight",
+            name: "l1Height",
             type: "uint64",
           },
           {
-            internalType: "uint64",
-            name: "commitSlot",
-            type: "uint64",
+            internalType: "bytes32",
+            name: "l1Hash",
+            type: "bytes32",
+          },
+          {
+            internalType: "bytes32",
+            name: "mixHash",
+            type: "bytes32",
+          },
+          {
+            internalType: "bytes32",
+            name: "depositsRoot",
+            type: "bytes32",
+          },
+          {
+            internalType: "bytes32",
+            name: "txListHash",
+            type: "bytes32",
+          },
+          {
+            internalType: "uint24",
+            name: "txListByteStart",
+            type: "uint24",
+          },
+          {
+            internalType: "uint24",
+            name: "txListByteEnd",
+            type: "uint24",
+          },
+          {
+            internalType: "uint32",
+            name: "gasLimit",
+            type: "uint32",
+          },
+          {
+            internalType: "address",
+            name: "beneficiary",
+            type: "address",
+          },
+          {
+            internalType: "uint8",
+            name: "cacheTxListInfo",
+            type: "uint8",
+          },
+          {
+            internalType: "address",
+            name: "treasure",
+            type: "address",
+          },
+          {
+            components: [
+              {
+                internalType: "address",
+                name: "recipient",
+                type: "address",
+              },
+              {
+                internalType: "uint96",
+                name: "amount",
+                type: "uint96",
+              },
+            ],
+            internalType: "struct TaikoData.EthDeposit[]",
+            name: "depositsProcessed",
+            type: "tuple[]",
           },
         ],
         indexed: false,
@@ -332,15 +261,15 @@ export default [
       },
       {
         indexed: false,
-        internalType: "address",
-        name: "prover",
-        type: "address",
+        internalType: "bytes32",
+        name: "signalRoot",
+        type: "bytes32",
       },
       {
         indexed: false,
-        internalType: "uint64",
-        name: "provenAt",
-        type: "uint64",
+        internalType: "address",
+        name: "prover",
+        type: "address",
       },
     ],
     name: "BlockProven",
@@ -369,19 +298,25 @@ export default [
     anonymous: false,
     inputs: [
       {
-        indexed: true,
-        internalType: "uint256",
-        name: "srcHeight",
-        type: "uint256",
-      },
-      {
+        components: [
+          {
+            internalType: "address",
+            name: "recipient",
+            type: "address",
+          },
+          {
+            internalType: "uint96",
+            name: "amount",
+            type: "uint96",
+          },
+        ],
         indexed: false,
-        internalType: "bytes32",
-        name: "srcHash",
-        type: "bytes32",
+        internalType: "struct TaikoData.EthDeposit",
+        name: "deposit",
+        type: "tuple",
       },
     ],
-    name: "HeaderSynced",
+    name: "EthDeposited",
     type: "event",
   },
   {
@@ -417,6 +352,31 @@ export default [
     type: "event",
   },
   {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "uint256",
+        name: "srcHeight",
+        type: "uint256",
+      },
+      {
+        indexed: false,
+        internalType: "bytes32",
+        name: "blockHash",
+        type: "bytes32",
+      },
+      {
+        indexed: false,
+        internalType: "bytes32",
+        name: "signalRoot",
+        type: "bytes32",
+      },
+    ],
+    name: "XchainSynced",
+    type: "event",
+  },
+  {
     inputs: [],
     name: "addressManager",
     outputs: [
@@ -430,21 +390,57 @@ export default [
     type: "function",
   },
   {
+    inputs: [],
+    name: "depositEtherToL2",
+    outputs: [],
+    stateMutability: "payable",
+    type: "function",
+  },
+  {
     inputs: [
       {
-        internalType: "uint64",
-        name: "commitSlot",
-        type: "uint64",
-      },
-      {
-        internalType: "bytes32",
-        name: "commitHash",
-        type: "bytes32",
+        internalType: "uint256",
+        name: "amount",
+        type: "uint256",
       },
     ],
-    name: "commitBlock",
+    name: "depositTaikoToken",
     outputs: [],
     stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "blockId",
+        type: "uint256",
+      },
+    ],
+    name: "getBlock",
+    outputs: [
+      {
+        internalType: "bytes32",
+        name: "_metaHash",
+        type: "bytes32",
+      },
+      {
+        internalType: "uint256",
+        name: "_deposit",
+        type: "uint256",
+      },
+      {
+        internalType: "address",
+        name: "_proposer",
+        type: "address",
+      },
+      {
+        internalType: "uint64",
+        name: "_proposedAt",
+        type: "uint64",
+      },
+    ],
+    stateMutability: "view",
     type: "function",
   },
   {
@@ -452,9 +448,9 @@ export default [
     name: "getBlockFee",
     outputs: [
       {
-        internalType: "uint256",
+        internalType: "uint64",
         name: "",
-        type: "uint256",
+        type: "uint64",
       },
     ],
     stateMutability: "view",
@@ -483,7 +479,7 @@ export default [
           },
           {
             internalType: "uint256",
-            name: "commitConfirmations",
+            name: "maxVerificationsPerTx",
             type: "uint256",
           },
           {
@@ -508,82 +504,52 @@ export default [
           },
           {
             internalType: "uint256",
-            name: "anchorTxGasLimit",
+            name: "txListCacheExpiry",
             type: "uint256",
           },
           {
             internalType: "uint256",
-            name: "slotSmoothingFactor",
-            type: "uint256",
-          },
-          {
-            internalType: "uint256",
-            name: "rewardBurnBips",
-            type: "uint256",
-          },
-          {
-            internalType: "uint256",
-            name: "proposerDepositPctg",
-            type: "uint256",
-          },
-          {
-            internalType: "uint256",
-            name: "basefeeMAF",
-            type: "uint256",
-          },
-          {
-            internalType: "uint256",
-            name: "blockTimeMAF",
-            type: "uint256",
-          },
-          {
-            internalType: "uint256",
-            name: "proofTimeMAF",
+            name: "proofCooldownPeriod",
             type: "uint256",
           },
           {
             internalType: "uint64",
-            name: "feeMultiplierPctg",
+            name: "minEthDepositsPerBlock",
             type: "uint64",
           },
           {
             internalType: "uint64",
-            name: "feeGracePeriodPctg",
+            name: "maxEthDepositsPerBlock",
             type: "uint64",
           },
           {
-            internalType: "uint64",
-            name: "feeMaxPctg",
-            type: "uint64",
+            internalType: "uint96",
+            name: "maxEthDepositAmount",
+            type: "uint96",
+          },
+          {
+            internalType: "uint96",
+            name: "minEthDepositAmount",
+            type: "uint96",
           },
           {
             internalType: "uint64",
-            name: "blockTimeCap",
+            name: "proofTimeTarget",
             type: "uint64",
           },
           {
-            internalType: "uint64",
-            name: "proofTimeCap",
-            type: "uint64",
-          },
-          {
-            internalType: "uint64",
-            name: "bootstrapDiscountHalvingPeriod",
-            type: "uint64",
+            internalType: "uint8",
+            name: "adjustmentQuotient",
+            type: "uint8",
           },
           {
             internalType: "bool",
-            name: "enableTokenomics",
+            name: "relaySignalRoot",
             type: "bool",
           },
           {
             internalType: "bool",
-            name: "enablePublicInputsCheck",
-            type: "bool",
-          },
-          {
-            internalType: "bool",
-            name: "enableAnchorValidation",
+            name: "enableSoloProposer",
             type: "bool",
           },
         ],
@@ -599,13 +565,18 @@ export default [
     inputs: [
       {
         internalType: "uint256",
-        name: "id",
+        name: "blockId",
         type: "uint256",
       },
       {
         internalType: "bytes32",
         name: "parentHash",
         type: "bytes32",
+      },
+      {
+        internalType: "uint32",
+        name: "parentGasUsed",
+        type: "uint32",
       },
     ],
     name: "getForkChoice",
@@ -614,8 +585,23 @@ export default [
         components: [
           {
             internalType: "bytes32",
+            name: "key",
+            type: "bytes32",
+          },
+          {
+            internalType: "bytes32",
             name: "blockHash",
             type: "bytes32",
+          },
+          {
+            internalType: "bytes32",
+            name: "signalRoot",
+            type: "bytes32",
+          },
+          {
+            internalType: "uint64",
+            name: "provenAt",
+            type: "uint64",
           },
           {
             internalType: "address",
@@ -623,27 +609,14 @@ export default [
             type: "address",
           },
           {
-            internalType: "uint64",
-            name: "provenAt",
-            type: "uint64",
+            internalType: "uint32",
+            name: "gasUsed",
+            type: "uint32",
           },
         ],
         internalType: "struct TaikoData.ForkChoice",
         name: "",
         type: "tuple",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "getLatestSyncedHeader",
-    outputs: [
-      {
-        internalType: "bytes32",
-        name: "",
-        type: "bytes32",
       },
     ],
     stateMutability: "view",
@@ -665,48 +638,72 @@ export default [
     name: "getProofReward",
     outputs: [
       {
-        internalType: "uint256",
-        name: "reward",
-        type: "uint256",
+        internalType: "uint64",
+        name: "",
+        type: "uint64",
       },
     ],
     stateMutability: "view",
     type: "function",
   },
   {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "id",
-        type: "uint256",
-      },
-    ],
-    name: "getProposedBlock",
+    inputs: [],
+    name: "getStateVariables",
     outputs: [
       {
         components: [
           {
-            internalType: "bytes32",
-            name: "metaHash",
-            type: "bytes32",
-          },
-          {
-            internalType: "uint256",
-            name: "deposit",
-            type: "uint256",
-          },
-          {
-            internalType: "address",
-            name: "proposer",
-            type: "address",
+            internalType: "uint64",
+            name: "basefee",
+            type: "uint64",
           },
           {
             internalType: "uint64",
-            name: "proposedAt",
+            name: "accBlockFees",
+            type: "uint64",
+          },
+          {
+            internalType: "uint64",
+            name: "genesisHeight",
+            type: "uint64",
+          },
+          {
+            internalType: "uint64",
+            name: "genesisTimestamp",
+            type: "uint64",
+          },
+          {
+            internalType: "uint64",
+            name: "numBlocks",
+            type: "uint64",
+          },
+          {
+            internalType: "uint64",
+            name: "proofTimeIssued",
+            type: "uint64",
+          },
+          {
+            internalType: "uint64",
+            name: "lastVerifiedBlockId",
+            type: "uint64",
+          },
+          {
+            internalType: "uint64",
+            name: "accProposedAt",
+            type: "uint64",
+          },
+          {
+            internalType: "uint64",
+            name: "nextEthDepositToProcess",
+            type: "uint64",
+          },
+          {
+            internalType: "uint64",
+            name: "numEthDeposits",
             type: "uint64",
           },
         ],
-        internalType: "struct TaikoData.ProposedBlock",
+        internalType: "struct TaikoData.StateVariables",
         name: "",
         type: "tuple",
       },
@@ -722,7 +719,7 @@ export default [
         type: "address",
       },
     ],
-    name: "getRewardBalance",
+    name: "getTaikoTokenBalance",
     outputs: [
       {
         internalType: "uint256",
@@ -734,60 +731,38 @@ export default [
     type: "function",
   },
   {
-    inputs: [],
-    name: "getStateVariables",
+    inputs: [
+      {
+        internalType: "uint16",
+        name: "id",
+        type: "uint16",
+      },
+    ],
+    name: "getVerifierName",
     outputs: [
       {
-        components: [
-          {
-            internalType: "uint256",
-            name: "basefee",
-            type: "uint256",
-          },
-          {
-            internalType: "uint64",
-            name: "genesisHeight",
-            type: "uint64",
-          },
-          {
-            internalType: "uint64",
-            name: "genesisTimestamp",
-            type: "uint64",
-          },
-          {
-            internalType: "uint64",
-            name: "nextBlockId",
-            type: "uint64",
-          },
-          {
-            internalType: "uint64",
-            name: "lastProposedAt",
-            type: "uint64",
-          },
-          {
-            internalType: "uint64",
-            name: "avgBlockTime",
-            type: "uint64",
-          },
-          {
-            internalType: "uint64",
-            name: "latestVerifiedHeight",
-            type: "uint64",
-          },
-          {
-            internalType: "uint64",
-            name: "latestVerifiedId",
-            type: "uint64",
-          },
-          {
-            internalType: "uint64",
-            name: "avgProofTime",
-            type: "uint64",
-          },
-        ],
-        internalType: "struct LibUtils.StateVariables",
+        internalType: "string",
         name: "",
-        type: "tuple",
+        type: "string",
+      },
+    ],
+    stateMutability: "pure",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "blockId",
+        type: "uint256",
+      },
+    ],
+    name: "getXchainBlockHash",
+    outputs: [
+      {
+        internalType: "bytes32",
+        name: "",
+        type: "bytes32",
       },
     ],
     stateMutability: "view",
@@ -797,11 +772,11 @@ export default [
     inputs: [
       {
         internalType: "uint256",
-        name: "number",
+        name: "blockId",
         type: "uint256",
       },
     ],
-    name: "getSyncedHeader",
+    name: "getXchainSignalRoot",
     outputs: [
       {
         internalType: "bytes32",
@@ -825,43 +800,19 @@ export default [
         type: "bytes32",
       },
       {
-        internalType: "uint256",
-        name: "_basefee",
-        type: "uint256",
+        internalType: "uint64",
+        name: "_initBasefee",
+        type: "uint64",
+      },
+      {
+        internalType: "uint64",
+        name: "_initProofTimeIssued",
+        type: "uint64",
       },
     ],
     name: "init",
     outputs: [],
     stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "commitSlot",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "commitHeight",
-        type: "uint256",
-      },
-      {
-        internalType: "bytes32",
-        name: "commitHash",
-        type: "bytes32",
-      },
-    ],
-    name: "isCommitValid",
-    outputs: [
-      {
-        internalType: "bool",
-        name: "",
-        type: "bool",
-      },
-    ],
-    stateMutability: "view",
     type: "function",
   },
   {
@@ -880,13 +831,108 @@ export default [
   {
     inputs: [
       {
-        internalType: "bytes[]",
-        name: "inputs",
-        type: "bytes[]",
+        internalType: "bytes",
+        name: "input",
+        type: "bytes",
+      },
+      {
+        internalType: "bytes",
+        name: "txList",
+        type: "bytes",
       },
     ],
     name: "proposeBlock",
-    outputs: [],
+    outputs: [
+      {
+        components: [
+          {
+            internalType: "uint64",
+            name: "id",
+            type: "uint64",
+          },
+          {
+            internalType: "uint64",
+            name: "timestamp",
+            type: "uint64",
+          },
+          {
+            internalType: "uint64",
+            name: "l1Height",
+            type: "uint64",
+          },
+          {
+            internalType: "bytes32",
+            name: "l1Hash",
+            type: "bytes32",
+          },
+          {
+            internalType: "bytes32",
+            name: "mixHash",
+            type: "bytes32",
+          },
+          {
+            internalType: "bytes32",
+            name: "depositsRoot",
+            type: "bytes32",
+          },
+          {
+            internalType: "bytes32",
+            name: "txListHash",
+            type: "bytes32",
+          },
+          {
+            internalType: "uint24",
+            name: "txListByteStart",
+            type: "uint24",
+          },
+          {
+            internalType: "uint24",
+            name: "txListByteEnd",
+            type: "uint24",
+          },
+          {
+            internalType: "uint32",
+            name: "gasLimit",
+            type: "uint32",
+          },
+          {
+            internalType: "address",
+            name: "beneficiary",
+            type: "address",
+          },
+          {
+            internalType: "uint8",
+            name: "cacheTxListInfo",
+            type: "uint8",
+          },
+          {
+            internalType: "address",
+            name: "treasure",
+            type: "address",
+          },
+          {
+            components: [
+              {
+                internalType: "address",
+                name: "recipient",
+                type: "address",
+              },
+              {
+                internalType: "uint96",
+                name: "amount",
+                type: "uint96",
+              },
+            ],
+            internalType: "struct TaikoData.EthDeposit[]",
+            name: "depositsProcessed",
+            type: "tuple[]",
+          },
+        ],
+        internalType: "struct TaikoData.BlockMetadata",
+        name: "meta",
+        type: "tuple",
+      },
+    ],
     stateMutability: "nonpayable",
     type: "function",
   },
@@ -898,30 +944,12 @@ export default [
         type: "uint256",
       },
       {
-        internalType: "bytes[]",
-        name: "inputs",
-        type: "bytes[]",
+        internalType: "bytes",
+        name: "input",
+        type: "bytes",
       },
     ],
     name: "proveBlock",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "blockId",
-        type: "uint256",
-      },
-      {
-        internalType: "bytes[]",
-        name: "inputs",
-        type: "bytes[]",
-      },
-    ],
-    name: "proveBlockInvalid",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
@@ -987,43 +1015,14 @@ export default [
     type: "function",
   },
   {
-    inputs: [
-      {
-        internalType: "bytes32",
-        name: "hash",
-        type: "bytes32",
-      },
-      {
-        internalType: "uint8",
-        name: "k",
-        type: "uint8",
-      },
-    ],
-    name: "signWithGoldenTouch",
-    outputs: [
-      {
-        internalType: "uint8",
-        name: "v",
-        type: "uint8",
-      },
-      {
-        internalType: "uint256",
-        name: "r",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "s",
-        type: "uint256",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
     inputs: [],
     name: "state",
     outputs: [
+      {
+        internalType: "bytes32",
+        name: "staticRefs",
+        type: "bytes32",
+      },
       {
         internalType: "uint64",
         name: "genesisHeight",
@@ -1036,57 +1035,52 @@ export default [
       },
       {
         internalType: "uint64",
-        name: "__reservedA1",
+        name: "__reserved71",
         type: "uint64",
       },
       {
         internalType: "uint64",
-        name: "__reservedA2",
+        name: "__reserved72",
         type: "uint64",
       },
       {
-        internalType: "uint256",
+        internalType: "uint64",
+        name: "accProposedAt",
+        type: "uint64",
+      },
+      {
+        internalType: "uint64",
+        name: "accBlockFees",
+        type: "uint64",
+      },
+      {
+        internalType: "uint64",
+        name: "numBlocks",
+        type: "uint64",
+      },
+      {
+        internalType: "uint64",
+        name: "nextEthDepositToProcess",
+        type: "uint64",
+      },
+      {
+        internalType: "uint64",
         name: "basefee",
-        type: "uint256",
-      },
-      {
-        internalType: "uint64",
-        name: "nextBlockId",
         type: "uint64",
       },
       {
         internalType: "uint64",
-        name: "lastProposedAt",
+        name: "proofTimeIssued",
         type: "uint64",
       },
       {
         internalType: "uint64",
-        name: "avgBlockTime",
+        name: "lastVerifiedBlockId",
         type: "uint64",
       },
       {
         internalType: "uint64",
-        name: "__avgGasLimit",
-        type: "uint64",
-      },
-      {
-        internalType: "uint64",
-        name: "latestVerifiedHeight",
-        type: "uint64",
-      },
-      {
-        internalType: "uint64",
-        name: "latestVerifiedId",
-        type: "uint64",
-      },
-      {
-        internalType: "uint64",
-        name: "avgProofTime",
-        type: "uint64",
-      },
-      {
-        internalType: "uint64",
-        name: "__reservedC1",
+        name: "__reserved91",
         type: "uint64",
       },
     ],
@@ -1120,10 +1114,20 @@ export default [
     type: "function",
   },
   {
-    inputs: [],
-    name: "withdrawBalance",
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "amount",
+        type: "uint256",
+      },
+    ],
+    name: "withdrawTaikoToken",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
+  },
+  {
+    stateMutability: "payable",
+    type: "receive",
   },
 ];
