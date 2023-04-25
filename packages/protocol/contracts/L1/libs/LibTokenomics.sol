@@ -92,19 +92,19 @@ library LibTokenomics {
     }
 
     /**
-     * Calculate the newProofTimeIssued and newBasefee
+     * Calculate the newProofTimeIssued and BlockFee
      *
      * @param state The actual state data
      * @param config Config data
      * @param proofTime The actual proof time
      * @return newProofTimeIssued Accumulated proof time
-     * @return newBasefee New basefee
+     * @return BlockFee New basefee
      */
     function getNewBlockFeeAndProofTimeIssued(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint64 proofTime
-    ) internal view returns (uint64 newProofTimeIssued, uint64 newBasefee) {
+    ) internal view returns (uint64 newProofTimeIssued, uint64 BlockFee) {
         newProofTimeIssued = (state.proofTimeIssued > config.proofTimeTarget)
             ? state.proofTimeIssued - config.proofTimeTarget
             : uint64(0);
@@ -121,6 +121,6 @@ library LibTokenomics {
             Math.SCALING_FACTOR_1E18) /
             (config.proofTimeTarget * config.adjustmentQuotient);
 
-        newBasefee = uint64(result.min(type(uint64).max));
+        BlockFee = uint64(result.min(type(uint64).max));
     }
 }
