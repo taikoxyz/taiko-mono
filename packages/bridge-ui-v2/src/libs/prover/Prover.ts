@@ -1,6 +1,6 @@
 import { ethers } from 'ethers'
 
-import { HEADER_SYNC_ABI } from '../../abi/HeaderSync'
+import { HEADER_SYNC_ABI } from '../../abi'
 import type { Block, BlockHeader } from '../block/types'
 import type { ProvidersRecord } from '../provider/types'
 import type { EthGetProofResponse, GenerateProofArgs, GenerateReleaseProofArgs } from './types'

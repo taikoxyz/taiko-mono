@@ -1,6 +1,6 @@
 import { Contract, type Transaction } from 'ethers'
 
-import { BRIDGE_ABI } from '../../abi/Bridge'
+import { BRIDGE_ABI } from '../../abi'
 import type { ChainsRecord } from '../chain/types'
 import { type Message, MessageStatus } from '../message/types'
 import type { Prover } from '../prover'

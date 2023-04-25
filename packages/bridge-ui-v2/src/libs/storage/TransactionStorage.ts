@@ -1,8 +1,6 @@
 import { ethers } from 'ethers'
 
-import { BRIDGE_ABI } from '../../abi/Bridge'
-import { ERC20_ABI } from '../../abi/ERC20'
-import { TOKEN_VAULT_ABI } from '../../abi/TokenVault'
+import { BRIDGE_ABI, ERC20_ABI, TOKEN_VAULT_ABI } from '../../abi'
 import type { ChainsRecord } from '../chain/types'
 import { MessageStatus } from '../message/types'
 import type { ProvidersRecord } from '../provider/types'
