@@ -64,27 +64,27 @@ library LibProving {
             address oracleProver = resolver.resolve("oracle_prover", true);
             if (oracleProver == address(0)) revert L1_ORACLE_DISABLED();
             if (msg.sender != oracleProver) {
-                if (evidence.proof.length == 64) {
-                    uint8 v = uint8(evidence.verifierId);
-                    bytes32 r;
-                    bytes32 s;
-                    bytes memory data = evidence.proof;
-                    assembly {
-                        r := mload(add(data, 32))
-                        s := mload(add(data, 64))
-                    }
-
-                    // clear the proof before hasing evidence
-                    evidence.verifierId = 0;
-                    evidence.proof = new bytes(0);
-
-                    if (
-                        oracleProver !=
-                        ecrecover(keccak256(abi.encode(evidence)), v, r, s)
-                    ) revert L1_NOT_ORACLE_PROVER();
-                }
-            } else {
                 revert L1_NOT_ORACLE_PROVER();
+            }
+
+            if (evidence.proof.length == 64) {
+                uint8 v = uint8(evidence.verifierId);
+                bytes32 r;
+                bytes32 s;
+                bytes memory data = evidence.proof;
+                assembly {
+                    r := mload(add(data, 32))
+                    s := mload(add(data, 64))
+                }
+
+                // clear the proof before hasing evidence
+                evidence.verifierId = 0;
+                evidence.proof = new bytes(0);
+
+                if (
+                    oracleProver !=
+                    ecrecover(keccak256(abi.encode(evidence)), v, r, s)
+                ) revert L1_NOT_ORACLE_PROVER();
             }
         }
 
