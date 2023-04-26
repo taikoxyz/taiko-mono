@@ -73,17 +73,17 @@ export const client = createClient({
   autoConnect: true,
   connectors: [
     new MetaMaskConnector({ chains }),
-    new CoinbaseWalletConnector({
-      chains,
-      options: {
-        appName: 'Taiko Bridge',
-      },
-    }),
-    new WalletConnectConnector({
-      chains,
-      options: {
-        qrcode: true,
-      },
-    }),
+    // new CoinbaseWalletConnector({
+    //   chains,
+    //   options: {
+    //     appName: 'Taiko Bridge',
+    //   },
+    // }),
+    // new WalletConnectConnector({
+    //   chains,
+    //   options: {
+    //     showQrModal: true,
+    //   },
+    // }),
   ],
 })

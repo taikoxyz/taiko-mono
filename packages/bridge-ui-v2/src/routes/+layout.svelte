@@ -7,7 +7,7 @@
 
   import { Footer } from '../components/Footer'
   import { Header } from '../components/Header'
-  import { WalletListModal } from '../components/modals/WalletListModal'
+  import { WalletListModal } from '../components/WalletListModal'
 
   // We should be able to open this modal from anywhere.
   // Let's make the modal instance available to all the children

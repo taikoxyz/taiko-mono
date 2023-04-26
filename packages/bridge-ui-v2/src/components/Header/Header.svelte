@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { ConnectWalletButton } from '../buttons/ConnectWalletButton'
+  import { DarkMode } from 'flowbite-svelte'
+  import { ConnectWalletButton } from '../ConnectWalletButton'
   import { fetchSigner } from '@wagmi/core'
   import { account } from '../../stores/account'
   import { t } from '../../libs/i18n'
@@ -19,4 +20,5 @@
       <ConnectWalletButton />
     {/if}
   </div>
+  <DarkMode />
 </header>
