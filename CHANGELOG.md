@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.11.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-mono-v0.10.0...taiko-mono-v0.11.0) (2023-04-26)
+
+
+### Features
+
+* **bridge-ui:** add transaction list pagination ([#13586](https://github.com/taikoxyz/taiko-mono/issues/13586)) ([a3b7498](https://github.com/taikoxyz/taiko-mono/commit/a3b7498a89576a5aac4c2cd5581d8ce4d457b718))
+* **eventindexer:** ProposeEvents filtering, API exposing, and getting count by address/event + tests ([#13624](https://github.com/taikoxyz/taiko-mono/issues/13624)) ([839a0be](https://github.com/taikoxyz/taiko-mono/commit/839a0bef7c64dd2b1e2ecc5194cf9a1e29f9a0cd))
+* **repo:** add deps scope for dependabot automatic PRs ([#13650](https://github.com/taikoxyz/taiko-mono/issues/13650)) ([2986f10](https://github.com/taikoxyz/taiko-mono/commit/2986f102fe2555fa23f5a4947ba93182a5ecfb32))
+* **repo:** skip labeling on changelog release PRs ([#13647](https://github.com/taikoxyz/taiko-mono/issues/13647)) ([80e911e](https://github.com/taikoxyz/taiko-mono/commit/80e911e5edfa51c0c07658c74474445202d98793))
+* **repo:** update template for github issues ([#13652](https://github.com/taikoxyz/taiko-mono/issues/13652)) ([23b6cb7](https://github.com/taikoxyz/taiko-mono/commit/23b6cb75573febb653c38aa1256d4f167445a69e))
+
+
+### Bug Fixes
+
+* **bridge-ui:** pending transactions custom store with better error handling ([#13581](https://github.com/taikoxyz/taiko-mono/issues/13581)) ([394a9d1](https://github.com/taikoxyz/taiko-mono/commit/394a9d188da5a6bc8e2ffdd80121cb18471b3f08))
+* **bridge-ui:** wrong spacing [#13339](https://github.com/taikoxyz/taiko-mono/issues/13339) ([#13567](https://github.com/taikoxyz/taiko-mono/issues/13567)) ([0ed7638](https://github.com/taikoxyz/taiko-mono/commit/0ed7638d8820feb22c36cc39a35cef7fea12224d))
+* **status-page:** Status page slots ([#13605](https://github.com/taikoxyz/taiko-mono/issues/13605)) ([f0c291f](https://github.com/taikoxyz/taiko-mono/commit/f0c291f671cfe5b81b2f567ee7701a73edb79095))
+
 ## [0.10.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-mono-v0.9.0...taiko-mono-v0.10.0) (2023-04-08)
 
 
