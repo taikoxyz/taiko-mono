@@ -3,7 +3,6 @@ pragma solidity ^0.8.18;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {FoundryRandom} from "foundry-random/FoundryRandom.sol";
 import {TaikoConfig} from "../contracts/L1/TaikoConfig.sol";
 import {TaikoData} from "../contracts/L1/TaikoData.sol";
 import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
@@ -37,7 +36,10 @@ contract Verifier {
     }
 }
 
-contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
+contract TaikoL1Simulation is TaikoL1TestBase {
+    // Initial salt for semi-random generation
+    uint256 salt = 2195684615613153;
+
     function deployTaikoL1() internal override returns (TaikoL1 taikoL1) {
         taikoL1 = new TaikoL1_b();
     }
@@ -73,35 +75,73 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
         uint256 avgBlockTime = 10 seconds;
 
         for (uint256 blockId = 1; blockId < blocksToSimulate; blockId++) {
-            time += randomNumber(avgBlockTime * 2);
+            uint256 newRandomWithoutSalt = uint256(
+                keccak256(abi.encodePacked(time, msg.sender, block.timestamp))
+            );
+
+            time += pickRandomNumber(
+                newRandomWithoutSalt,
+                avgBlockTime,
+                (avgBlockTime * 2 - avgBlockTime + 1)
+            );
+            //Regenerate salt every time used at pickRandomNumber
+            salt = uint256(keccak256(abi.encodePacked(time, salt)));
 
             while ((time / 12) * 12 > block.timestamp) {
                 vm.warp(block.timestamp + 12);
                 vm.roll(block.number + 1);
             }
 
-            uint32 gasLimit = uint32(randomNumber(100E3, 30E6)); // 100K to 30M
-            uint32 gasUsed = uint32(randomNumber(gasLimit / 2, gasLimit));
-            uint24 txListSize = uint24(randomNumber(1, conf.maxBytesPerTxList));
-            bytes32 blockHash = bytes32(randomNumber(type(uint256).max));
-            bytes32 signalRoot = bytes32(randomNumber(type(uint256).max));
+            uint32 gasLimit = uint32(
+                pickRandomNumber(
+                    newRandomWithoutSalt,
+                    100E3,
+                    (3000000 - 100000 + 1)
+                )
+            ); // 100K to 30M
+            salt = uint256(keccak256(abi.encodePacked(gasLimit, salt)));
+
+            uint32 gasUsed = uint32(
+                pickRandomNumber(
+                    newRandomWithoutSalt,
+                    (gasLimit / 2),
+                    ((gasLimit / 2) + 1)
+                )
+            );
+            salt = uint256(keccak256(abi.encodePacked(gasUsed, salt)));
+
+            uint24 txListSize = uint24(
+                pickRandomNumber(
+                    newRandomWithoutSalt,
+                    1,
+                    conf.maxBytesPerTxList
+                ) //Actually (conf.maxBytesPerTxList-1)+1 but that's the same
+            );
+            salt = uint256(keccak256(abi.encodePacked(txListSize, salt)));
+
+            bytes32 blockHash = bytes32(
+                pickRandomNumber(newRandomWithoutSalt, 0, type(uint256).max)
+            );
+            salt = uint256(keccak256(abi.encodePacked(blockHash, salt)));
+
+            bytes32 signalRoot = bytes32(
+                pickRandomNumber(newRandomWithoutSalt, 0, type(uint256).max)
+            );
+            salt = uint256(keccak256(abi.encodePacked(signalRoot, salt)));
 
             TaikoData.BlockMetadata memory meta = proposeBlock(
                 Alice,
                 gasLimit,
                 txListSize
             );
+
             // Here we need to have some time elapsed between propose and prove
             // Realistically lets make it somewhere 160-240 sec, it is realistic
-            // for a testnet. Created this function because randomNumber seems to
-            // be non-working properly.
-            uint8 proveTimeCnt = pickRandomProveTime(
-                uint256(
-                    keccak256(
-                        abi.encodePacked(time, msg.sender, block.timestamp)
-                    )
-                )
-            );
+            // for a testnet.
+            uint256 proveTimeCnt = pickRandomNumber(newRandomWithoutSalt, 8, 5);
+
+            salt = uint256(keccak256(abi.encodePacked(proveTimeCnt, salt)));
+            //console2.log("salt:", salt);
 
             mine(proveTimeCnt);
 
@@ -156,12 +196,13 @@ contract TaikoL1Simulation is TaikoL1TestBase, FoundryRandom {
         console2.log(str);
     }
 
-    function pickRandomProveTime(
-        uint256 randomNum
-    ) internal pure returns (uint8) {
-        // Result shall be between 8-12 (inclusive)
-        // so that it will result in a 160-240s proof time
-        // while the proof time target is 200s
-        return uint8(8 + (randomNum % 5));
+    // Semi-random number generator
+    function pickRandomNumber(
+        uint256 randomNum,
+        uint256 lowerLimit,
+        uint256 diffBtwLowerAndUpperLimit
+    ) internal view returns (uint256) {
+        randomNum = uint256(keccak256(abi.encodePacked(randomNum, salt)));
+        return (lowerLimit + (randomNum % diffBtwLowerAndUpperLimit));
     }
 }

@@ -4,7 +4,6 @@ pragma solidity ^0.8.18;
 // Uncomment if you want to compare fee/vs reward
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {FoundryRandom} from "foundry-random/FoundryRandom.sol";
 import {AddressManager} from "../contracts/common/AddressManager.sol";
 import {TaikoConfig} from "../contracts/L1/TaikoConfig.sol";
 import {TaikoData} from "../contracts/L1/TaikoData.sol";
@@ -33,7 +32,7 @@ contract TaikoL1MainnetMockConfig is TaikoL1 {
     }
 }
 
-contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase, FoundryRandom {
+contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase {
     // To avoid stack too deep error
     // Can play to adjust
     uint32 iterationCnt = 5000;
