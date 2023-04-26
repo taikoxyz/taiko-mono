@@ -11,7 +11,6 @@ library TaikoData {
         uint256 chainId;
         uint256 maxNumProposedBlocks;
         uint256 ringBufferSize;
-        uint256 maxNumVerifiedBlocks;
         // This number is calculated from maxNumProposedBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;
@@ -33,7 +32,7 @@ library TaikoData {
     }
 
     struct StateVariables {
-        uint64 basefee;
+        uint64 blockFee;
         uint64 accBlockFees;
         uint64 genesisHeight;
         uint64 genesisTimestamp;
@@ -143,7 +142,7 @@ library TaikoData {
         uint64 numBlocks;
         uint64 nextEthDepositToProcess;
         // Slot 9
-        uint64 basefee;
+        uint64 blockFee;
         uint64 proofTimeIssued;
         uint64 lastVerifiedBlockId;
         uint64 __reserved91;

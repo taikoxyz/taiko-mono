@@ -191,7 +191,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         }
 
         // On L2, basefee is not burnt, but sent to a treasure instead.
-        // TODO(daniel): how to verify the tresasure address in protocol?
+        // The circuits will need to verify the basefee recipient is the deginated
+        // address.
         if (block.basefee != basefee)
             revert L2_BASEFEE_MISMATCH(uint64(basefee), uint64(block.basefee));
 

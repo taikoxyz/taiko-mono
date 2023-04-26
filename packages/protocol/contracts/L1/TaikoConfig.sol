@@ -16,7 +16,6 @@ library TaikoConfig {
                 // Two weeks if avg block time is 10 seconds
                 maxNumProposedBlocks: 120960,
                 ringBufferSize: 120960 + 10,
-                maxNumVerifiedBlocks: 4096,
                 // Each time one more block is verified, there will be ~20k
                 // more gas cost.
                 maxVerificationsPerTx: 10,

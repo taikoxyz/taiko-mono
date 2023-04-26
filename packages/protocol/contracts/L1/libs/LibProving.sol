@@ -63,8 +63,11 @@ library LibProving {
         if (isOracleProof) {
             address oracleProver = resolver.resolve("oracle_prover", true);
             if (oracleProver == address(0)) revert L1_ORACLE_DISABLED();
+
             if (msg.sender != oracleProver) {
-                if (evidence.proof.length == 64) {
+                if (evidence.proof.length != 64) {
+                    revert L1_NOT_ORACLE_PROVER();
+                } else {
                     uint8 v = uint8(evidence.verifierId);
                     bytes32 r;
                     bytes32 s;
@@ -83,8 +86,6 @@ library LibProving {
                         ecrecover(keccak256(abi.encode(evidence)), v, r, s)
                     ) revert L1_NOT_ORACLE_PROVER();
                 }
-            } else {
-                revert L1_NOT_ORACLE_PROVER();
             }
         }
 
