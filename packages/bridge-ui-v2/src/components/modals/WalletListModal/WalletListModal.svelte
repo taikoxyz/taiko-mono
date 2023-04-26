@@ -1,7 +1,8 @@
 <script lang="ts">
   import { type Connector, connect } from '@wagmi/core'
   import { client } from '../../../libs/wagmi'
-  import { Modal } from '../Modal'
+  // import { Modal } from '../Modal'
+  import { Modal } from 'flowbite-svelte'
   import { getLogger } from '../../../libs/logger'
 
   const log = getLogger('WalletListModal')
@@ -33,7 +34,7 @@
   }
 </script>
 
-<Modal closeable="outside" bind:open>
+<Modal bind:open>
   <ul class="menu space-y-4">
     {#each client.connectors as connector}
       <li>

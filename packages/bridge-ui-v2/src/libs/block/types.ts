@@ -42,3 +42,8 @@ export type BlockHeader = {
   baseFeePerGas: number
   withdrawalsRoot: string
 }
+
+export type BlockAndHeader = {
+  block: Block
+  blockHeader: BlockHeader
+}

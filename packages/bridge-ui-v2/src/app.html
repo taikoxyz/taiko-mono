@@ -4,6 +4,21 @@
     <meta charset="utf-8" />
     <link rel="icon" href="%sveltekit.assets%/taiko-favicon.png" />
     <meta name="viewport" content="width=device-width" />
+
+    <script>
+      // Load default theme. On page load or when changing themes,
+      // best to add inline in `head` to avoid FOUC
+      var noBridgeTheme = !localStorage.getItem('bridge-theme')
+      var darkBridgeTheme = localStorage.getItem('bridge-theme') === 'dark'
+      var darkQuery = window.matchMedia('(prefers-color-scheme: dark)')
+
+      if (darkBridgeTheme || (noBridgeTheme && darkQuery.matches)) {
+        document.documentElement.classList.add('dark')
+      } else {
+        document.documentElement.classList.remove('dark')
+      }
+    </script>
+
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover">

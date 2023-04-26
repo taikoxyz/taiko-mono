@@ -13,6 +13,7 @@
 <header class="flex justify-between">
   <h1>TAIKO</h1>
   <h3>{$t(`wallet.status.${status}`)}</h3>
+  <div />
   <div>
     {#if isDisconnected}
       <ConnectWalletButton />

@@ -1,10 +1,11 @@
 <script lang="ts">
   import { getContext } from 'svelte'
   import type { Writable } from 'svelte/store'
+  import { Button } from 'flowbite-svelte'
 
   import { t } from '../../../libs/i18n'
   import { WalletListModal } from '../../modals/WalletListModal'
-  import { Button } from '../Button'
+  // import { Button } from '../Button'
 
   const walletListModal = getContext<Writable<WalletListModal>>(WalletListModal.name)
 
@@ -13,6 +14,6 @@
   }
 </script>
 
-<Button type="primary" on:click={onClick}>
+<Button on:click={onClick}>
   {$t('wallet.button.connect')}
 </Button>

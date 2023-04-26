@@ -2,6 +2,6 @@
   const year = new Date().getFullYear()
 </script>
 
-<footer class="text-center">
+<footer class="footer text-center">
   Taiko {year}
 </footer>

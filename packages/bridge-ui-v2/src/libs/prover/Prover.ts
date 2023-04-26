@@ -1,7 +1,7 @@
 import { Contract, ethers, type providers } from 'ethers'
 
 import { HEADER_SYNC_ABI } from '../../abi'
-import type { Block, BlockHeader } from '../block/types'
+import type { Block, BlockAndHeader, BlockHeader } from '../block/types'
 import type { ProvidersRecord } from '../provider/types'
 import type { EthGetProofResponse, GenerateProofArgs, GenerateReleaseProofArgs } from './types'
 
@@ -25,7 +25,7 @@ export class Prover {
   private static async _getBlockAndBlockHeader(
     headerSyncContract: Contract,
     provider: providers.JsonRpcProvider,
-  ): Promise<{ block: Block; blockHeader: BlockHeader }> {
+  ): Promise<BlockAndHeader> {
     const latestSyncedHeader = await headerSyncContract.getLatestSyncedHeader()
 
     // See https://docs.infura.io/infura/networks/ethereum/json-rpc-methods/eth_getblockbyhash
@@ -62,14 +62,11 @@ export class Prover {
 
   private static _getSignalProof(proof: EthGetProofResponse, blockHeader: BlockHeader) {
     // RLP encode the proof together for LibTrieProof to decode
-    // See https://docs.ethers.org/v5/api/utils/abi/coder/#AbiCoder--creating
     // See https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/
-    const encodedProof = defaultAbiCoder.encode(
-      ['bytes', 'bytes'],
-      [RLP.encode(proof.accountProof), RLP.encode(proof.storageProof[0].proof)],
-    )
+    const encodedProof = RLP.encode(proof.storageProof[0].proof)
 
     // Encode the SignalProof struct from LibBridgeSignal
+    // See https://docs.ethers.org/v5/api/utils/abi/coder/#AbiCoder--creating
     const signalProof = defaultAbiCoder.encode(
       [
         'tuple(tuple(bytes32 parentHash, bytes32 ommersHash, address beneficiary, bytes32 stateRoot, bytes32 transactionsRoot, bytes32 receiptsRoot, bytes32[8] logsBloom, uint256 difficulty, uint128 height, uint64 gasLimit, uint64 gasUsed, uint64 timestamp, bytes extraData, bytes32 mixHash, uint64 nonce, uint256 baseFeePerGas, bytes32 withdrawalsRoot) header, bytes proof)',
@@ -118,14 +115,14 @@ export class Prover {
     const srcProvider = this.providers[args.srcChainId]
     const destProvider = this.providers[args.destChainId]
 
-    const srcDeaderSyncContract = new ethers.Contract(
+    const srcHeaderSyncContract = new ethers.Contract(
       args.srcHeaderSyncAddress,
       HEADER_SYNC_ABI,
       srcProvider,
     )
 
     const { block, blockHeader } = await Prover._getBlockAndBlockHeader(
-      srcDeaderSyncContract,
+      srcHeaderSyncContract,
       destProvider,
     )
 
