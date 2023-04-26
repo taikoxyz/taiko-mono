@@ -1,9 +1,9 @@
 <script lang="ts">
   import { DarkMode } from 'flowbite-svelte'
-  import { ConnectWalletButton } from '../ConnectWalletButton'
-  import { fetchSigner } from '@wagmi/core'
-  import { account } from '../../stores/account'
+
   import { t } from '../../libs/i18n'
+  import { account } from '../../stores/account'
+  import { ConnectWalletButton } from '../ConnectWalletButton'
 
   $: isConnected = $account && $account.isConnected
   $: isConnecting = $account && $account.isConnecting

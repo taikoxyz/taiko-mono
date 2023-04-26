@@ -1,10 +1,10 @@
 <script lang="ts">
+  import { Button } from 'flowbite-svelte'
   import { getContext } from 'svelte'
   import type { Writable } from 'svelte/store'
 
   import { t } from '../../libs/i18n'
   import { WalletListModal } from '../WalletListModal'
-  import { Button, Accordion } from 'flowbite-svelte'
 
   const walletListModal = getContext<Writable<WalletListModal>>(WalletListModal.name)
 

@@ -8,7 +8,6 @@ module.exports = {
     'simple-import-sort/exports': 'error',
   },
   ignorePatterns: ['*.cjs'],
-  overrides: [{ files: ['*.svelte'], processor: 'svelte3/svelte3' }],
   settings: {
     'svelte3/typescript': () => require('typescript'),
   },
@@ -22,6 +21,10 @@ module.exports = {
     node: true,
   },
   overrides: [
+    {
+      files: ['*.svelte'],
+      processor: 'svelte3/svelte3',
+    },
     {
       files: ['*.spec.ts'],
       rules: {

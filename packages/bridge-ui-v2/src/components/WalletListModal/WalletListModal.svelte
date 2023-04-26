@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { type Connector, connect } from '@wagmi/core'
-  import { client } from '../../libs/wagmi'
+  import { connect, type Connector } from '@wagmi/core'
   import { Modal } from 'flowbite-svelte'
+
   import { getLogger } from '../../libs/logger'
   import { walletIdToIconComponent } from '../../libs/util/walletIdToIconComponent'
+  import { client } from '../../libs/wagmi'
 
   const log = getLogger('WalletListModal')
 
