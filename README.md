@@ -35,7 +35,7 @@ taiko-mono/
 ├── <a href="./README.md">README.md</a>
 ├── <a href="./packages">packages</a>
 │   ├── <a href="./packages/branding">branding</a>: Taiko branding materials
-│   ├── <a href="./packages/bridge-ui">bridge-ui</a>: Taiko bridge frontend UI
+│   ├── <a href="./packages/bridge-ui">bridge-ui</a>: Taiko bridge frontend UI. 🚧 In maintanance 🚧. 
 │   ├── <a href="./packages/eventindexer">eventindexer</a>: Event indexer
 │   ├── <a href="./packages/protocol">protocol</a>: Taiko protocol and bridge smart contracts
 │   ├── <a href="./packages/relayer">relayer</a>: Bridge backend relayer in Go
