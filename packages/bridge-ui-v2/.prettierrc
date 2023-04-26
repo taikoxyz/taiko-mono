@@ -4,10 +4,13 @@
   "singleQuote": true,
   "trailingComma": "all",
   "bracketSameLine": true,
-  "printWidth": 100,
+  "printWidth": 120,
+
   "plugins": ["prettier-plugin-svelte"],
-  "pluginSearchDirs": ["."],
+  "pluginSearchDirs": false,
+
   "overrides": [{ "files": "*.svelte", "options": { "parser": "svelte" } }],
+
   "svelteSortOrder": "options-scripts-markup-styles",
   "svelteStrictMode": false,
   "svelteAllowShorthand": true,
