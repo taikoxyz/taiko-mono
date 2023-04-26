@@ -14,5 +14,5 @@
 </script>
 
 <Button type="primary" on:click={onClick}>
-  {$t('connect_wallet')}
+  {$t('wallet.button.connect')}
 </Button>

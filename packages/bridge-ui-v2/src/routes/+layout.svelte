@@ -10,7 +10,8 @@
   import { WalletListModal } from '../components/modals/WalletListModal'
 
   // We should be able to open this modal from anywhere.
-  // Let's make this context store available to all the children.
+  // Let's make the modal instance available to all the children
+  // via context.
   const walletListModal = writable<WalletListModal>()
   setContext(WalletListModal.name, walletListModal)
 </script>

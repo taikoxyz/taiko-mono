@@ -1,6 +1,7 @@
 import { watchAccount, watchNetwork } from '@wagmi/core'
 
-import { emitter } from '../emitter'
+import { account } from '../../stores/account'
+import { network } from '../../stores/network'
 import { getLogger } from '../logger'
 
 const log = getLogger('wagmi/watcher')
@@ -14,20 +15,18 @@ export function startWatching() {
     // Action for subscribing to network changes.
     // See https://wagmi.sh/core/actions/watchNetwork
     unWatchNetwork = watchNetwork((data) => {
-      log('Network', data)
-      emitter.emit('networkChanged', data)
+      log('Network changed', data)
+      network.set(data)
     })
 
     // Action for subscribing to account changes.
     // See https://wagmi.sh/core/actions/watchAccount
     unWatchAccount = watchAccount((data) => {
-      log('Account', data)
-      emitter.emit('accountChanged', data)
+      log('Account changed', data)
+      account.set(data)
     })
 
     isWatching = true
-
-    emitter.emit('nowWatching')
   }
 }
 
@@ -35,6 +34,4 @@ export function stopWatching() {
   unWatchNetwork()
   unWatchAccount()
   isWatching = false
-
-  emitter.emit('noLongerWatching')
 }

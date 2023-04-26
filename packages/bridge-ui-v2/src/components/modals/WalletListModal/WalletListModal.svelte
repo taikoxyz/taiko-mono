@@ -1,10 +1,10 @@
 <script lang="ts">
   import { type Connector, connect } from '@wagmi/core'
-  import loglevel from 'loglevel'
   import { client } from '../../../libs/wagmi'
   import { Modal } from '../Modal'
+  import { getLogger } from '../../../libs/logger'
 
-  const log = loglevel.getLogger('WalletListModal')
+  const log = getLogger('WalletListModal')
 
   let open = false
   let connecting = false
@@ -23,8 +23,9 @@
 
       try {
         const result = await connect({ connector })
-      } catch (e) {
-        console.log('Error', e)
+        log('Wallet connected', result)
+      } catch (error) {
+        log('Error connecting wallet', error)
       } finally {
         connecting = false
       }
