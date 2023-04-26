@@ -17,7 +17,6 @@
   import { truncateString } from '../../utils/truncateString';
   import {
     pendingTransactions,
-    transactioner,
     transactions as transactionsStore,
   } from '../../store/transactions';
   import Memo from './Memo.svelte';
@@ -39,6 +38,7 @@
   import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
   import { ProcessingFeeMethod } from '../../domain/fee';
   import Button from '../buttons/Button.svelte';
+  import { storageService } from '../../storage/services';
 
   let amount: string;
   let amountInput: HTMLInputElement;
@@ -291,7 +291,7 @@
       tx.chainId = $fromChain.id;
       const userAddress = await $signer.getAddress();
       let transactions: BridgeTransaction[] =
-        await $transactioner.getAllByAddress(userAddress);
+        await storageService.getAllByAddress(userAddress);
 
       let bridgeTransaction: BridgeTransaction = {
         fromChainId: $fromChain.id,
@@ -309,12 +309,12 @@
         transactions.push(bridgeTransaction);
       }
 
-      $transactioner.updateStorageByAddress(userAddress, transactions);
+      storageService.updateStorageByAddress(userAddress, transactions);
 
       const allTransactions = $transactionsStore;
 
       // get full BridgeTransaction object
-      bridgeTransaction = await $transactioner.getTransactionByHash(
+      bridgeTransaction = await storageService.getTransactionByHash(
         userAddress,
         tx.hash,
       );
@@ -416,7 +416,7 @@
       .eq(BigNumber.from(0)); // balance == 0?
 </script>
 
-<div class="form-control my-4 md:my-8">
+<div class="form-control my-10 md:my-8">
   <label class="label" for="amount">
     <span class="label-text">{$_('bridgeForm.fieldLabel')}</span>
 
@@ -454,7 +454,7 @@
 </div>
 
 {#if showFaucet}
-  <div class="flex" style="flex-direction:row-reverse">
+  <div class="flex my-10 md:my-8" style="flex-direction:row-reverse">
     <div class="flex items-start">
       <button class="btn" on:click={() => (isFaucetModalOpen = true)}>
         <Funnel class="mr-2" /> Faucet

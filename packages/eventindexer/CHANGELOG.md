@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.2.1...eventindexer-v0.3.0) (2023-04-26)
+
+
+### Features
+
+* **eventindexer:** ProposeEvents filtering, API exposing, and getting count by address/event + tests ([#13624](https://github.com/taikoxyz/taiko-mono/issues/13624)) ([839a0be](https://github.com/taikoxyz/taiko-mono/commit/839a0bef7c64dd2b1e2ecc5194cf9a1e29f9a0cd))
+
 ## [0.2.1](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.2.0...eventindexer-v0.2.1) (2023-04-08)
 
 
