@@ -100,7 +100,7 @@ export class ETHBridge implements Bridge {
       opts.msgHash,
     );
 
-    if (messageStatus === MessageStatus.Done) {
+    if ([MessageStatus.Done, MessageStatus.Failed].includes(messageStatus)) {
       throw Error('message already processed');
     }
 
