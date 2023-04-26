@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.0](https://github.com/taikoxyz/taiko-mono/compare/status-page-v0.6.0...status-page-v0.7.0) (2023-04-26)
+
+
+### Features
+
+* **eventindexer:** ProposeEvents filtering, API exposing, and getting count by address/event + tests ([#13624](https://github.com/taikoxyz/taiko-mono/issues/13624)) ([839a0be](https://github.com/taikoxyz/taiko-mono/commit/839a0bef7c64dd2b1e2ecc5194cf9a1e29f9a0cd))
+
+
+### Bug Fixes
+
+* **status-page:** Status page slots ([#13605](https://github.com/taikoxyz/taiko-mono/issues/13605)) ([f0c291f](https://github.com/taikoxyz/taiko-mono/commit/f0c291f671cfe5b81b2f567ee7701a73edb79095))
+
 ## [0.6.0](https://github.com/taikoxyz/taiko-mono/compare/status-page-v0.5.0...status-page-v0.6.0) (2023-04-08)
 
 

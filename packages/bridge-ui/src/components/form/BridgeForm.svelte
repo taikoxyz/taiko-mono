@@ -404,7 +404,7 @@
       .eq(BigNumber.from(0)); // balance == 0?
 </script>
 
-<div class="form-control my-4 md:my-8">
+<div class="form-control my-10 md:my-8">
   <label class="label" for="amount">
     <span class="label-text">{$_('bridgeForm.fieldLabel')}</span>
 
@@ -442,7 +442,7 @@
 </div>
 
 {#if showFaucet}
-  <div class="flex" style="flex-direction:row-reverse">
+  <div class="flex my-10 md:my-8" style="flex-direction:row-reverse">
     <div class="flex items-start">
       <button class="btn" on:click={() => (isFaucetModalOpen = true)}>
         <Funnel class="mr-2" /> Faucet
