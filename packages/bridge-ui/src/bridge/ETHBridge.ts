@@ -100,8 +100,12 @@ export class ETHBridge implements Bridge {
       opts.msgHash,
     );
 
-    if ([MessageStatus.Done, MessageStatus.Failed].includes(messageStatus)) {
+    if (messageStatus === MessageStatus.Done) {
       throw Error('message already processed');
+    }
+
+    if (messageStatus === MessageStatus.Failed) {
+      throw Error('user can not process this, message has failed');
     }
 
     const signerAddress = await opts.signer.getAddress();
@@ -109,6 +113,8 @@ export class ETHBridge implements Bridge {
     if (opts.message.owner.toLowerCase() !== signerAddress.toLowerCase()) {
       throw Error('user can not process this, it is not their message');
     }
+
+    // TODO: up to here we share same logic as ERC20Bridge
 
     if (messageStatus === MessageStatus.New) {
       const proofOpts = {
