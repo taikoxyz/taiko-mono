@@ -1,11 +1,10 @@
-import { Contract, ethers } from "ethers";
-import TaikoL1 from "../constants/abi/TaikoL1";
+import type { ethers } from "ethers";
+import { getStateVariables } from "./getStateVariables";
 
 export const getEthDeposits = async (
   provider: ethers.providers.JsonRpcProvider,
   contractAddress: string
 ): Promise<number> => {
-  const contract: Contract = new Contract(contractAddress, TaikoL1, provider);
-  const stateVariables = await contract.getStateVariables();
+  const stateVariables = await getStateVariables(provider, contractAddress);
   return stateVariables.numEthDeposits;
 };
