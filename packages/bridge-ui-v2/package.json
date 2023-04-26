@@ -19,6 +19,7 @@
     "@sveltejs/adapter-auto": "^2.0.0",
     "@sveltejs/adapter-static": "^2.0.2",
     "@sveltejs/kit": "^1.5.0",
+    "@types/debug": "^4.1.7",
     "@typescript-eslint/eslint-plugin": "^5.45.0",
     "@typescript-eslint/parser": "^5.45.0",
     "@vitest/coverage-c8": "^0.30.1",
@@ -41,6 +42,7 @@
   "dependencies": {
     "@wagmi/core": "^0.8.0",
     "daisyui": "1.16.6",
+    "debug": "^4.3.4",
     "ethers": "^5.7",
     "events": "^3.3.0",
     "svelte-i18n": "^3.5.1"

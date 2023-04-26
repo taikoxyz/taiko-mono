@@ -1,4 +1,7 @@
 import { watchAccount, watchNetwork } from '@wagmi/core'
+import { getLogger } from '../logger'
+
+const { log, logerr } = getLogger('wagmi/watcher')
 
 let isWatching = false
 let unWatchNetwork: () => void
@@ -9,13 +12,13 @@ export function startWatching() {
     // Action for subscribing to network changes.
     // See https://wagmi.sh/core/actions/watchNetwork
     unWatchNetwork = watchNetwork((data) => {
-      console.log('watchNetwork', data)
+      logerr(data)
     })
 
     // Action for subscribing to account changes.
     // See https://wagmi.sh/core/actions/watchAccount
     unWatchAccount = watchAccount((data) => {
-      console.log('watchAccount', data)
+      logerr(data)
     })
 
     isWatching = true
