@@ -13,7 +13,7 @@ import {SignalService} from "../contracts/signal/SignalService.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {TaikoL1TestBase} from "./TaikoL1TestBase.t.sol";
 
-contract TaikoL1_Oracle is TaikoL1 {
+contract TaikoL1Oracle is TaikoL1 {
     function getConfig()
         public
         pure
@@ -36,9 +36,9 @@ contract Verifier {
     }
 }
 
-contract TaikoL1_OracleTest is TaikoL1TestBase {
+contract TaikoL1OracleTest is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1 taikoL1) {
-        taikoL1 = new TaikoL1_Oracle();
+        taikoL1 = new TaikoL1Oracle();
     }
 
     function setUp() public override {
