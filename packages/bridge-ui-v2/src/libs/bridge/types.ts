@@ -17,7 +17,7 @@ export enum BridgeType {
 
 export type ApproveArgs = {
   amountInWei: BigNumber
-  contractAddress: string
+  tokenAddress: string
   signer: Signer
   spenderAddress: string
 }
@@ -57,8 +57,8 @@ export type ReleaseArgs = ClaimArgs & {
 }
 
 export interface Bridge {
-  estimateGas(args: BridgeArgs): Promise<BigNumber>
-  bridge(args: BridgeArgs): Promise<Transaction>
+  // estimateGas(args: BridgeArgs): Promise<BigNumber>
+  // bridge(args: BridgeArgs): Promise<Transaction>
   claim(args: ClaimArgs): Promise<Transaction>
   releaseTokens(args: ReleaseArgs): Promise<Transaction | undefined>
 }

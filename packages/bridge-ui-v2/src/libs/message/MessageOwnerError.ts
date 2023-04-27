@@ -1,9 +1,7 @@
 /**
- * These errors are thrown when the message owner is wrong
+ * This error is thrown when there is a problem
+ * with the message's owner.
  */
 export class MessageOwnerError extends Error {
-  constructor(message = 'Wrong message owner') {
-    super(message)
-    this.name = 'MessageOwnerError'
-  }
+  name = 'MessageOwnerError'
 }

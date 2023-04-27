@@ -43,7 +43,7 @@ export class ETHBridge implements Bridge {
     return { bridgeContract, owner, message }
   }
 
-  async estimateGas(args: ETHBridgeArgs): Promise<BigNumber> {
+  static async estimateGas(args: ETHBridgeArgs): Promise<BigNumber> {
     const { bridgeContract, message } = await ETHBridge._prepareTransaction(args)
 
     // See https://docs.ethers.org/v5/api/contract/contract/#contract-estimateGas
@@ -54,7 +54,7 @@ export class ETHBridge implements Bridge {
     return gasEstimate
   }
 
-  async bridge(args: ETHBridgeArgs): Promise<Transaction> {
+  static async bridge(args: ETHBridgeArgs): Promise<Transaction> {
     const { bridgeContract, message } = await ETHBridge._prepareTransaction(args)
 
     const tx: Transaction = await bridgeContract.sendMessage(message, {

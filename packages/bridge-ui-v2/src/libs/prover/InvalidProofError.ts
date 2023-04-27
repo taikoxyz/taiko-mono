@@ -1,6 +1,6 @@
+/**
+ * Error thrown when a proof is invalid.
+ */
 export class InvalidProofError extends Error {
-  constructor(message = 'Invalid proof') {
-    super(message)
-    this.name = 'InvalidProofError'
-  }
+  name = 'InvalidProofError'
 }
