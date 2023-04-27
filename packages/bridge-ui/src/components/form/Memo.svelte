@@ -19,7 +19,7 @@
   $: checkSizeLimit(memo);
 </script>
 
-<div class="flex flex-row justify-between mb-2">
+<div class="flex flex-row justify-between mb-4">
   <ButtonWithTooltip onClick={() => (tooltipOpen = true)}>
     <span slot="buttonText">Memo</span>
   </ButtonWithTooltip>
