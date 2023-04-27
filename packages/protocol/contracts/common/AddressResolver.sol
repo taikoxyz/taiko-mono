@@ -32,7 +32,7 @@ abstract contract AddressResolver {
      * Resolves a name to an address on the current chain.
      *
      * @dev This function will throw if the resolved address is `address(0)`.
-     * @param name The name hash to resolve.
+     * @param name The name to resolve.
      * @param allowZeroAddress True to allow zero address to be returned.
      * @return The name's corresponding address.
      */
@@ -48,7 +48,7 @@ abstract contract AddressResolver {
      *
      * @dev This function will throw if the resolved address is `address(0)`.
      * @param chainId The chainId.
-     * @param name The name hash to resolve.
+     * @param name The name to resolve.
      * @param allowZeroAddress True to allow zero address to be returned.
      * @return The name's corresponding address.
      */

@@ -45,7 +45,7 @@ _This function will throw if the resolved address is `address(0)`._
 
 | Name             | Type    | Description                                |
 | ---------------- | ------- | ------------------------------------------ |
-| name             | bytes32 | The name hash to resolve.                  |
+| name             | bytes32 | The name to resolve.                       |
 | allowZeroAddress | bool    | True to allow zero address to be returned. |
 
 #### Return Values
@@ -69,7 +69,7 @@ _This function will throw if the resolved address is `address(0)`._
 | Name             | Type    | Description                                |
 | ---------------- | ------- | ------------------------------------------ |
 | chainId          | uint256 | The chainId.                               |
-| name             | bytes32 | The name hash to resolve.                  |
+| name             | bytes32 | The name to resolve.                       |
 | allowZeroAddress | bool    | True to allow zero address to be returned. |
 
 #### Return Values

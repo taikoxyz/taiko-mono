@@ -19,7 +19,7 @@ Changes the address associated with a particular name.
 | Name       | Type    | Description                                  |
 | ---------- | ------- | -------------------------------------------- |
 | domain     | uint256 | Uint256 domain to assiciate an address with. |
-| name       | bytes32 | Name hash to associate an address with.      |
+| name       | bytes32 | Name to associate an address with.           |
 | newAddress | address | Address to associate with the name.          |
 
 ### getAddress
@@ -32,10 +32,10 @@ Retrieves the address associated with a given name.
 
 #### Parameters
 
-| Name   | Type    | Description                           |
-| ------ | ------- | ------------------------------------- |
-| domain | uint256 | Class to retrieve an address for.     |
-| name   | bytes32 | Name hash to retrieve an address for. |
+| Name   | Type    | Description                       |
+| ------ | ------- | --------------------------------- |
+| domain | uint256 | Class to retrieve an address for. |
+| name   | bytes32 | Name to retrieve an address for.  |
 
 #### Return Values
 
@@ -76,7 +76,7 @@ Changes the address associated with a particular name.
 | Name       | Type    | Description                                  |
 | ---------- | ------- | -------------------------------------------- |
 | domain     | uint256 | Uint256 domain to assiciate an address with. |
-| name       | bytes32 | Name hash to associate an address with.      |
+| name       | bytes32 | Name to associate an address with.           |
 | newAddress | address | Address to associate with the name.          |
 
 ### getAddress
@@ -89,10 +89,10 @@ Retrieves the address associated with a given name.
 
 #### Parameters
 
-| Name   | Type    | Description                           |
-| ------ | ------- | ------------------------------------- |
-| domain | uint256 | Class to retrieve an address for.     |
-| name   | bytes32 | Name hash to retrieve an address for. |
+| Name   | Type    | Description                       |
+| ------ | ------- | --------------------------------- |
+| domain | uint256 | Class to retrieve an address for. |
+| name   | bytes32 | Name to retrieve an address for.  |
 
 #### Return Values
 

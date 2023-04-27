@@ -18,7 +18,7 @@ interface IAddressManager {
     /**
      * Changes the address associated with a particular name.
      * @param domain Uint256 domain to assiciate an address with.
-     * @param name Name hash to associate an address with.
+     * @param name Name to associate an address with.
      * @param newAddress Address to associate with the name.
      */
     function setAddress(
@@ -30,7 +30,7 @@ interface IAddressManager {
     /**
      * Retrieves the address associated with a given name.
      * @param domain Class to retrieve an address for.
-     * @param name Name hash to retrieve an address for.
+     * @param name Name to retrieve an address for.
      * @return Address associated with the given name.
      */
     function getAddress(
