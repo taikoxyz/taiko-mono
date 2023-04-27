@@ -1,7 +1,9 @@
-import { BigNumber, Contract, type Transaction } from 'ethers'
+import { BigNumber, Contract, errors, type Transaction } from 'ethers'
 
 import { BRIDGE_ABI } from '../../abi'
 import type { ChainsRecord } from '../chain/types'
+import { MessageOwnerError } from '../message/MessageOwnerError'
+import { MessageStatusError } from '../message/MessageStatusError'
 import { type Message, MessageStatus } from '../message/types'
 import type { Prover } from '../prover'
 import type { GenerateProofArgs } from '../prover/types'
@@ -29,10 +31,8 @@ export class ETHBridge implements Bridge {
       owner: owner,
       to: args.to,
       refundAddress: owner,
-      depositValue:
-        args.to.toLowerCase() === owner.toLowerCase() ? args.amountInWei : BigNumber.from(0),
-      callValue:
-        args.to.toLowerCase() === owner.toLowerCase() ? BigNumber.from(0) : args.amountInWei,
+      depositValue: args.to.toLowerCase() === owner.toLowerCase() ? args.amountInWei : BigNumber.from(0),
+      callValue: args.to.toLowerCase() === owner.toLowerCase() ? BigNumber.from(0) : args.amountInWei,
       processingFee: args.processingFeeInWei ?? BigNumber.from(0),
       gasLimit: args.processingFeeInWei ? BigNumber.from(140000) : BigNumber.from(0), // TODO: 140k ??
       memo: args.memo ?? '',
@@ -46,7 +46,8 @@ export class ETHBridge implements Bridge {
   async estimateGas(args: ETHBridgeArgs): Promise<BigNumber> {
     const { bridgeContract, message } = await ETHBridge._prepareTransaction(args)
 
-    const gasEstimate = await bridgeContract.sendMessage.estimateGas(message, {
+    // See https://docs.ethers.org/v5/api/contract/contract/#contract-estimateGas
+    const gasEstimate = await bridgeContract.estimateGas.sendMessage(message, {
       value: message.depositValue.add(message.processingFee).add(message.callValue),
     })
 
@@ -66,49 +67,60 @@ export class ETHBridge implements Bridge {
   async claim(args: ClaimArgs): Promise<Transaction> {
     const destBridgeContract = new Contract(args.destBridgeAddress, BRIDGE_ABI, args.signer)
 
-    const messageStatus: MessageStatus = await destBridgeContract.getMessageStatus(args.msgHash)
-
-    if (messageStatus === MessageStatus.Done) {
-      throw Error('message already processed')
-    }
-
     const signerAddress = await args.signer.getAddress()
 
     if (args.message.owner.toLowerCase() !== signerAddress.toLowerCase()) {
-      throw Error('user can not process this, it is not their message')
+      throw new MessageOwnerError('Not the owner of the message')
     }
 
-    if (messageStatus === MessageStatus.New) {
-      const proofArgs: GenerateProofArgs = {
-        msgHash: args.msgHash,
-        sender: args.srcBridgeAddress,
-        srcChainId: args.message.srcChainId,
-        destChainId: args.message.destChainId,
-        srcBridgeAddress: args.srcBridgeAddress,
-        destHeaderSyncAddress: this.chains[args.message.destChainId].headerSyncAddress,
-        srcSignalServiceAddress: this.chains[args.message.srcChainId].signalServiceAddress,
-      }
+    const messageStatus: MessageStatus = await destBridgeContract.getMessageStatus(args.msgHash)
 
-      const proof = await this.prover.generateProof(proofArgs)
+    switch (messageStatus) {
+      case MessageStatus.Done:
+        throw new MessageStatusError('Message already processed')
+      case MessageStatus.Failed:
+        throw new MessageStatusError('Message already failed')
+      case MessageStatus.New: {
+        const srcChain = this.chains[args.message.srcChainId]
+        const destChain = this.chains[args.message.destChainId]
 
-      let processMessageTx: Transaction
-
-      try {
-        processMessageTx = await destBridgeContract.processMessage(args.message, proof)
-      } catch (error) {
-        // TODO: this condition is a wrong at the moment
-        if (error instanceof Error && error.name === 'UNPREDICTABLE_GAS_LIMIT') {
-          processMessageTx = await destBridgeContract.processMessage(args.message, proof, {
-            gasLimit: 1e6, // TODO: magic number
-          })
-        } else {
-          throw Error(error as string)
+        const proofArgs: GenerateProofArgs = {
+          msgHash: args.msgHash,
+          sender: args.srcBridgeAddress,
+          srcChainId: args.message.srcChainId,
+          destChainId: args.message.destChainId,
+          srcBridgeAddress: args.srcBridgeAddress,
+          destXChainSyncAddress: destChain.xChainSyncAddress,
+          srcSignalServiceAddress: srcChain.signalServiceAddress,
         }
-      }
 
-      return processMessageTx
-    } else {
-      return destBridgeContract.retryMessage(args.message, true)
+        const proof = await this.prover.generateProof(proofArgs)
+
+        let processMessageTx: Transaction
+
+        try {
+          processMessageTx = await destBridgeContract.processMessage(args.message, proof)
+        } catch (error) {
+          if (error instanceof Error && 'code' in error && error.code === errors.UNPREDICTABLE_GAS_LIMIT) {
+            // See https://docs.ethers.org/v5/troubleshooting/errors/#help-UNPREDICTABLE_GAS_LIMIT
+
+            // Let's try again with a higher gas limit
+            processMessageTx = await destBridgeContract.processMessage(
+              args.message,
+              proof,
+              { gasLimit: 1e6 }, // TODO: magic number
+            )
+          } else {
+            throw error
+          }
+        }
+
+        return processMessageTx
+      }
+      case MessageStatus.Retriable:
+        return destBridgeContract.retryMessage(args.message, true)
+      default:
+        throw new MessageStatusError(`Wrong message status: ${messageStatus}`)
     }
   }
 
