@@ -25,8 +25,8 @@ contract TaikoL1_b is TaikoL1 {
         config.maxNumProposedBlocks = 36;
         config.ringBufferSize = 40;
         config.maxVerificationsPerTx = 10;
-        config.proofCooldownPeriod = 0;
-        config.proofTimeTarget = 200;
+        config.proofCooldownPeriod = 1 minutes;
+        config.proofTimeTarget = 213;
     }
 }
 
@@ -41,7 +41,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
     // Initial salt for semi-random generation
     uint256 salt = 2195684615613153;
     // Can play to adjust
-    uint256 blocksToSimulate = 10;
+    uint256 blocksToSimulate = 1000;
     // RandomNumber - pseudo random but fine 
     uint256 newRandomWithoutSalt;
 
@@ -62,6 +62,10 @@ contract TaikoL1Simulation is TaikoL1TestBase {
     //          TUNABLE PARAMS END          // 
     //////////////////////////////////////////
     uint256 maxTime = 0;
+    uint256 totalDiffsProp = 0;
+    uint256 totalDiffsProve = 0;
+    uint256 lastTimestampProp = 0;
+    uint256 lastTimestampProve = 0;
     // Need to map a second to a proofTIme, and might be possible that multiple proofs coming in the same block
     mapping(uint256 proofTimeSecond => uint256[] arrivalIdxOfBlockIds) private _proofTimeToBlockIndexes;
     // Pre-calculate propose and prove timestamp
@@ -81,7 +85,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
     }
 
     function setUp() public override {
-        uint16 proofTimeTarget = 200; // Approx. value which close to what is in the simulation
+        uint16 proofTimeTarget = 213; // Approx. value which close to what is in the simulation
 
         initProofTimeIssued = LibLn.calcInitProofTimeIssued(
             feeBase,
@@ -93,117 +97,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
         registerAddress(L1.getVerifierName(100), address(new Verifier()));
     }
 
-    // function xtestGeneratingManyRandomBlocks() external {
-    //     uint256 time = block.timestamp;
-
-    //     assertEq(time, 1);
-
-    //     depositTaikoToken(Alice, 1E6 * 1E8, 10000 ether);
-
-    //     bytes32 parentHash = GENESIS_BLOCK_HASH;
-    //     uint32 parentGasUsed;
-
-    //     printVariableHeaders();
-    //     printVariables();
-
-    //     // Every 1000 blocks take about 40 seconds
-    //     // TODO(daniel|dani): change this to 10000
-    //     uint256 avgBlockTime = 12 seconds;
-
-    //     for (uint256 blockId = 1; blockId < blocksToSimulate; blockId++) {
-    //         uint256 newRandomWithoutSalt = uint256(
-    //             keccak256(abi.encodePacked(time, msg.sender, block.timestamp))
-    //         );
-
-    //         // Based on this we determin how much we need to mine (12-24)
-    //         time += pickRandomNumber(
-    //             newRandomWithoutSalt,
-    //             avgBlockTime,
-    //             (avgBlockTime * 2 - avgBlockTime + 1)
-    //         );
-    //         //Regenerate salt every time used at pickRandomNumber
-    //         salt = uint256(keccak256(abi.encodePacked(time, salt)));
-
-    //         while ((time / 12) * 12 > block.timestamp) {
-    //             vm.warp(block.timestamp + 12);
-    //             vm.roll(block.number + 1);
-    //         }
-
-    //         uint32 gasLimit = uint32(
-    //             pickRandomNumber(
-    //                 newRandomWithoutSalt,
-    //                 100E3,
-    //                 (3000000 - 100000 + 1)
-    //             )
-    //         ); // 100K to 30M
-    //         salt = uint256(keccak256(abi.encodePacked(gasLimit, salt)));
-
-    //         uint32 gasUsed = uint32(
-    //             pickRandomNumber(
-    //                 newRandomWithoutSalt,
-    //                 (gasLimit / 2),
-    //                 ((gasLimit / 2) + 1)
-    //             )
-    //         );
-    //         salt = uint256(keccak256(abi.encodePacked(gasUsed, salt)));
-
-    //         uint24 txListSize = uint24(
-    //             pickRandomNumber(
-    //                 newRandomWithoutSalt,
-    //                 1,
-    //                 conf.maxBytesPerTxList
-    //             ) //Actually (conf.maxBytesPerTxList-1)+1 but that's the same
-    //         );
-    //         salt = uint256(keccak256(abi.encodePacked(txListSize, salt)));
-
-    //         bytes32 blockHash = bytes32(
-    //             pickRandomNumber(newRandomWithoutSalt, 0, type(uint256).max)
-    //         );
-    //         salt = uint256(keccak256(abi.encodePacked(blockHash, salt)));
-
-    //         bytes32 signalRoot = bytes32(
-    //             pickRandomNumber(newRandomWithoutSalt, 0, type(uint256).max)
-    //         );
-    //         salt = uint256(keccak256(abi.encodePacked(signalRoot, salt)));
-
-    //         TaikoData.BlockMetadata memory meta = proposeBlock(
-    //             Alice,
-    //             gasLimit,
-    //             txListSize
-    //         );
-
-    //         // Here we need to have some time elapsed between propose and prove
-    //         // Realistically lets make it somewhere 160-240 sec, it is realistic
-    //         // for a testnet.
-    //         // Or put 1600 - 2400 for mainnet
-
-    //         uint256 proveTimeCnt = pickRandomNumber(newRandomWithoutSalt, 8, 5);
-
-    //         salt = uint256(keccak256(abi.encodePacked(proveTimeCnt, salt)));
-
-    //         mine(proveTimeCnt);
-
-    //         proveBlock(
-    //             Bob,
-    //             meta,
-    //             parentHash,
-    //             parentGasUsed,
-    //             gasUsed,
-    //             blockHash,
-    //             signalRoot,
-    //             false
-    //         );
-    //         printVariables();
-
-    //         parentHash = blockHash;
-    //         parentGasUsed = gasUsed;
-    //     }
-    //     console2.log("-----------------------------");
-    //     console2.log("avgBlockTime:", avgBlockTime);
-    // }
-
-    // This is a different approach - because:
-    // - the propose and prove is not consecutive (Ssome time elapses since first propose, until the first proof is submitted)
+    // A real world scenario
     function testGeneratingManyRandomBlocksNonConsecutive() external {
         uint256 time = block.timestamp;
         // To measure when first proofs shall be coming
@@ -232,6 +126,12 @@ contract TaikoL1Simulation is TaikoL1TestBase {
             ));
             nextBlockTime = blocksProposedTimestamp[i]+minDiffToBlockPropTime;
 
+            // Avg. calculation
+            if (lastTimestampProp > 0) {
+                totalDiffsProp += blocksProposedTimestamp[i] - lastTimestampProp;
+            }
+
+            lastTimestampProp = blocksProposedTimestamp[i];
             // We need this info to extract / export !!
             //console2.log("Time of PROPOSAL is:", blocksProposedTimestamp[i]);
             salt = uint256(keccak256(abi.encodePacked(nextBlockTime, salt, i)));
@@ -245,20 +145,25 @@ contract TaikoL1Simulation is TaikoL1TestBase {
             if (proofTimePerBlockI > maxTime) {
                 maxTime = proofTimePerBlockI;
             }
+            
 
+            if (lastTimestampProve > 0) {
+                totalDiffsProve += proofTimePerBlockI - lastTimestampProp;
+            }
+            lastTimestampProve = proofTimePerBlockI;
             // It is possible that proof for block N+1 comes before N, so we need to keep track of that. Because 
             // the proofs per block is related to propose of that same block (index).
             _proofTimeToBlockIndexes[proofTimePerBlockI].push(i);
             
             // We need this info to extract / export !!
-            console2.log("------------Time of PROVING is:", proofTimePerBlockI);
+            //console2.log("------------Time of PROVING is:", proofTimePerBlockI);
             salt = uint256(keccak256(abi.encodePacked(proofTimePerBlockI, salt)));
         }
 
         uint256 proposedIndex;
         uint256 provedIndex;
 
-        console2.log("Last sec:", maxTime);
+        console2.log("Last second:", maxTime);
 
         // This is a way we can de-couple proposing from proving
         for (uint256 secondsElapsed = 0; secondsElapsed <= maxTime; secondsElapsed++) {
@@ -284,7 +189,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                 }
                 else {
                     parentGasUsed[proposedIndex] = gasUsed[proposedIndex-1];
-                    parentHashes[proposedIndex] = parentHashes[proposedIndex-1];
+                    parentHashes[proposedIndex] = blockHashes[proposedIndex-1];
                 }
 
                 gasUsed[proposedIndex] = uint32(
@@ -332,12 +237,8 @@ contract TaikoL1Simulation is TaikoL1TestBase {
 
                 //console2.log("Duplicates check");
                 for (uint256 i; i < _proofTimeToBlockIndexes[secondsElapsed].length; i++) {
-                    // console2.log("Elapsed secs: ", secondsElapsed);
-                    // console2.log("FOR CYCLE: Time of PROVING is:", _proofTimeToBlockIndexes[secondsElapsed][i]); // -> That gives the index per block
                     uint256 blockId = _proofTimeToBlockIndexes[secondsElapsed][i];
-                    //console2.log("Block id is:", blockId);
                     
-                    // Todo: debug why only verifies
                     proveBlock(
                         Bob,
                         metas[blockId],
@@ -349,18 +250,18 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                         false
                     );
                 }
-                printVariables();
-
-                // console2.log("FOR CYCLE: Time of PROVING is:", blocksProvenTimestamp[provedIndex]);
-                // if(provedIndex < blocksToSimulate-1)
-                //     provedIndex++;
             }
 
             // Increment time with 1 seconds
             vm.warp(block.timestamp + 1);
+            //Log every 12 sec
+            if(block.timestamp % 12 == 0) {
+                printVariables();
+            }
         }
         console2.log("-----------------------------");
-        //console2.log("avgBlockTime:", avgBlockTime);
+        console2.log("Avg prop. time: ", totalDiffsProp / blocksToSimulate);
+        console2.log("Avg proof time: ", totalDiffsProve / blocksToSimulate);
     }
 
     // TODO(daniel|dani): log enough state variables for analysis.
