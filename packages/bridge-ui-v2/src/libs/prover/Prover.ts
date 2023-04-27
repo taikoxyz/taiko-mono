@@ -97,7 +97,7 @@ export class Prover {
       block.hash,
     ])
 
-    const messageStatusRetriable = `0x${MessageStatus.Retriable}`
+    const messageStatusRetriable = `0x${MessageStatus.Retriable}` // TODO: clarify this
     if (proof.storageProof[0].value !== messageStatusRetriable) {
       throw new InvalidProofError('Invalid proof to claim')
     }
