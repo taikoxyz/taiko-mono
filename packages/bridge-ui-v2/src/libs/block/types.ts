@@ -4,7 +4,7 @@ export type Block = {
   parentHash: string
   nonce: number
   sha3Uncles: string
-  logsBloom: string[] | string
+  logsBloom: string | string[]
   transactionsRoot: string
   stateRoot: string
   receiptsRoot: string

@@ -4,6 +4,7 @@ import { XCHAIN_SYNC_ABI } from '../../abi'
 import type { Block, BlockAndHeader, BlockHeader } from '../block/types'
 import { MessageStatus } from '../message/types'
 import type { ProvidersRecord } from '../provider/types'
+import { InvalidProofError } from './InvalidProofError'
 import type { EthGetProofResponse, GenerateProofArgs, GenerateReleaseProofArgs } from './types'
 
 const { defaultAbiCoder, keccak256, RLP, solidityPack } = ethers.utils
@@ -84,7 +85,7 @@ export class Prover {
     const srcProvider = this.providers[args.srcChainId]
     const destProvider = this.providers[args.destChainId]
 
-    const destXChainSyncContract = new ethers.Contract(args.destHeaderSyncAddress, XCHAIN_SYNC_ABI, destProvider)
+    const destXChainSyncContract = new Contract(args.destXChainSyncAddress, XCHAIN_SYNC_ABI, destProvider)
 
     const { block, blockHeader } = await Prover._getBlockAndBlockHeader(destXChainSyncContract, srcProvider)
 
@@ -96,9 +97,9 @@ export class Prover {
       block.hash,
     ])
 
-    const messageStatusNew = `0x${MessageStatus.New}`
-    if (proof.storageProof[0].value !== messageStatusNew) {
-      throw Error('invalid proof')
+    const messageStatusRetriable = `0x${MessageStatus.Retriable}`
+    if (proof.storageProof[0].value !== messageStatusRetriable) {
+      throw new InvalidProofError('Invalid proof to claim')
     }
 
     return Prover._getSignalProof(proof, blockHeader)
@@ -110,9 +111,9 @@ export class Prover {
     const srcProvider = this.providers[args.srcChainId]
     const destProvider = this.providers[args.destChainId]
 
-    const srcHeaderSyncContract = new ethers.Contract(args.srcHeaderSyncAddress, XCHAIN_SYNC_ABI, srcProvider)
+    const srcXChainSyncContract = new ethers.Contract(args.srcXChainSyncAddress, XCHAIN_SYNC_ABI, srcProvider)
 
-    const { block, blockHeader } = await Prover._getBlockAndBlockHeader(srcHeaderSyncContract, destProvider)
+    const { block, blockHeader } = await Prover._getBlockAndBlockHeader(srcXChainSyncContract, destProvider)
 
     // RPC call to get the merkle proof what value is at key on the SignalService contract
     const proof: EthGetProofResponse = await destProvider.send('eth_getProof', [
@@ -123,7 +124,7 @@ export class Prover {
 
     const messageStatusFailed = `0x${MessageStatus.Failed}`
     if (proof.storageProof[0].value !== messageStatusFailed) {
-      throw Error('invalid proof')
+      throw new InvalidProofError('Invalid proof to release')
     }
 
     return Prover._getSignalProof(proof, blockHeader)
