@@ -21,6 +21,8 @@
   import { getNumProposers } from "../../utils/getNumProposers";
   import DetailsModal from "../../components/DetailsModal.svelte";
   import { addressSubsection } from "../../utils/addressSubsection";
+  import { getEthDeposits } from "../../utils/getEthDeposits";
+  import { getNextEthDepositToProcess } from "../../utils/getNextEthDepositToProcess";
 
   export let l1Provider: ethers.providers.JsonRpcProvider;
   export let l1TaikoAddress: string;
@@ -190,6 +192,36 @@
       },
       tooltip:
         "The amount of pending proposed blocks that have not been proven on the TaikoL1 smart contract.",
+    },
+    {
+      statusFunc: getEthDeposits,
+      watchStatusFunc: null,
+      provider: l1Provider,
+      contractAddress: l1TaikoAddress,
+      header: "ETH Deposits",
+      intervalInMs: 20000,
+      colorFunc: (value: Status) => {
+        if (BigNumber.from(value).eq(0)) {
+          return "green";
+        } else if (BigNumber.from(value).lt(32)) {
+          return "yellow";
+        } else {
+          return "red";
+        }
+      },
+      tooltip: "The number of pending ETH deposits for L1 => L2",
+    },
+    {
+      statusFunc: getNextEthDepositToProcess,
+      watchStatusFunc: null,
+      provider: l1Provider,
+      contractAddress: l1TaikoAddress,
+      header: "Next ETH Deposit",
+      intervalInMs: 20000,
+      colorFunc: (value: Status) => {
+        return "green";
+      },
+      tooltip: "The next ETH deposit that will be processed",
     },
     {
       statusFunc: getGasPrice,
