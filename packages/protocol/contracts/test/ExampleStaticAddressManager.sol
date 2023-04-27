@@ -11,6 +11,9 @@ import {AddressManager} from "../common/AddressManager.sol";
 
 /**
  * @title ExampleStaticAddressManager
+ * Such a static lookup AddressManager can be used to replace
+ * existing storage-based lookup AddressManager so we can avoid
+ * SSLOAD easily.
  */
 contract ExampleStaticAddressManager is AddressManager {
     function setAddress(
@@ -21,6 +24,8 @@ contract ExampleStaticAddressManager is AddressManager {
         revert("");
     }
 
+    /// @dev This function must be a pure function in order to avoid
+    /// reading from storage.
     function getAddress(
         uint256 domain,
         bytes32 nameHash
