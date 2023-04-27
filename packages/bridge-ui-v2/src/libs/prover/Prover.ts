@@ -1,7 +1,8 @@
 import { Contract, ethers, type providers } from 'ethers'
 
-import { HEADER_SYNC_ABI } from '../../abi'
+import { XCHAIN_SYNC_ABI } from '../../abi'
 import type { Block, BlockAndHeader, BlockHeader } from '../block/types'
+import { MessageStatus } from '../message/types'
 import type { ProvidersRecord } from '../provider/types'
 import type { EthGetProofResponse, GenerateProofArgs, GenerateReleaseProofArgs } from './types'
 
@@ -23,13 +24,13 @@ export class Prover {
   }
 
   private static async _getBlockAndBlockHeader(
-    headerSyncContract: Contract,
+    xChainSyncContract: Contract,
     provider: providers.JsonRpcProvider,
   ): Promise<BlockAndHeader> {
-    const latestSyncedHeader = await headerSyncContract.getLatestSyncedHeader()
+    const latestBlockHash = await xChainSyncContract.getXchainBlockHash(0) // 0 => latest block
 
     // See https://docs.infura.io/infura/networks/ethereum/json-rpc-methods/eth_getblockbyhash
-    const block: Block = await provider.send('eth_getBlockByHash', [latestSyncedHeader, false])
+    const block: Block = await provider.send('eth_getBlockByHash', [latestBlockHash, false])
 
     const processedLogsBloom = block.logsBloom
       .toString()
@@ -83,16 +84,9 @@ export class Prover {
     const srcProvider = this.providers[args.srcChainId]
     const destProvider = this.providers[args.destChainId]
 
-    const destHeaderSyncContract = new ethers.Contract(
-      args.destHeaderSyncAddress,
-      HEADER_SYNC_ABI,
-      destProvider,
-    )
+    const destXChainSyncContract = new ethers.Contract(args.destHeaderSyncAddress, XCHAIN_SYNC_ABI, destProvider)
 
-    const { block, blockHeader } = await Prover._getBlockAndBlockHeader(
-      destHeaderSyncContract,
-      srcProvider,
-    )
+    const { block, blockHeader } = await Prover._getBlockAndBlockHeader(destXChainSyncContract, srcProvider)
 
     // RPC call to get the merkle proof what value is at key on the SignalService contract
     // See https://docs.infura.io/infura/networks/ethereum/json-rpc-methods/eth_getproof
@@ -102,7 +96,8 @@ export class Prover {
       block.hash,
     ])
 
-    if (proof.storageProof[0].value !== '0x1') {
+    const messageStatusNew = `0x${MessageStatus.New}`
+    if (proof.storageProof[0].value !== messageStatusNew) {
       throw Error('invalid proof')
     }
 
@@ -115,16 +110,9 @@ export class Prover {
     const srcProvider = this.providers[args.srcChainId]
     const destProvider = this.providers[args.destChainId]
 
-    const srcHeaderSyncContract = new ethers.Contract(
-      args.srcHeaderSyncAddress,
-      HEADER_SYNC_ABI,
-      srcProvider,
-    )
+    const srcHeaderSyncContract = new ethers.Contract(args.srcHeaderSyncAddress, XCHAIN_SYNC_ABI, srcProvider)
 
-    const { block, blockHeader } = await Prover._getBlockAndBlockHeader(
-      srcHeaderSyncContract,
-      destProvider,
-    )
+    const { block, blockHeader } = await Prover._getBlockAndBlockHeader(srcHeaderSyncContract, destProvider)
 
     // RPC call to get the merkle proof what value is at key on the SignalService contract
     const proof: EthGetProofResponse = await destProvider.send('eth_getProof', [
@@ -133,7 +121,8 @@ export class Prover {
       block.hash,
     ])
 
-    if (proof.storageProof[0].value !== '0x3') {
+    const messageStatusFailed = `0x${MessageStatus.Failed}`
+    if (proof.storageProof[0].value !== messageStatusFailed) {
       throw Error('invalid proof')
     }
 
