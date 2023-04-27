@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.5.0...bridge-ui-v0.6.0) (2023-04-27)
+
+
+### Features
+
+* **bridge-ui:** add transaction list pagination ([#13586](https://github.com/taikoxyz/taiko-mono/issues/13586)) ([a3b7498](https://github.com/taikoxyz/taiko-mono/commit/a3b7498a89576a5aac4c2cd5581d8ce4d457b718))
+
+
+### Bug Fixes
+
+* **bridge-ui:** pending transactions custom store with better error handling ([#13581](https://github.com/taikoxyz/taiko-mono/issues/13581)) ([394a9d1](https://github.com/taikoxyz/taiko-mono/commit/394a9d188da5a6bc8e2ffdd80121cb18471b3f08))
+* **bridge-ui:** wrong spacing [#13339](https://github.com/taikoxyz/taiko-mono/issues/13339) ([#13567](https://github.com/taikoxyz/taiko-mono/issues/13567)) ([0ed7638](https://github.com/taikoxyz/taiko-mono/commit/0ed7638d8820feb22c36cc39a35cef7fea12224d))
+
 ## [0.5.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.4.0...bridge-ui-v0.5.0) (2023-04-08)
 
 
