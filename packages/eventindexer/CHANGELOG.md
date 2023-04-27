@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.3.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.2.1...eventindexer-v0.3.0) (2023-04-26)
+## [0.3.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.2.1...eventindexer-v0.3.0) (2023-04-27)
 
 
 ### Features

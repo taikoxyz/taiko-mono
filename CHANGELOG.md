@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.11.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-mono-v0.10.0...taiko-mono-v0.11.0) (2023-04-26)
+## [0.11.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-mono-v0.10.0...taiko-mono-v0.11.0) (2023-04-27)
 
 
 ### Features
