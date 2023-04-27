@@ -28,7 +28,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.readFile(
             string.concat(vm.projectRoot(), "/deployments/genesis_alloc.json")
         );
-    address private owner = configJSON.readAddress(".contractOwner");
+    address private ownerAddr = configJSON.readAddress(".contractOwner");
     uint64 public constant BLOCK_GAS_LIMIT = 30000000;
 
     function testContractDeployment() public {
@@ -48,7 +48,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
             getPredeployedContractAddress("AddressManager")
         );
 
-        assertEq(owner, addressManager.owner());
+        assertEq(ownerAddr, addressManager.owner());
 
         checkSavedAddress(addressManager, "Bridge", "bridge");
         checkSavedAddress(addressManager, "TokenVault", "token_vault");
@@ -97,7 +97,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         );
         Bridge bridge = Bridge(bridgeAddress);
 
-        assertEq(owner, bridge.owner());
+        assertEq(ownerAddr, bridge.owner());
 
         vm.expectRevert(BridgeErrors.B_FORBIDDEN.selector);
         bridge.processMessage(
@@ -126,7 +126,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         );
         EtherVault etherVault = EtherVault(etherVaultAddress);
 
-        assertEq(owner, etherVault.owner());
+        assertEq(ownerAddr, etherVault.owner());
 
         assertEq(
             etherVault.isAuthorized(getPredeployedContractAddress("Bridge")),
@@ -144,7 +144,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
             getPredeployedContractAddress("AddressManager")
         );
 
-        assertEq(owner, tokenVault.owner());
+        assertEq(ownerAddr, tokenVault.owner());
 
         vm.startPrank(addressManager.owner());
         addressManager.setAddress(1, "bridge", bridgeAddress);
@@ -157,7 +157,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
             getPredeployedContractAddress("SignalService")
         );
 
-        assertEq(owner, signalService.owner());
+        assertEq(ownerAddr, signalService.owner());
 
         signalService.sendSignal(bytes32(block.difficulty));
     }

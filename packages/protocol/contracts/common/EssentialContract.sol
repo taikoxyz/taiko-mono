@@ -6,9 +6,6 @@
 
 pragma solidity ^0.8.18;
 
-import {
-    OwnableUpgradeable
-} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 // solhint-disable-next-line max-line-length
 import {
     ReentrancyGuardUpgradeable
@@ -22,12 +19,10 @@ import {AddressResolver} from "./AddressResolver.sol";
  */
 abstract contract EssentialContract is
     ReentrancyGuardUpgradeable,
-    OwnableUpgradeable,
     AddressResolver
 {
     function _init(address _addressManager) internal virtual override {
         ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
-        OwnableUpgradeable.__Ownable_init();
         AddressResolver._init(_addressManager);
     }
 }

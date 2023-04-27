@@ -7,6 +7,9 @@
 pragma solidity ^0.8.18;
 
 import {IAddressManager} from "./AddressManager.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
@@ -15,10 +18,12 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
  *
  * @title AddressResolver
  */
-abstract contract AddressResolver {
-    IAddressManager internal _addressManager;
+abstract contract AddressResolver is OwnableUpgradeable {
+    address internal _addressManager;
 
     uint256[49] private __gap;
+
+    event AddressSet(address oldAddressManager, address newAddressManager);
 
     error RESOLVER_DENIED();
     error RESOLVER_INVALID_ADDR();
@@ -26,6 +31,10 @@ abstract contract AddressResolver {
     modifier onlyFromNamed(string memory name) {
         if (msg.sender != resolve(name, false)) revert RESOLVER_DENIED();
         _;
+    }
+
+    function setAddressManager(address newAddressManager) external onlyOwner {
+        _setAddressManager(newAddressManager);
     }
 
     /**
@@ -70,8 +79,14 @@ abstract contract AddressResolver {
     }
 
     function _init(address addressManager_) internal virtual {
-        if (addressManager_ == address(0)) revert RESOLVER_INVALID_ADDR();
-        _addressManager = IAddressManager(addressManager_);
+        OwnableUpgradeable.__Ownable_init();
+        _setAddressManager(addressManager_);
+    }
+
+    function _setAddressManager(address newAddressManager) private {
+        if (newAddressManager == address(0)) revert RESOLVER_INVALID_ADDR();
+        emit AddressSet(_addressManager, newAddressManager);
+        _addressManager = newAddressManager;
     }
 
     function _resolve(
@@ -79,7 +94,9 @@ abstract contract AddressResolver {
         string memory name,
         bool allowZeroAddress
     ) private view returns (address payable addr) {
-        addr = payable(_addressManager.getAddress(chainId, name));
+        addr = payable(
+            IAddressManager(_addressManager).getAddress(chainId, name)
+        );
 
         if (!allowZeroAddress) {
             // We do not use custom error so this string-based
