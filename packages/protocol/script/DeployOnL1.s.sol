@@ -9,6 +9,7 @@ pragma solidity ^0.8.18;
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
@@ -233,7 +234,7 @@ contract DeployOnL1 is Script {
     }
 
     function deployProxy(
-        bytes32 name,
+        string memory name,
         address implementation,
         bytes memory data
     ) private returns (address proxy) {
@@ -241,15 +242,15 @@ contract DeployOnL1 is Script {
             new TransparentUpgradeableProxy(implementation, owner, data)
         );
 
-        console2.log(vm.toString(name), "(impl) ->", implementation);
-        console2.log(vm.toString(name), "(proxy) ->", proxy);
+        console2.log(name, "(impl) ->", implementation);
+        console2.log(name, "(proxy) ->", proxy);
 
         if (addressManagerProxy != address(0)) {
-            setAddress(block.chainid, name, proxy);
+            setAddress(block.chainid, bytes32(bytes(name)), proxy);
         }
 
         vm.writeJson(
-            vm.serializeAddress("deployment", vm.toString(name), proxy),
+            vm.serializeAddress("deployment", name, proxy),
             string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
         );
     }
