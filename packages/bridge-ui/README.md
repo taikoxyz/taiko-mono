@@ -1,5 +1,7 @@
 # Bridge UI
 
+🚨 **Important** 🚨: Currently the Bridge UI is in maintenance mode. Please, hold off sending PRs.
+
 ## Installation
 
 `pnpm install`

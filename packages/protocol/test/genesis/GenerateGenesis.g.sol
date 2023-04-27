@@ -192,11 +192,11 @@ contract TestGenerateGenesis is Test, AddressResolver {
     function checkSavedAddress(
         AddressManager addressManager,
         string memory contractName,
-        string memory key
+        bytes32 name
     ) private {
         assertEq(
             getPredeployedContractAddress(contractName),
-            addressManager.getAddress(block.chainid, key)
+            addressManager.getAddress(block.chainid, name)
         );
     }
 }

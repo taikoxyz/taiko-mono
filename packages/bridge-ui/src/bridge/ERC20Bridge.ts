@@ -162,6 +162,7 @@ export class ERC20Bridge implements Bridge {
       messageStatus === MessageStatus.Done ||
       messageStatus === MessageStatus.Failed
     ) {
+      // TODO: should be throw a different error when status is Failed?
       throw Error('message already processed');
     }
 

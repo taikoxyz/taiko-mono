@@ -18,12 +18,12 @@ interface IAddressManager {
     /**
      * Changes the address associated with a particular name.
      * @param domain Uint256 domain to assiciate an address with.
-     * @param name String name to associate an address with.
+     * @param name Name to associate an address with.
      * @param newAddress Address to associate with the name.
      */
     function setAddress(
         uint256 domain,
-        string memory name,
+        bytes32 name,
         address newAddress
     ) external;
 
@@ -35,7 +35,7 @@ interface IAddressManager {
      */
     function getAddress(
         uint256 domain,
-        string memory name
+        bytes32 name
     ) external view returns (address);
 }
 
@@ -43,12 +43,12 @@ interface IAddressManager {
  * @title AddressManager
  */
 contract AddressManager is OwnableUpgradeable, IAddressManager {
-    mapping(uint256 domain => mapping(bytes32 nameHash => address addr))
+    mapping(uint256 domain => mapping(bytes32 name => address addr))
         private addresses;
 
     event AddressSet(
         uint256 indexed _domain,
-        string indexed _name,
+        bytes32 indexed _name,
         address _newAddress,
         address _oldAddress
     );
@@ -60,30 +60,18 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
 
     function setAddress(
         uint256 domain,
-        string memory name,
+        bytes32 name,
         address newAddress
-    ) external onlyOwner {
-        address oldAddress = addresses[domain][_stringToBytes32(name)];
-        addresses[domain][_stringToBytes32(name)] = newAddress;
+    ) external virtual onlyOwner {
+        address oldAddress = addresses[domain][name];
+        addresses[domain][name] = newAddress;
         emit AddressSet(domain, name, newAddress, oldAddress);
     }
 
     function getAddress(
         uint256 domain,
-        string memory name
-    ) external view returns (address addr) {
-        addr = addresses[domain][_stringToBytes32(name)];
-    }
-
-    function _stringToBytes32(
-        string memory source
-    ) private pure returns (bytes32 result) {
-        if (bytes(source).length == 0) {
-            return 0x0;
-        }
-
-        assembly {
-            result := mload(add(source, 32))
-        }
+        bytes32 name
+    ) external view virtual returns (address addr) {
+        addr = addresses[domain][name];
     }
 }

@@ -7,7 +7,6 @@ export const getProofReward = async (
   contractAddress: string
 ): Promise<string> => {
   const contract: Contract = new Contract(contractAddress, TaikoL1, provider);
-  const state = await contract.getStateVariables();
   const fee = await contract.getProofReward(
     ~~(new Date().getTime() / 1000),
     ~~(new Date().getTime() / 1000) - 1200

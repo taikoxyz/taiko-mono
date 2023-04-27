@@ -123,7 +123,7 @@ library LibUtils {
         }
     }
 
-    function getVerifierName(uint16 id) internal pure returns (string memory) {
-        return string(bytes.concat(bytes("verifier_"), bytes2(id)));
+    function getVerifierName(uint16 id) internal pure returns (bytes32) {
+        return bytes32(uint256(0x1000000) + id);
     }
 }

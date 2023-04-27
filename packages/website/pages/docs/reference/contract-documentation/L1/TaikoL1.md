@@ -153,5 +153,5 @@ function getConfig() public pure virtual returns (struct TaikoData.Config)
 ### getVerifierName
 
 ```solidity
-function getVerifierName(uint16 id) public pure returns (string)
+function getVerifierName(uint16 id) public pure returns (bytes32)
 ```
