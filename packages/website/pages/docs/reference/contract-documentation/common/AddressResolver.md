@@ -10,7 +10,13 @@ it uses an AddressManager to manage the name-to-address mapping.
 ### \_addressManager
 
 ```solidity
-contract IAddressManager _addressManager
+address _addressManager
+```
+
+### AddressSet
+
+```solidity
+event AddressSet(address oldAddressManager, address newAddressManager)
 ```
 
 ### RESOLVER_DENIED
@@ -29,6 +35,12 @@ error RESOLVER_INVALID_ADDR()
 
 ```solidity
 modifier onlyFromNamed(string name)
+```
+
+### setAddressManager
+
+```solidity
+function setAddressManager(address newAddressManager) external
 ```
 
 ### resolve
