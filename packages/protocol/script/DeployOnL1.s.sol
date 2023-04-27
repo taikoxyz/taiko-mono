@@ -113,12 +113,12 @@ contract DeployOnL1 is Script {
 
         // HorseToken && BullToken
         address horseToken = address(new FreeMintERC20("Horse Token", "HORSE"));
-        console.log("HorseToken", horseToken);
+        console2.log("HorseToken", horseToken);
 
         address bullToken = address(
             new MayFailFreeMintERC20("Bull Token", "BLL")
         );
-        console.log("BullToken", bullToken);
+        console2.log("BullToken", bullToken);
 
         uint64 feeBase = 1 ** 8; // Taiko Token's decimals is 8, not 18
 
@@ -177,7 +177,7 @@ contract DeployOnL1 is Script {
                 )
             );
         } else {
-            console.log(
+            console2.log(
                 "Warining: using shared signal service: ",
                 sharedSignalService
             );
@@ -200,7 +200,7 @@ contract DeployOnL1 is Script {
         );
 
         for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
-            setAddress(taikoL1.getVerifierName(i), plonkVerifiers[i]);
+            setAddress(taikoL1.getVerifierNameHash(i), plonkVerifiers[i]);
         }
     }
 
@@ -227,13 +227,13 @@ contract DeployOnL1 is Script {
         if (deployedAddress == address(0))
             revert FAILED_TO_DEPLOY_PLONK_VERIFIER(contractPath);
 
-        console.log(contractPath, deployedAddress);
+        console2.log(contractPath, deployedAddress);
 
         return deployedAddress;
     }
 
     function deployProxy(
-        string memory name,
+        bytes32 nameHash,
         address implementation,
         bytes memory data
     ) private returns (address proxy) {
@@ -241,35 +241,35 @@ contract DeployOnL1 is Script {
             new TransparentUpgradeableProxy(implementation, owner, data)
         );
 
-        console.log(name, "(impl) ->", implementation);
-        console.log(name, "(proxy) ->", proxy);
+        console2.log(vm.toString(nameHash), "(impl) ->", implementation);
+        console2.log(vm.toString(nameHash), "(proxy) ->", proxy);
 
         if (addressManagerProxy != address(0)) {
-            AddressManager(addressManagerProxy).setAddress(
-                block.chainid,
-                name,
-                proxy
-            );
+            setAddress(block.chainid, nameHash, proxy);
         }
 
         vm.writeJson(
-            vm.serializeAddress("deployment", name, proxy),
+            vm.serializeAddress("deployment", vm.toString(nameHash), proxy),
             string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
         );
     }
 
-    function setAddress(string memory name, address addr) private {
-        setAddress(block.chainid, name, addr);
+    function setAddress(bytes32 nameHash, address addr) private {
+        setAddress(block.chainid, nameHash, addr);
     }
 
     function setAddress(
         uint256 chainId,
-        string memory name,
+        bytes32 nameHash,
         address addr
     ) private {
-        console.log(chainId, name, "--->", addr);
+        console2.log(chainId, uint256(nameHash), "--->", addr);
         if (addr != address(0)) {
-            AddressManager(addressManagerProxy).setAddress(chainId, name, addr);
+            AddressManager(addressManagerProxy).setAddress(
+                chainId,
+                nameHash,
+                addr
+            );
         }
     }
 }

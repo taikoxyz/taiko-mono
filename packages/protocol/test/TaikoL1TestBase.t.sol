@@ -70,7 +70,7 @@ abstract contract TaikoL1TestBase is Test {
         registerL2Address("taiko", address(TaikoL2));
         registerL2Address("signal_service", address(L2SS));
         registerL2Address("taiko_l2", address(TaikoL2));
-        registerAddress(L1.getVerifierName(100), address(new Verifier()));
+        registerAddress(L1.getVerifierNameHash(100), address(new Verifier()));
 
         tko = new TaikoToken();
         registerAddress("taiko_token", address(tko));
@@ -170,14 +170,14 @@ abstract contract TaikoL1TestBase is Test {
         L1.verifyBlocks(count);
     }
 
-    function registerAddress(string memory name, address addr) internal {
-        addressManager.setAddress(block.chainid, name, addr);
-        console2.log(block.chainid, name, unicode"→", addr);
+    function registerAddress(bytes32 nameHash, address addr) internal {
+        addressManager.setAddress(block.chainid, nameHash, addr);
+        console2.log(block.chainid, uint256(nameHash), unicode"→", addr);
     }
 
-    function registerL2Address(string memory name, address addr) internal {
-        addressManager.setAddress(conf.chainId, name, addr);
-        console2.log(conf.chainId, name, unicode"→", addr);
+    function registerL2Address(bytes32 nameHash, address addr) internal {
+        addressManager.setAddress(conf.chainId, nameHash, addr);
+        console2.log(conf.chainId, uint256(nameHash), unicode"→", addr);
     }
 
     function depositTaikoToken(

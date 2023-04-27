@@ -23,8 +23,8 @@ abstract contract AddressResolver {
     error RESOLVER_DENIED();
     error RESOLVER_INVALID_ADDR();
 
-    modifier onlyFromNamed(string memory name) {
-        if (msg.sender != resolve(name, false)) revert RESOLVER_DENIED();
+    modifier onlyFromNamed(bytes32 nameHash) {
+        if (msg.sender != resolve(nameHash, false)) revert RESOLVER_DENIED();
         _;
     }
 
@@ -32,15 +32,15 @@ abstract contract AddressResolver {
      * Resolves a name to an address on the current chain.
      *
      * @dev This function will throw if the resolved address is `address(0)`.
-     * @param name The name to resolve.
+     * @param nameHash The name hash to resolve.
      * @param allowZeroAddress True to allow zero address to be returned.
      * @return The name's corresponding address.
      */
     function resolve(
-        string memory name,
+        bytes32 nameHash,
         bool allowZeroAddress
     ) public view virtual returns (address payable) {
-        return _resolve(block.chainid, name, allowZeroAddress);
+        return _resolve(block.chainid, nameHash, allowZeroAddress);
     }
 
     /**
@@ -48,16 +48,16 @@ abstract contract AddressResolver {
      *
      * @dev This function will throw if the resolved address is `address(0)`.
      * @param chainId The chainId.
-     * @param name The name to resolve.
+     * @param nameHash The name hash to resolve.
      * @param allowZeroAddress True to allow zero address to be returned.
      * @return The name's corresponding address.
      */
     function resolve(
         uint256 chainId,
-        string memory name,
+        bytes32 nameHash,
         bool allowZeroAddress
     ) public view virtual returns (address payable) {
-        return _resolve(chainId, name, allowZeroAddress);
+        return _resolve(chainId, nameHash, allowZeroAddress);
     }
 
     /**
@@ -76,17 +76,17 @@ abstract contract AddressResolver {
 
     function _resolve(
         uint256 chainId,
-        string memory name,
+        bytes32 nameHash,
         bool allowZeroAddress
     ) private view returns (address payable addr) {
-        addr = payable(_addressManager.getAddress(chainId, name));
+        addr = payable(_addressManager.getAddress(chainId, nameHash));
 
         if (!allowZeroAddress) {
             // We do not use custom error so this string-based
             // error message is more helpful for diagnosis.
             require(
                 addr != address(0),
-                string(abi.encode("AR:zeroAddr:", chainId, ".", name))
+                string(abi.encode("AR:zeroAddr:", chainId, ".", nameHash))
             );
         }
     }

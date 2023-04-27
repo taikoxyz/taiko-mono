@@ -150,8 +150,8 @@ function getStateVariables() public view returns (struct TaikoData.StateVariable
 function getConfig() public pure virtual returns (struct TaikoData.Config)
 ```
 
-### getVerifierName
+### getVerifierNameHash
 
 ```solidity
-function getVerifierName(uint16 id) public pure returns (string)
+function getVerifierNameHash(uint16 id) public pure returns (bytes32)
 ```

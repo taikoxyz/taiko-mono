@@ -167,7 +167,10 @@ library LibProving {
             }
 
             (bool verified, bytes memory ret) = resolver
-                .resolve(LibUtils.getVerifierName(evidence.verifierId), false)
+                .resolve(
+                    LibUtils.getVerifierNameHash(evidence.verifierId),
+                    false
+                )
                 .staticcall(bytes.concat(instance, evidence.proof));
 
             if (

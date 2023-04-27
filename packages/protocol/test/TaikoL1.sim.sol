@@ -54,7 +54,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
         );
 
         TaikoL1TestBase.setUp();
-        registerAddress(L1.getVerifierName(100), address(new Verifier()));
+        registerAddress(L1.getVerifierNameHash(100), address(new Verifier()));
     }
 
     function testGeneratingManyRandomBlocks() external {
