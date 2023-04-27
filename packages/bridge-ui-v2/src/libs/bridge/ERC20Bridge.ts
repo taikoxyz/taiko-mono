@@ -1,11 +1,11 @@
 import { BigNumber, Contract, Signer, type Transaction } from 'ethers'
 
-import type { ChainsRecord } from '../chain/types'
-import type { Prover } from '../prover'
-import type { ERC20BridgeArgs, ApproveArgs } from './types'
 import { ERC20_ABI, TOKEN_VAULT_ABI } from '../../abi'
+import type { ChainsRecord } from '../chain/types'
 import type { Message } from '../message/types'
+import type { Prover } from '../prover'
 import { AllowanceError } from './AllowanceError'
+import type { ApproveArgs,ERC20BridgeArgs } from './types'
 
 export class ERC20Bridge {
   private readonly prover: Prover
