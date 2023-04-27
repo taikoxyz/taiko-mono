@@ -124,6 +124,6 @@ library LibUtils {
     }
 
     function getVerifierName(uint16 id) internal pure returns (bytes32) {
-        return bytes32(uint256(1000000) + id);
+        return bytes32(uint256(0x1000000) + id);
     }
 }
