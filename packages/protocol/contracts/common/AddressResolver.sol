@@ -23,7 +23,10 @@ abstract contract AddressResolver is OwnableUpgradeable {
 
     uint256[49] private __gap;
 
-    event AddressSet(address oldAddressManager, address newAddressManager);
+    event AddressManbagerUpdated(
+        address oldAddressManager,
+        address newAddressManager
+    );
 
     error RESOLVER_DENIED();
     error RESOLVER_INVALID_ADDR();
@@ -85,7 +88,7 @@ abstract contract AddressResolver is OwnableUpgradeable {
 
     function _setAddressManager(address newAddressManager) private {
         if (newAddressManager == address(0)) revert RESOLVER_INVALID_ADDR();
-        emit AddressSet(_addressManager, newAddressManager);
+        emit AddressManbagerUpdated(_addressManager, newAddressManager);
         _addressManager = newAddressManager;
     }
 

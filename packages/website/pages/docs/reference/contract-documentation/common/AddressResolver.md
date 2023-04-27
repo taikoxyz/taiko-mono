@@ -13,10 +13,10 @@ it uses an AddressManager to manage the name-to-address mapping.
 address _addressManager
 ```
 
-### AddressSet
+### AddressManbagerUpdated
 
 ```solidity
-event AddressSet(address oldAddressManager, address newAddressManager)
+event AddressManbagerUpdated(address oldAddressManager, address newAddressManager)
 ```
 
 ### RESOLVER_DENIED
