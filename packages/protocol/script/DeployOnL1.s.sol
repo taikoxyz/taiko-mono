@@ -200,7 +200,7 @@ contract DeployOnL1 is Script {
         );
 
         for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
-            setAddress(taikoL1.getVerifierNameHash(i), plonkVerifiers[i]);
+            setAddress(taikoL1.getVerifierName(i), plonkVerifiers[i]);
         }
     }
 

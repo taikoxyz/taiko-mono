@@ -70,7 +70,7 @@ abstract contract TaikoL1TestBase is Test {
         registerL2Address("taiko", address(TaikoL2));
         registerL2Address("signal_service", address(L2SS));
         registerL2Address("taiko_l2", address(TaikoL2));
-        registerAddress(L1.getVerifierNameHash(100), address(new Verifier()));
+        registerAddress(L1.getVerifierName(100), address(new Verifier()));
 
         tko = new TaikoToken();
         registerAddress("taiko_token", address(tko));

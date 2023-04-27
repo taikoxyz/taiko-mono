@@ -123,7 +123,7 @@ library LibUtils {
         }
     }
 
-    function getVerifierNameHash(uint16 id) internal pure returns (bytes32) {
+    function getVerifierName(uint16 id) internal pure returns (bytes32) {
         return bytes32(uint256(1000000) + id);
     }
 }
