@@ -28,13 +28,13 @@ error RESOLVER_INVALID_ADDR()
 ### onlyFromNamed
 
 ```solidity
-modifier onlyFromNamed(string name)
+modifier onlyFromNamed(bytes32 name)
 ```
 
 ### resolve
 
 ```solidity
-function resolve(string name, bool allowZeroAddress) public view virtual returns (address payable)
+function resolve(bytes32 name, bool allowZeroAddress) public view virtual returns (address payable)
 ```
 
 Resolves a name to an address on the current chain.
@@ -43,10 +43,10 @@ _This function will throw if the resolved address is `address(0)`._
 
 #### Parameters
 
-| Name             | Type   | Description                                |
-| ---------------- | ------ | ------------------------------------------ |
-| name             | string | The name to resolve.                       |
-| allowZeroAddress | bool   | True to allow zero address to be returned. |
+| Name             | Type    | Description                                |
+| ---------------- | ------- | ------------------------------------------ |
+| name             | bytes32 | The name to resolve.                       |
+| allowZeroAddress | bool    | True to allow zero address to be returned. |
 
 #### Return Values
 
@@ -57,7 +57,7 @@ _This function will throw if the resolved address is `address(0)`._
 ### resolve
 
 ```solidity
-function resolve(uint256 chainId, string name, bool allowZeroAddress) public view virtual returns (address payable)
+function resolve(uint256 chainId, bytes32 name, bool allowZeroAddress) public view virtual returns (address payable)
 ```
 
 Resolves a name to an address on the specified chain.
@@ -69,7 +69,7 @@ _This function will throw if the resolved address is `address(0)`._
 | Name             | Type    | Description                                |
 | ---------------- | ------- | ------------------------------------------ |
 | chainId          | uint256 | The chainId.                               |
-| name             | string  | The name to resolve.                       |
+| name             | bytes32 | The name to resolve.                       |
 | allowZeroAddress | bool    | True to allow zero address to be returned. |
 
 #### Return Values

@@ -268,8 +268,8 @@ contract TaikoTokenTest is Test {
         assertEq(tko.balanceOf(Eve), amountToMint);
     }
 
-    function registerAddress(string memory name, address addr) internal {
-        addressManager.setAddress(block.chainid, name, addr);
+    function registerAddress(bytes32 nameHash, address addr) internal {
+        addressManager.setAddress(block.chainid, nameHash, addr);
     }
 
     function deployViaProxy(

@@ -23,7 +23,7 @@ abstract contract AddressResolver {
     error RESOLVER_DENIED();
     error RESOLVER_INVALID_ADDR();
 
-    modifier onlyFromNamed(string memory name) {
+    modifier onlyFromNamed(bytes32 name) {
         if (msg.sender != resolve(name, false)) revert RESOLVER_DENIED();
         _;
     }
@@ -37,7 +37,7 @@ abstract contract AddressResolver {
      * @return The name's corresponding address.
      */
     function resolve(
-        string memory name,
+        bytes32 name,
         bool allowZeroAddress
     ) public view virtual returns (address payable) {
         return _resolve(block.chainid, name, allowZeroAddress);
@@ -54,7 +54,7 @@ abstract contract AddressResolver {
      */
     function resolve(
         uint256 chainId,
-        string memory name,
+        bytes32 name,
         bool allowZeroAddress
     ) public view virtual returns (address payable) {
         return _resolve(chainId, name, allowZeroAddress);
@@ -76,7 +76,7 @@ abstract contract AddressResolver {
 
     function _resolve(
         uint256 chainId,
-        string memory name,
+        bytes32 name,
         bool allowZeroAddress
     ) private view returns (address payable addr) {
         addr = payable(_addressManager.getAddress(chainId, name));
