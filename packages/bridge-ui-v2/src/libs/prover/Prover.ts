@@ -2,11 +2,13 @@ import { Contract, ethers, type providers } from 'ethers'
 
 import { XCHAIN_SYNC_ABI } from '../../abi'
 import type { Block, BlockAndHeader, BlockHeader } from '../block/types'
+import { getLogger } from '../logger'
 import { MessageStatus } from '../message/types'
 import type { ProvidersRecord } from '../provider/types'
 import { InvalidProofError } from './InvalidProofError'
 import type { EthGetProofResponse, GenerateProofArgs, GenerateReleaseProofArgs } from './types'
 
+const log = getLogger('Prover')
 const { defaultAbiCoder, keccak256, RLP, solidityPack } = ethers.utils
 
 export class Prover {
@@ -97,8 +99,11 @@ export class Prover {
       block.hash,
     ])
 
+    log('Proof to claim', proof)
+
     const messageStatusRetriable = `0x${MessageStatus.Retriable}` // TODO: clarify this
     if (proof.storageProof[0].value !== messageStatusRetriable) {
+      log('Invalid proof to claim')
       throw new InvalidProofError('Invalid proof to claim')
     }
 
@@ -122,8 +127,11 @@ export class Prover {
       block.hash,
     ])
 
+    log('Proof to release', proof)
+
     const messageStatusFailed = `0x${MessageStatus.Failed}`
     if (proof.storageProof[0].value !== messageStatusFailed) {
+      log('Invalid proof to release')
       throw new InvalidProofError('Invalid proof to release')
     }
 
