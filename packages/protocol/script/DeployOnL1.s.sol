@@ -233,7 +233,7 @@ contract DeployOnL1 is Script {
     }
 
     function deployProxy(
-        bytes32 nameHash,
+        bytes32 name,
         address implementation,
         bytes memory data
     ) private returns (address proxy) {
@@ -241,35 +241,27 @@ contract DeployOnL1 is Script {
             new TransparentUpgradeableProxy(implementation, owner, data)
         );
 
-        console2.log(vm.toString(nameHash), "(impl) ->", implementation);
-        console2.log(vm.toString(nameHash), "(proxy) ->", proxy);
+        console2.log(vm.toString(name), "(impl) ->", implementation);
+        console2.log(vm.toString(name), "(proxy) ->", proxy);
 
         if (addressManagerProxy != address(0)) {
-            setAddress(block.chainid, nameHash, proxy);
+            setAddress(block.chainid, name, proxy);
         }
 
         vm.writeJson(
-            vm.serializeAddress("deployment", vm.toString(nameHash), proxy),
+            vm.serializeAddress("deployment", vm.toString(name), proxy),
             string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
         );
     }
 
-    function setAddress(bytes32 nameHash, address addr) private {
-        setAddress(block.chainid, nameHash, addr);
+    function setAddress(bytes32 name, address addr) private {
+        setAddress(block.chainid, name, addr);
     }
 
-    function setAddress(
-        uint256 chainId,
-        bytes32 nameHash,
-        address addr
-    ) private {
-        console2.log(chainId, uint256(nameHash), "--->", addr);
+    function setAddress(uint256 chainId, bytes32 name, address addr) private {
+        console2.log(chainId, uint256(name), "--->", addr);
         if (addr != address(0)) {
-            AddressManager(addressManagerProxy).setAddress(
-                chainId,
-                nameHash,
-                addr
-            );
+            AddressManager(addressManagerProxy).setAddress(chainId, name, addr);
         }
     }
 }

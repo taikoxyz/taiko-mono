@@ -18,24 +18,24 @@ interface IAddressManager {
     /**
      * Changes the address associated with a particular name.
      * @param domain Uint256 domain to assiciate an address with.
-     * @param nameHash Name hash to associate an address with.
+     * @param name Name hash to associate an address with.
      * @param newAddress Address to associate with the name.
      */
     function setAddress(
         uint256 domain,
-        bytes32 nameHash,
+        bytes32 name,
         address newAddress
     ) external;
 
     /**
      * Retrieves the address associated with a given name.
      * @param domain Class to retrieve an address for.
-     * @param nameHash Name hash to retrieve an address for.
+     * @param name Name hash to retrieve an address for.
      * @return Address associated with the given name.
      */
     function getAddress(
         uint256 domain,
-        bytes32 nameHash
+        bytes32 name
     ) external view returns (address);
 }
 
@@ -43,12 +43,12 @@ interface IAddressManager {
  * @title AddressManager
  */
 contract AddressManager is OwnableUpgradeable, IAddressManager {
-    mapping(uint256 domain => mapping(bytes32 nameHash => address addr))
+    mapping(uint256 domain => mapping(bytes32 name => address addr))
         private addresses;
 
     event AddressSet(
         uint256 indexed _domain,
-        bytes32 indexed _nameHash,
+        bytes32 indexed _name,
         address _newAddress,
         address _oldAddress
     );
@@ -60,18 +60,18 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
 
     function setAddress(
         uint256 domain,
-        bytes32 nameHash,
+        bytes32 name,
         address newAddress
     ) external virtual onlyOwner {
-        address oldAddress = addresses[domain][nameHash];
-        addresses[domain][nameHash] = newAddress;
-        emit AddressSet(domain, nameHash, newAddress, oldAddress);
+        address oldAddress = addresses[domain][name];
+        addresses[domain][name] = newAddress;
+        emit AddressSet(domain, name, newAddress, oldAddress);
     }
 
     function getAddress(
         uint256 domain,
-        bytes32 nameHash
+        bytes32 name
     ) external view virtual returns (address addr) {
-        addr = addresses[domain][nameHash];
+        addr = addresses[domain][name];
     }
 }
