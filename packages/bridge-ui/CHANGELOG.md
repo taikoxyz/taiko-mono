@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.6.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.5.0...bridge-ui-v0.6.0) (2023-04-26)
+## [0.6.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.5.0...bridge-ui-v0.6.0) (2023-04-27)
 
 
 ### Features

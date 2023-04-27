@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.7.0](https://github.com/taikoxyz/taiko-mono/compare/status-page-v0.6.0...status-page-v0.7.0) (2023-04-26)
+## [0.7.0](https://github.com/taikoxyz/taiko-mono/compare/status-page-v0.6.0...status-page-v0.7.0) (2023-04-27)
 
 
 ### Features
