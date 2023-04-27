@@ -69,7 +69,7 @@ _This function will throw if the resolved address is `address(0)`._
 ### resolve
 
 ```solidity
-function resolve(uint256 chainId, string name, bool allowZeroAddress) public view virtual returns (address payable)
+function resolve(uint256 chainId, string name, bool allowZeroAddress) public view virtual returns (address payable addr)
 ```
 
 Resolves a name to an address on the specified chain.
@@ -88,7 +88,7 @@ _This function will throw if the resolved address is `address(0)`._
 
 | Name | Type            | Description                       |
 | ---- | --------------- | --------------------------------- |
-| [0]  | address payable | The name's corresponding address. |
+| addr | address payable | The name's corresponding address. |
 
 ### addressManager
 
@@ -108,4 +108,10 @@ Returns the AddressManager's address.
 
 ```solidity
 function _init(address addressManager_) internal virtual
+```
+
+### lookupAddress
+
+```solidity
+function lookupAddress(uint256 chainId, string name, bool allowZeroAddress) internal view virtual returns (address payable addr)
 ```

@@ -52,7 +52,7 @@ abstract contract AddressResolver is OwnableUpgradeable {
         string memory name,
         bool allowZeroAddress
     ) public view virtual returns (address payable) {
-        return _resolve(block.chainid, name, allowZeroAddress);
+        return resolve(block.chainid, name, allowZeroAddress);
     }
 
     /**
@@ -62,14 +62,22 @@ abstract contract AddressResolver is OwnableUpgradeable {
      * @param chainId The chainId.
      * @param name The name to resolve.
      * @param allowZeroAddress True to allow zero address to be returned.
-     * @return The name's corresponding address.
+     * @return addr The name's corresponding address.
      */
     function resolve(
         uint256 chainId,
         string memory name,
         bool allowZeroAddress
-    ) public view virtual returns (address payable) {
-        return _resolve(chainId, name, allowZeroAddress);
+    ) public view virtual returns (address payable addr) {
+        addr = lookupAddress(chainId, name, allowZeroAddress);
+        if (!allowZeroAddress) {
+            // We do not use custom error so this string-based
+            // error message is more helpful for diagnosis.
+            require(
+                addr != address(0),
+                string(abi.encode("AR:zeroAddr:", chainId, ".", name))
+            );
+        }
     }
 
     /**
@@ -86,28 +94,19 @@ abstract contract AddressResolver is OwnableUpgradeable {
         _setAddressManager(addressManager_);
     }
 
+    function lookupAddress(
+        uint256 chainId,
+        string memory name,
+        bool allowZeroAddress
+    ) internal view virtual returns (address payable addr) {
+        addr = payable(
+            IAddressManager(_addressManager).getAddress(chainId, name)
+        );
+    }
+
     function _setAddressManager(address newAddressManager) private {
         if (newAddressManager == address(0)) revert RESOLVER_INVALID_ADDR();
         emit AddressManbagerUpdated(_addressManager, newAddressManager);
         _addressManager = newAddressManager;
-    }
-
-    function _resolve(
-        uint256 chainId,
-        string memory name,
-        bool allowZeroAddress
-    ) private view returns (address payable addr) {
-        addr = payable(
-            IAddressManager(_addressManager).getAddress(chainId, name)
-        );
-
-        if (!allowZeroAddress) {
-            // We do not use custom error so this string-based
-            // error message is more helpful for diagnosis.
-            require(
-                addr != address(0),
-                string(abi.encode("AR:zeroAddr:", chainId, ".", name))
-            );
-        }
     }
 }
