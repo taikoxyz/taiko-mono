@@ -34,7 +34,7 @@ library TaikoConfig {
                 // transactions list calldata, 8K for the remaining tx fields.
                 maxBytesPerTxList: 120000,
                 minTxGasLimit: 21000,
-                proofCooldownPeriod: 5 minutes,
+                proofCooldownPeriod: 30 minutes,
                 ethDepositGas: 21000,
                 ethDepositMaxFee: 1 ether / 10,
                 txListCacheExpiry: 0,
