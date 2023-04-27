@@ -65,14 +65,13 @@ export class ETHBridge implements Bridge {
   }
 
   async claim(args: ClaimArgs): Promise<Transaction> {
-    const destBridgeContract = new Contract(args.destBridgeAddress, BRIDGE_ABI, args.signer)
-
     const signerAddress = await args.signer.getAddress()
 
     if (args.message.owner.toLowerCase() !== signerAddress.toLowerCase()) {
-      throw new MessageOwnerError('Not the owner of the message')
+      throw new MessageOwnerError('Cannot claim. Not the owner of the message')
     }
 
+    const destBridgeContract = new Contract(args.destBridgeAddress, BRIDGE_ABI, args.signer)
     const messageStatus: MessageStatus = await destBridgeContract.getMessageStatus(args.msgHash)
 
     switch (messageStatus) {
@@ -120,41 +119,45 @@ export class ETHBridge implements Bridge {
       case MessageStatus.Retriable:
         return destBridgeContract.retryMessage(args.message, true)
       default:
-        throw new MessageStatusError(`Wrong message status: ${messageStatus}`)
+        throw new MessageStatusError(`Unexpected message status: ${messageStatus}`)
     }
   }
 
   async releaseTokens(args: ReleaseArgs): Promise<Transaction | undefined> {
-    const destBridgeContract = new Contract(args.destBridgeAddress, BRIDGE_ABI, args.destProvider)
-
-    const messageStatus: MessageStatus = await destBridgeContract.getMessageStatus(args.msgHash)
-
-    if (messageStatus === MessageStatus.Done) {
-      throw Error('message already processed')
-    }
-
     const signerAddress = await args.signer.getAddress()
 
     if (args.message.owner.toLowerCase() !== signerAddress.toLowerCase()) {
-      throw Error('user can not release these tokens, it is not their message')
+      throw new MessageOwnerError('Cannot release. Not the owner of the message')
     }
 
-    if (messageStatus === MessageStatus.Failed) {
-      const proofArgs: GenerateReleaseProofArgs = {
-        srcChainId: args.message.srcChainId,
-        destChainId: args.message.destChainId,
-        msgHash: args.msgHash,
-        sender: args.srcBridgeAddress,
-        destBridgeAddress: args.destBridgeAddress,
-        destHeaderSyncAddress: this.chains[args.message.destChainId].headerSyncAddress,
-        srcHeaderSyncAddress: this.chains[args.message.srcChainId].headerSyncAddress,
+    const destBridgeContract = new Contract(args.destBridgeAddress, BRIDGE_ABI, args.destProvider)
+    const messageStatus: MessageStatus = await destBridgeContract.getMessageStatus(args.msgHash)
+
+    switch (messageStatus) {
+      case MessageStatus.Done:
+        throw new MessageStatusError('Message already processed')
+      case MessageStatus.Failed: {
+        const srcChain = this.chains[args.message.srcChainId]
+        const destChain = this.chains[args.message.destChainId]
+
+        const proofArgs: GenerateReleaseProofArgs = {
+          srcChainId: args.message.srcChainId,
+          destChainId: args.message.destChainId,
+          msgHash: args.msgHash,
+          sender: args.srcBridgeAddress,
+          destBridgeAddress: args.destBridgeAddress,
+          destXChainSyncAddress: destChain.xChainSyncAddress,
+          srcXChainSyncAddress: srcChain.xChainSyncAddress,
+        }
+
+        const proof = await this.prover.generateReleaseProof(proofArgs)
+
+        const srcBridgeContract = new Contract(args.srcBridgeAddress, BRIDGE_ABI, args.signer)
+
+        return srcBridgeContract.releaseEther(args.message, proof)
       }
-
-      const proof = await this.prover.generateReleaseProof(proofArgs)
-
-      const srcBridgeContract = new Contract(args.srcBridgeAddress, BRIDGE_ABI, args.signer)
-
-      return srcBridgeContract.releaseEther(args.message, proof)
+      default:
+        throw new MessageStatusError(`Unexpected message status: ${messageStatus}`)
     }
   }
 }
