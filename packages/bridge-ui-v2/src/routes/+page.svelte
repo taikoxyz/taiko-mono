@@ -1,13 +1,13 @@
 <script lang="ts">
-  import { getContext } from 'svelte'
-  import { NotificationToast } from '../components/NotificationToast'
-  import type { Writable } from 'svelte/store'
-
-  const notificationToast = getContext<Writable<NotificationToast>>(NotificationToast.name)
+  import {
+    success as notifySuccess,
+    warning as notifyWarning,
+    error as notifyError,
+  } from '../components/NotificationToast'
 </script>
 
 <h1>Bridge UI</h1>
 
-<button on:click={() => $notificationToast.success('Success message')}>Success</button>
-<button on:click={() => $notificationToast.warning('Warning message')}>Warning</button>
-<button on:click={() => $notificationToast.error('Error message')}>Error</button>
+<button on:click={() => notifySuccess('Success message')}>Success</button>
+<button on:click={() => notifyWarning('Warning message')}>Warning</button>
+<button on:click={() => notifyError('Error message')}>Error</button>

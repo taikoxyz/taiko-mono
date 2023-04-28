@@ -187,6 +187,9 @@ importers:
       '@wagmi/core':
         specifier: ^0.10.10
         version: 0.10.10(debug@4.3.4)(ethers@5.7.2)(typescript@5.0.4)
+      '@zerodevx/svelte-toast':
+        specifier: ^0.6.3
+        version: 0.6.3
       classnames:
         specifier: ^2.3.2
         version: 2.3.2
@@ -6454,7 +6457,6 @@ packages:
 
   /@zerodevx/svelte-toast@0.6.3:
     resolution: {integrity: sha512-k0W1JFoqHIcIQaP9ij99+Rv0ugaQSSNwOuNwwmTGRjWtIqrQr+ExLDE8LQGXLlJIprqDyMWB4lJkUql/r0RAtA==}
-    dev: true
 
   /JSONStream@1.3.5:
     resolution: {integrity: sha512-E+iruNOY8VV9s4JEbe1aNEm6MiszPRr/UfcHMz0TQh1BXSxHK+ASV1R6W4HpjBhSeS+54PIsAMCBmwD06LLsqQ==}

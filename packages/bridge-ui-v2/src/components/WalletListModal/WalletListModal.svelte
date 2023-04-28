@@ -5,19 +5,11 @@
   import { getLogger } from '../../libs/logger'
   import { walletIdToIconComponent } from '../../libs/util/walletIdToIconComponent'
   import { client } from '../../libs/wagmi'
+  import { openModal } from './api'
 
   const log = getLogger('WalletListModal')
 
-  let open = false
   let connecting = false
-
-  export function show() {
-    open = true
-  }
-
-  export function hide() {
-    open = false
-  }
 
   async function connectWallet(connector: Connector) {
     if (client.connector?.id !== connector.id) {
@@ -35,7 +27,7 @@
   }
 </script>
 
-<Modal title="Connect wallet" bind:open size="xs" padding="xs">
+<Modal title="Connect wallet" bind:open={$openModal} size="xs" padding="xs">
   <p class="text-sm font-normal text-gray-500 dark:text-gray-400">
     Connect with one of our available wallet providers.
   </p>

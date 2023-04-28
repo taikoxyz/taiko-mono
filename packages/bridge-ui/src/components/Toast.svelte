@@ -26,7 +26,7 @@
 
   // TODO: props
   const toastOptions: SvelteToastOptions = {
-    dismissable: false,
+    dismissable: true,
     duration: 4000,
     pausable: false,
   };
