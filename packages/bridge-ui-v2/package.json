@@ -50,6 +50,7 @@
     "events": "^3.3.0",
     "flowbite": "^1.6.5",
     "flowbite-svelte": "^0.34.9",
+    "svelte-heros-v2": "^0.3.10",
     "svelte-i18n": "^3.5.1"
   }
 }
