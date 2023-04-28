@@ -1,5 +1,7 @@
 # Presentations
 
+- `2023-04-14`: [What's Taiko, Why Taiko?](https://www.youtube.com/watch?v=cbAYOsp8CTA&t=2717s) (ETHGlobal Tokyo)
+- `2023-04-14`: [Intro to Taiko: Using Ethereum-equivalence for ZK-EVM superpowers](https://www.youtube.com/watch?v=ud9Xy1woW2g&t=2615s) (ETHGlobal Tokyo Workshop)
 - `2023-04-08`: [Fully decentralized, Ethereum-equivalent ZK Rollup](https://hackmd.io/@taikolabs/H1gWNMAb3) (ETHGlobal Tokyo
 Builders Session)
 - `2023-03-14`: [Introduction to Taiko + Ethereum Dapp Speedrun with SvelteKit and Foundry](https://youtu.be/mgSBhreBQWA) (Scaling Ethereum — ETHGlobal)
