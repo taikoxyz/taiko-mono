@@ -115,7 +115,7 @@ def parse_and_plot(filename):
                  # Saving the first plot
                 x_axis = x_ax_block_nr
                 y_axis = y_ax_avg_proof_time
-                filename = "{}_proof_time_per_block.png".format(timestamp)
+                filename = "./plots/{}_proof_time_per_block.png".format(timestamp)
                 title = "Proof time / block"
                 x_label = "BlockId"
                 y_label = "Proof time (s)"
@@ -126,7 +126,7 @@ def parse_and_plot(filename):
                 x_axis = x_ax_block_nr_as_ts
                 y_axis = y_ax_all_current_prop_blks
                 y2_axis = y_ax_all_verified_blocks
-                filename = "{}_prop_and_verified_blocks_with_time.png".format(timestamp)
+                filename = "./plots/{}_prop_and_verified_blocks_with_time.png".format(timestamp)
                 title = "Proposed and verified block over time"
                 x_label = "Time (s)"
                 y_label = "Proposed and verified blocks"
@@ -137,7 +137,7 @@ def parse_and_plot(filename):
                 # Saving the first plot
                 x_axis = x_ax_block_nr_as_ts
                 y_axis = y_ax_current_basefee
-                filename = "{}_blockfee_with_time.png".format(timestamp)
+                filename = "./plots/{}_blockfee_with_time.png".format(timestamp)
                 title = "Base fee over time"
                 x_label = "Time (s)"
                 y_label = "Blockfee"
