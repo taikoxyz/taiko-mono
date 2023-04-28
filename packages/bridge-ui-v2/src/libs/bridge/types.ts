@@ -22,7 +22,7 @@ export type ApproveArgs = {
   spenderAddress: string
 }
 
-type BridgeArgs = {
+export type BridgeArgs = {
   to: string
   signer: Signer
   tokenAddress: string

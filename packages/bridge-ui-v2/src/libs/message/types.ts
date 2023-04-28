@@ -9,7 +9,8 @@ export enum MessageStatus {
 }
 
 export type Message = {
-  id: number
+  id?: number // it's set in contract
+  data?: string // for ERC20 transfer
   sender: string
   srcChainId: string
   destChainId: string
@@ -20,6 +21,5 @@ export type Message = {
   callValue: BigNumber
   processingFee: BigNumber
   gasLimit: BigNumber
-  data: string
   memo: string
 }
