@@ -27,6 +27,7 @@ contract TaikoL1_b is TaikoL1 {
         config.maxVerificationsPerTx = 5;
         config.proofCooldownPeriod = 1 minutes;
         config.proofTimeTarget = 200;
+        config.realProofSkipSize = 0;
     }
 }
 
