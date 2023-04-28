@@ -168,6 +168,7 @@ contract TestTaikoL2 is Test {
             Strings.toString(parentGasUsed)
         );
         _basefee = L2.getBasefee(timeSinceParent, gasLimit, parentGasUsed);
+        assertTrue(_basefee != 0);
 
         _msg = string.concat(
             _msg,
