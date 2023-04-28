@@ -7,9 +7,9 @@
   import { WalletListModal } from '../components/WalletListModal'
 </script>
 
-<div class="container h-full mx-auto px-4 flex flex-col justify-between relative">
+<div class="container">
   <Header />
-  <main class="flex-1">
+  <main>
     <slot />
   </main>
   <Footer />
@@ -17,3 +17,19 @@
   <WalletListModal />
   <NotificationToast />
 </div>
+
+<style lang="postcss">
+  .container {
+    @apply h-full 
+      mx-auto 
+      px-4 
+      flex 
+      flex-col 
+      justify-between 
+      relative;
+  }
+
+  main {
+    @apply flex-1;
+  }
+</style>
