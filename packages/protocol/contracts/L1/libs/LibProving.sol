@@ -89,8 +89,8 @@ library LibProving {
             }
 
             if (
-                config.realProofSkipBatch > 1 &&
-                blockId % config.realProofSkipBatch != 0
+                config.realProofSkipSize > 1 &&
+                blockId % config.realProofSkipSize != 0
             ) {
                 // For this block, real ZKP is not necessary, so the oracle
                 // proof will be treated as a real proof (by setting the prover
