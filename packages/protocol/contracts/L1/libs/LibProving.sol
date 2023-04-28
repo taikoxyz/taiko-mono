@@ -87,6 +87,16 @@ library LibProving {
                     ) revert L1_NOT_ORACLE_PROVER();
                 }
             }
+
+            if (
+                config.realProofSkipBatch > 1 &&
+                blockId % config.realProofSkipBatch != 0
+            ) {
+                // For this block, real ZKP is not necessary, so the oracle
+                // proof will be treated as a real proof (by setting the prover
+                // to a non-zero value)
+                evidence.prover = address(1);
+            }
         }
 
         TaikoData.ForkChoice storage fc;

@@ -18,6 +18,7 @@ struct Config {
   uint256 minTxGasLimit;
   uint256 txListCacheExpiry;
   uint256 proofCooldownPeriod;
+  uint256 realProofSkipBatch;
   uint256 ethDepositGas;
   uint256 ethDepositMaxFee;
   uint64 minEthDepositsPerBlock;
