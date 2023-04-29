@@ -47,11 +47,11 @@ contract TaikoL1Simulation is TaikoL1TestBase {
     uint256 salt = 2195684615435261315311;
     // Can play to adjust
     uint256 blocksToSimulate = 4000;
-    // RandomNumber - pseudo random but fine 
+    // RandomNumber - pseudo random but fine
     uint256 newRandomWithoutSalt;
 
     //////////////////////////////////////////
-    //            TUNABLE PARAMS            // 
+    //            TUNABLE PARAMS            //
     //////////////////////////////////////////
     // This means block proposals will be averaged out (long term if random function is random enough) to 18s
     // It is fine it simulates that we do not necessarily put Taiko block at every 12s, but on average around every x1.5 of ETH block
@@ -64,7 +64,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
     uint256 upperDevToBlockProveTime = 800 seconds;
     uint256 secondsToSimulate = blocksToSimulate * 18; //Because of the expected average blocktimestamp - we can tweak it obv.
     //////////////////////////////////////////
-    //          TUNABLE PARAMS END          // 
+    //          TUNABLE PARAMS END          //
     //////////////////////////////////////////
     uint256 maxTime = 0;
     uint256 totalDiffsProp = 0;
@@ -72,7 +72,8 @@ contract TaikoL1Simulation is TaikoL1TestBase {
     uint256 lastTimestampProp = 0;
     uint256 lastTimestampProve = 0;
     // Need to map a second to a proofTIme, and might be possible that multiple proofs coming in the same block
-    mapping(uint256 proofTimeSecond => uint256[] arrivalIdxOfBlockIds) private _proofTimeToBlockIndexes;
+    mapping(uint256 proofTimeSecond => uint256[] arrivalIdxOfBlockIds)
+        private _proofTimeToBlockIndexes;
     // Pre-calculate propose and prove timestamp
     uint64[] blocksProposedTimestamp = new uint64[](blocksToSimulate);
 
@@ -119,84 +120,132 @@ contract TaikoL1Simulation is TaikoL1TestBase {
         console2.log("BlockId, ProofTime");
         for (uint256 i = 0; i < blocksToSimulate; i++) {
             newRandomWithoutSalt = uint256(
-                keccak256(abi.encodePacked(block.difficulty, msg.sender, block.timestamp, i, newRandomWithoutSalt, salt ))
+                keccak256(
+                    abi.encodePacked(
+                        block.difficulty,
+                        msg.sender,
+                        block.timestamp,
+                        i,
+                        newRandomWithoutSalt,
+                        salt
+                    )
+                )
             );
-            blocksProposedTimestamp[i] = uint64(pickRandomNumber(
-                newRandomWithoutSalt,
-                nextBlockTime,
-                (minDiffToBlockPropTime+1)
-            ));
-            nextBlockTime = blocksProposedTimestamp[i]+minDiffToBlockPropTime;
+            blocksProposedTimestamp[i] = uint64(
+                pickRandomNumber(
+                    newRandomWithoutSalt,
+                    nextBlockTime,
+                    (minDiffToBlockPropTime + 1)
+                )
+            );
+            nextBlockTime = blocksProposedTimestamp[i] + minDiffToBlockPropTime;
 
             // Avg. calculation
             if (lastTimestampProp > 0) {
-                totalDiffsProp += blocksProposedTimestamp[i] - lastTimestampProp;
+                totalDiffsProp +=
+                    blocksProposedTimestamp[i] -
+                    lastTimestampProp;
             }
 
             lastTimestampProp = blocksProposedTimestamp[i];
             // We need this info to extract / export !!
             //console2.log("Time of PROPOSAL is:", blocksProposedTimestamp[i]);
-            salt = uint256(keccak256(abi.encodePacked(nextBlockTime, salt, i, newRandomWithoutSalt)));
+            salt = uint256(
+                keccak256(
+                    abi.encodePacked(
+                        nextBlockTime,
+                        salt,
+                        i,
+                        newRandomWithoutSalt
+                    )
+                )
+            );
 
-            uint64 proofTimePerBlockI = uint64(pickRandomNumber(
-                newRandomWithoutSalt, 
-                (nextBlockTime+startBlockProposeTime), 
-                (upperDevToBlockProveTime+1))
+            uint64 proofTimePerBlockI = uint64(
+                pickRandomNumber(
+                    newRandomWithoutSalt,
+                    (nextBlockTime + startBlockProposeTime),
+                    (upperDevToBlockProveTime + 1)
+                )
             );
 
             if (proofTimePerBlockI > maxTime) {
                 maxTime = proofTimePerBlockI;
             }
-            
 
             if (lastTimestampProve > 0) {
                 totalDiffsProve += proofTimePerBlockI - lastTimestampProp;
             }
             lastTimestampProve = proofTimePerBlockI;
-            // It is possible that proof for block N+1 comes before N, so we need to keep track of that. Because 
+            // It is possible that proof for block N+1 comes before N, so we need to keep track of that. Because
             // the proofs per block is related to propose of that same block (index).
             _proofTimeToBlockIndexes[proofTimePerBlockI].push(i);
-            
+
             // We need this info to extract / export !!
-            console2.log(i+1, ";", proofTimePerBlockI-lastTimestampProp);
-            salt = uint256(keccak256(abi.encodePacked(proofTimePerBlockI, salt)));
+            console2.log(i + 1, ";", proofTimePerBlockI - lastTimestampProp);
+            salt = uint256(
+                keccak256(abi.encodePacked(proofTimePerBlockI, salt))
+            );
         }
 
         uint256 proposedIndex;
 
         console2.log("Last second:", maxTime);
         console2.log("Proof time target:", PROOF_TIME_TARGET);
-        console2.log("Average proposal time: ", totalDiffsProp / blocksToSimulate);
-        console2.log("Average proof time: ", totalDiffsProve / blocksToSimulate);
+        console2.log(
+            "Average proposal time: ",
+            totalDiffsProp / blocksToSimulate
+        );
+        console2.log(
+            "Average proof time: ",
+            totalDiffsProve / blocksToSimulate
+        );
         printVariableHeaders();
         //It is a divider / marker for the parser
         console2.log("!-----------------------------");
         printVariables();
         // This is a way we can de-couple proposing from proving
-        for (uint256 secondsElapsed = 0; secondsElapsed <= maxTime; secondsElapsed++) {
+        for (
+            uint256 secondsElapsed = 0;
+            secondsElapsed <= maxTime;
+            secondsElapsed++
+        ) {
             newRandomWithoutSalt = uint256(
-                keccak256(abi.encodePacked(newRandomWithoutSalt, block.difficulty, secondsElapsed, msg.sender, block.timestamp, salt))
+                keccak256(
+                    abi.encodePacked(
+                        newRandomWithoutSalt,
+                        block.difficulty,
+                        secondsElapsed,
+                        msg.sender,
+                        block.timestamp,
+                        salt
+                    )
+                )
             );
 
             // We are proposing here
-            if(secondsElapsed == blocksProposedTimestamp[proposedIndex] && proposedIndex < blocksToSimulate) {
+            if (
+                secondsElapsed == blocksProposedTimestamp[proposedIndex] &&
+                proposedIndex < blocksToSimulate
+            ) {
                 //console2.log("FOR CYCLE: Time of PROPOSAL is:", blocksProposedTimestamp[proposedIndex]);
                 uint32 gasLimit = uint32(
-                pickRandomNumber(
-                    newRandomWithoutSalt,
-                    100E3,
-                    (3000000 - 100000 + 1)
-                )
+                    pickRandomNumber(
+                        newRandomWithoutSalt,
+                        100E3,
+                        (3000000 - 100000 + 1)
+                    )
                 ); // 100K to 30M
                 salt = uint256(keccak256(abi.encodePacked(gasLimit, salt)));
 
-                if(proposedIndex == 0) {
+                if (proposedIndex == 0) {
                     parentGasUsed[proposedIndex] = 0;
                     parentHashes[proposedIndex] = GENESIS_BLOCK_HASH;
-                }
-                else {
-                    parentGasUsed[proposedIndex] = gasUsed[proposedIndex-1];
-                    parentHashes[proposedIndex] = blockHashes[proposedIndex-1];
+                } else {
+                    parentGasUsed[proposedIndex] = gasUsed[proposedIndex - 1];
+                    parentHashes[proposedIndex] = blockHashes[
+                        proposedIndex - 1
+                    ];
                 }
 
                 gasUsed[proposedIndex] = uint32(
@@ -220,12 +269,20 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                 blockHashes[proposedIndex] = bytes32(
                     pickRandomNumber(newRandomWithoutSalt, 0, type(uint256).max)
                 );
-                salt = uint256(keccak256(abi.encodePacked(blockHashes[proposedIndex], salt)));
+                salt = uint256(
+                    keccak256(
+                        abi.encodePacked(blockHashes[proposedIndex], salt)
+                    )
+                );
 
                 signalRoots[proposedIndex] = bytes32(
                     pickRandomNumber(newRandomWithoutSalt, 0, type(uint256).max)
                 );
-                salt = uint256(keccak256(abi.encodePacked(signalRoots[proposedIndex], salt)));
+                salt = uint256(
+                    keccak256(
+                        abi.encodePacked(signalRoots[proposedIndex], salt)
+                    )
+                );
 
                 metas[proposedIndex] = proposeBlock(
                     Alice,
@@ -233,19 +290,23 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                     txListSize
                 );
 
-                if(proposedIndex < blocksToSimulate-1)
-                    proposedIndex++;
+                if (proposedIndex < blocksToSimulate - 1) proposedIndex++;
 
                 printVariables();
             }
 
             // We are proving here
-            if(_proofTimeToBlockIndexes[secondsElapsed].length > 0) {
-
+            if (_proofTimeToBlockIndexes[secondsElapsed].length > 0) {
                 //console2.log("Duplicates check");
-                for (uint256 i; i < _proofTimeToBlockIndexes[secondsElapsed].length; i++) {
-                    uint256 blockId = _proofTimeToBlockIndexes[secondsElapsed][i];
-                    
+                for (
+                    uint256 i;
+                    i < _proofTimeToBlockIndexes[secondsElapsed].length;
+                    i++
+                ) {
+                    uint256 blockId = _proofTimeToBlockIndexes[secondsElapsed][
+                        i
+                    ];
+
                     proveBlock(
                         Bob,
                         metas[blockId],
@@ -262,7 +323,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
             // Increment time with 1 seconds
             vm.warp(block.timestamp + 1);
             //Log every 12 sec
-            if(block.timestamp % 12 == 0) {
+            if (block.timestamp % 12 == 0) {
                 printVariables();
             }
         }
@@ -288,42 +349,67 @@ contract TaikoL1Simulation is TaikoL1TestBase {
         console2.log("BlockId, ProofTime");
         for (uint256 i = 0; i < blocksToSimulate; i++) {
             newRandomWithoutSalt = uint256(
-                keccak256(abi.encodePacked(block.difficulty, msg.sender, block.timestamp, i, newRandomWithoutSalt, salt ))
+                keccak256(
+                    abi.encodePacked(
+                        block.difficulty,
+                        msg.sender,
+                        block.timestamp,
+                        i,
+                        newRandomWithoutSalt,
+                        salt
+                    )
+                )
             );
-            blocksProposedTimestamp[i] = uint64(pickRandomNumber(
-                newRandomWithoutSalt,
-                nextBlockTime,
-                (minDiffToBlockPropTime+1)
-            ));
-            nextBlockTime = blocksProposedTimestamp[i]+minDiffToBlockPropTime;
+            blocksProposedTimestamp[i] = uint64(
+                pickRandomNumber(
+                    newRandomWithoutSalt,
+                    nextBlockTime,
+                    (minDiffToBlockPropTime + 1)
+                )
+            );
+            nextBlockTime = blocksProposedTimestamp[i] + minDiffToBlockPropTime;
 
             // Avg. calculation
             if (lastTimestampProp > 0) {
-                totalDiffsProp += blocksProposedTimestamp[i] - lastTimestampProp;
+                totalDiffsProp +=
+                    blocksProposedTimestamp[i] -
+                    lastTimestampProp;
             }
 
             lastTimestampProp = blocksProposedTimestamp[i];
             // We need this info to extract / export !!
             //console2.log("Time of PROPOSAL is:", blocksProposedTimestamp[i]);
-            salt = uint256(keccak256(abi.encodePacked(nextBlockTime, salt, i, newRandomWithoutSalt)));
+            salt = uint256(
+                keccak256(
+                    abi.encodePacked(
+                        nextBlockTime,
+                        salt,
+                        i,
+                        newRandomWithoutSalt
+                    )
+                )
+            );
             uint64 proofTimePerBlockI;
             if (i % 10 == 0) {
                 // A very quick proof this case
-                proofTimePerBlockI = uint64(pickRandomNumber(
-                    newRandomWithoutSalt, 
-                    (nextBlockTime+startBlockProposeTime_quick), 
-                    (upperDevToBlockProveTime_quick+1))
+                proofTimePerBlockI = uint64(
+                    pickRandomNumber(
+                        newRandomWithoutSalt,
+                        (nextBlockTime + startBlockProposeTime_quick),
+                        (upperDevToBlockProveTime_quick + 1)
+                    )
                 );
 
                 if (proofTimePerBlockI > maxTime) {
                     maxTime = proofTimePerBlockI;
                 }
-            }
-            else {
-                proofTimePerBlockI = uint64(pickRandomNumber(
-                    newRandomWithoutSalt, 
-                    (nextBlockTime+startBlockProposeTime), 
-                    (upperDevToBlockProveTime+1))
+            } else {
+                proofTimePerBlockI = uint64(
+                    pickRandomNumber(
+                        newRandomWithoutSalt,
+                        (nextBlockTime + startBlockProposeTime),
+                        (upperDevToBlockProveTime + 1)
+                    )
                 );
 
                 if (proofTimePerBlockI > maxTime) {
@@ -335,50 +421,75 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                 totalDiffsProve += proofTimePerBlockI - lastTimestampProp;
             }
             lastTimestampProve = proofTimePerBlockI;
-            // It is possible that proof for block N+1 comes before N, so we need to keep track of that. Because 
+            // It is possible that proof for block N+1 comes before N, so we need to keep track of that. Because
             // the proofs per block is related to propose of that same block (index).
             _proofTimeToBlockIndexes[proofTimePerBlockI].push(i);
-            
+
             // We need this info to extract / export !!
-            console2.log(i+1, ";", proofTimePerBlockI-lastTimestampProp);
-            salt = uint256(keccak256(abi.encodePacked(proofTimePerBlockI, salt)));
+            console2.log(i + 1, ";", proofTimePerBlockI - lastTimestampProp);
+            salt = uint256(
+                keccak256(abi.encodePacked(proofTimePerBlockI, salt))
+            );
         }
 
         uint256 proposedIndex;
 
         console2.log("Last second:", maxTime);
         console2.log("Proof time target:", PROOF_TIME_TARGET);
-        console2.log("Average proposal time: ", totalDiffsProp / blocksToSimulate);
-        console2.log("Average proof time: ", totalDiffsProve / blocksToSimulate);
+        console2.log(
+            "Average proposal time: ",
+            totalDiffsProp / blocksToSimulate
+        );
+        console2.log(
+            "Average proof time: ",
+            totalDiffsProve / blocksToSimulate
+        );
         printVariableHeaders();
         //It is a divider / marker for the parser
         console2.log("!-----------------------------");
         printVariables();
         // This is a way we can de-couple proposing from proving
-        for (uint256 secondsElapsed = 0; secondsElapsed <= maxTime; secondsElapsed++) {
+        for (
+            uint256 secondsElapsed = 0;
+            secondsElapsed <= maxTime;
+            secondsElapsed++
+        ) {
             newRandomWithoutSalt = uint256(
-                keccak256(abi.encodePacked(newRandomWithoutSalt, block.difficulty, secondsElapsed, msg.sender, block.timestamp, salt))
+                keccak256(
+                    abi.encodePacked(
+                        newRandomWithoutSalt,
+                        block.difficulty,
+                        secondsElapsed,
+                        msg.sender,
+                        block.timestamp,
+                        salt
+                    )
+                )
             );
 
             // We are proposing here
-            if(secondsElapsed == blocksProposedTimestamp[proposedIndex] && proposedIndex < blocksToSimulate) {
+            if (
+                secondsElapsed == blocksProposedTimestamp[proposedIndex] &&
+                proposedIndex < blocksToSimulate
+            ) {
                 //console2.log("FOR CYCLE: Time of PROPOSAL is:", blocksProposedTimestamp[proposedIndex]);
                 uint32 gasLimit = uint32(
-                pickRandomNumber(
-                    newRandomWithoutSalt,
-                    100E3,
-                    (3000000 - 100000 + 1)
-                )
+                    pickRandomNumber(
+                        newRandomWithoutSalt,
+                        100E3,
+                        (3000000 - 100000 + 1)
+                    )
                 ); // 100K to 30M
                 salt = uint256(keccak256(abi.encodePacked(gasLimit, salt)));
 
-                if(proposedIndex == 0) {
+                if (proposedIndex == 0) {
                     parentGasUsed[proposedIndex] = 0;
                     parentHashes[proposedIndex] = GENESIS_BLOCK_HASH;
-                }
-                else {
-                    parentGasUsed[proposedIndex] = gasUsed[proposedIndex-1];
-                    parentHashes[proposedIndex] = blockHashes[proposedIndex-1];
+                } else {
+                    parentGasUsed[proposedIndex] = gasUsed[proposedIndex - 1];
+                    parentHashes[proposedIndex] = blockHashes[
+                        proposedIndex - 1
+                    ];
                 }
 
                 gasUsed[proposedIndex] = uint32(
@@ -402,12 +513,20 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                 blockHashes[proposedIndex] = bytes32(
                     pickRandomNumber(newRandomWithoutSalt, 0, type(uint256).max)
                 );
-                salt = uint256(keccak256(abi.encodePacked(blockHashes[proposedIndex], salt)));
+                salt = uint256(
+                    keccak256(
+                        abi.encodePacked(blockHashes[proposedIndex], salt)
+                    )
+                );
 
                 signalRoots[proposedIndex] = bytes32(
                     pickRandomNumber(newRandomWithoutSalt, 0, type(uint256).max)
                 );
-                salt = uint256(keccak256(abi.encodePacked(signalRoots[proposedIndex], salt)));
+                salt = uint256(
+                    keccak256(
+                        abi.encodePacked(signalRoots[proposedIndex], salt)
+                    )
+                );
 
                 metas[proposedIndex] = proposeBlock(
                     Alice,
@@ -415,19 +534,23 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                     txListSize
                 );
 
-                if(proposedIndex < blocksToSimulate-1)
-                    proposedIndex++;
+                if (proposedIndex < blocksToSimulate - 1) proposedIndex++;
 
                 printVariables();
             }
 
             // We are proving here
-            if(_proofTimeToBlockIndexes[secondsElapsed].length > 0) {
-
+            if (_proofTimeToBlockIndexes[secondsElapsed].length > 0) {
                 //console2.log("Duplicates check");
-                for (uint256 i; i < _proofTimeToBlockIndexes[secondsElapsed].length; i++) {
-                    uint256 blockId = _proofTimeToBlockIndexes[secondsElapsed][i];
-                    
+                for (
+                    uint256 i;
+                    i < _proofTimeToBlockIndexes[secondsElapsed].length;
+                    i++
+                ) {
+                    uint256 blockId = _proofTimeToBlockIndexes[secondsElapsed][
+                        i
+                    ];
+
                     proveBlock(
                         Bob,
                         metas[blockId],
@@ -444,7 +567,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
             // Increment time with 1 seconds
             vm.warp(block.timestamp + 1);
             //Log every 12 sec
-            if(block.timestamp % 12 == 0) {
+            if (block.timestamp % 12 == 0) {
                 printVariables();
             }
         }
@@ -456,7 +579,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
         uint256 time = block.timestamp;
         uint256 startBlockProposeTime_quick = 60 seconds; // For the 10% where it is 'quick'
         uint256 upperDevToBlockProveTime_quick = 240 seconds; // For the 10% where it is quick
-        
+
         assertEq(time, 1);
 
         depositTaikoToken(Alice, 1E6 * 1E8, 10000 ether);
@@ -469,44 +592,69 @@ contract TaikoL1Simulation is TaikoL1TestBase {
         console2.log("BlockId, ProofTime");
         for (uint256 i = 0; i < blocksToSimulate; i++) {
             newRandomWithoutSalt = uint256(
-                keccak256(abi.encodePacked(block.difficulty, msg.sender, block.timestamp, i, newRandomWithoutSalt, salt ))
+                keccak256(
+                    abi.encodePacked(
+                        block.difficulty,
+                        msg.sender,
+                        block.timestamp,
+                        i,
+                        newRandomWithoutSalt,
+                        salt
+                    )
+                )
             );
-            blocksProposedTimestamp[i] = uint64(pickRandomNumber(
-                newRandomWithoutSalt,
-                nextBlockTime,
-                (minDiffToBlockPropTime+1)
-            ));
-            nextBlockTime = blocksProposedTimestamp[i]+minDiffToBlockPropTime;
+            blocksProposedTimestamp[i] = uint64(
+                pickRandomNumber(
+                    newRandomWithoutSalt,
+                    nextBlockTime,
+                    (minDiffToBlockPropTime + 1)
+                )
+            );
+            nextBlockTime = blocksProposedTimestamp[i] + minDiffToBlockPropTime;
 
             // Avg. calculation
             if (lastTimestampProp > 0) {
-                totalDiffsProp += blocksProposedTimestamp[i] - lastTimestampProp;
+                totalDiffsProp +=
+                    blocksProposedTimestamp[i] -
+                    lastTimestampProp;
             }
 
             lastTimestampProp = blocksProposedTimestamp[i];
             // We need this info to extract / export !!
             //console2.log("Time of PROPOSAL is:", blocksProposedTimestamp[i]);
-            salt = uint256(keccak256(abi.encodePacked(nextBlockTime, salt, i, newRandomWithoutSalt)));
+            salt = uint256(
+                keccak256(
+                    abi.encodePacked(
+                        nextBlockTime,
+                        salt,
+                        i,
+                        newRandomWithoutSalt
+                    )
+                )
+            );
 
             uint64 proofTimePerBlockI;
             if (i % 10 == 0) {
                 // 10% 'slow proofs'
-                proofTimePerBlockI = uint64(pickRandomNumber(
-                    newRandomWithoutSalt,
-                    (nextBlockTime+startBlockProposeTime), 
-                    (upperDevToBlockProveTime+1))
+                proofTimePerBlockI = uint64(
+                    pickRandomNumber(
+                        newRandomWithoutSalt,
+                        (nextBlockTime + startBlockProposeTime),
+                        (upperDevToBlockProveTime + 1)
+                    )
                 );
 
                 if (proofTimePerBlockI > maxTime) {
                     maxTime = proofTimePerBlockI;
                 }
-            }
-            else {
+            } else {
                 // A very quick proof this case
-                proofTimePerBlockI = uint64(pickRandomNumber(
-                    newRandomWithoutSalt, 
-                    (nextBlockTime+startBlockProposeTime_quick), 
-                    (upperDevToBlockProveTime_quick+1))
+                proofTimePerBlockI = uint64(
+                    pickRandomNumber(
+                        newRandomWithoutSalt,
+                        (nextBlockTime + startBlockProposeTime_quick),
+                        (upperDevToBlockProveTime_quick + 1)
+                    )
                 );
 
                 if (proofTimePerBlockI > maxTime) {
@@ -517,56 +665,80 @@ contract TaikoL1Simulation is TaikoL1TestBase {
             if (proofTimePerBlockI > maxTime) {
                 maxTime = proofTimePerBlockI;
             }
-            
 
             if (lastTimestampProve > 0) {
                 totalDiffsProve += proofTimePerBlockI - lastTimestampProp;
             }
             lastTimestampProve = proofTimePerBlockI;
-            // It is possible that proof for block N+1 comes before N, so we need to keep track of that. Because 
+            // It is possible that proof for block N+1 comes before N, so we need to keep track of that. Because
             // the proofs per block is related to propose of that same block (index).
             _proofTimeToBlockIndexes[proofTimePerBlockI].push(i);
-            
+
             // We need this info to extract / export !!
-            console2.log(i+1, ";", proofTimePerBlockI-lastTimestampProp);
-            salt = uint256(keccak256(abi.encodePacked(proofTimePerBlockI, salt)));
+            console2.log(i + 1, ";", proofTimePerBlockI - lastTimestampProp);
+            salt = uint256(
+                keccak256(abi.encodePacked(proofTimePerBlockI, salt))
+            );
         }
 
         uint256 proposedIndex;
 
         console2.log("Last second:", maxTime);
         console2.log("Proof time target:", PROOF_TIME_TARGET);
-        console2.log("Average proposal time: ", totalDiffsProp / blocksToSimulate);
-        console2.log("Average proof time: ", totalDiffsProve / blocksToSimulate);
+        console2.log(
+            "Average proposal time: ",
+            totalDiffsProp / blocksToSimulate
+        );
+        console2.log(
+            "Average proof time: ",
+            totalDiffsProve / blocksToSimulate
+        );
         printVariableHeaders();
         //It is a divider / marker for the parser
         console2.log("!-----------------------------");
         printVariables();
         // This is a way we can de-couple proposing from proving
-        for (uint256 secondsElapsed = 0; secondsElapsed <= maxTime; secondsElapsed++) {
+        for (
+            uint256 secondsElapsed = 0;
+            secondsElapsed <= maxTime;
+            secondsElapsed++
+        ) {
             newRandomWithoutSalt = uint256(
-                keccak256(abi.encodePacked(newRandomWithoutSalt, block.difficulty, secondsElapsed, msg.sender, block.timestamp, salt))
+                keccak256(
+                    abi.encodePacked(
+                        newRandomWithoutSalt,
+                        block.difficulty,
+                        secondsElapsed,
+                        msg.sender,
+                        block.timestamp,
+                        salt
+                    )
+                )
             );
 
             // We are proposing here
-            if(secondsElapsed == blocksProposedTimestamp[proposedIndex] && proposedIndex < blocksToSimulate) {
+            if (
+                secondsElapsed == blocksProposedTimestamp[proposedIndex] &&
+                proposedIndex < blocksToSimulate
+            ) {
                 //console2.log("FOR CYCLE: Time of PROPOSAL is:", blocksProposedTimestamp[proposedIndex]);
                 uint32 gasLimit = uint32(
-                pickRandomNumber(
-                    newRandomWithoutSalt,
-                    100E3,
-                    (3000000 - 100000 + 1)
-                )
+                    pickRandomNumber(
+                        newRandomWithoutSalt,
+                        100E3,
+                        (3000000 - 100000 + 1)
+                    )
                 ); // 100K to 30M
                 salt = uint256(keccak256(abi.encodePacked(gasLimit, salt)));
 
-                if(proposedIndex == 0) {
+                if (proposedIndex == 0) {
                     parentGasUsed[proposedIndex] = 0;
                     parentHashes[proposedIndex] = GENESIS_BLOCK_HASH;
-                }
-                else {
-                    parentGasUsed[proposedIndex] = gasUsed[proposedIndex-1];
-                    parentHashes[proposedIndex] = blockHashes[proposedIndex-1];
+                } else {
+                    parentGasUsed[proposedIndex] = gasUsed[proposedIndex - 1];
+                    parentHashes[proposedIndex] = blockHashes[
+                        proposedIndex - 1
+                    ];
                 }
 
                 gasUsed[proposedIndex] = uint32(
@@ -590,12 +762,20 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                 blockHashes[proposedIndex] = bytes32(
                     pickRandomNumber(newRandomWithoutSalt, 0, type(uint256).max)
                 );
-                salt = uint256(keccak256(abi.encodePacked(blockHashes[proposedIndex], salt)));
+                salt = uint256(
+                    keccak256(
+                        abi.encodePacked(blockHashes[proposedIndex], salt)
+                    )
+                );
 
                 signalRoots[proposedIndex] = bytes32(
                     pickRandomNumber(newRandomWithoutSalt, 0, type(uint256).max)
                 );
-                salt = uint256(keccak256(abi.encodePacked(signalRoots[proposedIndex], salt)));
+                salt = uint256(
+                    keccak256(
+                        abi.encodePacked(signalRoots[proposedIndex], salt)
+                    )
+                );
 
                 metas[proposedIndex] = proposeBlock(
                     Alice,
@@ -603,19 +783,23 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                     txListSize
                 );
 
-                if(proposedIndex < blocksToSimulate-1)
-                    proposedIndex++;
+                if (proposedIndex < blocksToSimulate - 1) proposedIndex++;
 
                 printVariables();
             }
 
             // We are proving here
-            if(_proofTimeToBlockIndexes[secondsElapsed].length > 0) {
-
+            if (_proofTimeToBlockIndexes[secondsElapsed].length > 0) {
                 //console2.log("Duplicates check");
-                for (uint256 i; i < _proofTimeToBlockIndexes[secondsElapsed].length; i++) {
-                    uint256 blockId = _proofTimeToBlockIndexes[secondsElapsed][i];
-                    
+                for (
+                    uint256 i;
+                    i < _proofTimeToBlockIndexes[secondsElapsed].length;
+                    i++
+                ) {
+                    uint256 blockId = _proofTimeToBlockIndexes[secondsElapsed][
+                        i
+                    ];
+
                     proveBlock(
                         Bob,
                         metas[blockId],
@@ -632,7 +816,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
             // Increment time with 1 seconds
             vm.warp(block.timestamp + 1);
             //Log every 12 sec
-            if(block.timestamp % 12 == 0) {
+            if (block.timestamp % 12 == 0) {
                 printVariables();
             }
         }
