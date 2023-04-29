@@ -25,14 +25,11 @@ export type ApproveArgs = {
 export type BridgeArgs = {
   to: string
   signer: Signer
-  tokenAddress: string
   srcChainId: string
   destChainId: string
   amountInWei: BigNumber
   memo?: string
-  tokenId?: string
   processingFeeInWei?: BigNumber
-  isBridgedTokenAlreadyDeployed?: boolean
 }
 
 export type ETHBridgeArgs = BridgeArgs & {
@@ -40,7 +37,9 @@ export type ETHBridgeArgs = BridgeArgs & {
 }
 
 export type ERC20BridgeArgs = BridgeArgs & {
+  tokenAddress: string
   tokenVaultAddress: string
+  isBridgedTokenAlreadyDeployed?: boolean
 }
 
 export type ClaimArgs = {

@@ -1,8 +1,8 @@
 <script lang="ts">
   import {
+    error as notifyError,
     success as notifySuccess,
     warning as notifyWarning,
-    error as notifyError,
   } from '../components/NotificationToast'
 </script>
 
