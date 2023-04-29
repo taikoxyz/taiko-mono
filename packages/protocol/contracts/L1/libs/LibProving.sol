@@ -30,6 +30,7 @@ library LibProving {
     error L1_INVALID_EVIDENCE();
     error L1_ORACLE_DISABLED();
     error L1_NOT_ORACLE_PROVER();
+    error L1_SAME_PROOF();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -130,6 +131,12 @@ library LibProving {
             }
         } else if (isOracleProof) {
             fc = blk.forkChoices[fcId];
+
+            if (
+                fc.blockHash == evidence.blockHash &&
+                fc.signalRoot == evidence.signalRoot &&
+                fc.gasUsed == evidence.gasUsed
+            ) revert L1_SAME_PROOF();
         } else {
             revert L1_ALREADY_PROVEN();
         }
