@@ -301,5 +301,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
             xExcess: _gasExcess,
             xPurchase: gasLimit
         });
+        if (_basefee == 0) {
+            // To make sure when 1559 is enabled, the basefee is non-zero
+            // (geth never use 0 values for basefee)
+            _basefee = 1;
+        }
     }
 }

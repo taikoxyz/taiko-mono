@@ -35,6 +35,10 @@ library TaikoConfig {
                 maxBytesPerTxList: 120000,
                 minTxGasLimit: 21000,
                 proofCooldownPeriod: 30 minutes,
+                // Only need 1 real zkp per 10 blocks.
+                // If block number is N, then only when N % 10 == 0, the real ZKP
+                // is needed. For mainnet, this must be 0 or 1.
+                realProofSkipSize: 10,
                 ethDepositGas: 21000,
                 ethDepositMaxFee: 1 ether / 10,
                 txListCacheExpiry: 0,

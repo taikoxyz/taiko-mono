@@ -233,7 +233,7 @@ contract DeployOnL1 is Script {
     }
 
     function deployProxy(
-        bytes32 name,
+        string memory name,
         address implementation,
         bytes memory data
     ) private returns (address proxy) {
@@ -241,15 +241,15 @@ contract DeployOnL1 is Script {
             new TransparentUpgradeableProxy(implementation, owner, data)
         );
 
-        console2.log(vm.toString(name), "(impl) ->", implementation);
-        console2.log(vm.toString(name), "(proxy) ->", proxy);
+        console2.log(name, "(impl) ->", implementation);
+        console2.log(name, "(proxy) ->", proxy);
 
         if (addressManagerProxy != address(0)) {
-            setAddress(block.chainid, name, proxy);
+            setAddress(block.chainid, bytes32(bytes(name)), proxy);
         }
 
         vm.writeJson(
-            vm.serializeAddress("deployment", vm.toString(name), proxy),
+            vm.serializeAddress("deployment", name, proxy),
             string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
         );
     }
