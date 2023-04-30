@@ -23,18 +23,25 @@ export class ETHBridge implements Bridge {
     const bridgeContract = new Contract(args.bridgeAddress, BRIDGE_ABI, args.signer)
 
     const owner = await args.signer.getAddress()
+    const depositValue = args.to.toLowerCase() === owner.toLowerCase() ? args.amountInWei : BigNumber.from(0)
+    const callValue = args.to.toLowerCase() === owner.toLowerCase() ? BigNumber.from(0) : args.amountInWei
+    const processingFee = args.processingFeeInWei ?? BigNumber.from(0)
+    const gasLimit = args.processingFeeInWei ? BigNumber.from(140000) : BigNumber.from(0) // TODO: 140k ??
 
     const message: Message = {
+      owner,
       sender: owner,
+      refundAddress: owner,
+
+      to: args.to,
       srcChainId: args.srcChainId,
       destChainId: args.destChainId,
-      owner: owner,
-      to: args.to,
-      refundAddress: owner,
-      depositValue: args.to.toLowerCase() === owner.toLowerCase() ? args.amountInWei : BigNumber.from(0),
-      callValue: args.to.toLowerCase() === owner.toLowerCase() ? BigNumber.from(0) : args.amountInWei,
-      processingFee: args.processingFeeInWei ?? BigNumber.from(0),
-      gasLimit: args.processingFeeInWei ? BigNumber.from(140000) : BigNumber.from(0), // TODO: 140k ??
+
+      depositValue,
+      callValue,
+      processingFee,
+      gasLimit,
+
       memo: args.memo ?? '',
       id: 1, // will be set in contract,
       data: '0x',
