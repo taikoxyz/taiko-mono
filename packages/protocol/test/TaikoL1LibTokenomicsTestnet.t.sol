@@ -95,10 +95,10 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 signalRoot,
                 false
             );
-            uint64 provenAt = uint64(block.timestamp);
+            uint64 effectiveAt = uint64(block.timestamp);
             console2.log(
                 "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAt)
+                L1.getProofReward(effectiveAt, proposedAt)
             );
 
             verifyBlock(Carol, 1);
@@ -141,10 +141,10 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 signalRoot,
                 false
             );
-            uint64 provenAt = uint64(block.timestamp);
+            uint64 effectiveAt = uint64(block.timestamp);
             console2.log(
                 "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAt)
+                L1.getProofReward(effectiveAt, proposedAt)
             );
             verifyBlock(Carol, 1);
             // This is where new fee evaluated
@@ -211,10 +211,10 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 signalRoot,
                 false
             );
-            uint64 provenAt = uint64(block.timestamp);
+            uint64 effectiveAt = uint64(block.timestamp);
             console2.log(
                 "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAtArr[blockId])
+                L1.getProofReward(effectiveAt, proposedAtArr[blockId])
             );
 
             verifyBlock(Carol, 1);
@@ -253,10 +253,10 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 signalRoot,
                 false
             );
-            uint64 provenAt = uint64(block.timestamp);
+            uint64 effectiveAt = uint64(block.timestamp);
             console2.log(
                 "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAt)
+                L1.getProofReward(effectiveAt, proposedAt)
             );
             verifyBlock(Carol, 1);
 
@@ -316,10 +316,10 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 signalRoot,
                 false
             );
-            uint64 provenAt = uint64(block.timestamp);
+            uint64 effectiveAt = uint64(block.timestamp);
             console2.log(
                 "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAt)
+                L1.getProofReward(effectiveAt, proposedAt)
             );
 
             verifyBlock(Carol, 1);
@@ -388,10 +388,10 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 false
             );
 
-            uint64 provenAt = uint64(block.timestamp);
+            uint64 effectiveAt = uint64(block.timestamp);
             console2.log(
                 "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAt[blockId])
+                L1.getProofReward(effectiveAt, proposedAt[blockId])
             );
 
             verifyBlock(Carol, 1);
@@ -461,10 +461,10 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 false
             );
 
-            uint64 provenAt = uint64(block.timestamp);
+            uint64 effectiveAt = uint64(block.timestamp);
             console2.log(
                 "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAt[blockId])
+                L1.getProofReward(effectiveAt, proposedAt[blockId])
             );
 
             verifyBlock(Carol, 1);
@@ -524,10 +524,10 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 signalRoot,
                 false
             );
-            uint64 provenAt = uint64(block.timestamp);
+            uint64 effectiveAt = uint64(block.timestamp);
             console2.log(
                 "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAt)
+                L1.getProofReward(effectiveAt, proposedAt)
             );
 
             verifyBlock(Carol, 1);
@@ -596,10 +596,10 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 false
             );
 
-            uint64 provenAt = uint64(block.timestamp);
+            uint64 effectiveAt = uint64(block.timestamp);
             console2.log(
                 "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAt[blockId])
+                L1.getProofReward(effectiveAt, proposedAt[blockId])
             );
 
             verifyBlock(Carol, 1);
@@ -660,10 +660,10 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 signalRoot,
                 false
             );
-            uint64 provenAt = uint64(block.timestamp);
+            uint64 effectiveAt = uint64(block.timestamp);
             console2.log(
                 "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAt)
+                L1.getProofReward(effectiveAt, proposedAt)
             );
 
             verifyBlock(Carol, 1);
@@ -705,10 +705,10 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 signalRoot,
                 false
             );
-            uint64 provenAt = uint64(block.timestamp);
+            uint64 effectiveAt = uint64(block.timestamp);
             console2.log(
                 "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAt)
+                L1.getProofReward(effectiveAt, proposedAt)
             );
             verifyBlock(Carol, 1);
 
@@ -770,10 +770,10 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 false
             );
 
-            uint64 provenAt = uint64(block.timestamp);
+            uint64 effectiveAt = uint64(block.timestamp);
             console2.log(
                 "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAtArr[blockId])
+                L1.getProofReward(effectiveAt, proposedAtArr[blockId])
             );
 
             verifyBlock(Carol, 1);
@@ -814,10 +814,10 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 signalRoot,
                 false
             );
-            uint64 provenAt = uint64(block.timestamp);
+            uint64 effectiveAt = uint64(block.timestamp);
             console2.log(
                 "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAt)
+                L1.getProofReward(effectiveAt, proposedAt)
             );
             verifyBlock(Carol, 1);
 
@@ -874,10 +874,10 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 signalRoot,
                 false
             );
-            uint64 provenAt = uint64(block.timestamp);
+            uint64 effectiveAt = uint64(block.timestamp);
             console2.log(
                 "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAt)
+                L1.getProofReward(effectiveAt, proposedAt)
             );
 
             verifyBlock(Carol, 1);
@@ -939,11 +939,11 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                         false
                     );
 
-                    uint64 provenAt = uint64(block.timestamp);
+                    uint64 effectiveAt = uint64(block.timestamp);
                     console2.log(
                         "Proof reward is:",
                         L1.getProofReward(
-                            provenAt,
+                            effectiveAt,
                             proposedAt[blockId - proofTime]
                         )
                     );

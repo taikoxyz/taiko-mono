@@ -58,12 +58,14 @@ library LibProving {
         if (blk.metaHash != evidence.metaHash)
             revert L1_EVIDENCE_MISMATCH(blk.metaHash, evidence.metaHash);
 
+        address oracleProver = resolver.resolve("oracle_prover", true);
+        uint256 proofCooldownPeriod = oracleProver == address(0)
+            ? 0
+            : config.proofCooldownPeriod;
+
         bool isOracleProof = evidence.prover == address(0);
-
         if (isOracleProof) {
-            address oracleProver = resolver.resolve("oracle_prover", true);
             if (oracleProver == address(0)) revert L1_ORACLE_DISABLED();
-
             if (msg.sender != oracleProver) {
                 if (evidence.proof.length != 64) {
                     revert L1_NOT_ORACLE_PROVER();
@@ -96,6 +98,7 @@ library LibProving {
                 // proof will be treated as a real proof (by setting the prover
                 // to a non-zero value)
                 evidence.prover = oracleProver;
+                proofCooldownPeriod = 0;
             }
         }
 
@@ -137,7 +140,7 @@ library LibProving {
         fc.blockHash = evidence.blockHash;
         fc.signalRoot = evidence.signalRoot;
         fc.gasUsed = evidence.gasUsed;
-        fc.provenAt = uint64(block.timestamp);
+        fc.effectiveAt = uint64(block.timestamp + proofCooldownPeriod);
         fc.prover = evidence.prover;
 
         if (!isOracleProof) {

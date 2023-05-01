@@ -600,7 +600,7 @@ export default [
           },
           {
             internalType: "uint64",
-            name: "provenAt",
+            name: "effectiveAt",
             type: "uint64",
           },
           {
@@ -626,7 +626,7 @@ export default [
     inputs: [
       {
         internalType: "uint64",
-        name: "provenAt",
+        name: "effectiveAt",
         type: "uint64",
       },
       {

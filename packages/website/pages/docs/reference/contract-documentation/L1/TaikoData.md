@@ -106,7 +106,7 @@ struct ForkChoice {
   bytes32 key;
   bytes32 blockHash;
   bytes32 signalRoot;
-  uint64 provenAt;
+  uint64 effectiveAt;
   address prover;
   uint32 gasUsed;
 }

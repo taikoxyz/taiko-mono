@@ -96,7 +96,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
         assertEq(fc.blockHash, bytes32(uint256(0x11)));
         assertEq(fc.signalRoot, bytes32(uint256(0x12)));
-        assertEq(fc.provenAt, block.timestamp);
+        assertEq(fc.effectiveAt, block.timestamp + 5 minutes);
         assertEq(fc.prover, address(0));
         assertEq(fc.gasUsed, 40000);
     }
@@ -142,7 +142,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             }
             assertEq(fc.blockHash, bytes32(uint256(0x11)));
             assertEq(fc.signalRoot, bytes32(uint256(0x12)));
-            assertEq(fc.provenAt, block.timestamp);
+            assertEq(fc.effectiveAt, block.timestamp + 5 minutes);
             assertEq(fc.prover, Bob);
             assertEq(fc.gasUsed, 10001);
 
@@ -197,7 +197,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             }
             assertEq(fc.blockHash, bytes32(uint256(0x31)));
             assertEq(fc.signalRoot, bytes32(uint256(0x32)));
-            assertEq(fc.provenAt, block.timestamp);
+            assertEq(fc.effectiveAt, block.timestamp + 5 minutes);
             assertEq(fc.prover, address(0));
             assertEq(fc.gasUsed, 10003);
 
@@ -224,7 +224,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             }
             assertEq(fc.blockHash, bytes32(uint256(0x41)));
             assertEq(fc.signalRoot, bytes32(uint256(0x42)));
-            assertEq(fc.provenAt, block.timestamp);
+            assertEq(fc.effectiveAt, block.timestamp + 5 minutes);
             assertEq(fc.prover, address(0));
             assertEq(fc.gasUsed, 10004);
         }

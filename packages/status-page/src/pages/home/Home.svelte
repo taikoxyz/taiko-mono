@@ -311,7 +311,7 @@
               blockHash,
               signalRoot,
               prover,
-              provenAt,
+              effectiveAt,
               ...args
             ) => {
               // ignore oracle prover

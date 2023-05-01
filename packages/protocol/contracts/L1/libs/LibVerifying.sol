@@ -72,7 +72,7 @@ library LibVerifying {
 
         TaikoData.ForkChoice storage fc = state.blocks[0].forkChoices[1];
         fc.blockHash = genesisBlockHash;
-        fc.provenAt = timeNow;
+        fc.effectiveAt = timeNow;
 
         emit BlockVerified(0, genesisBlockHash);
     }
@@ -109,7 +109,7 @@ library LibVerifying {
 
             if (
                 fc.prover == address(0) || // oracle proof
-                block.timestamp < fc.provenAt + config.proofCooldownPeriod // too young
+                block.timestamp < fc.effectiveAt // too young
             ) break;
 
             blockHash = fc.blockHash;
@@ -155,7 +155,7 @@ library LibVerifying {
     ) private {
         uint64 proofTime;
         unchecked {
-            proofTime = uint64(fc.provenAt - blk.proposedAt);
+            proofTime = uint64(fc.effectiveAt - blk.proposedAt);
         }
 
         uint64 reward = LibTokenomics.getProofReward(state, proofTime);

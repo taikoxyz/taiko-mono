@@ -716,7 +716,7 @@
           },
           {
             "internalType": "uint64",
-            "name": "provenAt",
+            "name": "effectiveAt",
             "type": "uint64"
           },
           {
@@ -742,7 +742,7 @@
     "inputs": [
       {
         "internalType": "uint64",
-        "name": "provenAt",
+        "name": "effectiveAt",
         "type": "uint64"
       },
       {

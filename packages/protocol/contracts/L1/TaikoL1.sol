@@ -156,13 +156,13 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     }
 
     function getProofReward(
-        uint64 provenAt,
+        uint64 effectiveAt,
         uint64 proposedAt
     ) public view returns (uint64) {
         return
             LibTokenomics.getProofReward({
                 state: state,
-                proofTime: provenAt - proposedAt
+                proofTime: effectiveAt - proposedAt
             });
     }
 
