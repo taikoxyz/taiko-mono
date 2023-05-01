@@ -82,6 +82,12 @@ error L1_NOT_ORACLE_PROVER()
 error L1_ORACLE_DISABLED()
 ```
 
+### L1_SAME_PROOF
+
+```solidity
+error L1_SAME_PROOF()
+```
+
 ### L1_TOO_MANY_BLOCKS
 
 ```solidity
