@@ -13,7 +13,8 @@
     "test:unit:watch": "vitest",
     "lint": "prettier --plugin-search-dir . --check . && eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "prettier --plugin-search-dir . --write ."
+    "format": "prettier --plugin-search-dir . --write .",
+    "copy-abi": "node ./scripts/copy-abi.js"
   },
   "devDependencies": {
     "@sveltejs/adapter-auto": "^2.0.0",
