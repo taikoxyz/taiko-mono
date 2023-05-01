@@ -27,7 +27,6 @@ export class ETHBridge implements Bridge {
     // TODO: understand the reason for these conditions
     const depositValue = args.to.toLowerCase() === owner.toLowerCase() ? args.amountInWei : BigNumber.from(0)
     const callValue = args.to.toLowerCase() === owner.toLowerCase() ? BigNumber.from(0) : args.amountInWei
-
     const processingFee = args.processingFeeInWei ?? BigNumber.from(0)
     const gasLimit = args.processingFeeInWei ? BigNumber.from(140000) : BigNumber.from(0) // TODO: 140k ??
 
