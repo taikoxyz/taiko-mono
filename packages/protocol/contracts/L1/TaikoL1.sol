@@ -8,7 +8,7 @@ pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../common/AddressResolver.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
-import {IXchainSync} from "../common/IXchainSync.sol";
+import {ICrossChainSync} from "../common/ICrossChainSync.sol";
 import {LibEthDepositing} from "./libs/LibEthDepositing.sol";
 import {LibTokenomics} from "./libs/LibTokenomics.sol";
 import {LibProposing} from "./libs/LibProposing.sol";
@@ -20,7 +20,12 @@ import {TaikoErrors} from "./TaikoErrors.sol";
 import {TaikoData} from "./TaikoData.sol";
 import {TaikoEvents} from "./TaikoEvents.sol";
 
-contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
+contract TaikoL1 is
+    EssentialContract,
+    ICrossChainSync,
+    TaikoEvents,
+    TaikoErrors
+{
     using LibUtils for TaikoData.State;
 
     TaikoData.State public state;
@@ -204,7 +209,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             });
     }
 
-    function getXchainBlockHash(
+    function getCrossChainBlockHash(
         uint256 blockId
     ) public view override returns (bytes32) {
         (bool found, TaikoData.Block storage blk) = LibUtils.getL2ChainData({
@@ -218,7 +223,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
                 : bytes32(0);
     }
 
-    function getXchainSignalRoot(
+    function getCrossChainSignalRoot(
         uint256 blockId
     ) public view override returns (bytes32) {
         (bool found, TaikoData.Block storage blk) = LibUtils.getL2ChainData({

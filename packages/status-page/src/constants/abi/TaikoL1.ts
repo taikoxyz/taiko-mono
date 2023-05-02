@@ -373,7 +373,7 @@ export default [
         type: "bytes32",
       },
     ],
-    name: "XchainSynced",
+    name: "CrossChainSynced",
     type: "event",
   },
   {
@@ -757,7 +757,7 @@ export default [
         type: "uint256",
       },
     ],
-    name: "getXchainBlockHash",
+    name: "getCrossChainBlockHash",
     outputs: [
       {
         internalType: "bytes32",
@@ -776,7 +776,7 @@ export default [
         type: "uint256",
       },
     ],
-    name: "getXchainSignalRoot",
+    name: "getCrossChainSignalRoot",
     outputs: [
       {
         internalType: "bytes32",

@@ -234,18 +234,18 @@ contract TaikoL1Test is TaikoL1TestBase {
         console2.log("maxEthDepositsPerBlock:", count);
     }
 
-    /// @dev getXchainBlockHash tests
-    function test_getXchainBlockHash0() external {
-        bytes32 genHash = L1.getXchainBlockHash(0);
+    /// @dev getCrossChainBlockHash tests
+    function test_getCrossChainBlockHash0() external {
+        bytes32 genHash = L1.getCrossChainBlockHash(0);
         assertEq(GENESIS_BLOCK_HASH, genHash);
 
         // Not yet avail.
-        genHash = L1.getXchainBlockHash(1);
+        genHash = L1.getCrossChainBlockHash(1);
         assertEq(bytes32(0), genHash);
     }
 
-    /// @dev getXchainSignalRoot tests
-    function test_getXchainSignalRoot() external {
+    /// @dev getCrossChainSignalRoot tests
+    function test_getCrossChainSignalRoot() external {
         uint256 iterationCnt = 10;
         // Declare here so that block prop/prove/verif. can be used in 1 place
         TaikoData.BlockMetadata memory meta;
@@ -278,7 +278,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             verifyBlock(Carol, 1);
 
             // Querying written blockhash
-            bytes32 genHash = L1.getXchainBlockHash(blockId);
+            bytes32 genHash = L1.getCrossChainBlockHash(blockId);
             assertEq(blockHash, genHash);
 
             mine(5);
@@ -289,14 +289,14 @@ contract TaikoL1Test is TaikoL1TestBase {
         uint256 queriedBlockId = 1;
         bytes32 expectedSR = bytes32(1E9 + queriedBlockId);
 
-        assertEq(expectedSR, L1.getXchainSignalRoot(queriedBlockId));
+        assertEq(expectedSR, L1.getCrossChainSignalRoot(queriedBlockId));
 
         // 2nd
         queriedBlockId = 2;
         expectedSR = bytes32(1E9 + queriedBlockId);
-        assertEq(expectedSR, L1.getXchainSignalRoot(queriedBlockId));
+        assertEq(expectedSR, L1.getCrossChainSignalRoot(queriedBlockId));
 
         // Not found
-        assertEq(bytes32(0), L1.getXchainSignalRoot((iterationCnt + 1)));
+        assertEq(bytes32(0), L1.getCrossChainSignalRoot((iterationCnt + 1)));
     }
 }

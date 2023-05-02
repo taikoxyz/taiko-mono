@@ -6,5 +6,5 @@ export const getLatestSyncedHeader = async (
   contractAddress: string
 ): Promise<string> => {
   const contract: Contract = new Contract(contractAddress, TaikoL1, provider);
-  return await contract.getXchainBlockHash(0);
+  return await contract.getCrossChainBlockHash(0);
 };

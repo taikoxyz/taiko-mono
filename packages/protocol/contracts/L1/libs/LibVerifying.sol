@@ -21,7 +21,7 @@ library LibVerifying {
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
 
-    event XchainSynced(
+    event CrossChainSynced(
         uint256 indexed srcHeight,
         bytes32 blockHash,
         bytes32 signalRoot
@@ -142,7 +142,11 @@ library LibVerifying {
                 ISignalService(resolver.resolve("signal_service", false))
                     .sendSignal(signalRoot);
             }
-            emit XchainSynced(state.lastVerifiedBlockId, blockHash, signalRoot);
+            emit CrossChainSynced(
+                state.lastVerifiedBlockId,
+                blockHash,
+                signalRoot
+            );
         }
     }
 

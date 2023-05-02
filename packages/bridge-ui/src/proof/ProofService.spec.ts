@@ -7,7 +7,7 @@ const mockProvider = {
 };
 
 const mockContract = {
-  getXchainBlockHash: jest.fn(),
+  getCrossChainBlockHash: jest.fn(),
 };
 
 jest.mock('ethers', () => ({

@@ -7,5 +7,5 @@ import (
 )
 
 type HeaderSyncer interface {
-	GetXchainBlockHash(opts *bind.CallOpts, number *big.Int) ([32]byte, error)
+	GetCrossChainBlockHash(opts *bind.CallOpts, number *big.Int) ([32]byte, error)
 }
