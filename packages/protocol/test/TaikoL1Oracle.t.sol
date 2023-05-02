@@ -337,7 +337,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             vm.warp(block.timestamp + 4 minutes + 59 seconds);
             verifyBlock(Carol, 1);
-            
+
             assertEq(
                 lastVerifiedBlockId,
                 L1.getStateVariables().lastVerifiedBlockId
@@ -358,7 +358,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
     /// @dev Test we can verify without cooling time if the oracle prover is set to address (0)
     function test_if_oracle_is_address_zero_cooldown_is_zero() external {
-
         registerAddress("oracle_prover", address(0));
 
         depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
@@ -402,15 +401,13 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             vm.warp(block.timestamp + 1 seconds);
             verifyBlock(Carol, 1);
 
-            // Check if shortly after proving (+verify) the ast verify is not the same anymore
+            // Check if shortly after proving (+verify) the last verify is not the same anymore
             // no need to have a cooldown period
             uint256 lastVerifiedBlockIdNow = L1
                 .getStateVariables()
                 .lastVerifiedBlockId;
 
-            assertFalse(
-                lastVerifiedBlockIdNow == lastVerifiedBlockId
-            );
+            assertFalse(lastVerifiedBlockIdNow == lastVerifiedBlockId);
 
             parentHash = blockHash;
             parentGasUsed = gasUsed;
@@ -420,7 +417,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
     /// @dev Test we can verify without cooling time if provers is oracle
     function test_if_fk_prover_is_oracle_prover_cooldown_is_zero() external {
-
         registerAddress("oracle_prover", Bob);
 
         depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
@@ -464,15 +460,13 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             vm.warp(block.timestamp + 1 seconds);
             verifyBlock(Carol, 1);
 
-            // Check if shortly after proving (+verify) the ast verify is not the same anymore
+            // Check if shortly after proving (+verify) the last verify is not the same anymore
             // no need to have a cooldown period
             uint256 lastVerifiedBlockIdNow = L1
                 .getStateVariables()
                 .lastVerifiedBlockId;
 
-            assertFalse(
-                lastVerifiedBlockIdNow == lastVerifiedBlockId
-            );
+            assertFalse(lastVerifiedBlockIdNow == lastVerifiedBlockId);
 
             parentHash = blockHash;
             parentGasUsed = gasUsed;
