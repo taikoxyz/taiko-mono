@@ -122,13 +122,13 @@ Taiko's ZK-Rollup design follows a few principles:
 \item \textbf{Ethereum-Equivalent.} The design should stick to the design of Ethereum as closely as possible, not only for compatibility reasons but also for the expectations and demands of users of Ethereum L2 solutions.
 \end{enumerate}
 
-With these principles, our objective is to design and implement a fully Ethereum-equivalent (type-1) ZK-Rollup \cite{vitalik-zkevm}. This not only means that Taiko can directly interpret EVM bytecode, but also uses the same hash functions, state trees, transaction trees, precompiled contracts, and other in-consensus logic. We do however disable certain EIPs in the initial implementation\cite{taikoprotogithub} that will be re-enabled later (see Section \ref{sec:eips}).
+With these principles, our objective is to design and implement an Ethereum-equivalent (type-1) ZK-Rollup \cite{vitalik-zkevm}. This not only means that Taiko can directly interpret EVM bytecode, but also uses the same hash functions, state trees, transaction trees, precompiled contracts, and other in-consensus logic. We do however disable certain EIPs in the initial implementation\cite{taikoprotogithub} that will be re-enabled later (see Section \ref{sec:eips}).
 
 \section{Overview}\label{sec:properties}
 
 Taiko aims to build a secure, decentralized and permissionless rollup on Ethereum. These requirements dictate the following properties:
 \begin{enumerate}
-\item All block data required to reconstruct the post-block state needs to be put on Ethereum so it is publicly available. If this would not be the case, Taiko would not only fail to be a rollup but would also fail to be fully decentralized. This data is required so that anyone can know the latest chain state and so that useful new blocks can be appended to the chain. For the decentralization of the proof generation Taiko requires an even stronger requirement: all block data needed to be able to re-execute all work in a block in a step-by-step fashion needs to be made public. This makes it possible for provers to generate a proof for a block using only publicly known data.
+\item All block data required to reconstruct the post-block state needs to be put on Ethereum so it is publicly available. If this would not be the case, Taiko would not only fail to be a rollup but would also fail to be decentralized. This data is required so that anyone can know the latest chain state and so that useful new blocks can be appended to the chain. For the decentralization of the proof generation Taiko requires an even stronger requirement: all block data needed to be able to re-execute all work in a block in a step-by-step fashion needs to be made public. This makes it possible for provers to generate a proof for a block using only publicly known data.
 \item Creating and proposing blocks should be a fast and efficient process. Anyone should be able to add blocks to the chain on a level playing field, having access to the same chain data at all times. Proposers, of course, should be able to compete on e.g. transaction fees and \emph{Maximal Extractable Value} (MEV) \cite{mev}.
 \end{enumerate}
 

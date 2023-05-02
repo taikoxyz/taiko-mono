@@ -7,7 +7,7 @@
 </h1>
 
 <p align="center">
-  A fully decentralized, Ethereum-equivalent ZK-Rollup.
+  A decentralized, Ethereum-equivalent ZK-Rollup.
   <br />
   <a href="https://taiko.xyz" target="_blank"><strong>Explore the website</strong></a>
 </p>
