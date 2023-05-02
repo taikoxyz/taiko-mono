@@ -8,7 +8,7 @@ pragma solidity ^0.8.18;
 
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {ISignalService} from "./ISignalService.sol";
-import {IXchainSync} from "../common/IXchainSync.sol";
+import {ICrossChainSync} from "../common/ICrossChainSync.sol";
 import {LibSecureMerkleTrie} from "../thirdparty/LibSecureMerkleTrie.sol";
 
 contract SignalService is ISignalService, EssentialContract {
@@ -70,8 +70,8 @@ contract SignalService is ISignalService, EssentialContract {
         SignalProof memory sp = abi.decode(proof, (SignalProof));
 
         // Resolve the TaikoL1 or TaikoL2 contract if on Ethereum or Taiko.
-        bytes32 syncedSignalRoot = IXchainSync(resolve("taiko", false))
-            .getXchainSignalRoot(sp.height);
+        bytes32 syncedSignalRoot = ICrossChainSync(resolve("taiko", false))
+            .getCrossChainSignalRoot(sp.height);
 
         return
             LibSecureMerkleTrie.verifyInclusionProof(

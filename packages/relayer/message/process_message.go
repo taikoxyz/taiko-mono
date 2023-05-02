@@ -42,7 +42,7 @@ func (p *Processor) ProcessMessage(
 
 	// get latest synced header since not every header is synced from L1 => L2,
 	// and later blocks still have the storage trie proof from previous blocks.
-	latestSyncedHeader, err := p.destHeaderSyncer.GetXchainBlockHash(&bind.CallOpts{}, big.NewInt(0))
+	latestSyncedHeader, err := p.destHeaderSyncer.GetCrossChainBlockHash(&bind.CallOpts{}, big.NewInt(0))
 	if err != nil {
 		return errors.Wrap(err, "taiko.GetSyncedHeader")
 	}

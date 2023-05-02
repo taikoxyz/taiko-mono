@@ -9,7 +9,7 @@ import {console2} from "forge-std/console2.sol";
 import {LibBridgeStatus} from "../contracts/bridge/libs/LibBridgeStatus.sol";
 import {SignalService} from "../contracts/signal/SignalService.sol";
 import {Test} from "forge-std/Test.sol";
-import {IXchainSync} from "../contracts/common/IXchainSync.sol";
+import {ICrossChainSync} from "../contracts/common/ICrossChainSync.sol";
 
 contract BadReceiver {
     receive() external payable {
@@ -25,23 +25,23 @@ contract BadReceiver {
     }
 }
 
-contract PrankXchainSync is IXchainSync {
+contract PrankCrossChainSync is ICrossChainSync {
     bytes32 private _blockHash;
     bytes32 private _signalRoot;
 
-    function setXchainBlockHeader(bytes32 blockHash) external {
+    function setCrossChainBlockHeader(bytes32 blockHash) external {
         _blockHash = blockHash;
     }
 
-    function setXchainSignalRoot(bytes32 signalRoot) external {
+    function setCrossChainSignalRoot(bytes32 signalRoot) external {
         _signalRoot = signalRoot;
     }
 
-    function getXchainBlockHash(uint256) external view returns (bytes32) {
+    function getCrossChainBlockHash(uint256) external view returns (bytes32) {
         return _blockHash;
     }
 
-    function getXchainSignalRoot(uint256) external view returns (bytes32) {
+    function getCrossChainSignalRoot(uint256) external view returns (bytes32) {
         return _signalRoot;
     }
 }
@@ -53,7 +53,7 @@ contract BridgeTest is Test {
     Bridge destChainBridge;
     EtherVault etherVault;
     SignalService signalService;
-    PrankXchainSync xChainSync;
+    PrankCrossChainSync crossChainSync;
     uint256 destChainId = 19389;
 
     address public constant Alice = 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4;
@@ -78,7 +78,7 @@ contract BridgeTest is Test {
         etherVault = new EtherVault();
         etherVault.init(address(addressManager));
 
-        xChainSync = new PrankXchainSync();
+        crossChainSync = new PrankCrossChainSync();
 
         addressManager.setAddress(
             block.chainid,
@@ -350,7 +350,7 @@ contract BridgeTest is Test {
         badReceiver = new BadReceiver();
 
         uint256 dest = 1337;
-        addressManager.setAddress(dest, "taiko", address(xChainSync));
+        addressManager.setAddress(dest, "taiko", address(crossChainSync));
 
         addressManager.setAddress(
             1336,
@@ -372,11 +372,11 @@ contract BridgeTest is Test {
             address(signalService)
         );
 
-        xChainSync.setXchainBlockHeader(
+        crossChainSync.setCrossChainBlockHeader(
             0xd5f5d8ac6bc37139c97389b00e9cf53e89c153ad8a5fc765ffe9f44ea9f3d31e
         );
 
-        xChainSync.setXchainSignalRoot(
+        crossChainSync.setCrossChainSignalRoot(
             0x631b214fb030d82847224f0b3d3b906a6764dded176ad3c7262630204867ba85
         );
 

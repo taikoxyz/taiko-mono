@@ -8,7 +8,7 @@ pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {BlockHeader, LibBlockHeader} from "../../libs/LibBlockHeader.sol";
-import {IXchainSync} from "../../common/IXchainSync.sol";
+import {ICrossChainSync} from "../../common/ICrossChainSync.sol";
 import {LibBridgeData} from "./LibBridgeData.sol";
 import {LibTrieProof} from "../../libs/LibTrieProof.sol";
 
@@ -76,8 +76,9 @@ library LibBridgeStatus {
             (LibBridgeData.StatusProof)
         );
 
-        bytes32 syncedHeaderHash = IXchainSync(resolver.resolve("taiko", false))
-            .getXchainBlockHash(sp.header.height);
+        bytes32 syncedHeaderHash = ICrossChainSync(
+            resolver.resolve("taiko", false)
+        ).getCrossChainBlockHash(sp.header.height);
 
         if (
             syncedHeaderHash == 0 ||

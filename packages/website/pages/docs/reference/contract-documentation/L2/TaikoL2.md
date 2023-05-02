@@ -167,10 +167,10 @@ This transaction shall be the first transaction in every L2 block.
 function getBasefee(uint32 timeSinceParent, uint64 gasLimit, uint64 parentGasUsed) public view returns (uint256 _basefee)
 ```
 
-### getXchainBlockHash
+### getCrossChainBlockHash
 
 ```solidity
-function getXchainBlockHash(uint256 number) public view returns (bytes32)
+function getCrossChainBlockHash(uint256 number) public view returns (bytes32)
 ```
 
 Returns the cross-chain block hash at the given block number.
@@ -187,10 +187,10 @@ Returns the cross-chain block hash at the given block number.
 | ---- | ------- | --------------------------- |
 | [0]  | bytes32 | The cross-chain block hash. |
 
-### getXchainSignalRoot
+### getCrossChainSignalRoot
 
 ```solidity
-function getXchainSignalRoot(uint256 number) public view returns (bytes32)
+function getCrossChainSignalRoot(uint256 number) public view returns (bytes32)
 ```
 
 Returns the cross-chain signal service storage root at the given

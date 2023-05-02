@@ -554,12 +554,12 @@ func (_TaikoL1 *TaikoL1CallerSession) GetVerifierName(id uint16) (string, error)
 	return _TaikoL1.Contract.GetVerifierName(&_TaikoL1.CallOpts, id)
 }
 
-// GetXchainBlockHash is a free data retrieval call binding the contract method 0xa4e6775f.
+// GetCrossChainBlockHash is a free data retrieval call binding the contract method 0xa4e6775f.
 //
-// Solidity: function getXchainBlockHash(uint256 blockId) view returns(bytes32)
-func (_TaikoL1 *TaikoL1Caller) GetXchainBlockHash(opts *bind.CallOpts, blockId *big.Int) ([32]byte, error) {
+// Solidity: function getCrossChainBlockHash(uint256 blockId) view returns(bytes32)
+func (_TaikoL1 *TaikoL1Caller) GetCrossChainBlockHash(opts *bind.CallOpts, blockId *big.Int) ([32]byte, error) {
 	var out []interface{}
-	err := _TaikoL1.contract.Call(opts, &out, "getXchainBlockHash", blockId)
+	err := _TaikoL1.contract.Call(opts, &out, "getCrossChainBlockHash", blockId)
 
 	if err != nil {
 		return *new([32]byte), err
@@ -571,26 +571,26 @@ func (_TaikoL1 *TaikoL1Caller) GetXchainBlockHash(opts *bind.CallOpts, blockId *
 
 }
 
-// GetXchainBlockHash is a free data retrieval call binding the contract method 0xa4e6775f.
+// GetCrossChainBlockHash is a free data retrieval call binding the contract method 0xa4e6775f.
 //
-// Solidity: function getXchainBlockHash(uint256 blockId) view returns(bytes32)
-func (_TaikoL1 *TaikoL1Session) GetXchainBlockHash(blockId *big.Int) ([32]byte, error) {
-	return _TaikoL1.Contract.GetXchainBlockHash(&_TaikoL1.CallOpts, blockId)
+// Solidity: function getCrossChainBlockHash(uint256 blockId) view returns(bytes32)
+func (_TaikoL1 *TaikoL1Session) GetCrossChainBlockHash(blockId *big.Int) ([32]byte, error) {
+	return _TaikoL1.Contract.GetCrossChainBlockHash(&_TaikoL1.CallOpts, blockId)
 }
 
-// GetXchainBlockHash is a free data retrieval call binding the contract method 0xa4e6775f.
+// GetCrossChainBlockHash is a free data retrieval call binding the contract method 0xa4e6775f.
 //
-// Solidity: function getXchainBlockHash(uint256 blockId) view returns(bytes32)
-func (_TaikoL1 *TaikoL1CallerSession) GetXchainBlockHash(blockId *big.Int) ([32]byte, error) {
-	return _TaikoL1.Contract.GetXchainBlockHash(&_TaikoL1.CallOpts, blockId)
+// Solidity: function getCrossChainBlockHash(uint256 blockId) view returns(bytes32)
+func (_TaikoL1 *TaikoL1CallerSession) GetCrossChainBlockHash(blockId *big.Int) ([32]byte, error) {
+	return _TaikoL1.Contract.GetCrossChainBlockHash(&_TaikoL1.CallOpts, blockId)
 }
 
-// GetXchainSignalRoot is a free data retrieval call binding the contract method 0x609bbd06.
+// GetCrossChainSignalRoot is a free data retrieval call binding the contract method 0x609bbd06.
 //
-// Solidity: function getXchainSignalRoot(uint256 blockId) view returns(bytes32)
-func (_TaikoL1 *TaikoL1Caller) GetXchainSignalRoot(opts *bind.CallOpts, blockId *big.Int) ([32]byte, error) {
+// Solidity: function getCrossChainSignalRoot(uint256 blockId) view returns(bytes32)
+func (_TaikoL1 *TaikoL1Caller) GetCrossChainSignalRoot(opts *bind.CallOpts, blockId *big.Int) ([32]byte, error) {
 	var out []interface{}
-	err := _TaikoL1.contract.Call(opts, &out, "getXchainSignalRoot", blockId)
+	err := _TaikoL1.contract.Call(opts, &out, "getCrossChainSignalRoot", blockId)
 
 	if err != nil {
 		return *new([32]byte), err
@@ -602,18 +602,18 @@ func (_TaikoL1 *TaikoL1Caller) GetXchainSignalRoot(opts *bind.CallOpts, blockId 
 
 }
 
-// GetXchainSignalRoot is a free data retrieval call binding the contract method 0x609bbd06.
+// GetCrossChainSignalRoot is a free data retrieval call binding the contract method 0x609bbd06.
 //
-// Solidity: function getXchainSignalRoot(uint256 blockId) view returns(bytes32)
-func (_TaikoL1 *TaikoL1Session) GetXchainSignalRoot(blockId *big.Int) ([32]byte, error) {
-	return _TaikoL1.Contract.GetXchainSignalRoot(&_TaikoL1.CallOpts, blockId)
+// Solidity: function getCrossChainSignalRoot(uint256 blockId) view returns(bytes32)
+func (_TaikoL1 *TaikoL1Session) GetCrossChainSignalRoot(blockId *big.Int) ([32]byte, error) {
+	return _TaikoL1.Contract.GetCrossChainSignalRoot(&_TaikoL1.CallOpts, blockId)
 }
 
-// GetXchainSignalRoot is a free data retrieval call binding the contract method 0x609bbd06.
+// GetCrossChainSignalRoot is a free data retrieval call binding the contract method 0x609bbd06.
 //
-// Solidity: function getXchainSignalRoot(uint256 blockId) view returns(bytes32)
-func (_TaikoL1 *TaikoL1CallerSession) GetXchainSignalRoot(blockId *big.Int) ([32]byte, error) {
-	return _TaikoL1.Contract.GetXchainSignalRoot(&_TaikoL1.CallOpts, blockId)
+// Solidity: function getCrossChainSignalRoot(uint256 blockId) view returns(bytes32)
+func (_TaikoL1 *TaikoL1CallerSession) GetCrossChainSignalRoot(blockId *big.Int) ([32]byte, error) {
+	return _TaikoL1.Contract.GetCrossChainSignalRoot(&_TaikoL1.CallOpts, blockId)
 }
 
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
@@ -1878,9 +1878,9 @@ func (_TaikoL1 *TaikoL1Filterer) ParseOwnershipTransferred(log types.Log) (*Taik
 	return event, nil
 }
 
-// TaikoL1XchainSyncedIterator is returned from FilterXchainSynced and is used to iterate over the raw logs and unpacked data for XchainSynced events raised by the TaikoL1 contract.
-type TaikoL1XchainSyncedIterator struct {
-	Event *TaikoL1XchainSynced // Event containing the contract specifics and raw log
+// TaikoL1CrossChainSyncedIterator is returned from FilterCrossChainSynced and is used to iterate over the raw logs and unpacked data for CrossChainSynced events raised by the TaikoL1 contract.
+type TaikoL1CrossChainSyncedIterator struct {
+	Event *TaikoL1CrossChainSynced // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -1894,7 +1894,7 @@ type TaikoL1XchainSyncedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *TaikoL1XchainSyncedIterator) Next() bool {
+func (it *TaikoL1CrossChainSyncedIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -1903,7 +1903,7 @@ func (it *TaikoL1XchainSyncedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(TaikoL1XchainSynced)
+			it.Event = new(TaikoL1CrossChainSynced)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -1918,7 +1918,7 @@ func (it *TaikoL1XchainSyncedIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(TaikoL1XchainSynced)
+		it.Event = new(TaikoL1CrossChainSynced)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -1934,53 +1934,53 @@ func (it *TaikoL1XchainSyncedIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *TaikoL1XchainSyncedIterator) Error() error {
+func (it *TaikoL1CrossChainSyncedIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *TaikoL1XchainSyncedIterator) Close() error {
+func (it *TaikoL1CrossChainSyncedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// TaikoL1XchainSynced represents a XchainSynced event raised by the TaikoL1 contract.
-type TaikoL1XchainSynced struct {
+// TaikoL1CrossChainSynced represents a CrossChainSynced event raised by the TaikoL1 contract.
+type TaikoL1CrossChainSynced struct {
 	SrcHeight  *big.Int
 	BlockHash  [32]byte
 	SignalRoot [32]byte
 	Raw        types.Log // Blockchain specific contextual infos
 }
 
-// FilterXchainSynced is a free log retrieval operation binding the contract event 0xc7edd3d480c294297f3924d0ffab64074e7fb22e004ea492d5dd691fa1fc99c0.
+// FilterCrossChainSynced is a free log retrieval operation binding the contract event 0xc7edd3d480c294297f3924d0ffab64074e7fb22e004ea492d5dd691fa1fc99c0.
 //
-// Solidity: event XchainSynced(uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot)
-func (_TaikoL1 *TaikoL1Filterer) FilterXchainSynced(opts *bind.FilterOpts, srcHeight []*big.Int) (*TaikoL1XchainSyncedIterator, error) {
+// Solidity: event CrossChainSynced(uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot)
+func (_TaikoL1 *TaikoL1Filterer) FilterCrossChainSynced(opts *bind.FilterOpts, srcHeight []*big.Int) (*TaikoL1CrossChainSyncedIterator, error) {
 
 	var srcHeightRule []interface{}
 	for _, srcHeightItem := range srcHeight {
 		srcHeightRule = append(srcHeightRule, srcHeightItem)
 	}
 
-	logs, sub, err := _TaikoL1.contract.FilterLogs(opts, "XchainSynced", srcHeightRule)
+	logs, sub, err := _TaikoL1.contract.FilterLogs(opts, "CrossChainSynced", srcHeightRule)
 	if err != nil {
 		return nil, err
 	}
-	return &TaikoL1XchainSyncedIterator{contract: _TaikoL1.contract, event: "XchainSynced", logs: logs, sub: sub}, nil
+	return &TaikoL1CrossChainSyncedIterator{contract: _TaikoL1.contract, event: "CrossChainSynced", logs: logs, sub: sub}, nil
 }
 
-// WatchXchainSynced is a free log subscription operation binding the contract event 0xc7edd3d480c294297f3924d0ffab64074e7fb22e004ea492d5dd691fa1fc99c0.
+// WatchCrossChainSynced is a free log subscription operation binding the contract event 0xc7edd3d480c294297f3924d0ffab64074e7fb22e004ea492d5dd691fa1fc99c0.
 //
-// Solidity: event XchainSynced(uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot)
-func (_TaikoL1 *TaikoL1Filterer) WatchXchainSynced(opts *bind.WatchOpts, sink chan<- *TaikoL1XchainSynced, srcHeight []*big.Int) (event.Subscription, error) {
+// Solidity: event CrossChainSynced(uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot)
+func (_TaikoL1 *TaikoL1Filterer) WatchCrossChainSynced(opts *bind.WatchOpts, sink chan<- *TaikoL1CrossChainSynced, srcHeight []*big.Int) (event.Subscription, error) {
 
 	var srcHeightRule []interface{}
 	for _, srcHeightItem := range srcHeight {
 		srcHeightRule = append(srcHeightRule, srcHeightItem)
 	}
 
-	logs, sub, err := _TaikoL1.contract.WatchLogs(opts, "XchainSynced", srcHeightRule)
+	logs, sub, err := _TaikoL1.contract.WatchLogs(opts, "CrossChainSynced", srcHeightRule)
 	if err != nil {
 		return nil, err
 	}
@@ -1990,8 +1990,8 @@ func (_TaikoL1 *TaikoL1Filterer) WatchXchainSynced(opts *bind.WatchOpts, sink ch
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(TaikoL1XchainSynced)
-				if err := _TaikoL1.contract.UnpackLog(event, "XchainSynced", log); err != nil {
+				event := new(TaikoL1CrossChainSynced)
+				if err := _TaikoL1.contract.UnpackLog(event, "CrossChainSynced", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -2012,12 +2012,12 @@ func (_TaikoL1 *TaikoL1Filterer) WatchXchainSynced(opts *bind.WatchOpts, sink ch
 	}), nil
 }
 
-// ParseXchainSynced is a log parse operation binding the contract event 0xc7edd3d480c294297f3924d0ffab64074e7fb22e004ea492d5dd691fa1fc99c0.
+// ParseCrossChainSynced is a log parse operation binding the contract event 0xc7edd3d480c294297f3924d0ffab64074e7fb22e004ea492d5dd691fa1fc99c0.
 //
-// Solidity: event XchainSynced(uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot)
-func (_TaikoL1 *TaikoL1Filterer) ParseXchainSynced(log types.Log) (*TaikoL1XchainSynced, error) {
-	event := new(TaikoL1XchainSynced)
-	if err := _TaikoL1.contract.UnpackLog(event, "XchainSynced", log); err != nil {
+// Solidity: event CrossChainSynced(uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot)
+func (_TaikoL1 *TaikoL1Filterer) ParseCrossChainSynced(log types.Log) (*TaikoL1CrossChainSynced, error) {
+	event := new(TaikoL1CrossChainSynced)
+	if err := _TaikoL1.contract.UnpackLog(event, "CrossChainSynced", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

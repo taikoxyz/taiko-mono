@@ -6,27 +6,27 @@
 
 pragma solidity ^0.8.18;
 
-import {IXchainSync} from "../../common/IXchainSync.sol";
+import {ICrossChainSync} from "../../common/ICrossChainSync.sol";
 
 // TODO(roger): remove this file. If you need extra functionality in
 // the Bridge contract, create a TestBridge.sol contract instead.
-contract TestXchainSync is IXchainSync {
+contract TestCrossChainSync is ICrossChainSync {
     bytes32 private _blockHash;
     bytes32 private _signalRoot;
 
-    function setXchainBlockHeader(bytes32 blockHash) external {
+    function setCrossChainBlockHeader(bytes32 blockHash) external {
         _blockHash = blockHash;
     }
 
-    function setXchainSignalRoot(bytes32 signalRoot) external {
+    function setCrossChainSignalRoot(bytes32 signalRoot) external {
         _signalRoot = signalRoot;
     }
 
-    function getXchainBlockHash(uint256) external view returns (bytes32) {
+    function getCrossChainBlockHash(uint256) external view returns (bytes32) {
         return _blockHash;
     }
 
-    function getXchainSignalRoot(uint256) external view returns (bytes32) {
+    function getCrossChainSignalRoot(uint256) external view returns (bytes32) {
         return _signalRoot;
     }
 }

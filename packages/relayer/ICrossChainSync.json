@@ -21,7 +21,7 @@
         "type": "bytes32"
       }
     ],
-    "name": "XchainSynced",
+    "name": "CrossChainSynced",
     "type": "event"
   },
   {
@@ -32,7 +32,7 @@
         "type": "uint256"
       }
     ],
-    "name": "getXchainBlockHash",
+    "name": "getCrossChainBlockHash",
     "outputs": [
       {
         "internalType": "bytes32",
@@ -51,7 +51,7 @@
         "type": "uint256"
       }
     ],
-    "name": "getXchainSignalRoot",
+    "name": "getCrossChainSignalRoot",
     "outputs": [
       {
         "internalType": "bytes32",

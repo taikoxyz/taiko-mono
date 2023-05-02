@@ -126,16 +126,16 @@ function getBlock(uint256 blockId) public view returns (bytes32 _metaHash, uint2
 function getForkChoice(uint256 blockId, bytes32 parentHash, uint32 parentGasUsed) public view returns (struct TaikoData.ForkChoice)
 ```
 
-### getXchainBlockHash
+### getCrossChainBlockHash
 
 ```solidity
-function getXchainBlockHash(uint256 blockId) public view returns (bytes32)
+function getCrossChainBlockHash(uint256 blockId) public view returns (bytes32)
 ```
 
-### getXchainSignalRoot
+### getCrossChainSignalRoot
 
 ```solidity
-function getXchainSignalRoot(uint256 blockId) public view returns (bytes32)
+function getCrossChainSignalRoot(uint256 blockId) public view returns (bytes32)
 ```
 
 ### getStateVariables

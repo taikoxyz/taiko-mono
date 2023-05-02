@@ -1,6 +1,6 @@
 import { Contract, ethers } from 'ethers';
 import { RLP } from 'ethers/lib/utils.js';
-import HeaderSyncABI from '../constants/abi/IXchainSync';
+import HeaderSyncABI from '../constants/abi/ICrossChainSync';
 import type { Block, BlockHeader } from '../domain/block';
 import type {
   Prover,
@@ -36,7 +36,7 @@ export class ProofService implements Prover {
     contract: ethers.Contract,
     provider: ethers.providers.StaticJsonRpcProvider,
   ): Promise<{ block: Block; blockHeader: BlockHeader }> {
-    const latestSyncedHeader = await contract.getXchainBlockHash(0);
+    const latestSyncedHeader = await contract.getCrossChainBlockHash(0);
 
     const block: Block = await provider.send('eth_getBlockByHash', [
       latestSyncedHeader,

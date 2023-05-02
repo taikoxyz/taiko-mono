@@ -13,7 +13,7 @@ type HeaderSyncer struct {
 	Fail bool
 }
 
-func (h *HeaderSyncer) GetXchainBlockHash(opts *bind.CallOpts, number *big.Int) ([32]byte, error) {
+func (h *HeaderSyncer) GetCrossChainBlockHash(opts *bind.CallOpts, number *big.Int) ([32]byte, error) {
 	if h.Fail {
 		return [32]byte{}, errors.New("fail")
 	}

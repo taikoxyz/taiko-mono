@@ -11,8 +11,8 @@ pragma solidity ^0.8.18;
  * the methods needed to access the block hashes of the other chain.
  */
 
-interface IXchainSync {
-    event XchainSynced(
+interface ICrossChainSync {
+    event CrossChainSynced(
         uint256 indexed srcHeight,
         bytes32 blockHash,
         bytes32 signalRoot
@@ -23,7 +23,9 @@ interface IXchainSync {
      * @param number The block number. Use 0 for the latest block.
      * @return The cross-chain block hash.
      */
-    function getXchainBlockHash(uint256 number) external view returns (bytes32);
+    function getCrossChainBlockHash(
+        uint256 number
+    ) external view returns (bytes32);
 
     /**
      * @notice Returns the cross-chain signal service storage root at the given
@@ -31,7 +33,7 @@ interface IXchainSync {
      * @param number The block number. Use 0 for the latest block.
      * @return The cross-chain signal service storage root.
      */
-    function getXchainSignalRoot(
+    function getCrossChainSignalRoot(
         uint256 number
     ) external view returns (bytes32);
 }

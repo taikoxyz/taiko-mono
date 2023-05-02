@@ -7,7 +7,7 @@
 pragma solidity ^0.8.18;
 
 import {EssentialContract} from "../common/EssentialContract.sol";
-import {IXchainSync} from "../common/IXchainSync.sol";
+import {ICrossChainSync} from "../common/ICrossChainSync.sol";
 import {LibL2Consts} from "./LibL2Consts.sol";
 import {LibMath} from "../libs/LibMath.sol";
 import {Lib1559Math} from "../libs/Lib1559Math.sol";
@@ -16,7 +16,7 @@ import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
-contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
+contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     using SafeCastUpgradeable for uint256;
     using LibMath for uint256;
 
@@ -178,7 +178,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         latestSyncedL1Height = l1Height;
         _l1VerifiedBlocks[l1Height] = VerifiedBlock(l1Hash, l1SignalRoot);
 
-        emit XchainSynced(l1Height, l1Hash, l1SignalRoot);
+        emit CrossChainSynced(l1Height, l1Hash, l1SignalRoot);
 
         // Check EIP-1559 basefee
         uint256 basefee;
@@ -225,14 +225,14 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         (_basefee, ) = _calcBasefee(timeSinceParent, gasLimit, parentGasUsed);
     }
 
-    function getXchainBlockHash(
+    function getCrossChainBlockHash(
         uint256 number
     ) public view override returns (bytes32) {
         uint256 _number = number == 0 ? latestSyncedL1Height : number;
         return _l1VerifiedBlocks[_number].blockHash;
     }
 
-    function getXchainSignalRoot(
+    function getCrossChainSignalRoot(
         uint256 number
     ) public view override returns (bytes32) {
         uint256 _number = number == 0 ? latestSyncedL1Height : number;

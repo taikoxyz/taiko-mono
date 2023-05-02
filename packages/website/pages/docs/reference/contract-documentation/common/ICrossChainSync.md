@@ -1,22 +1,22 @@
 ---
-title: IXchainSync
+title: ICrossChainSync
 ---
 
-## IXchainSync
+## ICrossChainSync
 
 Interface implemented by both the TaikoL1 and TaikoL2 contracts. It exposes
 the methods needed to access the block hashes of the other chain.
 
-### XchainSynced
+### CrossChainSynced
 
 ```solidity
-event XchainSynced(uint256 srcHeight, bytes32 blockHash, bytes32 signalRoot)
+event CrossChainSynced(uint256 srcHeight, bytes32 blockHash, bytes32 signalRoot)
 ```
 
-### getXchainBlockHash
+### getCrossChainBlockHash
 
 ```solidity
-function getXchainBlockHash(uint256 number) external view returns (bytes32)
+function getCrossChainBlockHash(uint256 number) external view returns (bytes32)
 ```
 
 Returns the cross-chain block hash at the given block number.
@@ -33,10 +33,10 @@ Returns the cross-chain block hash at the given block number.
 | ---- | ------- | --------------------------- |
 | [0]  | bytes32 | The cross-chain block hash. |
 
-### getXchainSignalRoot
+### getCrossChainSignalRoot
 
 ```solidity
-function getXchainSignalRoot(uint256 number) external view returns (bytes32)
+function getCrossChainSignalRoot(uint256 number) external view returns (bytes32)
 ```
 
 Returns the cross-chain signal service storage root at the given
