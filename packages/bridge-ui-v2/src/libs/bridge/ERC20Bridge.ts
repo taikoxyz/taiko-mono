@@ -7,8 +7,8 @@ import { MessageStatusError } from '../message/MessageStatusError'
 import { type Message, MessageStatus } from '../message/types'
 import type { Prover } from '../prover'
 import type { GenerateProofArgs, GenerateReleaseProofArgs } from '../prover/types'
-import { AllowanceError } from './AllowanceError'
-import type { ApproveArgs, ClaimArgs, ERC20BridgeArgs, ReleaseArgs, Bridge } from './types'
+import { AllowanceError, AllowanceErrorCause } from './AllowanceError'
+import type { ApproveArgs, Bridge, ClaimArgs, ERC20BridgeArgs, ReleaseArgs } from './types'
 
 export class ERC20Bridge implements Bridge {
   private readonly prover: Prover
@@ -71,7 +71,9 @@ export class ERC20Bridge implements Bridge {
     )
 
     if (!requiresAllowance) {
-      throw new AllowanceError('TokenVault has already allowance')
+      throw new AllowanceError('TokenVault has already allowance', {
+        cause: AllowanceErrorCause.ALREADY_HAS_ALLOWANCE,
+      })
     }
 
     const contract = new Contract(args.tokenAddress, ERC20_ABI, args.signer)
@@ -107,7 +109,9 @@ export class ERC20Bridge implements Bridge {
     )
 
     if (requiresAllowance) {
-      throw new AllowanceError('TokenVault requires allowance')
+      throw new AllowanceError('TokenVault requires allowance', {
+        cause: AllowanceErrorCause.REQUIRES_ALLOWANCE,
+      })
     }
 
     const { tokenVaultContract, message } = await ERC20Bridge._prepareTransaction(args)

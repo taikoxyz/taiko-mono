@@ -125,6 +125,8 @@ export class ETHBridge implements Bridge {
               { gasLimit: 1e6 }, // TODO: magic number
             )
           } else {
+            // TODO: should be have a custom error here?
+            //       UnknownError with { cause: error }
             throw error
           }
         }

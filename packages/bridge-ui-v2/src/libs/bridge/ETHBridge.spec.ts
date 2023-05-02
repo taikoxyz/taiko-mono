@@ -1,4 +1,4 @@
-import { BigNumber, Contract, ethers, type Signer, type Transaction } from 'ethers'
+import { BigNumber, Contract, errors, ethers, type Signer, type Transaction } from 'ethers'
 
 import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID } from '$env/static/public'
 
@@ -109,7 +109,6 @@ describe('ETHBridge', () => {
   beforeAll(() => {
     Prover.prototype.generateProof = vi.fn().mockResolvedValue(mockProof)
     Prover.prototype.generateReleaseProof = vi.fn().mockResolvedValue(mockProof)
-    vi.mocked(Contract.prototype.processMessage).mockResolvedValue(mockTransaction)
     vi.mocked(Contract.prototype.releaseEther).mockResolvedValue(mockTransaction)
   })
 
@@ -118,6 +117,7 @@ describe('ETHBridge', () => {
     vi.mocked(Prover.prototype.generateReleaseProof).mockClear()
     vi.mocked(Contract.prototype.sendMessage).mockClear()
     vi.mocked(Contract.prototype.estimateGas.sendMessage).mockClear()
+    vi.mocked(Contract.prototype.processMessage).mockReset().mockResolvedValue(mockTransaction)
     vi.mocked(Contract.prototype.getMessageStatus).mockResolvedValue(MessageStatus.New)
   })
 
@@ -281,6 +281,31 @@ describe('ETHBridge', () => {
 
     const mockedProcessMessage = vi.mocked(Contract.prototype.processMessage)
     expect(mockedProcessMessage).toHaveBeenCalledWith(mockClaimArgs.message, mockProof)
+  })
+
+  it('should try to claim ETH again if UNPREDICTABLE_GAS_LIMIT occurred', async () => {
+    vi.mocked(Contract.prototype.processMessage)
+      // First call throws UNPREDICTABLE_GAS_LIMIT
+      .mockImplementationOnce(() => {
+        class ErrorWithCode extends Error {
+          code = errors.UNPREDICTABLE_GAS_LIMIT
+        }
+
+        throw new ErrorWithCode()
+      })
+      // Second call succeeds
+      .mockImplementationOnce(() => Promise.resolve(mockTransaction))
+
+    const prover = new Prover(providers)
+    const bridge = new ETHBridge(prover, chains)
+
+    await bridge.claim(mockClaimArgs)
+
+    const mockedProcessMessage = vi.mocked(Contract.prototype.processMessage)
+    expect(mockedProcessMessage).toHaveBeenCalledTimes(2)
+    expect(mockedProcessMessage).toHaveBeenLastCalledWith(mockClaimArgs.message, mockProof, {
+      gasLimit: 1e6,
+    })
   })
 
   it('should fail claiming if the message status is something else', async () => {
