@@ -97,6 +97,8 @@ library LibVerifying {
             ++i;
         }
 
+        address oracleProver = resolver.resolve("oracle_prover", true);
+
         while (i < state.numBlocks && processed < maxBlocks) {
             blk = state.blocks[i % config.ringBufferSize];
             assert(blk.blockId == i);
@@ -107,10 +109,14 @@ library LibVerifying {
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
 
-            if (
-                fc.prover == address(0) || // oracle proof
-                block.timestamp < fc.provenAt + config.proofCooldownPeriod // too young
-            ) break;
+            if (fc.prover == address(0)) break;
+
+            uint256 proofCooldownPeriod = oracleProver == address(0) ||
+                fc.prover == oracleProver
+                ? 0
+                : config.proofCooldownPeriod;
+
+            if (block.timestamp < fc.provenAt + proofCooldownPeriod) break;
 
             blockHash = fc.blockHash;
             gasUsed = fc.gasUsed;
