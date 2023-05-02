@@ -46,7 +46,7 @@ export default function Hero() {
                 A <span className="text-[#fc0fc0]">Type 1</span> ZK-EVM
               </h1>
               <p className="font-oxanium mt-3 text-lg text-neutral-600 sm:text-xl md:mt-5 dark:text-neutral-100">
-                Fully decentralized, Ethereum-equivalent ZK-Rollup.
+                Decentralized, Ethereum-equivalent ZK-Rollup.
               </p>
               <div className="mt-10 flex md:justify-left">
                 <div className="inline-flex rounded-md shadow">
