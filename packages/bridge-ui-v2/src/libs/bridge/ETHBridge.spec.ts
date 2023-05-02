@@ -20,6 +20,7 @@ vi.mock('ethers', async () => {
   MockContract.prototype = {
     getMessageStatus: vi.fn(),
     processMessage: vi.fn(),
+    retryMessage: vi.fn(),
     releaseEther: vi.fn(),
     sendMessage: vi.fn(),
     estimateGas: {
@@ -110,6 +111,7 @@ describe('ETHBridge', () => {
     Prover.prototype.generateProof = vi.fn().mockResolvedValue(mockProof)
     Prover.prototype.generateReleaseProof = vi.fn().mockResolvedValue(mockProof)
     vi.mocked(Contract.prototype.releaseEther).mockResolvedValue(mockTransaction)
+    vi.mocked(Contract.prototype.retryMessage).mockResolvedValue(mockTransaction)
   })
 
   beforeEach(() => {
@@ -306,6 +308,29 @@ describe('ETHBridge', () => {
     expect(mockedProcessMessage).toHaveBeenLastCalledWith(mockClaimArgs.message, mockProof, {
       gasLimit: 1e6,
     })
+  })
+
+  it('should throw an error if processMessage throws', async () => {
+    vi.mocked(Contract.prototype.processMessage).mockImplementationOnce(() => {
+      throw new Error('Unknwon error')
+    })
+
+    const prover = new Prover(providers)
+    const bridge = new ETHBridge(prover, chains)
+
+    await expect(bridge.claim(mockClaimArgs)).rejects.toThrow('Unknwon error')
+  })
+
+  it('should retry claiming if the message status Retriable', async () => {
+    vi.mocked(Contract.prototype.getMessageStatus).mockResolvedValue(MessageStatus.Retriable)
+
+    const prover = new Prover(providers)
+    const bridge = new ETHBridge(prover, chains)
+
+    await bridge.claim(mockClaimArgs)
+
+    const mockedRetryMessage = vi.mocked(Contract.prototype.retryMessage)
+    expect(mockedRetryMessage).toHaveBeenCalledWith(mockClaimArgs.message, true)
   })
 
   it('should fail claiming if the message status is something else', async () => {
