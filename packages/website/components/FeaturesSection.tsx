@@ -12,15 +12,15 @@ const features = [
     icon: ArrowPathIcon,
   },
   {
-    name: "Fully open source",
+    name: "Open source",
     description:
       "Taiko's code is open source and available on GitHub. Free to use and modify the source code with the permissive license.",
     icon: ScaleIcon,
   },
   {
-    name: "Fully decentralized",
+    name: "Decentralized",
     description:
-      "Fully decentralized and permissionless nodes, proposers, and provers. Anyone can participate in Taiko.",
+      "Decentralized and permissionless nodes, proposers, and provers. Anyone can participate in Taiko.",
     icon: GlobeAltIcon,
   },
 ];
