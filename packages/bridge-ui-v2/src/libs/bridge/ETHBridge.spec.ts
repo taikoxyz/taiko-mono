@@ -1,15 +1,15 @@
-import { BigNumber, Contract, ethers, type Signer } from 'ethers'
+import { BigNumber, Contract, ethers, type Signer, type Transaction } from 'ethers'
 
 import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID } from '$env/static/public'
 
 import { chains } from '../chain'
-import { MessageOwnerError } from '../message/MessageOwnerError'
-import { MessageStatusError } from '../message/MessageStatusError'
+import { MessageOwnerError, MessageOwnerErrorCause } from '../message/MessageOwnerError'
+import { MessageStatusError, MessageStatusErrorCause } from '../message/MessageStatusError'
 import { type Message, MessageStatus } from '../message/types'
 import { Prover } from '../prover'
 import { providers } from '../provider'
 import { ETHBridge } from './ETHBridge'
-import type { ClaimArgs, ETHBridgeArgs } from './types'
+import type { ClaimArgs, ETHBridgeArgs, ReleaseArgs } from './types'
 
 vi.mock('$env/static/public')
 
@@ -19,6 +19,8 @@ vi.mock('ethers', async () => {
   const MockContract = vi.fn()
   MockContract.prototype = {
     getMessageStatus: vi.fn(),
+    processMessage: vi.fn(),
+    releaseEther: vi.fn(),
     sendMessage: vi.fn(),
     estimateGas: {
       sendMessage: vi.fn().mockResolvedValue(10),
@@ -78,17 +80,45 @@ const mockProvider = { send: vi.fn() }
 providers[PUBLIC_L1_CHAIN_ID] = mockProvider as any
 providers[PUBLIC_L2_CHAIN_ID] = mockProvider as any
 
-const mockChain = {}
+const mockReleaseArgs: ReleaseArgs = {
+  ...mockClaimArgs,
+  destProvider: mockProvider as any,
+  srcTokenVaultAddress: '0x123',
+}
+
+const mockChain = {
+  xChainSyncAddress: '0x123',
+  signalServiceAddress: '0x123',
+}
 
 chains[PUBLIC_L1_CHAIN_ID] = mockChain as any
 chains[PUBLIC_L2_CHAIN_ID] = mockChain as any
 
+const mockProof = '0x123'
+
+const mockTransaction: Transaction = {
+  nonce: 123,
+  gasLimit: BigNumber.from(123),
+  data: '',
+  value: BigNumber.from(123),
+  chainId: 123,
+}
+
 // TODO
 describe('ETHBridge', () => {
+  beforeAll(() => {
+    Prover.prototype.generateProof = vi.fn().mockResolvedValue(mockProof)
+    Prover.prototype.generateReleaseProof = vi.fn().mockResolvedValue(mockProof)
+    vi.mocked(Contract.prototype.processMessage).mockResolvedValue(mockTransaction)
+    vi.mocked(Contract.prototype.releaseEther).mockResolvedValue(mockTransaction)
+  })
+
   beforeEach(() => {
+    vi.mocked(Prover.prototype.generateProof).mockClear()
+    vi.mocked(Prover.prototype.generateReleaseProof).mockClear()
     vi.mocked(Contract.prototype.sendMessage).mockClear()
     vi.mocked(Contract.prototype.estimateGas.sendMessage).mockClear()
-    vi.mocked(Contract.prototype.getMessageStatus).mockResolvedValue(() => MessageStatus.New)
+    vi.mocked(Contract.prototype.getMessageStatus).mockResolvedValue(MessageStatus.New)
   })
 
   it('should estimate gas to bridge ETH', async () => {
@@ -193,11 +223,12 @@ describe('ETHBridge', () => {
       expect(true).toBe(false) // should not reach here
     } catch (error) {
       expect(error).instanceOf(MessageOwnerError)
+      expect(error).toHaveProperty('cause', MessageOwnerErrorCause.NO_MESSAGE_OWNER)
     }
   })
 
   it('should fail claiming if the message status is Done', async () => {
-    vi.mocked(Contract.prototype.getMessageStatus).mockResolvedValue(() => MessageStatus.Done)
+    vi.mocked(Contract.prototype.getMessageStatus).mockResolvedValue(MessageStatus.Done)
 
     const prover = new Prover(providers)
     const bridge = new ETHBridge(prover, chains)
@@ -207,11 +238,12 @@ describe('ETHBridge', () => {
       expect(true).toBeFalsy()
     } catch (error) {
       expect(error).instanceOf(MessageStatusError)
+      expect(error).toHaveProperty('cause', MessageStatusErrorCause.MESSAGE_ALREADY_PROCESSED)
     }
   })
 
   it('should fail claiming if the message status is Failed', async () => {
-    vi.mocked(Contract.prototype.getMessageStatus).mockResolvedValue(() => MessageStatus.Failed)
+    vi.mocked(Contract.prototype.getMessageStatus).mockResolvedValue(MessageStatus.Failed)
 
     const prover = new Prover(providers)
     const bridge = new ETHBridge(prover, chains)
@@ -221,6 +253,127 @@ describe('ETHBridge', () => {
       expect(true).toBeFalsy()
     } catch (error) {
       expect(error).instanceOf(MessageStatusError)
+      expect(error).toHaveProperty('cause', MessageStatusErrorCause.MESSAGE_ALREADY_FAILED)
+    }
+  })
+
+  it('should claim ETH', async () => {
+    const prover = new Prover(providers)
+    const bridge = new ETHBridge(prover, chains)
+
+    const tx = await bridge.claim(mockClaimArgs)
+
+    // Did it return the transaction? (no error occurred)
+    expect(tx).toEqual(mockTransaction)
+
+    // Did it call the right methods with the right arguments?
+
+    const mockedGenerateProof = vi.mocked(Prover.prototype.generateProof)
+    expect(mockedGenerateProof).toHaveBeenCalledWith({
+      msgHash: mockClaimArgs.msgHash,
+      sender: mockClaimArgs.srcBridgeAddress,
+      srcChainId: mockClaimArgs.message.srcChainId,
+      destChainId: mockClaimArgs.message.destChainId,
+      srcBridgeAddress: mockClaimArgs.srcBridgeAddress,
+      destXChainSyncAddress: mockChain.xChainSyncAddress,
+      srcSignalServiceAddress: mockChain.signalServiceAddress,
+    })
+
+    const mockedProcessMessage = vi.mocked(Contract.prototype.processMessage)
+    expect(mockedProcessMessage).toHaveBeenCalledWith(mockClaimArgs.message, mockProof)
+  })
+
+  it('should fail claiming if the message status is something else', async () => {
+    vi.mocked(Contract.prototype.getMessageStatus).mockResolvedValue(999)
+
+    const prover = new Prover(providers)
+    const bridge = new ETHBridge(prover, chains)
+
+    try {
+      await bridge.claim(mockClaimArgs)
+      expect(true).toBeFalsy()
+    } catch (error) {
+      expect(error).instanceOf(MessageStatusError)
+      expect(error).toHaveProperty('cause', MessageStatusErrorCause.UNEXPECTED_MESSAGE_STATUS)
+    }
+  })
+
+  it('should fail releasing if not the owner of the message', async () => {
+    const prover = new Prover(providers)
+    const bridge = new ETHBridge(prover, chains)
+
+    const mockReleaseArgsWithDifferentOwner = {
+      ...mockReleaseArgs,
+      message: {
+        ...mockClaimArgs.message,
+        owner: '0x321', // different from signer address 0x123
+      },
+    }
+
+    try {
+      await bridge.release(mockReleaseArgsWithDifferentOwner)
+      expect(true).toBeFalsy()
+    } catch (error) {
+      expect(error).instanceOf(MessageOwnerError)
+      expect(error).toHaveProperty('cause', MessageOwnerErrorCause.NO_MESSAGE_OWNER)
+    }
+  })
+
+  it('should fail releasing if the message status is Done', async () => {
+    vi.mocked(Contract.prototype.getMessageStatus).mockResolvedValue(MessageStatus.Done)
+
+    const prover = new Prover(providers)
+    const bridge = new ETHBridge(prover, chains)
+
+    try {
+      await bridge.claim(mockReleaseArgs)
+      expect(true).toBeFalsy()
+    } catch (error) {
+      expect(error).instanceOf(MessageStatusError)
+      expect(error).toHaveProperty('cause', MessageStatusErrorCause.MESSAGE_ALREADY_PROCESSED)
+    }
+  })
+
+  it('should release ETH', async () => {
+    vi.mocked(Contract.prototype.getMessageStatus).mockResolvedValue(MessageStatus.Failed)
+
+    const prover = new Prover(providers)
+    const bridge = new ETHBridge(prover, chains)
+
+    const tx = await bridge.release(mockReleaseArgs)
+
+    // Did it return the transaction? (no error occurred)
+    expect(tx).toEqual(mockTransaction)
+
+    // Did it call the right methods with the right arguments?
+
+    const mockedGenerateReleaseProof = vi.mocked(Prover.prototype.generateReleaseProof)
+    expect(mockedGenerateReleaseProof).toHaveBeenCalledWith({
+      srcChainId: mockReleaseArgs.message.srcChainId,
+      destChainId: mockReleaseArgs.message.destChainId,
+      msgHash: mockReleaseArgs.msgHash,
+      sender: mockReleaseArgs.srcBridgeAddress,
+      destBridgeAddress: mockReleaseArgs.destBridgeAddress,
+      destXChainSyncAddress: mockChain.xChainSyncAddress,
+      srcXChainSyncAddress: mockChain.xChainSyncAddress,
+    })
+
+    const mockedReleaseEther = vi.mocked(Contract.prototype.releaseEther)
+    expect(mockedReleaseEther).toHaveBeenCalledWith(mockReleaseArgs.message, mockProof)
+  })
+
+  it('should fail releasing if the message status is something else', async () => {
+    vi.mocked(Contract.prototype.getMessageStatus).mockResolvedValue(999)
+
+    const prover = new Prover(providers)
+    const bridge = new ETHBridge(prover, chains)
+
+    try {
+      await bridge.release(mockReleaseArgs)
+      expect(true).toBeFalsy()
+    } catch (error) {
+      expect(error).instanceOf(MessageStatusError)
+      expect(error).toHaveProperty('cause', MessageStatusErrorCause.UNEXPECTED_MESSAGE_STATUS)
     }
   })
 })

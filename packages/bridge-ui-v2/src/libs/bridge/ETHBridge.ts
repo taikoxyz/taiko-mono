@@ -2,8 +2,8 @@ import { BigNumber, Contract, errors, type Transaction } from 'ethers'
 
 import { BRIDGE_ABI } from '../../abi'
 import type { ChainsRecord } from '../chain/types'
-import { MessageOwnerError } from '../message/MessageOwnerError'
-import { MessageStatusError } from '../message/MessageStatusError'
+import { MessageOwnerError, MessageOwnerErrorCause } from '../message/MessageOwnerError'
+import { MessageStatusError, MessageStatusErrorCause } from '../message/MessageStatusError'
 import { type Message, MessageStatus } from '../message/types'
 import type { Prover } from '../prover'
 import type { GenerateProofArgs } from '../prover/types'
@@ -77,7 +77,9 @@ export class ETHBridge implements Bridge {
     const signerAddress = await args.signer.getAddress()
 
     if (args.message.owner.toLowerCase() !== signerAddress.toLowerCase()) {
-      throw new MessageOwnerError('Cannot claim. Not the owner of the message')
+      throw new MessageOwnerError('Cannot claim. Not the owner of the message', {
+        cause: MessageOwnerErrorCause.NO_MESSAGE_OWNER,
+      })
     }
 
     const destBridgeContract = new Contract(args.destBridgeAddress, BRIDGE_ABI, args.signer)
@@ -85,9 +87,13 @@ export class ETHBridge implements Bridge {
 
     switch (messageStatus) {
       case MessageStatus.Done:
-        throw new MessageStatusError('Message already processed')
+        throw new MessageStatusError('Message already processed', {
+          cause: MessageStatusErrorCause.MESSAGE_ALREADY_PROCESSED,
+        })
       case MessageStatus.Failed:
-        throw new MessageStatusError('Message already failed')
+        throw new MessageStatusError('Message already failed', {
+          cause: MessageStatusErrorCause.MESSAGE_ALREADY_FAILED,
+        })
       case MessageStatus.New: {
         const srcChain = this.chains[args.message.srcChainId]
         const destChain = this.chains[args.message.destChainId]
@@ -128,15 +134,19 @@ export class ETHBridge implements Bridge {
       case MessageStatus.Retriable:
         return destBridgeContract.retryMessage(args.message, true)
       default:
-        throw new MessageStatusError(`Unexpected message status: ${messageStatus}`)
+        throw new MessageStatusError(`Unexpected message status: ${messageStatus}`, {
+          cause: MessageStatusErrorCause.UNEXPECTED_MESSAGE_STATUS,
+        })
     }
   }
 
-  async releaseTokens(args: ReleaseArgs): Promise<Transaction | undefined> {
+  async release(args: ReleaseArgs): Promise<Transaction | undefined> {
     const signerAddress = await args.signer.getAddress()
 
     if (args.message.owner.toLowerCase() !== signerAddress.toLowerCase()) {
-      throw new MessageOwnerError('Cannot release. Not the owner of the message')
+      throw new MessageOwnerError('Cannot release. Not the owner of the message', {
+        cause: MessageOwnerErrorCause.NO_MESSAGE_OWNER,
+      })
     }
 
     const destBridgeContract = new Contract(args.destBridgeAddress, BRIDGE_ABI, args.destProvider)
@@ -144,7 +154,9 @@ export class ETHBridge implements Bridge {
 
     switch (messageStatus) {
       case MessageStatus.Done:
-        throw new MessageStatusError('Message already processed')
+        throw new MessageStatusError('Message already processed', {
+          cause: MessageStatusErrorCause.MESSAGE_ALREADY_PROCESSED,
+        })
       case MessageStatus.Failed: {
         const srcChain = this.chains[args.message.srcChainId]
         const destChain = this.chains[args.message.destChainId]
@@ -166,7 +178,9 @@ export class ETHBridge implements Bridge {
         return srcBridgeContract.releaseEther(args.message, proof)
       }
       default:
-        throw new MessageStatusError(`Unexpected message status: ${messageStatus}`)
+        throw new MessageStatusError(`Unexpected message status: ${messageStatus}`, {
+          cause: MessageStatusErrorCause.UNEXPECTED_MESSAGE_STATUS,
+        })
     }
   }
 }

@@ -59,5 +59,5 @@ export interface Bridge {
   // estimateGas(args: BridgeArgs): Promise<BigNumber>
   // bridge(args: BridgeArgs): Promise<Transaction>
   claim(args: ClaimArgs): Promise<Transaction>
-  releaseTokens(args: ReleaseArgs): Promise<Transaction | undefined>
+  release(args: ReleaseArgs): Promise<Transaction | undefined>
 }

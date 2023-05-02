@@ -8,9 +8,9 @@ import { type Message, MessageStatus } from '../message/types'
 import type { Prover } from '../prover'
 import type { GenerateProofArgs, GenerateReleaseProofArgs } from '../prover/types'
 import { AllowanceError } from './AllowanceError'
-import type { ApproveArgs, ClaimArgs, ERC20BridgeArgs, ReleaseArgs } from './types'
+import type { ApproveArgs, ClaimArgs, ERC20BridgeArgs, ReleaseArgs, Bridge } from './types'
 
-export class ERC20Bridge {
+export class ERC20Bridge implements Bridge {
   private readonly prover: Prover
   private readonly chains: ChainsRecord
 
@@ -188,7 +188,7 @@ export class ERC20Bridge {
     }
   }
 
-  async releaseTokens(args: ReleaseArgs): Promise<Transaction | undefined> {
+  async release(args: ReleaseArgs): Promise<Transaction | undefined> {
     const signerAddress = await args.signer.getAddress()
 
     if (args.message.owner.toLowerCase() !== signerAddress.toLowerCase()) {
