@@ -55,7 +55,7 @@ library LibTokenomics {
     }
 
     /**
-     * Update the block reward for proofs
+     * Get the block reward for a proof
      *
      * @param state The actual state data
      * @param proofTime The actual proof time
