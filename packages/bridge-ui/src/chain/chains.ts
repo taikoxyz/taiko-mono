@@ -26,7 +26,7 @@ export const mainnetChain: Chain = {
   enabled: true,
   icon: Eth,
   bridgeAddress: L1_BRIDGE_ADDRESS,
-  headerSyncAddress: L1_CROSS_CHAIN_SYNC_ADDRESS,
+  crossChainSyncAddress: L1_CROSS_CHAIN_SYNC_ADDRESS,
   explorerUrl: L1_EXPLORER_URL,
   signalServiceAddress: L1_SIGNAL_SERVICE_ADDRESS,
 };
@@ -38,7 +38,7 @@ export const taikoChain: Chain = {
   enabled: true,
   icon: Taiko,
   bridgeAddress: L2_BRIDGE_ADDRESS,
-  headerSyncAddress: L2_CROSS_CHAIN_SYNC_ADDRESS,
+  crossChainSyncAddress: L2_CROSS_CHAIN_SYNC_ADDRESS,
   explorerUrl: L2_EXPLORER_URL,
   signalServiceAddress: L2_SIGNAL_SERVICE_ADDRESS,
 };

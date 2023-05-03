@@ -144,7 +144,7 @@ describe('prover tests', () => {
         srcBridgeAddress: ethers.constants.AddressZero,
         srcChain: srcChain,
         destChain: destChain,
-        destHeaderSyncAddress: ethers.constants.AddressZero,
+        destCrossChainSyncAddress: ethers.constants.AddressZero,
         srcSignalServiceAddress: ethers.constants.AddressZero,
       }),
     ).rejects.toThrowError('invalid proof');
@@ -171,7 +171,7 @@ describe('prover tests', () => {
       srcBridgeAddress: ethers.constants.AddressZero,
       srcChain: srcChain,
       destChain: destChain,
-      destHeaderSyncAddress: ethers.constants.AddressZero,
+      destCrossChainSyncAddress: ethers.constants.AddressZero,
       srcSignalServiceAddress: ethers.constants.AddressZero,
     });
     expect(proof).toBe(expectedProof);
@@ -200,7 +200,7 @@ describe('prover tests', () => {
       srcBridgeAddress: ethers.constants.AddressZero,
       srcChain: srcChain,
       destChain: destChain,
-      destHeaderSyncAddress: ethers.constants.AddressZero,
+      destCrossChainSyncAddress: ethers.constants.AddressZero,
       srcSignalServiceAddress: ethers.constants.AddressZero,
     });
     expect(proof).toBe(expectedProofWithBaseFee);
@@ -235,8 +235,8 @@ describe('generate release proof tests', () => {
         destBridgeAddress: ethers.constants.AddressZero,
         srcChain: srcChain,
         destChain: destChain,
-        destHeaderSyncAddress: ethers.constants.AddressZero,
-        srcHeaderSyncAddress: ethers.constants.AddressZero,
+        destCrossChainSyncAddress: ethers.constants.AddressZero,
+        srcCrossChainSyncAddress: ethers.constants.AddressZero,
       }),
     ).rejects.toThrowError('invalid proof');
   });
@@ -262,8 +262,8 @@ describe('generate release proof tests', () => {
       destBridgeAddress: ethers.constants.AddressZero,
       srcChain: srcChain,
       destChain: destChain,
-      destHeaderSyncAddress: ethers.constants.AddressZero,
-      srcHeaderSyncAddress: ethers.constants.AddressZero,
+      destCrossChainSyncAddress: ethers.constants.AddressZero,
+      srcCrossChainSyncAddress: ethers.constants.AddressZero,
     });
     expect(proof).toBe(expectedProof);
   });
@@ -291,8 +291,8 @@ describe('generate release proof tests', () => {
       destBridgeAddress: ethers.constants.AddressZero,
       srcChain: srcChain,
       destChain: destChain,
-      destHeaderSyncAddress: ethers.constants.AddressZero,
-      srcHeaderSyncAddress: ethers.constants.AddressZero,
+      destCrossChainSyncAddress: ethers.constants.AddressZero,
+      srcCrossChainSyncAddress: ethers.constants.AddressZero,
     });
     expect(proof).toBe(expectedProofWithBaseFee);
   });
