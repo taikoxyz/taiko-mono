@@ -59,7 +59,7 @@ library LibTokenomics {
      *
      * @param state The actual state data
      * @param proofTime The actual proof time
-     * @return reward Amount of reward given - if blocked is proved and verified
+     * @return reward The reward given for the block proof
      */
     function getProofReward(
         TaikoData.State storage state,
