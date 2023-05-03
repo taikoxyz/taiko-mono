@@ -77,7 +77,7 @@ library LibProving {
                         s := mload(add(data, 64))
                     }
 
-                    // clear the proof before hasing evidence
+                    // clear the proof before hashing evidence
                     evidence.verifierId = 0;
                     evidence.proof = new bytes(0);
 
