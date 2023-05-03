@@ -1,0 +1,32 @@
+{
+  "extends": "./.svelte-kit/tsconfig.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strictNullChecks": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "strict": true,
+
+    // https://github.com/sveltejs/kit/issues/8650
+    "ignoreDeprecations": "5.0",
+
+    // https://vitest.dev/config/#globals
+    "types": ["vitest/globals"]
+  },
+  // Path aliases are handled by https://kit.svelte.dev/docs/configuration#alias
+  //
+  // If you want to overwrite includes/excludes, make sure to copy over the relevant includes/excludes
+  // from the referenced tsconfig.json - TypeScript does not merge them in
+  "exclude": [
+    "../node_modules/**",
+    "./[!ambient.d.ts]**",
+    "../src/service-worker.js",
+    "../src/service-worker.ts",
+    "../src/service-worker.d.ts",
+    "./scripts/**"
+  ]
+}

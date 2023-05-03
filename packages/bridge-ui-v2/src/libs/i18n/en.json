@@ -1,0 +1,10 @@
+{
+  "wallet.button.connect": "Connect Wallet",
+  "wallet.status.disconnected": "Disconnected",
+  "wallet.status.connected": "Connected",
+  "wallet.status.connecting": "Connecting...",
+
+  "processing_fees.recommended": "Recommended",
+  "processing_fees.custom": "Custom",
+  "processing_fees.none": "None"
+}
