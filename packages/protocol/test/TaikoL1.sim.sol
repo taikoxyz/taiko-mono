@@ -15,7 +15,7 @@ import {LibLn} from "./LibLn.sol";
 uint16 constant PROOF_TIME_TARGET = 375; //sec. Approx mainnet scenario
 
 /// @dev Warning: this test will take 7-10 minutes and require 1GB memory.
-///      `pnpm test:sim`
+///      `pnpm sim`
 contract TaikoL1_b is TaikoL1 {
     function getConfig()
         public
