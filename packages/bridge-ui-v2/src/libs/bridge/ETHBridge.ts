@@ -104,7 +104,7 @@ export class ETHBridge implements Bridge {
           srcChainId: args.message.srcChainId,
           destChainId: args.message.destChainId,
           srcBridgeAddress: args.srcBridgeAddress,
-          destXChainSyncAddress: destChain.xChainSyncAddress,
+          destCrossChainSyncAddress: destChain.crossChainSyncAddress,
           srcSignalServiceAddress: srcChain.signalServiceAddress,
         }
 
@@ -169,8 +169,8 @@ export class ETHBridge implements Bridge {
           msgHash: args.msgHash,
           sender: args.srcBridgeAddress,
           destBridgeAddress: args.destBridgeAddress,
-          destXChainSyncAddress: destChain.xChainSyncAddress,
-          srcXChainSyncAddress: srcChain.xChainSyncAddress,
+          destCrossChainSyncAddress: destChain.crossChainSyncAddress,
+          srcCrossChainSyncAddress: srcChain.crossChainSyncAddress,
         }
 
         const proof = await this.prover.generateReleaseProof(proofArgs)

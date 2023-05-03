@@ -88,7 +88,7 @@ const mockReleaseArgs: ReleaseArgs = {
 }
 
 const mockChain = {
-  xChainSyncAddress: '0x123',
+  crossChainSyncAddress: '0x123',
   signalServiceAddress: '0x123',
 }
 
@@ -277,7 +277,7 @@ describe('ETHBridge', () => {
       srcChainId: mockClaimArgs.message.srcChainId,
       destChainId: mockClaimArgs.message.destChainId,
       srcBridgeAddress: mockClaimArgs.srcBridgeAddress,
-      destXChainSyncAddress: mockChain.xChainSyncAddress,
+      destCrossChainSyncAddress: mockChain.crossChainSyncAddress,
       srcSignalServiceAddress: mockChain.signalServiceAddress,
     })
 
@@ -404,8 +404,8 @@ describe('ETHBridge', () => {
       msgHash: mockReleaseArgs.msgHash,
       sender: mockReleaseArgs.srcBridgeAddress,
       destBridgeAddress: mockReleaseArgs.destBridgeAddress,
-      destXChainSyncAddress: mockChain.xChainSyncAddress,
-      srcXChainSyncAddress: mockChain.xChainSyncAddress,
+      destCrossChainSyncAddress: mockChain.crossChainSyncAddress,
+      srcCrossChainSyncAddress: mockChain.crossChainSyncAddress,
     })
 
     const mockedReleaseEther = vi.mocked(Contract.prototype.releaseEther)

@@ -18,7 +18,7 @@ type GenerateProofCommonArgs = {
   sender: string
   srcChainId: string
   destChainId: string
-  destXChainSyncAddress: string
+  destCrossChainSyncAddress: string
 }
 
 export type GenerateProofArgs = GenerateProofCommonArgs & {
@@ -28,5 +28,5 @@ export type GenerateProofArgs = GenerateProofCommonArgs & {
 
 export type GenerateReleaseProofArgs = GenerateProofCommonArgs & {
   destBridgeAddress: string
-  srcXChainSyncAddress: string
+  srcCrossChainSyncAddress: string
 }

@@ -139,7 +139,7 @@ describe('Prover', () => {
       sender: ethers.constants.AddressZero,
       srcChainId: PUBLIC_L1_CHAIN_ID,
       destChainId: PUBLIC_L2_CHAIN_ID,
-      destXChainSyncAddress: ethers.constants.AddressZero,
+      destCrossChainSyncAddress: ethers.constants.AddressZero,
       srcBridgeAddress: ethers.constants.AddressZero,
       srcSignalServiceAddress: ethers.constants.AddressZero,
     })
@@ -158,7 +158,7 @@ describe('Prover', () => {
       sender: ethers.constants.AddressZero,
       srcChainId: PUBLIC_L1_CHAIN_ID,
       destChainId: PUBLIC_L2_CHAIN_ID,
-      destXChainSyncAddress: ethers.constants.AddressZero,
+      destCrossChainSyncAddress: ethers.constants.AddressZero,
       srcBridgeAddress: ethers.constants.AddressZero,
       srcSignalServiceAddress: ethers.constants.AddressZero,
     })
@@ -177,7 +177,7 @@ describe('Prover', () => {
         sender: ethers.constants.AddressZero,
         srcChainId: PUBLIC_L1_CHAIN_ID,
         destChainId: PUBLIC_L2_CHAIN_ID,
-        destXChainSyncAddress: ethers.constants.AddressZero,
+        destCrossChainSyncAddress: ethers.constants.AddressZero,
         srcBridgeAddress: ethers.constants.AddressZero,
         srcSignalServiceAddress: ethers.constants.AddressZero,
       })
@@ -197,8 +197,8 @@ describe('Prover', () => {
       sender: ethers.constants.AddressZero,
       srcChainId: PUBLIC_L2_CHAIN_ID,
       destChainId: PUBLIC_L1_CHAIN_ID,
-      destXChainSyncAddress: ethers.constants.AddressZero,
-      srcXChainSyncAddress: ethers.constants.AddressZero,
+      destCrossChainSyncAddress: ethers.constants.AddressZero,
+      srcCrossChainSyncAddress: ethers.constants.AddressZero,
       destBridgeAddress: ethers.constants.AddressZero,
     })
 
@@ -216,8 +216,8 @@ describe('Prover', () => {
       sender: ethers.constants.AddressZero,
       srcChainId: PUBLIC_L2_CHAIN_ID,
       destChainId: PUBLIC_L1_CHAIN_ID,
-      destXChainSyncAddress: ethers.constants.AddressZero,
-      srcXChainSyncAddress: ethers.constants.AddressZero,
+      destCrossChainSyncAddress: ethers.constants.AddressZero,
+      srcCrossChainSyncAddress: ethers.constants.AddressZero,
       destBridgeAddress: ethers.constants.AddressZero,
     })
 
@@ -235,8 +235,8 @@ describe('Prover', () => {
         sender: ethers.constants.AddressZero,
         srcChainId: PUBLIC_L2_CHAIN_ID,
         destChainId: PUBLIC_L1_CHAIN_ID,
-        destXChainSyncAddress: ethers.constants.AddressZero,
-        srcXChainSyncAddress: ethers.constants.AddressZero,
+        destCrossChainSyncAddress: ethers.constants.AddressZero,
+        srcCrossChainSyncAddress: ethers.constants.AddressZero,
         destBridgeAddress: ethers.constants.AddressZero,
       })
       expect(true).toBe(false) // this should not be reached

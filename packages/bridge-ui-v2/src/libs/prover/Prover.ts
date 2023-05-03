@@ -87,7 +87,7 @@ export class Prover {
     const srcProvider = this.providers[args.srcChainId]
     const destProvider = this.providers[args.destChainId]
 
-    const destXChainSyncContract = new Contract(args.destXChainSyncAddress, XCHAIN_SYNC_ABI, destProvider)
+    const destXChainSyncContract = new Contract(args.destCrossChainSyncAddress, XCHAIN_SYNC_ABI, destProvider)
 
     const { block, blockHeader } = await Prover._getBlockAndBlockHeader(destXChainSyncContract, srcProvider)
 
@@ -116,7 +116,7 @@ export class Prover {
     const srcProvider = this.providers[args.srcChainId]
     const destProvider = this.providers[args.destChainId]
 
-    const srcXChainSyncContract = new ethers.Contract(args.srcXChainSyncAddress, XCHAIN_SYNC_ABI, srcProvider)
+    const srcXChainSyncContract = new ethers.Contract(args.srcCrossChainSyncAddress, XCHAIN_SYNC_ABI, srcProvider)
 
     const { block, blockHeader } = await Prover._getBlockAndBlockHeader(srcXChainSyncContract, destProvider)
 

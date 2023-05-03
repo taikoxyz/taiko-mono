@@ -4,7 +4,7 @@ export type Chain = {
   rpc: string
   enabled?: boolean
   bridgeAddress: string
-  xChainSyncAddress: string
+  crossChainSyncAddress: string
   explorerUrl: string
   signalServiceAddress: string
 }
