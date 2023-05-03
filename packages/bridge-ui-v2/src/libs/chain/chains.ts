@@ -23,7 +23,7 @@ export const mainnetChain: Chain = {
   rpc: PUBLIC_L1_RPC,
   enabled: true,
   bridgeAddress: PUBLIC_L1_BRIDGE_ADDRESS,
-  headerSyncAddress: PUBLIC_L1_HEADER_SYNC_ADDRESS,
+  crossChainSyncAddress: PUBLIC_L1_HEADER_SYNC_ADDRESS,
   explorerUrl: PUBLIC_L1_EXPLORER_URL,
   signalServiceAddress: PUBLIC_L1_SIGNAL_SERVICE_ADDRESS,
 }
@@ -34,7 +34,7 @@ export const taikoChain: Chain = {
   rpc: PUBLIC_L2_RPC,
   enabled: true,
   bridgeAddress: PUBLIC_L2_BRIDGE_ADDRESS,
-  headerSyncAddress: PUBLIC_L2_HEADER_SYNC_ADDRESS,
+  crossChainSyncAddress: PUBLIC_L2_HEADER_SYNC_ADDRESS,
   explorerUrl: PUBLIC_L2_EXPLORER_URL,
   signalServiceAddress: PUBLIC_L2_SIGNAL_SERVICE_ADDRESS,
 }
