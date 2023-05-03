@@ -91,10 +91,10 @@
 
   $: shouldEnableButton().catch((e) => console.error(e));
   $: mainnetName = import.meta.env
-    ? import.meta.env.VITE_MAINNET_CHAIN_NAME
+    ? import.meta.env.VITE_L1_CHAIN_NAME
     : 'Ethereum A2';
   $: taikonetName = import.meta.env
-    ? import.meta.env.VITE_TAIKO_CHAIN_NAME
+    ? import.meta.env.VITE_L2_CHAIN_NAME
     : 'Taiko A2';
 
   onMount(() => {
