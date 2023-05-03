@@ -98,7 +98,7 @@ contract TaikoL1 is
      *
      * @param blockId The index of the block to prove. This is also used
      *        to select the right implementation version.
-     * @param input An abi-encoded TaikoData.ValidBlockEvidence object.
+     * @param input An abi-encoded TaikoData.BlockEvidence object.
      */
     function proveBlock(
         uint256 blockId,
