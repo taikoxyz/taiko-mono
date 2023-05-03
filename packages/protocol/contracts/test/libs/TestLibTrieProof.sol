@@ -14,14 +14,4 @@ contract TestLibTrieProof {
             sstore(slot, val)
         }
     }
-
-    function verify(
-        bytes32 stateRoot,
-        address addr,
-        bytes32 slot,
-        bytes32 value,
-        bytes calldata mkproof
-    ) public pure returns (bool) {
-        return LibTrieProof.verify(stateRoot, addr, slot, value, mkproof);
-    }
 }

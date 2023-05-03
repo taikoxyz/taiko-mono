@@ -6,273 +6,244 @@
 
 pragma solidity ^0.8.18;
 
+import {AddressResolver} from "../common/AddressResolver.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
-import {IHeaderSync} from "../common/IHeaderSync.sol";
-import {LibAnchorSignature} from "../libs/LibAnchorSignature.sol";
-import {LibSharedConfig} from "../libs/LibSharedConfig.sol";
-import {TaikoData} from "./TaikoData.sol";
-import {TaikoEvents} from "./TaikoEvents.sol";
-import {TaikoCustomErrors} from "./TaikoCustomErrors.sol";
+import {ICrossChainSync} from "../common/ICrossChainSync.sol";
+import {LibEthDepositing} from "./libs/LibEthDepositing.sol";
+import {LibTokenomics} from "./libs/LibTokenomics.sol";
 import {LibProposing} from "./libs/LibProposing.sol";
 import {LibProving} from "./libs/LibProving.sol";
 import {LibUtils} from "./libs/LibUtils.sol";
 import {LibVerifying} from "./libs/LibVerifying.sol";
-import {AddressResolver} from "../common/AddressResolver.sol";
+import {TaikoConfig} from "./TaikoConfig.sol";
+import {TaikoErrors} from "./TaikoErrors.sol";
+import {TaikoData} from "./TaikoData.sol";
+import {TaikoEvents} from "./TaikoEvents.sol";
 
 contract TaikoL1 is
     EssentialContract,
-    IHeaderSync,
+    ICrossChainSync,
     TaikoEvents,
-    TaikoCustomErrors
+    TaikoErrors
 {
     using LibUtils for TaikoData.State;
 
     TaikoData.State public state;
     uint256[100] private __gap;
 
-    modifier onlyFromEOA() {
-        // solhint-disable-next-line avoid-tx-origin
-        if (msg.sender != tx.origin) revert L1_CONTRACT_NOT_ALLOWED();
-        _;
+    receive() external payable {
+        depositEtherToL2();
     }
 
+    /**
+     * Initialize the rollup.
+     *
+     * @param _addressManager The AddressManager address.
+     * @param _genesisBlockHash The block hash of the genesis block.
+     * @param _initBlockFee Initial (reasonable) block fee value.
+     * @param _initProofTimeIssued Initial proof time issued corresponding with the initial block fee.
+     */
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
-        uint256 _feeBase
+        uint64 _initBlockFee,
+        uint64 _initProofTimeIssued
     ) external initializer {
         EssentialContract._init(_addressManager);
         LibVerifying.init({
             state: state,
+            config: getConfig(),
             genesisBlockHash: _genesisBlockHash,
-            config: getConfig(),
-            feeBase: _feeBase
-        });
-    }
-
-    /**
-     * Write a _commit hash_ so a few blocks later a L2 block can be proposed
-     * such that `calculateCommitHash(meta.beneficiary, meta.txListHash)` equals
-     * to this commit hash.
-     *
-     * @param commitSlot A slot to save this commit. Slot 0 will always be reset
-     *                   to zero for refund.
-     * @param commitHash Calculated with:
-     *                  `calculateCommitHash(beneficiary, txListHash)`.
-     */
-    function commitBlock(uint64 commitSlot, bytes32 commitHash) external {
-        LibProposing.commitBlock({
-            state: state,
-            config: getConfig(),
-            commitSlot: commitSlot,
-            commitHash: commitHash
+            initBlockFee: _initBlockFee,
+            initProofTimeIssued: _initProofTimeIssued
         });
     }
 
     /**
      * Propose a Taiko L2 block.
      *
-     * @param inputs A list of data input:
-     *        - inputs[0] is abi-encoded BlockMetadata that the actual L2 block
-     *          header must satisfy.
-     *          Note the following fields in the provided meta object must
-     *          be zeros -- their actual values will be provisioned by Ethereum.
-     *            - id
-     *            - l1Height
-     *            - l1Hash
-     *            - mixHash
-     *            - timestamp
-     *        - inputs[1] is a list of transactions in this block, encoded with
-     *          RLP. Note, in the corresponding L2 block an _anchor transaction_
-     *          will be the first transaction in the block -- if there are
-     *          n transactions in `txList`, then there will be up to n+1
-     *          transactions in the L2 block.
+     * @param input An abi-encoded BlockMetadataInput that the actual L2
+     *        block header must satisfy.
+     * @param txList A list of transactions in this block, encoded with RLP.
+     *        Note, in the corresponding L2 block an _anchor transaction_
+     *        will be the first transaction in the block -- if there are
+     *        `n` transactions in `txList`, then there will be up to `n + 1`
+     *        transactions in the L2 block.
      */
     function proposeBlock(
-        bytes[] calldata inputs
-    ) external onlyFromEOA nonReentrant {
+        bytes calldata input,
+        bytes calldata txList
+    ) external nonReentrant returns (TaikoData.BlockMetadata memory meta) {
         TaikoData.Config memory config = getConfig();
-        LibProposing.proposeBlock({
+        meta = LibProposing.proposeBlock({
             state: state,
             config: config,
             resolver: AddressResolver(this),
-            inputs: inputs
+            input: abi.decode(input, (TaikoData.BlockMetadataInput)),
+            txList: txList
         });
-        LibVerifying.verifyBlocks({
-            state: state,
-            config: config,
-            maxBlocks: config.maxVerificationsPerTx
-        });
+        if (config.maxVerificationsPerTx > 0) {
+            LibVerifying.verifyBlocks({
+                state: state,
+                config: config,
+                resolver: AddressResolver(this),
+                maxBlocks: config.maxVerificationsPerTx
+            });
+        }
     }
 
     /**
-     * Prove a block is valid with a zero-knowledge proof, a transaction
-     * merkel proof, and a receipt merkel proof.
+     * Prove a block with a zero-knowledge proof.
      *
      * @param blockId The index of the block to prove. This is also used
      *        to select the right implementation version.
-     * @param inputs A list of data input:
-     *        - inputs[0] is an abi-encoded object with various information
-     *          regarding  the block to be proven and the actual proofs.
-     *        - inputs[1] is the actual anchor transaction in this L2 block.
-     *          Note that the anchor transaction is always the first transaction
-     *          in the block.
-     *        - inputs[2] is the receipt of the anchor transaction.
+     * @param input An abi-encoded TaikoData.BlockEvidence object.
      */
-
     function proveBlock(
         uint256 blockId,
-        bytes[] calldata inputs
-    ) external onlyFromEOA nonReentrant {
+        bytes calldata input
+    ) external nonReentrant {
         TaikoData.Config memory config = getConfig();
         LibProving.proveBlock({
             state: state,
             config: config,
             resolver: AddressResolver(this),
             blockId: blockId,
-            inputs: inputs
+            evidence: abi.decode(input, (TaikoData.BlockEvidence))
         });
-        LibVerifying.verifyBlocks({
-            state: state,
-            config: config,
-            maxBlocks: config.maxVerificationsPerTx
-        });
-    }
-
-    /**
-     * Prove a block is invalid with a zero-knowledge proof and a receipt
-     * merkel proof.
-     *
-     * @param blockId The index of the block to prove. This is also used to
-     *        select the right implementation version.
-     * @param inputs A list of data input:
-     *        - inputs[0] An Evidence object with various information regarding
-     *          the block to be proven and the actual proofs.
-     *        - inputs[1] The target block to be proven invalid.
-     *        - inputs[2] The receipt for the `invalidBlock` transaction
-     *          on L2. Note that the `invalidBlock` transaction is supposed to
-     *          be the only transaction in the L2 block.
-     */
-    function proveBlockInvalid(
-        uint256 blockId,
-        bytes[] calldata inputs
-    ) external onlyFromEOA nonReentrant {
-        TaikoData.Config memory config = getConfig();
-
-        LibProving.proveBlockInvalid({
-            state: state,
-            config: config,
-            resolver: AddressResolver(this),
-            blockId: blockId,
-            inputs: inputs
-        });
-        LibVerifying.verifyBlocks({
-            state: state,
-            config: config,
-            maxBlocks: config.maxVerificationsPerTx
-        });
+        if (config.maxVerificationsPerTx > 0) {
+            LibVerifying.verifyBlocks({
+                state: state,
+                config: config,
+                resolver: AddressResolver(this),
+                maxBlocks: config.maxVerificationsPerTx
+            });
+        }
     }
 
     /**
      * Verify up to N blocks.
      * @param maxBlocks Max number of blocks to verify.
      */
-    function verifyBlocks(uint256 maxBlocks) external onlyFromEOA nonReentrant {
+    function verifyBlocks(uint256 maxBlocks) external nonReentrant {
         if (maxBlocks == 0) revert L1_INVALID_PARAM();
         LibVerifying.verifyBlocks({
             state: state,
             config: getConfig(),
+            resolver: AddressResolver(this),
             maxBlocks: maxBlocks
         });
     }
 
-    function withdrawBalance() external nonReentrant {
-        LibVerifying.withdrawBalance(state, AddressResolver(this));
+    function depositTaikoToken(uint256 amount) external nonReentrant {
+        LibTokenomics.depositTaikoToken(state, AddressResolver(this), amount);
     }
 
-    function getRewardBalance(address addr) public view returns (uint256) {
-        return state.balances[addr];
+    function withdrawTaikoToken(uint256 amount) external nonReentrant {
+        LibTokenomics.withdrawTaikoToken(state, AddressResolver(this), amount);
     }
 
-    function getBlockFee() public view returns (uint256) {
-        (, uint256 fee, uint256 deposit) = LibProposing.getBlockFee(
+    function depositEtherToL2() public payable {
+        LibEthDepositing.depositEtherToL2(
             state,
-            getConfig()
+            getConfig(),
+            AddressResolver(this)
         );
-        return fee + deposit;
+    }
+
+    function getTaikoTokenBalance(address addr) public view returns (uint256) {
+        return state.taikoTokenBalances[addr];
+    }
+
+    function getBlockFee() public view returns (uint64) {
+        return state.blockFee;
     }
 
     function getProofReward(
         uint64 provenAt,
         uint64 proposedAt
-    ) public view returns (uint256 reward) {
-        (, reward, ) = LibVerifying.getProofReward({
+    ) public view returns (uint64) {
+        return
+            LibTokenomics.getProofReward({
+                state: state,
+                proofTime: provenAt - proposedAt
+            });
+    }
+
+    function getBlock(
+        uint256 blockId
+    )
+        public
+        view
+        returns (bytes32 _metaHash, address _proposer, uint64 _proposedAt)
+    {
+        TaikoData.Block storage blk = LibProposing.getBlock({
             state: state,
             config: getConfig(),
-            provenAt: provenAt,
-            proposedAt: proposedAt
+            blockId: blockId
         });
+        _metaHash = blk.metaHash;
+        _proposer = blk.proposer;
+        _proposedAt = blk.proposedAt;
     }
 
-    function isCommitValid(
-        uint256 commitSlot,
-        uint256 commitHeight,
-        bytes32 commitHash
-    ) public view returns (bool) {
+    function getForkChoice(
+        uint256 blockId,
+        bytes32 parentHash,
+        uint32 parentGasUsed
+    ) public view returns (TaikoData.ForkChoice memory) {
         return
-            LibProposing.isCommitValid(
-                state,
-                getConfig().commitConfirmations,
-                commitSlot,
-                commitHeight,
-                commitHash
-            );
+            LibProving.getForkChoice({
+                state: state,
+                config: getConfig(),
+                blockId: blockId,
+                parentHash: parentHash,
+                parentGasUsed: parentGasUsed
+            });
     }
 
-    function getProposedBlock(
-        uint256 id
-    ) public view returns (TaikoData.ProposedBlock memory) {
-        return
-            LibProposing.getProposedBlock(state, getConfig().maxNumBlocks, id);
-    }
-
-    function getSyncedHeader(
-        uint256 number
+    function getCrossChainBlockHash(
+        uint256 blockId
     ) public view override returns (bytes32) {
-        return state.getL2BlockHash(number, getConfig().blockHashHistory);
+        (bool found, TaikoData.Block storage blk) = LibUtils.getL2ChainData({
+            state: state,
+            config: getConfig(),
+            blockId: blockId
+        });
+        return
+            found
+                ? blk.forkChoices[blk.verifiedForkChoiceId].blockHash
+                : bytes32(0);
     }
 
-    function getLatestSyncedHeader() public view override returns (bytes32) {
+    function getCrossChainSignalRoot(
+        uint256 blockId
+    ) public view override returns (bytes32) {
+        (bool found, TaikoData.Block storage blk) = LibUtils.getL2ChainData({
+            state: state,
+            config: getConfig(),
+            blockId: blockId
+        });
+
         return
-            state.getL2BlockHash(
-                state.latestVerifiedHeight,
-                getConfig().blockHashHistory
-            );
+            found
+                ? blk.forkChoices[blk.verifiedForkChoiceId].signalRoot
+                : bytes32(0);
     }
 
     function getStateVariables()
         public
         view
-        returns (LibUtils.StateVariables memory)
+        returns (TaikoData.StateVariables memory)
     {
         return state.getStateVariables();
     }
 
-    function signWithGoldenTouch(
-        bytes32 hash,
-        uint8 k
-    ) public view returns (uint8 v, uint256 r, uint256 s) {
-        return LibAnchorSignature.signTransaction(hash, k);
-    }
-
-    function getForkChoice(
-        uint256 id,
-        bytes32 parentHash
-    ) public view returns (TaikoData.ForkChoice memory) {
-        return state.forkChoices[id][parentHash];
-    }
-
     function getConfig() public pure virtual returns (TaikoData.Config memory) {
-        return LibSharedConfig.getConfig();
+        return TaikoConfig.getConfig();
+    }
+
+    function getVerifierName(uint16 id) public pure returns (bytes32) {
+        return LibUtils.getVerifierName(id);
     }
 }

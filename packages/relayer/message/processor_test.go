@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/iheadersync"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/icrosschainsync"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/mock"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/repo"
@@ -57,7 +57,7 @@ func Test_NewProcessor(t *testing.T) {
 				DestETHClient:                 &ethclient.Client{},
 				DestBridge:                    &bridge.Bridge{},
 				EventRepo:                     &repo.EventRepository{},
-				DestHeaderSyncer:              &iheadersync.IHeaderSync{},
+				DestHeaderSyncer:              &icrosschainsync.ICrossChainSync{},
 				Confirmations:                 1,
 				ConfirmationsTimeoutInSeconds: 900,
 			},
@@ -73,7 +73,7 @@ func Test_NewProcessor(t *testing.T) {
 				DestETHClient:    &ethclient.Client{},
 				DestBridge:       &bridge.Bridge{},
 				EventRepo:        &repo.EventRepository{},
-				DestHeaderSyncer: &iheadersync.IHeaderSync{},
+				DestHeaderSyncer: &icrosschainsync.ICrossChainSync{},
 				Confirmations:    1,
 			},
 			relayer.ErrInvalidConfirmationsTimeoutInSeconds,
@@ -88,7 +88,7 @@ func Test_NewProcessor(t *testing.T) {
 				DestETHClient:                 &ethclient.Client{},
 				DestBridge:                    &bridge.Bridge{},
 				EventRepo:                     &repo.EventRepository{},
-				DestHeaderSyncer:              &iheadersync.IHeaderSync{},
+				DestHeaderSyncer:              &icrosschainsync.ICrossChainSync{},
 				ConfirmationsTimeoutInSeconds: 900,
 			},
 			relayer.ErrInvalidConfirmations,
@@ -102,7 +102,7 @@ func Test_NewProcessor(t *testing.T) {
 				DestETHClient:                 &ethclient.Client{},
 				DestBridge:                    &bridge.Bridge{},
 				EventRepo:                     &repo.EventRepository{},
-				DestHeaderSyncer:              &iheadersync.IHeaderSync{},
+				DestHeaderSyncer:              &icrosschainsync.ICrossChainSync{},
 				Confirmations:                 1,
 				ConfirmationsTimeoutInSeconds: 900,
 			},
@@ -118,7 +118,7 @@ func Test_NewProcessor(t *testing.T) {
 				DestBridge:                    &bridge.Bridge{},
 				EventRepo:                     &repo.EventRepository{},
 				Confirmations:                 1,
-				DestHeaderSyncer:              &iheadersync.IHeaderSync{},
+				DestHeaderSyncer:              &icrosschainsync.ICrossChainSync{},
 				ConfirmationsTimeoutInSeconds: 900,
 			},
 			relayer.ErrNoProver,
@@ -133,7 +133,7 @@ func Test_NewProcessor(t *testing.T) {
 				DestETHClient:                 &ethclient.Client{},
 				DestBridge:                    &bridge.Bridge{},
 				EventRepo:                     &repo.EventRepository{},
-				DestHeaderSyncer:              &iheadersync.IHeaderSync{},
+				DestHeaderSyncer:              &icrosschainsync.ICrossChainSync{},
 				Confirmations:                 1,
 				ConfirmationsTimeoutInSeconds: 900,
 			},
@@ -148,7 +148,7 @@ func Test_NewProcessor(t *testing.T) {
 				DestETHClient:                 &ethclient.Client{},
 				DestBridge:                    &bridge.Bridge{},
 				EventRepo:                     &repo.EventRepository{},
-				DestHeaderSyncer:              &iheadersync.IHeaderSync{},
+				DestHeaderSyncer:              &icrosschainsync.ICrossChainSync{},
 				Confirmations:                 1,
 				ConfirmationsTimeoutInSeconds: 900,
 			},
@@ -163,7 +163,7 @@ func Test_NewProcessor(t *testing.T) {
 				SrcETHClient:                  &ethclient.Client{},
 				DestBridge:                    &bridge.Bridge{},
 				EventRepo:                     &repo.EventRepository{},
-				DestHeaderSyncer:              &iheadersync.IHeaderSync{},
+				DestHeaderSyncer:              &icrosschainsync.ICrossChainSync{},
 				Confirmations:                 1,
 				ConfirmationsTimeoutInSeconds: 900,
 			},
@@ -178,7 +178,7 @@ func Test_NewProcessor(t *testing.T) {
 				SrcETHClient:                  &ethclient.Client{},
 				DestETHClient:                 &ethclient.Client{},
 				EventRepo:                     &repo.EventRepository{},
-				DestHeaderSyncer:              &iheadersync.IHeaderSync{},
+				DestHeaderSyncer:              &icrosschainsync.ICrossChainSync{},
 				Confirmations:                 1,
 				ConfirmationsTimeoutInSeconds: 900,
 			},
@@ -193,7 +193,7 @@ func Test_NewProcessor(t *testing.T) {
 				SrcETHClient:                  &ethclient.Client{},
 				DestETHClient:                 &ethclient.Client{},
 				DestBridge:                    &bridge.Bridge{},
-				DestHeaderSyncer:              &iheadersync.IHeaderSync{},
+				DestHeaderSyncer:              &icrosschainsync.ICrossChainSync{},
 				Confirmations:                 1,
 				ConfirmationsTimeoutInSeconds: 900,
 			},

@@ -21,6 +21,8 @@
   import { getNumProposers } from "../../utils/getNumProposers";
   import DetailsModal from "../../components/DetailsModal.svelte";
   import { addressSubsection } from "../../utils/addressSubsection";
+  import { getEthDeposits } from "../../utils/getEthDeposits";
+  import { getNextEthDepositToProcess } from "../../utils/getNextEthDepositToProcess";
 
   export let l1Provider: ethers.providers.JsonRpcProvider;
   export let l1TaikoAddress: string;
@@ -177,7 +179,7 @@
       watchStatusFunc: null,
       provider: l1Provider,
       contractAddress: l1TaikoAddress,
-      header: "Pending Blocks",
+      header: "Unverified Blocks",
       intervalInMs: 20000,
       colorFunc: (value: Status) => {
         if (BigNumber.from(value).eq(0)) {
@@ -190,6 +192,36 @@
       },
       tooltip:
         "The amount of pending proposed blocks that have not been proven on the TaikoL1 smart contract.",
+    },
+    {
+      statusFunc: getEthDeposits,
+      watchStatusFunc: null,
+      provider: l1Provider,
+      contractAddress: l1TaikoAddress,
+      header: "ETH Deposits",
+      intervalInMs: 20000,
+      colorFunc: (value: Status) => {
+        if (BigNumber.from(value).eq(0)) {
+          return "green";
+        } else if (BigNumber.from(value).lt(32)) {
+          return "yellow";
+        } else {
+          return "red";
+        }
+      },
+      tooltip: "The number of pending ETH deposits for L1 => L2",
+    },
+    {
+      statusFunc: getNextEthDepositToProcess,
+      watchStatusFunc: null,
+      provider: l1Provider,
+      contractAddress: l1TaikoAddress,
+      header: "Next ETH Deposit",
+      intervalInMs: 20000,
+      colorFunc: (value: Status) => {
+        return "green";
+      },
+      tooltip: "The next ETH deposit that will be processed",
     },
     {
       statusFunc: getGasPrice,
@@ -208,56 +240,56 @@
 
   onMount(async () => {
     try {
-      // statusIndicators.push({
-      //   statusFunc: getBlockFee,
-      //   watchStatusFunc: null,
-      //   provider: l1Provider,
-      //   contractAddress: l1TaikoAddress,
-      //   header: "Block Fee",
-      //   intervalInMs: 15000,
-      //   colorFunc: function (status: Status) {
-      //     return "green"; // todo: whats green, yellow, red?
-      //   },
-      //   tooltip:
-      //     "The current fee to propose a block to the TaikoL1 smart contract.",
-      // });
-      // statusIndicators.push({
-      //   statusFunc: getProofReward,
-      //   watchStatusFunc: null,
-      //   provider: l1Provider,
-      //   contractAddress: l1TaikoAddress,
-      //   header: "Proof Reward",
-      //   intervalInMs: 15000,
-      //   colorFunc: function (status: Status) {
-      //     return "green"; // todo: whats green, yellow, red?
-      //   },
-      //   tooltip:
-      //     "The current reward for successfully submitting a proof for a proposed block on the TaikoL1 smart contract.",
-      // });
+      statusIndicators.push({
+        statusFunc: getBlockFee,
+        watchStatusFunc: null,
+        provider: l1Provider,
+        contractAddress: l1TaikoAddress,
+        header: "Block Fee",
+        intervalInMs: 15000,
+        colorFunc: function (status: Status) {
+          return "green"; // todo: whats green, yellow, red?
+        },
+        tooltip:
+          "The current fee to propose a block to the TaikoL1 smart contract.",
+      });
+      statusIndicators.push({
+        statusFunc: getProofReward,
+        watchStatusFunc: null,
+        provider: l1Provider,
+        contractAddress: l1TaikoAddress,
+        header: "Proof Reward",
+        intervalInMs: 15000,
+        colorFunc: function (status: Status) {
+          return "green"; // todo: whats green, yellow, red?
+        },
+        tooltip:
+          "The current reward for successfully submitting a proof for a proposed block on the TaikoL1 smart contract.",
+      });
     } catch (e) {
       console.error(e);
     }
 
     try {
-      statusIndicators.push({
-        provider: l1Provider,
-        contractAddress: l1TaikoAddress,
-        header: "Latest Proposal",
-        intervalInMs: 5 * 1000,
-        statusFunc: async (
-          provider: ethers.providers.JsonRpcProvider,
-          address: string
-        ) => {
-          const stateVars = await getStateVariables(provider, address);
-          return new Date(
-            stateVars.lastProposedAt.toNumber() * 1000
-          ).toString();
-        },
-        colorFunc: function (status: Status) {
-          return "green"; // todo: whats green, yellow, red?
-        },
-        tooltip: "The most recent block proposal on TaikoL1 contract.",
-      });
+      // statusIndicators.push({
+      //   provider: l1Provider,
+      //   contractAddress: l1TaikoAddress,
+      //   header: "Latest Proposal",
+      //   intervalInMs: 5 * 1000,
+      //   statusFunc: async (
+      //     provider: ethers.providers.JsonRpcProvider,
+      //     address: string
+      //   ) => {
+      //     const stateVars = await getStateVariables(provider, address);
+      //     return new Date(
+      //       stateVars.lastProposedAt.toNumber() * 1000
+      //     ).toString();
+      //   },
+      //   colorFunc: function (status: Status) {
+      //     return "green"; // todo: whats green, yellow, red?
+      //   },
+      //   tooltip: "The most recent block proposal on TaikoL1 contract.",
+      // });
 
       statusIndicators.push({
         provider: l1Provider,
@@ -273,12 +305,18 @@
           const contract = new Contract(address, TaikoL1, provider);
           contract.on(
             "BlockProven",
-            (id, parentHash, blockHash, prover, provenAt, ...args) => {
+            (
+              id,
+              parentHash,
+              blockHash,
+              signalRoot,
+              prover,
+              provenAt,
+              ...args
+            ) => {
               // ignore oracle prover
               if (prover.toLowerCase() !== oracleProverAddress.toLowerCase()) {
-                if (!provenAt.eq(0)) {
-                  onEvent(new Date(provenAt.toNumber() * 1000).toString());
-                }
+                onEvent(new Date().getTime().toString());
               }
             }
           );
@@ -297,7 +335,7 @@
           address: string
         ) => {
           const stateVars = await getStateVariables(provider, address);
-          return `${stateVars.avgProofTime.toNumber()} seconds`;
+          return `${stateVars.proofTimeIssued.toNumber() / 1000} seconds`;
         },
         colorFunc: function (status: Status) {
           return "green"; // todo: whats green, yellow, red?
@@ -308,44 +346,23 @@
           "The current average proof time, updated when a block is successfully proven.",
       });
 
-      statusIndicators.push({
-        provider: l1Provider,
-        contractAddress: l1TaikoAddress,
-        header: "Average Block Time",
-        intervalInMs: 5 * 1000,
-        colorFunc: function (status: Status) {
-          return "green"; // todo: whats green, yellow, red?
-        },
-        statusFunc: async (
-          provider: ethers.providers.JsonRpcProvider,
-          address: string
-        ) => {
-          const stateVars = await getStateVariables(provider, address);
-          return `${stateVars.avgBlockTime.toNumber()} seconds`;
-        },
-        tooltip:
-          "The current average block time, updated when a block is successfully proposed.",
-      });
-
       // statusIndicators.push({
       //   provider: l1Provider,
       //   contractAddress: l1TaikoAddress,
-      //   header: "Fee Base",
-      //   intervalInMs: 0,
+      //   header: "Average Block Time",
+      //   intervalInMs: 5 * 1000,
+      //   colorFunc: function (status: Status) {
+      //     return "green"; // todo: whats green, yellow, red?
+      //   },
       //   statusFunc: async (
       //     provider: ethers.providers.JsonRpcProvider,
       //     address: string
       //   ) => {
       //     const stateVars = await getStateVariables(provider, address);
-      //     return `${truncateString(
-      //       ethers.utils.formatEther(stateVars.feeBase),
-      //       6
-      //     )} ${feeTokenSymbol}`;
+      //     return `${stateVars.avgBlockTime.toNumber()} seconds`;
       //   },
-      //   colorFunc: function (status: Status) {
-      //     return "green"; // todo: whats green, yellow, red?
-      //   },
-      //   tooltip: "The current fee base for proposing and rewarding",
+      //   tooltip:
+      //     "The current average block time, updated when a block is successfully proposed.",
       // });
     } catch (e) {
       console.error(e);

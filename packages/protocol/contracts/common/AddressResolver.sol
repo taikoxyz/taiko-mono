@@ -6,8 +6,8 @@
 
 pragma solidity ^0.8.18;
 
+import {IAddressManager} from "./AddressManager.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {IAddressManager} from "./IAddressManager.sol";
 
 /**
  * This abstract contract provides a name-to-address lookup. Under the hood,
@@ -23,7 +23,7 @@ abstract contract AddressResolver {
     error RESOLVER_DENIED();
     error RESOLVER_INVALID_ADDR();
 
-    modifier onlyFromNamed(string memory name) {
+    modifier onlyFromNamed(bytes32 name) {
         if (msg.sender != resolve(name, false)) revert RESOLVER_DENIED();
         _;
     }
@@ -37,7 +37,7 @@ abstract contract AddressResolver {
      * @return The name's corresponding address.
      */
     function resolve(
-        string memory name,
+        bytes32 name,
         bool allowZeroAddress
     ) public view virtual returns (address payable) {
         return _resolve(block.chainid, name, allowZeroAddress);
@@ -54,7 +54,7 @@ abstract contract AddressResolver {
      */
     function resolve(
         uint256 chainId,
-        string memory name,
+        bytes32 name,
         bool allowZeroAddress
     ) public view virtual returns (address payable) {
         return _resolve(chainId, name, allowZeroAddress);
@@ -76,21 +76,17 @@ abstract contract AddressResolver {
 
     function _resolve(
         uint256 chainId,
-        string memory name,
+        bytes32 name,
         bool allowZeroAddress
     ) private view returns (address payable addr) {
-        bytes memory key = abi.encodePacked(
-            Strings.toString(chainId),
-            ".",
-            name
-        );
-        addr = payable(_addressManager.getAddress(string(key)));
+        addr = payable(_addressManager.getAddress(chainId, name));
+
         if (!allowZeroAddress) {
             // We do not use custom error so this string-based
             // error message is more helpful for diagnosis.
             require(
                 addr != address(0),
-                string(abi.encodePacked("AR:zeroAddr:", key))
+                string(abi.encode("AR:zeroAddr:", chainId, ".", name))
             );
         }
     }

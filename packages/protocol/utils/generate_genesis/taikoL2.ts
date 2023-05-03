@@ -7,7 +7,7 @@ const {
     computeStorageSlots,
     getStorageLayout,
 } = require("@defi-wonderland/smock/dist/src/utils");
-const ARTIFACTS_PATH = path.join(__dirname, "../../artifacts/contracts");
+const ARTIFACTS_PATH = path.join(__dirname, "../../out");
 
 // deployTaikoL2 generates a L2 genesis alloc of the TaikoL2 contract.
 export async function deployTaikoL2(
@@ -40,7 +40,8 @@ export async function deployTaikoL2(
     const contractConfigs: any = await generateContractConfigs(
         contractOwner,
         chainId,
-        config.contractAddresses
+        config.contractAddresses,
+        config.param1559
     );
 
     const storageLayouts: any = {};
@@ -93,50 +94,44 @@ export async function deployTaikoL2(
 async function generateContractConfigs(
     contractOwner: string,
     chainId: number,
-    hardCodedAddresses: any
+    hardCodedAddresses: any,
+    param1559: any
 ): Promise<any> {
     const contractArtifacts: any = {
         // Libraries
         LibTrieProof: require(path.join(
             ARTIFACTS_PATH,
-            "./libs/LibTrieProof.sol/LibTrieProof.json"
+            "./LibTrieProof.sol/LibTrieProof.json"
         )),
         LibBridgeRetry: require(path.join(
             ARTIFACTS_PATH,
-            "./bridge/libs/LibBridgeRetry.sol/LibBridgeRetry.json"
+            "./LibBridgeRetry.sol/LibBridgeRetry.json"
         )),
         LibBridgeProcess: require(path.join(
             ARTIFACTS_PATH,
-            "./bridge/libs/LibBridgeProcess.sol/LibBridgeProcess.json"
-        )),
-        LibTxDecoder: require(path.join(
-            ARTIFACTS_PATH,
-            "./libs/LibTxDecoder.sol/LibTxDecoder.json"
+            "./LibBridgeProcess.sol/LibBridgeProcess.json"
         )),
         // Contracts
         AddressManager: require(path.join(
             ARTIFACTS_PATH,
-            "./thirdparty/AddressManager.sol/AddressManager.json"
+            "./AddressManager.sol/AddressManager.json"
         )),
         TaikoL2: require(path.join(
             ARTIFACTS_PATH,
-            "./L2/TaikoL2.sol/TaikoL2.json"
+            "./TaikoL2.sol/TaikoL2.json"
         )),
-        Bridge: require(path.join(
-            ARTIFACTS_PATH,
-            "./bridge/Bridge.sol/Bridge.json"
-        )),
+        Bridge: require(path.join(ARTIFACTS_PATH, "./Bridge.sol/Bridge.json")),
         TokenVault: require(path.join(
             ARTIFACTS_PATH,
-            "./bridge/TokenVault.sol/TokenVault.json"
+            "./TokenVault.sol/TokenVault.json"
         )),
         EtherVault: require(path.join(
             ARTIFACTS_PATH,
-            "./bridge/EtherVault.sol/EtherVault.json"
+            "./EtherVault.sol/EtherVault.json"
         )),
         SignalService: require(path.join(
             ARTIFACTS_PATH,
-            "./signal/SignalService.sol/SignalService.json"
+            "./SignalService.sol/SignalService.json"
         )),
     };
 
@@ -147,10 +142,6 @@ async function generateContractConfigs(
 
         switch (contractName) {
             case "TaikoL2":
-                if (!addressMap.LibTxDecoder) {
-                    throw new Error("LibTxDecoder not initialized");
-                }
-
                 bytecode = linkContractLibs(
                     contractArtifacts.TaikoL2,
                     addressMap
@@ -219,12 +210,14 @@ async function generateContractConfigs(
         // Libraries
         LibTrieProof: {
             address: addressMap.LibTrieProof,
-            deployedBytecode: contractArtifacts.LibTrieProof.deployedBytecode,
+            deployedBytecode:
+                contractArtifacts.LibTrieProof.deployedBytecode.object,
             variables: {},
         },
         LibBridgeRetry: {
             address: addressMap.LibBridgeRetry,
-            deployedBytecode: contractArtifacts.LibBridgeRetry.deployedBytecode,
+            deployedBytecode:
+                contractArtifacts.LibBridgeRetry.deployedBytecode.object,
             variables: {},
         },
         LibBridgeProcess: {
@@ -235,14 +228,10 @@ async function generateContractConfigs(
             ),
             variables: {},
         },
-        LibTxDecoder: {
-            address: addressMap.LibTxDecoder,
-            deployedBytecode: contractArtifacts.LibTxDecoder.deployedBytecode,
-            variables: {},
-        },
         AddressManager: {
             address: addressMap.AddressManager,
-            deployedBytecode: contractArtifacts.AddressManager.deployedBytecode,
+            deployedBytecode:
+                contractArtifacts.AddressManager.deployedBytecode.object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -251,27 +240,23 @@ async function generateContractConfigs(
                 _owner: contractOwner,
                 // AddressManager
                 addresses: {
-                    // keccak256(abi.encodePacked(_name))
-                    [`${ethers.utils.solidityKeccak256(
-                        ["string"],
-                        [`${chainId}.taiko`]
-                    )}`]: addressMap.TaikoL2,
-                    [`${ethers.utils.solidityKeccak256(
-                        ["string"],
-                        [`${chainId}.bridge`]
-                    )}`]: addressMap.Bridge,
-                    [`${ethers.utils.solidityKeccak256(
-                        ["string"],
-                        [`${chainId}.token_vault`]
-                    )}`]: addressMap.TokenVault,
-                    [`${ethers.utils.solidityKeccak256(
-                        ["string"],
-                        [`${chainId}.ether_vault`]
-                    )}`]: addressMap.EtherVault,
-                    [`${ethers.utils.solidityKeccak256(
-                        ["string"],
-                        [`${chainId}.signal_service`]
-                    )}`]: addressMap.SignalService,
+                    [chainId]: {
+                        [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("taiko")
+                        )]: addressMap.TaikoL2,
+                        [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("bridge")
+                        )]: addressMap.Bridge,
+                        [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("token_vault")
+                        )]: addressMap.TokenVault,
+                        [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("ether_vault")
+                        )]: addressMap.EtherVault,
+                        [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("signal_service")
+                        )]: addressMap.SignalService,
+                    },
                 },
             },
         },
@@ -282,21 +267,28 @@ async function generateContractConfigs(
                 addressMap
             ),
             variables: {
-                // ReentrancyGuardUpgradeable
-                _status: 1, // _NOT_ENTERED
-                // AddressResolver
-                _addressManager: addressMap.AddressManager,
                 // TaikoL2
                 // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
-                _publicInputHash: `${ethers.utils.solidityKeccak256(
-                    ["uint256", "uint256", "uint256", "bytes32[255]"],
+                publicInputHash: `${ethers.utils.solidityKeccak256(
+                    ["bytes32[256]"],
                     [
-                        chainId,
-                        0,
-                        0,
-                        new Array(255).fill(ethers.constants.HashZero),
+                        new Array(255)
+                            .fill(ethers.constants.HashZero)
+                            .concat([
+                                ethers.utils.hexZeroPad(
+                                    ethers.utils.hexlify(chainId),
+                                    32
+                                ),
+                            ]),
                     ]
                 )}`,
+                yscale: ethers.BigNumber.from(param1559.yscale),
+                xscale: ethers.BigNumber.from(param1559.xscale),
+                gasIssuedPerSecond: ethers.BigNumber.from(
+                    param1559.gasIssuedPerSecond
+                ),
+                parentTimestamp: Math.floor(new Date().getTime() / 1000),
+                gasExcess: ethers.BigNumber.from(param1559.gasExcess),
             },
         },
         Bridge: {
@@ -321,7 +313,8 @@ async function generateContractConfigs(
         },
         TokenVault: {
             address: addressMap.TokenVault,
-            deployedBytecode: contractArtifacts.TokenVault.deployedBytecode,
+            deployedBytecode:
+                contractArtifacts.TokenVault.deployedBytecode.object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -336,7 +329,8 @@ async function generateContractConfigs(
         },
         EtherVault: {
             address: addressMap.EtherVault,
-            deployedBytecode: contractArtifacts.EtherVault.deployedBytecode,
+            deployedBytecode:
+                contractArtifacts.EtherVault.deployedBytecode.object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -377,10 +371,10 @@ async function generateContractConfigs(
 // Ref: https://docs.soliditylang.org/en/latest/using-the-compiler.html#library-linking
 function linkContractLibs(artifact: any, addressMap: any) {
     const linkedBytecode: string = linker.linkBytecode(
-        artifact.deployedBytecode,
+        artifact.deployedBytecode.object,
         getLinkLibs(
             artifact,
-            linker.findLinkReferences(artifact.deployedBytecode),
+            linker.findLinkReferences(artifact.deployedBytecode.object),
             addressMap
         )
     );
@@ -397,7 +391,7 @@ function linkContractLibs(artifact: any, addressMap: any) {
 function getLinkLibs(artifact: any, linkRefs: any, addressMap: any) {
     const result: any = {};
 
-    Object.values(artifact.deployedLinkReferences).forEach(
+    Object.values(artifact.deployedBytecode.linkReferences).forEach(
         (linkReference: any) => {
             const contractName = Object.keys(linkReference)[0];
             const linkRefKey: any = Object.keys(linkRefs).find(

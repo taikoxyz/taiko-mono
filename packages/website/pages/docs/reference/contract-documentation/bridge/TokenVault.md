@@ -98,12 +98,6 @@ error TOKENVAULT_INVALID_TO()
 error TOKENVAULT_INVALID_VALUE()
 ```
 
-### TOKENVAULT_INVALID_CALL_VALUE
-
-```solidity
-error TOKENVAULT_INVALID_CALL_VALUE()
-```
-
 ### TOKENVAULT_INVALID_TOKEN
 
 ```solidity
@@ -151,26 +145,6 @@ error TOKENVAULT_INVALID_SENDER()
 ```solidity
 function init(address addressManager) external
 ```
-
-### sendEther
-
-```solidity
-function sendEther(uint256 destChainId, address to, uint256 gasLimit, uint256 processingFee, address refundAddress, string memo) external payable
-```
-
-Receives Ether and constructs a Bridge message. Sends the Ether and
-message along to the Bridge.
-
-#### Parameters
-
-| Name          | Type    | Description                 |
-| ------------- | ------- | --------------------------- |
-| destChainId   | uint256 | @custom:see IBridge.Message |
-| to            | address | @custom:see IBridge.Message |
-| gasLimit      | uint256 | @custom:see IBridge.Message |
-| processingFee | uint256 | @custom:see IBridge.Message |
-| refundAddress | address | @custom:see IBridge.Message |
-| memo          | string  | @custom:see IBridge.Message |
 
 ### sendERC20
 

@@ -1,12 +1,11 @@
-import { BigNumber, Contract, ethers } from "ethers";
-import TaikoL1 from "../constants/abi/TaikoL1";
+import { BigNumber, ethers } from "ethers";
+import { getStateVariables } from "./getStateVariables";
 
 export const getNextBlockId = async (
   provider: ethers.providers.JsonRpcProvider,
   contractAddress: string
 ): Promise<number> => {
-  const contract: Contract = new Contract(contractAddress, TaikoL1, provider);
-  const stateVariables = await contract.getStateVariables();
-  const nextBlockId = stateVariables.nextBlockId;
+  const stateVariables = await getStateVariables(provider, contractAddress);
+  const nextBlockId = stateVariables.numBlocks;
   return BigNumber.from(nextBlockId).toNumber();
 };

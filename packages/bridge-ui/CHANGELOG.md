@@ -52,20 +52,18 @@
 
 ## [0.3.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.2.0...bridge-ui-v0.3.0) (2023-03-15)
 
-
 ### Features
 
-* **bridge-ui:** custom recipient address ([#13309](https://github.com/taikoxyz/taiko-mono/issues/13309)) ([56d8848](https://github.com/taikoxyz/taiko-mono/commit/56d884812b3f12a52895bc666cb25e6edbe6eba0))
-* **bridge-ui:** fetch transactions from relayer api ([#13244](https://github.com/taikoxyz/taiko-mono/issues/13244)) ([9732cc0](https://github.com/taikoxyz/taiko-mono/commit/9732cc084ed99196a4cd2ccedf9187af4d289ed6))
-* **bridge-ui:** support both bull and horse tokens on the bridge UI ([#13249](https://github.com/taikoxyz/taiko-mono/issues/13249)) ([f9f38bb](https://github.com/taikoxyz/taiko-mono/commit/f9f38bb075c02c7976e0d04c84e4b8b5ac255644))
-* **bridge-ui:** support route param to directly open transactions tab ([#13281](https://github.com/taikoxyz/taiko-mono/issues/13281)) ([b4c31cd](https://github.com/taikoxyz/taiko-mono/commit/b4c31cd8566b834cbf83a434c705fb281d375d12))
-
+- **bridge-ui:** custom recipient address ([#13309](https://github.com/taikoxyz/taiko-mono/issues/13309)) ([56d8848](https://github.com/taikoxyz/taiko-mono/commit/56d884812b3f12a52895bc666cb25e6edbe6eba0))
+- **bridge-ui:** fetch transactions from relayer api ([#13244](https://github.com/taikoxyz/taiko-mono/issues/13244)) ([9732cc0](https://github.com/taikoxyz/taiko-mono/commit/9732cc084ed99196a4cd2ccedf9187af4d289ed6))
+- **bridge-ui:** support both bull and horse tokens on the bridge UI ([#13249](https://github.com/taikoxyz/taiko-mono/issues/13249)) ([f9f38bb](https://github.com/taikoxyz/taiko-mono/commit/f9f38bb075c02c7976e0d04c84e4b8b5ac255644))
+- **bridge-ui:** support route param to directly open transactions tab ([#13281](https://github.com/taikoxyz/taiko-mono/issues/13281)) ([b4c31cd](https://github.com/taikoxyz/taiko-mono/commit/b4c31cd8566b834cbf83a434c705fb281d375d12))
 
 ### Bug Fixes
 
-* **bridge-ui:** minor transactions list fix ([#13266](https://github.com/taikoxyz/taiko-mono/issues/13266)) ([4e78865](https://github.com/taikoxyz/taiko-mono/commit/4e788655ebd508eca3e1665ecb50f3010d2f51af))
-* **bridge-ui:** transaction and pendingTransaction refactor ([#13307](https://github.com/taikoxyz/taiko-mono/issues/13307)) ([9d215cf](https://github.com/taikoxyz/taiko-mono/commit/9d215cfe5ac6863405390444672a1e70e7501032))
-* **website,bridge-ui:** broken docs link + remove deprecated note in docs ([#13259](https://github.com/taikoxyz/taiko-mono/issues/13259)) ([912c155](https://github.com/taikoxyz/taiko-mono/commit/912c15595d7b0e3e2b4ec62fbcebeaf9dbc9db66))
+- **bridge-ui:** minor transactions list fix ([#13266](https://github.com/taikoxyz/taiko-mono/issues/13266)) ([4e78865](https://github.com/taikoxyz/taiko-mono/commit/4e788655ebd508eca3e1665ecb50f3010d2f51af))
+- **bridge-ui:** transaction and pendingTransaction refactor ([#13307](https://github.com/taikoxyz/taiko-mono/issues/13307)) ([9d215cf](https://github.com/taikoxyz/taiko-mono/commit/9d215cfe5ac6863405390444672a1e70e7501032))
+- **website,bridge-ui:** broken docs link + remove deprecated note in docs ([#13259](https://github.com/taikoxyz/taiko-mono/issues/13259)) ([912c155](https://github.com/taikoxyz/taiko-mono/commit/912c15595d7b0e3e2b4ec62fbcebeaf9dbc9db66))
 
 ## [0.2.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.1.2...bridge-ui-v0.2.0) (2023-03-01)
 
