@@ -1,14 +1,14 @@
 import { ethers } from "ethers";
 import { Result } from "./interface";
 const path = require("path");
-const ARTIFACTS_PATH = path.join(__dirname, "../../artifacts/contracts");
+const ARTIFACTS_PATH = path.join(__dirname, "../../out");
 const {
     computeStorageSlots,
     getStorageLayout,
 } = require("@defi-wonderland/smock/dist/src/utils");
 
-export const TOKEN_NAME = "PredeployERC20";
-export const TOKEN_SYMBOL = "PRE";
+export const TOKEN_NAME = "RegularERC20";
+export const TOKEN_SYMBOL = "RGL";
 export const PREMINT_SEED_ACCOUNT_BALANCE = ethers.BigNumber.from(1024000);
 
 // deployERC20 generates a L2 genesis alloc of an ERC-20 contract,
@@ -24,8 +24,10 @@ export async function deployERC20(
 
     const artifact = require(path.join(
         ARTIFACTS_PATH,
-        "./test/thirdparty/TestERC20.sol/TestERC20.json"
+        "./RegularERC20.sol/RegularERC20.json"
     ));
+
+    artifact.contractName = "RegularERC20";
 
     let address: string;
     if (
@@ -58,7 +60,7 @@ export async function deployERC20(
     alloc[address] = {
         contractName: artifact.contractName,
         storage: {},
-        code: artifact.deployedBytecode,
+        code: artifact.deployedBytecode.object,
         balance: "0x0",
     };
 

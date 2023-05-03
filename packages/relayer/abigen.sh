@@ -5,9 +5,9 @@ if [ ! -d "../protocol/artifacts" ]; then
     exit 1
 fi
 
-paths=("bridge/TokenVault.sol" "bridge/Bridge.sol" "common/IHeaderSync.sol" "L2/TaikoL2.sol" "L1/TaikoL1.sol")
+paths=("bridge/TokenVault.sol" "bridge/Bridge.sol" "common/ICrossChainSync.sol" "L2/TaikoL2.sol" "L1/TaikoL1.sol")
 
-names=("TokenVault" "Bridge" "IHeaderSync" "TaikoL2" "TaikoL1")
+names=("TokenVault" "Bridge" "ICrossChainSync" "TaikoL2" "TaikoL1")
 
 for (( i = 0; i < ${#paths[@]}; ++i ));
 do

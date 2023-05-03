@@ -27,18 +27,15 @@ library LibTrieProof {
      *********************/
 
     /**
-     * Verifies that the value of a slot in the storage tree of `addr`
-     * is `value`.
+     * Verifies that the value of a slot in the storage of an account is value.
      *
-     * @param stateRoot The merkle root of state tree.
-     * @param addr The contract address.
+     * @param stateRoot The merkle root of state tree..
      * @param slot The slot in the contract.
      * @param value The value to be verified.
-     * @param mkproof The proof obtained by encoding state proof and storage
-     *        proof.
+     * @param mkproof The proof obtained by encoding storage proof.
      * @return verified The verification result.
      */
-    function verify(
+    function verifyWithAccountProof(
         bytes32 stateRoot,
         address addr,
         bytes32 slot,

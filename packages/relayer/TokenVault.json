@@ -21,11 +21,6 @@
   },
   {
     "inputs": [],
-    "name": "TOKENVAULT_INVALID_CALL_VALUE",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "TOKENVAULT_INVALID_OWNER",
     "type": "error"
   },
@@ -677,44 +672,6 @@
       }
     ],
     "name": "sendERC20",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "destChainId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "gasLimit",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "processingFee",
-        "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "refundAddress",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "memo",
-        "type": "string"
-      }
-    ],
-    "name": "sendEther",
     "outputs": [],
     "stateMutability": "payable",
     "type": "function"
