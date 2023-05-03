@@ -246,4 +246,8 @@ contract TaikoL1 is
     function getVerifierName(uint16 id) public pure returns (bytes32) {
         return LibUtils.getVerifierName(id);
     }
+
+    function getOracleProver() public view returns (address) {
+        return AddressResolver(this).resolve("oracle_prover", true);
+    }
 }
