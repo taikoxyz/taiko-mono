@@ -93,8 +93,7 @@ contract TaikoL1 is
     }
 
     /**
-     * Prove a block is valid with a zero-knowledge proof, a transaction
-     * merkel proof, and a receipt merkel proof.
+     * Prove a block with a zero-knowledge proof.
      *
      * @param blockId The index of the block to prove. This is also used
      *        to select the right implementation version.
@@ -176,12 +175,7 @@ contract TaikoL1 is
     )
         public
         view
-        returns (
-            bytes32 _metaHash,
-            uint256 _deposit,
-            address _proposer,
-            uint64 _proposedAt
-        )
+        returns (bytes32 _metaHash, address _proposer, uint64 _proposedAt)
     {
         TaikoData.Block storage blk = LibProposing.getBlock({
             state: state,
@@ -189,7 +183,6 @@ contract TaikoL1 is
             blockId: blockId
         });
         _metaHash = blk.metaHash;
-        _deposit = blk.deposit;
         _proposer = blk.proposer;
         _proposedAt = blk.proposedAt;
     }

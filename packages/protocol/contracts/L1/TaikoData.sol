@@ -103,7 +103,6 @@ library TaikoData {
         mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
         uint64 blockId;
         uint64 proposedAt;
-        uint64 deposit;
         uint24 nextForkChoiceId;
         uint24 verifiedForkChoiceId;
         bytes32 metaHash;

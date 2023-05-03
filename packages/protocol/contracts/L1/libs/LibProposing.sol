@@ -84,7 +84,6 @@ library LibProposing {
 
         blk.blockId = state.numBlocks;
         blk.proposedAt = meta.timestamp;
-        blk.deposit = 0;
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = 0;
         blk.metaHash = LibUtils.hashMetadata(meta);

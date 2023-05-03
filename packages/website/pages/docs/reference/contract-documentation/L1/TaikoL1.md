@@ -26,12 +26,12 @@ Initialize the rollup.
 
 #### Parameters
 
-| Name                  | Type    | Description                                                  |
-| --------------------- | ------- | ------------------------------------------------------------ |
-| \_addressManager      | address | The AddressManager address.                                  |
-| \_genesisBlockHash    | bytes32 | The block hash of the genesis block.                         |
-| \_initBlockFee        | uint64  | Initial (reasonable) block fee value.                        |
-| \_initProofTimeIssued | uint64  | Initial proof time which keeps the inflow/outflow in balance |
+| Name                  | Type    | Description                                                         |
+| --------------------- | ------- | ------------------------------------------------------------------- |
+| \_addressManager      | address | The AddressManager address.                                         |
+| \_genesisBlockHash    | bytes32 | The block hash of the genesis block.                                |
+| \_initBlockFee        | uint64  | Initial (reasonable) block fee value.                               |
+| \_initProofTimeIssued | uint64  | Initial proof time issued corresponding with the initial block fee. |
 
 ### proposeBlock
 
@@ -54,15 +54,14 @@ Propose a Taiko L2 block.
 function proveBlock(uint256 blockId, bytes input) external
 ```
 
-Prove a block is valid with a zero-knowledge proof, a transaction
-merkel proof, and a receipt merkel proof.
+Prove a block with a zero-knowledge proof.
 
 #### Parameters
 
 | Name    | Type    | Description                                                                                    |
 | ------- | ------- | ---------------------------------------------------------------------------------------------- |
 | blockId | uint256 | The index of the block to prove. This is also used to select the right implementation version. |
-| input   | bytes   | An abi-encoded TaikoData.ValidBlockEvidence object.                                            |
+| input   | bytes   | An abi-encoded TaikoData.BlockEvidence object.                                                 |
 
 ### verifyBlocks
 
@@ -117,7 +116,7 @@ function getProofReward(uint64 provenAt, uint64 proposedAt) public view returns 
 ### getBlock
 
 ```solidity
-function getBlock(uint256 blockId) public view returns (bytes32 _metaHash, uint256 _deposit, address _proposer, uint64 _proposedAt)
+function getBlock(uint256 blockId) public view returns (bytes32 _metaHash, address _proposer, uint64 _proposedAt)
 ```
 
 ### getForkChoice
