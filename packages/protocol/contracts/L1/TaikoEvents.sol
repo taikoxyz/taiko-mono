@@ -18,8 +18,7 @@ abstract contract TaikoEvents {
         bytes32 blockHash,
         bytes32 signalRoot,
         address prover,
-        uint32 parentGasUsed,
-        uint32 gasUsed
+        uint32 parentGasUsed
     );
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash);

@@ -20,8 +20,7 @@ library LibProving {
         bytes32 blockHash,
         bytes32 signalRoot,
         address prover,
-        uint32 parentGasUsed,
-        uint32 gasUsed
+        uint32 parentGasUsed
     );
 
     error L1_ALREADY_PROVEN();
@@ -202,8 +201,7 @@ library LibProving {
             blockHash: evidence.blockHash,
             signalRoot: evidence.signalRoot,
             prover: evidence.prover,
-            parentGasUsed: evidence.parentGasUsed,
-            gasUsed: evidence.gasUsed
+            parentGasUsed: evidence.parentGasUsed
         });
     }
 
