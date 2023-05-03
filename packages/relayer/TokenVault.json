@@ -578,9 +578,14 @@
   {
     "inputs": [
       {
-        "internalType": "string",
+        "internalType": "uint256",
+        "name": "chainId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
         "name": "name",
-        "type": "string"
+        "type": "bytes32"
       },
       {
         "internalType": "bool",
@@ -602,14 +607,9 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "chainId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "string",
+        "internalType": "bytes32",
         "name": "name",
-        "type": "string"
+        "type": "bytes32"
       },
       {
         "internalType": "bool",
