@@ -31,7 +31,9 @@ Object.entries(jsonFilesMap).forEach(([name, jsonPath]) => {
     );
   } catch (e) {
     if (e.code === 'ENOENT') {
-      console.log(`File not found: ${e.path}`);
+      console.error(`File not found: ${e.path}`);
+    } else {
+      console.error('Something really bad happened 😱', e);
     }
   }
 });
