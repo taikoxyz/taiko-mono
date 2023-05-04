@@ -7,7 +7,6 @@
     "packages/protocol": {},
     "packages/relayer": {},
     "packages/status-page": {},
-    "packages/tokenomics": {},
     "packages/website": {},
     "packages/whitepaper": {}
   }
