@@ -123,8 +123,8 @@ export class ETHBridge implements Bridge {
         sender: opts.srcBridgeAddress,
         srcBridgeAddress: opts.srcBridgeAddress,
         destChain: opts.message.destChainId,
-        destHeaderSyncAddress:
-          chains[opts.message.destChainId].headerSyncAddress,
+        destCrossChainSyncAddress:
+          chains[opts.message.destChainId].crossChainSyncAddress,
         srcSignalServiceAddress:
           chains[opts.message.srcChainId].signalServiceAddress,
       };
@@ -179,9 +179,10 @@ export class ETHBridge implements Bridge {
         sender: opts.srcBridgeAddress,
         destBridgeAddress: opts.destBridgeAddress,
         destChain: opts.message.destChainId,
-        destHeaderSyncAddress:
-          chains[opts.message.destChainId].headerSyncAddress,
-        srcHeaderSyncAddress: chains[opts.message.srcChainId].headerSyncAddress,
+        destCrossChainSyncAddress:
+          chains[opts.message.destChainId].crossChainSyncAddress,
+        srcCrossChainSyncAddress:
+          chains[opts.message.srcChainId].crossChainSyncAddress,
       };
 
       const proof = await this.prover.generateReleaseProof(proofOpts);

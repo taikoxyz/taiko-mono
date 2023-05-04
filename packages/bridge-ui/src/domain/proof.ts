@@ -18,7 +18,7 @@ export type GenerateProofOpts = {
   sender: string;
   srcBridgeAddress: string;
   destChain: number;
-  destHeaderSyncAddress: string;
+  destCrossChainSyncAddress: string;
   srcChain: number;
   srcSignalServiceAddress: string;
 };
@@ -28,8 +28,8 @@ export type GenerateReleaseProofOpts = {
   sender: string;
   destBridgeAddress: string;
   destChain: number;
-  destHeaderSyncAddress: string;
-  srcHeaderSyncAddress: string;
+  destCrossChainSyncAddress: string;
+  srcCrossChainSyncAddress: string;
   srcChain: number;
 };
 

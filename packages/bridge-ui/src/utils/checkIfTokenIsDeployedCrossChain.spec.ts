@@ -30,7 +30,7 @@ describe('checkIfTokenIsDeployedCrossChain', () => {
     explorerUrl: '',
     signalServiceAddress: '',
     bridgeAddress: '0x1234567890',
-    headerSyncAddress: '0x0987654321',
+    crossChainSyncAddress: '0x0987654321',
   };
 
   const fromChain: Chain = {
@@ -40,7 +40,7 @@ describe('checkIfTokenIsDeployedCrossChain', () => {
     explorerUrl: '',
     signalServiceAddress: '',
     bridgeAddress: '0x9876543210',
-    headerSyncAddress: '0x0123456789',
+    crossChainSyncAddress: '0x0123456789',
   };
 
   it('should return false when the token is ETH', async () => {
