@@ -175,7 +175,7 @@
     if (transaction.status !== MessageStatus.New) return true;
 
     const contract = new Contract(
-      chains[transaction.toChainId].headerSyncAddress,
+      chains[transaction.toChainId].crossChainSyncAddress,
       HeaderSyncABI,
       providers[chains[transaction.toChainId].id],
     );
