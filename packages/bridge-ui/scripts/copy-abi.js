@@ -16,7 +16,7 @@ const jsonFilesMap = {
   FreeMintERC20: '/contracts/test/erc20/FreeMintERC20.sol/FreeMintERC20.json',
 };
 
-Object.entries(jsonFilesMap).map(([name, jsonPath]) => {
+Object.entries(jsonFilesMap).forEach(([name, jsonPath]) => {
   try {
     const jsonStr = fs.readFileSync(protocolAbiPath + jsonPath, {
       encoding: 'utf8',
