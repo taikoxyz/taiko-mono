@@ -1,11 +1,11 @@
-import { fetchSigner, switchNetwork } from '@wagmi/core';
+import { switchNetwork } from '@wagmi/core';
 import { ethers } from 'ethers';
 import { fromChain, toChain } from '../store/chain';
 import type { Chain } from '../domain/chain';
 import { mainnetChain, taikoChain } from '../chain/chains';
 import { signer } from '../store/signer';
 
-export async function switchChainAndSetSigner(chain: Chain) {
+export async function selectChain(chain: Chain) {
   const chainId = chain.id;
 
   await switchNetwork({ chainId });
@@ -14,6 +14,8 @@ export async function switchChainAndSetSigner(chain: Chain) {
     globalThis.ethereum,
     'any',
   );
+
+  // Triggers the connect request
   await provider.send('eth_requestAccounts', []);
 
   fromChain.set(chain);
@@ -23,7 +25,5 @@ export async function switchChainAndSetSigner(chain: Chain) {
     toChain.set(mainnetChain);
   }
 
-  const wagmiSigner = await fetchSigner({ chainId });
-
-  signer.set(wagmiSigner);
+  signer.set(provider.getSigner());
 }
