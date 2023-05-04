@@ -1,16 +1,6 @@
 [
   {
     "inputs": [],
-    "name": "L1_1559_X_SCALE_TOO_LARGE",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_1559_Y_SCALE_TOO_LARGE",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "L1_ALREADY_PROVEN",
     "type": "error"
   },
@@ -32,11 +22,6 @@
   {
     "inputs": [],
     "name": "L1_BLOCK_ID",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_CONTRACT_NOT_ALLOWED",
     "type": "error"
   },
   {
@@ -79,11 +64,6 @@
   {
     "inputs": [],
     "name": "L1_FORK_CHOICE_NOT_FOUND",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_INSUFFICIENT_ETHER",
     "type": "error"
   },
   {
@@ -118,7 +98,7 @@
   },
   {
     "inputs": [],
-    "name": "L1_INVALID_EVIDENCE",
+    "name": "L1_INVALID_ETH_DEPOSIT",
     "type": "error"
   },
   {
@@ -128,7 +108,7 @@
   },
   {
     "inputs": [],
-    "name": "L1_INVALID_L21559_PARAMS",
+    "name": "L1_INVALID_EVIDENCE",
     "type": "error"
   },
   {
@@ -168,22 +148,22 @@
   },
   {
     "inputs": [],
-    "name": "L1_NOT_SOLO_PROPOSER",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_NOT_SOLO_PROPOSER",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "L1_ORACLE_DISABLED",
     "type": "error"
   },
   {
     "inputs": [],
     "name": "L1_ORACLE_DISABLED",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "L1_SAME_PROOF",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "L1_SAME_PROOF",
     "type": "error"
   },
   {
@@ -414,6 +394,31 @@
     "anonymous": false,
     "inputs": [
       {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "srcHeight",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "blockHash",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "signalRoot",
+        "type": "bytes32"
+      }
+    ],
+    "name": "CrossChainSynced",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
         "components": [
           {
             "internalType": "address",
@@ -468,31 +473,6 @@
     "type": "event"
   },
   {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "srcHeight",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "blockHash",
-        "type": "bytes32"
-      },
-      {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "signalRoot",
-        "type": "bytes32"
-      }
-    ],
-    "name": "CrossChainSynced",
-    "type": "event"
-  },
-  {
     "inputs": [],
     "name": "addressManager",
     "outputs": [
@@ -541,11 +521,6 @@
         "type": "bytes32"
       },
       {
-        "internalType": "uint256",
-        "name": "_deposit",
-        "type": "uint256"
-      },
-      {
         "internalType": "address",
         "name": "_proposer",
         "type": "address"
@@ -590,7 +565,7 @@
           },
           {
             "internalType": "uint256",
-            "name": "maxVerificationsPerTx",
+            "name": "ringBufferSize",
             "type": "uint256"
           },
           {
@@ -629,6 +604,21 @@
             "type": "uint256"
           },
           {
+            "internalType": "uint256",
+            "name": "realProofSkipSize",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "ethDepositGas",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "ethDepositMaxFee",
+            "type": "uint256"
+          },
+          {
             "internalType": "uint64",
             "name": "minEthDepositsPerBlock",
             "type": "uint64"
@@ -662,11 +652,6 @@
             "internalType": "bool",
             "name": "relaySignalRoot",
             "type": "bool"
-          },
-          {
-            "internalType": "bool",
-            "name": "enableSoloProposer",
-            "type": "bool"
           }
         ],
         "internalType": "struct TaikoData.Config",
@@ -675,6 +660,44 @@
       }
     ],
     "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "blockId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getCrossChainBlockHash",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "blockId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getCrossChainSignalRoot",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -770,7 +793,7 @@
         "components": [
           {
             "internalType": "uint64",
-            "name": "basefee",
+            "name": "blockFee",
             "type": "uint64"
           },
           {
@@ -857,50 +880,12 @@
     "name": "getVerifierName",
     "outputs": [
       {
-        "internalType": "string",
+        "internalType": "bytes32",
         "name": "",
-        "type": "string"
+        "type": "bytes32"
       }
     ],
     "stateMutability": "pure",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "blockId",
-        "type": "uint256"
-      }
-    ],
-    "name": "getCrossChainBlockHash",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "blockId",
-        "type": "uint256"
-      }
-    ],
-    "name": "getCrossChainSignalRoot",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -917,7 +902,7 @@
       },
       {
         "internalType": "uint64",
-        "name": "_initBasefee",
+        "name": "_initBlockFee",
         "type": "uint64"
       },
       {
@@ -1080,9 +1065,14 @@
   {
     "inputs": [
       {
-        "internalType": "string",
+        "internalType": "uint256",
+        "name": "chainId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
         "name": "name",
-        "type": "string"
+        "type": "bytes32"
       },
       {
         "internalType": "bool",
@@ -1104,14 +1094,9 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "chainId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "string",
+        "internalType": "bytes32",
         "name": "name",
-        "type": "string"
+        "type": "bytes32"
       },
       {
         "internalType": "bool",
@@ -1181,7 +1166,7 @@
       },
       {
         "internalType": "uint64",
-        "name": "basefee",
+        "name": "blockFee",
         "type": "uint64"
       },
       {
