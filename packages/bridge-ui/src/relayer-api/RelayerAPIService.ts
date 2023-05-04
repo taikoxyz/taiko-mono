@@ -1,8 +1,8 @@
 import axios from 'axios';
 import { BigNumber, Contract, ethers } from 'ethers';
-import BridgeABI from '../constants/abi/Bridge';
-import ERC20_ABI from '../constants/abi/ERC20';
-import TokenVaultABI from '../constants/abi/TokenVault';
+import BridgeABI from '../constants/abi/Bridge.json';
+import ERC20_ABI from '../constants/abi/ERC20.json';
+import TokenVaultABI from '../constants/abi/TokenVault.json';
 import { MessageStatus } from '../domain/message';
 
 import type { BridgeTransaction } from '../domain/transactions';
