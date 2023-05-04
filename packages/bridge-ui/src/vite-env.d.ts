@@ -7,21 +7,18 @@ interface ImportMetaEnv {
   readonly VITE_L1_EXPLORER_URL: string;
   readonly VITE_L2_EXPLORER_URL: string;
   readonly VITE_RELAYER_URL: string;
-  readonly VITE_TEST_ERC20_ADDRESS_MAINNET: string;
-  readonly VITE_TEST_ERC20_SYMBOL_MAINNET: string;
-  readonly VITE_TEST_ERC20_NAME_MAINNET: string;
-  readonly VITE_MAINNET_CHAIN_ID: string;
-  readonly VITE_TAIKO_CHAIN_ID: string;
-  readonly VITE_MAINNET_CHAIN_NAME: string;
-  readonly VITE_TAIKO_CHAIN_NAME: string;
-  readonly VITE_MAINNET_TOKEN_VAULT_ADDRESS: string;
-  readonly VITE_TAIKO_TOKEN_VAULT_ADDRESS: string;
-  readonly VITE_MAINNET_HEADER_SYNC_ADDRESS: string;
-  readonly VITE_TAIKO_HEADER_SYNC_ADDRESS: string;
-  readonly VITE_MAINNET_BRIDGE_ADDRESS: string;
-  readonly VITE_TAIKO_BRIDGE_ADDRESS: string;
-  readonly VITE_MAINNET_SIGNAL_SERVICE_ADDRESS: string;
-  readonly VITE_TAIKO_SIGNAL_SERVICE_ADDRESS: string;
+  readonly VITE_L1_CHAIN_ID: string;
+  readonly VITE_L2_CHAIN_ID: string;
+  readonly VITE_L1_CHAIN_NAME: string;
+  readonly VITE_L2_CHAIN_NAME: string;
+  readonly VITE_L1_TOKEN_VAULT_ADDRESS: string;
+  readonly VITE_L2_TOKEN_VAULT_ADDRESS: string;
+  readonly VITE_L1_CROSS_CHAIN_SYNC_ADDRESS: string;
+  readonly VITE_L2_CROSS_CHAIN_SYNC_ADDRESS: string;
+  readonly VITE_L1_BRIDGE_ADDRESS: string;
+  readonly VITE_L2_BRIDGE_ADDRESS: string;
+  readonly VITE_L1_SIGNAL_SERVICE_ADDRESS: string;
+  readonly VITE_L2_SIGNAL_SERVICE_ADDRESS: string;
   readonly VITE_TEST_ERC20: string;
 }
 
