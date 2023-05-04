@@ -1,5 +1,5 @@
 import { BigNumber, Contract, ethers, Signer } from 'ethers';
-import TokenVaultABI from '../constants/abi/TokenVault';
+import TokenVaultABI from '../constants/abi/TokenVault.json';
 import type { Chain } from '../domain/chain';
 import type { ProcessingFeeMethod } from '../domain/fee';
 import type { Token } from '../domain/token';

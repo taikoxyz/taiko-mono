@@ -9,7 +9,7 @@
   import Modal from '../modals/Modal.svelte';
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
   import { ethers } from 'ethers';
-  import ERC20 from '../../constants/abi/ERC20';
+  import ERC20 from '../../constants/abi/ERC20.json';
   import { ETHToken } from '../../token/tokens';
   import { errorToast } from '../Toast.svelte';
   import { tokenService } from '../../storage/services';

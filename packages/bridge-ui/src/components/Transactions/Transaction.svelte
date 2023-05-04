@@ -13,10 +13,10 @@
 
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
   import { errorToast, successToast } from '../Toast.svelte';
-  import HeaderSyncABI from '../../constants/abi/ICrossChainSync';
-  import BridgeABI from '../../constants/abi/Bridge';
+  import CrossChainSyncABI from '../../constants/abi/CrossChainSync.json';
+  import BridgeABI from '../../constants/abi/Bridge.json';
   import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
-  import TokenVaultABI from '../../constants/abi/TokenVault';
+  import TokenVaultABI from '../../constants/abi/TokenVault.json';
   import { chains } from '../../chain/chains';
   import { providers } from '../../provider/providers';
   import { bridges } from '../../bridge/bridges';
@@ -176,7 +176,7 @@
 
     const contract = new Contract(
       chains[transaction.toChainId].crossChainSyncAddress,
-      HeaderSyncABI,
+      CrossChainSyncABI,
       providers[chains[transaction.toChainId].id],
     );
 

@@ -7,11 +7,11 @@ import type {
   ClaimOpts,
   ReleaseOpts,
 } from '../domain/bridge';
-import TokenVault from '../constants/abi/TokenVault';
-import ERC20 from '../constants/abi/ERC20';
+import TokenVaultABI from '../constants/abi/TokenVault.json';
+import ERC20_ABI from '../constants/abi/ERC20.json';
 import type { Prover } from '../domain/proof';
 import { MessageStatus } from '../domain/message';
-import BridgeABI from '../constants/abi/Bridge';
+import BridgeABI from '../constants/abi/Bridge.json';
 import { chains } from '../chain/chains';
 
 export class ERC20Bridge implements Bridge {
@@ -24,7 +24,7 @@ export class ERC20Bridge implements Bridge {
   static async prepareTransaction(opts: BridgeOpts) {
     const contract: Contract = new Contract(
       opts.tokenVaultAddress,
-      TokenVault,
+      TokenVaultABI,
       opts.signer,
     );
 
@@ -58,7 +58,7 @@ export class ERC20Bridge implements Bridge {
     amount: BigNumber,
     bridgeAddress: string,
   ): Promise<boolean> {
-    const contract: Contract = new Contract(tokenAddress, ERC20, signer);
+    const contract: Contract = new Contract(tokenAddress, ERC20_ABI, signer);
     const owner = await signer.getAddress();
     const allowance: BigNumber = await contract.allowance(owner, bridgeAddress);
 
@@ -88,7 +88,7 @@ export class ERC20Bridge implements Bridge {
 
     const contract: Contract = new Contract(
       opts.contractAddress,
-      ERC20,
+      ERC20_ABI,
       opts.signer,
     );
 
@@ -250,7 +250,7 @@ export class ERC20Bridge implements Bridge {
 
       const srcTokenVaultContract: Contract = new Contract(
         opts.srcTokenVaultAddress,
-        TokenVault,
+        TokenVaultABI,
         opts.signer,
       );
 

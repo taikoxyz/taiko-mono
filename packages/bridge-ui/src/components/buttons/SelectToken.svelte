@@ -6,7 +6,7 @@
   import { BridgeType, type HTMLBridgeForm } from '../../domain/bridge';
   import { ChevronDown, PlusCircle } from 'svelte-heros-v2';
   import { ethers } from 'ethers';
-  import ERC20_ABI from '../../constants/abi/ERC20';
+  import ERC20_ABI from '../../constants/abi/ERC20.json';
   import { signer } from '../../store/signer';
   import { userTokens } from '../../store/userToken';
   import { fromChain, toChain } from '../../store/chain';

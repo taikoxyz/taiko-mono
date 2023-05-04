@@ -20,8 +20,8 @@
     transactions as transactionsStore,
   } from '../../store/transactions';
   import Memo from './Memo.svelte';
-  import ERC20_ABI from '../../constants/abi/ERC20';
-  import TokenVaultABI from '../../constants/abi/TokenVault';
+  import ERC20_ABI from '../../constants/abi/ERC20.json';
+  import TokenVaultABI from '../../constants/abi/TokenVault.json';
   import type { BridgeTransaction } from '../../domain/transactions';
   import { MessageStatus } from '../../domain/message';
   import { Funnel } from 'svelte-heros-v2';

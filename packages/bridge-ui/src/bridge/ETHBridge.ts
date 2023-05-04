@@ -8,7 +8,7 @@ import type {
   ReleaseOpts,
 } from '../domain/bridge';
 import type { Prover } from '../domain/proof';
-import BridgeABI from '../constants/abi/Bridge';
+import BridgeABI from '../constants/abi/Bridge.json';
 import { chains } from '../chain/chains';
 import { type Message, MessageStatus } from '../domain/message';
 

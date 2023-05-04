@@ -1,8 +1,8 @@
 import type { BridgeTransaction, Transactioner } from '../domain/transactions';
 import { BigNumber, Contract, ethers } from 'ethers';
-import BridgeABI from '../constants/abi/Bridge';
-import TokenVaultABI from '../constants/abi/TokenVault';
-import ERC20_ABI from '../constants/abi/ERC20';
+import BridgeABI from '../constants/abi/Bridge.json';
+import TokenVaultABI from '../constants/abi/TokenVault.json';
+import ERC20_ABI from '../constants/abi/ERC20.json';
 import { MessageStatus } from '../domain/message';
 import { chains } from '../chain/chains';
 import { tokenVaults } from '../vault/tokenVaults';

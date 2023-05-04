@@ -2,6 +2,7 @@ dist
 build
 coverage
 node_modules
+scripts
 example
 LICENSES
 public

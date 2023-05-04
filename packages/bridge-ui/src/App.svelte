@@ -19,7 +19,7 @@
   import SwitchEthereumChainModal from './components/modals/SwitchEthereumChainModal.svelte';
   import { ethers } from 'ethers';
   import { MessageStatus } from './domain/message';
-  import BridgeABI from './constants/abi/Bridge';
+  import BridgeABI from './constants/abi/Bridge.json';
   import { userTokens } from './store/userToken';
   import { RelayerAPIService } from './relayer-api/RelayerAPIService';
   import {
