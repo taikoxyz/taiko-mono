@@ -3,7 +3,7 @@
   import { pendingTransactions } from '../../store/transactions';
   import { signer } from '../../store/signer';
   import { _ } from 'svelte-i18n';
-  import MintableERC20 from '../../constants/abi/MintableERC20';
+  import FreeMintERC20_ABI from '../../constants/abi/FreeMintERC20';
   import { fromChain } from '../../store/chain';
   import { fetchSigner, switchNetwork } from '@wagmi/core';
   import Modal from './Modal.svelte';
@@ -35,7 +35,7 @@
 
     const contract = new ethers.Contract(
       $token.addresses[0].address,
-      MintableERC20,
+      FreeMintERC20_ABI,
       $signer,
     );
 
@@ -70,7 +70,7 @@
       }
       const contract = new ethers.Contract(
         $token.addresses[0].address,
-        MintableERC20,
+        FreeMintERC20_ABI,
         $signer,
       );
 
