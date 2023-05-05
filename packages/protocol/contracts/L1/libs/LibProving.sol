@@ -19,7 +19,8 @@ library LibProving {
         bytes32 parentHash,
         bytes32 blockHash,
         bytes32 signalRoot,
-        address prover
+        address prover,
+        uint32 parentGasUsed
     );
 
     error L1_ALREADY_PROVEN();
@@ -59,9 +60,7 @@ library LibProving {
         if (blk.metaHash != evidence.metaHash)
             revert L1_EVIDENCE_MISMATCH(blk.metaHash, evidence.metaHash);
 
-        bool isOracleProof = evidence.prover == address(0);
-
-        if (isOracleProof) {
+        if (evidence.prover == address(0)) {
             address oracleProver = resolver.resolve("oracle_prover", true);
             if (oracleProver == address(0)) revert L1_ORACLE_DISABLED();
 
@@ -129,7 +128,7 @@ library LibProving {
                     evidence.parentGasUsed
                 ] = fcId;
             }
-        } else if (isOracleProof) {
+        } else if (evidence.prover == address(0)) {
             fc = blk.forkChoices[fcId];
 
             if (
@@ -147,7 +146,7 @@ library LibProving {
         fc.provenAt = uint64(block.timestamp);
         fc.prover = evidence.prover;
 
-        if (!isOracleProof) {
+        if (evidence.prover != address(0)) {
             bytes32 instance;
 
             // Set state.staticRefs
@@ -199,7 +198,8 @@ library LibProving {
             parentHash: evidence.parentHash,
             blockHash: evidence.blockHash,
             signalRoot: evidence.signalRoot,
-            prover: evidence.prover
+            prover: evidence.prover,
+            parentGasUsed: evidence.parentGasUsed
         });
     }
 
