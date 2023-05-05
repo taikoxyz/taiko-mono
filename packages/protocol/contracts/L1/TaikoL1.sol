@@ -20,6 +20,7 @@ import {TaikoErrors} from "./TaikoErrors.sol";
 import {TaikoData} from "./TaikoData.sol";
 import {TaikoEvents} from "./TaikoEvents.sol";
 
+/// @custom:security-contact hello@taiko.xyz
 contract TaikoL1 is
     EssentialContract,
     ICrossChainSync,
@@ -30,6 +31,10 @@ contract TaikoL1 is
 
     TaikoData.State public state;
     uint256[100] private __gap;
+
+    constructor() {
+        _disableInitializers();
+    }
 
     receive() external payable {
         depositEtherToL2();

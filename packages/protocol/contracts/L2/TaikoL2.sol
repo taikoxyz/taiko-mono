@@ -16,6 +16,7 @@ import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
+/// @custom:security-contact hello@taiko.xyz
 contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     using SafeCastUpgradeable for uint256;
     using LibMath for uint256;
@@ -86,6 +87,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     /**********************
      * Constructor         *
      **********************/
+
+    constructor() {
+        _disableInitializers();
+    }
 
     function init(
         address _addressManager,

@@ -21,6 +21,7 @@ import {LibBridgeStatus} from "./libs/LibBridgeStatus.sol";
  * Bridge contract which is deployed on both L1 and L2. Mostly a thin wrapper
  * which calls the library implementations. See _IBridge_ for more details.
  * @dev The code hash for the same address on L1 and L2 may be different.
+ * @custom:security-contact hello@taiko.xyz
  */
 contract Bridge is EssentialContract, IBridge, BridgeErrors {
     using LibBridgeData for Message;
@@ -46,6 +47,10 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     /*********************
      * External Functions*
      *********************/
+
+    constructor() {
+        _disableInitializers();
+    }
 
     /// Allow Bridge to receive ETH from the TokenVault or EtherVault.
     receive() external payable {

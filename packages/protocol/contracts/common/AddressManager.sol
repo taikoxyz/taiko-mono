@@ -39,9 +39,7 @@ interface IAddressManager {
     ) external view returns (address);
 }
 
-/**
- * @title AddressManager
- */
+/// @custom:security-contact hello@taiko.xyz
 contract AddressManager is OwnableUpgradeable, IAddressManager {
     mapping(uint256 domain => mapping(bytes32 name => address addr))
         private addresses;
@@ -52,6 +50,10 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
         address _newAddress,
         address _oldAddress
     );
+
+    constructor() {
+        _disableInitializers();
+    }
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init() external initializer {

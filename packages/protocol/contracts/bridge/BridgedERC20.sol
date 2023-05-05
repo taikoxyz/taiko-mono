@@ -18,6 +18,7 @@ import {EssentialContract} from "../common/EssentialContract.sol";
 import {ERC20Upgradeable} from "../thirdparty/ERC20Upgradeable.sol";
 import {BridgeErrors} from "./BridgeErrors.sol";
 
+/// @custom:security-contact hello@taiko.xyz
 contract BridgedERC20 is
     EssentialContract,
     IERC20Upgradeable,
@@ -31,6 +32,10 @@ contract BridgedERC20 is
 
     event BridgeMint(address indexed account, uint256 amount);
     event BridgeBurn(address indexed account, uint256 amount);
+
+    constructor() {
+        _disableInitializers();
+    }
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     // Intention is for a different BridgedERC20 Contract to be deployed

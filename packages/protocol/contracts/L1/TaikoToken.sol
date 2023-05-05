@@ -17,7 +17,12 @@ import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
+library LibTaikoTokenConfig {
+    uint8 public constant DECIMALS = uint8(8);
+}
+
 /// @dev This is Taiko's governance and fee token.
+/// @custom:security-contact hello@taiko.xyz
 contract TaikoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
     using LibMath for uint256;
     using SafeCastUpgradeable for uint256;
@@ -41,6 +46,9 @@ contract TaikoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
     /*********************
      * External Functions*
      *********************/
+    constructor() {
+        _disableInitializers();
+    }
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     ///      Based on our simulation in simulate/tokenomics/index.js, both
@@ -59,8 +67,13 @@ contract TaikoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         ERC20Upgradeable.__ERC20_init({
             name_: _name,
             symbol_: _symbol,
-            decimals_: 8
+            decimals_: LibTaikoTokenConfig.DECIMALS
         });
+
+        // __ERC20Burnable_init();
+        // __ERC20Snapshot_init();
+        // __ERC20Permit_init(_name);
+        // __ERC20Votes_init();
 
         for (uint256 i = 0; i < _premintRecipients.length; ++i) {
             _mint(_premintRecipients[i], _premintAmounts[i]);

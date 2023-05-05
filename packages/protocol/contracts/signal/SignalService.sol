@@ -11,6 +11,7 @@ import {ISignalService} from "./ISignalService.sol";
 import {ICrossChainSync} from "../common/ICrossChainSync.sol";
 import {LibSecureMerkleTrie} from "../thirdparty/LibSecureMerkleTrie.sol";
 
+/// @custom:security-contact hello@taiko.xyz
 contract SignalService is ISignalService, EssentialContract {
     struct SignalProof {
         uint256 height;
@@ -20,6 +21,10 @@ contract SignalService is ISignalService, EssentialContract {
     error B_ZERO_SIGNAL();
     error B_NULL_APP_ADDR();
     error B_WRONG_CHAIN_ID();
+
+    constructor() {
+        _disableInitializers();
+    }
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init(address _addressManager) external initializer {

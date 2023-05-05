@@ -26,7 +26,8 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
  * It also manages the mapping between canonical ERC20 tokens and their bridged
  * tokens.
  * @dev Ether is held by Bridges on L1 and by the EtherVault on L2,
- * not TokenVaults.
+ *      not TokenVaults.
+ * @custom:security-contact hello@taiko.xyz
  */
 contract TokenVault is EssentialContract {
     using SafeERC20Upgradeable for ERC20Upgradeable;
@@ -132,6 +133,9 @@ contract TokenVault is EssentialContract {
     /*********************
      * External Functions*
      *********************/
+    constructor() {
+        _disableInitializers();
+    }
 
     function init(address addressManager) external initializer {
         EssentialContract._init(addressManager);

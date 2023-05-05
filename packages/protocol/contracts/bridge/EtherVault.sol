@@ -19,6 +19,7 @@ import {LibAddress} from "../libs/LibAddress.sol";
 import {BridgeErrors} from "./BridgeErrors.sol";
 
 /**
+ * @custom:security-contact hello@taiko.xyz
  * EtherVault is a special vault contract that:
  * - Is initialized with 2^128 Ether.
  * - Allows the contract owner to authorize addresses.
@@ -56,6 +57,9 @@ contract EtherVault is EssentialContract, BridgeErrors {
     /*********************
      * External Functions*
      *********************/
+    constructor() {
+        _disableInitializers();
+    }
 
     receive() external payable {
         // EthVault's balance must == 0 OR the sender isAuthorized.
