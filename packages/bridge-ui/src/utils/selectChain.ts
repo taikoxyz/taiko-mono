@@ -4,6 +4,9 @@ import { fromChain, toChain } from '../store/chain';
 import type { Chain } from '../domain/chain';
 import { mainnetChain, taikoChain } from '../chain/chains';
 import { signer } from '../store/signer';
+import { getLogger } from '../utils/logger';
+
+const log = getLogger('selectChain');
 
 export async function selectChain(chain: Chain) {
   const chainId = chain.id;
@@ -15,8 +18,12 @@ export async function selectChain(chain: Chain) {
     'any',
   );
 
-  // Triggers the connect request
-  await provider.send('eth_requestAccounts', []);
+  // Requires requesting permission to connect users accounts
+  // TODO: is this really needed? I think it's already done in
+  //       the switchNetwork function.
+  const accounts = await provider.send('eth_requestAccounts', []);
+
+  log('accounts', accounts);
 
   fromChain.set(chain);
   if (chain.id === mainnetChain.id) {
@@ -25,5 +32,9 @@ export async function selectChain(chain: Chain) {
     toChain.set(mainnetChain);
   }
 
-  signer.set(provider.getSigner());
+  const _signer = provider.getSigner();
+
+  log('signer', _signer);
+
+  signer.set(_signer);
 }
