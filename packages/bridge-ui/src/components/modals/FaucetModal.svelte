@@ -9,7 +9,11 @@
   import Modal from './Modal.svelte';
   import { onMount } from 'svelte';
   import { token } from '../../store/token';
-  import { L1_CHAIN_ID } from '../../constants/envVars';
+  import {
+    L1_CHAIN_ID,
+    L1_CHAIN_NAME,
+    L2_CHAIN_NAME,
+  } from '../../constants/envVars';
   import { errorToast, successToast } from '../Toast.svelte';
 
   export let isOpen: boolean = false;
@@ -90,12 +94,6 @@
   }
 
   $: shouldEnableButton().catch((e) => console.error(e));
-  $: mainnetName = import.meta.env
-    ? import.meta.env.VITE_MAINNET_CHAIN_NAME
-    : 'Ethereum A2';
-  $: taikonetName = import.meta.env
-    ? import.meta.env.VITE_TAIKO_CHAIN_NAME
-    : 'Taiko A2';
 
   onMount(() => {
     shouldEnableButton();
@@ -104,9 +102,9 @@
 
 <Modal title={'ERC20 Faucet'} bind:isOpen>
   You can request 50 {$token.symbol}. {$token.symbol} is only available to be minted
-  on {mainnetName}. If you are on {taikonetName}, your network will be changed
-  first. You must have a small amount of ETH in your {mainnetName} wallet to send
-  the transaction.
+  on {L1_CHAIN_NAME}. If you are on {L2_CHAIN_NAME}, your network will be
+  changed first. You must have a small amount of ETH in your {L1_CHAIN_NAME} wallet
+  to send the transaction.
   <br />
   <button
     class="btn btn-dark-5 h-[60px] text-base"

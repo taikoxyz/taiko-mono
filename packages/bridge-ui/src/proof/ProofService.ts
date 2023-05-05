@@ -92,7 +92,7 @@ export class ProofService implements Prover {
     const provider = this.providers[opts.srcChain];
 
     const contract = new Contract(
-      opts.destHeaderSyncAddress,
+      opts.destCrossChainSyncAddress,
       HeaderSyncABI,
       this.providers[opts.destChain],
     );
@@ -123,7 +123,7 @@ export class ProofService implements Prover {
     const provider = this.providers[opts.destChain];
 
     const contract = new Contract(
-      opts.srcHeaderSyncAddress,
+      opts.srcCrossChainSyncAddress,
       HeaderSyncABI,
       this.providers[opts.srcChain],
     );

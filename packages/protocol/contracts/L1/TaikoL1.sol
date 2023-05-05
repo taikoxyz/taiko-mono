@@ -41,7 +41,8 @@ contract TaikoL1 is
      * @param _addressManager The AddressManager address.
      * @param _genesisBlockHash The block hash of the genesis block.
      * @param _initBlockFee Initial (reasonable) block fee value.
-     * @param _initProofTimeIssued Initial proof time issued corresponding with the initial block fee.
+     * @param _initProofTimeIssued Initial proof time issued corresponding
+     *        with the initial block fee.
      */
     function init(
         address _addressManager,
