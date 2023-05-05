@@ -19,7 +19,8 @@ library LibProving {
         bytes32 parentHash,
         bytes32 blockHash,
         bytes32 signalRoot,
-        address prover
+        address prover,
+        uint32 parentGasUsed
     );
 
     error L1_ALREADY_PROVEN();
@@ -59,9 +60,7 @@ library LibProving {
         if (blk.metaHash != evidence.metaHash)
             revert L1_EVIDENCE_MISMATCH(blk.metaHash, evidence.metaHash);
 
-        bool isOracleProof = evidence.prover == address(0);
-
-        if (isOracleProof) {
+        if (evidence.prover == address(0)) {
             address oracleProver = resolver.resolve("oracle_prover", true);
             if (oracleProver == address(0)) revert L1_ORACLE_DISABLED();
 
@@ -129,7 +128,7 @@ library LibProving {
                     evidence.parentGasUsed
                 ] = fcId;
             }
-        } else if (isOracleProof) {
+        } else if (evidence.prover == address(0)) {
             fc = blk.forkChoices[fcId];
 
             if (
@@ -147,40 +146,42 @@ library LibProving {
         fc.provenAt = uint64(block.timestamp);
         fc.prover = evidence.prover;
 
-        if (!isOracleProof) {
-            bytes32 instance;
+        if (evidence.prover != address(0)) {
+            uint256[9] memory inputs;
 
-            // Set state.staticRefs
-            if (state.staticRefs == 0) {
-                address[3] memory addresses;
-                addresses[0] = resolver.resolve("signal_service", false);
-                addresses[1] = resolver.resolve(
-                    config.chainId,
-                    "signal_service",
-                    false
-                );
-                addresses[2] = resolver.resolve(config.chainId, "taiko", false);
-                bytes32 staticRefs;
-                assembly {
-                    staticRefs := keccak256(addresses, mul(32, 3))
-                }
-                state.staticRefs = staticRefs;
-            }
+            inputs[0] = uint256(
+                uint160(address(resolver.resolve("signal_service", false)))
+            );
+            inputs[1] = uint256(
+                uint160(
+                    address(
+                        resolver.resolve(
+                            config.chainId,
+                            "signal_service",
+                            false
+                        )
+                    )
+                )
+            );
+            inputs[2] = uint256(
+                uint160(
+                    address(resolver.resolve(config.chainId, "taiko", false))
+                )
+            );
 
-            uint256[7] memory inputs;
-            inputs[0] = uint256(state.staticRefs);
-            inputs[1] = uint256(blk.metaHash);
-            inputs[2] = uint256(evidence.parentHash);
-            inputs[3] = uint256(evidence.blockHash);
-            inputs[4] = uint256(evidence.signalRoot);
-            inputs[5] = uint256(evidence.graffiti);
-            inputs[6] =
+            inputs[3] = uint256(blk.metaHash);
+            inputs[4] = uint256(evidence.parentHash);
+            inputs[5] = uint256(evidence.blockHash);
+            inputs[6] = uint256(evidence.signalRoot);
+            inputs[7] = uint256(evidence.graffiti);
+            inputs[8] =
                 (uint256(uint160(evidence.prover)) << 96) |
                 (uint256(evidence.parentGasUsed) << 64) |
                 (uint256(evidence.gasUsed) << 32);
 
+            bytes32 instance;
             assembly {
-                instance := keccak256(inputs, mul(32, 7))
+                instance := keccak256(inputs, mul(32, 9))
             }
 
             (bool verified, bytes memory ret) = resolver
@@ -199,7 +200,8 @@ library LibProving {
             parentHash: evidence.parentHash,
             blockHash: evidence.blockHash,
             signalRoot: evidence.signalRoot,
-            prover: evidence.prover
+            prover: evidence.prover,
+            parentGasUsed: evidence.parentGasUsed
         });
     }
 

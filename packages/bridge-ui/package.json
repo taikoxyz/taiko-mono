@@ -37,6 +37,7 @@
     "eslint-plugin-jest": "^27.2.1",
     "eslint-plugin-simple-import-sort": "^10.0.0",
     "eslint-plugin-svelte3": "^4.0.0",
+    "fs-extra": "^11.1.1",
     "jest": "^27.5.1",
     "lint-staged": "^12.3.4",
     "node-sass": "^7.0.1",
