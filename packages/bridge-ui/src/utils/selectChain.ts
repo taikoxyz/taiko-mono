@@ -19,8 +19,6 @@ export async function selectChain(chain: Chain) {
   );
 
   // Requires requesting permission to connect users accounts
-  // TODO: is this really needed? I think it's already done in
-  //       the switchNetwork function.
   const accounts = await provider.send('eth_requestAccounts', []);
 
   log('accounts', accounts);
