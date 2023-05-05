@@ -162,6 +162,7 @@ export class ERC20Bridge implements Bridge {
       messageStatus === MessageStatus.Done ||
       messageStatus === MessageStatus.Failed
     ) {
+      // TODO: should be throw a different error when status is Failed?
       throw Error('message already processed');
     }
 
@@ -178,8 +179,8 @@ export class ERC20Bridge implements Bridge {
         sender: opts.srcBridgeAddress,
         srcBridgeAddress: opts.srcBridgeAddress,
         destChain: opts.message.destChainId,
-        destHeaderSyncAddress:
-          chains[opts.message.destChainId].headerSyncAddress,
+        destCrossChainSyncAddress:
+          chains[opts.message.destChainId].crossChainSyncAddress,
         srcSignalServiceAddress:
           chains[opts.message.srcChainId].signalServiceAddress,
       });
@@ -239,9 +240,10 @@ export class ERC20Bridge implements Bridge {
         sender: opts.srcBridgeAddress,
         destBridgeAddress: opts.destBridgeAddress,
         destChain: opts.message.destChainId,
-        destHeaderSyncAddress:
-          chains[opts.message.destChainId].headerSyncAddress,
-        srcHeaderSyncAddress: chains[opts.message.srcChainId].headerSyncAddress,
+        destCrossChainSyncAddress:
+          chains[opts.message.destChainId].crossChainSyncAddress,
+        srcCrossChainSyncAddress:
+          chains[opts.message.srcChainId].crossChainSyncAddress,
       };
 
       const proof = await this.prover.generateReleaseProof(proofOpts);

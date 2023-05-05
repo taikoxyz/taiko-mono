@@ -29,38 +29,18 @@ var (
 	_ = abi.ConvertType
 )
 
-// TaikoDataConfig is an auto generated low-level Go binding around an user-defined struct.
-type TaikoDataConfig struct {
-	ChainId                        *big.Int
-	MaxNumBlocks                   *big.Int
-	BlockHashHistory               *big.Int
-	MaxVerificationsPerTx          *big.Int
-	CommitConfirmations            *big.Int
-	BlockMaxGasLimit               *big.Int
-	MaxTransactionsPerBlock        *big.Int
-	MaxBytesPerTxList              *big.Int
-	MinTxGasLimit                  *big.Int
-	AnchorTxGasLimit               *big.Int
-	SlotSmoothingFactor            *big.Int
-	RewardBurnBips                 *big.Int
-	ProposerDepositPctg            *big.Int
-	FeeBaseMAF                     *big.Int
-	BlockTimeMAF                   *big.Int
-	ProofTimeMAF                   *big.Int
-	RewardMultiplierPctg           uint64
-	FeeGracePeriodPctg             uint64
-	FeeMaxPeriodPctg               uint64
-	BlockTimeCap                   uint64
-	ProofTimeCap                   uint64
-	BootstrapDiscountHalvingPeriod uint64
-	EnableTokenomics               bool
-	EnablePublicInputsCheck        bool
-	EnableAnchorValidation         bool
+// TaikoL2EIP1559Params is an auto generated low-level Go binding around an user-defined struct.
+type TaikoL2EIP1559Params struct {
+	Basefee            uint64
+	GasIssuedPerSecond uint64
+	GasExcessMax       uint64
+	GasTarget          uint64
+	Ratio2x1x          uint64
 }
 
 // TaikoL2MetaData contains all meta data concerning the TaikoL2 contract.
 var TaikoL2MetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_addressManager\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"ERR_INVALID_HINT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ERR_INVALID_TX_IDX\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ERR_PARAMS_NOT_DEFAULTS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ERR_VERIFICATION_FAILURE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L2_INVALID_CHAIN_ID\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L2_INVALID_GAS_PRICE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L2_INVALID_SENDER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L2_PUBLIC_INPUT_HASH_MISMATCH\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RESOLVER_DENIED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RESOLVER_INVALID_ADDR\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"txListHash\",\"type\":\"bytes32\"}],\"name\":\"BlockInvalidated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"srcHeight\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"srcHash\",\"type\":\"bytes32\"}],\"name\":\"HeaderSynced\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"addressManager\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"l1Height\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"l1Hash\",\"type\":\"bytes32\"}],\"name\":\"anchor\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"number\",\"type\":\"uint256\"}],\"name\":\"getBlockHash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getConfig\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"maxNumBlocks\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"blockHashHistory\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"maxVerificationsPerTx\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"commitConfirmations\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"blockMaxGasLimit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"maxTransactionsPerBlock\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"maxBytesPerTxList\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"minTxGasLimit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"anchorTxGasLimit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"slotSmoothingFactor\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"rewardBurnBips\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"proposerDepositPctg\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"feeBaseMAF\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"blockTimeMAF\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"proofTimeMAF\",\"type\":\"uint256\"},{\"internalType\":\"uint64\",\"name\":\"rewardMultiplierPctg\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"feeGracePeriodPctg\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"feeMaxPeriodPctg\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"blockTimeCap\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"proofTimeCap\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"bootstrapDiscountHalvingPeriod\",\"type\":\"uint64\"},{\"internalType\":\"bool\",\"name\":\"enableTokenomics\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"enablePublicInputsCheck\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"enableAnchorValidation\",\"type\":\"bool\"}],\"internalType\":\"structTaikoData.Config\",\"name\":\"config\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getLatestSyncedHeader\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"number\",\"type\":\"uint256\"}],\"name\":\"getSyncedHeader\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"txList\",\"type\":\"bytes\"},{\"internalType\":\"enumLibInvalidTxList.Hint\",\"name\":\"hint\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"txIdx\",\"type\":\"uint256\"}],\"name\":\"invalidateBlock\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestSyncedL1Height\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"internalType\":\"bool\",\"name\":\"allowZeroAddress\",\"type\":\"bool\"}],\"name\":\"resolve\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"internalType\":\"bool\",\"name\":\"allowZeroAddress\",\"type\":\"bool\"}],\"name\":\"resolve\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"expected\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"actual\",\"type\":\"uint64\"}],\"name\":\"L2_BASEFEE_MISMATCH\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L2_INVALID_1559_PARAMS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L2_INVALID_CHAIN_ID\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L2_INVALID_GOLDEN_TOUCH_K\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L2_INVALID_SENDER\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"expected\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"actual\",\"type\":\"bytes32\"}],\"name\":\"L2_PUBLIC_INPUT_HASH_MISMATCH\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L2_TOO_LATE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"M1559_OUT_OF_STOCK\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"M1559_OUT_OF_STOCK\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"expected\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"actual\",\"type\":\"uint64\"}],\"name\":\"M1559_UNEXPECTED_CHANGE\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"expected\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"actual\",\"type\":\"uint64\"}],\"name\":\"M1559_UNEXPECTED_CHANGE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"Overflow\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RESOLVER_DENIED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RESOLVER_INVALID_ADDR\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"number\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"basefee\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"gaslimit\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"parentHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"prevrandao\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"coinbase\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"chainid\",\"type\":\"uint32\"}],\"name\":\"Anchored\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"srcHeight\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"blockHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"signalRoot\",\"type\":\"bytes32\"}],\"name\":\"CrossChainSynced\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"GOLDEN_TOUCH_ADDRESS\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"GOLDEN_TOUCH_PRIVATEKEY\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"__reserved1\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"addressManager\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"l1Hash\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"l1SignalRoot\",\"type\":\"bytes32\"},{\"internalType\":\"uint64\",\"name\":\"l1Height\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"parentGasUsed\",\"type\":\"uint64\"}],\"name\":\"anchor\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"gasExcess\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"gasIssuedPerSecond\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"timeSinceParent\",\"type\":\"uint32\"},{\"internalType\":\"uint64\",\"name\":\"gasLimit\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"parentGasUsed\",\"type\":\"uint64\"}],\"name\":\"getBasefee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_basefee\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"number\",\"type\":\"uint256\"}],\"name\":\"getBlockHash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"number\",\"type\":\"uint256\"}],\"name\":\"getCrossChainBlockHash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"number\",\"type\":\"uint256\"}],\"name\":\"getCrossChainSignalRoot\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_addressManager\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"uint64\",\"name\":\"basefee\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"gasIssuedPerSecond\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"gasExcessMax\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"gasTarget\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"ratio2x1x\",\"type\":\"uint64\"}],\"internalType\":\"structTaikoL2.EIP1559Params\",\"name\":\"_param1559\",\"type\":\"tuple\"}],\"name\":\"init\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestSyncedL1Height\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"parentTimestamp\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"publicInputHash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"},{\"internalType\":\"bool\",\"name\":\"allowZeroAddress\",\"type\":\"bool\"}],\"name\":\"resolve\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"},{\"internalType\":\"bool\",\"name\":\"allowZeroAddress\",\"type\":\"bool\"}],\"name\":\"resolve\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"digest\",\"type\":\"bytes32\"},{\"internalType\":\"uint8\",\"name\":\"k\",\"type\":\"uint8\"}],\"name\":\"signAnchor\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"r\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"s\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"xscale\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"yscale\",\"outputs\":[{\"internalType\":\"uint128\",\"name\":\"\",\"type\":\"uint128\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
 }
 
 // TaikoL2ABI is the input ABI used to generate the binding from.
@@ -209,6 +189,99 @@ func (_TaikoL2 *TaikoL2TransactorRaw) Transact(opts *bind.TransactOpts, method s
 	return _TaikoL2.Contract.contract.Transact(opts, method, params...)
 }
 
+// GOLDENTOUCHADDRESS is a free data retrieval call binding the contract method 0x9ee512f2.
+//
+// Solidity: function GOLDEN_TOUCH_ADDRESS() view returns(address)
+func (_TaikoL2 *TaikoL2Caller) GOLDENTOUCHADDRESS(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _TaikoL2.contract.Call(opts, &out, "GOLDEN_TOUCH_ADDRESS")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// GOLDENTOUCHADDRESS is a free data retrieval call binding the contract method 0x9ee512f2.
+//
+// Solidity: function GOLDEN_TOUCH_ADDRESS() view returns(address)
+func (_TaikoL2 *TaikoL2Session) GOLDENTOUCHADDRESS() (common.Address, error) {
+	return _TaikoL2.Contract.GOLDENTOUCHADDRESS(&_TaikoL2.CallOpts)
+}
+
+// GOLDENTOUCHADDRESS is a free data retrieval call binding the contract method 0x9ee512f2.
+//
+// Solidity: function GOLDEN_TOUCH_ADDRESS() view returns(address)
+func (_TaikoL2 *TaikoL2CallerSession) GOLDENTOUCHADDRESS() (common.Address, error) {
+	return _TaikoL2.Contract.GOLDENTOUCHADDRESS(&_TaikoL2.CallOpts)
+}
+
+// GOLDENTOUCHPRIVATEKEY is a free data retrieval call binding the contract method 0x10da3738.
+//
+// Solidity: function GOLDEN_TOUCH_PRIVATEKEY() view returns(uint256)
+func (_TaikoL2 *TaikoL2Caller) GOLDENTOUCHPRIVATEKEY(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _TaikoL2.contract.Call(opts, &out, "GOLDEN_TOUCH_PRIVATEKEY")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// GOLDENTOUCHPRIVATEKEY is a free data retrieval call binding the contract method 0x10da3738.
+//
+// Solidity: function GOLDEN_TOUCH_PRIVATEKEY() view returns(uint256)
+func (_TaikoL2 *TaikoL2Session) GOLDENTOUCHPRIVATEKEY() (*big.Int, error) {
+	return _TaikoL2.Contract.GOLDENTOUCHPRIVATEKEY(&_TaikoL2.CallOpts)
+}
+
+// GOLDENTOUCHPRIVATEKEY is a free data retrieval call binding the contract method 0x10da3738.
+//
+// Solidity: function GOLDEN_TOUCH_PRIVATEKEY() view returns(uint256)
+func (_TaikoL2 *TaikoL2CallerSession) GOLDENTOUCHPRIVATEKEY() (*big.Int, error) {
+	return _TaikoL2.Contract.GOLDENTOUCHPRIVATEKEY(&_TaikoL2.CallOpts)
+}
+
+// Reserved1 is a free data retrieval call binding the contract method 0xf5d11edc.
+//
+// Solidity: function __reserved1() view returns(uint64)
+func (_TaikoL2 *TaikoL2Caller) Reserved1(opts *bind.CallOpts) (uint64, error) {
+	var out []interface{}
+	err := _TaikoL2.contract.Call(opts, &out, "__reserved1")
+
+	if err != nil {
+		return *new(uint64), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint64)).(*uint64)
+
+	return out0, err
+
+}
+
+// Reserved1 is a free data retrieval call binding the contract method 0xf5d11edc.
+//
+// Solidity: function __reserved1() view returns(uint64)
+func (_TaikoL2 *TaikoL2Session) Reserved1() (uint64, error) {
+	return _TaikoL2.Contract.Reserved1(&_TaikoL2.CallOpts)
+}
+
+// Reserved1 is a free data retrieval call binding the contract method 0xf5d11edc.
+//
+// Solidity: function __reserved1() view returns(uint64)
+func (_TaikoL2 *TaikoL2CallerSession) Reserved1() (uint64, error) {
+	return _TaikoL2.Contract.Reserved1(&_TaikoL2.CallOpts)
+}
+
 // AddressManager is a free data retrieval call binding the contract method 0x3ab76e9f.
 //
 // Solidity: function addressManager() view returns(address)
@@ -238,6 +311,99 @@ func (_TaikoL2 *TaikoL2Session) AddressManager() (common.Address, error) {
 // Solidity: function addressManager() view returns(address)
 func (_TaikoL2 *TaikoL2CallerSession) AddressManager() (common.Address, error) {
 	return _TaikoL2.Contract.AddressManager(&_TaikoL2.CallOpts)
+}
+
+// GasExcess is a free data retrieval call binding the contract method 0xf535bd56.
+//
+// Solidity: function gasExcess() view returns(uint64)
+func (_TaikoL2 *TaikoL2Caller) GasExcess(opts *bind.CallOpts) (uint64, error) {
+	var out []interface{}
+	err := _TaikoL2.contract.Call(opts, &out, "gasExcess")
+
+	if err != nil {
+		return *new(uint64), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint64)).(*uint64)
+
+	return out0, err
+
+}
+
+// GasExcess is a free data retrieval call binding the contract method 0xf535bd56.
+//
+// Solidity: function gasExcess() view returns(uint64)
+func (_TaikoL2 *TaikoL2Session) GasExcess() (uint64, error) {
+	return _TaikoL2.Contract.GasExcess(&_TaikoL2.CallOpts)
+}
+
+// GasExcess is a free data retrieval call binding the contract method 0xf535bd56.
+//
+// Solidity: function gasExcess() view returns(uint64)
+func (_TaikoL2 *TaikoL2CallerSession) GasExcess() (uint64, error) {
+	return _TaikoL2.Contract.GasExcess(&_TaikoL2.CallOpts)
+}
+
+// GasIssuedPerSecond is a free data retrieval call binding the contract method 0x210c9fe8.
+//
+// Solidity: function gasIssuedPerSecond() view returns(uint64)
+func (_TaikoL2 *TaikoL2Caller) GasIssuedPerSecond(opts *bind.CallOpts) (uint64, error) {
+	var out []interface{}
+	err := _TaikoL2.contract.Call(opts, &out, "gasIssuedPerSecond")
+
+	if err != nil {
+		return *new(uint64), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint64)).(*uint64)
+
+	return out0, err
+
+}
+
+// GasIssuedPerSecond is a free data retrieval call binding the contract method 0x210c9fe8.
+//
+// Solidity: function gasIssuedPerSecond() view returns(uint64)
+func (_TaikoL2 *TaikoL2Session) GasIssuedPerSecond() (uint64, error) {
+	return _TaikoL2.Contract.GasIssuedPerSecond(&_TaikoL2.CallOpts)
+}
+
+// GasIssuedPerSecond is a free data retrieval call binding the contract method 0x210c9fe8.
+//
+// Solidity: function gasIssuedPerSecond() view returns(uint64)
+func (_TaikoL2 *TaikoL2CallerSession) GasIssuedPerSecond() (uint64, error) {
+	return _TaikoL2.Contract.GasIssuedPerSecond(&_TaikoL2.CallOpts)
+}
+
+// GetBasefee is a free data retrieval call binding the contract method 0xe1848cb0.
+//
+// Solidity: function getBasefee(uint32 timeSinceParent, uint64 gasLimit, uint64 parentGasUsed) view returns(uint256 _basefee)
+func (_TaikoL2 *TaikoL2Caller) GetBasefee(opts *bind.CallOpts, timeSinceParent uint32, gasLimit uint64, parentGasUsed uint64) (*big.Int, error) {
+	var out []interface{}
+	err := _TaikoL2.contract.Call(opts, &out, "getBasefee", timeSinceParent, gasLimit, parentGasUsed)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// GetBasefee is a free data retrieval call binding the contract method 0xe1848cb0.
+//
+// Solidity: function getBasefee(uint32 timeSinceParent, uint64 gasLimit, uint64 parentGasUsed) view returns(uint256 _basefee)
+func (_TaikoL2 *TaikoL2Session) GetBasefee(timeSinceParent uint32, gasLimit uint64, parentGasUsed uint64) (*big.Int, error) {
+	return _TaikoL2.Contract.GetBasefee(&_TaikoL2.CallOpts, timeSinceParent, gasLimit, parentGasUsed)
+}
+
+// GetBasefee is a free data retrieval call binding the contract method 0xe1848cb0.
+//
+// Solidity: function getBasefee(uint32 timeSinceParent, uint64 gasLimit, uint64 parentGasUsed) view returns(uint256 _basefee)
+func (_TaikoL2 *TaikoL2CallerSession) GetBasefee(timeSinceParent uint32, gasLimit uint64, parentGasUsed uint64) (*big.Int, error) {
+	return _TaikoL2.Contract.GetBasefee(&_TaikoL2.CallOpts, timeSinceParent, gasLimit, parentGasUsed)
 }
 
 // GetBlockHash is a free data retrieval call binding the contract method 0xee82ac5e.
@@ -271,43 +437,12 @@ func (_TaikoL2 *TaikoL2CallerSession) GetBlockHash(number *big.Int) ([32]byte, e
 	return _TaikoL2.Contract.GetBlockHash(&_TaikoL2.CallOpts, number)
 }
 
-// GetConfig is a free data retrieval call binding the contract method 0xc3f909d4.
+// GetCrossChainBlockHash is a free data retrieval call binding the contract method 0xbacb386d.
 //
-// Solidity: function getConfig() view returns((uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint64,uint64,uint64,uint64,uint64,uint64,bool,bool,bool) config)
-func (_TaikoL2 *TaikoL2Caller) GetConfig(opts *bind.CallOpts) (TaikoDataConfig, error) {
+// Solidity: function getCrossChainBlockHash(uint256 number) view returns(bytes32)
+func (_TaikoL2 *TaikoL2Caller) GetCrossChainBlockHash(opts *bind.CallOpts, number *big.Int) ([32]byte, error) {
 	var out []interface{}
-	err := _TaikoL2.contract.Call(opts, &out, "getConfig")
-
-	if err != nil {
-		return *new(TaikoDataConfig), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(TaikoDataConfig)).(*TaikoDataConfig)
-
-	return out0, err
-
-}
-
-// GetConfig is a free data retrieval call binding the contract method 0xc3f909d4.
-//
-// Solidity: function getConfig() view returns((uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint64,uint64,uint64,uint64,uint64,uint64,bool,bool,bool) config)
-func (_TaikoL2 *TaikoL2Session) GetConfig() (TaikoDataConfig, error) {
-	return _TaikoL2.Contract.GetConfig(&_TaikoL2.CallOpts)
-}
-
-// GetConfig is a free data retrieval call binding the contract method 0xc3f909d4.
-//
-// Solidity: function getConfig() view returns((uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint64,uint64,uint64,uint64,uint64,uint64,bool,bool,bool) config)
-func (_TaikoL2 *TaikoL2CallerSession) GetConfig() (TaikoDataConfig, error) {
-	return _TaikoL2.Contract.GetConfig(&_TaikoL2.CallOpts)
-}
-
-// GetLatestSyncedHeader is a free data retrieval call binding the contract method 0x5155ce9f.
-//
-// Solidity: function getLatestSyncedHeader() view returns(bytes32)
-func (_TaikoL2 *TaikoL2Caller) GetLatestSyncedHeader(opts *bind.CallOpts) ([32]byte, error) {
-	var out []interface{}
-	err := _TaikoL2.contract.Call(opts, &out, "getLatestSyncedHeader")
+	err := _TaikoL2.contract.Call(opts, &out, "getCrossChainBlockHash", number)
 
 	if err != nil {
 		return *new([32]byte), err
@@ -319,26 +454,26 @@ func (_TaikoL2 *TaikoL2Caller) GetLatestSyncedHeader(opts *bind.CallOpts) ([32]b
 
 }
 
-// GetLatestSyncedHeader is a free data retrieval call binding the contract method 0x5155ce9f.
+// GetCrossChainBlockHash is a free data retrieval call binding the contract method 0xbacb386d.
 //
-// Solidity: function getLatestSyncedHeader() view returns(bytes32)
-func (_TaikoL2 *TaikoL2Session) GetLatestSyncedHeader() ([32]byte, error) {
-	return _TaikoL2.Contract.GetLatestSyncedHeader(&_TaikoL2.CallOpts)
+// Solidity: function getCrossChainBlockHash(uint256 number) view returns(bytes32)
+func (_TaikoL2 *TaikoL2Session) GetCrossChainBlockHash(number *big.Int) ([32]byte, error) {
+	return _TaikoL2.Contract.GetCrossChainBlockHash(&_TaikoL2.CallOpts, number)
 }
 
-// GetLatestSyncedHeader is a free data retrieval call binding the contract method 0x5155ce9f.
+// GetCrossChainBlockHash is a free data retrieval call binding the contract method 0xbacb386d.
 //
-// Solidity: function getLatestSyncedHeader() view returns(bytes32)
-func (_TaikoL2 *TaikoL2CallerSession) GetLatestSyncedHeader() ([32]byte, error) {
-	return _TaikoL2.Contract.GetLatestSyncedHeader(&_TaikoL2.CallOpts)
+// Solidity: function getCrossChainBlockHash(uint256 number) view returns(bytes32)
+func (_TaikoL2 *TaikoL2CallerSession) GetCrossChainBlockHash(number *big.Int) ([32]byte, error) {
+	return _TaikoL2.Contract.GetCrossChainBlockHash(&_TaikoL2.CallOpts, number)
 }
 
-// GetSyncedHeader is a free data retrieval call binding the contract method 0x25bf86f2.
+// GetCrossChainSignalRoot is a free data retrieval call binding the contract method 0xb8914ce4.
 //
-// Solidity: function getSyncedHeader(uint256 number) view returns(bytes32)
-func (_TaikoL2 *TaikoL2Caller) GetSyncedHeader(opts *bind.CallOpts, number *big.Int) ([32]byte, error) {
+// Solidity: function getCrossChainSignalRoot(uint256 number) view returns(bytes32)
+func (_TaikoL2 *TaikoL2Caller) GetCrossChainSignalRoot(opts *bind.CallOpts, number *big.Int) ([32]byte, error) {
 	var out []interface{}
-	err := _TaikoL2.contract.Call(opts, &out, "getSyncedHeader", number)
+	err := _TaikoL2.contract.Call(opts, &out, "getCrossChainSignalRoot", number)
 
 	if err != nil {
 		return *new([32]byte), err
@@ -350,26 +485,293 @@ func (_TaikoL2 *TaikoL2Caller) GetSyncedHeader(opts *bind.CallOpts, number *big.
 
 }
 
-// GetSyncedHeader is a free data retrieval call binding the contract method 0x25bf86f2.
+// GetCrossChainSignalRoot is a free data retrieval call binding the contract method 0xb8914ce4.
 //
-// Solidity: function getSyncedHeader(uint256 number) view returns(bytes32)
-func (_TaikoL2 *TaikoL2Session) GetSyncedHeader(number *big.Int) ([32]byte, error) {
-	return _TaikoL2.Contract.GetSyncedHeader(&_TaikoL2.CallOpts, number)
+// Solidity: function getCrossChainSignalRoot(uint256 number) view returns(bytes32)
+func (_TaikoL2 *TaikoL2Session) GetCrossChainSignalRoot(number *big.Int) ([32]byte, error) {
+	return _TaikoL2.Contract.GetCrossChainSignalRoot(&_TaikoL2.CallOpts, number)
 }
 
-// GetSyncedHeader is a free data retrieval call binding the contract method 0x25bf86f2.
+// GetCrossChainSignalRoot is a free data retrieval call binding the contract method 0xb8914ce4.
 //
-// Solidity: function getSyncedHeader(uint256 number) view returns(bytes32)
-func (_TaikoL2 *TaikoL2CallerSession) GetSyncedHeader(number *big.Int) ([32]byte, error) {
-	return _TaikoL2.Contract.GetSyncedHeader(&_TaikoL2.CallOpts, number)
+// Solidity: function getCrossChainSignalRoot(uint256 number) view returns(bytes32)
+func (_TaikoL2 *TaikoL2CallerSession) GetCrossChainSignalRoot(number *big.Int) ([32]byte, error) {
+	return _TaikoL2.Contract.GetCrossChainSignalRoot(&_TaikoL2.CallOpts, number)
 }
 
 // LatestSyncedL1Height is a free data retrieval call binding the contract method 0xc7b96908.
 //
-// Solidity: function latestSyncedL1Height() view returns(uint256)
-func (_TaikoL2 *TaikoL2Caller) LatestSyncedL1Height(opts *bind.CallOpts) (*big.Int, error) {
+// Solidity: function latestSyncedL1Height() view returns(uint64)
+func (_TaikoL2 *TaikoL2Caller) LatestSyncedL1Height(opts *bind.CallOpts) (uint64, error) {
 	var out []interface{}
 	err := _TaikoL2.contract.Call(opts, &out, "latestSyncedL1Height")
+
+	if err != nil {
+		return *new(uint64), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint64)).(*uint64)
+
+	return out0, err
+
+}
+
+// LatestSyncedL1Height is a free data retrieval call binding the contract method 0xc7b96908.
+//
+// Solidity: function latestSyncedL1Height() view returns(uint64)
+func (_TaikoL2 *TaikoL2Session) LatestSyncedL1Height() (uint64, error) {
+	return _TaikoL2.Contract.LatestSyncedL1Height(&_TaikoL2.CallOpts)
+}
+
+// LatestSyncedL1Height is a free data retrieval call binding the contract method 0xc7b96908.
+//
+// Solidity: function latestSyncedL1Height() view returns(uint64)
+func (_TaikoL2 *TaikoL2CallerSession) LatestSyncedL1Height() (uint64, error) {
+	return _TaikoL2.Contract.LatestSyncedL1Height(&_TaikoL2.CallOpts)
+}
+
+// Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
+//
+// Solidity: function owner() view returns(address)
+func (_TaikoL2 *TaikoL2Caller) Owner(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _TaikoL2.contract.Call(opts, &out, "owner")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
+//
+// Solidity: function owner() view returns(address)
+func (_TaikoL2 *TaikoL2Session) Owner() (common.Address, error) {
+	return _TaikoL2.Contract.Owner(&_TaikoL2.CallOpts)
+}
+
+// Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
+//
+// Solidity: function owner() view returns(address)
+func (_TaikoL2 *TaikoL2CallerSession) Owner() (common.Address, error) {
+	return _TaikoL2.Contract.Owner(&_TaikoL2.CallOpts)
+}
+
+// ParentTimestamp is a free data retrieval call binding the contract method 0x539b8ade.
+//
+// Solidity: function parentTimestamp() view returns(uint64)
+func (_TaikoL2 *TaikoL2Caller) ParentTimestamp(opts *bind.CallOpts) (uint64, error) {
+	var out []interface{}
+	err := _TaikoL2.contract.Call(opts, &out, "parentTimestamp")
+
+	if err != nil {
+		return *new(uint64), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint64)).(*uint64)
+
+	return out0, err
+
+}
+
+// ParentTimestamp is a free data retrieval call binding the contract method 0x539b8ade.
+//
+// Solidity: function parentTimestamp() view returns(uint64)
+func (_TaikoL2 *TaikoL2Session) ParentTimestamp() (uint64, error) {
+	return _TaikoL2.Contract.ParentTimestamp(&_TaikoL2.CallOpts)
+}
+
+// ParentTimestamp is a free data retrieval call binding the contract method 0x539b8ade.
+//
+// Solidity: function parentTimestamp() view returns(uint64)
+func (_TaikoL2 *TaikoL2CallerSession) ParentTimestamp() (uint64, error) {
+	return _TaikoL2.Contract.ParentTimestamp(&_TaikoL2.CallOpts)
+}
+
+// PublicInputHash is a free data retrieval call binding the contract method 0xdac5df78.
+//
+// Solidity: function publicInputHash() view returns(bytes32)
+func (_TaikoL2 *TaikoL2Caller) PublicInputHash(opts *bind.CallOpts) ([32]byte, error) {
+	var out []interface{}
+	err := _TaikoL2.contract.Call(opts, &out, "publicInputHash")
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
+}
+
+// PublicInputHash is a free data retrieval call binding the contract method 0xdac5df78.
+//
+// Solidity: function publicInputHash() view returns(bytes32)
+func (_TaikoL2 *TaikoL2Session) PublicInputHash() ([32]byte, error) {
+	return _TaikoL2.Contract.PublicInputHash(&_TaikoL2.CallOpts)
+}
+
+// PublicInputHash is a free data retrieval call binding the contract method 0xdac5df78.
+//
+// Solidity: function publicInputHash() view returns(bytes32)
+func (_TaikoL2 *TaikoL2CallerSession) PublicInputHash() ([32]byte, error) {
+	return _TaikoL2.Contract.PublicInputHash(&_TaikoL2.CallOpts)
+}
+
+// Resolve is a free data retrieval call binding the contract method 0x6c6563f6.
+//
+// Solidity: function resolve(uint256 chainId, bytes32 name, bool allowZeroAddress) view returns(address)
+func (_TaikoL2 *TaikoL2Caller) Resolve(opts *bind.CallOpts, chainId *big.Int, name [32]byte, allowZeroAddress bool) (common.Address, error) {
+	var out []interface{}
+	err := _TaikoL2.contract.Call(opts, &out, "resolve", chainId, name, allowZeroAddress)
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// Resolve is a free data retrieval call binding the contract method 0x6c6563f6.
+//
+// Solidity: function resolve(uint256 chainId, bytes32 name, bool allowZeroAddress) view returns(address)
+func (_TaikoL2 *TaikoL2Session) Resolve(chainId *big.Int, name [32]byte, allowZeroAddress bool) (common.Address, error) {
+	return _TaikoL2.Contract.Resolve(&_TaikoL2.CallOpts, chainId, name, allowZeroAddress)
+}
+
+// Resolve is a free data retrieval call binding the contract method 0x6c6563f6.
+//
+// Solidity: function resolve(uint256 chainId, bytes32 name, bool allowZeroAddress) view returns(address)
+func (_TaikoL2 *TaikoL2CallerSession) Resolve(chainId *big.Int, name [32]byte, allowZeroAddress bool) (common.Address, error) {
+	return _TaikoL2.Contract.Resolve(&_TaikoL2.CallOpts, chainId, name, allowZeroAddress)
+}
+
+// Resolve0 is a free data retrieval call binding the contract method 0xa86f9d9e.
+//
+// Solidity: function resolve(bytes32 name, bool allowZeroAddress) view returns(address)
+func (_TaikoL2 *TaikoL2Caller) Resolve0(opts *bind.CallOpts, name [32]byte, allowZeroAddress bool) (common.Address, error) {
+	var out []interface{}
+	err := _TaikoL2.contract.Call(opts, &out, "resolve0", name, allowZeroAddress)
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// Resolve0 is a free data retrieval call binding the contract method 0xa86f9d9e.
+//
+// Solidity: function resolve(bytes32 name, bool allowZeroAddress) view returns(address)
+func (_TaikoL2 *TaikoL2Session) Resolve0(name [32]byte, allowZeroAddress bool) (common.Address, error) {
+	return _TaikoL2.Contract.Resolve0(&_TaikoL2.CallOpts, name, allowZeroAddress)
+}
+
+// Resolve0 is a free data retrieval call binding the contract method 0xa86f9d9e.
+//
+// Solidity: function resolve(bytes32 name, bool allowZeroAddress) view returns(address)
+func (_TaikoL2 *TaikoL2CallerSession) Resolve0(name [32]byte, allowZeroAddress bool) (common.Address, error) {
+	return _TaikoL2.Contract.Resolve0(&_TaikoL2.CallOpts, name, allowZeroAddress)
+}
+
+// SignAnchor is a free data retrieval call binding the contract method 0x591aad8a.
+//
+// Solidity: function signAnchor(bytes32 digest, uint8 k) view returns(uint8 v, uint256 r, uint256 s)
+func (_TaikoL2 *TaikoL2Caller) SignAnchor(opts *bind.CallOpts, digest [32]byte, k uint8) (struct {
+	V uint8
+	R *big.Int
+	S *big.Int
+}, error) {
+	var out []interface{}
+	err := _TaikoL2.contract.Call(opts, &out, "signAnchor", digest, k)
+
+	outstruct := new(struct {
+		V uint8
+		R *big.Int
+		S *big.Int
+	})
+	if err != nil {
+		return *outstruct, err
+	}
+
+	outstruct.V = *abi.ConvertType(out[0], new(uint8)).(*uint8)
+	outstruct.R = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.S = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
+
+	return *outstruct, err
+
+}
+
+// SignAnchor is a free data retrieval call binding the contract method 0x591aad8a.
+//
+// Solidity: function signAnchor(bytes32 digest, uint8 k) view returns(uint8 v, uint256 r, uint256 s)
+func (_TaikoL2 *TaikoL2Session) SignAnchor(digest [32]byte, k uint8) (struct {
+	V uint8
+	R *big.Int
+	S *big.Int
+}, error) {
+	return _TaikoL2.Contract.SignAnchor(&_TaikoL2.CallOpts, digest, k)
+}
+
+// SignAnchor is a free data retrieval call binding the contract method 0x591aad8a.
+//
+// Solidity: function signAnchor(bytes32 digest, uint8 k) view returns(uint8 v, uint256 r, uint256 s)
+func (_TaikoL2 *TaikoL2CallerSession) SignAnchor(digest [32]byte, k uint8) (struct {
+	V uint8
+	R *big.Int
+	S *big.Int
+}, error) {
+	return _TaikoL2.Contract.SignAnchor(&_TaikoL2.CallOpts, digest, k)
+}
+
+// Xscale is a free data retrieval call binding the contract method 0xf5c97740.
+//
+// Solidity: function xscale() view returns(uint64)
+func (_TaikoL2 *TaikoL2Caller) Xscale(opts *bind.CallOpts) (uint64, error) {
+	var out []interface{}
+	err := _TaikoL2.contract.Call(opts, &out, "xscale")
+
+	if err != nil {
+		return *new(uint64), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint64)).(*uint64)
+
+	return out0, err
+
+}
+
+// Xscale is a free data retrieval call binding the contract method 0xf5c97740.
+//
+// Solidity: function xscale() view returns(uint64)
+func (_TaikoL2 *TaikoL2Session) Xscale() (uint64, error) {
+	return _TaikoL2.Contract.Xscale(&_TaikoL2.CallOpts)
+}
+
+// Xscale is a free data retrieval call binding the contract method 0xf5c97740.
+//
+// Solidity: function xscale() view returns(uint64)
+func (_TaikoL2 *TaikoL2CallerSession) Xscale() (uint64, error) {
+	return _TaikoL2.Contract.Xscale(&_TaikoL2.CallOpts)
+}
+
+// Yscale is a free data retrieval call binding the contract method 0x3fa85350.
+//
+// Solidity: function yscale() view returns(uint128)
+func (_TaikoL2 *TaikoL2Caller) Yscale(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _TaikoL2.contract.Call(opts, &out, "yscale")
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -381,127 +783,107 @@ func (_TaikoL2 *TaikoL2Caller) LatestSyncedL1Height(opts *bind.CallOpts) (*big.I
 
 }
 
-// LatestSyncedL1Height is a free data retrieval call binding the contract method 0xc7b96908.
+// Yscale is a free data retrieval call binding the contract method 0x3fa85350.
 //
-// Solidity: function latestSyncedL1Height() view returns(uint256)
-func (_TaikoL2 *TaikoL2Session) LatestSyncedL1Height() (*big.Int, error) {
-	return _TaikoL2.Contract.LatestSyncedL1Height(&_TaikoL2.CallOpts)
+// Solidity: function yscale() view returns(uint128)
+func (_TaikoL2 *TaikoL2Session) Yscale() (*big.Int, error) {
+	return _TaikoL2.Contract.Yscale(&_TaikoL2.CallOpts)
 }
 
-// LatestSyncedL1Height is a free data retrieval call binding the contract method 0xc7b96908.
+// Yscale is a free data retrieval call binding the contract method 0x3fa85350.
 //
-// Solidity: function latestSyncedL1Height() view returns(uint256)
-func (_TaikoL2 *TaikoL2CallerSession) LatestSyncedL1Height() (*big.Int, error) {
-	return _TaikoL2.Contract.LatestSyncedL1Height(&_TaikoL2.CallOpts)
+// Solidity: function yscale() view returns(uint128)
+func (_TaikoL2 *TaikoL2CallerSession) Yscale() (*big.Int, error) {
+	return _TaikoL2.Contract.Yscale(&_TaikoL2.CallOpts)
 }
 
-// Resolve is a free data retrieval call binding the contract method 0x0ca4dffd.
+// Anchor is a paid mutator transaction binding the contract method 0x3d384a4b.
 //
-// Solidity: function resolve(string name, bool allowZeroAddress) view returns(address)
-func (_TaikoL2 *TaikoL2Caller) Resolve(opts *bind.CallOpts, name string, allowZeroAddress bool) (common.Address, error) {
-	var out []interface{}
-	err := _TaikoL2.contract.Call(opts, &out, "resolve", name, allowZeroAddress)
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
+// Solidity: function anchor(bytes32 l1Hash, bytes32 l1SignalRoot, uint64 l1Height, uint64 parentGasUsed) returns()
+func (_TaikoL2 *TaikoL2Transactor) Anchor(opts *bind.TransactOpts, l1Hash [32]byte, l1SignalRoot [32]byte, l1Height uint64, parentGasUsed uint64) (*types.Transaction, error) {
+	return _TaikoL2.contract.Transact(opts, "anchor", l1Hash, l1SignalRoot, l1Height, parentGasUsed)
 }
 
-// Resolve is a free data retrieval call binding the contract method 0x0ca4dffd.
+// Anchor is a paid mutator transaction binding the contract method 0x3d384a4b.
 //
-// Solidity: function resolve(string name, bool allowZeroAddress) view returns(address)
-func (_TaikoL2 *TaikoL2Session) Resolve(name string, allowZeroAddress bool) (common.Address, error) {
-	return _TaikoL2.Contract.Resolve(&_TaikoL2.CallOpts, name, allowZeroAddress)
+// Solidity: function anchor(bytes32 l1Hash, bytes32 l1SignalRoot, uint64 l1Height, uint64 parentGasUsed) returns()
+func (_TaikoL2 *TaikoL2Session) Anchor(l1Hash [32]byte, l1SignalRoot [32]byte, l1Height uint64, parentGasUsed uint64) (*types.Transaction, error) {
+	return _TaikoL2.Contract.Anchor(&_TaikoL2.TransactOpts, l1Hash, l1SignalRoot, l1Height, parentGasUsed)
 }
 
-// Resolve is a free data retrieval call binding the contract method 0x0ca4dffd.
+// Anchor is a paid mutator transaction binding the contract method 0x3d384a4b.
 //
-// Solidity: function resolve(string name, bool allowZeroAddress) view returns(address)
-func (_TaikoL2 *TaikoL2CallerSession) Resolve(name string, allowZeroAddress bool) (common.Address, error) {
-	return _TaikoL2.Contract.Resolve(&_TaikoL2.CallOpts, name, allowZeroAddress)
+// Solidity: function anchor(bytes32 l1Hash, bytes32 l1SignalRoot, uint64 l1Height, uint64 parentGasUsed) returns()
+func (_TaikoL2 *TaikoL2TransactorSession) Anchor(l1Hash [32]byte, l1SignalRoot [32]byte, l1Height uint64, parentGasUsed uint64) (*types.Transaction, error) {
+	return _TaikoL2.Contract.Anchor(&_TaikoL2.TransactOpts, l1Hash, l1SignalRoot, l1Height, parentGasUsed)
 }
 
-// Resolve0 is a free data retrieval call binding the contract method 0x1be2bfa7.
+// Init is a paid mutator transaction binding the contract method 0x8f3ca30d.
 //
-// Solidity: function resolve(uint256 chainId, string name, bool allowZeroAddress) view returns(address)
-func (_TaikoL2 *TaikoL2Caller) Resolve0(opts *bind.CallOpts, chainId *big.Int, name string, allowZeroAddress bool) (common.Address, error) {
-	var out []interface{}
-	err := _TaikoL2.contract.Call(opts, &out, "resolve0", chainId, name, allowZeroAddress)
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
+// Solidity: function init(address _addressManager, (uint64,uint64,uint64,uint64,uint64) _param1559) returns()
+func (_TaikoL2 *TaikoL2Transactor) Init(opts *bind.TransactOpts, _addressManager common.Address, _param1559 TaikoL2EIP1559Params) (*types.Transaction, error) {
+	return _TaikoL2.contract.Transact(opts, "init", _addressManager, _param1559)
 }
 
-// Resolve0 is a free data retrieval call binding the contract method 0x1be2bfa7.
+// Init is a paid mutator transaction binding the contract method 0x8f3ca30d.
 //
-// Solidity: function resolve(uint256 chainId, string name, bool allowZeroAddress) view returns(address)
-func (_TaikoL2 *TaikoL2Session) Resolve0(chainId *big.Int, name string, allowZeroAddress bool) (common.Address, error) {
-	return _TaikoL2.Contract.Resolve0(&_TaikoL2.CallOpts, chainId, name, allowZeroAddress)
+// Solidity: function init(address _addressManager, (uint64,uint64,uint64,uint64,uint64) _param1559) returns()
+func (_TaikoL2 *TaikoL2Session) Init(_addressManager common.Address, _param1559 TaikoL2EIP1559Params) (*types.Transaction, error) {
+	return _TaikoL2.Contract.Init(&_TaikoL2.TransactOpts, _addressManager, _param1559)
 }
 
-// Resolve0 is a free data retrieval call binding the contract method 0x1be2bfa7.
+// Init is a paid mutator transaction binding the contract method 0x8f3ca30d.
 //
-// Solidity: function resolve(uint256 chainId, string name, bool allowZeroAddress) view returns(address)
-func (_TaikoL2 *TaikoL2CallerSession) Resolve0(chainId *big.Int, name string, allowZeroAddress bool) (common.Address, error) {
-	return _TaikoL2.Contract.Resolve0(&_TaikoL2.CallOpts, chainId, name, allowZeroAddress)
+// Solidity: function init(address _addressManager, (uint64,uint64,uint64,uint64,uint64) _param1559) returns()
+func (_TaikoL2 *TaikoL2TransactorSession) Init(_addressManager common.Address, _param1559 TaikoL2EIP1559Params) (*types.Transaction, error) {
+	return _TaikoL2.Contract.Init(&_TaikoL2.TransactOpts, _addressManager, _param1559)
 }
 
-// Anchor is a paid mutator transaction binding the contract method 0xa0ca2d08.
+// RenounceOwnership is a paid mutator transaction binding the contract method 0x715018a6.
 //
-// Solidity: function anchor(uint256 l1Height, bytes32 l1Hash) returns()
-func (_TaikoL2 *TaikoL2Transactor) Anchor(opts *bind.TransactOpts, l1Height *big.Int, l1Hash [32]byte) (*types.Transaction, error) {
-	return _TaikoL2.contract.Transact(opts, "anchor", l1Height, l1Hash)
+// Solidity: function renounceOwnership() returns()
+func (_TaikoL2 *TaikoL2Transactor) RenounceOwnership(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _TaikoL2.contract.Transact(opts, "renounceOwnership")
 }
 
-// Anchor is a paid mutator transaction binding the contract method 0xa0ca2d08.
+// RenounceOwnership is a paid mutator transaction binding the contract method 0x715018a6.
 //
-// Solidity: function anchor(uint256 l1Height, bytes32 l1Hash) returns()
-func (_TaikoL2 *TaikoL2Session) Anchor(l1Height *big.Int, l1Hash [32]byte) (*types.Transaction, error) {
-	return _TaikoL2.Contract.Anchor(&_TaikoL2.TransactOpts, l1Height, l1Hash)
+// Solidity: function renounceOwnership() returns()
+func (_TaikoL2 *TaikoL2Session) RenounceOwnership() (*types.Transaction, error) {
+	return _TaikoL2.Contract.RenounceOwnership(&_TaikoL2.TransactOpts)
 }
 
-// Anchor is a paid mutator transaction binding the contract method 0xa0ca2d08.
+// RenounceOwnership is a paid mutator transaction binding the contract method 0x715018a6.
 //
-// Solidity: function anchor(uint256 l1Height, bytes32 l1Hash) returns()
-func (_TaikoL2 *TaikoL2TransactorSession) Anchor(l1Height *big.Int, l1Hash [32]byte) (*types.Transaction, error) {
-	return _TaikoL2.Contract.Anchor(&_TaikoL2.TransactOpts, l1Height, l1Hash)
+// Solidity: function renounceOwnership() returns()
+func (_TaikoL2 *TaikoL2TransactorSession) RenounceOwnership() (*types.Transaction, error) {
+	return _TaikoL2.Contract.RenounceOwnership(&_TaikoL2.TransactOpts)
 }
 
-// InvalidateBlock is a paid mutator transaction binding the contract method 0x975e09a0.
+// TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
 //
-// Solidity: function invalidateBlock(bytes txList, uint8 hint, uint256 txIdx) returns()
-func (_TaikoL2 *TaikoL2Transactor) InvalidateBlock(opts *bind.TransactOpts, txList []byte, hint uint8, txIdx *big.Int) (*types.Transaction, error) {
-	return _TaikoL2.contract.Transact(opts, "invalidateBlock", txList, hint, txIdx)
+// Solidity: function transferOwnership(address newOwner) returns()
+func (_TaikoL2 *TaikoL2Transactor) TransferOwnership(opts *bind.TransactOpts, newOwner common.Address) (*types.Transaction, error) {
+	return _TaikoL2.contract.Transact(opts, "transferOwnership", newOwner)
 }
 
-// InvalidateBlock is a paid mutator transaction binding the contract method 0x975e09a0.
+// TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
 //
-// Solidity: function invalidateBlock(bytes txList, uint8 hint, uint256 txIdx) returns()
-func (_TaikoL2 *TaikoL2Session) InvalidateBlock(txList []byte, hint uint8, txIdx *big.Int) (*types.Transaction, error) {
-	return _TaikoL2.Contract.InvalidateBlock(&_TaikoL2.TransactOpts, txList, hint, txIdx)
+// Solidity: function transferOwnership(address newOwner) returns()
+func (_TaikoL2 *TaikoL2Session) TransferOwnership(newOwner common.Address) (*types.Transaction, error) {
+	return _TaikoL2.Contract.TransferOwnership(&_TaikoL2.TransactOpts, newOwner)
 }
 
-// InvalidateBlock is a paid mutator transaction binding the contract method 0x975e09a0.
+// TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
 //
-// Solidity: function invalidateBlock(bytes txList, uint8 hint, uint256 txIdx) returns()
-func (_TaikoL2 *TaikoL2TransactorSession) InvalidateBlock(txList []byte, hint uint8, txIdx *big.Int) (*types.Transaction, error) {
-	return _TaikoL2.Contract.InvalidateBlock(&_TaikoL2.TransactOpts, txList, hint, txIdx)
+// Solidity: function transferOwnership(address newOwner) returns()
+func (_TaikoL2 *TaikoL2TransactorSession) TransferOwnership(newOwner common.Address) (*types.Transaction, error) {
+	return _TaikoL2.Contract.TransferOwnership(&_TaikoL2.TransactOpts, newOwner)
 }
 
-// TaikoL2BlockInvalidatedIterator is returned from FilterBlockInvalidated and is used to iterate over the raw logs and unpacked data for BlockInvalidated events raised by the TaikoL2 contract.
-type TaikoL2BlockInvalidatedIterator struct {
-	Event *TaikoL2BlockInvalidated // Event containing the contract specifics and raw log
+// TaikoL2AnchoredIterator is returned from FilterAnchored and is used to iterate over the raw logs and unpacked data for Anchored events raised by the TaikoL2 contract.
+type TaikoL2AnchoredIterator struct {
+	Event *TaikoL2Anchored // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -515,7 +897,7 @@ type TaikoL2BlockInvalidatedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *TaikoL2BlockInvalidatedIterator) Next() bool {
+func (it *TaikoL2AnchoredIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -524,7 +906,7 @@ func (it *TaikoL2BlockInvalidatedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(TaikoL2BlockInvalidated)
+			it.Event = new(TaikoL2Anchored)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -539,7 +921,7 @@ func (it *TaikoL2BlockInvalidatedIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(TaikoL2BlockInvalidated)
+		it.Event = new(TaikoL2Anchored)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -555,51 +937,48 @@ func (it *TaikoL2BlockInvalidatedIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *TaikoL2BlockInvalidatedIterator) Error() error {
+func (it *TaikoL2AnchoredIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *TaikoL2BlockInvalidatedIterator) Close() error {
+func (it *TaikoL2AnchoredIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// TaikoL2BlockInvalidated represents a BlockInvalidated event raised by the TaikoL2 contract.
-type TaikoL2BlockInvalidated struct {
-	TxListHash [32]byte
+// TaikoL2Anchored represents a Anchored event raised by the TaikoL2 contract.
+type TaikoL2Anchored struct {
+	Number     uint64
+	Basefee    uint64
+	Gaslimit   uint64
+	Timestamp  uint64
+	ParentHash [32]byte
+	Prevrandao *big.Int
+	Coinbase   common.Address
+	Chainid    uint32
 	Raw        types.Log // Blockchain specific contextual infos
 }
 
-// FilterBlockInvalidated is a free log retrieval operation binding the contract event 0x64b299ff9f8ba674288abb53380419048a4271dda03b837ecba6b40e6ddea4a2.
+// FilterAnchored is a free log retrieval operation binding the contract event 0x4dcb01f99c4a2c27a16ab38d00ec92434f8231be81fa62e058f260d3c7156029.
 //
-// Solidity: event BlockInvalidated(bytes32 indexed txListHash)
-func (_TaikoL2 *TaikoL2Filterer) FilterBlockInvalidated(opts *bind.FilterOpts, txListHash [][32]byte) (*TaikoL2BlockInvalidatedIterator, error) {
+// Solidity: event Anchored(uint64 number, uint64 basefee, uint64 gaslimit, uint64 timestamp, bytes32 parentHash, uint256 prevrandao, address coinbase, uint32 chainid)
+func (_TaikoL2 *TaikoL2Filterer) FilterAnchored(opts *bind.FilterOpts) (*TaikoL2AnchoredIterator, error) {
 
-	var txListHashRule []interface{}
-	for _, txListHashItem := range txListHash {
-		txListHashRule = append(txListHashRule, txListHashItem)
-	}
-
-	logs, sub, err := _TaikoL2.contract.FilterLogs(opts, "BlockInvalidated", txListHashRule)
+	logs, sub, err := _TaikoL2.contract.FilterLogs(opts, "Anchored")
 	if err != nil {
 		return nil, err
 	}
-	return &TaikoL2BlockInvalidatedIterator{contract: _TaikoL2.contract, event: "BlockInvalidated", logs: logs, sub: sub}, nil
+	return &TaikoL2AnchoredIterator{contract: _TaikoL2.contract, event: "Anchored", logs: logs, sub: sub}, nil
 }
 
-// WatchBlockInvalidated is a free log subscription operation binding the contract event 0x64b299ff9f8ba674288abb53380419048a4271dda03b837ecba6b40e6ddea4a2.
+// WatchAnchored is a free log subscription operation binding the contract event 0x4dcb01f99c4a2c27a16ab38d00ec92434f8231be81fa62e058f260d3c7156029.
 //
-// Solidity: event BlockInvalidated(bytes32 indexed txListHash)
-func (_TaikoL2 *TaikoL2Filterer) WatchBlockInvalidated(opts *bind.WatchOpts, sink chan<- *TaikoL2BlockInvalidated, txListHash [][32]byte) (event.Subscription, error) {
+// Solidity: event Anchored(uint64 number, uint64 basefee, uint64 gaslimit, uint64 timestamp, bytes32 parentHash, uint256 prevrandao, address coinbase, uint32 chainid)
+func (_TaikoL2 *TaikoL2Filterer) WatchAnchored(opts *bind.WatchOpts, sink chan<- *TaikoL2Anchored) (event.Subscription, error) {
 
-	var txListHashRule []interface{}
-	for _, txListHashItem := range txListHash {
-		txListHashRule = append(txListHashRule, txListHashItem)
-	}
-
-	logs, sub, err := _TaikoL2.contract.WatchLogs(opts, "BlockInvalidated", txListHashRule)
+	logs, sub, err := _TaikoL2.contract.WatchLogs(opts, "Anchored")
 	if err != nil {
 		return nil, err
 	}
@@ -609,8 +988,8 @@ func (_TaikoL2 *TaikoL2Filterer) WatchBlockInvalidated(opts *bind.WatchOpts, sin
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(TaikoL2BlockInvalidated)
-				if err := _TaikoL2.contract.UnpackLog(event, "BlockInvalidated", log); err != nil {
+				event := new(TaikoL2Anchored)
+				if err := _TaikoL2.contract.UnpackLog(event, "Anchored", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -631,21 +1010,21 @@ func (_TaikoL2 *TaikoL2Filterer) WatchBlockInvalidated(opts *bind.WatchOpts, sin
 	}), nil
 }
 
-// ParseBlockInvalidated is a log parse operation binding the contract event 0x64b299ff9f8ba674288abb53380419048a4271dda03b837ecba6b40e6ddea4a2.
+// ParseAnchored is a log parse operation binding the contract event 0x4dcb01f99c4a2c27a16ab38d00ec92434f8231be81fa62e058f260d3c7156029.
 //
-// Solidity: event BlockInvalidated(bytes32 indexed txListHash)
-func (_TaikoL2 *TaikoL2Filterer) ParseBlockInvalidated(log types.Log) (*TaikoL2BlockInvalidated, error) {
-	event := new(TaikoL2BlockInvalidated)
-	if err := _TaikoL2.contract.UnpackLog(event, "BlockInvalidated", log); err != nil {
+// Solidity: event Anchored(uint64 number, uint64 basefee, uint64 gaslimit, uint64 timestamp, bytes32 parentHash, uint256 prevrandao, address coinbase, uint32 chainid)
+func (_TaikoL2 *TaikoL2Filterer) ParseAnchored(log types.Log) (*TaikoL2Anchored, error) {
+	event := new(TaikoL2Anchored)
+	if err := _TaikoL2.contract.UnpackLog(event, "Anchored", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-// TaikoL2HeaderSyncedIterator is returned from FilterHeaderSynced and is used to iterate over the raw logs and unpacked data for HeaderSynced events raised by the TaikoL2 contract.
-type TaikoL2HeaderSyncedIterator struct {
-	Event *TaikoL2HeaderSynced // Event containing the contract specifics and raw log
+// TaikoL2CrossChainSyncedIterator is returned from FilterCrossChainSynced and is used to iterate over the raw logs and unpacked data for CrossChainSynced events raised by the TaikoL2 contract.
+type TaikoL2CrossChainSyncedIterator struct {
+	Event *TaikoL2CrossChainSynced // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -659,7 +1038,7 @@ type TaikoL2HeaderSyncedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *TaikoL2HeaderSyncedIterator) Next() bool {
+func (it *TaikoL2CrossChainSyncedIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -668,7 +1047,7 @@ func (it *TaikoL2HeaderSyncedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(TaikoL2HeaderSynced)
+			it.Event = new(TaikoL2CrossChainSynced)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -683,7 +1062,7 @@ func (it *TaikoL2HeaderSyncedIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(TaikoL2HeaderSynced)
+		it.Event = new(TaikoL2CrossChainSynced)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -699,52 +1078,53 @@ func (it *TaikoL2HeaderSyncedIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *TaikoL2HeaderSyncedIterator) Error() error {
+func (it *TaikoL2CrossChainSyncedIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *TaikoL2HeaderSyncedIterator) Close() error {
+func (it *TaikoL2CrossChainSyncedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// TaikoL2HeaderSynced represents a HeaderSynced event raised by the TaikoL2 contract.
-type TaikoL2HeaderSynced struct {
-	SrcHeight *big.Int
-	SrcHash   [32]byte
-	Raw       types.Log // Blockchain specific contextual infos
+// TaikoL2CrossChainSynced represents a CrossChainSynced event raised by the TaikoL2 contract.
+type TaikoL2CrossChainSynced struct {
+	SrcHeight  *big.Int
+	BlockHash  [32]byte
+	SignalRoot [32]byte
+	Raw        types.Log // Blockchain specific contextual infos
 }
 
-// FilterHeaderSynced is a free log retrieval operation binding the contract event 0x58313b60ec6c5bfc381e52f0de3ede0faac3cdffea26f7d6bcc3d09b61018691.
+// FilterCrossChainSynced is a free log retrieval operation binding the contract event 0x7528bbd1cef0e5d13408706892a51ee8ef82bbf33d4ec0c37216f8beba71205b.
 //
-// Solidity: event HeaderSynced(uint256 indexed srcHeight, bytes32 srcHash)
-func (_TaikoL2 *TaikoL2Filterer) FilterHeaderSynced(opts *bind.FilterOpts, srcHeight []*big.Int) (*TaikoL2HeaderSyncedIterator, error) {
+// Solidity: event CrossChainSynced(uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot)
+func (_TaikoL2 *TaikoL2Filterer) FilterCrossChainSynced(opts *bind.FilterOpts, srcHeight []*big.Int) (*TaikoL2CrossChainSyncedIterator, error) {
 
 	var srcHeightRule []interface{}
 	for _, srcHeightItem := range srcHeight {
 		srcHeightRule = append(srcHeightRule, srcHeightItem)
 	}
 
-	logs, sub, err := _TaikoL2.contract.FilterLogs(opts, "HeaderSynced", srcHeightRule)
+	logs, sub, err := _TaikoL2.contract.FilterLogs(opts, "CrossChainSynced", srcHeightRule)
 	if err != nil {
 		return nil, err
 	}
-	return &TaikoL2HeaderSyncedIterator{contract: _TaikoL2.contract, event: "HeaderSynced", logs: logs, sub: sub}, nil
+	return &TaikoL2CrossChainSyncedIterator{contract: _TaikoL2.contract, event: "CrossChainSynced", logs: logs, sub: sub}, nil
 }
 
-// WatchHeaderSynced is a free log subscription operation binding the contract event 0x58313b60ec6c5bfc381e52f0de3ede0faac3cdffea26f7d6bcc3d09b61018691.
+// WatchCrossChainSynced is a free log subscription operation binding the contract event 0x7528bbd1cef0e5d13408706892a51ee8ef82bbf33d4ec0c37216f8beba71205b.
 //
-// Solidity: event HeaderSynced(uint256 indexed srcHeight, bytes32 srcHash)
-func (_TaikoL2 *TaikoL2Filterer) WatchHeaderSynced(opts *bind.WatchOpts, sink chan<- *TaikoL2HeaderSynced, srcHeight []*big.Int) (event.Subscription, error) {
+// Solidity: event CrossChainSynced(uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot)
+func (_TaikoL2 *TaikoL2Filterer) WatchCrossChainSynced(opts *bind.WatchOpts, sink chan<- *TaikoL2CrossChainSynced, srcHeight []*big.Int) (event.Subscription, error) {
 
 	var srcHeightRule []interface{}
 	for _, srcHeightItem := range srcHeight {
 		srcHeightRule = append(srcHeightRule, srcHeightItem)
 	}
 
-	logs, sub, err := _TaikoL2.contract.WatchLogs(opts, "HeaderSynced", srcHeightRule)
+	logs, sub, err := _TaikoL2.contract.WatchLogs(opts, "CrossChainSynced", srcHeightRule)
 	if err != nil {
 		return nil, err
 	}
@@ -754,8 +1134,8 @@ func (_TaikoL2 *TaikoL2Filterer) WatchHeaderSynced(opts *bind.WatchOpts, sink ch
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(TaikoL2HeaderSynced)
-				if err := _TaikoL2.contract.UnpackLog(event, "HeaderSynced", log); err != nil {
+				event := new(TaikoL2CrossChainSynced)
+				if err := _TaikoL2.contract.UnpackLog(event, "CrossChainSynced", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -776,12 +1156,299 @@ func (_TaikoL2 *TaikoL2Filterer) WatchHeaderSynced(opts *bind.WatchOpts, sink ch
 	}), nil
 }
 
-// ParseHeaderSynced is a log parse operation binding the contract event 0x58313b60ec6c5bfc381e52f0de3ede0faac3cdffea26f7d6bcc3d09b61018691.
+// ParseCrossChainSynced is a log parse operation binding the contract event 0x7528bbd1cef0e5d13408706892a51ee8ef82bbf33d4ec0c37216f8beba71205b.
 //
-// Solidity: event HeaderSynced(uint256 indexed srcHeight, bytes32 srcHash)
-func (_TaikoL2 *TaikoL2Filterer) ParseHeaderSynced(log types.Log) (*TaikoL2HeaderSynced, error) {
-	event := new(TaikoL2HeaderSynced)
-	if err := _TaikoL2.contract.UnpackLog(event, "HeaderSynced", log); err != nil {
+// Solidity: event CrossChainSynced(uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot)
+func (_TaikoL2 *TaikoL2Filterer) ParseCrossChainSynced(log types.Log) (*TaikoL2CrossChainSynced, error) {
+	event := new(TaikoL2CrossChainSynced)
+	if err := _TaikoL2.contract.UnpackLog(event, "CrossChainSynced", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// TaikoL2InitializedIterator is returned from FilterInitialized and is used to iterate over the raw logs and unpacked data for Initialized events raised by the TaikoL2 contract.
+type TaikoL2InitializedIterator struct {
+	Event *TaikoL2Initialized // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *TaikoL2InitializedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(TaikoL2Initialized)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(TaikoL2Initialized)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *TaikoL2InitializedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *TaikoL2InitializedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// TaikoL2Initialized represents a Initialized event raised by the TaikoL2 contract.
+type TaikoL2Initialized struct {
+	Version uint8
+	Raw     types.Log // Blockchain specific contextual infos
+}
+
+// FilterInitialized is a free log retrieval operation binding the contract event 0x7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb3847402498.
+//
+// Solidity: event Initialized(uint8 version)
+func (_TaikoL2 *TaikoL2Filterer) FilterInitialized(opts *bind.FilterOpts) (*TaikoL2InitializedIterator, error) {
+
+	logs, sub, err := _TaikoL2.contract.FilterLogs(opts, "Initialized")
+	if err != nil {
+		return nil, err
+	}
+	return &TaikoL2InitializedIterator{contract: _TaikoL2.contract, event: "Initialized", logs: logs, sub: sub}, nil
+}
+
+// WatchInitialized is a free log subscription operation binding the contract event 0x7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb3847402498.
+//
+// Solidity: event Initialized(uint8 version)
+func (_TaikoL2 *TaikoL2Filterer) WatchInitialized(opts *bind.WatchOpts, sink chan<- *TaikoL2Initialized) (event.Subscription, error) {
+
+	logs, sub, err := _TaikoL2.contract.WatchLogs(opts, "Initialized")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(TaikoL2Initialized)
+				if err := _TaikoL2.contract.UnpackLog(event, "Initialized", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseInitialized is a log parse operation binding the contract event 0x7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb3847402498.
+//
+// Solidity: event Initialized(uint8 version)
+func (_TaikoL2 *TaikoL2Filterer) ParseInitialized(log types.Log) (*TaikoL2Initialized, error) {
+	event := new(TaikoL2Initialized)
+	if err := _TaikoL2.contract.UnpackLog(event, "Initialized", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// TaikoL2OwnershipTransferredIterator is returned from FilterOwnershipTransferred and is used to iterate over the raw logs and unpacked data for OwnershipTransferred events raised by the TaikoL2 contract.
+type TaikoL2OwnershipTransferredIterator struct {
+	Event *TaikoL2OwnershipTransferred // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *TaikoL2OwnershipTransferredIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(TaikoL2OwnershipTransferred)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(TaikoL2OwnershipTransferred)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *TaikoL2OwnershipTransferredIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *TaikoL2OwnershipTransferredIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// TaikoL2OwnershipTransferred represents a OwnershipTransferred event raised by the TaikoL2 contract.
+type TaikoL2OwnershipTransferred struct {
+	PreviousOwner common.Address
+	NewOwner      common.Address
+	Raw           types.Log // Blockchain specific contextual infos
+}
+
+// FilterOwnershipTransferred is a free log retrieval operation binding the contract event 0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0.
+//
+// Solidity: event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)
+func (_TaikoL2 *TaikoL2Filterer) FilterOwnershipTransferred(opts *bind.FilterOpts, previousOwner []common.Address, newOwner []common.Address) (*TaikoL2OwnershipTransferredIterator, error) {
+
+	var previousOwnerRule []interface{}
+	for _, previousOwnerItem := range previousOwner {
+		previousOwnerRule = append(previousOwnerRule, previousOwnerItem)
+	}
+	var newOwnerRule []interface{}
+	for _, newOwnerItem := range newOwner {
+		newOwnerRule = append(newOwnerRule, newOwnerItem)
+	}
+
+	logs, sub, err := _TaikoL2.contract.FilterLogs(opts, "OwnershipTransferred", previousOwnerRule, newOwnerRule)
+	if err != nil {
+		return nil, err
+	}
+	return &TaikoL2OwnershipTransferredIterator{contract: _TaikoL2.contract, event: "OwnershipTransferred", logs: logs, sub: sub}, nil
+}
+
+// WatchOwnershipTransferred is a free log subscription operation binding the contract event 0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0.
+//
+// Solidity: event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)
+func (_TaikoL2 *TaikoL2Filterer) WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *TaikoL2OwnershipTransferred, previousOwner []common.Address, newOwner []common.Address) (event.Subscription, error) {
+
+	var previousOwnerRule []interface{}
+	for _, previousOwnerItem := range previousOwner {
+		previousOwnerRule = append(previousOwnerRule, previousOwnerItem)
+	}
+	var newOwnerRule []interface{}
+	for _, newOwnerItem := range newOwner {
+		newOwnerRule = append(newOwnerRule, newOwnerItem)
+	}
+
+	logs, sub, err := _TaikoL2.contract.WatchLogs(opts, "OwnershipTransferred", previousOwnerRule, newOwnerRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(TaikoL2OwnershipTransferred)
+				if err := _TaikoL2.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseOwnershipTransferred is a log parse operation binding the contract event 0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0.
+//
+// Solidity: event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)
+func (_TaikoL2 *TaikoL2Filterer) ParseOwnershipTransferred(log types.Log) (*TaikoL2OwnershipTransferred, error) {
+	event := new(TaikoL2OwnershipTransferred)
+	if err := _TaikoL2.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

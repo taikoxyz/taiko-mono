@@ -1,6 +1,6 @@
 import { Contract, ethers } from 'ethers';
 import { RLP } from 'ethers/lib/utils.js';
-import HeaderSyncABI from '../constants/abi/HeaderSync';
+import HeaderSyncABI from '../constants/abi/ICrossChainSync';
 import type { Block, BlockHeader } from '../domain/block';
 import type {
   Prover,
@@ -36,7 +36,7 @@ export class ProofService implements Prover {
     contract: ethers.Contract,
     provider: ethers.providers.StaticJsonRpcProvider,
   ): Promise<{ block: Block; blockHeader: BlockHeader }> {
-    const latestSyncedHeader = await contract.getLatestSyncedHeader();
+    const latestSyncedHeader = await contract.getCrossChainBlockHash(0);
 
     const block: Block = await provider.send('eth_getBlockByHash', [
       latestSyncedHeader,
@@ -73,10 +73,7 @@ export class ProofService implements Prover {
     blockHeader: BlockHeader,
   ) {
     // RLP encode the proof together for LibTrieProof to decode
-    const encodedProof = ethers.utils.defaultAbiCoder.encode(
-      ['bytes', 'bytes'],
-      [RLP.encode(proof.accountProof), RLP.encode(proof.storageProof[0].proof)],
-    );
+    const encodedProof = RLP.encode(proof.storageProof[0].proof);
 
     // encode the SignalProof struct from LibBridgeSignal
     const signalProof = ethers.utils.defaultAbiCoder.encode(
@@ -95,7 +92,7 @@ export class ProofService implements Prover {
     const provider = this.providers[opts.srcChain];
 
     const contract = new Contract(
-      opts.destHeaderSyncAddress,
+      opts.destCrossChainSyncAddress,
       HeaderSyncABI,
       this.providers[opts.destChain],
     );
@@ -126,7 +123,7 @@ export class ProofService implements Prover {
     const provider = this.providers[opts.destChain];
 
     const contract = new Contract(
-      opts.srcHeaderSyncAddress,
+      opts.srcCrossChainSyncAddress,
       HeaderSyncABI,
       this.providers[opts.srcChain],
     );

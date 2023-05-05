@@ -1,7 +1,6 @@
 name: Feature request 💡
 description: Request a feature
-title: "feat: <insert descriptive title here>"
-labels: ["feat", "triage"]
+labels: ["category.enhancement", "status.needs-triage"]
 body:
   - type: markdown
     attributes:

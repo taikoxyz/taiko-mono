@@ -67,7 +67,7 @@
         try {
           statusValue = await statusFunc(provider, contractAddress);
         } catch (e) {
-          console.error(e);
+          console.error(header, e);
         }
       }, intervalInMs);
     }

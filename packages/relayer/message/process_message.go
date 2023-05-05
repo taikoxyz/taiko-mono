@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -41,7 +42,7 @@ func (p *Processor) ProcessMessage(
 
 	// get latest synced header since not every header is synced from L1 => L2,
 	// and later blocks still have the storage trie proof from previous blocks.
-	latestSyncedHeader, err := p.destHeaderSyncer.GetLatestSyncedHeader(&bind.CallOpts{})
+	latestSyncedHeader, err := p.destHeaderSyncer.GetCrossChainBlockHash(&bind.CallOpts{}, big.NewInt(0))
 	if err != nil {
 		return errors.Wrap(err, "taiko.GetSyncedHeader")
 	}

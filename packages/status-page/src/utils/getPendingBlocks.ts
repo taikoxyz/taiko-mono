@@ -1,13 +1,13 @@
-import { Contract, ethers } from "ethers";
+import type { ethers } from "ethers";
 import TaikoL1 from "../constants/abi/TaikoL1";
+import { getStateVariables } from "./getStateVariables";
 
 export const getPendingBlocks = async (
   provider: ethers.providers.JsonRpcProvider,
   contractAddress: string
 ): Promise<number> => {
-  const contract: Contract = new Contract(contractAddress, TaikoL1, provider);
-  const stateVariables = await contract.getStateVariables();
-  const nextBlockId = stateVariables.nextBlockId;
-  const latestVerifiedId = stateVariables.latestVerifiedId;
-  return nextBlockId - latestVerifiedId - 1;
+  const stateVariables = await getStateVariables(provider, contractAddress);
+  const nextBlockId = stateVariables.numBlocks;
+  const lastBlockId = stateVariables.lastVerifiedBlockId;
+  return nextBlockId - lastBlockId - 1;
 };

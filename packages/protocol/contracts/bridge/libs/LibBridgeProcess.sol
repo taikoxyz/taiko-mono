@@ -6,15 +6,15 @@
 
 pragma solidity ^0.8.18;
 
-import {ISignalService} from "../../signal/ISignalService.sol";
+import {AddressResolver} from "../../common/AddressResolver.sol";
 import {EtherVault} from "../EtherVault.sol";
+import {IBridge} from "../IBridge.sol";
+import {ISignalService} from "../../signal/ISignalService.sol";
+import {LibAddress} from "../../libs/LibAddress.sol";
 import {LibBridgeData} from "./LibBridgeData.sol";
 import {LibBridgeInvoke} from "./LibBridgeInvoke.sol";
 import {LibBridgeStatus} from "./LibBridgeStatus.sol";
 import {LibMath} from "../../libs/LibMath.sol";
-import {LibAddress} from "../../libs/LibAddress.sol";
-import {IBridge} from "../IBridge.sol";
-import {AddressResolver} from "../../common/AddressResolver.sol";
 
 /**
  * Process bridge messages on the destination chain.
@@ -27,8 +27,8 @@ library LibBridgeProcess {
     using LibBridgeData for LibBridgeData.State;
 
     error B_FORBIDDEN();
-    error B_STATUS_MISMTACH();
     error B_SIGNAL_NOT_RECEIVED();
+    error B_STATUS_MISMTACH();
     error B_WRONG_CHAIN_ID();
 
     /**
@@ -97,9 +97,7 @@ library LibBridgeProcess {
         }
         // We send the Ether before the message call in case the call will
         // actually consume Ether.
-        if (message.depositValue > 0) {
-            message.owner.sendEther(message.depositValue);
-        }
+        message.owner.sendEther(message.depositValue);
 
         LibBridgeStatus.MessageStatus status;
         uint256 refundAmount;
@@ -117,7 +115,6 @@ library LibBridgeProcess {
                 ? gasleft()
                 : message.gasLimit;
 
-            // this will call receiveERC20 on the tokenVault, sending the tokens to the user
             bool success = LibBridgeInvoke.invokeMessageCall({
                 state: state,
                 message: message,
@@ -129,9 +126,7 @@ library LibBridgeProcess {
                 status = LibBridgeStatus.MessageStatus.DONE;
             } else {
                 status = LibBridgeStatus.MessageStatus.RETRIABLE;
-                if (ethVault != address(0)) {
-                    ethVault.sendEther(message.callValue);
-                }
+                ethVault.sendEther(message.callValue);
             }
         }
 
@@ -144,7 +139,8 @@ library LibBridgeProcess {
 
         // if sender is the refundAddress
         if (msg.sender == refundAddress) {
-            refundAddress.sendEther(message.processingFee + refundAmount);
+            uint256 amount = message.processingFee + refundAmount;
+            refundAddress.sendEther(amount);
         } else {
             // if sender is another address (eg. the relayer)
             // First attempt relayer is rewarded the processingFee

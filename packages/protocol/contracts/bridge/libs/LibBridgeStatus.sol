@@ -7,10 +7,10 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
-import {IHeaderSync} from "../../common/IHeaderSync.sol";
-import {LibBlockHeader, BlockHeader} from "../../libs/LibBlockHeader.sol";
-import {LibTrieProof} from "../../libs/LibTrieProof.sol";
+import {BlockHeader, LibBlockHeader} from "../../libs/LibBlockHeader.sol";
+import {ICrossChainSync} from "../../common/ICrossChainSync.sol";
 import {LibBridgeData} from "./LibBridgeData.sol";
+import {LibTrieProof} from "../../libs/LibTrieProof.sol";
 
 library LibBridgeStatus {
     using LibBlockHeader for BlockHeader;
@@ -28,8 +28,8 @@ library LibBridgeStatus {
         address transactor
     );
 
-    error B_WRONG_CHAIN_ID();
     error B_MSG_HASH_NULL();
+    error B_WRONG_CHAIN_ID();
 
     /**
      * @dev If messageStatus is same as in the messageStatus mapping,
@@ -75,8 +75,10 @@ library LibBridgeStatus {
             proof,
             (LibBridgeData.StatusProof)
         );
-        bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("taiko", false))
-            .getSyncedHeader(sp.header.height);
+
+        bytes32 syncedHeaderHash = ICrossChainSync(
+            resolver.resolve("taiko", false)
+        ).getCrossChainBlockHash(sp.header.height);
 
         if (
             syncedHeaderHash == 0 ||
@@ -86,7 +88,7 @@ library LibBridgeStatus {
         }
 
         return
-            LibTrieProof.verify({
+            LibTrieProof.verifyWithAccountProof({
                 stateRoot: sp.header.stateRoot,
                 addr: resolver.resolve(destChainId, "bridge", false),
                 slot: getMessageStatusSlot(msgHash),
@@ -98,7 +100,7 @@ library LibBridgeStatus {
     function getMessageStatusSlot(
         bytes32 msgHash
     ) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked("MESSAGE_STATUS", msgHash));
+        return keccak256(bytes.concat(bytes("MESSAGE_STATUS"), msgHash));
     }
 
     function _setMessageStatus(bytes32 msgHash, MessageStatus status) private {

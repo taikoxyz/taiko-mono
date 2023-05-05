@@ -1,26 +1,11 @@
 const posts = [
   {
-    title: "Alpha-2 Testnet Update",
-    href: "https://taiko.mirror.xyz/EM1IEpF_Pd9_WuPxw3EQPHNHmaXzh7kljMSolP754AI",
+    title: "ZK-Roller-Coaster #3",
+    href: "https://taiko.mirror.xyz/tg6eYqbf2qL_QVX9NXhBB4nduOir-3RGkS4M_obYrRI",
     description:
-      "We launched our alpha-2 testnet a bit over two weeks ago, and it has been a very useful one in terms of testing, finding issues, and other takeaways.",
-    date: "Apr 6, 2023",
-    datetime: "2023-04-06",
-    imageUrl:
-      "https://mirror-media.imgix.net/publication-images/MkuJ4w2BaFA9_qMDhBA2P.png?height=512&width=1024&h=512&w=1024&auto=compress",
-    readingTime: "4 min",
-    author: {
-      name: "finestone",
-      imageUrl: "https://avatars.githubusercontent.com/u/36642873?v=4",
-    },
-  },
-  {
-    title: "ZK-Roller-Coaster #2",
-    href: "https://taiko.mirror.xyz/_Q6J3KXjPQEs0f29G6Lx-0bzUFH_X8lgn2UEHBNfNC4",
-    description:
-      "This is the 2nd edition of ZK-Roller-Coaster where we track and investigate the most exciting, meaningful, and crazy ZK-stuff of the prior two weeks.",
-    date: "Apr 03, 2023",
-    datetime: "2023-04-03",
+      "This is the 3rd edition of ZK-Roller-Coaster where we track and investigate the most exciting, meaningful, and crazy ZK-stuff of the prior two weeks.",
+    date: "Apr 22, 2023",
+    datetime: "2023-04-22",
     imageUrl:
       "https://mirror-media.imgix.net/publication-images/UA6Tx4uMB6qMYU3p38Dpt.png?height=512&width=1024&h=512&w=1024&auto=compress",
     readingTime: "4 min",
@@ -30,15 +15,30 @@ const posts = [
     },
   },
   {
-    title: "Taiko Alpha-2 Testnet is Live",
-    href: "https://taiko.mirror.xyz/A6G6TNN-CXDAhl42k_bNHg_20fyGcT0xH-LBBSOPNzU",
+    title: "What are ZK-SNARKs and how they work",
+    href: "https://taiko.mirror.xyz/9kGUby8h_dyu-t8jcPkDADfbWUMJw3mlGxvZAZk9sV0",
     description:
-      "Taiko alpha-2 testnet (a2) is live! ZKPs (validity proofs) are partially integrated; Provers are in and are permissionless; Protocol economics are enabled.",
-    date: "Mar 22, 2023",
-    datetime: "2023-03-22",
+      "An exploration into ZK-SNARKs with a focus on the PLONKish variety: commitment schemes, interactive oracle proofs, Fiat-Shamir, and how it all ties together.",
+    date: "Apr 10, 2023",
+    datetime: "2023-04-10",
     imageUrl:
-      "https://mirror-media.imgix.net/publication-images/2eHedtm-StXm7VYJe2JcB.png?height=512&width=1024&h=512&w=1024&auto=compress",
-    readingTime: "8 min",
+      "https://mirror-media.imgix.net/publication-images/RdnOgFVFENnLwFYAb26FD.png?height=512&width=1024&h=512&w=1024&auto=compress",
+    readingTime: "16 min",
+    author: {
+      name: "Aleksei Vambol",
+      imageUrl: "https://avatars.githubusercontent.com/u/77882392?v=4",
+    },
+  },
+  {
+    title: "Alpha-2 Testnet Update",
+    href: "https://taiko.mirror.xyz/EM1IEpF_Pd9_WuPxw3EQPHNHmaXzh7kljMSolP754AI",
+    description:
+      "We launched our alpha-2 testnet a bit over two weeks ago, and it has been a very useful one in terms of testing, finding issues, and other takeaways.",
+    date: "Apr 6, 2023",
+    datetime: "2023-04-06",
+    imageUrl:
+      "https://mirror-media.imgix.net/publication-images/MkuJ4w2BaFA9_qMDhBA2P.png?height=512&width=1024&h=512&w=1024&auto=compress",
+    readingTime: "4 min",
     author: {
       name: "finestone",
       imageUrl: "https://avatars.githubusercontent.com/u/36642873?v=4",

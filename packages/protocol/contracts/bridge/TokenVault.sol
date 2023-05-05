@@ -19,6 +19,7 @@ import {EssentialContract} from "../common/EssentialContract.sol";
 import {TaikoToken} from "../L1/TaikoToken.sol";
 import {BridgedERC20} from "./BridgedERC20.sol";
 import {IBridge} from "./IBridge.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
  * This vault holds all ERC20 tokens (but not Ether) that users have deposited.
@@ -120,7 +121,6 @@ contract TokenVault is EssentialContract {
 
     error TOKENVAULT_INVALID_TO();
     error TOKENVAULT_INVALID_VALUE();
-    error TOKENVAULT_INVALID_CALL_VALUE();
     error TOKENVAULT_INVALID_TOKEN();
     error TOKENVAULT_INVALID_AMOUNT();
     error TOKENVAULT_CANONICAL_TOKEN_NOT_FOUND();
@@ -135,56 +135,6 @@ contract TokenVault is EssentialContract {
 
     function init(address addressManager) external initializer {
         EssentialContract._init(addressManager);
-    }
-
-    /**
-     * Receives Ether and constructs a Bridge message. Sends the Ether and
-     * message along to the Bridge.
-     * @param destChainId @custom:see IBridge.Message
-     * @param to @custom:see IBridge.Message
-     * @param gasLimit @custom:see IBridge.Message
-     * @param processingFee @custom:see IBridge.Message
-     * @param refundAddress @custom:see IBridge.Message
-     * @param memo @custom:see IBridge.Message
-     */
-    function sendEther(
-        uint256 destChainId,
-        address to,
-        uint256 gasLimit,
-        uint256 processingFee,
-        address refundAddress,
-        string memory memo
-    ) external payable nonReentrant {
-        if (
-            to == address(0) || to == resolve(destChainId, "token_vault", false)
-        ) revert TOKENVAULT_INVALID_TO();
-
-        if (msg.value <= processingFee) revert TOKENVAULT_INVALID_VALUE();
-
-        IBridge.Message memory message;
-        message.destChainId = destChainId;
-        message.owner = msg.sender;
-        message.to = to;
-        message.gasLimit = gasLimit;
-        message.processingFee = processingFee;
-        message.depositValue = msg.value - processingFee;
-        message.refundAddress = refundAddress;
-        message.memo = memo;
-
-        // prevent future PRs from changing the callValue when it must be zero
-        if (message.callValue != 0) revert TOKENVAULT_INVALID_CALL_VALUE();
-
-        bytes32 msgHash = IBridge(resolve("bridge", false)).sendMessage{
-            value: msg.value
-        }(message);
-
-        emit EtherSent({
-            msgHash: msgHash,
-            from: message.owner,
-            to: message.to,
-            destChainId: destChainId,
-            amount: message.depositValue
-        });
     }
 
     /**
@@ -388,7 +338,10 @@ contract TokenVault is EssentialContract {
         bridgedToken = Create2Upgradeable.deploy(
             0, // amount of Ether to send
             keccak256(
-                abi.encodePacked(canonicalToken.chainId, canonicalToken.addr)
+                bytes.concat(
+                    bytes32(canonicalToken.chainId),
+                    bytes32(uint256(uint160(canonicalToken.addr)))
+                )
             ),
             type(BridgedERC20).creationCode
         );
@@ -399,14 +352,11 @@ contract TokenVault is EssentialContract {
             _srcChainId: canonicalToken.chainId,
             _decimals: canonicalToken.decimals,
             _symbol: canonicalToken.symbol,
-            _name: string(
-                abi.encodePacked(
-                    canonicalToken.name,
-                    "(bridged",
-                    hex"F09F8C88", // 🌈
-                    canonicalToken.chainId,
-                    ")"
-                )
+            _name: string.concat(
+                canonicalToken.name,
+                unicode"(bridged🌈",
+                Strings.toString(canonicalToken.chainId),
+                ")"
             )
         });
 

@@ -11,7 +11,7 @@ export type Chain = {
   enabled?: boolean;
   icon?: ComponentType;
   bridgeAddress: Address;
-  headerSyncAddress: Address;
+  crossChainSyncAddress: Address;
   explorerUrl: string;
   signalServiceAddress: Address;
 };

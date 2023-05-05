@@ -6,13 +6,13 @@
 
 pragma solidity ^0.8.18;
 
-import {EtherVault} from "../EtherVault.sol";
-import {LibBridgeInvoke} from "./LibBridgeInvoke.sol";
-import {LibBridgeData} from "./LibBridgeData.sol";
-import {LibBridgeStatus} from "./LibBridgeStatus.sol";
-import {LibAddress} from "../../libs/LibAddress.sol";
-import {IBridge} from "../IBridge.sol";
 import {AddressResolver} from "../../common/AddressResolver.sol";
+import {EtherVault} from "../EtherVault.sol";
+import {IBridge} from "../IBridge.sol";
+import {LibAddress} from "../../libs/LibAddress.sol";
+import {LibBridgeData} from "./LibBridgeData.sol";
+import {LibBridgeInvoke} from "./LibBridgeInvoke.sol";
+import {LibBridgeStatus} from "./LibBridgeStatus.sol";
 
 /**
  * Retry bridge messages.
@@ -91,7 +91,7 @@ library LibBridgeRetry {
                 : message.refundAddress;
 
             refundAddress.sendEther(message.callValue);
-        } else if (ethVault != address(0)) {
+        } else {
             ethVault.sendEther(message.callValue);
         }
     }
