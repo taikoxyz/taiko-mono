@@ -153,7 +153,6 @@ struct State {
   mapping(address => uint256) taikoTokenBalances;
   mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
   struct TaikoData.EthDeposit[] ethDeposits;
-  bytes32 staticRefs;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 __reserved71;
@@ -166,6 +165,6 @@ struct State {
   uint64 proofTimeIssued;
   uint64 lastVerifiedBlockId;
   uint64 __reserved91;
-  uint256[41] __gap;
+  uint256[42] __gap;
 }
 ```
