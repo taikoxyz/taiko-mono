@@ -1,4 +1,4 @@
-import fs from 'fs';
+import fs from 'fs-extra';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -16,19 +16,16 @@ const jsonFilesMap = {
   FreeMintERC20: '/contracts/test/erc20/FreeMintERC20.sol/FreeMintERC20.json',
 };
 
+// Remove all files within the directory but not the directory itself
+fs.emptyDirSync(abiOutputPath);
+
 Object.entries(jsonFilesMap).forEach(([name, jsonPath]) => {
   try {
     const jsonStr = fs.readFileSync(protocolAbiPath + jsonPath, {
       encoding: 'utf8',
     });
 
-    const json = JSON.parse(jsonStr);
-
-    fs.writeFileSync(
-      `${abiOutputPath}/${name}.json`,
-      JSON.stringify(json),
-      'utf8',
-    );
+    fs.writeFileSync(`${abiOutputPath}/${name}.json`, jsonStr, 'utf8');
   } catch (e) {
     if (e.code === 'ENOENT') {
       console.error(`File not found: ${e.path}`);
