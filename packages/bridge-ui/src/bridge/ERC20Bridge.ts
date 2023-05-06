@@ -7,11 +7,9 @@ import type {
   ClaimOpts,
   ReleaseOpts,
 } from '../domain/bridge';
-import { TOKEN_VAULT_ABI } from '../constants/abi';
-import { ERC20_ABI } from '../constants/abi';
+import { TOKEN_VAULT_ABI, ERC20_ABI, BRIDGE_ABI } from '../constants/abi';
 import type { Prover } from '../domain/proof';
 import { MessageStatus } from '../domain/message';
-import { BRIDGE_ABI } from '../constants/abi';
 import { chains } from '../chain/chains';
 
 export class ERC20Bridge implements Bridge {
