@@ -19,7 +19,7 @@
   import SwitchEthereumChainModal from './components/modals/SwitchEthereumChainModal.svelte';
   import { ethers } from 'ethers';
   import { MessageStatus } from './domain/message';
-  import BridgeABI from './constants/abi/Bridge.json';
+  import { BRIDGE_ABI } from './constants/abi';
   import { userTokens } from './store/userToken';
   import { RelayerAPIService } from './relayer-api/RelayerAPIService';
   import {
@@ -140,7 +140,7 @@
 
             const contract = new ethers.Contract(
               chains[tx.toChainId].bridgeAddress,
-              BridgeABI,
+              BRIDGE_ABI,
               provider,
             );
 

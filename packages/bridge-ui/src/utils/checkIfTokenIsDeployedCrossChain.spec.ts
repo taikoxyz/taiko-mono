@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
 import { ETHToken } from '../token/tokens';
-import TokenVault from '../constants/abi/TokenVault.json';
+import { TOKEN_VAULT_ABI } from '../constants/abi';
 import type { Chain } from '../domain/chain';
 import type { Token } from '../domain/token';
 import { checkIfTokenIsDeployedCrossChain } from './checkIfTokenIsDeployedCrossChain';
@@ -81,7 +81,7 @@ describe('checkIfTokenIsDeployedCrossChain', () => {
 
     expect(ethers.Contract).toHaveBeenCalledWith(
       destTokenVaultAddress,
-      TokenVault,
+      TOKEN_VAULT_ABI,
       provider,
     );
     expect(destTokenVaultContract.canonicalToBridged).toHaveBeenCalledWith(
@@ -111,7 +111,7 @@ describe('checkIfTokenIsDeployedCrossChain', () => {
 
     expect(ethers.Contract).toHaveBeenCalledWith(
       destTokenVaultAddress,
-      TokenVault,
+      TOKEN_VAULT_ABI,
       provider,
     );
     expect(destTokenVaultContract.canonicalToBridged).toHaveBeenCalledWith(
