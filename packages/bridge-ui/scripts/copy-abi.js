@@ -40,7 +40,7 @@ function copyAbis() {
   });
 }
 
-// Generate index.ts file with exporting abi files
+// Generate index.ts file exporting abi files
 function generateIndexFile() {
   const indexFile = Object.entries(jsonFilesMap)
     .map(([name, jsonPath]) => {
