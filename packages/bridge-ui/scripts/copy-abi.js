@@ -8,6 +8,8 @@ const __dirname = path.dirname(__filename);
 const protocolAbiPath = path.resolve(__dirname, '../../protocol/abi');
 const abiOutputPath = path.resolve(__dirname, '../src/constants/abi');
 
+// Map of exported ABI constant to abi file path within protocol package.
+// This map needs maintainance when new contracts are added to the protocol.
 const jsonFilesMap = {
   BRIDGE: '/contracts/bridge/Bridge.sol/Bridge.json',
   ERC20: '/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json',
@@ -47,7 +49,11 @@ function generateIndexFile() {
     })
     .join('\n');
 
-  fs.writeFileSync(`${abiOutputPath}/index.ts`, indexFile, 'utf8');
+  try {
+    fs.writeFileSync(`${abiOutputPath}/index.ts`, indexFile, 'utf8');
+  } catch (e) {
+    console.error('`index.ts` could not be generated', e);
+  }
 }
 
 // Remove all files within the directory but not the directory itself
