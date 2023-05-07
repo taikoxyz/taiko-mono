@@ -140,6 +140,12 @@ error TOKENVAULT_MESSAGE_NOT_FAILED()
 error TOKENVAULT_INVALID_SENDER()
 ```
 
+### constructor
+
+```solidity
+constructor() public
+```
+
 ### init
 
 ```solidity

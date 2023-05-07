@@ -4,12 +4,6 @@ title: EtherVault
 
 ## EtherVault
 
-EtherVault is a special vault contract that:
-
-- Is initialized with 2^128 Ether.
-- Allows the contract owner to authorize addresses.
-- Allows authorized addresses to send/release Ether.
-
 ### Authorized
 
 ```solidity
@@ -26,6 +20,12 @@ event EtherReleased(address to, uint256 amount)
 
 ```solidity
 modifier onlyAuthorized()
+```
+
+### constructor
+
+```solidity
+constructor() public
 ```
 
 ### receive

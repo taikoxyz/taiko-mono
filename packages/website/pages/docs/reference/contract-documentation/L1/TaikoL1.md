@@ -10,6 +10,12 @@ title: TaikoL1
 struct TaikoData.State state
 ```
 
+### constructor
+
+```solidity
+constructor() public
+```
+
 ### receive
 
 ```solidity

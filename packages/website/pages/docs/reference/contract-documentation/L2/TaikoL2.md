@@ -127,6 +127,12 @@ error M1559_UNEXPECTED_CHANGE(uint64 expected, uint64 actual)
 error M1559_OUT_OF_STOCK()
 ```
 
+### constructor
+
+```solidity
+constructor() public
+```
+
 ### init
 
 ```solidity

@@ -8,9 +8,12 @@ pragma solidity ^0.8.18;
 
 // solhint-disable-next-line max-line-length
 import {
+    IERC20Upgradeable,
+    ERC20Upgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {
     SafeERC20Upgradeable
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import {ERC20Upgradeable} from "../thirdparty/ERC20Upgradeable.sol";
 import {
     Create2Upgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";

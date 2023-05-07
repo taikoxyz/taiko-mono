@@ -31,6 +31,12 @@ error B_NULL_APP_ADDR()
 error B_WRONG_CHAIN_ID()
 ```
 
+### constructor
+
+```solidity
+constructor() public
+```
+
 ### init
 
 ```solidity

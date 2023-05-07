@@ -21,6 +21,12 @@ event MessageStatusChanged(bytes32 msgHash, enum LibBridgeStatus.MessageStatus s
 event DestChainEnabled(uint256 chainId, bool enabled)
 ```
 
+### constructor
+
+```solidity
+constructor() public
+```
+
 ### receive
 
 ```solidity

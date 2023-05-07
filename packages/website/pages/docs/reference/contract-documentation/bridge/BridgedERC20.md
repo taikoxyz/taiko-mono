@@ -28,6 +28,12 @@ event BridgeMint(address account, uint256 amount)
 event BridgeBurn(address account, uint256 amount)
 ```
 
+### constructor
+
+```solidity
+constructor() public
+```
+
 ### init
 
 ```solidity
@@ -67,6 +73,12 @@ function transferFrom(address from, address to, uint256 amount) public returns (
 ```
 
 _any address can call this_
+
+### decimals
+
+```solidity
+function decimals() public view returns (uint8)
+```
 
 ### source
 
