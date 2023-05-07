@@ -1,0 +1,29 @@
+{
+    "configure-your-wallet": {
+        "title": "👛 Configure your wallet"
+    },
+    "receive-tokens": {
+        "title": "💦 Receive tokens"
+    },
+    "use-the-bridge": {
+        "title": "🌉 Use the bridge"
+    },
+    "swap-tokens": {
+        "title": "🔀 Swap tokens"
+    },
+    "run-a-node": {
+        "title": "🌐 Run a node"
+    },
+    "enable-a-prover": {
+        "title": "🔐 Enable a prover"
+    },
+    "deploy-a-contract": {
+        "title": "🧙 Deploy a contract"
+    },
+    "verify-a-contract": {
+        "title": "✅ Verify a contract"
+    },
+    "build-a-dapp": {
+        "title": "🛠️ Build a dapp"
+    }
+}

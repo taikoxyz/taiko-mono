@@ -11,10 +11,58 @@
     "title": "Docs",
     "type": "page"
   },
+  "ecosystem": {
+    "title": "Ecosystem",
+    "type": "page",
+    "theme": {
+      "typesetting": "article",
+      "layout": "full"
+    }
+  },
   "blog": {
     "title": "Blog ↗",
     "type": "page",
     "href": "https://mirror.xyz/labs.taiko.eth",
     "newWindow": true
+  },
+  "feedback": {
+    "title": "Feedback ↗",
+    "type": "page",
+    "href": "https://forms.gle/9JWjWtjbWytZZcNRA",
+    "newWindow": true
+  },
+  "bridge": {
+    "title": "Bridge ↗",
+    "type": "page",
+    "href": "https://bridge.internal.taiko.xyz",
+    "newWindow": true
+  },
+  "swap": {
+    "title": "Swap ↗",
+    "type": "page",
+    "href": "https://swap.internal.taiko.xyz",
+    "newWindow": true
+  },
+  "status": {
+    "title": "Status ↗",
+    "type": "page",
+    "href": "https://status.internal.taiko.xyz",
+    "newWindow": true
+  },
+  "explorers": {
+    "title": "Explorers",
+    "type": "menu",
+    "items": {
+      "l1-block-explorer": {
+        "title": "Sepolia Block Explorer ↗",
+        "href": "https://sepolia.etherscan.io",
+        "newWindow": true
+      },
+      "l2-block-explorer": {
+        "title": "Taiko Block Explorer ↗",
+        "href": "https://explorer.internal.taiko.xyz",
+        "newWindow": true
+      }
+    }
   }
 }

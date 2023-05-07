@@ -1,0 +1,32 @@
+import { Callout, Steps } from "nextra-theme-docs";
+
+<Callout type="info" emoji="ℹ️">
+The HORSE token and BLL token are both dummy test tokens that are used for testing the bridge and swap.
+</Callout>
+
+<Callout type="warning" emoji="⚠️">
+  The BLL token should succeed when **minting** from the faucet, and when **sending the bridge message** to Sepolia or Taiko. However, it will fail about 50% of the time when **claiming** on Sepolia—this is intentionally done so we can test the error handling.
+</Callout>
+
+## Overview
+
+This guide will help you use the bridge to send tokens between Sepolia and Taiko (Askja testnet). You can read more about how bridging works [here](/docs/concepts/bridging/cross-chain-messaging).
+
+## Prerequisites
+
+- A wallet with some testnet ETH on Sepolia and/or Taiko (you can [receive tokens here](/docs/guides/receive-tokens)).
+
+## Steps
+
+<Steps>
+    ### Visit the bridge
+    Visit the [bridge](https://bridge.internal.taiko.xyz/) and the UI should be intuitive.
+
+    ### Bridge tokens from Sepolia to Taiko
+    Try bridging ETH, HORSE, and/or BLL from Sepolia to Taiko. You can also try manually claiming the transfer yourself by clicking the "Claim" button under the "Transactions" tab.
+
+    ![bridge claim](/images/guides/bridge-claim.png)
+
+    ### Bridge tokens from Taiko to Sepolia
+    Try bridging ETH, HORSE, and/or BLL from Taiko to Sepolia. You can also try manually claiming the transfer yourself by clicking the "Claim" button under the "Transactions" tab.
+</Steps>
