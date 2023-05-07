@@ -71,7 +71,7 @@ contract DeployOnL1 is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // AddressManager
-        AddressManager addressManager = new AddressManager();
+        AddressManager addressManager = new ProxiedAddressManager();
         addressManagerProxy = deployProxy(
             "address_manager",
             address(addressManager),

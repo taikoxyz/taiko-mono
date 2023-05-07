@@ -7,5 +7,5 @@ title: Proxied
 ### constructor
 
 ```solidity
-constructor() public
+constructor() internal
 ```
