@@ -57,13 +57,13 @@ contract TaikoGovernor is
 
         __Governor_init("TaikoGovernor");
         __GovernorSettings_init(
-            7200 /* 7200 block = 1 day */,
+            1 /* 1 block */,
             100800 /* 2 week */,
             LibTaikoTokenConfig.DECIMALS
         );
         __GovernorCountingSimple_init();
         __GovernorVotes_init(_token);
-        __GovernorVotesQuorumFraction_init(4);
+        __GovernorVotesQuorumFraction_init(5);
         __GovernorTimelockControl_init(_timelock);
     }
 
