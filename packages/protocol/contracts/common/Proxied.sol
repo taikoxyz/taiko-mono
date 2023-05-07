@@ -10,7 +10,7 @@ import {
     Initializable
 } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-contract Proxied is Initializable {
+abstract contract Proxied is Initializable {
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
