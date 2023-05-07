@@ -16,6 +16,7 @@ import {
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
 
 import {EssentialContract} from "../common/EssentialContract.sol";
+import {Proxied} from "../common/Proxied.sol";
 import {BridgeErrors} from "./BridgeErrors.sol";
 
 /// @custom:security-contact hello@taiko.xyz
@@ -33,10 +34,6 @@ contract BridgedERC20 is
 
     event BridgeMint(address indexed account, uint256 amount);
     event BridgeBurn(address indexed account, uint256 amount);
-
-    constructor() {
-        _disableInitializers();
-    }
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     // Intention is for a different BridgedERC20 Contract to be deployed
@@ -124,3 +121,5 @@ contract BridgedERC20 is
         return (srcToken, srcChainId);
     }
 }
+
+contract ProxiedBridgedERC20 is Proxied, BridgedERC20 {}

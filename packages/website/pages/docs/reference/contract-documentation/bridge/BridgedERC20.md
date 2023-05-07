@@ -28,12 +28,6 @@ event BridgeMint(address account, uint256 amount)
 event BridgeBurn(address account, uint256 amount)
 ```
 
-### constructor
-
-```solidity
-constructor() public
-```
-
 ### init
 
 ```solidity
@@ -87,3 +81,9 @@ function source() public view returns (address, uint256)
 ```
 
 _returns the srcToken being bridged and the srcChainId_
+
+---
+
+## title: ProxiedBridgedERC20
+
+## ProxiedBridgedERC20

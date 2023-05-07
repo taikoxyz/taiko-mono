@@ -7,6 +7,7 @@
 pragma solidity ^0.8.18;
 
 import {EssentialContract} from "../common/EssentialContract.sol";
+import {Proxied} from "../common/Proxied.sol";
 import {ICrossChainSync} from "../common/ICrossChainSync.sol";
 import {LibL2Consts} from "./LibL2Consts.sol";
 import {LibMath} from "../libs/LibMath.sol";
@@ -87,10 +88,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     /**********************
      * Constructor         *
      **********************/
-
-    constructor() {
-        _disableInitializers();
-    }
 
     function init(
         address _addressManager,
@@ -313,3 +310,5 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         }
     }
 }
+
+contract ProxiedTaikoL2 is Proxied, TaikoL2 {}

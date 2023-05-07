@@ -30,27 +30,26 @@ import {
 } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 import {LibTaikoTokenConfig} from "../L1/TaikoToken.sol";
+import {EssentialContract} from "../common/EssentialContract.sol";
+import {Proxied} from "../common/Proxied.sol";
 
 /// @custom:security-contact hello@taiko.xyz
 contract TaikoGovernor is
-    Initializable,
+    EssentialContract,
     GovernorUpgradeable,
     GovernorSettingsUpgradeable,
     GovernorCountingSimpleUpgradeable,
     GovernorVotesUpgradeable,
     GovernorVotesQuorumFractionUpgradeable,
-    GovernorTimelockControlUpgradeable,
-    OwnableUpgradeable
+    GovernorTimelockControlUpgradeable
 {
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
-
-    function initialize(
+    function init(
+        address _addressManager,
         IVotesUpgradeable _token,
         TimelockControllerUpgradeable _timelock
     ) public initializer {
+        EssentialContract._init(_addressManager);
+
         __Governor_init("TaikoGovernor");
         __GovernorSettings_init(
             7200 /* 7200 block = 1 day */,
@@ -61,7 +60,6 @@ contract TaikoGovernor is
         __GovernorVotes_init(_token);
         __GovernorVotesQuorumFraction_init(4);
         __GovernorTimelockControl_init(_timelock);
-        __Ownable_init();
     }
 
     // The following functions are overrides required by Solidity.
@@ -173,3 +171,5 @@ contract TaikoGovernor is
         return super._executor();
     }
 }
+
+contract ProxiedTaikoGovernor is Proxied, TaikoGovernor {}

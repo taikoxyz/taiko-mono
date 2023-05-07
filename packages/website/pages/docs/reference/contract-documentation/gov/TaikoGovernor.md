@@ -4,16 +4,10 @@ title: TaikoGovernor
 
 ## TaikoGovernor
 
-### constructor
+### init
 
 ```solidity
-constructor() public
-```
-
-### initialize
-
-```solidity
-function initialize(contract IVotesUpgradeable _token, contract TimelockControllerUpgradeable _timelock) public
+function init(address _addressManager, contract IVotesUpgradeable _token, contract TimelockControllerUpgradeable _timelock) public
 ```
 
 ### propose
@@ -75,3 +69,9 @@ function _cancel(address[] targets, uint256[] values, bytes[] calldatas, bytes32
 ```solidity
 function _executor() internal view returns (address)
 ```
+
+---
+
+## title: ProxiedTaikoGovernor
+
+## ProxiedTaikoGovernor

@@ -7,6 +7,7 @@
 pragma solidity ^0.8.18;
 
 import {EssentialContract} from "../common/EssentialContract.sol";
+import {Proxied} from "../common/Proxied.sol";
 import {ISignalService} from "./ISignalService.sol";
 import {ICrossChainSync} from "../common/ICrossChainSync.sol";
 import {LibSecureMerkleTrie} from "../thirdparty/LibSecureMerkleTrie.sol";
@@ -21,10 +22,6 @@ contract SignalService is ISignalService, EssentialContract {
     error B_ZERO_SIGNAL();
     error B_NULL_APP_ADDR();
     error B_WRONG_CHAIN_ID();
-
-    constructor() {
-        _disableInitializers();
-    }
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init(address _addressManager) external initializer {
@@ -113,3 +110,5 @@ contract SignalService is ISignalService, EssentialContract {
         }
     }
 }
+
+contract ProxiedSignalService is Proxied, SignalService {}

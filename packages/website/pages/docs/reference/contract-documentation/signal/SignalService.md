@@ -31,12 +31,6 @@ error B_NULL_APP_ADDR()
 error B_WRONG_CHAIN_ID()
 ```
 
-### constructor
-
-```solidity
-constructor() public
-```
-
 ### init
 
 ```solidity
@@ -115,3 +109,9 @@ function getSignalSlot(address app, bytes32 signal) public pure returns (bytes32
 | Name       | Type    | Description                                           |
 | ---------- | ------- | ----------------------------------------------------- |
 | signalSlot | bytes32 | The storage key for the signal on the signal service. |
+
+---
+
+## title: ProxiedSignalService
+
+## ProxiedSignalService

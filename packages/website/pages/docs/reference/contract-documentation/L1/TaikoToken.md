@@ -46,12 +46,6 @@ error TKO_INVALID_PREMINT_PARAMS()
 error TKO_MINT_DISALLOWED()
 ```
 
-### constructor
-
-```solidity
-constructor() public
-```
-
 ### init
 
 ```solidity
@@ -163,3 +157,9 @@ function _mint(address to, uint256 amount) internal
 ```solidity
 function _burn(address from, uint256 amount) internal
 ```
+
+---
+
+## title: ProxiedTaikoToken
+
+## ProxiedTaikoToken

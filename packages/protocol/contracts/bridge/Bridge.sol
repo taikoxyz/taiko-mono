@@ -8,6 +8,7 @@ pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../common/AddressResolver.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
+import {Proxied} from "../common/Proxied.sol";
 import {IBridge} from "./IBridge.sol";
 import {BridgeErrors} from "./BridgeErrors.sol";
 import {LibBridgeData} from "./libs/LibBridgeData.sol";
@@ -47,10 +48,6 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     /*********************
      * External Functions*
      *********************/
-
-    constructor() {
-        _disableInitializers();
-    }
 
     /// Allow Bridge to receive ETH from the TokenVault or EtherVault.
     receive() external payable {
@@ -189,3 +186,5 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         return LibBridgeStatus.getMessageStatusSlot(msgHash);
     }
 }
+
+contract ProxiedBridge is Proxied, Bridge {}

@@ -55,12 +55,6 @@ Retrieves the address associated with a given name.
 event AddressSet(uint256 _domain, bytes32 _name, address _newAddress, address _oldAddress)
 ```
 
-### constructor
-
-```solidity
-constructor() public
-```
-
 ### init
 
 ```solidity

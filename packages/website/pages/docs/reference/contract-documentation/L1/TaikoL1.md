@@ -10,12 +10,6 @@ title: TaikoL1
 struct TaikoData.State state
 ```
 
-### constructor
-
-```solidity
-constructor() public
-```
-
 ### receive
 
 ```solidity
@@ -160,3 +154,9 @@ function getConfig() public pure virtual returns (struct TaikoData.Config)
 ```solidity
 function getVerifierName(uint16 id) public pure returns (bytes32)
 ```
+
+---
+
+## title: ProxiedTaikoL1
+
+## ProxiedTaikoL1

@@ -15,6 +15,7 @@ import {
 } from "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 
 import {EssentialContract} from "../common/EssentialContract.sol";
+import {Proxied} from "../common/Proxied.sol";
 import {LibAddress} from "../libs/LibAddress.sol";
 import {BridgeErrors} from "./BridgeErrors.sol";
 
@@ -57,9 +58,6 @@ contract EtherVault is EssentialContract, BridgeErrors {
     /*********************
      * External Functions*
      *********************/
-    constructor() {
-        _disableInitializers();
-    }
 
     receive() external payable {
         // EthVault's balance must == 0 OR the sender isAuthorized.
@@ -124,3 +122,5 @@ contract EtherVault is EssentialContract, BridgeErrors {
         return _authorizedAddrs[addr];
     }
 }
+
+contract ProxiedEtherVault is Proxied, EtherVault {}

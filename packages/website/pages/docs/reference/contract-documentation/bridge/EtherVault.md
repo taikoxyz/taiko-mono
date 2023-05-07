@@ -22,12 +22,6 @@ event EtherReleased(address to, uint256 amount)
 modifier onlyAuthorized()
 ```
 
-### constructor
-
-```solidity
-constructor() public
-```
-
 ### receive
 
 ```solidity
@@ -99,3 +93,9 @@ Get the authorized status of an address.
 | Name | Type    | Description                              |
 | ---- | ------- | ---------------------------------------- |
 | addr | address | Address to get the authorized status of. |
+
+---
+
+## title: ProxiedEtherVault
+
+## ProxiedEtherVault

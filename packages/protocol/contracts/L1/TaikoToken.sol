@@ -21,6 +21,7 @@ import {
     ERC20VotesUpgradeable
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
+import {Proxied} from "../common/Proxied.sol";
 
 library LibTaikoTokenConfig {
     uint8 public constant DECIMALS = uint8(8);
@@ -42,11 +43,6 @@ contract TaikoToken is
     error TKO_INVALID_ADDR();
     error TKO_INVALID_PREMINT_PARAMS();
     error TKO_MINT_DISALLOWED();
-
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
 
     function init(
         address _addressManager,
@@ -155,3 +151,5 @@ contract TaikoToken is
         emit Burn(from, amount);
     }
 }
+
+contract ProxiedTaikoToken is Proxied, TaikoToken {}

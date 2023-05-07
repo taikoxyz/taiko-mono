@@ -51,10 +51,6 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
         address _oldAddress
     );
 
-    constructor() {
-        _disableInitializers();
-    }
-
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init() external initializer {
         OwnableUpgradeable.__Ownable_init();

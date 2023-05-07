@@ -19,6 +19,7 @@ import {
 } from "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 
 import {EssentialContract} from "../common/EssentialContract.sol";
+import {Proxied} from "../common/Proxied.sol";
 import {TaikoToken} from "../L1/TaikoToken.sol";
 import {BridgedERC20} from "./BridgedERC20.sol";
 import {IBridge} from "./IBridge.sol";
@@ -136,9 +137,6 @@ contract TokenVault is EssentialContract {
     /*********************
      * External Functions*
      *********************/
-    constructor() {
-        _disableInitializers();
-    }
 
     function init(address addressManager) external initializer {
         EssentialContract._init(addressManager);
@@ -383,3 +381,5 @@ contract TokenVault is EssentialContract {
         });
     }
 }
+
+contract ProxiedTokenVault is Proxied, TokenVault {}
