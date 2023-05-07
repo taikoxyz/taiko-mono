@@ -1,0 +1,93 @@
+import { Callout, Steps, Tab, Tabs } from "nextra-theme-docs";
+
+## Overview
+
+This guide will help you deploy a smart contract to Taiko using Foundry or Hardhat.
+
+## Prerequisites
+
+- You have [Foundry](https://book.getfoundry.sh/getting-started/installation) or [Hardhat](https://hardhat.org/hardhat-runner/docs/getting-started#quick-start) installed.
+- You have testnet ETH on Taiko (to pay the transaction fee for deploying the contract).
+   - You can [request Sepolia ETH](/docs/guides/receive-tokens) from the faucet and then [use the bridge](/docs/guides/use-the-bridge) to send the testnet ETH to Taiko.
+- You have the private key to the account with testnet ETH on Taiko.
+
+### Additional Remix prerequisites
+- You have [configured your wallet](/docs/guides/configure-your-wallet) to connect to Taiko.
+
+## Steps
+
+<Tabs items={["Foundry", "Hardhat", "Remix"]} defaultIndex="0">
+  <Tab>
+   <Steps>
+   ### Create a project with Foundry
+   ```sh
+   forge init hello_foundry && cd hello_foundry
+   ```
+
+   ### Deploy your contract
+   Deploy the contract located at `src/Counter.sol`. Replace `YOUR_PRIVATE_KEY` below with your private key which has some testnet ETH on Taiko.
+   <Callout type="warning">
+   Use a throwaway wallet to be safe. Don't reveal the private key of a wallet with significant value!
+   </Callout>
+
+   ```sh
+   forge create --rpc-url https://rpc.internal.taiko.xyz --private-key YOUR_PRIVATE_KEY src/Counter.sol:Counter
+   ```
+
+   ### View your contract
+   Paste the address from the output into the [Taiko block explorer](https://explorer.internal.taiko.xyz) and verify that the contract was deployed.
+   </Steps>
+  </Tab>
+  <Tab>
+   <Steps>
+      ### Create a project with Hardhat
+      ```sh
+      npx hardhat
+      ```
+
+      ### Add Taiko to your Hardhat config
+      ```ts {6-13} filename=hardhat.config.ts
+      import { HardhatUserConfig } from "hardhat/config";
+      import "@nomicfoundation/hardhat-toolbox";
+
+      const config: HardhatUserConfig = {
+         solidity: "0.8.18",
+         networks: {
+            taiko: {
+               url: "http://rpc.internal.taiko.xyz",
+               accounts: [
+                  "0xf214f2b2cd398c806f84e317254e0f0b801d0643303237d97a22a48e01628897",
+               ],
+            },
+         },
+      };
+
+      export default config;
+      ```
+
+      ### Deploy your contract on Taiko
+      ```sh
+      npx hardhat run --network taiko scripts/deploy.ts
+      ```
+
+      ### View your contract
+      Paste the address from the output into the [Taiko block explorer](https://explorer.internal.taiko.xyz) and verify that the contract was deployed.
+   </Steps>
+  </Tab>
+  <Tab>
+   <Steps>
+      ### Visit Remix and connect your wallet to Taiko
+      Visit [remix.ethereum.org](https://remix.ethereum.org) and connect your wallet to Taiko.
+
+      ### Select a smart contract
+      ![select a smart contract](/images/guides/deploy-remix/select.png)
+
+      ### Compile your smart contract
+      ![compile your smart contract](/images/guides/deploy-remix/compile.png)
+
+
+      ### Deploy your smart contract
+      ![deploy your smart contract](/images/guides/deploy-remix/deploy.png)
+   </Steps>
+  </Tab>
+</Tabs>

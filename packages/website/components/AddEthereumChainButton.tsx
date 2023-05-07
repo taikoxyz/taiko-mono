@@ -24,8 +24,8 @@ async function addEthereumChain() {
       symbol: "eth",
       decimals: 18,
     },
-    rpcUrls: ["https://rpc.a2.taiko.xyz"],
-    blockExplorerUrls: ["https://explorer.a2.taiko.xyz/"],
+    rpcUrls: ["https://rpc.internal.taiko.xyz"],
+    blockExplorerUrls: ["https://explorer.internal.taiko.xyz/"],
     iconUrls: [],
   };
 

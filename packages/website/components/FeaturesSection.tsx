@@ -27,7 +27,7 @@ const features = [
 
 export default function FeaturesSection() {
   return (
-    <div className="mx-auto max-w-md px-6 text-center sm:max-w-2xl lg:max-w-7xl lg:px-8 dark:bg-neutral-950">
+    <div className="mx-auto max-w-md px-6 text-center sm:max-w-2xl lg:max-w-7xl lg:px-8">
       <div className="my-20">
         <div className="grid grid-cols-1 gap-12 sm:grid-cols-1 lg:grid-cols-3">
           {features.map((feature) => (

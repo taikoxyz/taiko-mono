@@ -33,14 +33,16 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
     }
 
     /**
-     * Initialize the rollup.
+     * @notice Initialize the rollup.
      *
      * @param _addressManager The AddressManager address.
+     *
      * @param _genesisBlockHash The block hash of the genesis block.
+     *
      * @param _initBlockFee Initial (reasonable) block fee value.
      * @param _initProofTimeTarget Initial (reasonable) proof submission time target.
      * @param _initProofTimeIssued Initial proof time issued corresponding
-     *        with the initial block fee.
+     * with the initial block fee.
      */
     function init(
         address _addressManager,
@@ -61,15 +63,17 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
     }
 
     /**
-     * Propose a Taiko L2 block.
+     * @notice Propose a Taiko L2 block.
+     *
+     * @dev In the corresponding L2 block an _anchor transaction_
+     * will be the first transaction in the block -- if there are
+     * `n` transactions in `txList`, then there will be up to `n + 1`
+     * transactions in the L2 block.
      *
      * @param input An abi-encoded BlockMetadataInput that the actual L2
-     *        block header must satisfy.
+     * block header must satisfy.
+     *
      * @param txList A list of transactions in this block, encoded with RLP.
-     *        Note, in the corresponding L2 block an _anchor transaction_
-     *        will be the first transaction in the block -- if there are
-     *        `n` transactions in `txList`, then there will be up to `n + 1`
-     *        transactions in the L2 block.
      */
     function proposeBlock(bytes calldata input, bytes calldata txList)
         external
@@ -95,10 +99,11 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
     }
 
     /**
-     * Prove a block with a zero-knowledge proof.
+     * @notice Prove a block with a zero-knowledge proof.
      *
      * @param blockId The index of the block to prove. This is also used
-     *        to select the right implementation version.
+     * to select the right implementation version.
+     *
      * @param input An abi-encoded TaikoData.BlockEvidence object.
      */
     function proveBlock(uint256 blockId, bytes calldata input) external nonReentrant {
@@ -121,7 +126,8 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
     }
 
     /**
-     * Verify up to N blocks.
+     * @notice Verify up to N blocks.
+     *
      * @param maxBlocks Max number of blocks to verify.
      */
     function verifyBlocks(uint256 maxBlocks) external nonReentrant {
