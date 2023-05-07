@@ -95,12 +95,6 @@ contract TaikoTokenTest is Test {
         assertEq(tko.balanceOf(Eve), amountToMint);
     }
 
-    function test_mint_invalid_amount() public {
-        vm.prank(protoBroker);
-        vm.expectRevert(TaikoToken.TKO_MINT_DISALLOWED.selector);
-        tko.mint(Eve, 1000 ether);
-    }
-
     function test_mint_invalid_address() public {
         vm.prank(protoBroker);
         vm.expectRevert("ERC20: mint to the zero address");

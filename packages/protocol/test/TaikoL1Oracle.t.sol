@@ -50,8 +50,8 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     }
 
     function testOracleProverWithSignature() external {
-        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Bob, 1E6 * 1E18, 100 ether);
+        depositTaikoToken(Carol, 1E6 * 1E18, 100 ether);
 
         TaikoData.BlockMetadata memory meta = proposeBlock(Bob, 1000000, 1024);
         proveBlock(
@@ -103,9 +103,9 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     }
 
     function testOracleProverCanAlwaysOverwriteIfNotSameProof() external {
-        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1E6 * 1E18, 100 ether);
+        depositTaikoToken(Bob, 1E6 * 1E18, 100 ether);
+        depositTaikoToken(Carol, 1E6 * 1E18, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint256 blockId = 1;
@@ -234,9 +234,9 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     function testOracleProverCannotOverwriteIfSameProof() external {
         registerAddress("oracle_prover", Carol);
 
-        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1E6 * 1E18, 100 ether);
+        depositTaikoToken(Bob, 1E6 * 1E18, 100 ether);
+        depositTaikoToken(Carol, 1E6 * 1E18, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint256 blockId = 1;
@@ -296,9 +296,9 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
     /// @dev Test we can propose, prove, then verify more blocks than 'maxNumProposedBlocks'
     function test_cooldown_more_blocks_than_ring_buffer_size() external {
-        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1E6 * 1E18, 100 ether);
+        depositTaikoToken(Bob, 1E6 * 1E18, 100 ether);
+        depositTaikoToken(Carol, 1E6 * 1E18, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -360,9 +360,9 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     function test_if_oracle_is_address_zero_cooldown_is_zero() external {
         registerAddress("oracle_prover", address(0));
 
-        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1E6 * 1E18, 100 ether);
+        depositTaikoToken(Bob, 1E6 * 1E18, 100 ether);
+        depositTaikoToken(Carol, 1E6 * 1E18, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -419,9 +419,9 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     function test_if_fk_prover_is_oracle_prover_cooldown_is_zero() external {
         registerAddress("oracle_prover", Bob);
 
-        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1E6 * 1E18, 100 ether);
+        depositTaikoToken(Bob, 1E6 * 1E18, 100 ether);
+        depositTaikoToken(Carol, 1E6 * 1E18, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;

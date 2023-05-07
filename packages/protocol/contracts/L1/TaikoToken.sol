@@ -29,7 +29,7 @@ import {EssentialContract} from "../common/EssentialContract.sol";
 import {Proxied} from "../common/Proxied.sol";
 
 library LibTaikoTokenConfig {
-    uint8 public constant DECIMALS = uint8(8);
+    uint8 public constant DECIMALS = uint8(18);
 }
 
 /// @custom:security-contact hello@taiko.xyz
@@ -47,7 +47,6 @@ contract TaikoToken is
 
     error TKO_INVALID_ADDR();
     error TKO_INVALID_PREMINT_PARAMS();
-    error TKO_MINT_DISALLOWED();
 
     function init(
         address _addressManager,
@@ -142,9 +141,6 @@ contract TaikoToken is
         uint256 amount
     ) internal override(ERC20Upgradeable, ERC20VotesUpgradeable) {
         super._mint(to, amount);
-
-        // TODO: do we need the following check at all?
-        if (totalSupply() > type(uint64).max) revert TKO_MINT_DISALLOWED();
         emit Mint(to, amount);
     }
 
