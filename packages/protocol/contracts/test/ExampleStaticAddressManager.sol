@@ -6,7 +6,6 @@
 
 pragma solidity ^0.8.18;
 
-/* External Imports */
 import {AddressManager} from "../common/AddressManager.sol";
 
 /**
