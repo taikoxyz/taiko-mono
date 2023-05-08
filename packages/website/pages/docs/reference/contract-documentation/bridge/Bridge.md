@@ -127,3 +127,9 @@ function hashMessage(struct IBridge.Message message) public pure returns (bytes3
 ```solidity
 function getMessageStatusSlot(bytes32 msgHash) public pure returns (bytes32)
 ```
+
+---
+
+## title: ProxiedBridge
+
+## ProxiedBridge

@@ -159,7 +159,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         assertEq(owner, signalService.owner());
 
-        signalService.sendSignal(bytes32(block.difficulty));
+        signalService.sendSignal(keccak256(abi.encodePacked(block.prevrandao)));
     }
 
     function testERC20() public {
