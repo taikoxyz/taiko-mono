@@ -8,14 +8,18 @@ pragma solidity ^0.8.18;
 
 // solhint-disable-next-line max-line-length
 import {
+    IERC20Upgradeable,
+    ERC20Upgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {
     SafeERC20Upgradeable
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import {ERC20Upgradeable} from "../thirdparty/ERC20Upgradeable.sol";
 import {
     Create2Upgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 
 import {EssentialContract} from "../common/EssentialContract.sol";
+import {Proxied} from "../common/Proxied.sol";
 import {TaikoToken} from "../L1/TaikoToken.sol";
 import {BridgedERC20} from "./BridgedERC20.sol";
 import {IBridge} from "./IBridge.sol";
@@ -26,7 +30,8 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
  * It also manages the mapping between canonical ERC20 tokens and their bridged
  * tokens.
  * @dev Ether is held by Bridges on L1 and by the EtherVault on L2,
- * not TokenVaults.
+ *      not TokenVaults.
+ * @custom:security-contact hello@taiko.xyz
  */
 contract TokenVault is EssentialContract {
     using SafeERC20Upgradeable for ERC20Upgradeable;
@@ -376,3 +381,5 @@ contract TokenVault is EssentialContract {
         });
     }
 }
+
+contract ProxiedTokenVault is Proxied, TokenVault {}

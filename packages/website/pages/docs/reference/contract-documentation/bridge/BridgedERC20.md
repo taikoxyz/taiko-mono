@@ -68,6 +68,12 @@ function transferFrom(address from, address to, uint256 amount) public returns (
 
 _any address can call this_
 
+### decimals
+
+```solidity
+function decimals() public view returns (uint8)
+```
+
 ### source
 
 ```solidity
@@ -75,3 +81,9 @@ function source() public view returns (address, uint256)
 ```
 
 _returns the srcToken being bridged and the srcChainId_
+
+---
+
+## title: ProxiedBridgedERC20
+
+## ProxiedBridgedERC20
