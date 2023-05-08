@@ -99,3 +99,9 @@ Retrieves the address associated with a given name.
 | Name | Type    | Description                             |
 | ---- | ------- | --------------------------------------- |
 | addr | address | Address associated with the given name. |
+
+---
+
+## title: ProxiedAddressManager
+
+## ProxiedAddressManager

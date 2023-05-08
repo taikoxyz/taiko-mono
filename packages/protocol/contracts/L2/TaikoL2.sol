@@ -7,6 +7,7 @@
 pragma solidity ^0.8.18;
 
 import {EssentialContract} from "../common/EssentialContract.sol";
+import {Proxied} from "../common/Proxied.sol";
 import {ICrossChainSync} from "../common/ICrossChainSync.sol";
 import {LibL2Consts} from "./LibL2Consts.sol";
 import {LibMath} from "../libs/LibMath.sol";
@@ -16,6 +17,7 @@ import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
+/// @custom:security-contact hello@taiko.xyz
 contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     using SafeCastUpgradeable for uint256;
     using LibMath for uint256;
@@ -308,3 +310,5 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         }
     }
 }
+
+contract ProxiedTaikoL2 is Proxied, TaikoL2 {}

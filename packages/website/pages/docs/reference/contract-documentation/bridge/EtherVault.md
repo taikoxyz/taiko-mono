@@ -4,12 +4,6 @@ title: EtherVault
 
 ## EtherVault
 
-EtherVault is a special vault contract that:
-
-- Is initialized with 2^128 Ether.
-- Allows the contract owner to authorize addresses.
-- Allows authorized addresses to send/release Ether.
-
 ### Authorized
 
 ```solidity
@@ -99,3 +93,9 @@ Get the authorized status of an address.
 | Name | Type    | Description                              |
 | ---- | ------- | ---------------------------------------- |
 | addr | address | Address to get the authorized status of. |
+
+---
+
+## title: ProxiedEtherVault
+
+## ProxiedEtherVault

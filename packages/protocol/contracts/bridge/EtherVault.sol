@@ -15,10 +15,12 @@ import {
 } from "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 
 import {EssentialContract} from "../common/EssentialContract.sol";
+import {Proxied} from "../common/Proxied.sol";
 import {LibAddress} from "../libs/LibAddress.sol";
 import {BridgeErrors} from "./BridgeErrors.sol";
 
 /**
+ * @custom:security-contact hello@taiko.xyz
  * EtherVault is a special vault contract that:
  * - Is initialized with 2^128 Ether.
  * - Allows the contract owner to authorize addresses.
@@ -120,3 +122,5 @@ contract EtherVault is EssentialContract, BridgeErrors {
         return _authorizedAddrs[addr];
     }
 }
+
+contract ProxiedEtherVault is Proxied, EtherVault {}
