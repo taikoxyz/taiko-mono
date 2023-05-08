@@ -1,4 +1,4 @@
-import { BigNumber,Contract, ethers } from 'ethers'
+import { BigNumber, Contract, ethers } from 'ethers'
 
 import { TOKEN_VAULT_ABI } from '../../abi'
 import { providers } from '../provider'
@@ -25,18 +25,20 @@ export async function recommendProcessingFee({
   let gasLimit = ethGasLimit
 
   if (!isEther(token)) {
-    let srcChainAddress = token.addresses[srcChain.id]
+    let chainAddress = token.addresses[srcChain.id]
 
-    if (!srcChainAddress || srcChainAddress === '0x00') {
-      srcChainAddress = token.addresses[destChain.id]
+    // If the token isn't deployed on the source chain
+    // then we use the address on the destination chain
+    if (!chainAddress || chainAddress === ethers.constants.AddressZero) {
+      chainAddress = token.addresses[destChain.id]
     }
 
     const srcTokenVaultAddress = tokenVaults[srcChain.id]
     const srcTokenVaultContract = new Contract(srcTokenVaultAddress, TOKEN_VAULT_ABI, signer)
 
-    const bridged = await srcTokenVaultContract.canonicalToBridged(destChain.id, srcChainAddress)
+    const bridged = await srcTokenVaultContract.canonicalToBridged(destChain.id, chainAddress)
 
-    if (bridged == ethers.constants.AddressZero) {
+    if (bridged === ethers.constants.AddressZero) {
       gasLimit = erc20NotDeployedGasLimit
     } else {
       gasLimit = erc20DeployedGasLimit
@@ -44,5 +46,6 @@ export async function recommendProcessingFee({
   }
 
   const recommendedFee = BigNumber.from(gasPrice).mul(gasLimit)
+
   return ethers.utils.formatEther(recommendedFee)
 }
