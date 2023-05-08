@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { type Signer, ethers } from 'ethers';
+  import type { Signer } from 'ethers';
   import { pendingTransactions } from '../../store/transactions';
   import { signer } from '../../store/signer';
   import { _ } from 'svelte-i18n';
@@ -65,16 +65,10 @@
 
       isOpen = false;
     } catch (error) {
-      // TODO: handle potential transaction failure
       console.error(error);
-
-      switch (error.code) {
-        case ethers.errors.ACTION_REJECTED:
-          errorToast($_('toast.transactionRejected'));
-          break;
-        default:
-          errorToast($_('toast.errorSendingTransaction'));
-      }
+      errorToast($_('toast.errorSendingTransaction'));
+      // TODO: we might want to customize the error message
+      //       based on the error code ethers.errors?
     }
   }
 

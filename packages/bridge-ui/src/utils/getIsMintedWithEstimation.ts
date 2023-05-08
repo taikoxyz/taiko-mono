@@ -6,8 +6,8 @@ import { getLogger } from './logger';
 const log = getLogger('utils:minting');
 
 /**
- * This function returns a boolean indicating whether the user has already claimed the token
- * and the estimated cost of the transaction for minting if not.
+ * This function returns a boolean indicating whether the user has already claimed
+ * the test token on L1, and the estimated cost of the transaction for minting if not.
  */
 export async function getIsMintedWithEstimation(
   signer: Signer,
@@ -26,7 +26,7 @@ export async function getIsMintedWithEstimation(
   log(`Has user already claimed ${token.symbol}?`, userHasAlreadyClaimed);
 
   if (userHasAlreadyClaimed) {
-    return [true, null];
+    return [true, null]; // already claimed, no gas cost is needed
   }
 
   const gas = await l1TokenContract.estimateGas.mint(address);
