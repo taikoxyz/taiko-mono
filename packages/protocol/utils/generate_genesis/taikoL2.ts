@@ -290,8 +290,7 @@ async function generateContractConfigs(
         AddressManagerProxy: {
             address: addressMap.AddressManagerProxy,
             deployedBytecode:
-                contractArtifacts.TransparentUpgradeableProxy.deployedBytecode
-                    .object,
+                contractArtifacts.AddressManagerProxy.deployedBytecode.object,
             variables: {
                 [ADMIN_SLOT]: contractOwner,
                 [IMPLEMENTATION_SLOT]: addressMap.ProxiedAddressManager,
@@ -332,8 +331,7 @@ async function generateContractConfigs(
         TaikoL2Proxy: {
             address: addressMap.TaikoL2Proxy,
             deployedBytecode:
-                contractArtifacts.TransparentUpgradeableProxy.deployedBytecode
-                    .object,
+                contractArtifacts.TaikoL2Proxy.deployedBytecode.object,
             variables: {
                 [ADMIN_SLOT]: contractOwner,
                 [IMPLEMENTATION_SLOT]: addressMap.ProxiedTaikoL2,
@@ -363,8 +361,7 @@ async function generateContractConfigs(
         BridgeProxy: {
             address: addressMap.BridgeProxy,
             deployedBytecode:
-                contractArtifacts.TransparentUpgradeableProxy.deployedBytecode
-                    .object,
+                contractArtifacts.BridgeProxy.deployedBytecode.object,
             variables: {
                 [ADMIN_SLOT]: contractOwner,
                 [IMPLEMENTATION_SLOT]: addressMap.ProxiedBridge,
@@ -390,8 +387,7 @@ async function generateContractConfigs(
         TokenVaultProxy: {
             address: addressMap.TokenVaultProxy,
             deployedBytecode:
-                contractArtifacts.TransparentUpgradeableProxy.deployedBytecode
-                    .object,
+                contractArtifacts.TokenVaultProxy.deployedBytecode.object,
             variables: {
                 [ADMIN_SLOT]: contractOwner,
                 [IMPLEMENTATION_SLOT]: addressMap.ProxiedTokenVault,
@@ -420,8 +416,7 @@ async function generateContractConfigs(
         EtherVaultProxy: {
             address: addressMap.EtherVaultProxy,
             deployedBytecode:
-                contractArtifacts.TransparentUpgradeableProxy.deployedBytecode
-                    .object,
+                contractArtifacts.EtherVaultProxy.deployedBytecode.object,
             variables: {
                 [ADMIN_SLOT]: contractOwner,
                 [IMPLEMENTATION_SLOT]: addressMap.ProxiedEtherVault,
@@ -449,8 +444,7 @@ async function generateContractConfigs(
         SignalServiceProxy: {
             address: addressMap.SignalServiceProxy,
             deployedBytecode:
-                contractArtifacts.TransparentUpgradeableProxy.deployedBytecode
-                    .object,
+                contractArtifacts.SignalServiceProxy.deployedBytecode.object,
             variables: {
                 [ADMIN_SLOT]: contractOwner,
                 [IMPLEMENTATION_SLOT]: addressMap.ProxiedSignalService,
