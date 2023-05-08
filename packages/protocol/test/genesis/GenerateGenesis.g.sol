@@ -16,6 +16,9 @@ import {SignalService} from "../../contracts/signal/SignalService.sol";
 import {LibBridgeStatus} from "../../contracts/bridge/libs/LibBridgeStatus.sol";
 import {LibL2Consts} from "../../contracts/L2/LibL2Consts.sol";
 import {RegularERC20} from "../../contracts/test/erc20/RegularERC20.sol";
+import {
+    TransparentUpgradeableProxy
+} from "../../contracts/thirdparty/TransparentUpgradeableProxy.sol";
 
 contract TestGenerateGenesis is Test, AddressResolver {
     using stdJson for string;
@@ -41,6 +44,14 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkDeployedCode("RegularERC20");
         checkDeployedCode("ProxiedAddressManager");
         checkDeployedCode("ProxiedSignalService");
+
+        // check proxies
+        checkDeployedCode("ProxiedTaikoL2");
+        checkDeployedCode("TokenVaultProxy");
+        checkDeployedCode("EtherVaultProxy");
+        checkDeployedCode("BridgeProxy");
+        checkDeployedCode("AddressManagerProxy");
+        checkDeployedCode("SignalServiceProxy");
     }
 
     function testAddressManager() public {
@@ -63,7 +74,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
     function testTaikoL2() public {
         TaikoL2 taikoL2 = TaikoL2(
-            getPredeployedContractAddress("ProxiedTaikoL2")
+            getPredeployedContractAddress("TaikoL2Proxy")
         );
 
         vm.startPrank(taikoL2.GOLDEN_TOUCH_ADDRESS());
@@ -99,7 +110,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
     function testBridge() public {
         address payable bridgeAddress = payable(
-            getPredeployedContractAddress("ProxiedBridge")
+            getPredeployedContractAddress("BridgeProxy")
         );
         Bridge bridge = Bridge(bridgeAddress);
 
@@ -128,7 +139,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
     function testEtherVault() public {
         address payable etherVaultAddress = payable(
-            getPredeployedContractAddress("ProxiedEtherVault")
+            getPredeployedContractAddress("EtherVaultProxy")
         );
         EtherVault etherVault = EtherVault(etherVaultAddress);
 
@@ -136,7 +147,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         assertEq(
             etherVault.isAuthorized(
-                getPredeployedContractAddress("ProxiedBridge")
+                getPredeployedContractAddress("BridgeProxy")
             ),
             true
         );
@@ -147,11 +158,11 @@ contract TestGenerateGenesis is Test, AddressResolver {
         address tokenVaultAddress = getPredeployedContractAddress(
             "ProxiedTokenVault"
         );
-        address bridgeAddress = getPredeployedContractAddress("ProxiedBridge");
+        address bridgeAddress = getPredeployedContractAddress("BridgeProxy");
 
         TokenVault tokenVault = TokenVault(tokenVaultAddress);
         AddressManager addressManager = AddressManager(
-            getPredeployedContractAddress("ProxiedAddressManager")
+            getPredeployedContractAddress("AddressManagerProxy")
         );
 
         assertEq(owner, tokenVault.owner());
@@ -164,7 +175,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
     function testSignalService() public {
         SignalService signalService = SignalService(
-            getPredeployedContractAddress("ProxiedSignalService")
+            getPredeployedContractAddress("SignalServiceProxy")
         );
 
         assertEq(owner, signalService.owner());
