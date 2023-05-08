@@ -213,3 +213,9 @@ block number.
 ```solidity
 function getBlockHash(uint256 number) public view returns (bytes32)
 ```
+
+---
+
+## title: ProxiedTaikoL2
+
+## ProxiedTaikoL2

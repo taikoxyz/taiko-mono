@@ -203,3 +203,9 @@ this function._
 | from           | address                          | The source address.                                                                                                  |
 | to             | address                          | The destination address.                                                                                             |
 | amount         | uint256                          | The amount of tokens to be sent. 0 is a valid value.                                                                 |
+
+---
+
+## title: ProxiedTokenVault
+
+## ProxiedTokenVault
