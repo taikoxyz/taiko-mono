@@ -56,18 +56,18 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
     function testAddressManager() public {
         AddressManager addressManager = AddressManager(
-            getPredeployedContractAddress("ProxiedAddressManager")
+            getPredeployedContractAddress("AddressManagerProxy")
         );
 
         assertEq(owner, addressManager.owner());
 
-        checkSavedAddress(addressManager, "ProxiedBridge", "bridge");
-        checkSavedAddress(addressManager, "ProxiedTokenVault", "token_vault");
-        checkSavedAddress(addressManager, "ProxiedEtherVault", "ether_vault");
-        checkSavedAddress(addressManager, "ProxiedTaikoL2", "taiko");
+        checkSavedAddress(addressManager, "BridgeProxy", "bridge");
+        checkSavedAddress(addressManager, "TokenVaultProxy", "token_vault");
+        checkSavedAddress(addressManager, "EtherVaultProxy", "ether_vault");
+        checkSavedAddress(addressManager, "TaikoL2Proxy", "taiko");
         checkSavedAddress(
             addressManager,
-            "ProxiedSignalService",
+            "SignalServiceProxy",
             "signal_service"
         );
     }
@@ -156,7 +156,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
     function testTokenVault() public {
         address tokenVaultAddress = getPredeployedContractAddress(
-            "ProxiedTokenVault"
+            "TokenVaultProxy"
         );
         address bridgeAddress = getPredeployedContractAddress("BridgeProxy");
 

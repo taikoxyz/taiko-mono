@@ -270,19 +270,19 @@ async function generateContractConfigs(
                     [chainId]: {
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("taiko")
-                        )]: addressMap.ProxiedTaikoL2,
+                        )]: addressMap.TaikoL2Proxy,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("bridge")
-                        )]: addressMap.ProxiedBridge,
+                        )]: addressMap.BridgeProxy,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("token_vault")
-                        )]: addressMap.ProxiedTokenVault,
+                        )]: addressMap.TokenVaultProxy,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("ether_vault")
-                        )]: addressMap.ProxiedEtherVault,
+                        )]: addressMap.EtherVaultProxy,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("signal_service")
-                        )]: addressMap.ProxiedSignalService,
+                        )]: addressMap.SignalServiceProxy,
                     },
                 },
             },
@@ -353,7 +353,7 @@ async function generateContractConfigs(
                 // OwnableUpgradeable
                 _owner: contractOwner,
                 // AddressResolver
-                _addressManager: addressMap.ProxiedAddressManager,
+                _addressManager: addressMap.AddressManagerProxy,
                 // Bridge
                 _state: {},
             },
@@ -381,7 +381,7 @@ async function generateContractConfigs(
                 // OwnableUpgradeable
                 _owner: contractOwner,
                 // AddressResolver
-                _addressManager: addressMap.ProxiedAddressManager,
+                _addressManager: addressMap.AddressManagerProxy,
             },
         },
         TokenVaultProxy: {
@@ -407,10 +407,10 @@ async function generateContractConfigs(
                 // OwnableUpgradeable
                 _owner: contractOwner,
                 // AddressResolver
-                _addressManager: addressMap.ProxiedAddressManager,
+                _addressManager: addressMap.AddressManagerProxy,
                 // EtherVault
                 // Authorize L2 bridge
-                _authorizedAddrs: { [`${addressMap.ProxiedBridge}`]: true },
+                _authorizedAddrs: { [`${addressMap.BridgeProxy}`]: true },
             },
         },
         EtherVaultProxy: {
@@ -438,7 +438,7 @@ async function generateContractConfigs(
                 // OwnableUpgradeable
                 _owner: contractOwner,
                 // AddressResolver
-                _addressManager: addressMap.ProxiedAddressManager,
+                _addressManager: addressMap.AddressManagerProxy,
             },
         },
         SignalServiceProxy: {
