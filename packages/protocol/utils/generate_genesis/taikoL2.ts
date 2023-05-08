@@ -203,6 +203,14 @@ async function generateContractConfigs(
                     addressMap
                 );
                 break;
+            case "TransparentUpgradeableProxy":
+                addressMap.TaikoL2Proxy = artifact;
+                addressMap.BridgeProxy = artifact;
+                addressMap.TokenVaultProxy = artifact;
+                addressMap.EtherVaultProxy = artifact;
+                addressMap.SignalServiceProxy = artifact;
+                addressMap.AddressManagerProxy = artifact;
+                break;
             default:
                 break;
         }
