@@ -149,11 +149,18 @@ async function generateContractConfigs(
             ARTIFACTS_PATH,
             "./SignalService.sol/ProxiedSignalService.json"
         )),
-        TransparentUpgradeableProxy: require(path.join(
-            ARTIFACTS_PATH,
-            "./TransparentUpgradeableProxy.sol/TransparentUpgradeableProxy.json"
-        )),
     };
+
+    const proxy = require(path.join(
+        ARTIFACTS_PATH,
+        "./TransparentUpgradeableProxy.sol/TransparentUpgradeableProxy.json"
+    ));
+    contractArtifacts.TaikoL2Proxy = proxy;
+    contractArtifacts.BridgeProxy = proxy;
+    contractArtifacts.TokenVaultProxy = proxy;
+    contractArtifacts.EtherVaultProxy = proxy;
+    contractArtifacts.SignalServiceProxy = proxy;
+    contractArtifacts.AddressManagerProxy = proxy;
 
     const addressMap: any = {};
 
@@ -202,14 +209,6 @@ async function generateContractConfigs(
                     contractArtifacts.ProxiedSignalService,
                     addressMap
                 );
-                break;
-            case "TransparentUpgradeableProxy":
-                contractArtifacts.TaikoL2Proxy = artifact;
-                contractArtifacts.BridgeProxy = artifact;
-                contractArtifacts.TokenVaultProxy = artifact;
-                contractArtifacts.EtherVaultProxy = artifact;
-                contractArtifacts.SignalServiceProxy = artifact;
-                contractArtifacts.AddressManagerProxy = artifact;
                 break;
             default:
                 break;
