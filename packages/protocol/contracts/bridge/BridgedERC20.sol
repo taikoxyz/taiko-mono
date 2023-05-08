@@ -7,17 +7,19 @@
 pragma solidity ^0.8.18;
 
 import {
-    IERC20Upgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+    IERC20Upgradeable,
+    ERC20Upgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 // solhint-disable-next-line max-line-length
 import {
     IERC20MetadataUpgradeable
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
 
 import {EssentialContract} from "../common/EssentialContract.sol";
-import {ERC20Upgradeable} from "../thirdparty/ERC20Upgradeable.sol";
+import {Proxied} from "../common/Proxied.sol";
 import {BridgeErrors} from "./BridgeErrors.sol";
 
+/// @custom:security-contact hello@taiko.xyz
 contract BridgedERC20 is
     EssentialContract,
     IERC20Upgradeable,
@@ -27,7 +29,8 @@ contract BridgedERC20 is
 {
     address public srcToken;
     uint256 public srcChainId;
-    uint256[48] private __gap;
+    uint8 private srcDecimals;
+    uint256[47] private __gap;
 
     event BridgeMint(address indexed account, uint256 amount);
     event BridgeBurn(address indexed account, uint256 amount);
@@ -53,13 +56,10 @@ contract BridgedERC20 is
             revert B_INIT_PARAM_ERROR();
         }
         EssentialContract._init(_addressManager);
-        ERC20Upgradeable.__ERC20_init({
-            name_: _name,
-            symbol_: _symbol,
-            decimals_: _decimals
-        });
+        ERC20Upgradeable.__ERC20_init({name_: _name, symbol_: _symbol});
         srcToken = _srcToken;
         srcChainId = _srcChainId;
+        srcDecimals = _decimals;
     }
 
     /// @dev only a TokenVault can call this function
@@ -106,9 +106,20 @@ contract BridgedERC20 is
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }
 
+    function decimals()
+        public
+        view
+        override(ERC20Upgradeable, IERC20MetadataUpgradeable)
+        returns (uint8)
+    {
+        return srcDecimals;
+    }
+
     /// @dev returns the srcToken being bridged and the srcChainId
     // of the tokens being bridged
     function source() public view returns (address, uint256) {
         return (srcToken, srcChainId);
     }
 }
+
+contract ProxiedBridgedERC20 is Proxied, BridgedERC20 {}
