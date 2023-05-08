@@ -46,7 +46,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkDeployedCode("ProxiedSignalService");
 
         // check proxies
-        checkDeployedCode("ProxiedTaikoL2");
+        checkDeployedCode("TaikoL1Proxy");
         checkDeployedCode("TokenVaultProxy");
         checkDeployedCode("EtherVaultProxy");
         checkDeployedCode("BridgeProxy");
@@ -114,7 +114,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         );
         Bridge bridge = Bridge(bridgeAddress);
 
-        // assertEq(owner, bridge.owner());
+        assertEq(owner, bridge.owner());
 
         vm.expectRevert(BridgeErrors.B_FORBIDDEN.selector);
         bridge.processMessage(
@@ -143,7 +143,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         );
         EtherVault etherVault = EtherVault(etherVaultAddress);
 
-        // assertEq(owner, etherVault.owner());
+        assertEq(owner, etherVault.owner());
 
         assertEq(
             etherVault.isAuthorized(
