@@ -65,5 +65,10 @@ describe('selectChain', () => {
     ).toHaveBeenCalled();
 
     expect(signer.set).toHaveBeenCalledWith(mockSigner);
+
+    // Select the other chain now
+    await selectChain(taikoChain);
+
+    expect(switchNetwork).toHaveBeenCalledWith({ chainId: taikoChain.id });
   });
 });
