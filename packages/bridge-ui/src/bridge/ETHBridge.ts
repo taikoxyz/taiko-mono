@@ -8,7 +8,7 @@ import type {
   ReleaseOpts,
 } from '../domain/bridge';
 import type { Prover } from '../domain/proof';
-import BridgeABI from '../constants/abi/Bridge.json';
+import { BRIDGE_ABI } from '../constants/abi';
 import { chains } from '../chain/chains';
 import { type Message, MessageStatus } from '../domain/message';
 
@@ -24,7 +24,7 @@ export class ETHBridge implements Bridge {
   ): Promise<{ contract: Contract; message: Message; owner: string }> {
     const contract: Contract = new Contract(
       opts.bridgeAddress,
-      BridgeABI,
+      BRIDGE_ABI,
       opts.signer,
     );
 
@@ -92,7 +92,7 @@ export class ETHBridge implements Bridge {
   async Claim(opts: ClaimOpts): Promise<Transaction> {
     const contract: Contract = new Contract(
       opts.destBridgeAddress,
-      BridgeABI,
+      BRIDGE_ABI,
       opts.signer,
     );
 
@@ -155,7 +155,7 @@ export class ETHBridge implements Bridge {
   async ReleaseTokens(opts: ReleaseOpts): Promise<Transaction> {
     const destBridgeContract: Contract = new Contract(
       opts.destBridgeAddress,
-      BridgeABI,
+      BRIDGE_ABI,
       opts.destProvider,
     );
 
@@ -189,7 +189,7 @@ export class ETHBridge implements Bridge {
 
       const srcBridgeContract: Contract = new Contract(
         opts.srcBridgeAddress,
-        BridgeABI,
+        BRIDGE_ABI,
         opts.signer,
       );
 

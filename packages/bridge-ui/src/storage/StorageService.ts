@@ -1,8 +1,6 @@
 import type { BridgeTransaction, Transactioner } from '../domain/transactions';
 import { BigNumber, Contract, ethers } from 'ethers';
-import BridgeABI from '../constants/abi/Bridge.json';
-import TokenVaultABI from '../constants/abi/TokenVault.json';
-import ERC20_ABI from '../constants/abi/ERC20.json';
+import { BRIDGE_ABI, TOKEN_VAULT_ABI, ERC20_ABI } from '../constants/abi';
 import { MessageStatus } from '../domain/message';
 import { chains } from '../chain/chains';
 import { tokenVaults } from '../vault/tokenVaults';
@@ -147,7 +145,7 @@ export class StorageService implements Transactioner {
       const messageSentEvent = await StorageService._getBridgeMessageSent(
         address,
         srcBridgeAddress,
-        BridgeABI,
+        BRIDGE_ABI,
         srcProvider,
         receipt.blockNumber,
       );
@@ -168,7 +166,7 @@ export class StorageService implements Transactioner {
 
       const status = await StorageService._getBridgeMessageStatus(
         destBridgeAddress,
-        BridgeABI,
+        BRIDGE_ABI,
         destProvider,
         msgHash,
       );
@@ -187,7 +185,7 @@ export class StorageService implements Transactioner {
 
         const erc20Event = await StorageService._getTokenVaultERC20Event(
           srcTokenVaultAddress,
-          TokenVaultABI,
+          TOKEN_VAULT_ABI,
           srcProvider,
           msgHash,
           receipt.blockNumber,
@@ -256,7 +254,7 @@ export class StorageService implements Transactioner {
     const messageSentEvent = await StorageService._getBridgeMessageSent(
       address,
       srcBridgeAddress,
-      BridgeABI,
+      BRIDGE_ABI,
       srcProvider,
       receipt.blockNumber,
     );
@@ -272,7 +270,7 @@ export class StorageService implements Transactioner {
 
     const status = await StorageService._getBridgeMessageStatus(
       destBridgeAddress,
-      BridgeABI,
+      BRIDGE_ABI,
       destProvider,
       msgHash,
     );
@@ -290,7 +288,7 @@ export class StorageService implements Transactioner {
 
       const erc20Event = await StorageService._getTokenVaultERC20Event(
         srcTokenVaultAddress,
-        TokenVaultABI,
+        BRIDGE_ABI,
         srcProvider,
         msgHash,
         receipt.blockNumber,

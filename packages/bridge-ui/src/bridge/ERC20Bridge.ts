@@ -7,11 +7,9 @@ import type {
   ClaimOpts,
   ReleaseOpts,
 } from '../domain/bridge';
-import TokenVaultABI from '../constants/abi/TokenVault.json';
-import ERC20_ABI from '../constants/abi/ERC20.json';
+import { TOKEN_VAULT_ABI, ERC20_ABI, BRIDGE_ABI } from '../constants/abi';
 import type { Prover } from '../domain/proof';
 import { MessageStatus } from '../domain/message';
-import BridgeABI from '../constants/abi/Bridge.json';
 import { chains } from '../chain/chains';
 
 export class ERC20Bridge implements Bridge {
@@ -24,7 +22,7 @@ export class ERC20Bridge implements Bridge {
   static async prepareTransaction(opts: BridgeOpts) {
     const contract: Contract = new Contract(
       opts.tokenVaultAddress,
-      TokenVaultABI,
+      TOKEN_VAULT_ABI,
       opts.signer,
     );
 
@@ -150,7 +148,7 @@ export class ERC20Bridge implements Bridge {
   async Claim(opts: ClaimOpts): Promise<Transaction> {
     const contract: Contract = new Contract(
       opts.destBridgeAddress,
-      BridgeABI,
+      BRIDGE_ABI,
       opts.signer,
     );
 
@@ -216,7 +214,7 @@ export class ERC20Bridge implements Bridge {
   async ReleaseTokens(opts: ReleaseOpts): Promise<Transaction> {
     const destBridgeContract: Contract = new Contract(
       opts.destBridgeAddress,
-      BridgeABI,
+      BRIDGE_ABI,
       opts.destProvider,
     );
 
@@ -250,7 +248,7 @@ export class ERC20Bridge implements Bridge {
 
       const srcTokenVaultContract: Contract = new Contract(
         opts.srcTokenVaultAddress,
-        TokenVaultABI,
+        TOKEN_VAULT_ABI,
         opts.signer,
       );
 
