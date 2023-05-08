@@ -34,31 +34,37 @@ contract TestGenerateGenesis is Test, AddressResolver {
     function testContractDeployment() public {
         assertEq(block.chainid, 167);
 
-        checkDeployedCode("TaikoL2");
-        checkDeployedCode("TokenVault");
-        checkDeployedCode("EtherVault");
-        checkDeployedCode("Bridge");
+        checkDeployedCode("ProxiedTaikoL2");
+        checkDeployedCode("ProxiedTokenVault");
+        checkDeployedCode("ProxiedEtherVault");
+        checkDeployedCode("ProxiedBridge");
         checkDeployedCode("RegularERC20");
-        checkDeployedCode("AddressManager");
-        checkDeployedCode("SignalService");
+        checkDeployedCode("ProxiedAddressManager");
+        checkDeployedCode("ProxiedSignalService");
     }
 
     function testAddressManager() public {
         AddressManager addressManager = AddressManager(
-            getPredeployedContractAddress("AddressManager")
+            getPredeployedContractAddress("ProxiedAddressManager")
         );
 
         assertEq(owner, addressManager.owner());
 
-        checkSavedAddress(addressManager, "Bridge", "bridge");
-        checkSavedAddress(addressManager, "TokenVault", "token_vault");
-        checkSavedAddress(addressManager, "EtherVault", "ether_vault");
-        checkSavedAddress(addressManager, "TaikoL2", "taiko");
-        checkSavedAddress(addressManager, "SignalService", "signal_service");
+        checkSavedAddress(addressManager, "ProxiedBridge", "bridge");
+        checkSavedAddress(addressManager, "ProxiedTokenVault", "token_vault");
+        checkSavedAddress(addressManager, "ProxiedEtherVault", "ether_vault");
+        checkSavedAddress(addressManager, "ProxiedTaikoL2", "taiko");
+        checkSavedAddress(
+            addressManager,
+            "ProxiedSignalService",
+            "signal_service"
+        );
     }
 
     function testTaikoL2() public {
-        TaikoL2 taikoL2 = TaikoL2(getPredeployedContractAddress("TaikoL2"));
+        TaikoL2 taikoL2 = TaikoL2(
+            getPredeployedContractAddress("ProxiedTaikoL2")
+        );
 
         vm.startPrank(taikoL2.GOLDEN_TOUCH_ADDRESS());
         for (uint64 i = 0; i < 300; i++) {
@@ -93,7 +99,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
     function testBridge() public {
         address payable bridgeAddress = payable(
-            getPredeployedContractAddress("Bridge")
+            getPredeployedContractAddress("ProxiedBridge")
         );
         Bridge bridge = Bridge(bridgeAddress);
 
@@ -122,26 +128,30 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
     function testEtherVault() public {
         address payable etherVaultAddress = payable(
-            getPredeployedContractAddress("EtherVault")
+            getPredeployedContractAddress("ProxiedEtherVault")
         );
         EtherVault etherVault = EtherVault(etherVaultAddress);
 
         assertEq(owner, etherVault.owner());
 
         assertEq(
-            etherVault.isAuthorized(getPredeployedContractAddress("Bridge")),
+            etherVault.isAuthorized(
+                getPredeployedContractAddress("ProxiedBridge")
+            ),
             true
         );
         assertEq(etherVault.isAuthorized(etherVault.owner()), false);
     }
 
     function testTokenVault() public {
-        address tokenVaultAddress = getPredeployedContractAddress("TokenVault");
-        address bridgeAddress = getPredeployedContractAddress("Bridge");
+        address tokenVaultAddress = getPredeployedContractAddress(
+            "ProxiedTokenVault"
+        );
+        address bridgeAddress = getPredeployedContractAddress("ProxiedBridge");
 
         TokenVault tokenVault = TokenVault(tokenVaultAddress);
         AddressManager addressManager = AddressManager(
-            getPredeployedContractAddress("AddressManager")
+            getPredeployedContractAddress("ProxiedAddressManager")
         );
 
         assertEq(owner, tokenVault.owner());
@@ -154,7 +164,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
     function testSignalService() public {
         SignalService signalService = SignalService(
-            getPredeployedContractAddress("SignalService")
+            getPredeployedContractAddress("ProxiedSignalService")
         );
 
         assertEq(owner, signalService.owner());

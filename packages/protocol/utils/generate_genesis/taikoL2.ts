@@ -59,7 +59,7 @@ export async function deployTaikoL2(
 
         // pre-mint ETHs for EtherVault contract
         alloc[contractConfig.address].balance =
-            contractName === "EtherVault"
+            contractName === "ProxiedEtherVault"
                 ? etherVaultBalance.toHexString()
                 : "0x0";
 
@@ -112,26 +112,29 @@ async function generateContractConfigs(
             "./LibBridgeProcess.sol/LibBridgeProcess.json"
         )),
         // Contracts
-        AddressManager: require(path.join(
+        ProxiedAddressManager: require(path.join(
             ARTIFACTS_PATH,
-            "./AddressManager.sol/AddressManager.json"
+            "./AddressManager.sol/ProxiedAddressManager.json"
         )),
-        TaikoL2: require(path.join(
+        ProxiedTaikoL2: require(path.join(
             ARTIFACTS_PATH,
-            "./TaikoL2.sol/TaikoL2.json"
+            "./TaikoL2.sol/ProxiedTaikoL2.json"
         )),
-        Bridge: require(path.join(ARTIFACTS_PATH, "./Bridge.sol/Bridge.json")),
-        TokenVault: require(path.join(
+        ProxiedBridge: require(path.join(
             ARTIFACTS_PATH,
-            "./TokenVault.sol/TokenVault.json"
+            "./Bridge.sol/ProxiedBridge.json"
         )),
-        EtherVault: require(path.join(
+        ProxiedTokenVault: require(path.join(
             ARTIFACTS_PATH,
-            "./EtherVault.sol/EtherVault.json"
+            "./TokenVault.sol/ProxiedTokenVault.json"
         )),
-        SignalService: require(path.join(
+        ProxiedEtherVault: require(path.join(
             ARTIFACTS_PATH,
-            "./SignalService.sol/SignalService.json"
+            "./EtherVault.sol/ProxiedEtherVault.json"
+        )),
+        ProxiedSignalService: require(path.join(
+            ARTIFACTS_PATH,
+            "./SignalService.sol/ProxiedSignalService.json"
         )),
     };
 
@@ -141,9 +144,9 @@ async function generateContractConfigs(
         let bytecode = (artifact as any).bytecode;
 
         switch (contractName) {
-            case "TaikoL2":
+            case "ProxiedTaikoL2":
                 bytecode = linkContractLibs(
-                    contractArtifacts.TaikoL2,
+                    contractArtifacts.ProxiedTaikoL2,
                     addressMap
                 );
                 break;
@@ -157,7 +160,7 @@ async function generateContractConfigs(
                     addressMap
                 );
                 break;
-            case "Bridge":
+            case "ProxiedBridge":
                 if (
                     !addressMap.LibTrieProof ||
                     !addressMap.LibBridgeRetry ||
@@ -169,17 +172,17 @@ async function generateContractConfigs(
                 }
 
                 bytecode = linkContractLibs(
-                    contractArtifacts.Bridge,
+                    contractArtifacts.ProxiedBridge,
                     addressMap
                 );
                 break;
-            case "SignalService":
+            case "ProxiedSignalService":
                 if (!addressMap.LibTrieProof) {
                     throw new Error("LibTrieProof not initialized");
                 }
 
                 bytecode = linkContractLibs(
-                    contractArtifacts.SignalService,
+                    contractArtifacts.ProxiedSignalService,
                     addressMap
                 );
                 break;
@@ -228,10 +231,10 @@ async function generateContractConfigs(
             ),
             variables: {},
         },
-        AddressManager: {
-            address: addressMap.AddressManager,
+        ProxiedAddressManager: {
+            address: addressMap.ProxiedAddressManager,
             deployedBytecode:
-                contractArtifacts.AddressManager.deployedBytecode.object,
+                contractArtifacts.ProxiedAddressManager.deployedBytecode.object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -243,27 +246,27 @@ async function generateContractConfigs(
                     [chainId]: {
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("taiko")
-                        )]: addressMap.TaikoL2,
+                        )]: addressMap.ProxiedTaikoL2,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("bridge")
-                        )]: addressMap.Bridge,
+                        )]: addressMap.ProxiedBridge,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("token_vault")
-                        )]: addressMap.TokenVault,
+                        )]: addressMap.ProxiedTokenVault,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("ether_vault")
-                        )]: addressMap.EtherVault,
+                        )]: addressMap.ProxiedEtherVault,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("signal_service")
-                        )]: addressMap.SignalService,
+                        )]: addressMap.ProxiedSignalService,
                     },
                 },
             },
         },
-        TaikoL2: {
-            address: addressMap.TaikoL2,
+        ProxiedTaikoL2: {
+            address: addressMap.ProxiedTaikoL2,
             deployedBytecode: linkContractLibs(
-                contractArtifacts.TaikoL2,
+                contractArtifacts.ProxiedTaikoL2,
                 addressMap
             ),
             variables: {
@@ -291,10 +294,10 @@ async function generateContractConfigs(
                 gasExcess: ethers.BigNumber.from(param1559.gasExcess),
             },
         },
-        Bridge: {
-            address: addressMap.Bridge,
+        ProxiedBridge: {
+            address: addressMap.ProxiedBridge,
             deployedBytecode: linkContractLibs(
-                contractArtifacts.Bridge,
+                contractArtifacts.ProxiedBridge,
                 addressMap
             ),
             variables: {
@@ -306,15 +309,15 @@ async function generateContractConfigs(
                 // OwnableUpgradeable
                 _owner: contractOwner,
                 // AddressResolver
-                _addressManager: addressMap.AddressManager,
+                _addressManager: addressMap.ProxiedAddressManager,
                 // Bridge
                 _state: {},
             },
         },
-        TokenVault: {
-            address: addressMap.TokenVault,
+        ProxiedTokenVault: {
+            address: addressMap.ProxiedTokenVault,
             deployedBytecode:
-                contractArtifacts.TokenVault.deployedBytecode.object,
+                contractArtifacts.ProxiedTokenVault.deployedBytecode.object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -324,13 +327,13 @@ async function generateContractConfigs(
                 // OwnableUpgradeable
                 _owner: contractOwner,
                 // AddressResolver
-                _addressManager: addressMap.AddressManager,
+                _addressManager: addressMap.ProxiedAddressManager,
             },
         },
-        EtherVault: {
-            address: addressMap.EtherVault,
+        ProxiedEtherVault: {
+            address: addressMap.ProxiedEtherVault,
             deployedBytecode:
-                contractArtifacts.EtherVault.deployedBytecode.object,
+                contractArtifacts.ProxiedEtherVault.deployedBytecode.object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -340,16 +343,16 @@ async function generateContractConfigs(
                 // OwnableUpgradeable
                 _owner: contractOwner,
                 // AddressResolver
-                _addressManager: addressMap.AddressManager,
+                _addressManager: addressMap.ProxiedAddressManager,
                 // EtherVault
                 // Authorize L2 bridge
-                _authorizedAddrs: { [`${addressMap.Bridge}`]: true },
+                _authorizedAddrs: { [`${addressMap.ProxiedBridge}`]: true },
             },
         },
-        SignalService: {
-            address: addressMap.SignalService,
+        ProxiedSignalService: {
+            address: addressMap.ProxiedSignalService,
             deployedBytecode: linkContractLibs(
-                contractArtifacts.SignalService,
+                contractArtifacts.ProxiedSignalService,
                 addressMap
             ),
             variables: {
@@ -361,7 +364,7 @@ async function generateContractConfigs(
                 // OwnableUpgradeable
                 _owner: contractOwner,
                 // AddressResolver
-                _addressManager: addressMap.AddressManager,
+                _addressManager: addressMap.ProxiedAddressManager,
             },
         },
     };
