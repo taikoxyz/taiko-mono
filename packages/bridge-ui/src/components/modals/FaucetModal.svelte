@@ -1,21 +1,17 @@
 <script lang="ts">
-  import { BigNumber, Signer, Contract } from 'ethers';
+  import { type Signer, ethers } from 'ethers';
   import { pendingTransactions } from '../../store/transactions';
   import { signer } from '../../store/signer';
   import { _ } from 'svelte-i18n';
-  import { FREE_MINT_ERC20_ABI } from '../../constants/abi';
   import { fromChain } from '../../store/chain';
   import Modal from './Modal.svelte';
   import { token } from '../../store/token';
-  import {
-    L1_CHAIN_ID,
-    L1_CHAIN_NAME,
-    L2_CHAIN_NAME,
-  } from '../../constants/envVars';
+  import { L1_CHAIN_NAME, L2_CHAIN_NAME } from '../../constants/envVars';
   import { errorToast, successToast } from '../Toast.svelte';
   import { getLogger } from '../../utils/logger';
   import type { Token } from '../../domain/token';
   import { mintERC20 } from '../../utils/mintERC20';
+  import { getIsMintedWithEstimation } from '../../utils/getIsMintedWithEstimation';
 
   const log = getLogger('FaucetModal');
 
@@ -34,20 +30,8 @@
     }
 
     try {
-      const balance = await _signer.getBalance();
-      const address = await _signer.getAddress();
-
-      const l1TokenContract = new Contract(
-        _token.addresses[0].address, // L1 address
-        FREE_MINT_ERC20_ABI,
-        _signer,
-      );
-
-      log(`Calling l1TokenContract.minters(${address})`);
-
-      const userHasAlreadyClaimed = await l1TokenContract.minters(address);
-
-      log(`userHasAlreadyClaimed ${_token.symbol}?`, userHasAlreadyClaimed);
+      const [userHasAlreadyClaimed, estimatedGas] =
+        await getIsMintedWithEstimation(_signer, _token);
 
       if (userHasAlreadyClaimed) {
         disabled = true;
@@ -55,9 +39,7 @@
         return;
       }
 
-      const gas = await l1TokenContract.estimateGas.mint(address);
-      const gasPrice = await $signer.getGasPrice();
-      const estimatedGas = BigNumber.from(gas).mul(gasPrice);
+      const balance = await _signer.getBalance();
 
       if (balance.lt(estimatedGas)) {
         disabled = true;
@@ -77,15 +59,22 @@
       successToast($_('toast.transactionSent'));
 
       pendingTransactions.add(tx, $signer).then(() => {
-        successToast('Transaction completed!');
+        successToast('toast.transactionCompleted');
         onMint();
       });
 
       isOpen = false;
-    } catch (e) {
+    } catch (error) {
       // TODO: handle potential transaction failure
-      console.error(e);
-      errorToast($_('toast.errorSendingTransaction'));
+      console.error(error);
+
+      switch (error.code) {
+        case ethers.errors.ACTION_REJECTED:
+          errorToast($_('toast.transactionRejected'));
+          break;
+        default:
+          errorToast($_('toast.errorSendingTransaction'));
+      }
     }
   }
 

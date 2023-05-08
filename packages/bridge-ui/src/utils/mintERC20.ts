@@ -6,7 +6,7 @@ import { chains } from '../chain/chains';
 import { FREE_MINT_ERC20_ABI } from '../constants/abi';
 import { getLogger } from './logger';
 
-const log = getLogger('mintERC20');
+const log = getLogger('utils:mintERC20');
 
 export async function mintERC20(
   srcChainId: number,

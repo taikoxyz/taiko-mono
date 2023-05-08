@@ -23,6 +23,7 @@ function setupI18n({ withLocale: _locale } = { withLocale: 'en' }) {
       },
       toast: {
         transactionSent: 'Transaction sent',
+        transactionCompleted: 'Transaction completed!',
         errorSendingTransaction: 'Error sending transaction',
         errorDisconnecting: 'Could not disconnect',
       },

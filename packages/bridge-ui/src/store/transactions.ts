@@ -4,7 +4,7 @@ import type { BridgeTransaction } from '../domain/transactions';
 import { Deferred } from '../utils/Deferred';
 import { getLogger } from '../utils/logger';
 
-const log = getLogger('transactions');
+const log = getLogger('store:transactions');
 
 export const transactions = writable<BridgeTransaction[]>([]);
 
@@ -45,25 +45,27 @@ export const pendingTransactions = {
        * is was mined.
        * See https://docs.ethers.org/v5/api/providers/provider/#Provider-waitForTransaction
        */
-      signer.provider.waitForTransaction(tx.hash, 1).then((receipt) => {
-        // The transaction has been mined.
+      signer.provider
+        .waitForTransaction(tx.hash, 1, 60 * 1000) // 1min timeout. TODO: config?
+        .then((receipt) => {
+          // The transaction has been mined.
 
-        log('Transaction mined receipt', receipt);
+          log('Transaction mined with receipt', receipt);
 
-        // Removes the transaction from the store
-        update((txs: Transaction[]) => {
-          const copyPendingTransactions = [...txs];
-          copyPendingTransactions.splice(idxAppendedTransaction, 1);
-          return copyPendingTransactions;
+          // Removes the transaction from the store
+          update((txs: Transaction[]) => {
+            const copyPendingTransactions = [...txs];
+            copyPendingTransactions.splice(idxAppendedTransaction, 1);
+            return copyPendingTransactions;
+          });
+
+          // Resolves or rejects the promise depending on the transaction status.
+          if (receipt.status === 1) {
+            deferred.resolve(receipt);
+          } else {
+            deferred.reject(receipt);
+          }
         });
-
-        // Resolves or rejects the promise depending on the transaction status.
-        if (receipt.status === 1) {
-          deferred.resolve(receipt);
-        } else {
-          deferred.reject(receipt);
-        }
-      });
 
       return newPendingTransactions;
     });

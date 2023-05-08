@@ -450,7 +450,7 @@
   </div>
 
   <FaucetModal
-    onMint={async () => await getUserBalance($signer, $token, $fromChain)}
+    onMint={() => getUserBalance($signer, $token, $fromChain)}
     bind:isOpen={isFaucetModalOpen} />
 {/if}
 
