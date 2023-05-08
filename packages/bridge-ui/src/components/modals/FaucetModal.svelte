@@ -1,13 +1,11 @@
 <script lang="ts">
-  import { BigNumber, ethers } from 'ethers';
+  import { BigNumber, Signer, Contract } from 'ethers';
   import { pendingTransactions } from '../../store/transactions';
   import { signer } from '../../store/signer';
   import { _ } from 'svelte-i18n';
   import { FREE_MINT_ERC20_ABI } from '../../constants/abi';
   import { fromChain } from '../../store/chain';
-  import { fetchSigner, switchNetwork } from '@wagmi/core';
   import Modal from './Modal.svelte';
-  import { onMount } from 'svelte';
   import { token } from '../../store/token';
   import {
     L1_CHAIN_ID,
@@ -15,6 +13,11 @@
     L2_CHAIN_NAME,
   } from '../../constants/envVars';
   import { errorToast, successToast } from '../Toast.svelte';
+  import { getLogger } from '../../utils/logger';
+  import type { Token } from '../../domain/token';
+  import { mintERC20 } from '../../utils/mintERC20';
+
+  const log = getLogger('FaucetModal');
 
   export let isOpen: boolean = false;
   export let onMint: () => Promise<void>;
@@ -22,70 +25,63 @@
   let disabled: boolean = true;
   let errorReason: string;
 
-  async function shouldEnableButton() {
-    if (!$signer || !$token) {
+  async function shouldEnableButton(_signer: Signer, _token: Token) {
+    if (!_signer || !_token) {
       // If signer or token is missing, the button
       // should remained disabled
       disabled = true;
       return;
     }
 
-    const balance = await $signer.getBalance();
-    const address = await $signer.getAddress();
+    try {
+      const balance = await _signer.getBalance();
+      const address = await _signer.getAddress();
 
-    const contract = new ethers.Contract(
-      $token.addresses[0].address,
-      FREE_MINT_ERC20_ABI,
-      $signer,
-    );
+      const l1TokenContract = new Contract(
+        _token.addresses[0].address, // L1 address
+        FREE_MINT_ERC20_ABI,
+        _signer,
+      );
 
-    const userHasAlreadyClaimed = await contract.minters(address);
+      log(`Calling l1TokenContract.minters(${address})`);
 
-    if (userHasAlreadyClaimed) {
-      disabled = true;
-      errorReason = 'You have already claimed';
-      return;
-    }
+      const userHasAlreadyClaimed = await l1TokenContract.minters(address);
 
-    const gas = await contract.estimateGas.mint(address);
-    const gasPrice = await $signer.getGasPrice();
-    const estimatedGas = BigNumber.from(gas).mul(gasPrice);
+      log(`userHasAlreadyClaimed ${_token.symbol}?`, userHasAlreadyClaimed);
 
-    if (balance.lt(estimatedGas)) {
-      disabled = true;
-    } else {
-      disabled = false;
+      if (userHasAlreadyClaimed) {
+        disabled = true;
+        errorReason = 'You have already claimed';
+        return;
+      }
+
+      const gas = await l1TokenContract.estimateGas.mint(address);
+      const gasPrice = await $signer.getGasPrice();
+      const estimatedGas = BigNumber.from(gas).mul(gasPrice);
+
+      if (balance.lt(estimatedGas)) {
+        disabled = true;
+      } else {
+        disabled = false;
+      }
+    } catch (e) {
+      console.error(e);
+      errorToast($_('toast.errorSendingTransaction'));
     }
   }
 
   async function mint() {
     try {
-      if ($fromChain.id !== $token.addresses[0].chainId) {
-        await switchNetwork({
-          chainId: L1_CHAIN_ID,
-        });
-        const wagmiSigner = await fetchSigner();
-
-        signer.set(wagmiSigner);
-      }
-      const contract = new ethers.Contract(
-        $token.addresses[0].address,
-        FREE_MINT_ERC20_ABI,
-        $signer,
-      );
-
-      const address = await $signer.getAddress();
-      const tx = await contract.mint(address);
+      const tx = await mintERC20($fromChain.id, $token, $signer);
 
       successToast($_('toast.transactionSent'));
 
-      await pendingTransactions.add(tx, $signer);
+      pendingTransactions.add(tx, $signer).then(() => {
+        successToast('Transaction completed!');
+        onMint();
+      });
 
       isOpen = false;
-
-      successToast('Transaction completed!');
-
-      await onMint();
     } catch (e) {
       // TODO: handle potential transaction failure
       console.error(e);
@@ -93,11 +89,7 @@
     }
   }
 
-  $: shouldEnableButton().catch((e) => console.error(e));
-
-  onMount(() => {
-    shouldEnableButton();
-  });
+  $: shouldEnableButton($signer, $token);
 </script>
 
 <Modal title={'ERC20 Faucet'} bind:isOpen>
@@ -106,12 +98,7 @@
   changed first. You must have a small amount of ETH in your {L1_CHAIN_NAME} wallet
   to send the transaction.
   <br />
-  <button
-    class="btn btn-dark-5 h-[60px] text-base"
-    {disabled}
-    on:click={async () => {
-      await mint();
-    }}>
+  <button class="btn btn-dark-5 h-[60px] text-base" {disabled} on:click={mint}>
     {#if disabled}
       {errorReason ?? 'Insufficient ETH'}
     {:else}

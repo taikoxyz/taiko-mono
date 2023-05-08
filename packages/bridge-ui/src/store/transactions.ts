@@ -2,6 +2,9 @@ import { writable } from 'svelte/store';
 import type { Signer, Transaction, ethers } from 'ethers';
 import type { BridgeTransaction } from '../domain/transactions';
 import { Deferred } from '../utils/Deferred';
+import { getLogger } from '../utils/logger';
+
+const log = getLogger('transactions');
 
 export const transactions = writable<BridgeTransaction[]>([]);
 
@@ -44,6 +47,8 @@ export const pendingTransactions = {
        */
       signer.provider.waitForTransaction(tx.hash, 1).then((receipt) => {
         // The transaction has been mined.
+
+        log('Transaction mined receipt', receipt);
 
         // Removes the transaction from the store
         update((txs: Transaction[]) => {
