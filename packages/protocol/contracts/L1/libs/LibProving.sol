@@ -34,6 +34,7 @@ library LibProving {
     error L1_SYSTEM_PROOF_PROHIBTED();
     error L1_NOT_ORACLE_PROVER();
     error L1_SAME_PROOF();
+    error L1_SYSTEM_PROOF_DISABLED();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -99,23 +100,6 @@ library LibProving {
             }
         }
 
-        // System prover provides legit (mock) proofs, so that one do not needed to be overwritten
-        // Diff between system and oracle is: oracle has to be overwritten, system does not.
-        // if (evidence.prover == address(1)) {
-        //     if (
-        //         config.realProofSkipSize > 1 &&
-        //         blockId % config.realProofSkipSize != 0
-        //     ) {
-        //         // For this block, real ZKP is not necessary, so the system
-        //         // proof will be treated as a real proof (by setting the prover
-        //         // to a non-zero value)
-        //         evidence.prover = systemProver;
-        //     }
-        // }
-
-        // If system prover not disabled, but somehow msg.sender wants to send the proof
-        // under systemProver's umbrella, we should not allow it
-
         TaikoData.ForkChoice storage fc;
 
         uint256 fcId = LibUtils.getForkChoiceId(
@@ -161,6 +145,7 @@ library LibProving {
             // (the latter can be verified without being overwritten)
             // - and blockHash/signalRoot/gasUsed are matching
             // Revert otherwise.
+
             if (fc.prover != address(0) && fc.prover != address(1))
                 revert L1_ALREADY_PROVEN();
 

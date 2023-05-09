@@ -413,6 +413,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     {
         // Bob is an oracle prover now
         registerAddress("oracle_prover", Bob);
+        registerAddress("system_prover", Bob);
 
         depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
         depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
