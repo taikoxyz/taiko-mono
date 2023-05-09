@@ -1,6 +1,8 @@
 import { defineConfig } from '@wagmi/cli';
 import type { Abi } from 'abitype';
 
+// CI will fail if we import from the protocol package
+// We ignore this file on svelte-check
 import IBridge from '../protocol/abi/contracts/bridge/IBridge.sol/IBridge.json';
 import TokenVault from '../protocol/abi/contracts/bridge/TokenVault.sol/TokenVault.json';
 import ICrossChainSync from '../protocol/abi/contracts/common/ICrossChainSync.sol/ICrossChainSync.json';
