@@ -456,7 +456,7 @@ async function generateContractConfigs(
                 _addressManager: addressMap.AddressManagerProxy,
             },
             slots: {
-                [ADMIN_SLOT]: contractOwner,
+                [ADMIN_SLOT]: contractAdmin,
                 [IMPLEMENTATION_SLOT]: addressMap.ProxiedSignalService,
             },
             isProxy: true,
