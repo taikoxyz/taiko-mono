@@ -11,6 +11,9 @@ import type { Prover } from '../domain/proof';
 import { bridgeABI } from '../constants/abi';
 import { chains } from '../chain/chains';
 import { type Message, MessageStatus } from '../domain/message';
+import { getLogger } from '../utils/logger';
+
+const log = getLogger('ETHBridge');
 
 export class ETHBridge implements Bridge {
   private readonly prover: Prover;
@@ -53,6 +56,8 @@ export class ETHBridge implements Bridge {
       data: '0x',
     };
 
+    log('Preparing transaction with message:', message);
+
     return { contract, owner, message };
   }
 
@@ -68,11 +73,15 @@ export class ETHBridge implements Bridge {
   async Bridge(opts: BridgeOpts): Promise<Transaction> {
     const { contract, message } = await ETHBridge.prepareTransaction(opts);
 
+    log('Bridging with message', message);
+
     const tx = await contract.sendMessage(message, {
       value: message.depositValue
         .add(message.processingFee)
         .add(message.callValue),
     });
+
+    log('Sent message transaction', tx);
 
     return tx;
   }
@@ -80,11 +89,15 @@ export class ETHBridge implements Bridge {
   async EstimateGas(opts: BridgeOpts): Promise<BigNumber> {
     const { contract, message } = await ETHBridge.prepareTransaction(opts);
 
+    log('Estimating gas for sendMessage with message', message);
+
     const gasEstimate = await contract.estimateGas.sendMessage(message, {
       value: message.depositValue
         .add(message.processingFee)
         .add(message.callValue),
     });
+
+    log('Estimated gas for sendMessage', gasEstimate);
 
     return gasEstimate;
   }
@@ -130,10 +143,14 @@ export class ETHBridge implements Bridge {
       };
 
       const proof = await this.prover.generateProof(proofOpts);
-      let processMessageTx;
+
+      let processMessageTx: ethers.Transaction;
+
       try {
         processMessageTx = await contract.processMessage(opts.message, proof);
       } catch (error) {
+        console.error(error);
+
         if (error.code === ethers.errors.UNPREDICTABLE_GAS_LIMIT) {
           processMessageTx = await contract.processMessage(
             opts.message,
@@ -146,6 +163,7 @@ export class ETHBridge implements Bridge {
           throw new Error(error);
         }
       }
+
       return processMessageTx;
     } else {
       return await contract.retryMessage(opts.message, true);

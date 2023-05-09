@@ -3,7 +3,7 @@ import type { Token } from '../domain/token';
 import { freeMintErc20ABI } from '../constants/abi';
 import { getLogger } from './logger';
 
-const log = getLogger('utils:minting');
+const log = getLogger('util:minting');
 
 /**
  * This function returns a boolean indicating whether the user has already claimed

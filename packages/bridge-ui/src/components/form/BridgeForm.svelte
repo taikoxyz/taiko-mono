@@ -38,6 +38,9 @@
   import { ProcessingFeeMethod } from '../../domain/fee';
   import Button from '../buttons/Button.svelte';
   import { storageService } from '../../storage/services';
+  import { getLogger } from '../../utils/logger';
+
+  const log = getLogger('component:BridgeForm');
 
   let amount: string;
   let amountInput: HTMLInputElement;
@@ -56,7 +59,7 @@
   // TODO: too much going on here. We need to extract
   //       logic and unit test the hell out of all this.
 
-  async function addrForToken() {
+  async function addressForToken() {
     let addr = $token.addresses.find(
       (t) => t.chainId === $fromChain.id,
     ).address;
@@ -81,44 +84,54 @@
     return addr;
   }
 
-  async function getUserBalance(
-    signer: ethers.Signer,
-    token: Token,
-    fromChain: Chain,
-  ) {
+  async function getUserBalance(signer: ethers.Signer, token: Token) {
     if (signer && token) {
       if (token.symbol == ETHToken.symbol) {
         const userBalance = await signer.getBalance('latest');
         tokenBalance = ethers.utils.formatEther(userBalance);
+
+        log('ETH balance:', tokenBalance);
       } else {
-        const addr = await addrForToken();
-        if (addr == ethers.constants.AddressZero) {
+        const address = await addressForToken();
+
+        if (address == ethers.constants.AddressZero) {
           tokenBalance = '0';
           return;
         }
-        const contract = new Contract(addr, erc20ABI, signer);
+
+        const contract = new Contract(address, erc20ABI, signer);
         const userBalance = await contract.balanceOf(await signer.getAddress());
         tokenBalance = ethers.utils.formatUnits(userBalance, token.decimals);
+
+        log(`${token.symbol} balance`, tokenBalance);
       }
     }
   }
 
   async function checkAllowance(
-    amt: string,
+    amount: string,
     token: Token,
     bridgeType: BridgeType,
     fromChain: Chain,
     signer: Signer,
   ) {
-    if (!fromChain || !amt || !token || !bridgeType || !signer) return false;
+    if (!fromChain || !amount || !token || !bridgeType || !signer) return false;
 
-    const addr = await addrForToken();
+    const address = await addressForToken();
+
+    log(
+      `Checking allowance for token ${token.symbol} in address "${address}" and amount ${amount}`,
+    );
+
     const allowance = await $activeBridge.RequiresAllowance({
-      amountInWei: ethers.utils.parseUnits(amt, token.decimals),
+      amountInWei: ethers.utils.parseUnits(amount, token.decimals),
       signer: signer,
-      contractAddress: addr,
+      contractAddress: address,
       spenderAddress: tokenVaults[fromChain.id],
     });
+
+    log(`Token ${token.symbol} requires allowance:`, allowance);
+
     return allowance;
   }
 
@@ -160,15 +173,25 @@
   async function approve() {
     try {
       loading = true;
+
       if (!requiresAllowance)
         throw Error('does not require additional allowance');
+
+      const contractAddress = await addressForToken();
+      const spenderAddress = tokenVaults[$fromChain.id];
+
+      log(
+        `Approving token ${$token.symbol} in address ${contractAddress} for spender ${spenderAddress}`,
+      );
 
       const tx = await $activeBridge.Approve({
         amountInWei: ethers.utils.parseUnits(amount, $token.decimals),
         signer: $signer,
-        contractAddress: await addrForToken(),
-        spenderAddress: tokenVaults[$fromChain.id],
+        contractAddress,
+        spenderAddress,
       });
+
+      log('Approve transaction:', tx);
 
       successToast($_('toast.transactionSent'));
 
@@ -176,7 +199,7 @@
 
       requiresAllowance = false;
 
-      successToast('Transaction completed!');
+      successToast('toast.transactionCompleted');
     } catch (e) {
       console.error(e);
       // TODO: if we have TransactionReceipt here means the tx failed
@@ -196,7 +219,11 @@
         ...bridgeOpts,
         amountInWei: BigNumber.from(1),
       });
+
       const feeData = await fetchFeeData();
+
+      log('Fetched network information', feeData);
+
       const requiredGas = gasEstimate.mul(feeData.gasPrice);
       const userBalance = await $signer.getBalance('latest');
 
@@ -208,8 +235,16 @@
         );
       }
 
-      return balanceAvailableForTx.gte(requiredGas);
-    } catch (e) {
+      const hasEnoughBalance = balanceAvailableForTx.gte(requiredGas);
+
+      log(
+        `Is required gas ${requiredGas} greater than available balance ${balanceAvailableForTx}?`,
+        hasEnoughBalance,
+      );
+
+      return hasEnoughBalance;
+    } catch (error) {
+      console.error(error);
       return false;
     }
   }
@@ -217,13 +252,19 @@
   async function bridge() {
     try {
       loading = true;
-      if (requiresAllowance) throw Error('requires additional allowance');
+
+      if (requiresAllowance) {
+        throw Error('requires additional allowance');
+      }
+
       if (showTo && !ethers.utils.isAddress(to)) {
         throw Error('Invalid custom recipient address');
       }
 
-      if (!(await isOnCorrectChain($signer, $fromChain.id))) {
-        errorToast('You are connected to the wrong chain in your wallet');
+      const onCorrectChain = await isOnCorrectChain($signer, $fromChain.id);
+
+      if (!onCorrectChain) {
+        errorToast($_('toast.errorWrongNetwork'));
         return;
       }
 
@@ -231,6 +272,7 @@
 
       const provider = providers[$toChain.id];
       const destTokenVaultAddress = tokenVaults[$toChain.id];
+
       let isBridgedTokenAlreadyDeployed =
         await checkIfTokenIsDeployedCrossChain(
           $token,
@@ -246,7 +288,7 @@
       const bridgeOpts: BridgeOpts = {
         amountInWei: amountInWei,
         signer: $signer,
-        tokenAddress: await addrForToken(),
+        tokenAddress: await addressForToken(),
         fromChainId: $fromChain.id,
         toChainId: $toChain.id,
         tokenVaultAddress: tokenVaultAddress,
@@ -263,11 +305,15 @@
 
       if (!doesUserHaveEnoughBalance) {
         // TODO: about custom errors and catch it in the catch block?
-        errorToast('Insufficient ETH balance');
+        errorToast($_('toast.errorInsufficientBalance'));
         return;
       }
 
+      log('Getting ready to bridge. Options:', bridgeOpts);
+
       const tx = await $activeBridge.Bridge(bridgeOpts);
+
+      log('Bridge transaction:', tx);
 
       successToast($_('toast.transactionSent'));
 
@@ -310,7 +356,7 @@
 
       memo = '';
 
-      successToast('Transaction completed!');
+      successToast($_('toast.transactionCompleted'));
     } catch (e) {
       console.error(e);
       // TODO: Same as in approve()
@@ -327,7 +373,7 @@
         const gasEstimate = await $activeBridge.EstimateGas({
           amountInWei: BigNumber.from(1),
           signer: $signer,
-          tokenAddress: await addrForToken(),
+          tokenAddress: await addressForToken(),
           fromChainId: $fromChain.id,
           toChainId: $toChain.id,
           tokenVaultAddress: tokenVaults[$fromChain.id],
@@ -373,7 +419,7 @@
     return BigNumber.from(ethers.utils.parseEther(feeAmount));
   }
 
-  $: getUserBalance($signer, $token, $fromChain);
+  $: getUserBalance($signer, $token);
 
   $: isBtnDisabled(
     $signer,
@@ -388,8 +434,11 @@
     .catch((e) => console.error(e));
 
   $: checkAllowance(amount, $token, $bridgeType, $fromChain, $signer)
-    .then((a) => (requiresAllowance = a))
-    .catch((e) => console.error(e));
+    .then((allowance) => (requiresAllowance = allowance))
+    .catch((error) => {
+      console.error(error);
+      errorToast($_('toast.errorCheckingAllowance'));
+    });
 
   // TODO: we need to simplify this crazy condition
   $: showFaucet =
@@ -450,7 +499,7 @@
   </div>
 
   <FaucetModal
-    onMint={() => getUserBalance($signer, $token, $fromChain)}
+    onMint={() => getUserBalance($signer, $token)}
     bind:isOpen={isFaucetModalOpen} />
 {/if}
 

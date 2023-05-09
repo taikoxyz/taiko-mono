@@ -24,8 +24,11 @@ function setupI18n({ withLocale: _locale } = { withLocale: 'en' }) {
       toast: {
         transactionSent: 'Transaction sent',
         transactionCompleted: 'Transaction completed!',
+        errorWrongNetwork:
+          'You are connected to the wrong chain in your wallet',
         errorSendingTransaction: 'Error sending transaction',
         errorDisconnecting: 'Could not disconnect',
+        errorInsufficientBalance: 'Insufficient ETH balance',
       },
       switchChainModal: {
         title: 'Not on the right network',

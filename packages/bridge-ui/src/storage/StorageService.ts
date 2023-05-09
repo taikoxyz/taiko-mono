@@ -288,7 +288,7 @@ export class StorageService implements Transactioner {
 
       const erc20Event = await StorageService._getTokenVaultERC20Event(
         srcTokenVaultAddress,
-        bridgeABI,
+        tokenVaultABI,
         srcProvider,
         msgHash,
         receipt.blockNumber,

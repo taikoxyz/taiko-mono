@@ -6,7 +6,7 @@ import { mainnetChain, taikoChain } from '../chain/chains';
 import { signer } from '../store/signer';
 import { getLogger } from '../utils/logger';
 
-const log = getLogger('utils:selectChain');
+const log = getLogger('util:selectChain');
 
 export async function selectChain(chain: Chain) {
   const chainId = chain.id;

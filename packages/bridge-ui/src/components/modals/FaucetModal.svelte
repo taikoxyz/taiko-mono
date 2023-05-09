@@ -13,7 +13,7 @@
   import { mintERC20 } from '../../utils/mintERC20';
   import { getIsMintedWithEstimation } from '../../utils/getIsMintedWithEstimation';
 
-  const log = getLogger('FaucetModal');
+  const log = getLogger('component:FaucetModal');
 
   export let isOpen: boolean = false;
   export let onMint: () => Promise<void>;
