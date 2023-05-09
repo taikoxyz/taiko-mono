@@ -14,14 +14,10 @@
      */
     "allowJs": true,
     "checkJs": true,
-    "isolatedModules": false,
-    "paths": {
-      "@taiko/protocol/*": ["../protocol/*"]
-    }
+    "isolatedModules": false
   },
   "include": [
     "vite.config.ts",
-    "wagmi.config.ts",
     "src/**/*.d.ts",
     "src/**/*.ts",
     "src/**/*.js",

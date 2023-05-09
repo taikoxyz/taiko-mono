@@ -1,13 +1,11 @@
 import { defineConfig } from '@wagmi/cli';
 import type { Abi } from 'abitype';
 
-// @ts-ignore
-import IBridge from '@taiko/protocol/abi/contracts/bridge/IBridge.sol/IBridge.json';
-import TokenVault from '@taiko/protocol/abi/contracts/bridge/TokenVault.sol/TokenVault.json';
-import ICrossChainSync from '@taiko/protocol/abi/contracts/common/ICrossChainSync.sol/ICrossChainSync.json';
-import FreeMintERC20 from '@taiko/protocol/abi/contracts/test/erc20/FreeMintERC20.sol/FreeMintERC20.json';
-import ERC20 from '@taiko/protocol/abi/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json';
-import type { t } from 'svelte-i18n';
+import IBridge from '../protocol/abi/contracts/bridge/IBridge.sol/IBridge.json';
+import TokenVault from '../protocol/abi/contracts/bridge/TokenVault.sol/TokenVault.json';
+import ICrossChainSync from '../protocol/abi/contracts/common/ICrossChainSync.sol/ICrossChainSync.json';
+import FreeMintERC20 from '../protocol/abi/contracts/test/erc20/FreeMintERC20.sol/FreeMintERC20.json';
+import ERC20 from '../protocol/abi/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json';
 
 export default defineConfig({
   out: 'src/constants/abi/index.ts',
