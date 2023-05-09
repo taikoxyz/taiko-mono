@@ -67,6 +67,8 @@ contract TestGenerateGenesis is Test, AddressResolver {
     }
 
     function testAddressManager() public {
+        vm.startPrank(owner);
+
         AddressManager addressManager = AddressManager(
             getPredeployedContractAddress("AddressManagerProxy")
         );
@@ -82,6 +84,16 @@ contract TestGenerateGenesis is Test, AddressResolver {
             "SignalServiceProxy",
             "signal_service"
         );
+
+        TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
+            payable(getPredeployedContractAddress("AddressManagerProxy"))
+        );
+
+        AddressManager newAddressManager = new AddressManager();
+
+        proxy.upgradeTo(address(newAddressManager));
+
+        assertEq(proxy.implementation(), address(newAddressManager));
     }
 
     function testTaikoL2() public {
@@ -229,15 +241,15 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.startPrank(owner);
         address contractAddress = getPredeployedContractAddress(contractName);
         address proxyAddress = getPredeployedContractAddress(proxyName);
-        assertEq(
-            TransparentUpgradeableProxy(payable(proxyAddress)).implementation(),
-            address(contractAddress)
+
+        TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
+            payable(proxyAddress)
         );
 
-        assertEq(
-            TransparentUpgradeableProxy(payable(proxyAddress)).admin(),
-            owner
-        );
+        assertEq(proxy.implementation(), address(contractAddress));
+
+        assertEq(proxy.admin(), owner);
+
         vm.stopPrank();
     }
 

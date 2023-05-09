@@ -84,10 +84,12 @@ export async function deployTaikoL2(
             alloc[contractConfig.address].storage[slot.key] = slot.val;
         }
 
-        for (const [slot, val] of Object.entries(
-            contractConfigs[contractName].slots
-        )) {
-            alloc[contractConfig.address].storage[slot] = val;
+        if (contractConfigs[contractName].slots) {
+            for (const [slot, val] of Object.entries(
+                contractConfigs[contractName].slots
+            )) {
+                alloc[contractConfig.address].storage[slot] = val;
+            }
         }
     }
 
