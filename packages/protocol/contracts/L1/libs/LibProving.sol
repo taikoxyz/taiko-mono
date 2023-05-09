@@ -159,7 +159,8 @@ library LibProving {
             // This is the branch provers trying to overwrite
             fc = blk.forkChoices[fcId];
             // Only allow overwrite in case:
-            // - previous prover is oracle prover or system proof (the latter can be verified without being overwritten)
+            // - previous prover is oracle prover or system proof
+            // (the latter can be verified without being overwritten)
             // - and blockHash/signalRoot/gasUsed are matching
             // Revert otherwise.
             if (fc.prover == address(0) || fc.prover == address(1)) {
