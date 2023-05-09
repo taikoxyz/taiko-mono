@@ -32,7 +32,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
             string.concat(vm.projectRoot(), "/deployments/genesis_alloc.json")
         );
     address private owner = configJSON.readAddress(".contractOwner");
-    address private admin = configJSON.readAddress(".contractOwner");
+    address private admin = configJSON.readAddress(".contractAdmin");
 
     uint64 public constant BLOCK_GAS_LIMIT = 30000000;
 
@@ -67,8 +67,6 @@ contract TestGenerateGenesis is Test, AddressResolver {
     }
 
     function testAddressManager() public {
-        vm.startPrank(owner);
-
         AddressManager addressManager = AddressManager(
             getPredeployedContractAddress("AddressManagerProxy")
         );
@@ -90,6 +88,8 @@ contract TestGenerateGenesis is Test, AddressResolver {
         );
 
         AddressManager newAddressManager = new AddressManager();
+
+        vm.startPrank(admin);
 
         proxy.upgradeTo(address(newAddressManager));
 
@@ -132,7 +132,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         }
         vm.stopPrank();
 
-        vm.startPrank(owner);
+        vm.startPrank(admin);
 
         TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
             payable(getPredeployedContractAddress("TaikoL2Proxy"))
@@ -174,7 +174,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
             ""
         );
 
-        vm.startPrank(owner);
+        vm.startPrank(admin);
 
         TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
             payable(getPredeployedContractAddress("BridgeProxy"))
@@ -204,7 +204,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         );
         assertEq(etherVault.isAuthorized(etherVault.owner()), false);
 
-        vm.startPrank(owner);
+        vm.startPrank(admin);
 
         TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
             payable(getPredeployedContractAddress("EtherVaultProxy"))
@@ -236,7 +236,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         addressManager.setAddress(1, "token_vault", tokenVaultAddress);
         vm.stopPrank();
 
-        vm.startPrank(owner);
+        vm.startPrank(admin);
 
         TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
             payable(getPredeployedContractAddress("TokenVaultProxy"))
@@ -259,7 +259,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         signalService.sendSignal(keccak256(abi.encodePacked(block.prevrandao)));
 
-        vm.startPrank(owner);
+        vm.startPrank(admin);
 
         TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
             payable(getPredeployedContractAddress("SignalServiceProxy"))

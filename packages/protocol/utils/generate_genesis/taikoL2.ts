@@ -20,7 +20,7 @@ export async function deployTaikoL2(
     config: Config,
     result: Result
 ): Promise<Result> {
-    const { contractOwner, chainId, seedAccounts } = config;
+    const { contractOwner, chainId, seedAccounts, contractAdmin } = config;
 
     const alloc: any = {};
 
@@ -45,6 +45,7 @@ export async function deployTaikoL2(
 
     const contractConfigs: any = await generateContractConfigs(
         contractOwner,
+        contractAdmin,
         chainId,
         config.contractAddresses,
         config.param1559
@@ -114,6 +115,7 @@ export async function deployTaikoL2(
 // and initialized variables.
 async function generateContractConfigs(
     contractOwner: string,
+    contractAdmin: string,
     chainId: number,
     hardCodedAddresses: any,
     param1559: any
@@ -300,7 +302,7 @@ async function generateContractConfigs(
                 },
             },
             slots: {
-                [ADMIN_SLOT]: contractOwner,
+                [ADMIN_SLOT]: contractAdmin,
                 [IMPLEMENTATION_SLOT]: addressMap.ProxiedAddressManager,
             },
             isProxy: true,
@@ -341,7 +343,7 @@ async function generateContractConfigs(
                 gasExcess: ethers.BigNumber.from(param1559.gasExcess),
             },
             slots: {
-                [ADMIN_SLOT]: contractOwner,
+                [ADMIN_SLOT]: contractAdmin,
                 [IMPLEMENTATION_SLOT]: addressMap.ProxiedTaikoL2,
             },
             isProxy: true,
@@ -371,7 +373,7 @@ async function generateContractConfigs(
                 _state: {},
             },
             slots: {
-                [ADMIN_SLOT]: contractOwner,
+                [ADMIN_SLOT]: contractAdmin,
                 [IMPLEMENTATION_SLOT]: addressMap.ProxiedBridge,
             },
             isProxy: true,
@@ -397,7 +399,7 @@ async function generateContractConfigs(
                 _addressManager: addressMap.AddressManagerProxy,
             },
             slots: {
-                [ADMIN_SLOT]: contractOwner,
+                [ADMIN_SLOT]: contractAdmin,
                 [IMPLEMENTATION_SLOT]: addressMap.ProxiedTokenVault,
             },
             isProxy: true,
@@ -426,7 +428,7 @@ async function generateContractConfigs(
                 _authorizedAddrs: { [`${addressMap.BridgeProxy}`]: true },
             },
             slots: {
-                [ADMIN_SLOT]: contractOwner,
+                [ADMIN_SLOT]: contractAdmin,
                 [IMPLEMENTATION_SLOT]: addressMap.ProxiedEtherVault,
             },
             isProxy: true,

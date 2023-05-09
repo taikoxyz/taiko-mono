@@ -1,5 +1,6 @@
 {
   "contractOwner": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "admin": "0xc0ffee254729296a45a3885639AC7E10F9d54979",
   "chainId": 167,
   "seedAccounts": [
     {
