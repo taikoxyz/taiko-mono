@@ -113,8 +113,6 @@ export class ERC20Bridge implements Bridge {
 
     const { contract, message } = await ERC20Bridge.prepareTransaction(opts);
 
-    log('Bridging with message', message);
-
     const tx = await contract.sendERC20(
       message.destChainId,
       message.to,

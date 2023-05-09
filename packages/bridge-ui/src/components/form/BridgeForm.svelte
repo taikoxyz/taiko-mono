@@ -238,7 +238,7 @@
       const hasEnoughBalance = balanceAvailableForTx.gte(requiredGas);
 
       log(
-        `Is required gas ${requiredGas} greater than available balance ${balanceAvailableForTx}?`,
+        `Is required gas ${requiredGas} less than available balance ${balanceAvailableForTx}?`,
         hasEnoughBalance,
       );
 
@@ -313,8 +313,6 @@
 
       const tx = await $activeBridge.Bridge(bridgeOpts);
 
-      log('Bridge transaction:', tx);
-
       successToast($_('toast.transactionSent'));
 
       await pendingTransactions.add(tx, $signer);
@@ -322,7 +320,9 @@
       // tx.chainId is not set immediately but we need it later. set it
       // manually.
       tx.chainId = $fromChain.id;
+
       const userAddress = await $signer.getAddress();
+
       let transactions: BridgeTransaction[] =
         await storageService.getAllByAddress(userAddress);
 

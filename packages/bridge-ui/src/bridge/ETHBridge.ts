@@ -73,8 +73,6 @@ export class ETHBridge implements Bridge {
   async Bridge(opts: BridgeOpts): Promise<Transaction> {
     const { contract, message } = await ETHBridge.prepareTransaction(opts);
 
-    log('Bridging with message', message);
-
     const tx = await contract.sendMessage(message, {
       value: message.depositValue
         .add(message.processingFee)

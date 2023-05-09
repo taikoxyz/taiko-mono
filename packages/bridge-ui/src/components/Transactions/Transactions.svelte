@@ -28,7 +28,10 @@
   );
 
   async function loadMoreTransactionsFromAPI() {
-    if ($paginationInfo.page + 1 >= $paginationInfo.max_page) {
+    if (
+      !$paginationInfo ||
+      $paginationInfo.page + 1 >= $paginationInfo.max_page
+    ) {
       return;
     }
 
