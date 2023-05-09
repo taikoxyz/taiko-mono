@@ -3,7 +3,7 @@ import type { Abi } from 'abitype';
 
 // CI will fail if we import from the protocol package
 // We'll ignore this file on svelte-check: `svelte-check --ignore ./wagmi.config.ts`
-import IBridge from '../protocol/abi/contracts/bridge/IBridge.sol/IBridge.json';
+import Bridge from '../protocol/abi/contracts/bridge/Bridge.sol/Bridge.json';
 import TokenVault from '../protocol/abi/contracts/bridge/TokenVault.sol/TokenVault.json';
 import ICrossChainSync from '../protocol/abi/contracts/common/ICrossChainSync.sol/ICrossChainSync.json';
 import FreeMintERC20 from '../protocol/abi/contracts/test/erc20/FreeMintERC20.sol/FreeMintERC20.json';
@@ -14,7 +14,7 @@ export default defineConfig({
   contracts: [
     {
       name: 'bridge',
-      abi: IBridge as Abi,
+      abi: Bridge as Abi,
     },
     {
       name: 'tokenVault',
