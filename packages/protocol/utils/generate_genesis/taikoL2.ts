@@ -72,7 +72,15 @@ export async function deployTaikoL2(
         // since we enable storageLayout compiler output in hardhat.config.ts,
         // rollup/artifacts/build-info will contain storage layouts, here
         // reading it using smock package.
-        storageLayouts[contractName] = await getStorageLayout(contractName);
+        let storageLayoutName = contractName;
+        if (contractConfig.isProxy) {
+            storageLayoutName = contractName.replace("Proxy", "");
+            storageLayoutName = `Proxied${storageLayoutName}`;
+        }
+
+        storageLayouts[contractName] = await getStorageLayout(
+            storageLayoutName
+        );
         // initialize contract variables, we only care about the variables
         // that need to be initialized with non-zero value.
         const slots = computeStorageSlots(
@@ -297,6 +305,7 @@ async function generateContractConfigs(
                 [ADMIN_SLOT]: contractOwner,
                 [IMPLEMENTATION_SLOT]: addressMap.ProxiedAddressManager,
             },
+            isProxy: true,
         },
         ProxiedTaikoL2: {
             address: addressMap.ProxiedTaikoL2,
@@ -337,6 +346,7 @@ async function generateContractConfigs(
                 [ADMIN_SLOT]: contractOwner,
                 [IMPLEMENTATION_SLOT]: addressMap.ProxiedTaikoL2,
             },
+            isProxy: true,
         },
         ProxiedBridge: {
             address: addressMap.ProxiedBridge,
@@ -366,6 +376,7 @@ async function generateContractConfigs(
                 [ADMIN_SLOT]: contractOwner,
                 [IMPLEMENTATION_SLOT]: addressMap.ProxiedBridge,
             },
+            isProxy: true,
         },
         ProxiedTokenVault: {
             address: addressMap.ProxiedTokenVault,
@@ -391,6 +402,7 @@ async function generateContractConfigs(
                 [ADMIN_SLOT]: contractOwner,
                 [IMPLEMENTATION_SLOT]: addressMap.ProxiedTokenVault,
             },
+            isProxy: true,
         },
         ProxiedEtherVault: {
             address: addressMap.ProxiedEtherVault,
@@ -419,6 +431,7 @@ async function generateContractConfigs(
                 [ADMIN_SLOT]: contractOwner,
                 [IMPLEMENTATION_SLOT]: addressMap.ProxiedEtherVault,
             },
+            isProxy: true,
         },
         ProxiedSignalService: {
             address: addressMap.ProxiedSignalService,
@@ -446,6 +459,7 @@ async function generateContractConfigs(
                 [ADMIN_SLOT]: contractOwner,
                 [IMPLEMENTATION_SLOT]: addressMap.ProxiedSignalService,
             },
+            isProxy: true,
         },
     };
 }
