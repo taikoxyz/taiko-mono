@@ -1,6 +1,6 @@
 import { type Signer, Contract, BigNumber } from 'ethers';
 import type { Token } from '../domain/token';
-import { FREE_MINT_ERC20_ABI } from '../constants/abi';
+import { freeMintErc20ABI } from '../constants/abi';
 import { getLogger } from './logger';
 
 const log = getLogger('utils:minting');
@@ -17,7 +17,7 @@ export async function getIsMintedWithEstimation(
 
   const l1TokenContract = new Contract(
     token.addresses[0].address, // L1 address
-    FREE_MINT_ERC20_ABI,
+    freeMintErc20ABI,
     signer,
   );
 

@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
 import { ETHToken } from '../token/tokens';
-import { TOKEN_VAULT_ABI } from '../constants/abi';
+import { tokenVaultABI } from '../constants/abi';
 import type { Chain } from '../domain/chain';
 import type { Token } from '../domain/token';
 
@@ -14,7 +14,7 @@ export const checkIfTokenIsDeployedCrossChain = async (
   if (token.symbol !== ETHToken.symbol) {
     const destTokenVaultContract = new ethers.Contract(
       destTokenVaultAddress,
-      TOKEN_VAULT_ABI,
+      tokenVaultABI,
       provider,
     );
     const tokenAddressOnDestChain = token.addresses.find(

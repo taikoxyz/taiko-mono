@@ -1,5 +1,5 @@
 import { switchNetwork } from '@wagmi/core';
-import { Signer, ethers } from 'ethers';
+import { ethers } from 'ethers';
 import { fromChain, toChain } from '../store/chain';
 import { signer } from '../store/signer';
 import { mainnetChain, taikoChain } from '../chain/chains';
