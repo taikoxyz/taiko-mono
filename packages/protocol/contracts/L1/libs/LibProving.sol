@@ -77,10 +77,7 @@ library LibProving {
             ) revert("NO");
         }
 
-        if (
-            (evidence.prover == address(0) || evidence.prover == address(1)) &&
-            msg.sender != specialProver
-        ) {
+        if (specialProver != address(0) && msg.sender != specialProver) {
             if (evidence.proof.length != 64) {
                 revert L1_NOT_ORACLE_PROVER();
             } else {
