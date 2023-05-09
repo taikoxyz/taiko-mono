@@ -93,7 +93,7 @@ library TaikoData {
         bytes32 blockHash;
         bytes32 signalRoot;
         uint64 provenAt;
-        address prover; // 0x0 to mark as 'oracle proof'
+        address prover;
         uint32 gasUsed;
     }
 

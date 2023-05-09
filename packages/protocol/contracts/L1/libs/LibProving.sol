@@ -6,8 +6,6 @@
 
 pragma solidity ^0.8.18;
 
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
@@ -110,7 +108,13 @@ library LibProving {
             }
         }
 
-        if (systemProver != msg.sender && systemProver == evidence.prover) {
+        // If system prover not disabled, but somehow msg.sender wants to send the proof
+        // under systemProver's umbrella, we should not allow it
+        if (
+            systemProver != address(0) &&
+            systemProver != msg.sender &&
+            systemProver == evidence.prover
+        ) {
             revert L1_NOT_SYSTEM_PROVER();
         }
 
@@ -151,19 +155,22 @@ library LibProving {
                 fc.signalRoot == evidence.signalRoot &&
                 fc.gasUsed == evidence.gasUsed
             ) revert L1_SAME_PROOF();
-        } else if (
-            evidence.prover != oracleProver && evidence.prover != systemProver
-        ) {
-            // This is the branch provers trying to overwrite oracle proofs or system proofs
-            fc = blk.forkChoices[fcId];
-
-            if (
-                fc.blockHash != evidence.blockHash ||
-                fc.signalRoot != evidence.signalRoot ||
-                fc.gasUsed != evidence.gasUsed
-            ) revert L1_INVALID_OVERWRITE();
         } else {
-            revert L1_ALREADY_PROVEN();
+            // This is the branch provers trying to overwrite
+            fc = blk.forkChoices[fcId];
+            // Only allow override in case:
+            // - previous prover is oracle prover (do not allow other users or system proof overwrite)
+            // - and blockHash/signalRoot/gasUsed are matching
+            // Revert otherwise.
+            if (fc.prover == oracleProver) {
+                if (
+                    fc.blockHash != evidence.blockHash ||
+                    fc.signalRoot != evidence.signalRoot ||
+                    fc.gasUsed != evidence.gasUsed
+                ) revert L1_INVALID_OVERWRITE();
+            } else {
+                revert L1_ALREADY_PROVEN();
+            }
         }
 
         fc.blockHash = evidence.blockHash;
