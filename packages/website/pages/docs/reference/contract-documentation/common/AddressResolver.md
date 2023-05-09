@@ -25,6 +25,12 @@ error RESOLVER_DENIED()
 error RESOLVER_INVALID_ADDR()
 ```
 
+### RESOLVER_ZERO_ADDR
+
+```solidity
+error RESOLVER_ZERO_ADDR(uint256 chainId, bytes32 name)
+```
+
 ### onlyFromNamed
 
 ```solidity
