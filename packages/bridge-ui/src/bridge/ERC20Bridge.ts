@@ -7,7 +7,7 @@ import type {
   ClaimOpts,
   ReleaseOpts,
 } from '../domain/bridge';
-import { TOKEN_VAULT_ABI, ERC20_ABI, BRIDGE_ABI } from '../constants/abi';
+import { tokenVaultABI, erc20ABI, bridgeABI } from '../constants/abi';
 import type { Prover } from '../domain/proof';
 import { MessageStatus } from '../domain/message';
 import { chains } from '../chain/chains';
@@ -22,7 +22,7 @@ export class ERC20Bridge implements Bridge {
   static async prepareTransaction(opts: BridgeOpts) {
     const contract: Contract = new Contract(
       opts.tokenVaultAddress,
-      TOKEN_VAULT_ABI,
+      tokenVaultABI,
       opts.signer,
     );
 
@@ -56,7 +56,7 @@ export class ERC20Bridge implements Bridge {
     amount: BigNumber,
     bridgeAddress: string,
   ): Promise<boolean> {
-    const contract: Contract = new Contract(tokenAddress, ERC20_ABI, signer);
+    const contract: Contract = new Contract(tokenAddress, erc20ABI, signer);
     const owner = await signer.getAddress();
     const allowance: BigNumber = await contract.allowance(owner, bridgeAddress);
 
@@ -86,7 +86,7 @@ export class ERC20Bridge implements Bridge {
 
     const contract: Contract = new Contract(
       opts.contractAddress,
-      ERC20_ABI,
+      erc20ABI,
       opts.signer,
     );
 
@@ -148,7 +148,7 @@ export class ERC20Bridge implements Bridge {
   async Claim(opts: ClaimOpts): Promise<Transaction> {
     const contract: Contract = new Contract(
       opts.destBridgeAddress,
-      BRIDGE_ABI,
+      bridgeABI,
       opts.signer,
     );
 
@@ -214,7 +214,7 @@ export class ERC20Bridge implements Bridge {
   async ReleaseTokens(opts: ReleaseOpts): Promise<Transaction> {
     const destBridgeContract: Contract = new Contract(
       opts.destBridgeAddress,
-      BRIDGE_ABI,
+      bridgeABI,
       opts.destProvider,
     );
 
@@ -248,7 +248,7 @@ export class ERC20Bridge implements Bridge {
 
       const srcTokenVaultContract: Contract = new Contract(
         opts.srcTokenVaultAddress,
-        TOKEN_VAULT_ABI,
+        tokenVaultABI,
         opts.signer,
       );
 

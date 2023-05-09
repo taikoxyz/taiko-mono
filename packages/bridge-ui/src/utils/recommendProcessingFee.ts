@@ -1,5 +1,5 @@
 import { BigNumber, Contract, ethers, Signer } from 'ethers';
-import { TOKEN_VAULT_ABI } from '../constants/abi';
+import { tokenVaultABI } from '../constants/abi';
 import type { Chain } from '../domain/chain';
 import type { ProcessingFeeMethod } from '../domain/fee';
 import type { Token } from '../domain/token';
@@ -37,7 +37,7 @@ export async function recommendProcessingFee(
 
     const tokenVault = new Contract(
       tokenVaults[fromChain.id],
-      TOKEN_VAULT_ABI,
+      tokenVaultABI,
       signer,
     );
 

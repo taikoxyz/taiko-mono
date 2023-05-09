@@ -19,6 +19,7 @@ module.exports = {
     // 'simple-import-sort/exports': 'error',
     semi: ['error', 'always'],
     'no-console': ['error', { allow: ['warn', 'error'] }],
+    'no-irregular-whitespace': 'off',
   },
   ignorePatterns: ['node_modules'], // todo: lets lint that separately, or move it to its own package
   settings: {

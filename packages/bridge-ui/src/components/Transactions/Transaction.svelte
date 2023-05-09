@@ -14,9 +14,9 @@
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
   import { errorToast, successToast } from '../Toast.svelte';
   import {
-    CROSS_CHAIN_SYNC_ABI,
-    BRIDGE_ABI,
-    TOKEN_VAULT_ABI,
+    crossChainSyncABI,
+    bridgeABI,
+    tokenVaultABI,
   } from '../../constants/abi';
   import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
   import { chains } from '../../chain/chains';
@@ -178,7 +178,7 @@
 
     const contract = new Contract(
       chains[transaction.toChainId].crossChainSyncAddress,
-      CROSS_CHAIN_SYNC_ABI,
+      crossChainSyncABI,
       providers[chains[transaction.toChainId].id],
     );
 
@@ -196,7 +196,7 @@
       processable = await isProcessable();
       const contract = new ethers.Contract(
         chains[transaction.toChainId].bridgeAddress,
-        BRIDGE_ABI,
+        bridgeABI,
         providers[chains[transaction.toChainId].id],
       );
 
@@ -211,7 +211,7 @@
         if (transaction.message?.data !== '0x') {
           const srcTokenVaultContract = new ethers.Contract(
             tokenVaults[transaction.fromChainId],
-            TOKEN_VAULT_ABI,
+            tokenVaultABI,
             providers[chains[transaction.fromChainId].id],
           );
           const { token, amount } = await srcTokenVaultContract.messageDeposits(
@@ -223,7 +223,7 @@
         } else {
           const srcBridgeContract = new ethers.Contract(
             chains[transaction.fromChainId].bridgeAddress,
-            BRIDGE_ABI,
+            bridgeABI,
             providers[chains[transaction.fromChainId].id],
           );
           const isFailedMessageResolved =
