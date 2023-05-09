@@ -58,6 +58,12 @@ error L1_INVALID_EVIDENCE()
 error L1_INVALID_METADATA()
 ```
 
+### L1_INVALID_OVERWRITE
+
+```solidity
+error L1_INVALID_OVERWRITE()
+```
+
 ### L1_INVALID_PARAM
 
 ```solidity
@@ -74,6 +80,12 @@ error L1_INVALID_PROOF()
 
 ```solidity
 error L1_NOT_ORACLE_PROVER()
+```
+
+### L1_NOT_SYSTEM_PROVER
+
+```solidity
+error L1_NOT_SYSTEM_PROVER()
 ```
 
 ### L1_ORACLE_DISABLED

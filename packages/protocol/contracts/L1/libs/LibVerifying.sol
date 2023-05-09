@@ -54,6 +54,7 @@ library LibVerifying {
             config.ethDepositMaxFee == 0 ||
             config.ethDepositMaxFee >= type(uint96).max ||
             config.proofTimeTarget == 0 ||
+            config.proofTimeTarget < config.systemProofCooldownPeriod ||
             config.adjustmentQuotient == 0
         ) revert L1_INVALID_CONFIG();
 
@@ -97,9 +98,6 @@ library LibVerifying {
             ++i;
         }
 
-        address oracleProver = resolver.resolve("oracle_prover", true);
-        address systemProver = resolver.resolve("system_prover", true);
-
         while (i < state.numBlocks && processed < maxBlocks) {
             blk = state.blocks[i % config.ringBufferSize];
             assert(blk.blockId == i);
@@ -110,11 +108,10 @@ library LibVerifying {
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
 
-            if (fc.prover == oracleProver) break;
+            if (fc.prover == address(0)) break;
 
-            uint256 proofCooldownPeriod = oracleProver == address(0) ||
-                fc.prover == systemProver
-                ? 0
+            uint256 proofCooldownPeriod = fc.prover == address(1)
+                ? config.systemProofCooldownPeriod
                 : config.proofCooldownPeriod;
 
             if (block.timestamp < fc.provenAt + proofCooldownPeriod) break;

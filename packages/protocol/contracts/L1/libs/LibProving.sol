@@ -31,6 +31,7 @@ library LibProving {
     error L1_INVALID_PROOF();
     error L1_INVALID_EVIDENCE();
     error L1_ORACLE_DISABLED();
+    error L1_SYSTEM_PROVER_DISABLED();
     error L1_NOT_ORACLE_PROVER();
     error L1_NOT_SYSTEM_PROVER();
     error L1_SAME_PROOF();
@@ -63,60 +64,62 @@ library LibProving {
             revert L1_EVIDENCE_MISMATCH(blk.metaHash, evidence.metaHash);
 
         // Separate between oracle proof (which needs to be overwritten) and non-oracle but system proofs
-        address oracleProver = resolver.resolve("oracle_prover", true);
-        if (evidence.prover == oracleProver) {
-            if (oracleProver == address(0)) revert L1_ORACLE_DISABLED();
 
-            if (msg.sender != oracleProver) {
-                if (evidence.proof.length != 64) {
-                    revert L1_NOT_ORACLE_PROVER();
-                } else {
-                    uint8 v = uint8(evidence.verifierId);
-                    bytes32 r;
-                    bytes32 s;
-                    bytes memory data = evidence.proof;
-                    assembly {
-                        r := mload(add(data, 32))
-                        s := mload(add(data, 64))
-                    }
+        address specialProver;
+        if (evidence.prover == address(0)) {
+            specialProver = resolver.resolve("oracle_prover", false);
+        } else if (evidence.prover == address(1)) {
+            specialProver = resolver.resolve("system_prover", false);
 
-                    // clear the proof before hashing evidence
-                    evidence.verifierId = 0;
-                    evidence.proof = new bytes(0);
+            if (
+                config.realProofSkipSize <= 1 ||
+                blockId % config.realProofSkipSize == 0
+            ) revert("NO");
+        }
 
-                    if (
-                        oracleProver !=
-                        ecrecover(keccak256(abi.encode(evidence)), v, r, s)
-                    ) revert L1_NOT_ORACLE_PROVER();
+        if (
+            (evidence.prover == address(0) || evidence.prover == address(1)) &&
+            msg.sender != specialProver
+        ) {
+            if (evidence.proof.length != 64) {
+                revert L1_NOT_ORACLE_PROVER();
+            } else {
+                uint8 v = uint8(evidence.verifierId);
+                bytes32 r;
+                bytes32 s;
+                bytes memory data = evidence.proof;
+                assembly {
+                    r := mload(add(data, 32))
+                    s := mload(add(data, 64))
                 }
+
+                // clear the proof before hashing evidence
+                evidence.verifierId = 0;
+                evidence.proof = new bytes(0);
+
+                if (
+                    specialProver !=
+                    ecrecover(keccak256(abi.encode(evidence)), v, r, s)
+                ) revert L1_NOT_ORACLE_PROVER();
             }
         }
 
         // System prover provides legit (mock) proofs, so that one do not needed to be overwritten
         // Diff between system and oracle is: oracle has to be overwritten, system does not.
-        address systemProver = resolver.resolve("system_prover", true);
-        // msg.sender and evidence.prover shall be equal otherwise provers could cheat it
-        if (systemProver == msg.sender && systemProver == evidence.prover) {
-            if (
-                config.realProofSkipSize > 1 &&
-                blockId % config.realProofSkipSize != 0
-            ) {
-                // For this block, real ZKP is not necessary, so the system
-                // proof will be treated as a real proof (by setting the prover
-                // to a non-zero value)
-                evidence.prover = systemProver;
-            }
-        }
+        // if (evidence.prover == address(1)) {
+        //     if (
+        //         config.realProofSkipSize > 1 &&
+        //         blockId % config.realProofSkipSize != 0
+        //     ) {
+        //         // For this block, real ZKP is not necessary, so the system
+        //         // proof will be treated as a real proof (by setting the prover
+        //         // to a non-zero value)
+        //         evidence.prover = systemProver;
+        //     }
+        // }
 
         // If system prover not disabled, but somehow msg.sender wants to send the proof
         // under systemProver's umbrella, we should not allow it
-        if (
-            systemProver != address(0) &&
-            systemProver != msg.sender &&
-            systemProver == evidence.prover
-        ) {
-            revert L1_NOT_SYSTEM_PROVER();
-        }
 
         TaikoData.ForkChoice storage fc;
 
@@ -147,7 +150,7 @@ library LibProving {
                     evidence.parentGasUsed
                 ] = fcId;
             }
-        } else if (evidence.prover == oracleProver) {
+        } else if (evidence.prover == address(0)) {
             // This is the branch the oracle prover is trying to overwrite
             fc = blk.forkChoices[fcId];
             if (
@@ -162,7 +165,7 @@ library LibProving {
             // - previous prover is oracle prover or system proof (the latter can be verified without being overwritten)
             // - and blockHash/signalRoot/gasUsed are matching
             // Revert otherwise.
-            if (fc.prover == oracleProver || fc.prover == systemProver) {
+            if (fc.prover == address(0) || fc.prover == address(1)) {
                 if (
                     fc.blockHash != evidence.blockHash ||
                     fc.signalRoot != evidence.signalRoot ||
@@ -180,7 +183,7 @@ library LibProving {
         fc.prover = evidence.prover;
 
         // evidence.prover cannot be address(0) at this point - either oracle, system, or a regular prover
-        if (evidence.prover != systemProver) {
+        if (evidence.prover != address(1)) {
             uint256[9] memory inputs;
 
             inputs[0] = uint256(
