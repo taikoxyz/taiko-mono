@@ -598,7 +598,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     }
 
     /// @dev Test if system prover cannot be overwritten
-    function test_if_systemProver_can_prove_but_regular_provers_cannot_overwrite_that()
+    function test_if_systemProver_can_prove_but_regular_provers_can_overwrite()
         external
     {
         registerAddress("system_prover", Bob);
@@ -642,7 +642,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 .lastVerifiedBlockId;
 
             // Carol could not overwrite it
-            vm.expectRevert(TaikoErrors.L1_ALREADY_PROVEN.selector);
             proveBlock(
                 Carol,
                 Carol,
@@ -655,6 +654,16 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             );
 
             vm.warp(block.timestamp + 1 seconds);
+            vm.warp(block.timestamp + 5 minutes);
+
+            TaikoData.ForkChoice memory fc = L1.getForkChoice(
+                blockId,
+                parentHash,
+                parentGasUsed
+            );
+
+            assertEq(fc.prover, Carol);
+
             verifyBlock(Carol, 1);
 
             // Check if shortly after proving (+verify) the last verify is not the same anymore
