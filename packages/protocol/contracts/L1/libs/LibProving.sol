@@ -27,11 +27,11 @@ library LibProving {
     error L1_BLOCK_ID();
     error L1_EVIDENCE_MISMATCH(bytes32 expected, bytes32 actual);
     error L1_FORK_CHOICE_NOT_FOUND();
+    error L1_FORK_CHOICE_DIFF_ORACLE();
     error L1_INVALID_PROOF();
     error L1_INVALID_EVIDENCE();
     error L1_ORACLE_DISABLED();
     error L1_NOT_ORACLE_PROVER();
-    error L1_SAME_PROOF();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -60,8 +60,20 @@ library LibProving {
         if (blk.metaHash != evidence.metaHash)
             revert L1_EVIDENCE_MISMATCH(blk.metaHash, evidence.metaHash);
 
-        if (evidence.prover == address(0)) {
-            address oracleProver = resolver.resolve("oracle_prover", true);
+        address oracleProver = resolver.resolve("oracle_prover", true);
+        if (evidence.prover == oracleProver) {
+            if (
+                config.realProofSkipSize <= 1 ||
+                blockId % config.realProofSkipSize == 0
+            ) {
+                // For this block, real ZKP is not necessary, so the oracle
+                // proof will be treated as a real proof (by setting the prover
+                // to a non-zero value)
+                revert("NO");
+            }
+        }
+
+        if (evidence.prover == address(0) || evidence.prover == oracleProver) {
             if (oracleProver == address(0)) revert L1_ORACLE_DISABLED();
 
             if (msg.sender != oracleProver) {
@@ -86,16 +98,6 @@ library LibProving {
                         ecrecover(keccak256(abi.encode(evidence)), v, r, s)
                     ) revert L1_NOT_ORACLE_PROVER();
                 }
-            }
-
-            if (
-                config.realProofSkipSize > 1 &&
-                blockId % config.realProofSkipSize != 0
-            ) {
-                // For this block, real ZKP is not necessary, so the oracle
-                // proof will be treated as a real proof (by setting the prover
-                // to a non-zero value)
-                evidence.prover = oracleProver;
             }
         }
 
@@ -128,16 +130,21 @@ library LibProving {
                     evidence.parentGasUsed
                 ] = fcId;
             }
-        } else if (evidence.prover == address(0)) {
-            fc = blk.forkChoices[fcId];
-
-            if (
-                fc.blockHash == evidence.blockHash &&
-                fc.signalRoot == evidence.signalRoot &&
-                fc.gasUsed == evidence.gasUsed
-            ) revert L1_SAME_PROOF();
         } else {
-            revert L1_ALREADY_PROVEN();
+            fc = blk.forkChoices[fcId];
+            if (
+                evidence.prover == address(0) || evidence.prover == oracleProver
+            ) {
+                // oracle proof can always override
+            } else {
+                // regular proof overriding
+                if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
+                if (
+                    fc.blockHash != evidence.blockHash ||
+                    fc.signalRoot != evidence.signalRoot ||
+                    fc.gasUsed != evidence.gasUsed
+                ) revert L1_FORK_CHOICE_DIFF_ORACLE();
+            }
         }
 
         fc.blockHash = evidence.blockHash;

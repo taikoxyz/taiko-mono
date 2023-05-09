@@ -231,7 +231,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         }
     }
 
-    function testOracleProverCannotOverwriteIfSameProof() external {
+    function testOracleProverCanOverwriteIfSameProof() external {
         registerAddress("oracle_prover", Carol);
 
         depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
@@ -280,7 +280,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             // Carol - who is oracle prover - cannot override with same proof
             vm.warp(block.timestamp + 10 seconds);
-            vm.expectRevert(TaikoErrors.L1_SAME_PROOF.selector);
             proveBlock(
                 Carol,
                 meta,
@@ -416,7 +415,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     }
 
     /// @dev Test we can verify without cooling time if provers is oracle
-    function test_if_fk_prover_is_oracle_prover_cooldown_is_zero() external {
+    function test_if_prover_is_oracle_prover_cooldown_is_zero() external {
         registerAddress("oracle_prover", Bob);
 
         depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
@@ -465,6 +464,86 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             uint256 lastVerifiedBlockIdNow = L1
                 .getStateVariables()
                 .lastVerifiedBlockId;
+
+            assertFalse(lastVerifiedBlockIdNow == lastVerifiedBlockId);
+
+            parentHash = blockHash;
+            parentGasUsed = gasUsed;
+        }
+        printVariables("");
+    }
+
+    /// @dev Test we can prove a block with real zkp after an oracle proof
+    function test_oracle_prover_first_then_regular_prover() external {
+        registerAddress("oracle_prover", Bob);
+
+        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+
+        bytes32 parentHash = GENESIS_BLOCK_HASH;
+        uint32 parentGasUsed = 0;
+        uint32 gasUsed = 1000000;
+
+        for (
+            uint256 blockId = 1;
+            blockId < conf.maxNumProposedBlocks * 10;
+            blockId++
+        ) {
+            TaikoData.BlockMetadata memory meta = proposeBlock(
+                Alice,
+                1000000,
+                1024
+            );
+            printVariables("after propose");
+            mine(1);
+
+            bytes32 blockHash = bytes32(1E10 + blockId);
+            bytes32 signalRoot = bytes32(1E9 + blockId);
+
+            // oracle proof
+            proveBlock(
+                Bob,
+                meta,
+                parentHash,
+                parentGasUsed,
+                gasUsed,
+                blockHash,
+                signalRoot,
+                true
+            );
+
+            uint256 lastVerifiedBlockId = L1
+                .getStateVariables()
+                .lastVerifiedBlockId;
+
+            vm.warp(block.timestamp + 5 minutes);
+            verifyBlock(Carol, 1);
+
+            // Check if shortly after proving (+verify) the last verify is not the same anymore
+            // no need to have a cooldown period
+            uint256 lastVerifiedBlockIdNow = L1
+                .getStateVariables()
+                .lastVerifiedBlockId;
+
+            assertEq(lastVerifiedBlockIdNow, lastVerifiedBlockId);
+
+            // regular proof
+            proveBlock(
+                Carol,
+                meta,
+                parentHash,
+                parentGasUsed,
+                gasUsed,
+                blockHash,
+                signalRoot,
+                false
+            );
+
+            vm.warp(block.timestamp + 5 minutes);
+            verifyBlock(Carol, 1);
+
+            lastVerifiedBlockIdNow = L1.getStateVariables().lastVerifiedBlockId;
 
             assertFalse(lastVerifiedBlockIdNow == lastVerifiedBlockId);
 

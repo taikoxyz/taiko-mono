@@ -12,6 +12,7 @@ abstract contract TaikoErrors {
     error L1_BLOCK_ID();
     error L1_EVIDENCE_MISMATCH(bytes32 expected, bytes32 actual);
     error L1_FORK_CHOICE_NOT_FOUND();
+    error L1_FORK_CHOICE_DIFF_ORACLE();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_CONFIG();
     error L1_INVALID_ETH_DEPOSIT();
@@ -21,7 +22,6 @@ abstract contract TaikoErrors {
     error L1_INVALID_PROOF();
     error L1_NOT_ORACLE_PROVER();
     error L1_ORACLE_DISABLED();
-    error L1_SAME_PROOF();
     error L1_TOO_MANY_BLOCKS();
     error L1_TX_LIST_NOT_EXIST();
     error L1_TX_LIST_HASH();
