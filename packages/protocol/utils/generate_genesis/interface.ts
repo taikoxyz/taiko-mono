@@ -1,5 +1,6 @@
 export interface Config {
     contractOwner: string;
+    contractAdmin: string;
     chainId: number;
     seedAccounts: Array<{
         [key: string]: number;
