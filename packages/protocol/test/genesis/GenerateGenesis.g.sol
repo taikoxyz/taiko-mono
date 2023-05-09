@@ -32,6 +32,8 @@ contract TestGenerateGenesis is Test, AddressResolver {
             string.concat(vm.projectRoot(), "/deployments/genesis_alloc.json")
         );
     address private owner = configJSON.readAddress(".contractOwner");
+    address private admin = configJSON.readAddress(".contractOwner");
+
     uint64 public constant BLOCK_GAS_LIMIT = 30000000;
 
     function testContractDeployment() public {
@@ -46,12 +48,22 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkDeployedCode("ProxiedSignalService");
 
         // check proxies
-        checkDeployedCode("TaikoL1Proxy");
+        checkDeployedCode("TaikoL2Proxy");
         checkDeployedCode("TokenVaultProxy");
         checkDeployedCode("EtherVaultProxy");
         checkDeployedCode("BridgeProxy");
         checkDeployedCode("AddressManagerProxy");
         checkDeployedCode("SignalServiceProxy");
+
+        checkProxyImplementation("TaikoL2Proxy", "ProxiedTaikoL2");
+        checkProxyImplementation("TokenVaultProxy", "ProxiedTokenVault");
+        checkProxyImplementation("EtherVaultProxy", "ProxiedEtherVault");
+        checkProxyImplementation("BridgeProxy", "ProxiedBridge");
+        checkProxyImplementation(
+            "AddressManagerProxy",
+            "ProxiedAddressManager"
+        );
+        checkProxyImplementation("SignalServiceProxy", "ProxiedSignalService");
     }
 
     function testAddressManager() public {
@@ -208,6 +220,23 @@ contract TestGenerateGenesis is Test, AddressResolver {
         );
 
         assertEq(address(contractAddress).code, vm.parseBytes(deployedCode));
+    }
+
+    function checkProxyImplementation(
+        string memory proxyName,
+        string memory contractName
+    ) private {
+        address contractAddress = getPredeployedContractAddress(contractName);
+        address proxyAddress = getPredeployedContractAddress(proxyName);
+        assertEq(
+            TransparentUpgradeableProxy(payable(proxyAddress)).implementation(),
+            address(contractAddress)
+        );
+
+        assertEq(
+            TransparentUpgradeableProxy(payable(proxyAddress)).admin(),
+            owner
+        );
     }
 
     function checkSavedAddress(
