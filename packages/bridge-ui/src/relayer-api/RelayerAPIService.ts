@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { BigNumber, Contract, ethers } from 'ethers';
-import { BRIDGE_ABI, ERC20_ABI, TOKEN_VAULT_ABI } from '../constants/abi';
+import { bridgeABI, erc20ABI, tokenVaultABI } from '../constants/abi';
 import { MessageStatus } from '../domain/message';
 
 import type { BridgeTransaction } from '../domain/transactions';
@@ -149,7 +149,7 @@ export class RelayerAPIService implements RelayerAPI {
 
         const destContract: Contract = new Contract(
           destBridgeAddress,
-          BRIDGE_ABI,
+          bridgeABI,
           destProvider,
         );
 
@@ -164,7 +164,7 @@ export class RelayerAPIService implements RelayerAPI {
         if (tx.canonicalTokenAddress !== ethers.constants.AddressZero) {
           const tokenVaultContract = new Contract(
             tokenVaults[tx.fromChainId],
-            TOKEN_VAULT_ABI,
+            tokenVaultABI,
             srcProvider,
           );
           const filter = tokenVaultContract.filters.ERC20Sent(msgHash);
@@ -181,7 +181,7 @@ export class RelayerAPIService implements RelayerAPI {
 
           const erc20Contract = new Contract(
             erc20Event.args.token,
-            ERC20_ABI,
+            erc20ABI,
             srcProvider,
           );
           symbol = await erc20Contract.symbol();

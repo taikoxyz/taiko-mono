@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "svelte:check": "svelte-check --tsconfig ./tsconfig.json",
+    "svelte:check": "svelte-check --tsconfig ./tsconfig.json --ignore ./wagmi.config.ts",
     "test": "pnpm exec jest",
     "prettier": "pnpm exec prettier '**/*.{js,ts,svelte}'",
     "prettier:write": "pnpm run prettier '**/*.{js,ts,svelte}' --write",
@@ -16,7 +16,7 @@
     "lint": "pnpm exec eslint './**/*.{js,ts,svelte}' --ignore-path .eslintignore",
     "lint:fix": "pnpm exec eslint --fix './**/*.{js,ts,svelte}' --ignore-path .eslintignore",
     "lint-staged": "lint-staged --allow-empty",
-    "copy-abi": "node ./scripts/copy-abi.js"
+    "generate-abi": "pnpm exec wagmi generate"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.16.0",
@@ -30,7 +30,9 @@
     "@types/sanitize-html": "^2.6.2",
     "@typescript-eslint/eslint-plugin": "^5.16.0",
     "@typescript-eslint/parser": "^5.16.0",
+    "@wagmi/cli": "^1.0.1",
     "@zerodevx/svelte-toast": "^0.6.3",
+    "abitype": "^0.8.2",
     "autoprefixer": "^10.4.13",
     "babel-jest": "^27.3.1",
     "babel-plugin-transform-es2015-modules-commonjs": "^6.26.2",
