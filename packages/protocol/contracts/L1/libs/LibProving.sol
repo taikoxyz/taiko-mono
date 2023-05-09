@@ -163,15 +163,14 @@ library LibProving {
             // (the latter can be verified without being overwritten)
             // - and blockHash/signalRoot/gasUsed are matching
             // Revert otherwise.
-            if (fc.prover == address(0) || fc.prover == address(1)) {
-                if (
-                    fc.blockHash != evidence.blockHash ||
-                    fc.signalRoot != evidence.signalRoot ||
-                    fc.gasUsed != evidence.gasUsed
-                ) revert L1_INVALID_OVERWRITE();
-            } else {
+            if (fc.prover != address(0) && fc.prover != address(1))
                 revert L1_ALREADY_PROVEN();
-            }
+
+            if (
+                fc.blockHash != evidence.blockHash ||
+                fc.signalRoot != evidence.signalRoot ||
+                fc.gasUsed != evidence.gasUsed
+            ) revert L1_INVALID_OVERWRITE();
         }
 
         fc.blockHash = evidence.blockHash;
