@@ -98,6 +98,7 @@ library LibVerifying {
         }
 
         address oracleProver = resolver.resolve("oracle_prover", true);
+        address systemProver = resolver.resolve("system_prover", true);
 
         while (i < state.numBlocks && processed < maxBlocks) {
             blk = state.blocks[i % config.ringBufferSize];
@@ -109,10 +110,10 @@ library LibVerifying {
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
 
-            if (fc.prover == address(0)) break;
+            if (fc.prover == oracleProver) break;
 
             uint256 proofCooldownPeriod = oracleProver == address(0) ||
-                fc.prover == oracleProver
+                fc.prover == systemProver
                 ? 0
                 : config.proofCooldownPeriod;
 

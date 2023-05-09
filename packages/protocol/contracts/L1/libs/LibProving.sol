@@ -6,6 +6,8 @@
 
 pragma solidity ^0.8.18;
 
+import {Test} from "forge-std/Test.sol";
+import {console2} from "forge-std/console2.sol";
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
@@ -27,10 +29,12 @@ library LibProving {
     error L1_BLOCK_ID();
     error L1_EVIDENCE_MISMATCH(bytes32 expected, bytes32 actual);
     error L1_FORK_CHOICE_NOT_FOUND();
+    error L1_INVALID_OVERWRITE();
     error L1_INVALID_PROOF();
     error L1_INVALID_EVIDENCE();
     error L1_ORACLE_DISABLED();
     error L1_NOT_ORACLE_PROVER();
+    error L1_NOT_SYSTEM_PROVER();
     error L1_SAME_PROOF();
 
     function proveBlock(
@@ -60,8 +64,9 @@ library LibProving {
         if (blk.metaHash != evidence.metaHash)
             revert L1_EVIDENCE_MISMATCH(blk.metaHash, evidence.metaHash);
 
-        if (evidence.prover == address(0)) {
-            address oracleProver = resolver.resolve("oracle_prover", true);
+        // Separate between oracle proof (which needs to be overwritten) and non-oracle but system proofs
+        address oracleProver = resolver.resolve("oracle_prover", true);
+        if (evidence.prover == oracleProver) {
             if (oracleProver == address(0)) revert L1_ORACLE_DISABLED();
 
             if (msg.sender != oracleProver) {
@@ -87,16 +92,26 @@ library LibProving {
                     ) revert L1_NOT_ORACLE_PROVER();
                 }
             }
+        }
 
+        // System prover provides legit (mock) proofs, so that one do not needed to be overwritten
+        // Diff between system and oracle is: oracle has to be overwritten, system does not.
+        address systemProver = resolver.resolve("system_prover", true);
+        // msg.sender and evidence.prover shall be equal otherwise provers could cheat it
+        if (systemProver == msg.sender && systemProver == evidence.prover) {
             if (
                 config.realProofSkipSize > 1 &&
                 blockId % config.realProofSkipSize != 0
             ) {
-                // For this block, real ZKP is not necessary, so the oracle
+                // For this block, real ZKP is not necessary, so the system
                 // proof will be treated as a real proof (by setting the prover
                 // to a non-zero value)
-                evidence.prover = oracleProver;
+                evidence.prover = systemProver;
             }
+        }
+
+        if (systemProver != msg.sender && systemProver == evidence.prover) {
+            revert L1_NOT_SYSTEM_PROVER();
         }
 
         TaikoData.ForkChoice storage fc;
@@ -128,14 +143,25 @@ library LibProving {
                     evidence.parentGasUsed
                 ] = fcId;
             }
-        } else if (evidence.prover == address(0)) {
+        } else if (evidence.prover == oracleProver) {
+            // This is the branch the oracle prover is trying to overwrite
             fc = blk.forkChoices[fcId];
-
             if (
                 fc.blockHash == evidence.blockHash &&
                 fc.signalRoot == evidence.signalRoot &&
                 fc.gasUsed == evidence.gasUsed
             ) revert L1_SAME_PROOF();
+        } else if (
+            evidence.prover != oracleProver && evidence.prover != systemProver
+        ) {
+            // This is the branch provers trying to overwrite oracle proofs or system proofs
+            fc = blk.forkChoices[fcId];
+
+            if (
+                fc.blockHash != evidence.blockHash ||
+                fc.signalRoot != evidence.signalRoot ||
+                fc.gasUsed != evidence.gasUsed
+            ) revert L1_INVALID_OVERWRITE();
         } else {
             revert L1_ALREADY_PROVEN();
         }
@@ -146,7 +172,8 @@ library LibProving {
         fc.provenAt = uint64(block.timestamp);
         fc.prover = evidence.prover;
 
-        if (evidence.prover != address(0)) {
+        // evidence.prover cannot be address(0) at this point - either oracle, system, or a regular prover
+        if (evidence.prover != systemProver) {
             uint256[9] memory inputs;
 
             inputs[0] = uint256(
