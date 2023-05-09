@@ -315,7 +315,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         assertEq(proxy.implementation(), address(contractAddress));
 
-        assertEq(proxy.admin(), owner);
+        assertEq(proxy.admin(), admin);
 
         vm.stopPrank();
     }
