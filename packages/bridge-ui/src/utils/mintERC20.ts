@@ -3,7 +3,7 @@ import type { Token } from 'src/domain/token';
 import { selectChain } from './selectChain';
 import { L1_CHAIN_ID } from '../constants/envVars';
 import { chains } from '../chain/chains';
-import { FREE_MINT_ERC20_ABI } from '../constants/abi';
+import { freeMintErc20ABI } from '../constants/abi';
 import { getLogger } from './logger';
 
 const log = getLogger('utils:mintERC20');
@@ -20,7 +20,7 @@ export async function mintERC20(
 
   const l1TokenContract = new Contract(
     token.addresses[0].address,
-    FREE_MINT_ERC20_ABI,
+    freeMintErc20ABI,
     signer,
   );
 

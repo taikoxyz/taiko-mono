@@ -2,7 +2,7 @@ import { Contract, ethers, type Signer } from 'ethers';
 import { mintERC20 } from './mintERC20';
 import type { Token } from '../domain/token';
 import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
-import { FREE_MINT_ERC20_ABI } from '../constants/abi';
+import { freeMintErc20ABI } from '../constants/abi';
 import { selectChain } from './selectChain';
 import { chains } from '../chain/chains';
 
@@ -54,11 +54,7 @@ describe('mintERC20', () => {
     // There was no switch of chain since token is on L1
     expect(selectChain).not.toHaveBeenCalled();
 
-    expect(Contract).toHaveBeenCalledWith(
-      '0x00',
-      FREE_MINT_ERC20_ABI,
-      mockSigner,
-    );
+    expect(Contract).toHaveBeenCalledWith('0x00', freeMintErc20ABI, mockSigner);
 
     expect(Contract.prototype.mint).toHaveBeenCalledWith('0x123'); // from signer.getAddress()
     expect(tx).toBe(mockTx);
@@ -69,11 +65,7 @@ describe('mintERC20', () => {
 
     expect(selectChain).toHaveBeenCalledWith(chains[L1_CHAIN_ID]);
 
-    expect(Contract).toHaveBeenCalledWith(
-      '0x00',
-      FREE_MINT_ERC20_ABI,
-      mockSigner,
-    );
+    expect(Contract).toHaveBeenCalledWith('0x00', freeMintErc20ABI, mockSigner);
 
     expect(Contract.prototype.mint).toHaveBeenCalledWith('0x123');
     expect(tx).toBe(mockTx);
