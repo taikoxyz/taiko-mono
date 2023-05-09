@@ -47,14 +47,6 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkDeployedCode("ProxiedAddressManager");
         checkDeployedCode("ProxiedSignalService");
 
-        // check proxies
-        checkDeployedCode("TaikoL2Proxy");
-        checkDeployedCode("TokenVaultProxy");
-        checkDeployedCode("EtherVaultProxy");
-        checkDeployedCode("BridgeProxy");
-        checkDeployedCode("AddressManagerProxy");
-        checkDeployedCode("SignalServiceProxy");
-
         // check proxy implementations
         checkProxyImplementation("TaikoL2Proxy", "ProxiedTaikoL2");
         checkProxyImplementation("TokenVaultProxy", "ProxiedTokenVault");
@@ -65,6 +57,14 @@ contract TestGenerateGenesis is Test, AddressResolver {
             "ProxiedAddressManager"
         );
         checkProxyImplementation("SignalServiceProxy", "ProxiedSignalService");
+
+        // check proxies
+        checkDeployedCode("TaikoL2Proxy");
+        checkDeployedCode("TokenVaultProxy");
+        checkDeployedCode("EtherVaultProxy");
+        checkDeployedCode("BridgeProxy");
+        checkDeployedCode("AddressManagerProxy");
+        checkDeployedCode("SignalServiceProxy");
     }
 
     function testAddressManager() public {
