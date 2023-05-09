@@ -6,6 +6,8 @@
 
 pragma solidity ^0.8.18;
 
+import {Test} from "forge-std/Test.sol";
+import {console2} from "forge-std/console2.sol";
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {ISignalService} from "../../signal/ISignalService.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
@@ -54,10 +56,8 @@ library LibVerifying {
             config.ethDepositMaxFee == 0 ||
             config.ethDepositMaxFee >= type(uint96).max ||
             config.proofTimeTarget == 0 ||
-            config.proofTimeTarget < config.systemProofCooldownPeriod ||
             config.adjustmentQuotient == 0
         ) revert L1_INVALID_CONFIG();
-
         uint64 timeNow = uint64(block.timestamp);
         state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = timeNow;

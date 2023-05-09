@@ -27,13 +27,12 @@ library LibProving {
     error L1_BLOCK_ID();
     error L1_EVIDENCE_MISMATCH(bytes32 expected, bytes32 actual);
     error L1_FORK_CHOICE_NOT_FOUND();
+    error L1_INVALID_EVIDENCE();
     error L1_INVALID_OVERWRITE();
     error L1_INVALID_PROOF();
-    error L1_INVALID_EVIDENCE();
     error L1_ORACLE_DISABLED();
-    error L1_SYSTEM_PROVER_DISABLED();
+    error L1_SYSTEM_PROOF_PROHIBTED();
     error L1_NOT_ORACLE_PROVER();
-    error L1_NOT_SYSTEM_PROVER();
     error L1_SAME_PROOF();
 
     function proveBlock(
@@ -64,7 +63,6 @@ library LibProving {
             revert L1_EVIDENCE_MISMATCH(blk.metaHash, evidence.metaHash);
 
         // Separate between oracle proof (which needs to be overwritten) and non-oracle but system proofs
-
         address specialProver;
         if (evidence.prover == address(0)) {
             specialProver = resolver.resolve("oracle_prover", false);
@@ -74,7 +72,7 @@ library LibProving {
             if (
                 config.realProofSkipSize <= 1 ||
                 blockId % config.realProofSkipSize == 0
-            ) revert("NO");
+            ) revert L1_SYSTEM_PROOF_PROHIBTED();
         }
 
         if (specialProver != address(0) && msg.sender != specialProver) {

@@ -28,7 +28,7 @@ contract TaikoL1Oracle is TaikoL1 {
         config.maxNumProposedBlocks = 10;
         config.ringBufferSize = 12;
         config.proofCooldownPeriod = 5 minutes;
-        config.realProofSkipSize = 0;
+        config.realProofSkipSize = 10;
     }
 }
 
@@ -70,7 +70,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             blockHash: bytes32(uint256(0x11)),
             signalRoot: bytes32(uint256(0x12)),
             graffiti: 0x0,
-            prover: Alice,
+            prover: address(0),
             parentGasUsed: 10000,
             gasUsed: 40000,
             verifierId: 0,
@@ -95,7 +95,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         assertEq(fc.blockHash, bytes32(uint256(0x11)));
         assertEq(fc.signalRoot, bytes32(uint256(0x12)));
         assertEq(fc.provenAt, block.timestamp);
-        assertEq(fc.prover, Alice);
+        assertEq(fc.prover, address(0));
         assertEq(fc.gasUsed, 40000);
     }
 
@@ -153,7 +153,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             vm.warp(block.timestamp + 10 seconds);
             proveBlock(
                 Carol,
-                Carol,
+                address(0),
                 meta,
                 parentHash,
                 parentGasUsed,
@@ -174,7 +174,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             assertEq(fc.blockHash, bytes32(uint256(0x11)));
             assertEq(fc.signalRoot, bytes32(uint256(0x12)));
             assertEq(fc.provenAt, provenAt);
-            assertEq(fc.prover, Carol);
+            assertEq(fc.prover, address(0));
             assertEq(fc.gasUsed, 10002);
         }
     }
@@ -246,7 +246,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             vm.expectRevert(TaikoErrors.L1_SAME_PROOF.selector);
             proveBlock(
                 Alice,
-                Alice,
+                address(0),
                 meta,
                 parentHash,
                 parentGasUsed,
@@ -336,8 +336,13 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         printVariables("");
     }
 
-    /// @dev Test we can verify without cooling time if the oracle prover is set to address (0) = disabled
-    function test_if_oracle_is_disabled_cooldown_is_zero() external {
+    /// @dev So in case we have regular proving mechanism we shall check if still a cooldown happens
+    /// @dev when proving a block (in a normal way).
+    /// @notice In case both oracle_prover and system_prover is disbaled, there is no reason why
+    /// @notice cooldowns be above 0 min tho (!).
+    function test_if_oracle_is_disabled_cooldown_is_still_as_proofCooldownPeriod()
+        external
+    {
         registerAddress("oracle_prover", address(0));
 
         depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
@@ -387,6 +392,13 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 .getStateVariables()
                 .lastVerifiedBlockId;
 
+            assertEq(lastVerifiedBlockIdNow, lastVerifiedBlockId);
+
+            vm.warp(block.timestamp + 5 minutes);
+            verifyBlock(Carol, 1);
+
+            lastVerifiedBlockIdNow = L1.getStateVariables().lastVerifiedBlockId;
+
             assertFalse(lastVerifiedBlockIdNow == lastVerifiedBlockId);
 
             parentHash = blockHash;
@@ -427,7 +439,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             bytes32 signalRoot = bytes32(1E9 + blockId);
             proveBlock(
                 Bob,
-                Bob,
+                address(0),
                 meta,
                 parentHash,
                 parentGasUsed,
@@ -477,8 +489,10 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         printVariables("");
     }
 
-    /// @dev Test if system prover is the prover, cooldown also zero
-    function test_if_fk_prover_is_system_prover_cooldown_is_zero() external {
+    /// @dev Test if system prover is the prover, cooldown is systemProofCooldownPeriod
+    function test_if_prover_is_system_prover_cooldown_is_systemProofCooldownPeriod()
+        external
+    {
         registerAddress("system_prover", Bob);
 
         depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
@@ -504,16 +518,32 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(
-                Bob,
-                Bob,
-                meta,
-                parentHash,
-                parentGasUsed,
-                gasUsed,
-                blockHash,
-                signalRoot
-            );
+
+            uint256 realproof = blockId % conf.realProofSkipSize;
+
+            if (realproof == 0) {
+                proveBlock(
+                    Carol,
+                    Carol,
+                    meta,
+                    parentHash,
+                    parentGasUsed,
+                    gasUsed,
+                    blockHash,
+                    signalRoot
+                );
+            } else {
+                proveBlock(
+                    Bob,
+                    address(1),
+                    meta,
+                    parentHash,
+                    parentGasUsed,
+                    gasUsed,
+                    blockHash,
+                    signalRoot
+                );
+            }
 
             uint256 lastVerifiedBlockId = L1
                 .getStateVariables()
@@ -527,6 +557,18 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             uint256 lastVerifiedBlockIdNow = L1
                 .getStateVariables()
                 .lastVerifiedBlockId;
+
+            // It would be true anyways, but better to separate things.
+            // If not real proof is necessary, also the proofCooldownPeriod needs to be elapsed to be true.
+            // So separating the check.
+            /// @notice: In case both system and oracle are disabled, we should set the cooldown time to 0 mins.
+            if (realproof != 0)
+                assertEq(lastVerifiedBlockIdNow, lastVerifiedBlockId);
+
+            vm.warp(block.timestamp + conf.systemProofCooldownPeriod);
+            verifyBlock(Carol, 1);
+
+            lastVerifiedBlockIdNow = L1.getStateVariables().lastVerifiedBlockId;
 
             assertFalse(lastVerifiedBlockIdNow == lastVerifiedBlockId);
 
@@ -580,7 +622,8 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 .getStateVariables()
                 .lastVerifiedBlockId;
 
-            vm.warp(block.timestamp + 1 seconds);
+            // Need to wait config.systemProofCooldownPeriod
+            vm.warp(block.timestamp + conf.systemProofCooldownPeriod);
             verifyBlock(Carol, 1);
 
             // Check if shortly after proving (+verify) the last verify is not the same anymore
@@ -626,32 +669,50 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(
-                Bob,
-                Bob,
-                meta,
-                parentHash,
-                parentGasUsed,
-                gasUsed,
-                blockHash,
-                signalRoot
-            );
+
+            uint256 realProof = blockId % conf.realProofSkipSize;
+
+            if (realProof == 0) {
+                proveBlock(
+                    Carol,
+                    Carol,
+                    meta,
+                    parentHash,
+                    parentGasUsed,
+                    gasUsed,
+                    blockHash,
+                    signalRoot
+                );
+            } else {
+                proveBlock(
+                    Bob,
+                    address(1),
+                    meta,
+                    parentHash,
+                    parentGasUsed,
+                    gasUsed,
+                    blockHash,
+                    signalRoot
+                );
+            }
 
             uint256 lastVerifiedBlockId = L1
                 .getStateVariables()
                 .lastVerifiedBlockId;
 
-            // Carol could not overwrite it
-            proveBlock(
-                Carol,
-                Carol,
-                meta,
-                parentHash,
-                parentGasUsed,
-                gasUsed,
-                blockHash,
-                signalRoot
-            );
+            // Carol could overwrite it
+            if (realProof != 0) {
+                proveBlock(
+                    Carol,
+                    Carol,
+                    meta,
+                    parentHash,
+                    parentGasUsed,
+                    gasUsed,
+                    blockHash,
+                    signalRoot
+                );
+            }
 
             vm.warp(block.timestamp + 1 seconds);
             vm.warp(block.timestamp + 5 minutes);
@@ -662,7 +723,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 parentGasUsed
             );
 
-            assertEq(fc.prover, Carol);
+            if (realProof != 0) assertEq(fc.prover, Carol);
 
             verifyBlock(Carol, 1);
 
@@ -736,7 +797,9 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 signalRoot
             );
 
-            vm.warp(block.timestamp + 1 seconds);
+            /// @notice: Based on the current codebase we still need to wait even if the system and oracle proofs are disbaled, which
+            /// @notice: in such case best to set 0 mins (cause noone could overwrite a valid fk).
+            vm.warp(block.timestamp + conf.proofCooldownPeriod);
             verifyBlock(Carol, 1);
 
             // Check if shortly after proving (+verify) the last verify is not the same anymore
