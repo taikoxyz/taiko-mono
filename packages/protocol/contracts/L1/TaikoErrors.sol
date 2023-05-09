@@ -24,6 +24,7 @@ abstract contract TaikoErrors {
     error L1_NOT_SYSTEM_PROVER();
     error L1_ORACLE_DISABLED();
     error L1_SAME_PROOF();
+    error L1_SYSTEM_PROOF_DISABLED();
     error L1_TOO_MANY_BLOCKS();
     error L1_TX_LIST_NOT_EXIST();
     error L1_TX_LIST_HASH();

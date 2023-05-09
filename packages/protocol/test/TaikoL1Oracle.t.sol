@@ -70,7 +70,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             blockHash: bytes32(uint256(0x11)),
             signalRoot: bytes32(uint256(0x12)),
             graffiti: 0x0,
-            prover: Alice,
+            prover: address(0),
             parentGasUsed: 10000,
             gasUsed: 40000,
             verifierId: 0,
@@ -95,7 +95,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         assertEq(fc.blockHash, bytes32(uint256(0x11)));
         assertEq(fc.signalRoot, bytes32(uint256(0x12)));
         assertEq(fc.provenAt, block.timestamp);
-        assertEq(fc.prover, Alice);
+        assertEq(fc.prover, address(0));
         assertEq(fc.gasUsed, 40000);
     }
 
@@ -153,7 +153,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             vm.warp(block.timestamp + 10 seconds);
             proveBlock(
                 Carol,
-                Carol,
+                address(0),
                 meta,
                 parentHash,
                 parentGasUsed,
@@ -174,7 +174,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             assertEq(fc.blockHash, bytes32(uint256(0x11)));
             assertEq(fc.signalRoot, bytes32(uint256(0x12)));
             assertEq(fc.provenAt, provenAt);
-            assertEq(fc.prover, Carol);
+            assertEq(fc.prover, address(0));
             assertEq(fc.gasUsed, 10002);
         }
     }
@@ -246,7 +246,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             vm.expectRevert(TaikoErrors.L1_SAME_PROOF.selector);
             proveBlock(
                 Alice,
-                Alice,
+                address(0),
                 meta,
                 parentHash,
                 parentGasUsed,
@@ -401,6 +401,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     {
         // Bob is an oracle prover now
         registerAddress("oracle_prover", Bob);
+        registerAddress("system_prover", Bob);
 
         depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
         depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
@@ -427,7 +428,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             bytes32 signalRoot = bytes32(1E9 + blockId);
             proveBlock(
                 Bob,
-                Bob,
+                address(1),
                 meta,
                 parentHash,
                 parentGasUsed,
@@ -628,7 +629,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             bytes32 signalRoot = bytes32(1E9 + blockId);
             proveBlock(
                 Bob,
-                Bob,
+                address(1),
                 meta,
                 parentHash,
                 parentGasUsed,
