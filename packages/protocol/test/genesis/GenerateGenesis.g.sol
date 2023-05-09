@@ -177,7 +177,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
             getPredeployedContractAddress("AddressManagerProxy")
         );
 
-        // assertEq(owner, tokenVault.owner());
+        assertEq(owner, tokenVault.owner());
 
         vm.startPrank(addressManager.owner());
         addressManager.setAddress(1, "bridge", bridgeAddress);

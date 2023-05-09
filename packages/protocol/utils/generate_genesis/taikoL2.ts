@@ -72,24 +72,22 @@ export async function deployTaikoL2(
         // since we enable storageLayout compiler output in hardhat.config.ts,
         // rollup/artifacts/build-info will contain storage layouts, here
         // reading it using smock package.
-        if (!contractConfig.isProxy) {
-            storageLayouts[contractName] = await getStorageLayout(contractName);
-            // initialize contract variables, we only care about the variables
-            // that need to be initialized with non-zero value.
-            const slots = computeStorageSlots(
-                storageLayouts[contractName],
-                contractConfigs[contractName].variables
-            );
+        storageLayouts[contractName] = await getStorageLayout(contractName);
+        // initialize contract variables, we only care about the variables
+        // that need to be initialized with non-zero value.
+        const slots = computeStorageSlots(
+            storageLayouts[contractName],
+            contractConfigs[contractName].variables
+        );
 
-            for (const slot of slots) {
-                alloc[contractConfig.address].storage[slot.key] = slot.val;
-            }
-        } else {
-            for (const [slot, val] of Object.entries(
-                contractConfigs[contractName].variables
-            )) {
-                alloc[contractConfig.address].storage[slot] = val;
-            }
+        for (const slot of slots) {
+            alloc[contractConfig.address].storage[slot.key] = slot.val;
+        }
+
+        for (const [slot, val] of Object.entries(
+            contractConfigs[contractName].slots
+        )) {
+            alloc[contractConfig.address].storage[slot] = val;
         }
     }
 
@@ -259,43 +257,44 @@ async function generateContractConfigs(
             address: addressMap.ProxiedAddressManager,
             deployedBytecode:
                 contractArtifacts.ProxiedAddressManager.deployedBytecode.object,
-            variables: {
-                // initializer
-                _initialized: 1,
-                _initializing: false,
-                // OwnableUpgradeable
-                _owner: contractOwner,
-                // AddressManager
-                addresses: {
-                    [chainId]: {
-                        [ethers.utils.hexlify(
-                            ethers.utils.toUtf8Bytes("taiko")
-                        )]: addressMap.TaikoL2Proxy,
-                        [ethers.utils.hexlify(
-                            ethers.utils.toUtf8Bytes("bridge")
-                        )]: addressMap.BridgeProxy,
-                        [ethers.utils.hexlify(
-                            ethers.utils.toUtf8Bytes("token_vault")
-                        )]: addressMap.TokenVaultProxy,
-                        [ethers.utils.hexlify(
-                            ethers.utils.toUtf8Bytes("ether_vault")
-                        )]: addressMap.EtherVaultProxy,
-                        [ethers.utils.hexlify(
-                            ethers.utils.toUtf8Bytes("signal_service")
-                        )]: addressMap.SignalServiceProxy,
-                    },
-                },
-            },
         },
         AddressManagerProxy: {
             address: addressMap.AddressManagerProxy,
             deployedBytecode:
                 contractArtifacts.AddressManagerProxy.deployedBytecode.object,
             variables: {
+                variables: {
+                    // initializer
+                    _initialized: 1,
+                    _initializing: false,
+                    // OwnableUpgradeable
+                    _owner: contractOwner,
+                    // AddressManager
+                    addresses: {
+                        [chainId]: {
+                            [ethers.utils.hexlify(
+                                ethers.utils.toUtf8Bytes("taiko")
+                            )]: addressMap.TaikoL2Proxy,
+                            [ethers.utils.hexlify(
+                                ethers.utils.toUtf8Bytes("bridge")
+                            )]: addressMap.BridgeProxy,
+                            [ethers.utils.hexlify(
+                                ethers.utils.toUtf8Bytes("token_vault")
+                            )]: addressMap.TokenVaultProxy,
+                            [ethers.utils.hexlify(
+                                ethers.utils.toUtf8Bytes("ether_vault")
+                            )]: addressMap.EtherVaultProxy,
+                            [ethers.utils.hexlify(
+                                ethers.utils.toUtf8Bytes("signal_service")
+                            )]: addressMap.SignalServiceProxy,
+                        },
+                    },
+                },
+            },
+            slots: {
                 [ADMIN_SLOT]: contractOwner,
                 [IMPLEMENTATION_SLOT]: addressMap.ProxiedAddressManager,
             },
-            isProxy: true,
         },
         ProxiedTaikoL2: {
             address: addressMap.ProxiedTaikoL2,
@@ -303,6 +302,11 @@ async function generateContractConfigs(
                 contractArtifacts.ProxiedTaikoL2,
                 addressMap
             ),
+        },
+        TaikoL2Proxy: {
+            address: addressMap.TaikoL2Proxy,
+            deployedBytecode:
+                contractArtifacts.TaikoL2Proxy.deployedBytecode.object,
             variables: {
                 // TaikoL2
                 // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
@@ -327,16 +331,10 @@ async function generateContractConfigs(
                 parentTimestamp: Math.floor(new Date().getTime() / 1000),
                 gasExcess: ethers.BigNumber.from(param1559.gasExcess),
             },
-        },
-        TaikoL2Proxy: {
-            address: addressMap.TaikoL2Proxy,
-            deployedBytecode:
-                contractArtifacts.TaikoL2Proxy.deployedBytecode.object,
-            variables: {
+            slots: {
                 [ADMIN_SLOT]: contractOwner,
                 [IMPLEMENTATION_SLOT]: addressMap.ProxiedTaikoL2,
             },
-            isProxy: true,
         },
         ProxiedBridge: {
             address: addressMap.ProxiedBridge,
@@ -344,6 +342,11 @@ async function generateContractConfigs(
                 contractArtifacts.ProxiedBridge,
                 addressMap
             ),
+        },
+        BridgeProxy: {
+            address: addressMap.BridgeProxy,
+            deployedBytecode:
+                contractArtifacts.BridgeProxy.deployedBytecode.object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -357,21 +360,20 @@ async function generateContractConfigs(
                 // Bridge
                 _state: {},
             },
-        },
-        BridgeProxy: {
-            address: addressMap.BridgeProxy,
-            deployedBytecode:
-                contractArtifacts.BridgeProxy.deployedBytecode.object,
-            variables: {
+            slots: {
                 [ADMIN_SLOT]: contractOwner,
                 [IMPLEMENTATION_SLOT]: addressMap.ProxiedBridge,
             },
-            isProxy: true,
         },
         ProxiedTokenVault: {
             address: addressMap.ProxiedTokenVault,
             deployedBytecode:
                 contractArtifacts.ProxiedTokenVault.deployedBytecode.object,
+        },
+        TokenVaultProxy: {
+            address: addressMap.TokenVaultProxy,
+            deployedBytecode:
+                contractArtifacts.TokenVaultProxy.deployedBytecode.object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -383,21 +385,20 @@ async function generateContractConfigs(
                 // AddressResolver
                 _addressManager: addressMap.AddressManagerProxy,
             },
-        },
-        TokenVaultProxy: {
-            address: addressMap.TokenVaultProxy,
-            deployedBytecode:
-                contractArtifacts.TokenVaultProxy.deployedBytecode.object,
-            variables: {
+            slots: {
                 [ADMIN_SLOT]: contractOwner,
                 [IMPLEMENTATION_SLOT]: addressMap.ProxiedTokenVault,
             },
-            isProxy: true,
         },
         ProxiedEtherVault: {
             address: addressMap.ProxiedEtherVault,
             deployedBytecode:
                 contractArtifacts.ProxiedEtherVault.deployedBytecode.object,
+        },
+        EtherVaultProxy: {
+            address: addressMap.EtherVaultProxy,
+            deployedBytecode:
+                contractArtifacts.EtherVaultProxy.deployedBytecode.object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -412,16 +413,10 @@ async function generateContractConfigs(
                 // Authorize L2 bridge
                 _authorizedAddrs: { [`${addressMap.BridgeProxy}`]: true },
             },
-        },
-        EtherVaultProxy: {
-            address: addressMap.EtherVaultProxy,
-            deployedBytecode:
-                contractArtifacts.EtherVaultProxy.deployedBytecode.object,
-            variables: {
+            slots: {
                 [ADMIN_SLOT]: contractOwner,
                 [IMPLEMENTATION_SLOT]: addressMap.ProxiedEtherVault,
             },
-            isProxy: true,
         },
         ProxiedSignalService: {
             address: addressMap.ProxiedSignalService,
@@ -429,6 +424,11 @@ async function generateContractConfigs(
                 contractArtifacts.ProxiedSignalService,
                 addressMap
             ),
+        },
+        SignalServiceProxy: {
+            address: addressMap.SignalServiceProxy,
+            deployedBytecode:
+                contractArtifacts.SignalServiceProxy.deployedBytecode.object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -440,16 +440,10 @@ async function generateContractConfigs(
                 // AddressResolver
                 _addressManager: addressMap.AddressManagerProxy,
             },
-        },
-        SignalServiceProxy: {
-            address: addressMap.SignalServiceProxy,
-            deployedBytecode:
-                contractArtifacts.SignalServiceProxy.deployedBytecode.object,
-            variables: {
+            slots: {
                 [ADMIN_SLOT]: contractOwner,
                 [IMPLEMENTATION_SLOT]: addressMap.ProxiedSignalService,
             },
-            isProxy: true,
         },
     };
 }
