@@ -226,6 +226,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         string memory proxyName,
         string memory contractName
     ) private {
+        vm.startPrank(owner);
         address contractAddress = getPredeployedContractAddress(contractName);
         address proxyAddress = getPredeployedContractAddress(proxyName);
         assertEq(
@@ -237,6 +238,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
             TransparentUpgradeableProxy(payable(proxyAddress)).admin(),
             owner
         );
+        vm.stopPrank();
     }
 
     function checkSavedAddress(
