@@ -55,6 +55,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkDeployedCode("AddressManagerProxy");
         checkDeployedCode("SignalServiceProxy");
 
+        // check proxy implementations
         checkProxyImplementation("TaikoL2Proxy", "ProxiedTaikoL2");
         checkProxyImplementation("TokenVaultProxy", "ProxiedTokenVault");
         checkProxyImplementation("EtherVaultProxy", "ProxiedEtherVault");
@@ -304,7 +305,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         string memory proxyName,
         string memory contractName
     ) private {
-        vm.startPrank(owner);
+        vm.startPrank(admin);
         address contractAddress = getPredeployedContractAddress(contractName);
         address proxyAddress = getPredeployedContractAddress(proxyName);
 
