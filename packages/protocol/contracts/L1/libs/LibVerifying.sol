@@ -6,6 +6,8 @@
 
 pragma solidity ^0.8.18;
 
+import {Test} from "forge-std/Test.sol";
+import {console2} from "forge-std/console2.sol";
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {ISignalService} from "../../signal/ISignalService.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
@@ -56,7 +58,6 @@ library LibVerifying {
             config.proofTimeTarget == 0 ||
             config.adjustmentQuotient == 0
         ) revert L1_INVALID_CONFIG();
-
         uint64 timeNow = uint64(block.timestamp);
         state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = timeNow;
@@ -97,9 +98,6 @@ library LibVerifying {
             ++i;
         }
 
-        address oracleProver = resolver.resolve("oracle_prover", true);
-        address systemProver = resolver.resolve("system_prover", true);
-
         while (i < state.numBlocks && processed < maxBlocks) {
             blk = state.blocks[i % config.ringBufferSize];
             assert(blk.blockId == i);
@@ -110,11 +108,10 @@ library LibVerifying {
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
 
-            if (fc.prover == oracleProver) break;
+            if (fc.prover == address(0)) break;
 
-            uint256 proofCooldownPeriod = oracleProver == address(0) ||
-                fc.prover == systemProver
-                ? 0
+            uint256 proofCooldownPeriod = fc.prover == address(1)
+                ? config.systemProofCooldownPeriod
                 : config.proofCooldownPeriod;
 
             if (block.timestamp < fc.provenAt + proofCooldownPeriod) break;
