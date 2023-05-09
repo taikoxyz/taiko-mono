@@ -273,31 +273,29 @@ async function generateContractConfigs(
             deployedBytecode:
                 contractArtifacts.AddressManagerProxy.deployedBytecode.object,
             variables: {
-                variables: {
-                    // initializer
-                    _initialized: 1,
-                    _initializing: false,
-                    // OwnableUpgradeable
-                    _owner: contractOwner,
-                    // AddressManager
-                    addresses: {
-                        [chainId]: {
-                            [ethers.utils.hexlify(
-                                ethers.utils.toUtf8Bytes("taiko")
-                            )]: addressMap.TaikoL2Proxy,
-                            [ethers.utils.hexlify(
-                                ethers.utils.toUtf8Bytes("bridge")
-                            )]: addressMap.BridgeProxy,
-                            [ethers.utils.hexlify(
-                                ethers.utils.toUtf8Bytes("token_vault")
-                            )]: addressMap.TokenVaultProxy,
-                            [ethers.utils.hexlify(
-                                ethers.utils.toUtf8Bytes("ether_vault")
-                            )]: addressMap.EtherVaultProxy,
-                            [ethers.utils.hexlify(
-                                ethers.utils.toUtf8Bytes("signal_service")
-                            )]: addressMap.SignalServiceProxy,
-                        },
+                // initializer
+                _initialized: 1,
+                _initializing: false,
+                // OwnableUpgradeable
+                _owner: contractOwner,
+                // AddressManager
+                addresses: {
+                    [chainId]: {
+                        [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("taiko")
+                        )]: addressMap.TaikoL2Proxy,
+                        [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("bridge")
+                        )]: addressMap.BridgeProxy,
+                        [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("token_vault")
+                        )]: addressMap.TokenVaultProxy,
+                        [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("ether_vault")
+                        )]: addressMap.EtherVaultProxy,
+                        [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("signal_service")
+                        )]: addressMap.SignalServiceProxy,
                     },
                 },
             },
