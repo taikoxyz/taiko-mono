@@ -66,7 +66,7 @@ export async function deployTaikoL2(
 
         // pre-mint ETHs for EtherVault contract
         alloc[contractConfig.address].balance =
-            contractName === "ProxiedEtherVault"
+            contractName === "EtherVaultProxy"
                 ? etherVaultBalance.toHexString()
                 : "0x0";
 
