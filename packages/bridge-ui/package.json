@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "svelte:check": "svelte-check --tsconfig ./tsconfig.json --ignore wagmi.config.ts",
+    "svelte:check": "svelte-check --tsconfig ./tsconfig.json --ignore ./wagmi.config.ts",
     "test": "pnpm exec jest",
     "prettier": "pnpm exec prettier '**/*.{js,ts,svelte}'",
     "prettier:write": "pnpm run prettier '**/*.{js,ts,svelte}' --write",
