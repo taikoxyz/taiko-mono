@@ -14,7 +14,10 @@
      */
     "allowJs": true,
     "checkJs": true,
-    "isolatedModules": false
+    "isolatedModules": false,
+    "paths": {
+      "@taiko/protocol/*": ["../protocol/*"]
+    }
   },
   "include": [
     "vite.config.ts",
