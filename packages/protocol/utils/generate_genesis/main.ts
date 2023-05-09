@@ -45,12 +45,12 @@ async function main() {
 
     console.log("config: %o", config);
 
-    console.log("start deploy TaikoL2 contract");
+    console.log("start deploy ProxiedTaikoL2 contract");
 
     let result = await deployTaikoL2(config, {
         alloc: {},
         storageLayouts: {},
-    }).catch(console.error);
+    });
 
     if (config.predeployERC20) {
         console.log("start deploy an ERC-20 token");
