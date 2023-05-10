@@ -3,7 +3,7 @@
 </p>
 
 <h1 align="center">
-  TAIKO
+  Taiko
 </h1>
 
 <p align="center">
@@ -27,7 +27,7 @@
 
 ## Documentation
 
-Most documentation can be found on the website, at [taiko.xyz](https://taiko.xyz). There should also be a README in each package, as well as comments in the source code.
+Documentation can be found on the website at [taiko.xyz](https://taiko.xyz). There is also be a README in each package, as well as comments in the source code.
 
 ## Project structure
 
@@ -38,15 +38,17 @@ taiko-mono/
 ├── <a href="./LICENSE.md">LICENSE.md</a>
 ├── <a href="./README.md">README.md</a>
 ├── <a href="./packages">packages</a>
-│   ├── <a href="./packages/branding">branding</a>: Taiko branding materials
-│   ├── <a href="./packages/bridge-ui">bridge-ui</a>: Taiko bridge frontend UI. 🚧 In maintenance 🚧
-│   ├── <a href="./packages/eventindexer">eventindexer</a>: Event indexer
-│   ├── <a href="./packages/protocol">protocol</a>: Taiko protocol and bridge smart contracts
-│   ├── <a href="./packages/relayer">relayer</a>: Bridge backend relayer in Go
-│   ├── <a href="./packages/starter-dapp">starter-dapp</a>: Template for Taiko dapps
-│   ├── <a href="./packages/status-page">status-page</a>: Taiko protocol status page
-│   ├── <a href="./packages/website">website</a>: Main documentation website at taiko.xyz (https://taiko.xyz/)
-│   └── <a href="./packages/whitepaper">whitepaper</a>: Whitepaper source files with automated publishing
+│   ├── <a href="./packages/branding">branding</a>: Taiko branding materials.
+│   ├── <a href="./packages/bridge-ui">bridge-ui</a>: Taiko bridge frontend UI.
+│   ├── <a href="./packages/eventindexer">eventindexer</a>: Event indexer.
+│   ├── <a href="./packages/fork-diff">fork-diff</a>: Fork diff page (currently, for geth).
+│   ├── <a href="./packages/protocol">protocol</a>: Taiko protocol and bridge smart contracts.
+│   ├── <a href="./packages/relayer">relayer</a>: Bridge backend relayer in Go.
+│   ├── <a href="./packages/starter-dapp">starter-dapp</a>: Template for Taiko dapps.
+│   ├── <a href="./packages/status-page">status-page</a>: Taiko protocol status page.
+│   ├── <a href="./packages/tokenomics">tokenomics</a>: Taiko tokenomics simulations.
+│   ├── <a href="./packages/website">website</a>: Main documentation website at [taiko.xyz](https://taiko.xyz/).
+│   └── <a href="./packages/whitepaper">whitepaper</a>: Whitepaper source files with automated publishing.
 ...
 </pre>
 
