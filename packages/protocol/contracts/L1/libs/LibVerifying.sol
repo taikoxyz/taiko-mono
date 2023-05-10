@@ -96,6 +96,7 @@ library LibVerifying {
             ++i;
         }
 
+        address systemProver = resolver.resolve("system_prover", true);
         while (i < state.numBlocks && processed < maxBlocks) {
             blk = state.blocks[i % config.ringBufferSize];
             assert(blk.blockId == i);
@@ -123,7 +124,8 @@ library LibVerifying {
                 config: config,
                 blk: blk,
                 fcId: uint24(fcId),
-                fc: fc
+                fc: fc,
+                systemProver: systemProver
             });
 
             unchecked {
@@ -157,7 +159,8 @@ library LibVerifying {
         TaikoData.Config memory config,
         TaikoData.Block storage blk,
         TaikoData.ForkChoice storage fc,
-        uint24 fcId
+        uint24 fcId,
+        address systemProver
     ) private {
         uint64 proofTime;
         unchecked {
@@ -176,12 +179,17 @@ library LibVerifying {
 
         // reward the prover
         if (reward != 0) {
-            if (state.taikoTokenBalances[fc.prover] == 0) {
-                // Reduce refund to 1 wei as a penalty if the proposer
-                // has 0 TKO outstanding balance.
-                state.taikoTokenBalances[fc.prover] = 1;
-            } else {
-                state.taikoTokenBalances[fc.prover] += reward;
+            address prover = fc.prover != address(1) ? fc.prover : systemProver;
+
+            // systemProver may become address(0) after a block is proven
+            if (prover != address(0)) {
+                if (state.taikoTokenBalances[prover] == 0) {
+                    // Reduce refund to 1 wei as a penalty if the proposer
+                    // has 0 TKO outstanding balance.
+                    state.taikoTokenBalances[prover] = 1;
+                } else {
+                    state.taikoTokenBalances[prover] += reward;
+                }
             }
         }
 
