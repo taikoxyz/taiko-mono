@@ -22,7 +22,6 @@ abstract contract TaikoErrors {
     error L1_INVALID_PROOF_OVERWRITE();
     error L1_NOT_SPECIAL_PROVER();
     error L1_ORACLE_PROVER_DISABLED();
-    error L1_SAME_PROOF();
     error L1_SYSTEM_PROVER_DISABLED();
     error L1_SYSTEM_PROVER_PROHIBITED();
     error L1_TOO_MANY_BLOCKS();

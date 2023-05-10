@@ -181,7 +181,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         }
     }
 
-    function testOracleProverCannotOverwriteIfSameProof() external {
+    function testOracleProverCanOverwriteIfSameProof() external {
         depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
         depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
         depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
@@ -245,7 +245,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             // Alice, the oracle prover,  cannot overwrite with same parameters
             vm.warp(block.timestamp + 10 seconds);
 
-            vm.expectRevert(TaikoErrors.L1_SAME_PROOF.selector);
             proveBlock(
                 Alice,
                 address(0),
