@@ -79,7 +79,7 @@ export class ETHBridge implements Bridge {
         .add(message.callValue),
     });
 
-    log('Sent message transaction', tx);
+    log('Message sent with transaction', tx);
 
     return tx;
   }
@@ -111,6 +111,8 @@ export class ETHBridge implements Bridge {
       opts.msgHash,
     );
 
+    log('Claiming message with status', messageStatus);
+
     if (messageStatus === MessageStatus.Done) {
       throw Error('message already processed');
     }
@@ -140,6 +142,8 @@ export class ETHBridge implements Bridge {
           chains[opts.message.srcChainId].signalServiceAddress,
       };
 
+      log('Generating proof with opts', proofOpts);
+
       const proof = await this.prover.generateProof(proofOpts);
 
       let processMessageTx: ethers.Transaction;
@@ -158,13 +162,19 @@ export class ETHBridge implements Bridge {
             },
           );
         } else {
-          throw new Error(error);
+          throw new Error('Failed to process message', { cause: error });
         }
       }
 
+      log('Message processed with transaction', processMessageTx);
+
       return processMessageTx;
     } else {
-      return await contract.retryMessage(opts.message, true);
+      log('Retrying message', opts.message);
+      const tx = await contract.retryMessage(opts.message, true);
+      log('Message retried with transaction', tx);
+
+      return tx;
     }
   }
 

@@ -63,7 +63,9 @@ export const pendingTransactions = {
           if (receipt.status === 1) {
             deferred.resolve(receipt);
           } else {
-            deferred.reject(receipt);
+            deferred.reject(
+              new Error('Transaction failed', { cause: receipt }),
+            );
           }
         });
 

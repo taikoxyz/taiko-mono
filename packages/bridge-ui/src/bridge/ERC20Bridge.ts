@@ -8,7 +8,7 @@ import type {
   ReleaseOpts,
 } from '../domain/bridge';
 import { tokenVaultABI, erc20ABI, bridgeABI } from '../constants/abi';
-import type { Prover } from '../domain/proof';
+import type { GenerateProofOpts, Prover } from '../domain/proof';
 import { MessageStatus } from '../domain/message';
 import { chains } from '../chain/chains';
 import { getLogger } from '../utils/logger';
@@ -127,7 +127,7 @@ export class ERC20Bridge implements Bridge {
       },
     );
 
-    log('Send ERC20 with transaction', tx);
+    log('ERC20 sent with transaction', tx);
 
     return tx;
   }
@@ -176,6 +176,8 @@ export class ERC20Bridge implements Bridge {
       opts.msgHash,
     );
 
+    log('Claiming message with status', messageStatus);
+
     if (
       messageStatus === MessageStatus.Done ||
       messageStatus === MessageStatus.Failed
@@ -191,7 +193,7 @@ export class ERC20Bridge implements Bridge {
     }
 
     if (messageStatus === MessageStatus.New) {
-      const proof = await this.prover.generateProof({
+      const proofOpts = {
         srcChain: opts.message.srcChainId,
         msgHash: opts.msgHash,
         sender: opts.srcBridgeAddress,
@@ -201,18 +203,29 @@ export class ERC20Bridge implements Bridge {
           chains[opts.message.destChainId].crossChainSyncAddress,
         srcSignalServiceAddress:
           chains[opts.message.srcChainId].signalServiceAddress,
-      });
+      };
 
-      if (opts.message.gasLimit.gt(BigNumber.from(2500000))) {
-        return await contract.processMessage(opts.message, proof, {
-          gasLimit: opts.message.gasLimit,
-        });
-      }
+      log('Generating proof with opts', proofOpts);
 
-      let processMessageTx;
+      const proof = await this.prover.generateProof(proofOpts);
+
+      let processMessageTx: ethers.Transaction;
+
       try {
-        processMessageTx = await contract.processMessage(opts.message, proof);
+        if (opts.message.gasLimit.gt(BigNumber.from(2500000))) {
+          processMessageTx = await contract.processMessage(
+            opts.message,
+            proof,
+            {
+              gasLimit: opts.message.gasLimit,
+            },
+          );
+        } else {
+          processMessageTx = await contract.processMessage(opts.message, proof);
+        }
       } catch (error) {
+        console.error(error);
+
         if (error.code === ethers.errors.UNPREDICTABLE_GAS_LIMIT) {
           processMessageTx = await contract.processMessage(
             opts.message,
@@ -222,12 +235,19 @@ export class ERC20Bridge implements Bridge {
             },
           );
         } else {
-          throw new Error(error);
+          throw new Error('Failed to process message', { cause: error });
         }
       }
+
+      log('Message processed with transaction', processMessageTx);
+
       return processMessageTx;
     } else {
-      return await contract.retryMessage(opts.message, false);
+      log('Retrying message', opts.message);
+      const tx = await contract.retryMessage(opts.message, false);
+      log('Message retried with transaction', tx);
+
+      return tx;
     }
   }
 

@@ -54,11 +54,11 @@ describe('transaction stores', () => {
       .then(() => {
         throw new Error('Should have thrown');
       })
-      .catch((receipt) => {
+      .catch((error) => {
         // The transaction should have been removed from the store
         expect(get(pendingTransactions)).toStrictEqual(initialTxs);
 
-        expect(receipt).toEqual(txTeceipt);
+        expect(error).toHaveProperty('cause', txTeceipt);
       });
 
     // The transaction should have added to the store

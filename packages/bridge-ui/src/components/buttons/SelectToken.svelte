@@ -15,6 +15,7 @@
   import { ETHToken, tokens } from '../../token/tokens';
   import { errorToast, successToast } from '../Toast.svelte';
   import { tokenService } from '../../storage/services';
+  import { options } from 'sanitize-html';
 
   let dropdownElement: HTMLDivElement;
   let showAddressField = false;
@@ -49,7 +50,7 @@
       const tokenAddress = customTokenAddress.value;
 
       if (!ethers.utils.isAddress(tokenAddress)) {
-        throw new Error('Not a valid ERC20 address');
+        throw new Error('Not a valid ERC20 address', { cause: tokenAddress });
       }
 
       const provider = getProvider();
