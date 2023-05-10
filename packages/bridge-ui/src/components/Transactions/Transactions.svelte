@@ -16,44 +16,45 @@
   let showInsufficientBalance: boolean;
   let noticeModal: NoticeModal;
 
-  let page = 1;
-  let size = 10;
-  $: totalPagesInTransactionList = $paginationInfo
-    ? Math.ceil($paginationInfo?.total / size)
-    : 0;
+  // let page = 1;
+  // let size = 10;
+  // $: totalPagesInTransactionList = $paginationInfo
+  //   ? Math.ceil($paginationInfo?.total / size)
+  //   : 0;
 
-  $: transactionsToShow = $transactions.slice(
-    (page - 1) * size,
-    (page - 1) * size + size,
-  );
+  // $: transactionsToShow = $transactions.slice(
+  //   (page - 1) * size,
+  //   (page - 1) * size + size,
+  // );
 
-  async function loadMoreTransactionsFromAPI() {
-    if (
-      !$paginationInfo ||
-      $paginationInfo.page + 1 >= $paginationInfo.max_page
-    ) {
-      return;
-    }
+  // async function loadMoreTransactionsFromAPI() {
+  //   if (
+  //     !$paginationInfo ||
+  //     $paginationInfo.page + 1 >= $paginationInfo.max_page
+  //   ) {
+  //     return;
+  //   }
 
-    const userAddress = await $signer.getAddress();
-    const { txs: apiTxs, paginationInfo: info } =
-      await $relayerApi.getAllBridgeTransactionByAddress(userAddress, {
-        page: $paginationInfo.page + 1,
-        size: MAX_PAGE_SIZE,
-      });
-    paginationInfo.set(info);
-    transactions.set([...$transactions, ...apiTxs]);
-  }
+  //   const userAddress = await $signer.getAddress();
+  //   const { txs: apiTxs, paginationInfo: info } =
+  //     await $relayerApi.getAllBridgeTransactionByAddress(userAddress, {
+  //       page: $paginationInfo.page + 1,
+  //       size: MAX_PAGE_SIZE,
+  //     });
+  //   paginationInfo.set(info);
+  //   transactions.set([...$transactions, ...apiTxs]);
+  // }
 
-  $: {
-    if ($transactions.length > 0 && (page + 1) * size > $transactions.length) {
-      loadMoreTransactionsFromAPI();
-    }
-  }
+  // $: {
+  //   if ($transactions.length > 0 && (page + 1) * size > $transactions.length) {
+  //     loadMoreTransactionsFromAPI();
+  //   }
+  // }
 </script>
 
 <div class="my-4 md:px-4">
-  {#if transactionsToShow.length}
+  <!-- {#if transactionsToShow.length} -->
+  {#if $transactions.length}
     <table class="table-auto">
       <thead>
         <tr class="text-transaction-table">
@@ -65,7 +66,8 @@
         </tr>
       </thead>
       <tbody class="text-sm md:text-base">
-        {#each transactionsToShow as transaction (transaction.hash)}
+        <!-- {#each transactionsToShow as transaction (transaction.hash)} -->
+        {#each $transactions as transaction (transaction.hash)}
           <Transaction
             on:claimNotice={({ detail }) => noticeModal.open(detail)}
             on:tooltipStatus={() => (showMessageStatusTooltip = true)}
@@ -77,7 +79,7 @@
         {/each}
       </tbody>
     </table>
-    <Pagination totalPages={totalPagesInTransactionList} bind:page />
+    <!-- <Pagination totalPages={totalPagesInTransactionList} bind:page /> -->
   {:else}
     No transactions
   {/if}

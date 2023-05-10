@@ -214,39 +214,32 @@
   async function checkUserHasEnoughBalance(
     bridgeOpts: BridgeOpts,
   ): Promise<boolean> {
-    try {
-      const gasEstimate = await $activeBridge.EstimateGas({
-        ...bridgeOpts,
-        amountInWei: BigNumber.from(1),
-      });
+    const gasEstimate = await $activeBridge.EstimateGas({
+      ...bridgeOpts,
+      amountInWei: BigNumber.from(1),
+    });
 
-      const feeData = await fetchFeeData();
+    const feeData = await fetchFeeData();
 
-      log('Fetched network information', feeData);
+    log('Fetched network information', feeData);
 
-      const requiredGas = gasEstimate.mul(feeData.gasPrice);
-      const userBalance = await $signer.getBalance('latest');
+    const requiredGas = gasEstimate.mul(feeData.gasPrice);
+    const userBalance = await $signer.getBalance('latest');
 
-      let balanceAvailableForTx = userBalance;
+    let balanceAvailableForTx = userBalance;
 
-      if ($token.symbol === ETHToken.symbol) {
-        balanceAvailableForTx = userBalance.sub(
-          ethers.utils.parseEther(amount),
-        );
-      }
-
-      const hasEnoughBalance = balanceAvailableForTx.gte(requiredGas);
-
-      log(
-        `Is required gas ${requiredGas} less than available balance ${balanceAvailableForTx}?`,
-        hasEnoughBalance,
-      );
-
-      return hasEnoughBalance;
-    } catch (error) {
-      console.error(error);
-      return false;
+    if ($token.symbol === ETHToken.symbol) {
+      balanceAvailableForTx = userBalance.sub(ethers.utils.parseEther(amount));
     }
+
+    const hasEnoughBalance = balanceAvailableForTx.gte(requiredGas);
+
+    log(
+      `Is required gas ${requiredGas} less than available balance ${balanceAvailableForTx}?`,
+      hasEnoughBalance,
+    );
+
+    return hasEnoughBalance;
   }
 
   async function bridge() {

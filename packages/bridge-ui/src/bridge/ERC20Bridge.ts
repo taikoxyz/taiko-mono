@@ -139,23 +139,30 @@ export class ERC20Bridge implements Bridge {
 
     const { contract, message } = await ERC20Bridge.prepareTransaction(opts);
 
-    const tx = await contract.sendERC20(
-      message.destChainId,
-      message.to,
-      opts.tokenAddress,
-      opts.amountInWei,
-      message.gasLimit,
-      message.processingFee,
-      message.refundAddress,
-      message.memo,
-      {
-        value: message.processingFee.add(message.callValue),
-      },
-    );
+    try {
+      const tx = await contract.sendERC20(
+        message.destChainId,
+        message.to,
+        opts.tokenAddress,
+        opts.amountInWei,
+        message.gasLimit,
+        message.processingFee,
+        message.refundAddress,
+        message.memo,
+        {
+          value: message.processingFee.add(message.callValue),
+        },
+      );
 
-    log('ERC20 sent with transaction', tx);
+      log('ERC20 sent with transaction', tx);
 
-    return tx;
+      return tx;
+    } catch (error) {
+      console.error(error);
+      throw new Error('Error bridging', {
+        cause: error,
+      });
+    }
   }
 
   async EstimateGas(opts: BridgeOpts): Promise<BigNumber> {
@@ -183,9 +190,9 @@ export class ERC20Bridge implements Bridge {
       log('Estimated gas for sendERC20', gasEstimate);
     } catch (error) {
       console.error(error);
-      if (error.code === ethers.errors.UNPREDICTABLE_GAS_LIMIT) {
-        gasEstimate = BigNumber.from(1e6); // TODO: better estimate?
-      }
+      throw new Error('Error estimating gas', {
+        cause: error,
+      });
     }
 
     return gasEstimate;

@@ -50,7 +50,12 @@ export const pendingTransactions = {
         .then((receipt) => {
           // The transaction has been mined.
 
-          log('Transaction mined with receipt', receipt);
+          log(
+            'Transaction mined with receipt',
+            receipt,
+            'and status',
+            receipt.status,
+          );
 
           // Removes the transaction from the store
           update((txs: Transaction[]) => {

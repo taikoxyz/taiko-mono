@@ -38,16 +38,23 @@ export const checkIfTokenIsDeployedCrossChain = async (
         toChain,
       );
 
-      const bridgedTokenAddress =
-        await destTokenVaultContract.canonicalToBridged(
-          fromChain.id,
-          tokenAddressOnSourceChain.address,
-        );
+      try {
+        const bridgedTokenAddress =
+          await destTokenVaultContract.canonicalToBridged(
+            fromChain.id,
+            tokenAddressOnSourceChain.address,
+          );
 
-      log('Address of bridged token:', bridgedTokenAddress);
+        log('Address of bridged token:', bridgedTokenAddress);
 
-      if (bridgedTokenAddress !== ethers.constants.AddressZero) {
-        return true;
+        if (bridgedTokenAddress !== ethers.constants.AddressZero) {
+          return true;
+        }
+      } catch (error) {
+        console.error(error);
+        throw new Error('Error checking if token is deployed cross-chain', {
+          cause: error,
+        });
       }
     }
   }
