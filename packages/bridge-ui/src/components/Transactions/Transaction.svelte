@@ -13,11 +13,7 @@
 
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
   import { errorToast, successToast } from '../Toast.svelte';
-  import {
-    crossChainSyncABI,
-    bridgeABI,
-    tokenVaultABI,
-  } from '../../constants/abi';
+  import { bridgeABI, tokenVaultABI } from '../../constants/abi';
   import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
   import { chains } from '../../chain/chains';
   import { providers } from '../../provider/providers';
@@ -27,6 +23,7 @@
   import Button from '../buttons/Button.svelte';
   import { selectChain } from '../../utils/selectChain';
   import type { NoticeOpenArgs } from '../../domain/modal';
+  import { isTransactionProcessable } from '../../utils/isTransactionProcessable';
 
   export let transaction: BridgeTransaction;
 
@@ -45,7 +42,7 @@
   let alreadyInformedAboutClaim = false;
 
   onMount(async () => {
-    processable = await isProcessable();
+    processable = await isTransactionProcessable(transaction);
     interval = startInterval();
   });
 
@@ -170,64 +167,57 @@
     }
   }
 
-  // TODO: this could also live in an utility: isTransactionProcessable?
-  async function isProcessable() {
-    if (!transaction.receipt) return false;
-    if (!transaction.message) return false;
-    if (transaction.status !== MessageStatus.New) return true;
-
-    const contract = new Contract(
-      chains[transaction.toChainId].crossChainSyncAddress,
-      crossChainSyncABI,
-      providers[chains[transaction.toChainId].id],
-    );
-
-    const latestSyncedHeader = await contract.getCrossChainBlockHash(0);
-    const srcBlock = await providers[
-      chains[transaction.fromChainId].id
-    ].getBlock(latestSyncedHeader);
-
-    return transaction.receipt.blockNumber <= srcBlock.number;
-  }
-
   // TODO: web worker?
   function startInterval() {
     return setInterval(async () => {
-      processable = await isProcessable();
-      const contract = new ethers.Contract(
-        chains[transaction.toChainId].bridgeAddress,
+      processable = await isTransactionProcessable(transaction);
+
+      const { fromChainId, toChainId, receipt, msgHash } = transaction;
+
+      const srcChain = chains[fromChainId];
+      const srcProvider = providers[fromChainId];
+
+      const destChain = chains[toChainId];
+      const destProvider = providers[toChainId];
+
+      const destBridgeContract = new ethers.Contract(
+        destChain.bridgeAddress,
         bridgeABI,
-        providers[chains[transaction.toChainId].id],
+        destProvider,
       );
 
-      if (transaction.receipt && transaction.receipt.status !== 1) {
+      if (receipt && receipt.status !== 1) {
         clearInterval(interval);
         return;
       }
 
-      transaction.status = await contract.getMessageStatus(transaction.msgHash);
+      transaction.status = await destBridgeContract.getMessageStatus(msgHash);
 
       if (transaction.status === MessageStatus.Failed) {
         if (transaction.message?.data !== '0x') {
           const srcTokenVaultContract = new ethers.Contract(
-            tokenVaults[transaction.fromChainId],
+            tokenVaults[fromChainId],
             tokenVaultABI,
-            providers[chains[transaction.fromChainId].id],
+            srcProvider,
           );
+
           const { token, amount } = await srcTokenVaultContract.messageDeposits(
-            transaction.msgHash,
+            msgHash,
           );
+
           if (token === ethers.constants.AddressZero && amount.eq(0)) {
             transaction.status = MessageStatus.FailedReleased;
           }
         } else {
           const srcBridgeContract = new ethers.Contract(
-            chains[transaction.fromChainId].bridgeAddress,
+            srcChain.bridgeAddress,
             bridgeABI,
-            providers[chains[transaction.fromChainId].id],
+            srcProvider,
           );
+
           const isFailedMessageResolved =
-            await srcBridgeContract.isEtherReleased(transaction.msgHash);
+            await srcBridgeContract.isEtherReleased(msgHash);
+
           if (isFailedMessageResolved) {
             transaction.status = MessageStatus.FailedReleased;
           }
@@ -239,7 +229,7 @@
         )
       )
         clearInterval(interval);
-    }, 20 * 1000);
+    }, 20 * 1000); // TODO: magic number
   }
 </script>
 

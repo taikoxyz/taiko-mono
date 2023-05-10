@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import type { Signer, Transaction, ethers } from 'ethers';
+import { type Signer, type Transaction, ethers } from 'ethers';
 import type { BridgeTransaction } from '../domain/transactions';
 import { Deferred } from '../utils/Deferred';
 import { getLogger } from '../utils/logger';
@@ -65,6 +65,21 @@ export const pendingTransactions = {
           } else {
             deferred.reject(
               new Error('Transaction failed', { cause: receipt }),
+            );
+          }
+        })
+        .catch((error) => {
+          if (error?.code === ethers.errors.TIMEOUT) {
+            deferred.reject(
+              new Error('Timeout while waiting for transaction to be mined', {
+                cause: error,
+              }),
+            );
+          } else {
+            deferred.reject(
+              new Error('Transaction failed', {
+                cause: error,
+              }),
             );
           }
         });
