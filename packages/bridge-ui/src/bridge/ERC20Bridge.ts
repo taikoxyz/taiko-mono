@@ -8,7 +8,7 @@ import type {
   ReleaseOpts,
 } from '../domain/bridge';
 import { tokenVaultABI, erc20ABI, bridgeABI } from '../constants/abi';
-import type { GenerateProofOpts, Prover } from '../domain/proof';
+import type { Prover } from '../domain/proof';
 import { MessageStatus } from '../domain/message';
 import { chains } from '../chain/chains';
 import { getLogger } from '../utils/logger';
@@ -61,11 +61,31 @@ export class ERC20Bridge implements Bridge {
     amount: BigNumber,
     bridgeAddress: string,
   ): Promise<boolean> {
-    const contract: Contract = new Contract(tokenAddress, erc20ABI, signer);
+    const tokenContract: Contract = new Contract(
+      tokenAddress,
+      erc20ABI,
+      signer,
+    );
     const owner = await signer.getAddress();
-    const allowance: BigNumber = await contract.allowance(owner, bridgeAddress);
 
-    return allowance.lt(amount);
+    try {
+      log(
+        `Checking allowance for token "${tokenAddress}", owner "${owner}", spender "${bridgeAddress}"`,
+      );
+      const allowance: BigNumber = await tokenContract.allowance(
+        owner,
+        bridgeAddress,
+      );
+
+      const requiresAllowance = allowance.lt(amount);
+      log('Requires allowance?', requiresAllowance);
+
+      return requiresAllowance;
+    } catch (error) {
+      throw new Error(`Error getting allowance`, {
+        cause: error,
+      });
+    }
   }
 
   async RequiresAllowance(opts: ApproveOpts): Promise<boolean> {
@@ -78,15 +98,15 @@ export class ERC20Bridge implements Bridge {
   }
 
   async Approve(opts: ApproveOpts): Promise<Transaction> {
-    if (
-      !(await this.spenderRequiresAllowance(
-        opts.contractAddress,
-        opts.signer,
-        opts.amountInWei,
-        opts.spenderAddress,
-      ))
-    ) {
-      throw Error('token vault already has required allowance');
+    const requiresAllowance = await this.spenderRequiresAllowance(
+      opts.contractAddress,
+      opts.signer,
+      opts.amountInWei,
+      opts.spenderAddress,
+    );
+
+    if (!requiresAllowance) {
+      throw Error('Token vault already has required allowance');
     }
 
     const contract: Contract = new Contract(
@@ -95,8 +115,14 @@ export class ERC20Bridge implements Bridge {
       opts.signer,
     );
 
-    const tx = await contract.approve(opts.spenderAddress, opts.amountInWei);
-    return tx;
+    try {
+      const tx = await contract.approve(opts.spenderAddress, opts.amountInWei);
+      return tx;
+    } catch (error) {
+      throw new Error('Error approving', {
+        cause: error,
+      });
+    }
   }
 
   async Bridge(opts: BridgeOpts): Promise<Transaction> {

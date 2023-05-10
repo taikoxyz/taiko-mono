@@ -7,7 +7,6 @@
   import { WalletConnectConnector } from '@wagmi/core/connectors/walletConnect';
   import { MetaMaskConnector } from '@wagmi/core/connectors/metaMask';
 
-  import { setupI18n } from './i18n';
   import { transactions } from './store/transactions';
   import Navbar from './components/Navbar.svelte';
   import Toast, { successToast } from './components/Toast.svelte';
@@ -15,7 +14,6 @@
   import type { BridgeTransaction } from './domain/transactions';
   import { wagmiClient } from './store/wagmi';
 
-  setupI18n({ withLocale: 'en' });
   import SwitchEthereumChainModal from './components/modals/SwitchEthereumChainModal.svelte';
   import { ethers } from 'ethers';
   import { MessageStatus } from './domain/message';

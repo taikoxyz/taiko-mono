@@ -21,19 +21,31 @@ export async function getIsMintedWithEstimation(
     signer,
   );
 
-  const userHasAlreadyClaimed = await l1TokenContract.minters(address);
+  try {
+    const userHasAlreadyClaimed = await l1TokenContract.minters(address);
 
-  log(`Has user already claimed ${token.symbol}?`, userHasAlreadyClaimed);
+    log(`Has user already claimed ${token.symbol}?`, userHasAlreadyClaimed);
 
-  if (userHasAlreadyClaimed) {
-    return [true, null]; // already claimed, no gas cost is needed
+    if (userHasAlreadyClaimed) {
+      return [true, null]; // already claimed, no gas cost is needed
+    }
+  } catch (error) {
+    throw new Error(`Error getting minters for ${token.symbol}`, {
+      cause: error,
+    });
   }
 
-  const gas = await l1TokenContract.estimateGas.mint(address);
-  const gasPrice = await signer.getGasPrice();
-  const estimatedGas = BigNumber.from(gas).mul(gasPrice);
+  try {
+    const gas = await l1TokenContract.estimateGas.mint(address);
+    const gasPrice = await signer.getGasPrice();
+    const estimatedGas = BigNumber.from(gas).mul(gasPrice);
 
-  log(`Estimated gas to mint token ${token.symbol}`, estimatedGas);
+    log(`Estimated gas to mint token ${token.symbol}`, estimatedGas);
 
-  return [false, estimatedGas];
+    return [false, estimatedGas];
+  } catch (error) {
+    throw new Error(`Error estimating gas to mint token ${token.symbol}`, {
+      cause: error,
+    });
+  }
 }

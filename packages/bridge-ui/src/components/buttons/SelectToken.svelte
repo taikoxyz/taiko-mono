@@ -15,7 +15,6 @@
   import { ETHToken, tokens } from '../../token/tokens';
   import { errorToast, successToast } from '../Toast.svelte';
   import { tokenService } from '../../storage/services';
-  import { options } from 'sanitize-html';
 
   let dropdownElement: HTMLDivElement;
   let showAddressField = false;

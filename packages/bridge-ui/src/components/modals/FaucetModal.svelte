@@ -46,8 +46,8 @@
       } else {
         disabled = false;
       }
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      console.error(error);
       errorToast($_('toast.errorSendingTransaction'));
     }
   }
