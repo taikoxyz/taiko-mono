@@ -146,6 +146,7 @@ contract DeployOnL1 is Script {
                 )
             )
         );
+        setAddress("taiko", taikoL1Proxy);
         setAddress("proto_broker", taikoL1Proxy);
 
         // Bridge
