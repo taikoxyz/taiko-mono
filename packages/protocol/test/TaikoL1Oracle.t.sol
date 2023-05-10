@@ -47,6 +47,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         TaikoL1TestBase.setUp();
         registerAddress(L1.getVerifierName(100), address(new Verifier()));
         registerAddress("oracle_prover", Alice);
+        registerAddress("system_prover", Alice);
     }
 
     function testOracleProverWithSignature() external {
@@ -102,6 +103,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     function testOracleProverCanAlwaysOverwriteIfNotSameProof() external {
         // Carol is the oracle prover
         registerAddress("oracle_prover", Carol);
+        registerAddress("system_prover", Carol);
 
         depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
         depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
@@ -344,6 +346,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         external
     {
         registerAddress("oracle_prover", address(0));
+        registerAddress("system_prover", address(0));
 
         depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
         depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
