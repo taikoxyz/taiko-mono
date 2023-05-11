@@ -22,6 +22,7 @@ abstract contract AddressResolver {
 
     error RESOLVER_DENIED();
     error RESOLVER_INVALID_ADDR();
+    error RESOLVER_ZERO_ADDR(uint256 chainId, bytes32 name);
 
     modifier onlyFromNamed(bytes32 name) {
         if (msg.sender != resolve(name, false)) revert RESOLVER_DENIED();
@@ -81,13 +82,7 @@ abstract contract AddressResolver {
     ) private view returns (address payable addr) {
         addr = payable(_addressManager.getAddress(chainId, name));
 
-        if (!allowZeroAddress) {
-            // We do not use custom error so this string-based
-            // error message is more helpful for diagnosis.
-            require(
-                addr != address(0),
-                string(abi.encode("AR:zeroAddr:", chainId, ".", name))
-            );
-        }
+        if (!allowZeroAddress && addr == address(0))
+            revert RESOLVER_ZERO_ADDR(chainId, name);
     }
 }
