@@ -74,13 +74,13 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32 signalRoot = bytes32(1E9 + blockId);
             proveBlock(
                 Bob,
+                Bob,
                 meta,
                 parentHash,
                 parentGasUsed,
                 gasUsed,
                 blockHash,
-                signalRoot,
-                false
+                signalRoot
             );
 
             verifyBlock(Carol, 1);
@@ -112,13 +112,13 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32 signalRoot = bytes32(1E9 + blockId);
             proveBlock(
                 Alice,
+                Alice,
                 meta,
                 parentHash,
                 parentGasUsed,
                 gasUsed,
                 blockHash,
-                signalRoot,
-                false
+                signalRoot
             );
             verifyBlock(Alice, 2);
             parentHash = blockHash;
@@ -152,13 +152,13 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32 signalRoot = bytes32(1E9 + blockId);
             proveBlock(
                 Alice,
+                Alice,
                 meta,
                 parentHash,
                 parentGasUsed,
                 gasUsed,
                 blockHash,
-                signalRoot,
-                false
+                signalRoot
             );
             parentHash = blockHash;
             parentGasUsed = gasUsed;
@@ -267,13 +267,13 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             proveBlock(
                 Bob,
+                Bob,
                 meta,
                 parentHashes[blockId - 1],
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot,
-                false
+                signalRoot
             );
             verifyBlock(Carol, 1);
 

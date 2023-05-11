@@ -309,13 +309,13 @@ contract TaikoL1Simulation is TaikoL1TestBase {
 
                     proveBlock(
                         Bob,
+                        Bob,
                         metas[blockId],
                         parentHashes[blockId],
                         parentGasUsed[blockId],
                         gasUsed[blockId],
                         blockHashes[blockId],
-                        signalRoots[blockId],
-                        false
+                        signalRoots[blockId]
                     );
                 }
             }
@@ -553,13 +553,13 @@ contract TaikoL1Simulation is TaikoL1TestBase {
 
                     proveBlock(
                         Bob,
+                        Bob,
                         metas[blockId],
                         parentHashes[blockId],
                         parentGasUsed[blockId],
                         gasUsed[blockId],
                         blockHashes[blockId],
-                        signalRoots[blockId],
-                        false
+                        signalRoots[blockId]
                     );
                 }
             }
@@ -802,13 +802,13 @@ contract TaikoL1Simulation is TaikoL1TestBase {
 
                     proveBlock(
                         Bob,
+                        Bob,
                         metas[blockId],
                         parentHashes[blockId],
                         parentGasUsed[blockId],
                         gasUsed[blockId],
                         blockHashes[blockId],
-                        signalRoots[blockId],
-                        false
+                        signalRoots[blockId]
                     );
                 }
             }
