@@ -2954,6 +2954,7 @@ packages:
       - bufferutil
       - debug
       - utf-8-validate
+    dev: false
 
   /@json-rpc-tools/provider@1.7.6(debug@4.3.4):
     resolution: {integrity: sha512-z7D3xvJ33UfCGv77n40lbzOYjZKVM3k2+5cV7xS8G6SCvKTzMkhkUYuD/qzQUNT4cG/lv0e9mRToweEEVLVVmA==}
@@ -2967,7 +2968,6 @@ packages:
       - bufferutil
       - debug
       - utf-8-validate
-    dev: false
 
   /@json-rpc-tools/types@1.7.6:
     resolution: {integrity: sha512-nDSqmyRNEqEK9TZHtM15uNnDljczhCUdBmRhpNZ95bIPKEDQ+nTDmGMFd2lLin3upc5h2VVVd9tkTDdbXUhDIQ==}
@@ -5082,7 +5082,7 @@ packages:
         optional: true
     dependencies:
       '@wagmi/chains': 0.2.22(typescript@4.9.3)
-      '@wagmi/core': 0.8.4(@coinbase/wallet-sdk@3.6.3)(ethers@5.7.2)(typescript@4.9.3)
+      '@wagmi/core': 0.8.4(@coinbase/wallet-sdk@3.6.3)(debug@4.3.4)(ethers@5.7.2)(typescript@4.9.3)
       abitype: 0.8.1(typescript@4.9.3)(zod@3.21.4)
       abort-controller: 3.0.0
       bundle-require: 3.1.2(esbuild@0.15.13)
@@ -5135,7 +5135,6 @@ packages:
       - supports-color
       - typescript
       - utf-8-validate
-    dev: false
 
   /@wagmi/connectors@0.1.1(@wagmi/core@0.8.4)(ethers@5.7.2)(typescript@4.9.3):
     resolution: {integrity: sha512-W9w73o9HCYzuBsDHuujwBT/nGGIu5qLBSqVqslXf/S1Q9OiWoudmuIs3opuYqxgw5MpWbMqhq6QaxA7Qcd6NrA==}
@@ -5161,6 +5160,7 @@ packages:
       - supports-color
       - typescript
       - utf-8-validate
+    dev: false
 
   /@wagmi/connectors@0.1.1(@wagmi/core@0.8.4)(ethers@5.7.2)(typescript@4.9.5):
     resolution: {integrity: sha512-W9w73o9HCYzuBsDHuujwBT/nGGIu5qLBSqVqslXf/S1Q9OiWoudmuIs3opuYqxgw5MpWbMqhq6QaxA7Qcd6NrA==}
@@ -5218,7 +5218,6 @@ packages:
       - typescript
       - utf-8-validate
       - zod
-    dev: false
 
   /@wagmi/core@0.8.4(@coinbase/wallet-sdk@3.6.3)(ethers@5.7.2)(typescript@4.9.3):
     resolution: {integrity: sha512-orFRGOei+ixH8fIU9DitjKFSnv7sEv4j0A32gin2aADLuyBsAqG7xD+5LzfVD8EarHzU98Mk9d4hmmIkMg8bXw==}
@@ -5250,6 +5249,7 @@ packages:
       - typescript
       - utf-8-validate
       - zod
+    dev: false
 
   /@wagmi/core@0.8.4(@coinbase/wallet-sdk@3.6.3)(ethers@5.7.2)(typescript@4.9.5):
     resolution: {integrity: sha512-orFRGOei+ixH8fIU9DitjKFSnv7sEv4j0A32gin2aADLuyBsAqG7xD+5LzfVD8EarHzU98Mk9d4hmmIkMg8bXw==}
@@ -5352,6 +5352,7 @@ packages:
       - debug
       - encoding
       - utf-8-validate
+    dev: false
 
   /@walletconnect/ethereum-provider@1.8.0(debug@4.3.4):
     resolution: {integrity: sha512-Nq9m+oo5P0F+njsROHw9KMWdoc/8iGHYzQdkjJN/1C7DtsqFRg5k5a3hd9rzCLpbPsOC1q8Z5lRs6JQgDvPm6Q==}
@@ -5369,7 +5370,6 @@ packages:
       - debug
       - encoding
       - utf-8-validate
-    dev: false
 
   /@walletconnect/iso-crypto@1.8.0:
     resolution: {integrity: sha512-pWy19KCyitpfXb70hA73r9FcvklS+FvO9QUIttp3c2mfW8frxgYeRXfxLRCIQTkaYueRKvdqPjbyhPLam508XQ==}
@@ -6333,14 +6333,14 @@ packages:
       follow-redirects: 1.15.2
     transitivePeerDependencies:
       - debug
+    dev: false
 
   /axios@0.21.4(debug@4.3.4):
     resolution: {integrity: sha512-ut5vewkiu8jjGBdqpM44XxjuCjq9LAKeHVmoVfHVzy8eHgxxq8SbAVQNovDA8mVi05kP0Ea/n/UzcSHcTJQfNg==}
     dependencies:
-      follow-redirects: 1.15.2(debug@4.3.4)
+      follow-redirects: 1.15.2
     transitivePeerDependencies:
       - debug
-    dev: false
 
   /axios@1.2.0:
     resolution: {integrity: sha512-zT7wZyNYu3N5Bu0wuZ6QccIf93Qk1eV8LOewxgjOZFd2DenOs98cJ7+Y6703d0wkaXGY6/nZd4EweJaHz9uzQw==}
@@ -6355,7 +6355,7 @@ packages:
   /axios@1.2.0(debug@4.3.4):
     resolution: {integrity: sha512-zT7wZyNYu3N5Bu0wuZ6QccIf93Qk1eV8LOewxgjOZFd2DenOs98cJ7+Y6703d0wkaXGY6/nZd4EweJaHz9uzQw==}
     dependencies:
-      follow-redirects: 1.15.2(debug@4.3.4)
+      follow-redirects: 1.15.2
       form-data: 4.0.0
       proxy-from-env: 1.1.0
     transitivePeerDependencies:
@@ -9225,6 +9225,7 @@ packages:
       - bufferutil
       - debug
       - utf-8-validate
+    dev: false
 
   /eip1193-provider@1.0.1(debug@4.3.4):
     resolution: {integrity: sha512-kSuqwQ26d7CzuS/t3yRXo2Su2cVH0QfvyKbr2H7Be7O5YDyIq4hQGCNTo5wRdP07bt+E2R/8nPCzey4ojBHf7g==}
@@ -9234,7 +9235,6 @@ packages:
       - bufferutil
       - debug
       - utf-8-validate
-    dev: false
 
   /electron-to-chromium@1.4.284:
     resolution: {integrity: sha512-M8WEXFuKXMYMVr45fo8mq0wUrrJHheiKZf6BArTKk9ZBYCKJEOU5H8cdWgDT+qCVZf7Na4lVUaZsA+h6uA9+PA==}
@@ -11281,18 +11281,6 @@ packages:
     peerDependenciesMeta:
       debug:
         optional: true
-
-  /follow-redirects@1.15.2(debug@4.3.4):
-    resolution: {integrity: sha512-VQLG33o04KaQ8uYi2tVNbdrWp1QWxNNea+nmIB4EVM28v0hmP17z7aG1+wAkNzVq4KeXTq3221ye5qTJP91JwA==}
-    engines: {node: '>=4.0'}
-    peerDependencies:
-      debug: '*'
-    peerDependenciesMeta:
-      debug:
-        optional: true
-    dependencies:
-      debug: 4.3.4
-    dev: false
 
   /for-each@0.3.3:
     resolution: {integrity: sha512-jqYfLp7mo9vIyQf8ykW2v7A+2N4QjeCeI5+Dz9XraiO1ign81wjiH7Fb9vSOWvQfNtmSa4H2RoQTrrXivdUZmw==}
