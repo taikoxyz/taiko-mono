@@ -24,7 +24,7 @@ export async function getIsMintedWithEstimation(
   try {
     const userHasAlreadyClaimed = await l1TokenContract.minters(address);
 
-    log(`Has user already claimed ${token.symbol}?`, userHasAlreadyClaimed);
+    log(`Has user already claimed ${token.symbol}? ${userHasAlreadyClaimed}`);
 
     if (userHasAlreadyClaimed) {
       return [true, null]; // already claimed, no gas cost is needed
@@ -40,7 +40,7 @@ export async function getIsMintedWithEstimation(
     const gasPrice = await signer.getGasPrice();
     const estimatedGas = BigNumber.from(gas).mul(gasPrice);
 
-    log(`Estimated gas to mint token ${token.symbol}`, estimatedGas);
+    log(`Estimated gas to mint token ${token.symbol}`, estimatedGas.toString());
 
     return [false, estimatedGas];
   } catch (error) {

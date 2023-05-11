@@ -6,6 +6,9 @@ import { chains } from '../chain/chains';
 import { tokenVaults } from '../vault/tokenVaults';
 import type { Address, ChainID } from '../domain/chain';
 import { jsonParseOrEmptyArray } from '../utils/jsonParseOrEmptyArray';
+import { getLogger } from '../utils/logger';
+
+const log = getLogger('StorageService');
 
 const STORAGE_PREFIX = 'transactions';
 
@@ -118,10 +121,15 @@ export class StorageService implements Transactioner {
   async getAllByAddress(address: string): Promise<BridgeTransaction[]> {
     const txs = this._getTransactionsFromStorage(address);
 
+    log('Transactions from storage', txs);
+    log('Getting details for each transaction from blockchain...');
+
     const txsPromises = txs.map(async (tx) => {
       if (tx.from.toLowerCase() !== address.toLowerCase()) return;
 
-      const { toChainId, fromChainId, hash } = tx;
+      const bridgeTx: BridgeTransaction = { ...tx }; // prevents mutation of tx
+
+      const { toChainId, fromChainId, hash } = bridgeTx;
 
       const destProvider = this.providers[toChainId];
       const srcProvider = this.providers[fromChainId];
@@ -134,10 +142,10 @@ export class StorageService implements Transactioner {
       const receipt = await srcProvider.getTransactionReceipt(hash);
 
       if (!receipt) {
-        return tx;
+        return bridgeTx;
       }
 
-      tx.receipt = receipt;
+      bridgeTx.receipt = receipt;
 
       // TODO: should we dependency-inject the chains?
       const srcBridgeAddress = chains[fromChainId].bridgeAddress;
@@ -152,15 +160,15 @@ export class StorageService implements Transactioner {
 
       if (!messageSentEvent) {
         // No message yet, so we can't get more info from this transaction
-        return tx;
+        return bridgeTx;
       }
 
       const { msgHash, message } = messageSentEvent.args;
 
       // Let's add this new info to the transaction in case something else
       // fails, such as the filter for ERC20Sent events
-      tx.msgHash = msgHash;
-      tx.message = message;
+      bridgeTx.msgHash = msgHash;
+      bridgeTx.message = message;
 
       const destBridgeAddress = chains[toChainId].bridgeAddress;
 
@@ -171,7 +179,7 @@ export class StorageService implements Transactioner {
         msgHash,
       );
 
-      tx.status = status;
+      bridgeTx.status = status;
 
       let amountInWei: BigNumber;
       let symbol: string;
@@ -192,7 +200,7 @@ export class StorageService implements Transactioner {
         );
 
         if (!erc20Event) {
-          return tx;
+          return bridgeTx;
         }
 
         [symbol, amountInWei] = await StorageService._getERC20SymbolAndAmount(
@@ -202,12 +210,10 @@ export class StorageService implements Transactioner {
         );
       }
 
-      return {
-        ...tx,
-        // Add the rest of the info
-        amountInWei,
-        symbol,
-      } as BridgeTransaction;
+      bridgeTx.amountInWei = amountInWei;
+      bridgeTx.symbol = symbol;
+
+      return bridgeTx;
     });
 
     const bridgeTxs: BridgeTransaction[] = (
@@ -216,6 +222,9 @@ export class StorageService implements Transactioner {
 
     // Place new transactions at the top of the list
     bridgeTxs.sort((tx) => (tx.status === MessageStatus.New ? -1 : 1));
+
+    // Spreading to preserve original txs in case of array mutation
+    log('Enhanced transactions', [...bridgeTxs]);
 
     return bridgeTxs;
   }
@@ -227,6 +236,9 @@ export class StorageService implements Transactioner {
     const txs = this._getTransactionsFromStorage(address);
 
     const tx: BridgeTransaction = txs.find((tx) => tx.hash === hash);
+
+    // Spreading to preserve original tx
+    log('Transaction from storage', { ...tx });
 
     if (!tx || tx.from.toLowerCase() !== address.toLowerCase()) return;
 
@@ -305,14 +317,19 @@ export class StorageService implements Transactioner {
       );
     }
 
-    return {
+    const bridgeTx = {
       ...tx,
       amountInWei,
       symbol,
     } as BridgeTransaction;
+
+    log('Enhanced transaction', bridgeTx);
+
+    return bridgeTx;
   }
 
   updateStorageByAddress(address: string, txs: BridgeTransaction[] = []) {
+    log('Updating storage with transactions', txs);
     this.storage.setItem(
       `${STORAGE_PREFIX}-${address.toLowerCase()}`,
       JSON.stringify(txs),

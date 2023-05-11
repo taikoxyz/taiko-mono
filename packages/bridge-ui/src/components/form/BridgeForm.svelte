@@ -119,9 +119,7 @@
 
     const address = await addressForToken();
 
-    log(
-      `Checking allowance for token ${token.symbol} in address "${address}" and amount ${amount}`,
-    );
+    log(`Checking allowance for token ${token.symbol}`);
 
     const allowance = await $activeBridge.RequiresAllowance({
       amountInWei: ethers.utils.parseUnits(amount, token.decimals),
@@ -180,9 +178,7 @@
       const contractAddress = await addressForToken();
       const spenderAddress = tokenVaults[$fromChain.id];
 
-      log(
-        `Approving token ${$token.symbol} in address ${contractAddress} for spender ${spenderAddress}`,
-      );
+      log(`Approving token ${$token.symbol}`);
 
       const tx = await $activeBridge.Approve({
         amountInWei: ethers.utils.parseUnits(amount, $token.decimals),
@@ -191,15 +187,13 @@
         spenderAddress,
       });
 
-      log('Approve transaction:', tx);
-
       successToast($_('toast.transactionSent'));
 
       await pendingTransactions.add(tx, $signer);
 
       requiresAllowance = false;
 
-      successToast('toast.transactionCompleted');
+      successToast($_('toast.transactionCompleted'));
     } catch (e) {
       console.error(e);
       // TODO: if we have TransactionReceipt here means the tx failed
@@ -302,7 +296,7 @@
         return;
       }
 
-      log('Getting ready to bridge. Options:', bridgeOpts);
+      log('Getting ready to bridge with options', bridgeOpts);
 
       const tx = await $activeBridge.Bridge(bridgeOpts);
 
@@ -316,8 +310,12 @@
 
       const userAddress = await $signer.getAddress();
 
+      log('Storing transaction in local storage...');
+
       let transactions: BridgeTransaction[] =
         await storageService.getAllByAddress(userAddress);
+
+      log('Preparing transaction for storage...');
 
       let bridgeTransaction: BridgeTransaction = {
         fromChainId: $fromChain.id,
@@ -328,6 +326,8 @@
         hash: tx.hash,
         status: MessageStatus.New,
       };
+
+      log('Transaction ready to be included in storage', bridgeTransaction);
 
       if (!transactions) {
         transactions = [bridgeTransaction];
@@ -345,7 +345,11 @@
         tx.hash,
       );
 
+      log('Transaction to be appended in the store', bridgeTransaction);
+
       transactionsStore.set([bridgeTransaction, ...allTransactions]);
+
+      log('All transactions in store', $transactionsStore);
 
       memo = '';
 

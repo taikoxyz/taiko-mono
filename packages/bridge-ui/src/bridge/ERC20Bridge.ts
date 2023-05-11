@@ -70,7 +70,7 @@ export class ERC20Bridge implements Bridge {
 
     try {
       log(
-        `Checking allowance for token "${tokenAddress}", owner "${owner}", spender "${bridgeAddress}"`,
+        `Allowance of amount ${amount} tokens for spender "${bridgeAddress}"`,
       );
       const allowance: BigNumber = await tokenContract.allowance(
         owner,
@@ -78,7 +78,7 @@ export class ERC20Bridge implements Bridge {
       );
 
       const requiresAllowance = allowance.lt(amount);
-      log('Requires allowance?', requiresAllowance);
+      log(`Requires allowance? ${requiresAllowance}`);
 
       return requiresAllowance;
     } catch (error) {
@@ -116,9 +116,17 @@ export class ERC20Bridge implements Bridge {
     );
 
     try {
+      log(
+        `Approving ${opts.amountInWei} tokens for spender "${opts.spenderAddress}"`,
+      );
+
       const tx = await contract.approve(opts.spenderAddress, opts.amountInWei);
+
+      log('Approved with transaction', tx);
+
       return tx;
     } catch (error) {
+      console.error(error);
       throw new Error('Error approving', {
         cause: error,
       });

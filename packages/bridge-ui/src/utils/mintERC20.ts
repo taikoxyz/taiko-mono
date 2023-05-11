@@ -24,10 +24,18 @@ export async function mintERC20(
     signer,
   );
 
-  const address = await signer.getAddress();
-  const tx = await l1TokenContract.mint(address);
+  try {
+    const address = await signer.getAddress();
 
-  log(`Minting transaction for ${token.symbol}`, tx);
+    log(`Minting ${token.symbol} for account "${address}"`);
 
-  return tx;
+    const tx = await l1TokenContract.mint(address);
+
+    log(`Minting transaction for ${token.symbol}`, tx);
+
+    return tx;
+  } catch (error) {
+    console.error(error);
+    throw new Error(`Error minting ${token.symbol}`, { cause: error });
+  }
 }
