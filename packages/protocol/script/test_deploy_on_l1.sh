@@ -19,4 +19,4 @@ forge script script/DeployOnL1.s.sol:DeployOnL1 \
     --broadcast \
     --ffi \
     -vvvv \
-    --via-ir \
+    --block-gas-limit 100000000
