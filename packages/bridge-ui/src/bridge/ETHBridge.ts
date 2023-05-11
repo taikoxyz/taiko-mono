@@ -127,7 +127,7 @@ export class ETHBridge implements Bridge {
       opts.msgHash,
     );
 
-    log('Claiming message with status', messageStatus);
+    log(`Claiming message with status ${messageStatus}`);
 
     if (messageStatus === MessageStatus.Done) {
       throw Error('Message already processed');
@@ -172,7 +172,7 @@ export class ETHBridge implements Bridge {
         if (error.code === ethers.errors.UNPREDICTABLE_GAS_LIMIT) {
           const gasLimit = 1e6;
 
-          log(`Unpredictable gas limit. We try with ${gasLimit} gasLimit`);
+          log(`Unpredictable gas limit. We try now with ${gasLimit} gasLimit`);
 
           processMessageTx = await contract.processMessage(
             opts.message,

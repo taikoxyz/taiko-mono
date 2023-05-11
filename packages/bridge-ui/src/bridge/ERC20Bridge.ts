@@ -217,7 +217,7 @@ export class ERC20Bridge implements Bridge {
       opts.msgHash,
     );
 
-    log('Claiming message with status', messageStatus);
+    log(`Claiming message with status ${messageStatus}`);
 
     if (
       messageStatus === MessageStatus.Done ||

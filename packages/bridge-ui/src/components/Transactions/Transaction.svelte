@@ -3,7 +3,7 @@
   import type { BridgeTransaction } from '../../domain/transactions';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
   import { MessageStatus } from '../../domain/message';
-  import { Contract, ethers } from 'ethers';
+  import { ethers } from 'ethers';
   import { signer } from '../../store/signer';
   import { pendingTransactions } from '../../store/transactions';
   import { _ } from 'svelte-i18n';
@@ -24,6 +24,9 @@
   import { selectChain } from '../../utils/selectChain';
   import type { NoticeOpenArgs } from '../../domain/modal';
   import { isTransactionProcessable } from '../../utils/isTransactionProcessable';
+  import { getLogger } from '../../utils/logger';
+
+  const log = getLogger('component:Transaction');
 
   export let transaction: BridgeTransaction;
 
@@ -87,7 +90,8 @@
         return;
       }
 
-      // For now just handling this case for when the user has near 0 balance during their first bridge transaction to L2
+      // For now just handling this case for when the user has near 0 balance
+      // during their first bridge transaction to L2
       // TODO: estimate Claim transaction
       const userBalance = await $signer.getBalance('latest');
       if (!userBalance.gt(ethers.utils.parseEther('0.0001'))) {
@@ -95,11 +99,13 @@
         return;
       }
 
-      const tx = await bridges[
-        bridgeTx.message?.data === '0x' || !bridgeTx.message?.data
-          ? BridgeType.ETH
-          : BridgeType.ERC20
-      ].Claim({
+      const isEth = bridgeTx.message?.data === '0x' || !bridgeTx.message?.data;
+      const bridgeType = isEth ? BridgeType.ETH : BridgeType.ERC20;
+      const bridge = bridges[bridgeType];
+
+      log(`Claiming ${bridgeType} for transaction`, bridgeTx);
+
+      const tx = await bridge.Claim({
         signer: $signer,
         message: bridgeTx.message,
         msgHash: bridgeTx.msgHash,
