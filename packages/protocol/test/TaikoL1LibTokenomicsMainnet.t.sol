@@ -109,13 +109,13 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase {
                 //Start proving with an offset
                 proveBlock(
                     Bob,
+                    Bob,
                     meta[blockId - proofTime],
                     parentHashes[blockId - proofTime],
                     (blockId - proofTime == 1) ? 0 : 1000000, // Genesis block has 0 gas used
                     1000000,
                     blockHashes[blockId - proofTime],
-                    signalRoots[blockId - proofTime],
-                    false
+                    signalRoots[blockId - proofTime]
                 );
 
                 uint64 provenAt = uint64(block.timestamp);
@@ -178,13 +178,13 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase {
                     //Start proving with an offset
                     proveBlock(
                         Bob,
+                        Bob,
                         meta[blockId - proofTime],
                         parentHashes[blockId - proofTime],
                         (blockId - proofTime == 1) ? 0 : 1000000,
                         1000000,
                         blockHashes[blockId - proofTime],
-                        signalRoots[blockId - proofTime],
-                        false
+                        signalRoots[blockId - proofTime]
                     );
 
                     uint64 provenAt = uint64(block.timestamp);
@@ -251,13 +251,13 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase {
                 //Start proving with an offset
                 proveBlock(
                     Bob,
+                    Bob,
                     meta[blockId - proofTime],
                     parentHashes[blockId - proofTime],
                     (blockId - proofTime == 1) ? 0 : 1000000,
                     1000000,
                     blockHashes[blockId - proofTime],
-                    signalRoots[blockId - proofTime],
-                    false
+                    signalRoots[blockId - proofTime]
                 );
 
                 uint64 provenAt = uint64(block.timestamp);

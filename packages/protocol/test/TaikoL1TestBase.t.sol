@@ -71,6 +71,7 @@ abstract contract TaikoL1TestBase is Test {
         registerL2Address("signal_service", address(L2SS));
         registerL2Address("taiko_l2", address(TaikoL2));
         registerAddress(L1.getVerifierName(100), address(new Verifier()));
+        registerAddress(L1.getVerifierName(0), address(new Verifier()));
 
         tko = new TaikoToken();
         registerAddress("taiko_token", address(tko));
@@ -139,14 +140,14 @@ abstract contract TaikoL1TestBase is Test {
     }
 
     function proveBlock(
+        address msgSender,
         address prover,
         TaikoData.BlockMetadata memory meta,
         bytes32 parentHash,
         uint32 parentGasUsed,
         uint32 gasUsed,
         bytes32 blockHash,
-        bytes32 signalRoot,
-        bool oracle
+        bytes32 signalRoot
     ) internal {
         TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
             metaHash: LibUtils.hashMetadata(meta),
@@ -154,14 +155,14 @@ abstract contract TaikoL1TestBase is Test {
             blockHash: blockHash,
             signalRoot: signalRoot,
             graffiti: 0x0,
-            prover: oracle ? address(0) : prover,
+            prover: prover,
             parentGasUsed: parentGasUsed,
             gasUsed: gasUsed,
             verifierId: 100,
             proof: new bytes(100)
         });
 
-        vm.prank(prover, prover);
+        vm.prank(msgSender, msgSender);
         L1.proveBlock(meta.id, abi.encode(evidence));
     }
 

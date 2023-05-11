@@ -49,11 +49,12 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
      * External Functions*
      *********************/
 
-    /// Allow Bridge to receive ETH from the TokenVault or EtherVault.
+    /// Allow Bridge to receive ETH from the TaikoL1, TokenVault or EtherVault.
     receive() external payable {
         if (
             msg.sender != resolve("token_vault", true) &&
             msg.sender != resolve("ether_vault", true) &&
+            msg.sender != resolve("taiko", true) &&
             msg.sender != owner()
         ) {
             revert B_CANNOT_RECEIVE();
