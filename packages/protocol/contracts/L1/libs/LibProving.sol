@@ -7,11 +7,13 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
+import {LibMath} from "../../libs/LibMath.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 
 library LibProving {
+    using LibMath for uint256;
     using LibUtils for TaikoData.State;
 
     event BlockProven(
@@ -163,7 +165,9 @@ library LibProving {
         fc.prover = evidence.prover;
 
         if (evidence.prover == address(1)) {
-            fc.provenAt = uint64(blk.proposedAt + config.proofTimeTarget);
+            fc.provenAt = uint64(
+                block.timestamp.max(blk.proposedAt + config.proofTimeTarget)
+            );
         } else {
             fc.provenAt = uint64(block.timestamp);
         }
