@@ -7,11 +7,13 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
+import {LibMath} from "../../libs/LibMath.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 
 library LibProving {
+    using LibMath for uint256;
     using LibUtils for TaikoData.State;
 
     event BlockProven(
@@ -160,8 +162,15 @@ library LibProving {
         fc.blockHash = evidence.blockHash;
         fc.signalRoot = evidence.signalRoot;
         fc.gasUsed = evidence.gasUsed;
-        fc.provenAt = uint64(block.timestamp);
         fc.prover = evidence.prover;
+
+        if (evidence.prover == address(1)) {
+            fc.provenAt = uint64(
+                block.timestamp.max(blk.proposedAt + config.proofTimeTarget)
+            );
+        } else {
+            fc.provenAt = uint64(block.timestamp);
+        }
 
         if (evidence.prover != address(0) && evidence.prover != address(1)) {
             uint256[9] memory inputs;
