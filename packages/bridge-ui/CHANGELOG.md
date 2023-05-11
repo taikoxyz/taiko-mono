@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.6.0...bridge-ui-v0.7.0) (2023-05-11)
+
+
+### Features
+
+* **protocol:** major protocol upgrade for alpha-3 testnet ([#13640](https://github.com/taikoxyz/taiko-mono/issues/13640)) ([02552f2](https://github.com/taikoxyz/taiko-mono/commit/02552f2aa001893d326062ce627004c61b46cd26))
+
+
+### Bug Fixes
+
+* **bridge-ui:** update abis ([#13705](https://github.com/taikoxyz/taiko-mono/issues/13705)) ([d3d4e69](https://github.com/taikoxyz/taiko-mono/commit/d3d4e693176b8df1dcdd7321c30d66222121a05b))
+
 ## [0.6.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.5.0...bridge-ui-v0.6.0) (2023-04-27)
 
 
