@@ -24,6 +24,9 @@
   import { mainnetChain, taikoChain } from '../../chain/chains';
   import { errorToast, successToast } from '../Toast.svelte';
   import { storageService } from '../../storage/services';
+  import { getLogger } from '../../utils/logger';
+
+  const log = getLogger('component:Connect');
 
   export let isConnectWalletModalOpen = false;
 
@@ -51,12 +54,14 @@
 
     changeChain(chain.id);
 
+    // TODO: big NO!
     watchNetwork((network) => {
       if (network.chain?.id) {
         changeChain(network.chain.id);
       }
     });
 
+    // TODO: NOT HERE!!
     watchAccount(async () => {
       const wagmiSigner = await setSigner();
       if (wagmiSigner) {
@@ -75,7 +80,9 @@
         !$wagmiClient.connector ||
         $wagmiClient.connector.id !== connector.id
       ) {
-        await wagmiConnect({ connector });
+        log('Connecting with connector', connector.name);
+        const result = await wagmiConnect({ connector });
+        log('Connected with result', result);
       }
       await onConnect();
       successToast('Connected');

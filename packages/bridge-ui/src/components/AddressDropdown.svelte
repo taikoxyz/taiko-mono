@@ -39,6 +39,12 @@
   $: setAddress($signer).catch((e) => console.error(e));
 
   async function setAddress(signer: Signer) {
+    if (!signer) {
+      address = '';
+      addressAvatarImgData = '';
+      return;
+    }
+
     address = await signer.getAddress();
     addressAvatarImgData = getAddressAvatarFromIdenticon(address);
   }

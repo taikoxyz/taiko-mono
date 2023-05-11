@@ -50,12 +50,7 @@ export const pendingTransactions = {
         .then((receipt) => {
           // The transaction has been mined.
 
-          log(
-            'Transaction mined with receipt',
-            receipt,
-            'and status',
-            receipt.status,
-          );
+          log('Transaction mined with receipt', receipt);
 
           // Removes the transaction from the store
           update((txs: Transaction[]) => {
@@ -66,6 +61,7 @@ export const pendingTransactions = {
 
           // Resolves or rejects the promise depending on the transaction status.
           if (receipt.status === 1) {
+            log('Transaction successful');
             deferred.resolve(receipt);
           } else {
             deferred.reject(
