@@ -124,7 +124,7 @@ library LibVerifying {
                 blk: blk,
                 fcId: uint24(fcId),
                 fc: fc,
-                systemProofRewardRecipient: blk.proposer
+                proposer: blk.proposer
             });
 
             unchecked {
@@ -159,7 +159,7 @@ library LibVerifying {
         TaikoData.Block storage blk,
         TaikoData.ForkChoice storage fc,
         uint24 fcId,
-        address systemProofRewardRecipient
+        address proposer
     ) private {
         uint64 proofTime;
         unchecked {
@@ -178,9 +178,7 @@ library LibVerifying {
 
         // reward the prover
         if (reward != 0) {
-            address prover = fc.prover != address(1)
-                ? fc.prover
-                : systemProofRewardRecipient;
+            address prover = fc.prover != address(1) ? fc.prover : proposer;
 
             // systemProver may become address(0) after a block is proven
             if (state.taikoTokenBalances[prover] == 0) {
