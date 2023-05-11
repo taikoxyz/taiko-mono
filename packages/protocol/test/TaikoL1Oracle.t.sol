@@ -569,7 +569,11 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             if (realproof != 0)
                 assertEq(lastVerifiedBlockIdNow, lastVerifiedBlockId);
 
-            vm.warp(block.timestamp + conf.systemProofCooldownPeriod);
+            vm.warp(
+                block.timestamp +
+                    conf.proofTimeTarget +
+                    conf.systemProofCooldownPeriod
+            );
             verifyBlock(Carol, 1);
 
             lastVerifiedBlockIdNow = L1.getStateVariables().lastVerifiedBlockId;
