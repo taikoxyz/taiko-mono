@@ -11,7 +11,16 @@ const log = getLogger('util:selectChain');
 export async function selectChain(chain: Chain) {
   const chainId = chain.id;
 
-  await switchNetwork({ chainId });
+  log('Selecting chain', chain);
+
+  try {
+    await switchNetwork({ chainId });
+  } catch (error) {
+    console.error(error);
+    throw new Error('Failed to switch network', { cause: error });
+  }
+
+  log('Chain successfully switched');
 
   const provider = new ethers.providers.Web3Provider(
     globalThis.ethereum,
@@ -21,7 +30,7 @@ export async function selectChain(chain: Chain) {
   // Requires requesting permission to connect users accounts
   const accounts = await provider.send('eth_requestAccounts', []);
 
-  log('accounts', accounts);
+  log('Accounts', accounts);
 
   fromChain.set(chain);
   if (chain.id === mainnetChain.id) {
@@ -32,7 +41,7 @@ export async function selectChain(chain: Chain) {
 
   const _signer = provider.getSigner();
 
-  log('signer', _signer);
+  log('Signer', _signer);
 
   signer.set(_signer);
 }

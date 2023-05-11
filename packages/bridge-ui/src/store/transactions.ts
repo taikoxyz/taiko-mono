@@ -46,7 +46,7 @@ export const pendingTransactions = {
        * See https://docs.ethers.org/v5/api/providers/provider/#Provider-waitForTransaction
        */
       signer.provider
-        .waitForTransaction(tx.hash, 1, 60 * 1000) // 1min timeout. TODO: config?
+        .waitForTransaction(tx.hash, 1, 60 * 1000) // 1 min timeout. TODO: config?
         .then((receipt) => {
           // The transaction has been mined.
 

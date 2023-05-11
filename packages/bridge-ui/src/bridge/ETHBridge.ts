@@ -56,7 +56,7 @@ export class ETHBridge implements Bridge {
       data: '0x',
     };
 
-    log('Preparing transaction with message:', message);
+    log('Preparing transaction with message', message);
 
     return { contract, owner, message };
   }
@@ -73,31 +73,47 @@ export class ETHBridge implements Bridge {
   async Bridge(opts: BridgeOpts): Promise<Transaction> {
     const { contract, message } = await ETHBridge.prepareTransaction(opts);
 
-    const tx = await contract.sendMessage(message, {
-      value: message.depositValue
-        .add(message.processingFee)
-        .add(message.callValue),
-    });
+    const value = message.depositValue
+      .add(message.processingFee)
+      .add(message.callValue);
 
-    log('Message sent with transaction', tx);
+    log('Sending message to bridge with value', value.toString());
 
-    return tx;
+    try {
+      const tx = await contract.sendMessage(message, { value });
+
+      log('Message sent with transaction', tx);
+
+      return tx;
+    } catch (error) {
+      console.error(error);
+      throw new Error('Failed to send message to bridge', { cause: error });
+    }
   }
 
   async EstimateGas(opts: BridgeOpts): Promise<BigNumber> {
     const { contract, message } = await ETHBridge.prepareTransaction(opts);
 
-    log('Estimating gas for sendMessage with message', message);
+    const value = message.depositValue
+      .add(message.processingFee)
+      .add(message.callValue);
 
-    const gasEstimate = await contract.estimateGas.sendMessage(message, {
-      value: message.depositValue
-        .add(message.processingFee)
-        .add(message.callValue),
-    });
+    log('Estimating gas for sendMessage. Value to send', value.toString());
 
-    log('Estimated gas for sendMessage', gasEstimate);
+    try {
+      const gasEstimate = await contract.estimateGas.sendMessage(message, {
+        value,
+      });
 
-    return gasEstimate;
+      log('Estimated gas', gasEstimate.toString());
+
+      return gasEstimate;
+    } catch (error) {
+      console.error(error);
+      throw new Error('Failed to estimate gas for sendMessage', {
+        cause: error,
+      });
+    }
   }
 
   async Claim(opts: ClaimOpts): Promise<Transaction> {
@@ -114,17 +130,17 @@ export class ETHBridge implements Bridge {
     log('Claiming message with status', messageStatus);
 
     if (messageStatus === MessageStatus.Done) {
-      throw Error('message already processed');
+      throw Error('Message already processed');
     }
 
     if (messageStatus === MessageStatus.Failed) {
-      throw Error('user can not process this, message has failed');
+      throw Error('User can not process this, message has failed');
     }
 
     const signerAddress = await opts.signer.getAddress();
 
     if (opts.message.owner.toLowerCase() !== signerAddress.toLowerCase()) {
-      throw Error('user can not process this, it is not their message');
+      throw Error('User can not process this, it is not their message');
     }
 
     // TODO: up to here we share same logic as ERC20Bridge
@@ -154,12 +170,14 @@ export class ETHBridge implements Bridge {
         console.error(error);
 
         if (error.code === ethers.errors.UNPREDICTABLE_GAS_LIMIT) {
+          const gasLimit = 1e6;
+
+          log(`Unpredictable gas limit. We try with ${gasLimit} gasLimit`);
+
           processMessageTx = await contract.processMessage(
             opts.message,
             proof,
-            {
-              gasLimit: 1e6,
-            },
+            { gasLimit },
           );
         } else {
           throw new Error('Failed to process message', { cause: error });
