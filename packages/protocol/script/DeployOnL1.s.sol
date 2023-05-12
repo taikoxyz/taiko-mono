@@ -34,6 +34,7 @@ contract DeployOnL1 is Script {
     address public owner = vm.envAddress("OWNER");
 
     address public oracleProver = vm.envAddress("ORACLE_PROVER");
+    address public systemProver = vm.envAddress("SYSTEM_PROVER");
 
     address public sharedSignalService = vm.envAddress("SHARED_SIGNAL_SERVICE");
 
@@ -71,7 +72,7 @@ contract DeployOnL1 is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // AddressManager
-        AddressManager addressManager = new AddressManager();
+        AddressManager addressManager = new ProxiedAddressManager();
         addressManagerProxy = deployProxy(
             "address_manager",
             address(addressManager),
@@ -79,17 +80,18 @@ contract DeployOnL1 is Script {
         );
 
         // TaikoL1
-        taikoL1 = new TaikoL1();
+        taikoL1 = new ProxiedTaikoL1();
         uint256 l2ChainId = taikoL1.getConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
         setAddress(l2ChainId, "taiko", taikoL2Address);
         setAddress(l2ChainId, "signal_service", l2SignalService);
         setAddress("oracle_prover", oracleProver);
+        setAddress("system_prover", systemProver);
         setAddress(l2ChainId, "treasure", treasure);
 
         // TaikoToken
-        TaikoToken taikoToken = new TaikoToken();
+        TaikoToken taikoToken = new ProxiedTaikoToken();
 
         address[] memory premintRecipients = new address[](1);
         uint256[] memory premintAmounts = new uint256[](1);
@@ -144,10 +146,11 @@ contract DeployOnL1 is Script {
                 )
             )
         );
+        setAddress("taiko", taikoL1Proxy);
         setAddress("proto_broker", taikoL1Proxy);
 
         // Bridge
-        Bridge bridge = new Bridge();
+        Bridge bridge = new ProxiedBridge();
         deployProxy(
             "bridge",
             address(bridge),
@@ -155,7 +158,7 @@ contract DeployOnL1 is Script {
         );
 
         // TokenVault
-        TokenVault tokenVault = new TokenVault();
+        TokenVault tokenVault = new ProxiedTokenVault();
         deployProxy(
             "token_vault",
             address(tokenVault),
@@ -167,7 +170,7 @@ contract DeployOnL1 is Script {
 
         // SignalService
         if (sharedSignalService == address(0)) {
-            SignalService signalService = new SignalService();
+            SignalService signalService = new ProxiedSignalService();
             deployProxy(
                 "signal_service",
                 address(signalService),

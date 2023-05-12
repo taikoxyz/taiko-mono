@@ -8,6 +8,7 @@ pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../common/AddressResolver.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
+import {Proxied} from "../common/Proxied.sol";
 import {IBridge} from "./IBridge.sol";
 import {BridgeErrors} from "./BridgeErrors.sol";
 import {LibBridgeData} from "./libs/LibBridgeData.sol";
@@ -21,6 +22,7 @@ import {LibBridgeStatus} from "./libs/LibBridgeStatus.sol";
  * Bridge contract which is deployed on both L1 and L2. Mostly a thin wrapper
  * which calls the library implementations. See _IBridge_ for more details.
  * @dev The code hash for the same address on L1 and L2 may be different.
+ * @custom:security-contact hello@taiko.xyz
  */
 contract Bridge is EssentialContract, IBridge, BridgeErrors {
     using LibBridgeData for Message;
@@ -47,11 +49,12 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
      * External Functions*
      *********************/
 
-    /// Allow Bridge to receive ETH from the TokenVault or EtherVault.
+    /// Allow Bridge to receive ETH from the TaikoL1, TokenVault or EtherVault.
     receive() external payable {
         if (
             msg.sender != resolve("token_vault", true) &&
             msg.sender != resolve("ether_vault", true) &&
+            msg.sender != resolve("taiko", true) &&
             msg.sender != owner()
         ) {
             revert B_CANNOT_RECEIVE();
@@ -184,3 +187,5 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         return LibBridgeStatus.getMessageStatusSlot(msgHash);
     }
 }
+
+contract ProxiedBridge is Proxied, Bridge {}

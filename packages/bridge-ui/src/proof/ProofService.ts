@@ -1,6 +1,6 @@
 import { Contract, ethers } from 'ethers';
 import { RLP } from 'ethers/lib/utils.js';
-import HeaderSyncABI from '../constants/abi/ICrossChainSync';
+import { crossChainSyncABI } from '../constants/abi';
 import type { Block, BlockHeader } from '../domain/block';
 import type {
   Prover,
@@ -93,7 +93,7 @@ export class ProofService implements Prover {
 
     const contract = new Contract(
       opts.destCrossChainSyncAddress,
-      HeaderSyncABI,
+      crossChainSyncABI,
       this.providers[opts.destChain],
     );
 
@@ -124,7 +124,7 @@ export class ProofService implements Prover {
 
     const contract = new Contract(
       opts.srcCrossChainSyncAddress,
-      HeaderSyncABI,
+      crossChainSyncABI,
       this.providers[opts.srcChain],
     );
 

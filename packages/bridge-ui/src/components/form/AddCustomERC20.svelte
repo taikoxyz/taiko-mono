@@ -9,7 +9,7 @@
   import Modal from '../modals/Modal.svelte';
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
   import { ethers } from 'ethers';
-  import ERC20 from '../../constants/abi/ERC20';
+  import { erc20ABI } from '../../constants/abi';
   import { ETHToken } from '../../token/tokens';
   import { errorToast } from '../Toast.svelte';
   import { tokenService } from '../../storage/services';
@@ -40,7 +40,7 @@
       loadingTokenDetails = true;
       try {
         const provider = getProvider();
-        const contract = new ethers.Contract(tokenAddress, ERC20, provider);
+        const contract = new ethers.Contract(tokenAddress, erc20ABI, provider);
         const userAddress = await $signer.getAddress();
         const [symbol, decimals, userBalance] = await Promise.all([
           contract.symbol(),
