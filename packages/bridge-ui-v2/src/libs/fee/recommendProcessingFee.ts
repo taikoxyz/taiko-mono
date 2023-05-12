@@ -1,6 +1,6 @@
 import { BigNumber, Contract, ethers } from 'ethers'
 
-import { TOKEN_VAULT_ABI } from '../../abi'
+import { tokenVaultABI } from '../../abi'
 import { providers } from '../provider'
 import { isEther } from '../token'
 import { tokenVaults } from '../vault'
@@ -34,7 +34,7 @@ export async function recommendProcessingFee({
     }
 
     const srcTokenVaultAddress = tokenVaults[srcChain.id]
-    const srcTokenVaultContract = new Contract(srcTokenVaultAddress, TOKEN_VAULT_ABI, signer)
+    const srcTokenVaultContract = new Contract(srcTokenVaultAddress, tokenVaultABI, signer)
 
     const bridged = await srcTokenVaultContract.canonicalToBridged(destChain.id, chainAddress)
 

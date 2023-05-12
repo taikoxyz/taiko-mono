@@ -1,4 +1,4 @@
-import { Signer } from 'ethers'
+import type { Signer } from 'ethers'
 
 import type { Chain } from '../chain/types'
 import type { Token } from '../token/types'

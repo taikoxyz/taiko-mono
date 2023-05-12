@@ -1,7 +1,7 @@
 import type { ContractInterface, ethers, providers } from 'ethers'
 import { BigNumber, Contract } from 'ethers'
 
-import { BRIDGE_ABI, ERC20_ABI, TOKEN_VAULT_ABI } from '../../abi'
+import { bridgeABI, erc20ABI, tokenVaultABI } from '../../abi'
 import type { ChainsRecord } from '../chain/types'
 import { MessageStatus } from '../message/types'
 import type { ProvidersRecord } from '../provider/types'
@@ -24,15 +24,9 @@ export class TransactionStorage {
     // Gets the event MessageSent from the bridge contract
     // in the block where the transaction was mined, and find
     // our event MessageSent whose owner is the address passed in
-    const messageSentEvents = await bridgeContract.queryFilter(
-      'MessageSent',
-      blockNumber,
-      blockNumber,
-    )
+    const messageSentEvents = await bridgeContract.queryFilter('MessageSent', blockNumber, blockNumber)
 
-    return messageSentEvents.find(
-      ({ args }) => args?.message.owner.toLowerCase() === userAddress.toLowerCase(),
-    )
+    return messageSentEvents.find(({ args }) => args?.message.owner.toLowerCase() === userAddress.toLowerCase())
   }
 
   private static _getBridgeMessageStatus = async (
@@ -85,12 +79,7 @@ export class TransactionStorage {
   private readonly chains: ChainsRecord
   private readonly tokenVaults: TokenVaultsRecord
 
-  constructor(
-    storage: Storage,
-    providers: ProvidersRecord,
-    chains: ChainsRecord,
-    tokenVaults: TokenVaultsRecord,
-  ) {
+  constructor(storage: Storage, providers: ProvidersRecord, chains: ChainsRecord, tokenVaults: TokenVaultsRecord) {
     this.storage = storage
     this.providers = providers
     this.chains = chains
@@ -132,7 +121,7 @@ export class TransactionStorage {
       const messageSentEvent = await TransactionStorage._getBridgeMessageSent(
         address,
         srcBridgeAddress,
-        BRIDGE_ABI,
+        bridgeABI,
         srcProvider,
         receipt.blockNumber,
       )
@@ -154,7 +143,7 @@ export class TransactionStorage {
 
         tx.status = await TransactionStorage._getBridgeMessageStatus(
           destBridgeAddress,
-          BRIDGE_ABI,
+          bridgeABI,
           destProvider,
           msgHash,
         )
@@ -168,7 +157,7 @@ export class TransactionStorage {
 
           const erc20Event = await TransactionStorage._getTokenVaultERC20Event(
             srcTokenVaultAddress,
-            TOKEN_VAULT_ABI,
+            tokenVaultABI,
             srcProvider,
             msgHash,
             receipt.blockNumber,
@@ -180,7 +169,7 @@ export class TransactionStorage {
 
           ;[tx.symbol, tx.amountInWei] = await TransactionStorage._getERC20SymbolAndAmount(
             erc20Event,
-            ERC20_ABI,
+            erc20ABI,
             srcProvider,
           )
         }
@@ -199,10 +188,7 @@ export class TransactionStorage {
     return bridgeTxs
   }
 
-  async getTransactionByHash(
-    address: string,
-    hash: string,
-  ): Promise<BridgeTransaction | undefined> {
+  async getTransactionByHash(address: string, hash: string): Promise<BridgeTransaction | undefined> {
     const txs = this._getTransactionsFromStorage(address)
 
     const tx = txs.find((tx) => tx.hash === hash)
@@ -232,7 +218,7 @@ export class TransactionStorage {
     const messageSentEvent = await TransactionStorage._getBridgeMessageSent(
       address,
       srcBridgeAddress,
-      BRIDGE_ABI,
+      bridgeABI,
       srcProvider,
       receipt.blockNumber,
     )
@@ -249,7 +235,7 @@ export class TransactionStorage {
 
       const status = await TransactionStorage._getBridgeMessageStatus(
         destBridgeAddress,
-        BRIDGE_ABI,
+        bridgeABI,
         destProvider,
         msgHash,
       )
@@ -264,7 +250,7 @@ export class TransactionStorage {
 
         const erc20Event = await TransactionStorage._getTokenVaultERC20Event(
           srcTokenVaultAddress,
-          TOKEN_VAULT_ABI,
+          tokenVaultABI,
           srcProvider,
           msgHash,
           receipt.blockNumber,
@@ -276,7 +262,7 @@ export class TransactionStorage {
 
         ;[tx.symbol, tx.amountInWei] = await TransactionStorage._getERC20SymbolAndAmount(
           erc20Event,
-          ERC20_ABI,
+          erc20ABI,
           srcProvider,
         )
       }

@@ -14,7 +14,7 @@
     "lint": "prettier --plugin-search-dir . --check . && eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --plugin-search-dir . --write .",
-    "copy-abi": "node ./scripts/copy-abi.js"
+    "generate-abi": "wagmi generate"
   },
   "devDependencies": {
     "@sveltejs/adapter-auto": "^2.0.0",
@@ -24,6 +24,7 @@
     "@typescript-eslint/eslint-plugin": "^5.45.0",
     "@typescript-eslint/parser": "^5.45.0",
     "@vitest/coverage-c8": "^0.30.1",
+    "@wagmi/cli": "^1.0.1",
     "autoprefixer": "^10.4.14",
     "eslint": "^8.28.0",
     "eslint-config-prettier": "^8.5.0",
@@ -45,6 +46,7 @@
     "@popperjs/core": "^2.11.7",
     "@wagmi/core": "^0.10.10",
     "@zerodevx/svelte-toast": "^0.6.3",
+    "abitype": "^0.8.2",
     "classnames": "^2.3.2",
     "daisyui": "1.16.6",
     "debug": "^4.3.4",

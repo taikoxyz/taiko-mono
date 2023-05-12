@@ -1,6 +1,6 @@
 import { BigNumber, Contract, errors, type Transaction } from 'ethers'
 
-import { BRIDGE_ABI } from '../../abi'
+import { bridgeABI } from '../../abi'
 import type { ChainsRecord } from '../chain/types'
 import { MessageOwnerError, MessageOwnerErrorCause } from '../message/MessageOwnerError'
 import { MessageStatusError, MessageStatusErrorCause } from '../message/MessageStatusError'
@@ -20,7 +20,7 @@ export class ETHBridge implements Bridge {
   }
 
   private static async _prepareTransaction(args: ETHBridgeArgs) {
-    const bridgeContract = new Contract(args.bridgeAddress, BRIDGE_ABI, args.signer)
+    const bridgeContract = new Contract(args.bridgeAddress, bridgeABI, args.signer)
 
     const owner = await args.signer.getAddress()
 
@@ -82,7 +82,7 @@ export class ETHBridge implements Bridge {
       })
     }
 
-    const destBridgeContract = new Contract(args.destBridgeAddress, BRIDGE_ABI, args.signer)
+    const destBridgeContract = new Contract(args.destBridgeAddress, bridgeABI, args.signer)
     const messageStatus: MessageStatus = await destBridgeContract.getMessageStatus(args.msgHash)
 
     switch (messageStatus) {
@@ -151,7 +151,7 @@ export class ETHBridge implements Bridge {
       })
     }
 
-    const destBridgeContract = new Contract(args.destBridgeAddress, BRIDGE_ABI, args.destProvider)
+    const destBridgeContract = new Contract(args.destBridgeAddress, bridgeABI, args.destProvider)
     const messageStatus: MessageStatus = await destBridgeContract.getMessageStatus(args.msgHash)
 
     switch (messageStatus) {
@@ -175,7 +175,7 @@ export class ETHBridge implements Bridge {
 
         const proof = await this.prover.generateReleaseProof(proofArgs)
 
-        const srcBridgeContract = new Contract(args.srcBridgeAddress, BRIDGE_ABI, args.signer)
+        const srcBridgeContract = new Contract(args.srcBridgeAddress, bridgeABI, args.signer)
 
         return srcBridgeContract.releaseEther(args.message, proof)
       }

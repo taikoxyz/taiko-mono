@@ -1,6 +1,6 @@
 import { BigNumber, Contract, errors, type Signer, type Transaction } from 'ethers'
 
-import { BRIDGE_ABI, ERC20_ABI, TOKEN_VAULT_ABI } from '../../abi'
+import { bridgeABI, erc20ABI, tokenVaultABI } from '../../abi'
 import type { ChainsRecord } from '../chain/types'
 import { MessageOwnerError } from '../message/MessageOwnerError'
 import { MessageStatusError } from '../message/MessageStatusError'
@@ -20,7 +20,7 @@ export class ERC20Bridge implements Bridge {
   }
 
   private static async _prepareTransaction(args: ERC20BridgeArgs) {
-    const tokenVaultContract = new Contract(args.tokenVaultAddress, TOKEN_VAULT_ABI, args.signer)
+    const tokenVaultContract = new Contract(args.tokenVaultAddress, tokenVaultABI, args.signer)
 
     const owner = await args.signer.getAddress()
 
@@ -51,7 +51,7 @@ export class ERC20Bridge implements Bridge {
     amount: BigNumber,
     bridgeAddress: string,
   ): Promise<boolean> {
-    const tokenContract = new Contract(tokenAddress, ERC20_ABI, signer)
+    const tokenContract = new Contract(tokenAddress, erc20ABI, signer)
     const owner = await signer.getAddress()
     const allowance: BigNumber = await tokenContract.allowance(owner, bridgeAddress)
 
@@ -76,7 +76,7 @@ export class ERC20Bridge implements Bridge {
       })
     }
 
-    const contract = new Contract(args.tokenAddress, ERC20_ABI, args.signer)
+    const contract = new Contract(args.tokenAddress, erc20ABI, args.signer)
     const tx: Transaction = await contract.approve(args.spenderAddress, args.amountInWei)
 
     return tx
@@ -138,7 +138,7 @@ export class ERC20Bridge implements Bridge {
       throw new MessageOwnerError('Cannot claim. Not the owner of the message')
     }
 
-    const destBridgeContract = new Contract(args.destBridgeAddress, BRIDGE_ABI, args.signer)
+    const destBridgeContract = new Contract(args.destBridgeAddress, bridgeABI, args.signer)
     const messageStatus: MessageStatus = await destBridgeContract.getMessageStatus(args.msgHash)
 
     switch (messageStatus) {
@@ -199,7 +199,7 @@ export class ERC20Bridge implements Bridge {
       throw new MessageOwnerError('Cannot release. Not the owner of the message')
     }
 
-    const destBridgeContract = new Contract(args.destBridgeAddress, BRIDGE_ABI, args.destProvider)
+    const destBridgeContract = new Contract(args.destBridgeAddress, bridgeABI, args.destProvider)
     const messageStatus: MessageStatus = await destBridgeContract.getMessageStatus(args.msgHash)
 
     switch (messageStatus) {
@@ -221,7 +221,7 @@ export class ERC20Bridge implements Bridge {
 
         const proof = await this.prover.generateReleaseProof(proofArgs)
 
-        const srcTokenVaultContract = new Contract(args.srcTokenVaultAddress, TOKEN_VAULT_ABI, args.signer)
+        const srcTokenVaultContract = new Contract(args.srcTokenVaultAddress, tokenVaultABI, args.signer)
 
         return srcTokenVaultContract.releaseERC20(args.message, proof)
       }

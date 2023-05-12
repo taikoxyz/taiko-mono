@@ -1,6 +1,6 @@
 import { Contract, ethers, type providers } from 'ethers'
 
-import { CROSS_CHAIN_SYNC_ABI } from '../../abi'
+import { crossChainSyncABI } from '../../abi'
 import type { Block, BlockAndHeader, BlockHeader } from '../block/types'
 import { getLogger } from '../logger'
 import { MessageStatus } from '../message/types'
@@ -87,7 +87,7 @@ export class Prover {
     const srcProvider = this.providers[args.srcChainId]
     const destProvider = this.providers[args.destChainId]
 
-    const destXChainSyncContract = new Contract(args.destCrossChainSyncAddress, CROSS_CHAIN_SYNC_ABI, destProvider)
+    const destXChainSyncContract = new Contract(args.destCrossChainSyncAddress, crossChainSyncABI, destProvider)
 
     const { block, blockHeader } = await Prover._getBlockAndBlockHeader(destXChainSyncContract, srcProvider)
 
@@ -116,7 +116,7 @@ export class Prover {
     const srcProvider = this.providers[args.srcChainId]
     const destProvider = this.providers[args.destChainId]
 
-    const srcXChainSyncContract = new ethers.Contract(args.srcCrossChainSyncAddress, CROSS_CHAIN_SYNC_ABI, srcProvider)
+    const srcXChainSyncContract = new ethers.Contract(args.srcCrossChainSyncAddress, crossChainSyncABI, srcProvider)
 
     const { block, blockHeader } = await Prover._getBlockAndBlockHeader(srcXChainSyncContract, destProvider)
 
