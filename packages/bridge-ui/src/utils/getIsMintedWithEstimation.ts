@@ -40,7 +40,7 @@ export async function getIsMintedWithEstimation(
     const gasPrice = await signer.getGasPrice();
     const estimatedGas = BigNumber.from(gas).mul(gasPrice);
 
-    log(`Estimated gas to mint token ${token.symbol}`, estimatedGas.toString());
+    log(`Estimated gas to mint token ${token.symbol}: ${estimatedGas}`);
 
     return [false, estimatedGas];
   } catch (error) {

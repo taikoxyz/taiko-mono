@@ -346,7 +346,7 @@
         tx.hash,
       );
 
-      log('Transaction to be appended in the store', bridgeTransaction);
+      log('Transaction to be prepended in the store', bridgeTransaction);
 
       transactionsStore.set([bridgeTransaction, ...allTransactions]);
 

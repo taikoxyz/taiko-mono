@@ -162,6 +162,8 @@ export class ETHBridge implements Bridge {
 
       const proof = await this.prover.generateProof(proofOpts);
 
+      // log('Proof generated', proof);
+
       let processMessageTx: ethers.Transaction;
 
       try {
