@@ -45,7 +45,7 @@ export const checkIfTokenIsDeployedCrossChain = async (
             tokenAddressOnSourceChain.address,
           );
 
-        log('Address of bridged token:', bridgedTokenAddress);
+        log(`Address of bridged token: ${bridgedTokenAddress}`);
 
         if (bridgedTokenAddress !== ethers.constants.AddressZero) {
           return true;

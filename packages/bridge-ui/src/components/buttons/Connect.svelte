@@ -80,7 +80,7 @@
         !$wagmiClient.connector ||
         $wagmiClient.connector.id !== connector.id
       ) {
-        log('Connecting with connector', connector.name);
+        log(`Connecting with connector "${connector.name}"`);
         const result = await wagmiConnect({ connector });
         log('Connected with result', result);
       }

@@ -210,6 +210,7 @@
   ): Promise<boolean> {
     const gasEstimate = await $activeBridge.EstimateGas({
       ...bridgeOpts,
+      // We need an amount, and user might not have entered one at this point
       amountInWei: BigNumber.from(1),
     });
 
@@ -245,7 +246,7 @@
       }
 
       if (showTo && !ethers.utils.isAddress(to)) {
-        throw Error('Invalid custom recipient address');
+        throw Error('invalid custom recipient address');
       }
 
       const onCorrectChain = await isOnCorrectChain($signer, $fromChain.id);

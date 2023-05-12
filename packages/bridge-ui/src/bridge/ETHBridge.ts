@@ -98,7 +98,7 @@ export class ETHBridge implements Bridge {
       .add(message.processingFee)
       .add(message.callValue);
 
-    log('Estimating gas for sendMessage. Value to send', value.toString());
+    log(`Estimating gas for sendMessage. Value to send: ${value}`);
 
     try {
       const gasEstimate = await contract.estimateGas.sendMessage(message, {

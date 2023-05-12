@@ -59,7 +59,7 @@
       successToast($_('toast.transactionSent'));
 
       pendingTransactions.add(tx, $signer).then(() => {
-        successToast('toast.transactionCompleted');
+        successToast($_('toast.transactionCompleted'));
         onMint();
       });
 
