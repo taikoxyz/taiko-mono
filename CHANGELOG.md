@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.12.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-mono-v0.11.0...taiko-mono-v0.12.0) (2023-05-11)
+
+
+### Features
+
+* **protocol:** add parentGasUsed to blockproven ([#13704](https://github.com/taikoxyz/taiko-mono/issues/13704)) ([2ce8787](https://github.com/taikoxyz/taiko-mono/commit/2ce8787b66537dd6142a040b223bd1f4d8b19f89))
+* **protocol:** add TaikoGovernor and improve TaikoToken ([#13711](https://github.com/taikoxyz/taiko-mono/issues/13711)) ([ad75cd5](https://github.com/taikoxyz/taiko-mono/commit/ad75cd5476d10886b337c8da2e95a2c5ea043a57))
+* **protocol:** Change back token decimals ([#13707](https://github.com/taikoxyz/taiko-mono/issues/13707)) ([82f1677](https://github.com/taikoxyz/taiko-mono/commit/82f1677b18c8dd90f2afc3fcefe5f60a9d8df670))
+* **protocol:** Introduce oracle and system prover concept ([#13729](https://github.com/taikoxyz/taiko-mono/issues/13729)) ([e8ba716](https://github.com/taikoxyz/taiko-mono/commit/e8ba7168231f9a8bbef1378fa93448b11c4267ac))
+* **protocol:** L2/L3 contracts proxied ([#13725](https://github.com/taikoxyz/taiko-mono/issues/13725)) ([7e6291f](https://github.com/taikoxyz/taiko-mono/commit/7e6291f3be215789759d5d36e2451fab3154979f))
+* **protocol:** major protocol upgrade for alpha-3 testnet ([#13640](https://github.com/taikoxyz/taiko-mono/issues/13640)) ([02552f2](https://github.com/taikoxyz/taiko-mono/commit/02552f2aa001893d326062ce627004c61b46cd26))
+* **protocol:** make sure system proof delay is proofTimeTarget ([#13742](https://github.com/taikoxyz/taiko-mono/issues/13742)) ([c359dd9](https://github.com/taikoxyz/taiko-mono/commit/c359dd9c39657ca4deac23d8cd7765a5ae58e8f3))
+* **repo:** add fork-diff package and clean up readme ([#13738](https://github.com/taikoxyz/taiko-mono/issues/13738)) ([e4f533d](https://github.com/taikoxyz/taiko-mono/commit/e4f533daeeee52c998e643c1f99d7e8cc9978147))
+
+
+### Bug Fixes
+
+* **bridge-ui:** update abis ([#13705](https://github.com/taikoxyz/taiko-mono/issues/13705)) ([d3d4e69](https://github.com/taikoxyz/taiko-mono/commit/d3d4e693176b8df1dcdd7321c30d66222121a05b))
+* **protocol:** allow Bridge to receive ETHs from TaikoL1 ([#13737](https://github.com/taikoxyz/taiko-mono/issues/13737)) ([a75609c](https://github.com/taikoxyz/taiko-mono/commit/a75609c02c651e3b374391e5fc7c6c696658ff28))
+* **protocol:** fix deployonl1 script ([#13740](https://github.com/taikoxyz/taiko-mono/issues/13740)) ([ec5349a](https://github.com/taikoxyz/taiko-mono/commit/ec5349a9bf3535f5fb5c111555438c156ec53719))
+* **repo:** fix release-please workflow by removing tokenomics package… ([#13698](https://github.com/taikoxyz/taiko-mono/issues/13698)) ([2a6f5a4](https://github.com/taikoxyz/taiko-mono/commit/2a6f5a462670d99e70f815692ce9f8b2ce07d879))
+* **repo:** remove `fully` ([#13683](https://github.com/taikoxyz/taiko-mono/issues/13683)) ([864151f](https://github.com/taikoxyz/taiko-mono/commit/864151f5570dfc4fb3910ac0f0bba609831e9fae))
+
 ## [0.11.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-mono-v0.10.0...taiko-mono-v0.11.0) (2023-04-27)
 
 
