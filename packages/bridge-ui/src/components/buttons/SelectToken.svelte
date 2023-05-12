@@ -6,7 +6,7 @@
   import { BridgeType, type HTMLBridgeForm } from '../../domain/bridge';
   import { ChevronDown, PlusCircle } from 'svelte-heros-v2';
   import { ethers } from 'ethers';
-  import ERC20_ABI from '../../constants/abi/ERC20';
+  import { erc20ABI } from '../../constants/abi';
   import { signer } from '../../store/signer';
   import { userTokens } from '../../store/userToken';
   import { fromChain, toChain } from '../../store/chain';
@@ -53,7 +53,7 @@
       }
 
       const provider = getProvider();
-      const contract = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
+      const contract = new ethers.Contract(tokenAddress, erc20ABI, provider);
 
       const userAddress = await $signer.getAddress();
 

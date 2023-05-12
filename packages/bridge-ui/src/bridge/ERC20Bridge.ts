@@ -7,11 +7,9 @@ import type {
   ClaimOpts,
   ReleaseOpts,
 } from '../domain/bridge';
-import TokenVault from '../constants/abi/TokenVault';
-import ERC20 from '../constants/abi/ERC20';
+import { tokenVaultABI, erc20ABI, bridgeABI } from '../constants/abi';
 import type { Prover } from '../domain/proof';
 import { MessageStatus } from '../domain/message';
-import BridgeABI from '../constants/abi/Bridge';
 import { chains } from '../chain/chains';
 
 export class ERC20Bridge implements Bridge {
@@ -24,7 +22,7 @@ export class ERC20Bridge implements Bridge {
   static async prepareTransaction(opts: BridgeOpts) {
     const contract: Contract = new Contract(
       opts.tokenVaultAddress,
-      TokenVault,
+      tokenVaultABI,
       opts.signer,
     );
 
@@ -58,7 +56,7 @@ export class ERC20Bridge implements Bridge {
     amount: BigNumber,
     bridgeAddress: string,
   ): Promise<boolean> {
-    const contract: Contract = new Contract(tokenAddress, ERC20, signer);
+    const contract: Contract = new Contract(tokenAddress, erc20ABI, signer);
     const owner = await signer.getAddress();
     const allowance: BigNumber = await contract.allowance(owner, bridgeAddress);
 
@@ -88,7 +86,7 @@ export class ERC20Bridge implements Bridge {
 
     const contract: Contract = new Contract(
       opts.contractAddress,
-      ERC20,
+      erc20ABI,
       opts.signer,
     );
 
@@ -150,7 +148,7 @@ export class ERC20Bridge implements Bridge {
   async Claim(opts: ClaimOpts): Promise<Transaction> {
     const contract: Contract = new Contract(
       opts.destBridgeAddress,
-      BridgeABI,
+      bridgeABI,
       opts.signer,
     );
 
@@ -216,7 +214,7 @@ export class ERC20Bridge implements Bridge {
   async ReleaseTokens(opts: ReleaseOpts): Promise<Transaction> {
     const destBridgeContract: Contract = new Contract(
       opts.destBridgeAddress,
-      BridgeABI,
+      bridgeABI,
       opts.destProvider,
     );
 
@@ -250,7 +248,7 @@ export class ERC20Bridge implements Bridge {
 
       const srcTokenVaultContract: Contract = new Contract(
         opts.srcTokenVaultAddress,
-        TokenVault,
+        tokenVaultABI,
         opts.signer,
       );
 
