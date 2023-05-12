@@ -55,7 +55,7 @@ library LibVerifying {
             config.ethDepositMaxFee >= type(uint96).max ||
             config.proofTimeTarget == 0 ||
             config.adjustmentQuotient == 0 ||
-            config.proofTypeEnabled == 0
+            config.proofToggleMask == 0
         ) revert L1_INVALID_CONFIG();
         uint64 timeNow = uint64(block.timestamp);
         state.genesisHeight = uint64(block.number);

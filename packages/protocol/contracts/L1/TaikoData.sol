@@ -37,7 +37,7 @@ library TaikoData {
         // RESERVED_Y_ONLY,     // 0000 1000
         // ZKP_AND_SGX,         // 0000 0011
         // X_ZKP_SGX,           // 0000 0111
-        uint8 proofTypeEnabled;
+        uint8 proofToggleMask;
         bool relaySignalRoot;
     }
 

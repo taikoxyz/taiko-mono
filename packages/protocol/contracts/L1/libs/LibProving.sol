@@ -11,6 +11,8 @@ import {LibMath} from "../../libs/LibMath.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
+import {LibVerifySGX} from "./proofTypes/LibVerifySGX.sol";
+import {LibVerifyZKP} from "./proofTypes/LibVerifyZKP.sol";
 
 library LibProving {
     using LibMath for uint256;
@@ -30,8 +32,6 @@ library LibProving {
     error L1_EVIDENCE_MISMATCH(bytes32 expected, bytes32 actual);
     error L1_FORK_CHOICE_NOT_FOUND();
     error L1_INVALID_EVIDENCE();
-    error L1_INVALID_PROOF();
-    error L1_INVALID_SGX_SIGNATURE();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -131,59 +131,28 @@ library LibProving {
             instance := keccak256(inputs, mul(32, 9))
         }
 
-        // config.proofTypeEnabled can support 8 different proofs on 8 bits
+        // config.proofToggleMask can support 8 different proof types on 8 bits
         for (uint8 index; index < 8; ) {
-            if (index == 0 && ((config.proofTypeEnabled >> index) & 1) == 1) {
-                // This is the regular ZK proof and required based on the flag
-                // in config.proofTypeEnabled
-                (bool verified, bytes memory ret) = resolver
-                    .resolve(
-                        LibUtils.getVerifierName(
-                            evidence.blockProofs[index].verifierId
-                        ),
-                        false
-                    )
-                    .staticcall(
-                        bytes.concat(
-                            instance,
-                            evidence.blockProofs[index].proof
-                        )
-                    );
-
-                if (
-                    !verified ||
-                    ret.length != 32 ||
-                    bytes32(ret) != keccak256("taiko")
-                ) revert L1_INVALID_PROOF();
-            } else if (
-                index == 1 && ((config.proofTypeEnabled >> index) & 1) == 1
-            ) {
-                // This is the SGX signature proof and required based on the flag
-                // in config.proofTypeEnabled
-                address trustedVerifier = resolver.resolve(
-                    LibUtils.getVerifierName(
+            if ((config.proofToggleMask >> index) & 1 == 1) {
+                if (index == 0) {
+                    // This is the regular ZK proof and required based on the flag
+                    // in config.proofToggleMask
+                    LibVerifyZKP.verifyZkProof(
+                        resolver,
+                        evidence.blockProofs[index].proof,
+                        instance,
                         evidence.blockProofs[index].verifierId
-                    ),
-                    false
-                );
-
-                // The signature proof
-                bytes memory data = evidence.blockProofs[index].proof;
-                uint8 v;
-                bytes32 r;
-                bytes32 s;
-                assembly {
-                    // Extract a uint8
-                    v := byte(0, mload(add(data, 32)))
-
-                    // Extract the first 32-byte chunk (after the uint8)
-                    r := mload(add(data, 33))
-
-                    // Extract the second 32-byte chunk
-                    r := mload(add(data, 65))
+                    );
+                } else if (index == 1) {
+                    // This is the SGX signature proof and required based on the flag
+                    // in config.proofToggleMask
+                    LibVerifySGX.verifySgxProof(
+                        resolver,
+                        evidence.blockProofs[index].proof,
+                        instance,
+                        evidence.blockProofs[index].verifierId
+                    );
                 }
-                if (ecrecover(instance, v, r, s) != trustedVerifier)
-                    revert L1_INVALID_SGX_SIGNATURE();
             }
 
             unchecked {

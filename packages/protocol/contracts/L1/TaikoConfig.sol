@@ -46,7 +46,7 @@ library TaikoConfig {
                 // 85s based on A2 testnet status, or set to 1800 for 30mins (mainnet mock)
                 proofTimeTarget: 1800,
                 adjustmentQuotient: 16,
-                proofTypeEnabled: 1, // 0000 0001: means ZKP only
+                proofToggleMask: 1, // 0000 0001: means ZKP only
                 relaySignalRoot: false
             });
     }
