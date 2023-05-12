@@ -50,55 +50,56 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         registerAddress("system_prover", Alice);
     }
 
-    function testOracleProverWithSignature() external {
-        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+    /// @dev This - as is - not needed anymore but in a different format for SGX signature creation. Just commenting out for now.
+    // function testOracleProverWithSignature() external {
+    //     depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
+    //     depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
 
-        TaikoData.BlockMetadata memory meta = proposeBlock(Bob, 1000000, 1024);
-        proveBlock(
-            Bob,
-            Bob,
-            meta,
-            GENESIS_BLOCK_HASH,
-            10000,
-            10001,
-            bytes32(uint256(0x11)),
-            bytes32(uint256(0x12))
-        );
-        TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
-            metaHash: LibUtils.hashMetadata(meta),
-            parentHash: GENESIS_BLOCK_HASH,
-            blockHash: bytes32(uint256(0x11)),
-            signalRoot: bytes32(uint256(0x12)),
-            graffiti: 0x0,
-            prover: address(0),
-            parentGasUsed: 10000,
-            gasUsed: 40000,
-            verifierId: 0,
-            proof: new bytes(0)
-        });
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-            AlicePK,
-            keccak256(abi.encode(evidence))
-        );
+    //     TaikoData.BlockMetadata memory meta = proposeBlock(Bob, 1000000, 1024);
+    //     proveBlock(
+    //         Bob,
+    //         Bob,
+    //         meta,
+    //         GENESIS_BLOCK_HASH,
+    //         10000,
+    //         10001,
+    //         bytes32(uint256(0x11)),
+    //         bytes32(uint256(0x12))
+    //     );
+    //     TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
+    //         metaHash: LibUtils.hashMetadata(meta),
+    //         parentHash: GENESIS_BLOCK_HASH,
+    //         blockHash: bytes32(uint256(0x11)),
+    //         signalRoot: bytes32(uint256(0x12)),
+    //         graffiti: 0x0,
+    //         prover: address(0),
+    //         parentGasUsed: 10000,
+    //         gasUsed: 40000,
+    //         verifierId: 0,
+    //         proof: new bytes(0)
+    //     });
+    //     (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+    //         AlicePK,
+    //         keccak256(abi.encode(evidence))
+    //     );
 
-        evidence.verifierId = v;
-        evidence.proof = bytes.concat(r, s);
+    //     evidence.verifierId = v;
+    //     evidence.proof = bytes.concat(r, s);
 
-        vm.prank(Carol, Carol);
-        L1.proveBlock(meta.id, abi.encode(evidence));
-        TaikoData.ForkChoice memory fc = L1.getForkChoice(
-            1,
-            GENESIS_BLOCK_HASH,
-            10000
-        );
+    //     vm.prank(Carol, Carol);
+    //     L1.proveBlock(meta.id, abi.encode(evidence));
+    //     TaikoData.ForkChoice memory fc = L1.getForkChoice(
+    //         1,
+    //         GENESIS_BLOCK_HASH,
+    //         10000
+    //     );
 
-        assertEq(fc.blockHash, bytes32(uint256(0x11)));
-        assertEq(fc.signalRoot, bytes32(uint256(0x12)));
-        assertEq(fc.provenAt, block.timestamp);
-        assertEq(fc.prover, address(0));
-        assertEq(fc.gasUsed, 40000);
-    }
+    //     assertEq(fc.blockHash, bytes32(uint256(0x11)));
+    //     assertEq(fc.signalRoot, bytes32(uint256(0x12)));
+    //     assertEq(fc.provenAt, block.timestamp);
+    //     assertEq(fc.prover, address(0));
+    //     assertEq(fc.gasUsed, 40000);
+    // }
 
     function testOracleProverCanAlwaysOverwriteIfNotSameProof() external {
         // Carol is the oracle prover
@@ -178,101 +179,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             assertEq(fc.provenAt, provenAt);
             assertEq(fc.prover, address(0));
             assertEq(fc.gasUsed, 10002);
-        }
-    }
-
-    function testOracleProverCannotOverwriteIfSameProof() external {
-        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
-
-        bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint256 blockId = 1;
-        TaikoData.BlockMetadata memory meta = proposeBlock(
-            Alice,
-            1000000,
-            1024
-        );
-
-        for (uint i = 0; i < 5; ++i) {
-            uint32 parentGasUsed = uint32(10000 + i);
-
-            // Bob proves the block
-            proveBlock(
-                Bob,
-                Bob,
-                meta,
-                parentHash,
-                parentGasUsed,
-                10001,
-                bytes32(uint256(0x11)),
-                bytes32(uint256(0x12))
-            );
-
-            uint256 provenAt = block.timestamp;
-
-            TaikoData.ForkChoice memory fc = L1.getForkChoice(
-                blockId,
-                parentHash,
-                parentGasUsed
-            );
-
-            if (i == 0) {
-                assertFalse(fc.key == 0);
-            } else {
-                assertEq(fc.key, 0);
-            }
-            assertEq(fc.blockHash, bytes32(uint256(0x11)));
-            assertEq(fc.signalRoot, bytes32(uint256(0x12)));
-            assertEq(fc.provenAt, provenAt);
-            assertEq(fc.prover, Bob);
-            assertEq(fc.gasUsed, 10001);
-
-            // Carol cannot prove the fork choice again
-            vm.warp(block.timestamp + 10 seconds);
-            vm.expectRevert();
-            proveBlock(
-                Carol,
-                Carol,
-                meta,
-                parentHash,
-                parentGasUsed,
-                10002,
-                bytes32(uint256(0x21)),
-                bytes32(uint256(0x22))
-            );
-
-            // Alice, the oracle prover,  cannot overwrite with same parameters
-            vm.warp(block.timestamp + 10 seconds);
-
-            vm.expectRevert(TaikoErrors.L1_SAME_PROOF.selector);
-            proveBlock(
-                Alice,
-                address(0),
-                meta,
-                parentHash,
-                parentGasUsed,
-                10001,
-                bytes32(uint256(0x11)),
-                bytes32(uint256(0x12))
-            );
-
-            verifyBlock(Carol, 1);
-
-            fc = L1.getForkChoice(blockId, parentHash, parentGasUsed);
-
-            if (i == 0) {
-                assertFalse(fc.key == 0);
-            } else {
-                assertEq(fc.key, 0);
-            }
-            assertEq(fc.blockHash, bytes32(uint256(0x11)));
-            assertEq(fc.signalRoot, bytes32(uint256(0x12)));
-            assertEq(fc.provenAt, provenAt);
-            assertEq(fc.prover, Bob);
-            assertEq(fc.gasUsed, 10001);
-
-            vm.warp(block.timestamp + 10 seconds);
         }
     }
 

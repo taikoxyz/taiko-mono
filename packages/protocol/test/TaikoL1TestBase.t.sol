@@ -149,6 +149,17 @@ abstract contract TaikoL1TestBase is Test {
         bytes32 blockHash,
         bytes32 signalRoot
     ) internal {
+        TaikoData.BlockProof memory zkpBlockProof = TaikoData.BlockProof({
+            verifierId: 100,
+            proof: new bytes(100)
+        });
+
+        TaikoData.BlockProof[] memory blockProofs = new TaikoData.BlockProof[](
+            1
+        );
+
+        blockProofs[0] = zkpBlockProof;
+
         TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
             metaHash: LibUtils.hashMetadata(meta),
             parentHash: parentHash,
@@ -158,8 +169,7 @@ abstract contract TaikoL1TestBase is Test {
             prover: prover,
             parentGasUsed: parentGasUsed,
             gasUsed: gasUsed,
-            verifierId: 100,
-            proof: new bytes(100)
+            blockProofs: blockProofs
         });
 
         vm.prank(msgSender, msgSender);

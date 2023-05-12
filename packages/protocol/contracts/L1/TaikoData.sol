@@ -30,6 +30,14 @@ library TaikoData {
         uint96 minEthDepositAmount;
         uint64 proofTimeTarget;
         uint8 adjustmentQuotient;
+        // // BITMAP for efficient iteration and flexible additions later
+        // ZKP_ONLY,            // 0000 0001
+        // SGX_ONLY,            // 0000 0010
+        // RESERVED_X_ONLY,     // 0000 0100
+        // RESERVED_Y_ONLY,     // 0000 1000
+        // ZKP_AND_SGX,         // 0000 0011
+        // X_ZKP_SGX,           // 0000 0111
+        uint8 proofTypeEnabled;
         bool relaySignalRoot;
     }
 
@@ -74,6 +82,11 @@ library TaikoData {
         TaikoData.EthDeposit[] depositsProcessed;
     }
 
+    struct BlockProof {
+        uint16 verifierId;
+        bytes proof;
+    }
+
     struct BlockEvidence {
         bytes32 metaHash;
         bytes32 parentHash;
@@ -83,8 +96,7 @@ library TaikoData {
         address prover;
         uint32 parentGasUsed;
         uint32 gasUsed;
-        uint16 verifierId;
-        bytes proof;
+        BlockProof[] blockProofs;
     }
 
     // 4 slots
