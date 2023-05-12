@@ -20,7 +20,6 @@ library TaikoData {
         uint256 minTxGasLimit;
         uint256 txListCacheExpiry;
         uint256 proofCooldownPeriod;
-        uint256 systemProofCooldownPeriod;
         uint256 realProofSkipSize;
         uint256 ethDepositGas;
         uint256 ethDepositMaxFee;

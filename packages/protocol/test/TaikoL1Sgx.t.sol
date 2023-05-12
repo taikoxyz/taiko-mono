@@ -29,6 +29,7 @@ contract TaikoL1Oracle is TaikoL1 {
         config.ringBufferSize = 12;
         config.proofCooldownPeriod = 5 minutes;
         config.realProofSkipSize = 10;
+        config.proofToggleMask = 3; // SGX proof is necessary
     }
 }
 
@@ -179,6 +180,59 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             assertEq(fc.provenAt, provenAt);
             assertEq(fc.prover, address(0));
             assertEq(fc.gasUsed, 10002);
+        }
+    }
+
+    function testProvingWithSgx() external {
+        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+
+        bytes32 parentHash = GENESIS_BLOCK_HASH;
+        uint256 blockId = 1;
+        TaikoData.BlockMetadata memory meta = proposeBlock(
+            Alice,
+            1000000,
+            1024
+        );
+
+        for (uint i = 0; i < 5; ++i) {
+            uint32 parentGasUsed = uint32(10000 + i);
+
+            // Bob proves the block
+            proveBlockWithSgxSignature(
+                Bob,
+                Bob,
+                meta,
+                parentHash,
+                parentGasUsed,
+                10001,
+                bytes32(uint256(0x11)),
+                bytes32(uint256(0x12))
+            );
+
+            uint256 provenAt = block.timestamp;
+
+            TaikoData.ForkChoice memory fc = L1.getForkChoice(
+                blockId,
+                parentHash,
+                parentGasUsed
+            );
+
+            vm.warp(block.timestamp + 1);
+            vm.warp(block.timestamp + conf.proofCooldownPeriod);
+            verifyBlock(Carol, 1);
+
+            if (i == 0) {
+                assertFalse(fc.key == 0);
+            } else {
+                assertEq(fc.key, 0);
+            }
+            assertEq(fc.blockHash, bytes32(uint256(0x11)));
+            assertEq(fc.signalRoot, bytes32(uint256(0x12)));
+            assertEq(fc.provenAt, provenAt);
+            assertEq(fc.prover, Bob);
+            assertEq(fc.gasUsed, 10001);
         }
     }
 
@@ -399,8 +453,8 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         printVariables("");
     }
 
-    /// @dev Test if system prover is the prover, cooldown is systemProofCooldownPeriod
-    function test_if_prover_is_system_prover_cooldown_is_systemProofCooldownPeriod()
+    /// @dev Test if system prover is the prover, cooldown is proofCooldownPeriod
+    function test_if_prover_is_system_prover_cooldown_is_proofCooldownPeriod()
         external
     {
         registerAddress("system_prover", Bob);
@@ -478,7 +532,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             vm.warp(
                 block.timestamp +
                     conf.proofTimeTarget +
-                    conf.systemProofCooldownPeriod
+                    conf.proofCooldownPeriod
             );
             verifyBlock(Carol, 1);
 
@@ -536,8 +590,8 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 .getStateVariables()
                 .lastVerifiedBlockId;
 
-            // Need to wait config.systemProofCooldownPeriod
-            vm.warp(block.timestamp + conf.systemProofCooldownPeriod);
+            // Need to wait config.proofCooldownPeriod
+            vm.warp(block.timestamp + conf.proofCooldownPeriod);
             verifyBlock(Carol, 1);
 
             // Check if shortly after proving (+verify) the last verify is not the same anymore

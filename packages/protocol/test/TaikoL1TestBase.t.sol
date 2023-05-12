@@ -72,6 +72,9 @@ abstract contract TaikoL1TestBase is Test {
         registerL2Address("taiko_l2", address(TaikoL2));
         registerAddress(L1.getVerifierName(100), address(new Verifier()));
         registerAddress(L1.getVerifierName(0), address(new Verifier()));
+        // Register Alice as an SGX verifier - SGX verifiers be 10000 offsetted
+        // e.g.: 0..9999 ZK verifiers, 10000..19999 SGX verifier addresses
+        registerAddress(L1.getVerifierName(10000), Alice);
 
         tko = new TaikoToken();
         registerAddress("taiko_token", address(tko));
@@ -176,6 +179,49 @@ abstract contract TaikoL1TestBase is Test {
         L1.proveBlock(meta.id, abi.encode(evidence));
     }
 
+    function proveBlockWithSgxSignature(
+        address msgSender,
+        address prover,
+        TaikoData.BlockMetadata memory meta,
+        bytes32 parentHash,
+        uint32 parentGasUsed,
+        uint32 gasUsed,
+        bytes32 blockHash,
+        bytes32 signalRoot
+    ) internal {
+        TaikoData.BlockProof memory zkpBlockProof = TaikoData.BlockProof({
+            verifierId: 100,
+            proof: new bytes(100)
+        });
+
+        TaikoData.BlockProof memory sgxBlockProof;
+
+        TaikoData.BlockProof[] memory blockProofs = new TaikoData.BlockProof[](
+            2
+        );
+
+        blockProofs[0] = zkpBlockProof;
+
+        TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
+            metaHash: LibUtils.hashMetadata(meta),
+            parentHash: parentHash,
+            blockHash: blockHash,
+            signalRoot: signalRoot,
+            graffiti: 0x0,
+            prover: prover,
+            parentGasUsed: parentGasUsed,
+            gasUsed: gasUsed,
+            blockProofs: blockProofs
+        });
+
+        blockProofs[1] = createSgxSignature(evidence);
+
+        evidence.blockProofs = blockProofs;
+
+        vm.prank(msgSender, msgSender);
+        L1.proveBlock(meta.id, abi.encode(evidence));
+    }
+
     function verifyBlock(address verifier, uint256 count) internal {
         vm.prank(verifier, verifier);
         L1.verifyBlocks(count);
@@ -233,5 +279,37 @@ abstract contract TaikoL1TestBase is Test {
     function mine(uint256 counts) internal {
         vm.warp(block.timestamp + 20 * counts);
         vm.roll(block.number + counts);
+    }
+
+    function createSgxSignature(
+        TaikoData.BlockEvidence memory evidence
+    ) internal returns (TaikoData.BlockProof memory sgxProof) {
+        // Put together the input to be signed
+        uint256[9] memory inputs;
+
+        inputs[0] = uint256(uint160(address(ss)));
+        inputs[1] = uint256(uint160(address(L2SS)));
+        inputs[2] = uint256(uint160(address(TaikoL2)));
+
+        inputs[3] = uint256(evidence.metaHash);
+        inputs[4] = uint256(evidence.parentHash);
+        inputs[5] = uint256(evidence.blockHash);
+        inputs[6] = uint256(evidence.signalRoot);
+        inputs[7] = uint256(evidence.graffiti);
+        inputs[8] =
+            (uint256(uint160(evidence.prover)) << 96) |
+            (uint256(evidence.parentGasUsed) << 64) |
+            (uint256(evidence.gasUsed) << 32);
+
+        bytes32 instance;
+        assembly {
+            instance := keccak256(inputs, mul(32, 9))
+        }
+
+        // Alice is a trusted SGX signer
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(AlicePK, instance);
+
+        sgxProof.verifierId = 10000;
+        sgxProof.proof = bytes.concat(bytes1(v), r, s);
     }
 }

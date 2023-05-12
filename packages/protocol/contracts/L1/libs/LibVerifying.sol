@@ -108,13 +108,8 @@ library LibVerifying {
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
 
-            if (fc.prover == address(0)) break;
-
-            uint256 proofCooldownPeriod = fc.prover == address(1)
-                ? config.systemProofCooldownPeriod
-                : config.proofCooldownPeriod;
-
-            if (block.timestamp < fc.provenAt + proofCooldownPeriod) break;
+            if (block.timestamp < fc.provenAt + config.proofCooldownPeriod)
+                break;
 
             blockHash = fc.blockHash;
             gasUsed = fc.gasUsed;

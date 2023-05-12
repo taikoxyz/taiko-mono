@@ -35,8 +35,9 @@ library LibVerifySGX {
             // Extract the first 32-byte chunk (after the uint8)
             r := mload(add(data, 33))
             // Extract the second 32-byte chunk
-            r := mload(add(data, 65))
+            s := mload(add(data, 65))
         }
+
         if (ecrecover(signedMsghash, v, r, s) != trustedVerifier)
             revert L1_INVALID_SGX_SIGNATURE();
     }
