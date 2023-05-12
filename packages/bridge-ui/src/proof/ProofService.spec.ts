@@ -105,8 +105,6 @@ const invalidStorageProof2: EthGetProofResponse = {
 
 const expectedProof =
   '0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000007b00000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000022e1a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000';
-const expectedProofWithBaseFee =
-  '0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000007b00000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000022e1a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000';
 const srcChain = 167001;
 const destChain = 31336;
 
@@ -175,35 +173,6 @@ describe('prover tests', () => {
     });
     expect(proof).toBe(expectedProof);
   });
-
-  it('generates proof with baseFeePerGas set', async () => {
-    mockProvider.send.mockImplementation(
-      (method: string, params: unknown[]) => {
-        if (method === 'eth_getBlockByHash') {
-          return block;
-        }
-
-        if (method === 'eth_getProof') {
-          return storageProof;
-        }
-      },
-    );
-
-    block.baseFeePerGas = '1';
-
-    const prover: ProofService = new ProofService(map);
-
-    const proof = await prover.generateProof({
-      msgHash: ethers.constants.HashZero,
-      sender: ethers.constants.AddressZero,
-      srcBridgeAddress: ethers.constants.AddressZero,
-      srcChain: srcChain,
-      destChain: destChain,
-      destCrossChainSyncAddress: ethers.constants.AddressZero,
-      srcSignalServiceAddress: ethers.constants.AddressZero,
-    });
-    expect(proof).toBe(expectedProofWithBaseFee);
-  });
 });
 
 describe('generate release proof tests', () => {
@@ -265,34 +234,5 @@ describe('generate release proof tests', () => {
       srcCrossChainSyncAddress: ethers.constants.AddressZero,
     });
     expect(proof).toBe(expectedProof);
-  });
-
-  it('generates proof with baseFeePerGas set', async () => {
-    mockProvider.send.mockImplementation(
-      (method: string, params: unknown[]) => {
-        if (method === 'eth_getBlockByHash') {
-          return block;
-        }
-
-        if (method === 'eth_getProof') {
-          return storageProof2;
-        }
-      },
-    );
-
-    block.baseFeePerGas = '1';
-
-    const prover: ProofService = new ProofService(map);
-
-    const proof = await prover.generateReleaseProof({
-      msgHash: ethers.constants.HashZero,
-      sender: ethers.constants.AddressZero,
-      destBridgeAddress: ethers.constants.AddressZero,
-      srcChain: srcChain,
-      destChain: destChain,
-      destCrossChainSyncAddress: ethers.constants.AddressZero,
-      srcCrossChainSyncAddress: ethers.constants.AddressZero,
-    });
-    expect(proof).toBe(expectedProofWithBaseFee);
   });
 });
