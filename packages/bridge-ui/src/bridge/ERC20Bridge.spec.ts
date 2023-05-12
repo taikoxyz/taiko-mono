@@ -26,8 +26,7 @@ const mockProver = {
 };
 
 jest.mock('ethers', () => ({
-  /* eslint-disable-next-line */
-  ...(jest.requireActual('ethers') as object),
+  ...jest.requireActual('ethers'),
   Wallet: function () {
     return mockSigner;
   },

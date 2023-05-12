@@ -17,7 +17,7 @@ export async function selectChain(chain: Chain) {
     await switchNetwork({ chainId });
   } catch (error) {
     console.error(error);
-    throw new Error('Failed to switch network', { cause: error });
+    throw new Error('failed to switch network', { cause: error });
   }
 
   log('Chain successfully switched');

@@ -87,7 +87,7 @@ export class ETHBridge implements Bridge {
       return tx;
     } catch (error) {
       console.error(error);
-      throw new Error('Failed to send message to bridge', { cause: error });
+      throw new Error('failed to send message to bridge', { cause: error });
     }
   }
 
@@ -110,7 +110,7 @@ export class ETHBridge implements Bridge {
       return gasEstimate;
     } catch (error) {
       console.error(error);
-      throw new Error('Failed to estimate gas for sendMessage', {
+      throw new Error('failed to estimate gas for sendMessage', {
         cause: error,
       });
     }
@@ -130,17 +130,17 @@ export class ETHBridge implements Bridge {
     log(`Claiming message with status ${messageStatus}`);
 
     if (messageStatus === MessageStatus.Done) {
-      throw Error('Message already processed');
+      throw Error('message already processed');
     }
 
     if (messageStatus === MessageStatus.Failed) {
-      throw Error('User can not process this, message has failed');
+      throw Error('user can not process this, message has failed');
     }
 
     const signerAddress = await opts.signer.getAddress();
 
     if (opts.message.owner.toLowerCase() !== signerAddress.toLowerCase()) {
-      throw Error('User can not process this, it is not their message');
+      throw Error('user can not process this, it is not their message');
     }
 
     // TODO: up to here we share same logic as ERC20Bridge
@@ -180,7 +180,7 @@ export class ETHBridge implements Bridge {
             { gasLimit },
           );
         } else {
-          throw new Error('Failed to process message', { cause: error });
+          throw new Error('failed to process message', { cause: error });
         }
       }
 

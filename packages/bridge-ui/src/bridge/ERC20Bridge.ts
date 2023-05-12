@@ -82,7 +82,7 @@ export class ERC20Bridge implements Bridge {
 
       return requiresAllowance;
     } catch (error) {
-      throw new Error(`Error getting allowance`, {
+      throw new Error(`there was an issue getting allowance`, {
         cause: error,
       });
     }
@@ -106,7 +106,7 @@ export class ERC20Bridge implements Bridge {
     );
 
     if (!requiresAllowance) {
-      throw Error('Token vault already has required allowance');
+      throw Error('token vault already has required allowance');
     }
 
     const contract: Contract = new Contract(
@@ -127,7 +127,7 @@ export class ERC20Bridge implements Bridge {
       return tx;
     } catch (error) {
       console.error(error);
-      throw new Error('Error approving', {
+      throw new Error('encountered an issue while approving', {
         cause: error,
       });
     }
@@ -167,7 +167,7 @@ export class ERC20Bridge implements Bridge {
       return tx;
     } catch (error) {
       console.error(error);
-      throw new Error('Error bridging', {
+      throw new Error('something happened while bridging', {
         cause: error,
       });
     }
@@ -198,7 +198,7 @@ export class ERC20Bridge implements Bridge {
       log('Estimated gas for sendERC20', gasEstimate);
     } catch (error) {
       console.error(error);
-      throw new Error('Error estimating gas', {
+      throw new Error('found a problem estimating gas', {
         cause: error,
       });
     }
@@ -276,7 +276,7 @@ export class ERC20Bridge implements Bridge {
             },
           );
         } else {
-          throw new Error('Failed to process message', { cause: error });
+          throw new Error('failed to process message', { cause: error });
         }
       }
 

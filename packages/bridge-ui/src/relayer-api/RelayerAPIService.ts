@@ -51,7 +51,7 @@ export class RelayerAPIService implements RelayerAPI {
     chainID?: number,
   ): Promise<GetAllByAddressResponse> {
     if (!address) {
-      throw new Error('Address need to passed to fetch transactions');
+      throw new Error('address needed to fetch transactions');
     }
 
     const params = {

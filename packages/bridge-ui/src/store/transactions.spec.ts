@@ -38,7 +38,7 @@ describe('transaction stores', () => {
         expect(receipt).toEqual(txTeceipt);
       })
       .catch(() => {
-        throw new Error('Should not have thrown');
+        throw new Error('should not have thrown');
       });
 
     // The transaction should have added to the store
@@ -52,7 +52,7 @@ describe('transaction stores', () => {
     pendingTransactions
       .add(tx, signer)
       .then(() => {
-        throw new Error('Should have thrown');
+        throw new Error('should have thrown');
       })
       .catch((error) => {
         // The transaction should have been removed from the store

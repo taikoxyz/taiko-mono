@@ -36,6 +36,8 @@ export async function mintERC20(
     return tx;
   } catch (error) {
     console.error(error);
-    throw new Error(`Error minting ${token.symbol}`, { cause: error });
+    throw new Error(`found a problem minting ${token.symbol}`, {
+      cause: error,
+    });
   }
 }

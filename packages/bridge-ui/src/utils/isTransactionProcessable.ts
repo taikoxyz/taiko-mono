@@ -27,11 +27,7 @@ export async function isTransactionProcessable(transaction: BridgeTransaction) {
 
     const blockHash = await crossChainSyncContract.getCrossChainBlockHash(0);
 
-    // log('Block hash', blockHash);
-
     const srcBlock = await srcProvider.getBlock(blockHash);
-
-    // log('Block from source', srcBlock);
 
     return receipt.blockNumber <= srcBlock.number;
   } catch (error) {

@@ -52,9 +52,12 @@ export const checkIfTokenIsDeployedCrossChain = async (
         }
       } catch (error) {
         console.error(error);
-        throw new Error('Error checking if token is deployed cross-chain', {
-          cause: error,
-        });
+        throw new Error(
+          'encountered an issue when checking if token is deployed cross-chain',
+          {
+            cause: error,
+          },
+        );
       }
     }
   }

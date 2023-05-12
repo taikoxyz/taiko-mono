@@ -30,7 +30,7 @@ export async function getIsMintedWithEstimation(
       return [true, null]; // already claimed, no gas cost is needed
     }
   } catch (error) {
-    throw new Error(`Error getting minters for ${token.symbol}`, {
+    throw new Error(`there was an issue getting minters for ${token.symbol}`, {
       cause: error,
     });
   }
@@ -44,7 +44,7 @@ export async function getIsMintedWithEstimation(
 
     return [false, estimatedGas];
   } catch (error) {
-    throw new Error(`Error estimating gas to mint token ${token.symbol}`, {
+    throw new Error(`failed to estimate gas to mint token ${token.symbol}`, {
       cause: error,
     });
   }

@@ -1,5 +1,4 @@
 <script>
-  import { switchNetwork } from '@wagmi/core';
   import { ArrowRight } from 'svelte-heros-v2';
   import { fromChain, toChain } from '../../store/chain';
   import { signer } from '../../store/signer';
