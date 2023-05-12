@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.7.0](https://github.com/taikoxyz/taiko-mono/compare/website-v0.6.0...website-v0.7.0) (2023-05-11)
+
+
+### Features
+
+* **protocol:** add TaikoGovernor and improve TaikoToken ([#13711](https://github.com/taikoxyz/taiko-mono/issues/13711)) ([ad75cd5](https://github.com/taikoxyz/taiko-mono/commit/ad75cd5476d10886b337c8da2e95a2c5ea043a57))
+* **protocol:** Introduce oracle and system prover concept ([#13729](https://github.com/taikoxyz/taiko-mono/issues/13729)) ([e8ba716](https://github.com/taikoxyz/taiko-mono/commit/e8ba7168231f9a8bbef1378fa93448b11c4267ac))
+* **protocol:** major protocol upgrade for alpha-3 testnet ([#13640](https://github.com/taikoxyz/taiko-mono/issues/13640)) ([02552f2](https://github.com/taikoxyz/taiko-mono/commit/02552f2aa001893d326062ce627004c61b46cd26))
+
+
+### Bug Fixes
+
+* **repo:** remove `fully` ([#13683](https://github.com/taikoxyz/taiko-mono/issues/13683)) ([864151f](https://github.com/taikoxyz/taiko-mono/commit/864151f5570dfc4fb3910ac0f0bba609831e9fae))
+
 ## [0.6.0](https://github.com/taikoxyz/taiko-mono/compare/website-v0.5.0...website-v0.6.0) (2023-04-08)
 
 
