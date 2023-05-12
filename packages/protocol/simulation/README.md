@@ -8,7 +8,7 @@
 
 For running the `simulation_data_parser.py`, you need to install the required plugins: `(python3 -m pip install -r requirements.txt)`
 
-*(Currently, every parameter set in the `TaikoL1.sim.sol` is an approximation of a possible mainnet scenario, so you can just run the commands below to get familiar with the outcome and plots.)*
+_(Currently, every parameter set in the `TaikoL1.sim.sol` is an approximation of a possible mainnet scenario, so you can just run the commands below to get familiar with the outcome and plots.)_
 
 1. Run `pnpm test:sim_export` - It will export the data into `simulation/exports` folder with a timestamp.
 2. Go to `simulation` folder and run `python3 simulation_data_parser.py ./exports/simulation_data_XXXXXXXXXX.txt`
@@ -36,7 +36,6 @@ So, the `XXXXXXXXXX_proof_time_per_block.png` figure will be definitely crowded 
   - If averages above the target, fees will grow.
 - But since proof times are 'randomized' now (pseudo-random), it does not really reflect real mainnet (even testnet scenario) where provers might organize themselves in a way - to stop proving if not profitable.
 - I think we need to communicate this clearly towards the provers so that they know what to expect.
-
 
 # Added More Tests and Observations
 
