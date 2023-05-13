@@ -77,14 +77,14 @@ h_withdrawals_root(withdrawalsRoot)
 end
 
 subgraph GlobalVariables
-v_block_number(fa:fa-globe block.number)
-v_block_gaslimit(fa:fa-globe block.gaslimit)
-v_block_timestamp(fa:fa-globe block.timestamp)
-v_block_prevrando(fa:fa-globe block.prevrando)
-v_blockhash_1("fa:fa-globe blockhash(1)")
-v_blockhash_others("fa:fa-globe blockhash(2..256)")
-v_block_chainid("fa:fa-globe block.chainid")
-v_block_basefee("fa:fa-globe block.basefee")
+v_block_number(block.number)
+v_block_gaslimit(block.gaslimit)
+v_block_timestamp(block.timestamp)
+v_block_prevrando(block.prevrando)
+v_blockhash_1("blockhash(1)")
+v_blockhash_others("blockhash(2..256)")
+v_block_chainid("block.chainid")
+v_block_basefee("block.basefee")
 dot1((" "))
 dot2((" "))
 end
@@ -98,18 +98,18 @@ a_parent_gas_used[parentGasUsed]
 end
 
 subgraph L1Storage
-b_signal_root[fa:fa-database signalRoot]
-b_l1_taiko_addr[fa:fa-database taikoL1Address]
-b_l1_signal_service_addr[fa:fa-database L1 signalServiceAddress]
-b_l2_signal_service_addr[fa:fa-database L2 signalServiceAddress]
+b_signal_root[signalRoot]
+b_l1_taiko_addr[taikoL1Address]
+b_l1_signal_service_addr[L1 signalServiceAddress]
+b_l2_signal_service_addr[L2 signalServiceAddress]
 end
 
 
 subgraph L2Storage
-s_public_input_hash[fa:fa-database publicInputHash]
-s_parent_timestamp[fa:fa-database parentTimestamp]
-s_gas_excess[fa:fa-database gasExcess]
-s_signal_root[fa:fa-database signalRoot]
+s_public_input_hash[publicInputHash]
+s_parent_timestamp[parentTimestamp]
+s_gas_excess[gasExcess]
+s_signal_root[signalRoot]
 end
 
 
