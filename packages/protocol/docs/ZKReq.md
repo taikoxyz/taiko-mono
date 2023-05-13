@@ -1,3 +1,11 @@
+# ow Taiko proves L2 blocks
+
+This document specifies how the Taiko protocol, client, and circuits work together to prove L2 blocks.
+
+(TODO:dani: please migrate content in our [internal doc](https://www.notion.so/DRAFT-zk-Proving-Requirements-in-a-Taiko-Block-f0ba03ddf9bc4250a9924a56e184604a) inside this file)
+
+## Data cross-verification chart
+
 ```mermaid
 graph LR
 classDef default stroke-width:4px;
