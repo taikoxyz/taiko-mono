@@ -1,8 +1,5 @@
 ```mermaid
 graph LR
-
-graph LR
-
 classDef default stroke-width:4px;
 
 m_id --- h_height --- v_block_number;
