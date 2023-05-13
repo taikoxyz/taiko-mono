@@ -1,6 +1,7 @@
 ```mermaid
 graph LR
 
+graph LR
 
 classDef default stroke-width:4px;
 
@@ -10,39 +11,39 @@ m_timestamp --- h_timestamp  --- v_block_timestamp;
 m_h1_height --- a_h1_height;
 m_h1_hash --- a_h1_hash;
 m_mix_hash --- h_mix_hash --- v_block_prevrando;
-tx_list -->|keccak| m_txlist_hash;
+tx_list -.->|keccak| m_txlist_hash;
 m_beneficiary --- h_beneficiary;
 h_parent_hash --- v_blockhash_1 & e_parent_hash;
-empty_list -->|keccak| h_ommers_hash;
-empty_list --> h_logs_bloom;
-zero --> h_difficulty;
-zero --> h_nonce;
-zero --> h_basefee;
-empty_string --> h_extra_data;
+empty_list -.->|keccak| h_ommers_hash;
+empty_list -.-> h_logs_bloom;
+zero -.-> h_difficulty;
+zero -.-> h_nonce;
+zero -.-> h_basefee;
+empty_string -.-> h_extra_data;
 
-v_block_chainid --> dot1;
-v_blockhash_others --> dot1 -->|keccak| s_public_input_hash;
+v_block_chainid -.-> dot1;
+v_blockhash_others -.-> dot1 -.->|keccak| s_public_input_hash;
 
 
-v_block_gaslimit --> dot2;
-v_block_timestamp --> dot2;
-s_parent_timestamp --> dot2;
-s_gas_excess --> dot2 ---|calcBasefee| v_block_basefee;
+v_block_gaslimit -.-> dot2;
+v_block_timestamp -.-> dot2;
+s_parent_timestamp -.-> dot2;
+s_gas_excess -.-> dot2 ---|calcBasefee| v_block_basefee;
 
-processed_deposits -->|keccak| m_deposits_root --- h_withdrawals_root;
+processed_deposits -.->|keccak| m_deposits_root --- h_withdrawals_root;
 
 b_signal_root --- a_h1_signal_root;
 h_gas_used --- e_gas_used;
 
-BlockMetadata -->|keccak| dot4((" ")) --- e_meta_hash --> dot3((" ")) -->|keccak| zk_instance;
-e_parent_hash & e_block_hash & e_signal_root & e_graffiti & e_prover & e_parent_gas_used & e_gas_used --> dot3;
-b_l1_signal_service_addr --> dot3;
-b_l2_signal_service_addr --> dot3;
-b_l1_taiko_addr --> dot3;
+BlockMetadata -.->|keccak| dot4((" ")) --- e_meta_hash -.-> dot3((" ")) -.->|keccak| zk_instance;
+e_parent_hash & e_block_hash & e_signal_root & e_graffiti & e_prover & e_parent_gas_used & e_gas_used -.-> dot3;
+b_l1_signal_service_addr -.-> dot3;
+b_l2_signal_service_addr -.-> dot3;
+b_l1_taiko_addr -.-> dot3;
 
 e_signal_root --- s_signal_root
 e_pareng_gas --- a_parent_gas_used
-BlockHeader -->|abiencode & keccak| dot5((" ")) o--- e_block_hash
+BlockHeader -.->|abiencode & keccak| dot5((" ")) o--- e_block_hash
 
 subgraph BlockMetadata
 m_id(id)
@@ -79,14 +80,14 @@ h_withdrawals_root(withdrawalsRoot)
 end
 
 subgraph GlobalVariables
-v_block_number(block.number)
-v_block_gaslimit(block.gaslimit)
-v_block_timestamp(block.timestamp)
-v_block_prevrando(block.prevrando)
-v_blockhash_1("blockhash(1)")
-v_blockhash_others("blockhash(2..256)")
-v_block_chainid("block.chainid")
-v_block_basefee("block.basefee")
+v_block_number(fa:fa-globe block.number)
+v_block_gaslimit(fa:fa-globe block.gaslimit)
+v_block_timestamp(fa:fa-globe block.timestamp)
+v_block_prevrando(fa:fa-globe block.prevrando)
+v_blockhash_1("fa:fa-globe blockhash(1)")
+v_blockhash_others("fa:fa-globe blockhash(2..256)")
+v_block_chainid("fa:fa-globe block.chainid")
+v_block_basefee("fa:fa-globe block.basefee")
 dot1((" "))
 dot2((" "))
 end
@@ -100,18 +101,18 @@ a_parent_gas_used[parentGasUsed]
 end
 
 subgraph L1Storage
-b_signal_root[signalRoot]
-b_l1_taiko_addr[taikoL1Address]
-b_l1_signal_service_addr[L1 signalServiceAddress]
-b_l2_signal_service_addr[L2 signalServiceAddress]
+b_signal_root[fa:fa-database signalRoot]
+b_l1_taiko_addr[fa:fa-database taikoL1Address]
+b_l1_signal_service_addr[fa:fa-database L1 signalServiceAddress]
+b_l2_signal_service_addr[fa:fa-database L2 signalServiceAddress]
 end
 
 
 subgraph L2Storage
-s_public_input_hash[[publicInputHash]]
-s_parent_timestamp[[parentTimestamp]]
-s_gas_excess[[gasExcess]]
-s_signal_root[[signalRoot]]
+s_public_input_hash[fa:fa-database publicInputHash]
+s_parent_timestamp[fa:fa-database parentTimestamp]
+s_gas_excess[fa:fa-database gasExcess]
+s_signal_root[fa:fa-database signalRoot]
 end
 
 
@@ -128,12 +129,12 @@ e_gas_used(gasUsed)
 classDef forkchoice fill:#f96
 end
 
+classDef constant fill:#fff, stroke:#AAA;
 
-
-zero["0\n(zero)"]
-empty_string["''\n(empty bytes)"]
-empty_list["[]\n(empty list)"]
-tx_list["txList\n(blob or calldata)"]
-processed_deposits["onchain deposits data"]
+zero["0\n(zero)"]:::constant
+empty_string["''\n(empty bytes)"]:::constant
+empty_list["[]\n(empty list)"]:::constant
+tx_list["txList\n(blob or calldata)"]:::constant
+processed_deposits["onchain deposits data"]:::constant
 zk_instance(zkInstance)
 ```
