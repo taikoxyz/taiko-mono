@@ -39,7 +39,7 @@ b_l2_signal_service_addr -.-> dot3;
 b_l1_taiko_addr -.-> dot3;
 
 e_signal_root --- s_signal_root
-e_pareng_gas --- a_parent_gas_used
+e_parent_gas_used --- a_parent_gas_used
 BlockHeader -.->|abiencode & keccak| dot5((" ")) o--- e_block_hash
 
 subgraph BlockMetadata
