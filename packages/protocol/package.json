@@ -39,6 +39,7 @@
   "devDependencies": {
     "@defi-wonderland/smock": "^2.3.4",
     "@foundry-rs/hardhat-forge": "^0.1.17",
+    "@nomicfoundation/hardhat-foundry": "^1.0.1",
     "@nomicfoundation/hardhat-network-helpers": "^1.0.8",
     "@nomiclabs/hardhat-ethers": "^2.2.3",
     "@nomiclabs/hardhat-etherscan": "^3.1.7",
