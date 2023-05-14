@@ -27,19 +27,16 @@ contract MayFailFreeMintERC20 is ERC20 {
         _mint(to, 50 * (10 ** decimals()));
     }
 
-    function transfer(
-        address to,
-        uint256 amount
-    ) public override returns (bool) {
+    function transfer(address to, uint256 amount) public override returns (bool) {
         _mayFail();
         return ERC20.transfer(to, amount);
     }
 
-    function transferFrom(
-        address from,
-        address to,
-        uint256 amount
-    ) public override returns (bool) {
+    function transferFrom(address from, address to, uint256 amount)
+        public
+        override
+        returns (bool)
+    {
         _mayFail();
         return ERC20.transferFrom(from, to, amount);
     }
