@@ -194,12 +194,9 @@ contract DeployOnL1 is Script {
     }
 
     function deployPlonkVerifiers() private {
-        address[] memory plonkVerifiers = new address[](2);
+        address[] memory plonkVerifiers = new address[](1);
         plonkVerifiers[0] = deployYulContract(
-            "contracts/libs/yul/PlonkVerifier_10_txs.yulp"
-        );
-        plonkVerifiers[1] = deployYulContract(
-            "contracts/libs/yul/PlonkVerifier_80_txs.yulp"
+            "contracts/libs/yul/PlonkVerifier.yulp"
         );
 
         for (uint16 i = 0; i < plonkVerifiers.length; ++i) {

@@ -26,16 +26,19 @@ importers:
         version: 1.6.0
       '@wagmi/connectors':
         specifier: ^0.1.1
-        version: 0.1.1(@wagmi/core@0.8.4)(ethers@5.7.2)(typescript@4.9.3)
+        version: 0.1.1(@wagmi/core@0.8.4)(debug@4.3.4)(ethers@5.7.2)(typescript@4.9.3)
       '@wagmi/core':
         specifier: ^0.8.0
-        version: 0.8.4(@coinbase/wallet-sdk@3.6.3)(ethers@5.7.2)(typescript@4.9.3)
+        version: 0.8.4(@coinbase/wallet-sdk@3.6.3)(debug@4.3.4)(ethers@5.7.2)(typescript@4.9.3)
       axios:
         specifier: ^1.2.0
-        version: 1.2.0
+        version: 1.2.0(debug@4.3.4)
       buffer:
         specifier: ^6.0.3
         version: 6.0.3
+      debug:
+        specifier: ^4.3.4
+        version: 4.3.4
       ethers:
         specifier: ^5.7.1
         version: 5.7.2
@@ -58,6 +61,9 @@ importers:
       '@tsconfig/svelte':
         specifier: ^3.0.0
         version: 3.0.0
+      '@types/debug':
+        specifier: ^4.1.7
+        version: 4.1.7
       '@types/eslint':
         specifier: ^8.2.1
         version: 8.4.10
@@ -2948,6 +2954,20 @@ packages:
       - bufferutil
       - debug
       - utf-8-validate
+    dev: false
+
+  /@json-rpc-tools/provider@1.7.6(debug@4.3.4):
+    resolution: {integrity: sha512-z7D3xvJ33UfCGv77n40lbzOYjZKVM3k2+5cV7xS8G6SCvKTzMkhkUYuD/qzQUNT4cG/lv0e9mRToweEEVLVVmA==}
+    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+    dependencies:
+      '@json-rpc-tools/utils': 1.7.6
+      axios: 0.21.4(debug@4.3.4)
+      safe-json-utils: 1.1.1
+      ws: 7.5.9
+    transitivePeerDependencies:
+      - bufferutil
+      - debug
+      - utf-8-validate
 
   /@json-rpc-tools/types@1.7.6:
     resolution: {integrity: sha512-nDSqmyRNEqEK9TZHtM15uNnDljczhCUdBmRhpNZ95bIPKEDQ+nTDmGMFd2lLin3upc5h2VVVd9tkTDdbXUhDIQ==}
@@ -4267,7 +4287,6 @@ packages:
     resolution: {integrity: sha512-9AonUzyTjXXhEOa0DnqpzZi6VHlqKMswga9EXjpXnnqxwLtdvPPtlO8evrI5D9S6asFRCQ6v+wpiUKbw+vKqyg==}
     dependencies:
       '@types/ms': 0.7.31
-    dev: false
 
   /@types/eslint-scope@3.7.4:
     resolution: {integrity: sha512-9K4zoImiZc3HlIp6AVUDE4CWYx22a+lhSZMYNpbjW04+YF0KWj4pJXnEMjdnFTiQibFFmElcsasJXDbdI/EPhA==}
@@ -4453,7 +4472,6 @@ packages:
 
   /@types/ms@0.7.31:
     resolution: {integrity: sha512-iiUgKzV9AuaEkZqkOLDIvlQiL6ltuZd9tGcW3gwpnX8JbuiuhFlEGmmFXEXkN50Cvq7Os88IY2v0dkDqXYWVgA==}
-    dev: false
 
   /@types/node-fetch@2.6.3:
     resolution: {integrity: sha512-ETTL1mOEdq/sxUtgtOhKjyB2Irra4cjxksvcMUR5Zr4n+PxVhsCD9WS46oPbHL3et9Zde7CNRr+WUNlcHvsX+w==}
@@ -5064,7 +5082,7 @@ packages:
         optional: true
     dependencies:
       '@wagmi/chains': 0.2.22(typescript@4.9.3)
-      '@wagmi/core': 0.8.4(@coinbase/wallet-sdk@3.6.3)(ethers@5.7.2)(typescript@4.9.3)
+      '@wagmi/core': 0.8.4(@coinbase/wallet-sdk@3.6.3)(debug@4.3.4)(ethers@5.7.2)(typescript@4.9.3)
       abitype: 0.8.1(typescript@4.9.3)(zod@3.21.4)
       abort-controller: 3.0.0
       bundle-require: 3.1.2(esbuild@0.15.13)
@@ -5093,6 +5111,31 @@ packages:
       - utf-8-validate
     dev: true
 
+  /@wagmi/connectors@0.1.1(@wagmi/core@0.8.4)(debug@4.3.4)(ethers@5.7.2)(typescript@4.9.3):
+    resolution: {integrity: sha512-W9w73o9HCYzuBsDHuujwBT/nGGIu5qLBSqVqslXf/S1Q9OiWoudmuIs3opuYqxgw5MpWbMqhq6QaxA7Qcd6NrA==}
+    peerDependencies:
+      '@wagmi/core': 0.8.x
+      ethers: ^5.0.0
+    peerDependenciesMeta:
+      '@wagmi/core':
+        optional: true
+    dependencies:
+      '@coinbase/wallet-sdk': 3.6.3
+      '@ledgerhq/connect-kit-loader': 1.0.1
+      '@wagmi/core': 0.8.4(@coinbase/wallet-sdk@3.6.3)(debug@4.3.4)(ethers@5.7.2)(typescript@4.9.3)
+      '@walletconnect/ethereum-provider': 1.8.0(debug@4.3.4)
+      abitype: 0.1.8(typescript@4.9.3)
+      ethers: 5.7.2
+      eventemitter3: 4.0.7
+    transitivePeerDependencies:
+      - '@babel/core'
+      - bufferutil
+      - debug
+      - encoding
+      - supports-color
+      - typescript
+      - utf-8-validate
+
   /@wagmi/connectors@0.1.1(@wagmi/core@0.8.4)(ethers@5.7.2)(typescript@4.9.3):
     resolution: {integrity: sha512-W9w73o9HCYzuBsDHuujwBT/nGGIu5qLBSqVqslXf/S1Q9OiWoudmuIs3opuYqxgw5MpWbMqhq6QaxA7Qcd6NrA==}
     peerDependencies:
@@ -5117,6 +5160,7 @@ packages:
       - supports-color
       - typescript
       - utf-8-validate
+    dev: false
 
   /@wagmi/connectors@0.1.1(@wagmi/core@0.8.4)(ethers@5.7.2)(typescript@4.9.5):
     resolution: {integrity: sha512-W9w73o9HCYzuBsDHuujwBT/nGGIu5qLBSqVqslXf/S1Q9OiWoudmuIs3opuYqxgw5MpWbMqhq6QaxA7Qcd6NrA==}
@@ -5143,6 +5187,37 @@ packages:
       - typescript
       - utf-8-validate
     dev: false
+
+  /@wagmi/core@0.8.4(@coinbase/wallet-sdk@3.6.3)(debug@4.3.4)(ethers@5.7.2)(typescript@4.9.3):
+    resolution: {integrity: sha512-orFRGOei+ixH8fIU9DitjKFSnv7sEv4j0A32gin2aADLuyBsAqG7xD+5LzfVD8EarHzU98Mk9d4hmmIkMg8bXw==}
+    peerDependencies:
+      '@coinbase/wallet-sdk': '>=3.6.0'
+      '@walletconnect/ethereum-provider': '>=1.7.5'
+      ethers: '>=5.5.1'
+    peerDependenciesMeta:
+      '@coinbase/wallet-sdk':
+        optional: true
+      '@walletconnect/ethereum-provider':
+        optional: true
+    dependencies:
+      '@coinbase/wallet-sdk': 3.6.3
+      '@wagmi/chains': 0.1.3
+      '@wagmi/connectors': 0.1.1(@wagmi/core@0.8.4)(debug@4.3.4)(ethers@5.7.2)(typescript@4.9.3)
+      abitype: 0.2.5(typescript@4.9.3)
+      ethers: 5.7.2
+      eventemitter3: 4.0.7
+      zustand: 4.1.4
+    transitivePeerDependencies:
+      - '@babel/core'
+      - bufferutil
+      - debug
+      - encoding
+      - immer
+      - react
+      - supports-color
+      - typescript
+      - utf-8-validate
+      - zod
 
   /@wagmi/core@0.8.4(@coinbase/wallet-sdk@3.6.3)(ethers@5.7.2)(typescript@4.9.3):
     resolution: {integrity: sha512-orFRGOei+ixH8fIU9DitjKFSnv7sEv4j0A32gin2aADLuyBsAqG7xD+5LzfVD8EarHzU98Mk9d4hmmIkMg8bXw==}
@@ -5174,6 +5249,7 @@ packages:
       - typescript
       - utf-8-validate
       - zod
+    dev: false
 
   /@wagmi/core@0.8.4(@coinbase/wallet-sdk@3.6.3)(ethers@5.7.2)(typescript@4.9.5):
     resolution: {integrity: sha512-orFRGOei+ixH8fIU9DitjKFSnv7sEv4j0A32gin2aADLuyBsAqG7xD+5LzfVD8EarHzU98Mk9d4hmmIkMg8bXw==}
@@ -5270,6 +5346,24 @@ packages:
       '@walletconnect/types': 1.8.0
       '@walletconnect/utils': 1.8.0
       eip1193-provider: 1.0.1
+      eventemitter3: 4.0.7
+    transitivePeerDependencies:
+      - bufferutil
+      - debug
+      - encoding
+      - utf-8-validate
+    dev: false
+
+  /@walletconnect/ethereum-provider@1.8.0(debug@4.3.4):
+    resolution: {integrity: sha512-Nq9m+oo5P0F+njsROHw9KMWdoc/8iGHYzQdkjJN/1C7DtsqFRg5k5a3hd9rzCLpbPsOC1q8Z5lRs6JQgDvPm6Q==}
+    dependencies:
+      '@walletconnect/client': 1.8.0
+      '@walletconnect/jsonrpc-http-connection': 1.0.4
+      '@walletconnect/jsonrpc-provider': 1.0.6
+      '@walletconnect/signer-connection': 1.8.0
+      '@walletconnect/types': 1.8.0
+      '@walletconnect/utils': 1.8.0
+      eip1193-provider: 1.0.1(debug@4.3.4)
       eventemitter3: 4.0.7
     transitivePeerDependencies:
       - bufferutil
@@ -6239,8 +6333,26 @@ packages:
       follow-redirects: 1.15.2
     transitivePeerDependencies:
       - debug
+    dev: false
+
+  /axios@0.21.4(debug@4.3.4):
+    resolution: {integrity: sha512-ut5vewkiu8jjGBdqpM44XxjuCjq9LAKeHVmoVfHVzy8eHgxxq8SbAVQNovDA8mVi05kP0Ea/n/UzcSHcTJQfNg==}
+    dependencies:
+      follow-redirects: 1.15.2
+    transitivePeerDependencies:
+      - debug
 
   /axios@1.2.0:
+    resolution: {integrity: sha512-zT7wZyNYu3N5Bu0wuZ6QccIf93Qk1eV8LOewxgjOZFd2DenOs98cJ7+Y6703d0wkaXGY6/nZd4EweJaHz9uzQw==}
+    dependencies:
+      follow-redirects: 1.15.2
+      form-data: 4.0.0
+      proxy-from-env: 1.1.0
+    transitivePeerDependencies:
+      - debug
+    dev: false
+
+  /axios@1.2.0(debug@4.3.4):
     resolution: {integrity: sha512-zT7wZyNYu3N5Bu0wuZ6QccIf93Qk1eV8LOewxgjOZFd2DenOs98cJ7+Y6703d0wkaXGY6/nZd4EweJaHz9uzQw==}
     dependencies:
       follow-redirects: 1.15.2
@@ -9109,6 +9221,16 @@ packages:
     resolution: {integrity: sha512-kSuqwQ26d7CzuS/t3yRXo2Su2cVH0QfvyKbr2H7Be7O5YDyIq4hQGCNTo5wRdP07bt+E2R/8nPCzey4ojBHf7g==}
     dependencies:
       '@json-rpc-tools/provider': 1.7.6
+    transitivePeerDependencies:
+      - bufferutil
+      - debug
+      - utf-8-validate
+    dev: false
+
+  /eip1193-provider@1.0.1(debug@4.3.4):
+    resolution: {integrity: sha512-kSuqwQ26d7CzuS/t3yRXo2Su2cVH0QfvyKbr2H7Be7O5YDyIq4hQGCNTo5wRdP07bt+E2R/8nPCzey4ojBHf7g==}
+    dependencies:
+      '@json-rpc-tools/provider': 1.7.6(debug@4.3.4)
     transitivePeerDependencies:
       - bufferutil
       - debug
