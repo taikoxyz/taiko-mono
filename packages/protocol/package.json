@@ -8,7 +8,7 @@
     "compile:hardhat": "pnpm hardhat compile",
     "export:abi": "pnpm hardhat clear-abi && pnpm hardhat export-abi",
     "export:docs": "pnpm hardhat docgen && pnpm prettier --write ../website/pages/docs/reference/contract-documentation/**/*.md",
-    "lint:sol": "pnpm prettier '**/*.sol' --write && pnpm solhint 'contracts/**/*.sol' --fix",
+    "lint:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol' --fix",
     "eslint": "pnpm exec eslint --ignore-path .eslintignore --ext .js,.ts .",
     "eslint:fix": "pnpm exec eslint --ignore-path .eslintignore --ext .js,.ts . --fix",
     "test": "forge test -vvv --gas-report --fuzz-seed $(date +%s) --match-path test/**/*.t.sol",
@@ -62,7 +62,6 @@
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-prettier": "^3.4.1",
     "eslint-plugin-promise": "^5.2.0",
-    "ethereum-waffle": "^3.4.4",
     "ethers": "^5.7.2",
     "glob": "^8.1.0",
     "hardhat": "^2.14.0",
@@ -73,7 +72,6 @@
     "lint-staged": "^12.5.0",
     "merkle-patricia-tree": "^4.2.4",
     "prettier": "^2.8.8",
-    "prettier-plugin-solidity": "^1.1.3",
     "rlp": "^3.0.0",
     "solhint": "^3.4.1",
     "solidity-coverage": "github:taikoxyz/solidity-coverage",
@@ -85,7 +83,6 @@
   "dependencies": {
     "@gnosis.pm/zodiac": "^1.1.9",
     "@openzeppelin/contracts": "^4.8.3",
-    "@openzeppelin/contracts-upgradeable": "^4.8.3",
-    "channel-ts": "^0.1.2"
+    "@openzeppelin/contracts-upgradeable": "^4.8.3"
   }
 }
