@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
 // Taken from: https://github.com/recmo/experiment-solexp/blob/main/src/FixedPointMathLib.sol
 import {LibFixedPointMath} from "../contracts/thirdparty/LibFixedPointMath.sol";

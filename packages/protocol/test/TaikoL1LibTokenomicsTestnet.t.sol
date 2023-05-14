@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
 // Uncomment if you want to compare fee/vs reward
 import {Test} from "forge-std/Test.sol";

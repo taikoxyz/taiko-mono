@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
 import {AddressManager} from "../contracts/common/AddressManager.sol";
 import {IBridge, Bridge} from "../contracts/bridge/Bridge.sol";
