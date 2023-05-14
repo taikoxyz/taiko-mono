@@ -37,10 +37,12 @@ abstract contract AddressResolver {
      * @param allowZeroAddress True to allow zero address to be returned.
      * @return The name's corresponding address.
      */
-    function resolve(
-        bytes32 name,
-        bool allowZeroAddress
-    ) public view virtual returns (address payable) {
+    function resolve(bytes32 name, bool allowZeroAddress)
+        public
+        view
+        virtual
+        returns (address payable)
+    {
         return _resolve(block.chainid, name, allowZeroAddress);
     }
 
@@ -53,11 +55,12 @@ abstract contract AddressResolver {
      * @param allowZeroAddress True to allow zero address to be returned.
      * @return The name's corresponding address.
      */
-    function resolve(
-        uint256 chainId,
-        bytes32 name,
-        bool allowZeroAddress
-    ) public view virtual returns (address payable) {
+    function resolve(uint256 chainId, bytes32 name, bool allowZeroAddress)
+        public
+        view
+        virtual
+        returns (address payable)
+    {
         return _resolve(chainId, name, allowZeroAddress);
     }
 
@@ -75,14 +78,15 @@ abstract contract AddressResolver {
         _addressManager = IAddressManager(addressManager_);
     }
 
-    function _resolve(
-        uint256 chainId,
-        bytes32 name,
-        bool allowZeroAddress
-    ) private view returns (address payable addr) {
+    function _resolve(uint256 chainId, bytes32 name, bool allowZeroAddress)
+        private
+        view
+        returns (address payable addr)
+    {
         addr = payable(_addressManager.getAddress(chainId, name));
 
-        if (!allowZeroAddress && addr == address(0))
+        if (!allowZeroAddress && addr == address(0)) {
             revert RESOLVER_ZERO_ADDR(chainId, name);
+        }
     }
 }

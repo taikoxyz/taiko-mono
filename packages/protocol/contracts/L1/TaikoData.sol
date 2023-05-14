@@ -126,7 +126,12 @@ library TaikoData {
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint256 blockId_mode_ringBufferSize => Block) blocks;
         // solhint-disable-next-line max-line-length
-        mapping(uint256 blockId => mapping(bytes32 parentHash => mapping(uint32 parentGasUsed => uint256 forkChoiceId))) forkChoiceIds;
+        mapping(
+            uint256 blockId
+                => mapping(
+                    bytes32 parentHash => mapping(uint32 parentGasUsed => uint256 forkChoiceId)
+                )
+            ) forkChoiceIds;
         mapping(address account => uint256 balance) taikoTokenBalances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         EthDeposit[] ethDeposits;
