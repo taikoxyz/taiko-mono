@@ -15,7 +15,6 @@
     "prettier:check": "pnpm run prettier '**/*.{js,ts,svelte}' --check",
     "lint": "pnpm exec eslint './**/*.{js,ts,svelte}' --ignore-path .eslintignore",
     "lint:fix": "pnpm exec eslint --fix './**/*.{js,ts,svelte}' --ignore-path .eslintignore",
-    "lint-staged": "lint-staged --allow-empty",
     "generate-abi": "pnpm exec wagmi generate"
   },
   "devDependencies": {
@@ -42,7 +41,6 @@
     "eslint-plugin-svelte3": "^4.0.0",
     "fs-extra": "^11.1.1",
     "jest": "^27.5.1",
-    "lint-staged": "^12.3.4",
     "node-sass": "^7.0.1",
     "postcss": "^8.4.19",
     "postcss-cli": "^7.1.2",
