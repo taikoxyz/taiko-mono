@@ -9,7 +9,7 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 library LibAddress2 {
     function sendEther(address to, uint256 amount) internal {
-        (bool success, ) = payable(to).call{value: amount}("");
+        (bool success,) = payable(to).call{value: amount}("");
         require(success, "ETH transfer failed");
     }
 }
@@ -71,11 +71,7 @@ contract FooBar {
         meta.timestamp = uint64(uint256((a << (128 + 64)) >> (128 + 64)));
     }
 
-    function return_1()
-        public
-        view
-        returns (TaikoData.BlockMetadata memory meta)
-    {
+    function return_1() public view returns (TaikoData.BlockMetadata memory meta) {
         meta = TaikoData.BlockMetadata({
             id: 1,
             l1Height: 1,
@@ -114,26 +110,19 @@ contract FooBar {
     }
 
     //------
-    function hashString_1(
-        string memory str
-    ) public pure returns (bytes32 hash) {
+    function hashString_1(string memory str) public pure returns (bytes32 hash) {
         assembly {
             hash := keccak256(add(str, 32), mload(str))
         }
     }
 
-    function hashString_2(
-        string memory str
-    ) public pure returns (bytes32 hash) {
+    function hashString_2(string memory str) public pure returns (bytes32 hash) {
         hash = keccak256(bytes(str));
     }
 
     //------
 
-    function hashTwo_1(
-        address a,
-        bytes32 b
-    ) public pure returns (bytes32 hash) {
+    function hashTwo_1(address a, bytes32 b) public pure returns (bytes32 hash) {
         assembly {
             // Load the free memory pointer and allocate memory for the concatenated arguments
             let input := mload(64)
@@ -149,10 +138,7 @@ contract FooBar {
         }
     }
 
-    function hashTwo_2(
-        address a,
-        bytes32 b
-    ) public pure returns (bytes32 hash) {
+    function hashTwo_2(address a, bytes32 b) public pure returns (bytes32 hash) {
         hash = keccak256(bytes.concat(bytes20(uint160(a)), b));
         // the following will work too.
         // hash = keccak256(abi.encodePacked(a, b));
@@ -176,7 +162,7 @@ contract FooBar {
 
     function increment_3(uint256 count) public pure {
         uint256 a;
-        for (uint256 i = 0; i < count; ) {
+        for (uint256 i = 0; i < count;) {
             a += i;
             unchecked {
                 i++;
@@ -186,7 +172,7 @@ contract FooBar {
 
     function increment_4(uint256 count) public pure {
         uint256 a;
-        for (uint256 i = 0; i < count; ) {
+        for (uint256 i = 0; i < count;) {
             a += i;
             unchecked {
                 ++i;
@@ -195,17 +181,11 @@ contract FooBar {
     }
 
     // ------
-    function hashKey_1(
-        uint256 chainId,
-        string memory name
-    ) public pure returns (bytes32) {
+    function hashKey_1(uint256 chainId, string memory name) public pure returns (bytes32) {
         return keccak256(bytes(string.concat(Strings.toString(chainId), name)));
     }
 
-    function hashKey_2(
-        uint256 chainId,
-        string memory name
-    ) public pure returns (bytes32) {
+    function hashKey_2(uint256 chainId, string memory name) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(chainId, name));
     }
 

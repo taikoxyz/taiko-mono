@@ -40,11 +40,9 @@ contract DeployOnL1 is Script {
 
     address public treasure = vm.envAddress("TREASURE");
 
-    address public taikoTokenPremintRecipient =
-        vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
+    address public taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
 
-    uint256 public taikoTokenPremintAmount =
-        vm.envUint("TAIKO_TOKEN_PREMINT_AMOUNT");
+    uint256 public taikoTokenPremintAmount = vm.envUint("TAIKO_TOKEN_PREMINT_AMOUNT");
 
     TaikoL1 taikoL1;
     address public addressManagerProxy;
@@ -60,23 +58,15 @@ contract DeployOnL1 is Script {
         require(taikoL2Address != address(0), "taikoL2Address is zero");
         require(l2SignalService != address(0), "l2SignalService is zero");
         require(treasure != address(0), "treasure is zero");
-        require(
-            taikoTokenPremintRecipient != address(0),
-            "taikoTokenPremintRecipient is zero"
-        );
-        require(
-            taikoTokenPremintAmount < type(uint64).max,
-            "premint too large"
-        );
+        require(taikoTokenPremintRecipient != address(0), "taikoTokenPremintRecipient is zero");
+        require(taikoTokenPremintAmount < type(uint64).max, "premint too large");
 
         vm.startBroadcast(deployerPrivateKey);
 
         // AddressManager
         AddressManager addressManager = new ProxiedAddressManager();
         addressManagerProxy = deployProxy(
-            "address_manager",
-            address(addressManager),
-            bytes.concat(addressManager.init.selector)
+            "address_manager", address(addressManager), bytes.concat(addressManager.init.selector)
         );
 
         // TaikoL1
@@ -104,11 +94,7 @@ contract DeployOnL1 is Script {
             bytes.concat(
                 taikoToken.init.selector,
                 abi.encode(
-                    addressManagerProxy,
-                    "Taiko Token",
-                    "TKO",
-                    premintRecipients,
-                    premintAmounts
+                    addressManagerProxy, "Taiko Token", "TKO", premintRecipients, premintAmounts
                 )
             )
         );
@@ -117,9 +103,7 @@ contract DeployOnL1 is Script {
         address horseToken = address(new FreeMintERC20("Horse Token", "HORSE"));
         console2.log("HorseToken", horseToken);
 
-        address bullToken = address(
-            new MayFailFreeMintERC20("Bull Token", "BLL")
-        );
+        address bullToken = address(new MayFailFreeMintERC20("Bull Token", "BLL"));
         console2.log("BullToken", bullToken);
 
         uint64 feeBase = 1 ** 8; // Taiko Token's decimals is 8, not 18
@@ -127,23 +111,15 @@ contract DeployOnL1 is Script {
         // Calculating it for our needs based on testnet/mainnet. We need it in
         // order to make the fees on the same level - in ideal circumstences.
         // See Brecht's comment https://github.com/taikoxyz/taiko-mono/pull/13564
-        uint64 initProofTimeIssued = LibLn.calcInitProofTimeIssued(
-            feeBase,
-            PROOF_TIME_TARGET,
-            ADJUSTMENT_QUOTIENT
-        );
+        uint64 initProofTimeIssued =
+            LibLn.calcInitProofTimeIssued(feeBase, PROOF_TIME_TARGET, ADJUSTMENT_QUOTIENT);
 
         address taikoL1Proxy = deployProxy(
             "taiko",
             address(taikoL1),
             bytes.concat(
                 taikoL1.init.selector,
-                abi.encode(
-                    addressManagerProxy,
-                    genesisHash,
-                    feeBase,
-                    initProofTimeIssued
-                )
+                abi.encode(addressManagerProxy, genesisHash, feeBase, initProofTimeIssued)
             )
         );
         setAddress("taiko", taikoL1Proxy);
@@ -162,10 +138,7 @@ contract DeployOnL1 is Script {
         deployProxy(
             "token_vault",
             address(tokenVault),
-            bytes.concat(
-                tokenVault.init.selector,
-                abi.encode(addressManagerProxy)
-            )
+            bytes.concat(tokenVault.init.selector, abi.encode(addressManagerProxy))
         );
 
         // SignalService
@@ -174,16 +147,10 @@ contract DeployOnL1 is Script {
             deployProxy(
                 "signal_service",
                 address(signalService),
-                bytes.concat(
-                    signalService.init.selector,
-                    abi.encode(addressManagerProxy)
-                )
+                bytes.concat(signalService.init.selector, abi.encode(addressManagerProxy))
             );
         } else {
-            console2.log(
-                "Warining: using shared signal service: ",
-                sharedSignalService
-            );
+            console2.log("Warining: using shared signal service: ", sharedSignalService);
             setAddress("signal_service", sharedSignalService);
         }
 
@@ -195,18 +162,14 @@ contract DeployOnL1 is Script {
 
     function deployPlonkVerifiers() private {
         address[] memory plonkVerifiers = new address[](1);
-        plonkVerifiers[0] = deployYulContract(
-            "contracts/libs/yul/PlonkVerifier.yulp"
-        );
+        plonkVerifiers[0] = deployYulContract("contracts/libs/yul/PlonkVerifier.yulp");
 
         for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
             setAddress(taikoL1.getVerifierName(i), plonkVerifiers[i]);
         }
     }
 
-    function deployYulContract(
-        string memory contractPath
-    ) private returns (address) {
+    function deployYulContract(string memory contractPath) private returns (address) {
         string[] memory cmds = new string[](3);
         cmds[0] = "bash";
         cmds[1] = "-c";
@@ -224,22 +187,20 @@ contract DeployOnL1 is Script {
             deployedAddress := create(0, add(bytecode, 0x20), mload(bytecode))
         }
 
-        if (deployedAddress == address(0))
+        if (deployedAddress == address(0)) {
             revert FAILED_TO_DEPLOY_PLONK_VERIFIER(contractPath);
+        }
 
         console2.log(contractPath, deployedAddress);
 
         return deployedAddress;
     }
 
-    function deployProxy(
-        string memory name,
-        address implementation,
-        bytes memory data
-    ) private returns (address proxy) {
-        proxy = address(
-            new TransparentUpgradeableProxy(implementation, owner, data)
-        );
+    function deployProxy(string memory name, address implementation, bytes memory data)
+        private
+        returns (address proxy)
+    {
+        proxy = address(new TransparentUpgradeableProxy(implementation, owner, data));
 
         console2.log(name, "(impl) ->", implementation);
         console2.log(name, "(proxy) ->", proxy);

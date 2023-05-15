@@ -96,29 +96,13 @@ contract TestTokenVault is Test {
 
         addressManager.setAddress(block.chainid, "bridge", address(bridge));
 
-        addressManager.setAddress(
-            block.chainid,
-            "signal_service",
-            address(signalService)
-        );
+        addressManager.setAddress(block.chainid, "signal_service", address(signalService));
 
-        addressManager.setAddress(
-            block.chainid,
-            "token_vault",
-            address(tokenVault)
-        );
+        addressManager.setAddress(block.chainid, "token_vault", address(tokenVault));
 
-        addressManager.setAddress(
-            destChainId,
-            "token_vault",
-            address(destChainIdTokenVault)
-        );
+        addressManager.setAddress(destChainId, "token_vault", address(destChainIdTokenVault));
 
-        addressManager.setAddress(
-            destChainId,
-            "bridge",
-            address(destChainIdBridge)
-        );
+        addressManager.setAddress(destChainId, "bridge", address(destChainIdBridge));
 
         vm.stopPrank();
     }
@@ -127,16 +111,7 @@ contract TestTokenVault is Test {
         vm.startPrank(Alice);
 
         vm.expectRevert("ERC20: insufficient allowance");
-        tokenVault.sendERC20(
-            destChainId,
-            Bob,
-            address(erc20),
-            1 wei,
-            1000000,
-            1,
-            Bob,
-            ""
-        );
+        tokenVault.sendERC20(destChainId, Bob, address(erc20), 1 wei, 1000000, 1, Bob, "");
     }
 
     function test_send_erc20_no_processing_fee() public {
@@ -148,16 +123,7 @@ contract TestTokenVault is Test {
         uint256 aliceBalanceBefore = erc20.balanceOf(Alice);
         uint256 tokenVaultBalanceBefore = erc20.balanceOf(address(tokenVault));
 
-        tokenVault.sendERC20(
-            destChainId,
-            Bob,
-            address(erc20),
-            amount,
-            1000000,
-            0,
-            Bob,
-            ""
-        );
+        tokenVault.sendERC20(destChainId, Bob, address(erc20), amount, 1000000, 0, Bob, "");
 
         uint256 aliceBalanceAfter = erc20.balanceOf(Alice);
         uint256 tokenVaultBalanceAfter = erc20.balanceOf(address(tokenVault));
@@ -166,25 +132,14 @@ contract TestTokenVault is Test {
         assertEq(tokenVaultBalanceAfter - tokenVaultBalanceBefore, amount);
     }
 
-    function test_send_erc20_processing_fee_reverts_if_msg_value_too_low()
-        public
-    {
+    function test_send_erc20_processing_fee_reverts_if_msg_value_too_low() public {
         vm.startPrank(Alice);
 
         uint256 amount = 2 wei;
         erc20.approve(address(tokenVault), amount);
 
         vm.expectRevert();
-        tokenVault.sendERC20(
-            destChainId,
-            Bob,
-            address(erc20),
-            amount,
-            1000000,
-            amount - 1,
-            Bob,
-            ""
-        );
+        tokenVault.sendERC20(destChainId, Bob, address(erc20), amount, 1000000, amount - 1, Bob, "");
     }
 
     function test_send_erc20_processing_fee() public {
@@ -197,14 +152,7 @@ contract TestTokenVault is Test {
         uint256 tokenVaultBalanceBefore = erc20.balanceOf(address(tokenVault));
 
         tokenVault.sendERC20{value: amount}(
-            destChainId,
-            Bob,
-            address(erc20),
-            amount,
-            1000000,
-            amount - 1,
-            Bob,
-            ""
+            destChainId, Bob, address(erc20), amount, 1000000, amount - 1, Bob, ""
         );
 
         uint256 aliceBalanceAfter = erc20.balanceOf(Alice);
@@ -220,16 +168,7 @@ contract TestTokenVault is Test {
         uint256 amount = 0;
 
         vm.expectRevert(TokenVault.TOKENVAULT_INVALID_AMOUNT.selector);
-        tokenVault.sendERC20(
-            destChainId,
-            Bob,
-            address(erc20),
-            amount,
-            1000000,
-            0,
-            Bob,
-            ""
-        );
+        tokenVault.sendERC20(destChainId, Bob, address(erc20), amount, 1000000, 0, Bob, "");
     }
 
     function test_send_erc20_reverts_invalid_token_address() public {
@@ -238,16 +177,7 @@ contract TestTokenVault is Test {
         uint256 amount = 1;
 
         vm.expectRevert(TokenVault.TOKENVAULT_INVALID_TOKEN.selector);
-        tokenVault.sendERC20(
-            destChainId,
-            Bob,
-            address(0),
-            amount,
-            1000000,
-            0,
-            Bob,
-            ""
-        );
+        tokenVault.sendERC20(destChainId, Bob, address(0), amount, 1000000, 0, Bob, "");
     }
 
     function test_send_erc20_reverts_invalid_to() public {
@@ -256,21 +186,10 @@ contract TestTokenVault is Test {
         uint256 amount = 1;
 
         vm.expectRevert(TokenVault.TOKENVAULT_INVALID_TO.selector);
-        tokenVault.sendERC20(
-            destChainId,
-            address(0),
-            address(erc20),
-            amount,
-            1000000,
-            0,
-            Bob,
-            ""
-        );
+        tokenVault.sendERC20(destChainId, address(0), address(erc20), amount, 1000000, 0, Bob, "");
     }
 
-    function test_receive_erc20_canonical_to_dest_chain_transfers_from_canonical_token()
-        public
-    {
+    function test_receive_erc20_canonical_to_dest_chain_transfers_from_canonical_token() public {
         vm.startPrank(Alice);
 
         uint256 srcChainId = block.chainid;
@@ -313,10 +232,8 @@ contract TestTokenVault is Test {
 
         destChainIdBridge.setTokenVault(address(destChainIdTokenVault));
 
-        address bridgedAddressBefore = destChainIdTokenVault.canonicalToBridged(
-            srcChainId,
-            address(erc20)
-        );
+        address bridgedAddressBefore =
+            destChainIdTokenVault.canonicalToBridged(srcChainId, address(erc20));
         assertEq(bridgedAddressBefore == address(0), true);
 
         destChainIdBridge.sendReceiveERC20ToTokenVault(
@@ -329,26 +246,25 @@ contract TestTokenVault is Test {
             srcChainId
         );
 
-        address bridgedAddressAfter = destChainIdTokenVault.canonicalToBridged(
-            srcChainId,
-            address(erc20)
-        );
+        address bridgedAddressAfter =
+            destChainIdTokenVault.canonicalToBridged(srcChainId, address(erc20));
         assertEq(bridgedAddressAfter != address(0), true);
         BridgedERC20 bridgedERC20 = BridgedERC20(bridgedAddressAfter);
 
         assertEq(bridgedERC20.balanceOf(Bob), amount);
     }
 
-    function erc20ToCanonicalERC20(
-        uint256 chainId
-    ) internal view returns (TokenVault.CanonicalERC20 memory) {
-        return
-            TokenVault.CanonicalERC20({
-                chainId: chainId,
-                addr: address(erc20),
-                decimals: erc20.decimals(),
-                symbol: erc20.symbol(),
-                name: erc20.name()
-            });
+    function erc20ToCanonicalERC20(uint256 chainId)
+        internal
+        view
+        returns (TokenVault.CanonicalERC20 memory)
+    {
+        return TokenVault.CanonicalERC20({
+            chainId: chainId,
+            addr: address(erc20),
+            decimals: erc20.decimals(),
+            symbol: erc20.symbol(),
+            name: erc20.name()
+        });
     }
 }
