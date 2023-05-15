@@ -2,10 +2,8 @@
   "name": "taiko-mono",
   "version": "0.12.0",
   "private": true,
-  "scripts": {
-    "prepare": "husky install"
-  },
   "devDependencies": {
-    "husky": "^8.0.3"
+    "lefthook": "^1.3.13",
+    "prettier": "^2.8.8"
   }
 }
