@@ -31,6 +31,8 @@ export class ETHBridge implements Bridge {
       opts.signer,
     );
 
+    log('Contract instantiated', contract);
+
     const owner = await opts.signer.getAddress();
     const message: Message = {
       sender: owner,
