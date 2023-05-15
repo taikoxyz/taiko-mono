@@ -86,8 +86,6 @@ contract DeployOnL1 is Script {
 
         setAddress(l2ChainId, "taiko", taikoL2Address);
         setAddress(l2ChainId, "signal_service", l2SignalService);
-        setAddress("oracle_prover", oracleProver);
-        setAddress("system_prover", systemProver);
         setAddress(l2ChainId, "treasure", treasure);
 
         // TaikoToken

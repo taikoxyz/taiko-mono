@@ -11,7 +11,7 @@ import {LibMath} from "../../libs/LibMath.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
-import {LibVerifySGX} from "./proofTypes/LibVerifySGX.sol";
+import {LibVerifyTrusted} from "./proofTypes/LibVerifyTrusted.sol";
 import {LibVerifyZKP} from "./proofTypes/LibVerifyZKP.sol";
 
 library LibProving {
@@ -32,6 +32,8 @@ library LibProving {
     error L1_EVIDENCE_MISMATCH(bytes32 expected, bytes32 actual);
     error L1_FORK_CHOICE_NOT_FOUND();
     error L1_INVALID_EVIDENCE();
+    error L1_INVALID_PROOFTYPE();
+    error L1_NOT_ENABLED_PROOFTYPE();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -137,7 +139,7 @@ library LibProving {
                 if (index == 0) {
                     // This is the regular ZK proof and required based on the flag
                     // in config.proofToggleMask
-                    LibVerifyZKP.verifyZkProof(
+                    LibVerifyZKP.verifyProof(
                         resolver,
                         evidence.blockProofs[index].proof,
                         instance,
@@ -146,7 +148,7 @@ library LibProving {
                 } else if (index == 1) {
                     // This is the SGX signature proof and required based on the flag
                     // in config.proofToggleMask
-                    LibVerifySGX.verifySgxProof(
+                    LibVerifyTrusted.verifyProof(
                         resolver,
                         evidence.blockProofs[index].proof,
                         instance,
@@ -159,6 +161,28 @@ library LibProving {
                 ++index;
             }
         }
+
+        uint16 mask = config.proofToggleMask;
+
+        for (uint16 i; i < evidence.blockProofs.length; ) {
+            TaikoData.TypedProof memory proof = evidence.blockProofs[i];
+            if (proof.proofType == 0) {
+                revert L1_INVALID_PROOFTYPE();
+            }
+
+            uint16 bitMask = uint16(1 << (proof.proofType - 1));
+            if ((mask & bitMask) == 0) {
+                revert L1_NOT_ENABLED_PROOFTYPE();
+            }
+
+            verifyTypedProof(proof, instance, resolver);
+            mask &= ~bitMask;
+
+            unchecked {
+                ++i;
+            }
+        }
+        require(mask == 0, "not_all_requierd_proof_verified");
 
         emit BlockProven({
             id: blk.blockId,
@@ -190,5 +214,31 @@ library LibProving {
         );
         if (fcId == 0) revert L1_FORK_CHOICE_NOT_FOUND();
         fc = blk.forkChoices[fcId];
+    }
+
+    function verifyTypedProof(
+        TaikoData.TypedProof memory proof,
+        bytes32 instance,
+        AddressResolver resolver
+    ) internal view {
+        if (proof.proofType == 1) {
+            // This is the regular ZK proof and required based on the flag
+            // in config.proofToggleMask
+            LibVerifyZKP.verifyProof(
+                resolver,
+                proof.proof,
+                instance,
+                proof.verifierId
+            );
+        } else if (proof.proofType == 2) {
+            // This is the SGX signature proof and required based on the flag
+            // in config.proofToggleMask
+            LibVerifyTrusted.verifyProof(
+                resolver,
+                proof.proof,
+                instance,
+                proof.verifierId
+            );
+        }
     }
 }

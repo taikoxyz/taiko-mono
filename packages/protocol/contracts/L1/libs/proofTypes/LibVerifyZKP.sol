@@ -13,7 +13,7 @@ import {TaikoData} from "../../TaikoData.sol";
 library LibVerifyZKP {
     error L1_INVALID_PROOF();
 
-    function verifyZkProof(
+    function verifyProof(
         AddressResolver resolver,
         bytes memory proof,
         bytes32 inputHash,

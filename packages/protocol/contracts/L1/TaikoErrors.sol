@@ -19,7 +19,9 @@ abstract contract TaikoErrors {
     error L1_INVALID_METADATA();
     error L1_INVALID_PARAM();
     error L1_INVALID_PROOF();
+    error L1_INVALID_PROOFTYPE();
     error L1_INVALID_SGX_SIGNATURE();
+    error L1_NOT_ENABLED_PROOFTYPE();
     error L1_TOO_MANY_BLOCKS();
     error L1_TX_LIST_NOT_EXIST();
     error L1_TX_LIST_HASH();

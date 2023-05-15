@@ -10,10 +10,10 @@ import {AddressResolver} from "../../../common/AddressResolver.sol";
 import {LibUtils} from "../LibUtils.sol";
 import {TaikoData} from "../../TaikoData.sol";
 
-library LibVerifySGX {
+library LibVerifyTrusted {
     error L1_INVALID_SGX_SIGNATURE();
 
-    function verifySgxProof(
+    function verifyProof(
         AddressResolver resolver,
         bytes memory proof,
         bytes32 signedMsghash,

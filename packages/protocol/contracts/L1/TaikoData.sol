@@ -36,7 +36,7 @@ library TaikoData {
         // RESERVED_Y_ONLY,     // 0000 1000
         // ZKP_AND_SGX,         // 0000 0011
         // X_ZKP_SGX,           // 0000 0111
-        uint8 proofToggleMask;
+        uint16 proofToggleMask;
         bool relaySignalRoot;
     }
 
@@ -81,8 +81,9 @@ library TaikoData {
         TaikoData.EthDeposit[] depositsProcessed;
     }
 
-    struct BlockProof {
+    struct TypedProof {
         uint16 verifierId;
+        uint16 proofType; // 1: ZKP, 2: SGX, 3 e.g.: SuperSignature (not implemented yet), etc.
         bytes proof;
     }
 
@@ -95,7 +96,7 @@ library TaikoData {
         address prover;
         uint32 parentGasUsed;
         uint32 gasUsed;
-        BlockProof[] blockProofs;
+        TypedProof[] blockProofs;
     }
 
     // 4 slots

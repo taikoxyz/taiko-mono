@@ -152,16 +152,17 @@ abstract contract TaikoL1TestBase is Test {
         bytes32 blockHash,
         bytes32 signalRoot
     ) internal {
-        TaikoData.BlockProof memory zkpBlockProof = TaikoData.BlockProof({
+        TaikoData.TypedProof memory zkpTypedProof = TaikoData.TypedProof({
             verifierId: 100,
+            proofType: 1,
             proof: new bytes(100)
         });
 
-        TaikoData.BlockProof[] memory blockProofs = new TaikoData.BlockProof[](
+        TaikoData.TypedProof[] memory blockProofs = new TaikoData.TypedProof[](
             1
         );
 
-        blockProofs[0] = zkpBlockProof;
+        blockProofs[0] = zkpTypedProof;
 
         TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
             metaHash: LibUtils.hashMetadata(meta),
@@ -189,18 +190,19 @@ abstract contract TaikoL1TestBase is Test {
         bytes32 blockHash,
         bytes32 signalRoot
     ) internal {
-        TaikoData.BlockProof memory zkpBlockProof = TaikoData.BlockProof({
+        TaikoData.TypedProof memory zkpTypedProof = TaikoData.TypedProof({
             verifierId: 100,
+            proofType: 1,
             proof: new bytes(100)
         });
 
-        TaikoData.BlockProof memory sgxBlockProof;
+        TaikoData.TypedProof memory sgxTypedProof;
 
-        TaikoData.BlockProof[] memory blockProofs = new TaikoData.BlockProof[](
+        TaikoData.TypedProof[] memory blockProofs = new TaikoData.TypedProof[](
             2
         );
 
-        blockProofs[0] = zkpBlockProof;
+        blockProofs[0] = zkpTypedProof;
 
         TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
             metaHash: LibUtils.hashMetadata(meta),
@@ -283,7 +285,7 @@ abstract contract TaikoL1TestBase is Test {
 
     function createSgxSignature(
         TaikoData.BlockEvidence memory evidence
-    ) internal returns (TaikoData.BlockProof memory sgxProof) {
+    ) internal returns (TaikoData.TypedProof memory sgxProof) {
         // Put together the input to be signed
         uint256[9] memory inputs;
 
@@ -306,10 +308,13 @@ abstract contract TaikoL1TestBase is Test {
             instance := keccak256(inputs, mul(32, 9))
         }
 
+        // console2.log("Instace:");
+        // console2.logBytes(instance);
         // Alice is a trusted SGX signer
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(AlicePK, instance);
 
         sgxProof.verifierId = 10000;
+        sgxProof.proofType = 2;
         sgxProof.proof = bytes.concat(bytes1(v), r, s);
     }
 }
