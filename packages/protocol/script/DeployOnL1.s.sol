@@ -47,10 +47,6 @@ contract DeployOnL1 is Script {
     TaikoL1 taikoL1;
     address public addressManagerProxy;
 
-    // New fee/reward related variables
-    uint16 public constant PROOF_TIME_TARGET = 1800; // For mainnet it is around 30 mins, but choose carefully ! (Testnet is different !)
-    uint8 public constant ADJUSTMENT_QUOTIENT = 16;
-
     error FAILED_TO_DEPLOY_PLONK_VERIFIER(string contractPath);
 
     function run() external {
@@ -106,13 +102,16 @@ contract DeployOnL1 is Script {
         address bullToken = address(new MayFailFreeMintERC20("Bull Token", "BLL"));
         console2.log("BullToken", bullToken);
 
-        uint64 feeBase = 1 ** 8; // Taiko Token's decimals is 8, not 18
+        uint64 feeBase = uint64(1) ** taikoToken.decimals();
 
         // Calculating it for our needs based on testnet/mainnet. We need it in
         // order to make the fees on the same level - in ideal circumstences.
         // See Brecht's comment https://github.com/taikoxyz/taiko-mono/pull/13564
-        uint64 initProofTimeIssued =
-            LibLn.calcInitProofTimeIssued(feeBase, PROOF_TIME_TARGET, ADJUSTMENT_QUOTIENT);
+        uint64 initProofTimeIssued = LibLn.calcInitProofTimeIssued(
+            feeBase,
+            uint16(taikoL1.getConfig().proofTimeTarget),
+            uint8(taikoL1.getConfig().adjustmentQuotient)
+        );
 
         address taikoL1Proxy = deployProxy(
             "taiko",
