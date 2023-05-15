@@ -6,7 +6,6 @@
 
 pragma solidity ^0.8.18;
 
-/* External Imports */
 import {AddressManager} from "../common/AddressManager.sol";
 
 /**
@@ -16,20 +15,22 @@ import {AddressManager} from "../common/AddressManager.sol";
  * SSLOAD easily.
  */
 contract ExampleStaticAddressManager is AddressManager {
-    function setAddress(
-        uint256 /*domain*/,
-        bytes32 /*nameHash*/,
-        address /*newAddress*/
-    ) external pure override {
+    function setAddress(uint256, /*domain*/ bytes32, /*nameHash*/ address /*newAddress*/ )
+        external
+        pure
+        override
+    {
         revert("");
     }
 
     /// @dev This function must be a pure function in order to avoid
     /// reading from storage.
-    function getAddress(
-        uint256 domain,
-        bytes32 nameHash
-    ) external pure override returns (address addr) {
+    function getAddress(uint256 domain, bytes32 nameHash)
+        external
+        pure
+        override
+        returns (address addr)
+    {
         if (domain == 1) {
             if (nameHash == "ether_vault") addr = address(0x123);
         } else if (domain == 167) {

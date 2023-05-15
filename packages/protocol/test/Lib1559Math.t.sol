@@ -4,9 +4,8 @@ pragma solidity ^0.8.18;
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 import {Lib1559Math as T} from "../contracts/libs/Lib1559Math.sol";
-import {
-    SafeCastUpgradeable
-} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import {SafeCastUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 contract TestLib1559Math is Test {
     using SafeCastUpgradeable for uint256;
@@ -14,9 +13,9 @@ contract TestLib1559Math is Test {
     function test1559_2X1XRatio(uint16 rand) public {
         vm.assume(rand != 0);
 
-        uint64 xExcessMax = (uint(15000000) * 256 * rand).toUint64();
-        uint64 xTarget = (uint(6000000) * rand).toUint64();
-        uint64 price0 = (uint(5000000000) * rand).toUint64();
+        uint64 xExcessMax = (uint256(15000000) * 256 * rand).toUint64();
+        uint64 xTarget = (uint256(6000000) * rand).toUint64();
+        uint64 price0 = (uint256(5000000000) * rand).toUint64();
         uint64 ratio2x1x = 11177;
         (uint128 xscale, uint128 yscale) = T.calculateScales({
             xExcessMax: xExcessMax,
@@ -37,20 +36,10 @@ contract TestLib1559Math is Test {
             xExcess <= xExcessMax / 2 + N * xTarget;
             xExcess += xTarget
         ) {
-            uint256 basefee1 = T.calculatePrice(
-                xscale,
-                yscale,
-                xExcess,
-                xTarget
-            );
+            uint256 basefee1 = T.calculatePrice(xscale, yscale, xExcess, xTarget);
             assertLt(basefee1, type(uint64).max);
 
-            uint256 basefee2 = T.calculatePrice(
-                xscale,
-                yscale,
-                xExcess,
-                2 * xTarget
-            );
+            uint256 basefee2 = T.calculatePrice(xscale, yscale, xExcess, 2 * xTarget);
 
             assertLt(basefee2, type(uint64).max);
 
@@ -63,9 +52,9 @@ contract TestLib1559Math is Test {
     function test1559_SpecalCases(uint16 rand) public {
         vm.assume(rand != 0);
 
-        uint64 xExcessMax = (uint(15000000) * 256 * rand).toUint64();
-        uint64 xTarget = (uint(6000000) * rand).toUint64();
-        uint64 price0 = (uint(5000000000) * rand).toUint64();
+        uint64 xExcessMax = (uint256(15000000) * 256 * rand).toUint64();
+        uint64 xTarget = (uint256(6000000) * rand).toUint64();
+        uint64 price0 = (uint256(5000000000) * rand).toUint64();
         uint64 ratio2x1x = 11177;
 
         (uint128 xscale, uint128 yscale) = T.calculateScales({
@@ -78,19 +67,10 @@ contract TestLib1559Math is Test {
         assertEq(T.calculatePrice(xscale, yscale, 0, 0), 0);
         assertEq(T.calculatePrice(xscale, yscale, 0, 1), 0);
 
-        assertGt(
-            T.calculatePrice(xscale, yscale, xExcessMax - xTarget, xTarget),
-            type(uint64).max
-        );
+        assertGt(T.calculatePrice(xscale, yscale, xExcessMax - xTarget, xTarget), type(uint64).max);
 
-        assertGt(
-            T.calculatePrice(xscale, yscale, 0, xExcessMax),
-            type(uint64).max
-        );
+        assertGt(T.calculatePrice(xscale, yscale, 0, xExcessMax), type(uint64).max);
 
-        assertGt(
-            T.calculatePrice(xscale, yscale, xExcessMax / 2, xExcessMax / 2),
-            type(uint64).max
-        );
+        assertGt(T.calculatePrice(xscale, yscale, xExcessMax / 2, xExcessMax / 2), type(uint64).max);
     }
 }

@@ -22,12 +22,7 @@ import {TaikoData} from "./TaikoData.sol";
 import {TaikoEvents} from "./TaikoEvents.sol";
 
 /// @custom:security-contact hello@taiko.xyz
-contract TaikoL1 is
-    EssentialContract,
-    ICrossChainSync,
-    TaikoEvents,
-    TaikoErrors
-{
+contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors {
     using LibUtils for TaikoData.State;
 
     TaikoData.State public state;
@@ -73,10 +68,11 @@ contract TaikoL1 is
      *        `n` transactions in `txList`, then there will be up to `n + 1`
      *        transactions in the L2 block.
      */
-    function proposeBlock(
-        bytes calldata input,
-        bytes calldata txList
-    ) external nonReentrant returns (TaikoData.BlockMetadata memory meta) {
+    function proposeBlock(bytes calldata input, bytes calldata txList)
+        external
+        nonReentrant
+        returns (TaikoData.BlockMetadata memory meta)
+    {
         TaikoData.Config memory config = getConfig();
         meta = LibProposing.proposeBlock({
             state: state,
@@ -102,10 +98,7 @@ contract TaikoL1 is
      *        to select the right implementation version.
      * @param input An abi-encoded TaikoData.BlockEvidence object.
      */
-    function proveBlock(
-        uint256 blockId,
-        bytes calldata input
-    ) external nonReentrant {
+    function proveBlock(uint256 blockId, bytes calldata input) external nonReentrant {
         TaikoData.Config memory config = getConfig();
         LibProving.proveBlock({
             state: state,
@@ -147,11 +140,7 @@ contract TaikoL1 is
     }
 
     function depositEtherToL2() public payable {
-        LibEthDepositing.depositEtherToL2(
-            state,
-            getConfig(),
-            AddressResolver(this)
-        );
+        LibEthDepositing.depositEtherToL2(state, getConfig(), AddressResolver(this));
     }
 
     function getTaikoTokenBalance(address addr) public view returns (uint256) {
@@ -162,83 +151,50 @@ contract TaikoL1 is
         return state.blockFee;
     }
 
-    function getProofReward(
-        uint64 provenAt,
-        uint64 proposedAt
-    ) public view returns (uint64) {
-        return
-            LibTokenomics.getProofReward({
-                state: state,
-                proofTime: provenAt - proposedAt
-            });
+    function getProofReward(uint64 provenAt, uint64 proposedAt) public view returns (uint64) {
+        return LibTokenomics.getProofReward({state: state, proofTime: provenAt - proposedAt});
     }
 
-    function getBlock(
-        uint256 blockId
-    )
+    function getBlock(uint256 blockId)
         public
         view
         returns (bytes32 _metaHash, address _proposer, uint64 _proposedAt)
     {
-        TaikoData.Block storage blk = LibProposing.getBlock({
-            state: state,
-            config: getConfig(),
-            blockId: blockId
-        });
+        TaikoData.Block storage blk =
+            LibProposing.getBlock({state: state, config: getConfig(), blockId: blockId});
         _metaHash = blk.metaHash;
         _proposer = blk.proposer;
         _proposedAt = blk.proposedAt;
     }
 
-    function getForkChoice(
-        uint256 blockId,
-        bytes32 parentHash,
-        uint32 parentGasUsed
-    ) public view returns (TaikoData.ForkChoice memory) {
-        return
-            LibProving.getForkChoice({
-                state: state,
-                config: getConfig(),
-                blockId: blockId,
-                parentHash: parentHash,
-                parentGasUsed: parentGasUsed
-            });
-    }
-
-    function getCrossChainBlockHash(
-        uint256 blockId
-    ) public view override returns (bytes32) {
-        (bool found, TaikoData.Block storage blk) = LibUtils.getL2ChainData({
-            state: state,
-            config: getConfig(),
-            blockId: blockId
-        });
-        return
-            found
-                ? blk.forkChoices[blk.verifiedForkChoiceId].blockHash
-                : bytes32(0);
-    }
-
-    function getCrossChainSignalRoot(
-        uint256 blockId
-    ) public view override returns (bytes32) {
-        (bool found, TaikoData.Block storage blk) = LibUtils.getL2ChainData({
-            state: state,
-            config: getConfig(),
-            blockId: blockId
-        });
-
-        return
-            found
-                ? blk.forkChoices[blk.verifiedForkChoiceId].signalRoot
-                : bytes32(0);
-    }
-
-    function getStateVariables()
+    function getForkChoice(uint256 blockId, bytes32 parentHash, uint32 parentGasUsed)
         public
         view
-        returns (TaikoData.StateVariables memory)
+        returns (TaikoData.ForkChoice memory)
     {
+        return LibProving.getForkChoice({
+            state: state,
+            config: getConfig(),
+            blockId: blockId,
+            parentHash: parentHash,
+            parentGasUsed: parentGasUsed
+        });
+    }
+
+    function getCrossChainBlockHash(uint256 blockId) public view override returns (bytes32) {
+        (bool found, TaikoData.Block storage blk) =
+            LibUtils.getL2ChainData({state: state, config: getConfig(), blockId: blockId});
+        return found ? blk.forkChoices[blk.verifiedForkChoiceId].blockHash : bytes32(0);
+    }
+
+    function getCrossChainSignalRoot(uint256 blockId) public view override returns (bytes32) {
+        (bool found, TaikoData.Block storage blk) =
+            LibUtils.getL2ChainData({state: state, config: getConfig(), blockId: blockId});
+
+        return found ? blk.forkChoices[blk.verifiedForkChoiceId].signalRoot : bytes32(0);
+    }
+
+    function getStateVariables() public view returns (TaikoData.StateVariables memory) {
         return state.getStateVariables();
     }
 

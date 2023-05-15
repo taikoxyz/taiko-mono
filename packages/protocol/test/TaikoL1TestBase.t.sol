@@ -26,18 +26,14 @@ abstract contract TaikoL1TestBase is Test {
     TaikoData.Config conf;
     uint256 internal logCount;
 
-    bytes32 public constant GENESIS_BLOCK_HASH =
-        keccak256("GENESIS_BLOCK_HASH");
-    uint64 feeBase = 1E8; // 1 TKO
-    uint64 l2GasExcess = 1E18;
+    bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
+    uint64 feeBase = 1e8; // 1 TKO
+    uint64 l2GasExcess = 1e18;
 
-    address public constant L2Treasure =
-        0x859d74b52762d9ed07D1b2B8d7F93d26B1EA78Bb;
+    address public constant L2Treasure = 0x859d74b52762d9ed07D1b2B8d7F93d26B1EA78Bb;
     address public constant L2SS = 0xa008AE5Ba00656a3Cc384de589579e3E52aC030C;
-    address public constant TaikoL2 =
-        0x0082D90249342980d011C58105a03b35cCb4A315;
-    address public constant L1EthVault =
-        0xDAFEA492D9c6733ae3d56b7Ed1ADB60692c98Bc5;
+    address public constant TaikoL2 = 0x0082D90249342980d011C58105a03b35cCb4A315;
+    address public constant L1EthVault = 0xDAFEA492D9c6733ae3d56b7Ed1ADB60692c98Bc5;
 
     address public constant Alice = 0xa9bcF99f5eb19277f48b71F9b14f5960AEA58a89;
     uint256 public constant AlicePK =
@@ -77,44 +73,31 @@ abstract contract TaikoL1TestBase is Test {
         registerAddress("taiko_token", address(tko));
         address[] memory premintRecipients;
         uint256[] memory premintAmounts;
-        tko.init(
-            address(addressManager),
-            "TaikoToken",
-            "TKO",
-            premintRecipients,
-            premintAmounts
-        );
+        tko.init(address(addressManager), "TaikoToken", "TKO", premintRecipients, premintAmounts);
 
         // Set protocol broker
         registerAddress("proto_broker", address(this));
-        tko.mint(address(this), 1E9 * 1E8);
+        tko.mint(address(this), 1e9 * 1e8);
         registerAddress("proto_broker", address(L1));
 
         // Lastly, init L1
-        L1.init(
-            address(addressManager),
-            GENESIS_BLOCK_HASH,
-            feeBase,
-            initProofTimeIssued
-        );
+        L1.init(address(addressManager), GENESIS_BLOCK_HASH, feeBase, initProofTimeIssued);
         printVariables("init  ");
     }
 
-    function proposeBlock(
-        address proposer,
-        uint32 gasLimit,
-        uint24 txListSize
-    ) internal returns (TaikoData.BlockMetadata memory meta) {
+    function proposeBlock(address proposer, uint32 gasLimit, uint24 txListSize)
+        internal
+        returns (TaikoData.BlockMetadata memory meta)
+    {
         bytes memory txList = new bytes(txListSize);
-        TaikoData.BlockMetadataInput memory input = TaikoData
-            .BlockMetadataInput({
-                beneficiary: proposer,
-                gasLimit: gasLimit,
-                txListHash: keccak256(txList),
-                txListByteStart: 0,
-                txListByteEnd: txListSize,
-                cacheTxListInfo: 0
-            });
+        TaikoData.BlockMetadataInput memory input = TaikoData.BlockMetadataInput({
+            beneficiary: proposer,
+            gasLimit: gasLimit,
+            txListHash: keccak256(txList),
+            txListByteStart: 0,
+            txListByteEnd: txListSize,
+            cacheTxListInfo: 0
+        });
 
         TaikoData.StateVariables memory variables = L1.getStateVariables();
 
@@ -181,11 +164,7 @@ abstract contract TaikoL1TestBase is Test {
         console2.log(conf.chainId, uint256(nameHash), unicode"→", addr);
     }
 
-    function depositTaikoToken(
-        address who,
-        uint256 amountTko,
-        uint256 amountEth
-    ) internal {
+    function depositTaikoToken(address who, uint256 amountTko, uint256 amountEth) internal {
         vm.deal(who, amountEth);
         tko.transfer(who, amountTko);
         vm.prank(who, who);

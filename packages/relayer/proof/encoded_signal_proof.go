@@ -34,7 +34,7 @@ func (p *Prover) EncodedSignalProof(
 	}
 
 	signalProof := encoding.SignalProof{
-		Header: blockHeader,
+		Height: blockHeader.Height,
 		Proof:  encodedStorageProof,
 	}
 

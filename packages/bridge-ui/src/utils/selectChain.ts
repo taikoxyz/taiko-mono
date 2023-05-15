@@ -6,21 +6,12 @@ import { mainnetChain, taikoChain } from '../chain/chains';
 import { signer } from '../store/signer';
 import { getLogger } from '../utils/logger';
 
-const log = getLogger('util:selectChain');
+const log = getLogger('selectChain');
 
 export async function selectChain(chain: Chain) {
   const chainId = chain.id;
 
-  log('Selecting chain', chain);
-
-  try {
-    await switchNetwork({ chainId });
-  } catch (error) {
-    console.error(error);
-    throw new Error('failed to switch network', { cause: error });
-  }
-
-  log('Chain successfully switched');
+  await switchNetwork({ chainId });
 
   const provider = new ethers.providers.Web3Provider(
     globalThis.ethereum,
@@ -30,7 +21,7 @@ export async function selectChain(chain: Chain) {
   // Requires requesting permission to connect users accounts
   const accounts = await provider.send('eth_requestAccounts', []);
 
-  log('Accounts', accounts);
+  log('accounts', accounts);
 
   fromChain.set(chain);
   if (chain.id === mainnetChain.id) {
@@ -41,7 +32,7 @@ export async function selectChain(chain: Chain) {
 
   const _signer = provider.getSigner();
 
-  log('Signer', _signer);
+  log('signer', _signer);
 
   signer.set(_signer);
 }

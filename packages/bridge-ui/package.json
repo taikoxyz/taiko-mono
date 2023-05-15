@@ -1,6 +1,6 @@
 {
   "name": "@taiko/bridge-ui",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -15,7 +15,6 @@
     "prettier:check": "pnpm run prettier '**/*.{js,ts,svelte}' --check",
     "lint": "pnpm exec eslint './**/*.{js,ts,svelte}' --ignore-path .eslintignore",
     "lint:fix": "pnpm exec eslint --fix './**/*.{js,ts,svelte}' --ignore-path .eslintignore",
-    "lint-staged": "lint-staged --allow-empty",
     "generate-abi": "pnpm exec wagmi generate"
   },
   "devDependencies": {
@@ -37,12 +36,12 @@
     "babel-jest": "^27.3.1",
     "babel-plugin-transform-es2015-modules-commonjs": "^6.26.2",
     "daisyui": "1.16.6",
+    "eslint": "^7.32.0",
     "eslint-plugin-jest": "^27.2.1",
     "eslint-plugin-simple-import-sort": "^10.0.0",
     "eslint-plugin-svelte3": "^4.0.0",
     "fs-extra": "^11.1.1",
     "jest": "^27.5.1",
-    "lint-staged": "^12.3.4",
     "node-sass": "^7.0.1",
     "postcss": "^8.4.19",
     "postcss-cli": "^7.1.2",

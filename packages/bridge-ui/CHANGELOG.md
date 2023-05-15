@@ -1,54 +1,58 @@
 # Changelog
 
-## [0.6.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.5.0...bridge-ui-v0.6.0) (2023-04-27)
-
+## [0.7.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.6.0...bridge-ui-v0.7.0) (2023-05-11)
 
 ### Features
 
-* **bridge-ui:** add transaction list pagination ([#13586](https://github.com/taikoxyz/taiko-mono/issues/13586)) ([a3b7498](https://github.com/taikoxyz/taiko-mono/commit/a3b7498a89576a5aac4c2cd5581d8ce4d457b718))
-
+- **protocol:** major protocol upgrade for alpha-3 testnet ([#13640](https://github.com/taikoxyz/taiko-mono/issues/13640)) ([02552f2](https://github.com/taikoxyz/taiko-mono/commit/02552f2aa001893d326062ce627004c61b46cd26))
 
 ### Bug Fixes
 
-* **bridge-ui:** pending transactions custom store with better error handling ([#13581](https://github.com/taikoxyz/taiko-mono/issues/13581)) ([394a9d1](https://github.com/taikoxyz/taiko-mono/commit/394a9d188da5a6bc8e2ffdd80121cb18471b3f08))
-* **bridge-ui:** wrong spacing [#13339](https://github.com/taikoxyz/taiko-mono/issues/13339) ([#13567](https://github.com/taikoxyz/taiko-mono/issues/13567)) ([0ed7638](https://github.com/taikoxyz/taiko-mono/commit/0ed7638d8820feb22c36cc39a35cef7fea12224d))
+- **bridge-ui:** update abis ([#13705](https://github.com/taikoxyz/taiko-mono/issues/13705)) ([d3d4e69](https://github.com/taikoxyz/taiko-mono/commit/d3d4e693176b8df1dcdd7321c30d66222121a05b))
+
+## [0.6.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.5.0...bridge-ui-v0.6.0) (2023-04-27)
+
+### Features
+
+- **bridge-ui:** add transaction list pagination ([#13586](https://github.com/taikoxyz/taiko-mono/issues/13586)) ([a3b7498](https://github.com/taikoxyz/taiko-mono/commit/a3b7498a89576a5aac4c2cd5581d8ce4d457b718))
+
+### Bug Fixes
+
+- **bridge-ui:** pending transactions custom store with better error handling ([#13581](https://github.com/taikoxyz/taiko-mono/issues/13581)) ([394a9d1](https://github.com/taikoxyz/taiko-mono/commit/394a9d188da5a6bc8e2ffdd80121cb18471b3f08))
+- **bridge-ui:** wrong spacing [#13339](https://github.com/taikoxyz/taiko-mono/issues/13339) ([#13567](https://github.com/taikoxyz/taiko-mono/issues/13567)) ([0ed7638](https://github.com/taikoxyz/taiko-mono/commit/0ed7638d8820feb22c36cc39a35cef7fea12224d))
 
 ## [0.5.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.4.0...bridge-ui-v0.5.0) (2023-04-08)
 
-
 ### Features
 
-* **bridge-ui:** more informative processing fee ([#13488](https://github.com/taikoxyz/taiko-mono/issues/13488)) ([f5f7b7e](https://github.com/taikoxyz/taiko-mono/commit/f5f7b7ee2a99ec940a73e263fb12e9378d139734))
-
+- **bridge-ui:** more informative processing fee ([#13488](https://github.com/taikoxyz/taiko-mono/issues/13488)) ([f5f7b7e](https://github.com/taikoxyz/taiko-mono/commit/f5f7b7ee2a99ec940a73e263fb12e9378d139734))
 
 ### Bug Fixes
 
-* **bridge-ui:** fix issue with claim notice modal ([#13507](https://github.com/taikoxyz/taiko-mono/issues/13507)) ([a3e38fa](https://github.com/taikoxyz/taiko-mono/commit/a3e38faff37f01669e6be6878d35431cb24e40bb))
-* **bridge-ui:** fix relayer ([#13548](https://github.com/taikoxyz/taiko-mono/issues/13548)) ([5f60fd7](https://github.com/taikoxyz/taiko-mono/commit/5f60fd711c71ead82c7c147b4ff8dd12eab02c43))
-* **bridge-ui:** improve notice modal ([#13530](https://github.com/taikoxyz/taiko-mono/issues/13530)) ([3944ca8](https://github.com/taikoxyz/taiko-mono/commit/3944ca8bc5282c2ab0c4b11b2bb1b5f102329d59))
-* **bridge-ui:** NETWORK_ERROR exception ([#13562](https://github.com/taikoxyz/taiko-mono/issues/13562)) ([a779cdb](https://github.com/taikoxyz/taiko-mono/commit/a779cdb3433ea6cc2e0d203cecebde3d9c121f5a))
-* **bridge-ui:** only request connect if require ([#13519](https://github.com/taikoxyz/taiko-mono/issues/13519)) ([92e9032](https://github.com/taikoxyz/taiko-mono/commit/92e9032e88fb997db5e9e9801089671604f0a9bc))
-* **bridge-ui:** Typos in Update ProcessingFee.svelte ([#13518](https://github.com/taikoxyz/taiko-mono/issues/13518)) ([8edd302](https://github.com/taikoxyz/taiko-mono/commit/8edd302fc2ea0764c3fb96bbcc2454f154556167))
-* **bridge-ui:** URL change won't update activeTab ([#13485](https://github.com/taikoxyz/taiko-mono/issues/13485)) ([884e782](https://github.com/taikoxyz/taiko-mono/commit/884e78283d8f98f20b15ff7e3e5e371df30fcd13))
-* **repo:** fix multiple typos ([#13558](https://github.com/taikoxyz/taiko-mono/issues/13558)) ([f54242a](https://github.com/taikoxyz/taiko-mono/commit/f54242aa95e5c5563f8f0a7f9af0a1eab20ab67b))
+- **bridge-ui:** fix issue with claim notice modal ([#13507](https://github.com/taikoxyz/taiko-mono/issues/13507)) ([a3e38fa](https://github.com/taikoxyz/taiko-mono/commit/a3e38faff37f01669e6be6878d35431cb24e40bb))
+- **bridge-ui:** fix relayer ([#13548](https://github.com/taikoxyz/taiko-mono/issues/13548)) ([5f60fd7](https://github.com/taikoxyz/taiko-mono/commit/5f60fd711c71ead82c7c147b4ff8dd12eab02c43))
+- **bridge-ui:** improve notice modal ([#13530](https://github.com/taikoxyz/taiko-mono/issues/13530)) ([3944ca8](https://github.com/taikoxyz/taiko-mono/commit/3944ca8bc5282c2ab0c4b11b2bb1b5f102329d59))
+- **bridge-ui:** NETWORK_ERROR exception ([#13562](https://github.com/taikoxyz/taiko-mono/issues/13562)) ([a779cdb](https://github.com/taikoxyz/taiko-mono/commit/a779cdb3433ea6cc2e0d203cecebde3d9c121f5a))
+- **bridge-ui:** only request connect if require ([#13519](https://github.com/taikoxyz/taiko-mono/issues/13519)) ([92e9032](https://github.com/taikoxyz/taiko-mono/commit/92e9032e88fb997db5e9e9801089671604f0a9bc))
+- **bridge-ui:** Typos in Update ProcessingFee.svelte ([#13518](https://github.com/taikoxyz/taiko-mono/issues/13518)) ([8edd302](https://github.com/taikoxyz/taiko-mono/commit/8edd302fc2ea0764c3fb96bbcc2454f154556167))
+- **bridge-ui:** URL change won't update activeTab ([#13485](https://github.com/taikoxyz/taiko-mono/issues/13485)) ([884e782](https://github.com/taikoxyz/taiko-mono/commit/884e78283d8f98f20b15ff7e3e5e371df30fcd13))
+- **repo:** fix multiple typos ([#13558](https://github.com/taikoxyz/taiko-mono/issues/13558)) ([f54242a](https://github.com/taikoxyz/taiko-mono/commit/f54242aa95e5c5563f8f0a7f9af0a1eab20ab67b))
 
 ## [0.4.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.3.0...bridge-ui-v0.4.0) (2023-03-29)
 
-
 ### Features
 
-* **bridge-ui:** add outgoing link to bridge docs ([#13391](https://github.com/taikoxyz/taiko-mono/issues/13391)) ([1b3c268](https://github.com/taikoxyz/taiko-mono/commit/1b3c268fb15f9a9e6be8ebc83d588ed4279237ff))
-* **bridge-ui:** switch to using StaticJsonRpcProvider ([#13482](https://github.com/taikoxyz/taiko-mono/issues/13482)) ([f175d39](https://github.com/taikoxyz/taiko-mono/commit/f175d3955e4d37e05f7bc3ba7e479dc257944876))
-* **bridge-ui:** Tabs Component ([#13380](https://github.com/taikoxyz/taiko-mono/issues/13380)) ([a046fa3](https://github.com/taikoxyz/taiko-mono/commit/a046fa3907efa85482bd9bce60de44ea2253be55))
-* **protocol:** merge alpha 2 to main ([#13369](https://github.com/taikoxyz/taiko-mono/issues/13369)) ([2b9cc64](https://github.com/taikoxyz/taiko-mono/commit/2b9cc6466509372f35109b48c00948d2234b0d59))
-* **relayer:** big Gas price ([#13492](https://github.com/taikoxyz/taiko-mono/issues/13492)) ([cb3f7b9](https://github.com/taikoxyz/taiko-mono/commit/cb3f7b9529addc25fe4d3067f2e2c3da3ae1b2bf))
-* **relayer:** merge alpha-2 to main ([#13376](https://github.com/taikoxyz/taiko-mono/issues/13376)) ([3148f6b](https://github.com/taikoxyz/taiko-mono/commit/3148f6ba955e1b3918289332d2ee30f139edea8b))
-
+- **bridge-ui:** add outgoing link to bridge docs ([#13391](https://github.com/taikoxyz/taiko-mono/issues/13391)) ([1b3c268](https://github.com/taikoxyz/taiko-mono/commit/1b3c268fb15f9a9e6be8ebc83d588ed4279237ff))
+- **bridge-ui:** switch to using StaticJsonRpcProvider ([#13482](https://github.com/taikoxyz/taiko-mono/issues/13482)) ([f175d39](https://github.com/taikoxyz/taiko-mono/commit/f175d3955e4d37e05f7bc3ba7e479dc257944876))
+- **bridge-ui:** Tabs Component ([#13380](https://github.com/taikoxyz/taiko-mono/issues/13380)) ([a046fa3](https://github.com/taikoxyz/taiko-mono/commit/a046fa3907efa85482bd9bce60de44ea2253be55))
+- **protocol:** merge alpha 2 to main ([#13369](https://github.com/taikoxyz/taiko-mono/issues/13369)) ([2b9cc64](https://github.com/taikoxyz/taiko-mono/commit/2b9cc6466509372f35109b48c00948d2234b0d59))
+- **relayer:** big Gas price ([#13492](https://github.com/taikoxyz/taiko-mono/issues/13492)) ([cb3f7b9](https://github.com/taikoxyz/taiko-mono/commit/cb3f7b9529addc25fe4d3067f2e2c3da3ae1b2bf))
+- **relayer:** merge alpha-2 to main ([#13376](https://github.com/taikoxyz/taiko-mono/issues/13376)) ([3148f6b](https://github.com/taikoxyz/taiko-mono/commit/3148f6ba955e1b3918289332d2ee30f139edea8b))
 
 ### Bug Fixes
 
-* **bridge-ui:** Chain block ([#13452](https://github.com/taikoxyz/taiko-mono/issues/13452)) ([cb32862](https://github.com/taikoxyz/taiko-mono/commit/cb3286270c2a106b1492a78745b64b1b7dcc5ccf))
-* **bridge-ui:** Chain id check ([#13451](https://github.com/taikoxyz/taiko-mono/issues/13451)) ([7285947](https://github.com/taikoxyz/taiko-mono/commit/7285947a4e7a183ecad4555705b8d9eeb5de4341))
+- **bridge-ui:** Chain block ([#13452](https://github.com/taikoxyz/taiko-mono/issues/13452)) ([cb32862](https://github.com/taikoxyz/taiko-mono/commit/cb3286270c2a106b1492a78745b64b1b7dcc5ccf))
+- **bridge-ui:** Chain id check ([#13451](https://github.com/taikoxyz/taiko-mono/issues/13451)) ([7285947](https://github.com/taikoxyz/taiko-mono/commit/7285947a4e7a183ecad4555705b8d9eeb5de4341))
 
 ## [0.3.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.2.0...bridge-ui-v0.3.0) (2023-03-15)
 
