@@ -205,8 +205,8 @@ func (p *Processor) hardcodeGasLimit(
 	}
 
 	if eventType == relayer.EventTypeSendETH {
-		// eth bridges take much less gas, from 600k to 900k, add some leeway.
-		auth.GasLimit = 1000000
+		// eth bridges take much less gas, from 250k to 450k.
+		auth.GasLimit = 500000
 	} else {
 		// determine whether the canonical token is bridged or not on this chain
 		bridgedAddress, err := p.destTokenVault.CanonicalToBridged(nil, canonicalToken.ChainId, canonicalToken.Addr)
@@ -216,11 +216,12 @@ func (p *Processor) hardcodeGasLimit(
 
 		if bridgedAddress == relayer.ZeroAddress {
 			// needs large gas limit because it has to deploy an ERC20 contract on destination
-			// chain.
+			// chain. deploying ERC20 can be 2 mil by itself.
 			auth.GasLimit = 3000000
 		} else {
-			// needs larger than ETH gas limit but not as much as deploying ERC20
-			auth.GasLimit = 1500000
+			// needs larger than ETH gas limit but not as much as deploying ERC20.
+			// takes 450-550k gas after signalRoot refactors.
+			auth.GasLimit = 600000
 		}
 	}
 
