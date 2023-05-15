@@ -13,24 +13,24 @@ contract TestSignalServiceCalc is Test {
     }
 
     function testAbiEncodeBytes32(bytes32 seed) public {
-        for (uint i = 0; i < 100; ++i) {
+        for (uint256 i = 0; i < 100; ++i) {
             seed = keccak256(abi.encodePacked(seed));
             bytes memory _seed = bytes.concat(seed);
 
             bytes memory encoded = abi.encodePacked(seed);
             assertEq(encoded.length, _seed.length);
-            for (uint j = 0; j < encoded.length; ++j) {
+            for (uint256 j = 0; j < encoded.length; ++j) {
                 assertEq(encoded[j], _seed[j]);
             }
         }
 
-        for (uint i = 0; i < 100; ++i) {
+        for (uint256 i = 0; i < 100; ++i) {
             seed = bytes32(i);
             bytes memory _seed = bytes.concat(seed);
 
             bytes memory encoded = abi.encodePacked(seed);
             assertEq(encoded.length, _seed.length);
-            for (uint j = 0; j < encoded.length; ++j) {
+            for (uint256 j = 0; j < encoded.length; ++j) {
                 assertEq(encoded[j], _seed[j]);
             }
         }
