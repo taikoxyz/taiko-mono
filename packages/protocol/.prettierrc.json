@@ -1,12 +1,10 @@
 {
   "overrides": [
     {
-      "files": ["*.sol", "*.ts"],
+      "files": ["*.ts"],
       "options": {
-        "tabWidth": 4,
-        "compiler": "^0.8.18"
+        "tabWidth": 4
       }
     }
-  ],
-  "plugins": ["prettier-plugin-solidity"]
+  ]
 }

@@ -5,7 +5,7 @@ src = 'contracts'
 out = 'out'
 test = 'test'
 libs = ['lib']
-gas_price = 10000000000 # gas price is 10 Gwei
+gas_price = 10000000000            # gas price is 10 Gwei
 optimizer = true
 optimizer_runs = 200
 ffi = true
@@ -20,9 +20,12 @@ block_gas_limit = 30000000 #30M
 
 
 fs_permissions = [
-  { access = "read", path = "./out"},
-  { access = "read-write", path = "./deployments"},
-  { access = "read", path = "./test"},
+  { access = "read", path = "./out" },
+  { access = "read-write", path = "./deployments" },
+  { access = "read", path = "./test" },
 ]
 
 fuzz = { runs = 256 }
+
+[fmt]
+line_length = 100

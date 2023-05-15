@@ -33,9 +33,9 @@ import {LibMerkleTrie} from "./LibMerkleTrie.sol";
  * @title LibSecureMerkleTrie
  */
 library LibSecureMerkleTrie {
-    /**********************
-     * Internal Functions *
-     **********************/
+    /*//////////////////////////////////////////////////////////////
+                           INTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /**
      * @notice Verifies a proof that a given key/value pair is present in the
@@ -67,27 +67,25 @@ library LibSecureMerkleTrie {
      * @return _exists Whether or not the key exists.
      * @return _value Value of the key if it exists.
      */
-    function get(
-        bytes memory _key,
-        bytes memory _proof,
-        bytes32 _root
-    ) internal pure returns (bool _exists, bytes memory _value) {
+    function get(bytes memory _key, bytes memory _proof, bytes32 _root)
+        internal
+        pure
+        returns (bool _exists, bytes memory _value)
+    {
         bytes memory key = _getSecureKey(_key);
         return LibMerkleTrie.get(key, _proof, _root);
     }
 
-    /*********************
-     * Private Functions *
-     *********************/
+    /*//////////////////////////////////////////////////////////////
+                           PRIVATE FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /**
      * Computes the secure counterpart to a key.
      * @param _key Key to get a secure key from.
      * @return _secureKey Secure version of the key.
      */
-    function _getSecureKey(
-        bytes memory _key
-    ) private pure returns (bytes memory _secureKey) {
+    function _getSecureKey(bytes memory _key) private pure returns (bytes memory _secureKey) {
         return bytes.concat(keccak256(_key));
     }
 }
