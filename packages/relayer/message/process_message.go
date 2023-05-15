@@ -158,10 +158,9 @@ func (p *Processor) sendProcessMessageCall(
 
 	gas, cost, err := p.estimateGas(ctx, event.Message, proof)
 	if err != nil || gas == 0 {
-		// we can get unable to estimet gas for contract deployments within the contract code.
-		// if we get an error or the gas is 0, lets manual set high gas limit and ignore error,
-		// and try to actually send.
-		auth.GasLimit = 1500000
+		if err := p.hardcodeGasLimit(ctx, auth, event); err != nil {
+			return nil, errors.Wrap(err, "p.hardcodeGasLimit")
+		}
 	}
 
 	if bool(p.profitableOnly) {
@@ -187,6 +186,45 @@ func (p *Processor) sendProcessMessageCall(
 	p.setLatestNonce(tx.Nonce())
 
 	return tx, nil
+}
+
+// hardcodeGasLimit determines a viable gas limit when we can get
+// unable to estimate gas for contract deployments within the contract code.
+// if we get an error or the gas is 0, lets manual set high gas limit and ignore error,
+// and try to actually send.
+// if contract has not been deployed, we need much higher gas limit, otherwise, we can
+// send lower.
+func (p *Processor) hardcodeGasLimit(
+	ctx context.Context,
+	auth *bind.TransactOpts,
+	event *bridge.BridgeMessageSent,
+) error {
+	eventType, canonicalToken, _, err := relayer.DecodeMessageSentData(event)
+	if err != nil {
+		return errors.Wrap(err, "relayer.DecodeMessageSentData")
+	}
+
+	if eventType == relayer.EventTypeSendETH {
+		// eth bridges take much less gas, from 600k to 900k, add some leeway.
+		auth.GasLimit = 1000000
+	} else {
+		// determine whether the canonical token is bridged or not on this chain
+		bridgedAddress, err := p.destTokenVault.CanonicalToBridged(nil, canonicalToken.ChainId, canonicalToken.Addr)
+		if err != nil {
+			return errors.Wrap(err, "p.destTokenVault.IsBridgedToken")
+		}
+
+		if bridgedAddress == relayer.ZeroAddress {
+			// needs large gas limit because it has to deploy an ERC20 contract on destination
+			// chain.
+			auth.GasLimit = 3000000
+		} else {
+			// needs larger than ETH gas limit but not as much as deploying ERC20
+			auth.GasLimit = 1500000
+		}
+	}
+
+	return nil
 }
 
 func (p *Processor) setLatestNonce(nonce uint64) {
