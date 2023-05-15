@@ -48,8 +48,8 @@
       rel="noreferrer">Guide</a>
   </div>
   <div class="flex-none">
+    TODO
     {#if $signer}
-      <ChainDropdown />
       <AddressDropdown />
     {:else}
       <Connect />
