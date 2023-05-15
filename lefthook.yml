@@ -7,3 +7,6 @@ pre-commit:
     protocol:
       glob: "packages/protocol/**/*.{sol}"
       run: pnpm -F protocol lint:sol && git add {staged_files}
+    prettier:
+      glob: "**/*.{md,json}"
+      run: pnpm prettier {staged_files} --write
