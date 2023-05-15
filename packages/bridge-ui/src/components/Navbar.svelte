@@ -8,6 +8,7 @@
   import TaikoLogoFluo from './icons/TaikoLogoFluo.svelte';
   import { Sun, Moon } from 'svelte-heros-v2';
   import { fly } from 'svelte/transition';
+  import LayerDropdown from './LayerDropdown.svelte';
 
   let isDarkMode = localStorage.getItem('theme') === 'dark';
 
@@ -48,8 +49,8 @@
       rel="noreferrer">Guide</a>
   </div>
   <div class="flex-none">
-    TODO
     {#if $signer}
+      <LayerDropdown />
       <AddressDropdown />
     {:else}
       <Connect />

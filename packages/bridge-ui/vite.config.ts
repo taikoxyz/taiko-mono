@@ -20,6 +20,10 @@ export default defineConfig({
           src: 'src/assets/lottie/loader.json',
           dest: 'lottie',
         },
+        {
+          src: 'src/assets/l3.png',
+          dest: 'icons',
+        },
       ],
     }),
   ],

@@ -1,16 +1,16 @@
 import { switchNetwork } from '@wagmi/core';
 import { ethers } from 'ethers';
 import { fromChain, toChain } from '../store/chain';
-import type { Chain } from '../domain/chain';
-import { mainnetChain, taikoChain } from '../chain/chains';
+import type { Chain, ChainID } from '../domain/chain';
 import { signer } from '../store/signer';
 import { getLogger } from '../utils/logger';
 
 const log = getLogger('selectChain');
 
-export async function selectChain(chain: Chain) {
-  const chainId = chain.id;
-
+export async function selectChain(
+  chainId: ChainID, // from chain
+  bridgeChains: [Chain, Chain], // current chains to bridge between
+) {
   await switchNetwork({ chainId });
 
   const provider = new ethers.providers.Web3Provider(
@@ -23,11 +23,18 @@ export async function selectChain(chain: Chain) {
 
   log('accounts', accounts);
 
-  fromChain.set(chain);
-  if (chain.id === mainnetChain.id) {
-    toChain.set(taikoChain);
+  const [chain1, chain2] = bridgeChains;
+
+  if (chainId === chain1.id) {
+    log(`Bridging from "${chain1.name}" to "${chain2.name}"`);
+
+    fromChain.set(chain1);
+    toChain.set(chain2);
   } else {
-    toChain.set(mainnetChain);
+    log(`Bridging from "${chain2.name}" to "${chain1.name}"`);
+
+    fromChain.set(chain2);
+    toChain.set(chain1);
   }
 
   const _signer = provider.getSigner();

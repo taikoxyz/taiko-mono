@@ -24,6 +24,8 @@ import {
 import type { Chain, ChainID } from '../domain/chain';
 import Eth from '../components/icons/ETH.svelte';
 import Taiko from '../components/icons/TKO.svelte';
+import L3 from '../components/icons/L3.svelte';
+import { BridgeChainType } from '../domain/bridge';
 
 export const mainnetChain: Chain = {
   id: L1_CHAIN_ID,
@@ -54,7 +56,7 @@ export const l3Chain: Chain = {
   name: L3_CHAIN_NAME,
   rpc: L3_RPC,
   enabled: true,
-  icon: Taiko,
+  icon: L3,
   bridgeAddress: L3_BRIDGE_ADDRESS,
   crossChainSyncAddress: L3_CROSS_CHAIN_SYNC_ADDRESS,
   explorerUrl: L3_EXPLORER_URL,
@@ -65,4 +67,9 @@ export const chains: Record<ChainID, Chain> = {
   [L1_CHAIN_ID]: mainnetChain,
   [L2_CHAIN_ID]: taikoChain,
   [L3_CHAIN_ID]: l3Chain,
+};
+
+export const bridgeChains: Record<BridgeChainType, [Chain, Chain]> = {
+  [BridgeChainType.L1_L2]: [mainnetChain, taikoChain],
+  [BridgeChainType.L2_L3]: [taikoChain, l3Chain],
 };

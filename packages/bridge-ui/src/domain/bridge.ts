@@ -9,6 +9,11 @@ export enum BridgeType {
   ERC1155 = 'ERC1155',
 }
 
+export enum BridgeChainType {
+  L1_L2 = 'L1_L2',
+  L2_L3 = 'L2_L3',
+}
+
 export type ApproveOpts = {
   amountInWei: BigNumber;
   contractAddress: string;

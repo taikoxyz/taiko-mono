@@ -3,9 +3,10 @@
   import { ArrowRight } from 'svelte-heros-v2';
   import { fromChain, toChain } from '../../store/chain';
   import { signer } from '../../store/signer';
-  import { mainnetChain, taikoChain } from '../../chain/chains';
+  import { bridgeChains, mainnetChain, taikoChain } from '../../chain/chains';
   import { errorToast, successToast } from '../Toast.svelte';
   import { selectChain } from '../../utils/selectChain';
+  import { bridgeChainType } from '../../store/bridge';
 
   const toggleChains = async () => {
     if (!$signer) {
@@ -13,10 +14,13 @@
       return;
     }
 
-    const chain = $fromChain === mainnetChain ? taikoChain : mainnetChain;
+    const [chain1, chain2] = bridgeChains[$bridgeChainType];
+
+    // Toggling between the two current bridge chains
+    const chainToSelect = $fromChain.id === chain1.id ? chain2 : chain1;
 
     try {
-      await selectChain(chain);
+      await selectChain(chainToSelect.id, [chain1, chain2]);
       successToast('Successfully changed chain');
     } catch (e) {
       console.error(e);
