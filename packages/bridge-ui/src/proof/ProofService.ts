@@ -97,6 +97,8 @@ export class ProofService implements Prover {
 
     const signalProof = ProofService.getSignalProof(proof, block.number);
 
+    // log('Signal proof', signalProof);
+
     return signalProof;
   }
 
@@ -127,6 +129,8 @@ export class ProofService implements Prover {
     }
 
     const signalProof = ProofService.getSignalProof(proof, block.number);
+
+    // log('Signal proof', signalProof);
 
     return signalProof;
   }
