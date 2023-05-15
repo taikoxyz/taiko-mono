@@ -4,8 +4,11 @@ env:
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_WEBSITE_PROJECT_ID }}
 on:
   push:
-    branches-ignore:
-      - main
+    # branches-ignore:
+    #   - main
+    # paths:
+    #   - "packages/website/**"
+  pull_request:
     paths:
       - "packages/website/**"
 jobs:
