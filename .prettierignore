@@ -1,0 +1,16 @@
+# directories
+broadcast
+cache
+lib
+node_modules
+out
+
+# files
+*.env
+*.log
+.DS_Store
+.pnp.*
+lcov.info
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
