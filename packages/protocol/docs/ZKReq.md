@@ -23,12 +23,14 @@ empty_list -.->|keccak| h_ommers_hash;
 empty_list -.-> h_logs_bloom;
 zero -.-> h_difficulty;
 zero -.-> h_nonce;
-zero -.-> h_basefee;
 empty_string -.-> h_extra_data;
+l2_treasure -.-> m_treasure;
+processed_deposits_data -.-> m_deposits;
 
 v_block_chainid -.-> dot1;
 v_blockhash_others -.-> dot1 -.->|keccak| s_public_input_hash;
 
+v_block_basefee -.-> h_basefee;
 
 v_block_gaslimit -.-> dot2;
 v_block_timestamp -.-> dot2;
@@ -48,6 +50,7 @@ b_l1_taiko_addr -.-> dot3;
 
 e_signal_root --- s_signal_root
 e_parent_gas_used --- a_parent_gas_used
+
 BlockHeader -.->|abiencode & keccak| dot5((" ")) o--- e_block_hash
 
 subgraph BlockMetadata
@@ -58,8 +61,13 @@ m_h1_height(h1Height)
 m_h1_hash(h1Hash)
 m_mix_hash(mixHash)
 m_txlist_hash(txListHash)
+m_txlist_byte_start(txListByteStart)
+m_txlist_last_byte(txListByteEnd)
+m_cache_txlist_info(cacheTxListInfo)
+m_treasure(treasure)
 m_beneficiary(beneficiary)
 m_deposits_root(depositsRoot)
+m_deposits(depositsProcessed)
 end
 
 
@@ -140,6 +148,8 @@ zero["0\n(zero)"]:::constant
 empty_string["''\n(empty bytes)"]:::constant
 empty_list["[]\n(empty list)"]:::constant
 tx_list["txList\n(blob or calldata)"]:::constant
+l2_treasure["L2 basefee goes to treasure"]:::constant
 processed_deposits["onchain deposits data"]:::constant
+processed_deposits_data["processed deposits making up the depositsRoot"]:::constant
 zk_instance(zkInstance)
 ```
