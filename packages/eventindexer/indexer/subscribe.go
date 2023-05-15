@@ -130,7 +130,7 @@ func (svc *Service) subscribeBlockProposed(ctx context.Context, chainID *big.Int
 			if err := svc.saveBlockProposedEvent(ctx, chainID, event, sender); err != nil {
 				eventindexer.BlockProposedEventsProcessedError.Inc()
 
-				log.Errorf("svc.subscribe, svc.saveBlockProvenEvent: %v", err)
+				log.Errorf("svc.subscribe, svc.saveBlockProposedEvent: %v", err)
 			}
 
 			block, err := svc.blockRepo.GetLatestBlockProcessed(chainID)
