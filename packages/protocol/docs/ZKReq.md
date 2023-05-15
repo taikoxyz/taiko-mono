@@ -3,12 +3,16 @@
 This document specifies how the Taiko protocol, client, and circuits work together to prove L2 blocks.
 
 
+
+
 # The *txList*
 
 The **`txList`** of a Layer 2 (L2) block will eventually be part of a blob in the Layer 1 (L1) Consensus Layer (CL) - right now it is within the calldata. 
 It is meant to be a list of RLP-encoded L2 transactions, with only its length and commitment available to the L1 Execution Layer (EL). The length is checked when a block is proposed, but we need to prove whether the **`txList`** is valid or not using ZKP:
 
 A valid **`txList`**:
+
+(Valid until issue is enabled and implemented: https://github.com/taikoxyz/taiko-mono/issues/13724)
 
 - Has a byte-size smaller than **`maxBytesPerTxList`** (also enforced in contracts).
 - Can be RLP-decoded into a list of transactions without trailing space.
@@ -30,7 +34,7 @@ In contrast, the previous implementation allowed for invalid blocks that were sk
 
 ## Data Consistency
 
-Note that `txList` is not directly know to L1 contracts, therefore, ZKP shall further prove that the chosen `txList` is a slice of the given blob data (from `meta.txListByteStart` to `meta.txListByteEnd`) and the blob’s hash or polynomial commitment (PC) is `meta.blobHash` — not the `txList`’s hash or PC). ( @todo/question: blobHash is not part of the contracts anymore.)
+Note that `txList` is not directly know to L1 contracts, therefore, ZKP shall further prove that the chosen `txList` is a slice of the given blob data. `blobHash` therefore will be available later this year - when EIP-4844 merged into Ethereum.
 
 ## Anchor Transactions
 
@@ -45,12 +49,11 @@ ZKP must prove that *TaikoL2.anchor(...)* is the first transaction in the block,
     
 - A circuit will verify the integrity among: `l1Hash`, `l1SignalRoot`, and `l1SignalServiceAddress`
 - `l1SignalServiceAddress`, `l2SignalServiceAddress` and `parentGasUsed` are directly hashed into of the ZKP's instance
-- `l1Height` and `l1Hash` are both part of the block metadata (`meta.l1Height` and `meta.l1Hash`), the `metaHas` is used to calculate the ZKP instance.
+- `l1Height` and `l1Hash` are both part of the block metadata (`meta.l1Height` and `meta.l1Hash`), the `metaHash` is used to calculate the ZKP instance.
 - `l1SignalRoot` is part of the evidence and is also used to calculate the ZKP instance.
 - The transaction's status code is 0 (success).
 - The transaction's origin & msg.sender must be `LibAnchorSignature.K_GOLDEN_TOUCH_ADDRESS`.
 - The transaction's signature must be the same as `LibAnchorSignature.signTransaction(...)`.
-- The actual value of the input parameters must be consistent with the values used to hash the ZKP instance (see [**LibProving**](https://github.com/taikoxyz/taiko-mono/blob/80da7124a2e7340f65aa88561f51b69a79404577/packages/protocol/contracts/L1/libs/LibProving.sol#L118)).
 
 Note that the anchor transaction emits a `Anchored` event that may help ZKP to verify block variables. See below.
 
@@ -73,7 +76,7 @@ This struct represents the metadata of a block. The data will be hashed and be p
 - `l1Height`: The actual block height in L1.
 - `l1Hash`: The actual block hash in L1.
 - `mixHash`: Salted random number to accommodate multiple L2 blocks fitting into one L1 block.
-- `depositsRoot`: Matches the withdrawalsRoot in the L2 header.
+- `depositsRoot`: Hash of the list of deposits.
 - `txListHash`: Hash of the transaction list in L2.
 - `txListByteStart`: Byte start of the transaction list in L2.
 - `txListByteEnd`: Byte end of the transaction list in L2.
@@ -85,23 +88,23 @@ This struct represents the metadata of a block. The data will be hashed and be p
 
 ## Block variables
 
-There are the following [**block level variables**](https://docs.soliditylang.org/en/v0.8.18/units-and-global-variables.html) accessible to EVM, but their values are not part of the MPT.
+The following [**block level variables**](https://docs.soliditylang.org/en/v0.8.18/units-and-global-variables.html) are accessible to the EVM, but their values are not part of the MPT so we need a different way to verify their correctness.
 
 - `blockhash(uint blockNumber) returns (bytes32)`: hash of the given block when `blocknumber` is one of the 256 most recent blocks; otherwise returns zero
-- `block.basefee` (`uint`): current block's base fee ([EIP-3198](https://eips.ethereum.org/EIPS/eip-3198) and [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559))
+- `block.basefee` (`uint`): current block's base fee ([EIP-3198](https://eips.ethereum.org/EIPS/eip-3198) and [modified EIP-1559](./L2EIP1559.md))
 - `block.chainid` (`uint`): current chain id
 - `block.coinbase` (`address payable`): current block miner's address
-- `block.difficulty` (`uint`): current block difficulty (`EVM < Paris`). For other EVM versions, it behaves as a deprecated alias for `block.prevrandao` ([EIP-4399](https://eips.ethereum.org/EIPS/eip-4399))
+- `block.difficulty` (`uint`): alias for `block.prevrandao` ([EIP-4399](https://eips.ethereum.org/EIPS/eip-4399))
 - `block.gaslimit` (`uint`): current block gaslimit
 - `block.number` (`uint`): current block number
-- `block.prevrandao` (`uint`): random number provided by the beacon chain (`EVM >= Paris`)
+- `block.prevrandao` (`uint`): random number provided by the beacon chain
 - `block.timestamp` (`uint`): current block timestamp as seconds since Unix epoch
 
 We need to verify when these variables are accessed within the EVM, their values are consistent with the block metadata and the actual L2 block header.
 
 - `blockhash`: EVM allows access to the most recent 256 block hashes. All these hashes are available inside the plonk lookup table. ZKP must prove that the parent hash, `blockhash(block.number - 1)`, has the same value as in the block header and is also the same value used to calculate the ZKP instance.
 - The other 255 hashes, `blockhash(block.number - 256)` to `blockhash(block.number - 2)` are checked in the anchor transaction to simplify circuits. Therefore, as long as the anchor transaction is zk-proven, these 255 ancestor hashes are proven indirectly.
-- `block.basefee`: this field is currently always 0, as EIP-1559 is not enabled. Therefore, the ZKP must verify the value is always 0.
+- `block.basefee`: verified to be the correct value in the anchor transaction.
 - `block.chainid`: this field is also checked by the anchor transaction, so no extra ZKP circuits are required.
 - `block.coinbase`: ZKP must verify the value must be the same as `meta.beneficiary`. Again, the metadata hash is part of the ZK instance.
 - `block.difficulty`: this is now the same as `block.prevrandao`, so we only check `block.prevrandao`.
@@ -124,13 +127,13 @@ In addition, ZKP must also prove the following:
 - `difficulty` must be `meta.mixHash`.
 - `height` must be `meta.id`.
 - `gasLimit` == `meta.gasLimit`.
-- `gasUsed` ≤ `gasLimit` (we are assuming the EVM proof will verify that gasLimit has the right value), and `gasUsed` == `evidence.gasUsed`
+- `gasUsed` ≤ `gasLimit` (we are assuming the ZKP will verify that gasLimit has the right value), and `gasUsed` == `evidence.gasUsed`
 - `timestamp` == `meta.proposedAt`.
 - `extraData` == "".
 - `mixHash` == `meta.mixHash`.
 - `nonce` == 0.
-- `baseFeePerGas` == 0.
-- `withdrawalsRoot` == `0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421`  according to [https://github.com/ethereum/go-ethereum/blob/master/core/types/hashes.go#L41](https://github.com/ethereum/go-ethereum/blob/master/core/types/hashes.go#L41)
+- `baseFeePerGas` == the calculated EIP-1559 style base fee.
+- `withdrawalsRoot` == The withdrawals MPT correspoding to the deposits list.
 
 Note that some of the above header field checks are duplicates of checks from the Block Variable section.
 
@@ -139,10 +142,14 @@ Note that some of the above header field checks are duplicates of checks from th
 ZKP also needs to prove cross chain signal service’s storage roots have the right value.
 
 - **For L2 Signal Service**:  the storage root is the second parameter in the anchor transaction. ZKP shall verify that the storage root of the L2 Signal Service address indeed has this given value by using zkEVM storage proof.
-- **For L1 Signal Service**: the storage root verification shall be done in circuits by using a Merkle proof as witness against `meta.l1Hash`. The `l1SignalRoot` value is not directly provided by L1 smart contracts as it is not available to EVM and must be queried by L2 client from a L1 node.
+- **For L1 Signal Service**: the storage root verification will be done in the circuits by using a Merkle proof against the `meta.l1Hash`, the `l1SignalRoot` value is not directly available in the L1 smart contracts. This MPT proof must be queried from an L1 node by the L2 client.
 
+## LibProving verification
+
+The actual value of the public input parameters must be consistent with the values used to hash the ZKP instance (see [**LibProving**](https://github.com/taikoxyz/taiko-mono/blob/945dabc09a668678aca1296e91d567b45ad37922/packages/protocol/contracts/L1/libs/LibProving.sol#L182)).
 
 ## Data cross-verification chart
+To help people to visualize all the above elements. Here is a diagram:
 
 ```mermaid
 graph LR
@@ -175,7 +182,7 @@ v_block_timestamp -.-> dot2;
 s_parent_timestamp -.-> dot2;
 s_gas_excess -.-> dot2 ---|calcBasefee| v_block_basefee;
 
-processed_deposits -.->|keccak| m_deposits_root --- h_withdrawals_root;
+processed_deposits -.->|keccak| m_deposits_root -.- h_withdrawals_root;
 
 b_signal_root --- a_h1_signal_root;
 h_gas_used --- e_gas_used;
@@ -255,7 +262,6 @@ subgraph L1Storage
 b_signal_root[signalRoot]
 b_l1_taiko_addr[taikoL1Address]
 b_l1_signal_service_addr[L1 signalServiceAddress]
-b_l2_signal_service_addr[L2 signalServiceAddress]
 end
 
 
