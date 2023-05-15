@@ -30,6 +30,7 @@
   import { RELAYER_URL } from './constants/envVars';
   import Router from './components/Router.svelte';
   import { storageService, tokenService } from './storage/services';
+  import { startWatching } from './wagmi/watcher';
 
   const relayerApiService: RelayerAPI = new RelayerAPIService(
     RELAYER_URL,
@@ -117,6 +118,8 @@
       });
     }
   });
+
+  startWatching();
 </script>
 
 <QueryProvider>

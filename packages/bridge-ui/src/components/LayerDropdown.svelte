@@ -8,18 +8,17 @@
   } from '../chain/chains';
   import { ArrowsRightLeft, ChevronDown } from 'svelte-heros-v2';
   import { selectChain } from '../utils/selectChain';
-  import { fromChain, toChain } from '../store/chain';
   import { bridgeChainType } from '../store/bridge';
 
   async function switchBridgeChains(_bridgeChaintype: BridgeChainType) {
-    const chains = bridgeChains[_bridgeChaintype];
-
     // No need to do anything if we're already on the right chains
-    if ($fromChain.id === chains[0].id && $toChain.id === chains[1].id) {
+    if ($bridgeChainType === _bridgeChaintype) {
       return;
     }
 
-    $bridgeChainType = _bridgeChaintype;
+    bridgeChainType.set(_bridgeChaintype);
+
+    const chains = bridgeChains[_bridgeChaintype];
 
     return selectChain(chains[0].id, chains);
   }
