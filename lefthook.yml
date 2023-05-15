@@ -2,11 +2,14 @@
 pre-commit:
   commands:
     bridge-ui:
-      glob: "packages/bridge-ui/**/*.{js,ts,svelte}"
+      glob: "packages/bridge-ui/**.{js,ts,svelte}"
       run: pnpm -F bridge-ui lint:fix && git add {staged_files}
-    protocol:
-      glob: "packages/protocol/**/*.{sol}"
+    protocol_sol:
+      glob: "packages/protocol/**.{sol}"
       run: pnpm -F protocol lint:sol && git add {staged_files}
-    prettier:
-      glob: "**/*.{md,json}"
-      run: pnpm prettier {staged_files} --write
+    protocol_ts:
+      glob: "packages/protocol/**.{ts}"
+      run: pnpm -F protocol eslint:fix && git add {staged_files}
+    repo_md_json:
+      glob: "**.{md,json}"
+      run: pnpm prettier {staged_files} --write && git add {staged_files}
