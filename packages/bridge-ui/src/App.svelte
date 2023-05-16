@@ -29,7 +29,7 @@
   import Router from './components/Router.svelte';
   import { storageService, tokenService } from './storage/services';
   import { startWatching, stopWatching } from './wagmi/watcher';
-  import { onDestroy } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
 
   // const relayerApiService: RelayerAPI = new RelayerAPIService(
   //   RELAYER_URL,
@@ -121,7 +121,7 @@
     }
   });
 
-  startWatching();
+  onMount(startWatching);
   onDestroy(stopWatching);
 </script>
 
