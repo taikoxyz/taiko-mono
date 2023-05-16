@@ -82,6 +82,7 @@ export class ERC20Bridge implements Bridge {
 
       return requiresAllowance;
     } catch (error) {
+      console.error(error);
       throw new Error(`there was an issue getting allowance`, {
         cause: error,
       });
