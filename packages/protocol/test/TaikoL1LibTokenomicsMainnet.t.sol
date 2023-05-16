@@ -14,6 +14,10 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {TaikoL1TestBase} from "./TaikoL1TestBase.t.sol";
 import {LibLn} from "./LibLn.sol";
 
+/// @dev Tweak this if you iwhs to set - the config and the calculation of the proofTimeIssued
+/// @dev also originates from this
+uint16 constant INITIAL_PROOF_TIME_TARGET = 2160; //sec. Approx mainnet scenario
+
 contract TaikoL1MainnetMockConfig is TaikoL1 {
     function getConfig() public pure override returns (TaikoData.Config memory config) {
         config = TaikoConfig.getConfig();
@@ -23,7 +27,6 @@ contract TaikoL1MainnetMockConfig is TaikoL1 {
         config.maxNumProposedBlocks = 200;
         config.ringBufferSize = 240;
         config.proofCooldownPeriod = 0;
-        config.proofTimeTarget = 2160;
     }
 }
 
@@ -41,7 +44,7 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase {
     }
 
     function setUp() public override {
-        uint16 proofTimeTarget = 2160; // Approx. mainnet value
+        proofTimeTarget = INITIAL_PROOF_TIME_TARGET; // Approx. mainnet value
         // Calculating it for our needs based on testnet/mainnet proof vars.
         // See Brecht's comment https://github.com/taikoxyz/taiko-mono/pull/13564
         initProofTimeIssued =

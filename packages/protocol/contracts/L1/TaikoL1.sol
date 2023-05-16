@@ -38,6 +38,7 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
      * @param _addressManager The AddressManager address.
      * @param _genesisBlockHash The block hash of the genesis block.
      * @param _initBlockFee Initial (reasonable) block fee value.
+     * @param _initProofTimeTarget Initial (reasonable) proof submission time target.
      * @param _initProofTimeIssued Initial proof time issued corresponding
      *        with the initial block fee.
      */
@@ -45,6 +46,7 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
         address _addressManager,
         bytes32 _genesisBlockHash,
         uint64 _initBlockFee,
+        uint64 _initProofTimeTarget,
         uint64 _initProofTimeIssued
     ) external initializer {
         EssentialContract._init(_addressManager);
@@ -53,6 +55,7 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
             config: getConfig(),
             genesisBlockHash: _genesisBlockHash,
             initBlockFee: _initBlockFee,
+            initProofTimeTarget: _initProofTimeTarget,
             initProofTimeIssued: _initProofTimeIssued
         });
     }
