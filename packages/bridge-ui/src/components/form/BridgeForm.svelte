@@ -60,28 +60,43 @@
   //       logic and unit test the hell out of all this.
 
   async function addressForToken() {
-    let addr = $token.addresses.find(
+    let address = $token.addresses.find(
       (t) => t.chainId === $fromChain.id,
     ).address;
-    if ($token.symbol !== ETHToken.symbol && (!addr || addr === '0x00')) {
-      const srcChainAddr = $token.addresses.find(
+
+    if ($token.symbol !== ETHToken.symbol && (!address || address === '0x00')) {
+      const srcChainAddress = $token.addresses.find(
         (t) => t.chainId === $toChain.id,
       ).address;
 
-      const tokenVault = new Contract(
+      const srcTokenVaultContract = new Contract(
         tokenVaults[$fromChain.id],
         tokenVaultABI,
         $signer,
       );
 
-      const bridged = await tokenVault.canonicalToBridged(
-        $toChain.id,
-        srcChainAddr,
-      );
+      try {
+        const bridgedAdress = await srcTokenVaultContract.canonicalToBridged(
+          $toChain.id,
+          srcChainAddress,
+        );
 
-      addr = bridged;
+        log(`Bridged address for ${$token.symbol} is "${bridgedAdress}"`);
+
+        address = bridgedAdress;
+      } catch (error) {
+        console.error(error);
+
+        throw Error(
+          `Failed to get address for ${$token.symbol} on chain ${$toChain.id}`,
+          {
+            cause: error,
+          },
+        );
+      }
     }
-    return addr;
+
+    return address;
   }
 
   async function getUserBalance(signer: ethers.Signer, token: Token) {
@@ -92,18 +107,36 @@
 
         log('ETH balance:', tokenBalance);
       } else {
-        const address = await addressForToken();
+        let address: string;
+
+        try {
+          address = await addressForToken();
+        } catch (error) {
+          console.error(error);
+          tokenBalance = '0';
+          return;
+        }
 
         if (address == ethers.constants.AddressZero) {
           tokenBalance = '0';
           return;
         }
 
-        const contract = new Contract(address, erc20ABI, signer);
-        const userBalance = await contract.balanceOf(await signer.getAddress());
-        tokenBalance = ethers.utils.formatUnits(userBalance, token.decimals);
+        try {
+          const tokenContract = new Contract(address, erc20ABI, signer);
+          const userBalance = await tokenContract.balanceOf(
+            await signer.getAddress(),
+          );
+          tokenBalance = ethers.utils.formatUnits(userBalance, token.decimals);
 
-        log(`${token.symbol} balance`, tokenBalance);
+          log(`${token.symbol} balance`, tokenBalance);
+        } catch (error) {
+          console.error(error);
+          tokenBalance = '0';
+          throw Error(`Failed to get balance for ${token.symbol}`, {
+            cause: error,
+          });
+        }
       }
     }
   }
