@@ -4,6 +4,7 @@ import { fromChain, toChain } from '../store/chain';
 import { signer } from '../store/signer';
 import { mainnetChain, taikoChain } from '../chain/chains';
 import { selectChain } from './selectChain';
+import type { Chain } from '../domain/chain';
 
 jest.mock('../constants/envVars');
 
@@ -41,6 +42,8 @@ jest.mock('../store/signer', () => ({
   },
 }));
 
+const chains: [Chain, Chain] = [mainnetChain, taikoChain];
+
 describe('selectChain', () => {
   it('should select chain', async () => {
     const mockSigner = {} as ethers.providers.JsonRpcSigner;
@@ -48,7 +51,7 @@ describe('selectChain', () => {
       .mocked(ethers.providers.Web3Provider.prototype.getSigner)
       .mockReturnValue(mockSigner);
 
-    await selectChain(mainnetChain);
+    await selectChain(mainnetChain.id, chains);
 
     expect(switchNetwork).toHaveBeenCalledWith({ chainId: mainnetChain.id });
     expect(fromChain.set).toHaveBeenCalledWith(mainnetChain);
@@ -67,7 +70,7 @@ describe('selectChain', () => {
     expect(signer.set).toHaveBeenCalledWith(mockSigner);
 
     // Select the other chain now
-    await selectChain(taikoChain);
+    await selectChain(taikoChain.id, chains);
 
     expect(switchNetwork).toHaveBeenCalledWith({ chainId: taikoChain.id });
   });

@@ -9,7 +9,7 @@ import {
   recommendProcessingFee,
 } from './recommendProcessingFee';
 import { mainnetChain, taikoChain } from '../chain/chains';
-import { ETHToken, testERC20Tokens, TKOToken } from '../token/tokens';
+import { ETHToken, testERC20Tokens } from '../token/tokens';
 import { providers } from '../provider/providers';
 import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
 import type { Token } from '../domain/token';

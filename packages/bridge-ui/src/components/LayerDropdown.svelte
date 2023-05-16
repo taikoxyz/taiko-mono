@@ -9,6 +9,10 @@
   import { ArrowsRightLeft, ChevronDown } from 'svelte-heros-v2';
   import { selectChain } from '../utils/selectChain';
   import { bridgeChainType } from '../store/bridge';
+  import { successToast, errorToast } from './Toast.svelte';
+
+  let changingNetwork = false;
+  let selectedBridgeChains = bridgeChains[$bridgeChainType];
 
   async function switchBridgeChains(_bridgeChaintype: BridgeChainType) {
     // No need to do anything if we're already on the right chains
@@ -16,17 +20,34 @@
       return;
     }
 
-    bridgeChainType.set(_bridgeChaintype);
+    changingNetwork = true;
 
-    const chains = bridgeChains[_bridgeChaintype];
+    try {
+      const chains = bridgeChains[_bridgeChaintype];
+      await selectChain(chains[0].id, chains);
 
-    return selectChain(chains[0].id, chains);
+      bridgeChainType.set(_bridgeChaintype);
+      selectedBridgeChains = chains;
+
+      successToast('Networks changed');
+    } catch (e) {
+      console.error(e);
+      errorToast('Failed to change networks');
+    } finally {
+      changingNetwork = false;
+    }
   }
 </script>
 
 <div class="dropdown dropdown-end mr-4">
-  <button class="btn btn-md justify-around md:w-[194px]">
-    <span class="font-normal flex-1 text-left mr-2"> Click </span>
+  <button
+    class="btn btn-md justify-around md:w-[190px]"
+    disabled={changingNetwork}>
+    <span class="flex-1 flex justify-between px-2">
+      <svelte:component this={selectedBridgeChains[0].icon} height={24} />
+      <ArrowsRightLeft class="pointer-events-none" />
+      <svelte:component this={selectedBridgeChains[1].icon} height={24} />
+    </span>
     <ChevronDown size="20" />
   </button>
   <ul
@@ -45,7 +66,7 @@
         class="flex items-center px-2 py-4 hover:bg-dark-5 rounded-xl justify-between"
         on:click={() => switchBridgeChains(BridgeChainType.L1_L2)}>
         <svelte:component this={mainnetChain.icon} height={24} />
-        <span class="pl-1.5 flex-1 flex justify-between px-2">
+        <span class="flex-1 flex justify-between px-2">
           {mainnetChain.name}
           <ArrowsRightLeft class="pointer-events-none" />
           {taikoChain.name}
@@ -59,7 +80,7 @@
         class="flex items-center px-2 py-4 hover:bg-dark-5 rounded-xl justify-between"
         on:click={() => switchBridgeChains(BridgeChainType.L2_L3)}>
         <svelte:component this={taikoChain.icon} height={24} />
-        <span class="pl-1.5 flex-1 flex justify-between px-2">
+        <span class="flex-1 flex justify-between px-2">
           {taikoChain.name}
           <ArrowsRightLeft class="pointer-events-none" />
           {l3Chain.name}
