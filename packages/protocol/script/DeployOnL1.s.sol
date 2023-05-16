@@ -49,7 +49,7 @@ contract DeployOnL1 is Script {
     // For testnet it could be somewhere 85-100s
     // For mainnet it could be around 1800 s (30mins)
     // Can be adjusted later with setters
-    uint64 public INITIAL_PROOF_TIME_TARGET = 0;
+    uint64 public INITIAL_PROOF_TIME_TARGET = uint64(vm.envUint("INITIAL_PROOF_TIME_TARGET"));
 
     TaikoL1 taikoL1;
     address public addressManagerProxy;

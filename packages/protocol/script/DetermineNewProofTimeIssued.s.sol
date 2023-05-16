@@ -8,7 +8,7 @@ import {LibLn} from "../test/LibLn.sol";
 uint16 constant DESIRED_PROOF_TIME_TARGET = 500;
 uint8 constant ADJUSTMENT_QUOTIENT = 16;
 
-contract DetermineProofTImeIssued is Script {
+contract DetermineProofTimeIssued is Script {
 
     function run() public {
         uint16 proofTimeTarget = DESIRED_PROOF_TIME_TARGET; // Approx. value which close to what is in the simulation

@@ -134,6 +134,23 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
         });
     }
 
+    /**
+     * Change proof parameters (time target and time issued) - to avoid complex/risky upgrades in case need to change relatively frequently.
+     * @param newProofTimeTarget New proof time target.
+     * @param newProofTimeIssued New proof time issued. If set to type(uint64).max, let it be unchanged.
+     */
+    function setProofParams(uint64 newProofTimeTarget, uint64 newProofTimeIssued) external onlyOwner {
+        if (newProofTimeTarget == 0 || newProofTimeIssued == 0)
+            revert L1_INVALID_PARAM();
+
+        state.proofTimeTarget = newProofTimeTarget;
+        // Special case in a way - that we leave the proofTimeIssued unchanged
+        // because we think provers will adjust behavior.
+        if (newProofTimeIssued != type(uint64).max) {
+            state.proofTimeIssued = newProofTimeIssued;
+        }
+    }
+
     function depositTaikoToken(uint256 amount) external nonReentrant {
         LibTokenomics.depositTaikoToken(state, AddressResolver(this), amount);
     }
