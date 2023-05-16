@@ -52,6 +52,7 @@
       } else {
         statusValue = 0;
       }
+      console.log(header, statusValue);
     } catch (e) {
       console.error(header, e);
     }
