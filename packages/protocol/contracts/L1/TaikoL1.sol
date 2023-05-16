@@ -32,6 +32,8 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
         depositEtherToL2();
     }
 
+    event ProofTimeTargetChanged(uint64 proofTimeTarget);
+
     /**
      * Initialize the rollup.
      *
@@ -149,6 +151,8 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
         if (newProofTimeIssued != type(uint64).max) {
             state.proofTimeIssued = newProofTimeIssued;
         }
+
+        emit ProofTimeTargetChanged(newProofTimeTarget);
     }
 
     function depositTaikoToken(uint256 amount) external nonReentrant {

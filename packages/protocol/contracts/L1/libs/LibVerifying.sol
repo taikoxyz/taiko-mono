@@ -53,7 +53,6 @@ library LibVerifying {
 
         state.blockFee = initBlockFee;
         state.proofTimeIssued = initProofTimeIssued;
-        // 85s based on A2 testnet status, or set to 1800 for 30mins (mainnet mock)
         state.proofTimeTarget = initProofTimeTarget;
         state.numBlocks = 1;
 
