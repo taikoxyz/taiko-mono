@@ -3,7 +3,7 @@
   import type { BridgeTransaction } from '../../domain/transactions';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
   import { MessageStatus } from '../../domain/message';
-  import { ethers } from 'ethers';
+  import { ethers, Contract } from 'ethers';
   import { signer } from '../../store/signer';
   import { pendingTransactions } from '../../store/transactions';
   import { _ } from 'svelte-i18n';
@@ -25,6 +25,7 @@
   import type { NoticeOpenArgs } from '../../domain/modal';
   import { isTransactionProcessable } from '../../utils/isTransactionProcessable';
   import { getLogger } from '../../utils/logger';
+  import { isETHByMessage } from '../../utils/isETHByMessage';
 
   const log = getLogger('component:Transaction');
 
@@ -43,17 +44,6 @@
   let txToChain = chains[transaction.toChainId];
   let txFromChain = chains[transaction.fromChainId];
   let alreadyInformedAboutClaim = false;
-
-  onMount(async () => {
-    processable = await isTransactionProcessable(transaction);
-    interval = startInterval();
-  });
-
-  onDestroy(() => {
-    if (interval) {
-      clearInterval(interval);
-    }
-  });
 
   async function onClaimClick() {
     // Has the user sent processing fees?. We also check if the user
@@ -145,11 +135,12 @@
         return;
       }
 
-      const tx = await bridges[
-        bridgeTx.message?.data === '0x' || !bridgeTx.message?.data
-          ? BridgeType.ETH
-          : BridgeType.ERC20
-      ].ReleaseTokens({
+      const bridge =
+        bridges[
+          isETHByMessage(bridgeTx.message) ? BridgeType.ETH : BridgeType.ERC20
+        ];
+
+      const tx = await bridge.ReleaseTokens({
         signer: $signer,
         message: bridgeTx.message,
         msgHash: bridgeTx.msgHash,
@@ -173,12 +164,18 @@
     }
   }
 
-  // TODO: web worker?
+  // TODO: move this logic into a Web Worker
+  // TODO: handle errors here
   function startInterval() {
     return setInterval(async () => {
       processable = await isTransactionProcessable(transaction);
 
       const { fromChainId, toChainId, receipt, msgHash } = transaction;
+
+      if (receipt && receipt.status !== 1) {
+        clearInterval(interval);
+        return;
+      }
 
       const srcChain = chains[fromChainId];
       const srcProvider = providers[fromChainId];
@@ -186,22 +183,17 @@
       const destChain = chains[toChainId];
       const destProvider = providers[toChainId];
 
-      const destBridgeContract = new ethers.Contract(
+      const destBridgeContract = new Contract(
         destChain.bridgeAddress,
         bridgeABI,
         destProvider,
       );
 
-      if (receipt && receipt.status !== 1) {
-        clearInterval(interval);
-        return;
-      }
-
       transaction.status = await destBridgeContract.getMessageStatus(msgHash);
 
       if (transaction.status === MessageStatus.Failed) {
-        if (transaction.message?.data !== '0x') {
-          const srcTokenVaultContract = new ethers.Contract(
+        if (!isETHByMessage(transaction.message)) {
+          const srcTokenVaultContract = new Contract(
             tokenVaults[fromChainId],
             tokenVaultABI,
             srcProvider,
@@ -215,7 +207,7 @@
             transaction.status = MessageStatus.FailedReleased;
           }
         } else {
-          const srcBridgeContract = new ethers.Contract(
+          const srcBridgeContract = new Contract(
             srcChain.bridgeAddress,
             bridgeABI,
             srcProvider,
@@ -229,14 +221,27 @@
           }
         }
       }
+
       if (
         [MessageStatus.Done, MessageStatus.FailedReleased].includes(
           transaction.status,
         )
-      )
+      ) {
         clearInterval(interval);
+      }
     }, 20 * 1000); // TODO: magic number
   }
+
+  onMount(async () => {
+    processable = await isTransactionProcessable(transaction);
+    interval = startInterval();
+  });
+
+  onDestroy(() => {
+    if (interval) {
+      clearInterval(interval);
+    }
+  });
 </script>
 
 <tr class="text-transaction-table">
@@ -249,13 +254,11 @@
     <span class="ml-2 hidden md:inline-block">{txToChain.name}</span>
   </td>
   <td>
-    <!-- TODO: function to check is we're dealing with ETH or ERC20? -->
-    {transaction.message &&
-    (transaction.message?.data === '0x' || !transaction.message?.data)
+    {isETHByMessage(transaction.message)
       ? ethers.utils.formatEther(
-          transaction.message?.depositValue.eq(0)
-            ? transaction.message?.callValue.toString()
-            : transaction.message?.depositValue,
+          transaction.message.depositValue.eq(0)
+            ? transaction.message.callValue.toString()
+            : transaction.message.depositValue,
         )
       : ethers.utils.formatUnits(transaction.amountInWei)}
     {transaction.symbol ?? 'ETH'}
