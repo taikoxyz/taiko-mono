@@ -18,6 +18,7 @@
   export let addERC20: (event: SubmitEvent) => Promise<void>;
   export let loading: boolean = false;
   export let loadingTokenDetails: boolean = false;
+
   let tokenDetails: TokenDetails = null;
   let showError: boolean = false;
   let tokenAddress: string;
@@ -31,8 +32,6 @@
     userTokens.set(updatedTokensList);
     tokenStore.set(ETHToken);
   }
-
-  $: onAddressChange(tokenAddress);
 
   async function onAddressChange(tokenAddress: string) {
     showError = false;
@@ -68,6 +67,8 @@
       tokenDetails = null;
     }
   }
+
+  $: onAddressChange(tokenAddress);
 </script>
 
 <Modal title="Add custom ERC20" bind:isOpen={showAddressField}>

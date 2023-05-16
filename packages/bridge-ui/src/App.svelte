@@ -5,67 +5,71 @@
   import Navbar from './components/Navbar.svelte';
   import Toast, { successToast } from './components/Toast.svelte';
   import { signer } from './store/signer';
-  import type { BridgeTransaction } from './domain/transactions';
+  // import type { BridgeTransaction } from './domain/transactions';
 
   import SwitchEthereumChainModal from './components/modals/SwitchEthereumChainModal.svelte';
   import { ethers } from 'ethers';
   import { MessageStatus } from './domain/message';
   import { bridgeABI } from './constants/abi';
   import { userTokens } from './store/userToken';
-  import { RelayerAPIService } from './relayer-api/RelayerAPIService';
-  import {
-    DEFAULT_PAGE,
-    MAX_PAGE_SIZE,
-    type RelayerAPI,
-  } from './domain/relayerApi';
-  import {
-    paginationInfo,
-    relayerApi,
-    relayerBlockInfoMap,
-  } from './store/relayerApi';
+  // import { RelayerAPIService } from './relayer-api/RelayerAPIService';
+  // import {
+  //   DEFAULT_PAGE,
+  //   MAX_PAGE_SIZE,
+  //   type RelayerAPI,
+  // } from './domain/relayerApi';
+  // import {
+  //   paginationInfo,
+  //   relayerApi,
+  //   relayerBlockInfoMap,
+  // } from './store/relayerApi';
   import { chains } from './chain/chains';
   import { providers } from './provider/providers';
-  import { RELAYER_URL } from './constants/envVars';
+  // import { RELAYER_URL } from './constants/envVars';
   import Router from './components/Router.svelte';
   import { storageService, tokenService } from './storage/services';
-  import { startWatching } from './wagmi/watcher';
+  import { startWatching, stopWatching } from './wagmi/watcher';
+  import { onDestroy } from 'svelte';
 
-  const relayerApiService: RelayerAPI = new RelayerAPIService(
-    RELAYER_URL,
-    providers,
-  );
+  // const relayerApiService: RelayerAPI = new RelayerAPIService(
+  //   RELAYER_URL,
+  //   providers,
+  // );
 
-  relayerApi.set(relayerApiService);
+  // relayerApi.set(relayerApiService);
 
-  signer.subscribe(async (store) => {
-    if (store) {
-      const userAddress = await store.getAddress();
+  signer.subscribe(async (newSigner) => {
+    if (newSigner) {
+      const userAddress = await newSigner.getAddress();
 
-      const { txs: apiTxs, paginationInfo: info } =
-        await $relayerApi.getAllBridgeTransactionByAddress(userAddress, {
-          page: DEFAULT_PAGE,
-          size: MAX_PAGE_SIZE,
-        });
+      // TODO: uncomment when relayer is ready
 
-      paginationInfo.set(info);
+      // const { txs: apiTxs, paginationInfo: info } =
+      //   await $relayerApi.getAllBridgeTransactionByAddress(userAddress, {
+      //     page: DEFAULT_PAGE,
+      //     size: MAX_PAGE_SIZE,
+      //   });
 
-      const blockInfoMap = await $relayerApi.getBlockInfo();
-      relayerBlockInfoMap.set(blockInfoMap);
+      // paginationInfo.set(info);
+
+      // const blockInfoMap = await $relayerApi.getBlockInfo();
+      // relayerBlockInfoMap.set(blockInfoMap);
 
       const txs = await storageService.getAllByAddress(userAddress);
-      const hashToApiTxsMap = new Map(
-        apiTxs.map((tx) => {
-          return [tx.hash.toLowerCase(), 1];
-        }),
-      );
 
-      const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
-        return !hashToApiTxsMap.has(tx.hash.toLowerCase());
-      });
+      // const hashToApiTxsMap = new Map(
+      //   apiTxs.map((tx) => {
+      //     return [tx.hash.toLowerCase(), 1];
+      //   }),
+      // );
 
-      storageService.updateStorageByAddress(userAddress, updatedStorageTxs);
+      // const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
+      //   return !hashToApiTxsMap.has(tx.hash.toLowerCase());
+      // });
 
-      transactions.set([...updatedStorageTxs, ...apiTxs]);
+      // storageService.updateStorageByAddress(userAddress, updatedStorageTxs);
+
+      transactions.set([.../* updatedStorageTxs*/ txs /*, ...apiTxs*/]);
 
       const tokens = tokenService.getTokens(userAddress);
       userTokens.set(tokens);
@@ -118,6 +122,7 @@
   });
 
   startWatching();
+  onDestroy(stopWatching);
 </script>
 
 <QueryProvider>
