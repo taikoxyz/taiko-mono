@@ -39,6 +39,7 @@
   import Button from '../buttons/Button.svelte';
   import { storageService } from '../../storage/services';
   import { getLogger } from '../../utils/logger';
+  import { getAddressForToken } from '../../utils/getAddressForToken';
 
   const log = getLogger('component:BridgeForm');
 
@@ -59,46 +60,6 @@
   // TODO: too much going on here. We need to extract
   //       logic and unit test the hell out of all this.
 
-  async function addressForToken() {
-    let address = $token.addresses.find(
-      (t) => t.chainId === $fromChain.id,
-    ).address;
-
-    if ($token.symbol !== ETHToken.symbol && (!address || address === '0x00')) {
-      const srcChainAddress = $token.addresses.find(
-        (t) => t.chainId === $toChain.id,
-      ).address;
-
-      const srcTokenVaultContract = new Contract(
-        tokenVaults[$fromChain.id],
-        tokenVaultABI,
-        $signer,
-      );
-
-      try {
-        const bridgedAdress = await srcTokenVaultContract.canonicalToBridged(
-          $toChain.id,
-          srcChainAddress,
-        );
-
-        log(`Bridged address for ${$token.symbol} is "${bridgedAdress}"`);
-
-        address = bridgedAdress;
-      } catch (error) {
-        console.error(error);
-
-        throw Error(
-          `Failed to get address for ${$token.symbol} on chain ${$toChain.id}`,
-          {
-            cause: error,
-          },
-        );
-      }
-    }
-
-    return address;
-  }
-
   async function getUserBalance(signer: ethers.Signer, token: Token) {
     if (signer && token) {
       if (token.symbol == ETHToken.symbol) {
@@ -110,7 +71,12 @@
         let address: string;
 
         try {
-          address = await addressForToken();
+          address = await getAddressForToken(
+            token,
+            $fromChain,
+            $toChain,
+            signer,
+          );
         } catch (error) {
           console.error(error);
           tokenBalance = '0';
@@ -150,7 +116,12 @@
   ) {
     if (!fromChain || !amount || !token || !bridgeType || !signer) return false;
 
-    const address = await addressForToken();
+    const address = await getAddressForToken(
+      token,
+      fromChain,
+      $toChain,
+      signer,
+    );
 
     log(`Checking allowance for token ${token.symbol}`);
 
@@ -208,7 +179,13 @@
       if (!requiresAllowance)
         throw Error('does not require additional allowance');
 
-      const contractAddress = await addressForToken();
+      const contractAddress = await getAddressForToken(
+        $token,
+        $fromChain,
+        $toChain,
+        $signer,
+      );
+
       const spenderAddress = tokenVaults[$fromChain.id];
 
       log(`Approving token ${$token.symbol}`);
@@ -306,14 +283,21 @@
       const bridgeAddress = chains[$fromChain.id].bridgeAddress;
       const tokenVaultAddress = tokenVaults[$fromChain.id];
 
+      const tokenAddress = await getAddressForToken(
+        $token,
+        $fromChain,
+        $toChain,
+        $signer,
+      );
+
       const bridgeOpts: BridgeOpts = {
-        amountInWei: amountInWei,
+        amountInWei,
         signer: $signer,
-        tokenAddress: await addressForToken(),
+        tokenAddress,
         fromChainId: $fromChain.id,
         toChainId: $toChain.id,
-        tokenVaultAddress: tokenVaultAddress,
-        bridgeAddress: bridgeAddress,
+        tokenVaultAddress,
+        bridgeAddress,
         processingFeeInWei: getProcessingFee(),
         memo: memo,
         isBridgedTokenAlreadyDeployed,
@@ -404,7 +388,12 @@
         const gasEstimate = await $activeBridge.EstimateGas({
           amountInWei: BigNumber.from(1),
           signer: $signer,
-          tokenAddress: await addressForToken(),
+          tokenAddress: await getAddressForToken(
+            $token,
+            $fromChain,
+            $toChain,
+            $signer,
+          ),
           fromChainId: $fromChain.id,
           toChainId: $toChain.id,
           tokenVaultAddress: tokenVaults[$fromChain.id],

@@ -119,15 +119,14 @@ export class ETHBridge implements Bridge {
   }
 
   async Claim(opts: ClaimOpts): Promise<Transaction> {
-    const contract: Contract = new Contract(
+    const destBridgeContract: Contract = new Contract(
       opts.destBridgeAddress,
       bridgeABI,
       opts.signer,
     );
 
-    const messageStatus: MessageStatus = await contract.getMessageStatus(
-      opts.msgHash,
-    );
+    const messageStatus: MessageStatus =
+      await destBridgeContract.getMessageStatus(opts.msgHash);
 
     log(`Claiming message with status ${messageStatus}`);
 
@@ -169,7 +168,10 @@ export class ETHBridge implements Bridge {
       let processMessageTx: ethers.Transaction;
 
       try {
-        processMessageTx = await contract.processMessage(opts.message, proof);
+        processMessageTx = await destBridgeContract.processMessage(
+          opts.message,
+          proof,
+        );
       } catch (error) {
         console.error(error);
 
@@ -178,7 +180,7 @@ export class ETHBridge implements Bridge {
 
           log(`Unpredictable gas limit. We try now with ${gasLimit} gasLimit`);
 
-          processMessageTx = await contract.processMessage(
+          processMessageTx = await destBridgeContract.processMessage(
             opts.message,
             proof,
             { gasLimit },
@@ -193,7 +195,7 @@ export class ETHBridge implements Bridge {
       return processMessageTx;
     } else {
       log('Retrying message', opts.message);
-      const tx = await contract.retryMessage(opts.message, true);
+      const tx = await destBridgeContract.retryMessage(opts.message, true);
       log('Message retried with transaction', tx);
 
       return tx;
