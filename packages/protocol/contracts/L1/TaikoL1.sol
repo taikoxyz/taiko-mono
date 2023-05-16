@@ -32,8 +32,6 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
         depositEtherToL2();
     }
 
-    event ProofTimeTargetChanged(uint64 proofTimeTarget);
-
     /**
      * Initialize the rollup.
      *
