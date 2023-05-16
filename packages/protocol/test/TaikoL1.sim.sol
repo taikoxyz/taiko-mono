@@ -12,7 +12,7 @@ import {LibLn} from "./LibLn.sol";
 
 /// @dev Tweak this if you iwhs to set - the config and the calculation of the proofTimeIssued
 /// @dev also originates from this
-uint16 constant PROOF_TIME_TARGET = 375; //sec. Approx mainnet scenario
+uint16 constant INITIAL_PROOF_TIME_TARGET = 375; //sec. Approx mainnet scenario
 
 /// @dev Warning: this test will take 7-10 minutes and require 1GB memory.
 ///      `pnpm sim`
@@ -25,7 +25,6 @@ contract TaikoL1_b is TaikoL1 {
         config.ringBufferSize = 1200;
         config.maxVerificationsPerTx = 10;
         config.proofCooldownPeriod = 1 minutes;
-        config.proofTimeTarget = PROOF_TIME_TARGET;
         config.realProofSkipSize = 0;
     }
 }
@@ -86,7 +85,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
     }
 
     function setUp() public override {
-        uint16 proofTimeTarget = PROOF_TIME_TARGET; // Approx. value which close to what is in the simulation
+        proofTimeTarget = INITIAL_PROOF_TIME_TARGET; // Approx. value which close to what is in the simulation
 
         initProofTimeIssued =
             LibLn.calcInitProofTimeIssued(feeBase, proofTimeTarget, ADJUSTMENT_QUOTIENT);
@@ -162,7 +161,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
         uint256 proposedIndex;
 
         console2.log("Last second:", maxTime);
-        console2.log("Proof time target:", PROOF_TIME_TARGET);
+        console2.log("Proof time target:", INITIAL_PROOF_TIME_TARGET);
         console2.log("Average proposal time: ", totalDiffsProp / blocksToSimulate);
         console2.log("Average proof time: ", totalDiffsProve / blocksToSimulate);
         printVariableHeaders();
@@ -340,7 +339,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
         uint256 proposedIndex;
 
         console2.log("Last second:", maxTime);
-        console2.log("Proof time target:", PROOF_TIME_TARGET);
+        console2.log("Proof time target:", INITIAL_PROOF_TIME_TARGET);
         console2.log("Average proposal time: ", totalDiffsProp / blocksToSimulate);
         console2.log("Average proof time: ", totalDiffsProve / blocksToSimulate);
         printVariableHeaders();
@@ -523,7 +522,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
         uint256 proposedIndex;
 
         console2.log("Last second:", maxTime);
-        console2.log("Proof time target:", PROOF_TIME_TARGET);
+        console2.log("Proof time target:", INITIAL_PROOF_TIME_TARGET);
         console2.log("Average proposal time: ", totalDiffsProp / blocksToSimulate);
         console2.log("Average proof time: ", totalDiffsProve / blocksToSimulate);
         printVariableHeaders();

@@ -88,20 +88,20 @@ library LibTokenomics {
         TaikoData.Config memory config,
         uint64 proofTime
     ) internal view returns (uint64 newProofTimeIssued, uint64 blockFee) {
-        newProofTimeIssued = (state.proofTimeIssued > config.proofTimeTarget)
-            ? state.proofTimeIssued - config.proofTimeTarget
+        newProofTimeIssued = (state.proofTimeIssued > state.proofTimeTarget)
+            ? state.proofTimeIssued - state.proofTimeTarget
             : uint64(0);
         newProofTimeIssued += proofTime;
 
         uint256 x = (newProofTimeIssued * Math.SCALING_FACTOR_1E18)
-            / (config.proofTimeTarget * config.adjustmentQuotient);
+            / (state.proofTimeTarget * config.adjustmentQuotient);
 
         if (Math.MAX_EXP_INPUT <= x) {
             x = Math.MAX_EXP_INPUT;
         }
 
         uint256 result = (uint256(Math.exp(int256(x))) / Math.SCALING_FACTOR_1E18)
-            / (config.proofTimeTarget * config.adjustmentQuotient);
+            / (state.proofTimeTarget * config.adjustmentQuotient);
 
         blockFee = uint64(result.min(type(uint64).max));
     }

@@ -5,13 +5,11 @@ import (
 	"encoding/json"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/tokenvault"
 )
 
 // handleEvent handles an individual MessageSent event
@@ -46,7 +44,7 @@ func (svc *Service) handleEvent(
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
-	eventType, canonicalToken, amount, err := eventTypeAmountAndCanonicalTokenFromEvent(event)
+	eventType, canonicalToken, amount, err := relayer.DecodeMessageSentData(event)
 	if err != nil {
 		return errors.Wrap(err, "eventTypeAmountAndCanonicalTokenFromEvent(event)")
 	}
@@ -81,57 +79,6 @@ func (svc *Service) handleEvent(
 	}
 
 	return nil
-}
-
-func eventTypeAmountAndCanonicalTokenFromEvent(
-	event *bridge.BridgeMessageSent,
-) (relayer.EventType, relayer.CanonicalToken, *big.Int, error) {
-	eventType := relayer.EventTypeSendETH
-
-	var canonicalToken relayer.CanonicalToken
-
-	var amount *big.Int
-
-	if event.Message.Data != nil && common.BytesToHash(event.Message.Data) != relayer.ZeroHash {
-		tokenVaultMD := bind.MetaData{
-			ABI: tokenvault.TokenVaultABI,
-		}
-
-		tokenVaultABI, err := tokenVaultMD.GetAbi()
-		if err != nil {
-			return eventType, relayer.CanonicalToken{}, big.NewInt(0), errors.Wrap(err, "tokenVaultMD.GetAbi()")
-		}
-
-		method, err := tokenVaultABI.MethodById(event.Message.Data[:4])
-		if err != nil {
-			return eventType, relayer.CanonicalToken{}, big.NewInt(0), errors.Wrap(err, "tokenVaultABI.MethodById")
-		}
-
-		inputsMap := make(map[string]interface{})
-
-		if err := method.Inputs.UnpackIntoMap(inputsMap, event.Message.Data[4:]); err != nil {
-			return eventType, relayer.CanonicalToken{}, big.NewInt(0), errors.Wrap(err, "method.Inputs.UnpackIntoMap")
-		}
-
-		if method.Name == "receiveERC20" {
-			eventType = relayer.EventTypeSendERC20
-
-			canonicalToken = inputsMap["canonicalToken"].(struct {
-				// nolint
-				ChainId  *big.Int       `json:"chainId"`
-				Addr     common.Address `json:"addr"`
-				Decimals uint8          `json:"decimals"`
-				Symbol   string         `json:"symbol"`
-				Name     string         `json:"name"`
-			})
-
-			amount = inputsMap["amount"].(*big.Int)
-		}
-	} else {
-		amount = event.Message.DepositValue
-	}
-
-	return eventType, canonicalToken, amount, nil
 }
 
 func canProcessMessage(
