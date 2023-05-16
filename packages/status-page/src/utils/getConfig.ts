@@ -7,6 +7,5 @@ export const getConfig = async (
 ) => {
   const contract: Contract = new Contract(contractAddress, TaikoL1, provider);
   const config = await contract.getConfig();
-  console.log(config);
   return config;
 };
