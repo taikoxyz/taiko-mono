@@ -6,5 +6,5 @@ export const getEthDeposits = async (
   contractAddress: string
 ): Promise<number> => {
   const stateVariables = await getStateVariables(provider, contractAddress);
-  return stateVariables.numEthDeposits;
+  return stateVariables.numEthDeposits.toNumber();
 };
