@@ -7,36 +7,25 @@
   import { pendingTransactions } from '../store/transactions';
   import { getAddressAvatarFromIdenticon } from '../utils/addressAvatar';
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
-  import { ethers, Signer } from 'ethers';
+  import { ethers, type Signer } from 'ethers';
   import { ClipboardDocument, Power } from 'svelte-heros-v2';
   import { slide } from 'svelte/transition';
   import { fromChain } from '../store/chain';
   import { truncateString } from '../utils/truncateString';
   import { ChevronDown } from 'svelte-heros-v2';
   import { errorToast, successToast } from './Toast.svelte';
+  import { stopWatching } from '../wagmi/watcher';
 
   let address: string = '';
   let addressAvatarImgData: string = '';
   let tokenBalance: string = '';
 
-  onMount(() => {
-    (async () => {
-      await setAddress($signer);
-    })();
-  });
-
-  $: getUserBalance($signer);
-
-  $: setAddress($signer);
-
-  async function getUserBalance(signer) {
+  async function getUserBalance(signer: Signer) {
     if (signer) {
       const userBalance = await signer.getBalance('latest');
       tokenBalance = ethers.utils.formatEther(userBalance);
     }
   }
-
-  $: setAddress($signer).catch((e) => console.error(e));
 
   async function setAddress(signer: Signer) {
     if (!signer) {
@@ -57,12 +46,20 @@
   async function disconnect() {
     try {
       await wagmiDisconnect();
-      signer.set(null);
     } catch (e) {
       console.error(e);
       errorToast($_('toast.errorDisconnecting'));
     }
   }
+
+  $: getUserBalance($signer);
+  $: setAddress($signer).catch((e) => console.error(e));
+
+  onMount(() => {
+    (async () => {
+      await setAddress($signer);
+    })();
+  });
 </script>
 
 <div class="dropdown dropdown-bottom dropdown-end">

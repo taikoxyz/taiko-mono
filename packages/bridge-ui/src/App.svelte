@@ -1,18 +1,11 @@
 <script lang="ts">
   import QueryProvider from './components/providers/QueryProvider.svelte';
-  import { configureChains, createClient } from '@wagmi/core';
-  import { publicProvider } from '@wagmi/core/providers/public';
-  import { jsonRpcProvider } from '@wagmi/core/providers/jsonRpc';
-  import { CoinbaseWalletConnector } from '@wagmi/core/connectors/coinbaseWallet';
-  import { WalletConnectConnector } from '@wagmi/core/connectors/walletConnect';
-  import { MetaMaskConnector } from '@wagmi/core/connectors/metaMask';
 
   import { transactions } from './store/transactions';
   import Navbar from './components/Navbar.svelte';
   import Toast, { successToast } from './components/Toast.svelte';
   import { signer } from './store/signer';
   import type { BridgeTransaction } from './domain/transactions';
-  import { wagmiClient } from './store/wagmi';
 
   import SwitchEthereumChainModal from './components/modals/SwitchEthereumChainModal.svelte';
   import { ethers } from 'ethers';
@@ -30,45 +23,12 @@
     relayerApi,
     relayerBlockInfoMap,
   } from './store/relayerApi';
-  import { chains, mainnetWagmiChain, taikoWagmiChain } from './chain/chains';
+  import { chains } from './chain/chains';
   import { providers } from './provider/providers';
   import { RELAYER_URL } from './constants/envVars';
   import Router from './components/Router.svelte';
   import { storageService, tokenService } from './storage/services';
-
-  const { chains: wagmiChains, provider } = configureChains(
-    [mainnetWagmiChain, taikoWagmiChain],
-    [
-      publicProvider(),
-      jsonRpcProvider({
-        rpc: (chain) => ({
-          http: providers[chain.id].connection.url,
-        }),
-      }),
-    ],
-  );
-
-  $wagmiClient = createClient({
-    autoConnect: true,
-    provider,
-    connectors: [
-      new MetaMaskConnector({
-        chains: wagmiChains,
-      }),
-      new CoinbaseWalletConnector({
-        chains: wagmiChains,
-        options: {
-          appName: 'Taiko Bridge',
-        },
-      }),
-      new WalletConnectConnector({
-        chains: wagmiChains,
-        options: {
-          qrcode: true,
-        },
-      }),
-    ],
-  });
+  import { startWatching } from './wagmi/watcher';
 
   const relayerApiService: RelayerAPI = new RelayerAPIService(
     RELAYER_URL,
@@ -156,6 +116,8 @@
       });
     }
   });
+
+  startWatching();
 </script>
 
 <QueryProvider>
