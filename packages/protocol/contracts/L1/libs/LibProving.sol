@@ -151,7 +151,7 @@ library LibProving {
         fc.prover = evidence.prover;
 
         if (evidence.prover == address(1)) {
-            fc.provenAt = uint64(block.timestamp.max(blk.proposedAt + config.proofTimeTarget));
+            fc.provenAt = uint64(block.timestamp.max(blk.proposedAt + state.proofTimeTarget));
         } else {
             fc.provenAt = uint64(block.timestamp);
         }
