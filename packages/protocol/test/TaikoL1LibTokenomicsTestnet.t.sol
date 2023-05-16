@@ -14,6 +14,8 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {TaikoL1TestBase} from "./TaikoL1TestBase.t.sol";
 import {LibLn} from "./LibLn.sol";
 
+uint16 constant INITIAL_PROOF_TIME_TARGET = 120; //sec. Approx testnet scenario
+
 contract TaikoL1WithTestnetConfig is TaikoL1 {
     function getConfig() public pure override returns (TaikoData.Config memory config) {
         config = TaikoConfig.getConfig();
@@ -23,7 +25,6 @@ contract TaikoL1WithTestnetConfig is TaikoL1 {
         config.proofCooldownPeriod = 0;
         config.maxNumProposedBlocks = 40;
         config.ringBufferSize = 48;
-        config.proofTimeTarget = 120; // Testnet example
     }
 }
 
@@ -34,7 +35,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
     }
 
     function setUp() public override {
-        uint16 proofTimeTarget = 120; // Approx. testnet value
+        proofTimeTarget = INITIAL_PROOF_TIME_TARGET; // Approx. testnet value
         // Calculating it for our needs based on testnet/mainnet proof vars.
         // See Brecht's comment https://github.com/taikoxyz/taiko-mono/pull/13564
         initProofTimeIssued =
@@ -832,6 +833,75 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         // Assert their balance changed relatively the same way
         // 1e18 == within 100 % delta -> 1e17 10%, let's see if this is within that range
         assertApproxEqRel(deposits, withdrawals, 1e17);
+    }
+
+    /// @dev Test if testing proof time params works (changes) as expected
+    function test_changing_proof_time_parameters(
+    ) external {
+        mine(1);
+
+        depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
+
+        bytes32 parentHash = GENESIS_BLOCK_HASH;
+
+        // Check balances
+        uint256 Alice_start_balance = L1.getTaikoTokenBalance(Alice);
+        uint256 Bob_start_balance = L1.getTaikoTokenBalance(Bob);
+        console2.log("Alice balance:", Alice_start_balance);
+        console2.log("Bob balance:", Bob_start_balance);
+
+        //parentHash = prove_with_increasing_time(parentHash, 10);
+        for (uint256 blockId = 1; blockId < 20; blockId++) {
+            
+            // See if proof reward decreases faster than usual
+            if(blockId == 8) {
+                // 500 sec has the proofTimeIssued of 219263 (Calculated with 'forge script script/DetermineNewProofTimeIssued.s.sol')
+                L1.setProofParams(500, 219263);
+            }
+
+            // See if proof reward increases now
+            if(blockId == 15) {
+                // 10 sec has the proofTimeIssued of 3759 (Calculated with 'forge script script/DetermineNewProofTimeIssued.s.sol')
+                L1.setProofParams(10, 3759);
+            }
+
+            printVariables("before propose");
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+            uint64 proposedAt = uint64(block.timestamp);
+            printVariables("after propose");
+            mine(5);
+
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
+            proveBlock(
+                Bob,
+                Bob,
+                meta,
+                parentHash,
+                blockId == 1 ? 0 : 1000000,
+                1000000,
+                blockHash,
+                signalRoot
+            );
+            uint64 provenAt = uint64(block.timestamp);
+            console2.log("Proof reward is:", L1.getProofReward(provenAt, proposedAt));
+
+            verifyBlock(Carol, 1);
+
+            parentHash = blockHash;
+        }
+
+        //Check end balances
+
+        uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
+
+        console2.log("Deposits:", deposits);
+        console2.log("withdrawals:", withdrawals);
+
+        assertEq(deposits, withdrawals);
     }
 
     function mine_huge() internal {
