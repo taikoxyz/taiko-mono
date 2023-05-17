@@ -196,7 +196,7 @@ library LibProving {
         uint256 blockId,
         TaikoData.BlockEvidence memory evidence
     ) internal {
-        if (msg.sender != resolver.resolve("forkchoice_failsafe", true)) {
+        if (msg.sender != resolver.resolve("forkchoice_failsafe", false)) {
             revert L1_NO_AUTH_TO_OVERWRITE_FK();
         }
 
@@ -205,7 +205,6 @@ library LibProving {
         }
 
         TaikoData.Block storage blk = state.blocks[blockId % config.ringBufferSize];
-
 
         // We make it so this will always be the first fork choice
         TaikoData.ForkChoice storage fc = blk.forkChoices[1];

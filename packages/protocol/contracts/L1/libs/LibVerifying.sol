@@ -89,7 +89,7 @@ library LibVerifying {
             ++i;
         }
 
-        address systemProver = resolver.resolve("system_prover", true);
+        address failsafeProver = resolver.resolve("forkchoice_failsafe", true);
         while (i < state.numBlocks && processed < maxBlocks) {
             blk = state.blocks[i % config.ringBufferSize];
             assert(blk.blockId == i);
@@ -113,7 +113,7 @@ library LibVerifying {
                 blk: blk,
                 fcId: uint24(fcId),
                 fc: fc,
-                systemProver: systemProver
+                failsafeProver: failsafeProver
             });
 
             unchecked {
@@ -143,7 +143,7 @@ library LibVerifying {
         TaikoData.Block storage blk,
         TaikoData.ForkChoice storage fc,
         uint24 fcId,
-        address systemProver
+        address failsafeProver
     ) private {
         uint64 proofTime;
         unchecked {
@@ -160,19 +160,16 @@ library LibVerifying {
             state.accProposedAt -= blk.proposedAt;
         }
 
-        // reward the prover
-        if (reward != 0) {
-            address prover = fc.prover != address(1) ? fc.prover : systemProver;
-
-            // systemProver may become address(0) after a block is proven
-            if (prover != address(0)) {
-                if (state.taikoTokenBalances[prover] == 0) {
-                    // Reduce refund to 1 wei as a penalty if the proposer
-                    // has 0 TKO outstanding balance.
-                    state.taikoTokenBalances[prover] = 1;
-                } else {
-                    state.taikoTokenBalances[prover] += reward;
-                }
+        // Now there is no such distinguishing as address(0) vs. address(1)
+        address prover = fc.prover;
+        // reward the prover in case it is not the failSafe prover (who overwrite FKs)
+        if (reward != 0 && prover != failsafeProver) {
+            if (state.taikoTokenBalances[prover] == 0) {
+                // Reduce refund to 1 wei as a penalty if the proposer
+                // has 0 TKO outstanding balance.
+                state.taikoTokenBalances[prover] = 1;
+            } else {
+                state.taikoTokenBalances[prover] += reward;
             }
         }
 
