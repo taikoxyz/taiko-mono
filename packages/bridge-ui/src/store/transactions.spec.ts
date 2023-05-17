@@ -10,10 +10,17 @@ const tx = { hash: '0x789' } as Transaction;
 // These are the pending transactions we'll have initially in the store
 const initialTxs = [{ hash: '0x123' }, { hash: '0x456' }] as Transaction[];
 
-const mockSigner = (receipt: ethers.providers.TransactionReceipt) => {
-  const waitForTransaction = jest
-    .fn()
-    .mockImplementation(() => Promise.resolve(receipt));
+const mockSigner = (
+  receipt: ethers.providers.TransactionReceipt | null,
+  timeout = false,
+) => {
+  const waitForTransaction = jest.fn().mockImplementation(() => {
+    if (timeout) {
+      return Promise.reject({ code: 'TIMEOUT' });
+    } else {
+      return Promise.resolve(receipt);
+    }
+  });
 
   return {
     provider: { waitForTransaction },
@@ -63,5 +70,21 @@ describe('transaction stores', () => {
 
     // The transaction should have added to the store
     expect(get(pendingTransactions)).toStrictEqual([...initialTxs, tx]);
+  });
+
+  it('tests timeout transaction', () => {
+    const signer = mockSigner(null, true);
+
+    pendingTransactions
+      .add(tx, signer)
+      .then(() => {
+        throw new Error('should have thrown');
+      })
+      .catch((error) => {
+        expect(error).toHaveProperty(
+          'message',
+          'timeout while waiting for transaction to be mined',
+        );
+      });
   });
 });

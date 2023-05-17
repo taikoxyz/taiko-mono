@@ -46,7 +46,7 @@ export const pendingTransactions = {
        * See https://docs.ethers.org/v5/api/providers/provider/#Provider-waitForTransaction
        */
       signer.provider
-        .waitForTransaction(tx.hash, 1, 60 * 1000) // 1 min timeout. TODO: config?
+        .waitForTransaction(tx.hash, 1, 5 * 60 * 1000) // 5 min timeout. TODO: config?
         .then((receipt) => {
           // The transaction has been mined.
 
@@ -72,13 +72,13 @@ export const pendingTransactions = {
         .catch((error) => {
           if (error?.code === ethers.errors.TIMEOUT) {
             deferred.reject(
-              new Error('Timeout while waiting for transaction to be mined', {
+              new Error('timeout while waiting for transaction to be mined', {
                 cause: error,
               }),
             );
           } else {
             deferred.reject(
-              new Error('Transaction failed', {
+              new Error('transaction failed', {
                 cause: error,
               }),
             );
