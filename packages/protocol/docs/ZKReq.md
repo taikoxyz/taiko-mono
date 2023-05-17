@@ -202,7 +202,7 @@ m_id --- h_height --- v_block_number;
 m_h1_height --- a_h1_height;
 m_gas_limit --- h_gas_limit --- v_block_gaslimit;
 m_timestamp --- h_timestamp  --- v_block_timestamp;
-m_txlist_first ---|<=| m_txlist_last;
+m_txlist_first ---|<=| m_txlist_last ---|<= len()| --- tx_list;
 m_h1_hash --- a_h1_hash;
 m_mix_hash --- h_mix_hash --- v_block_prevrando;
 tx_list -.->|keccak| m_txlist_hash;
