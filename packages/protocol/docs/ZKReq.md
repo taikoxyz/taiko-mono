@@ -197,6 +197,7 @@ To help people to visualize all the above elements. Here is a diagram:
 ```mermaid
 graph LR
 classDef default stroke-width:4px;
+classDef in_other_circuits fill:#9f6;
 
 m_id --- h_height --- v_block_number;
 m_h1_height --- a_h1_height;
@@ -255,7 +256,7 @@ m_txlist_hash(txListHash)
 m_txlist_first(txListByteStart)
 m_txlist_last(txListByteEnd)
 m_cache_txlist_info(cacheTxListInfo)
-m_treasure(treasure)
+m_treasure(treasure):::in_other_circuits
 m_beneficiary(beneficiary)
 m_deposits_root(depositsRoot)
 m_deposits(depositsProcessed)
