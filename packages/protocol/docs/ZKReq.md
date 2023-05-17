@@ -1,4 +1,4 @@
-# Taiko proves L2 blocks
+# How Taiko proves L2 blocks
 
 This document specifies how the Taiko protocol, client, and circuits work together to prove L2 blocks.
 
