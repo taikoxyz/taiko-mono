@@ -26,7 +26,6 @@ struct Config {
   uint64 maxEthDepositsPerBlock;
   uint96 maxEthDepositAmount;
   uint96 minEthDepositAmount;
-  uint64 proofTimeTarget;
   uint8 adjustmentQuotient;
   bool relaySignalRoot;
 }
@@ -42,6 +41,7 @@ struct StateVariables {
   uint64 genesisTimestamp;
   uint64 numBlocks;
   uint64 proofTimeIssued;
+  uint64 proofTimeTarget;
   uint64 lastVerifiedBlockId;
   uint64 accProposedAt;
   uint64 nextEthDepositToProcess;
@@ -165,7 +165,7 @@ struct State {
   uint64 blockFee;
   uint64 proofTimeIssued;
   uint64 lastVerifiedBlockId;
-  uint64 __reserved91;
+  uint64 proofTimeTarget;
   uint256[42] __gap;
 }
 ```

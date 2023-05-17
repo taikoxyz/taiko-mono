@@ -85,7 +85,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 signalRoot
             );
             uint64 provenAt = uint64(block.timestamp);
-            console2.log("Proof reward is:", L1.getProofReward(provenAt, proposedAt));
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAt));
 
             verifyBlock(Carol, 1);
             // This is where new fee evaluated
@@ -115,7 +115,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
 
             proveBlock(Bob, Bob, meta, parentHash, 1000000, 1000000, blockHash, signalRoot);
             uint64 provenAt = uint64(block.timestamp);
-            console2.log("Proof reward is:", L1.getProofReward(provenAt, proposedAt));
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAt));
             verifyBlock(Carol, 1);
             // This is where new fee evaluated
             printVariables("after verify");
@@ -179,7 +179,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 signalRoot
             );
             uint64 provenAt = uint64(block.timestamp);
-            console2.log("Proof reward is:", L1.getProofReward(provenAt, proposedAtArr[blockId]));
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAtArr[blockId]));
 
             verifyBlock(Carol, 1);
 
@@ -205,7 +205,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
             bytes32 signalRoot = bytes32(1e9 + blockId);
             proveBlock(Bob, Bob, meta, parentHash, 1000000, 1000000, blockHash, signalRoot);
             uint64 provenAt = uint64(block.timestamp);
-            console2.log("Proof reward is:", L1.getProofReward(provenAt, proposedAt));
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAt));
             verifyBlock(Carol, 1);
 
             parentHash = blockHash;
@@ -260,7 +260,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 signalRoot
             );
             uint64 provenAt = uint64(block.timestamp);
-            console2.log("Proof reward is:", L1.getProofReward(provenAt, proposedAt));
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAt));
 
             verifyBlock(Carol, 1);
 
@@ -328,7 +328,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
             );
 
             uint64 provenAt = uint64(block.timestamp);
-            console2.log("Proof reward is:", L1.getProofReward(provenAt, proposedAt[blockId]));
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAt[blockId]));
 
             verifyBlock(Carol, 1);
 
@@ -396,7 +396,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
             );
 
             uint64 provenAt = uint64(block.timestamp);
-            console2.log("Proof reward is:", L1.getProofReward(provenAt, proposedAt[blockId]));
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAt[blockId]));
 
             verifyBlock(Carol, 1);
             mine(21 - blockId);
@@ -451,7 +451,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 signalRoot
             );
             uint64 provenAt = uint64(block.timestamp);
-            console2.log("Proof reward is:", L1.getProofReward(provenAt, proposedAt));
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAt));
 
             verifyBlock(Carol, 1);
 
@@ -520,7 +520,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
             );
 
             uint64 provenAt = uint64(block.timestamp);
-            console2.log("Proof reward is:", L1.getProofReward(provenAt, proposedAt[blockId]));
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAt[blockId]));
 
             verifyBlock(Carol, 1);
             mine(5);
@@ -576,7 +576,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 signalRoot
             );
             uint64 provenAt = uint64(block.timestamp);
-            console2.log("Proof reward is:", L1.getProofReward(provenAt, proposedAt));
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAt));
 
             verifyBlock(Carol, 1);
 
@@ -605,7 +605,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
             bytes32 signalRoot = bytes32(1e9 + blockId);
             proveBlock(Bob, Bob, meta, parentHash, 1000000, 1000000, blockHash, signalRoot);
             uint64 provenAt = uint64(block.timestamp);
-            console2.log("Proof reward is:", L1.getProofReward(provenAt, proposedAt));
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAt));
             verifyBlock(Carol, 1);
 
             parentHash = blockHash;
@@ -665,7 +665,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
             );
 
             uint64 provenAt = uint64(block.timestamp);
-            console2.log("Proof reward is:", L1.getProofReward(provenAt, proposedAtArr[blockId]));
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAtArr[blockId]));
 
             verifyBlock(Carol, 1);
             mine(21 - blockId);
@@ -693,7 +693,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
             bytes32 signalRoot = bytes32(1e9 + blockId);
             proveBlock(Bob, Bob, meta, parentHash, 1000000, 1000000, blockHash, signalRoot);
             uint64 provenAt = uint64(block.timestamp);
-            console2.log("Proof reward is:", L1.getProofReward(provenAt, proposedAt));
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAt));
             verifyBlock(Carol, 1);
 
             parentHash = blockHash;
@@ -746,7 +746,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 signalRoot
             );
             uint64 provenAt = uint64(block.timestamp);
-            console2.log("Proof reward is:", L1.getProofReward(provenAt, proposedAt));
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAt));
 
             verifyBlock(Carol, 1);
 
@@ -808,7 +808,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                     uint64 provenAt = uint64(block.timestamp);
                     console2.log(
                         "Proof reward is:",
-                        L1.getProofReward(provenAt, proposedAt[blockId - proofTime])
+                        L1.getProofReward(provenAt - proposedAt[blockId - proofTime])
                     );
                 }
 
@@ -836,8 +836,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
     }
 
     /// @dev Test if testing proof time params works (changes) as expected
-    function test_changing_proof_time_parameters(
-    ) external {
+    function test_changing_proof_time_parameters() external {
         mine(1);
 
         depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
@@ -854,15 +853,14 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
 
         //parentHash = prove_with_increasing_time(parentHash, 10);
         for (uint256 blockId = 1; blockId < 20; blockId++) {
-            
             // See if proof reward decreases faster than usual
-            if(blockId == 8) {
+            if (blockId == 8) {
                 // 500 sec has the proofTimeIssued of 219263 (Calculated with 'forge script script/DetermineNewProofTimeIssued.s.sol')
                 L1.setProofParams(500, 219263);
             }
 
             // See if proof reward increases now
-            if(blockId == 15) {
+            if (blockId == 15) {
                 // 10 sec has the proofTimeIssued of 3759 (Calculated with 'forge script script/DetermineNewProofTimeIssued.s.sol')
                 L1.setProofParams(10, 3759);
             }
@@ -886,7 +884,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 signalRoot
             );
             uint64 provenAt = uint64(block.timestamp);
-            console2.log("Proof reward is:", L1.getProofReward(provenAt, proposedAt));
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAt));
 
             verifyBlock(Carol, 1);
 

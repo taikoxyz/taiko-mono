@@ -115,7 +115,7 @@ contract DeployOnL1 is Script {
         // Calculating it for our needs based on testnet/mainnet. We need it in
         // order to make the fees on the same level - in ideal circumstences.
         // See Brecht's comment https://github.com/taikoxyz/taiko-mono/pull/13564
-        if(INITIAL_PROOF_TIME_TARGET == 0) {
+        if (INITIAL_PROOF_TIME_TARGET == 0) {
             revert PROOF_TIME_TARGET_NOT_SET();
         }
 
@@ -130,7 +130,13 @@ contract DeployOnL1 is Script {
             address(taikoL1),
             bytes.concat(
                 taikoL1.init.selector,
-                abi.encode(addressManagerProxy, genesisHash, feeBase, initProofTimeIssued, initProofTimeIssued)
+                abi.encode(
+                    addressManagerProxy,
+                    genesisHash,
+                    feeBase,
+                    initProofTimeIssued,
+                    initProofTimeIssued
+                )
             )
         );
         setAddress("taiko", taikoL1Proxy);
