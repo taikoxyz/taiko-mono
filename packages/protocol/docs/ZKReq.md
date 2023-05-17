@@ -196,7 +196,9 @@ To help people to visualize all the above elements. Here is a diagram:
 
 ```mermaid
 graph LR
-classDef default stroke-width:4px;
+classDef default stroke-width:4px,stroke:#EA27C2,fill:#EA27C2,color:#FFF;
+classDef forkchoice stroke-width:4px,stroke:#FF715B,fill:#FF715B,color:#FFF;
+classDef group stroke-width:2px,stroke:#EA27C2,fill:#FFD2F630;
 classDef in_other_circuits fill:#9f6;
 
 m_id --- h_height --- v_block_number;
@@ -247,7 +249,7 @@ BlockHeader -.->|abiencode & keccak| dot5((" ")) o--- e_block_hash
 
 BlockEvidence ~~~ L1Storage;
 
-subgraph BlockMetadata
+subgraph BlockMetadata[Block Metadata]
 m_id(id)
 m_gas_limit(gasLimit)
 m_timestamp(timestamp)
@@ -264,9 +266,11 @@ m_deposits_root(depositsRoot)
 m_deposits(depositsProcessed)
 end
 
+BlockMetadata:::group
 
 
-subgraph BlockHeader
+
+subgraph BlockHeader[Block Header]
 h_height(height)
 h_gas_limit(gasLimit)
 h_gas_used(gasUsed)
@@ -286,7 +290,9 @@ h_basefee(basefee)
 h_withdrawals_root(withdrawalsRoot)
 end
 
-subgraph GlobalVariables
+BlockHeader:::group
+
+subgraph GlobalVariables[Global Variables]
 v_block_number(block.number)
 v_block_gaslimit(block.gaslimit)
 v_block_timestamp(block.timestamp)
@@ -299,29 +305,36 @@ dot1((" "))
 dot2((" "))
 end
 
+GlobalVariables:::group
 
-subgraph Anchor
+
+subgraph Anchor [Anchor Tx]
 a_h1_height(h1Height)
 a_h1_hash(h1Hash)
-a_h1_signal_root[h1SignalRoot]
-a_parent_gas_used[parentGasUsed]
+a_h1_signal_root(h1SignalRoot)
+a_parent_gas_used(parentGasUsed)
 end
 
-subgraph L1Storage
+Anchor:::group
+
+subgraph L1Storage[L1 Storage]
 b_signal_root[/signalRoot/]
 b_l1_taiko_addr[/taikoL1Address/]
 b_l1_signal_service_addr[/L1 signalServiceAddress/]
 b_l2_signal_service_addr[/L2 signalServiceAddress/]
 end
 
+L1Storage:::group
 
-subgraph L2Storage
+
+subgraph L2Storage[L2 Storage]
 s_public_input_hash[/publicInputHash/]
 s_parent_timestamp[/parentTimestamp/]
 s_gas_excess[/gasExcess/]
 s_signal_root[/signalRoot/]
 end
 
+L2Storage:::group
 
 subgraph BlockEvidence
 e_meta_hash(metaHash)
@@ -332,8 +345,6 @@ e_graffiti(graffiti)
 e_prover(prover)
 e_parent_gas_used(parentGasUsed):::forkchoice
 e_gas_used(gasUsed)
-
-classDef forkchoice fill:#f96
 end
 
 classDef constant fill:#fff, stroke:#AAA;
