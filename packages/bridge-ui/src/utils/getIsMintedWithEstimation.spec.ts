@@ -43,13 +43,13 @@ const mockSigner = {
 } as unknown as Signer;
 
 describe('getIsMintedWithEstimation', () => {
-  beforeAll(() => {
+  beforeEach(() => {
+    jest.mocked(Contract.prototype.minters).mockResolvedValue(false);
     jest.mocked(Contract.prototype.estimateGas.mint).mockResolvedValue(mockGas);
   });
 
   it('should return true if user has already claimed', async () => {
     jest.mocked(Contract.prototype.minters).mockResolvedValue(true);
-
     const [isMinted, estimatedGas] = await getIsMintedWithEstimation(
       mockSigner,
       mockToken,
@@ -60,8 +60,6 @@ describe('getIsMintedWithEstimation', () => {
   });
 
   it('should return false if user has not claimed', async () => {
-    jest.mocked(Contract.prototype.minters).mockResolvedValue(false);
-
     const [isMinted, estimatedGas] = await getIsMintedWithEstimation(
       mockSigner,
       mockToken,
@@ -69,5 +67,29 @@ describe('getIsMintedWithEstimation', () => {
 
     expect(isMinted).toBeFalsy();
     expect(estimatedGas).toEqual(BigNumber.from(mockGas).mul(mockGasPrice));
+  });
+
+  it('catches and rethrow if getting minters fails', async () => {
+    jest
+      .mocked(Contract.prototype.minters)
+      .mockRejectedValue(new Error('test error'));
+
+    await expect(
+      getIsMintedWithEstimation(mockSigner, mockToken),
+    ).rejects.toThrow(
+      `there was an issue getting minters for ${mockToken.symbol}`,
+    );
+  });
+
+  it('catches and rethrow if estimating gas for minting fails', async () => {
+    jest
+      .mocked(Contract.prototype.estimateGas.mint)
+      .mockRejectedValue(new Error('test error'));
+
+    await expect(
+      getIsMintedWithEstimation(mockSigner, mockToken),
+    ).rejects.toThrow(
+      `failed to estimate gas to mint token ${mockToken.symbol}`,
+    );
   });
 });

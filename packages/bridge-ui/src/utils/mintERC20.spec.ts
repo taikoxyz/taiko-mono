@@ -38,14 +38,10 @@ const mockSigner = {
 const mockTx = {} as ethers.Transaction;
 
 describe('mintERC20', () => {
-  beforeAll(() => {
-    jest.mocked(Contract.prototype.mint).mockResolvedValue(mockTx);
-  });
-
   beforeEach(() => {
     jest.mocked(selectChain).mockClear();
     jest.mocked(Contract).mockClear();
-    jest.mocked(Contract.prototype.mint).mockClear();
+    jest.mocked(Contract.prototype.mint).mockResolvedValue(mockTx);
   });
 
   it('should mint ERC20', async () => {
@@ -69,5 +65,15 @@ describe('mintERC20', () => {
 
     expect(Contract.prototype.mint).toHaveBeenCalledWith('0x123');
     expect(tx).toBe(mockTx);
+  });
+
+  it('catches and rethrow the error if minting fails', async () => {
+    jest
+      .mocked(Contract.prototype.mint)
+      .mockRejectedValue(new Error('test error'));
+
+    await expect(mintERC20(L1_CHAIN_ID, mockToken, mockSigner)).rejects.toThrow(
+      `found a problem minting ${mockToken.symbol}`,
+    );
   });
 });
