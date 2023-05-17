@@ -202,7 +202,7 @@ m_id --- h_height --- v_block_number;
 m_h1_height --- a_h1_height;
 m_gas_limit --- h_gas_limit --- v_block_gaslimit;
 m_timestamp --- h_timestamp  --- v_block_timestamp;
-
+m_txlist_byte_start --- |<=| m_txlist_byte_end;
 m_h1_hash --- a_h1_hash;
 m_mix_hash --- h_mix_hash --- v_block_prevrando;
 tx_list -.->|keccak| m_txlist_hash;
@@ -253,7 +253,7 @@ m_h1_hash(h1Hash)
 m_mix_hash(mixHash)
 m_txlist_hash(txListHash)
 m_txlist_byte_start(txListByteStart)
-m_txlist_last_byte(txListByteEnd)
+m_txlist_last_end(txListByteEnd)
 m_cache_txlist_info(cacheTxListInfo)
 m_treasure(treasure)
 m_beneficiary(beneficiary)

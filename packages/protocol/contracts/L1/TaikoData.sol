@@ -58,11 +58,11 @@ library TaikoData {
 
     // Changing this struct requires changing LibUtils.hashMetadata accordingly.
     struct BlockMetadata {
-        uint64 id;
-        uint64 timestamp;
-        uint64 l1Height;
-        bytes32 l1Hash;
-        bytes32 mixHash;
+        uint64 id; // DONE
+        uint64 timestamp; // DONE
+        uint64 l1Height; // DONE
+        bytes32 l1Hash; // DONE
+        bytes32 mixHash; // DONE
         bytes32 depositsRoot; // match L2 header's withdrawalsRoot
         bytes32 txListHash;
         uint24 txListByteStart;
