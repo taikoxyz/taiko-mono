@@ -65,7 +65,7 @@ export const pendingTransactions = {
             deferred.resolve(receipt);
           } else {
             deferred.reject(
-              new Error('Transaction failed', { cause: receipt }),
+              new Error('transaction failed', { cause: receipt }),
             );
           }
         })
