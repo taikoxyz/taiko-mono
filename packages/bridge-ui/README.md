@@ -16,11 +16,11 @@ You can use the following values in the `.env` file to spin up the Bridge UI loc
 
 ```
 VITE_L1_RPC_URL=https://l1rpc.internal.taiko.xyz
-VITE_L2_RPC_URL=https://l2rpc.internal.taiko.xyz
+VITE_L2_RPC_URL=https://rpc.internal.taiko.xyz
 VITE_L3_RPC_URL=https://l3rpc.internal.taiko.xyz
 
 VITE_L1_EXPLORER_URL=https://l1explorer.internal.taiko.xyz
-VITE_L2_EXPLORER_URL=https://l2explorer.internal.taiko.xyz
+VITE_L2_EXPLORER_URL=https://explorer.internal.taiko.xyz
 VITE_L3_EXPLORER_URL=https://l3explorer.internal.taiko.xyz
 
 VITE_RELAYER_URL=https://relayer.internal.taiko.xyz
