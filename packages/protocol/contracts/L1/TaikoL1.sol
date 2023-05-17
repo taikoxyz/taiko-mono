@@ -177,8 +177,8 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
         return state.blockFee;
     }
 
-    function getProofReward(uint64 provenAt, uint64 proposedAt) public view returns (uint64) {
-        return LibTokenomics.getProofReward({state: state, proofTime: provenAt - proposedAt});
+    function getProofReward(uint64 proofTime) public view returns (uint64) {
+        return LibTokenomics.getProofReward(state, proofTime);
     }
 
     function getBlock(uint256 blockId)
