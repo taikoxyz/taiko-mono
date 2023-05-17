@@ -29,4 +29,5 @@ jobs:
             tokenomics
             website
             whitepaper
+            ui
           requireScope: true
