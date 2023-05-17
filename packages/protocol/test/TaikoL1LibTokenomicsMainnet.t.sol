@@ -113,7 +113,8 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase {
 
                 uint64 provenAt = uint64(block.timestamp);
                 console2.log(
-                    "Proof reward is:", L1.getProofReward(provenAt, proposedAt[blockId - proofTime])
+                    "Proof reward is:",
+                    L1.getProofReward(provenAt - proposedAt[blockId - proofTime])
                 );
                 verifyBlock(Carol, 1);
             }
@@ -182,7 +183,7 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase {
                     uint64 provenAt = uint64(block.timestamp);
                     console2.log(
                         "Proof reward is:",
-                        L1.getProofReward(provenAt, proposedAt[blockId - proofTime])
+                        L1.getProofReward(provenAt - proposedAt[blockId - proofTime])
                     );
                 }
 
@@ -249,7 +250,8 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase {
 
                 uint64 provenAt = uint64(block.timestamp);
                 console2.log(
-                    "Proof reward is:", L1.getProofReward(provenAt, proposedAt[blockId - proofTime])
+                    "Proof reward is:",
+                    L1.getProofReward(provenAt - proposedAt[blockId - proofTime])
                 );
                 verifyBlock(Carol, 1);
             }
