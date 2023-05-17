@@ -33,7 +33,10 @@ library LibProving {
     error L1_FORK_CHOICE_NOT_FOUND();
     error L1_INVALID_EVIDENCE();
     error L1_INVALID_PROOFTYPE();
+    error L1_NO_AUTH_TO_OVERWRITE_FK();
+    error L1_NOT_ALL_REQ_PROOF_VERIFIED();
     error L1_NOT_ENABLED_PROOFTYPE();
+    error L1_NOTHING_TO_OVERWRITE();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -171,7 +174,10 @@ library LibProving {
                 ++i;
             }
         }
-        require(mask == 0, "not_all_requierd_proof_verified");
+
+        if(mask != 0) {
+            revert L1_NOT_ALL_REQ_PROOF_VERIFIED();
+        }
 
         emit BlockProven({
             id: blk.blockId,
@@ -181,6 +187,34 @@ library LibProving {
             prover: evidence.prover,
             parentGasUsed: evidence.parentGasUsed
         });
+    }
+
+    function overwriteForkChoice(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        AddressResolver resolver,
+        uint256 blockId,
+        TaikoData.BlockEvidence memory evidence
+    ) internal {
+        if (msg.sender != resolver.resolve("forkchoice_failsafe", true)) {
+            revert L1_NO_AUTH_TO_OVERWRITE_FK();
+        }
+
+        if (blockId <= state.lastVerifiedBlockId || blockId >= state.numBlocks) {
+            revert L1_BLOCK_ID();
+        }
+
+        TaikoData.Block storage blk = state.blocks[blockId % config.ringBufferSize];
+        //fcId in such case shall be always at array pos 1
+        TaikoData.ForkChoice storage fc = blk.forkChoices[1];
+
+        fc.key = LibUtils.keyForForkChoice(evidence.parentHash, evidence.parentGasUsed);
+
+        fc.blockHash = evidence.blockHash;
+        fc.signalRoot = evidence.signalRoot;
+        fc.gasUsed = evidence.gasUsed;
+        fc.prover = msg.sender; // "special" prover, the failsafe one
+        fc.provenAt = state.proofTimeTarget;
     }
 
     function getForkChoice(

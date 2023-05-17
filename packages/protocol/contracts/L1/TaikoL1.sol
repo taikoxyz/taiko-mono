@@ -157,6 +157,24 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
         emit ProofTimeTargetChanged(newProofTimeTarget);
     }
 
+    /**
+     * A failsafe mechanism to overwrite mallicious / wrong fork choices in such a rare (if any?)
+       case when there are bugs both in SGX and in ZK circuits. Only failsafe account can call it.
+     *
+     * @param blockId The index of the block to prove. This is also used
+     *        to select the right implementation version.
+     * @param input An abi-encoded TaikoData.BlockEvidence object.
+     */
+    function overwriteForkChoice(uint256 blockId, bytes calldata input) external {
+        LibProving.overwriteForkChoice({
+            state: state,
+            config: getConfig(),
+            resolver: AddressResolver(this),
+            blockId: blockId,
+            evidence: abi.decode(input, (TaikoData.BlockEvidence))
+        });
+    }
+
     function depositTaikoToken(uint256 amount) external nonReentrant {
         LibTokenomics.depositTaikoToken(state, AddressResolver(this), amount);
     }

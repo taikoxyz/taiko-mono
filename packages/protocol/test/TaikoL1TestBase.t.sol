@@ -193,8 +193,6 @@ abstract contract TaikoL1TestBase is Test {
             proof: new bytes(100)
         });
 
-        TaikoData.TypedProof memory sgxTypedProof;
-
         TaikoData.TypedProof[] memory blockProofs = new TaikoData.TypedProof[](
             2
         );
@@ -278,7 +276,7 @@ abstract contract TaikoL1TestBase is Test {
 
     function createSgxSignature(
         TaikoData.BlockEvidence memory evidence
-    ) internal returns (TaikoData.TypedProof memory sgxProof) {
+    ) internal view returns (TaikoData.TypedProof memory sgxProof) {
         // Put together the input to be signed
         uint256[9] memory inputs;
 

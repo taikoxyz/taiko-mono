@@ -26,4 +26,6 @@ abstract contract TaikoEvents {
     event EthDeposited(TaikoData.EthDeposit deposit);
 
     event ProofTimeTargetChanged(uint64 proofTimeTarget);
+
+    event BlockForkChoiceFailsafeRewrite(uint256 blockId);
 }
