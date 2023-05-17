@@ -348,7 +348,7 @@ e_parent_gas_used(parentGasUsed):::forkchoice
 e_gas_used(gasUsed)
 end
 
-classDef constant fill:#fff, stroke:#AAA;
+BlockEvidence:::group
 
 zero["0\n(zero)"]:::constant
 empty_string["''\n(empty bytes)"]:::constant
