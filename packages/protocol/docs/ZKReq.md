@@ -199,12 +199,13 @@ graph LR
 classDef default stroke-width:4px;
 
 m_id --- h_height --- v_block_number;
+m_h1_height --- a_h1_height;
 m_gas_limit --- h_gas_limit --- v_block_gaslimit;
 m_timestamp --- h_timestamp  --- v_block_timestamp;
-m_h1_height --- a_h1_height;
+
 m_h1_hash --- a_h1_hash;
 m_mix_hash --- h_mix_hash --- v_block_prevrando;
-tx_list -.->|keccak| m`txList`hash;
+tx_list -.->|keccak| m_txlist_hash;
 m_beneficiary --- h_beneficiary;
 h_parent_hash --- v_blockhash_1 & e_parent_hash;
 empty_list -.->|keccak| h_ommers_hash;
@@ -250,10 +251,10 @@ m_timestamp(timestamp)
 m_h1_height(h1Height)
 m_h1_hash(h1Hash)
 m_mix_hash(mixHash)
-m`txList`hash(txListHash)
-m`txList`byte_start(txListByteStart)
-m`txList`last_byte(txListByteEnd)
-m_cache`txList`info(cacheTxListInfo)
+m_txlist_hash(txListHash)
+m_txlist_byte_start(txListByteStart)
+m_txlist_last_byte(txListByteEnd)
+m_cache_txlist_info(cacheTxListInfo)
 m_treasure(treasure)
 m_beneficiary(beneficiary)
 m_deposits_root(depositsRoot)
