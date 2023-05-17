@@ -199,7 +199,7 @@ graph LR
 classDef default stroke-width:4px,stroke:#EA27C2,fill:#EA27C2,color:#FFF;
 classDef forkchoice stroke-width:4px,stroke:#FF715B,fill:#FF715B,color:#FFF;
 classDef otherCircuits stroke-width:4px,stroke:#5D08C8,fill:#5D08C8,color:#FFF;
-classDef constant stroke-width:4px,stroke:#202634,fill:#FFF,color:#202634;
+classDef constant stroke-width:4px,stroke:#323745,fill:#323745,color:#FFF;
 classDef group stroke-width:2px,stroke:#EA27C2,fill:#FFD2F630;
 
 m_id --- h_height --- v_block_number;
