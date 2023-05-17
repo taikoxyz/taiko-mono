@@ -22,11 +22,7 @@ library LibBridgeStatus {
         FAILED
     }
 
-    event MessageStatusChanged(
-        bytes32 indexed msgHash,
-        MessageStatus status,
-        address transactor
-    );
+    event MessageStatusChanged(bytes32 indexed msgHash, MessageStatus status, address transactor);
 
     error B_MSG_HASH_NULL();
     error B_WRONG_CHAIN_ID();
@@ -37,19 +33,14 @@ library LibBridgeStatus {
      * @param msgHash The messageHash of the message.
      * @param status The status of the message.
      */
-    function updateMessageStatus(
-        bytes32 msgHash,
-        MessageStatus status
-    ) internal {
+    function updateMessageStatus(bytes32 msgHash, MessageStatus status) internal {
         if (getMessageStatus(msgHash) != status) {
             _setMessageStatus(msgHash, status);
             emit MessageStatusChanged(msgHash, status, msg.sender);
         }
     }
 
-    function getMessageStatus(
-        bytes32 msgHash
-    ) internal view returns (MessageStatus) {
+    function getMessageStatus(bytes32 msgHash) internal view returns (MessageStatus) {
         bytes32 slot = getMessageStatusSlot(msgHash);
         uint256 value;
         assembly {
@@ -71,35 +62,25 @@ library LibBridgeStatus {
             revert B_MSG_HASH_NULL();
         }
 
-        LibBridgeData.StatusProof memory sp = abi.decode(
-            proof,
-            (LibBridgeData.StatusProof)
-        );
+        LibBridgeData.StatusProof memory sp = abi.decode(proof, (LibBridgeData.StatusProof));
 
-        bytes32 syncedHeaderHash = ICrossChainSync(
-            resolver.resolve("taiko", false)
-        ).getCrossChainBlockHash(sp.header.height);
+        bytes32 syncedHeaderHash = ICrossChainSync(resolver.resolve("taiko", false))
+            .getCrossChainBlockHash(sp.header.height);
 
-        if (
-            syncedHeaderHash == 0 ||
-            syncedHeaderHash != sp.header.hashBlockHeader()
-        ) {
+        if (syncedHeaderHash == 0 || syncedHeaderHash != sp.header.hashBlockHeader()) {
             return false;
         }
 
-        return
-            LibTrieProof.verifyWithAccountProof({
-                stateRoot: sp.header.stateRoot,
-                addr: resolver.resolve(destChainId, "bridge", false),
-                slot: getMessageStatusSlot(msgHash),
-                value: bytes32(uint256(LibBridgeStatus.MessageStatus.FAILED)),
-                mkproof: sp.proof
-            });
+        return LibTrieProof.verifyWithAccountProof({
+            stateRoot: sp.header.stateRoot,
+            addr: resolver.resolve(destChainId, "bridge", false),
+            slot: getMessageStatusSlot(msgHash),
+            value: bytes32(uint256(LibBridgeStatus.MessageStatus.FAILED)),
+            mkproof: sp.proof
+        });
     }
 
-    function getMessageStatusSlot(
-        bytes32 msgHash
-    ) internal pure returns (bytes32) {
+    function getMessageStatusSlot(bytes32 msgHash) internal pure returns (bytes32) {
         return keccak256(bytes.concat(bytes("MESSAGE_STATUS"), msgHash));
     }
 

@@ -6,25 +6,25 @@ import {console2} from "forge-std/console2.sol";
 import {LibL2Consts} from "../contracts/L2/LibL2Consts.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {TaikoL2} from "../contracts/L2/TaikoL2.sol";
-import {
-    SafeCastUpgradeable
-} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import {SafeCastUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 contract TestTaikoL2 is Test {
     using SafeCastUpgradeable for uint256;
+
     uint64 public constant BLOCK_GAS_LIMIT = 30000000; // same as `block_gas_limit` in foundry.toml
 
     TaikoL2 public L2;
-    uint private logIndex;
+    uint256 private logIndex;
     uint64 private ANCHOR_GAS_COST = LibL2Consts.ANCHOR_GAS_COST;
 
     function setUp() public {
         uint16 rand = 2;
         TaikoL2.EIP1559Params memory param1559 = TaikoL2.EIP1559Params({
-            basefee: (uint(BLOCK_GAS_LIMIT * 10) * rand).toUint64(),
+            basefee: (uint256(BLOCK_GAS_LIMIT * 10) * rand).toUint64(),
             gasIssuedPerSecond: 1000000,
-            gasExcessMax: (uint(15000000) * 256 * rand).toUint64(),
-            gasTarget: (uint(6000000) * rand).toUint64(),
+            gasExcessMax: (uint256(15000000) * 256 * rand).toUint64(),
+            gasTarget: (uint256(6000000) * rand).toUint64(),
             ratio2x1x: 11177
         });
 
@@ -147,11 +147,10 @@ contract TestTaikoL2 is Test {
         assertEq(_getBasefeeAndPrint(timeSinceParent, 10000000, 0), 59644805);
     }
 
-    function _getBasefeeAndPrint(
-        uint32 timeSinceParent,
-        uint64 gasLimit,
-        uint64 parentGasUsed
-    ) private returns (uint256 _basefee) {
+    function _getBasefeeAndPrint(uint32 timeSinceParent, uint64 gasLimit, uint64 parentGasUsed)
+        private
+        returns (uint256 _basefee)
+    {
         uint256 gasIssued = L2.gasIssuedPerSecond() * timeSinceParent;
         string memory _msg = string.concat(
             "#",
@@ -181,24 +180,18 @@ contract TestTaikoL2 is Test {
         console2.log(_msg);
     }
 
-    function _getBasefeeAndPrint(
-        uint32 timeSinceNow,
-        uint64 gasLimit
-    ) private returns (uint256 _basefee) {
-        return
-            _getBasefeeAndPrint(
-                uint32(timeSinceNow + block.timestamp - L2.parentTimestamp()),
-                gasLimit,
-                gasLimit + ANCHOR_GAS_COST
-            );
+    function _getBasefeeAndPrint(uint32 timeSinceNow, uint64 gasLimit)
+        private
+        returns (uint256 _basefee)
+    {
+        return _getBasefeeAndPrint(
+            uint32(timeSinceNow + block.timestamp - L2.parentTimestamp()),
+            gasLimit,
+            gasLimit + ANCHOR_GAS_COST
+        );
     }
 
     function _anchor(uint64 parentGasLimit) private {
-        L2.anchor(
-            keccak256("a"),
-            keccak256("b"),
-            12345,
-            parentGasLimit + ANCHOR_GAS_COST
-        );
+        L2.anchor(keccak256("a"), keccak256("b"), 12345, parentGasLimit + ANCHOR_GAS_COST);
     }
 }

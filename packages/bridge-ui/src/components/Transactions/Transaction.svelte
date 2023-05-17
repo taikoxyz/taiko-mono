@@ -13,17 +13,19 @@
 
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
   import { errorToast, successToast } from '../Toast.svelte';
-  import HeaderSyncABI from '../../constants/abi/ICrossChainSync';
-  import BridgeABI from '../../constants/abi/Bridge';
+  import {
+    crossChainSyncABI,
+    bridgeABI,
+    tokenVaultABI,
+  } from '../../constants/abi';
   import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
-  import TokenVaultABI from '../../constants/abi/TokenVault';
   import { chains } from '../../chain/chains';
   import { providers } from '../../provider/providers';
   import { bridges } from '../../bridge/bridges';
   import { tokenVaults } from '../../vault/tokenVaults';
   import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
   import Button from '../buttons/Button.svelte';
-  import { switchChainAndSetSigner } from '../../utils/switchChainAndSetSigner';
+  import { selectChain } from '../../utils/selectChain';
   import type { NoticeOpenArgs } from '../../domain/modal';
 
   export let transaction: BridgeTransaction;
@@ -79,7 +81,7 @@
       // to the right network.
       if ($fromChain.id !== bridgeTx.toChainId) {
         const chain = chains[bridgeTx.toChainId];
-        await switchChainAndSetSigner(chain);
+        await selectChain(chain);
       }
 
       // confirm after switch chain that it worked.
@@ -131,7 +133,7 @@
       loading = true;
       if (txFromChain.id !== bridgeTx.fromChainId) {
         const chain = chains[bridgeTx.fromChainId];
-        await switchChainAndSetSigner(chain);
+        await selectChain(chain);
       }
 
       // confirm after switch chain that it worked.
@@ -176,7 +178,7 @@
 
     const contract = new Contract(
       chains[transaction.toChainId].crossChainSyncAddress,
-      HeaderSyncABI,
+      crossChainSyncABI,
       providers[chains[transaction.toChainId].id],
     );
 
@@ -194,7 +196,7 @@
       processable = await isProcessable();
       const contract = new ethers.Contract(
         chains[transaction.toChainId].bridgeAddress,
-        BridgeABI,
+        bridgeABI,
         providers[chains[transaction.toChainId].id],
       );
 
@@ -209,7 +211,7 @@
         if (transaction.message?.data !== '0x') {
           const srcTokenVaultContract = new ethers.Contract(
             tokenVaults[transaction.fromChainId],
-            TokenVaultABI,
+            tokenVaultABI,
             providers[chains[transaction.fromChainId].id],
           );
           const { token, amount } = await srcTokenVaultContract.messageDeposits(
@@ -221,7 +223,7 @@
         } else {
           const srcBridgeContract = new ethers.Contract(
             chains[transaction.fromChainId].bridgeAddress,
-            BridgeABI,
+            bridgeABI,
             providers[chains[transaction.fromChainId].id],
           );
           const isFailedMessageResolved =

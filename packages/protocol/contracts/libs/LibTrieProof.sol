@@ -14,17 +14,17 @@ import {LibSecureMerkleTrie} from "../thirdparty/LibSecureMerkleTrie.sol";
  * @title LibTrieProof
  */
 library LibTrieProof {
-    /*********************
-     * Constants         *
-     *********************/
+    /*//////////////////////////////////////////////////////////////
+                               CONSTANTS
+    //////////////////////////////////////////////////////////////*/
 
     // The consensus format representing account is RLP encoded in the
     // following order: nonce, balance, storageHash, codeHash.
     uint256 private constant ACCOUNT_FIELD_INDEX_STORAGE_HASH = 2;
 
-    /*********************
-     * Public Functions  *
-     *********************/
+    /*//////////////////////////////////////////////////////////////
+                         USER-FACING FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /**
      * Verifies that the value of a slot in the storage of an account is value.
@@ -42,31 +42,19 @@ library LibTrieProof {
         bytes32 value,
         bytes calldata mkproof
     ) public pure returns (bool verified) {
-        (bytes memory accountProof, bytes memory storageProof) = abi.decode(
-            mkproof,
-            (bytes, bytes)
-        );
+        (bytes memory accountProof, bytes memory storageProof) = abi.decode(mkproof, (bytes, bytes));
 
-        (bool exists, bytes memory rlpAccount) = LibSecureMerkleTrie.get(
-            abi.encodePacked(addr),
-            accountProof,
-            stateRoot
-        );
+        (bool exists, bytes memory rlpAccount) =
+            LibSecureMerkleTrie.get(abi.encodePacked(addr), accountProof, stateRoot);
 
         require(exists, "LTP:invalid account proof");
 
-        LibRLPReader.RLPItem[] memory accountState = LibRLPReader.readList(
-            rlpAccount
-        );
-        bytes32 storageRoot = LibRLPReader.readBytes32(
-            accountState[ACCOUNT_FIELD_INDEX_STORAGE_HASH]
-        );
+        LibRLPReader.RLPItem[] memory accountState = LibRLPReader.readList(rlpAccount);
+        bytes32 storageRoot =
+            LibRLPReader.readBytes32(accountState[ACCOUNT_FIELD_INDEX_STORAGE_HASH]);
 
         verified = LibSecureMerkleTrie.verifyInclusionProof(
-            abi.encodePacked(slot),
-            LibRLPWriter.writeBytes32(value),
-            storageProof,
-            storageRoot
+            abi.encodePacked(slot), LibRLPWriter.writeBytes32(value), storageProof, storageRoot
         );
     }
 }

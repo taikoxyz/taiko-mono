@@ -9,8 +9,10 @@ import {
   recommendProcessingFee,
 } from './recommendProcessingFee';
 import { mainnetChain, taikoChain } from '../chain/chains';
-import { ETHToken, testERC20Tokens } from '../token/tokens';
+import { ETHToken, testERC20Tokens, TKOToken } from '../token/tokens';
 import { providers } from '../provider/providers';
+import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
+import type { Token } from '../domain/token';
 
 jest.mock('../constants/envVars');
 
@@ -33,6 +35,22 @@ providers[mainnetChain.id].getGasPrice = mockGetGasPrice;
 providers[taikoChain.id].getGasPrice = mockGetGasPrice;
 
 const mockSigner = {} as Signer;
+
+const mockToken = {
+  name: 'MockToken',
+  addresses: [
+    {
+      chainId: L1_CHAIN_ID,
+      address: '0x00',
+    },
+    {
+      chainId: L2_CHAIN_ID,
+      address: '0x123', // token is deployed on L2
+    },
+  ],
+  decimals: 18,
+  symbol: 'MKT',
+} as Token;
 
 describe('recommendProcessingFee()', () => {
   beforeEach(() => {
@@ -127,7 +145,7 @@ describe('recommendProcessingFee()', () => {
     expect(fee).toStrictEqual(expected);
   });
 
-  it('uses erc20NotDeployedGasLimit if the token is not ETH and token is not deployed on dest layer', async () => {
+  it('uses erc20DeployedGasLimit if the token is not ETH and token is already deployed on dest layer', async () => {
     mockContract.canonicalToBridged.mockImplementationOnce(() => '0x123');
 
     const fee = await recommendProcessingFee(
@@ -143,5 +161,20 @@ describe('recommendProcessingFee()', () => {
     );
 
     expect(fee).toStrictEqual(expected);
+  });
+
+  it('uses destination token address', async () => {
+    await recommendProcessingFee(
+      taikoChain,
+      mainnetChain,
+      ProcessingFeeMethod.RECOMMENDED,
+      mockToken,
+      mockSigner,
+    );
+
+    expect(mockContract.canonicalToBridged).toHaveBeenCalledWith(
+      taikoChain.id,
+      mockToken.addresses[1].address,
+    );
   });
 });
