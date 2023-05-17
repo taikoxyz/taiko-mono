@@ -195,6 +195,8 @@ The actual value of the public input parameters must be consistent with the valu
 To help people to visualize all the above elements. Here is a diagram:
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '13px'}}}%%
+
 graph LR
 classDef default stroke-width:4px,stroke:#EA27C2,fill:#EA27C2,color:#FFF;
 classDef forkchoice stroke-width:4px,stroke:#FF715B,fill:#FF715B,color:#FFF;
