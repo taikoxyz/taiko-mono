@@ -2,74 +2,92 @@
 
 This document specifies how the Taiko protocol, client, and circuits work together to prove L2 blocks.
 
+## Data
 
+### Transaction List
 
+The transaction list, `txList`, of a Layer 2 (L2) block will eventually be part of a blob in the Layer 1 (L1) Consensus Layer (CL) -- right now it is within the calldata.
+It is meant to be a list of RLP-encoded L2 transactions, with only its length and commitment available to the L1 Execution Layer (EL). The length is checked when a block is proposed, but we need to prove whether the `txList` is valid or not using a ZKP.
 
-# The *txList*
+A valid `txList` (until [issue #13724](https://github.com/taikoxyz/taiko-mono/issues/13724) is enabled and implemented):
 
-The **`txList`** of a Layer 2 (L2) block will eventually be part of a blob in the Layer 1 (L1) Consensus Layer (CL) - right now it is within the calldata. 
-It is meant to be a list of RLP-encoded L2 transactions, with only its length and commitment available to the L1 Execution Layer (EL). The length is checked when a block is proposed, but we need to prove whether the **`txList`** is valid or not using ZKP:
+- Has a byte-size smaller than the protocol constant _`maxBytesPerTxList`_ (also enforced in contracts);
+- Can be RLP-decoded into a list of transactions without trailing space;
+- Contains no more transactions (valid and invalid) than the protocol constant _`maxTransactionsPerBlock`_;
+- Has a total gas limit for all valid transactions not exceeding the protocol constant _`blockMaxGasLimit`_.
 
-A valid **`txList`**:
+ZKP must prove whether the `txList` is valid or invalid. For an invalid `txList`, the corresponding L2 block will only have an anchor transaction.
 
-(Valid until issue is enabled and implemented: https://github.com/taikoxyz/taiko-mono/issues/13724)
-
-- Has a byte-size smaller than **`maxBytesPerTxList`** (also enforced in contracts).
-- Can be RLP-decoded into a list of transactions without trailing space.
-- Contains no more transactions (valid and invalid) than the protocol constant **`maxTransactionsPerBlock`**.
-- Has a total gas limit for all valid transactions not exceeding the protocol constant **`blockMaxGasLimit`**.
-
-ZKP must prove whether the **`txList`** is valid or invalid. For an invalid **`txList`**, the L2 block will be empty, except for an anchor transaction.
-
-For a valid **`txList`**, ZKP must also prove whether each enclosed transaction is valid or invalid. All valid transactions will be part of the actual L2 block.
+For a valid `txList`, ZKP must also prove whether each enclosed transaction is valid or invalid. All valid transactions will be part of the actual L2 block with an anchor transaction as the very first one.
 
 A valid transaction (defined in the Ethereum Yellow Paper):
 
 - Has a valid transaction signature.
 - Has a valid transaction nonce (equivalent to the sender account's current nonce).
 - Has no contract code deployed on the sender account (see EIP-3607 by Feist et al. [2021]).
-- Has a gas limit no smaller than the intrinsic gas, **`g0`**, used by the transaction; and the sender account balance contains at least the cost, **`v0`**, required in up-front payment.
+- Has a gas limit no smaller than the intrinsic gas, _`g0`_, used by the transaction; and the sender account balance contains at least the cost, _`v0`_, required in up-front payment.
 
-In contrast, the previous implementation allowed for invalid blocks that were skipped. The new protocol maps all (valid and invalid) **`txLists`** into L2 blocks.
+In contrast, the previous implementation allowed for invalid blocks that were skipped. The new protocol maps each and every (valid and invalid) _txLists_ into a valid L2 block.
 
-## Data Consistency
+#### Slicing and Consistency
 
-Note that `txList` is not directly know to L1 contracts, therefore, ZKP shall further prove that the chosen `txList` is a slice of the given blob data. `blobHash` therefore will be available later this year - when EIP-4844 merged into Ethereum.
+Note that `txList` is not directly accessiable to L1 contracts, therefore, ZKP shall further prove that the chosen `txList` is a slice of the given blob data. `blobHash` therefore will be available when EIP-4844 merged into Ethereum.
 
-## Anchor Transactions
+### Anchor Transactions
 
 Every L2 block has exactly one anchor function call as its first transaction.
 
-ZKP must prove that *TaikoL2.anchor(...)* is the first transaction in the block, with the correct input parameters and gas limit, signed by the gold-touch address, and did not throw.
+ZKP must prove that _TaikoL2.anchor(...)_ is the first transaction in the block, with the correct input parameters and gas limit, signed by the gold-touch address, and that the transaction did not throw.
 
-- The anchor transaction's `to` address must be the registered `taiko_l2` address, which is hashed into the ZKP `instance`. And the `tx.origin`  must be the golden touch address.
+- The anchor transaction's `to` address must be the registered `taiko_l2` address, which is hashed into the ZKP `instance`. And the `tx.origin` must be the golden touch address.
 - The anchor transaction's ABI must be:
-    
-    **`function anchor(bytes32 l1Hash, bytes32 l1SignalRoot, uint64 l1Height, uint64 parentGasUsed)`**
-    
+  ```solidity
+  function anchor(
+    bytes32 l1Hash,
+    bytes32 l1SignalRoot,
+    uint64 l1Height,
+    uint64 parentGasUsed
+  ) external;
+  ```
 - A circuit will verify the integrity among: `l1Hash`, `l1SignalRoot`, and `l1SignalServiceAddress`
 - `l1SignalServiceAddress`, `l2SignalServiceAddress` and `parentGasUsed` are directly hashed into of the ZKP's instance
 - `l1Height` and `l1Hash` are both part of the block metadata (`meta.l1Height` and `meta.l1Hash`), the `metaHash` is used to calculate the ZKP instance.
 - `l1SignalRoot` is part of the evidence and is also used to calculate the ZKP instance.
 - The transaction's status code is 0 (success).
-- The transaction's origin & msg.sender must be `LibAnchorSignature.K_GOLDEN_TOUCH_ADDRESS`.
+- The transaction's `tx.origin` and `msg.sender` must be _`LibAnchorSignature.K_GOLDEN_TOUCH_ADDRESS`_.
 - The transaction's signature must be the same as `LibAnchorSignature.signTransaction(...)`.
 
 Note that the anchor transaction emits a `Anchored` event that may help ZKP to verify block variables. See below.
 
-### Anchor Signature
+#### Anchor Signature
 
 ZKP shall also check the signature of the anchor transaction:
 
-- The signer must be TaikoL2.GOLDEN_TOUCH_ADDRESS.
-- The signature must use `1` or `2` as the `K` value. See *TaikoL2Signer.sol*.
-- `K=1` must be used unless [….forgot]
+- The signer must be _`TaikoL2.GOLDEN_TOUCH_ADDRESS`_.
+- The signature must use `1` as the `k` value if the calculated `r` is not `0`, other wise, `k` must be `2`. See [TaikoL2Signer.sol](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/L2/TaikoL2Signer.sol) and Taiko [whitepaper](https://taikoxyz.github.io/taiko-mono/taiko-whitepaper.pdf).
 
-[EDIT: this will become a new transaction type]
+### Block Metadata
 
-# The *BlockMetadata*
+This struct represents a proposed L2 block. The data will be hashed and be part of the public input to circuits.
 
-This struct represents the metadata of a block. The data will be hashed and be part of the public input. So anything within this struct, will be hashed and put into ZKP `instance`.
+```solidity
+struct BlockMetadata {
+  uint64 id;
+  uint64 timestamp;
+  uint64 l1Height;
+  bytes32 l1Hash;
+  bytes32 mixHash;
+  bytes32 depositsRoot;
+  bytes32 txListHash;
+  uint24 txListByteStart;
+  uint24 txListByteEnd;
+  uint32 gasLimit;
+  address beneficiary;
+  uint8 cacheTxListInfo;
+  address treasure;
+  TaikoData.EthDeposit[] depositsProcessed;
+}
+```
 
 - `id`: Represents the block height in L2.
 - `timestamp`: The block timestamp in L2.
@@ -86,7 +104,7 @@ This struct represents the metadata of a block. The data will be hashed and be p
 - `treasure`: The address where the base fee goes in L2.
 - `depositsProcessed`: The initiated L1->L2 deposits that make up the depositRoot.
 
-## Block variables
+### Global Variables
 
 The following [**block level variables**](https://docs.soliditylang.org/en/v0.8.18/units-and-global-variables.html) are accessible to the EVM, but their values are not part of the MPT so we need a different way to verify their correctness.
 
@@ -100,10 +118,11 @@ The following [**block level variables**](https://docs.soliditylang.org/en/v0.8.
 - `block.prevrandao` (`uint`): random number provided by the beacon chain
 - `block.timestamp` (`uint`): current block timestamp as seconds since Unix epoch
 
-We need to verify when these variables are accessed within the EVM, their values are consistent with the block metadata and the actual L2 block header.
+We need to verify when these variables are accessed within the EVM, their values are consistent with the current world state, the block's metadata and the actual L2 block's block header:
 
-- `blockhash`: EVM allows access to the most recent 256 block hashes. All these hashes are available inside the plonk lookup table. ZKP must prove that the parent hash, `blockhash(block.number - 1)`, has the same value as in the block header and is also the same value used to calculate the ZKP instance.
-- The other 255 hashes, `blockhash(block.number - 256)` to `blockhash(block.number - 2)` are checked in the anchor transaction to simplify circuits. Therefore, as long as the anchor transaction is zk-proven, these 255 ancestor hashes are proven indirectly.
+- `blockhash`: EVM allows access to the most recent 256 block hashes. All these hashes are available inside the plonk lookup table. ZKP must prove that the lookup table is consistent with L2's historical values.
+  - `blockhash(block.number - 1)`, has the same value as in the block header and is also the same value as the parent block's hash on L2.
+  - The other 255 hashes, `blockhash(block.number - 256)` to `blockhash(block.number - 2)` are checked in the anchor transaction to simplify circuits. Therefore, as long as the anchor transaction is zk-proven, these 255 ancestor hashes are proven indirectly.
 - `block.basefee`: verified to be the correct value in the anchor transaction.
 - `block.chainid`: this field is also checked by the anchor transaction, so no extra ZKP circuits are required.
 - `block.coinbase`: ZKP must verify the value must be the same as `meta.beneficiary`. Again, the metadata hash is part of the ZK instance.
@@ -114,16 +133,38 @@ We need to verify when these variables are accessed within the EVM, their values
 - `block.prevrandao`: this must be checked against the `mixHash` field in the L2 block header and `meta.mixHash`.
 - `block.timestamp`: this must be checked against the `timestamp` field in the L2 block header and `meta.proposedAt`.
 
-## Block Header
+### Block Header
 
 The block header is no longer presented to L1 contracts; therefore, ZKP must verify the integrity of the block header and ensure the block header can hash into the same value as `evidence.blockHash`, which is part of the ZK instance input.
+
+```solidity
+struct BlockHeader {
+  bytes32 parentHash;
+  bytes32 ommersHash;
+  address beneficiary;
+  bytes32 stateRoot;
+  bytes32 transactionsRoot;
+  bytes32 receiptsRoot;
+  bytes32[8] logsBloom;
+  uint256 difficulty;
+  uint128 height;
+  uint64 gasLimit;
+  uint64 gasUsed;
+  uint64 timestamp;
+  bytes extraData;
+  bytes32 mixHash;
+  uint64 nonce;
+  uint256 baseFeePerGas;
+  bytes32 withdrawalsRoot;
+}
+```
 
 In addition, ZKP must also prove the following:
 
 - `parentHash` must be the same as `evidence.parentHash`.
-- `ommersHash` must be `0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347`.
+- `ommersHash` must be the keccak256 of `[]`,or `0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347`.
 - `beneficiary` must be `meta.beneficiary` (duplicated, as stated above).
-- `logsBloom` must be a bytes32[8] with all zeros.
+- `logsBloom` must be a `bytes32[8]` with all zeros.
 - `difficulty` must be `meta.mixHash`.
 - `height` must be `meta.id`.
 - `gasLimit` == `meta.gasLimit`.
@@ -135,30 +176,39 @@ In addition, ZKP must also prove the following:
 - `baseFeePerGas` == the calculated EIP-1559 style base fee.
 - `withdrawalsRoot` == The withdrawals MPT correspoding to the deposits list.
 
-Note that some of the above header field checks are duplicates of checks from the Block Variable section.
+Note that some of the above header field checks are duplicates of checks from the Global Variable section.
 
-## Signal Storage Root
+### Signal Storage
 
-ZKP also needs to prove cross chain signal service’s storage roots have the right value.
+ZKP also needs to prove cross chain signal service’s storage roots have the right values.
 
-- **For L2 Signal Service**:  the storage root is the second parameter in the anchor transaction. ZKP shall verify that the storage root of the L2 Signal Service address indeed has this given value by using zkEVM storage proof.
+- **For L2 Signal Service**: the storage root is the second parameter in the anchor transaction. ZKP shall verify that the storage root of the L2 Signal Service address indeed has this given value by using zkEVM storage proof.
+
 - **For L1 Signal Service**: the storage root verification will be done in the circuits by using a Merkle proof against the `meta.l1Hash`, the `l1SignalRoot` value is not directly available in the L1 smart contracts. This MPT proof must be queried from an L1 node by the L2 client.
 
-## LibProving verification
+### LibProving Verification
 
 The actual value of the public input parameters must be consistent with the values used to hash the ZKP instance (see [**LibProving**](https://github.com/taikoxyz/taiko-mono/blob/945dabc09a668678aca1296e91d567b45ad37922/packages/protocol/contracts/L1/libs/LibProving.sol#L182)).
 
-## Data cross-verification chart
+## Data Cross-Verification in Circuits
+
 To help people to visualize all the above elements. Here is a diagram:
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '13px'}}}%%
+
 graph LR
-classDef default stroke-width:4px;
+classDef default stroke-width:4px,stroke:#EA27C2,fill:#EA27C2,color:#FFF;
+classDef forkchoice stroke-width:4px,stroke:#FF715B,fill:#FF715B,color:#FFF;
+classDef otherCircuits stroke-width:4px,stroke:#6ECEB0,fill:#6ECEB0,color:#FFF;
+classDef constant stroke-width:4px,stroke:#323745,fill:#323745,color:#FFF;
+classDef group stroke-width:2px,stroke:#EA27C2,fill:#FFD2F630;
 
 m_id --- h_height --- v_block_number;
+m_h1_height --- a_h1_height;
 m_gas_limit --- h_gas_limit --- v_block_gaslimit;
 m_timestamp --- h_timestamp  --- v_block_timestamp;
-m_h1_height --- a_h1_height;
+m_txlist_first ---|<=| m_txlist_last --- |<= len| tx_list;
 m_h1_hash --- a_h1_hash;
 m_mix_hash --- h_mix_hash --- v_block_prevrando;
 tx_list -.->|keccak| m_txlist_hash;
@@ -184,7 +234,7 @@ s_gas_excess -.-> dot2 ---|calcBasefee| v_block_basefee;
 
 processed_deposits -.->|keccak| m_deposits_root -.- h_withdrawals_root;
 
-b_signal_root --- a_h1_signal_root;
+b_signal_root ---|MPT| a_h1_signal_root;
 h_gas_used --- e_gas_used;
 
 BlockMetadata -.->|keccak| dot4((" ")) --- e_meta_hash -.-> dot3((" ")) -.->|keccak| zk_instance;
@@ -193,12 +243,16 @@ b_l1_signal_service_addr -.-> dot3;
 b_l2_signal_service_addr -.-> dot3;
 b_l1_taiko_addr -.-> dot3;
 
-e_signal_root --- s_signal_root
+e_signal_root ---|MPT| s_signal_root
 e_parent_gas_used --- a_parent_gas_used
+
+h_gas_limit ---|>=| h_gas_used
 
 BlockHeader -.->|abiencode & keccak| dot5((" ")) o--- e_block_hash
 
-subgraph BlockMetadata
+BlockEvidence ~~~ L1Storage;
+
+subgraph BlockMetadata[Block Metadata]
 m_id(id)
 m_gas_limit(gasLimit)
 m_timestamp(timestamp)
@@ -206,18 +260,20 @@ m_h1_height(h1Height)
 m_h1_hash(h1Hash)
 m_mix_hash(mixHash)
 m_txlist_hash(txListHash)
-m_txlist_byte_start(txListByteStart)
-m_txlist_last_byte(txListByteEnd)
+m_txlist_first(txListByteStart)
+m_txlist_last(txListByteEnd)
 m_cache_txlist_info(cacheTxListInfo)
-m_treasure(treasure)
+m_treasure(treasure):::otherCircuits
 m_beneficiary(beneficiary)
 m_deposits_root(depositsRoot)
 m_deposits(depositsProcessed)
 end
 
+BlockMetadata:::group
 
 
-subgraph BlockHeader
+
+subgraph BlockHeader[Block Header]
 h_height(height)
 h_gas_limit(gasLimit)
 h_gas_used(gasUsed)
@@ -237,7 +293,9 @@ h_basefee(basefee)
 h_withdrawals_root(withdrawalsRoot)
 end
 
-subgraph GlobalVariables
+BlockHeader:::group
+
+subgraph GlobalVariables[Global Variables]
 v_block_number(block.number)
 v_block_gaslimit(block.gaslimit)
 v_block_timestamp(block.timestamp)
@@ -250,28 +308,36 @@ dot1((" "))
 dot2((" "))
 end
 
+GlobalVariables:::group
 
-subgraph Anchor
+
+subgraph Anchor [Anchor Tx]
 a_h1_height(h1Height)
 a_h1_hash(h1Hash)
-a_h1_signal_root[h1SignalRoot]
-a_parent_gas_used[parentGasUsed]
+a_h1_signal_root(h1SignalRoot)
+a_parent_gas_used(parentGasUsed)
 end
 
-subgraph L1Storage
-b_signal_root[signalRoot]
-b_l1_taiko_addr[taikoL1Address]
-b_l1_signal_service_addr[L1 signalServiceAddress]
+Anchor:::group
+
+subgraph L1Storage[L1 Storage]
+b_signal_root[/signalRoot/]
+b_l1_taiko_addr[/taikoL1Address/]
+b_l1_signal_service_addr[/L1 signalServiceAddress/]
+b_l2_signal_service_addr[/L2 signalServiceAddress/]
 end
 
+L1Storage:::group
 
-subgraph L2Storage
-s_public_input_hash[publicInputHash]
-s_parent_timestamp[parentTimestamp]
-s_gas_excess[gasExcess]
-s_signal_root[signalRoot]
+
+subgraph L2Storage[L2 Storage]
+s_public_input_hash[/publicInputHash/]
+s_parent_timestamp[/parentTimestamp/]
+s_gas_excess[/gasExcess/]
+s_signal_root[/signalRoot/]
 end
 
+L2Storage:::group
 
 subgraph BlockEvidence
 e_meta_hash(metaHash)
@@ -282,19 +348,16 @@ e_graffiti(graffiti)
 e_prover(prover)
 e_parent_gas_used(parentGasUsed):::forkchoice
 e_gas_used(gasUsed)
-
-classDef forkchoice fill:#f96
 end
 
-classDef constant fill:#fff, stroke:#AAA;
+BlockEvidence:::group
 
-zero["0\n(zero)"]:::constant
-empty_string["''\n(empty bytes)"]:::constant
-empty_list["[]\n(empty list)"]:::constant
-tx_list["txList\n(blob or calldata)"]:::constant
-l2_treasure["L2 basefee goes to treasure"]:::constant
-processed_deposits["onchain deposits data"]:::constant
-processed_deposits_data["processed deposits making up the depositsRoot"]:::constant
+zero("0\n(zero)"):::constant
+empty_string("''\n(empty bytes)"):::constant
+empty_list("[]\n(empty list)"):::constant
+tx_list("txList\n(blob or calldata)"):::constant
+l2_treasure("L2 basefee goes to treasure"):::constant
+processed_deposits("onchain deposits data"):::constant
+processed_deposits_data("processed deposits making up the depositsRoot"):::constant
 zk_instance(zkInstance)
 ```
-
