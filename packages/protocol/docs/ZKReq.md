@@ -198,7 +198,7 @@ To help people to visualize all the above elements. Here is a diagram:
 graph LR
 classDef default stroke-width:4px,stroke:#EA27C2,fill:#EA27C2,color:#FFF;
 classDef forkchoice stroke-width:4px,stroke:#FF715B,fill:#FF715B,color:#FFF;
-classDef otherCircuits stroke-width:4px,stroke:#5D08C8,fill:#5D08C8,color:#FFF;
+classDef otherCircuits stroke-width:4px,stroke:#6ECEB0,fill:#6ECEB0,color:#FFF;
 classDef constant stroke-width:4px,stroke:#323745,fill:#323745,color:#FFF;
 classDef group stroke-width:2px,stroke:#EA27C2,fill:#FFD2F630;
 
@@ -350,12 +350,12 @@ end
 
 BlockEvidence:::group
 
-zero["0\n(zero)"]:::constant
-empty_string["''\n(empty bytes)"]:::constant
-empty_list["[]\n(empty list)"]:::constant
-tx_list["txList\n(blob or calldata)"]:::constant
-l2_treasure["L2 basefee goes to treasure"]:::constant
-processed_deposits["onchain deposits data"]:::constant
-processed_deposits_data["processed deposits making up the depositsRoot"]:::constant
+zero("0\n(zero)"):::constant
+empty_string("''\n(empty bytes)"):::constant
+empty_list("[]\n(empty list)"):::constant
+tx_list("txList\n(blob or calldata)"):::constant
+l2_treasure("L2 basefee goes to treasure"):::constant
+processed_deposits("onchain deposits data"):::constant
+processed_deposits_data("processed deposits making up the depositsRoot"):::constant
 zk_instance(zkInstance)
 ```
