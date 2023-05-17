@@ -134,7 +134,7 @@ contract DeployOnL1 is Script {
                     addressManagerProxy,
                     genesisHash,
                     feeBase,
-                    initProofTimeIssued,
+                    INITIAL_PROOF_TIME_TARGET,
                     initProofTimeIssued
                 )
             )
