@@ -321,8 +321,8 @@
 
       await pendingTransactions.add(tx, $signer);
 
-      // tx.chainId is not set immediately but we need it later. set it
-      // manually.
+      // tx.chainId is not set immediately but we need it later.
+      // Set it manually.
       tx.chainId = $fromChain.id;
 
       const userAddress = await $signer.getAddress();
@@ -368,6 +368,7 @@
 
       log('All transactions in store', $transactionsStore);
 
+      amountInput.value = '';
       memo = '';
 
       successToast($_('toast.transactionCompleted'));
