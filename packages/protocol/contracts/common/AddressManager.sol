@@ -51,7 +51,7 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
         onlyOwner
     {
         // This is to prevent using the owner as named address
-        if (newAddress.code.length == 0 && newAddress == owner()) {
+        if (newAddress.code.length == 0 && newAddress == msg.sender) {
             revert EOAOwnerAddressNotAllowed();
         }
 
