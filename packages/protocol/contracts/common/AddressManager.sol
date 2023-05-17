@@ -38,6 +38,8 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
         uint256 indexed _domain, bytes32 indexed _name, address _newAddress, address _oldAddress
     );
 
+    error EOAOwnerAddressNotAllowed();
+
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init() external initializer {
         OwnableUpgradeable.__Ownable_init();
@@ -48,6 +50,11 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
         virtual
         onlyOwner
     {
+        // This is to prevent using the owner as named address
+        if (newAddress.code.length == 0 && newAddress == owner()) {
+            revert EOAOwnerAddressNotAllowed();
+        }
+
         address oldAddress = addresses[domain][name];
         addresses[domain][name] = newAddress;
         emit AddressSet(domain, name, newAddress, oldAddress);

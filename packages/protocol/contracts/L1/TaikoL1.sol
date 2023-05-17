@@ -139,9 +139,13 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
      * @param newProofTimeTarget New proof time target.
      * @param newProofTimeIssued New proof time issued. If set to type(uint64).max, let it be unchanged.
      */
-    function setProofParams(uint64 newProofTimeTarget, uint64 newProofTimeIssued) external onlyOwner {
-        if (newProofTimeTarget == 0 || newProofTimeIssued == 0)
+    function setProofParams(uint64 newProofTimeTarget, uint64 newProofTimeIssued)
+        external
+        onlyOwner
+    {
+        if (newProofTimeTarget == 0 || newProofTimeIssued == 0) {
             revert L1_INVALID_PARAM();
+        }
 
         state.proofTimeTarget = newProofTimeTarget;
         // Special case in a way - that we leave the proofTimeIssued unchanged

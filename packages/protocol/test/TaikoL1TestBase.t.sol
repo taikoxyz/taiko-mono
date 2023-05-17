@@ -82,14 +82,20 @@ abstract contract TaikoL1TestBase is Test {
         registerAddress("proto_broker", address(L1));
 
         // Lastly, init L1
-        if( proofTimeTarget == 0 || initProofTimeIssued == 0) {
-            // This just means, these tests are not focusing on the tokenomics, which is fine! 
+        if (proofTimeTarget == 0 || initProofTimeIssued == 0) {
+            // This just means, these tests are not focusing on the tokenomics, which is fine!
             // So here, with 500second proof time the initial proof time issued value shall be that below.
             // Calculated with 'forge script script/DetermineNewProofTimeIssued.s.sol'
             proofTimeTarget = 500;
             initProofTimeIssued = 219263;
         }
-        L1.init(address(addressManager), GENESIS_BLOCK_HASH, feeBase, proofTimeTarget, initProofTimeIssued);
+        L1.init(
+            address(addressManager),
+            GENESIS_BLOCK_HASH,
+            feeBase,
+            proofTimeTarget,
+            initProofTimeIssued
+        );
         printVariables("init  ");
     }
 

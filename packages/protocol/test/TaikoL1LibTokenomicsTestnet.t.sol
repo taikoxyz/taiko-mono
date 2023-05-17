@@ -836,8 +836,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
     }
 
     /// @dev Test if testing proof time params works (changes) as expected
-    function test_changing_proof_time_parameters(
-    ) external {
+    function test_changing_proof_time_parameters() external {
         mine(1);
 
         depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
@@ -854,15 +853,14 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
 
         //parentHash = prove_with_increasing_time(parentHash, 10);
         for (uint256 blockId = 1; blockId < 20; blockId++) {
-            
             // See if proof reward decreases faster than usual
-            if(blockId == 8) {
+            if (blockId == 8) {
                 // 500 sec has the proofTimeIssued of 219263 (Calculated with 'forge script script/DetermineNewProofTimeIssued.s.sol')
                 L1.setProofParams(500, 219263);
             }
 
             // See if proof reward increases now
-            if(blockId == 15) {
+            if (blockId == 15) {
                 // 10 sec has the proofTimeIssued of 3759 (Calculated with 'forge script script/DetermineNewProofTimeIssued.s.sol')
                 L1.setProofParams(10, 3759);
             }
