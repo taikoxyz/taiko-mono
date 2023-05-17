@@ -5,9 +5,8 @@ import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 import {Lib1559Math as T} from "../contracts/libs/Lib1559Math.sol";
 import {TaikoL2} from "../contracts/L2/TaikoL2.sol";
-import {
-    SafeCastUpgradeable
-} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import {SafeCastUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 contract TestTaiko1559Params is Test {
     using SafeCastUpgradeable for uint256;
@@ -26,8 +25,7 @@ contract TestTaiko1559Params is Test {
         // https://ultrasound.money/
         uint64 ethereumBasefeeNow = 28000000000; // 28Gwei
 
-        uint64 gasIssuedPerSecond = (scaleFactor * ethereumBlockGasTarget) /
-            ethereumBlockTime;
+        uint64 gasIssuedPerSecond = (scaleFactor * ethereumBlockGasTarget) / ethereumBlockTime;
 
         // Tune this number manually so ratio2x1x is ~112.5%.
         uint64 maxSeconds = 7272;

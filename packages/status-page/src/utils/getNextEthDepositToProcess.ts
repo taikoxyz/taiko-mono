@@ -7,5 +7,5 @@ export const getNextEthDepositToProcess = async (
 ): Promise<number> => {
   const contract: Contract = new Contract(contractAddress, TaikoL1, provider);
   const stateVariables = await contract.getStateVariables();
-  return stateVariables.nextEthDepositToProcess;
+  return stateVariables.nextEthDepositToProcess.toNumber();
 };

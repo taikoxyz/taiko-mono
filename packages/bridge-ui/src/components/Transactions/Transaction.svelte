@@ -25,7 +25,7 @@
   import { tokenVaults } from '../../vault/tokenVaults';
   import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
   import Button from '../buttons/Button.svelte';
-  import { switchChainAndSetSigner } from '../../utils/switchChainAndSetSigner';
+  import { selectChain } from '../../utils/selectChain';
   import type { NoticeOpenArgs } from '../../domain/modal';
 
   export let transaction: BridgeTransaction;
@@ -81,7 +81,7 @@
       // to the right network.
       if ($fromChain.id !== bridgeTx.toChainId) {
         const chain = chains[bridgeTx.toChainId];
-        await switchChainAndSetSigner(chain);
+        await selectChain(chain);
       }
 
       // confirm after switch chain that it worked.
@@ -133,7 +133,7 @@
       loading = true;
       if (txFromChain.id !== bridgeTx.fromChainId) {
         const chain = chains[bridgeTx.fromChainId];
-        await switchChainAndSetSigner(chain);
+        await selectChain(chain);
       }
 
       // confirm after switch chain that it worked.

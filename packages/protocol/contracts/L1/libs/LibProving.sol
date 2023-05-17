@@ -43,33 +43,27 @@ library LibProving {
         TaikoData.BlockEvidence memory evidence
     ) internal {
         if (
-            evidence.parentHash == 0 ||
-            evidence.blockHash == 0 ||
-            evidence.blockHash == evidence.parentHash ||
-            evidence.signalRoot == 0 ||
-            evidence.gasUsed == 0
+            evidence.parentHash == 0 || evidence.blockHash == 0
+                || evidence.blockHash == evidence.parentHash || evidence.signalRoot == 0
+                || evidence.gasUsed == 0
         ) revert L1_INVALID_EVIDENCE();
 
-        if (blockId <= state.lastVerifiedBlockId || blockId >= state.numBlocks)
+        if (blockId <= state.lastVerifiedBlockId || blockId >= state.numBlocks) {
             revert L1_BLOCK_ID();
+        }
 
-        TaikoData.Block storage blk = state.blocks[
-            blockId % config.ringBufferSize
-        ];
+        TaikoData.Block storage blk = state.blocks[blockId % config.ringBufferSize];
 
         // Check the metadata hash matches the proposed block's. This is
         // necessary to handle chain reorgs.
-        if (blk.metaHash != evidence.metaHash)
+        if (blk.metaHash != evidence.metaHash) {
             revert L1_EVIDENCE_MISMATCH(blk.metaHash, evidence.metaHash);
+        }
 
         TaikoData.ForkChoice storage fc;
 
-        uint256 fcId = LibUtils.getForkChoiceId(
-            state,
-            blk,
-            evidence.parentHash,
-            evidence.parentGasUsed
-        );
+        uint256 fcId =
+            LibUtils.getForkChoiceId(state, blk, evidence.parentHash, evidence.parentGasUsed);
 
         if (fcId == 0) {
             fcId = blk.nextForkChoiceId;
@@ -82,14 +76,9 @@ library LibProving {
 
             if (fcId == 1) {
                 // We only write the key when fcId is 1.
-                fc.key = LibUtils.keyForForkChoice(
-                    evidence.parentHash,
-                    evidence.parentGasUsed
-                );
+                fc.key = LibUtils.keyForForkChoice(evidence.parentHash, evidence.parentGasUsed);
             } else {
-                state.forkChoiceIds[blk.blockId][evidence.parentHash][
-                    evidence.parentGasUsed
-                ] = fcId;
+                state.forkChoiceIds[blk.blockId][evidence.parentHash][evidence.parentGasUsed] = fcId;
             }
         } else {
             revert L1_ALREADY_PROVEN();
@@ -201,17 +190,10 @@ library LibProving {
         bytes32 parentHash,
         uint32 parentGasUsed
     ) internal view returns (TaikoData.ForkChoice storage fc) {
-        TaikoData.Block storage blk = state.blocks[
-            blockId % config.ringBufferSize
-        ];
+        TaikoData.Block storage blk = state.blocks[blockId % config.ringBufferSize];
         if (blk.blockId != blockId) revert L1_BLOCK_ID();
 
-        uint256 fcId = LibUtils.getForkChoiceId(
-            state,
-            blk,
-            parentHash,
-            parentGasUsed
-        );
+        uint256 fcId = LibUtils.getForkChoiceId(state, blk, parentHash, parentGasUsed);
         if (fcId == 0) revert L1_FORK_CHOICE_NOT_FOUND();
         fc = blk.forkChoices[fcId];
     }

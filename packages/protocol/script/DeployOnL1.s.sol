@@ -40,43 +40,37 @@ contract DeployOnL1 is Script {
 
     address public treasure = vm.envAddress("TREASURE");
 
-    address public taikoTokenPremintRecipient =
-        vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
+    address public taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
 
-    uint256 public taikoTokenPremintAmount =
-        vm.envUint("TAIKO_TOKEN_PREMINT_AMOUNT");
+    uint256 public taikoTokenPremintAmount = vm.envUint("TAIKO_TOKEN_PREMINT_AMOUNT");
+
+    // Change it based on 'consensus' / experience / expected result
+    // Based in seconds. Please set carefully.
+    // For testnet it could be somewhere 85-100s
+    // For mainnet it could be around 1800 s (30mins)
+    // Can be adjusted later with setters
+    uint64 public INITIAL_PROOF_TIME_TARGET = uint64(vm.envUint("INITIAL_PROOF_TIME_TARGET"));
 
     TaikoL1 taikoL1;
     address public addressManagerProxy;
 
-    // New fee/reward related variables
-    uint16 public constant PROOF_TIME_TARGET = 1800; // For mainnet it is around 30 mins, but choose carefully ! (Testnet is different !)
-    uint8 public constant ADJUSTMENT_QUOTIENT = 16;
-
     error FAILED_TO_DEPLOY_PLONK_VERIFIER(string contractPath);
+    error PROOF_TIME_TARGET_NOT_SET();
 
     function run() external {
         require(owner != address(0), "owner is zero");
         require(taikoL2Address != address(0), "taikoL2Address is zero");
         require(l2SignalService != address(0), "l2SignalService is zero");
         require(treasure != address(0), "treasure is zero");
-        require(
-            taikoTokenPremintRecipient != address(0),
-            "taikoTokenPremintRecipient is zero"
-        );
-        require(
-            taikoTokenPremintAmount < type(uint64).max,
-            "premint too large"
-        );
+        require(taikoTokenPremintRecipient != address(0), "taikoTokenPremintRecipient is zero");
+        require(taikoTokenPremintAmount < type(uint64).max, "premint too large");
 
         vm.startBroadcast(deployerPrivateKey);
 
         // AddressManager
         AddressManager addressManager = new ProxiedAddressManager();
         addressManagerProxy = deployProxy(
-            "address_manager",
-            address(addressManager),
-            bytes.concat(addressManager.init.selector)
+            "address_manager", address(addressManager), bytes.concat(addressManager.init.selector)
         );
 
         // TaikoL1
@@ -102,11 +96,7 @@ contract DeployOnL1 is Script {
             bytes.concat(
                 taikoToken.init.selector,
                 abi.encode(
-                    addressManagerProxy,
-                    "Taiko Token",
-                    "TKO",
-                    premintRecipients,
-                    premintAmounts
+                    addressManagerProxy, "Taiko Token", "TKO", premintRecipients, premintAmounts
                 )
             )
         );
@@ -115,20 +105,22 @@ contract DeployOnL1 is Script {
         address horseToken = address(new FreeMintERC20("Horse Token", "HORSE"));
         console2.log("HorseToken", horseToken);
 
-        address bullToken = address(
-            new MayFailFreeMintERC20("Bull Token", "BLL")
-        );
+        address bullToken = address(new MayFailFreeMintERC20("Bull Token", "BLL"));
         console2.log("BullToken", bullToken);
 
-        uint64 feeBase = 1 ** 8; // Taiko Token's decimals is 8, not 18
+        uint64 feeBase = uint64(1) ** taikoToken.decimals();
 
         // Calculating it for our needs based on testnet/mainnet. We need it in
         // order to make the fees on the same level - in ideal circumstences.
         // See Brecht's comment https://github.com/taikoxyz/taiko-mono/pull/13564
+        if (INITIAL_PROOF_TIME_TARGET == 0) {
+            revert PROOF_TIME_TARGET_NOT_SET();
+        }
+
         uint64 initProofTimeIssued = LibLn.calcInitProofTimeIssued(
             feeBase,
-            PROOF_TIME_TARGET,
-            ADJUSTMENT_QUOTIENT
+            uint16(INITIAL_PROOF_TIME_TARGET),
+            uint8(taikoL1.getConfig().adjustmentQuotient)
         );
 
         address taikoL1Proxy = deployProxy(
@@ -140,6 +132,7 @@ contract DeployOnL1 is Script {
                     addressManagerProxy,
                     genesisHash,
                     feeBase,
+                    initProofTimeIssued,
                     initProofTimeIssued
                 )
             )
@@ -160,10 +153,7 @@ contract DeployOnL1 is Script {
         deployProxy(
             "token_vault",
             address(tokenVault),
-            bytes.concat(
-                tokenVault.init.selector,
-                abi.encode(addressManagerProxy)
-            )
+            bytes.concat(tokenVault.init.selector, abi.encode(addressManagerProxy))
         );
 
         // SignalService
@@ -172,16 +162,10 @@ contract DeployOnL1 is Script {
             deployProxy(
                 "signal_service",
                 address(signalService),
-                bytes.concat(
-                    signalService.init.selector,
-                    abi.encode(addressManagerProxy)
-                )
+                bytes.concat(signalService.init.selector, abi.encode(addressManagerProxy))
             );
         } else {
-            console2.log(
-                "Warining: using shared signal service: ",
-                sharedSignalService
-            );
+            console2.log("Warining: using shared signal service: ", sharedSignalService);
             setAddress("signal_service", sharedSignalService);
         }
 
@@ -192,22 +176,15 @@ contract DeployOnL1 is Script {
     }
 
     function deployPlonkVerifiers() private {
-        address[] memory plonkVerifiers = new address[](2);
-        plonkVerifiers[0] = deployYulContract(
-            "contracts/libs/yul/PlonkVerifier_10_txs.yulp"
-        );
-        plonkVerifiers[1] = deployYulContract(
-            "contracts/libs/yul/PlonkVerifier_80_txs.yulp"
-        );
+        address[] memory plonkVerifiers = new address[](1);
+        plonkVerifiers[0] = deployYulContract("contracts/libs/yul/PlonkVerifier.yulp");
 
         for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
             setAddress(taikoL1.getVerifierName(i), plonkVerifiers[i]);
         }
     }
 
-    function deployYulContract(
-        string memory contractPath
-    ) private returns (address) {
+    function deployYulContract(string memory contractPath) private returns (address) {
         string[] memory cmds = new string[](3);
         cmds[0] = "bash";
         cmds[1] = "-c";
@@ -225,22 +202,20 @@ contract DeployOnL1 is Script {
             deployedAddress := create(0, add(bytecode, 0x20), mload(bytecode))
         }
 
-        if (deployedAddress == address(0))
+        if (deployedAddress == address(0)) {
             revert FAILED_TO_DEPLOY_PLONK_VERIFIER(contractPath);
+        }
 
         console2.log(contractPath, deployedAddress);
 
         return deployedAddress;
     }
 
-    function deployProxy(
-        string memory name,
-        address implementation,
-        bytes memory data
-    ) private returns (address proxy) {
-        proxy = address(
-            new TransparentUpgradeableProxy(implementation, owner, data)
-        );
+    function deployProxy(string memory name, address implementation, bytes memory data)
+        private
+        returns (address proxy)
+    {
+        proxy = address(new TransparentUpgradeableProxy(implementation, owner, data));
 
         console2.log(name, "(impl) ->", implementation);
         console2.log(name, "(proxy) ->", proxy);

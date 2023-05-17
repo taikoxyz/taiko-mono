@@ -27,7 +27,6 @@ library TaikoData {
         uint64 maxEthDepositsPerBlock;
         uint96 maxEthDepositAmount;
         uint96 minEthDepositAmount;
-        uint64 proofTimeTarget;
         uint8 adjustmentQuotient;
         // // BITMAP for efficient iteration and flexible additions later
         // ZKP_ONLY,            // 0000 0001
@@ -47,6 +46,7 @@ library TaikoData {
         uint64 genesisTimestamp;
         uint64 numBlocks;
         uint64 proofTimeIssued;
+        uint64 proofTimeTarget;
         uint64 lastVerifiedBlockId;
         uint64 accProposedAt;
         uint64 nextEthDepositToProcess;
@@ -138,7 +138,12 @@ library TaikoData {
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint256 blockId_mode_ringBufferSize => Block) blocks;
         // solhint-disable-next-line max-line-length
-        mapping(uint256 blockId => mapping(bytes32 parentHash => mapping(uint32 parentGasUsed => uint256 forkChoiceId))) forkChoiceIds;
+        mapping(
+            uint256 blockId
+                => mapping(
+                    bytes32 parentHash => mapping(uint32 parentGasUsed => uint256 forkChoiceId)
+                )
+            ) forkChoiceIds;
         mapping(address account => uint256 balance) taikoTokenBalances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         EthDeposit[] ethDeposits;
@@ -157,7 +162,7 @@ library TaikoData {
         uint64 blockFee;
         uint64 proofTimeIssued;
         uint64 lastVerifiedBlockId;
-        uint64 __reserved91;
+        uint64 proofTimeTarget;
         // Reserved
         uint256[42] __gap;
     }

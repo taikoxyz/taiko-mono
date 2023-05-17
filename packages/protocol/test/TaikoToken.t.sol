@@ -16,17 +16,12 @@ contract TaikoTokenTest is Test {
     TaikoToken public tko;
     TaikoToken public tkoUpgradedImpl;
 
-    bytes32 public constant GENESIS_BLOCK_HASH =
-        keccak256("GENESIS_BLOCK_HASH");
+    bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
 
-    address public constant tokenAdmin =
-        0x200C9b60e19634E12FC6D68B7FeA7Bfb26c2e418;
-    address public constant protoBroker =
-        0x300C9b60E19634e12FC6D68B7FEa7bFB26c2E419;
-    address public constant TeamWallet =
-        0x300C9b60E19634e12FC6D68B7FEa7bFB26c2E419;
-    address public constant DaoTreasury =
-        0x400147C0Eb43D8D71b2B03037bB7B31f8f78EF5F;
+    address public constant tokenAdmin = 0x200C9b60e19634E12FC6D68B7FeA7Bfb26c2e418;
+    address public constant protoBroker = 0x300C9b60E19634e12FC6D68B7FEa7bFB26c2E419;
+    address public constant TeamWallet = 0x300C9b60E19634e12FC6D68B7FEa7bFB26c2E419;
+    address public constant DaoTreasury = 0x400147C0Eb43D8D71b2B03037bB7B31f8f78EF5F;
     address public constant Eve = 0x50081b12838240B1bA02b3177153Bca678a86078;
     address public constant Dave = 0x50081b12838240B1ba02b3177153bCA678a86079;
 
@@ -50,11 +45,7 @@ contract TaikoTokenTest is Test {
             bytes.concat(
                 tko.init.selector,
                 abi.encode(
-                    address(addressManager),
-                    "Taiko Token",
-                    "TKO",
-                    premintRecipients,
-                    premintAmounts
+                    address(addressManager), "Taiko Token", "TKO", premintRecipients, premintAmounts
                 )
             )
         );
@@ -272,10 +263,10 @@ contract TaikoTokenTest is Test {
         addressManager.setAddress(block.chainid, nameHash, addr);
     }
 
-    function deployViaProxy(
-        address implementation,
-        bytes memory data
-    ) internal returns (TransparentUpgradeableProxy proxy) {
+    function deployViaProxy(address implementation, bytes memory data)
+        internal
+        returns (TransparentUpgradeableProxy proxy)
+    {
         proxy = new TransparentUpgradeableProxy(
             implementation,
             tokenAdmin,
