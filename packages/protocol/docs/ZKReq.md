@@ -308,17 +308,17 @@ a_parent_gas_used[parentGasUsed]
 end
 
 subgraph L1Storage
-b_signal_root[signalRoot]
-b_l1_taiko_addr[taikoL1Address]
-b_l1_signal_service_addr[L1 signalServiceAddress]
+b_signal_root[/signalRoot/]
+b_l1_taiko_addr[/taikoL1Address/]
+b_l1_signal_service_addr[/L1 signalServiceAddress/]
 end
 
 
 subgraph L2Storage
-s_public_input_hash[publicInputHash]
-s_parent_timestamp[parentTimestamp]
-s_gas_excess[gasExcess]
-s_signal_root[signalRoot]
+s_public_input_hash[/publicInputHash/]
+s_parent_timestamp[/parentTimestamp/]
+s_gas_excess[/gasExcess/]
+s_signal_root[/signalRoot/]
 end
 
 
