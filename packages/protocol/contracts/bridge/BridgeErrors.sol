@@ -25,7 +25,7 @@ abstract contract BridgeErrors {
     error B_NULL_APP_ADDR();
     error B_OWNER_IS_NULL();
     error B_SIGNAL_NOT_RECEIVED();
-    error B_STATUS_MISMTACH();
+    error B_STATUS_MISMATCH();
     error B_WRONG_CHAIN_ID();
     error B_WRONG_TO_ADDRESS();
     error B_ZERO_SIGNAL();
