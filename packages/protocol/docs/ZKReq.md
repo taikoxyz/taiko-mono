@@ -229,7 +229,7 @@ s_gas_excess -.-> dot2 ---|calcBasefee| v_block_basefee;
 
 processed_deposits -.->|keccak| m_deposits_root -.- h_withdrawals_root;
 
-b_signal_root --- a_h1_signal_root;
+b_signal_root ---|MPT| a_h1_signal_root;
 h_gas_used --- e_gas_used;
 
 BlockMetadata -.->|keccak| dot4((" ")) --- e_meta_hash -.-> dot3((" ")) -.->|keccak| zk_instance;
