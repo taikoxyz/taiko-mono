@@ -311,6 +311,7 @@ subgraph L1Storage
 b_signal_root[/signalRoot/]
 b_l1_taiko_addr[/taikoL1Address/]
 b_l1_signal_service_addr[/L1 signalServiceAddress/]
+b_l2_signal_service_addr[/L2 signalServiceAddress/]
 end
 
 
