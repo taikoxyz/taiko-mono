@@ -189,7 +189,7 @@ library LibProving {
         });
     }
 
-    function overwriteForkChoice(
+    function setForkChoice(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
@@ -205,8 +205,16 @@ library LibProving {
         }
 
         TaikoData.Block storage blk = state.blocks[blockId % config.ringBufferSize];
-        //fcId in such case shall be always at array pos 1
+
+
+        // We make it so this will always be the first fork choice
         TaikoData.ForkChoice storage fc = blk.forkChoices[1];
+
+        // In case it was 0 (unproven) - it's fine we prove it here otherwise
+        // it does not matter if 2 or 3, only fk idx 1 is valid anyhow.
+        unchecked {
+            ++blk.nextForkChoiceId;
+        }
 
         fc.key = LibUtils.keyForForkChoice(evidence.parentHash, evidence.parentGasUsed);
 
