@@ -11,7 +11,10 @@
     "Ethereum",
     "ZKP",
     "zkRollup",
-    "Layer2"
+    "Layer2",
+    "Tailwindcss",
+    "Design",
+    "Guidelines"
   ],
   "author": "Taiko Labs",
   "license": "MIT",
