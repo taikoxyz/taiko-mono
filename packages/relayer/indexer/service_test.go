@@ -33,6 +33,7 @@ func newTestService() (*Service, relayer.Bridge) {
 		DestBridge:                    &mock.Bridge{},
 		SrcETHClient:                  &mock.EthClient{},
 		DestETHClient:                 &mock.EthClient{},
+		DestTokenVault:                &mock.TokenVault{},
 		ECDSAKey:                      privateKey,
 		DestHeaderSyncer:              &mock.HeaderSyncer{},
 		Prover:                        prover,

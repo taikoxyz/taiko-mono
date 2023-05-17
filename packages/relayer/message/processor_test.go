@@ -31,6 +31,7 @@ func newTestProcessor(profitableOnly relayer.ProfitableOnly) *Processor {
 		destBridge:                &mock.Bridge{},
 		srcEthClient:              &mock.EthClient{},
 		destEthClient:             &mock.EthClient{},
+		destTokenVault:            &mock.TokenVault{},
 		mu:                        &sync.Mutex{},
 		ecdsaKey:                  privateKey,
 		destHeaderSyncer:          &mock.HeaderSyncer{},

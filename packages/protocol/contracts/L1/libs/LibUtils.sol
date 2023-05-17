@@ -56,6 +56,7 @@ library LibUtils {
             genesisTimestamp: state.genesisTimestamp,
             numBlocks: state.numBlocks,
             proofTimeIssued: state.proofTimeIssued,
+            proofTimeTarget: state.proofTimeTarget,
             lastVerifiedBlockId: state.lastVerifiedBlockId,
             accProposedAt: state.accProposedAt,
             nextEthDepositToProcess: state.nextEthDepositToProcess,

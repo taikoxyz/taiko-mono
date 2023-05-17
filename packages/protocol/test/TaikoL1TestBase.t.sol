@@ -46,6 +46,7 @@ abstract contract TaikoL1TestBase is Test {
 
     // Calculation shall be done in derived contracts - based on testnet or mainnet expected proof time
     uint64 public initProofTimeIssued;
+    uint16 proofTimeTarget;
     uint8 public constant ADJUSTMENT_QUOTIENT = 16;
 
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
@@ -81,7 +82,20 @@ abstract contract TaikoL1TestBase is Test {
         registerAddress("proto_broker", address(L1));
 
         // Lastly, init L1
-        L1.init(address(addressManager), GENESIS_BLOCK_HASH, feeBase, initProofTimeIssued);
+        if (proofTimeTarget == 0 || initProofTimeIssued == 0) {
+            // This just means, these tests are not focusing on the tokenomics, which is fine!
+            // So here, with 500second proof time the initial proof time issued value shall be that below.
+            // Calculated with 'forge script script/DetermineNewProofTimeIssued.s.sol'
+            proofTimeTarget = 500;
+            initProofTimeIssued = 219263;
+        }
+        L1.init(
+            address(addressManager),
+            GENESIS_BLOCK_HASH,
+            feeBase,
+            proofTimeTarget,
+            initProofTimeIssued
+        );
         printVariables("init  ");
     }
 

@@ -17,6 +17,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/icrosschainsync"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/taikol1"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/tokenvault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/message"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/proof"
 )
@@ -65,6 +66,7 @@ type NewServiceOpts struct {
 	DestBridgeAddress             common.Address
 	SrcTaikoAddress               common.Address
 	DestTaikoAddress              common.Address
+	DestTokenVaultAddress         common.Address
 	SrcSignalServiceAddress       common.Address
 	BlockBatchSize                uint64
 	NumGoroutines                 int
@@ -124,12 +126,12 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 
 	srcBridge, err := bridge.NewBridge(opts.BridgeAddress, opts.EthClient)
 	if err != nil {
-		return nil, errors.Wrap(err, "contracts.NewBridge")
+		return nil, errors.Wrap(err, "bridge.NewBridge")
 	}
 
 	destBridge, err := bridge.NewBridge(opts.DestBridgeAddress, opts.DestEthClient)
 	if err != nil {
-		return nil, errors.Wrap(err, "contracts.NewBridge")
+		return nil, errors.Wrap(err, "bridge.NewBridge")
 	}
 
 	prover, err := proof.New(opts.EthClient)
@@ -139,15 +141,20 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 
 	destHeaderSyncer, err := icrosschainsync.NewICrossChainSync(opts.DestTaikoAddress, opts.DestEthClient)
 	if err != nil {
-		return nil, errors.Wrap(err, "contracts.NewTaikoL2")
+		return nil, errors.Wrap(err, "icrosschainsync.NewTaikoL2")
 	}
 
 	var taikoL1 *taikol1.TaikoL1
 	if opts.SrcTaikoAddress != ZeroAddress {
 		taikoL1, err = taikol1.NewTaikoL1(opts.SrcTaikoAddress, opts.EthClient)
 		if err != nil {
-			return nil, errors.Wrap(err, "contracts.NewTaikoL1")
+			return nil, errors.Wrap(err, "taikol1.NewTaikoL1")
 		}
+	}
+
+	destTokenVault, err := tokenvault.NewTokenVault(opts.DestTokenVaultAddress, opts.DestEthClient)
+	if err != nil {
+		return nil, errors.Wrap(err, "tokenvault.NewTokenVault")
 	}
 
 	processor, err := message.NewProcessor(message.NewProcessorOpts{
@@ -165,6 +172,7 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		HeaderSyncIntervalSeconds:     opts.HeaderSyncIntervalInSeconds,
 		SrcSignalServiceAddress:       opts.SrcSignalServiceAddress,
 		ConfirmationsTimeoutInSeconds: opts.ConfirmationsTimeoutInSeconds,
+		DestTokenVault:                destTokenVault,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "message.NewProcessor")
