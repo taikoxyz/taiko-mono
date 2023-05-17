@@ -3,19 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Design Guidelines and Components for Taiko",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [
-    "Ethereum",
-    "ZKP",
-    "zkRollup",
-    "Layer2",
-    "Tailwindcss",
-    "Design",
-    "Guidelines"
-  ],
   "author": "Taiko Labs",
   "license": "MIT",
   "devDependencies": {
