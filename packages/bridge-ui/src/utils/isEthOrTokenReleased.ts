@@ -10,7 +10,6 @@ import { providers } from '../provider/providers';
 import { bridgeABI, tokenVaultABI } from '../constants/abi';
 import { MessageStatus } from '../domain/message';
 
-// This only makes sense when the status if FAILED
 export async function isEthOrTokenReleased(
   bridgeTx: BridgeTransaction,
 ): Promise<boolean> {
