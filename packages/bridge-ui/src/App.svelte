@@ -6,9 +6,6 @@
   // import type { BridgeTransaction } from './domain/transactions';
 
   import SwitchEthereumChainModal from './components/modals/SwitchEthereumChainModal.svelte';
-  import { ethers } from 'ethers';
-  import { MessageStatus } from './domain/message';
-  import { bridgeABI } from './constants/abi';
   import { userTokens } from './store/userToken';
   // import { RelayerAPIService } from './relayer-api/RelayerAPIService';
   // import {
@@ -21,8 +18,7 @@
   //   relayerApi,
   //   relayerBlockInfoMap,
   // } from './store/relayerApi';
-  import { chains } from './chain/chains';
-  import { providers } from './provider/providers';
+  // import { providers } from './provider/providers';
   // import { RELAYER_URL } from './constants/envVars';
   import Router from './components/Router.svelte';
   import { storageService, tokenService } from './storage/services';

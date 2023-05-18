@@ -50,9 +50,9 @@
   let alreadyInformedAboutClaim = false;
 
   function setTxStatus(status: TxUIStatus) {
-    // If we want reactivity on props change, we need to
-    // create a new object, otherwise svelte won't detect
-    transaction = { ...transaction, status };
+    transaction.status = status;
+    // If we want reactivity on props change, we need to reassign (Svelte thing)
+    transaction = transaction;
   }
 
   async function onClaimClick() {
@@ -309,46 +309,32 @@
       <span slot="buttonText">
         {#if !processable}
           {$_('transaction.pending')}
-        {:else if loading || (!transaction.receipt && transaction.status === MessageStatus.New)}
+        {:else if loading}
           <div class="inline-block">
             <Loading />
           </div>
-        {:else if transaction.receipt && [MessageStatus.New, TxExtendedStatus.Claiming].includes(transaction.status)}
-          <!-- 
-            TODO: we need some destructuring here. 
-                  We keep on accessing transaction props
-                  over and over again.
-          -->
-          <Button
-            type="accent"
-            size="sm"
-            on:click={onClaimClick}
-            disabled={transaction.status === TxExtendedStatus.Claiming}>
+        {:else if transaction.status === MessageStatus.New}
+          <Button type="accent" size="sm" on:click={onClaimClick}>
             {$_('transaction.claim')}
           </Button>
         {:else if transaction.status === MessageStatus.Retriable}
-          <Button type="accent" size="sm" on:click={onClaimClick}>Retry</Button>
+          <Button type="accent" size="sm" on:click={onClaimClick}>
+            {$_('transaction.retry')}
+          </Button>
+        {:else if transaction.status === MessageStatus.Done}
+          <span class="border border-transparent p-0">
+            {$_('transaction.claimed')}
+          </span>
         {:else if transaction.status === MessageStatus.Failed}
-          <!-- todo: releaseTokens() on src bridge with proof from destBridge-->
           <Button
             type="accent"
             size="sm"
             on:click={async () => await releaseTokens(transaction)}>
             {$_('transaction.release')}
           </Button>
-        {:else if transaction.status === MessageStatus.Done}
-          <span class="border border-transparent p-0">
-            {$_('transaction.claimed')}
-          </span>
         {:else if transaction.status === TxExtendedStatus.Released}
           <span class="border border-transparent p-0">
             {$_('transaction.released')}
-          </span>
-        {:else if transaction.receipt && transaction.receipt.status !== 1}
-          <!-- TODO: make sure this is now respecting the correct flow -->
-          <!-- TODO: do we still need this? I don't think so. Check-->
-          <span class="border border-transparent p-0">
-            {$_('transaction.failed')}
           </span>
         {/if}
       </span>

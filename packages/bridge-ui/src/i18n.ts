@@ -24,6 +24,7 @@ function setupI18n({ withLocale: _locale } = { withLocale: 'en' }) {
       transaction: {
         pending: 'Pending',
         claim: 'Claim',
+        retry: 'Retry',
         release: 'Release',
         claimed: 'Claimed',
         released: 'Released',
