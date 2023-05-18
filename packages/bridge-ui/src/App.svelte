@@ -3,7 +3,7 @@
 
   import { transactions } from './store/transactions';
   import Navbar from './components/Navbar.svelte';
-  import Toast, { successToast } from './components/Toast.svelte';
+  import Toast from './components/Toast.svelte';
   import { signer } from './store/signer';
   // import type { BridgeTransaction } from './domain/transactions';
 
@@ -78,63 +78,6 @@
       userTokens.set(tokens);
     }
   });
-
-  // TODO: WHAT?? why do we even need this?
-  //       So basically, we are watching for transactions that
-  //       are turning DONE, to inform the user of a successful
-  //       transaction bridge. But we are basically doing the
-  //       same when we create a transaction. Besides, we have a
-  //       crazy logic here to prevent creating multiple intervals.
-
-  // const transactionToIntervalMap = new Map();
-
-  // transactions.subscribe((bridgeTxs) => {
-  //   log('Bridge transactions', bridgeTxs);
-
-  //   if (bridgeTxs) {
-  //     bridgeTxs.forEach((tx) => {
-  //       const txInterval = transactionToIntervalMap.get(tx.hash);
-
-  //       if (txInterval) {
-  //         clearInterval(txInterval);
-  //         transactionToIntervalMap.delete(tx.hash);
-  //       }
-
-  //       if (tx.status === MessageStatus.New) {
-  //         const destChain = chains[tx.toChainId];
-  //         const destProvider = providers[tx.toChainId];
-
-  //         const interval = setInterval(async () => {
-  //           const txInterval = transactionToIntervalMap.get(tx.hash);
-
-  //           if (txInterval !== interval) {
-  //             clearInterval(txInterval);
-  //             transactionToIntervalMap.delete(tx.hash);
-  //           }
-
-  //           transactionToIntervalMap.set(tx.hash, interval);
-  //           if (!tx.msgHash) return;
-
-  //           const destBridgeContract = new ethers.Contract(
-  //             destChain.bridgeAddress,
-  //             bridgeABI,
-  //             destProvider,
-  //           );
-
-  //           const messageStatus: MessageStatus =
-  //             await destBridgeContract.getMessageStatus(tx.msgHash);
-
-  //           if (messageStatus === MessageStatus.Done) {
-  //             successToast('Bridge message processed successfully');
-  //             const txOngoingInterval = transactionToIntervalMap.get(tx.hash);
-  //             clearInterval(txOngoingInterval);
-  //             transactionToIntervalMap.delete(tx.hash);
-  //           }
-  //         }, 20 * 1000);
-  //       }
-  //     });
-  //   }
-  // });
 
   onMount(startWatching);
   onDestroy(stopWatching);
