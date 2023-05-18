@@ -30,6 +30,9 @@
   import { storageService, tokenService } from './storage/services';
   import { startWatching, stopWatching } from './wagmi/watcher';
   import { onDestroy, onMount } from 'svelte';
+  import { getLogger } from './utils/logger';
+
+  const log = getLogger('component:App');
 
   // const relayerApiService: RelayerAPI = new RelayerAPIService(
   //   RELAYER_URL,
@@ -76,50 +79,62 @@
     }
   });
 
-  const transactionToIntervalMap = new Map();
+  // TODO: WHAT?? why do we even need this?
+  //       So basically, we are watching for transactions that
+  //       are turning DONE, to inform the user of a successful
+  //       transaction bridge. But we are basically doing the
+  //       same when we create a transaction. Besides, we have a
+  //       crazy logic here to prevent creating multiple intervals.
 
-  transactions.subscribe((store) => {
-    if (store) {
-      store.forEach((tx) => {
-        const txInterval = transactionToIntervalMap.get(tx.hash);
-        if (txInterval) {
-          clearInterval(txInterval);
-          transactionToIntervalMap.delete(tx.hash);
-        }
+  // const transactionToIntervalMap = new Map();
 
-        if (tx.status === MessageStatus.New) {
-          const provider = providers[tx.toChainId];
+  // transactions.subscribe((bridgeTxs) => {
+  //   log('Bridge transactions', bridgeTxs);
 
-          const interval = setInterval(async () => {
-            const txInterval = transactionToIntervalMap.get(tx.hash);
-            if (txInterval !== interval) {
-              clearInterval(txInterval);
-              transactionToIntervalMap.delete(tx.hash);
-            }
+  //   if (bridgeTxs) {
+  //     bridgeTxs.forEach((tx) => {
+  //       const txInterval = transactionToIntervalMap.get(tx.hash);
 
-            transactionToIntervalMap.set(tx.hash, interval);
-            if (!tx.msgHash) return;
+  //       if (txInterval) {
+  //         clearInterval(txInterval);
+  //         transactionToIntervalMap.delete(tx.hash);
+  //       }
 
-            const contract = new ethers.Contract(
-              chains[tx.toChainId].bridgeAddress,
-              bridgeABI,
-              provider,
-            );
+  //       if (tx.status === MessageStatus.New) {
+  //         const destChain = chains[tx.toChainId];
+  //         const destProvider = providers[tx.toChainId];
 
-            const messageStatus: MessageStatus =
-              await contract.getMessageStatus(tx.msgHash);
+  //         const interval = setInterval(async () => {
+  //           const txInterval = transactionToIntervalMap.get(tx.hash);
 
-            if (messageStatus === MessageStatus.Done) {
-              successToast('Bridge message processed successfully');
-              const txOngoingInterval = transactionToIntervalMap.get(tx.hash);
-              clearInterval(txOngoingInterval);
-              transactionToIntervalMap.delete(tx.hash);
-            }
-          }, 20 * 1000);
-        }
-      });
-    }
-  });
+  //           if (txInterval !== interval) {
+  //             clearInterval(txInterval);
+  //             transactionToIntervalMap.delete(tx.hash);
+  //           }
+
+  //           transactionToIntervalMap.set(tx.hash, interval);
+  //           if (!tx.msgHash) return;
+
+  //           const destBridgeContract = new ethers.Contract(
+  //             destChain.bridgeAddress,
+  //             bridgeABI,
+  //             destProvider,
+  //           );
+
+  //           const messageStatus: MessageStatus =
+  //             await destBridgeContract.getMessageStatus(tx.msgHash);
+
+  //           if (messageStatus === MessageStatus.Done) {
+  //             successToast('Bridge message processed successfully');
+  //             const txOngoingInterval = transactionToIntervalMap.get(tx.hash);
+  //             clearInterval(txOngoingInterval);
+  //             transactionToIntervalMap.delete(tx.hash);
+  //           }
+  //         }, 20 * 1000);
+  //       }
+  //     });
+  //   }
+  // });
 
   onMount(startWatching);
   onDestroy(stopWatching);

@@ -2,11 +2,21 @@ import type { BigNumber, ethers } from 'ethers';
 import type { ChainID } from './chain';
 import type { Message, MessageStatus } from './message';
 
+// We need this enums for the UI
+export enum TxExtendedStatus {
+  Pending = 'Pending',
+  Claiming = 'Claiming',
+  Releasing = 'Releasing',
+  Released = 'Released',
+}
+
+export type TxUIStatus = MessageStatus | TxExtendedStatus;
+
 export type BridgeTransaction = {
   hash: string;
   from: string;
   receipt?: ethers.providers.TransactionReceipt;
-  status: MessageStatus;
+  status: TxUIStatus;
   msgHash?: string;
   message?: Message;
   interval?: NodeJS.Timer;

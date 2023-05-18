@@ -6,8 +6,6 @@ export enum MessageStatus {
   Retriable,
   Done,
   Failed,
-  FailedReleased,
-  ClaimInProgress,
 }
 
 export type Message = {

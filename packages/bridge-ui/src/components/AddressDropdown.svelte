@@ -6,7 +6,6 @@
   import { signer } from '../store/signer';
   import { pendingTransactions } from '../store/transactions';
   import { getAddressAvatarFromIdenticon } from '../utils/addressAvatar';
-  import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
   import { ethers, type Signer } from 'ethers';
   import { ClipboardDocument, Power } from 'svelte-heros-v2';
   import { slide } from 'svelte/transition';
@@ -15,6 +14,7 @@
   import { ChevronDown } from 'svelte-heros-v2';
   import { errorToast, successToast } from './Toast.svelte';
   import { stopWatching } from '../wagmi/watcher';
+  import Loading from './Loading.svelte';
 
   let address: string = '';
   let addressAvatarImgData: string = '';
@@ -69,16 +69,7 @@
       {#if $pendingTransactions && $pendingTransactions.length}
         <span>{$pendingTransactions.length} Pending</span>
         <div class="inline-block ml-2">
-          <LottiePlayer
-            src="/lottie/loader.json"
-            autoplay={true}
-            loop={true}
-            controls={false}
-            renderer="svg"
-            background="transparent"
-            height={26}
-            width={26}
-            controlsLayout={[]} />
+          <Loading />
         </div>
       {:else}
         <img

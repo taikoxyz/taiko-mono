@@ -13,6 +13,11 @@
       return;
     }
 
+    if (chain === $fromChain) {
+      // Already on this chain
+      return;
+    }
+
     try {
       await selectChain(chain);
       successToast('Successfully changed chain');

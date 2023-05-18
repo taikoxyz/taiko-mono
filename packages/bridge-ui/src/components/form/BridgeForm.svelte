@@ -1,7 +1,5 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
-  import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
-
   import { token } from '../../store/token';
   import { fromChain, toChain } from '../../store/chain';
   import { activeBridge, bridgeType } from '../../store/bridge';
@@ -40,6 +38,7 @@
   import { storageService } from '../../storage/services';
   import { getLogger } from '../../utils/logger';
   import { getAddressForToken } from '../../utils/getAddressForToken';
+  import Loading from '../Loading.svelte';
 
   const log = getLogger('component:BridgeForm');
 
@@ -79,12 +78,12 @@
           );
         } catch (error) {
           console.error(error);
-          tokenBalance = '0';
+          tokenBalance = '0.0';
           return;
         }
 
         if (address == ethers.constants.AddressZero) {
-          tokenBalance = '0';
+          tokenBalance = '0.0';
           return;
         }
 
@@ -98,7 +97,7 @@
           log(`${token.symbol} balance`, tokenBalance);
         } catch (error) {
           console.error(error);
-          tokenBalance = '0';
+          tokenBalance = '0.0';
           throw Error(`Failed to get balance for ${token.symbol}`, {
             cause: error,
           });
@@ -457,7 +456,8 @@
     .then((allowance) => (requiresAllowance = allowance))
     .catch((error) => {
       console.error(error);
-      errorToast($_('toast.errorCheckingAllowance'));
+      // errorToast($_('toast.errorCheckingAllowance'));
+      requiresAllowance = true;
     });
 
   // TODO: we need to simplify this crazy condition
@@ -531,16 +531,7 @@
 
 {#if loading}
   <Button type="accent" size="lg" class="w-full" disabled={true}>
-    <LottiePlayer
-      src="/lottie/loader.json"
-      autoplay={true}
-      loop={true}
-      controls={false}
-      renderer="svg"
-      background="transparent"
-      height={26}
-      width={26}
-      controlsLayout={[]} />
+    <Loading />
   </Button>
 {:else if !requiresAllowance}
   <Button
