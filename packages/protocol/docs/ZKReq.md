@@ -114,7 +114,7 @@ The following [**block level variables**](https://docs.soliditylang.org/en/v0.8.
 - `block.gaslimit` (`uint`): current block gaslimit
 - `block.number` (`uint`): current block number
 - `block.prevrandao` (`uint`): random number provided by the beacon chain
-- `block.timestamp` (`uint`): current block timestamp as seconds since Unix epoch
+- `block.timestamp` (`uint`): current block timestamp in seconds since the Unix epoch
 
 We need to verify when these variables are accessed within the EVM, their values are consistent with the current world state, the block's metadata and the actual L2 block's block header:
 
