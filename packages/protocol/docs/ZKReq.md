@@ -35,7 +35,7 @@ Note that the data of `txList` cannot be assumed to be directly accessible to L1
 
 Every L2 block has exactly one anchor function call as its first transaction.
 
-ZKP must prove that _TaikoL2.anchor(...)_ is the first transaction in the block, with the correct input parameters and gas limit, signed by the gold-touch address, and that the transaction did not throw.
+The ZKP must prove that _TaikoL2.anchor(...)_ is the first transaction in the block, with the correct input parameters and gas limit, signed by the so called golden-touch address, and that the transaction executed successfully.
 
 - The anchor transaction's `to` address must be the registered `taiko_l2` address, which is hashed into the ZKP `instance`. And the `tx.origin` must be the golden touch address.
 - The anchor transaction's ABI must be:
