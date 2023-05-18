@@ -94,7 +94,7 @@
           );
           tokenBalance = ethers.utils.formatUnits(userBalance, token.decimals);
 
-          log(`${token.symbol} balance`, tokenBalance);
+          log(`${token.symbol} balance is ${tokenBalance}`);
         } catch (error) {
           console.error(error);
           tokenBalance = '0.0';
