@@ -63,7 +63,7 @@ abstract contract TaikoL1TestBase is Test {
 
         registerAddress("signal_service", address(ss));
         registerAddress("ether_vault", address(L1EthVault));
-        registerL2Address("treasure", L2Treasure);
+        registerL2Address("treasury", L2Treasure);
         registerL2Address("taiko", address(TaikoL2));
         registerL2Address("signal_service", address(L2SS));
         registerL2Address("taiko_l2", address(TaikoL2));
@@ -130,7 +130,7 @@ abstract contract TaikoL1TestBase is Test {
         meta.txListByteEnd = txListSize;
         meta.gasLimit = gasLimit;
         meta.beneficiary = proposer;
-        meta.treasure = L2Treasure;
+        meta.treasury = L2Treasure;
 
         vm.prank(proposer, proposer);
         meta = L1.proposeBlock(abi.encode(input), txList);

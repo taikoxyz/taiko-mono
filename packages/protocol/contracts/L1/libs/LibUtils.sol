@@ -95,7 +95,7 @@ library LibUtils {
             | (uint256(meta.gasLimit) << 176) | (uint256(uint160(meta.beneficiary)) << 16)
             | (uint256(meta.cacheTxListInfo) << 8);
 
-        inputs[6] = (uint256(uint160(meta.treasure)) << 96);
+        inputs[6] = (uint256(uint160(meta.treasury)) << 96);
 
         // Ignoring `meta.depositsProcessed` as `meta.depositsRoot`
         // is a hash of it.
