@@ -38,7 +38,7 @@ contract DeployOnL1 is Script {
 
     address public sharedSignalService = vm.envAddress("SHARED_SIGNAL_SERVICE");
 
-    address public treasury = vm.envAddress("TREASURE");
+    address public treasury = vm.envAddress("TREASURY");
 
     address public taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
 
