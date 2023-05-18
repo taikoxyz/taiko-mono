@@ -4,7 +4,7 @@
   import { fromChain, toChain } from '../../store/chain';
   import { activeBridge, bridgeType } from '../../store/bridge';
   import { signer } from '../../store/signer';
-  import { BigNumber, Contract, ethers, Signer } from 'ethers';
+  import { BigNumber, Contract, ethers, type Signer } from 'ethers';
   import ProcessingFee from './ProcessingFee';
   import SelectToken from '../buttons/SelectToken.svelte';
 
@@ -18,7 +18,7 @@
     transactions as transactionsStore,
   } from '../../store/transactions';
   import Memo from './Memo.svelte';
-  import { erc20ABI, tokenVaultABI } from '../../constants/abi';
+  import { erc20ABI } from '../../constants/abi';
   import type { BridgeTransaction } from '../../domain/transactions';
   import { MessageStatus } from '../../domain/message';
   import { Funnel } from 'svelte-heros-v2';
@@ -45,7 +45,7 @@
   let amount: string;
   let amountInput: HTMLInputElement;
   let requiresAllowance: boolean = false;
-  let btnDisabled: boolean = true;
+  let buttonDisabled: boolean = true;
   let tokenBalance: string;
   let memo: string = '';
   let loading: boolean = false;
@@ -59,7 +59,7 @@
   // TODO: too much going on here. We need to extract
   //       logic and unit test the hell out of all this.
 
-  async function getUserBalance(signer: ethers.Signer, token: Token) {
+  async function updateTokenBalance(signer: Signer, token: Token) {
     if (signer && token) {
       if (token.symbol == ETHToken.symbol) {
         const userBalance = await signer.getBalance('latest');
@@ -89,15 +89,19 @@
 
         try {
           const tokenContract = new Contract(address, erc20ABI, signer);
-          const userBalance = await tokenContract.balanceOf(
+
+          const balance = await tokenContract.balanceOf(
             await signer.getAddress(),
           );
-          tokenBalance = ethers.utils.formatUnits(userBalance, token.decimals);
+
+          tokenBalance = ethers.utils.formatUnits(balance, token.decimals);
 
           log(`${token.symbol} balance is ${tokenBalance}`);
         } catch (error) {
           console.error(error);
+
           tokenBalance = '0.0';
+
           throw Error(`Failed to get balance for ${token.symbol}`, {
             cause: error,
           });
@@ -131,42 +135,42 @@
       spenderAddress: tokenVaults[fromChain.id],
     });
 
-    log(`Token ${token.symbol} requires allowance:`, allowance);
+    log(`Token ${token.symbol} requires allowance ${allowance}`);
 
     return allowance;
   }
 
-  async function isBtnDisabled(
+  async function checkButtonAbility(
     signer: Signer,
     amount: string,
     token: Token,
     tokenBalance: string,
-    requiresAllowance: boolean,
     memoError: string,
     fromChain: Chain,
   ) {
-    if (!signer) return true;
-    if (!tokenBalance) return true;
-    if (!fromChain) return true;
-    const chainId = fromChain.id;
-
-    if (!chainId || !chains[chainId.toString()]) return true;
-
-    if (!(await isOnCorrectChain(signer, fromChain.id))) return true;
-
-    if (!amount || ethers.utils.parseUnits(amount).eq(BigNumber.from(0)))
-      return true;
-    if (isNaN(parseFloat(amount))) return true;
-
     if (
-      BigNumber.from(ethers.utils.parseUnits(tokenBalance, token.decimals)).lt(
-        ethers.utils.parseUnits(amount, token.decimals),
-      )
+      !signer ||
+      !amount ||
+      !tokenBalance ||
+      !fromChain ||
+      !chains[fromChain.id]
     )
       return true;
-    if (memoError) {
+
+    const isCorrectChain = await isOnCorrectChain(signer, fromChain.id);
+    if (!isCorrectChain) return true;
+
+    if (
+      isNaN(parseFloat(amount)) ||
+      ethers.utils.parseUnits(amount).eq(BigNumber.from(0))
+    )
       return true;
-    }
+
+    const parsedBalance = ethers.utils.parseUnits(tokenBalance, token.decimals);
+    const parsedAmount = ethers.utils.parseUnits(amount, token.decimals);
+    if (BigNumber.from(parsedBalance).lt(parsedAmount)) return true;
+
+    if (memoError) return true;
 
     return false;
   }
@@ -214,9 +218,7 @@
     }
   }
 
-  async function checkUserHasEnoughBalance(
-    bridgeOpts: BridgeOpts,
-  ): Promise<boolean> {
+  async function checkUserHasEnoughBalance(bridgeOpts: BridgeOpts) {
     const gasEstimate = await $activeBridge.EstimateGas({
       ...bridgeOpts,
       // We need an amount, and user might not have entered one at this point
@@ -269,6 +271,7 @@
       const provider = providers[$toChain.id];
       const destTokenVaultAddress = tokenVaults[$toChain.id];
 
+      // TODO: remove this, and move this check to the ERC20 bridge directly
       let isBridgedTokenAlreadyDeployed =
         await checkIfTokenIsDeployedCrossChain(
           $token,
@@ -326,8 +329,6 @@
 
       const userAddress = await $signer.getAddress();
 
-      log('Storing transaction in local storage...');
-
       let transactions: BridgeTransaction[] =
         await storageService.getAllByAddress(userAddress);
 
@@ -355,7 +356,7 @@
 
       const allTransactions = $transactionsStore;
 
-      // get full BridgeTransaction object
+      // Get full BridgeTransaction object
       bridgeTransaction = await storageService.getTransactionByHash(
         userAddress,
         tx.hash,
@@ -367,8 +368,11 @@
 
       log('All transactions in store', $transactionsStore);
 
-      amountInput.value = '';
+      // Update balance of the selected token
+      await updateTokenBalance($signer, $token);
+
       memo = '';
+      amountInput.value = '';
 
       successToast($_('toast.transactionCompleted'));
     } catch (e) {
@@ -426,8 +430,9 @@
     }
   }
 
-  function updateAmount(e: any) {
-    amount = (e.target.value as number).toString();
+  function updateAmount(event: Event) {
+    const target = event.target as HTMLInputElement;
+    amount = target.value;
   }
 
   function getProcessingFee() {
@@ -438,38 +443,46 @@
     return BigNumber.from(ethers.utils.parseEther(feeAmount));
   }
 
-  $: getUserBalance($signer, $token);
+  function shouldShowFaucet(
+    fromChain: Chain,
+    token: Token,
+    signer: Signer,
+    tokenBalance: string,
+  ) {
+    return (
+      fromChain && // chain selected?
+      fromChain.id === L1_CHAIN_ID && // are we in L1?
+      token.symbol !== ETHToken.symbol && // bridging ERC20?
+      signer && // wallet connected?
+      tokenBalance &&
+      ethers.utils
+        .parseUnits(tokenBalance, token.decimals)
+        .eq(BigNumber.from(0)) // balance == 0?
+    );
+  }
 
-  $: isBtnDisabled(
+  $: updateTokenBalance($signer, $token);
+
+  $: checkButtonAbility(
     $signer,
     amount,
     $token,
     tokenBalance,
-    requiresAllowance,
     memoError,
     $fromChain,
   )
-    .then((d) => (btnDisabled = d))
-    .catch((e) => console.error(e));
+    .then((disabled) => (buttonDisabled = disabled))
+    .catch((error) => console.error(error));
 
   $: checkAllowance(amount, $token, $bridgeType, $fromChain, $signer)
-    .then((allowance) => (requiresAllowance = allowance))
+    .then((allowed) => (requiresAllowance = allowed))
     .catch((error) => {
       console.error(error);
       // errorToast($_('toast.errorCheckingAllowance'));
       requiresAllowance = false;
     });
 
-  // TODO: we need to simplify this crazy condition
-  $: showFaucet =
-    $fromChain && // chain selected?
-    $fromChain.id === L1_CHAIN_ID && // are we in L1?
-    $token.symbol !== ETHToken.symbol && // bridging ERC20?
-    $signer && // wallet connected?
-    tokenBalance &&
-    ethers.utils
-      .parseUnits(tokenBalance, $token.decimals)
-      .eq(BigNumber.from(0)); // balance == 0?
+  $: showFaucet = shouldShowFaucet($fromChain, $token, $signer, tokenBalance);
 </script>
 
 <div class="form-control my-10 md:my-8">
@@ -519,7 +532,7 @@
   </div>
 
   <FaucetModal
-    onMint={() => getUserBalance($signer, $token)}
+    onMint={() => updateTokenBalance($signer, $token)}
     bind:isOpen={isFaucetModalOpen} />
 {/if}
 
@@ -539,7 +552,7 @@
     size="lg"
     class="w-full"
     on:click={bridge}
-    disabled={btnDisabled}>
+    disabled={buttonDisabled}>
     {$_('home.bridge')}
   </Button>
 {:else}
@@ -547,7 +560,7 @@
     type="accent"
     class="w-full"
     on:click={approve}
-    disabled={btnDisabled}>
+    disabled={buttonDisabled}>
     {$_('home.approve')}
   </Button>
 {/if}

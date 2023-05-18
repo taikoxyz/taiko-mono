@@ -38,6 +38,8 @@ function setupI18n({ withLocale: _locale } = { withLocale: 'en' }) {
         errorDisconnecting: 'Could not disconnect',
         errorInsufficientBalance: 'Insufficient ETH balance',
         errorCheckingAllowance: 'Error checking allowance',
+        fundsClaimed: 'Funds claimed successfully!',
+        fundsReleased: 'Funds released successfully!',
       },
       switchChainModal: {
         title: 'Not on the right network',

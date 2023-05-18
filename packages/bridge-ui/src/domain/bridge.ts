@@ -27,7 +27,10 @@ export type BridgeOpts = {
   processingFeeInWei?: BigNumber;
   tokenId?: string;
   memo?: string;
+
+  // TODO: remove this, and move this check to the ERC20 bridge directly
   isBridgedTokenAlreadyDeployed?: boolean;
+
   to: string;
 };
 

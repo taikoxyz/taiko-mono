@@ -238,12 +238,17 @@
 
       setTxStatus(msgStatus);
 
+      if (msgStatus === MessageStatus.Done) {
+        successToast($_('toast.fundsClaimed'));
+      }
+
       if (msgStatus === MessageStatus.Failed) {
         // Let's check if we have already released the locked funds
         const isFailedMessageResolved = await isEthOrTokenReleased(transaction);
 
         if (isFailedMessageResolved) {
           setTxStatus(TxExtendedStatus.Released);
+          successToast($_('toast.fundsReleased'));
         }
       }
 
