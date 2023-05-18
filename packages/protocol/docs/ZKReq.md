@@ -181,7 +181,7 @@ ZKP also needs to prove cross chain signal service’s storage roots have the ri
 
 - **For L2 Signal Service**: the L1 storage root of the signal service is the second parameter in the anchor transaction. The ZKP shall verify that the storage root of the L1 Signal Service address has the given value by using an MPT proof against the state root stored in `meta.l1Hash` for the `l1SignalServiceAddress` account. This MPT proof must be queried by the L2 client from an L1 node .
 
-- **For L1 Signal Service**: the storage root verification will be done in the circuits by using a Merkle proof against the `meta.l1Hash`, the `l1SignalRoot` value is not directly available in the L1 smart contracts. This MPT proof must be queried from an L1 node by the L2 client.
+- **For L1 Signal Service**: the L2 storage root verification will be done in the circuits by using an MPT proof against the post block state root for the `l2SignalServiceAddress` account.
 
 ### LibProving Verification
 
