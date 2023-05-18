@@ -106,9 +106,6 @@ dist
 # macOS
 .DS_Store
 
-# vscode
-.vscode/
-
 # python
 __pycache__/
 

@@ -3,9 +3,9 @@
   import { ArrowRight } from 'svelte-heros-v2';
   import { fromChain, toChain } from '../../store/chain';
   import { signer } from '../../store/signer';
-  import { ethers } from 'ethers';
   import { mainnetChain, taikoChain } from '../../chain/chains';
   import { errorToast, successToast } from '../Toast.svelte';
+  import { selectChain } from '../../utils/selectChain';
 
   const toggleChains = async () => {
     if (!$signer) {
@@ -13,21 +13,10 @@
       return;
     }
 
+    const chain = $fromChain === mainnetChain ? taikoChain : mainnetChain;
+
     try {
-      const chain = $fromChain === mainnetChain ? taikoChain : mainnetChain;
-      await switchNetwork({
-        chainId: chain.id,
-      });
-      const provider = new ethers.providers.Web3Provider(
-        window.ethereum,
-        'any',
-      );
-      await provider.send('eth_requestAccounts', []);
-
-      fromChain.set(chain);
-      toChain.set(chain === mainnetChain ? taikoChain : mainnetChain);
-
-      signer.set(provider.getSigner());
+      await selectChain(chain);
       successToast('Successfully changed chain');
     } catch (e) {
       console.error(e);

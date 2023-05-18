@@ -6,14 +6,9 @@
 
 pragma solidity ^0.8.18;
 
-// solhint-disable-next-line max-line-length
-import {
-    SafeERC20Upgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import {
-    Create2Upgradeable
-} from "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
-
+import {SafeERC20Upgradeable} from
+    "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {Create2Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {Proxied} from "../common/Proxied.sol";
 import {LibAddress} from "../libs/LibAddress.sol";
@@ -29,24 +24,24 @@ import {BridgeErrors} from "./BridgeErrors.sol";
 contract EtherVault is EssentialContract, BridgeErrors {
     using LibAddress for address;
 
-    /*********************
-     * State Variables   *
-     *********************/
+    /*//////////////////////////////////////////////////////////////
+                            STATE VARIABLES
+    //////////////////////////////////////////////////////////////*/
 
     mapping(address addr => bool isAuthorized) private _authorizedAddrs;
     uint256[49] private __gap;
 
-    /*********************
-     * Events            *
-     *********************/
+    /*//////////////////////////////////////////////////////////////
+                                 EVENTS
+    //////////////////////////////////////////////////////////////*/
 
     event Authorized(address indexed addr, bool authorized);
 
     event EtherReleased(address indexed to, uint256 amount);
 
-    /*********************
-     * Modifiers         *
-     *********************/
+    /*//////////////////////////////////////////////////////////////
+                               MODIFIERS
+    //////////////////////////////////////////////////////////////*/
 
     modifier onlyAuthorized() {
         if (!isAuthorized(msg.sender)) {
@@ -55,9 +50,9 @@ contract EtherVault is EssentialContract, BridgeErrors {
         _;
     }
 
-    /*********************
-     * External Functions*
-     *********************/
+    /*//////////////////////////////////////////////////////////////
+                         USER-FACING FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     receive() external payable {
         // EthVault's balance must == 0 OR the sender isAuthorized.
@@ -69,10 +64,6 @@ contract EtherVault is EssentialContract, BridgeErrors {
     function init(address addressManager) external initializer {
         EssentialContract._init(addressManager);
     }
-
-    /*********************
-     * Public Functions  *
-     *********************/
 
     /**
      * Transfer Ether from EtherVault to the sender, checking that the sender
@@ -90,10 +81,7 @@ contract EtherVault is EssentialContract, BridgeErrors {
      * @param recipient Address to receive Ether.
      * @param amount Amount of ether to send.
      */
-    function releaseEther(
-        address recipient,
-        uint256 amount
-    ) public onlyAuthorized nonReentrant {
+    function releaseEther(address recipient, uint256 amount) public onlyAuthorized nonReentrant {
         if (recipient == address(0)) {
             revert B_EV_DO_NOT_BURN();
         }

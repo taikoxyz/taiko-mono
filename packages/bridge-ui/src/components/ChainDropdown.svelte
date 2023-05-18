@@ -1,26 +1,25 @@
 <script lang="ts">
-  import { fromChain, toChain } from '../store/chain';
-  import type { Chain } from '../domain/chain';
-  import { ethers } from 'ethers';
-  import { signer } from '../store/signer';
-  import { switchNetwork } from '@wagmi/core';
+  import { fromChain } from '../store/chain';
   import { ChevronDown, ExclamationTriangle } from 'svelte-heros-v2';
   import { mainnetChain, taikoChain } from '../chain/chains';
+  import { selectChain } from '../utils/selectChain';
+  import type { Chain } from '../domain/chain';
+  import { errorToast, successToast } from './Toast.svelte';
+  import { signer } from '../store/signer';
 
-  const changeChain = async (chain: Chain) => {
-    await switchNetwork({
-      chainId: chain.id,
-    });
-    const provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
-    await provider.send('eth_requestAccounts', []);
-
-    fromChain.set(chain);
-    if (chain === mainnetChain) {
-      toChain.set(taikoChain);
-    } else {
-      toChain.set(mainnetChain);
+  const switchChains = async (chain: Chain) => {
+    if (!$signer) {
+      errorToast('Please connect your wallet');
+      return;
     }
-    signer.set(provider.getSigner());
+
+    try {
+      await selectChain(chain);
+      successToast('Successfully changed chain');
+    } catch (e) {
+      console.error(e);
+      errorToast('Error switching chain');
+    }
   };
 </script>
 
@@ -50,9 +49,7 @@
     <li>
       <button
         class="flex items-center px-2 py-4 hover:bg-dark-5 rounded-xl justify-around"
-        on:click={async () => {
-          await changeChain(mainnetChain);
-        }}>
+        on:click={() => switchChains(mainnetChain)}>
         <svelte:component this={mainnetChain.icon} height={24} />
         <span class="pl-1.5 text-left flex-1">{mainnetChain.name}</span>
       </button>
@@ -60,9 +57,7 @@
     <li>
       <button
         class="flex items-center px-2 py-4 hover:bg-dark-5 rounded-xl justify-around"
-        on:click={async () => {
-          await changeChain(taikoChain);
-        }}>
+        on:click={() => switchChains(taikoChain)}>
         <svelte:component this={taikoChain.icon} height={24} />
         <span class="pl-1.5 text-left flex-1">{taikoChain.name}</span>
       </button>

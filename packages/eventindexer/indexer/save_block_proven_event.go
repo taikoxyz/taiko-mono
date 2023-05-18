@@ -31,6 +31,8 @@ func (svc *Service) saveBlockProvenEvents(
 		log.Infof("blockProven by: %v", event.Prover.Hex())
 
 		if err := svc.saveBlockProvenEvent(ctx, chainID, event); err != nil {
+			eventindexer.BlockProvenEventsProcessedError.Inc()
+
 			return errors.Wrap(err, "svc.saveBlockProvenEvent")
 		}
 
@@ -60,6 +62,8 @@ func (svc *Service) saveBlockProvenEvent(
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.Save")
 	}
+
+	eventindexer.BlockProvenEventsProcessed.Inc()
 
 	return nil
 }

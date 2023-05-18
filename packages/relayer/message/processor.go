@@ -20,6 +20,7 @@ type ethClient interface {
 	HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error)
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 }
+
 type Processor struct {
 	eventRepo     relayer.EventRepository
 	srcEthClient  ethClient
@@ -29,6 +30,7 @@ type Processor struct {
 
 	destBridge       relayer.Bridge
 	destHeaderSyncer relayer.HeaderSyncer
+	destTokenVault   relayer.TokenVault
 
 	prover *proof.Prover
 
@@ -54,6 +56,7 @@ type NewProcessorOpts struct {
 	DestBridge                    relayer.Bridge
 	EventRepo                     relayer.EventRepository
 	DestHeaderSyncer              relayer.HeaderSyncer
+	DestTokenVault                relayer.TokenVault
 	RelayerAddress                common.Address
 	SrcSignalServiceAddress       common.Address
 	Confirmations                 uint64
@@ -114,6 +117,7 @@ func NewProcessor(opts NewProcessorOpts) (*Processor, error) {
 		destEthClient:    opts.DestETHClient,
 		destBridge:       opts.DestBridge,
 		destHeaderSyncer: opts.DestHeaderSyncer,
+		destTokenVault:   opts.DestTokenVault,
 
 		mu: &sync.Mutex{},
 

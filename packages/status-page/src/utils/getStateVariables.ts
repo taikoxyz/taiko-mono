@@ -5,6 +5,7 @@ const cacheTime = 1000 * 15; // 15 seconds
 type StateVarsCache = {
   cachedAt: number;
   stateVars: any;
+  chainId: number;
 };
 
 let stateVarsCache: StateVarsCache;
@@ -13,7 +14,12 @@ export const getStateVariables = async (
   provider: ethers.providers.JsonRpcProvider,
   contractAddress: string
 ) => {
-  if (stateVarsCache && stateVarsCache.cachedAt + cacheTime > Date.now()) {
+  const { chainId } = await provider.getNetwork();
+  if (
+    stateVarsCache &&
+    stateVarsCache.chainId === chainId &&
+    stateVarsCache.cachedAt + cacheTime > Date.now()
+  ) {
     return stateVarsCache.stateVars;
   }
 
@@ -22,6 +28,7 @@ export const getStateVariables = async (
   stateVarsCache = {
     stateVars: vars,
     cachedAt: Date.now(),
+    chainId: chainId,
   };
   return vars;
 };

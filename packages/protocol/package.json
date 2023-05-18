@@ -8,7 +8,7 @@
     "compile:hardhat": "pnpm hardhat compile",
     "export:abi": "pnpm hardhat clear-abi && pnpm hardhat export-abi",
     "export:docs": "pnpm hardhat docgen && pnpm prettier --write ../website/pages/docs/reference/contract-documentation/**/*.md",
-    "lint:sol": "pnpm prettier '**/*.sol' --write && pnpm solhint 'contracts/**/*.sol' --fix",
+    "lint:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol' --fix",
     "eslint": "pnpm exec eslint --ignore-path .eslintignore --ext .js,.ts .",
     "eslint:fix": "pnpm exec eslint --ignore-path .eslintignore --ext .js,.ts . --fix",
     "test": "forge test -vvv --gas-report --fuzz-seed $(date +%s) --match-path test/**/*.t.sol",
@@ -19,14 +19,7 @@
     "generate:genesis": "ts-node ./utils/generate_genesis/main.ts",
     "test:genesis": "./test/genesis/generate_genesis.test.sh",
     "deploy:foundry": "./script/download_solc.sh && ./script/test_deploy_on_l1.sh",
-    "lint-staged": "lint-staged --allow-empty",
     "sizer": "pnpm hardhat size-contracts"
-  },
-  "lint-staged": {
-    "*.sol": "pnpm lint:sol",
-    "*.md": "pnpm prettier '**/*.md' --write",
-    "*.json": "pnpm prettier '**/*.json' --write",
-    "*.ts": "pnpm eslint:fix"
   },
   "keywords": [
     "Ethereum",
@@ -39,6 +32,7 @@
   "devDependencies": {
     "@defi-wonderland/smock": "^2.3.4",
     "@foundry-rs/hardhat-forge": "^0.1.17",
+    "@nomicfoundation/hardhat-foundry": "^1.0.1",
     "@nomicfoundation/hardhat-network-helpers": "^1.0.8",
     "@nomiclabs/hardhat-ethers": "^2.2.3",
     "@nomiclabs/hardhat-etherscan": "^3.1.7",
@@ -62,7 +56,6 @@
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-prettier": "^3.4.1",
     "eslint-plugin-promise": "^5.2.0",
-    "ethereum-waffle": "^3.4.4",
     "ethers": "^5.7.2",
     "glob": "^8.1.0",
     "hardhat": "^2.14.0",
@@ -70,10 +63,9 @@
     "hardhat-contract-sizer": "^2.8.0",
     "hardhat-docgen": "^1.3.0",
     "hardhat-gas-reporter": "^1.0.9",
-    "lint-staged": "^12.5.0",
+    "hardhat-preprocessor": "^0.1.5",
     "merkle-patricia-tree": "^4.2.4",
     "prettier": "^2.8.8",
-    "prettier-plugin-solidity": "^1.1.3",
     "rlp": "^3.0.0",
     "solhint": "^3.4.1",
     "solidity-coverage": "github:taikoxyz/solidity-coverage",
@@ -81,11 +73,5 @@
     "ts-node": "^10.9.1",
     "typechain": "^5.2.0",
     "typescript": "^4.9.5"
-  },
-  "dependencies": {
-    "@gnosis.pm/zodiac": "^1.1.9",
-    "@openzeppelin/contracts": "^4.8.3",
-    "@openzeppelin/contracts-upgradeable": "^4.8.3",
-    "channel-ts": "^0.1.2"
   }
 }

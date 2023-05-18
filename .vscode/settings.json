@@ -1,0 +1,10 @@
+{
+  // See: https://github.com/prettier/prettier/issues/12209
+  "[mdx]": {
+    "editor.formatOnSave": false
+  },
+  "[solidity]": {
+    "editor.defaultFormatter": "NomicFoundation.hardhat-solidity"
+  },
+  "solidity.formatter": "forge"
+}

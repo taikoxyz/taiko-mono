@@ -45,13 +45,8 @@ library LibLn {
             assembly {
                 // Need assembly here because solidity introduces an uncessary bounds
                 // check.
-                r := add(
-                    r,
-                    byte(
-                        x,
-                        0x11c021d0e18031e16140f191104081f1b0d17151310071a0c12060b050a09
-                    )
-                )
+                r :=
+                    add(r, byte(x, 0x11c021d0e18031e16140f191104081f1b0d17151310071a0c12060b050a09))
             }
         }
     }
@@ -134,9 +129,7 @@ library LibLn {
             // mul s * 5e18 * 2**96, base is now 5**18 * 2**192
             r *= 1677202110996718588342820967067443963516166;
             // add ln(2) * k * 5e18 * 2**192
-            r +=
-                16597577552685614221487285958193947469193820559219878177908093499208371 *
-                k;
+            r += 16597577552685614221487285958193947469193820559219878177908093499208371 * k;
             // add ln(2**96 / 10**18) * 5e18 * 2**192
             r += 600920179829731861736702779321621459595472258049074101567377883020018308;
             // base conversion: mul 2**18 / 2**192
@@ -167,8 +160,7 @@ library LibLn {
             // Reduce range of x to (-½ ln 2, ½ ln 2) * 2**96 by factoring out powers of two
             // such that exp(x) = exp(x') * 2**k, where k is an integer.
             // Solving this gives k = round(x / log(2)) and x' = x - k * log(2).
-            int256 k = ((x << 96) / 54916777467707473351141471128 + 2 ** 95) >>
-                96;
+            int256 k = ((x << 96) / 54916777467707473351141471128 + 2 ** 95) >> 96;
             x = x - k * 54916777467707473351141471128;
             // k is in the range [-61, 195].
 
@@ -202,9 +194,7 @@ library LibLn {
             // We do all of this at once, with an intermediate result in 2**213 basis
             // so the final right shift is always by a positive amount.
             r = int256(
-                (uint256(r) *
-                    3822833074963236453042738258902158003155416615667) >>
-                    uint256(195 - k)
+                (uint256(r) * 3822833074963236453042738258902158003155416615667) >> uint256(195 - k)
             );
         }
     }
@@ -219,9 +209,7 @@ library LibLn {
         uint256 lnReq = scale * basefee * LibFixedPointMath.SCALING_FACTOR_1E18;
         require(lnReq <= uint256(type(int256).max));
         int256 log_result = ln_pub(int256(lnReq));
-        initProofTimeIssued = uint64(
-            ((scale * (uint256(log_result))) /
-                (LibFixedPointMath.SCALING_FACTOR_1E18))
-        );
+        initProofTimeIssued =
+            uint64(((scale * (uint256(log_result))) / (LibFixedPointMath.SCALING_FACTOR_1E18)));
     }
 }
