@@ -133,7 +133,7 @@ We need to verify when these variables are accessed within the EVM, their values
 
 ### Block Header
 
-The block header is no longer presented to L1 contracts; therefore, ZKP must verify the integrity of the block header and ensure the block header can hash into the same value as `evidence.blockHash`, which is part of the ZK instance input.
+Not all block header data is available in the L1 contracts; therefore, the ZKP must verify the integrity of the block header and ensure the block header hashes into the same value as `evidence.blockHash`, which is part of the ZK instance input.
 
 ```solidity
 struct BlockHeader {
