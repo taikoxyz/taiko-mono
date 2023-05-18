@@ -55,7 +55,7 @@ The ZKP must prove that _TaikoL2.anchor(...)_ is the first transaction in the bl
 - The transaction's `tx.origin` and `msg.sender` must be _`LibAnchorSignature.K_GOLDEN_TOUCH_ADDRESS`_.
 - The transaction's signature must be the same as `LibAnchorSignature.signTransaction(...)`.
 
-Note that the anchor transaction emits a `Anchored` event that may help ZKP to verify block variables. See below.
+Note that the anchor transaction emits an `Anchored` event that may help ZKP to verify block variables. See below.
 
 #### Anchor Signature
 
