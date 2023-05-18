@@ -14,7 +14,7 @@ A valid `txList` (until [issue #13724](https://github.com/taikoxyz/taiko-mono/is
 - Has a byte-size smaller than the protocol constant _`maxBytesPerTxList`_ (also enforced in contracts);
 - Can be RLP-decoded into a list of transactions without trailing space;
 - Contains no more transactions (valid and invalid) than the protocol constant _`maxTransactionsPerBlock`_;
-- Has a total gas limit for all valid transactions not exceeding the protocol constant _`blockMaxGasLimit`_;
+- Has a total gas limit for all valid transactions not exceeding the protocol constant _`blockMaxGasLimit`_.
 
 ZKP must prove whether the `txList` is valid or invalid. For an invalid `txList`, the corresponding L2 block will only have an anchor transaction.
 
@@ -51,10 +51,9 @@ The ZKP must prove that _TaikoL2.anchor(...)_ is the first transaction in the bl
 - `l1SignalServiceAddress`, `l2SignalServiceAddress` and `parentGasUsed` are directly hashed into the ZKP's instance
 - `l1Height` and `l1Hash` are both part of the block metadata (`meta.l1Height` and `meta.l1Hash`), the `metaHash` is used to calculate the ZKP instance.
 - `l1SignalRoot` is part of the evidence and is also used to calculate the ZKP instance.
-- The transaction's status code is 1 (success).
+- The transaction's status code is 0 (success).
 - The transaction's `tx.origin` and `msg.sender` must be _`LibAnchorSignature.K_GOLDEN_TOUCH_ADDRESS`_.
 - The transaction's signature must be the same as `LibAnchorSignature.signTransaction(...)`.
-- The transaction fee must be 0.
 
 Note that the anchor transaction emits an `Anchored` event that may help ZKP to verify block variables. See below.
 
@@ -76,11 +75,13 @@ struct BlockMetadata {
   uint64 l1Height;
   bytes32 l1Hash;
   bytes32 mixHash;
+  bytes32 depositsRoot;
   bytes32 txListHash;
   uint24 txListByteStart;
   uint24 txListByteEnd;
   uint32 gasLimit;
   address beneficiary;
+  uint8 cacheTxListInfo;
   address treasury;
   TaikoData.EthDeposit[] depositsProcessed;
 }
@@ -91,13 +92,15 @@ struct BlockMetadata {
 - `l1Height`: The actual block height in L1.
 - `l1Hash`: The actual block hash in L1.
 - `mixHash`: Salted random number to accommodate multiple L2 blocks fitting into one L1 block.
+- `depositsRoot`: Hash of the list of deposits.
 - `txListHash`: Hash of the transaction list in L2.
 - `txListByteStart`: Byte start of the transaction list in L2.
 - `txListByteEnd`: Byte end of the transaction list in L2.
 - `gasLimit`: Gas limit for the L2 block.
 - `beneficiary`: The address of the beneficiary in L2.
+- `cacheTxListInfo`: Indicates whether the transaction list info should be cached or not.
 - `treasury`: The address where the base fee goes in L2.
-- `depositsProcessed`: The initiated L1->L2 Ether deposits that make up the depositRoot.
+- `depositsProcessed`: The initiated L1->L2 deposits that make up the depositRoot.
 
 ### Global Variables
 
@@ -167,8 +170,8 @@ In addition, ZKP must also prove the following:
 - `extraData` == "".
 - `mixHash` == `meta.mixHash`.
 - `nonce` == 0.
-- `baseFeePerGas` == `block.basefee`
-- `withdrawalsRoot` == The kecceck hash of the L1-to-L2 Ether deposits.
+- `baseFeePerGas` == the calculated EIP-1559 style base fee.
+- `withdrawalsRoot` == The withdrawals MPT root corresponding to the deposits list.
 
 Note that some of the header field checks above are duplicates of checks done in the Global Variable section.
 
@@ -176,13 +179,9 @@ Note that some of the header field checks above are duplicates of checks done in
 
 The ZKP also needs to prove that the cross chain signal service’s storage roots have the correct values.
 
-- **For L2 Signal Service**: the L1 storage root of the signal service is the second parameter in the anchor transaction. The ZKP shall verify that the storage root of the L1 Signal Service address has the given value by using an MPT proof against the state root stored in `meta.l1Hash` for the `l1SignalServiceAddress` account. This MPT proof must be queried by the L2 client from an L1 node.
+- **For L2 Signal Service**: the L1 storage root of the signal service is the second parameter in the anchor transaction. The ZKP shall verify that the storage root of the L1 Signal Service address has the given value by using an MPT proof against the state root stored in `meta.l1Hash` for the `l1SignalServiceAddress` account. This MPT proof must be queried by the L2 client from an L1 node .
 
 - **For L1 Signal Service**: the L2 storage root verification will be done in the circuits by using an MPT proof against the post block state root for the `l2SignalServiceAddress` account.
-
-### EIP-1559
-
-In the Taiko L2 protocol, instead of being burned, the basefee is transferred to a designated `treasury` address. To ensure the integrity of this process, the ZKP needs to verify that the treasury address specified by the Taiko L1 contract is indeed the intended recipient.
 
 ### LibProving Verification
 
@@ -260,6 +259,7 @@ m_mix_hash(mixHash)
 m_txlist_hash(txListHash)
 m_txlist_first(txListByteStart)
 m_txlist_last(txListByteEnd)
+m_cache_txlist_info(cacheTxListInfo)
 m_treasury(treasury):::otherCircuits
 m_beneficiary(beneficiary)
 m_deposits_root(depositsRoot)
@@ -309,9 +309,9 @@ GlobalVariables:::group
 
 
 subgraph Anchor [Anchor Tx]
-a_l1_height(l1Height)
-a_l1_hash(l1Hash)
-a_l1_signal_root(l1SignalRoot)
+a_h1_height(h1Height)
+a_h1_hash(h1Hash)
+a_h1_signal_root(h1SignalRoot)
 a_parent_gas_used(parentGasUsed)
 end
 
