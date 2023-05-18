@@ -174,7 +174,7 @@ In addition, ZKP must also prove the following:
 - `baseFeePerGas` == the calculated EIP-1559 style base fee.
 - `withdrawalsRoot` == The withdrawals MPT root corresponding to the deposits list.
 
-Note that some of the above header field checks are duplicates of checks from the Global Variable section.
+Note that some of the header field checks above are duplicates of checks done in the Global Variable section.
 
 ### Signal Storage
 
