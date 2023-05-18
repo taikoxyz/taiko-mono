@@ -101,8 +101,8 @@ library LibEthDepositing {
             }
         }
 
-        if (depositsProcessed[0].recipient == address(0)) {
-            depositsProcessed = new TaikoData.EthDeposit[](0);
+        assembly {
+            mstore(depositsProcessed, j)
         }
         depositsRoot = hashDeposits(depositsProcessed);
     }
