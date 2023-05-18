@@ -286,7 +286,7 @@ export class ERC20Bridge implements Bridge {
       return processMessageTx;
     } else {
       log('Retrying message', opts.message);
-      const tx = await contract.retryMessage(opts.message, false);
+      const tx: Transaction = await contract.retryMessage(opts.message, false);
       log('Message retried with transaction', tx);
 
       return tx;
@@ -302,6 +302,8 @@ export class ERC20Bridge implements Bridge {
 
     const messageStatus: MessageStatus =
       await destBridgeContract.getMessageStatus(opts.msgHash);
+
+    log(`Releasing message with status ${messageStatus}`);
 
     if (messageStatus === MessageStatus.Done) {
       throw Error('message already processed');
@@ -326,6 +328,8 @@ export class ERC20Bridge implements Bridge {
           chains[opts.message.srcChainId].crossChainSyncAddress,
       };
 
+      log('Generating release proof with opts', proofOpts);
+
       const proof = await this.prover.generateReleaseProof(proofOpts);
 
       const srcTokenVaultContract: Contract = new Contract(
@@ -334,7 +338,21 @@ export class ERC20Bridge implements Bridge {
         opts.signer,
       );
 
-      return await srcTokenVaultContract.releaseERC20(opts.message, proof);
+      try {
+        log('Releasing tokens with message', opts.message);
+
+        const tx: Transaction = await srcTokenVaultContract.releaseERC20(
+          opts.message,
+          proof,
+        );
+
+        log('Released tokens with transaction', tx);
+
+        return tx;
+      } catch (error) {
+        console.error(error);
+        throw new Error('failed to release tokens', { cause: error });
+      }
     }
   }
 }

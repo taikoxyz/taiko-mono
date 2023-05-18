@@ -111,9 +111,8 @@
       transaction.status = MessageStatus.ClaimInProgress;
 
       successToast('Transaction completed!');
-    } catch (e) {
-      // TODO: handle potential transaction failure
-      console.error(e);
+    } catch (error) {
+      console.error(error);
       errorToast($_('toast.errorSendingTransaction'));
     } finally {
       loading = false;
@@ -155,9 +154,8 @@
       pendingTransactions.add(tx, $signer);
 
       successToast('Transaction completed!');
-    } catch (e) {
-      // TODO: handle potential transaction failure
-      console.error(e);
+    } catch (error) {
+      console.error(error);
       errorToast($_('toast.errorSendingTransaction'));
     } finally {
       loading = false;

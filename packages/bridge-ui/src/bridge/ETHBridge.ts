@@ -194,11 +194,18 @@ export class ETHBridge implements Bridge {
 
       return processMessageTx;
     } else {
-      log('Retrying message', opts.message);
-      const tx = await destBridgeContract.retryMessage(opts.message, true);
-      log('Message retried with transaction', tx);
+      try {
+        log('Retrying message', opts.message);
 
-      return tx;
+        const tx = await destBridgeContract.retryMessage(opts.message, true);
+
+        log('Message retried with transaction', tx);
+
+        return tx;
+      } catch (error) {
+        console.error(error);
+        throw new Error('failed to retry message', { cause: error });
+      }
     }
   }
 
@@ -211,6 +218,8 @@ export class ETHBridge implements Bridge {
 
     const messageStatus: MessageStatus =
       await destBridgeContract.getMessageStatus(opts.msgHash);
+
+    log(`Releasing message with status ${messageStatus}`);
 
     if (messageStatus === MessageStatus.Done) {
       throw Error('message already processed');
@@ -235,6 +244,8 @@ export class ETHBridge implements Bridge {
           chains[opts.message.srcChainId].crossChainSyncAddress,
       };
 
+      log('Generating release proof with opts', proofOpts);
+
       const proof = await this.prover.generateReleaseProof(proofOpts);
 
       const srcBridgeContract: Contract = new Contract(
@@ -243,7 +254,21 @@ export class ETHBridge implements Bridge {
         opts.signer,
       );
 
-      return await srcBridgeContract.releaseEther(opts.message, proof);
+      try {
+        log('Releasing ether with message', opts.message);
+
+        const tx: Transaction = await srcBridgeContract.releaseEther(
+          opts.message,
+          proof,
+        );
+
+        log('Released ether with transaction', tx);
+
+        return tx;
+      } catch (error) {
+        console.error(error);
+        throw new Error('failed to release ether', { cause: error });
+      }
     }
   }
 }
