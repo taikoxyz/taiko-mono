@@ -116,7 +116,7 @@ func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations u
 	}
 }
 
-func DecodeMessageSentData(event *bridge.BridgeMessageSent) (EventType, CanonicalToken, *big.Int, error) {
+func DecodeMessageSentData(event *bridge.BridgeMessageSent) (EventType, *CanonicalToken, *big.Int, error) {
 	eventType := EventTypeSendETH
 
 	var canonicalToken CanonicalToken
@@ -130,18 +130,18 @@ func DecodeMessageSentData(event *bridge.BridgeMessageSent) (EventType, Canonica
 
 		tokenVaultABI, err := tokenVaultMD.GetAbi()
 		if err != nil {
-			return eventType, CanonicalToken{}, big.NewInt(0), errors.Wrap(err, "tokenVaultMD.GetAbi()")
+			return eventType, nil, big.NewInt(0), errors.Wrap(err, "tokenVaultMD.GetAbi()")
 		}
 
 		method, err := tokenVaultABI.MethodById(event.Message.Data[:4])
 		if err != nil {
-			return eventType, CanonicalToken{}, big.NewInt(0), errors.Wrap(err, "tokenVaultABI.MethodById")
+			return eventType, nil, big.NewInt(0), errors.Wrap(err, "tokenVaultABI.MethodById")
 		}
 
 		inputsMap := make(map[string]interface{})
 
 		if err := method.Inputs.UnpackIntoMap(inputsMap, event.Message.Data[4:]); err != nil {
-			return eventType, CanonicalToken{}, big.NewInt(0), errors.Wrap(err, "method.Inputs.UnpackIntoMap")
+			return eventType, nil, big.NewInt(0), errors.Wrap(err, "method.Inputs.UnpackIntoMap")
 		}
 
 		if method.Name == "receiveERC20" {
@@ -162,7 +162,7 @@ func DecodeMessageSentData(event *bridge.BridgeMessageSent) (EventType, Canonica
 		amount = event.Message.DepositValue
 	}
 
-	return eventType, canonicalToken, amount, nil
+	return eventType, &canonicalToken, amount, nil
 }
 
 type CanonicalToken struct {

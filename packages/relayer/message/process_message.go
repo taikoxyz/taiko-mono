@@ -156,17 +156,47 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, errors.New("p.getLatestNonce")
 	}
 
-	gas, cost, err := p.estimateGas(ctx, event.Message, proof)
-	if err != nil || gas == 0 {
-		if err := p.hardcodeGasLimit(ctx, auth, event); err != nil {
-			return nil, errors.Wrap(err, "p.hardcodeGasLimit")
+	eventType, canonicalToken, _, err := relayer.DecodeMessageSentData(event)
+	if err != nil {
+		return nil, errors.Wrap(err, "relayer.DecodeMessageSentData")
+	}
+
+	var gas uint64
+
+	var cost *big.Int
+
+	var needsContractDeployment bool = false
+	// node is unable to estimate gas correctly for contract deployments, we need to check if the token
+	// is deployed, and always hardcode in this case. we need to check this before calling
+	// estimategas, as the node will soemtimes return a gas estimate for a contract deployment, however,
+	// it is incorrect and the tx will revert.
+	if eventType == relayer.EventTypeSendERC20 && event.Message.DestChainId.Cmp(canonicalToken.ChainId) != 0 {
+		// determine whether the canonical token is bridged or not on this chain
+		bridgedAddress, err := p.destTokenVault.CanonicalToBridged(nil, canonicalToken.ChainId, canonicalToken.Addr)
+		if err != nil {
+			return nil, errors.Wrap(err, "p.destTokenVault.IsBridgedToken")
+		}
+
+		if bridgedAddress == relayer.ZeroAddress {
+			// needs large gas limit because it has to deploy an ERC20 contract on destination
+			// chain. deploying ERC20 can be 2 mil by itself. we want to skip estimating gas entirely
+			// in this scenario.
+			needsContractDeployment = true
 		}
 	}
 
-	if bool(p.profitableOnly) {
-		profitable, err := p.isProfitable(ctx, event.Message, cost)
-		if err != nil || !profitable {
-			return nil, relayer.ErrUnprofitable
+	if needsContractDeployment {
+		auth.GasLimit = 3000000
+	} else {
+		// otherwise we can estimate gas
+		gas, cost, err = p.estimateGas(ctx, event.Message, proof)
+		// and if gas estimation failed, we just try to hardcore a value no matter what type of event,
+		// or whether the contract is deployed.
+		if err != nil || gas == 0 {
+			cost, err = p.hardcodeGasLimit(ctx, auth, event, eventType, canonicalToken)
+			if err != nil {
+				return nil, errors.Wrap(err, "p.hardcodeGasLimit")
+			}
 		}
 	}
 
@@ -176,6 +206,13 @@ func (p *Processor) sendProcessMessageCall(
 	}
 
 	auth.GasPrice = gasPrice
+
+	if bool(p.profitableOnly) {
+		profitable, err := p.isProfitable(ctx, event.Message, cost)
+		if err != nil || !profitable {
+			return nil, relayer.ErrUnprofitable
+		}
+	}
 
 	// process the message on the destination bridge.
 	tx, err := p.destBridge.ProcessMessage(auth, event.Message, proof)
@@ -198,12 +235,9 @@ func (p *Processor) hardcodeGasLimit(
 	ctx context.Context,
 	auth *bind.TransactOpts,
 	event *bridge.BridgeMessageSent,
-) error {
-	eventType, canonicalToken, _, err := relayer.DecodeMessageSentData(event)
-	if err != nil {
-		return errors.Wrap(err, "relayer.DecodeMessageSentData")
-	}
-
+	eventType relayer.EventType,
+	canonicalToken *relayer.CanonicalToken,
+) (*big.Int, error) {
 	if eventType == relayer.EventTypeSendETH {
 		// eth bridges take much less gas, from 250k to 450k.
 		auth.GasLimit = 500000
@@ -211,7 +245,7 @@ func (p *Processor) hardcodeGasLimit(
 		// determine whether the canonical token is bridged or not on this chain
 		bridgedAddress, err := p.destTokenVault.CanonicalToBridged(nil, canonicalToken.ChainId, canonicalToken.Addr)
 		if err != nil {
-			return errors.Wrap(err, "p.destTokenVault.IsBridgedToken")
+			return nil, errors.Wrap(err, "p.destTokenVault.IsBridgedToken")
 		}
 
 		if bridgedAddress == relayer.ZeroAddress {
@@ -225,7 +259,12 @@ func (p *Processor) hardcodeGasLimit(
 		}
 	}
 
-	return nil
+	gasPrice, err := p.destEthClient.SuggestGasPrice(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "p.destEthClient.SuggestGasPrice")
+	}
+
+	return new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(auth.GasLimit)), nil
 }
 
 func (p *Processor) setLatestNonce(nonce uint64) {

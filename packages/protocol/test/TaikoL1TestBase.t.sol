@@ -30,7 +30,7 @@ abstract contract TaikoL1TestBase is Test {
     uint64 feeBase = 1e8; // 1 TKO
     uint64 l2GasExcess = 1e18;
 
-    address public constant L2Treasure = 0x859d74b52762d9ed07D1b2B8d7F93d26B1EA78Bb;
+    address public constant L2Treasury = 0x859d74b52762d9ed07D1b2B8d7F93d26B1EA78Bb;
     address public constant L2SS = 0xa008AE5Ba00656a3Cc384de589579e3E52aC030C;
     address public constant TaikoL2 = 0x0082D90249342980d011C58105a03b35cCb4A315;
     address public constant L1EthVault = 0xDAFEA492D9c6733ae3d56b7Ed1ADB60692c98Bc5;
@@ -63,7 +63,7 @@ abstract contract TaikoL1TestBase is Test {
 
         registerAddress("signal_service", address(ss));
         registerAddress("ether_vault", address(L1EthVault));
-        registerL2Address("treasure", L2Treasure);
+        registerL2Address("treasury", L2Treasury);
         registerL2Address("taiko", address(TaikoL2));
         registerL2Address("signal_service", address(L2SS));
         registerL2Address("taiko_l2", address(TaikoL2));
@@ -130,7 +130,7 @@ abstract contract TaikoL1TestBase is Test {
         meta.txListByteEnd = txListSize;
         meta.gasLimit = gasLimit;
         meta.beneficiary = proposer;
-        meta.treasure = L2Treasure;
+        meta.treasury = L2Treasury;
 
         vm.prank(proposer, proposer);
         meta = L1.proposeBlock(abi.encode(input), txList);

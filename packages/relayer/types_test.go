@@ -151,7 +151,7 @@ func Test_DecodeMessageSentData(t *testing.T) {
 		name               string
 		event              *bridge.BridgeMessageSent
 		wantEventType      EventType
-		wantCanonicalToken CanonicalToken
+		wantCanonicalToken *CanonicalToken
 		wantAmount         *big.Int
 		wantError          error
 	}{
@@ -164,7 +164,7 @@ func Test_DecodeMessageSentData(t *testing.T) {
 				},
 			},
 			EventTypeSendERC20,
-			CanonicalToken{
+			&CanonicalToken{
 				ChainId:  big.NewInt(31336),
 				Addr:     common.HexToAddress("0xe4337137828c93D0046212ebDa8a82a24356b67B"),
 				Decimals: uint8(18),
@@ -184,7 +184,7 @@ func Test_DecodeMessageSentData(t *testing.T) {
 				},
 			},
 			EventTypeSendETH,
-			CanonicalToken{},
+			&CanonicalToken{},
 			big.NewInt(1),
 			nil,
 		},
