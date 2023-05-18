@@ -1,6 +1,4 @@
 <script lang="ts">
-  import QueryProvider from './components/providers/QueryProvider.svelte';
-
   import { transactions } from './store/transactions';
   import Navbar from './components/Navbar.svelte';
   import Toast from './components/Toast.svelte';
@@ -83,14 +81,13 @@
   onDestroy(stopWatching);
 </script>
 
-<QueryProvider>
-  <main>
-    <Navbar />
-    <Router />
-  </main>
-  <Toast />
-  <SwitchEthereumChainModal />
-</QueryProvider>
+<main>
+  <Navbar />
+  <Router />
+</main>
+
+<Toast />
+<SwitchEthereumChainModal />
 
 <style>
   main {
