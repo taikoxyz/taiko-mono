@@ -163,7 +163,7 @@ In addition, ZKP must also prove the following:
 - `ommersHash` must be the keccak256 of `[]`,or `0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347`.
 - `beneficiary` must be `meta.beneficiary` (duplicated, as stated above).
 - `logsBloom` must be a `bytes32[8]` with all zeros.
-- `difficulty` must be `meta.mixHash`.
+- `difficulty` == 0.
 - `height` must be `meta.id`.
 - `gasLimit` == `meta.gasLimit`.
 - `gasUsed` must be the sum of all gas used by all valid transactions in the block.
