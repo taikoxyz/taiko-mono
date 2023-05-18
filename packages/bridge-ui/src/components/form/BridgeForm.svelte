@@ -457,7 +457,7 @@
     .catch((error) => {
       console.error(error);
       // errorToast($_('toast.errorCheckingAllowance'));
-      requiresAllowance = true;
+      requiresAllowance = false;
     });
 
   // TODO: we need to simplify this crazy condition
