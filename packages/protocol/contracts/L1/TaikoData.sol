@@ -77,7 +77,7 @@ library TaikoData {
         uint32 gasLimit;
         address beneficiary;
         uint8 cacheTxListInfo;
-        address treasure;
+        address treasury;
         TaikoData.EthDeposit[] depositsProcessed;
     }
 

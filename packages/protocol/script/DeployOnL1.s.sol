@@ -38,7 +38,7 @@ contract DeployOnL1 is Script {
 
     address public sharedSignalService = vm.envAddress("SHARED_SIGNAL_SERVICE");
 
-    address public treasure = vm.envAddress("TREASURE");
+    address public treasury = vm.envAddress("TREASURY");
 
     address public taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
 
@@ -61,7 +61,7 @@ contract DeployOnL1 is Script {
         require(owner != address(0), "owner is zero");
         require(taikoL2Address != address(0), "taikoL2Address is zero");
         require(l2SignalService != address(0), "l2SignalService is zero");
-        require(treasure != address(0), "treasure is zero");
+        require(treasury != address(0), "treasury is zero");
         require(taikoTokenPremintRecipient != address(0), "taikoTokenPremintRecipient is zero");
         require(taikoTokenPremintAmount < type(uint64).max, "premint too large");
 
@@ -80,7 +80,8 @@ contract DeployOnL1 is Script {
 
         setAddress(l2ChainId, "taiko", taikoL2Address);
         setAddress(l2ChainId, "signal_service", l2SignalService);
-        setAddress(l2ChainId, "treasure", treasure);
+        setAddress(l2ChainId, "treasury", treasury);
+
 
         // TaikoToken
         TaikoToken taikoToken = new ProxiedTaikoToken();
@@ -132,7 +133,7 @@ contract DeployOnL1 is Script {
                     addressManagerProxy,
                     genesisHash,
                     feeBase,
-                    initProofTimeIssued,
+                    INITIAL_PROOF_TIME_TARGET,
                     initProofTimeIssued
                 )
             )
