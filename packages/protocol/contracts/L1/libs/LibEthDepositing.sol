@@ -101,10 +101,19 @@ library LibEthDepositing {
             }
         }
 
-        // resize the length of depositsProcessed to j.
-        assembly {
-            mstore(depositsProcessed, j)
-            depositsRoot := keccak256(depositsProcessed, mul(j, 32))
+        if (depositsProcessed[0].recipient == address(0)) {
+            depositsProcessed = new TaikoData.EthDeposit[](0);
         }
+        depositsRoot = hashDeposits(depositsProcessed);
+    }
+
+    function hashDeposits(TaikoData.EthDeposit[] memory deposits) internal pure returns (bytes32) {
+        bytes memory buffer;
+
+        for (uint256 i = 0; i < deposits.length; i++) {
+            buffer = abi.encodePacked(buffer, deposits[i].recipient, deposits[i].amount);
+        }
+
+        return keccak256(buffer);
     }
 }
