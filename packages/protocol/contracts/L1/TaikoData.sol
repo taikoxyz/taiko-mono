@@ -83,7 +83,7 @@ library TaikoData {
 
     struct TypedProof {
         uint16 verifierId;
-        uint16 proofType; // 1: ZKP, 2: SGX, 3 e.g.: SuperSignature (not implemented yet), etc.
+        uint16 proofType; // 0: Not set = invalid, 1: ZKP, 2: SGX, 3 e.g.: X (not implemented yet), etc.
         bytes proof;
     }
 

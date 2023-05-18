@@ -125,37 +125,7 @@ library LibProving {
             instance := keccak256(inputs, mul(32, 9))
         }
 
-        // config.proofToggleMask can support 8 different proof types on 8 bits
-        for (uint8 index; index < 8; ) {
-            if ((config.proofToggleMask >> index) & 1 == 1) {
-                if (index == 0) {
-                    // This is the regular ZK proof and required based on the flag
-                    // in config.proofToggleMask
-                    LibVerifyZKP.verifyProof(
-                        resolver,
-                        evidence.blockProofs[index].proof,
-                        instance,
-                        evidence.blockProofs[index].verifierId
-                    );
-                } else if (index == 1) {
-                    // This is the SGX signature proof and required based on the flag
-                    // in config.proofToggleMask
-                    LibVerifyTrusted.verifyProof(
-                        resolver,
-                        evidence.blockProofs[index].proof,
-                        instance,
-                        evidence.blockProofs[index].verifierId
-                    );
-                }
-            }
-
-            unchecked {
-                ++index;
-            }
-        }
-
         uint16 mask = config.proofToggleMask;
-
         for (uint16 i; i < evidence.blockProofs.length; ) {
             TaikoData.TypedProof memory proof = evidence.blockProofs[i];
             if (proof.proofType == 0) {
@@ -210,7 +180,7 @@ library LibProving {
         TaikoData.ForkChoice storage fc = blk.forkChoices[1];
 
         // In case it was 0 (unproven) - it's fine we prove it here otherwise
-        // it does not matter if 2 or 3, only fk idx 1 is valid anyhow.
+        // it does not matter if 2 or 3, only fk idx 1 is valid.
         unchecked {
             ++blk.nextForkChoiceId;
         }
@@ -221,7 +191,7 @@ library LibProving {
         fc.signalRoot = evidence.signalRoot;
         fc.gasUsed = evidence.gasUsed;
         fc.prover = msg.sender; // "special" prover, the failsafe one
-        fc.provenAt = state.proofTimeTarget;
+        fc.provenAt = blk.proposedAt + state.proofTimeTarget;
     }
 
     function getForkChoice(

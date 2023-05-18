@@ -43,6 +43,7 @@ abstract contract TaikoL1TestBase is Test {
     address public constant Carol = 0x300C9b60E19634e12FC6D68B7FEa7bFB26c2E419;
     address public constant Dave = 0x400147C0Eb43D8D71b2B03037bB7B31f8f78EF5F;
     address public constant Eve = 0x50081b12838240B1bA02b3177153Bca678a86078;
+    address public constant FailsafeProver = 0x60081b12838240b1Ba02B3177153BCA678A86079;
 
     // Calculation shall be done in derived contracts - based on testnet or mainnet expected proof time
     uint64 public initProofTimeIssued;
@@ -63,6 +64,7 @@ abstract contract TaikoL1TestBase is Test {
 
         registerAddress("signal_service", address(ss));
         registerAddress("ether_vault", address(L1EthVault));
+        registerAddress("forkchoice_failsafe", address(FailsafeProver));
         registerL2Address("treasure", L2Treasure);
         registerL2Address("taiko", address(TaikoL2));
         registerL2Address("signal_service", address(L2SS));
@@ -177,6 +179,45 @@ abstract contract TaikoL1TestBase is Test {
         L1.proveBlock(meta.id, abi.encode(evidence));
     }
 
+    function proveBlockWithSpecificType(
+        address msgSender,
+        address prover,
+        TaikoData.BlockMetadata memory meta,
+        bytes32 parentHash,
+        uint32 parentGasUsed,
+        uint32 gasUsed,
+        bytes32 blockHash,
+        bytes32 signalRoot,
+        uint16 proofType
+    ) internal {
+        TaikoData.TypedProof memory zkpTypedProof = TaikoData.TypedProof({
+            verifierId: 100,
+            proofType: proofType,
+            proof: new bytes(100)
+        });
+
+        TaikoData.TypedProof[] memory blockProofs = new TaikoData.TypedProof[](
+            1
+        );
+
+        blockProofs[0] = zkpTypedProof;
+
+        TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
+            metaHash: LibUtils.hashMetadata(meta),
+            parentHash: parentHash,
+            blockHash: blockHash,
+            signalRoot: signalRoot,
+            graffiti: 0x0,
+            prover: prover,
+            parentGasUsed: parentGasUsed,
+            gasUsed: gasUsed,
+            blockProofs: blockProofs
+        });
+
+        vm.prank(msgSender, msgSender);
+        L1.proveBlock(meta.id, abi.encode(evidence));
+    }
+
     function proveBlockWithSgxSignature(
         address msgSender,
         address prover,
@@ -212,6 +253,41 @@ abstract contract TaikoL1TestBase is Test {
         });
 
         blockProofs[1] = createSgxSignature(evidence);
+
+        evidence.blockProofs = blockProofs;
+
+        vm.prank(msgSender, msgSender);
+        L1.proveBlock(meta.id, abi.encode(evidence));
+    }
+
+    function proveBlockWithSgxSignatureOnly(
+        address msgSender,
+        address prover,
+        TaikoData.BlockMetadata memory meta,
+        bytes32 parentHash,
+        uint32 parentGasUsed,
+        uint32 gasUsed,
+        bytes32 blockHash,
+        bytes32 signalRoot
+    ) internal {
+
+        TaikoData.TypedProof[] memory blockProofs = new TaikoData.TypedProof[](
+            1
+        );
+
+        TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
+            metaHash: LibUtils.hashMetadata(meta),
+            parentHash: parentHash,
+            blockHash: blockHash,
+            signalRoot: signalRoot,
+            graffiti: 0x0,
+            prover: prover,
+            parentGasUsed: parentGasUsed,
+            gasUsed: gasUsed,
+            blockProofs: blockProofs
+        });
+
+        blockProofs[0] = createSgxSignature(evidence);
 
         evidence.blockProofs = blockProofs;
 
