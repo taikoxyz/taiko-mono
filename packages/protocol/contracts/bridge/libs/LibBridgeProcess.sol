@@ -28,7 +28,7 @@ library LibBridgeProcess {
 
     error B_FORBIDDEN();
     error B_SIGNAL_NOT_RECEIVED();
-    error B_STATUS_MISMTACH();
+    error B_STATUS_MISMATCH();
     error B_WRONG_CHAIN_ID();
 
     /**
@@ -62,7 +62,7 @@ library LibBridgeProcess {
         // LibBridgeRetry.sol.
         bytes32 msgHash = message.hashMessage();
         if (LibBridgeStatus.getMessageStatus(msgHash) != LibBridgeStatus.MessageStatus.NEW) {
-            revert B_STATUS_MISMTACH();
+            revert B_STATUS_MISMATCH();
         }
         // Message must have been "received" on the destChain (current chain)
         address srcBridge = resolver.resolve(message.srcChainId, "bridge", false);

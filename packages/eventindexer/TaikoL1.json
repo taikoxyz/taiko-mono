@@ -350,7 +350,7 @@
           },
           {
             "internalType": "address",
-            "name": "treasure",
+            "name": "treasury",
             "type": "address"
           },
           {
@@ -1065,7 +1065,7 @@
           },
           {
             "internalType": "address",
-            "name": "treasure",
+            "name": "treasury",
             "type": "address"
           },
           {
