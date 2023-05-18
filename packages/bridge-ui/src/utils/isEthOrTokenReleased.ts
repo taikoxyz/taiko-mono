@@ -48,7 +48,7 @@ export async function isEthOrTokenReleased(
   );
 
   // If the transaction has failed, and this condition is met,
-  // then it means we have actaully released the tokens
+  // then it means we have actually released the tokens
   // We don't have something like isERC20Released
   return token === ethers.constants.AddressZero && amount.eq(0);
 }

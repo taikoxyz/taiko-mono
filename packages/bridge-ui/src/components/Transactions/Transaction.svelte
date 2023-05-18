@@ -76,6 +76,7 @@
   async function claim(bridgeTx: BridgeTransaction) {
     try {
       loading = true;
+
       // If the current "from chain", ie, the chain youre connected to, is not the destination
       // of the bridge transaction, we need to change chains so your wallet is pointed
       // to the right network.
@@ -87,7 +88,7 @@
       // Confirm after switch chain that it worked
       const isCorrectChain = await isOnCorrectChain(
         $signer,
-        bridgeTx.toChainId,
+        bridgeTx.toChainId, // we claim on the destination chain
       );
 
       if (!isCorrectChain) {
@@ -105,8 +106,9 @@
         return;
       }
 
-      const isEth = bridgeTx.message?.data === '0x' || !bridgeTx.message?.data;
-      const bridgeType = isEth ? BridgeType.ETH : BridgeType.ERC20;
+      const bridgeType = isETHByMessage(bridgeTx.message)
+        ? BridgeType.ETH
+        : BridgeType.ERC20;
       const bridge = bridges[bridgeType];
 
       log(`Claiming ${bridgeType} for transaction`, bridgeTx);
@@ -127,7 +129,7 @@
 
       await pendingTransactions.add(tx, $signer);
 
-      // At this point the transaction is already DONE, but we
+      // At this point the claim transaction is already DONE, but we
       // still don't have it until the polling picks up the new state.
       // We change it manually
       setTxStatus(MessageStatus.Done);
@@ -145,21 +147,29 @@
   async function releaseTokens(bridgeTx: BridgeTransaction) {
     try {
       loading = true;
-      if (txFromChain.id !== bridgeTx.fromChainId) {
+
+      if ($fromChain.id !== bridgeTx.fromChainId) {
         const chain = chains[bridgeTx.fromChainId];
         await selectChain(chain);
       }
 
-      // confirm after switch chain that it worked.
-      if (!(await isOnCorrectChain($signer, bridgeTx.fromChainId))) {
+      // Confirm after switch chain that it worked
+      const isCorrectChain = await isOnCorrectChain(
+        $signer,
+        bridgeTx.fromChainId, // we release on the source chain
+      );
+
+      if (!isCorrectChain) {
         errorToast('You are connected to the wrong chain in your wallet');
         return;
       }
 
-      const bridge =
-        bridges[
-          isETHByMessage(bridgeTx.message) ? BridgeType.ETH : BridgeType.ERC20
-        ];
+      const bridgeType = isETHByMessage(bridgeTx.message)
+        ? BridgeType.ETH
+        : BridgeType.ERC20;
+      const bridge = bridges[bridgeType];
+
+      log(`Releasing ${bridgeType} for transaction`, bridgeTx);
 
       const tx = await bridge.ReleaseTokens({
         signer: $signer,
@@ -173,7 +183,7 @@
 
       successToast($_('toast.transactionSent'));
 
-      // TODO: we need to test this
+      // TODO: storage?
       setTxStatus(TxExtendedStatus.Releasing);
 
       await pendingTransactions.add(tx, $signer);
