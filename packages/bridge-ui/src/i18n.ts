@@ -21,6 +21,14 @@ function setupI18n({ withLocale: _locale } = { withLocale: 'en' }) {
       nav: {
         connect: 'Connect Wallet',
       },
+      transaction: {
+        pending: 'Pending',
+        claim: 'Claim',
+        release: 'Release',
+        claimed: 'Claimed',
+        released: 'Released',
+        failed: 'Failed',
+      },
       toast: {
         transactionSent: 'Transaction sent',
         transactionCompleted: 'Transaction completed!',

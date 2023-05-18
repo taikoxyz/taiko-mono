@@ -1,16 +1,27 @@
 import { Contract, ethers } from 'ethers';
 import { tokenVaults } from '../vault/tokenVaults';
-import type { BridgeTransaction } from '../domain/transactions';
+import {
+  type BridgeTransaction,
+  TxExtendedStatus,
+} from '../domain/transactions';
 import { isETHByMessage } from './isETHByMessage';
 import { chains } from '../chain/chains';
 import { providers } from '../provider/providers';
 import { bridgeABI, tokenVaultABI } from '../constants/abi';
+import { MessageStatus } from '../domain/message';
 
 // This only makes sense when the status if FAILED
 export async function isEthOrTokenReleased(
   bridgeTx: BridgeTransaction,
 ): Promise<boolean> {
-  const { fromChainId, msgHash } = bridgeTx;
+  const { fromChainId, msgHash, status } = bridgeTx;
+
+  if (status === TxExtendedStatus.Released) return true;
+
+  // This only makes sense if the transaction has failed
+  if (status !== MessageStatus.Failed) return false;
+
+  // At this point the transaction has failed, so we need to check
 
   const srcChain = chains[fromChainId];
   const srcProvider = providers[fromChainId];

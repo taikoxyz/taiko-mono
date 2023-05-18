@@ -15,7 +15,7 @@
   import { BridgeType } from '../../domain/bridge';
   import { onDestroy, onMount } from 'svelte';
   import { errorToast, successToast } from '../Toast.svelte';
-  import { bridgeABI, tokenVaultABI } from '../../constants/abi';
+  import { bridgeABI } from '../../constants/abi';
   import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
   import { chains } from '../../chain/chains';
   import { providers } from '../../provider/providers';
@@ -190,6 +190,9 @@
   }
 
   function isTransactionDone(bridgeTx: BridgeTransaction) {
+    // The transaction is done if its status is `Done` or
+    // we have set manually the status to Released during the polling
+    // using the utility isEthOrTokenReleased
     return (
       bridgeTx.status === MessageStatus.Done ||
       bridgeTx.status === TxExtendedStatus.Released
@@ -226,6 +229,7 @@
       setTxStatus(msgStatus);
 
       if (msgStatus === MessageStatus.Failed) {
+        // Let's check if we have already released the locked funds
         const isFailedMessageResolved = await isEthOrTokenReleased(transaction);
 
         if (isFailedMessageResolved) {
@@ -278,11 +282,18 @@
     {transaction.symbol ?? 'ETH'}
   </td>
 
+  <!-- 
+    TODO: I'm not quite sure about the user of transaction.receipt here.
+          I don't even think we would get to this point if the transaction
+          had an issue while sending it. We would've got an error before, 
+          and no transaction would've been created here.
+  -->
+
   <td>
     <ButtonWithTooltip onClick={() => dispatch('tooltipStatus')}>
       <span slot="buttonText">
         {#if !processable}
-          Pending
+          {$_('transaction.pending')}
         {:else if loading || (!transaction.receipt && transaction.status === MessageStatus.New)}
           <div class="inline-block">
             <Loading />
@@ -298,7 +309,7 @@
             size="sm"
             on:click={onClaimClick}
             disabled={transaction.status === TxExtendedStatus.Claiming}>
-            Claim
+            {$_('transaction.claim')}
           </Button>
         {:else if transaction.status === MessageStatus.Retriable}
           <Button type="accent" size="sm" on:click={onClaimClick}>Retry</Button>
@@ -308,16 +319,22 @@
             type="accent"
             size="sm"
             on:click={async () => await releaseTokens(transaction)}>
-            Release
+            {$_('transaction.release')}
           </Button>
         {:else if transaction.status === MessageStatus.Done}
-          <span class="border border-transparent p-0">Claimed</span>
+          <span class="border border-transparent p-0">
+            {$_('transaction.claimed')}
+          </span>
         {:else if transaction.status === TxExtendedStatus.Released}
-          <span class="border border-transparent p-0">Released</span>
+          <span class="border border-transparent p-0">
+            {$_('transaction.released')}
+          </span>
         {:else if transaction.receipt && transaction.receipt.status !== 1}
           <!-- TODO: make sure this is now respecting the correct flow -->
-          <!-- TODO: do we still need this? -->
-          <span class="border border-transparent p-0">Failed</span>
+          <!-- TODO: do we still need this? I don't think so. Check-->
+          <span class="border border-transparent p-0">
+            {$_('transaction.failed')}
+          </span>
         {/if}
       </span>
     </ButtonWithTooltip>
