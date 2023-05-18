@@ -29,7 +29,7 @@ A valid transaction (defined in the Ethereum Yellow Paper):
 
 #### Slicing and Consistency
 
-Note that `txList` is not directly accessiable to L1 contracts, therefore, ZKP shall further prove that the chosen `txList` is a slice of the given blob data. `blobHash` therefore will be available when EIP-4844 merged into Ethereum.
+Note that the data of `txList` cannot be assumed to be directly accessible to L1 contracts, and so the ZKP shall further prove that the chosen `txList` is a slice of the given blob data. The `blobHash` opcode will be available when EIP-4844 is merged into Ethereum.
 
 ### Anchor Transactions
 
