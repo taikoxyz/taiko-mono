@@ -166,7 +166,7 @@ In addition, ZKP must also prove the following:
 - `difficulty` must be `meta.mixHash`.
 - `height` must be `meta.id`.
 - `gasLimit` == `meta.gasLimit`.
-- `gasUsed` ≤ `gasLimit` (we are assuming the ZKP will verify that gasLimit has the right value), and `gasUsed` == `evidence.gasUsed`
+- `gasUsed` must be the sum of all gas used by all valid transactions in the block.
 - `timestamp` == `meta.proposedAt`.
 - `extraData` == "".
 - `mixHash` == `meta.mixHash`.
