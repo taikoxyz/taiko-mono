@@ -82,7 +82,7 @@ struct BlockMetadata {
   uint32 gasLimit;
   address beneficiary;
   uint8 cacheTxListInfo;
-  address treasure;
+  address treasury;
   TaikoData.EthDeposit[] depositsProcessed;
 }
 ```
@@ -126,7 +126,6 @@ We need to verify when these variables are accessed within the EVM, their values
 - `block.coinbase`: ZKP must verify the value must be the same as `meta.beneficiary`. Again, the metadata hash is part of the ZK instance.
 - `block.difficulty`: this is now the same as `block.prevrandao`, so we only check `block.prevrandao`.
 - `block.gaslimit`: ZKP must verify this value must equal `meta.gasLimit`.
-- `block.gasUsed`: ZKP must verify this value must be smaller than `meta.gasLimit`.
 - `block.number`: this must be checked against the block header and `meta.id`.
 - `block.prevrandao`: this must be checked against the `mixHash` field in the L2 block header and `meta.mixHash`.
 - `block.timestamp`: this must be checked against the `timestamp` field in the L2 block header and `meta.proposedAt`.
@@ -217,7 +216,7 @@ empty_list -.-> h_logs_bloom;
 zero -.-> h_difficulty;
 zero -.-> h_nonce;
 empty_string -.-> h_extra_data;
-l2_treasure -.-> m_treasure;
+l2_treasury -.-> m_treasury;
 processed_deposits_data -.-> m_deposits;
 
 v_block_chainid -.-> dot1;
@@ -261,7 +260,7 @@ m_txlist_hash(txListHash)
 m_txlist_first(txListByteStart)
 m_txlist_last(txListByteEnd)
 m_cache_txlist_info(cacheTxListInfo)
-m_treasure(treasure):::otherCircuits
+m_treasury(treasury):::otherCircuits
 m_beneficiary(beneficiary)
 m_deposits_root(depositsRoot)
 m_deposits(depositsProcessed)
@@ -354,7 +353,7 @@ zero("0\n(zero)"):::constant
 empty_string("''\n(empty bytes)"):::constant
 empty_list("[]\n(empty list)"):::constant
 tx_list("txList\n(blob or calldata)"):::constant
-l2_treasure("L2 basefee goes to treasure"):::constant
+l2_treasury("L2 basefee goes to treasury"):::constant
 processed_deposits("onchain deposits data"):::constant
 processed_deposits_data("processed deposits making up the depositsRoot"):::constant
 zk_instance(zkInstance)
