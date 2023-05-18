@@ -27,7 +27,6 @@ jobs:
             starter-dapp
             status-page
             tokenomics
-            ui
             website
             whitepaper
           requireScope: true
