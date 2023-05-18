@@ -99,7 +99,7 @@ struct BlockMetadata {
 - `gasLimit`: Gas limit for the L2 block.
 - `beneficiary`: The address of the beneficiary in L2.
 - `cacheTxListInfo`: Indicates whether the transaction list info should be cached or not.
-- `treasure`: The address where the base fee goes in L2.
+- `treasury`: The address where the base fee goes in L2.
 - `depositsProcessed`: The initiated L1->L2 deposits that make up the depositRoot.
 
 ### Global Variables
