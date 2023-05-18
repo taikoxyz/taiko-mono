@@ -82,7 +82,6 @@ contract DeployOnL1 is Script {
         setAddress(l2ChainId, "signal_service", l2SignalService);
         setAddress(l2ChainId, "treasury", treasury);
 
-
         // TaikoToken
         TaikoToken taikoToken = new ProxiedTaikoToken();
 
