@@ -172,7 +172,7 @@ In addition, ZKP must also prove the following:
 - `mixHash` == `meta.mixHash`.
 - `nonce` == 0.
 - `baseFeePerGas` == the calculated EIP-1559 style base fee.
-- `withdrawalsRoot` == The withdrawals MPT correspoding to the deposits list.
+- `withdrawalsRoot` == The withdrawals MPT root corresponding to the deposits list.
 
 Note that some of the above header field checks are duplicates of checks from the Global Variable section.
 
