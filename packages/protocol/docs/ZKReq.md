@@ -27,8 +27,6 @@ A valid transaction (defined in the Ethereum Yellow Paper):
 - Has no contract code deployed on the sender account (see EIP-3607 by Feist et al. [2021]).
 - Has a gas limit no smaller than the intrinsic gas, _`g0`_, used by the transaction; and the sender account balance contains at least the cost, _`v0`_, required in up-front payment.
 
-In contrast, the previous implementation allowed for invalid blocks that were skipped. The new protocol maps each and every (valid and invalid) _txLists_ into a valid L2 block.
-
 #### Slicing and Consistency
 
 Note that `txList` is not directly accessiable to L1 contracts, therefore, ZKP shall further prove that the chosen `txList` is a slice of the given blob data. `blobHash` therefore will be available when EIP-4844 merged into Ethereum.
