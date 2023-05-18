@@ -66,7 +66,7 @@ ZKP shall also check the signature of the anchor transaction:
 
 ### Block Metadata
 
-This struct represents a proposed L2 block. The data will be hashed and be part of the public input to circuits.
+This struct represents a proposed L2 block. This data will be hashed and be part of the public input to the circuits.
 
 ```solidity
 struct BlockMetadata {
