@@ -171,7 +171,7 @@ In addition, ZKP must also prove the following:
 - `mixHash` == `meta.mixHash`.
 - `nonce` == 0.
 - `baseFeePerGas` == the calculated EIP-1559 style base fee.
-- `withdrawalsRoot` == The withdrawals MPT root corresponding to the deposits list.
+- `withdrawalsRoot` == The kecceck hash of the L1-to-L2 Ether deposits.
 
 Note that some of the header field checks above are duplicates of checks done in the Global Variable section.
 
