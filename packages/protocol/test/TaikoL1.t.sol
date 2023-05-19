@@ -249,7 +249,7 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     function test_deposit_hash_creation() external {
-        uint96 minAmount = conf.minEthDepositAmount;
+        // uint96 minAmount = conf.minEthDepositAmount;
         uint96 maxAmount = conf.maxEthDepositAmount;
 
         // We need 8 depostis otherwise we are not processing them !
