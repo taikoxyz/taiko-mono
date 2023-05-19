@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Signer } from 'ethers';
+  import { Signer, ethers } from 'ethers';
   import { pendingTransactions } from '../../store/transactions';
   import { signer } from '../../store/signer';
   import { _ } from 'svelte-i18n';
@@ -56,19 +56,32 @@
     try {
       const tx = await mintERC20($fromChain.id, $token, $signer);
 
-      successToast($_('toast.transactionSent'));
+      successToast(`Transaction sent to mint ${$token.symbol} tokens`);
 
       pendingTransactions.add(tx, $signer).then(() => {
-        successToast($_('toast.transactionCompleted'));
+        successToast(
+          `<strong>Transaction completed!</strong><br />Your ${$token.symbol} tokens are in your wallet.`,
+        );
         onMint();
       });
 
       isOpen = false;
     } catch (error) {
       console.error(error);
-      errorToast($_('toast.errorSendingTransaction'));
-      // TODO: we might want to customize the error message
-      //       based on the error code ethers.errors?
+
+      const headerError = '<strong>Failed to mint tokens</strong>';
+      if (error.cause?.status === 0) {
+        const explorerUrl = `${$fromChain.explorerUrl}/tx/${error.cause.transactionHash}`;
+        const htmlLink = `<a href="${explorerUrl}" target="_blank"><b><u>here</u></b></a>`;
+        errorToast(
+          `${headerError}<br />Click ${htmlLink} to see more details on the explorer.`,
+          true, // dismissible
+        );
+      } else if (error.cause?.code === ethers.errors.ACTION_REJECTED) {
+        errorToast(`Transaction has been rejected.`);
+      } else {
+        errorToast(`${headerError}<br />Try again later.`);
+      }
     }
   }
 

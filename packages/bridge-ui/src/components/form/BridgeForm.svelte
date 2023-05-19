@@ -213,13 +213,15 @@
       console.error(error);
 
       const headerError = '<strong>Failed to approve</strong>';
-      if ('cause' in error && error.cause.status === 0) {
+      if (error.cause?.status === 0) {
         const explorerUrl = `${$fromChain.explorerUrl}/tx/${error.cause.transactionHash}`;
         const htmlLink = `<a href="${explorerUrl}" target="_blank"><b><u>here</u></b></a>`;
         errorToast(
           `${headerError}<br />Click ${htmlLink} to see more details on the explorer.`,
           true, // dismissible
         );
+      } else if (error.cause?.code === ethers.errors.ACTION_REJECTED) {
+        errorToast(`Transaction has been rejected.`);
       } else {
         errorToast(`${headerError}<br />Try again later.`);
       }
@@ -391,13 +393,15 @@
       console.error(error);
 
       const headerError = '<strong>Failed to bridge funds</strong>';
-      if ('cause' in error && error.cause.status === 0) {
+      if (error.cause?.status === 0) {
         const explorerUrl = `${$fromChain.explorerUrl}/tx/${error.cause.transactionHash}`;
         const htmlLink = `<a href="${explorerUrl}" target="_blank"><b><u>here</u></b></a>`;
         errorToast(
           `${headerError}<br />Click ${htmlLink} to see more details on the explorer.`,
           true, // dismissible
         );
+      } else if (error.cause?.code === ethers.errors.ACTION_REJECTED) {
+        errorToast(`Transaction has been rejected.`);
       } else {
         errorToast(`${headerError}<br />Try again later.`);
       }
