@@ -21,9 +21,6 @@ library TaikoConfig {
             // Set it to 6M, since its the upper limit of the Alpha-2
             // testnet's circuits.
             blockMaxGasLimit: 6000000,
-            // Set it to 79  (+1 TaikoL2.anchor transaction = 80),
-            // and 80 is the upper limit of the Alpha-2 testnet's circuits.
-            maxTransactionsPerBlock: 79,
             minEthDepositsPerBlock: 8,
             maxEthDepositsPerBlock: 32,
             maxEthDepositAmount: 10000 ether,

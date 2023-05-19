@@ -35,8 +35,7 @@ library LibVerifying {
         if (
             config.chainId <= 1 || config.maxNumProposedBlocks == 1
                 || config.ringBufferSize <= config.maxNumProposedBlocks + 1
-                || config.blockMaxGasLimit == 0 || config.maxTransactionsPerBlock == 0
-                || config.maxBytesPerTxList == 0
+                || config.blockMaxGasLimit == 0 || config.maxBytesPerTxList == 0
             // EIP-4844 blob size up to 128K
             || config.maxBytesPerTxList > 128 * 1024 || config.maxEthDepositsPerBlock == 0
                 || config.maxEthDepositsPerBlock < config.minEthDepositsPerBlock
