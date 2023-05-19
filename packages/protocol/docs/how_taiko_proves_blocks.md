@@ -100,7 +100,7 @@ struct BlockMetadata {
 - `beneficiary`: The address of the beneficiary in L2.
 - `cacheTxListInfo`: Indicates whether the transaction list info should be cached or not.
 - `treasury`: The address where the base fee goes in L2.
-- `depositsProcessed`: The initiated L1->L2 deposits that make up the depositRoot.
+- `depositsProcessed`: The initiated L1->L2 Ether deposits that make up the depositRoot.
 
 ### Global Variables
 
