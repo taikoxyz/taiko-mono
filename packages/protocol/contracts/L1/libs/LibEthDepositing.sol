@@ -115,7 +115,7 @@ library LibEthDepositing {
             uint256 encoded =
                 uint256(uint160(deposits[i].recipient)) << 96 | uint256(deposits[i].amount);
             assembly {
-                mstore(add(add(buffer, 32), mul(32, i)), encoded)
+                mstore(add(buffer, mul(32, add(1, i))), encoded)
             }
             unchecked {
                 ++i;
