@@ -71,6 +71,8 @@ export async function subscribeToSigner(newSigner: Signer | null) {
     paginationInfo.set(pageInto);
   } else {
     log('Signer deleted');
+
+    currentUserAddress = '';
     transactions.set([]);
     userTokens.set([]);
     paginationInfo.set(null);
