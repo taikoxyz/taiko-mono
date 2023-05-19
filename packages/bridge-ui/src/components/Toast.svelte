@@ -5,6 +5,7 @@
 
   export const errorToast = (msg: string) => {
     toast.push(msg, {
+      duration: 6000, // TODO: make this configurable
       theme: {
         '--toastBackground': '#D32F2F',
       },
@@ -58,7 +59,7 @@
    */
   @media (min-width: 640px) {
     .toast {
-      --toastWidth: 16rem;
+      --toastWidth: 18rem;
     }
   }
 </style>

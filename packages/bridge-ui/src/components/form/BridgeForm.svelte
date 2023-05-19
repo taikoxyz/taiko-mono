@@ -200,21 +200,26 @@
         spenderAddress,
       });
 
-      successToast($_('toast.transactionSent'));
+      successToast('Transaction sent to approve token transfer.');
 
       await pendingTransactions.add(tx, $signer);
 
       requiresAllowance = false;
 
       successToast(
-        'Transaction completed!. You can proceed to bridge the token',
+        `Transaction completed! You can now proceed to bridge ${amount} ${$token.symbol}`,
       );
-    } catch (e) {
-      console.error(e);
-      // TODO: if we have TransactionReceipt here means the tx failed
-      //       We might want to give the user a link to etherscan
-      //       to see the tx details
-      errorToast($_('toast.errorSendingTransaction'));
+    } catch (error) {
+      console.error(error);
+
+      if ('cause' in error && error.cause.status === 0) {
+        const explorerUrl = `${$fromChain.explorerUrl}/tx/${error.cause.transactionHash}`;
+        errorToast(
+          `Failed to approve token transfer. Click <b><a href="${explorerUrl}" target="_blank">here</a><b> to see more details on the explorer.`,
+        );
+      } else {
+        errorToast('Failed to approve token transfer. Try again later.');
+      }
     } finally {
       loading = false;
     }
@@ -321,7 +326,7 @@
 
       const tx = await $activeBridge.Bridge(bridgeOpts);
 
-      successToast($_('toast.transactionSent'));
+      successToast('Transaction sent to bridge your funds');
 
       await pendingTransactions.add(tx, $signer);
 
@@ -340,7 +345,7 @@
         fromChainId: $fromChain.id,
         toChainId: $toChain.id,
         symbol: $token.symbol,
-        amountInWei: amountInWei,
+        amountInWei,
         from: tx.from,
         hash: tx.hash,
         status: MessageStatus.New,
@@ -376,11 +381,20 @@
       memo = '';
       amountInput.value = '';
 
-      successToast($_('toast.transactionCompleted'));
-    } catch (e) {
-      console.error(e);
-      // TODO: Same as in approve()
-      errorToast($_('toast.errorSendingTransaction'));
+      successToast(
+        `Transaction completed! Your funds are getting ready to be claimed on ${$toChain.name} chain.`,
+      );
+    } catch (error) {
+      console.error(error);
+
+      if ('cause' in error && error.cause.status === 0) {
+        const explorerUrl = `${$fromChain.explorerUrl}/tx/${error.cause.transactionHash}`;
+        errorToast(
+          `Failed to bridge your funds. Click <b><a href="${explorerUrl}" target="_blank">here</a></b> to see more details on the explorer.`,
+        );
+      } else {
+        errorToast('Failed to bridge your funds. Try again later.');
+      }
     } finally {
       loading = false;
     }

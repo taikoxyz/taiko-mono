@@ -1,6 +1,9 @@
 import { writable } from 'svelte/store';
 import { type Signer, type Transaction, ethers } from 'ethers';
-import type { BridgeTransaction } from '../domain/transactions';
+import type {
+  BridgeTransaction,
+  TransactionReceipt,
+} from '../domain/transactions';
 import { Deferred } from '../utils/Deferred';
 import { getLogger } from '../utils/logger';
 
@@ -24,7 +27,7 @@ export const pendingTransactions = {
    * and get it removed onces the transaction is mined.
    */
   add: (tx: Transaction, signer: Signer) => {
-    const deferred = new Deferred<ethers.providers.TransactionReceipt>();
+    const deferred = new Deferred<TransactionReceipt>();
 
     update((txs: Transaction[]) => {
       // New array with the new transaction appended

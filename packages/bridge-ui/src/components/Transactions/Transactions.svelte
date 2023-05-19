@@ -9,6 +9,7 @@
   import NoticeModal from '../modals/NoticeModal.svelte';
   import Paginator from '../Paginator.svelte';
   import Loading from '../Loading.svelte';
+  import { signer } from '../../store/signer';
 
   let selectedTransaction: BridgeTransaction;
   let showMessageStatusTooltip: boolean;
@@ -18,7 +19,7 @@
   let pageSize = 5;
   let currentPage = 1;
   let totalItems = 0;
-  let loading = true;
+  let loadingTxs = true;
 
   function getTransactionsToShow(
     page: number,
@@ -38,7 +39,7 @@
 
   $: if ($paginationInfo) {
     totalItems = $paginationInfo.total;
-    loading = false;
+    loadingTxs = false;
   }
 </script>
 
@@ -74,7 +75,7 @@
         {totalItems}
         on:pageChange={({ detail }) => (currentPage = detail)} />
     </div>
-  {:else if loading}
+  {:else if loadingTxs && $signer}
     <div class="flex flex-col items-center">
       <Loading width={150} height={150} />
       Loading transactions...

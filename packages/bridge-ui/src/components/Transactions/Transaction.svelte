@@ -121,7 +121,7 @@
         srcBridgeAddress: chains[bridgeTx.fromChainId].bridgeAddress,
       });
 
-      successToast($_('toast.transactionSent'));
+      successToast('Transaction sent to claim your funds.');
 
       // TODO: the problem here is: what if this takes some time and the user
       //       closes the page? We need to keep track of this state, storage?
@@ -134,10 +134,20 @@
       // We change it manually
       setTxStatus(MessageStatus.Done);
 
-      successToast($_('toast.transactionCompleted'));
+      successToast(
+        `Transaction completed! Your funds have been successfully claimed on ${$fromChain.name} chain.`,
+      );
     } catch (error) {
       console.error(error);
-      errorToast($_('toast.errorSendingTransaction'));
+
+      if ('cause' in error && error.cause.status === 0) {
+        const explorerUrl = `${$fromChain.explorerUrl}/tx/${error.cause.transactionHash}`;
+        errorToast(
+          `Failed to claim your funds. Click <b><a href="${explorerUrl}" target="_blank">here</a></b> to see more details on the explorer.`,
+        );
+      } else {
+        errorToast('Failed to claim your funds. Try again later.');
+      }
     } finally {
       loading = false;
     }

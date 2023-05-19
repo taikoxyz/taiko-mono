@@ -12,10 +12,12 @@ export enum TxExtendedStatus {
 
 export type TxUIStatus = MessageStatus | TxExtendedStatus;
 
+export type TransactionReceipt = ethers.providers.TransactionReceipt;
+
 export type BridgeTransaction = {
   hash: string;
   from: string;
-  receipt?: ethers.providers.TransactionReceipt;
+  receipt?: TransactionReceipt;
   status: TxUIStatus;
   msgHash?: string;
   message?: Message;

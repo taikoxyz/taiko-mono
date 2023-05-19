@@ -1,6 +1,7 @@
 import { get } from 'svelte/store';
 import type { Signer, Transaction, ethers } from 'ethers';
 import { pendingTransactions } from './transactions';
+import type { TransactionReceipt } from '../domain/transactions';
 
 jest.mock('../constants/envVars');
 
@@ -11,7 +12,7 @@ const tx = { hash: '0x789' } as Transaction;
 const initialTxs = [{ hash: '0x123' }, { hash: '0x456' }] as Transaction[];
 
 const mockSigner = (
-  receipt: ethers.providers.TransactionReceipt | null,
+  receipt: TransactionReceipt | null,
   failWithCode?: string,
 ) => {
   const waitForTransaction = jest.fn().mockImplementation(() => {
@@ -33,7 +34,7 @@ describe('transaction stores', () => {
   });
 
   it('tests a successful pendingTransactions', () => {
-    const txTeceipt = { status: 1 } as ethers.providers.TransactionReceipt;
+    const txTeceipt = { status: 1 } as TransactionReceipt;
     const signer = mockSigner(txTeceipt);
 
     pendingTransactions

@@ -2,6 +2,7 @@
   import { location } from 'svelte-spa-router';
   import { transactions } from '../../store/transactions';
   import { paginationInfo } from '../../store/relayerApi';
+  import { signer } from '../../store/signer';
   import BridgeForm from '../../components/form/BridgeForm.svelte';
   import TaikoBanner from '../../components/TaikoBanner.svelte';
   import Transactions from '../../components/Transactions';
@@ -50,7 +51,7 @@
       <Tab name={tab1.name} href={tab1.href}>Bridge</Tab>
       <Tab name={tab2.name} href={tab2.href}>
         <span>Transactions</span>
-        {#if $paginationInfo}
+        {#if $paginationInfo || !$signer}
           ({$transactions.length})
         {:else}
           (<Loading />)
