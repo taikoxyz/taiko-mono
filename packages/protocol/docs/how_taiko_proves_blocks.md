@@ -171,7 +171,7 @@ In addition, ZKP must also prove the following:
 - `extraData` == "".
 - `mixHash` == `meta.mixHash`.
 - `nonce` == 0.
-- `baseFeePerGas` == the calculated EIP-1559 style base fee.
+- `baseFeePerGas` == `block.basefee`
 - `withdrawalsRoot` == The kecceck hash of the L1-to-L2 Ether deposits.
 
 Note that some of the header field checks above are duplicates of checks done in the Global Variable section.
@@ -183,6 +183,10 @@ The ZKP also needs to prove that the cross chain signal service’s storage root
 - **For L2 Signal Service**: the L1 storage root of the signal service is the second parameter in the anchor transaction. The ZKP shall verify that the storage root of the L1 Signal Service address has the given value by using an MPT proof against the state root stored in `meta.l1Hash` for the `l1SignalServiceAddress` account. This MPT proof must be queried by the L2 client from an L1 node.
 
 - **For L1 Signal Service**: the L2 storage root verification will be done in the circuits by using an MPT proof against the post block state root for the `l2SignalServiceAddress` account.
+
+### EIP-1559
+
+In the Taiko L2 protocol, instead of being burned, the basefee is transferred to a designated `treasury` address. To ensure the integrity of this process, the ZKP needs to verify that the treasury address specified by the Taiko L1 contract is indeed the intended recipient.
 
 ### LibProving Verification
 
