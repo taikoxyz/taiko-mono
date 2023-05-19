@@ -12,9 +12,9 @@ struct Config {
   uint256 maxNumProposedBlocks;
   uint256 ringBufferSize;
   uint256 maxVerificationsPerTx;
-  uint256 blockMaxGasLimit;
-  uint256 maxTransactionsPerBlock;
-  uint256 maxBytesPerTxList;
+  uint64 blockMaxGasLimit;
+  uint64 maxTransactionsPerBlock;
+  uint64 maxBytesPerTxList;
   uint256 txListCacheExpiry;
   uint256 proofCooldownPeriod;
   uint256 systemProofCooldownPeriod;
