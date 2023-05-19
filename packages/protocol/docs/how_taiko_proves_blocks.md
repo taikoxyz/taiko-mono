@@ -51,7 +51,7 @@ The ZKP must prove that _TaikoL2.anchor(...)_ is the first transaction in the bl
 - `l1SignalServiceAddress`, `l2SignalServiceAddress` and `parentGasUsed` are directly hashed into the ZKP's instance
 - `l1Height` and `l1Hash` are both part of the block metadata (`meta.l1Height` and `meta.l1Hash`), the `metaHash` is used to calculate the ZKP instance.
 - `l1SignalRoot` is part of the evidence and is also used to calculate the ZKP instance.
-- The transaction's status code is 0 (success).
+- The transaction's status code is 1 (success).
 - The transaction's `tx.origin` and `msg.sender` must be _`LibAnchorSignature.K_GOLDEN_TOUCH_ADDRESS`_.
 - The transaction's signature must be the same as `LibAnchorSignature.signTransaction(...)`.
 - The transaction fee must be 0.
