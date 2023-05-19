@@ -11,6 +11,46 @@
     "title": "Docs",
     "type": "page"
   },
+  "bridge": {
+    "title": "Bridge",
+    "type": "page",
+    "href": "https://bridge.internal.taiko.xyz",
+    "newWindow": true
+  },
+  "swap": {
+    "title": "Swap",
+    "type": "page",
+    "href": "https://swap.internal.taiko.xyz",
+    "newWindow": true
+  },
+  "explorers": {
+    "title": "Explorers",
+    "type": "menu",
+    "items": {
+      "status": {
+        "title": "Protocol Status",
+        "type": "page",
+        "href": "https://status.internal.taiko.xyz",
+        "newWindow": true
+      },
+      "l1-block-explorer": {
+        "title": "L1 Block Explorer",
+        "href": "https://sepolia.etherscan.io",
+        "newWindow": true
+      },
+      "l2-block-explorer": {
+        "title": "L2 Block Explorer",
+        "href": "https://explorer.internal.taiko.xyz",
+        "newWindow": true
+      }
+    }
+  },
+  "blog": {
+    "title": "Blog",
+    "type": "page",
+    "href": "https://mirror.xyz/labs.taiko.eth",
+    "newWindow": true
+  },
   "ecosystem": {
     "title": "Ecosystem",
     "type": "page",
@@ -19,50 +59,16 @@
       "layout": "full"
     }
   },
-  "blog": {
-    "title": "Blog ↗",
+  "forum": {
+    "title": "Forum",
     "type": "page",
-    "href": "https://mirror.xyz/labs.taiko.eth",
+    "href": "https://community.taiko.xyz/",
     "newWindow": true
   },
   "feedback": {
-    "title": "Feedback ↗",
+    "title": "Feedback",
     "type": "page",
     "href": "https://forms.gle/9JWjWtjbWytZZcNRA",
     "newWindow": true
-  },
-  "bridge": {
-    "title": "Bridge ↗",
-    "type": "page",
-    "href": "https://bridge.internal.taiko.xyz",
-    "newWindow": true
-  },
-  "swap": {
-    "title": "Swap ↗",
-    "type": "page",
-    "href": "https://swap.internal.taiko.xyz",
-    "newWindow": true
-  },
-  "status": {
-    "title": "Status ↗",
-    "type": "page",
-    "href": "https://status.internal.taiko.xyz",
-    "newWindow": true
-  },
-  "explorers": {
-    "title": "Explorers",
-    "type": "menu",
-    "items": {
-      "l1-block-explorer": {
-        "title": "Sepolia Block Explorer ↗",
-        "href": "https://sepolia.etherscan.io",
-        "newWindow": true
-      },
-      "l2-block-explorer": {
-        "title": "Taiko Block Explorer ↗",
-        "href": "https://explorer.internal.taiko.xyz",
-        "newWindow": true
-      }
-    }
   }
 }
