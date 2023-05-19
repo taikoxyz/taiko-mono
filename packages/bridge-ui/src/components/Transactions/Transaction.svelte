@@ -191,7 +191,7 @@
         srcTokenVaultAddress: tokenVaults[bridgeTx.fromChainId],
       });
 
-      successToast($_('toast.transactionSent'));
+      successToast('Transaction sent to release your funds.');
 
       // TODO: storage?
       setTxStatus(TxExtendedStatus.Releasing);
@@ -200,10 +200,20 @@
 
       setTxStatus(TxExtendedStatus.Released);
 
-      successToast($_('toast.transactionCompleted'));
+      successToast(
+        `Transaction completed! Your funds have been successfully released back to ${$fromChain.name} chain.`,
+      );
     } catch (error) {
       console.error(error);
-      errorToast($_('toast.errorSendingTransaction'));
+
+      if ('cause' in error && error.cause.status === 0) {
+        const explorerUrl = `${$fromChain.explorerUrl}/tx/${error.cause.transactionHash}`;
+        errorToast(
+          `Failed to release your funds. Click <b><a href="${explorerUrl}" target="_blank">here</a></b> to see more details on the explorer.`,
+        );
+      } else {
+        errorToast('Failed to release your funds. Try again later.');
+      }
     } finally {
       loading = false;
     }
