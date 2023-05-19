@@ -9,6 +9,10 @@ import { getLogger } from '../utils/logger';
 
 const log = getLogger('signer:subscriber');
 
+// We keep track of the current user address to avoid
+// querying the API for transactions if the address is the same.
+let currentUserAddress = '';
+
 /**
  * Subscribe to signer changes.
  * When there is a new signer, we need to get the address and
@@ -19,9 +23,15 @@ export async function subscribeToSigner(newSigner: Signer | null) {
   if (newSigner) {
     log('New signer set', newSigner);
 
-    // TODO: we actually don't want to run all this if the address
-    //       is the same as the previous one.
     const userAddress = await newSigner.getAddress();
+
+    // We actually don't want to run all this if the
+    // new address is the same as the previous one, since it
+    // all depends on the user address.
+    // When we switch networks, the new signer might have
+    // the same address as the previous one.
+    if (userAddress === currentUserAddress) return;
+    currentUserAddress = userAddress;
 
     const { txs: apiTxs, paginationInfo: pageInto } =
       await relayerApi.getAllBridgeTransactionByAddress(userAddress, {

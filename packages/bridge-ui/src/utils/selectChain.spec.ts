@@ -70,23 +70,13 @@ describe('selectChain', () => {
     // there might be no change in the account.
     expect(
       ethers.providers.Web3Provider.prototype.getSigner,
-    ).not.toHaveBeenCalled();
+    ).toHaveBeenCalled();
 
-    expect(signer.set).not.toHaveBeenCalled();
+    expect(signer.set).toHaveBeenCalledWith(mockSigner);
 
     // Select the other chain now
     await selectChain(taikoChain);
 
     expect(switchNetwork).toHaveBeenCalledWith({ chainId: taikoChain.id });
-  });
-
-  it('should update the signer', async () => {
-    await selectChain(mainnetChain, true);
-
-    expect(
-      ethers.providers.Web3Provider.prototype.getSigner,
-    ).toHaveBeenCalled();
-
-    expect(signer.set).toHaveBeenCalledWith(mockSigner);
   });
 });
