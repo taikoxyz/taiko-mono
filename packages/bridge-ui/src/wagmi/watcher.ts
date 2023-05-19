@@ -49,18 +49,9 @@ export function startWatching() {
       if (accountResult.isConnected) {
         const _signer = await fetchSigner();
         signer.set(_signer);
-
-        const signerAddress = await _signer.getAddress();
-
-        const signerTransactions = await storageService.getAllByAddress(
-          signerAddress,
-        );
-
-        transactions.set(signerTransactions);
       } else {
         log('Acount disconnected');
         signer.set(null);
-        transactions.set([]);
       }
     });
 

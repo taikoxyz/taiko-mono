@@ -75,7 +75,7 @@
         on:pageChange={({ detail }) => (currentPage = detail)} />
     </div>
   {:else if loading}
-    <div class="flex justify-center flex-col align-middle">
+    <div class="flex flex-col items-center">
       <Loading width={150} height={150} />
       Loading transactions...
     </div>

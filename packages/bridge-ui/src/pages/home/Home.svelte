@@ -1,10 +1,12 @@
 <script lang="ts">
   import { location } from 'svelte-spa-router';
   import { transactions } from '../../store/transactions';
+  import { paginationInfo } from '../../store/relayerApi';
   import BridgeForm from '../../components/form/BridgeForm.svelte';
   import TaikoBanner from '../../components/TaikoBanner.svelte';
   import Transactions from '../../components/Transactions';
   import { Tabs, TabList, Tab, TabPanel } from '../../components/Tabs';
+  import Loading from '../../components/Loading.svelte';
 
   let bridgeWidth: number;
   let bridgeHeight: number;
@@ -47,7 +49,12 @@
     <TabList class="block mb-4">
       <Tab name={tab1.name} href={tab1.href}>Bridge</Tab>
       <Tab name={tab2.name} href={tab2.href}>
-        Transactions ({$transactions.length})
+        <span>Transactions</span>
+        {#if $paginationInfo}
+          ({$transactions.length})
+        {:else}
+          (<Loading />)
+        {/if}
       </Tab>
     </TabList>
 

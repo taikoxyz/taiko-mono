@@ -5,6 +5,9 @@ import { userTokens } from '../store/userToken';
 import type { BridgeTransaction } from '../domain/transactions';
 import { relayerApi } from '../relayer-api/relayerApi';
 import { paginationInfo, relayerBlockInfoMap } from '../store/relayerApi';
+import { getLogger } from '../utils/logger';
+
+const log = getLogger('signer:subscriber');
 
 /**
  * Subscribe to signer changes.
@@ -14,6 +17,8 @@ import { paginationInfo, relayerBlockInfoMap } from '../store/relayerApi';
  */
 export async function subscribeToSigner(newSigner: Signer | null) {
   if (newSigner) {
+    log('New signer set', newSigner);
+
     // TODO: we actually don't want to run all this if the address
     //       is the same as the previous one.
     const userAddress = await newSigner.getAddress();
@@ -54,5 +59,10 @@ export async function subscribeToSigner(newSigner: Signer | null) {
     // This store is also used to indicate we have transactions ready
     // to be displayed in the UI.
     paginationInfo.set(pageInto);
+  } else {
+    log('Signer deleted');
+    transactions.set([]);
+    userTokens.set([]);
+    paginationInfo.set(null);
   }
 }
