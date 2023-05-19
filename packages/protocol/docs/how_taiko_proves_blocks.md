@@ -14,7 +14,7 @@ A valid `txList` (until [issue #13724](https://github.com/taikoxyz/taiko-mono/is
 - Has a byte-size smaller than the protocol constant _`maxBytesPerTxList`_ (also enforced in contracts);
 - Can be RLP-decoded into a list of transactions without trailing space;
 - Contains no more transactions (valid and invalid) than the protocol constant _`maxTransactionsPerBlock`_;
-- Has a total gas limit for all valid transactions not exceeding the protocol constant _`blockMaxGasLimit`_.
+- Has a total gas limit for all valid transactions not exceeding the protocol constant _`blockMaxGasLimit`_;
 
 ZKP must prove whether the `txList` is valid or invalid. For an invalid `txList`, the corresponding L2 block will only have an anchor transaction.
 
@@ -26,6 +26,7 @@ A valid transaction (defined in the Ethereum Yellow Paper):
 - Has a valid transaction nonce (equivalent to the sender account's current nonce).
 - Has no contract code deployed on the sender account (see EIP-3607 by Feist et al. [2021]).
 - Has a gas limit no smaller than the intrinsic gas, _`g0`_, used by the transaction; and the sender account balance contains at least the cost, _`v0`_, required in up-front payment.
+- Has a gas limit shall be no smaller than the protocol constant `_minTxGasLimit_`.
 
 #### Slicing and Consistency
 
