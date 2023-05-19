@@ -17,7 +17,6 @@ library TaikoData {
         uint256 blockMaxGasLimit;
         uint256 maxTransactionsPerBlock;
         uint256 maxBytesPerTxList;
-        uint256 minTxGasLimit;
         uint256 txListCacheExpiry;
         uint256 proofCooldownPeriod;
         uint256 systemProofCooldownPeriod;
