@@ -8,7 +8,7 @@ import { getLogger } from '../utils/logger';
 
 const log = getLogger('selectChain');
 
-export async function selectChain(chain: Chain) {
+export async function selectChain(chain: Chain, updateSigner = false) {
   const chainId = chain.id;
 
   await switchNetwork({ chainId });
@@ -30,9 +30,15 @@ export async function selectChain(chain: Chain) {
     toChain.set(mainnetChain);
   }
 
-  const _signer = provider.getSigner();
+  // This might not be required as we are watching for changes
+  // in the account, in which case we will set the signer there
+  // if there is any change. That's why the default value of
+  // updateSigner is false
+  if (updateSigner) {
+    const _signer = provider.getSigner();
 
-  log('signer', _signer);
+    log('signer', _signer);
 
-  signer.set(_signer);
+    signer.set(_signer);
+  }
 }

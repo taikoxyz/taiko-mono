@@ -14,6 +14,8 @@ import { paginationInfo, relayerBlockInfoMap } from '../store/relayerApi';
  */
 export async function subscribeToSigner(newSigner: Signer | null) {
   if (newSigner) {
+    // TODO: we actually don't want to run all this if the address is the same
+    //
     const userAddress = await newSigner.getAddress();
 
     const { txs: apiTxs, paginationInfo: pageInto } =

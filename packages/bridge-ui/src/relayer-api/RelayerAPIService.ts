@@ -237,6 +237,8 @@ export class RelayerAPIService implements RelayerAPI {
       // }
       if (!receipt) return;
 
+      bridgeTx.receipt = receipt;
+
       const destBridgeAddress = chains[toChainId].bridgeAddress;
 
       const status = await RelayerAPIService._getBridgeMessageStatus(
