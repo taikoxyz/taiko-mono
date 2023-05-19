@@ -104,16 +104,15 @@ library LibEthDepositing {
         assembly {
             mstore(depositsProcessed, j)
         }
-        depositsRoot = hashDeposits(depositsProcessed);
-    }
 
-    function hashDeposits(TaikoData.EthDeposit[] memory deposits) internal pure returns (bytes32) {
         bytes memory buffer;
 
-        for (uint256 i = 0; i < deposits.length; i++) {
-            buffer = abi.encodePacked(buffer, deposits[i].recipient, deposits[i].amount);
+        for (uint256 i = 0; i < depositsProcessed.length; i++) {
+            uint256 encoded = uint256(uint160(depositsProcessed[i].recipient)) << 96
+                | uint256(depositsProcessed[i].amount);
+            buffer = bytes.concat(buffer, bytes32(encoded));
         }
 
-        return keccak256(buffer);
+        depositsRoot = keccak256(buffer);
     }
 }
