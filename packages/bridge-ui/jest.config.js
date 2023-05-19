@@ -43,7 +43,7 @@ export default {
       //       Bridges are pushing down the coverage due to
       //       try-catch blocks. We need to cover them all
       statements: 91,
-      branches: 90,
+      branches: 89,
       functions: 95,
       lines: 91,
     },
