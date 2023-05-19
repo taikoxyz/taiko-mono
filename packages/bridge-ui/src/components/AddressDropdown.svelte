@@ -13,14 +13,13 @@
   import { truncateString } from '../utils/truncateString';
   import { ChevronDown } from 'svelte-heros-v2';
   import { errorToast, successToast } from './Toast.svelte';
-  import { stopWatching } from '../wagmi/watcher';
   import Loading from './Loading.svelte';
 
   let address: string = '';
   let addressAvatarImgData: string = '';
   let tokenBalance: string = '';
 
-  async function getUserBalance(signer: Signer) {
+  async function setUserBalance(signer: Signer) {
     if (signer) {
       const userBalance = await signer.getBalance('latest');
       tokenBalance = ethers.utils.formatEther(userBalance);
@@ -46,13 +45,14 @@
   async function disconnect() {
     try {
       await wagmiDisconnect();
+      successToast('You are disconnected');
     } catch (e) {
       console.error(e);
       errorToast($_('toast.errorDisconnecting'));
     }
   }
 
-  $: getUserBalance($signer);
+  $: setUserBalance($signer).catch((e) => console.error(e));
   $: setAddress($signer).catch((e) => console.error(e));
 
   onMount(() => {
@@ -62,66 +62,69 @@
   });
 </script>
 
-<div class="dropdown dropdown-bottom dropdown-end">
-  <!-- svelte-ignore a11y-label-has-associated-control -->
-  <label role="button" tabindex="0" class="btn btn-md justify-around">
-    <span class="font-normal flex-1 text-left flex items-center">
-      {#if $pendingTransactions && $pendingTransactions.length}
-        <span>{$pendingTransactions.length} Pending</span>
-        <div class="inline-block ml-2">
-          <Loading />
-        </div>
-      {:else}
+<!-- Makes no sense to render anything here without signer  -->
+{#if $signer}
+  <div class="dropdown dropdown-bottom dropdown-end">
+    <!-- svelte-ignore a11y-label-has-associated-control -->
+    <label role="button" tabindex="0" class="btn btn-md justify-around">
+      <span class="font-normal flex-1 text-left flex items-center">
+        {#if $pendingTransactions && $pendingTransactions.length}
+          <span>Pending tx...</span>
+          <div class="inline-block ml-2">
+            <Loading />
+          </div>
+        {:else}
+          <img
+            width="26"
+            height="26"
+            src="data:image/png;base64,{addressAvatarImgData}"
+            class="rounded-full mr-2 inline-block"
+            alt="avatar" />
+
+          <span class="hidden md:inline-block mr-2">
+            {addressSubsection(address)}
+          </span>
+        {/if}
+      </span>
+      <ChevronDown size="20" />
+    </label>
+    <ul
+      role="listbox"
+      tabindex="0"
+      class="dropdown-content address-dropdown-content menu shadow bg-dark-2 rounded-sm w-48 mt-2 pb-2 text-sm">
+      <div class="p-5 pb-0 flex flex-col items-center" transition:slide>
+        {#if $fromChain && $signer}
+          <svelte:component this={$fromChain.icon} />
+          <div class="text-lg mt-2">
+            {tokenBalance.length > 10
+              ? `${truncateString(tokenBalance)}...`
+              : tokenBalance} ETH
+          </div>
+        {:else}
+          <div class="text-lg mt-2">-- ETH</div>
+        {/if}
+      </div>
+      <div class="divider" />
+      <div class="flex hover:bg-dark-5 items-center py-2 px-4 mx-2 rounded-md">
         <img
-          width="26"
-          height="26"
+          width="24"
+          height="24"
           src="data:image/png;base64,{addressAvatarImgData}"
           class="rounded-full mr-2 inline-block"
           alt="avatar" />
-
-        <span class="hidden md:inline-block mr-2">
-          {addressSubsection(address)}
-        </span>
-      {/if}
-    </span>
-    <ChevronDown size="20" />
-  </label>
-  <ul
-    role="listbox"
-    tabindex="0"
-    class="dropdown-content address-dropdown-content menu shadow bg-dark-2 rounded-sm w-48 mt-2 pb-2 text-sm">
-    <div class="p-5 pb-0 flex flex-col items-center" transition:slide>
-      {#if $fromChain && $signer}
-        <svelte:component this={$fromChain.icon} />
-        <div class="text-lg mt-2">
-          {tokenBalance.length > 10
-            ? `${truncateString(tokenBalance)}...`
-            : tokenBalance} ETH
-        </div>
-      {:else}
-        <div class="text-lg mt-2">-- ETH</div>
-      {/if}
-    </div>
-    <div class="divider" />
-    <div class="flex hover:bg-dark-5 items-center py-2 px-4 mx-2 rounded-md">
-      <img
-        width="24"
-        height="24"
-        src="data:image/png;base64,{addressAvatarImgData}"
-        class="rounded-full mr-2 inline-block"
-        alt="avatar" />
-      {addressSubsection(address)}
-    </div>
-    <div
-      class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-4 mx-2 rounded-md"
-      on:click={async () => await copyToClipboard(address)}>
-      <ClipboardDocument class="mr-2" />
-      Copy Address
-    </div>
-    <div
-      class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-4 mx-2 rounded-md"
-      on:click={async () => await disconnect()}>
-      <Power class="mr-2" /> Disconnect
-    </div>
-  </ul>
-</div>
+        {addressSubsection(address)}
+      </div>
+      <button
+        class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-4 mx-2 rounded-md"
+        on:click={async () => await copyToClipboard(address)}>
+        <ClipboardDocument class="mr-2" />
+        Copy Address
+      </button>
+      <button
+        class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-4 mx-2 rounded-md"
+        on:click={async () => await disconnect()}>
+        <Power class="mr-2" /> Disconnect
+      </button>
+    </ul>
+  </div>
+{/if}
