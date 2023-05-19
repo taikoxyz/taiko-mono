@@ -4,8 +4,6 @@ import { fromChain, toChain } from '../store/chain';
 import { signer } from '../store/signer';
 import { isSwitchEthereumChainModalOpen } from '../store/modal';
 import { mainnetChain, taikoChain } from '../chain/chains';
-import { storageService } from '../storage/services';
-import { transactions } from '../store/transactions';
 
 const log = getLogger('wagmi:watcher');
 
