@@ -314,9 +314,9 @@ GlobalVariables:::group
 
 
 subgraph Anchor [Anchor Tx]
-a_h1_height(h1Height)
-a_h1_hash(h1Hash)
-a_h1_signal_root(h1SignalRoot)
+a_l1_height(l1Height)
+a_l1_hash(l1Hash)
+a_l1_signal_root(l1SignalRoot)
 a_parent_gas_used(parentGasUsed)
 end
 
