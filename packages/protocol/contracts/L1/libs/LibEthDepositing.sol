@@ -110,11 +110,15 @@ library LibEthDepositing {
 
     function _hashDeposits(TaikoData.EthDeposit[] memory deposits) private pure returns (bytes32) {
         bytes memory buffer;
-        for (uint256 i = 0; i < deposits.length; i++) {
+        for (uint256 i; i < deposits.length;) {
             uint256 encoded =
                 uint256(uint160(deposits[i].recipient)) << 96 | uint256(deposits[i].amount);
             buffer = bytes.concat(buffer, bytes32(encoded));
+            unchecked {
+                ++i;
+            }
         }
+
         return keccak256(buffer);
     }
 }
