@@ -105,10 +105,14 @@ library LibEthDepositing {
             mstore(depositsProcessed, j)
         }
 
-        depositsRoot = _hashDeposits(depositsProcessed);
+        depositsRoot = _hashEthDeposits(depositsProcessed);
     }
 
-    function _hashDeposits(TaikoData.EthDeposit[] memory deposits) private pure returns (bytes32) {
+    function _hashEthDeposits(TaikoData.EthDeposit[] memory deposits)
+        private
+        pure
+        returns (bytes32)
+    {
         bytes memory buffer = new bytes(32 * deposits.length);
 
         for (uint256 i; i < deposits.length;) {
