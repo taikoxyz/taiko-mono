@@ -21,10 +21,8 @@ export async function subscribeToSigner(newSigner: Signer | null) {
     const { txs: apiTxs, paginationInfo: pageInto } =
       await relayerApi.getAllBridgeTransactionByAddress(userAddress, {
         page: 0,
-        size: 100,
+        size: 100, // 100 transactions max
       });
-
-    paginationInfo.set(pageInto);
 
     const blockInfoMap = await relayerApi.getBlockInfo();
     relayerBlockInfoMap.set(blockInfoMap);
@@ -52,5 +50,9 @@ export async function subscribeToSigner(newSigner: Signer | null) {
     // Get tokens based on current user address (signer)
     const tokens = tokenService.getTokens(userAddress);
     userTokens.set(tokens);
+
+    // This store is also used to indicate we have transactions ready
+    // to be displayed in the UI.
+    paginationInfo.set(pageInto);
   }
 }
