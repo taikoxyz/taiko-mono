@@ -200,25 +200,28 @@
         spenderAddress,
       });
 
-      successToast('Transaction sent to approve token transfer.');
+      successToast('Transaction sent to approve tokens transfer.');
 
       await pendingTransactions.add(tx, $signer);
 
       requiresAllowance = false;
 
       successToast(
-        `Tokens transfer approved! You can now proceed to bridge ${$token.symbol} tokens.`,
+        `<strong>Tokens transfer approved!</strong><br />You can now proceed to bridge ${$token.symbol} tokens.`,
       );
     } catch (error) {
       console.error(error);
 
+      const headerError = '<strong>Failed to approve</strong>';
       if ('cause' in error && error.cause.status === 0) {
         const explorerUrl = `${$fromChain.explorerUrl}/tx/${error.cause.transactionHash}`;
+        const htmlLink = `<a href="${explorerUrl}" target="_blank"><b><u>here</u></b></a>`;
         errorToast(
-          `Failed to approve token transfer. Click <b><a href="${explorerUrl}" target="_blank">here</a><b> to see more details on the explorer.`,
+          `${headerError}<br />Click ${htmlLink} to see more details on the explorer.`,
+          true, // dismissible
         );
       } else {
-        errorToast('Failed to approve token transfer. Try again later.');
+        errorToast(`${headerError}<br />Try again later.`);
       }
     } finally {
       loading = false;
@@ -382,18 +385,21 @@
       amountInput.value = '';
 
       successToast(
-        `Transaction completed! Your funds are getting ready to be claimed on ${$toChain.name} chain.`,
+        `<strong>Transaction completed!</strong><br />Your funds are getting ready to be claimed on ${$toChain.name} chain.`,
       );
     } catch (error) {
       console.error(error);
 
+      const headerError = '<strong>Failed to bridge funds</strong>';
       if ('cause' in error && error.cause.status === 0) {
         const explorerUrl = `${$fromChain.explorerUrl}/tx/${error.cause.transactionHash}`;
+        const htmlLink = `<a href="${explorerUrl}" target="_blank"><b><u>here</u></b></a>`;
         errorToast(
-          `Failed to bridge your funds. Click <b><a href="${explorerUrl}" target="_blank">here</a></b> to see more details on the explorer.`,
+          `${headerError}<br />Click ${htmlLink} to see more details on the explorer.`,
+          true, // dismissible
         );
       } else {
-        errorToast('Failed to bridge your funds. Try again later.');
+        errorToast(`${headerError}<br />Try again later.`);
       }
     } finally {
       loading = false;

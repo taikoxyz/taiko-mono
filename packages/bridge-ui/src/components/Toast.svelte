@@ -3,9 +3,9 @@
 
   // Toast component exposes the following API:
 
-  export const errorToast = (msg: string) => {
+  export const errorToast = (msg: string, dismiss = false) => {
     toast.push(msg, {
-      duration: 6000, // TODO: make this configurable
+      ...(dismiss ? { initial: 0, dismissable: true } : {}),
       theme: {
         '--toastBackground': '#D32F2F',
       },
@@ -28,7 +28,7 @@
   // TODO: props
   const toastOptions: SvelteToastOptions = {
     dismissable: false,
-    duration: 4000,
+    duration: 5000,
     pausable: false,
   };
 

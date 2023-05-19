@@ -28,14 +28,14 @@
 
         log('Connected with result', result);
 
-        successToast('Connected');
+        successToast('Wallet connected!');
       } catch (error) {
         console.error(error);
 
         if (error instanceof ConnectorNotFoundError) {
           errorToast(`${connector.name} not installed`);
         } else {
-          errorToast('Error while connecting to wallet');
+          errorToast('Error connecting wallet');
         }
       }
     }

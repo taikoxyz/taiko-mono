@@ -135,18 +135,21 @@
       setTxStatus(MessageStatus.Done);
 
       successToast(
-        `Transaction completed! Your funds have been successfully claimed on ${$fromChain.name} chain.`,
+        `<strong>Transaction completed!</strong><br />Your funds have been successfully claimed on ${$fromChain.name} chain.`,
       );
     } catch (error) {
       console.error(error);
 
+      const headerError = '<strong>Failed to claim funds</strong>';
       if ('cause' in error && error.cause.status === 0) {
         const explorerUrl = `${$fromChain.explorerUrl}/tx/${error.cause.transactionHash}`;
+        const htmlLink = `<a href="${explorerUrl}" target="_blank"><b><u>here</u></b></a>`;
         errorToast(
-          `Failed to claim your funds. Click <b><a href="${explorerUrl}" target="_blank">here</a></b> to see more details on the explorer.`,
+          `${headerError}<br />Click ${htmlLink} to see more details on the explorer.`,
+          true, // dismissible
         );
       } else {
-        errorToast('Failed to claim your funds. Try again later.');
+        errorToast(`${headerError}<br />Try again later.`);
       }
     } finally {
       loading = false;
@@ -201,18 +204,21 @@
       setTxStatus(TxExtendedStatus.Released);
 
       successToast(
-        `Transaction completed! Your funds have been successfully released back to ${$fromChain.name} chain.`,
+        `<strong>Transaction completed!</strong><br />Your funds have been successfully released back to ${$fromChain.name} chain.`,
       );
     } catch (error) {
       console.error(error);
 
+      const headerError = '<strong>Failed to release funds</strong>';
       if ('cause' in error && error.cause.status === 0) {
         const explorerUrl = `${$fromChain.explorerUrl}/tx/${error.cause.transactionHash}`;
+        const htmlLink = `<a href="${explorerUrl}" target="_blank"><b><u>here</u></b></a>`;
         errorToast(
-          `Failed to release your funds. Click <b><a href="${explorerUrl}" target="_blank">here</a></b> to see more details on the explorer.`,
+          `${headerError}<br />Click ${htmlLink} to see more details on the explorer.`,
+          true, // dismissible
         );
       } else {
-        errorToast('Failed to release your funds. Try again later.');
+        errorToast(`${headerError}<br />Try again later.`);
       }
     } finally {
       loading = false;
