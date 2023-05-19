@@ -206,7 +206,9 @@
 
       requiresAllowance = false;
 
-      successToast($_('toast.transactionCompleted'));
+      successToast(
+        'Transaction completed!. You can proceed to bridge the token',
+      );
     } catch (e) {
       console.error(e);
       // TODO: if we have TransactionReceipt here means the tx failed
