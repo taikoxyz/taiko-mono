@@ -43,6 +43,9 @@ abstract contract TaikoL1TestBase is Test {
     address public constant Carol = 0x300C9b60E19634e12FC6D68B7FEa7bFB26c2E419;
     address public constant Dave = 0x400147C0Eb43D8D71b2B03037bB7B31f8f78EF5F;
     address public constant Eve = 0x50081b12838240B1bA02b3177153Bca678a86078;
+    address public constant Frank = 0x430c9b60e19634e12FC6d68B7fEa7bFB26c2e419;
+    address public constant George = 0x520147C0eB43d8D71b2b03037bB7b31f8F78EF5f;
+    address public constant Hilbert = 0x61081B12838240B1Ba02b3177153BcA678a86078;
 
     // Calculation shall be done in derived contracts - based on testnet or mainnet expected proof time
     uint64 public initProofTimeIssued;

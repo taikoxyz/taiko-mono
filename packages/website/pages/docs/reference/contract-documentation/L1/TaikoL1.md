@@ -126,7 +126,7 @@ function getBlockFee() public view returns (uint64)
 ### getProofReward
 
 ```solidity
-function getProofReward(uint64 provenAt, uint64 proposedAt) public view returns (uint64)
+function getProofReward(uint64 proofTime) public view returns (uint64)
 ```
 
 ### getBlock
