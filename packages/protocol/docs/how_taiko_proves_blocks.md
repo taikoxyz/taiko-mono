@@ -54,6 +54,7 @@ The ZKP must prove that _TaikoL2.anchor(...)_ is the first transaction in the bl
 - The transaction's status code is 0 (success).
 - The transaction's `tx.origin` and `msg.sender` must be _`LibAnchorSignature.K_GOLDEN_TOUCH_ADDRESS`_.
 - The transaction's signature must be the same as `LibAnchorSignature.signTransaction(...)`.
+- The transaction fee must be 0.
 
 Note that the anchor transaction emits an `Anchored` event that may help ZKP to verify block variables. See below.
 
