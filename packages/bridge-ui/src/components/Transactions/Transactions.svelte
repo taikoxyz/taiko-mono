@@ -1,7 +1,7 @@
 <script lang="ts">
   import { transactions } from '../../store/transactions';
   import { signer } from '../../store/signer';
-  import { relayerApi, paginationInfo } from '../../store/relayerApi';
+  // import { relayerApi, paginationInfo } from '../../store/relayerApi';
   import Transaction from './Transaction.svelte';
   import TransactionDetail from './TransactionDetail.svelte';
   import MessageStatusTooltip from './MessageStatusTooltip.svelte';
@@ -9,7 +9,6 @@
   import type { BridgeTransaction } from '../../domain/transactions';
   import NoticeModal from '../modals/NoticeModal.svelte';
   import Pagination from '../Pagination.svelte';
-  import { MAX_PAGE_SIZE } from '../../domain/relayerApi';
 
   let selectedTransaction: BridgeTransaction;
   let showMessageStatusTooltip: boolean;
