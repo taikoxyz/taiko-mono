@@ -3,7 +3,7 @@ import { type Signer, type Transaction, ethers } from 'ethers';
 import type {
   BridgeTransaction,
   TransactionReceipt,
-} from '../domain/transactions';
+} from '../domain/transaction';
 import { Deferred } from '../utils/Deferred';
 import { getLogger } from '../utils/logger';
 

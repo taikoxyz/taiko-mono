@@ -1,6 +1,6 @@
 import { Contract } from 'ethers';
 import { MessageStatus } from '../domain/message';
-import type { BridgeTransaction } from '../domain/transactions';
+import type { BridgeTransaction } from '../domain/transaction';
 import { chains } from '../chain/chains';
 import { providers } from '../provider/providers';
 import { crossChainSyncABI } from '../constants/abi';

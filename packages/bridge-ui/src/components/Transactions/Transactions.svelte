@@ -5,7 +5,7 @@
   import TransactionDetail from './TransactionDetail.svelte';
   import MessageStatusTooltip from './MessageStatusTooltip.svelte';
   import InsufficientBalanceTooltip from './InsufficientBalanceTooltip.svelte';
-  import type { BridgeTransaction } from '../../domain/transactions';
+  import type { BridgeTransaction } from '../../domain/transaction';
   import NoticeModal from '../modals/NoticeModal.svelte';
   import Paginator from '../Paginator.svelte';
   import Loading from '../Loading.svelte';
@@ -38,7 +38,7 @@
   );
 
   $: if ($paginationInfo) {
-    totalItems = $paginationInfo.total;
+    totalItems = $transactions.length;
     loadingTxs = false;
   }
 </script>

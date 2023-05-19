@@ -19,7 +19,7 @@
   } from '../../store/transactions';
   import Memo from './Memo.svelte';
   import { erc20ABI } from '../../constants/abi';
-  import type { BridgeTransaction } from '../../domain/transactions';
+  import type { BridgeTransaction } from '../../domain/transaction';
   import { MessageStatus } from '../../domain/message';
   import { Funnel } from 'svelte-heros-v2';
   import FaucetModal from '../modals/FaucetModal.svelte';
@@ -140,7 +140,7 @@
     return allowance;
   }
 
-  async function checkButtonAbility(
+  async function checkButtonIsDisabled(
     signer: Signer,
     amount: string,
     token: Token,
@@ -207,7 +207,7 @@
       requiresAllowance = false;
 
       successToast(
-        `Transaction completed! You can now proceed to bridge ${amount} ${$token.symbol}`,
+        `Tokens transfer approved! You can now proceed to bridge ${$token.symbol} tokens.`,
       );
     } catch (error) {
       console.error(error);
@@ -479,7 +479,7 @@
 
   $: updateTokenBalance($signer, $token);
 
-  $: checkButtonAbility(
+  $: checkButtonIsDisabled(
     $signer,
     amount,
     $token,

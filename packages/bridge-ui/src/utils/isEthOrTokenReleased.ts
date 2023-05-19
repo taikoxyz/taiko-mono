@@ -3,7 +3,7 @@ import { tokenVaults } from '../vault/tokenVaults';
 import {
   type BridgeTransaction,
   TxExtendedStatus,
-} from '../domain/transactions';
+} from '../domain/transaction';
 import { isETHByMessage } from './isETHByMessage';
 import { chains } from '../chain/chains';
 import { providers } from '../provider/providers';

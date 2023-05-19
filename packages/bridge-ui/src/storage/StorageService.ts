@@ -1,4 +1,4 @@
-import type { BridgeTransaction, Transactioner } from '../domain/transactions';
+import type { BridgeTransaction, Transactioner } from '../domain/transaction';
 import { BigNumber, Contract, ethers } from 'ethers';
 import { bridgeABI, tokenVaultABI, erc20ABI } from '../constants/abi';
 import { MessageStatus } from '../domain/message';

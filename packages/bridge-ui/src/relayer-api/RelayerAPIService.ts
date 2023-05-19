@@ -3,7 +3,7 @@ import { BigNumber, Contract, ethers } from 'ethers';
 import { bridgeABI, erc20ABI, tokenVaultABI } from '../constants/abi';
 import { MessageStatus } from '../domain/message';
 
-import type { BridgeTransaction } from '../domain/transactions';
+import type { BridgeTransaction } from '../domain/transaction';
 import type {
   APIRequestParams,
   APIResponse,
@@ -143,6 +143,9 @@ export class RelayerAPIService implements RelayerAPI {
 
     const { page, size, total, total_pages, first, last, max_page } = apiTxs;
 
+    // TODO: we cannot rely on these values, because the API might return duplicates
+    //       and we need to filter them out in the Frontend side. We should fix this
+    //       in the API side.
     const paginationInfo: PaginationInfo = {
       page,
       size,

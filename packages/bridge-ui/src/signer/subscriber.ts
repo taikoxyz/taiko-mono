@@ -2,7 +2,7 @@ import type { Signer } from 'ethers';
 import { storageService, tokenService } from '../storage/services';
 import { transactions } from '../store/transactions';
 import { userTokens } from '../store/userToken';
-import type { BridgeTransaction } from '../domain/transactions';
+import type { BridgeTransaction } from '../domain/transaction';
 import { relayerApi } from '../relayer-api/relayerApi';
 import { paginationInfo, relayerBlockInfoMap } from '../store/relayerApi';
 import { getLogger } from '../utils/logger';

@@ -4,7 +4,7 @@
     type BridgeTransaction,
     type TxUIStatus,
     TxExtendedStatus,
-  } from '../../domain/transactions';
+  } from '../../domain/transaction';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
   import { MessageStatus } from '../../domain/message';
   import { ethers, Contract } from 'ethers';
