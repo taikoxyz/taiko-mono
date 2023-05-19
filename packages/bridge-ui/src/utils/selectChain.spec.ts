@@ -41,34 +41,52 @@ jest.mock('../store/signer', () => ({
   },
 }));
 
+const mockSigner = {} as ethers.providers.JsonRpcSigner;
+
 describe('selectChain', () => {
-  it('should select chain', async () => {
-    const mockSigner = {} as ethers.providers.JsonRpcSigner;
+  beforeAll(() => {
     jest
       .mocked(ethers.providers.Web3Provider.prototype.getSigner)
       .mockReturnValue(mockSigner);
+  });
 
+  beforeEach(() => {
+    jest.mocked(ethers.providers.Web3Provider.prototype.getSigner).mockClear();
+  });
+
+  it('should select chain', async () => {
     await selectChain(mainnetChain);
 
     expect(switchNetwork).toHaveBeenCalledWith({ chainId: mainnetChain.id });
     expect(fromChain.set).toHaveBeenCalledWith(mainnetChain);
     expect(toChain.set).toHaveBeenCalledWith(taikoChain);
-    expect(signer.set).toHaveBeenCalled();
 
     expect(ethers.providers.Web3Provider.prototype.send).toHaveBeenCalledWith(
       'eth_requestAccounts',
       [],
     );
 
+    // By default the signer is not updated as
+    // there might be no change in the account.
     expect(
       ethers.providers.Web3Provider.prototype.getSigner,
-    ).toHaveBeenCalled();
+    ).not.toHaveBeenCalled();
 
-    expect(signer.set).toHaveBeenCalledWith(mockSigner);
+    expect(signer.set).not.toHaveBeenCalled();
 
     // Select the other chain now
     await selectChain(taikoChain);
 
     expect(switchNetwork).toHaveBeenCalledWith({ chainId: taikoChain.id });
+  });
+
+  it('should update the signer', async () => {
+    await selectChain(mainnetChain, true);
+
+    expect(
+      ethers.providers.Web3Provider.prototype.getSigner,
+    ).toHaveBeenCalled();
+
+    expect(signer.set).toHaveBeenCalledWith(mockSigner);
   });
 });
