@@ -29,11 +29,6 @@
   border-color: hsla(var(--af) / var(--tw-bg-opacity, 1));
 }
 
-.btn.btn-accent:hover {
-  background-color: hsla(var(--a) / var(--tw-bg-opacity, 1));
-  border-color: hsla(var(--a) / var(--tw-bg-opacity, 1));
-}
-
 .dropdown .dropdown-content {
   border-radius: 0 0 var(--rounded-box) var(--rounded-box);
 }
