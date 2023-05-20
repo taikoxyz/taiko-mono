@@ -4,6 +4,7 @@
     connect as wagmiConnect,
     Connector,
     ConnectorNotFoundError,
+    UserRejectedRequestError,
   } from '@wagmi/core';
 
   import Modal from '../modals/Modal.svelte';
@@ -11,7 +12,7 @@
   import MetaMask from '../icons/MetaMask.svelte';
   import WalletConnect from '../icons/WalletConnect.svelte';
   import CoinbaseWallet from '../icons/CoinbaseWallet.svelte';
-  import { errorToast, successToast } from '../Toast.svelte';
+  import { errorToast, successToast, warningToast } from '../Toast.svelte';
   import { getLogger } from '../../utils/logger';
   import { client as wagmiClient } from '../../wagmi/client';
 
@@ -33,7 +34,9 @@
         console.error(error);
 
         if (error instanceof ConnectorNotFoundError) {
-          errorToast(`${connector.name} not installed`);
+          errorToast(`${connector.name} not installed.`);
+        } else if (error instanceof UserRejectedRequestError) {
+          warningToast('Connect request canceled.');
         } else {
           errorToast('Error connecting wallet');
         }

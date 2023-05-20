@@ -22,7 +22,7 @@
       console.error(error);
 
       if (error instanceof UserRejectedRequestError) {
-        warningToast('Switch chain request rejected.');
+        warningToast('Switch chain request canceled.');
       } else {
         errorToast('Error switching chain.');
       }
