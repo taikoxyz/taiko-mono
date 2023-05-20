@@ -49,7 +49,7 @@ module.exports = {
           warning: '#FFFF00',
           error: '#FF0000',
           '--color-dark-1': '#000000',
-          '--color-dark-2': '#181818',
+          '--color-dark-2': '#000000',
           '--color-dark-3': '#0F0F0F',
           '--color-dark-4': '#242424',
           '--color-dark-5': '#373737',
