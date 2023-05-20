@@ -8,6 +8,7 @@
   import TaikoLogoFluo from './icons/TaikoLogoFluo.svelte';
   import { Sun, Moon } from 'svelte-heros-v2';
   import { fly } from 'svelte/transition';
+  import Tko from './icons/TKO.svelte';
 
   let isDarkMode = localStorage.getItem('theme') === 'dark';
 
@@ -39,7 +40,7 @@
       <TaikoLogo width={120} />
     </span>
     <span class="md:hidden">
-      <TaikoLogoFluo width={50} />
+      <Tko width={50} />
     </span>
     <a
       class="pl-4 font-medium hover:text-[#E81899]"
