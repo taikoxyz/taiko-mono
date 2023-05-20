@@ -23,7 +23,7 @@ jobs:
           PATCH_PR: ${{ github.event.pull_request.number }}
           PATCH_REPO: ${{ github.repository }}
       - id: review
-        uses: MXCzkEVM/GPTReviewWorkflow@main
+        uses: taikoxyz/openai-review-action@main
         with:
           GIT_COMMIT_HASH: ${{ github.event.pull_request.head.sha }}
           GIT_PATCH_OUTPUT: ${{ env.GIT_PATCH_OUTPUT }}
