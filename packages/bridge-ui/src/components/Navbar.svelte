@@ -42,7 +42,7 @@
       <TaikoLogoFluo width={50} />
     </span>
     <a
-      class="pl-3 font-medium hover:text-[#fc0fc0]"
+      class="pl-4 font-medium hover:text-[#E81899]"
       href="https://taiko.xyz/docs/guides/use-the-bridge"
       target="_blank"
       rel="noreferrer">Guide</a>
