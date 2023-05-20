@@ -5,7 +5,6 @@
   import { signer } from '../store/signer';
   import AddressDropdown from './AddressDropdown.svelte';
   import ChainDropdown from './ChainDropdown.svelte';
-  import TaikoLogoFluo from './icons/TaikoLogoFluo.svelte';
   import { Sun, Moon } from 'svelte-heros-v2';
   import { fly } from 'svelte/transition';
   import Tko from './icons/TKO.svelte';
