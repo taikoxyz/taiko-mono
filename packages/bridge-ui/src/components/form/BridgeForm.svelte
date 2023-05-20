@@ -538,7 +538,7 @@
     {/if}
   </label>
 
-  <label
+  <div
     class="input-group relative rounded-lg bg-dark-2 justify-between items-center pr-4">
     <input
       type="number"
@@ -549,7 +549,7 @@
       name="amount"
       bind:this={amountInput} />
     <SelectToken />
-  </label>
+  </div>
 </div>
 
 {#if showFaucet}

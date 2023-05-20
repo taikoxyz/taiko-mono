@@ -8,7 +8,7 @@
   let tooltipOpen: boolean = false;
 </script>
 
-<div class="flex flex-row justify-between">
+<label class="label flex flex-row justify-between">
   <ButtonWithTooltip onClick={() => (tooltipOpen = true)}>
     <span slot="buttonText">Custom Recipient</span>
   </ButtonWithTooltip>
@@ -20,7 +20,8 @@
       showTo = !showTo;
     }}
     bind:checked={showTo} />
-</div>
+</label>
+
 {#if showTo}
   <input
     type="text"

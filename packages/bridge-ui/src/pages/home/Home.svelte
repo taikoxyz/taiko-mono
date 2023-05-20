@@ -4,10 +4,10 @@
   import { paginationInfo } from '../../store/relayerApi';
   import { signer } from '../../store/signer';
   import BridgeForm from '../../components/form/BridgeForm.svelte';
-  import TaikoBanner from '../../components/TaikoBanner.svelte';
   import Transactions from '../../components/Transactions';
   import { Tabs, TabList, Tab, TabPanel } from '../../components/Tabs';
   import Loading from '../../components/Loading.svelte';
+  import SelectChain from '../../components/form/SelectChain.svelte';
 
   // List of tab's name <=> route association
   // TODO: add this into a general configuration.
@@ -42,7 +42,9 @@
     </TabList>
 
     <TabPanel tab={tab1.name}>
-      <TaikoBanner />
+      <div class="rounded-lg py-4 flex flex-col items-center justify-center">
+        <SelectChain />
+      </div>
       <div class="px-4 md:w-[440px]">
         <BridgeForm />
       </div>

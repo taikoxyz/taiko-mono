@@ -19,7 +19,7 @@
   $: checkSizeLimit(memo);
 </script>
 
-<div class="flex flex-row justify-between mb-4">
+<label class="label flex flex-row justify-between">
   <ButtonWithTooltip onClick={() => (tooltipOpen = true)}>
     <span slot="buttonText">Memo</span>
   </ButtonWithTooltip>
@@ -30,7 +30,7 @@
       showMemo = !showMemo;
     }}
     bind:checked={showMemo} />
-</div>
+</label>
 
 {#if showMemo}
   <div class="form-control">

@@ -55,11 +55,6 @@ ul.token-dropdown li.cursor-pointer:first-child {
   border-radius: 0;
 }
 
-.taiko-banner {
-  background-image: url('assets/taiko-banner.svg');
-  background-repeat: no-repeat;
-}
-
 .dropdown-content.address-dropdown-content {
   border-radius: 6px;
 }
