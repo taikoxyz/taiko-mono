@@ -23,7 +23,7 @@
   import { MessageStatus } from '../../domain/message';
   import { Funnel } from 'svelte-heros-v2';
   import FaucetModal from '../modals/FaucetModal.svelte';
-  import { errorToast, successToast } from '../Toast.svelte';
+  import { errorToast, successToast, warningToast } from '../Toast.svelte';
   import { L1_CHAIN_ID } from '../../constants/envVars';
   import { fetchFeeData } from '@wagmi/core';
   import { checkIfTokenIsDeployedCrossChain } from '../../utils/checkIfTokenIsDeployedCrossChain';
@@ -220,8 +220,10 @@
           `${headerError}<br />Click ${htmlLink} to see more details on the explorer.`,
           true, // dismissible
         );
-      } else if (error.cause?.code === ethers.errors.ACTION_REJECTED) {
-        errorToast(`Transaction has been rejected.`);
+      } else if (
+        [error.code, error.cause?.code].includes(ethers.errors.ACTION_REJECTED)
+      ) {
+        warningToast(`Transaction has been rejected.`);
       } else {
         errorToast(`${headerError}<br />Try again later.`);
       }
@@ -400,8 +402,10 @@
           `${headerError}<br />Click ${htmlLink} to see more details on the explorer.`,
           true, // dismissible
         );
-      } else if (error.cause?.code === ethers.errors.ACTION_REJECTED) {
-        errorToast(`Transaction has been rejected.`);
+      } else if (
+        [error.code, error.cause?.code].includes(ethers.errors.ACTION_REJECTED)
+      ) {
+        warningToast(`Transaction has been rejected.`);
       } else {
         errorToast(`${headerError}<br />Try again later.`);
       }

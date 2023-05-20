@@ -4,8 +4,9 @@
   import { mainnetChain, taikoChain } from '../chain/chains';
   import { selectChain } from '../utils/selectChain';
   import type { Chain } from '../domain/chain';
-  import { errorToast, successToast } from './Toast.svelte';
+  import { errorToast, successToast, warningToast } from './Toast.svelte';
   import { signer } from '../store/signer';
+  import { UserRejectedRequestError } from '@wagmi/core';
 
   const switchChains = async (chain: Chain) => {
     if (!$signer) {
@@ -20,10 +21,15 @@
 
     try {
       await selectChain(chain);
-      successToast('Successfully changed chain');
-    } catch (e) {
-      console.error(e);
-      errorToast('Error switching chain');
+      successToast('Successfully changed chain.');
+    } catch (error) {
+      console.error(error);
+
+      if (error instanceof UserRejectedRequestError) {
+        warningToast('Switch chain request rejected.');
+      } else {
+        errorToast('Error switching chain.');
+      }
     }
   };
 </script>

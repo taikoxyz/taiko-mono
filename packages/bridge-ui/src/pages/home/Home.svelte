@@ -9,9 +9,6 @@
   import { Tabs, TabList, Tab, TabPanel } from '../../components/Tabs';
   import Loading from '../../components/Loading.svelte';
 
-  let bridgeWidth: number;
-  let bridgeHeight: number;
-
   // List of tab's name <=> route association
   // TODO: add this into a general configuration.
   const tabsRoute = [
@@ -23,26 +20,11 @@
   // TODO: we're assuming we have only two tabs here.
   //       Change strategy if needed.
   $: activeTab = $location === '/' ? tabsRoute[0].name : tabsRoute[1].name;
-
-  // TODO: do we really need all these tricks to style containers
-  //       Rethink this part: fluid, fixing on bigger screens
-  $: isBridge = activeTab === tabsRoute[0].name;
-  $: styleContainer = isBridge ? '' : `min-width: ${bridgeWidth}px;`;
-  $: fitClassContainer = isBridge ? 'max-w-fit' : 'w-fit';
-  $: styleInner =
-    isBridge && $transactions.length > 0
-      ? ''
-      : `min-height: ${bridgeHeight}px;`;
 </script>
 
-<div
-  class="container mx-auto text-center my-10 {fitClassContainer}"
-  style={styleContainer}
-  bind:clientWidth={bridgeWidth}
-  bind:clientHeight={bridgeHeight}>
+<div class="container mx-auto text-center my-10">
   <Tabs
-    class="rounded-3xl border-2 border-bridge-form border-solid p-2 md:p-6"
-    style={styleInner}
+    class="rounded-3xl md:border-2 border-bridge-form border-solid p-2 md:p-6 md:inline-block min-h-[688px]"
     bind:activeTab>
     {@const tab1 = tabsRoute[0]}
     {@const tab2 = tabsRoute[1]}
@@ -61,13 +43,15 @@
 
     <TabPanel tab={tab1.name}>
       <TaikoBanner />
-      <div class="px-4">
+      <div class="px-4 md:w-[440px]">
         <BridgeForm />
       </div>
     </TabPanel>
 
     <TabPanel tab={tab2.name}>
-      <Transactions />
+      <div class="md:min-w-[440px]">
+        <Transactions />
+      </div>
     </TabPanel>
   </Tabs>
 </div>

@@ -16,7 +16,7 @@
   let showInsufficientBalance: boolean;
   let noticeModal: NoticeModal;
 
-  let pageSize = 5;
+  let pageSize = 8;
   let currentPage = 1;
   let totalItems = 0;
   let loadingTxs = true;

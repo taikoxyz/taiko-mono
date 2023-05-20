@@ -7,7 +7,8 @@
     toast.push(msg, {
       ...(dismiss ? { initial: 0, dismissable: true } : {}),
       theme: {
-        '--toastBackground': '#D32F2F',
+        '--toastBackground': 'rgb(248, 114, 114)',
+        '--toastColor': 'rgb(0, 0, 0)',
       },
     });
   };
@@ -17,6 +18,15 @@
       theme: {
         '--toastBarBackground': '#FC0FC0',
         '--toastBackground': '#4d4d4d',
+      },
+    });
+  };
+
+  export const warningToast = (msg: string) => {
+    toast.push(msg, {
+      theme: {
+        '--toastBackground': 'rgb(251, 189, 35)',
+        '--toastColor': 'rgb(0, 0, 0)',
       },
     });
   };

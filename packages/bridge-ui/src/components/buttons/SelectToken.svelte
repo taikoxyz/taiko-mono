@@ -20,18 +20,16 @@
   let showAddressField = false;
   let loading = false;
 
-  function select(t: Token) {
-    if (t === $token) return;
+  function select(selectedToken: Token) {
+    if (selectedToken === $token) return;
 
-    token.set(t);
+    token.set(selectedToken);
 
-    if (t.symbol.toLowerCase() === ETHToken.symbol.toLowerCase()) {
+    if (selectedToken.symbol.toLowerCase() === ETHToken.symbol.toLowerCase()) {
       bridgeType.set(BridgeType.ETH);
     } else {
       bridgeType.set(BridgeType.ERC20);
     }
-
-    successToast(`Token changed to ${t.symbol.toUpperCase()}`);
 
     // to close the dropdown on click
     dropdownElement?.classList.remove('dropdown-open');

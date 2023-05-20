@@ -14,7 +14,7 @@
   import { fromChain } from '../../store/chain';
   import { BridgeType } from '../../domain/bridge';
   import { onDestroy, onMount } from 'svelte';
-  import { errorToast, successToast } from '../Toast.svelte';
+  import { errorToast, successToast, warningToast } from '../Toast.svelte';
   import { bridgeABI } from '../../constants/abi';
   import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
   import { chains } from '../../chain/chains';
@@ -148,8 +148,10 @@
           `${headerError}<br />Click ${htmlLink} to see more details on the explorer.`,
           true, // dismissible
         );
-      } else if (error.cause?.code === ethers.errors.ACTION_REJECTED) {
-        errorToast(`Transaction has been rejected.`);
+      } else if (
+        [error.code, error.cause?.code].includes(ethers.errors.ACTION_REJECTED)
+      ) {
+        warningToast(`Transaction has been rejected.`);
       } else {
         errorToast(`${headerError}<br />Try again later.`);
       }
@@ -219,8 +221,10 @@
           `${headerError}<br />Click ${htmlLink} to see more details on the explorer.`,
           true, // dismissible
         );
-      } else if (error.cause?.code === ethers.errors.ACTION_REJECTED) {
-        errorToast(`Transaction has been rejected.`);
+      } else if (
+        [error.code, error.cause?.code].includes(ethers.errors.ACTION_REJECTED)
+      ) {
+        warningToast(`Transaction has been rejected.`);
       } else {
         errorToast(`${headerError}<br />Try again later.`);
       }

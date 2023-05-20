@@ -3,12 +3,13 @@
   import { fromChain, toChain } from '../../store/chain';
   import { signer } from '../../store/signer';
   import { mainnetChain, taikoChain } from '../../chain/chains';
-  import { errorToast, successToast } from '../Toast.svelte';
+  import { errorToast, successToast, warningToast } from '../Toast.svelte';
   import { selectChain } from '../../utils/selectChain';
+  import { UserRejectedRequestError } from '@wagmi/core';
 
   const toggleChains = async () => {
     if (!$signer) {
-      errorToast('Please connect your wallet');
+      warningToast('Please, connect your wallet.');
       return;
     }
 
@@ -16,10 +17,15 @@
 
     try {
       await selectChain(chain);
-      successToast('Successfully changed chain');
-    } catch (e) {
-      console.error(e);
-      errorToast('Error switching chain');
+      successToast('Successfully changed chain.');
+    } catch (error) {
+      console.error(error);
+
+      if (error instanceof UserRejectedRequestError) {
+        warningToast('Switch chain request rejected.');
+      } else {
+        errorToast('Error switching chain.');
+      }
     }
   };
 </script>
