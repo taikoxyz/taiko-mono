@@ -8,7 +8,7 @@
       ...(dismiss ? { initial: 0, dismissable: true } : {}),
       theme: {
         '--toastBackground': 'rgb(248, 114, 114)',
-        '--toastColor': 'rgb(0, 0, 0)',
+        '--toastColor': '#242424',
       },
     });
   };
@@ -26,7 +26,7 @@
     toast.push(msg, {
       theme: {
         '--toastBackground': 'rgb(251, 189, 35)',
-        '--toastColor': 'rgb(0, 0, 0)',
+        '--toastColor': '#242424',
       },
     });
   };
