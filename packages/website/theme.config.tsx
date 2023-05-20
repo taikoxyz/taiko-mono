@@ -11,7 +11,7 @@ export default {
         href="https://twitter.com/taikoxyz/status/1647684931735396352"
         target="_blank"
       >
-        📌 Alpha-2 testnet has now been deprecated. Read more →
+        📌 Alpha-2 has been deprecated. Alpha-3 is coming... soon 👀
       </a>
     ),
   },
