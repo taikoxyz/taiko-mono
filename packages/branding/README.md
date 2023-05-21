@@ -1,6 +1,6 @@
 # Taiko branding guide
 
-This package contains all the branding assets for Taiko. 
+This package contains all the branding assets for Taiko.
 
 Included: Logos, Wordmarks, Backgrounds, Backdrops and Mockups.
 
@@ -28,7 +28,6 @@ Click to download the vector asset of the Taiko wordmark:
 
 [Browse all wordmarks](https://github.com/taikoxyz/taiko-mono/tree/main/packages/branding/Logotype)
 
-
 ## Fonts
 
 Taiko uses `Oxanium` as the global font across its identity. The font is licensed under the [Open Font License](https://scripts.sil.org/cms/scripts/page.php?site_id=nrsi&id=OFL). Its specimen and font family can be accessed at: https://fonts.google.com/specimen/Oxanium
@@ -36,8 +35,9 @@ Taiko uses `Oxanium` as the global font across its identity. The font is license
 ## Colors
 
 Primary colors and shades:
+
 | Color | Hex code  |
-|-------|-----------|
+| ----- | --------- |
 | Fluo  | `#fc0fc0` |
 | Black | `#000000` |
 | White | `#ffffff` |
