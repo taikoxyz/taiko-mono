@@ -7,10 +7,7 @@ export default {
   banner: {
     key: "banner",
     text: (
-      <a
-        href="https://twitter.com/taikoxyz/status/1647684931735396352"
-        target="_blank"
-      >
+      <a href="/docs/guides" target="_blank">
         📌 Alpha-3 testnet is now here! Get started →
       </a>
     ),
