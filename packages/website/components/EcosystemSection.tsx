@@ -15,7 +15,7 @@ export default function EcosystemSection() {
       description: "Swap is a dapp that lets you swap tokens on Taiko.",
     },
     {
-      icon: "/images/ecosystem/taiko.svg",
+      icon: "/images/ecosystem/orbiter.jpg",
       name: "Orbiter",
       link: "https://orbiter.finance",
       description:
