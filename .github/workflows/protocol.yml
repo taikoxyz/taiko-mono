@@ -48,12 +48,7 @@ jobs:
 
       - name: protocol - Deploy L1 Contracts
         working-directory: ./packages/protocol
-        run: |
-          anvil &
-          while ! nc -z localhost 8545; do
-            sleep 1
-          done
-          pnpm deploy:foundry
+        run: pnpm deploy:foundry
 
       # - name: protocol - Upload coverage to Codecov
       #   uses: codecov/codecov-action@v3

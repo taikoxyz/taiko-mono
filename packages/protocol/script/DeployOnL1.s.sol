@@ -191,8 +191,7 @@ contract DeployOnL1 is Script {
         cmds[0] = "bash";
         cmds[1] = "-c";
         cmds[2] = string.concat(
-            vm.projectRoot(),
-            "/bin/solc --yul --bin ",
+            "~/.svm/0.8.18/solc-0.8.18 --yul --bin ",
             string.concat(vm.projectRoot(), "/", contractPath),
             " | grep -A1 Binary | tail -1"
         );

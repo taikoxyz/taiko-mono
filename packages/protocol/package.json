@@ -18,7 +18,7 @@
     "sim:export": "pnpm test:sim > simulation/exports/simulation_data_$(date +%s).txt",
     "generate:genesis": "ts-node ./utils/generate_genesis/main.ts",
     "test:genesis": "./test/genesis/generate_genesis.test.sh",
-    "deploy:foundry": "./script/download_solc.sh && ./script/test_deploy_on_l1.sh",
+    "deploy:foundry": "./script/test_deploy_on_l1.sh",
     "sizer": "pnpm hardhat size-contracts"
   },
   "keywords": [
