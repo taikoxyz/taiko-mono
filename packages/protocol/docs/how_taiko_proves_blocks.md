@@ -168,7 +168,7 @@ In addition, ZKP must also prove the following:
 - `mixHash` == `meta.mixHash`.
 - `nonce` == 0.
 - `baseFeePerGas` == `block.basefee`
-- `withdrawalsRoot` == The kecceck hash of the L1-to-L2 Ether deposits.
+- `withdrawalsRoot` == `0x1`
 
 Note that some of the header field checks above are duplicates of checks done in the Global Variable section.
 
@@ -218,7 +218,6 @@ zero -.-> h_difficulty;
 zero -.-> h_nonce;
 empty_string -.-> h_extra_data;
 l2_treasury -.-> m_treasury;
-processed_deposits_data -.-> m_deposits;
 
 v_block_chainid -.-> dot1;
 v_blockhash_others -.-> dot1 -.->|keccak| s_public_input_hash;
@@ -229,8 +228,9 @@ v_block_gaslimit -.-> dot2;
 v_block_timestamp -.-> dot2;
 s_parent_timestamp -.-> dot2;
 s_gas_excess -.-> dot2 ---|calcBasefee| v_block_basefee;
+one -.-> h_withdrawals_root
 
-processed_deposits -.->|keccak| m_deposits_root -.- h_withdrawals_root;
+processed_deposits -.->|keccak| deposits_root(depositsRoot);
 
 b_signal_root ---|MPT| a_h1_signal_root;
 h_gas_used --- e_gas_used;
@@ -262,7 +262,6 @@ m_txlist_first(txListByteStart)
 m_txlist_last(txListByteEnd)
 m_treasury(treasury):::otherCircuits
 m_beneficiary(beneficiary)
-m_deposits_root(depositsRoot)
 m_deposits(depositsProcessed)
 end
 
@@ -350,11 +349,11 @@ end
 BlockEvidence:::group
 
 zero("0\n(zero)"):::constant
+one("1\n(one"):::constant
 empty_string("''\n(empty bytes)"):::constant
 empty_list("[]\n(empty list)"):::constant
 tx_list("txList\n(blob or calldata)"):::constant
 l2_treasury("L2 basefee goes to treasury"):::constant
 processed_deposits("onchain deposits data"):::constant
-processed_deposits_data("processed deposits making up the depositsRoot"):::constant
 zk_instance(zkInstance)
 ```
