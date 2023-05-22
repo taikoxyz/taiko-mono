@@ -19,7 +19,7 @@ interface IProofVerifier {
      */
     function verifyProof(
         bytes32 instance, 
-        TaikoData.TypedProof[] memory blockProofs,
+        TaikoData.TypedProof[] calldata blockProofs,
         AddressResolver resolver
     ) external;
 }
