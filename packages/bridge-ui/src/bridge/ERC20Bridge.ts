@@ -66,12 +66,14 @@ export class ERC20Bridge implements Bridge {
       erc20ABI,
       signer,
     );
+
     const owner = await signer.getAddress();
 
     try {
       log(
         `Allowance of amount ${amount} tokens for spender "${bridgeAddress}"`,
       );
+
       const allowance: BigNumber = await tokenContract.allowance(
         owner,
         bridgeAddress,
@@ -90,7 +92,7 @@ export class ERC20Bridge implements Bridge {
   }
 
   async RequiresAllowance(opts: ApproveOpts): Promise<boolean> {
-    return await this.spenderRequiresAllowance(
+    return this.spenderRequiresAllowance(
       opts.contractAddress,
       opts.signer,
       opts.amountInWei,
@@ -135,14 +137,14 @@ export class ERC20Bridge implements Bridge {
   }
 
   async Bridge(opts: BridgeOpts): Promise<Transaction> {
-    if (
-      await this.spenderRequiresAllowance(
-        opts.tokenAddress,
-        opts.signer,
-        opts.amountInWei,
-        opts.tokenVaultAddress,
-      )
-    ) {
+    const requiresAllowance = await this.spenderRequiresAllowance(
+      opts.tokenAddress,
+      opts.signer,
+      opts.amountInWei,
+      opts.tokenVaultAddress,
+    );
+
+    if (requiresAllowance) {
       throw Error('token vault does not have required allowance');
     }
 

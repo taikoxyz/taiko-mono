@@ -333,7 +333,7 @@
 
       const tx = await $activeBridge.Bridge(bridgeOpts);
 
-      successToast('Transaction sent to bridge your funds');
+      successToast('Transaction sent to bridge your funds.');
 
       await pendingTransactions.add(tx, $signer);
 

@@ -7,7 +7,7 @@
   import Modal from './Modal.svelte';
   import { token } from '../../store/token';
   import { L1_CHAIN_NAME, L2_CHAIN_NAME } from '../../constants/envVars';
-  import { errorToast, successToast } from '../Toast.svelte';
+  import { errorToast, successToast, warningToast } from '../Toast.svelte';
   import type { Token } from '../../domain/token';
   import { mintERC20 } from '../../utils/mintERC20';
   import { getIsMintedWithEstimation } from '../../utils/getIsMintedWithEstimation';
@@ -53,7 +53,7 @@
     try {
       const tx = await mintERC20($fromChain.id, $token, $signer);
 
-      successToast(`Transaction sent to mint ${$token.symbol} tokens`);
+      successToast(`Transaction sent to mint ${$token.symbol} tokens.`);
 
       pendingTransactions.add(tx, $signer).then(() => {
         successToast(
@@ -75,7 +75,7 @@
           true, // dismissible
         );
       } else if (error.cause?.code === ethers.errors.ACTION_REJECTED) {
-        errorToast(`Transaction has been rejected.`);
+        warningToast(`Transaction has been rejected.`);
       } else {
         errorToast(`${headerError}<br />Try again later.`);
       }
