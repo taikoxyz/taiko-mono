@@ -209,14 +209,14 @@ m_timestamp --- h_timestamp  --- v_block_timestamp;
 m_txlist_first ---|<=| m_txlist_last --- |<= len| tx_list;
 m_h1_hash --- a_l1_hash;
 m_mix_hash --- h_mix_hash --- v_block_prevrando;
-tx_list ---|keccak| m_txlist_hash;
+tx_list -.->|keccak| m_txlist_hash;
 m_beneficiary --- h_beneficiary;
 h_parent_hash --- v_blockhash_1 & e_parent_hash;
 
 l2_treasury -.-> m_treasury;
 
 v_block_chainid -.-> dot1;
-v_blockhash_others -.-> dot1 --- |keccak| s_public_input_hash;
+v_blockhash_others -.-> dot1 -.->|keccak| s_public_input_hash;
 
 v_block_basefee -.-> h_basefee;
 
