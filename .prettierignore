@@ -14,3 +14,6 @@ lcov.info
 package-lock.json
 pnpm-lock.yaml
 yarn.lock
+
+# ignore changelog because release-please-action manages it
+CHANGELOG.md
