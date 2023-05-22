@@ -221,7 +221,7 @@ zero -.-> h_nonce;
 empty_string -.-> h_extra_data;
 
 l2_treasury -.-> m_treasury;
-l2_treasury("L2 basefee goes to treasury"):::constant;
+
 v_block_chainid -.-> dot1;
 v_blockhash_others -.-> dot1 -.->|keccak| s_public_input_hash;
 
@@ -267,6 +267,7 @@ m_txlist_last(txListByteEnd)
 m_treasury(treasury):::otherCircuits
 m_beneficiary(beneficiary)
 m_deposits(depositsProcessed)
+l2_treasury("L2 basefee goes to treasury"):::constant;
 end
 
 BlockMetadata:::group
