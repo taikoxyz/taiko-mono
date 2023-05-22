@@ -12,6 +12,7 @@ import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.so
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
+import "../contracts/L1/TaikoProofVerifier.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/bridge/TokenVault.sol";
 import "../contracts/signal/SignalService.sol";
@@ -100,6 +101,17 @@ contract DeployOnL1 is Script {
                 )
             )
         );
+
+        
+        TaikoProofVerifier proofVerifier = new ProxiedTaikoProofVerifier();
+        
+        deployProxy(
+            "proof_verifier",
+            address(proofVerifier),
+            ""
+        );
+
+        registerAddress("proof_verifier", address(proofVerifier));
 
         // HorseToken && BullToken
         address horseToken = address(new FreeMintERC20("Horse Token", "HORSE"));

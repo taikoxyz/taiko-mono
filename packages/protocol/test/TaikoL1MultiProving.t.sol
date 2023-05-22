@@ -13,6 +13,7 @@ import {TaikoToken} from "../contracts/L1/TaikoToken.sol";
 import {SignalService} from "../contracts/signal/SignalService.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {TaikoL1TestBase} from "./TaikoL1TestBase.t.sol";
+import {TaikoProofToggleMask, TaikoProofVerifier} from "../contracts/L1/TaikoProofVerifier.sol";
 
 contract TaikoL1Oracle is TaikoL1 {
     function getConfig() public pure override returns (TaikoData.Config memory config) {
@@ -24,7 +25,19 @@ contract TaikoL1Oracle is TaikoL1 {
         config.ringBufferSize = 12;
         config.proofCooldownPeriod = 5 minutes;
         config.realProofSkipSize = 10;
-        config.proofToggleMask = 3; // It means SGX proof is necessary
+    }
+}
+
+contract TaikoMultiProverVerifier is TaikoProofVerifier {
+    function getToggleMask() public pure override returns (uint16) {
+        // BITMAP for efficient iteration and flexible additions later
+        // ZKP_ONLY,            // 0000 0001
+        // SGX_ONLY,            // 0000 0010
+        // RESERVED_X_ONLY,     // 0000 0100
+        // RESERVED_Y_ONLY,     // 0000 1000
+        // ZKP_AND_SGX,         // 0000 0011
+        // X_ZKP_SGX,           // 0000 0111
+        return uint16(3); // ZKP_AND_SGX
     }
 }
 
@@ -41,6 +54,8 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
     function setUp() public override {
         TaikoL1TestBase.setUp();
+        pv = new TaikoMultiProverVerifier();
+        registerAddress("proof_verifier", address(pv));
         registerAddress(L1.getVerifierName(100), address(new Verifier()));
     }
 

@@ -28,14 +28,6 @@ library TaikoData {
         uint96 maxEthDepositAmount;
         uint96 minEthDepositAmount;
         uint8 adjustmentQuotient;
-        // // BITMAP for efficient iteration and flexible additions later
-        // ZKP_ONLY,            // 0000 0001
-        // SGX_ONLY,            // 0000 0010
-        // RESERVED_X_ONLY,     // 0000 0100
-        // RESERVED_Y_ONLY,     // 0000 1000
-        // ZKP_AND_SGX,         // 0000 0011
-        // X_ZKP_SGX,           // 0000 0111
-        uint16 proofToggleMask;
         bool relaySignalRoot;
     }
 

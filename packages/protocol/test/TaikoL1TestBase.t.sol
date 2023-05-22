@@ -8,6 +8,7 @@ import {LibUtils} from "../contracts/L1/libs/LibUtils.sol";
 import {TaikoConfig} from "../contracts/L1/TaikoConfig.sol";
 import {TaikoData} from "../contracts/L1/TaikoData.sol";
 import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
+import {TaikoProofVerifier} from "../contracts/L1/TaikoProofVerifier.sol";
 import {TaikoToken} from "../contracts/L1/TaikoToken.sol";
 import {SignalService} from "../contracts/signal/SignalService.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
@@ -23,6 +24,7 @@ abstract contract TaikoL1TestBase is Test {
     TaikoToken public tko;
     SignalService public ss;
     TaikoL1 public L1;
+    TaikoProofVerifier public pv;
     TaikoData.Config conf;
     uint256 internal logCount;
 
@@ -76,6 +78,9 @@ abstract contract TaikoL1TestBase is Test {
         // Register Alice as an SGX verifier - SGX verifiers be 10000 offsetted
         // e.g.: 0..9999 ZK verifiers, 10000..19999 SGX verifier addresses
         registerAddress(L1.getVerifierName(10000), Alice);
+
+        pv = new TaikoProofVerifier();
+        registerAddress("proof_verifier", address(pv));
 
         tko = new TaikoToken();
         registerAddress("taiko_token", address(tko));

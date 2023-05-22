@@ -11,8 +11,7 @@ import {LibMath} from "../../libs/LibMath.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
-import {LibVerifyTrusted} from "./proofTypes/LibVerifyTrusted.sol";
-import {LibVerifyZKP} from "./proofTypes/LibVerifyZKP.sol";
+import {IProofVerifier} from "../ITaikoProofVerifier.sol";
 
 library LibProving {
     using LibMath for uint256;
@@ -110,7 +109,7 @@ library LibProving {
             uint160(address(resolver.resolve(config.chainId, "taiko", false)))
         );
 
-        inputs[3] = uint256(blk.metaHash);
+        inputs[3] = uint256(evidence.metaHash);
         inputs[4] = uint256(evidence.parentHash);
         inputs[5] = uint256(evidence.blockHash);
         inputs[6] = uint256(evidence.signalRoot);
@@ -125,29 +124,8 @@ library LibProving {
             instance := keccak256(inputs, mul(32, 9))
         }
 
-        uint16 mask = config.proofToggleMask;
-        for (uint16 i; i < evidence.blockProofs.length; ) {
-            TaikoData.TypedProof memory proof = evidence.blockProofs[i];
-            if (proof.proofType == 0) {
-                revert L1_INVALID_PROOFTYPE();
-            }
-
-            uint16 bitMask = uint16(1 << (proof.proofType - 1));
-            if ((mask & bitMask) == 0) {
-                revert L1_NOT_ENABLED_PROOFTYPE();
-            }
-
-            verifyTypedProof(proof, instance, resolver);
-            mask &= ~bitMask;
-
-            unchecked {
-                ++i;
-            }
-        }
-
-        if(mask != 0) {
-            revert L1_NOT_ALL_REQ_PROOF_VERIFIED();
-        }
+        // Reverts if unsuccessful
+        IProofVerifier(resolver.resolve("proof_verifier", false)).verifyProof(instance, evidence.blockProofs, resolver);
 
         emit BlockProven({
             id: blk.blockId,
@@ -209,29 +187,5 @@ library LibProving {
         fc = blk.forkChoices[fcId];
     }
 
-    function verifyTypedProof(
-        TaikoData.TypedProof memory proof,
-        bytes32 instance,
-        AddressResolver resolver
-    ) internal view {
-        if (proof.proofType == 1) {
-            // This is the regular ZK proof and required based on the flag
-            // in config.proofToggleMask
-            LibVerifyZKP.verifyProof(
-                resolver,
-                proof.proof,
-                instance,
-                proof.verifierId
-            );
-        } else if (proof.proofType == 2) {
-            // This is the SGX signature proof and required based on the flag
-            // in config.proofToggleMask
-            LibVerifyTrusted.verifyProof(
-                resolver,
-                proof.proof,
-                instance,
-                proof.verifierId
-            );
-        }
-    }
+
 }
