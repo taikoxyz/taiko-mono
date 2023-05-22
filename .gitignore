@@ -114,3 +114,7 @@ __pycache__/
 
 # Ignoring new Bridge UI work for the moment
 packages/bridge-ui-v2
+
+# Ignore .husky for new contributors using lefthook while maintaining
+# backwards compatibility for past contributors
+.husky
