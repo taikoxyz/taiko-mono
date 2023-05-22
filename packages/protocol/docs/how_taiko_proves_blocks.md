@@ -308,8 +308,8 @@ GlobalVariables:::group
 subgraph Anchor [Anchor Tx]
 a_l1_height(l1Height)
 a_l1_hash(l1Hash)
-a_l1_signal_root(l1SignalRoot)
 a_parent_gas_used(parentGasUsed)
+a_l1_signal_root(l1SignalRoot)
 end
 
 Anchor:::group
