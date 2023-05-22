@@ -237,7 +237,7 @@ b_l1_signal_service_addr -.-> dot3;
 b_l2_signal_service_addr -.-> dot3;
 b_l1_taiko_addr -.-> dot3;
 
-e_signal_root ---|MPT| s_signal_root
+e_signal_root --- s_signal_root
 e_parent_gas_used --- a_parent_gas_used
 
 h_gas_limit ---|>=| h_gas_used
