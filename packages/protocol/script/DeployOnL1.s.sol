@@ -111,7 +111,7 @@ contract DeployOnL1 is Script {
             ""
         );
 
-        registerAddress("proof_verifier", address(proofVerifier));
+        setAddress("proof_verifier", address(proofVerifier));
 
         // HorseToken && BullToken
         address horseToken = address(new FreeMintERC20("Horse Token", "HORSE"));
