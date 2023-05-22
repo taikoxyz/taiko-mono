@@ -62,13 +62,11 @@ library TaikoData {
         uint64 l1Height;
         bytes32 l1Hash;
         bytes32 mixHash;
-        bytes32 depositsRoot; // match L2 header's withdrawalsRoot
         bytes32 txListHash;
         uint24 txListByteStart;
         uint24 txListByteEnd;
         uint32 gasLimit;
         address beneficiary;
-        uint8 cacheTxListInfo;
         address treasury;
         TaikoData.EthDeposit[] depositsProcessed;
     }
