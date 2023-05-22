@@ -256,7 +256,7 @@ m_mix_hash(mixHash)
 m_txlist_hash(txListHash)
 m_txlist_first(txListByteStart)
 m_txlist_last(txListByteEnd)
-m_treasury(treasury):::otherCircuits
+m_treasury(treasury)
 m_beneficiary(beneficiary)
 m_deposits(depositsProcessed)
 l2_treasury("L2 basefee goes to treasury"):::constant;
