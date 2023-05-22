@@ -5,7 +5,7 @@
   import type { Token } from '../../domain/token';
   import { BridgeType, type HTMLBridgeForm } from '../../domain/bridge';
   import { ChevronDown, PlusCircle } from 'svelte-heros-v2';
-  import { ethers } from 'ethers';
+  import { ethers, Contract } from 'ethers';
   import { erc20ABI } from '../../constants/abi';
   import { signer } from '../../store/signer';
   import { userTokens } from '../../store/userToken';
@@ -51,7 +51,7 @@
       }
 
       const provider = getProvider();
-      const contract = new ethers.Contract(tokenAddress, erc20ABI, provider);
+      const contract = new Contract(tokenAddress, erc20ABI, provider);
 
       const userAddress = await $signer.getAddress();
 
@@ -91,10 +91,13 @@
       eventTarget.reset();
 
       showAddressField = false;
+
+      successToast(`Token "${tokenName}" added successfully.`);
     } catch (error) {
-      // TODO: what if something else happens within the try block?
-      errorToast('Not a valid ERC20 address');
       console.error(error);
+
+      // TODO: what if something else happens within the try block?
+      errorToast('Not a valid ERC20 address.');
     } finally {
       loading = false;
     }

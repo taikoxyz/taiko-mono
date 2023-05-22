@@ -7,12 +7,15 @@
   import { userTokens } from '../../store/userToken';
   import Erc20 from '../icons/ERC20.svelte';
   import Modal from '../modals/Modal.svelte';
-  import { ethers } from 'ethers';
+  import { ethers, Contract } from 'ethers';
   import { erc20ABI } from '../../constants/abi';
   import { ETHToken } from '../../token/tokens';
   import { errorToast } from '../Toast.svelte';
   import { tokenService } from '../../storage/services';
   import Loading from '../Loading.svelte';
+  import { getLogger } from '../../utils/logger';
+
+  const log = getLogger('component:AddCustomERC20');
 
   export let showAddressField: boolean = false;
   export let addERC20: (event: SubmitEvent) => Promise<void>;
@@ -20,13 +23,13 @@
   export let loadingTokenDetails: boolean = false;
 
   let tokenDetails: TokenDetails = null;
-  let showError: boolean = false;
+  let tokenError: string = '';
   let tokenAddress: string;
-
   let customTokens: Token[] = [];
+
   userTokens.subscribe((tokens) => (customTokens = tokens));
 
-  async function remove(token) {
+  async function remove(token: Token) {
     const address = await $signer.getAddress();
     const updatedTokensList = tokenService.removeToken(token, address);
     userTokens.set(updatedTokensList);
@@ -34,36 +37,44 @@
   }
 
   async function onAddressChange(tokenAddress: string) {
-    showError = false;
+    tokenError = '';
+
     if (ethers.utils.isAddress(tokenAddress)) {
       loadingTokenDetails = true;
+
       try {
+        log('Fetching token details for address "%s"...', tokenAddress);
+
         const provider = getProvider();
-        const contract = new ethers.Contract(tokenAddress, erc20ABI, provider);
+        const tokenContract = new Contract(tokenAddress, erc20ABI, provider);
         const userAddress = await $signer.getAddress();
+
         const [symbol, decimals, userBalance] = await Promise.all([
-          contract.symbol(),
-          contract.decimals(),
-          contract.balanceOf(userAddress),
+          tokenContract.symbol(),
+          tokenContract.decimals(),
+          tokenContract.balanceOf(userAddress),
         ]);
-        const userTokenBalance = ethers.utils.formatUnits(
-          userBalance,
-          decimals,
-        );
+
+        const formatedBalance = ethers.utils.formatUnits(userBalance, decimals);
+
         tokenDetails = {
           address: tokenAddress,
           decimals,
           symbol,
-          userTokenBalance,
+          balance: formatedBalance,
         };
+
+        log('Token details', tokenAddress);
       } catch (error) {
-        showError = true;
-        errorToast("Couldn't fetch token details");
         console.error(error);
+
+        tokenError = 'Could not fetch token details.';
+        errorToast(tokenError);
       } finally {
         loadingTokenDetails = false;
       }
     } else {
+      tokenError = tokenAddress ? 'Invalid token address.' : '';
       tokenDetails = null;
     }
   }
@@ -82,40 +93,45 @@
         class="input input-primary bg-dark-2 input-md md:input-lg w-full focus:ring-0"
         name="customTokenAddress"
         bind:value={tokenAddress} />
+
       {#if tokenDetails}
         <div class="bg-dark-2 w-full flex items-center justify-between">
           <span class="bg-dark-2">{tokenDetails.symbol}</span>
-          <span class="bg-dark-2"
-            >Balance: {tokenDetails.userTokenBalance}</span>
+          <span class="bg-dark-2">Balance: {tokenDetails.balance}</span>
         </div>
       {:else if loadingTokenDetails}
         <Loading />
-      {:else if showError}
+      {:else if tokenError}
         <div class="min-h-[25px] text-error text-sm">
-          Couldn't fetch token details
+          <!-- TODO: translations? -->
+          {tokenError}
         </div>
       {:else}
         <div class="min-h-[25px]" />
       {/if}
     </div>
+
     {#if loading}
       <button class="btn" disabled={true}>
         <Loading />
       </button>
     {:else}
-      <button class="btn" type="submit">Add</button>
+      <button class="btn" type="submit" disabled={Boolean(tokenError)}>
+        Add
+      </button>
     {/if}
   </form>
+
   {#if customTokens.length > 0}
     <div class="flex h-full w-full flex-col justify-between bg-none mt-6">
       <h3>Tokens already added</h3>
-      {#each customTokens as t}
+      {#each customTokens as customToken (customToken.symbol)}
         <div class="flex items-center justify-between">
           <div class="flex items-center">
             <Erc20 />
-            <span class="bg-transparent">{t.symbol}</span>
+            <span class="bg-transparent">{customToken.symbol}</span>
           </div>
-          <button class="btn btn-sm" on:click={() => remove(t)}>
+          <button class="btn btn-sm" on:click={() => remove(customToken)}>
             <Trash />
           </button>
         </div>
