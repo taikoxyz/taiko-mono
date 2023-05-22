@@ -284,7 +284,7 @@ h_difficulty("difficulty === 0")
 h_extra_data("extraData === \"\"")
 h_nonce("nonce === 0")
 h_basefee(basefee)
-h_withdrawals_root("withdrawalsRoot === 1")
+h_withdrawals_root("withdrawalsRoot === empty MPT withdrawals root")
 end
 
 BlockHeader:::group
