@@ -215,11 +215,11 @@ m_beneficiary --- h_beneficiary;
 h_parent_hash --- v_blockhash_1 & e_parent_hash;
 empty_list -.->|keccak| h_ommers_hash;
 empty_list -.-> h_logs_bloom;
-empty_list("[]\n(empty list)"):::constant
+
 zero -.-> h_difficulty;
 zero -.-> h_nonce;
 empty_string -.-> h_extra_data;
-empty_string("' '\n(empty bytes)"):::constant
+
 l2_treasury -.-> m_treasury;
 l2_treasury("L2 basefee goes to treasury"):::constant;
 v_block_chainid -.-> dot1;
@@ -293,6 +293,8 @@ h_basefee(basefee)
 h_withdrawals_root(withdrawalsRoot)
 one("1\n(one)"):::constant
 zero("0\n(zero)"):::constant
+empty_string("' '\n(empty bytes)"):::constant
+empty_list("[]\n(empty list)"):::constant
 end
 
 BlockHeader:::group
