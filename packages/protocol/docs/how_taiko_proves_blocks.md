@@ -76,13 +76,11 @@ struct BlockMetadata {
   uint64 l1Height;
   bytes32 l1Hash;
   bytes32 mixHash;
-  bytes32 depositsRoot;
   bytes32 txListHash;
   uint24 txListByteStart;
   uint24 txListByteEnd;
   uint32 gasLimit;
   address beneficiary;
-  uint8 cacheTxListInfo;
   address treasury;
   TaikoData.EthDeposit[] depositsProcessed;
 }
@@ -93,13 +91,11 @@ struct BlockMetadata {
 - `l1Height`: The actual block height in L1.
 - `l1Hash`: The actual block hash in L1.
 - `mixHash`: Salted random number to accommodate multiple L2 blocks fitting into one L1 block.
-- `depositsRoot`: Hash of the list of deposits.
 - `txListHash`: Hash of the transaction list in L2.
 - `txListByteStart`: Byte start of the transaction list in L2.
 - `txListByteEnd`: Byte end of the transaction list in L2.
 - `gasLimit`: Gas limit for the L2 block.
 - `beneficiary`: The address of the beneficiary in L2.
-- `cacheTxListInfo`: Indicates whether the transaction list info should be cached or not.
 - `treasury`: The address where the base fee goes in L2.
 - `depositsProcessed`: The initiated L1->L2 Ether deposits that make up the depositRoot.
 
@@ -264,7 +260,6 @@ m_mix_hash(mixHash)
 m_txlist_hash(txListHash)
 m_txlist_first(txListByteStart)
 m_txlist_last(txListByteEnd)
-m_cache_txlist_info(cacheTxListInfo)
 m_treasury(treasury):::otherCircuits
 m_beneficiary(beneficiary)
 m_deposits_root(depositsRoot)
