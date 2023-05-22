@@ -327,10 +327,10 @@ end
 Anchor:::group
 
 subgraph L1Storage[L1 Storage]
-b_signal_root[/signalRoot/]
 b_l1_taiko_addr[/taikoL1Address/]
 b_l1_signal_service_addr[/L1 signalServiceAddress/]
 b_l2_signal_service_addr[/L2 signalServiceAddress/]
+b_signal_root[/signalRoot/]
 end
 
 L1Storage:::group
