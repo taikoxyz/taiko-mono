@@ -73,11 +73,12 @@
         </td>
       </tr>
       <tr>
-        <td>Memo</td>
+        <td class="!align-top">Memo</td>
         <td class="text-right">
-          <div class="overflow-auto">
-            {transaction.message.memo}
-          </div>
+          <textarea
+            readonly
+            class="bg-black rounded-lg p-2 outline-none"
+            value={transaction.message.memo.trim()} />
         </td>
       </tr>
     {/if}

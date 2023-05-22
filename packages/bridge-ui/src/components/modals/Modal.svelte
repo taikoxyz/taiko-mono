@@ -18,8 +18,8 @@
 
 <svelte:window on:keydown={onWindowKeydownPressed} />
 
-<div class="modal bg-black/60" class:modal-open={isOpen}>
-  <div class="modal-box bg-dark-2">
+<div class="modal bg-black/80" class:modal-open={isOpen}>
+  <div class="modal-box">
     <h3 class="font-bold text-lg text-center mt-4">{title}</h3>
     {#if showXButton}
       <div class="modal-action mt-0">
