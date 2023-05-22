@@ -6,6 +6,7 @@
 
 pragma solidity ^0.8.18;
 
+import {IAddressManager} from "./AddressManager.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from
     "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
@@ -24,5 +25,17 @@ abstract contract EssentialContract is
         ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
         OwnableUpgradeable.__Ownable_init();
         AddressResolver._init(_addressManager);
+    }
+
+    /**
+     * Sets a new AddressManager's address.
+     *
+     * @param newAddressManager New address manager contract address
+     */
+    function setIAddressManager(address newAddressManager) external onlyOwner {
+        if (newAddressManager == address(0)) revert RESOLVER_INVALID_ADDR();
+        _addressManager = IAddressManager(newAddressManager);
+
+        emit IAddressManagerChanged(address(this), newAddressManager);
     }
 }
