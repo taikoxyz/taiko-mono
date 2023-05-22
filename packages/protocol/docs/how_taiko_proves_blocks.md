@@ -258,7 +258,6 @@ m_txlist_first(txListByteStart)
 m_txlist_last(txListByteEnd)
 m_treasury(treasury)
 m_beneficiary(beneficiary)
-m_deposits(depositsProcessed)
 l2_treasury("L2 basefee goes to treasury"):::constant;
 tx_list("txList\n(blob or calldata)"):::constant;
 processed_deposits("ethDepositsProcessed"):::constant
