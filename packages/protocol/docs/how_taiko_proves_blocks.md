@@ -210,15 +210,18 @@ m_txlist_first ---|<=| m_txlist_last --- |<= len| tx_list;
 m_h1_hash --- a_h1_hash;
 m_mix_hash --- h_mix_hash --- v_block_prevrando;
 tx_list -.->|keccak| m_txlist_hash;
+tx_list("txList\n(blob or calldata)"):::constant;
 m_beneficiary --- h_beneficiary;
 h_parent_hash --- v_blockhash_1 & e_parent_hash;
 empty_list -.->|keccak| h_ommers_hash;
 empty_list -.-> h_logs_bloom;
+empty_list("[]\n(empty list)"):::constant
 zero -.-> h_difficulty;
 zero -.-> h_nonce;
 empty_string -.-> h_extra_data;
+empty_string("' '\n(empty bytes)"):::constant
 l2_treasury -.-> m_treasury;
-
+l2_treasury("L2 basefee goes to treasury"):::constant;
 v_block_chainid -.-> dot1;
 v_blockhash_others -.-> dot1 -.->|keccak| s_public_input_hash;
 
@@ -230,6 +233,7 @@ s_parent_timestamp -.-> dot2;
 s_gas_excess -.-> dot2 ---|calcBasefee| v_block_basefee;
 one -.-> h_withdrawals_root
 
+processed_deposits("onchain deposits data"):::constant
 processed_deposits -.->|keccak| deposits_root(depositsRoot);
 
 b_signal_root ---|MPT| a_h1_signal_root;
@@ -351,10 +355,8 @@ end
 BlockEvidence:::group
 
 
-empty_string("''\n(empty bytes)"):::constant
-empty_list("[]\n(empty list)"):::constant
-tx_list("txList\n(blob or calldata)"):::constant
-l2_treasury("L2 basefee goes to treasury"):::constant
-processed_deposits("onchain deposits data"):::constant
+
+
+
 zk_instance(zkInstance)
 ```
