@@ -203,11 +203,11 @@ classDef constant stroke-width:4px,stroke:#323745,fill:#323745,color:#FFF;
 classDef group stroke-width:2px,stroke:#EA27C2,fill:#FFD2F630;
 
 m_id --- h_height --- v_block_number;
-m_h1_height --- a_h1_height;
+m_h1_height --- a_l1_height;
 m_gas_limit --- h_gas_limit --- v_block_gaslimit;
 m_timestamp --- h_timestamp  --- v_block_timestamp;
 m_txlist_first ---|<=| m_txlist_last --- |<= len| tx_list;
-m_h1_hash --- a_h1_hash;
+m_h1_hash --- a_l1_hash;
 m_mix_hash --- h_mix_hash --- v_block_prevrando;
 tx_list -.->|keccak| m_txlist_hash;
 m_beneficiary --- h_beneficiary;
@@ -252,7 +252,6 @@ h_gas_limit ---|>=| h_gas_used
 BlockHeader -.->|abiencode & keccak| dot5((" ")) o--- e_block_hash
 
 BlockEvidence ~~~ L1Storage;
-L2Storage ~~~ GlobalVariables;
 
 subgraph BlockMetadata[Block Metadata]
 m_id(id)
