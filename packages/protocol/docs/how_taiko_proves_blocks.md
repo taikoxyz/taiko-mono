@@ -242,7 +242,7 @@ e_parent_gas_used --- a_parent_gas_used
 
 h_gas_limit ---|>=| h_gas_used
 
-BlockHeader ---|abiencode & keccak| e_block_hash
+BlockHeader -.->|abiencode & keccak| dot5((" ")) o--- e_block_hash
 
 BlockEvidence ~~~ L1Storage;
 
