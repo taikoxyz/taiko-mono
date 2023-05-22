@@ -77,7 +77,7 @@ library LibUtils {
         return _ma > 0 ? _ma : maValue;
     }
 
-    /// @dev Hasing the block metadata, ignoring the `cacheTxListInfo` field.
+    /// @dev Hashing the block metadata.
     function hashMetadata(TaikoData.BlockMetadata memory meta)
         internal
         pure
