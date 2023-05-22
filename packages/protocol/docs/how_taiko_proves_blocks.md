@@ -233,7 +233,7 @@ s_gas_excess -.-> dot2 ---|calcBasefee| v_block_basefee;
 one -.-> h_withdrawals_root
 
 
-processed_deposits -.-> dot4;
+processed_deposits -.->|keccak| dot4;
 
 b_signal_root ---|MPT| a_l1_signal_root;
 h_gas_used --- e_gas_used;
