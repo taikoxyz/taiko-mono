@@ -17,7 +17,7 @@ interface IProofVerifier {
      * @param blockProofs Proof array
      * @param resolver Current (up-to-date) address resolver
      */
-    function verifyProof(
+    function verifyProofs(
         bytes32 instance, 
         TaikoData.TypedProof[] calldata blockProofs,
         AddressResolver resolver

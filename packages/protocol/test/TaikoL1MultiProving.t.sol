@@ -13,7 +13,7 @@ import {TaikoToken} from "../contracts/L1/TaikoToken.sol";
 import {SignalService} from "../contracts/signal/SignalService.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {TaikoL1TestBase} from "./TaikoL1TestBase.t.sol";
-import {TaikoProofToggleMask, TaikoProofVerifier} from "../contracts/L1/TaikoProofVerifier.sol";
+import {ProofVerifier} from "../contracts/L1/ProofVerifier.sol";
 
 contract TaikoL1Oracle is TaikoL1 {
     function getConfig() public pure override returns (TaikoData.Config memory config) {
@@ -28,7 +28,7 @@ contract TaikoL1Oracle is TaikoL1 {
     }
 }
 
-contract TaikoMultiProverVerifier is TaikoProofVerifier {
+contract TaikoMultiProverVerifier is ProofVerifier {
     function getToggleMask() public pure override returns (uint16) {
         // BITMAP for efficient iteration and flexible additions later
         // ZKP_ONLY,            // 0000 0001

@@ -11,7 +11,7 @@ import {LibMath} from "../../libs/LibMath.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
-import {IProofVerifier} from "../ITaikoProofVerifier.sol";
+import {IProofVerifier} from "../IProofVerifier.sol";
 
 library LibProving {
     using LibMath for uint256;
@@ -125,7 +125,7 @@ library LibProving {
         }
 
         // Reverts if unsuccessful
-        IProofVerifier(resolver.resolve("proof_verifier", false)).verifyProof(instance, evidence.blockProofs, resolver);
+        IProofVerifier(resolver.resolve("proof_verifier", false)).verifyProofs(instance, evidence.blockProofs, resolver);
 
         emit BlockProven({
             id: blk.blockId,

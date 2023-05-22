@@ -27,14 +27,14 @@ library TaikoProofToggleMask {
 }
 
 /// @custom:security-contact hello@taiko.xyz
-contract TaikoProofVerifier is TaikoErrors {
+contract ProofVerifier is TaikoErrors {
     uint256[50] private __gap;
 
     function getToggleMask() public pure virtual returns (uint16) {
         return TaikoProofToggleMask.getToggleMask();
     }
 
-    function verifyProof(
+    function verifyProofs(
         bytes32 instance, 
         TaikoData.TypedProof[] calldata blockProofs,
         AddressResolver resolver
@@ -94,4 +94,4 @@ contract TaikoProofVerifier is TaikoErrors {
     }
 }
 
-contract ProxiedTaikoProofVerifier is Proxied, TaikoProofVerifier {}
+contract ProxiedProofVerifier is Proxied, ProofVerifier {}
