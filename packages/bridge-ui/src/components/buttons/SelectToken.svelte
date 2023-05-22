@@ -12,7 +12,7 @@
   import { fromChain, toChain } from '../../store/chain';
   import Erc20 from '../icons/ERC20.svelte';
   import AddCustomErc20 from '../form/AddCustomERC20.svelte';
-  import { ETHToken, tokens } from '../../token/tokens';
+  import { isETH, tokens } from '../../token/tokens';
   import { errorToast, successToast } from '../Toast.svelte';
   import { tokenService } from '../../storage/services';
 
@@ -25,7 +25,7 @@
 
     token.set(selectedToken);
 
-    if (selectedToken.symbol.toLowerCase() === ETHToken.symbol.toLowerCase()) {
+    if (isETH(selectedToken)) {
       bridgeType.set(BridgeType.ETH);
     } else {
       bridgeType.set(BridgeType.ERC20);

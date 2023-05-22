@@ -28,7 +28,7 @@
   import { fetchFeeData } from '@wagmi/core';
   import { checkIfTokenIsDeployedCrossChain } from '../../utils/checkIfTokenIsDeployedCrossChain';
   import To from './To.svelte';
-  import { ETHToken } from '../../token/tokens';
+  import { isETH, isTestToken } from '../../token/tokens';
   import { chains } from '../../chain/chains';
   import { providers } from '../../provider/providers';
   import { tokenVaults } from '../../vault/tokenVaults';
@@ -61,7 +61,7 @@
 
   async function updateTokenBalance(signer: Signer, token: Token) {
     if (signer && token) {
-      if (token.symbol == ETHToken.symbol) {
+      if (isETH(token)) {
         const userBalance = await signer.getBalance('latest');
         tokenBalance = ethers.utils.formatEther(userBalance);
 
@@ -248,7 +248,7 @@
 
     let balanceAvailableForTx = userBalance;
 
-    if ($token.symbol === ETHToken.symbol) {
+    if (isETH($token)) {
       balanceAvailableForTx = userBalance.sub(ethers.utils.parseEther(amount));
     }
 
@@ -415,7 +415,7 @@
   }
 
   async function useFullAmount() {
-    if ($token.symbol === ETHToken.symbol) {
+    if (isETH($token)) {
       try {
         const feeData = await fetchFeeData();
         const gasEstimate = await $activeBridge.EstimateGas({
@@ -482,7 +482,7 @@
     return (
       fromChain && // chain selected?
       fromChain.id === L1_CHAIN_ID && // are we in L1?
-      token.symbol !== ETHToken.symbol && // bridging ERC20?
+      isTestToken(token) &&
       signer && // wallet connected?
       tokenBalance &&
       ethers.utils

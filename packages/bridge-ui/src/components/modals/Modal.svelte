@@ -9,8 +9,8 @@
     onClose?.();
   };
 
-  const onWindowKeydownPressed = (e) => {
-    if (e.key === 'Escape') {
+  const onWindowKeydownPressed = (event: KeyboardEvent) => {
+    if (event.key === 'Escape') {
       onCloseClicked();
     }
   };

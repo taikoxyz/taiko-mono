@@ -1,4 +1,4 @@
-import { ETHToken } from '../token/tokens';
+import { isETH } from '../token/tokens';
 import type { Address, Chain } from '../domain/chain';
 import type { Token } from '../domain/token';
 import { Contract, Signer } from 'ethers';
@@ -18,7 +18,7 @@ export async function getAddressForToken(
   let address = token.addresses.find((t) => t.chainId === fromChain.id).address;
 
   // If the token isn't ETH or has no address...
-  if (token.symbol !== ETHToken.symbol && (!address || address === '0x00')) {
+  if (!isETH(token) && (!address || address === '0x00')) {
     // Find the address on the destination chain instead
     const destChainAddress = token.addresses.find(
       (t) => t.chainId === toChain.id,

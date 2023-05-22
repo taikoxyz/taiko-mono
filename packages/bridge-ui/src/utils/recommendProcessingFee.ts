@@ -3,7 +3,7 @@ import { tokenVaultABI } from '../constants/abi';
 import type { Chain } from '../domain/chain';
 import type { ProcessingFeeMethod } from '../domain/fee';
 import type { Token } from '../domain/token';
-import { ETHToken } from '../token/tokens';
+import { isETH } from '../token/tokens';
 import { providers } from '../provider/providers';
 import { tokenVaults } from '../vault/tokenVaults';
 
@@ -24,7 +24,8 @@ export async function recommendProcessingFee(
   // gasLimit for processMessage call for ETH is about ~800k.
   // to make it enticing, we say 900k.
   let gasLimit = ethGasLimit;
-  if (token.symbol.toLowerCase() !== ETHToken.symbol.toLowerCase()) {
+
+  if (!isETH(token)) {
     let srcChainAddr = token.addresses.find(
       (t) => t.chainId === fromChain.id,
     ).address;

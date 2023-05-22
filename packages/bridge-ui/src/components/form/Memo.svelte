@@ -7,7 +7,7 @@
   let tooltipOpen: boolean = false;
   export let memoError: string;
 
-  function checkSizeLimit(input) {
+  function checkSizeLimit(input: string) {
     const bytes = new TextEncoder().encode(input).length;
     if (bytes > 128) {
       memoError = 'Max limit reached';

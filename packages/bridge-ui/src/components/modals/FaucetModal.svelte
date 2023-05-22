@@ -8,12 +8,9 @@
   import { token } from '../../store/token';
   import { L1_CHAIN_NAME, L2_CHAIN_NAME } from '../../constants/envVars';
   import { errorToast, successToast } from '../Toast.svelte';
-  import { getLogger } from '../../utils/logger';
   import type { Token } from '../../domain/token';
   import { mintERC20 } from '../../utils/mintERC20';
   import { getIsMintedWithEstimation } from '../../utils/getIsMintedWithEstimation';
-
-  const log = getLogger('component:FaucetModal');
 
   export let isOpen: boolean = false;
   export let onMint: () => Promise<void>;

@@ -33,7 +33,7 @@
     const address = await $signer.getAddress();
     const updatedTokensList = tokenService.removeToken(token, address);
     userTokens.set(updatedTokensList);
-    tokenStore.set(ETHToken);
+    tokenStore.set(ETHToken); // select ETH token
   }
 
   async function onAddressChange(tokenAddress: string) {
