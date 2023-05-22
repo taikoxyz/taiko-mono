@@ -168,7 +168,7 @@ In addition, ZKP must also prove the following:
 - `mixHash` == `meta.mixHash`.
 - `nonce` == 0.
 - `baseFeePerGas` == `block.basefee`
-- `withdrawalsRoot` == `0x1`
+- `withdrawalsRoot` == empty MPT withdrawals root
 
 Note that some of the header field checks above are duplicates of checks done in the Global Variable section.
 
