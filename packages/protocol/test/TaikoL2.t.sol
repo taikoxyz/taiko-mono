@@ -103,7 +103,7 @@ contract TestTaikoL2 is Test {
         _anchor(BLOCK_GAS_LIMIT);
 
         vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
-        vm.expectRevert();
+        vm.expectRevert(); // L2_PUBLIC_INPUT_HASH_MISMATCH
         _anchor(BLOCK_GAS_LIMIT);
     }
 

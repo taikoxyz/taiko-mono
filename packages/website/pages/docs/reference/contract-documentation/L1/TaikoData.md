@@ -12,10 +12,9 @@ struct Config {
   uint256 maxNumProposedBlocks;
   uint256 ringBufferSize;
   uint256 maxVerificationsPerTx;
-  uint256 blockMaxGasLimit;
-  uint256 maxTransactionsPerBlock;
-  uint256 maxBytesPerTxList;
-  uint256 minTxGasLimit;
+  uint64 blockMaxGasLimit;
+  uint64 maxTransactionsPerBlock;
+  uint64 maxBytesPerTxList;
   uint256 txListCacheExpiry;
   uint256 proofCooldownPeriod;
   uint256 systemProofCooldownPeriod;
@@ -71,13 +70,11 @@ struct BlockMetadata {
   uint64 l1Height;
   bytes32 l1Hash;
   bytes32 mixHash;
-  bytes32 depositsRoot;
   bytes32 txListHash;
   uint24 txListByteStart;
   uint24 txListByteEnd;
   uint32 gasLimit;
   address beneficiary;
-  uint8 cacheTxListInfo;
   address treasury;
   struct TaikoData.EthDeposit[] depositsProcessed;
 }

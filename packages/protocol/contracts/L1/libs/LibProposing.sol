@@ -61,9 +61,7 @@ library LibProposing {
         meta.gasLimit = input.gasLimit;
         meta.beneficiary = input.beneficiary;
         meta.treasury = resolver.resolve(config.chainId, "treasury", false);
-        meta.cacheTxListInfo = cacheTxListInfo;
-
-        (meta.depositsRoot, meta.depositsProcessed) =
+        meta.depositsProcessed =
             LibEthDepositing.processDeposits(state, config, input.beneficiary);
 
         unchecked {
