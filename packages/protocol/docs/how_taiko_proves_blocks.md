@@ -226,7 +226,7 @@ s_parent_timestamp -.-> dot2;
 s_gas_excess -.-> dot2 ---|calcBasefee| v_block_basefee;
 
 
-processed_deposits -.->|keccak| dot4;
+m_processed_deposits -.->|keccak| dot4;
 
 b_signal_root ---|MPT| a_l1_signal_root;
 h_gas_used --- e_gas_used;
@@ -260,7 +260,7 @@ m_treasury(treasury)
 m_beneficiary(beneficiary)
 l2_treasury("L2 basefee goes to treasury"):::constant;
 tx_list("txList\n(blob or calldata)"):::constant;
-processed_deposits("ethDepositsProcessed"):::constant
+m_processed_deposits("ethDepositsProcessed"):::constant
 end
 
 BlockMetadata:::group
