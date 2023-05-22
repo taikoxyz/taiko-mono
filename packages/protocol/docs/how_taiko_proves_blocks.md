@@ -239,7 +239,7 @@ processed_deposits -.-> dot4;
 b_signal_root ---|MPT| a_h1_signal_root;
 h_gas_used --- e_gas_used;
 
-BlockMetadata -.-> dot4((" ")) |keccak| --- e_meta_hash -.-> dot3((" ")) -.->|keccak| zk_instance;
+BlockMetadata -.-> dot4((" "))  --- |keccak| e_meta_hash -.-> dot3((" ")) -.->|keccak| zk_instance;
 e_parent_hash & e_block_hash & e_signal_root & e_graffiti & e_prover & e_parent_gas_used & e_gas_used -.-> dot3;
 b_l1_signal_service_addr -.-> dot3;
 b_l2_signal_service_addr -.-> dot3;
