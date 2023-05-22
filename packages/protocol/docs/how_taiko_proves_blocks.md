@@ -235,7 +235,7 @@ one -.-> h_withdrawals_root
 
 processed_deposits -.-> dot4;
 
-b_signal_root ---|MPT| a_h1_signal_root;
+b_signal_root ---|MPT| a_l1_signal_root;
 h_gas_used --- e_gas_used;
 
 BlockMetadata -.-> dot4((" "))  --- |keccak| e_meta_hash -.-> dot3((" ")) -.->|keccak| zk_instance;
@@ -268,7 +268,7 @@ m_beneficiary(beneficiary)
 m_deposits(depositsProcessed)
 l2_treasury("L2 basefee goes to treasury"):::constant;
 tx_list("txList\n(blob or calldata)"):::constant;
-processed_deposits("onchain deposits data"):::constant
+processed_deposits("ethDepositsProcessed"):::constant
 end
 
 BlockMetadata:::group
