@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/mock"
 )
 
@@ -145,61 +144,6 @@ func Test_eventStatusFromMsgHash(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.wantStatus, status)
-		})
-	}
-}
-
-func Test_eventTypeAmountAndCanonicalTokenFromEvent(t *testing.T) {
-	tests := []struct {
-		name               string
-		event              *bridge.BridgeMessageSent
-		wantEventType      relayer.EventType
-		wantCanonicalToken relayer.CanonicalToken
-		wantAmount         *big.Int
-		wantError          error
-	}{
-		{
-			"receiveERC20",
-			&bridge.BridgeMessageSent{
-				Message: bridge.IBridgeMessage{
-					// nolint lll
-					Data: common.Hex2Bytes("0c6fab8200000000000000000000000000000000000000000000000000000000000000800000000000000000000000004ec242468812b6ffc8be8ff423af7bd23108d9910000000000000000000000004ec242468812b6ffc8be8ff423af7bd23108d99100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000007a68000000000000000000000000e4337137828c93d0046212ebda8a82a24356b67b000000000000000000000000000000000000000000000000000000000000001200000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000000000000000000000000004544553540000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000095465737445524332300000000000000000000000000000000000000000000000"),
-				},
-			},
-			relayer.EventTypeSendERC20,
-			relayer.CanonicalToken{
-				ChainId:  big.NewInt(31336),
-				Addr:     common.HexToAddress("0xe4337137828c93D0046212ebDa8a82a24356b67B"),
-				Decimals: uint8(18),
-				Symbol:   "TEST",
-				Name:     "TestERC20",
-			},
-			big.NewInt(1),
-			nil,
-		},
-		{
-			"nilData",
-			&bridge.BridgeMessageSent{
-				Message: bridge.IBridgeMessage{
-					// nolint lll
-					DepositValue: big.NewInt(1),
-					Data:         common.Hex2Bytes("00"),
-				},
-			},
-			relayer.EventTypeSendETH,
-			relayer.CanonicalToken{},
-			big.NewInt(1),
-			nil,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			eventType, canonicalToken, amount, err := eventTypeAmountAndCanonicalTokenFromEvent(tt.event)
-			assert.Equal(t, tt.wantEventType, eventType)
-			assert.Equal(t, tt.wantCanonicalToken, canonicalToken)
-			assert.Equal(t, tt.wantAmount, amount)
-			assert.Equal(t, tt.wantError, err)
 		})
 	}
 }

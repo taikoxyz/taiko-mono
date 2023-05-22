@@ -28,7 +28,7 @@ library LibBridgeProcess {
 
     error B_FORBIDDEN();
     error B_SIGNAL_NOT_RECEIVED();
-    error B_STATUS_MISMTACH();
+    error B_STATUS_MISMATCH();
     error B_WRONG_CHAIN_ID();
 
     /**

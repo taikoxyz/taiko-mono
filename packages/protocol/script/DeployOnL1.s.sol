@@ -38,26 +38,30 @@ contract DeployOnL1 is Script {
 
     address public sharedSignalService = vm.envAddress("SHARED_SIGNAL_SERVICE");
 
-    address public treasure = vm.envAddress("TREASURE");
+    address public treasury = vm.envAddress("TREASURY");
 
     address public taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
 
     uint256 public taikoTokenPremintAmount = vm.envUint("TAIKO_TOKEN_PREMINT_AMOUNT");
 
+    // Change it based on 'consensus' / experience / expected result
+    // Based in seconds. Please set carefully.
+    // For testnet it could be somewhere 85-100s
+    // For mainnet it could be around 1800 s (30mins)
+    // Can be adjusted later with setters
+    uint64 public INITIAL_PROOF_TIME_TARGET = uint64(vm.envUint("INITIAL_PROOF_TIME_TARGET"));
+
     TaikoL1 taikoL1;
     address public addressManagerProxy;
 
-    // New fee/reward related variables
-    uint16 public constant PROOF_TIME_TARGET = 1800; // For mainnet it is around 30 mins, but choose carefully ! (Testnet is different !)
-    uint8 public constant ADJUSTMENT_QUOTIENT = 16;
-
     error FAILED_TO_DEPLOY_PLONK_VERIFIER(string contractPath);
+    error PROOF_TIME_TARGET_NOT_SET();
 
     function run() external {
         require(owner != address(0), "owner is zero");
         require(taikoL2Address != address(0), "taikoL2Address is zero");
         require(l2SignalService != address(0), "l2SignalService is zero");
-        require(treasure != address(0), "treasure is zero");
+        require(treasury != address(0), "treasury is zero");
         require(taikoTokenPremintRecipient != address(0), "taikoTokenPremintRecipient is zero");
         require(taikoTokenPremintAmount < type(uint64).max, "premint too large");
 
@@ -78,7 +82,7 @@ contract DeployOnL1 is Script {
         setAddress(l2ChainId, "signal_service", l2SignalService);
         setAddress("oracle_prover", oracleProver);
         setAddress("system_prover", systemProver);
-        setAddress(l2ChainId, "treasure", treasure);
+        setAddress(l2ChainId, "treasury", treasury);
 
         // TaikoToken
         TaikoToken taikoToken = new ProxiedTaikoToken();
@@ -106,20 +110,33 @@ contract DeployOnL1 is Script {
         address bullToken = address(new MayFailFreeMintERC20("Bull Token", "BLL"));
         console2.log("BullToken", bullToken);
 
-        uint64 feeBase = 1 ** 8; // Taiko Token's decimals is 8, not 18
+        uint64 feeBase = uint64(1) ** taikoToken.decimals();
 
         // Calculating it for our needs based on testnet/mainnet. We need it in
         // order to make the fees on the same level - in ideal circumstences.
         // See Brecht's comment https://github.com/taikoxyz/taiko-mono/pull/13564
-        uint64 initProofTimeIssued =
-            LibLn.calcInitProofTimeIssued(feeBase, PROOF_TIME_TARGET, ADJUSTMENT_QUOTIENT);
+        if (INITIAL_PROOF_TIME_TARGET == 0) {
+            revert PROOF_TIME_TARGET_NOT_SET();
+        }
+
+        uint64 initProofTimeIssued = LibLn.calcInitProofTimeIssued(
+            feeBase,
+            uint16(INITIAL_PROOF_TIME_TARGET),
+            uint8(taikoL1.getConfig().adjustmentQuotient)
+        );
 
         address taikoL1Proxy = deployProxy(
             "taiko",
             address(taikoL1),
             bytes.concat(
                 taikoL1.init.selector,
-                abi.encode(addressManagerProxy, genesisHash, feeBase, initProofTimeIssued)
+                abi.encode(
+                    addressManagerProxy,
+                    genesisHash,
+                    feeBase,
+                    INITIAL_PROOF_TIME_TARGET,
+                    initProofTimeIssued
+                )
             )
         );
         setAddress("taiko", taikoL1Proxy);

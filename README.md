@@ -8,8 +8,6 @@
 
 <p align="center">
   A decentralized, Ethereum-equivalent ZK-Rollup.
-  <br />
-  <a href="https://taiko.xyz" target="_blank"><strong>Explore the website</strong></a>
 </p>
 
 <div align="center">
@@ -17,11 +15,12 @@
 [![Twitter Follow](https://img.shields.io/twitter/follow/taikoxyz?style=social)](https://twitter.com/taikoxyz)
 [![Discord](https://img.shields.io/discord/984015101017346058?color=%235865F2&label=Discord&logo=discord&logoColor=%23fff)](https://discord.gg/taikoxyz)
 [![GitPOAP Badge](https://public-api.gitpoap.io/v1/repo/taikoxyz/taiko-mono/badge)](https://www.gitpoap.io/gh/taikoxyz/taiko-mono)
+[![License](https://img.shields.io/github/license/taikoxyz/taiko-mono)](https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md)
+
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/taikoxyz/taiko-mono/protocol.yml?branch=main&label=Protocol&logo=github)](https://github.com/taikoxyz/taiko-mono/actions/workflows/protocol.yml)
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/taikoxyz/taiko-mono/relayer.yml?branch=main&label=Relayer&logo=github)](https://github.com/taikoxyz/taiko-mono/actions/workflows/relayer.yml)
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/taikoxyz/taiko-mono/bridge-ui.yml?branch=main&label=Bridge%20UI&logo=github)](https://github.com/taikoxyz/taiko-mono/actions/workflows/bridge-ui.yml)
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/taikoxyz/taiko-mono/website.yml?branch=main&label=Website&logo=github)](https://github.com/taikoxyz/taiko-mono/actions/workflows/website.yml)
-[![License](https://img.shields.io/github/license/taikoxyz/taiko-mono)](https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md)
 
 </div>
 
@@ -47,7 +46,7 @@ taiko-mono/
 │   ├── <a href="./packages/starter-dapp">starter-dapp</a>: Template for Taiko dapps.
 │   ├── <a href="./packages/status-page">status-page</a>: Taiko protocol status page.
 │   ├── <a href="./packages/tokenomics">tokenomics</a>: Taiko tokenomics simulations.
-│   ├── <a href="./packages/website">website</a>: Main documentation website at [taiko.xyz](https://taiko.xyz/).
+│   ├── <a href="./packages/website">website</a>: Main documentation website at https://taiko.xyz.
 │   └── <a href="./packages/whitepaper">whitepaper</a>: Whitepaper source files with automated publishing.
 ...
 </pre>

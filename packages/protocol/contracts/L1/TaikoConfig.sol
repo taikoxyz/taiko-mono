@@ -42,8 +42,6 @@ library TaikoConfig {
             ethDepositGas: 21000,
             ethDepositMaxFee: 1 ether / 10,
             txListCacheExpiry: 0,
-            // 85s based on A2 testnet status, or set to 1800 for 30mins (mainnet mock)
-            proofTimeTarget: 1800,
             adjustmentQuotient: 16,
             relaySignalRoot: false
         });

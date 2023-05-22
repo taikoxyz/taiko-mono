@@ -38,6 +38,7 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
      * @param _addressManager The AddressManager address.
      * @param _genesisBlockHash The block hash of the genesis block.
      * @param _initBlockFee Initial (reasonable) block fee value.
+     * @param _initProofTimeTarget Initial (reasonable) proof submission time target.
      * @param _initProofTimeIssued Initial proof time issued corresponding
      *        with the initial block fee.
      */
@@ -45,6 +46,7 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
         address _addressManager,
         bytes32 _genesisBlockHash,
         uint64 _initBlockFee,
+        uint64 _initProofTimeTarget,
         uint64 _initProofTimeIssued
     ) external initializer {
         EssentialContract._init(_addressManager);
@@ -53,6 +55,7 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
             config: getConfig(),
             genesisBlockHash: _genesisBlockHash,
             initBlockFee: _initBlockFee,
+            initProofTimeTarget: _initProofTimeTarget,
             initProofTimeIssued: _initProofTimeIssued
         });
     }
@@ -131,6 +134,29 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
         });
     }
 
+    /**
+     * Change proof parameters (time target and time issued) - to avoid complex/risky upgrades in case need to change relatively frequently.
+     * @param newProofTimeTarget New proof time target.
+     * @param newProofTimeIssued New proof time issued. If set to type(uint64).max, let it be unchanged.
+     */
+    function setProofParams(uint64 newProofTimeTarget, uint64 newProofTimeIssued)
+        external
+        onlyOwner
+    {
+        if (newProofTimeTarget == 0 || newProofTimeIssued == 0) {
+            revert L1_INVALID_PARAM();
+        }
+
+        state.proofTimeTarget = newProofTimeTarget;
+        // Special case in a way - that we leave the proofTimeIssued unchanged
+        // because we think provers will adjust behavior.
+        if (newProofTimeIssued != type(uint64).max) {
+            state.proofTimeIssued = newProofTimeIssued;
+        }
+
+        emit ProofTimeTargetChanged(newProofTimeTarget);
+    }
+
     function depositTaikoToken(uint256 amount) external nonReentrant {
         LibTokenomics.depositTaikoToken(state, AddressResolver(this), amount);
     }
@@ -151,8 +177,8 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
         return state.blockFee;
     }
 
-    function getProofReward(uint64 provenAt, uint64 proposedAt) public view returns (uint64) {
-        return LibTokenomics.getProofReward({state: state, proofTime: provenAt - proposedAt});
+    function getProofReward(uint64 proofTime) public view returns (uint64) {
+        return LibTokenomics.getProofReward(state, proofTime);
     }
 
     function getBlock(uint256 blockId)

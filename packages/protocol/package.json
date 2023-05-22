@@ -19,14 +19,7 @@
     "generate:genesis": "ts-node ./utils/generate_genesis/main.ts",
     "test:genesis": "./test/genesis/generate_genesis.test.sh",
     "deploy:foundry": "./script/download_solc.sh && ./script/test_deploy_on_l1.sh",
-    "lint-staged": "lint-staged --allow-empty",
     "sizer": "pnpm hardhat size-contracts"
-  },
-  "lint-staged": {
-    "*.sol": "pnpm lint:sol",
-    "*.md": "pnpm prettier '**/*.md' --write",
-    "*.json": "pnpm prettier '**/*.json' --write",
-    "*.ts": "pnpm eslint:fix"
   },
   "keywords": [
     "Ethereum",
@@ -71,7 +64,6 @@
     "hardhat-docgen": "^1.3.0",
     "hardhat-gas-reporter": "^1.0.9",
     "hardhat-preprocessor": "^0.1.5",
-    "lint-staged": "^12.5.0",
     "merkle-patricia-tree": "^4.2.4",
     "prettier": "^2.8.8",
     "rlp": "^3.0.0",

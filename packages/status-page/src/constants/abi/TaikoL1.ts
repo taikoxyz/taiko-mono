@@ -208,7 +208,7 @@ export default [
           },
           {
             internalType: "address",
-            name: "treasure",
+            name: "treasury",
             type: "address",
           },
           {
@@ -907,7 +907,7 @@ export default [
           },
           {
             internalType: "address",
-            name: "treasure",
+            name: "treasury",
             type: "address",
           },
           {

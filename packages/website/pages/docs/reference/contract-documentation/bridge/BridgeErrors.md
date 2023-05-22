@@ -112,10 +112,10 @@ error B_OWNER_IS_NULL()
 error B_SIGNAL_NOT_RECEIVED()
 ```
 
-### B_STATUS_MISMTACH
+### B_STATUS_MISMATCH
 
 ```solidity
-error B_STATUS_MISMTACH()
+error B_STATUS_MISMATCH()
 ```
 
 ### B_WRONG_CHAIN_ID

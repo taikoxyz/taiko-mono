@@ -30,7 +30,7 @@ abstract contract TaikoL1TestBase is Test {
     uint64 feeBase = 1e8; // 1 TKO
     uint64 l2GasExcess = 1e18;
 
-    address public constant L2Treasure = 0x859d74b52762d9ed07D1b2B8d7F93d26B1EA78Bb;
+    address public constant L2Treasury = 0x859d74b52762d9ed07D1b2B8d7F93d26B1EA78Bb;
     address public constant L2SS = 0xa008AE5Ba00656a3Cc384de589579e3E52aC030C;
     address public constant TaikoL2 = 0x0082D90249342980d011C58105a03b35cCb4A315;
     address public constant L1EthVault = 0xDAFEA492D9c6733ae3d56b7Ed1ADB60692c98Bc5;
@@ -43,9 +43,13 @@ abstract contract TaikoL1TestBase is Test {
     address public constant Carol = 0x300C9b60E19634e12FC6D68B7FEa7bFB26c2E419;
     address public constant Dave = 0x400147C0Eb43D8D71b2B03037bB7B31f8f78EF5F;
     address public constant Eve = 0x50081b12838240B1bA02b3177153Bca678a86078;
+    address public constant Frank = 0x430c9b60e19634e12FC6d68B7fEa7bFB26c2e419;
+    address public constant George = 0x520147C0eB43d8D71b2b03037bB7b31f8F78EF5f;
+    address public constant Hilbert = 0x61081B12838240B1Ba02b3177153BcA678a86078;
 
     // Calculation shall be done in derived contracts - based on testnet or mainnet expected proof time
     uint64 public initProofTimeIssued;
+    uint16 proofTimeTarget;
     uint8 public constant ADJUSTMENT_QUOTIENT = 16;
 
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
@@ -62,7 +66,7 @@ abstract contract TaikoL1TestBase is Test {
 
         registerAddress("signal_service", address(ss));
         registerAddress("ether_vault", address(L1EthVault));
-        registerL2Address("treasure", L2Treasure);
+        registerL2Address("treasury", L2Treasury);
         registerL2Address("taiko", address(TaikoL2));
         registerL2Address("signal_service", address(L2SS));
         registerL2Address("taiko_l2", address(TaikoL2));
@@ -81,7 +85,20 @@ abstract contract TaikoL1TestBase is Test {
         registerAddress("proto_broker", address(L1));
 
         // Lastly, init L1
-        L1.init(address(addressManager), GENESIS_BLOCK_HASH, feeBase, initProofTimeIssued);
+        if (proofTimeTarget == 0 || initProofTimeIssued == 0) {
+            // This just means, these tests are not focusing on the tokenomics, which is fine!
+            // So here, with 500second proof time the initial proof time issued value shall be that below.
+            // Calculated with 'forge script script/DetermineNewProofTimeIssued.s.sol'
+            proofTimeTarget = 500;
+            initProofTimeIssued = 219263;
+        }
+        L1.init(
+            address(addressManager),
+            GENESIS_BLOCK_HASH,
+            feeBase,
+            proofTimeTarget,
+            initProofTimeIssued
+        );
         printVariables("init  ");
     }
 
@@ -116,7 +133,7 @@ abstract contract TaikoL1TestBase is Test {
         meta.txListByteEnd = txListSize;
         meta.gasLimit = gasLimit;
         meta.beneficiary = proposer;
-        meta.treasure = L2Treasure;
+        meta.treasury = L2Treasury;
 
         vm.prank(proposer, proposer);
         meta = L1.proposeBlock(abi.encode(input), txList);
