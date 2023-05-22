@@ -45,7 +45,7 @@
   async function disconnect() {
     try {
       await wagmiDisconnect();
-      successToast('You are disconnected');
+      successToast('You are disconnected.');
     } catch (e) {
       console.error(e);
       errorToast($_('toast.errorDisconnecting'));
