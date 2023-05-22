@@ -287,6 +287,8 @@ h_extra_data(extraData)
 h_nonce(nonce)
 h_basefee(basefee)
 h_withdrawals_root(withdrawalsRoot)
+one("1\n(one)"):::constant
+zero("0\n(zero)"):::constant
 end
 
 BlockHeader:::group
@@ -348,8 +350,7 @@ end
 
 BlockEvidence:::group
 
-zero("0\n(zero)"):::constant
-one("1\n(one"):::constant
+
 empty_string("''\n(empty bytes)"):::constant
 empty_list("[]\n(empty list)"):::constant
 tx_list("txList\n(blob or calldata)"):::constant
