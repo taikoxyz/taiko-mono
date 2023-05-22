@@ -252,6 +252,7 @@ h_gas_limit ---|>=| h_gas_used
 BlockHeader -.->|abiencode & keccak| dot5((" ")) o--- e_block_hash
 
 BlockEvidence ~~~ L1Storage;
+L2Storage ~~~ GlobalVariables;
 
 subgraph BlockMetadata[Block Metadata]
 m_id(id)
