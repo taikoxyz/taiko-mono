@@ -85,7 +85,7 @@ library LibProposing {
 
         address callback = resolver.resolve("callback", true);
         if (callback != address(0)) {
-            TaikoCallback(callback).afterBlockProposed(msg.sender, meta);
+            TaikoCallback(callback).afterBlockProposed(msg.sender);
         }
     }
 

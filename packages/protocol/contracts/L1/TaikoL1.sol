@@ -18,7 +18,7 @@ contract TaikoL1 is TaikoCore, TaikoCallback {
 
     error L1_INSUFFICIENT_TOKEN();
 
-mapping(address account => uint256 balance) taikoTokenBalances;
+    mapping(address account => uint256 balance) taikoTokenBalances;
     uint64 public accProposedAt;
     uint64 public accBlockFees;
     uint64 public blockFee;
@@ -74,10 +74,7 @@ mapping(address account => uint256 balance) taikoTokenBalances;
         emit ProofTimeTargetChanged(newProofTimeTarget);
     }
 
-    function withdrawTaikoToken(
-        AddressResolver resolver,
-        uint256 amount
-    ) internal {
+    function withdrawTaikoToken(uint256 amount) public {
         uint256 balance = taikoTokenBalances[msg.sender];
         if (balance < amount) revert L1_INSUFFICIENT_TOKEN();
 
@@ -88,19 +85,14 @@ mapping(address account => uint256 balance) taikoTokenBalances;
         TaikoToken(AddressResolver(this).resolve("taiko_token", false)).mint(msg.sender, amount);
     }
 
-    function depositTaikoToken(
-        AddressResolver resolver,
-        uint256 amount
-    ) internal {
+    function depositTaikoToken(uint256 amount) public {
         if (amount > 0) {
             TaikoToken(AddressResolver(this).resolve("taiko_token", false)).burn(msg.sender, amount);
             taikoTokenBalances[msg.sender] += amount;
         }
     }
 
-
-
-function getTaikoTokenBalance(address addr) public view returns (uint256) {
+    function getTaikoTokenBalance(address addr) public view returns (uint256) {
         return taikoTokenBalances[addr];
     }
 
@@ -108,20 +100,15 @@ function getTaikoTokenBalance(address addr) public view returns (uint256) {
         return _getProofReward(proofTime);
     }
 
-    function afterBlockProposed(address proposer, TaikoData.BlockMetadata memory meta)
-        public
-        override
-    {
-        TaikoToken token = TaikoToken(AddressResolver(this).resolve("taiko_token", false));
-
-        if (token.balanceOf(proposer) < blockFee) {
+    function afterBlockProposed(address proposer) public override {
+        if (taikoTokenBalances[proposer] < blockFee) {
             revert L1_INSUFFICIENT_TOKEN();
         }
 
         unchecked {
             taikoTokenBalances[msg.sender] -= blockFee;
             accBlockFees += blockFee;
-            accProposedAt += meta.timestamp;
+            accProposedAt += uint64(block.timestamp);
         }
     }
 

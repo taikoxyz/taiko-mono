@@ -10,6 +10,6 @@ import {TaikoData} from "./TaikoData.sol";
 
 /// @custom:security-contact hello@taiko.xyz
 interface TaikoCallback {
-    function afterBlockProposed(address proposer, TaikoData.BlockMetadata memory meta) external;
+    function afterBlockProposed(address proposer) external;
     function afterBlockVerified(address prover, uint64 proposedAt, uint64 provenAt) external;
 }
