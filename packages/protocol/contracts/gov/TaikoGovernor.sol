@@ -9,24 +9,31 @@ pragma solidity ^0.8.18;
 import {
     GovernorUpgradeable,
     IGovernorUpgradeable
-} from "@openzeppelin/contracts-upgradeable/governance/GovernorUpgradeable.sol";
+} from
+// solhint-disable-next-line max-line-length
+"@openzeppelin/contracts-upgradeable/governance/GovernorUpgradeable.sol";
 import {GovernorSettingsUpgradeable} from
     "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorSettingsUpgradeable.sol";
 import {GovernorCountingSimpleUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorCountingSimpleUpgradeable.sol";
+// solhint-disable-next-line max-line-length
+"@openzeppelin/contracts-upgradeable/governance/extensions/GovernorCountingSimpleUpgradeable.sol";
 import {GovernorVotesUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesUpgradeable.sol";
+// solhint-disable-next-line max-line-length
+"@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesUpgradeable.sol";
 import {
     GovernorVotesQuorumFractionUpgradeable,
     IVotesUpgradeable
 } from
-    "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesQuorumFractionUpgradeable.sol";
+// solhint-disable-next-line max-line-length
+"@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesQuorumFractionUpgradeable.sol";
 import {
     GovernorTimelockControlUpgradeable,
     TimelockControllerUpgradeable
 } from
-    "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorTimelockControlUpgradeable.sol";
+// solhint-disable-next-line max-line-length
+"@openzeppelin/contracts-upgradeable/governance/extensions/GovernorTimelockControlUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+// solhint-disable-next-line max-line-length
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 import {LibTaikoTokenConfig} from "../L1/TaikoToken.sol";

@@ -71,6 +71,27 @@ library TaikoData {
         TaikoData.EthDeposit[] depositsProcessed;
     }
 
+    enum ProofType {
+        ZKP,
+        EOA_SIGNATURE
+    }
+
+    struct TypedProof {
+        ProofType proofType;
+        bytes proofData;
+    }
+
+    struct SignatureProofData {
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+    }
+
+    struct ZKProofData {
+        uint16 circuitId;
+        bytes zkp;
+    }
+
     struct BlockEvidence {
         bytes32 metaHash;
         bytes32 parentHash;
@@ -80,8 +101,6 @@ library TaikoData {
         address prover;
         uint32 parentGasUsed;
         uint32 gasUsed;
-        uint16 verifierId;
-        bytes proof;
     }
 
     // 4 slots

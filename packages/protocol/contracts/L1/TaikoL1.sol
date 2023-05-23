@@ -99,16 +99,18 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
      *
      * @param blockId The index of the block to prove. This is also used
      *        to select the right implementation version.
-     * @param input An abi-encoded TaikoData.BlockEvidence object.
+     * @param inputs  Abi-encoded BlockEvidence and TypedProof.
      */
-    function proveBlock(uint256 blockId, bytes calldata input) external nonReentrant {
+    function proveBlock(uint256 blockId, bytes[] calldata inputs) external nonReentrant {
+        require(inputs.length == 2, "LLLLL");
         TaikoData.Config memory config = getConfig();
         LibProving.proveBlock({
             state: state,
             config: config,
             resolver: AddressResolver(this),
             blockId: blockId,
-            evidence: abi.decode(input, (TaikoData.BlockEvidence))
+            evidence: abi.decode(inputs[0], (TaikoData.BlockEvidence)),
+            proof: abi.decode(inputs[1], (TaikoData.TypedProof))
         });
         if (config.maxVerificationsPerTx > 0) {
             LibVerifying.verifyBlocks({
@@ -135,9 +137,11 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
     }
 
     /**
-     * Change proof parameters (time target and time issued) - to avoid complex/risky upgrades in case need to change relatively frequently.
+     * Change proof parameters (time target and time issued) - to avoid complex/risky
+     * upgrades in case need to change relatively frequently.
      * @param newProofTimeTarget New proof time target.
-     * @param newProofTimeIssued New proof time issued. If set to type(uint64).max, let it be unchanged.
+     * @param newProofTimeIssued New proof time issued. If set to type(uint64).max,
+     * let it be unchanged.
      */
     function setProofParams(uint64 newProofTimeTarget, uint64 newProofTimeIssued)
         external

@@ -6,6 +6,7 @@
 
 pragma solidity ^0.8.18;
 
+// solhint-disable-next-line max-line-length
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Proxied} from "./Proxied.sol";
 

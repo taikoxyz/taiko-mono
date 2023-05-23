@@ -7,6 +7,7 @@
 pragma solidity ^0.8.18;
 
 import {IAddressManager} from "./AddressManager.sol";
+// solhint-disable-next-line max-line-length
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from
     "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
@@ -21,12 +22,6 @@ abstract contract EssentialContract is
     OwnableUpgradeable,
     AddressResolver
 {
-    function _init(address _addressManager) internal virtual override {
-        ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
-        OwnableUpgradeable.__Ownable_init();
-        AddressResolver._init(_addressManager);
-    }
-
     /**
      * Sets a new AddressManager's address.
      *
@@ -37,5 +32,11 @@ abstract contract EssentialContract is
         _addressManager = IAddressManager(newAddressManager);
 
         emit AddressManagerChanged(newAddressManager);
+    }
+
+    function _init(address _addressManager) internal virtual override {
+        ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
+        OwnableUpgradeable.__Ownable_init();
+        AddressResolver._init(_addressManager);
     }
 }

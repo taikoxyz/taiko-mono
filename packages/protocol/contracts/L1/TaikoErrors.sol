@@ -20,7 +20,7 @@ abstract contract TaikoErrors {
     error L1_INVALID_PARAM();
     error L1_INVALID_PROOF();
     error L1_INVALID_PROOF_OVERWRITE();
-    error L1_NOT_SPECIAL_PROVER();
+    error L1_INVALID_PROOF_TYPE();
     error L1_ORACLE_PROVER_DISABLED();
     error L1_SAME_PROOF();
     error L1_SYSTEM_PROVER_DISABLED();

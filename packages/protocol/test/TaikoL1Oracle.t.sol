@@ -68,17 +68,22 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             graffiti: 0x0,
             prover: address(0),
             parentGasUsed: 10000,
-            gasUsed: 40000,
-            verifierId: 0,
-            proof: new bytes(0)
+            gasUsed: 40000
         });
+
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(AlicePK, keccak256(abi.encode(evidence)));
 
-        evidence.verifierId = v;
-        evidence.proof = bytes.concat(r, s);
+        TaikoData.TypedProof memory proof = TaikoData.TypedProof({
+            proofType: TaikoData.ProofType.EOA_SIGNATURE,
+            proofData: abi.encode(TaikoData.SignatureProofData({v: v, r: r, s: s}))
+        });
+
+        bytes[] memory inputs = new bytes[](2);
+        inputs[0] = abi.encode(evidence);
+        inputs[1] = abi.encode(proof);
 
         vm.prank(Carol, Carol);
-        L1.proveBlock(meta.id, abi.encode(evidence));
+        L1.proveBlock(meta.id, inputs);
         TaikoData.ForkChoice memory fc = L1.getForkChoice(1, GENESIS_BLOCK_HASH, 10000);
 
         assertEq(fc.blockHash, bytes32(uint256(0x11)));

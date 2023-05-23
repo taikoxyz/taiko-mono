@@ -13,7 +13,9 @@ abstract contract TaikoL2Signer {
     uint256 public constant GOLDEN_TOUCH_PRIVATEKEY =
         0x92954368afd3caa1f3ce3ead0069c1af414054aefe1ef9aeacc1bf426222ce38;
 
+    // solhint-disable-next-line max-line-length
     uint256 private constant GX = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798;
+    // solhint-disable-next-line max-line-length
     uint256 private constant GY = 0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8;
 
     uint256 private constant GX2 =

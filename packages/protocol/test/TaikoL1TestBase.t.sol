@@ -157,13 +157,19 @@ abstract contract TaikoL1TestBase is Test {
             graffiti: 0x0,
             prover: prover,
             parentGasUsed: parentGasUsed,
-            gasUsed: gasUsed,
-            verifierId: 100,
-            proof: new bytes(100)
+            gasUsed: gasUsed
+        });
+
+        TaikoData.TypedProof memory proof = TaikoData.TypedProof({
+            proofType: TaikoData.ProofType.ZKP,
+            proofData: abi.encode(TaikoData.ZKProofData({circuitId: 100, zkp: new bytes(100)}))
         });
 
         vm.prank(msgSender, msgSender);
-        L1.proveBlock(meta.id, abi.encode(evidence));
+        bytes[] memory inputs = new bytes[](2);
+        inputs[0] = abi.encode(evidence);
+        inputs[1] = abi.encode(proof);
+        L1.proveBlock(meta.id, inputs);
     }
 
     function verifyBlock(address verifier, uint256 count) internal {

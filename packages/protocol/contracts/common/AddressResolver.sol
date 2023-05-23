@@ -20,6 +20,8 @@ abstract contract AddressResolver {
 
     uint256[49] private __gap;
 
+    event AddressManagerChanged(address addressManager);
+
     error RESOLVER_DENIED();
     error RESOLVER_INVALID_ADDR();
     error RESOLVER_ZERO_ADDR(uint256 chainId, bytes32 name);
@@ -28,8 +30,6 @@ abstract contract AddressResolver {
         if (msg.sender != resolve(name, false)) revert RESOLVER_DENIED();
         _;
     }
-
-    event AddressManagerChanged(address addressManager);
 
     /**
      * Resolves a name to an address on the current chain.

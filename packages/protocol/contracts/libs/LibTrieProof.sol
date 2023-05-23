@@ -42,7 +42,8 @@ library LibTrieProof {
         bytes32 value,
         bytes calldata mkproof
     ) public pure returns (bool verified) {
-        (bytes memory accountProof, bytes memory storageProof) = abi.decode(mkproof, (bytes, bytes));
+        (bytes memory accountProof, bytes memory storageProof) = //
+         abi.decode(mkproof, (bytes, bytes));
 
         (bool exists, bytes memory rlpAccount) =
             LibSecureMerkleTrie.get(abi.encodePacked(addr), accountProof, stateRoot);

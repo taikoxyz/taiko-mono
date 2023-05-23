@@ -31,7 +31,7 @@ library LibProving {
     error L1_INVALID_EVIDENCE();
     error L1_INVALID_PROOF();
     error L1_INVALID_PROOF_OVERWRITE();
-    error L1_NOT_SPECIAL_PROVER();
+    error L1_INVALID_PROOF_TYPE();
     error L1_ORACLE_PROVER_DISABLED();
     error L1_SAME_PROOF();
     error L1_SYSTEM_PROVER_DISABLED();
@@ -42,7 +42,8 @@ library LibProving {
         TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 blockId,
-        TaikoData.BlockEvidence memory evidence
+        TaikoData.BlockEvidence memory evidence,
+        TaikoData.TypedProof memory proof
     ) internal {
         if (
             evidence.parentHash == 0 || evidence.blockHash == 0
@@ -76,30 +77,26 @@ library LibProving {
                 revert L1_SYSTEM_PROVER_DISABLED();
             }
 
-            if (config.realProofSkipSize <= 1 || blockId % config.realProofSkipSize == 0) {
+            if (
+                config.realProofSkipSize <= 1 //
+                    || blockId % config.realProofSkipSize == 0
+            ) {
                 revert L1_SYSTEM_PROVER_PROHIBITED();
             }
         }
 
         if (specialProver != address(0) && msg.sender != specialProver) {
-            if (evidence.proof.length != 64) {
-                revert L1_NOT_SPECIAL_PROVER();
+            if (proof.proofType != TaikoData.ProofType.EOA_SIGNATURE) {
+                revert L1_INVALID_PROOF_TYPE();
             } else {
-                uint8 v = uint8(evidence.verifierId);
-                bytes32 r;
-                bytes32 s;
-                bytes memory data = evidence.proof;
-                assembly {
-                    r := mload(add(data, 32))
-                    s := mload(add(data, 64))
-                }
+                TaikoData.SignatureProofData memory data =
+                    abi.decode(proof.proofData, (TaikoData.SignatureProofData));
 
-                // clear the proof before hashing evidence
-                evidence.verifierId = 0;
-                evidence.proof = new bytes(0);
-
-                if (specialProver != ecrecover(keccak256(abi.encode(evidence)), v, r, s)) {
-                    revert L1_NOT_SPECIAL_PROVER();
+                if (
+                    specialProver
+                        != ecrecover(keccak256(abi.encode(evidence)), data.v, data.r, data.s)
+                ) {
+                    revert L1_INVALID_PROOF_TYPE();
                 }
             }
         }
@@ -122,6 +119,7 @@ library LibProving {
                 // We only write the key when fcId is 1.
                 fc.key = LibUtils.keyForForkChoice(evidence.parentHash, evidence.parentGasUsed);
             } else {
+                // solhint-disable-next-line max-line-length
                 state.forkChoiceIds[blk.blockId][evidence.parentHash][evidence.parentGasUsed] = fcId;
             }
         } else if (evidence.prover == address(0)) {
@@ -160,7 +158,8 @@ library LibProving {
 
             inputs[0] = uint256(uint160(address(resolver.resolve("signal_service", false))));
             inputs[1] =
-                uint256(uint160(address(resolver.resolve(config.chainId, "signal_service", false))));
+            // solhint-disable-next-line max-line-length
+             uint256(uint160(address(resolver.resolve(config.chainId, "signal_service", false))));
             inputs[2] = uint256(uint160(address(resolver.resolve(config.chainId, "taiko", false))));
 
             inputs[3] = uint256(evidence.metaHash);
@@ -181,15 +180,18 @@ library LibProving {
                 instance := keccak256(inputs, mul(32, 10))
             }
 
+            TaikoData.ZKProofData memory data = abi.decode( //
+            proof.proofData, (TaikoData.ZKProofData));
+
             (bool verified, bytes memory ret) = resolver.resolve(
-                LibUtils.getVerifierName(evidence.verifierId), false
+                LibUtils.getVerifierName(data.circuitId), false
             ).staticcall(
                 bytes.concat(
                     bytes16(0),
                     bytes16(instance), // left 16 bytes of the given instance
                     bytes16(0),
                     bytes16(uint128(uint256(instance))), // right 16 bytes of the given instance
-                    evidence.proof
+                    data.zkp
                 )
             );
 
