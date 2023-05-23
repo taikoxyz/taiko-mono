@@ -85,16 +85,13 @@ library LibProving {
         if (specialProver != address(0) && msg.sender != specialProver) {
             if (proof.proofType != TaikoData.ProofType.EOA_SIGNATURE) {
                 revert L1_INVALID_PROOF_TYPE();
-            } else {
-                TaikoData.ProofDataEOASignature memory data =
-                    abi.decode(proof.proofData, (TaikoData.ProofDataEOASignature));
+            }
+            TaikoData.ProofDataEOASignature memory data =
+                abi.decode(proof.proofData, (TaikoData.ProofDataEOASignature));
 
-                if (
-                    specialProver
-                        != ecrecover(keccak256(abi.encode(evidence)), data.v, data.r, data.s)
-                ) {
-                    revert L1_INVALID_PROOF_TYPE();
-                }
+            if (specialProver != ecrecover(keccak256(abi.encode(evidence)), data.v, data.r, data.s))
+            {
+                revert L1_INVALID_PROOF_TYPE();
             }
         }
 
