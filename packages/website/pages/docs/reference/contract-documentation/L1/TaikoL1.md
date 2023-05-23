@@ -93,6 +93,22 @@ Change proof parameters (time target and time issued) - to avoid complex/risky u
 | newProofTimeTarget | uint64 | New proof time target.                                                  |
 | newProofTimeIssued | uint64 | New proof time issued. If set to type(uint64).max, let it be unchanged. |
 
+### setForkChoice
+
+```solidity
+function setForkChoice(uint256 blockId, bytes input) external
+```
+
+A failsafe mechanism to overwrite malicious / wrong fork choices in such a rare (if any?)
+case when there are bugs both in SGX and in ZK circuits. Only failsafe account can call it.
+
+#### Parameters
+
+| Name    | Type    | Description                                                                                    |
+| ------- | ------- | ---------------------------------------------------------------------------------------------- |
+| blockId | uint256 | The index of the block to prove. This is also used to select the right implementation version. |
+| input   | bytes   | An abi-encoded TaikoData.BlockEvidence object.                                                 |
+
 ### depositTaikoToken
 
 ```solidity

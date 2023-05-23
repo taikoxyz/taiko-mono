@@ -17,7 +17,6 @@ struct Config {
   uint64 maxBytesPerTxList;
   uint256 txListCacheExpiry;
   uint256 proofCooldownPeriod;
-  uint256 systemProofCooldownPeriod;
   uint256 realProofSkipSize;
   uint256 ethDepositGas;
   uint256 ethDepositMaxFee;
@@ -26,6 +25,7 @@ struct Config {
   uint96 maxEthDepositAmount;
   uint96 minEthDepositAmount;
   uint8 adjustmentQuotient;
+  uint16 proofToggleMask;
   bool relaySignalRoot;
 }
 ```
@@ -80,6 +80,16 @@ struct BlockMetadata {
 }
 ```
 
+### TypedProof
+
+```solidity
+struct TypedProof {
+  uint16 verifierId;
+  uint16 proofType;
+  bytes proof;
+}
+```
+
 ### BlockEvidence
 
 ```solidity
@@ -92,8 +102,7 @@ struct BlockEvidence {
   address prover;
   uint32 parentGasUsed;
   uint32 gasUsed;
-  uint16 verifierId;
-  bytes proof;
+  struct TaikoData.TypedProof[] blockProofs;
 }
 ```
 

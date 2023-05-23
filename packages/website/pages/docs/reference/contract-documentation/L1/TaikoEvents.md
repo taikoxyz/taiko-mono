@@ -33,3 +33,9 @@ event EthDeposited(struct TaikoData.EthDeposit deposit)
 ```solidity
 event ProofTimeTargetChanged(uint64 proofTimeTarget)
 ```
+
+### BlockForkChoiceFailsafeRewrite
+
+```solidity
+event BlockForkChoiceFailsafeRewrite(uint256 blockId)
+```
