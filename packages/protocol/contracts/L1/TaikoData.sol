@@ -32,15 +32,10 @@ library TaikoData {
     }
 
     struct StateVariables {
-        uint64 blockFee;
-        uint64 accBlockFees;
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 numBlocks;
-        uint64 proofTimeIssued;
-        uint64 proofTimeTarget;
         uint64 lastVerifiedBlockId;
-        uint64 accProposedAt;
         uint64 nextEthDepositToProcess;
         uint64 numEthDeposits;
     }
@@ -129,7 +124,6 @@ library TaikoData {
                     bytes32 parentHash => mapping(uint32 parentGasUsed => uint256 forkChoiceId)
                 )
             ) forkChoiceIds;
-        // mapping(address account => uint256 balance) taikoTokenBalances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         EthDeposit[] ethDeposits;
         // Never or rarely changed
@@ -139,15 +133,15 @@ library TaikoData {
         uint64 __reserved71;
         uint64 __reserved72;
         // Slot 8
-        uint64 accProposedAt;
-        uint64 accBlockFees;
+        uint64 ___DEPRECATED___accProposedAt;
+        uint64 ___DEPRECATED___accBlockFees;
         uint64 numBlocks;
         uint64 nextEthDepositToProcess;
         // Slot 9
-        uint64 blockFee;
-        uint64 proofTimeIssued;
+        uint64 ___DEPRECATED___blockFee;
+        uint64 ___DEPRECATED___proofTimeIssued;
         uint64 lastVerifiedBlockId;
-        uint64 proofTimeTarget;
+        uint64 ___DEPRECATED___proofTimeTarget;
         // Reserved
         uint256[42] __gap;
     }

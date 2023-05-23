@@ -441,7 +441,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             }
 
             vm.warp(
-                block.timestamp + L1.getStateVariables().proofTimeTarget
+                block.timestamp + L1.proofTimeTarget()
                     + conf.systemProofCooldownPeriod
             );
             verifyBlock(Carol, 1);

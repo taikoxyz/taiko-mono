@@ -641,9 +641,9 @@ contract TaikoL1Simulation is TaikoL1TestBase {
             ";",
             Strings.toString(vars.numBlocks),
             ";",
-            Strings.toString(vars.blockFee),
+            Strings.toString(L1.blockFee()),
             ";",
-            Strings.toString(vars.accProposedAt)
+            Strings.toString(L1.accProposedAt())
         );
         console2.log(str);
     }

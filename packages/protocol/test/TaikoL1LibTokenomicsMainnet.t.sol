@@ -56,8 +56,8 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase {
         depositTaikoToken(Bob, 1e8 * 1e8, 100 ether);
         depositTaikoToken(Carol, 1e8 * 1e8, 100 ether);
 
-        Alice_start_balance =tko.balanceOf(Alice);
-        Bob_start_balance =tko.balanceOf(Bob);
+        Alice_start_balance = tko.balanceOf(Alice);
+        Bob_start_balance = tko.balanceOf(Bob);
     }
 
     /// @dev A possible (close to) mainnet scenarios is the following:
@@ -73,8 +73,8 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase {
         depositTaikoToken(Carol, 1e8 * 1e8, 1000 ether);
 
         // Check balances
-        Alice_start_balance =tko.balanceOf(Alice);
-        Bob_start_balance =tko.balanceOf(Bob);
+        Alice_start_balance = tko.balanceOf(Alice);
+        Bob_start_balance = tko.balanceOf(Bob);
 
         // Can play to adjust
         proofTime = 179; // When proofs are coming, 179 means 1790 sec
@@ -126,12 +126,12 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase {
         }
 
         //Check end balances
-        uint256 deposits = Alice_start_balance -tko.balanceOf(Alice);
-        uint256 withdrawals =tko.balanceOf(Bob) - Bob_start_balance;
+        uint256 deposits = Alice_start_balance - tko.balanceOf(Alice);
+        uint256 withdrawals = tko.balanceOf(Bob) - Bob_start_balance;
 
         //Check end balances
-        deposits = Alice_start_balance -tko.balanceOf(Alice);
-        withdrawals =tko.balanceOf(Bob) - Bob_start_balance;
+        deposits = Alice_start_balance - tko.balanceOf(Alice);
+        withdrawals = tko.balanceOf(Bob) - Bob_start_balance;
 
         console2.log("Deposits:", deposits);
         console2.log("withdrawals:", withdrawals);
@@ -194,12 +194,12 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase {
             }
         }
         //Check end balances
-        uint256 deposits = Alice_start_balance -tko.balanceOf(Alice);
-        uint256 withdrawals =tko.balanceOf(Bob) - Bob_start_balance;
+        uint256 deposits = Alice_start_balance - tko.balanceOf(Alice);
+        uint256 withdrawals = tko.balanceOf(Bob) - Bob_start_balance;
 
         //Check end balances
-        deposits = Alice_start_balance -tko.balanceOf(Alice);
-        withdrawals =tko.balanceOf(Bob) - Bob_start_balance;
+        deposits = Alice_start_balance - tko.balanceOf(Alice);
+        withdrawals = tko.balanceOf(Bob) - Bob_start_balance;
 
         console2.log("Deposits:", deposits);
         console2.log("withdrawals:", withdrawals);
@@ -264,12 +264,12 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase {
 
         //Check end balances
         //Check end balances
-        uint256 deposits = Alice_start_balance -tko.balanceOf(Alice);
-        uint256 withdrawals =tko.balanceOf(Bob) - Bob_start_balance;
+        uint256 deposits = Alice_start_balance - tko.balanceOf(Alice);
+        uint256 withdrawals = tko.balanceOf(Bob) - Bob_start_balance;
 
         //Check end balances
-        deposits = Alice_start_balance -tko.balanceOf(Alice);
-        withdrawals =tko.balanceOf(Bob) - Bob_start_balance;
+        deposits = Alice_start_balance - tko.balanceOf(Alice);
+        withdrawals = tko.balanceOf(Bob) - Bob_start_balance;
 
         console2.log("Deposits:", deposits);
         console2.log("withdrawals:", withdrawals);
