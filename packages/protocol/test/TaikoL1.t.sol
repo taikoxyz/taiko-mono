@@ -4,6 +4,7 @@ pragma solidity ^0.8.18;
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 import {AddressManager} from "../contracts/common/AddressManager.sol";
+import {LibEthDepositing} from "../contracts/L1/libs/LibEthDepositing.sol";
 import {TaikoConfig} from "../contracts/L1/TaikoConfig.sol";
 import {TaikoData} from "../contracts/L1/TaikoData.sol";
 import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
@@ -149,7 +150,6 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         proposeBlock(Alice, 1000000, 1024);
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
-        assertEq(meta.depositsRoot, emptyDepositsRoot);
         assertEq(meta.depositsProcessed.length, 0);
 
         uint256 count = conf.maxEthDepositsPerBlock;
@@ -167,7 +167,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         console2.log("gas used with eth deposits:", gasUsedWithDeposits);
 
         printVariables("after processing send-ethers");
-        assertTrue(meta.depositsRoot != emptyDepositsRoot);
+        assertTrue(LibEthDepositing.hashEthDeposits(meta.depositsProcessed) != emptyDepositsRoot);
         assertEq(meta.depositsProcessed.length, count + 1);
 
         gas = gasleft();
@@ -246,5 +246,51 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         // Not found
         assertEq(bytes32(0), L1.getCrossChainSignalRoot((iterationCnt + 1)));
+    }
+
+    function test_deposit_hash_creation() external {
+        // uint96 minAmount = conf.minEthDepositAmount;
+        uint96 maxAmount = conf.maxEthDepositAmount;
+
+        // We need 8 depostis otherwise we are not processing them !
+        depositTaikoToken(Alice, 1e6 * 1e8, maxAmount + 1 ether);
+        depositTaikoToken(Bob, 0, maxAmount + 1 ether);
+        depositTaikoToken(Carol, 0, maxAmount + 1 ether);
+        depositTaikoToken(Dave, 0, maxAmount + 1 ether);
+        depositTaikoToken(Eve, 0, maxAmount + 1 ether);
+        depositTaikoToken(Frank, 0, maxAmount + 1 ether);
+        depositTaikoToken(George, 0, maxAmount + 1 ether);
+        depositTaikoToken(Hilbert, 0, maxAmount + 1 ether);
+
+        // So after this point we have 8 deposits
+        vm.prank(Alice, Alice);
+        L1.depositEtherToL2{value: 1 ether}();
+        vm.prank(Bob, Bob);
+        L1.depositEtherToL2{value: 2 ether}();
+        vm.prank(Carol, Carol);
+        L1.depositEtherToL2{value: 3 ether}();
+        vm.prank(Dave, Dave);
+        L1.depositEtherToL2{value: 4 ether}();
+        vm.prank(Eve, Eve);
+        L1.depositEtherToL2{value: 5 ether}();
+        vm.prank(Frank, Frank);
+        L1.depositEtherToL2{value: 6 ether}();
+        vm.prank(George, George);
+        L1.depositEtherToL2{value: 7 ether}();
+        vm.prank(Hilbert, Hilbert);
+        L1.depositEtherToL2{value: 8 ether}();
+
+        assertEq(L1.getStateVariables().numEthDeposits, 8); // The number of deposits
+        assertEq(L1.getStateVariables().nextEthDepositToProcess, 0); // The index / cursos of the next deposit
+
+        // We shall invoke proposeBlock() because this is what will call the processDeposits()
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+
+        // Expected: 0x8117066d69ff650d78f0d7383a10cc802c2b8c0eedd932d70994252e2438c636  (pre calculated with these values)
+        //console2.logBytes32(meta.depositsRoot);
+        assertEq(
+            LibEthDepositing.hashEthDeposits(meta.depositsProcessed),
+            0x8117066d69ff650d78f0d7383a10cc802c2b8c0eedd932d70994252e2438c636
+        );
     }
 }

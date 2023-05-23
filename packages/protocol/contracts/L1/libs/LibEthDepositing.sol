@@ -48,7 +48,7 @@ library LibEthDepositing {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         address beneficiary
-    ) internal returns (bytes32 depositsRoot, TaikoData.EthDeposit[] memory depositsProcessed) {
+    ) internal returns (TaikoData.EthDeposit[] memory depositsProcessed) {
         // Allocate one extra slot for collecting fees on L2
         depositsProcessed = new TaikoData.EthDeposit[](
             config.maxEthDepositsPerBlock + 1
@@ -101,10 +101,29 @@ library LibEthDepositing {
             }
         }
 
-        // resize the length of depositsProcessed to j.
         assembly {
             mstore(depositsProcessed, j)
-            depositsRoot := keccak256(depositsProcessed, mul(j, 32))
         }
+    }
+
+    function hashEthDeposits(TaikoData.EthDeposit[] memory deposits)
+        internal
+        pure
+        returns (bytes32)
+    {
+        bytes memory buffer = new bytes(32 * deposits.length);
+
+        for (uint256 i; i < deposits.length;) {
+            uint256 encoded =
+                uint256(uint160(deposits[i].recipient)) << 96 | uint256(deposits[i].amount);
+            assembly {
+                mstore(add(buffer, mul(32, add(1, i))), encoded)
+            }
+            unchecked {
+                ++i;
+            }
+        }
+
+        return keccak256(buffer);
     }
 }

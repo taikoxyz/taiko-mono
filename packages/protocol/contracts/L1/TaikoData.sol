@@ -14,10 +14,9 @@ library TaikoData {
         // This number is calculated from maxNumProposedBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;
-        uint256 blockMaxGasLimit;
-        uint256 maxTransactionsPerBlock;
-        uint256 maxBytesPerTxList;
-        uint256 minTxGasLimit;
+        uint64 blockMaxGasLimit;
+        uint64 maxTransactionsPerBlock;
+        uint64 maxBytesPerTxList;
         uint256 txListCacheExpiry;
         uint256 proofCooldownPeriod;
         uint256 realProofSkipSize;
@@ -70,13 +69,11 @@ library TaikoData {
         uint64 l1Height;
         bytes32 l1Hash;
         bytes32 mixHash;
-        bytes32 depositsRoot; // match L2 header's withdrawalsRoot
         bytes32 txListHash;
         uint24 txListByteStart;
         uint24 txListByteEnd;
         uint32 gasLimit;
         address beneficiary;
-        uint8 cacheTxListInfo;
         address treasury;
         TaikoData.EthDeposit[] depositsProcessed;
     }
