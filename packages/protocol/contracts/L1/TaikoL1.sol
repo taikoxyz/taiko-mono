@@ -8,21 +8,10 @@ pragma solidity ^0.8.18;
 
 import {LibTokenomics} from "./libs/LibTokenomics.sol";
 import {TaikoData, TaikoCallback, TaikoCore, AddressResolver, Proxied} from "./TaikoCore.sol";
+import {TaikoToken} from "./TaikoToken.sol";
 
 /// @custom:security-contact hello@taiko.xyz
 contract TaikoL1 is TaikoCore, TaikoCallback {
-    function depositTaikoToken(uint256 amount) external nonReentrant {
-        LibTokenomics.depositTaikoToken(state, AddressResolver(this), amount);
-    }
-
-    function withdrawTaikoToken(uint256 amount) external nonReentrant {
-        LibTokenomics.withdrawTaikoToken(state, AddressResolver(this), amount);
-    }
-
-    function getTaikoTokenBalance(address addr) public view returns (uint256) {
-        return state.taikoTokenBalances[addr];
-    }
-
     function getProofReward(uint64 proofTime) public view returns (uint64) {
         return LibTokenomics.getProofReward(state, proofTime);
     }
@@ -31,12 +20,14 @@ contract TaikoL1 is TaikoCore, TaikoCallback {
         public
         override
     {
-        if (state.taikoTokenBalances[proposer] < state.blockFee) {
+         TaikoToken token = TaikoToken(AddressResolver(this).resolve("taiko_token", false));
+
+        if (token.balanceOf(proposer) < state.blockFee) {
             revert L1_INSUFFICIENT_TOKEN();
         }
 
         unchecked {
-            state.taikoTokenBalances[proposer] -= state.blockFee;
+            token.burn(proposer, state.blockFee);
             state.accBlockFees += state.blockFee;
             state.accProposedAt += meta.timestamp;
         }
@@ -59,18 +50,19 @@ contract TaikoL1 is TaikoCore, TaikoCallback {
 
         // reward the prover
         if (reward != 0) {
-            address systemProver = AddressResolver(this).resolve("system_prover", true);
-            address _prover = prover != address(1) ? prover : systemProver;
+            address _prover = prover != address(1) ? prover : AddressResolver(this).resolve("system_prover", true);
 
             // systemProver may become address(0) after a block is proven
             if (_prover != address(0)) {
-                if (state.taikoTokenBalances[_prover] == 0) {
-                    // Reduce refund to 1 wei as a penalty if the proposer
-                    // has 0 TKO outstanding balance.
-                    state.taikoTokenBalances[_prover] = 1;
+            TaikoToken token = TaikoToken(AddressResolver(this).resolve("taiko_token", false));
+
+            if (token.balanceOf(_prover) == 0) {
+                token.mint(_prover, 1);
                 } else {
-                    state.taikoTokenBalances[_prover] += reward;
+                    token.mint(_prover, reward);
                 }
+
+
             }
         }
     }

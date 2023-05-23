@@ -19,31 +19,6 @@ library LibTokenomics {
 
     error L1_INSUFFICIENT_TOKEN();
 
-    function withdrawTaikoToken(
-        TaikoData.State storage state,
-        AddressResolver resolver,
-        uint256 amount
-    ) internal {
-        uint256 balance = state.taikoTokenBalances[msg.sender];
-        if (balance < amount) revert L1_INSUFFICIENT_TOKEN();
-
-        unchecked {
-            state.taikoTokenBalances[msg.sender] -= amount;
-        }
-
-        TaikoToken(resolver.resolve("taiko_token", false)).mint(msg.sender, amount);
-    }
-
-    function depositTaikoToken(
-        TaikoData.State storage state,
-        AddressResolver resolver,
-        uint256 amount
-    ) internal {
-        if (amount > 0) {
-            TaikoToken(resolver.resolve("taiko_token", false)).burn(msg.sender, amount);
-            state.taikoTokenBalances[msg.sender] += amount;
-        }
-    }
 
     /**
      * Get the block reward for a proof
