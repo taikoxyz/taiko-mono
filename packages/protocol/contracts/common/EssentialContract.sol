@@ -32,7 +32,7 @@ abstract contract EssentialContract is
      *
      * @param newAddressManager New address manager contract address
      */
-    function setIAddressManager(address newAddressManager) external onlyOwner {
+    function setAddressManager(address newAddressManager) external onlyOwner {
         if (newAddressManager == address(0)) revert RESOLVER_INVALID_ADDR();
         _addressManager = IAddressManager(newAddressManager);
 
