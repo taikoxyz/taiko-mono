@@ -38,16 +38,9 @@ contract TaikoCore is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErro
      * @param _addressManager The AddressManager address.
      * @param _genesisBlockHash The block hash of the genesis block.
      */
-    function _init(
-        address _addressManager,
-        bytes32 _genesisBlockHash
-    ) virtual internal  {
+    function _init(address _addressManager, bytes32 _genesisBlockHash) internal virtual {
         EssentialContract._init(_addressManager);
-        LibVerifying.init({
-            state: state,
-            config: getConfig(),
-            genesisBlockHash: _genesisBlockHash
-        });
+        LibVerifying.init({state: state, config: getConfig(), genesisBlockHash: _genesisBlockHash});
     }
 
     /**
@@ -124,12 +117,9 @@ contract TaikoCore is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErro
         });
     }
 
-
-
     function depositEtherToL2() public payable {
         LibEthDepositing.depositEtherToL2(state, getConfig(), AddressResolver(this));
     }
-
 
     function getBlock(uint256 blockId)
         public
@@ -184,11 +174,7 @@ contract TaikoCore is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErro
 }
 
 contract ProxiedTaikoCore is Proxied, TaikoCore {
- function init(
-        address _addressManager,
-        bytes32 _genesisBlockHash
-    )  external initializer {
+    function init(address _addressManager, bytes32 _genesisBlockHash) external initializer {
         _init(_addressManager, _genesisBlockHash);
     }
-
 }

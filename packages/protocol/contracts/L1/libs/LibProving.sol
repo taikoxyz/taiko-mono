@@ -151,7 +151,6 @@ library LibProving {
         fc.prover = evidence.prover;
         fc.provenAt = uint64(block.timestamp);
 
-
         if (evidence.prover != address(0) && evidence.prover != address(1)) {
             uint256[10] memory inputs;
 

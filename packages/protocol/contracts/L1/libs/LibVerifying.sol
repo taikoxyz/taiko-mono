@@ -29,7 +29,6 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         bytes32 genesisBlockHash
-
     ) internal {
         if (
             config.chainId <= 1 || config.maxNumProposedBlocks == 1
@@ -43,7 +42,6 @@ library LibVerifying {
             || config.txListCacheExpiry > 30 * 24 hours || config.ethDepositGas == 0
                 || config.ethDepositMaxFee == 0 || config.ethDepositMaxFee >= type(uint96).max
                 || config.adjustmentQuotient == 0
-
         ) revert L1_INVALID_CONFIG();
 
         uint64 timeNow = uint64(block.timestamp);
@@ -107,14 +105,18 @@ library LibVerifying {
             gasUsed = fc.gasUsed;
             signalRoot = fc.signalRoot;
 
-            _markBlockVerified({
-                state: state,
-                config: config,
-                blk: blk,
-                fcId: uint24(fcId),
-                fc: fc,
-                callback: callback
-            });
+            blk.nextForkChoiceId = 1;
+            blk.verifiedForkChoiceId = uint24(fcId);
+
+            emit BlockVerified(blk.blockId, fc.blockHash);
+
+            if (callback != address(0)) {
+                TaikoCallback(callback).afterBlockVerified({
+                    prover: fc.prover,
+                    proposedAt: blk.proposedAt,
+                    provenAt: fc.provenAt
+                });
+            }
 
             unchecked {
                 ++i;
@@ -131,32 +133,10 @@ library LibVerifying {
                 // Send the L2's signal root to the signal service so other TaikoL1
                 // deployments, if they share the same signal service, can relay the
                 // signal to their corresponding TaikoL2 contract.
-                ISignalService(resolver.resolve("signal_service", false)).sendSignal(signalRoot);
+                ISignalService(resolver.resolve("signal_service", false)) //
+                    .sendSignal(signalRoot);
             }
             emit CrossChainSynced(state.lastVerifiedBlockId, blockHash, signalRoot);
-        }
-    }
-
-    function _markBlockVerified(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        TaikoData.Block storage blk,
-        TaikoData.ForkChoice storage fc,
-        uint24 fcId,
-        address callback
-    ) private {
-        uint64 proofTime;
-        unchecked {
-            proofTime = uint64(fc.provenAt - blk.proposedAt);
-        }
-
-        blk.nextForkChoiceId = 1;
-        blk.verifiedForkChoiceId = fcId;
-
-        emit BlockVerified(blk.blockId, fc.blockHash);
-
-        if (callback != address(0)) {
-            TaikoCallback(callback).afterBlockVerified(fc.prover, blk.proposedAt, fc.provenAt);
         }
     }
 }

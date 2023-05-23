@@ -18,6 +18,4 @@ library LibTokenomics {
     using LibMath for uint256;
 
     error L1_INSUFFICIENT_TOKEN();
-
-
 }

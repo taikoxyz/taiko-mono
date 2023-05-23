@@ -12,22 +12,21 @@ import {TaikoToken} from "./TaikoToken.sol";
 import {LibMath} from "../libs/LibMath.sol";
 import {LibFixedPointMath as Math} from "../thirdparty/LibFixedPointMath.sol";
 
-
 /// @custom:security-contact hello@taiko.xyz
 contract TaikoL1 is TaikoCore, TaikoCallback {
-       using LibMath for uint256;
+    using LibMath for uint256;
 
-        // Slot 8
-        uint64 public accProposedAt;
-        uint64 public accBlockFees;
-        uint64 public blockFee;
-        uint64 public proofTimeIssued;
-        uint64 public proofTimeTarget;
+    error L1_INSUFFICIENT_TOKEN();
 
+    uint64 public accProposedAt;
+    uint64 public accBlockFees;
+    uint64 public blockFee;
+    uint64 public proofTimeIssued;
+    uint64 public proofTimeTarget;
 
-    // error L1_INSUFFICIENT_TOKEN();
+    uint256[48] __gap;
 
-   /**
+    /**
      * Initialize the rollup.
      *
      * @param _addressManager The AddressManager address.
@@ -44,10 +43,7 @@ contract TaikoL1 is TaikoCore, TaikoCallback {
         uint64 _initProofTimeTarget,
         uint64 _initProofTimeIssued
     ) external initializer {
-        TaikoCore._init(
-           _addressManager,
-           _genesisBlockHash
-        );
+        TaikoCore._init(_addressManager, _genesisBlockHash);
 
         blockFee = _initBlockFee;
         proofTimeTarget = _initProofTimeTarget;
@@ -58,6 +54,7 @@ contract TaikoL1 is TaikoCore, TaikoCallback {
      * @param newProofTimeTarget New proof time target.
      * @param newProofTimeIssued New proof time issued. If set to type(uint64).max, let it be unchanged.
      */
+
     function setProofParams(uint64 newProofTimeTarget, uint64 newProofTimeIssued)
         external
         onlyOwner
@@ -101,11 +98,14 @@ contract TaikoL1 is TaikoCore, TaikoCallback {
         public
         override
     {
-        uint64 proofTime = provenAt - proposedAt;
+        uint64 proofTime;
+        unchecked {
+            proofTime = provenAt - proposedAt;
+        }
+
         uint64 reward = _getProofReward(proofTime);
 
-        (proofTimeIssued, blockFee) =
-            _getNewBlockFeeAndProofTimeIssued(getConfig(), proofTime);
+        (proofTimeIssued, blockFee) = _getNewBlockFeeAndProofTimeIssued(getConfig(), proofTime);
 
         unchecked {
             accBlockFees -= reward;
@@ -131,16 +131,11 @@ contract TaikoL1 is TaikoCore, TaikoCallback {
         }
     }
 
-function getBlockFee() public view returns (uint64) {
+    function getBlockFee() public view returns (uint64) {
         return blockFee;
     }
 
-
-    function _getProofReward(uint64 proofTime)
-        internal
-        view
-        returns (uint64)
-    {
+    function _getProofReward(uint64 proofTime) internal view returns (uint64) {
         uint64 numBlocksUnverified = state.numBlocks - state.lastVerifiedBlockId - 1;
 
         if (numBlocksUnverified == 0) {
@@ -158,14 +153,13 @@ function getBlockFee() public view returns (uint64) {
         }
     }
 
-
-    function _getNewBlockFeeAndProofTimeIssued(
-        TaikoData.Config memory config,
-        uint64 proofTime
-    ) private view returns (uint64 newProofTimeIssued, uint64 blockFee) {
-        newProofTimeIssued = (proofTimeIssued > proofTimeTarget)
-            ? proofTimeIssued - proofTimeTarget
-            : uint64(0);
+    function _getNewBlockFeeAndProofTimeIssued(TaikoData.Config memory config, uint64 proofTime)
+        private
+        view
+        returns (uint64 newProofTimeIssued, uint64 _blockFee)
+    {
+        newProofTimeIssued =
+            (proofTimeIssued > proofTimeTarget) ? proofTimeIssued - proofTimeTarget : uint64(0);
         newProofTimeIssued += proofTime;
 
         uint256 x = (newProofTimeIssued * Math.SCALING_FACTOR_1E18)
@@ -178,7 +172,7 @@ function getBlockFee() public view returns (uint64) {
         uint256 result = (uint256(Math.exp(int256(x))) / Math.SCALING_FACTOR_1E18)
             / (proofTimeTarget * config.adjustmentQuotient);
 
-        blockFee = uint64(result.min(type(uint64).max));
+        _blockFee = uint64(result.min(type(uint64).max));
     }
 }
 
