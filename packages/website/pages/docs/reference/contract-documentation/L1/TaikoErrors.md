@@ -70,12 +70,6 @@ error L1_INVALID_PARAM()
 error L1_INVALID_PROOF()
 ```
 
-### L1_INVALID_PROOFTYPE
-
-```solidity
-error L1_INVALID_PROOFTYPE()
-```
-
 ### L1_INVALID_SGX_SIGNATURE
 
 ```solidity
@@ -86,18 +80,6 @@ error L1_INVALID_SGX_SIGNATURE()
 
 ```solidity
 error L1_NOT_ALL_REQ_PROOF_VERIFIED()
-```
-
-### L1_NO_AUTH_TO_OVERWRITE_FK
-
-```solidity
-error L1_NO_AUTH_TO_OVERWRITE_FK()
-```
-
-### L1_NOT_ENABLED_PROOFTYPE
-
-```solidity
-error L1_NOT_ENABLED_PROOFTYPE()
 ```
 
 ### L1_NOTHING_TO_OVERWRITE

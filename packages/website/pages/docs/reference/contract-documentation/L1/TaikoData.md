@@ -25,8 +25,8 @@ struct Config {
   uint96 maxEthDepositAmount;
   uint96 minEthDepositAmount;
   uint8 adjustmentQuotient;
-  uint16 proofToggleMask;
   bool relaySignalRoot;
+  bool enableSgxProving;
 }
 ```
 
@@ -85,7 +85,6 @@ struct BlockMetadata {
 ```solidity
 struct TypedProof {
   uint16 verifierId;
-  uint16 proofType;
   bytes proof;
 }
 ```
