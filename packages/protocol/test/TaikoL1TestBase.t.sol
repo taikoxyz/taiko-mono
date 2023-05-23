@@ -358,8 +358,7 @@ abstract contract TaikoL1TestBase is Test {
     function createSgxSignature(
         TaikoData.BlockEvidence memory evidence
     ) internal view returns (TaikoData.TypedProof memory sgxProof) {
-        // Put together the input to be signed
-        uint256[9] memory inputs;
+        uint256[10] memory inputs;
 
         inputs[0] = uint256(uint160(address(ss)));
         inputs[1] = uint256(uint160(address(L2SS)));
@@ -370,14 +369,17 @@ abstract contract TaikoL1TestBase is Test {
         inputs[5] = uint256(evidence.blockHash);
         inputs[6] = uint256(evidence.signalRoot);
         inputs[7] = uint256(evidence.graffiti);
-        inputs[8] =
-            (uint256(uint160(evidence.prover)) << 96) |
-            (uint256(evidence.parentGasUsed) << 64) |
-            (uint256(evidence.gasUsed) << 32);
+        inputs[8] = (uint256(uint160(evidence.prover)) << 96)
+            | (uint256(evidence.parentGasUsed) << 64) | (uint256(evidence.gasUsed) << 32);
+
+        // Also hash configs that will be used by circuits
+        inputs[9] = uint256(conf.blockMaxGasLimit) << 192
+            | uint256(conf.maxTransactionsPerBlock) << 128
+            | uint256(conf.maxBytesPerTxList) << 64;
 
         bytes32 instance;
         assembly {
-            instance := keccak256(inputs, mul(32, 9))
+            instance := keccak256(inputs, mul(32, 10))
         }
 
         // console2.log("Instace:");
