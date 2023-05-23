@@ -31,7 +31,7 @@
 </script>
 
 <div class="navbar bg-base-100">
-  <div class="flex-1">
+  <div class="flex-1 items-end">
     <span class="taiko-light-logo">
       <TaikoLight width={120} />
     </span>
