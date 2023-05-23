@@ -80,6 +80,43 @@ struct BlockMetadata {
 }
 ```
 
+### ProofType
+
+```solidity
+enum ProofType {
+  ZKP,
+  EOA_SIGNATURE
+}
+```
+
+### TypedProof
+
+```solidity
+struct TypedProof {
+  enum TaikoData.ProofType proofType;
+  bytes proofData;
+}
+```
+
+### SignatureProofData
+
+```solidity
+struct SignatureProofData {
+  bytes32 r;
+  bytes32 s;
+  uint8 v;
+}
+```
+
+### ZKProofData
+
+```solidity
+struct ZKProofData {
+  uint16 circuitId;
+  bytes zkp;
+}
+```
+
 ### BlockEvidence
 
 ```solidity
@@ -92,8 +129,6 @@ struct BlockEvidence {
   address prover;
   uint32 parentGasUsed;
   uint32 gasUsed;
-  uint16 verifierId;
-  bytes proof;
 }
 ```
 
