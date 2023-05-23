@@ -99,7 +99,7 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
      *
      * @param blockId The index of the block to prove. This is also used
      *        to select the right implementation version.
-     * @param inputs  Abi-encoded BlockEvidence and Proof.
+     * @param inputs Abi-encoded BlockEvidence and Proof.
      */
     function proveBlock(uint256 blockId, bytes[] calldata inputs) external nonReentrant {
         require(inputs.length == 2, "LLLLL");
