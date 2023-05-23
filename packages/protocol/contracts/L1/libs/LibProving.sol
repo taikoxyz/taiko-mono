@@ -77,10 +77,7 @@ library LibProving {
                 revert L1_SYSTEM_PROVER_DISABLED();
             }
 
-            if (
-                config.realProofSkipSize <= 1 //
-                    || blockId % config.realProofSkipSize == 0
-            ) {
+            if (config.realProofSkipSize <= 1 || blockId % config.realProofSkipSize == 0) {
                 revert L1_SYSTEM_PROVER_PROHIBITED();
             }
         }
