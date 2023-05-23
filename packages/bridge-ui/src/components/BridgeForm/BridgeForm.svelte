@@ -5,8 +5,8 @@
   import { activeBridge, bridgeType } from '../../store/bridge';
   import { signer } from '../../store/signer';
   import { BigNumber, Contract, ethers, type Signer } from 'ethers';
-  import ProcessingFee from './ProcessingFee';
-  import SelectToken from '../buttons/SelectToken.svelte';
+  import ProcessingFee from './ProcessingFee.svelte';
+  import SelectToken from './SelectToken.svelte';
 
   import type { Token } from '../../domain/token';
   import type { BridgeOpts, BridgeType } from '../../domain/bridge';
@@ -28,31 +28,42 @@
   import { fetchFeeData } from '@wagmi/core';
   import { checkIfTokenIsDeployedCrossChain } from '../../utils/checkIfTokenIsDeployedCrossChain';
   import To from './To.svelte';
-  import { isETH, isTestToken } from '../../token/tokens';
+  import { isERC20, isETH, isTestToken } from '../../token/tokens';
   import { chains } from '../../chain/chains';
   import { providers } from '../../provider/providers';
   import { tokenVaults } from '../../vault/tokenVaults';
   import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
   import { ProcessingFeeMethod } from '../../domain/fee';
-  import Button from '../buttons/Button.svelte';
+  import Button from '../Button.svelte';
   import { storageService } from '../../storage/services';
   import { getLogger } from '../../utils/logger';
   import { getAddressForToken } from '../../utils/getAddressForToken';
   import Loading from '../Loading.svelte';
+  import ApproveBridgeSteps from './ApproveBridgeSteps.svelte';
 
   const log = getLogger('component:BridgeForm');
 
   let amount: string;
   let amountInput: HTMLInputElement;
+
+  let computingAllowance: boolean = false;
   let requiresAllowance: boolean = false;
+
+  // TODO: do we need a loading state for this?
   let buttonDisabled: boolean = true;
+
+  let computingTokenBalance: boolean = false;
   let tokenBalance: string;
+
   let memo: string = '';
+  let memoError: string;
+
   let loading: boolean = false;
   let isFaucetModalOpen: boolean = false;
-  let memoError: string;
+
   let to: string = '';
   let showTo: boolean = false;
+
   let feeMethod: ProcessingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
   let feeAmount: string = '0';
 
@@ -61,6 +72,8 @@
 
   async function updateTokenBalance(signer: Signer, token: Token) {
     if (signer && token) {
+      computingTokenBalance = true;
+
       if (isETH(token)) {
         const userBalance = await signer.getBalance('latest');
         tokenBalance = ethers.utils.formatEther(userBalance);
@@ -118,6 +131,8 @@
     signer: Signer,
   ) {
     if (!fromChain || !amount || !token || !bridgeType || !signer) return false;
+
+    computingAllowance = true;
 
     const address = await getAddressForToken(
       token,
@@ -473,6 +488,15 @@
     return BigNumber.from(ethers.utils.parseEther(feeAmount));
   }
 
+  function hasBalance(token: Token, tokenBalance: string) {
+    return (
+      tokenBalance &&
+      ethers.utils
+        .parseUnits(tokenBalance, token.decimals)
+        .gt(BigNumber.from(0))
+    );
+  }
+
   function shouldShowFaucet(
     fromChain: Chain,
     token: Token,
@@ -482,16 +506,15 @@
     return (
       fromChain && // chain selected?
       fromChain.id === L1_CHAIN_ID && // are we in L1?
-      isTestToken(token) &&
       signer && // wallet connected?
-      tokenBalance &&
-      ethers.utils
-        .parseUnits(tokenBalance, token.decimals)
-        .eq(BigNumber.from(0)) // balance == 0?
+      isTestToken(token) &&
+      !hasBalance(token, tokenBalance)
     );
   }
 
-  $: updateTokenBalance($signer, $token);
+  $: updateTokenBalance($signer, $token).finally(() => {
+    computingTokenBalance = false;
+  });
 
   $: checkButtonIsDisabled(
     $signer,
@@ -508,11 +531,20 @@
     .then((allowed) => (requiresAllowance = allowed))
     .catch((error) => {
       console.error(error);
-      // errorToast($_('toast.errorCheckingAllowance'));
       requiresAllowance = false;
+    })
+    .finally(() => {
+      computingAllowance = false;
     });
 
-  $: showFaucet = shouldShowFaucet($fromChain, $token, $signer, tokenBalance);
+  $: showFaucet =
+    !computingTokenBalance &&
+    shouldShowFaucet($fromChain, $token, $signer, tokenBalance);
+
+  $: showStepper =
+    !computingTokenBalance &&
+    isERC20($token) &&
+    hasBalance($token, tokenBalance);
 </script>
 
 <div class="form-control mb-6 md:mb-4">
@@ -555,10 +587,12 @@
 
 {#if showFaucet}
   <div class="flex mb-6 md:mb-4" style="flex-direction:row-reverse">
-    <div class="flex items-start">
-      <button class="btn" on:click={() => (isFaucetModalOpen = true)}>
+    <div class="flex items-start w-full">
+      <Button
+        class="btn btn-accent w-full"
+        on:click={() => (isFaucetModalOpen = true)}>
         <Funnel class="mr-2" /> Faucet
-      </button>
+      </Button>
     </div>
   </div>
 
@@ -578,6 +612,16 @@
 <div class="mb-6 md:mb-4">
   <Memo bind:memo bind:memoError />
 </div>
+
+{#if showStepper}
+  <div class="mb-6 md:mb-4">
+    <ApproveBridgeSteps
+      requiresApproval={requiresAllowance}
+      hasAmount={Boolean(amount)}
+      computing={computingAllowance}
+      approving={loading} />
+  </div>
+{/if}
 
 {#if loading}
   <Button type="accent" size="lg" class="w-full" disabled={true}>

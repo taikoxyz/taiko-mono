@@ -11,7 +11,7 @@
   import { userTokens } from '../../store/userToken';
   import { fromChain, toChain } from '../../store/chain';
   import Erc20 from '../icons/ERC20.svelte';
-  import AddCustomErc20 from '../form/AddCustomERC20.svelte';
+  import AddCustomErc20 from './AddCustomERC20.svelte';
   import { isETH, tokens } from '../../token/tokens';
   import { errorToast, successToast } from '../Toast.svelte';
   import { tokenService } from '../../storage/services';

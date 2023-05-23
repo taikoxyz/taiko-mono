@@ -22,7 +22,7 @@
   import { bridges } from '../../bridge/bridges';
   import { tokenVaults } from '../../vault/tokenVaults';
   import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
-  import Button from '../buttons/Button.svelte';
+  import Button from '../Button.svelte';
   import { selectChain } from '../../utils/selectChain';
   import type { NoticeOpenArgs } from '../../domain/modal';
   import { isTransactionProcessable } from '../../utils/isTransactionProcessable';

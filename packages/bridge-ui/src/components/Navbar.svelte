@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Connect from './buttons/Connect.svelte';
+  import ConnectWallet from './ConnectWallet.svelte';
   import TaikoLogo from './icons/TaikoLogo.svelte';
   import TaikoLight from './icons/TaikoLight.svelte';
   import { signer } from '../store/signer';
@@ -52,7 +52,7 @@
       <ChainDropdown />
       <AddressDropdown />
     {:else}
-      <Connect />
+      <ConnectWallet />
     {/if}
 
     <div class="ml-2">

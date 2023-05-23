@@ -3,7 +3,7 @@
   styled based on props following daisyUI classes.
 -->
 <script lang="ts">
-  import type { SizeButton, TypeButton } from '../../domain/button';
+  import type { SizeButton, TypeButton } from '../domain/button';
 
   export let type: TypeButton = '';
   export let size: SizeButton = 'md';

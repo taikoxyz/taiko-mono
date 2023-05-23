@@ -1,14 +1,14 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
-  import { ProcessingFeeMethod } from '../../../domain/fee';
-  import { toChain, fromChain } from '../../../store/chain';
-  import { token } from '../../../store/token';
-  import { signer } from '../../../store/signer';
-  import { recommendProcessingFee } from '../../../utils/recommendProcessingFee';
-  import ButtonWithTooltip from '../../ButtonWithTooltip.svelte';
-  import { processingFees } from '../../../fee/processingFees';
+  import { ProcessingFeeMethod } from '../../domain/fee';
+  import { toChain, fromChain } from '../../store/chain';
+  import { token } from '../../store/token';
+  import { signer } from '../../store/signer';
+  import { recommendProcessingFee } from '../../utils/recommendProcessingFee';
+  import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
+  import { processingFees } from '../../fee/processingFees';
   import GeneralTooltip from './ProcessingFeeTooltip.svelte';
-  import NoticeModal from '../../modals/NoticeModal.svelte';
+  import NoticeModal from '../modals/NoticeModal.svelte';
 
   export let method: ProcessingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
   export let amount: string = '0';
@@ -39,12 +39,10 @@
   }
 </script>
 
-<div class="flex flex-row justify-between">
-  <div class="label">
-    <ButtonWithTooltip onClick={() => (showProcessingFeeTooltip = true)}>
-      <span slot="buttonText">{$_('bridgeForm.processingFeeLabel')}</span>
-    </ButtonWithTooltip>
-  </div>
+<div class="px-1 py-0 flex flex-row justify-between">
+  <ButtonWithTooltip onClick={() => (showProcessingFeeTooltip = true)}>
+    <span slot="buttonText">{$_('bridgeForm.processingFeeLabel')}</span>
+  </ButtonWithTooltip>
 </div>
 
 <!-- 
@@ -67,7 +65,7 @@
     <span class="!rounded-r-lg bg-dark-2">ETH</span>
   </label>
 {:else if method === ProcessingFeeMethod.RECOMMENDED}
-  <div class="flex flex-row">
+  <div class="px-1 py-0 flex flex-row">
     <span class="mt-2 text-sm">{amount} ETH</span>
   </div>
 {/if}

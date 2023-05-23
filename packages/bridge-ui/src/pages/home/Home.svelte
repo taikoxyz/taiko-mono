@@ -3,23 +3,24 @@
   import { transactions } from '../../store/transactions';
   import { paginationInfo } from '../../store/relayerApi';
   import { signer } from '../../store/signer';
-  import BridgeForm from '../../components/form/BridgeForm.svelte';
+  import BridgeForm from '../../components/BridgeForm';
   import Transactions from '../../components/Transactions';
   import { Tabs, TabList, Tab, TabPanel } from '../../components/Tabs';
   import Loading from '../../components/Loading.svelte';
-  import SelectChain from '../../components/form/SelectChain.svelte';
+  import SelectChain from '../../components/BridgeForm/SelectChain.svelte';
+  // import Faucet from '../../components/Faucet/Faucet.svelte';
 
   // List of tab's name <=> route association
   // TODO: add this into a general configuration.
   const tabsRoute = [
     { name: 'bridge', href: '/' },
     { name: 'transactions', href: '/transactions' },
+    { name: 'faucet', href: '/faucet' },
     // Add more tabs if needed
   ];
 
-  // TODO: we're assuming we have only two tabs here.
-  //       Change strategy if needed.
-  $: activeTab = $location === '/' ? tabsRoute[0].name : tabsRoute[1].name;
+  $: activeTab =
+    $location === '/' ? tabsRoute[0].name : $location.replace('/', '');
 </script>
 
 <div class="container mx-auto text-center my-10">
@@ -28,6 +29,7 @@
     bind:activeTab>
     {@const tab1 = tabsRoute[0]}
     {@const tab2 = tabsRoute[1]}
+    <!-- {@const tab3 = tabsRoute[2]} -->
 
     <TabList class="block mb-4">
       <Tab name={tab1.name} href={tab1.href}>Bridge</Tab>
@@ -39,6 +41,7 @@
           (<Loading />)
         {/if}
       </Tab>
+      <!-- <Tab name={tab3.name} href={tab3.href}>Faucet</Tab> -->
     </TabList>
 
     <TabPanel tab={tab1.name}>
@@ -55,5 +58,11 @@
         <Transactions />
       </div>
     </TabPanel>
+
+    <!-- <TabPanel tab={tab3.name}>
+      <div class="md:min-w-[440px]">
+        <Faucet />
+      </div>
+    </TabPanel> -->
   </Tabs>
 </div>

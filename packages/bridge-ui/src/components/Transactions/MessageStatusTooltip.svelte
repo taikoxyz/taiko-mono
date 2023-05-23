@@ -12,14 +12,15 @@
       <br /><br />
       <ul class="list-disc ml-4">
         <li class="mb-2">
-          <strong>Pending</strong>: Your asset is not ready to be bridged. Taiko
-          A2 => {L2_CHAIN_NAME} bridging can take several hours before being ready.
+          <strong>Pending</strong>: Your asset is not ready to be claimed. {L2_CHAIN_NAME}
+          => {L1_CHAIN_NAME} bridging can take several hours before being ready.
           {L1_CHAIN_NAME} => {L2_CHAIN_NAME} should be available to claim within
           minutes.
         </li>
         <li class="mb-2">
           <strong>Claim</strong>: Your asset is ready to be claimed on the
-          destination chain and requires a transaction.
+          destination chain and requires a transaction. If you set a processing
+          fee, the relayer will claim this automatically for you.
         </li>
         <li class="mb-2">
           <strong>Claimed</strong>: Your asset has finished bridging and is
