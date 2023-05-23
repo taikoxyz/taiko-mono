@@ -129,6 +129,9 @@
 
       await pendingTransactions.add(tx, $signer);
 
+      // We're done here, no need to poll anymore, since we've claimed manually
+      stopPolling();
+
       // At this point the claim transaction is already DONE, but we
       // still don't have it until the polling picks up the new state.
       // We change it manually
@@ -243,6 +246,13 @@
     );
   }
 
+  function stopPolling() {
+    if (interval) {
+      log('Stop polling for transaction', transaction);
+      clearInterval(interval);
+    }
+  }
+
   // TODO: move this logic into a Web Worker
   // TODO: handle errors here
   function startInterval() {
@@ -287,8 +297,7 @@
       }
 
       if (isTransactionDone(transaction)) {
-        log('Stop polling for transaction', transaction);
-        clearInterval(interval);
+        stopPolling();
       }
     }, 20 * 1000); // TODO: magic number. Config?
   }
