@@ -9,7 +9,7 @@ uint16 constant DESIRED_PROOF_TIME_TARGET = 500;
 uint8 constant ADJUSTMENT_QUOTIENT = 16;
 
 contract DetermineProofTimeIssued is Script {
-    function run() public {
+    function run() public view {
         uint16 proofTimeTarget = DESIRED_PROOF_TIME_TARGET; // Approx. value which close to what is in the simulation
         uint64 feeBase = 1e8; // 1 TKO
         uint64 initProofTimeIssued =

@@ -8,7 +8,6 @@ pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibMath} from "../../libs/LibMath.sol";
-import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 
@@ -164,7 +163,7 @@ library LibProving {
                 uint256(uint160(address(resolver.resolve(config.chainId, "signal_service", false))));
             inputs[2] = uint256(uint160(address(resolver.resolve(config.chainId, "taiko", false))));
 
-            inputs[3] = uint256(blk.metaHash);
+            inputs[3] = uint256(evidence.metaHash);
             inputs[4] = uint256(evidence.parentHash);
             inputs[5] = uint256(evidence.blockHash);
             inputs[6] = uint256(evidence.signalRoot);
