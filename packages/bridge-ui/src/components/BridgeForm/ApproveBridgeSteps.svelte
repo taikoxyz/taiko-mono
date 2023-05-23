@@ -15,7 +15,7 @@
   $: isApproved = !computing && dataContent === '✓';
 
   $: approveLabel = approving
-    ? 'Approving...'
+    ? 'Approving…'
     : isApproved
     ? 'Approved'
     : 'Approval required';
