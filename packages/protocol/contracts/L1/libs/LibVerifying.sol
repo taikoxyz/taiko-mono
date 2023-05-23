@@ -11,7 +11,6 @@ import {ISignalService} from "../../signal/ISignalService.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {SafeCastUpgradeable} from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {TaikoCallback} from "../TaikoCallback.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 
 library LibVerifying {
@@ -66,7 +65,9 @@ library LibVerifying {
         TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 maxBlocks
-    ) internal {
+    ) internal returns (TaikoData.VerifiedBlock[] memory verifiedBlocks) {
+        verifiedBlocks = new TaikoData.VerifiedBlock[](config.maxVerificationsPerTx);
+
         uint256 i = state.lastVerifiedBlockId;
         TaikoData.Block storage blk = state.blocks[i % config.ringBufferSize];
 
@@ -109,18 +110,20 @@ library LibVerifying {
 
             emit BlockVerified(blk.blockId, fc.blockHash);
 
-            if (callback != address(0)) {
-                TaikoCallback(callback).afterBlockVerified({
-                    prover: fc.prover,
-                    proposedAt: blk.proposedAt,
-                    provenAt: fc.provenAt
-                });
-            }
+            verifiedBlocks[processed] = TaikoData.VerifiedBlock({
+                prover: fc.prover,
+                proposedAt: blk.proposedAt,
+                provenAt: fc.provenAt
+            });
 
             unchecked {
                 ++i;
                 ++processed;
             }
+        }
+
+        assembly {
+            mstore(verifiedBlocks, processed)
         }
 
         if (processed > 0) {

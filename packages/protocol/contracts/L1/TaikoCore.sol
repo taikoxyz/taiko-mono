@@ -15,7 +15,6 @@ import {LibProposing} from "./libs/LibProposing.sol";
 import {LibProving} from "./libs/LibProving.sol";
 import {LibUtils} from "./libs/LibUtils.sol";
 import {LibVerifying} from "./libs/LibVerifying.sol";
-import {TaikoCallback} from "./TaikoCallback.sol";
 import {TaikoConfig} from "./TaikoConfig.sol";
 import {TaikoErrors} from "./TaikoErrors.sol";
 import {TaikoData} from "./TaikoData.sol";
@@ -56,7 +55,6 @@ contract TaikoCore is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErro
      */
     function proposeBlock(bytes calldata input, bytes calldata txList)
         external
-        nonReentrant
         returns (TaikoData.BlockMetadata memory meta)
     {
         TaikoData.Config memory config = getConfig();
@@ -67,13 +65,11 @@ contract TaikoCore is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErro
             input: abi.decode(input, (TaikoData.BlockMetadataInput)),
             txList: txList
         });
+
+        afterBlockProposed(meta);
+
         if (config.maxVerificationsPerTx > 0) {
-            LibVerifying.verifyBlocks({
-                state: state,
-                config: config,
-                resolver: AddressResolver(this),
-                maxBlocks: config.maxVerificationsPerTx
-            });
+            verifyBlocks(config.maxVerificationsPerTx);
         }
     }
 
@@ -84,7 +80,7 @@ contract TaikoCore is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErro
      *        to select the right implementation version.
      * @param input An abi-encoded TaikoData.BlockEvidence object.
      */
-    function proveBlock(uint256 blockId, bytes calldata input) external nonReentrant {
+    function proveBlock(uint256 blockId, bytes calldata input) external {
         TaikoData.Config memory config = getConfig();
         LibProving.proveBlock({
             state: state,
@@ -93,13 +89,9 @@ contract TaikoCore is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErro
             blockId: blockId,
             evidence: abi.decode(input, (TaikoData.BlockEvidence))
         });
+
         if (config.maxVerificationsPerTx > 0) {
-            LibVerifying.verifyBlocks({
-                state: state,
-                config: config,
-                resolver: AddressResolver(this),
-                maxBlocks: config.maxVerificationsPerTx
-            });
+            verifyBlocks(config.maxVerificationsPerTx);
         }
     }
 
@@ -107,14 +99,16 @@ contract TaikoCore is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErro
      * Verify up to N blocks.
      * @param maxBlocks Max number of blocks to verify.
      */
-    function verifyBlocks(uint256 maxBlocks) external nonReentrant {
+    function verifyBlocks(uint256 maxBlocks) public {
         if (maxBlocks == 0) revert L1_INVALID_PARAM();
-        LibVerifying.verifyBlocks({
+        TaikoData.VerifiedBlock[] memory verifyBlocks = LibVerifying.verifyBlocks({
             state: state,
             config: getConfig(),
             resolver: AddressResolver(this),
             maxBlocks: maxBlocks
         });
+
+        afterBlockVerified(verifyBlocks);
     }
 
     function depositEtherToL2() public payable {
@@ -171,6 +165,9 @@ contract TaikoCore is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErro
     function getVerifierName(uint16 id) public pure returns (bytes32) {
         return LibUtils.getVerifierName(id);
     }
+
+    function afterBlockProposed(TaikoData.BlockMetadata memory meta) public virtual {}
+    function afterBlockVerified(TaikoData.VerifiedBlock[] memory verifyBlocks) public virtual {}
 }
 
 contract ProxiedTaikoCore is Proxied, TaikoCore {

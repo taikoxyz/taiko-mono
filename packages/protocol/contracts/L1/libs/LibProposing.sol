@@ -12,7 +12,6 @@ import {LibEthDepositing} from "./LibEthDepositing.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {SafeCastUpgradeable} from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {TaikoCallback} from "../TaikoCallback.sol";
 import {TaikoData} from "../TaikoData.sol";
 
 library LibProposing {
@@ -81,11 +80,6 @@ library LibProposing {
         emit BlockProposed(state.numBlocks, meta);
         unchecked {
             ++state.numBlocks;
-        }
-
-        address callback = resolver.resolve("callback", true);
-        if (callback != address(0)) {
-            TaikoCallback(callback).afterBlockProposed(msg.sender);
         }
     }
 

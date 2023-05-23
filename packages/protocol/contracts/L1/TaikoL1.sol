@@ -6,13 +6,13 @@
 
 pragma solidity ^0.8.18;
 
-import {TaikoData, TaikoCallback, TaikoCore, AddressResolver, Proxied} from "./TaikoCore.sol";
+import {TaikoData, TaikoCore, AddressResolver, Proxied} from "./TaikoCore.sol";
 import {TaikoToken} from "./TaikoToken.sol";
 import {LibMath} from "../libs/LibMath.sol";
 import {LibFixedPointMath as Math} from "../thirdparty/LibFixedPointMath.sol";
 
 /// @custom:security-contact hello@taiko.xyz
-contract TaikoL1 is TaikoCore, TaikoCallback {
+contract TaikoL1 is TaikoCore {
     using LibMath for uint256;
 
     error L1_INSUFFICIENT_TOKEN();
@@ -95,58 +95,75 @@ contract TaikoL1 is TaikoCore, TaikoCallback {
         return taikoTokenBalances[addr];
     }
 
-    function afterBlockProposed(address proposer) public override {
-        if (taikoTokenBalances[proposer] < blockFee) {
+    function afterBlockProposed(TaikoData.BlockMetadata memory meta)
+        public
+        override
+    {
+        if (taikoTokenBalances[msg.sender] < blockFee) {
             revert L1_INSUFFICIENT_TOKEN();
         }
 
         unchecked {
             taikoTokenBalances[msg.sender] -= blockFee;
             accBlockFees += blockFee;
-            accProposedAt += uint64(block.timestamp);
+            accProposedAt += meta.timestamp;
         }
     }
 
-    function afterBlockVerified(address prover, uint64 proposedAt, uint64 provenAt)
-        public
-        override
-    {
-        uint64 proofTime;
-        unchecked {
-            proofTime = provenAt - proposedAt;
-        }
+    function afterBlockVerified(TaikoData.VerifiedBlock[] memory verifyBlocks) public override {
+        uint64 numBlocksUnverified =
+            state.numBlocks - state.lastVerifiedBlockId - 1 + uint64(verifyBlocks.length);
 
-        uint64 reward = getProofReward(proofTime);
+        for (uint256 i; i < verifyBlocks.length;) {
+            TaikoData.VerifiedBlock memory blk = verifyBlocks[i];
+            uint64 proofTime;
+            unchecked {
+                proofTime = blk.provenAt - blk.proposedAt;
+            }
 
-        (proofTimeIssued, blockFee) = _getNewBlockFeeAndProofTimeIssued(getConfig(), proofTime);
+            uint64 reward = _getProofReward(numBlocksUnverified, proofTime);
 
-        unchecked {
-            accBlockFees -= reward;
-            accProposedAt -= proposedAt;
-        }
+            (proofTimeIssued, blockFee) = _getNewBlockFeeAndProofTimeIssued(getConfig(), proofTime);
 
-        // reward the prover
-        if (reward != 0) {
-            address _prover = prover != address(1)
-                ? prover //
-                : AddressResolver(this).resolve("system_prover", true);
+            unchecked {
+                accBlockFees -= reward;
+                accProposedAt -= blk.proposedAt;
+            }
 
-            // systemProver may become address(0) after a block is proven
-            if (_prover != address(0)) {
-                if (taikoTokenBalances[_prover] == 0) {
-                    // Reduce refund to 1 wei as a penalty if the proposer
-                    // has 0 TKO outstanding balance.
-                    taikoTokenBalances[_prover] = 1;
-                } else {
-                    taikoTokenBalances[_prover] += reward;
+            // reward the prover
+            if (reward != 0) {
+                address _prover = blk.prover != address(1)
+                    ? blk.prover //
+                    : AddressResolver(this).resolve("system_prover", true);
+
+                // systemProver may become address(0) after a block is proven
+                if (_prover != address(0)) {
+                    if (taikoTokenBalances[_prover] == 0) {
+                        // Reduce refund to 1 wei as a penalty if the proposer
+                        // has 0 TKO outstanding balance.
+                        taikoTokenBalances[_prover] = 1;
+                    } else {
+                        taikoTokenBalances[_prover] += reward;
+                    }
                 }
+            }
+            unchecked {
+                ++i;
+                --numBlocksUnverified;
             }
         }
     }
 
     function getProofReward(uint64 proofTime) public view returns (uint64) {
         uint64 numBlocksUnverified = state.numBlocks - state.lastVerifiedBlockId - 1;
+        return _getProofReward(numBlocksUnverified, proofTime);
+    }
 
+    function _getProofReward(uint64 numBlocksUnverified, uint64 proofTime)
+        private
+        view
+        returns (uint64)
+    {
         if (numBlocksUnverified == 0) {
             return 0;
         } else {

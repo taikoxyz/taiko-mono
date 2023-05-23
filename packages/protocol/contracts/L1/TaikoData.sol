@@ -102,6 +102,12 @@ library TaikoData {
         address proposer;
     }
 
+    struct VerifiedBlock {
+        address prover;
+        uint64 proposedAt;
+        uint64 provenAt;
+    }
+
     // This struct takes 9 slots.
     struct TxListInfo {
         uint64 validSince;
