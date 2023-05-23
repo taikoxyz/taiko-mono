@@ -102,7 +102,7 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
      * @param inputs Abi-encoded BlockEvidence and Proof.
      */
     function proveBlock(uint256 blockId, bytes[] calldata inputs) external nonReentrant {
-        require(inputs.length == 2, "LLLLL");
+        if (inputs.length != 2) revert L1_INVALID_DATA_LENGTH();
         TaikoData.Config memory config = getConfig();
         LibProving.proveBlock({
             state: state,
