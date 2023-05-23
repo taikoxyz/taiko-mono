@@ -18,13 +18,14 @@ contract TaikoL1 is TaikoCore, TaikoCallback {
 
     error L1_INSUFFICIENT_TOKEN();
 
+mapping(address account => uint256 balance) taikoTokenBalances;
     uint64 public accProposedAt;
     uint64 public accBlockFees;
     uint64 public blockFee;
     uint64 public proofTimeIssued;
     uint64 public proofTimeTarget;
 
-    uint256[48] __gap;
+    uint256[47] __gap;
 
     /**
      * Initialize the rollup.
@@ -73,6 +74,36 @@ contract TaikoL1 is TaikoCore, TaikoCallback {
         emit ProofTimeTargetChanged(newProofTimeTarget);
     }
 
+    function withdrawTaikoToken(
+        AddressResolver resolver,
+        uint256 amount
+    ) internal {
+        uint256 balance = taikoTokenBalances[msg.sender];
+        if (balance < amount) revert L1_INSUFFICIENT_TOKEN();
+
+        unchecked {
+            taikoTokenBalances[msg.sender] -= amount;
+        }
+
+        TaikoToken(AddressResolver(this).resolve("taiko_token", false)).mint(msg.sender, amount);
+    }
+
+    function depositTaikoToken(
+        AddressResolver resolver,
+        uint256 amount
+    ) internal {
+        if (amount > 0) {
+            TaikoToken(AddressResolver(this).resolve("taiko_token", false)).burn(msg.sender, amount);
+            taikoTokenBalances[msg.sender] += amount;
+        }
+    }
+
+
+
+function getTaikoTokenBalance(address addr) public view returns (uint256) {
+        return taikoTokenBalances[addr];
+    }
+
     function getProofReward(uint64 proofTime) public view returns (uint64) {
         return _getProofReward(proofTime);
     }
@@ -88,7 +119,7 @@ contract TaikoL1 is TaikoCore, TaikoCallback {
         }
 
         unchecked {
-            token.burn(proposer, blockFee);
+            taikoTokenBalances[msg.sender] -= blockFee;
             accBlockFees += blockFee;
             accProposedAt += meta.timestamp;
         }
@@ -120,12 +151,12 @@ contract TaikoL1 is TaikoCore, TaikoCallback {
 
             // systemProver may become address(0) after a block is proven
             if (_prover != address(0)) {
-                TaikoToken token = TaikoToken(AddressResolver(this).resolve("taiko_token", false));
-
-                if (token.balanceOf(_prover) == 0) {
-                    token.mint(_prover, 1);
+                if (taikoTokenBalances[_prover] == 0) {
+                    // Reduce refund to 1 wei as a penalty if the proposer
+                    // has 0 TKO outstanding balance.
+                    taikoTokenBalances[_prover] = 1;
                 } else {
-                    token.mint(_prover, reward);
+                    taikoTokenBalances[_prover] += reward;
                 }
             }
         }
