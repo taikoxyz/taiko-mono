@@ -29,7 +29,7 @@ abstract contract AddressResolver {
         _;
     }
 
-    event IAddressManagerChanged(address changedOn, address newAddress);
+    event AddressManagerChanged(address addressManager);
 
     /**
      * Resolves a name to an address on the current chain.
