@@ -84,7 +84,7 @@ struct BlockMetadata {
 
 ```solidity
 enum ProofType {
-  ZKP,
+  ZERO_KNOWLEDGE,
   EOA_SIGNATURE
 }
 ```

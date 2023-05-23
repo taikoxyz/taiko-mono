@@ -72,7 +72,7 @@ library TaikoData {
     }
 
     enum ProofType {
-        ZKP,
+        ZERO_KNOWLEDGE,
         EOA_SIGNATURE
     }
 
