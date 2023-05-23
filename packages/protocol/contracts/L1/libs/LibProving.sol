@@ -31,10 +31,7 @@ library LibProving {
     error L1_EVIDENCE_MISMATCH(bytes32 expected, bytes32 actual);
     error L1_FORK_CHOICE_NOT_FOUND();
     error L1_INVALID_EVIDENCE();
-    error L1_INVALID_PROOFTYPE();
-    error L1_NO_AUTH_TO_OVERWRITE_FK();
     error L1_NOT_ALL_REQ_PROOF_VERIFIED();
-    error L1_NOT_ENABLED_PROOFTYPE();
     error L1_NOTHING_TO_OVERWRITE();
 
     function proveBlock(
@@ -62,84 +59,119 @@ library LibProving {
             revert L1_EVIDENCE_MISMATCH(blk.metaHash, evidence.metaHash);
         }
 
-        TaikoData.ForkChoice storage fc;
+        if (msg.sender == resolver.resolve("forkchoice_failsafe", false)) {
+            // Special prover AKA SuperProver
 
-        uint256 fcId =
-            LibUtils.getForkChoiceId(state, blk, evidence.parentHash, evidence.parentGasUsed);
+            // We need to write or overwrite blk.forkChoices[1] because in LibUtils.sol:
+            //     "if (blk.forkChoices[1].key == keyForForkChoice(parentHash, parentGasUsed))"
+            // So in case someone is hurried up, write the first forkchoice which for whatever reason
+            // there is a bug in the circuit and verifiable, the verifyBlock() will always return fcId == 1.
+            TaikoData.ForkChoice storage fc = blk.forkChoices[1];
 
-        if (fcId == 0) {
-            fcId = blk.nextForkChoiceId;
-
+            // In case it was 0 (unproven) - it's fine we prove it here otherwise
+            // it does not matter if 2 or 3, only fk idx 1 is valid in such a special case where prover is failsafe.
             unchecked {
                 ++blk.nextForkChoiceId;
             }
 
-            fc = blk.forkChoices[fcId];
+            fc.key = LibUtils.keyForForkChoice(evidence.parentHash, evidence.parentGasUsed);
 
-            if (fcId == 1) {
-                // We only write the key when fcId is 1.
-                fc.key = LibUtils.keyForForkChoice(evidence.parentHash, evidence.parentGasUsed);
+            fc.blockHash = evidence.blockHash;
+            fc.signalRoot = evidence.signalRoot;
+            fc.gasUsed = evidence.gasUsed;
+            fc.prover = msg.sender; // "special" prover, the failsafe one
+            fc.provenAt = blk.proposedAt + state.proofTimeTarget;
+        }
+        else {
+
+            if(
+                (config.enableSgxProving && evidence.blockProofs.length < 2)
+                ||
+                (!config.enableSgxProving && evidence.blockProofs.length < 1)
+            ) {
+                // One of the proofs are def. missing
+                revert L1_NOT_ALL_REQ_PROOF_VERIFIED();
+            }
+
+            TaikoData.ForkChoice storage fc;
+
+            uint256 fcId =
+                LibUtils.getForkChoiceId(state, blk, evidence.parentHash, evidence.parentGasUsed);
+
+            if (fcId == 0) {
+                fcId = blk.nextForkChoiceId;
+
+                unchecked {
+                    ++blk.nextForkChoiceId;
+                }
+
+                fc = blk.forkChoices[fcId];
+
+                if (fcId == 1) {
+                    // We only write the key when fcId is 1.
+                    fc.key = LibUtils.keyForForkChoice(evidence.parentHash, evidence.parentGasUsed);
+                } else {
+                    state.forkChoiceIds[blk.blockId][evidence.parentHash][evidence.parentGasUsed] = fcId;
+                }
             } else {
-                state.forkChoiceIds[blk.blockId][evidence.parentHash][evidence.parentGasUsed] = fcId;
-            }
-        } else {
-            revert L1_ALREADY_PROVEN();
-        }
-
-        fc.blockHash = evidence.blockHash;
-        fc.signalRoot = evidence.signalRoot;
-        fc.gasUsed = evidence.gasUsed;
-        fc.prover = evidence.prover;
-        fc.provenAt = uint64(block.timestamp);
-
-        // Put together the input for proof and signature verification
-        uint256[10] memory inputs;
-
-        inputs[0] = uint256(uint160(address(resolver.resolve("signal_service", false))));
-        inputs[1] =
-            uint256(uint160(address(resolver.resolve(config.chainId, "signal_service", false))));
-        inputs[2] = uint256(uint160(address(resolver.resolve(config.chainId, "taiko", false))));
-
-        inputs[3] = uint256(evidence.metaHash);
-        inputs[4] = uint256(evidence.parentHash);
-        inputs[5] = uint256(evidence.blockHash);
-        inputs[6] = uint256(evidence.signalRoot);
-        inputs[7] = uint256(evidence.graffiti);
-        inputs[8] = (uint256(uint160(evidence.prover)) << 96)
-            | (uint256(evidence.parentGasUsed) << 64) | (uint256(evidence.gasUsed) << 32);
-
-        // Also hash configs that will be used by circuits
-        inputs[9] = uint256(config.blockMaxGasLimit) << 192
-            | uint256(config.maxTransactionsPerBlock) << 128
-            | uint256(config.maxBytesPerTxList) << 64;
-
-        bytes32 instance;
-        assembly {
-            instance := keccak256(inputs, mul(32, 10))
-        }
-
-        uint16 mask = config.proofToggleMask;
-        for (uint16 i; i < evidence.blockProofs.length; ) {
-            TaikoData.TypedProof memory proof = evidence.blockProofs[i];
-            if (proof.proofType == 0) {
-                revert L1_INVALID_PROOFTYPE();
+                revert L1_ALREADY_PROVEN();
             }
 
-            uint16 bitMask = uint16(1 << (proof.proofType - 1));
-            if ((mask & bitMask) == 0) {
-                revert L1_NOT_ENABLED_PROOFTYPE();
+            fc.blockHash = evidence.blockHash;
+            fc.signalRoot = evidence.signalRoot;
+            fc.gasUsed = evidence.gasUsed;
+            fc.prover = evidence.prover;
+            fc.provenAt = uint64(block.timestamp);
+
+            // Put together the input for proof and signature verification
+            uint256[10] memory inputs;
+
+            inputs[0] = uint256(uint160(address(resolver.resolve("signal_service", false))));
+            inputs[1] =
+                uint256(uint160(address(resolver.resolve(config.chainId, "signal_service", false))));
+            inputs[2] = uint256(uint160(address(resolver.resolve(config.chainId, "taiko", false))));
+
+            inputs[3] = uint256(evidence.metaHash);
+            inputs[4] = uint256(evidence.parentHash);
+            inputs[5] = uint256(evidence.blockHash);
+            inputs[6] = uint256(evidence.signalRoot);
+            inputs[7] = uint256(evidence.graffiti);
+            inputs[8] = (uint256(uint160(evidence.prover)) << 96)
+                | (uint256(evidence.parentGasUsed) << 64) | (uint256(evidence.gasUsed) << 32);
+
+            // Also hash configs that will be used by circuits
+            inputs[9] = uint256(config.blockMaxGasLimit) << 192
+                | uint256(config.maxTransactionsPerBlock) << 128
+                | uint256(config.maxBytesPerTxList) << 64;
+
+            bytes32 instance;
+            assembly {
+                instance := keccak256(inputs, mul(32, 10))
             }
 
-            verifyTypedProof(proof, instance, resolver);
-            mask &= ~bitMask;
+            // Check ZK proof
+            TaikoData.TypedProof memory proof = evidence.blockProofs[0];
 
-            unchecked {
-                ++i;
+            // @dantaik: If we inline this function below and not outsourcing this into a library
+            // we save only 47 gas. If the LibVerifyTrusted also outsourced thats all in all approx 94 gwei save only.
+            LibVerifyZKP.verifyProof(
+                resolver,
+                proof.proof,
+                instance,
+                proof.verifierId
+            );
+
+            // If enabled, check SGX proof
+            if(config.enableSgxProving) {
+                proof = evidence.blockProofs[1];
+
+                LibVerifyTrusted.verifyProof(
+                    resolver,
+                    proof.proof,
+                    instance,
+                    proof.verifierId
+                );
             }
-        }
-
-        if(mask != 0) {
-            revert L1_NOT_ALL_REQ_PROOF_VERIFIED();
         }
 
         emit BlockProven({
@@ -150,41 +182,6 @@ library LibProving {
             prover: evidence.prover,
             parentGasUsed: evidence.parentGasUsed
         });
-    }
-
-    function setForkChoice(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        AddressResolver resolver,
-        uint256 blockId,
-        TaikoData.BlockEvidence memory evidence
-    ) internal {
-        if (msg.sender != resolver.resolve("forkchoice_failsafe", false)) {
-            revert L1_NO_AUTH_TO_OVERWRITE_FK();
-        }
-
-        if (blockId <= state.lastVerifiedBlockId || blockId >= state.numBlocks) {
-            revert L1_BLOCK_ID();
-        }
-
-        TaikoData.Block storage blk = state.blocks[blockId % config.ringBufferSize];
-
-        // We make it so this will always be the first fork choice
-        TaikoData.ForkChoice storage fc = blk.forkChoices[1];
-
-        // In case it was 0 (unproven) - it's fine we prove it here otherwise
-        // it does not matter if 2 or 3, only fk idx 1 is valid.
-        unchecked {
-            ++blk.nextForkChoiceId;
-        }
-
-        fc.key = LibUtils.keyForForkChoice(evidence.parentHash, evidence.parentGasUsed);
-
-        fc.blockHash = evidence.blockHash;
-        fc.signalRoot = evidence.signalRoot;
-        fc.gasUsed = evidence.gasUsed;
-        fc.prover = msg.sender; // "special" prover, the failsafe one
-        fc.provenAt = blk.proposedAt + state.proofTimeTarget;
     }
 
     function getForkChoice(
@@ -200,31 +197,5 @@ library LibProving {
         uint256 fcId = LibUtils.getForkChoiceId(state, blk, parentHash, parentGasUsed);
         if (fcId == 0) revert L1_FORK_CHOICE_NOT_FOUND();
         fc = blk.forkChoices[fcId];
-    }
-
-    function verifyTypedProof(
-        TaikoData.TypedProof memory proof,
-        bytes32 instance,
-        AddressResolver resolver
-    ) internal view {
-        if (proof.proofType == 1) {
-            // This is the regular ZK proof and required based on the flag
-            // in config.proofToggleMask
-            LibVerifyZKP.verifyProof(
-                resolver,
-                proof.proof,
-                instance,
-                proof.verifierId
-            );
-        } else if (proof.proofType == 2) {
-            // This is the SGX signature proof and required based on the flag
-            // in config.proofToggleMask
-            LibVerifyTrusted.verifyProof(
-                resolver,
-                proof.proof,
-                instance,
-                proof.verifierId
-            );
-        }
     }
 }

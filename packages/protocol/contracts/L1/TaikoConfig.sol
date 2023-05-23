@@ -41,8 +41,8 @@ library TaikoConfig {
             ethDepositMaxFee: 1 ether / 10,
             txListCacheExpiry: 0,
             adjustmentQuotient: 16,
-            proofToggleMask: 1, // 0000 0001: means ZKP only
-            relaySignalRoot: false
+            relaySignalRoot: false,
+            enableSgxProving: false
         });
     }
 }

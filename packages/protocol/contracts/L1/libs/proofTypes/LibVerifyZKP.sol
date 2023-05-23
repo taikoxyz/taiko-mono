@@ -11,6 +11,9 @@ import {LibUtils} from "../LibUtils.sol";
 import {TaikoData} from "../../TaikoData.sol";
 
 library LibVerifyZKP {
+
+    bytes32 internal constant TAIKO_HASH = keccak256("taiko");
+
     error L1_INVALID_PROOF();
 
     function verifyProof(
@@ -23,7 +26,7 @@ library LibVerifyZKP {
             .resolve(LibUtils.getVerifierName(verifierId), false)
             .staticcall(bytes.concat(inputHash, proof));
 
-        if (!verified || ret.length != 32 || bytes32(ret) != keccak256("taiko"))
+        if (!verified || ret.length != 32 || bytes32(ret) != TAIKO_HASH)
             revert L1_INVALID_PROOF();
     }
 }

@@ -158,46 +158,6 @@ abstract contract TaikoL1TestBase is Test {
     ) internal {
         TaikoData.TypedProof memory zkpTypedProof = TaikoData.TypedProof({
             verifierId: 100,
-            proofType: 1,
-            proof: new bytes(100)
-        });
-
-        TaikoData.TypedProof[] memory blockProofs = new TaikoData.TypedProof[](
-            1
-        );
-
-        blockProofs[0] = zkpTypedProof;
-
-        TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
-            metaHash: LibUtils.hashMetadata(meta),
-            parentHash: parentHash,
-            blockHash: blockHash,
-            signalRoot: signalRoot,
-            graffiti: 0x0,
-            prover: prover,
-            parentGasUsed: parentGasUsed,
-            gasUsed: gasUsed,
-            blockProofs: blockProofs
-        });
-
-        vm.prank(msgSender, msgSender);
-        L1.proveBlock(meta.id, abi.encode(evidence));
-    }
-
-    function proveBlockWithSpecificType(
-        address msgSender,
-        address prover,
-        TaikoData.BlockMetadata memory meta,
-        bytes32 parentHash,
-        uint32 parentGasUsed,
-        uint32 gasUsed,
-        bytes32 blockHash,
-        bytes32 signalRoot,
-        uint16 proofType
-    ) internal {
-        TaikoData.TypedProof memory zkpTypedProof = TaikoData.TypedProof({
-            verifierId: 100,
-            proofType: proofType,
             proof: new bytes(100)
         });
 
@@ -235,7 +195,6 @@ abstract contract TaikoL1TestBase is Test {
     ) internal {
         TaikoData.TypedProof memory zkpTypedProof = TaikoData.TypedProof({
             verifierId: 100,
-            proofType: 1,
             proof: new bytes(100)
         });
 
@@ -388,7 +347,6 @@ abstract contract TaikoL1TestBase is Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(AlicePK, instance);
 
         sgxProof.verifierId = 10000;
-        sgxProof.proofType = 2;
         sgxProof.proof = bytes.concat(bytes1(v), r, s);
     }
 }
