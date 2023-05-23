@@ -66,6 +66,7 @@ abstract contract TaikoL1TestBase is Test {
 
         registerAddress("signal_service", address(ss));
         registerAddress("ether_vault", address(L1EthVault));
+        registerAddress("callback", address(L1));
         registerL2Address("treasury", L2Treasury);
         registerL2Address("taiko", address(TaikoL2));
         registerL2Address("signal_service", address(L2SS));

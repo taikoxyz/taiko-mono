@@ -9,10 +9,10 @@ pragma solidity ^0.8.18;
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibAddress} from "../../libs/LibAddress.sol";
 import {LibEthDepositing} from "./LibEthDepositing.sol";
-import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {SafeCastUpgradeable} from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import {TaikoCallback} from "../TaikoCallback.sol";
 import {TaikoData} from "../TaikoData.sol";
 
 library LibProposing {
@@ -61,8 +61,7 @@ library LibProposing {
         meta.gasLimit = input.gasLimit;
         meta.beneficiary = input.beneficiary;
         meta.treasury = resolver.resolve(config.chainId, "treasury", false);
-        meta.depositsProcessed =
-            LibEthDepositing.processDeposits(state, config, input.beneficiary);
+        meta.depositsProcessed = LibEthDepositing.processDeposits(state, config, input.beneficiary);
 
         unchecked {
             meta.timestamp = uint64(block.timestamp);
@@ -80,19 +79,14 @@ library LibProposing {
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.proposer = msg.sender;
 
-        if (state.taikoTokenBalances[msg.sender] < state.blockFee) {
-            revert L1_INSUFFICIENT_TOKEN();
-        }
-
-        unchecked {
-            state.taikoTokenBalances[msg.sender] -= state.blockFee;
-            state.accBlockFees += state.blockFee;
-            state.accProposedAt += meta.timestamp;
-        }
-
         emit BlockProposed(state.numBlocks, meta);
         unchecked {
             ++state.numBlocks;
+        }
+
+        address callback = resolver.resolve("callback", true);
+        if (callback != address(0)) {
+            TaikoCallback(callback).afterBlockProposed(msg.sender, meta);
         }
     }
 

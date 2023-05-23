@@ -12,6 +12,7 @@ import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {SafeCastUpgradeable} from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import {TaikoCallback} from "../TaikoCallback.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 
 library LibVerifying {
@@ -88,7 +89,7 @@ library LibVerifying {
             ++i;
         }
 
-        address systemProver = resolver.resolve("system_prover", true);
+        address callback = resolver.resolve("callback", true);
         while (i < state.numBlocks && processed < maxBlocks) {
             blk = state.blocks[i % config.ringBufferSize];
             assert(blk.blockId == i);
@@ -117,7 +118,7 @@ library LibVerifying {
                 blk: blk,
                 fcId: uint24(fcId),
                 fc: fc,
-                systemProver: systemProver
+                callback: callback
             });
 
             unchecked {
@@ -147,42 +148,20 @@ library LibVerifying {
         TaikoData.Block storage blk,
         TaikoData.ForkChoice storage fc,
         uint24 fcId,
-        address systemProver
+        address callback
     ) private {
         uint64 proofTime;
         unchecked {
             proofTime = uint64(fc.provenAt - blk.proposedAt);
         }
 
-        uint64 reward = LibTokenomics.getProofReward(state, proofTime);
-
-        (state.proofTimeIssued, state.blockFee) =
-            LibTokenomics.getNewBlockFeeAndProofTimeIssued(state, config, proofTime);
-
-        unchecked {
-            state.accBlockFees -= reward;
-            state.accProposedAt -= blk.proposedAt;
-        }
-
-        // reward the prover
-        if (reward != 0) {
-            address prover = fc.prover != address(1) ? fc.prover : systemProver;
-
-            // systemProver may become address(0) after a block is proven
-            if (prover != address(0)) {
-                if (state.taikoTokenBalances[prover] == 0) {
-                    // Reduce refund to 1 wei as a penalty if the proposer
-                    // has 0 TKO outstanding balance.
-                    state.taikoTokenBalances[prover] = 1;
-                } else {
-                    state.taikoTokenBalances[prover] += reward;
-                }
-            }
-        }
-
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = fcId;
 
         emit BlockVerified(blk.blockId, fc.blockHash);
+
+        if (callback != address(0)) {
+            TaikoCallback(callback).afterBlockVerified(fc.prover, blk.proposedAt, fc.provenAt);
+        }
     }
 }
