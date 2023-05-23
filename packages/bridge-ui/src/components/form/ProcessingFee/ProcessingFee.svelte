@@ -39,50 +39,50 @@
   }
 </script>
 
-<div class="my-10 md:my-8">
-  <div class="flex flex-row justify-between">
+<div class="flex flex-row justify-between">
+  <div class="label">
     <ButtonWithTooltip onClick={() => (showProcessingFeeTooltip = true)}>
       <span slot="buttonText">{$_('bridgeForm.processingFeeLabel')}</span>
     </ButtonWithTooltip>
   </div>
+</div>
 
-  <!-- 
+<!-- 
     TODO: how about showing recommended also in a readonly input
           and when clicking on Custom it becomes editable?
     
     TODO: transition between options
    -->
-  {#if method === ProcessingFeeMethod.CUSTOM}
-    <label class="mt-2 input-group relative">
-      <input
-        use:focus
-        type="number"
-        step="0.01"
-        placeholder="0.01"
-        min="0"
-        on:input={updateAmount}
-        class="input input-primary bg-dark-2 border-dark-2 input-md md:input-lg w-full focus:ring-0 !rounded-r-none"
-        name="amount" />
-      <span class="!rounded-r-lg bg-dark-2">ETH</span>
-    </label>
-  {:else if method === ProcessingFeeMethod.RECOMMENDED}
-    <div class="flex flex-row">
-      <span class="mt-2 text-sm">{amount} ETH</span>
-    </div>
-  {/if}
-
-  <div class="flex mt-2 space-x-2">
-    {#each Array.from(processingFees) as fee}
-      {@const [feeMethod, { displayText }] = fee}
-      {@const selected = method === feeMethod}
-
-      <button
-        class="{selected
-          ? 'border-accent hover:border-accent'
-          : ''} btn btn-md text-xs font-semibold md:w-32 dark:bg-dark-5"
-        on:click={selectFee(feeMethod)}>{displayText}</button>
-    {/each}
+{#if method === ProcessingFeeMethod.CUSTOM}
+  <label class="mt-2 input-group relative">
+    <input
+      use:focus
+      type="number"
+      step="0.01"
+      placeholder="0.01"
+      min="0"
+      on:input={updateAmount}
+      class="input input-primary bg-dark-2 border-dark-2 input-md md:input-lg w-full focus:ring-0 !rounded-r-none"
+      name="amount" />
+    <span class="!rounded-r-lg bg-dark-2">ETH</span>
+  </label>
+{:else if method === ProcessingFeeMethod.RECOMMENDED}
+  <div class="flex flex-row">
+    <span class="mt-2 text-sm">{amount} ETH</span>
   </div>
+{/if}
+
+<div class="flex mt-2 space-x-2">
+  {#each Array.from(processingFees) as fee}
+    {@const [feeMethod, { displayText }] = fee}
+    {@const selected = method === feeMethod}
+
+    <button
+      class="{selected
+        ? 'border-accent hover:border-accent'
+        : ''} btn btn-md text-xs font-semibold md:w-32 dark:bg-dark-5"
+      on:click={selectFee(feeMethod)}>{displayText}</button>
+  {/each}
 </div>
 
 <GeneralTooltip bind:show={showProcessingFeeTooltip} />

@@ -8,19 +8,22 @@
   let tooltipOpen: boolean = false;
 </script>
 
-<label class="label flex flex-row justify-between">
-  <ButtonWithTooltip onClick={() => (tooltipOpen = true)}>
-    <span slot="buttonText">Custom Recipient</span>
-  </ButtonWithTooltip>
+<div class="label flex flex-row justify-between items-center">
+  <label for="to-address">
+    <ButtonWithTooltip onClick={() => (tooltipOpen = true)}>
+      <span slot="buttonText">Custom Recipient</span>
+    </ButtonWithTooltip>
+  </label>
 
   <input
+    id="to-address"
     type="checkbox"
     class="toggle rounded-full duration-300"
     on:click={() => {
       showTo = !showTo;
     }}
     bind:checked={showTo} />
-</label>
+</div>
 
 {#if showTo}
   <input

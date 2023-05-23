@@ -515,7 +515,7 @@
   $: showFaucet = shouldShowFaucet($fromChain, $token, $signer, tokenBalance);
 </script>
 
-<div class="form-control my-10 md:my-8">
+<div class="form-control mb-6 md:mb-4">
   <label class="label" for="amount">
     <span class="label-text">{$_('bridgeForm.fieldLabel')}</span>
 
@@ -541,19 +541,20 @@
   <div
     class="input-group relative rounded-lg bg-dark-2 justify-between items-center pr-4">
     <input
+      id="amount"
+      name="amount"
       type="number"
       placeholder="0.01"
       min="0"
-      on:input={updateAmount}
       class="input input-primary bg-dark-2 input-md md:input-lg w-full focus:ring-0 border-dark-2"
-      name="amount"
+      on:input={updateAmount}
       bind:this={amountInput} />
     <SelectToken />
   </div>
 </div>
 
 {#if showFaucet}
-  <div class="flex my-10 md:my-8" style="flex-direction:row-reverse">
+  <div class="flex mb-6 md:mb-4" style="flex-direction:row-reverse">
     <div class="flex items-start">
       <button class="btn" on:click={() => (isFaucetModalOpen = true)}>
         <Funnel class="mr-2" /> Faucet
@@ -566,11 +567,17 @@
     bind:isOpen={isFaucetModalOpen} />
 {/if}
 
-<To bind:showTo bind:to />
+<div class="mb-6 md:mb-4">
+  <To bind:showTo bind:to />
+</div>
 
-<ProcessingFee bind:method={feeMethod} bind:amount={feeAmount} />
+<div class="mb-6 md:mb-4">
+  <ProcessingFee bind:method={feeMethod} bind:amount={feeAmount} />
+</div>
 
-<Memo bind:memo bind:memoError />
+<div class="mb-6 md:mb-4">
+  <Memo bind:memo bind:memoError />
+</div>
 
 {#if loading}
   <Button type="accent" size="lg" class="w-full" disabled={true}>
