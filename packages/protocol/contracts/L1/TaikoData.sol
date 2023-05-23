@@ -76,18 +76,18 @@ library TaikoData {
         EOA_SIGNATURE
     }
 
-    struct TypedProof {
+    struct Proof {
         ProofType proofType;
         bytes proofData;
     }
 
-    struct SignatureProofData {
+    struct ProofDataEOASignature {
         bytes32 r;
         bytes32 s;
         uint8 v;
     }
 
-    struct ZKProofData {
+    struct ProofDataZKP {
         uint16 circuitId;
         bytes zkp;
     }

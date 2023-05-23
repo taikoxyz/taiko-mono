@@ -89,29 +89,29 @@ enum ProofType {
 }
 ```
 
-### TypedProof
+### Proof
 
 ```solidity
-struct TypedProof {
+struct Proof {
   enum TaikoData.ProofType proofType;
   bytes proofData;
 }
 ```
 
-### SignatureProofData
+### ProofDataEOASignature
 
 ```solidity
-struct SignatureProofData {
+struct ProofDataEOASignature {
   bytes32 r;
   bytes32 s;
   uint8 v;
 }
 ```
 
-### ZKProofData
+### ProofDataZKP
 
 ```solidity
-struct ZKProofData {
+struct ProofDataZKP {
   uint16 circuitId;
   bytes zkp;
 }

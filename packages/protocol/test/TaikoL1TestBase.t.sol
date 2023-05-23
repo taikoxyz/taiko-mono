@@ -160,9 +160,9 @@ abstract contract TaikoL1TestBase is Test {
             gasUsed: gasUsed
         });
 
-        TaikoData.TypedProof memory proof = TaikoData.TypedProof({
+        TaikoData.Proof memory proof = TaikoData.Proof({
             proofType: TaikoData.ProofType.ZKP,
-            proofData: abi.encode(TaikoData.ZKProofData({circuitId: 100, zkp: new bytes(100)}))
+            proofData: abi.encode(TaikoData.ProofDataZKP({circuitId: 100, zkp: new bytes(100)}))
         });
 
         vm.prank(msgSender, msgSender);

@@ -62,7 +62,7 @@ Prove a block with a zero-knowledge proof.
 | Name    | Type    | Description                                                                                    |
 | ------- | ------- | ---------------------------------------------------------------------------------------------- |
 | blockId | uint256 | The index of the block to prove. This is also used to select the right implementation version. |
-| inputs  | bytes[] | Abi-encoded BlockEvidence and TypedProof.                                                      |
+| inputs  | bytes[] | Abi-encoded BlockEvidence and Proof.                                                           |
 
 ### verifyBlocks
 

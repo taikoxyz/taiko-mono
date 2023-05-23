@@ -43,7 +43,7 @@ library LibProving {
         AddressResolver resolver,
         uint256 blockId,
         TaikoData.BlockEvidence memory evidence,
-        TaikoData.TypedProof memory proof
+        TaikoData.Proof memory proof
     ) internal {
         if (
             evidence.parentHash == 0 || evidence.blockHash == 0
@@ -89,8 +89,8 @@ library LibProving {
             if (proof.proofType != TaikoData.ProofType.EOA_SIGNATURE) {
                 revert L1_INVALID_PROOF_TYPE();
             } else {
-                TaikoData.SignatureProofData memory data =
-                    abi.decode(proof.proofData, (TaikoData.SignatureProofData));
+                TaikoData.ProofDataEOASignature memory data =
+                    abi.decode(proof.proofData, (TaikoData.ProofDataEOASignature));
 
                 if (
                     specialProver
@@ -180,8 +180,8 @@ library LibProving {
                 instance := keccak256(inputs, mul(32, 10))
             }
 
-            TaikoData.ZKProofData memory data = abi.decode( //
-            proof.proofData, (TaikoData.ZKProofData));
+            TaikoData.ProofDataZKP memory data = abi.decode( //
+            proof.proofData, (TaikoData.ProofDataZKP));
 
             (bool verified, bytes memory ret) = resolver.resolve(
                 LibUtils.getVerifierName(data.circuitId), false

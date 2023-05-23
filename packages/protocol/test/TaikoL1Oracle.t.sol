@@ -73,9 +73,9 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(AlicePK, keccak256(abi.encode(evidence)));
 
-        TaikoData.TypedProof memory proof = TaikoData.TypedProof({
+        TaikoData.Proof memory proof = TaikoData.Proof({
             proofType: TaikoData.ProofType.EOA_SIGNATURE,
-            proofData: abi.encode(TaikoData.SignatureProofData({v: v, r: r, s: s}))
+            proofData: abi.encode(TaikoData.ProofDataEOASignature({v: v, r: r, s: s}))
         });
 
         bytes[] memory inputs = new bytes[](2);
