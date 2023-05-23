@@ -36,6 +36,6 @@ abstract contract EssentialContract is
         if (newAddressManager == address(0)) revert RESOLVER_INVALID_ADDR();
         _addressManager = IAddressManager(newAddressManager);
 
-        emit IAddressManagerChanged(address(this), newAddressManager);
+        emit AddressManagerChanged(newAddressManager);
     }
 }
