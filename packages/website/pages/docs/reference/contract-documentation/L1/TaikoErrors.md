@@ -52,12 +52,6 @@ error L1_INVALID_ETH_DEPOSIT()
 error L1_INVALID_EVIDENCE()
 ```
 
-### L1_INVALID_DATA_LENGTH
-
-```solidity
-error L1_INVALID_DATA_LENGTH()
-```
-
 ### L1_INVALID_METADATA
 
 ```solidity

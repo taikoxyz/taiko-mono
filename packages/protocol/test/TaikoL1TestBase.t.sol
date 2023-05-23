@@ -167,10 +167,7 @@ abstract contract TaikoL1TestBase is Test {
         });
 
         vm.prank(msgSender, msgSender);
-        bytes[] memory inputs = new bytes[](2);
-        inputs[0] = abi.encode(evidence);
-        inputs[1] = abi.encode(proof);
-        L1.proveBlock(meta.id, inputs);
+        L1.proveBlock(meta.id, abi.encode(evidence), abi.encode(proof));
     }
 
     function verifyBlock(address verifier, uint256 count) internal {

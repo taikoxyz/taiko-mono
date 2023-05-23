@@ -52,17 +52,18 @@ Propose a Taiko L2 block.
 ### proveBlock
 
 ```solidity
-function proveBlock(uint256 blockId, bytes[] inputs) external
+function proveBlock(uint256 blockId, bytes evidence, bytes proof) external
 ```
 
 Prove a block with a zero-knowledge proof.
 
 #### Parameters
 
-| Name    | Type    | Description                                                                                    |
-| ------- | ------- | ---------------------------------------------------------------------------------------------- |
-| blockId | uint256 | The index of the block to prove. This is also used to select the right implementation version. |
-| inputs  | bytes[] | Abi-encoded BlockEvidence and Proof.                                                           |
+| Name     | Type    | Description                                                                                    |
+| -------- | ------- | ---------------------------------------------------------------------------------------------- |
+| blockId  | uint256 | The index of the block to prove. This is also used to select the right implementation version. |
+| evidence | bytes   | Abi-encoded BlockEvidence                                                                      |
+| proof    | bytes   | Abi-encoded Proof                                                                              |
 
 ### verifyBlocks
 

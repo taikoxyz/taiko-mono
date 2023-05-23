@@ -78,12 +78,8 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             proofData: abi.encode(TaikoData.ProofDataEOASignature({v: v, r: r, s: s}))
         });
 
-        bytes[] memory inputs = new bytes[](2);
-        inputs[0] = abi.encode(evidence);
-        inputs[1] = abi.encode(proof);
-
         vm.prank(Carol, Carol);
-        L1.proveBlock(meta.id, inputs);
+        L1.proveBlock(meta.id, abi.encode(evidence), abi.encode(proof));
         TaikoData.ForkChoice memory fc = L1.getForkChoice(1, GENESIS_BLOCK_HASH, 10000);
 
         assertEq(fc.blockHash, bytes32(uint256(0x11)));
