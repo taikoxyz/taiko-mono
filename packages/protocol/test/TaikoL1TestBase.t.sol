@@ -192,7 +192,7 @@ abstract contract TaikoL1TestBase is Test {
     function printVariables(string memory comment) internal {
         TaikoData.StateVariables memory vars = L1.getStateVariables();
 
-        uint256 fee = L1.getBlockFee();
+        uint256 fee = L1.blockFee();
 
         string memory str = string.concat(
             Strings.toString(logCount++),

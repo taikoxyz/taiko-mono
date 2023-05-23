@@ -8,7 +8,6 @@ pragma solidity ^0.8.18;
 
 import {LibMath} from "../../libs/LibMath.sol";
 import {LibEthDepositing} from "./LibEthDepositing.sol";
-import {LibTokenomics} from "./LibTokenomics.sol";
 import {SafeCastUpgradeable} from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {TaikoData} from "../TaikoData.sol";

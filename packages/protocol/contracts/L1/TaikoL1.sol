@@ -6,7 +6,6 @@
 
 pragma solidity ^0.8.18;
 
-import {LibTokenomics} from "./libs/LibTokenomics.sol";
 import {TaikoData, TaikoCallback, TaikoCore, AddressResolver, Proxied} from "./TaikoCore.sol";
 import {TaikoToken} from "./TaikoToken.sol";
 import {LibMath} from "../libs/LibMath.sol";
@@ -96,10 +95,6 @@ contract TaikoL1 is TaikoCore, TaikoCallback {
         return taikoTokenBalances[addr];
     }
 
-    function getProofReward(uint64 proofTime) public view returns (uint64) {
-        return _getProofReward(proofTime);
-    }
-
     function afterBlockProposed(address proposer) public override {
         if (taikoTokenBalances[proposer] < blockFee) {
             revert L1_INSUFFICIENT_TOKEN();
@@ -121,7 +116,7 @@ contract TaikoL1 is TaikoCore, TaikoCallback {
             proofTime = provenAt - proposedAt;
         }
 
-        uint64 reward = _getProofReward(proofTime);
+        uint64 reward = getProofReward(proofTime);
 
         (proofTimeIssued, blockFee) = _getNewBlockFeeAndProofTimeIssued(getConfig(), proofTime);
 
@@ -149,11 +144,7 @@ contract TaikoL1 is TaikoCore, TaikoCallback {
         }
     }
 
-    function getBlockFee() public view returns (uint64) {
-        return blockFee;
-    }
-
-    function _getProofReward(uint64 proofTime) internal view returns (uint64) {
+    function getProofReward(uint64 proofTime) public view returns (uint64) {
         uint64 numBlocksUnverified = state.numBlocks - state.lastVerifiedBlockId - 1;
 
         if (numBlocksUnverified == 0) {
