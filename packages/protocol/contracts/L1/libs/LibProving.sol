@@ -174,6 +174,10 @@ library LibProving {
                 instance := keccak256(inputs, mul(32, 10))
             }
 
+            if (proof.proofType != TaikoData.ProofType.ZERO_KNOWLEDGE) {
+                revert L1_INVALID_PROOF_TYPE();
+            }
+
             TaikoData.ProofDataZKP memory data = abi.decode( //
             proof.proofData, (TaikoData.ProofDataZKP));
 
