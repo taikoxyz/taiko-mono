@@ -4,16 +4,52 @@ title: TaikoL1
 
 ## TaikoL1
 
-### state
+### L1_INSUFFICIENT_TOKEN
 
 ```solidity
-struct TaikoData.State state
+error L1_INSUFFICIENT_TOKEN()
 ```
 
-### receive
+### taikoTokenBalances
 
 ```solidity
-receive() external payable
+mapping(address => uint256) taikoTokenBalances
+```
+
+### accProposedAt
+
+```solidity
+uint64 accProposedAt
+```
+
+### accBlockFees
+
+```solidity
+uint64 accBlockFees
+```
+
+### blockFee
+
+```solidity
+uint64 blockFee
+```
+
+### proofTimeIssued
+
+```solidity
+uint64 proofTimeIssued
+```
+
+### proofTimeTarget
+
+```solidity
+uint64 proofTimeTarget
+```
+
+### \_\_gap
+
+```solidity
+uint256[47] __gap
 ```
 
 ### init
@@ -34,50 +70,6 @@ Initialize the rollup.
 | \_initProofTimeTarget | uint64  | Initial (reasonable) proof submission time target.                  |
 | \_initProofTimeIssued | uint64  | Initial proof time issued corresponding with the initial block fee. |
 
-### proposeBlock
-
-```solidity
-function proposeBlock(bytes input, bytes txList) external returns (struct TaikoData.BlockMetadata meta)
-```
-
-Propose a Taiko L2 block.
-
-#### Parameters
-
-| Name   | Type  | Description                                                                                                                                                                                                                                                                 |
-| ------ | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| input  | bytes | An abi-encoded BlockMetadataInput that the actual L2 block header must satisfy.                                                                                                                                                                                             |
-| txList | bytes | A list of transactions in this block, encoded with RLP. Note, in the corresponding L2 block an _anchor transaction_ will be the first transaction in the block -- if there are `n` transactions in `txList`, then there will be up to `n + 1` transactions in the L2 block. |
-
-### proveBlock
-
-```solidity
-function proveBlock(uint256 blockId, bytes input) external
-```
-
-Prove a block with a zero-knowledge proof.
-
-#### Parameters
-
-| Name    | Type    | Description                                                                                    |
-| ------- | ------- | ---------------------------------------------------------------------------------------------- |
-| blockId | uint256 | The index of the block to prove. This is also used to select the right implementation version. |
-| input   | bytes   | An abi-encoded TaikoData.BlockEvidence object.                                                 |
-
-### verifyBlocks
-
-```solidity
-function verifyBlocks(uint256 maxBlocks) external
-```
-
-Verify up to N blocks.
-
-#### Parameters
-
-| Name      | Type    | Description                     |
-| --------- | ------- | ------------------------------- |
-| maxBlocks | uint256 | Max number of blocks to verify. |
-
 ### setProofParams
 
 ```solidity
@@ -93,22 +85,16 @@ Change proof parameters (time target and time issued) - to avoid complex/risky u
 | newProofTimeTarget | uint64 | New proof time target.                                                  |
 | newProofTimeIssued | uint64 | New proof time issued. If set to type(uint64).max, let it be unchanged. |
 
-### depositTaikoToken
-
-```solidity
-function depositTaikoToken(uint256 amount) external
-```
-
 ### withdrawTaikoToken
 
 ```solidity
-function withdrawTaikoToken(uint256 amount) external
+function withdrawTaikoToken(uint256 amount) public
 ```
 
-### depositEtherToL2
+### depositTaikoToken
 
 ```solidity
-function depositEtherToL2() public payable
+function depositTaikoToken(uint256 amount) public
 ```
 
 ### getTaikoTokenBalance
@@ -117,58 +103,22 @@ function depositEtherToL2() public payable
 function getTaikoTokenBalance(address addr) public view returns (uint256)
 ```
 
-### getBlockFee
+### afterBlockProposed
 
 ```solidity
-function getBlockFee() public view returns (uint64)
+function afterBlockProposed(address proposer) public
+```
+
+### afterBlockVerified
+
+```solidity
+function afterBlockVerified(address prover, uint64 proposedAt, uint64 provenAt) public
 ```
 
 ### getProofReward
 
 ```solidity
 function getProofReward(uint64 proofTime) public view returns (uint64)
-```
-
-### getBlock
-
-```solidity
-function getBlock(uint256 blockId) public view returns (bytes32 _metaHash, address _proposer, uint64 _proposedAt)
-```
-
-### getForkChoice
-
-```solidity
-function getForkChoice(uint256 blockId, bytes32 parentHash, uint32 parentGasUsed) public view returns (struct TaikoData.ForkChoice)
-```
-
-### getCrossChainBlockHash
-
-```solidity
-function getCrossChainBlockHash(uint256 blockId) public view returns (bytes32)
-```
-
-### getCrossChainSignalRoot
-
-```solidity
-function getCrossChainSignalRoot(uint256 blockId) public view returns (bytes32)
-```
-
-### getStateVariables
-
-```solidity
-function getStateVariables() public view returns (struct TaikoData.StateVariables)
-```
-
-### getConfig
-
-```solidity
-function getConfig() public pure virtual returns (struct TaikoData.Config)
-```
-
-### getVerifierName
-
-```solidity
-function getVerifierName(uint16 id) public pure returns (bytes32)
 ```
 
 ---

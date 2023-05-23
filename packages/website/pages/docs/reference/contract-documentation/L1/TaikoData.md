@@ -34,15 +34,10 @@ struct Config {
 
 ```solidity
 struct StateVariables {
-  uint64 blockFee;
-  uint64 accBlockFees;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 numBlocks;
-  uint64 proofTimeIssued;
-  uint64 proofTimeTarget;
   uint64 lastVerifiedBlockId;
-  uint64 accProposedAt;
   uint64 nextEthDepositToProcess;
   uint64 numEthDeposits;
 }
@@ -148,21 +143,20 @@ struct EthDeposit {
 struct State {
   mapping(uint256 => struct TaikoData.Block) blocks;
   mapping(uint256 => mapping(bytes32 => mapping(uint32 => uint256))) forkChoiceIds;
-  mapping(address => uint256) taikoTokenBalances;
   mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
   struct TaikoData.EthDeposit[] ethDeposits;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 __reserved71;
   uint64 __reserved72;
-  uint64 accProposedAt;
-  uint64 accBlockFees;
+  uint64 ___DEPRECATED___accProposedAt;
+  uint64 ___DEPRECATED___accBlockFees;
   uint64 numBlocks;
   uint64 nextEthDepositToProcess;
-  uint64 blockFee;
-  uint64 proofTimeIssued;
+  uint64 ___DEPRECATED___blockFee;
+  uint64 ___DEPRECATED___proofTimeIssued;
   uint64 lastVerifiedBlockId;
-  uint64 proofTimeTarget;
+  uint64 ___DEPRECATED___proofTimeTarget;
   uint256[42] __gap;
 }
 ```
