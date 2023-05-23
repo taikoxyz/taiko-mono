@@ -78,7 +78,7 @@
     <button
       class="{selected
         ? 'border-accent hover:border-accent'
-        : ''} btn btn-md text-xs font-semibold md:w-32 dark:bg-dark-5"
+        : ''} btn text-xs font-semibold flex-1 dark:bg-dark-5"
       on:click={selectFee(feeMethod)}>{displayText}</button>
   {/each}
 </div>
