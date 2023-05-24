@@ -1,16 +1,20 @@
 <script lang="ts">
   import { Signer, ethers } from 'ethers';
-  import { pendingTransactions } from '../../store/transactions';
-  import { signer } from '../../store/signer';
+  import { pendingTransactions } from '../store/transactions';
+  import { signer } from '../store/signer';
   import { _ } from 'svelte-i18n';
-  import { fromChain } from '../../store/chain';
+  import { fromChain } from '../store/chain';
   import Modal from './Modal.svelte';
-  import { token } from '../../store/token';
-  import { L1_CHAIN_NAME, L2_CHAIN_NAME } from '../../constants/envVars';
-  import { errorToast, successToast, warningToast } from '../Toast.svelte';
-  import type { Token } from '../../domain/token';
-  import { mintERC20 } from '../../utils/mintERC20';
-  import { getIsMintedWithEstimation } from '../../utils/getIsMintedWithEstimation';
+  import { token } from '../store/token';
+  import { L1_CHAIN_NAME, L2_CHAIN_NAME } from '../constants/envVars';
+  import {
+    errorToast,
+    successToast,
+    warningToast,
+  } from './NotificationToast.svelte';
+  import type { Token } from '../domain/token';
+  import { mintERC20 } from '../utils/mintERC20';
+  import { getIsMintedWithEstimation } from '../utils/getIsMintedWithEstimation';
 
   export let isOpen: boolean = false;
   export let onMint: () => Promise<void>;

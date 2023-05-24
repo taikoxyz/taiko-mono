@@ -6,7 +6,7 @@
   import MessageStatusTooltip from './MessageStatusTooltip.svelte';
   import InsufficientBalanceTooltip from './InsufficientBalanceTooltip.svelte';
   import type { BridgeTransaction } from '../../domain/transaction';
-  import NoticeModal from '../modals/NoticeModal.svelte';
+  import NoticeModal from '../NoticeModal.svelte';
   import Paginator from '../Paginator.svelte';
   import Loading from '../Loading.svelte';
   import { signer } from '../../store/signer';

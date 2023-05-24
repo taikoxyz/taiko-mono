@@ -3,7 +3,11 @@
   import { fromChain, toChain } from '../../store/chain';
   import { signer } from '../../store/signer';
   import { mainnetChain, taikoChain } from '../../chain/chains';
-  import { errorToast, successToast, warningToast } from '../Toast.svelte';
+  import {
+    errorToast,
+    successToast,
+    warningToast,
+  } from '../NotificationToast.svelte';
   import { selectChain } from '../../utils/selectChain';
   import { UserRejectedRequestError } from '@wagmi/core';
 

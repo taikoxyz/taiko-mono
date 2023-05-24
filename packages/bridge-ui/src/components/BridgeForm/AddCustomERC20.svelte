@@ -6,11 +6,11 @@
   import { token as tokenStore } from '../../store/token';
   import { userTokens } from '../../store/userToken';
   import Erc20 from '../icons/ERC20.svelte';
-  import Modal from '../modals/Modal.svelte';
+  import Modal from '../Modal.svelte';
   import { ethers, Contract } from 'ethers';
   import { erc20ABI } from '../../constants/abi';
   import { ETHToken } from '../../token/tokens';
-  import { errorToast } from '../Toast.svelte';
+  import { errorToast } from '../NotificationToast.svelte';
   import { tokenService } from '../../storage/services';
   import Loading from '../Loading.svelte';
   import { getLogger } from '../../utils/logger';

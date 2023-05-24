@@ -4,7 +4,11 @@
   import { mainnetChain, taikoChain } from '../chain/chains';
   import { selectChain } from '../utils/selectChain';
   import type { Chain } from '../domain/chain';
-  import { errorToast, successToast, warningToast } from './Toast.svelte';
+  import {
+    errorToast,
+    successToast,
+    warningToast,
+  } from './NotificationToast.svelte';
   import { signer } from '../store/signer';
   import { UserRejectedRequestError } from '@wagmi/core';
 

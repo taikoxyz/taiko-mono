@@ -8,8 +8,8 @@
   import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
   import { processingFees } from '../../fee/processingFees';
   import GeneralTooltip from './ProcessingFeeTooltip.svelte';
-  import NoticeModal from '../modals/NoticeModal.svelte';
-  import { errorToast } from '../Toast.svelte';
+  import NoticeModal from '../NoticeModal.svelte';
+  import { errorToast } from '../NotificationToast.svelte';
   import { ethers } from 'ethers';
 
   export let method: ProcessingFeeMethod = ProcessingFeeMethod.RECOMMENDED;

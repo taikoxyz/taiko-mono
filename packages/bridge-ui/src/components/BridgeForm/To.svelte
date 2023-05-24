@@ -1,6 +1,6 @@
 <script lang="ts">
   import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
-  import TooltipModal from '../modals/TooltipModal.svelte';
+  import TooltipModal from '../TooltipModal.svelte';
 
   export let showTo: boolean = false;
   export let to: string = '';

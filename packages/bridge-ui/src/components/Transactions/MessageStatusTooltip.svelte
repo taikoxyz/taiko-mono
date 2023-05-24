@@ -1,6 +1,6 @@
 <script lang="ts">
   import { L1_CHAIN_NAME, L2_CHAIN_NAME } from '../../constants/envVars';
-  import TooltipModal from '../modals/TooltipModal.svelte';
+  import TooltipModal from '../TooltipModal.svelte';
 
   export let show: boolean;
 </script>

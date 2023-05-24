@@ -13,7 +13,7 @@
   import Erc20 from '../icons/ERC20.svelte';
   import AddCustomErc20 from './AddCustomERC20.svelte';
   import { isETH, tokens } from '../../token/tokens';
-  import { errorToast, successToast } from '../Toast.svelte';
+  import { errorToast, successToast } from '../NotificationToast.svelte';
   import { tokenService } from '../../storage/services';
 
   let dropdownElement: HTMLDivElement;

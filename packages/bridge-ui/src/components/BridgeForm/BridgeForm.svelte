@@ -22,8 +22,12 @@
   import type { BridgeTransaction } from '../../domain/transaction';
   import { MessageStatus } from '../../domain/message';
   import { Funnel } from 'svelte-heros-v2';
-  import FaucetModal from '../modals/FaucetModal.svelte';
-  import { errorToast, successToast, warningToast } from '../Toast.svelte';
+  import FaucetModal from '../FaucetModal.svelte';
+  import {
+    errorToast,
+    successToast,
+    warningToast,
+  } from '../NotificationToast.svelte';
   import { L1_CHAIN_ID } from '../../constants/envVars';
   import { fetchFeeData } from '@wagmi/core';
   import { checkIfTokenIsDeployedCrossChain } from '../../utils/checkIfTokenIsDeployedCrossChain';

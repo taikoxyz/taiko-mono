@@ -2,7 +2,7 @@ import { fetchSigner, watchAccount, watchNetwork } from '@wagmi/core';
 import { getLogger } from '../utils/logger';
 import { fromChain, toChain } from '../store/chain';
 import { signer } from '../store/signer';
-import { isSwitchEthereumChainModalOpen } from '../store/modal';
+import { isSwitchChainModalOpen } from '../store/modal';
 import { mainnetChain, taikoChain } from '../chain/chains';
 
 const log = getLogger('wagmi:watcher');
@@ -19,7 +19,7 @@ const changeChain = (chainId: number) => {
     fromChain.set(taikoChain);
     toChain.set(mainnetChain);
   } else {
-    isSwitchEthereumChainModalOpen.set(true);
+    isSwitchChainModalOpen.set(true);
   }
 };
 

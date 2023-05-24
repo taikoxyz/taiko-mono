@@ -14,7 +14,11 @@
   import { fromChain } from '../../store/chain';
   import { BridgeType } from '../../domain/bridge';
   import { onDestroy, onMount } from 'svelte';
-  import { errorToast, successToast, warningToast } from '../Toast.svelte';
+  import {
+    errorToast,
+    successToast,
+    warningToast,
+  } from '../NotificationToast.svelte';
   import { bridgeABI } from '../../constants/abi';
   import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
   import { chains } from '../../chain/chains';

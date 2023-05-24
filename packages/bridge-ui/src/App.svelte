@@ -1,7 +1,7 @@
 <script lang="ts">
   import Navbar from './components/Navbar.svelte';
-  import Toast from './components/Toast.svelte';
-  import SwitchEthereumChainModal from './components/modals/SwitchEthereumChainModal.svelte';
+  import NotificationToast from './components/NotificationToast.svelte';
+  import SwitchChainModal from './components/SwitchChainModal.svelte';
   import Router from './components/Router.svelte';
   import { startWatching, stopWatching } from './wagmi/watcher';
   import { onDestroy, onMount } from 'svelte';
@@ -15,8 +15,8 @@
   <Router />
 </main>
 
-<Toast />
-<SwitchEthereumChainModal />
+<NotificationToast />
+<SwitchChainModal />
 
 <style>
   main {

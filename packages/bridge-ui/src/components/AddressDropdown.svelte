@@ -12,7 +12,7 @@
   import { fromChain } from '../store/chain';
   import { truncateString } from '../utils/truncateString';
   import { ChevronDown } from 'svelte-heros-v2';
-  import { errorToast, successToast } from './Toast.svelte';
+  import { errorToast, successToast } from './NotificationToast.svelte';
   import Loading from './Loading.svelte';
 
   let address: string = '';
