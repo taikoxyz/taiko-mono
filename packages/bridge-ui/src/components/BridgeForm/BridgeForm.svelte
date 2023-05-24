@@ -153,7 +153,7 @@
       spenderAddress: tokenVaults[fromChain.id],
     });
 
-    log(`Token ${token.symbol} requires allowance ${isRequired}`);
+    log(`Token ${token.symbol} requires allowance? ${isRequired}`);
 
     return isRequired;
   }
@@ -400,11 +400,12 @@
 
       log('All transactions in store', $transactionsStore);
 
-      // Update balance of the selected token
-      await updateTokenBalance($signer, $token);
-
       memo = '';
       amount = '';
+
+      // Re-selecting the token triggers reactivity
+      // for showStepper, updateTokenBalance and checkButtonIsDisabled
+      $token = $token;
 
       successToast(
         `<strong>Transaction completed!</strong><br />Your funds are getting ready to be claimed on ${$toChain.name} chain.`,
@@ -521,7 +522,7 @@
       fromChain && // chain selected?
       signer && // wallet connected?
       isERC20(token) &&
-      !hasBalance(token, tokenBalance)
+      hasBalance(token, tokenBalance)
     );
   }
 
