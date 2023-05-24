@@ -21,8 +21,8 @@
   import { erc20ABI } from '../../constants/abi';
   import type { BridgeTransaction } from '../../domain/transaction';
   import { MessageStatus } from '../../domain/message';
-  import { Funnel } from 'svelte-heros-v2';
-  import FaucetModal from '../FaucetModal.svelte';
+  // import { Funnel } from 'svelte-heros-v2';
+  // import FaucetModal from '../FaucetModal.svelte';
   import {
     errorToast,
     successToast,
@@ -62,7 +62,7 @@
   let memoError: string;
 
   let loading: boolean = false;
-  let isFaucetModalOpen: boolean = false;
+  // let isFaucetModalOpen: boolean = false;
 
   let to: string = '';
   let showTo: boolean = false;
@@ -493,22 +493,22 @@
     );
   }
 
-  function shouldShowFaucet(
-    computingTokenBalance: boolean,
-    fromChain: Chain,
-    token: Token,
-    signer: Signer,
-    tokenBalance: string,
-  ) {
-    return (
-      !computingTokenBalance &&
-      fromChain && // chain selected?
-      fromChain.id === L1_CHAIN_ID && // are we in L1?
-      signer && // wallet connected?
-      isTestToken(token) &&
-      !hasBalance(token, tokenBalance)
-    );
-  }
+  // function shouldShowFaucet(
+  //   computingTokenBalance: boolean,
+  //   fromChain: Chain,
+  //   token: Token,
+  //   signer: Signer,
+  //   tokenBalance: string,
+  // ) {
+  //   return (
+  //     !computingTokenBalance &&
+  //     fromChain && // chain selected?
+  //     fromChain.id === L1_CHAIN_ID && // are we in L1?
+  //     signer && // wallet connected?
+  //     isTestToken(token) &&
+  //     !hasBalance(token, tokenBalance)
+  //   );
+  // }
 
   function shouldShowStepper(
     computingTokenBalance: boolean,
@@ -556,13 +556,13 @@
       computingAllowance = false;
     });
 
-  $: showFaucet = shouldShowFaucet(
-    computingTokenBalance,
-    $fromChain,
-    $token,
-    $signer,
-    tokenBalance,
-  );
+  // $: showFaucet = shouldShowFaucet(
+  //   computingTokenBalance,
+  //   $fromChain,
+  //   $token,
+  //   $signer,
+  //   tokenBalance,
+  // );
 
   $: showStepper = shouldShowStepper(
     computingTokenBalance,
@@ -611,7 +611,7 @@
   </div>
 </div>
 
-{#if showFaucet}
+<!-- {#if showFaucet}
   <div class="flex mb-6 md:mb-4" style="flex-direction:row-reverse">
     <div class="flex items-start w-full">
       <Button
@@ -625,7 +625,7 @@
   <FaucetModal
     onMint={() => updateTokenBalance($signer, $token)}
     bind:isOpen={isFaucetModalOpen} />
-{/if}
+{/if} -->
 
 <div class="mb-6 md:mb-4">
   <To bind:showTo bind:to />
