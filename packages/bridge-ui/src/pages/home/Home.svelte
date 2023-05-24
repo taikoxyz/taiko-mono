@@ -1,6 +1,6 @@
 <script lang="ts">
   import { location } from 'svelte-spa-router';
-  import { transactions } from '../../store/transactions';
+  import { transactions } from '../../store/transaction';
   import { paginationInfo } from '../../store/relayerApi';
   import { signer } from '../../store/signer';
   import BridgeForm from '../../components/BridgeForm';

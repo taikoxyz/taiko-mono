@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Signer, ethers } from 'ethers';
-  import { pendingTransactions } from '../store/transactions';
+  import { pendingTransactions } from '../store/transaction';
   import { signer } from '../store/signer';
   import { fromChain } from '../store/chain';
   import Modal from './Modal.svelte';

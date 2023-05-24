@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
 import type { Signer, Transaction, ethers } from 'ethers';
-import { pendingTransactions } from './transactions';
+import { pendingTransactions } from './transaction';
 import type { TransactionReceipt } from '../domain/transaction';
 
 jest.mock('../constants/envVars');

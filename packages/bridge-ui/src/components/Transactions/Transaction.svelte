@@ -9,7 +9,7 @@
   import { MessageStatus } from '../../domain/message';
   import { ethers, Contract } from 'ethers';
   import { signer } from '../../store/signer';
-  import { pendingTransactions } from '../../store/transactions';
+  import { pendingTransactions } from '../../store/transaction';
   import { _ } from 'svelte-i18n';
   import { fromChain } from '../../store/chain';
   import { BridgeType } from '../../domain/bridge';

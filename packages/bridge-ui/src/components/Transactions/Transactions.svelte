@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { transactions } from '../../store/transactions';
+  import { transactions } from '../../store/transaction';
   import { paginationInfo } from '../../store/relayerApi';
   import Transaction from './Transaction.svelte';
   import TransactionDetail from './TransactionDetail.svelte';

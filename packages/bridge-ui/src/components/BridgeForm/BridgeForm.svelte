@@ -16,7 +16,7 @@
   import {
     pendingTransactions,
     transactions as transactionsStore,
-  } from '../../store/transactions';
+  } from '../../store/transaction';
   import Memo from './Memo.svelte';
   import { erc20ABI } from '../../constants/abi';
   import type { BridgeTransaction } from '../../domain/transaction';
