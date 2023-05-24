@@ -16,7 +16,6 @@ export const getNumProposers = async (
     `${eventIndexerApiUrl}/uniqueProposers`
   );
 
-  console.log(uniqueProposersResp);
   if (uniqueProposersResp.data) {
     uniqueProposersResp.data.proposers.sort((a, b) => b.count - a.count);
   }
