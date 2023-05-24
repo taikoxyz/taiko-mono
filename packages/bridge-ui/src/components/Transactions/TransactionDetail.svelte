@@ -77,7 +77,7 @@
         <td class="text-right">
           <textarea
             readonly
-            class="bg-black rounded-lg p-2 outline-none"
+            class="bg-dark-2 rounded-lg p-2 outline-none"
             value={transaction.message.memo.trim()} />
         </td>
       </tr>

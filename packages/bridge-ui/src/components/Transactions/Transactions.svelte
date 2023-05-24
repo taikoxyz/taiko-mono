@@ -78,7 +78,7 @@
   {:else if loadingTxs && $signer}
     <div class="flex flex-col items-center">
       <Loading width={150} height={150} />
-      Loading transactions...
+      Loading transactions…
     </div>
   {:else}
     No transactions

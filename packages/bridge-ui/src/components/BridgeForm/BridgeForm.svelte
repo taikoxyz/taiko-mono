@@ -44,7 +44,6 @@
   const log = getLogger('component:BridgeForm');
 
   let amount: string;
-  let amountInput: HTMLInputElement;
 
   let computingAllowance: boolean = false;
   let requiresAllowance: boolean = false;
@@ -143,16 +142,16 @@
 
     log(`Checking allowance for token ${token.symbol}`);
 
-    const allowance = await $activeBridge.RequiresAllowance({
+    const isRequired = await $activeBridge.RequiresAllowance({
       amountInWei: ethers.utils.parseUnits(amount, token.decimals),
       signer: signer,
       contractAddress: address,
       spenderAddress: tokenVaults[fromChain.id],
     });
 
-    log(`Token ${token.symbol} requires allowance ${allowance}`);
+    log(`Token ${token.symbol} requires allowance ${isRequired}`);
 
-    return allowance;
+    return isRequired;
   }
 
   async function checkButtonIsDisabled(
@@ -361,7 +360,7 @@
       let transactions: BridgeTransaction[] =
         await storageService.getAllByAddress(userAddress);
 
-      log('Preparing transaction for storage...');
+      log('Preparing transaction for storage…');
 
       let bridgeTransaction: BridgeTransaction = {
         fromChainId: $fromChain.id,
@@ -401,7 +400,7 @@
       await updateTokenBalance($signer, $token);
 
       memo = '';
-      amountInput.value = '';
+      amount = '';
 
       successToast(
         `<strong>Transaction completed!</strong><br />Your funds are getting ready to be claimed on ${$toChain.name} chain.`,
@@ -460,24 +459,16 @@
         }
 
         amount = ethers.utils.formatEther(balanceAvailableForTx);
-        amountInput.value = ethers.utils.formatEther(balanceAvailableForTx);
       } catch (error) {
         console.error(error);
 
         // In case of error default to using the full amount of ETH available.
         // The user would still not be able to make the restriction and will have to manually set the amount.
-        amount = tokenBalance;
-        amountInput.value = tokenBalance.toString();
+        amount = tokenBalance.toString();
       }
     } else {
-      amount = tokenBalance;
-      amountInput.value = tokenBalance.toString();
+      amount = tokenBalance.toString();
     }
-  }
-
-  function updateAmount(event: Event) {
-    const target = event.target as HTMLInputElement;
-    amount = target.value;
   }
 
   function getProcessingFee() {
@@ -498,18 +489,41 @@
   }
 
   function shouldShowFaucet(
+    computingTokenBalance: boolean,
     fromChain: Chain,
     token: Token,
     signer: Signer,
     tokenBalance: string,
   ) {
     return (
+      !computingTokenBalance &&
       fromChain && // chain selected?
       fromChain.id === L1_CHAIN_ID && // are we in L1?
       signer && // wallet connected?
       isTestToken(token) &&
       !hasBalance(token, tokenBalance)
     );
+  }
+
+  function shouldShowStepper(
+    computingTokenBalance: boolean,
+    fromChain: Chain,
+    token: Token,
+    signer: Signer,
+    tokenBalance: string,
+  ) {
+    return (
+      !computingTokenBalance &&
+      fromChain && // chain selected?
+      signer && // wallet connected?
+      isERC20(token) &&
+      !hasBalance(token, tokenBalance)
+    );
+  }
+
+  function updateAmount(event: Event) {
+    const target = event.target as HTMLInputElement;
+    amount = target.value;
   }
 
   $: updateTokenBalance($signer, $token).finally(() => {
@@ -528,7 +542,7 @@
     .catch((error) => console.error(error));
 
   $: checkAllowance(amount, $token, $bridgeType, $fromChain, $signer)
-    .then((allowed) => (requiresAllowance = allowed))
+    .then((isRequired) => (requiresAllowance = isRequired))
     .catch((error) => {
       console.error(error);
       requiresAllowance = false;
@@ -537,14 +551,21 @@
       computingAllowance = false;
     });
 
-  $: showFaucet =
-    !computingTokenBalance &&
-    shouldShowFaucet($fromChain, $token, $signer, tokenBalance);
+  $: showFaucet = shouldShowFaucet(
+    computingTokenBalance,
+    $fromChain,
+    $token,
+    $signer,
+    tokenBalance,
+  );
 
-  $: showStepper =
-    !computingTokenBalance &&
-    isERC20($token) &&
-    hasBalance($token, tokenBalance);
+  $: showStepper = shouldShowStepper(
+    computingTokenBalance,
+    $fromChain,
+    $token,
+    $signer,
+    tokenBalance,
+  );
 </script>
 
 <div class="form-control mb-6 md:mb-4">
@@ -556,7 +577,7 @@
         <span>
           {$_('bridgeForm.balance')}:
           {tokenBalance.length > 10
-            ? `${truncateString(tokenBalance, 6)}...`
+            ? `${truncateString(tokenBalance, 6)}…`
             : tokenBalance}
           {$token.symbol}
         </span>
@@ -579,8 +600,8 @@
       placeholder="0.01"
       min="0"
       class="input input-primary bg-dark-2 input-md md:input-lg w-full focus:ring-0 border-dark-2"
-      on:input={updateAmount}
-      bind:this={amountInput} />
+      value={amount}
+      on:input={updateAmount} />
     <SelectToken />
   </div>
 </div>
@@ -616,10 +637,10 @@
 {#if showStepper}
   <div class="mb-6 md:mb-4">
     <ApproveBridgeSteps
-      requiresApproval={requiresAllowance}
+      {requiresAllowance}
+      {computingAllowance}
       hasAmount={Boolean(amount)}
-      computing={computingAllowance}
-      approving={loading} />
+      pendingTransaction={loading} />
   </div>
 {/if}
 

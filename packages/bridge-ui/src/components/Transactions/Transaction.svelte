@@ -29,7 +29,6 @@
   import { getLogger } from '../../utils/logger';
   import { isETHByMessage } from '../../utils/isETHByMessage';
   import Loading from '../Loading.svelte';
-  import { isEthOrTokenReleased } from '../../utils/isEthOrTokenReleased';
 
   const log = getLogger('component:Transaction');
 
@@ -129,17 +128,18 @@
 
       await pendingTransactions.add(tx, $signer);
 
-      // We're done here, no need to poll anymore, since we've claimed manually
+      // We're done here, no need to poll anymore since we've claimed manually
       stopPolling();
 
-      // At this point the claim transaction is already DONE, but we
-      // still don't have it until the polling picks up the new state.
-      // We change it manually
-      setTxStatus(MessageStatus.Done);
-
-      successToast(
-        `<strong>Transaction completed!</strong><br />Your funds have been successfully claimed on ${$fromChain.name} chain.`,
-      );
+      // Could happen that the poller has picked up the change of status
+      // already, also it might have been claimed by the relayer. In that
+      // case we don't want to show the success toast again.
+      if (transaction.status !== MessageStatus.Done) {
+        setTxStatus(MessageStatus.Done);
+        successToast(
+          `<strong>Transaction completed!</strong><br />Your funds have been successfully claimed on ${$fromChain.name} chain.`,
+        );
+      }
     } catch (error) {
       console.error(error);
 
@@ -236,80 +236,64 @@
     }
   }
 
-  function isTransactionDone(bridgeTx: BridgeTransaction) {
-    // The transaction is done if its status is `Done` or
-    // we have set manually the status to Released during the polling
-    // using the utility isEthOrTokenReleased
-    return (
-      bridgeTx.status === MessageStatus.Done ||
-      bridgeTx.status === TxExtendedStatus.Released
-    );
-  }
-
   function stopPolling() {
     if (interval) {
       log('Stop polling for transaction', transaction);
       clearInterval(interval);
+      interval = null;
     }
   }
 
   // TODO: move this logic into a Web Worker
   // TODO: handle errors here
-  function startInterval() {
-    return setInterval(async () => {
-      processable = await isTransactionProcessable(transaction);
+  function startPolling() {
+    if (!interval) {
+      log('Starting polling for transaction', transaction);
 
-      const { toChainId, receipt, msgHash } = transaction;
+      interval = setInterval(async () => {
+        processable = await isTransactionProcessable(transaction);
 
-      if (receipt && receipt.status !== 1) {
-        clearInterval(interval);
-        return;
-      }
+        const { toChainId, receipt, msgHash, status } = transaction;
 
-      const destChain = chains[toChainId];
-      const destProvider = providers[toChainId];
-
-      const destBridgeContract = new Contract(
-        destChain.bridgeAddress,
-        bridgeABI,
-        destProvider,
-      );
-
-      // We want to poll for status changes
-
-      const msgStatus: MessageStatus =
-        await destBridgeContract.getMessageStatus(msgHash);
-
-      setTxStatus(msgStatus);
-
-      if (msgStatus === MessageStatus.Done) {
-        successToast($_('toast.fundsClaimed'));
-      }
-
-      if (msgStatus === MessageStatus.Failed) {
-        // Let's check if we have already released the locked funds
-        const isFailedMessageResolved = await isEthOrTokenReleased(transaction);
-
-        if (isFailedMessageResolved) {
-          setTxStatus(TxExtendedStatus.Released);
-          successToast($_('toast.fundsReleased'));
+        // It could happen that the transaction has been claimed manually
+        // and by the time we poll it's already done, in which case we
+        // stop polling.
+        if (
+          (!receipt && receipt.status == 0) ||
+          status === MessageStatus.Done
+        ) {
+          stopPolling();
+          return;
         }
-      }
 
-      if (isTransactionDone(transaction)) {
-        stopPolling();
-      }
-    }, 20 * 1000); // TODO: magic number. Config?
+        const destChain = chains[toChainId];
+        const destProvider = providers[toChainId];
+
+        const destBridgeContract = new Contract(
+          destChain.bridgeAddress,
+          bridgeABI,
+          destProvider,
+        );
+
+        // We want to poll for status changes
+        const msgStatus: MessageStatus =
+          await destBridgeContract.getMessageStatus(msgHash);
+
+        setTxStatus(msgStatus);
+
+        if (msgStatus === MessageStatus.Done) {
+          successToast($_('toast.fundsClaimed'));
+          stopPolling();
+        }
+      }, 20 * 1000); // TODO: magic number. Config?
+    }
   }
 
   onMount(async () => {
     processable = await isTransactionProcessable(transaction);
 
-    if (!isTransactionDone(transaction)) {
-      // We only want this polling to happen if the transaction is not done yet
-      log('Starting polling for transaction', transaction);
-
-      interval = startInterval();
+    if (transaction.status === MessageStatus.New) {
+      startPolling();
     }
   });
 
@@ -379,6 +363,8 @@
           <span class="border border-transparent p-0">
             {$_('transaction.released')}
           </span>
+        {:else}
+          <span class="border border-transparent p-0">Failed</span>
         {/if}
       </span>
     </ButtonWithTooltip>

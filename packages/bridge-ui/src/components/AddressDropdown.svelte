@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { disconnect as wagmiDisconnect } from '@wagmi/core';
+  import { disconnect as wagmiDisconnect, RpcError } from '@wagmi/core';
   import { onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
   import { addressSubsection } from '../utils/addressSubsection';
@@ -52,7 +52,18 @@
     }
   }
 
-  $: setUserBalance($signer).catch((e) => console.error(e));
+  $: setUserBalance($signer).catch((error) => {
+    console.error(error);
+
+    if (error instanceof RpcError) {
+      errorToast(
+        'Cannot communicate with the network. Please try again later or contact support.',
+      );
+    } else {
+      errorToast('There was an error getting your balance.');
+    }
+  });
+
   $: setAddress($signer).catch((e) => console.error(e));
 
   onMount(() => {
@@ -69,7 +80,7 @@
     <label role="button" tabindex="0" class="btn btn-md justify-around">
       <span class="font-normal flex-1 text-left flex items-center">
         {#if $pendingTransactions && $pendingTransactions.length}
-          <span>Pending tx...</span>
+          <span>Pending tx…</span>
           <div class="inline-block ml-2">
             <Loading />
           </div>
@@ -97,7 +108,7 @@
           <svelte:component this={$fromChain.icon} />
           <div class="text-lg mt-2">
             {tokenBalance.length > 10
-              ? `${truncateString(tokenBalance)}...`
+              ? `${truncateString(tokenBalance)}…`
               : tokenBalance} ETH
           </div>
         {:else}

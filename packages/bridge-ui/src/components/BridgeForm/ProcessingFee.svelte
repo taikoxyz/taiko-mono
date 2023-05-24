@@ -9,6 +9,8 @@
   import { processingFees } from '../../fee/processingFees';
   import GeneralTooltip from './ProcessingFeeTooltip.svelte';
   import NoticeModal from '../modals/NoticeModal.svelte';
+  import { errorToast } from '../Toast.svelte';
+  import { ethers } from 'ethers';
 
   export let method: ProcessingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
   export let amount: string = '0';
@@ -18,7 +20,16 @@
 
   $: recommendProcessingFee($toChain, $fromChain, method, $token, $signer)
     .then((recommendedFee) => (amount = recommendedFee))
-    .catch((e) => console.error(e));
+    .catch((error) => {
+      console.error(error);
+      if (error.code === ethers.errors.SERVER_ERROR) {
+        errorToast('Server error. Please try again later or contact support.');
+      } else {
+        errorToast(
+          'There was an error calculating recommended processing Fee.',
+        );
+      }
+    });
 
   function updateAmount(event: Event) {
     const target = event.target as HTMLInputElement;

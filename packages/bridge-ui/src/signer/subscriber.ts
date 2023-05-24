@@ -6,6 +6,7 @@ import type { BridgeTransaction } from '../domain/transaction';
 import { relayerApi } from '../relayer-api/relayerApi';
 import { paginationInfo, relayerBlockInfoMap } from '../store/relayerApi';
 import { getLogger } from '../utils/logger';
+import type { PaginationInfo } from '../domain/relayerApi';
 
 const log = getLogger('signer:subscriber');
 
@@ -33,21 +34,31 @@ export async function subscribeToSigner(newSigner: Signer | null) {
     if (userAddress === currentUserAddress) return;
     currentUserAddress = userAddress;
 
-    const { txs: apiTxs, paginationInfo: pageInto } =
-      await relayerApi.getAllBridgeTransactionByAddress(userAddress, {
-        page: 0,
-        size: 100, // 100 transactions max
-      });
+    let txsFromAPI = [] as BridgeTransaction[];
+    let paginationInfoFromAPI = {} as PaginationInfo;
 
-    const blockInfoMap = await relayerApi.getBlockInfo();
-    relayerBlockInfoMap.set(blockInfoMap);
+    try {
+      const { txs, paginationInfo } =
+        await relayerApi.getAllBridgeTransactionByAddress(userAddress, {
+          page: 0,
+          size: 100, // 100 transactions max
+        });
+
+      txsFromAPI = txs;
+      paginationInfoFromAPI = paginationInfo;
+
+      const blockInfoMap = await relayerApi.getBlockInfo();
+      relayerBlockInfoMap.set(blockInfoMap);
+    } catch (error) {
+      console.error(error);
+    }
 
     const txs = await storageService.getAllByAddress(userAddress);
 
     // Create a map of hashes to API transactions to help us
     // filter out transactions from local storage.
     const hashToApiTxsMap = new Map(
-      apiTxs.map((tx) => {
+      txsFromAPI.map((tx) => {
         return [tx.hash.toLowerCase(), true];
       }),
     );
@@ -60,7 +71,7 @@ export async function subscribeToSigner(newSigner: Signer | null) {
     storageService.updateStorageByAddress(userAddress, updatedStorageTxs);
 
     // Merge transactions from API and local storage
-    transactions.set([...updatedStorageTxs, ...apiTxs]);
+    transactions.set([...updatedStorageTxs, ...txsFromAPI]);
 
     // Get tokens based on current user address (signer)
     const tokens = tokenService.getTokens(userAddress);
@@ -68,7 +79,7 @@ export async function subscribeToSigner(newSigner: Signer | null) {
 
     // This store is also used to indicate we have transactions ready
     // to be displayed in the UI.
-    paginationInfo.set(pageInto);
+    paginationInfo.set(paginationInfoFromAPI);
   } else {
     log('Signer deleted');
 

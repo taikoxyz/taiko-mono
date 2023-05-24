@@ -122,7 +122,7 @@ export class StorageService implements Transactioner {
     const txs = this._getTransactionsFromStorage(address);
 
     log('Transactions from storage', txs);
-    log('Getting details for each transaction from blockchain...');
+    log('Getting details for each transaction from blockchain…');
 
     const txsPromises = txs.map(async (tx) => {
       if (tx.from.toLowerCase() !== address.toLowerCase()) return;

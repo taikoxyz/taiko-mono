@@ -43,7 +43,7 @@
       loadingTokenDetails = true;
 
       try {
-        log('Fetching token details for address "%s"...', tokenAddress);
+        log('Fetching token details for address "%s"…', tokenAddress);
 
         const provider = getProvider();
         const tokenContract = new Contract(tokenAddress, erc20ABI, provider);

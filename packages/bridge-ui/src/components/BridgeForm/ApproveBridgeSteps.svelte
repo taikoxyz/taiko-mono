@@ -1,18 +1,26 @@
 <script lang="ts">
-  export let requiresApproval: boolean = false;
+  export let requiresAllowance: boolean = false;
   export let hasAmount: boolean = false;
-  export let computing: boolean = false;
-  export let approving: boolean = false;
+  export let computingAllowance: boolean = false;
+  export let pendingTransaction: boolean = false;
 
-  $: dataContent = approving
-    ? '…'
-    : !hasAmount || computing
-    ? '?'
-    : !requiresApproval
-    ? '✓'
+  const LOADING = '●';
+  const UNKNOWN = '?';
+  const DONE = '✓';
+
+  $: approving = pendingTransaction && requiresAllowance;
+
+  $: bridging = pendingTransaction && !requiresAllowance;
+
+  $: approvalContent = approving
+    ? LOADING
+    : !hasAmount || computingAllowance
+    ? UNKNOWN // at this point we still don't know whether we need approval
+    : !requiresAllowance
+    ? DONE
     : null;
 
-  $: isApproved = !computing && dataContent === '✓';
+  $: isApproved = !computingAllowance && approvalContent === DONE;
 
   $: approveLabel = approving
     ? 'Approving…'
@@ -20,18 +28,23 @@
     ? 'Approved'
     : 'Approval required';
 
-  $: bridgeLabel =
-    !computing && dataContent === '✓' ? 'Ready to bridge' : 'Bridge';
+  $: bridgeContent = bridging ? LOADING : null;
+
+  $: bridgeLabel = bridging
+    ? 'Bridging…'
+    : !computingAllowance && approvalContent === DONE
+    ? 'Ready to bridge'
+    : 'Bridge';
 </script>
 
 <ul class="steps w-full">
   <li
-    data-content={dataContent}
+    data-content={approvalContent}
     class="step step-neutral"
     class:step-accent={isApproved}>
     {approveLabel}
   </li>
-  <li class="step step-neutral">
+  <li data-content={bridgeContent} class="step step-neutral">
     {bridgeLabel}
   </li>
 </ul>

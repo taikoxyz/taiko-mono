@@ -45,7 +45,9 @@
       }
     } catch (error) {
       console.error(error);
-      errorToast($_('toast.errorSendingTransaction'));
+      errorToast(
+        `There seems to be a problem with minting ${_token.symbol} tokens.`,
+      );
     }
   }
 
