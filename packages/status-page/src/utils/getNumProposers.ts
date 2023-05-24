@@ -15,8 +15,6 @@ export const getNumProposers = async (
   const uniqueProposersResp = await axios.get<UniqueProverResponse>(
     `${eventIndexerApiUrl}/uniqueProposers`
   );
-
-  console.log(uniqueProposersResp);
   if (uniqueProposersResp.data) {
     uniqueProposersResp.data.proposers.sort((a, b) => b.count - a.count);
   }
