@@ -2,7 +2,6 @@ package repo
 
 import (
 	"context"
-	"math/big"
 
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
@@ -23,34 +22,37 @@ func NewStatRepository(db eventindexer.DB) (*StatRepository, error) {
 }
 
 func (r *StatRepository) Save(ctx context.Context, opts eventindexer.SaveStatOpts) (*eventindexer.Stat, error) {
-	s := &eventindexer.Stat{
-		AverageProofTime: 0,
-		ChainID:          opts.ChainID,
-		NumProofs:        0,
-	}
+	s := &eventindexer.Stat{}
 
 	if err := r.db.
 		GormDB().
-		Where("chain_id = ?", opts.ChainID.Int64()).
 		FirstOrCreate(s).
 		Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.gormDB.FirstOrCreate")
 	}
 
+	if opts.ProofReward != nil {
+		s.AverageProofReward = *opts.ProofReward
+	}
+
+	if opts.ProofTime != nil {
+		s.NumProofs++
+		s.AverageProofTime = *opts.ProofTime
+	}
+
 	if err := r.db.GormDB().Save(s).Error; err != nil {
-		return nil, errors.Wrap(err, "r.db.Create")
+		return nil, errors.Wrap(err, "r.db.Save")
 	}
 
 	return s, nil
 }
 
-func (r *StatRepository) FindByChainID(ctx context.Context, chainID *big.Int) (*eventindexer.Stat, error) {
-	var s *eventindexer.Stat
+func (r *StatRepository) Find(ctx context.Context) (*eventindexer.Stat, error) {
+	s := &eventindexer.Stat{}
 
 	if err := r.db.
 		GormDB().
-		Where("chain_id = ?", chainID.Int64()).
-		First(s).
+		FirstOrCreate(s).
 		Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.gormDB.FirstOrCreate")
 	}

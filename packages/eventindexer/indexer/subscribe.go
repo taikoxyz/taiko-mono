@@ -20,6 +20,7 @@ func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
 
 	go svc.subscribeBlockProven(ctx, chainID, errChan)
 	go svc.subscribeBlockProposed(ctx, chainID, errChan)
+	go svc.subscribeBlockVerified(ctx, chainID, errChan)
 
 	// nolint: gosimple
 	for {
@@ -131,6 +132,60 @@ func (svc *Service) subscribeBlockProposed(ctx context.Context, chainID *big.Int
 				eventindexer.BlockProposedEventsProcessedError.Inc()
 
 				log.Errorf("svc.subscribe, svc.saveBlockProposedEvent: %v", err)
+			}
+
+			block, err := svc.blockRepo.GetLatestBlockProcessed(chainID)
+			if err != nil {
+				log.Errorf("svc.subscribe, blockRepo.GetLatestBlockProcessed: %v", err)
+				continue
+			}
+
+			if block.Height < event.Raw.BlockNumber {
+				err = svc.blockRepo.Save(eventindexer.SaveBlockOpts{
+					Height:  event.Raw.BlockNumber,
+					Hash:    event.Raw.BlockHash,
+					ChainID: chainID,
+				})
+				if err != nil {
+					log.Errorf("svc.subscribe, svc.blockRepo.Save: %v", err)
+				}
+
+				eventindexer.BlocksProcessed.Inc()
+			}
+		}
+	}
+}
+
+func (svc *Service) subscribeBlockVerified(ctx context.Context, chainID *big.Int, errChan chan error) {
+	sink := make(chan *taikol1.TaikoL1BlockVerified)
+
+	sub := event.ResubscribeErr(svc.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
+		if err != nil {
+			log.Errorf("svc.taikoL1.WatchBlockVerified: %v", err)
+		}
+		log.Info("resubscribing to BlockVerified events")
+
+		return svc.taikol1.WatchBlockVerified(&bind.WatchOpts{
+			Context: ctx,
+		}, sink, nil)
+	})
+
+	defer sub.Unsubscribe()
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Info("context finished")
+			return
+		case err := <-sub.Err():
+			errChan <- errors.Wrap(err, "sub.Err()")
+		case event := <-sink:
+			log.Infof("blockVerifiedEvent from subscription")
+
+			if err := svc.saveBlockVerifiedEvent(ctx, chainID, event); err != nil {
+				eventindexer.BlockVerifiedEventsProcessedError.Inc()
+
+				log.Errorf("svc.subscribe, svc.saveBlockProvenEvent: %v", err)
 			}
 
 			block, err := svc.blockRepo.GetLatestBlockProcessed(chainID)

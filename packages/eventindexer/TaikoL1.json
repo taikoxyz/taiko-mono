@@ -281,6 +281,19 @@
     "anonymous": false,
     "inputs": [
       {
+        "indexed": false,
+        "internalType": "address",
+        "name": "addressManager",
+        "type": "address"
+      }
+    ],
+    "name": "AddressManagerChanged",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
         "indexed": true,
         "internalType": "uint256",
         "name": "id",
@@ -315,11 +328,6 @@
           },
           {
             "internalType": "bytes32",
-            "name": "depositsRoot",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "bytes32",
             "name": "txListHash",
             "type": "bytes32"
           },
@@ -344,13 +352,8 @@
             "type": "address"
           },
           {
-            "internalType": "uint8",
-            "name": "cacheTxListInfo",
-            "type": "uint8"
-          },
-          {
             "internalType": "address",
-            "name": "treasure",
+            "name": "treasury",
             "type": "address"
           },
           {
@@ -375,6 +378,12 @@
         "internalType": "struct TaikoData.BlockMetadata",
         "name": "meta",
         "type": "tuple"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "blockFee",
+        "type": "uint64"
       }
     ],
     "name": "BlockProposed",
@@ -437,6 +446,12 @@
         "internalType": "bytes32",
         "name": "blockHash",
         "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "reward",
+        "type": "uint64"
       }
     ],
     "name": "BlockVerified",
@@ -522,6 +537,19 @@
       }
     ],
     "name": "OwnershipTransferred",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "proofTimeTarget",
+        "type": "uint64"
+      }
+    ],
+    "name": "ProofTimeTargetChanged",
     "type": "event"
   },
   {
@@ -626,24 +654,19 @@
             "type": "uint256"
           },
           {
-            "internalType": "uint256",
+            "internalType": "uint64",
             "name": "blockMaxGasLimit",
-            "type": "uint256"
+            "type": "uint64"
           },
           {
-            "internalType": "uint256",
+            "internalType": "uint64",
             "name": "maxTransactionsPerBlock",
-            "type": "uint256"
+            "type": "uint64"
           },
           {
-            "internalType": "uint256",
+            "internalType": "uint64",
             "name": "maxBytesPerTxList",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "minTxGasLimit",
-            "type": "uint256"
+            "type": "uint64"
           },
           {
             "internalType": "uint256",
@@ -694,11 +717,6 @@
             "internalType": "uint96",
             "name": "minEthDepositAmount",
             "type": "uint96"
-          },
-          {
-            "internalType": "uint64",
-            "name": "proofTimeTarget",
-            "type": "uint64"
           },
           {
             "internalType": "uint8",
@@ -822,12 +840,7 @@
     "inputs": [
       {
         "internalType": "uint64",
-        "name": "provenAt",
-        "type": "uint64"
-      },
-      {
-        "internalType": "uint64",
-        "name": "proposedAt",
+        "name": "proofTime",
         "type": "uint64"
       }
     ],
@@ -876,6 +889,11 @@
           {
             "internalType": "uint64",
             "name": "proofTimeIssued",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "proofTimeTarget",
             "type": "uint64"
           },
           {
@@ -964,6 +982,11 @@
       },
       {
         "internalType": "uint64",
+        "name": "_initProofTimeTarget",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
         "name": "_initProofTimeIssued",
         "type": "uint64"
       }
@@ -1030,11 +1053,6 @@
           },
           {
             "internalType": "bytes32",
-            "name": "depositsRoot",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "bytes32",
             "name": "txListHash",
             "type": "bytes32"
           },
@@ -1059,13 +1077,8 @@
             "type": "address"
           },
           {
-            "internalType": "uint8",
-            "name": "cacheTxListInfo",
-            "type": "uint8"
-          },
-          {
             "internalType": "address",
-            "name": "treasure",
+            "name": "treasury",
             "type": "address"
           },
           {
@@ -1173,6 +1186,37 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "newAddressManager",
+        "type": "address"
+      }
+    ],
+    "name": "setAddressManager",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "newProofTimeTarget",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "newProofTimeIssued",
+        "type": "uint64"
+      }
+    ],
+    "name": "setProofParams",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "state",
     "outputs": [
@@ -1233,7 +1277,7 @@
       },
       {
         "internalType": "uint64",
-        "name": "__reserved91",
+        "name": "proofTimeTarget",
         "type": "uint64"
       }
     ],
