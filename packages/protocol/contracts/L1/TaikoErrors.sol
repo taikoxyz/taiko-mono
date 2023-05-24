@@ -30,4 +30,5 @@ abstract contract TaikoErrors {
     error L1_TX_LIST_HASH();
     error L1_TX_LIST_RANGE();
     error L1_TX_LIST();
+    error L1_AUCTION_NOT_OVER();
 }

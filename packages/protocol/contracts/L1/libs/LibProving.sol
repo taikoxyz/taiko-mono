@@ -8,6 +8,7 @@ pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibMath} from "../../libs/LibMath.sol";
+import {LibAuction} from "./LibAuction.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 
@@ -36,6 +37,36 @@ library LibProving {
     error L1_SAME_PROOF();
     error L1_SYSTEM_PROVER_DISABLED();
     error L1_SYSTEM_PROVER_PROHIBITED();
+    error L1_AUCTION_NOT_OVER();
+    error L1_NOT_PROVER();
+    error L1_AUCTION_RIGHTS_FORFEITED();
+
+    function checkAuctionValidity(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        uint256 blockId,
+        TaikoData.BlockEvidence memory evidence
+    ) internal view {
+        TaikoData.Bid memory currentBid = state.bids[blockId];
+        // if theres no bids, revert, nobody is able to prove this block yet.
+        if (currentBid.bidder == address(0) || LibAuction.isBiddingOpenForBlock(config, currentBid))
+        {
+            revert L1_AUCTION_NOT_OVER();
+        }
+
+        // check if bidder still has a valid claim on the block, or if anyone can now
+        // submit.
+        if (!LibAuction.isAuctionWinnersBidForfeited(config, currentBid)) {
+            // block must be claimed by the bidder
+            if (currentBid.bidder != evidence.prover) {
+                revert L1_NOT_PROVER();
+            }
+        } else {
+            if (currentBid.bidder == evidence.prover) {
+                revert L1_AUCTION_RIGHTS_FORFEITED();
+            }
+        }
+    }
 
     function proveBlock(
         TaikoData.State storage state,
@@ -44,6 +75,8 @@ library LibProving {
         uint256 blockId,
         TaikoData.BlockEvidence memory evidence
     ) internal {
+        checkAuctionValidity(state, config, blockId, evidence);
+
         if (
             evidence.parentHash == 0 || evidence.blockHash == 0
                 || evidence.blockHash == evidence.parentHash || evidence.signalRoot == 0
@@ -148,12 +181,7 @@ library LibProving {
         fc.signalRoot = evidence.signalRoot;
         fc.gasUsed = evidence.gasUsed;
         fc.prover = evidence.prover;
-
-        if (evidence.prover == address(1)) {
-            fc.provenAt = uint64(block.timestamp.max(blk.proposedAt + state.proofTimeTarget));
-        } else {
-            fc.provenAt = uint64(block.timestamp);
-        }
+        fc.provenAt = uint64(block.timestamp);
 
         if (evidence.prover != address(0) && evidence.prover != address(1)) {
             uint256[10] memory inputs;

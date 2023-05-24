@@ -42,7 +42,9 @@ library TaikoConfig {
             ethDepositMaxFee: 1 ether / 10,
             txListCacheExpiry: 0,
             adjustmentQuotient: 16,
-            relaySignalRoot: false
+            relaySignalRoot: false,
+            auctionDelayInSeconds: 100, // lasts 100 seconds after a bid
+            auctionTimeForProverToSubmitProofInSeconds: 1000 //
         });
     }
 }

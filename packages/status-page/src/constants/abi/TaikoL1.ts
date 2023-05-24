@@ -533,11 +533,6 @@ export default [
             type: "uint96",
           },
           {
-            internalType: "uint64",
-            name: "proofTimeTarget",
-            type: "uint64",
-          },
-          {
             internalType: "uint8",
             name: "adjustmentQuotient",
             type: "uint8",
@@ -679,11 +674,6 @@ export default [
           },
           {
             internalType: "uint64",
-            name: "proofTimeIssued",
-            type: "uint64",
-          },
-          {
-            internalType: "uint64",
             name: "lastVerifiedBlockId",
             type: "uint64",
           },
@@ -802,11 +792,6 @@ export default [
       {
         internalType: "uint64",
         name: "_initBasefee",
-        type: "uint64",
-      },
-      {
-        internalType: "uint64",
-        name: "_initProofTimeIssued",
         type: "uint64",
       },
     ],
@@ -1066,11 +1051,6 @@ export default [
       {
         internalType: "uint64",
         name: "basefee",
-        type: "uint64",
-      },
-      {
-        internalType: "uint64",
-        name: "proofTimeIssued",
         type: "uint64",
       },
       {

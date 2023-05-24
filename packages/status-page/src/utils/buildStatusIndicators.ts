@@ -291,25 +291,6 @@ export function buildStatusIndicators(
       },
       tooltip: "The most recent block proof submitted on TaikoL1 contract.",
     });
-
-    indicators.push({
-      provider: config.l1Provider,
-      contractAddress: config.l1TaikoAddress,
-      statusFunc: async (
-        provider: ethers.providers.JsonRpcProvider,
-        address: string
-      ) => {
-        const stateVars = await getStateVariables(provider, address);
-        return `${stateVars.proofTimeIssued.toNumber() / 1000} seconds`;
-      },
-      colorFunc: function (status: Status) {
-        return "green"; // todo: whats green, yellow, red?
-      },
-      header: "Average Proof Time",
-      intervalInMs: 5 * 1000,
-      tooltip:
-        "The current average proof time, updated when a block is successfully proven.",
-    });
   } catch (e) {
     console.error(e);
   }

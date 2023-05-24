@@ -6,6 +6,8 @@ export const getLastVerifiedBlockId = async (
   contractAddress: string
 ): Promise<number> => {
   const stateVariables = await getStateVariables(provider, contractAddress);
+
+  console.log(stateVariables);
   const lastBlockId = stateVariables.lastVerifiedBlockId;
   return BigNumber.from(lastBlockId).toNumber();
 };

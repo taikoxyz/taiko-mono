@@ -28,9 +28,7 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
-        uint64 initBlockFee,
-        uint64 initProofTimeTarget,
-        uint64 initProofTimeIssued
+        uint64 initBlockFee
     ) internal {
         if (
             config.chainId <= 1 || config.maxNumProposedBlocks == 1
@@ -43,8 +41,7 @@ library LibVerifying {
             // EIP-4844 blob deleted after 30 days
             || config.txListCacheExpiry > 30 * 24 hours || config.ethDepositGas == 0
                 || config.ethDepositMaxFee == 0 || config.ethDepositMaxFee >= type(uint96).max
-                || config.adjustmentQuotient == 0 || initProofTimeTarget == 0
-                || initProofTimeIssued == 0
+                || config.adjustmentQuotient == 0
         ) revert L1_INVALID_CONFIG();
 
         uint64 timeNow = uint64(block.timestamp);
@@ -52,9 +49,8 @@ library LibVerifying {
         state.genesisTimestamp = timeNow;
 
         state.blockFee = initBlockFee;
-        state.proofTimeIssued = initProofTimeIssued;
-        state.proofTimeTarget = initProofTimeTarget;
         state.numBlocks = 1;
+        state.avgProofTime = 0;
 
         TaikoData.Block storage blk = state.blocks[0];
         blk.proposedAt = timeNow;
@@ -113,7 +109,6 @@ library LibVerifying {
 
             _markBlockVerified({
                 state: state,
-                config: config,
                 blk: blk,
                 fcId: uint24(fcId),
                 fc: fc,
@@ -143,7 +138,6 @@ library LibVerifying {
 
     function _markBlockVerified(
         TaikoData.State storage state,
-        TaikoData.Config memory config,
         TaikoData.Block storage blk,
         TaikoData.ForkChoice storage fc,
         uint24 fcId,
@@ -154,19 +148,17 @@ library LibVerifying {
             proofTime = uint64(fc.provenAt - blk.proposedAt);
         }
 
-        uint64 reward = LibTokenomics.getProofReward(state, proofTime);
+        TaikoData.Bid memory winningBid = state.bids[blk.blockId];
 
-        (state.proofTimeIssued, state.blockFee) =
-            LibTokenomics.getNewBlockFeeAndProofTimeIssued(state, config, proofTime);
+        uint256 reward = uint256(fc.gasUsed) * winningBid.minFeePerGasAcceptedInWei;
 
         unchecked {
-            state.accBlockFees -= reward;
             state.accProposedAt -= blk.proposedAt;
         }
 
         // reward the prover
         if (reward != 0) {
-            address prover = fc.prover != address(1) ? fc.prover : systemProver;
+            address prover = fc.prover != address(1) ? winningBid.bidder : systemProver;
 
             // systemProver may become address(0) after a block is proven
             if (prover != address(0)) {
@@ -182,6 +174,9 @@ library LibVerifying {
 
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = fcId;
+
+        state.avgProofTime = LibUtils.movingAverage(state.avgProofTime, proofTime, 100);
+        state.avgProofReward = LibUtils.movingAverage(state.avgProofReward, reward, 100);
 
         emit BlockVerified(blk.blockId, fc.blockHash);
     }

@@ -51,16 +51,15 @@ library LibUtils {
     {
         return TaikoData.StateVariables({
             blockFee: state.blockFee,
-            accBlockFees: state.accBlockFees,
             genesisHeight: state.genesisHeight,
             genesisTimestamp: state.genesisTimestamp,
             numBlocks: state.numBlocks,
-            proofTimeIssued: state.proofTimeIssued,
-            proofTimeTarget: state.proofTimeTarget,
             lastVerifiedBlockId: state.lastVerifiedBlockId,
             accProposedAt: state.accProposedAt,
             nextEthDepositToProcess: state.nextEthDepositToProcess,
-            numEthDeposits: uint64(state.ethDeposits.length)
+            numEthDeposits: uint64(state.ethDeposits.length),
+            avgProofTime: state.avgProofTime,
+            avgProofReward: state.avgProofReward
         });
     }
 

@@ -44,18 +44,10 @@ contract DeployOnL1 is Script {
 
     uint256 public taikoTokenPremintAmount = vm.envUint("TAIKO_TOKEN_PREMINT_AMOUNT");
 
-    // Change it based on 'consensus' / experience / expected result
-    // Based in seconds. Please set carefully.
-    // For testnet it could be somewhere 85-100s
-    // For mainnet it could be around 1800 s (30mins)
-    // Can be adjusted later with setters
-    uint64 public INITIAL_PROOF_TIME_TARGET = uint64(vm.envUint("INITIAL_PROOF_TIME_TARGET"));
-
     TaikoL1 taikoL1;
     address public addressManagerProxy;
 
     error FAILED_TO_DEPLOY_PLONK_VERIFIER(string contractPath);
-    error PROOF_TIME_TARGET_NOT_SET();
 
     function run() external {
         require(owner != address(0), "owner is zero");
@@ -112,31 +104,11 @@ contract DeployOnL1 is Script {
 
         uint64 feeBase = uint64(1) ** taikoToken.decimals();
 
-        // Calculating it for our needs based on testnet/mainnet. We need it in
-        // order to make the fees on the same level - in ideal circumstences.
-        // See Brecht's comment https://github.com/taikoxyz/taiko-mono/pull/13564
-        if (INITIAL_PROOF_TIME_TARGET == 0) {
-            revert PROOF_TIME_TARGET_NOT_SET();
-        }
-
-        uint64 initProofTimeIssued = LibLn.calcInitProofTimeIssued(
-            feeBase,
-            uint16(INITIAL_PROOF_TIME_TARGET),
-            uint8(taikoL1.getConfig().adjustmentQuotient)
-        );
-
         address taikoL1Proxy = deployProxy(
             "taiko",
             address(taikoL1),
             bytes.concat(
-                taikoL1.init.selector,
-                abi.encode(
-                    addressManagerProxy,
-                    genesisHash,
-                    feeBase,
-                    INITIAL_PROOF_TIME_TARGET,
-                    initProofTimeIssued
-                )
+                taikoL1.init.selector, abi.encode(addressManagerProxy, genesisHash, feeBase)
             )
         );
         setAddress("taiko", taikoL1Proxy);

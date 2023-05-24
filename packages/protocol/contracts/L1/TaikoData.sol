@@ -23,6 +23,8 @@ library TaikoData {
         uint256 realProofSkipSize;
         uint256 ethDepositGas;
         uint256 ethDepositMaxFee;
+        uint256 auctionDelayInSeconds;
+        uint256 auctionTimeForProverToSubmitProofInSeconds;
         uint64 minEthDepositsPerBlock;
         uint64 maxEthDepositsPerBlock;
         uint96 maxEthDepositAmount;
@@ -33,16 +35,15 @@ library TaikoData {
 
     struct StateVariables {
         uint64 blockFee;
-        uint64 accBlockFees;
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 numBlocks;
-        uint64 proofTimeIssued;
-        uint64 proofTimeTarget;
         uint64 lastVerifiedBlockId;
         uint64 accProposedAt;
         uint64 nextEthDepositToProcess;
         uint64 numEthDeposits;
+        uint256 avgProofTime;
+        uint256 avgProofReward;
     }
 
     // 3 slots
@@ -119,6 +120,14 @@ library TaikoData {
         uint96 amount;
     }
 
+    struct Bid {
+        uint256 minFeePerGasAcceptedInWei;
+        uint256 blockId;
+        uint256 deposit;
+        address bidder;
+        uint256 bidAt;
+    }
+
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint256 blockId_mode_ringBufferSize => Block) blocks;
@@ -131,6 +140,7 @@ library TaikoData {
             ) forkChoiceIds;
         mapping(address account => uint256 balance) taikoTokenBalances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
+        mapping(uint256 blockId => Bid bid) bids;
         EthDeposit[] ethDeposits;
         // Never or rarely changed
         // Slot 7: never or rarely changed
@@ -140,15 +150,17 @@ library TaikoData {
         uint64 __reserved72;
         // Slot 8
         uint64 accProposedAt;
-        uint64 accBlockFees;
         uint64 numBlocks;
+        uint64 __reserved73;
         uint64 nextEthDepositToProcess;
         // Slot 9
         uint64 blockFee;
-        uint64 proofTimeIssued;
         uint64 lastVerifiedBlockId;
-        uint64 proofTimeTarget;
+        uint64 __reserved74;
+        uint64 __reserved53;
+        uint256 avgProofTime;
+        uint256 avgProofReward;
         // Reserved
-        uint256[42] __gap;
+        uint256[39] __gap;
     }
 }

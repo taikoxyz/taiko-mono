@@ -639,11 +639,6 @@
             "type": "uint96"
           },
           {
-            "internalType": "uint64",
-            "name": "proofTimeTarget",
-            "type": "uint64"
-          },
-          {
             "internalType": "uint8",
             "name": "adjustmentQuotient",
             "type": "uint8"
@@ -814,11 +809,6 @@
           {
             "internalType": "uint64",
             "name": "numBlocks",
-            "type": "uint64"
-          },
-          {
-            "internalType": "uint64",
-            "name": "proofTimeIssued",
             "type": "uint64"
           },
           {

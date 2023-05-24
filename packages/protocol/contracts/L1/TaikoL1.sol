@@ -10,6 +10,7 @@ import {AddressResolver} from "../common/AddressResolver.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {ICrossChainSync} from "../common/ICrossChainSync.sol";
 import {Proxied} from "../common/Proxied.sol";
+import {LibAuction} from "./libs/LibAuction.sol";
 import {LibEthDepositing} from "./libs/LibEthDepositing.sol";
 import {LibTokenomics} from "./libs/LibTokenomics.sol";
 import {LibProposing} from "./libs/LibProposing.sol";
@@ -38,25 +39,39 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
      * @param _addressManager The AddressManager address.
      * @param _genesisBlockHash The block hash of the genesis block.
      * @param _initBlockFee Initial (reasonable) block fee value.
-     * @param _initProofTimeTarget Initial (reasonable) proof submission time target.
-     * @param _initProofTimeIssued Initial proof time issued corresponding
-     *        with the initial block fee.
      */
-    function init(
-        address _addressManager,
-        bytes32 _genesisBlockHash,
-        uint64 _initBlockFee,
-        uint64 _initProofTimeTarget,
-        uint64 _initProofTimeIssued
-    ) external initializer {
+    function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _initBlockFee)
+        external
+        initializer
+    {
         EssentialContract._init(_addressManager);
         LibVerifying.init({
             state: state,
             config: getConfig(),
             genesisBlockHash: _genesisBlockHash,
-            initBlockFee: _initBlockFee,
-            initProofTimeTarget: _initProofTimeTarget,
-            initProofTimeIssued: _initProofTimeIssued
+            initBlockFee: _initBlockFee
+        });
+    }
+
+    /**
+     * Propose a Taiko L2 block.
+     *
+     * @param blockId the id of the block you are submitting a bid for.
+     * @param minFeePerGasAcceptedInWei The minimum fee, in wei, per gas you will accept
+     * being paid as a reward for proving the block.
+     */
+
+    function bidForBlock(uint256 blockId, uint256 minFeePerGasAcceptedInWei)
+        external
+        payable
+        nonReentrant
+    {
+        LibAuction.bidForBlock({
+            state: state,
+            resolver: AddressResolver(this),
+            config: getConfig(),
+            blockId: blockId,
+            minFeePerGasAcceptedInWei: minFeePerGasAcceptedInWei
         });
     }
 
@@ -134,29 +149,6 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
         });
     }
 
-    /**
-     * Change proof parameters (time target and time issued) - to avoid complex/risky upgrades in case need to change relatively frequently.
-     * @param newProofTimeTarget New proof time target.
-     * @param newProofTimeIssued New proof time issued. If set to type(uint64).max, let it be unchanged.
-     */
-    function setProofParams(uint64 newProofTimeTarget, uint64 newProofTimeIssued)
-        external
-        onlyOwner
-    {
-        if (newProofTimeTarget == 0 || newProofTimeIssued == 0) {
-            revert L1_INVALID_PARAM();
-        }
-
-        state.proofTimeTarget = newProofTimeTarget;
-        // Special case in a way - that we leave the proofTimeIssued unchanged
-        // because we think provers will adjust behavior.
-        if (newProofTimeIssued != type(uint64).max) {
-            state.proofTimeIssued = newProofTimeIssued;
-        }
-
-        emit ProofTimeTargetChanged(newProofTimeTarget);
-    }
-
     function depositTaikoToken(uint256 amount) external nonReentrant {
         LibTokenomics.depositTaikoToken(state, AddressResolver(this), amount);
     }
@@ -175,10 +167,6 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
 
     function getBlockFee() public view returns (uint64) {
         return state.blockFee;
-    }
-
-    function getProofReward(uint64 proofTime) public view returns (uint64) {
-        return LibTokenomics.getProofReward(state, proofTime);
     }
 
     function getBlock(uint256 blockId)
