@@ -20,7 +20,14 @@
   let showAddressField = false;
   let loading = false;
 
-  function select(selectedToken: Token) {
+  function closeDropdown() {
+    dropdownElement?.classList.remove('dropdown-open');
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  }
+
+  function selectToken(selectedToken: Token) {
     if (selectedToken === $token) return;
 
     token.set(selectedToken);
@@ -31,11 +38,7 @@
       bridgeType.set(BridgeType.ERC20);
     }
 
-    // to close the dropdown on click
-    dropdownElement?.classList.remove('dropdown-open');
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
+    closeDropdown();
   }
 
   async function addERC20(event: SubmitEvent) {
@@ -85,7 +88,7 @@
 
       const updateTokensList = tokenService.storeToken(token, userAddress);
 
-      select(token);
+      selectToken(token);
 
       userTokens.set(updateTokensList);
       eventTarget.reset();
@@ -104,7 +107,7 @@
   }
 </script>
 
-<div class="dropdown dropdown-bottom" bind:this={dropdownElement}>
+<div class="dropdown dropdown-bottom dropdown-end" bind:this={dropdownElement}>
   <!-- svelte-ignore a11y-label-has-associated-control -->
   <label
     role="button"
@@ -123,32 +126,50 @@
     role="listbox"
     tabindex="0"
     class="token-dropdown dropdown-content menu my-2 shadow-xl bg-dark-2 rounded-box p-2">
-    {#each tokens as t}
+    {#each tokens as _token (_token.symbol)}
       <li class="cursor-pointer w-full hover:bg-dark-5 rounded-none">
-        <button on:click={() => select(t)} class="flex hover:bg-dark-5 p-4">
-          <svelte:component this={t.logoComponent} height={22} width={22} />
-          <span class="text-sm font-medium bg-transparent px-2"
-            >{t.symbol.toUpperCase()}</span>
+        <button
+          on:click={() => selectToken(_token)}
+          class="flex hover:bg-dark-5 p-4">
+          <svelte:component
+            this={_token.logoComponent}
+            height={22}
+            width={22} />
+          <span class="text-sm font-medium bg-transparent px-2">
+            {_token.symbol.toUpperCase()}
+          </span>
         </button>
       </li>
     {/each}
-    {#each $userTokens as t}
+
+    {#each $userTokens as _token (_token.symbol)}
       <li class="cursor-pointer w-full hover:bg-dark-5">
-        <button on:click={() => select(t)} class="flex hover:bg-dark-5 p-4">
+        <button
+          on:click={() => selectToken(_token)}
+          class="flex hover:bg-dark-5 p-4">
           <Erc20 height={22} width={22} />
           <span class="text-sm font-medium bg-transparent px-2"
-            >{t.symbol.toUpperCase()}</span>
+            >{_token.symbol.toUpperCase()}</span>
         </button>
       </li>
     {/each}
+
     <li class="cursor-pointer hover:bg-dark-5">
       <button
         on:click={() => (showAddressField = true)}
         class="flex hover:bg-dark-5 justify-between items-center p-4">
         <PlusCircle size="25" />
         <span
-          class="text-sm font-medium bg-transparent flex-1 w-[100px] px-0 pl-2"
-          >Add Custom</span>
+          class="
+            text-sm 
+            font-medium 
+            bg-transparent 
+            flex-1 
+            w-[100px] 
+            px-0 
+            pl-2">
+          Add Custom
+        </span>
       </button>
     </li>
   </ul>
