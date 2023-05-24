@@ -2,7 +2,6 @@
   import { Signer, ethers } from 'ethers';
   import { pendingTransactions } from '../store/transactions';
   import { signer } from '../store/signer';
-  import { _ } from 'svelte-i18n';
   import { fromChain } from '../store/chain';
   import Modal from './Modal.svelte';
   import { token } from '../store/token';
