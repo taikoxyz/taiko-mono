@@ -37,6 +37,12 @@ error RESOLVER_ZERO_ADDR(uint256 chainId, bytes32 name)
 modifier onlyFromNamed(bytes32 name)
 ```
 
+### AddressManagerChanged
+
+```solidity
+event AddressManagerChanged(address addressManager)
+```
+
 ### resolve
 
 ```solidity
