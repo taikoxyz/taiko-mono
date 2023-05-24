@@ -50,7 +50,7 @@ abstract contract TaikoL1TestBase is Test {
     // Calculation shall be done in derived contracts - based on testnet or mainnet expected proof time
     uint64 public initProofTimeIssued;
     uint16 proofTimeTarget;
-    uint8 public constant ADJUSTMENT_QUOTIENT = 16;
+    uint16 public constant ADJUSTMENT_QUOTIENT = 16000;
 
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
 

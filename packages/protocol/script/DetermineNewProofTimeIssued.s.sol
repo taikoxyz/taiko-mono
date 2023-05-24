@@ -6,7 +6,7 @@ import "forge-std/console2.sol";
 import {LibLn} from "../test/LibLn.sol";
 
 uint16 constant DESIRED_PROOF_TIME_TARGET = 500;
-uint8 constant ADJUSTMENT_QUOTIENT = 16;
+uint16 constant ADJUSTMENT_QUOTIENT = 16000;
 
 contract DetermineProofTimeIssued is Script {
     function run() public view {
