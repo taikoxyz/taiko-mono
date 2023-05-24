@@ -38,7 +38,7 @@ contract DeployOnL1 is Script {
 
     address public sharedSignalService = vm.envAddress("SHARED_SIGNAL_SERVICE");
 
-    address public treasury = vm.envAddress("TREASURY");
+    address public treasury = vm.envAddress("TREASURY"); // Q: which address will we use?
 
     address public taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
 
@@ -49,7 +49,7 @@ contract DeployOnL1 is Script {
     // For testnet it could be somewhere 85-100s
     // For mainnet it could be around 1800 s (30mins)
     // Can be adjusted later with setters
-    uint64 public INITIAL_PROOF_TIME_TARGET = uint64(vm.envUint("INITIAL_PROOF_TIME_TARGET"));
+    uint64 public INITIAL_PROOF_TIME_TARGET = uint64(vm.envUint("INITIAL_PROOF_TIME_TARGET")); // Q: INITIAL_PROOF_TIME_TARGET=`120s`? => initProofTimeIssued will be `49883`
 
     TaikoL1 taikoL1;
     address public addressManagerProxy;

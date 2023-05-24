@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 import "forge-std/console2.sol";
 import {LibLn} from "../test/LibLn.sol";
 
-uint16 constant DESIRED_PROOF_TIME_TARGET = 500;
+uint16 constant DESIRED_PROOF_TIME_TARGET = 120;
 uint8 constant ADJUSTMENT_QUOTIENT = 16;
 
 contract DetermineProofTimeIssued is Script {
