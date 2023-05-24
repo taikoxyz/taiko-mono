@@ -20,7 +20,7 @@ library LibProposing {
     using LibAddress for address payable;
     using LibUtils for TaikoData.State;
 
-    event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
+    event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta, uint64 blockFee);
 
     error L1_BLOCK_ID();
     error L1_INSUFFICIENT_TOKEN();
@@ -78,17 +78,18 @@ library LibProposing {
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.proposer = msg.sender;
 
-        if (state.taikoTokenBalances[msg.sender] < state.blockFee) {
+        uint64 blockFee = state.blockFee;
+        if (state.taikoTokenBalances[msg.sender] < blockFee) {
             revert L1_INSUFFICIENT_TOKEN();
         }
 
         unchecked {
-            state.taikoTokenBalances[msg.sender] -= state.blockFee;
-            state.accBlockFees += state.blockFee;
+            state.taikoTokenBalances[msg.sender] -= blockFee;
+            state.accBlockFees += blockFee;
             state.accProposedAt += meta.timestamp;
         }
 
-        emit BlockProposed(state.numBlocks, meta);
+        emit BlockProposed(state.numBlocks, meta, blockFee);
         unchecked {
             ++state.numBlocks;
         }

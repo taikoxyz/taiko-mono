@@ -18,7 +18,7 @@ library LibVerifying {
     using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.State;
 
-    event BlockVerified(uint256 indexed id, bytes32 blockHash);
+    event BlockVerified(uint256 indexed id, bytes32 blockHash, uint64 reward);
 
     event CrossChainSynced(uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot);
 
@@ -65,7 +65,7 @@ library LibVerifying {
         fc.blockHash = genesisBlockHash;
         fc.provenAt = timeNow;
 
-        emit BlockVerified(0, genesisBlockHash);
+        emit BlockVerified(0, genesisBlockHash, 0);
     }
 
     function verifyBlocks(
@@ -183,6 +183,6 @@ library LibVerifying {
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = fcId;
 
-        emit BlockVerified(blk.blockId, fc.blockHash);
+        emit BlockVerified(blk.blockId, fc.blockHash, reward);
     }
 }
