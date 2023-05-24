@@ -41,7 +41,6 @@ library LibVerifying {
             // EIP-4844 blob deleted after 30 days
             || config.txListCacheExpiry > 30 * 24 hours || config.ethDepositGas == 0
                 || config.ethDepositMaxFee == 0 || config.ethDepositMaxFee >= type(uint96).max
-                || config.adjustmentQuotient == 0
         ) revert L1_INVALID_CONFIG();
 
         uint64 timeNow = uint64(block.timestamp);

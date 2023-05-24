@@ -639,11 +639,6 @@
             "type": "uint96"
           },
           {
-            "internalType": "uint8",
-            "name": "adjustmentQuotient",
-            "type": "uint8"
-          },
-          {
             "internalType": "bool",
             "name": "relaySignalRoot",
             "type": "bool"

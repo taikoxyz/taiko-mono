@@ -5,7 +5,7 @@
   "scripts": {
     "clean": "rm -rf abis cache && pnpm hardhat clean",
     "compile": "forge build",
-    "compile:hardhat": "pnpm hardhat compile",
+    "compile:hardhat": "pnpm hardhat compile --show-stack-traces",
     "export:abi": "pnpm hardhat clear-abi && pnpm hardhat export-abi",
     "export:docs": "pnpm hardhat docgen && pnpm prettier --write ../website/pages/docs/reference/contract-documentation/**/*.md",
     "lint:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol' --fix",
