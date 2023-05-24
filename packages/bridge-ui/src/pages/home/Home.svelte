@@ -8,7 +8,7 @@
   import { Tabs, TabList, Tab, TabPanel } from '../../components/Tabs';
   import Loading from '../../components/Loading.svelte';
   import SelectChain from '../../components/BridgeForm/SelectChain.svelte';
-  // import Faucet from '../../components/Faucet/Faucet.svelte';
+  import Faucet from '../../components/Faucet/Faucet.svelte';
 
   // List of tab's name <=> route association
   // TODO: add this into a general configuration.
@@ -29,7 +29,7 @@
     bind:activeTab>
     {@const tab1 = tabsRoute[0]}
     {@const tab2 = tabsRoute[1]}
-    <!-- {@const tab3 = tabsRoute[2]} -->
+    {@const tab3 = tabsRoute[2]}
 
     <TabList class="block mb-4">
       <Tab name={tab1.name} href={tab1.href}>Bridge</Tab>
@@ -41,7 +41,7 @@
           (<Loading />)
         {/if}
       </Tab>
-      <!-- <Tab name={tab3.name} href={tab3.href}>Faucet</Tab> -->
+      <Tab name={tab3.name} href={tab3.href}>Faucet</Tab>
     </TabList>
 
     <TabPanel tab={tab1.name}>
@@ -59,10 +59,10 @@
       </div>
     </TabPanel>
 
-    <!-- <TabPanel tab={tab3.name}>
+    <TabPanel tab={tab3.name}>
       <div class="md:min-w-[440px]">
         <Faucet />
       </div>
-    </TabPanel> -->
+    </TabPanel>
   </Tabs>
 </div>
