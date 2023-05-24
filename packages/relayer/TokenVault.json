@@ -10,6 +10,22 @@
     "type": "error"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "chainId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "name",
+        "type": "bytes32"
+      }
+    ],
+    "name": "RESOLVER_ZERO_ADDR",
+    "type": "error"
+  },
+  {
     "inputs": [],
     "name": "TOKENVAULT_CANONICAL_TOKEN_NOT_FOUND",
     "type": "error"
