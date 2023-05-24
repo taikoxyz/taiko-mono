@@ -25,7 +25,15 @@ abstract contract TaikoEvents {
 
     event EthDeposited(TaikoData.EthDeposit deposit);
 
-    event ClaimBlockBid(uint256 indexed id, address claimer, uint256 claimedAt, uint256 deposit);
+    event Bid(
+        uint256 indexed id,
+        address claimer,
+        uint256 claimedAt,
+        uint256 deposit,
+        uint256 minFeePerGasAcceptedInWei
+    );
 
-    event BidRefunded(uint256 indexed id, address claimer, uint256 refundedAt, uint256 refund);
+    event BidDepositRefunded(
+        uint256 indexed id, address claimer, uint256 refundedAt, uint256 refund
+    );
 }
