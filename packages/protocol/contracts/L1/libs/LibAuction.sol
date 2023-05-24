@@ -47,7 +47,7 @@ library LibAuction {
         uint256 minFeePerGasAcceptedInWei
     ) internal {
         // if the block hasnt been proposed yet, dont allow bid.
-        if (state.numBlocks < blockId) {
+        if (blockId <= state.lastVerifiedBlockId || blockId >= state.numBlocks) {
             revert L1_ID();
         }
 
@@ -122,8 +122,9 @@ library LibAuction {
         view
         returns (bool)
     {
-        return currentBid.bidder != address(0)
-            && (block.timestamp - currentBid.bidAt > config.auctionDelayInSeconds);
+        if (currentBid.bidder == address(0)) return true;
+
+        return (block.timestamp - currentBid.bidAt > config.auctionDelayInSeconds);
     }
 
     // isAuctionWinnersBidForfeited determines whether that bidder still has sole claim
