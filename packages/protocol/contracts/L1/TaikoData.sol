@@ -33,7 +33,6 @@ library TaikoData {
     }
 
     struct StateVariables {
-        uint64 blockFee;
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 numBlocks;

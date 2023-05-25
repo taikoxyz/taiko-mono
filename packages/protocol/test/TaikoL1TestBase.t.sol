@@ -27,7 +27,6 @@ abstract contract TaikoL1TestBase is Test {
     uint256 internal logCount;
 
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
-    uint64 feeBase = 1e8; // 1 TKO
     uint64 l2GasExcess = 1e18;
 
     address public constant L2Treasury = 0x859d74b52762d9ed07D1b2B8d7F93d26B1EA78Bb;
@@ -81,7 +80,7 @@ abstract contract TaikoL1TestBase is Test {
         tko.mint(address(this), 1e9 * 1e8);
         registerAddress("proto_broker", address(L1));
 
-        L1.init(address(addressManager), GENESIS_BLOCK_HASH, feeBase);
+        L1.init(address(addressManager), GENESIS_BLOCK_HASH);
         printVariables("init  ");
     }
 

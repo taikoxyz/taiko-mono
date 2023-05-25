@@ -27,8 +27,7 @@ library LibVerifying {
     function init(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        bytes32 genesisBlockHash,
-        uint64 initBlockFee
+        bytes32 genesisBlockHash
     ) internal {
         if (
             config.chainId <= 1 || config.maxNumProposedBlocks == 1
@@ -47,7 +46,6 @@ library LibVerifying {
         state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = timeNow;
 
-        state.blockFee = initBlockFee;
         state.numBlocks = 1;
         state.avgProofTime = 0;
 
