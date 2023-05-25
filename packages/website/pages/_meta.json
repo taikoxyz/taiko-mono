@@ -29,7 +29,6 @@
     "items": {
       "status": {
         "title": "Protocol Status",
-        "type": "page",
         "href": "https://status.internal.taiko.xyz",
         "newWindow": true
       },
