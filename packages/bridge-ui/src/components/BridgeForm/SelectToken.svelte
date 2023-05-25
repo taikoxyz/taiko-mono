@@ -1,10 +1,11 @@
 <script lang="ts">
   import { getProvider } from '@wagmi/core';
-  import { Contract,ethers } from 'ethers';
+  import { Contract, ethers } from 'ethers';
   import { ChevronDown, PlusCircle } from 'svelte-heros-v2';
-  
+
   import { erc20ABI } from '../../constants/abi';
-  import { BridgeType, type HTMLBridgeForm } from '../../domain/bridge';
+  import { BridgeType } from '../../domain/bridge';
+  import type { HTMLBridgeForm } from '../../domain/dom';
   import type { Token } from '../../domain/token';
   import { tokenService } from '../../storage/services';
   import { bridgeType } from '../../store/bridge';

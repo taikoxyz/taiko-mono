@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { Contract,ethers } from 'ethers';
+  import { Contract, ethers } from 'ethers';
   import { createEventDispatcher } from 'svelte';
   import { onDestroy, onMount } from 'svelte';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
   import { _ } from 'svelte-i18n';
-  
+
   import { bridges } from '../../bridge/bridges';
   import { chains } from '../../chain/chains';
   import { bridgeABI } from '../../constants/abi';
@@ -117,7 +117,7 @@
 
       log(`Claiming ${bridgeType} for transaction`, bridgeTx);
 
-      const tx = await bridge.Claim({
+      const tx = await bridge.claim({
         signer: $signer,
         message: bridgeTx.message,
         msgHash: bridgeTx.msgHash,
@@ -169,7 +169,7 @@
   }
 
   // TODO: move outside of component
-  async function releaseTokens(bridgeTx: BridgeTransaction) {
+  async function release(bridgeTx: BridgeTransaction) {
     try {
       loading = true;
 
@@ -196,7 +196,7 @@
 
       log(`Releasing ${bridgeType} for transaction`, bridgeTx);
 
-      const tx = await bridge.ReleaseTokens({
+      const tx = await bridge.release({
         signer: $signer,
         message: bridgeTx.message,
         msgHash: bridgeTx.msgHash,
@@ -361,7 +361,7 @@
           <Button
             type="accent"
             size="sm"
-            on:click={async () => await releaseTokens(transaction)}>
+            on:click={async () => await release(transaction)}>
             {$_('transaction.release')}
           </Button>
         {:else if transaction.status === TxExtendedStatus.Released}

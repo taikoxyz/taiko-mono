@@ -136,7 +136,7 @@
 
     log(`Checking allowance for token ${token.symbol}`);
 
-    const isRequired = await $activeBridge.RequiresAllowance({
+    const isRequired = await $activeBridge.requiresAllowance({
       amountInWei: ethers.utils.parseUnits(amount, token.decimals),
       signer: signer,
       contractAddress: address,
@@ -200,7 +200,7 @@
 
       log(`Approving token ${$token.symbol}`);
 
-      const tx = await $activeBridge.Approve({
+      const tx = await $activeBridge.approve({
         amountInWei: ethers.utils.parseUnits(amount, $token.decimals),
         signer: $signer,
         contractAddress,
@@ -240,7 +240,7 @@
   }
 
   async function checkUserHasEnoughBalance(bridgeOpts: BridgeOpts) {
-    const gasEstimate = await $activeBridge.EstimateGas({
+    const gasEstimate = await $activeBridge.estimateGas({
       ...bridgeOpts,
       // We need an amount, and user might not have entered one at this point
       amountInWei: BigNumber.from(1),
@@ -338,7 +338,7 @@
 
       log('Getting ready to bridge with options', bridgeOpts);
 
-      const tx = await $activeBridge.Bridge(bridgeOpts);
+      const tx = await $activeBridge.bridge(bridgeOpts);
 
       successToast('Transaction sent to bridge your funds.');
 
@@ -426,7 +426,7 @@
     if (isETH($token)) {
       try {
         const feeData = await fetchFeeData();
-        const gasEstimate = await $activeBridge.EstimateGas({
+        const gasEstimate = await $activeBridge.estimateGas({
           amountInWei: BigNumber.from(1),
           signer: $signer,
           tokenAddress: await getAddressForToken(

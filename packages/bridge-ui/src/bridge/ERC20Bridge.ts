@@ -2,7 +2,7 @@ import type { Transaction } from 'ethers';
 import { BigNumber, Contract, ethers, Signer } from 'ethers';
 
 import { chains } from '../chain/chains';
-import { bridgeABI,erc20ABI, tokenVaultABI } from '../constants/abi';
+import { bridgeABI, erc20ABI, tokenVaultABI } from '../constants/abi';
 import type {
   ApproveOpts,
   Bridge,
@@ -92,7 +92,7 @@ export class ERC20Bridge implements Bridge {
     }
   }
 
-  async RequiresAllowance(opts: ApproveOpts): Promise<boolean> {
+  async requiresAllowance(opts: ApproveOpts): Promise<boolean> {
     return this.spenderRequiresAllowance(
       opts.contractAddress,
       opts.signer,
@@ -101,7 +101,7 @@ export class ERC20Bridge implements Bridge {
     );
   }
 
-  async Approve(opts: ApproveOpts): Promise<Transaction> {
+  async approve(opts: ApproveOpts): Promise<Transaction> {
     const requiresAllowance = await this.spenderRequiresAllowance(
       opts.contractAddress,
       opts.signer,
@@ -137,7 +137,7 @@ export class ERC20Bridge implements Bridge {
     }
   }
 
-  async Bridge(opts: BridgeOpts): Promise<Transaction> {
+  async bridge(opts: BridgeOpts): Promise<Transaction> {
     const requiresAllowance = await this.spenderRequiresAllowance(
       opts.tokenAddress,
       opts.signer,
@@ -177,7 +177,7 @@ export class ERC20Bridge implements Bridge {
     }
   }
 
-  async EstimateGas(opts: BridgeOpts): Promise<BigNumber> {
+  async estimateGas(opts: BridgeOpts): Promise<BigNumber> {
     const { contract, message } = await ERC20Bridge.prepareTransaction(opts);
 
     log('Estimating gas for sendERC20 with message', message);
@@ -210,7 +210,7 @@ export class ERC20Bridge implements Bridge {
     return gasEstimate;
   }
 
-  async Claim(opts: ClaimOpts): Promise<Transaction> {
+  async claim(opts: ClaimOpts): Promise<Transaction> {
     const contract: Contract = new Contract(
       opts.destBridgeAddress,
       bridgeABI,
@@ -296,7 +296,7 @@ export class ERC20Bridge implements Bridge {
     }
   }
 
-  async ReleaseTokens(opts: ReleaseOpts): Promise<Transaction> {
+  async release(opts: ReleaseOpts): Promise<Transaction> {
     const destBridgeContract: Contract = new Contract(
       opts.destBridgeAddress,
       bridgeABI,

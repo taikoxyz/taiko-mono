@@ -62,16 +62,16 @@ export class ETHBridge implements Bridge {
     return { contract, owner, message };
   }
 
-  RequiresAllowance(opts: ApproveOpts): Promise<boolean> {
+  requiresAllowance(opts: ApproveOpts): Promise<boolean> {
     return Promise.resolve(false);
   }
 
   // ETH does not need to be approved for transacting
-  Approve(opts: ApproveOpts): Promise<Transaction> {
+  approve(opts: ApproveOpts): Promise<Transaction> {
     return new Promise((resolve) => resolve({} as unknown as Transaction));
   }
 
-  async Bridge(opts: BridgeOpts): Promise<Transaction> {
+  async bridge(opts: BridgeOpts): Promise<Transaction> {
     const { contract, message } = await ETHBridge.prepareTransaction(opts);
 
     const value = message.depositValue
@@ -92,7 +92,7 @@ export class ETHBridge implements Bridge {
     }
   }
 
-  async EstimateGas(opts: BridgeOpts): Promise<BigNumber> {
+  async estimateGas(opts: BridgeOpts): Promise<BigNumber> {
     const { contract, message } = await ETHBridge.prepareTransaction(opts);
 
     const value = message.depositValue
@@ -117,7 +117,7 @@ export class ETHBridge implements Bridge {
     }
   }
 
-  async Claim(opts: ClaimOpts): Promise<Transaction> {
+  async claim(opts: ClaimOpts): Promise<Transaction> {
     const destBridgeContract: Contract = new Contract(
       opts.destBridgeAddress,
       bridgeABI,
@@ -208,7 +208,7 @@ export class ETHBridge implements Bridge {
     }
   }
 
-  async ReleaseTokens(opts: ReleaseOpts): Promise<Transaction> {
+  async release(opts: ReleaseOpts): Promise<Transaction> {
     const destBridgeContract: Contract = new Contract(
       opts.destBridgeAddress,
       bridgeABI,
