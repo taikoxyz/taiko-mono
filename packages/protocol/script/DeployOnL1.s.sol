@@ -134,7 +134,8 @@ contract DeployOnL1 is Script {
                     genesisHash,
                     feeBase,
                     INITIAL_PROOF_TIME_TARGET,
-                    initProofTimeIssued
+                    initProofTimeIssued,
+                    uint16(ADJUSTMENT_QUOTIENT)
                 )
             )
         );

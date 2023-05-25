@@ -41,6 +41,7 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
      * @param _initProofTimeTarget Initial (reasonable) proof submission time target.
      * @param _initProofTimeIssued Initial proof time issued corresponding
      *        with the initial block fee.
+     * @param _adjustmentQuotient Block fee calculation adjustment quotient.
      */
     function init(
         address _addressManager,
