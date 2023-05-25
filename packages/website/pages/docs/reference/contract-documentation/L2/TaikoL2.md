@@ -25,28 +25,20 @@ struct EIP1559Params {
 }
 ```
 
+### EIP1559Config
+
+```solidity
+struct EIP1559Config {
+  uint128 yscale;
+  uint64 xscale;
+  uint64 gasIssuedPerSecond;
+}
+```
+
 ### publicInputHash
 
 ```solidity
 bytes32 publicInputHash
-```
-
-### yscale
-
-```solidity
-uint128 yscale
-```
-
-### xscale
-
-```solidity
-uint64 xscale
-```
-
-### gasIssuedPerSecond
-
-```solidity
-uint64 gasIssuedPerSecond
 ```
 
 ### parentTimestamp
@@ -213,6 +205,14 @@ block number.
 ```solidity
 function getBlockHash(uint256 number) public view returns (bytes32)
 ```
+
+### getEIP1559Config
+
+```solidity
+function getEIP1559Config() public view virtual returns (struct TaikoL2.EIP1559Config)
+```
+
+_Overide this funciton to return a constant EIP1559Config object_
 
 ---
 
