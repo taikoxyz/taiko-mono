@@ -165,8 +165,8 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
         return state.taikoTokenBalances[addr];
     }
 
-    function getBlockFee() public view returns (uint64) {
-        return state.blockFee;
+    function getBlockFee() public view returns (uint256) {
+        return LibProposing.getBlockFee(state);
     }
 
     function getBlock(uint256 blockId)
@@ -210,6 +210,10 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
 
     function getStateVariables() public view returns (TaikoData.StateVariables memory) {
         return state.getStateVariables();
+    }
+
+    function getBidForBlock(uint256 blockId) public view returns (TaikoData.Bid memory) {
+        return state.bids[blockId];
     }
 
     function getConfig() public pure virtual returns (TaikoData.Config memory) {
