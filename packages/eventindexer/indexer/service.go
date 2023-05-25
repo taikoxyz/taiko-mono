@@ -18,6 +18,7 @@ var (
 type Service struct {
 	eventRepo eventindexer.EventRepository
 	blockRepo eventindexer.BlockRepository
+	statRepo  eventindexer.StatRepository
 	ethClient *ethclient.Client
 
 	processingBlockHeight uint64
@@ -31,6 +32,7 @@ type Service struct {
 type NewServiceOpts struct {
 	EventRepo           eventindexer.EventRepository
 	BlockRepo           eventindexer.BlockRepository
+	StatRepo            eventindexer.StatRepository
 	EthClient           *ethclient.Client
 	RPCClient           *rpc.Client
 	SrcTaikoAddress     common.Address
@@ -59,6 +61,7 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 	return &Service{
 		eventRepo: opts.EventRepo,
 		blockRepo: opts.BlockRepo,
+		statRepo:  opts.StatRepo,
 		ethClient: opts.EthClient,
 		taikol1:   taikoL1,
 
