@@ -25,6 +25,7 @@ library TaikoData {
         uint256 ethDepositMaxFee;
         uint256 auctionDelayInSeconds;
         uint256 auctionTimeForProverToSubmitProofInSeconds;
+        uint256 proposerBlockFeeMultiplier;
         uint64 minEthDepositsPerBlock;
         uint64 maxEthDepositsPerBlock;
         uint96 maxEthDepositAmount;
@@ -144,18 +145,14 @@ library TaikoData {
         // Slot 7: never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 __reserved71;
-        uint64 __reserved72;
-        // Slot 8
         uint64 accProposedAt;
         uint64 numBlocks;
-        uint64 __reserved73;
+        // Slot 8
         uint64 nextEthDepositToProcess;
         // Slot 9
         uint64 blockFee;
         uint64 lastVerifiedBlockId;
-        uint64 __reserved74;
-        uint64 __reserved53;
+        uint64 __reversed71;
         uint256 avgProofTime;
         uint256 avgProofReward;
         // Reserved

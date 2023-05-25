@@ -78,7 +78,7 @@ library LibProposing {
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.proposer = msg.sender;
 
-        uint256 blockFee = getBlockFee(state);
+        uint256 blockFee = getBlockFee(config, state);
 
         if (state.taikoTokenBalances[msg.sender] < blockFee) {
             revert L1_INSUFFICIENT_TOKEN();
@@ -95,8 +95,12 @@ library LibProposing {
         }
     }
 
-    function getBlockFee(TaikoData.State storage state) internal view returns (uint256) {
-        return state.avgProofReward * 2;
+    function getBlockFee(TaikoData.Config memory config, TaikoData.State storage state)
+        internal
+        view
+        returns (uint256)
+    {
+        return state.avgProofReward * config.proposerBlockFeeMultiplier;
     }
 
     function getBlock(

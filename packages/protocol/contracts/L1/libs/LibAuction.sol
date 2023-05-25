@@ -17,8 +17,8 @@ library LibAuction {
 
     event Bid(
         uint256 indexed id,
-        address claimer,
-        uint256 claimedAt,
+        address bidder,
+        uint256 bidAt,
         uint256 deposit,
         uint256 minFeePerGasAcceptedInWei
     );

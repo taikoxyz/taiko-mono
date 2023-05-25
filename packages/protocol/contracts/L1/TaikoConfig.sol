@@ -43,7 +43,8 @@ library TaikoConfig {
             txListCacheExpiry: 0,
             relaySignalRoot: false,
             auctionDelayInSeconds: 100, // lasts 100 seconds after a bid
-            auctionTimeForProverToSubmitProofInSeconds: 1000 //
+            auctionTimeForProverToSubmitProofInSeconds: 1000, //
+            proposerBlockFeeMultiplier: 2
         });
     }
 }
