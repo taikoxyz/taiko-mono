@@ -59,6 +59,8 @@ func (svc *Service) saveBlockProposedEvent(
 	event *taikol1.TaikoL1BlockProposed,
 	sender common.Address,
 ) error {
+	log.Info("blockProposed event found")
+
 	marshaled, err := json.Marshal(event)
 	if err != nil {
 		return errors.Wrap(err, "json.Marshal(event)")
