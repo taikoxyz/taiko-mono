@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { ethers,type Signer } from 'ethers';
-  
+  import { ethers, type Signer } from 'ethers';
+
   import { L1_CHAIN_NAME, L2_CHAIN_NAME } from '../../constants/envVars';
   import type { Chain } from '../../domain/chain';
   import type { Token } from '../../domain/token';
@@ -23,7 +23,7 @@
 
   const log = getLogger('component:Faucet');
 
-  let buttonDisabled: boolean = true;
+  let actionDisabled: boolean = true;
   let loading: boolean = false;
   let errorReason: string = '';
 
@@ -108,14 +108,14 @@
   }
 
   $: shouldDisableButton($signer, $token)
-    .then((disable) => (buttonDisabled = disable))
+    .then((disable) => (actionDisabled = disable))
     .catch((error) => console.error(error));
 </script>
 
 <div class="space-y-4">
   <TestTokenDropdown bind:selectedToken={$token} />
 
-  {#if $token}
+  {#if $token && isTestToken($token)}
     <p>
       You can request 50 {$token.symbol}. {$token.symbol} is only available to be
       minted on {L1_CHAIN_NAME}. If you are on {L2_CHAIN_NAME}, your network
@@ -129,12 +129,12 @@
   <Button
     type="accent"
     class="w-full"
-    disabled={buttonDisabled || loading}
+    disabled={actionDisabled || loading}
     on:click={() => mint($fromChain, $signer, $token)}>
     <span>
       {#if loading}
         <Loading />
-      {:else if buttonDisabled}
+      {:else if actionDisabled}
         {errorReason || 'Mint'}
       {:else}
         Mint {$token.name}
