@@ -20,6 +20,7 @@ func newTestServer(url string) *Server {
 	srv := &Server{
 		echo:      echo.New(),
 		eventRepo: mock.NewEventRepository(),
+		statRepo:  mock.NewStatRepository(),
 	}
 
 	srv.configureMiddleware([]string{"*"})
@@ -41,14 +42,25 @@ func Test_NewServer(t *testing.T) {
 				Echo:        echo.New(),
 				EventRepo:   &repo.EventRepository{},
 				CorsOrigins: make([]string, 0),
+				StatRepo:    &repo.StatRepository{},
 			},
 			nil,
+		},
+		{
+			"noStatRepo",
+			NewServerOpts{
+				Echo:        echo.New(),
+				EventRepo:   &repo.EventRepository{},
+				CorsOrigins: make([]string, 0),
+			},
+			eventindexer.ErrNoStatRepository,
 		},
 		{
 			"noEventRepo",
 			NewServerOpts{
 				Echo:        echo.New(),
 				CorsOrigins: make([]string, 0),
+				StatRepo:    &repo.StatRepository{},
 			},
 			eventindexer.ErrNoEventRepository,
 		},
@@ -57,6 +69,7 @@ func Test_NewServer(t *testing.T) {
 			NewServerOpts{
 				Echo:      echo.New(),
 				EventRepo: &repo.EventRepository{},
+				StatRepo:  &repo.StatRepository{},
 			},
 			eventindexer.ErrNoCORSOrigins,
 		},
@@ -65,6 +78,7 @@ func Test_NewServer(t *testing.T) {
 			NewServerOpts{
 				EventRepo:   &repo.EventRepository{},
 				CorsOrigins: make([]string, 0),
+				StatRepo:    &repo.StatRepository{},
 			},
 			ErrNoHTTPFramework,
 		},

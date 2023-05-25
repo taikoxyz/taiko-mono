@@ -10,6 +10,7 @@ import (
 var (
 	EventNameBlockProven   = "BlockProven"
 	EventNameBlockProposed = "BlockProposed"
+	EventNameBlockVerified = "BlockVerified"
 )
 
 // Event represents a stored EVM event. The fields will be serialized

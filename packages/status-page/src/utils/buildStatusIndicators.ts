@@ -2,6 +2,8 @@ import { BigNumber, Contract, ethers } from "ethers";
 import TaikoL1 from "../constants/abi/TaikoL1";
 import type { Status, StatusIndicatorProp } from "../domain/status";
 import { getAvailableSlots } from "./getAvailableSlots";
+import { getAverageProofReward } from "./getAverageProofReward";
+import { getAverageProofTime } from "./getAverageProofTime";
 import { getBlockFee } from "./getBlockFee";
 import { getEthDeposits } from "./getEthDeposits";
 import { getGasPrice } from "./getGasPrice";
@@ -298,17 +300,30 @@ export function buildStatusIndicators(
       statusFunc: async (
         provider: ethers.providers.JsonRpcProvider,
         address: string
-      ) => {
-        const stateVars = await getStateVariables(provider, address);
-        return `${stateVars.proofTimeIssued.toNumber() / 1000} seconds`;
-      },
+      ) => await getAverageProofTime(config.eventIndexerApiUrl),
       colorFunc: function (status: Status) {
-        return "green"; // todo: whats green, yellow, red?
+        return "green";
       },
       header: "Average Proof Time",
       intervalInMs: 5 * 1000,
       tooltip:
         "The current average proof time, updated when a block is successfully proven.",
+    });
+
+    indicators.push({
+      provider: config.l1Provider,
+      contractAddress: config.l1TaikoAddress,
+      statusFunc: async (
+        provider: ethers.providers.JsonRpcProvider,
+        address: string
+      ) => await getAverageProofReward(config.eventIndexerApiUrl),
+      colorFunc: function (status: Status) {
+        return "green";
+      },
+      header: "Average Proof Reward",
+      intervalInMs: 5 * 1000,
+      tooltip:
+        "The current average proof reward, updated when a block is successfully verified.",
     });
   } catch (e) {
     console.error(e);

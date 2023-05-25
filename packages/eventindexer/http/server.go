@@ -16,11 +16,13 @@ import (
 type Server struct {
 	echo      *echo.Echo
 	eventRepo eventindexer.EventRepository
+	statRepo  eventindexer.StatRepository
 }
 
 type NewServerOpts struct {
 	Echo        *echo.Echo
 	EventRepo   eventindexer.EventRepository
+	StatRepo    eventindexer.StatRepository
 	CorsOrigins []string
 }
 
@@ -31,6 +33,10 @@ func (opts NewServerOpts) Validate() error {
 
 	if opts.EventRepo == nil {
 		return eventindexer.ErrNoEventRepository
+	}
+
+	if opts.StatRepo == nil {
+		return eventindexer.ErrNoStatRepository
 	}
 
 	if opts.CorsOrigins == nil {
@@ -48,6 +54,7 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 	srv := &Server{
 		echo:      opts.Echo,
 		eventRepo: opts.EventRepo,
+		statRepo:  opts.StatRepo,
 	}
 
 	corsOrigins := opts.CorsOrigins
