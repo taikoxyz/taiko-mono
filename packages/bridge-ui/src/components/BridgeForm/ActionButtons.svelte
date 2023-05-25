@@ -1,14 +1,15 @@
 <script lang="ts">
-  import { BigNumber, type Signer, ethers } from 'ethers';
-  import type { Token } from '../../domain/token';
+  import { BigNumber, ethers,type Signer } from 'ethers';
+  import { ArrowRight } from 'svelte-heros-v2';
+  
   import type { Chain } from '../../domain/chain';
-  import { isERC20 } from '../../token/tokens';
+  import type { Token } from '../../domain/token';
   import { fromChain } from '../../store/chain';
-  import { token } from '../../store/token';
   import { signer } from '../../store/signer';
+  import { token } from '../../store/token';
+  import { isERC20 } from '../../token/tokens';
   import Button from '../Button.svelte';
   import Loading from '../Loading.svelte';
-  import { ArrowRight } from 'svelte-heros-v2';
 
   export let requiresAllowance = false;
   export let computingAllowance = false;

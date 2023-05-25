@@ -1,9 +1,10 @@
-import { isETH } from '../token/tokens';
+import { Contract, Signer } from 'ethers';
+
+import { tokenVaultABI } from '../constants/abi';
 import type { Address, Chain } from '../domain/chain';
 import type { Token } from '../domain/token';
-import { Contract, Signer } from 'ethers';
+import { isETH } from '../token/tokens';
 import { tokenVaults } from '../vault/tokenVaults';
-import { tokenVaultABI } from '../constants/abi';
 import { getLogger } from './logger';
 
 const log = getLogger('util:getAddressForToken');

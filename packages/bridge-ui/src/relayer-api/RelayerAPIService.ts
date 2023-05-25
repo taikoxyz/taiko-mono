@@ -1,9 +1,11 @@
 import axios from 'axios';
 import { BigNumber, Contract, ethers } from 'ethers';
-import { bridgeABI, erc20ABI, tokenVaultABI } from '../constants/abi';
-import { MessageStatus } from '../domain/message';
 
-import type { BridgeTransaction } from '../domain/transaction';
+import { chains } from '../chain/chains';
+import { bridgeABI, erc20ABI, tokenVaultABI } from '../constants/abi';
+import type { Address } from '../domain/chain';
+import { MessageStatus } from '../domain/message';
+import type { RecordProviders } from '../domain/provider';
 import type {
   APIRequestParams,
   APIResponse,
@@ -14,11 +16,9 @@ import type {
   RelayerAPI,
   RelayerBlockInfo,
 } from '../domain/relayerApi';
-import { chains } from '../chain/chains';
-import { tokenVaults } from '../vault/tokenVaults';
-import type { Address } from '../domain/chain';
+import type { BridgeTransaction } from '../domain/transaction';
 import { getLogger } from '../utils/logger';
-import type { RecordProviders } from '../domain/provider';
+import { tokenVaults } from '../vault/tokenVaults';
 
 const log = getLogger('RelayerAPIService');
 

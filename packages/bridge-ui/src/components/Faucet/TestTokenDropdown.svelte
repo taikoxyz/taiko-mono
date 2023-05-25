@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ChevronDown } from 'svelte-heros-v2';
+  
   import type { Token } from '../../domain/token';
   import { isTestToken, testERC20Tokens } from '../../token/tokens';
   import Erc20 from '../icons/ERC20.svelte';

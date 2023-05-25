@@ -1,8 +1,9 @@
 import { BigNumber, ethers, Wallet } from 'ethers';
-import type { ApproveOpts, Bridge, BridgeOpts } from '../domain/bridge';
-import { ERC20Bridge } from './ERC20Bridge';
-import { Message, MessageStatus } from '../domain/message';
+
 import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
+import type { ApproveOpts, Bridge, BridgeOpts } from '../domain/bridge';
+import { Message, MessageStatus } from '../domain/message';
+import { ERC20Bridge } from './ERC20Bridge';
 
 jest.mock('../constants/envVars');
 

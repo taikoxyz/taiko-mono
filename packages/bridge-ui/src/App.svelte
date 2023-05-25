@@ -1,10 +1,11 @@
 <script lang="ts">
+  import { onDestroy, onMount } from 'svelte';
+  
   import Navbar from './components/Navbar.svelte';
   import NotificationToast from './components/NotificationToast.svelte';
-  import SwitchChainModal from './components/SwitchChainModal.svelte';
   import Router from './components/Router.svelte';
+  import SwitchChainModal from './components/SwitchChainModal.svelte';
   import { startWatching, stopWatching } from './wagmi/watcher';
-  import { onDestroy, onMount } from 'svelte';
 
   onMount(startWatching);
   onDestroy(stopWatching);

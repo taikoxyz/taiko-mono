@@ -1,15 +1,16 @@
 <script>
+  import { UserRejectedRequestError } from '@wagmi/core';
   import { ArrowRight } from 'svelte-heros-v2';
+  
+  import { mainnetChain, taikoChain } from '../../chain/chains';
   import { fromChain, toChain } from '../../store/chain';
   import { signer } from '../../store/signer';
-  import { mainnetChain, taikoChain } from '../../chain/chains';
+  import { selectChain } from '../../utils/selectChain';
   import {
     errorToast,
     successToast,
     warningToast,
   } from '../NotificationToast.svelte';
-  import { selectChain } from '../../utils/selectChain';
-  import { UserRejectedRequestError } from '@wagmi/core';
 
   const toggleChains = async () => {
     if (!$signer) {

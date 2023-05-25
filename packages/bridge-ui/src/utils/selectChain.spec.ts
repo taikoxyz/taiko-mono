@@ -1,8 +1,9 @@
 import { switchNetwork } from '@wagmi/core';
 import { ethers } from 'ethers';
+
+import { mainnetChain, taikoChain } from '../chain/chains';
 import { fromChain, toChain } from '../store/chain';
 import { signer } from '../store/signer';
-import { mainnetChain, taikoChain } from '../chain/chains';
 import { selectChain } from './selectChain';
 
 jest.mock('../constants/envVars');

@@ -1,14 +1,15 @@
 import { Contract, ethers } from 'ethers';
-import { tokenVaults } from '../vault/tokenVaults';
+
+import { chains } from '../chain/chains';
+import { bridgeABI, tokenVaultABI } from '../constants/abi';
+import { MessageStatus } from '../domain/message';
 import {
   type BridgeTransaction,
   TxExtendedStatus,
 } from '../domain/transaction';
-import { isETHByMessage } from './isETHByMessage';
-import { chains } from '../chain/chains';
 import { providers } from '../provider/providers';
-import { bridgeABI, tokenVaultABI } from '../constants/abi';
-import { MessageStatus } from '../domain/message';
+import { tokenVaults } from '../vault/tokenVaults';
+import { isETHByMessage } from './isETHByMessage';
 
 export async function isEthOrTokenReleased(
   bridgeTx: BridgeTransaction,

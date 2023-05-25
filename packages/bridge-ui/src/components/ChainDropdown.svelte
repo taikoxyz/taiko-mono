@@ -1,16 +1,17 @@
 <script lang="ts">
-  import { fromChain } from '../store/chain';
+  import { UserRejectedRequestError } from '@wagmi/core';
   import { ChevronDown, ExclamationTriangle } from 'svelte-heros-v2';
+  
   import { mainnetChain, taikoChain } from '../chain/chains';
-  import { selectChain } from '../utils/selectChain';
   import type { Chain } from '../domain/chain';
+  import { fromChain } from '../store/chain';
+  import { signer } from '../store/signer';
+  import { selectChain } from '../utils/selectChain';
   import {
     errorToast,
     successToast,
     warningToast,
   } from './NotificationToast.svelte';
-  import { signer } from '../store/signer';
-  import { UserRejectedRequestError } from '@wagmi/core';
 
   const switchChains = async (chain: Chain) => {
     if (!$signer) {

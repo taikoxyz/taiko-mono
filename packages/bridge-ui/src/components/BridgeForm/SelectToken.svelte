@@ -1,20 +1,21 @@
 <script lang="ts">
   import { getProvider } from '@wagmi/core';
-  import { token } from '../../store/token';
-  import { bridgeType } from '../../store/bridge';
-  import type { Token } from '../../domain/token';
-  import { BridgeType, type HTMLBridgeForm } from '../../domain/bridge';
+  import { Contract,ethers } from 'ethers';
   import { ChevronDown, PlusCircle } from 'svelte-heros-v2';
-  import { ethers, Contract } from 'ethers';
+  
   import { erc20ABI } from '../../constants/abi';
-  import { signer } from '../../store/signer';
-  import { userTokens } from '../../store/userToken';
-  import { fromChain, toChain } from '../../store/chain';
-  import Erc20 from '../icons/ERC20.svelte';
-  import AddCustomErc20 from './AddCustomERC20.svelte';
-  import { isETH, tokens } from '../../token/tokens';
-  import { errorToast, successToast } from '../NotificationToast.svelte';
+  import { BridgeType, type HTMLBridgeForm } from '../../domain/bridge';
+  import type { Token } from '../../domain/token';
   import { tokenService } from '../../storage/services';
+  import { bridgeType } from '../../store/bridge';
+  import { fromChain, toChain } from '../../store/chain';
+  import { signer } from '../../store/signer';
+  import { token } from '../../store/token';
+  import { userTokens } from '../../store/userToken';
+  import { isETH, tokens } from '../../token/tokens';
+  import Erc20 from '../icons/ERC20.svelte';
+  import { errorToast, successToast } from '../NotificationToast.svelte';
+  import AddCustomErc20 from './AddCustomERC20.svelte';
 
   let dropdownElement: HTMLDivElement;
   let showAddressField = false;

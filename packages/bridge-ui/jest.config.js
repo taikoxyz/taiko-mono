@@ -46,10 +46,10 @@ export default {
       //         - relayer-api/RelayerAPIService (full test coverage)
       //         - bridge/ERC20Bridge (partial test coverage)
       //         - bridge/ETHBridge (partial test coverage)
-      statements: 70,
-      branches: 70,
-      functions: 70,
-      lines: 70,
+      statements: 78,
+      branches: 79,
+      functions: 80,
+      lines: 78,
     },
   },
   modulePathIgnorePatterns: ['<rootDir>/public/build/'],

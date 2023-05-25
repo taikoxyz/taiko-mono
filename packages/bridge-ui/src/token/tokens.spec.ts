@@ -1,14 +1,14 @@
-import Horse from '../components/icons/Horse.svelte';
 import Bull from '../components/icons/Bull.svelte';
+import Horse from '../components/icons/Horse.svelte';
+import Unknown from '../components/icons/Unknown.svelte';
 import {
   ETHToken,
-  TKOToken,
   isERC20,
   isETH,
   isTestToken,
   testERC20Tokens,
+  TKOToken,
 } from './tokens';
-import Unknown from '../components/icons/Unknown.svelte';
 
 jest.mock('../constants/envVars', () => ({
   TEST_ERC20: [

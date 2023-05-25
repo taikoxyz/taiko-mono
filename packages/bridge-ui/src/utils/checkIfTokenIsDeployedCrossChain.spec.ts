@@ -1,8 +1,9 @@
 import { ethers } from 'ethers';
-import { ETHToken } from '../token/tokens';
+
 import { tokenVaultABI } from '../constants/abi';
 import type { Chain } from '../domain/chain';
 import type { Token } from '../domain/token';
+import { ETHToken } from '../token/tokens';
 import { checkIfTokenIsDeployedCrossChain } from './checkIfTokenIsDeployedCrossChain';
 
 jest.mock('../constants/envVars');

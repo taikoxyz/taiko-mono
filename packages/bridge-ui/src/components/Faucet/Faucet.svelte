@@ -1,24 +1,25 @@
 <script lang="ts">
-  import { pendingTransactions } from '../../store/transaction';
+  import { ethers,type Signer } from 'ethers';
+  
+  import { L1_CHAIN_NAME, L2_CHAIN_NAME } from '../../constants/envVars';
+  import type { Chain } from '../../domain/chain';
   import type { Token } from '../../domain/token';
+  import { fromChain } from '../../store/chain';
+  import { signer } from '../../store/signer';
+  import { token } from '../../store/token';
+  import { pendingTransactions } from '../../store/transaction';
+  import { isTestToken } from '../../token/tokens';
+  import { getIsMintedWithEstimation } from '../../utils/getIsMintedWithEstimation';
+  import { getLogger } from '../../utils/logger';
+  import { mintERC20 } from '../../utils/mintERC20';
+  import Button from '../Button.svelte';
+  import Loading from '../Loading.svelte';
   import {
     errorToast,
     successToast,
     warningToast,
   } from '../NotificationToast.svelte';
   import TestTokenDropdown from './TestTokenDropdown.svelte';
-  import { type Signer, ethers } from 'ethers';
-  import { getIsMintedWithEstimation } from '../../utils/getIsMintedWithEstimation';
-  import { mintERC20 } from '../../utils/mintERC20';
-  import type { Chain } from '../../domain/chain';
-  import { signer } from '../../store/signer';
-  import { fromChain } from '../../store/chain';
-  import { L1_CHAIN_NAME, L2_CHAIN_NAME } from '../../constants/envVars';
-  import Button from '../Button.svelte';
-  import { getLogger } from '../../utils/logger';
-  import Loading from '../Loading.svelte';
-  import { token } from '../../store/token';
-  import { isTestToken } from '../../token/tokens';
 
   const log = getLogger('component:Faucet');
 

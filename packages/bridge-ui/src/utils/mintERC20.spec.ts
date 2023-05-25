@@ -1,10 +1,11 @@
 import { Contract, ethers, type Signer } from 'ethers';
-import { mintERC20 } from './mintERC20';
-import type { Token } from '../domain/token';
-import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
-import { freeMintErc20ABI } from '../constants/abi';
-import { selectChain } from './selectChain';
+
 import { chains } from '../chain/chains';
+import { freeMintErc20ABI } from '../constants/abi';
+import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
+import type { Token } from '../domain/token';
+import { mintERC20 } from './mintERC20';
+import { selectChain } from './selectChain';
 
 jest.mock('../constants/envVars');
 

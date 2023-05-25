@@ -1,9 +1,10 @@
 import { fetchSigner, watchAccount, watchNetwork } from '@wagmi/core';
-import { getLogger } from '../utils/logger';
-import { fromChain, toChain } from '../store/chain';
-import { signer } from '../store/signer';
-import { isSwitchChainModalOpen } from '../store/modal';
+
 import { mainnetChain, taikoChain } from '../chain/chains';
+import { fromChain, toChain } from '../store/chain';
+import { isSwitchChainModalOpen } from '../store/modal';
+import { signer } from '../store/signer';
+import { getLogger } from '../utils/logger';
 
 const log = getLogger('wagmi:watcher');
 

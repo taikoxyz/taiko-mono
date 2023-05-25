@@ -1,12 +1,13 @@
 import { Contract, ethers } from 'ethers';
 import { RLP } from 'ethers/lib/utils.js';
+
 import { crossChainSyncABI } from '../constants/abi';
 import type { Block } from '../domain/block';
 import type {
-  Prover,
-  GenerateProofOpts,
   EthGetProofResponse,
+  GenerateProofOpts,
   GenerateReleaseProofOpts,
+  Prover,
 } from '../domain/proof';
 import { getLogger } from '../utils/logger';
 

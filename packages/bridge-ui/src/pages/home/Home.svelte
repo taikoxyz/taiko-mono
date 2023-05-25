@@ -1,14 +1,15 @@
 <script lang="ts">
   import { location } from 'svelte-spa-router';
-  import { transactions } from '../../store/transaction';
-  import { paginationInfo } from '../../store/relayerApi';
-  import { signer } from '../../store/signer';
+  
   import BridgeForm from '../../components/BridgeForm';
-  import Transactions from '../../components/Transactions';
-  import { Tabs, TabList, Tab, TabPanel } from '../../components/Tabs';
-  import Loading from '../../components/Loading.svelte';
   import SelectChain from '../../components/BridgeForm/SelectChain.svelte';
   import Faucet from '../../components/Faucet/Faucet.svelte';
+  import Loading from '../../components/Loading.svelte';
+  import { Tab, TabList, TabPanel,Tabs } from '../../components/Tabs';
+  import Transactions from '../../components/Transactions';
+  import { paginationInfo } from '../../store/relayerApi';
+  import { signer } from '../../store/signer';
+  import { transactions } from '../../store/transaction';
 
   // List of tab's name <=> route association
   // TODO: add this into a general configuration.

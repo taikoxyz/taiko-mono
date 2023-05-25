@@ -1,10 +1,11 @@
 import { BigNumber, Contract, ethers, Signer } from 'ethers';
+
 import { tokenVaultABI } from '../constants/abi';
 import type { Chain } from '../domain/chain';
 import type { ProcessingFeeMethod } from '../domain/fee';
 import type { Token } from '../domain/token';
-import { isETH } from '../token/tokens';
 import { providers } from '../provider/providers';
+import { isETH } from '../token/tokens';
 import { tokenVaults } from '../vault/tokenVaults';
 
 export const ethGasLimit = 900000;

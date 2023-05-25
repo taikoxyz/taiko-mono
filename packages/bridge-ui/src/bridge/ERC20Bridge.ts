@@ -1,5 +1,8 @@
-import { BigNumber, Contract, ethers, Signer } from 'ethers';
 import type { Transaction } from 'ethers';
+import { BigNumber, Contract, ethers, Signer } from 'ethers';
+
+import { chains } from '../chain/chains';
+import { bridgeABI,erc20ABI, tokenVaultABI } from '../constants/abi';
 import type {
   ApproveOpts,
   Bridge,
@@ -7,10 +10,8 @@ import type {
   ClaimOpts,
   ReleaseOpts,
 } from '../domain/bridge';
-import { tokenVaultABI, erc20ABI, bridgeABI } from '../constants/abi';
-import type { Prover } from '../domain/proof';
 import { MessageStatus } from '../domain/message';
-import { chains } from '../chain/chains';
+import type { Prover } from '../domain/proof';
 import { getLogger } from '../utils/logger';
 
 const log = getLogger('ERC20Bridge');

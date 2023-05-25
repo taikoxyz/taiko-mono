@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  
   import type { NoticeModalOpenMethod } from '../domain/modal';
   import Button from './Button.svelte';
   import Modal from './Modal.svelte';

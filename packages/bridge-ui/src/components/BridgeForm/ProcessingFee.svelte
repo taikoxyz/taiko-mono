@@ -1,16 +1,17 @@
 <script lang="ts">
+  import { ethers } from 'ethers';
   import { _ } from 'svelte-i18n';
+  
   import { ProcessingFeeMethod } from '../../domain/fee';
-  import { toChain, fromChain } from '../../store/chain';
-  import { token } from '../../store/token';
+  import { processingFees } from '../../fee/processingFees';
+  import { fromChain,toChain } from '../../store/chain';
   import { signer } from '../../store/signer';
+  import { token } from '../../store/token';
   import { recommendProcessingFee } from '../../utils/recommendProcessingFee';
   import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
-  import { processingFees } from '../../fee/processingFees';
-  import GeneralTooltip from './ProcessingFeeTooltip.svelte';
   import NoticeModal from '../NoticeModal.svelte';
   import { errorToast } from '../NotificationToast.svelte';
-  import { ethers } from 'ethers';
+  import GeneralTooltip from './ProcessingFeeTooltip.svelte';
 
   export let method: ProcessingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
   export let amount: string = '0';

@@ -1,19 +1,20 @@
 <script lang="ts">
-  import { Signer, ethers } from 'ethers';
-  import { pendingTransactions } from '../store/transaction';
-  import { signer } from '../store/signer';
-  import { fromChain } from '../store/chain';
-  import Modal from './Modal.svelte';
-  import { token } from '../store/token';
+  import { ethers,Signer } from 'ethers';
+  
   import { L1_CHAIN_NAME, L2_CHAIN_NAME } from '../constants/envVars';
+  import type { Token } from '../domain/token';
+  import { fromChain } from '../store/chain';
+  import { signer } from '../store/signer';
+  import { token } from '../store/token';
+  import { pendingTransactions } from '../store/transaction';
+  import { getIsMintedWithEstimation } from '../utils/getIsMintedWithEstimation';
+  import { mintERC20 } from '../utils/mintERC20';
+  import Modal from './Modal.svelte';
   import {
     errorToast,
     successToast,
     warningToast,
   } from './NotificationToast.svelte';
-  import type { Token } from '../domain/token';
-  import { mintERC20 } from '../utils/mintERC20';
-  import { getIsMintedWithEstimation } from '../utils/getIsMintedWithEstimation';
 
   export let isOpen: boolean = false;
   export let onMint: () => Promise<void>;

@@ -1,9 +1,10 @@
 import { Contract } from 'ethers';
+
+import { chains } from '../chain/chains';
+import { crossChainSyncABI } from '../constants/abi';
 import { MessageStatus } from '../domain/message';
 import type { BridgeTransaction } from '../domain/transaction';
-import { chains } from '../chain/chains';
 import { providers } from '../provider/providers';
-import { crossChainSyncABI } from '../constants/abi';
 
 export async function isTransactionProcessable(transaction: BridgeTransaction) {
   const { receipt, message, status, fromChainId, toChainId } = transaction;

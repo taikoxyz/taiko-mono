@@ -1,6 +1,8 @@
 import './app.css';
-import App from './App.svelte';
+
 import { Buffer } from 'buffer';
+
+import App from './App.svelte';
 import { setupI18n } from './i18n';
 
 setupI18n({ withLocale: 'en' });

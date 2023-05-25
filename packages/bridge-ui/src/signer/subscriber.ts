@@ -1,12 +1,13 @@
 import type { Signer } from 'ethers';
-import { storageService, tokenService } from '../storage/services';
-import { transactions } from '../store/transaction';
-import { userTokens } from '../store/userToken';
+
+import type { PaginationInfo } from '../domain/relayerApi';
 import type { BridgeTransaction } from '../domain/transaction';
 import { relayerApi } from '../relayer-api/relayerApi';
+import { storageService, tokenService } from '../storage/services';
 import { paginationInfo, relayerBlockInfoMap } from '../store/relayerApi';
+import { transactions } from '../store/transaction';
+import { userTokens } from '../store/userToken';
 import { getLogger } from '../utils/logger';
-import type { PaginationInfo } from '../domain/relayerApi';
 
 const log = getLogger('signer:subscriber');
 

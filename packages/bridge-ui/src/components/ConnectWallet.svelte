@@ -1,24 +1,23 @@
 <script lang="ts">
-  import { _ } from 'svelte-i18n';
   import {
     connect as wagmiConnect,
     Connector,
     ConnectorNotFoundError,
     UserRejectedRequestError,
   } from '@wagmi/core';
-
-  import Modal from './Modal.svelte';
-
+  import { _ } from 'svelte-i18n';
+  
+  import { getLogger } from '../utils/logger';
+  import { client as wagmiClient } from '../wagmi/client';
+  import CoinbaseWallet from './icons/CoinbaseWallet.svelte';
   import MetaMask from './icons/MetaMask.svelte';
   import WalletConnect from './icons/WalletConnect.svelte';
-  import CoinbaseWallet from './icons/CoinbaseWallet.svelte';
+  import Modal from './Modal.svelte';
   import {
     errorToast,
     successToast,
     warningToast,
   } from './NotificationToast.svelte';
-  import { getLogger } from '../utils/logger';
-  import { client as wagmiClient } from '../wagmi/client';
 
   const log = getLogger('component:Connect');
 

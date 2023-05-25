@@ -1,19 +1,20 @@
 <script lang="ts">
   import { getProvider } from '@wagmi/core';
+  import { Contract,ethers } from 'ethers';
   import { Trash } from 'svelte-heros-v2';
+  
+  import { erc20ABI } from '../../constants/abi';
   import type { Token, TokenDetails } from '../../domain/token';
+  import { tokenService } from '../../storage/services';
   import { signer } from '../../store/signer';
   import { token as tokenStore } from '../../store/token';
   import { userTokens } from '../../store/userToken';
-  import Erc20 from '../icons/ERC20.svelte';
-  import Modal from '../Modal.svelte';
-  import { ethers, Contract } from 'ethers';
-  import { erc20ABI } from '../../constants/abi';
   import { ETHToken } from '../../token/tokens';
-  import { errorToast } from '../NotificationToast.svelte';
-  import { tokenService } from '../../storage/services';
-  import Loading from '../Loading.svelte';
   import { getLogger } from '../../utils/logger';
+  import Erc20 from '../icons/ERC20.svelte';
+  import Loading from '../Loading.svelte';
+  import Modal from '../Modal.svelte';
+  import { errorToast } from '../NotificationToast.svelte';
 
   const log = getLogger('component:AddCustomERC20');
 

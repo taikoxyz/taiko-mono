@@ -1,10 +1,10 @@
 import { type Chain, configureChains, createClient } from '@wagmi/core';
-import { publicProvider } from '@wagmi/core/providers/public';
-import { jsonRpcProvider } from '@wagmi/core/providers/jsonRpc';
 import { CoinbaseWalletConnector } from '@wagmi/core/connectors/coinbaseWallet';
-import { WalletConnectConnector } from '@wagmi/core/connectors/walletConnect';
 import { MetaMaskConnector } from '@wagmi/core/connectors/metaMask';
-import { providers } from '../provider/providers';
+import { WalletConnectConnector } from '@wagmi/core/connectors/walletConnect';
+import { jsonRpcProvider } from '@wagmi/core/providers/jsonRpc';
+import { publicProvider } from '@wagmi/core/providers/public';
+
 import {
   L1_CHAIN_ID,
   L1_CHAIN_NAME,
@@ -15,6 +15,7 @@ import {
   L2_EXPLORER_URL,
   L2_RPC,
 } from '../constants/envVars';
+import { providers } from '../provider/providers';
 
 export const mainnetWagmiChain: Chain = {
   id: L1_CHAIN_ID,

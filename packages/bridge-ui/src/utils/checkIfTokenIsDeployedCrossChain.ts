@@ -1,8 +1,9 @@
 import { ethers } from 'ethers';
-import { isETH } from '../token/tokens';
+
 import { tokenVaultABI } from '../constants/abi';
 import type { Chain } from '../domain/chain';
 import type { Token } from '../domain/token';
+import { isETH } from '../token/tokens';
 import { getLogger } from './logger';
 
 const log = getLogger('util:checkIfTokenIsDeployedCrossChain');

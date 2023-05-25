@@ -1,15 +1,15 @@
 <script lang="ts">
-  import { transactions } from '../../store/transaction';
-  import { paginationInfo } from '../../store/relayerApi';
-  import Transaction from './Transaction.svelte';
-  import TransactionDetail from './TransactionDetail.svelte';
-  import MessageStatusTooltip from './MessageStatusTooltip.svelte';
-  import InsufficientBalanceTooltip from './InsufficientBalanceTooltip.svelte';
   import type { BridgeTransaction } from '../../domain/transaction';
+  import { paginationInfo } from '../../store/relayerApi';
+  import { signer } from '../../store/signer';
+  import { transactions } from '../../store/transaction';
+  import Loading from '../Loading.svelte';
   import NoticeModal from '../NoticeModal.svelte';
   import Paginator from '../Paginator.svelte';
-  import Loading from '../Loading.svelte';
-  import { signer } from '../../store/signer';
+  import InsufficientBalanceTooltip from './InsufficientBalanceTooltip.svelte';
+  import MessageStatusTooltip from './MessageStatusTooltip.svelte';
+  import Transaction from './Transaction.svelte';
+  import TransactionDetail from './TransactionDetail.svelte';
 
   let selectedTransaction: BridgeTransaction;
   let showMessageStatusTooltip: boolean;

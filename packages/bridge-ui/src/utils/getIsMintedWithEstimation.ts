@@ -1,6 +1,7 @@
-import { type Signer, Contract, BigNumber } from 'ethers';
-import type { Token } from '../domain/token';
+import { BigNumber,Contract, type Signer } from 'ethers';
+
 import { freeMintErc20ABI } from '../constants/abi';
+import type { Token } from '../domain/token';
 import { getLogger } from './logger';
 
 const log = getLogger('util:minting');

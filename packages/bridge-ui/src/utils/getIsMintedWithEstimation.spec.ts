@@ -1,7 +1,8 @@
-import { type Signer, Contract, BigNumber } from 'ethers';
-import { getIsMintedWithEstimation } from './getIsMintedWithEstimation';
+import { BigNumber,Contract, type Signer } from 'ethers';
+
 import { L1_CHAIN_ID } from '../constants/envVars';
 import type { Token } from '../domain/token';
+import { getIsMintedWithEstimation } from './getIsMintedWithEstimation';
 
 jest.mock('../constants/envVars');
 

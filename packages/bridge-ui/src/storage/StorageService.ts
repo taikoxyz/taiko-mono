@@ -1,12 +1,13 @@
-import type { BridgeTransaction, Transactioner } from '../domain/transaction';
 import { BigNumber, Contract, ethers } from 'ethers';
-import { bridgeABI, tokenVaultABI, erc20ABI } from '../constants/abi';
-import { MessageStatus } from '../domain/message';
+
 import { chains } from '../chain/chains';
-import { tokenVaults } from '../vault/tokenVaults';
+import { bridgeABI, erc20ABI,tokenVaultABI } from '../constants/abi';
 import type { Address, ChainID } from '../domain/chain';
+import { MessageStatus } from '../domain/message';
+import type { BridgeTransaction, Transactioner } from '../domain/transaction';
 import { jsonParseOrEmptyArray } from '../utils/jsonParseOrEmptyArray';
 import { getLogger } from '../utils/logger';
+import { tokenVaults } from '../vault/tokenVaults';
 
 const log = getLogger('StorageService');
 

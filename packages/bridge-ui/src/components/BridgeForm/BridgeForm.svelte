@@ -1,44 +1,43 @@
 <script lang="ts">
-  import { _ } from 'svelte-i18n';
-  import { token } from '../../store/token';
-  import { fromChain, toChain } from '../../store/chain';
-  import { activeBridge, bridgeType } from '../../store/bridge';
-  import { signer } from '../../store/signer';
+  import { fetchFeeData } from '@wagmi/core';
   import { BigNumber, Contract, ethers, type Signer } from 'ethers';
-  import ProcessingFee from './ProcessingFee.svelte';
-  import SelectToken from './SelectToken.svelte';
-
-  import type { Token } from '../../domain/token';
+  import { _ } from 'svelte-i18n';
+  
+  import { chains } from '../../chain/chains';
+  import { erc20ABI } from '../../constants/abi';
   import type { BridgeOpts, BridgeType } from '../../domain/bridge';
-
   import type { Chain } from '../../domain/chain';
-  import { truncateString } from '../../utils/truncateString';
+  import { ProcessingFeeMethod } from '../../domain/fee';
+  import { MessageStatus } from '../../domain/message';
+  import type { Token } from '../../domain/token';
+  import type { BridgeTransaction } from '../../domain/transaction';
+  import { providers } from '../../provider/providers';
+  import { storageService } from '../../storage/services';
+  import { activeBridge, bridgeType } from '../../store/bridge';
+  import { fromChain, toChain } from '../../store/chain';
+  import { signer } from '../../store/signer';
+  import { token } from '../../store/token';
   import {
     pendingTransactions,
     transactions as transactionsStore,
   } from '../../store/transaction';
-  import Memo from './Memo.svelte';
-  import { erc20ABI } from '../../constants/abi';
-  import type { BridgeTransaction } from '../../domain/transaction';
-  import { MessageStatus } from '../../domain/message';
+  import { isETH } from '../../token/tokens';
+  import { checkIfTokenIsDeployedCrossChain } from '../../utils/checkIfTokenIsDeployedCrossChain';
+  import { getAddressForToken } from '../../utils/getAddressForToken';
+  import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
+  import { getLogger } from '../../utils/logger';
+  import { truncateString } from '../../utils/truncateString';
+  import { tokenVaults } from '../../vault/tokenVaults';
   import {
     errorToast,
     successToast,
     warningToast,
   } from '../NotificationToast.svelte';
-  import { fetchFeeData } from '@wagmi/core';
-  import { checkIfTokenIsDeployedCrossChain } from '../../utils/checkIfTokenIsDeployedCrossChain';
-  import To from './To.svelte';
-  import { isETH } from '../../token/tokens';
-  import { chains } from '../../chain/chains';
-  import { providers } from '../../provider/providers';
-  import { tokenVaults } from '../../vault/tokenVaults';
-  import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
-  import { ProcessingFeeMethod } from '../../domain/fee';
-  import { storageService } from '../../storage/services';
-  import { getLogger } from '../../utils/logger';
-  import { getAddressForToken } from '../../utils/getAddressForToken';
   import ActionButtons from './ActionButtons.svelte';
+  import Memo from './Memo.svelte';
+  import ProcessingFee from './ProcessingFee.svelte';
+  import SelectToken from './SelectToken.svelte';
+  import To from './To.svelte';
 
   const log = getLogger('component:BridgeForm');
 

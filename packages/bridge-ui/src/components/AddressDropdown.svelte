@@ -1,19 +1,20 @@
 <script lang="ts">
   import { disconnect as wagmiDisconnect, RpcError } from '@wagmi/core';
+  import { ethers, type Signer } from 'ethers';
   import { onMount } from 'svelte';
+  import { slide } from 'svelte/transition';
+  import { ClipboardDocument, Power } from 'svelte-heros-v2';
+  import { ChevronDown } from 'svelte-heros-v2';
   import { _ } from 'svelte-i18n';
-  import { addressSubsection } from '../utils/addressSubsection';
+  
+  import { fromChain } from '../store/chain';
   import { signer } from '../store/signer';
   import { pendingTransactions } from '../store/transaction';
   import { getAddressAvatarFromIdenticon } from '../utils/addressAvatar';
-  import { ethers, type Signer } from 'ethers';
-  import { ClipboardDocument, Power } from 'svelte-heros-v2';
-  import { slide } from 'svelte/transition';
-  import { fromChain } from '../store/chain';
+  import { addressSubsection } from '../utils/addressSubsection';
   import { truncateString } from '../utils/truncateString';
-  import { ChevronDown } from 'svelte-heros-v2';
-  import { errorToast, successToast } from './NotificationToast.svelte';
   import Loading from './Loading.svelte';
+  import { errorToast, successToast } from './NotificationToast.svelte';
 
   let address: string = '';
   let addressAvatarImgData: string = '';

@@ -1,10 +1,11 @@
-import { Signer, Contract, type Transaction } from 'ethers';
+import { Contract, Signer, type Transaction } from 'ethers';
 import type { Token } from 'src/domain/token';
-import { selectChain } from './selectChain';
-import { L1_CHAIN_ID } from '../constants/envVars';
+
 import { chains } from '../chain/chains';
 import { freeMintErc20ABI } from '../constants/abi';
+import { L1_CHAIN_ID } from '../constants/envVars';
 import { getLogger } from './logger';
+import { selectChain } from './selectChain';
 
 const log = getLogger('util:mintERC20');
 

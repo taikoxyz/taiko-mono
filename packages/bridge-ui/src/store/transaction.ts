@@ -1,5 +1,6 @@
+import { ethers,type Signer, type Transaction } from 'ethers';
 import { writable } from 'svelte/store';
-import { type Signer, type Transaction, ethers } from 'ethers';
+
 import type {
   BridgeTransaction,
   TransactionReceipt,

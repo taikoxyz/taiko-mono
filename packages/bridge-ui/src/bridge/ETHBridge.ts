@@ -1,5 +1,8 @@
-import { BigNumber, Contract, ethers } from 'ethers';
 import type { Transaction } from 'ethers';
+import { BigNumber, Contract, ethers } from 'ethers';
+
+import { chains } from '../chain/chains';
+import { bridgeABI } from '../constants/abi';
 import type {
   ApproveOpts,
   Bridge,
@@ -7,10 +10,8 @@ import type {
   ClaimOpts,
   ReleaseOpts,
 } from '../domain/bridge';
-import type { Prover } from '../domain/proof';
-import { bridgeABI } from '../constants/abi';
-import { chains } from '../chain/chains';
 import { type Message, MessageStatus } from '../domain/message';
+import type { Prover } from '../domain/proof';
 import { getLogger } from '../utils/logger';
 
 const log = getLogger('ETHBridge');
