@@ -52,8 +52,8 @@ contract TestTaiko1559Params is Test {
         console2.log("gasExcessMax      :", param1559.gasExcessMax);
         console2.log("gasTarget         :", param1559.gasTarget);
         console2.log("ratio2x1x         :", param1559.ratio2x1x);
-        console2.log("yscale            :", L2.yscale());
-        console2.log("xscale            :", L2.xscale());
+        console2.log("yscale            :", L2.getEIP1559Config().yscale);
+        console2.log("xscale            :", L2.getEIP1559Config().xscale);
         console2.log("gasExcess         :", L2.gasExcess());
 
         // basefee           : 1120000000
