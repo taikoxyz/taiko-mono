@@ -58,7 +58,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     uint64 public parentTimestamp;
     uint64 public latestSyncedL1Height;
     uint64 public gasExcess;
-    uint64 public __reserved1;
+    uint64 private __reserved1;
 
     uint256[45] private __gap;
 
@@ -112,18 +112,18 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
                     || _param1559.ratio2x1x == 0
             ) revert L2_INVALID_1559_PARAMS();
 
-            (uint128 _xscale, uint128 _yscale) = Lib1559Math.calculateScales({
+            (uint128 xscale, uint128 yscale) = Lib1559Math.calculateScales({
                 xExcessMax: _param1559.gasExcessMax,
                 price: _param1559.basefee,
                 target: _param1559.gasTarget,
                 ratio2x1x: _param1559.ratio2x1x
             });
 
-            if (_xscale == 0 || _xscale >= type(uint64).max || _yscale == 0) {
+            if (xscale == 0 || xscale >= type(uint64).max || yscale == 0) {
                 revert L2_INVALID_1559_PARAMS();
             }
-            _eip1559Config.yscale = _yscale;
-            _eip1559Config.xscale = uint64(_xscale);
+            _eip1559Config.yscale = yscale;
+            _eip1559Config.xscale = uint64(xscale);
             _eip1559Config.gasIssuedPerSecond = _param1559.gasIssuedPerSecond;
 
             gasExcess = _param1559.gasExcessMax / 2;

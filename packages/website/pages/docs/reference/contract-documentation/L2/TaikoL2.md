@@ -59,12 +59,6 @@ uint64 latestSyncedL1Height
 uint64 gasExcess
 ```
 
-### \_\_reserved1
-
-```solidity
-uint64 __reserved1
-```
-
 ### Anchored
 
 ```solidity
