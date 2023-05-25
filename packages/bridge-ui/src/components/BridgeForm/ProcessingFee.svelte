@@ -1,10 +1,10 @@
 <script lang="ts">
   import { ethers } from 'ethers';
   import { _ } from 'svelte-i18n';
-  
+
   import { ProcessingFeeMethod } from '../../domain/fee';
   import { processingFees } from '../../fee/processingFees';
-  import { fromChain,toChain } from '../../store/chain';
+  import { fromChain, toChain } from '../../store/chain';
   import { signer } from '../../store/signer';
   import { token } from '../../store/token';
   import { recommendProcessingFee } from '../../utils/recommendProcessingFee';
@@ -105,13 +105,3 @@
     claim.
   </div>
 </NoticeModal>
-
-<style>
-  /* hide number input arrows */
-  input[type='number']::-webkit-outer-spin-button,
-  input[type='number']::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-    -moz-appearance: textfield !important;
-  }
-</style>

@@ -127,9 +127,9 @@
   <ul
     role="listbox"
     tabindex="0"
-    class="token-dropdown dropdown-content menu my-2 shadow-xl bg-dark-2 rounded-box p-2">
+    class="dropdown-content menu my-2 bg-dark-2 rounded-box p-2">
     {#each tokens as _token (_token.symbol)}
-      <li class="cursor-pointer w-full hover:bg-dark-5 rounded-none">
+      <li class="cursor-pointer w-full hover:bg-dark-5">
         <button
           on:click={() => selectToken(_token)}
           class="flex hover:bg-dark-5 p-4">

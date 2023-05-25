@@ -1,6 +1,6 @@
 <script lang="ts">
   import { ChevronDown } from 'svelte-heros-v2';
-  
+
   import type { Token } from '../../domain/token';
   import { isTestToken, testERC20Tokens } from '../../token/tokens';
   import Erc20 from '../icons/ERC20.svelte';
@@ -42,12 +42,12 @@
   <ul
     role="listbox"
     tabindex="0"
-    class="dropdown-content address-dropdown-content flex my-2 menu p-2 shadow bg-dark-2 rounded-sm w-[194px]">
+    class="dropdown-content rounded-box flex my-2 menu p-2 shadow bg-dark-2 w-[194px]">
     {#each testERC20Tokens as token (token.symbol)}
       <li>
         <button
           on:click={() => selectToken(token)}
-          class="flex items-center px-2 py-4 hover:bg-dark-5 rounded-xl justify-around">
+          class="btn flex items-center px-2 py-4 hover:bg-dark-5 justify-around">
           <svelte:component this={token.logoComponent} height={24} />
           <span class="pl-1.5 text-left flex-1">
             {token.name}

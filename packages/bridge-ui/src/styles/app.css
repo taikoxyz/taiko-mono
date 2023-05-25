@@ -1,0 +1,30 @@
+@import './base.css';
+@import './components.css';
+@import './utilities.css';
+
+@import './reset.css';
+@import './logo.css';
+
+/* Invert accent button colors */
+.btn.btn-accent {
+  background-color: hsla(var(--af) / var(--tw-bg-opacity, 1));
+  border-color: hsla(var(--af) / var(--tw-bg-opacity, 1));
+}
+
+.dropdown .dropdown-content {
+  border-radius: 0 0 var(--rounded-box) var(--rounded-box);
+}
+
+[data-theme='dark'] .switch-to-dark-mode {
+  display: none;
+}
+
+[data-theme='light'] .switch-to-light-mode {
+  display: none;
+}
+
+[data-theme='light'] .toggle-chain.btn[disabled] {
+  color: #1f2937;
+  background-color: #d4d4d4;
+  opacity: 0.4;
+}

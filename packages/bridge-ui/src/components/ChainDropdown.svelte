@@ -1,7 +1,7 @@
 <script lang="ts">
   import { UserRejectedRequestError } from '@wagmi/core';
   import { ChevronDown, ExclamationTriangle } from 'svelte-heros-v2';
-  
+
   import { mainnetChain, taikoChain } from '../chain/chains';
   import type { Chain } from '../domain/chain';
   import { fromChain } from '../store/chain';
@@ -61,10 +61,10 @@
   <ul
     role="listbox"
     tabindex="0"
-    class="dropdown-content address-dropdown-content flex my-2 menu p-2 shadow bg-dark-2 rounded-sm w-[194px]">
+    class="dropdown-content rounded-box flex my-2 menu p-2 shadow bg-dark-2 w-[194px]">
     <li>
       <button
-        class="flex items-center px-2 py-4 hover:bg-dark-5 rounded-xl justify-around"
+        class="flex items-center px-2 py-4 hover:bg-dark-5 justify-around"
         on:click={() => switchChains(mainnetChain)}>
         <svelte:component this={mainnetChain.icon} height={24} />
         <span class="pl-1.5 text-left flex-1">{mainnetChain.name}</span>
@@ -72,7 +72,7 @@
     </li>
     <li>
       <button
-        class="flex items-center px-2 py-4 hover:bg-dark-5 rounded-xl justify-around"
+        class="flex items-center px-2 py-4 hover:bg-dark-5 justify-around"
         on:click={() => switchChains(taikoChain)}>
         <svelte:component this={taikoChain.icon} height={24} />
         <span class="pl-1.5 text-left flex-1">{taikoChain.name}</span>

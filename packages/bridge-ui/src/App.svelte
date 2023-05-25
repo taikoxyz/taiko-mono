@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  
+
   import Navbar from './components/Navbar.svelte';
   import NotificationToast from './components/NotificationToast.svelte';
   import Router from './components/Router.svelte';
@@ -18,9 +18,3 @@
 
 <NotificationToast />
 <SwitchChainModal />
-
-<style>
-  main {
-    font-family: 'Inter', sans-serif;
-  }
-</style>

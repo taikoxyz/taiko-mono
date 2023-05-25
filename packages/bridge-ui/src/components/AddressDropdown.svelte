@@ -6,7 +6,7 @@
   import { ClipboardDocument, Power } from 'svelte-heros-v2';
   import { ChevronDown } from 'svelte-heros-v2';
   import { _ } from 'svelte-i18n';
-  
+
   import { fromChain } from '../store/chain';
   import { signer } from '../store/signer';
   import { pendingTransactions } from '../store/transaction';
@@ -102,7 +102,7 @@
     <ul
       role="listbox"
       tabindex="0"
-      class="dropdown-content address-dropdown-content menu shadow bg-dark-2 rounded-sm w-48 mt-2 pb-2 text-sm">
+      class="dropdown-content rounded-box menu shadow bg-dark-2 w-48 mt-2 pb-2 text-sm">
       <div class="p-5 pb-0 flex flex-col items-center" transition:slide>
         {#if $fromChain && $signer}
           <svelte:component this={$fromChain.icon} />

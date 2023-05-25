@@ -531,7 +531,7 @@
     </label>
 
     <div
-      class="input-group relative rounded-lg bg-dark-2 justify-between items-center pr-4">
+      class="flex relative rounded-md bg-dark-2 justify-between items-center pr-4">
       <input
         id="amount"
         name="amount"
@@ -567,12 +567,3 @@
     {approve}
     {bridge} />
 </div>
-
-<style>
-  /* hide number input arrows */
-  input[type='number']::-webkit-outer-spin-button,
-  input[type='number']::-webkit-inner-spin-button {
-    margin: 0;
-    appearance: none;
-  }
-</style>

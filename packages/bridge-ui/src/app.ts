@@ -1,4 +1,4 @@
-import './app.css';
+import './styles/app.css';
 
 import { Buffer } from 'buffer';
 

@@ -1,8 +1,8 @@
 <script lang="ts">
   import { getProvider } from '@wagmi/core';
-  import { Contract,ethers } from 'ethers';
+  import { Contract, ethers } from 'ethers';
   import { Trash } from 'svelte-heros-v2';
-  
+
   import { erc20ABI } from '../../constants/abi';
   import type { Token, TokenDetails } from '../../domain/token';
   import { tokenService } from '../../storage/services';
@@ -91,7 +91,7 @@
       <input
         type="text"
         placeholder="Enter valid ERC20 Address"
-        class="input input-primary bg-dark-2 input-md md:input-lg w-full focus:ring-0"
+        class="input input-primary bg-dark-2 input-md md:input-lg w-full focus:ring-0 border-dark-2 rounded-md"
         name="customTokenAddress"
         bind:value={tokenAddress} />
 
