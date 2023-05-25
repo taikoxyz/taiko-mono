@@ -25,5 +25,7 @@ abstract contract TaikoEvents {
 
     event EthDeposited(TaikoData.EthDeposit deposit);
 
-    event ProofTimeTargetChanged(uint64 proofTimeTarget);
+    event ProofParamsChanged(
+        uint64 proofTimeTarget, uint64 proofTimeIssued, uint64 blockFee, uint16 adjustmentQuotient
+    );
 }
