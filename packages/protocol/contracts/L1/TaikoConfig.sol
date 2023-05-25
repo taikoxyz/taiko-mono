@@ -41,7 +41,7 @@ library TaikoConfig {
             ethDepositGas: 21000,
             ethDepositMaxFee: 1 ether / 10,
             txListCacheExpiry: 0,
-            adjustmentQuotient: 16, // https://github.com/taikoxyz/taiko-mono/pull/13809
+            adjustmentQuotient: 32000,
             relaySignalRoot: false
         });
     }

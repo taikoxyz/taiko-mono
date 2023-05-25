@@ -122,7 +122,7 @@ contract DeployOnL1 is Script {
         uint64 initProofTimeIssued = LibLn.calcInitProofTimeIssued(
             feeBase,
             uint16(INITIAL_PROOF_TIME_TARGET),
-            uint8(taikoL1.getConfig().adjustmentQuotient)
+            uint16(taikoL1.getConfig().adjustmentQuotient)
         );
 
         address taikoL1Proxy = deployProxy(
