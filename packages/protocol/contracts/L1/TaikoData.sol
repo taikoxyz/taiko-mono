@@ -29,7 +29,6 @@ library TaikoData {
         uint64 maxEthDepositsPerBlock;
         uint96 maxEthDepositAmount;
         uint96 minEthDepositAmount;
-        uint16 adjustmentQuotient;
         bool relaySignalRoot;
     }
 
@@ -138,7 +137,8 @@ library TaikoData {
         // Slot 7: never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 __reserved71;
+        uint16 adjustmentQuotient;
+        uint48 __reserved71;
         uint64 __reserved72;
         // Slot 8
         uint64 accProposedAt;
