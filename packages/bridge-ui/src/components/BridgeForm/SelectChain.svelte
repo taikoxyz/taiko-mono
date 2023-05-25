@@ -1,7 +1,7 @@
 <script>
   import { UserRejectedRequestError } from '@wagmi/core';
   import { ArrowRight } from 'svelte-heros-v2';
-  
+
   import { mainnetChain, taikoChain } from '../../chain/chains';
   import { fromChain, toChain } from '../../store/chain';
   import { signer } from '../../store/signer';
@@ -47,7 +47,7 @@
     {/if}
   </div>
 
-  <button on:click={toggleChains} class="btn btn-square btn-sm toggle-chain">
+  <button on:click={toggleChains} class="btn rounded btn-sm toggle-chain">
     <ArrowRight size="16" />
   </button>
 

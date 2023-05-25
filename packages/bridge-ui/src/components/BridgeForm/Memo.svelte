@@ -42,7 +42,7 @@
     <input
       type="text"
       placeholder="Enter memo here…"
-      class="input input-primary bg-dark-2 input-md md:input-lg w-full focus:ring-0 border-dark-2 rounded-md mb-2"
+      class="input input-primary bg-dark-2 input-md md:input-lg w-full focus:ring-0 border-dark-2 rounded-md"
       name="memo"
       bind:value={memo} />
 

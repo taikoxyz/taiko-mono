@@ -28,8 +28,8 @@
 {#if show}
   <input
     type="text"
-    class="input input-primary bg-dark-2 input-md md:input-lg w-full focus:ring-0 border-dark-2"
-    placeholder="0x..."
+    class="input input-primary bg-dark-2 input-md md:input-lg w-full focus:ring-0 border-dark-2 rounded-md"
+    placeholder="0x…"
     name="to"
     bind:value={to} />
 {/if}

@@ -2,27 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-.btn.btn-wide {
-  width: 194px;
-  height: 56px;
-}
-
-@media (min-width: 768px) {
-  .btn.md\:btn-wide {
-    width: 194px;
-    height: 56px;
-  }
-}
-
-.btn.btn-token-select {
-  width: 140px;
-  height: 60px;
-}
-
-.btn.btn-square {
-  border-radius: 4px;
-}
-
 /* Invert accent button colors */
 .btn.btn-accent {
   background-color: hsla(var(--af) / var(--tw-bg-opacity, 1));
@@ -58,10 +37,6 @@ input[type='number']::-webkit-outer-spin-button,
 input[type='number']::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
-}
-
-input[type='number'] {
-  -moz-appearance: textfield;
 }
 
 .taiko-logo {
