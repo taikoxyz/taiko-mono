@@ -202,7 +202,7 @@ library LibLn {
     function calcInitProofTimeIssued(
         uint64 basefee,
         uint16 proofTimeTarget,
-        uint8 adjustmentQuotient
+        uint16 adjustmentQuotient
     ) public pure returns (uint64 initProofTimeIssued) {
         uint256 scale = uint256(proofTimeTarget) * adjustmentQuotient;
         // ln_pub() expects 1e18 fixed format
