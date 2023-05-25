@@ -66,6 +66,8 @@ func (svc *Service) subscribeBlockProven(ctx context.Context, chainID *big.Int, 
 				eventindexer.BlockProvenEventsProcessedError.Inc()
 
 				log.Errorf("svc.subscribe, svc.saveBlockProvenEvent: %v", err)
+
+				continue
 			}
 
 			block, err := svc.blockRepo.GetLatestBlockProcessed(chainID)
@@ -132,6 +134,8 @@ func (svc *Service) subscribeBlockProposed(ctx context.Context, chainID *big.Int
 				eventindexer.BlockProposedEventsProcessedError.Inc()
 
 				log.Errorf("svc.subscribe, svc.saveBlockProposedEvent: %v", err)
+
+				continue
 			}
 
 			block, err := svc.blockRepo.GetLatestBlockProcessed(chainID)
@@ -184,8 +188,9 @@ func (svc *Service) subscribeBlockVerified(ctx context.Context, chainID *big.Int
 
 			if err := svc.saveBlockVerifiedEvent(ctx, chainID, event); err != nil {
 				eventindexer.BlockVerifiedEventsProcessedError.Inc()
-
 				log.Errorf("svc.subscribe, svc.saveBlockProvenEvent: %v", err)
+
+				continue
 			}
 
 			block, err := svc.blockRepo.GetLatestBlockProcessed(chainID)

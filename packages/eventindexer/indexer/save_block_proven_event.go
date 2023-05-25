@@ -3,7 +3,6 @@ package indexer
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"time"
 
@@ -55,7 +54,7 @@ func (svc *Service) saveBlockProvenEvent(
 	chainID *big.Int,
 	event *taikol1.TaikoL1BlockProven,
 ) error {
-	fmt.Println("blockProven event found")
+	log.Infof("blockProven event found, id: %v", event.Id.Int64())
 
 	marshaled, err := json.Marshal(event)
 	if err != nil {

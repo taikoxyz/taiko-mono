@@ -3,7 +3,6 @@ package indexer
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -60,7 +59,7 @@ func (svc *Service) saveBlockProposedEvent(
 	event *taikol1.TaikoL1BlockProposed,
 	sender common.Address,
 ) error {
-	fmt.Println("blockProposed event found")
+	log.Info("blockProposed event found")
 
 	marshaled, err := json.Marshal(event)
 	if err != nil {
