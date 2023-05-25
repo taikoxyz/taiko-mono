@@ -6,6 +6,8 @@
 
 pragma solidity ^0.8.18;
 
+import {LibEthDepositing} from "./libs/LibEthDepositing.sol";
+
 library TaikoData {
     struct Config {
         uint256 chainId;
@@ -150,5 +152,23 @@ library TaikoData {
         uint64 proofTimeTarget;
         // Reserved
         uint256[42] __gap;
+    }
+
+    function abiEncodeBlockMeta(BlockMetadata memory meta) public pure returns (uint256[7] memory){
+        uint256[7] memory inputs;
+
+        inputs[0] = (uint256(meta.id) << 192) | (uint256(meta.timestamp) << 128)
+            | (uint256(meta.l1Height) << 64);
+
+        inputs[1] = uint256(meta.l1Hash);
+        inputs[2] = uint256(meta.mixHash);
+        inputs[3] = uint256(LibEthDepositing.hashEthDeposits(meta.depositsProcessed));
+        inputs[4] = uint256(meta.txListHash);
+
+        inputs[5] = (uint256(meta.txListByteStart) << 232) | (uint256(meta.txListByteEnd) << 208)
+            | (uint256(meta.gasLimit) << 176) | (uint256(uint160(meta.beneficiary)) << 16);
+
+        inputs[6] = (uint256(uint160(meta.treasury)) << 96);
+        return inputs;
     }
 }

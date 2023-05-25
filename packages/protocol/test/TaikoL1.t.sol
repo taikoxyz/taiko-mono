@@ -58,6 +58,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             printVariables("after propose");
             mine(1);
 
+            console2.logBytes(abi.encode(meta));
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
             proveBlock(Bob, Bob, meta, parentHash, parentGasUsed, gasUsed, blockHash, signalRoot);
