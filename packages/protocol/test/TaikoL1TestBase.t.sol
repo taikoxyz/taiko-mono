@@ -50,7 +50,9 @@ abstract contract TaikoL1TestBase is Test {
     // Calculation shall be done in derived contracts - based on testnet or mainnet expected proof time
     uint64 public initProofTimeIssued;
     uint16 proofTimeTarget;
-    uint16 public constant ADJUSTMENT_QUOTIENT = 32000;
+    // As we know this is value which will make the curve 'quick' this is fine for testing and
+    // will readjust during simulation to test devnet, where we need to reset everything blockfee calculation related.
+    uint16 public constant ADJUSTMENT_QUOTIENT = 16;
 
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
 
@@ -97,7 +99,8 @@ abstract contract TaikoL1TestBase is Test {
             GENESIS_BLOCK_HASH,
             feeBase,
             proofTimeTarget,
-            initProofTimeIssued
+            initProofTimeIssued,
+            ADJUSTMENT_QUOTIENT
         );
         printVariables("init  ");
     }

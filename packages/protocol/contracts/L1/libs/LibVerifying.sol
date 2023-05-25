@@ -30,7 +30,8 @@ library LibVerifying {
         bytes32 genesisBlockHash,
         uint64 initBlockFee,
         uint64 initProofTimeTarget,
-        uint64 initProofTimeIssued
+        uint64 initProofTimeIssued,
+        uint16 adjustmentQuotient
     ) internal {
         if (
             config.chainId <= 1 || config.maxNumProposedBlocks == 1
@@ -43,8 +44,7 @@ library LibVerifying {
             // EIP-4844 blob deleted after 30 days
             || config.txListCacheExpiry > 30 * 24 hours || config.ethDepositGas == 0
                 || config.ethDepositMaxFee == 0 || config.ethDepositMaxFee >= type(uint96).max
-                || config.adjustmentQuotient == 0 || initProofTimeTarget == 0
-                || initProofTimeIssued == 0
+                || adjustmentQuotient == 0 || initProofTimeTarget == 0 || initProofTimeIssued == 0
         ) revert L1_INVALID_CONFIG();
 
         uint64 timeNow = uint64(block.timestamp);
@@ -54,6 +54,7 @@ library LibVerifying {
         state.blockFee = initBlockFee;
         state.proofTimeIssued = initProofTimeIssued;
         state.proofTimeTarget = initProofTimeTarget;
+        state.adjustmentQuotient = adjustmentQuotient;
         state.numBlocks = 1;
 
         TaikoData.Block storage blk = state.blocks[0];
@@ -113,7 +114,6 @@ library LibVerifying {
 
             _markBlockVerified({
                 state: state,
-                config: config,
                 blk: blk,
                 fcId: uint24(fcId),
                 fc: fc,
@@ -143,7 +143,6 @@ library LibVerifying {
 
     function _markBlockVerified(
         TaikoData.State storage state,
-        TaikoData.Config memory config,
         TaikoData.Block storage blk,
         TaikoData.ForkChoice storage fc,
         uint24 fcId,
@@ -157,7 +156,7 @@ library LibVerifying {
         uint64 reward = LibTokenomics.getProofReward(state, proofTime);
 
         (state.proofTimeIssued, state.blockFee) =
-            LibTokenomics.getNewBlockFeeAndProofTimeIssued(state, config, proofTime);
+            LibTokenomics.getNewBlockFeeAndProofTimeIssued(state, proofTime);
 
         unchecked {
             state.accBlockFees -= reward;

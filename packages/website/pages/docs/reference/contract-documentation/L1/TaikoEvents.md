@@ -28,8 +28,8 @@ event BlockVerified(uint256 id, bytes32 blockHash)
 event EthDeposited(struct TaikoData.EthDeposit deposit)
 ```
 
-### ProofTimeTargetChanged
+### ProofParamsChanged
 
 ```solidity
-event ProofTimeTargetChanged(uint64 proofTimeTarget)
+event ProofParamsChanged(uint64 proofTimeTarget, uint64 proofTimeIssued, uint64 blockFee, uint16 adjustmentQuotient)
 ```
