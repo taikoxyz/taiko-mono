@@ -522,7 +522,7 @@
           </span>
 
           <button
-            class="btn btn-xs rounded-md hover:border-accent text-xs ml-1 h-[20px]"
+            class="btn btn-xs rounded-md text-xs ml-1 h-[20px]"
             on:click={useFullAmount}>
             {$_('bridgeForm.maxLabel')}
           </button>

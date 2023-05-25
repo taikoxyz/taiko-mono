@@ -129,10 +129,10 @@
     tabindex="0"
     class="dropdown-content menu my-2 bg-dark-2 rounded-box p-2">
     {#each tokens as _token (_token.symbol)}
-      <li class="cursor-pointer w-full hover:bg-dark-5">
+      <li>
         <button
           on:click={() => selectToken(_token)}
-          class="flex hover:bg-dark-5 p-4">
+          class="flex items-center px-2 py-4 hover:bg-dark-5 rounded-sm">
           <svelte:component
             this={_token.logoComponent}
             height={22}
@@ -145,10 +145,10 @@
     {/each}
 
     {#each $userTokens as _token (_token.symbol)}
-      <li class="cursor-pointer w-full hover:bg-dark-5">
+      <li>
         <button
           on:click={() => selectToken(_token)}
-          class="flex hover:bg-dark-5 p-4">
+          class="flex items-center px-2 py-4 hover:bg-dark-5 rounded-sm">
           <Erc20 height={22} width={22} />
           <span class="text-sm font-medium bg-transparent px-2"
             >{_token.symbol.toUpperCase()}</span>
@@ -156,10 +156,12 @@
       </li>
     {/each}
 
-    <li class="cursor-pointer hover:bg-dark-5">
+    <li class="divider h-[1px] m-0" />
+
+    <li>
       <button
         on:click={() => (showAddressField = true)}
-        class="flex hover:bg-dark-5 justify-between items-center p-4">
+        class="flex hover:bg-dark-5 justify-between items-center p-4 rounded-sm">
         <PlusCircle size="25" />
         <span
           class="

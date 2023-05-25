@@ -64,7 +64,7 @@
     class="dropdown-content rounded-box flex my-2 menu p-2 shadow bg-dark-2 w-[194px]">
     <li>
       <button
-        class="flex items-center px-2 py-4 hover:bg-dark-5 justify-around"
+        class="flex items-center px-2 py-4 hover:bg-dark-5 rounded-sm"
         on:click={() => switchChains(mainnetChain)}>
         <svelte:component this={mainnetChain.icon} height={24} />
         <span class="pl-1.5 text-left flex-1">{mainnetChain.name}</span>
@@ -72,7 +72,7 @@
     </li>
     <li>
       <button
-        class="flex items-center px-2 py-4 hover:bg-dark-5 justify-around"
+        class="flex items-center px-2 py-4 hover:bg-dark-5 rounded-sm"
         on:click={() => switchChains(taikoChain)}>
         <svelte:component this={taikoChain.icon} height={24} />
         <span class="pl-1.5 text-left flex-1">{taikoChain.name}</span>

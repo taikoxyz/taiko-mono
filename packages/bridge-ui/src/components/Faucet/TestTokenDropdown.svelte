@@ -47,7 +47,7 @@
       <li>
         <button
           on:click={() => selectToken(token)}
-          class="btn flex items-center px-2 py-4 hover:bg-dark-5 justify-around">
+          class="flex items-center px-2 py-4 hover:bg-dark-5 rounded-sm">
           <svelte:component this={token.logoComponent} height={24} />
           <span class="pl-1.5 text-left flex-1">
             {token.name}
