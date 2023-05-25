@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ChevronDown } from 'svelte-heros-v2';
   import type { Token } from '../../domain/token';
-  import { testERC20Tokens } from '../../token/tokens';
+  import { isTestToken, testERC20Tokens } from '../../token/tokens';
   import Erc20 from '../icons/ERC20.svelte';
 
   export let selectedToken: Token;
@@ -24,7 +24,7 @@
 <div class="dropdown dropdown-bottom">
   <button class="btn btn-md justify-around w-[194px]">
     <span class="font-normal flex items-center flex-1 text-left mr-2">
-      {#if Boolean(selectedToken)}
+      {#if selectedToken && isTestToken(selectedToken)}
         {#if selectedToken.logoComponent}
           <svelte:component this={selectedToken.logoComponent} />
         {:else}

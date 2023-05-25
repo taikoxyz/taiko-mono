@@ -80,9 +80,8 @@
     <label role="button" tabindex="0" class="btn btn-md justify-around">
       <span class="font-normal flex-1 text-left flex items-center">
         {#if $pendingTransactions && $pendingTransactions.length}
-          <span>Pending tx…</span>
           <div class="inline-block ml-2">
-            <Loading />
+            <Loading text="Pending tx…" />
           </div>
         {:else}
           <img
