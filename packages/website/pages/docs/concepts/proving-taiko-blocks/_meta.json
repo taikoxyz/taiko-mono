@@ -2,8 +2,8 @@
   "provers": {
     "title": "Provers"
   },
-  "the-oracle-prover": {
-    "title": "The oracle prover"
+  "types-of-provers": {
+    "title": "Types of provers"
   },
   "verified-blocks-and-parallel-proving": {
     "title": "Verified blocks & parallel proving"
