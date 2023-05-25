@@ -22,12 +22,12 @@ export async function getIsMintedWithEstimation(
   );
 
   try {
-    const userHasAlreadyClaimed = await l1TokenContract.minters(address);
+    const userHasAlreadyMinted = await l1TokenContract.minters(address);
 
-    log(`Has user already claimed ${token.symbol}? ${userHasAlreadyClaimed}`);
+    log(`Has user already minted ${token.symbol}? ${userHasAlreadyMinted}`);
 
-    if (userHasAlreadyClaimed) {
-      return [true, null]; // already claimed, no gas cost is needed
+    if (userHasAlreadyMinted) {
+      return [true, null]; // already minted, no gas cost is needed
     }
   } catch (error) {
     throw new Error(`there was an issue getting minters for ${token.symbol}`, {

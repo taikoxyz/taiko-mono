@@ -4,7 +4,8 @@
   import { testERC20Tokens } from '../../token/tokens';
   import Erc20 from '../icons/ERC20.svelte';
 
-  let selectedToken: Token;
+  export let selectedToken: Token;
+
   let dropdownElement: HTMLDivElement;
 
   function closeDropdown() {
@@ -31,7 +32,7 @@
         {/if}
         <span class="ml-2 inline-block">{selectedToken.name}</span>
       {:else}
-        Select Test Token
+        Select Test Token…
       {/if}
     </span>
     <ChevronDown size="20" />

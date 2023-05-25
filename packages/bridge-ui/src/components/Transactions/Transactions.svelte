@@ -81,7 +81,7 @@
       Loading transactions…
     </div>
   {:else}
-    No transactions
+    No transactions.
   {/if}
 
   {#if selectedTransaction}

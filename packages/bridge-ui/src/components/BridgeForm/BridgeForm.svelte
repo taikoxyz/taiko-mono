@@ -650,13 +650,12 @@
 {/if}
 
 {#if loading}
-  <Button type="accent" size="lg" class="w-full" disabled={true}>
+  <Button type="accent" class="w-full" disabled={true}>
     <Loading />
   </Button>
 {:else if !requiresAllowance}
   <Button
     type="accent"
-    size="lg"
     class="w-full"
     on:click={bridge}
     disabled={buttonDisabled}>

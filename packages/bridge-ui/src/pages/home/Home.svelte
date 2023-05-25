@@ -60,7 +60,7 @@
     </TabPanel>
 
     <TabPanel tab={tab3.name}>
-      <div class="md:min-w-[440px]">
+      <div class="px-4 md:w-[440px]">
         <Faucet />
       </div>
     </TabPanel>
