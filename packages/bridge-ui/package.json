@@ -63,8 +63,7 @@
     "ts-loader": "^9.2.6",
     "tslib": "^2.4.0",
     "typescript": "^4.6.4",
-    "vite": "^3.0.0",
-    "vite-plugin-static-copy": "^0.12.0"
+    "vite": "^3.0.0"
   },
   "dependencies": {
     "@coinbase/wallet-sdk": "^3.6.3",

@@ -1,7 +1,6 @@
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import polyfillNode from 'rollup-plugin-polyfill-node';
 import { defineConfig } from 'vite';
-import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -11,16 +10,5 @@ export default defineConfig({
     'process.env.LINK_API_URL': false,
     'process.env.SDK_VERSION': "'unknown'",
   },
-  plugins: [
-    svelte(),
-    polyfillNode(),
-    viteStaticCopy({
-      targets: [
-        {
-          src: 'src/assets/lottie/loader.json',
-          dest: 'lottie',
-        },
-      ],
-    }),
-  ],
+  plugins: [svelte(), polyfillNode()],
 });

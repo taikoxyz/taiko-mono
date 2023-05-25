@@ -2,7 +2,7 @@
   import { fetchFeeData } from '@wagmi/core';
   import { BigNumber, Contract, ethers, type Signer } from 'ethers';
   import { _ } from 'svelte-i18n';
-  
+
   import { chains } from '../../chain/chains';
   import { erc20ABI } from '../../constants/abi';
   import type { BridgeOpts, BridgeType } from '../../domain/bridge';
@@ -471,15 +471,6 @@
     }
 
     return BigNumber.from(ethers.utils.parseEther(feeAmount));
-  }
-
-  function hasBalance(token: Token, tokenBalance: string) {
-    return (
-      tokenBalance &&
-      ethers.utils
-        .parseUnits(tokenBalance, token.decimals)
-        .gt(BigNumber.from(0))
-    );
   }
 
   function updateAmount(event: Event) {
