@@ -80,10 +80,10 @@
     "SignalServiceProxy": "0x1000777700000000000000000000000000000007"
   },
   "param1559": {
-    "yscale": "358298803609133338137582400989", // Q: do we need to change this?
-    "xscale": "1488514844", // Q: do we need to change this?
-    "gasIssuedPerSecond": "2000000", // If we assume the avg block time is 3s (is it reasonable?) , and each block is full (block.gasLimit=6m)
-    "gasExcess": "45450000000" // Q: do we need to change this?
+    "yscale": "2239367572216867291982809680751",
+    "xscale": "9303217778",
+    "gasIssuedPerSecond": "2000000",
+    "gasExcess": "7272000000"
   },
   "predeployERC20": true
 }

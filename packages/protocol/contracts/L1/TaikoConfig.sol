@@ -12,7 +12,7 @@ library TaikoConfig {
     function getConfig() internal pure returns (TaikoData.Config memory) {
         return TaikoData.Config({
             chainId: 167005,
-            // Two weeks if avg block time is 3 seconds (is it reasonable?)
+            // Two weeks if avg block time is 3 seconds
             maxNumProposedBlocks: 403200,
             ringBufferSize: 403200 + 10,
             // Each time one more block is verified, there will be ~20k
@@ -24,7 +24,7 @@ library TaikoConfig {
             // Set it to 79  (+1 TaikoL2.anchor transaction = 80),
             // and 80 is the upper limit of the Alpha-3 testnet's circuits.
             maxTransactionsPerBlock: 79,
-            minEthDepositsPerBlock: 8,
+            minEthDepositsPerBlock: 1,
             maxEthDepositsPerBlock: 32,
             maxEthDepositAmount: 10000 ether,
             minEthDepositAmount: 0.1 ether,
@@ -41,7 +41,7 @@ library TaikoConfig {
             ethDepositGas: 21000,
             ethDepositMaxFee: 1 ether / 10,
             txListCacheExpiry: 0,
-            adjustmentQuotient: 16,
+            adjustmentQuotient: 16, // https://github.com/taikoxyz/taiko-mono/pull/13809
             relaySignalRoot: false
         });
     }
