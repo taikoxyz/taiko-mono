@@ -34,6 +34,12 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         uint64 ratio2x1x;
     }
 
+    struct EIP1559Config {
+        uint128 yscale;
+        uint64 xscale;
+        uint64 gasIssuedPerSecond;
+    }
+
     /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
@@ -47,14 +53,12 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     // A hash to check the integrity of public inputs.
     bytes32 public publicInputHash;
 
-    uint128 public yscale;
-    uint64 public xscale;
-    uint64 public gasIssuedPerSecond;
+    EIP1559Config private _eip1559Config;
 
     uint64 public parentTimestamp;
     uint64 public latestSyncedL1Height;
     uint64 public gasExcess;
-    uint64 public __reserved1;
+    uint64 private __reserved1;
 
     uint256[45] private __gap;
 
@@ -108,21 +112,20 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
                     || _param1559.ratio2x1x == 0
             ) revert L2_INVALID_1559_PARAMS();
 
-            uint128 _xscale;
-            (_xscale, yscale) = Lib1559Math.calculateScales({
+            (uint128 xscale, uint128 yscale) = Lib1559Math.calculateScales({
                 xExcessMax: _param1559.gasExcessMax,
                 price: _param1559.basefee,
                 target: _param1559.gasTarget,
                 ratio2x1x: _param1559.ratio2x1x
             });
 
-            if (_xscale == 0 || _xscale >= type(uint64).max || yscale == 0) {
+            if (xscale == 0 || xscale >= type(uint64).max || yscale == 0) {
                 revert L2_INVALID_1559_PARAMS();
             }
-            xscale = uint64(_xscale);
+            _eip1559Config.yscale = yscale;
+            _eip1559Config.xscale = uint64(xscale);
+            _eip1559Config.gasIssuedPerSecond = _param1559.gasIssuedPerSecond;
 
-            // basefee = _param1559.basefee;
-            gasIssuedPerSecond = _param1559.gasIssuedPerSecond;
             gasExcess = _param1559.gasExcessMax / 2;
         }
 
@@ -181,9 +184,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
         // Check EIP-1559 basefee
         uint256 basefee;
-        if (gasIssuedPerSecond != 0) {
+        EIP1559Config memory config = getEIP1559Config();
+        if (config.gasIssuedPerSecond != 0) {
             (basefee, gasExcess) = _calcBasefee(
-                block.timestamp - parentTimestamp, uint64(block.gaslimit), parentGasUsed
+                config, block.timestamp - parentTimestamp, uint64(block.gaslimit), parentGasUsed
             );
         }
 
@@ -216,7 +220,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         view
         returns (uint256 _basefee)
     {
-        (_basefee,) = _calcBasefee(timeSinceParent, gasLimit, parentGasUsed);
+        (_basefee,) = _calcBasefee(getEIP1559Config(), timeSinceParent, gasLimit, parentGasUsed);
     }
 
     function getCrossChainBlockHash(uint256 number) public view override returns (bytes32) {
@@ -237,6 +241,12 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         } else {
             return _l2Hashes[number];
         }
+    }
+
+    /// @dev Overide this funciton to return a constant EIP1559Config object
+    // to avoid reading from storage to reduce gas cost.
+    function getEIP1559Config() public view virtual returns (EIP1559Config memory) {
+        return _eip1559Config;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -270,11 +280,12 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         }
     }
 
-    function _calcBasefee(uint256 timeSinceParent, uint64 gasLimit, uint64 parentGasUsed)
-        private
-        view
-        returns (uint256 _basefee, uint64 _gasExcess)
-    {
+    function _calcBasefee(
+        EIP1559Config memory config,
+        uint256 timeSinceParent,
+        uint64 gasLimit,
+        uint64 parentGasUsed
+    ) private view returns (uint256 _basefee, uint64 _gasExcess) {
         // Very important to cap _gasExcess uint64
         unchecked {
             uint64 parentGasUsedNet = parentGasUsed > LibL2Consts.ANCHOR_GAS_COST
@@ -282,13 +293,13 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
                 : 0;
 
             uint256 a = uint256(gasExcess) + parentGasUsedNet;
-            uint256 b = gasIssuedPerSecond * timeSinceParent;
+            uint256 b = config.gasIssuedPerSecond * timeSinceParent;
             _gasExcess = uint64((a.max(b) - b).min(type(uint64).max));
         }
 
         _basefee = Lib1559Math.calculatePrice({
-            xscale: xscale,
-            yscale: yscale,
+            xscale: config.xscale,
+            yscale: config.yscale,
             xExcess: _gasExcess,
             xPurchase: gasLimit
         });
