@@ -12,7 +12,7 @@ import {LibLn} from "./LibLn.sol";
 
 /// @dev Tweak this if you iwhs to set - the config and the calculation of the proofTimeIssued
 /// @dev also originates from this
-uint16 constant INITIAL_PROOF_TIME_TARGET = 375; //sec. Approx mainnet scenario
+uint16 constant INITIAL_PROOF_TIME_TARGET = 70; //sec. Approx mainnet scenario
 
 /// @dev Warning: this test will take 7-10 minutes and require 1GB memory.
 ///      `pnpm sim`
@@ -24,7 +24,7 @@ contract TaikoL1_b is TaikoL1 {
         config.maxNumProposedBlocks = 1100;
         config.ringBufferSize = 1200;
         config.maxVerificationsPerTx = 10;
-        config.proofCooldownPeriod = 1 minutes;
+        config.proofCooldownPeriod = 5 minutes;
         config.realProofSkipSize = 0;
     }
 }
@@ -50,12 +50,12 @@ contract TaikoL1Simulation is TaikoL1TestBase {
     // This means block proposals will be averaged out (long term if random function is random enough) to 18s
     // It is fine it simulates that we do not necessarily put Taiko block at every 12s, but on average around every x1.5 of ETH block
     // Meaninig we have less blocks / sec. (We should test what happens if quicker!)
-    uint256 nextBlockTime = 12 seconds;
-    uint256 minDiffToBlockPropTime = 12 seconds;
+    uint256 nextBlockTime = 8 seconds;
+    uint256 minDiffToBlockPropTime = 8 seconds;
 
     // This means block provings will be averaged out (long term if random function is random enough) to 200s
-    uint256 startBlockProposeTime = 1600 seconds;
-    uint256 upperDevToBlockProveTime = 800 seconds;
+    uint256 startBlockProposeTime = 100 seconds;
+    uint256 upperDevToBlockProveTime = 40 seconds;
     uint256 secondsToSimulate = blocksToSimulate * 18; //Because of the expected average blocktimestamp - we can tweak it obv.
     //////////////////////////////////////////
     //          TUNABLE PARAMS END          //
@@ -96,12 +96,12 @@ contract TaikoL1Simulation is TaikoL1TestBase {
     }
 
     // A real world scenario
-    function xtestGeneratingManyRandomBlocksNonConsecutive() external {
+    function testGeneratingManyRandomBlocksNonConsecutive() external {
         uint256 time = block.timestamp;
 
         assertEq(time, 1);
 
-        depositTaikoToken(Alice, 1e6 * 1e8, 10000 ether);
+        depositTaikoToken(Alice, 1e9 * 1e8, 10000 ether);
 
         TaikoData.BlockMetadata[] memory metas = new TaikoData.BlockMetadata[](
             blocksToSimulate
@@ -434,7 +434,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
     }
 
     // 90% slow proofs (around 30 mins or so) and 10% (around 1-5 mins )
-    function test_90percent_quick_10percent_slow() external {
+    function xtest_90percent_quick_10percent_slow() external {
         uint256 time = block.timestamp;
         uint256 startBlockProposeTime_quick = 60 seconds; // For the 10% where it is 'quick'
         uint256 upperDevToBlockProveTime_quick = 240 seconds; // For the 10% where it is quick

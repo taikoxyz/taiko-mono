@@ -29,7 +29,7 @@ library TaikoData {
         uint64 maxEthDepositsPerBlock;
         uint96 maxEthDepositAmount;
         uint96 minEthDepositAmount;
-        uint8 adjustmentQuotient;
+        uint16 adjustmentQuotient;
         bool relaySignalRoot;
     }
 
