@@ -112,9 +112,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
                     || _param1559.ratio2x1x == 0
             ) revert L2_INVALID_1559_PARAMS();
 
-            uint128 _xscale;
-            uint128 _yscale;
-            (_xscale, _yscale) = Lib1559Math.calculateScales({
+            (uint128 _xscale, uint128 _yscale) = Lib1559Math.calculateScales({
                 xExcessMax: _param1559.gasExcessMax,
                 price: _param1559.basefee,
                 target: _param1559.gasTarget,
