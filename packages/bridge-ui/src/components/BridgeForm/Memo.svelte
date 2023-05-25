@@ -3,16 +3,17 @@
   import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
 
   export let memo: string = '';
-  let showMemo: boolean = false;
+  export let error: string = '';
+
+  let show: boolean = false;
   let tooltipOpen: boolean = false;
-  export let memoError: string;
 
   function checkSizeLimit(input: string) {
     const bytes = new TextEncoder().encode(input).length;
     if (bytes > 128) {
-      memoError = 'Max limit reached';
+      error = 'Max limit reached';
     } else {
-      memoError = null;
+      error = null;
     }
   }
 
@@ -31,12 +32,12 @@
     type="checkbox"
     class="toggle rounded-full duration-300"
     on:click={() => {
-      showMemo = !showMemo;
+      show = !show;
     }}
-    bind:checked={showMemo} />
+    bind:checked={show} />
 </div>
 
-{#if showMemo}
+{#if show}
   <div class="form-control">
     <input
       type="text"
@@ -45,9 +46,9 @@
       name="memo"
       bind:value={memo} />
 
-    {#if memoError}
+    {#if error}
       <label class="label min-h-[20px] mb-0 p-0" for="name">
-        <span class="label-text-alt text-error text-sm">{memoError}</span>
+        <span class="label-text-alt text-error text-sm">{error}</span>
       </label>
     {/if}
   </div>

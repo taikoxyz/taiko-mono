@@ -29,19 +29,16 @@
   import { fetchFeeData } from '@wagmi/core';
   import { checkIfTokenIsDeployedCrossChain } from '../../utils/checkIfTokenIsDeployedCrossChain';
   import To from './To.svelte';
-  import { isERC20, isETH } from '../../token/tokens';
+  import { isETH } from '../../token/tokens';
   import { chains } from '../../chain/chains';
   import { providers } from '../../provider/providers';
   import { tokenVaults } from '../../vault/tokenVaults';
   import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
   import { ProcessingFeeMethod } from '../../domain/fee';
-  import Button from '../Button.svelte';
   import { storageService } from '../../storage/services';
   import { getLogger } from '../../utils/logger';
   import { getAddressForToken } from '../../utils/getAddressForToken';
-  import Loading from '../Loading.svelte';
-  import ApproveBridgeSteps from './ApproveBridgeSteps.svelte';
-  import { ArrowRight } from 'svelte-heros-v2';
+  import ActionButtons from './ActionButtons.svelte';
 
   const log = getLogger('component:BridgeForm');
 
@@ -50,18 +47,13 @@
   let computingAllowance: boolean = false;
   let requiresAllowance: boolean = false;
 
-  // TODO: do we need a loading state for this?
-  let buttonDisabled: boolean = true;
+  let actionDisabled: boolean = true;
 
   let computingTokenBalance: boolean = false;
   let tokenBalance: string;
 
   let memo: string = '';
-  let memoError: string;
-
-  let loading: boolean = false;
-  let approving: boolean = false;
-  let bridging: boolean = false;
+  let memoError: string = '';
 
   let to: string = '';
   let showTo: boolean = false;
@@ -157,7 +149,7 @@
     return isRequired;
   }
 
-  async function checkButtonIsDisabled(
+  async function checkActionDisabled(
     signer: Signer,
     amount: string,
     token: Token,
@@ -170,7 +162,8 @@
       !amount ||
       !tokenBalance ||
       !fromChain ||
-      !chains[fromChain.id]
+      !chains[fromChain.id] ||
+      memoError
     )
       return true;
 
@@ -187,14 +180,12 @@
     const parsedAmount = ethers.utils.parseUnits(amount, token.decimals);
     if (BigNumber.from(parsedBalance).lt(parsedAmount)) return true;
 
-    if (memoError) return true;
-
     return false;
   }
 
   async function approve() {
     try {
-      approving = true;
+      // approving = true;
 
       if (!requiresAllowance)
         throw Error('does not require additional allowance');
@@ -245,7 +236,7 @@
         errorToast(`${headerError}<br />Try again later.`);
       }
     } finally {
-      approving = false;
+      // approving = false;
     }
   }
 
@@ -280,7 +271,7 @@
 
   async function bridge() {
     try {
-      bridging = true;
+      // bridging = true;
 
       if (requiresAllowance) {
         throw Error('requires additional allowance');
@@ -428,7 +419,7 @@
         errorToast(`${headerError}<br />Try again later.`);
       }
     } finally {
-      bridging = false;
+      // bridging = false;
     }
   }
 
@@ -492,22 +483,6 @@
     );
   }
 
-  function shouldShowSteps(
-    computingTokenBalance: boolean,
-    fromChain: Chain,
-    token: Token,
-    signer: Signer,
-    tokenBalance: string,
-  ) {
-    return (
-      !computingTokenBalance &&
-      fromChain && // chain selected?
-      signer && // wallet connected?
-      isERC20(token) &&
-      hasBalance(token, tokenBalance)
-    );
-  }
-
   function updateAmount(event: Event) {
     const target = event.target as HTMLInputElement;
     amount = target.value;
@@ -517,7 +492,7 @@
     computingTokenBalance = false;
   });
 
-  $: checkButtonIsDisabled(
+  $: checkActionDisabled(
     $signer,
     amount,
     $token,
@@ -525,7 +500,7 @@
     memoError,
     $fromChain,
   )
-    .then((disabled) => (buttonDisabled = disabled))
+    .then((disabled) => (actionDisabled = disabled))
     .catch((error) => console.error(error));
 
   $: checkAllowance(amount, $token, $bridgeType, $fromChain, $signer)
@@ -538,178 +513,71 @@
       computingAllowance = false;
     });
 
-  $: showSteps = shouldShowSteps(
-    computingTokenBalance,
-    $fromChain,
-    $token,
-    $signer,
-    tokenBalance,
-  );
-
-  $: loading = approving || bridging;
+  $: amountEntered = Boolean(amount);
 </script>
 
-<div class="form-control mb-6 md:mb-4">
-  <label class="label" for="amount">
-    <span class="label-text">{$_('bridgeForm.fieldLabel')}</span>
+<div class="space-y-6 md:space-y-4">
+  <div class="form-control">
+    <label class="label" for="amount">
+      <span class="label-text">{$_('bridgeForm.fieldLabel')}</span>
 
-    {#if $signer && tokenBalance}
-      <div class="label-text ">
-        <span>
-          {$_('bridgeForm.balance')}:
-          {tokenBalance.length > 10
-            ? `${truncateString(tokenBalance, 6)}…`
-            : tokenBalance}
-          {$token.symbol}
-        </span>
+      {#if $signer && tokenBalance}
+        <div class="label-text ">
+          <span>
+            {$_('bridgeForm.balance')}:
+            {tokenBalance.length > 10
+              ? `${truncateString(tokenBalance, 6)}…`
+              : tokenBalance}
+            {$token.symbol}
+          </span>
 
-        <button
-          class="btn btn-xs rounded-md hover:border-accent text-xs ml-1 h-[20px]"
-          on:click={useFullAmount}>
-          {$_('bridgeForm.maxLabel')}
-        </button>
-      </div>
-    {/if}
-  </label>
+          <button
+            class="btn btn-xs rounded-md hover:border-accent text-xs ml-1 h-[20px]"
+            on:click={useFullAmount}>
+            {$_('bridgeForm.maxLabel')}
+          </button>
+        </div>
+      {/if}
+    </label>
 
-  <div
-    class="input-group relative rounded-lg bg-dark-2 justify-between items-center pr-4">
-    <input
-      id="amount"
-      name="amount"
-      type="number"
-      placeholder="0.01"
-      min="0"
-      class="input input-primary bg-dark-2 input-md md:input-lg w-full focus:ring-0 border-dark-2"
-      value={amount}
-      on:input={updateAmount} />
-    <SelectToken />
+    <div
+      class="input-group relative rounded-lg bg-dark-2 justify-between items-center pr-4">
+      <input
+        id="amount"
+        name="amount"
+        type="number"
+        placeholder="0.01"
+        min="0"
+        class="input input-primary bg-dark-2 input-md md:input-lg w-full focus:ring-0 border-dark-2"
+        value={amount}
+        on:input={updateAmount} />
+      <SelectToken />
+    </div>
   </div>
-</div>
 
-<div class="mb-6 md:mb-4">
-  <To bind:showTo bind:to />
-</div>
-
-<div class="mb-6 md:mb-4">
-  <ProcessingFee bind:method={feeMethod} bind:amount={feeAmount} />
-</div>
-
-<div class="mb-6 md:mb-4">
-  <Memo bind:memo bind:memoError />
-</div>
-
-<!-- {#if showSteps}
-  <div class="mb-6 md:mb-4">
-    <ApproveBridgeSteps
-      {requiresAllowance}
-      {computingAllowance}
-      hasAmount={Boolean(amount)}
-      pendingTransaction={loading} />
+  <div>
+    <To bind:to bind:show={showTo} />
   </div>
-{/if}
 
-{#if loading}
-  <Button type="accent" class="w-full" disabled={true}>
-    <Loading />
-  </Button>
-{:else if requiresAllowance}
-  <Button
-    type="accent"
-    class="w-full"
-    on:click={approve}
-    disabled={buttonDisabled}>
-    {$_('home.approve')}
-  </Button>
-{:else}
-  <Button
-    type="accent"
-    class="w-full"
-    on:click={bridge}
-    disabled={buttonDisabled}>
-    {$_('home.bridge')}
-  </Button>
-{/if} -->
-
-{#if showSteps}
-  <div class="flex space-x-4 items-center">
-    {#if loading}
-      <Button type="accent" class="grow" disabled={true}>
-        {#if approving}
-          <Loading text="Approving…" />
-        {:else}
-          ✓ Approved
-        {/if}
-      </Button>
-      <ArrowRight class="grow-0" />
-      <Button type="accent" class="grow" disabled={true}>
-        {#if bridging}
-          <Loading text="Bridging…" />
-        {:else}
-          Bridge
-        {/if}
-      </Button>
-    {:else}
-      <Button
-        type="accent"
-        class="grow"
-        on:click={approve}
-        disabled={!requiresAllowance || buttonDisabled}>
-        {requiresAllowance
-          ? 'Approval required'
-          : !computingAllowance && Boolean(amount)
-          ? '✓ Approved'
-          : 'Approve'}
-      </Button>
-      <ArrowRight class="grow-0" />
-      <Button
-        type="accent"
-        class="grow"
-        on:click={bridge}
-        disabled={requiresAllowance || buttonDisabled}>
-        {requiresAllowance
-          ? 'Bridge'
-          : !computingAllowance && Boolean(amount)
-          ? 'Ready to bridge'
-          : 'Bridge'}
-      </Button>
-    {/if}
+  <div>
+    <ProcessingFee bind:method={feeMethod} bind:amount={feeAmount} />
   </div>
-{:else if bridging}
-  <Button type="accent" class="w-full" disabled={true}>
-    <Loading text="Bridging…" />
-  </Button>
-{:else}
-  <Button
-    type="accent"
-    class="w-full"
-    on:click={bridge}
-    disabled={buttonDisabled}>
-    Bridge
-  </Button>
-{/if}
 
-<!-- {#if loading}
-  <Button type="accent" class="w-full" disabled={true}>
-    <Loading />
-  </Button>
-{:else if requiresAllowance}
-  <Button
-    type="accent"
-    class="w-full"
-    on:click={approve}
-    disabled={buttonDisabled}>
-    {$_('home.approve')}
-  </Button>
-{:else}
-  <Button
-    type="accent"
-    class="w-full"
-    on:click={bridge}
-    disabled={buttonDisabled}>
-    {$_('home.bridge')}
-  </Button>
-{/if} -->
+  <div>
+    <Memo bind:memo bind:error={memoError} />
+  </div>
+
+  <ActionButtons
+    {requiresAllowance}
+    {computingAllowance}
+    {tokenBalance}
+    {computingTokenBalance}
+    {actionDisabled}
+    {amountEntered}
+    {approve}
+    {bridge} />
+</div>
+
 <style>
   /* hide number input arrows */
   input[type='number']::-webkit-outer-spin-button,

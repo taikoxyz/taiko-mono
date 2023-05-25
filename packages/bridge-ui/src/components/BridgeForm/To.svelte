@@ -2,7 +2,7 @@
   import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
   import TooltipModal from '../TooltipModal.svelte';
 
-  export let showTo: boolean = false;
+  export let show: boolean = false;
   export let to: string = '';
 
   let tooltipOpen: boolean = false;
@@ -20,12 +20,12 @@
     type="checkbox"
     class="toggle rounded-full duration-300"
     on:click={() => {
-      showTo = !showTo;
+      show = !show;
     }}
-    bind:checked={showTo} />
+    bind:checked={show} />
 </div>
 
-{#if showTo}
+{#if show}
   <input
     type="text"
     class="input input-primary bg-dark-2 input-md md:input-lg w-full focus:ring-0 border-dark-2"
