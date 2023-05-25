@@ -856,13 +856,13 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
             // See if proof reward decreases faster than usual
             if (blockId == 8) {
                 // 500 sec has the proofTimeIssued of 219263 (Calculated with 'forge script script/DetermineNewProofTimeIssued.s.sol')
-                L1.setProofParams(500, 219263);
+                L1.setProofParams(500, 219263, feeBase, ADJUSTMENT_QUOTIENT);
             }
 
             // See if proof reward increases now
             if (blockId == 15) {
                 // 10 sec has the proofTimeIssued of 3759 (Calculated with 'forge script script/DetermineNewProofTimeIssued.s.sol')
-                L1.setProofParams(10, 3759);
+                L1.setProofParams(10, 3759, feeBase, ADJUSTMENT_QUOTIENT);
             }
 
             printVariables("before propose");
