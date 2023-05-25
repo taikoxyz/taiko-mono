@@ -11,26 +11,6 @@
   },
   {
     "inputs": [],
-    "name": "L1_AUCTION_NOT_OVER",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_AUCTION_NOT_OVER",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_AUCTION_RIGHTS_FORFEITED",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_BID_AUCTION_DELAY_PASSED",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "L1_BLOCK_ID",
     "type": "error"
   },
@@ -88,11 +68,6 @@
   },
   {
     "inputs": [],
-    "name": "L1_ID",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "L1_INSUFFICIENT_TOKEN",
     "type": "error"
   },
@@ -104,11 +79,6 @@
   {
     "inputs": [],
     "name": "L1_INSUFFICIENT_TOKEN",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_INVALID_BID_AMOUNT",
     "type": "error"
   },
   {
@@ -178,11 +148,6 @@
   },
   {
     "inputs": [],
-    "name": "L1_NOT_PROVER",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "L1_NOT_SPECIAL_PROVER",
     "type": "error"
   },
@@ -279,6 +244,11 @@
   {
     "inputs": [],
     "name": "L1_TX_LIST_RANGE",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "Overflow",
     "type": "error"
   },
   {
@@ -318,74 +288,6 @@
       }
     ],
     "name": "AddressManagerChanged",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "id",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "bidder",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "bidAt",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "deposit",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "minFeePerGasAcceptedInWei",
-        "type": "uint256"
-      }
-    ],
-    "name": "Bid",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "id",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "claimer",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "refundedAt",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "refund",
-        "type": "uint256"
-      }
-    ],
-    "name": "BidDepositRefunded",
     "type": "event"
   },
   {
@@ -638,6 +540,37 @@
     "type": "event"
   },
   {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "proofTimeTarget",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "proofTimeIssued",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "blockFee",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint16",
+        "name": "adjustmentQuotient",
+        "type": "uint16"
+      }
+    ],
+    "name": "ProofParamsChanged",
+    "type": "event"
+  },
+  {
     "inputs": [],
     "name": "addressManager",
     "outputs": [
@@ -648,24 +581,6 @@
       }
     ],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "blockId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "minFeePerGasAcceptedInWei",
-        "type": "uint256"
-      }
-    ],
-    "name": "bidForBlock",
-    "outputs": [],
-    "stateMutability": "payable",
     "type": "function"
   },
   {
@@ -686,52 +601,6 @@
     "name": "depositTaikoToken",
     "outputs": [],
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "blockId",
-        "type": "uint256"
-      }
-    ],
-    "name": "getBidForBlock",
-    "outputs": [
-      {
-        "components": [
-          {
-            "internalType": "uint256",
-            "name": "minFeePerGasAcceptedInWei",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "blockId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "deposit",
-            "type": "uint256"
-          },
-          {
-            "internalType": "address",
-            "name": "bidder",
-            "type": "address"
-          },
-          {
-            "internalType": "uint256",
-            "name": "bidAt",
-            "type": "uint256"
-          }
-        ],
-        "internalType": "struct TaikoData.Bid",
-        "name": "",
-        "type": "tuple"
-      }
-    ],
-    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -768,9 +637,9 @@
     "name": "getBlockFee",
     "outputs": [
       {
-        "internalType": "uint256",
+        "internalType": "uint64",
         "name": "",
-        "type": "uint256"
+        "type": "uint64"
       }
     ],
     "stateMutability": "view",
@@ -845,21 +714,6 @@
           {
             "internalType": "uint256",
             "name": "ethDepositMaxFee",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "auctionDelayInSeconds",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "auctionTimeForProverToSubmitProofInSeconds",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "proposerBlockFeeMultiplier",
             "type": "uint256"
           },
           {
@@ -996,11 +850,40 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "proofTime",
+        "type": "uint64"
+      }
+    ],
+    "name": "getProofReward",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "getStateVariables",
     "outputs": [
       {
         "components": [
+          {
+            "internalType": "uint64",
+            "name": "blockFee",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "accBlockFees",
+            "type": "uint64"
+          },
           {
             "internalType": "uint64",
             "name": "genesisHeight",
@@ -1014,6 +897,16 @@
           {
             "internalType": "uint64",
             "name": "numBlocks",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "proofTimeIssued",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "proofTimeTarget",
             "type": "uint64"
           },
           {
@@ -1035,16 +928,6 @@
             "internalType": "uint64",
             "name": "numEthDeposits",
             "type": "uint64"
-          },
-          {
-            "internalType": "uint256",
-            "name": "avgProofTime",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "avgProofReward",
-            "type": "uint256"
           }
         ],
         "internalType": "struct TaikoData.StateVariables",
@@ -1104,30 +987,31 @@
         "internalType": "bytes32",
         "name": "_genesisBlockHash",
         "type": "bytes32"
+      },
+      {
+        "internalType": "uint64",
+        "name": "_initBlockFee",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "_initProofTimeTarget",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "_initProofTimeIssued",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint16",
+        "name": "_adjustmentQuotient",
+        "type": "uint16"
       }
     ],
     "name": "init",
     "outputs": [],
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "blockId",
-        "type": "uint256"
-      }
-    ],
-    "name": "isBiddingOpenForBlock",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1333,6 +1217,34 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "newProofTimeTarget",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "newProofTimeIssued",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "newBlockFee",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint16",
+        "name": "newAdjustmentQuotient",
+        "type": "uint16"
+      }
+    ],
+    "name": "setProofParams",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "state",
     "outputs": [
@@ -1347,8 +1259,28 @@
         "type": "uint64"
       },
       {
+        "internalType": "uint16",
+        "name": "adjustmentQuotient",
+        "type": "uint16"
+      },
+      {
+        "internalType": "uint48",
+        "name": "__reserved71",
+        "type": "uint48"
+      },
+      {
+        "internalType": "uint64",
+        "name": "__reserved72",
+        "type": "uint64"
+      },
+      {
         "internalType": "uint64",
         "name": "accProposedAt",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "accBlockFees",
         "type": "uint64"
       },
       {
@@ -1368,23 +1300,18 @@
       },
       {
         "internalType": "uint64",
+        "name": "proofTimeIssued",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
         "name": "lastVerifiedBlockId",
         "type": "uint64"
       },
       {
         "internalType": "uint64",
-        "name": "__reversed71",
+        "name": "proofTimeTarget",
         "type": "uint64"
-      },
-      {
-        "internalType": "uint256",
-        "name": "avgProofTime",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "avgProofReward",
-        "type": "uint256"
       }
     ],
     "stateMutability": "view",
