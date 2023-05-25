@@ -21,18 +21,15 @@
   import { erc20ABI } from '../../constants/abi';
   import type { BridgeTransaction } from '../../domain/transaction';
   import { MessageStatus } from '../../domain/message';
-  // import { Funnel } from 'svelte-heros-v2';
-  // import FaucetModal from '../FaucetModal.svelte';
   import {
     errorToast,
     successToast,
     warningToast,
   } from '../NotificationToast.svelte';
-  import { L1_CHAIN_ID } from '../../constants/envVars';
   import { fetchFeeData } from '@wagmi/core';
   import { checkIfTokenIsDeployedCrossChain } from '../../utils/checkIfTokenIsDeployedCrossChain';
   import To from './To.svelte';
-  import { isERC20, isETH, isTestToken } from '../../token/tokens';
+  import { isERC20, isETH } from '../../token/tokens';
   import { chains } from '../../chain/chains';
   import { providers } from '../../provider/providers';
   import { tokenVaults } from '../../vault/tokenVaults';
@@ -44,6 +41,7 @@
   import { getAddressForToken } from '../../utils/getAddressForToken';
   import Loading from '../Loading.svelte';
   import ApproveBridgeSteps from './ApproveBridgeSteps.svelte';
+  import { ArrowRight } from 'svelte-heros-v2';
 
   const log = getLogger('component:BridgeForm');
 
@@ -62,7 +60,8 @@
   let memoError: string;
 
   let loading: boolean = false;
-  // let isFaucetModalOpen: boolean = false;
+  let approving: boolean = false;
+  let bridging: boolean = false;
 
   let to: string = '';
   let showTo: boolean = false;
@@ -195,7 +194,7 @@
 
   async function approve() {
     try {
-      loading = true;
+      approving = true;
 
       if (!requiresAllowance)
         throw Error('does not require additional allowance');
@@ -246,7 +245,7 @@
         errorToast(`${headerError}<br />Try again later.`);
       }
     } finally {
-      loading = false;
+      approving = false;
     }
   }
 
@@ -281,7 +280,7 @@
 
   async function bridge() {
     try {
-      loading = true;
+      bridging = true;
 
       if (requiresAllowance) {
         throw Error('requires additional allowance');
@@ -429,7 +428,7 @@
         errorToast(`${headerError}<br />Try again later.`);
       }
     } finally {
-      loading = false;
+      bridging = false;
     }
   }
 
@@ -493,24 +492,7 @@
     );
   }
 
-  // function shouldShowFaucet(
-  //   computingTokenBalance: boolean,
-  //   fromChain: Chain,
-  //   token: Token,
-  //   signer: Signer,
-  //   tokenBalance: string,
-  // ) {
-  //   return (
-  //     !computingTokenBalance &&
-  //     fromChain && // chain selected?
-  //     fromChain.id === L1_CHAIN_ID && // are we in L1?
-  //     signer && // wallet connected?
-  //     isTestToken(token) &&
-  //     !hasBalance(token, tokenBalance)
-  //   );
-  // }
-
-  function shouldShowStepper(
+  function shouldShowSteps(
     computingTokenBalance: boolean,
     fromChain: Chain,
     token: Token,
@@ -556,21 +538,15 @@
       computingAllowance = false;
     });
 
-  // $: showFaucet = shouldShowFaucet(
-  //   computingTokenBalance,
-  //   $fromChain,
-  //   $token,
-  //   $signer,
-  //   tokenBalance,
-  // );
-
-  $: showStepper = shouldShowStepper(
+  $: showSteps = shouldShowSteps(
     computingTokenBalance,
     $fromChain,
     $token,
     $signer,
     tokenBalance,
   );
+
+  $: loading = approving || bridging;
 </script>
 
 <div class="form-control mb-6 md:mb-4">
@@ -611,22 +587,6 @@
   </div>
 </div>
 
-<!-- {#if showFaucet}
-  <div class="flex mb-6 md:mb-4" style="flex-direction:row-reverse">
-    <div class="flex items-start w-full">
-      <Button
-        class="btn btn-accent w-full"
-        on:click={() => (isFaucetModalOpen = true)}>
-        <Funnel class="mr-2" /> Faucet
-      </Button>
-    </div>
-  </div>
-
-  <FaucetModal
-    onMint={() => updateTokenBalance($signer, $token)}
-    bind:isOpen={isFaucetModalOpen} />
-{/if} -->
-
 <div class="mb-6 md:mb-4">
   <To bind:showTo bind:to />
 </div>
@@ -639,7 +599,7 @@
   <Memo bind:memo bind:memoError />
 </div>
 
-{#if showStepper}
+<!-- {#if showSteps}
   <div class="mb-6 md:mb-4">
     <ApproveBridgeSteps
       {requiresAllowance}
@@ -653,15 +613,7 @@
   <Button type="accent" class="w-full" disabled={true}>
     <Loading />
   </Button>
-{:else if !requiresAllowance}
-  <Button
-    type="accent"
-    class="w-full"
-    on:click={bridge}
-    disabled={buttonDisabled}>
-    {$_('home.bridge')}
-  </Button>
-{:else}
+{:else if requiresAllowance}
   <Button
     type="accent"
     class="w-full"
@@ -669,8 +621,95 @@
     disabled={buttonDisabled}>
     {$_('home.approve')}
   </Button>
+{:else}
+  <Button
+    type="accent"
+    class="w-full"
+    on:click={bridge}
+    disabled={buttonDisabled}>
+    {$_('home.bridge')}
+  </Button>
+{/if} -->
+
+{#if showSteps}
+  <div class="flex space-x-4 items-center">
+    {#if loading}
+      <Button type="accent" class="grow" disabled={true}>
+        {#if approving}
+          <Loading text="Approving…" />
+        {:else}
+          ✓ Approved
+        {/if}
+      </Button>
+      <ArrowRight class="grow-0" />
+      <Button type="accent" class="grow" disabled={true}>
+        {#if bridging}
+          <Loading text="Bridging…" />
+        {:else}
+          Bridge
+        {/if}
+      </Button>
+    {:else}
+      <Button
+        type="accent"
+        class="grow"
+        on:click={approve}
+        disabled={!requiresAllowance || buttonDisabled}>
+        {requiresAllowance
+          ? 'Approval required'
+          : !computingAllowance && Boolean(amount)
+          ? '✓ Approved'
+          : 'Approve'}
+      </Button>
+      <ArrowRight class="grow-0" />
+      <Button
+        type="accent"
+        class="grow"
+        on:click={bridge}
+        disabled={requiresAllowance || buttonDisabled}>
+        {requiresAllowance
+          ? 'Bridge'
+          : !computingAllowance && Boolean(amount)
+          ? 'Ready to bridge'
+          : 'Bridge'}
+      </Button>
+    {/if}
+  </div>
+{:else if bridging}
+  <Button type="accent" class="w-full" disabled={true}>
+    <Loading text="Bridging…" />
+  </Button>
+{:else}
+  <Button
+    type="accent"
+    class="w-full"
+    on:click={bridge}
+    disabled={buttonDisabled}>
+    Bridge
+  </Button>
 {/if}
 
+<!-- {#if loading}
+  <Button type="accent" class="w-full" disabled={true}>
+    <Loading />
+  </Button>
+{:else if requiresAllowance}
+  <Button
+    type="accent"
+    class="w-full"
+    on:click={approve}
+    disabled={buttonDisabled}>
+    {$_('home.approve')}
+  </Button>
+{:else}
+  <Button
+    type="accent"
+    class="w-full"
+    on:click={bridge}
+    disabled={buttonDisabled}>
+    {$_('home.bridge')}
+  </Button>
+{/if} -->
 <style>
   /* hide number input arrows */
   input[type='number']::-webkit-outer-spin-button,
