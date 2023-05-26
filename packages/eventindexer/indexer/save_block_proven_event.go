@@ -90,7 +90,7 @@ func (svc *Service) updateAverageProofTime(ctx context.Context, event *taikol1.T
 
 	eventBlock, err := svc.ethClient.BlockByHash(ctx, event.Raw.BlockHash)
 	if err != nil {
-		return errors.Wrap(err, "svc.destEthClient.BlockByHash")
+		return errors.Wrap(err, "svc.ethClient.BlockByHash")
 	}
 
 	stat, err := svc.statRepo.Find(ctx)
