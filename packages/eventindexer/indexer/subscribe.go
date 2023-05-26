@@ -58,6 +58,7 @@ func (svc *Service) subscribeBlockProven(ctx context.Context, chainID *big.Int, 
 			log.Info("context finished")
 			return
 		case err := <-sub.Err():
+			log.Errorf("sub.Err(): %v", err)
 			errChan <- errors.Wrap(err, "sub.Err()")
 		case event := <-sink:
 			go func() {
@@ -117,6 +118,7 @@ func (svc *Service) subscribeBlockProposed(ctx context.Context, chainID *big.Int
 			log.Info("context finished")
 			return
 		case err := <-sub.Err():
+			log.Errorf("sub.Err(): %v", err)
 			errChan <- errors.Wrap(err, "sub.Err()")
 		case event := <-sink:
 			go func() {
@@ -125,12 +127,14 @@ func (svc *Service) subscribeBlockProposed(ctx context.Context, chainID *big.Int
 				tx, _, err := svc.ethClient.TransactionByHash(ctx, event.Raw.TxHash)
 				if err != nil {
 					log.Errorf("svc.ethClient.TransactionByHash: %v", err)
+
 					return
 				}
 
 				sender, err := svc.ethClient.TransactionSender(ctx, tx, event.Raw.BlockHash, event.Raw.TxIndex)
 				if err != nil {
 					log.Errorf("svc.ethClient.TransactionSender: %v", err)
+
 					return
 				}
 
@@ -147,6 +151,7 @@ func (svc *Service) subscribeBlockProposed(ctx context.Context, chainID *big.Int
 				block, err := svc.blockRepo.GetLatestBlockProcessed(chainID)
 				if err != nil {
 					log.Errorf("svc.subscribe, blockRepo.GetLatestBlockProcessed: %v", err)
+
 					return
 				}
 
@@ -158,6 +163,7 @@ func (svc *Service) subscribeBlockProposed(ctx context.Context, chainID *big.Int
 					})
 					if err != nil {
 						log.Errorf("svc.subscribe, svc.blockRepo.Save: %v", err)
+
 						return
 					}
 
@@ -175,6 +181,7 @@ func (svc *Service) subscribeBlockVerified(ctx context.Context, chainID *big.Int
 		if err != nil {
 			log.Errorf("svc.taikoL1.WatchBlockVerified: %v", err)
 		}
+
 		log.Info("resubscribing to BlockVerified events")
 
 		return svc.taikol1.WatchBlockVerified(&bind.WatchOpts{
@@ -190,6 +197,7 @@ func (svc *Service) subscribeBlockVerified(ctx context.Context, chainID *big.Int
 			log.Info("context finished")
 			return
 		case err := <-sub.Err():
+			log.Errorf("sub.Err(): %v", err)
 			errChan <- errors.Wrap(err, "sub.Err()")
 		case event := <-sink:
 			go func() {
@@ -198,6 +206,7 @@ func (svc *Service) subscribeBlockVerified(ctx context.Context, chainID *big.Int
 				if err := svc.saveBlockVerifiedEvent(ctx, chainID, event); err != nil {
 					eventindexer.BlockVerifiedEventsProcessedError.Inc()
 					log.Errorf("svc.subscribe, svc.saveBlockProvenEvent: %v", err)
+
 					return
 				}
 
