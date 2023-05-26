@@ -205,7 +205,7 @@ func (svc *Service) subscribeBlockVerified(ctx context.Context, chainID *big.Int
 
 				if err := svc.saveBlockVerifiedEvent(ctx, chainID, event); err != nil {
 					eventindexer.BlockVerifiedEventsProcessedError.Inc()
-					log.Errorf("svc.subscribe, svc.saveBlockProvenEvent: %v", err)
+					log.Errorf("svc.subscribe, svc.saveBlockVerifiedEvent: %v", err)
 
 					return
 				}
