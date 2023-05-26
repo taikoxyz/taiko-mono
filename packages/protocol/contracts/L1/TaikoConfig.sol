@@ -11,23 +11,23 @@ import {TaikoData} from "../L1/TaikoData.sol";
 library TaikoConfig {
     function getConfig() internal pure returns (TaikoData.Config memory) {
         return TaikoData.Config({
-            chainId: 167,
-            // Two weeks if avg block time is 10 seconds
-            maxNumProposedBlocks: 120960,
-            ringBufferSize: 120960 + 10,
+            chainId: 167005,
+            // Two weeks if avg block time is 3 seconds
+            maxNumProposedBlocks: 403200,
+            ringBufferSize: 403200 + 10,
             // Each time one more block is verified, there will be ~20k
             // more gas cost.
             maxVerificationsPerTx: 10,
-            // Set it to 6M, since its the upper limit of the Alpha-2
+            // Set it to 6M, since its the upper limit of the Alpha-3
             // testnet's circuits.
             blockMaxGasLimit: 6000000,
             // Set it to 79  (+1 TaikoL2.anchor transaction = 80),
-            // and 80 is the upper limit of the Alpha-2 testnet's circuits.
+            // and 80 is the upper limit of the Alpha-3 testnet's circuits.
             maxTransactionsPerBlock: 79,
-            minEthDepositsPerBlock: 8,
+            minEthDepositsPerBlock: 1,
             maxEthDepositsPerBlock: 32,
             maxEthDepositAmount: 10000 ether,
-            minEthDepositAmount: 1 ether,
+            minEthDepositAmount: 0.1 ether,
             // Set it to 120KB, since 128KB is the upper size limit
             // of a geth transaction, so using 120KB for the proposed
             // transactions list calldata, 8K for the remaining tx fields.
