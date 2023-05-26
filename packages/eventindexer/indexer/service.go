@@ -16,11 +16,10 @@ var (
 )
 
 type Service struct {
-	eventRepo     eventindexer.EventRepository
-	blockRepo     eventindexer.BlockRepository
-	statRepo      eventindexer.StatRepository
-	ethClient     *ethclient.Client
-	destEthClient *ethclient.Client
+	eventRepo eventindexer.EventRepository
+	blockRepo eventindexer.BlockRepository
+	statRepo  eventindexer.StatRepository
+	ethClient *ethclient.Client
 
 	processingBlockHeight uint64
 
@@ -35,7 +34,6 @@ type NewServiceOpts struct {
 	BlockRepo           eventindexer.BlockRepository
 	StatRepo            eventindexer.StatRepository
 	EthClient           *ethclient.Client
-	DestEthClient       *ethclient.Client
 	RPCClient           *rpc.Client
 	SrcTaikoAddress     common.Address
 	BlockBatchSize      uint64
@@ -47,7 +45,7 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		return nil, eventindexer.ErrNoEventRepository
 	}
 
-	if opts.EthClient == nil || opts.DestEthClient == nil {
+	if opts.EthClient == nil {
 		return nil, eventindexer.ErrNoEthClient
 	}
 
@@ -61,12 +59,11 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 	}
 
 	return &Service{
-		eventRepo:     opts.EventRepo,
-		blockRepo:     opts.BlockRepo,
-		statRepo:      opts.StatRepo,
-		ethClient:     opts.EthClient,
-		destEthClient: opts.DestEthClient,
-		taikol1:       taikoL1,
+		eventRepo: opts.EventRepo,
+		blockRepo: opts.BlockRepo,
+		statRepo:  opts.StatRepo,
+		ethClient: opts.EthClient,
+		taikol1:   taikoL1,
 
 		blockBatchSize:      opts.BlockBatchSize,
 		subscriptionBackoff: opts.SubscriptionBackoff,

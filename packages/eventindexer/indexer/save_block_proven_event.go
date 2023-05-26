@@ -3,6 +3,7 @@ package indexer
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -74,7 +75,7 @@ func (svc *Service) saveBlockProvenEvent(
 	eventindexer.BlockProvenEventsProcessed.Inc()
 
 	if event.Prover.Hex() != systemProver.Hex() && event.Prover.Hex() != oracleProver.Hex() {
-		if err := svc.updateAverageBlockTime(ctx, event); err != nil {
+		if err := svc.updateAverageProofTime(ctx, event); err != nil {
 			return errors.Wrap(err, "svc.updateAverageBlockTime")
 		}
 	}
@@ -82,15 +83,15 @@ func (svc *Service) saveBlockProvenEvent(
 	return nil
 }
 
-func (svc *Service) updateAverageBlockTime(ctx context.Context, event *taikol1.TaikoL1BlockProven) error {
+func (svc *Service) updateAverageProofTime(ctx context.Context, event *taikol1.TaikoL1BlockProven) error {
 	block, err := svc.taikol1.GetBlock(nil, event.Id)
 	if err != nil {
 		return errors.Wrap(err, "svc.taikoL1.GetBlock")
 	}
 
-	l2Block, err := svc.destEthClient.BlockByNumber(ctx, event.Id)
+	eventBlock, err := svc.ethClient.BlockByHash(ctx, event.Raw.BlockHash)
 	if err != nil {
-		return errors.Wrap(err, "svc.destEthClient.BlockByNumber")
+		return errors.Wrap(err, "svc.destEthClient.BlockByHash")
 	}
 
 	stat, err := svc.statRepo.Find(ctx)
@@ -100,9 +101,11 @@ func (svc *Service) updateAverageBlockTime(ctx context.Context, event *taikol1.T
 
 	proposedAt := block.ProposedAt
 
-	provenAt := l2Block.Time()
+	provenAt := eventBlock.Time()
 
 	proofTime := provenAt - proposedAt
+
+	fmt.Println(proposedAt, provenAt, proofTime)
 
 	newAverageProofTime := calcNewAverage(stat.AverageProofTime, stat.NumProofs, proofTime)
 

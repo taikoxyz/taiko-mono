@@ -24,6 +24,8 @@ func (svc *Service) saveBlockVerifiedEvents(
 	for {
 		event := events.Event
 
+		log.Infof("new blockVerified event, blockId: %v", event.Id)
+
 		if event.Raw.Removed {
 			continue
 		}
