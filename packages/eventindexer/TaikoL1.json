@@ -547,9 +547,27 @@
         "internalType": "uint64",
         "name": "proofTimeTarget",
         "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "proofTimeIssued",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "blockFee",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint16",
+        "name": "adjustmentQuotient",
+        "type": "uint16"
       }
     ],
-    "name": "ProofTimeTargetChanged",
+    "name": "ProofParamsChanged",
     "type": "event"
   },
   {
@@ -717,11 +735,6 @@
             "internalType": "uint96",
             "name": "minEthDepositAmount",
             "type": "uint96"
-          },
-          {
-            "internalType": "uint8",
-            "name": "adjustmentQuotient",
-            "type": "uint8"
           },
           {
             "internalType": "bool",
@@ -989,6 +1002,11 @@
         "internalType": "uint64",
         "name": "_initProofTimeIssued",
         "type": "uint64"
+      },
+      {
+        "internalType": "uint16",
+        "name": "_adjustmentQuotient",
+        "type": "uint16"
       }
     ],
     "name": "init",
@@ -1209,6 +1227,16 @@
         "internalType": "uint64",
         "name": "newProofTimeIssued",
         "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "newBlockFee",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint16",
+        "name": "newAdjustmentQuotient",
+        "type": "uint16"
       }
     ],
     "name": "setProofParams",
@@ -1231,9 +1259,14 @@
         "type": "uint64"
       },
       {
-        "internalType": "uint64",
+        "internalType": "uint16",
+        "name": "adjustmentQuotient",
+        "type": "uint16"
+      },
+      {
+        "internalType": "uint48",
         "name": "__reserved71",
-        "type": "uint64"
+        "type": "uint48"
       },
       {
         "internalType": "uint64",
