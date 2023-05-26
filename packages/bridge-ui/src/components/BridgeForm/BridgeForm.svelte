@@ -398,7 +398,6 @@
       showMemo = false;
 
       // Re-selecting the token triggers reactivity
-      // for showStepper, updateTokenBalance and checkButtonIsDisabled
       $token = $token;
 
       successToast(

@@ -20,6 +20,7 @@
   import { providers } from '../../provider/providers';
   import { fromChain } from '../../store/chain';
   import { signer } from '../../store/signer';
+  import { token } from '../../store/token';
   import { pendingTransactions } from '../../store/transaction';
   import { isETHByMessage } from '../../utils/isETHByMessage';
   import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
@@ -161,6 +162,9 @@
           `<strong>Transaction completed!</strong><br />Your funds have been successfully claimed on ${$fromChain.name} chain.`,
         );
       }
+
+      // Re-selecting the token triggers reactivity, updating balances
+      $token = $token;
     } catch (error) {
       console.error(error);
 
@@ -237,6 +241,9 @@
       successToast(
         `<strong>Transaction completed!</strong><br />Your funds have been successfully released back to ${$fromChain.name} chain.`,
       );
+
+      // Re-selecting to trigger reactivity on selected token
+      $token = $token;
     } catch (error) {
       console.error(error);
 
@@ -313,6 +320,9 @@
         if (msgStatus === MessageStatus.Done) {
           successToast($_('toast.fundsClaimed'));
           stopPolling();
+
+          // Triggers reactivity on selected token
+          $token = $token;
         }
       }, 20 * 1000); // TODO: magic number. Config?
     }
