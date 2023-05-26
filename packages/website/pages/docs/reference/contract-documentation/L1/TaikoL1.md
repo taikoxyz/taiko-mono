@@ -43,12 +43,17 @@ function proposeBlock(bytes input, bytes txList) external returns (struct TaikoD
 
 Propose a Taiko L2 block.
 
+_In the corresponding L2 block an \_anchor transaction_
+will be the first transaction in the block -- if there are
+`n` transactions in `txList`, then there will be up to `n + 1`
+transactions in the L2 block.\_
+
 #### Parameters
 
-| Name   | Type  | Description                                                                                                                                                                                                                                                                 |
-| ------ | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| input  | bytes | An abi-encoded BlockMetadataInput that the actual L2 block header must satisfy.                                                                                                                                                                                             |
-| txList | bytes | A list of transactions in this block, encoded with RLP. Note, in the corresponding L2 block an _anchor transaction_ will be the first transaction in the block -- if there are `n` transactions in `txList`, then there will be up to `n + 1` transactions in the L2 block. |
+| Name   | Type  | Description                                                                     |
+| ------ | ----- | ------------------------------------------------------------------------------- |
+| input  | bytes | An abi-encoded BlockMetadataInput that the actual L2 block header must satisfy. |
+| txList | bytes | A list of transactions in this block, encoded with RLP.                         |
 
 ### proveBlock
 
