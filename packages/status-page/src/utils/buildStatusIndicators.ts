@@ -20,6 +20,8 @@ import type { initConfig } from "./initConfig";
 import { truncateString } from "./truncateString";
 import { watchHeaderSynced } from "./watchHeaderSynced";
 import axios from "axios";
+import { getConfig } from "./getConfig";
+import { getStateVariables } from "./getStateVariables";
 
 export function buildStatusIndicators(
   config: ReturnType<typeof initConfig>,
@@ -332,6 +334,25 @@ export function buildStatusIndicators(
         return "green"; // todo: whats green, yellow, red?
       },
       tooltip: "The most recent block proof submitted on TaikoL1 contract.",
+    });
+
+    indicators.push({
+      provider: config.l1Provider,
+      contractAddress: config.l1TaikoAddress,
+      statusFunc: async (
+        provider: ethers.providers.JsonRpcProvider,
+        address: string
+      ) => {
+        const config = await getStateVariables(provider, address);
+        return config.proofTimeTarget.toNumber();
+      },
+      colorFunc: function (status: Status) {
+        return "green";
+      },
+      header: "Proof Time Target (seconds)",
+      intervalInMs: 5 * 1000,
+      tooltip:
+        "The proof time target the protocol intends the average proof time to be",
     });
 
     indicators.push({
