@@ -1,14 +1,21 @@
 import "../styles.css";
-import { Oxanium } from "next/font/google";
+import localFont from "next/font/local";
 
-const oxanium = Oxanium({
-  subsets: ["latin"],
-  variable: "--font-oxanium",
+const grotesk = localFont({
+  src: "../fonts/ClashGrotesk-Semibold.woff2",
+  display: "swap",
+  variable: "--font-grotesk",
+});
+
+const groteskmedium = localFont({
+  src: "../fonts/ClashGrotesk-Medium.woff2",
+  display: "swap",
+  variable: "--font-groteskmedium",
 });
 
 export default function App({ Component, pageProps }) {
   return (
-    <main className={`${oxanium.variable}`}>
+    <main className={`${grotesk.variable} ${groteskmedium.variable}`}>
       <Component {...pageProps} />
     </main>
   );

@@ -54,7 +54,7 @@ export default function BlogSection() {
       </div>
       <div className="relative mx-auto max-w-7xl">
         <div className="text-center">
-          <h2 className="font-oxanium text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl dark:text-neutral-100">
+          <h2 className="font-grotesk text-3xl tracking-tight text-neutral-900 sm:text-4xl dark:text-neutral-100">
             Latest blog posts
           </h2>
           <div className="mx-auto mt-3 max-w-2xl text-xl text-neutral-500 sm:mt-4 dark:text-neutral-300">
@@ -107,7 +107,7 @@ export default function BlogSection() {
                       />
                     </div>
                     <div className="ml-3">
-                      <div className="text-sm font-medium text-[#fc0fc0]">
+                      <div className="text-sm font-medium text-[#e81899]">
                         {post.author.name}
                       </div>
                       <div className="flex space-x-1 text-sm text-neutral-500 dark:text-neutral-400">

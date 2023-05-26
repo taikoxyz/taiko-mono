@@ -42,17 +42,17 @@ export default function Hero() {
         <main className="lg:relative">
           <div className="relative z-10 w-3/4 pt-16 pb-20 text-left lg:py-48">
             <div className="pl-[max(env(safe-area-inset-left),1.5rem)]">
-              <h1 className="font-oxanium text-4xl md:text-5xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100">
-                A <span className="text-[#fc0fc0]">Type 1</span> ZK-EVM
+              <h1 className="font-grotesk text-4xl md:text-5xl tracking-tight text-neutral-900 dark:text-neutral-100">
+                A <span className="text-[#e81899]">Type 1</span> ZK-EVM
               </h1>
-              <p className="font-oxanium mt-3 text-lg text-neutral-600 sm:text-xl md:mt-5 dark:text-neutral-100">
+              <p className="font-groteskmedium mt-3 text-lg text-neutral-600 sm:text-xl md:mt-5 dark:text-neutral-100">
                 Decentralized, Ethereum-equivalent ZK-Rollup.
               </p>
               <div className="mt-10 flex md:justify-left">
                 <div className="inline-flex rounded-md shadow">
                   <a
                     href="/docs/guides"
-                    className="inline-flex items-center rounded-md border border-transparent bg-[#fc0fc0] px-5 py-3 text-base font-semibold text-white dark:text-neutral-100 hover:bg-[#e30ead] hover:no-underline hover:text-white"
+                    className="inline-flex items-center rounded-md border border-transparent bg-[#e81899] px-5 py-3 text-base font-semibold text-white dark:text-neutral-100 hover:bg-[#d1168a] hover:no-underline hover:text-white"
                   >
                     Get started ✨
                   </a>
