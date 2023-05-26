@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { Contract, ethers,type Transaction } from 'ethers';
+  import { Contract, ethers, type Transaction } from 'ethers';
   import { createEventDispatcher } from 'svelte';
   import { onDestroy, onMount } from 'svelte';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
   import { _ } from 'svelte-i18n';
-  
+
   import { bridges } from '../../bridge/bridges';
   import { chains } from '../../chain/chains';
   import { bridgeABI } from '../../constants/abi';
@@ -61,22 +61,22 @@
   }
 
   // TODO: not very convinced about this annoying notice. Rethink it.
-  async function onClaimClick() {
-    // Has the user sent processing fees?. We also check if the user
-    // has already been informed about the relayer auto-claim.
-    const processingFee = transaction.message?.processingFee.toString();
-    if (processingFee && processingFee !== '0' && !alreadyInformedAboutClaim) {
-      dispatch('claimNotice', {
-        name: transaction.hash,
-        onConfirm: async (informed: true) => {
-          alreadyInformedAboutClaim = informed;
-          await claim(transaction);
-        },
-      });
-    } else {
-      await claim(transaction);
-    }
-  }
+  // async function onClaimClick() {
+  //   // Has the user sent processing fees?. We also check if the user
+  //   // has already been informed about the relayer auto-claim.
+  //   const processingFee = transaction.message?.processingFee.toString();
+  //   if (processingFee && processingFee !== '0' && !alreadyInformedAboutClaim) {
+  //     dispatch('claimNotice', {
+  //       name: transaction.hash,
+  //       onConfirm: async (informed: true) => {
+  //         alreadyInformedAboutClaim = informed;
+  //         await claim(transaction);
+  //       },
+  //     });
+  //   } else {
+  //     await claim(transaction);
+  //   }
+  // }
 
   async function ensureCorrectChain(
     currentChain: Chain,
@@ -363,11 +363,11 @@
             <Loading />
           </div>
         {:else if transaction.status === MessageStatus.New}
-          <Button type="accent" size="sm" on:click={onClaimClick}>
+          <Button type="accent" size="sm" on:click={() => claim(transaction)}>
             {$_('transaction.claim')}
           </Button>
         {:else if transaction.status === MessageStatus.Retriable}
-          <Button type="accent" size="sm" on:click={onClaimClick}>
+          <Button type="accent" size="sm" on:click={() => claim(transaction)}>
             {$_('transaction.retry')}
           </Button>
         {:else if transaction.status === MessageStatus.Done}
@@ -375,10 +375,7 @@
             {$_('transaction.claimed')}
           </span>
         {:else if transaction.status === MessageStatus.Failed}
-          <Button
-            type="accent"
-            size="sm"
-            on:click={async () => await release(transaction)}>
+          <Button type="accent" size="sm" on:click={() => release(transaction)}>
             {$_('transaction.release')}
           </Button>
         {:else if transaction.status === TxExtendedStatus.Released}
