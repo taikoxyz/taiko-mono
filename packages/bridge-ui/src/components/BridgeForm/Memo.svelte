@@ -4,8 +4,8 @@
 
   export let memo: string = '';
   export let error: string = '';
+  export let show: boolean = false;
 
-  let show: boolean = false;
   let tooltipOpen: boolean = false;
 
   function checkSizeLimit(input: string) {

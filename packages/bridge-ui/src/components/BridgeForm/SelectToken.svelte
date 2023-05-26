@@ -14,6 +14,7 @@
   import { token } from '../../store/token';
   import { userTokens } from '../../store/userToken';
   import { isETH, tokens } from '../../token/tokens';
+  import { selectToken } from '../../utils/selectToken';
   import Erc20 from '../icons/ERC20.svelte';
   import { errorToast, successToast } from '../NotificationToast.svelte';
   import AddCustomErc20 from './AddCustomERC20.svelte';
@@ -29,17 +30,8 @@
     }
   }
 
-  function selectToken(selectedToken: Token) {
-    if (selectedToken === $token) return;
-
-    token.set(selectedToken);
-
-    if (isETH(selectedToken)) {
-      bridgeType.set(BridgeType.ETH);
-    } else {
-      bridgeType.set(BridgeType.ERC20);
-    }
-
+  function selectTokenAndCloseDropdown(selectedToken: Token) {
+    selectToken(selectedToken);
     closeDropdown();
   }
 
@@ -110,11 +102,7 @@
 </script>
 
 <div class="dropdown dropdown-bottom dropdown-end" bind:this={dropdownElement}>
-  <!-- svelte-ignore a11y-label-has-associated-control -->
-  <label
-    role="button"
-    tabindex="0"
-    class="flex items-center justify-center hover:cursor-pointer">
+  <button class="flex items-center justify-center hover:cursor-pointer">
     {#if $token.logoComponent}
       <svelte:component this={$token.logoComponent} />
     {:else}
@@ -122,7 +110,7 @@
     {/if}
     <p class="px-2 text-sm">{$token.symbol.toUpperCase()}</p>
     <ChevronDown size="20" />
-  </label>
+  </button>
 
   <ul
     role="listbox"
@@ -131,7 +119,7 @@
     {#each tokens as _token (_token.symbol)}
       <li>
         <button
-          on:click={() => selectToken(_token)}
+          on:click={() => selectTokenAndCloseDropdown(_token)}
           class="flex items-center px-2 py-4 hover:bg-dark-5 rounded-sm">
           <svelte:component
             this={_token.logoComponent}
@@ -147,7 +135,7 @@
     {#each $userTokens as _token (_token.symbol)}
       <li>
         <button
-          on:click={() => selectToken(_token)}
+          on:click={() => selectTokenAndCloseDropdown(_token)}
           class="flex items-center px-2 py-4 hover:bg-dark-5 rounded-sm">
           <Erc20 height={22} width={22} />
           <span class="text-sm font-medium bg-transparent px-2"

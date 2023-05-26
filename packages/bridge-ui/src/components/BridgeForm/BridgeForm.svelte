@@ -52,6 +52,7 @@
   let tokenBalance: string;
 
   let memo: string = '';
+  let showMemo: boolean = false;
   let memoError: string = '';
 
   let to: string = '';
@@ -389,8 +390,12 @@
 
       log('All transactions in store', $transactionsStore);
 
+      // Reset form
+      to = '';
       memo = '';
       amount = '';
+      showTo = false;
+      showMemo = false;
 
       // Re-selecting the token triggers reactivity
       // for showStepper, updateTokenBalance and checkButtonIsDisabled
@@ -554,7 +559,7 @@
   </div>
 
   <div>
-    <Memo bind:memo bind:error={memoError} />
+    <Memo bind:memo bind:error={memoError} bind:show={showMemo} />
   </div>
 
   <ActionButtons

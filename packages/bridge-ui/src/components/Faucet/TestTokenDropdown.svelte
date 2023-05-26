@@ -3,6 +3,7 @@
 
   import type { Token } from '../../domain/token';
   import { isTestToken, testERC20Tokens } from '../../token/tokens';
+  import { selectToken } from '../../utils/selectToken';
   import Erc20 from '../icons/ERC20.svelte';
 
   export let selectedToken: Token;
@@ -16,8 +17,8 @@
     }
   }
 
-  function selectToken(token: Token) {
-    selectedToken = token;
+  function selectTokenAndCloseDropdown(selectedToken: Token) {
+    selectToken(selectedToken);
     closeDropdown();
   }
 </script>
@@ -46,7 +47,7 @@
     {#each testERC20Tokens as token (token.symbol)}
       <li>
         <button
-          on:click={() => selectToken(token)}
+          on:click={() => selectTokenAndCloseDropdown(token)}
           class="flex items-center px-2 py-4 hover:bg-dark-5 rounded-sm">
           <svelte:component this={token.logoComponent} height={24} />
           <span class="pl-1.5 text-left flex-1">
