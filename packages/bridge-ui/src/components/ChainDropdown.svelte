@@ -6,6 +6,7 @@
   import type { Chain } from '../domain/chain';
   import { fromChain } from '../store/chain';
   import { signer } from '../store/signer';
+  import { pendingTransactions } from '../store/transaction';
   import { selectChain } from '../utils/selectChain';
   import {
     errorToast,
@@ -37,14 +38,14 @@
       }
     }
   };
+
+  $: cannotSwitch = $pendingTransactions && $pendingTransactions.length > 0;
 </script>
 
 <div class="dropdown dropdown-end mr-4">
-  <!-- svelte-ignore a11y-label-has-associated-control -->
-  <label
-    role="button"
-    tabindex="0"
-    class="btn btn-md justify-around md:w-[194px]">
+  <button
+    class="btn btn-md justify-around md:w-[194px]"
+    disabled={cannotSwitch}>
     <span class="font-normal flex-1 text-left mr-2">
       {#if $fromChain}
         <svelte:component this={$fromChain.icon} />
@@ -57,7 +58,7 @@
       {/if}
     </span>
     <ChevronDown size="20" />
-  </label>
+  </button>
   <ul
     role="listbox"
     tabindex="0"

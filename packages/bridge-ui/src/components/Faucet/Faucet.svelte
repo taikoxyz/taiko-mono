@@ -1,7 +1,7 @@
 <script lang="ts">
   import { UserRejectedRequestError } from '@wagmi/core';
   import { ethers, type Signer } from 'ethers';
-  
+
   import { chains } from '../../chain/chains';
   import {
     L1_CHAIN_ID,
@@ -69,9 +69,13 @@
     } catch (error) {
       console.error(error);
 
-      errorToast(
-        `There seems to be a problem with minting ${_token.symbol} tokens.`,
-      );
+      if (!wrongChain) {
+        // We only want to inform the user there is a problem here if
+        // they are in the right network. Otherwise, the error is expected.
+        errorToast(
+          `There seems to be a problem with minting ${_token.symbol} tokens.`,
+        );
+      }
 
       errorReason = 'Cannot mint token';
     } finally {
@@ -136,11 +140,14 @@
     }
   }
 
-  $: wrongChain = $fromChain && $fromChain.id === L2_CHAIN_ID;
-
   $: shouldDisableButton($signer, $token)
     .then((disable) => (actionDisabled = disable))
     .catch((error) => console.error(error));
+
+  $: wrongChain = $fromChain && $fromChain.id === L2_CHAIN_ID;
+  $: pendingTx = $pendingTransactions && $pendingTransactions.length > 0;
+  $: disableSwitchButton = switchingNetwork || pendingTx;
+  $: disableMintButton = actionDisabled || loading || pendingTx;
 </script>
 
 <div class="space-y-4">
@@ -163,10 +170,12 @@
       type="accent"
       class="w-full"
       on:click={switchNetwork}
-      disabled={switchingNetwork}>
+      disabled={disableSwitchButton}>
       <span>
         {#if switchingNetwork}
           <Loading text="Switching…" />
+        {:else if pendingTx}
+          <Loading text="Pending tx…" />
         {:else}
           Switch to {L1_CHAIN_NAME}
         {/if}
@@ -190,7 +199,7 @@
     <Button
       type="accent"
       class="w-full"
-      disabled={actionDisabled || loading}
+      disabled={disableMintButton}
       on:click={() => mint($fromChain, $signer, $token)}>
       <span>
         {#if loading}

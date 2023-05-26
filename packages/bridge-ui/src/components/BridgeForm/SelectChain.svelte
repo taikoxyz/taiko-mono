@@ -5,6 +5,7 @@
   import { mainnetChain, taikoChain } from '../../chain/chains';
   import { fromChain, toChain } from '../../store/chain';
   import { signer } from '../../store/signer';
+  import { pendingTransactions } from '../../store/transaction';
   import { selectChain } from '../../utils/selectChain';
   import {
     errorToast,
@@ -33,6 +34,8 @@
       }
     }
   };
+
+  $: cannotToggle = $pendingTransactions && $pendingTransactions.length > 0;
 </script>
 
 <div
@@ -47,7 +50,10 @@
     {/if}
   </div>
 
-  <button on:click={toggleChains} class="btn rounded btn-sm toggle-chain">
+  <button
+    disabled={cannotToggle}
+    on:click={toggleChains}
+    class="btn rounded btn-sm toggle-chain">
     <ArrowRight size="16" />
   </button>
 

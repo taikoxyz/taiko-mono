@@ -67,6 +67,8 @@
 
   $: setAddress($signer).catch((e) => console.error(e));
 
+  $: pendingTx = $pendingTransactions && $pendingTransactions.length > 0;
+
   onMount(() => {
     (async () => {
       await setAddress($signer);
@@ -80,7 +82,7 @@
     <!-- svelte-ignore a11y-label-has-associated-control -->
     <label role="button" tabindex="0" class="btn btn-md justify-around">
       <span class="font-normal flex-1 text-left flex items-center">
-        {#if $pendingTransactions && $pendingTransactions.length}
+        {#if pendingTx}
           <div class="inline-block ml-2">
             <Loading text="Pending tx…" />
           </div>
