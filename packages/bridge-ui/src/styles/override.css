@@ -11,3 +11,9 @@ input::-webkit-inner-spin-button {
 input[type='number'] {
   -moz-appearance: textfield;
 }
+
+/* Invert accent button colors */
+.btn.btn-accent {
+  background-color: hsla(var(--af) / var(--tw-bg-opacity, 1));
+  border-color: hsla(var(--af) / var(--tw-bg-opacity, 1));
+}

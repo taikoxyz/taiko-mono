@@ -183,15 +183,18 @@
     return false;
   }
 
-  async function approve() {
+  // TODO: rethink this function. By passing the token value, we make sure that async
+  //       changes in the token don't affect the execution of this function. However,
+  //       there are other moving pieces here, although neither chain nor signer can change.
+  //       Ideally we would pass all the values as arguments and break down this function.
+  //       As for changing the state of `requiresAllowance`, we could do this in a wrapper.
+  async function approve(_token: Token) {
     try {
-      // approving = true;
-
       if (!requiresAllowance)
         throw Error('does not require additional allowance');
 
       const contractAddress = await getAddressForToken(
-        $token,
+        _token,
         $fromChain,
         $toChain,
         $signer,
@@ -199,10 +202,10 @@
 
       const spenderAddress = tokenVaults[$fromChain.id];
 
-      log(`Approving token ${$token.symbol}`);
+      log(`Approving token ${_token.symbol}`);
 
       const tx = await $activeBridge.approve({
-        amountInWei: ethers.utils.parseUnits(amount, $token.decimals),
+        amountInWei: ethers.utils.parseUnits(amount, _token.decimals),
         signer: $signer,
         contractAddress,
         spenderAddress,
@@ -215,7 +218,7 @@
       requiresAllowance = false;
 
       successToast(
-        `<strong>Tokens transfer approved!</strong><br />You can now proceed to bridge ${$token.symbol} tokens.`,
+        `<strong>Tokens transfer approved!</strong><br />You can now proceed to bridge ${_token.symbol} tokens.`,
       );
     } catch (error) {
       console.error(error);
@@ -235,8 +238,6 @@
       } else {
         errorToast(`${headerError}<br />Try again later.`);
       }
-    } finally {
-      // approving = false;
     }
   }
 
@@ -269,10 +270,9 @@
     return hasEnoughBalance;
   }
 
-  async function bridge() {
+  // TODO: exactly the same as `approve` function. See comment there.
+  async function bridge(_token: Token) {
     try {
-      // bridging = true;
-
       if (requiresAllowance) {
         throw Error('requires additional allowance');
       }
@@ -288,7 +288,7 @@
         return;
       }
 
-      const amountInWei = ethers.utils.parseUnits(amount, $token.decimals);
+      const amountInWei = ethers.utils.parseUnits(amount, _token.decimals);
 
       const provider = providers[$toChain.id];
       const destTokenVaultAddress = tokenVaults[$toChain.id];
@@ -296,7 +296,7 @@
       // TODO: remove this, and move this check to the ERC20 bridge directly
       let isBridgedTokenAlreadyDeployed =
         await checkIfTokenIsDeployedCrossChain(
-          $token,
+          _token,
           provider,
           destTokenVaultAddress,
           $toChain,
@@ -307,7 +307,7 @@
       const tokenVaultAddress = tokenVaults[$fromChain.id];
 
       const tokenAddress = await getAddressForToken(
-        $token,
+        _token,
         $fromChain,
         $toChain,
         $signer,
@@ -359,7 +359,7 @@
       let bridgeTransaction: BridgeTransaction = {
         fromChainId: $fromChain.id,
         toChainId: $toChain.id,
-        symbol: $token.symbol,
+        symbol: _token.symbol,
         amountInWei,
         from: tx.from,
         hash: tx.hash,
@@ -422,8 +422,6 @@
       } else {
         errorToast(`${headerError}<br />Try again later.`);
       }
-    } finally {
-      // bridging = false;
     }
   }
 
@@ -563,6 +561,7 @@
   </div>
 
   <ActionButtons
+    token={$token}
     {requiresAllowance}
     {computingAllowance}
     {tokenBalance}

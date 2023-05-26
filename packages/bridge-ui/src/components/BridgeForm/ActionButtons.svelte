@@ -1,15 +1,16 @@
 <script lang="ts">
-  import { BigNumber, ethers,type Signer } from 'ethers';
+  import { BigNumber, ethers, type Signer } from 'ethers';
   import { ArrowRight } from 'svelte-heros-v2';
-  
+
   import type { Chain } from '../../domain/chain';
   import type { Token } from '../../domain/token';
   import { fromChain } from '../../store/chain';
   import { signer } from '../../store/signer';
-  import { token } from '../../store/token';
   import { isERC20 } from '../../token/tokens';
   import Button from '../Button.svelte';
   import Loading from '../Loading.svelte';
+
+  export let token: Token;
 
   export let requiresAllowance = false;
   export let computingAllowance = false;
@@ -21,8 +22,8 @@
 
   export let amountEntered = false;
 
-  export let approve: () => Promise<void>;
-  export let bridge: () => Promise<void>;
+  export let approve: (token: Token) => Promise<void>;
+  export let bridge: (token: Token) => Promise<void>;
 
   let approving = false;
   let bridging = false;
@@ -37,16 +38,17 @@
   }
 
   function shouldShowSteps(
-    computingTokenBalance: boolean,
-    fromChain: Chain,
     token: Token,
     signer: Signer,
+    fromChain: Chain,
     tokenBalance: string,
+    computingTokenBalance: boolean,
   ) {
     return (
       !computingTokenBalance &&
       fromChain && // chain selected?
       signer && // wallet connected?
+      token && // token selected?
       isERC20(token) &&
       hasBalance(token, tokenBalance)
     );
@@ -54,24 +56,24 @@
 
   function clickApprove() {
     approving = true;
-    approve().finally(() => {
+    approve(token).finally(() => {
       approving = false;
     });
   }
 
   function clickBridge() {
     bridging = true;
-    bridge().finally(() => {
+    bridge(token).finally(() => {
       bridging = false;
     });
   }
 
   $: showSteps = shouldShowSteps(
-    computingTokenBalance,
-    $fromChain,
-    $token,
+    token,
     $signer,
+    $fromChain,
     tokenBalance,
+    computingTokenBalance,
   );
 
   $: loading = approving || bridging;
