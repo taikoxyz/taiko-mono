@@ -6,7 +6,38 @@ export default [
   },
   {
     inputs: [],
+    name: "L1_ALREADY_PROVEN",
+    type: "error",
+  },
+  {
+    inputs: [],
     name: "L1_BLOCK_ID",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_BLOCK_ID",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_BLOCK_ID",
+    type: "error",
+  },
+  {
+    inputs: [
+      {
+        internalType: "bytes32",
+        name: "expected",
+        type: "bytes32",
+      },
+      {
+        internalType: "bytes32",
+        name: "actual",
+        type: "bytes32",
+      },
+    ],
+    name: "L1_EVIDENCE_MISMATCH",
     type: "error",
   },
   {
@@ -32,7 +63,27 @@ export default [
   },
   {
     inputs: [],
+    name: "L1_FORK_CHOICE_NOT_FOUND",
+    type: "error",
+  },
+  {
+    inputs: [],
     name: "L1_INSUFFICIENT_TOKEN",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_INSUFFICIENT_TOKEN",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_INSUFFICIENT_TOKEN",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_INVALID_CONFIG",
     type: "error",
   },
   {
@@ -47,7 +98,22 @@ export default [
   },
   {
     inputs: [],
+    name: "L1_INVALID_ETH_DEPOSIT",
+    type: "error",
+  },
+  {
+    inputs: [],
     name: "L1_INVALID_EVIDENCE",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_INVALID_EVIDENCE",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_INVALID_METADATA",
     type: "error",
   },
   {
@@ -67,7 +133,22 @@ export default [
   },
   {
     inputs: [],
+    name: "L1_INVALID_PROOF",
+    type: "error",
+  },
+  {
+    inputs: [],
     name: "L1_INVALID_PROOF_OVERWRITE",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_INVALID_PROOF_OVERWRITE",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_NOT_SPECIAL_PROVER",
     type: "error",
   },
   {
@@ -82,7 +163,22 @@ export default [
   },
   {
     inputs: [],
+    name: "L1_ORACLE_PROVER_DISABLED",
+    type: "error",
+  },
+  {
+    inputs: [],
     name: "L1_SAME_PROOF",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_SAME_PROOF",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_SYSTEM_PROVER_DISABLED",
     type: "error",
   },
   {
@@ -97,7 +193,22 @@ export default [
   },
   {
     inputs: [],
+    name: "L1_SYSTEM_PROVER_PROHIBITED",
+    type: "error",
+  },
+  {
+    inputs: [],
     name: "L1_TOO_MANY_BLOCKS",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_TOO_MANY_BLOCKS",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_TX_LIST",
     type: "error",
   },
   {
@@ -112,7 +223,22 @@ export default [
   },
   {
     inputs: [],
+    name: "L1_TX_LIST_HASH",
+    type: "error",
+  },
+  {
+    inputs: [],
     name: "L1_TX_LIST_NOT_EXIST",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_TX_LIST_NOT_EXIST",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_TX_LIST_RANGE",
     type: "error",
   },
   {
@@ -253,6 +379,12 @@ export default [
         name: "meta",
         type: "tuple",
       },
+      {
+        indexed: false,
+        internalType: "uint64",
+        name: "blockFee",
+        type: "uint64",
+      },
     ],
     name: "BlockProposed",
     type: "event",
@@ -314,6 +446,12 @@ export default [
         internalType: "bytes32",
         name: "blockHash",
         type: "bytes32",
+      },
+      {
+        indexed: false,
+        internalType: "uint64",
+        name: "reward",
+        type: "uint64",
       },
     ],
     name: "BlockVerified",
@@ -410,8 +548,26 @@ export default [
         name: "proofTimeTarget",
         type: "uint64",
       },
+      {
+        indexed: false,
+        internalType: "uint64",
+        name: "proofTimeIssued",
+        type: "uint64",
+      },
+      {
+        indexed: false,
+        internalType: "uint64",
+        name: "blockFee",
+        type: "uint64",
+      },
+      {
+        indexed: false,
+        internalType: "uint16",
+        name: "adjustmentQuotient",
+        type: "uint16",
+      },
     ],
-    name: "ProofTimeTargetChanged",
+    name: "ProofParamsChanged",
     type: "event",
   },
   {
@@ -579,11 +735,6 @@ export default [
             internalType: "uint96",
             name: "minEthDepositAmount",
             type: "uint96",
-          },
-          {
-            internalType: "uint8",
-            name: "adjustmentQuotient",
-            type: "uint8",
           },
           {
             internalType: "bool",
@@ -852,6 +1003,11 @@ export default [
         name: "_initProofTimeIssued",
         type: "uint64",
       },
+      {
+        internalType: "uint16",
+        name: "_adjustmentQuotient",
+        type: "uint16",
+      },
     ],
     name: "init",
     outputs: [],
@@ -1072,6 +1228,16 @@ export default [
         name: "newProofTimeIssued",
         type: "uint64",
       },
+      {
+        internalType: "uint64",
+        name: "newBlockFee",
+        type: "uint64",
+      },
+      {
+        internalType: "uint16",
+        name: "newAdjustmentQuotient",
+        type: "uint16",
+      },
     ],
     name: "setProofParams",
     outputs: [],
@@ -1093,9 +1259,14 @@ export default [
         type: "uint64",
       },
       {
-        internalType: "uint64",
+        internalType: "uint16",
+        name: "adjustmentQuotient",
+        type: "uint16",
+      },
+      {
+        internalType: "uint48",
         name: "__reserved71",
-        type: "uint64",
+        type: "uint48",
       },
       {
         internalType: "uint64",
