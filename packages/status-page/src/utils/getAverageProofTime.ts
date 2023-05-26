@@ -6,5 +6,5 @@ export const getAverageProofTime = async (
 ): Promise<string> => {
   const resp = await axios.get<StatsResponse>(`${eventIndexerApiUrl}/stats`);
 
-  return `${resp.data.averageProofTime} seconds`;
+  return `${resp.data.averageProofTime}`;
 };

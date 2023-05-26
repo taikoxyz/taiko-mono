@@ -1,10 +1,10 @@
 import { BigNumber, Contract, ethers } from "ethers";
+import TaikoToken from "../constants/abi/TaikoToken";
 import TaikoL1 from "../constants/abi/TaikoL1";
 import type { Status, StatusIndicatorProp } from "../domain/status";
 import { getAvailableSlots } from "./getAvailableSlots";
-import { getAverageProofReward } from "./getAverageProofReward";
+import type { StatsResponse } from "./getAverageProofReward";
 import { getAverageProofTime } from "./getAverageProofTime";
-import { getBlockFee } from "./getBlockFee";
 import { getEthDeposits } from "./getEthDeposits";
 import { getGasPrice } from "./getGasPrice";
 import { getLastVerifiedBlockId } from "./getLastVerifiedBlockId";
@@ -15,11 +15,11 @@ import { getNumProposers } from "./getNumProposers";
 import { getNumProvers } from "./getNumProvers";
 import { getPendingBlocks } from "./getPendingBlocks";
 import { getPendingTransactions } from "./getPendingTransactions";
-import { getProofReward } from "./getProofReward";
 import { getQueuedTransactions } from "./getQueuedTransactions";
-import { getStateVariables } from "./getStateVariables";
 import type { initConfig } from "./initConfig";
+import { truncateString } from "./truncateString";
 import { watchHeaderSynced } from "./watchHeaderSynced";
+import axios from "axios";
 
 export function buildStatusIndicators(
   config: ReturnType<typeof initConfig>,
@@ -231,7 +231,24 @@ export function buildStatusIndicators(
 
   try {
     indicators.push({
-      statusFunc: getBlockFee,
+      statusFunc: async (
+        provider: ethers.providers.JsonRpcProvider,
+        contractAddress: string
+      ): Promise<string> => {
+        const contract: Contract = new Contract(
+          contractAddress,
+          TaikoL1,
+          provider
+        );
+        const fee = await contract.getBlockFee();
+        const tko: Contract = new Contract(
+          config.taikoTokenAddress,
+          TaikoToken,
+          provider
+        );
+        const decimals = await tko.decimals();
+        return `${ethers.utils.formatUnits(fee, decimals)} TKO`;
+      },
       watchStatusFunc: null,
       provider: config.l1Provider,
       contractAddress: config.l1TaikoAddress,
@@ -244,7 +261,30 @@ export function buildStatusIndicators(
         "The current fee to propose a block to the TaikoL1 smart contract.",
     });
     indicators.push({
-      statusFunc: getProofReward,
+      statusFunc: async (
+        provider: ethers.providers.JsonRpcProvider,
+        contractAddress: string
+      ): Promise<string> => {
+        const contract: Contract = new Contract(
+          contractAddress,
+          TaikoL1,
+          provider
+        );
+        const averageProofTime = await getAverageProofTime(
+          config.eventIndexerApiUrl
+        );
+        const fee = await contract.getProofReward(Number(averageProofTime));
+
+        const tko: Contract = new Contract(
+          config.taikoTokenAddress,
+          TaikoToken,
+          provider
+        );
+        const decimals = await tko.decimals();
+        return `${ethers.utils.formatUnits(fee, decimals)} ${
+          import.meta.env.VITE_FEE_TOKEN_SYMBOL ?? "TKO"
+        }`;
+      },
       watchStatusFunc: null,
       provider: config.l1Provider,
       contractAddress: config.l1TaikoAddress,
@@ -254,7 +294,7 @@ export function buildStatusIndicators(
         return "green"; // todo: whats green, yellow, red?
       },
       tooltip:
-        "The current reward for successfully submitting a proof for a proposed block on the TaikoL1 smart contract.",
+        "The current reward for successfully submitting a proof for a proposed block on the TaikoL1 smart contract, given the proof time is equal to average proof time.",
     });
     indicators.push({
       provider: config.l1Provider,
@@ -283,7 +323,7 @@ export function buildStatusIndicators(
             if (
               prover.toLowerCase() !== config.oracleProverAddress.toLowerCase()
             ) {
-              onEvent(new Date().getTime().toString());
+              onEvent(new Date(provenAt).toTimeString());
             }
           }
         );
@@ -304,7 +344,7 @@ export function buildStatusIndicators(
       colorFunc: function (status: Status) {
         return "green";
       },
-      header: "Average Proof Time",
+      header: "Average Proof Time (seconds)",
       intervalInMs: 5 * 1000,
       tooltip:
         "The current average proof time, updated when a block is successfully proven.",
@@ -315,8 +355,22 @@ export function buildStatusIndicators(
       contractAddress: config.l1TaikoAddress,
       statusFunc: async (
         provider: ethers.providers.JsonRpcProvider,
-        address: string
-      ) => await getAverageProofReward(config.eventIndexerApiUrl),
+        contractAdress: string
+      ) => {
+        const resp = await axios.get<StatsResponse>(
+          `${config.eventIndexerApiUrl}/stats`
+        );
+        const tko: Contract = new Contract(
+          config.taikoTokenAddress,
+          TaikoToken,
+          provider
+        );
+        const decimals = await tko.decimals();
+        return `${ethers.utils.formatUnits(
+          resp.data.averageProofReward,
+          decimals
+        )} TKO`;
+      },
       colorFunc: function (status: Status) {
         return "green";
       },
