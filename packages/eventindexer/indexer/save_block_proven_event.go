@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -89,6 +88,11 @@ func (svc *Service) updateAverageBlockTime(ctx context.Context, event *taikol1.T
 		return errors.Wrap(err, "svc.taikoL1.GetBlock")
 	}
 
+	l2Block, err := svc.destEthClient.BlockByNumber(ctx, event.Id)
+	if err != nil {
+		return errors.Wrap(err, "svc.destEthClient.BlockByNumber")
+	}
+
 	stat, err := svc.statRepo.Find(ctx)
 	if err != nil {
 		return errors.Wrap(err, "svc.statRepo.Find")
@@ -96,9 +100,9 @@ func (svc *Service) updateAverageBlockTime(ctx context.Context, event *taikol1.T
 
 	proposedAt := block.ProposedAt
 
-	provenAt := time.Now().Unix()
+	provenAt := l2Block.Time()
 
-	proofTime := uint64(provenAt) - proposedAt
+	proofTime := provenAt - proposedAt
 
 	newAverageProofTime := calcNewAverage(stat.AverageProofTime, stat.NumProofs, proofTime)
 

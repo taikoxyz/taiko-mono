@@ -12,6 +12,7 @@ type Stat struct {
 	AverageProofTime   uint64 `json:"averageProofTime"`
 	AverageProofReward uint64 `json:"averageProofReward"`
 	NumProofs          uint64 `json:"numProofs"`
+	NumVerifiedBlocks  uint64 `json:"numVerifiedBlocks"`
 }
 
 // SaveStatOpts
