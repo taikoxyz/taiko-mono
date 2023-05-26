@@ -3,7 +3,6 @@ package indexer
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -104,8 +103,6 @@ func (svc *Service) updateAverageProofTime(ctx context.Context, event *taikol1.T
 	provenAt := eventBlock.Time()
 
 	proofTime := provenAt - proposedAt
-
-	fmt.Println(proposedAt, provenAt, proofTime)
 
 	newAverageProofTime := calcNewAverage(stat.AverageProofTime, stat.NumProofs, proofTime)
 
