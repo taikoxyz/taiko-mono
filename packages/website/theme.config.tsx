@@ -44,7 +44,7 @@ export default {
             "A decentralized, Ethereum-equivalent ZK-Rollup."
           }
         />
-        <link rel="icon" href="/images/favicon.png" />
+        <link rel="icon" href="/images/favicon.svg" />
       </>
     );
   },
@@ -52,7 +52,7 @@ export default {
   nextThemes: {
     defaultTheme: "light",
   },
-  primaryHue: 315,
+  primaryHue: 323,
   project: {
     link: "https://github.com/taikoxyz",
   },
