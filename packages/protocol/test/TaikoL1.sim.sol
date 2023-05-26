@@ -8,16 +8,6 @@ import {TaikoData} from "../contracts/L1/TaikoData.sol";
 import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {TaikoL1TestBase} from "./TaikoL1TestBase.t.sol";
-import {LibLn} from "./LibLn.sol";
-
-/// @dev Tweak this if you iwhs to set - the config and the calculation of the proofTimeIssued
-/// @dev also originates from this
-uint16 constant INITIAL_PROOF_TIME_TARGET = 160;
-
-// Need to test (solve) the problem where in the middle of the testnet, the fee is low already - like our internal devnet now -
-// but we dont want to lose data with redeploying the contract. Upgrade also does not work because we need to change all
-// proof reward / prover fee related variable with one go.
-uint16 constant READJUSTED_ADJUSTMENT_QUOTIENT = 32000;
 
 /// @dev Warning: this test will take 7-10 minutes and require 1GB memory.
 ///      `pnpm sim`
@@ -90,17 +80,12 @@ contract TaikoL1Simulation is TaikoL1TestBase {
     }
 
     function setUp() public override {
-        proofTimeTarget = INITIAL_PROOF_TIME_TARGET; // Approx. value which close to what is in the simulation
-
-        initProofTimeIssued = LibLn.calcInitProofTimeIssued(feeBase, proofTimeTarget, 16); // This 16 is a low value (=quick curve)! Will re-adjust at the middle of the simulation, to test update scenario!
-
         TaikoL1TestBase.setUp();
-
         registerAddress(L1.getVerifierName(100), address(new Verifier()));
     }
 
     // A real world scenario
-    function xtestGeneratingManyRandomBlocksNonConsecutive() external {
+    function testGeneratingManyRandomBlocksNonConsecutive() external {
         uint256 time = block.timestamp;
 
         assertEq(time, 1);
@@ -165,7 +150,6 @@ contract TaikoL1Simulation is TaikoL1TestBase {
         uint256 proposedIndex;
 
         console2.log("Last second:", maxTime);
-        console2.log("Proof time target:", INITIAL_PROOF_TIME_TARGET);
         console2.log("Average proposal time: ", totalDiffsProp / blocksToSimulate);
         console2.log("Average proof time: ", totalDiffsProve / blocksToSimulate);
         printVariableHeaders();
@@ -343,7 +327,6 @@ contract TaikoL1Simulation is TaikoL1TestBase {
         uint256 proposedIndex;
 
         console2.log("Last second:", maxTime);
-        console2.log("Proof time target:", INITIAL_PROOF_TIME_TARGET);
         console2.log("Average proposal time: ", totalDiffsProp / blocksToSimulate);
         console2.log("Average proof time: ", totalDiffsProve / blocksToSimulate);
         printVariableHeaders();
@@ -526,7 +509,6 @@ contract TaikoL1Simulation is TaikoL1TestBase {
         uint256 proposedIndex;
 
         console2.log("Last second:", maxTime);
-        console2.log("Proof time target:", INITIAL_PROOF_TIME_TARGET);
         console2.log("Average proposal time: ", totalDiffsProp / blocksToSimulate);
         console2.log("Average proof time: ", totalDiffsProve / blocksToSimulate);
         printVariableHeaders();
