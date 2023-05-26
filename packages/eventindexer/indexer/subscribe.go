@@ -60,34 +60,37 @@ func (svc *Service) subscribeBlockProven(ctx context.Context, chainID *big.Int, 
 		case err := <-sub.Err():
 			errChan <- errors.Wrap(err, "sub.Err()")
 		case event := <-sink:
-			log.Infof("blockProvenEvent from subscription for prover %v", event.Prover.Hex())
+			go func() {
+				log.Infof("blockProvenEvent from subscription for prover %v", event.Prover.Hex())
 
-			if err := svc.saveBlockProvenEvent(ctx, chainID, event); err != nil {
-				eventindexer.BlockProvenEventsProcessedError.Inc()
+				if err := svc.saveBlockProvenEvent(ctx, chainID, event); err != nil {
+					eventindexer.BlockProvenEventsProcessedError.Inc()
 
-				log.Errorf("svc.subscribe, svc.saveBlockProvenEvent: %v", err)
+					log.Errorf("svc.subscribe, svc.saveBlockProvenEvent: %v", err)
 
-				continue
-			}
-
-			block, err := svc.blockRepo.GetLatestBlockProcessed(chainID)
-			if err != nil {
-				log.Errorf("svc.subscribe, blockRepo.GetLatestBlockProcessed: %v", err)
-				continue
-			}
-
-			if block.Height < event.Raw.BlockNumber {
-				err = svc.blockRepo.Save(eventindexer.SaveBlockOpts{
-					Height:  event.Raw.BlockNumber,
-					Hash:    event.Raw.BlockHash,
-					ChainID: chainID,
-				})
-				if err != nil {
-					log.Errorf("svc.subscribe, svc.blockRepo.Save: %v", err)
+					return
 				}
 
-				eventindexer.BlocksProcessed.Inc()
-			}
+				block, err := svc.blockRepo.GetLatestBlockProcessed(chainID)
+				if err != nil {
+					log.Errorf("svc.subscribe, blockRepo.GetLatestBlockProcessed: %v", err)
+					return
+				}
+
+				if block.Height < event.Raw.BlockNumber {
+					err = svc.blockRepo.Save(eventindexer.SaveBlockOpts{
+						Height:  event.Raw.BlockNumber,
+						Hash:    event.Raw.BlockHash,
+						ChainID: chainID,
+					})
+					if err != nil {
+						log.Errorf("svc.subscribe, svc.blockRepo.Save: %v", err)
+						return
+					}
+
+					eventindexer.BlocksProcessed.Inc()
+				}
+			}()
 		}
 	}
 }
@@ -116,46 +119,51 @@ func (svc *Service) subscribeBlockProposed(ctx context.Context, chainID *big.Int
 		case err := <-sub.Err():
 			errChan <- errors.Wrap(err, "sub.Err()")
 		case event := <-sink:
-			log.Infof("blockProposedEvent from subscription")
+			go func() {
+				log.Infof("blockProposedEvent from subscription")
 
-			tx, _, err := svc.ethClient.TransactionByHash(ctx, event.Raw.TxHash)
-			if err != nil {
-				log.Errorf("svc.ethClient.TransactionByHash: %v", err)
-			}
-
-			sender, err := svc.ethClient.TransactionSender(ctx, tx, event.Raw.BlockHash, event.Raw.TxIndex)
-			if err != nil {
-				log.Errorf("svc.ethClient.TransactionSender: %v", err)
-			}
-
-			log.Infof("blockProposed by: %v", sender.Hex())
-
-			if err := svc.saveBlockProposedEvent(ctx, chainID, event, sender); err != nil {
-				eventindexer.BlockProposedEventsProcessedError.Inc()
-
-				log.Errorf("svc.subscribe, svc.saveBlockProposedEvent: %v", err)
-
-				continue
-			}
-
-			block, err := svc.blockRepo.GetLatestBlockProcessed(chainID)
-			if err != nil {
-				log.Errorf("svc.subscribe, blockRepo.GetLatestBlockProcessed: %v", err)
-				continue
-			}
-
-			if block.Height < event.Raw.BlockNumber {
-				err = svc.blockRepo.Save(eventindexer.SaveBlockOpts{
-					Height:  event.Raw.BlockNumber,
-					Hash:    event.Raw.BlockHash,
-					ChainID: chainID,
-				})
+				tx, _, err := svc.ethClient.TransactionByHash(ctx, event.Raw.TxHash)
 				if err != nil {
-					log.Errorf("svc.subscribe, svc.blockRepo.Save: %v", err)
+					log.Errorf("svc.ethClient.TransactionByHash: %v", err)
+					return
 				}
 
-				eventindexer.BlocksProcessed.Inc()
-			}
+				sender, err := svc.ethClient.TransactionSender(ctx, tx, event.Raw.BlockHash, event.Raw.TxIndex)
+				if err != nil {
+					log.Errorf("svc.ethClient.TransactionSender: %v", err)
+					return
+				}
+
+				log.Infof("blockProposed by: %v", sender.Hex())
+
+				if err := svc.saveBlockProposedEvent(ctx, chainID, event, sender); err != nil {
+					eventindexer.BlockProposedEventsProcessedError.Inc()
+
+					log.Errorf("svc.subscribe, svc.saveBlockProposedEvent: %v", err)
+
+					return
+				}
+
+				block, err := svc.blockRepo.GetLatestBlockProcessed(chainID)
+				if err != nil {
+					log.Errorf("svc.subscribe, blockRepo.GetLatestBlockProcessed: %v", err)
+					return
+				}
+
+				if block.Height < event.Raw.BlockNumber {
+					err = svc.blockRepo.Save(eventindexer.SaveBlockOpts{
+						Height:  event.Raw.BlockNumber,
+						Hash:    event.Raw.BlockHash,
+						ChainID: chainID,
+					})
+					if err != nil {
+						log.Errorf("svc.subscribe, svc.blockRepo.Save: %v", err)
+						return
+					}
+
+					eventindexer.BlocksProcessed.Inc()
+				}
+			}()
 		}
 	}
 }
@@ -184,33 +192,35 @@ func (svc *Service) subscribeBlockVerified(ctx context.Context, chainID *big.Int
 		case err := <-sub.Err():
 			errChan <- errors.Wrap(err, "sub.Err()")
 		case event := <-sink:
-			log.Infof("blockVerifiedEvent from subscription")
+			go func() {
+				log.Infof("blockVerifiedEvent from subscription")
 
-			if err := svc.saveBlockVerifiedEvent(ctx, chainID, event); err != nil {
-				eventindexer.BlockVerifiedEventsProcessedError.Inc()
-				log.Errorf("svc.subscribe, svc.saveBlockProvenEvent: %v", err)
-
-				continue
-			}
-
-			block, err := svc.blockRepo.GetLatestBlockProcessed(chainID)
-			if err != nil {
-				log.Errorf("svc.subscribe, blockRepo.GetLatestBlockProcessed: %v", err)
-				continue
-			}
-
-			if block.Height < event.Raw.BlockNumber {
-				err = svc.blockRepo.Save(eventindexer.SaveBlockOpts{
-					Height:  event.Raw.BlockNumber,
-					Hash:    event.Raw.BlockHash,
-					ChainID: chainID,
-				})
-				if err != nil {
-					log.Errorf("svc.subscribe, svc.blockRepo.Save: %v", err)
+				if err := svc.saveBlockVerifiedEvent(ctx, chainID, event); err != nil {
+					eventindexer.BlockVerifiedEventsProcessedError.Inc()
+					log.Errorf("svc.subscribe, svc.saveBlockProvenEvent: %v", err)
+					return
 				}
 
-				eventindexer.BlocksProcessed.Inc()
-			}
+				block, err := svc.blockRepo.GetLatestBlockProcessed(chainID)
+				if err != nil {
+					log.Errorf("svc.subscribe, blockRepo.GetLatestBlockProcessed: %v", err)
+					return
+				}
+
+				if block.Height < event.Raw.BlockNumber {
+					err = svc.blockRepo.Save(eventindexer.SaveBlockOpts{
+						Height:  event.Raw.BlockNumber,
+						Hash:    event.Raw.BlockHash,
+						ChainID: chainID,
+					})
+					if err != nil {
+						log.Errorf("svc.subscribe, svc.blockRepo.Save: %v", err)
+						return
+					}
+
+					eventindexer.BlocksProcessed.Inc()
+				}
+			}()
 		}
 	}
 }
