@@ -75,7 +75,7 @@ func (svc *Service) saveBlockProvenEvent(
 
 	if event.Prover.Hex() != systemProver.Hex() && event.Prover.Hex() != oracleProver.Hex() {
 		if err := svc.updateAverageProofTime(ctx, event); err != nil {
-			return errors.Wrap(err, "svc.updateAverageBlockTime")
+			return errors.Wrap(err, "svc.updateAverageProofTime")
 		}
 	}
 
