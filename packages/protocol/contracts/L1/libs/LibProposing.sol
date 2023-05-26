@@ -78,16 +78,7 @@ library LibProposing {
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.proposer = msg.sender;
 
-        uint64 blockFee = state.blockFee;
-        if (state.taikoTokenBalances[msg.sender] < blockFee) {
-            revert L1_INSUFFICIENT_TOKEN();
-        }
-
-        unchecked {
-            state.taikoTokenBalances[msg.sender] -= blockFee;
-            state.accBlockFees += blockFee;
-            state.accProposedAt += meta.timestamp;
-        }
+        uint64 blockFee;
 
         emit BlockProposed(state.numBlocks, meta, blockFee);
         unchecked {

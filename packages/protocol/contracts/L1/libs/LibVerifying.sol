@@ -8,7 +8,6 @@ pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {ISignalService} from "../../signal/ISignalService.sol";
-import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {SafeCastUpgradeable} from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
@@ -79,7 +78,8 @@ library LibVerifying {
         TaikoData.Block storage blk = state.blocks[i % config.ringBufferSize];
 
         uint256 fcId = blk.verifiedForkChoiceId;
-        assert(fcId > 0);
+        // assert(fcId > 0);
+        require(fcId > 0, "ABC");
         bytes32 blockHash = blk.forkChoices[fcId].blockHash;
         uint32 gasUsed = blk.forkChoices[fcId].gasUsed;
         bytes32 signalRoot;
@@ -92,7 +92,8 @@ library LibVerifying {
         address systemProver = resolver.resolve("system_prover", true);
         while (i < state.numBlocks && processed < maxBlocks) {
             blk = state.blocks[i % config.ringBufferSize];
-            assert(blk.blockId == i);
+            // assert(blk.blockId == i);
+            require(blk.blockId == i, "EFG");
 
             fcId = LibUtils.getForkChoiceId(state, blk, blockHash, gasUsed);
 
@@ -153,35 +154,10 @@ library LibVerifying {
             proofTime = uint64(fc.provenAt - blk.proposedAt);
         }
 
-        uint64 reward = LibTokenomics.getProofReward(state, proofTime);
-
-        (state.proofTimeIssued, state.blockFee) =
-            LibTokenomics.getNewBlockFeeAndProofTimeIssued(state, proofTime);
-
-        unchecked {
-            state.accBlockFees -= reward;
-            state.accProposedAt -= blk.proposedAt;
-        }
-
-        // reward the prover
-        if (reward != 0) {
-            address prover = fc.prover != address(1) ? fc.prover : systemProver;
-
-            // systemProver may become address(0) after a block is proven
-            if (prover != address(0)) {
-                if (state.taikoTokenBalances[prover] == 0) {
-                    // Reduce refund to 1 wei as a penalty if the proposer
-                    // has 0 TKO outstanding balance.
-                    state.taikoTokenBalances[prover] = 1;
-                } else {
-                    state.taikoTokenBalances[prover] += reward;
-                }
-            }
-        }
+        uint64 reward;
 
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = fcId;
-
         emit BlockVerified(blk.blockId, fc.blockHash, reward);
     }
 }

@@ -187,8 +187,8 @@ abstract contract TaikoL1TestBase is Test {
     function depositTaikoToken(address who, uint256 amountTko, uint256 amountEth) internal {
         vm.deal(who, amountEth);
         tko.transfer(who, amountTko);
-        vm.prank(who, who);
-        L1.depositTaikoToken(amountTko);
+        // vm.prank(who, who);
+        // L1.depositTaikoToken(amountTko);
     }
 
     function printVariables(string memory comment) internal {

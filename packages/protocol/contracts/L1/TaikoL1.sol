@@ -11,7 +11,6 @@ import {EssentialContract} from "../common/EssentialContract.sol";
 import {ICrossChainSync} from "../common/ICrossChainSync.sol";
 import {Proxied} from "../common/Proxied.sol";
 import {LibEthDepositing} from "./libs/LibEthDepositing.sol";
-import {LibTokenomics} from "./libs/LibTokenomics.sol";
 import {LibProposing} from "./libs/LibProposing.sol";
 import {LibProving} from "./libs/LibProving.sol";
 import {LibUtils} from "./libs/LibUtils.sol";
@@ -176,14 +175,6 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
         );
     }
 
-    function depositTaikoToken(uint256 amount) external nonReentrant {
-        LibTokenomics.depositTaikoToken(state, AddressResolver(this), amount);
-    }
-
-    function withdrawTaikoToken(uint256 amount) external nonReentrant {
-        LibTokenomics.withdrawTaikoToken(state, AddressResolver(this), amount);
-    }
-
     function depositEtherToL2() public payable {
         LibEthDepositing.depositEtherToL2(state, getConfig(), AddressResolver(this));
     }
@@ -196,9 +187,6 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
         return state.blockFee;
     }
 
-    function getProofReward(uint64 proofTime) public view returns (uint64) {
-        return LibTokenomics.getProofReward(state, proofTime);
-    }
 
     function getBlock(uint256 blockId)
         public

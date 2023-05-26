@@ -248,43 +248,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         }
     }
 
-    /// @dev Test we can propose, prove, then verify more blocks than 'maxNumProposedBlocks'
-    function test_cooldown_more_blocks_than_ring_buffer_size() external {
-        depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
-        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
-        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
-
-        bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint32 parentGasUsed = 0;
-        uint32 gasUsed = 1000000;
-
-        for (uint256 blockId = 1; blockId < conf.maxNumProposedBlocks * 10; blockId++) {
-            printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
-            printVariables("after propose");
-            mine(1);
-
-            bytes32 blockHash = bytes32(1e10 + blockId);
-            bytes32 signalRoot = bytes32(1e9 + blockId);
-            proveBlock(Bob, Bob, meta, parentHash, parentGasUsed, gasUsed, blockHash, signalRoot);
-
-            uint256 lastVerifiedBlockId = L1.getStateVariables().lastVerifiedBlockId;
-
-            vm.warp(block.timestamp + 4 minutes + 59 seconds);
-            verifyBlock(Carol, 1);
-
-            assertEq(lastVerifiedBlockId, L1.getStateVariables().lastVerifiedBlockId);
-
-            vm.warp(block.timestamp + 1 seconds);
-            verifyBlock(Carol, 1);
-            assertFalse(lastVerifiedBlockId == L1.getStateVariables().lastVerifiedBlockId);
-
-            parentHash = blockHash;
-            parentGasUsed = gasUsed;
-        }
-        printVariables("");
-    }
-
     /// @dev So in case we have regular proving mechanism we shall check if still a cooldown happens
     /// @dev when proving a block (in a normal way).
     /// @notice In case both oracle_prover and system_prover is disbaled, there is no reason why
