@@ -97,10 +97,7 @@ abstract contract TaikoL1TestBase is Test {
         L1.init(
             address(addressManager),
             GENESIS_BLOCK_HASH,
-            feeBase,
-            proofTimeTarget,
-            initProofTimeIssued,
-            ADJUSTMENT_QUOTIENT
+            feeBase
         );
         printVariables("init  ");
     }
