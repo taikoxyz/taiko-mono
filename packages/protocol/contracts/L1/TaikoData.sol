@@ -30,6 +30,12 @@ library TaikoData {
         uint64 maxEthDepositsPerBlock;
         uint96 maxEthDepositAmount;
         uint96 minEthDepositAmount;
+        // how many blocks you win per batch
+        uint64 auctionBlockBatchSize;
+        // how many blocks past lastVerifiedId you can bid for
+        uint64 auctionBatchGap;
+        // how long after initial bid the auction lives for
+        uint256 auctionLengthInSeconds;
         bool relaySignalRoot;
     }
 
@@ -43,6 +49,7 @@ library TaikoData {
         uint64 numEthDeposits;
         uint256 avgProofTime;
         uint256 avgProofReward;
+        uint256 avgSuccessfulBidFeePerGas;
     }
 
     // 3 slots
@@ -120,11 +127,11 @@ library TaikoData {
     }
 
     struct Bid {
-        uint256 minFeePerGasAcceptedInWei;
-        uint256 blockId;
+        uint256 feePerGasInWei;
+        uint256 batchId;
         uint256 deposit;
         address bidder;
-        uint256 bidAt;
+        uint256 auctionStartedAt;
     }
 
     struct State {
@@ -139,7 +146,7 @@ library TaikoData {
             ) forkChoiceIds;
         mapping(address account => uint256 balance) taikoTokenBalances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
-        mapping(uint256 blockId => Bid bid) bids;
+        mapping(uint256 batchId => Bid bid) bids;
         EthDeposit[] ethDeposits;
         // Never or rarely changed
         // Slot 7: never or rarely changed
@@ -155,7 +162,8 @@ library TaikoData {
         uint64 __reversed71;
         uint256 avgProofTime;
         uint256 avgProofReward;
+        uint256 avgSuccessfulBidFeePerGas;
         // Reserved
-        uint256[39] __gap;
+        uint256[38] __gap;
     }
 }

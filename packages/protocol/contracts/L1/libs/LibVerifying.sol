@@ -147,7 +147,7 @@ library LibVerifying {
 
         TaikoData.Bid memory winningBid = state.bids[blk.blockId];
 
-        uint256 reward = uint256(fc.gasUsed) * winningBid.minFeePerGasAcceptedInWei;
+        uint256 reward = uint256(fc.gasUsed) * winningBid.feePerGasInWei;
 
         unchecked {
             state.accProposedAt -= blk.proposedAt;

@@ -47,22 +47,18 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
     /**
      * Propose a Taiko L2 block.
      *
-     * @param blockId the id of the block you are submitting a bid for.
-     * @param minFeePerGasAcceptedInWei The minimum fee, in wei, per gas you will accept
+     * @param batchId the id of the batch you are submitting a bid for.
+     * @param feePerGasInWei The minimum fee, in wei, per gas you will accept
      * being paid as a reward for proving the block.
      */
 
-    function bidForBlock(uint256 blockId, uint256 minFeePerGasAcceptedInWei)
-        external
-        payable
-        nonReentrant
-    {
-        LibAuction.bidForBlock({
+    function bidForBatch(uint256 batchId, uint256 feePerGasInWei) external payable nonReentrant {
+        LibAuction.bidForBatch({
             state: state,
             resolver: AddressResolver(this),
             config: getConfig(),
-            blockId: blockId,
-            minFeePerGasAcceptedInWei: minFeePerGasAcceptedInWei
+            batchId: batchId,
+            feePerGasInWei: feePerGasInWei
         });
     }
 
@@ -201,16 +197,6 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
 
     function getStateVariables() public view returns (TaikoData.StateVariables memory) {
         return state.getStateVariables();
-    }
-
-    function getBidForBlock(uint256 blockId) public view returns (TaikoData.Bid memory) {
-        return state.bids[blockId];
-    }
-
-    function isBiddingOpenForBlock(uint256 blockId) public view returns (bool) {
-        TaikoData.Bid memory currentBid = state.bids[blockId];
-
-        return LibAuction.isBiddingOpenForBlock(getConfig(), currentBid);
     }
 
     function getConfig() public pure virtual returns (TaikoData.Config memory) {
