@@ -1,4 +1,4 @@
-import { BigNumber,Contract, type Signer } from 'ethers';
+import { BigNumber, Contract, type Signer } from 'ethers';
 
 import { freeMintErc20ABI } from '../constants/abi';
 import type { Token } from '../domain/token';
@@ -31,6 +31,7 @@ export async function getIsMintedWithEstimation(
       return [true, null]; // already minted, no gas cost is needed
     }
   } catch (error) {
+    console.error(error);
     throw new Error(`there was an issue getting minters for ${token.symbol}`, {
       cause: error,
     });

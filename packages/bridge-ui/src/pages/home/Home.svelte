@@ -1,11 +1,11 @@
 <script lang="ts">
   import { location } from 'svelte-spa-router';
-  
+
   import BridgeForm from '../../components/BridgeForm';
   import SelectChain from '../../components/BridgeForm/SelectChain.svelte';
   import Faucet from '../../components/Faucet/Faucet.svelte';
   import Loading from '../../components/Loading.svelte';
-  import { Tab, TabList, TabPanel,Tabs } from '../../components/Tabs';
+  import { Tab, TabList, TabPanel, Tabs } from '../../components/Tabs';
   import Transactions from '../../components/Transactions';
   import { paginationInfo } from '../../store/relayerApi';
   import { signer } from '../../store/signer';
@@ -26,7 +26,7 @@
 
 <div class="container mx-auto text-center my-10">
   <Tabs
-    class="rounded-3xl md:border-2 border-bridge-form border-solid p-2 md:p-6 md:inline-block min-h-[688px]"
+    class="rounded-3xl md:border-2 border-bridge-form border-solid p-2 md:p-6 md:inline-block min-h-[650px]"
     bind:activeTab>
     {@const tab1 = tabsRoute[0]}
     {@const tab2 = tabsRoute[1]}

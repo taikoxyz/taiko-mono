@@ -1,7 +1,14 @@
 <script lang="ts">
+  import { UserRejectedRequestError } from '@wagmi/core';
   import { ethers, type Signer } from 'ethers';
-
-  import { L1_CHAIN_NAME, L2_CHAIN_NAME } from '../../constants/envVars';
+  
+  import { chains } from '../../chain/chains';
+  import {
+    L1_CHAIN_ID,
+    L1_CHAIN_NAME,
+    L2_CHAIN_ID,
+    L2_CHAIN_NAME,
+  } from '../../constants/envVars';
   import type { Chain } from '../../domain/chain';
   import type { Token } from '../../domain/token';
   import { fromChain } from '../../store/chain';
@@ -12,7 +19,10 @@
   import { getIsMintedWithEstimation } from '../../utils/getIsMintedWithEstimation';
   import { getLogger } from '../../utils/logger';
   import { mintERC20 } from '../../utils/mintERC20';
+  import { selectChain } from '../../utils/selectChain';
   import Button from '../Button.svelte';
+  import Eth from '../icons/ETH.svelte';
+  import Tko from '../icons/TKO.svelte';
   import Loading from '../Loading.svelte';
   import {
     errorToast,
@@ -26,6 +36,7 @@
   let actionDisabled: boolean = true;
   let loading: boolean = false;
   let errorReason: string = '';
+  let switchingNetwork: boolean = false;
 
   async function shouldDisableButton(signer: Signer, _token: Token) {
     if (!signer || !_token || !isTestToken(_token)) {
@@ -107,38 +118,89 @@
     }
   }
 
+  async function switchNetwork() {
+    switchingNetwork = true;
+
+    try {
+      await selectChain(chains[L1_CHAIN_ID]);
+    } catch (error) {
+      console.error(error);
+
+      if (error instanceof UserRejectedRequestError) {
+        warningToast('Switching network has been rejected.');
+      } else {
+        errorToast('Failed to switch network.');
+      }
+    } finally {
+      switchingNetwork = false;
+    }
+  }
+
+  $: wrongChain = $fromChain && $fromChain.id === L2_CHAIN_ID;
+
   $: shouldDisableButton($signer, $token)
     .then((disable) => (actionDisabled = disable))
     .catch((error) => console.error(error));
 </script>
 
 <div class="space-y-4">
-  <TestTokenDropdown bind:selectedToken={$token} />
-
-  {#if $token && isTestToken($token)}
+  {#if wrongChain}
     <p>
-      You can request 50 {$token.symbol}. {$token.symbol} is only available to be
-      minted on {L1_CHAIN_NAME}. If you are on {L2_CHAIN_NAME}, your network
-      will be changed first. You must have a small amount of ETH in your {L1_CHAIN_NAME}
-      wallet to send the transaction.
+      You are on
+      <span class="inline-flex items-center space-x-1 mx-2">
+        <Tko width={12} height={12} />
+        <strong>{L2_CHAIN_NAME}</strong>
+      </span>
+      network. Please switch to
+      <span class="inline-flex items-center space-x-1 mx-2">
+        <Eth width={12} height={12} />
+        <strong>{L1_CHAIN_NAME}</strong>
+      </span>
+      to be able to mint Test Tokens.
     </p>
-  {:else}
-    <p>No token selected to mint.</p>
-  {/if}
 
-  <Button
-    type="accent"
-    class="w-full"
-    disabled={actionDisabled || loading}
-    on:click={() => mint($fromChain, $signer, $token)}>
-    <span>
-      {#if loading}
-        <Loading />
-      {:else if actionDisabled}
-        {errorReason || 'Mint'}
-      {:else}
-        Mint {$token.name}
-      {/if}
-    </span>
-  </Button>
+    <Button
+      type="accent"
+      class="w-full"
+      on:click={switchNetwork}
+      disabled={switchingNetwork}>
+      <span>
+        {#if switchingNetwork}
+          <Loading text="Switching…" />
+        {:else}
+          Switch to {L1_CHAIN_NAME}
+        {/if}
+      </span>
+    </Button>
+  {:else}
+    <TestTokenDropdown bind:selectedToken={$token} />
+
+    {#if $token && isTestToken($token)}
+      <p>
+        You can request 50 {$token.symbol}. {$token.symbol} is only available to
+        be minted on {L1_CHAIN_NAME}. If you are on {L2_CHAIN_NAME}, your
+        network will be changed first. You must have a small amount of ETH in
+        your {L1_CHAIN_NAME}
+        wallet to send the transaction.
+      </p>
+    {:else}
+      <p>No token selected to mint.</p>
+    {/if}
+
+    <Button
+      type="accent"
+      class="w-full"
+      disabled={actionDisabled || loading}
+      on:click={() => mint($fromChain, $signer, $token)}>
+      <span>
+        {#if loading}
+          <Loading />
+        {:else if actionDisabled}
+          {errorReason || 'Mint'}
+        {:else}
+          Mint {$token.name}
+        {/if}
+      </span>
+    </Button>
+  {/if}
 </div>
