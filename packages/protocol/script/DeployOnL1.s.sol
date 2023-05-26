@@ -18,7 +18,6 @@ import "../contracts/signal/SignalService.sol";
 import "../contracts/common/AddressManager.sol";
 import "../contracts/test/erc20/FreeMintERC20.sol";
 import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
-import "../test/LibLn.sol";
 
 contract DeployOnL1 is Script {
     using SafeCastUpgradeable for uint256;
@@ -111,19 +110,11 @@ contract DeployOnL1 is Script {
 
         uint64 feeBase = uint64(1) ** taikoToken.decimals();
 
-
-
-
         address taikoL1Proxy = deployProxy(
             "taiko",
             address(taikoL1),
             bytes.concat(
-                taikoL1.init.selector,
-                abi.encode(
-                    addressManagerProxy,
-                    genesisHash,
-                    feeBase
-                )
+                taikoL1.init.selector, abi.encode(addressManagerProxy, genesisHash, feeBase)
             )
         );
         setAddress("taiko", taikoL1Proxy);
