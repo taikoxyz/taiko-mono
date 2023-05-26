@@ -148,12 +148,7 @@ library LibProving {
         fc.signalRoot = evidence.signalRoot;
         fc.gasUsed = evidence.gasUsed;
         fc.prover = evidence.prover;
-
-        if (evidence.prover == address(1)) {
-            fc.provenAt = uint64(block.timestamp.max(blk.proposedAt + state.proofTimeTarget));
-        } else {
-            fc.provenAt = uint64(block.timestamp);
-        }
+        fc.provenAt = uint64(block.timestamp);
 
         if (evidence.prover != address(0) && evidence.prover != address(1)) {
             uint256[10] memory inputs;

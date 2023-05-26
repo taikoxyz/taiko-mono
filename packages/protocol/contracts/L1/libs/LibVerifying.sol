@@ -27,10 +27,7 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
-        uint64 initBlockFee,
-        uint64 initProofTimeTarget,
-        uint64 initProofTimeIssued,
-        uint16 adjustmentQuotient
+        uint64 initBlockFee
     ) internal {
         if (
             config.chainId <= 1 || config.maxNumProposedBlocks == 1
@@ -43,7 +40,6 @@ library LibVerifying {
             // EIP-4844 blob deleted after 30 days
             || config.txListCacheExpiry > 30 * 24 hours || config.ethDepositGas == 0
                 || config.ethDepositMaxFee == 0 || config.ethDepositMaxFee >= type(uint96).max
-                || adjustmentQuotient == 0 || initProofTimeTarget == 0 || initProofTimeIssued == 0
         ) revert L1_INVALID_CONFIG();
 
         uint64 timeNow = uint64(block.timestamp);
@@ -51,9 +47,6 @@ library LibVerifying {
         state.genesisTimestamp = timeNow;
 
         state.blockFee = initBlockFee;
-        state.proofTimeIssued = initProofTimeIssued;
-        state.proofTimeTarget = initProofTimeTarget;
-        state.adjustmentQuotient = adjustmentQuotient;
         state.numBlocks = 1;
 
         TaikoData.Block storage blk = state.blocks[0];
