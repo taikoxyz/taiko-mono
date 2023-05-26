@@ -1,4 +1,4 @@
-import { ethers,type Signer, type Transaction } from 'ethers';
+import { ethers, type Signer, type Transaction } from 'ethers';
 import { writable } from 'svelte/store';
 
 import type {

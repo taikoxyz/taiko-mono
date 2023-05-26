@@ -147,7 +147,7 @@
   $: wrongChain = $fromChain && $fromChain.id === L2_CHAIN_ID;
   $: pendingTx = $pendingTransactions && $pendingTransactions.length > 0;
   $: disableSwitchButton = switchingNetwork || pendingTx;
-  $: disableMintButton = actionDisabled || loading || pendingTx;
+  $: disableMintButton = actionDisabled || loading;
 </script>
 
 <div class="space-y-4">

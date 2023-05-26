@@ -1,14 +1,15 @@
 <script lang="ts">
-  import { Contract, ethers } from 'ethers';
+  import { Contract, ethers,type Transaction } from 'ethers';
   import { createEventDispatcher } from 'svelte';
   import { onDestroy, onMount } from 'svelte';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
   import { _ } from 'svelte-i18n';
-
+  
   import { bridges } from '../../bridge/bridges';
   import { chains } from '../../chain/chains';
   import { bridgeABI } from '../../constants/abi';
   import { BridgeType } from '../../domain/bridge';
+  import type { Chain } from '../../domain/chain';
   import { MessageStatus } from '../../domain/message';
   import type { NoticeOpenArgs } from '../../domain/modal';
   import {
@@ -59,6 +60,7 @@
     transaction = transaction;
   }
 
+  // TODO: not very convinced about this annoying notice. Rethink it.
   async function onClaimClick() {
     // Has the user sent processing fees?. We also check if the user
     // has already been informed about the relayer auto-claim.
@@ -76,18 +78,32 @@
     }
   }
 
+  async function ensureCorrectChain(
+    currentChain: Chain,
+    bridgeTx: BridgeTransaction,
+    pendingTx: Transaction[],
+  ) {
+    const isCorrectChain = currentChain.id === bridgeTx.toChainId;
+    log(`Are we on the correct chain? ${isCorrectChain}`);
+
+    if (!isCorrectChain) {
+      if (pendingTx && pendingTx.length > 0) {
+        throw new Error('pending transactions ongoing', {
+          cause: 'pending_tx',
+        });
+      }
+
+      const chain = chains[bridgeTx.toChainId];
+      await selectChain(chain);
+    }
+  }
+
   // TODO: move outside of component
   async function claim(bridgeTx: BridgeTransaction) {
     try {
       loading = true;
 
-      // If the current "from chain", ie, the chain youre connected to, is not the destination
-      // of the bridge transaction, we need to change chains so your wallet is pointed
-      // to the right network.
-      if ($fromChain.id !== bridgeTx.toChainId) {
-        const chain = chains[bridgeTx.toChainId];
-        await selectChain(chain);
-      }
+      await ensureCorrectChain($fromChain, bridgeTx, $pendingTransactions);
 
       // Confirm after switch chain that it worked
       const isCorrectChain = await isOnCorrectChain(
@@ -149,6 +165,8 @@
       console.error(error);
 
       const headerError = '<strong>Failed to claim funds</strong>';
+
+      // TODO: let's change this to a switch(true)? I think it's more readable.
       if (error.cause?.status === 0) {
         const explorerUrl = `${$fromChain.explorerUrl}/tx/${error.cause.transactionHash}`;
         const htmlLink = `<a href="${explorerUrl}" target="_blank"><b><u>here</u></b></a>`;
@@ -160,6 +178,10 @@
         [error.code, error.cause?.code].includes(ethers.errors.ACTION_REJECTED)
       ) {
         warningToast(`Transaction has been rejected.`);
+      } else if (error.cause === 'pending_tx') {
+        warningToast(
+          'You have pending transactions. Please wait for them to complete.',
+        );
       } else {
         errorToast(`${headerError}<br />Try again later.`);
       }
@@ -173,10 +195,7 @@
     try {
       loading = true;
 
-      if ($fromChain.id !== bridgeTx.fromChainId) {
-        const chain = chains[bridgeTx.fromChainId];
-        await selectChain(chain);
-      }
+      await ensureCorrectChain($fromChain, bridgeTx, $pendingTransactions);
 
       // Confirm after switch chain that it worked
       const isCorrectChain = await isOnCorrectChain(
@@ -222,6 +241,7 @@
       console.error(error);
 
       const headerError = '<strong>Failed to release funds</strong>';
+
       if (error.cause?.status === 0) {
         const explorerUrl = `${$fromChain.explorerUrl}/tx/${error.cause.transactionHash}`;
         const htmlLink = `<a href="${explorerUrl}" target="_blank"><b><u>here</u></b></a>`;
@@ -233,6 +253,10 @@
         [error.code, error.cause?.code].includes(ethers.errors.ACTION_REJECTED)
       ) {
         warningToast(`Transaction has been rejected.`);
+      } else if (error.cause === 'pending_tx') {
+        warningToast(
+          'You have pending transactions. Please wait for them to complete.',
+        );
       } else {
         errorToast(`${headerError}<br />Try again later.`);
       }
@@ -328,13 +352,6 @@
       : ethers.utils.formatUnits(transaction.amountInWei)}
     {transaction.symbol ?? 'ETH'}
   </td>
-
-  <!-- 
-    TODO: I'm not quite sure about the user of transaction.receipt here.
-          I don't even think we would get to this point if the transaction
-          had an issue while sending it. We would've got an error before, 
-          and no transaction would've been created here.
-  -->
 
   <td>
     <ButtonWithTooltip onClick={() => dispatch('tooltipStatus')}>
