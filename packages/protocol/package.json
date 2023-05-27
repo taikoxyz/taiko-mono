@@ -9,7 +9,7 @@
     "export:abi": "pnpm hardhat clear-abi && pnpm hardhat export-abi",
     "export:docs": "pnpm hardhat docgen && pnpm prettier --write ../website/pages/docs/reference/contract-documentation/**/*.md",
     "lint:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol' --fix",
-    "prettier:solidity": "./node_modules/.bin/prettier --write contracts/**/*.sol test/**/*.sol",
+    "prettier:sol": "./node_modules/.bin/prettier --write contracts/**/*.sol test/**/*.sol",
     "eslint": "pnpm exec eslint --ignore-path .eslintignore --ext .js,.ts .",
     "eslint:fix": "pnpm exec eslint --ignore-path .eslintignore --ext .js,.ts . --fix",
     "test": "forge test -vvv --gas-report --fuzz-seed $(date +%s) --match-path test/**/*.t.sol",
