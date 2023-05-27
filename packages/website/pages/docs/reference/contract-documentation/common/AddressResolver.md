@@ -13,6 +13,12 @@ it uses an AddressManager to manage the name-to-address mapping.
 contract IAddressManager _addressManager
 ```
 
+### AddressManagerChanged
+
+```solidity
+event AddressManagerChanged(address addressManager)
+```
+
 ### RESOLVER_DENIED
 
 ```solidity
@@ -35,12 +41,6 @@ error RESOLVER_ZERO_ADDR(uint256 chainId, bytes32 name)
 
 ```solidity
 modifier onlyFromNamed(bytes32 name)
-```
-
-### AddressManagerChanged
-
-```solidity
-event AddressManagerChanged(address addressManager)
 ```
 
 ### resolve
