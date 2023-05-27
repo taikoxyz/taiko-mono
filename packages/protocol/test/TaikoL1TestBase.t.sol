@@ -47,13 +47,6 @@ abstract contract TaikoL1TestBase is Test {
     address public constant George = 0x520147C0eB43d8D71b2b03037bB7b31f8F78EF5f;
     address public constant Hilbert = 0x61081B12838240B1Ba02b3177153BcA678a86078;
 
-    // Calculation shall be done in derived contracts - based on testnet or mainnet expected proof time
-    uint64 public initProofTimeIssued;
-    uint16 proofTimeTarget;
-    // As we know this is value which will make the curve 'quick' this is fine for testing and
-    // will readjust during simulation to test devnet, where we need to reset everything blockfee calculation related.
-    uint16 public constant ADJUSTMENT_QUOTIENT = 16;
-
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
 
     function setUp() public virtual {
@@ -86,14 +79,7 @@ abstract contract TaikoL1TestBase is Test {
         tko.mint(address(this), 1e9 * 1e8);
         registerAddress("proto_broker", address(L1));
 
-        // Lastly, init L1
-        if (proofTimeTarget == 0 || initProofTimeIssued == 0) {
-            // This just means, these tests are not focusing on the tokenomics, which is fine!
-            // So here, with 500second proof time the initial proof time issued value shall be that below.
-            // Calculated with 'forge script script/DetermineNewProofTimeIssued.s.sol'
-            proofTimeTarget = 500;
-            initProofTimeIssued = 219263;
-        }
+
         L1.init(address(addressManager), GENESIS_BLOCK_HASH, feeBase);
         printVariables("init  ");
     }

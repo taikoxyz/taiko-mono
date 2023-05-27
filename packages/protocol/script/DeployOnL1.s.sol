@@ -43,13 +43,6 @@ contract DeployOnL1 is Script {
 
     uint256 public taikoTokenPremintAmount = vm.envUint("TAIKO_TOKEN_PREMINT_AMOUNT");
 
-    // Change it based on 'consensus' / experience / expected result
-    // Based in seconds. Please set carefully.
-    // For testnet it could be somewhere 85-100s
-    // For mainnet it could be around 1800 s (30mins)
-    // Can be adjusted later with setters
-    uint16 public ADJUSTMENT_QUOTIENT = uint16(vm.envUint("ADJUSTMENT_QUOTIENT"));
-
     TaikoL1 taikoL1;
     address public addressManagerProxy;
 

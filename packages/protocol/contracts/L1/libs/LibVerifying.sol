@@ -136,11 +136,11 @@ library LibVerifying {
     }
 
     function _markBlockVerified(
-        TaikoData.State storage, /*state*/
+        TaikoData.State storage state,
         TaikoData.Block storage blk,
         TaikoData.ForkChoice storage fc,
         uint24 fcId,
-        address /*systemProver*/
+        address systemProver
     ) private {
         uint64 proofTime;
         unchecked {

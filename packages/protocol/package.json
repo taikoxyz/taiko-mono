@@ -23,9 +23,14 @@
     "sizer": "pnpm hardhat size-contracts"
   },
   "keywords": [
-    "Ethereum",
     "ZKP",
+    "Zero-Knowledge Proof",
+    "Decentralized",
+    "Permissionless",
+    "Type-1",
+    "ZK-EVM",
     "zkRollup",
+    "Ethereum",
     "Layer2"
   ],
   "author": "Taiko Labs",
