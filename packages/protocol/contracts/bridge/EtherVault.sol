@@ -12,10 +12,10 @@ import {
 import {
     Create2Upgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
-import { EssentialContract } from "../common/EssentialContract.sol";
-import { Proxied } from "../common/Proxied.sol";
-import { LibAddress } from "../libs/LibAddress.sol";
-import { BridgeErrors } from "./BridgeErrors.sol";
+import {EssentialContract} from "../common/EssentialContract.sol";
+import {Proxied} from "../common/Proxied.sol";
+import {LibAddress} from "../libs/LibAddress.sol";
+import {BridgeErrors} from "./BridgeErrors.sol";
 
 /**
  * @custom:security-contact hello@taiko.xyz

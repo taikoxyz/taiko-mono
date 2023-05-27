@@ -16,12 +16,12 @@ import {
 import {
     Create2Upgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
-import { EssentialContract } from "../common/EssentialContract.sol";
-import { Proxied } from "../common/Proxied.sol";
-import { TaikoToken } from "../L1/TaikoToken.sol";
-import { BridgedERC20 } from "./BridgedERC20.sol";
-import { IBridge } from "./IBridge.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import {EssentialContract} from "../common/EssentialContract.sol";
+import {Proxied} from "../common/Proxied.sol";
+import {TaikoToken} from "../L1/TaikoToken.sol";
+import {BridgedERC20} from "./BridgedERC20.sol";
+import {IBridge} from "./IBridge.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
  * This vault holds all ERC20 tokens (but not Ether) that users have deposited.

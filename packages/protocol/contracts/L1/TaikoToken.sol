@@ -25,8 +25,8 @@ import {
 import {
     ERC20VotesUpgradeable
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
-import { EssentialContract } from "../common/EssentialContract.sol";
-import { Proxied } from "../common/Proxied.sol";
+import {EssentialContract} from "../common/EssentialContract.sol";
+import {Proxied} from "../common/Proxied.sol";
 
 library LibTaikoTokenConfig {
     uint8 public constant DECIMALS = uint8(8);

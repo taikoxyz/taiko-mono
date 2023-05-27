@@ -9,7 +9,7 @@ pragma solidity ^0.8.18;
 import {
     OwnableUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import { Proxied } from "./Proxied.sol";
+import {Proxied} from "./Proxied.sol";
 
 /**
  * @notice Interface to set and get an address for a name.

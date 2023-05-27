@@ -6,13 +6,13 @@
 
 pragma solidity ^0.8.18;
 
-import { EssentialContract } from "../common/EssentialContract.sol";
-import { Proxied } from "../common/Proxied.sol";
-import { ICrossChainSync } from "../common/ICrossChainSync.sol";
-import { LibL2Consts } from "./LibL2Consts.sol";
-import { LibMath } from "../libs/LibMath.sol";
-import { Lib1559Math } from "../libs/Lib1559Math.sol";
-import { TaikoL2Signer } from "./TaikoL2Signer.sol";
+import {EssentialContract} from "../common/EssentialContract.sol";
+import {Proxied} from "../common/Proxied.sol";
+import {ICrossChainSync} from "../common/ICrossChainSync.sol";
+import {LibL2Consts} from "./LibL2Consts.sol";
+import {LibMath} from "../libs/LibMath.sol";
+import {Lib1559Math} from "../libs/Lib1559Math.sol";
+import {TaikoL2Signer} from "./TaikoL2Signer.sol";
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";

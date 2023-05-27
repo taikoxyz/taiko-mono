@@ -14,9 +14,9 @@ import {
     IERC20MetadataUpgradeable
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
 
-import { EssentialContract } from "../common/EssentialContract.sol";
-import { Proxied } from "../common/Proxied.sol";
-import { BridgeErrors } from "./BridgeErrors.sol";
+import {EssentialContract} from "../common/EssentialContract.sol";
+import {Proxied} from "../common/Proxied.sol";
+import {BridgeErrors} from "./BridgeErrors.sol";
 
 /// @custom:security-contact hello@taiko.xyz
 contract BridgedERC20 is
@@ -67,7 +67,7 @@ contract BridgedERC20 is
             revert B_INIT_PARAM_ERROR();
         }
         EssentialContract._init(_addressManager);
-        ERC20Upgradeable.__ERC20_init({ name_: _name, symbol_: _symbol });
+        ERC20Upgradeable.__ERC20_init({name_: _name, symbol_: _symbol});
         srcToken = _srcToken;
         srcChainId = _srcChainId;
         srcDecimals = _decimals;

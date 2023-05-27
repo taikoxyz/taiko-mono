@@ -6,17 +6,17 @@
 
 pragma solidity ^0.8.18;
 
-import { AddressResolver } from "../common/AddressResolver.sol";
-import { EssentialContract } from "../common/EssentialContract.sol";
-import { Proxied } from "../common/Proxied.sol";
-import { IBridge } from "./IBridge.sol";
-import { BridgeErrors } from "./BridgeErrors.sol";
-import { LibBridgeData } from "./libs/LibBridgeData.sol";
-import { LibBridgeProcess } from "./libs/LibBridgeProcess.sol";
-import { LibBridgeRelease } from "./libs/LibBridgeRelease.sol";
-import { LibBridgeRetry } from "./libs/LibBridgeRetry.sol";
-import { LibBridgeSend } from "./libs/LibBridgeSend.sol";
-import { LibBridgeStatus } from "./libs/LibBridgeStatus.sol";
+import {AddressResolver} from "../common/AddressResolver.sol";
+import {EssentialContract} from "../common/EssentialContract.sol";
+import {Proxied} from "../common/Proxied.sol";
+import {IBridge} from "./IBridge.sol";
+import {BridgeErrors} from "./BridgeErrors.sol";
+import {LibBridgeData} from "./libs/LibBridgeData.sol";
+import {LibBridgeProcess} from "./libs/LibBridgeProcess.sol";
+import {LibBridgeRelease} from "./libs/LibBridgeRelease.sol";
+import {LibBridgeRetry} from "./libs/LibBridgeRetry.sol";
+import {LibBridgeSend} from "./libs/LibBridgeSend.sol";
+import {LibBridgeStatus} from "./libs/LibBridgeStatus.sol";
 
 /**
  * Bridge contract which is deployed on both L1 and L2. Mostly a thin wrapper

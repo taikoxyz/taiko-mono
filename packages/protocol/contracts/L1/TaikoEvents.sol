@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.18;
 
-import { TaikoData } from "./TaikoData.sol";
+import {TaikoData} from "./TaikoData.sol";
 
 abstract contract TaikoEvents {
     // The following events must match the definitions in corresponding L1 libraries.
