@@ -68,11 +68,13 @@ func (svc *Service) subscribeMessageSent(ctx context.Context, chainID *big.Int, 
 
 				if err != nil {
 					log.Errorf("svc.subscribe, svc.handleEvent: %v", err)
+					return
 				}
 
 				block, err := svc.blockRepo.GetLatestBlockProcessedForEvent(relayer.EventNameMessageSent, chainID)
 				if err != nil {
 					log.Errorf("svc.subscribe, blockRepo.GetLatestBlockProcessedForEvent: %v", err)
+					return
 				}
 
 				if block.Height < event.Raw.BlockNumber {
@@ -84,6 +86,7 @@ func (svc *Service) subscribeMessageSent(ctx context.Context, chainID *big.Int, 
 					})
 					if err != nil {
 						log.Errorf("svc.subscribe, svc.blockRepo.Save: %v", err)
+						return
 					}
 
 					relayer.BlocksProcessed.Inc()

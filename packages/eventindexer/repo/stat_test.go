@@ -42,7 +42,7 @@ func TestIntegration_Stat_Save(t *testing.T) {
 	}
 }
 
-func TestIntegration_Event_Find(t *testing.T) {
+func TestIntegration_Stat_Find(t *testing.T) {
 	db, close, err := testMysql(t)
 	assert.Equal(t, nil, err)
 
@@ -71,6 +71,7 @@ func TestIntegration_Event_Find(t *testing.T) {
 				AverageProofReward: 4,
 				AverageProofTime:   0,
 				NumProofs:          0,
+				NumVerifiedBlocks:  1,
 			},
 			nil,
 		},
