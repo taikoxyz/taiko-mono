@@ -1,11 +1,11 @@
 {
-  ".": "0.12.0",
+  ".": "0.13.0",
   "packages/branding": "0.1.1",
-  "packages/bridge-ui": "0.7.0",
-  "packages/eventindexer": "0.4.0",
-  "packages/protocol": "0.7.0",
-  "packages/relayer": "0.5.0",
-  "packages/status-page": "0.8.0",
-  "packages/website": "0.7.0",
+  "packages/bridge-ui": "0.7.1",
+  "packages/eventindexer": "0.5.0",
+  "packages/protocol": "0.8.0",
+  "packages/relayer": "0.6.0",
+  "packages/status-page": "0.9.0",
+  "packages/website": "0.8.0",
   "packages/whitepaper": "1.4.0"
 }
