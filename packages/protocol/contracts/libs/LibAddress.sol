@@ -19,7 +19,7 @@ library LibAddress {
      */
     function sendEther(address to, uint256 amount) internal {
         if (amount == 0 || to == address(0)) return;
-        (bool success,) = payable(to).call{value: amount}("");
+        (bool success, ) = payable(to).call{ value: amount }("");
         require(success, "ETH transfer failed");
     }
 

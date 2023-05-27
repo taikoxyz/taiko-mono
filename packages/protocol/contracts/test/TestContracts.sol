@@ -6,14 +6,14 @@
 
 pragma solidity ^0.8.18;
 
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {SignalService} from "../signal/SignalService.sol";
-import {TokenVault} from "../bridge/TokenVault.sol";
-import {EtherVault} from "../bridge/EtherVault.sol";
-import {BridgedERC20} from "../bridge/BridgedERC20.sol";
-import {Bridge} from "../bridge/Bridge.sol";
-import {TaikoToken} from "../L1/TaikoToken.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { SignalService } from "../signal/SignalService.sol";
+import { TokenVault } from "../bridge/TokenVault.sol";
+import { EtherVault } from "../bridge/EtherVault.sol";
+import { BridgedERC20 } from "../bridge/BridgedERC20.sol";
+import { Bridge } from "../bridge/Bridge.sol";
+import { TaikoToken } from "../L1/TaikoToken.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 // The old implementation that is also used in hardhat tests.
 
