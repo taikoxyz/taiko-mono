@@ -19,6 +19,7 @@ func (r *StatRepository) Save(ctx context.Context, opts eventindexer.SaveStatOpt
 		AverageProofTime:   *opts.ProofTime,
 		AverageProofReward: *opts.ProofReward,
 		NumProofs:          1,
+		NumVerifiedBlocks:  1,
 	}
 
 	return r.stats, nil

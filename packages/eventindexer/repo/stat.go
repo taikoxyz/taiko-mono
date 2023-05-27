@@ -32,6 +32,7 @@ func (r *StatRepository) Save(ctx context.Context, opts eventindexer.SaveStatOpt
 	}
 
 	if opts.ProofReward != nil {
+		s.NumVerifiedBlocks++
 		s.AverageProofReward = *opts.ProofReward
 	}
 
