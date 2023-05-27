@@ -17,8 +17,10 @@ import {AddressManager} from "../common/AddressManager.sol";
 contract ExampleStaticAddressManager is AddressManager {
     function setAddress(
         uint256,
-        /*domain*/ bytes32,
-        /*nameHash*/ address /*newAddress*/
+        /*domain*/
+        bytes32,
+        /*nameHash*/
+        address /*newAddress*/
     ) external pure override {
         revert("");
     }

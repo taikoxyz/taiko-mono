@@ -62,8 +62,10 @@ contract TaikoGovernor is
         __Governor_init("TaikoGovernor");
         __GovernorSettings_init(
             1,
-            /* 1 block */ 100800,
-            /* 2 week */ LibTaikoTokenConfig.DECIMALS
+            /* 1 block */
+            100800,
+            /* 2 week */
+            LibTaikoTokenConfig.DECIMALS
         );
         __GovernorCountingSimple_init();
         __GovernorVotes_init(_token);
