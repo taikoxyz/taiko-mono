@@ -27,10 +27,12 @@ contract ExampleStaticAddressManager is AddressManager {
 
     /// @dev This function must be a pure function in order to avoid
     /// reading from storage.
-    function getAddress(
-        uint256 domain,
-        bytes32 nameHash
-    ) external pure override returns (address addr) {
+    function getAddress(uint256 domain, bytes32 nameHash)
+        external
+        pure
+        override
+        returns (address addr)
+    {
         if (domain == 1) {
             if (nameHash == "ether_vault") addr = address(0x123);
         } else if (domain == 167) {

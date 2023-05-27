@@ -5,18 +5,6 @@
       "options": {
         "tabWidth": 4
       }
-    },
-    {
-      "files": "*.sol",
-      "options": {
-        "compiler": "0.8.18",
-        "printWidth": 80,
-        "tabWidth": 4,
-        "useTabs": false,
-        "singleQuote": false,
-        "bracketSpacing": false
-      }
     }
-  ],
-  "plugins": ["prettier-plugin-solidity"]
+  ]
 }
