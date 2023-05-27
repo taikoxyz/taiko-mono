@@ -6,7 +6,9 @@
 
 pragma solidity ^0.8.18;
 
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Proxied} from "./Proxied.sol";
 
 /**
@@ -19,7 +21,11 @@ interface IAddressManager {
      * @param name Name to associate an address with.
      * @param newAddress Address to associate with the name.
      */
-    function setAddress(uint256 domain, bytes32 name, address newAddress) external;
+    function setAddress(
+        uint256 domain,
+        bytes32 name,
+        address newAddress
+    ) external;
 
     /**
      * Retrieves the address associated with a given name.
@@ -27,15 +33,22 @@ interface IAddressManager {
      * @param name Name to retrieve an address for.
      * @return Address associated with the given name.
      */
-    function getAddress(uint256 domain, bytes32 name) external view returns (address);
+    function getAddress(
+        uint256 domain,
+        bytes32 name
+    ) external view returns (address);
 }
 
 /// @custom:security-contact hello@taiko.xyz
 contract AddressManager is OwnableUpgradeable, IAddressManager {
-    mapping(uint256 domain => mapping(bytes32 name => address addr)) private addresses;
+    mapping(uint256 domain => mapping(bytes32 name => address addr))
+        private addresses;
 
     event AddressSet(
-        uint256 indexed _domain, bytes32 indexed _name, address _newAddress, address _oldAddress
+        uint256 indexed _domain,
+        bytes32 indexed _name,
+        address _newAddress,
+        address _oldAddress
     );
 
     error EOAOwnerAddressNotAllowed();
@@ -45,11 +58,11 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
         OwnableUpgradeable.__Ownable_init();
     }
 
-    function setAddress(uint256 domain, bytes32 name, address newAddress)
-        external
-        virtual
-        onlyOwner
-    {
+    function setAddress(
+        uint256 domain,
+        bytes32 name,
+        address newAddress
+    ) external virtual onlyOwner {
         // This is to prevent using the owner as named address
         if (newAddress.code.length == 0 && newAddress == msg.sender) {
             revert EOAOwnerAddressNotAllowed();
@@ -60,12 +73,10 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
         emit AddressSet(domain, name, newAddress, oldAddress);
     }
 
-    function getAddress(uint256 domain, bytes32 name)
-        external
-        view
-        virtual
-        returns (address addr)
-    {
+    function getAddress(
+        uint256 domain,
+        bytes32 name
+    ) external view virtual returns (address addr) {
         addr = addresses[domain][name];
     }
 }

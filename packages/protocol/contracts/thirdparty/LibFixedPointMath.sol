@@ -31,7 +31,8 @@ library LibFixedPointMath {
             // Reduce range of x to (-½ ln 2, ½ ln 2) * 2**96 by factoring out powers of two
             // such that exp(x) = exp(x') * 2**k, where k is an integer.
             // Solving this gives k = round(x / log(2)) and x' = x - k * log(2).
-            int256 k = ((x << 96) / 54916777467707473351141471128 + 2 ** 95) >> 96;
+            int256 k = ((x << 96) / 54916777467707473351141471128 + 2 ** 95) >>
+                96;
             x = x - k * 54916777467707473351141471128;
             // k is in the range [-61, 195].
 
@@ -65,7 +66,9 @@ library LibFixedPointMath {
             // We do all of this at once, with an intermediate result in 2**213 basis
             // so the final right shift is always by a positive amount.
             r = int256(
-                (uint256(r) * 3822833074963236453042738258902158003155416615667) >> uint256(195 - k)
+                (uint256(r) *
+                    3822833074963236453042738258902158003155416615667) >>
+                    uint256(195 - k)
             );
         }
     }

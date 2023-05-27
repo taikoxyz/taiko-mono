@@ -7,8 +7,9 @@
 pragma solidity ^0.8.18;
 
 import {LibFixedPointMath} from "../thirdparty/LibFixedPointMath.sol";
-import {SafeCastUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import {
+    SafeCastUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 library Lib1559Math {
     using SafeCastUpgradeable for uint256;
@@ -16,11 +17,12 @@ library Lib1559Math {
     error M1559_UNEXPECTED_CHANGE(uint64 expected, uint64 actual);
     error M1559_OUT_OF_STOCK();
 
-    function calculateScales(uint64 xExcessMax, uint64 price, uint64 target, uint64 ratio2x1x)
-        internal
-        pure
-        returns (uint128 xscale, uint128 yscale)
-    {
+    function calculateScales(
+        uint64 xExcessMax,
+        uint64 price,
+        uint64 target,
+        uint64 ratio2x1x
+    ) internal pure returns (uint128 xscale, uint128 yscale) {
         assert(xExcessMax != 0);
         uint64 x = xExcessMax / 2;
 
@@ -41,11 +43,12 @@ library Lib1559Math {
         }
     }
 
-    function calculatePrice(uint128 xscale, uint128 yscale, uint64 xExcess, uint64 xPurchase)
-        internal
-        pure
-        returns (uint256)
-    {
+    function calculatePrice(
+        uint128 xscale,
+        uint128 yscale,
+        uint64 xExcess,
+        uint64 xPurchase
+    ) internal pure returns (uint256) {
         assert(xscale != 0 && yscale != 0);
         uint64 _xPurchase = xPurchase == 0 ? 1 : xPurchase;
         uint256 _before = _calcY(xExcess, xscale);

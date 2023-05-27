@@ -67,11 +67,11 @@ library LibSecureMerkleTrie {
      * @return _exists Whether or not the key exists.
      * @return _value Value of the key if it exists.
      */
-    function get(bytes memory _key, bytes memory _proof, bytes32 _root)
-        internal
-        pure
-        returns (bool _exists, bytes memory _value)
-    {
+    function get(
+        bytes memory _key,
+        bytes memory _proof,
+        bytes32 _root
+    ) internal pure returns (bool _exists, bytes memory _value) {
         bytes memory key = _getSecureKey(_key);
         return LibMerkleTrie.get(key, _proof, _root);
     }
@@ -85,7 +85,9 @@ library LibSecureMerkleTrie {
      * @param _key Key to get a secure key from.
      * @return _secureKey Secure version of the key.
      */
-    function _getSecureKey(bytes memory _key) private pure returns (bytes memory _secureKey) {
+    function _getSecureKey(
+        bytes memory _key
+    ) private pure returns (bytes memory _secureKey) {
         return bytes.concat(keccak256(_key));
     }
 }

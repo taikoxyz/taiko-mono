@@ -21,7 +21,10 @@ interface ISignalService {
      * @param app The address that sent this message.
      * @param signal The signal to check.
      */
-    function isSignalSent(address app, bytes32 signal) external view returns (bool);
+    function isSignalSent(
+        address app,
+        bytes32 signal
+    ) external view returns (bool);
 
     /**
      * Check if signal has been received on the destination chain (current).
@@ -31,8 +34,10 @@ interface ISignalService {
      * @param signal The signal to check.
      * @param proof The proof of the signal being sent on the source chain.
      */
-    function isSignalReceived(uint256 srcChainId, address app, bytes32 signal, bytes calldata proof)
-        external
-        view
-        returns (bool);
+    function isSignalReceived(
+        uint256 srcChainId,
+        address app,
+        bytes32 signal,
+        bytes calldata proof
+    ) external view returns (bool);
 }

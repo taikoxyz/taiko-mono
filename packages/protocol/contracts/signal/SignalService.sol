@@ -39,7 +39,10 @@ contract SignalService is ISignalService, EssentialContract {
         }
     }
 
-    function isSignalSent(address app, bytes32 signal) public view returns (bool) {
+    function isSignalSent(
+        address app,
+        bytes32 signal
+    ) public view returns (bool) {
         if (app == address(0)) {
             revert B_NULL_APP_ADDR();
         }
@@ -56,11 +59,12 @@ contract SignalService is ISignalService, EssentialContract {
         return value == 1;
     }
 
-    function isSignalReceived(uint256 srcChainId, address app, bytes32 signal, bytes calldata proof)
-        public
-        view
-        returns (bool)
-    {
+    function isSignalReceived(
+        uint256 srcChainId,
+        address app,
+        bytes32 signal,
+        bytes calldata proof
+    ) public view returns (bool) {
         if (srcChainId == block.chainid) revert B_WRONG_CHAIN_ID();
         if (app == address(0)) revert B_NULL_APP_ADDR();
         if (signal == 0) revert B_ZERO_SIGNAL();
@@ -68,12 +72,16 @@ contract SignalService is ISignalService, EssentialContract {
         SignalProof memory sp = abi.decode(proof, (SignalProof));
 
         // Resolve the TaikoL1 or TaikoL2 contract if on Ethereum or Taiko.
-        bytes32 syncedSignalRoot =
-            ICrossChainSync(resolve("taiko", false)).getCrossChainSignalRoot(sp.height);
+        bytes32 syncedSignalRoot = ICrossChainSync(resolve("taiko", false))
+            .getCrossChainSignalRoot(sp.height);
 
-        return LibSecureMerkleTrie.verifyInclusionProof(
-            bytes.concat(getSignalSlot(app, signal)), hex"01", sp.proof, syncedSignalRoot
-        );
+        return
+            LibSecureMerkleTrie.verifyInclusionProof(
+                bytes.concat(getSignalSlot(app, signal)),
+                hex"01",
+                sp.proof,
+                syncedSignalRoot
+            );
     }
 
     /**
@@ -81,7 +89,10 @@ contract SignalService is ISignalService, EssentialContract {
      * @param signal The signal to store.
      * @return signalSlot The storage key for the signal on the signal service.
      */
-    function getSignalSlot(address app, bytes32 signal) public pure returns (bytes32 signalSlot) {
+    function getSignalSlot(
+        address app,
+        bytes32 signal
+    ) public pure returns (bytes32 signalSlot) {
         // Equivilance to `keccak256(abi.encodePacked(app, signal))`
         assembly {
             // Load the free memory pointer and allocate memory for the concatenated arguments
