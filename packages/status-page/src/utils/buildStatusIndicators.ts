@@ -260,6 +260,28 @@ export async function buildStatusIndicators(
       tooltip:
         "The current base fee for an L2 transaction with EIP1559-enabled.",
     },
+    {
+      statusFunc: async (
+        provider: ethers.providers.JsonRpcProvider,
+        contractAddress: string
+      ): Promise<string> => {
+        const feeData = await provider.getFeeData();
+        return `${ethers.utils.formatUnits(
+          feeData.maxPriorityFeePerGas,
+          "gwei"
+        )}`;
+      },
+      watchStatusFunc: null,
+      provider: config.l2Provider,
+      contractAddress: config.l2TaikoAddress,
+      header: "L2 EIP1559 Recommended MaxPriorityFeePerGas (gwei)",
+      intervalInMs: 15000,
+      colorFunc: (value: Status) => {
+        return "green";
+      },
+      tooltip:
+        "The current base fee for an L2 transaction with EIP1559-enabled.",
+    },
   ];
 
   try {
