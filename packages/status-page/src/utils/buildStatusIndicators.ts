@@ -23,11 +23,23 @@ import axios from "axios";
 import { getConfig } from "./getConfig";
 import { getStateVariables } from "./getStateVariables";
 
-export function buildStatusIndicators(
+export async function buildStatusIndicators(
   config: ReturnType<typeof initConfig>,
   onProverClick: (value: Status) => void,
   onProposerClick: (value: Status) => void
 ) {
+  const tko: Contract = new Contract(
+    config.taikoTokenAddress,
+    TaikoToken,
+    config.l1Provider
+  );
+
+  let decimals: number = 8;
+
+  try {
+    decimals = await tko.decimals();
+  } catch (e) {}
+
   const indicators: StatusIndicatorProp[] = [
     {
       statusFunc: async (
@@ -243,12 +255,7 @@ export function buildStatusIndicators(
           provider
         );
         const fee = await contract.getBlockFee();
-        const tko: Contract = new Contract(
-          config.taikoTokenAddress,
-          TaikoToken,
-          provider
-        );
-        const decimals = await tko.decimals();
+        console.log(fee.toString());
         return `${ethers.utils.formatUnits(fee, decimals)} TKO`;
       },
       watchStatusFunc: null,
@@ -276,13 +283,6 @@ export function buildStatusIndicators(
           config.eventIndexerApiUrl
         );
         const fee = await contract.getProofReward(Number(averageProofTime));
-
-        const tko: Contract = new Contract(
-          config.taikoTokenAddress,
-          TaikoToken,
-          provider
-        );
-        const decimals = await tko.decimals();
         return `${ethers.utils.formatUnits(fee, decimals)} ${
           import.meta.env.VITE_FEE_TOKEN_SYMBOL ?? "TKO"
         }`;
@@ -381,12 +381,6 @@ export function buildStatusIndicators(
         const resp = await axios.get<StatsResponse>(
           `${config.eventIndexerApiUrl}/stats`
         );
-        const tko: Contract = new Contract(
-          config.taikoTokenAddress,
-          TaikoToken,
-          provider
-        );
-        const decimals = await tko.decimals();
         return `${ethers.utils.formatUnits(
           resp.data.averageProofReward,
           decimals

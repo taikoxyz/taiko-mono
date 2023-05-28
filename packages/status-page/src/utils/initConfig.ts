@@ -2,12 +2,12 @@ import { ethers } from "ethers";
 import { Layer } from "../domain/layer";
 
 export function initConfig(layer: Layer) {
-  const l1Provider = new ethers.providers.JsonRpcProvider(
+  const l1Provider = new ethers.providers.StaticJsonRpcProvider(
     layer === Layer.Two
       ? import.meta.env.VITE_L1_RPC_URL
       : import.meta.env.VITE_L2_RPC_URL
   );
-  const l2Provider = new ethers.providers.JsonRpcProvider(
+  const l2Provider = new ethers.providers.StaticJsonRpcProvider(
     layer === Layer.Two
       ? import.meta.env.VITE_L2_RPC_URL
       : import.meta.env.VITE_L3_RPC_URL
