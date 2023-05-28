@@ -104,10 +104,14 @@ func (svc *Service) updateAverageProofTime(ctx context.Context, event *taikol1.T
 
 	proofTime := provenAt - proposedAt
 
-	newAverageProofTime := calcNewAverage(stat.AverageProofTime, stat.NumProofs, proofTime)
+	newAverageProofTime := calcNewAverage(
+		stat.AverageProofTime,
+		new(big.Int).SetUint64(stat.NumProofs),
+		new(big.Int).SetUint64(proofTime),
+	)
 
 	_, err = svc.statRepo.Save(ctx, eventindexer.SaveStatOpts{
-		ProofTime: &newAverageProofTime,
+		ProofTime: newAverageProofTime,
 	})
 	if err != nil {
 		return errors.Wrap(err, "svc.statRepo.Save")
@@ -116,6 +120,9 @@ func (svc *Service) updateAverageProofTime(ctx context.Context, event *taikol1.T
 	return nil
 }
 
-func calcNewAverage(a, t, new uint64) uint64 {
-	return ((a * t) + new) / (t + 1)
+func calcNewAverage(a, t, n *big.Int) *big.Int {
+	m := new(big.Int).Mul(a, t)
+	added := new(big.Int).Add(m, n)
+
+	return new(big.Int).Div(added, t.Add(t, big.NewInt(1)))
 }

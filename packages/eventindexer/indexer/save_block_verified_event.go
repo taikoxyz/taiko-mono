@@ -80,10 +80,14 @@ func (svc *Service) updateAverageBlockReward(ctx context.Context, event *taikol1
 		return errors.Wrap(err, "svc.statRepo.Find")
 	}
 
-	newAverageProofReward := calcNewAverage(stat.AverageProofReward, stat.NumVerifiedBlocks, reward)
+	newAverageProofReward := calcNewAverage(
+		stat.AverageProofReward,
+		new(big.Int).SetUint64(stat.NumVerifiedBlocks),
+		new(big.Int).SetUint64(reward),
+	)
 
 	_, err = svc.statRepo.Save(ctx, eventindexer.SaveStatOpts{
-		ProofReward: &newAverageProofReward,
+		ProofReward: newAverageProofReward,
 	})
 	if err != nil {
 		return errors.Wrap(err, "svc.statRepo.Save")
