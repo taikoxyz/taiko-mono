@@ -91,7 +91,11 @@ abstract contract TaikoL1TestBase is Test {
         printVariables("init  ");
     }
 
-    function proposeBlock(address proposer, uint32 gasLimit, uint24 txListSize)
+    function proposeBlock(
+        address proposer,
+        uint32 gasLimit,
+        uint24 txListSize
+    )
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
@@ -137,7 +141,9 @@ abstract contract TaikoL1TestBase is Test {
         uint32 gasUsed,
         bytes32 blockHash,
         bytes32 signalRoot
-    ) internal {
+    )
+        internal
+    {
         TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
             metaHash: LibUtils.hashMetadata(meta),
             parentHash: parentHash,
@@ -174,7 +180,9 @@ abstract contract TaikoL1TestBase is Test {
         address who,
         uint256 amountTko,
         uint256 amountEth
-    ) internal {
+    )
+        internal
+    {
         vm.deal(who, amountEth);
         tko.transfer(who, amountTko);
         // vm.prank(who, who);

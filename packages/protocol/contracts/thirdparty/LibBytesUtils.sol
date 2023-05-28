@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-// Taken from https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts/contracts/libraries/utils/LibBytesUtils.sol
+// Taken from
+// https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts/contracts/libraries/utils/LibBytesUtils.sol
 // (The MIT License)
 //
 // Copyright 2020-2021 Optimism
@@ -34,7 +35,11 @@ library LibBytesUtils {
                            INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function slice(bytes memory _bytes, uint256 _start, uint256 _length)
+    function slice(
+        bytes memory _bytes,
+        uint256 _start,
+        uint256 _length
+    )
         internal
         pure
         returns (bytes memory)
@@ -48,7 +53,8 @@ library LibBytesUtils {
         assembly {
             switch iszero(_length)
             case 0 {
-                // Get a location of some free memory and store it in tempBytes as
+                // Get a location of some free memory and store it in tempBytes
+                // as
                 // Solidity does for memory variables.
                 tempBytes := mload(0x40)
 
@@ -71,7 +77,8 @@ library LibBytesUtils {
                 let end := add(mc, _length)
 
                 for {
-                    // The multiplication in the next line has the same exact purpose
+                    // The multiplication in the next line has the same exact
+                    // purpose
                     // as the one above.
                     let cc :=
                         add(
@@ -88,10 +95,12 @@ library LibBytesUtils {
                 mstore(tempBytes, _length)
 
                 //update free-memory pointer
-                //allocating the array padded to 32 bytes like the compiler does now
+                //allocating the array padded to 32 bytes like the compiler does
+                // now
                 mstore(0x40, and(add(mc, 31), not(31)))
             }
-            //if we want a zero-length slice let's just return a zero-length array
+            //if we want a zero-length slice let's just return a zero-length
+            // array
             default {
                 tempBytes := mload(0x40)
 
@@ -106,7 +115,10 @@ library LibBytesUtils {
         return tempBytes;
     }
 
-    function slice(bytes memory _bytes, uint256 _start)
+    function slice(
+        bytes memory _bytes,
+        uint256 _start
+    )
         internal
         pure
         returns (bytes memory)
@@ -127,7 +139,8 @@ library LibBytesUtils {
             return ret;
         }
 
-        return abi.decode(_bytes, (bytes32)); // will truncate if input length > 32 bytes
+        return abi.decode(_bytes, (bytes32)); // will truncate if input length >
+            // 32 bytes
     }
 
     function toUint256(bytes memory _bytes) internal pure returns (uint256) {
@@ -163,7 +176,10 @@ library LibBytesUtils {
         return ret;
     }
 
-    function equal(bytes memory _bytes, bytes memory _other)
+    function equal(
+        bytes memory _bytes,
+        bytes memory _other
+    )
         internal
         pure
         returns (bool)

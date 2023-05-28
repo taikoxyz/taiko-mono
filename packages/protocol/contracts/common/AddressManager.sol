@@ -20,7 +20,11 @@ interface IAddressManager {
      * @param name Name to associate an address with.
      * @param newAddress Address to associate with the name.
      */
-    function setAddress(uint256 domain, bytes32 name, address newAddress)
+    function setAddress(
+        uint256 domain,
+        bytes32 name,
+        address newAddress
+    )
         external;
 
     /**
@@ -29,7 +33,10 @@ interface IAddressManager {
      * @param name Name to retrieve an address for.
      * @return Address associated with the given name.
      */
-    function getAddress(uint256 domain, bytes32 name)
+    function getAddress(
+        uint256 domain,
+        bytes32 name
+    )
         external
         view
         returns (address);
@@ -54,7 +61,11 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
         OwnableUpgradeable.__Ownable_init();
     }
 
-    function setAddress(uint256 domain, bytes32 name, address newAddress)
+    function setAddress(
+        uint256 domain,
+        bytes32 name,
+        address newAddress
+    )
         external
         virtual
         onlyOwner
@@ -69,7 +80,10 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
         emit AddressSet(domain, name, newAddress, oldAddress);
     }
 
-    function getAddress(uint256 domain, bytes32 name)
+    function getAddress(
+        uint256 domain,
+        bytes32 name
+    )
         external
         view
         virtual

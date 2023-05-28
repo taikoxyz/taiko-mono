@@ -53,14 +53,17 @@ contract TaikoGovernor is
         address _addressManager,
         IVotesUpgradeable _token,
         TimelockControllerUpgradeable _timelock
-    ) public initializer {
+    )
+        public
+        initializer
+    {
         EssentialContract._init(_addressManager);
 
         __Governor_init("TaikoGovernor");
         __GovernorSettings_init(
             1,
             /* 1 block */
-            100800,
+            100_800,
             /* 2 week */
             LibTaikoTokenConfig.DECIMALS
         );

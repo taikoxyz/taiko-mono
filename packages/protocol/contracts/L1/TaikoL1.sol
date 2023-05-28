@@ -47,7 +47,10 @@ contract TaikoL1 is
         address _addressManager,
         bytes32 _genesisBlockHash,
         uint64 _initBlockFee
-    ) external initializer {
+    )
+        external
+        initializer
+    {
         EssentialContract._init(_addressManager);
         LibVerifying.init({
             state: state,
@@ -68,7 +71,10 @@ contract TaikoL1 is
      *        `n` transactions in `txList`, then there will be up to `n + 1`
      *        transactions in the L2 block.
      */
-    function proposeBlock(bytes calldata input, bytes calldata txList)
+    function proposeBlock(
+        bytes calldata input,
+        bytes calldata txList
+    )
         external
         nonReentrant
         returns (TaikoData.BlockMetadata memory meta)
@@ -98,7 +104,10 @@ contract TaikoL1 is
      *        to select the right implementation version.
      * @param input An abi-encoded TaikoData.BlockEvidence object.
      */
-    function proveBlock(uint256 blockId, bytes calldata input)
+    function proveBlock(
+        uint256 blockId,
+        bytes calldata input
+    )
         external
         nonReentrant
     {
@@ -167,7 +176,11 @@ contract TaikoL1 is
         uint256 blockId,
         bytes32 parentHash,
         uint32 parentGasUsed
-    ) public view returns (TaikoData.ForkChoice memory) {
+    )
+        public
+        view
+        returns (TaikoData.ForkChoice memory)
+    {
         return LibProving.getForkChoice({
             state: state,
             config: getConfig(),

@@ -39,7 +39,10 @@ contract SignalService is ISignalService, EssentialContract {
         }
     }
 
-    function isSignalSent(address app, bytes32 signal)
+    function isSignalSent(
+        address app,
+        bytes32 signal
+    )
         public
         view
         returns (bool)
@@ -65,7 +68,11 @@ contract SignalService is ISignalService, EssentialContract {
         address app,
         bytes32 signal,
         bytes calldata proof
-    ) public view returns (bool) {
+    )
+        public
+        view
+        returns (bool)
+    {
         if (srcChainId == block.chainid) revert B_WRONG_CHAIN_ID();
         if (app == address(0)) revert B_NULL_APP_ADDR();
         if (signal == 0) revert B_ZERO_SIGNAL();
@@ -89,17 +96,22 @@ contract SignalService is ISignalService, EssentialContract {
      * @param signal The signal to store.
      * @return signalSlot The storage key for the signal on the signal service.
      */
-    function getSignalSlot(address app, bytes32 signal)
+    function getSignalSlot(
+        address app,
+        bytes32 signal
+    )
         public
         pure
         returns (bytes32 signalSlot)
     {
         // Equivilance to `keccak256(abi.encodePacked(app, signal))`
         assembly {
-            // Load the free memory pointer and allocate memory for the concatenated arguments
+            // Load the free memory pointer and allocate memory for the
+            // concatenated arguments
             let ptr := mload(0x40)
 
-            // Store the app address and signal bytes32 value in the allocated memory
+            // Store the app address and signal bytes32 value in the allocated
+            // memory
             mstore(ptr, app)
             mstore(add(ptr, 32), signal)
 

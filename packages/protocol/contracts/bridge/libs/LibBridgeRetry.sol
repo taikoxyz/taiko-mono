@@ -45,7 +45,9 @@ library LibBridgeRetry {
         AddressResolver resolver,
         IBridge.Message calldata message,
         bool isLastAttempt
-    ) internal {
+    )
+        internal
+    {
         // If the gasLimit is not set to 0 or isLastAttempt is true, the
         // address calling this function must be message.owner.
         if (message.gasLimit == 0 || isLastAttempt) {
@@ -68,7 +70,8 @@ library LibBridgeRetry {
         // successful invocation
         if (
             LibBridgeInvoke
-                // The message.gasLimit only apply for processMessage, if it fails
+                // The message.gasLimit only apply for processMessage, if it
+                // fails
                 // then whoever calls retryMessage will use the tx's gasLimit.
                 .invokeMessageCall({
                 state: state,

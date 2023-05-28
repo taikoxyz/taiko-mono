@@ -33,7 +33,9 @@ library LibBridgeRelease {
         AddressResolver resolver,
         IBridge.Message calldata message,
         bytes calldata proof
-    ) internal {
+    )
+        internal
+    {
         if (message.owner == address(0)) {
             revert B_OWNER_IS_NULL();
         }

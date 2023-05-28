@@ -43,7 +43,9 @@ library LibProving {
         AddressResolver resolver,
         uint256 blockId,
         TaikoData.BlockEvidence memory evidence
-    ) internal {
+    )
+        internal
+    {
         if (
             evidence.parentHash == 0 || evidence.blockHash == 0
                 || evidence.blockHash == evidence.parentHash
@@ -211,7 +213,8 @@ library LibProving {
                     bytes16(0),
                     bytes16(instance), // left 16 bytes of the given instance
                     bytes16(0),
-                    bytes16(uint128(uint256(instance))), // right 16 bytes of the given instance
+                    bytes16(uint128(uint256(instance))), // right 16 bytes of
+                        // the given instance
                     evidence.proof
                 )
             );
@@ -240,7 +243,11 @@ library LibProving {
         uint256 blockId,
         bytes32 parentHash,
         uint32 parentGasUsed
-    ) internal view returns (TaikoData.ForkChoice storage fc) {
+    )
+        internal
+        view
+        returns (TaikoData.ForkChoice storage fc)
+    {
         TaikoData.Block storage blk =
             state.blocks[blockId % config.ringBufferSize];
         if (blk.blockId != blockId) revert L1_BLOCK_ID();

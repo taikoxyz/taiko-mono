@@ -26,7 +26,9 @@ library LibEthDepositing {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver
-    ) internal {
+    )
+        internal
+    {
         if (
             msg.value < config.minEthDepositAmount
                 || msg.value > config.maxEthDepositAmount
@@ -53,7 +55,10 @@ library LibEthDepositing {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         address beneficiary
-    ) internal returns (TaikoData.EthDeposit[] memory depositsProcessed) {
+    )
+        internal
+        returns (TaikoData.EthDeposit[] memory depositsProcessed)
+    {
         // Allocate one extra slot for collecting fees on L2
         depositsProcessed = new TaikoData.EthDeposit[](
             config.maxEthDepositsPerBlock + 1
@@ -66,7 +71,8 @@ library LibEthDepositing {
         ) {
             unchecked {
                 // When maxEthDepositsPerBlock is 32, the average gas cost per
-                // EthDeposit is about 2700 gas. We use 21000 so the proposer may
+                // EthDeposit is about 2700 gas. We use 21000 so the proposer
+                // may
                 // earn a small profit if there are 32 deposits included
                 // in the block; if there are less EthDeposit to process, the
                 // proposer may suffer a loss so the proposer should simply wait

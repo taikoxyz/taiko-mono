@@ -21,7 +21,10 @@ contract TestLibBridgeInvoke {
         IBridge.Message calldata message,
         bytes32 signal,
         uint256 gasLimit
-    ) public payable {
+    )
+        public
+        payable
+    {
         bool success =
             LibBridgeInvoke.invokeMessageCall(state, message, signal, gasLimit);
         emit MessageInvoked(signal, success);

@@ -31,7 +31,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
     address private owner = configJSON.readAddress(".contractOwner");
     address private admin = configJSON.readAddress(".contractAdmin");
 
-    uint64 public constant BLOCK_GAS_LIMIT = 30000000;
+    uint64 public constant BLOCK_GAS_LIMIT = 30_000_000;
 
     function testContractDeployment() public {
         assertEq(block.chainid, 167);
@@ -285,7 +285,9 @@ contract TestGenerateGenesis is Test, AddressResolver {
     function checkProxyImplementation(
         string memory proxyName,
         string memory contractName
-    ) private {
+    )
+        private
+    {
         vm.startPrank(admin);
         address contractAddress = getPredeployedContractAddress(contractName);
         address proxyAddress = getPredeployedContractAddress(proxyName);
@@ -304,7 +306,9 @@ contract TestGenerateGenesis is Test, AddressResolver {
         AddressManager addressManager,
         string memory contractName,
         bytes32 name
-    ) private {
+    )
+        private
+    {
         assertEq(
             getPredeployedContractAddress(contractName),
             addressManager.getAddress(block.chainid, name)

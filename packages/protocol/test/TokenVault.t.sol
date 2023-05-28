@@ -44,7 +44,9 @@ contract PrankDestBridge {
         bytes32 msgHash,
         address srcChainTokenVault,
         uint256 srcChainId
-    ) public {
+    )
+        public
+    {
         ctx.sender = srcChainTokenVault;
         ctx.msgHash = msgHash;
         ctx.srcChainId = srcChainId;
@@ -120,7 +122,7 @@ contract TestTokenVault is Test {
 
         vm.expectRevert("ERC20: insufficient allowance");
         tokenVault.sendERC20(
-            destChainId, Bob, address(erc20), 1 wei, 1000000, 1, Bob, ""
+            destChainId, Bob, address(erc20), 1 wei, 1_000_000, 1, Bob, ""
         );
     }
 
@@ -134,7 +136,7 @@ contract TestTokenVault is Test {
         uint256 tokenVaultBalanceBefore = erc20.balanceOf(address(tokenVault));
 
         tokenVault.sendERC20(
-            destChainId, Bob, address(erc20), amount, 1000000, 0, Bob, ""
+            destChainId, Bob, address(erc20), amount, 1_000_000, 0, Bob, ""
         );
 
         uint256 aliceBalanceAfter = erc20.balanceOf(Alice);
@@ -158,7 +160,7 @@ contract TestTokenVault is Test {
             Bob,
             address(erc20),
             amount,
-            1000000,
+            1_000_000,
             amount - 1,
             Bob,
             ""
@@ -179,7 +181,7 @@ contract TestTokenVault is Test {
             Bob,
             address(erc20),
             amount,
-            1000000,
+            1_000_000,
             amount - 1,
             Bob,
             ""
@@ -199,7 +201,7 @@ contract TestTokenVault is Test {
 
         vm.expectRevert(TokenVault.TOKENVAULT_INVALID_AMOUNT.selector);
         tokenVault.sendERC20(
-            destChainId, Bob, address(erc20), amount, 1000000, 0, Bob, ""
+            destChainId, Bob, address(erc20), amount, 1_000_000, 0, Bob, ""
         );
     }
 
@@ -210,7 +212,7 @@ contract TestTokenVault is Test {
 
         vm.expectRevert(TokenVault.TOKENVAULT_INVALID_TOKEN.selector);
         tokenVault.sendERC20(
-            destChainId, Bob, address(0), amount, 1000000, 0, Bob, ""
+            destChainId, Bob, address(0), amount, 1_000_000, 0, Bob, ""
         );
     }
 
@@ -221,12 +223,21 @@ contract TestTokenVault is Test {
 
         vm.expectRevert(TokenVault.TOKENVAULT_INVALID_TO.selector);
         tokenVault.sendERC20(
-            destChainId, address(0), address(erc20), amount, 1000000, 0, Bob, ""
+            destChainId,
+            address(0),
+            address(erc20),
+            amount,
+            1_000_000,
+            0,
+            Bob,
+            ""
         );
     }
 
     function test_receive_erc20_canonical_to_dest_chain_transfers_from_canonical_token(
-    ) public {
+    )
+        public
+    {
         vm.startPrank(Alice);
 
         uint256 srcChainId = block.chainid;
@@ -258,7 +269,9 @@ contract TestTokenVault is Test {
     }
 
     function test_receive_erc20_non_canonical_to_dest_chain_deploys_new_bridged_token_and_mints(
-    ) public {
+    )
+        public
+    {
         vm.startPrank(Alice);
 
         uint256 srcChainId = block.chainid;

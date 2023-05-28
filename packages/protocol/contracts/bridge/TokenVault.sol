@@ -164,7 +164,11 @@ contract TokenVault is EssentialContract {
         uint256 processingFee,
         address refundAddress,
         string memory memo
-    ) external payable nonReentrant {
+    )
+        external
+        payable
+        nonReentrant
+    {
         if (
             to == address(0) || to == resolve(destChainId, "token_vault", false)
         ) {
@@ -248,7 +252,10 @@ contract TokenVault is EssentialContract {
     function releaseERC20(
         IBridge.Message calldata message,
         bytes calldata proof
-    ) external nonReentrant {
+    )
+        external
+        nonReentrant
+    {
         if (message.owner == address(0)) revert TOKENVAULT_INVALID_OWNER();
         if (message.srcChainId != block.chainid) {
             revert TOKENVAULT_INVALID_SRC_CHAIN_ID();
@@ -298,7 +305,11 @@ contract TokenVault is EssentialContract {
         address from,
         address to,
         uint256 amount
-    ) external nonReentrant onlyFromNamed("bridge") {
+    )
+        external
+        nonReentrant
+        onlyFromNamed("bridge")
+    {
         IBridge.Context memory ctx = IBridge(msg.sender).context();
         if (ctx.sender != resolve(ctx.srcChainId, "token_vault", false)) {
             revert TOKENVAULT_INVALID_SENDER();

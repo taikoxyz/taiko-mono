@@ -21,7 +21,11 @@ library Lib1559Math {
         uint64 price,
         uint64 target,
         uint64 ratio2x1x
-    ) internal pure returns (uint128 xscale, uint128 yscale) {
+    )
+        internal
+        pure
+        returns (uint128 xscale, uint128 yscale)
+    {
         assert(xExcessMax != 0);
         uint64 x = xExcessMax / 2;
 
@@ -35,7 +39,7 @@ library Lib1559Math {
         // 2*target gas and the other one has target gas.
         uint256 price1x = calculatePrice(xscale, yscale, x, target);
         uint256 price2x = calculatePrice(xscale, yscale, x, target * 2);
-        uint64 ratio = uint64((price2x * 10000) / price1x);
+        uint64 ratio = uint64((price2x * 10_000) / price1x);
 
         if (ratio2x1x != ratio) {
             revert M1559_UNEXPECTED_CHANGE(ratio2x1x, ratio);
@@ -47,7 +51,11 @@ library Lib1559Math {
         uint128 yscale,
         uint64 xExcess,
         uint64 xPurchase
-    ) internal pure returns (uint256) {
+    )
+        internal
+        pure
+        returns (uint256)
+    {
         assert(xscale != 0 && yscale != 0);
         uint64 _xPurchase = xPurchase == 0 ? 1 : xPurchase;
         uint256 _before = _calcY(xExcess, xscale);

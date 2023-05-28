@@ -82,7 +82,10 @@ contract EtherVault is EssentialContract, BridgeErrors {
      * @param recipient Address to receive Ether.
      * @param amount Amount of ether to send.
      */
-    function releaseEther(address recipient, uint256 amount)
+    function releaseEther(
+        address recipient,
+        uint256 amount
+    )
         public
         onlyAuthorized
         nonReentrant

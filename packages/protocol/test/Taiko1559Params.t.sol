@@ -19,11 +19,11 @@ contract TestTaiko1559Params is Test {
         uint64 costFactor = 25;
 
         // Calculate gas space issuance per second
-        uint64 ethereumBlockGasTarget = 15000000;
+        uint64 ethereumBlockGasTarget = 15_000_000;
         uint64 ethereumBlockTime = 12;
 
         // https://ultrasound.money/
-        uint64 ethereumBasefeeNow = 28000000000; // 28Gwei
+        uint64 ethereumBasefeeNow = 28_000_000_000; // 28Gwei
 
         uint64 gasIssuedPerSecond =
             (scaleFactor * ethereumBlockGasTarget) / ethereumBlockTime;
@@ -40,7 +40,7 @@ contract TestTaiko1559Params is Test {
             gasIssuedPerSecond: gasIssuedPerSecond,
             gasExcessMax: gasExcessMax,
             gasTarget: gasIssuedPerSecond * ethereumBlockTime,
-            ratio2x1x: 11250 // ~12.5% increase
+            ratio2x1x: 11_250 // ~12.5% increase
         });
 
         console2.log("basefee           :", param1559.basefee);

@@ -25,7 +25,10 @@ library LibBridgeInvoke {
         IBridge.Message calldata message,
         bytes32 msgHash,
         uint256 gasLimit
-    ) internal returns (bool success) {
+    )
+        internal
+        returns (bool success)
+    {
         if (gasLimit == 0) {
             revert B_GAS_LIMIT();
         }

@@ -212,7 +212,10 @@ contract DeployOnL1 is Script {
         string memory name,
         address implementation,
         bytes memory data
-    ) private returns (address proxy) {
+    )
+        private
+        returns (address proxy)
+    {
         proxy = address(
             new TransparentUpgradeableProxy(implementation, owner, data)
         );

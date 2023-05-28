@@ -13,10 +13,10 @@ contract TestLib1559Math is Test {
     function test1559_2X1XRatio(uint16 rand) public {
         vm.assume(rand != 0);
 
-        uint64 xExcessMax = (uint256(15000000) * 256 * rand).toUint64();
-        uint64 xTarget = (uint256(6000000) * rand).toUint64();
-        uint64 price0 = (uint256(5000000000) * rand).toUint64();
-        uint64 ratio2x1x = 11177;
+        uint64 xExcessMax = (uint256(15_000_000) * 256 * rand).toUint64();
+        uint64 xTarget = (uint256(6_000_000) * rand).toUint64();
+        uint64 price0 = (uint256(5_000_000_000) * rand).toUint64();
+        uint64 ratio2x1x = 11_177;
         (uint128 xscale, uint128 yscale) = T.calculateScales({
             xExcessMax: xExcessMax,
             price: price0,
@@ -46,7 +46,7 @@ contract TestLib1559Math is Test {
             assertLt(basefee2, type(uint64).max);
 
             if (basefee1 != 0) {
-                assertEq((basefee2 * 10000) / basefee1, ratio2x1x);
+                assertEq((basefee2 * 10_000) / basefee1, ratio2x1x);
             }
         }
     }
@@ -54,10 +54,10 @@ contract TestLib1559Math is Test {
     function test1559_SpecalCases(uint16 rand) public {
         vm.assume(rand != 0);
 
-        uint64 xExcessMax = (uint256(15000000) * 256 * rand).toUint64();
-        uint64 xTarget = (uint256(6000000) * rand).toUint64();
-        uint64 price0 = (uint256(5000000000) * rand).toUint64();
-        uint64 ratio2x1x = 11177;
+        uint64 xExcessMax = (uint256(15_000_000) * 256 * rand).toUint64();
+        uint64 xTarget = (uint256(6_000_000) * rand).toUint64();
+        uint64 price0 = (uint256(5_000_000_000) * rand).toUint64();
+        uint64 ratio2x1x = 11_177;
 
         (uint128 xscale, uint128 yscale) = T.calculateScales({
             xExcessMax: xExcessMax,

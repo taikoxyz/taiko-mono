@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-// Taken from https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts/contracts/libraries/rlp/LibRLPReader.sol
+// Taken from
+// https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts/contracts/libraries/rlp/LibRLPReader.sol
 // (The MIT License)
 //
 // Copyright 2020-2021 Optimism
@@ -91,10 +92,14 @@ library LibRLPReader {
 
         require(itemType == RLPItemType.LIST_ITEM, "Invalid RLP list value.");
 
-        // Solidity in-memory arrays can't be increased in size, but *can* be decreased in size by
-        // writing to the length. Since we can't know the number of RLP items without looping over
-        // the entire input, we'd have to loop twice to accurately size this array. It's easier to
-        // simply set a reasonable maximum list length and decrease the size before we finish.
+        // Solidity in-memory arrays can't be increased in size, but *can* be
+        // decreased in size by
+        // writing to the length. Since we can't know the number of RLP items
+        // without looping over
+        // the entire input, we'd have to loop twice to accurately size this
+        // array. It's easier to
+        // simply set a reasonable maximum list length and decrease the size
+        // before we finish.
         RLPItem[] memory out = new RLPItem[](MAX_LIST_LENGTH);
 
         uint256 itemCount;
@@ -405,7 +410,11 @@ library LibRLPReader {
      * @param _length Number of bytes to read.
      * @return Copied bytes.
      */
-    function _copy(uint256 _src, uint256 _offset, uint256 _length)
+    function _copy(
+        uint256 _src,
+        uint256 _offset,
+        uint256 _length
+    )
         internal
         pure
         returns (bytes memory)

@@ -117,14 +117,17 @@ contract TestSignalService is Test {
 
             bytes32 slot = signalService.getSignalSlot(Alice, signal);
 
-            // confirm our assembly gives same output as expected native solidity hash/packing
+            // confirm our assembly gives same output as expected native
+            // solidity hash/packing
             bytes32 expectedSlot = keccak256(abi.encodePacked(Alice, signal));
             assertEq(slot, expectedSlot);
         }
     }
 
     function test_is_signal_received_reverts_if_src_chain_id_is_same_as_block_chain_id(
-    ) public {
+    )
+        public
+    {
         bytes32 signal = bytes32(uint256(1));
         bytes memory proof = new bytes(1);
         vm.expectRevert(SignalService.B_WRONG_CHAIN_ID.selector);
@@ -153,7 +156,8 @@ contract TestSignalService is Test {
     }
 
     function test_is_signal_received() public {
-        // known signal with known proof for known block header/signalRoot from a known chain ID
+        // known signal with known proof for known block header/signalRoot from
+        // a known chain ID
         // of 1336, since we cant generate merkle proofs with foundry.
         bytes32 signal = bytes32(
             0xa99d658793daba4d352c77378e2d0f3b12ff47503518b3ec9ad61bb33ee7031d

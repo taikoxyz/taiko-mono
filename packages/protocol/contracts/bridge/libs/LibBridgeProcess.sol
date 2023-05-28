@@ -48,8 +48,11 @@ library LibBridgeProcess {
         AddressResolver resolver,
         IBridge.Message calldata message,
         bytes calldata proof
-    ) internal {
-        // If the gas limit is set to zero, only the owner can process the message.
+    )
+        internal
+    {
+        // If the gas limit is set to zero, only the owner can process the
+        // message.
         if (message.gasLimit == 0 && msg.sender != message.owner) {
             revert B_FORBIDDEN();
         }
@@ -98,7 +101,8 @@ library LibBridgeProcess {
         LibBridgeStatus.MessageStatus status;
         uint256 refundAmount;
 
-        // if the user is sending to the bridge or zero-address, just process as DONE
+        // if the user is sending to the bridge or zero-address, just process as
+        // DONE
         // and refund the owner
         if (message.to == address(this) || message.to == address(0)) {
             // For these two special addresses, the call will not be actually

@@ -30,7 +30,9 @@ library LibVerifying {
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
         uint64 initBlockFee
-    ) internal {
+    )
+        internal
+    {
         if (
             config.chainId <= 1 || config.maxNumProposedBlocks == 1
                 || config.ringBufferSize <= config.maxNumProposedBlocks + 1
@@ -71,7 +73,9 @@ library LibVerifying {
         TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 maxBlocks
-    ) internal {
+    )
+        internal
+    {
         uint256 i = state.lastVerifiedBlockId;
         TaikoData.Block storage blk = state.blocks[i % config.ringBufferSize];
 
@@ -131,8 +135,10 @@ library LibVerifying {
             }
 
             if (config.relaySignalRoot) {
-                // Send the L2's signal root to the signal service so other TaikoL1
-                // deployments, if they share the same signal service, can relay the
+                // Send the L2's signal root to the signal service so other
+                // TaikoL1
+                // deployments, if they share the same signal service, can relay
+                // the
                 // signal to their corresponding TaikoL2 contract.
                 ISignalService(resolver.resolve("signal_service", false))
                     .sendSignal(signalRoot);
@@ -149,7 +155,9 @@ library LibVerifying {
         TaikoData.ForkChoice storage fc,
         uint24 fcId,
         address systemProver
-    ) private {
+    )
+        private
+    {
         uint64 proofTime;
         unchecked {
             proofTime = uint64(fc.provenAt - blk.proposedAt);

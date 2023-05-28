@@ -9,11 +9,11 @@ import "../contracts/thirdparty/LibFixedPointMath.sol";
 
 contract LibFixedPointMathTest is Test {
     function testExp1() public {
-        assertEq(LibFixedPointMath.exp(-1e18), 367879441171442321);
+        assertEq(LibFixedPointMath.exp(-1e18), 367_879_441_171_442_321);
     }
 
     function testExpSmallest() public view {
-        int256 y = LibFixedPointMath.exp(-42139678854452767550);
+        int256 y = LibFixedPointMath.exp(-42_139_678_854_452_767_550);
 
         console2.log(
             "LibFixedPointMath.exp(-42139678854452767550)=", uint256(y)

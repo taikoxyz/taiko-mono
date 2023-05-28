@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-// Taken from https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts/contracts/libraries/rlp/LibRLPWriter.sol
+// Taken from
+// https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts/contracts/libraries/rlp/LibRLPWriter.sol
 // Modified to support writeBytes32/writeUint64
 // (The MIT License)
 //
@@ -137,12 +138,16 @@ library LibRLPWriter {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * Encode the first byte, followed by the `len` in binary form if `length` is more than 55.
+     * Encode the first byte, followed by the `len` in binary form if `length`
+     * is more than 55.
      * @param _len The length of the string or the payload.
      * @param _offset 128 if item is string, 192 if item is list.
      * @return RLP encoded bytes.
      */
-    function _writeLength(uint256 _len, uint256 _offset)
+    function _writeLength(
+        uint256 _len,
+        uint256 _offset
+    )
         private
         pure
         returns (bytes memory)
@@ -219,7 +224,8 @@ library LibRLPWriter {
 
     /**
      * Copies a piece of memory to another location.
-     * @notice From: https://github.com/Arachnid/solidity-stringutils/blob/master/src/strings.sol.
+     * @notice From:
+     * https://github.com/Arachnid/solidity-stringutils/blob/master/src/strings.sol.
      * @param _dest Destination location.
      * @param _src Source location.
      * @param _len Length of memory to copy.
@@ -250,7 +256,8 @@ library LibRLPWriter {
 
     /**
      * Flattens a list of byte strings into one byte string.
-     * @notice From: https://github.com/sammayo/solidity-rlp-encoder/blob/master/RLPEncode.sol.
+     * @notice From:
+     * https://github.com/sammayo/solidity-rlp-encoder/blob/master/RLPEncode.sol.
      * @param _list List of byte strings to flatten.
      * @return The flattened byte string.
      */

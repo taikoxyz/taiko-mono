@@ -21,7 +21,11 @@ library LibUtils {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint256 blockId
-    ) internal view returns (bool found, TaikoData.Block storage blk) {
+    )
+        internal
+        view
+        returns (bool found, TaikoData.Block storage blk)
+    {
         uint256 id = blockId == 0 ? state.lastVerifiedBlockId : blockId;
         blk = state.blocks[id % config.ringBufferSize];
         found = (blk.blockId == id && blk.verifiedForkChoiceId != 0);
@@ -32,7 +36,11 @@ library LibUtils {
         TaikoData.Block storage blk,
         bytes32 parentHash,
         uint32 parentGasUsed
-    ) internal view returns (uint256 fcId) {
+    )
+        internal
+        view
+        returns (uint256 fcId)
+    {
         if (
             blk.forkChoices[1].key
                 == keyForForkChoice(parentHash, parentGasUsed)
@@ -63,7 +71,11 @@ library LibUtils {
         });
     }
 
-    function movingAverage(uint256 maValue, uint256 newValue, uint256 maf)
+    function movingAverage(
+        uint256 maValue,
+        uint256 newValue,
+        uint256 maf
+    )
         internal
         pure
         returns (uint256)
@@ -103,7 +115,10 @@ library LibUtils {
         }
     }
 
-    function keyForForkChoice(bytes32 parentHash, uint32 parentGasUsed)
+    function keyForForkChoice(
+        bytes32 parentHash,
+        uint32 parentGasUsed
+    )
         internal
         pure
         returns (bytes32 key)

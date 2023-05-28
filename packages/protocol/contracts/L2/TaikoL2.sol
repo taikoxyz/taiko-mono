@@ -97,7 +97,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
                          USER-FACING FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function init(address _addressManager, EIP1559Params calldata _param1559)
+    function init(
+        address _addressManager,
+        EIP1559Params calldata _param1559
+    )
         external
         initializer
     {
@@ -154,7 +157,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
      * This transaction shall be the first transaction in every L2 block.
      *
      * @param l1Hash The latest L1 block hash when this block was proposed.
-     * @param l1SignalRoot The latest value of the L1 "signal service storage root".
+     * @param l1SignalRoot The latest value of the L1 "signal service storage
+     * root".
      * @param l1Height The latest L1 block height when this block was proposed.
      * @param parentGasUsed the gas used in the parent block.
      */
@@ -164,7 +168,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         bytes32 l1SignalRoot,
         uint64 l1Height,
         uint64 parentGasUsed
-    ) external {
+    )
+        external
+    {
         if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
 
         uint256 parentHeight = block.number - 1;
@@ -198,7 +204,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         }
 
         // On L2, basefee is not burnt, but sent to a treasury instead.
-        // The circuits will need to verify the basefee recipient is the designated
+        // The circuits will need to verify the basefee recipient is the
+        // designated
         // address.
         if (block.basefee != basefee) {
             revert L2_BASEFEE_MISMATCH(uint64(basefee), uint64(block.basefee));
@@ -206,8 +213,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
         parentTimestamp = uint64(block.timestamp);
 
-        // We emit this event so circuits can grab its data to verify block variables.
-        // If plonk lookup table already has all these data, we can still use this
+        // We emit this event so circuits can grab its data to verify block
+        // variables.
+        // If plonk lookup table already has all these data, we can still use
+        // this
         // event for debugging purpose.
         emit Anchored({
             number: uint64(block.number),
@@ -225,7 +234,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         uint32 timeSinceParent,
         uint64 gasLimit,
         uint64 parentGasUsed
-    ) public view returns (uint256 _basefee) {
+    )
+        public
+        view
+        returns (uint256 _basefee)
+    {
         (_basefee,) = _calcBasefee(
             getEIP1559Config(), timeSinceParent, gasLimit, parentGasUsed
         );
@@ -308,7 +321,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         uint256 timeSinceParent,
         uint64 gasLimit,
         uint64 parentGasUsed
-    ) private view returns (uint256 _basefee, uint64 _gasExcess) {
+    )
+        private
+        view
+        returns (uint256 _basefee, uint64 _gasExcess)
+    {
         // Very important to cap _gasExcess uint64
         unchecked {
             uint64 parentGasUsedNet = parentGasUsed

@@ -81,7 +81,10 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     function releaseEther(
         IBridge.Message calldata message,
         bytes calldata proof
-    ) external nonReentrant {
+    )
+        external
+        nonReentrant
+    {
         return LibBridgeRelease.releaseEther({
             state: _state,
             resolver: AddressResolver(this),
@@ -90,7 +93,10 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
-    function processMessage(Message calldata message, bytes calldata proof)
+    function processMessage(
+        Message calldata message,
+        bytes calldata proof
+    )
         external
         nonReentrant
     {
@@ -102,7 +108,10 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
-    function retryMessage(Message calldata message, bool isLastAttempt)
+    function retryMessage(
+        Message calldata message,
+        bool isLastAttempt
+    )
         external
         nonReentrant
     {
@@ -127,7 +136,13 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         bytes32 msgHash,
         uint256 srcChainId,
         bytes calldata proof
-    ) public view virtual override returns (bool) {
+    )
+        public
+        view
+        virtual
+        override
+        returns (bool)
+    {
         return LibBridgeSend.isMessageReceived({
             resolver: AddressResolver(this),
             msgHash: msgHash,
@@ -140,7 +155,13 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         bytes32 msgHash,
         uint256 destChainId,
         bytes calldata proof
-    ) public view virtual override returns (bool) {
+    )
+        public
+        view
+        virtual
+        override
+        returns (bool)
+    {
         return LibBridgeStatus.isMessageFailed({
             resolver: AddressResolver(this),
             msgHash: msgHash,

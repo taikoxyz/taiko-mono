@@ -41,7 +41,11 @@ library LibTrieProof {
         bytes32 slot,
         bytes32 value,
         bytes calldata mkproof
-    ) public pure returns (bool verified) {
+    )
+        public
+        pure
+        returns (bool verified)
+    {
         (bytes memory accountProof, bytes memory storageProof) =
             abi.decode(mkproof, (bytes, bytes));
 

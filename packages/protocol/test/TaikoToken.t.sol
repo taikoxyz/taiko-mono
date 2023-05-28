@@ -272,7 +272,10 @@ contract TaikoTokenTest is Test {
         addressManager.setAddress(block.chainid, nameHash, addr);
     }
 
-    function deployViaProxy(address implementation, bytes memory data)
+    function deployViaProxy(
+        address implementation,
+        bytes memory data
+    )
         internal
         returns (TransparentUpgradeableProxy proxy)
     {

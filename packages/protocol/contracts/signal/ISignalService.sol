@@ -23,7 +23,10 @@ interface ISignalService {
      * @param app The address that sent this message.
      * @param signal The signal to check.
      */
-    function isSignalSent(address app, bytes32 signal)
+    function isSignalSent(
+        address app,
+        bytes32 signal
+    )
         external
         view
         returns (bool);
@@ -41,5 +44,8 @@ interface ISignalService {
         address app,
         bytes32 signal,
         bytes calldata proof
-    ) external view returns (bool);
+    )
+        external
+        view
+        returns (bool);
 }

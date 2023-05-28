@@ -27,7 +27,10 @@ contract MayFailFreeMintERC20 is ERC20 {
         _mint(to, 50 * (10 ** decimals()));
     }
 
-    function transfer(address to, uint256 amount)
+    function transfer(
+        address to,
+        uint256 amount
+    )
         public
         override
         returns (bool)
@@ -36,7 +39,11 @@ contract MayFailFreeMintERC20 is ERC20 {
         return ERC20.transfer(to, amount);
     }
 
-    function transferFrom(address from, address to, uint256 amount)
+    function transferFrom(
+        address from,
+        address to,
+        uint256 amount
+    )
         public
         override
         returns (bool)

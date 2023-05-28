@@ -55,7 +55,10 @@ contract BridgedERC20 is
         uint8 _decimals,
         string memory _symbol,
         string memory _name
-    ) external initializer {
+    )
+        external
+        initializer
+    {
         if (
             _srcToken == address(0) || _srcChainId == 0
                 || _srcChainId == block.chainid || bytes(_symbol).length == 0
@@ -71,7 +74,10 @@ contract BridgedERC20 is
     }
 
     /// @dev only a TokenVault can call this function
-    function bridgeMintTo(address account, uint256 amount)
+    function bridgeMintTo(
+        address account,
+        uint256 amount
+    )
         public
         onlyFromNamed("token_vault")
     {
@@ -80,7 +86,10 @@ contract BridgedERC20 is
     }
 
     /// @dev only a TokenVault can call this function
-    function bridgeBurnFrom(address account, uint256 amount)
+    function bridgeBurnFrom(
+        address account,
+        uint256 amount
+    )
         public
         onlyFromNamed("token_vault")
     {
@@ -90,7 +99,10 @@ contract BridgedERC20 is
 
     /// @dev any address can call this
     // caller must have at least amount to call this
-    function transfer(address to, uint256 amount)
+    function transfer(
+        address to,
+        uint256 amount
+    )
         public
         override(ERC20Upgradeable, IERC20Upgradeable)
         returns (bool)
@@ -104,7 +116,11 @@ contract BridgedERC20 is
     /// @dev any address can call this
     // caller must have allowance of at least 'amount'
     // for 'from's tokens.
-    function transferFrom(address from, address to, uint256 amount)
+    function transferFrom(
+        address from,
+        address to,
+        uint256 amount
+    )
         public
         override(ERC20Upgradeable, IERC20Upgradeable)
         returns (bool)

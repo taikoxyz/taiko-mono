@@ -16,7 +16,9 @@ contract TestLibBridgeData {
     function updateMessageStatus(
         bytes32 signal,
         LibBridgeStatus.MessageStatus status
-    ) public {
+    )
+        public
+    {
         LibBridgeStatus.updateMessageStatus(signal, status);
     }
 

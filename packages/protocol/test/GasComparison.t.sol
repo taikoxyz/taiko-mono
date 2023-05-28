@@ -130,16 +130,21 @@ contract FooBar {
 
     //------
 
-    function hashTwo_1(address a, bytes32 b)
+    function hashTwo_1(
+        address a,
+        bytes32 b
+    )
         public
         pure
         returns (bytes32 hash)
     {
         assembly {
-            // Load the free memory pointer and allocate memory for the concatenated arguments
+            // Load the free memory pointer and allocate memory for the
+            // concatenated arguments
             let input := mload(64)
 
-            // Store the app address and signal bytes32 value in the allocated memory
+            // Store the app address and signal bytes32 value in the allocated
+            // memory
             mstore(input, a)
             mstore(add(input, 32), b)
 
@@ -150,7 +155,10 @@ contract FooBar {
         }
     }
 
-    function hashTwo_2(address a, bytes32 b)
+    function hashTwo_2(
+        address a,
+        bytes32 b
+    )
         public
         pure
         returns (bytes32 hash)
@@ -197,7 +205,10 @@ contract FooBar {
     }
 
     // ------
-    function hashKey_1(uint256 chainId, string memory name)
+    function hashKey_1(
+        uint256 chainId,
+        string memory name
+    )
         public
         pure
         returns (bytes32)
@@ -205,7 +216,10 @@ contract FooBar {
         return keccak256(bytes(string.concat(Strings.toString(chainId), name)));
     }
 
-    function hashKey_2(uint256 chainId, string memory name)
+    function hashKey_2(
+        uint256 chainId,
+        string memory name
+    )
         public
         pure
         returns (bytes32)

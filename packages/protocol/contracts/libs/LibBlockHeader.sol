@@ -45,7 +45,11 @@ library LibBlockHeader {
     function getBlockHeaderRLPItemsList(
         BlockHeader memory header,
         uint256 extraCapacity
-    ) internal pure returns (bytes[] memory list) {
+    )
+        internal
+        pure
+        returns (bytes[] memory list)
+    {
         if (header.withdrawalsRoot != 0) {
             // EIP-4895 transaction
             list = new bytes[](17 + extraCapacity);

@@ -39,7 +39,10 @@ library LibProposing {
         AddressResolver resolver,
         TaikoData.BlockMetadataInput memory input,
         bytes calldata txList
-    ) internal returns (TaikoData.BlockMetadata memory meta) {
+    )
+        internal
+        returns (TaikoData.BlockMetadata memory meta)
+    {
         uint8 cacheTxListInfo = _validateBlock({
             state: state,
             config: config,
@@ -98,7 +101,11 @@ library LibProposing {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint256 blockId
-    ) internal view returns (TaikoData.Block storage blk) {
+    )
+        internal
+        view
+        returns (TaikoData.Block storage blk)
+    {
         blk = state.blocks[blockId % config.ringBufferSize];
         if (blk.blockId != blockId) revert L1_BLOCK_ID();
     }
@@ -108,7 +115,11 @@ library LibProposing {
         TaikoData.Config memory config,
         TaikoData.BlockMetadataInput memory input,
         bytes calldata txList
-    ) private view returns (uint8 cacheTxListInfo) {
+    )
+        private
+        view
+        returns (uint8 cacheTxListInfo)
+    {
         if (
             input.beneficiary == address(0) || input.gasLimit == 0
                 || input.gasLimit > config.blockMaxGasLimit

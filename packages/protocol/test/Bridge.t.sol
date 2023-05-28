@@ -54,7 +54,7 @@ contract BridgeTest is Test {
     EtherVault etherVault;
     SignalService signalService;
     PrankCrossChainSync crossChainSync;
-    uint256 destChainId = 19389;
+    uint256 destChainId = 19_389;
 
     address public constant Alice = 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4;
 
@@ -146,7 +146,9 @@ contract BridgeTest is Test {
     }
 
     function test_send_message_ether_reverts_when_dest_chain_same_as_block_chainid(
-    ) public {
+    )
+        public
+    {
         uint256 amount = 1 wei;
         IBridge.Message memory message = newMessage({
             owner: Alice,
@@ -235,7 +237,8 @@ contract BridgeTest is Test {
         bridge.sendMessage{value: amount}(message);
     }
 
-    // test with a known good merkle proof / message since we cant generate proofs via rpc
+    // test with a known good merkle proof / message since we cant generate
+    // proofs via rpc
     // in foundry
     function test_process_message() public {
         vm.startPrank(Alice);
@@ -257,7 +260,8 @@ contract BridgeTest is Test {
         assertEq(status == LibBridgeStatus.MessageStatus.DONE, true);
     }
 
-    // test with a known good merkle proof / message since we cant generate proofs via rpc
+    // test with a known good merkle proof / message since we cant generate
+    // proofs via rpc
     // in foundry
     function test_retry_message_and_end_up_in_failed_status() public {
         vm.startPrank(Alice);
@@ -298,7 +302,7 @@ contract BridgeTest is Test {
             to: Alice,
             depositValue: 1,
             callValue: 0,
-            gasLimit: 10000,
+            gasLimit: 10_000,
             processingFee: 1,
             destChain: destChainId
         });
@@ -316,7 +320,7 @@ contract BridgeTest is Test {
             to: Alice,
             depositValue: 1,
             callValue: 0,
-            gasLimit: 10000,
+            gasLimit: 10_000,
             processingFee: 1,
             destChain: destChainId
         });
@@ -374,7 +378,7 @@ contract BridgeTest is Test {
             depositValue: 1000,
             callValue: 1000,
             processingFee: 1000,
-            gasLimit: 1000000,
+            gasLimit: 1_000_000,
             data: "",
             memo: ""
         });
@@ -393,7 +397,11 @@ contract BridgeTest is Test {
         uint256 gasLimit,
         uint256 processingFee,
         uint256 destChain
-    ) internal view returns (IBridge.Message memory) {
+    )
+        internal
+        view
+        returns (IBridge.Message memory)
+    {
         return IBridge.Message({
             owner: owner,
             destChainId: destChain,

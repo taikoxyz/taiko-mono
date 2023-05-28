@@ -23,7 +23,10 @@ contract TestLibBridgeRetry is EssentialContract {
         EssentialContract._init(_addressManager);
     }
 
-    function retryMessage(IBridge.Message calldata message, bool lastAttempt)
+    function retryMessage(
+        IBridge.Message calldata message,
+        bool lastAttempt
+    )
         public
         payable
     {

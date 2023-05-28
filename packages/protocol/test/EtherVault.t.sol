@@ -47,7 +47,9 @@ contract TestEtherVault is Test {
     }
 
     function test_authorize_reverts_when_authorizing_already_authorized_address(
-    ) public {
+    )
+        public
+    {
         vm.startPrank(Alice);
         etherVault.authorize(Bob, true);
         vm.expectRevert(BridgeErrors.B_EV_PARAM.selector);

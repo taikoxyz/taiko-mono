@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-// Taken from https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts/contracts/libraries/trie/LibMerkleTrie.sol
+// Taken from
+// https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts/contracts/libraries/trie/LibMerkleTrie.sol
 // (The MIT License)
 //
 // Copyright 2020-2021 Optimism
@@ -62,7 +63,8 @@ library LibMerkleTrie {
     uint8 private constant TREE_RADIX = 16;
     // Branch nodes have TREE_RADIX elements plus an additional `value` slot.
     uint8 private constant BRANCH_NODE_LENGTH = TREE_RADIX + 1;
-    // Leaf nodes and extension nodes always have two elements, a `path` and a `value`.
+    // Leaf nodes and extension nodes always have two elements, a `path` and a
+    // `value`.
     uint8 private constant LEAF_OR_EXTENSION_NODE_LENGTH = 2;
 
     // Prefixes are prepended to the `path` within a leaf or extension node and
@@ -92,14 +94,19 @@ library LibMerkleTrie {
      * of a list of RLP-encoded nodes that make a path down to the target node.
      * @param _root Known root of the Merkle trie. Used to verify that the
      * included proof is correctly constructed.
-     * @return _verified `true` if the k/v pair exists in the trie, `false` otherwise.
+     * @return _verified `true` if the k/v pair exists in the trie, `false`
+     * otherwise.
      */
     function verifyInclusionProof(
         bytes memory _key,
         bytes memory _value,
         bytes memory _proof,
         bytes32 _root
-    ) internal pure returns (bool _verified) {
+    )
+        internal
+        pure
+        returns (bool _verified)
+    {
         (bool exists, bytes memory value) = get(_key, _proof, _root);
 
         return (exists && LibBytesUtils.equal(_value, value));
@@ -113,7 +120,11 @@ library LibMerkleTrie {
      * @return _exists Whether or not the key exists.
      * @return _value Value of the key if it exists.
      */
-    function get(bytes memory _key, bytes memory _proof, bytes32 _root)
+    function get(
+        bytes memory _key,
+        bytes memory _proof,
+        bytes32 _root
+    )
         internal
         pure
         returns (bool _exists, bytes memory _value)
@@ -172,7 +183,8 @@ library LibMerkleTrie {
             currentKeyIndex += currentKeyIncrement;
 
             // Keep track of the proof elements we actually need.
-            // It's expensive to resize arrays, so this simply reduces gas costs.
+            // It's expensive to resize arrays, so this simply reduces gas
+            // costs.
             pathLength += 1;
 
             if (currentKeyIndex == 0) {
@@ -229,7 +241,8 @@ library LibMerkleTrie {
                             && keyRemainder.length == sharedNibbleLength
                     ) {
                         // The key within this leaf matches our key exactly.
-                        // Increment the key index to reflect that we have no remainder.
+                        // Increment the key index to reflect that we have no
+                        // remainder.
                         currentKeyIndex += sharedNibbleLength;
                     }
 
@@ -356,7 +369,10 @@ library LibMerkleTrie {
      * @param _b Second nibble array.
      * @return _shared Number of shared nibbles.
      */
-    function _getSharedNibbleLength(bytes memory _a, bytes memory _b)
+    function _getSharedNibbleLength(
+        bytes memory _a,
+        bytes memory _b
+    )
         private
         pure
         returns (uint256 _shared)

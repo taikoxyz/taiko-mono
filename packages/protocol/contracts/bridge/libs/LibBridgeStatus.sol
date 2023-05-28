@@ -35,7 +35,10 @@ library LibBridgeStatus {
      * @param msgHash The messageHash of the message.
      * @param status The status of the message.
      */
-    function updateMessageStatus(bytes32 msgHash, MessageStatus status)
+    function updateMessageStatus(
+        bytes32 msgHash,
+        MessageStatus status
+    )
         internal
     {
         if (getMessageStatus(msgHash) != status) {
@@ -62,7 +65,11 @@ library LibBridgeStatus {
         bytes32 msgHash,
         uint256 destChainId,
         bytes calldata proof
-    ) internal view returns (bool) {
+    )
+        internal
+        view
+        returns (bool)
+    {
         if (destChainId == block.chainid) {
             revert B_WRONG_CHAIN_ID();
         }

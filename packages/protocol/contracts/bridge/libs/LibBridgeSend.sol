@@ -45,7 +45,10 @@ library LibBridgeSend {
         LibBridgeData.State storage state,
         AddressResolver resolver,
         IBridge.Message memory message
-    ) internal returns (bytes32 msgHash) {
+    )
+        internal
+        returns (bytes32 msgHash)
+    {
         if (message.owner == address(0)) {
             revert B_OWNER_IS_NULL();
         }
@@ -86,7 +89,10 @@ library LibBridgeSend {
         emit LibBridgeData.MessageSent(msgHash, message);
     }
 
-    function isDestChainEnabled(AddressResolver resolver, uint256 chainId)
+    function isDestChainEnabled(
+        AddressResolver resolver,
+        uint256 chainId
+    )
         internal
         view
         returns (bool enabled, address destBridge)
@@ -95,7 +101,10 @@ library LibBridgeSend {
         enabled = destBridge != address(0);
     }
 
-    function isMessageSent(AddressResolver resolver, bytes32 msgHash)
+    function isMessageSent(
+        AddressResolver resolver,
+        bytes32 msgHash
+    )
         internal
         view
         returns (bool)
@@ -109,7 +118,11 @@ library LibBridgeSend {
         bytes32 msgHash,
         uint256 srcChainId,
         bytes calldata proof
-    ) internal view returns (bool) {
+    )
+        internal
+        view
+        returns (bool)
+    {
         address srcBridge = resolver.resolve(srcChainId, "bridge", false);
         return ISignalService(resolver.resolve("signal_service", false))
             .isSignalReceived({
