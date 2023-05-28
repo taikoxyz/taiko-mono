@@ -28,4 +28,4 @@ fs_permissions = [
 fuzz = { runs = 256 }
 
 [fmt]
-line_length = 100
+line_length = 80
