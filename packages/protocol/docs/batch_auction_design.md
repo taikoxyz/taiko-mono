@@ -11,7 +11,7 @@ After numerous attempts at developing and implementing Taiko's tokenomics, sever
 - The complexity and time commitment involved in this task may have been initially underestimated. A year into the process, it appears we are essentially back at the starting point.
 - A metric system is necessary to objectively evaluate and compare different designs. A comparison based on a set of metrics will facilitate objective discussions and ensure focus on the essential elements of various ideas, rather than unnecessary details.
 
-Considering these insights, I propose the following metrics to evaluate tokenomics. These are organized according to their perceived significance, and I welcome further discussion and feedback.
+Based on the provided insights and inputs from Brecht and Hugo (zkpool), the following proposed metrics for evaluating tokenomics are presented. These metrics are categorized based on their perceived significance, and I encourage further discussion and feedback to refine and enhance them.
 
 1. **Taiko Token Centric**: The tokenomics design should primarily revolve around our Taiko token, rather than other tokens such as USD stable coins. An equilibrium should be achieved between proposer fees and prover rewards, aiming to maintain or slightly decrease the supply of Taiko tokens over time. This approach ensures the long-term stability and value of our native token.
 
@@ -19,25 +19,23 @@ Considering these insights, I propose the following metrics to evaluate tokenomi
 
 1. **Cheaper Proofs over Faster Proofs**: While ideally, proofs should be both cost-efficient and fast, cheaper proofs should be prioritized if two proofs result in the same time delay. In the case of time delays within a specific upper limit, say, one hour, the less expensive proof should also be prioritized. This approach encourages provers to optimize for cost over speed, thus reducing our L2 transaction costs.
 
+1. **Prover Redundancy/Decentralization**: The system should incentivize multiple provers to remain active for block verification, rather than leading to a single prover verifying all blocks which could potentially cause unexpectedly high withdrawal times.
+
 1. **No Built-In PoS Reward**: To prevent being classified as a security, our tokenomics design should not offer tokens to stakers as rewards. A prover may establish a staking-based reward system allowing token holders to delegate their power, but this should not be considered as part of our tokenomics.
 
-1. **Minimal L1 Cost**: Our tokenomics should strive to minimize the average additional cost per block on its base layer. Provers will likely impose higher fees on L2 to offset this cost, potentially leaving out transactions with lower fees.
 
 1. **Simplified Decision Making**: Decisions regarding the proof of Taiko's blocks should not rely on complex algorithms. The fewer inputs required for such decisions, the better.
 
 1. **No Waiting When Proofs are Ready**: Provers should not be required to withhold their proofs and wait offline for the optimal moment to submit. This would necessitate the development of an additional system to store proofs and make intelligent decisions regarding submission times. Compared to our competitors, this extra effort could deter potential provers. Therefore, our tokenomics should allow proofs to be submitted immediately after they're ready, without adversely affecting the block reward.
 
-1. **Straightforward Design**: Our tokenomics should be easily comprehensible, especially for decision-makers and engineers within prover companies. The design should be such that the core concepts can be succinctly summarized, enabling quick understanding of the main points.
-
-1. **Prover Redundancy/Decentralization**: The system should incentivize multiple provers to remain active for block verification, rather than leading to a single prover verifying all blocks which could potentially cause unexpectedly
-
- high withdrawal times.
-
-1. **Prover Work Security**: Provers should be confident about their ability to verify blocks in the foreseeable future. However, if they are more expensive than other provers, they should gradually lose their work.
+**Simplicity in Design**: It's crucial for our tokenomics to be understandable and accessible, particularly for the decision-makers and engineers within prover companies. The design should encapsulate core concepts in a succinct and coherent manner, facilitating a rapid comprehension of the fundamental principles. This clarity enables provers to efficiently devise their strategies and algorithms, thereby streamlining their participation in the system.
 
 1. **Minimal Prover Fee**: This is different from "Preference for Cheaper Proofs over Faster Proofs". Factors such as uncertainty about the number and types of blocks to be verified within a given period, and whether the prover can distribute the risk of such uncertainty over a constant stream of future blocks, will also influence the minimum reward the prover will accept for blocks.
 
-1. **Implementation Complexity**: The complexity of the required code in the smart contracts/node is also an important factor to consider.
+1. **Implementation Complexity and Minimal L1 Cost**: The complexity of the required code in the smart contracts/node is also an important factor to consider. Our tokenomics should strive to minimize the average additional cost per block on its base layer. Provers will likely impose higher fees on L2 to offset this cost, potentially leaving out transactions with lower fees.
+
+1. **Prover Work Security**: Provers should be confident about their ability to verify blocks in the foreseeable future. However, if they are more expensive than other provers, they should gradually lose their work.
+
 
 The above comparison metrics should guide our discussions and prevent an overemphasis on subjective opinions.
 
