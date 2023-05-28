@@ -80,10 +80,19 @@ func (svc *Service) updateAverageBlockReward(ctx context.Context, event *taikol1
 		return errors.Wrap(err, "svc.statRepo.Find")
 	}
 
-	newAverageProofReward := calcNewAverage(stat.AverageProofReward, stat.NumVerifiedBlocks, reward)
+	avg, ok := new(big.Int).SetString(stat.AverageProofReward, 10)
+	if !ok {
+		return errors.New("unable to convert average proof reward to string")
+	}
+
+	newAverageProofReward := calcNewAverage(
+		avg,
+		new(big.Int).SetUint64(stat.NumVerifiedBlocks),
+		new(big.Int).SetUint64(reward),
+	)
 
 	_, err = svc.statRepo.Save(ctx, eventindexer.SaveStatOpts{
-		ProofReward: &newAverageProofReward,
+		ProofReward: newAverageProofReward,
 	})
 	if err != nil {
 		return errors.Wrap(err, "svc.statRepo.Save")

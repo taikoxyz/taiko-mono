@@ -14,10 +14,20 @@ func NewStatRepository() *StatRepository {
 	return &StatRepository{}
 }
 func (r *StatRepository) Save(ctx context.Context, opts eventindexer.SaveStatOpts) (*eventindexer.Stat, error) {
+	proofReward := ""
+	if opts.ProofReward != nil {
+		proofReward = opts.ProofReward.String()
+	}
+
+	proofTime := ""
+	if opts.ProofTime != nil {
+		proofTime = opts.ProofTime.String()
+	}
+
 	r.stats = &eventindexer.Stat{
 		ID:                 1,
-		AverageProofTime:   *opts.ProofTime,
-		AverageProofReward: *opts.ProofReward,
+		AverageProofTime:   proofTime,
+		AverageProofReward: proofReward,
 		NumProofs:          1,
 		NumVerifiedBlocks:  1,
 	}
