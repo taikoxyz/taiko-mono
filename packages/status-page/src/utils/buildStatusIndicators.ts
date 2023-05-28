@@ -17,11 +17,11 @@ import { getPendingBlocks } from "./getPendingBlocks";
 import { getPendingTransactions } from "./getPendingTransactions";
 import { getQueuedTransactions } from "./getQueuedTransactions";
 import type { initConfig } from "./initConfig";
-import { truncateString } from "./truncateString";
 import { watchHeaderSynced } from "./watchHeaderSynced";
 import axios from "axios";
 import { getConfig } from "./getConfig";
 import { getStateVariables } from "./getStateVariables";
+import TaikoL2 from "../constants/abi/TaikoL2";
 
 export async function buildStatusIndicators(
   config: ReturnType<typeof initConfig>,
@@ -241,6 +241,42 @@ export async function buildStatusIndicators(
       tooltip:
         "The current recommended gas price for a transaction on Layer 2.",
     },
+    {
+      statusFunc: async (
+        provider: ethers.providers.JsonRpcProvider,
+        contractAddress: string
+      ): Promise<string> => {
+        const contract: Contract = new Contract(
+          contractAddress,
+          TaikoL2,
+          provider
+        );
+
+        const c = await getConfig(config.l1Provider, config.l1TaikoAddress);
+        const latestBlock = await provider.getBlock("latest");
+        const timeSinceParent = ~~(Date.now() / 1000) - latestBlock.timestamp;
+        const gasLimit = c.blockMaxGasLimit;
+        const parentGasUsed = latestBlock.gasUsed;
+
+        const fee = await contract.getBasefee(
+          timeSinceParent,
+          gasLimit,
+          parentGasUsed
+        );
+        console.log(fee.toString());
+        return `${ethers.utils.formatUnits(fee, "gwei")}`;
+      },
+      watchStatusFunc: null,
+      provider: config.l2Provider,
+      contractAddress: config.l2TaikoAddress,
+      header: "L2 EIP1559 BaseFee (gwei)",
+      intervalInMs: 15000,
+      colorFunc: (value: Status) => {
+        return "green";
+      },
+      tooltip:
+        "The current base fee for an L2 transaction with EIP1559-enabled.",
+    },
   ];
 
   try {
@@ -255,7 +291,6 @@ export async function buildStatusIndicators(
           provider
         );
         const fee = await contract.getBlockFee();
-        console.log(fee.toString());
         return `${ethers.utils.formatUnits(fee, decimals)} TKO`;
       },
       watchStatusFunc: null,
