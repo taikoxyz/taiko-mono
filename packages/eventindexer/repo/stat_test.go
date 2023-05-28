@@ -69,8 +69,8 @@ func TestIntegration_Stat_Find(t *testing.T) {
 			"success",
 			&eventindexer.Stat{
 				ID:                 1,
-				AverageProofReward: proofReward,
-				AverageProofTime:   big.NewInt(0),
+				AverageProofReward: proofReward.String(),
+				AverageProofTime:   "0",
 				NumProofs:          0,
 				NumVerifiedBlocks:  1,
 			},

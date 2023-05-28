@@ -9,11 +9,11 @@ import (
 // into the Data field to be unmarshalled into a concrete struct
 // dependant on the name of the event
 type Stat struct {
-	ID                 int      `json:"id"`
-	AverageProofTime   *big.Int `json:"averageProofTime"`
-	AverageProofReward *big.Int `json:"averageProofReward"`
-	NumProofs          uint64   `json:"numProofs"`
-	NumVerifiedBlocks  uint64   `json:"numVerifiedBlocks"`
+	ID                 int    `json:"id"`
+	AverageProofTime   string `json:"averageProofTime"`
+	AverageProofReward string `json:"averageProofReward"`
+	NumProofs          uint64 `json:"numProofs"`
+	NumVerifiedBlocks  uint64 `json:"numVerifiedBlocks"`
 }
 
 // SaveStatOpts

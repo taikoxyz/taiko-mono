@@ -104,8 +104,13 @@ func (svc *Service) updateAverageProofTime(ctx context.Context, event *taikol1.T
 
 	proofTime := provenAt - proposedAt
 
+	avg, ok := new(big.Int).SetString(stat.AverageProofTime, 10)
+	if !ok {
+		return errors.New("unable to convert average proof time to string")
+	}
+
 	newAverageProofTime := calcNewAverage(
-		stat.AverageProofTime,
+		avg,
 		new(big.Int).SetUint64(stat.NumProofs),
 		new(big.Int).SetUint64(proofTime),
 	)
