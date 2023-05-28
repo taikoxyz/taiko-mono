@@ -31,14 +31,6 @@ func (r *StatRepository) Save(ctx context.Context, opts eventindexer.SaveStatOpt
 		return nil, errors.Wrap(err, "r.db.gormDB.FirstOrCreate")
 	}
 
-	if s.AverageProofReward == "" {
-		s.AverageProofReward = "0"
-	}
-
-	if s.AverageProofTime == "" {
-		s.AverageProofTime = "0"
-	}
-
 	if opts.ProofReward != nil {
 		s.NumVerifiedBlocks++
 		s.AverageProofReward = opts.ProofReward.String()
@@ -64,6 +56,14 @@ func (r *StatRepository) Find(ctx context.Context) (*eventindexer.Stat, error) {
 		FirstOrCreate(s).
 		Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.gormDB.FirstOrCreate")
+	}
+
+	if s.AverageProofReward == "" {
+		s.AverageProofReward = "0"
+	}
+
+	if s.AverageProofTime == "" {
+		s.AverageProofTime = "0"
 	}
 
 	return s, nil
