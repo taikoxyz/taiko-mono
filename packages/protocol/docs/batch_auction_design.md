@@ -23,12 +23,11 @@ Based on the provided insights and inputs from Brecht and Hugo (zkpool), the fol
 
 1. **No Built-In PoS Reward**: To prevent being classified as a security, our tokenomics design should not offer tokens to stakers as rewards. A prover may establish a staking-based reward system allowing token holders to delegate their power, but this should not be considered as part of our tokenomics.
 
-
 1. **Simplified Decision Making**: Decisions regarding the proof of Taiko's blocks should not rely on complex algorithms. The fewer inputs required for such decisions, the better.
 
 1. **No Waiting When Proofs are Ready**: Provers should not be required to withhold their proofs and wait offline for the optimal moment to submit. This would necessitate the development of an additional system to store proofs and make intelligent decisions regarding submission times. Compared to our competitors, this extra effort could deter potential provers. Therefore, our tokenomics should allow proofs to be submitted immediately after they're ready, without adversely affecting the block reward.
 
-**Simplicity in Design**: It's crucial for our tokenomics to be understandable and accessible, particularly for the decision-makers and engineers within prover companies. The design should encapsulate core concepts in a succinct and coherent manner, facilitating a rapid comprehension of the fundamental principles. This clarity enables provers to efficiently devise their strategies and algorithms, thereby streamlining their participation in the system.
+1. **Simplicity in Design**: It's crucial for our tokenomics to be understandable and accessible, particularly for the decision-makers and engineers within prover companies. The design should encapsulate core concepts in a succinct and coherent manner, facilitating a rapid comprehension of the fundamental principles. This clarity enables provers to efficiently devise their strategies and algorithms, thereby streamlining their participation in the system.
 
 1. **Minimal Prover Fee**: This is different from "Preference for Cheaper Proofs over Faster Proofs". Factors such as uncertainty about the number and types of blocks to be verified within a given period, and whether the prover can distribute the risk of such uncertainty over a constant stream of future blocks, will also influence the minimum reward the prover will accept for blocks.
 
