@@ -51,19 +51,37 @@ To offset potential delays in ZKP, it's recommended to conduct auctions for fort
 ### Bidding Procedures and Deposit Requirements
 The initial bidding price for new auctions should be set at `s=2*p`, where `p` represents a moving average *bid* for all verified blocks. Each subsequent bid should be at least 5% lower than the current bid. Bidders would need to deposit `s * max_block_gas_limit * num_blocks * 1.5` Taiko tokens for the batch. A penalty of `s * max_block_gas_limit * 1.5` Taiko tokens will be imposed and subsequently burnt for each block the winner fails to verify within the designated timeframe. Successful completion will result in a refund of the deposit.
 
-### Auction Window, Verification Window, and Multiple Auction Management
-The auction window commences with the first bid and concludes either after 5 minutes or 25 Ethereum blocks. Blocks become eligible for verification only after the auction has officially ended. The winner of the auction must submit the initial ZKP for the block within 60 minutes of the block proposal or the auction's conclusion, whichever is later. Other provers can submit proofs to create alternative fork choices either after the initial ZKP submission or upon the expiration of the verification window. Concurrent auctions for different batches are permissible. However, it's recommended to limit this to the forthcoming 100 batches for better management.
+
+A key concern is the risk of a monopolistic scenario, where one highly efficient prover continuously wins bids, particularly if they're prepared to operate with a slim profit margin. This could marginalize other provers, even those with slightly higher costs, leaving them devoid of work and potentially leading them to exit the system. To encourage diverse participation and avert single-prover dominance, we may need to refine our bid scoring methodology. Rather than focusing solely on the bid price, we could factor in other parameters such as the deposit amount, the prover's average proof delay, and the ratio of their proof submissions to the number of blocks they've won. This multi-dimensional evaluation would promote a more equitable competition, ensuring the system's sustainability.
+
+
+### ### Auction Window, Proofing Window, and Managing Multiple Auctions
+The auction window initiates with the first bid and concludes after either 5 minutes or 25 Ethereum blocks. Blocks become provable only once the auction has officially concluded. The auction winner is required to submit the initial Zero-Knowledge Proof (ZKP) for the block within the proofing window—e.g., 60 minutes—of either the block proposal or the auction's end, whichever is later. Other provers are permitted to submit proofs, creating alternative fork choices, either following the initial ZKP submission or after the proofing window has elapsed. While simultaneous auctions for different batches are permissible, it's advisable to restrict this to the upcoming 100 batches for optimal management.
+
+Provers are incentivized to submit proofs promptly. This shall increase their chances of winning future block auctions and potentially allows them to gradually reduce the proofing window. This can serve as a strategy to outmaneuver competitors who can generate low-cost proofs but require a time close to the proofing window to do so.
+
 
 ### Reward and Penalty Mechanisms
-If the chosen fork for the verified block originates from the auction winner's proof, the winner's deposit and reward TKO
-
- tokens are refunded. If the selected fork comes from another prover's proof, the latter receives half the deposit, with the remaining half being burnt. This mechanism ensures fair competition and discourages manipulation, such as winners submitting correct proofs via different addresses.
+If the chosen fork for the verified block originates from the auction winner's proof, the winner's deposit and reward TKO tokens are refunded. If the selected fork comes from another prover's proof, the latter receives half the deposit, with the remaining half being burnt. This mechanism ensures fair competition and discourages manipulation, such as winners submitting correct proofs via different addresses.
 
 ### Absence of Fallback Mode
 There is no secondary fee/reward model for blocks that aren't auctioned. This simplifies the auction design and eliminates the need for dual tokenomics systems, namely, an auction-based primary system and an alternate fallback system.
 
 ### Block Fees
 A fee in Taiko tokens should be levied from the block proposer, calculated as `p * gas_limit`, where `p` is the moving average bid for all verified blocks. Another moving average `q` could be introduced to cover the bid of all unverified blocks that have been auctioned. For example, the fee could be calculated as `(p * 0.5 + q * 0.5) * gas_limit`.
+
+## Best Strategy for a Prover
+
+
+### Bidding Strategy
+A prover should consistently monitor recent winning bid scores to gauge the current market status. From there, he can calculate an appropriate bidding price that aligns with his proof generation costs. Optionally, to enhance his score, he could deposit additional Taiko tokens as auction collateral.
+
+### Proof Submission Strategy
+He should submit proofs at the earliest opportunity.
+
+### Optimization Strategy
+The prover's optimization should be conducted in a hierarchical manner, with cost reduction as the primary focus. After reducing proof costs, the next step would be to minimize proof delay, followed by improving the rate of proof submissions. An additional optional strategy could be to acquire more Taiko tokens to perpetually boost his score.
+
 
 ### Challenges
 
@@ -76,10 +94,6 @@ However, such behavior might inadvertently stimulate competition. As the reward 
 #### Mitigating Low Bid Attacks
 
 A malicious prover may strategize to win numerous batches by placing extremely low bids, aiming to manipulate the starting price of future auctions. This could potentially discourage other provers from participating in subsequent auctions. To safeguard against such manipulation, it's imperative to establish a mechanism that ensures the starting price for future auctions changes incrementally and consistently, thereby maintaining a fair and competitive bidding environment.
-
-#### Avoiding a Monopoly
-
-A key concern is the risk of a monopolistic scenario, where one highly efficient prover continuously wins bids, particularly if they're prepared to operate with a slim profit margin. This could marginalize other provers, even those with slightly higher costs, leaving them devoid of work and potentially leading them to exit the system. To encourage diverse participation and avert single-prover dominance, we may need to refine our bid scoring methodology. Rather than focusing solely on the bid price, we could factor in other parameters such as the deposit amount, the prover's average proof delay, and the ratio of their proof submissions to the number of blocks they've won. This multi-dimensional evaluation would promote a more equitable competition, ensuring the system's sustainability.
 
 
 #### Added Verification Delay
