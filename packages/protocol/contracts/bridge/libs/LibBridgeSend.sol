@@ -45,7 +45,10 @@ library LibBridgeSend {
         LibBridgeData.State storage state,
         AddressResolver resolver,
         IBridge.Message memory message
-    ) internal returns (bytes32 msgHash) {
+    )
+        internal
+        returns (bytes32 msgHash)
+    {
         if (message.owner == address(0)) {
             revert B_OWNER_IS_NULL();
         }
@@ -60,7 +63,8 @@ library LibBridgeSend {
             revert B_WRONG_TO_ADDRESS();
         }
 
-        uint256 expectedAmount = message.depositValue + message.callValue + message.processingFee;
+        uint256 expectedAmount =
+            message.depositValue + message.callValue + message.processingFee;
 
         if (expectedAmount != msg.value) {
             revert B_INCORRECT_VALUE();
@@ -79,11 +83,16 @@ library LibBridgeSend {
         msgHash = message.hashMessage();
         // Store a key which is the hash of this contract address and the
         // msgHash, with a value of 1.
-        ISignalService(resolver.resolve("signal_service", false)).sendSignal(msgHash);
+        ISignalService(resolver.resolve("signal_service", false)).sendSignal(
+            msgHash
+        );
         emit LibBridgeData.MessageSent(msgHash, message);
     }
 
-    function isDestChainEnabled(AddressResolver resolver, uint256 chainId)
+    function isDestChainEnabled(
+        AddressResolver resolver,
+        uint256 chainId
+    )
         internal
         view
         returns (bool enabled, address destBridge)
@@ -92,15 +101,16 @@ library LibBridgeSend {
         enabled = destBridge != address(0);
     }
 
-    function isMessageSent(AddressResolver resolver, bytes32 msgHash)
+    function isMessageSent(
+        AddressResolver resolver,
+        bytes32 msgHash
+    )
         internal
         view
         returns (bool)
     {
-        return ISignalService(resolver.resolve("signal_service", false)).isSignalSent({
-            app: address(this),
-            signal: msgHash
-        });
+        return ISignalService(resolver.resolve("signal_service", false))
+            .isSignalSent({app: address(this), signal: msgHash});
     }
 
     function isMessageReceived(
@@ -108,9 +118,14 @@ library LibBridgeSend {
         bytes32 msgHash,
         uint256 srcChainId,
         bytes calldata proof
-    ) internal view returns (bool) {
+    )
+        internal
+        view
+        returns (bool)
+    {
         address srcBridge = resolver.resolve(srcChainId, "bridge", false);
-        return ISignalService(resolver.resolve("signal_service", false)).isSignalReceived({
+        return ISignalService(resolver.resolve("signal_service", false))
+            .isSignalReceived({
             srcChainId: srcChainId,
             app: srcBridge,
             signal: msgHash,

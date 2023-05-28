@@ -21,7 +21,11 @@ contract TestLibBridgeSend is EssentialContract {
         EssentialContract._init(_addressManager);
     }
 
-    function sendMessage(IBridge.Message memory message) public payable returns (bytes32 signal) {
+    function sendMessage(IBridge.Message memory message)
+        public
+        payable
+        returns (bytes32 signal)
+    {
         return LibBridgeSend.sendMessage(state, AddressResolver(this), message);
     }
 }

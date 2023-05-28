@@ -41,20 +41,31 @@ library LibTrieProof {
         bytes32 slot,
         bytes32 value,
         bytes calldata mkproof
-    ) public pure returns (bool verified) {
-        (bytes memory accountProof, bytes memory storageProof) = abi.decode(mkproof, (bytes, bytes));
+    )
+        public
+        pure
+        returns (bool verified)
+    {
+        (bytes memory accountProof, bytes memory storageProof) =
+            abi.decode(mkproof, (bytes, bytes));
 
-        (bool exists, bytes memory rlpAccount) =
-            LibSecureMerkleTrie.get(abi.encodePacked(addr), accountProof, stateRoot);
+        (bool exists, bytes memory rlpAccount) = LibSecureMerkleTrie.get(
+            abi.encodePacked(addr), accountProof, stateRoot
+        );
 
         require(exists, "LTP:invalid account proof");
 
-        LibRLPReader.RLPItem[] memory accountState = LibRLPReader.readList(rlpAccount);
-        bytes32 storageRoot =
-            LibRLPReader.readBytes32(accountState[ACCOUNT_FIELD_INDEX_STORAGE_HASH]);
+        LibRLPReader.RLPItem[] memory accountState =
+            LibRLPReader.readList(rlpAccount);
+        bytes32 storageRoot = LibRLPReader.readBytes32(
+            accountState[ACCOUNT_FIELD_INDEX_STORAGE_HASH]
+        );
 
         verified = LibSecureMerkleTrie.verifyInclusionProof(
-            abi.encodePacked(slot), LibRLPWriter.writeBytes32(value), storageProof, storageRoot
+            abi.encodePacked(slot),
+            LibRLPWriter.writeBytes32(value),
+            storageProof,
+            storageRoot
         );
     }
 }

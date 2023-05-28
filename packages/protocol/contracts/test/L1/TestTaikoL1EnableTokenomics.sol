@@ -11,7 +11,12 @@ import {TaikoData} from "../../L1/TaikoData.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract TestTaikoL1EnableTokenomics is TaikoL1 {
-    function getConfig() public pure override returns (TaikoData.Config memory config) {
+    function getConfig()
+        public
+        pure
+        override
+        returns (TaikoData.Config memory config)
+    {
         config.chainId = 167;
         // up to 2048 pending blocks
         config.maxNumProposedBlocks = 6;
@@ -19,8 +24,8 @@ contract TestTaikoL1EnableTokenomics is TaikoL1 {
         // This number is calculated from maxNumProposedBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         config.maxVerificationsPerTx = 0; // dont verify blocks automatically
-        config.blockMaxGasLimit = 30000000;
+        config.blockMaxGasLimit = 30_000_000;
         config.maxTransactionsPerBlock = 20;
-        config.maxBytesPerTxList = 120000;
+        config.maxBytesPerTxList = 120_000;
     }
 }

@@ -12,7 +12,8 @@ import {
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {SafeERC20Upgradeable} from
     "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import {Create2Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
+import {Create2Upgradeable} from
+    "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {Proxied} from "../common/Proxied.sol";
 import {TaikoToken} from "../L1/TaikoToken.sol";
@@ -56,15 +57,19 @@ contract TokenVault is EssentialContract {
     mapping(address tokenAddress => bool isBridged) public isBridgedToken;
 
     // Mappings from bridged tokens to their canonical tokens.
-    mapping(address bridgedAddress => CanonicalERC20 canonicalErc20) public bridgedToCanonical;
+    mapping(address bridgedAddress => CanonicalERC20 canonicalErc20) public
+        bridgedToCanonical;
 
     // Mappings from canonical tokens to their bridged tokens.
     // Also storing chainId for tokens across other chains aside from Ethereum.
-    mapping(uint256 chainId => mapping(address canonicalAddress => address bridgedAddress)) public
-        canonicalToBridged;
+    mapping(
+        uint256 chainId
+            => mapping(address canonicalAddress => address bridgedAddress)
+    ) public canonicalToBridged;
 
     // Tracks the token and amount associated with a message hash.
-    mapping(bytes32 msgHash => MessageDeposit messageDeposit) public messageDeposits;
+    mapping(bytes32 msgHash => MessageDeposit messageDeposit) public
+        messageDeposits;
 
     uint256[47] private __gap;
 
@@ -99,7 +104,10 @@ contract TokenVault is EssentialContract {
     );
 
     event ERC20Released(
-        bytes32 indexed msgHash, address indexed from, address token, uint256 amount
+        bytes32 indexed msgHash,
+        address indexed from,
+        address token,
+        uint256 amount
     );
 
     event ERC20Received(
@@ -156,8 +164,14 @@ contract TokenVault is EssentialContract {
         uint256 processingFee,
         address refundAddress,
         string memory memo
-    ) external payable nonReentrant {
-        if (to == address(0) || to == resolve(destChainId, "token_vault", false)) {
+    )
+        external
+        payable
+        nonReentrant
+    {
+        if (
+            to == address(0) || to == resolve(destChainId, "token_vault", false)
+        ) {
             revert TOKENVAULT_INVALID_TO();
         }
 
@@ -197,7 +211,11 @@ contract TokenVault is EssentialContract {
         message.owner = msg.sender;
         message.to = resolve(destChainId, "token_vault", false);
         message.data = abi.encodeWithSelector(
-            TokenVault.receiveERC20.selector, canonicalToken, message.owner, to, _amount
+            TokenVault.receiveERC20.selector,
+            canonicalToken,
+            message.owner,
+            to,
+            _amount
         );
         message.gasLimit = gasLimit;
         message.processingFee = processingFee;
@@ -205,7 +223,9 @@ contract TokenVault is EssentialContract {
         message.refundAddress = refundAddress;
         message.memo = memo;
 
-        bytes32 msgHash = IBridge(resolve("bridge", false)).sendMessage{value: msg.value}(message);
+        bytes32 msgHash = IBridge(resolve("bridge", false)).sendMessage{
+            value: msg.value
+        }(message);
 
         // record the deposit for this message
         messageDeposits[msgHash] = MessageDeposit(token, _amount);
@@ -229,7 +249,10 @@ contract TokenVault is EssentialContract {
      * @param proof The proof from the destination chain to show the message
      * has failed.
      */
-    function releaseERC20(IBridge.Message calldata message, bytes calldata proof)
+    function releaseERC20(
+        IBridge.Message calldata message,
+        bytes calldata proof
+    )
         external
         nonReentrant
     {
@@ -258,7 +281,12 @@ contract TokenVault is EssentialContract {
             }
         }
 
-        emit ERC20Released({msgHash: msgHash, from: message.owner, token: token, amount: amount});
+        emit ERC20Released({
+            msgHash: msgHash,
+            from: message.owner,
+            token: token,
+            amount: amount
+        });
     }
 
     /**
@@ -277,7 +305,11 @@ contract TokenVault is EssentialContract {
         address from,
         address to,
         uint256 amount
-    ) external nonReentrant onlyFromNamed("bridge") {
+    )
+        external
+        nonReentrant
+        onlyFromNamed("bridge")
+    {
         IBridge.Context memory ctx = IBridge(msg.sender).context();
         if (ctx.sender != resolve(ctx.srcChainId, "token_vault", false)) {
             revert TOKENVAULT_INVALID_SENDER();
@@ -310,7 +342,8 @@ contract TokenVault is EssentialContract {
         private
         returns (address)
     {
-        address token = canonicalToBridged[canonicalToken.chainId][canonicalToken.addr];
+        address token =
+            canonicalToBridged[canonicalToken.chainId][canonicalToken.addr];
 
         return token != address(0) ? token : _deployBridgedToken(canonicalToken);
     }
@@ -327,7 +360,8 @@ contract TokenVault is EssentialContract {
             0, // amount of Ether to send
             keccak256(
                 bytes.concat(
-                    bytes32(canonicalToken.chainId), bytes32(uint256(uint160(canonicalToken.addr)))
+                    bytes32(canonicalToken.chainId),
+                    bytes32(uint256(uint160(canonicalToken.addr)))
                 )
             ),
             type(BridgedERC20).creationCode
@@ -349,7 +383,8 @@ contract TokenVault is EssentialContract {
 
         isBridgedToken[bridgedToken] = true;
         bridgedToCanonical[bridgedToken] = canonicalToken;
-        canonicalToBridged[canonicalToken.chainId][canonicalToken.addr] = bridgedToken;
+        canonicalToBridged[canonicalToken.chainId][canonicalToken.addr] =
+            bridgedToken;
 
         emit BridgedERC20Deployed({
             srcChainId: canonicalToken.chainId,

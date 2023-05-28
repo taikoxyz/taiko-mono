@@ -16,7 +16,12 @@ library Lib1559Math {
     error M1559_UNEXPECTED_CHANGE(uint64 expected, uint64 actual);
     error M1559_OUT_OF_STOCK();
 
-    function calculateScales(uint64 xExcessMax, uint64 price, uint64 target, uint64 ratio2x1x)
+    function calculateScales(
+        uint64 xExcessMax,
+        uint64 price,
+        uint64 target,
+        uint64 ratio2x1x
+    )
         internal
         pure
         returns (uint128 xscale, uint128 yscale)
@@ -34,14 +39,19 @@ library Lib1559Math {
         // 2*target gas and the other one has target gas.
         uint256 price1x = calculatePrice(xscale, yscale, x, target);
         uint256 price2x = calculatePrice(xscale, yscale, x, target * 2);
-        uint64 ratio = uint64((price2x * 10000) / price1x);
+        uint64 ratio = uint64((price2x * 10_000) / price1x);
 
         if (ratio2x1x != ratio) {
             revert M1559_UNEXPECTED_CHANGE(ratio2x1x, ratio);
         }
     }
 
-    function calculatePrice(uint128 xscale, uint128 yscale, uint64 xExcess, uint64 xPurchase)
+    function calculatePrice(
+        uint128 xscale,
+        uint128 yscale,
+        uint64 xExcess,
+        uint64 xPurchase
+    )
         internal
         pure
         returns (uint256)

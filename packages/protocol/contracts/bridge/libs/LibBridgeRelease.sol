@@ -33,7 +33,9 @@ library LibBridgeRelease {
         AddressResolver resolver,
         IBridge.Message calldata message,
         bytes calldata proof
-    ) internal {
+    )
+        internal
+    {
         if (message.owner == address(0)) {
             revert B_OWNER_IS_NULL();
         }
@@ -48,7 +50,11 @@ library LibBridgeRelease {
             revert B_ETHER_RELEASED_ALREADY();
         }
 
-        if (!LibBridgeStatus.isMessageFailed(resolver, msgHash, message.destChainId, proof)) {
+        if (
+            !LibBridgeStatus.isMessageFailed(
+                resolver, msgHash, message.destChainId, proof
+            )
+        ) {
             revert B_MSG_NOT_FAILED();
         }
 
@@ -60,7 +66,9 @@ library LibBridgeRelease {
             address ethVault = resolver.resolve("ether_vault", true);
             // if on Taiko
             if (ethVault != address(0)) {
-                EtherVault(payable(ethVault)).releaseEther(message.owner, releaseAmount);
+                EtherVault(payable(ethVault)).releaseEther(
+                    message.owner, releaseAmount
+                );
             } else {
                 // if on Ethereum
                 (bool success,) = message.owner.call{value: releaseAmount}("");

@@ -15,7 +15,13 @@ import {AddressManager} from "../common/AddressManager.sol";
  * SSLOAD easily.
  */
 contract ExampleStaticAddressManager is AddressManager {
-    function setAddress(uint256, /*domain*/ bytes32, /*nameHash*/ address /*newAddress*/ )
+    function setAddress(
+        uint256,
+        /*domain*/
+        bytes32,
+        /*nameHash*/
+        address /*newAddress*/
+    )
         external
         pure
         override
@@ -25,7 +31,10 @@ contract ExampleStaticAddressManager is AddressManager {
 
     /// @dev This function must be a pure function in order to avoid
     /// reading from storage.
-    function getAddress(uint256 domain, bytes32 nameHash)
+    function getAddress(
+        uint256 domain,
+        bytes32 nameHash
+    )
         external
         pure
         override

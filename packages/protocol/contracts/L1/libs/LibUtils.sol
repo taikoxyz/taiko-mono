@@ -21,7 +21,11 @@ library LibUtils {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint256 blockId
-    ) internal view returns (bool found, TaikoData.Block storage blk) {
+    )
+        internal
+        view
+        returns (bool found, TaikoData.Block storage blk)
+    {
         uint256 id = blockId == 0 ? state.lastVerifiedBlockId : blockId;
         blk = state.blocks[id % config.ringBufferSize];
         found = (blk.blockId == id && blk.verifiedForkChoiceId != 0);
@@ -32,8 +36,15 @@ library LibUtils {
         TaikoData.Block storage blk,
         bytes32 parentHash,
         uint32 parentGasUsed
-    ) internal view returns (uint256 fcId) {
-        if (blk.forkChoices[1].key == keyForForkChoice(parentHash, parentGasUsed)) {
+    )
+        internal
+        view
+        returns (uint256 fcId)
+    {
+        if (
+            blk.forkChoices[1].key
+                == keyForForkChoice(parentHash, parentGasUsed)
+        ) {
             fcId = 1;
         } else {
             fcId = state.forkChoiceIds[blk.blockId][parentHash][parentGasUsed];
@@ -51,20 +62,20 @@ library LibUtils {
     {
         return TaikoData.StateVariables({
             blockFee: state.blockFee,
-            accBlockFees: state.accBlockFees,
             genesisHeight: state.genesisHeight,
             genesisTimestamp: state.genesisTimestamp,
             numBlocks: state.numBlocks,
-            proofTimeIssued: state.proofTimeIssued,
-            proofTimeTarget: state.proofTimeTarget,
             lastVerifiedBlockId: state.lastVerifiedBlockId,
-            accProposedAt: state.accProposedAt,
             nextEthDepositToProcess: state.nextEthDepositToProcess,
             numEthDeposits: uint64(state.ethDeposits.length)
         });
     }
 
-    function movingAverage(uint256 maValue, uint256 newValue, uint256 maf)
+    function movingAverage(
+        uint256 maValue,
+        uint256 newValue,
+        uint256 maf
+    )
         internal
         pure
         returns (uint256)
@@ -89,11 +100,13 @@ library LibUtils {
 
         inputs[1] = uint256(meta.l1Hash);
         inputs[2] = uint256(meta.mixHash);
-        inputs[3] = uint256(LibEthDepositing.hashEthDeposits(meta.depositsProcessed));
+        inputs[3] =
+            uint256(LibEthDepositing.hashEthDeposits(meta.depositsProcessed));
         inputs[4] = uint256(meta.txListHash);
 
-        inputs[5] = (uint256(meta.txListByteStart) << 232) | (uint256(meta.txListByteEnd) << 208)
-            | (uint256(meta.gasLimit) << 176) | (uint256(uint160(meta.beneficiary)) << 16);
+        inputs[5] = (uint256(meta.txListByteStart) << 232)
+            | (uint256(meta.txListByteEnd) << 208) | (uint256(meta.gasLimit) << 176)
+            | (uint256(uint160(meta.beneficiary)) << 16);
 
         inputs[6] = (uint256(uint160(meta.treasury)) << 96);
 
@@ -102,7 +115,10 @@ library LibUtils {
         }
     }
 
-    function keyForForkChoice(bytes32 parentHash, uint32 parentGasUsed)
+    function keyForForkChoice(
+        bytes32 parentHash,
+        uint32 parentGasUsed
+    )
         internal
         pure
         returns (bytes32 key)

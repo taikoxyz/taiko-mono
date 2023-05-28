@@ -17,11 +17,16 @@ contract TestLibBridgeInvoke {
 
     event MessageInvoked(bytes32 signal, bool success);
 
-    function invokeMessageCall(IBridge.Message calldata message, bytes32 signal, uint256 gasLimit)
+    function invokeMessageCall(
+        IBridge.Message calldata message,
+        bytes32 signal,
+        uint256 gasLimit
+    )
         public
         payable
     {
-        bool success = LibBridgeInvoke.invokeMessageCall(state, message, signal, gasLimit);
+        bool success =
+            LibBridgeInvoke.invokeMessageCall(state, message, signal, gasLimit);
         emit MessageInvoked(signal, success);
     }
 }

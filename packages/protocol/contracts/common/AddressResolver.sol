@@ -20,6 +20,8 @@ abstract contract AddressResolver {
 
     uint256[49] private __gap;
 
+    event AddressManagerChanged(address addressManager);
+
     error RESOLVER_DENIED();
     error RESOLVER_INVALID_ADDR();
     error RESOLVER_ZERO_ADDR(uint256 chainId, bytes32 name);
@@ -29,8 +31,6 @@ abstract contract AddressResolver {
         _;
     }
 
-    event AddressManagerChanged(address addressManager);
-
     /**
      * Resolves a name to an address on the current chain.
      *
@@ -39,7 +39,10 @@ abstract contract AddressResolver {
      * @param allowZeroAddress True to allow zero address to be returned.
      * @return The name's corresponding address.
      */
-    function resolve(bytes32 name, bool allowZeroAddress)
+    function resolve(
+        bytes32 name,
+        bool allowZeroAddress
+    )
         public
         view
         virtual
@@ -57,7 +60,11 @@ abstract contract AddressResolver {
      * @param allowZeroAddress True to allow zero address to be returned.
      * @return The name's corresponding address.
      */
-    function resolve(uint256 chainId, bytes32 name, bool allowZeroAddress)
+    function resolve(
+        uint256 chainId,
+        bytes32 name,
+        bool allowZeroAddress
+    )
         public
         view
         virtual
@@ -80,7 +87,11 @@ abstract contract AddressResolver {
         _addressManager = IAddressManager(addressManager_);
     }
 
-    function _resolve(uint256 chainId, bytes32 name, bool allowZeroAddress)
+    function _resolve(
+        uint256 chainId,
+        bytes32 name,
+        bool allowZeroAddress
+    )
         private
         view
         returns (address payable addr)
