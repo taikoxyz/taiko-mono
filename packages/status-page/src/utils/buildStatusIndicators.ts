@@ -263,7 +263,6 @@ export async function buildStatusIndicators(
           gasLimit,
           parentGasUsed
         );
-        console.log(fee.toString());
         return `${ethers.utils.formatUnits(fee, "gwei")}`;
       },
       watchStatusFunc: null,
