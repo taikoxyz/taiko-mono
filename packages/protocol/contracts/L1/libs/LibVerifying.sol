@@ -34,7 +34,8 @@ library LibVerifying {
         internal
     {
         if (
-            config.chainId <= 1 || config.maxNumProposedBlocks == 1
+            config.chainId <= 1 //
+                || config.maxNumProposedBlocks == 1
                 || config.ringBufferSize <= config.maxNumProposedBlocks + 1
                 || config.blockMaxGasLimit == 0
                 || config.maxTransactionsPerBlock == 0
@@ -45,7 +46,8 @@ library LibVerifying {
                 || config.maxEthDepositsPerBlock < config.minEthDepositsPerBlock
             // EIP-4844 blob deleted after 30 days
             || config.txListCacheExpiry > 30 * 24 hours
-                || config.ethDepositGas == 0 || config.ethDepositMaxFee == 0
+                || config.ethDepositGas == 0 //
+                || config.ethDepositMaxFee == 0
                 || config.ethDepositMaxFee >= type(uint96).max
         ) revert L1_INVALID_CONFIG();
 

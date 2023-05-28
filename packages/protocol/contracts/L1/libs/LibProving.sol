@@ -47,9 +47,15 @@ library LibProving {
         internal
     {
         if (
-            evidence.parentHash == 0 || evidence.blockHash == 0
-                || evidence.blockHash == evidence.parentHash
-                || evidence.signalRoot == 0 || evidence.gasUsed == 0
+            evidence.parentHash == 0
+            //
+            || evidence.blockHash == 0
+            //
+            || evidence.blockHash == evidence.parentHash
+            //
+            || evidence.signalRoot == 0
+            //
+            || evidence.gasUsed == 0
         ) revert L1_INVALID_EVIDENCE();
 
         if (blockId <= state.lastVerifiedBlockId || blockId >= state.numBlocks)

@@ -60,9 +60,15 @@ contract BridgedERC20 is
         initializer
     {
         if (
-            _srcToken == address(0) || _srcChainId == 0
-                || _srcChainId == block.chainid || bytes(_symbol).length == 0
-                || bytes(_name).length == 0
+            _srcToken == address(0)
+            //
+            || _srcChainId == 0
+            //
+            || _srcChainId == block.chainid
+            //
+            || bytes(_symbol).length == 0
+            //
+            || bytes(_name).length == 0
         ) {
             revert B_INIT_PARAM_ERROR();
         }
