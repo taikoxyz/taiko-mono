@@ -9,6 +9,7 @@ import { TaikoL1 } from "../contracts/L1/TaikoL1.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { TaikoL1TestBase } from "./TaikoL1TestBase.t.sol";
 
+
 /// @dev Warning: this test will take 7-10 minutes and require 1GB memory.
 ///      `pnpm sim`
 contract TaikoL1_b is TaikoL1 {
