@@ -86,8 +86,9 @@ library LibEthDepositing {
                 uint64 i = state.nextEthDepositToProcess;
                 while (
                     i < state.ethDeposits.length
-                        && state.nextEthDepositToProcess
-                            + config.maxEthDepositsPerBlock > i
+                        && i
+                            < state.nextEthDepositToProcess
+                                + config.maxEthDepositsPerBlock
                 ) {
                     TaikoData.EthDeposit storage deposit = state.ethDeposits[i];
                     if (deposit.amount > feePerDeposit) {
