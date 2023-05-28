@@ -86,20 +86,20 @@ The prover's optimization should be conducted in a hierarchical manner, with cos
 ### Pool Participation
 A prover may opt to join a prover pool to engage in off-chain auctions managed by the pool itself. Subsequently, the pool participates in the on-chain auction on behalf of its members and manages the deposits of Taiko tokens, thereby enhancing the bid scores for all participants within the pool. This strategy allows for pooled resources and risk, potentially offering an advantage in the competitive bidding process.
 
-### Challenges
+## Challenges
 
-#### Lack of Competition 
+### Lack of Competition
 The proposed auction framework's success heavily depends on the active participation of numerous independent entities. In the event of collusion or alliances among provers to boost their profits, they could strategically place a single bid at the initial/highest price `s`, leading to a continual increase in rewards. This goes against the system's intention of promoting cost-efficient competition.
 
 However, such behavior might inadvertently stimulate competition. As the reward for verifying considerably increases, it's likely to pique the interest of other provers, thus promoting their participation. This market self-regulation could restore equilibrium and maintain the auction process's competitive integrity.
 
 
-#### Mitigating Low Bid Attacks
+### Mitigating Low Bid Attacks
 
 A malicious prover may strategize to win numerous batches by placing extremely low bids, aiming to manipulate the starting price of future auctions. This could potentially discourage other provers from participating in subsequent auctions. To safeguard against such manipulation, it's imperative to establish a mechanism that ensures the starting price for future auctions changes incrementally and consistently, thereby maintaining a fair and competitive bidding environment.
 
 
-#### Added Verification Delay
+### Added Verification Delay
 Introducing an auction window inevitably introduces an additional delay to the verification time. This delay might not be noticeable when the average verification time is relatively long (over 30 minutes). However, it could become significant in future scenarios where proof generation takes just a few minutes.
 
 Despite this, as stressed at the beginning of the proposal, our goal is to optimize for cost, not speed. While this additional delay is a vital consideration, it's unlikely to pose a significant obstacle to our primary objective of cost-effectiveness.
