@@ -16,8 +16,8 @@ func NewStatRepository() *StatRepository {
 func (r *StatRepository) Save(ctx context.Context, opts eventindexer.SaveStatOpts) (*eventindexer.Stat, error) {
 	r.stats = &eventindexer.Stat{
 		ID:                 1,
-		AverageProofTime:   *opts.ProofTime,
-		AverageProofReward: *opts.ProofReward,
+		AverageProofTime:   opts.ProofTime,
+		AverageProofReward: opts.ProofReward,
 		NumProofs:          1,
 		NumVerifiedBlocks:  1,
 	}

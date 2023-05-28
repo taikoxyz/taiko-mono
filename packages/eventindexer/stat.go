@@ -2,23 +2,24 @@ package eventindexer
 
 import (
 	"context"
+	"math/big"
 )
 
 // Event represents a stored EVM event. The fields will be serialized
 // into the Data field to be unmarshalled into a concrete struct
 // dependant on the name of the event
 type Stat struct {
-	ID                 int    `json:"id"`
-	AverageProofTime   uint64 `json:"averageProofTime"`
-	AverageProofReward uint64 `json:"averageProofReward"`
-	NumProofs          uint64 `json:"numProofs"`
-	NumVerifiedBlocks  uint64 `json:"numVerifiedBlocks"`
+	ID                 int      `json:"id"`
+	AverageProofTime   *big.Int `json:"averageProofTime"`
+	AverageProofReward *big.Int `json:"averageProofReward"`
+	NumProofs          uint64   `json:"numProofs"`
+	NumVerifiedBlocks  uint64   `json:"numVerifiedBlocks"`
 }
 
 // SaveStatOpts
 type SaveStatOpts struct {
-	ProofTime   *uint64
-	ProofReward *uint64
+	ProofTime   *big.Int
+	ProofReward *big.Int
 }
 
 // StatRepository is used to interact with stats in the store

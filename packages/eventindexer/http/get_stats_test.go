@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,13 +16,13 @@ import (
 func Test_GetStats(t *testing.T) {
 	srv := newTestServer("")
 
-	var proofTime uint64 = 5
+	var proofTime = big.NewInt(5)
 
-	var proofReward uint64 = 7
+	var proofReward = big.NewInt(7)
 
 	_, err := srv.statRepo.Save(context.Background(), eventindexer.SaveStatOpts{
-		ProofTime:   &proofTime,
-		ProofReward: &proofReward,
+		ProofTime:   proofTime,
+		ProofReward: proofReward,
 	})
 
 	assert.Equal(t, nil, err)

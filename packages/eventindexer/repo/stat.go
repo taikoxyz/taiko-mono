@@ -33,12 +33,12 @@ func (r *StatRepository) Save(ctx context.Context, opts eventindexer.SaveStatOpt
 
 	if opts.ProofReward != nil {
 		s.NumVerifiedBlocks++
-		s.AverageProofReward = *opts.ProofReward
+		s.AverageProofReward = opts.ProofReward
 	}
 
 	if opts.ProofTime != nil {
 		s.NumProofs++
-		s.AverageProofTime = *opts.ProofTime
+		s.AverageProofTime = opts.ProofTime
 	}
 
 	if err := r.db.GormDB().Save(s).Error; err != nil {

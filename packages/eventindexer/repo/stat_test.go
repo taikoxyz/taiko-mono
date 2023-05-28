@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"math/big"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
@@ -18,7 +19,7 @@ func TestIntegration_Stat_Save(t *testing.T) {
 	statRepo, err := NewStatRepository(db)
 	assert.Equal(t, nil, err)
 
-	var proofReward uint64 = 4
+	var proofReward = big.NewInt(4)
 
 	tests := []struct {
 		name    string
@@ -28,7 +29,7 @@ func TestIntegration_Stat_Save(t *testing.T) {
 		{
 			"successProofReward",
 			eventindexer.SaveStatOpts{
-				ProofReward: &proofReward,
+				ProofReward: proofReward,
 			},
 			nil,
 		},
@@ -51,10 +52,10 @@ func TestIntegration_Stat_Find(t *testing.T) {
 	statRepo, err := NewStatRepository(db)
 	assert.Equal(t, nil, err)
 
-	var proofReward uint64 = 4
+	var proofReward = big.NewInt(4)
 
 	_, err = statRepo.Save(context.Background(), eventindexer.SaveStatOpts{
-		ProofReward: &proofReward,
+		ProofReward: proofReward,
 	})
 
 	assert.Equal(t, nil, err)
@@ -68,8 +69,8 @@ func TestIntegration_Stat_Find(t *testing.T) {
 			"success",
 			&eventindexer.Stat{
 				ID:                 1,
-				AverageProofReward: 4,
-				AverageProofTime:   0,
+				AverageProofReward: proofReward,
+				AverageProofTime:   big.NewInt(0),
 				NumProofs:          0,
 				NumVerifiedBlocks:  1,
 			},
