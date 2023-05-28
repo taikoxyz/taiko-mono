@@ -72,9 +72,15 @@ The proposed auction framework's success heavily depends on the active participa
 
 However, such behavior might inadvertently stimulate competition. As the reward for verifying considerably increases, it's likely to pique the interest of other provers, thus promoting their participation. This market self-regulation could restore equilibrium and maintain the auction process's competitive integrity.
 
+
+#### Mitigating Low Bid Attacks
+
+A malicious prover may strategize to win numerous batches by placing extremely low bids, aiming to manipulate the starting price of future auctions. This could potentially discourage other provers from participating in subsequent auctions. To safeguard against such manipulation, it's imperative to establish a mechanism that ensures the starting price for future auctions changes incrementally and consistently, thereby maintaining a fair and competitive bidding environment.
+
 #### Avoiding a Monopoly
 
-A potential pitfall with the aforementioned design is the likelihood of a 'winner-takes-all' scenario. A prover capable of producing the most cost-effective proofs within the necessary timeframe could consistently secure victories, especially if they are willing to operate with a lower profit margin. This could leave other provers, even those with only slightly higher costs, without any work, causing them to exit the system over time. To foster a healthier competition and prevent the domination by a single prover, we might need to adjust our bid scoring calculations. Instead of relying solely on the bidding price `b`, we could consider other parameters such as the deposit amount `m` and the prover's moving average proof delay `d`.
+A key concern is the risk of a monopolistic scenario, where one highly efficient prover continuously wins bids, particularly if they're prepared to operate with a slim profit margin. This could marginalize other provers, even those with slightly higher costs, leaving them devoid of work and potentially leading them to exit the system. To encourage diverse participation and avert single-prover dominance, we may need to refine our bid scoring methodology. Rather than focusing solely on the bid price, we could factor in other parameters such as the deposit amount, the prover's average proof delay, and the ratio of their proof submissions to the number of blocks they've won. This multi-dimensional evaluation would promote a more equitable competition, ensuring the system's sustainability.
+
 
 #### Added Verification Delay
 Introducing an auction window inevitably introduces an additional delay to the verification time. This delay might not be noticeable when the average verification time is relatively long (over 30 minutes). However, it could become significant in future scenarios where proof generation takes just a few minutes.
