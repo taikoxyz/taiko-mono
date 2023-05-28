@@ -117,7 +117,6 @@ library TaikoData {
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint256 blockId_mode_ringBufferSize => Block) blocks;
-        // solhint-disable-next-line max-line-length
         mapping(
             uint256 blockId
                 => mapping(
