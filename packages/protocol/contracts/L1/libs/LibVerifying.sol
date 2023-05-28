@@ -93,7 +93,6 @@ library LibVerifying {
             ++i;
         }
 
-        address systemProver = resolver.resolve("system_prover", true);
         while (i < state.numBlocks && processed < maxBlocks) {
             blk = state.blocks[i % config.ringBufferSize];
             // assert(blk.blockId == i);
@@ -121,8 +120,7 @@ library LibVerifying {
                 state: state,
                 blk: blk,
                 fcId: uint24(fcId),
-                fc: fc,
-                systemProver: systemProver
+                fc: fc
             });
 
             unchecked {
@@ -155,8 +153,7 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Block storage blk,
         TaikoData.ForkChoice storage fc,
-        uint24 fcId,
-        address systemProver
+        uint24 fcId
     )
         private
     {

@@ -10,6 +10,7 @@ import {AddressResolver} from "../common/AddressResolver.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {ICrossChainSync} from "../common/ICrossChainSync.sol";
 import {Proxied} from "../common/Proxied.sol";
+import {LibAuction} from "./libs/LibAuction.sol";
 import {LibEthDepositing} from "./libs/LibEthDepositing.sol";
 import {LibProposing} from "./libs/LibProposing.sol";
 import {LibProving} from "./libs/LibProving.sol";
@@ -127,6 +128,28 @@ contract TaikoL1 is
                 maxBlocks: config.maxVerificationsPerTx
             });
         }
+    }
+
+    /**
+     * Bid for proving rights of a batch.
+     *
+     * @param startBlockId The start blockId of the given batch
+     * @param minFeePerGasInWei The minimum fee, in wei, per gas you will accept
+     * being paid as a reward for proving the block.
+     */
+
+    function bidForBatch(uint256 startBlockId, uint256 minFeePerGasInWei)
+        external
+        payable
+        nonReentrant
+    {
+        LibAuction.bidForBatch({
+            state: state,
+            resolver: AddressResolver(this),
+            config: getConfig(),
+            batchStartBlockId: startBlockId,
+            minFeePerGasInWei: minFeePerGasInWei
+        });
     }
 
     /**
