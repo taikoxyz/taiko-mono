@@ -246,24 +246,8 @@ export async function buildStatusIndicators(
         provider: ethers.providers.JsonRpcProvider,
         contractAddress: string
       ): Promise<string> => {
-        const contract: Contract = new Contract(
-          contractAddress,
-          TaikoL2,
-          provider
-        );
-
-        const c = await getConfig(config.l1Provider, config.l1TaikoAddress);
         const latestBlock = await provider.getBlock("latest");
-        const timeSinceParent = ~~(Date.now() / 1000) - latestBlock.timestamp;
-        const gasLimit = c.blockMaxGasLimit;
-        const parentGasUsed = latestBlock.gasUsed;
-
-        const fee = await contract.getBasefee(
-          timeSinceParent,
-          gasLimit,
-          parentGasUsed
-        );
-        return `${ethers.utils.formatUnits(fee, "gwei")}`;
+        return `${ethers.utils.formatUnits(latestBlock.baseFeePerGas, "gwei")}`;
       },
       watchStatusFunc: null,
       provider: config.l2Provider,
