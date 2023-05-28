@@ -30,10 +30,12 @@ abstract contract TaikoL1TestBase is Test {
     uint64 feeBase = 1e8; // 1 TKO
     uint64 l2GasExcess = 1e18;
 
-    address public constant L2Treasury = 0x859d74b52762d9ed07D1b2B8d7F93d26B1EA78Bb;
+    address public constant L2Treasury =
+        0x859d74b52762d9ed07D1b2B8d7F93d26B1EA78Bb;
     address public constant L2SS = 0xa008AE5Ba00656a3Cc384de589579e3E52aC030C;
     address public constant TaikoL2 = 0x0082D90249342980d011C58105a03b35cCb4A315;
-    address public constant L1EthVault = 0xDAFEA492D9c6733ae3d56b7Ed1ADB60692c98Bc5;
+    address public constant L1EthVault =
+        0xDAFEA492D9c6733ae3d56b7Ed1ADB60692c98Bc5;
 
     address public constant Alice = 0xa9bcF99f5eb19277f48b71F9b14f5960AEA58a89;
     uint256 public constant AlicePK =
@@ -72,13 +74,18 @@ abstract contract TaikoL1TestBase is Test {
         registerAddress("taiko_token", address(tko));
         address[] memory premintRecipients;
         uint256[] memory premintAmounts;
-        tko.init(address(addressManager), "TaikoToken", "TKO", premintRecipients, premintAmounts);
+        tko.init(
+            address(addressManager),
+            "TaikoToken",
+            "TKO",
+            premintRecipients,
+            premintAmounts
+        );
 
         // Set protocol broker
         registerAddress("proto_broker", address(this));
         tko.mint(address(this), 1e9 * 1e8);
         registerAddress("proto_broker", address(L1));
-
 
         L1.init(address(addressManager), GENESIS_BLOCK_HASH, feeBase);
         printVariables("init  ");
@@ -163,7 +170,11 @@ abstract contract TaikoL1TestBase is Test {
         console2.log(conf.chainId, uint256(nameHash), unicode"→", addr);
     }
 
-    function depositTaikoToken(address who, uint256 amountTko, uint256 amountEth) internal {
+    function depositTaikoToken(
+        address who,
+        uint256 amountTko,
+        uint256 amountEth
+    ) internal {
         vm.deal(who, amountEth);
         tko.transfer(who, amountTko);
         // vm.prank(who, who);

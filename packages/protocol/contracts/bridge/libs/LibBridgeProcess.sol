@@ -61,14 +61,19 @@ library LibBridgeProcess {
         // The message status must be "NEW"; "RETRIABLE" is handled in
         // LibBridgeRetry.sol.
         bytes32 msgHash = message.hashMessage();
-        if (LibBridgeStatus.getMessageStatus(msgHash) != LibBridgeStatus.MessageStatus.NEW) {
+        if (
+            LibBridgeStatus.getMessageStatus(msgHash)
+                != LibBridgeStatus.MessageStatus.NEW
+        ) {
             revert B_STATUS_MISMATCH();
         }
         // Message must have been "received" on the destChain (current chain)
-        address srcBridge = resolver.resolve(message.srcChainId, "bridge", false);
+        address srcBridge =
+            resolver.resolve(message.srcChainId, "bridge", false);
 
         if (
-            !ISignalService(resolver.resolve("signal_service", false)).isSignalReceived({
+            !ISignalService(resolver.resolve("signal_service", false))
+                .isSignalReceived({
                 srcChainId: message.srcChainId,
                 app: srcBridge,
                 signal: msgHash,
@@ -78,7 +83,8 @@ library LibBridgeProcess {
             revert B_SIGNAL_NOT_RECEIVED();
         }
 
-        uint256 allValue = message.depositValue + message.callValue + message.processingFee;
+        uint256 allValue =
+            message.depositValue + message.callValue + message.processingFee;
         // We retrieve the necessary ether from EtherVault if receiving on
         // Taiko, otherwise it is already available in this Bridge.
         address ethVault = resolver.resolve("ether_vault", true);
@@ -101,7 +107,8 @@ library LibBridgeProcess {
             refundAmount = message.callValue;
         } else {
             // use the specified message gas limit if not called by the owner
-            uint256 gasLimit = msg.sender == message.owner ? gasleft() : message.gasLimit;
+            uint256 gasLimit =
+                msg.sender == message.owner ? gasleft() : message.gasLimit;
 
             bool success = LibBridgeInvoke.invokeMessageCall({
                 state: state,
@@ -121,8 +128,9 @@ library LibBridgeProcess {
         // Mark the status as DONE or RETRIABLE.
         LibBridgeStatus.updateMessageStatus(msgHash, status);
 
-        address refundAddress =
-            message.refundAddress == address(0) ? message.owner : message.refundAddress;
+        address refundAddress = message.refundAddress == address(0)
+            ? message.owner
+            : message.refundAddress;
 
         // if sender is the refundAddress
         if (msg.sender == refundAddress) {

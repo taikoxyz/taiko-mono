@@ -53,7 +53,10 @@ library LibBridgeRetry {
         }
 
         bytes32 msgHash = message.hashMessage();
-        if (LibBridgeStatus.getMessageStatus(msgHash) != LibBridgeStatus.MessageStatus.RETRIABLE) {
+        if (
+            LibBridgeStatus.getMessageStatus(msgHash)
+                != LibBridgeStatus.MessageStatus.RETRIABLE
+        ) {
             revert B_MSG_NON_RETRIABLE();
         }
 
@@ -74,12 +77,17 @@ library LibBridgeRetry {
                 gasLimit: gasleft()
             })
         ) {
-            LibBridgeStatus.updateMessageStatus(msgHash, LibBridgeStatus.MessageStatus.DONE);
+            LibBridgeStatus.updateMessageStatus(
+                msgHash, LibBridgeStatus.MessageStatus.DONE
+            );
         } else if (isLastAttempt) {
-            LibBridgeStatus.updateMessageStatus(msgHash, LibBridgeStatus.MessageStatus.FAILED);
+            LibBridgeStatus.updateMessageStatus(
+                msgHash, LibBridgeStatus.MessageStatus.FAILED
+            );
 
-            address refundAddress =
-                message.refundAddress == address(0) ? message.owner : message.refundAddress;
+            address refundAddress = message.refundAddress == address(0)
+                ? message.owner
+                : message.refundAddress;
 
             refundAddress.sendEther(message.callValue);
         } else {

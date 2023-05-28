@@ -79,15 +79,25 @@ contract TaikoToken is
         _unpause();
     }
 
-    function mint(address to, uint256 amount) public onlyFromNamed("proto_broker") {
+    function mint(address to, uint256 amount)
+        public
+        onlyFromNamed("proto_broker")
+    {
         _mint(to, amount);
     }
 
-    function burn(address from, uint256 amount) public onlyFromNamed("proto_broker") {
+    function burn(address from, uint256 amount)
+        public
+        onlyFromNamed("proto_broker")
+    {
         _burn(from, amount);
     }
 
-    function transfer(address to, uint256 amount) public override returns (bool) {
+    function transfer(address to, uint256 amount)
+        public
+        override
+        returns (bool)
+    {
         if (to == address(this)) revert TKO_INVALID_ADDR();
         return ERC20Upgradeable.transfer(to, amount);
     }

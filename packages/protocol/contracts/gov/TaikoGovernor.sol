@@ -26,8 +26,10 @@ import {
     TimelockControllerUpgradeable
 } from
     "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorTimelockControlUpgradeable.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Initializable} from
+    "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {OwnableUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 import {LibTaikoTokenConfig} from "../L1/TaikoToken.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
@@ -74,7 +76,11 @@ contract TaikoGovernor is
         uint256[] memory values,
         bytes[] memory calldatas,
         string memory description
-    ) public override(GovernorUpgradeable, IGovernorUpgradeable) returns (uint256) {
+    )
+        public
+        override(GovernorUpgradeable, IGovernorUpgradeable)
+        returns (uint256)
+    {
         return super.propose(targets, values, calldatas, description);
     }
 
@@ -142,7 +148,10 @@ contract TaikoGovernor is
         uint256[] memory values,
         bytes[] memory calldatas,
         bytes32 descriptionHash
-    ) internal override(GovernorUpgradeable, GovernorTimelockControlUpgradeable) {
+    )
+        internal
+        override(GovernorUpgradeable, GovernorTimelockControlUpgradeable)
+    {
         super._execute(proposalId, targets, values, calldatas, descriptionHash);
     }
 

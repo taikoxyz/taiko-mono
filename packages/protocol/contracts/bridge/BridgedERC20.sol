@@ -57,8 +57,9 @@ contract BridgedERC20 is
         string memory _name
     ) external initializer {
         if (
-            _srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid
-                || bytes(_symbol).length == 0 || bytes(_name).length == 0
+            _srcToken == address(0) || _srcChainId == 0
+                || _srcChainId == block.chainid || bytes(_symbol).length == 0
+                || bytes(_name).length == 0
         ) {
             revert B_INIT_PARAM_ERROR();
         }
@@ -70,13 +71,19 @@ contract BridgedERC20 is
     }
 
     /// @dev only a TokenVault can call this function
-    function bridgeMintTo(address account, uint256 amount) public onlyFromNamed("token_vault") {
+    function bridgeMintTo(address account, uint256 amount)
+        public
+        onlyFromNamed("token_vault")
+    {
         _mint(account, amount);
         emit BridgeMint(account, amount);
     }
 
     /// @dev only a TokenVault can call this function
-    function bridgeBurnFrom(address account, uint256 amount) public onlyFromNamed("token_vault") {
+    function bridgeBurnFrom(address account, uint256 amount)
+        public
+        onlyFromNamed("token_vault")
+    {
         _burn(account, amount);
         emit BridgeBurn(account, amount);
     }

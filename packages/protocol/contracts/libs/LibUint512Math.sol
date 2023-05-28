@@ -30,7 +30,11 @@ library LibUint512Math {
      * Optimized full 512 bit multiplication in Solidity.
      * Taken from: https://xn--2-umb.com/17/full-mul/index.html
      */
-    function mul(uint256 a, uint256 b) internal pure returns (uint256 r0, uint256 r1) {
+    function mul(uint256 a, uint256 b)
+        internal
+        pure
+        returns (uint256 r0, uint256 r1)
+    {
         assembly {
             let mm := mulmod(a, b, not(0))
             r0 := mul(a, b)

@@ -14,7 +14,12 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {TaikoL1TestBase} from "./TaikoL1TestBase.t.sol";
 
 contract TaikoL1_NoCooldown is TaikoL1 {
-    function getConfig() public pure override returns (TaikoData.Config memory config) {
+    function getConfig()
+        public
+        pure
+        override
+        returns (TaikoData.Config memory config)
+    {
         config = TaikoConfig.getConfig();
 
         config.txListCacheExpiry = 5 minutes;
@@ -52,15 +57,29 @@ contract TaikoL1Test is TaikoL1TestBase {
         uint32 parentGasUsed = 0;
         uint32 gasUsed = 1000000;
 
-        for (uint256 blockId = 1; blockId < conf.maxNumProposedBlocks * 10; blockId++) {
+        for (
+            uint256 blockId = 1;
+            blockId < conf.maxNumProposedBlocks * 10;
+            blockId++
+        ) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+            TaikoData.BlockMetadata memory meta =
+                proposeBlock(Alice, 1000000, 1024);
             printVariables("after propose");
             mine(1);
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
-            proveBlock(Bob, Bob, meta, parentHash, parentGasUsed, gasUsed, blockHash, signalRoot);
+            proveBlock(
+                Bob,
+                Bob,
+                meta,
+                parentHash,
+                parentGasUsed,
+                gasUsed,
+                blockHash,
+                signalRoot
+            );
 
             verifyBlock(Carol, 1);
             parentHash = blockHash;
@@ -80,13 +99,21 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (uint256 blockId = 1; blockId <= 2; blockId++) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+            TaikoData.BlockMetadata memory meta =
+                proposeBlock(Alice, 1000000, 1024);
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
             proveBlock(
-                Alice, Alice, meta, parentHash, parentGasUsed, gasUsed, blockHash, signalRoot
+                Alice,
+                Alice,
+                meta,
+                parentHash,
+                parentGasUsed,
+                gasUsed,
+                blockHash,
+                signalRoot
             );
             verifyBlock(Alice, 2);
             parentHash = blockHash;
@@ -103,15 +130,25 @@ contract TaikoL1Test is TaikoL1TestBase {
         uint32 parentGasUsed = 0;
         uint32 gasUsed = 1000000;
 
-        for (uint256 blockId = 1; blockId <= conf.maxNumProposedBlocks; blockId++) {
+        for (
+            uint256 blockId = 1; blockId <= conf.maxNumProposedBlocks; blockId++
+        ) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+            TaikoData.BlockMetadata memory meta =
+                proposeBlock(Alice, 1000000, 1024);
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
             proveBlock(
-                Alice, Alice, meta, parentHash, parentGasUsed, gasUsed, blockHash, signalRoot
+                Alice,
+                Alice,
+                meta,
+                parentHash,
+                parentGasUsed,
+                gasUsed,
+                blockHash,
+                signalRoot
             );
             parentHash = blockHash;
             parentGasUsed = gasUsed;
@@ -167,7 +204,10 @@ contract TaikoL1Test is TaikoL1TestBase {
         console2.log("gas used with eth deposits:", gasUsedWithDeposits);
 
         printVariables("after processing send-ethers");
-        assertTrue(LibEthDepositing.hashEthDeposits(meta.depositsProcessed) != emptyDepositsRoot);
+        assertTrue(
+            LibEthDepositing.hashEthDeposits(meta.depositsProcessed)
+                != emptyDepositsRoot
+        );
         assertEq(meta.depositsProcessed.length, count + 1);
 
         gas = gasleft();
@@ -176,7 +216,8 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         console2.log("gas used without eth deposits:", gasUsedWithoutDeposits);
 
-        uint256 gasPerEthDeposit = (gasUsedWithDeposits - gasUsedWithoutDeposits) / count;
+        uint256 gasPerEthDeposit =
+            (gasUsedWithDeposits - gasUsedWithoutDeposits) / count;
 
         console2.log("gas per eth deposit:", gasPerEthDeposit);
         console2.log("maxEthDepositsPerBlock:", count);

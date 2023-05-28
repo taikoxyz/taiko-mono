@@ -121,7 +121,8 @@ library TaikoData {
         mapping(
             uint256 blockId
                 => mapping(
-                    bytes32 parentHash => mapping(uint32 parentGasUsed => uint256 forkChoiceId)
+                    bytes32 parentHash
+                        => mapping(uint32 parentGasUsed => uint256 forkChoiceId)
                 )
             ) forkChoiceIds;
         mapping(address account => uint256 balance) taikoTokenBalances;

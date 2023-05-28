@@ -38,7 +38,9 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     //////////////////////////////////////////////////////////////*/
 
     event MessageStatusChanged(
-        bytes32 indexed msgHash, LibBridgeStatus.MessageStatus status, address transactor
+        bytes32 indexed msgHash,
+        LibBridgeStatus.MessageStatus status,
+        address transactor
     );
 
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
@@ -50,7 +52,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     /// Allow Bridge to receive ETH from the TaikoL1, TokenVault or EtherVault.
     receive() external payable {
         if (
-            msg.sender != resolve("token_vault", true) && msg.sender != resolve("ether_vault", true)
+            msg.sender != resolve("token_vault", true)
+                && msg.sender != resolve("ether_vault", true)
                 && msg.sender != resolve("taiko", true) && msg.sender != owner()
         ) {
             revert B_CANNOT_RECEIVE();
@@ -75,10 +78,10 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
-    function releaseEther(IBridge.Message calldata message, bytes calldata proof)
-        external
-        nonReentrant
-    {
+    function releaseEther(
+        IBridge.Message calldata message,
+        bytes calldata proof
+    ) external nonReentrant {
         return LibBridgeRelease.releaseEther({
             state: _state,
             resolver: AddressResolver(this),
@@ -87,7 +90,10 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
-    function processMessage(Message calldata message, bytes calldata proof) external nonReentrant {
+    function processMessage(Message calldata message, bytes calldata proof)
+        external
+        nonReentrant
+    {
         return LibBridgeProcess.processMessage({
             state: _state,
             resolver: AddressResolver(this),
@@ -96,7 +102,10 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
-    function retryMessage(Message calldata message, bool isLastAttempt) external nonReentrant {
+    function retryMessage(Message calldata message, bool isLastAttempt)
+        external
+        nonReentrant
+    {
         return LibBridgeRetry.retryMessage({
             state: _state,
             resolver: AddressResolver(this),
@@ -105,17 +114,20 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
-    function isMessageSent(bytes32 msgHash) public view virtual returns (bool) {
-        return LibBridgeSend.isMessageSent(AddressResolver(this), msgHash);
-    }
-
-    function isMessageReceived(bytes32 msgHash, uint256 srcChainId, bytes calldata proof)
+    function isMessageSent(bytes32 msgHash)
         public
         view
         virtual
-        override
         returns (bool)
     {
+        return LibBridgeSend.isMessageSent(AddressResolver(this), msgHash);
+    }
+
+    function isMessageReceived(
+        bytes32 msgHash,
+        uint256 srcChainId,
+        bytes calldata proof
+    ) public view virtual override returns (bool) {
         return LibBridgeSend.isMessageReceived({
             resolver: AddressResolver(this),
             msgHash: msgHash,
@@ -124,13 +136,11 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
-    function isMessageFailed(bytes32 msgHash, uint256 destChainId, bytes calldata proof)
-        public
-        view
-        virtual
-        override
-        returns (bool)
-    {
+    function isMessageFailed(
+        bytes32 msgHash,
+        uint256 destChainId,
+        bytes calldata proof
+    ) public view virtual override returns (bool) {
         return LibBridgeStatus.isMessageFailed({
             resolver: AddressResolver(this),
             msgHash: msgHash,
@@ -156,15 +166,29 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         return _state.etherReleased[msgHash];
     }
 
-    function isDestChainEnabled(uint256 _chainId) public view returns (bool enabled) {
-        (enabled,) = LibBridgeSend.isDestChainEnabled(AddressResolver(this), _chainId);
+    function isDestChainEnabled(uint256 _chainId)
+        public
+        view
+        returns (bool enabled)
+    {
+        (enabled,) =
+            LibBridgeSend.isDestChainEnabled(AddressResolver(this), _chainId);
     }
 
-    function hashMessage(Message calldata message) public pure override returns (bytes32) {
+    function hashMessage(Message calldata message)
+        public
+        pure
+        override
+        returns (bytes32)
+    {
         return LibBridgeData.hashMessage(message);
     }
 
-    function getMessageStatusSlot(bytes32 msgHash) public pure returns (bytes32) {
+    function getMessageStatusSlot(bytes32 msgHash)
+        public
+        pure
+        returns (bytes32)
+    {
         return LibBridgeStatus.getMessageStatusSlot(msgHash);
     }
 }

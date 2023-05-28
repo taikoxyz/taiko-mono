@@ -147,11 +147,13 @@ contract TestTaikoL2 is Test {
         assertEq(_getBasefeeAndPrint(timeSinceParent, 10000000, 0), 59644805);
     }
 
-    function _getBasefeeAndPrint(uint32 timeSinceParent, uint64 gasLimit, uint64 parentGasUsed)
-        private
-        returns (uint256 _basefee)
-    {
-        uint256 gasIssued = L2.getEIP1559Config().gasIssuedPerSecond * timeSinceParent;
+    function _getBasefeeAndPrint(
+        uint32 timeSinceParent,
+        uint64 gasLimit,
+        uint64 parentGasUsed
+    ) private returns (uint256 _basefee) {
+        uint256 gasIssued =
+            L2.getEIP1559Config().gasIssuedPerSecond * timeSinceParent;
         string memory _msg = string.concat(
             "#",
             Strings.toString(logIndex++),
@@ -192,6 +194,11 @@ contract TestTaikoL2 is Test {
     }
 
     function _anchor(uint64 parentGasLimit) private {
-        L2.anchor(keccak256("a"), keccak256("b"), 12345, parentGasLimit + ANCHOR_GAS_COST);
+        L2.anchor(
+            keccak256("a"),
+            keccak256("b"),
+            12345,
+            parentGasLimit + ANCHOR_GAS_COST
+        );
     }
 }

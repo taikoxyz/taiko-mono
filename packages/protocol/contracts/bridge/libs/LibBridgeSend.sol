@@ -60,7 +60,8 @@ library LibBridgeSend {
             revert B_WRONG_TO_ADDRESS();
         }
 
-        uint256 expectedAmount = message.depositValue + message.callValue + message.processingFee;
+        uint256 expectedAmount =
+            message.depositValue + message.callValue + message.processingFee;
 
         if (expectedAmount != msg.value) {
             revert B_INCORRECT_VALUE();
@@ -79,7 +80,9 @@ library LibBridgeSend {
         msgHash = message.hashMessage();
         // Store a key which is the hash of this contract address and the
         // msgHash, with a value of 1.
-        ISignalService(resolver.resolve("signal_service", false)).sendSignal(msgHash);
+        ISignalService(resolver.resolve("signal_service", false)).sendSignal(
+            msgHash
+        );
         emit LibBridgeData.MessageSent(msgHash, message);
     }
 
@@ -97,10 +100,8 @@ library LibBridgeSend {
         view
         returns (bool)
     {
-        return ISignalService(resolver.resolve("signal_service", false)).isSignalSent({
-            app: address(this),
-            signal: msgHash
-        });
+        return ISignalService(resolver.resolve("signal_service", false))
+            .isSignalSent({app: address(this), signal: msgHash});
     }
 
     function isMessageReceived(
@@ -110,7 +111,8 @@ library LibBridgeSend {
         bytes calldata proof
     ) internal view returns (bool) {
         address srcBridge = resolver.resolve(srcChainId, "bridge", false);
-        return ISignalService(resolver.resolve("signal_service", false)).isSignalReceived({
+        return ISignalService(resolver.resolve("signal_service", false))
+            .isSignalReceived({
             srcChainId: srcChainId,
             app: srcBridge,
             signal: msgHash,

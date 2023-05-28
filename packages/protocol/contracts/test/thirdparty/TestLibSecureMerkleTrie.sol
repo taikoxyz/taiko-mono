@@ -15,7 +15,9 @@ contract TestLibSecureMerkleTrie {
         bytes memory _proof,
         bytes32 _root
     ) public pure returns (bool) {
-        return LibSecureMerkleTrie.verifyInclusionProof(_key, _value, _proof, _root);
+        return LibSecureMerkleTrie.verifyInclusionProof(
+            _key, _value, _proof, _root
+        );
     }
 
     function get(bytes memory _key, bytes memory _proof, bytes32 _root)
