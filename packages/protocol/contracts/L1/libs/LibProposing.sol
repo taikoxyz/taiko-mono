@@ -6,13 +6,13 @@
 
 pragma solidity ^0.8.18;
 
-import {AddressResolver} from "../../common/AddressResolver.sol";
-import {LibAddress} from "../../libs/LibAddress.sol";
-import {LibEthDepositing} from "./LibEthDepositing.sol";
-import {LibUtils} from "./LibUtils.sol";
-import {SafeCastUpgradeable} from
+import { AddressResolver } from "../../common/AddressResolver.sol";
+import { LibAddress } from "../../libs/LibAddress.sol";
+import { LibEthDepositing } from "./LibEthDepositing.sol";
+import { LibUtils } from "./LibUtils.sol";
+import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {TaikoData} from "../TaikoData.sol";
+import { TaikoData } from "../TaikoData.sol";
 
 library LibProposing {
     using SafeCastUpgradeable for uint256;

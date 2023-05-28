@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
-import {TaikoConfig} from "../contracts/L1/TaikoConfig.sol";
-import {TaikoData} from "../contracts/L1/TaikoData.sol";
-import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {TaikoL1TestBase} from "./TaikoL1TestBase.t.sol";
+import { Test } from "forge-std/Test.sol";
+import { console2 } from "forge-std/console2.sol";
+import { TaikoConfig } from "../contracts/L1/TaikoConfig.sol";
+import { TaikoData } from "../contracts/L1/TaikoData.sol";
+import { TaikoL1 } from "../contracts/L1/TaikoL1.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { TaikoL1TestBase } from "./TaikoL1TestBase.t.sol";
 
 /// @dev Warning: this test will take 7-10 minutes and require 1GB memory.
 ///      `pnpm sim`

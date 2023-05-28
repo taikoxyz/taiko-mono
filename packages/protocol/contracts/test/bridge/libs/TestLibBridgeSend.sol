@@ -6,11 +6,11 @@
 
 pragma solidity ^0.8.18;
 
-import {EssentialContract} from "../../../common/EssentialContract.sol";
-import {LibBridgeSend} from "../../../bridge/libs/LibBridgeSend.sol";
-import {AddressResolver} from "../../../common/AddressResolver.sol";
-import {IBridge} from "../../../bridge/IBridge.sol";
-import {LibBridgeData} from "../../../bridge/libs/LibBridgeData.sol";
+import { EssentialContract } from "../../../common/EssentialContract.sol";
+import { LibBridgeSend } from "../../../bridge/libs/LibBridgeSend.sol";
+import { AddressResolver } from "../../../common/AddressResolver.sol";
+import { IBridge } from "../../../bridge/IBridge.sol";
+import { LibBridgeData } from "../../../bridge/libs/LibBridgeData.sol";
 
 // TODO(roger): remove this file. If you need extra functionality in
 // the Bridge contract, create a TestBridge.sol contract instead.

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
-import {Lib1559Math as T} from "../contracts/libs/Lib1559Math.sol";
-import {TaikoL2} from "../contracts/L2/TaikoL2.sol";
-import {SafeCastUpgradeable} from
+import { Test } from "forge-std/Test.sol";
+import { console2 } from "forge-std/console2.sol";
+import { Lib1559Math as T } from "../contracts/libs/Lib1559Math.sol";
+import { TaikoL2 } from "../contracts/L2/TaikoL2.sol";
+import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 contract TestTaiko1559Params is Test {
@@ -41,7 +41,7 @@ contract TestTaiko1559Params is Test {
             gasExcessMax: gasExcessMax,
             gasTarget: gasIssuedPerSecond * ethereumBlockTime,
             ratio2x1x: 11_250 // ~12.5% increase
-        });
+         });
 
         console2.log("basefee           :", param1559.basefee);
         console2.log("gasIssuedPerSecond:", param1559.gasIssuedPerSecond);

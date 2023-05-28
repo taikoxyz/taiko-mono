@@ -6,14 +6,14 @@
 
 pragma solidity ^0.8.18;
 
-import {SafeERC20Upgradeable} from
+import { SafeERC20Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import {Create2Upgradeable} from
+import { Create2Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
-import {EssentialContract} from "../common/EssentialContract.sol";
-import {Proxied} from "../common/Proxied.sol";
-import {LibAddress} from "../libs/LibAddress.sol";
-import {BridgeErrors} from "./BridgeErrors.sol";
+import { EssentialContract } from "../common/EssentialContract.sol";
+import { Proxied } from "../common/Proxied.sol";
+import { LibAddress } from "../libs/LibAddress.sol";
+import { BridgeErrors } from "./BridgeErrors.sol";
 
 /**
  * @custom:security-contact hello@taiko.xyz
@@ -119,4 +119,4 @@ contract EtherVault is EssentialContract, BridgeErrors {
     }
 }
 
-contract ProxiedEtherVault is Proxied, EtherVault {}
+contract ProxiedEtherVault is Proxied, EtherVault { }

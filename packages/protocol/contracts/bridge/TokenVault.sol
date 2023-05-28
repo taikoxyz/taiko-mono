@@ -10,16 +10,16 @@ import {
     IERC20Upgradeable,
     ERC20Upgradeable
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import {SafeERC20Upgradeable} from
+import { SafeERC20Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import {Create2Upgradeable} from
+import { Create2Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
-import {EssentialContract} from "../common/EssentialContract.sol";
-import {Proxied} from "../common/Proxied.sol";
-import {TaikoToken} from "../L1/TaikoToken.sol";
-import {BridgedERC20} from "./BridgedERC20.sol";
-import {IBridge} from "./IBridge.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import { EssentialContract } from "../common/EssentialContract.sol";
+import { Proxied } from "../common/Proxied.sol";
+import { TaikoToken } from "../L1/TaikoToken.sol";
+import { BridgedERC20 } from "./BridgedERC20.sol";
+import { IBridge } from "./IBridge.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
  * This vault holds all ERC20 tokens (but not Ether) that users have deposited.
@@ -397,4 +397,4 @@ contract TokenVault is EssentialContract {
     }
 }
 
-contract ProxiedTokenVault is Proxied, TokenVault {}
+contract ProxiedTokenVault is Proxied, TokenVault { }

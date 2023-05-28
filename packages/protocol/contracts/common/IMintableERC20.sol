@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.18;
 
-import {IERC20Upgradeable} from
+import { IERC20Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 
 interface IMintableERC20 is IERC20Upgradeable {

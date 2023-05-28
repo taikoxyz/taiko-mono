@@ -6,21 +6,21 @@
 
 pragma solidity ^0.8.18;
 
-import {ERC20Upgradeable} from
+import { ERC20Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import {ERC20BurnableUpgradeable} from
+import { ERC20BurnableUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
-import {ERC20SnapshotUpgradeable} from
+import { ERC20SnapshotUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
-import {PausableUpgradeable} from
+import { PausableUpgradeable } from
     "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
-import {ERC20PermitUpgradeable} from
+import { ERC20PermitUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/draft-ERC20PermitUpgradeable.sol";
-import {ERC20VotesUpgradeable} from
+import { ERC20VotesUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
-import {EssentialContract} from "../common/EssentialContract.sol";
-import {Proxied} from "../common/Proxied.sol";
+import { EssentialContract } from "../common/EssentialContract.sol";
+import { Proxied } from "../common/Proxied.sol";
 
 library LibTaikoTokenConfig {
     uint8 public constant DECIMALS = uint8(8);
@@ -185,4 +185,4 @@ contract TaikoToken is
     }
 }
 
-contract ProxiedTaikoToken is Proxied, TaikoToken {}
+contract ProxiedTaikoToken is Proxied, TaikoToken { }

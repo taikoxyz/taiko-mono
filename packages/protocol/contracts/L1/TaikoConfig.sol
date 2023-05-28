@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.18;
 
-import {TaikoData} from "../L1/TaikoData.sol";
+import { TaikoData } from "../L1/TaikoData.sol";
 
 library TaikoConfig {
     function getConfig() internal pure returns (TaikoData.Config memory) {

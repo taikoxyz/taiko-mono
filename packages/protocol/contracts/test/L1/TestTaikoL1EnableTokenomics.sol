@@ -6,9 +6,9 @@
 
 pragma solidity ^0.8.18;
 
-import {TaikoL1} from "../../L1/TaikoL1.sol";
-import {TaikoData} from "../../L1/TaikoData.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import { TaikoL1 } from "../../L1/TaikoL1.sol";
+import { TaikoData } from "../../L1/TaikoData.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract TestTaikoL1EnableTokenomics is TaikoL1 {
     function getConfig()

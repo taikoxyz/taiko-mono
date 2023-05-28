@@ -6,12 +6,12 @@
 
 pragma solidity ^0.8.18;
 
-import {LibAddress} from "../../libs/LibAddress.sol";
-import {LibMath} from "../../libs/LibMath.sol";
-import {AddressResolver} from "../../common/AddressResolver.sol";
-import {SafeCastUpgradeable} from
+import { LibAddress } from "../../libs/LibAddress.sol";
+import { LibMath } from "../../libs/LibMath.sol";
+import { AddressResolver } from "../../common/AddressResolver.sol";
+import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {TaikoData} from "../TaikoData.sol";
+import { TaikoData } from "../TaikoData.sol";
 
 library LibEthDepositing {
     using LibAddress for address;

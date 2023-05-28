@@ -6,10 +6,10 @@
 
 pragma solidity ^0.8.18;
 
-import {AddressResolver} from "../../common/AddressResolver.sol";
-import {LibMath} from "../../libs/LibMath.sol";
-import {LibUtils} from "./LibUtils.sol";
-import {TaikoData} from "../../L1/TaikoData.sol";
+import { AddressResolver } from "../../common/AddressResolver.sol";
+import { LibMath } from "../../libs/LibMath.sol";
+import { LibUtils } from "./LibUtils.sol";
+import { TaikoData } from "../../L1/TaikoData.sol";
 
 library LibProving {
     using LibMath for uint256;
