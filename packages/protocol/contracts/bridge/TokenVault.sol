@@ -10,12 +10,10 @@ import {
     IERC20Upgradeable,
     ERC20Upgradeable
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import {
-    SafeERC20Upgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import {
-    Create2Upgradeable
-} from "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
+import {SafeERC20Upgradeable} from
+    "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {Create2Upgradeable} from
+    "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {Proxied} from "../common/Proxied.sol";
 import {TaikoToken} from "../L1/TaikoToken.sol";
@@ -59,17 +57,19 @@ contract TokenVault is EssentialContract {
     mapping(address tokenAddress => bool isBridged) public isBridgedToken;
 
     // Mappings from bridged tokens to their canonical tokens.
-    mapping(address bridgedAddress => CanonicalERC20 canonicalErc20)
-        public bridgedToCanonical;
+    mapping(address bridgedAddress => CanonicalERC20 canonicalErc20) public
+        bridgedToCanonical;
 
     // Mappings from canonical tokens to their bridged tokens.
     // Also storing chainId for tokens across other chains aside from Ethereum.
-    mapping(uint256 chainId => mapping(address canonicalAddress => address bridgedAddress))
-        public canonicalToBridged;
+    mapping(
+        uint256 chainId
+            => mapping(address canonicalAddress => address bridgedAddress)
+    ) public canonicalToBridged;
 
     // Tracks the token and amount associated with a message hash.
-    mapping(bytes32 msgHash => MessageDeposit messageDeposit)
-        public messageDeposits;
+    mapping(bytes32 msgHash => MessageDeposit messageDeposit) public
+        messageDeposits;
 
     uint256[47] private __gap;
 
@@ -327,24 +327,24 @@ contract TokenVault is EssentialContract {
                            PRIVATE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function _getOrDeployBridgedToken(
-        CanonicalERC20 calldata canonicalToken
-    ) private returns (address) {
-        address token = canonicalToBridged[canonicalToken.chainId][
-            canonicalToken.addr
-        ];
+    function _getOrDeployBridgedToken(CanonicalERC20 calldata canonicalToken)
+        private
+        returns (address)
+    {
+        address token =
+            canonicalToBridged[canonicalToken.chainId][canonicalToken.addr];
 
-        return
-            token != address(0) ? token : _deployBridgedToken(canonicalToken);
+        return token != address(0) ? token : _deployBridgedToken(canonicalToken);
     }
 
     /**
      * @dev Deploys a new BridgedERC20 contract and initializes it. This must be
      * called before the first time a bridged token is sent to this chain.
      */
-    function _deployBridgedToken(
-        CanonicalERC20 calldata canonicalToken
-    ) private returns (address bridgedToken) {
+    function _deployBridgedToken(CanonicalERC20 calldata canonicalToken)
+        private
+        returns (address bridgedToken)
+    {
         bridgedToken = Create2Upgradeable.deploy(
             0, // amount of Ether to send
             keccak256(
@@ -367,14 +367,13 @@ contract TokenVault is EssentialContract {
                 unicode"(bridged🌈",
                 Strings.toString(canonicalToken.chainId),
                 ")"
-            )
+                )
         });
 
         isBridgedToken[bridgedToken] = true;
         bridgedToCanonical[bridgedToken] = canonicalToken;
-        canonicalToBridged[canonicalToken.chainId][
-            canonicalToken.addr
-        ] = bridgedToken;
+        canonicalToBridged[canonicalToken.chainId][canonicalToken.addr] =
+            bridgedToken;
 
         emit BridgedERC20Deployed({
             srcChainId: canonicalToken.chainId,

@@ -32,12 +32,13 @@ library LibBlockHeader {
     bytes32 public constant EMPTY_OMMERS_HASH =
         0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347;
 
-    function hashBlockHeader(
-        BlockHeader memory header
-    ) internal pure returns (bytes32) {
-        bytes memory rlpHeader = LibRLPWriter.writeList(
-            getBlockHeaderRLPItemsList(header, 0)
-        );
+    function hashBlockHeader(BlockHeader memory header)
+        internal
+        pure
+        returns (bytes32)
+    {
+        bytes memory rlpHeader =
+            LibRLPWriter.writeList(getBlockHeaderRLPItemsList(header, 0));
         return keccak256(rlpHeader);
     }
 

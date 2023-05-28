@@ -46,7 +46,8 @@ contract TestEtherVault is Test {
         etherVault.authorize(address(0), true);
     }
 
-    function test_authorize_reverts_when_authorizing_already_authorized_address() public {
+    function test_authorize_reverts_when_authorizing_already_authorized_address(
+    ) public {
         vm.startPrank(Alice);
         etherVault.authorize(Bob, true);
         vm.expectRevert(BridgeErrors.B_EV_PARAM.selector);
@@ -95,7 +96,9 @@ contract TestEtherVault is Test {
         vm.stopPrank();
     }
 
-    function test_release_ether_releases_to_receipient_via_authorized_sender() public {
+    function test_release_ether_releases_to_receipient_via_authorized_sender()
+        public
+    {
         vm.startPrank(Alice);
         etherVault.authorize(Alice, true);
         seedEtherVault();

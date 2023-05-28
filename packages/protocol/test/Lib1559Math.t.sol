@@ -36,10 +36,12 @@ contract TestLib1559Math is Test {
             xExcess <= xExcessMax / 2 + N * xTarget;
             xExcess += xTarget
         ) {
-            uint256 basefee1 = T.calculatePrice(xscale, yscale, xExcess, xTarget);
+            uint256 basefee1 =
+                T.calculatePrice(xscale, yscale, xExcess, xTarget);
             assertLt(basefee1, type(uint64).max);
 
-            uint256 basefee2 = T.calculatePrice(xscale, yscale, xExcess, 2 * xTarget);
+            uint256 basefee2 =
+                T.calculatePrice(xscale, yscale, xExcess, 2 * xTarget);
 
             assertLt(basefee2, type(uint64).max);
 
@@ -67,10 +69,18 @@ contract TestLib1559Math is Test {
         assertEq(T.calculatePrice(xscale, yscale, 0, 0), 0);
         assertEq(T.calculatePrice(xscale, yscale, 0, 1), 0);
 
-        assertGt(T.calculatePrice(xscale, yscale, xExcessMax - xTarget, xTarget), type(uint64).max);
+        assertGt(
+            T.calculatePrice(xscale, yscale, xExcessMax - xTarget, xTarget),
+            type(uint64).max
+        );
 
-        assertGt(T.calculatePrice(xscale, yscale, 0, xExcessMax), type(uint64).max);
+        assertGt(
+            T.calculatePrice(xscale, yscale, 0, xExcessMax), type(uint64).max
+        );
 
-        assertGt(T.calculatePrice(xscale, yscale, xExcessMax / 2, xExcessMax / 2), type(uint64).max);
+        assertGt(
+            T.calculatePrice(xscale, yscale, xExcessMax / 2, xExcessMax / 2),
+            type(uint64).max
+        );
     }
 }

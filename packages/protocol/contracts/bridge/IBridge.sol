@@ -53,9 +53,10 @@ interface IBridge {
 
     /// Sends a message to the destination chain and takes custody
     /// of Ether required in this contract. All extra Ether will be refunded.
-    function sendMessage(
-        Message memory message
-    ) external payable returns (bytes32 msgHash);
+    function sendMessage(Message memory message)
+        external
+        payable
+        returns (bytes32 msgHash);
 
     // Release Ether with a proof that the message processing on the destination
     // chain has been failed.
@@ -86,7 +87,8 @@ interface IBridge {
     /// Returns the bridge state context.
     function context() external view returns (Context memory context);
 
-    function hashMessage(
-        IBridge.Message calldata message
-    ) external pure returns (bytes32);
+    function hashMessage(IBridge.Message calldata message)
+        external
+        pure
+        returns (bytes32);
 }

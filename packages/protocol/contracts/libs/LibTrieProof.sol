@@ -42,22 +42,17 @@ library LibTrieProof {
         bytes32 value,
         bytes calldata mkproof
     ) public pure returns (bool verified) {
-        (bytes memory accountProof, bytes memory storageProof) = abi.decode(
-            mkproof,
-            (bytes, bytes)
-        );
+        (bytes memory accountProof, bytes memory storageProof) =
+            abi.decode(mkproof, (bytes, bytes));
 
         (bool exists, bytes memory rlpAccount) = LibSecureMerkleTrie.get(
-            abi.encodePacked(addr),
-            accountProof,
-            stateRoot
+            abi.encodePacked(addr), accountProof, stateRoot
         );
 
         require(exists, "LTP:invalid account proof");
 
-        LibRLPReader.RLPItem[] memory accountState = LibRLPReader.readList(
-            rlpAccount
-        );
+        LibRLPReader.RLPItem[] memory accountState =
+            LibRLPReader.readList(rlpAccount);
         bytes32 storageRoot = LibRLPReader.readBytes32(
             accountState[ACCOUNT_FIELD_INDEX_STORAGE_HASH]
         );

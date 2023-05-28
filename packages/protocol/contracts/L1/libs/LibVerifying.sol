@@ -19,7 +19,9 @@ library LibVerifying {
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash, uint64 reward);
 
-    event CrossChainSynced(uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot);
+    event CrossChainSynced(
+        uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
+    );
 
     error L1_INVALID_CONFIG();
 
@@ -32,14 +34,17 @@ library LibVerifying {
         if (
             config.chainId <= 1 || config.maxNumProposedBlocks == 1
                 || config.ringBufferSize <= config.maxNumProposedBlocks + 1
-                || config.blockMaxGasLimit == 0 || config.maxTransactionsPerBlock == 0
+                || config.blockMaxGasLimit == 0
+                || config.maxTransactionsPerBlock == 0
                 || config.maxBytesPerTxList == 0
             // EIP-4844 blob size up to 128K
-            || config.maxBytesPerTxList > 128 * 1024 || config.maxEthDepositsPerBlock == 0
+            || config.maxBytesPerTxList > 128 * 1024
+                || config.maxEthDepositsPerBlock == 0
                 || config.maxEthDepositsPerBlock < config.minEthDepositsPerBlock
             // EIP-4844 blob deleted after 30 days
-            || config.txListCacheExpiry > 30 * 24 hours || config.ethDepositGas == 0
-                || config.ethDepositMaxFee == 0 || config.ethDepositMaxFee >= type(uint96).max
+            || config.txListCacheExpiry > 30 * 24 hours
+                || config.ethDepositGas == 0 || config.ethDepositMaxFee == 0
+                || config.ethDepositMaxFee >= type(uint96).max
         ) revert L1_INVALID_CONFIG();
 
         uint64 timeNow = uint64(block.timestamp);
@@ -129,9 +134,12 @@ library LibVerifying {
                 // Send the L2's signal root to the signal service so other TaikoL1
                 // deployments, if they share the same signal service, can relay the
                 // signal to their corresponding TaikoL2 contract.
-                ISignalService(resolver.resolve("signal_service", false)).sendSignal(signalRoot);
+                ISignalService(resolver.resolve("signal_service", false))
+                    .sendSignal(signalRoot);
             }
-            emit CrossChainSynced(state.lastVerifiedBlockId, blockHash, signalRoot);
+            emit CrossChainSynced(
+                state.lastVerifiedBlockId, blockHash, signalRoot
+            );
         }
     }
 

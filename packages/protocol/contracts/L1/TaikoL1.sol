@@ -68,10 +68,11 @@ contract TaikoL1 is
      *        `n` transactions in `txList`, then there will be up to `n + 1`
      *        transactions in the L2 block.
      */
-    function proposeBlock(
-        bytes calldata input,
-        bytes calldata txList
-    ) external nonReentrant returns (TaikoData.BlockMetadata memory meta) {
+    function proposeBlock(bytes calldata input, bytes calldata txList)
+        external
+        nonReentrant
+        returns (TaikoData.BlockMetadata memory meta)
+    {
         TaikoData.Config memory config = getConfig();
         meta = LibProposing.proposeBlock({
             state: state,
@@ -97,10 +98,10 @@ contract TaikoL1 is
      *        to select the right implementation version.
      * @param input An abi-encoded TaikoData.BlockEvidence object.
      */
-    function proveBlock(
-        uint256 blockId,
-        bytes calldata input
-    ) external nonReentrant {
+    function proveBlock(uint256 blockId, bytes calldata input)
+        external
+        nonReentrant
+    {
         TaikoData.Config memory config = getConfig();
         LibProving.proveBlock({
             state: state,
@@ -135,9 +136,7 @@ contract TaikoL1 is
 
     function depositEtherToL2() public payable {
         LibEthDepositing.depositEtherToL2(
-            state,
-            getConfig(),
-            AddressResolver(this)
+            state, getConfig(), AddressResolver(this)
         );
     }
 
@@ -149,9 +148,7 @@ contract TaikoL1 is
         return state.blockFee;
     }
 
-    function getBlock(
-        uint256 blockId
-    )
+    function getBlock(uint256 blockId)
         public
         view
         returns (bytes32 _metaHash, address _proposer, uint64 _proposedAt)
@@ -171,43 +168,46 @@ contract TaikoL1 is
         bytes32 parentHash,
         uint32 parentGasUsed
     ) public view returns (TaikoData.ForkChoice memory) {
-        return
-            LibProving.getForkChoice({
-                state: state,
-                config: getConfig(),
-                blockId: blockId,
-                parentHash: parentHash,
-                parentGasUsed: parentGasUsed
-            });
+        return LibProving.getForkChoice({
+            state: state,
+            config: getConfig(),
+            blockId: blockId,
+            parentHash: parentHash,
+            parentGasUsed: parentGasUsed
+        });
     }
 
-    function getCrossChainBlockHash(
-        uint256 blockId
-    ) public view override returns (bytes32) {
+    function getCrossChainBlockHash(uint256 blockId)
+        public
+        view
+        override
+        returns (bytes32)
+    {
         (bool found, TaikoData.Block storage blk) = LibUtils.getL2ChainData({
             state: state,
             config: getConfig(),
             blockId: blockId
         });
-        return
-            found
-                ? blk.forkChoices[blk.verifiedForkChoiceId].blockHash
-                : bytes32(0);
+        return found
+            ? blk.forkChoices[blk.verifiedForkChoiceId].blockHash
+            : bytes32(0);
     }
 
-    function getCrossChainSignalRoot(
-        uint256 blockId
-    ) public view override returns (bytes32) {
+    function getCrossChainSignalRoot(uint256 blockId)
+        public
+        view
+        override
+        returns (bytes32)
+    {
         (bool found, TaikoData.Block storage blk) = LibUtils.getL2ChainData({
             state: state,
             config: getConfig(),
             blockId: blockId
         });
 
-        return
-            found
-                ? blk.forkChoices[blk.verifiedForkChoiceId].signalRoot
-                : bytes32(0);
+        return found
+            ? blk.forkChoices[blk.verifiedForkChoiceId].signalRoot
+            : bytes32(0);
     }
 
     function getStateVariables()
@@ -218,7 +218,12 @@ contract TaikoL1 is
         return state.getStateVariables();
     }
 
-    function getConfig() public pure virtual returns (TaikoData.Config memory) {
+    function getConfig()
+        public
+        pure
+        virtual
+        returns (TaikoData.Config memory)
+    {
         return TaikoConfig.getConfig();
     }
 

@@ -21,10 +21,12 @@ contract TestLibBridgeProcess is EssentialContract {
         EssentialContract._init(_addressManager);
     }
 
-    function processMessage(IBridge.Message calldata message, bytes calldata proof)
-        public
-        payable
-    {
-        LibBridgeProcess.processMessage(state, AddressResolver(this), message, proof);
+    function processMessage(
+        IBridge.Message calldata message,
+        bytes calldata proof
+    ) public payable {
+        LibBridgeProcess.processMessage(
+            state, AddressResolver(this), message, proof
+        );
     }
 }

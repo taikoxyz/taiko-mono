@@ -30,10 +30,11 @@ library LibUint512Math {
      * Optimized full 512 bit multiplication in Solidity.
      * Taken from: https://xn--2-umb.com/17/full-mul/index.html
      */
-    function mul(
-        uint256 a,
-        uint256 b
-    ) internal pure returns (uint256 r0, uint256 r1) {
+    function mul(uint256 a, uint256 b)
+        internal
+        pure
+        returns (uint256 r0, uint256 r1)
+    {
         assembly {
             let mm := mulmod(a, b, not(0))
             r0 := mul(a, b)
@@ -45,12 +46,11 @@ library LibUint512Math {
      * Simple 512-bit addition. Taken from:
      * https://xn--2-umb.com/17/512-bit-division/#add-subtract-two-512-bit-numbers
      */
-    function add(
-        uint256 a0,
-        uint256 a1,
-        uint256 b0,
-        uint256 b1
-    ) internal pure returns (uint256 r0, uint256 r1) {
+    function add(uint256 a0, uint256 a1, uint256 b0, uint256 b1)
+        internal
+        pure
+        returns (uint256 r0, uint256 r1)
+    {
         assembly {
             r0 := add(a0, b0)
             r1 := add(add(a1, b1), lt(r0, a0))

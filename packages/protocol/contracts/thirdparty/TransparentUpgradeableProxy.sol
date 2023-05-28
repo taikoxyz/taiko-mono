@@ -31,11 +31,10 @@ contract TransparentUpgradeableProxy is ERC1967Proxy {
      * @dev Initializes an upgradeable proxy managed by `_admin`, backed by the implementation at `_logic`, and
      * optionally initialized with `_data` as explained in {ERC1967Proxy-constructor}.
      */
-    constructor(
-        address _logic,
-        address admin_,
-        bytes memory _data
-    ) payable ERC1967Proxy(_logic, _data) {
+    constructor(address _logic, address admin_, bytes memory _data)
+        payable
+        ERC1967Proxy(_logic, _data)
+    {
         _changeAdmin(admin_);
     }
 
@@ -107,10 +106,11 @@ contract TransparentUpgradeableProxy is ERC1967Proxy {
      *
      * NOTE: Only the admin can call this function. See {ProxyAdmin-upgradeAndCall}.
      */
-    function upgradeToAndCall(
-        address newImplementation,
-        bytes calldata data
-    ) external payable ifAdmin {
+    function upgradeToAndCall(address newImplementation, bytes calldata data)
+        external
+        payable
+        ifAdmin
+    {
         _upgradeToAndCall(newImplementation, data, true);
     }
 

@@ -27,12 +27,17 @@ library LibEthDepositing {
         TaikoData.Config memory config,
         AddressResolver resolver
     ) internal {
-        if (msg.value < config.minEthDepositAmount || msg.value > config.maxEthDepositAmount) {
+        if (
+            msg.value < config.minEthDepositAmount
+                || msg.value > config.maxEthDepositAmount
+        ) {
             revert L1_INVALID_ETH_DEPOSIT();
         }
 
-        TaikoData.EthDeposit memory deposit =
-            TaikoData.EthDeposit({recipient: msg.sender, amount: uint96(msg.value)});
+        TaikoData.EthDeposit memory deposit = TaikoData.EthDeposit({
+            recipient: msg.sender,
+            amount: uint96(msg.value)
+        });
 
         address to = resolver.resolve("ether_vault", true);
         if (to == address(0)) {
@@ -66,19 +71,25 @@ library LibEthDepositing {
                 // in the block; if there are less EthDeposit to process, the
                 // proposer may suffer a loss so the proposer should simply wait
                 // for more EthDeposit be become available.
-                uint96 feePerDeposit =
-                    uint96(config.ethDepositMaxFee.min(block.basefee * config.ethDepositGas));
+                uint96 feePerDeposit = uint96(
+                    config.ethDepositMaxFee.min(
+                        block.basefee * config.ethDepositGas
+                    )
+                );
                 uint96 totalFee;
                 uint64 i = state.nextEthDepositToProcess;
                 while (
                     i < state.ethDeposits.length
-                        && i < state.nextEthDepositToProcess + config.maxEthDepositsPerBlock
+                        && i
+                            < state.nextEthDepositToProcess
+                                + config.maxEthDepositsPerBlock
                 ) {
                     TaikoData.EthDeposit storage deposit = state.ethDeposits[i];
                     if (deposit.amount > feePerDeposit) {
                         totalFee += feePerDeposit;
                         depositsProcessed[j].recipient = deposit.recipient;
-                        depositsProcessed[j].amount = deposit.amount - feePerDeposit;
+                        depositsProcessed[j].amount =
+                            deposit.amount - feePerDeposit;
                         ++j;
                     } else {
                         totalFee += deposit.amount;
@@ -114,8 +125,8 @@ library LibEthDepositing {
         bytes memory buffer = new bytes(32 * deposits.length);
 
         for (uint256 i; i < deposits.length;) {
-            uint256 encoded =
-                uint256(uint160(deposits[i].recipient)) << 96 | uint256(deposits[i].amount);
+            uint256 encoded = uint256(uint160(deposits[i].recipient)) << 96
+                | uint256(deposits[i].amount);
             assembly {
                 mstore(add(buffer, mul(32, add(1, i))), encoded)
             }

@@ -10,29 +10,26 @@ import {
     GovernorUpgradeable,
     IGovernorUpgradeable
 } from "@openzeppelin/contracts-upgradeable/governance/GovernorUpgradeable.sol";
-import {
-    GovernorSettingsUpgradeable
-} from "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorSettingsUpgradeable.sol";
-import {
-    GovernorCountingSimpleUpgradeable
-} from "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorCountingSimpleUpgradeable.sol";
-import {
-    GovernorVotesUpgradeable
-} from "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesUpgradeable.sol";
+import {GovernorSettingsUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorSettingsUpgradeable.sol";
+import {GovernorCountingSimpleUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorCountingSimpleUpgradeable.sol";
+import {GovernorVotesUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesUpgradeable.sol";
 import {
     GovernorVotesQuorumFractionUpgradeable,
     IVotesUpgradeable
-} from "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesQuorumFractionUpgradeable.sol";
+} from
+    "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesQuorumFractionUpgradeable.sol";
 import {
     GovernorTimelockControlUpgradeable,
     TimelockControllerUpgradeable
-} from "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorTimelockControlUpgradeable.sol";
-import {
-    Initializable
-} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {
-    OwnableUpgradeable
-} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+} from
+    "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorTimelockControlUpgradeable.sol";
+import {Initializable} from
+    "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {OwnableUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 import {LibTaikoTokenConfig} from "../L1/TaikoToken.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
@@ -105,9 +102,7 @@ contract TaikoGovernor is
         return super.votingPeriod();
     }
 
-    function quorum(
-        uint256 blockNumber
-    )
+    function quorum(uint256 blockNumber)
         public
         view
         override(IGovernorUpgradeable, GovernorVotesQuorumFractionUpgradeable)
@@ -116,9 +111,7 @@ contract TaikoGovernor is
         return super.quorum(blockNumber);
     }
 
-    function state(
-        uint256 proposalId
-    )
+    function state(uint256 proposalId)
         public
         view
         override(GovernorUpgradeable, GovernorTimelockControlUpgradeable)
@@ -136,9 +129,7 @@ contract TaikoGovernor is
         return super.proposalThreshold();
     }
 
-    function supportsInterface(
-        bytes4 interfaceId
-    )
+    function supportsInterface(bytes4 interfaceId)
         public
         view
         override(GovernorUpgradeable, GovernorTimelockControlUpgradeable)

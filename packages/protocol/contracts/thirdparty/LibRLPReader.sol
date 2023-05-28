@@ -64,9 +64,11 @@ library LibRLPReader {
      * @param _in Input bytes to convert.
      * @return Output memory reference.
      */
-    function toRLPItem(
-        bytes memory _in
-    ) internal pure returns (RLPItem memory) {
+    function toRLPItem(bytes memory _in)
+        internal
+        pure
+        returns (RLPItem memory)
+    {
         uint256 ptr;
         assembly {
             ptr := add(_in, 32)
@@ -80,10 +82,12 @@ library LibRLPReader {
      * @param _in RLP list value.
      * @return Decoded RLP list items.
      */
-    function readList(
-        RLPItem memory _in
-    ) internal pure returns (RLPItem[] memory) {
-        (uint256 listOffset, , RLPItemType itemType) = _decodeLength(_in);
+    function readList(RLPItem memory _in)
+        internal
+        pure
+        returns (RLPItem[] memory)
+    {
+        (uint256 listOffset,, RLPItemType itemType) = _decodeLength(_in);
 
         require(itemType == RLPItemType.LIST_ITEM, "Invalid RLP list value.");
 
@@ -101,7 +105,7 @@ library LibRLPReader {
                 "Provided RLP list exceeds max list length."
             );
 
-            (uint256 itemOffset, uint256 itemLength, ) = _decodeLength(
+            (uint256 itemOffset, uint256 itemLength,) = _decodeLength(
                 RLPItem({length: _in.length - offset, ptr: _in.ptr + offset})
             );
 
@@ -127,9 +131,11 @@ library LibRLPReader {
      * @param _in RLP list value.
      * @return Decoded RLP list items.
      */
-    function readList(
-        bytes memory _in
-    ) internal pure returns (RLPItem[] memory) {
+    function readList(bytes memory _in)
+        internal
+        pure
+        returns (RLPItem[] memory)
+    {
         return readList(toRLPItem(_in));
     }
 
@@ -138,14 +144,13 @@ library LibRLPReader {
      * @param _in RLP bytes value.
      * @return Decoded bytes.
      */
-    function readBytes(
-        RLPItem memory _in
-    ) internal pure returns (bytes memory) {
-        (
-            uint256 itemOffset,
-            uint256 itemLength,
-            RLPItemType itemType
-        ) = _decodeLength(_in);
+    function readBytes(RLPItem memory _in)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        (uint256 itemOffset, uint256 itemLength, RLPItemType itemType) =
+            _decodeLength(_in);
 
         require(itemType == RLPItemType.DATA_ITEM, "Invalid RLP bytes value.");
 
@@ -166,9 +171,11 @@ library LibRLPReader {
      * @param _in RLP string value.
      * @return Decoded string.
      */
-    function readString(
-        RLPItem memory _in
-    ) internal pure returns (string memory) {
+    function readString(RLPItem memory _in)
+        internal
+        pure
+        returns (string memory)
+    {
         return string(readBytes(_in));
     }
 
@@ -177,9 +184,11 @@ library LibRLPReader {
      * @param _in RLP string value.
      * @return Decoded string.
      */
-    function readString(
-        bytes memory _in
-    ) internal pure returns (string memory) {
+    function readString(bytes memory _in)
+        internal
+        pure
+        returns (string memory)
+    {
         return readString(toRLPItem(_in));
     }
 
@@ -191,16 +200,10 @@ library LibRLPReader {
     function readBytes32(RLPItem memory _in) internal pure returns (bytes32) {
         require(_in.length <= 33, "Invalid RLP bytes32 value.");
 
-        (
-            uint256 itemOffset,
-            uint256 itemLength,
-            RLPItemType itemType
-        ) = _decodeLength(_in);
+        (uint256 itemOffset, uint256 itemLength, RLPItemType itemType) =
+            _decodeLength(_in);
 
-        require(
-            itemType == RLPItemType.DATA_ITEM,
-            "Invalid RLP bytes32 value."
-        );
+        require(itemType == RLPItemType.DATA_ITEM, "Invalid RLP bytes32 value.");
 
         uint256 ptr = _in.ptr + itemOffset;
         bytes32 out;
@@ -303,9 +306,11 @@ library LibRLPReader {
      * @param _in RLP item to read.
      * @return Raw RLP bytes.
      */
-    function readRawBytes(
-        RLPItem memory _in
-    ) internal pure returns (bytes memory) {
+    function readRawBytes(RLPItem memory _in)
+        internal
+        pure
+        returns (bytes memory)
+    {
         return _copy(_in);
     }
 
@@ -320,9 +325,11 @@ library LibRLPReader {
      * @return Length of the encoded data.
      * @return RLP item type (LIST_ITEM or DATA_ITEM).
      */
-    function _decodeLength(
-        RLPItem memory _in
-    ) private pure returns (uint256, uint256, RLPItemType) {
+    function _decodeLength(RLPItem memory _in)
+        private
+        pure
+        returns (uint256, uint256, RLPItemType)
+    {
         require(_in.length > 0, "RLP item cannot be null.");
 
         uint256 ptr = _in.ptr;
@@ -348,23 +355,17 @@ library LibRLPReader {
             // Long string.
             uint256 lenOfStrLen = prefix - 0xb7;
 
-            require(
-                _in.length > lenOfStrLen,
-                "Invalid RLP long string length."
-            );
+            require(_in.length > lenOfStrLen, "Invalid RLP long string length.");
 
             uint256 strLen;
             assembly {
                 // Pick out the string length.
-                strLen := div(
-                    mload(add(ptr, 1)),
-                    exp(256, sub(32, lenOfStrLen))
-                )
+                strLen :=
+                    div(mload(add(ptr, 1)), exp(256, sub(32, lenOfStrLen)))
             }
 
             require(
-                _in.length > lenOfStrLen + strLen,
-                "Invalid RLP long string."
+                _in.length > lenOfStrLen + strLen, "Invalid RLP long string."
             );
 
             return (1 + lenOfStrLen, strLen, RLPItemType.DATA_ITEM);
@@ -385,15 +386,12 @@ library LibRLPReader {
             uint256 listLen;
             assembly {
                 // Pick out the list length.
-                listLen := div(
-                    mload(add(ptr, 1)),
-                    exp(256, sub(32, lenOfListLen))
-                )
+                listLen :=
+                    div(mload(add(ptr, 1)), exp(256, sub(32, lenOfListLen)))
             }
 
             require(
-                _in.length > lenOfListLen + listLen,
-                "Invalid RLP long list."
+                _in.length > lenOfListLen + listLen, "Invalid RLP long list."
             );
 
             return (1 + lenOfListLen, listLen, RLPItemType.LIST_ITEM);
@@ -407,11 +405,11 @@ library LibRLPReader {
      * @param _length Number of bytes to read.
      * @return Copied bytes.
      */
-    function _copy(
-        uint256 _src,
-        uint256 _offset,
-        uint256 _length
-    ) internal pure returns (bytes memory) {
+    function _copy(uint256 _src, uint256 _offset, uint256 _length)
+        internal
+        pure
+        returns (bytes memory)
+    {
         bytes memory result = new bytes(_length);
         if (result.length == 0) {
             return result;
@@ -424,11 +422,7 @@ library LibRLPReader {
 
             dst := add(result, 32)
 
-            for {
-                let i := 0
-            } lt(i, _length) {
-                i := add(i, 32)
-            } {
+            for { let i := 0 } lt(i, _length) { i := add(i, 32) } {
                 mstore(add(dst, i), mload(add(src, i)))
             }
         }

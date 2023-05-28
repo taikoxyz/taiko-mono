@@ -51,10 +51,11 @@ abstract contract TaikoL2Signer {
 
     error L2_INVALID_GOLDEN_TOUCH_K();
 
-    function signAnchor(
-        bytes32 digest,
-        uint8 k
-    ) public view returns (uint8 v, uint256 r, uint256 s) {
+    function signAnchor(bytes32 digest, uint8 k)
+        public
+        view
+        returns (uint8 v, uint256 r, uint256 s)
+    {
         if (k != 1 && k != 2) revert L2_INVALID_GOLDEN_TOUCH_K();
 
         r = k == 1 ? GX : GX2;
@@ -67,20 +68,14 @@ abstract contract TaikoL2Signer {
             ? GX_MUL_GOLDEN_TOUCH_PRIVATEKEY_HIGH
             : GX2_MUL_GOLDEN_TOUCH_PRIVATEKEY_HIGH;
 
-        (low256, high256) = LibUint512Math.add(
-            low256,
-            high256,
-            uint256(digest),
-            0
-        );
+        (low256, high256) =
+            LibUint512Math.add(low256, high256, uint256(digest), 0);
 
         if (k == 1) {
             s = _expmod(low256, high256, 1, N);
         } else {
-            (low256, high256) = LibUint512Math.mul(
-                K_2_INVM_N,
-                _expmod(low256, high256, 1, N)
-            );
+            (low256, high256) =
+                LibUint512Math.mul(K_2_INVM_N, _expmod(low256, high256, 1, N));
             s = _expmod(low256, high256, 1, N);
         }
 
@@ -90,12 +85,11 @@ abstract contract TaikoL2Signer {
         }
     }
 
-    function _expmod(
-        uint256 baseLow,
-        uint256 baseHigh,
-        uint256 e,
-        uint256 m
-    ) private view returns (uint256 o) {
+    function _expmod(uint256 baseLow, uint256 baseHigh, uint256 e, uint256 m)
+        private
+        view
+        returns (uint256 o)
+    {
         assembly {
             // define pointer
             let p := mload(0x40)
