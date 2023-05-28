@@ -226,8 +226,11 @@ library LibProving {
             );
 
             if (
-                !verified || ret.length != 32
-                    || bytes32(ret) != keccak256("taiko")
+                !verified
+                //
+                || ret.length != 32
+                //
+                || bytes32(ret) != keccak256("taiko")
             ) {
                 revert L1_INVALID_PROOF();
             }
