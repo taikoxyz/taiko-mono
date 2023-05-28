@@ -76,12 +76,15 @@ A fee in Taiko tokens should be levied from the block proposer, calculated as `p
 ### Bidding Strategy
 A prover should consistently monitor recent winning bid scores to gauge the current market status. From there, he can calculate an appropriate bidding price that aligns with his proof generation costs. Optionally, to enhance his score, he could deposit additional Taiko tokens as auction collateral.
 
+
 ### Proof Submission Strategy
 He should submit proofs at the earliest opportunity.
 
 ### Optimization Strategy
 The prover's optimization should be conducted in a hierarchical manner, with cost reduction as the primary focus. After reducing proof costs, the next step would be to minimize proof delay, followed by improving the rate of proof submissions. An additional optional strategy could be to acquire more Taiko tokens to perpetually boost his score.
 
+### Pool Participation
+A prover may opt to join a prover pool to engage in off-chain auctions managed by the pool itself. Subsequently, the pool participates in the on-chain auction on behalf of its members and manages the deposits of Taiko tokens, thereby enhancing the bid scores for all participants within the pool. This strategy allows for pooled resources and risk, potentially offering an advantage in the competitive bidding process.
 
 ### Challenges
 
