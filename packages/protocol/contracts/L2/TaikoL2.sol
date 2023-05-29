@@ -210,8 +210,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
         // On L2, basefee is not burnt, but sent to a treasury instead.
         // The circuits will need to verify the basefee recipient is the
-        // designated
-        // address.
+        // designated address.
         if (block.basefee != basefee) {
             revert L2_BASEFEE_MISMATCH(uint64(basefee), uint64(block.basefee));
         }
@@ -221,8 +220,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         // We emit this event so circuits can grab its data to verify block
         // variables.
         // If plonk lookup table already has all these data, we can still use
-        // this
-        // event for debugging purpose.
+        // this event for debugging purpose.
         emit Anchored({
             number: uint64(block.number),
             basefee: uint64(basefee),
