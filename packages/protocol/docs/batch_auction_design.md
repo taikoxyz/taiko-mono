@@ -27,7 +27,7 @@ Based on the provided insights and inputs from Brecht and Hugo (zkpool), the fol
 The above comparison metrics should guide our discussions and prevent an overemphasis on subjective opinions.
 
 ## Proposed Solution
-An auction mechanism is suggested to realign provers' incentives towards cost-effectiveness. This mechanism allows provers to bid for block rewards, thereby establishing a transparent fee market. Furthermore, this model promotes resource conservation by enabling provers to commit to resource-intensive Zero-Knowledge Proof (ZKP) computations only after they have definitively won a block reward.
+An auction mechanism is suggested to realign provers' incentives towards cost-effectiveness. This mechanism allows provers to bid for block rewards, thereby establishing a transparent fee market. Furthermore, this model promotes resource conservation by enabling provers to commit to resource-intensive Zero-Knowledge Proof (ZKP) computations only after they have definitively won a block.
 
 
 ### Batch-Based Approach
