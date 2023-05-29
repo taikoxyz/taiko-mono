@@ -34,7 +34,7 @@ An auction mechanism is suggested to realign provers' incentives towards cost-ef
 In light of the high gas fees associated with Ethereum, a batch-based strategy for conducting auctions is recommended. This strategy grants the winning bidder the right to verify a batch of blocks, thus reducing per-block gas costs. During the testnet phases, we plan to begin with a smaller batch size, eventually scaling up to 256 blocks by the mainnet launch.
 
 ### Provisions for Upcoming Blocks and Gas Costs
-To offset potential delays in ZKP, it's recommended to conduct auctions for forthcoming blocks even before they are proposed. This introduces a certain level of uncertainty for provers due to the unknown block gas used and data size at the beginning of the auction. To counter this, an auction pricing model based on the gas/data usage of the auctioned block is proposed. Here, the block reward would be calculated as `b*g`, where `b` is the winning bid in TKO tokens per gas and `g` is the actual gas used by the block. In this context, `b` will be referred to as the *bid per gas*, or simply the *bid*.
+To offset potential delays in ZKP, it's recommended to conduct auctions for forthcoming blocks even before they are proposed. This introduces a certain level of uncertainty for provers due to the unknown block gas used and data size at the beginning of the auction. To counter this, an auction pricing model based on the gas/data usage of the auctioned block is proposed. Here, the block reward would be calculated as `b*g`, where `b` is the winning bid in TKO tokens per gas and `g` is the actual gas used (or gas limit) by the block. In this context, `b` will be referred to as the *bid per gas*, or simply the *bid*.
 
 ### Bidding Procedures and Deposit Requirements
 
