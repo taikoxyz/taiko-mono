@@ -83,7 +83,6 @@ library LibVerifying {
 
         uint256 fcId = blk.verifiedForkChoiceId;
         // assert(fcId > 0);
-        require(fcId > 0, "ABC");
         bytes32 blockHash = blk.forkChoices[fcId].blockHash;
         uint32 gasUsed = blk.forkChoices[fcId].gasUsed;
         bytes32 signalRoot;
