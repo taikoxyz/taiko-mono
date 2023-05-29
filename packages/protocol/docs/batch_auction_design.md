@@ -38,7 +38,7 @@ To offset potential delays in ZKP, it's recommended to conduct auctions for fort
 
 ### Bidding Procedures and Deposit Requirements
 
-We will employ the traditional English auction model, where all bids are publicly visible throughout the course of the auction, thus making a secretive, second-price auction model unsuitable in this context. Additionally, our inaugural tokenomics design emulates a Dutch auction, distinguished by its feature of escalating rewards over time.
+We will employ the traditional English auction model, where all bids are publicly visible throughout the course of the auction, thus making a secretive, second-price auction model unsuitable in this context. Additionally, our inaugural tokenomics design (in alpha-1) emulates a Dutch auction, distinguished by its feature of escalating rewards over time.
 
 
 The initial bidding price for new auctions should be set at `s=2*p`, where `p` represents a moving average *bid* for all verified blocks. Each subsequent bid should be at least 10% lower than the current bid. Bidders would need to deposit `s * max_block_gas_limit * num_blocks * 1.5` Taiko tokens for the batch. A penalty of `s * max_block_gas_limit * 1.5` Taiko tokens will be imposed and subsequently burnt for each block the winner fails to verify within the designated timeframe. Successful completion will result in a refund of the deposit.
