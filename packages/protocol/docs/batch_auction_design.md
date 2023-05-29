@@ -24,9 +24,6 @@ Based on the provided insights and inputs from Brecht and Hugo (zkpool), the fol
 
 1. **Minimal L1 Cost**: The complexity of the required code in the smart contracts/node is also an important factor to consider. Our tokenomics should strive to minimize the average additional cost per block on its base layer. Provers will likely impose higher fees on L2 to offset this cost, potentially leaving out transactions with lower fees.
 
-1. **Prover Work Security**: Provers should be confident about their ability to verify blocks in the foreseeable future. However, if they are more expensive than other provers, they should gradually lose their work.
-
-
 The above comparison metrics should guide our discussions and prevent an overemphasis on subjective opinions.
 
 ## Proposed Solution
