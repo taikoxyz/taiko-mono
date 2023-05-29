@@ -8,6 +8,7 @@ import { providers } from '../provider/providers';
 import { isETH } from '../token/tokens';
 import { tokenVaults } from '../vault/tokenVaults';
 
+// TODO: config these
 export const ethGasLimit = 900000;
 export const erc20NotDeployedGasLimit = 3100000;
 export const erc20DeployedGasLimit = 1100000;
@@ -20,8 +21,10 @@ export async function recommendProcessingFee(
   signer: Signer,
 ): Promise<string> {
   if (!toChain || !fromChain || !token || !signer || !feeType) return '0';
-  const provider = providers[toChain.id];
-  const gasPrice = await provider.getGasPrice();
+
+  const destProvider = providers[toChain.id];
+  const gasPrice = await destProvider.getGasPrice();
+
   // gasLimit for processMessage call for ETH is about ~800k.
   // to make it enticing, we say 900k.
   let gasLimit = ethGasLimit;
@@ -37,28 +40,29 @@ export async function recommendProcessingFee(
       ).address;
     }
 
-    const tokenVault = new Contract(
+    const srcTokenVault = new Contract(
       tokenVaults[fromChain.id],
       tokenVaultABI,
       signer,
     );
 
-    const bridged = await tokenVault.canonicalToBridged(
+    const bridged = await srcTokenVault.canonicalToBridged(
       toChain.id,
       srcChainAddr,
     );
 
-    // gas limit for erc20 if not deployed on the dest chain already
+    // Gas limit for erc20 if not deployed on the dest chain already
     // is about ~2.9m so we add some to make it enticing
     if (bridged == ethers.constants.AddressZero) {
       gasLimit = erc20NotDeployedGasLimit;
     } else {
-      // gas limit for erc20 if already deployed on the dest chain is about ~1m
+      // Gas limit for erc20 if already deployed on the dest chain is about ~1m
       // so again, add some to ensure processing
       gasLimit = erc20DeployedGasLimit;
     }
   }
 
   const recommendedFee = BigNumber.from(gasPrice).mul(gasLimit);
+
   return ethers.utils.formatEther(recommendedFee);
 }
