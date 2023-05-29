@@ -6,7 +6,6 @@ import {TaikoData} from "../contracts/L1/TaikoData.sol";
 
 
 contract TestTaikoData is Test { 
-	TaikoData.EthDeposit[] lst;
     // TaikoData.BlockMetadata meta;
 
     function setUp() public {
@@ -29,6 +28,29 @@ contract TestTaikoData is Test {
         });
     }
 
+	function return_2() public returns (TaikoData.BlockMetadata memory meta) { 
+		meta = TaikoData.BlockMetadata({
+            id: 1,
+            l1Height: 1,
+            l1Hash: bytes32('abcd'),
+            beneficiary: address(0x10020FCb72e27650651B05eD2CEcA493bC807Ba4),
+            treasury: address(0x50081b12838240B1bA02b3177153Bca678a86078),
+            txListHash: bytes32('abcd'),
+            txListByteStart: 0,
+            txListByteEnd: 1000,
+            gasLimit: 1,
+            mixHash: bytes32('abcd'),
+            timestamp: 1,
+            depositsProcessed: assist(TaikoData.EthDeposit({recipient: address(0x10020FCb72e27650651B05eD2CEcA493bC807Ba4),
+				amount: uint96(2)}))
+	});
+	}
+
+	function assist(TaikoData.EthDeposit memory deposit) public returns (TaikoData.EthDeposit[] memory lst) {
+		lst = new TaikoData.EthDeposit[](1);
+		lst[0] = deposit;
+	}
+
 	function equality(TaikoData.BlockMetadata memory meta1, TaikoData.BlockMetadata memory meta2) public returns (bool) {
 		require(meta1.id == meta2.id);
 		require(meta1.l1Height == meta2.l1Height);
@@ -50,6 +72,8 @@ contract TestTaikoData is Test {
 
     function test_abiEncode() public {
 		TaikoData.BlockMetadata memory meta = return_1();
+		TaikoData.BlockMetadata memory meta2 = return_2();
+		console2.logBytes(abi.encode(meta2));
 		// console2.logBytes(abi.encode(meta));
 		require(equality(abi.decode(abi.encode(meta), (TaikoData.BlockMetadata)), meta) == true);
     }
