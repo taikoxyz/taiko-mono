@@ -18,18 +18,18 @@
 
   let showProcessingFeeTooltip: boolean = false;
   let showNoneFeeTooltip: boolean = false;
+  let cannotCompute = false;
 
   $: recommendProcessingFee($toChain, $fromChain, method, $token, $signer)
-    .then((recommendedFee) => (amount = recommendedFee))
+    .then((recommendedFee) => {
+      amount = recommendedFee;
+      cannotCompute = false;
+    })
     .catch((error) => {
       console.error(error);
-      if (error.code === ethers.errors.SERVER_ERROR) {
-        errorToast('Server error. Please try again later or contact support.');
-      } else {
-        errorToast(
-          'There was an error calculating recommended processing Fee.',
-        );
-      }
+
+      amount = '0';
+      cannotCompute = true;
     });
 
   function updateAmount(event: Event) {
@@ -78,7 +78,13 @@
   </label>
 {:else if method === ProcessingFeeMethod.RECOMMENDED}
   <div class="px-1 py-0 flex flex-row">
-    <span class="mt-2 text-sm">{amount} ETH</span>
+    <span class="mt-2 text-sm">
+      {#if cannotCompute}
+        <span class="text-error">⚠ Error computing</span>
+      {:else}
+        {amount} ETH
+      {/if}
+    </span>
   </div>
 {/if}
 

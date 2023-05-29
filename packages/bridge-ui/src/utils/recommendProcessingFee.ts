@@ -46,19 +46,24 @@ export async function recommendProcessingFee(
       signer,
     );
 
-    const bridged = await srcTokenVault.canonicalToBridged(
-      toChain.id,
-      srcChainAddr,
-    );
+    try {
+      const bridged = await srcTokenVault.canonicalToBridged(
+        toChain.id,
+        srcChainAddr,
+      );
 
-    // Gas limit for erc20 if not deployed on the dest chain already
-    // is about ~2.9m so we add some to make it enticing
-    if (bridged == ethers.constants.AddressZero) {
-      gasLimit = erc20NotDeployedGasLimit;
-    } else {
-      // Gas limit for erc20 if already deployed on the dest chain is about ~1m
-      // so again, add some to ensure processing
-      gasLimit = erc20DeployedGasLimit;
+      // Gas limit for erc20 if not deployed on the dest chain already
+      // is about ~2.9m so we add some to make it enticing
+      if (bridged == ethers.constants.AddressZero) {
+        gasLimit = erc20NotDeployedGasLimit;
+      } else {
+        // Gas limit for erc20 if already deployed on the dest chain is about ~1m
+        // so again, add some to ensure processing
+        gasLimit = erc20DeployedGasLimit;
+      }
+    } catch (error) {
+      console.error(error);
+      throw new Error('failed to get bridged address', { cause: error });
     }
   }
 

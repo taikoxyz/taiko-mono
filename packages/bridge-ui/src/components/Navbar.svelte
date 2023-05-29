@@ -1,7 +1,7 @@
 <script lang="ts">
   import { fly } from 'svelte/transition';
-  import { Moon,Sun } from 'svelte-heros-v2';
-  
+  import { Moon, Sun } from 'svelte-heros-v2';
+
   import { signer } from '../store/signer';
   import AddressDropdown from './AddressDropdown.svelte';
   import ChainDropdown from './ChainDropdown.svelte';
@@ -46,7 +46,7 @@
       class="pl-4 font-medium hover:text-[#E81899]"
       href="https://taiko.xyz/docs/guides/use-the-bridge"
       target="_blank"
-      rel="noreferrer">Guide</a>
+      rel="noreferrer">Guide ↗</a>
   </div>
   <div class="flex-none">
     {#if $signer}

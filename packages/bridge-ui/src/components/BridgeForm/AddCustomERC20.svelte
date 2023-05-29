@@ -105,7 +105,7 @@
       {:else if tokenError}
         <div class="min-h-[25px] text-error text-sm">
           <!-- TODO: translations? -->
-          {tokenError}
+          ⚠ {tokenError}
         </div>
       {:else}
         <div class="min-h-[25px]" />

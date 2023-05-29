@@ -48,7 +48,7 @@
 
     {#if error}
       <label class="label min-h-[20px] mb-0 p-0" for="name">
-        <span class="label-text-alt text-error text-sm">{error}</span>
+        <span class="label-text-alt text-error text-sm">⚠ {error}</span>
       </label>
     {/if}
   </div>
