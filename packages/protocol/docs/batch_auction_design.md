@@ -34,7 +34,7 @@ These metrics provide a framework for objective evaluation and discourage subjec
 
 ## Proposed Solution
 
-An auction mechanism is proposed to align provers' incentives with cost-effectiveness. This mechanism allows provers to bid for block rewards, establishing a transparent fee market. Additionally, this model promotes resource conservation by enabling provers to commit to resource-intensive Zero-Knowledge Proof (ZKP) computations only after winning a block reward.
+An auction mechanism is proposed to align provers' incentives with cost-effectiveness. This mechanism allows provers to bid for block rewards, establishing a transparent fee market. Additionally, this model promotes resource conservation by enabling provers to commit to resource-intensive Zero-Knowledge Proof (ZKP) computations only after winning a block auction.
 
 ### Batch-Based Approach
 
