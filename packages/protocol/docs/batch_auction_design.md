@@ -44,6 +44,7 @@ For each new auction, the initial bidding price will be set at `s=2*p`, where `p
 
 To maintain stability, the initial bidding price will not undergo drastic changes, such as exceeding a 50% decrease or 100% increase within a 24-hour period.
 
+#### Scoring Bids
 A key concern is the risk of a monopolistic scenario, where one highly efficient prover continuously wins auctions, particularly if they're prepared to operate with a slim profit margin. This could marginalize other provers, even those with slightly higher costs, leaving them devoid of work and potentially leading them to exit the system. To encourage diverse participation and avert single-prover dominance, we may need to refine our bid scoring methodology. Rather than focusing solely on the bid price , we could factor in other parameters such as the deposit amount , the prover's average proof delay , and the ratio of their proof submissions to the number of verified blocks they've won. This multi-dimensional evaluation would promote a more equitable competition, ensuring the system's sustainability.
 
 ```python
