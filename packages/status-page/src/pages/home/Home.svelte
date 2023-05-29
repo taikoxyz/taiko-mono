@@ -20,7 +20,7 @@
 
   onMount(async () => {
     config = initConfig($layer);
-    statusIndicators = buildStatusIndicators(
+    statusIndicators = await buildStatusIndicators(
       config,
       (value: Status) => {
         proverDetailsOpen = true;
@@ -37,8 +37,8 @@
 
     config = initConfig(newLayer);
     statusIndicators = [];
-    setTimeout(() => {
-      statusIndicators = buildStatusIndicators(
+    setTimeout(async () => {
+      statusIndicators = await buildStatusIndicators(
         config,
         (value: Status) => {
           proverDetailsOpen = true;
