@@ -53,55 +53,39 @@ The initial bidding price for new auctions should be set at `s=2*p`, where `p` r
 
 A key concern is the risk of a monopolistic scenario, where one highly efficient prover continuously wins bids, particularly if they're prepared to operate with a slim profit margin. This could marginalize other provers, even those with slightly higher costs, leaving them devoid of work and potentially leading them to exit the system. To encourage diverse participation and avert single-prover dominance, we may need to refine our bid scoring methodology. Rather than focusing solely on the bid price , we could factor in other parameters such as the deposit amount , the prover's average proof delay , and the ratio of their proof submissions to the number of verified blocks they've won. This multi-dimensional evaluation would promote a more equitable competition, ensuring the system's sustainability.
 
-```solidity
-pragma solidity ^0.8.0;
+```python
+def will_new_bid_win(new_bid, old_bid):
 
-contract Auction {
-    struct Bid {
-        uint256 bidPerGas;
-        uint256 deposit;
-        uint256 successRate;
-    }
+    # return False immediately if new_bid does not meet these conditions
+    if new_bid.bid_per_gas < old_bid.bid_per_gas * 0.9:
+        return False
+    if new_bid.deposit < old_bid.deposit * 0.5:
+        return False
+    if new_bid.success_rate == 0:
+        return False
 
-    function willNewBidWin(Bid memory newBid, Bid memory oldBid) internal pure returns (bool) {
-        if (newBid.bidPerGas < oldBid.bidPerGas * 9 / 10) {
-            return false;
-        }
-        if (newBid.deposit < oldBid.deposit / 2) {
-            return false;
-        }
-        if (newBid.successRate == 0) {
-            return false;
-        }
+    new_score = 0.0
+    old_score = 0.0
 
-        uint256 newScore = 0;
-        uint256 oldScore = 0;
+    # calculate scores for each field
+    if new_bid.bid_per_gas <= old_bid.bid_per_gas:
+        new_score += 1 - (new_bid.bid_per_gas / old_bid.bid_per_gas)  # higher score if new_bid.bid_per_gas is smaller but not 10% smaller
+    else:
+        old_score += 1 - (old_bid.bid_per_gas / new_bid.bid_per_gas)  # higher score if old_bid.bid_per_gas is smaller
 
-        if (newBid.bidPerGas <= oldBid.bidPerGas) {
-            newScore += (1 - (newBid.bidPerGas * 100 / oldBid.bidPerGas)) / 100;
-        } else {
-            oldScore += (1 - (oldBid.bidPerGas * 100 / newBid.bidPerGas)) / 100;
-        }
+    deposit_for_score = min(new_bid.deposit, 2 * old_bid.deposit)
+    if deposit_for_score >= 2 * old_bid.deposit:
+        new_score += deposit_for_score / old_bid.deposit - 1  # higher score if new_bid.deposit is much larger
+    else:
+        old_score += old_bid.deposit / deposit_for_score - 1  # higher score if old_bid.deposit is much larger
 
-        uint256 depositForScore = newBid.deposit < 2 * oldBid.deposit ? newBid.deposit : 2 * oldBid.deposit;
-        if (depositForScore >= 2 * oldBid.deposit) {
-            newScore += (depositForScore / oldBid.deposit) - 1;
-        } else {
-            oldScore += (oldBid.deposit / depositForScore) - 1;
-        }
+    if new_bid.success_rate >= old_bid.success_rate * 1.15:
+        new_score += new_bid.success_rate / old_bid.success_rate - 1  # higher score if new_bid.success_rate is much larger
+    else:
+        old_score += old_bid.success_rate / new_bid.success_rate - 1  # higher score if old_bid.success_rate is much larger
 
-        if (newBid.successRate >= oldBid.successRate * 115 / 100) {
-            newScore += (newBid.successRate / oldBid.successRate) - 1;
-        } else {
-            oldScore += (oldBid.successRate / newBid.successRate) - 1;
-        }
-
-        return newScore > 100 * oldScore / 100;
-    }
-}
-```
-
-Please note that this Solidity code assumes it is part of a larger contract and includes only the `willNewBidWin` function. You may need to adapt it to fit your specific contract structure and requirements.
+    # if new_bid's total score is higher, it's considered better
+    return new_score > old_score
 
 
 ```
