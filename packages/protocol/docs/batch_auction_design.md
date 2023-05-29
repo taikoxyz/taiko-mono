@@ -94,7 +94,7 @@ Provers are incentivized to submit proofs promptly. This shall increase their ch
 
 
 ### Reward and Penalty Mechanisms
-If the chosen fork for the verified block originates from the auction winner's proof, the winner's deposit and reward TKO tokens are refunded. If the selected fork comes from another prover's proof, the latter receives half the deposit, with the remaining half being burnt. This mechanism ensures fair competition and discourages manipulation, such as winners submitting correct proofs via different addresses.
+If the chosen fork for the verified block originates from the auction winner's proof, the winner's deposit are refunded and reward are minted. If the selected fork comes from another prover's proof, the latter receives half the deposit, with the remaining half being burnt. This mechanism ensures fair competition and discourages manipulation, such as winners submitting correct proofs via different addresses.
 
 ### Absence of Fallback Mode
 There is no secondary fee/reward model for blocks that aren't auctioned. This simplifies the auction design and eliminates the need for dual tokenomics systems, namely, an auction-based primary system and an alternate fallback system.
