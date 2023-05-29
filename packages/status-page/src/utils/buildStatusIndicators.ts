@@ -280,7 +280,7 @@ export async function buildStatusIndicators(
         return "green";
       },
       tooltip:
-        "The current base fee for an L2 transaction with EIP1559-enabled.",
+        "The current recommend max priority fee per gas for a fast transaction.",
     },
   ];
 
