@@ -350,25 +350,25 @@ export async function buildStatusIndicators(
         onEvent: (value: Status) => void
       ) => {
         const contract = new Contract(address, TaikoL1, provider);
-        contract.on(
-          "BlockProven",
-          (
-            id,
-            parentHash,
-            blockHash,
-            signalRoot,
-            prover,
-            provenAt,
-            ...args
-          ) => {
-            // ignore oracle prover
-            if (
-              prover.toLowerCase() !== config.oracleProverAddress.toLowerCase()
-            ) {
-              onEvent(new Date(provenAt).toTimeString());
-            }
+        const listener = (
+          id,
+          parentHash,
+          blockHash,
+          signalRoot,
+          prover,
+          provenAt,
+          ...args
+        ) => {
+          // ignore oracle prover
+          if (
+            prover.toLowerCase() !== config.oracleProverAddress.toLowerCase()
+          ) {
+            onEvent(new Date(provenAt).toTimeString());
           }
-        );
+        };
+        contract.on("BlockProven", listener);
+
+        return () => contract.off("BlockProven", listener);
       },
       colorFunc: function (status: Status) {
         return "green"; // todo: whats green, yellow, red?
