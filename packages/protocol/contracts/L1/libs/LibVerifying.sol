@@ -82,7 +82,7 @@ library LibVerifying {
         TaikoData.Block storage blk = state.blocks[i % config.ringBufferSize];
 
         uint256 fcId = blk.verifiedForkChoiceId;
-        // assert(fcId > 0);
+        assert(fcId > 0);
         bytes32 blockHash = blk.forkChoices[fcId].blockHash;
         uint32 gasUsed = blk.forkChoices[fcId].gasUsed;
         bytes32 signalRoot;
@@ -95,7 +95,7 @@ library LibVerifying {
         address systemProver = resolver.resolve("system_prover", true);
         while (i < state.numBlocks && processed < maxBlocks) {
             blk = state.blocks[i % config.ringBufferSize];
-            // assert(blk.blockId == i);
+            assert(blk.blockId == i);
 
             fcId = LibUtils.getForkChoiceId(state, blk, blockHash, gasUsed);
 
