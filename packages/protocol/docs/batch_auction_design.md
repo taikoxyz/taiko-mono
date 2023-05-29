@@ -1,67 +1,57 @@
 # Building a Batch-Based Auction System for Cost-Effective Prover Rewards
 
-## Overview
+## Introduction
 
-The current tokenomics structure rewards the fastest prover, inadvertently promoting speed over cost-effectiveness. This contradicts Taiko's goal of delivering cost-efficient proofs. By shifting the incentives towards cost-effective proofs, we can dramatically decrease Taiko's overall Layer 2 (L2) expenses, thereby augmenting our competitive standing in the market.
+The existing tokenomics infrastructure currently prioritizes speed over economic prudence when rewarding provers. However, Taiko aims to provide cost-effective proofs. To align with this goal and reduce comprehensive Layer 2 (L2) costs, it is necessary to transition the reward system to favor economically efficient proofs.
 
-## Key Metrics
+## Evaluation Metrics
 
-After numerous attempts at developing and implementing Taiko's tokenomics, several crucial insights have been obtained:
+Based on insights gained during the development of Taiko's tokenomics and contributions from Brecht and Hugo (zkpool), the following metrics are proposed for evaluating tokenomics designs. These metrics are classified based on their relevance and can be further refined through discussion and feedback.
 
-- The complexity and time commitment involved in this task may have been initially underestimated. A year into the process, it appears we are essentially back at the starting point.
-- A metric system is necessary to objectively evaluate and compare different designs. A comparison based on a set of metrics will facilitate objective discussions and ensure focus on the essential elements of various ideas, rather than unnecessary details.
+1. **Taiko Token Centricity**: The tokenomics design should prioritize the Taiko token over other tokens, such as USD stable coins. Maintaining a balance between proposer fees and prover rewards will help preserve or slightly reduce the supply of Taiko tokens over time, ensuring the long-term stability and value of the native token.
 
-Based on the provided insights and inputs from Brecht and Hugo (zkpool), the following proposed metrics for evaluating tokenomics are presented. These metrics are categorized based on their perceived significance, and I encourage further discussion and feedback to refine and enhance them.
+2. **Efficiency of Proving Resources**: Provers should avoid wasting computational resources on non-profitable tasks. Frivolous resource expenditure would require higher returns from accepted proofs to compensate for losses, resulting in increased average proof costs.
 
-1. **Taiko Token Centric**: The tokenomics design should primarily revolve around our Taiko token, rather than other tokens such as USD stable coins. An equilibrium should be achieved between proposer fees and prover rewards, aiming to maintain or slightly decrease the supply of Taiko tokens over time. This approach ensures the long-term stability and value of our native token.
+3. **Preference for Economical Proofs over Rapid Proofs**: While proofs should ideally be both economical and quick, cost-effectiveness should be prioritized when two proofs result in the same time delay. When time delays are within a specified upper limit, such as one hour, the cheaper proof should take precedence. This strategy encourages provers to prioritize cost over speed, reducing L2 transaction costs.
 
-1. **Efficient Use of Proving Resources**: Provers should not squander computational resources on non-profitable tasks. If resources are wasted, provers will understandably require higher returns from accepted proofs to offset their losses. This would invariably raise the average cost of proofs.
+4. **Prover Redundancy/Decentralization**: The system should incentivize multiple provers to remain active in block verification, rather than relying on a single prover to verify all blocks. Having a single prover can lead to unpredictable withdrawal times.
 
-1. **Cheaper Proofs over Faster Proofs**: While ideally, proofs should be both cost-efficient and fast, cheaper proofs should be prioritized if two proofs result in the same time delay. In the case of time delays within a specific upper limit, say, one hour, the less expensive proof should also be prioritized. This approach encourages provers to optimize for cost over speed, thus reducing our L2 transaction costs.
+5. **Absence of Built-In PoS Reward**: To avoid classification as a security, the tokenomics design should not offer tokens as rewards to stakers. Provers can set up a staking-based reward system that allows token holders to delegate their power, but this feature should not be integrated into the tokenomics.
 
-1. **Prover Redundancy/Decentralization**: The system should incentivize multiple provers to remain active for block verification, rather than leading to a single prover verifying all blocks which could potentially cause unexpectedly high withdrawal times.
+6. **Streamlined Decision Making**: Decisions related to block verification should not rely on complex algorithms. The process should be efficient and require minimal inputs.
 
-1. **No Built-In PoS Reward**: To prevent being classified as a security, our tokenomics design should not offer tokens to stakers as rewards. A prover may establish a staking-based reward system allowing token holders to delegate their power, but this should not be considered as part of our tokenomics.
+7. **Immediate Proof Submission**: Provers should be encouraged to submit proofs immediately without withholding them to wait for an optimal submission moment. Requiring proof storage and strategic decision-making about submission timings would add complexity and potentially discourage provers. Encouraging immediate proof submission promotes long-term optimization of proof time and cost, with an emphasis on cost efficiency.
 
-1. **Simplified Decision Making**: Decisions regarding the proof of Taiko's blocks should not rely on complex algorithms. The fewer inputs required for such decisions, the better.
+8. **Simplicity in Design**: The tokenomics should be easy to understand and accessible, especially for decision-makers and engineers within prover organizations. The design should clearly capture core concepts, facilitating rapid understanding of the fundamental principles. This clarity enables provers to formulate strategies and algorithms efficiently, enhancing their participation in the system.
 
-1. **Immediate Proof Submission**: Provers shouldn't be obligated to withhold their proofs and wait offline for the optimal submission moment. Implementing such a system would necessitate the development of supplementary infrastructure to hold proofs and make strategic decisions about submission timings. In comparison to our competitors, this added complexity could deter potential provers. Consequently, our tokenomics should incentivize immediate proof submissions upon readiness. This will ultimately drive provers to optimize both proof time and cost in the long term, with an emphasis on prioritizing cost efficiency.
+9. **Minimal Prover Fee**: This metric considers factors such as uncertainty about the quantity and types of blocks to be verified within a given period. The prover's ability to distribute the risk of uncertainty over future blocks affects the minimum reward they would accept for blocks.
 
-1. **Simplicity in Design**: It's crucial for our tokenomics to be understandable and accessible, particularly for the decision-makers and engineers within prover companies. The design should encapsulate core concepts in a succinct and coherent manner, facilitating a rapid comprehension of the fundamental principles. This clarity enables provers to efficiently devise their strategies and algorithms, thereby streamlining their participation in the system.
+10. **Implementation Complexity and Minimal L1 Cost**: The complexity of the smart contract/node code is crucial. The tokenomics should aim to minimize the average extra cost per block on the base layer. Provers may impose higher fees on L2 to compensate for this cost, potentially excluding transactions with lower fees.
 
-1. **Minimal Prover Fee**: This is different from "Preference for Cheaper Proofs over Faster Proofs". Factors such as uncertainty about the number and types of blocks to be verified within a given period, and whether the prover can distribute the risk of such uncertainty over a constant stream of future blocks, will also influence the minimum reward the prover will accept for blocks.
+11. **Prover Work Security**: Provers should feel secure about their ability to verify blocks in the foreseeable future. However, if they are more expensive than other provers, they should gradually lose their work.
 
-1. **Implementation Complexity and Minimal L1 Cost**: The complexity of the required code in the smart contracts/node is also an important factor to consider. Our tokenomics should strive to minimize the average additional cost per block on its base layer. Provers will likely impose higher fees on L2 to offset this cost, potentially leaving out transactions with lower fees.
-
-1. **Prover Work Security**: Provers should be confident about their ability to verify blocks in the foreseeable future. However, if they are more expensive than other provers, they should gradually lose their work.
-
-
-The above comparison metrics should guide our discussions and prevent an overemphasis on subjective opinions.
+These metrics provide a framework for objective evaluation and discourage subjective opinions in discussions.
 
 ## Proposed Solution
-An auction mechanism is suggested to realign provers' incentives towards cost-effectiveness. This mechanism allows provers to bid for block rewards, thereby establishing a transparent fee market. Furthermore, this model promotes resource conservation by enabling provers to commit to resource-intensive Zero-Knowledge Proof (ZKP) computations only after they have definitively won a block reward.
 
+An auction mechanism is proposed to align provers' incentives with cost-effectiveness. This mechanism allows provers to bid for block rewards, establishing a transparent fee market. Additionally, this model promotes resource conservation by enabling provers to commit to resource-intensive Zero-Knowledge Proof (ZKP) computations only after winning a block reward.
 
 ### Batch-Based Approach
-In light of the high gas fees associated with Ethereum, a batch-based strategy for conducting auctions is recommended. This strategy grants the winning bidder the right to verify a batch of blocks, thus reducing per-block gas costs. During the testnet phases, we plan to begin with a smaller batch size, eventually scaling up to 256 blocks by the mainnet launch.
+
+Considering the high gas fees on Ethereum, a batch-based strategy is recommended for conducting auctions. This approach grants the winning bidder the right to verify a batch of blocks, reducing per-block gas costs. The batch size will start smaller during testnet phases and scale up to 256 blocks by the mainnet launch.
 
 ### Provisions for Upcoming Blocks and Gas Costs
-To offset potential delays in ZKP, it's recommended to conduct auctions for forthcoming blocks even before they are proposed. This introduces a certain level of uncertainty for provers due to the unknown block gas used and data size at the beginning of the auction. To counter this, an auction pricing model based on the gas/data usage of the auctioned block is proposed. Here, the block reward would be calculated as `b*g`, where `b` is the winning bid in TKO tokens per gas and `g` is the actual gas used by the block. In this context, `b` will be referred to as the *bid per gas*, or simply the *bid*.
+
+To offset potential delays in ZKP, auctions for forthcoming blocks should be conducted before their proposal. This introduces uncertainty for provers due to unknown block gas usage and data size at the start of the auction. To address this, an auction pricing model based on the gas/data usage of the auctioned block is proposed. The block reward would be calculated as `b*g`, where `b` represents the winning bid in TKO tokens per gas and `g` is the actual gas used by the block. The winning bid (`b`) will be referred to as the *bid per gas* or *bid*.
 
 ### Bidding Procedures and Deposit Requirements
 
-We will employ the traditional English auction model, where all bids are publicly visible throughout the course of the auction, thus making a secretive, second-price auction model unsuitable in this context. Additionally, our inaugural tokenomics design emulates a Dutch auction, distinguished by its feature of escalating rewards over time.
+The traditional English auction model, with publicly visible bids, is employed to ensure transparency. A secretive, second-price auction model is unsuitable for this context. The initial bidding price for new auctions should be set at `s=2*p`, where `p` represents a moving average bid for all verified blocks. Subsequent bids should be at least 5% lower than the current bid. Bidders are required to deposit `s * max_block_gas_limit * num_blocks * 1.5` Taiko tokens for the batch. A penalty of `s * max_block_gas_limit * 1.5` Taiko tokens will be imposed and burnt for each block the winner fails to verify within the designated timeframe. Successful completion results in a refund of the deposit.
 
-
-The initial bidding price for new auctions should be set at `s=2*p`, where `p` represents a moving average *bid* for all verified blocks. Each subsequent bid should be at least 5% lower than the current bid. Bidders would need to deposit `s * max_block_gas_limit * num_blocks * 1.5` Taiko tokens for the batch. A penalty of `s * max_block_gas_limit * 1.5` Taiko tokens will be imposed and subsequently burnt for each block the winner fails to verify within the designated timeframe. Successful completion will result in a refund of the deposit.
-
-
-A key concern is the risk of a monopolistic scenario, where one highly efficient prover continuously wins bids, particularly if they're prepared to operate with a slim profit margin. This could marginalize other provers, even those with slightly higher costs, leaving them devoid of work and potentially leading them to exit the system. To encourage diverse participation and avert single-prover dominance, we may need to refine our bid scoring methodology. Rather than focusing solely on the bid price , we could factor in other parameters such as the deposit amount , the prover's average proof delay , and the ratio of their proof submissions to the number of verified blocks they've won. This multi-dimensional evaluation would promote a more equitable competition, ensuring the system's sustainability.
+To avoid monopolistic scenarios and encourage diverse participation, bid scoring methodology can be refined. In addition to bid price, parameters such as deposit amount, average proof delay, and the ratio of proof submissions to verified blocks won can be considered. This multi-dimensional evaluation promotes equitable competition and ensures the system's sustainability.
 
 ```python
 def will_new_bid_win(new_bid, old_bid):
-
-    # return False immediately if new_bid does not meet these conditions
     if new_bid.bid_per_gas < old_bid.bid_per_gas * 0.9:
         return False
     if new_bid.deposit < old_bid.deposit * 0.5:
@@ -72,74 +62,74 @@ def will_new_bid_win(new_bid, old_bid):
     new_score = 0.0
     old_score = 0.0
 
-    # calculate scores for each field
     if new_bid.bid_per_gas <= old_bid.bid_per_gas:
-        new_score += 1 - (new_bid.bid_per_gas / old_bid.bid_per_gas)  # higher score if new_bid.bid_per_gas is smaller but not 10% smaller
+        new_score += 1 - (new_bid.bid_per_gas / old_bid.bid_per_gas)
     else:
-        old_score += 1 - (old_bid.bid_per_gas / new_bid.bid_per_gas)  # higher score if old_bid.bid_per_gas is smaller
+        old_score += 1 - (old_bid.bid_per_gas / new_bid.bid_per_gas)
 
     deposit_for_score = min(new_bid.deposit, 2 * old_bid.deposit)
     if deposit_for_score >= 2 * old_bid.deposit:
-        new_score += deposit_for_score / old_bid.deposit - 1  # higher score if new_bid.deposit is much larger
+        new_score += deposit_for_score / old_bid.deposit - 1
     else:
-        old_score += old_bid.deposit / deposit_for_score - 1  # higher score if old_bid.deposit is much larger
+        old_score += old_bid.deposit / deposit_for_score - 1
 
     if new_bid.success_rate >= old_bid.success_rate * 1.15:
-        new_score += new_bid.success_rate / old_bid.success_rate - 1  # higher score if new_bid.success_rate is much larger
+        new_score += new_bid.success_rate / old_bid.success_rate - 1
     else:
-        old_score += old_bid.success_rate / new_bid.success_rate - 1  # higher score if old_bid.success_rate is much larger
 
-    # if new_bid's total score is higher, it's considered better
+
+        old_score += old_bid.success_rate / new_bid.success_rate - 1
+
     return new_score > old_score
-
-
 ```
 
-
 ### Auction Window, Proofing Window, and Managing Multiple Auctions
-The auction window initiates with the first bid and concludes after either 5 minutes or 25 Ethereum blocks. Blocks become provable only once the auction has officially concluded. The auction winner is required to submit the initial Zero-Knowledge Proof (ZKP) for the block within the proofing window—e.g., 60 minutes—of either the block proposal or the auction's end, whichever is later. Other provers are permitted to submit proofs, creating alternative fork choices, either following the initial ZKP submission or after the proofing window has elapsed. While simultaneous auctions for different batches are permissible, it's advisable to restrict this to the upcoming 100 batches for optimal management.
 
-Provers are incentivized to submit proofs promptly. This shall increase their chances of winning future block auctions and potentially allows them to gradually reduce the proofing window. This can serve as a strategy to outmaneuver competitors who can generate low-cost proofs but require a time close to the proofing window to do so.
+The auction window begins with the first bid and concludes after either 5 minutes or 25 Ethereum blocks. Blocks can only be proven once the auction officially ends. The auction winner must submit the initial Zero-Knowledge Proof (ZKP) for the block within the proofing window, which is set to 60 minutes after the block proposal or the auction's end, whichever is later. Other provers can submit proofs, creating alternative fork choices, either after the initial ZKP submission or after the proofing window has elapsed. While simultaneous auctions for different batches are allowed, it is advisable to limit this to the upcoming 100 batches for efficient management.
 
+Provers are incentivized to submit proofs promptly to increase their chances of winning future block auctions and potentially reduce the proofing window. This strategy can outmaneuver competitors who generate low-cost proofs but require close to the proofing window time.
 
 ### Reward and Penalty Mechanisms
-If the chosen fork for the verified block originates from the auction winner's proof, the winner's deposit and reward TKO tokens are refunded. If the selected fork comes from another prover's proof, the latter receives half the deposit, with the remaining half being burnt. This mechanism ensures fair competition and discourages manipulation, such as winners submitting correct proofs via different addresses.
+
+If the chosen fork for the verified block originates from the auction winner's proof, the winner's deposit and reward TKO tokens are refunded. If the selected fork comes from another prover's proof, the latter receives half the deposit, and the remaining half is burnt. This mechanism ensures fair competition and discourages manipulation, such as winners submitting correct proofs via different addresses.
 
 ### Absence of Fallback Mode
-There is no secondary fee/reward model for blocks that aren't auctioned. This simplifies the auction design and eliminates the need for dual tokenomics systems, namely, an auction-based primary system and an alternate fallback system.
+
+There is no secondary fee/reward model for unauctioned blocks. This simplifies the auction design and eliminates the need for dual tokenomics systems, reducing complexity.
 
 ### Block Fees
+
 A fee in Taiko tokens should be levied from the block proposer, calculated as `p * gas_limit`, where `p` is the moving average bid for all verified blocks. Another moving average `q` could be introduced to cover the bid of all unverified blocks that have been auctioned. For example, the fee could be calculated as `(p * 0.5 + q * 0.5) * gas_limit`.
 
 ## Best Strategy for a Prover
 
-
 ### Bidding
-A prover should consistently monitor recent winning bid scores to gauge the current market status. From there, he can calculate an appropriate bidding price that aligns with his proof generation costs. Optionally, to enhance his score, he could deposit additional Taiko tokens as auction collateral.
+
+Provers should monitor recent winning bid scores to assess the current market status. Based on this information, they can calculate appropriate bidding prices aligned with their proof generation costs. Additional Taiko tokens can be deposited as collateral to enhance their bid scores.
 
 ### Proof Submission
-He should submit proofs at the earliest opportunity.
+
+Provers should submit proofs as soon as possible.
 
 ### Optimization
-The prover's optimization should be conducted in a hierarchical manner, with cost reduction as the primary focus. After reducing proof costs, the next step would be to minimize proof delay, followed by improving the rate of proof submissions. An additional optional strategy could be to acquire more Taiko tokens to perpetually boost his score.
+
+Provers should prioritize cost reduction as the primary optimization focus. After reducing proof costs, minimizing proof delay and improving the rate of proof submissions should be addressed. Acquiring more Taiko tokens as a strategy to boost score perpetually is optional.
 
 ### Pool Participation
-A prover may opt to join a prover pool to engage in off-chain auctions managed by the pool itself. Subsequently, the pool participates in the on-chain auction on behalf of its members and manages the deposits of Taiko tokens, thereby enhancing the bid scores for all participants within the pool. This strategy allows for pooled resources and risk, potentially offering an advantage in the competitive bidding process.
+
+Provers can join prover pools to engage in off-chain auctions managed by the pool. The pool then participates in the on-chain auction on behalf of its members, managing Taiko token deposits and enhancing bid scores for all participants. This strategy allows for pooled resources and risk, potentially providing an advantage in the competitive bidding process.
 
 ## Challenges
 
 ### Lack of Competition
-The proposed auction framework's success heavily depends on the active participation of numerous independent entities. In the event of collusion or alliances among provers to boost their profits, they could strategically place a single bid at the initial/highest price `s`, leading to a continual increase in rewards. This goes against the system's intention of promoting cost-efficient competition.
 
-However, such behavior might inadvertently stimulate competition. As the reward for verifying considerably increases, it's likely to pique the interest of other provers, thus promoting their participation. This market self-regulation could restore equilibrium and maintain the auction process's competitive integrity.
-
+The success of the proposed auction framework relies on active participation from numerous independent entities. Collusion or alliances among provers to maximize profits by strategically placing a single bid at the highest price (`s`) could undermine cost-efficient competition. However, such behavior may inadvertently stimulate competition as higher rewards attract more provers, restoring equilibrium and maintaining competitive integrity.
 
 ### Low Bid Attacks
 
-A malicious prover may strategize to win numerous batches by placing extremely low bids, aiming to manipulate the starting price of future auctions. This could potentially discourage other provers from participating in subsequent auctions. To safeguard against such manipulation, it's imperative to establish a mechanism that ensures the starting price for future auctions changes incrementally and consistently, thereby maintaining a fair and competitive bidding environment.
-
+Malicious provers may attempt to manipulate starting prices of future auctions by placing extremely low bids to win multiple batches. This manipulation could discourage other provers from participating in subsequent auctions. To mitigate this, a mechanism ensuring incremental and consistent changes to starting prices for future auctions is necessary to maintain a fair and competitive bidding environment.
 
 ### Added Verification Delay
-Introducing an auction window inevitably introduces an additional delay to the verification time. This delay might not be noticeable when the average verification time is relatively long (over 30 minutes). However, it could become significant in future scenarios where proof generation takes just a few minutes.
 
-Despite this, as stressed at the beginning of the proposal, our goal is to optimize for cost, not speed. While this additional delay is a vital consideration, it's unlikely to pose a significant obstacle to our primary objective of cost-effectiveness.
+Introducing an auction window inevitably introduces an additional delay in the verification time. While this delay may not be noticeable when the average verification time is relatively long, it could become significant as proof generation times decrease. However, the primary objective is cost-effectiveness, not speed. While the additional delay is a consideration, it is unlikely to significantly hinder the primary goal of achieving cost efficiency.
+
