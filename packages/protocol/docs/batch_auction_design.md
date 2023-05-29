@@ -85,7 +85,7 @@ def will_new_bid_win(new_bid, old_bid):
         old_score += old_bid.success_rate / new_bid.success_rate - 1  # higher score if old_bid.success_rate is much larger
 
     # if new_bid's total score is higher, it's considered better
-    return new_score > old_score
+    return new_score > old_score * 1.1
 
 
 ```
