@@ -10,7 +10,9 @@
   const routes = {
     "/": wrap({
       component: Home,
-      enableL3: import.meta.env.VITE_ENABLE_L3,
+      props: {
+        enableL3: import.meta.env.VITE_ENABLE_L3,
+      },
     }),
   };
 </script>
