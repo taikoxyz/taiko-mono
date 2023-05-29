@@ -49,6 +49,11 @@ library LibVerifying {
                 || config.ethDepositGas == 0 //
                 || config.ethDepositMaxFee == 0
                 || config.ethDepositMaxFee >= type(uint96).max
+                || config.auctionWindowInSec == 0
+                || config.auctionBatchModulo == 0
+                || config.auctionBatchSize == 0
+                || config.auctionSmallestGasPerBlockBid == 0
+                || config.bidDiffBp == 0
         ) revert L1_INVALID_CONFIG();
 
         uint64 timeNow = uint64(block.timestamp);
@@ -117,7 +122,6 @@ library LibVerifying {
             signalRoot = fc.signalRoot;
 
             _markBlockVerified({
-                state: state,
                 blk: blk,
                 fcId: uint24(fcId),
                 fc: fc
@@ -150,7 +154,6 @@ library LibVerifying {
     }
 
     function _markBlockVerified(
-        TaikoData.State storage state,
         TaikoData.Block storage blk,
         TaikoData.ForkChoice storage fc,
         uint24 fcId

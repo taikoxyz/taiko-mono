@@ -41,6 +41,11 @@ library TaikoConfig {
             ethDepositGas: 21_000,
             ethDepositMaxFee: 1 ether / 10,
             txListCacheExpiry: 0,
+            auctionWindowInSec: 120,
+            auctionBatchModulo: 5,
+            auctionBatchSize: 25,
+            auctionSmallestGasPerBlockBid: 1, // in wei
+            bidDiffBp: 1000, // 10.000 BP = 100%
             relaySignalRoot: false
         });
     }

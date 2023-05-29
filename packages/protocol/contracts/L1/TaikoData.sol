@@ -27,6 +27,15 @@ library TaikoData {
         uint64 maxEthDepositsPerBlock;
         uint96 maxEthDepositAmount;
         uint96 minEthDepositAmount;
+        //How long auction window will be open after the first bid
+        uint16 auctionWindowInSec;
+        // This means, if prover Bob wins auction, he 
+        // skips every Nth block, e.g.: if this is 5, 
+        // then 0..5..10.. are his block.
+        uint16 auctionBatchModulo;
+        uint16 auctionBatchSize;
+        uint16 auctionSmallestGasPerBlockBid; // in wei
+        uint16 bidDiffBp; // 10.000 BP = 100%
         bool relaySignalRoot;
     }
 
@@ -114,6 +123,13 @@ library TaikoData {
         uint96 amount;
     }
 
+    struct Bid {
+        uint256 minFeePerGasInWei;
+        uint256 deposit;
+        uint256 bidAt;
+        address bidder;
+    }
+
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint256 blockId_mode_ringBufferSize => Block) blocks;
@@ -126,6 +142,7 @@ library TaikoData {
             ) forkChoiceIds;
         mapping(address account => uint256 balance) taikoTokenBalances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
+        mapping(uint256 batchStartBlockId => Bid bid) bids;
         EthDeposit[] ethDeposits;
         // Never or rarely changed
         // Slot 7: never or rarely changed
