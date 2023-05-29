@@ -42,11 +42,11 @@ contract BatchBasedAuction {
     }
 
     function placeBid(uint256 _blockId) external payable {
-        require(block.timestamp < auctions[_blockId].endTime, "Auction has ended");
-
-        uint256 batch = _blockId / batchSize;
-
-        Auction storage auction = auctions[batch];
+        Auction storage auction = auctions[ _blockId / batchSize];
+        if (auction.endTime <= 1)
+            auctions[_blockId].endTime = block.timestamp + 5 minutes;
+        else
+            require(block.timestamp < auctions[_blockId].endTime, "Auction has ended");
 
         // Calculate the minimum bid required
         uint256 minBid = initialBiddingPrice;
