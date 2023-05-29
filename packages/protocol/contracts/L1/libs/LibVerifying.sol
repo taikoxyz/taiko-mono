@@ -127,10 +127,6 @@ library LibVerifying {
         }
 
         if (processed > 0) {
-            unchecked {
-                state.lastVerifiedBlockId += processed;
-            }
-
             if (config.relaySignalRoot) {
                 // Send the L2's signal root to the signal service so other TaikoL1
                 // deployments, if they share the same signal service, can relay the
@@ -161,6 +157,7 @@ library LibVerifying {
         unchecked {
             state.accBlockFees -= reward;
             state.accProposedAt -= blk.proposedAt;
+            ++state.lastVerifiedBlockId;
         }
 
         // reward the prover
