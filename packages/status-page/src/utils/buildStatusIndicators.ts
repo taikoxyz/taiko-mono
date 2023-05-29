@@ -234,7 +234,7 @@ export async function buildStatusIndicators(
       provider: config.l2Provider,
       contractAddress: "",
       header: "Gas Price (gwei)",
-      intervalInMs: 20000,
+      intervalInMs: 30000,
       colorFunc: (value: Status) => {
         return "green";
       },
@@ -253,7 +253,7 @@ export async function buildStatusIndicators(
       provider: config.l2Provider,
       contractAddress: config.l2TaikoAddress,
       header: "L2 EIP1559 BaseFee (gwei)",
-      intervalInMs: 15000,
+      intervalInMs: 30000,
       colorFunc: (value: Status) => {
         return "green";
       },
@@ -275,7 +275,7 @@ export async function buildStatusIndicators(
       provider: config.l2Provider,
       contractAddress: config.l2TaikoAddress,
       header: "L2 EIP1559 Recommended MaxPriorityFeePerGas (gwei)",
-      intervalInMs: 15000,
+      intervalInMs: 30000,
       colorFunc: (value: Status) => {
         return "green";
       },
