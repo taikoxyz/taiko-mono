@@ -49,10 +49,51 @@ In light of the high gas fees associated with Ethereum, a batch-based strategy f
 To offset potential delays in ZKP, it's recommended to conduct auctions for forthcoming blocks even before they are proposed. This introduces a certain level of uncertainty for provers due to the unknown block gas used and data size at the beginning of the auction. To counter this, an auction pricing model based on the gas/data usage of the auctioned block is proposed. Here, the block reward would be calculated as `b*g`, where `b` is the winning bid in TKO tokens per gas and `g` is the actual gas used by the block. In this context, `b` will be referred to as the *bid per gas*, or simply the *bid*.
 
 ### Bidding Procedures and Deposit Requirements
+
+We will employ the traditional English auction model, where all bids are publicly visible throughout the course of the auction, thus making a secretive, second-price auction model unsuitable in this context. Additionally, our inaugural tokenomics design emulates a Dutch auction, distinguished by its feature of escalating rewards over time.
+
+
 The initial bidding price for new auctions should be set at `s=2*p`, where `p` represents a moving average *bid* for all verified blocks. Each subsequent bid should be at least 5% lower than the current bid. Bidders would need to deposit `s * max_block_gas_limit * num_blocks * 1.5` Taiko tokens for the batch. A penalty of `s * max_block_gas_limit * 1.5` Taiko tokens will be imposed and subsequently burnt for each block the winner fails to verify within the designated timeframe. Successful completion will result in a refund of the deposit.
 
 
-A key concern is the risk of a monopolistic scenario, where one highly efficient prover continuously wins bids, particularly if they're prepared to operate with a slim profit margin. This could marginalize other provers, even those with slightly higher costs, leaving them devoid of work and potentially leading them to exit the system. To encourage diverse participation and avert single-prover dominance, we may need to refine our bid scoring methodology. Rather than focusing solely on the bid price, we could factor in other parameters such as the deposit amount, the prover's average proof delay, and the ratio of their proof submissions to the number of blocks they've won. This multi-dimensional evaluation would promote a more equitable competition, ensuring the system's sustainability.
+A key concern is the risk of a monopolistic scenario, where one highly efficient prover continuously wins bids, particularly if they're prepared to operate with a slim profit margin. This could marginalize other provers, even those with slightly higher costs, leaving them devoid of work and potentially leading them to exit the system. To encourage diverse participation and avert single-prover dominance, we may need to refine our bid scoring methodology. Rather than focusing solely on the bid price , we could factor in other parameters such as the deposit amount , the prover's average proof delay , and the ratio of their proof submissions to the number of verified blocks they've won. This multi-dimensional evaluation would promote a more equitable competition, ensuring the system's sustainability.
+
+```python
+def will_new_bid_win(new_bid, old_bid):
+
+    # return False immediately if new_bid does not meet these conditions
+    if new_bid.bid_per_gas < old_bid.bid_per_gas * 0.9:
+        return False
+    if new_bid.deposit < old_bid.deposit * 0.5:
+        return False
+    if new_bid.success_rate == 0:
+        return False
+
+    new_score = 0.0
+    old_score = 0.0
+
+    # calculate scores for each field
+    if new_bid.bid_per_gas <= old_bid.bid_per_gas:
+        new_score += 1 - (new_bid.bid_per_gas / old_bid.bid_per_gas)  # higher score if new_bid.bid_per_gas is smaller but not 10% smaller
+    else:
+        old_score += 1 - (old_bid.bid_per_gas / new_bid.bid_per_gas)  # higher score if old_bid.bid_per_gas is smaller
+
+    deposit_for_score = min(new_bid.deposit, 2 * old_bid.deposit)
+    if deposit_for_score >= 2 * old_bid.deposit:
+        new_score += deposit_for_score / old_bid.deposit - 1  # higher score if new_bid.deposit is much larger
+    else:
+        old_score += old_bid.deposit / deposit_for_score - 1  # higher score if old_bid.deposit is much larger
+
+    if new_bid.success_rate >= old_bid.success_rate * 1.15:
+        new_score += new_bid.success_rate / old_bid.success_rate - 1  # higher score if new_bid.success_rate is much larger
+    else:
+        old_score += old_bid.success_rate / new_bid.success_rate - 1  # higher score if old_bid.success_rate is much larger
+
+    # if new_bid's total score is higher, it's considered better
+    return new_score > old_score
+
+
+```
 
 
 ### Auction Window, Proofing Window, and Managing Multiple Auctions
@@ -75,7 +116,6 @@ A fee in Taiko tokens should be levied from the block proposer, calculated as `p
 
 ### Bidding
 A prover should consistently monitor recent winning bid scores to gauge the current market status. From there, he can calculate an appropriate bidding price that aligns with his proof generation costs. Optionally, to enhance his score, he could deposit additional Taiko tokens as auction collateral.
-
 
 ### Proof Submission
 He should submit proofs at the earliest opportunity.
