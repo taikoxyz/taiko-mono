@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
-import {AddressManager} from "../contracts/common/AddressManager.sol";
-import {LibEthDepositing} from "../contracts/L1/libs/LibEthDepositing.sol";
-import {TaikoConfig} from "../contracts/L1/TaikoConfig.sol";
-import {TaikoData} from "../contracts/L1/TaikoData.sol";
-import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
-import {TaikoToken} from "../contracts/L1/TaikoToken.sol";
-import {SignalService} from "../contracts/signal/SignalService.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {TaikoL1TestBase} from "./TaikoL1TestBase.t.sol";
+import { Test } from "forge-std/Test.sol";
+import { console2 } from "forge-std/console2.sol";
+import { AddressManager } from "../contracts/common/AddressManager.sol";
+import { LibEthDepositing } from "../contracts/L1/libs/LibEthDepositing.sol";
+import { TaikoConfig } from "../contracts/L1/TaikoConfig.sol";
+import { TaikoData } from "../contracts/L1/TaikoData.sol";
+import { TaikoL1 } from "../contracts/L1/TaikoL1.sol";
+import { TaikoToken } from "../contracts/L1/TaikoToken.sol";
+import { SignalService } from "../contracts/signal/SignalService.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { TaikoL1TestBase } from "./TaikoL1TestBase.t.sol";
 
 contract TaikoL1_NoCooldown is TaikoL1 {
     function getConfig()
@@ -169,11 +169,11 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         vm.prank(Alice, Alice);
         vm.expectRevert();
-        L1.depositEtherToL2{value: minAmount - 1}();
+        L1.depositEtherToL2{ value: minAmount - 1 }();
 
         vm.prank(Alice, Alice);
         vm.expectRevert();
-        L1.depositEtherToL2{value: maxAmount + 1}();
+        L1.depositEtherToL2{ value: maxAmount + 1 }();
 
         assertEq(L1.getStateVariables().nextEthDepositToProcess, 0);
         assertEq(L1.getStateVariables().numEthDeposits, 0);
@@ -196,7 +196,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         printVariables("before sending ethers");
         for (uint256 i; i < count; ++i) {
             vm.prank(Alice, Alice);
-            L1.depositEtherToL2{value: (i + 1) * 1 ether}();
+            L1.depositEtherToL2{ value: (i + 1) * 1 ether }();
         }
         printVariables("after sending ethers");
 
@@ -307,21 +307,21 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         // So after this point we have 8 deposits
         vm.prank(Alice, Alice);
-        L1.depositEtherToL2{value: 1 ether}();
+        L1.depositEtherToL2{ value: 1 ether }();
         vm.prank(Bob, Bob);
-        L1.depositEtherToL2{value: 2 ether}();
+        L1.depositEtherToL2{ value: 2 ether }();
         vm.prank(Carol, Carol);
-        L1.depositEtherToL2{value: 3 ether}();
+        L1.depositEtherToL2{ value: 3 ether }();
         vm.prank(Dave, Dave);
-        L1.depositEtherToL2{value: 4 ether}();
+        L1.depositEtherToL2{ value: 4 ether }();
         vm.prank(Eve, Eve);
-        L1.depositEtherToL2{value: 5 ether}();
+        L1.depositEtherToL2{ value: 5 ether }();
         vm.prank(Frank, Frank);
-        L1.depositEtherToL2{value: 6 ether}();
+        L1.depositEtherToL2{ value: 6 ether }();
         vm.prank(George, George);
-        L1.depositEtherToL2{value: 7 ether}();
+        L1.depositEtherToL2{ value: 7 ether }();
         vm.prank(Hilbert, Hilbert);
-        L1.depositEtherToL2{value: 8 ether}();
+        L1.depositEtherToL2{ value: 8 ether }();
 
         assertEq(L1.getStateVariables().numEthDeposits, 8); // The number of
             // deposits

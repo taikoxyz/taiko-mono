@@ -3,8 +3,8 @@
 // https://github.com/recmo/experiment-solexp/blob/main/src/test/FixedPointMathLib.t.sol
 pragma solidity 0.8.18;
 
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
+import { Test } from "forge-std/Test.sol";
+import { console2 } from "forge-std/console2.sol";
 import "../contracts/thirdparty/LibFixedPointMath.sol";
 
 contract LibFixedPointMathTest is Test {

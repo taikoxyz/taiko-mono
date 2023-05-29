@@ -6,9 +6,9 @@
 
 pragma solidity ^0.8.18;
 
-import {IBridge} from "../IBridge.sol";
-import {LibAddress} from "../../libs/LibAddress.sol";
-import {LibBridgeData} from "./LibBridgeData.sol";
+import { IBridge } from "../IBridge.sol";
+import { LibAddress } from "../../libs/LibAddress.sol";
+import { LibBridgeData } from "./LibBridgeData.sol";
 
 library LibBridgeInvoke {
     using LibAddress for address;
@@ -39,7 +39,7 @@ library LibBridgeInvoke {
             srcChainId: message.srcChainId
         });
 
-        (success,) = message.to.call{value: message.callValue, gas: gasLimit}(
+        (success,) = message.to.call{ value: message.callValue, gas: gasLimit }(
             message.data
         );
 

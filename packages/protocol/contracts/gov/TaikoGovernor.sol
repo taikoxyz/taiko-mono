@@ -10,11 +10,11 @@ import {
     GovernorUpgradeable,
     IGovernorUpgradeable
 } from "@openzeppelin/contracts-upgradeable/governance/GovernorUpgradeable.sol";
-import {GovernorSettingsUpgradeable} from
+import { GovernorSettingsUpgradeable } from
     "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorSettingsUpgradeable.sol";
-import {GovernorCountingSimpleUpgradeable} from
+import { GovernorCountingSimpleUpgradeable } from
     "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorCountingSimpleUpgradeable.sol";
-import {GovernorVotesUpgradeable} from
+import { GovernorVotesUpgradeable } from
     "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesUpgradeable.sol";
 import {
     GovernorVotesQuorumFractionUpgradeable,
@@ -26,14 +26,14 @@ import {
     TimelockControllerUpgradeable
 } from
     "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorTimelockControlUpgradeable.sol";
-import {Initializable} from
+import { Initializable } from
     "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {OwnableUpgradeable} from
+import { OwnableUpgradeable } from
     "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-import {LibTaikoTokenConfig} from "../L1/TaikoToken.sol";
-import {EssentialContract} from "../common/EssentialContract.sol";
-import {Proxied} from "../common/Proxied.sol";
+import { LibTaikoTokenConfig } from "../L1/TaikoToken.sol";
+import { EssentialContract } from "../common/EssentialContract.sol";
+import { Proxied } from "../common/Proxied.sol";
 
 /// @custom:security-contact hello@taiko.xyz
 contract TaikoGovernor is
@@ -181,4 +181,4 @@ contract TaikoGovernor is
     }
 }
 
-contract ProxiedTaikoGovernor is Proxied, TaikoGovernor {}
+contract ProxiedTaikoGovernor is Proxied, TaikoGovernor { }

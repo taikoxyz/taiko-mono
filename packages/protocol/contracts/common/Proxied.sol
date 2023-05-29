@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.18;
 
-import {Initializable} from
+import { Initializable } from
     "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 abstract contract Proxied is Initializable {

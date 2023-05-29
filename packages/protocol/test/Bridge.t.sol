@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import {AddressManager} from "../contracts/common/AddressManager.sol";
-import {IBridge, Bridge} from "../contracts/bridge/Bridge.sol";
-import {BridgeErrors} from "../contracts/bridge/BridgeErrors.sol";
-import {EtherVault} from "../contracts/bridge/EtherVault.sol";
-import {console2} from "forge-std/console2.sol";
-import {LibBridgeStatus} from "../contracts/bridge/libs/LibBridgeStatus.sol";
-import {SignalService} from "../contracts/signal/SignalService.sol";
-import {Test} from "forge-std/Test.sol";
-import {ICrossChainSync} from "../contracts/common/ICrossChainSync.sol";
+import { AddressManager } from "../contracts/common/AddressManager.sol";
+import { IBridge, Bridge } from "../contracts/bridge/Bridge.sol";
+import { BridgeErrors } from "../contracts/bridge/BridgeErrors.sol";
+import { EtherVault } from "../contracts/bridge/EtherVault.sol";
+import { console2 } from "forge-std/console2.sol";
+import { LibBridgeStatus } from "../contracts/bridge/libs/LibBridgeStatus.sol";
+import { SignalService } from "../contracts/signal/SignalService.sol";
+import { Test } from "forge-std/Test.sol";
+import { ICrossChainSync } from "../contracts/common/ICrossChainSync.sol";
 
 contract BadReceiver {
     receive() external payable {
@@ -124,7 +124,7 @@ contract BridgeTest is Test {
         });
 
         vm.expectRevert(BridgeErrors.B_OWNER_IS_NULL.selector);
-        bridge.sendMessage{value: amount}(message);
+        bridge.sendMessage{ value: amount }(message);
     }
 
     function test_send_message_ether_reverts_when_dest_chain_is_not_enabled()
@@ -142,7 +142,7 @@ contract BridgeTest is Test {
         });
 
         vm.expectRevert(BridgeErrors.B_WRONG_CHAIN_ID.selector);
-        bridge.sendMessage{value: amount}(message);
+        bridge.sendMessage{ value: amount }(message);
     }
 
     function test_send_message_ether_reverts_when_dest_chain_same_as_block_chainid(
@@ -161,7 +161,7 @@ contract BridgeTest is Test {
         });
 
         vm.expectRevert(BridgeErrors.B_WRONG_CHAIN_ID.selector);
-        bridge.sendMessage{value: amount}(message);
+        bridge.sendMessage{ value: amount }(message);
     }
 
     function test_send_message_ether_reverts_when_to_is_zero_address() public {
@@ -177,7 +177,7 @@ contract BridgeTest is Test {
         });
 
         vm.expectRevert(BridgeErrors.B_WRONG_TO_ADDRESS.selector);
-        bridge.sendMessage{value: amount}(message);
+        bridge.sendMessage{ value: amount }(message);
     }
 
     function test_send_message_ether_with_no_processing_fee() public {
@@ -192,7 +192,7 @@ contract BridgeTest is Test {
             destChain: destChainId
         });
 
-        bytes32 msgHash = bridge.sendMessage{value: amount}(message);
+        bytes32 msgHash = bridge.sendMessage{ value: amount }(message);
 
         bool isMessageSent = bridge.isMessageSent(msgHash);
         assertEq(isMessageSent, true);
@@ -212,7 +212,7 @@ contract BridgeTest is Test {
         });
 
         bytes32 msgHash =
-            bridge.sendMessage{value: amount + processingFee}(message);
+            bridge.sendMessage{ value: amount + processingFee }(message);
 
         bool isMessageSent = bridge.isMessageSent(msgHash);
         assertEq(isMessageSent, true);
@@ -234,7 +234,7 @@ contract BridgeTest is Test {
         });
 
         vm.expectRevert(BridgeErrors.B_INCORRECT_VALUE.selector);
-        bridge.sendMessage{value: amount}(message);
+        bridge.sendMessage{ value: amount }(message);
     }
 
     // test with a known good merkle proof / message since we cant generate

@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.18;
 
-import {AddressManager} from "../common/AddressManager.sol";
+import { AddressManager } from "../common/AddressManager.sol";
 
 /**
  * @title ExampleStaticAddressManager
