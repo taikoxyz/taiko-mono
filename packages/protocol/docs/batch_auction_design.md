@@ -91,6 +91,8 @@ def will_new_bid_win(new_bid, old_bid):
 The function shall be virtual to allow customization in derived smart contracts, enabling flexibility and extensibility.
 
 
+Bid increments in English auctions serve as an effective strategy to encourage serious bidding, ensure fair competition, reduce on-chain transaction costs, and minimize proof rewards. By requiring new bids to exceed the current winning bid by a specified percentage in score(e.g., 10% higher), trivial bids are filtered out, enabling the auction to quickly reach the lowest bid per gas.
+
 ### Auction Window, Proofing Window, and Managing Multiple Auctions
 The auction window initiates with the first bid and concludes after either 5 minutes or 25 Ethereum blocks. Blocks become provable only once the auction has officially concluded. The auction winner is required to submit the initial Zero-Knowledge Proof (ZKP) for the block within the proofing window—e.g., 60 minutes—of either the block proposal or the auction's end, whichever is later. Other provers are permitted to submit proofs, creating alternative fork choices, either following the initial ZKP submission or after the proofing window has elapsed. While simultaneous auctions for different batches are permissible, it's advisable to restrict this to the upcoming 100 batches for optimal management.
 
