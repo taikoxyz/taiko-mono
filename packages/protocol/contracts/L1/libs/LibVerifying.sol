@@ -96,7 +96,6 @@ library LibVerifying {
         while (i < state.numBlocks && processed < maxBlocks) {
             blk = state.blocks[i % config.ringBufferSize];
             // assert(blk.blockId == i);
-            require(blk.blockId == i, "EFG");
 
             fcId = LibUtils.getForkChoiceId(state, blk, blockHash, gasUsed);
 
