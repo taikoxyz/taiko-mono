@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -75,18 +74,23 @@ func (svc *Service) saveBlockProvenEvent(
 	eventindexer.BlockProvenEventsProcessed.Inc()
 
 	if event.Prover.Hex() != systemProver.Hex() && event.Prover.Hex() != oracleProver.Hex() {
-		if err := svc.updateAverageBlockTime(ctx, event); err != nil {
-			return errors.Wrap(err, "svc.updateAverageBlockTime")
+		if err := svc.updateAverageProofTime(ctx, event); err != nil {
+			return errors.Wrap(err, "svc.updateAverageProofTime")
 		}
 	}
 
 	return nil
 }
 
-func (svc *Service) updateAverageBlockTime(ctx context.Context, event *taikol1.TaikoL1BlockProven) error {
+func (svc *Service) updateAverageProofTime(ctx context.Context, event *taikol1.TaikoL1BlockProven) error {
 	block, err := svc.taikol1.GetBlock(nil, event.Id)
 	if err != nil {
 		return errors.Wrap(err, "svc.taikoL1.GetBlock")
+	}
+
+	eventBlock, err := svc.ethClient.BlockByHash(ctx, event.Raw.BlockHash)
+	if err != nil {
+		return errors.Wrap(err, "svc.ethClient.BlockByHash")
 	}
 
 	stat, err := svc.statRepo.Find(ctx)
@@ -96,14 +100,23 @@ func (svc *Service) updateAverageBlockTime(ctx context.Context, event *taikol1.T
 
 	proposedAt := block.ProposedAt
 
-	provenAt := time.Now().Unix()
+	provenAt := eventBlock.Time()
 
-	proofTime := uint64(provenAt) - proposedAt
+	proofTime := provenAt - proposedAt
 
-	newAverageProofTime := calcNewAverage(stat.AverageProofTime, stat.NumProofs, proofTime)
+	avg, ok := new(big.Int).SetString(stat.AverageProofTime, 10)
+	if !ok {
+		return errors.New("unable to convert average proof time to string")
+	}
+
+	newAverageProofTime := calcNewAverage(
+		avg,
+		new(big.Int).SetUint64(stat.NumProofs),
+		new(big.Int).SetUint64(proofTime),
+	)
 
 	_, err = svc.statRepo.Save(ctx, eventindexer.SaveStatOpts{
-		ProofTime: &newAverageProofTime,
+		ProofTime: newAverageProofTime,
 	})
 	if err != nil {
 		return errors.Wrap(err, "svc.statRepo.Save")
@@ -112,6 +125,9 @@ func (svc *Service) updateAverageBlockTime(ctx context.Context, event *taikol1.T
 	return nil
 }
 
-func calcNewAverage(a, t, new uint64) uint64 {
-	return ((a * t) + new) / (t + 1)
+func calcNewAverage(a, t, n *big.Int) *big.Int {
+	m := new(big.Int).Mul(a, t)
+	added := new(big.Int).Add(m, n)
+
+	return new(big.Int).Div(added, t.Add(t, big.NewInt(1)))
 }
