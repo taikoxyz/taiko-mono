@@ -5,14 +5,12 @@
   import Home from "./pages/home/Home.svelte";
   import { setupI18n } from "./i18n";
   import Navbar from "./components/Navbar.svelte";
-  import { ethers } from "ethers";
-  import { layer } from "./store/layer";
-  import { Layer } from "./domain/layer";
   setupI18n({ withLocale: "en" });
 
   const routes = {
     "/": wrap({
       component: Home,
+      enableL3: import.meta.env.VITE_ENABLE_L3,
     }),
   };
 </script>
