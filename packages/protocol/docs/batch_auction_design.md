@@ -48,8 +48,10 @@ To maintain stability, the initial bidding price will not undergo drastic change
 A key concern is the risk of a monopolistic scenario, where one highly efficient prover continuously wins auctions, particularly if they're prepared to operate with a slim profit margin. This could marginalize other provers, even those with slightly higher costs, leaving them devoid of work and potentially leading them to exit the system. To encourage diverse participation and avert single-prover dominance, we may need to refine our bid scoring methodology. Rather than focusing solely on the bid price , we could factor in other parameters such as the deposit amount , the prover's average proof delay , and the ratio of their proof submissions to the number of verified blocks they've won. This multi-dimensional evaluation would promote a more equitable competition, ensuring the system's sustainability.
 
 ```python
-# this is just to demostrate an idea, the actual implementation needs
-# aa more careful algo design.
+# This is just to demostrate an idea, the actual implementation needs
+# a more careful algo design.
+#
+# proofTime shall also be considered, but is missing below.
 def will_new_bid_win(new_bid, old_bid):
 
     # return False immediately if new_bid does not meet these conditions
