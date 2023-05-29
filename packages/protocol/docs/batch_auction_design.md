@@ -24,8 +24,6 @@ Based on the provided insights and inputs from Brecht and Hugo (zkpool), the fol
 
 1. **Simplicity in Design**: It's crucial for our tokenomics to be understandable and accessible, particularly for the decision-makers and engineers within prover companies. The design should encapsulate core concepts in a succinct and coherent manner, facilitating a rapid comprehension of the fundamental principles. This clarity enables provers to efficiently devise their strategies and algorithms, thereby streamlining their participation in the system.
 
-1. **Minimal Prover Fee**: This is different from "Preference for Cheaper Proofs over Faster Proofs". Factors such as uncertainty about the number and types of blocks to be verified within a given period, and whether the prover can distribute the risk of such uncertainty over a constant stream of future blocks, will also influence the minimum reward the prover will accept for blocks.
-
 1. **Implementation Complexity and Minimal L1 Cost**: The complexity of the required code in the smart contracts/node is also an important factor to consider. Our tokenomics should strive to minimize the average additional cost per block on its base layer. Provers will likely impose higher fees on L2 to offset this cost, potentially leaving out transactions with lower fees.
 
 1. **Prover Work Security**: Provers should be confident about their ability to verify blocks in the foreseeable future. However, if they are more expensive than other provers, they should gradually lose their work.
