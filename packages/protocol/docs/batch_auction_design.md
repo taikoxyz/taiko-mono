@@ -95,6 +95,18 @@ Bid increments in English auctions serve as an effective strategy to encourage s
 The function shall be virtual to allow customization in derived smart contracts, enabling flexibility and extensibility.
 
 
+#### Internal metrics
+It is essential to maintain various internal metrics to effectively score bids  and facilitate off-chain analysis:
+
+1. **Average proof time**: This metric represents the moving average delay in proof submission for all proofs used in block verification. Proofs that are not utilized in block verification are excluded from this calculation. The average proof time provides insights into the efficiency of the proof submission process, enabling optimization and monitoring of the overall system performance.
+
+2. **Average bid per gas for verified blocks**: This metric quantifies the average bid per unit of gas for blocks that have successfully passed the verification process. It provides valuable information about bidding behavior and the value assigned to gas consumption in successful blocks.
+
+3. **Average bid per gas for all blocks**: This metric calculates the average bid per unit of gas for all blocks, including those that are currently undergoing the auction process. By considering all blocks, this metric offers a comprehensive view of the average bidding behavior and expenditure on gas across the entire system.
+
+4. **Per bidder proof submission success rate**: This metric measures the success rate of proof submissions by individual bidders. Specifically, it evaluates the ratio of proofs submitted by a bidder that were subsequently used for block verification compared to the total number of blocks won through auctions. Proofs submitted to other blocks that the bidder did not win are excluded from this calculation. This metric allows for the assessment of bidder reliability and the effectiveness of their proof submission process.
+
+
 ### Auction Window, Proofing Window, and Managing Multiple Auctions
 The auction window initiates with the first bid and concludes after either 5 minutes or 25 Ethereum blocks. Blocks become provable only once the auction has officially concluded. The auction winner is required to submit the initial Zero-Knowledge Proof (ZKP) for the block within the proofing window—e.g., 60 minutes—of either the block proposal or the auction's end, whichever is later. Other provers are permitted to submit proofs, creating alternative fork choices, either following the initial ZKP submission or after the proofing window has elapsed. While simultaneous auctions for different batches are permissible, it's advisable to restrict this to the upcoming 100 batches for optimal management.
 
