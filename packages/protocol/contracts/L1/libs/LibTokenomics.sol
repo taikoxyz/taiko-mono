@@ -70,6 +70,10 @@ library LibTokenomics {
                 totalNumProvingSeconds = 1;
             }
 
+            if (proofTime > totalNumProvingSeconds) {
+                totalNumProvingSeconds = proofTime;
+            }
+
             return uint64((uint256(state.accBlockFees) * proofTime) / totalNumProvingSeconds);
         }
     }
