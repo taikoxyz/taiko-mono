@@ -72,8 +72,7 @@ library LibEthDepositing {
             unchecked {
                 // When maxEthDepositsPerBlock is 32, the average gas cost per
                 // EthDeposit is about 2700 gas. We use 21000 so the proposer
-                // may
-                // earn a small profit if there are 32 deposits included
+                // may earn a small profit if there are 32 deposits included
                 // in the block; if there are less EthDeposit to process, the
                 // proposer may suffer a loss so the proposer should simply wait
                 // for more EthDeposit be become available.
