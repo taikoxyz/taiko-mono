@@ -6,11 +6,6 @@ The current tokenomics structure rewards the fastest prover, inadvertently promo
 
 ## Key Metrics
 
-After numerous attempts at developing and implementing Taiko's tokenomics, several crucial insights have been obtained:
-
-- The complexity and time commitment involved in this task may have been initially underestimated. A year into the process, it appears we are essentially back at the starting point.
-- A metric system is necessary to objectively evaluate and compare different designs. A comparison based on a set of metrics will facilitate objective discussions and ensure focus on the essential elements of various ideas, rather than unnecessary details.
-
 Based on the provided insights and inputs from Brecht and Hugo (zkpool), the following proposed metrics for evaluating tokenomics are presented. These metrics are categorized based on their perceived significance, and I encourage further discussion and feedback to refine and enhance them.
 
 1. **Taiko Token Centric**: The tokenomics design should primarily revolve around our Taiko token, rather than other tokens such as USD stable coins. An equilibrium should be achieved between proposer fees and prover rewards, aiming to maintain or slightly decrease the supply of Taiko tokens over time. This approach ensures the long-term stability and value of our native token.
