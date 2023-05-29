@@ -6,11 +6,11 @@
 
 pragma solidity ^0.8.18;
 
-import {AddressResolver} from "../../common/AddressResolver.sol";
-import {EtherVault} from "../EtherVault.sol";
-import {IBridge} from "../IBridge.sol";
-import {LibBridgeData} from "./LibBridgeData.sol";
-import {LibBridgeStatus} from "./LibBridgeStatus.sol";
+import { AddressResolver } from "../../common/AddressResolver.sol";
+import { EtherVault } from "../EtherVault.sol";
+import { IBridge } from "../IBridge.sol";
+import { LibBridgeData } from "./LibBridgeData.sol";
+import { LibBridgeStatus } from "./LibBridgeStatus.sol";
 
 library LibBridgeRelease {
     using LibBridgeData for IBridge.Message;
@@ -71,7 +71,7 @@ library LibBridgeRelease {
                 );
             } else {
                 // if on Ethereum
-                (bool success,) = message.owner.call{value: releaseAmount}("");
+                (bool success,) = message.owner.call{ value: releaseAmount }("");
                 if (!success) {
                     revert B_FAILED_TRANSFER();
                 }

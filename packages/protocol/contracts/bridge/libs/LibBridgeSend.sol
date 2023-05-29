@@ -6,11 +6,11 @@
 
 pragma solidity ^0.8.18;
 
-import {AddressResolver} from "../../common/AddressResolver.sol";
-import {IBridge} from "../IBridge.sol";
-import {ISignalService} from "../../signal/ISignalService.sol";
-import {LibAddress} from "../../libs/LibAddress.sol";
-import {LibBridgeData} from "./LibBridgeData.sol";
+import { AddressResolver } from "../../common/AddressResolver.sol";
+import { IBridge } from "../IBridge.sol";
+import { ISignalService } from "../../signal/ISignalService.sol";
+import { LibAddress } from "../../libs/LibAddress.sol";
+import { LibBridgeData } from "./LibBridgeData.sol";
 
 /**
  * Entry point for starting a bridge transaction.
@@ -110,7 +110,7 @@ library LibBridgeSend {
         returns (bool)
     {
         return ISignalService(resolver.resolve("signal_service", false))
-            .isSignalSent({app: address(this), signal: msgHash});
+            .isSignalSent({ app: address(this), signal: msgHash });
     }
 
     function isMessageReceived(

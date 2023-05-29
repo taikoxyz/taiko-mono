@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.18;
 
-import {LibUint512Math} from "../libs/LibUint512Math.sol";
+import { LibUint512Math } from "../libs/LibUint512Math.sol";
 
 abstract contract TaikoL2Signer {
     address public constant GOLDEN_TOUCH_ADDRESS =

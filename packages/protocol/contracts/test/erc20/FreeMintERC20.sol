@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.18;
 
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 // An ERC20 Token with a mint function anyone can call, for free, to receive
 // 5 tokens.
@@ -15,7 +15,7 @@ contract FreeMintERC20 is ERC20 {
 
     error HasMinted();
 
-    constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
+    constructor(string memory name, string memory symbol) ERC20(name, symbol) { }
 
     function mint(address to) public {
         if (minters[to]) {

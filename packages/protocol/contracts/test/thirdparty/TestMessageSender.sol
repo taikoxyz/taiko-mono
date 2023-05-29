@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.18;
 
-import {IBridge} from "../../bridge/IBridge.sol";
+import { IBridge } from "../../bridge/IBridge.sol";
 
 contract TestMessageSender {
     bytes32 public signal =

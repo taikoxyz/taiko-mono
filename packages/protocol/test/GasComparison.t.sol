@@ -5,11 +5,11 @@ import "forge-std/Test.sol";
 import "forge-std/console2.sol";
 import "../contracts/L1/TaikoData.sol";
 import "../contracts/libs/LibAddress.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 library LibAddress2 {
     function sendEther(address to, uint256 amount) internal {
-        (bool success,) = payable(to).call{value: amount}("");
+        (bool success,) = payable(to).call{ value: amount }("");
         require(success, "ETH transfer failed");
     }
 }
@@ -31,9 +31,9 @@ contract FooBar {
         abi.decode(data, (MyStruct));
     }
 
-    function loadBlockMetadata_3(MyStruct memory data) public pure {}
+    function loadBlockMetadata_3(MyStruct memory data) public pure { }
 
-    function loadBlockMetadata_4(MyStruct calldata data) public pure {}
+    function loadBlockMetadata_4(MyStruct calldata data) public pure { }
 
     function loadBlockMetadata_5(bytes calldata data) public pure {
         MyStruct memory meta;

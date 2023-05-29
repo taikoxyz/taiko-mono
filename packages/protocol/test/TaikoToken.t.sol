@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
-import {AddressManager} from "../contracts/common/AddressManager.sol";
-import {AddressResolver} from "../contracts/common/AddressResolver.sol";
-import {TaikoErrors} from "../contracts/L1/TaikoErrors.sol";
-import {TaikoToken} from "../contracts/L1/TaikoToken.sol";
+import { Test } from "forge-std/Test.sol";
+import { console2 } from "forge-std/console2.sol";
+import { AddressManager } from "../contracts/common/AddressManager.sol";
+import { AddressResolver } from "../contracts/common/AddressResolver.sol";
+import { TaikoErrors } from "../contracts/L1/TaikoErrors.sol";
+import { TaikoToken } from "../contracts/L1/TaikoToken.sol";
 
 import
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";

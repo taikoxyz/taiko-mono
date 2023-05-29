@@ -3,7 +3,7 @@
 pragma solidity ^0.8.18;
 
 /* Library Imports */
-import {LibSecureMerkleTrie} from "../../thirdparty/LibSecureMerkleTrie.sol";
+import { LibSecureMerkleTrie } from "../../thirdparty/LibSecureMerkleTrie.sol";
 
 /**
  * @title TestLibSecureMerkleTrie
