@@ -29,7 +29,8 @@ struct Config {
   uint16 auctionBatchModulo;
   uint16 auctionBatchSize;
   uint16 auctionSmallestGasPerBlockBid;
-  uint16 bidDiffBp;
+  uint16 bidGasDiffBp;
+  uint16 bidDepositDiffBp;
   bool relaySignalRoot;
 }
 ```

@@ -33,3 +33,9 @@ event EthDeposited(struct TaikoData.EthDeposit deposit)
 ```solidity
 event ProofParamsChanged(uint64 proofTimeTarget, uint64 proofTimeIssued, uint64 blockFee, uint16 adjustmentQuotient)
 ```
+
+### Bid
+
+```solidity
+event Bid(uint256 id, address bidder, uint256 bidAt, uint256 deposit, uint256 feePerGas)
+```

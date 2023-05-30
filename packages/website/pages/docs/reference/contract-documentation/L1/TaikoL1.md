@@ -65,18 +65,16 @@ Prove a block with a zero-knowledge proof.
 ### bidForBatch
 
 ```solidity
-function bidForBatch(uint256 batchId, uint64 feePerGas, uint64 deposit) external payable
+function bidForBatch(struct TaikoData.Bid bid) external payable
 ```
 
 Bid for proving rights of a batch.
 
 #### Parameters
 
-| Name      | Type    | Description                                                                                    |
-| --------- | ------- | ---------------------------------------------------------------------------------------------- |
-| batchId   | uint256 | The batchId                                                                                    |
-| feePerGas | uint64  | The minimum fee, in wei, per gas you will accept being paid as a reward for proving the block. |
-| deposit   | uint64  |                                                                                                |
+| Name | Type                 | Description    |
+| ---- | -------------------- | -------------- |
+| bid  | struct TaikoData.Bid | The actual bid |
 
 ### verifyBlocks
 
@@ -108,6 +106,24 @@ function getTaikoTokenBalance(address addr) public view returns (uint256)
 
 ```solidity
 function getBlockFee() public view returns (uint64)
+```
+
+### isBatchAuctionable
+
+```solidity
+function isBatchAuctionable(uint256 batchId) public view returns (bool)
+```
+
+### isBidAcceptable
+
+```solidity
+function isBidAcceptable(struct TaikoData.Bid bid) public view returns (bool)
+```
+
+### blockIdToBatchId
+
+```solidity
+function blockIdToBatchId(uint256 blockId) public view returns (uint256)
 ```
 
 ### getBlock
