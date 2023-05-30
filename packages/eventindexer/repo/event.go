@@ -46,7 +46,7 @@ func (r *EventRepository) FindByEventTypeAndBlockID(
 	e := &eventindexer.Event{}
 
 	if err := r.db.GormDB().
-		Where("event =?", eventType).
+		Where("event = ?", eventType).
 		Where("block_id = ?", blockID).First(e).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil

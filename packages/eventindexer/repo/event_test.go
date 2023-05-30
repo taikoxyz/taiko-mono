@@ -11,12 +11,14 @@ import (
 )
 
 var (
-	dummyProveEventOpts = eventindexer.SaveEventOpts{
+	blockID             int64 = 1
+	dummyProveEventOpts       = eventindexer.SaveEventOpts{
 		Name:    eventindexer.EventNameBlockProven,
 		Address: "0x123",
 		Data:    "{\"data\":\"something\"}",
 		Event:   eventindexer.EventNameBlockProven,
 		ChainID: big.NewInt(1),
+		BlockID: &blockID,
 	}
 	dummyProposeEventOpts = eventindexer.SaveEventOpts{
 		Name:    eventindexer.EventNameBlockProposed,
@@ -24,6 +26,7 @@ var (
 		Data:    "{\"data\":\"something\"}",
 		Event:   eventindexer.EventNameBlockProposed,
 		ChainID: big.NewInt(1),
+		BlockID: &blockID,
 	}
 )
 
