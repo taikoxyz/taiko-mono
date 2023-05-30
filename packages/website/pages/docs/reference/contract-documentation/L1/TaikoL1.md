@@ -62,6 +62,22 @@ Prove a block with a zero-knowledge proof.
 | blockId | uint256 | The index of the block to prove. This is also used to select the right implementation version. |
 | input   | bytes   | An abi-encoded TaikoData.BlockEvidence object.                                                 |
 
+### bidForBatch
+
+```solidity
+function bidForBatch(uint256 batchId, uint64 feePerGas, uint64 deposit) external payable
+```
+
+Bid for proving rights of a batch.
+
+#### Parameters
+
+| Name      | Type    | Description                                                                                    |
+| --------- | ------- | ---------------------------------------------------------------------------------------------- |
+| batchId   | uint256 | The batchId                                                                                    |
+| feePerGas | uint64  | The minimum fee, in wei, per gas you will accept being paid as a reward for proving the block. |
+| deposit   | uint64  |                                                                                                |
+
 ### verifyBlocks
 
 ```solidity
