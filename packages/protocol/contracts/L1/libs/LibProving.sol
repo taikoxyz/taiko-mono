@@ -48,7 +48,6 @@ library LibProving {
     )
         internal
     {
-        
         // We also should know who can prove this block:
         // the one who bid or everyone if it is above the window
         if(!LibAuction.isBlockProvableBy(state, config, blockId, msg.sender)) {
