@@ -30,8 +30,8 @@ func (svc *Service) saveBlockProvenEvents(
 	for {
 		event := events.Event
 
-		if event.Raw.Removed {
-			continue
+		if err := svc.detectAndHandleReorg(ctx, eventindexer.EventNameBlockProven, event.Id.Int64()); err != nil {
+			return errors.Wrap(err, "svc.detectAndHandleReorg")
 		}
 
 		log.Infof("blockProven by: %v", event.Prover.Hex())
@@ -60,12 +60,15 @@ func (svc *Service) saveBlockProvenEvent(
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
+	blockID := event.Id.Int64()
+
 	_, err = svc.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
 		Name:    eventindexer.EventNameBlockProven,
 		Data:    string(marshaled),
 		ChainID: chainID,
 		Event:   eventindexer.EventNameBlockProven,
 		Address: event.Prover.Hex(),
+		BlockID: &blockID,
 	})
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.Save")

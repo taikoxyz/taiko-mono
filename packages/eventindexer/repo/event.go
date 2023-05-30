@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 type EventRepository struct {
@@ -36,6 +37,33 @@ func (r *EventRepository) Save(ctx context.Context, opts eventindexer.SaveEventO
 	}
 
 	return e, nil
+}
+
+func (r *EventRepository) FindByEventTypeAndBlockID(
+	ctx context.Context,
+	eventType string,
+	blockID int64) (*eventindexer.Event, error) {
+	e := &eventindexer.Event{}
+
+	if err := r.db.GormDB().
+		Where("event =?", eventType).
+		Where("block_id = ?", blockID).First(e).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	return e, nil
+}
+
+func (r *EventRepository) Delete(
+	ctx context.Context,
+	id int,
+) error {
+	return r.db.GormDB().
+		Where("id = ?", id).Delete(eventindexer.Event{}).Error
 }
 
 func (r *EventRepository) FindUniqueProvers(

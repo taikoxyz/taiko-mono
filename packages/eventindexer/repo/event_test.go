@@ -209,3 +209,48 @@ func TestIntegration_Event_GetCountByAddressAndEventName(t *testing.T) {
 		})
 	}
 }
+
+func TestIntegration_Event_Delete(t *testing.T) {
+	db, close, err := testMysql(t)
+	assert.Equal(t, nil, err)
+
+	defer close()
+
+	eventRepo, err := NewEventRepository(db)
+	assert.Equal(t, nil, err)
+
+	event, err := eventRepo.Save(context.Background(), dummyProveEventOpts)
+
+	assert.Equal(t, nil, err)
+
+	tests := []struct {
+		name    string
+		id      int
+		wantErr error
+	}{
+		{
+			"success",
+			event.ID,
+			nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := eventRepo.Delete(
+				context.Background(),
+				tt.id,
+			)
+			assert.Equal(t, tt.wantErr, err)
+
+			foundEvent, err := eventRepo.FindByEventTypeAndBlockID(
+				context.Background(),
+				event.Event,
+				event.BlockID.Int64,
+			)
+
+			assert.Equal(t, nil, err)
+			assert.Equal(t, nil, foundEvent)
+		})
+	}
+}
