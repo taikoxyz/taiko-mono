@@ -4,16 +4,14 @@
   import { ChevronDown, PlusCircle } from 'svelte-heros-v2';
 
   import { erc20ABI } from '../../constants/abi';
-  import { BridgeType } from '../../domain/bridge';
   import type { HTMLBridgeForm } from '../../domain/dom';
   import type { Token } from '../../domain/token';
   import { tokenService } from '../../storage/services';
-  import { bridgeType } from '../../store/bridge';
   import { fromChain, toChain } from '../../store/chain';
   import { signer } from '../../store/signer';
   import { token } from '../../store/token';
   import { userTokens } from '../../store/userToken';
-  import { isETH, tokens } from '../../token/tokens';
+  import { tokens } from '../../token/tokens';
   import { selectToken } from '../../utils/selectToken';
   import Erc20 from '../icons/ERC20.svelte';
   import { errorToast, successToast } from '../NotificationToast.svelte';

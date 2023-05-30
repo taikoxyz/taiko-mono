@@ -53,7 +53,7 @@
   let interval: ReturnType<typeof setInterval>;
   let txToChain = chains[transaction.toChainId];
   let txFromChain = chains[transaction.fromChainId];
-  let alreadyInformedAboutClaim = false;
+  // let alreadyInformedAboutClaim = false;
 
   function setTxStatus(status: TxUIStatus) {
     transaction.status = status;

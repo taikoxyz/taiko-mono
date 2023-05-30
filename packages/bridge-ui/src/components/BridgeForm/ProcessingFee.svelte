@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { ethers } from 'ethers';
   import { _ } from 'svelte-i18n';
 
   import { ProcessingFeeMethod } from '../../domain/fee';
@@ -10,7 +9,6 @@
   import { recommendProcessingFee } from '../../utils/recommendProcessingFee';
   import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
   import NoticeModal from '../NoticeModal.svelte';
-  import { errorToast } from '../NotificationToast.svelte';
   import GeneralTooltip from './ProcessingFeeTooltip.svelte';
 
   export let method: ProcessingFeeMethod = ProcessingFeeMethod.RECOMMENDED;

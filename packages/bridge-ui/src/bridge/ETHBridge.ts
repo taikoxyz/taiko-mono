@@ -4,7 +4,6 @@ import { BigNumber, Contract, ethers } from 'ethers';
 import { chains } from '../chain/chains';
 import { bridgeABI } from '../constants/abi';
 import type {
-  ApproveOpts,
   Bridge,
   BridgeOpts,
   ClaimOpts,
@@ -72,12 +71,12 @@ export class ETHBridge implements Bridge {
     return { contract, owner, message };
   }
 
-  requiresAllowance(opts: ApproveOpts): Promise<boolean> {
+  requiresAllowance(): Promise<boolean> {
     return Promise.resolve(false);
   }
 
   // ETH does not need to be approved for transacting
-  approve(opts: ApproveOpts): Promise<Transaction> {
+  approve(): Promise<Transaction> {
     return new Promise((resolve) => resolve({} as unknown as Transaction));
   }
 
