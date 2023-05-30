@@ -25,6 +25,7 @@ struct Config {
   uint64 maxEthDepositsPerBlock;
   uint96 maxEthDepositAmount;
   uint96 minEthDepositAmount;
+  uint32 proposerBlockFeeMultiplierBP;
   uint16 auctionWindowInSec;
   uint16 auctionBatchModulo;
   uint16 auctionBatchSize;
@@ -183,7 +184,7 @@ struct State {
   uint64 numBlocks;
   uint64 nextEthDepositToProcess;
   uint64 blockFee;
-  uint64 __reserved90;
+  uint64 avgFeePerGas;
   uint64 lastVerifiedBlockId;
   uint64 __reserved91;
   uint256[42] __gap;

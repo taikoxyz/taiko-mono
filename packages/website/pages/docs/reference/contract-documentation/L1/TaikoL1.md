@@ -120,10 +120,16 @@ function isBatchAuctionable(uint256 batchId) public view returns (bool)
 function isBidAcceptable(struct TaikoData.Bid bid) public view returns (bool)
 ```
 
+### isBlockProvableBy
+
+```solidity
+function isBlockProvableBy(uint256 blockId, address prover) public view returns (bool)
+```
+
 ### blockIdToBatchId
 
 ```solidity
-function blockIdToBatchId(uint256 blockId) public view returns (uint256)
+function blockIdToBatchId(uint256 blockId) public pure returns (uint256)
 ```
 
 ### getBlock
