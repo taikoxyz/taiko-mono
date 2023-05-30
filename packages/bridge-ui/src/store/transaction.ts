@@ -85,6 +85,10 @@ export const pendingTransactions = {
       return newPendingTransactions;
     });
 
+    // TODO: return deferred object instead, so we can cancel the promise
+    //       in case we need it, e.g.: poller picks up already claimed transaction
+    //       by the relayer, in which case we don't need to wait for this transaction
+    //       to finish
     return deferred.promise;
   },
 };
