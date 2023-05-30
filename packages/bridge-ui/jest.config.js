@@ -42,13 +42,13 @@ export default {
       // TODO: temporal coverage decrease due to new logic,
       //       services, utils and and error handling.
       //       Mising tests for:
-      //         - relayer-api/RelayerAPIService (full test coverage)
+      //         - relayer-api/RelayerAPIService (partial test coverage)
       //         - bridge/ERC20Bridge (partial test coverage)
       //         - bridge/ETHBridge (partial test coverage)
-      statements: 81,
-      branches: 81,
-      functions: 82,
-      lines: 82,
+      statements: 89,
+      branches: 86,
+      functions: 91,
+      lines: 89,
     },
   },
   modulePathIgnorePatterns: ['<rootDir>/public/build/'],

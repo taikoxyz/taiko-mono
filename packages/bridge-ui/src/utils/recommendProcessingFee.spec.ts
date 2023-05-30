@@ -180,9 +180,7 @@ describe('recommendProcessingFee()', () => {
   });
 
   it('throws on canonicalToBridged call', async () => {
-    mockContract.canonicalToBridged.mockImplementationOnce(() => {
-      throw Error('BAM!!');
-    });
+    mockContract.canonicalToBridged.mockRejectedValue(new Error('BAM!!'));
 
     await expect(
       recommendProcessingFee(

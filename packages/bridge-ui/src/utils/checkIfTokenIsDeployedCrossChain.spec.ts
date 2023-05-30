@@ -124,7 +124,7 @@ describe('checkIfTokenIsDeployedCrossChain', () => {
 
   it('catches and rethrows error when canonicalToBridged method fails', async () => {
     const destTokenVaultContract = {
-      canonicalToBridged: jest.fn().mockRejectedValue(new Error('test error')),
+      canonicalToBridged: jest.fn().mockRejectedValue(new Error('BOOM!!')),
     };
 
     jest

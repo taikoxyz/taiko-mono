@@ -112,6 +112,8 @@ export class RelayerAPIService implements RelayerAPI {
 
       const response = await axios.get<APIResponse>(requestURL, { params });
 
+      // TODO: status >= 400 ?
+
       log('Events form API', response.data);
 
       return response.data;
@@ -316,6 +318,8 @@ export class RelayerAPIService implements RelayerAPI {
         requestURL,
       );
 
+      // TODO: status >= 400 ?
+
       if (data?.data.length > 0) {
         data.data.forEach((blockInfo) => {
           blockInfoMap.set(blockInfo.chainID, blockInfo);
@@ -323,7 +327,7 @@ export class RelayerAPIService implements RelayerAPI {
       }
     } catch (error) {
       console.error(error);
-      // throw new Error('failed to fetch block info', { cause: error });
+      throw new Error('failed to fetch block info', { cause: error });
     }
 
     return blockInfoMap;
