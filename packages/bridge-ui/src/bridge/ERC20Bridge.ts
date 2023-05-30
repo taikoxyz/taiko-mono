@@ -23,28 +23,36 @@ export class ERC20Bridge implements Bridge {
     this.prover = prover;
   }
 
-  static async prepareTransaction(opts: BridgeOpts) {
-    const contract: Contract = new Contract(
+  private static async _prepareTransaction(opts: BridgeOpts) {
+    const contract = new Contract(
       opts.tokenVaultAddress,
       tokenVaultABI,
       opts.signer,
     );
 
+    const processingFee = opts.processingFeeInWei ?? BigNumber.from(0);
+
+    const gasLimit = opts.processingFeeInWei
+      ? BigNumber.from(140000)
+      : BigNumber.from(0);
+
+    const memo = opts.memo ?? '';
+
     const owner = await opts.signer.getAddress();
     const message = {
+      owner,
       sender: owner,
+      refundAddress: owner,
+
+      to: opts.to,
       srcChainId: opts.fromChainId,
       destChainId: opts.toChainId,
-      owner: owner,
-      to: opts.to,
-      refundAddress: owner,
+
       depositValue: opts.amountInWei,
       callValue: 0,
-      processingFee: opts.processingFeeInWei ?? BigNumber.from(0),
-      gasLimit: opts.processingFeeInWei
-        ? BigNumber.from(140000)
-        : BigNumber.from(0),
-      memo: opts.memo ?? '',
+      processingFee,
+      gasLimit,
+      memo,
     };
 
     if (!opts.isBridgedTokenAlreadyDeployed) {
@@ -149,7 +157,7 @@ export class ERC20Bridge implements Bridge {
       throw Error('token vault does not have required allowance');
     }
 
-    const { contract, message } = await ERC20Bridge.prepareTransaction(opts);
+    const { contract, message } = await ERC20Bridge._prepareTransaction(opts);
 
     try {
       const tx = await contract.sendERC20(
@@ -178,7 +186,7 @@ export class ERC20Bridge implements Bridge {
   }
 
   async estimateGas(opts: BridgeOpts): Promise<BigNumber> {
-    const { contract, message } = await ERC20Bridge.prepareTransaction(opts);
+    const { contract, message } = await ERC20Bridge._prepareTransaction(opts);
 
     log('Estimating gas for sendERC20 with message', message);
 
@@ -258,6 +266,7 @@ export class ERC20Bridge implements Bridge {
 
       try {
         if (opts.message.gasLimit.gt(BigNumber.from(2500000))) {
+          // TODO: 2.5M ??
           processMessageTx = await contract.processMessage(
             opts.message,
             proof,

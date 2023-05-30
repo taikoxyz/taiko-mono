@@ -23,36 +23,46 @@ export class ETHBridge implements Bridge {
     this.prover = prover;
   }
 
-  static async prepareTransaction(
+  private static async _prepareTransaction(
     opts: BridgeOpts,
   ): Promise<{ contract: Contract; message: Message; owner: string }> {
-    const contract: Contract = new Contract(
-      opts.bridgeAddress,
-      bridgeABI,
-      opts.signer,
-    );
+    const contract = new Contract(opts.bridgeAddress, bridgeABI, opts.signer);
 
     const owner = await opts.signer.getAddress();
+
+    const depositValue =
+      opts.to.toLowerCase() === owner.toLowerCase()
+        ? opts.amountInWei
+        : BigNumber.from(0);
+
+    const callValue =
+      opts.to.toLowerCase() === owner.toLowerCase()
+        ? BigNumber.from(0)
+        : opts.amountInWei;
+
+    const processingFee = opts.processingFeeInWei ?? BigNumber.from(0);
+
+    const gasLimit = opts.processingFeeInWei
+      ? BigNumber.from(140000) // TODO: 140k ??
+      : BigNumber.from(0);
+
+    const memo = opts.memo ?? '';
+
     const message: Message = {
+      owner,
       sender: owner,
+      refundAddress: owner,
+
+      to: opts.to,
       srcChainId: opts.fromChainId,
       destChainId: opts.toChainId,
-      owner: owner,
-      to: opts.to,
-      refundAddress: owner,
-      depositValue:
-        opts.to.toLowerCase() === owner.toLowerCase()
-          ? opts.amountInWei
-          : BigNumber.from(0),
-      callValue:
-        opts.to.toLowerCase() === owner.toLowerCase()
-          ? BigNumber.from(0)
-          : opts.amountInWei,
-      processingFee: opts.processingFeeInWei ?? BigNumber.from(0),
-      gasLimit: opts.processingFeeInWei
-        ? BigNumber.from(140000)
-        : BigNumber.from(0),
-      memo: opts.memo ?? '',
+
+      gasLimit,
+      callValue,
+      depositValue,
+      processingFee,
+
+      memo,
       id: 1, // will be set in contract,
       data: '0x',
     };
@@ -72,7 +82,7 @@ export class ETHBridge implements Bridge {
   }
 
   async bridge(opts: BridgeOpts): Promise<Transaction> {
-    const { contract, message } = await ETHBridge.prepareTransaction(opts);
+    const { contract, message } = await ETHBridge._prepareTransaction(opts);
 
     const value = message.depositValue
       .add(message.processingFee)
@@ -93,7 +103,7 @@ export class ETHBridge implements Bridge {
   }
 
   async estimateGas(opts: BridgeOpts): Promise<BigNumber> {
-    const { contract, message } = await ETHBridge.prepareTransaction(opts);
+    const { contract, message } = await ETHBridge._prepareTransaction(opts);
 
     const value = message.depositValue
       .add(message.processingFee)
@@ -102,6 +112,7 @@ export class ETHBridge implements Bridge {
     log(`Estimating gas for sendMessage. Value to send: ${value}`);
 
     try {
+      // See https://docs.ethers.org/v5/api/contract/contract/#contract-estimateGas
       const gasEstimate = await contract.estimateGas.sendMessage(message, {
         value,
       });
@@ -175,7 +186,8 @@ export class ETHBridge implements Bridge {
         console.error(error);
 
         if (error.code === ethers.errors.UNPREDICTABLE_GAS_LIMIT) {
-          const gasLimit = 1e6;
+          // See https://docs.ethers.org/v5/troubleshooting/errors/#help-UNPREDICTABLE_GAS_LIMIT
+          const gasLimit = 1e6; // TODO: magic number
 
           log(`Unpredictable gas limit. We try now with ${gasLimit} gasLimit`);
 
