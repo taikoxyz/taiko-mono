@@ -34,4 +34,12 @@ abstract contract TaikoEvents {
         uint64 blockFee,
         uint16 adjustmentQuotient
     );
+
+    event Bid(
+        uint256 indexed id,
+        address bidder,
+        uint256 bidAt,
+        uint256 deposit,
+        uint256 feePerGas
+    );
 }

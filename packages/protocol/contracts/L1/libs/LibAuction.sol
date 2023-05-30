@@ -17,8 +17,8 @@ library LibAuction {
 
     event Bid(
         uint256 indexed id,
-        address claimer,
-        uint256 claimedAt,
+        address bidder,
+        uint256 bidAt,
         uint256 deposit,
         uint256 feePerGas
     );
@@ -38,10 +38,6 @@ library LibAuction {
 
         if (!isBatchAuctionable(state, config, newBid.batchId)) {
             revert L1_BID_CANNOT_BE_SUBMITTED();
-        }
-
-        if (msg.value != newBid.deposit) {
-            revert L1_BID_DEPOSIT_AND_MSG_VALUE_MISMATCH();
         }
 
         TaikoToken tkoToken = TaikoToken(resolver.resolve("tko_token", false));
@@ -64,7 +60,7 @@ library LibAuction {
         }
 
         // transfer deposit from current auction winner to this contract
-        tkoToken.transferFrom(msg.sender, address(this), msg.value);
+        tkoToken.transferFrom(msg.sender, address(this), newBid.deposit);
 
         // then we can update the bid for the blockID to the new bidder
         state.auctions[newBid.batchId] = TaikoData.Auction({
@@ -72,7 +68,7 @@ library LibAuction {
             startedAt: uint64(auction.startedAt == 0 ? block.timestamp : auction.startedAt)
         });
 
-        emit Bid(newBid.batchId, msg.sender, block.timestamp, msg.value, newBid.feePerGas);
+        emit Bid(newBid.batchId, msg.sender, block.timestamp, newBid.deposit, newBid.feePerGas);
 
     }
 
