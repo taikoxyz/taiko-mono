@@ -62,11 +62,9 @@ func (r *EventRepository) Delete(
 	ctx context.Context,
 	id int,
 ) error {
-	e := &eventindexer.Event{
-		ID: id,
-	}
+	e := &eventindexer.Event{}
 
-	return r.db.GormDB().Delete(e).Error
+	return r.db.GormDB().Delete(e, id).Error
 }
 
 func (r *EventRepository) FindUniqueProvers(

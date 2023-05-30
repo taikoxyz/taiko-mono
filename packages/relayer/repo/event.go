@@ -122,6 +122,7 @@ func (r *EventRepository) Delete(
 	ctx context.Context,
 	id int,
 ) error {
-	return r.db.GormDB().
-		Where("id = ?", id).Delete(relayer.Event{}).Error
+	return r.db.GormDB().Delete(relayer.Event{
+		ID: id,
+	}).Error
 }
