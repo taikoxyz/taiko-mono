@@ -27,6 +27,8 @@ library TaikoData {
         uint64 maxEthDepositsPerBlock;
         uint96 maxEthDepositAmount;
         uint96 minEthDepositAmount;
+        // Avg. gas multiplier for proposing fee. Shall be above 10.000 (100%)
+        uint32 proposerBlockFeeMultiplierBP;
         //How long auction window will be open after the first bid
         uint16 auctionWindowInSec;
         // This means, if prover Bob wins auction, he 
@@ -165,7 +167,7 @@ library TaikoData {
         uint64 nextEthDepositToProcess;
         // Slot 9
         uint64 blockFee;
-        uint64 __reserved90;
+        uint64 avgFeePerGas;
         uint64 lastVerifiedBlockId;
         uint64 __reserved91;
         // Reserved

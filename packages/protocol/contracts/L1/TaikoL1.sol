@@ -190,7 +190,13 @@ contract TaikoL1 is
         );
     }
 
-    function blockIdToBatchId(uint256 blockId) public view returns (uint256) {
+    function isBlockProvableBy(uint256 blockId, address prover) public view returns (bool) {
+        return LibAuction.isBlockProvableBy(
+            state, getConfig(), blockId, prover
+        );
+    }
+
+    function blockIdToBatchId(uint256 blockId) public pure returns (uint256) {
         return LibAuction.blockIdToBatchId(
             getConfig(), blockId
         );

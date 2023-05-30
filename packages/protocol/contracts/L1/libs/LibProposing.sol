@@ -88,7 +88,7 @@ library LibProposing {
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.proposer = msg.sender;
 
-        uint64 blockFee;
+        uint64 blockFee = getBlockFee(config, state, meta.gasLimit);
 
         emit BlockProposed(state.numBlocks, meta, blockFee);
         unchecked {
@@ -107,6 +107,14 @@ library LibProposing {
     {
         blk = state.blocks[blockId % config.ringBufferSize];
         if (blk.blockId != blockId) revert L1_BLOCK_ID();
+    }
+
+    function getBlockFee(TaikoData.Config memory config, TaikoData.State storage state, uint32 gasUsed)
+        internal
+        view
+        returns (uint64)
+    {
+        return ((state.avgFeePerGas * config.proposerBlockFeeMultiplierBP) / 10_000) * gasUsed;
     }
 
     function _validateBlock(

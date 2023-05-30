@@ -7,6 +7,7 @@
 pragma solidity ^0.8.18;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
+import {LibAuction} from "./LibAuction.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
@@ -46,6 +47,9 @@ library LibProving {
     )
         internal
     {
+
+        LibAuction.isBlockProvableBy(state, config, blockId, msg.sender);
+
         if (
             evidence.parentHash == 0
             //

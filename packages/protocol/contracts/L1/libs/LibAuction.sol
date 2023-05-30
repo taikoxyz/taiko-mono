@@ -136,4 +136,29 @@ library LibAuction {
             (auction.startedAt != 0 && block.timestamp <= auction.startedAt + config.auctionWindowInSec)
         ) return true;
     }
+
+    function isBlockProvableBy(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        uint256 blockId,
+        address prover
+    )
+        internal
+        view
+        returns (bool result) 
+    {
+        // We should expose this function so that clients could query.
+        // We also need to be sure, that the batchId of bid is indeed valid
+        uint256 batchId = blockIdToBatchId(config, blockId);
+
+        TaikoData.Auction memory auction = state.auctions[batchId];
+        if (
+            auction.startedAt != 0 && 
+            block.timestamp > auction.startedAt + config.auctionWindowInSec &&
+            auction.bid.prover == prover
+        ) {
+            return true;
+        }
+
+    }
 }
