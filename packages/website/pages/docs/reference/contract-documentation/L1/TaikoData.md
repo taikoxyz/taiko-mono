@@ -25,6 +25,11 @@ struct Config {
   uint64 maxEthDepositsPerBlock;
   uint96 maxEthDepositAmount;
   uint96 minEthDepositAmount;
+  uint16 auctionWindowInSec;
+  uint16 auctionBatchModulo;
+  uint16 auctionBatchSize;
+  uint16 auctionSmallestGasPerBlockBid;
+  uint16 bidDiffBp;
   bool relaySignalRoot;
 }
 ```
@@ -137,6 +142,26 @@ struct EthDeposit {
 }
 ```
 
+### Bid
+
+```solidity
+struct Bid {
+  uint256 batchId;
+  address prover;
+  uint64 deposit;
+  uint64 feePerGas;
+}
+```
+
+### Auction
+
+```solidity
+struct Auction {
+  struct TaikoData.Bid bid;
+  uint64 startedAt;
+}
+```
+
 ### State
 
 ```solidity
@@ -145,6 +170,7 @@ struct State {
   mapping(uint256 => mapping(bytes32 => mapping(uint32 => uint256))) forkChoiceIds;
   mapping(address => uint256) taikoTokenBalances;
   mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
+  mapping(uint256 => struct TaikoData.Auction) auctions;
   struct TaikoData.EthDeposit[] ethDeposits;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
