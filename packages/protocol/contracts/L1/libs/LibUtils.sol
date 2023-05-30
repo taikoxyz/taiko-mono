@@ -6,11 +6,11 @@
 
 pragma solidity ^0.8.18;
 
-import {LibMath} from "../../libs/LibMath.sol";
-import {LibEthDepositing} from "./LibEthDepositing.sol";
-import {SafeCastUpgradeable} from
+import { LibMath } from "../../libs/LibMath.sol";
+import { LibEthDepositing } from "./LibEthDepositing.sol";
+import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {TaikoData} from "../TaikoData.sol";
+import { TaikoData } from "../TaikoData.sol";
 
 library LibUtils {
     using LibMath for uint256;

@@ -6,20 +6,19 @@
 
 pragma solidity ^0.8.18;
 
-import {AddressResolver} from "../common/AddressResolver.sol";
-import {EssentialContract} from "../common/EssentialContract.sol";
-import {ICrossChainSync} from "../common/ICrossChainSync.sol";
-import {Proxied} from "../common/Proxied.sol";
-import {LibAuction} from "./libs/LibAuction.sol";
-import {LibEthDepositing} from "./libs/LibEthDepositing.sol";
-import {LibProposing} from "./libs/LibProposing.sol";
-import {LibProving} from "./libs/LibProving.sol";
-import {LibUtils} from "./libs/LibUtils.sol";
-import {LibVerifying} from "./libs/LibVerifying.sol";
-import {TaikoConfig} from "./TaikoConfig.sol";
-import {TaikoErrors} from "./TaikoErrors.sol";
-import {TaikoData} from "./TaikoData.sol";
-import {TaikoEvents} from "./TaikoEvents.sol";
+import { AddressResolver } from "../common/AddressResolver.sol";
+import { EssentialContract } from "../common/EssentialContract.sol";
+import { ICrossChainSync } from "../common/ICrossChainSync.sol";
+import { Proxied } from "../common/Proxied.sol";
+import { LibEthDepositing } from "./libs/LibEthDepositing.sol";
+import { LibProposing } from "./libs/LibProposing.sol";
+import { LibProving } from "./libs/LibProving.sol";
+import { LibUtils } from "./libs/LibUtils.sol";
+import { LibVerifying } from "./libs/LibVerifying.sol";
+import { TaikoConfig } from "./TaikoConfig.sol";
+import { TaikoErrors } from "./TaikoErrors.sol";
+import { TaikoData } from "./TaikoData.sol";
+import { TaikoEvents } from "./TaikoEvents.sol";
 
 /// @custom:security-contact hello@taiko.xyz
 contract TaikoL1 is
@@ -268,4 +267,4 @@ contract TaikoL1 is
     }
 }
 
-contract ProxiedTaikoL1 is Proxied, TaikoL1 {}
+contract ProxiedTaikoL1 is Proxied, TaikoL1 { }

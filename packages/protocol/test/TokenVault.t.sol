@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import {AddressManager} from "../contracts/common/AddressManager.sol";
-import {AddressResolver} from "../contracts/common/AddressResolver.sol";
-import {Bridge} from "../contracts/bridge/Bridge.sol";
-import {BridgedERC20} from "../contracts/bridge/BridgedERC20.sol";
-import {BridgeErrors} from "../contracts/bridge/BridgeErrors.sol";
-import {FreeMintERC20} from "../contracts/test/erc20/FreeMintERC20.sol";
-import {SignalService} from "../contracts/signal/SignalService.sol";
-import {Test} from "forge-std/Test.sol";
-import {TokenVault} from "../contracts/bridge/TokenVault.sol";
+import { AddressManager } from "../contracts/common/AddressManager.sol";
+import { AddressResolver } from "../contracts/common/AddressResolver.sol";
+import { Bridge } from "../contracts/bridge/Bridge.sol";
+import { BridgedERC20 } from "../contracts/bridge/BridgedERC20.sol";
+import { BridgeErrors } from "../contracts/bridge/BridgeErrors.sol";
+import { FreeMintERC20 } from "../contracts/test/erc20/FreeMintERC20.sol";
+import { SignalService } from "../contracts/signal/SignalService.sol";
+import { Test } from "forge-std/Test.sol";
+import { TokenVault } from "../contracts/bridge/TokenVault.sol";
 
 // PrankDestBridge lets us simulate a transaction to the TokenVault
 // from a named Bridge, without having to test/run through the real Bridge code,
@@ -176,7 +176,7 @@ contract TestTokenVault is Test {
         uint256 aliceBalanceBefore = erc20.balanceOf(Alice);
         uint256 tokenVaultBalanceBefore = erc20.balanceOf(address(tokenVault));
 
-        tokenVault.sendERC20{value: amount}(
+        tokenVault.sendERC20{ value: amount }(
             destChainId,
             Bob,
             address(erc20),

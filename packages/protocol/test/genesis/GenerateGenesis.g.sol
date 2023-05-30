@@ -5,18 +5,19 @@ import "forge-std/StdJson.sol";
 import "../../contracts/bridge/BridgeErrors.sol";
 import "../../contracts/bridge/IBridge.sol";
 import "../../contracts/common/AddressResolver.sol";
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
-import {TaikoL2} from "../../contracts/L2/TaikoL2.sol";
-import {AddressManager} from "../../contracts/common/AddressManager.sol";
-import {Bridge} from "../../contracts/bridge/Bridge.sol";
-import {TokenVault} from "../../contracts/bridge/TokenVault.sol";
-import {EtherVault} from "../../contracts/bridge/EtherVault.sol";
-import {SignalService} from "../../contracts/signal/SignalService.sol";
-import {LibBridgeStatus} from "../../contracts/bridge/libs/LibBridgeStatus.sol";
-import {LibL2Consts} from "../../contracts/L2/LibL2Consts.sol";
-import {RegularERC20} from "../../contracts/test/erc20/RegularERC20.sol";
-import {TransparentUpgradeableProxy} from
+import { Test } from "forge-std/Test.sol";
+import { console2 } from "forge-std/console2.sol";
+import { TaikoL2 } from "../../contracts/L2/TaikoL2.sol";
+import { AddressManager } from "../../contracts/common/AddressManager.sol";
+import { Bridge } from "../../contracts/bridge/Bridge.sol";
+import { TokenVault } from "../../contracts/bridge/TokenVault.sol";
+import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
+import { SignalService } from "../../contracts/signal/SignalService.sol";
+import { LibBridgeStatus } from
+    "../../contracts/bridge/libs/LibBridgeStatus.sol";
+import { LibL2Consts } from "../../contracts/L2/LibL2Consts.sol";
+import { RegularERC20 } from "../../contracts/test/erc20/RegularERC20.sol";
+import { TransparentUpgradeableProxy } from
     "../../contracts/thirdparty/TransparentUpgradeableProxy.sol";
 
 contract TestGenerateGenesis is Test, AddressResolver {

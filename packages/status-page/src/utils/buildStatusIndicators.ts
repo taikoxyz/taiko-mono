@@ -17,17 +17,29 @@ import { getPendingBlocks } from "./getPendingBlocks";
 import { getPendingTransactions } from "./getPendingTransactions";
 import { getQueuedTransactions } from "./getQueuedTransactions";
 import type { initConfig } from "./initConfig";
-import { truncateString } from "./truncateString";
 import { watchHeaderSynced } from "./watchHeaderSynced";
 import axios from "axios";
 import { getConfig } from "./getConfig";
 import { getStateVariables } from "./getStateVariables";
+import TaikoL2 from "../constants/abi/TaikoL2";
 
-export function buildStatusIndicators(
+export async function buildStatusIndicators(
   config: ReturnType<typeof initConfig>,
   onProverClick: (value: Status) => void,
   onProposerClick: (value: Status) => void
 ) {
+  const tko: Contract = new Contract(
+    config.taikoTokenAddress,
+    TaikoToken,
+    config.l1Provider
+  );
+
+  let decimals: number = 8;
+
+  try {
+    decimals = await tko.decimals();
+  } catch (e) {}
+
   const indicators: StatusIndicatorProp[] = [
     {
       statusFunc: async (
@@ -222,12 +234,53 @@ export function buildStatusIndicators(
       provider: config.l2Provider,
       contractAddress: "",
       header: "Gas Price (gwei)",
-      intervalInMs: 20000,
+      intervalInMs: 30000,
       colorFunc: (value: Status) => {
         return "green";
       },
       tooltip:
         "The current recommended gas price for a transaction on Layer 2.",
+    },
+    {
+      statusFunc: async (
+        provider: ethers.providers.JsonRpcProvider,
+        contractAddress: string
+      ): Promise<string> => {
+        const latestBlock = await provider.getBlock("latest");
+        return `${ethers.utils.formatUnits(latestBlock.baseFeePerGas, "gwei")}`;
+      },
+      watchStatusFunc: null,
+      provider: config.l2Provider,
+      contractAddress: config.l2TaikoAddress,
+      header: "L2 EIP1559 BaseFee (gwei)",
+      intervalInMs: 30000,
+      colorFunc: (value: Status) => {
+        return "green";
+      },
+      tooltip:
+        "The current base fee for an L2 transaction with EIP1559-enabled.",
+    },
+    {
+      statusFunc: async (
+        provider: ethers.providers.JsonRpcProvider,
+        contractAddress: string
+      ): Promise<string> => {
+        const feeData = await provider.getFeeData();
+        return `${ethers.utils.formatUnits(
+          feeData.maxPriorityFeePerGas,
+          "gwei"
+        )}`;
+      },
+      watchStatusFunc: null,
+      provider: config.l2Provider,
+      contractAddress: config.l2TaikoAddress,
+      header: "L2 EIP1559 Recommended MaxPriorityFeePerGas (gwei)",
+      intervalInMs: 30000,
+      colorFunc: (value: Status) => {
+        return "green";
+      },
+      tooltip:
+        "The current recommend max priority fee per gas for a fast transaction.",
     },
   ];
 
@@ -243,12 +296,6 @@ export function buildStatusIndicators(
           provider
         );
         const fee = await contract.getBlockFee();
-        const tko: Contract = new Contract(
-          config.taikoTokenAddress,
-          TaikoToken,
-          provider
-        );
-        const decimals = await tko.decimals();
         return `${ethers.utils.formatUnits(fee, decimals)} TKO`;
       },
       watchStatusFunc: null,
@@ -276,13 +323,6 @@ export function buildStatusIndicators(
           config.eventIndexerApiUrl
         );
         const fee = await contract.getProofReward(Number(averageProofTime));
-
-        const tko: Contract = new Contract(
-          config.taikoTokenAddress,
-          TaikoToken,
-          provider
-        );
-        const decimals = await tko.decimals();
         return `${ethers.utils.formatUnits(fee, decimals)} ${
           import.meta.env.VITE_FEE_TOKEN_SYMBOL ?? "TKO"
         }`;
@@ -310,25 +350,25 @@ export function buildStatusIndicators(
         onEvent: (value: Status) => void
       ) => {
         const contract = new Contract(address, TaikoL1, provider);
-        contract.on(
-          "BlockProven",
-          (
-            id,
-            parentHash,
-            blockHash,
-            signalRoot,
-            prover,
-            provenAt,
-            ...args
-          ) => {
-            // ignore oracle prover
-            if (
-              prover.toLowerCase() !== config.oracleProverAddress.toLowerCase()
-            ) {
-              onEvent(new Date(provenAt).toTimeString());
-            }
+        const listener = (
+          id,
+          parentHash,
+          blockHash,
+          signalRoot,
+          prover,
+          provenAt,
+          ...args
+        ) => {
+          // ignore oracle prover
+          if (
+            prover.toLowerCase() !== config.oracleProverAddress.toLowerCase()
+          ) {
+            onEvent(new Date(provenAt).toTimeString());
           }
-        );
+        };
+        contract.on("BlockProven", listener);
+
+        return () => contract.off("BlockProven", listener);
       },
       colorFunc: function (status: Status) {
         return "green"; // todo: whats green, yellow, red?
@@ -381,12 +421,6 @@ export function buildStatusIndicators(
         const resp = await axios.get<StatsResponse>(
           `${config.eventIndexerApiUrl}/stats`
         );
-        const tko: Contract = new Contract(
-          config.taikoTokenAddress,
-          TaikoToken,
-          provider
-        );
-        const decimals = await tko.decimals();
         return `${ethers.utils.formatUnits(
           resp.data.averageProofReward,
           decimals

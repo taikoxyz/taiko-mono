@@ -6,12 +6,12 @@
 
 pragma solidity ^0.8.18;
 
-import {AddressResolver} from "../../common/AddressResolver.sol";
-import {ISignalService} from "../../signal/ISignalService.sol";
-import {LibUtils} from "./LibUtils.sol";
-import {SafeCastUpgradeable} from
+import { AddressResolver } from "../../common/AddressResolver.sol";
+import { ISignalService } from "../../signal/ISignalService.sol";
+import { LibUtils } from "./LibUtils.sol";
+import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {TaikoData} from "../../L1/TaikoData.sol";
+import { TaikoData } from "../../L1/TaikoData.sol";
 
 library LibVerifying {
     using SafeCastUpgradeable for uint256;
@@ -88,7 +88,6 @@ library LibVerifying {
 
         uint256 fcId = blk.verifiedForkChoiceId;
         // assert(fcId > 0);
-        require(fcId > 0, "ABC");
         bytes32 blockHash = blk.forkChoices[fcId].blockHash;
         uint32 gasUsed = blk.forkChoices[fcId].gasUsed;
         bytes32 signalRoot;
@@ -101,7 +100,6 @@ library LibVerifying {
         while (i < state.numBlocks && processed < maxBlocks) {
             blk = state.blocks[i % config.ringBufferSize];
             // assert(blk.blockId == i);
-            require(blk.blockId == i, "EFG");
 
             fcId = LibUtils.getForkChoiceId(state, blk, blockHash, gasUsed);
 

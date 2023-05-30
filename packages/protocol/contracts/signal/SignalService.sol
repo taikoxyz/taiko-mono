@@ -6,11 +6,11 @@
 
 pragma solidity ^0.8.18;
 
-import {EssentialContract} from "../common/EssentialContract.sol";
-import {Proxied} from "../common/Proxied.sol";
-import {ISignalService} from "./ISignalService.sol";
-import {ICrossChainSync} from "../common/ICrossChainSync.sol";
-import {LibSecureMerkleTrie} from "../thirdparty/LibSecureMerkleTrie.sol";
+import { EssentialContract } from "../common/EssentialContract.sol";
+import { Proxied } from "../common/Proxied.sol";
+import { ISignalService } from "./ISignalService.sol";
+import { ICrossChainSync } from "../common/ICrossChainSync.sol";
+import { LibSecureMerkleTrie } from "../thirdparty/LibSecureMerkleTrie.sol";
 
 /// @custom:security-contact hello@taiko.xyz
 contract SignalService is ISignalService, EssentialContract {
@@ -124,4 +124,4 @@ contract SignalService is ISignalService, EssentialContract {
     }
 }
 
-contract ProxiedSignalService is Proxied, SignalService {}
+contract ProxiedSignalService is Proxied, SignalService { }

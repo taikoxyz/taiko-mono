@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.18;
 
-import {LibMerkleTrie} from "../../thirdparty/LibMerkleTrie.sol";
+import { LibMerkleTrie } from "../../thirdparty/LibMerkleTrie.sol";
 
 /**
  * @title TestLibMerkleTrie

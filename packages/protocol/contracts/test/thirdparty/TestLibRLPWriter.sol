@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.18;
 
-import {LibRLPWriter} from "../../thirdparty/LibRLPWriter.sol";
+import { LibRLPWriter } from "../../thirdparty/LibRLPWriter.sol";
 
 /**
  * @title TestLibRLPWriter

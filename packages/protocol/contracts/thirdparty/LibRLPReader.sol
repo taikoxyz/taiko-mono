@@ -75,7 +75,7 @@ library LibRLPReader {
             ptr := add(_in, 32)
         }
 
-        return RLPItem({length: _in.length, ptr: ptr});
+        return RLPItem({ length: _in.length, ptr: ptr });
     }
 
     /**
@@ -111,7 +111,7 @@ library LibRLPReader {
             );
 
             (uint256 itemOffset, uint256 itemLength,) = _decodeLength(
-                RLPItem({length: _in.length - offset, ptr: _in.ptr + offset})
+                RLPItem({ length: _in.length - offset, ptr: _in.ptr + offset })
             );
 
             out[itemCount] = RLPItem({
