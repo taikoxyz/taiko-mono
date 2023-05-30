@@ -54,6 +54,7 @@
   let txToChain = chains[transaction.toChainId];
   let txFromChain = chains[transaction.fromChainId];
   // let alreadyInformedAboutClaim = false;
+  let claimingPromise: Promise<ethers.providers.TransactionReceipt>;
 
   function setTxStatus(status: TxUIStatus) {
     transaction.status = status;
@@ -148,6 +149,8 @@
       //       closes the page? We need to keep track of this state, storage?
       setTxStatus(TxExtendedStatus.Claiming);
 
+      // TODO: here we need the promise in order to be able to cancel (AbortController)
+      //       it in case Relayer has claimed the funds already.
       await pendingTransactions.add(tx, $signer);
 
       // We're done here, no need to poll anymore since we've claimed manually
@@ -172,6 +175,17 @@
 
       // TODO: let's change this to a switch(true)? I think it's more readable.
       if (error.cause?.status === 0) {
+        // How about this: Relayer has already claimed the funds, in which case
+        // the status of this transaction is no longer NEW, but DONE (poller has
+        // already taken care of chanding the status). This will throw an error,
+        // B_STATUS_MISMATCH, therefore receipt.status === 0. Checks that the
+        // transaction.status is not DONE, otherwise get out without complaining.
+        // TODO: cancel claiming promise instead?
+        // if (transaction.status === MessageStatus.Done) {
+        //   log('Relayer has already claimed the funds, no need to complain');
+        //   return;
+        // }
+
         const explorerUrl = `${$fromChain.explorerUrl}/tx/${error.cause.transactionHash}`;
         const htmlLink = `<a href="${explorerUrl}" target="_blank"><b><u>here</u></b></a>`;
         errorToast(
@@ -315,9 +329,12 @@
         setTxStatus(msgStatus);
 
         if (msgStatus === MessageStatus.Done) {
+          log('Poller has picked up the change of status to DONE');
+
           successToast(
             `<strong>Transaction completed!</strong><br />Your funds have been successfully claimed on ${$fromChain.name} chain.`,
           );
+
           stopPolling();
 
           // Triggers reactivity on selected token

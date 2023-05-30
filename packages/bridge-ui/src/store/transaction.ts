@@ -34,10 +34,6 @@ export const pendingTransactions = {
       // New array with the new transaction appended
       const newPendingTransactions = [...txs, tx];
 
-      // Save the index of the new transaction to later on remove it
-      // from the list of pending transactions.
-      const idxAppendedTransaction = newPendingTransactions.length - 1;
-
       // Next step is to wait for the transaction to be mined
       // before removing it from the store.
 
@@ -56,12 +52,12 @@ export const pendingTransactions = {
 
           log('Transaction mined with receipt', receipt);
 
-          // Removes the transaction from the store
-          update((txs: Transaction[]) => {
-            const copyPendingTransactions = [...txs];
-            copyPendingTransactions.splice(idxAppendedTransaction, 1);
-            return copyPendingTransactions;
-          });
+          log(`Removing transaction "${tx.hash}" from store`);
+
+          update((txs: Transaction[]) =>
+            // Filter out the transaction with the given hash
+            txs.filter((_tx) => _tx.hash !== tx.hash),
+          );
 
           // Resolves or rejects the promise depending on the transaction status.
           if (receipt.status === 1) {
