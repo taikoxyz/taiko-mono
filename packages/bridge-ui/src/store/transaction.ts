@@ -53,7 +53,6 @@ export const pendingTransactions = {
           log('Transaction mined with receipt', receipt);
 
           log(`Removing transaction "${tx.hash}" from store`);
-
           update((txs: Transaction[]) =>
             // Filter out the transaction with the given hash
             txs.filter((_tx) => _tx.hash !== tx.hash),
