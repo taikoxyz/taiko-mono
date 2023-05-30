@@ -77,7 +77,7 @@ export class ETHBridge implements Bridge {
 
   // ETH does not need to be approved for transacting
   approve(): Promise<Transaction> {
-    return new Promise((resolve) => resolve({} as unknown as Transaction));
+    return new Promise((resolve) => resolve({} as Transaction));
   }
 
   async bridge(opts: BridgeOpts): Promise<Transaction> {
@@ -92,7 +92,7 @@ export class ETHBridge implements Bridge {
     try {
       const tx = await contract.sendMessage(message, { value });
 
-      log('Message sent with transaction', tx);
+      log('Sending message with transaction', tx);
 
       return tx;
     } catch (error) {
@@ -200,7 +200,7 @@ export class ETHBridge implements Bridge {
         }
       }
 
-      log('Message processed with transaction', processMessageTx);
+      log('Processing message with transaction', processMessageTx);
 
       return processMessageTx;
     } else {

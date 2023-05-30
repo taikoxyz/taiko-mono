@@ -134,7 +134,7 @@ export class ERC20Bridge implements Bridge {
 
       const tx = await contract.approve(opts.spenderAddress, opts.amountInWei);
 
-      log('Approved with transaction', tx);
+      log('Approval sent with transaction', tx);
 
       return tx;
     } catch (error) {
@@ -159,6 +159,10 @@ export class ERC20Bridge implements Bridge {
 
     const { contract, message } = await ERC20Bridge._prepareTransaction(opts);
 
+    const value = message.processingFee.add(message.callValue);
+
+    log('Sending ERC20 to bridge with value', value.toString());
+
     try {
       const tx = await contract.sendERC20(
         message.destChainId,
@@ -169,12 +173,10 @@ export class ERC20Bridge implements Bridge {
         message.processingFee,
         message.refundAddress,
         message.memo,
-        {
-          value: message.processingFee.add(message.callValue),
-        },
+        { value },
       );
 
-      log('ERC20 sent with transaction', tx);
+      log('Sending ERC20 with transaction', tx);
 
       return tx;
     } catch (error) {
@@ -293,7 +295,7 @@ export class ERC20Bridge implements Bridge {
         }
       }
 
-      log('Message processed with transaction', processMessageTx);
+      log('Processing message with transaction', processMessageTx);
 
       return processMessageTx;
     } else {
@@ -358,7 +360,7 @@ export class ERC20Bridge implements Bridge {
           proof,
         );
 
-        log('Released tokens with transaction', tx);
+        log('Realising tokens with transaction', tx);
 
         return tx;
       } catch (error) {
