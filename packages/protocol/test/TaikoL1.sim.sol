@@ -12,7 +12,7 @@ import {LibLn} from "./LibLn.sol";
 
 /// @dev Tweak this if you iwhs to set - the config and the calculation of the proofTimeIssued
 /// @dev also originates from this
-uint16 constant INITIAL_PROOF_TIME_TARGET = 160;
+uint16 constant INITIAL_PROOF_TIME_TARGET = 40;
 
 // Need to test (solve) the problem where in the middle of the testnet, the fee is low already - like our internal devnet now -
 // but we dont want to lose data with redeploying the contract. Upgrade also does not work because we need to change all
@@ -45,7 +45,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
     // Initial salt for semi-random generation
     uint256 salt = 2195684615435261315311;
     // Can play to adjust
-    uint256 blocksToSimulate = 4000;
+    uint256 blocksToSimulate = 500;
     // RandomNumber - pseudo random but fine
     uint256 newRandomWithoutSalt;
 
@@ -59,7 +59,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
     uint256 minDiffToBlockPropTime = 8 seconds;
 
     // This means block provings will be averaged out (long term if random function is random enough) to 200s
-    uint256 startBlockProposeTime = 70 seconds;
+    uint256 startBlockProposeTime = 110 seconds;
     uint256 upperDevToBlockProveTime = 40 seconds;
     uint256 secondsToSimulate = blocksToSimulate * 18; //Because of the expected average blocktimestamp - we can tweak it obv.
     //////////////////////////////////////////
@@ -100,7 +100,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
     }
 
     // A real world scenario
-    function xtestGeneratingManyRandomBlocksNonConsecutive() external {
+    function testGeneratingManyRandomBlocksNonConsecutive() external {
         uint256 time = block.timestamp;
 
         assertEq(time, 1);
@@ -259,7 +259,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
         console2.log("-----------------------------!");
     }
 
-    function test_scenario_where_blockfee_dumped_but_we_reset_parameters() external {
+    function xtest_scenario_where_blockfee_dumped_but_we_reset_parameters() external {
         uint256 time = block.timestamp;
 
         assertEq(time, 1);
