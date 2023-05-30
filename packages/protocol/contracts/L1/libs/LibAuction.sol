@@ -76,9 +76,8 @@ library LibAuction {
 
     }
 
-    // The given startBlockId / batch is the first blockId of that given batch
-    // it can even serve as a unique batchId.
-    function blockIdToBatch(
+    // Mapping blockId to batchId
+    function blockIdToBatchId(
         TaikoData.Config memory config,
         uint256 blockId
     ) internal pure returns (uint256){
@@ -124,7 +123,7 @@ library LibAuction {
     {
         // We should expose this function so that clients could query.
         // We also need to be sure, that the batchId of bid is indeed valid
-        if (batchId != blockIdToBatch(config, batchId)) {
+        if (batchId != blockIdToBatchId(config, batchId)) {
             revert L1_ID_NOT_BATCH_ID();
         }
 

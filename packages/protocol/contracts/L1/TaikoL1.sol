@@ -177,6 +177,25 @@ contract TaikoL1 is
         return state.blockFee;
     }
 
+    // If a bid is auctionable - then can call the isBidAcceptable() function to check
+    function isBatchAuctionable(uint256 batchId) public view returns (bool) {
+        return LibAuction.isBatchAuctionable(
+            state, getConfig(), batchId
+        );
+    }
+
+    function isBidAcceptable(TaikoData.Bid calldata bid) public view returns (bool) {
+        return LibAuction.isBidAcceptable(
+            state, getConfig(), bid
+        );
+    }
+
+    function blockIdToBatchId(uint256 blockId) public view returns (uint256) {
+        return LibAuction.blockIdToBatchId(
+            getConfig(), blockId
+        );
+    }
+
     function getBlock(uint256 blockId)
         public
         view
