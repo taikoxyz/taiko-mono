@@ -1,65 +1,41 @@
 import axios from 'axios';
 
 import { RELAYER_URL } from '../constants/envVars';
-import type {
-  APIResponse,
-  RelayerBlockInfo,
-  TransactionData,
-} from '../domain/relayerApi';
+import type { APIResponse, RelayerBlockInfo } from '../domain/relayerApi';
 import { providers } from '../provider/providers';
 import { RelayerAPIService } from './RelayerAPIService';
 
 jest.mock('axios');
 jest.mock('../constants/envVars');
 
-const data1 = {
-  Message: {
-    Id: 1,
-    To: '0x123',
-    Owner: '0x123',
-    Sender: '0x123',
-    RefundAddress: '0x123',
-    Data: '0x123',
-    SrcChainId: 1,
-    DestChainId: 2,
-    Memo: '',
-    GasLimit: '1',
-    CallValue: '1',
-    DepositValue: '1',
-    ProcessingFee: '1',
-  },
-  Raw: {
-    transactionHash: '0x123',
-  },
-} as TransactionData;
-
-const data2 = {
-  Message: {
-    Id: 2,
-    To: '0x456',
-    Owner: '0x456',
-    Sender: '0x456',
-    RefundAddress: '0x456',
-    Data: '0x456',
-    SrcChainId: 2,
-    DestChainId: 1,
-    Memo: '',
-    GasLimit: '1',
-    CallValue: '1',
-    DepositValue: '1',
-    ProcessingFee: '1',
-  },
-  Raw: {
-    transactionHash: '0x456',
-  },
-} as TransactionData;
-
 const dataFromAPI = {
   items: [
     {
       id: 1,
-      data: data1,
+      name: 'MessageSent',
+      data: {
+        Message: {
+          Id: 1,
+          To: '0x123',
+          Owner: '0x123',
+          Sender: '0x123',
+          RefundAddress: '0x123',
+          Data: '0x123',
+          SrcChainId: 1,
+          DestChainId: 2,
+          Memo: '',
+          GasLimit: '1',
+          CallValue: '1',
+          DepositValue: '1',
+          ProcessingFee: '1',
+        },
+        Raw: {
+          transactionHash: '0x123',
+        },
+      },
       status: 0,
+      eventType: 0,
+      chainID: 1,
       amount: '1000000000000000000',
       canonicalTokenSymbol: 'ETH',
       messageOwner: '0x123',
@@ -67,11 +43,34 @@ const dataFromAPI = {
       canonicalTokenAddress: '0x123',
       canonicalTokenName: 'ETH',
       canonicalTokenDecimals: 18,
+      event: 'MessageSent',
     },
     {
       id: 2,
-      data: data2,
+      name: 'MessageSent',
+      data: {
+        Message: {
+          Id: 2,
+          To: '0x456',
+          Owner: '0x456',
+          Sender: '0x456',
+          RefundAddress: '0x456',
+          Data: '0x456',
+          SrcChainId: 2,
+          DestChainId: 1,
+          Memo: '',
+          GasLimit: '1',
+          CallValue: '1',
+          DepositValue: '1',
+          ProcessingFee: '1',
+        },
+        Raw: {
+          transactionHash: '0x456',
+        },
+      },
       status: 1,
+      eventType: 0,
+      chainID: 2,
       amount: '2000000000000000000',
       canonicalTokenSymbol: 'BLL',
       messageOwner: '0x456',
@@ -79,8 +78,17 @@ const dataFromAPI = {
       canonicalTokenAddress: '0x456',
       canonicalTokenName: 'BLL',
       canonicalTokenDecimals: 18,
+      event: 'MessageSent',
     },
   ],
+  page: 0,
+  size: 100,
+  max_page: 1,
+  total_pages: 1,
+  total: 3,
+  last: false,
+  first: true,
+  visible: 3,
 } as APIResponse;
 
 const blockInfoFromAPI = [
