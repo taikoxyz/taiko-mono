@@ -48,8 +48,6 @@ export const pendingTransactions = {
       signer.provider
         .waitForTransaction(tx.hash, 1, 5 * 60 * 1000) // 5 min timeout. TODO: config?
         .then((receipt) => {
-          // The transaction has been mined.
-
           log('Transaction mined with receipt', receipt);
 
           log(`Removing transaction "${tx.hash}" from store`);
