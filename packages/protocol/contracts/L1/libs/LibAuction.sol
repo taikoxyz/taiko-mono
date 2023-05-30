@@ -33,14 +33,8 @@ library LibAuction {
         TaikoData.State storage state,
         AddressResolver resolver,
         TaikoData.Config memory config,
-        TaikoData.Bid memory newBid
+        TaikoData.Bid calldata newBid
     ) internal {
-        // // We also need to be sure, that the batchId of bid is indeed valid
-        // if (newBid.batchId != blockIdToBatch(config, newBid.batchId)) {
-        //     revert L1_ID_NOT_BATCH_ID();
-        // }
-
-        TaikoData.Auction memory auction = state.auctions[newBid.batchId];
 
         if (!isBatchAuctionable(state, config, newBid.batchId)) {
             revert L1_BID_CANNOT_BE_SUBMITTED();
@@ -52,6 +46,7 @@ library LibAuction {
 
         TaikoToken tkoToken = TaikoToken(resolver.resolve("tko_token", false));
 
+        TaikoData.Auction memory auction = state.auctions[newBid.batchId];
         // If there is an existing bid already
         // we compare this bid to the existing one first, to see if its a
         // lower fee accepted.
@@ -95,7 +90,7 @@ library LibAuction {
     function isBidAcceptable(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        TaikoData.Bid memory newBid
+        TaikoData.Bid calldata newBid
     )
         internal
         view
@@ -106,9 +101,9 @@ library LibAuction {
         if (
             newBid.feePerGas >= config.auctionSmallestGasPerBlockBid 
             &&
-            newBid.feePerGas <= ((winningBid.feePerGas - ((winningBid.feePerGas * config.bidDiffBp) / 10000)))
+            newBid.feePerGas <= ((winningBid.feePerGas - ((winningBid.feePerGas * config.bidGasDiffBp) / 10000)))
             &&
-            newBid.deposit <= ((winningBid.deposit - ((winningBid.deposit * config.bidDiffBp) / 10000)))
+            newBid.deposit <= ((winningBid.deposit - ((winningBid.deposit * config.bidDepositDiffBp) / 10000)))
         )
         {
             result = true;

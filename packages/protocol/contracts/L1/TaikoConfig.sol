@@ -45,7 +45,8 @@ library TaikoConfig {
             auctionBatchModulo: 5,
             auctionBatchSize: 100,
             auctionSmallestGasPerBlockBid: 1, // in wei
-            bidDiffBp: 1000, // 10.000 BP = 100%
+            bidGasDiffBp: 1000, // 10.000 BP = 100%
+            bidDepositDiffBp: 1000, // 10.000 BP = 100%
             relaySignalRoot: false
         });
     }

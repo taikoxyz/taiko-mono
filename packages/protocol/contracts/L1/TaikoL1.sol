@@ -133,24 +133,14 @@ contract TaikoL1 is
     /**
      * Bid for proving rights of a batch.
      *
-     * @param batchId The batchId
-     * @param feePerGas The minimum fee, in wei, per gas you will accept
-     * being paid as a reward for proving the block.
+     * @param bid The actual bid
      */
 
-    function bidForBatch(uint256 batchId, uint64 feePerGas, uint64 deposit)
+    function bidForBatch(TaikoData.Bid calldata bid)
         external
         payable
         nonReentrant
     {
-
-        TaikoData.Bid memory bid = TaikoData.Bid({
-            batchId: batchId, 
-            prover: msg.sender,
-            deposit: deposit, // == msg.value
-            feePerGas: feePerGas
-        });
-
         LibAuction.bidForBatch({
             state: state,
             resolver: AddressResolver(this),

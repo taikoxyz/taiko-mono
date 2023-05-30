@@ -35,7 +35,8 @@ library TaikoData {
         uint16 auctionBatchModulo;
         uint16 auctionBatchSize;
         uint16 auctionSmallestGasPerBlockBid; // in wei
-        uint16 bidDiffBp; // 10.000 BP = 100%
+        uint16 bidGasDiffBp; // 10.000 BP = 100%
+        uint16 bidDepositDiffBp; // 10.000 BP = 100%
         bool relaySignalRoot;
     }
 
