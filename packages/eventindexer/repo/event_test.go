@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/stretchr/testify/assert"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
-	"gotest.tools/assert"
 )
 
 var (
@@ -253,7 +253,7 @@ func TestIntegration_Event_Delete(t *testing.T) {
 			)
 
 			assert.Equal(t, nil, err)
-			assert.Equal(t, nil, foundEvent)
+			assert.Nil(t, foundEvent)
 		})
 	}
 }
