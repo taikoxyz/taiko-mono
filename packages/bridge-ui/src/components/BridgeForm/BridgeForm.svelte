@@ -396,6 +396,8 @@
       amount = '';
       showTo = false;
       showMemo = false;
+      feeAmount = '0';
+      feeMethod = ProcessingFeeMethod.RECOMMENDED;
 
       // Re-selecting the token triggers reactivity
       $token = $token;

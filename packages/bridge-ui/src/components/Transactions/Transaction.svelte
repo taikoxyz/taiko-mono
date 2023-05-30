@@ -294,10 +294,7 @@
         // It could happen that the transaction has been claimed manually
         // and by the time we poll it's already done, in which case we
         // stop polling.
-        if (
-          (!receipt && receipt.status == 0) ||
-          status === MessageStatus.Done
-        ) {
+        if (status === MessageStatus.Done) {
           stopPolling();
           return;
         }
@@ -318,7 +315,9 @@
         setTxStatus(msgStatus);
 
         if (msgStatus === MessageStatus.Done) {
-          successToast($_('toast.fundsClaimed'));
+          successToast(
+            `<strong>Transaction completed!</strong><br />Your funds have been successfully claimed on ${$fromChain.name} chain.`,
+          );
           stopPolling();
 
           // Triggers reactivity on selected token
