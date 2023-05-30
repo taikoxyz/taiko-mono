@@ -52,11 +52,12 @@ library LibVerifying {
                 || config.ethDepositMaxFee == 0
                 || config.ethDepositMaxFee >= type(uint96).max
                 || config.auctionWindowInSec == 0
-                || config.auctionBatchModulo == 0
+                || config.proofWindowInSec == 0
                 || config.auctionBatchSize == 0
                 || config.auctionSmallestGasPerBlockBid == 0
                 || config.bidGasDiffBp == 0
                 || config.bidDepositDiffBp == 0
+                || config.proposerBlockFeeMultiplierBP == 0
         ) revert L1_INVALID_CONFIG();
 
         uint64 timeNow = uint64(block.timestamp);

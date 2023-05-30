@@ -7,7 +7,6 @@
 pragma solidity ^0.8.18;
 
 library TaikoData {
-
     struct Config {
         uint256 chainId;
         uint256 maxNumProposedBlocks;
@@ -34,10 +33,6 @@ library TaikoData {
         uint16 auctionWindowInSec;
         //How long proof window will be granted to winning bidder
         uint16 proofWindowInSec;
-        // This means, if prover Bob wins auction, he 
-        // skips every Nth block, e.g.: if this is 5, 
-        // then 0..5..10.. are his block.
-        uint16 auctionBatchModulo;
         uint16 auctionBatchSize;
         uint16 auctionSmallestGasPerBlockBid; // in wei
         uint16 bidGasDiffBp; // 10.000 BP = 100%

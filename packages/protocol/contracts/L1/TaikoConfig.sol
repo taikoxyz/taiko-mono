@@ -44,7 +44,6 @@ library TaikoConfig {
             proposerBlockFeeMultiplierBP: 15000, // 1.5X multiplier
             auctionWindowInSec: 120,
             proofWindowInSec: 7200, // 2 hours (?)
-            auctionBatchModulo: 5,
             auctionBatchSize: 100,
             auctionSmallestGasPerBlockBid: 1, // in wei
             bidGasDiffBp: 1000, // 10.000 BP = 100%
