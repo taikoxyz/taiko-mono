@@ -289,7 +289,7 @@
       interval = setInterval(async () => {
         processable = await isTransactionProcessable(transaction);
 
-        const { toChainId, receipt, msgHash, status } = transaction;
+        const { toChainId, msgHash, status } = transaction;
 
         // It could happen that the transaction has been claimed manually
         // and by the time we poll it's already done, in which case we
