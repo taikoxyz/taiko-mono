@@ -112,3 +112,11 @@ func (r *EventRepository) FindAllByAddress(
 
 	return page, nil
 }
+
+func (r *EventRepository) Delete(
+	ctx context.Context,
+	id int,
+) error {
+	return r.db.GormDB().
+		Where("id = ?", id).Delete(relayer.Event{}).Error
+}

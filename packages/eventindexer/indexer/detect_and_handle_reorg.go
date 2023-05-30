@@ -16,7 +16,7 @@ func (svc *Service) detectAndHandleReorg(ctx context.Context, event string, bloc
 		// reorg detected
 		err := svc.eventRepo.Delete(ctx, existingEvent.ID)
 		if err != nil {
-			return errors.Wrap(err, "svc.eventRepo.Find")
+			return errors.Wrap(err, "svc.eventRepo.Delete")
 		}
 	}
 

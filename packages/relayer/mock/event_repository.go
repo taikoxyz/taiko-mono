@@ -107,3 +107,16 @@ func (r *EventRepository) FindAllByMsgHash(
 
 	return events, nil
 }
+
+func (r *EventRepository) Delete(
+	ctx context.Context,
+	id int,
+) error {
+	for i, e := range r.events {
+		if e.ID == id {
+			r.events = append(r.events[:i], r.events[i+1:]...)
+		}
+	}
+
+	return nil
+}
