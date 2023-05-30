@@ -90,6 +90,12 @@ func (svc *Service) updateAverageBlockReward(ctx context.Context, event *taikol1
 		new(big.Int).SetUint64(stat.NumVerifiedBlocks),
 		new(big.Int).SetUint64(reward),
 	)
+	log.Infof("blockVerified reward update. id: %v, newAvg: %v, oldAvg: %v, reward: %v",
+		event.Id.String(),
+		newAverageProofReward.String(),
+		avg.String(),
+		reward,
+	)
 
 	_, err = svc.statRepo.Save(ctx, eventindexer.SaveStatOpts{
 		ProofReward: newAverageProofReward,
