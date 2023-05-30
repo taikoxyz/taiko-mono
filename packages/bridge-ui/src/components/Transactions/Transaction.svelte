@@ -54,7 +54,6 @@
   let txToChain = chains[transaction.toChainId];
   let txFromChain = chains[transaction.fromChainId];
   // let alreadyInformedAboutClaim = false;
-  let claimingPromise: Promise<ethers.providers.TransactionReceipt>;
 
   function setTxStatus(status: TxUIStatus) {
     transaction.status = status;
