@@ -32,6 +32,7 @@ library LibProving {
     error L1_INVALID_EVIDENCE();
     error L1_INVALID_PROOF();
     error L1_INVALID_PROOF_OVERWRITE();
+    error L1_NOT_PROVEABLE();
     error L1_NOT_SPECIAL_PROVER();
     error L1_ORACLE_PROVER_DISABLED();
     error L1_SAME_PROOF();
@@ -47,8 +48,12 @@ library LibProving {
     )
         internal
     {
-
-        LibAuction.isBlockProvableBy(state, config, blockId, msg.sender);
+        
+        // We also should know who can prove this block:
+        // the one who bid or everyone if it is above the window
+        if(!LibAuction.isBlockProvableBy(state, config, blockId, msg.sender)) {
+            revert L1_NOT_PROVEABLE();
+        }
 
         if (
             evidence.parentHash == 0

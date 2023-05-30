@@ -88,7 +88,7 @@ library LibProposing {
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.proposer = msg.sender;
 
-        uint64 blockFee = getBlockFee(config, state, meta.gasLimit);
+        uint64 blockFee = getBlockFee(config, state);
 
         emit BlockProposed(state.numBlocks, meta, blockFee);
         unchecked {
@@ -109,12 +109,15 @@ library LibProposing {
         if (blk.blockId != blockId) revert L1_BLOCK_ID();
     }
 
-    function getBlockFee(TaikoData.Config memory config, TaikoData.State storage state, uint32 gasUsed)
+    // If auction is tied to gas, we should charge users based on gas as well. At this point gasUsed
+    // (in proposeBlock()) is always gasLimit, so use avgRewardPerBlock and multiply it
+    function getBlockFee(TaikoData.Config memory config, TaikoData.State storage state)
         internal
         view
         returns (uint64)
     {
-        return ((state.avgFeePerGas * config.proposerBlockFeeMultiplierBP) / 10_000) * gasUsed;
+        // @dantaik: What to do with the first X proposals, when there are no avgFeePerGas... ?
+        return ((state.avgRewardPerBlock * config.proposerBlockFeeMultiplierBP) / 10_000);
     }
 
     function _validateBlock(

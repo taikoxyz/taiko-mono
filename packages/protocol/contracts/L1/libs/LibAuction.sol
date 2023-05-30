@@ -151,14 +151,20 @@ library LibAuction {
         // We also need to be sure, that the batchId of bid is indeed valid
         uint256 batchId = blockIdToBatchId(config, blockId);
 
+        // Either:
+        // 1. we are in the window granted for prover or 
+        // 2. anyone can submit proofs if we are outside of that window
         TaikoData.Auction memory auction = state.auctions[batchId];
         if (
-            auction.startedAt != 0 && 
+            (auction.startedAt != 0 && 
             block.timestamp > auction.startedAt + config.auctionWindowInSec &&
-            auction.bid.prover == prover
+            block.timestamp < auction.startedAt + config.auctionWindowInSec + config.proofWindowInSec &&
+            auction.bid.prover == prover)
+        ||
+            (auction.startedAt != 0 && 
+            block.timestamp > auction.startedAt + config.auctionWindowInSec + config.proofWindowInSec)
         ) {
             return true;
         }
-
     }
 }

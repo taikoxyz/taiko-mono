@@ -8,10 +8,12 @@ pragma solidity ^0.8.18;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
+import { LibAuction } from "./LibAuction.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
+import {TaikoToken} from "../TaikoToken.sol";
 
 library LibVerifying {
     using SafeCastUpgradeable for uint256;
@@ -121,6 +123,9 @@ library LibVerifying {
             signalRoot = fc.signalRoot;
 
             _markBlockVerified({
+                state: state,
+                config: config,
+                resolver: resolver,
                 blk: blk,
                 fcId: uint24(fcId),
                 fc: fc
@@ -153,6 +158,9 @@ library LibVerifying {
     }
 
     function _markBlockVerified(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        AddressResolver resolver,
         TaikoData.Block storage blk,
         TaikoData.ForkChoice storage fc,
         uint24 fcId
@@ -164,10 +172,42 @@ library LibVerifying {
             proofTime = uint64(fc.provenAt - blk.proposedAt);
         }
 
-        uint64 reward;
+        TaikoData.Bid memory winningBid = state.auctions[LibAuction.blockIdToBatchId(config, blk.blockId)].bid;
+        
+        uint64 rewardPerBlock = fc.gasUsed * winningBid.feePerGas;
+    
+        state.avgRewardPerBlock = uint64(LibUtils.movingAverage(state.avgRewardPerBlock, rewardPerBlock, 100));
+
+        // Check if prover is equal to auction winner. If so, just distribute normall if not, distribute reward normall
+        // + half of the deposit / block
+        uint256 batchId = LibAuction.blockIdToBatchId(config, blk.blockId);
+        TaikoData.Auction memory auction = state.auctions[batchId];
+
+        TaikoToken tkoToken = TaikoToken(resolver.resolve("tko_token", false));
+        // Prover indeed the one who won the auction
+        if(auction.bid.prover == fc.prover) {
+            try tkoToken.transfer(auction.bid.prover, auction.bid.deposit / config.auctionBatchSize + rewardPerBlock) {}
+            catch {
+                // allow to fail in case they have a bad onTokenReceived
+                // so they cant be outbid
+            }
+        }
+        else{
+            // Send reward + half of the deposit/block
+            try tkoToken.transfer(fc.prover, auction.bid.deposit / (config.auctionBatchSize * 2) + rewardPerBlock) {}
+            catch {
+                // allow to fail in case they have a bad onTokenReceived
+                // so they cant be outbid
+            }
+
+            // Burn helf of the deposit/block
+            tkoToken.burn((address(this)), auction.bid.deposit / (config.auctionBatchSize * 2));
+        }
+
+
 
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = fcId;
-        emit BlockVerified(blk.blockId, fc.blockHash, reward);
+        emit BlockVerified(blk.blockId, fc.blockHash, rewardPerBlock);
     }
 }
