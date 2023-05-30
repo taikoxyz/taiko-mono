@@ -124,10 +124,16 @@ library TaikoData {
     }
 
     struct Bid {
-        uint256 minFeePerGasInWei;
-        uint256 deposit;
-        uint256 bidAt;
-        address bidder;
+        // Cannot be a ring bufer, if we can auction future block. If batch is 100, it simply BLOCK_ID-1/100
+        uint256 batchId; 
+        address prover;
+        uint64 deposit;
+        uint64 feePerGas;
+    }
+
+    struct Auction {
+        Bid bid;
+        uint64 startedAt;
     }
 
     struct State {
@@ -142,7 +148,7 @@ library TaikoData {
             ) forkChoiceIds;
         mapping(address account => uint256 balance) taikoTokenBalances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
-        mapping(uint256 batchStartBlockId => Bid bid) bids;
+        mapping(uint256 batchId => Auction auction) auctions;
         EthDeposit[] ethDeposits;
         // Never or rarely changed
         // Slot 7: never or rarely changed

@@ -43,7 +43,7 @@ library TaikoConfig {
             txListCacheExpiry: 0,
             auctionWindowInSec: 120,
             auctionBatchModulo: 5,
-            auctionBatchSize: 25,
+            auctionBatchSize: 100,
             auctionSmallestGasPerBlockBid: 1, // in wei
             bidDiffBp: 1000, // 10.000 BP = 100%
             relaySignalRoot: false

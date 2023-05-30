@@ -20,42 +20,34 @@ library LibAuction {
         address claimer,
         uint256 claimedAt,
         uint256 deposit,
-        uint256 minFeePerGasInWei
-    );
-
-    event BidDepositRefunded(
-        uint256 indexed batchStartId, address claimer, uint256 refundedAt, uint256 refund
+        uint256 feePerGas
     );
 
     error L1_BLOCK_ID();
-    error L1_BID_AUCTION_CLOSED();
+    error L1_BID_CANNOT_BE_SUBMITTED();
+    error L1_BID_DEPOSIT_AND_MSG_VALUE_MISMATCH();
     error L1_BID_NOT_ACCEPTABLE();
-    error L1_ID_NOT_START_OF_A_BATCH();
+    error L1_ID_NOT_BATCH_ID();
 
     function bidForBatch(
         TaikoData.State storage state,
         AddressResolver resolver,
         TaikoData.Config memory config,
-        uint256 batchStartBlockId,
-        uint256 minFeePerGasInWei
+        TaikoData.Bid memory newBid
     ) internal {
-        // If it verified already -> Revert, otherwise it would be possible
-        // to bid for future (unproposed) blocks - tho risky given the unknown costs yet.
-        if (batchStartBlockId <= state.lastVerifiedBlockId) {
-            revert L1_BLOCK_ID();
+        // // We also need to be sure, that the batchId of bid is indeed valid
+        // if (newBid.batchId != blockIdToBatch(config, newBid.batchId)) {
+        //     revert L1_ID_NOT_BATCH_ID();
+        // }
+
+        TaikoData.Auction memory auction = state.auctions[newBid.batchId];
+
+        if (!isBatchAuctionable(state, config, newBid.batchId)) {
+            revert L1_BID_CANNOT_BE_SUBMITTED();
         }
 
-        // We also need to be sure, that the blockId here is indeed a start blockId
-        if (batchStartBlockId != getBatchStartBlockId(config, batchStartBlockId)) {
-            revert L1_ID_NOT_START_OF_A_BATCH();
-        }
-
-        TaikoData.Bid memory currentBid = state.bids[batchStartBlockId];
-
-        // if a current bid exists, and the delay after the current bid exists
-        // has passed, bidding is over.
-        if (!isBiddingOpenForBlock(config, currentBid)) {
-            revert L1_BID_AUCTION_CLOSED();
+        if (msg.value != newBid.deposit) {
+            revert L1_BID_DEPOSIT_AND_MSG_VALUE_MISMATCH();
         }
 
         TaikoToken tkoToken = TaikoToken(resolver.resolve("tko_token", false));
@@ -63,71 +55,60 @@ library LibAuction {
         // If there is an existing bid already
         // we compare this bid to the existing one first, to see if its a
         // lower fee accepted.
-        if (currentBid.bidder != address(0)) {
-            if (!isBidAcceptable(config, currentBid, minFeePerGasInWei, msg.value)) {
+        if (auction.startedAt != 0) {
+            if (!isBidAcceptable(state, config, newBid)) {
                 revert L1_BID_NOT_ACCEPTABLE();
             } else {
                 // otherwise we have a new high bid, and can refund the previous claimer deposit
-                try tkoToken.transfer(currentBid.bidder, currentBid.deposit) {}
+                try tkoToken.transfer(auction.bid.prover, auction.bid.deposit) {}
                 catch {
                     // allow to fail in case they have a bad onTokenReceived
                     // so they cant be outbid
                 }
-                emit BidDepositRefunded(
-                    batchStartBlockId, currentBid.bidder, block.timestamp, currentBid.deposit
-                );
             }
         }
 
-        // transfer deposit from bidder to this contract
+        // transfer deposit from current auction winner to this contract
         tkoToken.transferFrom(msg.sender, address(this), msg.value);
 
         // then we can update the bid for the blockID to the new bidder
-        state.bids[batchStartBlockId] = TaikoData.Bid({
-            bidder: msg.sender,
-            bidAt: block.timestamp,
-            deposit: msg.value,
-            minFeePerGasInWei: minFeePerGasInWei
+        state.auctions[newBid.batchId] = TaikoData.Auction({
+            bid: newBid,
+            startedAt: uint64(auction.startedAt == 0 ? block.timestamp : auction.startedAt)
         });
 
-        emit Bid(batchStartBlockId, msg.sender, block.timestamp, msg.value, minFeePerGasInWei);
+        emit Bid(newBid.batchId, msg.sender, block.timestamp, msg.value, newBid.feePerGas);
 
     }
 
-    // Example, visual representation of what the config parameters mean:
-    // These are the block below:
-    // 0   1   2   3   4   5   6   7   8   9   10
-    // ■ - ■ - ■ - ■ - ■ - ■ - ■ - ■ - ■ - ■ - ■
-    // If config.batchSize is 2 AND config.batchModulo 5 it means: 
-    // bidder bids for 0th + 5th, or 1st + 6th, etc.
     // The given startBlockId / batch is the first blockId of that given batch
     // it can even serve as a unique batchId.
-    function getBatchStartBlockId(
+    function blockIdToBatch(
         TaikoData.Config memory config,
         uint256 blockId
-    ) internal pure returns (uint256 startBlockId){
-        return blockId - blockId % config.auctionBatchModulo;
+    ) internal pure returns (uint256){
+        return (blockId - 1) / config.auctionBatchSize;
     }
 
     // isBidAcceptable determines is checking if the bid is acceptable based on the defined
-    // criteria
+    // criteria. Shall be called after isBatchAuctionable() returns true.
     function isBidAcceptable(
+        TaikoData.State storage state,
         TaikoData.Config memory config,
-        TaikoData.Bid memory bid,
-        uint256 minFeePerGasInWei,
-        uint256 depositAmount
+        TaikoData.Bid memory newBid
     )
         internal
-        pure
+        view
         returns (bool result) 
     {
+        TaikoData.Bid memory winningBid = state.auctions[newBid.batchId].bid;
 
         if (
-            minFeePerGasInWei >= config.auctionSmallestGasPerBlockBid 
+            newBid.feePerGas >= config.auctionSmallestGasPerBlockBid 
             &&
-            minFeePerGasInWei <= ((bid.minFeePerGasInWei - ((bid.minFeePerGasInWei * config.bidDiffBp) / 10000)))
+            newBid.feePerGas <= ((winningBid.feePerGas - ((winningBid.feePerGas * config.bidDiffBp) / 10000)))
             &&
-            depositAmount <= ((bid.deposit - ((bid.deposit * config.bidDiffBp) / 10000)))
+            newBid.deposit <= ((winningBid.deposit - ((winningBid.deposit * config.bidDiffBp) / 10000)))
         )
         {
             result = true;
@@ -135,15 +116,34 @@ library LibAuction {
 
     }
 
-    // isBiddingOpenForBlockId determines whether a new bid for a block
-    // would be accepted or not. It is kind of 'open ended' - so returns true if no bids came regardless of time
-    function isBiddingOpenForBlock(TaikoData.Config memory config, TaikoData.Bid memory currentBid)
+    // isBatchAuctionable determines whether a new bid for a block
+    // would be accepted or not. 'open ended' - so returns true if no bids came yet
+    function isBatchAuctionable(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        uint256 batchId
+    )
         internal
         view
-        returns (bool)
+        returns (bool result)
     {
-        if (currentBid.bidder == address(0)) return true;
+        // We should expose this function so that clients could query.
+        // We also need to be sure, that the batchId of bid is indeed valid
+        if (batchId != blockIdToBatch(config, batchId)) {
+            revert L1_ID_NOT_BATCH_ID();
+        }
 
-        return (block.timestamp - currentBid.bidAt > config.auctionWindowInSec);
+        // 3 scenarios: 
+        // TRUE: 1. auction not started yet -> startedAt == 0 -> TRUE
+        // TRUE: 2. auction is up and running -> startedAt is not 0 and block.timestamp < starteAt + auctionWindowInSec
+        // FALSE: 3. auction ended already -> block.timestamp > starteAt + auctionWindowInSec
+
+        TaikoData.Auction memory auction = state.auctions[batchId];
+
+        if (
+            auction.startedAt == 0 
+            ||
+            (auction.startedAt != 0 && block.timestamp <= auction.startedAt + config.auctionWindowInSec)
+        ) return true;
     }
 }

@@ -11,6 +11,7 @@ import { EssentialContract } from "../common/EssentialContract.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { LibEthDepositing } from "./libs/LibEthDepositing.sol";
+import { LibAuction } from "./libs/LibAuction.sol";
 import { LibProposing } from "./libs/LibProposing.sol";
 import { LibProving } from "./libs/LibProving.sol";
 import { LibUtils } from "./libs/LibUtils.sol";
@@ -132,22 +133,29 @@ contract TaikoL1 is
     /**
      * Bid for proving rights of a batch.
      *
-     * @param startBlockId The start blockId of the given batch
-     * @param minFeePerGasInWei The minimum fee, in wei, per gas you will accept
+     * @param batchId The batchId
+     * @param feePerGas The minimum fee, in wei, per gas you will accept
      * being paid as a reward for proving the block.
      */
 
-    function bidForBatch(uint256 startBlockId, uint256 minFeePerGasInWei)
+    function bidForBatch(uint256 batchId, uint64 feePerGas, uint64 deposit)
         external
         payable
         nonReentrant
     {
+
+        TaikoData.Bid memory bid = TaikoData.Bid({
+            batchId: batchId, 
+            prover: msg.sender,
+            deposit: deposit, // == msg.value
+            feePerGas: feePerGas
+        });
+
         LibAuction.bidForBatch({
             state: state,
             resolver: AddressResolver(this),
             config: getConfig(),
-            batchStartBlockId: startBlockId,
-            minFeePerGasInWei: minFeePerGasInWei
+            newBid: bid
         });
     }
 
