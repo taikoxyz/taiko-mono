@@ -107,5 +107,15 @@ library LibTokenomics {
             / (state.proofTimeTarget * state.adjustmentQuotient);
 
         blockFee = uint64(result.min(type(uint64).max));
+
+        // Keep it within 0.1 and 10 TKO and not allow proofTimeIssued accumulated
+        // so that fee could recover quicker when waiting is applied from provers.
+        if (blockFee < 1e7) {
+            blockFee = 1e7;
+            newProofTimeIssued -= proofTime;
+        } else if (blockFee > 1e9) {
+            blockFee = 1e9;
+            newProofTimeIssued -= proofTime;
+        }
     }
 }
