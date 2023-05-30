@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 type EventRepository struct {
@@ -72,6 +73,10 @@ func (r *EventRepository) FindAllByMsgHash(
 	// find all message sent events
 	if err := r.db.GormDB().Where("msg_hash = ?", msgHash).
 		Find(&e).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return e, nil
+		}
+
 		return nil, errors.Wrap(err, "r.db.Find")
 	}
 
