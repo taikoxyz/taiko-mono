@@ -48,10 +48,12 @@
     loading = true;
 
     try {
-      const [userHasAlreadyClaimed, estimatedGas] =
-        await getIsMintedWithEstimation(signer, _token);
+      const { isMinted, estimatedGas } = await getIsMintedWithEstimation(
+        signer,
+        _token,
+      );
 
-      if (userHasAlreadyClaimed) {
+      if (isMinted) {
         errorReason = 'Token already minted';
         return true;
       }

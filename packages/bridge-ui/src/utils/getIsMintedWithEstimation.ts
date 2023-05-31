@@ -13,7 +13,7 @@ const log = getLogger('util:minting');
 export async function getIsMintedWithEstimation(
   signer: Signer,
   token: Token,
-): Promise<[boolean, BigNumber]> {
+): Promise<{ isMinted: boolean; estimatedGas: BigNumber }> {
   const address = signer.getAddress();
 
   const l1TokenContract = new Contract(
@@ -28,7 +28,7 @@ export async function getIsMintedWithEstimation(
     log(`Has user already minted ${token.symbol}? ${userHasAlreadyMinted}`);
 
     if (userHasAlreadyMinted) {
-      return [true, null]; // already minted, no gas cost is needed
+      return { isMinted: true, estimatedGas: null }; // already minted, no gas cost is needed
     }
   } catch (error) {
     console.error(error);
@@ -44,7 +44,7 @@ export async function getIsMintedWithEstimation(
 
     log(`Estimated gas to mint token ${token.symbol}: ${estimatedGas}`);
 
-    return [false, estimatedGas];
+    return { isMinted: false, estimatedGas };
   } catch (error) {
     throw new Error(`failed to estimate gas to mint token ${token.symbol}`, {
       cause: error,

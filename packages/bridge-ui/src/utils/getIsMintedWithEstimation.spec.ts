@@ -1,4 +1,4 @@
-import { BigNumber,Contract, type Signer } from 'ethers';
+import { BigNumber, Contract, type Signer } from 'ethers';
 
 import { L1_CHAIN_ID } from '../constants/envVars';
 import type { Token } from '../domain/token';
@@ -51,7 +51,7 @@ describe('getIsMintedWithEstimation', () => {
 
   it('should return true if user has already claimed', async () => {
     jest.mocked(Contract.prototype.minters).mockResolvedValue(true);
-    const [isMinted, estimatedGas] = await getIsMintedWithEstimation(
+    const { isMinted, estimatedGas } = await getIsMintedWithEstimation(
       mockSigner,
       mockToken,
     );
@@ -61,7 +61,7 @@ describe('getIsMintedWithEstimation', () => {
   });
 
   it('should return false if user has not claimed', async () => {
-    const [isMinted, estimatedGas] = await getIsMintedWithEstimation(
+    const { isMinted, estimatedGas } = await getIsMintedWithEstimation(
       mockSigner,
       mockToken,
     );
