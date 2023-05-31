@@ -367,7 +367,7 @@ export async function buildStatusIndicators(
     indicators.push({
       provider: config.l1Provider,
       contractAddress: config.l1TaikoAddress,
-      header: "Latest Proof",
+      header: "Latest Proof Time",
       intervalInMs: 0,
       status: "0",
       watchStatusFunc: async (
@@ -376,20 +376,26 @@ export async function buildStatusIndicators(
         onEvent: (value: Status) => void
       ) => {
         const contract = new Contract(address, TaikoL1, provider);
-        const listener = (
+        const listener = async (
           id,
           parentHash,
           blockHash,
           signalRoot,
           prover,
-          provenAt,
-          ...args
+          parentGasUsed,
+          event
         ) => {
+          console.log(event);
           // ignore oracle prover
           if (
             prover.toLowerCase() !== config.oracleProverAddress.toLowerCase()
           ) {
-            onEvent(new Date(provenAt).toTimeString());
+            const proposedBlock = await contract.getBlock(id);
+            const block = await event.getBlock();
+            const proofTime =
+              block.timestamp - proposedBlock._proposedAt.toNumber();
+
+            onEvent(`${proofTime} seconds`);
           }
         };
         contract.on("BlockProven", listener);
