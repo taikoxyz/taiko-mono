@@ -96,6 +96,11 @@ func Run(
 		log.Fatal(err)
 	}
 
+	statRepository, err := repo.NewStatRepository(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	blockRepository, err := repo.NewBlockRepository(db)
 	if err != nil {
 		log.Fatal(err)
@@ -123,6 +128,7 @@ func Run(
 	i, err := indexer.NewService(indexer.NewServiceOpts{
 		EventRepo:           eventRepository,
 		BlockRepo:           blockRepository,
+		StatRepo:            statRepository,
 		EthClient:           l1EthClient,
 		RPCClient:           l1RpcClient,
 		SrcTaikoAddress:     common.HexToAddress(os.Getenv("L1_TAIKO_ADDRESS")),
@@ -233,8 +239,14 @@ func newHTTPServer(db eventindexer.DB, l1EthClient *ethclient.Client) (*http.Ser
 		return nil, err
 	}
 
+	statRepo, err := repo.NewStatRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
 	srv, err := http.NewServer(http.NewServerOpts{
 		EventRepo:   eventRepo,
+		StatRepo:    statRepo,
 		Echo:        echo.New(),
 		CorsOrigins: strings.Split(os.Getenv("CORS_ORIGINS"), ","),
 	})

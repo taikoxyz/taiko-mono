@@ -29,6 +29,8 @@ abstract contract AddressResolver {
         _;
     }
 
+    event AddressManagerChanged(address addressManager);
+
     /**
      * Resolves a name to an address on the current chain.
      *

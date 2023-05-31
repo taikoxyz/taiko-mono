@@ -14,10 +14,9 @@ library TaikoData {
         // This number is calculated from maxNumProposedBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;
-        uint256 blockMaxGasLimit;
-        uint256 maxTransactionsPerBlock;
-        uint256 maxBytesPerTxList;
-        uint256 minTxGasLimit;
+        uint64 blockMaxGasLimit;
+        uint64 maxTransactionsPerBlock;
+        uint64 maxBytesPerTxList;
         uint256 txListCacheExpiry;
         uint256 proofCooldownPeriod;
         uint256 systemProofCooldownPeriod;
@@ -28,7 +27,6 @@ library TaikoData {
         uint64 maxEthDepositsPerBlock;
         uint96 maxEthDepositAmount;
         uint96 minEthDepositAmount;
-        uint8 adjustmentQuotient;
         bool relaySignalRoot;
     }
 
@@ -63,13 +61,11 @@ library TaikoData {
         uint64 l1Height;
         bytes32 l1Hash;
         bytes32 mixHash;
-        bytes32 depositsRoot; // match L2 header's withdrawalsRoot
         bytes32 txListHash;
         uint24 txListByteStart;
         uint24 txListByteEnd;
         uint32 gasLimit;
         address beneficiary;
-        uint8 cacheTxListInfo;
         address treasury;
         TaikoData.EthDeposit[] depositsProcessed;
     }
@@ -139,7 +135,8 @@ library TaikoData {
         // Slot 7: never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 __reserved71;
+        uint16 adjustmentQuotient;
+        uint48 __reserved71;
         uint64 __reserved72;
         // Slot 8
         uint64 accProposedAt;

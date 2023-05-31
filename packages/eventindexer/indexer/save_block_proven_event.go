@@ -5,10 +5,16 @@ import (
 	"encoding/json"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
+)
+
+var (
+	systemProver = common.HexToAddress("0x0000000000000000000000000000000000000001")
+	oracleProver = common.HexToAddress("0x0000000000000000000000000000000000000000")
 )
 
 func (svc *Service) saveBlockProvenEvents(
@@ -47,6 +53,8 @@ func (svc *Service) saveBlockProvenEvent(
 	chainID *big.Int,
 	event *taikol1.TaikoL1BlockProven,
 ) error {
+	log.Infof("blockProven event found, id: %v", event.Id.Int64())
+
 	marshaled, err := json.Marshal(event)
 	if err != nil {
 		return errors.Wrap(err, "json.Marshal(event)")
@@ -65,5 +73,71 @@ func (svc *Service) saveBlockProvenEvent(
 
 	eventindexer.BlockProvenEventsProcessed.Inc()
 
+	if event.Prover.Hex() != systemProver.Hex() && event.Prover.Hex() != oracleProver.Hex() {
+		if err := svc.updateAverageProofTime(ctx, event); err != nil {
+			return errors.Wrap(err, "svc.updateAverageProofTime")
+		}
+	}
+
 	return nil
+}
+
+func (svc *Service) updateAverageProofTime(ctx context.Context, event *taikol1.TaikoL1BlockProven) error {
+	block, err := svc.taikol1.GetBlock(nil, event.Id)
+	if err != nil {
+		return errors.Wrap(err, "svc.taikoL1.GetBlock")
+	}
+
+	eventBlock, err := svc.ethClient.BlockByHash(ctx, event.Raw.BlockHash)
+	if err != nil {
+		return errors.Wrap(err, "svc.ethClient.BlockByHash")
+	}
+
+	stat, err := svc.statRepo.Find(ctx)
+	if err != nil {
+		return errors.Wrap(err, "svc.statRepo.Find")
+	}
+
+	proposedAt := block.ProposedAt
+
+	provenAt := eventBlock.Time()
+
+	proofTime := provenAt - proposedAt
+
+	avg, ok := new(big.Int).SetString(stat.AverageProofTime, 10)
+	if !ok {
+		return errors.New("unable to convert average proof time to string")
+	}
+
+	newAverageProofTime := calcNewAverage(
+		avg,
+		new(big.Int).SetUint64(stat.NumProofs),
+		new(big.Int).SetUint64(proofTime),
+	)
+
+	log.Infof("avgProofTime update: id: %v, prover: %v, proposedAt: %v, provenAt: %v, proofTIme: %v, avg: %v, newAvg: %v",
+		event.Id.Int64(),
+		event.Prover.Hex(),
+		proposedAt,
+		provenAt,
+		proofTime,
+		avg.String(),
+		newAverageProofTime.String(),
+	)
+
+	_, err = svc.statRepo.Save(ctx, eventindexer.SaveStatOpts{
+		ProofTime: newAverageProofTime,
+	})
+	if err != nil {
+		return errors.Wrap(err, "svc.statRepo.Save")
+	}
+
+	return nil
+}
+
+func calcNewAverage(a, t, n *big.Int) *big.Int {
+	m := new(big.Int).Mul(a, t)
+	added := new(big.Int).Add(m, n)
+
+	return new(big.Int).Div(added, t.Add(t, big.NewInt(1)))
 }

@@ -103,7 +103,7 @@ contract TestTaikoL2 is Test {
         _anchor(BLOCK_GAS_LIMIT);
 
         vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
-        vm.expectRevert();
+        vm.expectRevert(); // L2_PUBLIC_INPUT_HASH_MISMATCH
         _anchor(BLOCK_GAS_LIMIT);
     }
 
@@ -151,7 +151,7 @@ contract TestTaikoL2 is Test {
         private
         returns (uint256 _basefee)
     {
-        uint256 gasIssued = L2.gasIssuedPerSecond() * timeSinceParent;
+        uint256 gasIssued = L2.getEIP1559Config().gasIssuedPerSecond * timeSinceParent;
         string memory _msg = string.concat(
             "#",
             Strings.toString(logIndex++),

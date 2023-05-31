@@ -1,8 +1,10 @@
 import { BigNumber, Contract, ethers } from "ethers";
+import TaikoToken from "../constants/abi/TaikoToken";
 import TaikoL1 from "../constants/abi/TaikoL1";
 import type { Status, StatusIndicatorProp } from "../domain/status";
 import { getAvailableSlots } from "./getAvailableSlots";
-import { getBlockFee } from "./getBlockFee";
+import type { StatsResponse } from "./getAverageProofReward";
+import { getAverageProofTime } from "./getAverageProofTime";
 import { getEthDeposits } from "./getEthDeposits";
 import { getGasPrice } from "./getGasPrice";
 import { getLastVerifiedBlockId } from "./getLastVerifiedBlockId";
@@ -13,17 +15,31 @@ import { getNumProposers } from "./getNumProposers";
 import { getNumProvers } from "./getNumProvers";
 import { getPendingBlocks } from "./getPendingBlocks";
 import { getPendingTransactions } from "./getPendingTransactions";
-import { getProofReward } from "./getProofReward";
 import { getQueuedTransactions } from "./getQueuedTransactions";
-import { getStateVariables } from "./getStateVariables";
 import type { initConfig } from "./initConfig";
 import { watchHeaderSynced } from "./watchHeaderSynced";
+import axios from "axios";
+import { getConfig } from "./getConfig";
+import { getStateVariables } from "./getStateVariables";
+import TaikoL2 from "../constants/abi/TaikoL2";
 
-export function buildStatusIndicators(
+export async function buildStatusIndicators(
   config: ReturnType<typeof initConfig>,
   onProverClick: (value: Status) => void,
   onProposerClick: (value: Status) => void
 ) {
+  const tko: Contract = new Contract(
+    config.taikoTokenAddress,
+    TaikoToken,
+    config.l1Provider
+  );
+
+  let decimals: number = 8;
+
+  try {
+    decimals = await tko.decimals();
+  } catch (e) {}
+
   const indicators: StatusIndicatorProp[] = [
     {
       statusFunc: async (
@@ -218,18 +234,70 @@ export function buildStatusIndicators(
       provider: config.l2Provider,
       contractAddress: "",
       header: "Gas Price (gwei)",
-      intervalInMs: 20000,
+      intervalInMs: 30000,
       colorFunc: (value: Status) => {
         return "green";
       },
       tooltip:
         "The current recommended gas price for a transaction on Layer 2.",
     },
+    {
+      statusFunc: async (
+        provider: ethers.providers.JsonRpcProvider,
+        contractAddress: string
+      ): Promise<string> => {
+        const latestBlock = await provider.getBlock("latest");
+        return `${ethers.utils.formatUnits(latestBlock.baseFeePerGas, "gwei")}`;
+      },
+      watchStatusFunc: null,
+      provider: config.l2Provider,
+      contractAddress: config.l2TaikoAddress,
+      header: "L2 EIP1559 BaseFee (gwei)",
+      intervalInMs: 30000,
+      colorFunc: (value: Status) => {
+        return "green";
+      },
+      tooltip:
+        "The current base fee for an L2 transaction with EIP1559-enabled.",
+    },
+    {
+      statusFunc: async (
+        provider: ethers.providers.JsonRpcProvider,
+        contractAddress: string
+      ): Promise<string> => {
+        const feeData = await provider.getFeeData();
+        return `${ethers.utils.formatUnits(
+          feeData.maxPriorityFeePerGas,
+          "gwei"
+        )}`;
+      },
+      watchStatusFunc: null,
+      provider: config.l2Provider,
+      contractAddress: config.l2TaikoAddress,
+      header: "L2 EIP1559 Recommended MaxPriorityFeePerGas (gwei)",
+      intervalInMs: 30000,
+      colorFunc: (value: Status) => {
+        return "green";
+      },
+      tooltip:
+        "The current recommend max priority fee per gas for a fast transaction.",
+    },
   ];
 
   try {
     indicators.push({
-      statusFunc: getBlockFee,
+      statusFunc: async (
+        provider: ethers.providers.JsonRpcProvider,
+        contractAddress: string
+      ): Promise<string> => {
+        const contract: Contract = new Contract(
+          contractAddress,
+          TaikoL1,
+          provider
+        );
+        const fee = await contract.getBlockFee();
+        return `${ethers.utils.formatUnits(fee, decimals)} TKO`;
+      },
       watchStatusFunc: null,
       provider: config.l1Provider,
       contractAddress: config.l1TaikoAddress,
@@ -242,7 +310,23 @@ export function buildStatusIndicators(
         "The current fee to propose a block to the TaikoL1 smart contract.",
     });
     indicators.push({
-      statusFunc: getProofReward,
+      statusFunc: async (
+        provider: ethers.providers.JsonRpcProvider,
+        contractAddress: string
+      ): Promise<string> => {
+        const contract: Contract = new Contract(
+          contractAddress,
+          TaikoL1,
+          provider
+        );
+        const averageProofTime = await getAverageProofTime(
+          config.eventIndexerApiUrl
+        );
+        const fee = await contract.getProofReward(Number(averageProofTime));
+        return `${ethers.utils.formatUnits(fee, decimals)} ${
+          import.meta.env.VITE_FEE_TOKEN_SYMBOL ?? "TKO"
+        }`;
+      },
       watchStatusFunc: null,
       provider: config.l1Provider,
       contractAddress: config.l1TaikoAddress,
@@ -252,7 +336,7 @@ export function buildStatusIndicators(
         return "green"; // todo: whats green, yellow, red?
       },
       tooltip:
-        "The current reward for successfully submitting a proof for a proposed block on the TaikoL1 smart contract.",
+        "The current reward for successfully submitting a proof for a proposed block on the TaikoL1 smart contract, given the proof time is equal to average proof time.",
     });
     indicators.push({
       provider: config.l1Provider,
@@ -266,25 +350,25 @@ export function buildStatusIndicators(
         onEvent: (value: Status) => void
       ) => {
         const contract = new Contract(address, TaikoL1, provider);
-        contract.on(
-          "BlockProven",
-          (
-            id,
-            parentHash,
-            blockHash,
-            signalRoot,
-            prover,
-            provenAt,
-            ...args
-          ) => {
-            // ignore oracle prover
-            if (
-              prover.toLowerCase() !== config.oracleProverAddress.toLowerCase()
-            ) {
-              onEvent(new Date().getTime().toString());
-            }
+        const listener = (
+          id,
+          parentHash,
+          blockHash,
+          signalRoot,
+          prover,
+          provenAt,
+          ...args
+        ) => {
+          // ignore oracle prover
+          if (
+            prover.toLowerCase() !== config.oracleProverAddress.toLowerCase()
+          ) {
+            onEvent(new Date(provenAt).toTimeString());
           }
-        );
+        };
+        contract.on("BlockProven", listener);
+
+        return () => contract.off("BlockProven", listener);
       },
       colorFunc: function (status: Status) {
         return "green"; // todo: whats green, yellow, red?
@@ -299,16 +383,56 @@ export function buildStatusIndicators(
         provider: ethers.providers.JsonRpcProvider,
         address: string
       ) => {
-        const stateVars = await getStateVariables(provider, address);
-        return `${stateVars.proofTimeIssued.toNumber() / 1000} seconds`;
+        const config = await getStateVariables(provider, address);
+        return config.proofTimeTarget.toNumber();
       },
       colorFunc: function (status: Status) {
-        return "green"; // todo: whats green, yellow, red?
+        return "green";
       },
-      header: "Average Proof Time",
+      header: "Proof Time Target (seconds)",
+      intervalInMs: 5 * 1000,
+      tooltip:
+        "The proof time target the protocol intends the average proof time to be",
+    });
+
+    indicators.push({
+      provider: config.l1Provider,
+      contractAddress: config.l1TaikoAddress,
+      statusFunc: async (
+        provider: ethers.providers.JsonRpcProvider,
+        address: string
+      ) => await getAverageProofTime(config.eventIndexerApiUrl),
+      colorFunc: function (status: Status) {
+        return "green";
+      },
+      header: "Average Proof Time (seconds)",
       intervalInMs: 5 * 1000,
       tooltip:
         "The current average proof time, updated when a block is successfully proven.",
+    });
+
+    indicators.push({
+      provider: config.l1Provider,
+      contractAddress: config.l1TaikoAddress,
+      statusFunc: async (
+        provider: ethers.providers.JsonRpcProvider,
+        contractAdress: string
+      ) => {
+        const resp = await axios.get<StatsResponse>(
+          `${config.eventIndexerApiUrl}/stats`
+        );
+        return `${ethers.utils.formatUnits(
+          resp.data.averageProofReward,
+          decimals
+        )} TKO`;
+      },
+      colorFunc: function (status: Status) {
+        return "green";
+      },
+      header: "Average Proof Reward",
+      intervalInMs: 5 * 1000,
+      tooltip:
+        "The current average proof reward, updated when a block is successfully verified.",
     });
   } catch (e) {
     console.error(e);

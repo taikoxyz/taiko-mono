@@ -9,7 +9,6 @@ pragma solidity ^0.8.18;
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibAddress} from "../../libs/LibAddress.sol";
 import {LibEthDepositing} from "./LibEthDepositing.sol";
-import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {SafeCastUpgradeable} from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
@@ -21,7 +20,7 @@ library LibProposing {
     using LibAddress for address payable;
     using LibUtils for TaikoData.State;
 
-    event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
+    event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta, uint64 blockFee);
 
     error L1_BLOCK_ID();
     error L1_INSUFFICIENT_TOKEN();
@@ -61,10 +60,7 @@ library LibProposing {
         meta.gasLimit = input.gasLimit;
         meta.beneficiary = input.beneficiary;
         meta.treasury = resolver.resolve(config.chainId, "treasury", false);
-        meta.cacheTxListInfo = cacheTxListInfo;
-
-        (meta.depositsRoot, meta.depositsProcessed) =
-            LibEthDepositing.processDeposits(state, config, input.beneficiary);
+        meta.depositsProcessed = LibEthDepositing.processDeposits(state, config, input.beneficiary);
 
         unchecked {
             meta.timestamp = uint64(block.timestamp);
@@ -82,17 +78,18 @@ library LibProposing {
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.proposer = msg.sender;
 
-        if (state.taikoTokenBalances[msg.sender] < state.blockFee) {
+        uint64 blockFee = state.blockFee;
+        if (state.taikoTokenBalances[msg.sender] < blockFee) {
             revert L1_INSUFFICIENT_TOKEN();
         }
 
         unchecked {
-            state.taikoTokenBalances[msg.sender] -= state.blockFee;
-            state.accBlockFees += state.blockFee;
+            state.taikoTokenBalances[msg.sender] -= blockFee;
+            state.accBlockFees += blockFee;
             state.accProposedAt += meta.timestamp;
         }
 
-        emit BlockProposed(state.numBlocks, meta);
+        emit BlockProposed(state.numBlocks, meta, blockFee);
         unchecked {
             ++state.numBlocks;
         }

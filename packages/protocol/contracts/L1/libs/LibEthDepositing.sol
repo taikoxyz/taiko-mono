@@ -48,7 +48,7 @@ library LibEthDepositing {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         address beneficiary
-    ) internal returns (bytes32 depositsRoot, TaikoData.EthDeposit[] memory depositsProcessed) {
+    ) internal returns (TaikoData.EthDeposit[] memory depositsProcessed) {
         // Allocate one extra slot for collecting fees on L2
         depositsProcessed = new TaikoData.EthDeposit[](
             config.maxEthDepositsPerBlock + 1
@@ -104,12 +104,10 @@ library LibEthDepositing {
         assembly {
             mstore(depositsProcessed, j)
         }
-
-        depositsRoot = _hashEthDeposits(depositsProcessed);
     }
 
-    function _hashEthDeposits(TaikoData.EthDeposit[] memory deposits)
-        private
+    function hashEthDeposits(TaikoData.EthDeposit[] memory deposits)
+        internal
         pure
         returns (bytes32)
     {

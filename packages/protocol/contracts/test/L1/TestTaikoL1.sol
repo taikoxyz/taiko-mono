@@ -22,6 +22,5 @@ contract TestTaikoL1 is TaikoL1 {
         config.blockMaxGasLimit = 30000000;
         config.maxTransactionsPerBlock = 20;
         config.maxBytesPerTxList = 120000;
-        config.minTxGasLimit = 21000;
     }
 }

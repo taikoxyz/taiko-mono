@@ -7,7 +7,7 @@
 pragma solidity ^0.8.18;
 
 import {LibMath} from "../../libs/LibMath.sol";
-import {LibTokenomics} from "./LibTokenomics.sol";
+import {LibEthDepositing} from "./LibEthDepositing.sol";
 import {SafeCastUpgradeable} from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {TaikoData} from "../TaikoData.sol";
@@ -76,6 +76,7 @@ library LibUtils {
         return _ma > 0 ? _ma : maValue;
     }
 
+    /// @dev Hashing the block metadata.
     function hashMetadata(TaikoData.BlockMetadata memory meta)
         internal
         pure
@@ -88,17 +89,13 @@ library LibUtils {
 
         inputs[1] = uint256(meta.l1Hash);
         inputs[2] = uint256(meta.mixHash);
-        inputs[3] = uint256(meta.depositsRoot);
+        inputs[3] = uint256(LibEthDepositing.hashEthDeposits(meta.depositsProcessed));
         inputs[4] = uint256(meta.txListHash);
 
         inputs[5] = (uint256(meta.txListByteStart) << 232) | (uint256(meta.txListByteEnd) << 208)
-            | (uint256(meta.gasLimit) << 176) | (uint256(uint160(meta.beneficiary)) << 16)
-            | (uint256(meta.cacheTxListInfo) << 8);
+            | (uint256(meta.gasLimit) << 176) | (uint256(uint160(meta.beneficiary)) << 16);
 
         inputs[6] = (uint256(uint160(meta.treasury)) << 96);
-
-        // Ignoring `meta.depositsProcessed` as `meta.depositsRoot`
-        // is a hash of it.
 
         assembly {
             hash := keccak256(inputs, mul(7, 32))
