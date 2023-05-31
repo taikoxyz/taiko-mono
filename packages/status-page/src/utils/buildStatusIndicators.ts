@@ -317,7 +317,9 @@ export async function buildStatusIndicators(
       ) => {
         const contract = new Contract(address, TaikoL1, provider);
         const listener = (id, blockHash, reward, ...args) => {
-          onEvent(`${ethers.utils.parseUnits(reward, decimals)} TKO`);
+          onEvent(
+            `${ethers.utils.parseUnits(reward.toString(), decimals)} TKO`
+          );
         };
         contract.on("BlockVerified", listener);
 
