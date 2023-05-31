@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ethers } from 'ethers';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
-
+  
   import { chains } from '../../chain/chains';
   import type { BridgeTransaction } from '../../domain/transaction';
   import { addressSubsection } from '../../utils/addressSubsection';
