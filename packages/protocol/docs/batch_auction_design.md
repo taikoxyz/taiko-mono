@@ -107,11 +107,17 @@ It is essential to maintain various internal metrics to effectively score bids  
 4. **Per bidder proof submission success rate**: This metric measures the success rate of proof submissions by individual bidders. Specifically, it evaluates the ratio of proofs submitted by a bidder that were subsequently used for block verification compared to the total number of blocks won through auctions. Proofs submitted to other blocks that the bidder did not win are excluded from this calculation. This metric allows for the assessment of bidder reliability and the effectiveness of their proof submission process.
 
 
-### Auction Window, Proofing Window, and Managing Multiple Auctions
-The auction window initiates with the first bid and concludes after either 5 minutes or 25 Ethereum blocks. Blocks become provable only once the auction has officially concluded. The auction winner is required to submit the initial Zero-Knowledge Proof (ZKP) for the block within the proofing window—e.g., 60 minutes—of either the block proposal or the auction's end, whichever is later. Other provers are permitted to submit proofs, creating alternative fork choices, either following the initial ZKP submission or after the proofing window has elapsed. While simultaneous auctions for different batches are permissible, it's advisable to restrict this to the upcoming 100 batches for optimal management.
+### Bid Period, Proofing Window, and Managing Multiple Auctions
+The bid period for an auction begins with the first bid and lasts for 5 minutes. Blocks can only be proven after the auction has ended entirely. To ensure fairness, particularly for late participants, it is crucial not to end auctions prematurely. It is recommended that an auction concludes when the following conditions are met:
 
-Provers are incentivized to submit proofs promptly. This shall increase their chances of winning future block auctions and potentially allows them to gradually reduce the proofing window. This can serve as a strategy to outmaneuver competitors who can generate low-cost proofs but require a time close to the proofing window to do so.
+1. The 5-minute bid period has elapsed.
+2. The most recent proposed block is within `min_blocks_to_end_auctions` blocks of the first block in the batch.
 
+Auctions are conducted in increasing order of block batches, and the next batch's auction can start as soon as the previous batch's auction has started.
+
+The winning bidder is required to provide the initial Zero-Knowledge Proof (ZKP) for the block within the proof submission period, typically 60 minutes after either the block proposal or the end of the auction, whichever occurs last. Other participants can also submit proofs, allowing for the possibility of alternative fork options, either after the initial ZKP submission or after the proof submission period has ended.
+
+Participants who promptly submit proofs enhance their chances of winning future block auctions and may potentially reduce their proof submission period. This strategy can provide an advantage over competitors who generate low-cost proofs but require nearly the entire submission period to do so.
 
 ### Reward and Penalty Mechanisms
 If the chosen fork for the verified block originates from the auction winner's proof, the winner's deposit are refunded and reward are minted. If the selected fork comes from another prover's proof, the latter receives half the deposit, with the remaining half being burnt. This mechanism ensures fair competition and discourages manipulation, such as winners submitting correct proofs via different addresses.
