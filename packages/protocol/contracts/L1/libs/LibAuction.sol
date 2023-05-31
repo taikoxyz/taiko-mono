@@ -73,7 +73,7 @@ library LibAuction {
         }
 
         // New winner, so deduct deposit
-        if (state.taikoTokenBalances[newBid.prover] < auction.bid.deposit) {
+        if (state.taikoTokenBalances[newBid.prover] < newBid.deposit) {
             revert L1_INSUFFICIENT_TOKEN();
         }
         state.taikoTokenBalances[newBid.prover] -= newBid.deposit;

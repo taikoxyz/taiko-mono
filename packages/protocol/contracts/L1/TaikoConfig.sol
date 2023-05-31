@@ -44,7 +44,6 @@ library TaikoConfig {
             ethDepositGas: 21_000,
             ethDepositMaxFee: 1 ether / 10,
             txListCacheExpiry: 0,
-            proposerBlockFeeMultiplierBP: 15_000, // 1.5X multiplier
             auctionWindowInSec: 120,
             worstCaseProofWindowInSec: 7200, // 2 hours (?)
             auctionBatchSize: 100,

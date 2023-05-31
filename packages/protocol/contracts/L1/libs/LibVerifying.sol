@@ -55,7 +55,7 @@ library LibVerifying {
                 || config.worstCaseProofWindowInSec == 0
                 || config.auctionBatchSize == 0
                 || config.auctionSmallestGasPerBlockBid == 0
-                || config.proposerBlockFeeMultiplierBP == 0
+                || config.maxNumProposedBlocks < config.auctionRingBufferSize * config.auctionBatchSize
         ) revert L1_INVALID_CONFIG();
 
         uint64 timeNow = uint64(block.timestamp);
