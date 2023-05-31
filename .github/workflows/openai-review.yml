@@ -5,7 +5,7 @@ jobs:
     permissions: write-all
     runs-on: ubuntu-latest
     name: OpenAI PR Comment
-    if: contains(github.event.issue.labels.*.name, 'review-by-ai')
+    if: contains(github.event.issue.labels.*.name, 'option.review-by-ai')
     steps:
       - uses: actions/checkout@v3
         with:
