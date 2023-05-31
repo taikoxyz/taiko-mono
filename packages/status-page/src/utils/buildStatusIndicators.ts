@@ -319,29 +319,55 @@ export async function buildStatusIndicators(
           TaikoL1,
           provider
         );
-        const averageProofTime = await getAverageProofTime(
-          config.eventIndexerApiUrl
+        const latestBlockNumber = await provider.getBlockNumber();
+        const eventFilter = contract.filters.BlockVerified();
+        const events = await contract.queryFilter(
+          eventFilter,
+          latestBlockNumber - 200,
+          latestBlockNumber
         );
-        const fee = await contract.getProofReward(Number(averageProofTime));
-        return `${ethers.utils.formatUnits(fee, decimals)} ${
-          import.meta.env.VITE_FEE_TOKEN_SYMBOL ?? "TKO"
-        }`;
+
+        if (!events || events.length === 0) {
+          return `0 TKO`;
+        }
+
+        const event = events[events.length - 1].args as any as {
+          reward: BigNumber;
+        };
+
+        return `${ethers.utils.formatUnits(
+          event.reward.toString(),
+          decimals
+        )} TKO`;
       },
-      watchStatusFunc: null,
+      watchStatusFunc: async (
+        provider: ethers.providers.JsonRpcProvider,
+        address: string,
+        onEvent: (value: Status) => void
+      ) => {
+        const contract = new Contract(address, TaikoL1, provider);
+        const listener = (id, blockHash, reward, ...args) => {
+          onEvent(
+            `${ethers.utils.formatUnits(reward.toString(), decimals)} TKO`
+          );
+        };
+        contract.on("BlockVerified", listener);
+
+        return () => contract.off("BlockVerified", listener);
+      },
       provider: config.l1Provider,
       contractAddress: config.l1TaikoAddress,
-      header: "Proof Reward",
-      intervalInMs: 15000,
+      header: "Latest Proof Reward",
+      intervalInMs: 0,
       colorFunc: function (status: Status) {
         return "green"; // todo: whats green, yellow, red?
       },
-      tooltip:
-        "The current reward for successfully submitting a proof for a proposed block on the TaikoL1 smart contract, given the proof time is equal to average proof time.",
+      tooltip: "The most recent proof reward, updated on block being verified.",
     });
     indicators.push({
       provider: config.l1Provider,
       contractAddress: config.l1TaikoAddress,
-      header: "Latest Proof",
+      header: "Latest Proof Time",
       intervalInMs: 0,
       status: "0",
       watchStatusFunc: async (
@@ -350,30 +376,77 @@ export async function buildStatusIndicators(
         onEvent: (value: Status) => void
       ) => {
         const contract = new Contract(address, TaikoL1, provider);
-        const listener = (
+        const listener = async (
           id,
           parentHash,
           blockHash,
           signalRoot,
           prover,
-          provenAt,
-          ...args
+          parentGasUsed,
+          event
         ) => {
-          // ignore oracle prover
           if (
-            prover.toLowerCase() !== config.oracleProverAddress.toLowerCase()
+            prover.toLowerCase() !== config.oracleProverAddress.toLowerCase() &&
+            prover.toLowerCase() !== config.systemProverAddress.toLowerCase()
           ) {
-            onEvent(new Date(provenAt).toTimeString());
+            const proposedBlock = await contract.getBlock(id);
+            const block = await event.getBlock();
+            const proofTime =
+              block.timestamp - proposedBlock._proposedAt.toNumber();
+
+            onEvent(`${proofTime} seconds`);
           }
         };
         contract.on("BlockProven", listener);
 
-        return () => contract.off("BlockProven", listener);
+        return () => {
+          contract.off("BlockProven", listener);
+        };
       },
       colorFunc: function (status: Status) {
         return "green"; // todo: whats green, yellow, red?
       },
       tooltip: "The most recent block proof submitted on TaikoL1 contract.",
+    });
+    indicators.push({
+      provider: config.l1Provider,
+      contractAddress: config.l1TaikoAddress,
+      header: "Latest System Proof",
+      intervalInMs: 0,
+      status: "0",
+      watchStatusFunc: async (
+        provider: ethers.providers.JsonRpcProvider,
+        address: string,
+        onEvent: (value: Status) => void
+      ) => {
+        const contract = new Contract(address, TaikoL1, provider);
+        const listener = async (
+          id,
+          parentHash,
+          blockHash,
+          signalRoot,
+          prover,
+          parentGasUsed,
+          event
+        ) => {
+          if (
+            prover.toLowerCase() === config.systemProverAddress.toLowerCase()
+          ) {
+            const block = await event.getBlock();
+
+            onEvent(`${new Date(block.timestamp * 1000).toUTCString()}`);
+          }
+        };
+        contract.on("BlockProven", listener);
+
+        return () => {
+          contract.off("BlockProven", listener);
+        };
+      },
+      colorFunc: function (status: Status) {
+        return "green"; // todo: whats green, yellow, red?
+      },
+      tooltip: "The timestamp of the latest system proof",
     });
 
     indicators.push({

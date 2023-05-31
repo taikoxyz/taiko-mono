@@ -12,6 +12,8 @@
   import { initConfig } from "../../utils/initConfig";
   import { buildStatusIndicators } from "../../utils/buildStatusIndicators";
 
+  export let enableL3: boolean = false;
+
   let statusIndicators: StatusIndicatorProp[] = [];
 
   let proverDetailsOpen: boolean = false;
@@ -32,6 +34,8 @@
   });
 
   async function toggleLayer() {
+    if (!enableL3) return;
+
     const newLayer = $layer === Layer.Two ? Layer.Three : Layer.Two;
     layer.set(newLayer);
 
@@ -53,7 +57,7 @@
 
 <div class="text-center">
   <h1 class="text-2xl">Taiko Protocol Status</h1>
-  <h2 class="cursor-pointer" on:click={toggleLayer}>
+  <h2 class={enableL3 ? "cursor-pointer" : ""} on:click={toggleLayer}>
     {layerToDisplayName($layer)}
   </h2>
 </div>
