@@ -50,7 +50,7 @@ library LibProving {
     {
         // We also should know who can prove this block:
         // the one who bid or everyone if it is above the window
-        if(!LibAuction.isBlockProvableBy(state, config, blockId, msg.sender)) {
+        if( !LibAuction.isBlockProvableBy(state, config, blockId, evidence.prover) ) {
             revert L1_NOT_PROVEABLE();
         }
 

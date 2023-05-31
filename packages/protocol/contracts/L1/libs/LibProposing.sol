@@ -25,6 +25,7 @@ library LibProposing {
     );
 
     error L1_BLOCK_ID();
+    error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
     error L1_TOO_MANY_BLOCKS();
     error L1_TX_LIST_NOT_EXIST();
@@ -87,11 +88,20 @@ library LibProposing {
         blk.verifiedForkChoiceId = 0;
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.proposer = msg.sender;
+        blk.gasLimit = meta.gasLimit;
 
-        uint64 blockFee = getBlockFee(config, state);
+        uint64 blockFee = getBlockFee(state, meta.gasLimit);
+
+        // Charging proposers the fee should be the same mechanism as it was
+        // so far, so that we can avoid sending/burning all the time so that we
+        // can save bunch of gas.
+        if (state.taikoTokenBalances[msg.sender] < blockFee) {
+            revert L1_INSUFFICIENT_TOKEN();
+        }
 
         emit BlockProposed(state.numBlocks, meta, blockFee);
         unchecked {
+            state.taikoTokenBalances[msg.sender] -= blockFee;
             ++state.numBlocks;
         }
     }
@@ -110,14 +120,16 @@ library LibProposing {
     }
 
     // If auction is tied to gas, we should charge users based on gas as well. At this point gasUsed
-    // (in proposeBlock()) is always gasLimit, so use avgRewardPerBlock and multiply it
-    function getBlockFee(TaikoData.Config memory config, TaikoData.State storage state)
+    // (in proposeBlock()) is always gasLimit, so use it and in case of differences refund after verification
+    function getBlockFee(TaikoData.State storage state, uint32 gasLimit)
         internal
         view
         returns (uint64)
     {
         // @dantaik: What to do with the first X proposals, when there are no avgFeePerGas... ?
-        return ((state.avgRewardPerBlock * config.proposerBlockFeeMultiplierBP) / 10_000);
+        // Currently it is set to 1. at init.
+        // The diff between gasLimit and gasUsed will be redistributed back to the balance of proposer
+        return state.avgFeePerGas * gasLimit;
     }
 
     function _validateBlock(

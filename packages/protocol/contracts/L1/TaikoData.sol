@@ -32,11 +32,9 @@ library TaikoData {
         //How long auction window will be open after the first bid
         uint16 auctionWindowInSec;
         //How long proof window will be granted to winning bidder
-        uint16 proofWindowInSec;
+        uint16 worstCaseProofWindowInSec;
         uint16 auctionBatchSize;
         uint16 auctionSmallestGasPerBlockBid; // in wei
-        uint16 bidGasDiffBp; // 10.000 BP = 100%
-        uint16 bidDepositDiffBp; // 10.000 BP = 100%
         bool relaySignalRoot;
     }
 
@@ -106,6 +104,7 @@ library TaikoData {
         mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
         uint64 blockId;
         uint64 proposedAt;
+        uint32 gasLimit;
         uint24 nextForkChoiceId;
         uint24 verifiedForkChoiceId;
         bytes32 metaHash;
@@ -130,6 +129,11 @@ library TaikoData {
         address prover;
         uint64 deposit;
         uint64 feePerGas;
+        // In order to refund the diff betwen gasUsed vs. gasLimit
+        uint32 gasLimit;
+        // It is also part of the bidding - how fast some can submit proofs according to his/her own commitment.
+        // Can be zero and it will just signal that the proofs are coming somewhere within config.auctionWindowInSec
+        uint16 committedProofWindow;
     }
 
     struct Auction {
@@ -165,7 +169,7 @@ library TaikoData {
         uint64 nextEthDepositToProcess;
         // Slot 9
         uint64 blockFee;
-        uint64 avgRewardPerBlock;
+        uint64 avgFeePerGas;
         uint64 lastVerifiedBlockId;
         uint64 __reserved91;
         // Reserved

@@ -43,11 +43,9 @@ library TaikoConfig {
             txListCacheExpiry: 0,
             proposerBlockFeeMultiplierBP: 15000, // 1.5X multiplier
             auctionWindowInSec: 120,
-            proofWindowInSec: 7200, // 2 hours (?)
+            worstCaseProofWindowInSec: 7200, // 2 hours (?)
             auctionBatchSize: 100,
             auctionSmallestGasPerBlockBid: 1, // in wei
-            bidGasDiffBp: 1000, // 10.000 BP = 100%
-            bidDepositDiffBp: 1000, // 10.000 BP = 100%
             relaySignalRoot: false
         });
     }

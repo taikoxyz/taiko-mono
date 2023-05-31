@@ -37,7 +37,7 @@ abstract contract TaikoEvents {
 
     event Bid(
         uint256 indexed id,
-        address bidder,
+        address prover,
         uint256 bidAt,
         uint256 deposit,
         uint256 feePerGas

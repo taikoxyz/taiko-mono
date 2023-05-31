@@ -52,11 +52,9 @@ library LibVerifying {
                 || config.ethDepositMaxFee == 0
                 || config.ethDepositMaxFee >= type(uint96).max
                 || config.auctionWindowInSec == 0
-                || config.proofWindowInSec == 0
+                || config.worstCaseProofWindowInSec == 0
                 || config.auctionBatchSize == 0
                 || config.auctionSmallestGasPerBlockBid == 0
-                || config.bidGasDiffBp == 0
-                || config.bidDepositDiffBp == 0
                 || config.proposerBlockFeeMultiplierBP == 0
         ) revert L1_INVALID_CONFIG();
 
@@ -176,36 +174,28 @@ library LibVerifying {
         TaikoData.Bid memory winningBid = state.auctions[LibAuction.blockIdToBatchId(config, blk.blockId)].bid;
         
         uint64 rewardPerBlock = fc.gasUsed * winningBid.feePerGas;
-    
-        state.avgRewardPerBlock = uint64(LibUtils.movingAverage(state.avgRewardPerBlock, rewardPerBlock, 100));
 
-        // Check if prover is equal to auction winner. If so, just distribute normall if not, distribute reward normall
-        // + half of the deposit / block
-        uint256 batchId = LibAuction.blockIdToBatchId(config, blk.blockId);
-        TaikoData.Auction memory auction = state.auctions[batchId];
+        if(fc.gasUsed < blk.gasLimit) {
+            // Refund the diff
+            state.taikoTokenBalances[blk.proposer] += (blk.gasLimit - fc.gasUsed)  * winningBid.feePerGas;
+        }
+    
+        state.avgFeePerGas = uint64(LibUtils.movingAverage(state.avgFeePerGas, winningBid.feePerGas, 100));
 
         TaikoToken tkoToken = TaikoToken(resolver.resolve("tko_token", false));
         // Prover indeed the one who won the auction
-        if(auction.bid.prover == fc.prover) {
-            try tkoToken.transfer(auction.bid.prover, auction.bid.deposit / config.auctionBatchSize + rewardPerBlock) {}
-            catch {
-                // allow to fail in case they have a bad onTokenReceived
-                // so they cant be outbid
-            }
+        if(winningBid.prover == fc.prover) {
+            state.taikoTokenBalances[winningBid.prover] += (winningBid.deposit / config.auctionBatchSize) + rewardPerBlock;
         }
         else{
-            // Send reward + half of the deposit/block
-            try tkoToken.transfer(fc.prover, auction.bid.deposit / (config.auctionBatchSize * 2) + rewardPerBlock) {}
-            catch {
-                // allow to fail in case they have a bad onTokenReceived
-                // so they cant be outbid
-            }
+            // Give reward + half of the deposit/block
+            state.taikoTokenBalances[fc.prover] += winningBid.deposit / (config.auctionBatchSize * 2) + rewardPerBlock;
 
-            // Burn helf of the deposit/block
-            tkoToken.burn((address(this)), auction.bid.deposit / (config.auctionBatchSize * 2));
+            // Burn half of the deposit/block from original prover since he missed proving this block
+            // We dont need to add / deduct anything to/from state.taikoTokenBalances, because we already
+            // deducted it at bidding
+            tkoToken.burn((address(this)), winningBid.deposit / (config.auctionBatchSize * 2));
         }
-
-
 
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = fcId;
