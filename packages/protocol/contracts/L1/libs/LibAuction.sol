@@ -6,11 +6,11 @@
 
 pragma solidity ^0.8.18;
 
-import {AddressResolver} from "../../common/AddressResolver.sol";
-import {LibAddress} from "../../libs/LibAddress.sol";
-import {LibUtils} from "./LibUtils.sol";
-import {TaikoData} from "../../L1/TaikoData.sol";
-import {TaikoToken} from "../TaikoToken.sol";
+import { AddressResolver } from "../../common/AddressResolver.sol";
+import { LibAddress } from "../../libs/LibAddress.sol";
+import { LibUtils } from "./LibUtils.sol";
+import { TaikoData } from "../../L1/TaikoData.sol";
+import { TaikoToken } from "../TaikoToken.sol";
 
 library LibAuction {
     using LibAddress for address;
@@ -35,8 +35,9 @@ library LibAuction {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         TaikoData.Bid calldata newBid
-    ) internal {
-
+    )
+        internal
+    {
         if (!isBatchAuctionable(state, config, newBid.batchId)) {
             revert L1_BID_CANNOT_BE_SUBMITTED();
         }
@@ -49,8 +50,10 @@ library LibAuction {
             if (!isBidAcceptable(state, config, newBid)) {
                 revert L1_BID_NOT_ACCEPTABLE();
             } else {
-                // We have a new high bid, refunding back the deposit credited with taikoTokenBalances
-                state.taikoTokenBalances[auction.bid.prover] += auction.bid.deposit;
+                // We have a new high bid, refunding back the deposit credited
+                // with taikoTokenBalances
+                state.taikoTokenBalances[auction.bid.prover] +=
+                    auction.bid.deposit;
             }
         }
 
@@ -63,7 +66,9 @@ library LibAuction {
         // then we can update the bid for the blockID to the new bidder (prover)
         state.auctions[newBid.batchId] = TaikoData.Auction({
             bid: newBid,
-            startedAt: uint64(auction.startedAt == 0 ? block.timestamp : auction.startedAt)
+            startedAt: uint64(
+                auction.startedAt == 0 ? block.timestamp : auction.startedAt
+                )
         });
 
         emit Bid(
@@ -80,11 +85,16 @@ library LibAuction {
     function blockIdToBatchId(
         TaikoData.Config memory config,
         uint256 blockId
-    ) internal pure returns (uint256){
+    )
+        internal
+        pure
+        returns (uint256)
+    {
         return (blockId - 1) / config.auctionBatchSize;
     }
 
-    // isBidAcceptable determines is checking if the bid is acceptable based on the defined
+    // isBidAcceptable determines is checking if the bid is acceptable based on
+    // the defined
     // criteria. Shall be called after isBatchAuctionable() returns true.
     function isBidAcceptable(
         TaikoData.State storage state,
@@ -93,29 +103,36 @@ library LibAuction {
     )
         internal
         view
-        returns (bool result) 
+        returns (bool result)
     {
         TaikoData.Bid memory winningBid = state.auctions[newBid.batchId].bid;
 
         if (
-            newBid.feePerGas >= config.auctionSmallestGasPerBlockBid 
-            &&
-            newBid.feePerGas <= ((winningBid.feePerGas - ((winningBid.feePerGas * 9000) / 10000))) // 90%
-            &&
-            newBid.deposit <= ((winningBid.deposit - ((winningBid.deposit * 5000) / 10000))) // 50%
-            // Commenting out this one, because we need a scoring / weighting system rather then just checking if
-            // committedProofWindow is smaller. ProofWindow might be bigger but what if the feePerGas is much better.. ?
-            // &&
-            // newBid.committedProofWindow <= winningBid.committedProofWindow
-        )
-        {
+            newBid.feePerGas >= config.auctionSmallestGasPerBlockBid
+                && newBid.feePerGas
+                    <= (
+                        (
+                            winningBid.feePerGas
+                                - ((winningBid.feePerGas * 9000) / 10_000)
+                        )
+                    ) // 90%
+                && newBid.deposit
+                    <= ((winningBid.deposit - ((winningBid.deposit * 5000) / 10_000))) // 50%
+                // Commenting out this one, because we need a scoring /
+                    // weighting system rather then just checking if
+                // committedProofWindow is smaller. ProofWindow might be bigger
+                    // but what if the feePerGas is much better.. ?
+                // &&
+                // newBid.committedProofWindow <=
+                    // winningBid.committedProofWindow
+        ) {
             result = true;
         }
-
     }
 
     // isBatchAuctionable determines whether a new bid for a batch of blocks
-    // would be accepted or not. 'open ended' - so returns true if no bids came yet
+    // would be accepted or not. 'open ended' - so returns true if no bids came
+    // yet
     function isBatchAuctionable(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -131,17 +148,22 @@ library LibAuction {
             revert L1_ID_NOT_BATCH_ID();
         }
 
-        // 3 scenarios: 
+        // 3 scenarios:
         // TRUE: 1. auction not started yet -> startedAt == 0 -> TRUE
-        // TRUE: 2. auction is up and running -> startedAt is not 0 and block.timestamp < starteAt + auctionWindowInSec
-        // FALSE: 3. auction ended already -> block.timestamp > startedAt + auctionWindowInSec
+        // TRUE: 2. auction is up and running -> startedAt is not 0 and
+        // block.timestamp < starteAt + auctionWindowInSec
+        // FALSE: 3. auction ended already -> block.timestamp > startedAt +
+        // auctionWindowInSec
 
         TaikoData.Auction memory auction = state.auctions[batchId];
 
         if (
-            auction.startedAt == 0 
-            ||
-            (auction.startedAt != 0 && block.timestamp <= auction.startedAt + config.auctionWindowInSec)
+            auction.startedAt == 0
+                || (
+                    auction.startedAt != 0
+                        && block.timestamp
+                            <= auction.startedAt + config.auctionWindowInSec
+                )
         ) return true;
     }
 
@@ -155,12 +177,15 @@ library LibAuction {
         view
         returns (bool result)
     {
-        // address(0) or address(1) means oracle or system prover. During proveBlock() we 
-        // pass the evidence.prover. If there is a malicious actor who would submit the 
-        // proof with evidence.prover == address(1) to mock the system he/she gets back 
+        // address(0) or address(1) means oracle or system prover. During
+        // proveBlock() we
+        // pass the evidence.prover. If there is a malicious actor who would
+        // submit the
+        // proof with evidence.prover == address(1) to mock the system he/she
+        // gets back
         // true here, but will revert later, in LibProving.sol here:
         // "if (specialProver != address(0) && msg.sender != specialProver)"
-        if(prover == address(0) || prover == address(1)) {
+        if (prover == address(0) || prover == address(1)) {
             return true;
         }
         // We should expose this function so that clients could query.
@@ -168,25 +193,41 @@ library LibAuction {
         uint256 batchId = blockIdToBatchId(config, blockId);
 
         // Either:
-        // 1. we are in the window granted for prover or commited by the prover he/she submits the proof 
+        // 1. we are in the window granted for prover or commited by the prover
+        // he/she submits the proof
         // 2. anyone can submit proofs if we are outside of that window
         TaikoData.Auction memory auction = state.auctions[batchId];
 
-        // 2 cases: If a prover committed to a proofWindow or not and submits a proof somewhere within the worstCaseProofWindowInSec
+        // 2 cases: If a prover committed to a proofWindow or not and submits a
+        // proof somewhere within the worstCaseProofWindowInSec
         if (auction.startedAt != 0) {
             if (auction.bid.committedProofWindow == 0) {
-                if (block.timestamp > auction.startedAt + config.auctionWindowInSec + config.worstCaseProofWindowInSec || 
-                    (block.timestamp > auction.startedAt + config.auctionWindowInSec && auction.bid.prover == prover)) {
+                if (
+                    block.timestamp
+                        > auction.startedAt + config.auctionWindowInSec
+                            + config.worstCaseProofWindowInSec
+                        || (
+                            block.timestamp
+                                > auction.startedAt + config.auctionWindowInSec
+                                && auction.bid.prover == prover
+                        )
+                ) {
                     return true;
                 }
             } else {
-                if (block.timestamp > auction.startedAt + config.auctionWindowInSec + auction.bid.committedProofWindow || 
-                    (block.timestamp > auction.startedAt + config.auctionWindowInSec && auction.bid.prover == prover)) {
+                if (
+                    block.timestamp
+                        > auction.startedAt + config.auctionWindowInSec
+                            + auction.bid.committedProofWindow
+                        || (
+                            block.timestamp
+                                > auction.startedAt + config.auctionWindowInSec
+                                && auction.bid.prover == prover
+                        )
+                ) {
                     return true;
                 }
             }
         }
-
-        
     }
 }

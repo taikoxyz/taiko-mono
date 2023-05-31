@@ -124,15 +124,18 @@ library TaikoData {
     }
 
     struct Bid {
-        // Cannot be a ring bufer, if we can auction future block. If batch is 100, it simply BLOCK_ID-1/100
-        uint256 batchId; 
+        // Cannot be a ring bufer, if we can auction future block. If batch is
+        // 100, it simply BLOCK_ID-1/100
+        uint256 batchId;
         address prover;
         uint64 deposit;
         uint64 feePerGas;
         // In order to refund the diff betwen gasUsed vs. gasLimit
         uint32 gasLimit;
-        // It is also part of the bidding - how fast some can submit proofs according to his/her own commitment.
-        // Can be zero and it will just signal that the proofs are coming somewhere within config.auctionWindowInSec
+        // It is also part of the bidding - how fast some can submit proofs
+        // according to his/her own commitment.
+        // Can be zero and it will just signal that the proofs are coming
+        // somewhere within config.auctionWindowInSec
         uint16 committedProofWindow;
     }
 

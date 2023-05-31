@@ -142,11 +142,7 @@ contract TaikoL1 is
         payable
         nonReentrant
     {
-        LibAuction.bidForBatch({
-            state: state,
-            config: getConfig(),
-            newBid: bid
-        });
+        LibAuction.bidForBatch({ state: state, config: getConfig(), newBid: bid });
     }
 
     /**
@@ -171,11 +167,15 @@ contract TaikoL1 is
 
     // From proposer side - same way paying the fees - and saving gas.
     function depositTaikoToken(uint256 amount) external nonReentrant {
-        LibTkoDistribution.depositTaikoToken(state, AddressResolver(this), amount);
+        LibTkoDistribution.depositTaikoToken(
+            state, AddressResolver(this), amount
+        );
     }
 
     function withdrawTaikoToken(uint256 amount) external nonReentrant {
-        LibTkoDistribution.withdrawTaikoToken(state, AddressResolver(this), amount);
+        LibTkoDistribution.withdrawTaikoToken(
+            state, AddressResolver(this), amount
+        );
     }
 
     function getTaikoTokenBalance(address addr) public view returns (uint256) {
@@ -186,29 +186,33 @@ contract TaikoL1 is
         return state.blockFee;
     }
 
-    // If a bid is auctionable - then can call the isBidAcceptable() function to check
+    // If a bid is auctionable - then can call the isBidAcceptable() function to
+    // check
     function isBatchAuctionable(uint256 batchId) public view returns (bool) {
-        return LibAuction.isBatchAuctionable(
-            state, getConfig(), batchId
-        );
+        return LibAuction.isBatchAuctionable(state, getConfig(), batchId);
     }
 
-    function isBidAcceptable(TaikoData.Bid calldata bid) public view returns (bool) {
-        return LibAuction.isBidAcceptable(
-            state, getConfig(), bid
-        );
+    function isBidAcceptable(TaikoData.Bid calldata bid)
+        public
+        view
+        returns (bool)
+    {
+        return LibAuction.isBidAcceptable(state, getConfig(), bid);
     }
 
-    function isBlockProvableBy(uint256 blockId, address prover) public view returns (bool) {
-        return LibAuction.isBlockProvableBy(
-            state, getConfig(), blockId, prover
-        );
+    function isBlockProvableBy(
+        uint256 blockId,
+        address prover
+    )
+        public
+        view
+        returns (bool)
+    {
+        return LibAuction.isBlockProvableBy(state, getConfig(), blockId, prover);
     }
 
     function blockIdToBatchId(uint256 blockId) public pure returns (uint256) {
-        return LibAuction.blockIdToBatchId(
-            getConfig(), blockId
-        );
+        return LibAuction.blockIdToBatchId(getConfig(), blockId);
     }
 
     function getBlock(uint256 blockId)

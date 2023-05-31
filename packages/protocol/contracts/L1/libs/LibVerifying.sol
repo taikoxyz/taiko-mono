@@ -13,7 +13,7 @@ import { LibUtils } from "./LibUtils.sol";
 import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
-import {TaikoToken} from "../TaikoToken.sol";
+import { TaikoToken } from "../TaikoToken.sol";
 
 library LibVerifying {
     using SafeCastUpgradeable for uint256;
@@ -171,30 +171,42 @@ library LibVerifying {
             proofTime = uint64(fc.provenAt - blk.proposedAt);
         }
 
-        TaikoData.Bid memory winningBid = state.auctions[LibAuction.blockIdToBatchId(config, blk.blockId)].bid;
-        
+        TaikoData.Bid memory winningBid =
+            state.auctions[LibAuction.blockIdToBatchId(config, blk.blockId)].bid;
+
         uint64 rewardPerBlock = fc.gasUsed * winningBid.feePerGas;
 
-        if(fc.gasUsed < blk.gasLimit) {
+        if (fc.gasUsed < blk.gasLimit) {
             // Refund the diff
-            state.taikoTokenBalances[blk.proposer] += (blk.gasLimit - fc.gasUsed)  * winningBid.feePerGas;
+            state.taikoTokenBalances[blk.proposer] +=
+                (blk.gasLimit - fc.gasUsed) * winningBid.feePerGas;
         }
-    
-        state.avgFeePerGas = uint64(LibUtils.movingAverage(state.avgFeePerGas, winningBid.feePerGas, 100));
+
+        state.avgFeePerGas = uint64(
+            LibUtils.movingAverage(
+                state.avgFeePerGas, winningBid.feePerGas, 100
+            )
+        );
 
         TaikoToken tkoToken = TaikoToken(resolver.resolve("tko_token", false));
         // Prover indeed the one who won the auction
-        if(winningBid.prover == fc.prover) {
-            state.taikoTokenBalances[winningBid.prover] += (winningBid.deposit / config.auctionBatchSize) + rewardPerBlock;
-        }
-        else{
+        if (winningBid.prover == fc.prover) {
+            state.taikoTokenBalances[winningBid.prover] +=
+                (winningBid.deposit / config.auctionBatchSize) + rewardPerBlock;
+        } else {
             // Give reward + half of the deposit/block
-            state.taikoTokenBalances[fc.prover] += winningBid.deposit / (config.auctionBatchSize * 2) + rewardPerBlock;
+            state.taikoTokenBalances[fc.prover] += winningBid.deposit
+                / (config.auctionBatchSize * 2) + rewardPerBlock;
 
-            // Burn half of the deposit/block from original prover since he missed proving this block
-            // We dont need to add / deduct anything to/from state.taikoTokenBalances, because we already
+            // Burn half of the deposit/block from original prover since he
+            // missed proving this block
+            // We dont need to add / deduct anything to/from
+            // state.taikoTokenBalances, because we already
             // deducted it at bidding
-            tkoToken.burn((address(this)), winningBid.deposit / (config.auctionBatchSize * 2));
+            tkoToken.burn(
+                (address(this)),
+                winningBid.deposit / (config.auctionBatchSize * 2)
+            );
         }
 
         blk.nextForkChoiceId = 1;

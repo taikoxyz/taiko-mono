@@ -119,16 +119,23 @@ library LibProposing {
         if (blk.blockId != blockId) revert L1_BLOCK_ID();
     }
 
-    // If auction is tied to gas, we should charge users based on gas as well. At this point gasUsed
-    // (in proposeBlock()) is always gasLimit, so use it and in case of differences refund after verification
-    function getBlockFee(TaikoData.State storage state, uint32 gasLimit)
+    // If auction is tied to gas, we should charge users based on gas as well. At
+    // this point gasUsed
+    // (in proposeBlock()) is always gasLimit, so use it and in case of
+    // differences refund after verification
+    function getBlockFee(
+        TaikoData.State storage state,
+        uint32 gasLimit
+    )
         internal
         view
         returns (uint64)
     {
-        // @dantaik: What to do with the first X proposals, when there are no avgFeePerGas... ?
+        // @dantaik: What to do with the first X proposals, when there are no
+        // avgFeePerGas... ?
         // Currently it is set to 1. at init.
-        // The diff between gasLimit and gasUsed will be redistributed back to the balance of proposer
+        // The diff between gasLimit and gasUsed will be redistributed back to
+        // the balance of proposer
         return state.avgFeePerGas * gasLimit;
     }
 

@@ -6,13 +6,14 @@
 
 pragma solidity ^0.8.18;
 
-import {AddressResolver} from "../../common/AddressResolver.sol";
-import {LibMath} from "../../libs/LibMath.sol";
-import {SafeCastUpgradeable} from
+import { AddressResolver } from "../../common/AddressResolver.sol";
+import { LibMath } from "../../libs/LibMath.sol";
+import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {TaikoData} from "../TaikoData.sol";
-import {TaikoToken} from "../TaikoToken.sol";
-import {LibFixedPointMath as Math} from "../../thirdparty/LibFixedPointMath.sol";
+import { TaikoData } from "../TaikoData.sol";
+import { TaikoToken } from "../TaikoToken.sol";
+import { LibFixedPointMath as Math } from
+    "../../thirdparty/LibFixedPointMath.sol";
 
 library LibTkoDistribution {
     error L1_INSUFFICIENT_TOKEN();
@@ -21,7 +22,9 @@ library LibTkoDistribution {
         TaikoData.State storage state,
         AddressResolver resolver,
         uint256 amount
-    ) internal {
+    )
+        internal
+    {
         uint256 balance = state.taikoTokenBalances[msg.sender];
         if (balance < amount) revert L1_INSUFFICIENT_TOKEN();
 
@@ -29,16 +32,22 @@ library LibTkoDistribution {
             state.taikoTokenBalances[msg.sender] -= amount;
         }
 
-        TaikoToken(resolver.resolve("taiko_token", false)).mint(msg.sender, amount);
+        TaikoToken(resolver.resolve("taiko_token", false)).mint(
+            msg.sender, amount
+        );
     }
 
     function depositTaikoToken(
         TaikoData.State storage state,
         AddressResolver resolver,
         uint256 amount
-    ) internal {
+    )
+        internal
+    {
         if (amount > 0) {
-            TaikoToken(resolver.resolve("taiko_token", false)).burn(msg.sender, amount);
+            TaikoToken(resolver.resolve("taiko_token", false)).burn(
+                msg.sender, amount
+            );
             state.taikoTokenBalances[msg.sender] += amount;
         }
     }

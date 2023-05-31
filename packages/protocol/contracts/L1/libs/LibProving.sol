@@ -7,7 +7,7 @@
 pragma solidity ^0.8.18;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import {LibAuction} from "./LibAuction.sol";
+import { LibAuction } from "./LibAuction.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
@@ -50,7 +50,11 @@ library LibProving {
     {
         // We also should know who can prove this block:
         // the one who bid or everyone if it is above the window
-        if( !LibAuction.isBlockProvableBy(state, config, blockId, evidence.prover) ) {
+        if (
+            !LibAuction.isBlockProvableBy(
+                state, config, blockId, evidence.prover
+            )
+        ) {
             revert L1_NOT_PROVEABLE();
         }
 
