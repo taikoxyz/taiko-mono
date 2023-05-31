@@ -43,6 +43,21 @@ library LibAuction {
         }
 
         TaikoData.Auction memory auction = state.auctions[newBid.batchId];
+        
+        // Clear auction in case the ring buffer overflow and this auction not an empty one but 'expired'
+        // This is the easiest location / solution to do that, and since we are allowing bidding to batched not so long
+        // in the future e.g.: currently being proven batch + 5 we can check if an auction is already expired or not.
+        // The ring buffer of the auction is so large that we can conduct this math to check.
+        if (auction.startedAt != 0 
+            && 
+                block.timestamp 
+                > auction.startedAt + (config.auctionWindowInSec+ config.worstCaseProofWindowInSec) * (config.maximumBatchAuctionable+1)
+        ) {
+            auction.startedAt = 0;
+            TaikoData.Bid memory emptyBid;
+            auction.bid = emptyBid;
+        }
+
         // If there is an existing bid already
         // we compare this bid to the existing one first, to see if its a
         // lower fee accepted.
@@ -81,16 +96,46 @@ library LibAuction {
         );
     }
 
-    // Mapping blockId to batchId
+    // Mapping blockId to batchId where batchId is a ring buffer, blockId is absolute (aka. block height)
     function blockIdToBatchId(
         TaikoData.Config memory config,
         uint256 blockId
     )
         internal
         pure
-        returns (uint256)
+        returns (uint64)
     {
-        return (blockId - 1) / config.auctionBatchSize;
+        return uint64(((blockId - 1) / config.auctionBatchSize) % config.blockRingBufferSize);
+    }
+
+    // The easiest and most simple logic to not allow block auctioned till infinity so that it blocks
+    // future auctions to be made. Now it can be tweak with a config variable, how many batch auction window
+    // we allow to be aucitoned ahead in the future from the last proven/verified block number.
+    function isBlockAucitonableSoAheadInFuture(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        uint256 batchId
+    )
+        internal
+        view
+        returns (bool result)
+    {
+        // Easiest way to determine / restrict how many blocks can be auctioned ahead in the future
+        // to tie it to the current number of verified blocks (?).
+        uint64 verifiedBlockToProveWindow = blockIdToBatchId(config, state.lastVerifiedBlockId);
+        uint64 windowEnd = uint64((verifiedBlockToProveWindow + config.maximumBatchAuctionable) % config.auctionRingBufferSize);
+
+        if (windowEnd >= verifiedBlockToProveWindow && windowEnd < config.auctionRingBufferSize ) {
+            if (batchId >= verifiedBlockToProveWindow && batchId < config.auctionRingBufferSize) {
+                return true;
+            }
+        }
+        // Overflow at the edge of the ring buffer
+        else if(windowEnd < verifiedBlockToProveWindow) {
+            if (batchId <= windowEnd) {
+                return true;
+            }
+        } 
     }
 
     // isBidAcceptable determines is checking if the bid is acceptable based on
@@ -147,6 +192,11 @@ library LibAuction {
         if (batchId != blockIdToBatchId(config, batchId)) {
             revert L1_ID_NOT_BATCH_ID();
         }
+
+        if (!isBlockAucitonableSoAheadInFuture(state, config, batchId)){
+            return false;
+        }
+
 
         // 3 scenarios:
         // TRUE: 1. auction not started yet -> startedAt == 0 -> TRUE

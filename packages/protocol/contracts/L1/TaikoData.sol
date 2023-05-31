@@ -10,7 +10,8 @@ library TaikoData {
     struct Config {
         uint256 chainId;
         uint256 maxNumProposedBlocks;
-        uint256 ringBufferSize;
+        uint256 blockRingBufferSize;
+        uint256 auctionRingBufferSize;
         // This number is calculated from maxNumProposedBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;
@@ -35,6 +36,8 @@ library TaikoData {
         uint16 worstCaseProofWindowInSec;
         uint16 auctionBatchSize;
         uint16 auctionSmallestGasPerBlockBid; // in wei
+        // How many batch can be auctioned ahead in the future
+        uint8 maximumBatchAuctionable;
         bool relaySignalRoot;
     }
 
@@ -124,9 +127,8 @@ library TaikoData {
     }
 
     struct Bid {
-        // Cannot be a ring bufer, if we can auction future block. If batch is
-        // 100, it simply BLOCK_ID-1/100
-        uint256 batchId;
+        // batchId is ring buffer now
+        uint64 batchId;
         address prover;
         uint64 deposit;
         uint64 feePerGas;
@@ -146,7 +148,7 @@ library TaikoData {
 
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
-        mapping(uint256 blockId_mode_ringBufferSize => Block) blocks;
+        mapping(uint256 blockId_mode_blockRingBufferSize => Block) blocks;
         mapping(
             uint256 blockId
                 => mapping(
@@ -174,7 +176,7 @@ library TaikoData {
         uint64 blockFee;
         uint64 avgFeePerGas;
         uint64 lastVerifiedBlockId;
-        uint64 __reserved91;
+        uint64 __reserved90;
         // Reserved
         uint256[42] __gap;
     }

@@ -27,7 +27,7 @@ library LibUtils {
         returns (bool found, TaikoData.Block storage blk)
     {
         uint256 id = blockId == 0 ? state.lastVerifiedBlockId : blockId;
-        blk = state.blocks[id % config.ringBufferSize];
+        blk = state.blocks[id % config.blockRingBufferSize];
         found = (blk.blockId == id && blk.verifiedForkChoiceId != 0);
     }
 

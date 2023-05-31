@@ -76,7 +76,7 @@ library LibProving {
         }
 
         TaikoData.Block storage blk =
-            state.blocks[blockId % config.ringBufferSize];
+            state.blocks[blockId % config.blockRingBufferSize];
 
         // Check the metadata hash matches the proposed block's. This is
         // necessary to handle chain reorgs.
@@ -270,7 +270,7 @@ library LibProving {
         returns (TaikoData.ForkChoice storage fc)
     {
         TaikoData.Block storage blk =
-            state.blocks[blockId % config.ringBufferSize];
+            state.blocks[blockId % config.blockRingBufferSize];
         if (blk.blockId != blockId) revert L1_BLOCK_ID();
 
         uint256 fcId =

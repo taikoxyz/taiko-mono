@@ -80,7 +80,7 @@ library LibProposing {
         }
 
         TaikoData.Block storage blk =
-            state.blocks[state.numBlocks % config.ringBufferSize];
+            state.blocks[state.numBlocks % config.blockRingBufferSize];
 
         blk.blockId = state.numBlocks;
         blk.proposedAt = meta.timestamp;
@@ -115,7 +115,7 @@ library LibProposing {
         view
         returns (TaikoData.Block storage blk)
     {
-        blk = state.blocks[blockId % config.ringBufferSize];
+        blk = state.blocks[blockId % config.blockRingBufferSize];
         if (blk.blockId != blockId) revert L1_BLOCK_ID();
     }
 

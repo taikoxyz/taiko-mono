@@ -38,7 +38,7 @@ library LibVerifying {
         if (
             config.chainId <= 1 //
                 || config.maxNumProposedBlocks == 1
-                || config.ringBufferSize <= config.maxNumProposedBlocks + 1
+                || config.blockRingBufferSize <= config.maxNumProposedBlocks + 1
                 || config.blockMaxGasLimit == 0
                 || config.maxTransactionsPerBlock == 0
                 || config.maxBytesPerTxList == 0
@@ -86,7 +86,7 @@ library LibVerifying {
         internal
     {
         uint256 i = state.lastVerifiedBlockId;
-        TaikoData.Block storage blk = state.blocks[i % config.ringBufferSize];
+        TaikoData.Block storage blk = state.blocks[i % config.blockRingBufferSize];
 
         uint256 fcId = blk.verifiedForkChoiceId;
         // assert(fcId > 0);
@@ -100,7 +100,7 @@ library LibVerifying {
         }
 
         while (i < state.numBlocks && processed < maxBlocks) {
-            blk = state.blocks[i % config.ringBufferSize];
+            blk = state.blocks[i % config.blockRingBufferSize];
             // assert(blk.blockId == i);
 
             fcId = LibUtils.getForkChoiceId(state, blk, blockHash, gasUsed);
@@ -188,7 +188,6 @@ library LibVerifying {
             )
         );
 
-        TaikoToken tkoToken = TaikoToken(resolver.resolve("tko_token", false));
         // Prover indeed the one who won the auction
         if (winningBid.prover == fc.prover) {
             state.taikoTokenBalances[winningBid.prover] +=
@@ -203,6 +202,8 @@ library LibVerifying {
             // We dont need to add / deduct anything to/from
             // state.taikoTokenBalances, because we already
             // deducted it at bidding
+
+            TaikoToken tkoToken = TaikoToken(resolver.resolve("tko_token", false));
             tkoToken.burn(
                 (address(this)),
                 winningBid.deposit / (config.auctionBatchSize * 2)
