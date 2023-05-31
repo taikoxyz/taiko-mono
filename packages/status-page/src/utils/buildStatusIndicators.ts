@@ -310,33 +310,28 @@ export async function buildStatusIndicators(
         "The current fee to propose a block to the TaikoL1 smart contract.",
     });
     indicators.push({
-      statusFunc: async (
+      watchStatusFunc: async (
         provider: ethers.providers.JsonRpcProvider,
-        contractAddress: string
-      ): Promise<string> => {
-        const contract: Contract = new Contract(
-          contractAddress,
-          TaikoL1,
-          provider
-        );
-        const averageProofTime = await getAverageProofTime(
-          config.eventIndexerApiUrl
-        );
-        const fee = await contract.getProofReward(Number(averageProofTime));
-        return `${ethers.utils.formatUnits(fee, decimals)} ${
-          import.meta.env.VITE_FEE_TOKEN_SYMBOL ?? "TKO"
-        }`;
+        address: string,
+        onEvent: (value: Status) => void
+      ) => {
+        const contract = new Contract(address, TaikoL1, provider);
+        const listener = (id, blockHash, reward, ...args) => {
+          onEvent(`${ethers.utils.parseUnits(reward, decimals)} TKO`);
+        };
+        contract.on("BlockVerified", listener);
+
+        return () => contract.off("BlockVerified", listener);
       },
-      watchStatusFunc: null,
       provider: config.l1Provider,
       contractAddress: config.l1TaikoAddress,
-      header: "Proof Reward",
-      intervalInMs: 15000,
+      header: "Latest Proof Reward",
+      intervalInMs: 0,
+      status: "Waiting for event...",
       colorFunc: function (status: Status) {
         return "green"; // todo: whats green, yellow, red?
       },
-      tooltip:
-        "The current reward for successfully submitting a proof for a proposed block on the TaikoL1 smart contract, given the proof time is equal to average proof time.",
+      tooltip: "The most recent proof reward, updated on block being verified.",
     });
     indicators.push({
       provider: config.l1Provider,
@@ -368,7 +363,9 @@ export async function buildStatusIndicators(
         };
         contract.on("BlockProven", listener);
 
-        return () => contract.off("BlockProven", listener);
+        return () => {
+          contract.off("BlockProven", listener);
+        };
       },
       colorFunc: function (status: Status) {
         return "green"; // todo: whats green, yellow, red?

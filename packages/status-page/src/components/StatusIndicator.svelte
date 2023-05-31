@@ -58,6 +58,7 @@
     }
 
     if (watchStatusFunc) {
+      statusValue = "Waiting for event...";
       cancelFunc = watchStatusFunc(
         provider,
         contractAddress,
