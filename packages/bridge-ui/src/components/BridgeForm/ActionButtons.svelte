@@ -104,7 +104,7 @@
         on:click={clickApprove}
         disabled={!requiresAllowance || actionDisabled}>
         {requiresAllowance
-          ? 'Approval required'
+          ? 'Approve token'
           : !computingAllowance && amountEntered
           ? '✓ Approved'
           : 'Approve'}
@@ -118,7 +118,7 @@
         {requiresAllowance
           ? 'Bridge'
           : !computingAllowance && amountEntered
-          ? 'Ready to bridge'
+          ? 'Bridge'
           : 'Bridge'}
       </Button>
     {/if}

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ethers } from 'ethers';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
-  
+
   import { chains } from '../../chain/chains';
   import type { BridgeTransaction } from '../../domain/transaction';
   import { addressSubsection } from '../../utils/addressSubsection';
@@ -17,7 +17,7 @@
   <table
     class="table table-normal w-full md:w-2/3 m-auto table-fixed border-spacing-0 text-sm md:text-base">
     <tr>
-      <td>Tx Hash</td>
+      <td>Tx hash</td>
       <td class="text-right">
         <a
           class="link flex items-center justify-end"
@@ -45,7 +45,7 @@
         </td>
       </tr>
       <tr>
-        <td>Refund Address</td>
+        <td>Refund address</td>
         <td class="text-right">
           {addressSubsection(transaction.message.refundAddress)}
         </td>
@@ -68,7 +68,7 @@
         </tr>
       {/if}
       <tr>
-        <td>Gas Limit</td>
+        <td>Gas limit</td>
         <td class="text-right">
           {transaction.message.gasLimit}
         </td>
@@ -78,7 +78,7 @@
         <td class="text-right">
           <textarea
             readonly
-            class="bg-dark-2 rounded-lg p-2 outline-none"
+            class="bg-dark-2 rounded-lg p-2 outline-none resize-none"
             value={transaction.message.memo.trim()} />
         </td>
       </tr>

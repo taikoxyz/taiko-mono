@@ -35,7 +35,7 @@
     <TabList class="block mb-4">
       <Tab name={tab1.name} href={tab1.href}>Bridge</Tab>
       <Tab name={tab2.name} href={tab2.href}>
-        <span>Transactions</span>
+        <span>Transactions </span>
         {#if $paginationInfo || !$signer}
           ({$transactions.length})
         {:else}

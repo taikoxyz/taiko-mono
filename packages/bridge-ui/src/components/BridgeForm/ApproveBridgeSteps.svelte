@@ -26,14 +26,14 @@
     ? 'Approving…'
     : isApproved
     ? 'Approved'
-    : 'Approval required';
+    : 'Approve token';
 
   $: bridgeContent = bridging ? LOADING : null;
 
   $: bridgeLabel = bridging
     ? 'Bridging…'
     : !computingAllowance && approvalContent === DONE
-    ? 'Ready to bridge'
+    ? 'Bridge'
     : 'Bridge';
 </script>
 

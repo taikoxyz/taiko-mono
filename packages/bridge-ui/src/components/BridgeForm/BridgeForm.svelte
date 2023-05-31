@@ -401,7 +401,7 @@
       $token = $token;
 
       successToast(
-        `<strong>Transaction completed!</strong><br />Your funds are getting ready to be claimed on ${$toChain.name} chain.`,
+        `<strong>Transaction completed!</strong><br />Your funds are getting ready to be claimed on ${$toChain.name}.`,
       );
     } catch (error) {
       console.error(error);
