@@ -310,6 +310,36 @@ export async function buildStatusIndicators(
         "The current fee to propose a block to the TaikoL1 smart contract.",
     });
     indicators.push({
+      statusFunc: async (
+        provider: ethers.providers.JsonRpcProvider,
+        contractAddress: string
+      ): Promise<string> => {
+        const contract: Contract = new Contract(
+          contractAddress,
+          TaikoL1,
+          provider
+        );
+        const latestBlockNumber = await provider.getBlockNumber();
+        const eventFilter = contract.filters.BlockVerified();
+        const events = await contract.queryFilter(
+          eventFilter,
+          latestBlockNumber - 200,
+          latestBlockNumber
+        );
+
+        if (!events || events.length === 0) {
+          return `0 TKO`;
+        }
+
+        const event = events[events.length - 1].args as any as {
+          reward: BigNumber;
+        };
+
+        return `${ethers.utils.formatUnits(
+          event.reward.toString(),
+          decimals
+        )} TKO`;
+      },
       watchStatusFunc: async (
         provider: ethers.providers.JsonRpcProvider,
         address: string,
@@ -318,7 +348,7 @@ export async function buildStatusIndicators(
         const contract = new Contract(address, TaikoL1, provider);
         const listener = (id, blockHash, reward, ...args) => {
           onEvent(
-            `${ethers.utils.parseUnits(reward.toString(), decimals)} TKO`
+            `${ethers.utils.formatUnits(reward.toString(), decimals)} TKO`
           );
         };
         contract.on("BlockVerified", listener);
@@ -329,7 +359,6 @@ export async function buildStatusIndicators(
       contractAddress: config.l1TaikoAddress,
       header: "Latest Proof Reward",
       intervalInMs: 0,
-      status: "Waiting for event...",
       colorFunc: function (status: Status) {
         return "green"; // todo: whats green, yellow, red?
       },
