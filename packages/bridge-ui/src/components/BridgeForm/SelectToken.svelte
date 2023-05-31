@@ -12,7 +12,7 @@
   import { token } from '../../store/token';
   import { userTokens } from '../../store/userToken';
   import { tokens } from '../../token/tokens';
-  import { selectToken } from '../../utils/selectToken';
+  import { selectTokenAndBridgeType } from '../../utils/selectTokenAndBridgeType';
   import Erc20 from '../icons/ERC20.svelte';
   import { errorToast, successToast } from '../NotificationToast.svelte';
   import AddCustomErc20 from './AddCustomERC20.svelte';
@@ -29,7 +29,7 @@
   }
 
   function selectTokenAndCloseDropdown(selectedToken: Token) {
-    selectToken(selectedToken);
+    selectTokenAndBridgeType(selectedToken);
     closeDropdown();
   }
 
@@ -80,7 +80,7 @@
 
       const updateTokensList = tokenService.storeToken(token, userAddress);
 
-      selectToken(token);
+      selectTokenAndBridgeType(token);
 
       userTokens.set(updateTokensList);
       eventTarget.reset();

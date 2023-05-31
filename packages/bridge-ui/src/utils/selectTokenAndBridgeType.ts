@@ -5,11 +5,11 @@ import type { Token } from '../domain/token';
 import { bridgeType } from '../store/bridge';
 import { token } from '../store/token';
 import { isETH } from '../token/tokens';
-import { getLogger } from '../utils/logger';
+import { getLogger } from './logger';
 
-const log = getLogger('util:selectToken');
+const log = getLogger('util:selectTokenAndBridgeType');
 
-export function selectToken(_token: Token) {
+export function selectTokenAndBridgeType(_token: Token) {
   // We do nothing if the token is already selected
   if (_token === get(token)) return;
 

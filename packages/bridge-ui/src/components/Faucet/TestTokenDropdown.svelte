@@ -3,7 +3,7 @@
 
   import type { Token } from '../../domain/token';
   import { isTestToken, testERC20Tokens } from '../../token/tokens';
-  import { selectToken } from '../../utils/selectToken';
+  import { selectTokenAndBridgeType } from '../../utils/selectTokenAndBridgeType';
   import Erc20 from '../icons/ERC20.svelte';
 
   export let selectedToken: Token;
@@ -18,7 +18,7 @@
   }
 
   function selectTokenAndCloseDropdown(selectedToken: Token) {
-    selectToken(selectedToken);
+    selectTokenAndBridgeType(selectedToken);
     closeDropdown();
   }
 </script>
