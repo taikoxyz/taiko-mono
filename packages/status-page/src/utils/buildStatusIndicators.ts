@@ -385,8 +385,6 @@ export async function buildStatusIndicators(
           parentGasUsed,
           event
         ) => {
-          console.log(event);
-          // ignore oracle prover
           if (
             prover.toLowerCase() !== config.oracleProverAddress.toLowerCase() &&
             prover.toLowerCase() !== config.systemProverAddress.toLowerCase()
@@ -409,6 +407,46 @@ export async function buildStatusIndicators(
         return "green"; // todo: whats green, yellow, red?
       },
       tooltip: "The most recent block proof submitted on TaikoL1 contract.",
+    });
+    indicators.push({
+      provider: config.l1Provider,
+      contractAddress: config.l1TaikoAddress,
+      header: "Latest System Proof",
+      intervalInMs: 0,
+      status: "0",
+      watchStatusFunc: async (
+        provider: ethers.providers.JsonRpcProvider,
+        address: string,
+        onEvent: (value: Status) => void
+      ) => {
+        const contract = new Contract(address, TaikoL1, provider);
+        const listener = async (
+          id,
+          parentHash,
+          blockHash,
+          signalRoot,
+          prover,
+          parentGasUsed,
+          event
+        ) => {
+          if (
+            prover.toLowerCase() === config.systemProverAddress.toLowerCase()
+          ) {
+            const block = await event.getBlock();
+
+            onEvent(`${new Date(block.timestamp * 1000).toUTCString()}`);
+          }
+        };
+        contract.on("BlockProven", listener);
+
+        return () => {
+          contract.off("BlockProven", listener);
+        };
+      },
+      colorFunc: function (status: Status) {
+        return "green"; // todo: whats green, yellow, red?
+      },
+      tooltip: "The timestamp of the latest system proof",
     });
 
     indicators.push({
