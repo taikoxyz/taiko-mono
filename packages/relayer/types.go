@@ -7,13 +7,18 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/tokenvault"
 )
 
 var (
-	ZeroHash = common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
+	ZeroHash    = common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
+	ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
 )
 
 // IsInSlice determines whether v is in slice s
@@ -109,6 +114,55 @@ func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations u
 			return nil
 		}
 	}
+}
+
+func DecodeMessageSentData(event *bridge.BridgeMessageSent) (EventType, *CanonicalToken, *big.Int, error) {
+	eventType := EventTypeSendETH
+
+	var canonicalToken CanonicalToken
+
+	var amount *big.Int
+
+	if event.Message.Data != nil && common.BytesToHash(event.Message.Data) != ZeroHash {
+		tokenVaultMD := bind.MetaData{
+			ABI: tokenvault.TokenVaultABI,
+		}
+
+		tokenVaultABI, err := tokenVaultMD.GetAbi()
+		if err != nil {
+			return eventType, nil, big.NewInt(0), errors.Wrap(err, "tokenVaultMD.GetAbi()")
+		}
+
+		method, err := tokenVaultABI.MethodById(event.Message.Data[:4])
+		if err != nil {
+			return eventType, nil, big.NewInt(0), errors.Wrap(err, "tokenVaultABI.MethodById")
+		}
+
+		inputsMap := make(map[string]interface{})
+
+		if err := method.Inputs.UnpackIntoMap(inputsMap, event.Message.Data[4:]); err != nil {
+			return eventType, nil, big.NewInt(0), errors.Wrap(err, "method.Inputs.UnpackIntoMap")
+		}
+
+		if method.Name == "receiveERC20" {
+			eventType = EventTypeSendERC20
+
+			canonicalToken = inputsMap["canonicalToken"].(struct {
+				// nolint
+				ChainId  *big.Int       `json:"chainId"`
+				Addr     common.Address `json:"addr"`
+				Decimals uint8          `json:"decimals"`
+				Symbol   string         `json:"symbol"`
+				Name     string         `json:"name"`
+			})
+
+			amount = inputsMap["amount"].(*big.Int)
+		}
+	} else {
+		amount = event.Message.DepositValue
+	}
+
+	return eventType, &canonicalToken, amount, nil
 }
 
 type CanonicalToken struct {

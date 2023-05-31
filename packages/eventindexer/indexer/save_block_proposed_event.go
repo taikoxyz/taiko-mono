@@ -42,6 +42,8 @@ func (svc *Service) saveBlockProposedEvents(
 		log.Infof("blockProposed by: %v", sender.Hex())
 
 		if err := svc.saveBlockProposedEvent(ctx, chainID, event, sender); err != nil {
+			eventindexer.BlockProposedEventsProcessedError.Inc()
+
 			return errors.Wrap(err, "svc.saveBlockProposedEvent")
 		}
 
@@ -57,6 +59,8 @@ func (svc *Service) saveBlockProposedEvent(
 	event *taikol1.TaikoL1BlockProposed,
 	sender common.Address,
 ) error {
+	log.Info("blockProposed event found")
+
 	marshaled, err := json.Marshal(event)
 	if err != nil {
 		return errors.Wrap(err, "json.Marshal(event)")
@@ -72,6 +76,8 @@ func (svc *Service) saveBlockProposedEvent(
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.Save")
 	}
+
+	eventindexer.BlockProposedEventsProcessed.Inc()
 
 	return nil
 }

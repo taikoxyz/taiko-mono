@@ -14,13 +14,10 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {TaikoL1TestBase} from "./TaikoL1TestBase.t.sol";
 import {LibLn} from "./LibLn.sol";
 
+uint16 constant INITIAL_PROOF_TIME_TARGET = 120; //sec. Approx testnet scenario
+
 contract TaikoL1WithTestnetConfig is TaikoL1 {
-    function getConfig()
-        public
-        pure
-        override
-        returns (TaikoData.Config memory config)
-    {
+    function getConfig() public pure override returns (TaikoData.Config memory config) {
         config = TaikoConfig.getConfig();
 
         config.txListCacheExpiry = 5 minutes;
@@ -28,7 +25,6 @@ contract TaikoL1WithTestnetConfig is TaikoL1 {
         config.proofCooldownPeriod = 0;
         config.maxNumProposedBlocks = 40;
         config.ringBufferSize = 48;
-        config.proofTimeTarget = 120; // Testnet example
     }
 }
 
@@ -39,20 +35,17 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
     }
 
     function setUp() public override {
-        uint16 proofTimeTarget = 120; // Approx. testnet value
+        proofTimeTarget = INITIAL_PROOF_TIME_TARGET; // Approx. testnet value
         // Calculating it for our needs based on testnet/mainnet proof vars.
         // See Brecht's comment https://github.com/taikoxyz/taiko-mono/pull/13564
-        initProofTimeIssued = LibLn.calcInitProofTimeIssued(
-            feeBase,
-            proofTimeTarget,
-            ADJUSTMENT_QUOTIENT
-        );
+        initProofTimeIssued =
+            LibLn.calcInitProofTimeIssued(feeBase, proofTimeTarget, ADJUSTMENT_QUOTIENT);
 
         TaikoL1TestBase.setUp();
 
-        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
     }
 
     /// @dev Test what happens when proof time increases
@@ -61,9 +54,9 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
     {
         mine(1);
 
-        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
@@ -75,31 +68,24 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         console2.log("Bob balance:", Bob_start_balance);
 
         for (uint256 blockId = 1; blockId < 10; blockId++) {
-            TaikoData.BlockMetadata memory meta = proposeBlock(
-                Alice,
-                1000000,
-                1024
-            );
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             uint64 proposedAt = uint64(block.timestamp);
             mine(blockId);
 
-            bytes32 blockHash = bytes32(1E10 + blockId);
-            bytes32 signalRoot = bytes32(1E9 + blockId);
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
             proveBlock(
+                Bob,
                 Bob,
                 meta,
                 parentHash,
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot,
-                false
+                signalRoot
             );
             uint64 provenAt = uint64(block.timestamp);
-            console2.log(
-                "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAt)
-            );
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAt));
 
             verifyBlock(Carol, 1);
             // This is where new fee evaluated
@@ -120,32 +106,16 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
 
         // Run another session with huge times
         for (uint256 blockId = 1; blockId < 10; blockId++) {
-            TaikoData.BlockMetadata memory meta = proposeBlock(
-                Alice,
-                1000000,
-                1024
-            );
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             uint64 proposedAt = uint64(block.timestamp);
             mine_huge();
 
-            bytes32 blockHash = bytes32(1E10 + blockId);
-            bytes32 signalRoot = bytes32(1E9 + blockId);
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
 
-            proveBlock(
-                Bob,
-                meta,
-                parentHash,
-                1000000,
-                1000000,
-                blockHash,
-                signalRoot,
-                false
-            );
+            proveBlock(Bob, Bob, meta, parentHash, 1000000, 1000000, blockHash, signalRoot);
             uint64 provenAt = uint64(block.timestamp);
-            console2.log(
-                "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAt)
-            );
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAt));
             verifyBlock(Carol, 1);
             // This is where new fee evaluated
             printVariables("after verify");
@@ -161,15 +131,12 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
     }
 
     /// @dev Test what happens when proof time hectic couple of proposes, without prove, then some proofs
-    function test_balanced_state_reward_and_fee_if_proof_time_hectic()
-        external
-    {
+    function test_balanced_state_reward_and_fee_if_proof_time_hectic() external {
         mine(1);
         //Needs lot of token here - because there is lots of time elapsed between 2 'propose' blocks, which will raise the fee
-
-        depositTaikoToken(Alice, 1E8 * 1E8, 100 ether);
-        depositTaikoToken(Bob, 1E8 * 1E8, 100 ether);
-        depositTaikoToken(Carol, 1E8 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1e8 * 1e8, 100 ether);
+        depositTaikoToken(Bob, 1e8 * 1e8, 100 ether);
+        depositTaikoToken(Carol, 1e8 * 1e8, 100 ether);
 
         TaikoData.BlockMetadata[] memory metas = new TaikoData.BlockMetadata[](
             20
@@ -199,23 +166,20 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         mine(6);
         // Prove and verify
         for (uint256 blockId = 1; blockId < 10; blockId++) {
-            bytes32 blockHash = bytes32(1E10 + blockId);
-            bytes32 signalRoot = bytes32(1E9 + blockId);
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
             proveBlock(
+                Bob,
                 Bob,
                 metas[blockId],
                 parentHash,
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot,
-                false
+                signalRoot
             );
             uint64 provenAt = uint64(block.timestamp);
-            console2.log(
-                "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAtArr[blockId])
-            );
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAtArr[blockId]));
 
             verifyBlock(Carol, 1);
 
@@ -232,32 +196,16 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         // Run another iteration
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(
-                Alice,
-                1000000,
-                1024
-            );
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             uint64 proposedAt = uint64(block.timestamp);
             printVariables("after propose");
             mine_proofTime();
 
-            bytes32 blockHash = bytes32(1E10 + blockId);
-            bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(
-                Bob,
-                meta,
-                parentHash,
-                1000000,
-                1000000,
-                blockHash,
-                signalRoot,
-                false
-            );
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
+            proveBlock(Bob, Bob, meta, parentHash, 1000000, 1000000, blockHash, signalRoot);
             uint64 provenAt = uint64(block.timestamp);
-            console2.log(
-                "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAt)
-            );
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAt));
             verifyBlock(Carol, 1);
 
             parentHash = blockHash;
@@ -274,14 +222,13 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
     }
 
     /// @dev Test and see what happens when proof time is stable below the target and proving consecutive
-    function test_balanced_state_reward_and_fee_if_proof_time_stable_below_target_prooving_consecutive()
-        external
-    {
+    function test_balanced_state_reward_and_fee_if_proof_time_stable_below_target_prooving_consecutive(
+    ) external {
         mine(1);
 
-        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
@@ -295,32 +242,25 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         //parentHash = prove_with_increasing_time(parentHash, 10);
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(
-                Alice,
-                1000000,
-                1024
-            );
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             uint64 proposedAt = uint64(block.timestamp);
             printVariables("after propose");
             mine(2);
 
-            bytes32 blockHash = bytes32(1E10 + blockId);
-            bytes32 signalRoot = bytes32(1E9 + blockId);
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
             proveBlock(
+                Bob,
                 Bob,
                 meta,
                 parentHash,
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot,
-                false
+                signalRoot
             );
             uint64 provenAt = uint64(block.timestamp);
-            console2.log(
-                "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAt)
-            );
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAt));
 
             verifyBlock(Carol, 1);
 
@@ -339,14 +279,13 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
     }
 
     /// @dev Test and see what happens when proof time is stable below the target and proving non consecutive
-    function test_balanced_state_reward_and_fee_if_proof_time_stable_below_target_proving_non_consecutive()
-        external
-    {
+    function test_balanced_state_reward_and_fee_if_proof_time_stable_below_target_proving_non_consecutive(
+    ) external {
         mine(1);
 
-        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
 
         TaikoData.BlockMetadata[] memory meta = new TaikoData.BlockMetadata[](
             30
@@ -374,25 +313,22 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         mine(6);
         //Prove and verify
         for (uint256 blockId = 1; blockId < 30; blockId++) {
-            bytes32 blockHash = bytes32(1E10 + blockId);
-            bytes32 signalRoot = bytes32(1E9 + blockId);
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
 
             proveBlock(
+                Bob,
                 Bob,
                 meta[blockId],
                 parentHash,
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot,
-                false
+                signalRoot
             );
 
             uint64 provenAt = uint64(block.timestamp);
-            console2.log(
-                "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAt[blockId])
-            );
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAt[blockId]));
 
             verifyBlock(Carol, 1);
 
@@ -412,14 +348,12 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
     }
 
     /// @dev Test what happens when proof time decreases
-    function test_balanced_state_reward_and_fee_if_proof_time_decreases()
-        external
-    {
+    function test_balanced_state_reward_and_fee_if_proof_time_decreases() external {
         mine(1);
 
-        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
 
         TaikoData.BlockMetadata[] memory meta = new TaikoData.BlockMetadata[](
             20
@@ -448,24 +382,21 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         mine(6);
         // Prove and verify
         for (uint256 blockId = 1; blockId < 20; blockId++) {
-            bytes32 blockHash = bytes32(1E10 + blockId);
-            bytes32 signalRoot = bytes32(1E9 + blockId);
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
             proveBlock(
+                Bob,
                 Bob,
                 meta[blockId],
                 parentHash,
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot,
-                false
+                signalRoot
             );
 
             uint64 provenAt = uint64(block.timestamp);
-            console2.log(
-                "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAt[blockId])
-            );
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAt[blockId]));
 
             verifyBlock(Carol, 1);
             mine(21 - blockId);
@@ -482,14 +413,13 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
     }
 
     /// @dev Test and see what happens when proof time is stable above the target and proving consecutive
-    function test_balanced_state_reward_and_fee_if_proof_time_stable_above_target_prooving_consecutive()
-        external
-    {
+    function test_balanced_state_reward_and_fee_if_proof_time_stable_above_target_prooving_consecutive(
+    ) external {
         mine(1);
 
-        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
@@ -503,32 +433,25 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         //parentHash = prove_with_increasing_time(parentHash, 10);
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(
-                Alice,
-                1000000,
-                1024
-            );
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             uint64 proposedAt = uint64(block.timestamp);
             printVariables("after propose");
             mine(5);
 
-            bytes32 blockHash = bytes32(1E10 + blockId);
-            bytes32 signalRoot = bytes32(1E9 + blockId);
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
             proveBlock(
+                Bob,
                 Bob,
                 meta,
                 parentHash,
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot,
-                false
+                signalRoot
             );
             uint64 provenAt = uint64(block.timestamp);
-            console2.log(
-                "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAt)
-            );
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAt));
 
             verifyBlock(Carol, 1);
 
@@ -547,13 +470,13 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
     }
 
     /// @dev Test and see what happens when proof time is stable above the target and proving non consecutive
-    function test_balanced_state_reward_and_fee_if_proof_time_stable_above_target_proving_non_consecutive()
-        external
-    {
+    function test_balanced_state_reward_and_fee_if_proof_time_stable_above_target_proving_non_consecutive(
+    ) external {
         mine(1);
-        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+
+        depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
 
         TaikoData.BlockMetadata[] memory meta = new TaikoData.BlockMetadata[](
             30
@@ -582,25 +505,22 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         mine(6);
         // Prove and verify
         for (uint256 blockId = 1; blockId < 30; blockId++) {
-            bytes32 blockHash = bytes32(1E10 + blockId);
-            bytes32 signalRoot = bytes32(1E9 + blockId);
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
 
             proveBlock(
+                Bob,
                 Bob,
                 meta[blockId],
                 parentHash,
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot,
-                false
+                signalRoot
             );
 
             uint64 provenAt = uint64(block.timestamp);
-            console2.log(
-                "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAt[blockId])
-            );
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAt[blockId]));
 
             verifyBlock(Carol, 1);
             mine(5);
@@ -619,14 +539,13 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
     }
 
     /// @dev Test what happens when proof time decreases
-    function test_balanced_state_reward_and_fee_if_proof_time_decreasses_then_stabilizes_consecutive()
-        external
-    {
+    function test_balanced_state_reward_and_fee_if_proof_time_decreasses_then_stabilizes_consecutive(
+    ) external {
         mine(1);
 
-        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
@@ -639,32 +558,25 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
 
         //parentHash = prove_with_increasing_time(parentHash, 10);
         for (uint256 blockId = 1; blockId < 10; blockId++) {
-            TaikoData.BlockMetadata memory meta = proposeBlock(
-                Alice,
-                1000000,
-                1024
-            );
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             printVariables("after propose");
             uint64 proposedAt = uint64(block.timestamp);
             mine(11 - blockId);
 
-            bytes32 blockHash = bytes32(1E10 + blockId);
-            bytes32 signalRoot = bytes32(1E9 + blockId);
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
             proveBlock(
+                Bob,
                 Bob,
                 meta,
                 parentHash,
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot,
-                false
+                signalRoot
             );
             uint64 provenAt = uint64(block.timestamp);
-            console2.log(
-                "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAt)
-            );
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAt));
 
             verifyBlock(Carol, 1);
 
@@ -684,32 +596,16 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         // Run another session with huge times
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(
-                Alice,
-                1000000,
-                1024
-            );
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             uint64 proposedAt = uint64(block.timestamp);
             printVariables("after propose");
             mine_proofTime();
 
-            bytes32 blockHash = bytes32(1E10 + blockId);
-            bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(
-                Bob,
-                meta,
-                parentHash,
-                1000000,
-                1000000,
-                blockHash,
-                signalRoot,
-                false
-            );
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
+            proveBlock(Bob, Bob, meta, parentHash, 1000000, 1000000, blockHash, signalRoot);
             uint64 provenAt = uint64(block.timestamp);
-            console2.log(
-                "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAt)
-            );
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAt));
             verifyBlock(Carol, 1);
 
             parentHash = blockHash;
@@ -723,17 +619,15 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
     }
 
     /// @dev Test what happens when proof time decreases
-    function test_balanced_state_reward_and_fee_if_proof_time_decreases_then_stabilizes_non_consecutive()
-        external
-    {
+    function test_balanced_state_reward_and_fee_if_proof_time_decreases_then_stabilizes_non_consecutive(
+    ) external {
         mine(1);
         // Requires a bit more tokens
-        depositTaikoToken(Alice, 1E8 * 1E8, 100 ether);
-        depositTaikoToken(Bob, 1E8 * 1E8, 100 ether);
-        depositTaikoToken(Carol, 1E8 * 1E8, 100 ether);
+        depositTaikoToken(Alice, 1e8 * 1e8, 100 ether);
+        depositTaikoToken(Bob, 1e8 * 1e8, 100 ether);
+        depositTaikoToken(Carol, 1e8 * 1e8, 100 ether);
 
-        TaikoData.BlockMetadata[]
-            memory metaArr = new TaikoData.BlockMetadata[](20);
+        TaikoData.BlockMetadata[] memory metaArr = new TaikoData.BlockMetadata[](20);
         uint64[] memory proposedAtArr = new uint64[](20);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
@@ -757,24 +651,21 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         mine(6);
         // Prove and verify
         for (uint256 blockId = 1; blockId < 10; blockId++) {
-            bytes32 blockHash = bytes32(1E10 + blockId);
-            bytes32 signalRoot = bytes32(1E9 + blockId);
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
             proveBlock(
+                Bob,
                 Bob,
                 metaArr[blockId],
                 parentHash,
                 (blockId == 1 ? 0 : 1000000),
                 1000000,
                 blockHash,
-                signalRoot,
-                false
+                signalRoot
             );
 
             uint64 provenAt = uint64(block.timestamp);
-            console2.log(
-                "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAtArr[blockId])
-            );
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAtArr[blockId]));
 
             verifyBlock(Carol, 1);
             mine(21 - blockId);
@@ -793,32 +684,16 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         // Run another session with huge times
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(
-                Alice,
-                1000000,
-                1024
-            );
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             uint64 proposedAt = uint64(block.timestamp);
             printVariables("after propose");
             mine_proofTime();
 
-            bytes32 blockHash = bytes32(1E10 + blockId);
-            bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(
-                Bob,
-                meta,
-                parentHash,
-                1000000,
-                1000000,
-                blockHash,
-                signalRoot,
-                false
-            );
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
+            proveBlock(Bob, Bob, meta, parentHash, 1000000, 1000000, blockHash, signalRoot);
             uint64 provenAt = uint64(block.timestamp);
-            console2.log(
-                "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAt)
-            );
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAt));
             verifyBlock(Carol, 1);
 
             parentHash = blockHash;
@@ -834,13 +709,13 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
     }
 
     /// @dev Test and see what happens when proof time is stable at the target and proving consecutive
-    function test_balanced_state_reward_and_fee_if_proof_time_stable_consecutive()
-        external
-    {
+    function test_balanced_state_reward_and_fee_if_proof_time_stable_consecutive() external {
         mine(1);
-        depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
-        depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
+
+        depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
+
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         // Check balances
@@ -853,32 +728,25 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         //parentHash = prove_with_increasing_time(parentHash, 10);
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(
-                Alice,
-                1000000,
-                1024
-            );
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             uint64 proposedAt = uint64(block.timestamp);
             printVariables("after propose");
             mine_proofTime();
 
-            bytes32 blockHash = bytes32(1E10 + blockId);
-            bytes32 signalRoot = bytes32(1E9 + blockId);
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
             proveBlock(
+                Bob,
                 Bob,
                 meta,
                 parentHash,
                 blockId == 1 ? 0 : 1000000,
                 1000000,
                 blockHash,
-                signalRoot,
-                false
+                signalRoot
             );
             uint64 provenAt = uint64(block.timestamp);
-            console2.log(
-                "Proof reward is:",
-                L1.getProofReward(provenAt, proposedAt)
-            );
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAt));
 
             verifyBlock(Carol, 1);
 
@@ -897,9 +765,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
     }
 
     /// @dev Test a scenario which very close to a testnet behaviour
-    function test_balanced_state_reward_and_fee_if_proof_time_stable_non_consecutive()
-        external
-    {
+    function test_balanced_state_reward_and_fee_if_proof_time_stable_non_consecutive() external {
         uint256 Alice_start_balance = L1.getTaikoTokenBalance(Alice);
         uint256 Bob_start_balance = L1.getTaikoTokenBalance(Bob);
 
@@ -923,29 +789,26 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
                 proposedAt[blockId] = (uint64(block.timestamp));
                 printVariables("after propose");
 
-                blockHashes[blockId] = bytes32(1E10 + blockId); //blockHash;
-                signalRoots[blockId] = bytes32(1E9 + blockId); //signalRoot;
+                blockHashes[blockId] = bytes32(1e10 + blockId); //blockHash;
+                signalRoots[blockId] = bytes32(1e9 + blockId); //signalRoot;
 
                 if (blockId > proofTime) {
                     //Start proving with an offset
                     proveBlock(
+                        Bob,
                         Bob,
                         meta[blockId - proofTime],
                         parentHashes[blockId - proofTime],
                         (blockId - proofTime == 1) ? 0 : 1000000,
                         1000000,
                         blockHashes[blockId - proofTime],
-                        signalRoots[blockId - proofTime],
-                        false
+                        signalRoots[blockId - proofTime]
                     );
 
                     uint64 provenAt = uint64(block.timestamp);
                     console2.log(
                         "Proof reward is:",
-                        L1.getProofReward(
-                            provenAt,
-                            proposedAt[blockId - proofTime]
-                        )
+                        L1.getProofReward(provenAt - proposedAt[blockId - proofTime])
                     );
                 }
 
@@ -970,6 +833,73 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         // Assert their balance changed relatively the same way
         // 1e18 == within 100 % delta -> 1e17 10%, let's see if this is within that range
         assertApproxEqRel(deposits, withdrawals, 1e17);
+    }
+
+    /// @dev Test if testing proof time params works (changes) as expected
+    function test_changing_proof_time_parameters() external {
+        mine(1);
+
+        depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
+
+        bytes32 parentHash = GENESIS_BLOCK_HASH;
+
+        // Check balances
+        uint256 Alice_start_balance = L1.getTaikoTokenBalance(Alice);
+        uint256 Bob_start_balance = L1.getTaikoTokenBalance(Bob);
+        console2.log("Alice balance:", Alice_start_balance);
+        console2.log("Bob balance:", Bob_start_balance);
+
+        //parentHash = prove_with_increasing_time(parentHash, 10);
+        for (uint256 blockId = 1; blockId < 20; blockId++) {
+            // See if proof reward decreases faster than usual
+            if (blockId == 8) {
+                // 500 sec has the proofTimeIssued of 219263 (Calculated with 'forge script script/DetermineNewProofTimeIssued.s.sol')
+                L1.setProofParams(500, 219263, feeBase, ADJUSTMENT_QUOTIENT);
+            }
+
+            // See if proof reward increases now
+            if (blockId == 15) {
+                // 10 sec has the proofTimeIssued of 3759 (Calculated with 'forge script script/DetermineNewProofTimeIssued.s.sol')
+                L1.setProofParams(10, 3759, feeBase, ADJUSTMENT_QUOTIENT);
+            }
+
+            printVariables("before propose");
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+            uint64 proposedAt = uint64(block.timestamp);
+            printVariables("after propose");
+            mine(5);
+
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
+            proveBlock(
+                Bob,
+                Bob,
+                meta,
+                parentHash,
+                blockId == 1 ? 0 : 1000000,
+                1000000,
+                blockHash,
+                signalRoot
+            );
+            uint64 provenAt = uint64(block.timestamp);
+            console2.log("Proof reward is:", L1.getProofReward(provenAt - proposedAt));
+
+            verifyBlock(Carol, 1);
+
+            parentHash = blockHash;
+        }
+
+        //Check end balances
+
+        uint256 deposits = Alice_start_balance - L1.getTaikoTokenBalance(Alice);
+        uint256 withdrawals = L1.getTaikoTokenBalance(Bob) - Bob_start_balance;
+
+        console2.log("Deposits:", deposits);
+        console2.log("withdrawals:", withdrawals);
+
+        assertEq(deposits, withdrawals);
     }
 
     function mine_huge() internal {

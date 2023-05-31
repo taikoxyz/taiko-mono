@@ -1,5 +1,7 @@
 .netrc
 .env
+.l1l2.env
+.l2l3.env
 .test.env
 main
 coverage.txt

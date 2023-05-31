@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.9.0](https://github.com/taikoxyz/taiko-mono/compare/status-page-v0.8.0...status-page-v0.9.0) (2023-05-26)
+
+
+### Features
+
+* **eventindexer:** add stats tracking ([#13810](https://github.com/taikoxyz/taiko-mono/issues/13810)) ([bfbbb97](https://github.com/taikoxyz/taiko-mono/commit/bfbbb97fcb67dc33749f0f08f84b8bd54eae9aeb))
+* **status-page:** handle multiple layers ([#13770](https://github.com/taikoxyz/taiko-mono/issues/13770)) ([92a4d56](https://github.com/taikoxyz/taiko-mono/commit/92a4d56c7f3b42151b913b053e6717fca3adc347))
+
+
+### Bug Fixes
+
+* **protocol:** rename treasure to treasury ([#13780](https://github.com/taikoxyz/taiko-mono/issues/13780)) ([ccecd70](https://github.com/taikoxyz/taiko-mono/commit/ccecd708276bce3eca84b92c7c48c95b2156dd18))
+* **status-page:** eth deposit display ([#13763](https://github.com/taikoxyz/taiko-mono/issues/13763)) ([fedab00](https://github.com/taikoxyz/taiko-mono/commit/fedab00148c332a5538265100b103dab9fff98e5))
+
+## [0.8.0](https://github.com/taikoxyz/taiko-mono/compare/status-page-v0.7.0...status-page-v0.8.0) (2023-05-11)
+
+
+### Features
+
+* **protocol:** major protocol upgrade for alpha-3 testnet ([#13640](https://github.com/taikoxyz/taiko-mono/issues/13640)) ([02552f2](https://github.com/taikoxyz/taiko-mono/commit/02552f2aa001893d326062ce627004c61b46cd26))
+
 ## [0.7.0](https://github.com/taikoxyz/taiko-mono/compare/status-page-v0.6.0...status-page-v0.7.0) (2023-04-27)
 
 

@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.7.1](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.7.0...bridge-ui-v0.7.1) (2023-05-26)
+
+
+### Bug Fixes
+
+* **bridge-ui:** fix proof ([#13748](https://github.com/taikoxyz/taiko-mono/issues/13748)) ([497d7ab](https://github.com/taikoxyz/taiko-mono/commit/497d7abd895bbda2b60311d48bca5ebe3d9755c6))
+* **bridge-ui:** selecting chain was not informing of errors ([#13712](https://github.com/taikoxyz/taiko-mono/issues/13712)) ([5d29c6d](https://github.com/taikoxyz/taiko-mono/commit/5d29c6d06d4a7b24ef31d18c38e7f1941c322215))
+
+## [0.7.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.6.0...bridge-ui-v0.7.0) (2023-05-11)
+
+
+### Features
+
+* **protocol:** major protocol upgrade for alpha-3 testnet ([#13640](https://github.com/taikoxyz/taiko-mono/issues/13640)) ([02552f2](https://github.com/taikoxyz/taiko-mono/commit/02552f2aa001893d326062ce627004c61b46cd26))
+
+
+### Bug Fixes
+
+* **bridge-ui:** update abis ([#13705](https://github.com/taikoxyz/taiko-mono/issues/13705)) ([d3d4e69](https://github.com/taikoxyz/taiko-mono/commit/d3d4e693176b8df1dcdd7321c30d66222121a05b))
+
 ## [0.6.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.5.0...bridge-ui-v0.6.0) (2023-04-27)
 
 

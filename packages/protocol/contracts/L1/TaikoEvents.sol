@@ -10,7 +10,7 @@ import {TaikoData} from "./TaikoData.sol";
 
 abstract contract TaikoEvents {
     // The following events must match the definitions in corresponding L1 libraries.
-    event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
+    event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta, uint64 blockFee);
 
     event BlockProven(
         uint256 indexed id,
@@ -21,7 +21,11 @@ abstract contract TaikoEvents {
         uint32 parentGasUsed
     );
 
-    event BlockVerified(uint256 indexed id, bytes32 blockHash);
+    event BlockVerified(uint256 indexed id, bytes32 blockHash, uint64 reward);
 
     event EthDeposited(TaikoData.EthDeposit deposit);
+
+    event ProofParamsChanged(
+        uint64 proofTimeTarget, uint64 proofTimeIssued, uint64 blockFee, uint16 adjustmentQuotient
+    );
 }

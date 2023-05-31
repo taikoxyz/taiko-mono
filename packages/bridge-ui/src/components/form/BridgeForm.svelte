@@ -20,8 +20,7 @@
     transactions as transactionsStore,
   } from '../../store/transactions';
   import Memo from './Memo.svelte';
-  import ERC20_ABI from '../../constants/abi/ERC20';
-  import TokenVaultABI from '../../constants/abi/TokenVault';
+  import { erc20ABI, tokenVaultABI } from '../../constants/abi';
   import type { BridgeTransaction } from '../../domain/transactions';
   import { MessageStatus } from '../../domain/message';
   import { Funnel } from 'svelte-heros-v2';
@@ -69,7 +68,7 @@
 
       const tokenVault = new Contract(
         tokenVaults[$fromChain.id],
-        TokenVaultABI,
+        tokenVaultABI,
         $signer,
       );
 
@@ -98,7 +97,7 @@
           tokenBalance = '0';
           return;
         }
-        const contract = new Contract(addr, ERC20_ABI, signer);
+        const contract = new Contract(addr, erc20ABI, signer);
         const userBalance = await contract.balanceOf(await signer.getAddress());
         tokenBalance = ethers.utils.formatUnits(userBalance, token.decimals);
       }

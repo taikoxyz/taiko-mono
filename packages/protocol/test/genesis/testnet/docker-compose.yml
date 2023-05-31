@@ -1,4 +1,4 @@
-version: '3.9'
+version: "3.9"
 
 services:
   geth:
@@ -9,4 +9,4 @@ services:
       - .:/host
     ports:
       - 18545:8545
-    entrypoint: '/host/init_geth.sh'
+    entrypoint: "/host/init_geth.sh"

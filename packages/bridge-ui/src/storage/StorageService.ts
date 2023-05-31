@@ -1,8 +1,6 @@
 import type { BridgeTransaction, Transactioner } from '../domain/transactions';
 import { BigNumber, Contract, ethers } from 'ethers';
-import BridgeABI from '../constants/abi/Bridge';
-import TokenVaultABI from '../constants/abi/TokenVault';
-import ERC20_ABI from '../constants/abi/ERC20';
+import { bridgeABI, tokenVaultABI, erc20ABI } from '../constants/abi';
 import { MessageStatus } from '../domain/message';
 import { chains } from '../chain/chains';
 import { tokenVaults } from '../vault/tokenVaults';
@@ -147,7 +145,7 @@ export class StorageService implements Transactioner {
       const messageSentEvent = await StorageService._getBridgeMessageSent(
         address,
         srcBridgeAddress,
-        BridgeABI,
+        bridgeABI,
         srcProvider,
         receipt.blockNumber,
       );
@@ -168,7 +166,7 @@ export class StorageService implements Transactioner {
 
       const status = await StorageService._getBridgeMessageStatus(
         destBridgeAddress,
-        BridgeABI,
+        bridgeABI,
         destProvider,
         msgHash,
       );
@@ -187,7 +185,7 @@ export class StorageService implements Transactioner {
 
         const erc20Event = await StorageService._getTokenVaultERC20Event(
           srcTokenVaultAddress,
-          TokenVaultABI,
+          tokenVaultABI,
           srcProvider,
           msgHash,
           receipt.blockNumber,
@@ -199,7 +197,7 @@ export class StorageService implements Transactioner {
 
         [symbol, amountInWei] = await StorageService._getERC20SymbolAndAmount(
           erc20Event,
-          ERC20_ABI,
+          erc20ABI,
           srcProvider,
         );
       }
@@ -256,7 +254,7 @@ export class StorageService implements Transactioner {
     const messageSentEvent = await StorageService._getBridgeMessageSent(
       address,
       srcBridgeAddress,
-      BridgeABI,
+      bridgeABI,
       srcProvider,
       receipt.blockNumber,
     );
@@ -272,7 +270,7 @@ export class StorageService implements Transactioner {
 
     const status = await StorageService._getBridgeMessageStatus(
       destBridgeAddress,
-      BridgeABI,
+      bridgeABI,
       destProvider,
       msgHash,
     );
@@ -290,7 +288,7 @@ export class StorageService implements Transactioner {
 
       const erc20Event = await StorageService._getTokenVaultERC20Event(
         srcTokenVaultAddress,
-        TokenVaultABI,
+        bridgeABI,
         srcProvider,
         msgHash,
         receipt.blockNumber,
@@ -302,7 +300,7 @@ export class StorageService implements Transactioner {
 
       [symbol, amountInWei] = await StorageService._getERC20SymbolAndAmount(
         erc20Event,
-        ERC20_ABI,
+        erc20ABI,
         srcProvider,
       );
     }

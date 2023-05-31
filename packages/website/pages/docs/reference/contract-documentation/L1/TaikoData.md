@@ -12,12 +12,12 @@ struct Config {
   uint256 maxNumProposedBlocks;
   uint256 ringBufferSize;
   uint256 maxVerificationsPerTx;
-  uint256 blockMaxGasLimit;
-  uint256 maxTransactionsPerBlock;
-  uint256 maxBytesPerTxList;
-  uint256 minTxGasLimit;
+  uint64 blockMaxGasLimit;
+  uint64 maxTransactionsPerBlock;
+  uint64 maxBytesPerTxList;
   uint256 txListCacheExpiry;
   uint256 proofCooldownPeriod;
+  uint256 systemProofCooldownPeriod;
   uint256 realProofSkipSize;
   uint256 ethDepositGas;
   uint256 ethDepositMaxFee;
@@ -25,8 +25,6 @@ struct Config {
   uint64 maxEthDepositsPerBlock;
   uint96 maxEthDepositAmount;
   uint96 minEthDepositAmount;
-  uint64 proofTimeTarget;
-  uint8 adjustmentQuotient;
   bool relaySignalRoot;
 }
 ```
@@ -41,6 +39,7 @@ struct StateVariables {
   uint64 genesisTimestamp;
   uint64 numBlocks;
   uint64 proofTimeIssued;
+  uint64 proofTimeTarget;
   uint64 lastVerifiedBlockId;
   uint64 accProposedAt;
   uint64 nextEthDepositToProcess;
@@ -70,14 +69,12 @@ struct BlockMetadata {
   uint64 l1Height;
   bytes32 l1Hash;
   bytes32 mixHash;
-  bytes32 depositsRoot;
   bytes32 txListHash;
   uint24 txListByteStart;
   uint24 txListByteEnd;
   uint32 gasLimit;
   address beneficiary;
-  uint8 cacheTxListInfo;
-  address treasure;
+  address treasury;
   struct TaikoData.EthDeposit[] depositsProcessed;
 }
 ```
@@ -155,7 +152,8 @@ struct State {
   struct TaikoData.EthDeposit[] ethDeposits;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
-  uint64 __reserved71;
+  uint16 adjustmentQuotient;
+  uint48 __reserved71;
   uint64 __reserved72;
   uint64 accProposedAt;
   uint64 accBlockFees;
@@ -164,7 +162,7 @@ struct State {
   uint64 blockFee;
   uint64 proofTimeIssued;
   uint64 lastVerifiedBlockId;
-  uint64 __reserved91;
+  uint64 proofTimeTarget;
   uint256[42] __gap;
 }
 ```

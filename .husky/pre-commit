@@ -1,5 +1,0 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
-pnpm --filter "@taiko/protocol" lint-staged
-pnpm --filter "@taiko/bridge-ui" lint-staged

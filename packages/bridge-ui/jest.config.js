@@ -40,7 +40,7 @@ export default {
   coverageThreshold: {
     global: {
       statements: 95,
-      branches: 85, // TODO: increase to 90
+      branches: 87, // TODO: increase to 90
       functions: 94,
       lines: 95,
     },

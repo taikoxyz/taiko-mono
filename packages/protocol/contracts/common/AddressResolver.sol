@@ -22,11 +22,14 @@ abstract contract AddressResolver {
 
     error RESOLVER_DENIED();
     error RESOLVER_INVALID_ADDR();
+    error RESOLVER_ZERO_ADDR(uint256 chainId, bytes32 name);
 
     modifier onlyFromNamed(bytes32 name) {
         if (msg.sender != resolve(name, false)) revert RESOLVER_DENIED();
         _;
     }
+
+    event AddressManagerChanged(address addressManager);
 
     /**
      * Resolves a name to an address on the current chain.
@@ -36,10 +39,12 @@ abstract contract AddressResolver {
      * @param allowZeroAddress True to allow zero address to be returned.
      * @return The name's corresponding address.
      */
-    function resolve(
-        bytes32 name,
-        bool allowZeroAddress
-    ) public view virtual returns (address payable) {
+    function resolve(bytes32 name, bool allowZeroAddress)
+        public
+        view
+        virtual
+        returns (address payable)
+    {
         return _resolve(block.chainid, name, allowZeroAddress);
     }
 
@@ -52,11 +57,12 @@ abstract contract AddressResolver {
      * @param allowZeroAddress True to allow zero address to be returned.
      * @return The name's corresponding address.
      */
-    function resolve(
-        uint256 chainId,
-        bytes32 name,
-        bool allowZeroAddress
-    ) public view virtual returns (address payable) {
+    function resolve(uint256 chainId, bytes32 name, bool allowZeroAddress)
+        public
+        view
+        virtual
+        returns (address payable)
+    {
         return _resolve(chainId, name, allowZeroAddress);
     }
 
@@ -74,20 +80,15 @@ abstract contract AddressResolver {
         _addressManager = IAddressManager(addressManager_);
     }
 
-    function _resolve(
-        uint256 chainId,
-        bytes32 name,
-        bool allowZeroAddress
-    ) private view returns (address payable addr) {
+    function _resolve(uint256 chainId, bytes32 name, bool allowZeroAddress)
+        private
+        view
+        returns (address payable addr)
+    {
         addr = payable(_addressManager.getAddress(chainId, name));
 
-        if (!allowZeroAddress) {
-            // We do not use custom error so this string-based
-            // error message is more helpful for diagnosis.
-            require(
-                addr != address(0),
-                string(abi.encode("AR:zeroAddr:", chainId, ".", name))
-            );
+        if (!allowZeroAddress && addr == address(0)) {
+            revert RESOLVER_ZERO_ADDR(chainId, name);
         }
     }
 }
