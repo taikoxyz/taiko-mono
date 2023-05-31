@@ -388,7 +388,8 @@ export async function buildStatusIndicators(
           console.log(event);
           // ignore oracle prover
           if (
-            prover.toLowerCase() !== config.oracleProverAddress.toLowerCase()
+            prover.toLowerCase() !== config.oracleProverAddress.toLowerCase() &&
+            prover.toLowerCase() !== config.systemProverAddress.toLowerCase()
           ) {
             const proposedBlock = await contract.getBlock(id);
             const block = await event.getBlock();
