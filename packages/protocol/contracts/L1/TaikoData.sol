@@ -34,8 +34,6 @@ library TaikoData {
         uint16 worstCaseProofWindowInSec;
         uint16 auctionBatchSize;
         uint16 auctionSmallestGasPerBlockBid; // in wei
-        // How many batch can be auctioned ahead in the future
-        uint8 maximumBatchAuctionable;
         bool relaySignalRoot;
     }
 

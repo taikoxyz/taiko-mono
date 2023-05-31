@@ -48,7 +48,6 @@ library TaikoConfig {
             worstCaseProofWindowInSec: 7200, // 2 hours (?)
             auctionBatchSize: 100,
             auctionSmallestGasPerBlockBid: 1, // in wei
-            maximumBatchAuctionable: 3,
             relaySignalRoot: false
         });
     }

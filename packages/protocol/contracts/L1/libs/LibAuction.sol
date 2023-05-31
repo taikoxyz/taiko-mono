@@ -42,23 +42,17 @@ library LibAuction {
             revert L1_BID_CANNOT_BE_SUBMITTED();
         }
 
-        TaikoData.Auction memory auction = state.auctions[newBid.batchId];
+        // Have in-memory and write it back at the end of the function
+        TaikoData.Auction memory auction = state.auctions[newBid.batchId % config.auctionRingBufferSize];
         
         // Clear auction in case the ring buffer overflow and this auction not an empty one but 'expired'
-        // This is the easiest location / solution to do that, and since we are allowing bidding to batched not so long
-        // in the future e.g.: currently being proven batch + 5 we can check if an auction is already expired or not.
-        // The ring buffer of the auction is so large that we can conduct this math to check.
-        if (auction.startedAt != 0 
-            && 
-                block.timestamp 
-                > auction.startedAt + (config.auctionWindowInSec+ config.worstCaseProofWindowInSec) * (config.maximumBatchAuctionable+1)
-        ) {
+        if(auction.startedAt != 0 && auction.bid.batchId != newBid.batchId) {
             auction.startedAt = 0;
             TaikoData.Bid memory emptyBid;
             auction.bid = emptyBid;
         }
 
-        // If there is an existing bid already
+        // If there is an existing bid already for this actual auction
         // we compare this bid to the existing one first, to see if its a
         // lower fee accepted.
         if (auction.startedAt != 0) {
@@ -105,13 +99,12 @@ library LibAuction {
         pure
         returns (uint64)
     {
-        return uint64(((blockId - 1) / config.auctionBatchSize) % config.blockRingBufferSize);
+        return uint64((blockId - 1) / config.auctionBatchSize);
     }
 
-    // The easiest and most simple logic to not allow block auctioned till infinity so that it blocks
-    // future auctions to be made. Now it can be tweak with a config variable, how many batch auction window
-    // we allow to be aucitoned ahead in the future from the last proven/verified block number.
-    function isBlockAucitonableSoAheadInFuture(
+    // According to David's suggestion:
+    // https://github.com/taikoxyz/taiko-mono/pull/13831#discussion_r1211886142
+    function isPreviousAuctionEnded(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint256 batchId
@@ -120,22 +113,15 @@ library LibAuction {
         view
         returns (bool result)
     {
-        // Easiest way to determine / restrict how many blocks can be auctioned ahead in the future
-        // to tie it to the current number of verified blocks (?).
-        uint64 verifiedBlockToProveWindow = blockIdToBatchId(config, state.lastVerifiedBlockId);
-        uint64 windowEnd = uint64((verifiedBlockToProveWindow + config.maximumBatchAuctionable) % config.auctionRingBufferSize);
-
-        if (windowEnd >= verifiedBlockToProveWindow && windowEnd < config.auctionRingBufferSize ) {
-            if (batchId >= verifiedBlockToProveWindow && batchId < config.auctionRingBufferSize) {
-                return true;
-            }
+        if(batchId == 0) {
+            return true;
         }
-        // Overflow at the edge of the ring buffer
-        else if(windowEnd < verifiedBlockToProveWindow) {
-            if (batchId <= windowEnd) {
-                return true;
-            }
-        } 
+
+        //Otherwise batchId is above 0, so we can deduct 1 safely
+        TaikoData.Auction memory auction = state.auctions[(batchId-1) % config.auctionRingBufferSize];
+        if(auction.startedAt != 0 && block.timestamp > auction.startedAt + config.auctionWindowInSec) {
+            return true;
+        }
     }
 
     // isBidAcceptable determines is checking if the bid is acceptable based on
@@ -193,7 +179,7 @@ library LibAuction {
             revert L1_ID_NOT_BATCH_ID();
         }
 
-        if (!isBlockAucitonableSoAheadInFuture(state, config, batchId)){
+        if (!isPreviousAuctionEnded(state, config, batchId)){
             return false;
         }
 
@@ -202,8 +188,7 @@ library LibAuction {
         // TRUE: 1. auction not started yet -> startedAt == 0 -> TRUE
         // TRUE: 2. auction is up and running -> startedAt is not 0 and
         // block.timestamp < starteAt + auctionWindowInSec
-        // FALSE: 3. auction ended already -> block.timestamp > startedAt +
-        // auctionWindowInSec
+        // FALSE: else
 
         TaikoData.Auction memory auction = state.auctions[batchId];
 
