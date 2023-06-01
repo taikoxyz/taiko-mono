@@ -104,7 +104,7 @@
         on:click={clickApprove}
         disabled={!requiresAllowance || actionDisabled}>
         {requiresAllowance
-          ? 'Approval required'
+          ? 'Approve token'
           : !computingAllowance && amountEntered
           ? '✓ Approved'
           : 'Approve'}
@@ -115,11 +115,7 @@
         class="flex-1"
         on:click={clickBridge}
         disabled={requiresAllowance || actionDisabled}>
-        {requiresAllowance
-          ? 'Bridge'
-          : !computingAllowance && amountEntered
-          ? 'Ready to bridge'
-          : 'Bridge'}
+        Bridge
       </Button>
     {/if}
   </div>

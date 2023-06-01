@@ -1,7 +1,7 @@
 <script lang="ts">
   import { fetchSigner, switchNetwork } from '@wagmi/core';
   import { _ } from 'svelte-i18n';
-  
+
   import { mainnetChain, taikoChain } from '../chain/chains';
   import type { Chain } from '../domain/chain';
   import { isSwitchChainModalOpen } from '../store/modal';

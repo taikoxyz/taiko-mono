@@ -161,7 +161,7 @@
       if (transaction.status !== MessageStatus.Done) {
         setTxStatus(MessageStatus.Done);
         successToast(
-          `<strong>Transaction completed!</strong><br />Your funds have been successfully claimed on ${$fromChain.name} chain.`,
+          `<strong>Transaction completed!</strong><br />Your funds have been successfully claimed on ${$fromChain.name}.`,
         );
       }
 
@@ -252,7 +252,7 @@
       setTxStatus(TxExtendedStatus.Released);
 
       successToast(
-        `<strong>Transaction completed!</strong><br />Your funds have been successfully released back to ${$fromChain.name} chain.`,
+        `<strong>Transaction completed!</strong><br />Your funds have been successfully released back to ${$fromChain.name}.`,
       );
 
       // Re-selecting to trigger reactivity on selected token
@@ -331,7 +331,7 @@
           log('Poller has picked up the change of status to DONE');
 
           successToast(
-            `<strong>Transaction completed!</strong><br />Your funds have been successfully claimed on ${$fromChain.name} chain.`,
+            `<strong>Transaction completed!</strong><br />Your funds have been successfully claimed on ${$fromChain.name}.`,
           );
 
           stopPolling();

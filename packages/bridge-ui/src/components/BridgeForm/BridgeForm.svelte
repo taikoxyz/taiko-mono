@@ -223,12 +223,20 @@
     } catch (error) {
       console.error(error);
 
-      const headerError = '<strong>Failed to approve</strong>';
+      // TODO: we need to improve the toast API so we can simply pass
+      //       title (header), note (footer), icon, etc.
+
+      const headerError = '<strong>Failed to approve</strong><br />';
+      const noteError =
+        _token.symbol.toLocaleLowerCase() === 'bll'
+          ? '<div class="mt-2 text-xs"><strong>Note</strong>: BLL token intentionally will fail 50% of the time</div>'
+          : '';
+
       if (error.cause?.status === 0) {
         const explorerUrl = `${$fromChain.explorerUrl}/tx/${error.cause.transactionHash}`;
         const htmlLink = `<a href="${explorerUrl}" target="_blank"><b><u>here</u></b></a>`;
         errorToast(
-          `${headerError}<br />Click ${htmlLink} to see more details on the explorer.`,
+          `${headerError}Click ${htmlLink} to see more details on the explorer.${noteError}`,
           true, // dismissible
         );
       } else if (
@@ -236,7 +244,7 @@
       ) {
         warningToast(`Transaction has been rejected.`);
       } else {
-        errorToast(`${headerError}<br />Try again later.`);
+        errorToast(`${headerError}Try again later.${noteError}`);
       }
     }
   }
@@ -403,17 +411,22 @@
       $token = $token;
 
       successToast(
-        `<strong>Transaction completed!</strong><br />Your funds are getting ready to be claimed on ${$toChain.name} chain.`,
+        `<strong>Transaction completed!</strong><br />Your funds are getting ready to be claimed on ${$toChain.name}.`,
       );
     } catch (error) {
       console.error(error);
 
-      const headerError = '<strong>Failed to bridge funds</strong>';
+      const headerError = '<strong>Failed to bridge funds</strong><br />';
+      const noteError =
+        _token.symbol.toLocaleLowerCase() === 'bll'
+          ? '<div class="mt-2 text-xs"><strong>Note</strong>: BLL token intentionally will fail 50% of the time</div>'
+          : '';
+
       if (error.cause?.status === 0) {
         const explorerUrl = `${$fromChain.explorerUrl}/tx/${error.cause.transactionHash}`;
         const htmlLink = `<a href="${explorerUrl}" target="_blank"><b><u>here</u></b></a>`;
         errorToast(
-          `${headerError}<br />Click ${htmlLink} to see more details on the explorer.`,
+          `${headerError}Click ${htmlLink} to see more details on the explorer.${noteError}`,
           true, // dismissible
         );
       } else if (
@@ -421,7 +434,7 @@
       ) {
         warningToast(`Transaction has been rejected.`);
       } else {
-        errorToast(`${headerError}<br />Try again later.`);
+        errorToast(`${headerError}Try again later.${noteError}`);
       }
     }
   }
