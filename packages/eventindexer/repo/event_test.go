@@ -6,17 +6,19 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/stretchr/testify/assert"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
-	"gotest.tools/assert"
 )
 
 var (
-	dummyProveEventOpts = eventindexer.SaveEventOpts{
+	blockID             int64 = 1
+	dummyProveEventOpts       = eventindexer.SaveEventOpts{
 		Name:    eventindexer.EventNameBlockProven,
 		Address: "0x123",
 		Data:    "{\"data\":\"something\"}",
 		Event:   eventindexer.EventNameBlockProven,
 		ChainID: big.NewInt(1),
+		BlockID: &blockID,
 	}
 	dummyProposeEventOpts = eventindexer.SaveEventOpts{
 		Name:    eventindexer.EventNameBlockProposed,
@@ -24,6 +26,7 @@ var (
 		Data:    "{\"data\":\"something\"}",
 		Event:   eventindexer.EventNameBlockProposed,
 		ChainID: big.NewInt(1),
+		BlockID: &blockID,
 	}
 )
 
@@ -206,6 +209,51 @@ func TestIntegration_Event_GetCountByAddressAndEventName(t *testing.T) {
 			spew.Dump(resp)
 			assert.Equal(t, tt.wantErr, err)
 			assert.Equal(t, tt.wantResp, resp)
+		})
+	}
+}
+
+func TestIntegration_Event_Delete(t *testing.T) {
+	db, close, err := testMysql(t)
+	assert.Equal(t, nil, err)
+
+	defer close()
+
+	eventRepo, err := NewEventRepository(db)
+	assert.Equal(t, nil, err)
+
+	event, err := eventRepo.Save(context.Background(), dummyProveEventOpts)
+
+	assert.Equal(t, nil, err)
+
+	tests := []struct {
+		name    string
+		id      int
+		wantErr error
+	}{
+		{
+			"success",
+			event.ID,
+			nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := eventRepo.Delete(
+				context.Background(),
+				tt.id,
+			)
+			assert.Equal(t, tt.wantErr, err)
+
+			foundEvent, err := eventRepo.FindByEventTypeAndBlockID(
+				context.Background(),
+				event.Event,
+				event.BlockID.Int64,
+			)
+
+			assert.Equal(t, nil, err)
+			assert.Nil(t, foundEvent)
 		})
 	}
 }
