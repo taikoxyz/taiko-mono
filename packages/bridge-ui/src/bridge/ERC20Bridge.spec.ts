@@ -1,8 +1,9 @@
 import { BigNumber, ethers, Wallet } from 'ethers';
-import type { ApproveOpts, Bridge, BridgeOpts } from '../domain/bridge';
-import { ERC20Bridge } from './ERC20Bridge';
-import { Message, MessageStatus } from '../domain/message';
+
 import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
+import type { ApproveOpts, Bridge, BridgeOpts } from '../domain/bridge';
+import { Message, MessageStatus } from '../domain/message';
+import { ERC20Bridge } from './ERC20Bridge';
 
 jest.mock('../constants/envVars');
 
@@ -26,8 +27,7 @@ const mockProver = {
 };
 
 jest.mock('ethers', () => ({
-  /* eslint-disable-next-line */
-  ...(jest.requireActual('ethers') as object),
+  ...jest.requireActual('ethers'),
   Wallet: function () {
     return mockSigner;
   },
@@ -75,7 +75,7 @@ describe('bridge tests', () => {
     const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.allowance).not.toHaveBeenCalled();
-    const requires = await bridge.RequiresAllowance(approveOpts);
+    const requires = await bridge.requiresAllowance(approveOpts);
 
     expect(mockSigner.getAddress).toHaveBeenCalled();
     expect(mockContract.allowance).toHaveBeenCalledWith(
@@ -94,7 +94,7 @@ describe('bridge tests', () => {
     const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.allowance).not.toHaveBeenCalled();
-    const requires = await bridge.RequiresAllowance(approveOpts);
+    const requires = await bridge.requiresAllowance(approveOpts);
 
     expect(mockSigner.getAddress).toHaveBeenCalled();
     expect(mockContract.allowance).toHaveBeenCalledWith(
@@ -111,7 +111,7 @@ describe('bridge tests', () => {
     const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.allowance).not.toHaveBeenCalled();
-    const requires = await bridge.RequiresAllowance(approveOpts);
+    const requires = await bridge.requiresAllowance(approveOpts);
 
     expect(mockSigner.getAddress).toHaveBeenCalled();
     expect(mockContract.allowance).toHaveBeenCalledWith(
@@ -131,7 +131,7 @@ describe('bridge tests', () => {
     const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.allowance).not.toHaveBeenCalled();
-    await expect(bridge.Approve(approveOpts)).rejects.toThrowError(
+    await expect(bridge.approve(approveOpts)).rejects.toThrowError(
       'token vault already has required allowance',
     );
 
@@ -152,7 +152,7 @@ describe('bridge tests', () => {
     const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.allowance).not.toHaveBeenCalled();
-    await bridge.Approve(approveOpts);
+    await bridge.approve(approveOpts);
 
     expect(mockSigner.getAddress).toHaveBeenCalled();
     expect(mockContract.allowance).toHaveBeenCalledWith(
@@ -174,7 +174,7 @@ describe('bridge tests', () => {
 
     expect(mockContract.sendERC20).not.toHaveBeenCalled();
 
-    await expect(bridge.Bridge(opts)).rejects.toThrowError(
+    await expect(bridge.bridge(opts)).rejects.toThrowError(
       'token vault does not have required allowance',
     );
 
@@ -191,7 +191,7 @@ describe('bridge tests', () => {
 
     expect(mockContract.sendERC20).not.toHaveBeenCalled();
 
-    await bridge.Bridge(opts);
+    await bridge.bridge(opts);
 
     expect(mockContract.sendERC20).toHaveBeenCalled();
     expect(mockContract.sendERC20).toHaveBeenCalledWith(
@@ -229,7 +229,7 @@ describe('bridge tests', () => {
       to: await wallet.getAddress(),
     };
 
-    await bridge.Bridge(opts);
+    await bridge.bridge(opts);
 
     expect(mockContract.sendERC20).toHaveBeenCalledWith(
       opts.toChainId,
@@ -256,7 +256,7 @@ describe('bridge tests', () => {
     const bridge: Bridge = new ERC20Bridge(null);
 
     await expect(
-      bridge.Claim({
+      bridge.claim({
         message: {
           srcChainId: BigNumber.from(L2_CHAIN_ID),
           destChainId: BigNumber.from(L1_CHAIN_ID),
@@ -280,7 +280,7 @@ describe('bridge tests', () => {
     const bridge: Bridge = new ERC20Bridge(null);
 
     await expect(
-      bridge.Claim({
+      bridge.claim({
         message: {
           srcChainId: BigNumber.from(L2_CHAIN_ID),
           destChainId: BigNumber.from(L1_CHAIN_ID),
@@ -308,7 +308,7 @@ describe('bridge tests', () => {
     const bridge: Bridge = new ERC20Bridge(null);
 
     await expect(
-      bridge.Claim({
+      bridge.claim({
         message: {
           owner: '0x',
           srcChainId: BigNumber.from(L2_CHAIN_ID),
@@ -342,7 +342,7 @@ describe('bridge tests', () => {
 
     expect(mockProver.generateProof).not.toHaveBeenCalled();
 
-    await bridge.Claim({
+    await bridge.claim({
       message: {
         owner: '0x',
         srcChainId: BigNumber.from(L2_CHAIN_ID),
@@ -378,7 +378,7 @@ describe('bridge tests', () => {
 
     expect(mockProver.generateProof).not.toHaveBeenCalled();
 
-    await bridge.Claim({
+    await bridge.claim({
       message: {
         owner: '0x',
         srcChainId: BigNumber.from(L2_CHAIN_ID),
@@ -415,7 +415,7 @@ describe('bridge tests', () => {
     expect(mockProver.generateReleaseProof).not.toHaveBeenCalled();
 
     await expect(
-      bridge.ReleaseTokens({
+      bridge.release({
         message: {
           owner: '0x',
           srcChainId: BigNumber.from(L2_CHAIN_ID),
@@ -450,7 +450,7 @@ describe('bridge tests', () => {
 
     expect(mockProver.generateReleaseProof).not.toHaveBeenCalled();
 
-    await bridge.ReleaseTokens({
+    await bridge.release({
       message: {
         owner: '0x',
         srcChainId: BigNumber.from(L2_CHAIN_ID),

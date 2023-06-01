@@ -1,4 +1,5 @@
 import type { BigNumber } from 'ethers';
+
 import type { ChainID } from './chain';
 
 export enum MessageStatus {
@@ -6,8 +7,6 @@ export enum MessageStatus {
   Retriable,
   Done,
   Failed,
-  FailedReleased,
-  ClaimInProgress,
 }
 
 export type Message = {

@@ -1,5 +1,5 @@
-import { jsonParseOrEmptyArray } from '../utils/jsonParseOrEmptyArray';
 import type { Token, TokenService } from '../domain/token';
+import { jsonParseOrEmptyArray } from '../utils/jsonParseOrEmptyArray';
 
 const STORAGE_PREFIX = 'custom-tokens';
 

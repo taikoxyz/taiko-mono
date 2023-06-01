@@ -1,0 +1,7 @@
+@tailwind base;
+
+@layer base {
+  html {
+    font-family: Public Sans, system-ui, sans-serif;
+  }
+}

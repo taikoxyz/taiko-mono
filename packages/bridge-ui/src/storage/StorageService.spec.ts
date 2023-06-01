@@ -1,10 +1,11 @@
 import { BigNumber, BigNumberish, ethers } from 'ethers';
-import { MessageStatus } from '../domain/message';
-import { StorageService } from './StorageService';
-import type { BridgeTransaction } from '../domain/transactions';
+
 import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
-import { TKOToken } from '../token/tokens';
+import { MessageStatus } from '../domain/message';
+import type { BridgeTransaction } from '../domain/transaction';
 import { providers } from '../provider/providers';
+import { TKOToken } from '../token/tokens';
+import { StorageService } from './StorageService';
 
 jest.mock('../constants/envVars');
 
