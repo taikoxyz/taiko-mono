@@ -33,7 +33,8 @@ library TaikoData {
         //How long proof window will be granted to winning bidder
         uint16 worstCaseProofWindowInSec;
         uint16 auctionBatchSize;
-        uint16 auctionSmallestGasPerBlockBid; // in wei
+        uint16 maxFeePerGas; // in wei
+        uint16 batchAllowanceToProposedBlocks;
         bool relaySignalRoot;
     }
 
@@ -123,8 +124,6 @@ library TaikoData {
     }
 
     struct Bid {
-        // batchId is ring buffer now
-        uint64 batchId;
         address prover;
         uint64 deposit;
         uint64 feePerGas;
@@ -139,6 +138,7 @@ library TaikoData {
 
     struct Auction {
         Bid bid;
+        uint64 batchId;
         uint64 startedAt;
     }
 
@@ -172,7 +172,7 @@ library TaikoData {
         uint64 blockFee;
         uint64 avgFeePerGas;
         uint64 lastVerifiedBlockId;
-        uint64 __reserved90;
+        uint64 numOfAuctions;
         // Reserved
         uint256[42] __gap;
     }

@@ -15,79 +15,54 @@ import { TaikoToken } from "../TaikoToken.sol";
 library LibAuction {
     using LibAddress for address;
 
-    event Bid(
-        uint256 indexed id,
-        address prover,
-        uint64 bidAt,
-        uint64 deposit,
-        uint64 feePerGas,
-        uint16 committedProofWindow
-    );
-
-    error L1_BLOCK_ID();
-    error L1_BID_CANNOT_BE_SUBMITTED();
-    error L1_BID_DEPOSIT_AND_MSG_VALUE_MISMATCH();
-    error L1_BID_NOT_ACCEPTABLE();
-    error L1_ID_NOT_BATCH_ID();
+    event Bid(uint64 batchId, uint64 startedAt, TaikoData.Bid bid);
+    
+    error L1_BID_INVALID();
+    error L1_BATCH_NOT_AUCTIONABLE();
     error L1_INSUFFICIENT_TOKEN();
 
     function bidForBatch(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        TaikoData.Bid calldata newBid
+        TaikoData.Bid calldata newBid,
+        uint64 batchId
     )
         internal
     {
-        if (!isBatchAuctionable(state, config, newBid.batchId)) {
-            revert L1_BID_CANNOT_BE_SUBMITTED();
+        if (!isBidValid(config, newBid, batchId)){
+            revert L1_BID_INVALID();
+        }
+
+        if (!isBatchAuctionable(state, config, batchId)) {
+            revert L1_BATCH_NOT_AUCTIONABLE();
         }
 
         // Have in-memory and write it back at the end of the function
-        TaikoData.Auction memory auction = state.auctions[newBid.batchId % config.auctionRingBufferSize];
-        
-        // Clear auction in case the ring buffer overflow and this auction not an empty one but 'expired'
-        if(auction.startedAt != 0 && auction.bid.batchId != newBid.batchId) {
-            auction.startedAt = 0;
-            TaikoData.Bid memory emptyBid;
-            auction.bid = emptyBid;
-        }
+        TaikoData.Auction memory auction = state.auctions[batchId % config.auctionRingBufferSize];
 
-        // If there is an existing bid already for this actual auction
-        // we compare this bid to the existing one first, to see if its a
-        // lower fee accepted.
-        if (auction.startedAt != 0) {
-            if (!isBidAcceptable(state, config, newBid)) {
-                revert L1_BID_NOT_ACCEPTABLE();
-            } else {
-                // We have a new high bid, refunding back the deposit credited
-                // with taikoTokenBalances
-                state.taikoTokenBalances[auction.bid.prover] +=
-                    auction.bid.deposit;
+        if (batchId != auction.batchId) {
+            // It is a new auction
+            auction.startedAt = uint64(block.timestamp);
+            auction.bid = newBid;
+            ++state.numOfAuctions;
+        } else {
+            // An ongoing one
+            if (!isBidBetter(auction.bid, newBid)) {
+                revert ("not a better bid");
             }
+            //'Refund' current
+            state.taikoTokenBalances[auction.bid.prover] += auction.bid.deposit;
         }
 
-        // New winner, so deduct deposit
+        // Check if bidder at least have the balance
         if (state.taikoTokenBalances[newBid.prover] < newBid.deposit) {
             revert L1_INSUFFICIENT_TOKEN();
         }
+        
         state.taikoTokenBalances[newBid.prover] -= newBid.deposit;
+        auction.bid = newBid;
 
-        // then we can update the bid for the blockID to the new bidder (prover)
-        state.auctions[newBid.batchId] = TaikoData.Auction({
-            bid: newBid,
-            startedAt: uint64(
-                auction.startedAt == 0 ? block.timestamp : auction.startedAt
-                )
-        });
-
-        emit Bid(
-            newBid.batchId,
-            msg.sender,
-            uint64(block.timestamp),
-            newBid.deposit,
-            newBid.feePerGas,
-            newBid.committedProofWindow
-        );
+        emit Bid(auction.batchId, auction.startedAt, newBid);
     }
 
     // Mapping blockId to batchId where batchId is a ring buffer, blockId is absolute (aka. block height)
@@ -99,63 +74,79 @@ library LibAuction {
         pure
         returns (uint64)
     {
-        return uint64((blockId - 1) / config.auctionBatchSize);
+        return 1 + uint64((blockId - 1) / config.auctionBatchSize);
     }
 
-    // According to David's suggestion:
-    // https://github.com/taikoxyz/taiko-mono/pull/13831#discussion_r1211886142
-    function isPreviousAuctionEnded(
+    // Check if previous auction already started
+    function isPreviousAuctionEverStarted(
         TaikoData.State storage state,
-        TaikoData.Config memory config,
         uint256 batchId
     )
         internal
         view
         returns (bool result)
     {
-        if(batchId == 0) {
+        require(batchId > 0);
+        if(batchId == 1) {
             return true;
         }
 
-        //Otherwise batchId is above 0, so we can deduct 1 safely
-        TaikoData.Auction memory auction = state.auctions[(batchId-1) % config.auctionRingBufferSize];
-        if(auction.startedAt != 0 && block.timestamp > auction.startedAt + config.auctionWindowInSec) {
-            return true;
+        if (state.numOfAuctions < (batchId-1)) {
+            return false;
         }
+
+        return true;
+    }
+
+    // Check validity requirements
+    function isBidValid(
+        TaikoData.Config memory config,
+        TaikoData.Bid calldata newBid,
+        uint64 batchId
+    )
+        internal
+        pure
+        returns (bool)
+    {
+        if (batchId == 0 || config.maxFeePerGas < newBid.feePerGas) {
+            return false;
+        }
+
+        return true;
+    }
+
+    // Check if auction ha ended or not
+    function hasAuctionEnded(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        uint64 batchId
+    )
+        internal
+        view
+        returns (bool)
+    {
+        TaikoData.Auction memory auction = state.auctions[batchId % config.auctionRingBufferSize];
+
+        if (block.timestamp < auction.startedAt + config.auctionWindowInSec) return false;
+
+        return true;
     }
 
     // isBidAcceptable determines is checking if the bid is acceptable based on
     // the defined
     // criteria. Shall be called after isBatchAuctionable() returns true.
-    function isBidAcceptable(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
+    function isBidBetter(
+        TaikoData.Bid memory oldBid,
         TaikoData.Bid calldata newBid
     )
         internal
-        view
+        pure
         returns (bool result)
     {
-        TaikoData.Bid memory winningBid = state.auctions[newBid.batchId].bid;
-
         if (
-            newBid.feePerGas >= config.auctionSmallestGasPerBlockBid
-                && newBid.feePerGas
-                    <= (
-                        (
-                            winningBid.feePerGas
-                                - ((winningBid.feePerGas * 9000) / 10_000)
-                        )
-                    ) // 90%
-                && newBid.deposit
-                    <= ((winningBid.deposit - ((winningBid.deposit * 5000) / 10_000))) // 50%
-                // Commenting out this one, because we need a scoring /
-                    // weighting system rather then just checking if
-                // committedProofWindow is smaller. ProofWindow might be bigger
-                    // but what if the feePerGas is much better.. ?
-                // &&
-                // newBid.committedProofWindow <=
-                    // winningBid.committedProofWindow
+            newBid.feePerGas <= (oldBid.feePerGas - ((oldBid.feePerGas * 9000) / 10_000))// 90%
+            && 
+            newBid.deposit <= ((oldBid.deposit - ((oldBid.deposit * 5000) / 10_000))) // 50%
         ) {
             result = true;
         }
@@ -173,33 +164,24 @@ library LibAuction {
         view
         returns (bool result)
     {
-        // We should expose this function so that clients could query.
-        // We also need to be sure, that the batchId of bid is indeed valid
-        if (batchId != blockIdToBatchId(config, batchId)) {
-            revert L1_ID_NOT_BATCH_ID();
-        }
-
-        if (!isPreviousAuctionEnded(state, config, batchId)){
+        if (!isPreviousAuctionEverStarted(state, batchId)){
             return false;
         }
 
+        // Regardless of auction started or not - do not allow too many auctions to be open
+        if (batchId > blockIdToBatchId(config, state.numBlocks) + config.batchAllowanceToProposedBlocks) {
+            return false;
+        }
 
-        // 3 scenarios:
-        // TRUE: 1. auction not started yet -> startedAt == 0 -> TRUE
-        // TRUE: 2. auction is up and running -> startedAt is not 0 and
-        // block.timestamp < starteAt + auctionWindowInSec
-        // FALSE: else
+        TaikoData.Auction memory auction = state.auctions[batchId % config.auctionRingBufferSize];
 
-        TaikoData.Auction memory auction = state.auctions[batchId];
+        // Auction not started yet
+        if (auction.batchId != batchId) return true;
 
-        if (
-            auction.startedAt == 0
-                || (
-                    auction.startedAt != 0
-                        && block.timestamp
-                            <= auction.startedAt + config.auctionWindowInSec
-                )
-        ) return true;
+        // Already out of the auction window
+        if (block.timestamp > auction.startedAt + config.auctionWindowInSec) return false;
+
+        return true;
     }
 
     function isBlockProvableBy(
@@ -225,44 +207,20 @@ library LibAuction {
         }
         // We should expose this function so that clients could query.
         // We also need to be sure, that the batchId of bid is indeed valid
-        uint256 batchId = blockIdToBatchId(config, blockId);
+        uint64 batchId = blockIdToBatchId(config, blockId);
 
         // Either:
         // 1. we are in the window granted for prover or commited by the prover
         // he/she submits the proof
         // 2. anyone can submit proofs if we are outside of that window
-        TaikoData.Auction memory auction = state.auctions[batchId];
+        if (!hasAuctionEnded(state, config, batchId)) return false;
 
-        // 2 cases: If a prover committed to a proofWindow or not and submits a
-        // proof somewhere within the worstCaseProofWindowInSec
-        if (auction.startedAt != 0) {
-            if (auction.bid.committedProofWindow == 0) {
-                if (
-                    block.timestamp
-                        > auction.startedAt + config.auctionWindowInSec
-                            + config.worstCaseProofWindowInSec
-                        || (
-                            block.timestamp
-                                > auction.startedAt + config.auctionWindowInSec
-                                && auction.bid.prover == prover
-                        )
-                ) {
-                    return true;
-                }
-            } else {
-                if (
-                    block.timestamp
-                        > auction.startedAt + config.auctionWindowInSec
-                            + auction.bid.committedProofWindow
-                        || (
-                            block.timestamp
-                                > auction.startedAt + config.auctionWindowInSec
-                                && auction.bid.prover == prover
-                        )
-                ) {
-                    return true;
-                }
-            }
-        }
+        TaikoData.Auction memory auction = state.auctions[batchId % config.auctionRingBufferSize];
+
+        uint64 timerStart = auction.startedAt + config.auctionWindowInSec;
+        uint64 deadline = timerStart + auction.bid.committedProofWindow;
+
+        if (block.timestamp > deadline) return true;
+        else return prover == auction.bid.prover;
     }
 }

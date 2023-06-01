@@ -54,7 +54,6 @@ library LibVerifying {
                 || config.auctionWindowInSec == 0
                 || config.worstCaseProofWindowInSec == 0
                 || config.auctionBatchSize == 0
-                || config.auctionSmallestGasPerBlockBid == 0
                 || config.maxNumProposedBlocks < config.auctionRingBufferSize * config.auctionBatchSize
         ) revert L1_INVALID_CONFIG();
 
