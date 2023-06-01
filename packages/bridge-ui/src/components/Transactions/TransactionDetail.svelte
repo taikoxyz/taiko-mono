@@ -1,10 +1,11 @@
 <script lang="ts">
   import { ethers } from 'ethers';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
-  import Modal from '../modals/Modal.svelte';
-  import type { BridgeTransaction } from '../../domain/transactions';
-  import { addressSubsection } from '../../utils/addressSubsection';
+  
   import { chains } from '../../chain/chains';
+  import type { BridgeTransaction } from '../../domain/transaction';
+  import { addressSubsection } from '../../utils/addressSubsection';
+  import Modal from '../Modal.svelte';
 
   // TODO: can we always guarantee that this object is defined?
   //       in which case we need to guard => transaction?.prop
@@ -73,11 +74,12 @@
         </td>
       </tr>
       <tr>
-        <td>Memo</td>
+        <td class="!align-top">Memo</td>
         <td class="text-right">
-          <div class="overflow-auto">
-            {transaction.message.memo}
-          </div>
+          <textarea
+            readonly
+            class="bg-dark-2 rounded-lg p-2 outline-none"
+            value={transaction.message.memo.trim()} />
         </td>
       </tr>
     {/if}
