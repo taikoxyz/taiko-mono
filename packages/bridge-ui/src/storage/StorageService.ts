@@ -1,7 +1,7 @@
 import { BigNumber, Contract, ethers } from 'ethers';
 
 import { chains } from '../chain/chains';
-import { bridgeABI, erc20ABI,tokenVaultABI } from '../constants/abi';
+import { bridgeABI, erc20ABI, tokenVaultABI } from '../constants/abi';
 import type { Address, ChainID } from '../domain/chain';
 import { MessageStatus } from '../domain/message';
 import type { BridgeTransaction, Transactioner } from '../domain/transaction';
@@ -130,10 +130,10 @@ export class StorageService implements Transactioner {
 
       const bridgeTx: BridgeTransaction = { ...tx }; // prevents mutation of tx
 
-      const { toChainId, fromChainId, hash } = bridgeTx;
+      const { destChainId, srcChainId, hash } = bridgeTx;
 
-      const destProvider = this.providers[toChainId];
-      const srcProvider = this.providers[fromChainId];
+      const destProvider = this.providers[destChainId];
+      const srcProvider = this.providers[srcChainId];
 
       // Ignore transactions from chains not supported by the bridge
       if (!srcProvider) return;
@@ -149,7 +149,7 @@ export class StorageService implements Transactioner {
       bridgeTx.receipt = receipt;
 
       // TODO: should we dependency-inject the chains?
-      const srcBridgeAddress = chains[fromChainId].bridgeAddress;
+      const srcBridgeAddress = chains[srcChainId].bridgeAddress;
 
       const messageSentEvent = await StorageService._getBridgeMessageSent(
         address,
@@ -171,7 +171,7 @@ export class StorageService implements Transactioner {
       bridgeTx.msgHash = msgHash;
       bridgeTx.message = message;
 
-      const destBridgeAddress = chains[toChainId].bridgeAddress;
+      const destBridgeAddress = chains[destChainId].bridgeAddress;
 
       const status = await StorageService._getBridgeMessageStatus(
         destBridgeAddress,
@@ -190,7 +190,7 @@ export class StorageService implements Transactioner {
         // We're dealing with an ERC20 transfer.
         // Let's get the symbol and amount from the TokenVault contract.
 
-        const srcTokenVaultAddress = tokenVaults[fromChainId];
+        const srcTokenVaultAddress = tokenVaults[srcChainId];
 
         const erc20Event = await StorageService._getTokenVaultERC20Event(
           srcTokenVaultAddress,
@@ -243,10 +243,10 @@ export class StorageService implements Transactioner {
 
     if (!tx || tx.from.toLowerCase() !== address.toLowerCase()) return;
 
-    const { toChainId, fromChainId } = tx;
+    const { destChainId, srcChainId } = tx;
 
-    const destProvider = this.providers[toChainId];
-    const srcProvider = this.providers[fromChainId];
+    const destProvider = this.providers[destChainId];
+    const srcProvider = this.providers[srcChainId];
 
     // Ignore transactions from chains not supported by the bridge
     if (!srcProvider) return;
@@ -262,7 +262,7 @@ export class StorageService implements Transactioner {
     tx.receipt = receipt;
 
     // TODO: should we dependency-inject the chains?
-    const srcBridgeAddress = chains[fromChainId].bridgeAddress;
+    const srcBridgeAddress = chains[srcChainId].bridgeAddress;
 
     const messageSentEvent = await StorageService._getBridgeMessageSent(
       address,
@@ -279,7 +279,7 @@ export class StorageService implements Transactioner {
     tx.msgHash = msgHash;
     tx.message = message;
 
-    const destBridgeAddress = chains[toChainId].bridgeAddress;
+    const destBridgeAddress = chains[destChainId].bridgeAddress;
 
     const status = await StorageService._getBridgeMessageStatus(
       destBridgeAddress,
@@ -297,7 +297,7 @@ export class StorageService implements Transactioner {
       // Dealing with an ERC20 transfer. Let's get the symbol
       // and amount from the TokenVault contract.
 
-      const srcTokenVaultAddress = tokenVaults[fromChainId];
+      const srcTokenVaultAddress = tokenVaults[srcChainId];
 
       const erc20Event = await StorageService._getTokenVaultERC20Event(
         srcTokenVaultAddress,

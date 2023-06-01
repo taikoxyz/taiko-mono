@@ -53,8 +53,8 @@ export class ETHBridge implements Bridge {
       refundAddress: owner,
 
       to: opts.to,
-      srcChainId: opts.fromChainId,
-      destChainId: opts.toChainId,
+      srcChainId: opts.srcChainId,
+      destChainId: opts.destChainId,
 
       gasLimit,
       callValue,

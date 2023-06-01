@@ -3,7 +3,7 @@ import { ethers } from 'ethers';
 
 import { mainnetChain, taikoChain } from '../chain/chains';
 import type { Chain } from '../domain/chain';
-import { fromChain, toChain } from '../store/chain';
+import { destChain,srcChain } from '../store/chain';
 import { signer } from '../store/signer';
 import { getLogger } from '../utils/logger';
 
@@ -24,11 +24,11 @@ export async function selectChain(chain: Chain) {
 
   log('accounts', accounts);
 
-  fromChain.set(chain);
+  srcChain.set(chain);
   if (chain.id === mainnetChain.id) {
-    toChain.set(taikoChain);
+    destChain.set(taikoChain);
   } else {
-    toChain.set(mainnetChain);
+    destChain.set(mainnetChain);
   }
 
   const _signer = provider.getSigner();

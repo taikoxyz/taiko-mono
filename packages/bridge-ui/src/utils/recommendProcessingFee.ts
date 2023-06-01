@@ -14,15 +14,15 @@ export const erc20NotDeployedGasLimit = 3100000;
 export const erc20DeployedGasLimit = 1100000;
 
 export async function recommendProcessingFee(
-  toChain: Chain,
-  fromChain: Chain,
+  destChain: Chain,
+  srcChain: Chain,
   feeType: ProcessingFeeMethod,
   token: Token,
   signer: Signer,
 ): Promise<string> {
-  if (!toChain || !fromChain || !token || !signer || !feeType) return '0';
+  if (!destChain || !srcChain || !token || !signer || !feeType) return '0';
 
-  const destProvider = providers[toChain.id];
+  const destProvider = providers[destChain.id];
   const gasPrice = await destProvider.getGasPrice();
 
   // gasLimit for processMessage call for ETH is about ~800k.
@@ -31,24 +31,24 @@ export async function recommendProcessingFee(
 
   if (!isETH(token)) {
     let srcChainAddr = token.addresses.find(
-      (t) => t.chainId === fromChain.id,
+      (t) => t.chainId === srcChain.id,
     ).address;
 
     if (!srcChainAddr || srcChainAddr === '0x00') {
       srcChainAddr = token.addresses.find(
-        (t) => t.chainId === toChain.id,
+        (t) => t.chainId === destChain.id,
       ).address;
     }
 
     const srcTokenVault = new Contract(
-      tokenVaults[fromChain.id],
+      tokenVaults[srcChain.id],
       tokenVaultABI,
       signer,
     );
 
     try {
       const bridged = await srcTokenVault.canonicalToBridged(
-        toChain.id,
+        destChain.id,
         srcChainAddr,
       );
 
