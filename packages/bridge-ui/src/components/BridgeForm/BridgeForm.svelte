@@ -229,7 +229,7 @@
       const headerError = '<strong>Failed to approve</strong><br />';
       const noteError =
         _token.symbol.toLocaleLowerCase() === 'bll'
-          ? '<div class="mt-2 text-xs"><strong>Note</strong>: BLL token may fail 50% of the time</div>'
+          ? '<div class="mt-2 text-xs"><strong>Note</strong>: BLL token intentionally will fail 50% of the time</div>'
           : '';
 
       if (error.cause?.status === 0) {
@@ -419,7 +419,7 @@
       const headerError = '<strong>Failed to bridge funds</strong><br />';
       const noteError =
         _token.symbol.toLocaleLowerCase() === 'bll'
-          ? '<div class="mt-2 text-xs"><strong>Note</strong>: BLL token may fail 50% of the time</div>'
+          ? '<div class="mt-2 text-xs"><strong>Note</strong>: BLL token intentionally will fail 50% of the time</div>'
           : '';
 
       if (error.cause?.status === 0) {
