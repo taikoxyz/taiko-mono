@@ -1,18 +1,19 @@
 import { BigNumber, ethers, Signer } from 'ethers';
 import { get } from 'svelte/store';
+
+import { mainnetChain, taikoChain } from '../chain/chains';
+import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
 import { ProcessingFeeMethod } from '../domain/fee';
+import type { Token } from '../domain/token';
+import { providers } from '../provider/providers';
 import { signer } from '../store/signer';
+import { ETHToken, testERC20Tokens, TKOToken } from '../token/tokens';
 import {
   erc20DeployedGasLimit,
   erc20NotDeployedGasLimit,
   ethGasLimit,
   recommendProcessingFee,
 } from './recommendProcessingFee';
-import { mainnetChain, taikoChain } from '../chain/chains';
-import { ETHToken, testERC20Tokens, TKOToken } from '../token/tokens';
-import { providers } from '../provider/providers';
-import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
-import type { Token } from '../domain/token';
 
 jest.mock('../constants/envVars');
 
@@ -66,7 +67,7 @@ describe('recommendProcessingFee()', () => {
         ETHToken,
         get(signer),
       ),
-    ).toStrictEqual('0');
+    ).toEqual('0');
 
     expect(
       await recommendProcessingFee(
@@ -76,7 +77,7 @@ describe('recommendProcessingFee()', () => {
         ETHToken,
         get(signer),
       ),
-    ).toStrictEqual('0');
+    ).toEqual('0');
 
     expect(
       await recommendProcessingFee(
@@ -86,7 +87,7 @@ describe('recommendProcessingFee()', () => {
         ETHToken,
         get(signer),
       ),
-    ).toStrictEqual('0');
+    ).toEqual('0');
 
     expect(
       await recommendProcessingFee(
@@ -96,7 +97,7 @@ describe('recommendProcessingFee()', () => {
         null,
         get(signer),
       ),
-    ).toStrictEqual('0');
+    ).toEqual('0');
 
     expect(
       await recommendProcessingFee(
@@ -106,7 +107,7 @@ describe('recommendProcessingFee()', () => {
         ETHToken,
         null,
       ),
-    ).toStrictEqual('0');
+    ).toEqual('0');
   });
 
   it('uses ethGasLimit if the token is ETH', async () => {
@@ -176,5 +177,19 @@ describe('recommendProcessingFee()', () => {
       taikoChain.id,
       mockToken.addresses[1].address,
     );
+  });
+
+  it('throws on canonicalToBridged call', async () => {
+    mockContract.canonicalToBridged.mockRejectedValue(new Error('BAM!!'));
+
+    await expect(
+      recommendProcessingFee(
+        taikoChain,
+        mainnetChain,
+        ProcessingFeeMethod.RECOMMENDED,
+        testERC20Tokens[0],
+        mockSigner,
+      ),
+    ).rejects.toThrowError('failed to get bridged address');
   });
 });

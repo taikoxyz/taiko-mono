@@ -67,3 +67,20 @@ export const testERC20Tokens: Token[] = TEST_ERC20.map(
 );
 
 export const tokens = [ETHToken, ...testERC20Tokens];
+
+export function isTestToken(token: Token): boolean {
+  const testingTokens = TEST_ERC20.map((testToken) =>
+    testToken.symbol.toLocaleLowerCase(),
+  );
+  return testingTokens.includes(token.symbol.toLocaleLowerCase());
+}
+
+export function isETH(token: Token): boolean {
+  return (
+    token.symbol.toLocaleLowerCase() === ETHToken.symbol.toLocaleLowerCase()
+  );
+}
+
+export function isERC20(token: Token): boolean {
+  return !isETH(token);
+}
