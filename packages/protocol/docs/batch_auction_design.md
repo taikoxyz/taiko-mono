@@ -55,7 +55,7 @@ A key concern is the risk of a monopolistic scenario, where one highly efficient
 def will_new_bid_win(new_bid, old_bid):
 
     # return False immediately if new_bid does not meet these conditions
-    if new_bid.bid_per_gas < old_bid.bid_per_gas * 0.9:
+    if new_bid.bid_per_gas > old_bid.bid_per_gas * 0.9:
         return False
     if new_bid.deposit < old_bid.deposit * 0.5:
         return False
