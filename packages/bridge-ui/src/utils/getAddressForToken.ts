@@ -11,18 +11,18 @@ const log = getLogger('util:getAddressForToken');
 
 export async function getAddressForToken(
   token: Token,
-  fromChain: Chain,
-  toChain: Chain,
+  srcChain: Chain,
+  destChain: Chain,
   signer: Signer,
 ): Promise<Address> {
   // Get the address for the token on the source chain
-  let address = token.addresses.find((t) => t.chainId === fromChain.id).address;
+  let address = token.addresses.find((t) => t.chainId === srcChain.id).address;
 
   // If the token isn't ETH or has no address...
   if (!isETH(token) && (!address || address === '0x00')) {
     // Find the address on the destination chain instead
     const destChainAddress = token.addresses.find(
-      (t) => t.chainId === toChain.id,
+      (t) => t.chainId === destChain.id,
     ).address;
 
     // Get the token vault contract on the source chain. The idea is to find
@@ -30,14 +30,14 @@ export async function getAddressForToken(
     // deployed there. This is registered in the token vault contract,
     // cacnonicalToBridged mapping.
     const srcTokenVaultContract = new Contract(
-      tokenVaults[fromChain.id],
+      tokenVaults[srcChain.id],
       tokenVaultABI,
       signer,
     );
 
     try {
       const bridgedAdress = await srcTokenVaultContract.canonicalToBridged(
-        toChain.id,
+        destChain.id,
         destChainAddress,
       );
 
@@ -48,7 +48,7 @@ export async function getAddressForToken(
       console.error(error);
 
       throw Error(
-        `Failed to get address for ${token.symbol} on chain ${fromChain.id}`,
+        `Failed to get address for ${token.symbol} on chain ${srcChain.id}`,
         {
           cause: error,
         },

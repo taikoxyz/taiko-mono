@@ -3,7 +3,7 @@
   import { ArrowRight } from 'svelte-heros-v2';
 
   import { mainnetChain, taikoChain } from '../../chain/chains';
-  import { fromChain, toChain } from '../../store/chain';
+  import { destChain,srcChain } from '../../store/chain';
   import { signer } from '../../store/signer';
   import { pendingTransactions } from '../../store/transaction';
   import { selectChain } from '../../utils/selectChain';
@@ -19,7 +19,7 @@
       return;
     }
 
-    const chain = $fromChain === mainnetChain ? taikoChain : mainnetChain;
+    const chain = $srcChain === mainnetChain ? taikoChain : mainnetChain;
 
     try {
       await selectChain(chain);
@@ -41,9 +41,9 @@
 <div
   class="flex items-center justify-between w-full px-4 md:px-7 py-6 text-sm md:text-lg">
   <div class="flex items-center w-2/5 justify-center">
-    {#if $fromChain}
-      <svelte:component this={$fromChain.icon} />
-      <span class="ml-2">{$fromChain.name}</span>
+    {#if $srcChain}
+      <svelte:component this={$srcChain.icon} />
+      <span class="ml-2">{$srcChain.name}</span>
     {:else}
       <svelte:component this={mainnetChain.icon} />
       <span class="ml-2">{mainnetChain.name}</span>
@@ -58,9 +58,9 @@
   </button>
 
   <div class="flex items-center w-2/5 justify-center">
-    {#if $toChain}
-      <svelte:component this={$toChain.icon} />
-      <span class="ml-2">{$toChain.name}</span>
+    {#if $destChain}
+      <svelte:component this={$destChain.icon} />
+      <span class="ml-2">{$destChain.name}</span>
     {:else}
       <svelte:component this={taikoChain.icon} />
       <span class="ml-2">{taikoChain.name}</span>

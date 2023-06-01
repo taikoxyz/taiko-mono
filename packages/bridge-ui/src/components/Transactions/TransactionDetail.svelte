@@ -23,7 +23,7 @@
           class="link flex items-center justify-end"
           target="_blank"
           rel="noreferrer"
-          href={`${chains[transaction.fromChainId].explorerUrl}/tx/${
+          href={`${chains[transaction.srcChainId].explorerUrl}/tx/${
             transaction.hash
           }`}>
           <span class="mr-1">{addressSubsection(transaction.hash)}</span>
