@@ -179,8 +179,8 @@ export class RelayerAPIService implements RelayerAPI {
         symbol: tx.canonicalTokenSymbol,
         hash: tx.data.Raw.transactionHash,
         from: tx.messageOwner,
-        fromChainId: tx.data.Message.SrcChainId,
-        toChainId: tx.data.Message.DestChainId,
+        srcChainId: tx.data.Message.SrcChainId,
+        destChainId: tx.data.Message.DestChainId,
         msgHash: tx.msgHash,
         canonicalTokenAddress: tx.canonicalTokenAddress,
         canonicalTokenSymbol: tx.canonicalTokenSymbol,
@@ -216,16 +216,16 @@ export class RelayerAPIService implements RelayerAPI {
         msgHash: tx.msgHash,
         status: tx.status,
         amountInWei: tx.amountInWei,
-        fromChainId: tx.fromChainId,
-        toChainId: tx.toChainId,
+        srcChainId: tx.srcChainId,
+        destChainId: tx.destChainId,
         hash: tx.hash,
         from: tx.from,
       };
 
-      const { toChainId, fromChainId, hash, msgHash } = bridgeTx;
+      const { destChainId, srcChainId, hash, msgHash } = bridgeTx;
 
-      const destProvider = this.providers[toChainId];
-      const srcProvider = this.providers[fromChainId];
+      const destProvider = this.providers[destChainId];
+      const srcProvider = this.providers[srcChainId];
 
       // Ignore transactions from chains not supported by the bridge
       if (!srcProvider) return;
@@ -244,7 +244,7 @@ export class RelayerAPIService implements RelayerAPI {
 
       bridgeTx.receipt = receipt;
 
-      const destBridgeAddress = chains[toChainId].bridgeAddress;
+      const destBridgeAddress = chains[destChainId].bridgeAddress;
 
       const status = await RelayerAPIService._getBridgeMessageStatus(
         destBridgeAddress,
@@ -262,7 +262,7 @@ export class RelayerAPIService implements RelayerAPI {
         // We're dealing with an ERC20 transfer.
         // Let's get the symbol and amount from the TokenVault contract.
 
-        const srcTokenVaultAddress = tokenVaults[fromChainId];
+        const srcTokenVaultAddress = tokenVaults[srcChainId];
 
         const erc20Event = await RelayerAPIService._getTokenVaultERC20Event(
           srcTokenVaultAddress,

@@ -18,7 +18,7 @@
     type TxUIStatus,
   } from '../../domain/transaction';
   import { providers } from '../../provider/providers';
-  import { fromChain } from '../../store/chain';
+  import { srcChain } from '../../store/chain';
   import { signer } from '../../store/signer';
   import { token } from '../../store/token';
   import { pendingTransactions } from '../../store/transaction';
@@ -51,8 +51,8 @@
   let loading: boolean;
   let processable: boolean = false;
   let interval: ReturnType<typeof setInterval>;
-  let txToChain = chains[transaction.toChainId];
-  let txFromChain = chains[transaction.fromChainId];
+  let txToChain = chains[transaction.destChainId];
+  let txFromChain = chains[transaction.srcChainId];
   // let alreadyInformedAboutClaim = false;
 
   function setTxStatus(status: TxUIStatus) {
@@ -84,7 +84,7 @@
     bridgeTx: BridgeTransaction,
     pendingTx: Transaction[],
   ) {
-    const isCorrectChain = currentChain.id === bridgeTx.toChainId;
+    const isCorrectChain = currentChain.id === bridgeTx.destChainId;
     log(`Are we on the correct chain? ${isCorrectChain}`);
 
     if (!isCorrectChain) {
@@ -94,7 +94,7 @@
         });
       }
 
-      const chain = chains[bridgeTx.toChainId];
+      const chain = chains[bridgeTx.destChainId];
       await selectChain(chain);
     }
   }
@@ -104,12 +104,12 @@
     try {
       loading = true;
 
-      await ensureCorrectChain($fromChain, bridgeTx, $pendingTransactions);
+      await ensureCorrectChain($srcChain, bridgeTx, $pendingTransactions);
 
       // Confirm after switch chain that it worked
       const isCorrectChain = await isOnCorrectChain(
         $signer,
-        bridgeTx.toChainId, // we claim on the destination chain
+        bridgeTx.destChainId, // we claim on the destination chain
       );
 
       if (!isCorrectChain) {
@@ -138,8 +138,8 @@
         signer: $signer,
         message: bridgeTx.message,
         msgHash: bridgeTx.msgHash,
-        destBridgeAddress: chains[bridgeTx.toChainId].bridgeAddress,
-        srcBridgeAddress: chains[bridgeTx.fromChainId].bridgeAddress,
+        destBridgeAddress: chains[bridgeTx.destChainId].bridgeAddress,
+        srcBridgeAddress: chains[bridgeTx.srcChainId].bridgeAddress,
       });
 
       successToast('Transaction sent to claim your funds.');
@@ -161,7 +161,7 @@
       if (transaction.status !== MessageStatus.Done) {
         setTxStatus(MessageStatus.Done);
         successToast(
-          `<strong>Transaction completed!</strong><br />Your funds have been successfully claimed on ${$fromChain.name}.`,
+          `<strong>Transaction completed!</strong><br />Your funds have been successfully claimed on ${$srcChain.name}.`,
         );
       }
 
@@ -185,7 +185,7 @@
         //   return;
         // }
 
-        const explorerUrl = `${$fromChain.explorerUrl}/tx/${error.cause.transactionHash}`;
+        const explorerUrl = `${$srcChain.explorerUrl}/tx/${error.cause.transactionHash}`;
         const htmlLink = `<a href="${explorerUrl}" target="_blank"><b><u>here</u></b></a>`;
         errorToast(
           `${headerError}<br />Click ${htmlLink} to see more details on the explorer.`,
@@ -212,12 +212,12 @@
     try {
       loading = true;
 
-      await ensureCorrectChain($fromChain, bridgeTx, $pendingTransactions);
+      await ensureCorrectChain($srcChain, bridgeTx, $pendingTransactions);
 
       // Confirm after switch chain that it worked
       const isCorrectChain = await isOnCorrectChain(
         $signer,
-        bridgeTx.fromChainId, // we release on the source chain
+        bridgeTx.srcChainId, // we release on the source chain
       );
 
       if (!isCorrectChain) {
@@ -236,10 +236,10 @@
         signer: $signer,
         message: bridgeTx.message,
         msgHash: bridgeTx.msgHash,
-        destBridgeAddress: chains[bridgeTx.toChainId].bridgeAddress,
-        srcBridgeAddress: chains[bridgeTx.fromChainId].bridgeAddress,
-        destProvider: providers[bridgeTx.toChainId],
-        srcTokenVaultAddress: tokenVaults[bridgeTx.fromChainId],
+        destBridgeAddress: chains[bridgeTx.destChainId].bridgeAddress,
+        srcBridgeAddress: chains[bridgeTx.srcChainId].bridgeAddress,
+        destProvider: providers[bridgeTx.destChainId],
+        srcTokenVaultAddress: tokenVaults[bridgeTx.srcChainId],
       });
 
       successToast('Transaction sent to release your funds.');
@@ -252,7 +252,7 @@
       setTxStatus(TxExtendedStatus.Released);
 
       successToast(
-        `<strong>Transaction completed!</strong><br />Your funds have been successfully released back to ${$fromChain.name}.`,
+        `<strong>Transaction completed!</strong><br />Your funds have been successfully released back to ${$srcChain.name}.`,
       );
 
       // Re-selecting to trigger reactivity on selected token
@@ -263,7 +263,7 @@
       const headerError = '<strong>Failed to release funds</strong>';
 
       if (error.cause?.status === 0) {
-        const explorerUrl = `${$fromChain.explorerUrl}/tx/${error.cause.transactionHash}`;
+        const explorerUrl = `${$srcChain.explorerUrl}/tx/${error.cause.transactionHash}`;
         const htmlLink = `<a href="${explorerUrl}" target="_blank"><b><u>here</u></b></a>`;
         errorToast(
           `${headerError}<br />Click ${htmlLink} to see more details on the explorer.`,
@@ -302,7 +302,7 @@
       interval = setInterval(async () => {
         processable = await isTransactionProcessable(transaction);
 
-        const { toChainId, msgHash, status } = transaction;
+        const { destChainId, msgHash, status } = transaction;
 
         // It could happen that the transaction has been claimed manually
         // and by the time we poll it's already done, in which case we
@@ -312,8 +312,8 @@
           return;
         }
 
-        const destChain = chains[toChainId];
-        const destProvider = providers[toChainId];
+        const destChain = chains[destChainId];
+        const destProvider = providers[destChainId];
 
         const destBridgeContract = new Contract(
           destChain.bridgeAddress,
@@ -331,7 +331,7 @@
           log('Poller has picked up the change of status to DONE');
 
           successToast(
-            `<strong>Transaction completed!</strong><br />Your funds have been successfully claimed on ${$fromChain.name}.`,
+            `<strong>Transaction completed!</strong><br />Your funds have been successfully claimed on ${$srcChain.name}.`,
           );
 
           stopPolling();
