@@ -64,7 +64,7 @@ library LibAuction {
             auction.bid = newBid;
         } else {
             // auction has started
-            if (!isBidAcceptable(oldBid, newBid, config)) {
+            if (!isBidBetter(oldBid, newBid, config)) {
                 revert ("not a better bid");
             }
             state.taikoTokenBalances[bid.prover] += bid.deposit;
