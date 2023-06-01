@@ -173,7 +173,7 @@ library LibAuction {
         uint64 MAX_LEADING_BATCHES = 10;
         if (batchId >  blockIdToBatchId(state.numBlocks) + MAX_LEADING_BATCHES) return false;
 
-        return false;
+        return true;
     }
 
     function isBlockProvableBy(
