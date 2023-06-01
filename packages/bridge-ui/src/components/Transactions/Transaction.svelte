@@ -1,32 +1,43 @@
 <script lang="ts">
+  import { Contract, ethers, type Transaction } from 'ethers';
   import { createEventDispatcher } from 'svelte';
-  import type { BridgeTransaction } from '../../domain/transactions';
-  import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
-  import { MessageStatus } from '../../domain/message';
-  import { Contract, ethers } from 'ethers';
-  import { signer } from '../../store/signer';
-  import { pendingTransactions } from '../../store/transactions';
-  import { _ } from 'svelte-i18n';
-  import { fromChain } from '../../store/chain';
-  import { BridgeType } from '../../domain/bridge';
   import { onDestroy, onMount } from 'svelte';
+  import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
+  import { _ } from 'svelte-i18n';
 
-  import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
-  import { errorToast, successToast } from '../Toast.svelte';
-  import {
-    crossChainSyncABI,
-    bridgeABI,
-    tokenVaultABI,
-  } from '../../constants/abi';
-  import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
-  import { chains } from '../../chain/chains';
-  import { providers } from '../../provider/providers';
   import { bridges } from '../../bridge/bridges';
-  import { tokenVaults } from '../../vault/tokenVaults';
-  import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
-  import Button from '../buttons/Button.svelte';
-  import { selectChain } from '../../utils/selectChain';
+  import { chains } from '../../chain/chains';
+  import { bridgeABI } from '../../constants/abi';
+  import { BridgeType } from '../../domain/bridge';
+  import type { Chain } from '../../domain/chain';
+  import { MessageStatus } from '../../domain/message';
   import type { NoticeOpenArgs } from '../../domain/modal';
+  import {
+    type BridgeTransaction,
+    TxExtendedStatus,
+    type TxUIStatus,
+  } from '../../domain/transaction';
+  import { providers } from '../../provider/providers';
+  import { fromChain } from '../../store/chain';
+  import { signer } from '../../store/signer';
+  import { token } from '../../store/token';
+  import { pendingTransactions } from '../../store/transaction';
+  import { isETHByMessage } from '../../utils/isETHByMessage';
+  import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
+  import { isTransactionProcessable } from '../../utils/isTransactionProcessable';
+  import { getLogger } from '../../utils/logger';
+  import { selectChain } from '../../utils/selectChain';
+  import { tokenVaults } from '../../vault/tokenVaults';
+  import Button from '../Button.svelte';
+  import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
+  import Loading from '../Loading.svelte';
+  import {
+    errorToast,
+    successToast,
+    warningToast,
+  } from '../NotificationToast.svelte';
+
+  const log = getLogger('component:Transaction');
 
   export let transaction: BridgeTransaction;
 
@@ -42,33 +53,49 @@
   let interval: ReturnType<typeof setInterval>;
   let txToChain = chains[transaction.toChainId];
   let txFromChain = chains[transaction.fromChainId];
-  let alreadyInformedAboutClaim = false;
+  // let alreadyInformedAboutClaim = false;
 
-  onMount(async () => {
-    processable = await isProcessable();
-    interval = startInterval();
-  });
+  function setTxStatus(status: TxUIStatus) {
+    transaction.status = status;
+    // If we want reactivity on props change, we need to reassign (Svelte thing)
+    transaction = transaction;
+  }
 
-  onDestroy(() => {
-    if (interval) {
-      clearInterval(interval);
-    }
-  });
+  // TODO: not very convinced about this annoying notice. Rethink it.
+  // async function onClaimClick() {
+  //   // Has the user sent processing fees?. We also check if the user
+  //   // has already been informed about the relayer auto-claim.
+  //   const processingFee = transaction.message?.processingFee.toString();
+  //   if (processingFee && processingFee !== '0' && !alreadyInformedAboutClaim) {
+  //     dispatch('claimNotice', {
+  //       name: transaction.hash,
+  //       onConfirm: async (informed: true) => {
+  //         alreadyInformedAboutClaim = informed;
+  //         await claim(transaction);
+  //       },
+  //     });
+  //   } else {
+  //     await claim(transaction);
+  //   }
+  // }
 
-  async function onClaimClick() {
-    // Has the user sent processing fees?. We also check if the user
-    // has already been informed about the relayer auto-claim.
-    const processingFee = transaction.message?.processingFee.toString();
-    if (processingFee && processingFee !== '0' && !alreadyInformedAboutClaim) {
-      dispatch('claimNotice', {
-        name: transaction.hash,
-        onConfirm: async (informed: true) => {
-          alreadyInformedAboutClaim = informed;
-          await claim(transaction);
-        },
-      });
-    } else {
-      await claim(transaction);
+  async function ensureCorrectChain(
+    currentChain: Chain,
+    bridgeTx: BridgeTransaction,
+    pendingTx: Transaction[],
+  ) {
+    const isCorrectChain = currentChain.id === bridgeTx.toChainId;
+    log(`Are we on the correct chain? ${isCorrectChain}`);
+
+    if (!isCorrectChain) {
+      if (pendingTx && pendingTx.length > 0) {
+        throw new Error('pending transactions ongoing', {
+          cause: 'pending_tx',
+        });
+      }
+
+      const chain = chains[bridgeTx.toChainId];
+      await selectChain(chain);
     }
   }
 
@@ -76,33 +103,38 @@
   async function claim(bridgeTx: BridgeTransaction) {
     try {
       loading = true;
-      // if the current "from chain", ie, the chain youre connected to, is not the destination
-      // of the bridge transaction, we need to change chains so your wallet is pointed
-      // to the right network.
-      if ($fromChain.id !== bridgeTx.toChainId) {
-        const chain = chains[bridgeTx.toChainId];
-        await selectChain(chain);
-      }
 
-      // confirm after switch chain that it worked.
-      if (!(await isOnCorrectChain($signer, bridgeTx.toChainId))) {
+      await ensureCorrectChain($fromChain, bridgeTx, $pendingTransactions);
+
+      // Confirm after switch chain that it worked
+      const isCorrectChain = await isOnCorrectChain(
+        $signer,
+        bridgeTx.toChainId, // we claim on the destination chain
+      );
+
+      if (!isCorrectChain) {
         errorToast('You are connected to the wrong chain in your wallet');
         return;
       }
 
-      // For now just handling this case for when the user has near 0 balance during their first bridge transaction to L2
+      // For now just handling this case for when the user has near 0 balance
+      // during their first bridge transaction to L2
       // TODO: estimate Claim transaction
       const userBalance = await $signer.getBalance('latest');
       if (!userBalance.gt(ethers.utils.parseEther('0.0001'))) {
+        // TODO: magic number 0.0001. Config?
         dispatch('insufficientBalance');
         return;
       }
 
-      const tx = await bridges[
-        bridgeTx.message?.data === '0x' || !bridgeTx.message?.data
-          ? BridgeType.ETH
-          : BridgeType.ERC20
-      ].Claim({
+      const bridgeType = isETHByMessage(bridgeTx.message)
+        ? BridgeType.ETH
+        : BridgeType.ERC20;
+      const bridge = bridges[bridgeType];
+
+      log(`Claiming ${bridgeType} for transaction`, bridgeTx);
+
+      const tx = await bridge.claim({
         signer: $signer,
         message: bridgeTx.message,
         msgHash: bridgeTx.msgHash,
@@ -110,43 +142,97 @@
         srcBridgeAddress: chains[bridgeTx.fromChainId].bridgeAddress,
       });
 
-      successToast($_('toast.transactionSent'));
+      successToast('Transaction sent to claim your funds.');
 
+      // TODO: the problem here is: what if this takes some time and the user
+      //       closes the page? We need to keep track of this state, storage?
+      setTxStatus(TxExtendedStatus.Claiming);
+
+      // TODO: here we need the promise in order to be able to cancel (AbortController)
+      //       it in case Relayer has claimed the funds already.
       await pendingTransactions.add(tx, $signer);
 
-      // TODO: keep the MessageStatus as contract and use another way.
-      transaction.status = MessageStatus.ClaimInProgress;
+      // We're done here, no need to poll anymore since we've claimed manually
+      stopPolling();
 
-      successToast('Transaction completed!');
-    } catch (e) {
-      // TODO: handle potential transaction failure
-      console.error(e);
-      errorToast($_('toast.errorSendingTransaction'));
+      // Could happen that the poller has picked up the change of status
+      // already, also it might have been claimed by the relayer. In that
+      // case we don't want to show the success toast again.
+      if (transaction.status !== MessageStatus.Done) {
+        setTxStatus(MessageStatus.Done);
+        successToast(
+          `<strong>Transaction completed!</strong><br />Your funds have been successfully claimed on ${$fromChain.name}.`,
+        );
+      }
+
+      // Re-selecting the token triggers reactivity, updating balances
+      $token = $token;
+    } catch (error) {
+      console.error(error);
+
+      const headerError = '<strong>Failed to claim funds</strong>';
+
+      // TODO: let's change this to a switch(true)? I think it's more readable.
+      if (error.cause?.status === 0) {
+        // How about this: Relayer has already claimed the funds, in which case
+        // the status of this transaction is no longer NEW, but DONE (poller has
+        // already taken care of chanding the status). This will throw an error,
+        // B_STATUS_MISMATCH, therefore receipt.status === 0. Checks that the
+        // transaction.status is not DONE, otherwise get out without complaining.
+        // TODO: cancel claiming promise instead?
+        // if (transaction.status === MessageStatus.Done) {
+        //   log('Relayer has already claimed the funds, no need to complain');
+        //   return;
+        // }
+
+        const explorerUrl = `${$fromChain.explorerUrl}/tx/${error.cause.transactionHash}`;
+        const htmlLink = `<a href="${explorerUrl}" target="_blank"><b><u>here</u></b></a>`;
+        errorToast(
+          `${headerError}<br />Click ${htmlLink} to see more details on the explorer.`,
+          true, // dismissible
+        );
+      } else if (
+        [error.code, error.cause?.code].includes(ethers.errors.ACTION_REJECTED)
+      ) {
+        warningToast(`Transaction has been rejected.`);
+      } else if (error.cause === 'pending_tx') {
+        warningToast(
+          'You have pending transactions. Please wait for them to complete.',
+        );
+      } else {
+        errorToast(`${headerError}<br />Try again later.`);
+      }
     } finally {
       loading = false;
     }
   }
 
   // TODO: move outside of component
-  async function releaseTokens(bridgeTx: BridgeTransaction) {
+  async function release(bridgeTx: BridgeTransaction) {
     try {
       loading = true;
-      if (txFromChain.id !== bridgeTx.fromChainId) {
-        const chain = chains[bridgeTx.fromChainId];
-        await selectChain(chain);
-      }
 
-      // confirm after switch chain that it worked.
-      if (!(await isOnCorrectChain($signer, bridgeTx.fromChainId))) {
+      await ensureCorrectChain($fromChain, bridgeTx, $pendingTransactions);
+
+      // Confirm after switch chain that it worked
+      const isCorrectChain = await isOnCorrectChain(
+        $signer,
+        bridgeTx.fromChainId, // we release on the source chain
+      );
+
+      if (!isCorrectChain) {
         errorToast('You are connected to the wrong chain in your wallet');
         return;
       }
 
-      const tx = await bridges[
-        bridgeTx.message?.data === '0x' || !bridgeTx.message?.data
-          ? BridgeType.ETH
-          : BridgeType.ERC20
-      ].ReleaseTokens({
+      const bridgeType = isETHByMessage(bridgeTx.message)
+        ? BridgeType.ETH
+        : BridgeType.ERC20;
+      const bridge = bridges[bridgeType];
+
+      log(`Releasing ${bridgeType} for transaction`, bridgeTx);
+
+      const tx = await bridge.release({
         signer: $signer,
         message: bridgeTx.message,
         msgHash: bridgeTx.msgHash,
@@ -156,91 +242,120 @@
         srcTokenVaultAddress: tokenVaults[bridgeTx.fromChainId],
       });
 
-      successToast($_('toast.transactionSent'));
+      successToast('Transaction sent to release your funds.');
 
-      pendingTransactions.add(tx, $signer);
+      // TODO: storage?
+      setTxStatus(TxExtendedStatus.Releasing);
 
-      successToast('Transaction completed!');
-    } catch (e) {
-      // TODO: handle potential transaction failure
-      console.error(e);
-      errorToast($_('toast.errorSendingTransaction'));
+      await pendingTransactions.add(tx, $signer);
+
+      setTxStatus(TxExtendedStatus.Released);
+
+      successToast(
+        `<strong>Transaction completed!</strong><br />Your funds have been successfully released back to ${$fromChain.name}.`,
+      );
+
+      // Re-selecting to trigger reactivity on selected token
+      $token = $token;
+    } catch (error) {
+      console.error(error);
+
+      const headerError = '<strong>Failed to release funds</strong>';
+
+      if (error.cause?.status === 0) {
+        const explorerUrl = `${$fromChain.explorerUrl}/tx/${error.cause.transactionHash}`;
+        const htmlLink = `<a href="${explorerUrl}" target="_blank"><b><u>here</u></b></a>`;
+        errorToast(
+          `${headerError}<br />Click ${htmlLink} to see more details on the explorer.`,
+          true, // dismissible
+        );
+      } else if (
+        [error.code, error.cause?.code].includes(ethers.errors.ACTION_REJECTED)
+      ) {
+        warningToast(`Transaction has been rejected.`);
+      } else if (error.cause === 'pending_tx') {
+        warningToast(
+          'You have pending transactions. Please wait for them to complete.',
+        );
+      } else {
+        errorToast(`${headerError}<br />Try again later.`);
+      }
     } finally {
       loading = false;
     }
   }
 
-  // TODO: this could also live in an utility: isTransactionProcessable?
-  async function isProcessable() {
-    if (!transaction.receipt) return false;
-    if (!transaction.message) return false;
-    if (transaction.status !== MessageStatus.New) return true;
-
-    const contract = new Contract(
-      chains[transaction.toChainId].crossChainSyncAddress,
-      crossChainSyncABI,
-      providers[chains[transaction.toChainId].id],
-    );
-
-    const latestSyncedHeader = await contract.getCrossChainBlockHash(0);
-    const srcBlock = await providers[
-      chains[transaction.fromChainId].id
-    ].getBlock(latestSyncedHeader);
-
-    return transaction.receipt.blockNumber <= srcBlock.number;
+  function stopPolling() {
+    if (interval) {
+      log('Stop polling for transaction', transaction);
+      clearInterval(interval);
+      interval = null;
+    }
   }
 
-  // TODO: web worker?
-  function startInterval() {
-    return setInterval(async () => {
-      processable = await isProcessable();
-      const contract = new ethers.Contract(
-        chains[transaction.toChainId].bridgeAddress,
-        bridgeABI,
-        providers[chains[transaction.toChainId].id],
-      );
+  // TODO: move this logic into a Web Worker
+  // TODO: handle errors here
+  function startPolling() {
+    if (!interval) {
+      log('Starting polling for transaction', transaction);
 
-      if (transaction.receipt && transaction.receipt.status !== 1) {
-        clearInterval(interval);
-        return;
-      }
+      interval = setInterval(async () => {
+        processable = await isTransactionProcessable(transaction);
 
-      transaction.status = await contract.getMessageStatus(transaction.msgHash);
+        const { toChainId, msgHash, status } = transaction;
 
-      if (transaction.status === MessageStatus.Failed) {
-        if (transaction.message?.data !== '0x') {
-          const srcTokenVaultContract = new ethers.Contract(
-            tokenVaults[transaction.fromChainId],
-            tokenVaultABI,
-            providers[chains[transaction.fromChainId].id],
-          );
-          const { token, amount } = await srcTokenVaultContract.messageDeposits(
-            transaction.msgHash,
-          );
-          if (token === ethers.constants.AddressZero && amount.eq(0)) {
-            transaction.status = MessageStatus.FailedReleased;
-          }
-        } else {
-          const srcBridgeContract = new ethers.Contract(
-            chains[transaction.fromChainId].bridgeAddress,
-            bridgeABI,
-            providers[chains[transaction.fromChainId].id],
-          );
-          const isFailedMessageResolved =
-            await srcBridgeContract.isEtherReleased(transaction.msgHash);
-          if (isFailedMessageResolved) {
-            transaction.status = MessageStatus.FailedReleased;
-          }
+        // It could happen that the transaction has been claimed manually
+        // and by the time we poll it's already done, in which case we
+        // stop polling.
+        if (status === MessageStatus.Done) {
+          stopPolling();
+          return;
         }
-      }
-      if (
-        [MessageStatus.Done, MessageStatus.FailedReleased].includes(
-          transaction.status,
-        )
-      )
-        clearInterval(interval);
-    }, 20 * 1000);
+
+        const destChain = chains[toChainId];
+        const destProvider = providers[toChainId];
+
+        const destBridgeContract = new Contract(
+          destChain.bridgeAddress,
+          bridgeABI,
+          destProvider,
+        );
+
+        // We want to poll for status changes
+        const msgStatus: MessageStatus =
+          await destBridgeContract.getMessageStatus(msgHash);
+
+        setTxStatus(msgStatus);
+
+        if (msgStatus === MessageStatus.Done) {
+          log('Poller has picked up the change of status to DONE');
+
+          successToast(
+            `<strong>Transaction completed!</strong><br />Your funds have been successfully claimed on ${$fromChain.name}.`,
+          );
+
+          stopPolling();
+
+          // Triggers reactivity on selected token
+          $token = $token;
+        }
+      }, 20 * 1000); // TODO: magic number. Config?
+    }
   }
+
+  onMount(async () => {
+    processable = await isTransactionProcessable(transaction);
+
+    if (transaction.status === MessageStatus.New) {
+      startPolling();
+    }
+  });
+
+  onDestroy(() => {
+    if (interval) {
+      clearInterval(interval);
+    }
+  });
 </script>
 
 <tr class="text-transaction-table">
@@ -253,13 +368,11 @@
     <span class="ml-2 hidden md:inline-block">{txToChain.name}</span>
   </td>
   <td>
-    <!-- TODO: function to check is we're dealing with ETH or ERC20? -->
-    {transaction.message &&
-    (transaction.message?.data === '0x' || !transaction.message?.data)
+    {isETHByMessage(transaction.message)
       ? ethers.utils.formatEther(
-          transaction.message?.depositValue.eq(0)
-            ? transaction.message?.callValue.toString()
-            : transaction.message?.depositValue,
+          transaction.message.depositValue.eq(0)
+            ? transaction.message.callValue.toString()
+            : transaction.message.depositValue,
         )
       : ethers.utils.formatUnits(transaction.amountInWei)}
     {transaction.symbol ?? 'ETH'}
@@ -269,49 +382,32 @@
     <ButtonWithTooltip onClick={() => dispatch('tooltipStatus')}>
       <span slot="buttonText">
         {#if !processable}
-          Pending
-        {:else if (!transaction.receipt && transaction.status === MessageStatus.New) || loading}
+          {$_('transaction.pending')}
+        {:else if loading}
           <div class="inline-block">
-            <LottiePlayer
-              src="/lottie/loader.json"
-              autoplay={true}
-              loop={true}
-              controls={false}
-              renderer="svg"
-              background="transparent"
-              height={26}
-              width={26}
-              controlsLayout={[]} />
+            <Loading />
           </div>
-        {:else if transaction.receipt && [MessageStatus.New, MessageStatus.ClaimInProgress].includes(transaction.status)}
-          <!-- 
-            TODO: we need some destructuring here. 
-                  We keep on accessing transaction props
-                  over and over again.
-          -->
-          <Button
-            type="accent"
-            size="sm"
-            on:click={onClaimClick}
-            disabled={transaction.status === MessageStatus.ClaimInProgress}>
-            Claim
+        {:else if transaction.status === MessageStatus.New}
+          <Button type="accent" size="sm" on:click={() => claim(transaction)}>
+            {$_('transaction.claim')}
           </Button>
         {:else if transaction.status === MessageStatus.Retriable}
-          <Button type="accent" size="sm" on:click={onClaimClick}>Retry</Button>
-        {:else if transaction.status === MessageStatus.Failed}
-          <!-- todo: releaseTokens() on src bridge with proof from destBridge-->
-          <Button
-            type="accent"
-            size="sm"
-            on:click={async () => await releaseTokens(transaction)}>
-            Release
+          <Button type="accent" size="sm" on:click={() => claim(transaction)}>
+            {$_('transaction.retry')}
           </Button>
         {:else if transaction.status === MessageStatus.Done}
-          <span class="border border-transparent p-0">Claimed</span>
-        {:else if transaction.status === MessageStatus.FailedReleased}
-          <span class="border border-transparent p-0">Released</span>
-        {:else if transaction.receipt && transaction.receipt.status !== 1}
-          <!-- TODO: make sure this is now respecting the correct flow -->
+          <span class="border border-transparent p-0">
+            {$_('transaction.claimed')}
+          </span>
+        {:else if transaction.status === MessageStatus.Failed}
+          <Button type="accent" size="sm" on:click={() => release(transaction)}>
+            {$_('transaction.release')}
+          </Button>
+        {:else if transaction.status === TxExtendedStatus.Released}
+          <span class="border border-transparent p-0">
+            {$_('transaction.released')}
+          </span>
+        {:else}
           <span class="border border-transparent p-0">Failed</span>
         {/if}
       </span>

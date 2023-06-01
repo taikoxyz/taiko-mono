@@ -21,10 +21,26 @@ function setupI18n({ withLocale: _locale } = { withLocale: 'en' }) {
       nav: {
         connect: 'Connect Wallet',
       },
+      transaction: {
+        pending: 'Pending',
+        claim: 'Claim',
+        retry: 'Retry',
+        release: 'Release',
+        claimed: 'Claimed',
+        released: 'Released',
+        failed: 'Failed',
+      },
       toast: {
         transactionSent: 'Transaction sent',
+        transactionCompleted: 'Transaction completed!',
+        errorWrongNetwork:
+          'You are connected to the wrong chain in your wallet',
         errorSendingTransaction: 'Error sending transaction',
         errorDisconnecting: 'Could not disconnect',
+        errorInsufficientBalance: 'Insufficient ETH balance',
+        errorCheckingAllowance: 'Error checking allowance',
+        fundsClaimed: 'Funds claimed successfully!',
+        fundsReleased: 'Funds released successfully!',
       },
       switchChainModal: {
         title: 'Not on the right network',

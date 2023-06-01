@@ -18,7 +18,7 @@ export type TokenDetails = {
   symbol: string;
   decimals: number;
   address: string;
-  userTokenBalance: string;
+  balance: string;
 };
 
 export interface TokenService {

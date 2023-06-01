@@ -24,7 +24,16 @@ func (svc *Service) saveMessageStatusChangedEvents(
 
 	for {
 		event := events.Event
+
 		log.Infof("messageStatusChanged: %v", common.Hash(event.MsgHash).Hex())
+
+		if err := svc.detectAndHandleReorg(
+			ctx,
+			relayer.EventNameMessageStatusChanged,
+			common.Hash(event.MsgHash).Hex(),
+		); err != nil {
+			return errors.Wrap(err, "svc.detectAndHandleReorg")
+		}
 
 		if err := svc.saveMessageStatusChangedEvent(ctx, chainID, event); err != nil {
 			return errors.Wrap(err, "svc.saveMessageStatusChangedEvent")

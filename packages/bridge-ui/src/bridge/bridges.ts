@@ -1,9 +1,9 @@
-import { ProofService } from '../proof/ProofService';
-import type { Prover } from '../domain/proof';
-import { providers } from '../provider/providers';
-import { ETHBridge } from './ETHBridge';
-import { ERC20Bridge } from './ERC20Bridge';
 import { type Bridge, BridgeType } from '../domain/bridge';
+import type { Prover } from '../domain/proof';
+import { ProofService } from '../proof/ProofService';
+import { providers } from '../provider/providers';
+import { ERC20Bridge } from './ERC20Bridge';
+import { ETHBridge } from './ETHBridge';
 
 const prover: Prover = new ProofService(providers);
 

@@ -1,10 +1,11 @@
 <script lang="ts">
   import { ethers } from 'ethers';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
-  import Modal from '../modals/Modal.svelte';
-  import type { BridgeTransaction } from '../../domain/transactions';
-  import { addressSubsection } from '../../utils/addressSubsection';
+
   import { chains } from '../../chain/chains';
+  import type { BridgeTransaction } from '../../domain/transaction';
+  import { addressSubsection } from '../../utils/addressSubsection';
+  import Modal from '../Modal.svelte';
 
   // TODO: can we always guarantee that this object is defined?
   //       in which case we need to guard => transaction?.prop
@@ -16,7 +17,7 @@
   <table
     class="table table-normal w-full md:w-2/3 m-auto table-fixed border-spacing-0 text-sm md:text-base">
     <tr>
-      <td>Tx Hash</td>
+      <td>Tx hash</td>
       <td class="text-right">
         <a
           class="link flex items-center justify-end"
@@ -44,7 +45,7 @@
         </td>
       </tr>
       <tr>
-        <td>Refund Address</td>
+        <td>Refund address</td>
         <td class="text-right">
           {addressSubsection(transaction.message.refundAddress)}
         </td>
@@ -60,24 +61,25 @@
       {/if}
       {#if transaction.message.processingFee}
         <tr>
-          <td>Processing Fee</td>
+          <td>Processing fee</td>
           <td class="text-right">
             {ethers.utils.formatEther(transaction.message.processingFee)} ETH
           </td>
         </tr>
       {/if}
       <tr>
-        <td>Gas Limit</td>
+        <td>Gas limit</td>
         <td class="text-right">
           {transaction.message.gasLimit}
         </td>
       </tr>
       <tr>
-        <td>Memo</td>
+        <td class="!align-top">Memo</td>
         <td class="text-right">
-          <div class="overflow-auto">
-            {transaction.message.memo}
-          </div>
+          <textarea
+            readonly
+            class="bg-dark-2 rounded-lg p-2 outline-none"
+            value={transaction.message.memo.trim()} />
         </td>
       </tr>
     {/if}

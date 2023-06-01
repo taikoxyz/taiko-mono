@@ -1,8 +1,5 @@
 import type { Address, ChainID } from './chain';
-import type { BridgeTransaction } from './transactions';
-
-export const MAX_PAGE_SIZE = 100;
-export const DEFAULT_PAGE = 0;
+import type { BridgeTransaction } from './transaction';
 
 export type GetAllByAddressResponse = {
   txs: BridgeTransaction[];
@@ -10,7 +7,7 @@ export type GetAllByAddressResponse = {
 };
 
 export type PaginationParams = {
-  size: typeof MAX_PAGE_SIZE;
+  size: number;
   page: number;
 };
 
@@ -63,7 +60,7 @@ export type APIResponseTransaction = {
 };
 
 export type RelayerBlockInfo = {
-  chainId: number;
+  chainID: number;
   latestProcessedBlock: number;
   latestBlock: number;
 };
@@ -74,8 +71,7 @@ export type APIRequestParams = {
   event?: string;
 };
 
-export type APIResponse = {
-  items: APIResponseTransaction[];
+export type PaginationInfo = {
   page: number;
   size: number;
   max_page: number;
@@ -83,10 +79,9 @@ export type APIResponse = {
   total: number;
   last: boolean;
   first: boolean;
-  visible: number;
 };
 
-export type PaginationInfo = Pick<
-  APIResponse,
-  'page' | 'size' | 'max_page' | 'total_pages' | 'total' | 'last' | 'first'
->;
+export type APIResponse = PaginationInfo & {
+  items: APIResponseTransaction[];
+  visible: number;
+};

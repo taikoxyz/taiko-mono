@@ -1,8 +1,9 @@
 import { BigNumber, ethers, Wallet } from 'ethers';
-import type { Bridge, BridgeOpts } from '../domain/bridge';
-import { ETHBridge } from './ETHBridge';
-import { Message, MessageStatus } from '../domain/message';
+
 import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
+import type { Bridge, BridgeOpts } from '../domain/bridge';
+import { Message, MessageStatus } from '../domain/message';
+import { ETHBridge } from './ETHBridge';
 
 jest.mock('../constants/envVars');
 
@@ -49,7 +50,7 @@ describe('bridge tests', () => {
   it('requires allowance returns false', async () => {
     const bridge: Bridge = new ETHBridge(null);
 
-    const requires = await bridge.RequiresAllowance({
+    const requires = await bridge.requiresAllowance({
       amountInWei: BigNumber.from(1),
       signer: new Wallet('0x'),
       contractAddress: '0x1234',
@@ -61,7 +62,7 @@ describe('bridge tests', () => {
   it('approve returns empty transaction', async () => {
     const bridge: Bridge = new ETHBridge(null);
 
-    const tx = await bridge.Approve({
+    const tx = await bridge.approve({
       amountInWei: BigNumber.from(1),
       signer: new Wallet('0x'),
       contractAddress: '0x1234',
@@ -91,7 +92,7 @@ describe('bridge tests', () => {
     };
 
     expect(mockSigner.getAddress).not.toHaveBeenCalled();
-    await bridge.Bridge(opts);
+    await bridge.bridge(opts);
 
     expect(mockSigner.getAddress).toHaveBeenCalled();
     expect(mockContract.sendMessage).toHaveBeenCalledWith(
@@ -133,7 +134,7 @@ describe('bridge tests', () => {
       to: await wallet.getAddress(),
     };
 
-    await bridge.Bridge(opts);
+    await bridge.bridge(opts);
     expect(mockContract.sendMessage).toHaveBeenCalledWith(
       {
         callValue: BigNumber.from('0x00'), // callValue == 0 because message owner is same as recipient
@@ -164,7 +165,7 @@ describe('bridge tests', () => {
     const bridge: Bridge = new ETHBridge(null);
 
     await expect(
-      bridge.Claim({
+      bridge.claim({
         message: {
           srcChainId: BigNumber.from(L2_CHAIN_ID),
           destChainId: BigNumber.from(L1_CHAIN_ID),
@@ -192,7 +193,7 @@ describe('bridge tests', () => {
     const bridge: Bridge = new ETHBridge(null);
 
     await expect(
-      bridge.Claim({
+      bridge.claim({
         message: {
           owner: '0x',
           srcChainId: BigNumber.from(L2_CHAIN_ID),
@@ -226,7 +227,7 @@ describe('bridge tests', () => {
 
     expect(mockProver.generateProof).not.toHaveBeenCalled();
 
-    await bridge.Claim({
+    await bridge.claim({
       message: {
         owner: '0x',
         srcChainId: BigNumber.from(L2_CHAIN_ID),
@@ -262,7 +263,7 @@ describe('bridge tests', () => {
 
     expect(mockProver.generateProof).not.toHaveBeenCalled();
 
-    await bridge.Claim({
+    await bridge.claim({
       message: {
         owner: '0x',
         srcChainId: BigNumber.from(L2_CHAIN_ID),
@@ -299,7 +300,7 @@ describe('bridge tests', () => {
     expect(mockProver.generateReleaseProof).not.toHaveBeenCalled();
 
     await expect(
-      bridge.ReleaseTokens({
+      bridge.release({
         message: {
           owner: '0x',
           srcChainId: BigNumber.from(L2_CHAIN_ID),
@@ -334,7 +335,7 @@ describe('bridge tests', () => {
 
     expect(mockProver.generateReleaseProof).not.toHaveBeenCalled();
 
-    await bridge.ReleaseTokens({
+    await bridge.release({
       message: {
         owner: '0x',
         srcChainId: BigNumber.from(L2_CHAIN_ID),
