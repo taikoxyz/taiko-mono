@@ -1,8 +1,9 @@
 import { switchNetwork } from '@wagmi/core';
 import { ethers } from 'ethers';
-import { fromChain, toChain } from '../store/chain';
-import type { Chain } from '../domain/chain';
+
 import { mainnetChain, taikoChain } from '../chain/chains';
+import type { Chain } from '../domain/chain';
+import { fromChain, toChain } from '../store/chain';
 import { signer } from '../store/signer';
 import { getLogger } from '../utils/logger';
 

@@ -26,8 +26,8 @@ func (svc *Service) saveBlockVerifiedEvents(
 
 		log.Infof("new blockVerified event, blockId: %v", event.Id)
 
-		if event.Raw.Removed {
-			continue
+		if err := svc.detectAndHandleReorg(ctx, eventindexer.EventNameBlockVerified, event.Id.Int64()); err != nil {
+			return errors.Wrap(err, "svc.detectAndHandleReorg")
 		}
 
 		if err := svc.saveBlockVerifiedEvent(ctx, chainID, event); err != nil {
@@ -52,12 +52,15 @@ func (svc *Service) saveBlockVerifiedEvent(
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
+	blockID := event.Id.Int64()
+
 	_, err = svc.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
 		Name:    eventindexer.EventNameBlockVerified,
 		Data:    string(marshaled),
 		ChainID: chainID,
 		Event:   eventindexer.EventNameBlockVerified,
 		Address: "",
+		BlockID: &blockID,
 	})
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.Save")

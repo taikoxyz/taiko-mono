@@ -1,23 +1,24 @@
 import type { Chain as WagmiChain } from '@wagmi/core';
+
+import Eth from '../components/icons/ETH.svelte';
+import Taiko from '../components/icons/TKO.svelte';
 import {
   L1_BRIDGE_ADDRESS,
   L1_CHAIN_ID,
   L1_CHAIN_NAME,
-  L1_EXPLORER_URL,
   L1_CROSS_CHAIN_SYNC_ADDRESS,
+  L1_EXPLORER_URL,
   L1_RPC,
   L1_SIGNAL_SERVICE_ADDRESS,
   L2_BRIDGE_ADDRESS,
   L2_CHAIN_ID,
   L2_CHAIN_NAME,
-  L2_EXPLORER_URL,
   L2_CROSS_CHAIN_SYNC_ADDRESS,
+  L2_EXPLORER_URL,
   L2_RPC,
   L2_SIGNAL_SERVICE_ADDRESS,
 } from '../constants/envVars';
 import type { Chain, ChainID } from '../domain/chain';
-import Eth from '../components/icons/ETH.svelte';
-import Taiko from '../components/icons/TKO.svelte';
 
 export const mainnetChain: Chain = {
   id: L1_CHAIN_ID,

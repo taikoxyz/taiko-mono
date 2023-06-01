@@ -1,13 +1,15 @@
 import { ethers } from 'ethers';
-import { ETHToken } from '../token/tokens';
+
 import { tokenVaultABI } from '../constants/abi';
 import type { Chain } from '../domain/chain';
 import type { Token } from '../domain/token';
+import { ETHToken } from '../token/tokens';
 import { checkIfTokenIsDeployedCrossChain } from './checkIfTokenIsDeployedCrossChain';
+
+jest.mock('../constants/envVars');
 
 // mock the `ethers.providers.JsonRpcProvider` object for testing purposes
 const provider = new ethers.providers.JsonRpcProvider();
-jest.mock('../constants/envVars');
 
 describe('checkIfTokenIsDeployedCrossChain', () => {
   const token: Token = {
@@ -117,6 +119,28 @@ describe('checkIfTokenIsDeployedCrossChain', () => {
     expect(destTokenVaultContract.canonicalToBridged).toHaveBeenCalledWith(
       fromChain.id,
       token.addresses.find((a) => a.chainId === fromChain.id)?.address,
+    );
+  });
+
+  it('catches and rethrows error when canonicalToBridged method fails', async () => {
+    const destTokenVaultContract = {
+      canonicalToBridged: jest.fn().mockRejectedValue(new Error('BOOM!!')),
+    };
+
+    jest
+      .spyOn(ethers, 'Contract')
+      .mockReturnValue(destTokenVaultContract as any);
+
+    await expect(
+      checkIfTokenIsDeployedCrossChain(
+        token,
+        provider,
+        destTokenVaultAddress,
+        toChain,
+        fromChain,
+      ),
+    ).rejects.toThrow(
+      'encountered an issue when checking if token is deployed cross-chain',
     );
   });
 });

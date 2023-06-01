@@ -1,13 +1,17 @@
 import { Contract, ethers } from 'ethers';
 import { RLP } from 'ethers/lib/utils.js';
+
 import { crossChainSyncABI } from '../constants/abi';
 import type { Block } from '../domain/block';
 import type {
-  Prover,
-  GenerateProofOpts,
   EthGetProofResponse,
+  GenerateProofOpts,
   GenerateReleaseProofOpts,
+  Prover,
 } from '../domain/proof';
+import { getLogger } from '../utils/logger';
+
+const log = getLogger('ProofService');
 
 export class ProofService implements Prover {
   private readonly providers: Record<
@@ -86,11 +90,15 @@ export class ProofService implements Prover {
       block.hash,
     ]);
 
+    log('Proof from eth_getProof', proof);
+
     if (proof.storageProof[0].value !== '0x1') {
       throw Error('invalid proof');
     }
 
     const signalProof = ProofService.getSignalProof(proof, block.number);
+
+    // log('Signal proof', signalProof);
 
     return signalProof;
   }
@@ -115,11 +123,15 @@ export class ProofService implements Prover {
       block.hash,
     ]);
 
+    log('Proof from eth_getProof', proof);
+
     if (proof.storageProof[0].value !== '0x3') {
       throw Error('invalid proof');
     }
 
     const signalProof = ProofService.getSignalProof(proof, block.number);
+
+    // log('Signal proof', signalProof);
 
     return signalProof;
   }
