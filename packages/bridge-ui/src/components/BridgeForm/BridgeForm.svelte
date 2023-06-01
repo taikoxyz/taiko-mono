@@ -14,7 +14,7 @@
   import { providers } from '../../provider/providers';
   import { storageService } from '../../storage/services';
   import { activeBridge, bridgeType } from '../../store/bridge';
-  import { destChain,srcChain } from '../../store/chain';
+  import { destChain, srcChain } from '../../store/chain';
   import { signer } from '../../store/signer';
   import { token } from '../../store/token';
   import {
