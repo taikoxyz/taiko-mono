@@ -1,6 +1,9 @@
 <script lang="ts" context="module">
   import { toast } from '@zerodevx/svelte-toast';
 
+  // TODO: better API to add title, icon, etc.
+  //       e.g. toast.success(msg, { title: 'Success', icon: 'check' })
+
   // Toast component exposes the following API:
 
   export const errorToast = (msg: string, dismiss = false) => {

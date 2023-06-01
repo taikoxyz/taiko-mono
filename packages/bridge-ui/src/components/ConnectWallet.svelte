@@ -6,7 +6,7 @@
     UserRejectedRequestError,
   } from '@wagmi/core';
   import { _ } from 'svelte-i18n';
-  
+
   import { getLogger } from '../utils/logger';
   import { client as wagmiClient } from '../wagmi/client';
   import CoinbaseWallet from './icons/CoinbaseWallet.svelte';
