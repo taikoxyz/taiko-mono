@@ -19,18 +19,34 @@ receive() external payable
 ### init
 
 ```solidity
-function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _initBlockFee) external
+function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _initFeePerGas, uint64 _initAvgProofWindow) external
 ```
 
 Initialize the rollup.
 
 #### Parameters
 
-| Name               | Type    | Description                           |
-| ------------------ | ------- | ------------------------------------- |
-| \_addressManager   | address | The AddressManager address.           |
-| \_genesisBlockHash | bytes32 | The block hash of the genesis block.  |
-| \_initBlockFee     | uint64  | Initial (reasonable) block fee value. |
+| Name                 | Type    | Description                           |
+| -------------------- | ------- | ------------------------------------- |
+| \_addressManager     | address | The AddressManager address.           |
+| \_genesisBlockHash   | bytes32 | The block hash of the genesis block.  |
+| \_initFeePerGas      | uint64  | Initial (reasonable) block fee value. |
+| \_initAvgProofWindow | uint64  | Initial (reasonable) proof window.    |
+
+### bidForBatch
+
+```solidity
+function bidForBatch(uint256 batchId, struct TaikoData.Bid bid) external
+```
+
+Bid for the proving right for a batch of blocks
+
+#### Parameters
+
+| Name    | Type                 | Description                     |
+| ------- | -------------------- | ------------------------------- |
+| batchId | uint256              | The id of the batch to bid for. |
+| bid     | struct TaikoData.Bid | The auction bid.                |
 
 ### proposeBlock
 
@@ -46,6 +62,12 @@ Propose a Taiko L2 block.
 | ------ | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | input  | bytes | An abi-encoded BlockMetadataInput that the actual L2 block header must satisfy.                                                                                                                                                                                             |
 | txList | bytes | A list of transactions in this block, encoded with RLP. Note, in the corresponding L2 block an _anchor transaction_ will be the first transaction in the block -- if there are `n` transactions in `txList`, then there will be up to `n + 1` transactions in the L2 block. |
+
+#### Return Values
+
+| Name | Type                           | Description                          |
+| ---- | ------------------------------ | ------------------------------------ |
+| meta | struct TaikoData.BlockMetadata | The metadata for the proposed block. |
 
 ### proveBlock
 
@@ -91,7 +113,7 @@ function getTaikoTokenBalance(address addr) public view returns (uint256)
 ### getBlockFee
 
 ```solidity
-function getBlockFee() public view returns (uint64)
+function getBlockFee() public view returns (uint64 feePerGas, uint64 blockFee)
 ```
 
 ### getBlock

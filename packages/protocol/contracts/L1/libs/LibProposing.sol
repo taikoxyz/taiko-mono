@@ -25,6 +25,7 @@ library LibProposing {
     );
 
     error L1_BLOCK_ID();
+    error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
     error L1_TOO_MANY_BLOCKS();
     error L1_TX_LIST_NOT_EXIST();
@@ -94,8 +95,6 @@ library LibProposing {
         blk.verifiedForkChoiceId = 0;
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.proposer = msg.sender;
-
-        uint64 blockFee;
 
         emit BlockProposed(state.numBlocks, meta, blockFee);
         unchecked {

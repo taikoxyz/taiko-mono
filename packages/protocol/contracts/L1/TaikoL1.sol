@@ -44,14 +44,12 @@ contract TaikoL1 is
      * @param _genesisBlockHash The block hash of the genesis block.
      * @param _initFeePerGas Initial (reasonable) block fee value.
      * @param _initAvgProofWindow Initial (reasonable) proof window.
-     * @param _initBlockFee Initial (reasonable) block fee value.
      */
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
         uint64 _initFeePerGas,
-        uint64 _initAvgProofWindow,
-        uint64 _initBlockFee
+        uint64 _initAvgProofWindow
     )
         external
         initializer
@@ -63,7 +61,6 @@ contract TaikoL1 is
             genesisBlockHash: _genesisBlockHash,
             initFeePerGas: _initFeePerGas,
             initAvgProofWindow: _initAvgProofWindow
-            initBlockFee: _initBlockFee
         });
     }
 

@@ -4,6 +4,12 @@ title: TaikoEvents
 
 ## TaikoEvents
 
+### Bid
+
+```solidity
+event Bid(uint64 batchId, uint64 startedAt, struct TaikoData.Bid bid)
+```
+
 ### BlockProposed
 
 ```solidity
@@ -19,7 +25,7 @@ event BlockProven(uint256 id, bytes32 parentHash, bytes32 blockHash, bytes32 sig
 ### BlockVerified
 
 ```solidity
-event BlockVerified(uint256 id, bytes32 blockHash, uint64 reward)
+event BlockVerified(uint256 id, bytes32 blockHash, uint64 proposerFefund, uint64 proverReward)
 ```
 
 ### EthDeposited
@@ -31,5 +37,5 @@ event EthDeposited(struct TaikoData.EthDeposit deposit)
 ### ProofParamsChanged
 
 ```solidity
-event ProofParamsChanged(uint64 proofTimeTarget, uint64 proofTimeIssued, uint64 blockFee, uint16 adjustmentQuotient)
+event ProofParamsChanged(uint64 proofTimeTarget, uint64 proofTimeIssued, uint64 feePerGas, uint16 adjustmentQuotient)
 ```
