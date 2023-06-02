@@ -228,8 +228,10 @@ library LibVerifying {
             state.taikoTokenBalances[address(1)] += burn;
 
             // reward the other half to prover with block reward
-            reward = auction.bid.deposit - burn
-                + auction.bid.feePerGas * (config.blockFeeBaseGas + fc.gasUsed);
+            unchecked {
+                reward = auction.bid.deposit - burn
+                    + auction.bid.feePerGas * (config.blockFeeBaseGas + fc.gasUsed);
+            }
 
             state.taikoTokenBalances[fc.prover] += reward;
 
@@ -245,17 +247,19 @@ library LibVerifying {
 
         // Refund the proposer
         if (auction.bid.blockMaxGasLimit > fc.gasUsed) {
-            refund = auction.bid.feePerGas
-                * (auction.bid.blockMaxGasLimit - fc.gasUsed);
+            unchecked {
+                refund = auction.bid.feePerGas
+                    * (auction.bid.blockMaxGasLimit - fc.gasUsed);
+            }
             state.taikoTokenBalances[blk.proposer] += refund;
         }
 
         unchecked {
             uint64 proofTime;
             proofTime = uint64(fc.provenAt - blk.proposedAt);
-            // TODO: improve this
+
             state.avgProofWindow =
-                (1023 * state.avgProofWindow + proofTime) / 1024;
+                updatAvgProofWindow(state.avgProofWindow, proofTime);
         }
 
         blk.nextForkChoiceId = 1;
@@ -279,5 +283,19 @@ library LibVerifying {
         returns (uint64)
     {
         return (avg * 1023 + newValue) / 1024;
+    }
+
+    function updatAvgProofWindow(
+        uint64 avg,
+        uint64 newValue
+    )
+        private
+        pure
+        returns (uint64 _avg)
+    {
+        _avg = (9999 * avg + newValue) / 10_000;
+
+        if (_avg > 2 hours) _avg = 2 hours;
+        else if (avg < 10 minutes) _avg = 10 minutes;
     }
 }
