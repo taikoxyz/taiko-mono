@@ -11,7 +11,7 @@ library TaikoData {
         uint256 chainId;
         uint256 maxNumProposedBlocks;
         uint256 blockRingBufferSize;
-        uint256 auctionBatchSize;
+        uint64 auctionBatchSize;
         uint256 auctionRingBufferSize;
         uint64 auctionProofWindowMultiplier;
         uint64 auctionWindow;

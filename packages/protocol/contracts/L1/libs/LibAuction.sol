@@ -14,6 +14,7 @@ library LibAuction {
 
     error L1_AUCTION_ENDED();
     error L1_BID_NOT_GOOD_ENOUGH();
+    error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_BATCHID();
     error L1_INVALID_BID();
 
@@ -40,10 +41,13 @@ library LibAuction {
                 < state.feePerGas
                     * (config.blockFeeBaseGas + config.blockMaxGasLimit)
                     * config.auctionDepositMultipler
-            // enough token to pay
-            || state.taikoTokenBalances[msg.sender] < bid.deposit
         ) {
             revert L1_INVALID_BID();
+        }
+
+        uint64 totalDeposit = bid.deposit * config.auctionBatchSize;
+        if (state.taikoTokenBalances[msg.sender] < totalDeposit) {
+            revert L1_INSUFFICIENT_TOKEN();
         }
 
         bid.prover = msg.sender;
@@ -87,14 +91,18 @@ library LibAuction {
                 revert L1_BID_NOT_GOOD_ENOUGH();
             }
 
-            state.taikoTokenBalances[auction.bid.prover] += auction.bid.deposit;
-            state.taikoTokenBalances[bid.prover] -= bid.deposit;
+            state.taikoTokenBalances[auction.bid.prover] +=
+                auction.bid.deposit * config.auctionBatchSize;
+            state.taikoTokenBalances[bid.prover] -= totalDeposit;
         } else {
             // this is a new auction
             auction.batchId = uint64(batchId);
             auction.startedAt = uint64(block.timestamp);
+            unchecked {
+                state.numAuctions += 1;
+            }
 
-            state.taikoTokenBalances[bid.prover] -= bid.deposit;
+            state.taikoTokenBalances[bid.prover] -= totalDeposit;
         }
 
         auction.bid = bid;
