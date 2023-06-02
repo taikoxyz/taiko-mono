@@ -210,7 +210,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             LibEthDepositing.hashEthDeposits(meta.depositsProcessed)
                 != emptyDepositsRoot
         );
-        assertEq(meta.depositsProcessed.length, count + 1);
+        assertEq(meta.depositsProcessed.length, count);
 
         gas = gasleft();
         meta = proposeBlock(Alice, 1_000_000, 1024);
