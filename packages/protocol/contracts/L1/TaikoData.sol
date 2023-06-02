@@ -176,6 +176,6 @@ library TaikoData {
         uint64 lastVerifiedBlockId;
         uint64 lastVerifiedAt;
         // Reserved
-        uint256[42] __gap;
+        uint256[41] __gap;
     }
 }
