@@ -34,7 +34,8 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
-        uint64 initFeePerGas
+        uint64 initFeePerGas,
+        uint64 initAvgProofWindow
     )
         internal
     {
@@ -56,9 +57,16 @@ library LibVerifying {
                 || config.ethDepositMaxFee >= type(uint96).max
             // Auction
             || config.auctionBatchSize == 0
+                || config.auctonMaxAheadOfProposals == 0
                 || config.auctionRingBufferSize
-                    <= (config.maxNumProposedBlocks / config.auctionBatchSize + 1)
+                    <= (
+                        config.maxNumProposedBlocks / config.auctionBatchSize + 1
+                            + config.auctonMaxAheadOfProposals
+                    ) || config.auctionProofWindowMultiplier <= 1
                 || config.auctionWindow <= 12 || config.auctionDepositMultipler <= 1
+                || config.auctionMaxFeePerGasMultipler <= 1
+                || config.auctionDepositMultipler
+                    < config.auctionMaxFeePerGasMultipler
         ) revert L1_INVALID_CONFIG();
 
         uint64 timeNow = uint64(block.timestamp);
@@ -67,6 +75,7 @@ library LibVerifying {
 
         state.feePerGas = initFeePerGas;
         state.numBlocks = 1;
+        state.avgProofWindow = initAvgProofWindow;
         state.lastVerifiedAt = uint64(block.timestamp);
 
         TaikoData.Block storage blk = state.blocks[0];
@@ -176,11 +185,6 @@ library LibVerifying {
             config, blk.blockId
         ) % config.auctionBatchSize];
 
-        uint64 proofTime;
-        unchecked {
-            proofTime = uint64(fc.provenAt - blk.proposedAt);
-        }
-
         uint64 refund;
         uint64 reward;
         unchecked {
@@ -236,6 +240,14 @@ library LibVerifying {
                     * (auction.bid.blockMaxGasLimit - fc.gasUsed);
                 state.taikoTokenBalances[blk.proposer] += refund;
             }
+        }
+
+        unchecked {
+            uint64 proofTime;
+            proofTime = uint64(fc.provenAt - blk.proposedAt);
+            // TODO: improve this
+            state.avgProofWindow =
+                (1023 * state.avgProofWindow + proofTime) / 1024;
         }
 
         blk.nextForkChoiceId = 1;

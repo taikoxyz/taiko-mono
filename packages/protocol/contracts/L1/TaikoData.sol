@@ -13,8 +13,11 @@ library TaikoData {
         uint256 blockRingBufferSize;
         uint256 auctionBatchSize;
         uint256 auctionRingBufferSize;
+        uint64 auctionProofWindowMultiplier;
         uint64 auctionWindow;
         uint64 auctionDepositMultipler;
+        uint64 auctionMaxFeePerGasMultipler;
+        uint64 auctonMaxAheadOfProposals;
         // This number is calculated from maxNumProposedBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;
@@ -160,7 +163,7 @@ library TaikoData {
         uint64 genesisTimestamp;
         uint16 __reserved70;
         uint48 __reserved71;
-        uint64 __reserved72;
+        uint64 numAuctions;
         // Slot 8
         uint64 __reserved80;
         uint64 __reserved81;
@@ -168,7 +171,7 @@ library TaikoData {
         uint64 nextEthDepositToProcess;
         // Slot 9
         uint64 feePerGas;
-        uint64 __reserved90;
+        uint64 avgProofWindow;
         uint64 lastVerifiedBlockId;
         uint64 lastVerifiedAt;
         // Reserved

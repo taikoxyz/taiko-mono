@@ -10,6 +10,7 @@ import { AddressResolver } from "../common/AddressResolver.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { Proxied } from "../common/Proxied.sol";
+import { LibAuction } from "./libs/LibAuction.sol";
 import { LibEthDepositing } from "./libs/LibEthDepositing.sol";
 import { LibProposing } from "./libs/LibProposing.sol";
 import { LibProving } from "./libs/LibProving.sol";
@@ -42,11 +43,13 @@ contract TaikoL1 is
      * @param _addressManager The AddressManager address.
      * @param _genesisBlockHash The block hash of the genesis block.
      * @param _initFeePerGas Initial (reasonable) block fee value.
+     * @param _initAvgProofWindow Initial (reasonable) proof window.
      */
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
-        uint64 _initFeePerGas
+        uint64 _initFeePerGas,
+        uint64 _initAvgProofWindow
     )
         external
         initializer
@@ -56,7 +59,8 @@ contract TaikoL1 is
             state: state,
             config: getConfig(),
             genesisBlockHash: _genesisBlockHash,
-            initFeePerGas: _initFeePerGas
+            initFeePerGas: _initFeePerGas,
+            initAvgProofWindow: _initAvgProofWindow
         });
     }
 

@@ -10,11 +10,15 @@ abstract contract TaikoErrors {
     // The following custom errors must match the definitions in other V1
     // libraries.
     error L1_ALREADY_PROVEN();
+    error L1_AUCTION_ENDED();
     error L1_AUCTION_NOT_ENDED();
+    error L1_BID_NOT_GOOD_ENOUGH();
     error L1_BLOCK_ID();
     error L1_EVIDENCE_MISMATCH(bytes32 expected, bytes32 actual);
     error L1_FORK_CHOICE_NOT_FOUND();
     error L1_INSUFFICIENT_TOKEN();
+    error L1_INVALID_BATCHID();
+    error L1_INVALID_BID();
     error L1_INVALID_CONFIG();
     error L1_INVALID_ETH_DEPOSIT();
     error L1_INVALID_EVIDENCE();

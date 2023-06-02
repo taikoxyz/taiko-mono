@@ -124,9 +124,8 @@ library LibProposing {
         returns (uint64 feePerGas, uint64 blockFee)
     {
         feePerGas = state.feePerGas;
-        blockFee = feePerGas
-            * (config.blockFeeBaseGas + config.blockMaxGasLimit)
-            * config.auctionDepositMultipler;
+        blockFee =
+            feePerGas * (config.blockFeeBaseGas + config.blockMaxGasLimit);
     }
 
     function _validateBlock(
