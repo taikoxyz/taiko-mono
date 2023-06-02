@@ -168,7 +168,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         printVariables("after processing send-ethers");
         assertTrue(LibEthDepositing.hashEthDeposits(meta.depositsProcessed) != emptyDepositsRoot);
-        assertEq(meta.depositsProcessed.length, count + 1);
+        assertEq(meta.depositsProcessed.length, count);
 
         gas = gasleft();
         meta = proposeBlock(Alice, 1000000, 1024);
@@ -287,12 +287,12 @@ contract TaikoL1Test is TaikoL1TestBase {
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
 
         // Expected:
-        // 0x9098dca53e2412a11d456add7b3652df403e043b2a20f456d4651b9a73b70a30  (pre
+        // 0x60386add6a400d9b23968e1239bd600d22d2eea4709246895c0e5d8f5ae49dc3  (pre
         // calculated with these values)
         //console2.logBytes32(meta.depositsRoot);
         assertEq(
             LibEthDepositing.hashEthDeposits(meta.depositsProcessed),
-            0x9098dca53e2412a11d456add7b3652df403e043b2a20f456d4651b9a73b70a30
+            0x60386add6a400d9b23968e1239bd600d22d2eea4709246895c0e5d8f5ae49dc3
         );
     }
 }
