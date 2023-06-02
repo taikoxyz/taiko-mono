@@ -12,7 +12,7 @@ abstract contract TaikoEvents {
     // The following events must match the definitions in corresponding L1
     // libraries.
     event BlockProposed(
-        uint256 indexed id, TaikoData.BlockMetadata meta, uint64 feePerGas
+        uint256 indexed id, TaikoData.BlockMetadata meta, uint64 blockFee
     );
 
     event BlockProven(

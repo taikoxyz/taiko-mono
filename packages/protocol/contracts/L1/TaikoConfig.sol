@@ -18,6 +18,7 @@ library TaikoConfig {
             auctionBatchSize: 100,
             auctionRingBufferSize: 1310, // (120_960 + 10) / 100 + 100,
             auctionWindow: 5 * 60,
+            auctionDepositMultipler: 10,
             // Each time one more block is verified, there will be ~20k
             // more gas cost.
             maxVerificationsPerTx: 10,

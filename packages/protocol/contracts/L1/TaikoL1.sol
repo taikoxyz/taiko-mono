@@ -153,8 +153,12 @@ contract TaikoL1 is
         return state.taikoTokenBalances[addr];
     }
 
-    function getFeePerGas() public view returns (uint64) {
-        return state.feePerGas;
+    function getBlockFee()
+        public
+        view
+        returns (uint64 feePerGas, uint64 blockFee)
+    {
+        return LibProposing.getBlockFee(state, getConfig());
     }
 
     function getBlock(uint256 blockId)

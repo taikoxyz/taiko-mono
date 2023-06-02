@@ -14,6 +14,7 @@ library TaikoData {
         uint256 auctionBatchSize;
         uint256 auctionRingBufferSize;
         uint64 auctionWindow;
+        uint64 auctionDepositMultipler;
         // This number is calculated from maxNumProposedBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;

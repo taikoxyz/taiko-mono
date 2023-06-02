@@ -21,10 +21,11 @@ library LibProposing {
     using LibUtils for TaikoData.State;
 
     event BlockProposed(
-        uint256 indexed id, TaikoData.BlockMetadata meta, uint64 feePerGas
+        uint256 indexed id, TaikoData.BlockMetadata meta, uint64 blockFee
     );
 
     error L1_BLOCK_ID();
+    error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
     error L1_TOO_MANY_BLOCKS();
     error L1_TX_LIST_NOT_EXIST();
@@ -42,6 +43,13 @@ library LibProposing {
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
+        (, uint64 blockFee) = getBlockFee(state, config);
+
+        if (state.taikoTokenBalances[msg.sender] < blockFee) {
+            revert L1_INSUFFICIENT_TOKEN();
+        }
+        state.taikoTokenBalances[msg.sender] -= blockFee;
+
         uint8 cacheTxListInfo = _validateBlock({
             state: state,
             config: config,
@@ -88,11 +96,7 @@ library LibProposing {
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.proposer = msg.sender;
 
-        uint64 feePerGas;
-
-        // Charge the proposer config.blockFeeBaseGas + blockMaxGasLimit
-
-        emit BlockProposed(state.numBlocks, meta, feePerGas);
+        emit BlockProposed(state.numBlocks, meta, blockFee);
         unchecked {
             ++state.numBlocks;
         }
@@ -109,6 +113,20 @@ library LibProposing {
     {
         blk = state.blocks[blockId % config.blockRingBufferSize];
         if (blk.blockId != blockId) revert L1_BLOCK_ID();
+    }
+
+    function getBlockFee(
+        TaikoData.State storage state,
+        TaikoData.Config memory config
+    )
+        internal
+        view
+        returns (uint64 feePerGas, uint64 blockFee)
+    {
+        feePerGas = state.feePerGas;
+        blockFee = feePerGas
+            * (config.blockFeeBaseGas + config.blockMaxGasLimit)
+            * config.auctionDepositMultipler;
     }
 
     function _validateBlock(

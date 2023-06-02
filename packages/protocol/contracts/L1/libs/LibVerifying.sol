@@ -54,6 +54,11 @@ library LibVerifying {
                 || config.ethDepositGas == 0 //
                 || config.ethDepositMaxFee == 0
                 || config.ethDepositMaxFee >= type(uint96).max
+            // Auction
+            || config.auctionBatchSize == 0
+                || config.auctionRingBufferSize
+                    <= (config.maxNumProposedBlocks / config.auctionBatchSize + 1)
+                || config.auctionWindow <= 12 || config.auctionDepositMultipler <= 1
         ) revert L1_INVALID_CONFIG();
 
         uint64 timeNow = uint64(block.timestamp);
