@@ -6,13 +6,12 @@
 
 pragma solidity ^0.8.18;
 
-import {AddressResolver} from "../../common/AddressResolver.sol";
-import {ISignalService} from "../../signal/ISignalService.sol";
-import {LibTokenomics} from "./LibTokenomics.sol";
-import {LibUtils} from "./LibUtils.sol";
-import {SafeCastUpgradeable} from
+import { AddressResolver } from "../../common/AddressResolver.sol";
+import { ISignalService } from "../../signal/ISignalService.sol";
+import { LibUtils } from "./LibUtils.sol";
+import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {TaikoData} from "../../L1/TaikoData.sol";
+import { TaikoData } from "../../L1/TaikoData.sol";
 
 library LibVerifying {
     using SafeCastUpgradeable for uint256;
@@ -20,7 +19,9 @@ library LibVerifying {
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash, uint64 reward);
 
-    event CrossChainSynced(uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot);
+    event CrossChainSynced(
+        uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
+    );
 
     error L1_INVALID_CONFIG();
 
@@ -28,23 +29,26 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
-        uint64 initBlockFee,
-        uint64 initProofTimeTarget,
-        uint64 initProofTimeIssued,
-        uint16 adjustmentQuotient
-    ) internal {
+        uint64 initBlockFee
+    )
+        internal
+    {
         if (
-            config.chainId <= 1 || config.maxNumProposedBlocks == 1
+            config.chainId <= 1 //
+                || config.maxNumProposedBlocks == 1
                 || config.ringBufferSize <= config.maxNumProposedBlocks + 1
-                || config.blockMaxGasLimit == 0 || config.maxTransactionsPerBlock == 0
+                || config.blockMaxGasLimit == 0
+                || config.maxTransactionsPerBlock == 0
                 || config.maxBytesPerTxList == 0
             // EIP-4844 blob size up to 128K
-            || config.maxBytesPerTxList > 128 * 1024 || config.maxEthDepositsPerBlock == 0
+            || config.maxBytesPerTxList > 128 * 1024
+                || config.maxEthDepositsPerBlock == 0
                 || config.maxEthDepositsPerBlock < config.minEthDepositsPerBlock
             // EIP-4844 blob deleted after 30 days
-            || config.txListCacheExpiry > 30 * 24 hours || config.ethDepositGas == 0
-                || config.ethDepositMaxFee == 0 || config.ethDepositMaxFee >= type(uint96).max
-                || adjustmentQuotient == 0 || initProofTimeTarget == 0 || initProofTimeIssued == 0
+            || config.txListCacheExpiry > 30 * 24 hours
+                || config.ethDepositGas == 0 //
+                || config.ethDepositMaxFee == 0
+                || config.ethDepositMaxFee >= type(uint96).max
         ) revert L1_INVALID_CONFIG();
 
         uint64 timeNow = uint64(block.timestamp);
@@ -52,9 +56,6 @@ library LibVerifying {
         state.genesisTimestamp = timeNow;
 
         state.blockFee = initBlockFee;
-        state.proofTimeIssued = initProofTimeIssued;
-        state.proofTimeTarget = initProofTimeTarget;
-        state.adjustmentQuotient = adjustmentQuotient;
         state.numBlocks = 1;
 
         TaikoData.Block storage blk = state.blocks[0];
@@ -74,7 +75,9 @@ library LibVerifying {
         TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 maxBlocks
-    ) internal {
+    )
+        internal
+    {
         uint256 i = state.lastVerifiedBlockId;
         TaikoData.Block storage blk = state.blocks[i % config.ringBufferSize];
 
@@ -132,12 +135,15 @@ library LibVerifying {
             }
 
             if (config.relaySignalRoot) {
-                // Send the L2's signal root to the signal service so other TaikoL1
-                // deployments, if they share the same signal service, can relay the
-                // signal to their corresponding TaikoL2 contract.
-                ISignalService(resolver.resolve("signal_service", false)).sendSignal(signalRoot);
+                // Send the L2's signal root to the signal service so other
+                // TaikoL1 deployments, if they share the same signal service,
+                // can relay the signal to their corresponding TaikoL2 contract.
+                ISignalService(resolver.resolve("signal_service", false))
+                    .sendSignal(signalRoot);
             }
-            emit CrossChainSynced(state.lastVerifiedBlockId, blockHash, signalRoot);
+            emit CrossChainSynced(
+                state.lastVerifiedBlockId, blockHash, signalRoot
+            );
         }
     }
 
@@ -147,41 +153,18 @@ library LibVerifying {
         TaikoData.ForkChoice storage fc,
         uint24 fcId,
         address systemProver
-    ) private {
+    )
+        private
+    {
         uint64 proofTime;
         unchecked {
             proofTime = uint64(fc.provenAt - blk.proposedAt);
         }
 
-        uint64 reward = LibTokenomics.getProofReward(state, proofTime);
-
-        (state.proofTimeIssued, state.blockFee) =
-            LibTokenomics.getNewBlockFeeAndProofTimeIssued(state, proofTime);
-
-        unchecked {
-            state.accBlockFees -= reward;
-            state.accProposedAt -= blk.proposedAt;
-        }
-
-        // reward the prover
-        if (reward != 0) {
-            address prover = fc.prover != address(1) ? fc.prover : systemProver;
-
-            // systemProver may become address(0) after a block is proven
-            if (prover != address(0)) {
-                if (state.taikoTokenBalances[prover] == 0) {
-                    // Reduce refund to 1 wei as a penalty if the proposer
-                    // has 0 TKO outstanding balance.
-                    state.taikoTokenBalances[prover] = 1;
-                } else {
-                    state.taikoTokenBalances[prover] += reward;
-                }
-            }
-        }
+        uint64 reward;
 
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = fcId;
-
         emit BlockVerified(blk.blockId, fc.blockHash, reward);
     }
 }

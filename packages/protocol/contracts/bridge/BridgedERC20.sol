@@ -10,12 +10,12 @@ import {
     IERC20Upgradeable,
     ERC20Upgradeable
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import {IERC20MetadataUpgradeable} from
+import { IERC20MetadataUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
 
-import {EssentialContract} from "../common/EssentialContract.sol";
-import {Proxied} from "../common/Proxied.sol";
-import {BridgeErrors} from "./BridgeErrors.sol";
+import { EssentialContract } from "../common/EssentialContract.sol";
+import { Proxied } from "../common/Proxied.sol";
+import { BridgeErrors } from "./BridgeErrors.sol";
 
 /// @custom:security-contact hello@taiko.xyz
 contract BridgedERC20 is
@@ -55,35 +55,60 @@ contract BridgedERC20 is
         uint8 _decimals,
         string memory _symbol,
         string memory _name
-    ) external initializer {
+    )
+        external
+        initializer
+    {
         if (
-            _srcToken == address(0) || _srcChainId == 0 || _srcChainId == block.chainid
-                || bytes(_symbol).length == 0 || bytes(_name).length == 0
+            _srcToken == address(0)
+            //
+            || _srcChainId == 0
+            //
+            || _srcChainId == block.chainid
+            //
+            || bytes(_symbol).length == 0
+            //
+            || bytes(_name).length == 0
         ) {
             revert B_INIT_PARAM_ERROR();
         }
         EssentialContract._init(_addressManager);
-        ERC20Upgradeable.__ERC20_init({name_: _name, symbol_: _symbol});
+        ERC20Upgradeable.__ERC20_init({ name_: _name, symbol_: _symbol });
         srcToken = _srcToken;
         srcChainId = _srcChainId;
         srcDecimals = _decimals;
     }
 
     /// @dev only a TokenVault can call this function
-    function bridgeMintTo(address account, uint256 amount) public onlyFromNamed("token_vault") {
+    function bridgeMintTo(
+        address account,
+        uint256 amount
+    )
+        public
+        onlyFromNamed("token_vault")
+    {
         _mint(account, amount);
         emit BridgeMint(account, amount);
     }
 
     /// @dev only a TokenVault can call this function
-    function bridgeBurnFrom(address account, uint256 amount) public onlyFromNamed("token_vault") {
+    function bridgeBurnFrom(
+        address account,
+        uint256 amount
+    )
+        public
+        onlyFromNamed("token_vault")
+    {
         _burn(account, amount);
         emit BridgeBurn(account, amount);
     }
 
     /// @dev any address can call this
     // caller must have at least amount to call this
-    function transfer(address to, uint256 amount)
+    function transfer(
+        address to,
+        uint256 amount
+    )
         public
         override(ERC20Upgradeable, IERC20Upgradeable)
         returns (bool)
@@ -97,7 +122,11 @@ contract BridgedERC20 is
     /// @dev any address can call this
     // caller must have allowance of at least 'amount'
     // for 'from's tokens.
-    function transferFrom(address from, address to, uint256 amount)
+    function transferFrom(
+        address from,
+        address to,
+        uint256 amount
+    )
         public
         override(ERC20Upgradeable, IERC20Upgradeable)
         returns (bool)
@@ -124,4 +153,4 @@ contract BridgedERC20 is
     }
 }
 
-contract ProxiedBridgedERC20 is Proxied, BridgedERC20 {}
+contract ProxiedBridgedERC20 is Proxied, BridgedERC20 { }

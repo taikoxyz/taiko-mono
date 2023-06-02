@@ -6,9 +6,9 @@
 
 pragma solidity ^0.8.18;
 
-import {IBridge} from "../IBridge.sol";
-import {LibAddress} from "../../libs/LibAddress.sol";
-import {LibBridgeData} from "./LibBridgeData.sol";
+import { IBridge } from "../IBridge.sol";
+import { LibAddress } from "../../libs/LibAddress.sol";
+import { LibBridgeData } from "./LibBridgeData.sol";
 
 library LibBridgeInvoke {
     using LibAddress for address;
@@ -25,7 +25,10 @@ library LibBridgeInvoke {
         IBridge.Message calldata message,
         bytes32 msgHash,
         uint256 gasLimit
-    ) internal returns (bool success) {
+    )
+        internal
+        returns (bool success)
+    {
         if (gasLimit == 0) {
             revert B_GAS_LIMIT();
         }
@@ -36,7 +39,9 @@ library LibBridgeInvoke {
             srcChainId: message.srcChainId
         });
 
-        (success,) = message.to.call{value: message.callValue, gas: gasLimit}(message.data);
+        (success,) = message.to.call{ value: message.callValue, gas: gasLimit }(
+            message.data
+        );
 
         state.ctx = IBridge.Context({
             msgHash: LibBridgeData.MESSAGE_HASH_PLACEHOLDER,
