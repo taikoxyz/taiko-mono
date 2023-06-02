@@ -6,6 +6,7 @@
 
 pragma solidity ^0.8.18;
 
+import { LibMath } from "../../libs/LibMath.sol";
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
 import { LibUtils } from "./LibUtils.sol";
@@ -15,6 +16,7 @@ import { TaikoData } from "../../L1/TaikoData.sol";
 
 library LibVerifying {
     using SafeCastUpgradeable for uint256;
+    using LibMath for uint256;
     using LibUtils for TaikoData.State;
 
     event BlockVerified(
@@ -187,59 +189,65 @@ library LibVerifying {
 
         uint64 refund;
         uint64 reward;
-        unchecked {
-            // Reward the prover
-            if (
-                fcId == 1
-                    && (fc.prover == address(1) || fc.prover == auction.bid.prover)
-            ) {
-                // Refund to auction winner if the block is proven by him or the
-                // system prover.
-                // For simplicity, we do not check if the proof is submitted
-                // before the proofWindow expires -- as long no other provers
-                // submit a valid proof before the auction winner.
 
-                state.taikoTokenBalances[auction.bid.prover] +=
-                    auction.bid.deposit;
+        bool fullRefund; //bid's proof not too late
 
-                reward = auction.bid.feePerGas
-                    * (config.blockFeeBaseGas + fc.gasUsed);
-
-                state.taikoTokenBalances[fc.prover] += reward;
-
-                state.feePerGas = updateFeePerGas(
-                    state.feePerGas,
-                    state.lastVerifiedAt,
-                    auction.bid.feePerGas,
-                    block.timestamp
+        if (fcId == 1) {
+            if (fc.prover == address(1)) {
+                fullRefund = true;
+            } else if (fc.prover == auction.bid.prover) {
+                uint256 deadline = blk.proposedAt + auction.bid.proofWindow;
+                deadline = deadline.max(
+                    auction.startedAt + config.auctionWindow
+                        + auction.bid.proofWindow
                 );
-            } else {
-                // The protocol keep half deposit (can be burnt later)
-                uint64 burn = auction.bid.deposit / 2;
-                state.taikoTokenBalances[address(1)] += burn;
 
-                // reward the other half to prover with block reward
-                reward = auction.bid.deposit - burn
-                    + auction.bid.feePerGas * (config.blockFeeBaseGas + fc.gasUsed);
-
-                state.taikoTokenBalances[fc.prover] += reward;
-
-                // Question: shall we increase the fee per gas if the proof
-                // is not done by the auction winner?
-                state.feePerGas = updateFeePerGas(
-                    state.feePerGas,
-                    state.lastVerifiedAt,
-                    auction.bid.feePerGas * 2,
-                    block.timestamp
-                );
+                if (fc.provenAt <= deadline) {
+                    fullRefund = true;
+                }
             }
+        }
 
-            // Refund the proposer
-            if (auction.bid.blockMaxGasLimit > fc.gasUsed) {
-                refund = auction.bid.feePerGas
-                    * (auction.bid.blockMaxGasLimit - fc.gasUsed);
-                state.taikoTokenBalances[blk.proposer] += refund;
-            }
+        if (fullRefund) {
+            state.taikoTokenBalances[auction.bid.prover] += auction.bid.deposit;
+
+            reward =
+                auction.bid.feePerGas * (config.blockFeeBaseGas + fc.gasUsed);
+
+            state.taikoTokenBalances[fc.prover] += reward;
+
+            state.feePerGas = updateFeePerGas(
+                state.feePerGas,
+                state.lastVerifiedAt,
+                auction.bid.feePerGas,
+                block.timestamp
+            );
+        } else {
+            // The protocol keep half deposit (can be burnt later)
+            uint64 burn = auction.bid.deposit / 2;
+            state.taikoTokenBalances[address(1)] += burn;
+
+            // reward the other half to prover with block reward
+            reward = auction.bid.deposit - burn
+                + auction.bid.feePerGas * (config.blockFeeBaseGas + fc.gasUsed);
+
+            state.taikoTokenBalances[fc.prover] += reward;
+
+            // Question: shall we increase the fee per gas if the proof
+            // is not done by the auction winner?
+            state.feePerGas = updateFeePerGas(
+                state.feePerGas,
+                state.lastVerifiedAt,
+                auction.bid.feePerGas * 2,
+                block.timestamp
+            );
+        }
+
+        // Refund the proposer
+        if (auction.bid.blockMaxGasLimit > fc.gasUsed) {
+            refund = auction.bid.feePerGas
+                * (auction.bid.blockMaxGasLimit - fc.gasUsed);
+            state.taikoTokenBalances[blk.proposer] += refund;
         }
 
         unchecked {

@@ -50,20 +50,20 @@ library LibAuction {
         bid.blockMaxGasLimit = config.blockMaxGasLimit;
 
         // Check the batch id is in the correct range
-        uint256 batchForLastVerifiedBlock =
-            LibUtils.batchForBlock(config, state.lastVerifiedBlockId);
+        uint256 batchForNextBlockToVerify =
+            LibUtils.batchForBlock(config, state.lastVerifiedBlockId + 1);
 
         // TODO(daniel & dani): check >= vs >  AND <= vs <
         if (
             // the batch of lastVerifiedBlockId is never auctionable as it has
             // to be ended before the last verifeid block can be verified.
-            batchId <= batchForLastVerifiedBlock
+            batchId < batchForNextBlockToVerify
             // We cannot start a new auction if the previous one has not started
             || batchId > state.numAuctions + 1
             // We cannot start a new auction if we have to keep all the auctions
             // info in order to prove/verify blocks
             || batchId
-                >= batchForLastVerifiedBlock + config.auctionRingBufferSize
+                >= batchForNextBlockToVerify + config.auctionRingBufferSize
             // we do not want to auction more batches ahead of the last proposed
             // block's corresponding batch
             || batchId
