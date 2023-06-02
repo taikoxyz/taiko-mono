@@ -11,7 +11,7 @@
   } from '../../constants/envVars';
   import type { Chain } from '../../domain/chain';
   import type { Token } from '../../domain/token';
-  import { fromChain } from '../../store/chain';
+  import { srcChain } from '../../store/chain';
   import { signer } from '../../store/signer';
   import { token } from '../../store/token';
   import { pendingTransactions } from '../../store/transaction';
@@ -87,11 +87,11 @@
     return true;
   }
 
-  async function mint(fromChain: Chain, signer: Signer, _token: Token) {
+  async function mint(srcChain: Chain, signer: Signer, _token: Token) {
     loading = true;
 
     try {
-      const tx = await mintERC20(fromChain.id, _token, signer);
+      const tx = await mintERC20(srcChain.id, _token, signer);
 
       successToast(`Transaction sent to mint ${_token.symbol} tokens.`);
 
@@ -108,7 +108,7 @@
 
       const headerError = '<strong>Failed to mint tokens</strong>';
       if (error.cause?.status === 0) {
-        const explorerUrl = `${fromChain.explorerUrl}/tx/${error.cause.transactionHash}`;
+        const explorerUrl = `${srcChain.explorerUrl}/tx/${error.cause.transactionHash}`;
         const htmlLink = `<a href="${explorerUrl}" target="_blank"><b><u>here</u></b></a>`;
         errorToast(
           `${headerError}<br />Click ${htmlLink} to see more details on the explorer.`,
@@ -146,7 +146,7 @@
     .then((disable) => (actionDisabled = disable))
     .catch((error) => console.error(error));
 
-  $: wrongChain = $fromChain && $fromChain.id === L2_CHAIN_ID;
+  $: wrongChain = $srcChain && $srcChain.id === L2_CHAIN_ID;
   $: pendingTx = $pendingTransactions && $pendingTransactions.length > 0;
   $: disableSwitchButton = switchingNetwork || pendingTx;
   $: disableMintButton = actionDisabled || loading;
@@ -202,7 +202,7 @@
       type="accent"
       class="w-full"
       disabled={disableMintButton}
-      on:click={() => mint($fromChain, $signer, $token)}>
+      on:click={() => mint($srcChain, $signer, $token)}>
       <span>
         {#if loading}
           <Loading />

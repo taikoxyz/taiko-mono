@@ -38,7 +38,8 @@ library LibEthDepositing {
 
         TaikoData.EthDeposit memory deposit = TaikoData.EthDeposit({
             recipient: msg.sender,
-            amount: uint96(msg.value)
+            amount: uint96(msg.value),
+            id: uint64(state.ethDeposits.length)
         });
 
         address to = resolver.resolve("ether_vault", true);
@@ -72,8 +73,7 @@ library LibEthDepositing {
             unchecked {
                 // When maxEthDepositsPerBlock is 32, the average gas cost per
                 // EthDeposit is about 2700 gas. We use 21000 so the proposer
-                // may
-                // earn a small profit if there are 32 deposits included
+                // may earn a small profit if there are 32 deposits included
                 // in the block; if there are less EthDeposit to process, the
                 // proposer may suffer a loss so the proposer should simply wait
                 // for more EthDeposit be become available.
@@ -86,9 +86,8 @@ library LibEthDepositing {
                 uint64 i = state.nextEthDepositToProcess;
                 while (
                     i < state.ethDeposits.length
-                        && i
-                            < state.nextEthDepositToProcess
-                                + config.maxEthDepositsPerBlock
+                        && state.nextEthDepositToProcess
+                            + config.maxEthDepositsPerBlock > i
                 ) {
                     TaikoData.EthDeposit storage deposit = state.ethDeposits[i];
                     if (deposit.amount > feePerDeposit) {
@@ -128,19 +127,6 @@ library LibEthDepositing {
         pure
         returns (bytes32)
     {
-        bytes memory buffer = new bytes(32 * deposits.length);
-
-        for (uint256 i; i < deposits.length;) {
-            uint256 encoded = uint256(uint160(deposits[i].recipient)) << 96
-                | uint256(deposits[i].amount);
-            assembly {
-                mstore(add(buffer, mul(32, add(1, i))), encoded)
-            }
-            unchecked {
-                ++i;
-            }
-        }
-
-        return keccak256(buffer);
+        return keccak256(abi.encode(deposits));
     }
 }

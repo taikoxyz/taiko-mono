@@ -45,8 +45,8 @@ const opts: BridgeOpts = {
   amountInWei: BigNumber.from(1),
   signer: wallet,
   tokenAddress: '0xtoken',
-  fromChainId: L1_CHAIN_ID,
-  toChainId: L2_CHAIN_ID,
+  srcChainId: L1_CHAIN_ID,
+  destChainId: L2_CHAIN_ID,
   tokenVaultAddress: '0x456',
   processingFeeInWei: BigNumber.from(2),
   memo: 'memo',
@@ -195,7 +195,7 @@ describe('bridge tests', () => {
 
     expect(mockContract.sendERC20).toHaveBeenCalled();
     expect(mockContract.sendERC20).toHaveBeenCalledWith(
-      opts.toChainId,
+      opts.destChainId,
       '0x',
       opts.tokenAddress,
       opts.amountInWei,
@@ -223,8 +223,8 @@ describe('bridge tests', () => {
       amountInWei: BigNumber.from(1),
       signer: wallet,
       tokenAddress: '0xtoken',
-      fromChainId: L1_CHAIN_ID,
-      toChainId: L2_CHAIN_ID,
+      srcChainId: L1_CHAIN_ID,
+      destChainId: L2_CHAIN_ID,
       tokenVaultAddress: '0x456',
       to: await wallet.getAddress(),
     };
@@ -232,7 +232,7 @@ describe('bridge tests', () => {
     await bridge.bridge(opts);
 
     expect(mockContract.sendERC20).toHaveBeenCalledWith(
-      opts.toChainId,
+      opts.destChainId,
       '0xfake',
       opts.tokenAddress,
       opts.amountInWei,

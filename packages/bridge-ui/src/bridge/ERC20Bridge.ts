@@ -45,8 +45,8 @@ export class ERC20Bridge implements Bridge {
       refundAddress: owner,
 
       to: opts.to,
-      srcChainId: opts.fromChainId,
-      destChainId: opts.toChainId,
+      srcChainId: opts.srcChainId,
+      destChainId: opts.destChainId,
 
       depositValue: opts.amountInWei,
       callValue: 0,

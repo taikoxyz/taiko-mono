@@ -7,7 +7,7 @@
   import { ChevronDown } from 'svelte-heros-v2';
   import { _ } from 'svelte-i18n';
 
-  import { fromChain } from '../store/chain';
+  import { srcChain } from '../store/chain';
   import { signer } from '../store/signer';
   import { pendingTransactions } from '../store/transaction';
   import { getAddressAvatarFromIdenticon } from '../utils/addressAvatar';
@@ -106,8 +106,8 @@
       tabindex="0"
       class="dropdown-content rounded-box menu shadow bg-dark-2 w-48 mt-2 pb-2 text-sm">
       <div class="p-5 pb-0 flex flex-col items-center" transition:slide>
-        {#if $fromChain && $signer}
-          <svelte:component this={$fromChain.icon} />
+        {#if $srcChain && $signer}
+          <svelte:component this={$srcChain.icon} />
           <div class="text-lg mt-2">
             {tokenBalance.length > 10
               ? `${truncateString(tokenBalance)}…`

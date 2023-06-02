@@ -48,7 +48,7 @@ library LibBridgeRetry {
     )
         internal
     {
-        // If the gasLimit is not set to 0 or isLastAttempt is true, the
+        // If the gasLimit is set to 0 or isLastAttempt is true, the
         // address calling this function must be message.owner.
         if (message.gasLimit == 0 || isLastAttempt) {
             if (msg.sender != message.owner) revert B_DENIED();
