@@ -1,5 +1,5 @@
 import type { Address } from '@wagmi/core';
-import { constants,type Signer } from 'ethers';
+import { constants, type Signer } from 'ethers';
 
 import type { PaginationInfo } from '../domain/relayerApi';
 import type { BridgeTransaction } from '../domain/transaction';
