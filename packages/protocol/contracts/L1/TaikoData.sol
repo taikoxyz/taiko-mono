@@ -13,6 +13,7 @@ library TaikoData {
         uint256 blockRingBufferSize;
         uint256 auctionBatchSize;
         uint256 auctionRingBufferSize;
+        uint64 auctionWindow;
         // This number is calculated from maxNumProposedBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;
@@ -126,7 +127,7 @@ library TaikoData {
         // according to his/her own commitment.
         // Can be zero and it will just signal that the proofs are coming
         // somewhere within config.auctionWindowInSec
-        uint16 committedProofWindow;
+        uint16 proofWindow;
     }
 
     struct Auction {
@@ -137,7 +138,8 @@ library TaikoData {
 
     struct State {
         // Ring buffer for batch auctions
-        mapping(uint256 batchId => Auction auction) auctions;
+        mapping(uint256 blockId_mode_auctionRingBufferSize => Auction auction)
+            auctions;
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint256 blockId_mode_blockRingBufferSize => Block) blocks;
         mapping(

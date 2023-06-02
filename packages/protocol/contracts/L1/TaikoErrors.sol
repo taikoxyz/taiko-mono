@@ -10,6 +10,7 @@ abstract contract TaikoErrors {
     // The following custom errors must match the definitions in other V1
     // libraries.
     error L1_ALREADY_PROVEN();
+    error L1_AUCTION_NOT_ENDED();
     error L1_BLOCK_ID();
     error L1_EVIDENCE_MISMATCH(bytes32 expected, bytes32 actual);
     error L1_FORK_CHOICE_NOT_FOUND();
@@ -20,6 +21,7 @@ abstract contract TaikoErrors {
     error L1_INVALID_PARAM();
     error L1_INVALID_PROOF();
     error L1_INVALID_PROOF_OVERWRITE();
+    error L1_NOT_AUCTION_WINNER();
     error L1_NOT_SPECIAL_PROVER();
     error L1_ORACLE_PROVER_DISABLED();
     error L1_SAME_PROOF();

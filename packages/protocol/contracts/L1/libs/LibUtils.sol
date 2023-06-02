@@ -136,4 +136,19 @@ library LibUtils {
     function getVerifierName(uint16 id) internal pure returns (bytes32) {
         return bytes32(uint256(0x1000000) + id);
     }
+
+    function batchForBlock(
+        TaikoData.Config memory config,
+        uint256 blockId
+    )
+        internal
+        pure
+        returns (uint256 batchId)
+    {
+        if (blockId > 0) {
+            unchecked {
+                batchId = (blockId - 1) / config.auctionBatchSize + 1;
+            }
+        } // else return 0 by default
+    }
 }

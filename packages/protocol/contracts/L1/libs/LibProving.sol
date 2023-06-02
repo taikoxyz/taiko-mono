@@ -25,12 +25,14 @@ library LibProving {
     );
 
     error L1_ALREADY_PROVEN();
+    error L1_AUCTION_NOT_ENDED();
     error L1_BLOCK_ID();
     error L1_EVIDENCE_MISMATCH(bytes32 expected, bytes32 actual);
     error L1_FORK_CHOICE_NOT_FOUND();
     error L1_INVALID_EVIDENCE();
     error L1_INVALID_PROOF();
     error L1_INVALID_PROOF_OVERWRITE();
+    error L1_NOT_AUCTION_WINNER();
     error L1_NOT_SPECIAL_PROVER();
     error L1_ORACLE_PROVER_DISABLED();
     error L1_SAME_PROOF();
@@ -46,6 +48,14 @@ library LibProving {
     )
         internal
     {
+        // Check if the block is provable at all
+        bool auctionEnded;
+        TaikoData.Auction memory auction;
+        (auctionEnded, auction) = isAuctionEnded(
+            state, config, LibUtils.batchForBlock(config, blockId)
+        );
+        if (!auctionEnded) revert L1_AUCTION_NOT_ENDED();
+
         if (
             evidence.parentHash == 0
             //
@@ -136,6 +146,19 @@ library LibProving {
             fc = blk.forkChoices[fcId];
 
             if (fcId == 1) {
+                // Check if the prover can create the first fork choice
+                if (
+                    evidence.prover != address(0) // not oracle prover
+                        && evidence.prover != address(1) // not system prover
+                        && evidence.prover != auction.bid.prover // not auction
+                        // winner
+                        && block.timestamp
+                            <= auction.startedAt + config.auctionWindow
+                                + auction.bid.proofWindow // in the proof window
+                ) {
+                    revert L1_NOT_AUCTION_WINNER();
+                }
+
                 // We only write the key when fcId is 1.
                 fc.key = LibUtils.keyForForkChoice(
                     evidence.parentHash, evidence.parentGasUsed
@@ -153,9 +176,19 @@ library LibProving {
                     && fc.gasUsed == evidence.gasUsed
             ) revert L1_SAME_PROOF();
         } else {
+            if (
+                fcId == 1 // the first fc is special
+                    && evidence.prover != auction.bid.prover // not auction owner
+                    && block.timestamp
+                        <= auction.startedAt + config.auctionWindow
+                            + auction.bid.proofWindow // in the proof window
+            ) {
+                revert L1_NOT_AUCTION_WINNER();
+            }
+
             // This is the branch provers trying to overwrite
             fc = blk.forkChoices[fcId];
-            if (fc.prover != address(0) && fc.prover != address(1)) {
+            if (fc.prover != address(0)) {
                 revert L1_ALREADY_PROVEN();
             }
 
@@ -172,7 +205,10 @@ library LibProving {
         fc.prover = evidence.prover;
         fc.provenAt = uint64(block.timestamp);
 
-        if (evidence.prover != address(0) && evidence.prover != address(1)) {
+        if (
+            evidence.prover != address(0) // oracel prover
+                && evidence.prover != address(1) // system prover
+        ) {
             uint256[10] memory inputs;
 
             inputs[0] = uint256(
@@ -265,5 +301,22 @@ library LibProving {
             LibUtils.getForkChoiceId(state, blk, parentHash, parentGasUsed);
         if (fcId == 0) revert L1_FORK_CHOICE_NOT_FOUND();
         fc = blk.forkChoices[fcId];
+    }
+
+    function isAuctionEnded(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        uint256 batchId
+    )
+        internal
+        view
+        returns (bool ended, TaikoData.Auction memory auction)
+    {
+        if (auction.batchId != batchId) {
+            ended = false;
+        } else {
+            auction = state.auctions[batchId % config.auctionBatchSize];
+            ended = block.timestamp > auction.startedAt + config.auctionWindow;
+        }
     }
 }
