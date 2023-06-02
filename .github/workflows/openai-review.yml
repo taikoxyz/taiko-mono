@@ -24,7 +24,6 @@ jobs:
           PATCH_PR: ${{ github.event.pull_request.number }}
           PATCH_REPO: ${{ github.repository }}
       - id: review
-        if: contains(github.event.issue.labels.*.name, 'chatGPT review')
         uses: taikoxyz/openai-review-action@main
         with:
           GIT_COMMIT_HASH: ${{ github.event.pull_request.head.sha }}
