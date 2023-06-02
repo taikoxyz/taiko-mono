@@ -112,10 +112,11 @@ library TaikoData {
         uint24 size;
     }
 
-    // 1 slot
+    // 2 slot
     struct EthDeposit {
         address recipient;
         uint96 amount;
+        uint64 id;
     }
 
     struct State {

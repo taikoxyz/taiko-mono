@@ -286,11 +286,13 @@ contract TaikoL1Test is TaikoL1TestBase {
         // We shall invoke proposeBlock() because this is what will call the processDeposits()
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
 
-        // Expected: 0x8117066d69ff650d78f0d7383a10cc802c2b8c0eedd932d70994252e2438c636  (pre calculated with these values)
+        // Expected:
+        // 0x9098dca53e2412a11d456add7b3652df403e043b2a20f456d4651b9a73b70a30  (pre
+        // calculated with these values)
         //console2.logBytes32(meta.depositsRoot);
         assertEq(
             LibEthDepositing.hashEthDeposits(meta.depositsProcessed),
-            0x8117066d69ff650d78f0d7383a10cc802c2b8c0eedd932d70994252e2438c636
+            0x9098dca53e2412a11d456add7b3652df403e043b2a20f456d4651b9a73b70a30
         );
     }
 }

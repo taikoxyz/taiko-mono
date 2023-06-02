@@ -31,8 +31,11 @@ library LibEthDepositing {
             revert L1_INVALID_ETH_DEPOSIT();
         }
 
-        TaikoData.EthDeposit memory deposit =
-            TaikoData.EthDeposit({recipient: msg.sender, amount: uint96(msg.value)});
+        TaikoData.EthDeposit memory deposit = TaikoData.EthDeposit({
+            recipient: msg.sender,
+            amount: uint96(msg.value),
+            id: uint64(state.ethDeposits.length)
+        });
 
         address to = resolver.resolve("ether_vault", true);
         if (to == address(0)) {
@@ -111,19 +114,6 @@ library LibEthDepositing {
         pure
         returns (bytes32)
     {
-        bytes memory buffer = new bytes(32 * deposits.length);
-
-        for (uint256 i; i < deposits.length;) {
-            uint256 encoded =
-                uint256(uint160(deposits[i].recipient)) << 96 | uint256(deposits[i].amount);
-            assembly {
-                mstore(add(buffer, mul(32, add(1, i))), encoded)
-            }
-            unchecked {
-                ++i;
-            }
-        }
-
-        return keccak256(buffer);
+        return keccak256(abi.encode(deposits));
     }
 }
