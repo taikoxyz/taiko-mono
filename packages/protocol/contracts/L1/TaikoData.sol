@@ -17,7 +17,8 @@ library TaikoData {
         // This number is calculated from maxNumProposedBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;
-        uint64 blockMaxGasLimit;
+        uint32 blockMaxGasLimit;
+        uint32 blockFeeBaseGas;
         uint64 maxTransactionsPerBlock;
         uint64 maxBytesPerTxList;
         uint256 txListCacheExpiry;
@@ -34,7 +35,7 @@ library TaikoData {
     }
 
     struct StateVariables {
-        uint64 blockFee;
+        uint64 feePerGas;
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 numBlocks;
@@ -122,7 +123,7 @@ library TaikoData {
         uint64 deposit;
         uint64 feePerGas;
         // In order to refund the diff betwen gasUsed vs. gasLimit
-        uint32 gasLimit;
+        uint32 blockMaxGasLimit;
         // It is also part of the bidding - how fast some can submit proofs
         // according to his/her own commitment.
         // Can be zero and it will just signal that the proofs are coming
@@ -165,10 +166,10 @@ library TaikoData {
         uint64 numBlocks;
         uint64 nextEthDepositToProcess;
         // Slot 9
-        uint64 blockFee;
+        uint64 feePerGas;
         uint64 __reserved90;
         uint64 lastVerifiedBlockId;
-        uint64 __reserved91;
+        uint64 lastVerifiedAt;
         // Reserved
         uint256[42] __gap;
     }

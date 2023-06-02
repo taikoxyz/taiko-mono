@@ -12,7 +12,7 @@ abstract contract TaikoEvents {
     // The following events must match the definitions in corresponding L1
     // libraries.
     event BlockProposed(
-        uint256 indexed id, TaikoData.BlockMetadata meta, uint64 blockFee
+        uint256 indexed id, TaikoData.BlockMetadata meta, uint64 feePerGas
     );
 
     event BlockProven(
@@ -24,14 +24,19 @@ abstract contract TaikoEvents {
         uint32 parentGasUsed
     );
 
-    event BlockVerified(uint256 indexed id, bytes32 blockHash, uint64 reward);
+    event BlockVerified(
+        uint256 indexed id,
+        bytes32 blockHash,
+        uint64 proposerFefund,
+        uint64 proverReward
+    );
 
     event EthDeposited(TaikoData.EthDeposit deposit);
 
     event ProofParamsChanged(
         uint64 proofTimeTarget,
         uint64 proofTimeIssued,
-        uint64 blockFee,
+        uint64 feePerGas,
         uint16 adjustmentQuotient
     );
 }

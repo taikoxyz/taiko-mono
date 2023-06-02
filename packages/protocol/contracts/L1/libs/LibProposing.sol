@@ -21,7 +21,7 @@ library LibProposing {
     using LibUtils for TaikoData.State;
 
     event BlockProposed(
-        uint256 indexed id, TaikoData.BlockMetadata meta, uint64 blockFee
+        uint256 indexed id, TaikoData.BlockMetadata meta, uint64 feePerGas
     );
 
     error L1_BLOCK_ID();
@@ -88,9 +88,11 @@ library LibProposing {
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.proposer = msg.sender;
 
-        uint64 blockFee;
+        uint64 feePerGas;
 
-        emit BlockProposed(state.numBlocks, meta, blockFee);
+        // Charge the proposer config.blockFeeBaseGas + blockMaxGasLimit
+
+        emit BlockProposed(state.numBlocks, meta, feePerGas);
         unchecked {
             ++state.numBlocks;
         }

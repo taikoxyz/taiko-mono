@@ -61,7 +61,7 @@ library LibUtils {
         returns (TaikoData.StateVariables memory)
     {
         return TaikoData.StateVariables({
-            blockFee: state.blockFee,
+            feePerGas: state.feePerGas,
             genesisHeight: state.genesisHeight,
             genesisTimestamp: state.genesisTimestamp,
             numBlocks: state.numBlocks,

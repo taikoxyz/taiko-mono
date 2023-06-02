@@ -41,12 +41,12 @@ contract TaikoL1 is
      *
      * @param _addressManager The AddressManager address.
      * @param _genesisBlockHash The block hash of the genesis block.
-     * @param _initBlockFee Initial (reasonable) block fee value.
+     * @param _initFeePerGas Initial (reasonable) block fee value.
      */
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
-        uint64 _initBlockFee
+        uint64 _initFeePerGas
     )
         external
         initializer
@@ -56,7 +56,7 @@ contract TaikoL1 is
             state: state,
             config: getConfig(),
             genesisBlockHash: _genesisBlockHash,
-            initBlockFee: _initBlockFee
+            initFeePerGas: _initFeePerGas
         });
     }
 
@@ -153,8 +153,8 @@ contract TaikoL1 is
         return state.taikoTokenBalances[addr];
     }
 
-    function getBlockFee() public view returns (uint64) {
-        return state.blockFee;
+    function getFeePerGas() public view returns (uint64) {
+        return state.feePerGas;
     }
 
     function getBlock(uint256 blockId)

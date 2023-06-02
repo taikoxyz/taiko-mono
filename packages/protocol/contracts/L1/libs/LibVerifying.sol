@@ -17,7 +17,12 @@ library LibVerifying {
     using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.State;
 
-    event BlockVerified(uint256 indexed id, bytes32 blockHash, uint64 reward);
+    event BlockVerified(
+        uint256 indexed id,
+        bytes32 blockHash,
+        uint64 proposerFefund,
+        uint64 proverReward
+    );
 
     event CrossChainSynced(
         uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
@@ -29,7 +34,7 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
-        uint64 initBlockFee
+        uint64 initFeePerGas
     )
         internal
     {
@@ -55,8 +60,9 @@ library LibVerifying {
         state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = timeNow;
 
-        state.blockFee = initBlockFee;
+        state.feePerGas = initFeePerGas;
         state.numBlocks = 1;
+        state.lastVerifiedAt = uint64(block.timestamp);
 
         TaikoData.Block storage blk = state.blocks[0];
         blk.proposedAt = timeNow;
@@ -67,7 +73,7 @@ library LibVerifying {
         fc.blockHash = genesisBlockHash;
         fc.provenAt = timeNow;
 
-        emit BlockVerified(0, genesisBlockHash, 0);
+        emit BlockVerified(0, genesisBlockHash, 0, 0);
     }
 
     function verifyBlocks(
@@ -118,6 +124,7 @@ library LibVerifying {
 
             _markBlockVerified({
                 state: state,
+                config: config,
                 blk: blk,
                 fcId: uint24(fcId),
                 fc: fc,
@@ -152,6 +159,7 @@ library LibVerifying {
 
     function _markBlockVerified(
         TaikoData.State storage state,
+        TaikoData.Config memory config,
         TaikoData.Block storage blk,
         TaikoData.ForkChoice storage fc,
         uint24 fcId,
@@ -159,15 +167,92 @@ library LibVerifying {
     )
         private
     {
+        TaikoData.Auction memory auction = state.auctions[LibUtils.batchForBlock(
+            config, blk.blockId
+        ) % config.auctionBatchSize];
+
         uint64 proofTime;
         unchecked {
             proofTime = uint64(fc.provenAt - blk.proposedAt);
         }
 
+        uint64 refund;
         uint64 reward;
+        unchecked {
+            // Reward the prover
+            if (
+                fcId == 1
+                    && (fc.prover == address(1) || fc.prover == auction.bid.prover)
+            ) {
+                // Refund to auction winner if the block is proven by him or the
+                // system prover.
+                // For simplicity, we do not check if the proof is submitted
+                // before the proofWindow expires -- as long no other provers
+                // submit a valid proof before the auction winner.
+
+                state.taikoTokenBalances[auction.bid.prover] +=
+                    auction.bid.deposit;
+
+                reward = auction.bid.feePerGas
+                    * (config.blockFeeBaseGas + fc.gasUsed);
+
+                state.taikoTokenBalances[fc.prover] += reward;
+
+                state.feePerGas = updateFeePerGas(
+                    state.feePerGas,
+                    state.lastVerifiedAt,
+                    auction.bid.feePerGas,
+                    block.timestamp
+                );
+            } else {
+                // The protocol keep half deposit (can be burnt later)
+                uint64 burn = auction.bid.deposit / 2;
+                state.taikoTokenBalances[address(1)] += burn;
+
+                // reward the other half to prover with block reward
+                reward = auction.bid.deposit - burn
+                    + auction.bid.feePerGas * (config.blockFeeBaseGas + fc.gasUsed);
+
+                state.taikoTokenBalances[fc.prover] += reward;
+
+                // Question: shall we increase the fee per gas if the proof
+                // is not done by the auction winner?
+                state.feePerGas = updateFeePerGas(
+                    state.feePerGas,
+                    state.lastVerifiedAt,
+                    auction.bid.feePerGas * 2,
+                    block.timestamp
+                );
+            }
+
+            // Refund the proposer
+            if (auction.bid.blockMaxGasLimit > fc.gasUsed) {
+                refund = auction.bid.feePerGas
+                    * (auction.bid.blockMaxGasLimit - fc.gasUsed);
+                state.taikoTokenBalances[blk.proposer] += refund;
+            }
+        }
 
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = fcId;
-        emit BlockVerified(blk.blockId, fc.blockHash, reward);
+
+        state.lastVerifiedAt = uint64(block.timestamp);
+        emit BlockVerified(blk.blockId, fc.blockHash, refund, reward);
+    }
+
+    // TODO(daniel): we need to fine tune this average value calculation to
+    // ensure the fees are not changing too dramatically over a given period of
+    // time
+    function updateFeePerGas(
+        uint64 avg,
+        uint256 lastTimestamp,
+        uint64 newValue,
+        uint256 currentTimestamp
+    )
+        private
+        pure
+        returns (uint64)
+    {
+        return (avg * 1023 + newValue) / 1024;
     }
 }
