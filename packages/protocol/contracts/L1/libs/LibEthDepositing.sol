@@ -89,21 +89,18 @@ library LibEthDepositing {
                         && state.nextEthDepositToProcess
                             + config.maxEthDepositsPerBlock > i
                 ) {
-                    TaikoData.EthDeposit storage deposit = state.ethDeposits[i];
-                    if (deposit.amount > feePerDeposit) {
+                    depositsProcessed[j] = state.ethDeposits[i];
+
+                    if (depositsProcessed[j].amount > feePerDeposit) {
                         totalFee += feePerDeposit;
-
-                        depositsProcessed[j].recipient = deposit.recipient;
-                        depositsProcessed[j].amount =
-                            deposit.amount - feePerDeposit;
-                        depositsProcessed[j].id = deposit.id;
-
-                        ++j;
+                        depositsProcessed[j].amount -= feePerDeposit;
                     } else {
-                        totalFee += deposit.amount;
+                        totalFee += depositsProcessed[j].amount;
+                        depositsProcessed[j].amount = 0;
                     }
 
                     ++i;
+                    ++j;
                 }
 
                 // Fee collecting deposit
