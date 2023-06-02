@@ -5,7 +5,7 @@ import { BigNumber, Contract, ethers } from 'ethers';
 import { chains } from '../chain/chains';
 import { bridgeABI, erc20ABI, tokenVaultABI } from '../constants/abi';
 import { MessageStatus } from '../domain/message';
-import type { RecordProviders } from '../domain/provider';
+import type { ProvidersRecord } from '../domain/provider';
 import type {
   APIRequestParams,
   APIResponse,
@@ -92,10 +92,10 @@ export class RelayerAPIService implements RelayerAPI {
     return [symbol, amountInWei];
   }
 
-  private readonly providers: RecordProviders;
+  private readonly providers: ProvidersRecord;
   private readonly baseUrl: string;
 
-  constructor(baseUrl: string, providers: RecordProviders) {
+  constructor(baseUrl: string, providers: ProvidersRecord) {
     this.providers = providers;
 
     // There is a chance that by accident the env var
