@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "ts:check": "pnpm exec tsc --noEmit --skipLibCheck --project ./tsconfig.json",
     "svelte:check": "svelte-check --tsconfig ./tsconfig.json --ignore ./wagmi.config.ts",
     "test": "pnpm exec jest --silent",
     "test:debug": "pnpm exec jest",
