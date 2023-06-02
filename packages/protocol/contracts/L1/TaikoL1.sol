@@ -65,6 +65,22 @@ contract TaikoL1 is
     }
 
     /**
+     * Bid for the proving right for a batch of blocks
+     *
+     * @param batchId The id of the batch to bid for.
+     * @param bid The auction bid.
+     */
+    function bidForBatch(
+        uint256 batchId,
+        TaikoData.Bid memory bid
+    )
+        external
+        nonReentrant
+    {
+        LibAuction.bidForBatch(state, getConfig(), batchId, bid);
+    }
+
+    /**
      * Propose a Taiko L2 block.
      *
      * @param input An abi-encoded BlockMetadataInput that the actual L2
@@ -74,6 +90,7 @@ contract TaikoL1 is
      *        will be the first transaction in the block -- if there are
      *        `n` transactions in `txList`, then there will be up to `n + 1`
      *        transactions in the L2 block.
+     * @return meta The metadata for the proposed block.
      */
     function proposeBlock(
         bytes calldata input,

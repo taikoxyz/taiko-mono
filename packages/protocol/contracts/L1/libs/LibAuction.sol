@@ -17,7 +17,7 @@ library LibAuction {
     error L1_INVALID_BATCHID();
     error L1_INVALID_BID();
 
-    function bidForBlocks(
+    function bidForBatch(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint256 batchId,
