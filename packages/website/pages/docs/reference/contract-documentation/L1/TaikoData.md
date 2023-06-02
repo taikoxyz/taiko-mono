@@ -134,6 +134,7 @@ struct TxListInfo {
 struct EthDeposit {
   address recipient;
   uint96 amount;
+  uint64 id;
 }
 ```
 
