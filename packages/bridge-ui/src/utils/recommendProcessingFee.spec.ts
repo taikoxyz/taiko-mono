@@ -7,7 +7,7 @@ import { ProcessingFeeMethod } from '../domain/fee';
 import type { Token } from '../domain/token';
 import { providers } from '../provider/providers';
 import { signer } from '../store/signer';
-import { ETHToken, testERC20Tokens, TKOToken } from '../token/tokens';
+import { ETHToken, testERC20Tokens } from '../token/tokens';
 import {
   erc20DeployedGasLimit,
   erc20NotDeployedGasLimit,
@@ -51,6 +51,7 @@ const mockToken = {
   ],
   decimals: 18,
   symbol: 'MKT',
+  logoComponent: null,
 } as Token;
 
 describe('recommendProcessingFee()', () => {

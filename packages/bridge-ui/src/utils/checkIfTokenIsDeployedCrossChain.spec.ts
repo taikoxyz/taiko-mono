@@ -30,7 +30,7 @@ describe('checkIfTokenIsDeployedCrossChain', () => {
     name: 'MyChain',
     rpc: 'http://mychain.rpc.com',
     explorerUrl: '',
-    signalServiceAddress: '',
+    signalServiceAddress: '0x1234567890',
     bridgeAddress: '0x1234567890',
     crossChainSyncAddress: '0x0987654321',
   };
@@ -40,7 +40,7 @@ describe('checkIfTokenIsDeployedCrossChain', () => {
     name: 'SomeOtherChain',
     rpc: 'http://otherchain.rpc.com',
     explorerUrl: '',
-    signalServiceAddress: '',
+    signalServiceAddress: '0x9876543210',
     bridgeAddress: '0x9876543210',
     crossChainSyncAddress: '0x0123456789',
   };

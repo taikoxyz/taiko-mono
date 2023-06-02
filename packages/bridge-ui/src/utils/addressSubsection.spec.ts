@@ -7,7 +7,5 @@ it('should return string with prefix and suffix', () => {
 });
 
 it('should return 0x if empty', () => {
-  const dummyAddress = '';
-
   expect(addressSubsection('')).toStrictEqual('0x');
 });
