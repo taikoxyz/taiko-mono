@@ -6,13 +6,13 @@
 
 pragma solidity ^0.8.18;
 
-import {AddressResolver} from "../../common/AddressResolver.sol";
-import {LibAddress} from "../../libs/LibAddress.sol";
-import {LibEthDepositing} from "./LibEthDepositing.sol";
-import {LibUtils} from "./LibUtils.sol";
-import {SafeCastUpgradeable} from
+import { AddressResolver } from "../../common/AddressResolver.sol";
+import { LibAddress } from "../../libs/LibAddress.sol";
+import { LibEthDepositing } from "./LibEthDepositing.sol";
+import { LibUtils } from "./LibUtils.sol";
+import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {TaikoData} from "../TaikoData.sol";
+import { TaikoData } from "../TaikoData.sol";
 
 library LibProposing {
     using SafeCastUpgradeable for uint256;
@@ -20,10 +20,11 @@ library LibProposing {
     using LibAddress for address payable;
     using LibUtils for TaikoData.State;
 
-    event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta, uint64 blockFee);
+    event BlockProposed(
+        uint256 indexed id, TaikoData.BlockMetadata meta, uint64 blockFee
+    );
 
     error L1_BLOCK_ID();
-    error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
     error L1_TOO_MANY_BLOCKS();
     error L1_TX_LIST_NOT_EXIST();
@@ -37,9 +38,16 @@ library LibProposing {
         AddressResolver resolver,
         TaikoData.BlockMetadataInput memory input,
         bytes calldata txList
-    ) internal returns (TaikoData.BlockMetadata memory meta) {
-        uint8 cacheTxListInfo =
-            _validateBlock({state: state, config: config, input: input, txList: txList});
+    )
+        internal
+        returns (TaikoData.BlockMetadata memory meta)
+    {
+        uint8 cacheTxListInfo = _validateBlock({
+            state: state,
+            config: config,
+            input: input,
+            txList: txList
+        });
 
         if (cacheTxListInfo != 0) {
             state.txListInfo[input.txListHash] = TaikoData.TxListInfo({
@@ -60,7 +68,8 @@ library LibProposing {
         meta.gasLimit = input.gasLimit;
         meta.beneficiary = input.beneficiary;
         meta.treasury = resolver.resolve(config.chainId, "treasury", false);
-        meta.depositsProcessed = LibEthDepositing.processDeposits(state, config, input.beneficiary);
+        meta.depositsProcessed =
+            LibEthDepositing.processDeposits(state, config, input.beneficiary);
 
         unchecked {
             meta.timestamp = uint64(block.timestamp);
@@ -69,7 +78,8 @@ library LibProposing {
             meta.mixHash = bytes32(block.difficulty * state.numBlocks);
         }
 
-        TaikoData.Block storage blk = state.blocks[state.numBlocks % config.ringBufferSize];
+        TaikoData.Block storage blk =
+            state.blocks[state.numBlocks % config.ringBufferSize];
 
         blk.blockId = state.numBlocks;
         blk.proposedAt = meta.timestamp;
@@ -78,16 +88,7 @@ library LibProposing {
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.proposer = msg.sender;
 
-        uint64 blockFee = state.blockFee;
-        if (state.taikoTokenBalances[msg.sender] < blockFee) {
-            revert L1_INSUFFICIENT_TOKEN();
-        }
-
-        unchecked {
-            state.taikoTokenBalances[msg.sender] -= blockFee;
-            state.accBlockFees += blockFee;
-            state.accProposedAt += meta.timestamp;
-        }
+        uint64 blockFee;
 
         emit BlockProposed(state.numBlocks, meta, blockFee);
         unchecked {
@@ -99,7 +100,11 @@ library LibProposing {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint256 blockId
-    ) internal view returns (TaikoData.Block storage blk) {
+    )
+        internal
+        view
+        returns (TaikoData.Block storage blk)
+    {
         blk = state.blocks[blockId % config.ringBufferSize];
         if (blk.blockId != blockId) revert L1_BLOCK_ID();
     }
@@ -109,13 +114,23 @@ library LibProposing {
         TaikoData.Config memory config,
         TaikoData.BlockMetadataInput memory input,
         bytes calldata txList
-    ) private view returns (uint8 cacheTxListInfo) {
+    )
+        private
+        view
+        returns (uint8 cacheTxListInfo)
+    {
         if (
-            input.beneficiary == address(0) || input.gasLimit == 0
-                || input.gasLimit > config.blockMaxGasLimit
+            input.beneficiary == address(0)
+            //
+            || input.gasLimit == 0
+            //
+            || input.gasLimit > config.blockMaxGasLimit
         ) revert L1_INVALID_METADATA();
 
-        if (state.numBlocks >= state.lastVerifiedBlockId + config.maxNumProposedBlocks + 1) {
+        if (
+            state.numBlocks
+                >= state.lastVerifiedBlockId + config.maxNumProposedBlocks + 1
+        ) {
             revert L1_TOO_MANY_BLOCKS();
         }
 
@@ -138,13 +153,17 @@ library LibProposing {
                 // caching is enabled
                 if (size == 0) {
                     // This blob shall have been submitted earlier
-                    TaikoData.TxListInfo memory info = state.txListInfo[input.txListHash];
+                    TaikoData.TxListInfo memory info =
+                        state.txListInfo[input.txListHash];
 
                     if (input.txListByteEnd > info.size) {
                         revert L1_TX_LIST_RANGE();
                     }
 
-                    if (info.size == 0 || info.validSince + config.txListCacheExpiry < timeNow) {
+                    if (
+                        info.size == 0
+                            || info.validSince + config.txListCacheExpiry < timeNow
+                    ) {
                         revert L1_TX_LIST_NOT_EXIST();
                     }
                 } else {

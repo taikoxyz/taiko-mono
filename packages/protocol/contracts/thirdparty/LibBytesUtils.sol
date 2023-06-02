@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-// Taken from https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts/contracts/libraries/utils/LibBytesUtils.sol
+// Taken from
+// https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts/contracts/libraries/utils/LibBytesUtils.sol
 // (The MIT License)
 //
 // Copyright 2020-2021 Optimism
@@ -34,7 +35,11 @@ library LibBytesUtils {
                            INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function slice(bytes memory _bytes, uint256 _start, uint256 _length)
+    function slice(
+        bytes memory _bytes,
+        uint256 _start,
+        uint256 _length
+    )
         internal
         pure
         returns (bytes memory)
@@ -48,7 +53,8 @@ library LibBytesUtils {
         assembly {
             switch iszero(_length)
             case 0 {
-                // Get a location of some free memory and store it in tempBytes as
+                // Get a location of some free memory and store it in tempBytes
+                // as
                 // Solidity does for memory variables.
                 tempBytes := mload(0x40)
 
@@ -66,13 +72,21 @@ library LibBytesUtils {
                 // because when slicing multiples of 32 bytes (lengthmod == 0)
                 // the following copy loop was copying the origin's length
                 // and then ending prematurely not copying everything it should.
-                let mc := add(add(tempBytes, lengthmod), mul(0x20, iszero(lengthmod)))
+                let mc :=
+                    add(add(tempBytes, lengthmod), mul(0x20, iszero(lengthmod)))
                 let end := add(mc, _length)
 
                 for {
-                    // The multiplication in the next line has the same exact purpose
+                    // The multiplication in the next line has the same exact
+                    // purpose
                     // as the one above.
-                    let cc := add(add(add(_bytes, lengthmod), mul(0x20, iszero(lengthmod))), _start)
+                    let cc :=
+                        add(
+                            add(
+                                add(_bytes, lengthmod), mul(0x20, iszero(lengthmod))
+                            ),
+                            _start
+                        )
                 } lt(mc, end) {
                     mc := add(mc, 0x20)
                     cc := add(cc, 0x20)
@@ -81,10 +95,12 @@ library LibBytesUtils {
                 mstore(tempBytes, _length)
 
                 //update free-memory pointer
-                //allocating the array padded to 32 bytes like the compiler does now
+                //allocating the array padded to 32 bytes like the compiler does
+                // now
                 mstore(0x40, and(add(mc, 31), not(31)))
             }
-            //if we want a zero-length slice let's just return a zero-length array
+            //if we want a zero-length slice let's just return a zero-length
+            // array
             default {
                 tempBytes := mload(0x40)
 
@@ -99,7 +115,14 @@ library LibBytesUtils {
         return tempBytes;
     }
 
-    function slice(bytes memory _bytes, uint256 _start) internal pure returns (bytes memory) {
+    function slice(
+        bytes memory _bytes,
+        uint256 _start
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
         if (_start >= _bytes.length) {
             return bytes("");
         }
@@ -116,14 +139,19 @@ library LibBytesUtils {
             return ret;
         }
 
-        return abi.decode(_bytes, (bytes32)); // will truncate if input length > 32 bytes
+        return abi.decode(_bytes, (bytes32)); // will truncate if input length >
+            // 32 bytes
     }
 
     function toUint256(bytes memory _bytes) internal pure returns (uint256) {
         return uint256(toBytes32(_bytes));
     }
 
-    function toNibbles(bytes memory _bytes) internal pure returns (bytes memory) {
+    function toNibbles(bytes memory _bytes)
+        internal
+        pure
+        returns (bytes memory)
+    {
         bytes memory nibbles = new bytes(_bytes.length * 2);
 
         for (uint256 i; i < _bytes.length; ++i) {
@@ -134,7 +162,11 @@ library LibBytesUtils {
         return nibbles;
     }
 
-    function fromNibbles(bytes memory _bytes) internal pure returns (bytes memory) {
+    function fromNibbles(bytes memory _bytes)
+        internal
+        pure
+        returns (bytes memory)
+    {
         bytes memory ret = new bytes(_bytes.length / 2);
 
         for (uint256 i; i < ret.length; ++i) {
@@ -144,7 +176,14 @@ library LibBytesUtils {
         return ret;
     }
 
-    function equal(bytes memory _bytes, bytes memory _other) internal pure returns (bool) {
+    function equal(
+        bytes memory _bytes,
+        bytes memory _other
+    )
+        internal
+        pure
+        returns (bool)
+    {
         return keccak256(_bytes) == keccak256(_other);
     }
 }

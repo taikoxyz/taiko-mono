@@ -6,22 +6,26 @@
 
 pragma solidity ^0.8.18;
 
-import {LibUint512Math} from "../libs/LibUint512Math.sol";
+import { LibUint512Math } from "../libs/LibUint512Math.sol";
 
 abstract contract TaikoL2Signer {
-    address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
+    address public constant GOLDEN_TOUCH_ADDRESS =
+        0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
     uint256 public constant GOLDEN_TOUCH_PRIVATEKEY =
         0x92954368afd3caa1f3ce3ead0069c1af414054aefe1ef9aeacc1bf426222ce38;
 
-    uint256 private constant GX = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798;
-    uint256 private constant GY = 0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8;
+    uint256 private constant GX =
+        0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798;
+    uint256 private constant GY =
+        0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8;
 
     uint256 private constant GX2 =
         0xc6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5;
     uint256 private constant GY2 =
         0x1ae168fea63dc339a3c58419466ceaeef7f632653266d0e1236431a950cfe52a;
 
-    uint256 private constant N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141;
+    uint256 private constant N =
+        0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141;
 
     // (
     //     uint256 GX_MUL_GOLDEN_TOUCH_PRIVATEKEY_LOW,
@@ -47,7 +51,10 @@ abstract contract TaikoL2Signer {
 
     error L2_INVALID_GOLDEN_TOUCH_K();
 
-    function signAnchor(bytes32 digest, uint8 k)
+    function signAnchor(
+        bytes32 digest,
+        uint8 k
+    )
         public
         view
         returns (uint8 v, uint256 r, uint256 s)
@@ -56,18 +63,22 @@ abstract contract TaikoL2Signer {
 
         r = k == 1 ? GX : GX2;
 
-        uint256 low256 =
-            k == 1 ? GX_MUL_GOLDEN_TOUCH_PRIVATEKEY_LOW : GX2_MUL_GOLDEN_TOUCH_PRIVATEKEY_LOW;
+        uint256 low256 = k == 1
+            ? GX_MUL_GOLDEN_TOUCH_PRIVATEKEY_LOW
+            : GX2_MUL_GOLDEN_TOUCH_PRIVATEKEY_LOW;
 
-        uint256 high256 =
-            k == 1 ? GX_MUL_GOLDEN_TOUCH_PRIVATEKEY_HIGH : GX2_MUL_GOLDEN_TOUCH_PRIVATEKEY_HIGH;
+        uint256 high256 = k == 1
+            ? GX_MUL_GOLDEN_TOUCH_PRIVATEKEY_HIGH
+            : GX2_MUL_GOLDEN_TOUCH_PRIVATEKEY_HIGH;
 
-        (low256, high256) = LibUint512Math.add(low256, high256, uint256(digest), 0);
+        (low256, high256) =
+            LibUint512Math.add(low256, high256, uint256(digest), 0);
 
         if (k == 1) {
             s = _expmod(low256, high256, 1, N);
         } else {
-            (low256, high256) = LibUint512Math.mul(K_2_INVM_N, _expmod(low256, high256, 1, N));
+            (low256, high256) =
+                LibUint512Math.mul(K_2_INVM_N, _expmod(low256, high256, 1, N));
             s = _expmod(low256, high256, 1, N);
         }
 
@@ -77,7 +88,12 @@ abstract contract TaikoL2Signer {
         }
     }
 
-    function _expmod(uint256 baseLow, uint256 baseHigh, uint256 e, uint256 m)
+    function _expmod(
+        uint256 baseLow,
+        uint256 baseHigh,
+        uint256 e,
+        uint256 m
+    )
         private
         view
         returns (uint256 o)
@@ -94,7 +110,9 @@ abstract contract TaikoL2Signer {
             mstore(add(p, 0xa0), e) // Exponent
             mstore(add(p, 0xc0), m) // Modulus
 
-            if iszero(staticcall(sub(gas(), 2000), 0x05, p, 0xe0, p, 0x20)) { revert(0, 0) }
+            if iszero(staticcall(sub(gas(), 2000), 0x05, p, 0xe0, p, 0x20)) {
+                revert(0, 0)
+            }
             // data
             o := mload(p)
         }

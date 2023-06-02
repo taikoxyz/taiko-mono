@@ -5,31 +5,34 @@ import "forge-std/StdJson.sol";
 import "../../contracts/bridge/BridgeErrors.sol";
 import "../../contracts/bridge/IBridge.sol";
 import "../../contracts/common/AddressResolver.sol";
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
-import {TaikoL2} from "../../contracts/L2/TaikoL2.sol";
-import {AddressManager} from "../../contracts/common/AddressManager.sol";
-import {Bridge} from "../../contracts/bridge/Bridge.sol";
-import {TokenVault} from "../../contracts/bridge/TokenVault.sol";
-import {EtherVault} from "../../contracts/bridge/EtherVault.sol";
-import {SignalService} from "../../contracts/signal/SignalService.sol";
-import {LibBridgeStatus} from "../../contracts/bridge/libs/LibBridgeStatus.sol";
-import {LibL2Consts} from "../../contracts/L2/LibL2Consts.sol";
-import {RegularERC20} from "../../contracts/test/erc20/RegularERC20.sol";
-import {TransparentUpgradeableProxy} from
+import { Test } from "forge-std/Test.sol";
+import { console2 } from "forge-std/console2.sol";
+import { TaikoL2 } from "../../contracts/L2/TaikoL2.sol";
+import { AddressManager } from "../../contracts/common/AddressManager.sol";
+import { Bridge } from "../../contracts/bridge/Bridge.sol";
+import { TokenVault } from "../../contracts/bridge/TokenVault.sol";
+import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
+import { SignalService } from "../../contracts/signal/SignalService.sol";
+import { LibBridgeStatus } from
+    "../../contracts/bridge/libs/LibBridgeStatus.sol";
+import { LibL2Consts } from "../../contracts/L2/LibL2Consts.sol";
+import { RegularERC20 } from "../../contracts/test/erc20/RegularERC20.sol";
+import { TransparentUpgradeableProxy } from
     "../../contracts/thirdparty/TransparentUpgradeableProxy.sol";
 
 contract TestGenerateGenesis is Test, AddressResolver {
     using stdJson for string;
 
-    string private configJSON =
-        vm.readFile(string.concat(vm.projectRoot(), "/test/genesis/test_config.json"));
-    string private genesisAllocJSON =
-        vm.readFile(string.concat(vm.projectRoot(), "/deployments/genesis_alloc.json"));
+    string private configJSON = vm.readFile(
+        string.concat(vm.projectRoot(), "/test/genesis/test_config.json")
+    );
+    string private genesisAllocJSON = vm.readFile(
+        string.concat(vm.projectRoot(), "/deployments/genesis_alloc.json")
+    );
     address private owner = configJSON.readAddress(".contractOwner");
     address private admin = configJSON.readAddress(".contractAdmin");
 
-    uint64 public constant BLOCK_GAS_LIMIT = 30000000;
+    uint64 public constant BLOCK_GAS_LIMIT = 30_000_000;
 
     function testContractDeployment() public {
         assertEq(block.chainid, 167);
@@ -69,7 +72,9 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkSavedAddress(addressManager, "TokenVaultProxy", "token_vault");
         checkSavedAddress(addressManager, "EtherVaultProxy", "ether_vault");
         checkSavedAddress(addressManager, "TaikoL2Proxy", "taiko");
-        checkSavedAddress(addressManager, "SignalServiceProxy", "signal_service");
+        checkSavedAddress(
+            addressManager, "SignalServiceProxy", "signal_service"
+        );
 
         TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
             payable(getPredeployedContractAddress("AddressManagerProxy"))
@@ -92,7 +97,11 @@ contract TestGenerateGenesis is Test, AddressResolver {
         for (uint64 i = 0; i < 300; i++) {
             vm.roll(block.number + 1);
             vm.warp(taikoL2.parentTimestamp() + 12);
-            vm.fee(taikoL2.getBasefee(12, BLOCK_GAS_LIMIT, i + LibL2Consts.ANCHOR_GAS_COST));
+            vm.fee(
+                taikoL2.getBasefee(
+                    12, BLOCK_GAS_LIMIT, i + LibL2Consts.ANCHOR_GAS_COST
+                )
+            );
 
             uint256 gasLeftBefore = gasleft();
 
@@ -105,7 +114,8 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
             if (i == 299) {
                 console2.log(
-                    "TaikoL2.anchor gas cost after 256 L2 blocks:", gasLeftBefore - gasleft()
+                    "TaikoL2.anchor gas cost after 256 L2 blocks:",
+                    gasLeftBefore - gasleft()
                 );
             }
         }
@@ -113,8 +123,9 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         vm.startPrank(admin);
 
-        TransparentUpgradeableProxy proxy =
-            TransparentUpgradeableProxy(payable(getPredeployedContractAddress("TaikoL2Proxy")));
+        TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
+            payable(getPredeployedContractAddress("TaikoL2Proxy"))
+        );
 
         TaikoL2 newTaikoL2 = new TaikoL2();
 
@@ -125,7 +136,8 @@ contract TestGenerateGenesis is Test, AddressResolver {
     }
 
     function testBridge() public {
-        address payable bridgeAddress = payable(getPredeployedContractAddress("BridgeProxy"));
+        address payable bridgeAddress =
+            payable(getPredeployedContractAddress("BridgeProxy"));
         Bridge bridge = Bridge(bridgeAddress);
 
         assertEq(owner, bridge.owner());
@@ -152,8 +164,9 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         vm.startPrank(admin);
 
-        TransparentUpgradeableProxy proxy =
-            TransparentUpgradeableProxy(payable(getPredeployedContractAddress("BridgeProxy")));
+        TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
+            payable(getPredeployedContractAddress("BridgeProxy"))
+        );
 
         Bridge newBridge = new Bridge();
 
@@ -170,13 +183,19 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         assertEq(owner, etherVault.owner());
 
-        assertEq(etherVault.isAuthorized(getPredeployedContractAddress("BridgeProxy")), true);
+        assertEq(
+            etherVault.isAuthorized(
+                getPredeployedContractAddress("BridgeProxy")
+            ),
+            true
+        );
         assertEq(etherVault.isAuthorized(etherVault.owner()), false);
 
         vm.startPrank(admin);
 
-        TransparentUpgradeableProxy proxy =
-            TransparentUpgradeableProxy(payable(getPredeployedContractAddress("EtherVaultProxy")));
+        TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
+            payable(getPredeployedContractAddress("EtherVaultProxy"))
+        );
 
         EtherVault newEtherVault = new EtherVault();
 
@@ -187,7 +206,8 @@ contract TestGenerateGenesis is Test, AddressResolver {
     }
 
     function testTokenVault() public {
-        address tokenVaultAddress = getPredeployedContractAddress("TokenVaultProxy");
+        address tokenVaultAddress =
+            getPredeployedContractAddress("TokenVaultProxy");
         address bridgeAddress = getPredeployedContractAddress("BridgeProxy");
 
         TokenVault tokenVault = TokenVault(tokenVaultAddress);
@@ -203,8 +223,9 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         vm.startPrank(admin);
 
-        TransparentUpgradeableProxy proxy =
-            TransparentUpgradeableProxy(payable(getPredeployedContractAddress("TokenVaultProxy")));
+        TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
+            payable(getPredeployedContractAddress("TokenVaultProxy"))
+        );
 
         TokenVault newTokenVault = new TokenVault();
 
@@ -237,32 +258,43 @@ contract TestGenerateGenesis is Test, AddressResolver {
     }
 
     function testERC20() public {
-        RegularERC20 regularERC20 = RegularERC20(getPredeployedContractAddress("RegularERC20"));
+        RegularERC20 regularERC20 =
+            RegularERC20(getPredeployedContractAddress("RegularERC20"));
 
         assertEq(regularERC20.name(), "RegularERC20");
         assertEq(regularERC20.symbol(), "RGL");
     }
 
-    function getPredeployedContractAddress(string memory contractName) private returns (address) {
-        return configJSON.readAddress(string.concat(".contractAddresses.", contractName));
+    function getPredeployedContractAddress(string memory contractName)
+        private
+        returns (address)
+    {
+        return configJSON.readAddress(
+            string.concat(".contractAddresses.", contractName)
+        );
     }
 
     function checkDeployedCode(string memory contractName) private {
         address contractAddress = getPredeployedContractAddress(contractName);
-        string memory deployedCode =
-            genesisAllocJSON.readString(string.concat(".", vm.toString(contractAddress), ".code"));
+        string memory deployedCode = genesisAllocJSON.readString(
+            string.concat(".", vm.toString(contractAddress), ".code")
+        );
 
         assertEq(address(contractAddress).code, vm.parseBytes(deployedCode));
     }
 
-    function checkProxyImplementation(string memory proxyName, string memory contractName)
+    function checkProxyImplementation(
+        string memory proxyName,
+        string memory contractName
+    )
         private
     {
         vm.startPrank(admin);
         address contractAddress = getPredeployedContractAddress(contractName);
         address proxyAddress = getPredeployedContractAddress(proxyName);
 
-        TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(payable(proxyAddress));
+        TransparentUpgradeableProxy proxy =
+            TransparentUpgradeableProxy(payable(proxyAddress));
 
         assertEq(proxy.implementation(), address(contractAddress));
 
@@ -275,7 +307,9 @@ contract TestGenerateGenesis is Test, AddressResolver {
         AddressManager addressManager,
         string memory contractName,
         bytes32 name
-    ) private {
+    )
+        private
+    {
         assertEq(
             getPredeployedContractAddress(contractName),
             addressManager.getAddress(block.chainid, name)

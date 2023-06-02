@@ -1,21 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
-import {AddressManager} from "../contracts/common/AddressManager.sol";
-import {LibUtils} from "../contracts/L1/libs/LibUtils.sol";
-import {TaikoConfig} from "../contracts/L1/TaikoConfig.sol";
-import {TaikoData} from "../contracts/L1/TaikoData.sol";
-import {TaikoErrors} from "../contracts/L1/TaikoErrors.sol";
-import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
-import {TaikoToken} from "../contracts/L1/TaikoToken.sol";
-import {SignalService} from "../contracts/signal/SignalService.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {TaikoL1TestBase} from "./TaikoL1TestBase.t.sol";
+import { Test } from "forge-std/Test.sol";
+import { console2 } from "forge-std/console2.sol";
+import { AddressManager } from "../contracts/common/AddressManager.sol";
+import { LibUtils } from "../contracts/L1/libs/LibUtils.sol";
+import { TaikoConfig } from "../contracts/L1/TaikoConfig.sol";
+import { TaikoData } from "../contracts/L1/TaikoData.sol";
+import { TaikoErrors } from "../contracts/L1/TaikoErrors.sol";
+import { TaikoL1 } from "../contracts/L1/TaikoL1.sol";
+import { TaikoToken } from "../contracts/L1/TaikoToken.sol";
+import { SignalService } from "../contracts/signal/SignalService.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { TaikoL1TestBase } from "./TaikoL1TestBase.t.sol";
 
 contract TaikoL1Oracle is TaikoL1 {
-    function getConfig() public pure override returns (TaikoData.Config memory config) {
+    function getConfig()
+        public
+        pure
+        override
+        returns (TaikoData.Config memory config)
+    {
         config = TaikoConfig.getConfig();
 
         config.txListCacheExpiry = 5 minutes;
@@ -49,14 +54,14 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
         depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
 
-        TaikoData.BlockMetadata memory meta = proposeBlock(Bob, 1000000, 1024);
+        TaikoData.BlockMetadata memory meta = proposeBlock(Bob, 1_000_000, 1024);
         proveBlock(
             Bob,
             Bob,
             meta,
             GENESIS_BLOCK_HASH,
-            10000,
-            10001,
+            10_000,
+            10_001,
             bytes32(uint256(0x11)),
             bytes32(uint256(0x12))
         );
@@ -67,25 +72,27 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             signalRoot: bytes32(uint256(0x12)),
             graffiti: 0x0,
             prover: address(0),
-            parentGasUsed: 10000,
-            gasUsed: 40000,
+            parentGasUsed: 10_000,
+            gasUsed: 40_000,
             verifierId: 0,
             proof: new bytes(0)
         });
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(AlicePK, keccak256(abi.encode(evidence)));
+        (uint8 v, bytes32 r, bytes32 s) =
+            vm.sign(AlicePK, keccak256(abi.encode(evidence)));
 
         evidence.verifierId = v;
         evidence.proof = bytes.concat(r, s);
 
         vm.prank(Carol, Carol);
         L1.proveBlock(meta.id, abi.encode(evidence));
-        TaikoData.ForkChoice memory fc = L1.getForkChoice(1, GENESIS_BLOCK_HASH, 10000);
+        TaikoData.ForkChoice memory fc =
+            L1.getForkChoice(1, GENESIS_BLOCK_HASH, 10_000);
 
         assertEq(fc.blockHash, bytes32(uint256(0x11)));
         assertEq(fc.signalRoot, bytes32(uint256(0x12)));
         assertEq(fc.provenAt, block.timestamp);
         assertEq(fc.prover, address(0));
-        assertEq(fc.gasUsed, 40000);
+        assertEq(fc.gasUsed, 40_000);
     }
 
     function testOracleProverCanAlwaysOverwriteIfNotSameProof() external {
@@ -99,10 +106,11 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint256 blockId = 1;
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+        TaikoData.BlockMetadata memory meta =
+            proposeBlock(Alice, 1_000_000, 1024);
 
         for (uint256 i = 0; i < 5; ++i) {
-            uint32 parentGasUsed = uint32(10000 + i);
+            uint32 parentGasUsed = uint32(10_000 + i);
 
             // Bob proves the block
             proveBlock(
@@ -111,14 +119,15 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 meta,
                 parentHash,
                 parentGasUsed,
-                10001,
+                10_001,
                 bytes32(uint256(0x11)),
                 bytes32(uint256(0x12))
             );
 
             uint256 provenAt = block.timestamp;
 
-            TaikoData.ForkChoice memory fc = L1.getForkChoice(blockId, parentHash, parentGasUsed);
+            TaikoData.ForkChoice memory fc =
+                L1.getForkChoice(blockId, parentHash, parentGasUsed);
 
             if (i == 0) {
                 assertFalse(fc.key == 0);
@@ -129,7 +138,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             assertEq(fc.signalRoot, bytes32(uint256(0x12)));
             assertEq(fc.provenAt, provenAt);
             assertEq(fc.prover, Bob);
-            assertEq(fc.gasUsed, 10001);
+            assertEq(fc.gasUsed, 10_001);
 
             // Carol - who is oracle prover - can overwrite with same proof
             vm.warp(block.timestamp + 10 seconds);
@@ -139,7 +148,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 meta,
                 parentHash,
                 parentGasUsed,
-                10002,
+                10_002,
                 bytes32(uint256(0x11)),
                 bytes32(uint256(0x12))
             );
@@ -157,7 +166,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             assertEq(fc.signalRoot, bytes32(uint256(0x12)));
             assertEq(fc.provenAt, provenAt);
             assertEq(fc.prover, address(0));
-            assertEq(fc.gasUsed, 10002);
+            assertEq(fc.gasUsed, 10_002);
         }
     }
 
@@ -168,10 +177,11 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint256 blockId = 1;
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+        TaikoData.BlockMetadata memory meta =
+            proposeBlock(Alice, 1_000_000, 1024);
 
         for (uint256 i = 0; i < 5; ++i) {
-            uint32 parentGasUsed = uint32(10000 + i);
+            uint32 parentGasUsed = uint32(10_000 + i);
 
             // Bob proves the block
             proveBlock(
@@ -180,14 +190,15 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 meta,
                 parentHash,
                 parentGasUsed,
-                10001,
+                10_001,
                 bytes32(uint256(0x11)),
                 bytes32(uint256(0x12))
             );
 
             uint256 provenAt = block.timestamp;
 
-            TaikoData.ForkChoice memory fc = L1.getForkChoice(blockId, parentHash, parentGasUsed);
+            TaikoData.ForkChoice memory fc =
+                L1.getForkChoice(blockId, parentHash, parentGasUsed);
 
             if (i == 0) {
                 assertFalse(fc.key == 0);
@@ -198,7 +209,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             assertEq(fc.signalRoot, bytes32(uint256(0x12)));
             assertEq(fc.provenAt, provenAt);
             assertEq(fc.prover, Bob);
-            assertEq(fc.gasUsed, 10001);
+            assertEq(fc.gasUsed, 10_001);
 
             // Carol cannot prove the fork choice again
             vm.warp(block.timestamp + 10 seconds);
@@ -209,7 +220,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 meta,
                 parentHash,
                 parentGasUsed,
-                10002,
+                10_002,
                 bytes32(uint256(0x21)),
                 bytes32(uint256(0x22))
             );
@@ -224,7 +235,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 meta,
                 parentHash,
                 parentGasUsed,
-                10001,
+                10_001,
                 bytes32(uint256(0x11)),
                 bytes32(uint256(0x12))
             );
@@ -242,54 +253,22 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             assertEq(fc.signalRoot, bytes32(uint256(0x12)));
             assertEq(fc.provenAt, provenAt);
             assertEq(fc.prover, Bob);
-            assertEq(fc.gasUsed, 10001);
+            assertEq(fc.gasUsed, 10_001);
 
             vm.warp(block.timestamp + 10 seconds);
         }
     }
 
-    /// @dev Test we can propose, prove, then verify more blocks than 'maxNumProposedBlocks'
-    function test_cooldown_more_blocks_than_ring_buffer_size() external {
-        depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
-        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
-        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
-
-        bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint32 parentGasUsed = 0;
-        uint32 gasUsed = 1000000;
-
-        for (uint256 blockId = 1; blockId < conf.maxNumProposedBlocks * 10; blockId++) {
-            printVariables("before propose");
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
-            printVariables("after propose");
-            mine(1);
-
-            bytes32 blockHash = bytes32(1e10 + blockId);
-            bytes32 signalRoot = bytes32(1e9 + blockId);
-            proveBlock(Bob, Bob, meta, parentHash, parentGasUsed, gasUsed, blockHash, signalRoot);
-
-            uint256 lastVerifiedBlockId = L1.getStateVariables().lastVerifiedBlockId;
-
-            vm.warp(block.timestamp + 4 minutes + 59 seconds);
-            verifyBlock(Carol, 1);
-
-            assertEq(lastVerifiedBlockId, L1.getStateVariables().lastVerifiedBlockId);
-
-            vm.warp(block.timestamp + 1 seconds);
-            verifyBlock(Carol, 1);
-            assertFalse(lastVerifiedBlockId == L1.getStateVariables().lastVerifiedBlockId);
-
-            parentHash = blockHash;
-            parentGasUsed = gasUsed;
-        }
-        printVariables("");
-    }
-
-    /// @dev So in case we have regular proving mechanism we shall check if still a cooldown happens
+    /// @dev So in case we have regular proving mechanism we shall check if
+    /// still a cooldown happens
     /// @dev when proving a block (in a normal way).
-    /// @notice In case both oracle_prover and system_prover is disbaled, there is no reason why
+    /// @notice In case both oracle_prover and system_prover is disbaled, there
+    /// is no reason why
     /// @notice cooldowns be above 0 min tho (!).
-    function test_if_oracle_is_disabled_cooldown_is_still_as_proofCooldownPeriod() external {
+    function test_if_oracle_is_disabled_cooldown_is_still_as_proofCooldownPeriod(
+    )
+        external
+    {
         registerAddress("oracle_prover", address(0));
         registerAddress("system_prover", address(0));
 
@@ -299,25 +278,42 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
-        uint32 gasUsed = 1000000;
+        uint32 gasUsed = 1_000_000;
 
-        for (uint256 blockId = 1; blockId < conf.maxNumProposedBlocks * 10; blockId++) {
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+        for (
+            uint256 blockId = 1;
+            blockId < conf.maxNumProposedBlocks * 10;
+            blockId++
+        ) {
+            TaikoData.BlockMetadata memory meta =
+                proposeBlock(Alice, 1_000_000, 1024);
             printVariables("after propose");
             mine(1);
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
-            proveBlock(Bob, Bob, meta, parentHash, parentGasUsed, gasUsed, blockHash, signalRoot);
+            proveBlock(
+                Bob,
+                Bob,
+                meta,
+                parentHash,
+                parentGasUsed,
+                gasUsed,
+                blockHash,
+                signalRoot
+            );
 
-            uint256 lastVerifiedBlockId = L1.getStateVariables().lastVerifiedBlockId;
+            uint256 lastVerifiedBlockId =
+                L1.getStateVariables().lastVerifiedBlockId;
 
             vm.warp(block.timestamp + 1 seconds);
             verifyBlock(Carol, 1);
 
-            // Check if shortly after proving (+verify) the last verify is not the same anymore
+            // Check if shortly after proving (+verify) the last verify is not
+            // the same anymore
             // no need to have a cooldown period
-            uint256 lastVerifiedBlockIdNow = L1.getStateVariables().lastVerifiedBlockId;
+            uint256 lastVerifiedBlockIdNow =
+                L1.getStateVariables().lastVerifiedBlockId;
 
             assertEq(lastVerifiedBlockIdNow, lastVerifiedBlockId);
 
@@ -335,7 +331,8 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     }
 
     /// @dev Test if oracle prover is the only prover it cannot be verified
-    function test_that_simple_oracle_prover_cannot_be_verified_only_if_normal_proof_comes_in()
+    function test_that_simple_oracle_prover_cannot_be_verified_only_if_normal_proof_comes_in(
+    )
         external
     {
         // Bob is an oracle prover now
@@ -348,32 +345,54 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
-        uint32 gasUsed = 1000000;
+        uint32 gasUsed = 1_000_000;
 
-        for (uint256 blockId = 1; blockId < conf.maxNumProposedBlocks * 10; blockId++) {
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+        for (
+            uint256 blockId = 1;
+            blockId < conf.maxNumProposedBlocks * 10;
+            blockId++
+        ) {
+            TaikoData.BlockMetadata memory meta =
+                proposeBlock(Alice, 1_000_000, 1024);
             printVariables("after propose");
             mine(1);
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
             proveBlock(
-                Bob, address(0), meta, parentHash, parentGasUsed, gasUsed, blockHash, signalRoot
+                Bob,
+                address(0),
+                meta,
+                parentHash,
+                parentGasUsed,
+                gasUsed,
+                blockHash,
+                signalRoot
             );
 
-            uint256 lastVerifiedBlockId = L1.getStateVariables().lastVerifiedBlockId;
+            uint256 lastVerifiedBlockId =
+                L1.getStateVariables().lastVerifiedBlockId;
 
             vm.warp(block.timestamp + 1 seconds);
             verifyBlock(Carol, 1);
 
-            // Check if shortly after proving (+verify) the last verify is the same (bc it is an oracle proof)
-            uint256 lastVerifiedBlockIdNow = L1.getStateVariables().lastVerifiedBlockId;
+            // Check if shortly after proving (+verify) the last verify is the
+            // same (bc it is an oracle proof)
+            uint256 lastVerifiedBlockIdNow =
+                L1.getStateVariables().lastVerifiedBlockId;
 
             // Cannot be verified
             assertEq(lastVerifiedBlockIdNow, lastVerifiedBlockId);
 
             proveBlock(
-                Carol, Carol, meta, parentHash, parentGasUsed, gasUsed, blockHash, signalRoot
+                Carol,
+                Carol,
+                meta,
+                parentHash,
+                parentGasUsed,
+                gasUsed,
+                blockHash,
+                signalRoot
             );
 
             vm.warp(block.timestamp + 1 seconds);
@@ -391,73 +410,10 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         printVariables("");
     }
 
-    /// @dev Test if system prover is the prover, cooldown is systemProofCooldownPeriod
-    function test_if_prover_is_system_prover_cooldown_is_systemProofCooldownPeriod() external {
-        registerAddress("system_prover", Bob);
-
-        depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
-        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
-        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
-
-        bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint32 parentGasUsed = 0;
-        uint32 gasUsed = 1000000;
-
-        for (uint256 blockId = 1; blockId < conf.maxNumProposedBlocks * 10; blockId++) {
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
-            printVariables("after propose");
-            mine(1);
-
-            bytes32 blockHash = bytes32(1e10 + blockId);
-            bytes32 signalRoot = bytes32(1e9 + blockId);
-
-            uint256 realproof = blockId % conf.realProofSkipSize;
-
-            if (realproof == 0) {
-                proveBlock(
-                    Carol, Carol, meta, parentHash, parentGasUsed, gasUsed, blockHash, signalRoot
-                );
-            } else {
-                proveBlock(
-                    Bob, address(1), meta, parentHash, parentGasUsed, gasUsed, blockHash, signalRoot
-                );
-            }
-
-            uint256 lastVerifiedBlockId = L1.getStateVariables().lastVerifiedBlockId;
-
-            vm.warp(block.timestamp + 1 seconds);
-            verifyBlock(Carol, 1);
-
-            // Check if shortly after proving (+verify) the last verify is not the same anymore
-            // no need to have a cooldown period
-            uint256 lastVerifiedBlockIdNow = L1.getStateVariables().lastVerifiedBlockId;
-
-            // It would be true anyways, but better to separate things.
-            // If not real proof is necessary, also the proofCooldownPeriod needs to be elapsed to be true.
-            // So separating the check.
-            /// @notice: In case both system and oracle are disabled, we should set the cooldown time to 0 mins.
-            if (realproof != 0) {
-                assertEq(lastVerifiedBlockIdNow, lastVerifiedBlockId);
-            }
-
-            vm.warp(
-                block.timestamp + L1.getStateVariables().proofTimeTarget
-                    + conf.systemProofCooldownPeriod
-            );
-            verifyBlock(Carol, 1);
-
-            lastVerifiedBlockIdNow = L1.getStateVariables().lastVerifiedBlockId;
-
-            assertFalse(lastVerifiedBlockIdNow == lastVerifiedBlockId);
-
-            parentHash = blockHash;
-            parentGasUsed = gasUsed;
-        }
-        printVariables("");
-    }
-
     /// @dev Test if system proofs can be verified
-    function test_if_system_proofs_can_be_verified_without_regular_proofs() external {
+    function test_if_system_proofs_can_be_verified_without_regular_proofs()
+        external
+    {
         registerAddress("system_prover", Bob);
 
         depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
@@ -466,26 +422,43 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
-        uint32 gasUsed = 1000000;
+        uint32 gasUsed = 1_000_000;
 
-        for (uint256 blockId = 1; blockId < conf.maxNumProposedBlocks * 10; blockId++) {
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+        for (
+            uint256 blockId = 1;
+            blockId < conf.maxNumProposedBlocks * 10;
+            blockId++
+        ) {
+            TaikoData.BlockMetadata memory meta =
+                proposeBlock(Alice, 1_000_000, 1024);
             printVariables("after propose");
             mine(1);
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
-            proveBlock(Bob, Bob, meta, parentHash, parentGasUsed, gasUsed, blockHash, signalRoot);
+            proveBlock(
+                Bob,
+                Bob,
+                meta,
+                parentHash,
+                parentGasUsed,
+                gasUsed,
+                blockHash,
+                signalRoot
+            );
 
-            uint256 lastVerifiedBlockId = L1.getStateVariables().lastVerifiedBlockId;
+            uint256 lastVerifiedBlockId =
+                L1.getStateVariables().lastVerifiedBlockId;
 
             // Need to wait config.systemProofCooldownPeriod
             vm.warp(block.timestamp + conf.systemProofCooldownPeriod);
             verifyBlock(Carol, 1);
 
-            // Check if shortly after proving (+verify) the last verify is not the same anymore
+            // Check if shortly after proving (+verify) the last verify is not
+            // the same anymore
             // no need to have a cooldown period
-            uint256 lastVerifiedBlockIdNow = L1.getStateVariables().lastVerifiedBlockId;
+            uint256 lastVerifiedBlockIdNow =
+                L1.getStateVariables().lastVerifiedBlockId;
 
             assertFalse(lastVerifiedBlockIdNow == lastVerifiedBlockId);
 
@@ -496,7 +469,9 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     }
 
     /// @dev Test if system prover cannot be overwritten
-    function test_if_systemProver_can_prove_but_regular_provers_can_overwrite() external {
+    function test_if_systemProver_can_prove_but_regular_provers_can_overwrite()
+        external
+    {
         registerAddress("system_prover", Bob);
 
         depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
@@ -505,10 +480,15 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
-        uint32 gasUsed = 1000000;
+        uint32 gasUsed = 1_000_000;
 
-        for (uint256 blockId = 1; blockId < conf.maxNumProposedBlocks * 10; blockId++) {
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+        for (
+            uint256 blockId = 1;
+            blockId < conf.maxNumProposedBlocks * 10;
+            blockId++
+        ) {
+            TaikoData.BlockMetadata memory meta =
+                proposeBlock(Alice, 1_000_000, 1024);
             printVariables("after propose");
             mine(1);
 
@@ -519,35 +499,60 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             if (realProof == 0) {
                 proveBlock(
-                    Carol, Carol, meta, parentHash, parentGasUsed, gasUsed, blockHash, signalRoot
+                    Carol,
+                    Carol,
+                    meta,
+                    parentHash,
+                    parentGasUsed,
+                    gasUsed,
+                    blockHash,
+                    signalRoot
                 );
             } else {
                 proveBlock(
-                    Bob, address(1), meta, parentHash, parentGasUsed, gasUsed, blockHash, signalRoot
+                    Bob,
+                    address(1),
+                    meta,
+                    parentHash,
+                    parentGasUsed,
+                    gasUsed,
+                    blockHash,
+                    signalRoot
                 );
             }
 
-            uint256 lastVerifiedBlockId = L1.getStateVariables().lastVerifiedBlockId;
+            uint256 lastVerifiedBlockId =
+                L1.getStateVariables().lastVerifiedBlockId;
 
             // Carol could overwrite it
             if (realProof != 0) {
                 proveBlock(
-                    Carol, Carol, meta, parentHash, parentGasUsed, gasUsed, blockHash, signalRoot
+                    Carol,
+                    Carol,
+                    meta,
+                    parentHash,
+                    parentGasUsed,
+                    gasUsed,
+                    blockHash,
+                    signalRoot
                 );
             }
 
             vm.warp(block.timestamp + 1 seconds);
             vm.warp(block.timestamp + 5 minutes);
 
-            TaikoData.ForkChoice memory fc = L1.getForkChoice(blockId, parentHash, parentGasUsed);
+            TaikoData.ForkChoice memory fc =
+                L1.getForkChoice(blockId, parentHash, parentGasUsed);
 
             if (realProof != 0) assertEq(fc.prover, Carol);
 
             verifyBlock(Carol, 1);
 
-            // Check if shortly after proving (+verify) the last verify is not the same anymore
+            // Check if shortly after proving (+verify) the last verify is not
+            // the same anymore
             // no need to have a cooldown period
-            uint256 lastVerifiedBlockIdNow = L1.getStateVariables().lastVerifiedBlockId;
+            uint256 lastVerifiedBlockIdNow =
+                L1.getStateVariables().lastVerifiedBlockId;
 
             assertFalse(lastVerifiedBlockIdNow == lastVerifiedBlockId);
 
@@ -568,33 +573,59 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
-        uint32 gasUsed = 1000000;
+        uint32 gasUsed = 1_000_000;
 
-        for (uint256 blockId = 1; blockId < conf.maxNumProposedBlocks * 10; blockId++) {
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+        for (
+            uint256 blockId = 1;
+            blockId < conf.maxNumProposedBlocks * 10;
+            blockId++
+        ) {
+            TaikoData.BlockMetadata memory meta =
+                proposeBlock(Alice, 1_000_000, 1024);
             printVariables("after propose");
             mine(1);
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
-            proveBlock(Bob, Bob, meta, parentHash, parentGasUsed, gasUsed, blockHash, signalRoot);
+            proveBlock(
+                Bob,
+                Bob,
+                meta,
+                parentHash,
+                parentGasUsed,
+                gasUsed,
+                blockHash,
+                signalRoot
+            );
 
-            uint256 lastVerifiedBlockId = L1.getStateVariables().lastVerifiedBlockId;
+            uint256 lastVerifiedBlockId =
+                L1.getStateVariables().lastVerifiedBlockId;
 
             // Carol could not overwrite it
             vm.expectRevert(TaikoErrors.L1_ALREADY_PROVEN.selector);
             proveBlock(
-                Carol, Carol, meta, parentHash, parentGasUsed, gasUsed, blockHash, signalRoot
+                Carol,
+                Carol,
+                meta,
+                parentHash,
+                parentGasUsed,
+                gasUsed,
+                blockHash,
+                signalRoot
             );
 
-            /// @notice: Based on the current codebase we still need to wait even if the system and oracle proofs are disbaled, which
-            /// @notice: in such case best to set 0 mins (cause noone could overwrite a valid fk).
+            /// @notice: Based on the current codebase we still need to wait
+            /// even if the system and oracle proofs are disbaled, which
+            /// @notice: in such case best to set 0 mins (cause noone could
+            /// overwrite a valid fk).
             vm.warp(block.timestamp + conf.proofCooldownPeriod);
             verifyBlock(Carol, 1);
 
-            // Check if shortly after proving (+verify) the last verify is not the same anymore
+            // Check if shortly after proving (+verify) the last verify is not
+            // the same anymore
             // no need to have a cooldown period
-            uint256 lastVerifiedBlockIdNow = L1.getStateVariables().lastVerifiedBlockId;
+            uint256 lastVerifiedBlockIdNow =
+                L1.getStateVariables().lastVerifiedBlockId;
 
             assertFalse(lastVerifiedBlockIdNow == lastVerifiedBlockId);
 

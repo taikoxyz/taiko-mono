@@ -6,11 +6,11 @@
 
 pragma solidity ^0.8.18;
 
-import {EssentialContract} from "../common/EssentialContract.sol";
-import {Proxied} from "../common/Proxied.sol";
-import {ISignalService} from "./ISignalService.sol";
-import {ICrossChainSync} from "../common/ICrossChainSync.sol";
-import {LibSecureMerkleTrie} from "../thirdparty/LibSecureMerkleTrie.sol";
+import { EssentialContract } from "../common/EssentialContract.sol";
+import { Proxied } from "../common/Proxied.sol";
+import { ISignalService } from "./ISignalService.sol";
+import { ICrossChainSync } from "../common/ICrossChainSync.sol";
+import { LibSecureMerkleTrie } from "../thirdparty/LibSecureMerkleTrie.sol";
 
 /// @custom:security-contact hello@taiko.xyz
 contract SignalService is ISignalService, EssentialContract {
@@ -39,7 +39,14 @@ contract SignalService is ISignalService, EssentialContract {
         }
     }
 
-    function isSignalSent(address app, bytes32 signal) public view returns (bool) {
+    function isSignalSent(
+        address app,
+        bytes32 signal
+    )
+        public
+        view
+        returns (bool)
+    {
         if (app == address(0)) {
             revert B_NULL_APP_ADDR();
         }
@@ -56,7 +63,12 @@ contract SignalService is ISignalService, EssentialContract {
         return value == 1;
     }
 
-    function isSignalReceived(uint256 srcChainId, address app, bytes32 signal, bytes calldata proof)
+    function isSignalReceived(
+        uint256 srcChainId,
+        address app,
+        bytes32 signal,
+        bytes calldata proof
+    )
         public
         view
         returns (bool)
@@ -68,11 +80,14 @@ contract SignalService is ISignalService, EssentialContract {
         SignalProof memory sp = abi.decode(proof, (SignalProof));
 
         // Resolve the TaikoL1 or TaikoL2 contract if on Ethereum or Taiko.
-        bytes32 syncedSignalRoot =
-            ICrossChainSync(resolve("taiko", false)).getCrossChainSignalRoot(sp.height);
+        bytes32 syncedSignalRoot = ICrossChainSync(resolve("taiko", false))
+            .getCrossChainSignalRoot(sp.height);
 
         return LibSecureMerkleTrie.verifyInclusionProof(
-            bytes.concat(getSignalSlot(app, signal)), hex"01", sp.proof, syncedSignalRoot
+            bytes.concat(getSignalSlot(app, signal)),
+            hex"01",
+            sp.proof,
+            syncedSignalRoot
         );
     }
 
@@ -81,13 +96,22 @@ contract SignalService is ISignalService, EssentialContract {
      * @param signal The signal to store.
      * @return signalSlot The storage key for the signal on the signal service.
      */
-    function getSignalSlot(address app, bytes32 signal) public pure returns (bytes32 signalSlot) {
+    function getSignalSlot(
+        address app,
+        bytes32 signal
+    )
+        public
+        pure
+        returns (bytes32 signalSlot)
+    {
         // Equivilance to `keccak256(abi.encodePacked(app, signal))`
         assembly {
-            // Load the free memory pointer and allocate memory for the concatenated arguments
+            // Load the free memory pointer and allocate memory for the
+            // concatenated arguments
             let ptr := mload(0x40)
 
-            // Store the app address and signal bytes32 value in the allocated memory
+            // Store the app address and signal bytes32 value in the allocated
+            // memory
             mstore(ptr, app)
             mstore(add(ptr, 32), signal)
 
@@ -100,4 +124,4 @@ contract SignalService is ISignalService, EssentialContract {
     }
 }
 
-contract ProxiedSignalService is Proxied, SignalService {}
+contract ProxiedSignalService is Proxied, SignalService { }

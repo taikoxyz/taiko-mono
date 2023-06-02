@@ -6,12 +6,12 @@
 
 pragma solidity ^0.8.18;
 
-import {LibAddress} from "../../libs/LibAddress.sol";
-import {LibMath} from "../../libs/LibMath.sol";
-import {AddressResolver} from "../../common/AddressResolver.sol";
-import {SafeCastUpgradeable} from
+import { LibAddress } from "../../libs/LibAddress.sol";
+import { LibMath } from "../../libs/LibMath.sol";
+import { AddressResolver } from "../../common/AddressResolver.sol";
+import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {TaikoData} from "../TaikoData.sol";
+import { TaikoData } from "../TaikoData.sol";
 
 library LibEthDepositing {
     using LibAddress for address;
@@ -26,13 +26,20 @@ library LibEthDepositing {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver
-    ) internal {
-        if (msg.value < config.minEthDepositAmount || msg.value > config.maxEthDepositAmount) {
+    )
+        internal
+    {
+        if (
+            msg.value < config.minEthDepositAmount
+                || msg.value > config.maxEthDepositAmount
+        ) {
             revert L1_INVALID_ETH_DEPOSIT();
         }
 
-        TaikoData.EthDeposit memory deposit =
-            TaikoData.EthDeposit({recipient: msg.sender, amount: uint96(msg.value)});
+        TaikoData.EthDeposit memory deposit = TaikoData.EthDeposit({
+            recipient: msg.sender,
+            amount: uint96(msg.value)
+        });
 
         address to = resolver.resolve("ether_vault", true);
         if (to == address(0)) {
@@ -48,7 +55,10 @@ library LibEthDepositing {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         address beneficiary
-    ) internal returns (TaikoData.EthDeposit[] memory depositsProcessed) {
+    )
+        internal
+        returns (TaikoData.EthDeposit[] memory depositsProcessed)
+    {
         // Allocate one extra slot for collecting fees on L2
         depositsProcessed = new TaikoData.EthDeposit[](
             config.maxEthDepositsPerBlock + 1
@@ -61,24 +71,29 @@ library LibEthDepositing {
         ) {
             unchecked {
                 // When maxEthDepositsPerBlock is 32, the average gas cost per
-                // EthDeposit is about 2700 gas. We use 21000 so the proposer may
-                // earn a small profit if there are 32 deposits included
+                // EthDeposit is about 2700 gas. We use 21000 so the proposer
+                // may earn a small profit if there are 32 deposits included
                 // in the block; if there are less EthDeposit to process, the
                 // proposer may suffer a loss so the proposer should simply wait
                 // for more EthDeposit be become available.
-                uint96 feePerDeposit =
-                    uint96(config.ethDepositMaxFee.min(block.basefee * config.ethDepositGas));
+                uint96 feePerDeposit = uint96(
+                    config.ethDepositMaxFee.min(
+                        block.basefee * config.ethDepositGas
+                    )
+                );
                 uint96 totalFee;
                 uint64 i = state.nextEthDepositToProcess;
                 while (
                     i < state.ethDeposits.length
-                        && i < state.nextEthDepositToProcess + config.maxEthDepositsPerBlock
+                        && state.nextEthDepositToProcess
+                            + config.maxEthDepositsPerBlock > i
                 ) {
                     TaikoData.EthDeposit storage deposit = state.ethDeposits[i];
                     if (deposit.amount > feePerDeposit) {
                         totalFee += feePerDeposit;
                         depositsProcessed[j].recipient = deposit.recipient;
-                        depositsProcessed[j].amount = deposit.amount - feePerDeposit;
+                        depositsProcessed[j].amount =
+                            deposit.amount - feePerDeposit;
                         ++j;
                     } else {
                         totalFee += deposit.amount;
@@ -114,8 +129,8 @@ library LibEthDepositing {
         bytes memory buffer = new bytes(32 * deposits.length);
 
         for (uint256 i; i < deposits.length;) {
-            uint256 encoded =
-                uint256(uint160(deposits[i].recipient)) << 96 | uint256(deposits[i].amount);
+            uint256 encoded = uint256(uint160(deposits[i].recipient)) << 96
+                | uint256(deposits[i].amount);
             assembly {
                 mstore(add(buffer, mul(32, add(1, i))), encoded)
             }

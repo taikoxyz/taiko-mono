@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.18;
 
-import {LibMerkleTrie} from "../../thirdparty/LibMerkleTrie.sol";
+import { LibMerkleTrie } from "../../thirdparty/LibMerkleTrie.sol";
 
 /**
  * @title TestLibMerkleTrie
@@ -13,11 +13,19 @@ contract TestLibMerkleTrie {
         bytes memory _value,
         bytes memory _proof,
         bytes32 _root
-    ) public pure returns (bool) {
+    )
+        public
+        pure
+        returns (bool)
+    {
         return LibMerkleTrie.verifyInclusionProof(_key, _value, _proof, _root);
     }
 
-    function get(bytes memory _key, bytes memory _proof, bytes32 _root)
+    function get(
+        bytes memory _key,
+        bytes memory _proof,
+        bytes32 _root
+    )
         public
         pure
         returns (bool, bytes memory)

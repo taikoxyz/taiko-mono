@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.18;
 
-import {LibRLPReader} from "../../thirdparty/LibRLPReader.sol";
+import { LibRLPReader } from "../../thirdparty/LibRLPReader.sol";
 
 /**
  * @title TestLibRLPReader
