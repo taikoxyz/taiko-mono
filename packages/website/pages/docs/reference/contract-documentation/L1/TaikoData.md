@@ -11,7 +11,7 @@ struct Config {
   uint256 chainId;
   uint256 maxNumProposedBlocks;
   uint256 blockRingBufferSize;
-  uint256 auctionBatchSize;
+  uint64 auctionBatchSize;
   uint256 auctionRingBufferSize;
   uint64 auctionProofWindowMultiplier;
   uint64 auctionWindow;
@@ -191,6 +191,6 @@ struct State {
   uint64 avgProofWindow;
   uint64 lastVerifiedBlockId;
   uint64 lastVerifiedAt;
-  uint256[42] __gap;
+  uint256[41] __gap;
 }
 ```
