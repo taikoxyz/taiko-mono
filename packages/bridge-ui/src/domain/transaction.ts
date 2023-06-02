@@ -25,8 +25,8 @@ export type BridgeTransaction = {
   interval?: NodeJS.Timer;
   amountInWei?: BigNumber;
   symbol?: string;
-  fromChainId: ChainID;
-  toChainId: ChainID;
+  srcChainId: ChainID;
+  destChainId: ChainID;
 };
 
 export interface Transactioner {

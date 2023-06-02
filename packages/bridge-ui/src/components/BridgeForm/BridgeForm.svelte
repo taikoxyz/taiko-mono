@@ -14,7 +14,7 @@
   import { providers } from '../../provider/providers';
   import { storageService } from '../../storage/services';
   import { activeBridge, bridgeType } from '../../store/bridge';
-  import { fromChain, toChain } from '../../store/chain';
+  import { destChain, srcChain } from '../../store/chain';
   import { signer } from '../../store/signer';
   import { token } from '../../store/token';
   import {
@@ -79,8 +79,8 @@
         try {
           address = await getAddressForToken(
             token,
-            $fromChain,
-            $toChain,
+            $srcChain,
+            $destChain,
             signer,
           );
         } catch (error) {
@@ -121,17 +121,17 @@
     amount: string,
     token: Token,
     bridgeType: BridgeType,
-    fromChain: Chain,
+    srcChain: Chain,
     signer: Signer,
   ) {
-    if (!fromChain || !amount || !token || !bridgeType || !signer) return false;
+    if (!srcChain || !amount || !token || !bridgeType || !signer) return false;
 
     computingAllowance = true;
 
     const address = await getAddressForToken(
       token,
-      fromChain,
-      $toChain,
+      srcChain,
+      $destChain,
       signer,
     );
 
@@ -141,7 +141,7 @@
       amountInWei: ethers.utils.parseUnits(amount, token.decimals),
       signer: signer,
       contractAddress: address,
-      spenderAddress: tokenVaults[fromChain.id],
+      spenderAddress: tokenVaults[srcChain.id],
     });
 
     log(`Token ${token.symbol} requires allowance? ${isRequired}`);
@@ -155,19 +155,19 @@
     token: Token,
     tokenBalance: string,
     memoError: string,
-    fromChain: Chain,
+    srcChain: Chain,
   ) {
     if (
       !signer ||
       !amount ||
       !tokenBalance ||
-      !fromChain ||
-      !chains[fromChain.id] ||
+      !srcChain ||
+      !chains[srcChain.id] ||
       memoError
     )
       return true;
 
-    const isCorrectChain = await isOnCorrectChain(signer, fromChain.id);
+    const isCorrectChain = await isOnCorrectChain(signer, srcChain.id);
     if (!isCorrectChain) return true;
 
     if (
@@ -195,12 +195,12 @@
 
       const contractAddress = await getAddressForToken(
         _token,
-        $fromChain,
-        $toChain,
+        $srcChain,
+        $destChain,
         $signer,
       );
 
-      const spenderAddress = tokenVaults[$fromChain.id];
+      const spenderAddress = tokenVaults[$srcChain.id];
 
       log(`Approving token ${_token.symbol}`);
 
@@ -233,7 +233,7 @@
           : '';
 
       if (error.cause?.status === 0) {
-        const explorerUrl = `${$fromChain.explorerUrl}/tx/${error.cause.transactionHash}`;
+        const explorerUrl = `${$srcChain.explorerUrl}/tx/${error.cause.transactionHash}`;
         const htmlLink = `<a href="${explorerUrl}" target="_blank"><b><u>here</u></b></a>`;
         errorToast(
           `${headerError}Click ${htmlLink} to see more details on the explorer.${noteError}`,
@@ -289,7 +289,7 @@
         throw Error('invalid custom recipient address');
       }
 
-      const onCorrectChain = await isOnCorrectChain($signer, $fromChain.id);
+      const onCorrectChain = await isOnCorrectChain($signer, $srcChain.id);
 
       if (!onCorrectChain) {
         errorToast($_('toast.errorWrongNetwork'));
@@ -298,8 +298,8 @@
 
       const amountInWei = ethers.utils.parseUnits(amount, _token.decimals);
 
-      const provider = providers[$toChain.id];
-      const destTokenVaultAddress = tokenVaults[$toChain.id];
+      const provider = providers[$destChain.id];
+      const destTokenVaultAddress = tokenVaults[$destChain.id];
 
       // TODO: remove this, and move this check to the ERC20 bridge directly
       let isBridgedTokenAlreadyDeployed =
@@ -307,17 +307,17 @@
           _token,
           provider,
           destTokenVaultAddress,
-          $toChain,
-          $fromChain,
+          $destChain,
+          $srcChain,
         );
 
-      const bridgeAddress = chains[$fromChain.id].bridgeAddress;
-      const tokenVaultAddress = tokenVaults[$fromChain.id];
+      const bridgeAddress = chains[$srcChain.id].bridgeAddress;
+      const tokenVaultAddress = tokenVaults[$srcChain.id];
 
       const tokenAddress = await getAddressForToken(
         _token,
-        $fromChain,
-        $toChain,
+        $srcChain,
+        $destChain,
         $signer,
       );
 
@@ -325,8 +325,8 @@
         amountInWei,
         signer: $signer,
         tokenAddress,
-        fromChainId: $fromChain.id,
-        toChainId: $toChain.id,
+        srcChainId: $srcChain.id,
+        destChainId: $destChain.id,
         tokenVaultAddress,
         bridgeAddress,
         processingFeeInWei: getProcessingFee(),
@@ -355,7 +355,7 @@
 
       // tx.chainId is not set immediately but we need it later.
       // Set it manually.
-      tx.chainId = $fromChain.id;
+      tx.chainId = $srcChain.id;
 
       const userAddress = await $signer.getAddress();
 
@@ -365,8 +365,8 @@
       log('Preparing transaction for storage…');
 
       let bridgeTransaction: BridgeTransaction = {
-        fromChainId: $fromChain.id,
-        toChainId: $toChain.id,
+        srcChainId: $srcChain.id,
+        destChainId: $destChain.id,
         symbol: _token.symbol,
         amountInWei,
         from: tx.from,
@@ -411,7 +411,7 @@
       $token = $token;
 
       successToast(
-        `<strong>Transaction completed!</strong><br />Your funds are getting ready to be claimed on ${$toChain.name}.`,
+        `<strong>Transaction completed!</strong><br />Your funds are getting ready to be claimed on ${$destChain.name}.`,
       );
     } catch (error) {
       console.error(error);
@@ -423,7 +423,7 @@
           : '';
 
       if (error.cause?.status === 0) {
-        const explorerUrl = `${$fromChain.explorerUrl}/tx/${error.cause.transactionHash}`;
+        const explorerUrl = `${$srcChain.explorerUrl}/tx/${error.cause.transactionHash}`;
         const htmlLink = `<a href="${explorerUrl}" target="_blank"><b><u>here</u></b></a>`;
         errorToast(
           `${headerError}Click ${htmlLink} to see more details on the explorer.${noteError}`,
@@ -448,13 +448,13 @@
           signer: $signer,
           tokenAddress: await getAddressForToken(
             $token,
-            $fromChain,
-            $toChain,
+            $srcChain,
+            $destChain,
             $signer,
           ),
-          fromChainId: $fromChain.id,
-          toChainId: $toChain.id,
-          tokenVaultAddress: tokenVaults[$fromChain.id],
+          srcChainId: $srcChain.id,
+          destChainId: $destChain.id,
+          tokenVaultAddress: tokenVaults[$srcChain.id],
           processingFeeInWei: getProcessingFee(),
           memo: memo,
           to: showTo && to ? to : await $signer.getAddress(),
@@ -505,12 +505,12 @@
     $token,
     tokenBalance,
     memoError,
-    $fromChain,
+    $srcChain,
   )
     .then((disabled) => (actionDisabled = disabled))
     .catch((error) => console.error(error));
 
-  $: checkAllowance(amount, $token, $bridgeType, $fromChain, $signer)
+  $: checkAllowance(amount, $token, $bridgeType, $srcChain, $signer)
     .then((isRequired) => (requiresAllowance = isRequired))
     .catch((error) => {
       console.error(error);

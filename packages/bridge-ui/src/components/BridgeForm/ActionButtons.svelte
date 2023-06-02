@@ -4,7 +4,7 @@
 
   import type { Chain } from '../../domain/chain';
   import type { Token } from '../../domain/token';
-  import { fromChain } from '../../store/chain';
+  import { srcChain } from '../../store/chain';
   import { signer } from '../../store/signer';
   import { isERC20 } from '../../token/tokens';
   import Button from '../Button.svelte';
@@ -40,13 +40,13 @@
   function shouldShowSteps(
     token: Token,
     signer: Signer,
-    fromChain: Chain,
+    srcChain: Chain,
     tokenBalance: string,
     computingTokenBalance: boolean,
   ) {
     return (
       !computingTokenBalance &&
-      fromChain && // chain selected?
+      srcChain && // chain selected?
       signer && // wallet connected?
       token && // token selected?
       isERC20(token) &&
@@ -71,7 +71,7 @@
   $: showSteps = shouldShowSteps(
     token,
     $signer,
-    $fromChain,
+    $srcChain,
     tokenBalance,
     computingTokenBalance,
   );

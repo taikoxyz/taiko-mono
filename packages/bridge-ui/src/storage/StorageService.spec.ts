@@ -41,8 +41,8 @@ const mockTx: BridgeTransaction = {
   hash: '0x123',
   from: '0x123',
   status: MessageStatus.New,
-  fromChainId: L1_CHAIN_ID,
-  toChainId: L2_CHAIN_ID,
+  srcChainId: L1_CHAIN_ID,
+  destChainId: L2_CHAIN_ID,
 };
 
 const mockTxs: BridgeTransaction[] = [mockTx];

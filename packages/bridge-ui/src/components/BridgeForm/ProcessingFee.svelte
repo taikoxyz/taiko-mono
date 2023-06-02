@@ -3,7 +3,7 @@
 
   import { ProcessingFeeMethod } from '../../domain/fee';
   import { processingFees } from '../../fee/processingFees';
-  import { fromChain, toChain } from '../../store/chain';
+  import { destChain,srcChain } from '../../store/chain';
   import { signer } from '../../store/signer';
   import { token } from '../../store/token';
   import { recommendProcessingFee } from '../../utils/recommendProcessingFee';
@@ -18,7 +18,7 @@
   let showNoneFeeTooltip: boolean = false;
   let cannotCompute = false;
 
-  $: recommendProcessingFee($toChain, $fromChain, method, $token, $signer)
+  $: recommendProcessingFee($destChain, $srcChain, method, $token, $signer)
     .then((recommendedFee) => {
       amount = recommendedFee;
       cannotCompute = false;

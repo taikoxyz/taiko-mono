@@ -12,8 +12,8 @@ export const checkIfTokenIsDeployedCrossChain = async (
   token: Token,
   provider: ethers.providers.StaticJsonRpcProvider,
   destTokenVaultAddress: string,
-  toChain: Chain,
-  fromChain: Chain,
+  destChain: Chain,
+  srcChain: Chain,
 ): Promise<boolean> => {
   if (!isETH(token)) {
     const destTokenVaultContract = new ethers.Contract(
@@ -23,26 +23,26 @@ export const checkIfTokenIsDeployedCrossChain = async (
     );
 
     const tokenAddressOnDestChain = token.addresses.find(
-      (a) => a.chainId === toChain.id,
+      (a) => a.chainId === destChain.id,
     );
 
     if (tokenAddressOnDestChain && tokenAddressOnDestChain.address === '0x00') {
       // Check if token is already deployed as BridgedERC20 on destination chain
       const tokenAddressOnSourceChain = token.addresses.find(
-        (a) => a.chainId === fromChain.id,
+        (a) => a.chainId === srcChain.id,
       );
 
       log(
         'Checking if token',
         token,
         'is deployed as BridgedERC20 on destination chain',
-        toChain,
+        destChain,
       );
 
       try {
         const bridgedTokenAddress =
           await destTokenVaultContract.canonicalToBridged(
-            fromChain.id,
+            srcChain.id,
             tokenAddressOnSourceChain.address,
           );
 

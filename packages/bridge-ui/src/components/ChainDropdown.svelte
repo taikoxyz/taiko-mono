@@ -4,7 +4,7 @@
 
   import { mainnetChain, taikoChain } from '../chain/chains';
   import type { Chain } from '../domain/chain';
-  import { fromChain } from '../store/chain';
+  import { srcChain } from '../store/chain';
   import { signer } from '../store/signer';
   import { pendingTransactions } from '../store/transaction';
   import { selectChain } from '../utils/selectChain';
@@ -20,7 +20,7 @@
       return;
     }
 
-    if (chain === $fromChain) {
+    if (chain === $srcChain) {
       // Already on this chain
       return;
     }
@@ -47,9 +47,9 @@
     class="btn btn-md justify-around md:w-[194px]"
     disabled={cannotSwitch}>
     <span class="font-normal flex-1 text-left mr-2">
-      {#if $fromChain}
-        <svelte:component this={$fromChain.icon} />
-        <span class="ml-2 hidden md:inline-block">{$fromChain.name}</span>
+      {#if $srcChain}
+        <svelte:component this={$srcChain.icon} />
+        <span class="ml-2 hidden md:inline-block">{$srcChain.name}</span>
       {:else}
         <span class="ml-2 flex items-center">
           <ExclamationTriangle class="mr-2" size="20" />

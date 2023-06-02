@@ -21,8 +21,8 @@ export type BridgeOpts = {
   amountInWei: BigNumber;
   signer: ethers.Signer;
   tokenAddress: string;
-  fromChainId: ChainID;
-  toChainId: ChainID;
+  srcChainId: ChainID;
+  destChainId: ChainID;
   tokenVaultAddress?: string;
   bridgeAddress?: string;
   processingFeeInWei?: BigNumber;

@@ -14,7 +14,7 @@ import { isETHByMessage } from './isETHByMessage';
 export async function isEthOrTokenReleased(
   bridgeTx: BridgeTransaction,
 ): Promise<boolean> {
-  const { fromChainId, msgHash, status } = bridgeTx;
+  const { srcChainId, msgHash, status } = bridgeTx;
 
   if (status === TxExtendedStatus.Released) return true;
 
@@ -23,8 +23,8 @@ export async function isEthOrTokenReleased(
 
   // At this point the transaction has failed, so we need to check
 
-  const srcChain = chains[fromChainId];
-  const srcProvider = providers[fromChainId];
+  const srcChain = chains[srcChainId];
+  const srcProvider = providers[srcChainId];
 
   if (isETHByMessage(bridgeTx.message)) {
     const srcBridgeContract = new Contract(
@@ -39,7 +39,7 @@ export async function isEthOrTokenReleased(
   // We're dealing with ERC20 tokens
 
   const srcTokenVaultContract = new Contract(
-    tokenVaults[fromChainId],
+    tokenVaults[srcChainId],
     tokenVaultABI,
     srcProvider,
   );

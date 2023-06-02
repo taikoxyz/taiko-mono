@@ -40,12 +40,6 @@ error L1_EVIDENCE_MISMATCH(bytes32 expected, bytes32 actual)
 error L1_FORK_CHOICE_NOT_FOUND()
 ```
 
-### L1_INSUFFICIENT_TOKEN
-
-```solidity
-error L1_INSUFFICIENT_TOKEN()
-```
-
 ### L1_INVALID_CONFIG
 
 ```solidity
