@@ -20,7 +20,7 @@ contract TestTaikoL1 is TaikoL1 {
         config.chainId = 167;
         // up to 2048 pending blocks
         config.maxNumProposedBlocks = 4;
-        config.ringBufferSize = 6;
+        config.blockRingBufferSize = 6;
         // This number is calculated from maxNumProposedBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         config.maxVerificationsPerTx = 0;

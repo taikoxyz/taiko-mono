@@ -36,7 +36,7 @@ library LibVerifying {
         if (
             config.chainId <= 1 //
                 || config.maxNumProposedBlocks == 1
-                || config.ringBufferSize <= config.maxNumProposedBlocks + 1
+                || config.blockRingBufferSize <= config.maxNumProposedBlocks + 1
                 || config.blockMaxGasLimit == 0
                 || config.maxTransactionsPerBlock == 0
                 || config.maxBytesPerTxList == 0
@@ -79,7 +79,8 @@ library LibVerifying {
         internal
     {
         uint256 i = state.lastVerifiedBlockId;
-        TaikoData.Block storage blk = state.blocks[i % config.ringBufferSize];
+        TaikoData.Block storage blk =
+            state.blocks[i % config.blockRingBufferSize];
 
         uint256 fcId = blk.verifiedForkChoiceId;
         // assert(fcId > 0);
@@ -94,7 +95,7 @@ library LibVerifying {
 
         address systemProver = resolver.resolve("system_prover", true);
         while (i < state.numBlocks && processed < maxBlocks) {
-            blk = state.blocks[i % config.ringBufferSize];
+            blk = state.blocks[i % config.blockRingBufferSize];
             // assert(blk.blockId == i);
 
             fcId = LibUtils.getForkChoiceId(state, blk, blockHash, gasUsed);

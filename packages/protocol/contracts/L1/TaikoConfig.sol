@@ -14,7 +14,9 @@ library TaikoConfig {
             chainId: 167,
             // Two weeks if avg block time is 10 seconds
             maxNumProposedBlocks: 120_960,
-            ringBufferSize: 120_960 + 10,
+            blockRingBufferSize: 120_960 + 10,
+            auctionBatchSize: 100,
+            auctionRingBufferSize: 1310, // (120_960 + 10) / 100 + 100,
             // Each time one more block is verified, there will be ~20k
             // more gas cost.
             maxVerificationsPerTx: 10,
