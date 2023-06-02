@@ -334,12 +334,12 @@ contract TaikoL1Test is TaikoL1TestBase {
             proposeBlock(Alice, 1_000_000, 1024);
 
         // Expected:
-        // 0x8117066d69ff650d78f0d7383a10cc802c2b8c0eedd932d70994252e2438c636  (pre
+        // 0x25fdce9f620e3ee4c33ae0841c3cce2030516a75c8e045847364d1c280bfb714  (pre
         // calculated with these values)
         //console2.logBytes32(meta.depositsRoot);
         assertEq(
             LibEthDepositing.hashEthDeposits(meta.depositsProcessed),
-            0x8117066d69ff650d78f0d7383a10cc802c2b8c0eedd932d70994252e2438c636
+            0x25fdce9f620e3ee4c33ae0841c3cce2030516a75c8e045847364d1c280bfb714
         );
     }
 }
