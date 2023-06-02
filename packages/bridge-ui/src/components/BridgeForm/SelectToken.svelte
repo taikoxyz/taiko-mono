@@ -7,7 +7,7 @@
   import type { HTMLBridgeForm } from '../../domain/dom';
   import type { Token } from '../../domain/token';
   import { tokenService } from '../../storage/services';
-  import { destChain,srcChain } from '../../store/chain';
+  import { destChain, srcChain } from '../../store/chain';
   import { signer } from '../../store/signer';
   import { token } from '../../store/token';
   import { userTokens } from '../../store/userToken';
@@ -63,16 +63,10 @@
 
       const token = {
         name: tokenName,
-        addresses: [
-          {
-            chainId: $srcChain.id,
-            address: tokenAddress,
-          },
-          {
-            chainId: $destChain.id,
-            address: '0x00',
-          },
-        ],
+        addresses: {
+          [$srcChain.id]: tokenAddress,
+          [$destChain.id]: '0x00',
+        },
         decimals: decimals,
         symbol: symbol,
         logoComponent: null,
