@@ -1,8 +1,9 @@
 import { switchNetwork } from '@wagmi/core';
-import { Signer, ethers } from 'ethers';
-import { fromChain, toChain } from '../store/chain';
-import { signer } from '../store/signer';
+import { ethers } from 'ethers';
+
 import { mainnetChain, taikoChain } from '../chain/chains';
+import { destChain,srcChain } from '../store/chain';
+import { signer } from '../store/signer';
 import { selectChain } from './selectChain';
 
 jest.mock('../constants/envVars');
@@ -27,10 +28,10 @@ jest.mock('ethers', () => {
 });
 
 jest.mock('../store/chain', () => ({
-  fromChain: {
+  srcChain: {
     set: jest.fn(),
   },
-  toChain: {
+  destChain: {
     set: jest.fn(),
   },
 }));
@@ -41,25 +42,33 @@ jest.mock('../store/signer', () => ({
   },
 }));
 
+const mockSigner = {} as ethers.providers.JsonRpcSigner;
+
 describe('selectChain', () => {
-  it('should select chain', async () => {
-    const mockSigner = {} as ethers.providers.JsonRpcSigner;
+  beforeAll(() => {
     jest
       .mocked(ethers.providers.Web3Provider.prototype.getSigner)
       .mockReturnValue(mockSigner);
+  });
 
+  beforeEach(() => {
+    jest.mocked(ethers.providers.Web3Provider.prototype.getSigner).mockClear();
+  });
+
+  it('should select chain', async () => {
     await selectChain(mainnetChain);
 
     expect(switchNetwork).toHaveBeenCalledWith({ chainId: mainnetChain.id });
-    expect(fromChain.set).toHaveBeenCalledWith(mainnetChain);
-    expect(toChain.set).toHaveBeenCalledWith(taikoChain);
-    expect(signer.set).toHaveBeenCalled();
+    expect(srcChain.set).toHaveBeenCalledWith(mainnetChain);
+    expect(destChain.set).toHaveBeenCalledWith(taikoChain);
 
     expect(ethers.providers.Web3Provider.prototype.send).toHaveBeenCalledWith(
       'eth_requestAccounts',
       [],
     );
 
+    // By default the signer is not updated as
+    // there might be no change in the account.
     expect(
       ethers.providers.Web3Provider.prototype.getSigner,
     ).toHaveBeenCalled();

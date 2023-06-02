@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
-import {AddressManager} from "../contracts/common/AddressManager.sol";
-import {AddressResolver} from "../contracts/common/AddressResolver.sol";
-import {TaikoErrors} from "../contracts/L1/TaikoErrors.sol";
-import {TaikoToken} from "../contracts/L1/TaikoToken.sol";
+import { Test } from "forge-std/Test.sol";
+import { console2 } from "forge-std/console2.sol";
+import { AddressManager } from "../contracts/common/AddressManager.sol";
+import { AddressResolver } from "../contracts/common/AddressResolver.sol";
+import { TaikoErrors } from "../contracts/L1/TaikoErrors.sol";
+import { TaikoToken } from "../contracts/L1/TaikoToken.sol";
 
-import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import
+    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract TaikoTokenTest is Test {
     AddressManager public addressManager;
@@ -18,10 +19,14 @@ contract TaikoTokenTest is Test {
 
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
 
-    address public constant tokenAdmin = 0x200C9b60e19634E12FC6D68B7FeA7Bfb26c2e418;
-    address public constant protoBroker = 0x300C9b60E19634e12FC6D68B7FEa7bFB26c2E419;
-    address public constant TeamWallet = 0x300C9b60E19634e12FC6D68B7FEa7bFB26c2E419;
-    address public constant DaoTreasury = 0x400147C0Eb43D8D71b2B03037bB7B31f8f78EF5F;
+    address public constant tokenAdmin =
+        0x200C9b60e19634E12FC6D68B7FeA7Bfb26c2e418;
+    address public constant protoBroker =
+        0x300C9b60E19634e12FC6D68B7FEa7bFB26c2E419;
+    address public constant TeamWallet =
+        0x300C9b60E19634e12FC6D68B7FEa7bFB26c2E419;
+    address public constant DaoTreasury =
+        0x400147C0Eb43D8D71b2B03037bB7B31f8f78EF5F;
     address public constant Eve = 0x50081b12838240B1bA02b3177153Bca678a86078;
     address public constant Dave = 0x50081b12838240B1ba02b3177153bCA678a86079;
 
@@ -45,7 +50,11 @@ contract TaikoTokenTest is Test {
             bytes.concat(
                 tko.init.selector,
                 abi.encode(
-                    address(addressManager), "Taiko Token", "TKO", premintRecipients, premintAmounts
+                    address(addressManager),
+                    "Taiko Token",
+                    "TKO",
+                    premintRecipients,
+                    premintAmounts
                 )
             )
         );
@@ -263,7 +272,10 @@ contract TaikoTokenTest is Test {
         addressManager.setAddress(block.chainid, nameHash, addr);
     }
 
-    function deployViaProxy(address implementation, bytes memory data)
+    function deployViaProxy(
+        address implementation,
+        bytes memory data
+    )
         internal
         returns (TransparentUpgradeableProxy proxy)
     {

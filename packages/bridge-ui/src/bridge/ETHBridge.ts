@@ -1,16 +1,19 @@
-import { BigNumber, Contract, ethers } from 'ethers';
 import type { Transaction } from 'ethers';
+import { BigNumber, Contract, ethers } from 'ethers';
+
+import { chains } from '../chain/chains';
+import { bridgeABI } from '../constants/abi';
 import type {
-  ApproveOpts,
   Bridge,
   BridgeOpts,
   ClaimOpts,
   ReleaseOpts,
 } from '../domain/bridge';
-import type { Prover } from '../domain/proof';
-import { bridgeABI } from '../constants/abi';
-import { chains } from '../chain/chains';
 import { type Message, MessageStatus } from '../domain/message';
+import type { Prover } from '../domain/proof';
+import { getLogger } from '../utils/logger';
+
+const log = getLogger('ETHBridge');
 
 export class ETHBridge implements Bridge {
   private readonly prover: Prover;
@@ -19,86 +22,122 @@ export class ETHBridge implements Bridge {
     this.prover = prover;
   }
 
-  static async prepareTransaction(
+  private static async _prepareTransaction(
     opts: BridgeOpts,
   ): Promise<{ contract: Contract; message: Message; owner: string }> {
-    const contract: Contract = new Contract(
-      opts.bridgeAddress,
-      bridgeABI,
-      opts.signer,
-    );
+    const contract = new Contract(opts.bridgeAddress, bridgeABI, opts.signer);
 
     const owner = await opts.signer.getAddress();
+
+    const depositValue =
+      opts.to.toLowerCase() === owner.toLowerCase()
+        ? opts.amountInWei
+        : BigNumber.from(0);
+
+    const callValue =
+      opts.to.toLowerCase() === owner.toLowerCase()
+        ? BigNumber.from(0)
+        : opts.amountInWei;
+
+    const processingFee = opts.processingFeeInWei ?? BigNumber.from(0);
+
+    const gasLimit = opts.processingFeeInWei
+      ? BigNumber.from(140000) // TODO: 140k ??
+      : BigNumber.from(0);
+
+    const memo = opts.memo ?? '';
+
     const message: Message = {
+      owner,
       sender: owner,
-      srcChainId: opts.fromChainId,
-      destChainId: opts.toChainId,
-      owner: owner,
-      to: opts.to,
       refundAddress: owner,
-      depositValue:
-        opts.to.toLowerCase() === owner.toLowerCase()
-          ? opts.amountInWei
-          : BigNumber.from(0),
-      callValue:
-        opts.to.toLowerCase() === owner.toLowerCase()
-          ? BigNumber.from(0)
-          : opts.amountInWei,
-      processingFee: opts.processingFeeInWei ?? BigNumber.from(0),
-      gasLimit: opts.processingFeeInWei
-        ? BigNumber.from(140000)
-        : BigNumber.from(0),
-      memo: opts.memo ?? '',
+
+      to: opts.to,
+      srcChainId: opts.srcChainId,
+      destChainId: opts.destChainId,
+
+      gasLimit,
+      callValue,
+      depositValue,
+      processingFee,
+
+      memo,
       id: 1, // will be set in contract,
       data: '0x',
     };
 
+    log('Preparing transaction with message', message);
+
     return { contract, owner, message };
   }
 
-  RequiresAllowance(opts: ApproveOpts): Promise<boolean> {
+  requiresAllowance(): Promise<boolean> {
     return Promise.resolve(false);
   }
 
   // ETH does not need to be approved for transacting
-  Approve(opts: ApproveOpts): Promise<Transaction> {
-    return new Promise((resolve) => resolve({} as unknown as Transaction));
+  approve(): Promise<Transaction> {
+    return new Promise((resolve) => resolve({} as Transaction));
   }
 
-  async Bridge(opts: BridgeOpts): Promise<Transaction> {
-    const { contract, message } = await ETHBridge.prepareTransaction(opts);
+  async bridge(opts: BridgeOpts): Promise<Transaction> {
+    const { contract, message } = await ETHBridge._prepareTransaction(opts);
 
-    const tx = await contract.sendMessage(message, {
-      value: message.depositValue
-        .add(message.processingFee)
-        .add(message.callValue),
-    });
+    const value = message.depositValue
+      .add(message.processingFee)
+      .add(message.callValue);
 
-    return tx;
+    log('Sending message to bridge with value', value.toString());
+
+    try {
+      const tx = await contract.sendMessage(message, { value });
+
+      log('Sending message with transaction', tx);
+
+      return tx;
+    } catch (error) {
+      console.error(error);
+      throw new Error('failed to send message to bridge', { cause: error });
+    }
   }
 
-  async EstimateGas(opts: BridgeOpts): Promise<BigNumber> {
-    const { contract, message } = await ETHBridge.prepareTransaction(opts);
+  async estimateGas(opts: BridgeOpts): Promise<BigNumber> {
+    const { contract, message } = await ETHBridge._prepareTransaction(opts);
 
-    const gasEstimate = await contract.estimateGas.sendMessage(message, {
-      value: message.depositValue
-        .add(message.processingFee)
-        .add(message.callValue),
-    });
+    const value = message.depositValue
+      .add(message.processingFee)
+      .add(message.callValue);
 
-    return gasEstimate;
+    log(`Estimating gas for sendMessage. Value to send: ${value}`);
+
+    try {
+      // See https://docs.ethers.org/v5/api/contract/contract/#contract-estimateGas
+      const gasEstimate = await contract.estimateGas.sendMessage(message, {
+        value,
+      });
+
+      log('Estimated gas', gasEstimate.toString());
+
+      return gasEstimate;
+    } catch (error) {
+      console.error(error);
+      throw new Error('failed to estimate gas for sendMessage', {
+        cause: error,
+      });
+    }
   }
 
-  async Claim(opts: ClaimOpts): Promise<Transaction> {
-    const contract: Contract = new Contract(
+  async claim(opts: ClaimOpts): Promise<Transaction> {
+    const destBridgeContract: Contract = new Contract(
       opts.destBridgeAddress,
       bridgeABI,
       opts.signer,
     );
 
-    const messageStatus: MessageStatus = await contract.getMessageStatus(
-      opts.msgHash,
-    );
+    const messageStatus: MessageStatus =
+      await destBridgeContract.getMessageStatus(opts.msgHash);
+
+    log(`Claiming message with status ${messageStatus}`);
 
     if (messageStatus === MessageStatus.Done) {
       throw Error('message already processed');
@@ -129,30 +168,58 @@ export class ETHBridge implements Bridge {
           chains[opts.message.srcChainId].signalServiceAddress,
       };
 
+      log('Generating proof with opts', proofOpts);
+
       const proof = await this.prover.generateProof(proofOpts);
-      let processMessageTx;
+
+      // log('Proof generated', proof);
+
+      let processMessageTx: ethers.Transaction;
+
       try {
-        processMessageTx = await contract.processMessage(opts.message, proof);
+        processMessageTx = await destBridgeContract.processMessage(
+          opts.message,
+          proof,
+        );
       } catch (error) {
+        console.error(error);
+
         if (error.code === ethers.errors.UNPREDICTABLE_GAS_LIMIT) {
-          processMessageTx = await contract.processMessage(
+          // See https://docs.ethers.org/v5/troubleshooting/errors/#help-UNPREDICTABLE_GAS_LIMIT
+          const gasLimit = 1e6; // TODO: magic number
+
+          log(`Unpredictable gas limit. We try now with ${gasLimit} gasLimit`);
+
+          processMessageTx = await destBridgeContract.processMessage(
             opts.message,
             proof,
-            {
-              gasLimit: 1e6,
-            },
+            { gasLimit },
           );
         } else {
-          throw new Error(error);
+          throw new Error('failed to process message', { cause: error });
         }
       }
+
+      log('Processing message with transaction', processMessageTx);
+
       return processMessageTx;
     } else {
-      return await contract.retryMessage(opts.message, true);
+      try {
+        log('Retrying message', opts.message);
+
+        const tx = await destBridgeContract.retryMessage(opts.message, true);
+
+        log('Message retried with transaction', tx);
+
+        return tx;
+      } catch (error) {
+        console.error(error);
+        throw new Error('failed to retry message', { cause: error });
+      }
     }
   }
 
-  async ReleaseTokens(opts: ReleaseOpts): Promise<Transaction> {
+  async release(opts: ReleaseOpts): Promise<Transaction> {
     const destBridgeContract: Contract = new Contract(
       opts.destBridgeAddress,
       bridgeABI,
@@ -161,6 +228,8 @@ export class ETHBridge implements Bridge {
 
     const messageStatus: MessageStatus =
       await destBridgeContract.getMessageStatus(opts.msgHash);
+
+    log(`Releasing message with status ${messageStatus}`);
 
     if (messageStatus === MessageStatus.Done) {
       throw Error('message already processed');
@@ -185,6 +254,8 @@ export class ETHBridge implements Bridge {
           chains[opts.message.srcChainId].crossChainSyncAddress,
       };
 
+      log('Generating release proof with opts', proofOpts);
+
       const proof = await this.prover.generateReleaseProof(proofOpts);
 
       const srcBridgeContract: Contract = new Contract(
@@ -193,7 +264,21 @@ export class ETHBridge implements Bridge {
         opts.signer,
       );
 
-      return await srcBridgeContract.releaseEther(opts.message, proof);
+      try {
+        log('Releasing ether with message', opts.message);
+
+        const tx: Transaction = await srcBridgeContract.releaseEther(
+          opts.message,
+          proof,
+        );
+
+        log('Released ether with transaction', tx);
+
+        return tx;
+      } catch (error) {
+        console.error(error);
+        throw new Error('failed to release ether', { cause: error });
+      }
     }
   }
 }

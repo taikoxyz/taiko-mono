@@ -6,21 +6,21 @@
 
 pragma solidity ^0.8.18;
 
-import {ERC20Upgradeable} from
+import { ERC20Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import {ERC20BurnableUpgradeable} from
+import { ERC20BurnableUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
-import {ERC20SnapshotUpgradeable} from
+import { ERC20SnapshotUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
-import {PausableUpgradeable} from
+import { PausableUpgradeable } from
     "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
-import {ERC20PermitUpgradeable} from
+import { ERC20PermitUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/draft-ERC20PermitUpgradeable.sol";
-import {ERC20VotesUpgradeable} from
+import { ERC20VotesUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
-import {EssentialContract} from "../common/EssentialContract.sol";
-import {Proxied} from "../common/Proxied.sol";
+import { EssentialContract } from "../common/EssentialContract.sol";
+import { Proxied } from "../common/Proxied.sol";
 
 library LibTaikoTokenConfig {
     uint8 public constant DECIMALS = uint8(8);
@@ -53,7 +53,10 @@ contract TaikoToken is
         string calldata _symbol,
         address[] calldata _premintRecipients,
         uint256[] calldata _premintAmounts
-    ) public initializer {
+    )
+        public
+        initializer
+    {
         EssentialContract._init(_addressManager);
         __ERC20_init(_name, _symbol);
         __ERC20Burnable_init();
@@ -79,20 +82,43 @@ contract TaikoToken is
         _unpause();
     }
 
-    function mint(address to, uint256 amount) public onlyFromNamed("proto_broker") {
+    function mint(
+        address to,
+        uint256 amount
+    )
+        public
+        onlyFromNamed("proto_broker")
+    {
         _mint(to, amount);
     }
 
-    function burn(address from, uint256 amount) public onlyFromNamed("proto_broker") {
+    function burn(
+        address from,
+        uint256 amount
+    )
+        public
+        onlyFromNamed("proto_broker")
+    {
         _burn(from, amount);
     }
 
-    function transfer(address to, uint256 amount) public override returns (bool) {
+    function transfer(
+        address to,
+        uint256 amount
+    )
+        public
+        override
+        returns (bool)
+    {
         if (to == address(this)) revert TKO_INVALID_ADDR();
         return ERC20Upgradeable.transfer(to, amount);
     }
 
-    function transferFrom(address from, address to, uint256 amount)
+    function transferFrom(
+        address from,
+        address to,
+        uint256 amount
+    )
         public
         override
         returns (bool)
@@ -109,7 +135,11 @@ contract TaikoToken is
                            INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function _beforeTokenTransfer(address from, address to, uint256 amount)
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    )
         internal
         override(ERC20Upgradeable, ERC20SnapshotUpgradeable)
         whenNotPaused
@@ -118,14 +148,21 @@ contract TaikoToken is
     }
 
     // The following functions are overrides required by Solidity.
-    function _afterTokenTransfer(address from, address to, uint256 amount)
+    function _afterTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    )
         internal
         override(ERC20Upgradeable, ERC20VotesUpgradeable)
     {
         super._afterTokenTransfer(from, to, amount);
     }
 
-    function _mint(address to, uint256 amount)
+    function _mint(
+        address to,
+        uint256 amount
+    )
         internal
         override(ERC20Upgradeable, ERC20VotesUpgradeable)
     {
@@ -136,7 +173,10 @@ contract TaikoToken is
         emit Mint(to, amount);
     }
 
-    function _burn(address from, uint256 amount)
+    function _burn(
+        address from,
+        uint256 amount
+    )
         internal
         override(ERC20Upgradeable, ERC20VotesUpgradeable)
     {
@@ -145,4 +185,4 @@ contract TaikoToken is
     }
 }
 
-contract ProxiedTaikoToken is Proxied, TaikoToken {}
+contract ProxiedTaikoToken is Proxied, TaikoToken { }

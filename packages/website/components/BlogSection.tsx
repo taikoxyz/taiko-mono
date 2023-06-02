@@ -1,13 +1,28 @@
 const posts = [
   {
-    title: "ZK-Roller-Coaster #3",
-    href: "https://taiko.mirror.xyz/tg6eYqbf2qL_QVX9NXhBB4nduOir-3RGkS4M_obYrRI",
+    title: "Taiko Community Update — Q1/2023",
+    href: "https://taiko.mirror.xyz/IoEGEzlf0aJAtF31YgHHLOa5dSoetLfpIfb7lRaRiCE",
     description:
-      "This is the 3rd edition of ZK-Roller-Coaster where we track and investigate the most exciting, meaningful, and crazy ZK-stuff of the prior two weeks.",
-    date: "Apr 22, 2023",
-    datetime: "2023-04-22",
+      "Below is a summary of Taiko’s Q1 2023. Consider this Q1.5 as we’ll include updates that happened post-Q1 but before this update.",
+    date: "May 19, 2023",
+    datetime: "2023-05-19",
     imageUrl:
-      "https://mirror-media.imgix.net/publication-images/UA6Tx4uMB6qMYU3p38Dpt.png?height=512&width=1024&h=512&w=1024&auto=compress",
+      "https://mirror-media.imgix.net/publication-images/TOXeVr7_rtitwDoja4vFR.png?height=512&width=1024&h=512&w=1024&auto=compress",
+    readingTime: "6 min",
+    author: {
+      name: "finestone",
+      imageUrl: "https://avatars.githubusercontent.com/u/36642873?v=4",
+    },
+  },
+  {
+    title: "ZK-Roller-Coaster #4",
+    href: "https://taiko.mirror.xyz/OCkE3gMDKixWYC-mlX7wAqDNJaUEpm3yeDAYJygyxkg",
+    description:
+      "This is the 4th edition of ZK-Roller-Coaster where we track and investigate the most exciting, meaningful, and crazy ZK-stuff of the prior two weeks.",
+    date: "May 06, 2023",
+    datetime: "2023-05-06",
+    imageUrl:
+      "https://mirror-media.imgix.net/publication-images/Myf4VHMd1ACmqL0jmYHWe.png?height=512&width=1024&h=512&w=1024&auto=compress",
     readingTime: "4 min",
     author: {
       name: "Lisa A.",
@@ -15,33 +30,18 @@ const posts = [
     },
   },
   {
-    title: "What are ZK-SNARKs and how they work",
-    href: "https://taiko.mirror.xyz/9kGUby8h_dyu-t8jcPkDADfbWUMJw3mlGxvZAZk9sV0",
+    title: "Taiko Protocol Overview",
+    href: "https://taiko.mirror.xyz/y_47kIOL5kavvBmG0zVujD2TRztMZt-xgM5d4oqp4_Y",
     description:
-      "An exploration into ZK-SNARKs with a focus on the PLONKish variety: commitment schemes, interactive oracle proofs, Fiat-Shamir, and how it all ties together.",
-    date: "Apr 10, 2023",
-    datetime: "2023-04-10",
+      "Taiko follows the “decentralized from day 1” approach. Below is the protocol description. Taiko protocol consists of three stages: block proposal, validation, and proving.",
+    date: "May 02, 2023",
+    datetime: "2023-05-02",
     imageUrl:
-      "https://mirror-media.imgix.net/publication-images/RdnOgFVFENnLwFYAb26FD.png?height=512&width=1024&h=512&w=1024&auto=compress",
-    readingTime: "16 min",
+      "https://mirror-media.imgix.net/publication-images/o_qvD7XIAPSjiqlvvodoj.png?height=512&width=1024&h=512&w=1024&auto=compress",
+    readingTime: "6 min",
     author: {
-      name: "Aleksei Vambol",
-      imageUrl: "https://avatars.githubusercontent.com/u/77882392?v=4",
-    },
-  },
-  {
-    title: "Alpha-2 Testnet Update",
-    href: "https://taiko.mirror.xyz/EM1IEpF_Pd9_WuPxw3EQPHNHmaXzh7kljMSolP754AI",
-    description:
-      "We launched our alpha-2 testnet a bit over two weeks ago, and it has been a very useful one in terms of testing, finding issues, and other takeaways.",
-    date: "Apr 6, 2023",
-    datetime: "2023-04-06",
-    imageUrl:
-      "https://mirror-media.imgix.net/publication-images/MkuJ4w2BaFA9_qMDhBA2P.png?height=512&width=1024&h=512&w=1024&auto=compress",
-    readingTime: "4 min",
-    author: {
-      name: "finestone",
-      imageUrl: "https://avatars.githubusercontent.com/u/36642873?v=4",
+      name: "Lisa A.",
+      imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",
     },
   },
 ];
@@ -59,59 +59,67 @@ export default function BlogSection() {
           </h2>
           <div className="mx-auto mt-3 max-w-2xl text-xl text-neutral-500 sm:mt-4 dark:text-neutral-300">
             Check out the full blog at{" "}
-            <a href="https://mirror.xyz/labs.taiko.eth" target="_blank">
-              mirror.xyz ↗
+            <a
+              className="underline"
+              href="https://mirror.xyz/labs.taiko.eth"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              taiko.mirror.xyz
             </a>
           </div>
         </div>
         <div className="mx-auto mt-12 grid max-w-lg gap-5 lg:max-w-none lg:grid-cols-3">
           {posts.map((post) => (
-            <div
+            <a
               key={post.title}
-              className="flex flex-col overflow-hidden rounded-lg shadow-lg"
+              href={post.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:shadow-lg transition duration-300"
             >
-              <div className="flex-shrink-0">
-                <a href={post.href} target="_blank">
+              <div className="flex flex-col h-full overflow-hidden rounded-lg shadow-lg">
+                <div className="flex-shrink-0">
                   <img
                     className="h-54 w-full object-cover"
                     src={post.imageUrl}
                     alt=""
                   />
-                </a>
-              </div>
-              <div className="flex flex-1 flex-col justify-between bg-white p-6 dark:bg-neutral-800">
-                <div className="flex-1">
-                  <a href={post.href} target="_blank" className="mt-2 block">
-                    <div className="text-xl font-semibold text-neutral-900 dark:text-neutral-200">
-                      {post.title}
-                    </div>
-                    <div className="mt-3 text-base text-neutral-500 dark:text-neutral-300">
-                      {post.description}
-                    </div>
-                  </a>
                 </div>
-                <div className="mt-6 flex items-center">
-                  <div className="flex-shrink-0">
-                    <span className="sr-only">{post.author.name}</span>
-                    <img
-                      className="h-10 w-10 rounded-full"
-                      src={post.author.imageUrl}
-                      alt=""
-                    />
-                  </div>
-                  <div className="ml-3">
-                    <div className="text-sm font-medium text-[#fc0fc0]">
-                      {post.author.name}
-                    </div>
-                    <div className="flex space-x-1 text-sm text-neutral-500 dark:text-neutral-400">
-                      <time dateTime={post.datetime}>{post.date}</time>
-                      <span aria-hidden="true">&middot;</span>
-                      <span>{post.readingTime} read</span>
+                <div className="flex flex-1 flex-col justify-between bg-white p-6 dark:bg-neutral-800 dark:hover:bg-neutral-700">
+                  <div className="flex-1">
+                    <div className="mt-2 block">
+                      <div className="text-xl font-semibold text-neutral-900 dark:text-neutral-200">
+                        {post.title}
+                      </div>
+                      <div className="mt-3 text-base text-neutral-500 dark:text-neutral-300 line-clamp-3">
+                        {post.description}
+                      </div>
                     </div>
                   </div>
+                  <div className="mt-6 flex items-center">
+                    <div className="flex-shrink-0">
+                      <span className="sr-only">{post.author.name}</span>
+                      <img
+                        className="h-10 w-10 rounded-full"
+                        src={post.author.imageUrl}
+                        alt=""
+                      />
+                    </div>
+                    <div className="ml-3">
+                      <div className="text-sm font-medium text-[#fc0fc0]">
+                        {post.author.name}
+                      </div>
+                      <div className="flex space-x-1 text-sm text-neutral-500 dark:text-neutral-400">
+                        <time dateTime={post.datetime}>{post.date}</time>
+                        <span aria-hidden="true">&middot;</span>
+                        <span>{post.readingTime} read</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
+            </a>
           ))}
         </div>
       </div>

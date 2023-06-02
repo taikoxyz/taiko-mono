@@ -1,37 +1,64 @@
 import { ethers } from 'ethers';
-import { ETHToken } from '../token/tokens';
+
 import { tokenVaultABI } from '../constants/abi';
 import type { Chain } from '../domain/chain';
 import type { Token } from '../domain/token';
+import { isETH } from '../token/tokens';
+import { getLogger } from './logger';
+
+const log = getLogger('util:checkIfTokenIsDeployedCrossChain');
 
 export const checkIfTokenIsDeployedCrossChain = async (
   token: Token,
   provider: ethers.providers.StaticJsonRpcProvider,
   destTokenVaultAddress: string,
-  toChain: Chain,
-  fromChain: Chain,
+  destChain: Chain,
+  srcChain: Chain,
 ): Promise<boolean> => {
-  if (token.symbol !== ETHToken.symbol) {
+  if (!isETH(token)) {
     const destTokenVaultContract = new ethers.Contract(
       destTokenVaultAddress,
       tokenVaultABI,
       provider,
     );
+
     const tokenAddressOnDestChain = token.addresses.find(
-      (a) => a.chainId === toChain.id,
+      (a) => a.chainId === destChain.id,
     );
+
     if (tokenAddressOnDestChain && tokenAddressOnDestChain.address === '0x00') {
-      // check if token is already deployed as BridgedERC20 on destination chain
+      // Check if token is already deployed as BridgedERC20 on destination chain
       const tokenAddressOnSourceChain = token.addresses.find(
-        (a) => a.chainId === fromChain.id,
+        (a) => a.chainId === srcChain.id,
       );
-      const bridgedTokenAddress =
-        await destTokenVaultContract.canonicalToBridged(
-          fromChain.id,
-          tokenAddressOnSourceChain.address,
+
+      log(
+        'Checking if token',
+        token,
+        'is deployed as BridgedERC20 on destination chain',
+        destChain,
+      );
+
+      try {
+        const bridgedTokenAddress =
+          await destTokenVaultContract.canonicalToBridged(
+            srcChain.id,
+            tokenAddressOnSourceChain.address,
+          );
+
+        log(`Address of bridged token: ${bridgedTokenAddress}`);
+
+        if (bridgedTokenAddress !== ethers.constants.AddressZero) {
+          return true;
+        }
+      } catch (error) {
+        console.error(error);
+        throw new Error(
+          'encountered an issue when checking if token is deployed cross-chain',
+          {
+            cause: error,
+          },
         );
-      if (bridgedTokenAddress !== ethers.constants.AddressZero) {
-        return true;
       }
     }
   }

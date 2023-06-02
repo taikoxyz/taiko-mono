@@ -13,6 +13,12 @@ it uses an AddressManager to manage the name-to-address mapping.
 contract IAddressManager _addressManager
 ```
 
+### AddressManagerChanged
+
+```solidity
+event AddressManagerChanged(address addressManager)
+```
+
 ### RESOLVER_DENIED
 
 ```solidity

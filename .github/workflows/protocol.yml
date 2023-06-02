@@ -61,29 +61,11 @@ jobs:
       #     directory: ./packages/protocol/coverage
       #     flags: protocol
 
-  post-merge:
-    if: github.event.pull_request.merged == true
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Set up protocol
-        uses: ./.github/actions/set-up-protocol
-
-      - name: Run the command to update the documentation
+      - name: protocol - Generate contract documentation
         run: pnpm -F protocol export:docs
 
-      - name: Stage all modified and untracked files
-        run: git add .
-
-      - name: Exit if there are no changes
-        run: git diff --exit-code --cached
-
-      - name: Create pull request
-        uses: peter-evans/create-pull-request@v4
+      - name: protocol - Commit contract documentation
+        uses: stefanzweifel/git-auto-commit-action@v4
         with:
-          title: "docs(protocol): auto-update protocol documentation"
-          commit-message: "docs(protocol): auto-update protocol documentation"
-          branch: update-docs-${{ github.sha }}
-          delete-branch: true
+          commit_message: Add auto-generated contract documentation
+          file_pattern: "**/*.md"

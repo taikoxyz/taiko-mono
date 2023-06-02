@@ -18,15 +18,10 @@ func (svc *Service) handleEvent(
 	chainID *big.Int,
 	event *bridge.BridgeMessageSent,
 ) error {
-	raw := event.Raw
-
 	log.Infof("event found for msgHash: %v, txHash: %v", common.Hash(event.MsgHash).Hex(), event.Raw.TxHash.Hex())
 
-	// handle chain re-org by checking Removed property, no need to
-	// return error, just continue and do not process.
-	if raw.Removed {
-		log.Warnf("event msgHash was removed: %v", common.Hash(event.MsgHash).Hex())
-		return nil
+	if err := svc.detectAndHandleReorg(ctx, relayer.EventNameMessageSent, common.Hash(event.MsgHash).Hex()); err != nil {
+		return errors.Wrap(err, "svc.detectAndHandleReorg")
 	}
 
 	if event.MsgHash == relayer.ZeroHash {

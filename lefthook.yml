@@ -1,5 +1,6 @@
 # lefthook.yml
 pre-commit:
+  parallel: true
   commands:
     bridge-ui:
       glob: "packages/bridge-ui/**.{js,svelte,ts}"

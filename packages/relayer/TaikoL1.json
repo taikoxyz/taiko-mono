@@ -138,22 +138,32 @@
   },
   {
     "inputs": [],
-    "name": "L1_NOT_ORACLE_PROVER",
+    "name": "L1_INVALID_PROOF_OVERWRITE",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "L1_NOT_ORACLE_PROVER",
+    "name": "L1_INVALID_PROOF_OVERWRITE",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "L1_ORACLE_DISABLED",
+    "name": "L1_NOT_SPECIAL_PROVER",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "L1_ORACLE_DISABLED",
+    "name": "L1_NOT_SPECIAL_PROVER",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "L1_ORACLE_PROVER_DISABLED",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "L1_ORACLE_PROVER_DISABLED",
     "type": "error"
   },
   {
@@ -164,6 +174,26 @@
   {
     "inputs": [],
     "name": "L1_SAME_PROOF",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "L1_SYSTEM_PROVER_DISABLED",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "L1_SYSTEM_PROVER_DISABLED",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "L1_SYSTEM_PROVER_PROHIBITED",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "L1_SYSTEM_PROVER_PROHIBITED",
     "type": "error"
   },
   {
@@ -229,6 +259,22 @@
   {
     "inputs": [],
     "name": "RESOLVER_INVALID_ADDR",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "chainId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "name",
+        "type": "bytes32"
+      }
+    ],
+    "name": "RESOLVER_ZERO_ADDR",
     "type": "error"
   },
   {
@@ -304,7 +350,7 @@
           },
           {
             "internalType": "address",
-            "name": "treasury",
+            "name": "treasure",
             "type": "address"
           },
           {
@@ -366,6 +412,12 @@
         "internalType": "address",
         "name": "prover",
         "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "parentGasUsed",
+        "type": "uint32"
       }
     ],
     "name": "BlockProven",
@@ -601,6 +653,11 @@
           {
             "internalType": "uint256",
             "name": "proofCooldownPeriod",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "systemProofCooldownPeriod",
             "type": "uint256"
           },
           {
@@ -1008,7 +1065,7 @@
           },
           {
             "internalType": "address",
-            "name": "treasury",
+            "name": "treasure",
             "type": "address"
           },
           {
@@ -1119,11 +1176,6 @@
     "inputs": [],
     "name": "state",
     "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "staticRefs",
-        "type": "bytes32"
-      },
       {
         "internalType": "uint64",
         "name": "genesisHeight",

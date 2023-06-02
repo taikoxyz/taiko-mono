@@ -2,6 +2,7 @@ package eventindexer
 
 import (
 	"context"
+	"database/sql"
 	"math/big"
 
 	"gorm.io/datatypes"
@@ -10,6 +11,7 @@ import (
 var (
 	EventNameBlockProven   = "BlockProven"
 	EventNameBlockProposed = "BlockProposed"
+	EventNameBlockVerified = "BlockVerified"
 )
 
 // Event represents a stored EVM event. The fields will be serialized
@@ -22,6 +24,7 @@ type Event struct {
 	ChainID int64          `json:"chainID"`
 	Event   string         `json:"event"`
 	Address string         `json:"address"`
+	BlockID sql.NullInt64  `json:"blockID"`
 }
 
 // SaveEventOpts
@@ -31,6 +34,7 @@ type SaveEventOpts struct {
 	ChainID *big.Int
 	Event   string
 	Address string
+	BlockID *int64
 }
 
 type UniqueProversResponse struct {
@@ -52,5 +56,13 @@ type EventRepository interface {
 	FindUniqueProposers(
 		ctx context.Context,
 	) ([]UniqueProposersResponse, error)
+	FindByEventTypeAndBlockID(
+		ctx context.Context,
+		eventType string,
+		blockID int64) (*Event, error)
+	Delete(
+		ctx context.Context,
+		id int,
+	) error
 	GetCountByAddressAndEventName(ctx context.Context, address string, event string) (int, error)
 }

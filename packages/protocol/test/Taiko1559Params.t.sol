@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
-import {Lib1559Math as T} from "../contracts/libs/Lib1559Math.sol";
-import {TaikoL2} from "../contracts/L2/TaikoL2.sol";
-import {SafeCastUpgradeable} from
+import { Test } from "forge-std/Test.sol";
+import { console2 } from "forge-std/console2.sol";
+import { Lib1559Math as T } from "../contracts/libs/Lib1559Math.sol";
+import { TaikoL2 } from "../contracts/L2/TaikoL2.sol";
+import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 contract TestTaiko1559Params is Test {
@@ -19,13 +19,14 @@ contract TestTaiko1559Params is Test {
         uint64 costFactor = 25;
 
         // Calculate gas space issuance per second
-        uint64 ethereumBlockGasTarget = 15000000;
+        uint64 ethereumBlockGasTarget = 15_000_000;
         uint64 ethereumBlockTime = 12;
 
         // https://ultrasound.money/
-        uint64 ethereumBasefeeNow = 28000000000; // 28Gwei
+        uint64 ethereumBasefeeNow = 28_000_000_000; // 28Gwei
 
-        uint64 gasIssuedPerSecond = (scaleFactor * ethereumBlockGasTarget) / ethereumBlockTime;
+        uint64 gasIssuedPerSecond =
+            (scaleFactor * ethereumBlockGasTarget) / ethereumBlockTime;
 
         // Tune this number manually so ratio2x1x is ~112.5%.
         uint64 maxSeconds = 7272;
@@ -39,8 +40,8 @@ contract TestTaiko1559Params is Test {
             gasIssuedPerSecond: gasIssuedPerSecond,
             gasExcessMax: gasExcessMax,
             gasTarget: gasIssuedPerSecond * ethereumBlockTime,
-            ratio2x1x: 11250 // ~12.5% increase
-        });
+            ratio2x1x: 11_250 // ~12.5% increase
+         });
 
         console2.log("basefee           :", param1559.basefee);
         console2.log("gasIssuedPerSecond:", param1559.gasIssuedPerSecond);

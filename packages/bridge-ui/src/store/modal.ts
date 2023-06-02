@@ -1,3 +1,3 @@
 import { writable } from 'svelte/store';
 
-export const isSwitchEthereumChainModalOpen = writable<boolean>();
+export const isSwitchChainModalOpen = writable<boolean>();
