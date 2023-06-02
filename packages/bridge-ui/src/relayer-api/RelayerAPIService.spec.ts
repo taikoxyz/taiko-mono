@@ -146,7 +146,7 @@ describe('RelayerAPIService', () => {
       data: dataFromAPI,
     });
 
-    const data = await relayerApi.getAllBridgeTransactionByAddress('0x123', {
+    await relayerApi.getAllBridgeTransactionByAddress('0x123', {
       page: 0,
       size: 100,
     });

@@ -1,7 +1,8 @@
+import type { Address } from '@wagmi/core';
 import { Contract, Signer } from 'ethers';
 
 import { tokenVaultABI } from '../constants/abi';
-import type { Address, Chain } from '../domain/chain';
+import type { Chain } from '../domain/chain';
 import type { Token } from '../domain/token';
 import { isETH } from '../token/tokens';
 import { tokenVaults } from '../vault/tokenVaults';
