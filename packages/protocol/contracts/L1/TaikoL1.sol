@@ -105,7 +105,7 @@ contract TaikoL1 is
      * @param input An abi-encoded TaikoData.BlockEvidence object.
      */
     function proveBlock(
-        uint64 blockId,
+        uint256 blockId,
         bytes calldata input
     )
         external
