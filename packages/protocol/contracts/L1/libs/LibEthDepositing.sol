@@ -92,17 +92,17 @@ library LibEthDepositing {
                     TaikoData.EthDeposit storage deposit = state.ethDeposits[i];
                     if (deposit.amount > feePerDeposit) {
                         totalFee += feePerDeposit;
+
                         depositsProcessed[j].recipient = deposit.recipient;
                         depositsProcessed[j].amount =
                             deposit.amount - feePerDeposit;
+                        depositsProcessed[j].id = deposit.id;
+
                         ++j;
                     } else {
                         totalFee += deposit.amount;
                     }
 
-                    // delete the deposit
-                    deposit.recipient = address(0);
-                    deposit.amount = 0;
                     ++i;
                 }
 
