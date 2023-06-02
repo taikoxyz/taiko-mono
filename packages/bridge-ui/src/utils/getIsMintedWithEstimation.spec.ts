@@ -25,12 +25,9 @@ jest.mock('ethers', () => {
 
 const mockToken = {
   name: 'MockToken',
-  addresses: [
-    {
-      chainId: L1_CHAIN_ID,
-      address: '0x00',
-    },
-  ],
+  addresses: {
+    [L1_CHAIN_ID]: '0x00',
+  },
   decimals: 18,
   symbol: 'MKT',
 } as unknown as Token;

@@ -1,6 +1,7 @@
 import { BigNumber, Contract, type Signer } from 'ethers';
 
 import { freeMintErc20ABI } from '../constants/abi';
+import { L1_CHAIN_ID } from '../constants/envVars';
 import type { Token } from '../domain/token';
 import { getLogger } from './logger';
 
@@ -17,7 +18,7 @@ export async function getIsMintedWithEstimation(
   const address = signer.getAddress();
 
   const l1TokenContract = new Contract(
-    token.addresses[0].address, // L1 address
+    token.addresses[L1_CHAIN_ID],
     freeMintErc20ABI,
     signer,
   );

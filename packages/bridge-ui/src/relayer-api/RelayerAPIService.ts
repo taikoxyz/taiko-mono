@@ -1,9 +1,9 @@
+import type { Address } from '@wagmi/core';
 import axios from 'axios';
 import { BigNumber, Contract, ethers } from 'ethers';
 
 import { chains } from '../chain/chains';
 import { bridgeABI, erc20ABI, tokenVaultABI } from '../constants/abi';
-import type { Address } from '../domain/chain';
 import { MessageStatus } from '../domain/message';
 import type { RecordProviders } from '../domain/provider';
 import type {
@@ -126,14 +126,10 @@ export class RelayerAPIService implements RelayerAPI {
   }
 
   async getAllBridgeTransactionByAddress(
-    address: string,
+    address: Address,
     paginationParams: PaginationParams,
     chainID?: number,
   ): Promise<GetAllByAddressResponse> {
-    if (!address) {
-      throw new Error('address needed to fetch transactions');
-    }
-
     const params = {
       address,
       chainID,

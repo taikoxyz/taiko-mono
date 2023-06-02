@@ -1,4 +1,4 @@
-import { BigNumber, BigNumberish, ethers } from 'ethers';
+import { BigNumber } from 'ethers';
 
 import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
 import { MessageStatus } from '../domain/message';

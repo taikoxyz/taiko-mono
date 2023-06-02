@@ -7,7 +7,7 @@ import { ProcessingFeeMethod } from '../domain/fee';
 import type { Token } from '../domain/token';
 import { providers } from '../provider/providers';
 import { signer } from '../store/signer';
-import { ETHToken, testERC20Tokens, TKOToken } from '../token/tokens';
+import { ETHToken, testERC20Tokens } from '../token/tokens';
 import {
   erc20DeployedGasLimit,
   erc20NotDeployedGasLimit,
@@ -39,18 +39,13 @@ const mockSigner = {} as Signer;
 
 const mockToken = {
   name: 'MockToken',
-  addresses: [
-    {
-      chainId: L1_CHAIN_ID,
-      address: '0x00',
-    },
-    {
-      chainId: L2_CHAIN_ID,
-      address: '0x123', // token is deployed on L2
-    },
-  ],
+  addresses: {
+    [L1_CHAIN_ID]: '0x00',
+    [L2_CHAIN_ID]: '0x123', // token is deployed on L2
+  },
   decimals: 18,
   symbol: 'MKT',
+  logoComponent: null,
 } as Token;
 
 describe('recommendProcessingFee()', () => {
@@ -175,7 +170,7 @@ describe('recommendProcessingFee()', () => {
 
     expect(mockContract.canonicalToBridged).toHaveBeenCalledWith(
       taikoChain.id,
-      mockToken.addresses[1].address,
+      mockToken.addresses[L2_CHAIN_ID],
     );
   });
 
