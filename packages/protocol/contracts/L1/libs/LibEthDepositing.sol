@@ -37,9 +37,9 @@ library LibEthDepositing {
         }
 
         TaikoData.EthDeposit memory deposit = TaikoData.EthDeposit({
-            id: uint64(state.ethDeposits.length),
             recipient: msg.sender,
-            amount: uint96(msg.value)
+            amount: uint96(msg.value),
+            id: uint64(state.ethDeposits.length)
         });
 
         address to = resolver.resolve("ether_vault", true);
