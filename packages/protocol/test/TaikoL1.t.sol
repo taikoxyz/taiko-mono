@@ -183,7 +183,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         vm.fee(25 gwei);
 
         bytes32 emptyDepositsRoot =
-            0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
+            0x569e75fc77c1a856f6daaf9e69d8a9566ca34aa47f9133711ce065a571af0cfd;
         depositTaikoToken(Alice, 1e6 * 1e8, 100_000 ether);
 
         proposeBlock(Alice, 1_000_000, 1024);
