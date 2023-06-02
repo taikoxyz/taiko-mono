@@ -65,16 +65,17 @@ Prove a block with a zero-knowledge proof.
 ### bidForBatch
 
 ```solidity
-function bidForBatch(struct TaikoData.Bid bid) external payable
+function bidForBatch(struct TaikoData.Bid bid, uint64 batchId) external payable
 ```
 
 Bid for proving rights of a batch.
 
 #### Parameters
 
-| Name | Type                 | Description    |
-| ---- | -------------------- | -------------- |
-| bid  | struct TaikoData.Bid | The actual bid |
+| Name    | Type                 | Description                       |
+| ------- | -------------------- | --------------------------------- |
+| bid     | struct TaikoData.Bid | The actual bid                    |
+| batchId | uint64               | The batchId prover is bidding for |
 
 ### verifyBlocks
 
@@ -96,6 +97,18 @@ Verify up to N blocks.
 function depositEtherToL2() public payable
 ```
 
+### depositTaikoToken
+
+```solidity
+function depositTaikoToken(uint256 amount) external
+```
+
+### withdrawTaikoToken
+
+```solidity
+function withdrawTaikoToken(uint256 amount) external
+```
+
 ### getTaikoTokenBalance
 
 ```solidity
@@ -114,10 +127,16 @@ function getBlockFee() public view returns (uint64)
 function isBatchAuctionable(uint256 batchId) public view returns (bool)
 ```
 
-### isBidAcceptable
+### isBidBetter
 
 ```solidity
-function isBidAcceptable(struct TaikoData.Bid bid) public view returns (bool)
+function isBidBetter(struct TaikoData.Bid newBid, uint64 batchId) public view returns (bool)
+```
+
+### hasAuctionEnded
+
+```solidity
+function hasAuctionEnded(uint64 batchId) public view returns (bool)
 ```
 
 ### isBlockProvableBy

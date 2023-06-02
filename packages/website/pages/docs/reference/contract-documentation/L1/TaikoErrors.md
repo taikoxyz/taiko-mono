@@ -10,22 +10,16 @@ title: TaikoErrors
 error L1_ALREADY_PROVEN()
 ```
 
-### L1_BID_CANNOT_BE_SUBMITTED
+### L1_BID_INVALID
 
 ```solidity
-error L1_BID_CANNOT_BE_SUBMITTED()
+error L1_BID_INVALID()
 ```
 
-### L1_BID_DEPOSIT_AND_MSG_VALUE_MISMATCH
+### L1_BATCH_NOT_AUCTIONABLE
 
 ```solidity
-error L1_BID_DEPOSIT_AND_MSG_VALUE_MISMATCH()
-```
-
-### L1_BID_NOT_ACCEPTABLE
-
-```solidity
-error L1_BID_NOT_ACCEPTABLE()
+error L1_BATCH_NOT_AUCTIONABLE()
 ```
 
 ### L1_BLOCK_ID
@@ -44,12 +38,6 @@ error L1_EVIDENCE_MISMATCH(bytes32 expected, bytes32 actual)
 
 ```solidity
 error L1_FORK_CHOICE_NOT_FOUND()
-```
-
-### L1_ID_NOT_BATCH_ID
-
-```solidity
-error L1_ID_NOT_BATCH_ID()
 ```
 
 ### L1_INSUFFICIENT_TOKEN
@@ -98,6 +86,12 @@ error L1_INVALID_PROOF()
 
 ```solidity
 error L1_INVALID_PROOF_OVERWRITE()
+```
+
+### L1_NOT_PROVEABLE
+
+```solidity
+error L1_NOT_PROVEABLE()
 ```
 
 ### L1_NOT_SPECIAL_PROVER

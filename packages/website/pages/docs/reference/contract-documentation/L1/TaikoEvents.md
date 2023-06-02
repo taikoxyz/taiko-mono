@@ -37,5 +37,5 @@ event ProofParamsChanged(uint64 proofTimeTarget, uint64 proofTimeIssued, uint64 
 ### Bid
 
 ```solidity
-event Bid(uint256 id, address bidder, uint256 bidAt, uint256 deposit, uint256 feePerGas)
+event Bid(uint256 id, address prover, uint256 bidAt, uint256 deposit, uint256 feePerGas)
 ```

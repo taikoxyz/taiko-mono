@@ -54,7 +54,8 @@ library LibVerifying {
                 || config.auctionWindowInSec == 0
                 || config.worstCaseProofWindowInSec == 0
                 || config.auctionBatchSize == 0
-                || config.maxNumProposedBlocks < config.auctionRingBufferSize * config.auctionBatchSize
+                || config.maxNumProposedBlocks
+                    < config.auctionRingBufferSize * config.auctionBatchSize
         ) revert L1_INVALID_CONFIG();
 
         uint64 timeNow = uint64(block.timestamp);
@@ -85,7 +86,8 @@ library LibVerifying {
         internal
     {
         uint256 i = state.lastVerifiedBlockId;
-        TaikoData.Block storage blk = state.blocks[i % config.blockRingBufferSize];
+        TaikoData.Block storage blk =
+            state.blocks[i % config.blockRingBufferSize];
 
         uint256 fcId = blk.verifiedForkChoiceId;
         // assert(fcId > 0);
@@ -202,7 +204,8 @@ library LibVerifying {
             // state.taikoTokenBalances, because we already
             // deducted it at bidding
 
-            TaikoToken tkoToken = TaikoToken(resolver.resolve("tko_token", false));
+            TaikoToken tkoToken =
+                TaikoToken(resolver.resolve("tko_token", false));
             tkoToken.burn(
                 (address(this)),
                 winningBid.deposit / (config.auctionBatchSize * 2)

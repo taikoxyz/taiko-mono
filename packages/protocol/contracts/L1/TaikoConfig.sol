@@ -15,8 +15,10 @@ library TaikoConfig {
             // Two weeks if avg block time is 10 seconds
             maxNumProposedBlocks: 120_960,
             blockRingBufferSize: 120_960 + 10,
-            // 1 block batch consist of 100 blocks, so divided block ring buffer by 100
-            // to be kind of in-sync, but it does not have to be fully in sync, they are decoupled
+            // 1 block batch consist of 100 blocks, so divided block ring buffer
+            // by 100
+            // to be kind of in-sync, but it does not have to be fully in sync,
+            // they are decoupled
             auctionRingBufferSize: 1209,
             // Each time one more block is verified, there will be ~20k
             // more gas cost.

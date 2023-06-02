@@ -10,7 +10,8 @@ title: TaikoData
 struct Config {
   uint256 chainId;
   uint256 maxNumProposedBlocks;
-  uint256 ringBufferSize;
+  uint256 blockRingBufferSize;
+  uint256 auctionRingBufferSize;
   uint256 maxVerificationsPerTx;
   uint64 blockMaxGasLimit;
   uint64 maxTransactionsPerBlock;
@@ -25,13 +26,11 @@ struct Config {
   uint64 maxEthDepositsPerBlock;
   uint96 maxEthDepositAmount;
   uint96 minEthDepositAmount;
-  uint32 proposerBlockFeeMultiplierBP;
   uint16 auctionWindowInSec;
-  uint16 auctionBatchModulo;
+  uint16 worstCaseProofWindowInSec;
   uint16 auctionBatchSize;
-  uint16 auctionSmallestGasPerBlockBid;
-  uint16 bidGasDiffBp;
-  uint16 bidDepositDiffBp;
+  uint16 maxFeePerGas;
+  uint16 batchAllowanceToProposedBlocks;
   bool relaySignalRoot;
 }
 ```
@@ -119,6 +118,7 @@ struct Block {
   mapping(uint256 => struct TaikoData.ForkChoice) forkChoices;
   uint64 blockId;
   uint64 proposedAt;
+  uint32 gasLimit;
   uint24 nextForkChoiceId;
   uint24 verifiedForkChoiceId;
   bytes32 metaHash;
@@ -148,10 +148,11 @@ struct EthDeposit {
 
 ```solidity
 struct Bid {
-  uint256 batchId;
   address prover;
   uint64 deposit;
   uint64 feePerGas;
+  uint32 gasLimit;
+  uint16 committedProofWindow;
 }
 ```
 
@@ -160,6 +161,7 @@ struct Bid {
 ```solidity
 struct Auction {
   struct TaikoData.Bid bid;
+  uint64 batchId;
   uint64 startedAt;
 }
 ```
@@ -186,7 +188,7 @@ struct State {
   uint64 blockFee;
   uint64 avgFeePerGas;
   uint64 lastVerifiedBlockId;
-  uint64 __reserved91;
+  uint64 numOfAuctions;
   uint256[42] __gap;
 }
 ```

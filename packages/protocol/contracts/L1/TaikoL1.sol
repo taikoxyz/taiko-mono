@@ -138,12 +138,20 @@ contract TaikoL1 is
      * @param batchId The batchId prover is bidding for
      */
 
-    function bidForBatch(TaikoData.Bid calldata bid, uint64 batchId)
+    function bidForBatch(
+        TaikoData.Bid calldata bid,
+        uint64 batchId
+    )
         external
         payable
         nonReentrant
     {
-        LibAuction.bidForBatch({ state: state, config: getConfig(), newBid: bid, batchId: batchId });
+        LibAuction.bidForBatch({
+            state: state,
+            config: getConfig(),
+            newBid: bid,
+            batchId: batchId
+        });
     }
 
     /**
@@ -193,19 +201,21 @@ contract TaikoL1 is
         return LibAuction.isBatchAuctionable(state, getConfig(), batchId);
     }
 
-    function isBidBetter(TaikoData.Bid calldata newBid, uint64 batchId)
+    function isBidBetter(
+        TaikoData.Bid calldata newBid,
+        uint64 batchId
+    )
         public
         view
         returns (bool)
     {
-        return LibAuction.isBidBetter(state.auctions[batchId % getConfig().auctionRingBufferSize].bid, newBid);
+        return LibAuction.isBidBetter(
+            state.auctions[batchId % getConfig().auctionRingBufferSize].bid,
+            newBid
+        );
     }
 
-    function hasAuctionEnded(uint64 batchId)
-        public
-        view
-        returns (bool)
-    {
+    function hasAuctionEnded(uint64 batchId) public view returns (bool) {
         return LibAuction.hasAuctionEnded(state, getConfig(), batchId);
     }
 
