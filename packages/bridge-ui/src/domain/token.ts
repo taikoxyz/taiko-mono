@@ -1,14 +1,11 @@
 import type { Address } from '@wagmi/core';
 import type { ComponentType } from 'svelte';
 
-type TokenAddress = {
-  chainId: number;
-  address: Address;
-};
+import type { ChainID } from './chain';
 
 export type Token = {
   name: string;
-  addresses: TokenAddress[];
+  addresses: Record<ChainID, Address>;
   symbol: string;
   decimals: number;
   logoUrl?: string;
