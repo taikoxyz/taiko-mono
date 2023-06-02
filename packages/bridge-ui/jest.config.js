@@ -46,8 +46,8 @@ export default {
       //         - bridge/ERC20Bridge (partial test coverage)
       //         - bridge/ETHBridge (partial test coverage)
       statements: 89,
-      branches: 86,
-      functions: 91,
+      branches: 88,
+      functions: 92,
       lines: 89,
     },
   },
