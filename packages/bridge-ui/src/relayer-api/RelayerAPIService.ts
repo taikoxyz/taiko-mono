@@ -158,9 +158,9 @@ export class RelayerAPIService implements RelayerAPI {
       return { txs: [], paginationInfo };
     }
 
-    apiTxs.items = RelayerAPIService._filterDuplicateHashes(apiTxs.items);
+    const items = RelayerAPIService._filterDuplicateHashes(apiTxs.items);
 
-    const txs = apiTxs.items.map((tx: APIResponseTransaction) => {
+    const txs = items.map((tx: APIResponseTransaction) => {
       let data = tx.data.Message.Data;
       if (data === '') {
         data = '0x'; // ethers does not allow "" for empty bytes value
