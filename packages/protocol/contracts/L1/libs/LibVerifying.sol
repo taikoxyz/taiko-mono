@@ -10,6 +10,7 @@ import { AddressResolver } from "../../common/AddressResolver.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
 import { LibAuction } from "./LibAuction.sol";
 import { LibUtils } from "./LibUtils.sol";
+import { LibMath } from "../../libs/LibMath.sol";
 import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
@@ -18,6 +19,7 @@ import { TaikoToken } from "../TaikoToken.sol";
 library LibVerifying {
     using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.State;
+    using LibMath for uint256;
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash, uint64 reward);
 
@@ -31,7 +33,8 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
-        uint64 initBlockFee
+        uint64 initFeePerGas,
+        uint64 initAvgProofWindow
     )
         internal
     {
@@ -56,13 +59,23 @@ library LibVerifying {
                 || config.auctionBatchSize == 0
                 || config.maxNumProposedBlocks
                     < config.auctionRingBufferSize * config.auctionBatchSize
+                || config.auctionRingBufferSize
+                    <= (
+                        config.maxNumProposedBlocks / config.auctionBatchSize + 1
+                            + config.auctonMaxAheadOfProposals
+                    ) || config.auctionProofWindowMultiplier <= 1
+                || config.auctionWindowInSec <= 12
+                || config.auctionDepositMultipler <= 1
+                || config.auctionMaxFeePerGasMultipler <= 1
+                || config.auctionDepositMultipler
+                    < config.auctionMaxFeePerGasMultipler
         ) revert L1_INVALID_CONFIG();
 
         uint64 timeNow = uint64(block.timestamp);
         state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = timeNow;
 
-        state.blockFee = initBlockFee;
+        state.blockFee = initFeePerGas;
         state.numBlocks = 1;
 
         TaikoData.Block storage blk = state.blocks[0];
@@ -73,6 +86,8 @@ library LibVerifying {
         TaikoData.ForkChoice storage fc = state.blocks[0].forkChoices[1];
         fc.blockHash = genesisBlockHash;
         fc.provenAt = timeNow;
+
+        state.avgProofWindow = initAvgProofWindow;
 
         emit BlockVerified(0, genesisBlockHash, 0);
     }
@@ -144,8 +159,10 @@ library LibVerifying {
 
             if (config.relaySignalRoot) {
                 // Send the L2's signal root to the signal service so other
-                // TaikoL1 deployments, if they share the same signal service,
-                // can relay the signal to their corresponding TaikoL2 contract.
+                // TaikoL1
+                // deployments, if they share the same signal service, can relay
+                // the
+                // signal to their corresponding TaikoL2 contract.
                 ISignalService(resolver.resolve("signal_service", false))
                     .sendSignal(signalRoot);
             }
@@ -165,35 +182,70 @@ library LibVerifying {
     )
         private
     {
+        TaikoData.Auction memory auction =
+            state.auctions[LibAuction.blockIdToBatchId(config, blk.blockId)];
+        // Keep track of the average.. and use it as a param in proof window
         uint64 proofTime;
+
         unchecked {
-            proofTime = uint64(fc.provenAt - blk.proposedAt);
+            proofTime = uint64(
+                uint256(fc.provenAt - blk.proposedAt).max(
+                    uint256(auction.startedAt + config.auctionWindowInSec)
+                )
+            );
         }
 
-        TaikoData.Bid memory winningBid =
-            state.auctions[LibAuction.blockIdToBatchId(config, blk.blockId)].bid;
+        state.avgProofWindow =
+            uint64(LibUtils.movingAverage(state.avgProofWindow, proofTime, 100));
 
-        uint64 rewardPerBlock = fc.gasUsed * winningBid.feePerGas;
+        uint64 rewardPerBlock = fc.gasUsed * auction.bid.feePerGas;
 
         if (fc.gasUsed < blk.gasLimit) {
-            // Refund the diff
+            // Refund the diff to the proposer
             state.taikoTokenBalances[blk.proposer] +=
-                (blk.gasLimit - fc.gasUsed) * winningBid.feePerGas;
+                (blk.gasLimit - fc.gasUsed) * auction.bid.feePerGas;
         }
 
+        // TODO(daniel): we need to fine tune this average value calculation to
+        // ensure the fees are not changing too dramatically over a given period
+        // of
         state.avgFeePerGas = uint64(
             LibUtils.movingAverage(
-                state.avgFeePerGas, winningBid.feePerGas, 100
+                state.avgFeePerGas, auction.bid.feePerGas, 100
             )
         );
 
         // Prover indeed the one who won the auction
-        if (winningBid.prover == fc.prover) {
-            state.taikoTokenBalances[winningBid.prover] +=
-                (winningBid.deposit / config.auctionBatchSize) + rewardPerBlock;
+        if (auction.bid.prover == fc.prover) {
+            // Check if withing window OR not. If window: then OK, if not, then
+            // pentaly.
+            // 2 deadlines:
+            //1. proofWindowd deadline (auciton started + auction wnidow + proof
+            // window)
+            //2. proposedAt + proofWindow.
+            // Check if proof smaller than the largest.
+            if (
+                block.timestamp
+                    < auction.startedAt + config.auctionWindowInSec
+                        + auction.bid.proofWindow
+                    || block.timestamp < blk.proposedAt + auction.bid.proofWindow
+            ) {
+                // Within the window
+                state.taikoTokenBalances[auction.bid.prover] +=
+                    auction.bid.deposit + rewardPerBlock;
+            } else {
+                // Still the winning bidder is the prover, but ran out of time
+                // so this block's deposit
+                // burnt, but he/she gets the reward
+                TaikoToken tkoToken =
+                    TaikoToken(resolver.resolve("tko_token", false));
+                tkoToken.burn((address(this)), auction.bid.deposit);
+                // Within the window
+                state.taikoTokenBalances[auction.bid.prover] += rewardPerBlock;
+            }
         } else {
             // Give reward + half of the deposit/block
-            state.taikoTokenBalances[fc.prover] += winningBid.deposit
+            state.taikoTokenBalances[fc.prover] += auction.bid.deposit
                 / (config.auctionBatchSize * 2) + rewardPerBlock;
 
             // Burn half of the deposit/block from original prover since he
@@ -206,7 +258,7 @@ library LibVerifying {
                 TaikoToken(resolver.resolve("tko_token", false));
             tkoToken.burn(
                 (address(this)),
-                winningBid.deposit / (config.auctionBatchSize * 2)
+                auction.bid.deposit / (config.auctionBatchSize * 2)
             );
         }
 

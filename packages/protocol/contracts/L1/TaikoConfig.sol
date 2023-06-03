@@ -47,10 +47,13 @@ library TaikoConfig {
             ethDepositMaxFee: 1 ether / 10,
             txListCacheExpiry: 0,
             auctionWindowInSec: 120,
+            auctionProofWindowMultiplier: 2,
+            auctionDepositMultipler: 10,
+            auctionMaxFeePerGasMultipler: 5,
+            auctonMaxAheadOfProposals: 10,
             worstCaseProofWindowInSec: 7200, // 2 hours (?)
             auctionBatchSize: 100,
             maxFeePerGas: 100, // in wei
-            batchAllowanceToProposedBlocks: 200,
             relaySignalRoot: false
         });
     }

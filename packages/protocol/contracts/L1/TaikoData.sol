@@ -31,10 +31,13 @@ library TaikoData {
         //How long auction window will be open after the first bid
         uint16 auctionWindowInSec;
         //How long proof window will be granted to winning bidder
+        uint64 auctionProofWindowMultiplier;
+        uint64 auctionDepositMultipler;
+        uint64 auctionMaxFeePerGasMultipler;
         uint16 worstCaseProofWindowInSec;
         uint16 auctionBatchSize;
         uint16 maxFeePerGas; // in wei
-        uint16 batchAllowanceToProposedBlocks;
+        uint16 auctonMaxAheadOfProposals;
         bool relaySignalRoot;
     }
 
@@ -134,7 +137,7 @@ library TaikoData {
         // according to his/her own commitment.
         // Can be zero and it will just signal that the proofs are coming
         // somewhere within config.auctionWindowInSec
-        uint16 committedProofWindow;
+        uint16 proofWindow;
     }
 
     struct Auction {
@@ -163,7 +166,7 @@ library TaikoData {
         uint64 genesisTimestamp;
         uint16 __reserved70;
         uint48 __reserved71;
-        uint64 __reserved72;
+        uint64 numOfAuctions;
         // Slot 8
         uint64 __reserved80;
         uint64 __reserved81;
@@ -173,7 +176,7 @@ library TaikoData {
         uint64 blockFee;
         uint64 avgFeePerGas;
         uint64 lastVerifiedBlockId;
-        uint64 numOfAuctions;
+        uint64 avgProofWindow;
         // Reserved
         uint256[42] __gap;
     }

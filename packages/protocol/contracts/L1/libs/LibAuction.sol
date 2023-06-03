@@ -20,16 +20,17 @@ library LibAuction {
     error L1_BID_INVALID();
     error L1_BATCH_NOT_AUCTIONABLE();
     error L1_INSUFFICIENT_TOKEN();
+    error L1_NOT_THE_BEST_BID();
 
     function bidForBatch(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        TaikoData.Bid calldata newBid,
+        TaikoData.Bid memory newBid,
         uint64 batchId
     )
         internal
     {
-        if (!isBidValid(config, newBid, batchId)) {
+        if (!isBidValid(state, config, newBid, batchId)) {
             revert L1_BID_INVALID();
         }
 
@@ -37,30 +38,38 @@ library LibAuction {
             revert L1_BATCH_NOT_AUCTIONABLE();
         }
 
+        newBid.prover = msg.sender;
+
         // Have in-memory and write it back at the end of the function
         TaikoData.Auction memory auction =
             state.auctions[batchId % config.auctionRingBufferSize];
+
+        // Deposit amount is per block, not per block * auctionBatchSize
+        uint64 totalDeposit = newBid.deposit * config.auctionBatchSize;
 
         if (batchId != auction.batchId) {
             // It is a new auction
             auction.startedAt = uint64(block.timestamp);
             auction.bid = newBid;
-            ++state.numOfAuctions;
+            auction.batchId = batchId;
+            unchecked {
+                state.numOfAuctions += 1;
+            }
         } else {
             // An ongoing one
             if (!isBidBetter(auction.bid, newBid)) {
-                revert("not a better bid");
+                revert L1_NOT_THE_BEST_BID();
             }
             //'Refund' current
-            state.taikoTokenBalances[auction.bid.prover] += auction.bid.deposit;
+            state.taikoTokenBalances[auction.bid.prover] += totalDeposit;
         }
 
         // Check if bidder at least have the balance
-        if (state.taikoTokenBalances[newBid.prover] < newBid.deposit) {
+        if (state.taikoTokenBalances[newBid.prover] < totalDeposit) {
             revert L1_INSUFFICIENT_TOKEN();
         }
 
-        state.taikoTokenBalances[newBid.prover] -= newBid.deposit;
+        state.taikoTokenBalances[newBid.prover] -= totalDeposit;
         auction.bid = newBid;
 
         emit Bid(auction.batchId, auction.startedAt, newBid);
@@ -79,38 +88,25 @@ library LibAuction {
         return 1 + uint64((blockId - 1) / config.auctionBatchSize);
     }
 
-    // Check if previous auction already started
-    function isPreviousAuctionEverStarted(
-        TaikoData.State storage state,
-        uint256 batchId
-    )
-        internal
-        view
-        returns (bool result)
-    {
-        require(batchId > 0);
-        if (batchId == 1) {
-            return true;
-        }
-
-        if (state.numOfAuctions < (batchId - 1)) {
-            return false;
-        }
-
-        return true;
-    }
-
     // Check validity requirements
     function isBidValid(
+        TaikoData.State storage state,
         TaikoData.Config memory config,
-        TaikoData.Bid calldata newBid,
+        TaikoData.Bid memory newBid,
         uint64 batchId
     )
         internal
-        pure
+        view
         returns (bool)
     {
-        if (batchId == 0 || config.maxFeePerGas < newBid.feePerGas) {
+        if (
+            batchId == 0 || config.maxFeePerGas < newBid.feePerGas
+                || newBid.prover != address(0) // auto-fill
+                || newBid.proofWindow
+                    > state.avgProofWindow * config.auctionProofWindowMultiplier // Cannot
+                // be more than 2x of average
+                || config.maxFeePerGas < newBid.feePerGas
+        ) {
             return false;
         }
 
@@ -142,7 +138,7 @@ library LibAuction {
     // criteria. Shall be called after isBatchAuctionable() returns true.
     function isBidBetter(
         TaikoData.Bid memory oldBid,
-        TaikoData.Bid calldata newBid
+        TaikoData.Bid memory newBid
     )
         internal
         pure
@@ -170,16 +166,24 @@ library LibAuction {
         view
         returns (bool result)
     {
-        if (!isPreviousAuctionEverStarted(state, batchId)) {
-            return false;
-        }
+        uint64 currentProposedBatchId =
+            blockIdToBatchId(config, state.numBlocks);
+        uint64 currentVerifiedBatchId =
+            blockIdToBatchId(config, state.lastVerifiedBlockId + 1);
 
         // Regardless of auction started or not - do not allow too many auctions
         // to be open
         if (
-            batchId
-                > blockIdToBatchId(config, state.numBlocks)
-                    + config.batchAllowanceToProposedBlocks
+            // the batch of lastVerifiedBlockId is never auctionable as it has
+            // to be ended before the last verifeid block can be verified.
+            batchId < currentVerifiedBatchId
+            // We cannot start a new auction if the previous one has not started
+            || batchId > state.numOfAuctions + 1
+            // We cannot start a new auction if we have to keep all the auctions
+            // info in order to prove/verify blocks
+            || batchId >= currentVerifiedBatchId + config.auctionRingBufferSize
+                || batchId
+                    >= currentProposedBatchId + config.auctonMaxAheadOfProposals
         ) {
             return false;
         }
@@ -233,7 +237,7 @@ library LibAuction {
             state.auctions[batchId % config.auctionRingBufferSize];
 
         uint64 timerStart = auction.startedAt + config.auctionWindowInSec;
-        uint64 deadline = timerStart + auction.bid.committedProofWindow;
+        uint64 deadline = timerStart + auction.bid.proofWindow;
 
         if (block.timestamp > deadline) return true;
         else return prover == auction.bid.prover;

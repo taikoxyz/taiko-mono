@@ -43,12 +43,14 @@ contract TaikoL1 is
      *
      * @param _addressManager The AddressManager address.
      * @param _genesisBlockHash The block hash of the genesis block.
-     * @param _initBlockFee Initial (reasonable) block fee value.
+     * @param _initFeePerGas Initial (reasonable) block fee value,
+     * @param _initAvgProofWindow Initial (reasonable) proof window.
      */
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
-        uint64 _initBlockFee
+        uint64 _initFeePerGas,
+        uint64 _initAvgProofWindow
     )
         external
         initializer
@@ -58,7 +60,8 @@ contract TaikoL1 is
             state: state,
             config: getConfig(),
             genesisBlockHash: _genesisBlockHash,
-            initBlockFee: _initBlockFee
+            initFeePerGas: _initFeePerGas,
+            initAvgProofWindow: _initAvgProofWindow
         });
     }
 
@@ -139,7 +142,7 @@ contract TaikoL1 is
      */
 
     function bidForBatch(
-        TaikoData.Bid calldata bid,
+        TaikoData.Bid memory bid,
         uint64 batchId
     )
         external
