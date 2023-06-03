@@ -25,6 +25,7 @@ abstract contract TaikoErrors {
     error L1_SAME_PROOF();
     error L1_SYSTEM_PROVER_DISABLED();
     error L1_SYSTEM_PROVER_PROHIBITED();
+    error L1_TOO_MANY_ETH_DEPOSITS();
     error L1_TOO_MANY_BLOCKS();
     error L1_TX_LIST_NOT_EXIST();
     error L1_TX_LIST_HASH();
