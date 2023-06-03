@@ -79,7 +79,7 @@ Verify up to N blocks.
 ### depositEtherToL2
 
 ```solidity
-function depositEtherToL2() public payable
+function depositEtherToL2(address recipient) public payable
 ```
 
 ### getTaikoTokenBalance

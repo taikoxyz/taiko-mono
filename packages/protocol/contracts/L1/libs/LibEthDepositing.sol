@@ -18,7 +18,7 @@ library LibEthDepositing {
     using LibMath for uint256;
     using SafeCastUpgradeable for uint256;
 
-    event EthDeposited(address addr, uint96 amount);
+    event EthDeposited(TaikoData.EthDeposit deposit);
 
     error L1_INVALID_ETH_DEPOSIT();
     error L1_TOO_MANY_ETH_DEPOSITS();
@@ -26,7 +26,8 @@ library LibEthDepositing {
     function depositEtherToL2(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        AddressResolver resolver
+        AddressResolver resolver,
+        address recipient
     )
         internal
     {
@@ -55,13 +56,21 @@ library LibEthDepositing {
         to.sendEther(msg.value);
 
         // Put the deposit and the end of the queue.
+        address _recipient = recipient == address(0) ? msg.sender : recipient;
         uint256 slot = state.numEthDeposits % config.ethDepositRingBufferSize;
-        state.ethDeposits[slot] = uint256(uint160(msg.sender)) << 96 | msg.value;
+        state.ethDeposits[slot] = uint256(uint160(_recipient)) << 96 | msg.value;
+
+        emit EthDeposited(
+            TaikoData.EthDeposit({
+                recipient: _recipient,
+                amount: uint96(msg.value),
+                id: state.numEthDeposits
+            })
+        );
 
         unchecked {
             state.numEthDeposits++;
         }
-        emit EthDeposited(msg.sender, uint96(msg.value));
     }
 
     // When maxEthDepositsPerBlock is 32, the average gas cost per

@@ -26,7 +26,7 @@ abstract contract TaikoEvents {
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash, uint64 reward);
 
-    event EthDeposited(address addr, uint96 amount);
+    event EthDeposited(TaikoData.EthDeposit deposit);
 
     event ProofParamsChanged(
         uint64 proofTimeTarget,

@@ -169,11 +169,11 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         vm.prank(Alice, Alice);
         vm.expectRevert();
-        L1.depositEtherToL2{ value: minAmount - 1 }();
+        L1.depositEtherToL2{ value: minAmount - 1 }(address(0));
 
         vm.prank(Alice, Alice);
         vm.expectRevert();
-        L1.depositEtherToL2{ value: maxAmount + 1 }();
+        L1.depositEtherToL2{ value: maxAmount + 1 }(address(0));
 
         assertEq(L1.getStateVariables().nextEthDepositToProcess, 0);
         assertEq(L1.getStateVariables().numEthDeposits, 0);
@@ -196,7 +196,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         printVariables("before sending ethers");
         for (uint256 i; i < count; ++i) {
             vm.prank(Alice, Alice);
-            L1.depositEtherToL2{ value: (i + 1) * 1 ether }();
+            L1.depositEtherToL2{ value: (i + 1) * 1 ether }(address(0));
         }
         printVariables("after sending ethers");
 
@@ -307,21 +307,21 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         // So after this point we have 8 deposits
         vm.prank(Alice, Alice);
-        L1.depositEtherToL2{ value: 1 ether }();
+        L1.depositEtherToL2{ value: 1 ether }(address(0));
         vm.prank(Bob, Bob);
-        L1.depositEtherToL2{ value: 2 ether }();
+        L1.depositEtherToL2{ value: 2 ether }(address(0));
         vm.prank(Carol, Carol);
-        L1.depositEtherToL2{ value: 3 ether }();
+        L1.depositEtherToL2{ value: 3 ether }(address(0));
         vm.prank(Dave, Dave);
-        L1.depositEtherToL2{ value: 4 ether }();
+        L1.depositEtherToL2{ value: 4 ether }(address(0));
         vm.prank(Eve, Eve);
-        L1.depositEtherToL2{ value: 5 ether }();
+        L1.depositEtherToL2{ value: 5 ether }(address(0));
         vm.prank(Frank, Frank);
-        L1.depositEtherToL2{ value: 6 ether }();
+        L1.depositEtherToL2{ value: 6 ether }(address(0));
         vm.prank(George, George);
-        L1.depositEtherToL2{ value: 7 ether }();
+        L1.depositEtherToL2{ value: 7 ether }(address(0));
         vm.prank(Hilbert, Hilbert);
-        L1.depositEtherToL2{ value: 8 ether }();
+        L1.depositEtherToL2{ value: 8 ether }(address(0));
 
         assertEq(L1.getStateVariables().numEthDeposits, 8); // The number of
             // deposits
