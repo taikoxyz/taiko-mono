@@ -25,7 +25,7 @@ event BlockVerified(uint256 id, bytes32 blockHash, uint64 reward)
 ### EthDeposited
 
 ```solidity
-event EthDeposited(struct TaikoData.EthDeposit deposit)
+event EthDeposited(address addr, uint96 amount)
 ```
 
 ### ProofParamsChanged
