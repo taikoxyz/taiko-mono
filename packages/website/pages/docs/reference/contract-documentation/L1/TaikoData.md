@@ -150,11 +150,11 @@ struct State {
   mapping(uint256 => uint256) ethDeposits;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
-  uint16 numEthDeposits;
+  uint16 __reserved70;
   uint48 __reserved71;
   uint64 __reserved72;
   uint64 __reserved80;
-  uint64 __reserved81;
+  uint64 numEthDeposits;
   uint64 numBlocks;
   uint64 nextEthDepositToProcess;
   uint64 blockFee;
