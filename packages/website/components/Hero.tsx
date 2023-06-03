@@ -54,7 +54,7 @@ export default function Hero() {
                     href="/docs"
                     className="inline-flex items-center rounded-md border border-transparent bg-[#e81899] px-5 py-3 text-base font-semibold text-white dark:text-neutral-100 hover:bg-[#d1168a] hover:no-underline hover:text-white"
                   >
-                    Get started ✨
+                    Get started →
                   </a>
                 </div>
               </div>

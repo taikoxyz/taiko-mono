@@ -6,7 +6,7 @@ import {
 
 const features = [
   {
-    name: "Type 1 (Ethereum-equivalent)",
+    name: "Ethereum-equivalent",
     description:
       "A Type 1 (Ethereum-equivalent) ZK-EVM aims for maximum compatibility. This results in a seamless developer experience.",
     icon: ArrowPathIcon,
