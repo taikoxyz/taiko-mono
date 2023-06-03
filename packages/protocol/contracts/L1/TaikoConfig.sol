@@ -40,7 +40,7 @@ library TaikoConfig {
             realProofSkipSize: 10,
             ethDepositGas: 21_000,
             ethDepositMaxFee: 1 ether / 10,
-            ethDepositRingBufferSize: 5000,
+            ethDepositRingBufferSize: 1024,
             txListCacheExpiry: 0,
             relaySignalRoot: false
         });
