@@ -1,4 +1,5 @@
-import type { Signer } from 'ethers';
+import type { Address } from '@wagmi/core';
+import { constants, type Signer } from 'ethers';
 
 import type { PaginationInfo } from '../domain/relayerApi';
 import type { BridgeTransaction } from '../domain/transaction';
@@ -13,7 +14,7 @@ const log = getLogger('signer:subscriber');
 
 // We keep track of the current user address to avoid
 // querying the API for transactions if the address is the same.
-let currentUserAddress = '';
+let currentUserAddress: Address = constants.AddressZero;
 
 /**
  * Subscribe to signer changes.
@@ -25,7 +26,7 @@ export async function subscribeToSigner(newSigner: Signer | null) {
   if (newSigner) {
     log('New signer set', newSigner);
 
-    const userAddress = await newSigner.getAddress();
+    const userAddress = (await newSigner.getAddress()) as Address;
 
     // We actually don't want to run all this if the
     // new address is the same as the previous one, since it
@@ -84,7 +85,7 @@ export async function subscribeToSigner(newSigner: Signer | null) {
   } else {
     log('Signer deleted');
 
-    currentUserAddress = '';
+    currentUserAddress = constants.AddressZero;
     transactions.set([]);
     userTokens.set([]);
     paginationInfo.set(null);

@@ -62,7 +62,7 @@ library LibEthDepositing {
     {
         // Allocate one extra slot for collecting fees on L2
         depositsProcessed = new TaikoData.EthDeposit[](
-            config.maxEthDepositsPerBlock + 1
+            config.maxEthDepositsPerBlock
         );
 
         uint256 j; // number of deposits to process on L2
@@ -89,28 +89,29 @@ library LibEthDepositing {
                         && state.nextEthDepositToProcess
                             + config.maxEthDepositsPerBlock > i
                 ) {
-                    TaikoData.EthDeposit storage deposit = state.ethDeposits[i];
-                    if (deposit.amount > feePerDeposit) {
+                    depositsProcessed[j] = state.ethDeposits[i];
+
+                    if (depositsProcessed[j].amount > feePerDeposit) {
                         totalFee += feePerDeposit;
-                        depositsProcessed[j].recipient = deposit.recipient;
-                        depositsProcessed[j].amount =
-                            deposit.amount - feePerDeposit;
-                        ++j;
+                        depositsProcessed[j].amount -= feePerDeposit;
                     } else {
-                        totalFee += deposit.amount;
+                        totalFee += depositsProcessed[j].amount;
+                        depositsProcessed[j].amount = 0;
                     }
 
-                    // delete the deposit
-                    deposit.recipient = address(0);
-                    deposit.amount = 0;
                     ++i;
+                    ++j;
                 }
 
                 // Fee collecting deposit
                 if (totalFee > 0) {
-                    depositsProcessed[j].recipient = beneficiary;
-                    depositsProcessed[j].amount = totalFee;
-                    ++j;
+                    TaikoData.EthDeposit memory deposit = TaikoData.EthDeposit({
+                        recipient: beneficiary,
+                        amount: totalFee,
+                        id: uint64(state.ethDeposits.length)
+                    });
+
+                    state.ethDeposits.push(deposit);
                 }
                 // Advance cursor
                 state.nextEthDepositToProcess = i;

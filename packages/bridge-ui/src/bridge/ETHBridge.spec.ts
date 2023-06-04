@@ -68,6 +68,8 @@ describe('bridge tests', () => {
       contractAddress: '0x1234',
       spenderAddress: '0x',
     });
+
+    expect(tx).toEqual({});
   });
 
   it('bridges with processing fee, owner !== to', async () => {

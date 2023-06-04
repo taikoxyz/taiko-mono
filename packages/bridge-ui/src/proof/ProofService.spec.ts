@@ -121,17 +121,15 @@ describe('prover tests', () => {
   });
 
   it('throws on invalid proof', async () => {
-    mockProvider.send.mockImplementation(
-      (method: string, params: unknown[]) => {
-        if (method === 'eth_getBlockByHash') {
-          return block;
-        }
+    mockProvider.send.mockImplementation((method: string) => {
+      if (method === 'eth_getBlockByHash') {
+        return block;
+      }
 
-        if (method === 'eth_getProof') {
-          return invalidStorageProof;
-        }
-      },
-    );
+      if (method === 'eth_getProof') {
+        return invalidStorageProof;
+      }
+    });
 
     const prover: ProofService = new ProofService(map);
 
@@ -149,17 +147,15 @@ describe('prover tests', () => {
   });
 
   it('generates proof', async () => {
-    mockProvider.send.mockImplementation(
-      (method: string, params: unknown[]) => {
-        if (method === 'eth_getBlockByHash') {
-          return block;
-        }
+    mockProvider.send.mockImplementation((method: string) => {
+      if (method === 'eth_getBlockByHash') {
+        return block;
+      }
 
-        if (method === 'eth_getProof') {
-          return storageProof;
-        }
-      },
-    );
+      if (method === 'eth_getProof') {
+        return storageProof;
+      }
+    });
 
     const prover: ProofService = new ProofService(map);
 
@@ -183,17 +179,15 @@ describe('generate release proof tests', () => {
   });
 
   it('throws on invalid proof', async () => {
-    mockProvider.send.mockImplementation(
-      (method: string, params: unknown[]) => {
-        if (method === 'eth_getBlockByHash') {
-          return block;
-        }
+    mockProvider.send.mockImplementation((method: string) => {
+      if (method === 'eth_getBlockByHash') {
+        return block;
+      }
 
-        if (method === 'eth_getProof') {
-          return invalidStorageProof2;
-        }
-      },
-    );
+      if (method === 'eth_getProof') {
+        return invalidStorageProof2;
+      }
+    });
 
     const prover: ProofService = new ProofService(map);
 
@@ -211,17 +205,15 @@ describe('generate release proof tests', () => {
   });
 
   it('generates proof', async () => {
-    mockProvider.send.mockImplementation(
-      (method: string, params: unknown[]) => {
-        if (method === 'eth_getBlockByHash') {
-          return block;
-        }
+    mockProvider.send.mockImplementation((method: string) => {
+      if (method === 'eth_getBlockByHash') {
+        return block;
+      }
 
-        if (method === 'eth_getProof') {
-          return storageProof2;
-        }
-      },
-    );
+      if (method === 'eth_getProof') {
+        return storageProof2;
+      }
+    });
 
     const prover: ProofService = new ProofService(map);
 

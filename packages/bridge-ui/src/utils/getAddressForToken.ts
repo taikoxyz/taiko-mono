@@ -1,7 +1,8 @@
+import type { Address } from '@wagmi/core';
 import { Contract, Signer } from 'ethers';
 
 import { tokenVaultABI } from '../constants/abi';
-import type { Address, Chain } from '../domain/chain';
+import type { Chain } from '../domain/chain';
 import type { Token } from '../domain/token';
 import { isETH } from '../token/tokens';
 import { tokenVaults } from '../vault/tokenVaults';
@@ -16,14 +17,12 @@ export async function getAddressForToken(
   signer: Signer,
 ): Promise<Address> {
   // Get the address for the token on the source chain
-  let address = token.addresses.find((t) => t.chainId === srcChain.id).address;
+  let address = token.addresses[srcChain.id];
 
   // If the token isn't ETH or has no address...
   if (!isETH(token) && (!address || address === '0x00')) {
     // Find the address on the destination chain instead
-    const destChainAddress = token.addresses.find(
-      (t) => t.chainId === destChain.id,
-    ).address;
+    const destChainAddress = token.addresses[destChain.id];
 
     // Get the token vault contract on the source chain. The idea is to find
     // the bridged address for the token on the destination chain if it's been

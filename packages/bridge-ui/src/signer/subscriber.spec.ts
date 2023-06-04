@@ -1,4 +1,4 @@
-import type { Signer, Transaction } from 'ethers';
+import type { Signer } from 'ethers';
 
 import type { PaginationInfo, RelayerBlockInfo } from '../domain/relayerApi';
 import type { Token } from '../domain/token';

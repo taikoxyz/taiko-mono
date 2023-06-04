@@ -17,11 +17,11 @@ describe('checkIfTokenIsDeployedCrossChain', () => {
     symbol: 'TEST',
     decimals: 18,
     logoComponent: null,
-    addresses: [
-      { chainId: 1, address: '0x0000000000000000000000000000000000000001' },
-      { chainId: 4, address: '0x0000000000000000000000000000000000000002' },
-      { chainId: 5, address: '0x00' },
-    ],
+    addresses: {
+      1: '0x0000000000000000000000000000000000000001',
+      4: '0x0000000000000000000000000000000000000002',
+      5: '0x00',
+    },
   };
   const destTokenVaultAddress = '0x0000000000000000000000000000000000000004';
 
@@ -30,7 +30,7 @@ describe('checkIfTokenIsDeployedCrossChain', () => {
     name: 'MyChain',
     rpc: 'http://mychain.rpc.com',
     explorerUrl: '',
-    signalServiceAddress: '',
+    signalServiceAddress: '0x1234567890',
     bridgeAddress: '0x1234567890',
     crossChainSyncAddress: '0x0987654321',
   };
@@ -40,7 +40,7 @@ describe('checkIfTokenIsDeployedCrossChain', () => {
     name: 'SomeOtherChain',
     rpc: 'http://otherchain.rpc.com',
     explorerUrl: '',
-    signalServiceAddress: '',
+    signalServiceAddress: '0x9876543210',
     bridgeAddress: '0x9876543210',
     crossChainSyncAddress: '0x0123456789',
   };
@@ -49,7 +49,7 @@ describe('checkIfTokenIsDeployedCrossChain', () => {
     const ethToken: Token = {
       ...token,
       symbol: ETHToken.symbol,
-      addresses: [],
+      addresses: {},
     };
     const result = await checkIfTokenIsDeployedCrossChain(
       ethToken,
@@ -88,7 +88,7 @@ describe('checkIfTokenIsDeployedCrossChain', () => {
     );
     expect(destTokenVaultContract.canonicalToBridged).toHaveBeenCalledWith(
       srcChain.id,
-      token.addresses.find((a) => a.chainId === srcChain.id)?.address,
+      token.addresses[srcChain.id],
     );
   });
 
@@ -118,7 +118,7 @@ describe('checkIfTokenIsDeployedCrossChain', () => {
     );
     expect(destTokenVaultContract.canonicalToBridged).toHaveBeenCalledWith(
       srcChain.id,
-      token.addresses.find((a) => a.chainId === srcChain.id)?.address,
+      token.addresses[srcChain.id],
     );
   });
 
