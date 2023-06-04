@@ -177,15 +177,8 @@ library LibAuction {
         TaikoData.Auction memory auction =
             state.auctions[batchId % config.auctionRingBufferSize];
 
-        // Auction not started yet
-        if (auction.batchId != batchId) return true;
-
-        // Already out of the auction window
-        if (block.timestamp > auction.startedAt + config.auctionWindow) {
-            return false;
-        }
-
-        return true;
+        return auction.batchId != batchId
+            || block.timestamp <= auction.startedAt + config.auctionWindow;
     }
 
     function isBlockProvableBy(
