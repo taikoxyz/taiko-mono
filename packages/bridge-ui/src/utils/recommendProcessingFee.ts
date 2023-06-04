@@ -30,14 +30,10 @@ export async function recommendProcessingFee(
   let gasLimit = ethGasLimit;
 
   if (!isETH(token)) {
-    let srcChainAddr = token.addresses.find(
-      (t) => t.chainId === srcChain.id,
-    ).address;
+    let srcChainAddr = token.addresses[srcChain.id];
 
     if (!srcChainAddr || srcChainAddr === '0x00') {
-      srcChainAddr = token.addresses.find(
-        (t) => t.chainId === destChain.id,
-      ).address;
+      srcChainAddr = token.addresses[destChain.id];
     }
 
     const srcTokenVault = new Contract(

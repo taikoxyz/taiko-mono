@@ -1,8 +1,9 @@
+import type { Address } from '@wagmi/core';
 import { BigNumber, Contract, ethers } from 'ethers';
 
 import { chains } from '../chain/chains';
 import { bridgeABI, erc20ABI, tokenVaultABI } from '../constants/abi';
-import type { Address, ChainID } from '../domain/chain';
+import type { ChainID } from '../domain/chain';
 import { MessageStatus } from '../domain/message';
 import type { BridgeTransaction, Transactioner } from '../domain/transaction';
 import { jsonParseOrEmptyArray } from '../utils/jsonParseOrEmptyArray';
@@ -111,7 +112,7 @@ export class StorageService implements Transactioner {
     this.providers = providers;
   }
 
-  private _getTransactionsFromStorage(address: string): BridgeTransaction[] {
+  private _getTransactionsFromStorage(address: Address): BridgeTransaction[] {
     const existingTransactions = this.storage.getItem(
       `${STORAGE_PREFIX}-${address.toLowerCase()}`,
     );
@@ -119,7 +120,7 @@ export class StorageService implements Transactioner {
     return jsonParseOrEmptyArray<BridgeTransaction>(existingTransactions);
   }
 
-  async getAllByAddress(address: string): Promise<BridgeTransaction[]> {
+  async getAllByAddress(address: Address): Promise<BridgeTransaction[]> {
     const txs = this._getTransactionsFromStorage(address);
 
     log('Transactions from storage', txs);
@@ -231,7 +232,7 @@ export class StorageService implements Transactioner {
   }
 
   async getTransactionByHash(
-    address: string,
+    address: Address,
     hash: string,
   ): Promise<BridgeTransaction | undefined> {
     const txs = this._getTransactionsFromStorage(address);
@@ -329,7 +330,7 @@ export class StorageService implements Transactioner {
     return bridgeTx;
   }
 
-  updateStorageByAddress(address: string, txs: BridgeTransaction[] = []) {
+  updateStorageByAddress(address: Address, txs: BridgeTransaction[] = []) {
     log('Updating storage with transactions', txs);
     this.storage.setItem(
       `${STORAGE_PREFIX}-${address.toLowerCase()}`,

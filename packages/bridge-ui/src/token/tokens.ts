@@ -8,16 +8,10 @@ import type { Token } from '../domain/token';
 
 export const ETHToken: Token = {
   name: 'Ethereum',
-  addresses: [
-    {
-      chainId: L1_CHAIN_ID,
-      address: '0x00',
-    },
-    {
-      chainId: L2_CHAIN_ID,
-      address: '0x00',
-    },
-  ],
+  addresses: {
+    [L1_CHAIN_ID]: '0x00',
+    [L2_CHAIN_ID]: '0x00',
+  },
   decimals: 18,
   symbol: 'ETH',
   logoComponent: Eth,
@@ -25,16 +19,10 @@ export const ETHToken: Token = {
 
 export const TKOToken: Token = {
   name: 'Taiko',
-  addresses: [
-    {
-      chainId: L1_CHAIN_ID,
-      address: '0x00',
-    },
-    {
-      chainId: L2_CHAIN_ID,
-      address: '0x00',
-    },
-  ],
+  addresses: {
+    [L1_CHAIN_ID]: '0x00',
+    [L2_CHAIN_ID]: '0x00',
+  },
   decimals: 18,
   symbol: 'TKO',
   logoComponent: Tko,
@@ -51,16 +39,10 @@ export const testERC20Tokens: Token[] = TEST_ERC20.map(
     name,
     symbol,
 
-    addresses: [
-      {
-        chainId: L1_CHAIN_ID,
-        address,
-      },
-      {
-        chainId: L2_CHAIN_ID,
-        address: '0x00',
-      },
-    ],
+    addresses: {
+      [L1_CHAIN_ID]: address,
+      [L2_CHAIN_ID]: '0x00',
+    },
     decimals: 18,
     logoComponent: symbolToLogoComponent[symbol] || Unknown,
   }),

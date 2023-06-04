@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { fetchFeeData } from '@wagmi/core';
+  import { type Address,fetchFeeData } from '@wagmi/core';
   import { BigNumber, Contract, ethers, type Signer } from 'ethers';
   import { _ } from 'svelte-i18n';
 
@@ -357,7 +357,7 @@
       // Set it manually.
       tx.chainId = $srcChain.id;
 
-      const userAddress = await $signer.getAddress();
+      const userAddress = (await $signer.getAddress()) as Address;
 
       let transactions: BridgeTransaction[] =
         await storageService.getAllByAddress(userAddress);

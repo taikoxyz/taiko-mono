@@ -1,4 +1,6 @@
-import type { Address, ChainID } from './chain';
+import type { Address } from '@wagmi/core';
+
+import type { ChainID } from './chain';
 import type { BridgeTransaction } from './transaction';
 
 export type GetAllByAddressResponse = {
@@ -13,7 +15,7 @@ export type PaginationParams = {
 
 export interface RelayerAPI {
   getAllBridgeTransactionByAddress(
-    address: string,
+    address: Address,
     pagination: PaginationParams,
     chainID?: number,
   ): Promise<GetAllByAddressResponse>;
@@ -49,13 +51,13 @@ export type APIResponseTransaction = {
   status: number;
   eventType: number;
   chainID: number;
-  canonicalTokenAddress: string;
+  canonicalTokenAddress: Address;
   canonicalTokenSymbol: string;
   canonicalTokenName: string;
   canonicalTokenDecimals: number;
   amount: string;
   msgHash: string;
-  messageOwner: string;
+  messageOwner: Address;
   event: string;
 };
 
@@ -66,7 +68,7 @@ export type RelayerBlockInfo = {
 };
 
 export type APIRequestParams = {
-  address: string;
+  address: Address;
   chainID?: number;
   event?: string;
 };

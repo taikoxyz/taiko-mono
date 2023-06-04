@@ -22,15 +22,11 @@ export const checkIfTokenIsDeployedCrossChain = async (
       provider,
     );
 
-    const tokenAddressOnDestChain = token.addresses.find(
-      (a) => a.chainId === destChain.id,
-    );
+    const tokenAddressOnDestChain = token.addresses[destChain.id];
 
-    if (tokenAddressOnDestChain && tokenAddressOnDestChain.address === '0x00') {
+    if (tokenAddressOnDestChain === '0x00') {
       // Check if token is already deployed as BridgedERC20 on destination chain
-      const tokenAddressOnSourceChain = token.addresses.find(
-        (a) => a.chainId === srcChain.id,
-      );
+      const tokenAddressOnSourceChain = token.addresses[srcChain.id];
 
       log(
         'Checking if token',
@@ -43,7 +39,7 @@ export const checkIfTokenIsDeployedCrossChain = async (
         const bridgedTokenAddress =
           await destTokenVaultContract.canonicalToBridged(
             srcChain.id,
-            tokenAddressOnSourceChain.address,
+            tokenAddressOnSourceChain,
           );
 
         log(`Address of bridged token: ${bridgedTokenAddress}`);

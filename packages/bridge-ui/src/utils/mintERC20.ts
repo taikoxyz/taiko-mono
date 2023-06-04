@@ -15,12 +15,12 @@ export async function mintERC20(
   signer: Signer,
 ): Promise<Transaction> {
   // If we're not already, switch to L1
-  if (srcChainId !== token.addresses[0].chainId) {
+  if (srcChainId !== L1_CHAIN_ID) {
     await selectChain(chains[L1_CHAIN_ID]);
   }
 
   const l1TokenContract = new Contract(
-    token.addresses[0].address,
+    token.addresses[L1_CHAIN_ID],
     freeMintErc20ABI,
     signer,
   );
