@@ -36,6 +36,10 @@ library LibAuction {
                 || bid.blockMaxGasLimit != 0 // auto-fill
                 || bid.proofWindow
                     > state.avgProofTime * config.auctionProofWindowMultiplier
+                || bid.deposit
+                    < state.feePerGas
+                        * (config.blockFeeBaseGas + config.blockMaxGasLimit)
+                        * config.auctionDepositMultipler
         ) {
             revert L1_BID_INVALID();
         }
