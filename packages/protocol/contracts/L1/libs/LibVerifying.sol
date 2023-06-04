@@ -181,84 +181,75 @@ library LibVerifying {
         TaikoData.Auction memory auction = state.auctions[LibAuction
             .blockIdToBatchId(config, blk.blockId) % config.auctionRingBufferSize];
 
+        // Refund the diff to the proposer
+        assert(fc.gasUsed < blk.gasLimit);
+        state.taikoTokenBalances[blk.proposer] +=
+            (blk.gasLimit - fc.gasUsed) * blk.feePerGas;
+
+        uint64 proofStartAt;
         unchecked {
-            // update the average proofWindow
             uint64 auctionEndAt = auction.startedAt + config.auctionWindow;
-            uint64 proofStartAt =
+            proofStartAt =
                 auctionEndAt > blk.proposedAt ? auctionEndAt : blk.proposedAt;
-            uint256 proofTime = uint256(config.auctionMaxProofWindow).max(
-                fc.provenAt - proofStartAt
-            );
-
-            state.proofWindow = uint64(
-                LibUtils.movingAverage(state.proofWindow, proofTime, 2048)
-            );
         }
 
-        uint64 rewardPerBlock = fc.gasUsed * auction.bid.feePerGas;
+        bool refundBidder;
+        bool rewardProver;
+        bool updateAverage;
 
-        if (fc.gasUsed < blk.gasLimit) {
-            // Refund the diff to the proposer
-            state.taikoTokenBalances[blk.proposer] +=
-                (blk.gasLimit - fc.gasUsed) * blk.feePerGas;
-        }
-
-        // TODO(daniel): we need to fine tune this average value calculation to
-        // ensure the fees are not changing too dramatically over a given period
-        // of
-        state.feePerGas = uint64(
-            LibUtils.movingAverage(state.feePerGas, auction.bid.feePerGas, 100)
-        );
-
-        // Prover indeed the one who won the auction
-        if (auction.bid.prover == fc.prover) {
-            // Check if withing window OR not. If window: then OK, if not, then
-            // pentaly.
-            // 2 deadlines:
-            //1. proofWindowd deadline (auciton started + auction wnidow + proof
-            // window)
-            //2. proposedAt + proofWindow.
-            // Check if proof smaller than the largest.
-            if (
-                block.timestamp
-                    < auction.startedAt + config.auctionWindow
-                        + auction.bid.proofWindow
-                    || block.timestamp < blk.proposedAt + auction.bid.proofWindow
-            ) {
-                // Within the window
-                state.taikoTokenBalances[auction.bid.prover] +=
-                    auction.bid.deposit + rewardPerBlock;
-            } else {
-                // Still the winning bidder is the prover, but ran out of time
-                // so this block's deposit
-                // burnt, but he/she gets the reward
-                TaikoToken tkoToken =
-                    TaikoToken(resolver.resolve("tko_token", false));
-                tkoToken.burn((address(this)), auction.bid.deposit);
-                // Within the window
-                state.taikoTokenBalances[auction.bid.prover] += rewardPerBlock;
-            }
+        if (fc.prover == address(1)) {
+            refundBidder = true;
+        } else if (
+            fc.prover == auction.bid.prover
+                && fc.provenAt <= proofStartAt + auction.bid.proofWindow
+        ) {
+            refundBidder = true;
+            rewardProver = true;
+            updateAverage = true;
         } else {
-            // Give reward + half of the deposit/block
-            state.taikoTokenBalances[fc.prover] += auction.bid.deposit
-                / (config.auctionBatchSize * 2) + rewardPerBlock;
+            rewardProver = true;
+        }
 
-            // Burn half of the deposit/block from original prover since he
-            // missed proving this block
-            // We dont need to add / deduct anything to/from
-            // state.taikoTokenBalances, because we already
-            // deducted it at bidding
-
+        if (refundBidder) {
+            state.taikoTokenBalances[auction.bid.prover] += auction.bid.deposit;
+        } else {
+            uint64 amountToBurn = rewardProver // burn all or half
+                ? auction.bid.deposit / 2
+                : auction.bid.deposit;
             TaikoToken tkoToken =
                 TaikoToken(resolver.resolve("tko_token", false));
-            tkoToken.burn(
-                (address(this)),
-                auction.bid.deposit / (config.auctionBatchSize * 2)
-            );
+            tkoToken.burn((address(this)), amountToBurn);
+        }
+
+        uint64 proofReward;
+
+        if (rewardProver) {
+            proofReward = fc.gasUsed * auction.bid.feePerGas;
+            state.taikoTokenBalances[fc.prover] +=
+                auction.bid.deposit / 2 + proofReward;
+        }
+
+        if (updateAverage) {
+            unchecked {
+                // TODO(daniel): fine tune these two updates
+                uint256 proofTime = uint256(config.auctionMaxProofWindow).max(
+                    fc.provenAt - proofStartAt
+                );
+
+                state.proofWindow = uint64(
+                    LibUtils.movingAverage(state.proofWindow, proofTime, 2048)
+                );
+
+                state.feePerGas = uint64(
+                    LibUtils.movingAverage(
+                        state.feePerGas, auction.bid.feePerGas, 100
+                    )
+                );
+            }
         }
 
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = fcId;
-        emit BlockVerified(blk.blockId, fc.blockHash, rewardPerBlock);
+        emit BlockVerified(blk.blockId, fc.blockHash, proofReward);
     }
 }
