@@ -171,12 +171,6 @@ contract TaikoL1 is
         });
     }
 
-    function depositEtherToL2() public payable {
-        LibEthDepositing.depositEtherToL2(
-            state, getConfig(), AddressResolver(this)
-        );
-    }
-
     // From proposer side - same way paying the fees - and saving gas.
     function depositTaikoToken(uint256 amount) external nonReentrant {
         LibTkoDistribution.depositTaikoToken(
@@ -190,16 +184,18 @@ contract TaikoL1 is
         );
     }
 
+    function depositEtherToL2() public payable {
+        LibEthDepositing.depositEtherToL2(
+            state, getConfig(), AddressResolver(this)
+        );
+    }
+
     function getTaikoTokenBalance(address addr) public view returns (uint256) {
         return state.taikoTokenBalances[addr];
     }
 
     function getBlockFee(uint32 gasLimit) public view returns (uint64) {
         return LibProposing.getBlockFee(state, gasLimit);
-    }
-
-    function batchForBlock(uint256 blockId) public pure returns (uint256) {
-        return LibAuction.batchForBlock(getConfig(), blockId);
     }
 
     function getBlock(uint256 blockId)
@@ -283,6 +279,10 @@ contract TaikoL1 is
         returns (TaikoData.Config memory)
     {
         return TaikoConfig.getConfig();
+    }
+
+    function batchForBlock(uint256 blockId) public pure returns (uint256) {
+        return LibAuction.batchForBlock(getConfig(), blockId);
     }
 
     function isBidBetter(
