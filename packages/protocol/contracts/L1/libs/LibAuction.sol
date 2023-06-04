@@ -192,7 +192,7 @@ library LibAuction {
         returns (bool result)
     {
         if (prover == address(0) || prover == address(1)) {
-            // Note that auction may not happen at all.
+            // Note that auction may not exist at all.
             return true;
         }
 
@@ -207,9 +207,10 @@ library LibAuction {
         TaikoData.Auction memory auction =
             state.auctions[batchId % config.auctionRingBufferSize];
 
-        uint64 deadline =
-            auction.startedAt + config.auctionWindow + auction.bid.proofWindow;
-        return block.timestamp > deadline || prover == auction.bid.prover;
+        if (prover == auction.bid.prover) return true;
+
+        return block.timestamp
+            > auction.startedAt + config.auctionWindow + auction.bid.proofWindow;
     }
 
     // Mapping blockId to batchId where batchId is a ring buffer, blockId is

@@ -182,6 +182,7 @@ library LibVerifying {
         TaikoData.Auction memory auction =
             state.auctions[batchId % config.auctionRingBufferSize];
 
+        // this may be false for system prover
         bool auctioned = auction.batchId == batchId;
 
         // Refund the diff to the proposer
