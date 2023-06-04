@@ -26,7 +26,7 @@ struct Config {
   uint64 maxEthDepositsPerBlock;
   uint96 maxEthDepositAmount;
   uint96 minEthDepositAmount;
-  uint16 auctionWindowInSec;
+  uint16 auctionWindow;
   uint16 auctionMaxProofWindow;
   uint16 auctionBatchSize;
   uint16 maxFeePerGas;

@@ -54,7 +54,7 @@ library LibVerifying {
                 || config.ethDepositGas == 0 //
                 || config.ethDepositMaxFee == 0
                 || config.ethDepositMaxFee >= type(uint96).max
-                || config.auctionWindowInSec == 0
+                || config.auctionWindow == 0
                 || config.auctionMaxProofWindow == 0
                 || config.auctionBatchSize == 0
                 || config.auctionRingBufferSize
@@ -63,7 +63,7 @@ library LibVerifying {
                             + config.auctonMaxAheadOfProposals
                     ) //
                 || config.auctionProofWindowMultiplier <= 1
-                || config.auctionWindowInSec <= 24
+                || config.auctionWindow <= 24
                 || config.auctionDepositMultipler <= 1
                 || config.auctionMaxFeePerGasMultipler <= 1
                 || config.auctionDepositMultipler
@@ -189,7 +189,7 @@ library LibVerifying {
         unchecked {
             proofTime = uint64(
                 uint256(fc.provenAt - blk.proposedAt).max(
-                    uint256(auction.startedAt + config.auctionWindowInSec)
+                    uint256(auction.startedAt + config.auctionWindow)
                 )
             );
         }
@@ -223,7 +223,7 @@ library LibVerifying {
             // Check if proof smaller than the largest.
             if (
                 block.timestamp
-                    < auction.startedAt + config.auctionWindowInSec
+                    < auction.startedAt + config.auctionWindow
                         + auction.bid.proofWindow
                     || block.timestamp < blk.proposedAt + auction.bid.proofWindow
             ) {

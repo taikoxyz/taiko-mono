@@ -129,7 +129,7 @@ library LibAuction {
         TaikoData.Auction memory auction =
             state.auctions[batchId % config.auctionRingBufferSize];
 
-        if (block.timestamp < auction.startedAt + config.auctionWindowInSec) {
+        if (block.timestamp < auction.startedAt + config.auctionWindow) {
             return false;
         }
 
@@ -198,7 +198,7 @@ library LibAuction {
         if (auction.batchId != batchId) return true;
 
         // Already out of the auction window
-        if (block.timestamp > auction.startedAt + config.auctionWindowInSec) {
+        if (block.timestamp > auction.startedAt + config.auctionWindow) {
             return false;
         }
 
@@ -239,7 +239,7 @@ library LibAuction {
         TaikoData.Auction memory auction =
             state.auctions[batchId % config.auctionRingBufferSize];
 
-        uint64 timerStart = auction.startedAt + config.auctionWindowInSec;
+        uint64 timerStart = auction.startedAt + config.auctionWindow;
         uint64 deadline = timerStart + auction.bid.proofWindow;
 
         if (block.timestamp > deadline) return true;

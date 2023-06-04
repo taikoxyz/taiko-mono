@@ -29,7 +29,7 @@ library TaikoData {
         uint96 maxEthDepositAmount;
         uint96 minEthDepositAmount;
         //How long auction window will be open after the first bid
-        uint16 auctionWindowInSec;
+        uint16 auctionWindow;
         //How long proof window will be granted to winning bidder
         uint64 auctionProofWindowMultiplier;
         uint64 auctionDepositMultipler;
@@ -138,7 +138,7 @@ library TaikoData {
         // It is also part of the bidding - how fast some can submit proofs
         // according to his/her own commitment.
         // Can be zero and it will just signal that the proofs are coming
-        // somewhere within config.auctionWindowInSec
+        // somewhere within config.auctionWindow
         uint16 proofWindow;
     }
 
