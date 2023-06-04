@@ -89,10 +89,7 @@ abstract contract TaikoL1TestBase is Test {
         registerAddress("proto_broker", address(L1));
 
         L1.init(
-            address(addressManager),
-            GENESIS_BLOCK_HASH,
-            feePerGas,
-            proofWindow
+            address(addressManager), GENESIS_BLOCK_HASH, feePerGas, proofWindow
         );
         printVariables("init  ");
     }

@@ -54,8 +54,7 @@ library LibVerifying {
                 || config.ethDepositGas == 0 //
                 || config.ethDepositMaxFee == 0
                 || config.ethDepositMaxFee >= type(uint96).max
-                || config.auctionWindow == 0
-                || config.auctionMaxProofWindow == 0
+                || config.auctionWindow == 0 || config.auctionMaxProofWindow == 0
                 || config.auctionBatchSize == 0
                 || config.auctionRingBufferSize
                     <= (
@@ -63,8 +62,7 @@ library LibVerifying {
                             + config.auctonMaxAheadOfProposals
                     ) //
                 || config.auctionProofWindowMultiplier <= 1
-                || config.auctionWindow <= 24
-                || config.auctionDepositMultipler <= 1
+                || config.auctionWindow <= 24 || config.auctionDepositMultipler <= 1
                 || config.auctionMaxFeePerGasMultipler <= 1
                 || config.auctionDepositMultipler
                     < config.auctionMaxFeePerGasMultipler
@@ -158,10 +156,9 @@ library LibVerifying {
 
             if (config.relaySignalRoot) {
                 // Send the L2's signal root to the signal service so other
-                // TaikoL1
-                // deployments, if they share the same signal service, can relay
-                // the
-                // signal to their corresponding TaikoL2 contract.
+                // TaikoL1  deployments, if they share the same signal
+                // service, can relay the signal to their corresponding
+                // TaikoL2 contract.
                 ISignalService(resolver.resolve("signal_service", false))
                     .sendSignal(signalRoot);
             }
@@ -181,21 +178,22 @@ library LibVerifying {
     )
         private
     {
-        TaikoData.Auction memory auction =
-            state.auctions[LibAuction.blockIdToBatchId(config, blk.blockId)];
-        // Keep track of the average.. and use it as a param in proof window
-        uint64 proofTime;
+        TaikoData.Auction memory auction = state.auctions[LibAuction
+            .blockIdToBatchId(config, blk.blockId) % config.auctionRingBufferSize];
 
         unchecked {
-            proofTime = uint64(
-                uint256(fc.provenAt - blk.proposedAt).max(
-                    uint256(auction.startedAt + config.auctionWindow)
-                )
+            // update the average proofWindow
+            uint64 auctionEndAt = auction.startedAt + config.auctionWindow;
+            uint64 proofStartAt =
+                auctionEndAt > blk.proposedAt ? auctionEndAt : blk.proposedAt;
+            uint256 proofTime = uint256(config.auctionMaxProofWindow).max(
+                fc.provenAt - proofStartAt
+            );
+
+            state.proofWindow = uint64(
+                LibUtils.movingAverage(state.proofWindow, proofTime, 2048)
             );
         }
-
-        state.proofWindow =
-            uint64(LibUtils.movingAverage(state.proofWindow, proofTime, 100));
 
         uint64 rewardPerBlock = fc.gasUsed * auction.bid.feePerGas;
 

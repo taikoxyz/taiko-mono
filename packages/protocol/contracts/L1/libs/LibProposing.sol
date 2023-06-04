@@ -82,18 +82,14 @@ library LibProposing {
         TaikoData.Block storage blk =
             state.blocks[state.numBlocks % config.blockRingBufferSize];
 
-
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.blockId = state.numBlocks;
         blk.proposedAt = meta.timestamp;
         blk.feePerGas = state.feePerGas;
         blk.gasLimit = meta.gasLimit;
-         blk.proposer = msg.sender;
+        blk.proposer = msg.sender;
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = 0;
-
-
-
 
         uint64 blockFee = getBlockFee(state, meta.gasLimit);
 

@@ -152,8 +152,8 @@ contract TaikoL1 is
         LibAuction.bidForBatch({
             state: state,
             config: getConfig(),
-            bid: bid,
-            batchId: batchId
+            batchId: batchId,
+            bid: bid
         });
     }
 
