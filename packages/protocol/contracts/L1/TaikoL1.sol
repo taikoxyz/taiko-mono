@@ -272,6 +272,22 @@ contract TaikoL1 is
         return state.getStateVariables(getConfig());
     }
 
+    function getAuctions(
+        uint256 startBatchId,
+        uint256 count
+    )
+        public
+        view
+        returns (uint256 currentTime, TaikoData.Auction[] memory auctions)
+    {
+        return LibAuction.getAuctions({
+            state: state,
+            config: getConfig(),
+            startBatchId: startBatchId,
+            count: count
+        });
+    }
+
     function getConfig()
         public
         pure

@@ -20,6 +20,7 @@ library LibAuction {
     error L1_BID_INVALID();
     error L1_BATCH_NOT_AUCTIONABLE();
     error L1_INSUFFICIENT_TOKEN();
+    error L1_INVALID_PARAM();
     error L1_NOT_THE_BEST_BID();
 
     function bidForBatch(
@@ -74,6 +75,37 @@ library LibAuction {
         auction.bid = bid;
 
         emit BatchBid(auction.batchId, auction.startedAt, bid);
+    }
+
+    function getAuctions(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        uint256 startBatchId,
+        uint256 count
+    )
+        internal
+        view
+        returns (uint256 currentTime, TaikoData.Auction[] memory auctions)
+    {
+        if (startBatchId == 0 || count == 0 || count >= 100) {
+            revert L1_INVALID_PARAM();
+        }
+
+        currentTime = block.timestamp;
+        auctions = new TaikoData.Auction[](count);
+        uint256 i;
+        for (; i < count; ++i) {
+            uint256 _batchId = startBatchId + i;
+            TaikoData.Auction memory auction =
+                state.auctions[_batchId % config.auctionRingBufferSize];
+
+            if (auction.batchId != _batchId) break;
+
+            auctions[i] = auction;
+        }
+        assembly {
+            mstore(auctions, i) // set the real size
+        }
     }
 
     function isBlockProvableBy(
