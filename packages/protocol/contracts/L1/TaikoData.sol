@@ -174,7 +174,7 @@ library TaikoData {
         uint64 numBlocks;
         uint64 nextEthDepositToProcess;
         // Slot 9
-        uint64 __reserved90;
+        uint64 lastVerifiedAt;
         uint64 feePerGas;
         uint64 lastVerifiedBlockId;
         uint64 avgProofTime;

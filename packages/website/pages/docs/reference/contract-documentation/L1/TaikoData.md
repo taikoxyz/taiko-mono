@@ -190,7 +190,7 @@ struct State {
   uint64 __reserved81;
   uint64 numBlocks;
   uint64 nextEthDepositToProcess;
-  uint64 __reserved90;
+  uint64 lastVerifiedAt;
   uint64 feePerGas;
   uint64 lastVerifiedBlockId;
   uint64 avgProofTime;

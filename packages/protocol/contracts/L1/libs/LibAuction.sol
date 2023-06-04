@@ -31,14 +31,13 @@ library LibAuction {
     )
         internal
     {
-
-          if (
-                 bid.prover != address(0) // auto-fill
-                 ||  bid.blockMaxGasLimit  != 0  // auto-fill
+        if (
+            bid.prover != address(0) // auto-fill
+                || bid.blockMaxGasLimit != 0 // auto-fill
                 || bid.proofWindow
                     > state.avgProofTime * config.auctionProofWindowMultiplier
         ) {
-          revert L1_BID_INVALID();
+            revert L1_BID_INVALID();
         }
 
         if (!_isBatchAuctionable(state, config, batchId)) {

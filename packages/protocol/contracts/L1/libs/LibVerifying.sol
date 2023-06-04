@@ -72,6 +72,7 @@ library LibVerifying {
         state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = timeNow;
 
+        state.lastVerifiedAt = uint64(block.timestamp);
         state.feePerGas = initFeePerGas;
         state.numBlocks = 1;
 
@@ -151,6 +152,7 @@ library LibVerifying {
 
         if (processed > 0) {
             unchecked {
+                state.lastVerifiedAt = uint64(block.timestamp);
                 state.lastVerifiedBlockId += processed;
             }
 
@@ -178,12 +180,16 @@ library LibVerifying {
     )
         private
     {
-        uint64 batchId = LibAuction.batchForBlock(config, blk.blockId);
-        TaikoData.Auction memory auction =
-            state.auctions[batchId % config.auctionRingBufferSize];
+        TaikoData.Auction memory auction;
+        {
+            uint64 batchId = LibAuction.batchForBlock(config, blk.blockId);
+            auction = state.auctions[batchId % config.auctionRingBufferSize];
 
-        // this may be false for system prover
-        bool auctioned = auction.batchId == batchId;
+            // this may be false for system prover
+            if (auction.batchId == batchId) {
+                auction.batchId = 0;
+            }
+        }
 
         // Refund the diff to the proposer
         assert(fc.gasUsed < blk.gasLimit);
@@ -191,7 +197,7 @@ library LibVerifying {
             (blk.gasLimit - fc.gasUsed) * blk.feePerGas;
 
         uint64 proofStartAt;
-        if (auctioned) {
+        if (auction.batchId != 0) {
             unchecked {
                 uint64 auctionEndAt = auction.startedAt + config.auctionWindow;
                 proofStartAt = auctionEndAt > blk.proposedAt
@@ -211,16 +217,16 @@ library LibVerifying {
             fc.prover == auction.bid.prover
                 && fc.provenAt <= proofStartAt + auction.bid.proofWindow
         ) {
-            assert(auctioned);
+            assert(auction.batchId != 0);
             refundBidder = true;
             rewardProver = true;
             updateAverage = true;
         } else {
-            assert(auctioned);
+            assert(auction.batchId != 0);
             rewardProver = true;
         }
 
-        if (auctioned) {
+        if (auction.batchId != 0) {
             if (refundBidder) {
                 state.taikoTokenBalances[auction.bid.prover] +=
                     auction.bid.deposit;
@@ -245,19 +251,28 @@ library LibVerifying {
 
         if (updateAverage) {
             unchecked {
-                // TODO(daniel): fine tune these two updates
                 uint256 proofTime = uint256(config.auctionMaxProofWindow).max(
                     fc.provenAt - proofStartAt
                 );
 
                 state.avgProofTime = uint64(
-                    LibUtils.movingAverage(state.avgProofTime, proofTime, 2048)
+                    LibUtils.movingAverageTimeSensitive({
+                        maValue: state.avgProofTime,
+                        maValueTimestamp: state.lastVerifiedAt,
+                        newValue: proofTime,
+                        newValueTimestamp: fc.provenAt,
+                        maf: 2048
+                    })
                 );
 
                 state.feePerGas = uint64(
-                    LibUtils.movingAverage(
-                        state.feePerGas, auction.bid.feePerGas, 100
-                    )
+                    LibUtils.movingAverageTimeSensitive({
+                        maValue: state.feePerGas,
+                        maValueTimestamp: state.lastVerifiedAt,
+                        newValue: auction.bid.feePerGas,
+                        newValueTimestamp: fc.provenAt,
+                        maf: 2048
+                    })
                 );
             }
         }
