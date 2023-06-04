@@ -198,42 +198,6 @@ contract TaikoL1 is
         return LibProposing.getBlockFee(state, gasLimit);
     }
 
-    // If a bid is auctionable - then can call the isBidAcceptable() function to
-    // check
-    function isBatchAuctionable(uint256 batchId) public view returns (bool) {
-        return LibAuction.isBatchAuctionable(state, getConfig(), batchId);
-    }
-
-    function isBidBetter(
-        TaikoData.Bid calldata newBid,
-        uint64 batchId
-    )
-        public
-        view
-        returns (bool)
-    {
-        TaikoData.Auction memory auction =
-            state.auctions[batchId % getConfig().auctionRingBufferSize];
-        // TODO(dani):
-        // what if `auction.batchId != batchId`?
-
-        return LibAuction.isBidBetter(auction.bid, newBid);
-    }
-
-    function hasAuctionEnded(uint64 batchId) public view returns (bool) {
-        return LibAuction.hasAuctionEnded(state, getConfig(), batchId);
-    }
-
-    function isBlockProvableBy(
-        uint256 blockId,
-        address prover
-    )
-        public
-        view
-        returns (bool)
-    {
-        return LibAuction.isBlockProvableBy(state, getConfig(), blockId, prover);
-    }
 
     function batchForBlock(uint256 blockId) public pure returns (uint256) {
         return LibAuction.batchForBlock(getConfig(), blockId);
