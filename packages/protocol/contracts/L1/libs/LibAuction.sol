@@ -30,11 +30,11 @@ library LibAuction {
     )
         internal
     {
-        if (!isBidValid(state, config, bid, batchId)) {
+        if (!_isBidValid(state, config, bid, batchId)) {
             revert L1_BID_INVALID();
         }
 
-        if (!isBatchAuctionable(state, config, batchId)) {
+        if (!_isBatchAuctionable(state, config, batchId)) {
             revert L1_BATCH_NOT_AUCTIONABLE();
         }
 
@@ -76,14 +76,88 @@ library LibAuction {
         emit BatchBid(auction.batchId, auction.startedAt, bid);
     }
 
+    function isBlockProvableBy(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        uint256 blockId,
+        address prover
+    )
+        internal
+        view
+        returns (bool result)
+    {
+        if (blockId == 0) return false;
+
+        if (prover == address(0) || prover == address(1)) {
+            // Note that auction may not exist at all.
+            return true;
+        }
+
+        // Nobody can prove a block before the auction ended
+        uint64 batchId = batchForBlock(config, blockId);
+        if (
+            !_hasAuctionEnded({ state: state, config: config, batchId: batchId })
+        ) {
+            return false;
+        }
+
+        TaikoData.Auction memory auction =
+            state.auctions[batchId % config.auctionRingBufferSize];
+
+        if (prover == auction.bid.prover) return true;
+
+        return block.timestamp
+            > auction.startedAt + config.auctionWindow + auction.bid.proofWindow;
+    }
+
+    // Mapping blockId to batchId where batchId is a ring buffer, blockId is
+    // absolute (aka. block height)
+    function batchForBlock(
+        TaikoData.Config memory config,
+        uint256 blockId
+    )
+        internal
+        pure
+        returns (uint64)
+    {
+        if (blockId == 0) {
+            return 0;
+        } else {
+            unchecked {
+                return uint64((blockId - 1) / config.auctionBatchSize) + 1;
+            }
+        }
+    }
+
+    // isBidAcceptable determines is checking if the bid is acceptable based on
+    // the defined
+    // criteria. Shall be called after _isBatchAuctionable() returns true.
+    function isBidBetter(
+        TaikoData.Bid memory oldBid,
+        TaikoData.Bid memory newBid
+    )
+        internal
+        pure
+        returns (bool result)
+    {
+        if (
+            newBid.feePerGas
+                <= (oldBid.feePerGas - ((oldBid.feePerGas * 9000) / 10_000)) // 90%
+                && newBid.deposit
+                    <= ((oldBid.deposit - ((oldBid.deposit * 5000) / 10_000))) // 50%
+        ) {
+            result = true;
+        }
+    }
+
     // Check validity requirements
-    function isBidValid(
+    function _isBidValid(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         TaikoData.Bid memory newBid,
         uint64 batchId
     )
-        internal
+        private
         view
         returns (bool)
     {
@@ -103,55 +177,15 @@ library LibAuction {
         return true;
     }
 
-    // Check if auction ha ended or not
-    function hasAuctionEnded(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        uint64 batchId
-    )
-        internal
-        view
-        returns (bool)
-    {
-        if (batchId == 0) return true;
-
-        TaikoData.Auction memory auction =
-            state.auctions[batchId % config.auctionRingBufferSize];
-
-        return auction.batchId == batchId
-            && block.timestamp > auction.startedAt + config.auctionWindow;
-    }
-
-    // isBidAcceptable determines is checking if the bid is acceptable based on
-    // the defined
-    // criteria. Shall be called after isBatchAuctionable() returns true.
-    function isBidBetter(
-        TaikoData.Bid memory oldBid,
-        TaikoData.Bid memory newBid
-    )
-        internal
-        pure
-        returns (bool result)
-    {
-        if (
-            newBid.feePerGas
-                <= (oldBid.feePerGas - ((oldBid.feePerGas * 9000) / 10_000)) // 90%
-                && newBid.deposit
-                    <= ((oldBid.deposit - ((oldBid.deposit * 5000) / 10_000))) // 50%
-        ) {
-            result = true;
-        }
-    }
-
-    // isBatchAuctionable determines whether a new bid for a batch of blocks
+    // _isBatchAuctionable determines whether a new bid for a batch of blocks
     // would be accepted or not. 'open ended' - so returns true if no bids came
     // yet
-    function isBatchAuctionable(
+    function _isBatchAuctionable(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint256 batchId
     )
-        internal
+        private
         view
         returns (bool result)
     {
@@ -185,56 +219,22 @@ library LibAuction {
             || block.timestamp <= auction.startedAt + config.auctionWindow;
     }
 
-    function isBlockProvableBy(
+    // Check if auction ha ended or not
+    function _hasAuctionEnded(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        uint256 blockId,
-        address prover
+        uint64 batchId
     )
-        internal
+        private
         view
-        returns (bool result)
+        returns (bool)
     {
-        if (blockId == 0) return false;
-
-        if (prover == address(0) || prover == address(1)) {
-            // Note that auction may not exist at all.
-            return true;
-        }
-
-        // Nobody can prove a block before the auction ended
-        uint64 batchId = batchForBlock(config, blockId);
-        if (
-            !hasAuctionEnded({ state: state, config: config, batchId: batchId })
-        ) {
-            return false;
-        }
+        if (batchId == 0) return true;
 
         TaikoData.Auction memory auction =
             state.auctions[batchId % config.auctionRingBufferSize];
 
-        if (prover == auction.bid.prover) return true;
-
-        return block.timestamp
-            > auction.startedAt + config.auctionWindow + auction.bid.proofWindow;
-    }
-
-    // Mapping blockId to batchId where batchId is a ring buffer, blockId is
-    // absolute (aka. block height)
-    function batchForBlock(
-        TaikoData.Config memory config,
-        uint256 blockId
-    )
-        internal
-        pure
-        returns (uint64)
-    {
-        if (blockId == 0) {
-            return 0;
-        } else {
-            unchecked {
-                return uint64((blockId - 1) / config.auctionBatchSize) + 1;
-            }
-        }
+        return auction.batchId == batchId
+            && block.timestamp > auction.startedAt + config.auctionWindow;
     }
 }

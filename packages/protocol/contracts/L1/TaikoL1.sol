@@ -198,7 +198,6 @@ contract TaikoL1 is
         return LibProposing.getBlockFee(state, gasLimit);
     }
 
-
     function batchForBlock(uint256 blockId) public pure returns (uint256) {
         return LibAuction.batchForBlock(getConfig(), blockId);
     }
@@ -284,6 +283,17 @@ contract TaikoL1 is
         returns (TaikoData.Config memory)
     {
         return TaikoConfig.getConfig();
+    }
+
+    function isBidBetter(
+        TaikoData.Bid memory oldBid,
+        TaikoData.Bid memory newBid
+    )
+        public
+        pure
+        returns (bool)
+    {
+        return LibAuction.isBidBetter(oldBid, newBid);
     }
 
     function getVerifierName(uint16 id) public pure returns (bytes32) {
