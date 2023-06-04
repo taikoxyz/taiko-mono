@@ -166,11 +166,10 @@ library TaikoData {
         // Slot 7: never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint16 __reserved70;
-        uint48 __reserved71;
-        uint64 numAuctions;
+        uint64 __reserved70;
+        uint64 __reserved71;
         // Slot 8
-        uint64 __reserved80;
+        uint64 numAuctions;
         uint64 __reserved81;
         uint64 numBlocks;
         uint64 nextEthDepositToProcess;
