@@ -108,12 +108,9 @@ library LibAuction {
             TaikoData.Auction memory auction =
                 state.auctions[_batchId % config.auctionRingBufferSize];
 
-            if (auction.batchId != _batchId) break;
-
-            auctions[i] = auction;
-        }
-        assembly {
-            mstore(auctions, i) // set the real size
+            if (auction.batchId == _batchId) {
+                auctions[i] = auction;
+            }
         }
     }
 
