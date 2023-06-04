@@ -26,6 +26,7 @@ library TaikoConfig {
             // Set it to 6M, since its the upper limit of the Alpha-2
             // testnet's circuits.
             blockMaxGasLimit: 6_000_000,
+            blockFeeBaseGas: 20_000,
             // Set it to 79  (+1 TaikoL2.anchor transaction = 80),
             // and 80 is the upper limit of the Alpha-2 testnet's circuits.
             maxTransactionsPerBlock: 79,
@@ -53,7 +54,6 @@ library TaikoConfig {
             auctonMaxAheadOfProposals: 10,
             auctionBatchSize: 100,
             auctionMaxProofWindow: 7200, // 2 hours (?)
-            maxFeePerGas: 100, // in wei
             relaySignalRoot: false
         });
     }

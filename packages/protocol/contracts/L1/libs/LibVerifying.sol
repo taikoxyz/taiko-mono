@@ -34,7 +34,7 @@ library LibVerifying {
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
         uint64 initFeePerGas,
-        uint64 initProofWindow
+        uint64 initAvgProofTime
     )
         internal
     {
@@ -84,7 +84,7 @@ library LibVerifying {
         fc.blockHash = genesisBlockHash;
         fc.provenAt = timeNow;
 
-        state.proofWindow = initProofWindow;
+        state.avgProofTime = initAvgProofTime;
 
         emit BlockVerified(0, genesisBlockHash, 0);
     }
@@ -237,7 +237,8 @@ library LibVerifying {
 
         uint64 proofReward;
         if (rewardProver) {
-            proofReward = fc.gasUsed * auction.bid.feePerGas;
+            proofReward =
+                (config.blockFeeBaseGas + fc.gasUsed) * auction.bid.feePerGas;
             state.taikoTokenBalances[fc.prover] +=
                 auction.bid.deposit / 2 + proofReward;
         }
@@ -249,8 +250,8 @@ library LibVerifying {
                     fc.provenAt - proofStartAt
                 );
 
-                state.proofWindow = uint64(
-                    LibUtils.movingAverage(state.proofWindow, proofTime, 2048)
+                state.avgProofTime = uint64(
+                    LibUtils.movingAverage(state.avgProofTime, proofTime, 2048)
                 );
 
                 state.feePerGas = uint64(

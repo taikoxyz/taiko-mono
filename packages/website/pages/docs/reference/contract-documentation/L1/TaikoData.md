@@ -14,6 +14,7 @@ struct Config {
   uint256 auctionRingBufferSize;
   uint256 maxVerificationsPerTx;
   uint64 blockMaxGasLimit;
+  uint64 blockFeeBaseGas;
   uint64 maxTransactionsPerBlock;
   uint64 maxBytesPerTxList;
   uint256 txListCacheExpiry;
@@ -31,7 +32,6 @@ struct Config {
   uint64 auctionDepositMultipler;
   uint64 auctionMaxFeePerGasMultipler;
   uint16 auctionBatchSize;
-  uint16 maxFeePerGas;
   uint16 auctonMaxAheadOfProposals;
   uint16 auctionMaxProofWindow;
   bool relaySignalRoot;
@@ -193,7 +193,7 @@ struct State {
   uint64 __reserved90;
   uint64 feePerGas;
   uint64 lastVerifiedBlockId;
-  uint64 proofWindow;
+  uint64 avgProofTime;
   uint256[42] __gap;
 }
 ```

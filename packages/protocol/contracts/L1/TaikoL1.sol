@@ -44,13 +44,13 @@ contract TaikoL1 is
      * @param _addressManager The AddressManager address.
      * @param _genesisBlockHash The block hash of the genesis block.
      * @param _initFeePerGas Initial (reasonable) block fee value,
-     * @param _initProofWindow Initial (reasonable) proof window.
+     * @param _initAvgProofTime Initial (reasonable) proof window.
      */
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
         uint64 _initFeePerGas,
-        uint64 _initProofWindow
+        uint64 _initAvgProofTime
     )
         external
         initializer
@@ -61,7 +61,7 @@ contract TaikoL1 is
             config: getConfig(),
             genesisBlockHash: _genesisBlockHash,
             initFeePerGas: _initFeePerGas,
-            initProofWindow: _initProofWindow
+            initAvgProofTime: _initAvgProofTime
         });
     }
 
@@ -195,7 +195,11 @@ contract TaikoL1 is
     }
 
     function getBlockFee(uint32 gasLimit) public view returns (uint64) {
-        return LibProposing.getBlockFee(state, gasLimit);
+        return LibProposing.getBlockFee({
+            state: state,
+            config: getConfig(),
+            gasLimit: gasLimit
+        });
     }
 
     function getBlock(uint256 blockId)

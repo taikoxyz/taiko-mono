@@ -31,8 +31,14 @@ library LibAuction {
     )
         internal
     {
-        if (!_isBidValid(state, config, bid, batchId)) {
-            revert L1_BID_INVALID();
+
+          if (
+                 bid.prover != address(0) // auto-fill
+                 ||  bid.blockMaxGasLimit  != 0  // auto-fill
+                || bid.proofWindow
+                    > state.avgProofTime * config.auctionProofWindowMultiplier
+        ) {
+          revert L1_BID_INVALID();
         }
 
         if (!_isBatchAuctionable(state, config, batchId)) {
@@ -180,33 +186,6 @@ library LibAuction {
         ) {
             result = true;
         }
-    }
-
-    // Check validity requirements
-    function _isBidValid(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        TaikoData.Bid memory newBid,
-        uint64 batchId
-    )
-        private
-        view
-        returns (bool)
-    {
-        if (
-            batchId == 0 || config.maxFeePerGas < newBid.feePerGas
-                || newBid.prover != address(0) // auto-fill
-                || newBid.proofWindow
-                    > state.proofWindow * config.auctionProofWindowMultiplier // Cannot
-                // be more than 2x of average
-                // TODO(daniel): why
-                // TODO(daniel): rename maxFeePerGas?
-                || newBid.feePerGas > config.maxFeePerGas
-        ) {
-            return false;
-        }
-
-        return true;
     }
 
     // _isBatchAuctionable determines whether a new bid for a batch of blocks

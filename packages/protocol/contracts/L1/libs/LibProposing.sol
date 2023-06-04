@@ -91,7 +91,7 @@ library LibProposing {
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = 0;
 
-        uint64 blockFee = getBlockFee(state, meta.gasLimit);
+        uint64 blockFee = getBlockFee(state, config, meta.gasLimit);
 
         // Charging proposers the fee should be the same mechanism as it was
         // so far, so that we can avoid sending/burning all the time so that we
@@ -126,6 +126,7 @@ library LibProposing {
     // differences refund after verification
     function getBlockFee(
         TaikoData.State storage state,
+        TaikoData.Config memory config,
         uint32 gasLimit
     )
         internal
@@ -134,8 +135,7 @@ library LibProposing {
     {
         // The diff between gasLimit and gasUsed will be redistributed back to
         // the balance of proposer
-        // TODO(dani): support config.blockFeeBaseGas
-        return state.feePerGas * (gasLimit);
+        return state.feePerGas * (gasLimit + config.blockFeeBaseGas);
     }
 
     function _validateBlock(

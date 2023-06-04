@@ -16,6 +16,7 @@ library TaikoData {
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;
         uint64 blockMaxGasLimit;
+        uint64 blockFeeBaseGas;
         uint64 maxTransactionsPerBlock;
         uint64 maxBytesPerTxList;
         uint256 txListCacheExpiry;
@@ -35,7 +36,6 @@ library TaikoData {
         uint64 auctionDepositMultipler;
         uint64 auctionMaxFeePerGasMultipler;
         uint16 auctionBatchSize;
-        uint16 maxFeePerGas; // in wei
         uint16 auctonMaxAheadOfProposals;
         uint16 auctionMaxProofWindow;
         bool relaySignalRoot;
@@ -177,7 +177,7 @@ library TaikoData {
         uint64 __reserved90;
         uint64 feePerGas;
         uint64 lastVerifiedBlockId;
-        uint64 proofWindow;
+        uint64 avgProofTime;
         // Reserved
         uint256[42] __gap;
     }
