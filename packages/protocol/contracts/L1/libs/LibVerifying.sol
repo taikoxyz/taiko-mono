@@ -57,14 +57,13 @@ library LibVerifying {
                 || config.auctionWindowInSec == 0
                 || config.worstCaseProofWindowInSec == 0
                 || config.auctionBatchSize == 0
-                || config.maxNumProposedBlocks
-                    < config.auctionRingBufferSize * config.auctionBatchSize
                 || config.auctionRingBufferSize
                     <= (
                         config.maxNumProposedBlocks / config.auctionBatchSize + 1
                             + config.auctonMaxAheadOfProposals
-                    ) || config.auctionProofWindowMultiplier <= 1
-                || config.auctionWindowInSec <= 12
+                    ) //
+                || config.auctionProofWindowMultiplier <= 1
+                || config.auctionWindowInSec <= 24
                 || config.auctionDepositMultipler <= 1
                 || config.auctionMaxFeePerGasMultipler <= 1
                 || config.auctionDepositMultipler
@@ -75,7 +74,7 @@ library LibVerifying {
         state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = timeNow;
 
-        state.blockFee = initFeePerGas;
+        state.feePerGas = initFeePerGas;
         state.numBlocks = 1;
 
         TaikoData.Block storage blk = state.blocks[0];
@@ -209,10 +208,8 @@ library LibVerifying {
         // TODO(daniel): we need to fine tune this average value calculation to
         // ensure the fees are not changing too dramatically over a given period
         // of
-        state.avgFeePerGas = uint64(
-            LibUtils.movingAverage(
-                state.avgFeePerGas, auction.bid.feePerGas, 100
-            )
+        state.feePerGas = uint64(
+            LibUtils.movingAverage(state.feePerGas, auction.bid.feePerGas, 100)
         );
 
         // Prover indeed the one who won the auction

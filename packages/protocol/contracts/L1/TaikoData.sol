@@ -34,15 +34,16 @@ library TaikoData {
         uint64 auctionProofWindowMultiplier;
         uint64 auctionDepositMultipler;
         uint64 auctionMaxFeePerGasMultipler;
-        uint16 worstCaseProofWindowInSec;
         uint16 auctionBatchSize;
         uint16 maxFeePerGas; // in wei
+        uint16 worstCaseProofWindowInSec;
         uint16 auctonMaxAheadOfProposals;
         bool relaySignalRoot;
     }
 
     struct StateVariables {
-        uint64 blockFee;
+        uint64 feePerGas;
+        uint64 maxBlockFee;
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 numBlocks;
@@ -173,8 +174,8 @@ library TaikoData {
         uint64 numBlocks;
         uint64 nextEthDepositToProcess;
         // Slot 9
-        uint64 blockFee;
-        uint64 avgFeePerGas;
+        uint64 __reserved90;
+        uint64 feePerGas;
         uint64 lastVerifiedBlockId;
         uint64 avgProofWindow;
         // Reserved

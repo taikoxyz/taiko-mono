@@ -55,13 +55,17 @@ library LibUtils {
         }
     }
 
-    function getStateVariables(TaikoData.State storage state)
+    function getStateVariables(
+        TaikoData.State storage state,
+        TaikoData.Config memory config
+    )
         internal
         view
         returns (TaikoData.StateVariables memory)
     {
         return TaikoData.StateVariables({
-            blockFee: state.blockFee,
+            feePerGas: state.feePerGas,
+            maxBlockFee: state.feePerGas * config.blockMaxGasLimit,
             genesisHeight: state.genesisHeight,
             genesisTimestamp: state.genesisTimestamp,
             numBlocks: state.numBlocks,

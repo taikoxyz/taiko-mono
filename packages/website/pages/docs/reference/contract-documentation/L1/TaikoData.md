@@ -187,7 +187,7 @@ struct State {
   uint64 numBlocks;
   uint64 nextEthDepositToProcess;
   uint64 blockFee;
-  uint64 avgFeePerGas;
+  uint64 feePerGas;
   uint64 lastVerifiedBlockId;
   uint64 numOfAuctions;
   uint256[42] __gap;

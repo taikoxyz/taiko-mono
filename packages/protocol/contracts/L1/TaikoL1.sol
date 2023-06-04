@@ -194,8 +194,8 @@ contract TaikoL1 is
         return state.taikoTokenBalances[addr];
     }
 
-    function getBlockFee() public view returns (uint64) {
-        return state.blockFee;
+    function getBlockFee(uint32 gasLimit) public view returns (uint64) {
+        return LibProposing.getBlockFee(state, gasLimit);
     }
 
     // If a bid is auctionable - then can call the isBidAcceptable() function to
@@ -308,7 +308,7 @@ contract TaikoL1 is
         view
         returns (TaikoData.StateVariables memory)
     {
-        return state.getStateVariables();
+        return state.getStateVariables(getConfig());
     }
 
     function getConfig()

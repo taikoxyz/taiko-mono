@@ -131,12 +131,10 @@ library LibProposing {
         view
         returns (uint64)
     {
-        // @dantaik: What to do with the first X proposals, when there are no
-        // avgFeePerGas... ?
-        // Currently it is set to 1. at init.
         // The diff between gasLimit and gasUsed will be redistributed back to
         // the balance of proposer
-        return state.avgFeePerGas * gasLimit;
+        // TODO(dani): support config.blockFeeBaseGas
+        return state.feePerGas * (gasLimit);
     }
 
     function _validateBlock(
