@@ -227,6 +227,7 @@ library LibVerifying {
                 uint64 amountToBurn = rewardProver // burn all or half
                     ? auction.bid.deposit / 2
                     : auction.bid.deposit;
+
                 TaikoToken tkoToken =
                     TaikoToken(resolver.resolve("tko_token", false));
                 tkoToken.burn((address(this)), amountToBurn);
@@ -234,7 +235,6 @@ library LibVerifying {
         }
 
         uint64 proofReward;
-
         if (rewardProver) {
             proofReward = fc.gasUsed * auction.bid.feePerGas;
             state.taikoTokenBalances[fc.prover] +=

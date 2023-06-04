@@ -19,7 +19,7 @@ receive() external payable
 ### init
 
 ```solidity
-function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _initBlockFee) external
+function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _initFeePerGas, uint64 _initProofWindow) external
 ```
 
 Initialize the rollup.
@@ -30,7 +30,8 @@ Initialize the rollup.
 | ------------------ | ------- | ------------------------------------- |
 | \_addressManager   | address | The AddressManager address.           |
 | \_genesisBlockHash | bytes32 | The block hash of the genesis block.  |
-| \_initBlockFee     | uint64  | Initial (reasonable) block fee value. |
+| \_initFeePerGas    | uint64  | Initial (reasonable) block fee value, |
+| \_initProofWindow  | uint64  | Initial (reasonable) proof window.    |
 
 ### proposeBlock
 
@@ -65,7 +66,7 @@ Prove a block with a zero-knowledge proof.
 ### bidForBatch
 
 ```solidity
-function bidForBatch(struct TaikoData.Bid bid, uint64 batchId) external payable
+function bidForBatch(uint64 batchId, struct TaikoData.Bid bid) external payable
 ```
 
 Bid for proving rights of a batch.
@@ -74,8 +75,8 @@ Bid for proving rights of a batch.
 
 | Name    | Type                 | Description                       |
 | ------- | -------------------- | --------------------------------- |
-| bid     | struct TaikoData.Bid | The actual bid                    |
 | batchId | uint64               | The batchId prover is bidding for |
+| bid     | struct TaikoData.Bid | The actual bid                    |
 
 ### verifyBlocks
 
@@ -118,7 +119,7 @@ function getTaikoTokenBalance(address addr) public view returns (uint256)
 ### getBlockFee
 
 ```solidity
-function getBlockFee() public view returns (uint64)
+function getBlockFee(uint32 gasLimit) public view returns (uint64)
 ```
 
 ### isBatchAuctionable

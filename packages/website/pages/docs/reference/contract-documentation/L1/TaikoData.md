@@ -27,10 +27,13 @@ struct Config {
   uint96 maxEthDepositAmount;
   uint96 minEthDepositAmount;
   uint16 auctionWindow;
-  uint16 auctionMaxProofWindow;
+  uint64 auctionProofWindowMultiplier;
+  uint64 auctionDepositMultipler;
+  uint64 auctionMaxFeePerGasMultipler;
   uint16 auctionBatchSize;
   uint16 maxFeePerGas;
-  uint16 batchAllowanceToProposedBlocks;
+  uint16 auctonMaxAheadOfProposals;
+  uint16 auctionMaxProofWindow;
   bool relaySignalRoot;
 }
 ```
@@ -39,7 +42,8 @@ struct Config {
 
 ```solidity
 struct StateVariables {
-  uint64 blockFee;
+  uint64 feePerGas;
+  uint64 maxBlockFee;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 numBlocks;
@@ -116,13 +120,14 @@ struct ForkChoice {
 ```solidity
 struct Block {
   mapping(uint256 => struct TaikoData.ForkChoice) forkChoices;
+  bytes32 metaHash;
   uint64 blockId;
   uint64 proposedAt;
+  uint64 feePerGas;
   uint32 gasLimit;
+  address proposer;
   uint24 nextForkChoiceId;
   uint24 verifiedForkChoiceId;
-  bytes32 metaHash;
-  address proposer;
 }
 ```
 
@@ -152,8 +157,8 @@ struct Bid {
   address prover;
   uint64 deposit;
   uint64 feePerGas;
-  uint32 gasLimit;
-  uint16 committedProofWindow;
+  uint64 blockMaxGasLimit;
+  uint16 proofWindow;
 }
 ```
 
@@ -181,15 +186,15 @@ struct State {
   uint64 genesisTimestamp;
   uint16 __reserved70;
   uint48 __reserved71;
-  uint64 __reserved72;
+  uint64 numOfAuctions;
   uint64 __reserved80;
   uint64 __reserved81;
   uint64 numBlocks;
   uint64 nextEthDepositToProcess;
-  uint64 blockFee;
+  uint64 __reserved90;
   uint64 feePerGas;
   uint64 lastVerifiedBlockId;
-  uint64 numOfAuctions;
+  uint64 proofWindow;
   uint256[42] __gap;
 }
 ```
