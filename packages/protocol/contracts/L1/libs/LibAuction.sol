@@ -15,7 +15,7 @@ import { TaikoToken } from "../TaikoToken.sol";
 library LibAuction {
     using LibAddress for address;
 
-    event BlocksBidded(uint64 indexed batchId, uint64 startedAt, TaikoData.Bid bid);
+    event BatchBid(uint64 indexed batchId, uint64 startedAt, TaikoData.Bid bid);
 
     error L1_BID_INVALID();
     error L1_BATCH_NOT_AUCTIONABLE();
@@ -73,7 +73,7 @@ library LibAuction {
         state.taikoTokenBalances[bid.prover] -= totalDeposit;
         auction.bid = bid;
 
-        emit BlocksBidded(auction.batchId, auction.startedAt, bid);
+        emit BatchBid(auction.batchId, auction.startedAt, bid);
     }
 
     // Mapping blockId to batchId where batchId is a ring buffer, blockId is

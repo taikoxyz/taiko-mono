@@ -11,7 +11,7 @@ import { TaikoData } from "./TaikoData.sol";
 abstract contract TaikoEvents {
     // The following events must match the definitions in corresponding L1
     // libraries.
-    event BlocksBidded(uint64 indexed batchId, uint64 startedAt, TaikoData.Bid bid);
+    event BatchBid(uint64 indexed batchId, uint64 startedAt, TaikoData.Bid bid);
 
     event BlockProposed(
         uint256 indexed id, TaikoData.BlockMetadata meta, uint64 blockFee
