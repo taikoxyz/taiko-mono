@@ -39,6 +39,7 @@ library LibAuction {
         }
 
         newBid.prover = msg.sender;
+        newBid.blockMaxGasLimit = config.blockMaxGasLimit;
 
         // Have in-memory and write it back at the end of the function
         TaikoData.Auction memory auction =

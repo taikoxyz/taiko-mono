@@ -132,8 +132,8 @@ library TaikoData {
         address prover;
         uint64 deposit;
         uint64 feePerGas;
-        // In order to refund the diff betwen gasUsed vs. gasLimit
-        uint32 gasLimit;
+        // In order to refund the diff betwen gasUsed vs. blockMaxGasLimit
+        uint64 blockMaxGasLimit;
         // It is also part of the bidding - how fast some can submit proofs
         // according to his/her own commitment.
         // Can be zero and it will just signal that the proofs are coming
