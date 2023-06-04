@@ -191,7 +191,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             proposeBlock(Alice, 1_000_000, 1024);
         assertEq(meta.depositsProcessed.length, 0);
 
-        uint256 count = conf.maxEthDepositsPerBlock;
+        uint256 count = conf.ethDepositMaxCountPerBlock;
 
         printVariables("before sending ethers");
         for (uint256 i; i < count; ++i) {
@@ -222,7 +222,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             (gasUsedWithDeposits - gasUsedWithoutDeposits) / count;
 
         console2.log("gas per eth deposit:", gasPerEthDeposit);
-        console2.log("maxEthDepositsPerBlock:", count);
+        console2.log("ethDepositMaxCountPerBlock:", count);
     }
 
     /// @dev getCrossChainBlockHash tests

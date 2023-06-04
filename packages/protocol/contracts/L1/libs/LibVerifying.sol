@@ -43,15 +43,15 @@ library LibVerifying {
                 || config.txListCacheExpiry > 30 * 24 hours
             // EIP-4844 blob size up to 128K
             || config.maxBytesPerTxList > 128 * 1024
-                || config.minEthDepositsPerBlock == 0
-                || config.maxEthDepositsPerBlock < config.minEthDepositsPerBlock
-                || config.ethDepositGas == 0 //
+                || config.ethDepositMinCountPerBlock == 0
+                || config.ethDepositMaxCountPerBlock
+                    < config.ethDepositMinCountPerBlock || config.ethDepositGas == 0 //
                 || config.ethDepositMinAmount == 0
                 || config.ethDepositMaxAmount <= config.ethDepositMinAmount
                 || config.ethDepositMaxAmount >= type(uint96).max
                 || config.ethDepositMaxFee == 0
                 || config.ethDepositMaxFee
-                    >= type(uint96).max / config.maxEthDepositsPerBlock
+                    >= type(uint96).max / config.ethDepositMaxCountPerBlock
                 || config.ethDepositRingBufferSize <= 1
         ) revert L1_INVALID_CONFIG();
 

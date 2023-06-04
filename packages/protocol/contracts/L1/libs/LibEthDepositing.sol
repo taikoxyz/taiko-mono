@@ -58,7 +58,7 @@ library LibEthDepositing {
         }
     }
 
-    // When maxEthDepositsPerBlock is 32, the average gas cost per
+    // When ethDepositMaxCountPerBlock is 32, the average gas cost per
     // EthDeposit is about 2700 gas. We use 21000 so the proposer
     // may earn a small profit if there are 32 deposits included
     // in the block; if there are less EthDeposit to process, the
@@ -74,11 +74,11 @@ library LibEthDepositing {
     {
         uint256 numPending =
             state.numEthDeposits - state.nextEthDepositToProcess;
-        if (numPending < config.minEthDepositsPerBlock) {
+        if (numPending < config.ethDepositMinCountPerBlock) {
             deposits = new TaikoData.EthDeposit[](0);
         } else {
             deposits = new TaikoData.EthDeposit[](
-                numPending.min(config.maxEthDepositsPerBlock)
+                numPending.min(config.ethDepositMaxCountPerBlock)
             );
 
             uint96 fee = uint96(

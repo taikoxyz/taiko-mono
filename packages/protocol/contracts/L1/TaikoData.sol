@@ -24,8 +24,8 @@ library TaikoData {
         uint256 ethDepositGas;
         uint256 ethDepositMaxFee;
         uint256 ethDepositRingBufferSize;
-        uint64 minEthDepositsPerBlock;
-        uint64 maxEthDepositsPerBlock;
+        uint64 ethDepositMinCountPerBlock;
+        uint64 ethDepositMaxCountPerBlock;
         uint96 ethDepositMaxAmount;
         uint96 ethDepositMinAmount;
         bool relaySignalRoot;
