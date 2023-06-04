@@ -55,7 +55,7 @@ library LibAuction {
             auction.bid = bid;
             auction.batchId = batchId;
             unchecked {
-                state.numOfAuctions += 1;
+                state.numAuctions += 1;
             }
         } else {
             // An ongoing one
@@ -234,7 +234,7 @@ library LibAuction {
             // to be ended before the last verifeid block can be verified.
             batchId < currentVerifiedBatchId
             // We cannot start a new auction if the previous one has not started
-            || batchId > state.numOfAuctions + 1
+            || batchId > state.numAuctions + 1
             // We cannot start a new auction if we have to keep all the auctions
             // info in order to prove/verify blocks
             || batchId >= currentVerifiedBatchId + config.auctionRingBufferSize

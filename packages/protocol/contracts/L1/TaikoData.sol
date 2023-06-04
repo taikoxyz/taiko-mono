@@ -43,11 +43,11 @@ library TaikoData {
 
     struct StateVariables {
         uint64 feePerGas;
-        uint64 maxBlockFee;
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 numBlocks;
         uint64 lastVerifiedBlockId;
+        uint64 numAuctions;
         uint64 nextEthDepositToProcess;
         uint64 numEthDeposits;
     }
@@ -168,7 +168,7 @@ library TaikoData {
         uint64 genesisTimestamp;
         uint16 __reserved70;
         uint48 __reserved71;
-        uint64 numOfAuctions;
+        uint64 numAuctions;
         // Slot 8
         uint64 __reserved80;
         uint64 __reserved81;

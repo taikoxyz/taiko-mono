@@ -92,12 +92,6 @@ Verify up to N blocks.
 | --------- | ------- | ------------------------------- |
 | maxBlocks | uint256 | Max number of blocks to verify. |
 
-### depositEtherToL2
-
-```solidity
-function depositEtherToL2() public payable
-```
-
 ### depositTaikoToken
 
 ```solidity
@@ -110,6 +104,12 @@ function depositTaikoToken(uint256 amount) external
 function withdrawTaikoToken(uint256 amount) external
 ```
 
+### depositEtherToL2
+
+```solidity
+function depositEtherToL2() public payable
+```
+
 ### getTaikoTokenBalance
 
 ```solidity
@@ -120,36 +120,6 @@ function getTaikoTokenBalance(address addr) public view returns (uint256)
 
 ```solidity
 function getBlockFee(uint32 gasLimit) public view returns (uint64)
-```
-
-### isBatchAuctionable
-
-```solidity
-function isBatchAuctionable(uint256 batchId) public view returns (bool)
-```
-
-### isBidBetter
-
-```solidity
-function isBidBetter(struct TaikoData.Bid newBid, uint64 batchId) public view returns (bool)
-```
-
-### hasAuctionEnded
-
-```solidity
-function hasAuctionEnded(uint64 batchId) public view returns (bool)
-```
-
-### isBlockProvableBy
-
-```solidity
-function isBlockProvableBy(uint256 blockId, address prover) public view returns (bool)
-```
-
-### batchForBlock
-
-```solidity
-function batchForBlock(uint256 blockId) public pure returns (uint256)
 ```
 
 ### getBlock
@@ -182,10 +152,28 @@ function getCrossChainSignalRoot(uint256 blockId) public view returns (bytes32)
 function getStateVariables() public view returns (struct TaikoData.StateVariables)
 ```
 
+### getAuctions
+
+```solidity
+function getAuctions(uint256 startBatchId, uint256 count) public view returns (uint256 currentTime, struct TaikoData.Auction[] auctions)
+```
+
 ### getConfig
 
 ```solidity
 function getConfig() public pure virtual returns (struct TaikoData.Config)
+```
+
+### batchForBlock
+
+```solidity
+function batchForBlock(uint256 blockId) public pure returns (uint256)
+```
+
+### isBidBetter
+
+```solidity
+function isBidBetter(struct TaikoData.Bid oldBid, struct TaikoData.Bid newBid) public pure returns (bool)
 ```
 
 ### getVerifierName

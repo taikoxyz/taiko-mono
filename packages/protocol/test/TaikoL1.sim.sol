@@ -771,7 +771,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
             "time,",
             "lastVerifiedBlockId,",
             "numBlocks,",
-            "maxBlockFee,"
+            "numAuctions,"
         );
         console2.log(str);
     }
@@ -788,7 +788,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
             ";",
             Strings.toString(vars.numBlocks),
             ";",
-            Strings.toString(vars.maxBlockFee)
+            Strings.toString(vars.numAuctions)
         );
         console2.log(str);
     }

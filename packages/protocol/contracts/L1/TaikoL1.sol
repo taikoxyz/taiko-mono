@@ -269,7 +269,7 @@ contract TaikoL1 is
         view
         returns (TaikoData.StateVariables memory)
     {
-        return state.getStateVariables(getConfig());
+        return state.getStateVariables();
     }
 
     function getAuctions(

@@ -202,8 +202,8 @@ abstract contract TaikoL1TestBase is Test {
             unicode"→",
             Strings.toString(vars.numBlocks),
             "]",
-            " maxBlockFee:",
-            Strings.toString(vars.maxBlockFee)
+            " numAuctions:",
+            Strings.toString(vars.numAuctions)
         );
 
         str = string.concat(
