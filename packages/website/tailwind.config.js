@@ -7,7 +7,8 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        oxanium: ["var(--font-oxanium)"],
+        grotesk: ["var(--font-grotesk)"],
+        groteskmedium: ["var(--font-groteskmedium)"],
       },
     },
   },
