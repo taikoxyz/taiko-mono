@@ -36,8 +36,8 @@ library TaikoData {
         uint64 auctionMaxFeePerGasMultipler;
         uint16 auctionBatchSize;
         uint16 maxFeePerGas; // in wei
-        uint16 worstCaseProofWindowInSec;
         uint16 auctonMaxAheadOfProposals;
+        uint16 auctionMaxProofWindow;
         bool relaySignalRoot;
     }
 
@@ -108,9 +108,9 @@ library TaikoData {
         mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
         uint64 blockId;
         uint64 proposedAt;
-        uint32 gasLimit;
         uint24 nextForkChoiceId;
         uint24 verifiedForkChoiceId;
+        uint32 gasLimit;
         bytes32 metaHash;
         address proposer;
     }

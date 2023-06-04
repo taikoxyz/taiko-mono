@@ -51,8 +51,8 @@ library TaikoConfig {
             auctionDepositMultipler: 10,
             auctionMaxFeePerGasMultipler: 5,
             auctonMaxAheadOfProposals: 10,
-            worstCaseProofWindowInSec: 7200, // 2 hours (?)
             auctionBatchSize: 100,
+            auctionMaxProofWindow: 7200, // 2 hours (?)
             maxFeePerGas: 100, // in wei
             relaySignalRoot: false
         });

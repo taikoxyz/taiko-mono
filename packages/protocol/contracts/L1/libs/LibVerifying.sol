@@ -55,7 +55,7 @@ library LibVerifying {
                 || config.ethDepositMaxFee == 0
                 || config.ethDepositMaxFee >= type(uint96).max
                 || config.auctionWindowInSec == 0
-                || config.worstCaseProofWindowInSec == 0
+                || config.auctionMaxProofWindow == 0
                 || config.auctionBatchSize == 0
                 || config.auctionRingBufferSize
                     <= (

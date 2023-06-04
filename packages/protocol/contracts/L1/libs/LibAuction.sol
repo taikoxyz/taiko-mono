@@ -105,7 +105,9 @@ library LibAuction {
                 || newBid.proofWindow
                     > state.avgProofWindow * config.auctionProofWindowMultiplier // Cannot
                 // be more than 2x of average
-                || config.maxFeePerGas < newBid.feePerGas
+                // TODO(daniel): why
+                // TODO(daniel): rename maxFeePerGas?
+                || newBid.feePerGas > config.maxFeePerGas
         ) {
             return false;
         }
