@@ -113,6 +113,8 @@ library LibAuction {
         view
         returns (bool)
     {
+        if (batchId == 0) return true;
+
         TaikoData.Auction memory auction =
             state.auctions[batchId % config.auctionRingBufferSize];
 
@@ -153,6 +155,8 @@ library LibAuction {
         view
         returns (bool result)
     {
+        if (batchId == 0) return false;
+
         uint64 currentProposedBatchId = batchForBlock(config, state.numBlocks);
         uint64 currentVerifiedBatchId =
             batchForBlock(config, state.lastVerifiedBlockId + 1);
@@ -191,6 +195,8 @@ library LibAuction {
         view
         returns (bool result)
     {
+        if (blockId == 0) return false;
+
         if (prover == address(0) || prover == address(1)) {
             // Note that auction may not exist at all.
             return true;
