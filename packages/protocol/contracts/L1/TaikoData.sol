@@ -178,7 +178,7 @@ library TaikoData {
         uint64 __reserved90;
         uint64 feePerGas;
         uint64 lastVerifiedBlockId;
-        uint64 avgProofWindow;
+        uint64 proofWindow;
         // Reserved
         uint256[42] __gap;
     }

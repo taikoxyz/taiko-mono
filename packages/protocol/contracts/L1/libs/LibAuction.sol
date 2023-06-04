@@ -104,7 +104,7 @@ library LibAuction {
             batchId == 0 || config.maxFeePerGas < newBid.feePerGas
                 || newBid.prover != address(0) // auto-fill
                 || newBid.proofWindow
-                    > state.avgProofWindow * config.auctionProofWindowMultiplier // Cannot
+                    > state.proofWindow * config.auctionProofWindowMultiplier // Cannot
                 // be more than 2x of average
                 // TODO(daniel): why
                 // TODO(daniel): rename maxFeePerGas?

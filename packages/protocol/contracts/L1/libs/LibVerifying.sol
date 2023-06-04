@@ -34,7 +34,7 @@ library LibVerifying {
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
         uint64 initFeePerGas,
-        uint64 initAvgProofWindow
+        uint64 initProofWindow
     )
         internal
     {
@@ -86,7 +86,7 @@ library LibVerifying {
         fc.blockHash = genesisBlockHash;
         fc.provenAt = timeNow;
 
-        state.avgProofWindow = initAvgProofWindow;
+        state.proofWindow = initProofWindow;
 
         emit BlockVerified(0, genesisBlockHash, 0);
     }
@@ -194,8 +194,8 @@ library LibVerifying {
             );
         }
 
-        state.avgProofWindow =
-            uint64(LibUtils.movingAverage(state.avgProofWindow, proofTime, 100));
+        state.proofWindow =
+            uint64(LibUtils.movingAverage(state.proofWindow, proofTime, 100));
 
         uint64 rewardPerBlock = fc.gasUsed * auction.bid.feePerGas;
 
