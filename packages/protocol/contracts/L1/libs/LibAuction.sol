@@ -116,11 +116,8 @@ library LibAuction {
         TaikoData.Auction memory auction =
             state.auctions[batchId % config.auctionRingBufferSize];
 
-        if (block.timestamp < auction.startedAt + config.auctionWindow) {
-            return false;
-        }
-
-        return true;
+        return auction.batchId == batchId
+            && block.timestamp > auction.startedAt + config.auctionWindow;
     }
 
     // isBidAcceptable determines is checking if the bid is acceptable based on
@@ -201,10 +198,8 @@ library LibAuction {
         view
         returns (bool result)
     {
-        if (
-            prover == address(0) // oracle prover
-                || prover == address(1) // system prover
-        ) {
+        if (prover == address(0) || prover == address(1)) {
+            // Note that auction may not happen at all.
             return true;
         }
 

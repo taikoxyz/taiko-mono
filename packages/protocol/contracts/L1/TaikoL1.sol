@@ -212,10 +212,12 @@ contract TaikoL1 is
         view
         returns (bool)
     {
-        return LibAuction.isBidBetter(
-            state.auctions[batchId % getConfig().auctionRingBufferSize].bid,
-            newBid
-        );
+        TaikoData.Auction memory auction =
+            state.auctions[batchId % getConfig().auctionRingBufferSize];
+        // TODO(dani):
+        // what if `auction.batchId != batchId`?
+
+        return LibAuction.isBidBetter(auction.bid, newBid);
     }
 
     function hasAuctionEnded(uint64 batchId) public view returns (bool) {
