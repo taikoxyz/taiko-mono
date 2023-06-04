@@ -202,7 +202,7 @@ library LibVerifying {
         if (fc.gasUsed < blk.gasLimit) {
             // Refund the diff to the proposer
             state.taikoTokenBalances[blk.proposer] +=
-                (blk.gasLimit - fc.gasUsed) * auction.bid.feePerGas;
+                (blk.gasLimit - fc.gasUsed) * blk.feePerGas;
         }
 
         // TODO(daniel): we need to fine tune this average value calculation to

@@ -106,13 +106,14 @@ library TaikoData {
     struct Block {
         // ForkChoice storage are reusable
         mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
+        bytes32 metaHash;
         uint64 blockId;
         uint64 proposedAt;
+        uint64 feePerGas;
+        uint32 gasLimit;
+        address proposer;
         uint24 nextForkChoiceId;
         uint24 verifiedForkChoiceId;
-        uint32 gasLimit;
-        bytes32 metaHash;
-        address proposer;
     }
 
     // This struct takes 9 slots.
