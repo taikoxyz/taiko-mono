@@ -26,8 +26,8 @@ library TaikoConfig {
             maxTransactionsPerBlock: 79,
             minEthDepositsPerBlock: 8,
             maxEthDepositsPerBlock: 32,
-            maxEthDepositAmount: 10_000 ether,
-            minEthDepositAmount: 1 ether,
+            ethDepositMaxAmount: 10_000 ether,
+            ethDepositMinAmount: 1 ether,
             // Set it to 120KB, since 128KB is the upper size limit
             // of a geth transaction, so using 120KB for the proposed
             // transactions list calldata, 8K for the remaining tx fields.

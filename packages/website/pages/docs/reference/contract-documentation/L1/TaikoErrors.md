@@ -100,12 +100,6 @@ error L1_SYSTEM_PROVER_DISABLED()
 error L1_SYSTEM_PROVER_PROHIBITED()
 ```
 
-### L1_TOO_MANY_ETH_DEPOSITS
-
-```solidity
-error L1_TOO_MANY_ETH_DEPOSITS()
-```
-
 ### L1_TOO_MANY_BLOCKS
 
 ```solidity

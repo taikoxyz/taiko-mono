@@ -162,8 +162,8 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     function testEthDepositsToL2Reverts() external {
-        uint96 minAmount = conf.minEthDepositAmount;
-        uint96 maxAmount = conf.maxEthDepositAmount;
+        uint96 minAmount = conf.ethDepositMinAmount;
+        uint96 maxAmount = conf.ethDepositMaxAmount;
 
         depositTaikoToken(Alice, 0, maxAmount + 1 ether);
 
@@ -292,8 +292,8 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     function test_deposit_hash_creation() external {
-        // uint96 minAmount = conf.minEthDepositAmount;
-        uint96 maxAmount = conf.maxEthDepositAmount;
+        // uint96 minAmount = conf.ethDepositMinAmount;
+        uint96 maxAmount = conf.ethDepositMaxAmount;
 
         // We need 8 depostis otherwise we are not processing them !
         depositTaikoToken(Alice, 1e6 * 1e8, maxAmount + 1 ether);

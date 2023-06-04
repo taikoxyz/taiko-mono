@@ -40,15 +40,18 @@ library LibVerifying {
                 || config.blockMaxGasLimit == 0
                 || config.maxTransactionsPerBlock == 0
                 || config.maxBytesPerTxList == 0
+                || config.txListCacheExpiry > 30 * 24 hours
             // EIP-4844 blob size up to 128K
             || config.maxBytesPerTxList > 128 * 1024
-                || config.maxEthDepositsPerBlock == 0
+                || config.minEthDepositsPerBlock == 0
                 || config.maxEthDepositsPerBlock < config.minEthDepositsPerBlock
-            // EIP-4844 blob deleted after 30 days
-            || config.txListCacheExpiry > 30 * 24 hours
                 || config.ethDepositGas == 0 //
+                || config.ethDepositMinAmount == 0
+                || config.ethDepositMaxAmount <= config.ethDepositMinAmount
+                || config.ethDepositMaxAmount >= type(uint96).max
                 || config.ethDepositMaxFee == 0
-                || config.ethDepositMaxFee >= type(uint96).max
+                || config.ethDepositMaxFee
+                    >= type(uint96).max / config.maxEthDepositsPerBlock
                 || config.ethDepositRingBufferSize <= 1
         ) revert L1_INVALID_CONFIG();
 

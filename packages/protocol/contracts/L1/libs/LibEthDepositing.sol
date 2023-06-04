@@ -21,7 +21,6 @@ library LibEthDepositing {
     event EthDeposited(TaikoData.EthDeposit deposit);
 
     error L1_INVALID_ETH_DEPOSIT();
-    error L1_TOO_MANY_ETH_DEPOSITS();
 
     function depositEtherToL2(
         TaikoData.State storage state,
@@ -31,22 +30,8 @@ library LibEthDepositing {
     )
         internal
     {
-        if (
-            msg.value < config.minEthDepositAmount
-                || msg.value > config.maxEthDepositAmount
-        ) {
+        if (!canDepositEthToL2(state, config, msg.value)) {
             revert L1_INVALID_ETH_DEPOSIT();
-        }
-
-        unchecked {
-            uint256 numPending =
-                state.numEthDeposits - state.nextEthDepositToProcess;
-
-            // We need to make sure we always reverve one slot for the fee
-            // deposit
-            if (numPending >= config.ethDepositRingBufferSize - 1) {
-                revert L1_TOO_MANY_ETH_DEPOSITS();
-            }
         }
 
         address to = resolver.resolve("ether_vault", true);
@@ -58,7 +43,7 @@ library LibEthDepositing {
         // Put the deposit and the end of the queue.
         address _recipient = recipient == address(0) ? msg.sender : recipient;
         uint256 slot = state.numEthDeposits % config.ethDepositRingBufferSize;
-        state.ethDeposits[slot] = uint256(uint160(_recipient)) << 96 | msg.value;
+        state.ethDeposits[slot] = _encodeEthDeposit(_recipient, msg.value);
 
         emit EthDeposited(
             TaikoData.EthDeposit({
@@ -82,7 +67,7 @@ library LibEthDepositing {
     function processDeposits(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        address beneficiary
+        address feeRecipient
     )
         internal
         returns (TaikoData.EthDeposit[] memory deposits)
@@ -128,12 +113,42 @@ library LibEthDepositing {
             // This is the fee deposit
             state.ethDeposits[state.numEthDeposits
                 % config.ethDepositRingBufferSize] =
-                uint256(uint160(beneficiary)) << 96 | totalFee;
+                _encodeEthDeposit(feeRecipient, totalFee);
 
             unchecked {
                 state.numEthDeposits++;
             }
         }
+    }
+
+    function canDepositEthToL2(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        uint256 amount
+    )
+        internal
+        view
+        returns (bool)
+    {
+        if (
+            amount < config.ethDepositMinAmount
+                || amount > config.ethDepositMaxAmount
+        ) {
+            return false;
+        }
+
+        unchecked {
+            uint256 numPending =
+                state.numEthDeposits - state.nextEthDepositToProcess;
+
+            // We need to make sure we always reverve one slot for the fee
+            // deposit
+            if (numPending >= config.ethDepositRingBufferSize - 1) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     function hashEthDeposits(TaikoData.EthDeposit[] memory deposits)
@@ -142,5 +157,17 @@ library LibEthDepositing {
         returns (bytes32)
     {
         return keccak256(abi.encode(deposits));
+    }
+
+    function _encodeEthDeposit(
+        address addr,
+        uint256 amount
+    )
+        private
+        pure
+        returns (uint256)
+    {
+        if (amount >= type(uint96).max) revert L1_INVALID_ETH_DEPOSIT();
+        return uint256(uint160(addr)) << 96 | amount;
     }
 }

@@ -687,12 +687,12 @@
           },
           {
             "internalType": "uint96",
-            "name": "maxEthDepositAmount",
+            "name": "ethDepositMaxAmount",
             "type": "uint96"
           },
           {
             "internalType": "uint96",
-            "name": "minEthDepositAmount",
+            "name": "ethDepositMinAmount",
             "type": "uint96"
           },
           {

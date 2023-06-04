@@ -82,6 +82,12 @@ Verify up to N blocks.
 function depositEtherToL2(address recipient) public payable
 ```
 
+### canDepositEthToL2
+
+```solidity
+function canDepositEthToL2(uint256 amount) public view returns (bool)
+```
+
 ### getTaikoTokenBalance
 
 ```solidity

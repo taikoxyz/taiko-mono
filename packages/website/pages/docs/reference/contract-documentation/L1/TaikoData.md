@@ -24,8 +24,8 @@ struct Config {
   uint256 ethDepositRingBufferSize;
   uint64 minEthDepositsPerBlock;
   uint64 maxEthDepositsPerBlock;
-  uint96 maxEthDepositAmount;
-  uint96 minEthDepositAmount;
+  uint96 ethDepositMaxAmount;
+  uint96 ethDepositMinAmount;
   bool relaySignalRoot;
 }
 ```

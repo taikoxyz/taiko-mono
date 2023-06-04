@@ -152,6 +152,14 @@ contract TaikoL1 is
         });
     }
 
+    function canDepositEthToL2(uint256 amount) public view returns (bool) {
+        return LibEthDepositing.canDepositEthToL2({
+            state: state,
+            config: getConfig(),
+            amount: amount
+        });
+    }
+
     function getTaikoTokenBalance(address addr) public view returns (uint256) {
         return state.taikoTokenBalances[addr];
     }
