@@ -76,19 +76,6 @@ library LibAuction {
         emit BatchBid(auction.batchId, auction.startedAt, bid);
     }
 
-    // Mapping blockId to batchId where batchId is a ring buffer, blockId is
-    // absolute (aka. block height)
-    function blockIdToBatchId(
-        TaikoData.Config memory config,
-        uint256 blockId
-    )
-        internal
-        pure
-        returns (uint64)
-    {
-        return 1 + uint64((blockId - 1) / config.auctionBatchSize);
-    }
-
     // Check validity requirements
     function isBidValid(
         TaikoData.State storage state,
@@ -169,10 +156,9 @@ library LibAuction {
         view
         returns (bool result)
     {
-        uint64 currentProposedBatchId =
-            blockIdToBatchId(config, state.numBlocks);
+        uint64 currentProposedBatchId = batchForBlock(config, state.numBlocks);
         uint64 currentVerifiedBatchId =
-            blockIdToBatchId(config, state.lastVerifiedBlockId + 1);
+            batchForBlock(config, state.lastVerifiedBlockId + 1);
 
         // Regardless of auction started or not - do not allow too many auctions
         // to be open
@@ -215,34 +201,45 @@ library LibAuction {
         view
         returns (bool result)
     {
-        // address(0) or address(1) means oracle or system prover. During
-        // proveBlock() we
-        // pass the evidence.prover. If there is a malicious actor who would
-        // submit the
-        // proof with evidence.prover == address(1) to mock the system he/she
-        // gets back
-        // true here, but will revert later, in LibProving.sol here:
-        // "if (specialProver != address(0) && msg.sender != specialProver)"
-        if (prover == address(0) || prover == address(1)) {
+        if (
+            prover == address(0) // oracle prover
+                || prover == address(1) // system prover
+        ) {
             return true;
         }
-        // We should expose this function so that clients could query.
-        // We also need to be sure, that the batchId of bid is indeed valid
-        uint64 batchId = blockIdToBatchId(config, blockId);
 
-        // Either:
-        // 1. we are in the window granted for prover or commited by the prover
-        // he/she submits the proof
-        // 2. anyone can submit proofs if we are outside of that window
-        if (!hasAuctionEnded(state, config, batchId)) return false;
+        // Nobody can prove a block before the auction ended
+        uint64 batchId = batchForBlock(config, blockId);
+        if (
+            !hasAuctionEnded({ state: state, config: config, batchId: batchId })
+        ) {
+            return false;
+        }
 
         TaikoData.Auction memory auction =
             state.auctions[batchId % config.auctionRingBufferSize];
 
-        uint64 timerStart = auction.startedAt + config.auctionWindow;
-        uint64 deadline = timerStart + auction.bid.proofWindow;
+        uint64 deadline =
+            auction.startedAt + config.auctionWindow + auction.bid.proofWindow;
+        return block.timestamp > deadline || prover == auction.bid.prover;
+    }
 
-        if (block.timestamp > deadline) return true;
-        else return prover == auction.bid.prover;
+    // Mapping blockId to batchId where batchId is a ring buffer, blockId is
+    // absolute (aka. block height)
+    function batchForBlock(
+        TaikoData.Config memory config,
+        uint256 blockId
+    )
+        internal
+        pure
+        returns (uint64)
+    {
+        if (blockId == 0) {
+            return 0;
+        } else {
+            unchecked {
+                return uint64((blockId - 1) / config.auctionBatchSize) + 1;
+            }
+        }
     }
 }

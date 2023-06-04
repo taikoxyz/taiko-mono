@@ -145,10 +145,10 @@ function hasAuctionEnded(uint64 batchId) public view returns (bool)
 function isBlockProvableBy(uint256 blockId, address prover) public view returns (bool)
 ```
 
-### blockIdToBatchId
+### batchForBlock
 
 ```solidity
-function blockIdToBatchId(uint256 blockId) public pure returns (uint256)
+function batchForBlock(uint256 blockId) public pure returns (uint256)
 ```
 
 ### getBlock

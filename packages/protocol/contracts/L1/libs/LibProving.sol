@@ -48,16 +48,6 @@ library LibProving {
     )
         internal
     {
-        // We also should know who can prove this block:
-        // the one who bid or everyone if it is above the window
-        if (
-            !LibAuction.isBlockProvableBy(
-                state, config, blockId, evidence.prover
-            )
-        ) {
-            revert L1_NOT_PROVEABLE();
-        }
-
         if (
             evidence.parentHash == 0
             //
@@ -73,6 +63,19 @@ library LibProving {
         if (blockId <= state.lastVerifiedBlockId || blockId >= state.numBlocks)
         {
             revert L1_BLOCK_ID();
+        }
+
+        // We also should know who can prove this block:
+        // the one who bid or everyone if it is above the window
+        if (
+            !LibAuction.isBlockProvableBy({
+                state: state,
+                config: config,
+                blockId: blockId,
+                prover: evidence.prover
+            })
+        ) {
+            revert L1_NOT_PROVEABLE();
         }
 
         TaikoData.Block storage blk =

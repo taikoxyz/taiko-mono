@@ -178,8 +178,11 @@ library LibVerifying {
     )
         private
     {
-        TaikoData.Auction memory auction = state.auctions[LibAuction
-            .blockIdToBatchId(config, blk.blockId) % config.auctionRingBufferSize];
+        uint64 batchId = LibAuction.batchForBlock(config, blk.blockId);
+        TaikoData.Auction memory auction =
+            state.auctions[batchId % config.auctionRingBufferSize];
+
+        bool auctioned = auction.batchId == batchId;
 
         // Refund the diff to the proposer
         assert(fc.gasUsed < blk.gasLimit);
@@ -187,10 +190,13 @@ library LibVerifying {
             (blk.gasLimit - fc.gasUsed) * blk.feePerGas;
 
         uint64 proofStartAt;
-        unchecked {
-            uint64 auctionEndAt = auction.startedAt + config.auctionWindow;
-            proofStartAt =
-                auctionEndAt > blk.proposedAt ? auctionEndAt : blk.proposedAt;
+        if (auctioned) {
+            unchecked {
+                uint64 auctionEndAt = auction.startedAt + config.auctionWindow;
+                proofStartAt = auctionEndAt > blk.proposedAt
+                    ? auctionEndAt
+                    : blk.proposedAt;
+            }
         }
 
         bool refundBidder;
@@ -199,26 +205,32 @@ library LibVerifying {
 
         if (fc.prover == address(1)) {
             refundBidder = true;
+            // variable auctioned can be true or false
         } else if (
             fc.prover == auction.bid.prover
                 && fc.provenAt <= proofStartAt + auction.bid.proofWindow
         ) {
+            assert(auctioned);
             refundBidder = true;
             rewardProver = true;
             updateAverage = true;
         } else {
+            assert(auctioned);
             rewardProver = true;
         }
 
-        if (refundBidder) {
-            state.taikoTokenBalances[auction.bid.prover] += auction.bid.deposit;
-        } else {
-            uint64 amountToBurn = rewardProver // burn all or half
-                ? auction.bid.deposit / 2
-                : auction.bid.deposit;
-            TaikoToken tkoToken =
-                TaikoToken(resolver.resolve("tko_token", false));
-            tkoToken.burn((address(this)), amountToBurn);
+        if (auctioned) {
+            if (refundBidder) {
+                state.taikoTokenBalances[auction.bid.prover] +=
+                    auction.bid.deposit;
+            } else {
+                uint64 amountToBurn = rewardProver // burn all or half
+                    ? auction.bid.deposit / 2
+                    : auction.bid.deposit;
+                TaikoToken tkoToken =
+                    TaikoToken(resolver.resolve("tko_token", false));
+                tkoToken.burn((address(this)), amountToBurn);
+            }
         }
 
         uint64 proofReward;

@@ -233,8 +233,8 @@ contract TaikoL1 is
         return LibAuction.isBlockProvableBy(state, getConfig(), blockId, prover);
     }
 
-    function blockIdToBatchId(uint256 blockId) public pure returns (uint256) {
-        return LibAuction.blockIdToBatchId(getConfig(), blockId);
+    function batchForBlock(uint256 blockId) public pure returns (uint256) {
+        return LibAuction.batchForBlock(getConfig(), blockId);
     }
 
     function getBlock(uint256 blockId)
