@@ -142,8 +142,8 @@ contract TaikoL1 is
      */
 
     function bidForBatch(
-        TaikoData.Bid memory bid,
-        uint64 batchId
+        uint64 batchId,
+        TaikoData.Bid memory bid
     )
         external
         payable
@@ -152,7 +152,7 @@ contract TaikoL1 is
         LibAuction.bidForBatch({
             state: state,
             config: getConfig(),
-            newBid: bid,
+            bid: bid,
             batchId: batchId
         });
     }

@@ -15,7 +15,7 @@ import { TaikoToken } from "../TaikoToken.sol";
 library LibAuction {
     using LibAddress for address;
 
-    event Bid(uint64 batchId, uint64 startedAt, TaikoData.Bid bid);
+    event BlocksBidded(uint64 indexed batchId, uint64 startedAt, TaikoData.Bid bid);
 
     error L1_BID_INVALID();
     error L1_BATCH_NOT_AUCTIONABLE();
@@ -25,12 +25,12 @@ library LibAuction {
     function bidForBatch(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        TaikoData.Bid memory newBid,
-        uint64 batchId
+        uint64 batchId,
+        TaikoData.Bid memory bid
     )
         internal
     {
-        if (!isBidValid(state, config, newBid, batchId)) {
+        if (!isBidValid(state, config, bid, batchId)) {
             revert L1_BID_INVALID();
         }
 
@@ -38,27 +38,27 @@ library LibAuction {
             revert L1_BATCH_NOT_AUCTIONABLE();
         }
 
-        newBid.prover = msg.sender;
-        newBid.blockMaxGasLimit = config.blockMaxGasLimit;
+        bid.prover = msg.sender;
+        bid.blockMaxGasLimit = config.blockMaxGasLimit;
 
         // Have in-memory and write it back at the end of the function
         TaikoData.Auction memory auction =
             state.auctions[batchId % config.auctionRingBufferSize];
 
         // Deposit amount is per block, not per block * auctionBatchSize
-        uint64 totalDeposit = newBid.deposit * config.auctionBatchSize;
+        uint64 totalDeposit = bid.deposit * config.auctionBatchSize;
 
         if (batchId != auction.batchId) {
             // It is a new auction
             auction.startedAt = uint64(block.timestamp);
-            auction.bid = newBid;
+            auction.bid = bid;
             auction.batchId = batchId;
             unchecked {
                 state.numOfAuctions += 1;
             }
         } else {
             // An ongoing one
-            if (!isBidBetter(auction.bid, newBid)) {
+            if (!isBidBetter(auction.bid, bid)) {
                 revert L1_NOT_THE_BEST_BID();
             }
             //'Refund' current
@@ -66,14 +66,14 @@ library LibAuction {
         }
 
         // Check if bidder at least have the balance
-        if (state.taikoTokenBalances[newBid.prover] < totalDeposit) {
+        if (state.taikoTokenBalances[bid.prover] < totalDeposit) {
             revert L1_INSUFFICIENT_TOKEN();
         }
 
-        state.taikoTokenBalances[newBid.prover] -= totalDeposit;
-        auction.bid = newBid;
+        state.taikoTokenBalances[bid.prover] -= totalDeposit;
+        auction.bid = bid;
 
-        emit Bid(auction.batchId, auction.startedAt, newBid);
+        emit BlocksBidded(auction.batchId, auction.startedAt, bid);
     }
 
     // Mapping blockId to batchId where batchId is a ring buffer, blockId is
