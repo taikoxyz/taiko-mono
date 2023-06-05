@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { Contract, ethers, type Transaction } from 'ethers';
+  import { UserRejectedRequestError } from '@wagmi/core';
+  import { Contract, errors, type Transaction,utils } from 'ethers';
   import { createEventDispatcher } from 'svelte';
   import { onDestroy, onMount } from 'svelte';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
   import { _ } from 'svelte-i18n';
-
+  
   import { bridges } from '../../bridge/bridges';
   import { chains } from '../../chain/chains';
   import { bridgeABI } from '../../constants/abi';
@@ -121,7 +122,7 @@
       // during their first bridge transaction to L2
       // TODO: estimate Claim transaction
       const userBalance = await $signer.getBalance('latest');
-      if (!userBalance.gt(ethers.utils.parseEther('0.0001'))) {
+      if (!userBalance.gt(utils.parseEther('0.0001'))) {
         // TODO: magic number 0.0001. Config?
         dispatch('insufficientBalance');
         return;
@@ -192,7 +193,8 @@
           true, // dismissible
         );
       } else if (
-        [error.code, error.cause?.code].includes(ethers.errors.ACTION_REJECTED)
+        error instanceof UserRejectedRequestError ||
+        [error.code, error.cause?.code].includes(errors.ACTION_REJECTED)
       ) {
         warningToast(`Transaction has been rejected.`);
       } else if (error.cause === 'pending_tx') {
@@ -270,7 +272,7 @@
           true, // dismissible
         );
       } else if (
-        [error.code, error.cause?.code].includes(ethers.errors.ACTION_REJECTED)
+        [error.code, error.cause?.code].includes(errors.ACTION_REJECTED)
       ) {
         warningToast(`Transaction has been rejected.`);
       } else if (error.cause === 'pending_tx') {
@@ -368,13 +370,12 @@
     <span class="ml-2 hidden md:inline-block">{txToChain.name}</span>
   </td>
   <td>
-    {isETHByMessage(transaction.message)
-      ? ethers.utils.formatEther(
-          transaction.message.depositValue.eq(0)
-            ? transaction.message.callValue.toString()
-            : transaction.message.depositValue,
-        )
-      : ethers.utils.formatUnits(transaction.amountInWei)}
+    {#if Boolean(transaction.message) && isETHByMessage(transaction.message)}
+      {@const { depositValue, callValue } = transaction.message}
+      {utils.formatEther(depositValue.eq(0) ? callValue : depositValue)}
+    {:else}
+      {utils.formatUnits(transaction.amountInWei)}
+    {/if}
     {transaction.symbol ?? 'ETH'}
   </td>
 
