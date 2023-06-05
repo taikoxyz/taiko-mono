@@ -122,30 +122,31 @@ library LibAuction {
     )
         internal
         view
-        returns (bool result)
+        returns (bool provable, TaikoData.Auction memory auction)
     {
-        if (blockId == 0) return false;
-
-        if (prover == address(0) || prover == address(1)) {
+        if (blockId == 0) {
+            provable = false;
+        } else if (prover == address(0) || prover == address(1)) {
             // Note that auction may not exist at all.
-            return true;
+            provable = true;
+        } else {
+            // Nobody can prove a block before the auction ended
+            uint64 batchId = batchForBlock(config, blockId);
+            bool ended;
+            (ended, auction) = _hasAuctionEnded({
+                state: state,
+                config: config,
+                batchId: batchId
+            });
+
+            provable = ended
+                && (
+                    prover == auction.bid.prover
+                        || block.timestamp
+                            > auction.startedAt + config.auctionWindow
+                                + auction.bid.proofWindow
+                );
         }
-
-        // Nobody can prove a block before the auction ended
-        uint64 batchId = batchForBlock(config, blockId);
-        if (
-            !_hasAuctionEnded({ state: state, config: config, batchId: batchId })
-        ) {
-            return false;
-        }
-
-        TaikoData.Auction memory auction =
-            state.auctions[batchId % config.auctionRingBufferSize];
-
-        if (prover == auction.bid.prover) return true;
-
-        return block.timestamp
-            > auction.startedAt + config.auctionWindow + auction.bid.proofWindow;
     }
 
     // Mapping blockId to batchId where batchId is a ring buffer, blockId is
@@ -238,14 +239,15 @@ library LibAuction {
     )
         private
         view
-        returns (bool)
+        returns (bool ended, TaikoData.Auction memory auction)
     {
-        if (batchId == 0) return true;
+        if (batchId == 0) {
+            ended = true;
+        } else {
+            auction = state.auctions[batchId % config.auctionRingBufferSize];
 
-        TaikoData.Auction memory auction =
-            state.auctions[batchId % config.auctionRingBufferSize];
-
-        return auction.batchId == batchId
-            && block.timestamp > auction.startedAt + config.auctionWindow;
+            ended = auction.batchId == batchId
+                && block.timestamp > auction.startedAt + config.auctionWindow;
+        }
     }
 }
