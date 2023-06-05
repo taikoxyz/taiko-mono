@@ -32,8 +32,8 @@
 **Taiko**
 | Name | Symbol | Contract address |
 |-------------|--------|--------------------------------------------------------------------------------------------------------------------------------|
-| Bull Token | BLL | [0x6048e5ca54c021D39Cd33b63A44980132bcFA66d](https://explorer.a2.taiko.xyz/address/0x6048e5ca54c021D39Cd33b63A44980132bcFA66d) |
-| Horse Token | HORSE | [0xCea5BFE9542eDf828Ebc2ed054CA688f0224796f](https://explorer.a2.taiko.xyz/address/0xCea5BFE9542eDf828Ebc2ed054CA688f0224796f) |
+| Bull Token | BLL | [0x39e12053803898211F21047D56017986E0f070c1](https://explorer.a2.taiko.xyz/address/0x6048e5ca54c021D39Cd33b63A44980132bcFA66d) |
+| Horse Token | HORSE | [0x39e12053803898211F21047D56017986E0f070c1](https://explorer.a2.taiko.xyz/address/0x958b482c4E9479a600bFFfDDfe94D974951Ca3c7) |
 
 ## Taiko's node addresses
 
