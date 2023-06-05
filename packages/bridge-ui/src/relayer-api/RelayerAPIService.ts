@@ -34,7 +34,7 @@ export class RelayerAPIService implements RelayerAPI {
       const bridgeAddress = chains[item.chainID]?.bridgeAddress; // will also handle unsupported chain
       const hasDuplicateHash = uniqueHashes.has(transactionHash);
       const wrongBridgeAddress =
-        address.toLowerCase() !== bridgeAddress?.toLowerCase();
+        address?.toLowerCase() !== bridgeAddress?.toLowerCase();
 
       // Do not include tx if for whatever reason the properties transactionHash
       // and address are not present in the response
