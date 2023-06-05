@@ -4,7 +4,7 @@ footer: | # define the footer with markdown
 base:
   name: ethereum/go-ethereum
   url: https://github.com/ethereum/go-ethereum
-  ref: refs/tags/v1.11.5
+  ref: refs/tags/v1.12.0
 fork:
   name: taikoxyz/taiko-geth
   url: https://github.com/taikoxyz/taiko-geth
@@ -376,5 +376,6 @@ ignore:
   - "*/*/*/*/*/*/*/*/*.mod"
   - "tests"
   - "*.md"
+  - "gen_*.go"
 # *.pb.go
 # *.sum
