@@ -1,5 +1,20 @@
 const posts = [
   {
+    title: "ZK-Roller-Coaster #6",
+    href: "https://taiko.mirror.xyz/7BwxX8eR_dW2jihpAk6V10X4qKG0X7NKs_l3Me1pLNs",
+    description:
+      "This is the 6th edition of ZK-Roller-Coaster where we track and investigate the most exciting, meaningful, and crazy ZK-stuff of the prior two weeks.",
+    date: "Jun 05, 2023",
+    datetime: "2023-06-05",
+    imageUrl:
+      "https://mirror-media.imgix.net/publication-images/7k-D6I4_UEfNkR4lsx5Fk.png?height=2048&width=4096&h=2048&w=4096&auto=compress",
+    readingTime: "4 min",
+    author: {
+      name: "Lisa A.",
+      imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",
+    },
+  },
+  {
     title: "Community invite: help craft the ZK-research digest",
     href: "https://taiko.mirror.xyz/lezTMMMoog57VnYwiUWiw4Ng_mX19WCMOpPW-W-xcM0",
     description:
@@ -27,21 +42,6 @@ const posts = [
     author: {
       name: "Lisa A.",
       imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",
-    },
-  },
-  {
-    title: "Taiko Community Update — Q1/2023",
-    href: "https://taiko.mirror.xyz/IoEGEzlf0aJAtF31YgHHLOa5dSoetLfpIfb7lRaRiCE",
-    description:
-      "Below is a summary of Taiko’s Q1 2023. Consider this Q1.5 as we’ll include updates that happened post-Q1 but before this update.",
-    date: "May 19, 2023",
-    datetime: "2023-05-19",
-    imageUrl:
-      "https://mirror-media.imgix.net/publication-images/TOXeVr7_rtitwDoja4vFR.png?height=512&width=1024&h=512&w=1024&auto=compress",
-    readingTime: "6 min",
-    author: {
-      name: "finestone",
-      imageUrl: "https://avatars.githubusercontent.com/u/36642873?v=4",
     },
   },
 ];
