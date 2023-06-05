@@ -67,16 +67,16 @@ library LibProving {
 
         // We also should know who can prove this block:
         // the one who bid or everyone if it is above the window
-        if (
-            !LibAuction.isBlockProvableBy({
-                state: state,
-                config: config,
-                blockId: blockId,
-                prover: evidence.prover
-            })
-        ) {
-            revert L1_NOT_PROVEABLE();
-        }
+
+        (bool provable, TaikoData.Auction memory auction) = LibAuction
+            .isBlockProvableBy({
+            state: state,
+            config: config,
+            blockId: blockId,
+            prover: evidence.prover
+        });
+
+        if (!provable) revert L1_NOT_PROVEABLE();
 
         TaikoData.Block storage blk =
             state.blocks[blockId % config.blockRingBufferSize];
@@ -188,6 +188,10 @@ library LibProving {
         fc.provenAt = uint64(block.timestamp);
 
         if (evidence.prover != address(0) && evidence.prover != address(1)) {
+            // set the proof window to zero so after the first regular proof,
+            // other provers can submit proofs without any delay.
+            auction.bid.proofWindow = 0;
+
             uint256[10] memory inputs;
 
             inputs[0] = uint256(
