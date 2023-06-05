@@ -4,8 +4,7 @@ function EcosystemCard({ icon, name, link, description }) {
       href={link}
       target="_blank"
       rel="noopener noreferrer"
-      className="rounded-xl shadow-md bg-white dark:bg-neutral-800 p-6 flex flex-col justify-start items-start 
-                    transition-colors duration-200 hover:shadow-xl dark:hover:bg-neutral-700"
+      className="rounded-xl shadow-md bg-white dark:bg-neutral-800 p-6 flex flex-col justify-start items-start transition-colors duration-200 hover:shadow-xl dark:hover:bg-neutral-700"
     >
       <img src={icon} alt={`${name}-logo`} className="w-16 h-16 mb-4" />
       <h2 className="text-2xl text-black dark:text-white font-bold mb-2">

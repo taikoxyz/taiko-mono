@@ -196,6 +196,8 @@ importers:
 
   packages/eventindexer: {}
 
+  packages/fork-diff: {}
+
   packages/protocol:
     devDependencies:
       '@defi-wonderland/smock':
@@ -2913,7 +2915,7 @@ packages:
     dependencies:
       '@jest/fake-timers': 27.5.1
       '@jest/types': 27.5.1
-      '@types/node': 20.2.5
+      '@types/node': 18.16.16
       jest-mock: 27.5.1
     dev: true
 
@@ -2923,7 +2925,7 @@ packages:
     dependencies:
       '@jest/types': 27.5.1
       '@sinonjs/fake-timers': 8.1.0
-      '@types/node': 20.2.5
+      '@types/node': 18.16.16
       jest-message-util: 27.5.1
       jest-mock: 27.5.1
       jest-util: 27.5.1
@@ -4482,7 +4484,7 @@ packages:
   /@types/graceful-fs@4.1.5:
     resolution: {integrity: sha512-anKkLmZZ+xm4p8JWBf4hElkM4XR+EZeA2M9BAkkTldmcyDY4mbdIJnRghDJH3Ov5ooY7/UAoENtmdMSkaAd7Cw==}
     dependencies:
-      '@types/node': 20.2.5
+      '@types/node': 18.16.16
     dev: true
 
   /@types/hast@2.3.4:
@@ -4672,7 +4674,7 @@ packages:
   /@types/readable-stream@2.3.15:
     resolution: {integrity: sha512-oM5JSKQCcICF1wvGgmecmHldZ48OZamtMxcGGVICOJA8o8cahXC1zEVAif8iwoc5j8etxFaRFnf095+CDsuoFQ==}
     dependencies:
-      '@types/node': 12.20.55
+      '@types/node': 18.16.16
       safe-buffer: 5.1.2
     dev: true
 
@@ -13418,7 +13420,7 @@ packages:
       '@jest/environment': 27.5.1
       '@jest/test-result': 27.5.1
       '@jest/types': 27.5.1
-      '@types/node': 20.2.5
+      '@types/node': 18.16.16
       chalk: 4.1.2
       co: 4.6.0
       dedent: 0.7.0
@@ -13543,7 +13545,7 @@ packages:
       '@jest/environment': 27.5.1
       '@jest/fake-timers': 27.5.1
       '@jest/types': 27.5.1
-      '@types/node': 20.2.5
+      '@types/node': 18.16.16
       jest-mock: 27.5.1
       jest-util: 27.5.1
       jsdom: 16.7.0
@@ -13561,7 +13563,7 @@ packages:
       '@jest/environment': 27.5.1
       '@jest/fake-timers': 27.5.1
       '@jest/types': 27.5.1
-      '@types/node': 20.2.5
+      '@types/node': 18.16.16
       jest-mock: 27.5.1
       jest-util: 27.5.1
     dev: true
@@ -13599,7 +13601,7 @@ packages:
       '@jest/source-map': 27.5.1
       '@jest/test-result': 27.5.1
       '@jest/types': 27.5.1
-      '@types/node': 20.2.5
+      '@types/node': 18.16.16
       chalk: 4.1.2
       co: 4.6.0
       expect: 27.5.1
@@ -13654,7 +13656,7 @@ packages:
     engines: {node: ^10.13.0 || ^12.13.0 || ^14.15.0 || >=15.0.0}
     dependencies:
       '@jest/types': 27.5.1
-      '@types/node': 20.2.5
+      '@types/node': 18.16.16
     dev: true
 
   /jest-pnp-resolver@1.2.3(jest-resolve@27.5.1):
@@ -13767,7 +13769,7 @@ packages:
     resolution: {integrity: sha512-jZCyo6iIxO1aqUxpuBlwTDMkzOAJS4a3eYz3YzgxxVQFwLeSA7Jfq5cbqCY+JLvTDrWirgusI/0KwxKMgrdf7w==}
     engines: {node: ^10.13.0 || ^12.13.0 || ^14.15.0 || >=15.0.0}
     dependencies:
-      '@types/node': 20.2.5
+      '@types/node': 18.16.16
       graceful-fs: 4.2.11
     dev: true
 
