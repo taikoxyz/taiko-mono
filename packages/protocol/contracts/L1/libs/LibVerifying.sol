@@ -186,8 +186,8 @@ library LibVerifying {
             auction = state.auctions[batchId % config.auctionRingBufferSize];
 
             // this may be false for system prover
-            if (auction.batchId == batchId) {
-                auction.batchId = 0;
+            if (auction.batchId != batchId) {
+                auction.batchId = 0; // indicating auction yet to start
             }
         }
 
