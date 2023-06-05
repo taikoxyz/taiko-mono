@@ -376,6 +376,6 @@ ignore:
   - "*/*/*/*/*/*/*/*/*.mod"
   - "tests"
   - "*.md"
-  - "gen_*.go"
+  - "**/gen_*.go"
 # *.pb.go
 # *.sum
