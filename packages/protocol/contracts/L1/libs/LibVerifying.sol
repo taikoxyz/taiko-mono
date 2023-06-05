@@ -192,7 +192,7 @@ library LibVerifying {
         }
 
         // Refund the diff to the proposer
-        assert(fc.gasUsed < blk.gasLimit);
+        assert(fc.gasUsed <= blk.gasLimit);
         state.taikoTokenBalances[blk.proposer] +=
             (blk.gasLimit - fc.gasUsed) * blk.feePerGas;
 
