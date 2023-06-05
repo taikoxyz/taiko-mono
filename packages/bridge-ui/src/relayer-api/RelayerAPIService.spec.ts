@@ -272,6 +272,51 @@ describe('RelayerAPIService', () => {
     expect(txs.length).toEqual(0);
   });
 
+  it('should show New transactions on top', async () => {
+    let count = 0;
+    // Let's make some transactions to be New
+    mockContract.getMessageStatus.mockImplementation(() => {
+      count++;
+
+      switch (count) {
+        case 3:
+        case 5:
+        case 9:
+          return Promise.resolve(MessageStatus.New);
+        default:
+          return Promise.resolve(MessageStatus.Done);
+      }
+    });
+
+    jest.mocked(axios.get).mockResolvedValueOnce({
+      data: eventsJson,
+    });
+
+    const { txs } = await relayerApi.getAllBridgeTransactionByAddress(
+      walletAddress,
+      {
+        page: 0,
+        size: 100,
+      },
+    );
+
+    const statuses = txs.map((tx) => tx.status);
+
+    expect(statuses).toEqual([
+      MessageStatus.New,
+      MessageStatus.New,
+      MessageStatus.New,
+      //----------------//
+      MessageStatus.Done,
+      MessageStatus.Done,
+      MessageStatus.Done,
+      MessageStatus.Done,
+      MessageStatus.Done,
+      MessageStatus.Done,
+      MessageStatus.Done,
+    ]);
+  });
+
   // TODO: there are still some branches to cover here
 
   it('should get block info', async () => {
@@ -293,8 +338,17 @@ describe('RelayerAPIService', () => {
     );
   });
 
-  it('cannot get block info', async () => {
+  it('handles API failure', async () => {
     jest.mocked(axios.get).mockRejectedValueOnce(new Error('BAM!!'));
+
+    await expect(relayerApi.getBlockInfo()).rejects.toThrowError(
+      'failed to fetch block info',
+    );
+
+    // Status >= 400 is considered an error
+    jest.mocked(axios.get).mockResolvedValueOnce({
+      status: 400,
+    });
 
     await expect(relayerApi.getBlockInfo()).rejects.toThrowError(
       'failed to fetch block info',

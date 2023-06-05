@@ -33,11 +33,10 @@ export class RelayerAPIService implements RelayerAPI {
       const { transactionHash, address } = item.data?.Raw;
       const hasDuplicateHash = uniqueHashes.has(transactionHash);
       const wrongBridgeAddress =
-        address !== chains[item.chainID]?.bridgeAddress;
+        address !== chains[item.chainID]?.bridgeAddress; // will also handle unsupported chain
 
-      // Do not include tx if for whatever reason these properties are missing:
-      // - transactionHash
-      // - address
+      // Do not include tx if for whatever reason the properties transactionHash
+      // and address are not present in the response
       const shouldIncludeTx =
         transactionHash && address && !hasDuplicateHash && !wrongBridgeAddress;
 
@@ -261,6 +260,7 @@ export class RelayerAPIService implements RelayerAPI {
         msgHash,
       );
 
+      // Update the status
       bridgeTx.status = status;
 
       let amountInWei: BigNumber = tx.amountInWei;
@@ -322,11 +322,13 @@ export class RelayerAPIService implements RelayerAPI {
     const blockInfoMap: Map<number, RelayerBlockInfo> = new Map();
 
     try {
-      const { data } = await axios.get<{ data: RelayerBlockInfo[] }>(
+      const response = await axios.get<{ data: RelayerBlockInfo[] }>(
         requestURL,
       );
 
-      // TODO: status >= 400 ?
+      if (response.status >= 400) throw response;
+
+      const { data } = response;
 
       if (data?.data.length > 0) {
         data.data.forEach((blockInfo) => {
