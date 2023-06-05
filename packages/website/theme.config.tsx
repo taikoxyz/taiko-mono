@@ -7,11 +7,8 @@ export default {
   banner: {
     key: "banner",
     text: (
-      <a
-        href="https://twitter.com/taikoxyz/status/1647684931735396352"
-        target="_blank"
-      >
-        📌 Alpha-2 has been deprecated. Alpha-3 is coming... soon 👀
+      <a href="/docs/guides" target="_blank">
+        📌 Alpha-3 is here! Get started →
       </a>
     ),
   },

@@ -2,7 +2,10 @@
   "contract-documentation": {
     "title": "Contract documentation"
   },
-  "protocol-constants": {
-    "title": "Protocol constants"
+  "contract-addresses": {
+    "title": "Contract addresses"
+  },
+  "rpc-configuration": {
+    "title": "RPC configuration"
   }
 }

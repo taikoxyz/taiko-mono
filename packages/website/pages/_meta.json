@@ -11,6 +11,39 @@
     "title": "Docs",
     "type": "page"
   },
+  "bridge": {
+    "title": "Bridge",
+    "type": "page",
+    "href": "https://bridge.test.taiko.xyz",
+    "newWindow": true
+  },
+  "swap": {
+    "title": "Swap",
+    "type": "page",
+    "href": "https://swap.test.taiko.xyz",
+    "newWindow": true
+  },
+  "explorers": {
+    "title": "Explorers",
+    "type": "menu",
+    "items": {
+      "status": {
+        "title": "Protocol Status",
+        "href": "https://status.test.taiko.xyz",
+        "newWindow": true
+      },
+      "l1-block-explorer": {
+        "title": "L1 Block Explorer",
+        "href": "https://sepolia.etherscan.io",
+        "newWindow": true
+      },
+      "l2-block-explorer": {
+        "title": "L2 Block Explorer",
+        "href": "https://explorer.test.taiko.xyz",
+        "newWindow": true
+      }
+    }
+  },
   "blog": {
     "title": "Blog",
     "type": "page",
@@ -28,6 +61,12 @@
     "title": "Forum",
     "type": "page",
     "href": "https://community.taiko.xyz/",
+    "newWindow": true
+  },
+  "feedback": {
+    "title": "Feedback",
+    "type": "page",
+    "href": "https://forms.gle/9JWjWtjbWytZZcNRA",
     "newWindow": true
   }
 }
