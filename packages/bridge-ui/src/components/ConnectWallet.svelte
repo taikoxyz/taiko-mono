@@ -54,7 +54,7 @@
   };
 </script>
 
-<button class="btn btn-md" on:click={() => (isConnectWalletModalOpen = true)}>
+<button class="btn" on:click={() => (isConnectWalletModalOpen = true)}>
   {$_('nav.connect')}
 </button>
 

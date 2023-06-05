@@ -43,7 +43,16 @@
       <Tko width={50} />
     </span>
     <a
-      class="md:pl-4 md:font-medium text-sm hover:text-[#E81899]"
+      class="
+        hidden 
+        text-sm 
+        leading-none
+        md:inline-block 
+        md:pl-4 
+        md:font-medium 
+        md:text-lg 
+        hover:text-[#E81899]
+      "
       href="https://taiko.xyz/docs/guides/use-the-bridge"
       target="_blank"
       rel="noreferrer">Guide ↗</a>
