@@ -1,131 +1,103 @@
+import type { Address } from '@wagmi/core';
 import axios from 'axios';
+import type { ethers } from 'ethers';
 
-import { RELAYER_URL } from '../constants/envVars';
-import type { APIResponse, RelayerBlockInfo } from '../domain/relayerApi';
-import { providers } from '../provider/providers';
+import { L1_CHAIN_ID, L2_CHAIN_ID, RELAYER_URL } from '../constants/envVars';
+import { MessageStatus } from '../domain/message';
+import type { ProvidersRecord } from '../domain/provider';
+import blockInfoJson from './__fixtures__/blockInfo.json';
+import eventsJson from './__fixtures__/events.json';
 import { RelayerAPIService } from './RelayerAPIService';
 
 jest.mock('axios');
 jest.mock('../constants/envVars');
+jest.mock('../provider/providers');
 
-const dataFromAPI = {
-  items: [
-    {
-      id: 1,
-      name: 'MessageSent',
-      data: {
-        Message: {
-          Id: 1,
-          To: '0x123',
-          Owner: '0x123',
-          Sender: '0x123',
-          RefundAddress: '0x123',
-          Data: '0x123',
-          SrcChainId: 1,
-          DestChainId: 2,
-          Memo: '',
-          GasLimit: '1',
-          CallValue: '1',
-          DepositValue: '1',
-          ProcessingFee: '1',
-        },
-        Raw: {
-          transactionHash: '0x123',
-        },
-      },
-      status: 0,
-      eventType: 0,
-      chainID: 1,
-      amount: '1000000000000000000',
-      canonicalTokenSymbol: 'ETH',
-      messageOwner: '0x123',
-      msgHash: '0x123',
-      canonicalTokenAddress: '0x123',
-      canonicalTokenName: 'ETH',
-      canonicalTokenDecimals: 18,
-      event: 'MessageSent',
-    },
-    {
-      id: 2,
-      name: 'MessageSent',
-      data: {
-        Message: {
-          Id: 2,
-          To: '0x456',
-          Owner: '0x456',
-          Sender: '0x456',
-          RefundAddress: '0x456',
-          Data: '0x456',
-          SrcChainId: 2,
-          DestChainId: 1,
-          Memo: '',
-          GasLimit: '1',
-          CallValue: '1',
-          DepositValue: '1',
-          ProcessingFee: '1',
-        },
-        Raw: {
-          transactionHash: '0x456',
-        },
-      },
-      status: 1,
-      eventType: 0,
-      chainID: 2,
-      amount: '2000000000000000000',
-      canonicalTokenSymbol: 'BLL',
-      messageOwner: '0x456',
-      msgHash: '0x456',
-      canonicalTokenAddress: '0x456',
-      canonicalTokenName: 'BLL',
-      canonicalTokenDecimals: 18,
-      event: 'MessageSent',
-    },
-  ],
-  page: 0,
-  size: 100,
-  max_page: 1,
-  total_pages: 1,
-  total: 3,
-  last: false,
-  first: true,
-  visible: 3,
-} as APIResponse;
+const mockContract = {
+  queryFilter: jest.fn(),
+  getMessageStatus: jest.fn(),
+  symbol: jest.fn(),
+  filters: {
+    ERC20Sent: () => jest.fn().mockReturnValue('ERC20Sent'),
+  },
+};
 
-const blockInfoFromAPI = [
-  {
-    chainID: 1,
-    latestProcessedBlock: 2,
-    latestBlock: 3,
+jest.mock('ethers', () => ({
+  ...jest.requireActual('ethers'),
+  Contract: function () {
+    return mockContract;
   },
-  {
-    chainID: 2,
-    latestProcessedBlock: 4,
-    latestBlock: 5,
+}));
+
+const walletAddress: Address = '0x33C887d229B5b99cdfa06B02102f8F75411C56B8';
+
+const mockProviders = {
+  [L1_CHAIN_ID]: {
+    getTransactionReceipt: jest.fn(),
   },
-] as RelayerBlockInfo[];
+  [L2_CHAIN_ID]: {
+    getTransactionReceipt: jest.fn(),
+  },
+} as unknown as ProvidersRecord;
+
+const mockTxReceipt = {
+  blockNumber: 1,
+} as ethers.providers.TransactionReceipt;
+
+const mockErc20Event = {
+  args: {
+    token: '0x123',
+    amount: '100',
+    msgHash:
+      '0x289d8464b91c2f31f6170942f29cdb815148dc527fbbbcd5ff158c0f5b9ac766',
+    message: {
+      owner: walletAddress,
+      data: '0x789',
+    },
+  },
+};
+
+const mockErc20Query = [mockErc20Event];
 
 const baseUrl = RELAYER_URL.replace(/\/$/, '');
-const relayerApi = new RelayerAPIService(RELAYER_URL, providers);
+
+const relayerApi = new RelayerAPIService(RELAYER_URL, mockProviders);
 
 describe('RelayerAPIService', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    jest
+      .mocked(mockProviders[L1_CHAIN_ID].getTransactionReceipt)
+      .mockResolvedValue(mockTxReceipt);
+
+    jest
+      .mocked(mockProviders[L2_CHAIN_ID].getTransactionReceipt)
+      .mockResolvedValue(mockTxReceipt);
+
+    mockContract.getMessageStatus.mockResolvedValue(MessageStatus.New);
+    mockContract.queryFilter.mockResolvedValue(mockErc20Query);
+    mockContract.symbol.mockResolvedValue('BLL');
+  });
+
   it('should get transactions from API', async () => {
     jest.mocked(axios.get).mockResolvedValueOnce({
-      data: dataFromAPI,
+      data: eventsJson,
     });
 
     const data = await relayerApi.getTransactionsFromAPI({
-      address: '0x123',
+      address: walletAddress,
       chainID: 1,
       event: 'MessageSent',
     });
 
     // Test parameters
     expect(axios.get).toHaveBeenCalledWith(`${baseUrl}/events`, {
-      params: { address: '0x123', chainID: 1, event: 'MessageSent' },
+      params: { address: walletAddress, chainID: 1, event: 'MessageSent' },
     });
 
     // Test return value
-    expect(data).toEqual(dataFromAPI);
+    expect(data.items.length).toEqual(eventsJson.items.length);
   });
 
   it('cannot get transactions from API', async () => {
@@ -133,35 +105,168 @@ describe('RelayerAPIService', () => {
 
     await expect(
       relayerApi.getTransactionsFromAPI({
-        address: '0x123',
+        address: walletAddress,
         chainID: 1,
         event: 'MessageSent',
       }),
     ).rejects.toThrowError('could not fetch transactions from API');
   });
 
-  // TODO: finish this test
-  it('should get all bridge transaction by address', async () => {
-    axios.get = jest.fn().mockResolvedValueOnce({
-      data: dataFromAPI,
-    });
-
-    await relayerApi.getAllBridgeTransactionByAddress('0x123', {
+  it('should get empty list of transactions', async () => {
+    const mockPaginationInfo = {
       page: 0,
       size: 100,
+      max_page: 1,
+      total_pages: 1,
+      total: 0,
+      last: false,
+      first: true,
+    };
+
+    jest.mocked(axios.get).mockResolvedValueOnce({
+      data: {
+        items: [],
+        ...mockPaginationInfo,
+        visible: 0,
+      },
     });
+
+    const { txs, paginationInfo } =
+      await relayerApi.getAllBridgeTransactionByAddress(walletAddress, {
+        page: 0,
+        size: 100,
+      });
+
+    expect(txs).toEqual([]);
+    expect(paginationInfo).toEqual(mockPaginationInfo);
+  });
+
+  it('should get filtered bridge transactions by address', async () => {
+    jest.mocked(axios.get).mockResolvedValueOnce({
+      data: eventsJson,
+    });
+
+    const { txs } = await relayerApi.getAllBridgeTransactionByAddress(
+      walletAddress,
+      {
+        page: 0,
+        size: 100,
+      },
+    );
 
     // Test parameters
     expect(axios.get).toHaveBeenCalledWith(`${baseUrl}/events`, {
-      params: { address: '0x123', event: 'MessageSent', page: 0, size: 100 },
+      params: {
+        address: walletAddress,
+        event: 'MessageSent',
+        page: 0,
+        size: 100,
+      },
     });
+
+    // There are transactions with duplicate transactionHash.
+    // We are expecting here less bridge txs than what we
+    // have in the fixture.
+    expect(txs.length).toBeLessThan(eventsJson.items.length);
   });
 
-  it('should get block info', async () => {
+  it('should get only L2 => L1 transactions by address', async () => {
     jest.mocked(axios.get).mockResolvedValueOnce({
-      data: {
-        data: blockInfoFromAPI,
+      data: eventsJson,
+    });
+
+    // Transactions with no receipt are not included
+    jest
+      .mocked(mockProviders[L1_CHAIN_ID].getTransactionReceipt)
+      .mockResolvedValue(null);
+
+    const { txs } = await relayerApi.getAllBridgeTransactionByAddress(
+      walletAddress,
+      {
+        page: 0,
+        size: 100,
       },
+    );
+
+    expect(txs.length).toBeGreaterThanOrEqual(1);
+
+    const chainIds = txs.map((tx) => tx.message.srcChainId);
+    expect(chainIds).not.toContain(L1_CHAIN_ID);
+  });
+
+  it('should get all transactions by address', async () => {
+    jest.mocked(axios.get).mockResolvedValueOnce({
+      data: eventsJson,
+    });
+
+    const { txs } = await relayerApi.getAllBridgeTransactionByAddress(
+      walletAddress,
+      {
+        page: 0,
+        size: 100,
+      },
+    );
+
+    expect(
+      mockProviders[L1_CHAIN_ID].getTransactionReceipt,
+    ).toHaveBeenCalledTimes(3);
+
+    expect(
+      mockProviders[L2_CHAIN_ID].getTransactionReceipt,
+    ).toHaveBeenCalledTimes(1);
+
+    expect(mockContract.getMessageStatus).toHaveBeenCalledTimes(4);
+    expect(mockContract.queryFilter).toHaveBeenCalledTimes(1);
+    expect(mockContract.symbol).toHaveBeenCalledTimes(1);
+  });
+
+  it('should not get transactions with wrong address', async () => {
+    jest.mocked(axios.get).mockResolvedValueOnce({
+      data: eventsJson,
+    });
+
+    const { txs } = await relayerApi.getAllBridgeTransactionByAddress(
+      '0xWrongAddress',
+      {
+        page: 0,
+        size: 100,
+      },
+    );
+
+    expect(txs.length).toEqual(0);
+  });
+
+  it('ignores transactions from chains not supported by the bridge', async () => {
+    // TODO: use structuredClone(). Nodejs support?
+    const noSupportedTx = JSON.parse(JSON.stringify(eventsJson.items[0]));
+    noSupportedTx.data.Message.SrcChainId = 666;
+
+    const newEventsJson = {
+      ...eventsJson,
+      items: [noSupportedTx, ...eventsJson.items.slice(1)],
+    };
+
+    jest.mocked(axios.get).mockResolvedValueOnce({
+      data: newEventsJson,
+    });
+
+    const { txs } = await relayerApi.getAllBridgeTransactionByAddress(
+      walletAddress,
+      {
+        page: 0,
+        size: 100,
+      },
+    );
+
+    // expected = total_items - duplicated_tx - unsupported_tx
+    expect(txs.length).toEqual(eventsJson.items.length - 1 - 1);
+  });
+
+  // TODO: there are still some branches to cover here
+
+  it('should get block info', async () => {
+    jest.mocked(axios.get).mockResolvedValue({
+      data: blockInfoJson,
     });
 
     const blockInfo = await relayerApi.getBlockInfo();
@@ -172,8 +277,8 @@ describe('RelayerAPIService', () => {
     // Test return value
     expect(blockInfo).toEqual(
       new Map([
-        [blockInfoFromAPI[0].chainID, blockInfoFromAPI[0]],
-        [blockInfoFromAPI[1].chainID, blockInfoFromAPI[1]],
+        [blockInfoJson.data[0].chainID, blockInfoJson.data[0]],
+        [blockInfoJson.data[1].chainID, blockInfoJson.data[1]],
       ]),
     );
   });
