@@ -185,8 +185,9 @@ library LibVerifying {
             uint64 batchId = LibAuction.batchForBlock(config, blk.blockId);
             auction = state.auctions[batchId % config.auctionRingBufferSize];
 
-            // this may be false for system prover
+            // For system prover, maybe the auction does not exist.
             if (auction.batchId != batchId) {
+                assert(fc.prover == address(1));
                 auction.batchId = 0; // indicating auction yet to start
             }
         }
