@@ -1,0 +1,45 @@
+import { Steps } from "nextra-theme-docs";
+
+# Enable a proposer
+
+## Overview
+
+This guide will help you enable your Taiko node as a proposer.
+
+## Prerequisites
+
+- You have already setup a node (see: [Run a node](/docs/guides/run-a-node))
+- Must have a balance of TTKO
+
+## Steps
+
+<Steps>
+### Visit the TaikoL1 contract on Sepolia Etherscan
+
+Navigate to the [TaikoL1 contract](https://sepolia.etherscan.io/address/0x6375394335f34848b850114b66A49D6F47f2cdA8#writeProxyContract) on Sepolia.
+
+Click `Connect to Web3` and connect your wallet.
+
+### Enter deposit amount
+
+Click `depositTaikoToken` and enter the amount of TTKO you would like to deposit. **Make sure** to click the plus sign and add `10^8` decimals, or add 8 zeroes manually.
+
+For example if you want to deposit `69` TTKO, you would enter `6900000000`.
+
+### Deposit your TTKO
+
+Click `Write` and confirm the transaction in your wallet.
+
+### Open `.env` file in `simple-taiko-node`
+Open the `.env` file in the `simple-taiko-node` directory.
+
+### Set environment variables to enable a proposer
+Set the following environment variables to enable your node as a prover: 
+    - Set `ENABLE_PROPOSER` to `true` (replacing the default `false` with `true`). 
+    - Set `L1_PROPOSER_PRIVATE_KEY` to that of your wallet's private key; it will need some TTKO on Sepolia to propose blocks (if using MetaMask, follow these directions to [retrieve the private key](https://metamask.zendesk.com/hc/en-us/articles/360015289632-How-to-export-an-account-s-private-key)).
+    - Set `L2_SUGGESTED_FEE_RECIPIENT` to the recipient of L2 ETH rewards.
+
+### Verify proposer logs
+You should see a log if you have proposed a block: `📝 Propose transactions succeeded`
+
+</Steps>

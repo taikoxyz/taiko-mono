@@ -1,3 +1,5 @@
+# Official links
+
 | Name            | Link                                                       |
 | --------------- | ---------------------------------------------------------- |
 | Blog            | https://mirror.xyz/labs.taiko.eth                          |
