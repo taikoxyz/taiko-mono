@@ -68,6 +68,21 @@
   },
   {
     "inputs": [],
+    "name": "L1_INSUFFICIENT_TOKEN",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "L1_INSUFFICIENT_TOKEN",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "L1_INSUFFICIENT_TOKEN",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "L1_INVALID_CONFIG",
     "type": "error"
   },
@@ -229,6 +244,11 @@
   {
     "inputs": [],
     "name": "L1_TX_LIST_RANGE",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "Overflow",
     "type": "error"
   },
   {
@@ -584,6 +604,19 @@
     "inputs": [
       {
         "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "depositTaikoToken",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
         "name": "blockId",
         "type": "uint256"
       }
@@ -695,22 +728,22 @@
           },
           {
             "internalType": "uint64",
-            "name": "ethDepositMinCountPerBlock",
+            "name": "minEthDepositsPerBlock",
             "type": "uint64"
           },
           {
             "internalType": "uint64",
-            "name": "ethDepositMaxCountPerBlock",
+            "name": "maxEthDepositsPerBlock",
             "type": "uint64"
           },
           {
             "internalType": "uint96",
-            "name": "ethDepositMaxAmount",
+            "name": "maxEthDepositAmount",
             "type": "uint96"
           },
           {
             "internalType": "uint96",
-            "name": "ethDepositMinAmount",
+            "name": "minEthDepositAmount",
             "type": "uint96"
           },
           {
@@ -827,6 +860,25 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "proofTime",
+        "type": "uint64"
+      }
+    ],
+    "name": "getProofReward",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "getStateVariables",
     "outputs": [
@@ -835,6 +887,11 @@
           {
             "internalType": "uint64",
             "name": "blockFee",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "accBlockFees",
             "type": "uint64"
           },
           {
@@ -854,7 +911,22 @@
           },
           {
             "internalType": "uint64",
+            "name": "proofTimeIssued",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "proofTimeTarget",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
             "name": "lastVerifiedBlockId",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "accProposedAt",
             "type": "uint64"
           },
           {
@@ -930,6 +1002,21 @@
         "internalType": "uint64",
         "name": "_initBlockFee",
         "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "_initProofTimeTarget",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "_initProofTimeIssued",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint16",
+        "name": "_adjustmentQuotient",
+        "type": "uint16"
       }
     ],
     "name": "init",
@@ -1145,6 +1232,34 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "newProofTimeTarget",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "newProofTimeIssued",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "newBlockFee",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint16",
+        "name": "newAdjustmentQuotient",
+        "type": "uint16"
+      }
+    ],
+    "name": "setProofParams",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "state",
     "outputs": [
@@ -1160,7 +1275,7 @@
       },
       {
         "internalType": "uint16",
-        "name": "__reserved70",
+        "name": "adjustmentQuotient",
         "type": "uint16"
       },
       {
@@ -1175,12 +1290,12 @@
       },
       {
         "internalType": "uint64",
-        "name": "__reserved80",
+        "name": "accProposedAt",
         "type": "uint64"
       },
       {
         "internalType": "uint64",
-        "name": "__reserved81",
+        "name": "accBlockFees",
         "type": "uint64"
       },
       {
@@ -1200,7 +1315,7 @@
       },
       {
         "internalType": "uint64",
-        "name": "__reserved90",
+        "name": "proofTimeIssued",
         "type": "uint64"
       },
       {
@@ -1210,7 +1325,7 @@
       },
       {
         "internalType": "uint64",
-        "name": "__reserved91",
+        "name": "proofTimeTarget",
         "type": "uint64"
       }
     ],
@@ -1239,6 +1354,19 @@
       }
     ],
     "name": "verifyBlocks",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "withdrawTaikoToken",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
