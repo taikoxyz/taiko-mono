@@ -31,9 +31,10 @@ export class RelayerAPIService implements RelayerAPI {
 
     for (const item of items) {
       const { transactionHash, address } = item.data?.Raw;
+      const bridgeAddress = chains[item.chainID]?.bridgeAddress; // will also handle unsupported chain
       const hasDuplicateHash = uniqueHashes.has(transactionHash);
       const wrongBridgeAddress =
-        address !== chains[item.chainID]?.bridgeAddress; // will also handle unsupported chain
+        address.toLowerCase() !== bridgeAddress?.toLowerCase();
 
       // Do not include tx if for whatever reason the properties transactionHash
       // and address are not present in the response
