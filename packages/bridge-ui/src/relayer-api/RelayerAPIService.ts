@@ -5,7 +5,7 @@ import { BigNumber, Contract, ethers } from 'ethers';
 import { chains } from '../chain/chains';
 import { bridgeABI, erc20ABI, tokenVaultABI } from '../constants/abi';
 import { MessageStatus } from '../domain/message';
-import type { RecordProviders } from '../domain/provider';
+import type { ProvidersRecord } from '../domain/provider';
 import type {
   APIRequestParams,
   APIResponse,
@@ -92,10 +92,10 @@ export class RelayerAPIService implements RelayerAPI {
     return [symbol, amountInWei];
   }
 
-  private readonly providers: RecordProviders;
+  private readonly providers: ProvidersRecord;
   private readonly baseUrl: string;
 
-  constructor(baseUrl: string, providers: RecordProviders) {
+  constructor(baseUrl: string, providers: ProvidersRecord) {
     this.providers = providers;
 
     // There is a chance that by accident the env var
@@ -158,9 +158,9 @@ export class RelayerAPIService implements RelayerAPI {
       return { txs: [], paginationInfo };
     }
 
-    apiTxs.items = RelayerAPIService._filterDuplicateHashes(apiTxs.items);
+    const items = RelayerAPIService._filterDuplicateHashes(apiTxs.items);
 
-    const txs = apiTxs.items.map((tx: APIResponseTransaction) => {
+    const txs = items.map((tx: APIResponseTransaction) => {
       let data = tx.data.Message.Data;
       if (data === '') {
         data = '0x'; // ethers does not allow "" for empty bytes value
