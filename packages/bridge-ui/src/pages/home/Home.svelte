@@ -26,7 +26,7 @@
 
 <div class="container mx-auto text-center my-10">
   <Tabs
-    class="rounded-3xl md:border-2 border-bridge-form border-solid p-2 md:p-6 md:inline-block min-h-[650px]"
+    class="tabs bg-tabs border-2 dark:border-1 border-gray-200 dark:border-gray-800 shadow-md rounded-3xl p-2 md:p-6 md:inline-block min-h-[650px]"
     bind:activeTab>
     {@const tab1 = tabsRoute[0]}
     {@const tab2 = tabsRoute[1]}
