@@ -40,7 +40,9 @@ export type TransactionData = {
     Data: string;
   };
   Raw: {
+    address: Address;
     transactionHash: string;
+    transactionIndex: string;
   };
 };
 
