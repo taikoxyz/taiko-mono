@@ -12,9 +12,15 @@
     "type": "page"
   },
   "blog": {
-    "title": "Blog ↗",
+    "title": "Blog",
     "type": "page",
     "href": "https://mirror.xyz/labs.taiko.eth",
+    "newWindow": true
+  },
+  "forum": {
+    "title": "Forum",
+    "type": "page",
+    "href": "https://community.taiko.xyz/",
     "newWindow": true
   }
 }
