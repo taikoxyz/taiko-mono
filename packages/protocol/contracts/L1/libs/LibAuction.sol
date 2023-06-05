@@ -96,7 +96,7 @@ library LibAuction {
         view
         returns (uint256 currentTime, TaikoData.Auction[] memory auctions)
     {
-        if (startBatchId == 0 || count == 0 || count >= 100) {
+        if (startBatchId == 0 || count == 0) {
             revert L1_INVALID_PARAM();
         }
 
