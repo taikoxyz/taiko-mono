@@ -17,6 +17,13 @@
     "href": "https://mirror.xyz/labs.taiko.eth",
     "newWindow": true
   },
+  "ecosystem": {
+    "title": "Ecosystem",
+    "type": "page",
+    "theme": {
+      "layout": "full"
+    }
+  },
   "forum": {
     "title": "Forum",
     "type": "page",
