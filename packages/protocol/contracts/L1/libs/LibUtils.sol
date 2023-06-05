@@ -61,11 +61,12 @@ library LibUtils {
         returns (TaikoData.StateVariables memory)
     {
         return TaikoData.StateVariables({
-            blockFee: state.blockFee,
+            feePerGas: state.feePerGas,
             genesisHeight: state.genesisHeight,
             genesisTimestamp: state.genesisTimestamp,
             numBlocks: state.numBlocks,
             lastVerifiedBlockId: state.lastVerifiedBlockId,
+            numAuctions: state.numAuctions,
             nextEthDepositToProcess: state.nextEthDepositToProcess,
             numEthDeposits: uint64(state.ethDeposits.length)
         });
@@ -74,6 +75,25 @@ library LibUtils {
     function movingAverage(
         uint256 maValue,
         uint256 newValue,
+        uint256 maf
+    )
+        internal
+        pure
+        returns (uint256)
+    {
+        if (maValue == 0) {
+            return newValue;
+        }
+        uint256 _ma = (maValue * (maf - 1) + newValue) / maf;
+        return _ma > 0 ? _ma : maValue;
+    }
+
+    // TODO(daniel): implement this
+    function movingAverageTimeSensitive(
+        uint256 maValue,
+        uint256 maValueTimestamp,
+        uint256 newValue,
+        uint256 newValueTimestamp,
         uint256 maf
     )
         internal

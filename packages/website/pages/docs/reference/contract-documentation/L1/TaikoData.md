@@ -14,6 +14,7 @@ struct Config {
   uint256 auctionRingBufferSize;
   uint256 maxVerificationsPerTx;
   uint64 blockMaxGasLimit;
+  uint64 blockFeeBaseGas;
   uint64 maxTransactionsPerBlock;
   uint64 maxBytesPerTxList;
   uint256 txListCacheExpiry;
@@ -26,11 +27,13 @@ struct Config {
   uint64 maxEthDepositsPerBlock;
   uint96 maxEthDepositAmount;
   uint96 minEthDepositAmount;
-  uint16 auctionWindowInSec;
-  uint16 worstCaseProofWindowInSec;
+  uint16 auctionWindow;
+  uint64 auctionProofWindowMultiplier;
+  uint64 auctionDepositMultipler;
+  uint64 auctionMaxFeePerGasMultipler;
   uint16 auctionBatchSize;
-  uint16 maxFeePerGas;
-  uint16 batchAllowanceToProposedBlocks;
+  uint16 auctonMaxAheadOfProposals;
+  uint16 auctionMaxProofWindow;
   bool relaySignalRoot;
 }
 ```
@@ -39,11 +42,12 @@ struct Config {
 
 ```solidity
 struct StateVariables {
-  uint64 blockFee;
+  uint64 feePerGas;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 numBlocks;
   uint64 lastVerifiedBlockId;
+  uint64 numAuctions;
   uint64 nextEthDepositToProcess;
   uint64 numEthDeposits;
 }
@@ -116,13 +120,14 @@ struct ForkChoice {
 ```solidity
 struct Block {
   mapping(uint256 => struct TaikoData.ForkChoice) forkChoices;
+  bytes32 metaHash;
   uint64 blockId;
   uint64 proposedAt;
+  uint64 feePerGas;
   uint32 gasLimit;
+  address proposer;
   uint24 nextForkChoiceId;
   uint24 verifiedForkChoiceId;
-  bytes32 metaHash;
-  address proposer;
 }
 ```
 
@@ -152,8 +157,8 @@ struct Bid {
   address prover;
   uint64 deposit;
   uint64 feePerGas;
-  uint32 gasLimit;
-  uint16 committedProofWindow;
+  uint64 blockMaxGasLimit;
+  uint16 proofWindow;
 }
 ```
 
@@ -179,17 +184,16 @@ struct State {
   struct TaikoData.EthDeposit[] ethDeposits;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
-  uint16 __reserved70;
-  uint48 __reserved71;
-  uint64 __reserved72;
-  uint64 __reserved80;
+  uint64 __reserved70;
+  uint64 __reserved71;
+  uint64 numAuctions;
   uint64 __reserved81;
   uint64 numBlocks;
   uint64 nextEthDepositToProcess;
-  uint64 blockFee;
-  uint64 avgFeePerGas;
+  uint64 lastVerifiedAt;
+  uint64 feePerGas;
   uint64 lastVerifiedBlockId;
-  uint64 numOfAuctions;
+  uint64 avgProofTime;
   uint256[42] __gap;
 }
 ```

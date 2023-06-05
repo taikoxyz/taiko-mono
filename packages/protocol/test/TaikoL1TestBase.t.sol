@@ -28,7 +28,7 @@ abstract contract TaikoL1TestBase is Test {
 
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
     uint64 feePerGas = 1e8; // 1 TKO
-    uint64 avgProofWindow = 60 minutes;
+    uint64 proofWindow = 60 minutes;
     uint64 l2GasExcess = 1e18;
 
     address public constant L2Treasury =
@@ -89,10 +89,7 @@ abstract contract TaikoL1TestBase is Test {
         registerAddress("proto_broker", address(L1));
 
         L1.init(
-            address(addressManager),
-            GENESIS_BLOCK_HASH,
-            feePerGas,
-            avgProofWindow
+            address(addressManager), GENESIS_BLOCK_HASH, feePerGas, proofWindow
         );
         printVariables("init  ");
     }
@@ -198,8 +195,6 @@ abstract contract TaikoL1TestBase is Test {
     function printVariables(string memory comment) internal {
         TaikoData.StateVariables memory vars = L1.getStateVariables();
 
-        uint256 fee = L1.getBlockFee();
-
         string memory str = string.concat(
             Strings.toString(logCount++),
             ":[",
@@ -207,8 +202,8 @@ abstract contract TaikoL1TestBase is Test {
             unicode"→",
             Strings.toString(vars.numBlocks),
             "]",
-            " fee:",
-            Strings.toString(fee)
+            " numAuctions:",
+            Strings.toString(vars.numAuctions)
         );
 
         str = string.concat(

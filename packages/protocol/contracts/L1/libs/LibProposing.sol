@@ -82,15 +82,16 @@ library LibProposing {
         TaikoData.Block storage blk =
             state.blocks[state.numBlocks % config.blockRingBufferSize];
 
+        blk.metaHash = LibUtils.hashMetadata(meta);
         blk.blockId = state.numBlocks;
         blk.proposedAt = meta.timestamp;
+        blk.feePerGas = state.feePerGas;
+        blk.gasLimit = meta.gasLimit;
+        blk.proposer = msg.sender;
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = 0;
-        blk.metaHash = LibUtils.hashMetadata(meta);
-        blk.proposer = msg.sender;
-        blk.gasLimit = meta.gasLimit;
 
-        uint64 blockFee = getBlockFee(state, meta.gasLimit);
+        uint64 blockFee = getBlockFee(state, config, meta.gasLimit);
 
         // Charging proposers the fee should be the same mechanism as it was
         // so far, so that we can avoid sending/burning all the time so that we
@@ -125,18 +126,16 @@ library LibProposing {
     // differences refund after verification
     function getBlockFee(
         TaikoData.State storage state,
+        TaikoData.Config memory config,
         uint32 gasLimit
     )
         internal
         view
         returns (uint64)
     {
-        // @dantaik: What to do with the first X proposals, when there are no
-        // avgFeePerGas... ?
-        // Currently it is set to 1. at init.
         // The diff between gasLimit and gasUsed will be redistributed back to
         // the balance of proposer
-        return state.avgFeePerGas * gasLimit;
+        return state.feePerGas * (gasLimit + config.blockFeeBaseGas);
     }
 
     function _validateBlock(

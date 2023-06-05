@@ -40,6 +40,12 @@ error L1_EVIDENCE_MISMATCH(bytes32 expected, bytes32 actual)
 error L1_FORK_CHOICE_NOT_FOUND()
 ```
 
+### L1_INSUFFICIENT_TOKEN
+
+```solidity
+error L1_INSUFFICIENT_TOKEN()
+```
+
 ### L1_INVALID_CONFIG
 
 ```solidity
@@ -92,6 +98,12 @@ error L1_NOT_PROVEABLE()
 
 ```solidity
 error L1_NOT_SPECIAL_PROVER()
+```
+
+### L1_NOT_THE_BEST_BID
+
+```solidity
+error L1_NOT_THE_BEST_BID()
 ```
 
 ### L1_ORACLE_PROVER_DISABLED

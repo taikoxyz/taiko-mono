@@ -16,6 +16,7 @@ library TaikoData {
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;
         uint64 blockMaxGasLimit;
+        uint64 blockFeeBaseGas;
         uint64 maxTransactionsPerBlock;
         uint64 maxBytesPerTxList;
         uint256 txListCacheExpiry;
@@ -29,24 +30,24 @@ library TaikoData {
         uint96 maxEthDepositAmount;
         uint96 minEthDepositAmount;
         //How long auction window will be open after the first bid
-        uint16 auctionWindowInSec;
+        uint16 auctionWindow;
         //How long proof window will be granted to winning bidder
         uint64 auctionProofWindowMultiplier;
         uint64 auctionDepositMultipler;
         uint64 auctionMaxFeePerGasMultipler;
-        uint16 worstCaseProofWindowInSec;
         uint16 auctionBatchSize;
-        uint16 maxFeePerGas; // in wei
         uint16 auctonMaxAheadOfProposals;
+        uint16 auctionMaxProofWindow;
         bool relaySignalRoot;
     }
 
     struct StateVariables {
-        uint64 blockFee;
+        uint64 feePerGas;
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 numBlocks;
         uint64 lastVerifiedBlockId;
+        uint64 numAuctions;
         uint64 nextEthDepositToProcess;
         uint64 numEthDeposits;
     }
@@ -105,13 +106,14 @@ library TaikoData {
     struct Block {
         // ForkChoice storage are reusable
         mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
+        bytes32 metaHash;
         uint64 blockId;
         uint64 proposedAt;
+        uint64 feePerGas;
         uint32 gasLimit;
+        address proposer;
         uint24 nextForkChoiceId;
         uint24 verifiedForkChoiceId;
-        bytes32 metaHash;
-        address proposer;
     }
 
     // This struct takes 9 slots.
@@ -131,12 +133,12 @@ library TaikoData {
         address prover;
         uint64 deposit;
         uint64 feePerGas;
-        // In order to refund the diff betwen gasUsed vs. gasLimit
-        uint32 gasLimit;
+        // In order to refund the diff betwen gasUsed vs. blockMaxGasLimit
+        uint64 blockMaxGasLimit;
         // It is also part of the bidding - how fast some can submit proofs
         // according to his/her own commitment.
         // Can be zero and it will just signal that the proofs are coming
-        // somewhere within config.auctionWindowInSec
+        // somewhere within config.auctionWindow
         uint16 proofWindow;
     }
 
@@ -164,19 +166,18 @@ library TaikoData {
         // Slot 7: never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint16 __reserved70;
-        uint48 __reserved71;
-        uint64 numOfAuctions;
+        uint64 __reserved70;
+        uint64 __reserved71;
         // Slot 8
-        uint64 __reserved80;
+        uint64 numAuctions;
         uint64 __reserved81;
         uint64 numBlocks;
         uint64 nextEthDepositToProcess;
         // Slot 9
-        uint64 blockFee;
-        uint64 avgFeePerGas;
+        uint64 lastVerifiedAt;
+        uint64 feePerGas;
         uint64 lastVerifiedBlockId;
-        uint64 avgProofWindow;
+        uint64 avgProofTime;
         // Reserved
         uint256[42] __gap;
     }

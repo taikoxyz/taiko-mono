@@ -168,7 +168,6 @@ contract TaikoToken is
     {
         super._mint(to, amount);
 
-        // TODO: do we need the following check at all?
         if (totalSupply() > type(uint64).max) revert TKO_MINT_DISALLOWED();
         emit Mint(to, amount);
     }
