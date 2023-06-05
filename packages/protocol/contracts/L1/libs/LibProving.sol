@@ -188,9 +188,13 @@ library LibProving {
         fc.provenAt = uint64(block.timestamp);
 
         if (evidence.prover != address(0) && evidence.prover != address(1)) {
-            // set the proof window to zero so after the first regular proof,
-            // other provers can submit proofs without any delay.
-            auction.bid.proofWindow = 0;
+            if (auction.batchId != 0) {
+                // set the proof window to zero so after the first regular
+                // proof, other provers can submit proofs without any delay.
+                state.auctions[auction.batchId % config.auctionRingBufferSize]
+                    .bid
+                    .proofWindow = 0;
+            }
 
             uint256[10] memory inputs;
 
