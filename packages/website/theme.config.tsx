@@ -1,7 +1,7 @@
-import { useRouter } from "next/router";
-import { useConfig } from "nextra-theme-docs";
 import Footer from "./components/Footer";
 import ThemedImage from "./components/ThemedImage";
+import { useConfig } from "nextra-theme-docs";
+import { useRouter } from "next/router";
 
 export default {
   banner: {
@@ -40,6 +40,10 @@ export default {
             frontMatter.description ||
             "A decentralized, Ethereum-equivalent ZK-Rollup."
           }
+        />
+        <meta
+          property="og:image"
+          content={"/images/Taiko_social_media_preview.png"}
         />
         <link rel="icon" href="/images/favicon.svg" />
       </>
