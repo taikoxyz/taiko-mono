@@ -494,11 +494,7 @@
           balanceAvailableForTx = balanceAvailableForTx.sub(processingFee);
         }
 
-        // We convert back to user readable string: `1.0`
-        amount = ethers.utils.formatUnits(
-          balanceAvailableForTx,
-          $token.decimals,
-        );
+        amount = ethers.utils.formatEther(balanceAvailableForTx);
       } catch (error) {
         console.error(error);
 
