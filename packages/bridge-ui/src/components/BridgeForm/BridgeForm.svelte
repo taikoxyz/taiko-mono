@@ -448,28 +448,40 @@
     if (isETH($token)) {
       try {
         const feeData = await fetchFeeData();
+        const processingFeeInWei = getProcessingFee();
+
+        const bridgeAddress = chains[$srcChain.id].bridgeAddress;
+        const toAddress = showTo && to ? to : await $signer.getAddress();
+
+        // Won't be used in ETHBridge.estimateGas()
+        // TODO: different arguments depending on the type of bridge
+        const tokenVaultAddress = '0x00';
+        const tokenAddress = '0x00';
+
+        // Whatever amount just to get an estimation
+        const bnAmount = BigNumber.from(1);
+
         const gasEstimate = await $activeBridge.estimateGas({
-          amount: BigNumber.from(1),
+          memo,
+          tokenAddress,
+          bridgeAddress,
+          tokenVaultAddress,
+          processingFeeInWei,
+          to: toAddress,
           signer: $signer,
-          tokenAddress: await getAddressForToken(
-            $token,
-            $srcChain,
-            $destChain,
-            $signer,
-          ),
+          amount: bnAmount,
           srcChainId: $srcChain.id,
           destChainId: $destChain.id,
-          tokenVaultAddress: tokenVaults[$srcChain.id],
-          processingFeeInWei: getProcessingFee(),
-          memo: memo,
-          to: showTo && to ? to : await $signer.getAddress(),
         });
 
         const requiredGas = gasEstimate.mul(feeData.gasPrice);
         const userBalance = await $signer.getBalance('latest');
-        const processingFee = getProcessingFee();
+
+        // Let's start with substracting the estimated required gas to bridge
         let balanceAvailableForTx = userBalance.sub(requiredGas);
 
+        // Following we substract the currently selected processing fee
+        const processingFee = getProcessingFee();
         if (processingFee) {
           balanceAvailableForTx = balanceAvailableForTx.sub(processingFee);
         }
@@ -479,7 +491,8 @@
         console.error(error);
 
         // In case of error default to using the full amount of ETH available.
-        // The user would still not be able to make the restriction and will have to manually set the amount.
+        // The user would still not be able to make the restriction and will have to
+        // manually set the amount.
         amount = tokenBalance.toString();
       }
     } else {
