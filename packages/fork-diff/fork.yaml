@@ -12,7 +12,7 @@ fork:
 def:
   title: "taiko-geth"
   description: | # description in markdown
-    This is an overview of the changes between [`taiko-geth`](https://github.com/taikoxyz/taiko-geth) and [`go-ethereum`](https://github.com/ethereum/go-ethereum).
+    This is an overview of the changes between [`taiko-geth`](https://github.com/taikoxyz/taiko-geth) (`taiko` branch) and [`go-ethereum`](https://github.com/ethereum/go-ethereum) (`v1.11.5` tag).
   sub:
     # - title: "Changes in accounts"
     #   description: this show mods to accounts files
@@ -376,5 +376,14 @@ ignore:
   - "*/*/*/*/*/*/*/*/*.mod"
   - "tests"
   - "*.md"
+  - "gen_*.go"
+  - "*/gen_*.go"
+  - "*/*/gen_*.go"
+  - "*/*/*/gen_*.go"
+  - "*/*/*/*/gen_*.go"
+  - "*/*/*/*/*/gen_*.go"
+  - "*/*/*/*/*/*/gen_*.go"
+  - "*/*/*/*/*/*/*/gen_*.go"
+  - "*/*/*/*/*/*/*/*/gen_*.go"
 # *.pb.go
 # *.sum

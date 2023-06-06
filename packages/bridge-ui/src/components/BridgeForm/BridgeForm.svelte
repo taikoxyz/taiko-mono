@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { type Address,fetchFeeData } from '@wagmi/core';
+  import { type Address, fetchFeeData } from '@wagmi/core';
   import { BigNumber, Contract, ethers, type Signer } from 'ethers';
   import { _ } from 'svelte-i18n';
 
