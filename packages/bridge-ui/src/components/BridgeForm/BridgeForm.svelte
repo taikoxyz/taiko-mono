@@ -445,67 +445,57 @@
   }
 
   async function useFullAmount() {
-    try {
-      const feeData = await fetchFeeData();
-      const processingFeeInWei = getProcessingFee();
+    if (isETH($token)) {
+      try {
+        const feeData = await fetchFeeData();
+        const processingFeeInWei = getProcessingFee();
 
-      const bridgeAddress = chains[$srcChain.id].bridgeAddress; // for ETH
-      const tokenVaultAddress = tokenVaults[$srcChain.id]; // for ERC20
+        const bridgeAddress = chains[$srcChain.id].bridgeAddress;
+        const toAddress = showTo && to ? to : await $signer.getAddress();
 
-      const toAddress = showTo && to ? to : await $signer.getAddress();
+        // Won't be used in ETHBridge.estimateGas()
+        // TODO: different arguments depending on the type of bridge
+        const tokenVaultAddress = '0x00';
+        const tokenAddress = '0x00';
 
-      // For ETH this function returns '0x00'
-      const tokenAddress = await getAddressForToken(
-        $token,
-        $srcChain,
-        $destChain,
-        $signer,
-      );
+        // Whatever amount just to get an estimation
+        const bnAmount = BigNumber.from(1);
 
-      // Whatever amount just to get an estimation
-      const bnAmount = BigNumber.from(1);
+        const gasEstimate = await $activeBridge.estimateGas({
+          memo,
+          tokenAddress,
+          bridgeAddress,
+          tokenVaultAddress,
+          processingFeeInWei,
+          to: toAddress,
+          signer: $signer,
+          amount: bnAmount,
+          srcChainId: $srcChain.id,
+          destChainId: $destChain.id,
+        });
 
-      // TODO: different arguments depending on the type of bridge
-      const gasEstimate = await $activeBridge.estimateGas({
-        memo,
-        tokenAddress,
-        bridgeAddress,
-        tokenVaultAddress,
-        processingFeeInWei,
-        to: toAddress,
-        signer: $signer,
-        amount: bnAmount,
-        srcChainId: $srcChain.id,
-        destChainId: $destChain.id,
-      });
+        const requiredGas = gasEstimate.mul(feeData.gasPrice);
+        const userBalance = await $signer.getBalance('latest');
 
-      const requiredGas = gasEstimate.mul(feeData.gasPrice);
+        // Let's start with substracting the estimated required gas to bridge
+        let balanceAvailableForTx = userBalance.sub(requiredGas);
 
-      // We might have decimals. BigNumber can't take strings
-      // with decimals. E.g. BigNumber.from('1.0') will throw an error.
-      // We can get a BigNumber by parsing, passing the right amount
-      // of decimals: ethers.utils.parseUnits('1.0', decimals)
-      const userBalance = ethers.utils.parseUnits(
-        tokenBalance,
-        $token.decimals || 18, // defaults to 18 decimals
-      );
+        // Following we substract the currently selected processing fee
+        const processingFee = getProcessingFee();
+        if (processingFee) {
+          balanceAvailableForTx = balanceAvailableForTx.sub(processingFee);
+        }
 
-      // Let's start with substracting the estimated required gas to bridge
-      let balanceAvailableForTx = userBalance.sub(requiredGas);
+        amount = ethers.utils.formatEther(balanceAvailableForTx);
+      } catch (error) {
+        console.error(error);
 
-      // Following we substract the currently selected processing fee
-      const processingFee = getProcessingFee();
-      if (processingFee) {
-        balanceAvailableForTx = balanceAvailableForTx.sub(processingFee);
+        // In case of error default to using the full amount of ETH available.
+        // The user would still not be able to make the restriction and will have to
+        // manually set the amount.
+        amount = tokenBalance.toString();
       }
-
-      // We convert back to user readable string: `1.0`
-      amount = ethers.utils.formatUnits(balanceAvailableForTx, $token.decimals);
-    } catch (error) {
-      console.error(error);
-
-      // In case of error default to using the full amount of ETH available.
-      // The user would still not be able to make the restriction and will have to manually set the amount.
+    } else {
       amount = tokenBalance.toString();
     }
   }
