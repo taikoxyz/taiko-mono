@@ -23,6 +23,7 @@ const mockContract = {
   queryFilter: jest.fn(),
   getMessageStatus: jest.fn(),
   symbol: jest.fn(),
+  decimals: jest.fn(),
   filters: {
     // Returns this string to help us
     // identify the filter in the tests
@@ -196,7 +197,7 @@ describe('storage tests', () => {
 
     const txs = await svc.getAllByAddress('0x123');
 
-    // There is no symbol nor amountInWei
+    // There is no symbol nor amount
     expect(txs).toEqual([
       {
         ...mockTx,
@@ -231,7 +232,7 @@ describe('storage tests', () => {
 
         // We should have these two
         symbol: TKOToken.symbol,
-        amountInWei: BigNumber.from(0x64),
+        amount: BigNumber.from(0x64),
       },
     ]);
   });
@@ -325,7 +326,7 @@ describe('storage tests', () => {
 
     const tx = await svc.getTransactionByHash('0x123', mockTx.hash);
 
-    // There is no symbol nor amountInWei
+    // There is no symbol nor amount
     expect(tx).toEqual({
       ...mockTx,
       receipt: { blockNumber: 1 },
@@ -349,7 +350,7 @@ describe('storage tests', () => {
 
     expect(tx).toEqual({
       ...mockTx,
-      amountInWei: BigNumber.from(0x64),
+      amount: BigNumber.from(0x64),
       message: mockErc20Event.args.message,
       receipt: {
         blockNumber: 1,
