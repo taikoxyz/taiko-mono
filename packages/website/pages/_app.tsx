@@ -1,6 +1,7 @@
 import "../styles.css";
-import localFont from "next/font/local";
+
 import { Analytics } from "@vercel/analytics/react";
+import localFont from "next/font/local";
 
 const grotesk = localFont({
   src: "../fonts/ClashGrotesk-Semibold.woff2",
@@ -16,9 +17,16 @@ const groteskmedium = localFont({
 
 export default function App({ Component, pageProps }) {
   return (
-    <main className={`${grotesk.variable} ${groteskmedium.variable}`}>
-      <Component {...pageProps} />
-      <Analytics />
-    </main>
+    <>
+      <meta property="og:url" content="https://taiko.xyz/" />
+      <meta property="og:type" content="website" />
+      <meta property="og:title" content="Taiko" />
+      <meta property="og:description" content="Taiko Website" />
+      {/* TODO: <meta property="og:image" content={""} /> */}
+      <main className={`${grotesk.variable} ${groteskmedium.variable}`}>
+        <Component {...pageProps} />
+        <Analytics />
+      </main>
+    </>
   );
 }
