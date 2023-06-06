@@ -39,8 +39,6 @@
 
   function showAddERC20() {
     if (!$signer) {
-      // No need to waste user's time showing them something
-      // they can't use
       warningToast('Please, connect your wallet.');
       return;
     }
