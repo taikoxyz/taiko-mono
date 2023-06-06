@@ -1,11 +1,11 @@
 import { switchNetwork } from '@wagmi/core';
-import { ethers } from 'ethers';
 
 import { mainnetChain, taikoChain } from '../chain/chains';
 import type { Chain } from '../domain/chain';
-import { destChain,srcChain } from '../store/chain';
+import { destChain, srcChain } from '../store/chain';
 import { signer } from '../store/signer';
 import { getLogger } from '../utils/logger';
+import { rpcCall } from './rpcCall';
 
 const log = getLogger('selectChain');
 
@@ -14,13 +14,10 @@ export async function selectChain(chain: Chain) {
 
   await switchNetwork({ chainId });
 
-  const provider = new ethers.providers.Web3Provider(
-    globalThis.ethereum,
-    'any',
-  );
-
   // Requires requesting permission to connect users accounts
-  const accounts = await provider.send('eth_requestAccounts', []);
+  const { provider, returnValue: accounts } = await rpcCall(
+    'eth_requestAccounts',
+  );
 
   log('accounts', accounts);
 

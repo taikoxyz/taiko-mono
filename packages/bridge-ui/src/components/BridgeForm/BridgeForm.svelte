@@ -553,7 +553,7 @@
       <span class="label-text">{$_('bridgeForm.fieldLabel')}</span>
 
       {#if $signer && tokenBalance}
-        <div class="label-text ">
+        <div class="label-text flex items-center space-x-2">
           <span>
             {$_('bridgeForm.balance')}:
             {tokenBalance.length > 10
@@ -563,7 +563,7 @@
           </span>
 
           <button
-            class="btn btn-xs rounded-md text-xs ml-1 h-[20px]"
+            class="btn btn-xs rounded-md text-xs ml-1 dark:bg-dark-5 h-[20px]"
             on:click={useFullAmount}>
             {$_('bridgeForm.maxLabel')}
           </button>

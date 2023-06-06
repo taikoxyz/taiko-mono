@@ -1,9 +1,8 @@
 <script lang="ts">
-  import { UserRejectedRequestError } from '@wagmi/core';
-
   import { L1_CHAIN_ID } from '../constants/envVars';
   import type { Token } from '../domain/token';
   import { token } from '../store/token';
+  import { errorCodes, rpcCall } from '../utils/rpcCall';
   import MetaMask from './icons/MetaMask.svelte';
   import { errorToast, warningToast } from './NotificationToast.svelte';
 
@@ -14,20 +13,25 @@
     }
 
     try {
-      await window.ethereum.request({
-        method: 'wallet_watchAsset',
-        params: {
-          type: 'ERC20',
-          options: {
-            address: customToken.addresses[L1_CHAIN_ID],
-            symbol: customToken.symbol,
-            decimals: customToken.decimals,
-            image: customToken.logoUrl,
-          },
+      await rpcCall('wallet_watchAsset', {
+        type: 'ERC20',
+        options: {
+          address: customToken.addresses[L1_CHAIN_ID],
+          symbol: customToken.symbol,
+          decimals: customToken.decimals,
+          image: customToken.logoUrl,
         },
       });
-    } catch (e) {
-      if (e.code === 4001 || e?.data?.originalError?.code === 4001) {
+    } catch (error) {
+      console.error(error);
+
+      const { cause } = error;
+
+      if (
+        [cause.code, cause?.data?.originalError?.code].includes(
+          errorCodes.provider.userRejectedRequest,
+        )
+      ) {
         warningToast('Adding token has been rejected.');
       } else {
         errorToast('Failed to add token to wallet');
@@ -36,7 +40,8 @@
   }
 </script>
 
-<span
-  class="inline-block cursor-pointer align-middle"
-  on:click={() => addTokenToWallet($token)}>
-  <MetaMask width={16} /></span>
+<button
+  on:click={() => addTokenToWallet($token)}
+  title="Add token to MetaMask wallet">
+  <MetaMask width={20} />
+</button>
