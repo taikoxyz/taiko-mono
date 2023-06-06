@@ -17,6 +17,12 @@ body:
     validations:
       required: true
   - type: input
+    id: description
+    attributes:
+      label: Short (1-2 sentence) description of your project
+    validations:
+      required: true
+  - type: input
     id: link
     attributes:
       label: Link to your project
