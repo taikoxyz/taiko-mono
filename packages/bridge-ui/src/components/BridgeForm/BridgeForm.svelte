@@ -475,15 +475,7 @@
         });
 
         const requiredGas = gasEstimate.mul(feeData.gasPrice);
-
-        // We might have decimals. BigNumber can't take strings
-        // with decimals. E.g. BigNumber.from('1.0') will throw an error.
-        // We can get a BigNumber by parsing, passing the right amount
-        // of decimals: ethers.utils.parseUnits('1.0', decimals)
-        const userBalance = ethers.utils.parseUnits(
-          tokenBalance,
-          $token.decimals || 18, // defaults to 18 decimals
-        );
+        const userBalance = await $signer.getBalance('latest');
 
         // Let's start with substracting the estimated required gas to bridge
         let balanceAvailableForTx = userBalance.sub(requiredGas);
