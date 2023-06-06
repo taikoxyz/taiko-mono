@@ -47,64 +47,18 @@ To maintain stability, the initial bidding price will not undergo drastic change
 #### Scoring Bids
 A key concern is the risk of a monopolistic scenario, where one highly efficient prover continuously wins auctions, particularly if they're prepared to operate with a slim profit margin. This could marginalize other provers, even those with slightly higher costs, leaving them devoid of work and potentially leading them to exit the system. To encourage diverse participation and avert single-prover dominance, we may need to refine our bid scoring methodology. Rather than focusing solely on the bid price , we could factor in other parameters such as the deposit amount , the prover's average proof delay , and the ratio of their proof submissions to the number of verified blocks they've won. This multi-dimensional evaluation would promote a more equitable competition, ensuring the system's sustainability.
 
-```python
-# This is just to demostrate an idea, the actual implementation needs
-# a more careful algo design.
-#
-# proofTime shall also be considered, but is missing below.
-def will_new_bid_win(new_bid, old_bid):
-
-    # return False immediately if new_bid does not meet these conditions
-    if new_bid.bid_per_gas > old_bid.bid_per_gas * 0.9:
-        return False
-    if new_bid.deposit < old_bid.deposit * 0.5:
-        return False
-    if new_bid.success_rate == 0:
-        return False
-
-    new_score = 0.0
-    old_score = 0.0
-
-    # calculate scores for each field
-    if new_bid.bid_per_gas <= old_bid.bid_per_gas:
-        new_score += 1 - (new_bid.bid_per_gas / old_bid.bid_per_gas)  # higher score if new_bid.bid_per_gas is smaller but not 10% smaller
-    else:
-        old_score += 1 - (old_bid.bid_per_gas / new_bid.bid_per_gas)  # higher score if old_bid.bid_per_gas is smaller
-
-    deposit_for_score = min(new_bid.deposit, 2 * old_bid.deposit)
-    if deposit_for_score >= 2 * old_bid.deposit:
-        new_score += deposit_for_score / old_bid.deposit - 1  # higher score if new_bid.deposit is much larger
-    else:
-        old_score += old_bid.deposit / deposit_for_score - 1  # higher score if old_bid.deposit is much larger
-
-    if new_bid.success_rate >= old_bid.success_rate * 1.15:
-        new_score += new_bid.success_rate / old_bid.success_rate - 1  # higher score if new_bid.success_rate is much larger
-    else:
-        old_score += old_bid.success_rate / new_bid.success_rate - 1  # higher score if old_bid.success_rate is much larger
-
-    # if new_bid's total score is higher by 10%, it's considered better enough.
-    return new_score > old_score * 1.1
-
-
-```
-
-
-
 Bid increments in English auctions serve as an effective strategy to encourage serious bidding, ensure fair competition, reduce on-chain transaction costs, and minimize proof rewards. By requiring new bids to exceed the current winning bid by a specified percentage in score(e.g., 10% higher), trivial bids are filtered out, enabling the auction to quickly reach the lowest bid per gas.
-
-The function shall be virtual to allow customization in derived smart contracts, enabling flexibility and extensibility.
-
 
 #### Internal metrics
 It is essential to maintain various internal metrics to effectively score bids  and facilitate off-chain analysis:
 
-1. **Average proof time**: This metric represents the moving average delay in proof submission for all proofs used in block verification. Proofs that are not utilized in block verification are excluded from this calculation. The average proof time provides insights into the efficiency of the proof submission process, enabling optimization and monitoring of the overall system performance.
+1. **Average proof window**: This metric represents the moving average of proof window. The average proof window provides insights into the efficiency of the proof submission process, enabling optimization and monitoring of the overall system performance. Alternatively, we can keep track of *average proof delay* if the auction can incentivize provers to submit proofs immediately after proofs become available. The actual proof delay is not factored into adjusting *average proof window* to avoid reducing the proof window due to early submissions. This approach ensures that slower provers, who require more time to generate proofs, are not discouraged from promptly submitting their proofs.
 
 2. **Average bid per gas for verified blocks**: This metric quantifies the average bid per unit of gas for blocks that have successfully passed the verification process. It provides valuable information about bidding behavior and the value assigned to gas consumption in successful blocks.
 
-3. **Average bid per gas for all blocks**: This metric calculates the average bid per unit of gas for all blocks, including those that are currently undergoing the auction process. By considering all blocks, this metric offers a comprehensive view of the average bidding behavior and expenditure on gas across the entire system.
+3. **Average bid per gas for all blocks**: This optional metric calculates the average bid per unit of gas for all blocks, including those that are currently undergoing the auction process. By considering all blocks, this metric offers a comprehensive view of the average bidding behavior and expenditure on gas across the entire system.
 
-4. **Per bidder proof submission success rate**: This metric measures the success rate of proof submissions by individual bidders. Specifically, it evaluates the ratio of proofs submitted by a bidder that were subsequently used for block verification compared to the total number of blocks won through auctions. Proofs submitted to other blocks that the bidder did not win are excluded from this calculation. This metric allows for the assessment of bidder reliability and the effectiveness of their proof submission process.
+4. **Per bidder proof submission success rate**: This optional metric measures the success rate of proof submissions by individual bidders. Specifically, it evaluates the ratio of proofs submitted by a bidder that were subsequently used for block verification compared to the total number of blocks won through auctions. Proofs submitted to other blocks that the bidder did not win are excluded from this calculation. This metric allows for the assessment of bidder reliability and the effectiveness of their proof submission process.
 
 
 ### Bid Period, Proofing Window, and Managing Multiple Auctions
@@ -115,9 +69,7 @@ The bid period for an auction begins with the first bid and lasts for 5 minutes.
 
 Auctions are conducted in increasing order of block batches, and the next batch's auction can start as soon as the previous batch's auction has started.
 
-The winning bidder is required to provide the initial Zero-Knowledge Proof (ZKP) for the block within the proof submission period, typically 60 minutes after either the block proposal or the end of the auction, whichever occurs last. Other participants can also submit proofs, allowing for the possibility of alternative fork options, either after the initial ZKP submission or after the proof submission period has ended.
-
-Participants who promptly submit proofs enhance their chances of winning future block auctions and may potentially reduce their proof submission period. This strategy can provide an advantage over competitors who generate low-cost proofs but require nearly the entire submission period to do so.
+The winning bidder is required to submit the proof for the block within the proof window, typically `proof_window` seconds after either the block proposal or the end of the auction, whichever occurs last. Other participants can only submit proofs after the proof window expires.
 
 ### Reward and Penalty Mechanisms
 If the chosen fork for the verified block originates from the auction winner's proof, the winner's deposit are refunded and reward are minted. If the selected fork comes from another prover's proof, the latter receives half the deposit, with the remaining half being burnt. This mechanism ensures fair competition and discourages manipulation, such as winners submitting correct proofs via different addresses.
@@ -126,10 +78,9 @@ If the chosen fork for the verified block originates from the auction winner's p
 There is no secondary fee/reward model for blocks that aren't auctioned. This simplifies the auction design and eliminates the need for dual tokenomics systems, namely, an auction-based primary system and an alternate fallback system.
 
 ### Block Fees
-A fee in Taiko tokens should be levied from the block proposer, calculated as `p * gas_limit`, where `p` is the moving average bid for all verified blocks. Another moving average `q` could be introduced to cover the bid of all unverified blocks that have been auctioned. For example, the fee could be calculated as `(p * 0.5 + q * 0.5) * gas_limit`.
+A fee in Taiko tokens should be levied from the block proposer, calculated as `p * gas_limit`, where `p` is the moving average bid for all verified blocks.
 
 ## Best Strategy for a Prover
-
 
 ### Bidding
 A prover should consistently monitor recent winning bid scores to gauge the current market status. From there, he can calculate an appropriate bidding price that aligns with his proof generation costs. Optionally, to enhance his score, he could deposit additional Taiko tokens as auction collateral.
@@ -154,7 +105,6 @@ However, such behavior might inadvertently stimulate competition. As the reward 
 ### Low Bid Attacks
 
 A malicious prover may strategize to win numerous batches by placing extremely low bids, aiming to manipulate the starting price of future auctions. This could potentially discourage other provers from participating in subsequent auctions. To safeguard against such manipulation, it's imperative to establish a mechanism that ensures the starting price for future auctions changes incrementally and consistently, thereby maintaining a fair and competitive bidding environment.
-
 
 ### Added Verification Delay
 Introducing an auction window inevitably introduces an additional delay to the verification time. This delay might not be noticeable when the average verification time is relatively long (over 30 minutes). However, it could become significant in future scenarios where proof generation takes just a few minutes.
