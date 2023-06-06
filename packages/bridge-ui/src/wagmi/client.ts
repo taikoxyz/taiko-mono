@@ -3,7 +3,6 @@ import { CoinbaseWalletConnector } from '@wagmi/core/connectors/coinbaseWallet';
 import { MetaMaskConnector } from '@wagmi/core/connectors/metaMask';
 import { WalletConnectConnector } from '@wagmi/core/connectors/walletConnect';
 import { jsonRpcProvider } from '@wagmi/core/providers/jsonRpc';
-import { publicProvider } from '@wagmi/core/providers/public';
 
 import {
   L1_CHAIN_ID,
@@ -56,7 +55,6 @@ export const taikoWagmiChain: Chain = {
 const { chains, provider } = configureChains(
   [mainnetWagmiChain, taikoWagmiChain],
   [
-    publicProvider(),
     jsonRpcProvider({
       rpc: (chain) => ({
         http: providers[chain.id].connection.url,
