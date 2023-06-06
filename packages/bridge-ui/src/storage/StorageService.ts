@@ -6,6 +6,7 @@ import { bridgeABI, erc20ABI, tokenVaultABI } from '../constants/abi';
 import type { ChainID } from '../domain/chain';
 import { MessageStatus } from '../domain/message';
 import type { BridgeTransaction, Transactioner } from '../domain/transaction';
+import { isETHByMessage } from '../utils/isETHByMessage';
 import { jsonParseOrEmptyArray } from '../utils/jsonParseOrEmptyArray';
 import { getLogger } from '../utils/logger';
 import { tokenVaults } from '../vault/tokenVaults';
@@ -84,18 +85,19 @@ export class StorageService implements Transactioner {
     );
   }
 
-  private static async _getERC20SymbolAndAmount(
+  private static async _getERC20Details(
     erc20Event: ethers.Event,
     erc20Abi: ethers.ContractInterface,
     provider: ethers.providers.StaticJsonRpcProvider,
-  ): Promise<[string, BigNumber]> {
+  ): Promise<[BigNumber, string, number]> {
     const { token, amount } = erc20Event.args;
     const erc20Contract = new Contract(token, erc20Abi, provider);
 
     const symbol: string = await erc20Contract.symbol();
-    const amountInWei: BigNumber = BigNumber.from(amount);
+    const decimals: number = await erc20Contract.decimals();
+    const bnAmount: BigNumber = BigNumber.from(amount);
 
-    return [symbol, amountInWei];
+    return [bnAmount, symbol, decimals];
   }
 
   private readonly storage: Storage;
@@ -183,11 +185,11 @@ export class StorageService implements Transactioner {
 
       bridgeTx.status = status;
 
-      let amountInWei: BigNumber;
+      let amount: BigNumber;
       let symbol: string;
+      let decimals: number;
 
-      // TODO: function isERC20Transfer(message: string): boolean?
-      if (message.data && message.data !== '0x') {
+      if (!isETHByMessage(message)) {
         // We're dealing with an ERC20 transfer.
         // Let's get the symbol and amount from the TokenVault contract.
 
@@ -205,15 +207,16 @@ export class StorageService implements Transactioner {
           return bridgeTx;
         }
 
-        [symbol, amountInWei] = await StorageService._getERC20SymbolAndAmount(
+        [amount, symbol, decimals] = await StorageService._getERC20Details(
           erc20Event,
           erc20ABI,
           srcProvider,
         );
       }
 
-      bridgeTx.amountInWei = amountInWei;
+      bridgeTx.amount = amount;
       bridgeTx.symbol = symbol;
+      bridgeTx.decimals = decimals;
 
       return bridgeTx;
     });
@@ -291,10 +294,11 @@ export class StorageService implements Transactioner {
 
     tx.status = status;
 
-    let amountInWei: BigNumber;
+    let amount: BigNumber;
     let symbol: string;
+    let decimals: number;
 
-    if (message.data && message.data !== '0x') {
+    if (!isETHByMessage(message)) {
       // Dealing with an ERC20 transfer. Let's get the symbol
       // and amount from the TokenVault contract.
 
@@ -312,7 +316,7 @@ export class StorageService implements Transactioner {
         return tx;
       }
 
-      [symbol, amountInWei] = await StorageService._getERC20SymbolAndAmount(
+      [amount, symbol, decimals] = await StorageService._getERC20Details(
         erc20Event,
         erc20ABI,
         srcProvider,
@@ -321,8 +325,9 @@ export class StorageService implements Transactioner {
 
     const bridgeTx = {
       ...tx,
-      amountInWei,
+      amount,
       symbol,
+      decimals,
     } as BridgeTransaction;
 
     log('Enhanced transaction', bridgeTx);

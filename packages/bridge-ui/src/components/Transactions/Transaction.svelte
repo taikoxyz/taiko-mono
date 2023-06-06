@@ -374,7 +374,7 @@
       {@const { depositValue, callValue } = transaction.message}
       {utils.formatEther(depositValue.eq(0) ? callValue : depositValue)}
     {:else}
-      {utils.formatUnits(transaction.amountInWei)}
+      {utils.formatUnits(transaction.amount, transaction.decimals)}
     {/if}
     {transaction.symbol ?? 'ETH'}
   </td>

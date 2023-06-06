@@ -23,8 +23,9 @@ export type BridgeTransaction = {
   msgHash?: string;
   message?: Message;
   interval?: NodeJS.Timer;
-  amountInWei?: BigNumber;
+  amount?: BigNumber;
   symbol?: string;
+  decimals?: number;
   srcChainId: ChainID;
   destChainId: ChainID;
 };
