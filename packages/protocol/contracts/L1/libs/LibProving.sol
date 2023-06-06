@@ -68,8 +68,7 @@ library LibProving {
         // We also should know who can prove this block:
         // the one who bid or everyone if it is above the window
 
-        (bool provable, TaikoData.Auction memory auction) = LibAuction
-            .isBlockProvableBy({
+        (bool provable,) = LibAuction.isBlockProvableBy({
             state: state,
             config: config,
             blockId: blockId,
@@ -252,14 +251,6 @@ library LibProving {
                 || bytes32(ret) != keccak256("taiko")
             ) {
                 revert L1_INVALID_PROOF();
-            }
-
-            if (auction.batchId != 0) {
-                // set the proof window to zero so after the first regular
-                // proof, other provers can submit proofs without any delay.
-                state.auctions[auction.batchId % config.auctionRingBufferSize]
-                    .bid
-                    .proofWindow = 0;
             }
         }
 

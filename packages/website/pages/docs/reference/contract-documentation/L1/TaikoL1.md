@@ -26,11 +26,11 @@ Initialize the rollup.
 
 #### Parameters
 
-| Name               | Type    | Description                           |
-| ------------------ | ------- | ------------------------------------- |
-| \_addressManager   | address | The AddressManager address.           |
-| \_genesisBlockHash | bytes32 | The block hash of the genesis block.  |
-| \_initFeePerGas    | uint64  | Initial (reasonable) block fee value, |
+| Name                 | Type    | Description                           |
+| -------------------- | ------- | ------------------------------------- |
+| \_addressManager     | address | The AddressManager address.           |
+| \_genesisBlockHash   | bytes32 | The block hash of the genesis block.  |
+| \_initFeePerGas      | uint64  | Initial (reasonable) block fee value, |
 | \_initAvgProofWindow | uint64  | Initial (reasonable) proof window.    |
 
 ### proposeBlock
