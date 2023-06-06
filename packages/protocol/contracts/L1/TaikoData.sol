@@ -127,7 +127,7 @@ library TaikoData {
             ) forkChoiceIds;
         mapping(address account => uint256 balance) taikoTokenBalances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
-        mapping(uint256 depositId_mode_ethDepositRingBufferSize => uint256)
+        mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256)
             ethDeposits;
         // Never or rarely changed
         // Slot 7: never or rarely changed
