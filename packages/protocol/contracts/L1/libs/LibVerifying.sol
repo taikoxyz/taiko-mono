@@ -261,22 +261,18 @@ library LibVerifying {
         if (updateAverage) {
             unchecked {
                 state.avgProofWindow = uint64(
-                    LibUtils.movingAverageTimeSensitive({
+                    LibUtils.movingAverage({
                         maValue: state.avgProofWindow,
-                        maValueTimestamp: state.lastVerifiedAt,
                         newValue: auction.bid.proofWindow,
-                        newValueTimestamp: fc.provenAt,
-                        maf: 2048
+                        maf: 7200
                     })
                 );
 
                 state.feePerGas = uint64(
-                    LibUtils.movingAverageTimeSensitive({
+                    LibUtils.movingAverage({
                         maValue: state.feePerGas,
-                        maValueTimestamp: state.lastVerifiedAt,
                         newValue: auction.bid.feePerGas,
-                        newValueTimestamp: fc.provenAt,
-                        maf: 2048
+                        maf: 7200
                     })
                 );
             }

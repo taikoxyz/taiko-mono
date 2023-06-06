@@ -88,25 +88,6 @@ library LibUtils {
         return _ma > 0 ? _ma : maValue;
     }
 
-    // TODO(daniel): implement this
-    function movingAverageTimeSensitive(
-        uint256 maValue,
-        uint256 maValueTimestamp,
-        uint256 newValue,
-        uint256 newValueTimestamp,
-        uint256 maf
-    )
-        internal
-        pure
-        returns (uint256)
-    {
-        if (maValue == 0) {
-            return newValue;
-        }
-        uint256 _ma = (maValue * (maf - 1) + newValue) / maf;
-        return _ma > 0 ? _ma : maValue;
-    }
-
     /// @dev Hashing the block metadata.
     function hashMetadata(TaikoData.BlockMetadata memory meta)
         internal

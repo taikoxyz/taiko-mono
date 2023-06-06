@@ -248,7 +248,6 @@ library LibAuction {
             ended = true;
         } else {
             auction = state.auctions[batchId % config.auctionRingBufferSize];
-
             ended = auction.batchId == batchId
                 && block.timestamp > auction.startedAt + config.auctionWindow;
         }
@@ -268,7 +267,7 @@ library LibAuction {
         } else if (score < ONE) {
             return ONE - (ONE - score) / weightInverse;
         } else {
-            ONE + (score - ONE) / weightInverse;
+            return ONE + (score - ONE) / weightInverse;
         }
     }
 }
