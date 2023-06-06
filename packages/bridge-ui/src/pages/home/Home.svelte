@@ -61,7 +61,7 @@
       <div class="rounded-lg py-4 flex flex-col items-center justify-center">
         <SelectChain />
       </div>
-      <div class="md:w-[440px] px-4 flex flex-col items-center justify-center">
+      <div class="md:w-[440px] px-4">
         <BridgeForm />
       </div>
     </TabPanel>
@@ -73,7 +73,7 @@
     </TabPanel>
 
     <TabPanel tab={tab3.name}>
-      <div class="md:w-[440px] px-4 flex flex-col items-center justify-center">
+      <div class="md:w-[440px] px-4">
         <Faucet />
       </div>
     </TabPanel>
