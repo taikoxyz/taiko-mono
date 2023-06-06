@@ -22,7 +22,10 @@ export default function App({ Component, pageProps }) {
       <meta property="og:type" content="website" />
       <meta property="og:title" content="Taiko" />
       <meta property="og:description" content="Taiko Website" />
-      {/* TODO: <meta property="og:image" content={""} /> */}
+      <meta
+        property="og:image"
+        content={"/images/Taiko_social_media_preview.png"}
+      />
       <main className={`${grotesk.variable} ${groteskmedium.variable}`}>
         <Component {...pageProps} />
         <Analytics />
