@@ -11,14 +11,14 @@ export enum BridgeType {
 }
 
 export type ApproveOpts = {
-  amountInWei: BigNumber;
+  amount: BigNumber;
   contractAddress: string;
   signer: ethers.Signer;
   spenderAddress: string;
 };
 
 export type BridgeOpts = {
-  amountInWei: BigNumber;
+  amount: BigNumber;
   signer: ethers.Signer;
   tokenAddress: string;
   srcChainId: ChainID;

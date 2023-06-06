@@ -23,6 +23,7 @@ const mockContract = {
   queryFilter: jest.fn(),
   getMessageStatus: jest.fn(),
   symbol: jest.fn(),
+  decimals: jest.fn(),
   filters: {
     ERC20Sent: () => 'ERC20Sent',
   },
@@ -82,6 +83,7 @@ describe('RelayerAPIService', () => {
     mockContract.getMessageStatus.mockResolvedValue(MessageStatus.New);
     mockContract.queryFilter.mockResolvedValue(mockErc20Query);
     mockContract.symbol.mockResolvedValue('BLL');
+    mockContract.decimals.mockResolvedValue(18);
   });
 
   it('should get transactions from API', async () => {
@@ -254,6 +256,7 @@ describe('RelayerAPIService', () => {
     expect(mockContract.getMessageStatus).toHaveBeenCalledTimes(10);
     expect(mockContract.queryFilter).toHaveBeenCalledTimes(9);
     expect(mockContract.symbol).toHaveBeenCalledTimes(9);
+    expect(mockContract.decimals).toHaveBeenCalledTimes(9);
   });
 
   it('should not get transactions with wrong address', async () => {

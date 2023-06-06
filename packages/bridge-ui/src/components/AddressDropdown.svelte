@@ -79,8 +79,7 @@
 <!-- Makes no sense to render anything here without signer  -->
 {#if $signer}
   <div class="dropdown dropdown-bottom dropdown-end">
-    <!-- svelte-ignore a11y-label-has-associated-control -->
-    <label role="button" tabindex="0" class="btn btn-md justify-around">
+    <button class="btn justify-around">
       <span class="font-normal flex-1 text-left flex items-center">
         {#if pendingTx}
           <div class="inline-block ml-2">
@@ -100,7 +99,7 @@
         {/if}
       </span>
       <ChevronDown size="20" />
-    </label>
+    </button>
     <ul
       role="listbox"
       tabindex="0"

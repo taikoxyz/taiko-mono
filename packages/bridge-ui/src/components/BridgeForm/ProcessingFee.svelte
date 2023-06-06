@@ -3,7 +3,7 @@
 
   import { ProcessingFeeMethod } from '../../domain/fee';
   import { processingFees } from '../../fee/processingFees';
-  import { destChain,srcChain } from '../../store/chain';
+  import { destChain, srcChain } from '../../store/chain';
   import { signer } from '../../store/signer';
   import { token } from '../../store/token';
   import { recommendProcessingFee } from '../../utils/recommendProcessingFee';
