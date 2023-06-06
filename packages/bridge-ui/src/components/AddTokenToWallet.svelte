@@ -27,7 +27,7 @@
         },
       });
     } catch (e) {
-      if (e instanceof UserRejectedRequestError) {
+      if (e.code === 4001) {
         warningToast('Adding token has been rejected.');
       } else {
         errorToast('Failed to add token to wallet');
