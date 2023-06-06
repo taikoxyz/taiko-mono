@@ -193,7 +193,7 @@ struct State {
   uint64 lastVerifiedAt;
   uint64 feePerGas;
   uint64 lastVerifiedBlockId;
-  uint64 avgProofTime;
+  uint64 avgProofWindow;
   uint256[42] __gap;
 }
 ```

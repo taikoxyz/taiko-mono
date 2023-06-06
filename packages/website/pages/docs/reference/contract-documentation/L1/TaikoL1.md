@@ -19,19 +19,19 @@ receive() external payable
 ### init
 
 ```solidity
-function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _initFeePerGas, uint64 _initAvgProofTime) external
+function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _initFeePerGas, uint64 _initAvgProofWindow) external
 ```
 
 Initialize the rollup.
 
 #### Parameters
 
-| Name               | Type    | Description                           |
-| ------------------ | ------- | ------------------------------------- |
-| \_addressManager   | address | The AddressManager address.           |
-| \_genesisBlockHash | bytes32 | The block hash of the genesis block.  |
-| \_initFeePerGas    | uint64  | Initial (reasonable) block fee value, |
-| \_initAvgProofTime | uint64  | Initial (reasonable) proof window.    |
+| Name                 | Type    | Description                           |
+| -------------------- | ------- | ------------------------------------- |
+| \_addressManager     | address | The AddressManager address.           |
+| \_genesisBlockHash   | bytes32 | The block hash of the genesis block.  |
+| \_initFeePerGas      | uint64  | Initial (reasonable) block fee value, |
+| \_initAvgProofWindow | uint64  | Initial (reasonable) proof window.    |
 
 ### proposeBlock
 
@@ -173,7 +173,7 @@ function batchForBlock(uint256 blockId) public pure returns (uint256)
 ### isBidBetter
 
 ```solidity
-function isBidBetter(struct TaikoData.Bid oldBid, struct TaikoData.Bid newBid) public pure returns (bool)
+function isBidBetter(struct TaikoData.Bid newBid, struct TaikoData.Bid oldBid) public pure returns (bool)
 ```
 
 ### getVerifierName

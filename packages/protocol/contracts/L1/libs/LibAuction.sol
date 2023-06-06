@@ -15,6 +15,8 @@ import { TaikoToken } from "../TaikoToken.sol";
 library LibAuction {
     using LibAddress for address;
 
+    uint256 private constant ONE = 1_000_000;
+
     event BatchBid(uint64 indexed batchId, uint64 startedAt, TaikoData.Bid bid);
 
     error L1_BID_INVALID();
@@ -34,8 +36,9 @@ library LibAuction {
         if (
             bid.prover != address(0) // auto-fill
                 || bid.blockMaxGasLimit != 0 // auto-fill
+                || bid.feePerGas == 0 || bid.proofWindow == 0 || bid.deposit == 0
                 || bid.proofWindow
-                    > state.avgProofTime * config.auctionProofWindowMultiplier
+                    > state.avgProofWindow * config.auctionProofWindowMultiplier
                 || bid.deposit
                     < state.feePerGas
                         * (config.blockFeeBaseGas + config.blockMaxGasLimit)
@@ -68,7 +71,7 @@ library LibAuction {
             }
         } else {
             // An ongoing one
-            if (!isBidBetter(auction.bid, bid)) {
+            if (!isBidBetter(bid, auction.bid)) {
                 revert L1_NOT_THE_BEST_BID();
             }
             //'Refund' current
@@ -168,25 +171,25 @@ library LibAuction {
         }
     }
 
-    // isBidAcceptable determines is checking if the bid is acceptable based on
-    // the defined
-    // criteria. Shall be called after _isBatchAuctionable() returns true.
+    // Determines if bid a is better than bid b
     function isBidBetter(
-        TaikoData.Bid memory oldBid,
-        TaikoData.Bid memory newBid
+        TaikoData.Bid memory a,
+        TaikoData.Bid memory b
     )
         internal
         pure
-        returns (bool result)
+        returns (bool)
     {
-        if (
-            newBid.feePerGas
-                <= (oldBid.feePerGas - ((oldBid.feePerGas * 9000) / 10_000)) // 90%
-                && newBid.deposit
-                    <= ((oldBid.deposit - ((oldBid.deposit * 5000) / 10_000))) // 50%
-        ) {
-            result = true;
-        }
+        // Normalize both feePerGas and feePerGas to a comparable scale.
+        // feePerGas is considered more important than proofWindow, below
+        // we use 1 as the weight of feePerGas, 1/2 as the weight of deposit,
+        // and 1/4 as the weight of proofWindow.
+        //
+        // Bid a is only better than bid b if its score is 10% higher.
+        return _adjustBidPropertyScore(ONE * b.feePerGas / a.feePerGas, 1)
+            * _adjustBidPropertyScore(ONE * a.deposit / b.deposit, 2)
+            * _adjustBidPropertyScore(ONE * b.proofWindow / a.proofWindow, 4)
+            >= ONE * ONE * ONE * 110 / 100;
     }
 
     // _isBatchAuctionable determines whether a new bid for a batch of blocks
@@ -245,9 +248,26 @@ library LibAuction {
             ended = true;
         } else {
             auction = state.auctions[batchId % config.auctionRingBufferSize];
-
             ended = auction.batchId == batchId
                 && block.timestamp > auction.startedAt + config.auctionWindow;
+        }
+    }
+
+    function _adjustBidPropertyScore(
+        uint256 score,
+        uint256 weightInverse
+    )
+        private
+        pure
+        returns (uint256)
+    {
+        assert(weightInverse >= 1);
+        if (score == ONE || weightInverse == 1) {
+            return score;
+        } else if (score < ONE) {
+            return ONE - (ONE - score) / weightInverse;
+        } else {
+            return ONE + (score - ONE) / weightInverse;
         }
     }
 }

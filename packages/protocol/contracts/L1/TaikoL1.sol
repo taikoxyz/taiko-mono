@@ -44,13 +44,13 @@ contract TaikoL1 is
      * @param _addressManager The AddressManager address.
      * @param _genesisBlockHash The block hash of the genesis block.
      * @param _initFeePerGas Initial (reasonable) block fee value,
-     * @param _initAvgProofTime Initial (reasonable) proof window.
+     * @param _initAvgProofWindow Initial (reasonable) proof window.
      */
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
         uint64 _initFeePerGas,
-        uint64 _initAvgProofTime
+        uint64 _initAvgProofWindow
     )
         external
         initializer
@@ -61,7 +61,7 @@ contract TaikoL1 is
             config: getConfig(),
             genesisBlockHash: _genesisBlockHash,
             initFeePerGas: _initFeePerGas,
-            initAvgProofTime: _initAvgProofTime
+            initAvgProofWindow: _initAvgProofWindow
         });
     }
 
@@ -306,14 +306,14 @@ contract TaikoL1 is
     }
 
     function isBidBetter(
-        TaikoData.Bid memory oldBid,
-        TaikoData.Bid memory newBid
+        TaikoData.Bid memory newBid,
+        TaikoData.Bid memory oldBid
     )
         public
         pure
         returns (bool)
     {
-        return LibAuction.isBidBetter(oldBid, newBid);
+        return LibAuction.isBidBetter(newBid, oldBid);
     }
 
     function getVerifierName(uint16 id) public pure returns (bytes32) {

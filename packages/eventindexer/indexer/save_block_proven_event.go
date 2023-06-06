@@ -118,7 +118,7 @@ func (svc *Service) updateAverageProofTime(ctx context.Context, event *taikol1.T
 		new(big.Int).SetUint64(proofTime),
 	)
 
-	log.Infof("avgProofTime update: id: %v, prover: %v, proposedAt: %v, provenAt: %v, proofTIme: %v, avg: %v, newAvg: %v",
+	log.Infof("avgProofWindow update: id: %v, prover: %v, proposedAt: %v, provenAt: %v, proofTIme: %v, avg: %v, newAvg: %v",
 		event.Id.Int64(),
 		event.Prover.Hex(),
 		proposedAt,
