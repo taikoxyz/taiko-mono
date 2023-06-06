@@ -36,6 +36,8 @@ export const errorCodes = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function rpcCall(method: RPCMethod, params?: any) {
   const provider = new ethers.providers.Web3Provider(
+    // The globalThis property provides a standard way of accessing the global this value
+    // across environments (e.g. unit tests in Node vs browser)
     globalThis.ethereum,
     'any',
   );
@@ -43,7 +45,7 @@ export async function rpcCall(method: RPCMethod, params?: any) {
   log(`RPC call "${method}" with params`, params);
 
   try {
-    // The provider could be of use here, so we also return it
+    // The new provider could be of use right after the call, so we also return it
     return {
       provider,
       returnValue: await provider.send(method, params),
