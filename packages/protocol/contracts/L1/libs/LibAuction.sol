@@ -35,7 +35,7 @@ library LibAuction {
             bid.prover != address(0) // auto-fill
                 || bid.blockMaxGasLimit != 0 // auto-fill
                 || bid.proofWindow
-                    > state.avgProofTime * config.auctionProofWindowMultiplier
+                    > state.avgProofWindow * config.auctionProofWindowMultiplier
                 || bid.deposit
                     < state.feePerGas
                         * (config.blockFeeBaseGas + config.blockMaxGasLimit)
@@ -168,9 +168,7 @@ library LibAuction {
         }
     }
 
-    // isBidAcceptable determines is checking if the bid is acceptable based on
-    // the defined
-    // criteria. Shall be called after _isBatchAuctionable() returns true.
+    // Determines if the bid is acceptable based on the defined criteria.
     function isBidBetter(
         TaikoData.Bid memory oldBid,
         TaikoData.Bid memory newBid

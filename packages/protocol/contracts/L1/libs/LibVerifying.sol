@@ -34,7 +34,7 @@ library LibVerifying {
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
         uint64 initFeePerGas,
-        uint64 initAvgProofTime
+        uint64 initAvgProofWindow
     )
         internal
     {
@@ -85,7 +85,7 @@ library LibVerifying {
         fc.blockHash = genesisBlockHash;
         fc.provenAt = timeNow;
 
-        state.avgProofTime = initAvgProofTime;
+        state.avgProofWindow = initAvgProofWindow;
 
         emit BlockVerified(0, genesisBlockHash, 0);
     }
@@ -212,19 +212,27 @@ library LibVerifying {
         bool updateAverage;
 
         if (fc.prover == address(1)) {
+            // This is the system prover. Auction may not exist at all.
             refundBidder = true;
-            // variable auctioned can be true or false
+            // rewardProver = false;
+            // updateAverage = false;
         } else if (
             fc.prover == auction.bid.prover
                 && fc.provenAt <= proofStartAt + auction.bid.proofWindow
         ) {
+            // The prover is the auction winner and proof submitted within
+            // the auction window
             assert(auction.batchId != 0);
             refundBidder = true;
             rewardProver = true;
             updateAverage = true;
         } else {
+            // The prover is not the auction winner or the proof
+            // as submitted out of the auction window
             assert(auction.batchId != 0);
             rewardProver = true;
+            // refundBidder = false;
+            // updateAverage = false;
         }
 
         if (auction.batchId != 0) {
@@ -252,15 +260,11 @@ library LibVerifying {
 
         if (updateAverage) {
             unchecked {
-                uint256 proofTime = uint256(config.auctionMaxProofWindow).max(
-                    fc.provenAt - proofStartAt
-                );
-
-                state.avgProofTime = uint64(
+                state.avgProofWindow = uint64(
                     LibUtils.movingAverageTimeSensitive({
-                        maValue: state.avgProofTime,
+                        maValue: state.avgProofWindow,
                         maValueTimestamp: state.lastVerifiedAt,
-                        newValue: proofTime,
+                        newValue: auction.bid.proofWindow,
                         newValueTimestamp: fc.provenAt,
                         maf: 2048
                     })
