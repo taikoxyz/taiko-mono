@@ -12,6 +12,7 @@ import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
 
+
 library LibAuction {
     using LibAddress for address;
 
