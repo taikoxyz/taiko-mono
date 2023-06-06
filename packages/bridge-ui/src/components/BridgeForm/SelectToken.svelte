@@ -14,7 +14,11 @@
   import { tokens } from '../../token/tokens';
   import { selectTokenAndBridgeType } from '../../utils/selectTokenAndBridgeType';
   import Erc20 from '../icons/ERC20.svelte';
-  import { errorToast, successToast } from '../NotificationToast.svelte';
+  import {
+    errorToast,
+    successToast,
+    warningToast,
+  } from '../NotificationToast.svelte';
   import AddCustomErc20 from './AddCustomERC20.svelte';
 
   let dropdownElement: HTMLDivElement;
@@ -31,6 +35,17 @@
   function selectTokenAndCloseDropdown(selectedToken: Token) {
     selectTokenAndBridgeType(selectedToken);
     closeDropdown();
+  }
+
+  function showAddERC20() {
+    if (!$signer) {
+      // No need to waste user's time showing them something
+      // they can't use
+      warningToast('Please, connect your wallet.');
+      return;
+    }
+
+    showAddressField = true;
   }
 
   async function addERC20(event: SubmitEvent) {
@@ -140,7 +155,7 @@
 
     <li>
       <button
-        on:click={() => (showAddressField = true)}
+        on:click={showAddERC20}
         class="flex hover:bg-dark-5 justify-between items-center p-4 rounded-sm">
         <PlusCircle size="25" />
         <span
