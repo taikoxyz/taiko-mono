@@ -18,14 +18,6 @@ const groteskmedium = localFont({
 export default function App({ Component, pageProps }) {
   return (
     <>
-      <meta property="og:url" content="https://taiko.xyz/" />
-      <meta property="og:type" content="website" />
-      <meta property="og:title" content="Taiko" />
-      <meta property="og:description" content="Taiko Website" />
-      <meta
-        property="og:image"
-        content={"/images/Taiko_social_media_preview.png"}
-      />
       <main className={`${grotesk.variable} ${groteskmedium.variable}`}>
         <Component {...pageProps} />
         <Analytics />
