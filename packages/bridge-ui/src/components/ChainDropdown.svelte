@@ -43,9 +43,7 @@
 </script>
 
 <div class="dropdown dropdown-end mr-4">
-  <button
-    class="btn btn-md justify-around md:w-[194px]"
-    disabled={cannotSwitch}>
+  <button class="btn justify-around md:w-[194px]" disabled={cannotSwitch}>
     <span class="font-normal flex-1 text-left mr-2">
       {#if $srcChain}
         <svelte:component this={$srcChain.icon} />
