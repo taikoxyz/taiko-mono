@@ -51,7 +51,7 @@ describe('bridge tests', () => {
     const bridge: Bridge = new ETHBridge(null);
 
     const requires = await bridge.requiresAllowance({
-      amountInWei: BigNumber.from(1),
+      amount: BigNumber.from(1),
       signer: new Wallet('0x'),
       contractAddress: '0x1234',
       spenderAddress: '0x',
@@ -63,7 +63,7 @@ describe('bridge tests', () => {
     const bridge: Bridge = new ETHBridge(null);
 
     const tx = await bridge.approve({
-      amountInWei: BigNumber.from(1),
+      amount: BigNumber.from(1),
       signer: new Wallet('0x'),
       contractAddress: '0x1234',
       spenderAddress: '0x',
@@ -81,7 +81,7 @@ describe('bridge tests', () => {
     });
 
     const opts: BridgeOpts = {
-      amountInWei: BigNumber.from(1),
+      amount: BigNumber.from(1),
       signer: wallet,
       tokenAddress: '',
       srcChainId: L1_CHAIN_ID,
@@ -126,7 +126,7 @@ describe('bridge tests', () => {
     });
 
     const opts: BridgeOpts = {
-      amountInWei: BigNumber.from(1),
+      amount: BigNumber.from(1),
       signer: wallet,
       tokenAddress: '',
       srcChainId: L1_CHAIN_ID,

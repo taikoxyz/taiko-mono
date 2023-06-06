@@ -48,7 +48,7 @@ export class ERC20Bridge implements Bridge {
       srcChainId: opts.srcChainId,
       destChainId: opts.destChainId,
 
-      depositValue: opts.amountInWei,
+      depositValue: opts.amount,
       callValue: 0,
       processingFee,
       gasLimit,
@@ -104,7 +104,7 @@ export class ERC20Bridge implements Bridge {
     return this.spenderRequiresAllowance(
       opts.contractAddress,
       opts.signer,
-      opts.amountInWei,
+      opts.amount,
       opts.spenderAddress,
     );
   }
@@ -113,7 +113,7 @@ export class ERC20Bridge implements Bridge {
     const requiresAllowance = await this.spenderRequiresAllowance(
       opts.contractAddress,
       opts.signer,
-      opts.amountInWei,
+      opts.amount,
       opts.spenderAddress,
     );
 
@@ -129,10 +129,10 @@ export class ERC20Bridge implements Bridge {
 
     try {
       log(
-        `Approving ${opts.amountInWei} tokens for spender "${opts.spenderAddress}"`,
+        `Approving ${opts.amount} tokens for spender "${opts.spenderAddress}"`,
       );
 
-      const tx = await contract.approve(opts.spenderAddress, opts.amountInWei);
+      const tx = await contract.approve(opts.spenderAddress, opts.amount);
 
       log('Approval sent with transaction', tx);
 
@@ -149,7 +149,7 @@ export class ERC20Bridge implements Bridge {
     const requiresAllowance = await this.spenderRequiresAllowance(
       opts.tokenAddress,
       opts.signer,
-      opts.amountInWei,
+      opts.amount,
       opts.tokenVaultAddress,
     );
 
@@ -168,7 +168,7 @@ export class ERC20Bridge implements Bridge {
         message.destChainId,
         message.to,
         opts.tokenAddress,
-        opts.amountInWei,
+        opts.amount,
         message.gasLimit,
         message.processingFee,
         message.refundAddress,
@@ -199,7 +199,7 @@ export class ERC20Bridge implements Bridge {
         message.destChainId,
         message.to,
         opts.tokenAddress,
-        opts.amountInWei,
+        opts.amount,
         message.gasLimit,
         message.processingFee,
         message.refundAddress,

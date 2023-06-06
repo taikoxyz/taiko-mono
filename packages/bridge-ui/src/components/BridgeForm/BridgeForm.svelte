@@ -135,10 +135,14 @@
       signer,
     );
 
-    log(`Checking allowance for token ${token.symbol}`);
+    const parsedAmount = ethers.utils.parseUnits(amount, token.decimals);
+
+    log(
+      `Checking allowance for token ${token.symbol} and amount ${parsedAmount}`,
+    );
 
     const isRequired = await $activeBridge.requiresAllowance({
-      amountInWei: ethers.utils.parseUnits(amount, token.decimals),
+      amount: parsedAmount,
       signer: signer,
       contractAddress: address,
       spenderAddress: tokenVaults[srcChain.id],
@@ -201,11 +205,12 @@
       );
 
       const spenderAddress = tokenVaults[$srcChain.id];
+      const parsedAmount = ethers.utils.parseUnits(amount, _token.decimals);
 
       log(`Approving token ${_token.symbol}`);
 
       const tx = await $activeBridge.approve({
-        amountInWei: ethers.utils.parseUnits(amount, _token.decimals),
+        amount: parsedAmount,
         signer: $signer,
         contractAddress,
         spenderAddress,
@@ -253,7 +258,7 @@
     const gasEstimate = await $activeBridge.estimateGas({
       ...bridgeOpts,
       // We need an amount, and user might not have entered one at this point
-      amountInWei: BigNumber.from(1),
+      amount: BigNumber.from(1),
     });
 
     const feeData = await fetchFeeData();
@@ -296,7 +301,7 @@
         return;
       }
 
-      const amountInWei = ethers.utils.parseUnits(amount, _token.decimals);
+      const parsedAmount = ethers.utils.parseUnits(amount, _token.decimals);
 
       const provider = providers[$destChain.id];
       const destTokenVaultAddress = tokenVaults[$destChain.id];
@@ -322,7 +327,7 @@
       );
 
       const bridgeOpts: BridgeOpts = {
-        amountInWei,
+        amount: parsedAmount,
         signer: $signer,
         tokenAddress,
         srcChainId: $srcChain.id,
@@ -368,7 +373,7 @@
         srcChainId: $srcChain.id,
         destChainId: $destChain.id,
         symbol: _token.symbol,
-        amountInWei,
+        amount: parsedAmount,
         from: tx.from,
         hash: tx.hash,
         status: MessageStatus.New,
@@ -444,7 +449,7 @@
       try {
         const feeData = await fetchFeeData();
         const gasEstimate = await $activeBridge.estimateGas({
-          amountInWei: BigNumber.from(1),
+          amount: BigNumber.from(1),
           signer: $signer,
           tokenAddress: await getAddressForToken(
             $token,
