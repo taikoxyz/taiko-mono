@@ -1,11 +1,11 @@
 <script lang="ts">
   import { UserRejectedRequestError } from '@wagmi/core';
-  import { Contract, errors, type Transaction,utils } from 'ethers';
+  import { Contract, errors, type Transaction, utils } from 'ethers';
   import { createEventDispatcher } from 'svelte';
   import { onDestroy, onMount } from 'svelte';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
   import { _ } from 'svelte-i18n';
-  
+
   import { bridges } from '../../bridge/bridges';
   import { chains } from '../../chain/chains';
   import { bridgeABI } from '../../constants/abi';
@@ -360,7 +360,7 @@
   });
 </script>
 
-<tr class="text-transaction-table">
+<tr>
   <td>
     <svelte:component this={txFromChain.icon} height={18} width={18} />
     <span class="ml-2 hidden md:inline-block">{txFromChain.name}</span>
@@ -374,7 +374,7 @@
       {@const { depositValue, callValue } = transaction.message}
       {utils.formatEther(depositValue.eq(0) ? callValue : depositValue)}
     {:else}
-      {utils.formatUnits(transaction.amountInWei)}
+      {utils.formatUnits(transaction.amount, transaction.decimals)}
     {/if}
     {transaction.symbol ?? 'ETH'}
   </td>

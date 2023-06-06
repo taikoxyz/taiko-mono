@@ -31,13 +31,13 @@ export class ETHBridge implements Bridge {
 
     const depositValue =
       opts.to.toLowerCase() === owner.toLowerCase()
-        ? opts.amountInWei
+        ? opts.amount
         : BigNumber.from(0);
 
     const callValue =
       opts.to.toLowerCase() === owner.toLowerCase()
         ? BigNumber.from(0)
-        : opts.amountInWei;
+        : opts.amount;
 
     const processingFee = opts.processingFeeInWei ?? BigNumber.from(0);
 

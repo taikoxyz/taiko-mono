@@ -1,7 +1,7 @@
 <script lang="ts">
   import { getContext } from 'svelte';
   import type { Writable } from 'svelte/store';
-  
+
   import { key } from './Tabs.svelte';
 
   export let tab: string = '';
@@ -15,3 +15,9 @@
 <div role="tabpanel" aria-expanded={selected} class={classes}>
   <slot />
 </div>
+
+<style lang="postcss">
+  [role='tabpanel'] {
+    @apply w-full;
+  }
+</style>

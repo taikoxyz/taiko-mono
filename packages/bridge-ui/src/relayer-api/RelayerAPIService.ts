@@ -89,18 +89,27 @@ export class RelayerAPIService implements RelayerAPI {
     );
   }
 
-  private static async _getERC20SymbolAndAmount(
+  private static async _getERC20Details(
     erc20Event: ethers.Event,
     erc20Abi: ethers.ContractInterface,
     provider: ethers.providers.StaticJsonRpcProvider,
-  ): Promise<[string, BigNumber]> {
+  ): Promise<{
+    amount: BigNumber;
+    symbol: string;
+    decimals: number;
+  }> {
     const { token, amount } = erc20Event.args;
     const erc20Contract = new Contract(token, erc20Abi, provider);
 
     const symbol: string = await erc20Contract.symbol();
-    const amountInWei: BigNumber = BigNumber.from(amount);
+    const decimals: number = await erc20Contract.decimals();
+    const bnAmount: BigNumber = BigNumber.from(amount);
 
-    return [symbol, amountInWei];
+    return {
+      symbol,
+      decimals,
+      amount: bnAmount,
+    };
   }
 
   private readonly providers: ProvidersRecord;
@@ -185,7 +194,7 @@ export class RelayerAPIService implements RelayerAPI {
 
       return {
         status: tx.status,
-        amountInWei: BigNumber.from(tx.amount),
+        amount: BigNumber.from(tx.amount),
         symbol: tx.canonicalTokenSymbol,
         hash: tx.data.Raw.transactionHash,
         from: tx.messageOwner,
@@ -223,7 +232,9 @@ export class RelayerAPIService implements RelayerAPI {
         message: tx.message,
         msgHash: tx.msgHash,
         status: tx.status,
-        amountInWei: tx.amountInWei,
+        amount: tx.amount,
+        symbol: tx.symbol,
+        decimals: tx.canonicalTokenDecimals,
         srcChainId: tx.srcChainId,
         destChainId: tx.destChainId,
         hash: tx.hash,
@@ -264,9 +275,6 @@ export class RelayerAPIService implements RelayerAPI {
       // Update the status
       bridgeTx.status = status;
 
-      let amountInWei: BigNumber = tx.amountInWei;
-      let symbol: string;
-
       if (tx.canonicalTokenAddress !== ethers.constants.AddressZero) {
         // We're dealing with an ERC20 transfer.
         // Let's get the symbol and amount from the TokenVault contract.
@@ -281,21 +289,23 @@ export class RelayerAPIService implements RelayerAPI {
           receipt.blockNumber,
         );
 
+        // TODO: do we want to show these transactions?
         // if (!erc20Event) {
         //   return bridgeTx;
         // }
         if (!erc20Event) return;
 
-        [symbol, amountInWei] =
-          await RelayerAPIService._getERC20SymbolAndAmount(
+        const { amount, symbol, decimals } =
+          await RelayerAPIService._getERC20Details(
             erc20Event,
             erc20ABI,
             srcProvider,
           );
-      }
 
-      bridgeTx.amountInWei = amountInWei;
-      bridgeTx.symbol = symbol;
+        bridgeTx.amount = amount;
+        bridgeTx.symbol = symbol;
+        bridgeTx.decimals = decimals;
+      }
 
       return bridgeTx;
     });
