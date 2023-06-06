@@ -25,8 +25,9 @@ This guide will help get your contract verified on Taiko!
     ### Verify the contract
     Replace `CONTRACT_ADDRESS` and `CONTRACT_FILE:CONTRACT_NAME` and run the `verify-contract` command:
     ```sh
-    forge verify-contract CONTRACT_ADDRESS CONTRACT_FILE:CONTRACT_NAME --chain-id 167001 --verifier-url https://explorer.test.taiko.xyz/api --verifier blockscout
+    forge verify-contract CONTRACT_ADDRESS CONTRACT_FILE:CONTRACT_NAME --chain-id 167005 --verifier-url https://explorer.test.taiko.xyz/api --verifier blockscout
     ```
+
    </Steps>
   </Tab>
   <Tab>
@@ -57,7 +58,7 @@ This guide will help get your contract verified on Taiko!
                 customChains: [
                     {
                         network: "taiko",
-                        chainId: 167001,
+                        chainId: 167005,
                         urls: {
                             apiURL: "https://explorer.test.taiko.xyz/api",
                             browserURL: "https://explorer.test.taiko.xyz",
@@ -79,6 +80,7 @@ This guide will help get your contract verified on Taiko!
 
         ### View your verified contract on Blockscout
         Check the [Taiko block explorer](https://explorer.test.taiko.xyz) link from the output to see your contract was verified.
+
    </Steps>
   </Tab>
   <Tab>
