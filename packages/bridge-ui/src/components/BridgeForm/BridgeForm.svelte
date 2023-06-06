@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { type Address,fetchFeeData } from '@wagmi/core';
+  import { type Address, fetchFeeData } from '@wagmi/core';
   import { BigNumber, Contract, ethers, type Signer } from 'ethers';
   import { _ } from 'svelte-i18n';
 
@@ -28,6 +28,7 @@
   import { getLogger } from '../../utils/logger';
   import { truncateString } from '../../utils/truncateString';
   import { tokenVaults } from '../../vault/tokenVaults';
+  import AddTokenToWallet from '../AddTokenToWallet.svelte';
   import {
     errorToast,
     successToast,
@@ -61,8 +62,7 @@
   let feeMethod: ProcessingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
   let feeAmount: string = '0';
 
-  // TODO: too much going on here. We need to extract
-  //       logic and unit test the hell out of all this.
+  let showAddToWallet: boolean = false;
 
   async function updateTokenBalance(signer: Signer, token: Token) {
     if (signer && token) {
@@ -495,6 +495,10 @@
     amount = target.value;
   }
 
+  function toggleShowAddTokenToWallet(token: Token) {
+    showAddToWallet = token.symbol !== 'ETH';
+  }
+
   $: updateTokenBalance($signer, $token).finally(() => {
     computingTokenBalance = false;
   });
@@ -521,6 +525,8 @@
     });
 
   $: amountEntered = Boolean(amount);
+
+  $: toggleShowAddTokenToWallet($token);
 </script>
 
 <div class="space-y-6 md:space-y-4">
@@ -543,6 +549,10 @@
             on:click={useFullAmount}>
             {$_('bridgeForm.maxLabel')}
           </button>
+
+          {#if showAddToWallet}
+            <AddTokenToWallet />
+          {/if}
         </div>
       {/if}
     </label>

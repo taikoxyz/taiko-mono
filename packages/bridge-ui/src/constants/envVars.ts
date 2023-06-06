@@ -51,4 +51,5 @@ export const TEST_ERC20: {
   address: Address;
   symbol: string;
   name: string;
+  logoUrl?: string;
 }[] = JSON.parse(import.meta.env?.VITE_TEST_ERC20);
