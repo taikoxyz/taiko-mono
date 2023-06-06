@@ -1,7 +1,7 @@
 module.exports = {
   content: ['./src/**/*.{html,js,svelte,ts}'],
   plugins: [require('daisyui')],
-  darkMode: ['[data-theme="dark"]'],
+  darkMode: ['class', '[data-theme="dark"]'],
   theme: {
     extend: {
       colors: {
@@ -11,8 +11,7 @@ module.exports = {
         'dark-4': 'var(--color-dark-4)',
         'dark-5': 'var(--color-dark-5)',
         'dark-6': 'var(--color-dark-6)',
-        'transaction-table': 'var(--color-transaction-table)',
-        'bridge-form': 'var(--color-bridge-form)',
+        tabs: 'var(--tabs)',
       },
       keyframes: {
         rise: {
@@ -55,11 +54,10 @@ module.exports = {
           '--color-dark-4': '#242424',
           '--color-dark-5': '#373737',
           '--color-dark-6': '#4F4F4F',
-          '--color-bridge-form': '#27272A',
-          '--color-transaction-table': '#FFFFFF',
           '--rounded-btn': '.5rem',
           '--rounded-box': '.5rem',
           '--btn-text-case': 'capitalize',
+          '--tabs': '#1E2026',
         },
         light: {
           ...require('daisyui/colors/themes')['[data-theme=light]'],
@@ -81,11 +79,10 @@ module.exports = {
           '--color-dark-4': '#242424',
           '--color-dark-5': '#CDCDCD',
           '--color-dark-6': '#4F4F4F',
-          '--color-bridge-form': '#E4E4E7',
-          '--color-transaction-table': '#1F2937',
           '--rounded-btn': '.5rem',
           '--rounded-box': '.5rem',
           '--btn-text-case': 'capitalize',
+          '--tabs': '#F3F3F3',
         },
       },
     ],

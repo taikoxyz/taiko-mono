@@ -47,7 +47,7 @@
   {#if transactionsToShow.length}
     <table class="table-auto my-4">
       <thead>
-        <tr class="text-transaction-table">
+        <tr>
           <th>From</th>
           <th>To</th>
           <th>Amount</th>
