@@ -86,6 +86,8 @@ library LibAuction {
         state.taikoTokenBalances[bid.prover] -= totalDeposit;
         auction.bid = bid;
 
+        state.auctions[batchId % config.auctionRingBufferSize] = auction;
+
         emit BatchBid(auction.batchId, auction.startedAt, bid);
     }
 

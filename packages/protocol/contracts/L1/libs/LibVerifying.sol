@@ -245,7 +245,7 @@ library LibVerifying {
                     : auction.bid.deposit;
 
                 TaikoToken tkoToken =
-                    TaikoToken(resolver.resolve("tko_token", false));
+                    TaikoToken(resolver.resolve("taiko_token", false));
                 tkoToken.burn((address(this)), amountToBurn);
             }
         }
