@@ -173,7 +173,7 @@ function batchForBlock(uint256 blockId) public pure returns (uint256)
 ### isBidBetter
 
 ```solidity
-function isBidBetter(struct TaikoData.Bid oldBid, struct TaikoData.Bid newBid) public pure returns (bool)
+function isBidBetter(struct TaikoData.Bid newBid, struct TaikoData.Bid oldBid) public pure returns (bool)
 ```
 
 ### getVerifierName

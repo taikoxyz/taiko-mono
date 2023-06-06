@@ -306,14 +306,14 @@ contract TaikoL1 is
     }
 
     function isBidBetter(
-        TaikoData.Bid memory oldBid,
-        TaikoData.Bid memory newBid
+        TaikoData.Bid memory newBid,
+        TaikoData.Bid memory oldBid
     )
         public
         pure
         returns (bool)
     {
-        return LibAuction.isBidBetter(oldBid, newBid);
+        return LibAuction.isBidBetter(newBid, oldBid);
     }
 
     function getVerifierName(uint16 id) public pure returns (bytes32) {
