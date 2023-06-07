@@ -1,4 +1,4 @@
-title: "Taiko-Geth Fork Diff" # Define the HTML page title
+title: "taiko-geth fork diff" # Define the HTML page title
 footer: | # define the footer with markdown
   [taiko-geth](https://github.com/taikoxyz/taiko-geth) fork overview created with [Forkdiff](https://github.com/protolambda/forkdiff)
 base:
