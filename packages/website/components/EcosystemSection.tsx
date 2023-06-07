@@ -3,16 +3,17 @@ import EcosystemCard from "./EcosystemCard";
 export default function EcosystemSection() {
   const ecosystemData = [
     {
+      icon: "/images/ecosystem/blockscout.svg",
+      name: "Blockscout",
+      link: "https://blockscout.com",
+      description:
+        "Blockchain Explorer for inspecting and analyzing EVM Chains.",
+    },
+    {
       icon: "/images/ecosystem/taiko.svg",
       name: "Bridge",
       link: "https://bridge.test.taiko.xyz",
       description: "Bridge is a dapp that lets you bridge tokens with Taiko.",
-    },
-    {
-      icon: "/images/ecosystem/taiko.svg",
-      name: "Swap",
-      link: "https://swap.test.taiko.xyz",
-      description: "Swap is a dapp that lets you swap tokens on Taiko.",
     },
     {
       icon: "/images/ecosystem/orbiter.jpg",
@@ -27,6 +28,19 @@ export default function EcosystemSection() {
       link: "https://loopring.io/#/wallet",
       description:
         "Loopring is your mobile gateway to Ethereum L2, enabling you to easily trade, swap, collect, stake, and invest without the costly gas fees.",
+    },
+    {
+      icon: "/images/ecosystem/taiko.svg",
+      name: "Swap",
+      link: "https://swap.test.taiko.xyz",
+      description: "Swap is a dapp that lets you swap tokens on Taiko.",
+    },
+    {
+      icon: "/images/ecosystem/zkpool.png",
+      name: "ZKPool",
+      link: "https://zkpool.io/",
+      description:
+        "ZKPool aggregates the computing power of accelerators for zero-knowledge proofs and provides services to ZKP applications.",
     },
   ];
 
