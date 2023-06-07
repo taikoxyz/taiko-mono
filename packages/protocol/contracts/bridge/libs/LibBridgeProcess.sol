@@ -18,7 +18,7 @@ import {LibMath} from "../../libs/LibMath.sol";
 
 /**
  * @title LibBridgeProcess
- * @dev Process bridge messages on the destination chain.
+ * @notice This library provides functions for processing bridge messages on the destination chain.
  */
 library LibBridgeProcess {
     using LibMath for uint256;
