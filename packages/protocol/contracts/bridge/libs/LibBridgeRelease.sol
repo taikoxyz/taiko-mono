@@ -12,6 +12,10 @@ import {IBridge} from "../IBridge.sol";
 import {LibBridgeData} from "./LibBridgeData.sol";
 import {LibBridgeStatus} from "./LibBridgeStatus.sol";
 
+/**
+ * @title Library for handling Ether release on the Bridge
+ * @notice This library provides functions for releasing Ether related to message execution on the Bridge.
+ */
 library LibBridgeRelease {
     using LibBridgeData for IBridge.Message;
 
@@ -24,9 +28,14 @@ library LibBridgeRelease {
     error B_WRONG_CHAIN_ID();
 
     /**
-     * Release Ether to the message owner, only if the Taiko Bridge state says:
+     * @notice Release Ether to the message owner
+     * @dev This function releases Ether to the message owner, only if the Bridge state says:
      * - Ether for this message has not been released before.
      * - The message is in a failed state.
+     * @param state The current state of the Bridge
+     * @param resolver The AddressResolver instance
+     * @param message The message whose associated Ether should be released
+     * @param proof The proof data
      */
     function releaseEther(
         LibBridgeData.State storage state,
