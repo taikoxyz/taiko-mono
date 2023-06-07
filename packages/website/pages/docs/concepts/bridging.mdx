@@ -29,13 +29,13 @@ Merkle trees are a data storage structure that allows a lot of data to be finger
 - The value, this is the value we are checking is inside the merkle root
 - A list of intermediate sibling hashes, these are the hashes that enable the verifier to re-calculate the merkle root
 
-You can get the latest known merkle root stored on the destination chain by calling `getLatestSyncedHeader()` on the TaikoL1/TaikoL2 contract. You can get the value / message to verify and the sibling hashes for that latest known merkle root by asking for it with the standard RPC call `eth_getProof` on the "source chain". Then you just need to send them to be verified against that latest known block hash that is stored in a list on the "destination chain". 
+You can get the latest known merkle root stored on the destination chain by calling `getCrossChainBlockHash(0)` on the TaikoL1/TaikoL2 contract. You can get the value / message to verify and the sibling hashes for that latest known merkle root by asking for it with the standard RPC call `eth_getProof` on the "source chain". Then you just need to send them to be verified against that latest known block hash that is stored in a list on the "destination chain".
 
 A verifier will take the value (a leaf in the merkle tree) and the sibling hashes to re-calculate the merkle root. If the calculated merkle root matches the one that is stored in the destination chain's list of block hashes (the block hashes of the source chain), then we have proved that the message was sent on the source chain, assuming the source chain block hashes stored on the destination chain were correct.
 
 ## The signal service
 
-Taiko's signal service is a smart contract available on both L1 and L2, available for any dapp developer to use. It exposes a [really simple interface](/docs/reference/contract-documentation/signal/ISignalService). And it's what uses the previously mentioned merkle proofs to provide a service for secure cross-chain messaging.
+Taiko's signal service is a smart contract available on both L1 and L2, available for any dapp developer to use. It exposes a [simple interface](/docs/reference/contract-documentation/signal/ISignalService). And it's what uses the previously mentioned merkle proofs to provide a service for secure cross-chain messaging.
 
 You can store signals and check if a signal was sent from an address. It also exposes one more important function: `isSignalReceived`.
 
