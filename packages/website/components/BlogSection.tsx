@@ -1,6 +1,4 @@
 const posts = [
-  
-  
   {
     title: "Taiko Alpha-3 Testnet is Live",
     href: "https://taiko.mirror.xyz/wD7yN8Y5RttbP7kzdtX22GbMg6i18a-Xwet2sshpt48",
