@@ -34,12 +34,6 @@ contract BridgedERC20 is
     uint8 private srcDecimals;
     uint256[47] private __gap;
 
-    /*//////////////////////////////////////////////////////////////
-                                 EVENTS
-    //////////////////////////////////////////////////////////////*/
-
-    event BridgeMint(address indexed account, uint256 amount);
-    event BridgeBurn(address indexed account, uint256 amount);
 
     /*//////////////////////////////////////////////////////////////
                          USER-FACING FUNCTIONS
@@ -80,27 +74,25 @@ contract BridgedERC20 is
     }
 
     /// @dev only a TokenVault can call this function
-    function bridgeMintTo(
+    function mint(
         address account,
         uint256 amount
     )
         public
-        onlyFromNamed("token_vault")
+        onlyOwner // the token_vault
     {
         _mint(account, amount);
-        emit BridgeMint(account, amount);
     }
 
     /// @dev only a TokenVault can call this function
-    function bridgeBurnFrom(
-        address account,
+    function burn(
+        address from,
         uint256 amount
     )
         public
-        onlyFromNamed("token_vault")
+        onlyOwner // the token_vault
     {
-        _burn(account, amount);
-        emit BridgeBurn(account, amount);
+        _burn(from, amount);
     }
 
     /// @dev any address can call this

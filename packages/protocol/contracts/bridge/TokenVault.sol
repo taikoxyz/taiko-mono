@@ -184,7 +184,7 @@ contract TokenVault is EssentialContract {
 
         // is a bridged token, meaning, it does not live on this chain
         if (isBridgedToken[token]) {
-            BridgedERC20(token).bridgeBurnFrom(msg.sender, amount);
+            BridgedERC20(token).burn(msg.sender, amount);
             canonicalToken = bridgedToCanonical[token];
             if (canonicalToken.addr == address(0)) {
                 revert TOKENVAULT_CANONICAL_TOKEN_NOT_FOUND();
@@ -275,7 +275,7 @@ contract TokenVault is EssentialContract {
 
         if (amount > 0) {
             if (isBridgedToken[token]) {
-                BridgedERC20(token).bridgeMintTo(message.owner, amount);
+                BridgedERC20(token).mint(message.owner, amount);
             } else {
                 ERC20Upgradeable(token).safeTransfer(message.owner, amount);
             }
@@ -321,7 +321,7 @@ contract TokenVault is EssentialContract {
             ERC20Upgradeable(token).safeTransfer(to, amount);
         } else {
             token = _getOrDeployBridgedToken(canonicalToken);
-            BridgedERC20(token).bridgeMintTo(to, amount);
+            BridgedERC20(token).mint(to, amount);
         }
 
         emit ERC20Received({
