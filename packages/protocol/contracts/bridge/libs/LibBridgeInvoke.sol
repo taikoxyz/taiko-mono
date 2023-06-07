@@ -16,10 +16,15 @@ library LibBridgeInvoke {
 
     error B_GAS_LIMIT();
 
-    /*//////////////////////////////////////////////////////////////
-                           INTERNAL FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-
+    /**
+     * @notice Invoke a call message
+     * @param state The current state of the Bridge
+     * @param message The call message to be invoked
+     * @param msgHash The hash of the message
+     * @param gasLimit The gas limit for the message call
+     * @return success A boolean value indicating whether the message call was successful
+     * @dev This function updates the context in the state before and after the message call.
+     */
     function invokeMessageCall(
         LibBridgeData.State storage state,
         IBridge.Message calldata message,
