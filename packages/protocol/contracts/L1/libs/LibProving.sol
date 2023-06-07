@@ -66,6 +66,11 @@ library LibProving {
             revert L1_BLOCK_ID();
         }
 
+        TaikoData.Block storage blk =
+            state.blocks[blockId % config.blockRingBufferSize];
+
+        if (blk.blockId != blockId) revert L1_BLOCK_NOT_EXIST();
+
         // We also should know who can prove this block:
         // the one who bid or everyone if it is above the window
 
@@ -78,10 +83,6 @@ library LibProving {
 
         if (!provable) revert L1_NOT_PROVEABLE();
 
-        TaikoData.Block storage blk =
-            state.blocks[blockId % config.blockRingBufferSize];
-
-        if (blk.blockId != blockId) revert L1_BLOCK_NOT_EXIST();
 
         // Check the metadata hash matches the proposed block's. This is
         // necessary to handle chain reorgs.
