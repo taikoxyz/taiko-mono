@@ -14,7 +14,7 @@ import {LibMath} from "../../libs/LibMath.sol";
 
 /**
  * @title LibBridgeData
- * @dev Stores message metadata on the Bridge. It's used to keep track of the state of messages that are being
+ * @notice Stores message metadata on the Bridge. It's used to keep track of the state of messages that are being
  * transferred across the bridge, and it contains functions to hash messages and check their status.
  */
 library LibBridgeData {
