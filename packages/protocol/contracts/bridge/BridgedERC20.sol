@@ -17,6 +17,8 @@ import {EssentialContract} from "../common/EssentialContract.sol";
 import {Proxied} from "../common/Proxied.sol";
 import {BridgeErrors} from "./BridgeErrors.sol";
 
+/// @title BridgedERC20
+/// @notice This contract is an upgradeable ERC20 contract that represents tokens bridged from another chain.
 /// @custom:security-contact hello@taiko.xyz
 contract BridgedERC20 is
     EssentialContract,
@@ -25,29 +27,25 @@ contract BridgedERC20 is
     ERC20Upgradeable,
     BridgeErrors
 {
-    /*//////////////////////////////////////////////////////////////
-                            STATE VARIABLES
-    //////////////////////////////////////////////////////////////*/
-
     address public srcToken;
     uint256 public srcChainId;
     uint8 private srcDecimals;
     uint256[47] private __gap;
 
-    /*//////////////////////////////////////////////////////////////
-                                 EVENTS
-    //////////////////////////////////////////////////////////////*/
-
     event BridgeMint(address indexed account, uint256 amount);
     event BridgeBurn(address indexed account, uint256 amount);
 
-    /*//////////////////////////////////////////////////////////////
-                         USER-FACING FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-
-    /// @dev Initializer to be called after being deployed behind a proxy.
-    // Intention is for a different BridgedERC20 Contract to be deployed
-    // per unique _srcToken i.e. one for USDC, one for USDT etc.
+    /**
+     * @notice Initializes the contract.
+     * @dev Different BridgedERC20 Contract to be deployed
+     * per unique _srcToken i.e. one for USDC, one for USDT etc.
+     * @param _addressManager The address manager.
+     * @param _srcToken The source token address.
+     * @param _srcChainId The source chain ID.
+     * @param _decimals The number of decimal places of the source token.
+     * @param _symbol The symbol of the token.
+     * @param _name The name of the token.
+     */
     function init(
         address _addressManager,
         address _srcToken,
@@ -69,20 +67,34 @@ contract BridgedERC20 is
         srcDecimals = _decimals;
     }
 
-    /// @dev only a TokenVault can call this function
+    /**
+     * @notice Mints tokens to an account.
+     * @dev Only a TokenVault can call this function.
+     * @param account The account to mint tokens to.
+     * @param amount The amount of tokens to mint.
+     */
     function bridgeMintTo(address account, uint256 amount) public onlyFromNamed("token_vault") {
         _mint(account, amount);
         emit BridgeMint(account, amount);
     }
 
-    /// @dev only a TokenVault can call this function
+    /**
+     * @notice Burns tokens from an account.
+     * @dev Only a TokenVault can call this function.
+     * @param account The account to burn tokens from.
+     * @param amount The amount of tokens to burn.
+     */
     function bridgeBurnFrom(address account, uint256 amount) public onlyFromNamed("token_vault") {
         _burn(account, amount);
         emit BridgeBurn(account, amount);
     }
 
-    /// @dev any address can call this
-    // caller must have at least amount to call this
+    /**
+     * @notice Transfers tokens from the caller to another account.
+     * @dev Any address can call this. Caller must have at least 'amount' to call this.
+     * @param to The account to transfer tokens to.
+     * @param amount The amount of tokens to transfer.
+     */
     function transfer(address to, uint256 amount)
         public
         override(ERC20Upgradeable, IERC20Upgradeable)
@@ -94,9 +106,13 @@ contract BridgedERC20 is
         return ERC20Upgradeable.transfer(to, amount);
     }
 
-    /// @dev any address can call this
-    // caller must have allowance of at least 'amount'
-    // for 'from's tokens.
+    /**
+     * @notice Transfers tokens from one account to another account.
+     * @dev Any address can call this. Caller must have allowance of at least 'amount' for 'from's tokens.
+     * @param from The account to transfer tokens from.
+     * @param to The account to transfer tokens to.
+     * @param amount The amount of tokens to transfer.
+     */
     function transferFrom(address from, address to, uint256 amount)
         public
         override(ERC20Upgradeable, IERC20Upgradeable)
@@ -108,6 +124,10 @@ contract BridgedERC20 is
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }
 
+    /**
+     * @notice Gets the number of decimal places of the token.
+     * @return The number of decimal places of the token.
+     */
     function decimals()
         public
         view
@@ -117,8 +137,10 @@ contract BridgedERC20 is
         return srcDecimals;
     }
 
-    /// @dev returns the srcToken being bridged and the srcChainId
-    // of the tokens being bridged
+    /**
+     * @notice Gets the source token address and the source chain ID.
+     * @return The source token address and the source chain ID.
+     */
     function source() public view returns (address, uint256) {
         return (srcToken, srcChainId);
     }
