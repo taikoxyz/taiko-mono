@@ -1,7 +1,0 @@
-On Taiko, the next L2 state is known immediately and deterministically at the time a block is proposed to the TaikoL1 contract. After a block is proposed, a series of checks are done to compute this post-L2 state:
-
-1. Block is proposed by any proposer (permissionlessly).
-2. Block level properties' validity is checked by the TaikoL1 contract with the ([proposed block intrinsic validity function](./intrinsic-validity-functions#proposed-block-intrinsic-validity-function)).
-3. Proposed block is downloaded by a Taiko node, and the transaction list is parsed over and checked for validity ([transaction list intrinsic validity function](./intrinsic-validity-functions#transaction-list-intrinsic-validity-function)).
-    - IF every transaction in the list is valid, an ordered subset of the list is created by skipping over transactions which have an invalid nonce or the sender has too little Ether balance to pay for the transaction. This ordered subset is used along with the [anchor transaction](./anchor-transaction) to create a Taiko L2 block.
-    - IF any transaction in the list is invalid, the block is proven to be invalid.
