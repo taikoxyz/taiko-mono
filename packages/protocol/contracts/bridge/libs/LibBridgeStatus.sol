@@ -12,6 +12,10 @@ import {ICrossChainSync} from "../../common/ICrossChainSync.sol";
 import {LibBridgeData} from "./LibBridgeData.sol";
 import {LibTrieProof} from "../../libs/LibTrieProof.sol";
 
+/**
+ * @title LibBridgeStatus
+ * @notice This library provides functions to get and update the status of bridge messages.
+ */
 library LibBridgeStatus {
     using LibBlockHeader for BlockHeader;
 
@@ -28,10 +32,10 @@ library LibBridgeStatus {
     error B_WRONG_CHAIN_ID();
 
     /**
-     * @dev If messageStatus is same as in the messageStatus mapping,
-     *      does nothing.
-     * @param msgHash The messageHash of the message.
-     * @param status The status of the message.
+     * @notice Updates the status of a bridge message.
+     * @dev If messageStatus is same as in the messageStatus mapping, does nothing.
+     * @param msgHash The hash of the message.
+     * @param status The new status of the message.
      */
     function updateMessageStatus(bytes32 msgHash, MessageStatus status) internal {
         if (getMessageStatus(msgHash) != status) {
@@ -40,6 +44,11 @@ library LibBridgeStatus {
         }
     }
 
+    /**
+     * @notice Gets the status of a bridge message.
+     * @param msgHash The hash of the message.
+     * @return The status of the message.
+     */
     function getMessageStatus(bytes32 msgHash) internal view returns (MessageStatus) {
         bytes32 slot = getMessageStatusSlot(msgHash);
         uint256 value;
@@ -49,6 +58,14 @@ library LibBridgeStatus {
         return MessageStatus(value);
     }
 
+    /**
+     * @notice Checks if a bridge message has failed.
+     * @param resolver The address resolver.
+     * @param msgHash The hash of the message.
+     * @param destChainId The ID of the destination chain.
+     * @param proof The proof of the status of the message.
+     * @return True if the message has failed, false otherwise.
+     */
     function isMessageFailed(
         AddressResolver resolver,
         bytes32 msgHash,
@@ -79,11 +96,21 @@ library LibBridgeStatus {
             mkproof: sp.proof
         });
     }
+    /**
+     * @notice Gets the storage slot for a bridge message status.
+     * @param msgHash The hash of the message.
+     * @return The storage slot for the message status.
+     */
 
     function getMessageStatusSlot(bytes32 msgHash) internal pure returns (bytes32) {
         return keccak256(bytes.concat(bytes("MESSAGE_STATUS"), msgHash));
     }
 
+    /**
+     * @notice Sets the status of a bridge message.
+     * @param msgHash The hash of the message.
+     * @param status The new status of the message.
+     */
     function _setMessageStatus(bytes32 msgHash, MessageStatus status) private {
         bytes32 slot = getMessageStatusSlot(msgHash);
         uint256 value = uint256(status);
