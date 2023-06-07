@@ -1,4 +1,21 @@
 const posts = [
+  
+  
+  {
+    title: "Taiko Alpha-3 Testnet is Live",
+    href: "https://taiko.mirror.xyz/wD7yN8Y5RttbP7kzdtX22GbMg6i18a-Xwet2sshpt48",
+    description:
+      "Today we’re excited to share that the Taiko alpha-3 testnet, Grímsvötn, is live! This is the next step on the road to a decentralized, Ethereum-equivalent ZK-EVM.",
+    date: "Jun 07, 2023",
+    datetime: "2023-06-07",
+    imageUrl:
+      "https://mirror-media.imgix.net/publication-images/LtyEm5huf-mf9854QWh3o.jpeg?height=800&width=1600&h=800&w=1600&auto=compress",
+    readingTime: "9 min",
+    author: {
+      name: "finestone",
+      imageUrl: "https://avatars.githubusercontent.com/u/36642873?s=96&v=4",
+    },
+  },
   {
     title: "ZK-Roller-Coaster #6",
     href: "https://taiko.mirror.xyz/7BwxX8eR_dW2jihpAk6V10X4qKG0X7NKs_l3Me1pLNs",
@@ -23,21 +40,6 @@ const posts = [
     datetime: "2023-05-29",
     imageUrl:
       "https://mirror-media.imgix.net/publication-images/8RANXhY7FVaW8C9acbamg.png?height=512&width=1024&h=512&w=1024&auto=compress",
-    readingTime: "3 min",
-    author: {
-      name: "Lisa A.",
-      imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",
-    },
-  },
-  {
-    title: "ZK-Roller-Coaster #5",
-    href: "https://taiko.mirror.xyz/D9hurhYWGpVbFosu8KYsr0FeYcbi4wB0rt67hbXD_zk",
-    description:
-      "This is the 5th edition of ZK-Roller-Coaster where we track and investigate the most exciting, meaningful, and crazy ZK-stuff of the prior two weeks.",
-    date: "May 22, 2023",
-    datetime: "2023-05-22",
-    imageUrl:
-      "https://mirror-media.imgix.net/publication-images/aqZ6LByfP5NL675mThlf-.png?height=512&width=1024&h=512&w=1024&auto=compress",
     readingTime: "3 min",
     author: {
       name: "Lisa A.",
