@@ -20,6 +20,7 @@
   "swap": {
     "title": "Swap",
     "type": "page",
+    "display": "hidden",
     "href": "https://swap.test.taiko.xyz",
     "newWindow": true
   },
@@ -44,18 +45,18 @@
       }
     }
   },
-  "blog": {
-    "title": "Blog",
-    "type": "page",
-    "href": "https://mirror.xyz/labs.taiko.eth",
-    "newWindow": true
-  },
   "ecosystem": {
     "title": "Ecosystem",
     "type": "page",
     "theme": {
       "layout": "full"
     }
+  },
+  "blog": {
+    "title": "Blog",
+    "type": "page",
+    "href": "https://mirror.xyz/labs.taiko.eth",
+    "newWindow": true
   },
   "forum": {
     "title": "Forum",

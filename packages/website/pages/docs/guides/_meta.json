@@ -9,7 +9,8 @@
     "title": "🌉 Use the bridge"
   },
   "swap-tokens": {
-    "title": "🔄 Swap tokens"
+    "title": "🔄 Swap tokens",
+    "display": "hidden"
   },
   "run-a-node": {
     "title": "🌐 Run a node"
