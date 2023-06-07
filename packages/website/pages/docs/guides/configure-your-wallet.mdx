@@ -1,0 +1,31 @@
+import { Steps } from "nextra-theme-docs";
+
+# Configure your wallet
+
+## Overview
+
+This guide help you connect your wallet to Taiko (Alpha-3 testnet). There are two networks to configure your wallet with: Ethereum (Sepolia testnet) and Taiko (Alpha-3 testnet).
+
+## Prerequisites
+
+- You have a wallet installed and ready to use. Some examples are MetaMask and Frame. Please use a hot wallet (not a hardware wallet) for this guide, preferably a throwaway wallet.
+
+## Steps
+
+<Steps>
+    ### Visit chainlist
+    Visit [https://chainlist.org/](https://chainlist.org/) and check the box for "Include Testnets".
+
+    ### Add the Sepolia testnet
+    Search for "Sepolia", and click the "Add Chain" button.
+
+    ### Add the Taiko testnet
+    Search for "Taiko", and click the "Add Chain" button for Taiko (Alpha-3 testnet).
+
+    ### Add tokens to your wallet
+    Use your wallet (e.g., Metamask) to [import the tokens](https://support.ledger.com/hc/en-us/articles/6375103346077-Add-custom-tokens-to-MetaMask?docs=true) with [this configuration](https://gist.githubusercontent.com/d1onys1us/8f8824daed0882b1094296f824fae53c/raw/15204c4a4927a7f48a78c195323ce0d573d6b7c0/taiko_tokens.json) (HORSE, BLL, and TTKO).
+</Steps>
+
+## Troubleshooting
+### The add chain buttons did not work
+Try to manually add the network to your wallet using the [RPC configuration](/docs/reference/rpc-configuration).
