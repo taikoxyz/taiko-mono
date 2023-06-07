@@ -24,7 +24,7 @@ export default function EcosystemSection() {
     {
       icon: "/images/ecosystem/loopring.svg",
       name: "Loopring Wallet",
-      link: "https://loopring.io/#/wallet",
+      link: "https://loopring.io/wallet.html",
       description:
         "Loopring is your mobile gateway to Ethereum L2, enabling you to easily trade, swap, collect, stake, and invest without the costly gas fees.",
     },

@@ -1,6 +1,10 @@
-import { Steps } from "nextra-theme-docs";
+import { Callout, Steps } from "nextra-theme-docs";
 
 # Enable a proposer
+
+<Callout type="info">
+TTKO will not be distributed immediately at the launch of alpha-3, but will be distributed shortly after.
+</Callout>
 
 ## Overview
 
@@ -9,7 +13,7 @@ This guide will help you enable your Taiko node as a proposer.
 ## Prerequisites
 
 - You have already setup a node (see: [Run a node](/docs/guides/run-a-node))
-- Must have a balance of TTKO
+- Must have a balance of TTKO (see: [Receive tokens](/docs/guides/receive-tokens#receive-ttko)])
 
 ## Steps
 
@@ -22,7 +26,11 @@ Click `Connect to Web3` and connect your wallet.
 
 ### Enter deposit amount
 
-Click `depositTaikoToken` and enter the amount of TTKO you would like to deposit. **Make sure** to click the plus sign and add `10^8` decimals, or add 8 zeroes manually.
+Click `depositTaikoToken` and enter the amount of TTKO you would like to deposit followed by 8 zeroes.
+
+<Callout type="warning">
+Make sure to click the plus sign and add `10^8` decimals, or add 8 zeroes manually.
+</Callout>
 
 For example if you want to deposit `69` TTKO, you would enter `6900000000`.
 
@@ -40,6 +48,8 @@ Set the following environment variables to enable your node as a prover:
     - Set `L2_SUGGESTED_FEE_RECIPIENT` to the recipient of L2 ETH rewards.
 
 ### Verify proposer logs
-You should see a log if you have proposed a block: `📝 Propose transactions succeeded`
+You should see a log if you have proposed a block: `📝 Propose transactions succeeded`.
+
+If you are running a node in the background, you can view the logs with `docker compose logs -f`.
 
 </Steps>
