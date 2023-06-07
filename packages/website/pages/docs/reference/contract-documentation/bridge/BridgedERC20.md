@@ -16,18 +16,6 @@ address srcToken
 uint256 srcChainId
 ```
 
-### BridgeMint
-
-```solidity
-event BridgeMint(address account, uint256 amount)
-```
-
-### BridgeBurn
-
-```solidity
-event BridgeBurn(address account, uint256 amount)
-```
-
 ### init
 
 ```solidity
@@ -36,18 +24,18 @@ function init(address _addressManager, address _srcToken, uint256 _srcChainId, u
 
 _Initializer to be called after being deployed behind a proxy._
 
-### bridgeMintTo
+### mint
 
 ```solidity
-function bridgeMintTo(address account, uint256 amount) public
+function mint(address account, uint256 amount) public
 ```
 
 _only a TokenVault can call this function_
 
-### bridgeBurnFrom
+### burn
 
 ```solidity
-function bridgeBurnFrom(address account, uint256 amount) public
+function burn(address from, uint256 amount) public
 ```
 
 _only a TokenVault can call this function_
