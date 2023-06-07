@@ -1,5 +1,4 @@
-import { ethers } from 'ethers';
-
+import { getInjectedProvider } from './injectedProvider';
 import { getLogger } from './logger';
 
 type RPCMethod =
@@ -35,21 +34,12 @@ export const errorCodes = {
 // The type definition for provider.send method is actually incorrect, hence:
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function rpcCall(method: RPCMethod, params?: any) {
-  const provider = new ethers.providers.Web3Provider(
-    // The globalThis property provides a standard way of accessing the global this value
-    // across environments (e.g. unit tests in Node vs browser)
-    globalThis.ethereum,
-    'any',
-  );
+  const provider = getInjectedProvider();
 
   log(`RPC call "${method}" with params`, params);
 
   try {
-    // The new provider could be of use right after the call, so we also return it
-    return {
-      provider,
-      returnValue: await provider.send(method, params),
-    };
+    return await provider.send(method, params);
   } catch (error) {
     console.error(error);
 
