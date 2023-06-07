@@ -28,7 +28,8 @@ abstract contract TaikoL1TestBase is Test {
 
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
     // 1 TKO --> it is to huge. It should be in 'wei' (?).
-    // Because otherwise first proposal is around: 1TKO * (1_000_000+20_000) required as a deposit.
+    // Because otherwise first proposal is around: 1TKO * (1_000_000+20_000)
+    // required as a deposit.
     uint64 feePerGas = 10;
     uint64 proofWindow = 60 minutes;
     uint64 l2GasExcess = 1e18;
@@ -187,11 +188,10 @@ abstract contract TaikoL1TestBase is Test {
         bidForBatch(msgSender, batchId, bid);
 
         // Then roll into the future to be proveable
-        (, TaikoData.Auction[] memory auctions) = L1.getAuctions(
-            batchId,
-            1
+        (, TaikoData.Auction[] memory auctions) = L1.getAuctions(batchId, 1);
+        vm.warp(
+            block.timestamp + auctions[0].startedAt + conf.auctionWindow + 1
         );
-        vm.warp(block.timestamp + auctions[0].startedAt + conf.auctionWindow + 1);
         vm.roll(block.number + 100);
     }
 

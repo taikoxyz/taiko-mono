@@ -60,7 +60,8 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         TaikoData.BlockMetadata memory meta = proposeBlock(Bob, 1_000_000, 1024);
 
         bid.proofWindow = 10 minutes;
-        bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit)) * conf.auctionDepositMultipler;
+        bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
+            * conf.auctionDepositMultipler;
         bid.feePerGas = 9;
         bidForBatchAndRollTime(Bob, 1, bid);
 
@@ -133,19 +134,23 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             bytes32 signalRoot = bytes32(1e9 + blockId);
             // Submit an auction and wait till won
             bid.proofWindow = 10 minutes;
-            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit)) * conf.auctionDepositMultipler;
+            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
+                * conf.auctionDepositMultipler;
             bid.feePerGas = 9;
 
             // Make a valid bid
-            if(
-                blockId == 1 
-                || 
-                blockId % conf.auctionBatchSize == (conf.auctionWindow)) // Bid at 'edge/end' of the batch because otherwise hard to test decouple propose with prove. (Will test that in a separate file)
-            {
+            if (
+                blockId == 1
+                    || blockId % conf.auctionBatchSize == (conf.auctionWindow) // Bid
+                    // at 'edge/end' of the batch because otherwise hard to test
+                    // decouple propose with prove. (Will test that in a
+                    // separate file)
+            ) {
                 bidForBatchAndRollTime(Bob, batchId, bid);
                 batchId++;
             }
-            // This proof cannot be verified obviously because of blockhash:blockId
+            // This proof cannot be verified obviously because of
+            // blockhash:blockId
             proveBlock(
                 Bob,
                 Bob,
@@ -168,10 +173,9 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 signalRoot
             );
 
-            vm.warp(block.timestamp + conf.proofCooldownPeriod+1);
+            vm.warp(block.timestamp + conf.proofCooldownPeriod + 1);
             uint256 lastVerifiedBlockId =
-            L1.getStateVariables().lastVerifiedBlockId;
-
+                L1.getStateVariables().lastVerifiedBlockId;
 
             verifyBlock(Carol, 1);
 
@@ -194,7 +198,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 signalRoot
             );
 
-            vm.warp(block.timestamp + conf.proofCooldownPeriod+1);
+            vm.warp(block.timestamp + conf.proofCooldownPeriod + 1);
 
             verifyBlock(Carol, 1);
 
@@ -236,18 +240,22 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             bytes32 signalRoot = bytes32(1e9 + blockId);
             // Submit an auction and wait till won
             bid.proofWindow = 10 minutes;
-            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit)) * conf.auctionDepositMultipler;
+            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
+                * conf.auctionDepositMultipler;
             bid.feePerGas = 9;
             // Make a valid bid
-            if(
-                blockId == 1 
-                || 
-                blockId % conf.auctionBatchSize == (conf.auctionWindow)) // Bid at 'edge/end' of the batch because otherwise hard to test decouple propose with prove. (Will test that in a separate file)
-            {
+            if (
+                blockId == 1
+                    || blockId % conf.auctionBatchSize == (conf.auctionWindow) // Bid
+                    // at 'edge/end' of the batch because otherwise hard to test
+                    // decouple propose with prove. (Will test that in a
+                    // separate file)
+            ) {
                 bidForBatchAndRollTime(Bob, batchId, bid);
                 batchId++;
             }
-            // This proof cannot be verified obviously because of blockhash:blockId
+            // This proof cannot be verified obviously because of
+            // blockhash:blockId
             proveBlock(
                 Bob,
                 Bob,
@@ -271,10 +279,9 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 signalRoot
             );
 
-            vm.warp(block.timestamp + conf.proofCooldownPeriod+1);
+            vm.warp(block.timestamp + conf.proofCooldownPeriod + 1);
             uint256 lastVerifiedBlockId =
-            L1.getStateVariables().lastVerifiedBlockId;
-
+                L1.getStateVariables().lastVerifiedBlockId;
 
             verifyBlock(Carol, 1);
 
@@ -330,14 +337,17 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             bytes32 signalRoot = bytes32(1e9 + blockId);
             // Submit an auction and wait till won
             bid.proofWindow = 10 minutes;
-            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit)) * conf.auctionDepositMultipler;
+            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
+                * conf.auctionDepositMultipler;
             bid.feePerGas = 9;
             // Make a valid bid
-            if(
-                blockId == 1 
-                || 
-                blockId % conf.auctionBatchSize == (conf.auctionWindow)) // Bid at 'edge/end' of the batch because otherwise hard to test decouple propose with prove. (Will test that in a separate file)
-            {
+            if (
+                blockId == 1
+                    || blockId % conf.auctionBatchSize == (conf.auctionWindow) // Bid
+                    // at 'edge/end' of the batch because otherwise hard to test
+                    // decouple propose with prove. (Will test that in a
+                    // separate file)
+            ) {
                 bidForBatchAndRollTime(Bob, batchId, bid);
                 batchId++;
             }
@@ -414,14 +424,17 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             bytes32 signalRoot = bytes32(1e9 + blockId);
             // Submit an auction and wait till won
             bid.proofWindow = 10 minutes;
-            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit)) * conf.auctionDepositMultipler;
+            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
+                * conf.auctionDepositMultipler;
             bid.feePerGas = 1;
             // Make a valid bid
-            if(
-                blockId == 1 
-                || 
-                blockId % conf.auctionBatchSize == (conf.auctionWindow)) // Bid at 'edge/end' of the batch because otherwise hard to test decouple propose with prove. (Will test that in a separate file)
-            {
+            if (
+                blockId == 1
+                    || blockId % conf.auctionBatchSize == (conf.auctionWindow) // Bid
+                    // at 'edge/end' of the batch because otherwise hard to test
+                    // decouple propose with prove. (Will test that in a
+                    // separate file)
+            ) {
                 bidForBatchAndRollTime(Bob, batchId, bid);
                 batchId++;
             }
@@ -451,10 +464,8 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             assertEq(lastVerifiedBlockIdNow, lastVerifiedBlockId);
 
             // Then roll into the future to be proveable
-            (, TaikoData.Auction[] memory auctions) = L1.getAuctions(
-                batchId-1,
-                1
-            );
+            (, TaikoData.Auction[] memory auctions) =
+                L1.getAuctions(batchId - 1, 1);
 
             vm.warp(block.timestamp + auctions[0].bid.proofWindow + 1);
             vm.roll(block.number + 100);
@@ -516,14 +527,17 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             bytes32 signalRoot = bytes32(1e9 + blockId);
             // Submit an auction and wait till won
             bid.proofWindow = 10 minutes;
-            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit)) * conf.auctionDepositMultipler;
+            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
+                * conf.auctionDepositMultipler;
             bid.feePerGas = 9;
             // Make a valid bid
-            if(
-                blockId == 1 
-                || 
-                blockId % conf.auctionBatchSize == (conf.auctionWindow)) // Bid at 'edge/end' of the batch because otherwise hard to test decouple propose with prove. (Will test that in a separate file)
-            {
+            if (
+                blockId == 1
+                    || blockId % conf.auctionBatchSize == (conf.auctionWindow) // Bid
+                    // at 'edge/end' of the batch because otherwise hard to test
+                    // decouple propose with prove. (Will test that in a
+                    // separate file)
+            ) {
                 bidForBatchAndRollTime(Bob, batchId, bid);
                 batchId++;
             }
@@ -590,14 +604,17 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             bytes32 signalRoot = bytes32(1e9 + blockId);
             // Submit an auction and wait till won
             bid.proofWindow = 10 minutes;
-            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit)) * conf.auctionDepositMultipler;
+            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
+                * conf.auctionDepositMultipler;
             bid.feePerGas = 9;
             // Make a valid bid
-            if(
-                blockId == 1 
-                || 
-                blockId % conf.auctionBatchSize == (conf.auctionWindow)) // Bid at 'edge/end' of the batch because otherwise hard to test decouple propose with prove. (Will test that in a separate file)
-            {
+            if (
+                blockId == 1
+                    || blockId % conf.auctionBatchSize == (conf.auctionWindow) // Bid
+                    // at 'edge/end' of the batch because otherwise hard to test
+                    // decouple propose with prove. (Will test that in a
+                    // separate file)
+            ) {
                 bidForBatchAndRollTime(Carol, batchId, bid);
                 batchId++;
             }
@@ -699,14 +716,17 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             bytes32 signalRoot = bytes32(1e9 + blockId);
             // Submit an auction and wait till won
             bid.proofWindow = 10 minutes;
-            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit)) * conf.auctionDepositMultipler;
+            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
+                * conf.auctionDepositMultipler;
             bid.feePerGas = 9;
             // Make a valid bid
-            if(
-                blockId == 1 
-                || 
-                blockId % conf.auctionBatchSize == (conf.auctionWindow)) // Bid at 'edge/end' of the batch because otherwise hard to test decouple propose with prove. (Will test that in a separate file)
-            {
+            if (
+                blockId == 1
+                    || blockId % conf.auctionBatchSize == (conf.auctionWindow) // Bid
+                    // at 'edge/end' of the batch because otherwise hard to test
+                    // decouple propose with prove. (Will test that in a
+                    // separate file)
+            ) {
                 bidForBatchAndRollTime(Bob, batchId, bid);
                 batchId++;
             }
@@ -725,10 +745,8 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             uint256 lastVerifiedBlockId =
                 L1.getStateVariables().lastVerifiedBlockId;
             // Then roll into the future to be proveable
-            (, TaikoData.Auction[] memory auctions) = L1.getAuctions(
-                batchId-1,
-                1
-            );
+            (, TaikoData.Auction[] memory auctions) =
+                L1.getAuctions(batchId - 1, 1);
             vm.warp(block.timestamp + auctions[0].bid.proofWindow + 1);
             vm.roll(block.number + 100);
             // Carol could not overwrite it

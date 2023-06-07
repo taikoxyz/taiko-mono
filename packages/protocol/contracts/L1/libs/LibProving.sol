@@ -27,6 +27,7 @@ library LibProving {
 
     error L1_ALREADY_PROVEN();
     error L1_BLOCK_ID();
+    error L1_BLOCK_NOT_EXIST();
     error L1_EVIDENCE_MISMATCH(bytes32 expected, bytes32 actual);
     error L1_FORK_CHOICE_NOT_FOUND();
     error L1_INVALID_EVIDENCE();
@@ -79,6 +80,8 @@ library LibProving {
 
         TaikoData.Block storage blk =
             state.blocks[blockId % config.blockRingBufferSize];
+
+        if (blk.blockId != blockId) revert L1_BLOCK_NOT_EXIST();
 
         // Check the metadata hash matches the proposed block's. This is
         // necessary to handle chain reorgs.
@@ -160,6 +163,8 @@ library LibProving {
             }
         } else if (evidence.prover == address(0)) {
             // This is the branch the oracle prover is trying to overwrite
+            // We need to check the previous proof is not the same as the
+            // new proof
             fc = blk.forkChoices[fcId];
             if (
                 fc.blockHash == evidence.blockHash
@@ -169,10 +174,14 @@ library LibProving {
         } else {
             // This is the branch provers trying to overwrite
             fc = blk.forkChoices[fcId];
+
+            // Only oracle proof and system proof can be overwritten
+            // by regular proof
             if (fc.prover != address(0) && fc.prover != address(1)) {
                 revert L1_ALREADY_PROVEN();
             }
 
+            // The regular proof must be the same as the oracle/system proof
             if (
                 fc.blockHash != evidence.blockHash
                     || fc.signalRoot != evidence.signalRoot

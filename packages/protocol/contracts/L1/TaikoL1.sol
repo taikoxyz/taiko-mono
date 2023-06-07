@@ -305,13 +305,7 @@ contract TaikoL1 is
         return LibAuction.batchForBlock(getConfig(), blockId);
     }
 
-    function isBatchAuctionable(
-        uint256 batchId
-    )
-        public
-        view
-        returns (bool)
-    {
+    function isBatchAuctionable(uint256 batchId) public view returns (bool) {
         return LibAuction.isBatchAuctionable(state, getConfig(), batchId);
     }
 

@@ -122,7 +122,9 @@ contract DeployOnL1 is Script {
             address(taikoL1),
             bytes.concat(
                 taikoL1.init.selector,
-                abi.encode(addressManagerProxy, genesisHash, feePerGas, proofWindow)
+                abi.encode(
+                    addressManagerProxy, genesisHash, feePerGas, proofWindow
+                )
             )
         );
         setAddress("taiko", taikoL1Proxy);

@@ -238,13 +238,13 @@ library LibVerifying {
                 state.taikoTokenBalances[auction.bid.prover] +=
                     auction.bid.deposit;
             } else {
-                // During the deposit we already burnt it. So it is rather minting.
+                // During the deposit we already burnt it. So it is rather
+                // minting.
                 uint64 amountToDeduct = rewardProver // dedcut all or half
                     ? auction.bid.deposit / 2
                     : auction.bid.deposit;
 
-                state.taikoTokenBalances[auction.bid.prover] -=
-                    amountToDeduct;
+                state.taikoTokenBalances[auction.bid.prover] -= amountToDeduct;
             }
         }
 

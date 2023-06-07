@@ -76,14 +76,17 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32 signalRoot = bytes32(1e9 + blockId);
             // Submit an auction and wait till won
             bid.proofWindow = 10 minutes;
-            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit)) * conf.auctionDepositMultipler;
+            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
+                * conf.auctionDepositMultipler;
             bid.feePerGas = 9;
             // Make a valid bid
-            if(
-                blockId == 1 
-                || 
-                blockId % conf.auctionBatchSize == (conf.auctionWindow)) // Bid at 'edge/end' of the batch because otherwise hard to test decouple propose with prove. (Will test that in a separate file)
-            {
+            if (
+                blockId == 1
+                    || blockId % conf.auctionBatchSize == (conf.auctionWindow) // Bid
+                    // at 'edge/end' of the batch because otherwise hard to test
+                    // decouple propose with prove. (Will test that in a
+                    // separate file)
+            ) {
                 bidForBatchAndRollTime(Bob, batchId, bid);
                 batchId++;
             }
@@ -127,18 +130,18 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
-            
+
             // Submit an auction and wait till won
             bid.proofWindow = 10 minutes;
-            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit)) * conf.auctionDepositMultipler;
+            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
+                * conf.auctionDepositMultipler;
             bid.feePerGas = 9;
 
             // Make a valid bid
-            if(
-                blockId == 1 
-                || 
-                blockId % conf.auctionBatchSize == (conf.auctionWindow))
-            {
+            if (
+                blockId == 1
+                    || blockId % conf.auctionBatchSize == (conf.auctionWindow)
+            ) {
                 bidForBatchAndRollTime(Bob, batchId, bid);
                 batchId++;
             }
@@ -185,15 +188,15 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32 signalRoot = bytes32(1e9 + blockId);
             // Submit an auction
             bid.proofWindow = 10 minutes;
-            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit)) * conf.auctionDepositMultipler;
+            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
+                * conf.auctionDepositMultipler;
             bid.feePerGas = 9;
 
             // Make a valid bid
-            if(
-                blockId == 1 
-                || 
-                blockId % conf.auctionBatchSize == (conf.auctionWindow))
-            {
+            if (
+                blockId == 1
+                    || blockId % conf.auctionBatchSize == (conf.auctionWindow)
+            ) {
                 bidForBatchAndRollTime(Bob, batchId, bid);
                 batchId++;
             }
@@ -317,15 +320,15 @@ contract TaikoL1Test is TaikoL1TestBase {
             signalRoot = bytes32(1e9 + blockId);
             // Submit an auction
             bid.proofWindow = 10 minutes;
-            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit)) * conf.auctionDepositMultipler;
+            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
+                * conf.auctionDepositMultipler;
             bid.feePerGas = 9;
 
             // Make a valid bid
-            if(
-                blockId == 1 
-                || 
-                blockId % conf.auctionBatchSize == (conf.auctionWindow))
-            {
+            if (
+                blockId == 1
+                    || blockId % conf.auctionBatchSize == (conf.auctionWindow)
+            ) {
                 bidForBatchAndRollTime(Bob, batchId, bid);
                 batchId++;
             }
