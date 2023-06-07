@@ -31,13 +31,13 @@ The `driver` serves as an L2 consensus client. It listens for new L2 blocks from
 
 ### `proposer`
 
-The `proposer` proposes new transactions from the L2 execution engine's transaction pool to the `TaikoL1` protocol contract.
+The `proposer` fetches pending transactions from the L2 execution engine's mempool intervally pool, then tries to propose them to the `TaikoL1` protocol contract.
 
 ### `prover`
 
 The `prover` requests validity proofs from the ZK-EVM and sends transactions to prove the proposed blocks are valid or invalid.
 
-#### Chain synchronization process
+## Chain synchronization process
 
 <Callout type="info" emoji="ℹ️">
 The Taiko protocol allows a block's timestamp to be equal to its parent block's timestamp, which differs from the original Ethereum protocol. So it's fine that there are two `TaikoL1.proposeBlock` transactions included in one L1 block.
@@ -61,8 +61,7 @@ If the `txList` is **valid**, the driver:
 
 If the `txList` is **invalid**, the driver:
 
-1. Creates a `TaikoL2.invalidateBlock` transaction and then assembles an L2 block including only this transaction.
-2. Directs the L2 execution engine to insert this block, but does not set it as the chain's head via the Engine API.
+1. Assembles an empty L2 block with only the anchor transaction.
 
 <Callout type="info" emoji="ℹ️">
 Read more about block metadata [here](https://taiko.xyz/docs/concepts/creating-taiko-blocks/intrinsic-validity-functions) or see `5.2.2 Block Metadata` in the [whitepaper](https://taikoxyz.github.io/taiko-mono/taiko-whitepaper.pdf).
@@ -71,35 +70,15 @@ Read more about `txList` validation rules [here](https://taiko.xyz/docs/concepts
 
 Read more about the `TaikoL2.anchor` transaction and proposed block's determination [here](https://taiko.xyz/docs/concepts/creating-taiko-blocks/anchor-transaction) or see `5.4.1 Construction of Anchor Transactions` in the [whitepaper](https://taikoxyz.github.io/taiko-mono/taiko-whitepaper.pdf).
 </Callout>
-  
-### Proposer
 
-Taiko client's `proposer` software fetches pending transactions in a L2 execution engine's mempool intervally, then tries to propose them to the Taiko L1 protocol contract.
-
-#### Proposing strategy
-
-Since tokenomics have not been fully implemented in the Taiko protocol, the current proposing strategy is simply based on time interval.
-
-#### Proposing process
+## Proposing process (in depth)
 To propose a block, the `proposer`:
 
 1. Fetches the pending transactions from the L2 execution engine through the `txpool_content` RPC method.
 2. If there are too many pending transactions in the L2 execution engine, splits them into several smaller `txLists`. This is because the Taiko protocol restricts the max size of each proposed `txList`.
-3. Commits hashes of the `txLists` by sending `TaikoL1.commitBlock` transactions to L1.
-4. Waits for `TaikoData.Config.commitConfirmations` (currently `0`) L1 blocks confirmations.
-5. Proposes all splitted `txLists` by sending `TaikoL1.proposeBlock` transactions.
+3. Proposes all splitted `txLists` by sending `TaikoL1.proposeBlock` transactions.
 
-<Callout type="info" emoji="ℹ️">
-Read more about proposing blocks on Taiko [here](https://taiko.xyz/docs/concepts/creating-taiko-blocks/proposing-blocks) or see `5.2 Proposing Blocks` in the [whitepaper](https://taikoxyz.github.io/taiko-mono/taiko-whitepaper.pdf).
-</Callout>
-
-### Prover
-
-#### Proving strategy
-
-Since tokenomics have not been fully implemented in the Taiko protocol, the `prover` software currently proves all proposed blocks.
-
-#### Proving process
+## Proving process (in depth)
 
 When a new block is proposed, the `prover`:
 
@@ -107,15 +86,10 @@ When a new block is proposed, the `prover`:
 2. Waits until the corresponding block is inserted by the L2 execution engine's `driver` software.
 3. Generates a validity proof for that block asynchronously.
 
-If the proposed block has a **valid** `txList`, the `prover`:
+If the proposed block has a **valid** or **invalid** `txList`, the `prover`:
 
 1. Generates a Merkle proof of the block's `TaikoL2.anchor` transaction to prove its existence in the `block.txRoot`'s [MPT](https://ethereum.org/en/developers/docs/data-structures-and-encoding/patricia-merkle-trie/) and this transaction receipt's [Merkle proof](https://rollup-glossary.vercel.app/other-terms#merkle-proofs) in the `block.receiptRoot`'s MPT from the L2 execution engine.
-2. Submits the `TaikoL2.anchor` transaction's RLP encoded bytes, its receipt's RLP encoded bytes, the generated Merkle proofs, and a validity proof to prove this block **valid** by sending a `TaikoL1.proveBlock` transaction.
-
-If the proposed block has an **invalid** `txList`, the `prover`:
-
-1. Generates a Merkle proof of the block's `TaikoL2.invalidateBlock` transaction receipt to prove its existence in the `block.receiptRoot`'s MPT from the L2 execution engine.
-2. Submits the `TaikoL2.invalidateBlock` transaction receipt's RLP encoded bytes, the generated Merkle proof, and a validity proof to prove this block **invalid**, by sending a `TaikoL1.proveBlockInvalid` transaction.
+2. Submits the `TaikoL2.anchor` transaction's RLP encoded bytes, its receipt's RLP encoded bytes, the generated Merkle proofs, and a validity proof to prove this block **valid** by sending a `TaikoL1.proveBlock` transaction (the block is valid even for an invalid `txList` because we prove the invalid `txList` maps to an empty block with only the anchor transaction).
 
 <Callout type="info" emoji="ℹ️">
 Read more about why we need these Merkle proofs when proving in `5.5 Proving Blocks` in the [whitepaper](https://taikoxyz.github.io/taiko-mono/taiko-whitepaper.pdf).
