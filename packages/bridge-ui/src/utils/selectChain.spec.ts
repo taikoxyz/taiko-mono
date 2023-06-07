@@ -2,7 +2,7 @@ import { switchNetwork } from '@wagmi/core';
 import { ethers } from 'ethers';
 
 import { mainnetChain, taikoChain } from '../chain/chains';
-import { destChain,srcChain } from '../store/chain';
+import { destChain, srcChain } from '../store/chain';
 import { signer } from '../store/signer';
 import { selectChain } from './selectChain';
 
@@ -64,7 +64,7 @@ describe('selectChain', () => {
 
     expect(ethers.providers.Web3Provider.prototype.send).toHaveBeenCalledWith(
       'eth_requestAccounts',
-      [],
+      undefined,
     );
 
     // By default the signer is not updated as
