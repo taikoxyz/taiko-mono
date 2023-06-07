@@ -28,6 +28,7 @@
   import { getLogger } from '../../utils/logger';
   import { truncateString } from '../../utils/truncateString';
   import { tokenVaults } from '../../vault/tokenVaults';
+  import AddTokenToWallet from '../AddTokenToWallet.svelte';
   import {
     errorToast,
     successToast,
@@ -61,8 +62,7 @@
   let feeMethod: ProcessingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
   let feeAmount: string = '0';
 
-  // TODO: too much going on here. We need to extract
-  //       logic and unit test the hell out of all this.
+  let showAddToWallet: boolean = false;
 
   async function updateTokenBalance(signer: Signer, token: Token) {
     if (signer && token) {
@@ -135,10 +135,14 @@
       signer,
     );
 
-    log(`Checking allowance for token ${token.symbol}`);
+    const parsedAmount = ethers.utils.parseUnits(amount, token.decimals);
+
+    log(
+      `Checking allowance for token ${token.symbol} and amount ${parsedAmount}`,
+    );
 
     const isRequired = await $activeBridge.requiresAllowance({
-      amountInWei: ethers.utils.parseUnits(amount, token.decimals),
+      amount: parsedAmount,
       signer: signer,
       contractAddress: address,
       spenderAddress: tokenVaults[srcChain.id],
@@ -201,11 +205,12 @@
       );
 
       const spenderAddress = tokenVaults[$srcChain.id];
+      const parsedAmount = ethers.utils.parseUnits(amount, _token.decimals);
 
       log(`Approving token ${_token.symbol}`);
 
       const tx = await $activeBridge.approve({
-        amountInWei: ethers.utils.parseUnits(amount, _token.decimals),
+        amount: parsedAmount,
         signer: $signer,
         contractAddress,
         spenderAddress,
@@ -253,7 +258,7 @@
     const gasEstimate = await $activeBridge.estimateGas({
       ...bridgeOpts,
       // We need an amount, and user might not have entered one at this point
-      amountInWei: BigNumber.from(1),
+      amount: BigNumber.from(1),
     });
 
     const feeData = await fetchFeeData();
@@ -296,7 +301,7 @@
         return;
       }
 
-      const amountInWei = ethers.utils.parseUnits(amount, _token.decimals);
+      const parsedAmount = ethers.utils.parseUnits(amount, _token.decimals);
 
       const provider = providers[$destChain.id];
       const destTokenVaultAddress = tokenVaults[$destChain.id];
@@ -322,7 +327,7 @@
       );
 
       const bridgeOpts: BridgeOpts = {
-        amountInWei,
+        amount: parsedAmount,
         signer: $signer,
         tokenAddress,
         srcChainId: $srcChain.id,
@@ -368,7 +373,7 @@
         srcChainId: $srcChain.id,
         destChainId: $destChain.id,
         symbol: _token.symbol,
-        amountInWei,
+        amount: parsedAmount,
         from: tx.from,
         hash: tx.hash,
         status: MessageStatus.New,
@@ -443,28 +448,40 @@
     if (isETH($token)) {
       try {
         const feeData = await fetchFeeData();
+        const processingFeeInWei = getProcessingFee();
+
+        const bridgeAddress = chains[$srcChain.id].bridgeAddress;
+        const toAddress = showTo && to ? to : await $signer.getAddress();
+
+        // Won't be used in ETHBridge.estimateGas()
+        // TODO: different arguments depending on the type of bridge
+        const tokenVaultAddress = '0x00';
+        const tokenAddress = '0x00';
+
+        // Whatever amount just to get an estimation
+        const bnAmount = BigNumber.from(1);
+
         const gasEstimate = await $activeBridge.estimateGas({
-          amountInWei: BigNumber.from(1),
+          memo,
+          tokenAddress,
+          bridgeAddress,
+          tokenVaultAddress,
+          processingFeeInWei,
+          to: toAddress,
           signer: $signer,
-          tokenAddress: await getAddressForToken(
-            $token,
-            $srcChain,
-            $destChain,
-            $signer,
-          ),
+          amount: bnAmount,
           srcChainId: $srcChain.id,
           destChainId: $destChain.id,
-          tokenVaultAddress: tokenVaults[$srcChain.id],
-          processingFeeInWei: getProcessingFee(),
-          memo: memo,
-          to: showTo && to ? to : await $signer.getAddress(),
         });
 
         const requiredGas = gasEstimate.mul(feeData.gasPrice);
         const userBalance = await $signer.getBalance('latest');
-        const processingFee = getProcessingFee();
+
+        // Let's start with substracting the estimated required gas to bridge
         let balanceAvailableForTx = userBalance.sub(requiredGas);
 
+        // Following we substract the currently selected processing fee
+        const processingFee = getProcessingFee();
         if (processingFee) {
           balanceAvailableForTx = balanceAvailableForTx.sub(processingFee);
         }
@@ -474,7 +491,8 @@
         console.error(error);
 
         // In case of error default to using the full amount of ETH available.
-        // The user would still not be able to make the restriction and will have to manually set the amount.
+        // The user would still not be able to make the restriction and will have to
+        // manually set the amount.
         amount = tokenBalance.toString();
       }
     } else {
@@ -493,6 +511,10 @@
   function updateAmount(event: Event) {
     const target = event.target as HTMLInputElement;
     amount = target.value;
+  }
+
+  function toggleShowAddTokenToWallet(token: Token) {
+    showAddToWallet = token.symbol !== 'ETH';
   }
 
   $: updateTokenBalance($signer, $token).finally(() => {
@@ -521,6 +543,8 @@
     });
 
   $: amountEntered = Boolean(amount);
+
+  $: toggleShowAddTokenToWallet($token);
 </script>
 
 <div class="space-y-6 md:space-y-4">
@@ -543,6 +567,10 @@
             on:click={useFullAmount}>
             {$_('bridgeForm.maxLabel')}
           </button>
+
+          {#if showAddToWallet}
+            <AddTokenToWallet />
+          {/if}
         </div>
       {/if}
     </label>

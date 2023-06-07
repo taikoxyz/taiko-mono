@@ -25,6 +25,8 @@ export const TKOToken: Token = {
   },
   decimals: 18,
   symbol: 'TKO',
+  logoUrl:
+    'https://github.com/taikoxyz/taiko-mono/tree/main/packages/branding/testnet-token-images/ttko.svg',
   logoComponent: Tko,
 };
 
@@ -35,7 +37,7 @@ const symbolToLogoComponent = {
 };
 
 export const testERC20Tokens: Token[] = TEST_ERC20.map(
-  ({ name, address, symbol }) => ({
+  ({ name, address, symbol, logoUrl }) => ({
     name,
     symbol,
 
@@ -45,6 +47,7 @@ export const testERC20Tokens: Token[] = TEST_ERC20.map(
     },
     decimals: 18,
     logoComponent: symbolToLogoComponent[symbol] || Unknown,
+    logoUrl: logoUrl,
   }),
 );
 
