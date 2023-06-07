@@ -83,7 +83,6 @@ library LibProving {
 
         if (!provable) revert L1_NOT_PROVEABLE();
 
-
         // Check the metadata hash matches the proposed block's. This is
         // necessary to handle chain reorgs.
         if (blk.metaHash != evidence.metaHash) {
