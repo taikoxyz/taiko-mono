@@ -7,7 +7,6 @@ import { Callout, Steps, Tab, Tabs } from "nextra-theme-docs";
 This guide will walk you through the process of operating a Taiko node via [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node). You will be able to:
 
 - Run a Taiko node easily from the command line on Windows, Mac, and Linux.
-- Run a Taiko node regularly or as a prover.
 - View a [Grafana](https://grafana.com/) dashboard which displays the node's status.
 
 ## Prerequisites
@@ -65,6 +64,11 @@ Finally, set the following environment variables:
   [Alchemy](https://www.alchemy.com/) and [Infura](https://www.infura.io/) are two popular RPC providers. **Make sure you select the RPC as Sepolia testnet, and not Ethereum mainnet**.
 </Callout>
 
+### Enable your node as a proposer (optional)
+
+See [enable a proposer](/docs/guides/enable-a-proposer) for more information.
+
+
 ### Enable your node as a prover (optional)
 
 See [enable a prover](/docs/guides/enable-a-prover) for more information.
@@ -116,35 +120,43 @@ docker compose pull
 
 To view the Docker logs, the following commands can be ran:
 
-###### View all logs
+#### View all logs
 
 ```sh
 docker compose logs -f
 ```
 
-###### View the prover image's logs
+#### View the proposer image's logs
+
+```sh
+docker compose logs -f taiko_client_proposer
+```
+
+#### View the prover image's logs
 
 ```sh
 docker compose logs -f taiko_client_prover_relayer
 ```
 
-###### View the L2 execution engine logs
+#### View the L2 execution engine logs
 
 ```sh
 docker compose logs -f l2_execution_engine
 ```
 
-###### View the live data streams of your running containers
+#### View the live data streams of your running containers
 This shows the CPU/MEM USAGE % and consumption of your machine's resources (add prefix "`docker stats -a`" to display all containers)
 ```sh
 docker stats
 ```
 
-### View the node's status dashboard
+### View the node's status dashboard  
 
-A [Grafana](https://grafana.com/) dashboard with a [Prometheus](https://prometheus.io/) datasource is also included to display the L2 execution engine's real time status. You can visit it at [http://localhost:3000/d/L2ExecutionEngine/l2-execution-engine-overview?orgId=1&refresh=10s](http://localhost:3000/d/L2ExecutionEngine/l2-execution-engine-overview?orgId=1&refresh=10s).
+A [Grafana](https://grafana.com/) dashboard with a [Prometheus](https://prometheus.io/) datasource is also included to display the L2 execution engine's real time status.
 
-{" "}
+You can visit it at [http://localhost:3000/d/L2ExecutionEngine/l2-execution-engine-overview](http://localhost:3000/d/L2ExecutionEngine/l2-execution-engine-overview).
+
+<br/>
 
 <img
   width="2556"
@@ -161,7 +173,7 @@ You can ignore any WARN logs.
 
 ### Node error logs
 
-#### `error: L1_ID`
+#### `error: L1_BLOCK_ID`
 The block that you want to prove has already been verified, you can ignore this.
 
 #### `error: L1_ALREADY_PROVEN`

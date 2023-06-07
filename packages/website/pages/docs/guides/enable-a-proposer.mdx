@@ -13,7 +13,7 @@ This guide will help you enable your Taiko node as a proposer.
 ## Prerequisites
 
 - You have already setup a node (see: [Run a node](/docs/guides/run-a-node))
-- Must have a balance of TTKO (see: [Receive tokens](/docs/guides/receive-tokens#receive-ttko))
+- Must have a balance of ETH and TTKO on Sepolia (see: [Receive tokens](/docs/guides/receive-tokens)).
 
 ## Steps
 
@@ -42,7 +42,7 @@ Click `Write` and confirm the transaction in your wallet.
 Open the `.env` file in the `simple-taiko-node` directory.
 
 ### Set environment variables to enable a proposer
-Set the following environment variables to enable your node as a prover: 
+Set the following environment variables to enable your node as a proposer: 
     - Set `ENABLE_PROPOSER` to `true` (replacing the default `false` with `true`). 
     - Set `L1_PROPOSER_PRIVATE_KEY` to that of your wallet's private key; it will need some TTKO on Sepolia to propose blocks (if using MetaMask, follow these directions to [retrieve the private key](https://metamask.zendesk.com/hc/en-us/articles/360015289632-How-to-export-an-account-s-private-key)).
     - Set `L2_SUGGESTED_FEE_RECIPIENT` to the recipient of L2 ETH rewards.
