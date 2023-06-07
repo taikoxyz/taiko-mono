@@ -10,7 +10,7 @@ This guide will help you deploy a smart contract to Taiko using Foundry or Hardh
 
 - You have [Foundry](https://book.getfoundry.sh/getting-started/installation) or [Hardhat](https://hardhat.org/hardhat-runner/docs/getting-started#quick-start) installed.
 - You have testnet ETH on Taiko (to pay the transaction fee for deploying the contract).
-   - You can [request Sepolia ETH](/docs/guides/receive-tokens) from the faucet and then [use the bridge](/docs/guides/use-the-bridge) to send the testnet ETH to Taiko.
+   - You can [request Sepolia ETH](/docs/guides/receive-tokens#receive-sepolia-eth) from the faucet and then [use the bridge](/docs/guides/use-the-bridge) to send the testnet ETH to Taiko.
 - You have the private key to the account with testnet ETH on Taiko.
 
 ### Additional Remix prerequisites
@@ -48,6 +48,12 @@ This guide will help you deploy a smart contract to Taiko using Foundry or Hardh
       ```
 
       ### Add Taiko to your Hardhat config
+      <Callout type="warning">
+      For the `accounts` array, you will need to enter the private key of the account you are deploying the contract with. It is **not recommended** to hardcode the private key like this (an environment variable would be better, but is still risky).
+
+      Use a throwaway wallet to be safe. Don't reveal the private key of a wallet with significant value!
+      </Callout>
+
       ```ts {6-13} filename=hardhat.config.ts
       import { HardhatUserConfig } from "hardhat/config";
       import "@nomicfoundation/hardhat-toolbox";
