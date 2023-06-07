@@ -28,7 +28,7 @@
   import { getLogger } from '../../utils/logger';
   import { truncateString } from '../../utils/truncateString';
   import { tokenVaults } from '../../vault/tokenVaults';
-  import AddTokenToWallet from '../AddTokenToWallet.svelte';
+  import AddTokenToWallet from './AddTokenToWallet.svelte';
   import {
     errorToast,
     successToast,

@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { L1_CHAIN_ID } from '../constants/envVars';
-  import type { Token } from '../domain/token';
-  import { token } from '../store/token';
-  import { errorCodes, rpcCall } from '../utils/rpcCall';
-  import MetaMask from './icons/MetaMask.svelte';
-  import { errorToast, warningToast } from './NotificationToast.svelte';
+  import { L1_CHAIN_ID } from '../../constants/envVars';
+  import type { Token } from '../../domain/token';
+  import { token } from '../../store/token';
+  import { errorCodes, rpcCall } from '../../utils/rpcCall';
+  import MetaMask from '../icons/MetaMask.svelte';
+  import { errorToast, warningToast } from '../NotificationToast.svelte';
 
   async function addTokenToWallet(customToken: Token) {
     if (!customToken) {
@@ -40,8 +40,6 @@
   }
 </script>
 
-<button
-  on:click={() => addTokenToWallet($token)}
-  title="Add token to MetaMask wallet">
+<button on:click={() => addTokenToWallet($token)} title="Add token to wallet">
   <MetaMask width={20} />
 </button>
