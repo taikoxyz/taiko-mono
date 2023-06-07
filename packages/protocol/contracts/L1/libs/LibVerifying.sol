@@ -138,7 +138,6 @@ library LibVerifying {
             _markBlockVerified({
                 state: state,
                 config: config,
-                resolver: resolver,
                 blk: blk,
                 fcId: uint24(fcId),
                 fc: fc
@@ -173,7 +172,6 @@ library LibVerifying {
     function _markBlockVerified(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        AddressResolver resolver,
         TaikoData.Block storage blk,
         TaikoData.ForkChoice storage fc,
         uint24 fcId

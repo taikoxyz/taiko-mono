@@ -725,7 +725,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             uint256 lastVerifiedBlockId =
                 L1.getStateVariables().lastVerifiedBlockId;
             // Then roll into the future to be proveable
-            (uint256 currentTime, TaikoData.Auction[] memory auctions) = L1.getAuctions(
+            (, TaikoData.Auction[] memory auctions) = L1.getAuctions(
                 batchId-1,
                 1
             );

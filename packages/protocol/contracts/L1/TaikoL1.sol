@@ -305,6 +305,27 @@ contract TaikoL1 is
         return LibAuction.batchForBlock(getConfig(), blockId);
     }
 
+    function isBatchAuctionable(
+        uint256 batchId
+    )
+        public
+        view
+        returns (bool)
+    {
+        return LibAuction.isBatchAuctionable(state, getConfig(), batchId);
+    }
+
+    function isBlockProvableBy(
+        uint256 blockId,
+        address prover
+    )
+        public
+        view
+        returns (bool, TaikoData.Auction memory)
+    {
+        return LibAuction.isBlockProvableBy(state, getConfig(), blockId, prover);
+    }
+
     function isBidBetter(
         TaikoData.Bid memory newBid,
         TaikoData.Bid memory oldBid

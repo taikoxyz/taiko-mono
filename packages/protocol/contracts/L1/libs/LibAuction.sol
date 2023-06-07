@@ -47,7 +47,7 @@ library LibAuction {
             revert L1_BID_INVALID();
         }
 
-        if (!_isBatchAuctionable(state, config, batchId)) {
+        if (!isBatchAuctionable(state, config, batchId)) {
             revert L1_BATCH_NOT_AUCTIONABLE();
         }
 
@@ -194,15 +194,15 @@ library LibAuction {
             >= ONE * ONE * ONE * 110 / 100;
     }
 
-    // _isBatchAuctionable determines whether a new bid for a batch of blocks
+    // isBatchAuctionable determines whether a new bid for a batch of blocks
     // would be accepted or not. 'open ended' - so returns true if no bids came
     // yet
-    function _isBatchAuctionable(
+    function isBatchAuctionable(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint256 batchId
     )
-        private
+        internal
         view
         returns (bool result)
     {

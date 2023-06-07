@@ -187,7 +187,7 @@ abstract contract TaikoL1TestBase is Test {
         bidForBatch(msgSender, batchId, bid);
 
         // Then roll into the future to be proveable
-        (uint256 currentTime, TaikoData.Auction[] memory auctions) = L1.getAuctions(
+        (, TaikoData.Auction[] memory auctions) = L1.getAuctions(
             batchId,
             1
         );
