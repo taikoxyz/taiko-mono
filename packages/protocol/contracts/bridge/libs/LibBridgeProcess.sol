@@ -33,7 +33,8 @@ library LibBridgeProcess {
 
     /**
      * @notice Process the bridge message on the destination chain. It can be called by
-     * any address, including `message.owner`. It starts by hashing the message,
+     * any address, including `message.owner`.
+     * @dev It starts by hashing the message,
      * and doing a lookup in the bridge state to see if the status is "NEW". It
      * then takes custody of the ether from the EtherVault and attempts to
      * invoke the messageCall, changing the message's status accordingly.
