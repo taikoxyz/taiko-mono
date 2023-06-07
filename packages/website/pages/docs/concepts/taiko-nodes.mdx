@@ -1,32 +1,41 @@
 import { Callout } from 'nextra-theme-docs'
+import Image from "next/image";
 
 ## Overview
 
-Taiko nodes are minimally modified Ethereum execution clients that consist of two parts: `taiko-geth` and `taiko-client`. The two parts communicate with each other through the Engine API.
+Taiko nodes are minimally modified Ethereum [execution clients](https://ethereum.org/en/glossary/#execution-client) that consist of two parts:
+- [taiko-geth](https://github.com/taikoxyz/taiko-geth)
+- [taiko-client](https://github.com/taikoxyz/taiko-client)
 
-![taiko nodes diagram](/images/diagrams/concepts/taiko-nodes/taiko-nodes.png)
+You can think of it like an Ethereum mainnet node, except replacing the consensus client with `taiko-client`. `taiko-client` then drives `taiko-geth` over the [Engine API](https://github.com/ethereum/execution-apis/tree/main/src/engine). This is a modular design that allows easily plugging in other execution clients. 
 
-## Taiko geth
+<center>
+    <Image src="/images/diagrams/concepts/taiko-nodes/taiko-nodes.png" alt="taiko nodes diagram" width={400} height={400} />
+</center>
 
-The [taiko-geth](https://github.com/taikoxyz/taiko-geth) repository is a fork of [go-ethereum](https://github.com/ethereum/go-ethereum) with some changes made according to the Taiko protocol. In the Taiko network, `taiko-geth` is the `driver` software for the Taiko client.
+## taiko-geth
+
+The [taiko-geth](https://github.com/taikoxyz/taiko-geth) software is a fork of [go-ethereum](https://github.com/ethereum/go-ethereum) with some changes made according to the Taiko protocol.
 
 Like Ethereum mainnet execution engines, `taiko-geth` listens to new L2 transactions broadcasted in the L2 network, executes them in the EVM, and holds the latest state and database of all current L2 data.
 
-## Taiko client
+You can see all the changes made in the the `taiko-geth` fork at [geth.taiko.xyz](https://geth.taiko.xyz)!
 
-The compiled binary `bin/taiko-client` is the main entrypoint. It includes three sub-commands:
+## taiko-client
 
-- `driver`: keeps the L2 execution engine's chain in sync with the `TaikoL1` contract by directing the L2 [execution engine](https://ethereum.org/en/glossary/#execution-client).
-- [`proposer`](https://rollup-glossary.vercel.app/other-terms#proposer): proposes new transactions from the L2 execution engine's transaction pool to the `TaikoL1` contract.
-- [`prover`](https://rollup-glossary.vercel.app/other-terms#prover): requests [validity proofs](https://rollup-glossary.vercel.app/other-terms#validity-proof) from the [ZK-EVM](https://rollup-glossary.vercel.app/spicy-terms#zk-evm) and sends transactions to prove the proposed blocks are valid or invalid.
+The [taiko-client](https://github.com/taikoxyz/taiko-client) software replaces the consensus client piece of an Ethereum mainnet node. It connects to `taiko-geth`, and the compiled binary includes three sub-commands:
 
-### Driver
+### `driver`
 
-Taiko client's `driver` software serves as an L2 consensus client. It listens for new L2 blocks from the Taiko L1 protocol contract, then directs the connected L2 execution engine to insert them into its local chain through the Engine API.
+The `driver` serves as an L2 consensus client. It listens for new L2 blocks from the `TaikoL1` protocol contract, then directs the connected L2 execution engine to insert them or reorganize its local chain through the Engine API.
 
-#### Engine API
+### `proposer`
 
-Taiko client's `driver` directs an L2 execution engine to insert new blocks or reorganize the local chain through the [Engine API](https://github.com/ethereum/execution-apis/tree/main/src/engine).
+The `proposer` proposes new transactions from the L2 execution engine's transaction pool to the `TaikoL1` protocol contract.
+
+### `prover`
+
+The `prover` requests validity proofs from the ZK-EVM and sends transactions to prove the proposed blocks are valid or invalid.
 
 #### Chain synchronization process
 
