@@ -19,7 +19,8 @@ import {LibBridgeSend} from "./libs/LibBridgeSend.sol";
 import {LibBridgeStatus} from "./libs/LibBridgeStatus.sol";
 
 /**
- * Bridge contract which is deployed on both L1 and L2. Mostly a thin wrapper
+ * @title Bridge
+ * @notice This contract is a Bridge contract which is deployed on both L1 and L2. Mostly a thin wrapper
  * which calls the library implementations. See _IBridge_ for more details.
  * @dev The code hash for the same address on L1 and L2 may be different.
  * @custom:security-contact hello@taiko.xyz
@@ -27,15 +28,7 @@ import {LibBridgeStatus} from "./libs/LibBridgeStatus.sol";
 contract Bridge is EssentialContract, IBridge, BridgeErrors {
     using LibBridgeData for Message;
 
-    /*//////////////////////////////////////////////////////////////
-                            STATE VARIABLES
-    //////////////////////////////////////////////////////////////*/
-
     LibBridgeData.State private _state; // 50 slots reserved
-
-    /*//////////////////////////////////////////////////////////////
-                                 EVENTS
-    //////////////////////////////////////////////////////////////*/
 
     event MessageStatusChanged(
         bytes32 indexed msgHash, LibBridgeStatus.MessageStatus status, address transactor
@@ -43,11 +36,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
 
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
 
-    /*//////////////////////////////////////////////////////////////
-                         USER-FACING FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-
-    /// Allow Bridge to receive ETH from the TaikoL1, TokenVault or EtherVault.
+    /// @notice Allow Bridge to receive ETH from the TaikoL1, TokenVault or EtherVault.
     receive() external payable {
         if (
             msg.sender != resolve("token_vault", true) && msg.sender != resolve("ether_vault", true)
@@ -57,11 +46,21 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         }
     }
 
-    /// @dev Initializer to be called after being deployed behind a proxy.
+    /**
+     * @notice Initializer to be called after being deployed behind a proxy.
+     * @dev Initializer function to setup the EssentialContract.
+     * @param _addressManager The address of the AddressManager contract.
+     */
     function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
     }
 
+    /**
+     * @notice Sends a message from the current chain to the destination chain specified in the message.
+     * @dev Sends a message by calling the LibBridgeSend.sendMessage library function.
+     * @param message The message to send. (See IBridge)
+     * @return msgHash The hash of the message that was sent.
+     */
     function sendMessage(Message calldata message)
         external
         payable
@@ -75,6 +74,12 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
+    /**
+     * @notice Releases the Ether locked in the bridge as part of a cross-chain transfer.
+     * @dev Releases the Ether by calling the LibBridgeRelease.releaseEther library function.
+     * @param message The message containing the details of the Ether transfer. (See IBridge)
+     * @param proof The proof of the cross-chain transfer.
+     */
     function releaseEther(IBridge.Message calldata message, bytes calldata proof)
         external
         nonReentrant
@@ -87,6 +92,12 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
+    /**
+     * @notice Processes a message received from another chain.
+     * @dev Processes the message by calling the LibBridgeProcess.processMessage library function.
+     * @param message The message to process.
+     * @param proof The proof of the cross-chain transfer.
+     */
     function processMessage(Message calldata message, bytes calldata proof) external nonReentrant {
         return LibBridgeProcess.processMessage({
             state: _state,
@@ -96,6 +107,12 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
+    /**
+     * @notice Retries sending a message that previously failed to send.
+     * @dev Retries the message by calling the LibBridgeRetry.retryMessage library function.
+     * @param message The message to retry.
+     * @param isLastAttempt Specifies whether this is the last attempt to send the message.
+     */
     function retryMessage(Message calldata message, bool isLastAttempt) external nonReentrant {
         return LibBridgeRetry.retryMessage({
             state: _state,
@@ -105,10 +122,22 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
+    /**
+     * @notice Check if the message with the given hash has been sent.
+     * @param msgHash The hash of the message.
+     * @return Returns true if the message has been sent, false otherwise.
+     */
     function isMessageSent(bytes32 msgHash) public view virtual returns (bool) {
         return LibBridgeSend.isMessageSent(AddressResolver(this), msgHash);
     }
 
+    /**
+     * @notice Check if the message with the given hash has been received.
+     * @param msgHash The hash of the message.
+     * @param srcChainId The source chain ID.
+     * @param proof The proof of message receipt.
+     * @return Returns true if the message has been received, false otherwise.
+     */
     function isMessageReceived(bytes32 msgHash, uint256 srcChainId, bytes calldata proof)
         public
         view
@@ -124,6 +153,13 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
+    /**
+     * @notice Check if the message with the given hash has failed.
+     * @param msgHash The hash of the message.
+     * @param destChainId The destination chain ID.
+     * @param proof The proof of message failure.
+     * @return Returns true if the message has failed, false otherwise.
+     */
     function isMessageFailed(bytes32 msgHash, uint256 destChainId, bytes calldata proof)
         public
         view
@@ -139,6 +175,11 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
+    /**
+     * @notice Get the status of the message with the given hash.
+     * @param msgHash The hash of the message.
+     * @return Returns the status of the message.
+     */
     function getMessageStatus(bytes32 msgHash)
         public
         view
@@ -148,22 +189,47 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         return LibBridgeStatus.getMessageStatus(msgHash);
     }
 
+    /**
+     * @notice Get the current context
+     * @return Returns the current context.
+     */
     function context() public view returns (Context memory) {
         return _state.ctx;
     }
 
+    /**
+     * @notice Check if the Ether associated with the given message hash has been released.
+     * @param msgHash The hash of the message.
+     * @return Returns true if the Ether has been released, false otherwise.
+     */
     function isEtherReleased(bytes32 msgHash) public view returns (bool) {
         return _state.etherReleased[msgHash];
     }
+
+    /**
+     * @notice Check if the destination chain with the given ID is enabled.
+     * @param _chainId The ID of the chain.
+     * @return Returns true if the destination chain is enabled, false otherwise.
+     */
 
     function isDestChainEnabled(uint256 _chainId) public view returns (bool enabled) {
         (enabled,) = LibBridgeSend.isDestChainEnabled(AddressResolver(this), _chainId);
     }
 
+    /**
+     * @notice Compute the hash of a given message.
+     * @param message The message to compute the hash for.
+     * @return Returns the hash of the message.
+     */
     function hashMessage(Message calldata message) public pure override returns (bytes32) {
         return LibBridgeData.hashMessage(message);
     }
 
+    /**
+     * @notice Get the slot associated with a given message hash status.
+     * @param msgHash The hash of the message.
+     * @return Returns the slot associated with the given message hash status.
+     */
     function getMessageStatusSlot(bytes32 msgHash) public pure returns (bytes32) {
         return LibBridgeStatus.getMessageStatusSlot(msgHash);
     }
