@@ -10,6 +10,10 @@ import {IBridge} from "../IBridge.sol";
 import {LibAddress} from "../../libs/LibAddress.sol";
 import {LibBridgeData} from "./LibBridgeData.sol";
 
+/**
+ * @title Library for handling Bridge invocations
+ * @notice This library provides functions for handling message invocations on the Bridge.
+ */
 library LibBridgeInvoke {
     using LibAddress for address;
     using LibBridgeData for IBridge.Message;
