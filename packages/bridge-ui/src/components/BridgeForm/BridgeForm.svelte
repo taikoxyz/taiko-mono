@@ -28,13 +28,13 @@
   import { getLogger } from '../../utils/logger';
   import { truncateString } from '../../utils/truncateString';
   import { tokenVaults } from '../../vault/tokenVaults';
-  import AddTokenToWallet from './AddTokenToWallet.svelte';
   import {
     errorToast,
     successToast,
     warningToast,
   } from '../NotificationToast.svelte';
   import ActionButtons from './ActionButtons.svelte';
+  import AddTokenToWallet from './AddTokenToWallet.svelte';
   import Memo from './Memo.svelte';
   import ProcessingFee from './ProcessingFee.svelte';
   import SelectToken from './SelectToken.svelte';
