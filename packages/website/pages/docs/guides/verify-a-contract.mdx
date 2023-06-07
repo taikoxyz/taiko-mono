@@ -8,28 +8,11 @@ This guide will help get your contract verified on Taiko!
 
 ## Prerequisites
 
-- You have [Foundry](https://book.getfoundry.sh/getting-started/installation) or [Hardhat](https://hardhat.org/hardhat-runner/docs/getting-started#quick-start) installed.
 - You have a contract deployed on Taiko and the source code available.
 
 ## Steps
 
-<Tabs items={["Foundry", "Hardhat", "Blockscout"]} defaultIndex="0">
-  <Tab>
-   <Steps>
-    ### Install Forge
-    You will need an older nightly version of Forge installed (see why [here](https://github.com/foundry-rs/foundry/issues/4909)):
-    ```sh
-    foundryup --version nightly-94777647f6ea5d34572a1b15c9b57e35b8c77b41
-    ```
-
-    ### Verify the contract
-    Replace `CONTRACT_ADDRESS` and `CONTRACT_FILE:CONTRACT_NAME` and run the `verify-contract` command:
-    ```sh
-    forge verify-contract CONTRACT_ADDRESS CONTRACT_FILE:CONTRACT_NAME --chain-id 167005 --verifier-url https://explorer.test.taiko.xyz/api --verifier blockscout
-    ```
-
-   </Steps>
-  </Tab>
+<Tabs items={["Hardhat", "Blockscout", "Foundry"]} defaultIndex="0">
   <Tab>
    <Steps>
         ### Add Etherscan config to Hardhat config
@@ -88,5 +71,10 @@ This guide will help get your contract verified on Taiko!
     ### Follow Blockscout's official guide
     Follow Blockscout's [official guide](https://docs.blockscout.com/for-users/verifying-a-smart-contract) to verify your contract on Taiko's blockscout explorers.
    </Steps>
+  </Tab>
+  <Tab>
+    <Callout type="warning">
+    Foundry's `verify-contract` command is currently broken with Blockscout (see why [here](https://github.com/foundry-rs/foundry/issues/4909)). Please check the Hardhat or Blockscout steps to verify your contract.
+    </Callout>
   </Tab>
 </Tabs>
