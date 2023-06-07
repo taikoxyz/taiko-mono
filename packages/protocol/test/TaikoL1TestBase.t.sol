@@ -27,7 +27,9 @@ abstract contract TaikoL1TestBase is Test {
     uint256 internal logCount;
 
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
-    uint64 feePerGas = 1e8; // 1 TKO
+    // 1 TKO --> it is to huge. It should be in 'wei' (?).
+    // Because otherwise first proposal is around: 1TKO * (1_000_000+20_000) required as a deposit.
+    uint64 feePerGas = 10;
     uint64 proofWindow = 60 minutes;
     uint64 l2GasExcess = 1e18;
 
@@ -164,6 +166,35 @@ abstract contract TaikoL1TestBase is Test {
         L1.proveBlock(meta.id, abi.encode(evidence));
     }
 
+    function bidForBatch(
+        address msgSender,
+        uint64 batchId,
+        TaikoData.Bid memory bid
+    )
+        internal
+    {
+        vm.prank(msgSender, msgSender);
+        L1.bidForBatch(batchId, bid);
+    }
+
+    function bidForBatchAndRollTime(
+        address msgSender,
+        uint64 batchId,
+        TaikoData.Bid memory bid
+    )
+        internal
+    {
+        bidForBatch(msgSender, batchId, bid);
+
+        // Then roll into the future to be proveable
+        (uint256 currentTime, TaikoData.Auction[] memory auctions) = L1.getAuctions(
+            batchId,
+            1
+        );
+        vm.warp(block.timestamp + auctions[0].startedAt + conf.auctionWindow + 1);
+        vm.roll(block.number + 100);
+    }
+
     function verifyBlock(address verifier, uint256 count) internal {
         vm.prank(verifier, verifier);
         L1.verifyBlocks(count);
@@ -188,8 +219,8 @@ abstract contract TaikoL1TestBase is Test {
     {
         vm.deal(who, amountEth);
         tko.transfer(who, amountTko);
-        // vm.prank(who, who);
-        // L1.depositTaikoToken(amountTko);
+        vm.prank(who, who);
+        L1.depositTaikoToken(amountTko);
     }
 
     function printVariables(string memory comment) internal {
