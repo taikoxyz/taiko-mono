@@ -21,27 +21,21 @@ import {BridgeErrors} from "./BridgeErrors.sol";
  * - Allows the contract owner to authorize addresses.
  * - Allows authorized addresses to send/release Ether.
  */
+
+/**
+ * @title EtherVault Contract
+ * @notice This contract is initialized with 2^128 Ether and allows authorized addresses to release Ether.
+ * @dev Only the contract owner can authorize or deauthorize addresses.
+ * @custom:security-contact hello@taiko.xyz
+ */
 contract EtherVault is EssentialContract, BridgeErrors {
     using LibAddress for address;
-
-    /*//////////////////////////////////////////////////////////////
-                            STATE VARIABLES
-    //////////////////////////////////////////////////////////////*/
 
     mapping(address addr => bool isAuthorized) private _authorizedAddrs;
     uint256[49] private __gap;
 
-    /*//////////////////////////////////////////////////////////////
-                                 EVENTS
-    //////////////////////////////////////////////////////////////*/
-
     event Authorized(address indexed addr, bool authorized);
-
     event EtherReleased(address indexed to, uint256 amount);
-
-    /*//////////////////////////////////////////////////////////////
-                               MODIFIERS
-    //////////////////////////////////////////////////////////////*/
 
     modifier onlyAuthorized() {
         if (!isAuthorized(msg.sender)) {
@@ -50,10 +44,10 @@ contract EtherVault is EssentialContract, BridgeErrors {
         _;
     }
 
-    /*//////////////////////////////////////////////////////////////
-                         USER-FACING FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-
+    /**
+     * @notice Function to receive Ether
+     * @dev Only authorized addresses can send Ether to the contract
+     */
     receive() external payable {
         // EthVault's balance must == 0 OR the sender isAuthorized.
         if (address(this).balance != 0 && !isAuthorized(msg.sender)) {
@@ -61,6 +55,10 @@ contract EtherVault is EssentialContract, BridgeErrors {
         }
     }
 
+    /**
+     * @notice Initialize the contract with an address manager
+     * @param addressManager The address of the address manager
+     */
     function init(address addressManager) external initializer {
         EssentialContract._init(addressManager);
     }
