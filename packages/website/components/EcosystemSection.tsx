@@ -29,12 +29,12 @@ export default function EcosystemSection() {
       description:
         "Loopring is your mobile gateway to Ethereum L2, enabling you to easily trade, swap, collect, stake, and invest without the costly gas fees.",
     },
-    {
-      icon: "/images/ecosystem/taiko.svg",
-      name: "Swap",
-      link: "https://swap.test.taiko.xyz",
-      description: "Swap is a dapp that lets you swap tokens on Taiko.",
-    },
+    // {
+    //   icon: "/images/ecosystem/taiko.svg",
+    //   name: "Swap",
+    //   link: "https://swap.test.taiko.xyz",
+    //   description: "Swap is a dapp that lets you swap tokens on Taiko.",
+    // },
     {
       icon: "/images/ecosystem/zkpool.png",
       name: "ZKPool",
