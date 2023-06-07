@@ -2,7 +2,9 @@ name: Add a project to Taiko's ecosystem 🌐
 description: Add a project to Taiko's ecosystem
 labels: ["category.enhancement", "status.needs-triage"]
 assignees:
-  - d1onys1us, 2manslkh
+  - d1onys1us
+  - 2manslkh
+  - MarcusWentz
 body:
   - type: markdown
     attributes:
@@ -12,6 +14,12 @@ body:
     id: title
     attributes:
       label: Title of your project
+    validations:
+      required: true
+  - type: input
+    id: description
+    attributes:
+      label: Short (1-2 sentence) description of your project
     validations:
       required: true
   - type: input
