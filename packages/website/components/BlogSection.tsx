@@ -61,7 +61,7 @@ export default function BlogSection() {
             Check out the full blog at{" "}
             <a
               className="underline"
-              href="https://mirror.xyz/labs.taiko.eth"
+              href="https://taiko.mirror.xyz"
               target="_blank"
               rel="noopener noreferrer"
             >
