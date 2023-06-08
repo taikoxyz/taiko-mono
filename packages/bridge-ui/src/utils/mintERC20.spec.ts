@@ -38,10 +38,7 @@ describe('mintERC20', () => {
   });
 
   it('should mint ERC20', async () => {
-    const tx = await mintERC20(L1_CHAIN_ID, mockToken, mockSigner);
-
-    // There was no switch of chain since token is on L1
-    // expect(selectChain).not.toHaveBeenCalled();
+    const tx = await mintERC20(mockToken, mockSigner);
 
     expect(Contract).toHaveBeenCalledWith('0x00', freeMintErc20ABI, mockSigner);
 
@@ -50,7 +47,7 @@ describe('mintERC20', () => {
   });
 
   it('should switch network before minting ERC20', async () => {
-    const tx = await mintERC20(L2_CHAIN_ID, mockToken, mockSigner);
+    const tx = await mintERC20(mockToken, mockSigner);
 
     // expect(selectChain).toHaveBeenCalledWith(chains[L1_CHAIN_ID]);
 
@@ -65,7 +62,7 @@ describe('mintERC20', () => {
       .mocked(Contract.prototype.mint)
       .mockRejectedValue(new Error('test error'));
 
-    await expect(mintERC20(L1_CHAIN_ID, mockToken, mockSigner)).rejects.toThrow(
+    await expect(mintERC20(mockToken, mockSigner)).rejects.toThrow(
       `found a problem minting ${mockToken.symbol}`,
     );
   });

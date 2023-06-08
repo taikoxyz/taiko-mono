@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { switchNetwork, UserRejectedRequestError } from '@wagmi/core';
+  import { UserRejectedRequestError } from '@wagmi/core';
   import { Contract, errors, type Transaction, utils } from 'ethers';
   import { createEventDispatcher } from 'svelte';
   import { onDestroy, onMount } from 'svelte';
@@ -27,6 +27,7 @@
   import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
   import { isTransactionProcessable } from '../../utils/isTransactionProcessable';
   import { getLogger } from '../../utils/logger';
+  import { sleep } from '../../utils/sleep';
   import { tokenVaults } from '../../vault/tokenVaults';
   import Button from '../Button.svelte';
   import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
@@ -36,7 +37,7 @@
     successToast,
     warningToast,
   } from '../NotificationToast.svelte';
-  import { sleep } from '../../utils/sleep';
+  import { switchNetwork } from '../../utils/switchNetwork';
 
   const log = getLogger('component:Transaction');
 
@@ -95,20 +96,7 @@
         });
       }
 
-      const prevChain = $srcChain;
-
-      await switchNetwork({ chainId: bridgeTx.destChainId });
-
-      return new Promise<void>((resolve) => {
-        function waitForNetworkChange() {
-          if ($srcChain !== prevChain) {
-            resolve();
-          } else {
-            setTimeout(waitForNetworkChange, 500);
-          }
-        }
-        waitForNetworkChange();
-      });
+      await switchNetwork(bridgeTx.destChainId);
     }
   }
 

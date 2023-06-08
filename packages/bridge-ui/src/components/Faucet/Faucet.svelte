@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { switchNetwork, UserRejectedRequestError } from '@wagmi/core';
+  import { UserRejectedRequestError } from '@wagmi/core';
   import { ethers, type Signer } from 'ethers';
 
   import {
@@ -28,6 +28,7 @@
     warningToast,
   } from '../NotificationToast.svelte';
   import TestTokenDropdown from './TestTokenDropdown.svelte';
+  import { switchNetwork } from '../../utils/switchNetwork';
 
   const log = getLogger('component:Faucet');
 
@@ -89,7 +90,12 @@
     loading = true;
 
     try {
-      const tx = await mintERC20(srcChain.id, _token, signer);
+      // If we're not already, switch to L1
+      if (srcChain.id !== L1_CHAIN_ID) {
+        await switchNetwork(L1_CHAIN_ID);
+      }
+
+      const tx = await mintERC20(_token, signer);
 
       successToast(`Transaction sent to mint ${_token.symbol} tokens.`);
 
@@ -126,7 +132,7 @@
     switchingNetwork = true;
 
     try {
-      await switchNetwork({ chainId: L1_CHAIN_ID });
+      await switchNetwork(L1_CHAIN_ID);
     } catch (error) {
       console.error(error);
 

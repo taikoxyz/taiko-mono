@@ -1,5 +1,5 @@
 <script>
-  import { switchNetwork,UserRejectedRequestError } from '@wagmi/core';
+  import { UserRejectedRequestError } from '@wagmi/core';
   import { ArrowRight } from 'svelte-heros-v2';
 
   import { mainnetChain, taikoChain } from '../../chain/chains';
@@ -11,6 +11,7 @@
     successToast,
     warningToast,
   } from '../NotificationToast.svelte';
+  import { switchNetwork } from '../../utils/switchNetwork';
 
   const toggleChains = async () => {
     if (!$signer) {
@@ -21,7 +22,7 @@
     const chain = $srcChain === mainnetChain ? taikoChain : mainnetChain;
 
     try {
-      await switchNetwork({ chainId: chain.id });
+      await switchNetwork(chain.id);
       successToast('Successfully changed chain.');
     } catch (error) {
       console.error(error);

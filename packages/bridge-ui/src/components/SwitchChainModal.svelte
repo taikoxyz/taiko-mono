@@ -1,21 +1,20 @@
 <script lang="ts">
-  import { fetchSigner, switchNetwork } from '@wagmi/core';
   import { _ } from 'svelte-i18n';
 
   import { mainnetChain, taikoChain } from '../chain/chains';
   import type { Chain } from '../domain/chain';
   import { isSwitchChainModalOpen } from '../store/modal';
-  import { signer } from '../store/signer';
   import Modal from './Modal.svelte';
   import { errorToast, successToast } from './NotificationToast.svelte';
+  import { switchNetwork } from '../utils/switchNetwork';
 
   const switchChain = async (chain: Chain) => {
     try {
-      await switchNetwork({ chainId: chain.id });
+      await switchNetwork(chain.id);
       isSwitchChainModalOpen.set(false);
       successToast('Successfully switched chain');
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      console.error(error);
       errorToast('Error switching chain.');
     }
   };
