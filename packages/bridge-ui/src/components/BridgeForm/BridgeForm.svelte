@@ -278,7 +278,7 @@
     const hasEnoughBalance = balanceAvailableForTx.gte(requiredGas);
 
     log(
-      `Is required gas ${requiredGas} less than available balance ${balanceAvailableForTx}? ${hasEnoughBalance}`,
+      `Is required gas ${requiredGas.toString()} less than available balance ${balanceAvailableForTx.toString()}? ${hasEnoughBalance}`,
     );
 
     return hasEnoughBalance;

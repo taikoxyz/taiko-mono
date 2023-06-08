@@ -4,7 +4,7 @@ import { get } from 'svelte/store';
 import { srcChain } from '../store/chain';
 
 export async function switchNetwork(chainId: number) {
-  const prevChainId = get(srcChain).id;
+  const prevChainId = get(srcChain)?.id;
 
   if (prevChainId === chainId) return;
 
@@ -18,7 +18,8 @@ export async function switchNetwork(chainId: number) {
   // and also "$:"" tags for reactivity.
   return new Promise<void>((resolve) => {
     const waitForNetworkChange = () => {
-      if (get(srcChain).id !== prevChainId) {
+      const srcChainId = get(srcChain)?.id;
+      if (srcChainId && srcChainId !== prevChainId) {
         resolve();
       } else {
         setTimeout(waitForNetworkChange, 300);
