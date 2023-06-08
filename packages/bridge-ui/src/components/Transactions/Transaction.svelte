@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { UserRejectedRequestError } from '@wagmi/core';
+  import { switchNetwork, UserRejectedRequestError } from '@wagmi/core';
   import { Contract, errors, type Transaction, utils } from 'ethers';
   import { createEventDispatcher } from 'svelte';
   import { onDestroy, onMount } from 'svelte';
@@ -27,7 +27,6 @@
   import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
   import { isTransactionProcessable } from '../../utils/isTransactionProcessable';
   import { getLogger } from '../../utils/logger';
-  import { selectChain } from '../../utils/selectChain';
   import { tokenVaults } from '../../vault/tokenVaults';
   import Button from '../Button.svelte';
   import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
@@ -37,6 +36,7 @@
     successToast,
     warningToast,
   } from '../NotificationToast.svelte';
+  import { sleep } from '../../utils/sleep';
 
   const log = getLogger('component:Transaction');
 
@@ -95,8 +95,12 @@
         });
       }
 
-      const chain = chains[bridgeTx.destChainId];
-      await selectChain(chain);
+      await switchNetwork({ chainId: bridgeTx.destChainId });
+
+      // TODO: This is the result of a rabbit hole of changes due to mobile issues.
+      //       This need to sleep for a while is the result of overuse of stores
+      //       and UI reactivity. This won't be needed in alpha-4
+      await sleep(1000); // TODO: magic number
     }
   }
 

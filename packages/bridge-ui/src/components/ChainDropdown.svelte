@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { UserRejectedRequestError } from '@wagmi/core';
+  import { UserRejectedRequestError, switchNetwork } from '@wagmi/core';
   import { ChevronDown, ExclamationTriangle } from 'svelte-heros-v2';
 
   import { mainnetChain, taikoChain } from '../chain/chains';
@@ -7,7 +7,6 @@
   import { srcChain } from '../store/chain';
   import { signer } from '../store/signer';
   import { pendingTransactions } from '../store/transaction';
-  import { selectChain } from '../utils/selectChain';
   import {
     errorToast,
     successToast,
@@ -26,7 +25,7 @@
     }
 
     try {
-      await selectChain(chain);
+      await switchNetwork({ chainId: chain.id });
       successToast('Successfully changed chain.');
     } catch (error) {
       console.error(error);

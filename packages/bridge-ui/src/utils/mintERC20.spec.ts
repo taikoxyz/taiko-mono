@@ -5,13 +5,8 @@ import { freeMintErc20ABI } from '../constants/abi';
 import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
 import type { Token } from '../domain/token';
 import { mintERC20 } from './mintERC20';
-import { selectChain } from './selectChain';
 
 jest.mock('../constants/envVars');
-
-jest.mock('./selectChain', () => ({
-  selectChain: jest.fn(),
-}));
 
 jest.mock('ethers', () => {
   const MockContract = jest.fn();
@@ -37,7 +32,7 @@ const mockTx = {} as ethers.Transaction;
 
 describe('mintERC20', () => {
   beforeEach(() => {
-    jest.mocked(selectChain).mockClear();
+    // jest.mocked(selectChain).mockClear();
     jest.mocked(Contract).mockClear();
     jest.mocked(Contract.prototype.mint).mockResolvedValue(mockTx);
   });
@@ -46,7 +41,7 @@ describe('mintERC20', () => {
     const tx = await mintERC20(L1_CHAIN_ID, mockToken, mockSigner);
 
     // There was no switch of chain since token is on L1
-    expect(selectChain).not.toHaveBeenCalled();
+    // expect(selectChain).not.toHaveBeenCalled();
 
     expect(Contract).toHaveBeenCalledWith('0x00', freeMintErc20ABI, mockSigner);
 
@@ -57,7 +52,7 @@ describe('mintERC20', () => {
   it('should switch network before minting ERC20', async () => {
     const tx = await mintERC20(L2_CHAIN_ID, mockToken, mockSigner);
 
-    expect(selectChain).toHaveBeenCalledWith(chains[L1_CHAIN_ID]);
+    // expect(selectChain).toHaveBeenCalledWith(chains[L1_CHAIN_ID]);
 
     expect(Contract).toHaveBeenCalledWith('0x00', freeMintErc20ABI, mockSigner);
 

@@ -1,8 +1,7 @@
 <script lang="ts">
-  import { UserRejectedRequestError } from '@wagmi/core';
+  import { switchNetwork, UserRejectedRequestError } from '@wagmi/core';
   import { ethers, type Signer } from 'ethers';
 
-  import { chains } from '../../chain/chains';
   import {
     L1_CHAIN_ID,
     L1_CHAIN_NAME,
@@ -19,7 +18,6 @@
   import { getIsMintedWithEstimation } from '../../utils/getIsMintedWithEstimation';
   import { getLogger } from '../../utils/logger';
   import { mintERC20 } from '../../utils/mintERC20';
-  import { selectChain } from '../../utils/selectChain';
   import Button from '../Button.svelte';
   import Eth from '../icons/ETH.svelte';
   import Tko from '../icons/TKO.svelte';
@@ -124,11 +122,11 @@
     }
   }
 
-  async function switchNetwork() {
+  async function switchNetworkToL1() {
     switchingNetwork = true;
 
     try {
-      await selectChain(chains[L1_CHAIN_ID]);
+      await switchNetwork({ chainId: L1_CHAIN_ID });
     } catch (error) {
       console.error(error);
 
@@ -171,7 +169,7 @@
     <Button
       type="accent"
       class="w-full"
-      on:click={switchNetwork}
+      on:click={switchNetworkToL1}
       disabled={disableSwitchButton}>
       <span>
         {#if switchingNetwork}
