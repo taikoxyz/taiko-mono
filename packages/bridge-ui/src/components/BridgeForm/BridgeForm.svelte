@@ -28,13 +28,13 @@
   import { getLogger } from '../../utils/logger';
   import { truncateString } from '../../utils/truncateString';
   import { tokenVaults } from '../../vault/tokenVaults';
-  import AddTokenToWallet from '../AddTokenToWallet.svelte';
   import {
     errorToast,
     successToast,
     warningToast,
   } from '../NotificationToast.svelte';
   import ActionButtons from './ActionButtons.svelte';
+  import AddTokenToWallet from './AddTokenToWallet.svelte';
   import Memo from './Memo.svelte';
   import ProcessingFee from './ProcessingFee.svelte';
   import SelectToken from './SelectToken.svelte';
@@ -553,7 +553,7 @@
       <span class="label-text">{$_('bridgeForm.fieldLabel')}</span>
 
       {#if $signer && tokenBalance}
-        <div class="label-text ">
+        <div class="label-text flex items-center space-x-2">
           <span>
             {$_('bridgeForm.balance')}:
             {tokenBalance.length > 10
@@ -563,7 +563,7 @@
           </span>
 
           <button
-            class="btn btn-xs rounded-md text-xs ml-1 h-[20px]"
+            class="btn btn-xs rounded-md text-xs ml-1 dark:bg-dark-5 h-[20px]"
             on:click={useFullAmount}>
             {$_('bridgeForm.maxLabel')}
           </button>
