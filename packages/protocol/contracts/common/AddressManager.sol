@@ -10,7 +10,7 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {Proxied} from "./Proxied.sol";
 
 /**
- * @notice Interface to set and get an address for a name.
+ * Interface to set and get an address for a name.
  */
 interface IAddressManager {
     /**

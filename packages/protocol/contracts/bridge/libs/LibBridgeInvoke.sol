@@ -11,8 +11,7 @@ import {LibAddress} from "../../libs/LibAddress.sol";
 import {LibBridgeData} from "./LibBridgeData.sol";
 
 /**
- * @title Library for handling Bridge invocations
- * @notice This library provides functions for handling message invocations on the Bridge.
+ * This library provides functions for handling message invocations on the Bridge.
  */
 library LibBridgeInvoke {
     using LibAddress for address;
@@ -21,7 +20,7 @@ library LibBridgeInvoke {
     error B_GAS_LIMIT();
 
     /**
-     * @notice Invoke a call message
+     * Invoke a call message
      * @param state The current state of the Bridge
      * @param message The call message to be invoked
      * @param msgHash The hash of the message

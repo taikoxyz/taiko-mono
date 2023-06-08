@@ -15,8 +15,7 @@ import {LibBridgeInvoke} from "./LibBridgeInvoke.sol";
 import {LibBridgeStatus} from "./LibBridgeStatus.sol";
 
 /**
- * @title LibBridgeRetry
- * @notice This library provides functions for retrying bridge messages.
+ * This library provides functions for retrying bridge messages.
  */
 library LibBridgeRetry {
     using LibAddress for address;
@@ -27,7 +26,7 @@ library LibBridgeRetry {
     error B_MSG_NON_RETRIABLE();
 
     /**
-     * @notice Retries to invoke the messageCall after Ether has been sent to the owner.
+     * Retries to invoke the messageCall after Ether has been sent to the owner.
      * @dev This function can be called by any address, including `message.owner`.
      * Can only be called on messages marked "RETRIABLE". If it succeeds, the message is marked as "DONE".
      * If it fails and `isLastAttempt` is true, the message is marked as "FAILED" and cannot be retried.

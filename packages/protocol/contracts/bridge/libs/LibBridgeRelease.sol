@@ -13,8 +13,7 @@ import {LibBridgeData} from "./LibBridgeData.sol";
 import {LibBridgeStatus} from "./LibBridgeStatus.sol";
 
 /**
- * @title Library for handling Ether release on the Bridge
- * @notice This library provides functions for releasing Ether related to message execution on the Bridge.
+ * This library provides functions for releasing Ether related to message execution on the Bridge.
  */
 library LibBridgeRelease {
     using LibBridgeData for IBridge.Message;
@@ -28,7 +27,7 @@ library LibBridgeRelease {
     error B_WRONG_CHAIN_ID();
 
     /**
-     * @notice Release Ether to the message owner
+     * Release Ether to the message owner
      * @dev This function releases Ether to the message owner, only if the Bridge state says:
      * - Ether for this message has not been released before.
      * - The message is in a failed state.

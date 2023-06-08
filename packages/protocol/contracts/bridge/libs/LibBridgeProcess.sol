@@ -17,8 +17,7 @@ import {LibBridgeStatus} from "./LibBridgeStatus.sol";
 import {LibMath} from "../../libs/LibMath.sol";
 
 /**
- * @title LibBridgeProcess
- * @notice This library provides functions for processing bridge messages on the destination chain.
+ * This library provides functions for processing bridge messages on the destination chain.
  */
 library LibBridgeProcess {
     using LibMath for uint256;
@@ -32,7 +31,7 @@ library LibBridgeProcess {
     error B_WRONG_CHAIN_ID();
 
     /**
-     * @notice Process the bridge message on the destination chain. It can be called by
+     * Process the bridge message on the destination chain. It can be called by
      * any address, including `message.owner`.
      * @dev It starts by hashing the message,
      * and doing a lookup in the bridge state to see if the status is "NEW". It

@@ -15,16 +15,7 @@ import {LibAddress} from "../libs/LibAddress.sol";
 import {BridgeErrors} from "./BridgeErrors.sol";
 
 /**
- * @custom:security-contact hello@taiko.xyz
- * EtherVault is a special vault contract that:
- * - Is initialized with 2^128 Ether.
- * - Allows the contract owner to authorize addresses.
- * - Allows authorized addresses to send/release Ether.
- */
-
-/**
- * @title EtherVault Contract
- * @notice This contract is initialized with 2^128 Ether and allows authorized addresses to release Ether.
+ * This contract is initialized with 2^128 Ether and allows authorized addresses to release Ether.
  * @dev Only the contract owner can authorize or deauthorize addresses.
  * @custom:security-contact hello@taiko.xyz
  */
@@ -45,7 +36,7 @@ contract EtherVault is EssentialContract, BridgeErrors {
     }
 
     /**
-     * @notice Function to receive Ether
+     * Function to receive Ether
      * @dev Only authorized addresses can send Ether to the contract
      */
     receive() external payable {
@@ -56,7 +47,7 @@ contract EtherVault is EssentialContract, BridgeErrors {
     }
 
     /**
-     * @notice Initialize the contract with an address manager
+     * Initialize the contract with an address manager
      * @param addressManager The address of the address manager
      */
     function init(address addressManager) external initializer {

@@ -13,8 +13,7 @@ import {LibAddress} from "../../libs/LibAddress.sol";
 import {LibMath} from "../../libs/LibMath.sol";
 
 /**
- * @title LibBridgeData
- * @notice Stores message metadata on the Bridge. It's used to keep track of the state of messages that are being
+ * Stores message metadata on the Bridge. It's used to keep track of the state of messages that are being
  * transferred across the bridge, and it contains functions to hash messages and check their status.
  */
 library LibBridgeData {
@@ -41,7 +40,7 @@ library LibBridgeData {
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
 
     /**
-     * @notice Calculate the keccak256 hash of the message
+     * Calculate the keccak256 hash of the message
      * @param message The message to be hashed
      * @return msgHash The keccak256 hash of the message
      */

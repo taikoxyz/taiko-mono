@@ -13,8 +13,7 @@ import {LibBridgeData} from "./LibBridgeData.sol";
 import {LibTrieProof} from "../../libs/LibTrieProof.sol";
 
 /**
- * @title LibBridgeStatus
- * @notice This library provides functions to get and update the status of bridge messages.
+ * This library provides functions to get and update the status of bridge messages.
  */
 library LibBridgeStatus {
     using LibBlockHeader for BlockHeader;
@@ -32,7 +31,7 @@ library LibBridgeStatus {
     error B_WRONG_CHAIN_ID();
 
     /**
-     * @notice Updates the status of a bridge message.
+     * Updates the status of a bridge message.
      * @dev If messageStatus is same as in the messageStatus mapping, does nothing.
      * @param msgHash The hash of the message.
      * @param status The new status of the message.
@@ -45,7 +44,7 @@ library LibBridgeStatus {
     }
 
     /**
-     * @notice Gets the status of a bridge message.
+     * Gets the status of a bridge message.
      * @param msgHash The hash of the message.
      * @return The status of the message.
      */
@@ -59,7 +58,7 @@ library LibBridgeStatus {
     }
 
     /**
-     * @notice Checks if a bridge message has failed.
+     * Checks if a bridge message has failed.
      * @param resolver The address resolver.
      * @param msgHash The hash of the message.
      * @param destChainId The ID of the destination chain.
@@ -97,7 +96,7 @@ library LibBridgeStatus {
         });
     }
     /**
-     * @notice Gets the storage slot for a bridge message status.
+     * Gets the storage slot for a bridge message status.
      * @param msgHash The hash of the message.
      * @return The storage slot for the message status.
      */
@@ -107,7 +106,7 @@ library LibBridgeStatus {
     }
 
     /**
-     * @notice Sets the status of a bridge message.
+     * Sets the status of a bridge message.
      * @param msgHash The hash of the message.
      * @param status The new status of the message.
      */
