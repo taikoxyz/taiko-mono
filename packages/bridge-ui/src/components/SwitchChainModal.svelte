@@ -11,12 +11,7 @@
 
   const switchChain = async (chain: Chain) => {
     try {
-      await switchNetwork({
-        chainId: chain.id,
-      });
-      const wagmiSigner = await fetchSigner();
-
-      signer.set(wagmiSigner);
+      await switchNetwork({ chainId: chain.id });
       isSwitchChainModalOpen.set(false);
       successToast('Successfully switched chain');
     } catch (e) {

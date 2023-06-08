@@ -12,7 +12,7 @@ let isWatching = false;
 let unWatchNetwork: () => void;
 let unWatchAccount: () => void;
 
-const changeChain = (chainId: number) => {
+const setChain = (chainId: number) => {
   if (chainId === mainnetChain.id) {
     srcChain.set(mainnetChain);
     destChain.set(taikoChain);
@@ -39,7 +39,7 @@ export function startWatching() {
         const _signer = await fetchSigner();
         signer.set(_signer);
 
-        changeChain(networkResult.chain.id);
+        setChain(networkResult.chain.id);
       } else {
         log('No chain id found');
         srcChain.set(null);

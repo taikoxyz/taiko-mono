@@ -100,7 +100,7 @@
       // TODO: This is the result of a rabbit hole of changes due to mobile issues.
       //       This need to sleep for a while is the result of overuse of stores
       //       and UI reactivity. This won't be needed in alpha-4
-      await sleep(5000); // TODO: magic number
+      await sleep(2000); // TODO: magic number
     }
   }
 
