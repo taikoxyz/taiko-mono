@@ -27,7 +27,6 @@
   import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
   import { isTransactionProcessable } from '../../utils/isTransactionProcessable';
   import { getLogger } from '../../utils/logger';
-  import { sleep } from '../../utils/sleep';
   import { switchNetwork } from '../../utils/switchNetwork';
   import { tokenVaults } from '../../vault/tokenVaults';
   import Button from '../Button.svelte';
