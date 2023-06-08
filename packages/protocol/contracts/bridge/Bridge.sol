@@ -19,8 +19,7 @@ import {LibBridgeSend} from "./libs/LibBridgeSend.sol";
 import {LibBridgeStatus} from "./libs/LibBridgeStatus.sol";
 
 /**
- * @title Bridge
- * @notice This contract is a Bridge contract which is deployed on both L1 and L2. Mostly a thin wrapper
+ * This contract is a Bridge contract which is deployed on both L1 and L2. Mostly a thin wrapper
  * which calls the library implementations. See _IBridge_ for more details.
  * @dev The code hash for the same address on L1 and L2 may be different.
  * @custom:security-contact hello@taiko.xyz
@@ -36,7 +35,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
 
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
 
-    /// @notice Allow Bridge to receive ETH from the TaikoL1, TokenVault or EtherVault.
+    /// Allow Bridge to receive ETH from the TaikoL1, TokenVault or EtherVault.
     receive() external payable {
         if (
             msg.sender != resolve("token_vault", true) && msg.sender != resolve("ether_vault", true)
@@ -47,7 +46,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * @notice Initializer to be called after being deployed behind a proxy.
+     * Initializer to be called after being deployed behind a proxy.
      * @dev Initializer function to setup the EssentialContract.
      * @param _addressManager The address of the AddressManager contract.
      */
@@ -56,7 +55,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * @notice Sends a message from the current chain to the destination chain specified in the message.
+     * Sends a message from the current chain to the destination chain specified in the message.
      * @dev Sends a message by calling the LibBridgeSend.sendMessage library function.
      * @param message The message to send. (See IBridge)
      * @return msgHash The hash of the message that was sent.
@@ -75,7 +74,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * @notice Releases the Ether locked in the bridge as part of a cross-chain transfer.
+     * Releases the Ether locked in the bridge as part of a cross-chain transfer.
      * @dev Releases the Ether by calling the LibBridgeRelease.releaseEther library function.
      * @param message The message containing the details of the Ether transfer. (See IBridge)
      * @param proof The proof of the cross-chain transfer.
@@ -93,7 +92,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * @notice Processes a message received from another chain.
+     * Processes a message received from another chain.
      * @dev Processes the message by calling the LibBridgeProcess.processMessage library function.
      * @param message The message to process.
      * @param proof The proof of the cross-chain transfer.
@@ -108,7 +107,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * @notice Retries sending a message that previously failed to send.
+     * Retries sending a message that previously failed to send.
      * @dev Retries the message by calling the LibBridgeRetry.retryMessage library function.
      * @param message The message to retry.
      * @param isLastAttempt Specifies whether this is the last attempt to send the message.
@@ -123,7 +122,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * @notice Check if the message with the given hash has been sent.
+     * Check if the message with the given hash has been sent.
      * @param msgHash The hash of the message.
      * @return Returns true if the message has been sent, false otherwise.
      */
@@ -132,7 +131,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * @notice Check if the message with the given hash has been received.
+     * Check if the message with the given hash has been received.
      * @param msgHash The hash of the message.
      * @param srcChainId The source chain ID.
      * @param proof The proof of message receipt.
@@ -154,7 +153,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * @notice Check if the message with the given hash has failed.
+     * Check if the message with the given hash has failed.
      * @param msgHash The hash of the message.
      * @param destChainId The destination chain ID.
      * @param proof The proof of message failure.
@@ -176,7 +175,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * @notice Get the status of the message with the given hash.
+     * Get the status of the message with the given hash.
      * @param msgHash The hash of the message.
      * @return Returns the status of the message.
      */
@@ -190,7 +189,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * @notice Get the current context
+     * Get the current context
      * @return Returns the current context.
      */
     function context() public view returns (Context memory) {
@@ -198,7 +197,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * @notice Check if the Ether associated with the given message hash has been released.
+     * Check if the Ether associated with the given message hash has been released.
      * @param msgHash The hash of the message.
      * @return Returns true if the Ether has been released, false otherwise.
      */
@@ -207,9 +206,9 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * @notice Check if the destination chain with the given ID is enabled.
+     * Check if the destination chain with the given ID is enabled.
      * @param _chainId The ID of the chain.
-     * @return Returns true if the destination chain is enabled, false otherwise.
+     * @return enabled Returns true if the destination chain is enabled, false otherwise.
      */
 
     function isDestChainEnabled(uint256 _chainId) public view returns (bool enabled) {
@@ -217,7 +216,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * @notice Compute the hash of a given message.
+     * Compute the hash of a given message.
      * @param message The message to compute the hash for.
      * @return Returns the hash of the message.
      */
@@ -226,7 +225,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * @notice Get the slot associated with a given message hash status.
+     * Get the slot associated with a given message hash status.
      * @param msgHash The hash of the message.
      * @return Returns the slot associated with the given message hash status.
      */
