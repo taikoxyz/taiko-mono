@@ -2,6 +2,7 @@ import { switchNetwork as wagmiSwitchNetwork } from '@wagmi/core';
 import { get } from 'svelte/store';
 
 import { srcChain } from '../store/chain';
+import { Deferred } from './Deferred';
 
 export async function switchNetwork(chainId: number) {
   const prevChainId = get(srcChain)?.id;
@@ -16,16 +17,18 @@ export async function switchNetwork(chainId: number) {
   // for these stores to change due to some race conditions in the UI.
   // There will be a better design around this in alpha-4: fewer stores
   // and also '$:' tags for reactivity.
-  return new Promise<void>((resolve) => {
-    const waitForNetworkChange = () => {
-      const srcChainId = get(srcChain)?.id;
-      if (srcChainId && srcChainId !== prevChainId) {
-        resolve();
-      } else {
-        setTimeout(waitForNetworkChange, 300);
-      }
-    };
+  const deferred = new Deferred<void>();
 
-    waitForNetworkChange();
-  });
+  const waitForNetworkChange = () => {
+    const srcChainId = get(srcChain)?.id;
+    if (srcChainId && srcChainId !== prevChainId) {
+      deferred.resolve();
+    } else {
+      setTimeout(waitForNetworkChange, 300); // TODO: config?
+    }
+  };
+
+  waitForNetworkChange();
+
+  return deferred.promise;
 }
