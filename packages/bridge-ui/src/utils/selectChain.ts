@@ -16,6 +16,9 @@ export async function selectChain(chain: Chain) {
   const _signer = await fetchSigner({ chainId });
 
   srcChain.set(chain);
+  signer.set(_signer);
+
+  // Change the destination chain to the opposite of the source chain.
   if (chainId === mainnetChain.id) {
     log(`'Switching network to ${mainnetChain.name}`);
     destChain.set(taikoChain);
@@ -23,6 +26,4 @@ export async function selectChain(chain: Chain) {
     log(`'Switching network to ${taikoChain.name}`);
     destChain.set(mainnetChain);
   }
-
-  signer.set(_signer);
 }
