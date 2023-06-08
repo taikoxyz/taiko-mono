@@ -30,7 +30,7 @@ describe('rpcCall', () => {
     expect(result).toEqual('test value');
     expect(ethers.providers.Web3Provider.prototype.send).toHaveBeenCalledWith(
       'eth_requestAccounts',
-      undefined,
+      [],
     );
   });
 

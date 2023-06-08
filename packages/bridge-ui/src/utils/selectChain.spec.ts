@@ -64,7 +64,7 @@ describe('selectChain', () => {
 
     expect(ethers.providers.Web3Provider.prototype.send).toHaveBeenCalledWith(
       'eth_requestAccounts',
-      undefined,
+      [],
     );
 
     // By default the signer is not updated as

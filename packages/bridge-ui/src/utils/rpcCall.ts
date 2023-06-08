@@ -33,7 +33,7 @@ export const errorCodes = {
 
 // The type definition for provider.send method is actually incorrect, hence:
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function rpcCall(method: RPCMethod, params?: any) {
+export async function rpcCall(method: RPCMethod, params: any = []) {
   const provider = getInjectedProvider();
 
   log(`RPC call "${method}" with params`, params);

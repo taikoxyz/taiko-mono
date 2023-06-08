@@ -16,7 +16,7 @@ export async function selectChain(chain: Chain) {
   await switchNetwork({ chainId });
 
   // Requires requesting permission to connect users accounts
-  const accounts = await rpcCall('eth_requestAccounts', []);
+  const accounts = await rpcCall('eth_requestAccounts');
 
   log('Accounts', accounts);
 
