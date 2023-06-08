@@ -16,9 +16,13 @@ const changeChain = (chainId: number) => {
   if (chainId === mainnetChain.id) {
     srcChain.set(mainnetChain);
     destChain.set(taikoChain);
+
+    log(`Network swtiched to ${mainnetChain.name}`);
   } else if (chainId === taikoChain.id) {
     srcChain.set(taikoChain);
     destChain.set(mainnetChain);
+
+    log(`Network swtiched to ${taikoChain.name}`);
   } else {
     isSwitchChainModalOpen.set(true);
   }
@@ -28,10 +32,13 @@ export function startWatching() {
   if (!isWatching) {
     // Action for subscribing to network changes.
     // See https://wagmi.sh/core/actions/watchNetwork
-    unWatchNetwork = watchNetwork((networkResult) => {
+    unWatchNetwork = watchNetwork(async (networkResult) => {
       log('Network changed', networkResult);
 
       if (networkResult.chain?.id) {
+        const _signer = await fetchSigner();
+        signer.set(_signer);
+
         changeChain(networkResult.chain.id);
       } else {
         log('No chain id found');
