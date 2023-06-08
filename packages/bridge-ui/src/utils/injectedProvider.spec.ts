@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
 
-import { rpcCall } from './rpcCall';
+import { rpcCall } from './injectedProvider';
 
 jest.mock('../constants/envVars');
 
@@ -19,7 +19,7 @@ jest.mock('ethers', () => {
   };
 });
 
-describe('rpcCall', () => {
+describe('injectedProvider - rpcCall', () => {
   it('should call rpc method', async () => {
     jest
       .mocked(ethers.providers.Web3Provider.prototype.send)

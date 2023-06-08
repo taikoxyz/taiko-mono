@@ -514,7 +514,8 @@
   }
 
   function toggleShowAddTokenToWallet(token: Token) {
-    showAddToWallet = token.symbol !== 'ETH';
+    // If there is no injected provider we can't add the token to the wallet
+    showAddToWallet = token.symbol !== 'ETH' && Boolean(globalThis.ethereum);
   }
 
   $: updateTokenBalance($signer, $token).finally(() => {

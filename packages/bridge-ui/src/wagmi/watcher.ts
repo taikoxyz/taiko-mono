@@ -1,7 +1,7 @@
 import { fetchSigner, watchAccount, watchNetwork } from '@wagmi/core';
 
 import { mainnetChain, taikoChain } from '../chain/chains';
-import { destChain,srcChain } from '../store/chain';
+import { destChain, srcChain } from '../store/chain';
 import { isSwitchChainModalOpen } from '../store/modal';
 import { signer } from '../store/signer';
 import { getLogger } from '../utils/logger';
@@ -14,9 +14,13 @@ let unWatchAccount: () => void;
 
 const changeChain = (chainId: number) => {
   if (chainId === mainnetChain.id) {
+    log(`Switching to ${mainnetChain.name}`);
+
     srcChain.set(mainnetChain);
     destChain.set(taikoChain);
   } else if (chainId === taikoChain.id) {
+    log(`Switching to ${taikoChain.name}`);
+
     srcChain.set(taikoChain);
     destChain.set(mainnetChain);
   } else {
