@@ -45,7 +45,6 @@
 | Name                      | Address                                                                                                                       |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | Taiko's personal proposer | [0xE09e4fF4353fbf984F99fa824524277F704e7475](https://sepolia.etherscan.io/address/0xE09e4fF4353fbf984F99fa824524277F704e7475) |
-| Taiko's personal prover   | [0x6798639591530FbBAfd12c2826422B58bD2c5219](https://sepolia.etherscan.io/address/0x6798639591530FbBAfd12c2826422B58bD2c5219) |
 | Taiko's relayer           | [0xe07b3455f382E6912558f613e072c1a46964eDBb](https://sepolia.etherscan.io/address/0xe07b3455f382E6912558f613e072c1a46964eDBb) |
 | Oracle prover             | [0x6798639591530FbBAfd12c2826422B58bD2c5219](https://sepolia.etherscan.io/address/0x6798639591530FbBAfd12c2826422B58bD2c5219) |
 | System prover 1           | [0x89697A45BA1FEFbc575BdcA6e0C50D5112A5a766](https://sepolia.etherscan.io/address/0x89697A45BA1FEFbc575BdcA6e0C50D5112A5a766) |
