@@ -14,13 +14,9 @@ let unWatchAccount: () => void;
 
 const changeChain = (chainId: number) => {
   if (chainId === mainnetChain.id) {
-    log(`Switching to ${mainnetChain.name}`);
-
     srcChain.set(mainnetChain);
     destChain.set(taikoChain);
   } else if (chainId === taikoChain.id) {
-    log(`Switching to ${taikoChain.name}`);
-
     srcChain.set(taikoChain);
     destChain.set(mainnetChain);
   } else {
