@@ -54,25 +54,31 @@
 </div>
 
 <style>
-  /* TODO: Small devices. We need design!! */
   .toast {
-    --toastContainerRight: 1rem;
+    --toastContainerRight: auto;
     --toastContainerBottom: auto;
-    --toastContainerTop: 5rem;
-    --toastWidth: 100%;
+    --toastContainerTop: 4rem;
+    --toastContainerLeft: calc(50vw - 150px);
+    --toastWidth: 300px;
     --toastMinHeight: 2rem;
     --toastPadding: 0 0.5rem;
     --toastBorderRadius: 0.4rem;
     --toastColor: #e3e3e3;
   }
 
-  /* 
-    TODO: decides at which breakpoint we are no longer
-          in small screens. Design!!
-   */
+  /* sm */
   @media (min-width: 640px) {
     .toast {
-      --toastWidth: 18rem;
+      --toastWidth: 20rem;
+      --toastContainerRight: 0.5rem;
+      --toastContainerLeft: auto;
+    }
+  }
+
+  /* md */
+  @media (min-width: 768px) {
+    .toast {
+      --toastContainerRight: 1.5rem;
     }
   }
 </style>
