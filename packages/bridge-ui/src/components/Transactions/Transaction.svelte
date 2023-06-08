@@ -95,12 +95,20 @@
         });
       }
 
+      const prevChain = $srcChain;
+
       await switchNetwork({ chainId: bridgeTx.destChainId });
 
-      // TODO: This is the result of a rabbit hole of changes due to mobile issues.
-      //       This need to sleep for a while is the result of overuse of stores
-      //       and UI reactivity. This won't be needed in alpha-4
-      await sleep(2000); // TODO: magic number
+      return new Promise<void>((resolve) => {
+        function waitForNetworkChange() {
+          if ($srcChain !== prevChain) {
+            resolve();
+          } else {
+            setTimeout(waitForNetworkChange, 500);
+          }
+        }
+        waitForNetworkChange();
+      });
     }
   }
 
