@@ -4,6 +4,10 @@ title: EtherVault
 
 ## EtherVault
 
+This contract is initialized with 2^128 Ether and allows authorized addresses to release Ether.
+
+_Only the contract owner can authorize or deauthorize addresses._
+
 ### Authorized
 
 ```solidity
@@ -28,11 +32,23 @@ modifier onlyAuthorized()
 receive() external payable
 ```
 
+Function to receive Ether
+
+_Only authorized addresses can send Ether to the contract_
+
 ### init
 
 ```solidity
 function init(address addressManager) external
 ```
+
+Initialize the contract with an address manager
+
+#### Parameters
+
+| Name           | Type    | Description                        |
+| -------------- | ------- | ---------------------------------- |
+| addressManager | address | The address of the address manager |
 
 ### releaseEther
 
