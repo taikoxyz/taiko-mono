@@ -17,9 +17,10 @@ import {EssentialContract} from "../common/EssentialContract.sol";
 import {Proxied} from "../common/Proxied.sol";
 import {BridgeErrors} from "./BridgeErrors.sol";
 
-/// @title BridgedERC20
-/// @notice This contract is an upgradeable ERC20 contract that represents tokens bridged from another chain.
-/// @custom:security-contact hello@taiko.xyz
+/**
+ * This contract is an upgradeable ERC20 contract that represents tokens bridged from another chain.
+ * @custom:security-contact hello@taiko.xyz
+ */
 contract BridgedERC20 is
     EssentialContract,
     IERC20Upgradeable,
@@ -36,7 +37,7 @@ contract BridgedERC20 is
     event BridgeBurn(address indexed account, uint256 amount);
 
     /**
-     * @notice Initializes the contract.
+     * Initializes the contract.
      * @dev Different BridgedERC20 Contract to be deployed
      * per unique _srcToken i.e. one for USDC, one for USDT etc.
      * @param _addressManager The address manager.
@@ -68,7 +69,7 @@ contract BridgedERC20 is
     }
 
     /**
-     * @notice Mints tokens to an account.
+     * Mints tokens to an account.
      * @dev Only a TokenVault can call this function.
      * @param account The account to mint tokens to.
      * @param amount The amount of tokens to mint.
@@ -79,7 +80,7 @@ contract BridgedERC20 is
     }
 
     /**
-     * @notice Burns tokens from an account.
+     * Burns tokens from an account.
      * @dev Only a TokenVault can call this function.
      * @param account The account to burn tokens from.
      * @param amount The amount of tokens to burn.
@@ -90,7 +91,7 @@ contract BridgedERC20 is
     }
 
     /**
-     * @notice Transfers tokens from the caller to another account.
+     * Transfers tokens from the caller to another account.
      * @dev Any address can call this. Caller must have at least 'amount' to call this.
      * @param to The account to transfer tokens to.
      * @param amount The amount of tokens to transfer.
@@ -107,7 +108,7 @@ contract BridgedERC20 is
     }
 
     /**
-     * @notice Transfers tokens from one account to another account.
+     * Transfers tokens from one account to another account.
      * @dev Any address can call this. Caller must have allowance of at least 'amount' for 'from's tokens.
      * @param from The account to transfer tokens from.
      * @param to The account to transfer tokens to.
@@ -125,7 +126,7 @@ contract BridgedERC20 is
     }
 
     /**
-     * @notice Gets the number of decimal places of the token.
+     * Gets the number of decimal places of the token.
      * @return The number of decimal places of the token.
      */
     function decimals()
@@ -138,7 +139,7 @@ contract BridgedERC20 is
     }
 
     /**
-     * @notice Gets the source token address and the source chain ID.
+     * Gets the source token address and the source chain ID.
      * @return The source token address and the source chain ID.
      */
     function source() public view returns (address, uint256) {
