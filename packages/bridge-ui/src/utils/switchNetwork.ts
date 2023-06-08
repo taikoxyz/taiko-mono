@@ -10,12 +10,18 @@ export async function switchNetwork(chainId: number) {
 
   await wagmiSwitchNetwork({ chainId });
 
+  // What are we doing here? we have a watcher waiting for network changes.
+  // When this happens this watcher is called and takes care of setting
+  // the signer and chains in the store. We are actually waiting here
+  // for these stores to change due to some race conditions in the UI.
+  // There will be a better design around this in alpha-4: fewer stores
+  // and also "$:"" tags for reactivity.
   return new Promise<void>((resolve) => {
     const waitForNetworkChange = () => {
       if (get(srcChain).id !== prevChainId) {
         resolve();
       } else {
-        setTimeout(waitForNetworkChange, 500);
+        setTimeout(waitForNetworkChange, 300);
       }
     };
 

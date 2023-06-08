@@ -21,9 +21,10 @@
     pendingTransactions,
     transactions as transactionsStore,
   } from '../../store/transaction';
-  import { isETH } from '../../token/tokens';
+  import { isERC20, isETH } from '../../token/tokens';
   import { checkIfTokenIsDeployedCrossChain } from '../../utils/checkIfTokenIsDeployedCrossChain';
   import { getAddressForToken } from '../../utils/getAddressForToken';
+  import { hasInjectedProvider } from '../../utils/injectedProvider';
   import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
   import { getLogger } from '../../utils/logger';
   import { truncateString } from '../../utils/truncateString';
@@ -515,7 +516,7 @@
 
   function toggleShowAddTokenToWallet(token: Token) {
     // If there is no injected provider we can't add the token to the wallet
-    showAddToWallet = token.symbol !== 'ETH' && Boolean(globalThis.ethereum);
+    showAddToWallet = isERC20(token) && hasInjectedProvider();
   }
 
   $: updateTokenBalance($signer, $token).finally(() => {

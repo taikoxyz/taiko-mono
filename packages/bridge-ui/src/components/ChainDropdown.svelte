@@ -7,12 +7,12 @@
   import { srcChain } from '../store/chain';
   import { signer } from '../store/signer';
   import { pendingTransactions } from '../store/transaction';
+  import { switchNetwork } from '../utils/switchNetwork';
   import {
     errorToast,
     successToast,
     warningToast,
   } from './NotificationToast.svelte';
-  import { switchNetwork } from '../utils/switchNetwork';
 
   const switchChains = async (chain: Chain) => {
     if (!$signer) {

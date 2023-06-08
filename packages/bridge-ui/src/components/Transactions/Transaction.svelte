@@ -28,6 +28,7 @@
   import { isTransactionProcessable } from '../../utils/isTransactionProcessable';
   import { getLogger } from '../../utils/logger';
   import { sleep } from '../../utils/sleep';
+  import { switchNetwork } from '../../utils/switchNetwork';
   import { tokenVaults } from '../../vault/tokenVaults';
   import Button from '../Button.svelte';
   import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
@@ -37,7 +38,6 @@
     successToast,
     warningToast,
   } from '../NotificationToast.svelte';
-  import { switchNetwork } from '../../utils/switchNetwork';
 
   const log = getLogger('component:Transaction');
 

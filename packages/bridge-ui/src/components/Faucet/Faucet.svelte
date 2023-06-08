@@ -18,6 +18,7 @@
   import { getIsMintedWithEstimation } from '../../utils/getIsMintedWithEstimation';
   import { getLogger } from '../../utils/logger';
   import { mintERC20 } from '../../utils/mintERC20';
+  import { switchNetwork } from '../../utils/switchNetwork';
   import Button from '../Button.svelte';
   import Eth from '../icons/ETH.svelte';
   import Tko from '../icons/TKO.svelte';
@@ -28,7 +29,6 @@
     warningToast,
   } from '../NotificationToast.svelte';
   import TestTokenDropdown from './TestTokenDropdown.svelte';
-  import { switchNetwork } from '../../utils/switchNetwork';
 
   const log = getLogger('component:Faucet');
 

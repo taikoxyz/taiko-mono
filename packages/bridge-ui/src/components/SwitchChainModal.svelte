@@ -4,9 +4,9 @@
   import { mainnetChain, taikoChain } from '../chain/chains';
   import type { Chain } from '../domain/chain';
   import { isSwitchChainModalOpen } from '../store/modal';
+  import { switchNetwork } from '../utils/switchNetwork';
   import Modal from './Modal.svelte';
   import { errorToast, successToast } from './NotificationToast.svelte';
-  import { switchNetwork } from '../utils/switchNetwork';
 
   const switchChain = async (chain: Chain) => {
     try {

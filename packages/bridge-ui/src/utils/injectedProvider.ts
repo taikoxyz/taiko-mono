@@ -71,3 +71,7 @@ export async function rpcCall(method: RPCMethod, params?: any) {
     throw new Error(`RPC call "${method}" failed`, { cause: error });
   }
 }
+
+export function hasInjectedProvider() {
+  return Boolean(globalThis.ethereum);
+}
