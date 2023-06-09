@@ -139,7 +139,9 @@
     const parsedAmount = ethers.utils.parseUnits(amount, token.decimals);
 
     log(
-      `Checking allowance for token ${token.symbol} and amount ${parsedAmount}`,
+      `Checking allowance for token ${
+        token.symbol
+      } and amount ${parsedAmount.toString()}`,
     );
 
     const isRequired = await $activeBridge.requiresAllowance({
