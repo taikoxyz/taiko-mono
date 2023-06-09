@@ -20,6 +20,7 @@ interface ImportMetaEnv {
   readonly VITE_L1_SIGNAL_SERVICE_ADDRESS: string;
   readonly VITE_L2_SIGNAL_SERVICE_ADDRESS: string;
   readonly VITE_TEST_ERC20: string;
+  readonly VITE_SENTRY_DSN: string;
 }
 
 interface ImportMeta {
