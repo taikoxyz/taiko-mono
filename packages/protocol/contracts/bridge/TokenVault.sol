@@ -25,8 +25,8 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
  * This vault holds all ERC20 tokens (but not Ether) that users have deposited.
  * It also manages the mapping between canonical ERC20 tokens and their bridged
  * tokens.
- * @dev Ether is held by Bridges on L1 and by the EtherVault on L2,
- *      not TokenVaults.
+ * @dev Ether is held by Bridges on L1 and by the EtherVault on L2, not
+ * TokenVaults.
  * @custom:security-contact hello@taiko.xyz
  */
 contract TokenVault is EssentialContract {
@@ -123,14 +123,66 @@ contract TokenVault is EssentialContract {
                              CUSTOM ERRORS
     //////////////////////////////////////////////////////////////*/
 
+    /**
+     * Thrown when the `to` address in an operation is invalid.
+     * This can happen if it's zero address or the address of the token vault.
+     */
     error TOKENVAULT_INVALID_TO();
+
+    /**
+     * Thrown when the value in a transaction is invalid.
+     * The value can be an Ether amount or the amount of a token being
+     * transferred.
+     */
     error TOKENVAULT_INVALID_VALUE();
+
+    /**
+     * Thrown when the token address in a transaction is invalid.
+     * This could happen if the token address is zero or doesn't conform to the
+     * ERC20 standard.
+     */
     error TOKENVAULT_INVALID_TOKEN();
+
+    /**
+     * Thrown when the amount in a transaction is invalid.
+     * This could happen if the amount is zero or exceeds the sender's balance.
+     */
     error TOKENVAULT_INVALID_AMOUNT();
+
+    /**
+     * Thrown when a canonical token address could not be found for a bridged
+     * token.
+     * This could happen when trying to send a bridged token back to its
+     * original chain.
+     */
     error TOKENVAULT_CANONICAL_TOKEN_NOT_FOUND();
+
+    /**
+     * Thrown when the owner address in a message is invalid.
+     * This could happen if the owner address is zero or doesn't match the
+     * expected owner.
+     */
     error TOKENVAULT_INVALID_OWNER();
+
+    /**
+     * Thrown when the source chain ID in a message is invalid.
+     * This could happen if the source chain ID doesn't match the current
+     * chain's ID.
+     */
     error TOKENVAULT_INVALID_SRC_CHAIN_ID();
+
+    /**
+     * Thrown when a message has not failed.
+     * This could happen if trying to release a message deposit without proof of
+     * failure.
+     */
     error TOKENVAULT_MESSAGE_NOT_FAILED();
+
+    /**
+     * Thrown when the sender in a message context is invalid.
+     * This could happen if the sender isn't the expected token vault on the
+     * source chain.
+     */
     error TOKENVAULT_INVALID_SENDER();
 
     /*//////////////////////////////////////////////////////////////
@@ -146,14 +198,14 @@ contract TokenVault is EssentialContract {
      * destination chain so the user can receive the same amount of tokens
      * by invoking the message call.
      *
-     * @param destChainId @custom:see IBridge.Message
-     * @param to @custom:see IBridge.Message
+     * @param destChainId Chain ID of the destination chain
+     * @param to Address of the receiver
      * @param token The address of the token to be sent.
      * @param amount The amount of token to be transferred.
-     * @param gasLimit @custom:see IBridge.Message
-     * @param processingFee @custom:see IBridge.Message
-     * @param refundAddress @custom:see IBridge.Message
-     * @param memo @custom:see IBridge.Message
+     * @param gasLimit Gas limit for the transaction
+     * @param processingFee Processing fee for the transaction
+     * @param refundAddress Address for refunds
+     * @param memo Any additional data or notes
      */
     function sendERC20(
         uint256 destChainId,
@@ -244,10 +296,10 @@ contract TokenVault is EssentialContract {
      * Release deposited ERC20 back to the owner on the source TokenVault with
      * a proof that the message processing on the destination Bridge has failed.
      *
-     * @param message The message that corresponds the ERC20 deposit on the
+     * @param message The message that corresponds to the ERC20 deposit on the
      * source chain.
-     * @param proof The proof from the destination chain to show the message
-     * has failed.
+     * @param proof The proof from the destination chain to show the message has
+     * failed.
      */
     function releaseERC20(
         IBridge.Message calldata message,
@@ -290,12 +342,12 @@ contract TokenVault is EssentialContract {
     }
 
     /**
-     * @dev This function can only be called by the bridge contract while
+     * This function can only be called by the bridge contract while
      * invoking a message call. See sendERC20, which sets the data to invoke
      * this function.
+     *
      * @param canonicalToken The canonical ERC20 token which may or may not
-     * live on this chain. If not, a BridgedERC20 contract will be
-     * deployed.
+     * live on this chain. If not, a BridgedERC20 contract will be deployed.
      * @param from The source address.
      * @param to The destination address.
      * @param amount The amount of tokens to be sent. 0 is a valid value.
@@ -338,6 +390,11 @@ contract TokenVault is EssentialContract {
                            PRIVATE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
+    /**
+     * Internal function to get or deploy bridged token
+     * @param canonicalToken Canonical token information
+     * @return token Address of the deployed bridged token
+     */
     function _getOrDeployBridgedToken(CanonicalERC20 calldata canonicalToken)
         private
         returns (address)
@@ -349,8 +406,12 @@ contract TokenVault is EssentialContract {
     }
 
     /**
-     * @dev Deploys a new BridgedERC20 contract and initializes it. This must be
-     * called before the first time a bridged token is sent to this chain.
+     * Internal function to deploy a new BridgedERC20 contract and initializes
+     * it.
+     * This must be called before the first time a bridged token is sent to this
+     * chain.
+     * @param canonicalToken Canonical token information
+     * @return bridgedToken Address of the newly deployed bridged token
      */
     function _deployBridgedToken(CanonicalERC20 calldata canonicalToken)
         private
