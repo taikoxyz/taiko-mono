@@ -2,7 +2,7 @@
   import { L1_CHAIN_ID } from '../../constants/envVars';
   import type { Token } from '../../domain/token';
   import { token } from '../../store/token';
-  import { errorCodes, rpcCall } from '../../utils/rpcCall';
+  import { errorCodes, rpcCall } from '../../utils/injectedProvider';
   import MetaMask from '../icons/MetaMask.svelte';
   import { errorToast, warningToast } from '../NotificationToast.svelte';
 

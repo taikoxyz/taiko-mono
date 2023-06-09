@@ -2,7 +2,6 @@
   import { UserRejectedRequestError } from '@wagmi/core';
   import { ethers, type Signer } from 'ethers';
 
-  import { chains } from '../../chain/chains';
   import {
     L1_CHAIN_ID,
     L1_CHAIN_NAME,
@@ -19,7 +18,7 @@
   import { getIsMintedWithEstimation } from '../../utils/getIsMintedWithEstimation';
   import { getLogger } from '../../utils/logger';
   import { mintERC20 } from '../../utils/mintERC20';
-  import { selectChain } from '../../utils/selectChain';
+  import { switchNetwork } from '../../utils/switchNetwork';
   import Button from '../Button.svelte';
   import Eth from '../icons/ETH.svelte';
   import Tko from '../icons/TKO.svelte';
@@ -91,7 +90,12 @@
     loading = true;
 
     try {
-      const tx = await mintERC20(srcChain.id, _token, signer);
+      // If we're not already, switch to L1
+      if (srcChain.id !== L1_CHAIN_ID) {
+        await switchNetwork(L1_CHAIN_ID);
+      }
+
+      const tx = await mintERC20(_token, signer);
 
       successToast(`Transaction sent to mint ${_token.symbol} tokens.`);
 
@@ -124,11 +128,11 @@
     }
   }
 
-  async function switchNetwork() {
+  async function switchNetworkToL1() {
     switchingNetwork = true;
 
     try {
-      await selectChain(chains[L1_CHAIN_ID]);
+      await switchNetwork(L1_CHAIN_ID);
     } catch (error) {
       console.error(error);
 
@@ -171,7 +175,7 @@
     <Button
       type="accent"
       class="w-full"
-      on:click={switchNetwork}
+      on:click={switchNetworkToL1}
       disabled={disableSwitchButton}>
       <span>
         {#if switchingNetwork}
