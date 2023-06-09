@@ -1,8 +1,7 @@
 import { Contract, ethers, type Signer } from 'ethers';
 
-import { chains } from '../chain/chains';
 import { freeMintErc20ABI } from '../constants/abi';
-import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
+import { L1_CHAIN_ID } from '../constants/envVars';
 import type { Token } from '../domain/token';
 import { mintERC20 } from './mintERC20';
 
@@ -32,7 +31,6 @@ const mockTx = {} as ethers.Transaction;
 
 describe('mintERC20', () => {
   beforeEach(() => {
-    // jest.mocked(selectChain).mockClear();
     jest.mocked(Contract).mockClear();
     jest.mocked(Contract.prototype.mint).mockResolvedValue(mockTx);
   });
@@ -48,8 +46,6 @@ describe('mintERC20', () => {
 
   it('should switch network before minting ERC20', async () => {
     const tx = await mintERC20(mockToken, mockSigner);
-
-    // expect(selectChain).toHaveBeenCalledWith(chains[L1_CHAIN_ID]);
 
     expect(Contract).toHaveBeenCalledWith('0x00', freeMintErc20ABI, mockSigner);
 

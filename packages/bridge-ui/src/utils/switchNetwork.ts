@@ -19,12 +19,21 @@ export async function switchNetwork(chainId: number) {
   // and '$:' tags. They're evil.
   const deferred = new Deferred<void>();
 
+  // This will prevent an unlikely infinite loop
+  const starting = Date.now();
+  const timeout = 3000; // TODO: config?
+
   const waitForNetworkChange = () => {
     const srcChainId = get(srcChain)?.id;
+
     if (srcChainId && srcChainId !== prevChainId) {
+      // We have finally set the chain in the store. We're done here.
       deferred.resolve();
+    } else if (Date.now() > starting + timeout) {
+      // Wait, what???
+      deferred.reject(new Error('timeout switching network'));
     } else {
-      setTimeout(waitForNetworkChange, 300); // TODO: config?
+      setTimeout(waitForNetworkChange, 300); // TODO: config those 300?
     }
   };
 
