@@ -60,7 +60,7 @@ Finally, set the following environment variables:
 - L1_ENDPOINT_WS
 
 <Callout>
-  You can get a Sepolia L1 endpoint from a few places,
+  You can get a Sepolia L1 endpoint from a few places, but it **must point to an archive node** to access the state trie beyond the last 128 blocks.
   [Alchemy](https://www.alchemy.com/) and [Infura](https://www.infura.io/) are two popular RPC providers. **Make sure you select the RPC as Sepolia testnet, and not Ethereum mainnet**.
 </Callout>
 
@@ -172,6 +172,9 @@ You can visit it at [http://localhost:3000/d/L2ExecutionEngine/l2-execution-engi
 You can ignore any WARN logs.
 
 ### Node error logs
+
+#### `error: "failed to insert new head to L2 execution engine: missing trie node"`
+Make sure that your RPC is pointing to an Sepolia archive node, and not a full node.
 
 #### `error: L1_BLOCK_ID`
 The block that you want to prove has already been verified, you can ignore this.
