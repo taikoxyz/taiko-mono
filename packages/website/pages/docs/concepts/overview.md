@@ -1,3 +1,5 @@
+## Overview
+
 Taiko aims to build a secure, decentralized, and permissionless [rollup](https://www.youtube.com/watch?v=7pWxCklcNsU) on Ethereum. These requirements dictate the following properties:
 
 1. All block data required to reconstruct the post-block state needs to be put on Ethereum so it is publicly available. If this would not be the case, Taiko would not only fail to be a rollup but would also fail to be fully decentralized. This data is required so that anyone can know the latest chain state and so that useful new blocks can be appended to the chain. For the decentralization of the proof generation Taiko requires an even stronger requirement: all block data needed to be able to re-execute all work in a block in a step-by-step fashion needs to be made public. This makes it possible for provers to generate a proof for a block using only publicly known data.
