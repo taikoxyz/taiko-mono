@@ -12,23 +12,11 @@ import
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import "../../contracts/L1/TaikoL1.sol";
+import "./UpgradeScript.s.sol";
 
-contract UpgradeTaikoL1 is Script {
-    using SafeCastUpgradeable for uint256;
-
-    uint256 public deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-
-    address public proxyAddress = vm.envAddress("PROXY_ADDRESS");
-
+contract UpgradeTaikoL1 is UpgradeScript {
     function run() external {
-        require(deployerPrivateKey != 0, "PRIVATE_KEY not set");
-        require(proxyAddress != address(0), "PROXY_ADDRESS not set");
-
-        vm.startBroadcast(deployerPrivateKey);
-
-        TransparentUpgradeableProxy proxy =
-            TransparentUpgradeableProxy(payable(proxyAddress));
-
+        setUp();
         TaikoL1 newTaikoL1 = new ProxiedTaikoL1();
         proxy.upgradeTo(address(newTaikoL1));
         console2.log(
