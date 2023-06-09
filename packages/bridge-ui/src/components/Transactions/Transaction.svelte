@@ -27,7 +27,7 @@
   import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
   import { isTransactionProcessable } from '../../utils/isTransactionProcessable';
   import { getLogger } from '../../utils/logger';
-  import { selectChain } from '../../utils/selectChain';
+  import { switchNetwork } from '../../utils/switchNetwork';
   import { tokenVaults } from '../../vault/tokenVaults';
   import Button from '../Button.svelte';
   import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
@@ -95,8 +95,7 @@
         });
       }
 
-      const chain = chains[bridgeTx.destChainId];
-      await selectChain(chain);
+      await switchNetwork(bridgeTx.destChainId);
     }
   }
 
@@ -376,7 +375,7 @@
     {:else}
       {utils.formatUnits(transaction.amount, transaction.decimals)}
     {/if}
-    {transaction.symbol ?? 'ETH'}
+    {transaction.symbol || 'ETH'}
   </td>
 
   <td>

@@ -7,7 +7,7 @@
   import { srcChain } from '../store/chain';
   import { signer } from '../store/signer';
   import { pendingTransactions } from '../store/transaction';
-  import { selectChain } from '../utils/selectChain';
+  import { switchNetwork } from '../utils/switchNetwork';
   import {
     errorToast,
     successToast,
@@ -26,7 +26,7 @@
     }
 
     try {
-      await selectChain(chain);
+      await switchNetwork(chain.id);
       successToast('Successfully changed chain.');
     } catch (error) {
       console.error(error);
