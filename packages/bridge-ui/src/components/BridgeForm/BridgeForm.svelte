@@ -21,9 +21,10 @@
     pendingTransactions,
     transactions as transactionsStore,
   } from '../../store/transaction';
-  import { isETH } from '../../token/tokens';
+  import { isERC20, isETH } from '../../token/tokens';
   import { checkIfTokenIsDeployedCrossChain } from '../../utils/checkIfTokenIsDeployedCrossChain';
   import { getAddressForToken } from '../../utils/getAddressForToken';
+  import { hasInjectedProvider } from '../../utils/injectedProvider';
   import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
   import { getLogger } from '../../utils/logger';
   import { truncateString } from '../../utils/truncateString';
@@ -138,7 +139,9 @@
     const parsedAmount = ethers.utils.parseUnits(amount, token.decimals);
 
     log(
-      `Checking allowance for token ${token.symbol} and amount ${parsedAmount}`,
+      `Checking allowance for token ${
+        token.symbol
+      } and amount ${parsedAmount.toString()}`,
     );
 
     const isRequired = await $activeBridge.requiresAllowance({
@@ -277,7 +280,7 @@
     const hasEnoughBalance = balanceAvailableForTx.gte(requiredGas);
 
     log(
-      `Is required gas ${requiredGas} less than available balance ${balanceAvailableForTx}? ${hasEnoughBalance}`,
+      `Is required gas ${requiredGas.toString()} less than available balance ${balanceAvailableForTx.toString()}? ${hasEnoughBalance}`,
     );
 
     return hasEnoughBalance;
@@ -514,7 +517,8 @@
   }
 
   function toggleShowAddTokenToWallet(token: Token) {
-    showAddToWallet = token.symbol !== 'ETH';
+    // If there is no injected provider we can't add the token to the wallet
+    showAddToWallet = isERC20(token) && hasInjectedProvider();
   }
 
   $: updateTokenBalance($signer, $token).finally(() => {
