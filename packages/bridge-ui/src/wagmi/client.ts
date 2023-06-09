@@ -16,6 +16,7 @@ import {
   L2_RPC,
 } from '../constants/envVars';
 import { providers } from '../provider/providers';
+import { isMobileDevice } from '../utils/isMobileDevice';
 
 export const mainnetWagmiChain: Chain = {
   id: L1_CHAIN_ID,
@@ -69,14 +70,14 @@ export const client = createClient({
   autoConnect: true,
   provider,
   connectors: [
-    new MetaMaskConnector({ chains }),
-    new CoinbaseWalletConnector({
-      chains,
-      options: { appName: 'Taiko Bridge' },
-    }),
+    !isMobileDevice() ? new MetaMaskConnector({ chains }) : null,
     new WalletConnectConnector({
       chains,
       options: { qrcode: true },
     }),
-  ],
+    new CoinbaseWalletConnector({
+      chains,
+      options: { appName: 'Taiko Bridge' },
+    }),
+  ].filter(Boolean), // remove nulls
 });
