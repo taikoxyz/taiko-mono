@@ -375,7 +375,7 @@
     {:else}
       {utils.formatUnits(transaction.amount, transaction.decimals)}
     {/if}
-    {transaction.symbol ?? 'ETH'}
+    {transaction.symbol || 'ETH'}
   </td>
 
   <td>
