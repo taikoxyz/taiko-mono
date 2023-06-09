@@ -16,7 +16,7 @@ export async function switchNetwork(chainId: number) {
   // the signer and chains in the store. We are actually waiting here
   // for these stores to change due to some race conditions in the UI.
   // There will be a better design around this in alpha-4: fewer stores
-  // and also '$:' tags for reactivity.
+  // and '$:' tags. They're evil.
   const deferred = new Deferred<void>();
 
   const waitForNetworkChange = () => {
