@@ -1,6 +1,5 @@
 #!/bin/sh
 
-# This script is only used by `pnpm deploy:foundry`.
 set -e
 : "${FORK_URL:=http://localhost:8545}"
 
