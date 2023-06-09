@@ -13,9 +13,14 @@ import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 
 /**
- * Stores message metadata on the Bridge.
+ * Stores message metadata on the Bridge. It's used to keep track of the state
+ * of messages that are being
+ * transferred across the bridge, and it contains functions to hash messages and
+ * check their status.
  */
 library LibBridgeData {
+    /// @dev The State struct stores the state of messages in the Bridge
+    /// contract.
     struct State {
         uint256 nextMessageId;
         IBridge.Context ctx; // 3 slots
@@ -23,6 +28,8 @@ library LibBridgeData {
         uint256[45] __gap;
     }
 
+    /// @dev StatusProof holds the block header and proof for a particular
+    /// status.
     struct StatusProof {
         BlockHeader header;
         bytes proof;
@@ -38,7 +45,9 @@ library LibBridgeData {
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
 
     /**
-     * @return msgHash The keccak256 hash of the message.
+     * Calculate the keccak256 hash of the message
+     * @param message The message to be hashed
+     * @return msgHash The keccak256 hash of the message
      */
     function hashMessage(IBridge.Message memory message)
         internal
