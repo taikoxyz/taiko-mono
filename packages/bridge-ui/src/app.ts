@@ -5,7 +5,7 @@ import { Buffer } from 'buffer';
 import App from './App.svelte';
 import { SENTRY_DSN } from './constants/envVars';
 import { setupI18n } from './i18n';
-import { setupSentry } from './sentry.client';
+import { setupSentry } from './sentry';
 
 setupSentry(SENTRY_DSN);
 setupI18n({ withLocale: 'en' });
