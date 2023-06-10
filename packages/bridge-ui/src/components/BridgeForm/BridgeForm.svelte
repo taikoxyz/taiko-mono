@@ -2,6 +2,7 @@
   import { type Address, fetchFeeData } from '@wagmi/core';
   import { BigNumber, Contract, ethers, type Signer } from 'ethers';
   import { _ } from 'svelte-i18n';
+  import * as Sentry from '@sentry/svelte';
 
   import { chains } from '../../chain/chains';
   import { erc20ABI } from '../../constants/abi';
@@ -230,6 +231,7 @@
       );
     } catch (error) {
       console.error(error);
+      Sentry.captureException(error);
 
       // TODO: we need to improve the toast API so we can simply pass
       //       title (header), note (footer), icon, etc.
@@ -423,6 +425,7 @@
       );
     } catch (error) {
       console.error(error);
+      Sentry.captureException(error);
 
       const headerError = '<strong>Failed to bridge funds</strong><br />';
       const noteError =

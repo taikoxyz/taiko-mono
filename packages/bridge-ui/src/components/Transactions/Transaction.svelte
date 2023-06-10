@@ -1,6 +1,7 @@
 <script lang="ts">
   import { UserRejectedRequestError } from '@wagmi/core';
   import { Contract, errors, type Transaction, utils } from 'ethers';
+  import * as Sentry from '@sentry/svelte';
   import { createEventDispatcher } from 'svelte';
   import { onDestroy, onMount } from 'svelte';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
@@ -169,6 +170,7 @@
       $token = $token;
     } catch (error) {
       console.error(error);
+      Sentry.captureException(error);
 
       const headerError = '<strong>Failed to claim funds</strong>';
 
@@ -260,6 +262,7 @@
       $token = $token;
     } catch (error) {
       console.error(error);
+      Sentry.captureException(error);
 
       const headerError = '<strong>Failed to release funds</strong>';
 
