@@ -15,8 +15,7 @@ import "../../contracts/common/AddressManager.sol";
 import "./UpgradeScript.s.sol";
 
 contract UpgradeAddressManager is UpgradeScript {
-    function run() external {
-        setUp();
+    function run() external setUp {
         AddressManager newAddressManager = new ProxiedAddressManager();
         proxy.upgradeTo(address(newAddressManager));
         console2.log(

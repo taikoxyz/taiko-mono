@@ -15,8 +15,7 @@ import "../../contracts/bridge/Bridge.sol";
 import "./UpgradeScript.s.sol";
 
 contract UpgradeBridge is UpgradeScript {
-    function run() external {
-        setUp();
+    function run() external setUp {
         Bridge newBridge = new ProxiedBridge();
         proxy.upgradeTo(address(newBridge));
         console2.log(

@@ -15,8 +15,7 @@ import "../../contracts/signal/SignalService.sol";
 import "./UpgradeScript.s.sol";
 
 contract UpgradeSignalService is UpgradeScript {
-    function run() external {
-        setUp();
+    function run() external setUp {
         SignalService newSignalService = new ProxiedSignalService();
         proxy.upgradeTo(address(newSignalService));
         console2.log(

@@ -19,12 +19,15 @@ contract UpgradeScript is Script {
 
     TransparentUpgradeableProxy proxy;
 
-    function setUp() internal {
+    modifier setUp() {
         require(deployerPrivateKey != 0, "PRIVATE_KEY not set");
         require(proxyAddress != address(0), "PROXY_ADDRESS not set");
 
         vm.startBroadcast(deployerPrivateKey);
 
         proxy = TransparentUpgradeableProxy(payable(proxyAddress));
+        _;
+
+        vm.stopBroadcast();
     }
 }

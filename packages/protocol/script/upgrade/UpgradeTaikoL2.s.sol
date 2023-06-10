@@ -15,8 +15,7 @@ import "../../contracts/L2/TaikoL2.sol";
 import "./UpgradeScript.s.sol";
 
 contract UpgradeTaikoL2 is UpgradeScript {
-    function run() external {
-        setUp();
+    function run() external setUp {
         TaikoL2 newTaikoL2 = new ProxiedTaikoL2();
         proxy.upgradeTo(address(newTaikoL2));
         console2.log(

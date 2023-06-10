@@ -15,8 +15,7 @@ import "../../contracts/bridge/TokenVault.sol";
 import "./UpgradeScript.s.sol";
 
 contract UpgradeTokenVault is UpgradeScript {
-    function run() external {
-        setUp();
+    function run() external setUp {
         TokenVault newTokenVault = new ProxiedTokenVault();
         proxy.upgradeTo(address(newTokenVault));
         console2.log(
