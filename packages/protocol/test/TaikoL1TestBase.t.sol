@@ -83,9 +83,9 @@ abstract contract TaikoL1TestBase is Test {
         );
 
         // Set protocol broker
-        registerAddress("proto_broker", address(this));
+        registerAddress("taiko", address(this));
         tko.mint(address(this), 1e9 * 1e8);
-        registerAddress("proto_broker", address(L1));
+        registerAddress("taiko", address(L1));
 
         L1.init(address(addressManager), GENESIS_BLOCK_HASH, feeBase);
         printVariables("init  ");
