@@ -176,6 +176,9 @@ You can ignore any WARN logs.
 #### `error: "failed to insert new head to L2 execution engine: missing trie node"`
 Make sure that your RPC is pointing to an Sepolia archive node, and not a full node.
 
+#### `error: "daily request count exceeded, request rate limited"`
+Your RPC provider has a limit on the number of requests. You can try using a different provider that offers higher limits.
+
 #### `error: L1_BLOCK_ID`
 The block that you want to prove has already been verified, you can ignore this.
 
