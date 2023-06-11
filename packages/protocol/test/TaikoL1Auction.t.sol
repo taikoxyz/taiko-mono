@@ -116,9 +116,10 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         uint64 batchId = 1;
 
-        for (uint256 blockId = 1; blockId <= conf.auctionBatchSize * 2; blockId++) {
-
-        printVariables("");
+        for (
+            uint256 blockId = 1; blockId <= conf.auctionBatchSize * 2; blockId++
+        ) {
+            printVariables("");
             TaikoData.BlockMetadata memory meta =
                 proposeBlock(Alice, 1_000_000, 1024);
 
@@ -133,24 +134,21 @@ contract TaikoL1Test is TaikoL1TestBase {
             TaikoData.Auction[] memory auctions;
 
             // Make valid batch bids - 3 in a row
-            if (
-                blockId == 1
-            ) {
+            if (blockId == 1) {
                 for (uint256 index = 0; index < 3; index++) {
                     // Batch for 3 batches
                     bidForBatch(Bob, batchId, bid);
                     // Roll one time ahead in future and bid another one
                     vm.roll(block.number + 1);
-                    vm.warp(
-                        block.timestamp + 12
-                    );
+                    vm.warp(block.timestamp + 12);
                     batchId++;
                 }
 
                 // Then roll into the future to be proveable
                 (, auctions) = L1.getAuctions(1, 3);
                 vm.warp(
-                    block.timestamp + auctions[0].startedAt + conf.auctionWindow + 1
+                    block.timestamp + auctions[0].startedAt + conf.auctionWindow
+                        + 1
                 );
                 vm.roll(block.number + 100);
             }
@@ -178,7 +176,8 @@ contract TaikoL1Test is TaikoL1TestBase {
     function test_bidForBatch_multiple_bids() external {
         depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
         depositTaikoToken(Bob, 1e6 * 1e8, 100 ether); // Not the best bid
-        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether); // She will be the winner
+        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether); // She will be the
+            // winner
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -189,8 +188,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         uint64 batchId = 1;
 
         for (uint256 blockId = 1; blockId <= conf.auctionBatchSize; blockId++) {
-
-        printVariables("");
+            printVariables("");
             TaikoData.BlockMetadata memory meta =
                 proposeBlock(Alice, 1_000_000, 1024);
 
@@ -211,41 +209,33 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             TaikoData.Auction[] memory auctions;
 
-            if (
-                blockId == 1
-            ) {
-
+            if (blockId == 1) {
                 // Batch bid
                 bidForBatch(Bob, batchId, bid);
                 // Roll one time ahead in future and bid another one
                 vm.roll(block.number + 1);
-                vm.warp(
-                    block.timestamp + 12
-                );
+                vm.warp(block.timestamp + 12);
 
                 // Revert batch bid
                 vm.expectRevert(TaikoErrors.L1_NOT_THE_BEST_BID.selector);
                 bidForBatch(Alice, batchId, bid);
                 // Roll one time ahead in future and bid another one
                 vm.roll(block.number + 1);
-                vm.warp(
-                    block.timestamp + 12
-                );
+                vm.warp(block.timestamp + 12);
 
                 // Winning batch bid
                 bidForBatch(Carol, batchId, winningBid);
                 // Roll one time ahead in future and bid another one
                 vm.roll(block.number + 1);
-                vm.warp(
-                    block.timestamp + 12
-                );
+                vm.warp(block.timestamp + 12);
 
                 batchId++;
 
                 // Then roll into the future to be proveable
                 (, auctions) = L1.getAuctions(1, 3);
                 vm.warp(
-                    block.timestamp + auctions[0].startedAt + conf.auctionWindow + 1
+                    block.timestamp + auctions[0].startedAt + conf.auctionWindow
+                        + 1
                 );
                 vm.roll(block.number + 100);
             }
@@ -270,10 +260,14 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     /// @dev Test auctioning for multiple bids and bids
-    function test_bidForBatch_but_non_winning_prover_cannot_prove_within_window() external {
+    function test_bidForBatch_but_non_winning_prover_cannot_prove_within_window(
+    )
+        external
+    {
         depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
         depositTaikoToken(Bob, 1e6 * 1e8, 100 ether); // Not the best bid
-        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether); // She will be the winner
+        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether); // She will be the
+            // winner
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -283,8 +277,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         uint64 batchId = 1;
 
         for (uint256 blockId = 1; blockId <= conf.auctionBatchSize; blockId++) {
-
-        printVariables("");
+            printVariables("");
             TaikoData.BlockMetadata memory meta =
                 proposeBlock(Alice, 1_000_000, 1024);
 
@@ -299,23 +292,20 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             TaikoData.Auction[] memory auctions;
 
-            if (
-                blockId == 1
-            ) {
+            if (blockId == 1) {
                 // Batch bid
                 bidForBatch(Bob, batchId, bid);
                 // Roll one time ahead in future and bid another one
                 vm.roll(block.number + 1);
-                vm.warp(
-                    block.timestamp + 12
-                );
+                vm.warp(block.timestamp + 12);
 
                 batchId++;
 
                 // Then roll into the future to be proveable
                 (, auctions) = L1.getAuctions(1, 3);
                 vm.warp(
-                    block.timestamp + auctions[0].startedAt + conf.auctionWindow + 1
+                    block.timestamp + auctions[0].startedAt + conf.auctionWindow
+                        + 1
                 );
                 vm.roll(block.number + 100);
             }
@@ -352,10 +342,13 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     /// @dev Test auctioning for multiple bids and bids
-    function test_bidForBatch_but_non_winning_prover_can_prove_outside_window() external {
+    function test_bidForBatch_but_non_winning_prover_can_prove_outside_window()
+        external
+    {
         depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
         depositTaikoToken(Bob, 1e6 * 1e8, 100 ether); // Not the best bid
-        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether); // She will be the winner
+        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether); // She will be the
+            // winner
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -365,8 +358,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         uint64 batchId = 1;
 
         for (uint256 blockId = 1; blockId <= conf.auctionBatchSize; blockId++) {
-
-        printVariables("");
+            printVariables("");
             TaikoData.BlockMetadata memory meta =
                 proposeBlock(Alice, 1_000_000, 1024);
 
@@ -381,26 +373,20 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             TaikoData.Auction[] memory auctions;
 
-            if (
-                blockId == 1
-            ) {
+            if (blockId == 1) {
                 // Batch bid
                 bidForBatch(Bob, batchId, bid);
                 // Roll one time ahead in future and bid another one
                 vm.roll(block.number + 1);
-                vm.warp(
-                    block.timestamp + 12
-                );
+                vm.warp(block.timestamp + 12);
 
                 batchId++;
 
                 // Then roll into the future to be proveable
                 (, auctions) = L1.getAuctions(1, 3);
                 vm.warp(
-                    block.timestamp + 
-                    auctions[0].startedAt + 
-                    conf.auctionWindow +
-                    auctions[0].bid.proofWindow
+                    block.timestamp + auctions[0].startedAt + conf.auctionWindow
+                        + auctions[0].bid.proofWindow
                 );
                 vm.roll(block.number + 100);
             }

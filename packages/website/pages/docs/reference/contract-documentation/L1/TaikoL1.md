@@ -170,6 +170,18 @@ function getConfig() public pure virtual returns (struct TaikoData.Config)
 function batchForBlock(uint256 blockId) public pure returns (uint256)
 ```
 
+### isBatchAuctionable
+
+```solidity
+function isBatchAuctionable(uint256 batchId) public view returns (bool)
+```
+
+### isBlockProvableBy
+
+```solidity
+function isBlockProvableBy(uint256 blockId, address prover) public view returns (bool, struct TaikoData.Auction)
+```
+
 ### isBidBetter
 
 ```solidity
