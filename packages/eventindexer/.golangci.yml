@@ -41,4 +41,7 @@ issues:
     - path: _test\.go
       linters:
         - funlen
+    - path: contracts\.go
+      linters:
+        - lll
 
