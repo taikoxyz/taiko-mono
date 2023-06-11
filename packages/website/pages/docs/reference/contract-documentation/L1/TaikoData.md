@@ -10,9 +10,11 @@ title: TaikoData
 struct Config {
   uint256 chainId;
   uint256 maxNumProposedBlocks;
-  uint256 ringBufferSize;
+  uint256 blockRingBufferSize;
+  uint256 auctionRingBufferSize;
   uint256 maxVerificationsPerTx;
   uint64 blockMaxGasLimit;
+  uint64 blockFeeBaseGas;
   uint64 maxTransactionsPerBlock;
   uint64 maxBytesPerTxList;
   uint256 txListCacheExpiry;
@@ -25,6 +27,13 @@ struct Config {
   uint64 maxEthDepositsPerBlock;
   uint96 maxEthDepositAmount;
   uint96 minEthDepositAmount;
+  uint16 auctionWindow;
+  uint64 auctionProofWindowMultiplier;
+  uint64 auctionDepositMultipler;
+  uint64 auctionMaxFeePerGasMultipler;
+  uint16 auctionBatchSize;
+  uint16 auctonMaxAheadOfProposals;
+  uint16 auctionMaxProofWindow;
   bool relaySignalRoot;
 }
 ```
@@ -33,11 +42,12 @@ struct Config {
 
 ```solidity
 struct StateVariables {
-  uint64 blockFee;
+  uint64 feePerGas;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 numBlocks;
   uint64 lastVerifiedBlockId;
+  uint64 numAuctions;
   uint64 nextEthDepositToProcess;
   uint64 numEthDeposits;
 }
@@ -110,12 +120,14 @@ struct ForkChoice {
 ```solidity
 struct Block {
   mapping(uint256 => struct TaikoData.ForkChoice) forkChoices;
+  bytes32 metaHash;
   uint64 blockId;
   uint64 proposedAt;
+  uint64 feePerGas;
+  uint32 gasLimit;
+  address proposer;
   uint24 nextForkChoiceId;
   uint24 verifiedForkChoiceId;
-  bytes32 metaHash;
-  address proposer;
 }
 ```
 
@@ -138,6 +150,28 @@ struct EthDeposit {
 }
 ```
 
+### Bid
+
+```solidity
+struct Bid {
+  address prover;
+  uint64 deposit;
+  uint64 feePerGas;
+  uint64 blockMaxGasLimit;
+  uint16 proofWindow;
+}
+```
+
+### Auction
+
+```solidity
+struct Auction {
+  struct TaikoData.Bid bid;
+  uint64 batchId;
+  uint64 startedAt;
+}
+```
+
 ### State
 
 ```solidity
@@ -146,20 +180,20 @@ struct State {
   mapping(uint256 => mapping(bytes32 => mapping(uint32 => uint256))) forkChoiceIds;
   mapping(address => uint256) taikoTokenBalances;
   mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
+  mapping(uint256 => struct TaikoData.Auction) auctions;
   struct TaikoData.EthDeposit[] ethDeposits;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
-  uint16 __reserved70;
-  uint48 __reserved71;
-  uint64 __reserved72;
-  uint64 __reserved80;
+  uint64 __reserved70;
+  uint64 __reserved71;
+  uint64 numAuctions;
   uint64 __reserved81;
   uint64 numBlocks;
   uint64 nextEthDepositToProcess;
-  uint64 blockFee;
-  uint64 __reserved90;
+  uint64 lastVerifiedAt;
+  uint64 feePerGas;
   uint64 lastVerifiedBlockId;
-  uint64 __reserved91;
+  uint64 avgProofWindow;
   uint256[42] __gap;
 }
 ```

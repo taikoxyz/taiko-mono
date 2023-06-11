@@ -27,7 +27,7 @@ library LibUtils {
         returns (bool found, TaikoData.Block storage blk)
     {
         uint256 id = blockId == 0 ? state.lastVerifiedBlockId : blockId;
-        blk = state.blocks[id % config.ringBufferSize];
+        blk = state.blocks[id % config.blockRingBufferSize];
         found = (blk.blockId == id && blk.verifiedForkChoiceId != 0);
     }
 
@@ -61,11 +61,12 @@ library LibUtils {
         returns (TaikoData.StateVariables memory)
     {
         return TaikoData.StateVariables({
-            blockFee: state.blockFee,
+            feePerGas: state.feePerGas,
             genesisHeight: state.genesisHeight,
             genesisTimestamp: state.genesisTimestamp,
             numBlocks: state.numBlocks,
             lastVerifiedBlockId: state.lastVerifiedBlockId,
+            numAuctions: state.numAuctions,
             nextEthDepositToProcess: state.nextEthDepositToProcess,
             numEthDeposits: uint64(state.ethDeposits.length)
         });

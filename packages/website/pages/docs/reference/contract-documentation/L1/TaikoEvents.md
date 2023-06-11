@@ -4,6 +4,12 @@ title: TaikoEvents
 
 ## TaikoEvents
 
+### BatchBid
+
+```solidity
+event BatchBid(uint64 batchId, uint64 startedAt, struct TaikoData.Bid bid)
+```
+
 ### BlockProposed
 
 ```solidity

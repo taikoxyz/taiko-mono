@@ -8,14 +8,18 @@ pragma solidity ^0.8.18;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
+import { LibAuction } from "./LibAuction.sol";
 import { LibUtils } from "./LibUtils.sol";
+import { LibMath } from "../../libs/LibMath.sol";
 import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
+import { TaikoToken } from "../TaikoToken.sol";
 
 library LibVerifying {
     using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.State;
+    using LibMath for uint256;
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash, uint64 reward);
 
@@ -29,14 +33,15 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
-        uint64 initBlockFee
+        uint64 initFeePerGas,
+        uint64 initAvgProofWindow
     )
         internal
     {
         if (
             config.chainId <= 1 //
                 || config.maxNumProposedBlocks == 1
-                || config.ringBufferSize <= config.maxNumProposedBlocks + 1
+                || config.blockRingBufferSize <= config.maxNumProposedBlocks + 1
                 || config.blockMaxGasLimit == 0
                 || config.maxTransactionsPerBlock == 0
                 || config.maxBytesPerTxList == 0
@@ -49,13 +54,26 @@ library LibVerifying {
                 || config.ethDepositGas == 0 //
                 || config.ethDepositMaxFee == 0
                 || config.ethDepositMaxFee >= type(uint96).max
+                || config.auctionWindow == 0 || config.auctionMaxProofWindow == 0
+                || config.auctionBatchSize == 0
+                || config.auctionRingBufferSize
+                    <= (
+                        config.maxNumProposedBlocks / config.auctionBatchSize + 1
+                            + config.auctonMaxAheadOfProposals
+                    ) //
+                || config.auctionProofWindowMultiplier <= 1
+                || config.auctionWindow <= 24 || config.auctionDepositMultipler <= 1
+                || config.auctionMaxFeePerGasMultipler <= 1
+                || config.auctionDepositMultipler
+                    < config.auctionMaxFeePerGasMultipler
         ) revert L1_INVALID_CONFIG();
 
         uint64 timeNow = uint64(block.timestamp);
         state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = timeNow;
 
-        state.blockFee = initBlockFee;
+        state.lastVerifiedAt = uint64(block.timestamp);
+        state.feePerGas = initFeePerGas;
         state.numBlocks = 1;
 
         TaikoData.Block storage blk = state.blocks[0];
@@ -66,6 +84,8 @@ library LibVerifying {
         TaikoData.ForkChoice storage fc = state.blocks[0].forkChoices[1];
         fc.blockHash = genesisBlockHash;
         fc.provenAt = timeNow;
+
+        state.avgProofWindow = initAvgProofWindow;
 
         emit BlockVerified(0, genesisBlockHash, 0);
     }
@@ -79,10 +99,11 @@ library LibVerifying {
         internal
     {
         uint256 i = state.lastVerifiedBlockId;
-        TaikoData.Block storage blk = state.blocks[i % config.ringBufferSize];
+        TaikoData.Block storage blk =
+            state.blocks[i % config.blockRingBufferSize];
 
         uint256 fcId = blk.verifiedForkChoiceId;
-        assert(fcId > 0);
+        // assert(fcId > 0);
         bytes32 blockHash = blk.forkChoices[fcId].blockHash;
         uint32 gasUsed = blk.forkChoices[fcId].gasUsed;
         bytes32 signalRoot;
@@ -92,10 +113,9 @@ library LibVerifying {
             ++i;
         }
 
-        address systemProver = resolver.resolve("system_prover", true);
         while (i < state.numBlocks && processed < maxBlocks) {
-            blk = state.blocks[i % config.ringBufferSize];
-            assert(blk.blockId == i);
+            blk = state.blocks[i % config.blockRingBufferSize];
+            // assert(blk.blockId == i);
 
             fcId = LibUtils.getForkChoiceId(state, blk, blockHash, gasUsed);
 
@@ -117,10 +137,10 @@ library LibVerifying {
 
             _markBlockVerified({
                 state: state,
+                config: config,
                 blk: blk,
                 fcId: uint24(fcId),
-                fc: fc,
-                systemProver: systemProver
+                fc: fc
             });
 
             unchecked {
@@ -131,13 +151,15 @@ library LibVerifying {
 
         if (processed > 0) {
             unchecked {
+                state.lastVerifiedAt = uint64(block.timestamp);
                 state.lastVerifiedBlockId += processed;
             }
 
             if (config.relaySignalRoot) {
                 // Send the L2's signal root to the signal service so other
-                // TaikoL1 deployments, if they share the same signal service,
-                // can relay the signal to their corresponding TaikoL2 contract.
+                // TaikoL1  deployments, if they share the same signal
+                // service, can relay the signal to their corresponding
+                // TaikoL2 contract.
                 ISignalService(resolver.resolve("signal_service", false))
                     .sendSignal(signalRoot);
             }
@@ -149,22 +171,113 @@ library LibVerifying {
 
     function _markBlockVerified(
         TaikoData.State storage state,
+        TaikoData.Config memory config,
         TaikoData.Block storage blk,
         TaikoData.ForkChoice storage fc,
-        uint24 fcId,
-        address systemProver
+        uint24 fcId
     )
         private
     {
-        uint64 proofTime;
-        unchecked {
-            proofTime = uint64(fc.provenAt - blk.proposedAt);
+        TaikoData.Auction memory auction;
+        {
+            uint64 batchId = LibAuction.batchForBlock(config, blk.blockId);
+            auction = state.auctions[batchId % config.auctionRingBufferSize];
+
+            // For system prover, maybe the auction does not exist.
+            if (auction.batchId != batchId) {
+                assert(fc.prover == address(1));
+                auction.batchId = 0; // indicating auction yet to start
+            }
         }
 
-        uint64 reward;
+        // Refund the diff to the proposer
+        assert(fc.gasUsed <= blk.gasLimit);
+        state.taikoTokenBalances[blk.proposer] +=
+            (blk.gasLimit - fc.gasUsed) * blk.feePerGas;
+
+        uint64 proofStartAt;
+        if (auction.batchId != 0) {
+            unchecked {
+                uint64 auctionEndAt = auction.startedAt + config.auctionWindow;
+                proofStartAt = auctionEndAt > blk.proposedAt
+                    ? auctionEndAt
+                    : blk.proposedAt;
+            }
+        }
+
+        bool refundBidder;
+        bool rewardProver;
+        bool updateAverage;
+
+        if (fc.prover == address(1)) {
+            // This is the system prover. Auction may not exist at all.
+            refundBidder = true;
+            // rewardProver = false;
+            // updateAverage = false;
+        } else if (
+            fc.prover == auction.bid.prover
+                && fc.provenAt <= proofStartAt + auction.bid.proofWindow
+        ) {
+            // The prover is the auction winner and proof submitted within
+            // the auction window
+            assert(auction.batchId != 0);
+            refundBidder = true;
+            rewardProver = true;
+            updateAverage = true;
+        } else {
+            // The prover is not the auction winner or the proof
+            // as submitted out of the auction window
+            assert(auction.batchId != 0);
+            rewardProver = true;
+            // refundBidder = false;
+            // updateAverage = false;
+        }
+
+        if (auction.batchId != 0) {
+            if (refundBidder) {
+                state.taikoTokenBalances[auction.bid.prover] +=
+                    auction.bid.deposit;
+            } else {
+                // During the deposit we already burnt it. So it is rather
+                // minting.
+                uint64 amountToDeduct = rewardProver // dedcut all or half
+                    ? auction.bid.deposit / 2
+                    : auction.bid.deposit;
+
+                state.taikoTokenBalances[auction.bid.prover] -= amountToDeduct;
+            }
+        }
+
+        uint64 proofReward;
+        if (rewardProver) {
+            proofReward =
+                (config.blockFeeBaseGas + fc.gasUsed) * auction.bid.feePerGas;
+            state.taikoTokenBalances[fc.prover] +=
+                auction.bid.deposit / 2 + proofReward;
+        }
+
+        if (updateAverage) {
+            unchecked {
+                state.avgProofWindow = uint64(
+                    LibUtils.movingAverage({
+                        maValue: state.avgProofWindow,
+                        newValue: auction.bid.proofWindow,
+                        maf: 7200
+                    })
+                );
+
+                state.feePerGas = uint64(
+                    LibUtils.movingAverage({
+                        maValue: state.feePerGas,
+                        newValue: auction.bid.feePerGas,
+                        maf: 7200
+                    })
+                );
+            }
+        }
 
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = fcId;
-        emit BlockVerified(blk.blockId, fc.blockHash, reward);
+        emit BlockVerified(blk.blockId, fc.blockHash, proofReward);
     }
 }

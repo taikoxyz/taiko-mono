@@ -26,9 +26,10 @@ contract TaikoL1Oracle is TaikoL1 {
         config.txListCacheExpiry = 5 minutes;
         config.maxVerificationsPerTx = 0;
         config.maxNumProposedBlocks = 10;
-        config.ringBufferSize = 12;
+        config.blockRingBufferSize = 12;
         config.proofCooldownPeriod = 5 minutes;
         config.realProofSkipSize = 10;
+        config.auctionBatchSize = 100;
     }
 }
 
@@ -54,7 +55,16 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
         depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
 
+        TaikoData.Bid memory bid;
+
         TaikoData.BlockMetadata memory meta = proposeBlock(Bob, 1_000_000, 1024);
+
+        bid.proofWindow = 10 minutes;
+        bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
+            * conf.auctionDepositMultipler;
+        bid.feePerGas = 9;
+        bidForBatchAndRollTime(Bob, 1, bid);
+
         proveBlock(
             Bob,
             Bob,
@@ -100,163 +110,193 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         registerAddress("oracle_prover", Carol);
         registerAddress("system_prover", Carol);
 
-        depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
         depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
-        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint256 blockId = 1;
-        TaikoData.BlockMetadata memory meta =
-            proposeBlock(Alice, 1_000_000, 1024);
+        uint32 parentGasUsed = 0;
+        uint32 gasUsed = 1_000_000;
+        TaikoData.Bid memory bid;
 
-        for (uint256 i = 0; i < 5; ++i) {
-            uint32 parentGasUsed = uint32(10_000 + i);
+        uint64 batchId = 1;
+        for (
+            uint256 blockId = 1;
+            blockId < conf.maxNumProposedBlocks * 10;
+            blockId++
+        ) {
+            printVariables("before propose");
+            TaikoData.BlockMetadata memory meta =
+                proposeBlock(Alice, 1_000_000, 1024);
+            //printVariables("after propose");
+            mine(1);
 
-            // Bob proves the block
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
+            // Submit an auction and wait till won
+            bid.proofWindow = 10 minutes;
+            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
+                * conf.auctionDepositMultipler;
+            bid.feePerGas = 9;
+
+            // Make a valid bid
+            if (
+                blockId == 1
+                    || blockId % conf.auctionBatchSize == (conf.auctionWindow) // Bid
+                    // at 'edge/end' of the batch because otherwise hard to test
+                    // decouple propose with prove. (Will test that in a
+                    // separate file)
+            ) {
+                bidForBatchAndRollTime(Bob, batchId, bid);
+                batchId++;
+            }
+            // This proof cannot be verified obviously because of
+            // blockhash:blockId
             proveBlock(
                 Bob,
                 Bob,
                 meta,
                 parentHash,
                 parentGasUsed,
-                10_001,
-                bytes32(uint256(0x11)),
-                bytes32(uint256(0x12))
+                gasUsed,
+                bytes32(blockId),
+                signalRoot
             );
 
-            uint256 provenAt = block.timestamp;
-
-            TaikoData.ForkChoice memory fc =
-                L1.getForkChoice(blockId, parentHash, parentGasUsed);
-
-            if (i == 0) {
-                assertFalse(fc.key == 0);
-            } else {
-                assertEq(fc.key, 0);
-            }
-            assertEq(fc.blockHash, bytes32(uint256(0x11)));
-            assertEq(fc.signalRoot, bytes32(uint256(0x12)));
-            assertEq(fc.provenAt, provenAt);
-            assertEq(fc.prover, Bob);
-            assertEq(fc.gasUsed, 10_001);
-
-            // Carol - who is oracle prover - can overwrite with same proof
-            vm.warp(block.timestamp + 10 seconds);
             proveBlock(
                 Carol,
                 address(0),
                 meta,
                 parentHash,
                 parentGasUsed,
-                10_002,
-                bytes32(uint256(0x11)),
-                bytes32(uint256(0x12))
+                gasUsed,
+                blockHash,
+                signalRoot
             );
 
-            provenAt = block.timestamp;
-
-            fc = L1.getForkChoice(blockId, parentHash, parentGasUsed);
-
-            if (i == 0) {
-                assertFalse(fc.key == 0);
-            } else {
-                assertEq(fc.key, 0);
-            }
-            assertEq(fc.blockHash, bytes32(uint256(0x11)));
-            assertEq(fc.signalRoot, bytes32(uint256(0x12)));
-            assertEq(fc.provenAt, provenAt);
-            assertEq(fc.prover, address(0));
-            assertEq(fc.gasUsed, 10_002);
-        }
-    }
-
-    function testOracleProverCannotOverwriteIfSameProof() external {
-        depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
-        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
-        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
-
-        bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint256 blockId = 1;
-        TaikoData.BlockMetadata memory meta =
-            proposeBlock(Alice, 1_000_000, 1024);
-
-        for (uint256 i = 0; i < 5; ++i) {
-            uint32 parentGasUsed = uint32(10_000 + i);
-
-            // Bob proves the block
-            proveBlock(
-                Bob,
-                Bob,
-                meta,
-                parentHash,
-                parentGasUsed,
-                10_001,
-                bytes32(uint256(0x11)),
-                bytes32(uint256(0x12))
-            );
-
-            uint256 provenAt = block.timestamp;
-
-            TaikoData.ForkChoice memory fc =
-                L1.getForkChoice(blockId, parentHash, parentGasUsed);
-
-            if (i == 0) {
-                assertFalse(fc.key == 0);
-            } else {
-                assertEq(fc.key, 0);
-            }
-            assertEq(fc.blockHash, bytes32(uint256(0x11)));
-            assertEq(fc.signalRoot, bytes32(uint256(0x12)));
-            assertEq(fc.provenAt, provenAt);
-            assertEq(fc.prover, Bob);
-            assertEq(fc.gasUsed, 10_001);
-
-            // Carol cannot prove the fork choice again
-            vm.warp(block.timestamp + 10 seconds);
-            vm.expectRevert();
-            proveBlock(
-                Carol,
-                Carol,
-                meta,
-                parentHash,
-                parentGasUsed,
-                10_002,
-                bytes32(uint256(0x21)),
-                bytes32(uint256(0x22))
-            );
-
-            // Alice, the oracle prover,  cannot overwrite with same parameters
-            vm.warp(block.timestamp + 10 seconds);
-
-            vm.expectRevert(TaikoErrors.L1_SAME_PROOF.selector);
-            proveBlock(
-                Alice,
-                address(0),
-                meta,
-                parentHash,
-                parentGasUsed,
-                10_001,
-                bytes32(uint256(0x11)),
-                bytes32(uint256(0x12))
-            );
+            vm.warp(block.timestamp + conf.proofCooldownPeriod + 1);
+            uint256 lastVerifiedBlockId =
+                L1.getStateVariables().lastVerifiedBlockId;
 
             verifyBlock(Carol, 1);
 
-            fc = L1.getForkChoice(blockId, parentHash, parentGasUsed);
+            // Check if shortly after proving (+verify) the last verify is not
+            // the same anymore
+            // no need to have a cooldown period
+            uint256 lastVerifiedBlockIdNow =
+                L1.getStateVariables().lastVerifiedBlockId;
 
-            if (i == 0) {
-                assertFalse(fc.key == 0);
-            } else {
-                assertEq(fc.key, 0);
-            }
-            assertEq(fc.blockHash, bytes32(uint256(0x11)));
-            assertEq(fc.signalRoot, bytes32(uint256(0x12)));
-            assertEq(fc.provenAt, provenAt);
-            assertEq(fc.prover, Bob);
-            assertEq(fc.gasUsed, 10_001);
+            assertEq(lastVerifiedBlockIdNow, lastVerifiedBlockId);
 
-            vm.warp(block.timestamp + 10 seconds);
+            proveBlock(
+                Bob,
+                Bob,
+                meta,
+                parentHash,
+                parentGasUsed,
+                gasUsed,
+                blockHash,
+                signalRoot
+            );
+
+            vm.warp(block.timestamp + conf.proofCooldownPeriod + 1);
+
+            verifyBlock(Carol, 1);
+
+            lastVerifiedBlockIdNow = L1.getStateVariables().lastVerifiedBlockId;
+            assertFalse(lastVerifiedBlockIdNow == lastVerifiedBlockId);
+
+            parentHash = blockHash;
+            parentGasUsed = gasUsed;
         }
+        printVariables("");
+    }
+
+    function testOracleProverCannotOverwriteIfSameProof() external {
+        // Carol is the oracle prover
+        registerAddress("oracle_prover", Carol);
+        registerAddress("system_prover", Carol);
+
+        depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
+        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+
+        bytes32 parentHash = GENESIS_BLOCK_HASH;
+        uint32 parentGasUsed = 0;
+        uint32 gasUsed = 1_000_000;
+        TaikoData.Bid memory bid;
+
+        uint64 batchId = 1;
+        for (
+            uint256 blockId = 1;
+            blockId < conf.maxNumProposedBlocks * 10;
+            blockId++
+        ) {
+            printVariables("before propose");
+            TaikoData.BlockMetadata memory meta =
+                proposeBlock(Alice, 1_000_000, 1024);
+            //printVariables("after propose");
+            mine(1);
+
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
+            // Submit an auction and wait till won
+            bid.proofWindow = 10 minutes;
+            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
+                * conf.auctionDepositMultipler;
+            bid.feePerGas = 9;
+            // Make a valid bid
+            if (
+                blockId == 1
+                    || blockId % conf.auctionBatchSize == (conf.auctionWindow) // Bid
+                    // at 'edge/end' of the batch because otherwise hard to test
+                    // decouple propose with prove. (Will test that in a
+                    // separate file)
+            ) {
+                bidForBatchAndRollTime(Bob, batchId, bid);
+                batchId++;
+            }
+            // This proof cannot be verified obviously because of
+            // blockhash:blockId
+            proveBlock(
+                Bob,
+                Bob,
+                meta,
+                parentHash,
+                parentGasUsed,
+                gasUsed,
+                blockHash,
+                signalRoot
+            );
+
+            vm.expectRevert(TaikoErrors.L1_SAME_PROOF.selector);
+            proveBlock(
+                Carol,
+                address(0),
+                meta,
+                parentHash,
+                parentGasUsed,
+                gasUsed,
+                blockHash,
+                signalRoot
+            );
+
+            vm.warp(block.timestamp + conf.proofCooldownPeriod + 1);
+            uint256 lastVerifiedBlockId =
+                L1.getStateVariables().lastVerifiedBlockId;
+
+            verifyBlock(Carol, 1);
+
+            // Check if shortly after proving (+verify) the last verify is not
+            // the same anymore
+            // no need to have a cooldown period
+            uint256 lastVerifiedBlockIdNow =
+                L1.getStateVariables().lastVerifiedBlockId;
+
+            assertFalse(lastVerifiedBlockIdNow == lastVerifiedBlockId);
+
+            parentHash = blockHash;
+            parentGasUsed = gasUsed;
+        }
+        printVariables("");
     }
 
     /// @dev So in case we have regular proving mechanism we shall check if
@@ -279,6 +319,9 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
         uint32 gasUsed = 1_000_000;
+        TaikoData.Bid memory bid;
+
+        uint64 batchId = 1;
 
         for (
             uint256 blockId = 1;
@@ -292,6 +335,23 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
+            // Submit an auction and wait till won
+            bid.proofWindow = 10 minutes;
+            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
+                * conf.auctionDepositMultipler;
+            bid.feePerGas = 9;
+            // Make a valid bid
+            if (
+                blockId == 1
+                    || blockId % conf.auctionBatchSize == (conf.auctionWindow) // Bid
+                    // at 'edge/end' of the batch because otherwise hard to test
+                    // decouple propose with prove. (Will test that in a
+                    // separate file)
+            ) {
+                bidForBatchAndRollTime(Bob, batchId, bid);
+                batchId++;
+            }
+
             proveBlock(
                 Bob,
                 Bob,
@@ -346,6 +406,9 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
         uint32 gasUsed = 1_000_000;
+        TaikoData.Bid memory bid;
+
+        uint64 batchId = 1;
 
         for (
             uint256 blockId = 1;
@@ -359,6 +422,22 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
+            // Submit an auction and wait till won
+            bid.proofWindow = 10 minutes;
+            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
+                * conf.auctionDepositMultipler;
+            bid.feePerGas = 1;
+            // Make a valid bid
+            if (
+                blockId == 1
+                    || blockId % conf.auctionBatchSize == (conf.auctionWindow) // Bid
+                    // at 'edge/end' of the batch because otherwise hard to test
+                    // decouple propose with prove. (Will test that in a
+                    // separate file)
+            ) {
+                bidForBatchAndRollTime(Bob, batchId, bid);
+                batchId++;
+            }
             proveBlock(
                 Bob,
                 address(0),
@@ -383,6 +462,13 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             // Cannot be verified
             assertEq(lastVerifiedBlockIdNow, lastVerifiedBlockId);
+
+            // Then roll into the future to be proveable
+            (, TaikoData.Auction[] memory auctions) =
+                L1.getAuctions(batchId - 1, 1);
+
+            vm.warp(block.timestamp + auctions[0].bid.proofWindow + 1);
+            vm.roll(block.number + 100);
 
             proveBlock(
                 Carol,
@@ -423,6 +509,9 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
         uint32 gasUsed = 1_000_000;
+        TaikoData.Bid memory bid;
+
+        uint64 batchId = 1;
 
         for (
             uint256 blockId = 1;
@@ -436,6 +525,22 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
+            // Submit an auction and wait till won
+            bid.proofWindow = 10 minutes;
+            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
+                * conf.auctionDepositMultipler;
+            bid.feePerGas = 9;
+            // Make a valid bid
+            if (
+                blockId == 1
+                    || blockId % conf.auctionBatchSize == (conf.auctionWindow) // Bid
+                    // at 'edge/end' of the batch because otherwise hard to test
+                    // decouple propose with prove. (Will test that in a
+                    // separate file)
+            ) {
+                bidForBatchAndRollTime(Bob, batchId, bid);
+                batchId++;
+            }
             proveBlock(
                 Bob,
                 Bob,
@@ -481,6 +586,9 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
         uint32 gasUsed = 1_000_000;
+        TaikoData.Bid memory bid;
+
+        uint64 batchId = 1;
 
         for (
             uint256 blockId = 1;
@@ -494,6 +602,22 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
+            // Submit an auction and wait till won
+            bid.proofWindow = 10 minutes;
+            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
+                * conf.auctionDepositMultipler;
+            bid.feePerGas = 9;
+            // Make a valid bid
+            if (
+                blockId == 1
+                    || blockId % conf.auctionBatchSize == (conf.auctionWindow) // Bid
+                    // at 'edge/end' of the batch because otherwise hard to test
+                    // decouple propose with prove. (Will test that in a
+                    // separate file)
+            ) {
+                bidForBatchAndRollTime(Carol, batchId, bid);
+                batchId++;
+            }
 
             uint256 realProof = blockId % conf.realProofSkipSize;
 
@@ -574,6 +698,9 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
         uint32 gasUsed = 1_000_000;
+        TaikoData.Bid memory bid;
+
+        uint64 batchId = 1;
 
         for (
             uint256 blockId = 1;
@@ -587,6 +714,23 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
+            // Submit an auction and wait till won
+            bid.proofWindow = 10 minutes;
+            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
+                * conf.auctionDepositMultipler;
+            bid.feePerGas = 9;
+            // Make a valid bid
+            if (
+                blockId == 1
+                    || blockId % conf.auctionBatchSize == (conf.auctionWindow) // Bid
+                    // at 'edge/end' of the batch because otherwise hard to test
+                    // decouple propose with prove. (Will test that in a
+                    // separate file)
+            ) {
+                bidForBatchAndRollTime(Bob, batchId, bid);
+                batchId++;
+            }
+
             proveBlock(
                 Bob,
                 Bob,
@@ -600,7 +744,11 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             uint256 lastVerifiedBlockId =
                 L1.getStateVariables().lastVerifiedBlockId;
-
+            // Then roll into the future to be proveable
+            (, TaikoData.Auction[] memory auctions) =
+                L1.getAuctions(batchId - 1, 1);
+            vm.warp(block.timestamp + auctions[0].bid.proofWindow + 1);
+            vm.roll(block.number + 100);
             // Carol could not overwrite it
             vm.expectRevert(TaikoErrors.L1_ALREADY_PROVEN.selector);
             proveBlock(

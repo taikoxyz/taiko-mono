@@ -25,6 +25,7 @@ library LibProposing {
     );
 
     error L1_BLOCK_ID();
+    error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
     error L1_TOO_MANY_BLOCKS();
     error L1_TX_LIST_NOT_EXIST();
@@ -79,19 +80,29 @@ library LibProposing {
         }
 
         TaikoData.Block storage blk =
-            state.blocks[state.numBlocks % config.ringBufferSize];
+            state.blocks[state.numBlocks % config.blockRingBufferSize];
 
+        blk.metaHash = LibUtils.hashMetadata(meta);
         blk.blockId = state.numBlocks;
         blk.proposedAt = meta.timestamp;
+        blk.feePerGas = state.feePerGas;
+        blk.gasLimit = meta.gasLimit;
+        blk.proposer = msg.sender;
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = 0;
-        blk.metaHash = LibUtils.hashMetadata(meta);
-        blk.proposer = msg.sender;
 
-        uint64 blockFee;
+        uint64 blockFee = getBlockFee(state, config, meta.gasLimit);
+
+        // Charging proposers the fee should be the same mechanism as it was
+        // so far, so that we can avoid sending/burning all the time so that we
+        // can save bunch of gas.
+        if (state.taikoTokenBalances[msg.sender] < blockFee) {
+            revert L1_INSUFFICIENT_TOKEN();
+        }
 
         emit BlockProposed(state.numBlocks, meta, blockFee);
         unchecked {
+            state.taikoTokenBalances[msg.sender] -= blockFee;
             ++state.numBlocks;
         }
     }
@@ -105,8 +116,26 @@ library LibProposing {
         view
         returns (TaikoData.Block storage blk)
     {
-        blk = state.blocks[blockId % config.ringBufferSize];
+        blk = state.blocks[blockId % config.blockRingBufferSize];
         if (blk.blockId != blockId) revert L1_BLOCK_ID();
+    }
+
+    // If auction is tied to gas, we should charge users based on gas as well. At
+    // this point gasUsed
+    // (in proposeBlock()) is always gasLimit, so use it and in case of
+    // differences refund after verification
+    function getBlockFee(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        uint32 gasLimit
+    )
+        internal
+        view
+        returns (uint64)
+    {
+        // The diff between gasLimit and gasUsed will be redistributed back to
+        // the balance of proposer
+        return state.feePerGas * (gasLimit + config.blockFeeBaseGas);
     }
 
     function _validateBlock(

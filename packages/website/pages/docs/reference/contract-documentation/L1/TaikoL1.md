@@ -19,18 +19,19 @@ receive() external payable
 ### init
 
 ```solidity
-function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _initBlockFee) external
+function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _initFeePerGas, uint64 _initAvgProofWindow) external
 ```
 
 Initialize the rollup.
 
 #### Parameters
 
-| Name               | Type    | Description                           |
-| ------------------ | ------- | ------------------------------------- |
-| \_addressManager   | address | The AddressManager address.           |
-| \_genesisBlockHash | bytes32 | The block hash of the genesis block.  |
-| \_initBlockFee     | uint64  | Initial (reasonable) block fee value. |
+| Name                 | Type    | Description                           |
+| -------------------- | ------- | ------------------------------------- |
+| \_addressManager     | address | The AddressManager address.           |
+| \_genesisBlockHash   | bytes32 | The block hash of the genesis block.  |
+| \_initFeePerGas      | uint64  | Initial (reasonable) block fee value, |
+| \_initAvgProofWindow | uint64  | Initial (reasonable) proof window.    |
 
 ### proposeBlock
 
@@ -62,6 +63,21 @@ Prove a block with a zero-knowledge proof.
 | blockId | uint256 | The index of the block to prove. This is also used to select the right implementation version. |
 | input   | bytes   | An abi-encoded TaikoData.BlockEvidence object.                                                 |
 
+### bidForBatch
+
+```solidity
+function bidForBatch(uint64 batchId, struct TaikoData.Bid bid) external payable
+```
+
+Bid for proving rights of a batch.
+
+#### Parameters
+
+| Name    | Type                 | Description                       |
+| ------- | -------------------- | --------------------------------- |
+| batchId | uint64               | The batchId prover is bidding for |
+| bid     | struct TaikoData.Bid | The actual bid                    |
+
 ### verifyBlocks
 
 ```solidity
@@ -75,6 +91,18 @@ Verify up to N blocks.
 | Name      | Type    | Description                     |
 | --------- | ------- | ------------------------------- |
 | maxBlocks | uint256 | Max number of blocks to verify. |
+
+### depositTaikoToken
+
+```solidity
+function depositTaikoToken(uint256 amount) external
+```
+
+### withdrawTaikoToken
+
+```solidity
+function withdrawTaikoToken(uint256 amount) external
+```
 
 ### depositEtherToL2
 
@@ -91,7 +119,7 @@ function getTaikoTokenBalance(address addr) public view returns (uint256)
 ### getBlockFee
 
 ```solidity
-function getBlockFee() public view returns (uint64)
+function getBlockFee(uint32 gasLimit) public view returns (uint64)
 ```
 
 ### getBlock
@@ -124,10 +152,28 @@ function getCrossChainSignalRoot(uint256 blockId) public view returns (bytes32)
 function getStateVariables() public view returns (struct TaikoData.StateVariables)
 ```
 
+### getAuctions
+
+```solidity
+function getAuctions(uint256 startBatchId, uint256 count) public view returns (uint256 currentTime, struct TaikoData.Auction[] auctions)
+```
+
 ### getConfig
 
 ```solidity
 function getConfig() public pure virtual returns (struct TaikoData.Config)
+```
+
+### batchForBlock
+
+```solidity
+function batchForBlock(uint256 blockId) public pure returns (uint256)
+```
+
+### isBidBetter
+
+```solidity
+function isBidBetter(struct TaikoData.Bid newBid, struct TaikoData.Bid oldBid) public pure returns (bool)
 ```
 
 ### getVerifierName

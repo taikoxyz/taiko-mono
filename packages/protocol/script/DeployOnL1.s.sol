@@ -114,14 +114,17 @@ contract DeployOnL1 is Script {
             address(new MayFailFreeMintERC20("Bull Token", "BLL"));
         console2.log("BullToken", bullToken);
 
-        uint64 feeBase = uint64(1) ** taikoToken.decimals();
+        uint64 feePerGas = 10;
+        uint64 proofWindow = 60 minutes;
 
         address taikoL1Proxy = deployProxy(
             "taiko",
             address(taikoL1),
             bytes.concat(
                 taikoL1.init.selector,
-                abi.encode(addressManagerProxy, genesisHash, feeBase)
+                abi.encode(
+                    addressManagerProxy, genesisHash, feePerGas, proofWindow
+                )
             )
         );
         setAddress("taiko", taikoL1Proxy);

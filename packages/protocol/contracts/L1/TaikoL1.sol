@@ -11,8 +11,10 @@ import { EssentialContract } from "../common/EssentialContract.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { LibEthDepositing } from "./libs/LibEthDepositing.sol";
+import { LibAuction } from "./libs/LibAuction.sol";
 import { LibProposing } from "./libs/LibProposing.sol";
 import { LibProving } from "./libs/LibProving.sol";
+import { LibTkoDistribution } from "./libs/LibTkoDistribution.sol";
 import { LibUtils } from "./libs/LibUtils.sol";
 import { LibVerifying } from "./libs/LibVerifying.sol";
 import { TaikoConfig } from "./TaikoConfig.sol";
@@ -41,12 +43,14 @@ contract TaikoL1 is
      *
      * @param _addressManager The AddressManager address.
      * @param _genesisBlockHash The block hash of the genesis block.
-     * @param _initBlockFee Initial (reasonable) block fee value.
+     * @param _initFeePerGas Initial (reasonable) block fee value,
+     * @param _initAvgProofWindow Initial (reasonable) proof window.
      */
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
-        uint64 _initBlockFee
+        uint64 _initFeePerGas,
+        uint64 _initAvgProofWindow
     )
         external
         initializer
@@ -56,7 +60,8 @@ contract TaikoL1 is
             state: state,
             config: getConfig(),
             genesisBlockHash: _genesisBlockHash,
-            initBlockFee: _initBlockFee
+            initFeePerGas: _initFeePerGas,
+            initAvgProofWindow: _initAvgProofWindow
         });
     }
 
@@ -130,6 +135,29 @@ contract TaikoL1 is
     }
 
     /**
+     * Bid for proving rights of a batch.
+     *
+     * @param bid The actual bid
+     * @param batchId The batchId prover is bidding for
+     */
+
+    function bidForBatch(
+        uint64 batchId,
+        TaikoData.Bid memory bid
+    )
+        external
+        payable
+        nonReentrant
+    {
+        LibAuction.bidForBatch({
+            state: state,
+            config: getConfig(),
+            batchId: batchId,
+            bid: bid
+        });
+    }
+
+    /**
      * Verify up to N blocks.
      * @param maxBlocks Max number of blocks to verify.
      */
@@ -143,6 +171,19 @@ contract TaikoL1 is
         });
     }
 
+    // From proposer side - same way paying the fees - and saving gas.
+    function depositTaikoToken(uint256 amount) external nonReentrant {
+        LibTkoDistribution.depositTaikoToken(
+            state, AddressResolver(this), amount
+        );
+    }
+
+    function withdrawTaikoToken(uint256 amount) external nonReentrant {
+        LibTkoDistribution.withdrawTaikoToken(
+            state, AddressResolver(this), amount
+        );
+    }
+
     function depositEtherToL2() public payable {
         LibEthDepositing.depositEtherToL2(
             state, getConfig(), AddressResolver(this)
@@ -153,8 +194,12 @@ contract TaikoL1 is
         return state.taikoTokenBalances[addr];
     }
 
-    function getBlockFee() public view returns (uint64) {
-        return state.blockFee;
+    function getBlockFee(uint32 gasLimit) public view returns (uint64) {
+        return LibProposing.getBlockFee({
+            state: state,
+            config: getConfig(),
+            gasLimit: gasLimit
+        });
     }
 
     function getBlock(uint256 blockId)
@@ -231,6 +276,22 @@ contract TaikoL1 is
         return state.getStateVariables();
     }
 
+    function getAuctions(
+        uint256 startBatchId,
+        uint256 count
+    )
+        public
+        view
+        returns (uint256 currentTime, TaikoData.Auction[] memory auctions)
+    {
+        return LibAuction.getAuctions({
+            state: state,
+            config: getConfig(),
+            startBatchId: startBatchId,
+            count: count
+        });
+    }
+
     function getConfig()
         public
         pure
@@ -238,6 +299,36 @@ contract TaikoL1 is
         returns (TaikoData.Config memory)
     {
         return TaikoConfig.getConfig();
+    }
+
+    function batchForBlock(uint256 blockId) public pure returns (uint256) {
+        return LibAuction.batchForBlock(getConfig(), blockId);
+    }
+
+    function isBatchAuctionable(uint256 batchId) public view returns (bool) {
+        return LibAuction.isBatchAuctionable(state, getConfig(), batchId);
+    }
+
+    function isBlockProvableBy(
+        uint256 blockId,
+        address prover
+    )
+        public
+        view
+        returns (bool, TaikoData.Auction memory)
+    {
+        return LibAuction.isBlockProvableBy(state, getConfig(), blockId, prover);
+    }
+
+    function isBidBetter(
+        TaikoData.Bid memory newBid,
+        TaikoData.Bid memory oldBid
+    )
+        public
+        pure
+        returns (bool)
+    {
+        return LibAuction.isBidBetter(newBid, oldBid);
     }
 
     function getVerifierName(uint16 id) public pure returns (bytes32) {
