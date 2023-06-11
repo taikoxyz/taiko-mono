@@ -1,24 +1,16 @@
 import { Contract, Signer, type Transaction } from 'ethers';
 import type { Token } from 'src/domain/token';
 
-import { chains } from '../chain/chains';
 import { freeMintErc20ABI } from '../constants/abi';
 import { L1_CHAIN_ID } from '../constants/envVars';
 import { getLogger } from './logger';
-import { selectChain } from './selectChain';
 
 const log = getLogger('util:mintERC20');
 
 export async function mintERC20(
-  srcChainId: number,
   token: Token,
   signer: Signer,
 ): Promise<Transaction> {
-  // If we're not already, switch to L1
-  if (srcChainId !== L1_CHAIN_ID) {
-    await selectChain(chains[L1_CHAIN_ID]);
-  }
-
   const l1TokenContract = new Contract(
     token.addresses[L1_CHAIN_ID],
     freeMintErc20ABI,

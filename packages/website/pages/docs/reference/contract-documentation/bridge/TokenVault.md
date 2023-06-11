@@ -8,8 +8,8 @@ This vault holds all ERC20 tokens (but not Ether) that users have deposited.
 It also manages the mapping between canonical ERC20 tokens and their bridged
 tokens.
 
-_Ether is held by Bridges on L1 and by the EtherVault on L2,
-not TokenVaults._
+_Ether is held by Bridges on L1 and by the EtherVault on L2, not
+TokenVaults._
 
 ### CanonicalERC20
 
@@ -92,11 +92,18 @@ event ERC20Received(bytes32 msgHash, address from, address to, uint256 srcChainI
 error TOKENVAULT_INVALID_TO()
 ```
 
+Thrown when the `to` address in an operation is invalid.
+This can happen if it's zero address or the address of the token vault.
+
 ### TOKENVAULT_INVALID_VALUE
 
 ```solidity
 error TOKENVAULT_INVALID_VALUE()
 ```
+
+Thrown when the value in a transaction is invalid.
+The value can be an Ether amount or the amount of a token being
+transferred.
 
 ### TOKENVAULT_INVALID_TOKEN
 
@@ -104,11 +111,18 @@ error TOKENVAULT_INVALID_VALUE()
 error TOKENVAULT_INVALID_TOKEN()
 ```
 
+Thrown when the token address in a transaction is invalid.
+This could happen if the token address is zero or doesn't conform to the
+ERC20 standard.
+
 ### TOKENVAULT_INVALID_AMOUNT
 
 ```solidity
 error TOKENVAULT_INVALID_AMOUNT()
 ```
+
+Thrown when the amount in a transaction is invalid.
+This could happen if the amount is zero or exceeds the sender's balance.
 
 ### TOKENVAULT_CANONICAL_TOKEN_NOT_FOUND
 
@@ -116,11 +130,20 @@ error TOKENVAULT_INVALID_AMOUNT()
 error TOKENVAULT_CANONICAL_TOKEN_NOT_FOUND()
 ```
 
+Thrown when a canonical token address could not be found for a bridged
+token.
+This could happen when trying to send a bridged token back to its
+original chain.
+
 ### TOKENVAULT_INVALID_OWNER
 
 ```solidity
 error TOKENVAULT_INVALID_OWNER()
 ```
+
+Thrown when the owner address in a message is invalid.
+This could happen if the owner address is zero or doesn't match the
+expected owner.
 
 ### TOKENVAULT_INVALID_SRC_CHAIN_ID
 
@@ -128,17 +151,29 @@ error TOKENVAULT_INVALID_OWNER()
 error TOKENVAULT_INVALID_SRC_CHAIN_ID()
 ```
 
+Thrown when the source chain ID in a message is invalid.
+This could happen if the source chain ID doesn't match the current
+chain's ID.
+
 ### TOKENVAULT_MESSAGE_NOT_FAILED
 
 ```solidity
 error TOKENVAULT_MESSAGE_NOT_FAILED()
 ```
 
+Thrown when a message has not failed.
+This could happen if trying to release a message deposit without proof of
+failure.
+
 ### TOKENVAULT_INVALID_SENDER
 
 ```solidity
 error TOKENVAULT_INVALID_SENDER()
 ```
+
+Thrown when the sender in a message context is invalid.
+This could happen if the sender isn't the expected token vault on the
+source chain.
 
 ### init
 
@@ -160,14 +195,14 @@ by invoking the message call.
 
 | Name          | Type    | Description                            |
 | ------------- | ------- | -------------------------------------- |
-| destChainId   | uint256 | @custom:see IBridge.Message            |
-| to            | address | @custom:see IBridge.Message            |
+| destChainId   | uint256 | Chain ID of the destination chain      |
+| to            | address | Address of the receiver                |
 | token         | address | The address of the token to be sent.   |
 | amount        | uint256 | The amount of token to be transferred. |
-| gasLimit      | uint256 | @custom:see IBridge.Message            |
-| processingFee | uint256 | @custom:see IBridge.Message            |
-| refundAddress | address | @custom:see IBridge.Message            |
-| memo          | string  | @custom:see IBridge.Message            |
+| gasLimit      | uint256 | Gas limit for the transaction          |
+| processingFee | uint256 | Processing fee for the transaction     |
+| refundAddress | address | Address for refunds                    |
+| memo          | string  | Any additional data or notes           |
 
 ### releaseERC20
 
@@ -180,10 +215,10 @@ a proof that the message processing on the destination Bridge has failed.
 
 #### Parameters
 
-| Name    | Type                   | Description                                                          |
-| ------- | ---------------------- | -------------------------------------------------------------------- |
-| message | struct IBridge.Message | The message that corresponds the ERC20 deposit on the source chain.  |
-| proof   | bytes                  | The proof from the destination chain to show the message has failed. |
+| Name    | Type                   | Description                                                            |
+| ------- | ---------------------- | ---------------------------------------------------------------------- |
+| message | struct IBridge.Message | The message that corresponds to the ERC20 deposit on the source chain. |
+| proof   | bytes                  | The proof from the destination chain to show the message has failed.   |
 
 ### receiveERC20
 
@@ -191,9 +226,9 @@ a proof that the message processing on the destination Bridge has failed.
 function receiveERC20(struct TokenVault.CanonicalERC20 canonicalToken, address from, address to, uint256 amount) external
 ```
 
-_This function can only be called by the bridge contract while
+This function can only be called by the bridge contract while
 invoking a message call. See sendERC20, which sets the data to invoke
-this function._
+this function.
 
 #### Parameters
 
