@@ -87,7 +87,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        onlyFromNamed("proto_broker")
+        onlyFromNamedEither("taiko", "dao")
     {
         _mint(to, amount);
     }
@@ -97,7 +97,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        onlyFromNamed("proto_broker")
+        onlyFromNamedEither("taiko", "dao")
     {
         _burn(from, amount);
     }
