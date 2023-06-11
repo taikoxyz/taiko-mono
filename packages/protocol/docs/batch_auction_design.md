@@ -2,6 +2,7 @@
 
 ## Overview
 
+
 The current tokenomics structure rewards the fastest prover, inadvertently promoting speed over cost-effectiveness. This contradicts Taiko's goal of delivering cost-efficient proofs. By shifting the incentives towards cost-effective proofs, we can dramatically decrease Taiko's overall Layer 2 (L2) expenses, thereby augmenting our competitive standing in the market.
 
 ## Key Metrics
