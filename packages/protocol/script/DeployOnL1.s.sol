@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
@@ -186,8 +186,7 @@ contract DeployOnL1 is Script {
         cmds[0] = "bash";
         cmds[1] = "-c";
         cmds[2] = string.concat(
-            vm.projectRoot(),
-            "/bin/solc --yul --bin ",
+            "~/.svm/0.8.18/solc-0.8.18 --yul --bin ",
             string.concat(vm.projectRoot(), "/", contractPath),
             " | grep -A1 Binary | tail -1"
         );

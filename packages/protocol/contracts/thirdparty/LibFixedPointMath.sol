@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 // Taken from:
 // https://github.com/recmo/experiment-solexp/blob/main/src/FixedPointMathLib.sol
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
 library LibFixedPointMath {
     uint128 public constant MAX_EXP_INPUT = 135_305_999_368_893_231_588;
