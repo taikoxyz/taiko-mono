@@ -22,5 +22,20 @@ export function setupSentry(dsn: string) {
     sampleRate: isProd ? 0.6 : 1.0,
     tracesSampleRate: isProd ? 0.6 : 1.0,
     maxBreadcrumbs: 50,
+
+    beforeSend(event, hint) {
+      const processedEvent = { ...event };
+      const { cause } = hint?.originalException as Error;
+
+      // If we have "cause", we want to know about it for more context.
+      if (cause) {
+        processedEvent.extra = {
+          ...processedEvent.extra,
+          cause,
+        };
+      }
+
+      return processedEvent;
+    },
   });
 }
