@@ -5,9 +5,7 @@ import { defineConfig } from 'vite';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  build: {
-    sourcemap: true, // Source map generation must be turned on
-  },
+  build: { sourcemap: true },
   define: { global: 'globalThis' },
   plugins: [
     svelte(),
