@@ -237,6 +237,9 @@
       //       title (header), note (footer), icon, etc.
 
       const headerError = '<strong>Failed to approve</strong><br />';
+
+      // TODO: I think this is no needed here. Approving won't be affected by
+      //       failing logic in BLL token. Remove when this is fully confirmed.
       const noteError =
         _token.symbol.toLocaleLowerCase() === 'bll'
           ? '<div class="mt-2 text-xs"><strong>Note</strong>: BLL token intentionally will fail 50% of the time</div>'
@@ -425,15 +428,19 @@
       );
     } catch (error) {
       console.error(error);
-      Sentry.captureException(error);
+
+      const isBll = _token.symbol.toLocaleLowerCase() === 'bll';
 
       const headerError = '<strong>Failed to bridge funds</strong><br />';
-      const noteError =
-        _token.symbol.toLocaleLowerCase() === 'bll'
-          ? '<div class="mt-2 text-xs"><strong>Note</strong>: BLL token intentionally will fail 50% of the time</div>'
-          : '';
+      const noteError = isBll
+        ? '<div class="mt-2 text-xs"><strong>Note</strong>: BLL token intentionally will fail 50% of the time</div>'
+        : '';
 
       if (error.cause?.status === 0) {
+        // No need to capture this error. BLL will fail a lot here
+        // and this is expected.
+        isBll && Sentry.captureException(error);
+
         const explorerUrl = `${$srcChain.explorerUrl}/tx/${error.cause.transactionHash}`;
         const htmlLink = `<a href="${explorerUrl}" target="_blank"><b><u>here</u></b></a>`;
         errorToast(
@@ -445,6 +452,8 @@
       ) {
         warningToast(`Transaction has been rejected.`);
       } else {
+        Sentry.captureException(error);
+
         errorToast(`${headerError}Try again later.${noteError}`);
       }
     }
