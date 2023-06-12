@@ -130,27 +130,30 @@ library LibAuction {
         returns (bool provable, TaikoData.Auction memory auction)
     {
         if (blockId == 0) {
-            provable = false;
+            // provable = false;
         } else if (prover == address(0) || prover == address(1)) {
             // Note that auction may not exist at all.
             provable = true;
         } else {
             // Nobody can prove a block before the auction ended
-            uint64 batchId = batchForBlock(config, blockId);
             bool ended;
             (ended, auction) = _hasAuctionEnded({
                 state: state,
                 config: config,
-                batchId: batchId
+                batchId: batchForBlock(config, blockId)
             });
 
-            provable = ended
-                && (
-                    prover == auction.bid.prover
-                        || block.timestamp
-                            > auction.startedAt + config.auctionWindow
-                                + auction.bid.proofWindow
-                );
+            if (ended) {
+                if (prover == auction.bid.prover) {
+                    provable = true;
+                } else {
+                    uint64 auctionEndAt = auction.startedAt
+                        + config.auctionWindow + auction.bid.proofWindow;
+                    provable = block.timestamp > auctionEndAt;
+                }
+            } else {
+                // provable = false;
+            }
         }
     }
 
