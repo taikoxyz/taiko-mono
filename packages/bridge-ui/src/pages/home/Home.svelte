@@ -26,13 +26,25 @@
 
 <div class="container mx-auto text-center my-10">
   <Tabs
-    class="rounded-3xl md:border-2 border-bridge-form border-solid p-2 md:p-6 md:inline-block min-h-[650px]"
+    class="
+      tabs 
+      md:bg-tabs 
+      md:border-2 
+      md:dark:border-1 
+      md:border-gray-200 
+      md:dark:border-gray-800 
+      md:shadow-md 
+      md:rounded-3xl 
+      md:p-6 
+      md:inline-block 
+      md:min-h-[650px]
+      p-2"
     bind:activeTab>
     {@const tab1 = tabsRoute[0]}
     {@const tab2 = tabsRoute[1]}
     {@const tab3 = tabsRoute[2]}
 
-    <TabList class="block mb-4">
+    <TabList class="block mb-4 w-full">
       <Tab name={tab1.name} href={tab1.href}>Bridge</Tab>
       <Tab name={tab2.name} href={tab2.href}>
         <span>Transactions</span>
@@ -49,7 +61,7 @@
       <div class="rounded-lg py-4 flex flex-col items-center justify-center">
         <SelectChain />
       </div>
-      <div class="px-4 md:w-[440px]">
+      <div class="md:w-[440px] px-4">
         <BridgeForm />
       </div>
     </TabPanel>
@@ -61,7 +73,7 @@
     </TabPanel>
 
     <TabPanel tab={tab3.name}>
-      <div class="px-4 md:w-[440px]">
+      <div class="md:w-[440px] px-4">
         <Faucet />
       </div>
     </TabPanel>

@@ -5,7 +5,7 @@ import { BigNumber, Contract, ethers } from 'ethers';
 import { chains } from '../chain/chains';
 import { bridgeABI, erc20ABI, tokenVaultABI } from '../constants/abi';
 import { MessageStatus } from '../domain/message';
-import type { RecordProviders } from '../domain/provider';
+import type { ProvidersRecord } from '../domain/provider';
 import type {
   APIRequestParams,
   APIResponse,
@@ -23,15 +23,26 @@ import { tokenVaults } from '../vault/tokenVaults';
 const log = getLogger('RelayerAPIService');
 
 export class RelayerAPIService implements RelayerAPI {
-  private static _filterDuplicateHashes(items: APIResponseTransaction[]) {
+  private static _filterDuplicateAndWrongBridge(
+    items: APIResponseTransaction[],
+  ) {
     const uniqueHashes = new Set<string>();
     const filteredItems: APIResponseTransaction[] = [];
 
     for (const item of items) {
-      if (!uniqueHashes.has(item.data.Raw.transactionHash)) {
-        uniqueHashes.add(item.data.Raw.transactionHash);
-        filteredItems.push(item);
-      }
+      const { transactionHash, address } = item.data?.Raw;
+      const bridgeAddress = chains[item.chainID]?.bridgeAddress; // will also handle unsupported chain
+      const hasDuplicateHash = uniqueHashes.has(transactionHash);
+      const wrongBridgeAddress =
+        address?.toLowerCase() !== bridgeAddress?.toLowerCase();
+
+      // Do not include tx if for whatever reason the properties transactionHash
+      // and address are not present in the response
+      const shouldIncludeTx =
+        transactionHash && address && !hasDuplicateHash && !wrongBridgeAddress;
+
+      if (!hasDuplicateHash) uniqueHashes.add(transactionHash);
+      if (shouldIncludeTx) filteredItems.push(item);
     }
 
     return filteredItems;
@@ -78,24 +89,33 @@ export class RelayerAPIService implements RelayerAPI {
     );
   }
 
-  private static async _getERC20SymbolAndAmount(
+  private static async _getERC20Details(
     erc20Event: ethers.Event,
     erc20Abi: ethers.ContractInterface,
     provider: ethers.providers.StaticJsonRpcProvider,
-  ): Promise<[string, BigNumber]> {
+  ): Promise<{
+    amount: BigNumber;
+    symbol: string;
+    decimals: number;
+  }> {
     const { token, amount } = erc20Event.args;
     const erc20Contract = new Contract(token, erc20Abi, provider);
 
     const symbol: string = await erc20Contract.symbol();
-    const amountInWei: BigNumber = BigNumber.from(amount);
+    const decimals: number = await erc20Contract.decimals();
+    const bnAmount: BigNumber = BigNumber.from(amount);
 
-    return [symbol, amountInWei];
+    return {
+      symbol,
+      decimals,
+      amount: bnAmount,
+    };
   }
 
-  private readonly providers: RecordProviders;
+  private readonly providers: ProvidersRecord;
   private readonly baseUrl: string;
 
-  constructor(baseUrl: string, providers: RecordProviders) {
+  constructor(baseUrl: string, providers: ProvidersRecord) {
     this.providers = providers;
 
     // There is a chance that by accident the env var
@@ -112,7 +132,7 @@ export class RelayerAPIService implements RelayerAPI {
 
       const response = await axios.get<APIResponse>(requestURL, { params });
 
-      // TODO: status >= 400 ?
+      if (response.status >= 400) throw response;
 
       log('Events form API', response.data);
 
@@ -158,9 +178,12 @@ export class RelayerAPIService implements RelayerAPI {
       return { txs: [], paginationInfo };
     }
 
-    apiTxs.items = RelayerAPIService._filterDuplicateHashes(apiTxs.items);
+    // TODO: maybe we should also filter out unsupported chains here?
+    const items = RelayerAPIService._filterDuplicateAndWrongBridge(
+      apiTxs.items,
+    );
 
-    const txs = apiTxs.items.map((tx: APIResponseTransaction) => {
+    const txs = items.map((tx: APIResponseTransaction) => {
       let data = tx.data.Message.Data;
       if (data === '') {
         data = '0x'; // ethers does not allow "" for empty bytes value
@@ -171,7 +194,7 @@ export class RelayerAPIService implements RelayerAPI {
 
       return {
         status: tx.status,
-        amountInWei: BigNumber.from(tx.amount),
+        amount: BigNumber.from(tx.amount),
         symbol: tx.canonicalTokenSymbol,
         hash: tx.data.Raw.transactionHash,
         from: tx.messageOwner,
@@ -193,11 +216,9 @@ export class RelayerAPIService implements RelayerAPI {
           callValue: BigNumber.from(tx.data.Message.CallValue.toString()),
           srcChainId: tx.data.Message.SrcChainId,
           destChainId: tx.data.Message.DestChainId,
-          depositValue: BigNumber.from(
-            `${tx.data.Message.DepositValue.toString()}`,
-          ),
+          depositValue: BigNumber.from(tx.data.Message.DepositValue.toString()),
           processingFee: BigNumber.from(
-            `${tx.data.Message.ProcessingFee.toString()}`,
+            tx.data.Message.ProcessingFee.toString(),
           ),
           refundAddress: tx.data.Message.RefundAddress,
         },
@@ -211,7 +232,9 @@ export class RelayerAPIService implements RelayerAPI {
         message: tx.message,
         msgHash: tx.msgHash,
         status: tx.status,
-        amountInWei: tx.amountInWei,
+        amount: tx.amount,
+        symbol: tx.symbol,
+        decimals: tx.canonicalTokenDecimals,
         srcChainId: tx.srcChainId,
         destChainId: tx.destChainId,
         hash: tx.hash,
@@ -224,7 +247,7 @@ export class RelayerAPIService implements RelayerAPI {
       const srcProvider = this.providers[srcChainId];
 
       // Ignore transactions from chains not supported by the bridge
-      if (!srcProvider) return;
+      if (!srcProvider || !destProvider) return;
 
       // Returns the transaction receipt for hash or null
       // if the transaction has not been mined.
@@ -249,10 +272,8 @@ export class RelayerAPIService implements RelayerAPI {
         msgHash,
       );
 
+      // Update the status
       bridgeTx.status = status;
-
-      let amountInWei: BigNumber = tx.amountInWei;
-      let symbol: string;
 
       if (tx.canonicalTokenAddress !== ethers.constants.AddressZero) {
         // We're dealing with an ERC20 transfer.
@@ -268,21 +289,23 @@ export class RelayerAPIService implements RelayerAPI {
           receipt.blockNumber,
         );
 
+        // TODO: do we want to show these transactions?
         // if (!erc20Event) {
         //   return bridgeTx;
         // }
         if (!erc20Event) return;
 
-        [symbol, amountInWei] =
-          await RelayerAPIService._getERC20SymbolAndAmount(
+        const { amount, symbol, decimals } =
+          await RelayerAPIService._getERC20Details(
             erc20Event,
             erc20ABI,
             srcProvider,
           );
-      }
 
-      bridgeTx.amountInWei = amountInWei;
-      bridgeTx.symbol = symbol;
+        bridgeTx.amount = amount;
+        bridgeTx.symbol = symbol;
+        bridgeTx.decimals = decimals;
+      }
 
       return bridgeTx;
     });
@@ -310,11 +333,13 @@ export class RelayerAPIService implements RelayerAPI {
     const blockInfoMap: Map<number, RelayerBlockInfo> = new Map();
 
     try {
-      const { data } = await axios.get<{ data: RelayerBlockInfo[] }>(
+      const response = await axios.get<{ data: RelayerBlockInfo[] }>(
         requestURL,
       );
 
-      // TODO: status >= 400 ?
+      if (response.status >= 400) throw response;
+
+      const { data } = response;
 
       if (data?.data.length > 0) {
         data.data.forEach((blockInfo) => {

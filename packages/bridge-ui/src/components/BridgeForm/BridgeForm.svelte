@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { type Address,fetchFeeData } from '@wagmi/core';
+  import * as Sentry from '@sentry/svelte';
+  import { type Address, fetchFeeData } from '@wagmi/core';
   import { BigNumber, Contract, ethers, type Signer } from 'ethers';
   import { _ } from 'svelte-i18n';
 
@@ -21,9 +22,10 @@
     pendingTransactions,
     transactions as transactionsStore,
   } from '../../store/transaction';
-  import { isETH } from '../../token/tokens';
+  import { isERC20, isETH } from '../../token/tokens';
   import { checkIfTokenIsDeployedCrossChain } from '../../utils/checkIfTokenIsDeployedCrossChain';
   import { getAddressForToken } from '../../utils/getAddressForToken';
+  import { hasInjectedProvider } from '../../utils/injectedProvider';
   import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
   import { getLogger } from '../../utils/logger';
   import { truncateString } from '../../utils/truncateString';
@@ -34,6 +36,7 @@
     warningToast,
   } from '../NotificationToast.svelte';
   import ActionButtons from './ActionButtons.svelte';
+  import AddTokenToWallet from './AddTokenToWallet.svelte';
   import Memo from './Memo.svelte';
   import ProcessingFee from './ProcessingFee.svelte';
   import SelectToken from './SelectToken.svelte';
@@ -61,8 +64,7 @@
   let feeMethod: ProcessingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
   let feeAmount: string = '0';
 
-  // TODO: too much going on here. We need to extract
-  //       logic and unit test the hell out of all this.
+  let showAddToWallet: boolean = false;
 
   async function updateTokenBalance(signer: Signer, token: Token) {
     if (signer && token) {
@@ -109,7 +111,7 @@
 
           tokenBalance = '0.0';
 
-          throw Error(`Failed to get balance for ${token.symbol}`, {
+          throw Error(`failed to get balance for ${token.symbol}`, {
             cause: error,
           });
         }
@@ -135,10 +137,16 @@
       signer,
     );
 
-    log(`Checking allowance for token ${token.symbol}`);
+    const parsedAmount = ethers.utils.parseUnits(amount, token.decimals);
+
+    log(
+      `Checking allowance for token ${
+        token.symbol
+      } and amount ${parsedAmount.toString()}`,
+    );
 
     const isRequired = await $activeBridge.requiresAllowance({
-      amountInWei: ethers.utils.parseUnits(amount, token.decimals),
+      amount: parsedAmount,
       signer: signer,
       contractAddress: address,
       spenderAddress: tokenVaults[srcChain.id],
@@ -201,11 +209,12 @@
       );
 
       const spenderAddress = tokenVaults[$srcChain.id];
+      const parsedAmount = ethers.utils.parseUnits(amount, _token.decimals);
 
       log(`Approving token ${_token.symbol}`);
 
       const tx = await $activeBridge.approve({
-        amountInWei: ethers.utils.parseUnits(amount, _token.decimals),
+        amount: parsedAmount,
         signer: $signer,
         contractAddress,
         spenderAddress,
@@ -222,21 +231,18 @@
       );
     } catch (error) {
       console.error(error);
+      Sentry.captureException(error);
 
       // TODO: we need to improve the toast API so we can simply pass
       //       title (header), note (footer), icon, etc.
 
       const headerError = '<strong>Failed to approve</strong><br />';
-      const noteError =
-        _token.symbol.toLocaleLowerCase() === 'bll'
-          ? '<div class="mt-2 text-xs"><strong>Note</strong>: BLL token intentionally will fail 50% of the time</div>'
-          : '';
 
       if (error.cause?.status === 0) {
         const explorerUrl = `${$srcChain.explorerUrl}/tx/${error.cause.transactionHash}`;
         const htmlLink = `<a href="${explorerUrl}" target="_blank"><b><u>here</u></b></a>`;
         errorToast(
-          `${headerError}Click ${htmlLink} to see more details on the explorer.${noteError}`,
+          `${headerError}Click ${htmlLink} to see more details on the explorer.`,
           true, // dismissible
         );
       } else if (
@@ -244,7 +250,7 @@
       ) {
         warningToast(`Transaction has been rejected.`);
       } else {
-        errorToast(`${headerError}Try again later.${noteError}`);
+        errorToast(`${headerError}Try again later.`);
       }
     }
   }
@@ -253,7 +259,7 @@
     const gasEstimate = await $activeBridge.estimateGas({
       ...bridgeOpts,
       // We need an amount, and user might not have entered one at this point
-      amountInWei: BigNumber.from(1),
+      amount: BigNumber.from(1),
     });
 
     const feeData = await fetchFeeData();
@@ -272,7 +278,7 @@
     const hasEnoughBalance = balanceAvailableForTx.gte(requiredGas);
 
     log(
-      `Is required gas ${requiredGas} less than available balance ${balanceAvailableForTx}? ${hasEnoughBalance}`,
+      `Is required gas ${requiredGas.toString()} less than available balance ${balanceAvailableForTx.toString()}? ${hasEnoughBalance}`,
     );
 
     return hasEnoughBalance;
@@ -296,7 +302,7 @@
         return;
       }
 
-      const amountInWei = ethers.utils.parseUnits(amount, _token.decimals);
+      const parsedAmount = ethers.utils.parseUnits(amount, _token.decimals);
 
       const provider = providers[$destChain.id];
       const destTokenVaultAddress = tokenVaults[$destChain.id];
@@ -322,7 +328,7 @@
       );
 
       const bridgeOpts: BridgeOpts = {
-        amountInWei,
+        amount: parsedAmount,
         signer: $signer,
         tokenAddress,
         srcChainId: $srcChain.id,
@@ -368,7 +374,7 @@
         srcChainId: $srcChain.id,
         destChainId: $destChain.id,
         symbol: _token.symbol,
-        amountInWei,
+        amount: parsedAmount,
         from: tx.from,
         hash: tx.hash,
         status: MessageStatus.New,
@@ -416,13 +422,18 @@
     } catch (error) {
       console.error(error);
 
+      const isBll = _token.symbol.toLocaleLowerCase() === 'bll';
+
       const headerError = '<strong>Failed to bridge funds</strong><br />';
-      const noteError =
-        _token.symbol.toLocaleLowerCase() === 'bll'
-          ? '<div class="mt-2 text-xs"><strong>Note</strong>: BLL token intentionally will fail 50% of the time</div>'
-          : '';
+      const noteError = isBll
+        ? '<div class="mt-2 text-xs"><strong>Note</strong>: BLL token intentionally will fail 50% of the time</div>'
+        : '';
 
       if (error.cause?.status === 0) {
+        // No need to capture this error if BLL is the one failing,
+        // otherwise we're gonna spam Sentry with expected errors
+        !isBll && Sentry.captureException(error);
+
         const explorerUrl = `${$srcChain.explorerUrl}/tx/${error.cause.transactionHash}`;
         const htmlLink = `<a href="${explorerUrl}" target="_blank"><b><u>here</u></b></a>`;
         errorToast(
@@ -434,6 +445,9 @@
       ) {
         warningToast(`Transaction has been rejected.`);
       } else {
+        // Do not capture if it's BLL. It's expected.
+        !isBll && Sentry.captureException(error);
+
         errorToast(`${headerError}Try again later.${noteError}`);
       }
     }
@@ -443,28 +457,40 @@
     if (isETH($token)) {
       try {
         const feeData = await fetchFeeData();
+        const processingFeeInWei = getProcessingFee();
+
+        const bridgeAddress = chains[$srcChain.id].bridgeAddress;
+        const toAddress = showTo && to ? to : await $signer.getAddress();
+
+        // Won't be used in ETHBridge.estimateGas()
+        // TODO: different arguments depending on the type of bridge
+        const tokenVaultAddress = '0x00';
+        const tokenAddress = '0x00';
+
+        // Whatever amount just to get an estimation
+        const bnAmount = BigNumber.from(1);
+
         const gasEstimate = await $activeBridge.estimateGas({
-          amountInWei: BigNumber.from(1),
+          memo,
+          tokenAddress,
+          bridgeAddress,
+          tokenVaultAddress,
+          processingFeeInWei,
+          to: toAddress,
           signer: $signer,
-          tokenAddress: await getAddressForToken(
-            $token,
-            $srcChain,
-            $destChain,
-            $signer,
-          ),
+          amount: bnAmount,
           srcChainId: $srcChain.id,
           destChainId: $destChain.id,
-          tokenVaultAddress: tokenVaults[$srcChain.id],
-          processingFeeInWei: getProcessingFee(),
-          memo: memo,
-          to: showTo && to ? to : await $signer.getAddress(),
         });
 
         const requiredGas = gasEstimate.mul(feeData.gasPrice);
         const userBalance = await $signer.getBalance('latest');
-        const processingFee = getProcessingFee();
+
+        // Let's start with substracting the estimated required gas to bridge
         let balanceAvailableForTx = userBalance.sub(requiredGas);
 
+        // Following we substract the currently selected processing fee
+        const processingFee = getProcessingFee();
         if (processingFee) {
           balanceAvailableForTx = balanceAvailableForTx.sub(processingFee);
         }
@@ -474,7 +500,8 @@
         console.error(error);
 
         // In case of error default to using the full amount of ETH available.
-        // The user would still not be able to make the restriction and will have to manually set the amount.
+        // The user would still not be able to make the restriction and will have to
+        // manually set the amount.
         amount = tokenBalance.toString();
       }
     } else {
@@ -493,6 +520,11 @@
   function updateAmount(event: Event) {
     const target = event.target as HTMLInputElement;
     amount = target.value;
+  }
+
+  function toggleShowAddTokenToWallet(token: Token) {
+    // If there is no injected provider we can't add the token to the wallet
+    showAddToWallet = isERC20(token) && hasInjectedProvider();
   }
 
   $: updateTokenBalance($signer, $token).finally(() => {
@@ -521,6 +553,8 @@
     });
 
   $: amountEntered = Boolean(amount);
+
+  $: toggleShowAddTokenToWallet($token);
 </script>
 
 <div class="space-y-6 md:space-y-4">
@@ -529,7 +563,7 @@
       <span class="label-text">{$_('bridgeForm.fieldLabel')}</span>
 
       {#if $signer && tokenBalance}
-        <div class="label-text ">
+        <div class="label-text flex items-center space-x-2">
           <span>
             {$_('bridgeForm.balance')}:
             {tokenBalance.length > 10
@@ -539,10 +573,14 @@
           </span>
 
           <button
-            class="btn btn-xs rounded-md text-xs ml-1 h-[20px]"
+            class="btn btn-xs rounded-md text-xs ml-1 dark:bg-dark-5 h-[20px]"
             on:click={useFullAmount}>
             {$_('bridgeForm.maxLabel')}
           </button>
+
+          {#if showAddToWallet}
+            <AddTokenToWallet />
+          {/if}
         </div>
       {/if}
     </label>

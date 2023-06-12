@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { Contract, ethers, type Transaction } from 'ethers';
+  import * as Sentry from '@sentry/svelte';
+  import { UserRejectedRequestError } from '@wagmi/core';
+  import { Contract, errors, type Transaction, utils } from 'ethers';
   import { createEventDispatcher } from 'svelte';
   import { onDestroy, onMount } from 'svelte';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
@@ -26,7 +28,7 @@
   import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
   import { isTransactionProcessable } from '../../utils/isTransactionProcessable';
   import { getLogger } from '../../utils/logger';
-  import { selectChain } from '../../utils/selectChain';
+  import { switchNetwork } from '../../utils/switchNetwork';
   import { tokenVaults } from '../../vault/tokenVaults';
   import Button from '../Button.svelte';
   import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
@@ -94,8 +96,7 @@
         });
       }
 
-      const chain = chains[bridgeTx.destChainId];
-      await selectChain(chain);
+      await switchNetwork(bridgeTx.destChainId);
     }
   }
 
@@ -121,7 +122,7 @@
       // during their first bridge transaction to L2
       // TODO: estimate Claim transaction
       const userBalance = await $signer.getBalance('latest');
-      if (!userBalance.gt(ethers.utils.parseEther('0.0001'))) {
+      if (!userBalance.gt(utils.parseEther('0.0001'))) {
         // TODO: magic number 0.0001. Config?
         dispatch('insufficientBalance');
         return;
@@ -169,6 +170,7 @@
       $token = $token;
     } catch (error) {
       console.error(error);
+      Sentry.captureException(error);
 
       const headerError = '<strong>Failed to claim funds</strong>';
 
@@ -192,7 +194,8 @@
           true, // dismissible
         );
       } else if (
-        [error.code, error.cause?.code].includes(ethers.errors.ACTION_REJECTED)
+        error instanceof UserRejectedRequestError ||
+        [error.code, error.cause?.code].includes(errors.ACTION_REJECTED)
       ) {
         warningToast(`Transaction has been rejected.`);
       } else if (error.cause === 'pending_tx') {
@@ -259,6 +262,7 @@
       $token = $token;
     } catch (error) {
       console.error(error);
+      Sentry.captureException(error);
 
       const headerError = '<strong>Failed to release funds</strong>';
 
@@ -270,7 +274,7 @@
           true, // dismissible
         );
       } else if (
-        [error.code, error.cause?.code].includes(ethers.errors.ACTION_REJECTED)
+        [error.code, error.cause?.code].includes(errors.ACTION_REJECTED)
       ) {
         warningToast(`Transaction has been rejected.`);
       } else if (error.cause === 'pending_tx') {
@@ -358,7 +362,7 @@
   });
 </script>
 
-<tr class="text-transaction-table">
+<tr>
   <td>
     <svelte:component this={txFromChain.icon} height={18} width={18} />
     <span class="ml-2 hidden md:inline-block">{txFromChain.name}</span>
@@ -368,14 +372,13 @@
     <span class="ml-2 hidden md:inline-block">{txToChain.name}</span>
   </td>
   <td>
-    {isETHByMessage(transaction.message)
-      ? ethers.utils.formatEther(
-          transaction.message.depositValue.eq(0)
-            ? transaction.message.callValue.toString()
-            : transaction.message.depositValue,
-        )
-      : ethers.utils.formatUnits(transaction.amountInWei)}
-    {transaction.symbol ?? 'ETH'}
+    {#if Boolean(transaction.message) && isETHByMessage(transaction.message)}
+      {@const { depositValue, callValue } = transaction.message}
+      {utils.formatEther(depositValue.eq(0) ? callValue : depositValue)}
+    {:else}
+      {utils.formatUnits(transaction.amount, transaction.decimals)}
+    {/if}
+    {transaction.symbol || 'ETH'}
   </td>
 
   <td>
