@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.9.0](https://github.com/taikoxyz/taiko-mono/compare/website-v0.8.0...website-v0.9.0) (2023-06-12)
+
+
+### Features
+
+* **website:** add updated ecosystem page ([#13887](https://github.com/taikoxyz/taiko-mono/issues/13887)) ([74fcbae](https://github.com/taikoxyz/taiko-mono/commit/74fcbaeba209533222c3a87dd2d9f786f6f5a136))
+* **website:** update branding, update blog posts, add vercel web analytics ([#13871](https://github.com/taikoxyz/taiko-mono/issues/13871)) ([46bae97](https://github.com/taikoxyz/taiko-mono/commit/46bae97c2e6fabe1ba9adb1f9626878e743df44d))
+* **website:** update loopring wallet link ([#13962](https://github.com/taikoxyz/taiko-mono/issues/13962)) ([0bf1b51](https://github.com/taikoxyz/taiko-mono/commit/0bf1b51cfa1f52197542c258489f834977fb61ba))
+* **website:** update proving docs ([#13915](https://github.com/taikoxyz/taiko-mono/issues/13915)) ([be7d275](https://github.com/taikoxyz/taiko-mono/commit/be7d2751e416df7bb3057c29ea629ebec5202ade))
+* **website:** update swap guide ([#13934](https://github.com/taikoxyz/taiko-mono/issues/13934)) ([3ad3882](https://github.com/taikoxyz/taiko-mono/commit/3ad38821020061301e859ba5ad107f315b428b33))
+* **website:** update website with alpha-3 docs ([#13723](https://github.com/taikoxyz/taiko-mono/issues/13723)) ([95303a5](https://github.com/taikoxyz/taiko-mono/commit/95303a5461477620de4eb44092e0dce17489ecbb))
+
+
+### Bug Fixes
+
+* **protocol:** hash deposit IDs ([#13853](https://github.com/taikoxyz/taiko-mono/issues/13853)) ([d3aea36](https://github.com/taikoxyz/taiko-mono/commit/d3aea36ce715d45ba444dbc261a3efff4912e9b1))
+* **website:** add error explanation to run a node guide ([#13953](https://github.com/taikoxyz/taiko-mono/issues/13953)) ([6635c7e](https://github.com/taikoxyz/taiko-mono/commit/6635c7e95fc0c5852e62fc1cf55681dd5e32bfdf))
+* **website:** add swap guide to guides ([#13946](https://github.com/taikoxyz/taiko-mono/issues/13946)) ([8054497](https://github.com/taikoxyz/taiko-mono/commit/80544977ccc413bc7c4dcb05726cb9c786b37d43))
+* **website:** bridge guide link ([#13933](https://github.com/taikoxyz/taiko-mono/issues/13933)) ([4dbd2ee](https://github.com/taikoxyz/taiko-mono/commit/4dbd2ee76685a592766954bd2df66e84d2a98d49))
+* **website:** fix broken links and remove deprecated pages ([#13840](https://github.com/taikoxyz/taiko-mono/issues/13840)) ([cce7ed7](https://github.com/taikoxyz/taiko-mono/commit/cce7ed7ddb9c76c6a749770acaa8034a6bc3594f))
+* **website:** fix rpc url for hardhat guide ([#13954](https://github.com/taikoxyz/taiko-mono/issues/13954)) ([96db7a7](https://github.com/taikoxyz/taiko-mono/commit/96db7a79c53622e7fe139dc380c93302ef3e4671))
+* **website:** token config ([#13914](https://github.com/taikoxyz/taiko-mono/issues/13914)) ([c7d91a2](https://github.com/taikoxyz/taiko-mono/commit/c7d91a2df65289687d6b13e4a64da24c223f98e4))
+* **website:** update contract addresses ([#13918](https://github.com/taikoxyz/taiko-mono/issues/13918)) ([125ecff](https://github.com/taikoxyz/taiko-mono/commit/125ecff4301c053bd5fdf24c3d7fa2fafcd3c397))
+* **website:** update run a node guide to point rpc to archive node ([#13942](https://github.com/taikoxyz/taiko-mono/issues/13942)) ([a3d73a8](https://github.com/taikoxyz/taiko-mono/commit/a3d73a8cd4572de1d7eb7dcd124b97099016e144))
+
 ## [0.8.0](https://github.com/taikoxyz/taiko-mono/compare/website-v0.7.0...website-v0.8.0) (2023-05-26)
 
 
