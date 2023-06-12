@@ -27,7 +27,7 @@ export function setupSentry(dsn: string) {
       const processedEvent = { ...event };
       const { cause } = hint?.originalException as Error;
 
-      // If we have "cause", we want to know about it for more context.
+      // If we have "cause", we want to know about it as additional data.
       if (cause) {
         processedEvent.extra = {
           ...processedEvent.extra,
