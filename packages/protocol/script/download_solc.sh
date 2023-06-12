@@ -11,7 +11,7 @@ fi
 
 mkdir -p "$(dirname ${solc_bin})"
 
-VERSION=v0.8.20
+VERSION=v0.8.18
 
 if [ "$(uname)" = 'Darwin' ]; then
   SOLC_FILE_NAME=solc-macos
