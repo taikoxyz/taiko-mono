@@ -64,7 +64,7 @@ func (svc *Service) saveMessageStatusChangedEvent(
 	}
 
 	if e == nil || e.MsgHash == "" {
-		return errors.New("message hash doesnt exist when it should")
+		return nil
 	}
 
 	_, err = svc.eventRepo.Save(ctx, relayer.SaveEventOpts{
