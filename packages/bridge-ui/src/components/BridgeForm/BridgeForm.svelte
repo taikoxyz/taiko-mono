@@ -237,16 +237,12 @@
       //       title (header), note (footer), icon, etc.
 
       const headerError = '<strong>Failed to approve</strong><br />';
-      const noteError =
-        _token.symbol.toLocaleLowerCase() === 'bll'
-          ? '<div class="mt-2 text-xs"><strong>Note</strong>: BLL token intentionally will fail 50% of the time</div>'
-          : '';
 
       if (error.cause?.status === 0) {
         const explorerUrl = `${$srcChain.explorerUrl}/tx/${error.cause.transactionHash}`;
         const htmlLink = `<a href="${explorerUrl}" target="_blank"><b><u>here</u></b></a>`;
         errorToast(
-          `${headerError}Click ${htmlLink} to see more details on the explorer.${noteError}`,
+          `${headerError}Click ${htmlLink} to see more details on the explorer.`,
           true, // dismissible
         );
       } else if (
@@ -254,7 +250,7 @@
       ) {
         warningToast(`Transaction has been rejected.`);
       } else {
-        errorToast(`${headerError}Try again later.${noteError}`);
+        errorToast(`${headerError}Try again later.`);
       }
     }
   }
@@ -425,15 +421,19 @@
       );
     } catch (error) {
       console.error(error);
-      Sentry.captureException(error);
+
+      const isBll = _token.symbol.toLocaleLowerCase() === 'bll';
 
       const headerError = '<strong>Failed to bridge funds</strong><br />';
-      const noteError =
-        _token.symbol.toLocaleLowerCase() === 'bll'
-          ? '<div class="mt-2 text-xs"><strong>Note</strong>: BLL token intentionally will fail 50% of the time</div>'
-          : '';
+      const noteError = isBll
+        ? '<div class="mt-2 text-xs"><strong>Note</strong>: BLL token intentionally will fail 50% of the time</div>'
+        : '';
 
       if (error.cause?.status === 0) {
+        // No need to capture this error if BLL is the one failing,
+        // otherwise we're gonna spam Sentry with expected errors
+        !isBll && Sentry.captureException(error);
+
         const explorerUrl = `${$srcChain.explorerUrl}/tx/${error.cause.transactionHash}`;
         const htmlLink = `<a href="${explorerUrl}" target="_blank"><b><u>here</u></b></a>`;
         errorToast(
@@ -445,6 +445,9 @@
       ) {
         warningToast(`Transaction has been rejected.`);
       } else {
+        // Do not capture if it's BLL. It's expected.
+        !isBll && Sentry.captureException(error);
+
         errorToast(`${headerError}Try again later.${noteError}`);
       }
     }
