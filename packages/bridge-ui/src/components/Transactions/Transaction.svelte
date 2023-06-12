@@ -11,7 +11,7 @@
   import { chains } from '../../chain/chains';
   import { bridgeABI } from '../../constants/abi';
   import { BridgeType } from '../../domain/bridge';
-  import type { Chain } from '../../domain/chain';
+  import type { Chain, ChainID } from '../../domain/chain';
   import { MessageStatus } from '../../domain/message';
   import type { NoticeOpenArgs } from '../../domain/modal';
   import {
@@ -82,11 +82,11 @@
   // }
 
   async function ensureCorrectChain(
-    currentChain: Chain,
-    bridgeTx: BridgeTransaction,
+    currentChainId: ChainID,
+    wannaBeChainId: ChainID,
     pendingTx: Transaction[],
   ) {
-    const isCorrectChain = currentChain.id === bridgeTx.destChainId;
+    const isCorrectChain = currentChainId === wannaBeChainId;
     log(`Are we on the correct chain? ${isCorrectChain}`);
 
     if (!isCorrectChain) {
@@ -96,7 +96,7 @@
         });
       }
 
-      await switchNetwork(bridgeTx.destChainId);
+      await switchNetwork(wannaBeChainId);
     }
   }
 
@@ -105,7 +105,11 @@
     try {
       loading = true;
 
-      await ensureCorrectChain($srcChain, bridgeTx, $pendingTransactions);
+      await ensureCorrectChain(
+        $srcChain.id,
+        bridgeTx.destChainId,
+        $pendingTransactions,
+      );
 
       // Confirm after switch chain that it worked
       const isCorrectChain = await isOnCorrectChain(
@@ -170,7 +174,13 @@
       $token = $token;
     } catch (error) {
       console.error(error);
-      Sentry.captureException(error);
+
+      Sentry.captureException(error, {
+        extra: {
+          srcChain: $srcChain.id,
+          bridgeTx,
+        },
+      });
 
       const headerError = '<strong>Failed to claim funds</strong>';
 
@@ -215,7 +225,11 @@
     try {
       loading = true;
 
-      await ensureCorrectChain($srcChain, bridgeTx, $pendingTransactions);
+      await ensureCorrectChain(
+        $srcChain.id,
+        bridgeTx.srcChainId,
+        $pendingTransactions,
+      );
 
       // Confirm after switch chain that it worked
       const isCorrectChain = await isOnCorrectChain(
@@ -262,7 +276,13 @@
       $token = $token;
     } catch (error) {
       console.error(error);
-      Sentry.captureException(error);
+
+      Sentry.captureException(error, {
+        extra: {
+          srcChain: $srcChain.id,
+          bridgeTx,
+        },
+      });
 
       const headerError = '<strong>Failed to release funds</strong>';
 
