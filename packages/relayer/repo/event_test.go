@@ -414,7 +414,7 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 	}
 }
 
-func TestIntegration_Event_FindAllByMsgHash(t *testing.T) {
+func TestIntegration_Event_FirstByMsgHash(t *testing.T) {
 	db, close, err := testMysql(t)
 	assert.Equal(t, nil, err)
 
@@ -441,43 +441,41 @@ func TestIntegration_Event_FindAllByMsgHash(t *testing.T) {
 	tests := []struct {
 		name     string
 		msgHash  string
-		wantResp []*relayer.Event
+		wantResp *relayer.Event
 		wantErr  error
 	}{
 		{
 			"success",
 			"0x1",
-			[]*relayer.Event{
-				{
-					ID:   1,
-					Name: "name",
-					// nolint lll
-					Data:                   datatypes.JSON([]byte(fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex())))),
-					ChainID:                1,
-					Status:                 relayer.EventStatusDone,
-					EventType:              relayer.EventTypeSendETH,
-					CanonicalTokenAddress:  "0x1",
-					CanonicalTokenSymbol:   "ETH",
-					CanonicalTokenName:     "Ethereum",
-					CanonicalTokenDecimals: 18,
-					Amount:                 "1",
-					MsgHash:                "0x1",
-					MessageOwner:           addr.Hex(),
-				},
+			&relayer.Event{
+				ID:   1,
+				Name: "name",
+				// nolint lll
+				Data:                   datatypes.JSON([]byte(fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex())))),
+				ChainID:                1,
+				Status:                 relayer.EventStatusDone,
+				EventType:              relayer.EventTypeSendETH,
+				CanonicalTokenAddress:  "0x1",
+				CanonicalTokenSymbol:   "ETH",
+				CanonicalTokenName:     "Ethereum",
+				CanonicalTokenDecimals: 18,
+				Amount:                 "1",
+				MsgHash:                "0x1",
+				MessageOwner:           addr.Hex(),
 			},
 			nil,
 		},
 		{
 			"noneByMgHash",
 			"0xfake",
-			[]*relayer.Event{},
+			nil,
 			nil,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := eventRepo.FindAllByMsgHash(context.Background(), tt.msgHash)
+			resp, err := eventRepo.FirstByMsgHash(context.Background(), tt.msgHash)
 			assert.Equal(t, tt.wantResp, resp)
 			assert.Equal(t, tt.wantErr, err)
 		})
