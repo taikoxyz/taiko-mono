@@ -63,7 +63,7 @@ func (svc *Service) saveMessageStatusChangedEvent(
 		return errors.Wrap(err, "svc.eventRepo.FirstByMsgHash")
 	}
 
-	if e == nil {
+	if e == nil || e.MsgHash == "" {
 		return errors.Wrap(err, "svc.eventRepo.FirstByMsgHash")
 	}
 
