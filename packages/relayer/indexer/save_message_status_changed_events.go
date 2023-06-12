@@ -63,8 +63,8 @@ func (svc *Service) saveMessageStatusChangedEvent(
 		return errors.Wrap(err, "svc.eventRepo.FirstByMsgHash")
 	}
 
-	if e == nil {
-		return errors.Wrap(err, "svc.eventRepo.FirstByMsgHash")
+	if e == nil || e.MsgHash == "" {
+		return errors.New("message hash doesnt exist when it should")
 	}
 
 	_, err = svc.eventRepo.Save(ctx, relayer.SaveEventOpts{

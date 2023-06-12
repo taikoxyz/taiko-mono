@@ -12,7 +12,7 @@ func (svc *Service) detectAndHandleReorg(ctx context.Context, eventType string, 
 		return errors.Wrap(err, "svc.eventRepo.FirstByMsgHash")
 	}
 
-	if e == nil {
+	if e == nil || e.MsgHash == "" {
 		return nil
 	}
 
