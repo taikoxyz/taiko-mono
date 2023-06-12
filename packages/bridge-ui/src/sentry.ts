@@ -12,7 +12,9 @@ const environment =
 
 const isProd = environment === 'production';
 
-export function setupSentry(dsn: string) {
+export function setupSentry(dsn?: string) {
+  if (!dsn) return;
+
   Sentry.init({
     dsn,
     environment,
