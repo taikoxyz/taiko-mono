@@ -73,8 +73,8 @@ func (r *EventRepository) FirstByMsgHash(
 	// find all message sent events
 	if err := r.db.GormDB().Where("msg_hash = ?", msgHash).
 		First(&e).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return e, nil
+		if err == gorm.ErrRecordNotFound || e.ID == 0 {
+			return nil, nil
 		}
 
 		return nil, errors.Wrap(err, "r.db.First")
