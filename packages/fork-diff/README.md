@@ -4,6 +4,7 @@ This package contains:
 
 - An `index.html` which shows the diff between [taiko-geth](https://github.com/taikoxyz/taiko-geth) and [go-ethereum](https://github.com/ethereum/go-ethereum).
 - The `fork.yaml` configuration which is used by [forkdiff](https://github.com/protolambda/forkdiff) to generate the `index.html`.
+- The `main.go` file which is also used by [forkdiff](https://github.com/protolambda/forkdiff) to generate the `index.html` (just makes "Other changes" and "Ignored changes" lowercase to look cleaner).
 
 ## Steps to update the fork diff page
 

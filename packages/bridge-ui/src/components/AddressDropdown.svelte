@@ -1,4 +1,5 @@
 <script lang="ts">
+  import * as Sentry from '@sentry/svelte';
   import { disconnect as wagmiDisconnect, RpcError } from '@wagmi/core';
   import { ethers, type Signer } from 'ethers';
   import { onMount } from 'svelte';
@@ -61,6 +62,8 @@
         'Cannot communicate with the network. Please try again later or contact support.',
       );
     } else {
+      Sentry.captureException(error);
+
       errorToast('There was an error getting your balance.');
     }
   });
@@ -79,8 +82,7 @@
 <!-- Makes no sense to render anything here without signer  -->
 {#if $signer}
   <div class="dropdown dropdown-bottom dropdown-end">
-    <!-- svelte-ignore a11y-label-has-associated-control -->
-    <label role="button" tabindex="0" class="btn btn-md justify-around">
+    <button class="btn justify-around">
       <span class="font-normal flex-1 text-left flex items-center">
         {#if pendingTx}
           <div class="inline-block ml-2">
@@ -100,7 +102,7 @@
         {/if}
       </span>
       <ChevronDown size="20" />
-    </label>
+    </button>
     <ul
       role="listbox"
       tabindex="0"

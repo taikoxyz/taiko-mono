@@ -1,4 +1,5 @@
 <script lang="ts">
+  import * as Sentry from '@sentry/svelte';
   import { UserRejectedRequestError } from '@wagmi/core';
   import { ChevronDown, ExclamationTriangle } from 'svelte-heros-v2';
 
@@ -7,7 +8,7 @@
   import { srcChain } from '../store/chain';
   import { signer } from '../store/signer';
   import { pendingTransactions } from '../store/transaction';
-  import { selectChain } from '../utils/selectChain';
+  import { switchNetwork } from '../utils/switchNetwork';
   import {
     errorToast,
     successToast,
@@ -26,7 +27,7 @@
     }
 
     try {
-      await selectChain(chain);
+      await switchNetwork(chain.id);
       successToast('Successfully changed chain.');
     } catch (error) {
       console.error(error);
@@ -34,6 +35,8 @@
       if (error instanceof UserRejectedRequestError) {
         warningToast('Switch chain request rejected.');
       } else {
+        Sentry.captureException(error);
+
         errorToast('Error switching chain.');
       }
     }
@@ -43,9 +46,7 @@
 </script>
 
 <div class="dropdown dropdown-end mr-4">
-  <button
-    class="btn btn-md justify-around md:w-[194px]"
-    disabled={cannotSwitch}>
+  <button class="btn justify-around md:w-[194px]" disabled={cannotSwitch}>
     <span class="font-normal flex-1 text-left mr-2">
       {#if $srcChain}
         <svelte:component this={$srcChain.icon} />

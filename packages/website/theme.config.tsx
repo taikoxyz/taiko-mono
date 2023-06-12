@@ -1,17 +1,14 @@
-import { useRouter } from "next/router";
-import { useConfig } from "nextra-theme-docs";
 import Footer from "./components/Footer";
 import ThemedImage from "./components/ThemedImage";
+import { useConfig } from "nextra-theme-docs";
+import { useRouter } from "next/router";
 
 export default {
   banner: {
     key: "banner",
     text: (
-      <a
-        href="https://twitter.com/taikoxyz/status/1647684931735396352"
-        target="_blank"
-      >
-        📌 Alpha-2 has been deprecated. Alpha-3 is coming... soon 👀
+      <a href="/docs/guides" target="_blank">
+        📌 Alpha-3 is here! Get started →
       </a>
     ),
   },
@@ -44,7 +41,11 @@ export default {
             "A decentralized, Ethereum-equivalent ZK-Rollup."
           }
         />
-        <link rel="icon" href="/images/favicon.png" />
+        <meta
+          property="og:image"
+          content={"/images/Taiko_social_media_preview.png"}
+        />
+        <link rel="icon" href="/images/favicon.svg" />
       </>
     );
   },
@@ -52,7 +53,7 @@ export default {
   nextThemes: {
     defaultTheme: "light",
   },
-  primaryHue: 315,
+  primaryHue: 323,
   project: {
     link: "https://github.com/taikoxyz",
   },

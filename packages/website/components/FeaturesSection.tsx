@@ -6,7 +6,7 @@ import {
 
 const features = [
   {
-    name: "Type 1 (Ethereum-equivalent)",
+    name: "Ethereum-equivalent",
     description:
       "A Type 1 (Ethereum-equivalent) ZK-EVM aims for maximum compatibility. This results in a seamless developer experience.",
     icon: ArrowPathIcon,
@@ -27,7 +27,7 @@ const features = [
 
 export default function FeaturesSection() {
   return (
-    <div className="mx-auto max-w-md px-6 text-center sm:max-w-2xl lg:max-w-7xl lg:px-8 dark:bg-neutral-950">
+    <div className="mx-auto max-w-md px-6 text-center sm:max-w-2xl lg:max-w-7xl lg:px-8">
       <div className="my-20">
         <div className="grid grid-cols-1 gap-12 sm:grid-cols-1 lg:grid-cols-3">
           {features.map((feature) => (
@@ -42,7 +42,7 @@ export default function FeaturesSection() {
                       />
                     </span>
                   </div>
-                  <h3 className="font-oxanium mt-8 text-lg font-semibold leading-8 tracking-tight text-neutral-900 dark:text-neutral-100">
+                  <h3 className="font-groteskmedium mt-8 text-lg leading-8 tracking-tight text-neutral-900 dark:text-neutral-100">
                     {feature.name}
                   </h3>
                   <p className="mt-5 text-base leading-7 text-neutral-600 dark:text-neutral-300">

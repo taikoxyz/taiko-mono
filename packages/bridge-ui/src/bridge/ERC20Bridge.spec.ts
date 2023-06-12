@@ -42,7 +42,7 @@ jest.mock('ethers', () => ({
 const wallet = new Wallet('0x');
 
 const opts: BridgeOpts = {
-  amountInWei: BigNumber.from(1),
+  amount: BigNumber.from(1),
   signer: wallet,
   tokenAddress: '0xtoken',
   srcChainId: L1_CHAIN_ID,
@@ -54,7 +54,7 @@ const opts: BridgeOpts = {
 };
 
 const approveOpts: ApproveOpts = {
-  amountInWei: BigNumber.from(1),
+  amount: BigNumber.from(1),
   signer: wallet,
   contractAddress: '0x456',
   spenderAddress: '0x789',
@@ -66,9 +66,7 @@ describe('bridge tests', () => {
   });
 
   it('requires allowance returns true when allowance has not been set', async () => {
-    mockContract.allowance.mockImplementationOnce(() =>
-      opts.amountInWei.sub(1),
-    );
+    mockContract.allowance.mockImplementationOnce(() => opts.amount.sub(1));
 
     mockSigner.getAddress.mockImplementationOnce(() => '0xfake');
 
@@ -86,9 +84,7 @@ describe('bridge tests', () => {
   });
 
   it('requires allowance returns true when allowance is > than amount', async () => {
-    mockContract.allowance.mockImplementationOnce(() =>
-      opts.amountInWei.add(1),
-    );
+    mockContract.allowance.mockImplementationOnce(() => opts.amount.add(1));
     mockSigner.getAddress.mockImplementationOnce(() => '0xfake');
 
     const bridge: Bridge = new ERC20Bridge(null);
@@ -105,7 +101,7 @@ describe('bridge tests', () => {
   });
 
   it('requires allowance returns true when allowance is === amount', async () => {
-    mockContract.allowance.mockImplementationOnce(() => opts.amountInWei);
+    mockContract.allowance.mockImplementationOnce(() => opts.amount);
     mockSigner.getAddress.mockImplementationOnce(() => '0xfake');
 
     const bridge: Bridge = new ERC20Bridge(null);
@@ -122,9 +118,7 @@ describe('bridge tests', () => {
   });
 
   it('approve throws when amount is already greater than whats set', async () => {
-    mockContract.allowance.mockImplementationOnce(() =>
-      opts.amountInWei.add(1),
-    );
+    mockContract.allowance.mockImplementationOnce(() => opts.amount.add(1));
 
     mockSigner.getAddress.mockImplementationOnce(() => '0xfake');
 
@@ -143,9 +137,7 @@ describe('bridge tests', () => {
   });
 
   it('approve succeeds when allowance is less than what is being requested', async () => {
-    mockContract.allowance.mockImplementationOnce(() =>
-      opts.amountInWei.sub(1),
-    );
+    mockContract.allowance.mockImplementationOnce(() => opts.amount.sub(1));
 
     mockSigner.getAddress.mockImplementationOnce(() => '0xfake');
 
@@ -161,14 +153,12 @@ describe('bridge tests', () => {
     );
     expect(mockContract.approve).toHaveBeenCalledWith(
       approveOpts.spenderAddress,
-      approveOpts.amountInWei,
+      approveOpts.amount,
     );
   });
 
   it('bridge throws when requires approval', async () => {
-    mockContract.allowance.mockImplementationOnce(() =>
-      opts.amountInWei.sub(1),
-    );
+    mockContract.allowance.mockImplementationOnce(() => opts.amount.sub(1));
 
     const bridge: Bridge = new ERC20Bridge(null);
 
@@ -182,9 +172,7 @@ describe('bridge tests', () => {
   });
 
   it('bridge calls senderc20 when doesnt require approval', async () => {
-    mockContract.allowance.mockImplementationOnce(() =>
-      opts.amountInWei.add(1),
-    );
+    mockContract.allowance.mockImplementationOnce(() => opts.amount.add(1));
     mockSigner.getAddress.mockImplementation(() => '0xfake');
 
     const bridge: Bridge = new ERC20Bridge(null);
@@ -198,7 +186,7 @@ describe('bridge tests', () => {
       opts.destChainId,
       '0x',
       opts.tokenAddress,
-      opts.amountInWei,
+      opts.amount,
       BigNumber.from(3140000),
       opts.processingFeeInWei,
       '0xfake',
@@ -210,9 +198,7 @@ describe('bridge tests', () => {
   });
 
   it('bridge calls senderc20 when doesnt requires approval, with no processing fee and memo', async () => {
-    mockContract.allowance.mockImplementationOnce(() =>
-      opts.amountInWei.add(1),
-    );
+    mockContract.allowance.mockImplementationOnce(() => opts.amount.add(1));
     mockSigner.getAddress.mockImplementation(() => '0xfake');
 
     const bridge: Bridge = new ERC20Bridge(null);
@@ -220,7 +206,7 @@ describe('bridge tests', () => {
     expect(mockContract.sendERC20).not.toHaveBeenCalled();
 
     const opts: BridgeOpts = {
-      amountInWei: BigNumber.from(1),
+      amount: BigNumber.from(1),
       signer: wallet,
       tokenAddress: '0xtoken',
       srcChainId: L1_CHAIN_ID,
@@ -235,7 +221,7 @@ describe('bridge tests', () => {
       opts.destChainId,
       '0xfake',
       opts.tokenAddress,
-      opts.amountInWei,
+      opts.amount,
       BigNumber.from(3000000),
       BigNumber.from(0),
       '0xfake',

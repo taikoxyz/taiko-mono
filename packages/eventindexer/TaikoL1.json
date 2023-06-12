@@ -367,6 +367,11 @@
                 "internalType": "uint96",
                 "name": "amount",
                 "type": "uint96"
+              },
+              {
+                "internalType": "uint64",
+                "name": "id",
+                "type": "uint64"
               }
             ],
             "internalType": "struct TaikoData.EthDeposit[]",
@@ -496,6 +501,11 @@
             "internalType": "uint96",
             "name": "amount",
             "type": "uint96"
+          },
+          {
+            "internalType": "uint64",
+            "name": "id",
+            "type": "uint64"
           }
         ],
         "indexed": false,
@@ -1110,6 +1120,11 @@
                 "internalType": "uint96",
                 "name": "amount",
                 "type": "uint96"
+              },
+              {
+                "internalType": "uint64",
+                "name": "id",
+                "type": "uint64"
               }
             ],
             "internalType": "struct TaikoData.EthDeposit[]",

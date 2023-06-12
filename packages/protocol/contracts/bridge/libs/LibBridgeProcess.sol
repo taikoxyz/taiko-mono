@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { EtherVault } from "../EtherVault.sol";
@@ -17,8 +17,8 @@ import { LibBridgeStatus } from "./LibBridgeStatus.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 
 /**
- * Process bridge messages on the destination chain.
- * @title LibBridgeProcess
+ * This library provides functions for processing bridge messages on the
+ * destination chain.
  */
 library LibBridgeProcess {
     using LibMath for uint256;
@@ -33,7 +33,8 @@ library LibBridgeProcess {
 
     /**
      * Process the bridge message on the destination chain. It can be called by
-     * any address, including `message.owner`. It starts by hashing the message,
+     * any address, including `message.owner`.
+     * @dev It starts by hashing the message,
      * and doing a lookup in the bridge state to see if the status is "NEW". It
      * then takes custody of the ether from the EtherVault and attempts to
      * invoke the messageCall, changing the message's status accordingly.

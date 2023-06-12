@@ -1,9 +1,10 @@
 <script lang="ts">
+  import * as Sentry from '@sentry/svelte';
   import { _ } from 'svelte-i18n';
 
   import { ProcessingFeeMethod } from '../../domain/fee';
   import { processingFees } from '../../fee/processingFees';
-  import { destChain,srcChain } from '../../store/chain';
+  import { destChain, srcChain } from '../../store/chain';
   import { signer } from '../../store/signer';
   import { token } from '../../store/token';
   import { recommendProcessingFee } from '../../utils/recommendProcessingFee';
@@ -25,6 +26,7 @@
     })
     .catch((error) => {
       console.error(error);
+      Sentry.captureException(error);
 
       amount = '0';
       cannotCompute = true;
