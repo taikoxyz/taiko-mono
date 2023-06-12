@@ -83,10 +83,10 @@
 
   async function ensureCorrectChain(
     currentChainId: ChainID,
-    switchToChainId: ChainID,
+    wannaBeChainId: ChainID,
     pendingTx: Transaction[],
   ) {
-    const isCorrectChain = currentChainId === switchToChainId;
+    const isCorrectChain = currentChainId === wannaBeChainId;
     log(`Are we on the correct chain? ${isCorrectChain}`);
 
     if (!isCorrectChain) {
@@ -96,7 +96,7 @@
         });
       }
 
-      await switchNetwork(switchToChainId);
+      await switchNetwork(wannaBeChainId);
     }
   }
 
