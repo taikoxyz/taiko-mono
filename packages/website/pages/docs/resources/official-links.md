@@ -13,4 +13,4 @@
 | Website         | https://taiko.xyz                                          |
 | Whitepaper      | https://taikoxyz.github.io/taiko-mono/taiko-whitepaper.pdf |
 | YouTube         | https://www.youtube.com/@taikoxyz                          |
-| Status Page     | https://status.a2.taiko.xyz/                               |
+| Status Page     | https://status.test.taiko.xyz/                             |
