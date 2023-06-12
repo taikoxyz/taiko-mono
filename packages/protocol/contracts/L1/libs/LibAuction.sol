@@ -147,9 +147,9 @@ library LibAuction {
                 if (prover == auction.bid.prover) {
                     provable = true;
                 } else {
-                    uint64 auctionEndAt = auction.startedAt
+                    uint64 proofWindowEndAt = auction.startedAt
                         + config.auctionWindow + auction.bid.proofWindow;
-                    provable = block.timestamp > auctionEndAt;
+                    provable = block.timestamp > proofWindowEndAt;
                 }
             } else {
                 // provable = false;
