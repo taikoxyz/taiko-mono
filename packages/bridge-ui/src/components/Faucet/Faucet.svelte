@@ -1,6 +1,7 @@
 <script lang="ts">
   import { UserRejectedRequestError } from '@wagmi/core';
   import { ethers, type Signer } from 'ethers';
+  import * as Sentry from '@sentry/svelte';
 
   import {
     L1_CHAIN_ID,
@@ -71,8 +72,10 @@
       console.error(error);
 
       if (!wrongChain) {
-        // We only want to inform the user there is a problem here if
+        // We only want to capture and inform the user there is a problem here if
         // they are in the right network. Otherwise, the error is expected.
+        Sentry.captureException(error);
+
         errorToast(
           `There seems to be a problem with minting ${_token.symbol} tokens.`,
         );

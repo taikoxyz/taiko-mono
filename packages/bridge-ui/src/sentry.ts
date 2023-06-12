@@ -20,7 +20,7 @@ export function setupSentry(dsn: string) {
     integrations: [new Sentry.BrowserTracing()],
 
     sampleRate: isProd ? 0.6 : 1.0,
-    tracesSampleRate: isProd ? 0.2 : 1.0,
+    tracesSampleRate: isProd ? 0.6 : 1.0,
     maxBreadcrumbs: 50,
   });
 }
