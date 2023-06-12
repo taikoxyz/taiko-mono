@@ -11,7 +11,7 @@
   import { chains } from '../../chain/chains';
   import { bridgeABI } from '../../constants/abi';
   import { BridgeType } from '../../domain/bridge';
-  import type { Chain, ChainID } from '../../domain/chain';
+  import type { ChainID } from '../../domain/chain';
   import { MessageStatus } from '../../domain/message';
   import type { NoticeOpenArgs } from '../../domain/modal';
   import {
