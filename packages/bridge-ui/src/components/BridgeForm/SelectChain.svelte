@@ -1,4 +1,5 @@
 <script>
+  import * as Sentry from '@sentry/svelte';
   import { UserRejectedRequestError } from '@wagmi/core';
   import { ArrowRight } from 'svelte-heros-v2';
 
@@ -30,6 +31,8 @@
       if (error instanceof UserRejectedRequestError) {
         warningToast('Switch chain request canceled.');
       } else {
+        Sentry.captureException(error);
+
         errorToast('Error switching chain.');
       }
     }

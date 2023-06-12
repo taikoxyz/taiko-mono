@@ -1,4 +1,5 @@
 <script lang="ts">
+  import * as Sentry from '@sentry/svelte';
   import { _ } from 'svelte-i18n';
 
   import { ProcessingFeeMethod } from '../../domain/fee';
@@ -25,6 +26,7 @@
     })
     .catch((error) => {
       console.error(error);
+      Sentry.captureException(error);
 
       amount = '0';
       cannotCompute = true;

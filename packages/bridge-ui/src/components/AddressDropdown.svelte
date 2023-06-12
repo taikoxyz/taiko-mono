@@ -1,4 +1,5 @@
 <script lang="ts">
+  import * as Sentry from '@sentry/svelte';
   import { disconnect as wagmiDisconnect, RpcError } from '@wagmi/core';
   import { ethers, type Signer } from 'ethers';
   import { onMount } from 'svelte';
@@ -61,6 +62,8 @@
         'Cannot communicate with the network. Please try again later or contact support.',
       );
     } else {
+      Sentry.captureException(error);
+
       errorToast('There was an error getting your balance.');
     }
   });

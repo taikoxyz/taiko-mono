@@ -1,4 +1,5 @@
 <script lang="ts">
+  import * as Sentry from '@sentry/svelte';
   import { type Address, fetchFeeData } from '@wagmi/core';
   import { BigNumber, Contract, ethers, type Signer } from 'ethers';
   import { _ } from 'svelte-i18n';
@@ -110,7 +111,7 @@
 
           tokenBalance = '0.0';
 
-          throw Error(`Failed to get balance for ${token.symbol}`, {
+          throw Error(`failed to get balance for ${token.symbol}`, {
             cause: error,
           });
         }
@@ -230,6 +231,7 @@
       );
     } catch (error) {
       console.error(error);
+      Sentry.captureException(error);
 
       // TODO: we need to improve the toast API so we can simply pass
       //       title (header), note (footer), icon, etc.
@@ -423,6 +425,7 @@
       );
     } catch (error) {
       console.error(error);
+      Sentry.captureException(error);
 
       const headerError = '<strong>Failed to bridge funds</strong><br />';
       const noteError =

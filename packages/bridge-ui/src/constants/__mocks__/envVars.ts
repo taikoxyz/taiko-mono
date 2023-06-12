@@ -54,3 +54,5 @@ export const TEST_ERC20 = [
     logoUrl: 'https://internet.com/horse',
   },
 ];
+
+export const SENTRY_DSN = 'https://sentry.io/1234567890';
