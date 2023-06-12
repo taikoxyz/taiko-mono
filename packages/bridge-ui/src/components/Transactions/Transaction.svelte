@@ -1,7 +1,7 @@
 <script lang="ts">
+  import * as Sentry from '@sentry/svelte';
   import { UserRejectedRequestError } from '@wagmi/core';
   import { Contract, errors, type Transaction, utils } from 'ethers';
-  import * as Sentry from '@sentry/svelte';
   import { createEventDispatcher } from 'svelte';
   import { onDestroy, onMount } from 'svelte';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';

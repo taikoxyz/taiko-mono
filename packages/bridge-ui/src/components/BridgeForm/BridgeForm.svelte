@@ -1,8 +1,8 @@
 <script lang="ts">
+  import * as Sentry from '@sentry/svelte';
   import { type Address, fetchFeeData } from '@wagmi/core';
   import { BigNumber, Contract, ethers, type Signer } from 'ethers';
   import { _ } from 'svelte-i18n';
-  import * as Sentry from '@sentry/svelte';
 
   import { chains } from '../../chain/chains';
   import { erc20ABI } from '../../constants/abi';
@@ -111,7 +111,7 @@
 
           tokenBalance = '0.0';
 
-          throw Error(`Failed to get balance for ${token.symbol}`, {
+          throw Error(`failed to get balance for ${token.symbol}`, {
             cause: error,
           });
         }
