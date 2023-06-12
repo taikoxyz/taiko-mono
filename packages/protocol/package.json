@@ -1,6 +1,6 @@
 {
   "name": "@taiko/protocol",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "scripts": {
     "clean": "rm -rf abis cache && pnpm hardhat clean",
@@ -20,7 +20,8 @@
     "snapshot": "forge snapshot --match-path test/**/*.t.sol",
     "test": "forge test -vvv --gas-report --fuzz-seed $(date +%s) --match-path test/**/*.t.sol",
     "test:coverage": "forge coverage --report lcov",
-    "test:genesis": "./test/genesis/generate_genesis.test.sh"
+    "test:genesis": "./test/genesis/generate_genesis.test.sh",
+    "upgrade": "./script/upgrade_to.sh"
   },
   "keywords": [
     "ZKP",
