@@ -437,9 +437,9 @@
         : '';
 
       if (error.cause?.status === 0) {
-        // No need to capture this error. BLL will fail a lot here
-        // and this is expected.
-        isBll && Sentry.captureException(error);
+        // No need to capture this error if BLL is the one failing,
+        // otherwise we're gonna spam Sentry with expected errors
+        !isBll && Sentry.captureException(error);
 
         const explorerUrl = `${$srcChain.explorerUrl}/tx/${error.cause.transactionHash}`;
         const htmlLink = `<a href="${explorerUrl}" target="_blank"><b><u>here</u></b></a>`;
@@ -452,7 +452,8 @@
       ) {
         warningToast(`Transaction has been rejected.`);
       } else {
-        Sentry.captureException(error);
+        // Do not capture if it's BLL. It's expected.
+        !isBll && Sentry.captureException(error);
 
         errorToast(`${headerError}Try again later.${noteError}`);
       }
