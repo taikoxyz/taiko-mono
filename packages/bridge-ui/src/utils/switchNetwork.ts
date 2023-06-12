@@ -21,7 +21,7 @@ export async function switchNetwork(chainId: number) {
 
   // This will prevent an unlikely infinite loop
   const starting = Date.now();
-  const timeout = 3000; // TODO: config?
+  const timeout = 5000; // TODO: config?
 
   const waitForNetworkChange = () => {
     const srcChainId = get(srcChain)?.id;

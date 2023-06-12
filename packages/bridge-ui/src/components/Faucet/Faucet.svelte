@@ -74,7 +74,11 @@
       if (!wrongChain) {
         // We only want to capture and inform the user there is a problem here if
         // they are in the right network. Otherwise, the error is expected.
-        Sentry.captureException(error);
+        Sentry.captureException(error, {
+          extra: {
+            token: _token.symbol,
+          },
+        });
 
         errorToast(
           `There seems to be a problem with minting ${_token.symbol} tokens.`,
