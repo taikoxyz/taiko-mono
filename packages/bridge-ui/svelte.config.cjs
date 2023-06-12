@@ -13,7 +13,7 @@ const svelteConfig = {
 
 const sentryOptions = {
   componentTracking: {
-    trackComponents: ['BridgeForm', 'Transaction', 'Faucet'],
+    trackComponents: ['BridgeForm', 'Transactions', 'Transaction', 'Faucet'],
   },
 };
 
