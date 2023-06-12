@@ -4,34 +4,22 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
 func (svc *Service) detectAndHandleReorg(ctx context.Context, eventType string, msgHash string) error {
-	events, err := svc.eventRepo.FindAllByMsgHash(ctx, msgHash)
+	e, err := svc.eventRepo.FirstByMsgHash(ctx, msgHash)
 	if err != nil {
-		return errors.Wrap(err, "svc.eventRepo.FindAllByMsgHash")
+		return errors.Wrap(err, "svc.eventRepo.FirstByMsgHash")
 	}
 
-	if events == nil {
+	if e == nil || e.MsgHash == "" {
 		return nil
 	}
 
-	var existingEvent *relayer.Event
-
-	for _, e := range events {
-		if e.Event == eventType && e.MsgHash == msgHash {
-			existingEvent = e
-			break
-		}
-	}
-
-	if existingEvent != nil {
-		// reorg detected
-		err := svc.eventRepo.Delete(ctx, existingEvent.ID)
-		if err != nil {
-			return errors.Wrap(err, "svc.eventRepo.Delete")
-		}
+	// reorg detected
+	err = svc.eventRepo.Delete(ctx, e.ID)
+	if err != nil {
+		return errors.Wrap(err, "svc.eventRepo.Delete")
 	}
 
 	return nil

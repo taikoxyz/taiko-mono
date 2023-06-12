@@ -93,19 +93,17 @@ func (r *EventRepository) FindAllByAddress(
 	}, nil
 }
 
-func (r *EventRepository) FindAllByMsgHash(
+func (r *EventRepository) FirstByMsgHash(
 	ctx context.Context,
 	msgHash string,
-) ([]*relayer.Event, error) {
-	events := make([]*relayer.Event, 0)
-
+) (*relayer.Event, error) {
 	for _, e := range r.events {
 		if e.MsgHash == msgHash {
-			events = append(events, e)
+			return e, nil
 		}
 	}
 
-	return events, nil
+	return nil, nil
 }
 
 func (r *EventRepository) Delete(
