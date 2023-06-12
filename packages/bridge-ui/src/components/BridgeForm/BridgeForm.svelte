@@ -231,7 +231,13 @@
       );
     } catch (error) {
       console.error(error);
-      Sentry.captureException(error);
+
+      Sentry.captureException(error, {
+        extra: {
+          token: _token.symbol,
+          srcChain: $srcChain.id,
+        },
+      });
 
       // TODO: we need to improve the toast API so we can simply pass
       //       title (header), note (footer), icon, etc.
@@ -422,6 +428,12 @@
     } catch (error) {
       console.error(error);
 
+      // Extra information we're gonna send to Sentry
+      const extra = {
+        token: _token.symbol,
+        srcChain: $srcChain.id,
+      };
+
       const isBll = _token.symbol.toLocaleLowerCase() === 'bll';
 
       const headerError = '<strong>Failed to bridge funds</strong><br />';
@@ -432,7 +444,7 @@
       if (error.cause?.status === 0) {
         // No need to capture this error if BLL is the one failing,
         // otherwise we're gonna spam Sentry with expected errors
-        !isBll && Sentry.captureException(error);
+        !isBll && Sentry.captureException(error, { extra });
 
         const explorerUrl = `${$srcChain.explorerUrl}/tx/${error.cause.transactionHash}`;
         const htmlLink = `<a href="${explorerUrl}" target="_blank"><b><u>here</u></b></a>`;
@@ -446,7 +458,7 @@
         warningToast(`Transaction has been rejected.`);
       } else {
         // Do not capture if it's BLL. It's expected.
-        !isBll && Sentry.captureException(error);
+        !isBll && Sentry.captureException(error, { extra });
 
         errorToast(`${headerError}Try again later.${noteError}`);
       }
