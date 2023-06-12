@@ -31,7 +31,7 @@ export function setupSentry(dsn: string) {
       if (error?.cause) {
         processedEvent.extra = {
           ...processedEvent.extra,
-          cause: error?.cause,
+          cause: error.cause,
         };
       }
 
