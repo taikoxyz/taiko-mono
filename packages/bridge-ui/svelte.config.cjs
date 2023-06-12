@@ -1,7 +1,20 @@
+const { withSentryConfig } = require('@sentry/svelte');
 const sveltePreprocess = require('svelte-preprocess');
 
-module.exports = {
-  // Consult https://github.com/sveltejs/svelte-preprocess
-  // for more information about preprocessors
-  preprocess: sveltePreprocess(),
+const svelteConfig = {
+  compilerOptions: {
+    enableSourcemap: true,
+  },
+
+  preprocess: sveltePreprocess({
+    sourceMap: true,
+  }),
 };
+
+const sentryOptions = {
+  componentTracking: {
+    trackComponents: ['BridgeForm', 'Transactions', 'Transaction', 'Faucet'],
+  },
+};
+
+module.exports = withSentryConfig(svelteConfig, sentryOptions);

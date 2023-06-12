@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/taikoxyz/taiko-mono/compare/branding-v0.1.1...branding-v0.1.2) (2023-06-12)
+
+
+### Bug Fixes
+
+* **repo,branding:** update to new taiko logo ([#13881](https://github.com/taikoxyz/taiko-mono/issues/13881)) ([0878874](https://github.com/taikoxyz/taiko-mono/commit/08788746a7485831d1a590073049e2d9abccadbb))
+
 ## [0.1.1](https://github.com/taikoxyz/taiko-mono/compare/branding-v0.1.0...branding-v0.1.1) (2023-03-29)
 
 

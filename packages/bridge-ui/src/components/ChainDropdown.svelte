@@ -1,4 +1,5 @@
 <script lang="ts">
+  import * as Sentry from '@sentry/svelte';
   import { UserRejectedRequestError } from '@wagmi/core';
   import { ChevronDown, ExclamationTriangle } from 'svelte-heros-v2';
 
@@ -34,6 +35,8 @@
       if (error instanceof UserRejectedRequestError) {
         warningToast('Switch chain request rejected.');
       } else {
+        Sentry.captureException(error);
+
         errorToast('Error switching chain.');
       }
     }

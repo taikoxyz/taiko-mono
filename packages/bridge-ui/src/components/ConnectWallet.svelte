@@ -1,4 +1,5 @@
 <script lang="ts">
+  import * as Sentry from '@sentry/svelte';
   import {
     connect as wagmiConnect,
     Connector,
@@ -37,10 +38,15 @@
         console.error(error);
 
         if (error instanceof ConnectorNotFoundError) {
+          // I'm curious to know how often this happens
+          Sentry.captureMessage(`${connector.name} not installed.`);
+
           errorToast(`${connector.name} not installed.`);
         } else if (error instanceof UserRejectedRequestError) {
           warningToast('Connect request canceled.');
         } else {
+          Sentry.captureException(error);
+
           errorToast('Error connecting wallet');
         }
       }

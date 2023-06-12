@@ -25,20 +25,27 @@ export default function EcosystemSection() {
     {
       icon: "/images/ecosystem/loopring.svg",
       name: "Loopring Wallet",
-      link: "https://loopring.io/wallet.html",
+      link: "https://wallet.loopring.io",
       description:
         "Loopring is your mobile gateway to Ethereum L2, enabling you to easily trade, swap, collect, stake, and invest without the costly gas fees.",
     },
-    // {
-    //   icon: "/images/ecosystem/taiko.svg",
-    //   name: "Swap",
-    //   link: "https://swap.test.taiko.xyz",
-    //   description: "Swap is a dapp that lets you swap tokens on Taiko.",
-    // },
+    {
+      icon: "/images/ecosystem/nfts2me.jpg",
+      name: "NFTs2Me",
+      link: "https://nfts2me.com/app",
+      description:
+        "NFTs2Me is a multichain user-friendly comprehensive platform to create, deploy and manage your NFT collection and community, 100% free with advanced functionalities.",
+    },
+    {
+      icon: "/images/ecosystem/taiko.svg",
+      name: "Swap",
+      link: "https://swap.test.taiko.xyz",
+      description: "Swap is a dapp that lets you swap tokens on Taiko.",
+    },
     {
       icon: "/images/ecosystem/zkpool.png",
       name: "ZKPool",
-      link: "https://zkpool.io/",
+      link: "https://zkpool.io",
       description:
         "ZKPool aggregates the computing power of accelerators for zero-knowledge proofs and provides services to ZKP applications.",
     },
