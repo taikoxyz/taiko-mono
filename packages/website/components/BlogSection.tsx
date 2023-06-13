@@ -1,5 +1,36 @@
 const posts = [
   {
+    title: "L2 MEV wat",
+    href: "https://taiko.mirror.xyz/VjNjFws6OOVez5YCDMwjy4BUiDqZBHYDvcW4-JZGDkc",
+    description:
+      "In this article, we “map” the current landscape of L2 MEV, thinking about different MEV consequences for different L2 designs. We also briefly overview different ways of L2s decentralization and how it might impact L2 MEV.",
+    date: "Jun 13, 2023",
+    datetime: "2023-06-13",
+    imageUrl:
+      "https://mirror-media.imgix.net/publication-images/Qgm0gbwbCQnU8bm5Y1dGB.png?height=512&width=1024&h=512&w=1024&auto=compress",
+    readingTime: "15 min",
+    author: {
+      name: "Lisa A.",
+      imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",
+    },
+  },
+  {
+    title:
+      "Taiko Labs raises $22 million in funding to build an Ethereum-equivalent (Type 1) ZK-EVM",
+    href: "https://taiko.mirror.xyz/THTEOFtqE6pjDre5_Tzn04S0mjr7vCoMt5Y-uozfNv8",
+    description:
+      "We are thrilled to announce that we have raised $22 million across two funding rounds and launched our latest testnet (Alpha-3) in our mission to build a decentralized and Ethereum-equivalent (Type 1) ZK-EVM.",
+    date: "Jun 08, 2023",
+    datetime: "2023-06-08",
+    imageUrl:
+      "https://mirror-media.imgix.net/publication-images/N0UlPJZrY7oBrK3d4XovR.png?height=1600&width=3200&h=1600&w=3200&auto=compress",
+    readingTime: "3 min",
+    author: {
+      name: "Lisa A.",
+      imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",
+    },
+  },
+  {
     title: "Taiko Alpha-3 Testnet is Live",
     href: "https://taiko.mirror.xyz/wD7yN8Y5RttbP7kzdtX22GbMg6i18a-Xwet2sshpt48",
     description:
@@ -12,36 +43,6 @@ const posts = [
     author: {
       name: "finestone",
       imageUrl: "https://avatars.githubusercontent.com/u/36642873?s=96&v=4",
-    },
-  },
-  {
-    title: "ZK-Roller-Coaster #6",
-    href: "https://taiko.mirror.xyz/7BwxX8eR_dW2jihpAk6V10X4qKG0X7NKs_l3Me1pLNs",
-    description:
-      "This is the 6th edition of ZK-Roller-Coaster where we track and investigate the most exciting, meaningful, and crazy ZK-stuff of the prior two weeks.",
-    date: "Jun 05, 2023",
-    datetime: "2023-06-05",
-    imageUrl:
-      "https://mirror-media.imgix.net/publication-images/7k-D6I4_UEfNkR4lsx5Fk.png?height=2048&width=4096&h=2048&w=4096&auto=compress",
-    readingTime: "4 min",
-    author: {
-      name: "Lisa A.",
-      imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",
-    },
-  },
-  {
-    title: "Community invite: help craft the ZK-research digest",
-    href: "https://taiko.mirror.xyz/lezTMMMoog57VnYwiUWiw4Ng_mX19WCMOpPW-W-xcM0",
-    description:
-      "We are starting an open research community to collaborate on the creation of the ZK research digest and share rare discoveries and valuable content to learn, grow and build together.",
-    date: "May 29, 2023",
-    datetime: "2023-05-29",
-    imageUrl:
-      "https://mirror-media.imgix.net/publication-images/8RANXhY7FVaW8C9acbamg.png?height=512&width=1024&h=512&w=1024&auto=compress",
-    readingTime: "3 min",
-    author: {
-      name: "Lisa A.",
-      imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",
     },
   },
 ];
@@ -89,7 +90,7 @@ export default function BlogSection() {
                 <div className="flex flex-1 flex-col justify-between bg-white p-6 dark:bg-neutral-800 dark:hover:bg-neutral-700">
                   <div className="flex-1">
                     <div className="mt-2 block">
-                      <div className="text-xl font-semibold text-neutral-900 dark:text-neutral-200">
+                      <div className="text-xl font-semibold text-neutral-900 dark:text-neutral-200 line-clamp-1">
                         {post.title}
                       </div>
                       <div className="mt-3 text-base text-neutral-500 dark:text-neutral-300 line-clamp-3">
