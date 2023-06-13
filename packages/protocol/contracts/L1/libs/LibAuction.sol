@@ -187,7 +187,7 @@ library LibAuction {
         pure
         returns (bool)
     {
-        // Normalize both feePerGas and feePerGas to a comparable scale.
+        // Normalize both feePerGas and deposit to a comparable scale.
         // feePerGas is considered more important than proofWindow, below
         // we use 1 as the weight of feePerGas, 1/2 as the weight of deposit,
         // and 1/4 as the weight of proofWindow.
