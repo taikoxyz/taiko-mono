@@ -115,7 +115,7 @@ library LibVerifying {
 
         while (i < state.numBlocks && processed < maxBlocks) {
             blk = state.blocks[i % config.blockRingBufferSize];
-            // assert(blk.blockId == i);
+            assert(blk.blockId == i);
 
             fcId = LibUtils.getForkChoiceId(state, blk, blockHash, gasUsed);
 
@@ -135,7 +135,7 @@ library LibVerifying {
             gasUsed = fc.gasUsed;
             signalRoot = fc.signalRoot;
 
-            _markBlockVerified({
+            _verifyBlock({
                 state: state,
                 config: config,
                 blk: blk,
@@ -169,7 +169,7 @@ library LibVerifying {
         }
     }
 
-    function _markBlockVerified(
+    function _verifyBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         TaikoData.Block storage blk,
@@ -195,16 +195,6 @@ library LibVerifying {
         state.taikoTokenBalances[blk.proposer] +=
             (blk.gasLimit - fc.gasUsed) * blk.feePerGas;
 
-        uint64 proofStartAt;
-        if (auction.batchId != 0) {
-            unchecked {
-                uint64 auctionEndAt = auction.startedAt + config.auctionWindow;
-                proofStartAt = auctionEndAt > blk.proposedAt
-                    ? auctionEndAt
-                    : blk.proposedAt;
-            }
-        }
-
         bool refundBidder;
         bool rewardProver;
         bool updateAverage;
@@ -214,23 +204,32 @@ library LibVerifying {
             refundBidder = true;
             // rewardProver = false;
             // updateAverage = false;
-        } else if (
-            fc.prover == auction.bid.prover
-                && fc.provenAt <= proofStartAt + auction.bid.proofWindow
-        ) {
-            // The prover is the auction winner and proof submitted within
-            // the auction window
-            assert(auction.batchId != 0);
-            refundBidder = true;
-            rewardProver = true;
-            updateAverage = true;
         } else {
-            // The prover is not the auction winner or the proof
-            // as submitted out of the auction window
             assert(auction.batchId != 0);
-            rewardProver = true;
-            // refundBidder = false;
-            // updateAverage = false;
+            uint64 proofWindowEndAt;
+            unchecked {
+                uint64 auctionEndAt = auction.startedAt + config.auctionWindow;
+                proofWindowEndAt = auctionEndAt > blk.proposedAt
+                    ? auctionEndAt + auction.bid.proofWindow
+                    : blk.proposedAt + auction.bid.proofWindow;
+            }
+
+            if (
+                fc.prover == auction.bid.prover
+                    && fc.provenAt <= proofWindowEndAt
+            ) {
+                // The prover is the auction winner and proof submitted within
+                // the proof window
+                refundBidder = true;
+                rewardProver = true;
+                updateAverage = true;
+            } else {
+                // The prover is not the auction winner or the proof
+                // as submitted out of the proof window
+                rewardProver = true;
+                // refundBidder = false;
+                // updateAverage = false;
+            }
         }
 
         if (auction.batchId != 0) {
@@ -240,7 +239,7 @@ library LibVerifying {
             } else {
                 // During the deposit we already burnt it. So it is rather
                 // minting.
-                uint64 amountToDeduct = rewardProver // dedcut all or half
+                uint64 amountToDeduct = rewardProver // deduct all or half
                     ? auction.bid.deposit / 2
                     : auction.bid.deposit;
 

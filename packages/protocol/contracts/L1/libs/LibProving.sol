@@ -80,6 +80,8 @@ library LibProving {
         TaikoData.Block storage blk =
             state.blocks[blockId % config.blockRingBufferSize];
 
+        assert(blk.blockId == blockId);
+
         // Check the metadata hash matches the proposed block's. This is
         // necessary to handle chain reorgs.
         if (blk.metaHash != evidence.metaHash) {
