@@ -156,7 +156,7 @@ library TaikoData {
 
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
-        mapping(uint256 blockId_mode_blockRingBufferSize => Block) blocks;
+        mapping(uint256 blockId_mod_blockRingBufferSize => Block) blocks;
         mapping(
             uint256 blockId
                 => mapping(
