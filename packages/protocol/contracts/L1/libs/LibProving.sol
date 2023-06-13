@@ -98,7 +98,6 @@ library LibProving {
         } else if (evidence.prover == address(1)) {
             authorized = resolver.resolve("system_prover", false);
 
-
             if (evidence.verifierId != 0 || evidence.proof.length != 0) {
                 revert L1_INVALID_PROOF();
             }
@@ -115,10 +114,8 @@ library LibProving {
                 abi.decode(evidence.sig, (TaikoData.Signature));
 
             if (
-                authorized
-                    != ecrecover(
-                        keccak256(abi.encode(evidence)), sig.v, sig.r, sig.s
-                    )
+                ecrecover(keccak256(abi.encode(evidence)), sig.v, sig.r, sig.s)
+                    != authorized
             ) {
                 revert L1_UNAUTHORIZED();
             }
