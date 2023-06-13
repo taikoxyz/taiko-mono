@@ -23,7 +23,7 @@ library LibAuction {
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_BID();
     error L1_INVALID_PARAM();
-    error L1_NOT_A_BETTER_BID();
+    error L1_NOT_BETTER_BID();
 
     function bidForBatch(
         TaikoData.State storage state,
@@ -75,7 +75,7 @@ library LibAuction {
         } else {
             // An ongoing one
             if (!isBidBetter(bid, auction.bid)) {
-                revert L1_NOT_A_BETTER_BID();
+                revert L1_NOT_BETTER_BID();
             }
             //'Refund' current
             state.taikoTokenBalances[auction.bid.prover] += totalDeposit;

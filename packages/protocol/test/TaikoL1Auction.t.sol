@@ -217,7 +217,7 @@ contract TaikoL1Test is TaikoL1TestBase {
                 vm.warp(block.timestamp + 12);
 
                 // Revert batch bid
-                vm.expectRevert(TaikoErrors.L1_NOT_THE_BEST_BID.selector);
+                vm.expectRevert(TaikoErrors.L1_NOT_BETTER_BID.selector);
                 bidForBatch(Alice, batchId, bid);
                 // Roll one time ahead in future and bid another one
                 vm.roll(block.number + 1);

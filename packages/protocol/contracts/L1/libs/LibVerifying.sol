@@ -182,12 +182,7 @@ library LibVerifying {
         {
             uint64 batchId = LibAuction.batchForBlock(config, blk.blockId);
             auction = state.auctions[batchId % config.auctionRingBufferSize];
-
-            // For system prover, maybe the auction does not exist.
-            if (auction.batchId != batchId) {
-                assert(fc.prover == address(1));
-                auction.batchId = 0; // indicating auction yet to start
-            }
+            assert(auction.batchId == batchId);
         }
 
         // Refund the diff to the proposer
@@ -200,12 +195,11 @@ library LibVerifying {
         bool updateAverage;
 
         if (fc.prover == address(1)) {
-            // This is the system prover. Auction may not exist at all.
+            // This is the system prover.
             refundBidder = true;
             // rewardProver = false;
             // updateAverage = false;
         } else {
-            assert(auction.batchId != 0);
             uint64 proofWindowEndAt;
             unchecked {
                 uint64 auctionEndAt = auction.startedAt + config.auctionWindow;
@@ -232,19 +226,16 @@ library LibVerifying {
             }
         }
 
-        if (auction.batchId != 0) {
-            if (refundBidder) {
-                state.taikoTokenBalances[auction.bid.prover] +=
-                    auction.bid.deposit;
-            } else {
-                // During the deposit we already burnt it. So it is rather
-                // minting.
-                uint64 amountToDeduct = rewardProver // deduct all or half
-                    ? auction.bid.deposit / 2
-                    : auction.bid.deposit;
+        if (refundBidder) {
+            state.taikoTokenBalances[auction.bid.prover] += auction.bid.deposit;
+        } else {
+            // During the deposit we already burnt it. So it is rather
+            // minting.
+            uint64 amountToDeduct = rewardProver // deduct all or half
+                ? auction.bid.deposit / 2
+                : auction.bid.deposit;
 
-                state.taikoTokenBalances[auction.bid.prover] -= amountToDeduct;
-            }
+            state.taikoTokenBalances[auction.bid.prover] -= amountToDeduct;
         }
 
         uint64 proofReward;
