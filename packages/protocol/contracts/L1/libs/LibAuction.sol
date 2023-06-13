@@ -37,8 +37,9 @@ library LibAuction {
             if (
                 bid.prover != address(0) // auto-fill
                     || bid.blockMaxGasLimit != 0 // auto-fill
-                    || bid.feePerGas == 0 || bid.proofWindow == 0
-                    || bid.deposit == 0
+                    || bid.feePerGas == 0 // cannot be zero
+                    || bid.proofWindow == 0 // cannot be zero
+                    || bid.deposit == 0 // cannot be zero
                     || bid.proofWindow
                         > state.avgProofWindow * config.auctionProofWindowMultiplier
                     || bid.deposit
