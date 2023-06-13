@@ -6,8 +6,8 @@
 | ----------------- | ------------------------------- |
 | Bridge            | https://bridge.test.taiko.xyz   |
 | Block explorer    | https://explorer.test.taiko.xyz |
-| Taiko status page | https://status.test.taiko.xyz   |
 | Swap              | https://swap.test.taiko.xyz     |
+| Taiko status page | https://status.test.taiko.xyz   |
 
 ## Other links
 
