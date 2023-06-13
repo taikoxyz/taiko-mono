@@ -28,7 +28,6 @@ contract TaikoL1Oracle is TaikoL1 {
         config.maxNumProposedBlocks = 10;
         config.blockRingBufferSize = 12;
         config.proofCooldownPeriod = 5 minutes;
-        config.realProofSkipSize = 10;
         config.auctionBatchSize = 100;
     }
 }
@@ -619,7 +618,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 batchId++;
             }
 
-            uint256 realProof = blockId % conf.realProofSkipSize;
+            uint256 realProof = blockId % 10;
 
             if (realProof == 0) {
                 proveBlock(

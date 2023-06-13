@@ -100,34 +100,10 @@ error L1_NOT_PROVEABLE()
 error L1_NOT_SPECIAL_PROVER()
 ```
 
-### L1_NOT_THE_BEST_BID
-
-```solidity
-error L1_NOT_THE_BEST_BID()
-```
-
-### L1_ORACLE_PROVER_DISABLED
-
-```solidity
-error L1_ORACLE_PROVER_DISABLED()
-```
-
 ### L1_SAME_PROOF
 
 ```solidity
 error L1_SAME_PROOF()
-```
-
-### L1_SYSTEM_PROVER_DISABLED
-
-```solidity
-error L1_SYSTEM_PROVER_DISABLED()
-```
-
-### L1_SYSTEM_PROVER_PROHIBITED
-
-```solidity
-error L1_SYSTEM_PROVER_PROHIBITED()
 ```
 
 ### L1_TOO_MANY_BLOCKS

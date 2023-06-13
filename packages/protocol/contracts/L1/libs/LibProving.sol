@@ -34,10 +34,7 @@ library LibProving {
     error L1_INVALID_PROOF_OVERWRITE();
     error L1_NOT_PROVEABLE();
     error L1_NOT_SPECIAL_PROVER();
-    error L1_ORACLE_PROVER_DISABLED();
     error L1_SAME_PROOF();
-    error L1_SYSTEM_PROVER_DISABLED();
-    error L1_SYSTEM_PROVER_PROHIBITED();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -92,22 +89,9 @@ library LibProving {
         // and non-oracle but system proofs
         address specialProver;
         if (evidence.prover == address(0)) {
-            specialProver = resolver.resolve("oracle_prover", true);
-            if (specialProver == address(0)) {
-                revert L1_ORACLE_PROVER_DISABLED();
-            }
+            specialProver = resolver.resolve("oracle_prover", false);
         } else if (evidence.prover == address(1)) {
-            specialProver = resolver.resolve("system_prover", true);
-            if (specialProver == address(0)) {
-                revert L1_SYSTEM_PROVER_DISABLED();
-            }
-
-            if (
-                config.realProofSkipSize <= 1
-                    || blockId % config.realProofSkipSize == 0
-            ) {
-                revert L1_SYSTEM_PROVER_PROHIBITED();
-            }
+            specialProver = resolver.resolve("system_prover", false);
         }
 
         if (specialProver != address(0) && msg.sender != specialProver) {
