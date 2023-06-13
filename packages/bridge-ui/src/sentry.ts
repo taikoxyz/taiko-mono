@@ -12,15 +12,17 @@ const environment =
 
 const isProd = environment === 'production';
 
-export function setupSentry(dsn: string) {
+export function setupSentry(dsn?: string) {
+  if (!dsn) return;
+
   Sentry.init({
     dsn,
     environment,
 
     integrations: [new Sentry.BrowserTracing()],
 
-    sampleRate: isProd ? 0.6 : 1.0,
-    tracesSampleRate: isProd ? 0.6 : 1.0,
+    sampleRate: isProd ? 0.2 : 1.0,
+    tracesSampleRate: isProd ? 0.2 : 1.0,
     maxBreadcrumbs: 50,
 
     beforeSend(event, hint) {
