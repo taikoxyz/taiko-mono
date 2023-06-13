@@ -225,7 +225,7 @@ library LibAuction {
                 // the batch of lastVerifiedBlockId is never auctionable as it
                 // has to be ended before the last verifeid block can be
                 // verified.
-                batchId < lastVerifiedBatchId
+                batchId <= lastVerifiedBatchId
                 // cannot start a new auction if the previous one has not
                 // started
                 || batchId > state.numAuctions + 1
