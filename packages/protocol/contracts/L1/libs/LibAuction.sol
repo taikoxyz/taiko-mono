@@ -221,8 +221,7 @@ library LibAuction {
                 batchForBlock(config, state.lastVerifiedBlockId + 1);
 
             // Regardless of auction started or not - do not allow too many
-            // auctions
-            // to be open
+            // auctions to be open
             if (
                 // the batch of lastVerifiedBlockId is never auctionable as it
                 // has
