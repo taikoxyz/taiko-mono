@@ -22,7 +22,6 @@ library TaikoData {
         uint256 txListCacheExpiry;
         uint256 proofCooldownPeriod;
         uint256 systemProofCooldownPeriod;
-        uint256 realProofSkipSize;
         uint256 ethDepositGas;
         uint256 ethDepositMaxFee;
         uint64 minEthDepositsPerBlock;
@@ -78,6 +77,12 @@ library TaikoData {
         TaikoData.EthDeposit[] depositsProcessed;
     }
 
+    struct Signature {
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+    }
+
     struct BlockEvidence {
         bytes32 metaHash;
         bytes32 parentHash;
@@ -89,6 +94,7 @@ library TaikoData {
         uint32 gasUsed;
         uint16 verifierId;
         bytes proof;
+        bytes sig;
     }
 
     // 4 slots

@@ -34,10 +34,8 @@ library LibProving {
     error L1_INVALID_PROOF_OVERWRITE();
     error L1_NOT_PROVEABLE();
     error L1_NOT_SPECIAL_PROVER();
-    error L1_ORACLE_PROVER_DISABLED();
     error L1_SAME_PROOF();
-    error L1_SYSTEM_PROVER_DISABLED();
-    error L1_SYSTEM_PROVER_PROHIBITED();
+    error L1_UNAUTHORIZED();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -67,8 +65,8 @@ library LibProving {
 
         // We also should know who can prove this block:
         // the one who bid or everyone if it is above the window
-
-        (bool provable,) = LibAuction.isBlockProvableBy({
+        (bool provable, TaikoData.Auction memory auction) = LibAuction
+            .isBlockProvableBy({
             state: state,
             config: config,
             blockId: blockId,
@@ -90,49 +88,39 @@ library LibProving {
 
         // Separate between oracle proof (which needs to be overwritten)
         // and non-oracle but system proofs
-        address specialProver;
+        address authorized;
         if (evidence.prover == address(0)) {
-            specialProver = resolver.resolve("oracle_prover", true);
-            if (specialProver == address(0)) {
-                revert L1_ORACLE_PROVER_DISABLED();
+            authorized = resolver.resolve("oracle_prover", false);
+
+            if (evidence.verifierId != 0 || evidence.proof.length != 0) {
+                revert L1_INVALID_PROOF();
             }
         } else if (evidence.prover == address(1)) {
-            specialProver = resolver.resolve("system_prover", true);
-            if (specialProver == address(0)) {
-                revert L1_SYSTEM_PROVER_DISABLED();
-            }
+            authorized = resolver.resolve("system_prover", false);
 
-            if (
-                config.realProofSkipSize <= 1
-                    || blockId % config.realProofSkipSize == 0
-            ) {
-                revert L1_SYSTEM_PROVER_PROHIBITED();
+
+            if (evidence.verifierId != 0 || evidence.proof.length != 0) {
+                revert L1_INVALID_PROOF();
             }
+        } else {
+            authorized = auction.bid.prover;
         }
 
-        if (specialProver != address(0) && msg.sender != specialProver) {
-            if (evidence.proof.length != 64) {
-                revert L1_NOT_SPECIAL_PROVER();
-            } else {
-                uint8 v = uint8(evidence.verifierId);
-                bytes32 r;
-                bytes32 s;
-                bytes memory data = evidence.proof;
-                assembly {
-                    r := mload(add(data, 32))
-                    s := mload(add(data, 64))
-                }
+        if (evidence.sig.length == 0) {
+            if (msg.sender != authorized) {
+                revert L1_UNAUTHORIZED();
+            }
+        } else {
+            TaikoData.Signature memory sig =
+                abi.decode(evidence.sig, (TaikoData.Signature));
 
-                // clear the proof before hashing evidence
-                evidence.verifierId = 0;
-                evidence.proof = new bytes(0);
-
-                if (
-                    specialProver
-                        != ecrecover(keccak256(abi.encode(evidence)), v, r, s)
-                ) {
-                    revert L1_NOT_SPECIAL_PROVER();
-                }
+            if (
+                authorized
+                    != ecrecover(
+                        keccak256(abi.encode(evidence)), sig.v, sig.r, sig.s
+                    )
+            ) {
+                revert L1_UNAUTHORIZED();
             }
         }
 

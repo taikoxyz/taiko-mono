@@ -132,7 +132,7 @@ library LibAuction {
         returns (bool provable, TaikoData.Auction memory auction)
     {
         if (blockId != 0) {
-            if (prover == address(0) || prover == address(1)) {
+            if (prover == address(0)) {
                 // Note that auction may not exist at all.
                 provable = true;
             } else {

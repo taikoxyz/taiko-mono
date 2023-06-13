@@ -26,13 +26,11 @@ abstract contract TaikoErrors {
     error L1_NOT_PROVEABLE();
     error L1_NOT_SPECIAL_PROVER();
     error L1_NOT_THE_BEST_BID();
-    error L1_ORACLE_PROVER_DISABLED();
     error L1_SAME_PROOF();
-    error L1_SYSTEM_PROVER_DISABLED();
-    error L1_SYSTEM_PROVER_PROHIBITED();
     error L1_TOO_MANY_BLOCKS();
     error L1_TX_LIST_NOT_EXIST();
     error L1_TX_LIST_HASH();
     error L1_TX_LIST_RANGE();
     error L1_TX_LIST();
+    error L1_UNAUTHORIZED();
 }
