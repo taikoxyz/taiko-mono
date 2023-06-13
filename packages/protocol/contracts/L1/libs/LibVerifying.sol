@@ -135,7 +135,7 @@ library LibVerifying {
             gasUsed = fc.gasUsed;
             signalRoot = fc.signalRoot;
 
-            _markBlockVerified({
+            _verifyBlock({
                 state: state,
                 config: config,
                 blk: blk,
@@ -169,7 +169,7 @@ library LibVerifying {
         }
     }
 
-    function _markBlockVerified(
+    function _verifyBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         TaikoData.Block storage blk,
@@ -231,6 +231,7 @@ library LibVerifying {
                 // updateAverage = false;
             }
         }
+
         if (auction.batchId != 0) {
             if (refundBidder) {
                 state.taikoTokenBalances[auction.bid.prover] +=
@@ -238,7 +239,7 @@ library LibVerifying {
             } else {
                 // During the deposit we already burnt it. So it is rather
                 // minting.
-                uint64 amountToDeduct = rewardProver // dedcut all or half
+                uint64 amountToDeduct = rewardProver // deduct all or half
                     ? auction.bid.deposit / 2
                     : auction.bid.deposit;
 
