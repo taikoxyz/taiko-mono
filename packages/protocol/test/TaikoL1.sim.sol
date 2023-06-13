@@ -25,7 +25,6 @@ contract TaikoL1_b is TaikoL1 {
         config.ringBufferSize = 1200;
         config.maxVerificationsPerTx = 10;
         config.proofCooldownPeriod = 5 minutes;
-        config.realProofSkipSize = 0;
     }
 }
 
