@@ -19,11 +19,11 @@ library LibAuction {
 
     event BatchBid(uint64 indexed batchId, uint64 startedAt, TaikoData.Bid bid);
 
-    error L1_BID_INVALID();
     error L1_BATCH_NOT_AUCTIONABLE();
     error L1_INSUFFICIENT_TOKEN();
+    error L1_INVALID_BID();
     error L1_INVALID_PARAM();
-    error L1_NOT_THE_BEST_BID();
+    error L1_NOT_A_BETTER_BID();
 
     function bidForBatch(
         TaikoData.State storage state,
@@ -47,7 +47,7 @@ library LibAuction {
                             * (config.blockFeeBaseGas + config.blockMaxGasLimit)
                             * config.auctionDepositMultipler
             ) {
-                revert L1_BID_INVALID();
+                revert L1_INVALID_BID();
             }
         }
 
@@ -75,7 +75,7 @@ library LibAuction {
         } else {
             // An ongoing one
             if (!isBidBetter(bid, auction.bid)) {
-                revert L1_NOT_THE_BEST_BID();
+                revert L1_NOT_A_BETTER_BID();
             }
             //'Refund' current
             state.taikoTokenBalances[auction.bid.prover] += totalDeposit;

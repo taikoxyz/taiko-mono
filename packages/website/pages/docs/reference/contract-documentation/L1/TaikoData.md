@@ -20,7 +20,6 @@ struct Config {
   uint256 txListCacheExpiry;
   uint256 proofCooldownPeriod;
   uint256 systemProofCooldownPeriod;
-  uint256 realProofSkipSize;
   uint256 ethDepositGas;
   uint256 ethDepositMaxFee;
   uint64 minEthDepositsPerBlock;
@@ -85,6 +84,16 @@ struct BlockMetadata {
 }
 ```
 
+### Signature
+
+```solidity
+struct Signature {
+  uint8 v;
+  bytes32 r;
+  bytes32 s;
+}
+```
+
 ### BlockEvidence
 
 ```solidity
@@ -99,6 +108,7 @@ struct BlockEvidence {
   uint32 gasUsed;
   uint16 verifierId;
   bytes proof;
+  bytes sig;
 }
 ```
 
