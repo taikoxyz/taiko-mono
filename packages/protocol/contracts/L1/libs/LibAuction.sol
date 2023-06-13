@@ -33,18 +33,21 @@ library LibAuction {
     )
         internal
     {
-        if (
-            bid.prover != address(0) // auto-fill
-                || bid.blockMaxGasLimit != 0 // auto-fill
-                || bid.feePerGas == 0 || bid.proofWindow == 0 || bid.deposit == 0
-                || bid.proofWindow
-                    > state.avgProofWindow * config.auctionProofWindowMultiplier
-                || bid.deposit
-                    < state.feePerGas
-                        * (config.blockFeeBaseGas + config.blockMaxGasLimit)
-                        * config.auctionDepositMultipler
-        ) {
-            revert L1_BID_INVALID();
+        unchecked {
+            if (
+                bid.prover != address(0) // auto-fill
+                    || bid.blockMaxGasLimit != 0 // auto-fill
+                    || bid.feePerGas == 0 || bid.proofWindow == 0
+                    || bid.deposit == 0
+                    || bid.proofWindow
+                        > state.avgProofWindow * config.auctionProofWindowMultiplier
+                    || bid.deposit
+                        < state.feePerGas
+                            * (config.blockFeeBaseGas + config.blockMaxGasLimit)
+                            * config.auctionDepositMultipler
+            ) {
+                revert L1_BID_INVALID();
+            }
         }
 
         if (!isBatchAuctionable(state, config, batchId)) {
@@ -146,9 +149,11 @@ library LibAuction {
                     if (prover == auction.bid.prover) {
                         provable = true;
                     } else {
-                        uint64 proofWindowEndAt = auction.startedAt
-                            + config.auctionWindow + auction.bid.proofWindow;
-                        provable = block.timestamp > proofWindowEndAt;
+                        unchecked {
+                            uint64 proofWindowEndAt = auction.startedAt
+                                + config.auctionWindow + auction.bid.proofWindow;
+                            provable = block.timestamp > proofWindowEndAt;
+                        }
                     }
                 }
             }
@@ -209,32 +214,40 @@ library LibAuction {
     {
         if (batchId == 0) return false;
 
-        uint64 currentProposedBatchId = batchForBlock(config, state.numBlocks);
-        uint64 currentVerifiedBatchId =
-            batchForBlock(config, state.lastVerifiedBlockId + 1);
+        unchecked {
+            uint64 currentProposedBatchId =
+                batchForBlock(config, state.numBlocks);
+            uint64 currentVerifiedBatchId =
+                batchForBlock(config, state.lastVerifiedBlockId + 1);
 
-        // Regardless of auction started or not - do not allow too many auctions
-        // to be open
-        if (
-            // the batch of lastVerifiedBlockId is never auctionable as it has
-            // to be ended before the last verifeid block can be verified.
-            batchId < currentVerifiedBatchId
-            // We cannot start a new auction if the previous one has not started
-            || batchId > state.numAuctions + 1
-            // We cannot start a new auction if we have to keep all the auctions
-            // info in order to prove/verify blocks
-            || batchId >= currentVerifiedBatchId + config.auctionRingBufferSize
-                || batchId
-                    >= currentProposedBatchId + config.auctonMaxAheadOfProposals
-        ) {
-            return false;
+            // Regardless of auction started or not - do not allow too many
+            // auctions
+            // to be open
+            if (
+                // the batch of lastVerifiedBlockId is never auctionable as it
+                // has
+                // to be ended before the last verifeid block can be verified.
+                batchId < currentVerifiedBatchId
+                // We cannot start a new auction if the previous one has not
+                    // started
+                    || batchId > state.numAuctions + 1
+                // We cannot start a new auction if we have to keep all the
+                    // auctions
+                    // info in order to prove/verify blocks
+                    || batchId
+                        >= currentVerifiedBatchId + config.auctionRingBufferSize
+                    || batchId
+                        >= currentProposedBatchId + config.auctonMaxAheadOfProposals
+            ) {
+                return false;
+            }
+
+            TaikoData.Auction memory auction =
+                state.auctions[batchId % config.auctionRingBufferSize];
+
+            return auction.batchId != batchId
+                || block.timestamp <= auction.startedAt + config.auctionWindow;
         }
-
-        TaikoData.Auction memory auction =
-            state.auctions[batchId % config.auctionRingBufferSize];
-
-        return auction.batchId != batchId
-            || block.timestamp <= auction.startedAt + config.auctionWindow;
     }
 
     // Check if auction ha ended or not
@@ -250,9 +263,11 @@ library LibAuction {
         if (batchId == 0) {
             ended = true;
         } else {
-            auction = state.auctions[batchId % config.auctionRingBufferSize];
-            ended = auction.batchId == batchId
-                && block.timestamp > auction.startedAt + config.auctionWindow;
+            unchecked {
+                auction = state.auctions[batchId % config.auctionRingBufferSize];
+                ended = auction.batchId == batchId
+                    && block.timestamp > auction.startedAt + config.auctionWindow;
+            }
         }
     }
 
