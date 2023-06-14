@@ -62,7 +62,9 @@
         'Cannot communicate with the network. Please try again later or contact support.',
       );
     } else {
-      Sentry.captureException(error);
+      Sentry.captureException(error, {
+        extra: { srcChain: $srcChain?.id },
+      });
 
       errorToast('There was an error getting your balance.');
     }
