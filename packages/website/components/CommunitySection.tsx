@@ -1,9 +1,9 @@
-export default function CareerSection() {
+export default function CommunitySection() {
   return (
     <div className="bg-white dark:bg-neutral-900">
       <div className="mx-auto max-w-7xl py-12 px-4 text-center sm:px-6 lg:py-16 lg:px-8">
         <h2 className="font-grotesk text-3xl tracking-tight text-gray-900 sm:text-4xl dark:text-neutral-100">
-          <span className="block">Join the community 💪</span>
+          <span className="block">Join the community 🥁</span>
         </h2>
         <section className="bg-white dark:bg-neutral-900 py-12">
           <div className="container mx-auto px-4">
