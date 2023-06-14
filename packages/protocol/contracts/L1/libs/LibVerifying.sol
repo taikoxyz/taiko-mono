@@ -34,7 +34,7 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
-        uint64 initFeePerGas,
+        uint48 initFeePerGas,
         uint64 initAvgProofWindow
     )
         internal
@@ -271,7 +271,7 @@ library LibVerifying {
                     })
                 );
 
-                state.feePerGas = uint64(
+                state.feePerGas = uint48(
                     LibUtils.movingAverage({
                         maValue: state.feePerGas,
                         newValue: auction.bid.feePerGas,
