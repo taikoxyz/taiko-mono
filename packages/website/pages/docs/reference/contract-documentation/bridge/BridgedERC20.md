@@ -47,16 +47,7 @@ per unique \_srcToken i.e. one for USDC, one for USDT etc._
 function mint(address account, uint256 amount) public
 ```
 
-Mints tokens to an account.
-
-_Only a TokenVault can call this function._
-
-#### Parameters
-
-| Name    | Type    | Description                    |
-| ------- | ------- | ------------------------------ |
-| account | address | The account to mint tokens to. |
-| amount  | uint256 | The amount of tokens to mint.  |
+_only a TokenVault can call this function_
 
 ### burn
 
@@ -64,16 +55,7 @@ _Only a TokenVault can call this function._
 function burn(address from, uint256 amount) public
 ```
 
-Burns tokens from an account.
-
-_Only a TokenVault can call this function._
-
-#### Parameters
-
-| Name    | Type    | Description                      |
-| ------- | ------- | -------------------------------- |
-| account | address | The account to burn tokens from. |
-| amount  | uint256 | The amount of tokens to burn.    |
+_only a TokenVault can call this function_
 
 ### transfer
 
