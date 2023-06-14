@@ -156,7 +156,6 @@ struct Bid {
   address prover;
   uint64 deposit;
   uint64 feePerGas;
-  uint64 blockMaxGasLimit;
   uint16 proofWindow;
 }
 ```

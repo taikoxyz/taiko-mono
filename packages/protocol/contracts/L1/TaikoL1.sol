@@ -140,7 +140,6 @@ contract TaikoL1 is
      * @param bid The actual bid
      * @param batchId The batchId prover is bidding for
      */
-
     function bidForBatch(
         uint64 batchId,
         TaikoData.Bid memory bid
@@ -276,6 +275,14 @@ contract TaikoL1 is
         return state.getStateVariables();
     }
 
+    /**
+     * Returns a list of auctions. Note that if the auction doesn't exist,
+     * an empty will be returned instead. Client should check if the auction
+     * returned has the correct batch id.
+     *
+     * @param startBatchId The first batch's id.
+     * @param count The number of auctions to return.
+     */
     function getAuctions(
         uint256 startBatchId,
         uint256 count

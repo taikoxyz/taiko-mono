@@ -13,6 +13,7 @@ import { LibUtils } from "./LibUtils.sol";
 import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import { TaikoData } from "../TaikoData.sol";
+import { LibL2Consts } from "../../L2/LibL2Consts.sol";
 
 library LibProposing {
     using SafeCastUpgradeable for uint256;
@@ -121,9 +122,8 @@ library LibProposing {
     }
 
     // If auction is tied to gas, we should charge users based on gas as well. At
-    // this point gasUsed
-    // (in proposeBlock()) is always gasLimit, so use it and in case of
-    // differences refund after verification
+    // this point gasUsed (in proposeBlock()) is always gasLimit, so use it and
+    // in case of differences refund after verification
     function getBlockFee(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -135,7 +135,8 @@ library LibProposing {
     {
         // The diff between gasLimit and gasUsed will be redistributed back to
         // the balance of proposer
-        return state.feePerGas * (gasLimit + config.blockFeeBaseGas);
+        return state.feePerGas
+            * (gasLimit + LibL2Consts.ANCHOR_GAS_COST + config.blockFeeBaseGas);
     }
 
     function _validateBlock(

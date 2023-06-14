@@ -158,6 +158,17 @@ function getStateVariables() public view returns (struct TaikoData.StateVariable
 function getAuctions(uint256 startBatchId, uint256 count) public view returns (uint256 currentTime, struct TaikoData.Auction[] auctions)
 ```
 
+Returns a list of auctions. Note that if the auction doesn't exist,
+an empty will be returned instead. Client should check if the auction
+returned has the correct batch id.
+
+#### Parameters
+
+| Name         | Type    | Description                       |
+| ------------ | ------- | --------------------------------- |
+| startBatchId | uint256 | The first batch's id.             |
+| count        | uint256 | The number of auctions to return. |
+
 ### getConfig
 
 ```solidity

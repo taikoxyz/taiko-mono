@@ -100,6 +100,12 @@ error L1_NOT_PROVEABLE()
 error L1_NOT_SPECIAL_PROVER()
 ```
 
+### L1_NOT_THE_BEST_BID
+
+```solidity
+error L1_NOT_THE_BEST_BID()
+```
+
 ### L1_SAME_PROOF
 
 ```solidity
