@@ -19,7 +19,7 @@ library TaikoConfig {
             // by 100
             // to be kind of in-sync, but it does not have to be fully in sync,
             // they are decoupled
-            auctionRingBufferSize: 1209,
+            auctionRingBufferSize: 1221,
             // Each time one more block is verified, there will be ~20k
             // more gas cost.
             maxVerificationsPerTx: 10,

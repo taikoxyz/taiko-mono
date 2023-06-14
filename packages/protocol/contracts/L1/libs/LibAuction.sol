@@ -218,7 +218,7 @@ library LibAuction {
             uint64 lastProposedBatchId = batchForBlock(config, state.numBlocks);
 
             uint64 lastVerifiedBatchId =
-                batchForBlock(config, state.lastVerifiedBlockId + 1);
+                batchForBlock(config, state.lastVerifiedBlockId);
 
             // Regardless of auction started or not - do not allow too many
             // auctions to be open
