@@ -19,7 +19,7 @@ receive() external payable
 ### init
 
 ```solidity
-function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _initFeePerGas, uint64 _initAvgProofWindow) external
+function init(address _addressManager, bytes32 _genesisBlockHash, uint48 _initFeePerGas, uint16 _initAvgProofWindow) external
 ```
 
 Initialize the rollup.
@@ -30,8 +30,8 @@ Initialize the rollup.
 | -------------------- | ------- | ------------------------------------- |
 | \_addressManager     | address | The AddressManager address.           |
 | \_genesisBlockHash   | bytes32 | The block hash of the genesis block.  |
-| \_initFeePerGas      | uint64  | Initial (reasonable) block fee value, |
-| \_initAvgProofWindow | uint64  | Initial (reasonable) proof window.    |
+| \_initFeePerGas      | uint48  | Initial (reasonable) block fee value, |
+| \_initAvgProofWindow | uint16  | Initial (reasonable) proof window.    |
 
 ### proposeBlock
 
@@ -95,13 +95,13 @@ Verify up to N blocks.
 ### depositTaikoToken
 
 ```solidity
-function depositTaikoToken(uint256 amount) external
+function depositTaikoToken(uint64 amount) external
 ```
 
 ### withdrawTaikoToken
 
 ```solidity
-function withdrawTaikoToken(uint256 amount) external
+function withdrawTaikoToken(uint64 amount) external
 ```
 
 ### depositEtherToL2

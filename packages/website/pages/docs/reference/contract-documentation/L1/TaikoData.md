@@ -41,7 +41,7 @@ struct Config {
 
 ```solidity
 struct StateVariables {
-  uint64 feePerGas;
+  uint48 feePerGas;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 numBlocks;
@@ -122,7 +122,7 @@ struct Block {
   bytes32 metaHash;
   uint64 blockId;
   uint64 proposedAt;
-  uint64 feePerGas;
+  uint48 feePerGas;
   uint32 gasLimit;
   address proposer;
   uint24 nextForkChoiceId;
@@ -155,7 +155,7 @@ struct EthDeposit {
 struct Bid {
   address prover;
   uint64 deposit;
-  uint64 feePerGas;
+  uint48 feePerGas;
   uint16 proofWindow;
 }
 ```
@@ -189,9 +189,10 @@ struct State {
   uint64 numBlocks;
   uint64 nextEthDepositToProcess;
   uint64 lastVerifiedAt;
-  uint64 feePerGas;
   uint64 lastVerifiedBlockId;
-  uint64 avgProofWindow;
+  uint48 feePerGas;
+  uint16 avgProofWindow;
+  uint64 __reserved90;
   uint256[42] __gap;
 }
 ```

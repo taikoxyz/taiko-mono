@@ -15,13 +15,13 @@ import { TaikoToken } from "../TaikoToken.sol";
 import { LibFixedPointMath as Math } from
     "../../thirdparty/LibFixedPointMath.sol";
 
-library LibTkoDistribution {
+library LibTaikoToken {
     error L1_INSUFFICIENT_TOKEN();
 
     function withdrawTaikoToken(
         TaikoData.State storage state,
         AddressResolver resolver,
-        uint256 amount
+        uint64 amount
     )
         internal
     {
@@ -40,7 +40,7 @@ library LibTkoDistribution {
     function depositTaikoToken(
         TaikoData.State storage state,
         AddressResolver resolver,
-        uint256 amount
+        uint64 amount
     )
         internal
     {

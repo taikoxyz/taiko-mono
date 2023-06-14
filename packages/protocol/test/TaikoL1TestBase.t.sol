@@ -212,7 +212,7 @@ abstract contract TaikoL1TestBase is Test {
 
     function depositTaikoToken(
         address who,
-        uint256 amountTko,
+        uint64 amountTko,
         uint256 amountEth
     )
         internal
