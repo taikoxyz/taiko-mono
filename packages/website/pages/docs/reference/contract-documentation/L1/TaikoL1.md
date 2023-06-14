@@ -19,7 +19,7 @@ receive() external payable
 ### init
 
 ```solidity
-function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _initFeePerGas, uint64 _initAvgProofWindow) external
+function init(address _addressManager, bytes32 _genesisBlockHash, uint48 _initFeePerGas, uint16 _initAvgProofWindow) external
 ```
 
 Initialize the rollup.
@@ -30,8 +30,8 @@ Initialize the rollup.
 | -------------------- | ------- | ------------------------------------- |
 | \_addressManager     | address | The AddressManager address.           |
 | \_genesisBlockHash   | bytes32 | The block hash of the genesis block.  |
-| \_initFeePerGas      | uint64  | Initial (reasonable) block fee value, |
-| \_initAvgProofWindow | uint64  | Initial (reasonable) proof window.    |
+| \_initFeePerGas      | uint48  | Initial (reasonable) block fee value, |
+| \_initAvgProofWindow | uint16  | Initial (reasonable) proof window.    |
 
 ### proposeBlock
 
@@ -95,13 +95,13 @@ Verify up to N blocks.
 ### depositTaikoToken
 
 ```solidity
-function depositTaikoToken(uint256 amount) external
+function depositTaikoToken(uint64 amount) external
 ```
 
 ### withdrawTaikoToken
 
 ```solidity
-function withdrawTaikoToken(uint256 amount) external
+function withdrawTaikoToken(uint64 amount) external
 ```
 
 ### depositEtherToL2
@@ -157,6 +157,17 @@ function getStateVariables() public view returns (struct TaikoData.StateVariable
 ```solidity
 function getAuctions(uint256 startBatchId, uint256 count) public view returns (uint256 currentTime, struct TaikoData.Auction[] auctions)
 ```
+
+Returns a list of auctions. Note that if the auction doesn't exist,
+an empty will be returned instead. Client should check if the auction
+returned has the correct batch id.
+
+#### Parameters
+
+| Name         | Type    | Description                       |
+| ------------ | ------- | --------------------------------- |
+| startBatchId | uint256 | The first batch's id.             |
+| count        | uint256 | The number of auctions to return. |
 
 ### getConfig
 

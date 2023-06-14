@@ -15,6 +15,7 @@ import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
+import { LibL2Consts } from "../../L2/LibL2Consts.sol";
 
 library LibVerifying {
     using SafeCastUpgradeable for uint256;
@@ -33,8 +34,8 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
-        uint64 initFeePerGas,
-        uint64 initAvgProofWindow
+        uint48 initFeePerGas,
+        uint16 initAvgProofWindow
     )
         internal
     {
@@ -185,10 +186,15 @@ library LibVerifying {
             assert(auction.batchId == batchId);
         }
 
+        // the actually mined L2 block's gasLimit is blk.gasLimit +
+        // LibL2Consts.ANCHOR_GAS_COST, so fc.gasUsed may greater than
+        // blk.gasLimit here.
+        uint32 _gasLimit = blk.gasLimit + LibL2Consts.ANCHOR_GAS_COST;
+        assert(fc.gasUsed <= _gasLimit);
+
         // Refund the diff to the proposer
-        assert(fc.gasUsed <= blk.gasLimit);
         state.taikoTokenBalances[blk.proposer] +=
-            (blk.gasLimit - fc.gasUsed) * blk.feePerGas;
+            (_gasLimit - fc.gasUsed) * blk.feePerGas;
 
         bool refundBidder;
         bool rewardProver;
@@ -248,7 +254,7 @@ library LibVerifying {
 
         if (updateAverage) {
             unchecked {
-                state.avgProofWindow = uint64(
+                state.avgProofWindow = uint16(
                     LibUtils.movingAverage({
                         maValue: state.avgProofWindow,
                         newValue: auction.bid.proofWindow,
@@ -256,7 +262,7 @@ library LibVerifying {
                     })
                 );
 
-                state.feePerGas = uint64(
+                state.feePerGas = uint48(
                     LibUtils.movingAverage({
                         maValue: state.feePerGas,
                         newValue: auction.bid.feePerGas,

@@ -11,6 +11,7 @@ import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
+import { LibL2Consts } from "../../L2/LibL2Consts.sol";
 
 library LibAuction {
     using LibAddress for address;
@@ -36,16 +37,16 @@ library LibAuction {
         unchecked {
             if (
                 bid.prover != address(0) // auto-fill
-                    || bid.blockMaxGasLimit != 0 // auto-fill
                     || bid.feePerGas == 0 // cannot be zero
                     || bid.proofWindow == 0 // cannot be zero
                     || bid.deposit == 0 // cannot be zero
                     || bid.proofWindow
                         > state.avgProofWindow * config.auctionProofWindowMultiplier
                     || bid.deposit
-                        < state.feePerGas
-                            * (config.blockFeeBaseGas + config.blockMaxGasLimit)
-                            * config.auctionDepositMultipler
+                        < (
+                            config.blockFeeBaseGas + config.blockMaxGasLimit
+                                + LibL2Consts.ANCHOR_GAS_COST
+                        ) * state.feePerGas * config.auctionDepositMultipler
             ) {
                 revert L1_INVALID_BID();
             }
@@ -56,18 +57,14 @@ library LibAuction {
         }
 
         bid.prover = msg.sender;
-        bid.blockMaxGasLimit = config.blockMaxGasLimit;
 
         // Have in-memory and write it back at the end of the function
         TaikoData.Auction memory auction =
             state.auctions[batchId % config.auctionRingBufferSize];
 
-        uint64 totalDeposit = bid.deposit * config.auctionBatchSize;
-
         if (batchId != auction.batchId) {
             // It is a new auction
             auction.startedAt = uint64(block.timestamp);
-            auction.bid = bid;
             auction.batchId = batchId;
             unchecked {
                 state.numAuctions += 1;
@@ -77,11 +74,14 @@ library LibAuction {
             if (!isBidBetter(bid, auction.bid)) {
                 revert L1_NOT_BETTER_BID();
             }
-            //'Refund' current
-            state.taikoTokenBalances[auction.bid.prover] += totalDeposit;
+            //Refund previous auction bidder's deposit
+            state.taikoTokenBalances[auction.bid.prover] +=
+                auction.bid.deposit * config.auctionBatchSize;
         }
 
         // Check if bidder at least have the balance
+        uint64 totalDeposit = bid.deposit * config.auctionBatchSize;
+
         if (state.taikoTokenBalances[bid.prover] < totalDeposit) {
             revert L1_INSUFFICIENT_TOKEN();
         }

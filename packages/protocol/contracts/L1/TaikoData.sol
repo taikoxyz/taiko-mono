@@ -41,7 +41,7 @@ library TaikoData {
     }
 
     struct StateVariables {
-        uint64 feePerGas;
+        uint48 feePerGas;
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 numBlocks;
@@ -115,7 +115,7 @@ library TaikoData {
         bytes32 metaHash;
         uint64 blockId;
         uint64 proposedAt;
-        uint64 feePerGas;
+        uint48 feePerGas;
         uint32 gasLimit;
         address proposer;
         uint24 nextForkChoiceId;
@@ -135,12 +135,12 @@ library TaikoData {
         uint64 id;
     }
 
+    // 1 slot
     struct Bid {
         address prover;
         uint64 deposit;
-        uint64 feePerGas;
+        uint48 feePerGas;
         // In order to refund the diff betwen gasUsed vs. blockMaxGasLimit
-        uint64 blockMaxGasLimit;
         // It is also part of the bidding - how fast some can submit proofs
         // according to his/her own commitment.
         // Can be zero and it will just signal that the proofs are coming
@@ -181,9 +181,10 @@ library TaikoData {
         uint64 nextEthDepositToProcess;
         // Slot 9
         uint64 lastVerifiedAt;
-        uint64 feePerGas;
         uint64 lastVerifiedBlockId;
-        uint64 avgProofWindow;
+        uint48 feePerGas;
+        uint16 avgProofWindow;
+        uint64 __reserved90;
         // Reserved
         uint256[42] __gap;
     }

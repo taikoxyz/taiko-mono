@@ -14,7 +14,7 @@ import { LibEthDepositing } from "./libs/LibEthDepositing.sol";
 import { LibAuction } from "./libs/LibAuction.sol";
 import { LibProposing } from "./libs/LibProposing.sol";
 import { LibProving } from "./libs/LibProving.sol";
-import { LibTkoDistribution } from "./libs/LibTkoDistribution.sol";
+import { LibTaikoToken } from "./libs/LibTaikoToken.sol";
 import { LibUtils } from "./libs/LibUtils.sol";
 import { LibVerifying } from "./libs/LibVerifying.sol";
 import { TaikoConfig } from "./TaikoConfig.sol";
@@ -49,8 +49,8 @@ contract TaikoL1 is
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
-        uint64 _initFeePerGas,
-        uint64 _initAvgProofWindow
+        uint48 _initFeePerGas,
+        uint16 _initAvgProofWindow
     )
         external
         initializer
@@ -140,7 +140,6 @@ contract TaikoL1 is
      * @param bid The actual bid
      * @param batchId The batchId prover is bidding for
      */
-
     function bidForBatch(
         uint64 batchId,
         TaikoData.Bid memory bid
@@ -172,16 +171,12 @@ contract TaikoL1 is
     }
 
     // From proposer side - same way paying the fees - and saving gas.
-    function depositTaikoToken(uint256 amount) external nonReentrant {
-        LibTkoDistribution.depositTaikoToken(
-            state, AddressResolver(this), amount
-        );
+    function depositTaikoToken(uint64 amount) external nonReentrant {
+        LibTaikoToken.depositTaikoToken(state, AddressResolver(this), amount);
     }
 
-    function withdrawTaikoToken(uint256 amount) external nonReentrant {
-        LibTkoDistribution.withdrawTaikoToken(
-            state, AddressResolver(this), amount
-        );
+    function withdrawTaikoToken(uint64 amount) external nonReentrant {
+        LibTaikoToken.withdrawTaikoToken(state, AddressResolver(this), amount);
     }
 
     function depositEtherToL2() public payable {
@@ -276,6 +271,14 @@ contract TaikoL1 is
         return state.getStateVariables();
     }
 
+    /**
+     * Returns a list of auctions. Note that if the auction doesn't exist,
+     * an empty will be returned instead. Client should check if the auction
+     * returned has the correct batch id.
+     *
+     * @param startBatchId The first batch's id.
+     * @param count The number of auctions to return.
+     */
     function getAuctions(
         uint256 startBatchId,
         uint256 count
