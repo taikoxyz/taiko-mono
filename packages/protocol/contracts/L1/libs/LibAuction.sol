@@ -6,11 +6,11 @@
 
 pragma solidity ^0.8.20;
 
-import { AddressResolver } from "../../common/AddressResolver.sol";
-import { LibAddress } from "../../libs/LibAddress.sol";
-import { LibUtils } from "./LibUtils.sol";
-import { TaikoData } from "../../L1/TaikoData.sol";
-import { TaikoToken } from "../TaikoToken.sol";
+import {AddressResolver} from "../../common/AddressResolver.sol";
+import {LibAddress} from "../../libs/LibAddress.sol";
+import {LibUtils} from "./LibUtils.sol";
+import {TaikoData} from "../../L1/TaikoData.sol";
+import {TaikoToken} from "../TaikoToken.sol";
 
 library LibAuction {
     using LibAddress for address;
@@ -30,22 +30,20 @@ library LibAuction {
         TaikoData.Config memory config,
         uint64 batchId,
         TaikoData.Bid memory bid
-    )
-        internal
-    {
+    ) internal {
         unchecked {
             if (
-                bid.prover != address(0) // auto-fill
-                    || bid.blockMaxGasLimit != 0 // auto-fill
-                    || bid.feePerGas == 0 // cannot be zero
-                    || bid.proofWindow == 0 // cannot be zero
-                    || bid.deposit == 0 // cannot be zero
-                    || bid.proofWindow
-                        > state.avgProofWindow * config.auctionProofWindowMultiplier
-                    || bid.deposit
-                        < state.feePerGas
-                            * (config.blockFeeBaseGas + config.blockMaxGasLimit)
-                            * config.auctionDepositMultipler
+                bid.prover != address(0) || // auto-fill
+                bid.blockMaxGasLimit != 0 || // auto-fill
+                bid.feePerGas == 0 || // cannot be zero
+                bid.proofWindow == 0 || // cannot be zero
+                bid.deposit == 0 || // cannot be zero
+                bid.proofWindow >
+                state.avgProofWindow * config.auctionProofWindowMultiplier ||
+                bid.deposit <
+                state.feePerGas *
+                    (config.blockFeeBaseGas + config.blockMaxGasLimit) *
+                    config.auctionDepositMultipler
             ) {
                 revert L1_INVALID_BID();
             }
@@ -59,8 +57,9 @@ library LibAuction {
         bid.blockMaxGasLimit = config.blockMaxGasLimit;
 
         // Have in-memory and write it back at the end of the function
-        TaikoData.Auction memory auction =
-            state.auctions[batchId % config.auctionRingBufferSize];
+        TaikoData.Auction memory auction = state.auctions[
+            batchId % config.auctionRingBufferSize
+        ];
 
         uint64 totalDeposit = bid.deposit * config.auctionBatchSize;
 
@@ -113,8 +112,9 @@ library LibAuction {
         uint256 i;
         for (; i < count; ++i) {
             uint256 _batchId = startBatchId + i;
-            TaikoData.Auction memory auction =
-                state.auctions[_batchId % config.auctionRingBufferSize];
+            TaikoData.Auction memory auction = state.auctions[
+                _batchId % config.auctionRingBufferSize
+            ];
 
             if (auction.batchId == _batchId) {
                 auctions[i] = auction;
@@ -127,11 +127,7 @@ library LibAuction {
         TaikoData.Config memory config,
         uint256 blockId,
         address prover
-    )
-        internal
-        view
-        returns (bool provable, TaikoData.Auction memory auction)
-    {
+    ) internal view returns (bool provable, TaikoData.Auction memory auction) {
         if (blockId != 0) {
             if (prover == address(0)) {
                 // Note that auction may not exist at all.
@@ -150,8 +146,9 @@ library LibAuction {
                         provable = true;
                     } else {
                         unchecked {
-                            uint64 proofWindowEndAt = auction.startedAt
-                                + config.auctionWindow + auction.bid.proofWindow;
+                            uint64 proofWindowEndAt = auction.startedAt +
+                                config.auctionWindow +
+                                auction.bid.proofWindow;
                             provable = block.timestamp > proofWindowEndAt;
                         }
                     }
@@ -165,11 +162,7 @@ library LibAuction {
     function batchForBlock(
         TaikoData.Config memory config,
         uint256 blockId
-    )
-        internal
-        pure
-        returns (uint64)
-    {
+    ) internal pure returns (uint64) {
         if (blockId == 0) {
             return 0;
         } else {
@@ -183,21 +176,21 @@ library LibAuction {
     function isBidBetter(
         TaikoData.Bid memory a,
         TaikoData.Bid memory b
-    )
-        internal
-        pure
-        returns (bool)
-    {
+    ) internal pure returns (bool) {
         // Normalize both feePerGas and deposit to a comparable scale.
         // feePerGas is considered more important than proofWindow, below
         // we use 1 as the weight of feePerGas, 1/2 as the weight of deposit,
         // and 1/4 as the weight of proofWindow.
         //
         // Bid a is only better than bid b if its score is 10% higher.
-        return _adjustBidPropertyScore(ONE * b.feePerGas / a.feePerGas, 1)
-            * _adjustBidPropertyScore(ONE * a.deposit / b.deposit, 2)
-            * _adjustBidPropertyScore(ONE * b.proofWindow / a.proofWindow, 4)
-            >= ONE * ONE * ONE * 110 / 100;
+        return
+            _adjustBidPropertyScore((ONE * b.feePerGas) / a.feePerGas, 1) *
+                _adjustBidPropertyScore((ONE * a.deposit) / b.deposit, 2) *
+                _adjustBidPropertyScore(
+                    (ONE * b.proofWindow) / a.proofWindow,
+                    4
+                ) >=
+            (ONE * ONE * ONE * 110) / 100;
     }
 
     // isBatchAuctionable determines whether a new bid for a batch of blocks
@@ -207,18 +200,16 @@ library LibAuction {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint256 batchId
-    )
-        internal
-        view
-        returns (bool result)
-    {
+    ) internal view returns (bool result) {
         if (batchId == 0) return false;
 
         unchecked {
             uint64 lastProposedBatchId = batchForBlock(config, state.numBlocks);
 
-            uint64 lastVerifiedBatchId =
-                batchForBlock(config, state.lastVerifiedBlockId + 1);
+            uint64 lastVerifiedBatchId = batchForBlock(
+                config,
+                state.lastVerifiedBlockId + 1
+            );
 
             // Regardless of auction started or not - do not allow too many
             // auctions to be open
@@ -226,25 +217,27 @@ library LibAuction {
                 // the batch of lastVerifiedBlockId is never auctionable as it
                 // has to be ended before the last verifeid block can be
                 // verified.
-                batchId <= lastVerifiedBatchId
+                batchId <= lastVerifiedBatchId ||
                 // cannot start a new auction if the previous one has not
                 // started
-                || batchId > state.numAuctions + 1
+                batchId > state.numAuctions + 1 ||
                 // cannot start a new auction if we have to keep all the
                 // auctions info in order to prove/verify blocks
-                || batchId >= lastVerifiedBatchId + config.auctionRingBufferSize
+                batchId >= lastVerifiedBatchId + config.auctionRingBufferSize ||
                 // cannot start too many auctions
-                || batchId
-                    >= lastProposedBatchId + config.auctonMaxAheadOfProposals
+                batchId >=
+                lastProposedBatchId + config.auctionMaxAheadOfProposals
             ) {
                 return false;
             }
 
-            TaikoData.Auction memory auction =
-                state.auctions[batchId % config.auctionRingBufferSize];
+            TaikoData.Auction memory auction = state.auctions[
+                batchId % config.auctionRingBufferSize
+            ];
 
-            return auction.batchId != batchId
-                || block.timestamp <= auction.startedAt + config.auctionWindow;
+            return
+                auction.batchId != batchId ||
+                block.timestamp <= auction.startedAt + config.auctionWindow;
         }
     }
 
@@ -253,18 +246,17 @@ library LibAuction {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint64 batchId
-    )
-        private
-        view
-        returns (bool ended, TaikoData.Auction memory auction)
-    {
+    ) private view returns (bool ended, TaikoData.Auction memory auction) {
         if (batchId == 0) {
             ended = true;
         } else {
             unchecked {
-                auction = state.auctions[batchId % config.auctionRingBufferSize];
-                ended = auction.batchId == batchId
-                    && block.timestamp > auction.startedAt + config.auctionWindow;
+                auction = state.auctions[
+                    batchId % config.auctionRingBufferSize
+                ];
+                ended =
+                    auction.batchId == batchId &&
+                    block.timestamp > auction.startedAt + config.auctionWindow;
             }
         }
     }
@@ -272,11 +264,7 @@ library LibAuction {
     function _adjustBidPropertyScore(
         uint256 score,
         uint256 weightInverse
-    )
-        private
-        pure
-        returns (uint256)
-    {
+    ) private pure returns (uint256) {
         assert(weightInverse >= 1);
         if (score == ONE || weightInverse == 1) {
             return score;

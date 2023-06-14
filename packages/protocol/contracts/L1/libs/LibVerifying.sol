@@ -6,15 +6,14 @@
 
 pragma solidity ^0.8.20;
 
-import { AddressResolver } from "../../common/AddressResolver.sol";
-import { ISignalService } from "../../signal/ISignalService.sol";
-import { LibAuction } from "./LibAuction.sol";
-import { LibUtils } from "./LibUtils.sol";
-import { LibMath } from "../../libs/LibMath.sol";
-import { SafeCastUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import { TaikoData } from "../../L1/TaikoData.sol";
-import { TaikoToken } from "../TaikoToken.sol";
+import {AddressResolver} from "../../common/AddressResolver.sol";
+import {ISignalService} from "../../signal/ISignalService.sol";
+import {LibAuction} from "./LibAuction.sol";
+import {LibUtils} from "./LibUtils.sol";
+import {LibMath} from "../../libs/LibMath.sol";
+import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import {TaikoData} from "../../L1/TaikoData.sol";
+import {TaikoToken} from "../TaikoToken.sol";
 
 library LibVerifying {
     using SafeCastUpgradeable for uint256;
@@ -24,7 +23,9 @@ library LibVerifying {
     event BlockVerified(uint256 indexed id, bytes32 blockHash, uint64 reward);
 
     event CrossChainSynced(
-        uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
+        uint256 indexed srcHeight,
+        bytes32 blockHash,
+        bytes32 signalRoot
     );
 
     error L1_INVALID_CONFIG();
@@ -35,37 +36,36 @@ library LibVerifying {
         bytes32 genesisBlockHash,
         uint64 initFeePerGas,
         uint64 initAvgProofWindow
-    )
-        internal
-    {
+    ) internal {
         if (
-            config.chainId <= 1 //
-                || config.maxNumProposedBlocks == 1
-                || config.blockRingBufferSize <= config.maxNumProposedBlocks + 1
-                || config.blockMaxGasLimit == 0
-                || config.maxTransactionsPerBlock == 0
-                || config.maxBytesPerTxList == 0
+            config.chainId <= 1 || //
+            config.maxNumProposedBlocks == 1 ||
+            config.blockRingBufferSize <= config.maxNumProposedBlocks + 1 ||
+            config.blockMaxGasLimit == 0 ||
+            config.maxTransactionsPerBlock == 0 ||
+            config.maxBytesPerTxList == 0 ||
             // EIP-4844 blob size up to 128K
-            || config.maxBytesPerTxList > 128 * 1024
-                || config.maxEthDepositsPerBlock == 0
-                || config.maxEthDepositsPerBlock < config.minEthDepositsPerBlock
+            config.maxBytesPerTxList > 128 * 1024 ||
+            config.maxEthDepositsPerBlock == 0 ||
+            config.maxEthDepositsPerBlock < config.minEthDepositsPerBlock ||
             // EIP-4844 blob deleted after 30 days
-            || config.txListCacheExpiry > 30 * 24 hours
-                || config.ethDepositGas == 0 //
-                || config.ethDepositMaxFee == 0
-                || config.ethDepositMaxFee >= type(uint96).max
-                || config.auctionWindow == 0 || config.auctionMaxProofWindow == 0
-                || config.auctionBatchSize == 0
-                || config.auctionRingBufferSize
-                    <= (
-                        config.maxNumProposedBlocks / config.auctionBatchSize + 1
-                            + config.auctonMaxAheadOfProposals
-                    ) //
-                || config.auctionProofWindowMultiplier <= 1
-                || config.auctionWindow <= 24 || config.auctionDepositMultipler <= 1
-                || config.auctionMaxFeePerGasMultipler <= 1
-                || config.auctionDepositMultipler
-                    < config.auctionMaxFeePerGasMultipler
+            config.txListCacheExpiry > 30 * 24 hours ||
+            config.ethDepositGas == 0 || //
+            config.ethDepositMaxFee == 0 ||
+            config.ethDepositMaxFee >= type(uint96).max ||
+            config.auctionWindow == 0 ||
+            config.auctionMaxProofWindow == 0 ||
+            config.auctionBatchSize == 0 ||
+            config.auctionRingBufferSize <=
+            (config.maxNumProposedBlocks /
+                (config.auctionBatchSize +
+                    1 +
+                    config.auctionMaxAheadOfProposals)) || //
+            config.auctionProofWindowMultiplier <= 1 ||
+            config.auctionWindow <= 24 ||
+            config.auctionDepositMultipler <= 1 ||
+            config.auctionMaxFeePerGasMultipler <= 1 ||
+            config.auctionDepositMultipler < config.auctionMaxFeePerGasMultipler
         ) revert L1_INVALID_CONFIG();
 
         uint64 timeNow = uint64(block.timestamp);
@@ -95,12 +95,11 @@ library LibVerifying {
         TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 maxBlocks
-    )
-        internal
-    {
+    ) internal {
         uint256 i = state.lastVerifiedBlockId;
-        TaikoData.Block storage blk =
-            state.blocks[i % config.blockRingBufferSize];
+        TaikoData.Block storage blk = state.blocks[
+            i % config.blockRingBufferSize
+        ];
 
         uint256 fcId = blk.verifiedForkChoiceId;
         // assert(fcId > 0);
@@ -164,7 +163,9 @@ library LibVerifying {
                     .sendSignal(signalRoot);
             }
             emit CrossChainSynced(
-                state.lastVerifiedBlockId, blockHash, signalRoot
+                state.lastVerifiedBlockId,
+                blockHash,
+                signalRoot
             );
         }
     }
@@ -175,9 +176,7 @@ library LibVerifying {
         TaikoData.Block storage blk,
         TaikoData.ForkChoice storage fc,
         uint24 fcId
-    )
-        private
-    {
+    ) private {
         TaikoData.Auction memory auction;
         {
             uint64 batchId = LibAuction.batchForBlock(config, blk.blockId);
@@ -188,7 +187,8 @@ library LibVerifying {
         // Refund the diff to the proposer
         assert(fc.gasUsed <= blk.gasLimit);
         state.taikoTokenBalances[blk.proposer] +=
-            (blk.gasLimit - fc.gasUsed) * blk.feePerGas;
+            (blk.gasLimit - fc.gasUsed) *
+            blk.feePerGas;
 
         bool refundBidder;
         bool rewardProver;
@@ -209,8 +209,8 @@ library LibVerifying {
             }
 
             if (
-                fc.prover == auction.bid.prover
-                    && fc.provenAt <= proofWindowEndAt
+                fc.prover == auction.bid.prover &&
+                fc.provenAt <= proofWindowEndAt
             ) {
                 // The prover is the auction winner and proof submitted within
                 // the proof window
@@ -241,9 +241,12 @@ library LibVerifying {
         uint64 proofReward;
         if (rewardProver) {
             proofReward =
-                (config.blockFeeBaseGas + fc.gasUsed) * auction.bid.feePerGas;
+                (config.blockFeeBaseGas + fc.gasUsed) *
+                auction.bid.feePerGas;
             state.taikoTokenBalances[fc.prover] +=
-                auction.bid.deposit / 2 + proofReward;
+                auction.bid.deposit /
+                2 +
+                proofReward;
         }
 
         if (updateAverage) {

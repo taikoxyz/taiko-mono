@@ -35,7 +35,7 @@ library TaikoData {
         uint64 auctionDepositMultipler;
         uint64 auctionMaxFeePerGasMultipler;
         uint16 auctionBatchSize;
-        uint16 auctonMaxAheadOfProposals;
+        uint16 auctionMaxAheadOfProposals;
         uint16 auctionMaxProofWindow;
         bool relaySignalRoot;
     }
@@ -157,13 +157,7 @@ library TaikoData {
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint256 blockId_mode_blockRingBufferSize => Block) blocks;
-        mapping(
-            uint256 blockId
-                => mapping(
-                    bytes32 parentHash
-                        => mapping(uint32 parentGasUsed => uint256 forkChoiceId)
-                )
-            ) forkChoiceIds;
+        mapping(uint256 blockId => mapping(bytes32 parentHash => mapping(uint32 parentGasUsed => uint256 forkChoiceId))) forkChoiceIds;
         mapping(address account => uint256 balance) taikoTokenBalances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         mapping(uint256 batchId => Auction auction) auctions;
