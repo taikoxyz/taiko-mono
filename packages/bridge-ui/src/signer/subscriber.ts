@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/svelte';
 import type { Address } from '@wagmi/core';
 import { constants, type Signer } from 'ethers';
 
@@ -53,9 +54,17 @@ export async function subscribeToSigner(newSigner: Signer | null) {
       relayerBlockInfoMap.set(blockInfoMap);
     } catch (error) {
       console.error(error);
+      Sentry.captureException(error);
     }
 
-    const txs = await storageService.getAllByAddress(userAddress);
+    let txs = [] as BridgeTransaction[];
+
+    try {
+      txs = await storageService.getAllByAddress(userAddress);
+    } catch (error) {
+      console.error(error);
+      Sentry.captureException(error);
+    }
 
     // Create a map of hashes to API transactions to help us
     // filter out transactions from local storage.

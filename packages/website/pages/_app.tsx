@@ -1,6 +1,7 @@
 import "../styles.css";
-import localFont from "next/font/local";
+
 import { Analytics } from "@vercel/analytics/react";
+import localFont from "next/font/local";
 
 const grotesk = localFont({
   src: "../fonts/ClashGrotesk-Semibold.woff2",
@@ -16,9 +17,11 @@ const groteskmedium = localFont({
 
 export default function App({ Component, pageProps }) {
   return (
-    <main className={`${grotesk.variable} ${groteskmedium.variable}`}>
-      <Component {...pageProps} />
-      <Analytics />
-    </main>
+    <>
+      <main className={`${grotesk.variable} ${groteskmedium.variable}`}>
+        <Component {...pageProps} />
+        <Analytics />
+      </main>
+    </>
   );
 }

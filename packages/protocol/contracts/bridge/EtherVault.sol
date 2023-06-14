@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
 import { SafeERC20Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
@@ -16,33 +16,19 @@ import { LibAddress } from "../libs/LibAddress.sol";
 import { BridgeErrors } from "./BridgeErrors.sol";
 
 /**
+ * This contract is initialized with 2^128 Ether and allows authorized addresses
+ * to release Ether.
+ * @dev Only the contract owner can authorize or deauthorize addresses.
  * @custom:security-contact hello@taiko.xyz
- * EtherVault is a special vault contract that:
- * - Is initialized with 2^128 Ether.
- * - Allows the contract owner to authorize addresses.
- * - Allows authorized addresses to send/release Ether.
  */
 contract EtherVault is EssentialContract, BridgeErrors {
     using LibAddress for address;
 
-    /*//////////////////////////////////////////////////////////////
-                            STATE VARIABLES
-    //////////////////////////////////////////////////////////////*/
-
     mapping(address addr => bool isAuthorized) private _authorizedAddrs;
     uint256[49] private __gap;
 
-    /*//////////////////////////////////////////////////////////////
-                                 EVENTS
-    //////////////////////////////////////////////////////////////*/
-
     event Authorized(address indexed addr, bool authorized);
-
     event EtherReleased(address indexed to, uint256 amount);
-
-    /*//////////////////////////////////////////////////////////////
-                               MODIFIERS
-    //////////////////////////////////////////////////////////////*/
 
     modifier onlyAuthorized() {
         if (!isAuthorized(msg.sender)) {
@@ -51,10 +37,10 @@ contract EtherVault is EssentialContract, BridgeErrors {
         _;
     }
 
-    /*//////////////////////////////////////////////////////////////
-                         USER-FACING FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-
+    /**
+     * Function to receive Ether
+     * @dev Only authorized addresses can send Ether to the contract
+     */
     receive() external payable {
         // EthVault's balance must == 0 OR the sender isAuthorized.
         if (address(this).balance != 0 && !isAuthorized(msg.sender)) {
@@ -62,6 +48,10 @@ contract EtherVault is EssentialContract, BridgeErrors {
         }
     }
 
+    /**
+     * Initialize the contract with an address manager
+     * @param addressManager The address of the address manager
+     */
     function init(address addressManager) external initializer {
         EssentialContract._init(addressManager);
     }

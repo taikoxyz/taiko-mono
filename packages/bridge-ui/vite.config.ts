@@ -1,14 +1,18 @@
+import { sentryVitePlugin } from '@sentry/vite-plugin';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import polyfillNode from 'rollup-plugin-polyfill-node';
 import { defineConfig } from 'vite';
 
-// https://vitejs.dev/config/
 export default defineConfig({
-  define: {
-    global: 'globalThis',
-    'process.env.NODE_DEBUG': false,
-    'process.env.LINK_API_URL': false,
-    'process.env.SDK_VERSION': "'unknown'",
-  },
-  plugins: [svelte(), polyfillNode()],
+  build: { sourcemap: true },
+  define: { global: 'globalThis' },
+  plugins: [
+    svelte(),
+    polyfillNode(),
+    sentryVitePlugin({
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+    }),
+  ],
 });

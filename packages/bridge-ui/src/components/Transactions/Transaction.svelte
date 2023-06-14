@@ -1,4 +1,5 @@
 <script lang="ts">
+  import * as Sentry from '@sentry/svelte';
   import { UserRejectedRequestError } from '@wagmi/core';
   import { Contract, errors, type Transaction, utils } from 'ethers';
   import { createEventDispatcher } from 'svelte';
@@ -10,7 +11,7 @@
   import { chains } from '../../chain/chains';
   import { bridgeABI } from '../../constants/abi';
   import { BridgeType } from '../../domain/bridge';
-  import type { Chain } from '../../domain/chain';
+  import type { ChainID } from '../../domain/chain';
   import { MessageStatus } from '../../domain/message';
   import type { NoticeOpenArgs } from '../../domain/modal';
   import {
@@ -27,7 +28,7 @@
   import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
   import { isTransactionProcessable } from '../../utils/isTransactionProcessable';
   import { getLogger } from '../../utils/logger';
-  import { selectChain } from '../../utils/selectChain';
+  import { switchNetwork } from '../../utils/switchNetwork';
   import { tokenVaults } from '../../vault/tokenVaults';
   import Button from '../Button.svelte';
   import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
@@ -81,11 +82,11 @@
   // }
 
   async function ensureCorrectChain(
-    currentChain: Chain,
-    bridgeTx: BridgeTransaction,
+    currentChainId: ChainID,
+    wannaBeChainId: ChainID,
     pendingTx: Transaction[],
   ) {
-    const isCorrectChain = currentChain.id === bridgeTx.destChainId;
+    const isCorrectChain = currentChainId === wannaBeChainId;
     log(`Are we on the correct chain? ${isCorrectChain}`);
 
     if (!isCorrectChain) {
@@ -95,8 +96,7 @@
         });
       }
 
-      const chain = chains[bridgeTx.destChainId];
-      await selectChain(chain);
+      await switchNetwork(wannaBeChainId);
     }
   }
 
@@ -105,7 +105,11 @@
     try {
       loading = true;
 
-      await ensureCorrectChain($srcChain, bridgeTx, $pendingTransactions);
+      await ensureCorrectChain(
+        $srcChain.id,
+        bridgeTx.destChainId,
+        $pendingTransactions,
+      );
 
       // Confirm after switch chain that it worked
       const isCorrectChain = await isOnCorrectChain(
@@ -171,6 +175,13 @@
     } catch (error) {
       console.error(error);
 
+      Sentry.captureException(error, {
+        extra: {
+          srcChain: $srcChain.id,
+          bridgeTx,
+        },
+      });
+
       const headerError = '<strong>Failed to claim funds</strong>';
 
       // TODO: let's change this to a switch(true)? I think it's more readable.
@@ -214,7 +225,11 @@
     try {
       loading = true;
 
-      await ensureCorrectChain($srcChain, bridgeTx, $pendingTransactions);
+      await ensureCorrectChain(
+        $srcChain.id,
+        bridgeTx.srcChainId,
+        $pendingTransactions,
+      );
 
       // Confirm after switch chain that it worked
       const isCorrectChain = await isOnCorrectChain(
@@ -261,6 +276,13 @@
       $token = $token;
     } catch (error) {
       console.error(error);
+
+      Sentry.captureException(error, {
+        extra: {
+          srcChain: $srcChain.id,
+          bridgeTx,
+        },
+      });
 
       const headerError = '<strong>Failed to release funds</strong>';
 
@@ -376,7 +398,7 @@
     {:else}
       {utils.formatUnits(transaction.amount, transaction.decimals)}
     {/if}
-    {transaction.symbol ?? 'ETH'}
+    {transaction.symbol || 'ETH'}
   </td>
 
   <td>
