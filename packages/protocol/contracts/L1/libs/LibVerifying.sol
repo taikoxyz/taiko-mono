@@ -35,7 +35,7 @@ library LibVerifying {
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
         uint48 initFeePerGas,
-        uint64 initAvgProofWindow
+        uint16 initAvgProofWindow
     )
         internal
     {
@@ -263,7 +263,7 @@ library LibVerifying {
 
         if (updateAverage) {
             unchecked {
-                state.avgProofWindow = uint64(
+                state.avgProofWindow = uint16(
                     LibUtils.movingAverage({
                         maValue: state.avgProofWindow,
                         newValue: auction.bid.proofWindow,

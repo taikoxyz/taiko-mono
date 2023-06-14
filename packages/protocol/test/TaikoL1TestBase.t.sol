@@ -31,7 +31,7 @@ abstract contract TaikoL1TestBase is Test {
     // Because otherwise first proposal is around: 1TKO * (1_000_000+20_000)
     // required as a deposit.
     uint48 feePerGas = 10;
-    uint64 proofWindow = 60 minutes;
+    uint16 proofWindow = 60 minutes;
     uint64 l2GasExcess = 1e18;
 
     address public constant L2Treasury =

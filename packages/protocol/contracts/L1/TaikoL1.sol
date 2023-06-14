@@ -50,7 +50,7 @@ contract TaikoL1 is
         address _addressManager,
         bytes32 _genesisBlockHash,
         uint48 _initFeePerGas,
-        uint64 _initAvgProofWindow
+        uint16 _initAvgProofWindow
     )
         external
         initializer

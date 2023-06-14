@@ -128,6 +128,7 @@ library TaikoData {
         uint64 id;
     }
 
+    // 1 slot
     struct Bid {
         address prover;
         uint64 deposit;
@@ -173,9 +174,10 @@ library TaikoData {
         uint64 nextEthDepositToProcess;
         // Slot 9
         uint64 lastVerifiedAt;
-        uint48 feePerGas;
         uint64 lastVerifiedBlockId;
-        uint64 avgProofWindow;
+        uint48 feePerGas;
+        uint16 avgProofWindow;
+        uint64 __reserved90;
         // Reserved
         uint256[42] __gap;
     }
