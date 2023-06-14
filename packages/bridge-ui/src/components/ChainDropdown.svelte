@@ -35,7 +35,7 @@
       if (error instanceof UserRejectedRequestError) {
         warningToast('Switch chain request rejected.');
       } else {
-        Sentry.captureException(error);
+        Sentry.captureException(error, { extra: { chainTo: chain.id } });
 
         errorToast('Error switching chain.');
       }

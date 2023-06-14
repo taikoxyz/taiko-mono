@@ -26,7 +26,13 @@
     })
     .catch((error) => {
       console.error(error);
-      Sentry.captureException(error);
+      Sentry.captureException(error, {
+        extra: {
+          token: $token?.symbol,
+          srcChain: $srcChain?.id,
+          method,
+        },
+      });
 
       amount = '0';
       cannotCompute = true;
