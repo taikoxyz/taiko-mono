@@ -146,7 +146,7 @@ library LibAuction {
                 });
 
                 if (ended) {
-                    if (prover == auction.bid.prover) {
+                    if (prover == auction.bid.prover || prover == address(1)) {
                         provable = true;
                     } else {
                         unchecked {
