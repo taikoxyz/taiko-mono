@@ -318,7 +318,7 @@ contract TaikoL1 is
     )
         public
         view
-        returns (bool, TaikoData.Auction memory)
+        returns (bool, bool, TaikoData.Auction memory)
     {
         return LibAuction.isBlockProvableBy(state, getConfig(), blockId, prover);
     }

@@ -67,7 +67,7 @@ library LibProving {
 
         // We also should know who can prove this block:
         // the one who bid or everyone if it is above the window
-        (bool provable, TaikoData.Auction memory auction) = LibAuction
+        (bool provable, bool windowEnded, TaikoData.Auction memory auction) = LibAuction
             .isBlockProvableBy({
             state: state,
             config: config,
@@ -94,6 +94,17 @@ library LibProving {
 
             if (evidence.verifierId != 0 || evidence.proof.length != 0) {
                 revert L1_INVALID_PROOF();
+            }
+        } else if(windowEnded) {
+            // If window ended - everyone could prove
+            authorized = msg.sender;
+
+            // If this is a signature mint, also everyone is authorized
+            if (evidence.sig.length != 0) {
+                TaikoData.Signature memory sig =
+                    abi.decode(evidence.sig, (TaikoData.Signature));
+
+                authorized = ecrecover(keccak256(abi.encode(evidence)), sig.v, sig.r, sig.s);
             }
         } else {
             authorized = auction.bid.prover;
