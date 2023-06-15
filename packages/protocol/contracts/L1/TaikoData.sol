@@ -77,12 +77,6 @@ library TaikoData {
         TaikoData.EthDeposit[] depositsProcessed;
     }
 
-    struct Signature {
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-    }
-
     struct BlockEvidence {
         bytes32 metaHash;
         bytes32 parentHash;

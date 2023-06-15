@@ -47,7 +47,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         TaikoL1TestBase.setUp();
         registerAddress(L1.getVerifierName(100), address(new Verifier()));
         registerAddress("oracle_prover", Alice);
-        registerAddress("system_prover", Alice);
     }
 
     function testOracleProverWithSignature() external {
@@ -63,7 +62,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             * conf.auctionDepositMultipler;
         bid.feePerGas = 9;
         bidForBatchAndRollTime(Bob, 1, bid);
-
         proveBlock(
             Bob,
             Bob,
@@ -74,41 +72,42 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             bytes32(uint256(0x11)),
             bytes32(uint256(0x12))
         );
+
         TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
             metaHash: LibUtils.hashMetadata(meta),
             parentHash: GENESIS_BLOCK_HASH,
             blockHash: bytes32(uint256(0x11)),
             signalRoot: bytes32(uint256(0x12)),
             graffiti: 0x0,
-            prover: address(0),
+            prover: address(1),
             parentGasUsed: 10_000,
             gasUsed: 40_000,
             verifierId: 0,
             proof: new bytes(0),
             sig: new bytes(0)
         });
+
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(AlicePK, keccak256(abi.encode(evidence)));
 
-        evidence.verifierId = v;
-        evidence.proof = bytes.concat(r, s);
+        evidence.sig = abi.encodePacked(v, r, s);
 
         vm.prank(Carol, Carol);
         L1.proveBlock(meta.id, abi.encode(evidence));
+
         TaikoData.ForkChoice memory fc =
             L1.getForkChoice(1, GENESIS_BLOCK_HASH, 10_000);
 
         assertEq(fc.blockHash, bytes32(uint256(0x11)));
         assertEq(fc.signalRoot, bytes32(uint256(0x12)));
         assertEq(fc.provenAt, block.timestamp);
-        assertEq(fc.prover, address(0));
+        assertEq(fc.prover, address(1));
         assertEq(fc.gasUsed, 40_000);
     }
 
     function testOracleProverCanAlwaysOverwriteIfNotSameProof() external {
         // Carol is the oracle prover
         registerAddress("oracle_prover", Carol);
-        registerAddress("system_prover", Carol);
 
         depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
         depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
@@ -164,7 +163,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             proveBlock(
                 Carol,
-                address(0),
+                address(1),
                 meta,
                 parentHash,
                 parentGasUsed,
@@ -214,7 +213,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     function testOracleProverCannotOverwriteIfSameProof() external {
         // Carol is the oracle prover
         registerAddress("oracle_prover", Carol);
-        registerAddress("system_prover", Carol);
 
         depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
         depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
@@ -270,7 +268,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             vm.expectRevert(TaikoErrors.L1_SAME_PROOF.selector);
             proveBlock(
                 Carol,
-                address(0),
+                address(1),
                 meta,
                 parentHash,
                 parentGasUsed,
@@ -302,7 +300,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     /// @dev So in case we have regular proving mechanism we shall check if
     /// still a cooldown happens
     /// @dev when proving a block (in a normal way).
-    /// @notice In case both oracle_prover and system_prover is disbaled, there
+    /// @notice In case oracle_prover is disbaled, there
     /// is no reason why
     /// @notice cooldowns be above 0 min tho (!).
     function test_if_oracle_is_disabled_cooldown_is_still_as_proofCooldownPeriod(
@@ -310,7 +308,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         external
     {
         registerAddress("oracle_prover", address(0));
-        registerAddress("system_prover", address(0));
 
         depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
         depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
@@ -397,7 +394,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     {
         // Bob is an oracle prover now
         registerAddress("oracle_prover", Bob);
-        registerAddress("system_prover", Bob);
 
         depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
         depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
@@ -440,7 +436,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             }
             proveBlock(
                 Bob,
-                address(0),
+                address(1),
                 meta,
                 parentHash,
                 parentGasUsed,
@@ -497,10 +493,10 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     }
 
     /// @dev Test if system proofs can be verified
-    function test_if_system_proofs_can_be_verified_without_regular_proofs()
+    function test_if_oracle_proofs_can_be_verified_without_regular_proofs()
         external
     {
-        registerAddress("system_prover", Bob);
+        registerAddress("oracle_prover", Bob);
 
         depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
         depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
@@ -577,7 +573,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     function test_if_systemProver_can_prove_but_regular_provers_can_overwrite()
         external
     {
-        registerAddress("system_prover", Bob);
+        registerAddress("oracle_prover", Bob);
 
         depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
         depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
@@ -619,49 +615,31 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 batchId++;
             }
 
-            uint256 realProofSkipSize = 100;
-            uint256 realProof = blockId % realProofSkipSize;
-
-            if (realProof == 0) {
-                proveBlock(
-                    Carol,
-                    Carol,
-                    meta,
-                    parentHash,
-                    parentGasUsed,
-                    gasUsed,
-                    blockHash,
-                    signalRoot
-                );
-            } else {
-                proveBlock(
-                    Bob,
-                    address(1),
-                    meta,
-                    parentHash,
-                    parentGasUsed,
-                    gasUsed,
-                    blockHash,
-                    signalRoot
-                );
-            }
+            proveBlock(
+                Bob,
+                address(1),
+                meta,
+                parentHash,
+                parentGasUsed,
+                gasUsed,
+                blockHash,
+                signalRoot
+            );
 
             uint256 lastVerifiedBlockId =
                 L1.getStateVariables().lastVerifiedBlockId;
 
             // Carol could overwrite it
-            if (realProof != 0) {
-                proveBlock(
-                    Carol,
-                    Carol,
-                    meta,
-                    parentHash,
-                    parentGasUsed,
-                    gasUsed,
-                    blockHash,
-                    signalRoot
-                );
-            }
+            proveBlock(
+                Carol,
+                Carol,
+                meta,
+                parentHash,
+                parentGasUsed,
+                gasUsed,
+                blockHash,
+                signalRoot
+            );
 
             vm.warp(block.timestamp + 1 seconds);
             vm.warp(block.timestamp + 5 minutes);
@@ -669,7 +647,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             TaikoData.ForkChoice memory fc =
                 L1.getForkChoice(blockId, parentHash, parentGasUsed);
 
-            if (realProof != 0) assertEq(fc.prover, Carol);
+            assertEq(fc.prover, Carol);
 
             verifyBlock(Carol, 1);
 
@@ -689,7 +667,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
     /// @dev Test if there is no system/oracle proofs
     function test_if_there_is_no_system_and_oracle_provers() external {
-        registerAddress("system_prover", address(0));
         registerAddress("oracle_prover", address(0));
 
         depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);

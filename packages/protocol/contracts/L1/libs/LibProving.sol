@@ -99,10 +99,20 @@ library LibProving {
         }
 
         if (msg.sender != authorized) {
-            TaikoData.Signature memory sig =
-                abi.decode(evidence.sig, (TaikoData.Signature));
+                // Decode into 
+                uint8 v;
+                bytes32 r;
+                bytes32 s;
+                bytes memory data = evidence.sig;
+                assembly {
+                    v := mload(add(data, 1))
+                    r := mload(add(data, 33))
+                    s := mload(add(data, 65))
+                }
+
+                evidence.sig = new bytes(0);
             if (
-                ecrecover(keccak256(abi.encode(evidence)), sig.v, sig.r, sig.s)
+                ecrecover(keccak256(abi.encode(evidence)), v, r, s)
                     != authorized
             ) {
                 revert L1_UNAUTHORIZED();

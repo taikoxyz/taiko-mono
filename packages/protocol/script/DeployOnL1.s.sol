@@ -34,7 +34,6 @@ contract DeployOnL1 is Script {
     address public owner = vm.envAddress("OWNER");
 
     address public oracleProver = vm.envAddress("ORACLE_PROVER");
-    address public systemProver = vm.envAddress("SYSTEM_PROVER");
 
     address public sharedSignalService = vm.envAddress("SHARED_SIGNAL_SERVICE");
 
@@ -80,7 +79,6 @@ contract DeployOnL1 is Script {
         setAddress(l2ChainId, "taiko", taikoL2Address);
         setAddress(l2ChainId, "signal_service", l2SignalService);
         setAddress("oracle_prover", oracleProver);
-        setAddress("system_prover", systemProver);
         setAddress(l2ChainId, "treasury", treasury);
 
         // TaikoToken
