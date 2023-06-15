@@ -229,7 +229,7 @@ library LibAuction {
                 || batchId >= lastVerifiedBatchId + config.auctionRingBufferSize
                 // cannot start too many auctions
                 || batchId
-                    >= lastProposedBatchId + config.auctonMaxAheadOfProposals
+                    >= lastProposedBatchId + config.auctionMaxAheadOfProposals
             ) {
                 return false;
             }

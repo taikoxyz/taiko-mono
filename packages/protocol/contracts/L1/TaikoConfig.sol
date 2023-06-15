@@ -47,7 +47,7 @@ library TaikoConfig {
             auctionProofWindowMultiplier: 2,
             auctionDepositMultipler: 10,
             auctionMaxFeePerGasMultipler: 5,
-            auctonMaxAheadOfProposals: 10,
+            auctionMaxAheadOfProposals: 10,
             auctionBatchSize: 100,
             auctionMaxProofWindow: 7200,
             relaySignalRoot: false
