@@ -60,7 +60,7 @@ library LibVerifying {
                 || config.auctionRingBufferSize
                     <= (
                         config.maxNumProposedBlocks / config.auctionBatchSize + 1
-                            + config.auctonMaxAheadOfProposals
+                            + config.auctionMaxAheadOfProposals
                     ) //
                 || config.auctionProofWindowMultiplier <= 1
                 || config.auctionWindow <= 24 || config.auctionDepositMultipler <= 1

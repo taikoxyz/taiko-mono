@@ -130,7 +130,7 @@ library LibAuction {
     )
         internal
         view
-        returns (bool provable, TaikoData.Auction memory auction)
+        returns (bool provable, bool proofWindowElapsed, TaikoData.Auction memory auction)
     {
         // Nobody can prove a block before the auction ended,
         // including the oracle prover
@@ -148,7 +148,7 @@ library LibAuction {
                 unchecked {
                     uint64 proofWindowEndAt = auction.startedAt
                         + config.auctionWindow + auction.bid.proofWindow;
-                    provable = block.timestamp > proofWindowEndAt;
+                    proofWindowElapsed = provable = block.timestamp > proofWindowEndAt;
                 }
             }
         }
@@ -229,7 +229,7 @@ library LibAuction {
                 || batchId >= lastVerifiedBatchId + config.auctionRingBufferSize
                 // cannot start too many auctions
                 || batchId
-                    >= lastProposedBatchId + config.auctonMaxAheadOfProposals
+                    >= lastProposedBatchId + config.auctionMaxAheadOfProposals
             ) {
                 return false;
             }
