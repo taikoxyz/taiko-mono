@@ -95,14 +95,9 @@ library LibProving {
             authorized = auction.bid.prover;
         }
 
-        if (evidence.sig.length == 0) {
-            if (msg.sender != authorized) {
-                revert L1_UNAUTHORIZED();
-            }
-        } else {
+        if (msg.sender != authorized) {
             TaikoData.Signature memory sig =
                 abi.decode(evidence.sig, (TaikoData.Signature));
-
             if (
                 ecrecover(keccak256(abi.encode(evidence)), sig.v, sig.r, sig.s)
                     != authorized
