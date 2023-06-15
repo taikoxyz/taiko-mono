@@ -121,29 +121,29 @@ Despite this, as stressed at the beginning of the proposal, our goal is to optim
 
 ## Solution Proposal #2: Staking-Based Mechanism
 
-> Inspired by Brecht's initial staing idea and recent questions.
+> Inspired by Brecht's initial staking idea and recent questions.
 
 A foundational concept is to permit provers to stake Taiko tokens and limit block-proving eligibility to the top 100 stakeholders. The prover weight would be directly proportional to the number of tokens staked. In the event of a failure to prove blocks, a fraction of the staked tokens would be burnt as a penalty mechanism.
 
-Upon block proposal, a deterministically random number (e.g., `keccak(parent_hash, block_id)`) is employed to select a prover. This selection process would be highly cost-efficient on-chain, as it would only be executed once per block.
+Upon block proposal, a deterministically random number (e.g., `keccak(parent_hash, block_id)`) is employed to select a prover. This selection process shall be highly cost-efficient on-chain, as it will be executed once per block.
 
-The protocol maintains a record of a *fee per gas* (`f`), and provers have the ability to establish a *fee amplifier* (`a`) in the range of 1/2 to 2. The actual fee per gas for a particular block, `f' = f * a`, is computed at the time of block proposal.
+The protocol maintains a *fee per gas* (`f`), and provers have the ability to set a *fee amplifier* (`a`) in the range of 1/2 to 2. The actual fee per gas for a particular block, `f' = f * a`, is computed at the time of block proposal.
 
 Adjustment of prover weight and the selection process could be fine-tuned considering the *fee amplifier* value. An applicable calculation would be `d/(a^2)`, where `d` represents the volume of staked tokens.
 
-For provers constrained by bandwidth, the protocol could allow them to stipulate a *maximum number of blocks to prove in parallel* (`m`). The protocol would cease selecting a prover when the *number of assigned blocks* (`n`) equates to `m`.
+For provers constrained by bandwidth, the protocol could allow them to specify a *maximum number of blocks to prove in parallel* (`m`). The protocol will cease selecting a prover when the *number of assigned blocks* (`n`) equates to `m`.
 
-The protocol should also monitor the *average proof delay* `t` and enforce that provers must submit proofs within `2*t`.
+The protocol should also monitor the *average proof delay* (`t`) and enforce that provers must submit proofs within `2*t`.
 
 To prevent frequent minute adjustments to the fee amplifier, the protocol should only allow modifications to this value once every 24 hours, encouraging prudent decision-making by provers.
 
-In the event that a block's assigned prover fails to validate a block before the deadline, two alternatives could be pursued: 1) we could have designated a backup prover during the block proposal phase, allowing this prover to validate the block within an extended time frame, and 2) we could simply reward any prover capable of validating the block `f' = 4 * fee_per_gas`.
+In the event that a block's assigned prover fails to validate a block before the deadline, two alternatives could be pursued: 1) we could have selected a backup prover during the block proposal phase, allowing this prover to validate the block within an extended time frame, and 2) we could simply reward any prover capable of validating the block `f' = 4 * fee_per_gas` tokens.
 
-The proposer always deposits `f * gas_used` as a proposing fee (an initially larger deposit may be made and subsequently refunded).
+The proposer always spend `f * gas_used` as a proposing fee (an initially larger deposit may be made and subsequently refunded).
 
 ### Comparative Advantages Over Auction
 
-1. With judicious selection of staking parameters, provers would no longer need to conduct auctions every N blocks.
-2. The system would not be monopolized by the best prover. The design would emulate a PoW model, where each prover has an opportunity to validate blocks, with chances dependent on the fee amplifier and volume of staked tokens (among other potential factors).
+1. With judicious selection of staking parameters, provers would no longer need to conduct onchain auctions every N blocks.
+2. The system would not be monopolized by the best prover. The design would emulate a PoW model, where each prover has an opportunity to prove blocks, with chances dependent on the fee amplifier and volume of staked tokens (possibly with other factors).
 3. Each block's prover is chosen during block proposal, leading to zero wastage of proving resources.
-4. The Taiko token's utility would be enhanced, and since there's no direct staking reward, there's no need to be concerned about the token being classified as a security.
+4. The Taiko token's utility would be enhanced, and since there's no direct staking reward without ZK proofs, there's no need to be concerned about the token being classified as a security.
