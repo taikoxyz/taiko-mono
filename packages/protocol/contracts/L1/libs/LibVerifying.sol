@@ -201,7 +201,7 @@ library LibVerifying {
         bool updateAverage;
 
         if (fc.prover == address(1)) {
-            // This is the system prover.
+            // This is an oracle prove.
             refundBidder = true;
             // rewardProver = false;
             // updateAverage = false;
