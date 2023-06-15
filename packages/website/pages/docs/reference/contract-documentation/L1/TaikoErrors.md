@@ -94,16 +94,16 @@ error L1_INVALID_PROOF_OVERWRITE()
 error L1_NOT_PROVEABLE()
 ```
 
-### L1_NOT_SPECIAL_PROVER
-
-```solidity
-error L1_NOT_SPECIAL_PROVER()
-```
-
 ### L1_NOT_BETTER_BID
 
 ```solidity
 error L1_NOT_BETTER_BID()
+```
+
+### L1_NOT_SPECIAL_PROVER
+
+```solidity
+error L1_NOT_SPECIAL_PROVER()
 ```
 
 ### L1_SAME_PROOF
