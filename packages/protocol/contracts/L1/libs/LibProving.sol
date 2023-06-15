@@ -91,10 +91,6 @@ library LibProving {
         address authorized;
         if (evidence.prover == address(1)) {
             authorized = resolver.resolve("oracle_prover", false);
-
-            if (evidence.verifierId != 0 || evidence.proof.length != 0) {
-                revert L1_INVALID_PROOF();
-            }
         } else if(windowEnded) {
             // If window ended - everyone could prove
             authorized = msg.sender;
@@ -110,14 +106,9 @@ library LibProving {
             authorized = auction.bid.prover;
         }
 
-        if (evidence.sig.length == 0) {
-            if (msg.sender != authorized) {
-                revert L1_UNAUTHORIZED();
-            }
-        } else {
+        if (msg.sender != authorized) {
             TaikoData.Signature memory sig =
                 abi.decode(evidence.sig, (TaikoData.Signature));
-
             if (
                 ecrecover(keccak256(abi.encode(evidence)), sig.v, sig.r, sig.s)
                     != authorized
