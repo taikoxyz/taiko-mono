@@ -28,7 +28,7 @@ The above comparison metrics should guide our discussions and prevent an overemp
 
 
 
-
+---
 
 
 ## Proposed Solution #1: Batch Auction
@@ -116,6 +116,8 @@ Introducing an auction window inevitably introduces an additional delay to the v
 
 Despite this, as stressed at the beginning of the proposal, our goal is to optimize for cost, not speed. While this additional delay is a vital consideration, it's unlikely to pose a significant obstacle to our primary objective of cost-effectiveness.
 
+
+---
 
 ## Solution Proposal #2: Staking-Based Mechanism
 
