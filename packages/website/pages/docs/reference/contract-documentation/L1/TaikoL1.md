@@ -190,7 +190,7 @@ function isBatchAuctionable(uint256 batchId) public view returns (bool)
 ### isBlockProvableBy
 
 ```solidity
-function isBlockProvableBy(uint256 blockId, address prover) public view returns (bool, struct TaikoData.Auction)
+function isBlockProvableBy(uint256 blockId, address prover) public view returns (bool provable, bool proofWindowElapsed, struct TaikoData.Auction auction)
 ```
 
 ### isBidBetter

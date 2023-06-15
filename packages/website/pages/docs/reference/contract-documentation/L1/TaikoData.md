@@ -31,7 +31,7 @@ struct Config {
   uint64 auctionDepositMultipler;
   uint64 auctionMaxFeePerGasMultipler;
   uint16 auctionBatchSize;
-  uint16 auctonMaxAheadOfProposals;
+  uint16 auctionMaxAheadOfProposals;
   uint16 auctionMaxProofWindow;
   bool relaySignalRoot;
 }
@@ -81,16 +81,6 @@ struct BlockMetadata {
   address beneficiary;
   address treasury;
   struct TaikoData.EthDeposit[] depositsProcessed;
-}
-```
-
-### Signature
-
-```solidity
-struct Signature {
-  uint8 v;
-  bytes32 r;
-  bytes32 s;
 }
 ```
 
