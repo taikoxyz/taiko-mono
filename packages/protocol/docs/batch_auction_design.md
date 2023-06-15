@@ -121,6 +121,8 @@ Despite this, as stressed at the beginning of the proposal, our goal is to optim
 
 ## Solution Proposal #2: Staking-Based Mechanism
 
+> Inspired by Brecht's initial staing idea and recent questions.
+
 A foundational concept is to permit provers to stake Taiko tokens and limit block-proving eligibility to the top 100 stakeholders. The prover weight would be directly proportional to the number of tokens staked. In the event of a failure to prove blocks, a fraction of the staked tokens would be burnt as a penalty mechanism.
 
 Upon block proposal, a deterministically random number (e.g., `keccak(parent_hash, block_id)`) is employed to select a prover. This selection process would be highly cost-efficient on-chain, as it would only be executed once per block.
