@@ -47,7 +47,9 @@ library LibProving {
         internal
     {
         if (
-            evidence.parentHash == 0
+            evidence.prover == address(0)
+            //
+            || evidence.parentHash == 0
             //
             || evidence.blockHash == 0
             //
@@ -86,17 +88,9 @@ library LibProving {
             revert L1_EVIDENCE_MISMATCH(blk.metaHash, evidence.metaHash);
         }
 
-        // Separate between oracle proof (which needs to be overwritten)
-        // and non-oracle but system proofs
         address authorized;
-        if (evidence.prover == address(0)) {
+        if (evidence.prover == address(1)) {
             authorized = resolver.resolve("oracle_prover", false);
-
-            if (evidence.verifierId != 0 || evidence.proof.length != 0) {
-                revert L1_INVALID_PROOF();
-            }
-        } else if (evidence.prover == address(1)) {
-            authorized = resolver.resolve("system_prover", false);
 
             if (evidence.verifierId != 0 || evidence.proof.length != 0) {
                 revert L1_INVALID_PROOF();
@@ -145,7 +139,7 @@ library LibProving {
                 state.forkChoiceIds[blk.blockId][evidence.parentHash][evidence
                     .parentGasUsed] = fcId;
             }
-        } else if (evidence.prover == address(0)) {
+        } else if (evidence.prover == address(1)) {
             // This is the branch the oracle prover is trying to overwrite
             // We need to check the previous proof is not the same as the
             // new proof
@@ -159,13 +153,12 @@ library LibProving {
             // This is the branch provers trying to overwrite
             fc = blk.forkChoices[fcId];
 
-            // Only oracle proof and system proof can be overwritten
-            // by regular proof
-            if (fc.prover != address(0) && fc.prover != address(1)) {
+            // Only oracle proof can be overwritten by regular proof
+            if (fc.prover != address(1)) {
                 revert L1_ALREADY_PROVEN();
             }
 
-            // The regular proof must be the same as the oracle/system proof
+            // The regular proof must be the same as the oracle proof
             if (
                 fc.blockHash != evidence.blockHash
                     || fc.signalRoot != evidence.signalRoot
@@ -179,7 +172,7 @@ library LibProving {
         fc.prover = evidence.prover;
         fc.provenAt = uint64(block.timestamp);
 
-        if (evidence.prover != address(0) && evidence.prover != address(1)) {
+        if (evidence.prover != address(1)) {
             bytes32 instance;
             {
                 uint256[10] memory inputs;

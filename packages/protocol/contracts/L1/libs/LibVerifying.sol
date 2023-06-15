@@ -201,7 +201,7 @@ library LibVerifying {
         bool updateAverage;
 
         if (fc.prover == address(1)) {
-            // This is the system prover.
+            // This is an oracle prove.
             refundBidder = true;
             // rewardProver = false;
             // updateAverage = false;
@@ -234,42 +234,36 @@ library LibVerifying {
 
         if (refundBidder) {
             state.taikoTokenBalances[auction.bid.prover] += auction.bid.deposit;
-        } else {
-            // During the deposit we already burnt it. So it is rather
-            // minting.
-            uint64 amountToDeduct = rewardProver // deduct all or half
-                ? auction.bid.deposit / 2
-                : auction.bid.deposit;
-
-            state.taikoTokenBalances[auction.bid.prover] -= amountToDeduct;
         }
 
         uint64 proofReward;
         if (rewardProver) {
             proofReward =
                 (config.blockFeeBaseGas + fc.gasUsed) * auction.bid.feePerGas;
-            state.taikoTokenBalances[fc.prover] +=
-                auction.bid.deposit / 2 + proofReward;
+
+            // if we do not refund the bidder, then half of the deposit
+            // is given to the actual block prover.
+            if (!refundBidder) proofReward += auction.bid.deposit / 2;
+
+            state.taikoTokenBalances[fc.prover] += proofReward;
         }
 
         if (updateAverage) {
-            unchecked {
-                state.avgProofWindow = uint16(
-                    LibUtils.movingAverage({
-                        maValue: state.avgProofWindow,
-                        newValue: auction.bid.proofWindow,
-                        maf: 7200
-                    })
-                );
+            state.avgProofWindow = uint16(
+                LibUtils.movingAverage({
+                    maValue: state.avgProofWindow,
+                    newValue: auction.bid.proofWindow,
+                    maf: 7200
+                })
+            );
 
-                state.feePerGas = uint48(
-                    LibUtils.movingAverage({
-                        maValue: state.feePerGas,
-                        newValue: auction.bid.feePerGas,
-                        maf: 7200
-                    })
-                );
-            }
+            state.feePerGas = uint48(
+                LibUtils.movingAverage({
+                    maValue: state.feePerGas,
+                    newValue: auction.bid.feePerGas,
+                    maf: 7200
+                })
+            );
         }
 
         blk.nextForkChoiceId = 1;

@@ -132,29 +132,23 @@ library LibAuction {
         view
         returns (bool provable, TaikoData.Auction memory auction)
     {
-        if (blockId != 0) {
-            if (prover == address(0)) {
-                // Note that auction may not exist at all.
+        // Nobody can prove a block before the auction ended,
+        // including the oracle prover
+        bool ended;
+        (ended, auction) = _hasAuctionEnded({
+            state: state,
+            config: config,
+            batchId: batchForBlock(config, blockId)
+        });
+
+        if (ended) {
+            if (prover == address(1) || prover == auction.bid.prover) {
                 provable = true;
             } else {
-                // Nobody can prove a block before the auction ended
-                bool ended;
-                (ended, auction) = _hasAuctionEnded({
-                    state: state,
-                    config: config,
-                    batchId: batchForBlock(config, blockId)
-                });
-
-                if (ended) {
-                    if (prover == auction.bid.prover || prover == address(1)) {
-                        provable = true;
-                    } else {
-                        unchecked {
-                            uint64 proofWindowEndAt = auction.startedAt
-                                + config.auctionWindow + auction.bid.proofWindow;
-                            provable = block.timestamp > proofWindowEndAt;
-                        }
-                    }
+                unchecked {
+                    uint64 proofWindowEndAt = auction.startedAt
+                        + config.auctionWindow + auction.bid.proofWindow;
+                    provable = block.timestamp > proofWindowEndAt;
                 }
             }
         }
