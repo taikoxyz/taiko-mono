@@ -49,6 +49,13 @@ export default function EcosystemSection() {
       description:
         "ZKPool aggregates the computing power of accelerators for zero-knowledge proofs and provides services to ZKP applications.",
     },
+    {
+      icon: "/images/ecosystem/pheasant-network.png",
+      name: "Pheasant Network",
+      link: "https://pheasant.network/",
+      description:
+        "Pheasant Network is an optimistic bridge between Layer 1 and Layer 2.",
+    },
   ];
 
   return (
