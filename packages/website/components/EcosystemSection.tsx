@@ -47,7 +47,7 @@ export default function EcosystemSection() {
       name: "Taiko Node Dashboard",
       link: "https://github.com/wolfderechter/taiko-node-dashboard-docker/tree/main",
       description:
-        "A user friendly, easy to read, and visually pleasing dashboard for those running a Node/Proposer/Prover",
+        "A user friendly, easy to read, and visually pleasing dashboard for those running a Node/Proposer/Prover.",
     },
     {
       icon: "/images/ecosystem/zkpool.png",
