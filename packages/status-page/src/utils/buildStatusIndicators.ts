@@ -204,13 +204,14 @@ export async function buildStatusIndicators(
       header: "ETH Deposits",
       intervalInMs: 20000,
       colorFunc: (value: Status) => {
-        if (BigNumber.from(value).eq(0)) {
-          return "green";
-        } else if (BigNumber.from(value).lt(32)) {
-          return "yellow";
-        } else {
-          return "red";
-        }
+        // if (BigNumber.from(value).eq(0)) {
+        //   return "green";
+        // } else if (BigNumber.from(value).lt(32)) {
+        //   return "yellow";
+        // } else {
+        //   return "red";
+        // }
+        return "green";
       },
       tooltip: "The number of pending ETH deposits for L1 => L2",
     },
