@@ -91,10 +91,6 @@ library LibProving {
         address authorized;
         if (evidence.prover == address(1)) {
             authorized = resolver.resolve("oracle_prover", false);
-
-            if (evidence.verifierId != 0 || evidence.proof.length != 0) {
-                revert L1_INVALID_PROOF();
-            }
         } else {
             authorized = auction.bid.prover;
         }
