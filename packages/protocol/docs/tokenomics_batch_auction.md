@@ -1,37 +1,9 @@
-# Optimizing Prover Reward Tokenomics for Cost-Effectiveness
+# Batch Auction-Based Tokenomics
 
-## Overview
-
-The current tokenomics structure rewards the fastest prover, inadvertently promoting speed over cost-effectiveness. This contradicts Taiko's goal of delivering cost-efficient proofs. By shifting the incentives towards cost-effective proofs, we can dramatically decrease Taiko's overall Layer 2 (L2) expenses, thereby augmenting our competitive standing in the market.
-
-## Key Metrics
-
-Based on the provided insights and inputs from Brecht and Hugo (zkpool), the following proposed metrics for evaluating tokenomics are presented. These metrics are categorized based on their perceived significance, and I encourage further discussion and feedback to refine and enhance them.
-
-1. **Taiko Token Centric**: The tokenomics design should primarily revolve around our Taiko token, rather than other tokens such as USD stable coins. An equilibrium should be achieved between proposer fees and prover rewards, aiming to maintain or even slightly decrease the supply of Taiko tokens over time.
-
-1. **Efficient Use of Proving Resources**: Provers should not squander computational resources on non-profitable tasks. If resources are wasted, provers will understandably require higher returns from accepted proofs to offset their losses. This would invariably raise the average cost of proofs.
-
-1. **Cheaper Proofs over Faster Proofs**: While ideally, proofs should be both cost-efficient and fast, cheaper proofs should be prioritized if two proofs result in the same time delay. In the case of time delays within a specific upper limit, say, one hour, the less expensive proof should also be prioritized. This approach encourages provers to optimize for cost over speed, thus reducing our L2 transaction costs.
-
-1. **Prover Redundancy/Decentralization**: The system should incentivize multiple provers to remain active for block verification, rather than leading to a single prover verifying all blocks which could potentially cause some users to be censored.
-
-1. **No Built-In PoS Reward**: To prevent being classified as a security, our tokenomics design should not offer tokens to stakers as rewards. A prover may establish a staking-based reward system allowing token holders to delegate their power, but this should not be considered as part of our tokenomics.
-
-1. **Immediate Proof Submission**: Provers should not be required to withhold their proofs and wait offline for the optimal submission moment. Introducing such a system would entail the development of additional infrastructure to store proofs and make strategic decisions regarding submission timings. This increased complexity compared to our competitors could discourage potential provers from participating. Therefore, our tokenomics should incentivize immediate proof submissions as soon as they are ready. This approach enables the system to accurately capture the actual time taken by each proof, facilitating automatic adjustment of relevant parameters.
-
-1. **Simplicity in Design**: Ensuring simplicity in the design of our tokenomics is of paramount importance. It is imperative for decision-makers and engineers within prover companies to easily comprehend the system. The design should encapsulate core concepts concisely and coherently, allowing for rapid understanding of the fundamental principles. This clarity facilitates efficient formulation of strategies and algorithms by provers, enhancing their system participation.
-
-1. **Minimal L1 Cost**: The complexity of the required code in the smart contracts/node is also an important factor to consider. Our tokenomics should strive to minimize the average additional cost per block on its base layer. Provers will likely impose higher fees on L2 to offset this cost, potentially leaving out transactions with lower fees.
-
-The above comparison metrics should guide our discussions and prevent an overemphasis on subjective opinions.
-
-
-
----
-
-
-## Proposed Solution #1: Batch Auction
+## Objectives and Key Metrics
+Please read our [objective and metrics in tokenomics design](./tokenomics_objective_metrics.md).
+\\,.
+## The Proposal
 An auction mechanism is suggested to realign provers' incentives towards cost-effectiveness. This mechanism allows provers to bid for block rewards, thereby establishing a transparent fee market. Furthermore, this model promotes resource conservation by enabling provers to commit to resource-intensive Zero-Knowledge Proof (ZKP) computations only after they have definitively won a block.
 
 
@@ -115,34 +87,3 @@ A malicious prover may strategize to win numerous batches by placing extremely l
 Introducing an auction window inevitably introduces an additional delay to the verification time. This delay might not be noticeable when the average verification time is relatively long (over 30 minutes). However, it could become significant in future scenarios where proof generation takes just a few minutes.
 
 Despite this, as stressed at the beginning of the proposal, our goal is to optimize for cost, not speed. While this additional delay is a vital consideration, it's unlikely to pose a significant obstacle to our primary objective of cost-effectiveness.
-
----
-
-## Solution Proposal #2: Staking-Based Mechanism
-
-> Inspired by Brecht's initial staking idea and recent questions.
-
-A foundational concept is to permit provers to stake Taiko tokens and limit block-proving eligibility to the top 100 stakeholders. The prover weight would be directly proportional to the number of tokens staked. In the event of a failure to prove blocks, a fraction of the staked tokens would be burnt as a penalty mechanism.
-
-Upon block proposal, a deterministically random number (e.g., `keccak(parent_hash, block_id)`) is employed to select a prover. This selection process shall be highly cost-efficient on-chain, as it will be executed once per block.
-
-The protocol maintains a *fee per gas* (`f`), and provers have the ability to set a *fee amplifier* (`a`) in the range of 1/2 to 2. The actual fee per gas for a particular block, `f' = f * a`, is computed at the time of block proposal.
-
-Adjustment of prover weight and the selection process could be fine-tuned considering the *fee amplifier* value. An applicable calculation would be `d/(a^2)`, where `d` represents the volume of staked tokens.
-
-For provers constrained by bandwidth, the protocol could allow them to specify a *maximum number of blocks to prove in parallel* (`m`). The protocol will cease selecting a prover when the *number of assigned blocks* (`n`) equates to `m`.
-
-The protocol should also monitor the *average proof delay* (`t`) and enforce that provers must submit proofs within `2*t`.
-
-To prevent frequent minute adjustments to the fee amplifier, the protocol should only allow modifications to this value once every 24 hours, encouraging prudent decision-making by provers.
-
-In the event that a block's assigned prover fails to validate a block before the deadline, two alternatives could be pursued: 1) we could have selected a backup prover during the block proposal phase, allowing this prover to validate the block within an extended time frame, and 2) we could simply reward any prover capable of validating the block `f' = 4 * fee_per_gas` tokens.
-
-The proposer always spend `f * gas_used` as a proposing fee (an initially larger deposit may be made and subsequently refunded).
-
-### Comparative Advantages Over Auction
-
-1. With judicious selection of staking parameters, provers would no longer need to conduct onchain auctions every N blocks.
-2. The system would not be monopolized by the best prover. The design would emulate a PoW model, where each prover has an opportunity to prove blocks, with chances dependent on the fee amplifier and volume of staked tokens (possibly with other factors).
-3. Each block's prover is chosen during block proposal, leading to zero wastage of proving resources.
-4. The Taiko token's utility would be enhanced, and since there's no direct staking reward without ZK proofs, there's no need to be concerned about the token being classified as a security.
