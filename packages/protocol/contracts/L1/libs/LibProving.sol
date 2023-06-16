@@ -51,7 +51,8 @@ library LibProving {
             evidence.prover == address(0)
             //
             || (evidence.prover != address(1) && evidence.zkUnprovable)
-                || evidence.parentHash == 0
+            //
+            || evidence.parentHash == 0
             //
             || evidence.blockHash == 0
             //
