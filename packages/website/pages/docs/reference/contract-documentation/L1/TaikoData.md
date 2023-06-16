@@ -31,7 +31,7 @@ struct Config {
   uint64 auctionDepositMultipler;
   uint64 auctionMaxFeePerGasMultipler;
   uint16 auctionBatchSize;
-  uint16 auctonMaxAheadOfProposals;
+  uint16 auctionMaxAheadOfProposals;
   uint16 auctionMaxProofWindow;
   bool relaySignalRoot;
 }
@@ -98,6 +98,7 @@ struct BlockEvidence {
   uint32 gasUsed;
   uint16 verifierId;
   bytes proof;
+  bytes sig;
 }
 ```
 

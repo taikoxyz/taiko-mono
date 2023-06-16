@@ -20,11 +20,11 @@ library LibAuction {
 
     event BatchBid(uint64 indexed batchId, uint64 startedAt, TaikoData.Bid bid);
 
-    error L1_BID_INVALID();
     error L1_BATCH_NOT_AUCTIONABLE();
     error L1_INSUFFICIENT_TOKEN();
+    error L1_INVALID_BID();
     error L1_INVALID_PARAM();
-    error L1_NOT_THE_BEST_BID();
+    error L1_NOT_BETTER_BID();
 
     function bidForBatch(
         TaikoData.State storage state,
@@ -37,8 +37,9 @@ library LibAuction {
         unchecked {
             if (
                 bid.prover != address(0) // auto-fill
-                    || bid.feePerGas == 0 || bid.proofWindow == 0
-                    || bid.deposit == 0
+                    || bid.feePerGas == 0 // cannot be zero
+                    || bid.proofWindow == 0 // cannot be zero
+                    || bid.deposit == 0 // cannot be zero
                     || bid.proofWindow
                         > state.avgProofWindow * config.auctionProofWindowMultiplier
                     || bid.deposit
@@ -47,7 +48,7 @@ library LibAuction {
                                 + LibL2Consts.ANCHOR_GAS_COST
                         ) * state.feePerGas * config.auctionDepositMultipler
             ) {
-                revert L1_BID_INVALID();
+                revert L1_INVALID_BID();
             }
         }
 
@@ -71,7 +72,7 @@ library LibAuction {
         } else {
             // An ongoing one
             if (!isBidBetter(bid, auction.bid)) {
-                revert L1_NOT_THE_BEST_BID();
+                revert L1_NOT_BETTER_BID();
             }
             //Refund previous auction bidder's deposit
             state.taikoTokenBalances[auction.bid.prover] +=
@@ -129,31 +130,25 @@ library LibAuction {
     )
         internal
         view
-        returns (bool provable, TaikoData.Auction memory auction)
+        returns (bool provable, bool proofWindowElapsed, TaikoData.Auction memory auction)
     {
-        if (blockId != 0) {
-            if (prover == address(0) || prover == address(1)) {
-                // Note that auction may not exist at all.
+        // Nobody can prove a block before the auction ended,
+        // including the oracle prover
+        bool ended;
+        (ended, auction) = _hasAuctionEnded({
+            state: state,
+            config: config,
+            batchId: batchForBlock(config, blockId)
+        });
+
+        if (ended) {
+            if (prover == address(1) || prover == auction.bid.prover) {
                 provable = true;
             } else {
-                // Nobody can prove a block before the auction ended
-                bool ended;
-                (ended, auction) = _hasAuctionEnded({
-                    state: state,
-                    config: config,
-                    batchId: batchForBlock(config, blockId)
-                });
-
-                if (ended) {
-                    if (prover == auction.bid.prover) {
-                        provable = true;
-                    } else {
-                        unchecked {
-                            uint64 proofWindowEndAt = auction.startedAt
-                                + config.auctionWindow + auction.bid.proofWindow;
-                            provable = block.timestamp > proofWindowEndAt;
-                        }
-                    }
+                unchecked {
+                    uint64 proofWindowEndAt = auction.startedAt
+                        + config.auctionWindow + auction.bid.proofWindow;
+                    proofWindowElapsed = provable = block.timestamp > proofWindowEndAt;
                 }
             }
         }
@@ -217,7 +212,7 @@ library LibAuction {
             uint64 lastProposedBatchId = batchForBlock(config, state.numBlocks);
 
             uint64 lastVerifiedBatchId =
-                batchForBlock(config, state.lastVerifiedBlockId + 1);
+                batchForBlock(config, state.lastVerifiedBlockId);
 
             // Regardless of auction started or not - do not allow too many
             // auctions to be open
@@ -225,7 +220,7 @@ library LibAuction {
                 // the batch of lastVerifiedBlockId is never auctionable as it
                 // has to be ended before the last verifeid block can be
                 // verified.
-                batchId < lastVerifiedBatchId
+                batchId <= lastVerifiedBatchId
                 // cannot start a new auction if the previous one has not
                 // started
                 || batchId > state.numAuctions + 1
@@ -234,7 +229,7 @@ library LibAuction {
                 || batchId >= lastVerifiedBatchId + config.auctionRingBufferSize
                 // cannot start too many auctions
                 || batchId
-                    >= lastProposedBatchId + config.auctonMaxAheadOfProposals
+                    >= lastProposedBatchId + config.auctionMaxAheadOfProposals
             ) {
                 return false;
             }

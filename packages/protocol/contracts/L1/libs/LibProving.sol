@@ -35,6 +35,7 @@ library LibProving {
     error L1_NOT_PROVEABLE();
     error L1_NOT_SPECIAL_PROVER();
     error L1_SAME_PROOF();
+    error L1_UNAUTHORIZED();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -46,7 +47,9 @@ library LibProving {
         internal
     {
         if (
-            evidence.parentHash == 0
+            evidence.prover == address(0)
+            //
+            || evidence.parentHash == 0
             //
             || evidence.blockHash == 0
             //
@@ -64,8 +67,8 @@ library LibProving {
 
         // We also should know who can prove this block:
         // the one who bid or everyone if it is above the window
-
-        (bool provable,) = LibAuction.isBlockProvableBy({
+        (bool provable, bool proofWindowEnded, TaikoData.Auction memory auction) = LibAuction
+            .isBlockProvableBy({
             state: state,
             config: config,
             blockId: blockId,
@@ -85,38 +88,34 @@ library LibProving {
             revert L1_EVIDENCE_MISMATCH(blk.metaHash, evidence.metaHash);
         }
 
-        // Separate between oracle proof (which needs to be overwritten)
-        // and non-oracle but system proofs
-        address specialProver;
-        if (evidence.prover == address(0)) {
-            specialProver = resolver.resolve("oracle_prover", false);
-        } else if (evidence.prover == address(1)) {
-            specialProver = resolver.resolve("system_prover", false);
+        address authorized;
+        if (evidence.prover == address(1)) {
+            authorized = resolver.resolve("oracle_prover", false);
+        } else if(proofWindowEnded) {
+            // If window ended - everyone could prove
+            authorized = msg.sender;
+        } else {
+            authorized = auction.bid.prover;
         }
 
-        if (specialProver != address(0) && msg.sender != specialProver) {
-            if (evidence.proof.length != 64) {
-                revert L1_NOT_SPECIAL_PROVER();
-            } else {
-                uint8 v = uint8(evidence.verifierId);
+        if (msg.sender != authorized) {
+                // Decode into 
+                uint8 v;
                 bytes32 r;
                 bytes32 s;
-                bytes memory data = evidence.proof;
+                bytes memory data = evidence.sig;
                 assembly {
-                    r := mload(add(data, 32))
-                    s := mload(add(data, 64))
+                    v := mload(add(data, 1))
+                    r := mload(add(data, 33))
+                    s := mload(add(data, 65))
                 }
 
-                // clear the proof before hashing evidence
-                evidence.verifierId = 0;
-                evidence.proof = new bytes(0);
-
-                if (
-                    specialProver
-                        != ecrecover(keccak256(abi.encode(evidence)), v, r, s)
-                ) {
-                    revert L1_NOT_SPECIAL_PROVER();
-                }
+                evidence.sig = new bytes(0);
+            if (
+                ecrecover(keccak256(abi.encode(evidence)), v, r, s)
+                    != authorized
+            ) {
+                revert L1_UNAUTHORIZED();
             }
         }
 
@@ -144,7 +143,7 @@ library LibProving {
                 state.forkChoiceIds[blk.blockId][evidence.parentHash][evidence
                     .parentGasUsed] = fcId;
             }
-        } else if (evidence.prover == address(0)) {
+        } else if (evidence.prover == address(1)) {
             // This is the branch the oracle prover is trying to overwrite
             // We need to check the previous proof is not the same as the
             // new proof
@@ -158,13 +157,12 @@ library LibProving {
             // This is the branch provers trying to overwrite
             fc = blk.forkChoices[fcId];
 
-            // Only oracle proof and system proof can be overwritten
-            // by regular proof
-            if (fc.prover != address(0) && fc.prover != address(1)) {
+            // Only oracle proof can be overwritten by regular proof
+            if (fc.prover != address(1)) {
                 revert L1_ALREADY_PROVEN();
             }
 
-            // The regular proof must be the same as the oracle/system proof
+            // The regular proof must be the same as the oracle proof
             if (
                 fc.blockHash != evidence.blockHash
                     || fc.signalRoot != evidence.signalRoot
@@ -178,7 +176,7 @@ library LibProving {
         fc.prover = evidence.prover;
         fc.provenAt = uint64(block.timestamp);
 
-        if (evidence.prover != address(0) && evidence.prover != address(1)) {
+        if (evidence.prover != address(1)) {
             bytes32 instance;
             {
                 uint256[10] memory inputs;

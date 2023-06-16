@@ -160,7 +160,8 @@ abstract contract TaikoL1TestBase is Test {
             parentGasUsed: parentGasUsed,
             gasUsed: gasUsed,
             verifierId: 100,
-            proof: new bytes(100)
+            proof: new bytes(100),
+            sig: new bytes(0)
         });
 
         vm.prank(msgSender, msgSender);
