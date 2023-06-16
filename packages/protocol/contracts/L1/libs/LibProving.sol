@@ -67,8 +67,8 @@ library LibProving {
 
         // We also should know who can prove this block:
         // the one who bid or everyone if it is above the window
-        (bool provable, bool proofWindowEnded, TaikoData.Auction memory auction) = LibAuction
-            .isBlockProvableBy({
+        (bool provable, bool proofWindowEnded, TaikoData.Auction memory auction)
+        = LibAuction.isBlockProvableBy({
             state: state,
             config: config,
             blockId: blockId,
@@ -91,7 +91,7 @@ library LibProving {
         address authorized;
         if (evidence.prover == address(1)) {
             authorized = resolver.resolve("oracle_prover", false);
-        } else if(proofWindowEnded) {
+        } else if (proofWindowEnded) {
             // If window ended - everyone could prove
             authorized = msg.sender;
         } else {
@@ -99,18 +99,18 @@ library LibProving {
         }
 
         if (msg.sender != authorized) {
-                // Decode into 
-                uint8 v;
-                bytes32 r;
-                bytes32 s;
-                bytes memory data = evidence.sig;
-                assembly {
-                    v := mload(add(data, 1))
-                    r := mload(add(data, 33))
-                    s := mload(add(data, 65))
-                }
+            // Decode into
+            uint8 v;
+            bytes32 r;
+            bytes32 s;
+            bytes memory data = evidence.sig;
+            assembly {
+                v := mload(add(data, 1))
+                r := mload(add(data, 33))
+                s := mload(add(data, 65))
+            }
 
-                evidence.sig = new bytes(0);
+            evidence.sig = new bytes(0);
             if (
                 ecrecover(keccak256(abi.encode(evidence)), v, r, s)
                     != authorized
