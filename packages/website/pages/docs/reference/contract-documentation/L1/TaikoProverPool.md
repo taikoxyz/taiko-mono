@@ -79,6 +79,12 @@ event ProverEntered(address prover, uint256 amount, uint256 feeMultiplier, uint6
 event ProverExited(address prover)
 ```
 
+### ProverStakedMoreTokens
+
+```solidity
+event ProverStakedMoreTokens(address prover, uint256 amount, uint256 totalStaked)
+```
+
 ### onlyProver
 
 ```solidity
