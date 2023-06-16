@@ -409,4 +409,81 @@ contract TaikoL1Test is TaikoL1TestBase {
         }
         printVariables("");
     }
+
+
+    /// @dev Test isBlockProvableBy for Jeff
+    function test_isBlockProvableBy()
+        external
+    {
+        depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
+        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether); // Not the best bid
+        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether); // She will be the
+            // winner
+
+        bytes32 parentHash = GENESIS_BLOCK_HASH;
+        uint32 parentGasUsed = 0;
+        uint32 gasUsed = 1_000_000;
+        TaikoData.Bid memory bid;
+
+        uint64 batchId = 1;
+
+        for (uint256 blockId = 1; blockId <= conf.auctionBatchSize; blockId++) {
+            printVariables("");
+            TaikoData.BlockMetadata memory meta =
+                proposeBlock(Alice, 1_000_000, 1024);
+
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
+
+            // 1. Submit an auction and wait till won
+            bid.proofWindow = 10 minutes;
+            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
+                * conf.auctionDepositMultipler;
+            bid.feePerGas = 9;
+
+            TaikoData.Auction[] memory auctions;
+
+            if (blockId == 1) {
+                // Batch bid by Bob
+                bidForBatch(Bob, batchId, bid);
+                // Roll one time ahead in future and bid another one
+                vm.roll(block.number + 1);
+                vm.warp(block.timestamp + 12);
+
+                batchId++;
+
+                // Then roll into the future to return true by function isBlockProveableBy()
+                (, auctions) = L1.getAuctions(1, 3);
+                vm.warp(
+                    block.timestamp + auctions[0].startedAt + conf.auctionWindow
+                );
+                vm.roll(block.number + 100);
+            }
+
+            // Should return true for Bob
+            (bool result,, ) = L1.isBlockProvableBy(1, Bob);
+            console2.log("Proveable by Bob:", result);
+
+            // Should return false for Carol
+            (result,, ) = L1.isBlockProvableBy(1, Carol);
+            console2.log("Proveable by Carol:", result);
+
+            proveBlock(
+                Bob,
+                Bob,
+                meta,
+                parentHash,
+                parentGasUsed,
+                gasUsed,
+                blockHash,
+                signalRoot
+            );
+
+            verifyBlock(Alice, 2);
+
+            parentHash = blockHash;
+            parentGasUsed = gasUsed;
+        }
+        printVariables("");
+    }
 }
