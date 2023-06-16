@@ -171,3 +171,9 @@ function rearrangeTop32() internal
 ```solidity
 function getTopProverArrayId(address prover) internal view returns (uint256)
 ```
+
+---
+
+## title: ProxiedTaikoProverPool
+
+## ProxiedTaikoProverPool
