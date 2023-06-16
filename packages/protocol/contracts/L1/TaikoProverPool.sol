@@ -69,7 +69,14 @@ contract TaikoProverPool is EssentialContract {
         uint256 feeMultiplier,
         uint64 capacity
     );
+
     event ProverExited(address prover);
+
+    event ProverStakedMoreTokens(
+        address prover,
+        uint256 amount,
+        uint256 totalStaked
+    );
 
     modifier onlyProver() {
         require(
@@ -146,6 +153,12 @@ contract TaikoProverPool is EssentialContract {
         );
 
         provers[msg.sender].stakedTokens += amount;
+
+        emit ProverStakedMoreTokens(
+            msg.sender,
+            amount,
+            provers[msg.sender].stakedTokens
+        );
 
         // Might affect top32
         rearrangeTop32();
