@@ -25,22 +25,14 @@ library LibEthDepositing {
     function depositEtherToL2(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        AddressResolver resolver
+        AddressResolver resolver,
+        address recipient
     )
         internal
     {
-        if (
-            msg.value < config.minEthDepositAmount
-                || msg.value > config.maxEthDepositAmount
-        ) {
+        if (!canDepositEthToL2(state, config, msg.value)) {
             revert L1_INVALID_ETH_DEPOSIT();
         }
-
-        TaikoData.EthDeposit memory deposit = TaikoData.EthDeposit({
-            recipient: msg.sender,
-            amount: uint96(msg.value),
-            id: uint64(state.ethDeposits.length)
-        });
 
         address to = resolver.resolve("ether_vault", true);
         if (to == address(0)) {
@@ -48,79 +40,115 @@ library LibEthDepositing {
         }
         to.sendEther(msg.value);
 
-        state.ethDeposits.push(deposit);
-        emit EthDeposited(deposit);
+        // Put the deposit and the end of the queue.
+        address _recipient = recipient == address(0) ? msg.sender : recipient;
+        uint256 slot = state.numEthDeposits % config.ethDepositRingBufferSize;
+        state.ethDeposits[slot] = _encodeEthDeposit(_recipient, msg.value);
+
+        emit EthDeposited(
+            TaikoData.EthDeposit({
+                recipient: _recipient,
+                amount: uint96(msg.value),
+                id: state.numEthDeposits
+            })
+        );
+
+        unchecked {
+            state.numEthDeposits++;
+        }
     }
 
+    // When ethDepositMaxCountPerBlock is 32, the average gas cost per
+    // EthDeposit is about 2700 gas. We use 21000 so the proposer
+    // may earn a small profit if there are 32 deposits included
+    // in the block; if there are less EthDeposit to process, the
+    // proposer may suffer a loss so the proposer should simply wait
+    // for more EthDeposit be become available.
     function processDeposits(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        address beneficiary
+        address feeRecipient
     )
         internal
-        returns (TaikoData.EthDeposit[] memory depositsProcessed)
+        returns (TaikoData.EthDeposit[] memory deposits)
     {
-        // Allocate one extra slot for collecting fees on L2
-        depositsProcessed = new TaikoData.EthDeposit[](
-            config.maxEthDepositsPerBlock
-        );
+        uint256 numPending =
+            state.numEthDeposits - state.nextEthDepositToProcess;
+        if (numPending < config.ethDepositMinCountPerBlock) {
+            deposits = new TaikoData.EthDeposit[](0);
+        } else {
+            deposits = new TaikoData.EthDeposit[](
+                numPending.min(config.ethDepositMaxCountPerBlock)
+            );
 
-        uint256 j; // number of deposits to process on L2
-        if (
-            state.ethDeposits.length
-                >= state.nextEthDepositToProcess + config.minEthDepositsPerBlock
-        ) {
-            unchecked {
-                // When maxEthDepositsPerBlock is 32, the average gas cost per
-                // EthDeposit is about 2700 gas. We use 21000 so the proposer
-                // may earn a small profit if there are 32 deposits included
-                // in the block; if there are less EthDeposit to process, the
-                // proposer may suffer a loss so the proposer should simply wait
-                // for more EthDeposit be become available.
-                uint96 feePerDeposit = uint96(
-                    config.ethDepositMaxFee.min(
-                        block.basefee * config.ethDepositGas
-                    )
-                );
-                uint96 totalFee;
-                uint64 i = state.nextEthDepositToProcess;
-                while (
-                    i < state.ethDeposits.length
-                        && state.nextEthDepositToProcess
-                            + config.maxEthDepositsPerBlock > i
-                ) {
-                    depositsProcessed[j] = state.ethDeposits[i];
+            uint96 fee = uint96(
+                config.ethDepositMaxFee.min(
+                    block.basefee * config.ethDepositGas
+                )
+            );
+            uint64 j = state.nextEthDepositToProcess;
+            uint96 totalFee;
+            for (uint256 i; i < deposits.length;) {
+                uint256 data =
+                    state.ethDeposits[j % config.ethDepositRingBufferSize];
 
-                    if (depositsProcessed[j].amount > feePerDeposit) {
-                        totalFee += feePerDeposit;
-                        depositsProcessed[j].amount -= feePerDeposit;
-                    } else {
-                        totalFee += depositsProcessed[j].amount;
-                        depositsProcessed[j].amount = 0;
-                    }
+                deposits[i] = TaikoData.EthDeposit({
+                    recipient: address(uint160(data >> 96)),
+                    amount: uint96(data), // works
+                    id: j
+                });
 
+                uint96 _fee =
+                    deposits[i].amount > fee ? fee : deposits[i].amount;
+
+                unchecked {
+                    deposits[i].amount -= _fee;
+                    totalFee += _fee;
                     ++i;
                     ++j;
                 }
+            }
+            state.nextEthDepositToProcess = j;
 
-                // Fee collecting deposit
-                if (totalFee > 0) {
-                    TaikoData.EthDeposit memory deposit = TaikoData.EthDeposit({
-                        recipient: beneficiary,
-                        amount: totalFee,
-                        id: uint64(state.ethDeposits.length)
-                    });
+            // This is the fee deposit
+            state.ethDeposits[state.numEthDeposits
+                % config.ethDepositRingBufferSize] =
+                _encodeEthDeposit(feeRecipient, totalFee);
 
-                    state.ethDeposits.push(deposit);
-                }
-                // Advance cursor
-                state.nextEthDepositToProcess = i;
+            unchecked {
+                state.numEthDeposits++;
+            }
+        }
+    }
+
+    function canDepositEthToL2(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        uint256 amount
+    )
+        internal
+        view
+        returns (bool)
+    {
+        if (
+            amount < config.ethDepositMinAmount
+                || amount > config.ethDepositMaxAmount
+        ) {
+            return false;
+        }
+
+        unchecked {
+            uint256 numPending =
+                state.numEthDeposits - state.nextEthDepositToProcess;
+
+            // We need to make sure we always reverve one slot for the fee
+            // deposit
+            if (numPending >= config.ethDepositRingBufferSize - 1) {
+                return false;
             }
         }
 
-        assembly {
-            mstore(depositsProcessed, j)
-        }
+        return true;
     }
 
     function hashEthDeposits(TaikoData.EthDeposit[] memory deposits)
@@ -129,5 +157,17 @@ library LibEthDepositing {
         returns (bytes32)
     {
         return keccak256(abi.encode(deposits));
+    }
+
+    function _encodeEthDeposit(
+        address addr,
+        uint256 amount
+    )
+        private
+        pure
+        returns (uint256)
+    {
+        if (amount >= type(uint96).max) revert L1_INVALID_ETH_DEPOSIT();
+        return uint256(uint160(addr)) << 96 | amount;
     }
 }

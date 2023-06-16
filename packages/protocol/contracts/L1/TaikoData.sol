@@ -23,10 +23,11 @@ library TaikoData {
         uint256 realProofSkipSize;
         uint256 ethDepositGas;
         uint256 ethDepositMaxFee;
-        uint64 minEthDepositsPerBlock;
-        uint64 maxEthDepositsPerBlock;
-        uint96 maxEthDepositAmount;
-        uint96 minEthDepositAmount;
+        uint256 ethDepositRingBufferSize;
+        uint64 ethDepositMinCountPerBlock;
+        uint64 ethDepositMaxCountPerBlock;
+        uint96 ethDepositMaxAmount;
+        uint96 ethDepositMinAmount;
         bool relaySignalRoot;
     }
 
@@ -108,7 +109,6 @@ library TaikoData {
         uint24 size;
     }
 
-    // 2 slot
     struct EthDeposit {
         address recipient;
         uint96 amount;
@@ -127,7 +127,8 @@ library TaikoData {
             ) forkChoiceIds;
         mapping(address account => uint256 balance) taikoTokenBalances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
-        EthDeposit[] ethDeposits;
+        mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256)
+            ethDeposits;
         // Never or rarely changed
         // Slot 7: never or rarely changed
         uint64 genesisHeight;
@@ -137,7 +138,7 @@ library TaikoData {
         uint64 __reserved72;
         // Slot 8
         uint64 __reserved80;
-        uint64 __reserved81;
+        uint64 numEthDeposits;
         uint64 numBlocks;
         uint64 nextEthDepositToProcess;
         // Slot 9

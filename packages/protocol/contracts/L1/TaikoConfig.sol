@@ -21,13 +21,6 @@ library TaikoConfig {
             // Set it to 6M, since its the upper limit of the Alpha-2
             // testnet's circuits.
             blockMaxGasLimit: 6_000_000,
-            // Set it to 79  (+1 TaikoL2.anchor transaction = 80),
-            // and 80 is the upper limit of the Alpha-2 testnet's circuits.
-            maxTransactionsPerBlock: 79,
-            minEthDepositsPerBlock: 8,
-            maxEthDepositsPerBlock: 32,
-            maxEthDepositAmount: 10_000 ether,
-            minEthDepositAmount: 1 ether,
             // Set it to 120KB, since 128KB is the upper size limit
             // of a geth transaction, so using 120KB for the proposed
             // transactions list calldata, 8K for the remaining tx fields.
@@ -38,8 +31,16 @@ library TaikoConfig {
             // If block number is N, then only when N % 10 == 0, the real ZKP
             // is needed. For mainnet, this must be 0 or 1.
             realProofSkipSize: 10,
+            // Set it to 79  (+1 TaikoL2.anchor transaction = 80),
+            // and 80 is the upper limit of the Alpha-2 testnet's circuits.
+            maxTransactionsPerBlock: 79,
+            ethDepositMinCountPerBlock: 8,
+            ethDepositMaxCountPerBlock: 32,
+            ethDepositMaxAmount: 10_000 ether,
+            ethDepositMinAmount: 1 ether,
             ethDepositGas: 21_000,
             ethDepositMaxFee: 1 ether / 10,
+            ethDepositRingBufferSize: 1024,
             txListCacheExpiry: 0,
             relaySignalRoot: false
         });
