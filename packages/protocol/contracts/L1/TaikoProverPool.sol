@@ -78,6 +78,22 @@ contract TaikoProverPool is EssentialContract {
         uint256 totalStaked
     );
 
+    event ProverAdjustedFeeMultiplier(
+        address prover,
+        uint256 oldFeeMultiplier,
+        uint256 newFeeMultiplier
+    );
+
+    event ProverAdjustedCapacity(
+        address prover,
+        uint32 oldCapacity,
+        uint32 newCapacity
+    );
+
+    event ProverWithdrawAwards(address prover, uint256 amount);
+
+    event ProverSlashed(address prover, uint256 amount);
+
     modifier onlyProver() {
         require(
             provers[msg.sender].proverAddress != address(0),
@@ -171,13 +187,24 @@ contract TaikoProverPool is EssentialContract {
             "Fee multiplier must be between 1/2 and 2"
         );
 
+        uint256 oldFeeMultiplier = provers[msg.sender].feeMultiplier;
         provers[msg.sender].feeMultiplier = newFeeMultiplier;
+
+        emit ProverAdjustedFeeMultiplier(
+            msg.sender,
+            oldFeeMultiplier,
+            newFeeMultiplier
+        );
         // Might affect top32
         rearrangeTop32();
     }
 
     function adjustCapacity(uint32 newCapacity) external onlyProver {
+        uint32 oldCapacity = provers[msg.sender].capacity;
         provers[msg.sender].capacity = newCapacity;
+
+        emit ProverAdjustedCapacity(msg.sender, oldCapacity, newCapacity);
+
         // Might affect top32
         rearrangeTop32();
     }
@@ -195,6 +222,8 @@ contract TaikoProverPool is EssentialContract {
             msg.sender,
             amount
         );
+
+        emit ProverWithdrawAwards(msg.sender, amount);
     }
 
     function exit() external onlyProver {
@@ -250,10 +279,11 @@ contract TaikoProverPool is EssentialContract {
         // Decrease health score by 5%
         slashedProver.healthScore -= (slashedProver.healthScore * 500) / 10_000;
         // Decrease deposit by 5%
-        slashedProver.stakedTokens -=
-            (slashedProver.stakedTokens * 500) /
-            10_000;
+        uint256 slashedAmount = (slashedProver.stakedTokens * 500) / 10_000;
+        slashedProver.stakedTokens -= slashedAmount;
         // Might affect top32
+
+        emit ProverSlashed(slashedProver.proverAddress, slashedAmount);
         rearrangeTop32();
     }
 
