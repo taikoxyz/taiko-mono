@@ -19,9 +19,7 @@ import { getQueuedTransactions } from "./getQueuedTransactions";
 import type { initConfig } from "./initConfig";
 import { watchHeaderSynced } from "./watchHeaderSynced";
 import axios from "axios";
-import { getConfig } from "./getConfig";
 import { getStateVariables } from "./getStateVariables";
-import TaikoL2 from "../constants/abi/TaikoL2";
 
 export async function buildStatusIndicators(
   config: ReturnType<typeof initConfig>,
@@ -206,13 +204,14 @@ export async function buildStatusIndicators(
       header: "ETH Deposits",
       intervalInMs: 20000,
       colorFunc: (value: Status) => {
-        if (BigNumber.from(value).eq(0)) {
-          return "green";
-        } else if (BigNumber.from(value).lt(32)) {
-          return "yellow";
-        } else {
-          return "red";
-        }
+        // if (BigNumber.from(value).eq(0)) {
+        //   return "green";
+        // } else if (BigNumber.from(value).lt(32)) {
+        //   return "yellow";
+        // } else {
+        //   return "red";
+        // }
+        return "green";
       },
       tooltip: "The number of pending ETH deposits for L1 => L2",
     },
@@ -296,7 +295,9 @@ export async function buildStatusIndicators(
           provider
         );
         const fee = await contract.getBlockFee();
-        return `${ethers.utils.formatUnits(fee, decimals)} TKO`;
+        return `${ethers.utils.formatUnits(fee, decimals)} ${
+          config.feeTokenSymbol
+        }`;
       },
       watchStatusFunc: null,
       provider: config.l1Provider,
@@ -328,7 +329,7 @@ export async function buildStatusIndicators(
         );
 
         if (!events || events.length === 0) {
-          return `0 TKO`;
+          return `0 ${config.feeTokenSymbol}`;
         }
 
         const event = events[events.length - 1].args as any as {
@@ -338,7 +339,7 @@ export async function buildStatusIndicators(
         return `${ethers.utils.formatUnits(
           event.reward.toString(),
           decimals
-        )} TKO`;
+        )} ${config.feeTokenSymbol}`;
       },
       watchStatusFunc: async (
         provider: ethers.providers.JsonRpcProvider,
@@ -348,7 +349,9 @@ export async function buildStatusIndicators(
         const contract = new Contract(address, TaikoL1, provider);
         const listener = (id, blockHash, reward, ...args) => {
           onEvent(
-            `${ethers.utils.formatUnits(reward.toString(), decimals)} TKO`
+            `${ethers.utils.formatUnits(reward.toString(), decimals)} ${
+              config.feeTokenSymbol
+            }`
           );
         };
         contract.on("BlockVerified", listener);
@@ -497,7 +500,7 @@ export async function buildStatusIndicators(
         return `${ethers.utils.formatUnits(
           resp.data.averageProofReward,
           decimals
-        )} TKO`;
+        )} ${config.feeTokenSymbol}`;
       },
       colorFunc: function (status: Status) {
         return "green";

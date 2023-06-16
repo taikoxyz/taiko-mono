@@ -43,11 +43,25 @@ export default function EcosystemSection() {
       description: "Swap is a dapp that lets you swap tokens on Taiko.",
     },
     {
+      icon: "/images/ecosystem/taiko-dashboard.png",
+      name: "Taiko Node Dashboard",
+      link: "https://github.com/wolfderechter/taiko-node-dashboard-docker/tree/main",
+      description:
+        "A user friendly, easy to read, and visually pleasing dashboard for those running a Node/Proposer/Prover.",
+    },
+    {
       icon: "/images/ecosystem/zkpool.png",
       name: "ZKPool",
       link: "https://zkpool.io",
       description:
         "ZKPool aggregates the computing power of accelerators for zero-knowledge proofs and provides services to ZKP applications.",
+    },
+    {
+      icon: "/images/ecosystem/pheasant-network.png",
+      name: "Pheasant Network",
+      link: "https://pheasant.network/",
+      description:
+        "Pheasant Network is an optimistic bridge between Layer 1 and Layer 2.",
     },
   ];
 
