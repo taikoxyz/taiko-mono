@@ -86,6 +86,7 @@ library TaikoData {
         address prover;
         uint32 parentGasUsed;
         uint32 gasUsed;
+        bool zkUnprovable;
         uint16 verifierId;
         bytes proof;
         bytes sig;

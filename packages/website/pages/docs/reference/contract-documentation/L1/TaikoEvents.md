@@ -19,7 +19,7 @@ event BlockProposed(uint256 id, struct TaikoData.BlockMetadata meta, uint64 bloc
 ### BlockProven
 
 ```solidity
-event BlockProven(uint256 id, bytes32 parentHash, bytes32 blockHash, bytes32 signalRoot, address prover, uint32 parentGasUsed)
+event BlockProven(uint256 id, bytes32 parentHash, bytes32 blockHash, bytes32 signalRoot, address prover, uint32 parentGasUsed, bool zkUnprovable)
 ```
 
 ### BlockVerified

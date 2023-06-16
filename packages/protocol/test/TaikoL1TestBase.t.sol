@@ -159,6 +159,7 @@ abstract contract TaikoL1TestBase is Test {
             prover: prover,
             parentGasUsed: parentGasUsed,
             gasUsed: gasUsed,
+            zkUnprovable: false,
             verifierId: 100,
             proof: new bytes(100),
             sig: new bytes(0)

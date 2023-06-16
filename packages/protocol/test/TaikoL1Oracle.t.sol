@@ -82,6 +82,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             prover: address(1),
             parentGasUsed: 10_000,
             gasUsed: 40_000,
+            zkUnprovable: false,
             verifierId: 0,
             proof: new bytes(0),
             sig: new bytes(0)
