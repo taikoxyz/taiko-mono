@@ -7,7 +7,6 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { LibAuction } from "./LibAuction.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
@@ -65,18 +64,6 @@ library LibProving {
             revert L1_BLOCK_ID();
         }
 
-        // We also should know who can prove this block:
-        // the one who bid or everyone if it is above the window
-        (bool provable, bool proofWindowEnded, TaikoData.Auction memory auction)
-        = LibAuction.isBlockProvableBy({
-            state: state,
-            config: config,
-            blockId: blockId,
-            prover: evidence.prover
-        });
-
-        if (!provable) revert L1_NOT_PROVEABLE();
-
         TaikoData.Block storage blk =
             state.blocks[blockId % config.blockRingBufferSize];
 
@@ -88,35 +75,21 @@ library LibProving {
             revert L1_EVIDENCE_MISMATCH(blk.metaHash, evidence.metaHash);
         }
 
-        address authorized;
-        if (evidence.prover == address(1)) {
-            authorized = resolver.resolve("oracle_prover", false);
-        } else if (proofWindowEnded) {
-            // If window ended - everyone could prove
-            authorized = msg.sender;
-        } else {
-            authorized = auction.bid.prover;
-        }
+        if (
+            evidence.prover != address(1)
+            //
+            && evidence.prover != blk.prover
+            //
+            && blk.prover != address(0)
+            //
+            && block.timestamp <= blk.proposedAt + blk.proofWindow
+        ) revert L1_NOT_PROVEABLE();
 
-        if (msg.sender != authorized) {
-            // Decode into
-            uint8 v;
-            bytes32 r;
-            bytes32 s;
-            bytes memory data = evidence.sig;
-            assembly {
-                v := mload(add(data, 1))
-                r := mload(add(data, 33))
-                s := mload(add(data, 65))
-            }
-
-            evidence.sig = new bytes(0);
-            if (
-                ecrecover(keccak256(abi.encode(evidence)), v, r, s)
-                    != authorized
-            ) {
-                revert L1_UNAUTHORIZED();
-            }
+        if (
+            evidence.prover == address(1)
+                && msg.sender != resolver.resolve("oracle_prover", false)
+        ) {
+            revert L1_UNAUTHORIZED();
         }
 
         TaikoData.ForkChoice storage fc;

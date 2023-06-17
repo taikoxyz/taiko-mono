@@ -89,7 +89,6 @@ library TaikoData {
         uint32 gasUsed;
         uint16 verifierId;
         bytes proof;
-        bytes sig;
     }
 
     // 4 slots
@@ -103,19 +102,26 @@ library TaikoData {
         uint32 gasUsed;
     }
 
-    // 4 slots
+    // 5 slots
     struct Block {
         // ForkChoice storage are reusable
         mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
         bytes32 metaHash;
+        // one slot (0 bytes available)
         uint64 blockId;
         uint64 proposedAt;
         uint48 feePerGas;
         uint32 gasLimit;
-        address proposer;
         uint24 nextForkChoiceId;
         uint24 verifiedForkChoiceId;
+        // one slot (12 bytes available)
+        address proposer;
+        // one slot (12 bytes available)
+        address prover; // (daniel): Remove this, this is part of the
+            // evidence...
+        uint16 proofWindow;
     }
+    // daniel: add discount here as well?
 
     // This struct takes 9 slots.
     struct TxListInfo {
@@ -158,7 +164,6 @@ library TaikoData {
                         => mapping(uint32 parentGasUsed => uint256 forkChoiceId)
                 )
             ) forkChoiceIds;
-        mapping(address account => uint256 balance) taikoTokenBalances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         mapping(uint256 batchId => Auction auction) auctions;
         mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256)
@@ -178,7 +183,7 @@ library TaikoData {
         uint64 lastVerifiedAt;
         uint64 lastVerifiedBlockId;
         uint48 feePerGas;
-        uint16 avgProofWindow;
+        uint16 avgProofWindow; // TODO(daniel): rename to avgProofDelay
         uint64 __reserved90;
         // Reserved
         uint256[42] __gap;

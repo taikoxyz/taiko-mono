@@ -7,8 +7,9 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
+import { IERC20Upgradeable } from
+    "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
-import { LibAuction } from "./LibAuction.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { SafeCastUpgradeable } from
@@ -57,18 +58,6 @@ library LibVerifying {
                 || config.ethDepositMaxAmount >= type(uint96).max
                 || config.ethDepositMaxFee == 0
                 || config.ethDepositMaxFee >= type(uint96).max
-                || config.auctionWindow == 0 || config.auctionMaxProofWindow == 0
-                || config.auctionBatchSize == 0
-                || config.auctionRingBufferSize
-                    <= (
-                        config.maxNumProposedBlocks / config.auctionBatchSize + 1
-                            + config.auctionMaxAheadOfProposals
-                    ) //
-                || config.auctionProofWindowMultiplier <= 1
-                || config.auctionWindow <= 24 || config.auctionDepositMultipler <= 1
-                || config.auctionMaxFeePerGasMultipler <= 1
-                || config.auctionDepositMultipler
-                    < config.auctionMaxFeePerGasMultipler
                 || config.ethDepositMaxFee
                     >= type(uint96).max / config.ethDepositMaxCountPerBlock
                 || config.ethDepositRingBufferSize <= 1
@@ -119,6 +108,9 @@ library LibVerifying {
             ++i;
         }
 
+        IERC20Upgradeable taikoToken =
+            IERC20Upgradeable(resolver.resolve("taiko_token", false));
+
         while (i < state.numBlocks && processed < maxBlocks) {
             blk = state.blocks[i % config.blockRingBufferSize];
             assert(blk.blockId == i);
@@ -144,6 +136,7 @@ library LibVerifying {
             _verifyBlock({
                 state: state,
                 config: config,
+                taikoToken: taikoToken,
                 blk: blk,
                 fcId: uint24(fcId),
                 fc: fc
@@ -178,19 +171,13 @@ library LibVerifying {
     function _verifyBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
+        IERC20Upgradeable taikoToken,
         TaikoData.Block storage blk,
         TaikoData.ForkChoice storage fc,
         uint24 fcId
     )
         private
     {
-        TaikoData.Auction memory auction;
-        {
-            uint64 batchId = LibAuction.batchForBlock(config, blk.blockId);
-            auction = state.auctions[batchId % config.auctionRingBufferSize];
-            assert(auction.batchId == batchId);
-        }
-
         // the actually mined L2 block's gasLimit is blk.gasLimit +
         // LibL2Consts.ANCHOR_GAS_COST, so fc.gasUsed may greater than
         // blk.gasLimit here.
@@ -198,66 +185,43 @@ library LibVerifying {
         assert(fc.gasUsed <= _gasLimit);
 
         // Refund the diff to the proposer
-        state.taikoTokenBalances[blk.proposer] +=
-            (_gasLimit - fc.gasUsed) * blk.feePerGas;
+        taikoToken.transfer(
+            blk.proposer, (_gasLimit - fc.gasUsed) * blk.feePerGas
+        );
 
-        bool refundBidder;
-        bool rewardProver;
+        bool rewardActualProver; // reward the actual prover?
+        bool slashAssignedProver; // Slash assigned prover?
         bool updateAverage;
 
-        if (fc.prover == address(1)) {
-            // This is an oracle prove.
-            refundBidder = true;
-            // rewardProver = false;
-            // updateAverage = false;
-        } else {
-            uint64 proofWindowEndAt;
-            unchecked {
-                uint64 auctionEndAt = auction.startedAt + config.auctionWindow;
-                proofWindowEndAt = auctionEndAt > blk.proposedAt
-                    ? auctionEndAt + auction.bid.proofWindow
-                    : blk.proposedAt + auction.bid.proofWindow;
-            }
+        if (fc.prover != address(1)) {
+            rewardActualProver = true;
 
-            if (
-                fc.prover == auction.bid.prover
-                    && fc.provenAt <= proofWindowEndAt
+            if (blk.prover == address(0)) {
+                updateAverage = true;
+            } else if (
+                fc.prover == blk.prover
+                    && fc.provenAt <= blk.proposedAt + blk.proofWindow
             ) {
-                // The prover is the auction winner and proof submitted within
-                // the proof window
-                refundBidder = true;
-                rewardProver = true;
                 updateAverage = true;
             } else {
-                // The prover is not the auction winner or the proof
-                // as submitted out of the proof window
-                rewardProver = true;
-                // refundBidder = false;
-                // updateAverage = false;
+                slashAssignedProver = true;
             }
-        }
-
-        if (refundBidder) {
-            state.taikoTokenBalances[auction.bid.prover] += auction.bid.deposit;
         }
 
         uint64 proofReward;
-        if (rewardProver) {
-            proofReward =
-                (config.blockFeeBaseGas + fc.gasUsed) * auction.bid.feePerGas;
+        if (rewardActualProver) {
+            proofReward = (config.blockFeeBaseGas + fc.gasUsed) * blk.feePerGas;
 
-            // if we do not refund the bidder, then half of the deposit
-            // is given to the actual block prover.
-            if (!refundBidder) proofReward += auction.bid.deposit / 2;
-
-            state.taikoTokenBalances[fc.prover] += proofReward;
+            taikoToken.transfer(fc.prover, proofReward);
         }
 
         if (updateAverage) {
             state.avgProofWindow = uint16(
                 LibUtils.movingAverage({
                     maValue: state.avgProofWindow,
-                    newValue: auction.bid.proofWindow,
+                    // TODO:  provers dontt have the will to submit
+                    // proofs ASAP.
+                    newValue: fc.provenAt - blk.proposedAt,
                     maf: 7200
                 })
             );
@@ -265,7 +229,7 @@ library LibVerifying {
             state.feePerGas = uint48(
                 LibUtils.movingAverage({
                     maValue: state.feePerGas,
-                    newValue: auction.bid.feePerGas,
+                    newValue: blk.feePerGas,
                     maf: 7200
                 })
             );

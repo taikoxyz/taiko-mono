@@ -83,14 +83,13 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             parentGasUsed: 10_000,
             gasUsed: 40_000,
             verifierId: 0,
-            proof: new bytes(0),
-            sig: new bytes(0)
+            proof: new bytes(0)
         });
 
-        (uint8 v, bytes32 r, bytes32 s) =
-            vm.sign(AlicePK, keccak256(abi.encode(evidence)));
+        // (uint8 v, bytes32 r, bytes32 s) =
+        //     vm.sign(AlicePK, keccak256(abi.encode(evidence)));
 
-        evidence.sig = abi.encodePacked(v, r, s);
+        // evidence.sig = abi.encodePacked(v, r, s);
 
         vm.prank(Carol, Carol);
         L1.proveBlock(meta.id, abi.encode(evidence));
@@ -460,10 +459,10 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             assertEq(lastVerifiedBlockIdNow, lastVerifiedBlockId);
 
             // Then roll into the future to be proveable
-            (, TaikoData.Auction[] memory auctions) =
-                L1.getAuctions(batchId - 1, 1);
+            // (, TaikoData.Auction[] memory auctions) =
+            //     L1.getAuctions(batchId - 1, 1);
 
-            vm.warp(block.timestamp + auctions[0].bid.proofWindow + 1);
+            // vm.warp(block.timestamp + auctions[0].bid.proofWindow + 1);
             vm.roll(block.number + 100);
 
             proveBlock(
@@ -723,9 +722,9 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             uint256 lastVerifiedBlockId =
                 L1.getStateVariables().lastVerifiedBlockId;
             // Then roll into the future to be proveable
-            (, TaikoData.Auction[] memory auctions) =
-                L1.getAuctions(batchId - 1, 1);
-            vm.warp(block.timestamp + auctions[0].bid.proofWindow + 1);
+            // (, TaikoData.Auction[] memory auctions) =
+            //     L1.getAuctions(batchId - 1, 1);
+            // vm.warp(block.timestamp + auctions[0].bid.proofWindow + 1);
             vm.roll(block.number + 100);
             // Carol could not overwrite it
             vm.expectRevert(TaikoErrors.L1_ALREADY_PROVEN.selector);

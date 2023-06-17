@@ -7,13 +7,16 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
+import { IERC20Upgradeable } from
+    "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import { IProverPool } from "../IStakingProverPool.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibEthDepositing } from "./LibEthDepositing.sol";
+import { LibL2Consts } from "../../L2/LibL2Consts.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import { TaikoData } from "../TaikoData.sol";
-import { LibL2Consts } from "../../L2/LibL2Consts.sol";
 
 library LibProposing {
     using SafeCastUpgradeable for uint256;
@@ -88,22 +91,30 @@ library LibProposing {
         blk.proposedAt = meta.timestamp;
         blk.feePerGas = state.feePerGas;
         blk.gasLimit = meta.gasLimit;
-        blk.proposer = msg.sender;
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = 0;
+        blk.proposer = msg.sender;
+        blk.prover = IProverPool(resolver.resolve("prover_pool", false))
+            .getProver(blk.blockId);
 
-        uint64 blockFee = getBlockFee(state, config, meta.gasLimit);
-
-        // Charging proposers the fee should be the same mechanism as it was
-        // so far, so that we can avoid sending/burning all the time so that we
-        // can save bunch of gas.
-        if (state.taikoTokenBalances[msg.sender] < blockFee) {
-            revert L1_INSUFFICIENT_TOKEN();
+        if (blk.prover != address(0)) {
+            // TODO(daniel): use a constant to replace 2, also use a cap the
+            // value.
+            blk.proofWindow = state.avgProofWindow * 2;
         }
 
+        // TODO: need to charge more tokens
+        uint64 blockFee = getBlockFee(state, config, meta.gasLimit);
+
+        IERC20Upgradeable(resolver.resolve("taiko_token", false)).transferFrom({
+            from: msg.sender,
+            to: address(this),
+            amount: blockFee
+        });
+
         emit BlockProposed(state.numBlocks, meta, blockFee);
+
         unchecked {
-            state.taikoTokenBalances[msg.sender] -= blockFee;
             ++state.numBlocks;
         }
     }

@@ -160,8 +160,7 @@ abstract contract TaikoL1TestBase is Test {
             parentGasUsed: parentGasUsed,
             gasUsed: gasUsed,
             verifierId: 100,
-            proof: new bytes(100),
-            sig: new bytes(0)
+            proof: new bytes(100)
         });
 
         vm.prank(msgSender, msgSender);
@@ -175,8 +174,8 @@ abstract contract TaikoL1TestBase is Test {
     )
         internal
     {
-        vm.prank(msgSender, msgSender);
-        L1.bidForBatch(batchId, bid);
+        // vm.prank(msgSender, msgSender);
+        // L1.bidForBatch(batchId, bid);
     }
 
     function bidForBatchAndRollTime(
@@ -186,14 +185,14 @@ abstract contract TaikoL1TestBase is Test {
     )
         internal
     {
-        bidForBatch(msgSender, batchId, bid);
+        // bidForBatch(msgSender, batchId, bid);
 
-        // Then roll into the future to be proveable
-        (, TaikoData.Auction[] memory auctions) = L1.getAuctions(batchId, 1);
-        vm.warp(
-            block.timestamp + auctions[0].startedAt + conf.auctionWindow + 1
-        );
-        vm.roll(block.number + 100);
+        // // Then roll into the future to be proveable
+        // (, TaikoData.Auction[] memory auctions) = L1.getAuctions(batchId, 1);
+        // vm.warp(
+        //     block.timestamp + auctions[0].startedAt + conf.auctionWindow + 1
+        // );
+        // vm.roll(block.number + 100);
     }
 
     function verifyBlock(address verifier, uint256 count) internal {
@@ -221,7 +220,7 @@ abstract contract TaikoL1TestBase is Test {
         vm.deal(who, amountEth);
         tko.transfer(who, amountTko);
         vm.prank(who, who);
-        L1.depositTaikoToken(amountTko);
+        // L1.depositTaikoToken(amountTko);
     }
 
     function printVariables(string memory comment) internal {
