@@ -37,3 +37,18 @@ interface IStakingProverPool is IProverPool {
         external
         returns (address);
 }
+
+// @dani, I propose this interface.
+interface IStakingProverPool2 is IProverPool {
+    // Adjust the staking Users can use this funciton to stake, re-stake, exit,
+    // and change parameters.
+    function stake(
+        uint64 totalAmount,
+        uint16 feeMultiplier, // as percentage
+        uint16 capacity // up to 65535
+    )
+        external;
+
+    // Claim any staking that have existed but not withdrawn.
+    function withdraw() external;
+}
