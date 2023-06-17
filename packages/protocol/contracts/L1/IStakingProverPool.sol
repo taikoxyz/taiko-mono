@@ -40,7 +40,7 @@ interface IStakingProverPool is IProverPool {
 
 // @dani, I propose this interface.
 interface IStakingProverPool2 is IProverPool {
-    // Adjust the staking Users can use this funciton to stake, re-stake, exit,
+    // Adjust the staking. Users can use this funciton to stake, re-stake, exit,
     // and change parameters.
     function stake(
         uint64 totalAmount,
