@@ -100,7 +100,7 @@ library LibProposing {
         if (blk.prover != address(0)) {
             // TODO(daniel): use a constant to replace 2, also use a cap the
             // value.
-            blk.proofWindow = state.avgProofWindow * 2;
+            blk.proofWindow = state.avgProofDelay * 2;
         }
 
         // TODO: need to charge more tokens

@@ -66,7 +66,6 @@ library LibUtils {
             genesisTimestamp: state.genesisTimestamp,
             numBlocks: state.numBlocks,
             lastVerifiedBlockId: state.lastVerifiedBlockId,
-            numAuctions: state.numAuctions,
             nextEthDepositToProcess: state.nextEthDepositToProcess,
             numEthDeposits: state.numEthDeposits - state.nextEthDepositToProcess
         });

@@ -28,7 +28,6 @@ contract TaikoL1Oracle is TaikoL1 {
         config.maxNumProposedBlocks = 10;
         config.blockRingBufferSize = 12;
         config.proofCooldownPeriod = 5 minutes;
-        config.auctionBatchSize = 100;
     }
 }
 
@@ -53,15 +52,8 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
         depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
 
-        TaikoData.Bid memory bid;
-
         TaikoData.BlockMetadata memory meta = proposeBlock(Bob, 1_000_000, 1024);
 
-        bid.proofWindow = 10 minutes;
-        bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
-            * conf.auctionDepositMultipler;
-        bid.feePerGas = 9;
-        bidForBatchAndRollTime(Bob, 1, bid);
         proveBlock(
             Bob,
             Bob,
@@ -114,9 +106,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
         uint32 gasUsed = 1_000_000;
-        TaikoData.Bid memory bid;
-
-        uint64 batchId = 1;
         for (
             uint256 blockId = 1;
             blockId < conf.maxNumProposedBlocks * 10;
@@ -130,23 +119,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
-            // Submit an auction and wait till won
-            bid.proofWindow = 10 minutes;
-            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
-                * conf.auctionDepositMultipler;
-            bid.feePerGas = 9;
-
-            // Make a valid bid
-            if (
-                blockId == 1
-                    || blockId % conf.auctionBatchSize == (conf.auctionWindow) // Bid
-                    // at 'edge/end' of the batch because otherwise hard to test
-                    // decouple propose with prove. (Will test that in a
-                    // separate file)
-            ) {
-                bidForBatchAndRollTime(Bob, batchId, bid);
-                batchId++;
-            }
             // This proof cannot be verified obviously because of
             // blockhash:blockId
             proveBlock(
@@ -219,9 +191,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
         uint32 gasUsed = 1_000_000;
-        TaikoData.Bid memory bid;
-
-        uint64 batchId = 1;
         for (
             uint256 blockId = 1;
             blockId < conf.maxNumProposedBlocks * 10;
@@ -235,22 +204,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
-            // Submit an auction and wait till won
-            bid.proofWindow = 10 minutes;
-            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
-                * conf.auctionDepositMultipler;
-            bid.feePerGas = 9;
-            // Make a valid bid
-            if (
-                blockId == 1
-                    || blockId % conf.auctionBatchSize == (conf.auctionWindow) // Bid
-                    // at 'edge/end' of the batch because otherwise hard to test
-                    // decouple propose with prove. (Will test that in a
-                    // separate file)
-            ) {
-                bidForBatchAndRollTime(Bob, batchId, bid);
-                batchId++;
-            }
             // This proof cannot be verified obviously because of
             // blockhash:blockId
             proveBlock(
@@ -315,9 +268,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
         uint32 gasUsed = 1_000_000;
-        TaikoData.Bid memory bid;
-
-        uint64 batchId = 1;
 
         for (
             uint256 blockId = 1;
@@ -331,22 +281,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
-            // Submit an auction and wait till won
-            bid.proofWindow = 10 minutes;
-            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
-                * conf.auctionDepositMultipler;
-            bid.feePerGas = 9;
-            // Make a valid bid
-            if (
-                blockId == 1
-                    || blockId % conf.auctionBatchSize == (conf.auctionWindow) // Bid
-                    // at 'edge/end' of the batch because otherwise hard to test
-                    // decouple propose with prove. (Will test that in a
-                    // separate file)
-            ) {
-                bidForBatchAndRollTime(Bob, batchId, bid);
-                batchId++;
-            }
 
             proveBlock(
                 Bob,
@@ -401,9 +335,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
         uint32 gasUsed = 1_000_000;
-        TaikoData.Bid memory bid;
-
-        uint64 batchId = 1;
 
         for (
             uint256 blockId = 1;
@@ -417,22 +348,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
-            // Submit an auction and wait till won
-            bid.proofWindow = 10 minutes;
-            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
-                * conf.auctionDepositMultipler;
-            bid.feePerGas = 1;
-            // Make a valid bid
-            if (
-                blockId == 1
-                    || blockId % conf.auctionBatchSize == (conf.auctionWindow) // Bid
-                    // at 'edge/end' of the batch because otherwise hard to test
-                    // decouple propose with prove. (Will test that in a
-                    // separate file)
-            ) {
-                bidForBatchAndRollTime(Bob, batchId, bid);
-                batchId++;
-            }
+
             proveBlock(
                 Bob,
                 address(1),
@@ -504,9 +420,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
         uint32 gasUsed = 1_000_000;
-        TaikoData.Bid memory bid;
-
-        uint64 batchId = 1;
 
         for (
             uint256 blockId = 1;
@@ -520,22 +433,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
-            // Submit an auction and wait till won
-            bid.proofWindow = 10 minutes;
-            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
-                * conf.auctionDepositMultipler;
-            bid.feePerGas = 9;
-            // Make a valid bid
-            if (
-                blockId == 1
-                    || blockId % conf.auctionBatchSize == (conf.auctionWindow) // Bid
-                    // at 'edge/end' of the batch because otherwise hard to test
-                    // decouple propose with prove. (Will test that in a
-                    // separate file)
-            ) {
-                bidForBatchAndRollTime(Bob, batchId, bid);
-                batchId++;
-            }
+
             proveBlock(
                 Bob,
                 Bob,
@@ -581,9 +479,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
         uint32 gasUsed = 1_000_000;
-        TaikoData.Bid memory bid;
-
-        uint64 batchId = 1;
 
         for (
             uint256 blockId = 1;
@@ -597,22 +492,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
-            // Submit an auction and wait till won
-            bid.proofWindow = 10 minutes;
-            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
-                * conf.auctionDepositMultipler;
-            bid.feePerGas = 9;
-            // Make a valid bid
-            if (
-                blockId == 1
-                    || blockId % conf.auctionBatchSize == (conf.auctionWindow) // Bid
-                    // at 'edge/end' of the batch because otherwise hard to test
-                    // decouple propose with prove. (Will test that in a
-                    // separate file)
-            ) {
-                bidForBatchAndRollTime(Carol, batchId, bid);
-                batchId++;
-            }
 
             proveBlock(
                 Bob,
@@ -675,9 +554,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
         uint32 gasUsed = 1_000_000;
-        TaikoData.Bid memory bid;
-
-        uint64 batchId = 1;
 
         for (
             uint256 blockId = 1;
@@ -691,22 +567,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
-            // Submit an auction and wait till won
-            bid.proofWindow = 10 minutes;
-            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
-                * conf.auctionDepositMultipler;
-            bid.feePerGas = 9;
-            // Make a valid bid
-            if (
-                blockId == 1
-                    || blockId % conf.auctionBatchSize == (conf.auctionWindow) // Bid
-                    // at 'edge/end' of the batch because otherwise hard to test
-                    // decouple propose with prove. (Will test that in a
-                    // separate file)
-            ) {
-                bidForBatchAndRollTime(Bob, batchId, bid);
-                batchId++;
-            }
 
             proveBlock(
                 Bob,

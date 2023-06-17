@@ -167,34 +167,6 @@ abstract contract TaikoL1TestBase is Test {
         L1.proveBlock(meta.id, abi.encode(evidence));
     }
 
-    function bidForBatch(
-        address msgSender,
-        uint64 batchId,
-        TaikoData.Bid memory bid
-    )
-        internal
-    {
-        // vm.prank(msgSender, msgSender);
-        // L1.bidForBatch(batchId, bid);
-    }
-
-    function bidForBatchAndRollTime(
-        address msgSender,
-        uint64 batchId,
-        TaikoData.Bid memory bid
-    )
-        internal
-    {
-        // bidForBatch(msgSender, batchId, bid);
-
-        // // Then roll into the future to be proveable
-        // (, TaikoData.Auction[] memory auctions) = L1.getAuctions(batchId, 1);
-        // vm.warp(
-        //     block.timestamp + auctions[0].startedAt + conf.auctionWindow + 1
-        // );
-        // vm.roll(block.number + 100);
-    }
-
     function verifyBlock(address verifier, uint256 count) internal {
         vm.prank(verifier, verifier);
         L1.verifyBlocks(count);
@@ -232,9 +204,7 @@ abstract contract TaikoL1TestBase is Test {
             Strings.toString(vars.lastVerifiedBlockId),
             unicode"→",
             Strings.toString(vars.numBlocks),
-            "]",
-            " numAuctions:",
-            Strings.toString(vars.numAuctions)
+            "]"
         );
 
         str = string.concat(

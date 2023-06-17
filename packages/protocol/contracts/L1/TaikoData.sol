@@ -11,7 +11,6 @@ library TaikoData {
         uint256 chainId;
         uint256 maxNumProposedBlocks;
         uint256 blockRingBufferSize;
-        uint256 auctionRingBufferSize;
         // This number is calculated from maxNumProposedBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;
@@ -22,15 +21,6 @@ library TaikoData {
         uint256 txListCacheExpiry;
         uint256 proofCooldownPeriod;
         uint256 systemProofCooldownPeriod;
-        //How long auction window will be open after the first bid
-        uint16 auctionWindow;
-        //How long proof window will be granted to winning bidder
-        uint64 auctionProofWindowMultiplier;
-        uint64 auctionDepositMultipler;
-        uint64 auctionMaxFeePerGasMultipler;
-        uint16 auctionBatchSize;
-        uint16 auctionMaxAheadOfProposals;
-        uint16 auctionMaxProofWindow;
         uint256 ethDepositRingBufferSize;
         uint64 ethDepositMinCountPerBlock;
         uint64 ethDepositMaxCountPerBlock;
@@ -47,7 +37,6 @@ library TaikoData {
         uint64 genesisTimestamp;
         uint64 numBlocks;
         uint64 lastVerifiedBlockId;
-        uint64 numAuctions;
         uint64 nextEthDepositToProcess;
         uint64 numEthDeposits;
     }
@@ -135,25 +124,6 @@ library TaikoData {
         uint64 id;
     }
 
-    // 1 slot
-    struct Bid {
-        address prover;
-        uint64 deposit;
-        uint48 feePerGas;
-        // In order to refund the diff betwen gasUsed vs. blockMaxGasLimit
-        // It is also part of the bidding - how fast some can submit proofs
-        // according to his/her own commitment.
-        // Can be zero and it will just signal that the proofs are coming
-        // somewhere within config.auctionWindow
-        uint16 proofWindow;
-    }
-
-    struct Auction {
-        Bid bid;
-        uint64 batchId;
-        uint64 startedAt;
-    }
-
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint256 blockId_mode_blockRingBufferSize => Block) blocks;
@@ -165,8 +135,7 @@ library TaikoData {
                 )
             ) forkChoiceIds;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
-        mapping(uint256 batchId => Auction auction) auctions;
-        mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256)
+        mapping(uint256 depositId_mode_ethDepositRingBufferSize => uint256)
             ethDeposits;
         // Never or rarely changed
         // Slot 7: never or rarely changed
@@ -175,7 +144,7 @@ library TaikoData {
         uint64 __reserved70;
         uint64 __reserved71;
         // Slot 8
-        uint64 numAuctions;
+        uint64 __reserved80;
         uint64 numEthDeposits;
         uint64 numBlocks;
         uint64 nextEthDepositToProcess;
@@ -183,9 +152,9 @@ library TaikoData {
         uint64 lastVerifiedAt;
         uint64 lastVerifiedBlockId;
         uint48 feePerGas;
-        uint16 avgProofWindow; // TODO(daniel): rename to avgProofDelay
+        uint16 avgProofDelay;
         uint64 __reserved90;
         // Reserved
-        uint256[42] __gap;
+        uint256[42] __gap; // TODO: update this
     }
 }

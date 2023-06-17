@@ -15,11 +15,6 @@ library TaikoConfig {
             // Two weeks if avg block time is 10 seconds
             maxNumProposedBlocks: 120_960,
             blockRingBufferSize: 120_960 + 10,
-            // 1 block batch consist of 100 blocks, so divided block ring buffer
-            // by 100
-            // to be kind of in-sync, but it does not have to be fully in sync,
-            // they are decoupled
-            auctionRingBufferSize: 1221,
             // Each time one more block is verified, there will be ~20k
             // more gas cost.
             maxVerificationsPerTx: 10,
@@ -37,13 +32,6 @@ library TaikoConfig {
             txListCacheExpiry: 0,
             proofCooldownPeriod: 30 minutes,
             systemProofCooldownPeriod: 15 minutes,
-            auctionWindow: 120,
-            auctionProofWindowMultiplier: 2,
-            auctionDepositMultipler: 10,
-            auctionMaxFeePerGasMultipler: 5,
-            auctionBatchSize: 100,
-            auctionMaxAheadOfProposals: 10,
-            auctionMaxProofWindow: 7200,
             ethDepositRingBufferSize: 1024,
             ethDepositMinCountPerBlock: 8,
             ethDepositMaxCountPerBlock: 32,

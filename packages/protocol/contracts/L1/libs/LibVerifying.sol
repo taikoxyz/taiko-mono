@@ -36,7 +36,7 @@ library LibVerifying {
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
         uint48 initFeePerGas,
-        uint16 initAvgProofWindow
+        uint16 initAvgProofDelay
     )
         internal
     {
@@ -48,8 +48,7 @@ library LibVerifying {
                 || config.maxTransactionsPerBlock == 0
                 || config.maxBytesPerTxList == 0
                 || config.txListCacheExpiry > 30 * 24 hours
-            // EIP-4844 blob size up to 128K
-            || config.maxBytesPerTxList > 128 * 1024
+                || config.maxBytesPerTxList > 128 * 1024 //blob up to 128K
                 || config.ethDepositMinCountPerBlock == 0
                 || config.ethDepositMaxCountPerBlock
                     < config.ethDepositMinCountPerBlock || config.ethDepositGas == 0 //
@@ -80,7 +79,7 @@ library LibVerifying {
         fc.blockHash = genesisBlockHash;
         fc.provenAt = timeNow;
 
-        state.avgProofWindow = initAvgProofWindow;
+        state.avgProofDelay = initAvgProofDelay;
 
         emit BlockVerified(0, genesisBlockHash, 0);
     }
@@ -216,9 +215,9 @@ library LibVerifying {
         }
 
         if (updateAverage) {
-            state.avgProofWindow = uint16(
+            state.avgProofDelay = uint16(
                 LibUtils.movingAverage({
-                    maValue: state.avgProofWindow,
+                    maValue: state.avgProofDelay,
                     // TODO:  provers dontt have the will to submit
                     // proofs ASAP.
                     newValue: fc.provenAt - blk.proposedAt,
