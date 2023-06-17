@@ -79,7 +79,7 @@ Deploy allows you to deploy a smart contract to any EVM compatible network witho
    - `_symbol`: symbol or "ticker"
    - `_royaltyRecipient`: wallet address to receive royalties from secondary sales
    - `_royaltyBps`: basis points (bps) that will be given to the royalty recipient for each secondary sale, e.g. 500 = 5%
-3. Select `TaikoAlpha2Testnet` as the network
+3. Select `Taiko (Alpha-3 Testnet)` as the network
 4. Manage additional settings on your contract’s dashboard as needed such as uploading NFTs, configuring permissions, and more.
 
 For additional information on Deploy, please reference [thirdweb’s documentation](https://portal.thirdweb.com/deploy).
