@@ -22,12 +22,6 @@ library TaikoData {
         uint256 txListCacheExpiry;
         uint256 proofCooldownPeriod;
         uint256 systemProofCooldownPeriod;
-        uint256 ethDepositGas;
-        uint256 ethDepositMaxFee;
-        uint64 minEthDepositsPerBlock;
-        uint64 maxEthDepositsPerBlock;
-        uint96 maxEthDepositAmount;
-        uint96 minEthDepositAmount;
         //How long auction window will be open after the first bid
         uint16 auctionWindow;
         //How long proof window will be granted to winning bidder
@@ -37,6 +31,13 @@ library TaikoData {
         uint16 auctionBatchSize;
         uint16 auctionMaxAheadOfProposals;
         uint16 auctionMaxProofWindow;
+        uint256 ethDepositRingBufferSize;
+        uint64 ethDepositMinCountPerBlock;
+        uint64 ethDepositMaxCountPerBlock;
+        uint96 ethDepositMaxAmount;
+        uint96 ethDepositMinAmount;
+        uint256 ethDepositGas;
+        uint256 ethDepositMaxFee;
         bool relaySignalRoot;
     }
 
@@ -122,7 +123,6 @@ library TaikoData {
         uint24 size;
     }
 
-    // 2 slot
     struct EthDeposit {
         address recipient;
         uint96 amount;
@@ -161,7 +161,8 @@ library TaikoData {
         mapping(address account => uint256 balance) taikoTokenBalances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         mapping(uint256 batchId => Auction auction) auctions;
-        EthDeposit[] ethDeposits;
+        mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256)
+            ethDeposits;
         // Never or rarely changed
         // Slot 7: never or rarely changed
         uint64 genesisHeight;
@@ -170,7 +171,7 @@ library TaikoData {
         uint64 __reserved71;
         // Slot 8
         uint64 numAuctions;
-        uint64 __reserved81;
+        uint64 numEthDeposits;
         uint64 numBlocks;
         uint64 nextEthDepositToProcess;
         // Slot 9

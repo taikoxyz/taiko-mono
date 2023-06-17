@@ -20,12 +20,6 @@ struct Config {
   uint256 txListCacheExpiry;
   uint256 proofCooldownPeriod;
   uint256 systemProofCooldownPeriod;
-  uint256 ethDepositGas;
-  uint256 ethDepositMaxFee;
-  uint64 minEthDepositsPerBlock;
-  uint64 maxEthDepositsPerBlock;
-  uint96 maxEthDepositAmount;
-  uint96 minEthDepositAmount;
   uint16 auctionWindow;
   uint64 auctionProofWindowMultiplier;
   uint64 auctionDepositMultipler;
@@ -33,6 +27,13 @@ struct Config {
   uint16 auctionBatchSize;
   uint16 auctionMaxAheadOfProposals;
   uint16 auctionMaxProofWindow;
+  uint256 ethDepositRingBufferSize;
+  uint64 ethDepositMinCountPerBlock;
+  uint64 ethDepositMaxCountPerBlock;
+  uint96 ethDepositMaxAmount;
+  uint96 ethDepositMinAmount;
+  uint256 ethDepositGas;
+  uint256 ethDepositMaxFee;
   bool relaySignalRoot;
 }
 ```
@@ -180,13 +181,13 @@ struct State {
   mapping(address => uint256) taikoTokenBalances;
   mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
   mapping(uint256 => struct TaikoData.Auction) auctions;
-  struct TaikoData.EthDeposit[] ethDeposits;
+  mapping(uint256 => uint256) ethDeposits;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 __reserved70;
   uint64 __reserved71;
   uint64 numAuctions;
-  uint64 __reserved81;
+  uint64 numEthDeposits;
   uint64 numBlocks;
   uint64 nextEthDepositToProcess;
   uint64 lastVerifiedAt;
