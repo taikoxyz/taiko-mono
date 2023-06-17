@@ -9,6 +9,7 @@ pragma solidity ^0.8.20;
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { IERC20Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import { IProverPool } from "../IStakingProverPool.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { LibMath } from "../../libs/LibMath.sol";
@@ -107,9 +108,6 @@ library LibVerifying {
             ++i;
         }
 
-        IERC20Upgradeable taikoToken =
-            IERC20Upgradeable(resolver.resolve("taiko_token", false));
-
         while (i < state.numBlocks && processed < maxBlocks) {
             blk = state.blocks[i % config.blockRingBufferSize];
             assert(blk.blockId == i);
@@ -135,7 +133,7 @@ library LibVerifying {
             _verifyBlock({
                 state: state,
                 config: config,
-                taikoToken: taikoToken,
+                resolver: resolver,
                 blk: blk,
                 fcId: uint24(fcId),
                 fc: fc
@@ -170,7 +168,7 @@ library LibVerifying {
     function _verifyBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        IERC20Upgradeable taikoToken,
+        AddressResolver resolver,
         TaikoData.Block storage blk,
         TaikoData.ForkChoice storage fc,
         uint24 fcId
@@ -182,6 +180,9 @@ library LibVerifying {
         // blk.gasLimit here.
         uint32 _gasLimit = blk.gasLimit + LibL2Consts.ANCHOR_GAS_COST;
         assert(fc.gasUsed <= _gasLimit);
+
+        IERC20Upgradeable taikoToken =
+            IERC20Upgradeable(resolver.resolve("taiko_token", false));
 
         // Refund the diff to the proposer
         taikoToken.transfer(
@@ -212,6 +213,12 @@ library LibVerifying {
             proofReward = (config.blockFeeBaseGas + fc.gasUsed) * blk.feePerGas;
 
             taikoToken.transfer(fc.prover, proofReward);
+        }
+
+        if (slashAssignedProver) {
+            IProverPool(resolver.resolve("prover_pool", false)).slashProver(
+                blk.prover
+            );
         }
 
         if (updateAverage) {

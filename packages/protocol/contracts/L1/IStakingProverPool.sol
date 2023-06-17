@@ -9,7 +9,7 @@ pragma solidity ^0.8.20;
 interface IProverPool {
     function getProver(uint256 blockId) external view returns (address);
 
-    function slash(address prover) external;
+    function slashProver(address prover) external;
 }
 
 interface IStakingProverPool is IProverPool {
