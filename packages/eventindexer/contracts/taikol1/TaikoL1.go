@@ -8,12 +8,12 @@ import (
 	"math/big"
 	"strings"
 
-	ethereum "github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/event"
+	ethereum "github.com/taikochain/go-taiko"
+	"github.com/taikochain/go-taiko/accounts/abi"
+	"github.com/taikochain/go-taiko/accounts/abi/bind"
+	"github.com/taikochain/go-taiko/common"
+	"github.com/taikochain/go-taiko/core/types"
+	"github.com/taikochain/go-taiko/event"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -26,7 +26,6 @@ var (
 	_ = common.Big1
 	_ = types.BloomLookup
 	_ = event.NewSubscription
-	_ = abi.ConvertType
 )
 
 // TaikoDataBlockMetadata is an auto generated low-level Go binding around an user-defined struct.
@@ -205,11 +204,11 @@ func NewTaikoL1Filterer(address common.Address, filterer bind.ContractFilterer) 
 
 // bindTaikoL1 binds a generic wrapper to an already deployed contract.
 func bindTaikoL1(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := TaikoL1MetaData.GetAbi()
+	parsed, err := abi.JSON(strings.NewReader(TaikoL1ABI))
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
 }
 
 // Call invokes the (constant) contract method with params as input values and

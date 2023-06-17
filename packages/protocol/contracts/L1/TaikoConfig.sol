@@ -30,26 +30,27 @@ library TaikoConfig {
             // Set it to 79  (+1 TaikoL2.anchor transaction = 80),
             // and 80 is the upper limit of the Alpha-2 testnet's circuits.
             maxTransactionsPerBlock: 79,
-            minEthDepositsPerBlock: 8,
-            maxEthDepositsPerBlock: 32,
-            maxEthDepositAmount: 10_000 ether,
-            minEthDepositAmount: 1 ether,
             // Set it to 120KB, since 128KB is the upper size limit
             // of a geth transaction, so using 120KB for the proposed
             // transactions list calldata, 8K for the remaining tx fields.
             maxBytesPerTxList: 120_000,
+            txListCacheExpiry: 0,
             proofCooldownPeriod: 30 minutes,
             systemProofCooldownPeriod: 15 minutes,
-            ethDepositGas: 21_000,
-            ethDepositMaxFee: 1 ether / 10,
-            txListCacheExpiry: 0,
             auctionWindow: 120,
             auctionProofWindowMultiplier: 2,
             auctionDepositMultipler: 10,
             auctionMaxFeePerGasMultipler: 5,
-            auctionMaxAheadOfProposals: 10,
             auctionBatchSize: 100,
+            auctionMaxAheadOfProposals: 10,
             auctionMaxProofWindow: 7200,
+            ethDepositRingBufferSize: 1024,
+            ethDepositMinCountPerBlock: 8,
+            ethDepositMaxCountPerBlock: 32,
+            ethDepositMaxAmount: 10_000 ether,
+            ethDepositMinAmount: 1 ether,
+            ethDepositGas: 21_000,
+            ethDepositMaxFee: 1 ether / 10,
             relaySignalRoot: false
         });
     }
