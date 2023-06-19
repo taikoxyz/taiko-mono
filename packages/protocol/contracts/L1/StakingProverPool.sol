@@ -269,8 +269,8 @@ contract StakingProverPool is IStakingProverPool, EssentialContract {
         return blockIdToProver[blockId] = winner;
     }
 
-    function getProver(uint256 blockId) external view returns (address) {
-        return blockIdToProver[blockId];
+    function getProver(uint256 blockId) external view returns (address, uint32) {
+        // return blockIdToProver[blockId];
     }
 
     function slashProver(address prover) external onlyProtocol {

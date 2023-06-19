@@ -32,7 +32,7 @@ library TaikoData {
     }
 
     struct StateVariables {
-        uint48 feePerGas;
+        uint32 feePerGas;
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 numBlocks;
@@ -99,7 +99,7 @@ library TaikoData {
         // one slot (0 bytes available)
         uint64 blockId;
         uint64 proposedAt;
-        uint48 feePerGas;
+        uint32 feePerGas;
         uint32 gasLimit;
         uint24 nextForkChoiceId;
         uint24 verifiedForkChoiceId;
@@ -109,6 +109,7 @@ library TaikoData {
         address prover; // (daniel): Remove this, this is part of the
             // evidence...
         uint16 proofWindow;
+        uint32 rewardPerGas;
     }
     // daniel: add discount here as well?
 
@@ -151,7 +152,7 @@ library TaikoData {
         // Slot 9
         uint64 lastVerifiedAt;
         uint64 lastVerifiedBlockId;
-        uint48 feePerGas;
+        uint32 feePerGas;
         uint16 avgProofDelay;
         uint64 __reserved90;
         // Reserved

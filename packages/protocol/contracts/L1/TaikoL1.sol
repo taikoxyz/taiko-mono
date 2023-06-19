@@ -47,7 +47,7 @@ contract TaikoL1 is
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
-        uint48 _initFeePerGas,
+        uint32 _initFeePerGas,
         uint16 _initAvgProofDelay
     )
         external

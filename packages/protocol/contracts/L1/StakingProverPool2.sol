@@ -11,20 +11,20 @@ contract PrototypingProverPoolImpl {
         address prover;
         uint32 stakedAmount; // unit is 10^8, this means a max of
             // 429496729500000000 tokens, 2.3283%  of total supply
-        uint32 feePerGas; // expected feePerGas
+        uint32 rewardPerGas; // expected rewardPerGas
     }
 
     // Then we define a mapping from id => Staker
     mapping(uint256 id => Staker) stakers;
 
     // Then we use a fixed size byte array to represnet the top 32 provers.
-    // For each prover, we only need to keep its stakedAmount, and feePerGas,
+    // For each prover, we only need to keep its stakedAmount, and rewardPerGas,
     // together they takes 32+32=64 bits, or 8 bytes.
 
     // This is 1/4 slot
     struct Prover {
         uint32 stakedAmount; // this value will change when we slash the prover
-        uint32 feePerGas;
+        uint32 rewardPerGas;
     }
     // uint16 capacity; // if we add this, we should use a bytes array
     // instead of Prover array below. The capacity must be greater than a
@@ -40,7 +40,7 @@ contract PrototypingProverPoolImpl {
     )
         public
         view
-        returns (address prover, uint32 feePerGas)
+        returns (address prover, uint32 rewardPerGas)
     {
         // readjust each prover's rate
         uint256[32] memory weights;
@@ -62,7 +62,7 @@ contract PrototypingProverPoolImpl {
         while (z < r && i < 32) {
             z += weights[i];
         }
-        return (stakers[i].prover, stakers[i].feePerGas);
+        return (stakers[i].prover, stakers[i].rewardPerGas);
     }
 
     // The weight is dynamic based on fee per gas.
@@ -77,7 +77,7 @@ contract PrototypingProverPoolImpl {
         // Just a demo that the weight depends on the current fee per gas,
         // the prover's expected fee per gas, as well as the staking amount
         return uint256(prover.stakedAmount) * currentFeePerGas
-            * currentFeePerGas / prover.feePerGas / prover.feePerGas;
+            * currentFeePerGas / prover.rewardPerGas / prover.rewardPerGas;
     }
 }
 

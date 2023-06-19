@@ -94,7 +94,7 @@ library LibProposing {
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = 0;
         blk.proposer = msg.sender;
-        blk.prover = IProverPool(resolver.resolve("prover_pool", false))
+        (blk.prover,blk.rewardPerGas) = IProverPool(resolver.resolve("prover_pool", false))
             .getProver(blk.blockId);
 
         if (blk.prover != address(0)) {
