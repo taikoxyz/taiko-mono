@@ -25,10 +25,10 @@ contract PrototypingProverPoolImpl {
     struct Prover {
         uint32 stakedAmount; // this value will change when we slash the prover
         uint32 feePerGas;
-        // uint16 capacity; // if we add this, we should use a bytes array
-        // instead of Prover array below. The capacity must be greater than a
-        // threshold.
     }
+    // uint16 capacity; // if we add this, we should use a bytes array
+    // instead of Prover array below. The capacity must be greater than a
+    // threshold.
 
     Prover[32] public provers; // 32/4 = 8 slots
 
@@ -65,6 +65,7 @@ contract PrototypingProverPoolImpl {
         return (stakers[i].prover, stakers[i].feePerGas);
     }
 
+    // The weight is dynamic based on fee per gas.
     function _calcWeight(
         Prover memory prover,
         uint32 currentFeePerGas
