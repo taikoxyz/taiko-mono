@@ -1,4 +1,4 @@
-import daisyuiPlugin from 'daisyui'
+import daisyuiPlugin from 'daisyui';
 
 /** @type {import('tailwindcss').Config} */
 export default {
