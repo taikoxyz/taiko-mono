@@ -20,6 +20,7 @@
     "@typescript-eslint/eslint-plugin": "^5.45.0",
     "@typescript-eslint/parser": "^5.45.0",
     "autoprefixer": "^10.4.14",
+    "daisyui": "3.1.1",
     "eslint": "^8.28.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-svelte": "^2.26.0",
@@ -34,5 +35,11 @@
     "vite": "^4.3.0",
     "vitest": "^0.25.3"
   },
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "@wagmi/core": "^1.2.0",
+    "@web3modal/ethereum": "^2.4.7",
+    "@web3modal/html": "^2.4.7",
+    "viem": "^1.0.7"
+  }
 }
