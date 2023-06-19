@@ -23,8 +23,11 @@ contract PrototypingProverPoolImpl {
 
     // This is 1/4 slot
     struct Prover {
-        uint32 stakedAmount;
+        uint32 stakedAmount; // this value will change when we slash the prover
         uint32 feePerGas;
+        // uint16 capacity; // if we add this, we should use a bytes array
+        // instead of Prover array below. The capacity must be greater than a
+        // threshold.
     }
 
     Prover[32] public provers; // 32/4 = 8 slots
