@@ -224,7 +224,7 @@ library LibProving {
 
             if (
                 !LibBytesUtils.equal(
-                    LibBytesUtils.slice(evidence.proof, 32, 64),
+                    LibBytesUtils.slice(evidence.proof, 32, 32),
                     bytes.concat(
                         bytes16(0), bytes16(uint128(uint256(instance)))
                     )
