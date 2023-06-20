@@ -21,10 +21,11 @@ struct Config {
   uint256 realProofSkipSize;
   uint256 ethDepositGas;
   uint256 ethDepositMaxFee;
-  uint64 minEthDepositsPerBlock;
-  uint64 maxEthDepositsPerBlock;
-  uint96 maxEthDepositAmount;
-  uint96 minEthDepositAmount;
+  uint256 ethDepositRingBufferSize;
+  uint64 ethDepositMinCountPerBlock;
+  uint64 ethDepositMaxCountPerBlock;
+  uint96 ethDepositMaxAmount;
+  uint96 ethDepositMinAmount;
   bool relaySignalRoot;
 }
 ```
@@ -146,14 +147,14 @@ struct State {
   mapping(uint256 => mapping(bytes32 => mapping(uint32 => uint256))) forkChoiceIds;
   mapping(address => uint256) taikoTokenBalances;
   mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
-  struct TaikoData.EthDeposit[] ethDeposits;
+  mapping(uint256 => uint256) ethDeposits;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint16 __reserved70;
   uint48 __reserved71;
   uint64 __reserved72;
   uint64 __reserved80;
-  uint64 __reserved81;
+  uint64 numEthDeposits;
   uint64 numBlocks;
   uint64 nextEthDepositToProcess;
   uint64 blockFee;

@@ -33,7 +33,7 @@ contract TaikoL1 is
     uint256[100] private __gap;
 
     receive() external payable {
-        depositEtherToL2();
+        depositEtherToL2(address(0));
     }
 
     /**
@@ -143,10 +143,21 @@ contract TaikoL1 is
         });
     }
 
-    function depositEtherToL2() public payable {
-        LibEthDepositing.depositEtherToL2(
-            state, getConfig(), AddressResolver(this)
-        );
+    function depositEtherToL2(address recipient) public payable {
+        LibEthDepositing.depositEtherToL2({
+            state: state,
+            config: getConfig(),
+            resolver: AddressResolver(this),
+            recipient: recipient
+        });
+    }
+
+    function canDepositEthToL2(uint256 amount) public view returns (bool) {
+        return LibEthDepositing.canDepositEthToL2({
+            state: state,
+            config: getConfig(),
+            amount: amount
+        });
     }
 
     function getTaikoTokenBalance(address addr) public view returns (uint256) {

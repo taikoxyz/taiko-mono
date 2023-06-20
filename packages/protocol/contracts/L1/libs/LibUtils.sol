@@ -67,7 +67,7 @@ library LibUtils {
             numBlocks: state.numBlocks,
             lastVerifiedBlockId: state.lastVerifiedBlockId,
             nextEthDepositToProcess: state.nextEthDepositToProcess,
-            numEthDeposits: uint64(state.ethDeposits.length)
+            numEthDeposits: state.numEthDeposits - state.nextEthDepositToProcess
         });
     }
 

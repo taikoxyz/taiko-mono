@@ -718,22 +718,22 @@ export default [
           },
           {
             internalType: "uint64",
-            name: "minEthDepositsPerBlock",
+            name: "ethDepositMinCountPerBlock",
             type: "uint64",
           },
           {
             internalType: "uint64",
-            name: "maxEthDepositsPerBlock",
+            name: "ethDepositMaxCountPerBlock",
             type: "uint64",
           },
           {
             internalType: "uint96",
-            name: "maxEthDepositAmount",
+            name: "ethDepositMaxAmount",
             type: "uint96",
           },
           {
             internalType: "uint96",
-            name: "minEthDepositAmount",
+            name: "ethDepositMinAmount",
             type: "uint96",
           },
           {

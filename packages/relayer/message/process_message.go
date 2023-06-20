@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -98,6 +99,10 @@ func (p *Processor) ProcessMessage(
 	}
 
 	relayer.EventsProcessed.Inc()
+
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+
+	defer cancel()
 
 	receipt, err := relayer.WaitReceipt(ctx, p.destEthClient, tx.Hash())
 	if err != nil {
