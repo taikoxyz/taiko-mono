@@ -7,8 +7,7 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { IERC20Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import { IMintableERC20 } from "../../common/IMintableERC20.sol";
 import { IProverPool } from "../IStakingProverPool.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
 import { LibUtils } from "./LibUtils.sol";
@@ -57,16 +56,13 @@ library LibVerifying {
                 || config.ethDepositMinAmount == 0
                 || config.ethDepositMaxAmount <= config.ethDepositMinAmount
                 || config.ethDepositMaxAmount >= type(uint96).max
-                || config.ethDepositGas == 0
-                || config.ethDepositMaxFee == 0
+                || config.ethDepositGas == 0 || config.ethDepositMaxFee == 0
                 || config.ethDepositMaxFee >= type(uint96).max
                 || config.ethDepositMaxFee
                     >= type(uint96).max / config.ethDepositMaxCountPerBlock
-
         ) revert L1_INVALID_CONFIG();
 
         unchecked {
-
             uint64 timeNow = uint64(block.timestamp);
 
             // Init state
@@ -189,67 +185,55 @@ library LibVerifying {
         uint32 _gasLimit = blk.gasLimit + LibL2Consts.ANCHOR_GAS_COST;
         assert(fc.gasUsed <= _gasLimit);
 
-        IERC20Upgradeable taikoToken =
-            IERC20Upgradeable(resolver.resolve("taiko_token", false));
+        IMintableERC20 taikoToken =
+            IMintableERC20(resolver.resolve("taiko_token", false));
 
         // Refund the diff to the proposer
-        taikoToken.transfer(
-            blk.proposer, (_gasLimit - fc.gasUsed) * blk.feePerGas
-        );
+        taikoToken.mint({
+            to: blk.proposer,
+            amount: (_gasLimit - fc.gasUsed) * blk.feePerGas
+        });
 
-        bool rewardActualProver; // reward the actual prover?
-        bool slashAssignedProver; // Slash assigned prover?
-        bool updateAverage;
+        // Reward the prover (including the oracle prover)
+        uint64 proofReward =
+            (config.blockFeeBaseGas + fc.gasUsed) * blk.rewardPerGas;
+        taikoToken.mint(fc.prover, proofReward);
 
         if (fc.prover != address(1)) {
-            rewardActualProver = true;
-
-            if (blk.prover == address(0)) {
-                updateAverage = true;
-            } else if (
+            if (
                 fc.prover == blk.prover
                     && fc.provenAt <= blk.proposedAt + blk.proofWindow
             ) {
-                updateAverage = true;
+                // The selected prover managed to prove the block in time
+                state.avgProofDelay = uint16(
+                    LibUtils.movingAverage({
+                        maValue: state.avgProofDelay,
+                        // TODO:  provers dontt have the will to submit
+                        // proofs ASAP.
+                        newValue: fc.provenAt - blk.proposedAt,
+                        maf: 7200
+                    })
+                );
+
+                state.feePerGas = uint32(
+                    LibUtils.movingAverage({
+                        maValue: state.feePerGas,
+                        newValue: blk.feePerGas,
+                        maf: 7200
+                    })
+                );
             } else {
-                slashAssignedProver = true;
+                // The selected prover failed to prove the block in time
+                IProverPool(resolver.resolve("prover_pool", false)).slashProver(
+                    blk.prover, blk.rewardPerGas
+                );
             }
         }
 
-        uint64 proofReward;
-        if (rewardActualProver) {
-            proofReward = (config.blockFeeBaseGas + fc.gasUsed) * blk.feePerGas;
+        // TODO(daniel & dani): I just commentted out the following line as
+        // I believe it is not useful...
+        // blk.nextForkChoiceId = 1;
 
-            taikoToken.transfer(fc.prover, proofReward);
-        }
-
-        if (slashAssignedProver) {
-            IProverPool(resolver.resolve("prover_pool", false)).slashProver(
-                blk.prover
-            );
-        }
-
-        if (updateAverage) {
-            state.avgProofDelay = uint16(
-                LibUtils.movingAverage({
-                    maValue: state.avgProofDelay,
-                    // TODO:  provers dontt have the will to submit
-                    // proofs ASAP.
-                    newValue: fc.provenAt - blk.proposedAt,
-                    maf: 7200
-                })
-            );
-
-            state.feePerGas = uint32(
-                LibUtils.movingAverage({
-                    maValue: state.feePerGas,
-                    newValue: blk.feePerGas,
-                    maf: 7200
-                })
-            );
-        }
-
-        blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = fcId;
         emit BlockVerified(blk.blockId, fc.blockHash, proofReward);
     }

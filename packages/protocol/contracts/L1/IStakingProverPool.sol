@@ -14,7 +14,7 @@ interface IProverPool {
         external
         view
         returns (address prover, uint32 rewardPerGas);
-    function slashProver(address prover) external;
+    function slashProver(address prover, uint32 rewardPerGas) external;
 }
 
 interface IStakingProverPool is IProverPool {

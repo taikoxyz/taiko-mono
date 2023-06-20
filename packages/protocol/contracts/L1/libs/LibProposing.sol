@@ -51,7 +51,8 @@ library LibProposing {
         ).getProver(state.numBlocks, state.feePerGas);
 
         // For now, if no prover is availab, the tx will simply revert.
-        if (prover == address(0)) {
+        // We also do not allow address(1) here.
+        if (prover == address(0) || prover == address(1)) {
             revert L1_NO_PROVER();
         }
 

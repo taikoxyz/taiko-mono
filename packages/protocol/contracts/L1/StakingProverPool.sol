@@ -280,7 +280,13 @@ contract StakingProverPool is IStakingProverPool, EssentialContract {
         // return blockIdToProver[blockId];
     }
 
-    function slashProver(address prover) external onlyProtocol {
+    function slashProver(
+        address prover,
+        uint32 rewardPerGas
+    )
+        external
+        onlyProtocol
+    {
         // Call comes from protocol - prover missed the deadline
         Prover memory slashedProver = provers[prover];
 
