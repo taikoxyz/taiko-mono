@@ -205,12 +205,17 @@ func (p *Processor) sendProcessMessageCall(
 		}
 	}
 
-	gasPrice, err := p.destEthClient.SuggestGasPrice(context.Background())
+	gasTipCap, err := p.destEthClient.SuggestGasTipCap(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "p.destBridge.SuggestGasPrice")
-	}
+		gasPrice, err := p.destEthClient.SuggestGasPrice(context.Background())
+		if err != nil {
+			return nil, errors.Wrap(err, "p.destBridge.SuggestGasPrice")
+		}
 
-	auth.GasPrice = gasPrice
+		auth.GasPrice = gasPrice
+	} else {
+		auth.GasTipCap = gasTipCap
+	}
 
 	if bool(p.profitableOnly) {
 		profitable, err := p.isProfitable(ctx, event.Message, cost)
