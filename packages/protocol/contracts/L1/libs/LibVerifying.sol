@@ -41,6 +41,7 @@ library LibVerifying {
     )
         internal
     {
+
         if (
             config.chainId <= 1 //
                 || config.blockMaxProposals == 1
@@ -49,17 +50,20 @@ library LibVerifying {
                 || config.blockMaxTxListBytes == 0
                 || config.blockTxListExpiry > 30 * 24 hours
                 || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
+                || config.proofRegularCooldown < config.proofOracleCooldown
+                || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0
                 || config.ethDepositMaxCountPerBlock
-                    < config.ethDepositMinCountPerBlock || config.ethDepositGas == 0 //
+                    < config.ethDepositMinCountPerBlock
                 || config.ethDepositMinAmount == 0
                 || config.ethDepositMaxAmount <= config.ethDepositMinAmount
                 || config.ethDepositMaxAmount >= type(uint96).max
+                || config.ethDepositGas == 0
                 || config.ethDepositMaxFee == 0
                 || config.ethDepositMaxFee >= type(uint96).max
                 || config.ethDepositMaxFee
                     >= type(uint96).max / config.ethDepositMaxCountPerBlock
-                || config.ethDepositRingBufferSize <= 1
+
         ) revert L1_INVALID_CONFIG();
 
         unchecked {

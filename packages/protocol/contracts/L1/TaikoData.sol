@@ -17,8 +17,8 @@ library TaikoData {
         // This number is calculated from blockMaxProposals to make
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 blockMaxVerificationsPerTx;
-        uint64 blockMaxGasLimit;
-        uint64 blockFeeBaseGas;
+        uint32 blockMaxGasLimit;
+        uint32 blockFeeBaseGas;
         uint64 blockMaxTransactions;
         uint64 blockMaxTxListBytes;
         uint256 blockTxListExpiry;
@@ -29,8 +29,8 @@ library TaikoData {
         uint256 ethDepositRingBufferSize;
         uint64 ethDepositMinCountPerBlock;
         uint64 ethDepositMaxCountPerBlock;
-        uint96 ethDepositMaxAmount;
         uint96 ethDepositMinAmount;
+        uint96 ethDepositMaxAmount;
         uint256 ethDepositGas;
         uint256 ethDepositMaxFee;
     }

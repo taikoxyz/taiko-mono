@@ -40,8 +40,8 @@ library TaikoConfig {
             ethDepositRingBufferSize: 1024,
             ethDepositMinCountPerBlock: 8,
             ethDepositMaxCountPerBlock: 32,
-            ethDepositMaxAmount: 10_000 ether,
             ethDepositMinAmount: 1 ether,
+            ethDepositMaxAmount: 10_000 ether,
             ethDepositGas: 21_000,
             ethDepositMaxFee: 1 ether / 10
         });
