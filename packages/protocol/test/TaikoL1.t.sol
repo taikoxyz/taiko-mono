@@ -22,11 +22,11 @@ contract TaikoL1_NoCooldown is TaikoL1 {
     {
         config = TaikoConfig.getConfig();
 
-        config.txListCacheExpiry = 5 minutes;
-        config.maxVerificationsPerTx = 0;
-        config.maxNumProposedBlocks = 10;
+        config.blockTxListExpiry = 5 minutes;
+        config.blockMaxVerificationsPerTx = 0;
+        config.blockMaxProposals = 10;
         config.blockRingBufferSize = 12;
-        config.proofCooldownPeriod = 0;
+        config.proofRegularCooldown = 0;
     }
 }
 
@@ -48,7 +48,7 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     /// @dev Test we can propose, prove, then verify more blocks than
-    /// 'maxNumProposedBlocks'
+    /// 'blockMaxProposals'
     function test_more_blocks_than_ring_buffer_size() external {
         depositTaikoToken(Alice, 1e8 * 1e8, 100 ether);
         depositTaikoToken(Bob, 1e8 * 1e8, 100 ether);
@@ -60,7 +60,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (
             uint256 blockId = 1;
-            blockId < conf.maxNumProposedBlocks * 10;
+            blockId < conf.blockMaxProposals * 10;
             blockId++
         ) {
             //printVariables("before propose");
@@ -134,9 +134,8 @@ contract TaikoL1Test is TaikoL1TestBase {
         uint32 parentGasUsed = 0;
         uint32 gasUsed = 1_000_000;
 
-        for (
-            uint256 blockId = 1; blockId <= conf.maxNumProposedBlocks; blockId++
-        ) {
+        for (uint256 blockId = 1; blockId <= conf.blockMaxProposals; blockId++)
+        {
             printVariables("before propose");
             TaikoData.BlockMetadata memory meta =
                 proposeBlock(Alice, 1_000_000, 1024);
@@ -159,9 +158,9 @@ contract TaikoL1Test is TaikoL1TestBase {
             parentGasUsed = gasUsed;
         }
 
-        verifyBlock(Alice, conf.maxNumProposedBlocks - 1);
+        verifyBlock(Alice, conf.blockMaxProposals - 1);
         printVariables("after verify");
-        verifyBlock(Alice, conf.maxNumProposedBlocks);
+        verifyBlock(Alice, conf.blockMaxProposals);
         printVariables("after verify");
     }
 

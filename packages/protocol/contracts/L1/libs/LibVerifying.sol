@@ -43,13 +43,12 @@ library LibVerifying {
     {
         if (
             config.chainId <= 1 //
-                || config.maxNumProposedBlocks == 1
-                || config.blockRingBufferSize <= config.maxNumProposedBlocks + 1
-                || config.blockMaxGasLimit == 0
-                || config.maxTransactionsPerBlock == 0
-                || config.maxBytesPerTxList == 0
-                || config.txListCacheExpiry > 30 * 24 hours
-                || config.maxBytesPerTxList > 128 * 1024 //blob up to 128K
+                || config.blockMaxProposals == 1
+                || config.blockRingBufferSize <= config.blockMaxProposals + 1
+                || config.blockMaxGasLimit == 0 || config.blockMaxTransactions == 0
+                || config.blockMaxTxListBytes == 0
+                || config.blockTxListExpiry > 30 * 24 hours
+                || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
                 || config.ethDepositMinCountPerBlock == 0
                 || config.ethDepositMaxCountPerBlock
                     < config.ethDepositMinCountPerBlock || config.ethDepositGas == 0 //
@@ -63,25 +62,26 @@ library LibVerifying {
                 || config.ethDepositRingBufferSize <= 1
         ) revert L1_INVALID_CONFIG();
 
-        uint64 timeNow = uint64(block.timestamp);
-        state.genesisHeight = uint64(block.number);
-        state.genesisTimestamp = timeNow;
+        unchecked {
+            uint64 timeNow = uint64(block.timestamp);
+            state.genesisHeight = uint64(block.number);
+            state.genesisTimestamp = timeNow;
 
-        state.lastVerifiedAt = uint64(block.timestamp);
-        state.feePerGas = initFeePerGas;
-        state.numBlocks = 1;
+            state.numBlocks = 1;
 
-        TaikoData.Block storage blk = state.blocks[0];
-        // blk.proposedAt = timeNow;
-        blk.nextForkChoiceId = 2;
-        blk.verifiedForkChoiceId = 1;
+            state.lastVerifiedAt = uint64(block.timestamp);
+            state.feePerGas = initFeePerGas;
+            state.avgProofDelay = initAvgProofDelay;
 
-        TaikoData.ForkChoice storage fc = state.blocks[0].forkChoices[1];
-        fc.blockHash = genesisBlockHash;
-        fc.provenAt = timeNow;
+            TaikoData.Block storage blk = state.blocks[0];
+            blk.nextForkChoiceId = 2;
+            blk.verifiedForkChoiceId = 1;
+            blk.proposedAt = timeNow;
 
-        state.avgProofDelay = initAvgProofDelay;
-
+            TaikoData.ForkChoice storage fc = state.blocks[0].forkChoices[1];
+            fc.blockHash = genesisBlockHash;
+            fc.provenAt = timeNow;
+        }
         emit BlockVerified(0, genesisBlockHash, 0);
     }
 
@@ -120,11 +120,11 @@ library LibVerifying {
 
             if (fc.prover == address(0)) break;
 
-            uint256 proofCooldownPeriod = fc.prover == address(1)
-                ? config.systemProofCooldownPeriod
-                : config.proofCooldownPeriod;
+            uint256 proofRegularCooldown = fc.prover == address(1)
+                ? config.proofOracleCooldown
+                : config.proofRegularCooldown;
 
-            if (block.timestamp < fc.provenAt + proofCooldownPeriod) break;
+            if (block.timestamp < fc.provenAt + proofRegularCooldown) break;
 
             blockHash = fc.blockHash;
             gasUsed = fc.gasUsed;

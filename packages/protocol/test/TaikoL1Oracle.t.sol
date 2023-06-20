@@ -23,11 +23,11 @@ contract TaikoL1Oracle is TaikoL1 {
     {
         config = TaikoConfig.getConfig();
 
-        config.txListCacheExpiry = 5 minutes;
-        config.maxVerificationsPerTx = 0;
-        config.maxNumProposedBlocks = 10;
+        config.blockTxListExpiry = 5 minutes;
+        config.blockMaxVerificationsPerTx = 0;
+        config.blockMaxProposals = 10;
         config.blockRingBufferSize = 12;
-        config.proofCooldownPeriod = 5 minutes;
+        config.proofRegularCooldown = 5 minutes;
     }
 }
 
@@ -108,7 +108,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         uint32 gasUsed = 1_000_000;
         for (
             uint256 blockId = 1;
-            blockId < conf.maxNumProposedBlocks * 10;
+            blockId < conf.blockMaxProposals * 10;
             blockId++
         ) {
             printVariables("before propose");
@@ -143,7 +143,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 signalRoot
             );
 
-            vm.warp(block.timestamp + conf.proofCooldownPeriod + 1);
+            vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
             uint256 lastVerifiedBlockId =
                 L1.getStateVariables().lastVerifiedBlockId;
 
@@ -168,7 +168,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 signalRoot
             );
 
-            vm.warp(block.timestamp + conf.proofCooldownPeriod + 1);
+            vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
 
             verifyBlock(Carol, 1);
 
@@ -193,7 +193,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         uint32 gasUsed = 1_000_000;
         for (
             uint256 blockId = 1;
-            blockId < conf.maxNumProposedBlocks * 10;
+            blockId < conf.blockMaxProposals * 10;
             blockId++
         ) {
             printVariables("before propose");
@@ -229,7 +229,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 signalRoot
             );
 
-            vm.warp(block.timestamp + conf.proofCooldownPeriod + 1);
+            vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
             uint256 lastVerifiedBlockId =
                 L1.getStateVariables().lastVerifiedBlockId;
 
@@ -255,7 +255,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     /// @notice In case oracle_prover is disbaled, there
     /// is no reason why
     /// @notice cooldowns be above 0 min tho (!).
-    function test_if_oracle_is_disabled_cooldown_is_still_as_proofCooldownPeriod(
+    function test_if_oracle_is_disabled_cooldown_is_still_as_proofRegularCooldown(
     )
         external
     {
@@ -271,7 +271,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
         for (
             uint256 blockId = 1;
-            blockId < conf.maxNumProposedBlocks * 10;
+            blockId < conf.blockMaxProposals * 10;
             blockId++
         ) {
             TaikoData.BlockMetadata memory meta =
@@ -338,7 +338,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
         for (
             uint256 blockId = 1;
-            blockId < conf.maxNumProposedBlocks * 10;
+            blockId < conf.blockMaxProposals * 10;
             blockId++
         ) {
             TaikoData.BlockMetadata memory meta =
@@ -423,7 +423,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
         for (
             uint256 blockId = 1;
-            blockId < conf.maxNumProposedBlocks * 10;
+            blockId < conf.blockMaxProposals * 10;
             blockId++
         ) {
             TaikoData.BlockMetadata memory meta =
@@ -448,8 +448,8 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             uint256 lastVerifiedBlockId =
                 L1.getStateVariables().lastVerifiedBlockId;
 
-            // Need to wait config.systemProofCooldownPeriod
-            vm.warp(block.timestamp + conf.systemProofCooldownPeriod);
+            // Need to wait config.proofOracleCooldown
+            vm.warp(block.timestamp + conf.proofOracleCooldown);
             verifyBlock(Carol, 1);
 
             // Check if shortly after proving (+verify) the last verify is not
@@ -482,7 +482,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
         for (
             uint256 blockId = 1;
-            blockId < conf.maxNumProposedBlocks * 10;
+            blockId < conf.blockMaxProposals * 10;
             blockId++
         ) {
             TaikoData.BlockMetadata memory meta =
@@ -557,7 +557,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
         for (
             uint256 blockId = 1;
-            blockId < conf.maxNumProposedBlocks * 10;
+            blockId < conf.blockMaxProposals * 10;
             blockId++
         ) {
             TaikoData.BlockMetadata memory meta =
@@ -603,7 +603,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             /// even if the system and oracle proofs are disbaled, which
             /// @notice: in such case best to set 0 mins (cause noone could
             /// overwrite a valid fk).
-            vm.warp(block.timestamp + conf.proofCooldownPeriod);
+            vm.warp(block.timestamp + conf.proofRegularCooldown);
             verifyBlock(Carol, 1);
 
             // Check if shortly after proving (+verify) the last verify is not

@@ -90,12 +90,12 @@ contract TaikoL1 is
             input: abi.decode(input, (TaikoData.BlockMetadataInput)),
             txList: txList
         });
-        if (config.maxVerificationsPerTx > 0) {
+        if (config.blockMaxVerificationsPerTx > 0) {
             LibVerifying.verifyBlocks({
                 state: state,
                 config: config,
                 resolver: AddressResolver(this),
-                maxBlocks: config.maxVerificationsPerTx
+                maxBlocks: config.blockMaxVerificationsPerTx
             });
         }
     }
@@ -122,12 +122,12 @@ contract TaikoL1 is
             blockId: blockId,
             evidence: abi.decode(input, (TaikoData.BlockEvidence))
         });
-        if (config.maxVerificationsPerTx > 0) {
+        if (config.blockMaxVerificationsPerTx > 0) {
             LibVerifying.verifyBlocks({
                 state: state,
                 config: config,
                 resolver: AddressResolver(this),
-                maxBlocks: config.maxVerificationsPerTx
+                maxBlocks: config.blockMaxVerificationsPerTx
             });
         }
     }

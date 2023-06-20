@@ -19,13 +19,14 @@ contract TestTaikoL1EnableTokenomics is TaikoL1 {
     {
         config.chainId = 167;
         // up to 2048 pending blocks
-        config.maxNumProposedBlocks = 6;
+        config.blockMaxProposals = 6;
         config.blockRingBufferSize = 8;
-        // This number is calculated from maxNumProposedBlocks to make
+        // This number is calculated from blockMaxProposals to make
         // the 'the maximum value of the multiplier' close to 20.0
-        config.maxVerificationsPerTx = 0; // dont verify blocks automatically
+        config.blockMaxVerificationsPerTx = 0; // dont verify blocks
+            // automatically
         config.blockMaxGasLimit = 30_000_000;
-        config.maxTransactionsPerBlock = 20;
-        config.maxBytesPerTxList = 120_000;
+        config.blockMaxTransactions = 20;
+        config.blockMaxTxListBytes = 120_000;
     }
 }

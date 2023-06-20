@@ -8,19 +8,24 @@ pragma solidity ^0.8.20;
 
 library TaikoData {
     struct Config {
+        // Group 1: general configs
         uint256 chainId;
-        uint256 maxNumProposedBlocks;
+        bool relaySignalRoot;
+        // Group 2: block level configs
+        uint256 blockMaxProposals;
         uint256 blockRingBufferSize;
-        // This number is calculated from maxNumProposedBlocks to make
+        // This number is calculated from blockMaxProposals to make
         // the 'the maximum value of the multiplier' close to 20.0
-        uint256 maxVerificationsPerTx;
+        uint256 blockMaxVerificationsPerTx;
         uint64 blockMaxGasLimit;
         uint64 blockFeeBaseGas;
-        uint64 maxTransactionsPerBlock;
-        uint64 maxBytesPerTxList;
-        uint256 txListCacheExpiry;
-        uint256 proofCooldownPeriod;
-        uint256 systemProofCooldownPeriod;
+        uint64 blockMaxTransactions;
+        uint64 blockMaxTxListBytes;
+        uint256 blockTxListExpiry;
+        // Group 3: proof related configs
+        uint256 proofRegularCooldown;
+        uint256 proofOracleCooldown;
+        // Group 4: eth deposit related configs
         uint256 ethDepositRingBufferSize;
         uint64 ethDepositMinCountPerBlock;
         uint64 ethDepositMaxCountPerBlock;
@@ -28,7 +33,6 @@ library TaikoData {
         uint96 ethDepositMinAmount;
         uint256 ethDepositGas;
         uint256 ethDepositMaxFee;
-        bool relaySignalRoot;
     }
 
     struct StateVariables {
@@ -150,10 +154,10 @@ library TaikoData {
         // Slot 9
         uint64 lastVerifiedAt;
         uint64 lastVerifiedBlockId;
+        uint64 __reserved90;
         uint32 feePerGas;
         uint16 avgProofDelay;
-        uint64 __reserved90;
         // Reserved
-        uint256[42] __gap; // TODO: update this
+        uint256[43] __gap; // TODO: update this
     }
 }

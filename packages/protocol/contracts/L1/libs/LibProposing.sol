@@ -179,7 +179,7 @@ library LibProposing {
 
         if (
             state.numBlocks
-                >= state.lastVerifiedBlockId + config.maxNumProposedBlocks + 1
+                >= state.lastVerifiedBlockId + config.blockMaxProposals + 1
         ) {
             revert L1_TOO_MANY_BLOCKS();
         }
@@ -188,13 +188,13 @@ library LibProposing {
         // handling txList
         {
             uint24 size = uint24(txList.length);
-            if (size > config.maxBytesPerTxList) revert L1_TX_LIST();
+            if (size > config.blockMaxTxListBytes) revert L1_TX_LIST();
 
             if (input.txListByteStart > input.txListByteEnd) {
                 revert L1_TX_LIST_RANGE();
             }
 
-            if (config.txListCacheExpiry == 0) {
+            if (config.blockTxListExpiry == 0) {
                 // caching is disabled
                 if (input.txListByteStart != 0 || input.txListByteEnd != size) {
                     revert L1_TX_LIST_RANGE();
@@ -212,7 +212,7 @@ library LibProposing {
 
                     if (
                         info.size == 0
-                            || info.validSince + config.txListCacheExpiry < timeNow
+                            || info.validSince + config.blockTxListExpiry < timeNow
                     ) {
                         revert L1_TX_LIST_NOT_EXIST();
                     }
