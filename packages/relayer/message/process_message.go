@@ -207,12 +207,16 @@ func (p *Processor) sendProcessMessageCall(
 
 	gasTipCap, err := p.destEthClient.SuggestGasTipCap(ctx)
 	if err != nil {
-		gasPrice, err := p.destEthClient.SuggestGasPrice(context.Background())
-		if err != nil {
-			return nil, errors.Wrap(err, "p.destBridge.SuggestGasPrice")
-		}
+		if IsMaxPriorityFeePerGasNotFoundError(err) {
+			auth.GasTipCap = FallbackGasTipCap
+		} else {
+			gasPrice, err := p.destEthClient.SuggestGasPrice(context.Background())
+			if err != nil {
+				return nil, errors.Wrap(err, "p.destBridge.SuggestGasPrice")
+			}
 
-		auth.GasPrice = gasPrice
+			auth.GasPrice = gasPrice
+		}
 	} else {
 		auth.GasTipCap = gasTipCap
 	}
