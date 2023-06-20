@@ -204,13 +204,16 @@ importers:
     dependencies:
       '@wagmi/core':
         specifier: ^1.2.0
-        version: 1.2.0(typescript@5.1.3)(viem@1.0.7)
+        version: 1.2.0(debug@4.3.4)(typescript@5.1.3)(viem@1.0.7)
       '@web3modal/ethereum':
         specifier: ^2.4.7
         version: 2.4.7(@wagmi/core@1.2.0)(viem@1.0.7)
       '@web3modal/html':
         specifier: ^2.4.7
         version: 2.4.7
+      debug:
+        specifier: ^4.3.4
+        version: 4.3.4
       viem:
         specifier: ^1.0.7
         version: 1.0.7(typescript@5.1.3)
@@ -6002,7 +6005,7 @@ packages:
       - utf-8-validate
     dev: false
 
-  /@wagmi/connectors@2.2.0(@wagmi/chains@1.1.0)(typescript@5.1.3)(viem@1.0.7):
+  /@wagmi/connectors@2.2.0(@wagmi/chains@1.1.0)(debug@4.3.4)(typescript@5.1.3)(viem@1.0.7):
     resolution: {integrity: sha512-pI1ed2V8dC8Gro0YbXrJedFj5U9HHD/zUe9MMUaV3ews2LY6qziSXZp9Dw6TKyiSJ5ANbRlZcl40AmSPozkZmw==}
     peerDependencies:
       '@wagmi/chains': '>=1.0.0'
@@ -6019,7 +6022,7 @@ packages:
       '@safe-global/safe-apps-provider': 0.15.2
       '@safe-global/safe-apps-sdk': 7.11.0
       '@wagmi/chains': 1.1.0(typescript@5.1.3)
-      '@walletconnect/ethereum-provider': 2.8.0(@walletconnect/modal@2.4.7)
+      '@walletconnect/ethereum-provider': 2.8.0(@walletconnect/modal@2.4.7)(debug@4.3.4)
       '@walletconnect/legacy-provider': 2.0.0
       '@walletconnect/modal': 2.4.7
       abitype: 0.8.7(typescript@5.1.3)
@@ -6133,7 +6136,7 @@ packages:
       - zod
     dev: false
 
-  /@wagmi/core@1.2.0(typescript@5.1.3)(viem@1.0.7):
+  /@wagmi/core@1.2.0(debug@4.3.4)(typescript@5.1.3)(viem@1.0.7):
     resolution: {integrity: sha512-7onf13u0atdXOnoitB+pivnIUPJman7Y8GITKkxwmcwJ3lpE1U/grYE7xHcKN7av7KEu0DozvKPhN7nJ/7OErw==}
     peerDependencies:
       typescript: '>=5.0.4'
@@ -6143,7 +6146,7 @@ packages:
         optional: true
     dependencies:
       '@wagmi/chains': 1.1.0(typescript@5.1.3)
-      '@wagmi/connectors': 2.2.0(@wagmi/chains@1.1.0)(typescript@5.1.3)(viem@1.0.7)
+      '@wagmi/connectors': 2.2.0(@wagmi/chains@1.1.0)(debug@4.3.4)(typescript@5.1.3)(viem@1.0.7)
       abitype: 0.8.7(typescript@5.1.3)
       eventemitter3: 4.0.7
       typescript: 5.1.3
@@ -6277,7 +6280,7 @@ packages:
       - encoding
       - utf-8-validate
 
-  /@walletconnect/ethereum-provider@2.8.0(@walletconnect/modal@2.4.7):
+  /@walletconnect/ethereum-provider@2.8.0(@walletconnect/modal@2.4.7)(debug@4.3.4):
     resolution: {integrity: sha512-nVVJtZUpoeurFjoEPYlrUHkT3YleCpEC9YAMKJyEIB3MZZInttcGxGyi0vwFQ+trCfuX8RrdKUPQ952NvxvCvw==}
     peerDependencies:
       '@walletconnect/modal': '>=2'
@@ -6292,7 +6295,7 @@ packages:
       '@walletconnect/modal': 2.4.7
       '@walletconnect/sign-client': 2.8.0
       '@walletconnect/types': 2.8.0
-      '@walletconnect/universal-provider': 2.8.0
+      '@walletconnect/universal-provider': 2.8.0(debug@4.3.4)
       '@walletconnect/utils': 2.8.0
       events: 3.3.0
     transitivePeerDependencies:
@@ -6610,7 +6613,7 @@ packages:
       - lokijs
     dev: false
 
-  /@walletconnect/universal-provider@2.8.0:
+  /@walletconnect/universal-provider@2.8.0(debug@4.3.4):
     resolution: {integrity: sha512-BMsGiINI3rT7DRyDJM7miuWG6vDVE0PV6zMcCXIMDYYPay7zFvJxv2VHEx9an4MutrvQR76NTRyG//i1K84VOQ==}
     dependencies:
       '@walletconnect/jsonrpc-http-connection': 1.0.7
@@ -6621,7 +6624,7 @@ packages:
       '@walletconnect/sign-client': 2.8.0
       '@walletconnect/types': 2.8.0
       '@walletconnect/utils': 2.8.0
-      eip1193-provider: 1.0.1
+      eip1193-provider: 1.0.1(debug@4.3.4)
       events: 3.3.0
     transitivePeerDependencies:
       - '@react-native-async-storage/async-storage'
@@ -6700,7 +6703,7 @@ packages:
       '@wagmi/core': '>=1'
       viem: '>=1'
     dependencies:
-      '@wagmi/core': 1.2.0(typescript@5.1.3)(viem@1.0.7)
+      '@wagmi/core': 1.2.0(debug@4.3.4)(typescript@5.1.3)(viem@1.0.7)
       viem: 1.0.7(typescript@5.1.3)
     dev: false
 

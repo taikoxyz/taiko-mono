@@ -43,6 +43,7 @@
     "@wagmi/core": "^1.2.0",
     "@web3modal/ethereum": "^2.4.7",
     "@web3modal/html": "^2.4.7",
+    "debug": "^4.3.4",
     "viem": "^1.0.7"
   }
 }
