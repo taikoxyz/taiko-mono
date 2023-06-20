@@ -14,6 +14,7 @@ contract ProverPoolImpl is EssentialContract {
     struct Staker {
         uint8 id; // [0-31]
         address prover;
+        uint64 exitTs;
         uint32 stakedAmount; // unit is 10^8, this means a max of
         // 429496729500000000 tokens, 2.3283%  of total supply
         uint16 rewardPerGas; // expected rewardPerGas
@@ -21,9 +22,9 @@ contract ProverPoolImpl is EssentialContract {
     }
 
     // Then we define a mapping from id => Staker
-    mapping(uint256 id => Staker) public stakers;
+    mapping(uint8 id => Staker) public stakers;
     // We need an address to id mapping
-    mapping(address prover => uint256 id) public proverToId;
+    mapping(address prover => uint8 id) public proverToId;
 
     // Keeping track of the 'lowest barrier to entry' by checking who is on the
     // bottom of the top32 list.
@@ -47,6 +48,8 @@ contract ProverPoolImpl is EssentialContract {
 
     Prover[32] public provers; // 32/4 = 8 slots
 
+    uint256 public constant EXIT_PERIOD = 1 weeks;
+
     uint256[100] private __gap;
 
     event ProverEntered(
@@ -63,6 +66,12 @@ contract ProverPoolImpl is EssentialContract {
     event ProverChangedExpectedReward(address prover, uint16 newReward);
 
     event ProverAdjustedCapacity(address prover, uint16 newCapacity);
+
+    event ProverExitRequested(address prover, uint64 timestamp);
+
+    event ProverExitRequestReverted(address prover, uint64 timestamp);
+
+    event ProverExited(address prover, uint64 timestamp);
 
     modifier onlyProtocol() {
         require(
@@ -112,9 +121,9 @@ contract ProverPoolImpl is EssentialContract {
         address prover = _msgSender();
         // The list of 32 is not full yet so kind of everybody can enter into
         // the pool
-        if (provers[31].stakedAmount == 0) {
+        if (_anyEmptyStakingSlots()) {
             stakers[currentIdIdx] = Staker(
-                currentIdIdx, prover, totalAmount, rewardPerGas, capacity
+                currentIdIdx, prover, 0, totalAmount, rewardPerGas, capacity
             );
             provers[currentIdIdx] = Prover(totalAmount, rewardPerGas);
             proverToId[prover] = currentIdIdx;
@@ -138,7 +147,7 @@ contract ProverPoolImpl is EssentialContract {
 
             // We need to overwrite it's place
             stakers[minimumStakerId] = Staker(
-                minimumStakerId, prover, totalAmount, rewardPerGas, capacity
+                minimumStakerId, prover, 0, totalAmount, rewardPerGas, capacity
             );
             provers[minimumStakerId] = Prover(totalAmount, rewardPerGas);
             proverToId[prover] = minimumStakerId;
@@ -160,6 +169,9 @@ contract ProverPoolImpl is EssentialContract {
 
         provers[proverToId[_msgSender()]].stakedAmount += amount;
         stakers[proverToId[_msgSender()]].stakedAmount += amount;
+
+        // Need to determine again who is the last / lowest staker
+        (minimumStakerId, minimumStake) = _determineLowestStaker();
 
         emit ProverStakedMoreTokens(
             _msgSender(), amount, provers[proverToId[_msgSender()]].stakedAmount
@@ -191,6 +203,52 @@ contract ProverPoolImpl is EssentialContract {
         emit ProverAdjustedCapacity(_msgSender(), newCapacity);
     }
 
+    // Can 'toggle' exit status
+    function setExitStatus(bool exitRequested)
+        external
+        onlyProver(_msgSender())
+    {
+        uint64 timestamp = uint64(block.timestamp);
+
+        if (exitRequested) {
+            stakers[proverToId[_msgSender()]].exitTs = timestamp;
+            emit ProverExitRequested(_msgSender(), timestamp);
+        } else if (
+            stakers[proverToId[_msgSender()]].exitTs + EXIT_PERIOD > timestamp
+        ) {
+            // Only allow to revert the exiting mechanism in case timestamp is
+            // within the range
+            stakers[proverToId[_msgSender()]].exitTs = 0;
+            emit ProverExitRequestReverted(_msgSender(), timestamp);
+        }
+    }
+
+    function exit() external onlyProver(_msgSender()) {
+        require(
+            stakers[proverToId[_msgSender()]].exitTs != 0
+                && stakers[proverToId[_msgSender()]].exitTs + EXIT_PERIOD
+                    < block.timestamp,
+            "Cannot yet exit"
+        );
+
+        // Reimburse rewards and staked TKO
+        TaikoToken(AddressResolver(this).resolve("taiko_token", false)).mint(
+            msg.sender, stakers[proverToId[_msgSender()]].stakedAmount
+        );
+
+        // Delete mappings and empty staker position in the array
+        delete provers[proverToId[_msgSender()]];
+        stakers[proverToId[_msgSender()]] =
+            Staker(proverToId[_msgSender()], address(0), 0, 0, 0, 0);
+
+        delete proverToId[_msgSender()];
+
+        // Need to determine again who is the last / lowest staker
+        (minimumStakerId, minimumStake) = _determineLowestStaker();
+
+        emit ProverExited(_msgSender(), uint64(block.timestamp));
+    }
+
     // A demo how to optimize the getProver by using only 8 slots. It's still
     // a lot of slots tough.
     function getProver(
@@ -216,7 +274,7 @@ contract ProverPoolImpl is EssentialContract {
 
         // Determine prover idx
         uint256 rand = uint256(blockhash(block.number - 1));
-        uint256 proverIdx = _pickProverIdx(weights, totalWeight, rand);
+        uint8 proverIdx = _pickProverIdx(weights, totalWeight, rand);
 
         Staker memory proverData = stakers[proverIdx];
 
@@ -262,6 +320,17 @@ contract ProverPoolImpl is EssentialContract {
         }
     }
 
+    // Determine the minimum required TKO to be in the pool
+    function lowestStakedAmountToEnter()
+        external
+        view
+        returns (uint32 minStakeRequired)
+    {
+        (, minStakeRequired) = _determineLowestStaker();
+
+        return (minStakeRequired + 1);
+    }
+
     // The weight is dynamic based on fee per gas.
     function _calcWeight(
         Prover memory prover,
@@ -282,7 +351,7 @@ contract ProverPoolImpl is EssentialContract {
     function _determineLowestStaker()
         private
         view
-        returns (uint8 stakerId, uint256 minStake)
+        returns (uint8 stakerId, uint32 minStake)
     {
         Prover[32] memory mProvers = provers;
         stakerId = 0;
@@ -293,6 +362,16 @@ contract ProverPoolImpl is EssentialContract {
             if (mProvers[i].stakedAmount < minStake) {
                 stakerId = i;
                 minStake = mProvers[i].stakedAmount;
+            }
+        }
+    }
+
+    // Determine if there are any empty staking slots
+    function _anyEmptyStakingSlots() private view returns (bool result) {
+        // Find the index to insert the new staker based on their balance
+        for (uint8 i = 0; i < provers.length; i++) {
+            if (provers[i].stakedAmount == 0) {
+                return true;
             }
         }
     }
