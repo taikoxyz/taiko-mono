@@ -5,17 +5,17 @@
 
 pragma solidity ^0.8.20;
 
-import { AddressResolver } from "../common/AddressResolver.sol";
-import { EssentialContract } from "../common/EssentialContract.sol";
-import { TaikoToken } from "./TaikoToken.sol";
-import { Proxied } from "../common/Proxied.sol";
+import {AddressResolver} from "../common/AddressResolver.sol";
+import {EssentialContract} from "../common/EssentialContract.sol";
+import {TaikoToken} from "./TaikoToken.sol";
+import {Proxied} from "../common/Proxied.sol";
 
 contract ProverPoolImpl is EssentialContract {
     struct Staker {
         uint8 id; // [0-31]
         address prover;
         uint32 stakedAmount; // unit is 10^8, this means a max of
-            // 429496729500000000 tokens, 2.3283%  of total supply
+        // 429496729500000000 tokens, 2.3283%  of total supply
         uint16 rewardPerGas; // expected rewardPerGas
         uint16 capacity; // maximum capacity (parallel blocks)
     }
@@ -28,7 +28,7 @@ contract ProverPoolImpl is EssentialContract {
     // Keeping track of the 'lowest barrier to entry' by checking who is on the
     // bottom of the top32 list.
     // Top32: Pure staked TKO based !
-    uint256 minimumStake;
+    uint256 public minimumStake;
     uint8 minimumStakerId;
     uint8 currentIdIdx;
 
@@ -98,10 +98,7 @@ contract ProverPoolImpl is EssentialContract {
         address prover, // This can be a 'delegate' so not using msg.sender
         uint16 rewardPerGas,
         uint16 capacity
-    )
-        external
-        nonReentrant
-    {
+    ) external nonReentrant {
         // Cannot enter the pool below the minimum
         require(minimumStake < totalAmount, "Cannot enter below minimum");
         require(rewardPerGas > 0, "Cannot be less than 1");
@@ -110,7 +107,11 @@ contract ProverPoolImpl is EssentialContract {
         // the pool
         if (provers[31].stakedAmount == 0) {
             stakers[currentIdIdx] = Staker(
-                currentIdIdx, prover, totalAmount, rewardPerGas, capacity
+                currentIdIdx,
+                prover,
+                totalAmount,
+                rewardPerGas,
+                capacity
             );
             provers[currentIdIdx] = Prover(totalAmount, rewardPerGas);
             proverToId[prover] = currentIdIdx;
@@ -130,11 +131,15 @@ contract ProverPoolImpl is EssentialContract {
         } else {
             // List is full, we need to check which position we need to put them
             // into
-            (minimumStakerId,) = _determineLowestStaker();
+            (minimumStakerId, ) = _determineLowestStaker();
 
             // We need to overwrite it's place
             stakers[minimumStakerId] = Staker(
-                minimumStakerId, prover, totalAmount, rewardPerGas, capacity
+                minimumStakerId,
+                prover,
+                totalAmount,
+                rewardPerGas,
+                capacity
             );
             provers[minimumStakerId] = Prover(totalAmount, rewardPerGas);
             proverToId[prover] = minimumStakerId;
@@ -144,7 +149,8 @@ contract ProverPoolImpl is EssentialContract {
         }
 
         TaikoToken(AddressResolver(this).resolve("taiko_token", false)).burn(
-            prover, totalAmount
+            prover,
+            totalAmount
         );
 
         emit ProverEntered(prover, totalAmount, rewardPerGas, capacity);
@@ -155,10 +161,7 @@ contract ProverPoolImpl is EssentialContract {
         address prover, // This can be a 'delegate' so not using msg.sender
         uint16 rewardPerGas,
         uint16 capacity
-    )
-        external
-        onlyProver(prover)
-    {
+    ) external onlyProver(prover) {
         // Cannot enter the pool below the minimum - we are not allowing the
         // minium staker to lower it's position
         require(minimumStake < newTotalAmount, "Cannot enter below minimum");
@@ -169,19 +172,21 @@ contract ProverPoolImpl is EssentialContract {
         if (mStaker.stakedAmount > newTotalAmount) {
             // Lowered position, so basically we just need to burn some tokens
             // for him/her
-            TaikoToken(AddressResolver(this).resolve("taiko_token", false)).mint(
-                prover, mStaker.stakedAmount - newTotalAmount
-            );
+            TaikoToken(AddressResolver(this).resolve("taiko_token", false))
+                .mint(prover, mStaker.stakedAmount - newTotalAmount);
         } else if (mStaker.stakedAmount < newTotalAmount) {
             // Otherwise it raised it's stake, so burn more tokens from it's
             // balance
-            TaikoToken(AddressResolver(this).resolve("taiko_token", false)).burn(
-                prover, newTotalAmount - mStaker.stakedAmount
-            );
+            TaikoToken(AddressResolver(this).resolve("taiko_token", false))
+                .burn(prover, newTotalAmount - mStaker.stakedAmount);
         }
 
         stakers[proverToId[prover]] = Staker(
-            minimumStakerId, prover, newTotalAmount, rewardPerGas, capacity
+            minimumStakerId,
+            prover,
+            newTotalAmount,
+            rewardPerGas,
+            capacity
         );
         provers[proverToId[prover]] = Prover(newTotalAmount, rewardPerGas);
 
@@ -196,10 +201,7 @@ contract ProverPoolImpl is EssentialContract {
     function getProver(
         uint32 currentFeePerGas,
         uint256 rand
-    )
-        external
-        returns (address prover, uint32 rewardPerGas)
-    {
+    ) external returns (address prover, uint32 rewardPerGas) {
         // readjust each prover's rate
         uint256[32] memory weights;
         uint256 totalWeight;
@@ -227,7 +229,9 @@ contract ProverPoolImpl is EssentialContract {
                 uint256(
                     keccak256(
                         abi.encodePacked(
-                            currentFeePerGas, block.timestamp, rand
+                            currentFeePerGas,
+                            block.timestamp,
+                            rand
                         )
                     )
                 )
@@ -254,8 +258,8 @@ contract ProverPoolImpl is EssentialContract {
     // Increases the capacity of the prover
     function releaseResource(address prover) external onlyProtocol {
         if (
-            stakers[proverToId[prover]].prover != address(0)
-                && stakers[proverToId[prover]].capacity < type(uint16).max
+            stakers[proverToId[prover]].prover != address(0) &&
+            stakers[proverToId[prover]].capacity < type(uint16).max
         ) {
             stakers[proverToId[prover]].capacity++;
         }
@@ -265,15 +269,15 @@ contract ProverPoolImpl is EssentialContract {
     function _calcWeight(
         Prover memory prover,
         uint32 currentFeePerGas
-    )
-        private
-        pure
-        returns (uint256)
-    {
+    ) private pure returns (uint256) {
         // Just a demo that the weight depends on the current fee per gas,
         // the prover's expected fee per gas, as well as the staking amount
-        return uint256(prover.stakedAmount) * currentFeePerGas
-            * currentFeePerGas / prover.rewardPerGas / prover.rewardPerGas;
+        return
+            (uint256(prover.stakedAmount) *
+                currentFeePerGas *
+                currentFeePerGas) /
+            prover.rewardPerGas /
+            prover.rewardPerGas;
     }
 
     // Determine staker with the least amount of token staked
@@ -300,11 +304,7 @@ contract ProverPoolImpl is EssentialContract {
         uint256[32] memory weights,
         uint256 totalWeight,
         uint256 rand
-    )
-        private
-        pure
-        returns (uint8 i)
-    {
+    ) private pure returns (uint8 i) {
         uint256 r = rand % totalWeight;
         uint256 z;
         while (z < r && i < 32) {
@@ -313,4 +313,4 @@ contract ProverPoolImpl is EssentialContract {
     }
 }
 
-contract ProxiedStakingProverPool is Proxied, ProverPoolImpl { }
+contract ProxiedStakingProverPool is Proxied, ProverPoolImpl {}
