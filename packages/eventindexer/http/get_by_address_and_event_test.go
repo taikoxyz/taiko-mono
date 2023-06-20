@@ -39,14 +39,14 @@ func Test_GetByAddressAndEvent(t *testing.T) {
 			"0xhasntProposedAnything",
 			eventindexer.EventNameBlockProposed,
 			http.StatusOK,
-			[]string{`{"events":`},
+			[]string{`{"items":`},
 		},
 		{
 			"success",
 			"0x123",
 			eventindexer.EventNameBlockProposed,
 			http.StatusOK,
-			[]string{`{"events":`},
+			[]string{`{"items":`},
 		},
 	}
 

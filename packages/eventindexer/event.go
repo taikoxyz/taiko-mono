@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"math/big"
+	"net/http"
 
+	"github.com/morkid/paginate"
 	"gorm.io/datatypes"
 )
 
@@ -67,7 +69,8 @@ type EventRepository interface {
 	GetCountByAddressAndEventName(ctx context.Context, address string, event string) (int, error)
 	GetByAddressAndEventName(
 		ctx context.Context,
+		req *http.Request,
 		address string,
 		event string,
-	) ([]*Event, error)
+	) (paginate.Page, error)
 }
