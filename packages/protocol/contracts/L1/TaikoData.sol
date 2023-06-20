@@ -48,7 +48,7 @@ library TaikoData {
         uint32 gasLimit;
         uint24 txListByteStart; // byte-wise start index (inclusive)
         uint24 txListByteEnd; // byte-wise end index (exclusive)
-        uint8 cacheTxListInfo; // non-zero = True
+        bool cacheTxListInfo;
     }
 
     // Changing this struct requires changing LibUtils.hashMetadata accordingly.
@@ -93,27 +93,25 @@ library TaikoData {
 
     // 5 slots
     struct Block {
-        // ForkChoice storage are reusable
+        // slot 1: ForkChoice storage are reusable
         mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
+        // slot 2
         bytes32 metaHash;
-        // one slot (0 bytes available)
+        // slot 3: (14 bytes available)
         uint64 blockId;
-        uint64 proposedAt;
-        uint32 feePerGas;
         uint32 gasLimit;
         uint24 nextForkChoiceId;
         uint24 verifiedForkChoiceId;
-        // one slot (12 bytes available)
+        // slot 4
         address proposer;
-        // one slot (12 bytes available)
-        address prover; // (daniel): Remove this, this is part of the
-            // evidence...
-        uint16 proofWindow;
+        uint32 feePerGas;
+        uint64 proposedAt;
+        // slot 5
+        address prover;
         uint32 rewardPerGas;
+        uint64 proofWindow;
     }
-    // daniel: add discount here as well?
 
-    // This struct takes 9 slots.
     struct TxListInfo {
         uint64 validSince;
         uint24 size;

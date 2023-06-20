@@ -72,7 +72,7 @@ library LibVerifying {
         state.numBlocks = 1;
 
         TaikoData.Block storage blk = state.blocks[0];
-        blk.proposedAt = timeNow;
+        // blk.proposedAt = timeNow;
         blk.nextForkChoiceId = 2;
         blk.verifiedForkChoiceId = 1;
 

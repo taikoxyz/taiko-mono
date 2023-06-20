@@ -7,8 +7,7 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { IERC20Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import { IMintableERC20 } from "../../common/IMintableERC20.sol";
 import { IProverPool } from "../IStakingProverPool.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibEthDepositing } from "./LibEthDepositing.sol";
@@ -19,18 +18,17 @@ import { SafeCastUpgradeable } from
 import { TaikoData } from "../TaikoData.sol";
 
 library LibProposing {
-    using SafeCastUpgradeable for uint256;
     using LibAddress for address;
     using LibAddress for address payable;
     using LibUtils for TaikoData.State;
+    using SafeCastUpgradeable for uint256;
 
-    event BlockProposed(
-        uint256 indexed id, TaikoData.BlockMetadata meta, uint64 blockFee
-    );
+    event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
     error L1_BLOCK_ID();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
+    error L1_NO_PROVER();
     error L1_TOO_MANY_BLOCKS();
     error L1_TX_LIST_NOT_EXIST();
     error L1_TX_LIST_HASH();
@@ -47,26 +45,50 @@ library LibProposing {
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
-        uint8 cacheTxListInfo = _validateBlock({
-            state: state,
-            config: config,
-            input: input,
-            txList: txList
-        });
+        // Try to select a prover first to revert as earlier as possible
+        (address prover, uint32 rewardPerGas) = IProverPool(
+            resolver.resolve("prover_pool", false)
+        ).getProver(state.numBlocks, state.feePerGas);
 
-        if (cacheTxListInfo != 0) {
-            state.txListInfo[input.txListHash] = TaikoData.TxListInfo({
-                validSince: uint64(block.timestamp),
-                size: uint24(txList.length)
-            });
+        // For now, if no prover is availab, the tx will simply revert.
+        if (prover == address(0)) {
+            revert L1_NO_PROVER();
         }
 
-        // After The Merge, L1 mixHash contains the prevrandao
-        // from the beacon chain. Since multiple Taiko blocks
-        // can be proposed in one Ethereum block, we need to
-        // add salt to this random number as L2 mixHash
+        {
+            // Validate block input then cache txList info if requested
+            bool cacheTxListInfo = _validateBlock({
+                state: state,
+                config: config,
+                input: input,
+                txList: txList
+            });
 
+            if (cacheTxListInfo) {
+                unchecked {
+                    state.txListInfo[input.txListHash] = TaikoData.TxListInfo({
+                        validSince: uint64(block.timestamp),
+                        size: uint24(txList.length)
+                    });
+                }
+            }
+        }
+
+        // Init the metadata
         meta.id = state.numBlocks;
+
+        unchecked {
+            meta.timestamp = uint64(block.timestamp);
+            meta.l1Height = uint64(block.number - 1);
+            meta.l1Hash = blockhash(block.number - 1);
+
+            // After The Merge, L1 mixHash contains the prevrandao
+            // from the beacon chain. Since multiple Taiko blocks
+            // can be proposed in one Ethereum block, we need to
+            // add salt to this random number as L2 mixHash
+            meta.mixHash = bytes32(block.difficulty * state.numBlocks);
+        }
+
         meta.txListHash = input.txListHash;
         meta.txListByteStart = input.txListByteStart;
         meta.txListByteEnd = input.txListByteEnd;
@@ -76,43 +98,30 @@ library LibProposing {
         meta.depositsProcessed =
             LibEthDepositing.processDeposits(state, config, input.beneficiary);
 
-        unchecked {
-            meta.timestamp = uint64(block.timestamp);
-            meta.l1Height = uint64(block.number - 1);
-            meta.l1Hash = blockhash(block.number - 1);
-            meta.mixHash = bytes32(block.difficulty * state.numBlocks);
-        }
-
+        // Init the block
         TaikoData.Block storage blk =
             state.blocks[state.numBlocks % config.blockRingBufferSize];
 
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.blockId = state.numBlocks;
-        blk.proposedAt = meta.timestamp;
-        blk.feePerGas = state.feePerGas;
         blk.gasLimit = meta.gasLimit;
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = 0;
+
         blk.proposer = msg.sender;
-        (blk.prover,blk.rewardPerGas) = IProverPool(resolver.resolve("prover_pool", false))
-            .getProver(blk.blockId);
+        blk.feePerGas = state.feePerGas;
+        blk.proposedAt = meta.timestamp;
 
-        if (blk.prover != address(0)) {
-            // TODO(daniel): use a constant to replace 2, also use a cap the
-            // value.
-            blk.proofWindow = state.avgProofDelay * 2;
-        }
+        blk.prover = prover;
+        blk.rewardPerGas = rewardPerGas;
+        blk.proofWindow = state.avgProofDelay * 2;
 
-        // TODO: need to charge more tokens
-        uint64 blockFee = getBlockFee(state, config, meta.gasLimit);
-
-        IERC20Upgradeable(resolver.resolve("taiko_token", false)).transferFrom({
+        IMintableERC20(resolver.resolve("taiko_token", false)).burn({
             from: msg.sender,
-            to: address(this),
-            amount: blockFee
+            amount: getBlockFee(state, config, meta.gasLimit)
         });
 
-        emit BlockProposed(state.numBlocks, meta, blockFee);
+        emit BlockProposed(state.numBlocks, meta);
 
         unchecked {
             ++state.numBlocks;
@@ -158,7 +167,7 @@ library LibProposing {
     )
         private
         view
-        returns (uint8 cacheTxListInfo)
+        returns (bool cacheTxListInfo)
     {
         if (
             input.beneficiary == address(0)

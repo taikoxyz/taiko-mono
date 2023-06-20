@@ -171,6 +171,7 @@ contract TaikoL1 is
         });
     }
 
+    // TODO(dani): we need to return all fields from struct Block.
     function getBlock(uint256 blockId)
         public
         view

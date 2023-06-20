@@ -11,9 +11,7 @@ import { TaikoData } from "./TaikoData.sol";
 abstract contract TaikoEvents {
     // The following events must match the definitions in corresponding L1
     // libraries.
-    event BlockProposed(
-        uint256 indexed id, TaikoData.BlockMetadata meta, uint64 blockFee
-    );
+    event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
     event BlockProven(
         uint256 indexed id,

@@ -23,6 +23,7 @@ abstract contract TaikoErrors {
     error L1_INVALID_PARAM();
     error L1_INVALID_PROOF();
     error L1_INVALID_PROOF_OVERWRITE();
+    error L1_NO_PROVER();
     error L1_NOT_PROVEABLE();
     error L1_NOT_BETTER_BID();
     error L1_NOT_SPECIAL_PROVER();
