@@ -43,7 +43,9 @@ library TaikoConfig {
             ethDepositMinAmount: 1 ether,
             ethDepositMaxAmount: 10_000 ether,
             ethDepositGas: 21_000,
-            ethDepositMaxFee: 1 ether / 10
-        });
+            ethDepositMaxFee: 1 ether / 10,
+            // Group 5: tokenomics
+            rewardPerGasRange: 1000 // 10%
+         });
     }
 }

@@ -60,6 +60,8 @@ library LibVerifying {
                 || config.ethDepositMaxFee >= type(uint96).max
                 || config.ethDepositMaxFee
                     >= type(uint96).max / config.ethDepositMaxCountPerBlock
+                || config.rewardPerGasRange == 0
+                || config.rewardPerGasRange >= 10_000
         ) revert L1_INVALID_CONFIG();
 
         unchecked {
@@ -208,8 +210,8 @@ library LibVerifying {
                 state.avgProofDelay = uint16(
                     LibUtils.movingAverage({
                         maValue: state.avgProofDelay,
-                        // TODO:  provers dontt have the will to submit
-                        // proofs ASAP.
+                        // TODO:  prover is not incentivized to submit proof
+                        // ASAP
                         newValue: fc.provenAt - blk.proposedAt,
                         maf: 7200
                     })
@@ -218,7 +220,7 @@ library LibVerifying {
                 state.feePerGas = uint32(
                     LibUtils.movingAverage({
                         maValue: state.feePerGas,
-                        newValue: blk.feePerGas,
+                        newValue: blk.rewardPerGas,
                         maf: 7200
                     })
                 );

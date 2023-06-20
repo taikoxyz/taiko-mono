@@ -6,6 +6,7 @@
 
 pragma solidity ^0.8.20;
 
+import { LibMath } from "../../libs/LibMath.sol";
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { IMintableERC20 } from "../../common/IMintableERC20.sol";
 import { IProverPool } from "../IStakingProverPool.sol";
@@ -20,6 +21,7 @@ import { TaikoData } from "../TaikoData.sol";
 library LibProposing {
     using LibAddress for address;
     using LibAddress for address payable;
+    using LibMath for uint256;
     using LibUtils for TaikoData.State;
     using SafeCastUpgradeable for uint256;
 
@@ -114,8 +116,23 @@ library LibProposing {
         blk.proposedAt = meta.timestamp;
 
         blk.prover = prover;
-        blk.rewardPerGas = rewardPerGas;
         blk.proofWindow = state.avgProofDelay * 2;
+
+        // Cap the reward to a range of [95%, 105%] * blk.feePerGas, if
+        // rewardPerGasRange is set to 5% (500 bp)
+        unchecked {
+            uint256 maxRewardPerGas = (
+                uint256(blk.feePerGas) * (10_000 + config.rewardPerGasRange)
+                    / 10_000
+            ).max(type(uint32).max);
+
+            uint256 minRewardPerGas = uint256(blk.feePerGas)
+                * (10_000 - config.rewardPerGasRange) / 10_000;
+
+            blk.rewardPerGas = uint32(
+                uint256(rewardPerGas).min(maxRewardPerGas).max(minRewardPerGas)
+            );
+        }
 
         IMintableERC20(resolver.resolve("taiko_token", false)).burn({
             from: msg.sender,

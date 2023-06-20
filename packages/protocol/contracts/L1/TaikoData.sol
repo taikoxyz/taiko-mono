@@ -33,6 +33,8 @@ library TaikoData {
         uint96 ethDepositMaxAmount;
         uint256 ethDepositGas;
         uint256 ethDepositMaxFee;
+        // Group 5: tokenomics
+        uint32 rewardPerGasRange;
     }
 
     struct StateVariables {
