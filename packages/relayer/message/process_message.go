@@ -100,7 +100,7 @@ func (p *Processor) ProcessMessage(
 
 	relayer.EventsProcessed.Inc()
 
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
 
 	defer cancel()
 
