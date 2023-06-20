@@ -49,6 +49,8 @@ contract ProverPoolImpl is EssentialContract {
     Prover[32] public provers; // 32/4 = 8 slots
 
     uint256 public constant EXIT_PERIOD = 1 weeks;
+    uint256 public constant SLASH_AMOUNT_IN_BP = 500; // means 5% if 10_000 is
+        // 100%
 
     uint256[100] private __gap;
 
@@ -72,6 +74,8 @@ contract ProverPoolImpl is EssentialContract {
     event ProverExitRequestReverted(address prover, uint64 timestamp);
 
     event ProverExited(address prover, uint64 timestamp);
+
+    event ProverSlashed(address prover, uint32 newBalance);
 
     modifier onlyProtocol() {
         require(
@@ -249,6 +253,22 @@ contract ProverPoolImpl is EssentialContract {
         emit ProverExited(_msgSender(), uint64(block.timestamp));
     }
 
+    function slashProver(address prover)
+        external
+        onlyProtocol
+        onlyProver(prover)
+    {
+        uint32 currentStaked = provers[proverToId[_msgSender()]].stakedAmount;
+        uint32 afterSlash = uint32(
+            currentStaked * uint256(10_000 - SLASH_AMOUNT_IN_BP) / 10_000
+        );
+
+        provers[proverToId[_msgSender()]].stakedAmount = afterSlash;
+        stakers[proverToId[_msgSender()]].stakedAmount = afterSlash;
+
+        emit ProverSlashed(prover, afterSlash);
+    }
+
     // A demo how to optimize the getProver by using only 8 slots. It's still
     // a lot of slots tough.
     function getProver(
@@ -261,9 +281,9 @@ contract ProverPoolImpl is EssentialContract {
         // readjust each prover's rate
         uint256[32] memory weights;
         uint256 totalWeight;
-        uint256 i;
+        uint8 i;
         for (; i < provers.length; ++i) {
-            weights[i] = _calcWeight(provers[i], currentFeePerGas);
+            weights[i] = _calcWeight(i, provers[i], currentFeePerGas);
             if (weights[i] == 0) break;
             totalWeight += weights[i];
         }
@@ -274,13 +294,13 @@ contract ProverPoolImpl is EssentialContract {
 
         // Determine prover idx
         uint256 rand = uint256(blockhash(block.number - 1));
-        uint8 proverIdx = _pickProverIdx(weights, totalWeight, rand);
+        uint8 proverIdx = _pickRandomProverIdx(weights, totalWeight, rand);
 
         Staker memory proverData = stakers[proverIdx];
 
         // If prover's capacity is at it's full, pick another one
         if (stakers[proverIdx].capacity == 0) {
-            proverIdx = _pickProverIdx(
+            proverIdx = _pickRandomProverIdx(
                 weights,
                 totalWeight,
                 uint256(
@@ -333,13 +353,18 @@ contract ProverPoolImpl is EssentialContract {
 
     // The weight is dynamic based on fee per gas.
     function _calcWeight(
+        uint8 proverIdx,
         Prover memory prover,
         uint32 currentFeePerGas
     )
         private
-        pure
+        view
         returns (uint256)
     {
+        // If staker requested an exit, set his/her weight to 0
+        if (stakers[proverIdx].exitTs != 0) {
+            return 0;
+        }
         // Just a demo that the weight depends on the current fee per gas,
         // the prover's expected fee per gas, as well as the staking amount
         return (
@@ -377,7 +402,7 @@ contract ProverPoolImpl is EssentialContract {
     }
 
     // Pick a random prover
-    function _pickProverIdx(
+    function _pickRandomProverIdx(
         uint256[32] memory weights,
         uint256 totalWeight,
         uint256 rand
