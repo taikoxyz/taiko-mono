@@ -41,7 +41,6 @@ library LibVerifying {
     )
         internal
     {
-
         if (
             config.chainId <= 1 //
                 || config.blockMaxProposals == 1
@@ -67,25 +66,29 @@ library LibVerifying {
         ) revert L1_INVALID_CONFIG();
 
         unchecked {
+
             uint64 timeNow = uint64(block.timestamp);
+
+            // Init state
             state.genesisHeight = uint64(block.number);
             state.genesisTimestamp = timeNow;
-
             state.numBlocks = 1;
-
             state.lastVerifiedAt = uint64(block.timestamp);
             state.feePerGas = initFeePerGas;
             state.avgProofDelay = initAvgProofDelay;
 
+            // Init the genesis block
             TaikoData.Block storage blk = state.blocks[0];
             blk.nextForkChoiceId = 2;
             blk.verifiedForkChoiceId = 1;
             blk.proposedAt = timeNow;
 
+            // Init the first fork choice
             TaikoData.ForkChoice storage fc = state.blocks[0].forkChoices[1];
             fc.blockHash = genesisBlockHash;
             fc.provenAt = timeNow;
         }
+
         emit BlockVerified(0, genesisBlockHash, 0);
     }
 
@@ -101,8 +104,9 @@ library LibVerifying {
         TaikoData.Block storage blk =
             state.blocks[i % config.blockRingBufferSize];
 
-        uint256 fcId = blk.verifiedForkChoiceId;
-        // assert(fcId > 0);
+        uint24 fcId = blk.verifiedForkChoiceId;
+        assert(fcId > 0);
+
         bytes32 blockHash = blk.forkChoices[fcId].blockHash;
         uint32 gasUsed = blk.forkChoices[fcId].gasUsed;
         bytes32 signalRoot;
@@ -128,7 +132,7 @@ library LibVerifying {
                 ? config.proofOracleCooldown
                 : config.proofRegularCooldown;
 
-            if (block.timestamp < fc.provenAt + proofRegularCooldown) break;
+            if (block.timestamp <= fc.provenAt + proofRegularCooldown) break;
 
             blockHash = fc.blockHash;
             gasUsed = fc.gasUsed;
@@ -139,7 +143,7 @@ library LibVerifying {
                 config: config,
                 resolver: resolver,
                 blk: blk,
-                fcId: uint24(fcId),
+                fcId: fcId,
                 fc: fc
             });
 

@@ -134,7 +134,7 @@ library TaikoData {
             uint256 blockId
                 => mapping(
                     bytes32 parentHash
-                        => mapping(uint32 parentGasUsed => uint256 forkChoiceId)
+                        => mapping(uint32 parentGasUsed => uint24 forkChoiceId)
                 )
             ) forkChoiceIds;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
