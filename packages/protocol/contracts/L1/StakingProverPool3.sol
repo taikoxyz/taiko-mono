@@ -21,9 +21,9 @@ contract ProverPoolImpl is EssentialContract {
     }
 
     // Then we define a mapping from id => Staker
-    mapping(uint256 id => Staker) stakers;
+    mapping(uint256 id => Staker) public stakers;
     // We need an address to id mapping
-    mapping(address prover => uint256 id) proverToId;
+    mapping(address prover => uint256 id) public proverToId;
 
     // Keeping track of the 'lowest barrier to entry' by checking who is on the
     // bottom of the top32 list.
@@ -52,15 +52,17 @@ contract ProverPoolImpl is EssentialContract {
     event ProverEntered(
         address prover,
         uint32 stakedAmount,
-        uint256 rewardPerGas,
+        uint16 rewardPerGas,
         uint16 capacity
     );
-    event ProverModified(
-        address prover,
-        uint32 newStakedAmount,
-        uint256 newRewardPerGas,
-        uint16 newCapacity
+
+    event ProverStakedMoreTokens(
+        address prover, uint32 amount, uint32 totalStaked
     );
+
+    event ProverChangedExpectedReward(address prover, uint16 newReward);
+
+    event ProverAdjustedCapacity(address prover, uint16 newCapacity);
 
     modifier onlyProtocol() {
         require(
@@ -95,7 +97,6 @@ contract ProverPoolImpl is EssentialContract {
     // modification in a separate function
     function stake(
         uint32 totalAmount,
-        address prover, // This can be a 'delegate' so not using msg.sender
         uint16 rewardPerGas,
         uint16 capacity
     )
@@ -105,7 +106,10 @@ contract ProverPoolImpl is EssentialContract {
         // Cannot enter the pool below the minimum
         require(minimumStake < totalAmount, "Cannot enter below minimum");
         require(rewardPerGas > 0, "Cannot be less than 1");
-
+        // Prover shall always be sender and in case of
+        // lending/cooperation/delegate
+        // it shall be done off-chain or at least outside of this pool contract.
+        address prover = _msgSender();
         // The list of 32 is not full yet so kind of everybody can enter into
         // the pool
         if (provers[31].stakedAmount == 0) {
@@ -150,45 +154,41 @@ contract ProverPoolImpl is EssentialContract {
         emit ProverEntered(prover, totalAmount, rewardPerGas, capacity);
     }
 
-    function stakePositionAdjustments(
-        uint32 newTotalAmount,
-        address prover, // This can be a 'delegate' so not using msg.sender
-        uint16 rewardPerGas,
-        uint16 capacity
-    )
-        external
-        onlyProver(prover)
-    {
-        // Cannot enter the pool below the minimum - we are not allowing the
-        // minium staker to lower it's position
-        require(minimumStake < newTotalAmount, "Cannot enter below minimum");
-        require(rewardPerGas > 0, "Cannot be less than 1");
+    // Increases the staked amount (decrease will be with exit())
+    function stakeMoreTokens(uint32 amount) external onlyProver(_msgSender()) {
+        require(amount > 0, "Must stake a positive amount of tokens");
 
-        Staker memory mStaker = stakers[proverToId[prover]];
+        provers[proverToId[_msgSender()]].stakedAmount += amount;
+        stakers[proverToId[_msgSender()]].stakedAmount += amount;
 
-        if (mStaker.stakedAmount > newTotalAmount) {
-            // Lowered position, so basically we just need to burn some tokens
-            // for him/her
-            TaikoToken(AddressResolver(this).resolve("taiko_token", false)).mint(
-                prover, mStaker.stakedAmount - newTotalAmount
-            );
-        } else if (mStaker.stakedAmount < newTotalAmount) {
-            // Otherwise it raised it's stake, so burn more tokens from it's
-            // balance
-            TaikoToken(AddressResolver(this).resolve("taiko_token", false)).burn(
-                prover, newTotalAmount - mStaker.stakedAmount
-            );
-        }
-
-        stakers[proverToId[prover]] = Staker(
-            minimumStakerId, prover, newTotalAmount, rewardPerGas, capacity
+        emit ProverStakedMoreTokens(
+            _msgSender(), amount, provers[proverToId[_msgSender()]].stakedAmount
         );
-        provers[proverToId[prover]] = Prover(newTotalAmount, rewardPerGas);
+    }
 
-        // Need to determine again who is the last / lowest staker
-        (minimumStakerId, minimumStake) = _determineLowestStaker();
+    // Adjusts the expected reward per gas
+    function adjustExpectedRewardPerGas(uint16 newRewardPerGas)
+        external
+        onlyProver(_msgSender())
+    {
+        require(newRewardPerGas > 0, "Must be above 0");
 
-        emit ProverModified(prover, newTotalAmount, rewardPerGas, capacity);
+        provers[proverToId[_msgSender()]].rewardPerGas = newRewardPerGas;
+        stakers[proverToId[_msgSender()]].rewardPerGas = newRewardPerGas;
+
+        emit ProverChangedExpectedReward(_msgSender(), newRewardPerGas);
+    }
+
+    // Sets new capacity
+    function adjustCapacity(uint16 newCapacity)
+        external
+        onlyProver(_msgSender())
+    {
+        require(newCapacity > 0, "Must be above 0");
+
+        stakers[proverToId[_msgSender()]].capacity = newCapacity;
+
+        emit ProverAdjustedCapacity(_msgSender(), newCapacity);
     }
 
     // A demo how to optimize the getProver by using only 8 slots. It's still
