@@ -80,8 +80,6 @@ library LibProving {
             //
             && evidence.prover != blk.prover
             //
-            && blk.prover != address(0)
-            //
             && block.timestamp <= blk.proposedAt + blk.proofWindow
         ) revert L1_NOT_PROVEABLE();
 
@@ -145,9 +143,9 @@ library LibProving {
 
         fc.blockHash = evidence.blockHash;
         fc.signalRoot = evidence.signalRoot;
-        fc.gasUsed = evidence.gasUsed;
         fc.prover = evidence.prover;
         fc.provenAt = uint64(block.timestamp);
+        fc.gasUsed = evidence.gasUsed;
 
         if (evidence.prover != address(1)) {
             bytes32 instance;
@@ -244,6 +242,7 @@ library LibProving {
 
         uint256 fcId =
             LibUtils.getForkChoiceId(state, blk, parentHash, parentGasUsed);
+
         if (fcId == 0) revert L1_FORK_CHOICE_NOT_FOUND();
         fc = blk.forkChoices[fcId];
     }
