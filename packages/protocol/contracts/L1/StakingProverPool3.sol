@@ -271,10 +271,7 @@ contract ProverPoolImpl is EssentialContract {
 
     // A demo how to optimize the getProver by using only 8 slots. It's still
     // a lot of slots tough.
-    function getProver(
-        uint256 blockId,
-        uint32 currentFeePerGas
-    )
+    function getProver(uint32 currentFeePerGas)
         external
         returns (address prover, uint32 rewardPerGas)
     {

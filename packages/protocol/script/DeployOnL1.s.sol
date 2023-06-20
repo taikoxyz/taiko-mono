@@ -19,7 +19,7 @@ import "../contracts/signal/SignalService.sol";
 import "../contracts/common/AddressManager.sol";
 import "../contracts/test/erc20/FreeMintERC20.sol";
 import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
-import "../contracts/L1/StakingProverPool.sol";
+import "../contracts/L1/StakingProverPool3.sol";
 
 contract DeployOnL1 is Script {
     using SafeCastUpgradeable for uint256;
@@ -106,7 +106,7 @@ contract DeployOnL1 is Script {
         );
 
         // StakingProverPool
-        StakingProverPool stakingProverPool = new ProxiedStakingProverPool();
+        ProverPoolImpl stakingProverPool = new ProxiedStakingProverPool();
         deployProxy(
             "prover_pool",
             address(stakingProverPool),

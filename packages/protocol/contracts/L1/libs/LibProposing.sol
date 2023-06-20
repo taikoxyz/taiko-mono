@@ -50,7 +50,7 @@ library LibProposing {
         // Try to select a prover first to revert as earlier as possible
         (address prover, uint32 rewardPerGas) = IProverPool(
             resolver.resolve("prover_pool", false)
-        ).getProver(state.numBlocks, state.feePerGas);
+        ).getProver(state.feePerGas);
 
         // For now, if no prover is availab, the tx will simply revert.
         // We also do not allow address(1) here.

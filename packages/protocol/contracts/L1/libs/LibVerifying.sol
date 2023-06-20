@@ -227,7 +227,7 @@ library LibVerifying {
             } else {
                 // The selected prover failed to prove the block in time
                 IProverPool(resolver.resolve("prover_pool", false)).slashProver(
-                    blk.prover, blk.rewardPerGas
+                    blk.prover
                 );
             }
         }
