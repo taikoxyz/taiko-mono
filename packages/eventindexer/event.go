@@ -65,4 +65,9 @@ type EventRepository interface {
 		id int,
 	) error
 	GetCountByAddressAndEventName(ctx context.Context, address string, event string) (int, error)
+	GetByAddressAndEventName(
+		ctx context.Context,
+		address string,
+		event string,
+	) ([]*Event, error)
 }

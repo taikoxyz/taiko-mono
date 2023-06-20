@@ -59,6 +59,22 @@ func (r *EventRepository) GetCountByAddressAndEventName(
 	return count, nil
 }
 
+func (r *EventRepository) GetByAddressAndEventName(
+	ctx context.Context,
+	address string,
+	event string,
+) ([]*eventindexer.Event, error) {
+	var events []*eventindexer.Event
+
+	for _, e := range r.events {
+		if e.Address == address && e.Event == event {
+			events = append(events, e)
+		}
+	}
+
+	return events, nil
+}
+
 func (r *EventRepository) FindByEventTypeAndBlockID(
 	ctx context.Context,
 	eventType string,

@@ -112,3 +112,19 @@ func (r *EventRepository) GetCountByAddressAndEventName(
 
 	return count, nil
 }
+
+func (r *EventRepository) GetByAddressAndEventName(
+	ctx context.Context,
+	address string,
+	event string,
+) ([]*eventindexer.Event, error) {
+	var events []*eventindexer.Event
+
+	if err := r.db.GormDB().
+		Raw("SELECT * FROM events WHERE event = ? AND address = ?", event, address).
+		Find(&events).Error; err != nil {
+		return nil, errors.Wrap(err, "r.db.Find")
+	}
+
+	return events, nil
+}

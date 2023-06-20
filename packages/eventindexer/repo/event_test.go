@@ -213,6 +213,60 @@ func TestIntegration_Event_GetCountByAddressAndEventName(t *testing.T) {
 	}
 }
 
+func TestIntegration_Event_GetByAddressAndEventName(t *testing.T) {
+	db, close, err := testMysql(t)
+	assert.Equal(t, nil, err)
+
+	defer close()
+
+	eventRepo, err := NewEventRepository(db)
+	assert.Equal(t, nil, err)
+
+	_, err = eventRepo.Save(context.Background(), dummyProveEventOpts)
+
+	assert.Equal(t, nil, err)
+
+	_, err = eventRepo.Save(context.Background(), dummyProposeEventOpts)
+
+	assert.Equal(t, nil, err)
+
+	tests := []struct {
+		name    string
+		address string
+		event   string
+		wantLen int
+		wantErr error
+	}{
+		{
+			"success",
+			dummyProposeEventOpts.Address,
+			dummyProposeEventOpts.Event,
+			1,
+			nil,
+		},
+		{
+			"none",
+			"0xfake",
+			dummyProposeEventOpts.Event,
+			0,
+			nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, err := eventRepo.GetByAddressAndEventName(
+				context.Background(),
+				tt.address,
+				tt.event,
+			)
+			spew.Dump(resp)
+			assert.Equal(t, tt.wantErr, err)
+			assert.Equal(t, tt.wantLen, len(resp))
+		})
+	}
+}
+
 func TestIntegration_Event_Delete(t *testing.T) {
 	db, close, err := testMysql(t)
 	assert.Equal(t, nil, err)
