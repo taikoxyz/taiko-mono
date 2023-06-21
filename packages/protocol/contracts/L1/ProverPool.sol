@@ -57,30 +57,36 @@ contract ProverPool is EssentialContract, IProverPool {
     // TODO: Dani, this structure should hold all information required to
     // dynamically calculate the weight of the top 32 provers and select one
     // based on a random number.
-    struct Prover {
+    struct TopProver {
         uint32 amount; // this value will change when we slash the prover
         uint16 rewardPerGas;
         uint16 currentCapacity;
-        uint16 usedCapacity;
     }
 
-    struct Exit {
-        uint64 requestedAt;
-        uint32 amount;
+    // prover always have one Prover object,regardless if it is active or exiting.
+    struct Prover {
+        uint64 exitRequestedAt;
+        uint32 exitAmount;
         uint16 usedCapacity;
     }
 
     // TODO: change to id => address mapping
-    mapping(uint8 id => Staker) public stakers;
-    mapping(address prover => uint8 id) public proverToId;
+    TopProver[32] public topProvers; // 32/4 = 8 slots
+
+    mapping(address prover => Prover) provers;
+    mapping(uint8 id => address) idToProver;
+    mapping(address prover => uint8 id) proverToId;
+
+    // mapping(uint8 a => Staker) public stakers;
+    // mapping(address prover => uint8 id) public proverToId;
      // TODO: this wont work
-    Prover[32] public provers; // 32/4 = 8 slots
+
 
 
     // This way we can keep track of a 'queue' who is currently exiting
     // or exited already.exits
     // TODO: merge two if necessary
-    mapping(address prover => Exit) public exits;
+    // mapping(address prover => Exit) public exits;
 
     // Keeping track of the 'lowest barrier to entry' by checking who is on the
     // bottom of the top32 list.
