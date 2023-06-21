@@ -171,7 +171,7 @@ contract ProverPool is EssentialContract, IProverPool {
             // Do not think so, because most efficient provers might try to 
             // create such situations (time / off-chain calc) where this is
             // the case and then they could get 2x more.
-            return (address(0), feePerGas);
+            return (address(0), 0);
         }
 
         // Determine prover idx
