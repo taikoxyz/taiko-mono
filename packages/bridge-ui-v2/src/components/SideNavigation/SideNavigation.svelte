@@ -20,7 +20,7 @@
       <ul class="menu">
         <li>
           <LinkButton active>
-            <BridgeIcon />
+            <BridgeIcon fillClass="fill-white" />
             <span>Bridge</span>
           </LinkButton>
         </li>

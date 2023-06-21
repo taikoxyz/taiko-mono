@@ -6,7 +6,7 @@
   export let target: LinkTarget = '_self';
 </script>
 
-<a {href} {target} class:bg-interactive-primary={active}>
+<a {href} {target} class:bg-primary-interactive={active}>
   <slot />
 </a>
 
