@@ -205,7 +205,9 @@ library LibVerifying {
         IProverPool proverPool =
             IProverPool(resolver.resolve("prover_pool", false));
 
-        if (!blk.proverReleased && blk.prover != address(0)) {
+        if (blk.prover == address(0)) {
+            --state.numOpenBlocks;
+        } else if (!blk.proverReleased) {
             proverPool.releaseProver(blk.prover);
         }
 

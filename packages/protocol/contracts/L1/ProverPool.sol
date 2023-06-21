@@ -20,6 +20,9 @@ interface IProverPool {
 
     function releaseProver(address prover) external;
     function slashProver(address prover) external;
+
+    // TODO: we need to add this as well.
+    // function getAvailableCapacity() external returns (uint256);
 }
 
 contract ProverPool is EssentialContract, IProverPool {

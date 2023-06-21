@@ -38,6 +38,7 @@ library TaikoData {
         // Group 5: tokenomics
         uint32 rewardPerGasRange;
         uint8 rewardOpenMultipler;
+        uint256 rewardOpenMaxCount;
     }
 
     struct StateVariables {
@@ -153,7 +154,7 @@ library TaikoData {
         uint64 __reserved70;
         uint64 __reserved71;
         // Slot 8
-        uint64 __reserved80;
+        uint64 numOpenBlocks;
         uint64 numEthDeposits;
         uint64 numBlocks;
         uint64 nextEthDepositToProcess;

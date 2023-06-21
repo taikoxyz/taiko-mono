@@ -28,6 +28,7 @@ abstract contract TaikoErrors {
     error L1_NOT_SPECIAL_PROVER();
     error L1_SAME_PROOF();
     error L1_TOO_MANY_BLOCKS();
+    error L1_TOO_MANY_OPEN_BLOCKS();
     error L1_TX_LIST_NOT_EXIST();
     error L1_TX_LIST_HASH();
     error L1_TX_LIST_RANGE();

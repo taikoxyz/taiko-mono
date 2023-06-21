@@ -31,6 +31,7 @@ library LibProposing {
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
     error L1_TOO_MANY_BLOCKS();
+    error L1_TOO_MANY_OPEN_BLOCKS();
     error L1_TX_LIST_NOT_EXIST();
     error L1_TX_LIST_HASH();
     error L1_TX_LIST_RANGE();
@@ -112,8 +113,12 @@ library LibProposing {
         blk.proposedAt = meta.timestamp;
 
         if (prover == address(0)) {
+            if (state.numOpenBlocks >= config.rewardOpenMaxCount) {
+                revert L1_TOO_MANY_OPEN_BLOCKS();
+            }
             blk.rewardPerGas =
                 state.feePerGas * config.rewardOpenMultipler / 100;
+            ++state.numOpenBlocks;
         } else {
             blk.prover = prover;
 
