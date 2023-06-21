@@ -49,6 +49,8 @@ library LibVerifying {
                 || config.blockTxListExpiry > 30 * 24 hours
                 || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
                 || config.proofRegularCooldown < config.proofOracleCooldown
+                || config.proofMinWindow == 0
+                || config.proofMaxWindow < config.proofMinWindow
                 || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0
                 || config.ethDepositMaxCountPerBlock
@@ -62,6 +64,7 @@ library LibVerifying {
                     >= type(uint96).max / config.ethDepositMaxCountPerBlock
                 || config.rewardPerGasRange == 0
                 || config.rewardPerGasRange >= 10_000
+                || config.rewardOpenMultipler < 100
         ) revert L1_INVALID_CONFIG();
 
         unchecked {
