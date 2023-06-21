@@ -11,6 +11,7 @@ import { TaikoL1 } from "../contracts/L1/TaikoL1.sol";
 import { TaikoToken } from "../contracts/L1/TaikoToken.sol";
 import { SignalService } from "../contracts/signal/SignalService.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { AddressResolver } from "../contracts/common/AddressResolver.sol";
 
 contract Verifier {
     fallback(bytes calldata) external returns (bytes memory) {
@@ -157,6 +158,16 @@ abstract contract TaikoL1TestBase is Test {
             proof: new bytes(100)
         });
 
+        bytes32 instance = getInstance(conf, L1, evidence);
+
+        evidence.proof = bytes.concat(
+            bytes16(0),
+            bytes16(instance),
+            bytes16(0),
+            bytes16(uint128(uint256(instance))),
+            new bytes(100)
+        );
+
         vm.prank(msgSender, msgSender);
         L1.proveBlock(meta.id, abi.encode(evidence));
     }
@@ -215,6 +226,49 @@ abstract contract TaikoL1TestBase is Test {
             comment
         );
         console2.log(str);
+    }
+
+    function getInstance(
+        TaikoData.Config memory config,
+        AddressResolver resolver,
+        TaikoData.BlockEvidence memory evidence
+    )
+        internal
+        view
+        returns (bytes32 instance)
+    {
+        uint256[10] memory inputs;
+
+        inputs[0] =
+            uint256(uint160(address(resolver.resolve("signal_service", false))));
+        inputs[1] = uint256(
+            uint160(
+                address(
+                    resolver.resolve(config.chainId, "signal_service", false)
+                )
+            )
+        );
+        inputs[2] = uint256(
+            uint160(address(resolver.resolve(config.chainId, "taiko", false)))
+        );
+
+        inputs[3] = uint256(evidence.metaHash);
+        inputs[4] = uint256(evidence.parentHash);
+        inputs[5] = uint256(evidence.blockHash);
+        inputs[6] = uint256(evidence.signalRoot);
+        inputs[7] = uint256(evidence.graffiti);
+        inputs[8] = (uint256(uint160(evidence.prover)) << 96)
+            | (uint256(evidence.parentGasUsed) << 64)
+            | (uint256(evidence.gasUsed) << 32);
+
+        // Also hash configs that will be used by circuits
+        inputs[9] = uint256(config.blockMaxGasLimit) << 192
+            | uint256(config.maxTransactionsPerBlock) << 128
+            | uint256(config.maxBytesPerTxList) << 64;
+
+        assembly {
+            instance := keccak256(inputs, mul(32, 10))
+        }
     }
 
     function mine(uint256 counts) internal {
