@@ -1,0 +1,39 @@
+import { Callout, Steps, Tab, Tabs } from "nextra-theme-docs";
+
+# Run a Taiko node
+
+## Overview
+
+This guide will help you get a Sepolia archive node up and running.
+
+## Prerequisites
+
+- [Docker](https://docs.docker.com/engine/install/) is installed and **running**.
+- [Git](https://github.com/git-guides/install-git/) is installed.
+- As of `2023-06-21T16:59:11+00:00` a full archive node sync takes **207.3 GB** with geth + lighthouse. Consult the hardware requirements of the execution + consensus clients you are using. 
+
+## Steps
+
+<Steps>
+### Clone eth-docker
+```sh
+git clone https://github.com/eth-educators/eth-docker
+cd eth-docker
+```
+
+### Copy and edit the env file
+
+First, copy `default.env` to `.env`:
+```
+cp default.env .env
+```
+
+Next, open the `.env` file in your preferred text editor and set:
+```filename=e
+ARCHIVE_NODE=true
+```
+
+### Complete the eth-docker quickstart
+
+Complete the eth-docker quickstart: https://eth-docker.net/Usage/QuickStart/.
+</Steps>
