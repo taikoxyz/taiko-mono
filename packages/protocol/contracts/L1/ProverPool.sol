@@ -10,17 +10,15 @@ import { EssentialContract } from "../common/EssentialContract.sol";
 import { TaikoToken } from "./TaikoToken.sol";
 import { Proxied } from "../common/Proxied.sol";
 
-
 interface IProverPool {
-    function getProver(uint32 feePerGas)
+    function getProver(bytes32 entropy, uint32 feePerGas)
         external
         returns (address prover, uint32 rewardPerGas);
     function slashProver(address prover) external;
 }
 
-
-contract ProverPool is EssentialContract,IProverPool {
-    struct Staker {
+contract ProverPool is EssentialContract, IProverPool {
+    struct ProverData {
         uint8 id; // [0-31]
         address prover;
         uint64 exitTs;
@@ -30,10 +28,8 @@ contract ProverPool is EssentialContract,IProverPool {
         uint16 capacity; // maximum capacity (parallel blocks)
     }
 
-    // Then we define a mapping from id => Staker
-    mapping(uint8 id => Staker) public stakers;
-    // We need an address to id mapping
-    mapping(address prover => uint8 id) public proverToId;
+    mapping(uint8 proverId => ProverData) public proverData;
+    mapping(address proverAddress => uint8 proverId) public proverToId;
 
     // Keeping track of the 'lowest barrier to entry' by checking who is on the
     // bottom of the top32 list.
@@ -96,7 +92,7 @@ contract ProverPool is EssentialContract,IProverPool {
 
     modifier onlyProver(address prover) {
         require(
-            stakers[proverToId[prover]].prover != address(0),
+            proverData[proverToId[prover]].prover != address(0),
             "Only provers can call this function"
         );
         _;
@@ -109,6 +105,81 @@ contract ProverPool is EssentialContract,IProverPool {
      */
     function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
+    }
+
+    // A demo how to optimize the getProver by using only 8 slots. It's still
+    // a lot of slots tough.
+    function getProver(bytes32 entropy, uint32 feePerGas)
+        external
+        returns (address prover, uint32 rewardPerGas)
+    {
+        // readjust each prover's rate
+        uint256[32] memory weights;
+        uint256 totalWeight;
+
+        for (uint8 i; i < provers.length; ++i) {
+            weights[i] = _calcWeight(i, provers[i], feePerGas);
+            if (weights[i] == 0) break;
+            totalWeight += weights[i];
+        }
+
+        if (totalWeight == 0) {
+            // QUESTION: shall we reward open proofs more?
+            return (address(0), 2 * feePerGas);
+        }
+
+        // Determine prover idx
+        uint256 rand = uint256(keccak256(abi.encode(blockhash(block.number - 1), entropy)));
+        uint8 proverId = _pickProver(weights, totalWeight, rand);
+
+        ProverData memory data = proverData[proverId];
+
+        // If prover's capacity is at it's full, pick another one
+        if (proverData[proverId].capacity == 0) {
+            proverId = _pickProver(
+                weights,
+                totalWeight,
+                uint256(
+                    keccak256(
+                        abi.encodePacked(
+                            feePerGas, block.timestamp, rand
+                        )
+                    )
+                )
+            );
+            data = proverData[proverId];
+        }
+
+        // If second prover's capacity is at full as well, return address(0)
+        if (data.capacity == 0) {
+            return (address(0), 2 * feePerGas);
+        }
+
+        // If the reward is 2x then the current average, then cap it
+        if (data.rewardPerGas * 2 > feePerGas) {
+            //Decrease capacity
+            proverData[proverId].capacity--;
+            return (data.prover, 2 * feePerGas);
+        }
+
+        proverData[proverId].capacity--;
+        return (data.prover, data.rewardPerGas);
+    }
+
+    function slashProver(address prover)
+        external
+        onlyProtocol
+        onlyProver(prover)
+    {
+        uint32 currentStaked = provers[proverToId[_msgSender()]].stakedAmount;
+        uint32 afterSlash = uint32(
+            currentStaked * uint256(10_000 - SLASH_AMOUNT_IN_BP) / 10_000
+        );
+
+        provers[proverToId[_msgSender()]].stakedAmount = afterSlash;
+        proverData[proverToId[_msgSender()]].stakedAmount = afterSlash;
+
+        emit ProverSlashed(prover, afterSlash);
     }
 
     // @Daniel's comment: Adjust the staking. Users can use this funciton to
@@ -135,7 +206,7 @@ contract ProverPool is EssentialContract,IProverPool {
         // The list of 32 is not full yet so kind of everybody can enter into
         // the pool
         if (_anyEmptyStakingSlots()) {
-            stakers[currentIdIdx] = Staker(
+            proverData[currentIdIdx] = ProverData(
                 currentIdIdx, prover, 0, totalAmount, rewardPerGas, capacity
             );
             provers[currentIdIdx] = Prover(totalAmount, rewardPerGas);
@@ -159,7 +230,7 @@ contract ProverPool is EssentialContract,IProverPool {
             (minimumStakerId,) = _determineLowestStaker();
 
             // We need to overwrite it's place
-            stakers[minimumStakerId] = Staker(
+            proverData[minimumStakerId] = ProverData(
                 minimumStakerId, prover, 0, totalAmount, rewardPerGas, capacity
             );
             provers[minimumStakerId] = Prover(totalAmount, rewardPerGas);
@@ -181,7 +252,7 @@ contract ProverPool is EssentialContract,IProverPool {
         require(amount > 0, "Must stake a positive amount of tokens");
 
         provers[proverToId[_msgSender()]].stakedAmount += amount;
-        stakers[proverToId[_msgSender()]].stakedAmount += amount;
+        proverData[proverToId[_msgSender()]].stakedAmount += amount;
 
         // Need to determine again who is the last / lowest staker
         (minimumStakerId, minimumStake) = _determineLowestStaker();
@@ -199,7 +270,7 @@ contract ProverPool is EssentialContract,IProverPool {
         require(newRewardPerGas > 0, "Must be above 0");
 
         provers[proverToId[_msgSender()]].rewardPerGas = newRewardPerGas;
-        stakers[proverToId[_msgSender()]].rewardPerGas = newRewardPerGas;
+        proverData[proverToId[_msgSender()]].rewardPerGas = newRewardPerGas;
 
         emit ProverChangedExpectedReward(_msgSender(), newRewardPerGas);
     }
@@ -211,7 +282,7 @@ contract ProverPool is EssentialContract,IProverPool {
     {
         require(newCapacity > 0, "Must be above 0");
 
-        stakers[proverToId[_msgSender()]].capacity = newCapacity;
+        proverData[proverToId[_msgSender()]].capacity = newCapacity;
 
         emit ProverAdjustedCapacity(_msgSender(), newCapacity);
     }
@@ -224,35 +295,36 @@ contract ProverPool is EssentialContract,IProverPool {
         uint64 timestamp = uint64(block.timestamp);
 
         if (exitRequested) {
-            stakers[proverToId[_msgSender()]].exitTs = timestamp;
+            proverData[proverToId[_msgSender()]].exitTs = timestamp;
             emit ProverExitRequested(_msgSender(), timestamp);
         } else if (
-            stakers[proverToId[_msgSender()]].exitTs + EXIT_PERIOD > timestamp
+            proverData[proverToId[_msgSender()]].exitTs + EXIT_PERIOD
+                > timestamp
         ) {
             // Only allow to revert the exiting mechanism in case timestamp is
             // within the range
-            stakers[proverToId[_msgSender()]].exitTs = 0;
+            proverData[proverToId[_msgSender()]].exitTs = 0;
             emit ProverExitRequestReverted(_msgSender(), timestamp);
         }
     }
 
     function exit() external onlyProver(_msgSender()) {
         require(
-            stakers[proverToId[_msgSender()]].exitTs != 0
-                && stakers[proverToId[_msgSender()]].exitTs + EXIT_PERIOD
+            proverData[proverToId[_msgSender()]].exitTs != 0
+                && proverData[proverToId[_msgSender()]].exitTs + EXIT_PERIOD
                     < block.timestamp,
             "Cannot yet exit"
         );
 
         // Reimburse rewards and staked TKO
         TaikoToken(AddressResolver(this).resolve("taiko_token", false)).mint(
-            msg.sender, stakers[proverToId[_msgSender()]].stakedAmount
+            msg.sender, proverData[proverToId[_msgSender()]].stakedAmount
         );
 
         // Delete mappings and empty staker position in the array
         delete provers[proverToId[_msgSender()]];
-        stakers[proverToId[_msgSender()]] =
-            Staker(proverToId[_msgSender()], address(0), 0, 0, 0, 0);
+        proverData[proverToId[_msgSender()]] =
+            ProverData(proverToId[_msgSender()], address(0), 0, 0, 0, 0);
 
         delete proverToId[_msgSender()];
 
@@ -262,87 +334,13 @@ contract ProverPool is EssentialContract,IProverPool {
         emit ProverExited(_msgSender(), uint64(block.timestamp));
     }
 
-    function slashProver(address prover)
-        external
-        onlyProtocol
-        onlyProver(prover)
-    {
-        uint32 currentStaked = provers[proverToId[_msgSender()]].stakedAmount;
-        uint32 afterSlash = uint32(
-            currentStaked * uint256(10_000 - SLASH_AMOUNT_IN_BP) / 10_000
-        );
-
-        provers[proverToId[_msgSender()]].stakedAmount = afterSlash;
-        stakers[proverToId[_msgSender()]].stakedAmount = afterSlash;
-
-        emit ProverSlashed(prover, afterSlash);
-    }
-
-    // A demo how to optimize the getProver by using only 8 slots. It's still
-    // a lot of slots tough.
-    function getProver(uint32 currentFeePerGas)
-        external
-        returns (address prover, uint32 rewardPerGas)
-    {
-        // readjust each prover's rate
-        uint256[32] memory weights;
-        uint256 totalWeight;
-        uint8 i;
-        for (; i < provers.length; ++i) {
-            weights[i] = _calcWeight(i, provers[i], currentFeePerGas);
-            if (weights[i] == 0) break;
-            totalWeight += weights[i];
-        }
-
-        if (totalWeight == 0) {
-            return (address(0), 2 * currentFeePerGas);
-        }
-
-        // Determine prover idx
-        uint256 rand = uint256(blockhash(block.number - 1));
-        uint8 proverIdx = _pickRandomProverIdx(weights, totalWeight, rand);
-
-        Staker memory proverData = stakers[proverIdx];
-
-        // If prover's capacity is at it's full, pick another one
-        if (stakers[proverIdx].capacity == 0) {
-            proverIdx = _pickRandomProverIdx(
-                weights,
-                totalWeight,
-                uint256(
-                    keccak256(
-                        abi.encodePacked(
-                            currentFeePerGas, block.timestamp, rand
-                        )
-                    )
-                )
-            );
-            proverData = stakers[proverIdx];
-        }
-
-        // If second prover's capacity is at full as well, return address(0)
-        if (proverData.capacity == 0) {
-            return (address(0), 2 * currentFeePerGas);
-        }
-
-        // If the reward is 2x then the current average, then cap it
-        if (proverData.rewardPerGas * 2 > currentFeePerGas) {
-            //Decrease capacity
-            stakers[proverIdx].capacity--;
-            return (proverData.prover, 2 * currentFeePerGas);
-        }
-
-        stakers[proverIdx].capacity--;
-        return (proverData.prover, proverData.rewardPerGas);
-    }
-
     // Increases the capacity of the prover
     function releaseResource(address prover) external onlyProtocol {
         if (
-            stakers[proverToId[prover]].prover != address(0)
-                && stakers[proverToId[prover]].capacity < type(uint16).max
+            proverData[proverToId[prover]].prover != address(0)
+                && proverData[proverToId[prover]].capacity < type(uint16).max
         ) {
-            stakers[proverToId[prover]].capacity++;
+            proverData[proverToId[prover]].capacity++;
         }
     }
 
@@ -359,22 +357,22 @@ contract ProverPool is EssentialContract,IProverPool {
 
     // The weight is dynamic based on fee per gas.
     function _calcWeight(
-        uint8 proverIdx,
+        uint8 proverId,
         Prover memory prover,
-        uint32 currentFeePerGas
+        uint32 feePerGas
     )
         private
         view
         returns (uint256)
     {
         // If staker requested an exit, set his/her weight to 0
-        if (stakers[proverIdx].exitTs != 0) {
+        if (proverData[proverId].exitTs != 0) {
             return 0;
         }
         // Just a demo that the weight depends on the current fee per gas,
         // the prover's expected fee per gas, as well as the staking amount
         return (
-            uint256(prover.stakedAmount) * currentFeePerGas * currentFeePerGas
+            uint256(prover.stakedAmount) * feePerGas * feePerGas
         ) / prover.rewardPerGas / prover.rewardPerGas;
     }
 
@@ -408,7 +406,7 @@ contract ProverPool is EssentialContract,IProverPool {
     }
 
     // Pick a random prover
-    function _pickRandomProverIdx(
+    function _pickProver(
         uint256[32] memory weights,
         uint256 totalWeight,
         uint256 rand
@@ -420,7 +418,7 @@ contract ProverPool is EssentialContract,IProverPool {
         uint256 r = rand % totalWeight;
         uint256 z;
         while (z < r && i < 32) {
-            z += weights[i++];
+            z += weights[++i];
         }
     }
 }
