@@ -3,7 +3,9 @@ package mock
 import (
 	"context"
 	"math/rand"
+	"net/http"
 
+	"github.com/morkid/paginate"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -57,6 +59,25 @@ func (r *EventRepository) GetCountByAddressAndEventName(
 	}
 
 	return count, nil
+}
+
+func (r *EventRepository) GetByAddressAndEventName(
+	ctx context.Context,
+	req *http.Request,
+	address string,
+	event string,
+) (paginate.Page, error) {
+	var events []*eventindexer.Event
+
+	for _, e := range r.events {
+		if e.Address == address && e.Event == event {
+			events = append(events, e)
+		}
+	}
+
+	return paginate.Page{
+		Items: events,
+	}, nil
 }
 
 func (r *EventRepository) FindByEventTypeAndBlockID(

@@ -100,7 +100,7 @@ func (p *Processor) ProcessMessage(
 
 	relayer.EventsProcessed.Inc()
 
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
 
 	defer cancel()
 
@@ -205,12 +205,21 @@ func (p *Processor) sendProcessMessageCall(
 		}
 	}
 
-	gasPrice, err := p.destEthClient.SuggestGasPrice(context.Background())
+	gasTipCap, err := p.destEthClient.SuggestGasTipCap(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "p.destBridge.SuggestGasPrice")
-	}
+		if IsMaxPriorityFeePerGasNotFoundError(err) {
+			auth.GasTipCap = FallbackGasTipCap
+		} else {
+			gasPrice, err := p.destEthClient.SuggestGasPrice(context.Background())
+			if err != nil {
+				return nil, errors.Wrap(err, "p.destBridge.SuggestGasPrice")
+			}
 
-	auth.GasPrice = gasPrice
+			auth.GasPrice = gasPrice
+		}
+	} else {
+		auth.GasTipCap = gasTipCap
+	}
 
 	if bool(p.profitableOnly) {
 		profitable, err := p.isProfitable(ctx, event.Message, cost)
