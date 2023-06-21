@@ -148,8 +148,7 @@ contract ProverPool is EssentialContract, IProverPool {
         }
 
         if (totalWeight == 0) {
-            // QUESTION: shall we reward open proofs more?
-            return (address(0), 2 * feePerGas);
+            return (address(0), 0);
         }
 
         // Determine prover idx

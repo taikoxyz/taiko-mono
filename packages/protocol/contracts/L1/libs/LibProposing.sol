@@ -30,7 +30,6 @@ library LibProposing {
     error L1_BLOCK_ID();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
-    error L1_NO_PROVER();
     error L1_TOO_MANY_BLOCKS();
     error L1_TX_LIST_NOT_EXIST();
     error L1_TX_LIST_HASH();
@@ -52,11 +51,7 @@ library LibProposing {
             resolver.resolve("prover_pool", false)
         ).assignProver(state.numBlocks, state.feePerGas);
 
-        // For now, if no prover is availab, the tx will simply revert.
-        // We also do not allow address(1) here.
-        if (prover == address(0) || prover == address(1)) {
-            revert L1_NO_PROVER();
-        }
+        assert(prover != address(1));
 
         {
             // Validate block input then cache txList info if requested
@@ -117,20 +112,26 @@ library LibProposing {
         blk.proposedAt = meta.timestamp;
 
         blk.prover = prover;
-        blk.proofWindow = uint16(
-            uint256(state.avgProofDelay * 2).min(config.proofMaxWindow).max(
-                config.proofMinWindow
-            )
-        );
 
-        // Cap the reward to a range of [95%, 105%] * blk.feePerGas, if
-        // rewardPerGasRange is set to 5% (500 bp)
-        uint32 diff = blk.feePerGas * config.rewardPerGasRange / 10_000;
-        blk.rewardPerGas = uint32(
-            uint256(rewardPerGas).min(state.feePerGas + diff).max(
-                state.feePerGas - diff
-            )
-        );
+        if (prover == address(0)) {
+            blk.rewardPerGas =
+                state.feePerGas * config.rewardOpenMultipler / 100;
+        } else {
+            // Cap the reward to a range of [95%, 105%] * blk.feePerGas, if
+            // rewardPerGasRange is set to 5% (500 bp)
+            uint32 diff = blk.feePerGas * config.rewardPerGasRange / 10_000;
+            blk.rewardPerGas = uint32(
+                uint256(rewardPerGas).min(state.feePerGas + diff).max(
+                    state.feePerGas - diff
+                )
+            );
+
+            blk.proofWindow = uint16(
+                uint256(state.avgProofDelay * 2).min(config.proofMaxWindow).max(
+                    config.proofMinWindow
+                )
+            );
+        }
 
         IMintableERC20(resolver.resolve("taiko_token", false)).burn({
             from: msg.sender,
