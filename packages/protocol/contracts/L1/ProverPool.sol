@@ -19,7 +19,7 @@ interface IProverPool {
 }
 
 
-contract StakingProverPool is EssentialContract,IProverPool {
+contract ProverPool is EssentialContract,IProverPool {
     struct Staker {
         uint8 id; // [0-31]
         address prover;
@@ -425,4 +425,4 @@ contract StakingProverPool is EssentialContract,IProverPool {
     }
 }
 
-contract ProxiedStakingProverPool is Proxied, StakingProverPool { }
+contract ProxiedProverPool is Proxied, ProverPool { }
