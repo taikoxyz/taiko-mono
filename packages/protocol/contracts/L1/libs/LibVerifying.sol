@@ -122,11 +122,9 @@ library LibVerifying {
             assert(blk.blockId == i);
 
             fcId = LibUtils.getForkChoiceId(state, blk, blockHash, gasUsed);
-
             if (fcId == 0) break;
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
-
             if (fc.prover == address(0)) break;
 
             uint256 proofRegularCooldown = fc.prover == address(1)
