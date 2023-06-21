@@ -117,23 +117,21 @@ library LibProposing {
         blk.proposedAt = meta.timestamp;
 
         blk.prover = prover;
-        blk.proofWindow = state.avgProofDelay * 2;
+        blk.proofWindow = uint16(
+            uint256(state.avgProofDelay * 2).min(config.proofMaxWindow).max(
+                config.proofMinWindow
+            )
+        );
 
         // Cap the reward to a range of [95%, 105%] * blk.feePerGas, if
         // rewardPerGasRange is set to 5% (500 bp)
-        unchecked {
-            uint256 maxRewardPerGas = (
-                uint256(blk.feePerGas) * (10_000 + config.rewardPerGasRange)
-                    / 10_000
-            ).max(type(uint32).max);
 
-            uint32 minRewardPerGas =
-                blk.feePerGas * (10_000 - config.rewardPerGasRange) / 10_000;
-
-            blk.rewardPerGas = uint32(
-                uint256(rewardPerGas).min(maxRewardPerGas).max(minRewardPerGas)
-            );
-        }
+        uint32 diff = blk.feePerGas * config.rewardPerGasRange / 10_000;
+        blk.rewardPerGas = uint32(
+            uint256(rewardPerGas).min(state.feePerGas + diff).max(
+                state.feePerGas - diff
+            )
+        );
 
         IMintableERC20(resolver.resolve("taiko_token", false)).burn({
             from: msg.sender,
