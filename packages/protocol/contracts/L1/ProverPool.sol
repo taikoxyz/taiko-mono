@@ -22,7 +22,7 @@ interface IProverPool {
     function slashProver(address prover) external;
 
     // TODO: we need to add this as well.
-    // function getAvailableCapacity() external returns (uint256);
+    function getAvailableCapacity() external returns (uint256);
 }
 
 contract ProverPool is EssentialContract, IProverPool {
@@ -341,6 +341,15 @@ contract ProverPool is EssentialContract, IProverPool {
         );
 
         emit ProverEntered(prover, totalAmount, rewardPerGas, capacity);
+    }
+
+    function getAvailableCapacity() external view returns (uint256 totalCapacity) {
+        Prover[32] memory mProvers = provers;
+
+        // Find the index to insert the new staker based on their balance
+        for (uint8 i = 0; i < mProvers.length; i++) {
+                totalCapacity += mProvers[i].currentCapacity;
+        }
     }
 
     // TODO: Dani, most of the following methods can be implemented in the
