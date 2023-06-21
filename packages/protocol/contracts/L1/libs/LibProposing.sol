@@ -9,7 +9,7 @@ pragma solidity ^0.8.20;
 import { LibMath } from "../../libs/LibMath.sol";
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { IMintableERC20 } from "../../common/IMintableERC20.sol";
-import { IProverPool } from "../IStakingProverPool.sol";
+import { IProverPool } from "../StakingProverPool.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibEthDepositing } from "./LibEthDepositing.sol";
 import { LibL2Consts } from "../../L2/LibL2Consts.sol";

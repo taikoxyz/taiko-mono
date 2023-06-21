@@ -10,7 +10,16 @@ import { EssentialContract } from "../common/EssentialContract.sol";
 import { TaikoToken } from "./TaikoToken.sol";
 import { Proxied } from "../common/Proxied.sol";
 
-contract ProverPoolImpl is EssentialContract {
+
+interface IProverPool {
+    function getProver(uint32 feePerGas)
+        external
+        returns (address prover, uint32 rewardPerGas);
+    function slashProver(address prover) external;
+}
+
+
+contract StakingProverPool is EssentialContract,IProverPool {
     struct Staker {
         uint8 id; // [0-31]
         address prover;
@@ -416,4 +425,4 @@ contract ProverPoolImpl is EssentialContract {
     }
 }
 
-contract ProxiedStakingProverPool is Proxied, ProverPoolImpl { }
+contract ProxiedStakingProverPool is Proxied, StakingProverPool { }
