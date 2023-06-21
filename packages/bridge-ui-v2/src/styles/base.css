@@ -4,4 +4,9 @@
   html {
     font-family: Public Sans, system-ui, sans-serif;
   }
+
+  html,
+  body {
+    height: 100%;
+  }
 }

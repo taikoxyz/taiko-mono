@@ -1,1 +1,47 @@
 @tailwind utilities;
+
+@layer utilities {
+  /* .interactive-primary {
+    @apply bg-pink-500;
+  }
+
+  .interactive-primary-accent {
+    @apply bg-pink-400;
+  }
+
+  .content-primary {
+    @apply text-grey-10;
+  }
+
+  .content-secondary {
+    @apply text-grey-200;
+  }
+
+  .content-tertiary {
+    @apply text-grey-500;
+  }
+
+  .link-primary {
+    @apply text-pink-200;
+  }
+
+  .link-secondary {
+    @apply text-pink-50;
+  }
+
+  .border-divider {
+    @apply border-grey-500;
+  }
+
+  .border-primary {
+    @apply border-grey-500;
+  }
+
+  .border-hover {
+    @apply border-pink-200;
+  }
+
+  .border-accent {
+    @apply border-pink-400;
+  } */
+}
