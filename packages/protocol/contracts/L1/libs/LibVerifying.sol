@@ -202,6 +202,10 @@ library LibVerifying {
         taikoToken.mint(fc.prover, proofReward);
 
         if (fc.prover != address(1)) {
+            IProverPool proverPool =
+                IProverPool(resolver.resolve("prover_pool", false));
+
+            proverPool.releaseProver(fc.prover);
             if (
                 fc.prover == blk.prover
                     && fc.provenAt <= blk.proposedAt + blk.proofWindow
@@ -226,9 +230,7 @@ library LibVerifying {
                 );
             } else {
                 // The selected prover failed to prove the block in time
-                IProverPool(resolver.resolve("prover_pool", false)).slashProver(
-                    blk.prover
-                );
+                proverPool.slashProver(blk.prover);
             }
         }
 
