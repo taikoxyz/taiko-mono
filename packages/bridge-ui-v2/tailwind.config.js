@@ -12,6 +12,7 @@ export default {
 
       white: '#FFFFFF',
       black: '#000000',
+
       grey: {
         0: '#FFFFFF',
         5: '#FAFAFA',
@@ -28,6 +29,7 @@ export default {
         900: '#0B101B',
         1000: '#050912',
       },
+
       pink: {
         0: '#FFFFFF',
         5: '#FFF8FC',
@@ -44,6 +46,7 @@ export default {
         900: '#240017',
         1000: '#050912',
       },
+
       red: {
         0: '#FFFFFF',
         5: '#FEF5F5',
@@ -60,6 +63,7 @@ export default {
         900: '#250000',
         1000: '#050912',
       },
+
       green: {
         0: '#FFFFFF',
         5: '#F2FFFA',
@@ -76,6 +80,7 @@ export default {
         900: '#001C10',
         1000: '#050912',
       },
+
       yellow: {
         0: '#FFFFFF',
         5: '#FFFCF3',
@@ -97,19 +102,33 @@ export default {
        * Semantic colors *
        *******************/
 
-      content: {
-        primary: 'var(--content-primary)',
-        secondary: 'var(--content-secondary)',
-        tertiary: 'var(--content-tertiary)',
+      primary: {
+        DEFAULT: 'var(--primary-brand)',
+        brand: 'var(--primary-brand)',
+        content: 'var(--primary-content)',
         link: {
-          primary: 'var(--content-link-primary)',
-          hover: 'var(--content-link-hover)',
+          DEFAULT: 'var(--primary-link)',
+          hover: 'var(--primary-link-hover)',
+        },
+        icon: 'var(--primary-icon)',
+        background: 'var(--primary-background)',
+        interactive: {
+          DEFAULT: 'var(--primary-interactive)',
+          accent: 'var(--primary-interactive-accent)',
         }
       },
 
-      brand: {
-        primary: 'var(--brand-primary)',
-        secondary: 'var(--brand-secondary)',
+      secondary: {
+        DEFAULT: 'var(--brand-secondary)',
+        brand: 'var(--brand-secondary)',
+        content: 'var(--content-secondary)',
+        interactive: {
+          hover: 'var(--interactive-secondary-hover)',
+        }
+      },
+
+      tertiary: {
+        content: 'var(--content-tertiary)',
       },
 
       sentiment: {
@@ -118,25 +137,8 @@ export default {
         warning: 'var(--sentiment-warning)',
       },
 
-      background: {
-        primary: 'var(--background-primary)',
-        elevated: 'var(--background-elevated)',
-        overlay: 'var(--background-overlay)',
-      },
-
-      interactive: {
-        primary: {
-          DEFAULT: 'var(--interactive-primary)',
-          accent: 'var(--interactive-primary-accent)',
-        },
-        secondary: {
-          hover: 'var(--interactive-secondary-hover)',
-        },
-        tertiary: {
-          hover: 'var(--interactive-tertiary-hover)',
-          accent: 'var(--interactive-tertiary-accent)',
-        },
-      },
+      elevated: 'var(--background-elevated)',
+      overlay: 'var(--background-overlay)',
     },
   },
   
@@ -155,32 +157,31 @@ export default {
         dark: {
           'color-scheme': 'dark',
 
-          '--content-primary': '#F3F3F3', // grey-10
-          '--content-secondary': '#ADB1B8', // grey-200
-          '--content-tertiary': '#5D636F', // grey-500
-          '--content-link-primary': '#FF6FC8', // pink-200
-          '--content-link-hover': '#FFC6E9', // pink-50
+          '--primary-brand': '#C8047D', // pink-500
+          '--primary-content': '#F3F3F3', // grey-10
+          '--primary-link': '#FF6FC8', // pink-200
+          '--primary-link-hover': '#FFC6E9', // pink-50
+          '--primary-icon': '#CACBCE', // grey-100
+          '--primary-background': '#0B101B', // grey-900
+          '--primary-interactive': '#C8047D', // pink-500
+          '--primary-interactive-accent': '#E81899', // pink-400
 
-          '--icon-primary': '#F3F3F3', // grey-10
-          '--icon-secondary': '#444A55', // grey-600
+          '--secondary-brand': '#E81899', // pink-400
+          '--secondary-content': '#ADB1B8', // grey-200
+          '--secondary-icon': '#444A55', // grey-600
+          '--secondary-interactive-hover': '#2B303B', // grey-700
 
-          '--brand-primary': '#C8047D', // pink-500
-          '--brand-secondary': '#E81899', // pink-400
+          '--tertiary-content': '#5D636F', // grey-500
+          '--tertiary-interactive-hover': '#444A55', // grey-600
+          '--tertiary-interactive-accent': '#5D636F', // grey-500
 
-          '--sentiment-positive': '#47E0A0', // green-300
-          '--sentiment-negative': '#F15C5D', // red-300
-          '--sentiment-warning': '#EBB222', // yellow-400
+          '--positive-sentiment': '#47E0A0', // green-300
+          '--negative-sentiment': '#F15C5D', // red-300
+          '--warning-sentiment': '#EBB222', // yellow-400
 
-          '--background-primary': '#0B101B', // grey-900
-          '--background-elevated': '#191E28', // grey-800
-          '--background-neutral': '#2B303B', // grey-700
-          '--background-overlay': 'rgba(12, 17, 28, 0.5)', // grey-900|50%
-
-          '--interactive-primary': '#C8047D', // pink-500
-          '--interactive-primary-accent': '#E81899', // pink-400
-          '--interactive-secondary-hover': '#2B303B', // grey-700
-          '--interactive-tertiary-hover': '#444A55', // grey-600
-          '--interactive-tertiary-accent': '#5D636F', // grey-500
+          '--elevated-background': '#191E28', // grey-800
+          '--neutral-background': '#2B303B', // grey-700
+          '--overlay-background': 'rgba(12, 17, 28, 0.5)', // grey-900|50%
 
           // TODO: add more colors
 
@@ -191,9 +192,8 @@ export default {
         light: {
           'color-scheme': 'light',
 
-          '--content-primary': '#191E28', // grey-800
-
-          '--background-primary': '#FAFAFA', // grey-5
+          '--primary-content': '#191E28', // grey-800
+          '--primary-background': '#FAFAFA', // grey-5
 
           // ================================ //
           'base-100': '#FAFAFA', // grey-5
