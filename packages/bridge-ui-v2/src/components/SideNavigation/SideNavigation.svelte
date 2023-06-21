@@ -1,6 +1,6 @@
 <script lang="ts">
   import LinkButton from '../LinkButton';
-  import BridgeIcon from '../icons/bridge.svelte';
+  import Icon from '../Icon';
 
   let explorerUrl = 'https://explorer.internal.taiko.xyz/';
   let guideUrl = 'https://taiko.xyz/docs/guides/use-the-bridge';
@@ -20,27 +20,31 @@
       <ul class="menu">
         <li>
           <LinkButton active>
-            <BridgeIcon fillClass="fill-white" />
+            <Icon type="bridge" fillClass="fill-white" />
             <span>Bridge</span>
           </LinkButton>
         </li>
         <li>
           <LinkButton href="/faucet">
+            <Icon type="faucet" />
             <span>Faucet</span>
           </LinkButton>
         </li>
         <li>
           <LinkButton href="/activities">
+            <Icon type="activities" />
             <span>Activities</span>
           </LinkButton>
         </li>
         <li>
           <LinkButton href={explorerUrl} target="_blank">
+            <Icon type="explorer" />
             <span>Exploreer</span>
           </LinkButton>
         </li>
         <li>
           <LinkButton href={guideUrl} target="_blank">
+            <Icon type="guide" />
             <span>Guide</span>
           </LinkButton>
         </li>
