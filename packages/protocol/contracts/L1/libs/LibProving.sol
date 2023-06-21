@@ -7,6 +7,7 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
+import { IProverPool } from "../ProverPool.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
@@ -146,6 +147,13 @@ library LibProving {
         fc.prover = evidence.prover;
         fc.provenAt = uint64(block.timestamp);
         fc.gasUsed = evidence.gasUsed;
+
+        if (!blk.proverReleased && blk.prover == fc.prover) {
+            blk.proverReleased = true;
+            IProverPool(resolver.resolve("prover_pool", false)).releaseProver(
+                blk.prover
+            );
+        }
 
         if (evidence.prover != address(1)) {
             bytes32 instance;

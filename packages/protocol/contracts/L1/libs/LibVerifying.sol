@@ -201,11 +201,14 @@ library LibVerifying {
             (config.blockFeeBaseGas + fc.gasUsed) * blk.rewardPerGas;
         taikoToken.mint(fc.prover, proofReward);
 
-        if (fc.prover != address(1)) {
-            IProverPool proverPool =
-                IProverPool(resolver.resolve("prover_pool", false));
+        IProverPool proverPool =
+            IProverPool(resolver.resolve("prover_pool", false));
 
-            proverPool.releaseProver(fc.prover);
+        if (!blk.proverReleased && blk.prover != address(0)) {
+            proverPool.releaseProver(blk.prover);
+        }
+
+        if (fc.prover != address(1)) {
             if (
                 fc.prover == blk.prover
                     && fc.provenAt <= blk.proposedAt + blk.proofWindow

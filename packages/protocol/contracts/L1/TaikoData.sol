@@ -103,11 +103,12 @@ library TaikoData {
         mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
         // slot 2
         bytes32 metaHash;
-        // slot 3: (14 bytes available)
+        // slot 3: (13 bytes available)
         uint64 blockId;
         uint32 gasLimit;
         uint24 nextForkChoiceId;
         uint24 verifiedForkChoiceId;
+        bool proverReleased;
         // slot 4
         address proposer;
         uint32 feePerGas;
