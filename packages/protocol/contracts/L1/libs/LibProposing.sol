@@ -111,12 +111,12 @@ library LibProposing {
         blk.feePerGas = state.feePerGas;
         blk.proposedAt = meta.timestamp;
 
-        blk.prover = prover;
-
         if (prover == address(0)) {
             blk.rewardPerGas =
                 state.feePerGas * config.rewardOpenMultipler / 100;
         } else {
+            blk.prover = prover;
+
             // Cap the reward to a range of [95%, 105%] * blk.feePerGas, if
             // rewardPerGasRange is set to 5% (500 bp)
             uint32 diff = blk.feePerGas * config.rewardPerGasRange / 10_000;
