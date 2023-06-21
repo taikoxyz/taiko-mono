@@ -59,6 +59,10 @@ Finally, set the following environment variables:
 - L1_ENDPOINT_HTTP
 - L1_ENDPOINT_WS
 
+If you are running a local Sepolia node, you cannot reference the L1 endpoints as `http://127.0.0.1:8545` and `ws://127.0.0.1:8546` because that is local to inside the simple-taiko-node Docker image. Depending on your firewall setup, you can do a few things. You can try:
+- Using `host.docker.internal` (see: https://stackoverflow.com/questions/24319662)
+- Using the local ip address of your machine (use something like `ip addr show` to get the ip address)
+
 <Callout>
   You can get a Sepolia L1 endpoint from a few places, but it **must point to an archive node** to access the state trie beyond the last 128 blocks.
 
