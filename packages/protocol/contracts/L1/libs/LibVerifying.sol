@@ -240,10 +240,6 @@ library LibVerifying {
             }
         }
 
-        // TODO(daniel & dani): I just commentted out the following line as
-        // I believe it is not useful...
-        // blk.nextForkChoiceId = 1;
-
         blk.verifiedForkChoiceId = fcId;
         emit BlockVerified(blk.blockId, fc.blockHash, proofReward);
     }
