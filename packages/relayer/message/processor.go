@@ -19,6 +19,7 @@ type ethClient interface {
 	BlockNumber(ctx context.Context) (uint64, error)
 	HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error)
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
+	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 }
 
 type Processor struct {

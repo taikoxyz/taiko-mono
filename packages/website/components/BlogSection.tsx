@@ -1,5 +1,20 @@
 const posts = [
   {
+    title: "ZK-Roller-Coaster #7",
+    href: "https://taiko.mirror.xyz/6WL5I2lbpYxOjhU82eUOyUvYa0yF2_rekI0f7cBrGxw",
+    description:
+      "This is the 7th edition of ZK-Roller-Coaster where we track and investigate the most exciting, meaningful, and crazy ZK-stuff of the prior two weeks.",
+    date: "Jun 20, 2023",
+    datetime: "2023-06-20",
+    imageUrl:
+      "https://mirror-media.imgix.net/publication-images/HRLmI4Vmn9A637fxJm8cq.png?height=426&width=851&h=426&w=851&auto=compress",
+    readingTime: "4 min",
+    author: {
+      name: "Lisa A.",
+      imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",
+    },
+  },
+  {
     title: "L2 MEV wat",
     href: "https://taiko.mirror.xyz/VjNjFws6OOVez5YCDMwjy4BUiDqZBHYDvcW4-JZGDkc",
     description:
@@ -28,21 +43,6 @@ const posts = [
     author: {
       name: "Lisa A.",
       imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",
-    },
-  },
-  {
-    title: "Taiko Alpha-3 Testnet is Live",
-    href: "https://taiko.mirror.xyz/wD7yN8Y5RttbP7kzdtX22GbMg6i18a-Xwet2sshpt48",
-    description:
-      "Today we’re excited to share that the Taiko alpha-3 testnet, Grímsvötn, is live! This is the next step on the road to a decentralized, Ethereum-equivalent ZK-EVM.",
-    date: "Jun 07, 2023",
-    datetime: "2023-06-07",
-    imageUrl:
-      "https://mirror-media.imgix.net/publication-images/LtyEm5huf-mf9854QWh3o.jpeg?height=800&width=1600&h=800&w=1600&auto=compress",
-    readingTime: "9 min",
-    author: {
-      name: "finestone",
-      imageUrl: "https://avatars.githubusercontent.com/u/36642873?s=96&v=4",
     },
   },
 ];
