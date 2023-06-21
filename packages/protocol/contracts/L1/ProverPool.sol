@@ -61,19 +61,26 @@ contract ProverPool is EssentialContract, IProverPool {
         uint32 amount; // this value will change when we slash the prover
         uint16 rewardPerGas;
         uint16 currentCapacity;
+        uint16 usedCapacity;
     }
 
     struct Exit {
         uint64 requestedAt;
         uint32 amount;
+        uint16 usedCapacity;
     }
 
     // TODO: change to id => address mapping
     mapping(uint8 id => Staker) public stakers;
+    mapping(address prover => uint8 id) public proverToId;
+     // TODO: this wont work
+    Prover[32] public provers; // 32/4 = 8 slots
+
+
     // This way we can keep track of a 'queue' who is currently exiting
     // or exited already.exits
+    // TODO: merge two if necessary
     mapping(address prover => Exit) public exits;
-    mapping(address prover => uint8 id) public proverToId;
 
     // Keeping track of the 'lowest barrier to entry' by checking who is on the
     // bottom of the top32 list.
@@ -97,8 +104,7 @@ contract ProverPool is EssentialContract, IProverPool {
     // instead of Prover array below. The capacity must be greater than a
     // threshold.
 
-    // TODO: this wont work
-    Prover[32] public provers; // 32/4 = 8 slots
+
 
     uint256 public constant EXIT_PERIOD = 1 weeks;
     uint256 public constant SLASH_AMOUNT_IN_BP = 500; // means 5% if 10_000 is
@@ -166,24 +172,18 @@ contract ProverPool is EssentialContract, IProverPool {
         uint256 totalWeight;
 
         for (uint8 i; i < provers.length; ++i) {
-            // TODO: if a prover's current capacity is 0, the weight shall be 0.
-            // DONE.
             weights[i] = _calcWeight(i, provers[i], feePerGas);
-            if (weights[i] == 0) break;
             totalWeight += weights[i];
         }
 
         if (totalWeight == 0) {
-            // QUESTION: shall we reward open proofs more?
-            // Do not think so, because most efficient provers might try to
-            // create such situations (time / off-chain calc) where this is
-            // the case and then they could get 2x more.
             return (address(0), 0);
         }
 
         // Determine prover idx
         bytes32 rand =
             keccak256(abi.encode(blockhash(block.number - 1), blockId));
+
         uint8 id = _pickProver({
             weights: weights,
             totalWeight: totalWeight,
@@ -198,9 +198,9 @@ contract ProverPool is EssentialContract, IProverPool {
 
     // Increases the capacity of the prover
     function releaseProver(address prover) external onlyProtocol {
+        // ISSUE: add one even to exiting prover
         if (
             stakers[proverToId[prover]].prover != address(0)
-                && provers[proverToId[prover]].currentCapacity < type(uint16).max
         ) {
             provers[proverToId[prover]].currentCapacity++;
         }
@@ -310,9 +310,11 @@ contract ProverPool is EssentialContract, IProverPool {
             proverToId[prover] = id;
         }
 
-        TaikoToken(AddressResolver(this).resolve("taiko_token", false)).burn(
-            prover, totalAmount * 10e8
-        );
+        if (totalAmount> 0) {
+            TaikoToken(AddressResolver(this).resolve("taiko_token", false)).burn(
+                prover, uint64(totalAmount) * 10e8 // TODO: public constant
+            );
+        }
 
         emit ProverEntered(prover, totalAmount, rewardPerGas, capacity);
     }
