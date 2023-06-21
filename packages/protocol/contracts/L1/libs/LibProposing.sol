@@ -127,8 +127,8 @@ library LibProposing {
                     / 10_000
             ).max(type(uint32).max);
 
-            uint256 minRewardPerGas = uint256(blk.feePerGas)
-                * (10_000 - config.rewardPerGasRange) / 10_000;
+            uint32 minRewardPerGas =
+                blk.feePerGas * (10_000 - config.rewardPerGasRange) / 10_000;
 
             blk.rewardPerGas = uint32(
                 uint256(rewardPerGas).min(maxRewardPerGas).max(minRewardPerGas)
