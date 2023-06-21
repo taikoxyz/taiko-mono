@@ -99,7 +99,7 @@ export default {
 
       content: {
         primary: 'var(--content-primary)',
-        secondary: 'var(--content-primary)',
+        secondary: 'var(--content-secondary)',
         tertiary: 'var(--content-tertiary)',
         link: {
           primary: 'var(--content-link-primary)',
@@ -111,11 +111,13 @@ export default {
         primary: 'var(--brand-primary)',
         secondary: 'var(--brand-secondary)',
       },
+
       sentiment: {
         positive: 'var(--sentiment-positive)',
         negative: 'var(--sentiment-negative)',
         warning: 'var(--sentiment-warning)',
       },
+
       background: {
         primary: 'var(--background-primary)',
         elevated: 'var(--background-elevated)',
@@ -135,14 +137,13 @@ export default {
           accent: 'var(--interactive-tertiary-accent)',
         },
       },
-
     },
   },
   
   plugins: [daisyuiPlugin],
 
   daisyui: {
-    darkTheme: 'dark', // name of one of the included themes for dark mode
+    darkTheme: 'light', // name of one of the included themes for dark mode
     base: true, // applies background color and foreground color for root element by default
     styled: false, // include daisyUI colors and design decisions for all components
     utils: true, // adds responsive and modifier utility classes
@@ -154,39 +155,49 @@ export default {
         dark: {
           'color-scheme': 'dark',
 
-          // Content
           '--content-primary': '#F3F3F3', // grey-10
           '--content-secondary': '#ADB1B8', // grey-200
           '--content-tertiary': '#5D636F', // grey-500
           '--content-link-primary': '#FF6FC8', // pink-200
           '--content-link-hover': '#FFC6E9', // pink-50
 
-          // Icons
           '--icon-primary': '#F3F3F3', // grey-10
           '--icon-secondary': '#444A55', // grey-600
 
-          // Primary
           '--brand-primary': '#C8047D', // pink-500
           '--brand-secondary': '#E81899', // pink-400
+
           '--sentiment-positive': '#47E0A0', // green-300
           '--sentiment-negative': '#F15C5D', // red-300
           '--sentiment-warning': '#EBB222', // yellow-400
+
           '--background-primary': '#0B101B', // grey-900
           '--background-elevated': '#191E28', // grey-800
           '--background-neutral': '#2B303B', // grey-700
           '--background-overlay': 'rgba(12, 17, 28, 0.5)', // grey-900|50%
 
-          // Interactive
           '--interactive-primary': '#C8047D', // pink-500
           '--interactive-primary-accent': '#E81899', // pink-400
           '--interactive-secondary-hover': '#2B303B', // grey-700
           '--interactive-tertiary-hover': '#444A55', // grey-600
           '--interactive-tertiary-accent': '#5D636F', // grey-500
 
-          // TODO
+          // TODO: add more colors
+
+          // ================================ //
+          'base-100': '#0B101B', // grey-900
+          'base-content': '#F3F3F3', // grey-10
         },
         light: {
           'color-scheme': 'light',
+
+          '--content-primary': '#191E28', // grey-800
+
+          '--background-primary': '#FAFAFA', // grey-5
+
+          // ================================ //
+          'base-100': '#FAFAFA', // grey-5
+          'base-content': '#191E28', // grey-800
         },
       },
     ],
