@@ -7,6 +7,10 @@ declare global {
     // interface PageData {}
     // interface Platform {}
   }
+
+  type Maybe<T> = T | null | undefined;
+  type MaybeArray<T> = T | T[] | null | undefined;
+  type MaybePromise<T> = T | Promise<T> | null | undefined;
 }
 
 export {};
