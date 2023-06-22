@@ -46,4 +46,4 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           directory: ./packages/bridge-ui-v2/coverage
-          flags: bridge-ui
+          flags: bridge-ui-v2
