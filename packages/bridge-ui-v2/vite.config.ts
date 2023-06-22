@@ -5,10 +5,10 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   plugins: [
     sveltekit(),
-    
+
     // This plugin gives vite the ability to resolve imports using TypeScript's path mapping.
     // https://www.npmjs.com/package/vite-tsconfig-paths
-    tsconfigPaths()
+    tsconfigPaths(),
   ],
   test: {
     globals: true,
