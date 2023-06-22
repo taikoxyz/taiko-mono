@@ -19,10 +19,10 @@
     <slot />
   </div>
 
-  <div class="drawer-side z-1 bg-primary-background md:border-r md:border-r-grey-600">
+  <div class="drawer-side z-1 bg-primary-background">
     <label for={drawerToogleId} class="drawer-overlay bg-overlay-background" />
 
-    <aside class="w-[226px] md:px-4 md:py-8 h-full">
+    <aside class="w-[226px] md:px-4 md:py-8 md:border-r md:border-r-grey-600 h-full">
       <a href="/" class="hidden md:block">
         <LogoWithText />
       </a>
