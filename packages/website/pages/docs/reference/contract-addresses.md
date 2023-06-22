@@ -49,3 +49,9 @@
 | Oracle prover             | [0x6798639591530FbBAfd12c2826422B58bD2c5219](https://sepolia.etherscan.io/address/0x6798639591530FbBAfd12c2826422B58bD2c5219) |
 | System prover 1           | [0x89697A45BA1FEFbc575BdcA6e0C50D5112A5a766](https://sepolia.etherscan.io/address/0x89697A45BA1FEFbc575BdcA6e0C50D5112A5a766) |
 | System prover 2           | [0xC9060A394ab1986D29aaB985ba41B2E516325900](https://sepolia.etherscan.io/address/0xC9060A394ab1986D29aaB985ba41B2E516325900) |
+
+## Account abstraction contracts
+
+| Name                | Address                                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| ERC-4337 Entrypoint | [0x3e871218D1c0A1670552aFFcB8adFDE98f6FA4F8](https://explorer.test.taiko.xyz/address/0x3e871218D1c0A1670552aFFcB8adFDE98f6FA4F8) |
