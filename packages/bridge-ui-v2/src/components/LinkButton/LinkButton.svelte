@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { classNames } from '../../libs/classNames';
+  import { classNames } from '@libs/classNames';
 
   type LinkTarget = '_blank' | '_self';
 

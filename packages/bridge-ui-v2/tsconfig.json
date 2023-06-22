@@ -10,6 +10,11 @@
     "sourceMap": true,
     "strict": true,
 
+    "paths": {
+			"@components/*": ["./src/components/*"],
+			"@libs/*": ["./src/libs/*"],
+		},
+
     // https://vitest.dev/config/#globals
     "types": ["vitest/globals"]
   }

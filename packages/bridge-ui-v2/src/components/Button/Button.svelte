@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { classNames } from '../../libs/classNames';
+  import { classNames } from '@libs/classNames';
 
   type ButtonType = 'neutral' | 'primary' | 'secondary' | 'accent' | 'info' | 'success' | 'warning' | 'error' | 'ghost';
   type ButtonSize = 'lg' | 'md' | 'sm' | 'xs';
