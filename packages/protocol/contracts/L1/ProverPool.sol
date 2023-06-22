@@ -69,6 +69,7 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
     struct TopProver {
         uint32 amount; // will slash from ExistingProver's amount then from this
             // value.
+
         uint16 rewardPerGas;
         uint16 currentCapacity;
     }
@@ -136,6 +137,7 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
         if (AddressResolver(this).resolve("taiko", false) != msg.sender) {
             revert POOL_CALLER_NOT_AUTHORIZED();
         }
+
         _;
     }
 
@@ -150,6 +152,7 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
 
     // A demo how to optimize the assignProver by using only 8 slots. It's still
     // a lot of slots though.
+
     function assignProver(
         uint64 blockId,
         uint32 feePerGas
@@ -158,6 +161,7 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
         returns (address prover, uint32 rewardPerGas)
     {
         // calculate each prover's dynamic weight
+
         uint256[32] memory weights;
         uint256 totalWeight;
 
@@ -200,6 +204,7 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
     function releaseProver(address prover) external onlyFromProtocol {
         /// NOTE: rewardPerGas is the indicator if object is valid/existing
         if (topProvers[proverToId[prover]].rewardPerGas != 0) {
+
             topProvers[proverToId[prover]].currentCapacity++;
         }
     }
@@ -236,6 +241,7 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
         }
 
         emit Slashed(prover, amountToSlash);
+
     }
 
     // @Daniel's comment: Adjust the staking. Users can use this funciton to
@@ -316,6 +322,7 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
                     .burn(
                     newProver,
                     uint64(totalAmount) * ONE_TKO // TODO: public constant
+
                 );
                 topProvers[proverToId[newProver]].amount += totalAmount;
                 // New reward per gas
@@ -330,6 +337,7 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
                 // Case 1:
                 // It signals a new stake request (or a re-stake if i the exit
                 // queue)
+
                 (uint8 id, uint32 minimumStake) = _determineLowestStaker();
                 //This will be calculated based on the exiting amount
                 uint32 burnAmount = totalAmount;
@@ -340,6 +348,7 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
                 // TODO: the logics should look like this:
                 // 1. Find the smallest staker in the top staker list, using its
                 // current
+
                 // amount
                 //    value, not the original amount value, say this is Alice.
                 // 2. Compare if the new staker, Bob's amount is bigger than
@@ -395,6 +404,7 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
                             newProverMightBeInExitQueue.requestedAt = timestamp;
 
                             burnAmount -= newProverMightBeInExitQueue.amount;
+
                         }
                     }
 
