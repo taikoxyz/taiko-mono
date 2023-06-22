@@ -2,6 +2,7 @@
   import { drawerToogleId } from '../SideNavigation';
   import Icon from '../Icon';
   import Logo from '../Logo';
+  import Button from '../Button/Button.svelte';
 </script>
 
 <header class="sticky md:px-10 md:py-7 flex justify-between">
@@ -12,5 +13,5 @@
     <Logo />
   </div>
 
-  TODO: Header
+  <Button>Connect Wallet</Button>
 </header>
