@@ -2,7 +2,13 @@ module.exports = {
   root: true,
   extends: ['eslint:recommended', 'plugin:@typescript-eslint/recommended', 'plugin:svelte/recommended', 'prettier'],
   parser: '@typescript-eslint/parser',
-  plugins: ['@typescript-eslint'],
+  plugins: ['@typescript-eslint', 'simple-import-sort'],
+  rules: {
+    'linebreak-style': ['error', 'unix'],
+    'simple-import-sort/imports': 'error',
+    'simple-import-sort/exports': 'error',
+    'no-console': ['error', { allow: ['warn', 'error'] }],
+  },
   parserOptions: {
     sourceType: 'module',
     ecmaVersion: 2020,

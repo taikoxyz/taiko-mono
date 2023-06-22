@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { drawerToogleId } from '../SideNavigation';
+  import Button from '../Button/Button.svelte';
   import Icon from '../Icon';
   import Logo from '../Logo';
-  import Button from '../Button/Button.svelte';
+  import { drawerToogleId } from '../SideNavigation';
 </script>
 
 <header class="sticky md:px-10 md:py-7 flex justify-between">

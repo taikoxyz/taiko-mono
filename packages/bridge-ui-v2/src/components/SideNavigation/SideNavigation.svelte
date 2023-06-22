@@ -3,8 +3,8 @@
 </script>
 
 <script lang="ts">
-  import LinkButton from '../LinkButton';
   import Icon from '../Icon';
+  import LinkButton from '../LinkButton';
   import { LogoWithText } from '../Logo';
 
   // TODO: env vars
