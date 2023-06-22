@@ -27,7 +27,7 @@ jobs:
       # This step is needed because the .env file is not committed to the repository
       # and the Svelte check complains about not finding the exports from $env/static/public,
       # which will be generated based on the .env file when running `svelte-kit sync`
-      - name: Make .env file
+      - name: Make dummy envfile
         run: cp .env.example .env
 
       - name: Svelte check
