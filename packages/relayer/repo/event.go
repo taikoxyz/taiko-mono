@@ -83,6 +83,26 @@ func (r *EventRepository) FirstByMsgHash(
 	return e, nil
 }
 
+func (r *EventRepository) FirstByEventAndMsgHash(
+	ctx context.Context,
+	event string,
+	msgHash string,
+) (*relayer.Event, error) {
+	e := &relayer.Event{}
+	// find all message sent events
+	if err := r.db.GormDB().Where("msg_hash = ?", msgHash).
+		Where("event = ?", event).
+		First(&e).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+
+		return nil, errors.Wrap(err, "r.db.First")
+	}
+
+	return e, nil
+}
+
 func (r *EventRepository) FindAllByAddress(
 	ctx context.Context,
 	req *http.Request,
