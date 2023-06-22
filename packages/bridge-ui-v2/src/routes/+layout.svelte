@@ -4,10 +4,7 @@
   import SideNavigation from '../components/SideNavigation';
 </script>
 
-<div class="Layout container">
-  <SideNavigation>
-    <Header />
-    <main>Main</main>
-    <footer>Footer</footer>
-  </SideNavigation>
-</div>
+<SideNavigation>
+  <Header />
+  <main>Main</main>
+</SideNavigation>

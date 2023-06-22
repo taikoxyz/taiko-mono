@@ -1,19 +1,24 @@
+<script context="module">
+  export const drawerToogleId = 'side-drawer-toggle';
+</script>
+
 <script lang="ts">
   import LinkButton from '../LinkButton';
   import Icon from '../Icon';
   import { LogoWithText } from '../Logo';
 
+  // TODO: env vars
   let explorerUrl = 'https://explorer.internal.taiko.xyz/';
   let guideUrl = 'https://taiko.xyz/docs/guides/use-the-bridge';
 </script>
 
 <div class="SideNavigation drawer md:drawer-open">
-  <input id="side-drawer-toggle" type="checkbox" class="drawer-toggle" />
+  <input id={drawerToogleId} type="checkbox" class="drawer-toggle" />
   <div class="drawer-content">
     <slot />
   </div>
   <div class="drawer-side px-4 py-8 border-r border-r-grey-600">
-    <label for="side-drawer-toggle" class="drawer-overlay" />
+    <label for={drawerToogleId} class="drawer-overlay" />
     <aside class="md:w-[226px]">
       <a href="/">
         <LogoWithText />

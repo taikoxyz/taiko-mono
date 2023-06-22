@@ -1,1 +1,1 @@
-export { default } from './SideNavigation.svelte';
+export { default, drawerToogleId } from './SideNavigation.svelte';
