@@ -1,6 +1,7 @@
 <script lang="ts">
   import LinkButton from '../LinkButton';
   import Icon from '../Icon';
+  import Button from '../Button/Button.svelte';
 
   let explorerUrl = 'https://explorer.internal.taiko.xyz/';
   let guideUrl = 'https://taiko.xyz/docs/guides/use-the-bridge';
@@ -11,13 +12,13 @@
   <div class="drawer-content">
     <slot />
   </div>
-  <div class="drawer-side">
+  <div class="drawer-side px-4 py-8 border-r border-r-grey-600">
     <label for="side-drawer-toggle" class="drawer-overlay" />
     <aside class="md:w-[226px]">
       <a href="/">
         <img src="/taiko-h-wht.svg" alt="Taiko logo" class="w-20 md:w-[125px]" />
       </a>
-      <ul class="menu">
+      <ul class="menu pt-10 space-y-2">
         <li>
           <LinkButton active>
             <Icon type="bridge" fillClass="fill-white" />
@@ -52,13 +53,3 @@
     </aside>
   </div>
 </div>
-
-<style lang="postcss">
-  .drawer-side {
-    @apply px-4 py-8 border-r border-r-grey-600;
-  }
-
-  .menu {
-    @apply pt-10 space-y-2;
-  }
-</style>

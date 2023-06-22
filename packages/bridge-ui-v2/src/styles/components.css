@@ -1,7 +1,7 @@
 @tailwind components;
 
 @layer components {
-  /* Typography components */
+  /* Typography */
   .title-subsection-regular {
     @apply font-normal text-[22px]/6;
   }
@@ -49,4 +49,7 @@
   .link-regular {
     @apply font-normal text-sm;
   }
+  /* End Typography */
+
+  /* TODO: add more components here */
 }

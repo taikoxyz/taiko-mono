@@ -1,11 +1,12 @@
 <script lang="ts">
   import '../app.css';
+  import Header from '../components/Header';
   import SideNavigation from '../components/SideNavigation';
 </script>
 
 <div class="Layout container">
   <SideNavigation>
-    <header>Header</header>
+    <Header />
     <main>Main</main>
     <footer>Footer</footer>
   </SideNavigation>

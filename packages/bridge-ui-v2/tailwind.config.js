@@ -10,7 +10,7 @@ export default {
         /***************
          * Base colors *
          ***************/
-  
+
         grey: {
           0: '#FFFFFF',
           5: '#FAFAFA',
@@ -27,7 +27,7 @@ export default {
           900: '#0B101B',
           1000: '#050912',
         },
-  
+
         pink: {
           0: '#FFFFFF',
           5: '#FFF8FC',
@@ -44,7 +44,7 @@ export default {
           900: '#240017',
           1000: '#050912',
         },
-  
+
         red: {
           0: '#FFFFFF',
           5: '#FEF5F5',
@@ -61,7 +61,7 @@ export default {
           900: '#250000',
           1000: '#050912',
         },
-  
+
         green: {
           0: '#FFFFFF',
           5: '#F2FFFA',
@@ -78,7 +78,7 @@ export default {
           900: '#001C10',
           1000: '#050912',
         },
-  
+
         yellow: {
           0: '#FFFFFF',
           5: '#FFFCF3',
@@ -95,11 +95,11 @@ export default {
           900: '#201700',
           1000: '#050912',
         },
-  
+
         /*******************
          * Semantic colors *
          *******************/
-  
+
         primary: {
           DEFAULT: 'var(--primary-brand)',
           brand: 'var(--primary-brand)',
@@ -112,43 +112,48 @@ export default {
           background: 'var(--primary-background)',
           interactive: {
             DEFAULT: 'var(--primary-interactive)',
+            hover: 'var(--primary-interactive-accent)',
             accent: 'var(--primary-interactive-accent)',
-          }
+          },
         },
-  
-        // secondary: {
-        //   DEFAULT: 'var(--brand-secondary)',
-        //   brand: 'var(--brand-secondary)',
-        //   content: 'var(--content-secondary)',
-        // },
-  
-        // tertiary: {
-        //   content: 'var(--tertiary-content)',
-        // },
-  
-        // sentiment: {
-        //   positive: 'var(--sentiment-positive)',
-        //   negative: 'var(--sentiment-negative)',
-        //   warning: 'var(--sentiment-warning)',
-        // },
-  
-        // elevated: 'var(--elevated-background)',
-        // overlay: 'var(--overlay-background)',
-      },
-    }
 
+        secondary: {
+          DEFAULT: 'var(--secondary-brand)',
+          brand: 'var(--secondary-brand)',
+          content: 'var(--secondary-content)',
+          icon: 'var(--secondary-icon)',
+          interactive: {
+            hover: 'var(--secondary-interactive-hover)',
+          },
+        },
+
+        tertiary: {
+          content: 'var(--tertiary-content)',
+          interactive: {
+            hover: 'var(--tertiary-interactive-hover)',
+          },
+        },
+
+        'positive-sentiment': 'var(--positive-sentiment)',
+        'negative-sentiment': 'var(--negative-sentiment)',
+        'warning-sentiment': 'var(--warning-sentiment)',
+
+        'elevated-background': 'var(--elevated-background)',
+        'neutral-background': 'var(--neutral-background)',
+        'overlay-background': 'var(--overlay-background)',
+      },
+    },
   },
-  
+
   plugins: [daisyuiPlugin],
 
   // https://daisyui.com/docs/config/
   daisyui: {
-    styled: false,
-    logs: false,
     themes: [
       {
         dark: {
           'color-scheme': 'dark',
+          '--btn-text-case': 'capitalize',
 
           '--primary-brand': '#C8047D', // pink-500
           '--primary-content': '#F3F3F3', // grey-10
@@ -176,21 +181,35 @@ export default {
           '--neutral-background': '#2B303B', // grey-700
           '--overlay-background': 'rgba(12, 17, 28, 0.5)', // grey-900|50%
 
-          // TODO: add more colors
-
           // ================================ //
+
+          primary: '#C8047D', // pink-500,
+          'primary-focus': '#E81899', // pink-400
+          'primary-content': '#F3F3F3', // grey-10
+
           'base-100': '#0B101B', // grey-900
           'base-content': '#F3F3F3', // grey-10
+
+          success: '#00321D', // green-800
+          error: '#440000', // red-800
+          warning: '#382800', // yellow-800
         },
+
         light: {
           'color-scheme': 'light',
+          '--btn-text-case': 'capitalize',
 
           '--primary-content': '#191E28', // grey-800
           '--primary-background': '#FAFAFA', // grey-5
 
           // ================================ //
+
           'base-100': '#FAFAFA', // grey-5
           'base-content': '#191E28', // grey-800
+
+          success: '#E4FFF4', // green-10
+          error: '#FFE7E7', // red-10
+          warning: '#FFF6DE', // yellow-10
         },
       },
     ],
