@@ -24,6 +24,9 @@ jobs:
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
+      - name: debug
+        run: pnpm svelte-kit sync && ls -la
+
       - name: Svelte check
         working-directory: ./packages/bridge-ui-v2
         run: pnpm svelte:check
