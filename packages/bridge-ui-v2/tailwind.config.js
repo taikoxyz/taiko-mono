@@ -196,6 +196,8 @@ export default {
         },
 
         light: {
+          // TODO: add light theme
+
           'color-scheme': 'light',
           '--btn-text-case': 'capitalize',
 
