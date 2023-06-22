@@ -26,32 +26,29 @@ interface IProverPool {
 }
 
 contract ProverPool is EssentialContract, IProverPool {
-    // TODO: Dani, this data structure shall be read only in assignProvers and
-    // only
-    // be modified by the stake() function. (+ setter/adjustment/exit functions)
-    // TODO: remove this
-    struct Staker {
-        uint8 id; // [0-31]
-        address prover;
-    }
-    // TODO:
-    // // I think it is redundand here and not needed because it is used in
-    // ProverExitRequest
-    // uint64 exitTs;
-    // // I think it is redundent here, not needed because Prover struct keeps
-    // track of it
-    // uint32 amount; // unit is 10^8, this means a max of
-    // // 429496729500000000 tokens, 2.3283%  of total supply
-    // // I think it is redundent here, not needed because Prover struct keeps
-    // track of it
-    // uint16 rewardPerGas; // expected rewardPerGas
-    // // I think it is redundent here, not needed because Prover struct keeps
-    // track of it
-    // uint16 capacity; // maximum capacity (parallel blocks)
+    // New concept TLDR:
+    // 2 main data 'registry':
+    // - TopProver array: we keep track of the top32. We need an array because we need to iterate over
+    // - ExitingProver mapping: each and every prover who is either exiting or kicked out (by someone staking more) is
+    // here until they are not withdraw the funds (with exit())
 
-    // Then we use a fixed size byte array to represnet the top 32 provers.
-    // For each prover, we only need to keep its amount, and rewardPerGas,
-    // together they takes 32+32=64 bits, or 8 bytes.
+    // NOTE:
+    // - signalling an exit if you are a prover can be done via stake(totalAMount = 0)
+    // - modifying existing parameters also done via stake (see comments there)
+    // - there are mechanisms in the stake() code to handle scenarios like:
+    //     A: Bob is the least staker. Alice comes in and stakes more than Bob and Carol.
+    //     Now Bob forced to leave and not within the ExitingProvers. He realizes it and
+    //     tries to re-stake. Now he stakes more than Carol, so Carol is gone, but Bob can
+    //     re-use his funds currently in the 'staking queue'. So basically he is out of the
+    //     exiting queue.
+    //
+    //     B: Almost same situation as above, except that when Bob is leaving (force leaving)
+    //     Carol decided to leave as well, so she is not in the topProver array anymore. It means
+    //     Bob could come back with his stake (currenlty in the exit 'queue') or even less than that
+    //     amount since Carol left, there is 1 "free space". So he could decide to re-stake less than
+    //     his amount in the current exit 'queue', so technically he still have some left in the exit queue
+    //     while also being a topProver in the same time!
+
 
     // This is 1/4 slot
     // TODO: Dani, this structure should hold all information required to
@@ -64,57 +61,35 @@ contract ProverPool is EssentialContract, IProverPool {
     }
 
     // prover always have one Prover object,regardless if it is active or exiting.
-    struct Prover {
+    // @TODO: We do not need to use both. We shall have 1 for TopProvers, and 1 for ExitingProvers
+    struct ExitingProver {
         uint64 exitRequestedAt;
         uint32 exitAmount;
-        uint16 usedCapacity;
+        // @QUESTION: I think 'usedCapacity' is not needed here or at least cannot be calculated only from the
+        // current capacity. Because current capacity always deducted when prover is selected to
+        // prove. We can only monitor the 'usedCapacity' in case we increase it once currentCapacity 
+        // deducted, but that increases writes. So simply we shall allow 'exit' with currentCapacity
+        // Then when (if) they reenter, they need to specify their actually available capacity in the exact moment
+        // they are reentering. If possible, try to avoid extra complexity into the contracts.
+        //uint16 usedCapacity;
     }
 
-    // TODO: change to id => address mapping
+    // TOP PROVERS LIST
     TopProver[32] public topProvers; // 32/4 = 8 slots
+    // EXITING PROVER MAPPING
+    mapping(address prover => ExitingProver) exitingProvers;
 
-    mapping(address prover => Prover) provers;
+    // Id mappings
     mapping(uint8 id => address) idToProver;
     mapping(address prover => uint8 id) proverToId;
 
-    // mapping(uint8 a => Staker) public stakers;
-    // mapping(address prover => uint8 id) public proverToId;
-     // TODO: this wont work
-
-
-
-    // This way we can keep track of a 'queue' who is currently exiting
-    // or exited already.exits
-    // TODO: merge two if necessary
-    // mapping(address prover => Exit) public exits;
-
-    // Keeping track of the 'lowest barrier to entry' by checking who is on the
-    // bottom of the top32 list.
-    // Top32: Pure staked TKO based !
-
-    // TODO: the minimum stake is dynamic, it should be smallest `amount`
-    // value
-    // in the `provers` list. No need to keep track of this as state variables.
-    // To @Daniel: Agreed, commenting out for now only to see changes
-    // properly.exits
-    // uint256 public minimumStake;
-    // uint8 minimumStakerId;
-
-    // TODO: what is this?
-    // If we dont keep track outomatically on state level the minimumStake and
-    // id
-    // it is not needed at all.
-    //uint8 currentIdIdx;
-
-    // uint16 capacity; // if we add this, we should use a bytes array
-    // instead of Prover array below. The capacity must be greater than a
-    // threshold.
-
-
-
+    // Exit period. Might fine tune later on !
     uint256 public constant EXIT_PERIOD = 1 weeks;
-    uint256 public constant SLASH_AMOUNT_IN_BP = 500; // means 5% if 10_000 is
-        // 100%
+
+    // 500 means 5% if 10_000 is 100 %
+    uint256 public constant SLASH_AMOUNT_IN_BP = 500; 
+
+    uint256 public WEI_TO_1_TKO = 10e8;
 
     uint256[100] private __gap;
 
@@ -122,17 +97,11 @@ contract ProverPool is EssentialContract, IProverPool {
         address prover, uint32 amount, uint16 rewardPerGas, uint16 capacity
     );
 
-    event ProverStakedMoreTokens(
-        address prover, uint32 amount, uint32 totalStaked
-    );
+    event ProverChangedParameters(address prover, uint32 newBalance, uint16 newReward, uint16 newCapacity);
 
-    event ProverChangedExpectedReward(address prover, uint16 newReward);
-
-    event ProverAdjustedCapacity(address prover, uint16 newCapacity);
+    event ProverKickeOutByWithAmount(address kickedOut, address newProver, uint32 totalAmount);
 
     event ProverExitRequested(address prover, uint64 timestamp);
-
-    event ProverExitRequestReverted(address prover, uint64 timestamp);
 
     event ProverExited(address prover, uint64 timestamp);
 
@@ -146,11 +115,14 @@ contract ProverPool is EssentialContract, IProverPool {
         _;
     }
 
-    // TODO: rename to onlyValidProver?
-    modifier onlyProver(address prover) {
+    modifier onlyActiveProver(address prover) {
+        // Either within top provers (rewardPerGas != 0 serves as a check), or still exiting
         require(
-            stakers[proverToId[prover]].prover != address(0),
-            "Only provers can call this function" // TODO: incorrect
+            topProvers[proverToId[prover]].rewardPerGas != 0
+            || 
+            ( exitingProvers[prover].exitRequestedAt != 0
+            && exitingProvers[prover].exitRequestedAt + EXIT_PERIOD < block.timestamp),
+            "Only active provers can call this function"
         );
         _;
     }
@@ -177,8 +149,11 @@ contract ProverPool is EssentialContract, IProverPool {
         uint256[32] memory weights;
         uint256 totalWeight;
 
-        for (uint8 i; i < provers.length; ++i) {
-            weights[i] = _calcWeight(i, provers[i], feePerGas);
+        // Iterate over in-memory array
+        TopProver[32] memory mTopProvers = topProvers;
+
+        for (uint8 i; i < mTopProvers.length; ++i) {
+            weights[i] = _calcWeight(i, mTopProvers[i], feePerGas);
             totalWeight += weights[i];
         }
 
@@ -196,50 +171,54 @@ contract ProverPool is EssentialContract, IProverPool {
             rand: rand
         });
 
-        Staker memory data = stakers[id];
-
-        provers[id].currentCapacity--;
-        return (data.prover, provers[id].rewardPerGas);
+        topProvers[id].currentCapacity--;
+        return (idToProver[id], topProvers[id].rewardPerGas);
     }
 
     // Increases the capacity of the prover
+    // @Dani: No need to track usedCapacity on prover (exiting), they should take care of
+    // monitoring their own resources when they want to re-enter (!). This code is already
+    // more complex than a PoC should :) - no need to over-engineer.
     function releaseProver(address prover) external onlyProtocol {
-        // ISSUE: add one even to exiting prover
+        /// NOTE: rewardPerGas is the indicator if object is valid/existing
         if (
-            stakers[proverToId[prover]].prover != address(0)
+            topProvers[proverToId[prover]].rewardPerGas != 0
         ) {
-            provers[proverToId[prover]].currentCapacity++;
+            topProvers[proverToId[prover]].currentCapacity++;
         }
     }
 
     function slashProver(address prover)
         external
         onlyProtocol
-        onlyProver(prover) // TODO: should also allow slash exiting provers
+        onlyActiveProver(prover)
     {
-        // We need to determine if the prover is an exiting prover or not
+        // We need to determine if the prover is an exiting prover or normal (top)
+        // It might happen that prover is in the exit, while also in the top, in such case
+        // try to punish the exiting amount
         uint32 afterSlash;
         if (
-            exits[prover].requestedAt != 0
-                && exits[prover].requestedAt + EXIT_PERIOD < block.timestamp
+            exitingProvers[prover].exitRequestedAt != 0
+                && exitingProvers[prover].exitRequestedAt + EXIT_PERIOD < block.timestamp
         ) {
             // Exiting prover get's slashed
-            uint32 currentStaked = exits[prover].amount;
+            uint32 currentStaked = exitingProvers[prover].exitAmount;
 
             afterSlash = uint32(
                 currentStaked * uint256(10_000 - SLASH_AMOUNT_IN_BP) / 10_000
             );
 
-            exits[prover].amount = afterSlash;
-        } else {
-            uint32 currentStaked = provers[proverToId[_msgSender()]].amount;
+            exitingProvers[prover].exitAmount = afterSlash;
+        }
+        else if(topProvers[proverToId[prover]].rewardPerGas != 0) {
+            // Slash top prover
+            uint32 currentStaked = topProvers[proverToId[prover]].amount;
 
             afterSlash = uint32(
                 currentStaked * uint256(10_000 - SLASH_AMOUNT_IN_BP) / 10_000
             );
 
-            provers[proverToId[_msgSender()]].amount = afterSlash;
-            //stakers[proverToId[_msgSender()]].amount = afterSlash;
+            topProvers[proverToId[prover]].amount = afterSlash;
         }
 
         emit ProverSlashed(prover, afterSlash);
@@ -259,70 +238,137 @@ contract ProverPool is EssentialContract, IProverPool {
         external
         nonReentrant
     {
-        // TODO(daniel): assuming we have 1 block per second, and each proof
-        // takes
-        // 1 hour to generate, then we need a total capacity of 3600 at least
-        // across
-        // 32 provers, that means each prover's minimul capacity is 3600/32=112.
-        // We shall
-        // Yep, make sense !
-        require(capacity >= 100, "too small");
 
-        (uint8 id, uint32 minimumStake) = _determineLowestStaker();
+        address newProver = _msgSender();
+        if(totalAmount == 0) {
+            // It signals an 'exit'
 
-        // Cannot enter the pool below the minimum
-        require(minimumStake < totalAmount, "Cannot enter below minimum");
-        require(rewardPerGas > 0, "Cannot be less than 1");
-        // Prover shall always be sender and in case of
-        // lending/cooperation/delegate
-        // it shall be done off-chain or at least outside of this pool contract.
-        address prover = _msgSender();
-        // The list of 32 is not full yet so kind of everybody can enter into
-        // the pool
+            uint64 timestamp = uint64(block.timestamp);
 
-        // TODO: the logics should look like this:
-        // 1. Find the smallest staker in the top staker list, using its current
-        // amount
-        //    value, not the original amount value, say this is Alice.
-        // 2. Compare if the new staker, Bob's amount is bigger than
-        // Alice's. We may even compare
-        //    capacity (not sure how the math work), note that if Bob is already
-        // on the exiting list, we shall reuse its tokens locked there.
-        // Yes, we comply with this 1st and 2nd checks with:
-        // require(minimumStake < totalAmount, "Cannot enter below minimum");
-        // 3. If Bob is perferred, we change Alice's status to `exiting` (as if
-        // Alice herself requested to exit)
-        // 4. We replace Alice with Bob in the `provers` list.
+            uint8 idToZero = proverToId[_msgSender()];
+            // Add to exiting 'queue'
+            exitingProvers[_msgSender()] = ExitingProver(timestamp, topProvers[idToZero].amount);
 
-        Staker memory replacedProver = stakers[id];
-        if (replacedProver.prover != address(0)) {
-            // The list is full so we need to kick someone out
+            // Empty in topProvers and delete from proverToId mapping
+            topProvers[idToZero] = TopProver(0, 0, 0);
+            delete proverToId[_msgSender()];
 
-            // 1. So we put Alice into the exit queue:
-            // QUESTION: what if the prover has requested to exit already?
-            exits[replacedProver.prover] =
-                Exit(uint64(block.timestamp), provers[id].amount);
-
-            // 2. Rewrite it's place with the new one
-            stakers[id] =
-                Staker(id, prover /*, 0, totalAmount, rewardPerGas, capacity*/ );
-            provers[id] = Prover(totalAmount, rewardPerGas, capacity);
-            proverToId[prover] = id;
-        } else {
-            // Not all the 32 spots are filled up so we can easily assign
-            stakers[id] =
-                Staker(id, prover /*, 0, totalAmount, rewardPerGas, capacity*/ );
-            provers[id] = Prover(totalAmount, rewardPerGas, capacity);
-            proverToId[prover] = id;
+            emit ProverExitRequested(newProver, timestamp);
         }
+        else {
+            require(capacity >= 100, "too small");
+            require(rewardPerGas > 0, "Cannot be less than 1");
 
-        if (totalAmount> 0) {
-            TaikoToken(AddressResolver(this).resolve("taiko_token", false)).burn(
-                prover, uint64(totalAmount) * 10e8 // TODO: public constant
-            );
+            // This else clause can be a:
+            // 1. completely new stake request (and a re-stake once prover was forced kicked out and now in the exitingProvers)
+            // 2. A modification
+
+            // Case 2:
+            if(topProvers[proverToId[newProver]].rewardPerGas != 0) {
+                // This is 2. (modification) because we have this prover in the list
+                // totalAmount if 0 it means they dont raise the staked TKO (it's fine)
+                TaikoToken(AddressResolver(this).resolve("taiko_token", false)).burn(
+                    newProver, uint64(totalAmount) * WEI_TO_1_TKO // TODO: public constant
+                );
+                topProvers[proverToId[newProver]].amount += totalAmount;
+                // New reward per gas
+                topProvers[proverToId[newProver]].rewardPerGas = rewardPerGas;
+                // New capacity
+                topProvers[proverToId[newProver]].currentCapacity = capacity;
+
+                emit ProverChangedParameters(
+                    newProver, totalAmount, rewardPerGas, capacity
+                );
+            }
+            else {
+                // Case 1:
+                // It signals a new stake request (or a re-stake if i the exit queue)
+                (uint8 id, uint32 minimumStake) = _determineLowestStaker();
+                //This will be calculated based on the exiting amount
+                uint32 burnAmount = totalAmount;
+                // Cannot enter the pool below the minimum
+                require(minimumStake < totalAmount, "Cannot enter below minimum");
+                // TODO: the logics should look like this:
+                // 1. Find the smallest staker in the top staker list, using its current
+                // amount
+                //    value, not the original amount value, say this is Alice.
+                // 2. Compare if the new staker, Bob's amount is bigger than
+                // Alice's. We may even compare
+                //    capacity (not sure how the math work), note that if Bob is already
+                // on the exiting list, we shall reuse its tokens locked there.
+                // Yes, we comply with this 1st and 2nd checks with:
+                // require(minimumStake < totalAmount, "Cannot enter below minimum");
+                // 3. If Bob is perferred, we change Alice's status to `exiting` (as if
+                // Alice herself requested to exit)
+                // 4. We replace Alice with Bob in the `provers` list.
+                uint64 timestamp = uint64(block.timestamp);
+                TopProver memory replacedProver = topProvers[id];
+                // NOTE: Since we not allow the rewardPerGas to be 0, we can always use
+                // it as a check to see if the data is non-null.
+                if (replacedProver.rewardPerGas != 0) {
+                    // The list is full so we need to kick someone out
+                    // We need to see both the replacedProver and the newProver
+                    // are in the exit queue or not ?
+                    ExitingProver memory kickedOutProver = exitingProvers[idToProver[id]];
+                    ExitingProver memory newProverMightBeInExitQueue = exitingProvers[newProver];
+
+                    if (kickedOutProver.exitRequestedAt != 0) {
+                        // The kicked out is also in the exit queue with some funds as well
+                        kickedOutProver.exitRequestedAt = timestamp;
+                        kickedOutProver.exitAmount += replacedProver.amount;
+                    }
+                    else {
+                        kickedOutProver.exitRequestedAt = timestamp;
+                        kickedOutProver.exitAmount = replacedProver.amount;
+                    }
+
+                    if (newProverMightBeInExitQueue.exitRequestedAt != 0) {
+                        // The new one is in the exit queue so we might reuse it's allowance
+                        // let's see how much is that.
+
+                        if(newProverMightBeInExitQueue.exitAmount <= totalAmount) {
+                            // It is basically 'reverting' an exit then
+                            newProverMightBeInExitQueue.exitAmount = 0;
+                            newProverMightBeInExitQueue.exitRequestedAt = 0;
+                            //We already burnt when entered into the pool
+                            burnAmount = totalAmount - newProverMightBeInExitQueue.exitAmount;
+                        }
+                        else {
+                            newProverMightBeInExitQueue.exitAmount -= totalAmount;
+                            newProverMightBeInExitQueue.exitRequestedAt = timestamp;
+
+                            burnAmount -= newProverMightBeInExitQueue.exitAmount;
+                        }
+                    }
+
+                    // Write back to storage
+                    exitingProvers[idToProver[id]] = kickedOutProver;
+                    exitingProvers[newProver] = newProverMightBeInExitQueue;
+
+                    // Rewrite it's place with the new one
+                    topProvers[id] = TopProver(totalAmount, rewardPerGas, capacity);
+
+                    emit ProverKickeOutByWithAmount(idToProver[id], newProver, totalAmount);
+
+                    proverToId[newProver] = id;
+                    idToProver[id] = newProver;
+
+
+                } else {
+                    topProvers[id] = TopProver(totalAmount, rewardPerGas, capacity);
+                    proverToId[newProver] = id;
+                    idToProver[id] = newProver;
+                }
+
+                TaikoToken(AddressResolver(this).resolve("taiko_token", false)).burn(
+                    newProver, uint64(burnAmount) * WEI_TO_1_TKO // TODO: public constant
+                );
+
+                emit ProverEntered(
+                    newProver, totalAmount, rewardPerGas, capacity
+                );
+            }
         }
-
-        emit ProverEntered(prover, totalAmount, rewardPerGas, capacity);
     }
 
     function getAvailableCapacity()
@@ -330,7 +376,7 @@ contract ProverPool is EssentialContract, IProverPool {
         view
         returns (uint256 totalCapacity)
     {
-        Prover[32] memory mProvers = provers;
+        TopProver[32] memory mProvers = topProvers;
 
         // Find the index to insert the new staker based on their balance
         for (uint8 i = 0; i < mProvers.length; i++) {
@@ -338,92 +384,20 @@ contract ProverPool is EssentialContract, IProverPool {
         }
     }
 
-    // TODO: Dani, most of the following methods can be implemented in the
-    // `stake` function. We do not need one tx per staking parameter.
-    // The `stake` function shall serve the purpose of specifying a final
-    // staking plan.
-    // Well i dont think i agree here. It would be much more gas intensive and
-    // confusing on the client side as well.
-    // https://github.com/taikoxyz/taiko-mono/pull/14010#discussion_r1234568661
-
-    // Increases the staked amount (decrease will be with exit())
-    function stakeMoreTokens(uint32 amount) external onlyProver(_msgSender()) {
-        require(amount > 0, "Must stake a positive amount of tokens");
-
-        provers[proverToId[_msgSender()]].amount += amount;
-        //stakers[proverToId[_msgSender()]].amount += amount; -> removed as seen
-        // redundant
-
-        emit ProverStakedMoreTokens(
-            _msgSender(), amount, provers[proverToId[_msgSender()]].amount
-        );
-    }
-
-    // Adjusts the expected reward per gas
-    function adjustExpectedRewardPerGas(uint16 newRewardPerGas)
-        external
-        onlyProver(_msgSender()) // TODO: do not use `_msgSender()` here or use
-            // it everywhere
-    {
-        require(newRewardPerGas > 0, "Must be above 0");
-
-        provers[proverToId[_msgSender()]].rewardPerGas = newRewardPerGas;
-        //stakers[proverToId[_msgSender()]].rewardPerGas = newRewardPerGas; ->
-        // removed as seen redundant
-
-        emit ProverChangedExpectedReward(_msgSender(), newRewardPerGas);
-    }
-
-    // Sets new capacity
-    function adjustCapacity(uint16 newCapacity)
-        external
-        onlyProver(_msgSender())
-    {
-        require(newCapacity > 0, "Must be above 0");
-
-        provers[proverToId[_msgSender()]].currentCapacity = newCapacity;
-        // stakers[proverToId[_msgSender()]].capacity = newCapacity; -> removed
-        // as seen redundant
-
-        emit ProverAdjustedCapacity(_msgSender(), newCapacity);
-    }
-
-    // Can 'toggle' exit status
-    function requestExit() external onlyProver(_msgSender()) {
-        uint64 timestamp = uint64(block.timestamp);
-
-        uint8 idToZero = proverToId[_msgSender()];
-        // Same happens as when Bob replaces Alice except it's place is filled
-        // with 0s
-        exits[_msgSender()] = Exit(timestamp, provers[idToZero].amount);
-
-        // 2. Rewrite it's place with empty place
-        delete stakers[idToZero];
-        provers[idToZero] = Prover(0, 0, 0);
-        delete proverToId[_msgSender()];
-
-        emit ProverExitRequested(_msgSender(), timestamp);
-    }
-
     function exit() external {
         // We need to have this prover 'flagged' as an exiting prover
         require(
-            exits[_msgSender()].requestedAt != 0
-                && exits[_msgSender()].requestedAt + EXIT_PERIOD < block.timestamp,
+            exitingProvers[_msgSender()].exitRequestedAt != 0
+                && exitingProvers[_msgSender()].exitRequestedAt + EXIT_PERIOD < block.timestamp,
             "Cannot yet exit"
         );
 
-        // Reimburse rewards and staked TKO
-        // TODO: we should mint (amount * 2^32) as each unit is a 2^32
-        // tokens, not 1 wei
-        // QUESTION: Not 10^8 ?
-
         TaikoToken(AddressResolver(this).resolve("taiko_token", false)).mint(
-            msg.sender, exits[_msgSender()].amount * 10e8
+            msg.sender, exitingProvers[_msgSender()].exitAmount * WEI_TO_1_TKO
         );
 
         // Delete mapping
-        delete exits[_msgSender()];
+        delete exitingProvers[_msgSender()];
 
         emit ProverExited(_msgSender(), uint64(block.timestamp));
     }
@@ -442,7 +416,7 @@ contract ProverPool is EssentialContract, IProverPool {
     // The weight is dynamic based on fee per gas.
     function _calcWeight(
         uint8 id,
-        Prover memory prover,
+        TopProver memory prover,
         uint32 feePerGas
     )
         private
@@ -451,7 +425,7 @@ contract ProverPool is EssentialContract, IProverPool {
     {
         // If prover's capacity is 0
         // set his/her weight to 0
-        if (provers[id].currentCapacity == 0) {
+        if (topProvers[id].currentCapacity == 0) {
             return 0;
         }
         // Just a demo that the weight depends on the current fee per gas,
@@ -466,7 +440,7 @@ contract ProverPool is EssentialContract, IProverPool {
         view
         returns (uint8 stakerId, uint32 minStake)
     {
-        Prover[32] memory mProvers = provers;
+        TopProver[32] memory mProvers = topProvers;
         stakerId = 0;
         minStake = mProvers[0].amount;
 
