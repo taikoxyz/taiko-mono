@@ -22,12 +22,15 @@ module.exports = {
   overrides: [
     {
       files: ['*.svelte'],
-      rules: {
-        'no-undef': 'off', // TS will take care of this
-      },
       parser: 'svelte-eslint-parser',
       parserOptions: {
         parser: '@typescript-eslint/parser',
+      },
+    },
+    {
+      files: ['*.ts', '*.svelte'],
+      rules: {
+        'no-undef': 'off', // TS will take care of this
       },
     },
   ],
