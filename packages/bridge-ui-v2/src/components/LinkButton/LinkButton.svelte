@@ -10,6 +10,9 @@
   $: activeClass = active ? 'bg-primary-interactive hover:bg-primary-interactive-hover' : '';
 </script>
 
-<a {href} {target} class={classNames('btn rounded-full body-bold flex justify-start content-center', activeClass)}>
+<a
+  {href}
+  {target}
+  class={classNames('btn btn-ghost rounded-full body-bold flex justify-start content-center', activeClass)}>
   <slot />
 </a>

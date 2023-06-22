@@ -1,7 +1,7 @@
 <script lang="ts">
   import LinkButton from '../LinkButton';
   import Icon from '../Icon';
-  import Button from '../Button/Button.svelte';
+  import { LogoWithText } from '../Logo';
 
   let explorerUrl = 'https://explorer.internal.taiko.xyz/';
   let guideUrl = 'https://taiko.xyz/docs/guides/use-the-bridge';
@@ -16,7 +16,7 @@
     <label for="side-drawer-toggle" class="drawer-overlay" />
     <aside class="md:w-[226px]">
       <a href="/">
-        <img src="/taiko-h-wht.svg" alt="Taiko logo" class="w-20 md:w-[125px]" />
+        <LogoWithText />
       </a>
       <ul class="menu pt-10 space-y-2">
         <li>
