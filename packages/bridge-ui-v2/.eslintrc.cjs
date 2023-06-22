@@ -30,7 +30,9 @@ module.exports = {
     {
       files: ['*.ts', '*.svelte'],
       rules: {
-        'no-undef': 'off', // TS will take care of this
+        // TS will take care of this potential error. For more information please visit:
+        // https://typescript-eslint.io/linting/troubleshooting/#i-get-errors-from-the-no-undef-rule-about-global-variables-not-being-defined-even-though-there-are-no-typescript-errors
+        'no-undef': 'off',
       },
     },
   ],
