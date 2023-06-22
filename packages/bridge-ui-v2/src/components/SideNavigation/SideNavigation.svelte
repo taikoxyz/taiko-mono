@@ -12,14 +12,17 @@
   let guideUrl = 'https://taiko.xyz/docs/guides/use-the-bridge';
 </script>
 
-<div class="SideNavigation drawer md:drawer-open">
+<div class="drawer md:drawer-open">
   <input id={drawerToogleId} type="checkbox" class="drawer-toggle" />
+
   <div class="drawer-content">
     <slot />
   </div>
-  <div class="drawer-side px-4 py-8 border-r border-r-grey-600">
-    <label for={drawerToogleId} class="drawer-overlay" />
-    <aside class="md:w-[226px]">
+
+  <div class="drawer-side z-1 bg-primary-background md:border-r md:border-r-grey-600">
+    <label for={drawerToogleId} class="drawer-overlay bg-overlay-background" />
+
+    <aside class="md:w-[226px] md:px-4 md:py-8 h-full">
       <a href="/">
         <LogoWithText />
       </a>
