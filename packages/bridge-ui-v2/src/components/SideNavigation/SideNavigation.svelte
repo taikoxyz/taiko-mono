@@ -3,7 +3,8 @@
 </script>
 
 <script lang="ts">
-  import { PUBLIC_L2_EXPLORER_URL, PUBLIC_GUIDE_URL } from '$env/static/public';
+  import { PUBLIC_GUIDE_URL,PUBLIC_L2_EXPLORER_URL } from '$env/static/public';
+
   import Icon from '../Icon';
   import LinkButton from '../LinkButton';
   import { LogoWithText } from '../Logo';
