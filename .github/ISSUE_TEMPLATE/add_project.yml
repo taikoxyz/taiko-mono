@@ -1,5 +1,6 @@
 name: Add a project to Taiko's ecosystem 🌐
 description: Add a project to Taiko's ecosystem
+title: Add [PROJECT_NAME] to the ecosystem.
 labels: ["category.enhancement", "status.needs-triage"]
 assignees:
   - d1onys1us
@@ -26,6 +27,12 @@ body:
     id: link
     attributes:
       label: Link to your project
+    validations:
+      required: true
+  - type: input
+    id: evidence
+    attributes:
+      label: Please provide evidence here that your project is integrated with Taiko for us to easily check.
     validations:
       required: true
   - type: textarea
