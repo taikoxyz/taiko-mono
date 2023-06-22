@@ -6,29 +6,32 @@
 
 pragma solidity ^0.8.20;
 
+import { LibMath } from "../../libs/LibMath.sol";
 import { AddressResolver } from "../../common/AddressResolver.sol";
+import { IMintableERC20 } from "../../common/IMintableERC20.sol";
+import { IProverPool } from "../ProverPool.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibEthDepositing } from "./LibEthDepositing.sol";
+import { LibL2Consts } from "../../L2/LibL2Consts.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import { TaikoData } from "../TaikoData.sol";
-import { LibL2Consts } from "../../L2/LibL2Consts.sol";
 
 library LibProposing {
-    using SafeCastUpgradeable for uint256;
     using LibAddress for address;
     using LibAddress for address payable;
+    using LibMath for uint256;
     using LibUtils for TaikoData.State;
+    using SafeCastUpgradeable for uint256;
 
-    event BlockProposed(
-        uint256 indexed id, TaikoData.BlockMetadata meta, uint64 blockFee
-    );
+    event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
     error L1_BLOCK_ID();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
     error L1_TOO_MANY_BLOCKS();
+    error L1_TOO_MANY_OPEN_BLOCKS();
     error L1_TX_LIST_NOT_EXIST();
     error L1_TX_LIST_HASH();
     error L1_TX_LIST_RANGE();
@@ -44,26 +47,47 @@ library LibProposing {
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
-        uint8 cacheTxListInfo = _validateBlock({
-            state: state,
-            config: config,
-            input: input,
-            txList: txList
-        });
+        // Try to select a prover first to revert as earlier as possible
+        (address prover, uint32 rewardPerGas) = IProverPool(
+            resolver.resolve("prover_pool", false)
+        ).assignProver(state.numBlocks, state.feePerGas);
 
-        if (cacheTxListInfo != 0) {
-            state.txListInfo[input.txListHash] = TaikoData.TxListInfo({
-                validSince: uint64(block.timestamp),
-                size: uint24(txList.length)
+        assert(prover != address(1));
+
+        {
+            // Validate block input then cache txList info if requested
+            bool cacheTxListInfo = _validateBlock({
+                state: state,
+                config: config,
+                input: input,
+                txList: txList
             });
+
+            if (cacheTxListInfo) {
+                unchecked {
+                    state.txListInfo[input.txListHash] = TaikoData.TxListInfo({
+                        validSince: uint64(block.timestamp),
+                        size: uint24(txList.length)
+                    });
+                }
+            }
         }
 
-        // After The Merge, L1 mixHash contains the prevrandao
-        // from the beacon chain. Since multiple Taiko blocks
-        // can be proposed in one Ethereum block, we need to
-        // add salt to this random number as L2 mixHash
-
+        // Init the metadata
         meta.id = state.numBlocks;
+
+        unchecked {
+            meta.timestamp = uint64(block.timestamp);
+            meta.l1Height = uint64(block.number - 1);
+            meta.l1Hash = blockhash(block.number - 1);
+
+            // After The Merge, L1 mixHash contains the prevrandao
+            // from the beacon chain. Since multiple Taiko blocks
+            // can be proposed in one Ethereum block, we need to
+            // add salt to this random number as L2 mixHash
+            meta.mixHash = bytes32(block.difficulty * state.numBlocks);
+        }
+
         meta.txListHash = input.txListHash;
         meta.txListByteStart = input.txListByteStart;
         meta.txListByteEnd = input.txListByteEnd;
@@ -73,37 +97,55 @@ library LibProposing {
         meta.depositsProcessed =
             LibEthDepositing.processDeposits(state, config, input.beneficiary);
 
-        unchecked {
-            meta.timestamp = uint64(block.timestamp);
-            meta.l1Height = uint64(block.number - 1);
-            meta.l1Hash = blockhash(block.number - 1);
-            meta.mixHash = bytes32(block.difficulty * state.numBlocks);
-        }
-
+        // Init the block
         TaikoData.Block storage blk =
             state.blocks[state.numBlocks % config.blockRingBufferSize];
 
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.blockId = state.numBlocks;
-        blk.proposedAt = meta.timestamp;
-        blk.feePerGas = state.feePerGas;
         blk.gasLimit = meta.gasLimit;
-        blk.proposer = msg.sender;
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = 0;
+        blk.proverReleased = false;
 
-        uint64 blockFee = getBlockFee(state, config, meta.gasLimit);
+        blk.proposer = msg.sender;
+        blk.feePerGas = state.feePerGas;
+        blk.proposedAt = meta.timestamp;
 
-        // Charging proposers the fee should be the same mechanism as it was
-        // so far, so that we can avoid sending/burning all the time so that we
-        // can save bunch of gas.
-        if (state.taikoTokenBalances[msg.sender] < blockFee) {
-            revert L1_INSUFFICIENT_TOKEN();
+        if (prover == address(0)) {
+            if (state.numOpenBlocks >= config.rewardOpenMaxCount) {
+                revert L1_TOO_MANY_OPEN_BLOCKS();
+            }
+            blk.rewardPerGas =
+                state.feePerGas * config.rewardOpenMultipler / 100;
+            ++state.numOpenBlocks;
+        } else {
+            blk.prover = prover;
+
+            // Cap the reward to a range of [95%, 105%] * blk.feePerGas, if
+            // rewardPerGasRange is set to 5% (500 bp)
+            uint32 diff = blk.feePerGas * config.rewardPerGasRange / 10_000;
+            blk.rewardPerGas = uint32(
+                uint256(rewardPerGas).min(state.feePerGas + diff).max(
+                    state.feePerGas - diff
+                )
+            );
+
+            blk.proofWindow = uint16(
+                uint256(state.avgProofDelay * 2).min(config.proofMaxWindow).max(
+                    config.proofMinWindow
+                )
+            );
         }
 
-        emit BlockProposed(state.numBlocks, meta, blockFee);
+        IMintableERC20(resolver.resolve("taiko_token", false)).burn({
+            from: msg.sender,
+            amount: getBlockFee(state, config, meta.gasLimit)
+        });
+
+        emit BlockProposed(state.numBlocks, meta);
+
         unchecked {
-            state.taikoTokenBalances[msg.sender] -= blockFee;
             ++state.numBlocks;
         }
     }
@@ -147,7 +189,7 @@ library LibProposing {
     )
         private
         view
-        returns (uint8 cacheTxListInfo)
+        returns (bool cacheTxListInfo)
     {
         if (
             input.beneficiary == address(0)
@@ -159,7 +201,7 @@ library LibProposing {
 
         if (
             state.numBlocks
-                >= state.lastVerifiedBlockId + config.maxNumProposedBlocks + 1
+                >= state.lastVerifiedBlockId + config.blockMaxProposals + 1
         ) {
             revert L1_TOO_MANY_BLOCKS();
         }
@@ -168,13 +210,13 @@ library LibProposing {
         // handling txList
         {
             uint24 size = uint24(txList.length);
-            if (size > config.maxBytesPerTxList) revert L1_TX_LIST();
+            if (size > config.blockMaxTxListBytes) revert L1_TX_LIST();
 
             if (input.txListByteStart > input.txListByteEnd) {
                 revert L1_TX_LIST_RANGE();
             }
 
-            if (config.txListCacheExpiry == 0) {
+            if (config.blockTxListExpiry == 0) {
                 // caching is disabled
                 if (input.txListByteStart != 0 || input.txListByteEnd != size) {
                     revert L1_TX_LIST_RANGE();
@@ -192,7 +234,7 @@ library LibProposing {
 
                     if (
                         info.size == 0
-                            || info.validSince + config.txListCacheExpiry < timeNow
+                            || info.validSince + config.blockTxListExpiry < timeNow
                     ) {
                         revert L1_TX_LIST_NOT_EXIST();
                     }

@@ -30,7 +30,7 @@ abstract contract TaikoL1TestBase is Test {
     // 1 TKO --> it is to huge. It should be in 'wei' (?).
     // Because otherwise first proposal is around: 1TKO * (1_000_000+20_000)
     // required as a deposit.
-    uint48 feePerGas = 10;
+    uint32 feePerGas = 10;
     uint16 proofWindow = 60 minutes;
     uint64 l2GasExcess = 1e18;
 
@@ -112,7 +112,7 @@ abstract contract TaikoL1TestBase is Test {
             txListHash: keccak256(txList),
             txListByteStart: 0,
             txListByteEnd: txListSize,
-            cacheTxListInfo: 0
+            cacheTxListInfo: false
         });
 
         TaikoData.StateVariables memory variables = L1.getStateVariables();
@@ -160,40 +160,11 @@ abstract contract TaikoL1TestBase is Test {
             parentGasUsed: parentGasUsed,
             gasUsed: gasUsed,
             verifierId: 100,
-            proof: new bytes(100),
-            sig: new bytes(0)
+            proof: new bytes(100)
         });
 
         vm.prank(msgSender, msgSender);
         L1.proveBlock(meta.id, abi.encode(evidence));
-    }
-
-    function bidForBatch(
-        address msgSender,
-        uint64 batchId,
-        TaikoData.Bid memory bid
-    )
-        internal
-    {
-        vm.prank(msgSender, msgSender);
-        L1.bidForBatch(batchId, bid);
-    }
-
-    function bidForBatchAndRollTime(
-        address msgSender,
-        uint64 batchId,
-        TaikoData.Bid memory bid
-    )
-        internal
-    {
-        bidForBatch(msgSender, batchId, bid);
-
-        // Then roll into the future to be proveable
-        (, TaikoData.Auction[] memory auctions) = L1.getAuctions(batchId, 1);
-        vm.warp(
-            block.timestamp + auctions[0].startedAt + conf.auctionWindow + 1
-        );
-        vm.roll(block.number + 100);
     }
 
     function verifyBlock(address verifier, uint256 count) internal {
@@ -221,7 +192,7 @@ abstract contract TaikoL1TestBase is Test {
         vm.deal(who, amountEth);
         tko.transfer(who, amountTko);
         vm.prank(who, who);
-        L1.depositTaikoToken(amountTko);
+        // L1.depositTaikoToken(amountTko);
     }
 
     function printVariables(string memory comment) internal {
@@ -233,9 +204,7 @@ abstract contract TaikoL1TestBase is Test {
             Strings.toString(vars.lastVerifiedBlockId),
             unicode"→",
             Strings.toString(vars.numBlocks),
-            "]",
-            " numAuctions:",
-            Strings.toString(vars.numAuctions)
+            "]"
         );
 
         str = string.concat(

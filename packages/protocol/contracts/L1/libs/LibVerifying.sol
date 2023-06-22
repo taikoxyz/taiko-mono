@@ -7,8 +7,9 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
+import { IMintableERC20 } from "../../common/IMintableERC20.sol";
+import { IProverPool } from "../ProverPool.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
-import { LibAuction } from "./LibAuction.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { SafeCastUpgradeable } from
@@ -34,64 +35,60 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
-        uint48 initFeePerGas,
-        uint16 initAvgProofWindow
+        uint32 initFeePerGas,
+        uint16 initAvgProofDelay
     )
         internal
     {
         if (
             config.chainId <= 1 //
-                || config.maxNumProposedBlocks == 1
-                || config.blockRingBufferSize <= config.maxNumProposedBlocks + 1
-                || config.blockMaxGasLimit == 0
-                || config.maxTransactionsPerBlock == 0
-                || config.maxBytesPerTxList == 0
-                || config.txListCacheExpiry > 30 * 24 hours
-            // EIP-4844 blob size up to 128K
-            || config.maxBytesPerTxList > 128 * 1024
+                || config.blockMaxProposals == 1
+                || config.blockRingBufferSize <= config.blockMaxProposals + 1
+                || config.blockMaxGasLimit == 0 || config.blockMaxTransactions == 0
+                || config.blockMaxTxListBytes == 0
+                || config.blockTxListExpiry > 30 * 24 hours
+                || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
+                || config.proofRegularCooldown < config.proofOracleCooldown
+                || config.proofMinWindow == 0
+                || config.proofMaxWindow < config.proofMinWindow
+                || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0
                 || config.ethDepositMaxCountPerBlock
-                    < config.ethDepositMinCountPerBlock || config.ethDepositGas == 0 //
+                    < config.ethDepositMinCountPerBlock
                 || config.ethDepositMinAmount == 0
                 || config.ethDepositMaxAmount <= config.ethDepositMinAmount
                 || config.ethDepositMaxAmount >= type(uint96).max
-                || config.ethDepositMaxFee == 0
+                || config.ethDepositGas == 0 || config.ethDepositMaxFee == 0
                 || config.ethDepositMaxFee >= type(uint96).max
-                || config.auctionWindow == 0 || config.auctionMaxProofWindow == 0
-                || config.auctionBatchSize == 0
-                || config.auctionRingBufferSize
-                    <= (
-                        config.maxNumProposedBlocks / config.auctionBatchSize + 1
-                            + config.auctionMaxAheadOfProposals
-                    ) //
-                || config.auctionProofWindowMultiplier <= 1
-                || config.auctionWindow <= 24 || config.auctionDepositMultipler <= 1
-                || config.auctionMaxFeePerGasMultipler <= 1
-                || config.auctionDepositMultipler
-                    < config.auctionMaxFeePerGasMultipler
                 || config.ethDepositMaxFee
                     >= type(uint96).max / config.ethDepositMaxCountPerBlock
-                || config.ethDepositRingBufferSize <= 1
+                || config.rewardPerGasRange == 0
+                || config.rewardPerGasRange >= 10_000
+                || config.rewardOpenMultipler < 100
         ) revert L1_INVALID_CONFIG();
 
-        uint64 timeNow = uint64(block.timestamp);
-        state.genesisHeight = uint64(block.number);
-        state.genesisTimestamp = timeNow;
+        unchecked {
+            uint64 timeNow = uint64(block.timestamp);
 
-        state.lastVerifiedAt = uint64(block.timestamp);
-        state.feePerGas = initFeePerGas;
-        state.numBlocks = 1;
+            // Init state
+            state.genesisHeight = uint64(block.number);
+            state.genesisTimestamp = timeNow;
+            state.numBlocks = 1;
+            state.lastVerifiedAt = uint64(block.timestamp);
+            state.feePerGas = initFeePerGas;
+            state.avgProofDelay = initAvgProofDelay;
 
-        TaikoData.Block storage blk = state.blocks[0];
-        blk.proposedAt = timeNow;
-        blk.nextForkChoiceId = 2;
-        blk.verifiedForkChoiceId = 1;
+            // Init the genesis block
+            TaikoData.Block storage blk = state.blocks[0];
+            blk.nextForkChoiceId = 2;
+            blk.verifiedForkChoiceId = 1;
+            blk.proposedAt = timeNow;
 
-        TaikoData.ForkChoice storage fc = state.blocks[0].forkChoices[1];
-        fc.blockHash = genesisBlockHash;
-        fc.provenAt = timeNow;
-
-        state.avgProofWindow = initAvgProofWindow;
+            // Init the first fork choice
+            TaikoData.ForkChoice storage fc = state.blocks[0].forkChoices[1];
+            fc.blockHash = genesisBlockHash;
+            fc.provenAt = timeNow;
+        }
 
         emit BlockVerified(0, genesisBlockHash, 0);
     }
@@ -108,8 +105,9 @@ library LibVerifying {
         TaikoData.Block storage blk =
             state.blocks[i % config.blockRingBufferSize];
 
-        uint256 fcId = blk.verifiedForkChoiceId;
-        // assert(fcId > 0);
+        uint24 fcId = blk.verifiedForkChoiceId;
+        assert(fcId > 0);
+
         bytes32 blockHash = blk.forkChoices[fcId].blockHash;
         uint32 gasUsed = blk.forkChoices[fcId].gasUsed;
         bytes32 signalRoot;
@@ -124,18 +122,16 @@ library LibVerifying {
             assert(blk.blockId == i);
 
             fcId = LibUtils.getForkChoiceId(state, blk, blockHash, gasUsed);
-
             if (fcId == 0) break;
 
             TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
-
             if (fc.prover == address(0)) break;
 
-            uint256 proofCooldownPeriod = fc.prover == address(1)
-                ? config.systemProofCooldownPeriod
-                : config.proofCooldownPeriod;
+            uint256 proofRegularCooldown = fc.prover == address(1)
+                ? config.proofOracleCooldown
+                : config.proofRegularCooldown;
 
-            if (block.timestamp < fc.provenAt + proofCooldownPeriod) break;
+            if (block.timestamp <= fc.provenAt + proofRegularCooldown) break;
 
             blockHash = fc.blockHash;
             gasUsed = fc.gasUsed;
@@ -144,8 +140,9 @@ library LibVerifying {
             _verifyBlock({
                 state: state,
                 config: config,
+                resolver: resolver,
                 blk: blk,
-                fcId: uint24(fcId),
+                fcId: fcId,
                 fc: fc
             });
 
@@ -178,100 +175,71 @@ library LibVerifying {
     function _verifyBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
+        AddressResolver resolver,
         TaikoData.Block storage blk,
         TaikoData.ForkChoice storage fc,
         uint24 fcId
     )
         private
     {
-        TaikoData.Auction memory auction;
-        {
-            uint64 batchId = LibAuction.batchForBlock(config, blk.blockId);
-            auction = state.auctions[batchId % config.auctionRingBufferSize];
-            assert(auction.batchId == batchId);
-        }
-
         // the actually mined L2 block's gasLimit is blk.gasLimit +
         // LibL2Consts.ANCHOR_GAS_COST, so fc.gasUsed may greater than
         // blk.gasLimit here.
         uint32 _gasLimit = blk.gasLimit + LibL2Consts.ANCHOR_GAS_COST;
         assert(fc.gasUsed <= _gasLimit);
 
+        IMintableERC20 taikoToken =
+            IMintableERC20(resolver.resolve("taiko_token", false));
+
         // Refund the diff to the proposer
-        state.taikoTokenBalances[blk.proposer] +=
-            (_gasLimit - fc.gasUsed) * blk.feePerGas;
+        taikoToken.mint({
+            to: blk.proposer,
+            amount: (_gasLimit - fc.gasUsed) * blk.feePerGas
+        });
 
-        bool refundBidder;
-        bool rewardProver;
-        bool updateAverage;
+        // Reward the prover (including the oracle prover)
+        uint64 proofReward =
+            (config.blockFeeBaseGas + fc.gasUsed) * blk.rewardPerGas;
+        taikoToken.mint(fc.prover, proofReward);
 
-        if (fc.prover == address(1)) {
-            // This is an oracle prove.
-            refundBidder = true;
-            // rewardProver = false;
-            // updateAverage = false;
-        } else {
-            uint64 proofWindowEndAt;
-            unchecked {
-                uint64 auctionEndAt = auction.startedAt + config.auctionWindow;
-                proofWindowEndAt = auctionEndAt > blk.proposedAt
-                    ? auctionEndAt + auction.bid.proofWindow
-                    : blk.proposedAt + auction.bid.proofWindow;
-            }
+        IProverPool proverPool =
+            IProverPool(resolver.resolve("prover_pool", false));
 
+        if (blk.prover == address(0)) {
+            --state.numOpenBlocks;
+        } else if (!blk.proverReleased) {
+            proverPool.releaseProver(blk.prover);
+        }
+
+        if (fc.prover != address(1)) {
             if (
-                fc.prover == auction.bid.prover
-                    && fc.provenAt <= proofWindowEndAt
+                fc.prover == blk.prover
+                    && fc.provenAt <= blk.proposedAt + blk.proofWindow
             ) {
-                // The prover is the auction winner and proof submitted within
-                // the proof window
-                refundBidder = true;
-                rewardProver = true;
-                updateAverage = true;
+                // The selected prover managed to prove the block in time
+                state.avgProofDelay = uint16(
+                    LibUtils.movingAverage({
+                        maValue: state.avgProofDelay,
+                        // TODO:  prover is not incentivized to submit proof
+                        // ASAP
+                        newValue: fc.provenAt - blk.proposedAt,
+                        maf: 7200
+                    })
+                );
+
+                state.feePerGas = uint32(
+                    LibUtils.movingAverage({
+                        maValue: state.feePerGas,
+                        newValue: blk.rewardPerGas,
+                        maf: 7200
+                    })
+                );
             } else {
-                // The prover is not the auction winner or the proof
-                // as submitted out of the proof window
-                rewardProver = true;
-                // refundBidder = false;
-                // updateAverage = false;
+                // The selected prover failed to prove the block in time
+                proverPool.slashProver(blk.prover);
             }
         }
 
-        if (refundBidder) {
-            state.taikoTokenBalances[auction.bid.prover] += auction.bid.deposit;
-        }
-
-        uint64 proofReward;
-        if (rewardProver) {
-            proofReward =
-                (config.blockFeeBaseGas + fc.gasUsed) * auction.bid.feePerGas;
-
-            // if we do not refund the bidder, then half of the deposit
-            // is given to the actual block prover.
-            if (!refundBidder) proofReward += auction.bid.deposit / 2;
-
-            state.taikoTokenBalances[fc.prover] += proofReward;
-        }
-
-        if (updateAverage) {
-            state.avgProofWindow = uint16(
-                LibUtils.movingAverage({
-                    maValue: state.avgProofWindow,
-                    newValue: auction.bid.proofWindow,
-                    maf: 7200
-                })
-            );
-
-            state.feePerGas = uint48(
-                LibUtils.movingAverage({
-                    maValue: state.feePerGas,
-                    newValue: auction.bid.feePerGas,
-                    maf: 7200
-                })
-            );
-        }
-
-        blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = fcId;
         emit BlockVerified(blk.blockId, fc.blockHash, proofReward);
     }

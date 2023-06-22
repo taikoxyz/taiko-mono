@@ -8,7 +8,8 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
-import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import
+    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
@@ -18,7 +19,7 @@ import "../contracts/signal/SignalService.sol";
 import "../contracts/common/AddressManager.sol";
 import "../contracts/test/erc20/FreeMintERC20.sol";
 import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
-import "../contracts/L1/TaikoProverPool.sol";
+import "../contracts/L1/ProverPool.sol";
 
 contract DeployOnL1 is Script {
     using SafeCastUpgradeable for uint256;
@@ -59,10 +60,7 @@ contract DeployOnL1 is Script {
             taikoTokenPremintRecipient != address(0),
             "taikoTokenPremintRecipient is zero"
         );
-        require(
-            taikoTokenPremintAmount < type(uint64).max,
-            "premint too large"
-        );
+        require(taikoTokenPremintAmount < type(uint64).max, "premint too large");
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -107,13 +105,13 @@ contract DeployOnL1 is Script {
             )
         );
 
-        // TaikoProverPool
-        TaikoProverPool taikoProverPool = new ProxiedTaikoProverPool();
+        // ProverPool
+        ProverPool stakingProverPool = new ProxiedProverPool();
         deployProxy(
-            "taiko_prover_pool",
-            address(taikoProverPool),
+            "prover_pool",
+            address(stakingProverPool),
             bytes.concat(
-                taikoProverPool.init.selector,
+                stakingProverPool.init.selector,
                 abi.encode(addressManagerProxy, 2048)
             )
         );
@@ -122,9 +120,8 @@ contract DeployOnL1 is Script {
         address horseToken = address(new FreeMintERC20("Horse Token", "HORSE"));
         console2.log("HorseToken", horseToken);
 
-        address bullToken = address(
-            new MayFailFreeMintERC20("Bull Token", "BLL")
-        );
+        address bullToken =
+            address(new MayFailFreeMintERC20("Bull Token", "BLL"));
         console2.log("BullToken", bullToken);
 
         uint64 feePerGas = 10;
@@ -136,10 +133,7 @@ contract DeployOnL1 is Script {
             bytes.concat(
                 taikoL1.init.selector,
                 abi.encode(
-                    addressManagerProxy,
-                    genesisHash,
-                    feePerGas,
-                    proofWindow
+                    addressManagerProxy, genesisHash, feePerGas, proofWindow
                 )
             )
         );
@@ -159,8 +153,7 @@ contract DeployOnL1 is Script {
             "token_vault",
             address(tokenVault),
             bytes.concat(
-                tokenVault.init.selector,
-                abi.encode(addressManagerProxy)
+                tokenVault.init.selector, abi.encode(addressManagerProxy)
             )
         );
 
@@ -171,14 +164,12 @@ contract DeployOnL1 is Script {
                 "signal_service",
                 address(signalService),
                 bytes.concat(
-                    signalService.init.selector,
-                    abi.encode(addressManagerProxy)
+                    signalService.init.selector, abi.encode(addressManagerProxy)
                 )
             );
         } else {
             console2.log(
-                "Warining: using shared signal service: ",
-                sharedSignalService
+                "Warining: using shared signal service: ", sharedSignalService
             );
             setAddress("signal_service", sharedSignalService);
         }
@@ -191,18 +182,18 @@ contract DeployOnL1 is Script {
 
     function deployPlonkVerifiers() private {
         address[] memory plonkVerifiers = new address[](1);
-        plonkVerifiers[0] = deployYulContract(
-            "contracts/libs/yul/PlonkVerifier.yulp"
-        );
+        plonkVerifiers[0] =
+            deployYulContract("contracts/libs/yul/PlonkVerifier.yulp");
 
         for (uint16 i = 0; i < plonkVerifiers.length; ++i) {
             setAddress(taikoL1.getVerifierName(i), plonkVerifiers[i]);
         }
     }
 
-    function deployYulContract(
-        string memory contractPath
-    ) private returns (address) {
+    function deployYulContract(string memory contractPath)
+        private
+        returns (address)
+    {
         string[] memory cmds = new string[](3);
         cmds[0] = "bash";
         cmds[1] = "-c";
@@ -233,7 +224,10 @@ contract DeployOnL1 is Script {
         string memory name,
         address implementation,
         bytes memory data
-    ) private returns (address proxy) {
+    )
+        private
+        returns (address proxy)
+    {
         proxy = address(
             new TransparentUpgradeableProxy(implementation, owner, data)
         );

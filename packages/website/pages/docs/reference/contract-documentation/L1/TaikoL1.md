@@ -63,21 +63,6 @@ Prove a block with a zero-knowledge proof.
 | blockId | uint256 | The index of the block to prove. This is also used to select the right implementation version. |
 | input   | bytes   | An abi-encoded TaikoData.BlockEvidence object.                                                 |
 
-### bidForBatch
-
-```solidity
-function bidForBatch(uint64 batchId, struct TaikoData.Bid bid) external payable
-```
-
-Bid for proving rights of a batch.
-
-#### Parameters
-
-| Name    | Type                 | Description                       |
-| ------- | -------------------- | --------------------------------- |
-| batchId | uint64               | The batchId prover is bidding for |
-| bid     | struct TaikoData.Bid | The actual bid                    |
-
 ### verifyBlocks
 
 ```solidity
@@ -92,18 +77,6 @@ Verify up to N blocks.
 | --------- | ------- | ------------------------------- |
 | maxBlocks | uint256 | Max number of blocks to verify. |
 
-### depositTaikoToken
-
-```solidity
-function depositTaikoToken(uint64 amount) external
-```
-
-### withdrawTaikoToken
-
-```solidity
-function withdrawTaikoToken(uint64 amount) external
-```
-
 ### depositEtherToL2
 
 ```solidity
@@ -114,12 +87,6 @@ function depositEtherToL2(address recipient) public payable
 
 ```solidity
 function canDepositEthToL2(uint256 amount) public view returns (bool)
-```
-
-### getTaikoTokenBalance
-
-```solidity
-function getTaikoTokenBalance(address addr) public view returns (uint256)
 ```
 
 ### getBlockFee
@@ -158,51 +125,10 @@ function getCrossChainSignalRoot(uint256 blockId) public view returns (bytes32)
 function getStateVariables() public view returns (struct TaikoData.StateVariables)
 ```
 
-### getAuctions
-
-```solidity
-function getAuctions(uint256 startBatchId, uint256 count) public view returns (uint256 currentTime, struct TaikoData.Auction[] auctions)
-```
-
-Returns a list of auctions. Note that if the auction doesn't exist,
-an empty will be returned instead. Client should check if the auction
-returned has the correct batch id.
-
-#### Parameters
-
-| Name         | Type    | Description                       |
-| ------------ | ------- | --------------------------------- |
-| startBatchId | uint256 | The first batch's id.             |
-| count        | uint256 | The number of auctions to return. |
-
 ### getConfig
 
 ```solidity
 function getConfig() public pure virtual returns (struct TaikoData.Config)
-```
-
-### batchForBlock
-
-```solidity
-function batchForBlock(uint256 blockId) public pure returns (uint256)
-```
-
-### isBatchAuctionable
-
-```solidity
-function isBatchAuctionable(uint256 batchId) public view returns (bool)
-```
-
-### isBlockProvableBy
-
-```solidity
-function isBlockProvableBy(uint256 blockId, address prover) public view returns (bool provable, bool proofWindowElapsed, struct TaikoData.Auction auction)
-```
-
-### isBidBetter
-
-```solidity
-function isBidBetter(struct TaikoData.Bid newBid, struct TaikoData.Bid oldBid) public pure returns (bool)
 ```
 
 ### getVerifierName

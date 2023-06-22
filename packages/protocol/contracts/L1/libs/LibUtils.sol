@@ -39,7 +39,7 @@ library LibUtils {
     )
         internal
         view
-        returns (uint256 fcId)
+        returns (uint24 fcId)
     {
         if (
             blk.forkChoices[1].key
@@ -66,7 +66,6 @@ library LibUtils {
             genesisTimestamp: state.genesisTimestamp,
             numBlocks: state.numBlocks,
             lastVerifiedBlockId: state.lastVerifiedBlockId,
-            numAuctions: state.numAuctions,
             nextEthDepositToProcess: state.nextEthDepositToProcess,
             numEthDeposits: state.numEthDeposits - state.nextEthDepositToProcess
         });

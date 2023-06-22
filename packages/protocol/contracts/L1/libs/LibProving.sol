@@ -7,7 +7,7 @@
 pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { LibAuction } from "./LibAuction.sol";
+import { IProverPool } from "../ProverPool.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
@@ -65,18 +65,6 @@ library LibProving {
             revert L1_BLOCK_ID();
         }
 
-        // We also should know who can prove this block:
-        // the one who bid or everyone if it is above the window
-        (bool provable, bool proofWindowEnded, TaikoData.Auction memory auction)
-        = LibAuction.isBlockProvableBy({
-            state: state,
-            config: config,
-            blockId: blockId,
-            prover: evidence.prover
-        });
-
-        if (!provable) revert L1_NOT_PROVEABLE();
-
         TaikoData.Block storage blk =
             state.blocks[blockId % config.blockRingBufferSize];
 
@@ -88,40 +76,26 @@ library LibProving {
             revert L1_EVIDENCE_MISMATCH(blk.metaHash, evidence.metaHash);
         }
 
-        address authorized;
-        if (evidence.prover == address(1)) {
-            authorized = resolver.resolve("oracle_prover", false);
-        } else if (proofWindowEnded) {
-            // If window ended - everyone could prove
-            authorized = msg.sender;
-        } else {
-            authorized = auction.bid.prover;
-        }
+        if (
+            evidence.prover != address(1)
+            //
+            && evidence.prover != blk.prover
+            //
+            && blk.prover != address(0)
+            //
+            && block.timestamp <= blk.proposedAt + blk.proofWindow
+        ) revert L1_NOT_PROVEABLE();
 
-        if (msg.sender != authorized) {
-            // Decode into
-            uint8 v;
-            bytes32 r;
-            bytes32 s;
-            bytes memory data = evidence.sig;
-            assembly {
-                v := mload(add(data, 1))
-                r := mload(add(data, 33))
-                s := mload(add(data, 65))
-            }
-
-            evidence.sig = new bytes(0);
-            if (
-                ecrecover(keccak256(abi.encode(evidence)), v, r, s)
-                    != authorized
-            ) {
-                revert L1_UNAUTHORIZED();
-            }
+        if (
+            evidence.prover == address(1)
+                && msg.sender != resolver.resolve("oracle_prover", false)
+        ) {
+            revert L1_UNAUTHORIZED();
         }
 
         TaikoData.ForkChoice storage fc;
 
-        uint256 fcId = LibUtils.getForkChoiceId(
+        uint24 fcId = LibUtils.getForkChoiceId(
             state, blk, evidence.parentHash, evidence.parentGasUsed
         );
 
@@ -172,9 +146,17 @@ library LibProving {
 
         fc.blockHash = evidence.blockHash;
         fc.signalRoot = evidence.signalRoot;
-        fc.gasUsed = evidence.gasUsed;
         fc.prover = evidence.prover;
         fc.provenAt = uint64(block.timestamp);
+        fc.gasUsed = evidence.gasUsed;
+
+        // release the prover
+        if (!blk.proverReleased && blk.prover == fc.prover) {
+            blk.proverReleased = true;
+            IProverPool(resolver.resolve("prover_pool", false)).releaseProver(
+                blk.prover
+            );
+        }
 
         if (evidence.prover != address(1)) {
             bytes32 instance;
@@ -212,8 +194,8 @@ library LibProving {
 
                 // Also hash configs that will be used by circuits
                 inputs[9] = uint256(config.blockMaxGasLimit) << 192
-                    | uint256(config.maxTransactionsPerBlock) << 128
-                    | uint256(config.maxBytesPerTxList) << 64;
+                    | uint256(config.blockMaxTransactions) << 128
+                    | uint256(config.blockMaxTxListBytes) << 64;
 
                 assembly {
                     instance := keccak256(inputs, mul(32, 10))
@@ -271,6 +253,7 @@ library LibProving {
 
         uint256 fcId =
             LibUtils.getForkChoiceId(state, blk, parentHash, parentGasUsed);
+
         if (fcId == 0) revert L1_FORK_CHOICE_NOT_FOUND();
         fc = blk.forkChoices[fcId];
     }

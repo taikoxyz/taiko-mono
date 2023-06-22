@@ -11,7 +11,6 @@ struct Config {
   uint256 chainId;
   uint256 maxNumProposedBlocks;
   uint256 blockRingBufferSize;
-  uint256 auctionRingBufferSize;
   uint256 maxVerificationsPerTx;
   uint64 blockMaxGasLimit;
   uint64 blockFeeBaseGas;
@@ -20,13 +19,6 @@ struct Config {
   uint256 txListCacheExpiry;
   uint256 proofCooldownPeriod;
   uint256 systemProofCooldownPeriod;
-  uint16 auctionWindow;
-  uint64 auctionProofWindowMultiplier;
-  uint64 auctionDepositMultipler;
-  uint64 auctionMaxFeePerGasMultipler;
-  uint16 auctionBatchSize;
-  uint16 auctionMaxAheadOfProposals;
-  uint16 auctionMaxProofWindow;
   uint256 ethDepositRingBufferSize;
   uint64 ethDepositMinCountPerBlock;
   uint64 ethDepositMaxCountPerBlock;
@@ -47,7 +39,6 @@ struct StateVariables {
   uint64 genesisTimestamp;
   uint64 numBlocks;
   uint64 lastVerifiedBlockId;
-  uint64 numAuctions;
   uint64 nextEthDepositToProcess;
   uint64 numEthDeposits;
 }
@@ -99,7 +90,6 @@ struct BlockEvidence {
   uint32 gasUsed;
   uint16 verifierId;
   bytes proof;
-  bytes sig;
 }
 ```
 
@@ -126,9 +116,11 @@ struct Block {
   uint64 proposedAt;
   uint48 feePerGas;
   uint32 gasLimit;
-  address proposer;
   uint24 nextForkChoiceId;
   uint24 verifiedForkChoiceId;
+  address proposer;
+  address prover;
+  uint16 proofWindow;
 }
 ```
 
@@ -151,49 +143,26 @@ struct EthDeposit {
 }
 ```
 
-### Bid
-
-```solidity
-struct Bid {
-  address prover;
-  uint64 deposit;
-  uint48 feePerGas;
-  uint16 proofWindow;
-}
-```
-
-### Auction
-
-```solidity
-struct Auction {
-  struct TaikoData.Bid bid;
-  uint64 batchId;
-  uint64 startedAt;
-}
-```
-
 ### State
 
 ```solidity
 struct State {
   mapping(uint256 => struct TaikoData.Block) blocks;
   mapping(uint256 => mapping(bytes32 => mapping(uint32 => uint256))) forkChoiceIds;
-  mapping(address => uint256) taikoTokenBalances;
   mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
-  mapping(uint256 => struct TaikoData.Auction) auctions;
   mapping(uint256 => uint256) ethDeposits;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 __reserved70;
   uint64 __reserved71;
-  uint64 numAuctions;
+  uint64 __reserved80;
   uint64 numEthDeposits;
   uint64 numBlocks;
   uint64 nextEthDepositToProcess;
   uint64 lastVerifiedAt;
   uint64 lastVerifiedBlockId;
   uint48 feePerGas;
-  uint16 avgProofWindow;
+  uint16 avgProofDelay;
   uint64 __reserved90;
   uint256[42] __gap;
 }

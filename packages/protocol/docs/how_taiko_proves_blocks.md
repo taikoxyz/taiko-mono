@@ -11,9 +11,9 @@ It is meant to be a list of RLP-encoded L2 transactions, with only its length an
 
 A valid `txList` (until [issue #13724](https://github.com/taikoxyz/taiko-mono/issues/13724) is enabled and implemented):
 
-- Has a byte-size smaller than the protocol constant _`maxBytesPerTxList`_ (also enforced in contracts);
+- Has a byte-size smaller than the protocol constant _`blockMaxTxListBytes`_ (also enforced in contracts);
 - Can be RLP-decoded into a list of transactions without trailing space;
-- Contains no more transactions (valid and invalid) than the protocol constant _`maxTransactionsPerBlock`_;
+- Contains no more transactions (valid and invalid) than the protocol constant _`blockMaxTransactions`_;
 - Has a total gas limit for all valid transactions not exceeding the protocol constant _`blockMaxGasLimit`_;
 
 ZKP must prove whether the `txList` is valid or invalid. For an invalid `txList`, the corresponding L2 block will only have an anchor transaction.
