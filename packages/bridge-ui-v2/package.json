@@ -10,7 +10,7 @@
     "test:unit": "vitest run",
     "test:unit:coverage": "vitest run --coverage",
     "test:unit:watch": "vitest",
-    "svelte:check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "svelte:check": "svelte-kit sync && ls -la && svelte-check --tsconfig ./tsconfig.json",
     "svelte:check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "format": "prettier --plugin-search-dir . --write .",
     "lint": "prettier --plugin-search-dir . --check . && eslint .",
