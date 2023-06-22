@@ -39,7 +39,7 @@ taiko-mono/
 ├── <a href="./packages">packages</a>
 │   ├── <a href="./packages/branding">branding</a>: Taiko branding materials.
 │   ├── <a href="./packages/bridge-ui">bridge-ui</a>: Taiko bridge frontend UI.
-│   ├── <a href="./packages/bridge-ui-v2">bridge-ui-v2</a>: Taiko bridge frontend UI v2 (🚧 ongoing work 🚧).
+│   ├── <a href="./packages/bridge-ui-v2">bridge-ui-v2</a>: Taiko bridge frontend UI v2 (🚧 works ongoing 🚧).
 │   ├── <a href="./packages/eventindexer">eventindexer</a>: Event indexer.
 │   ├── <a href="./packages/fork-diff">fork-diff</a>: Fork diff page (currently, for geth).
 │   ├── <a href="./packages/protocol">protocol</a>: Taiko protocol and bridge smart contracts.
