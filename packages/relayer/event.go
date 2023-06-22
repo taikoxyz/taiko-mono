@@ -101,5 +101,10 @@ type EventRepository interface {
 		ctx context.Context,
 		msgHash string,
 	) (*Event, error)
+	FirstByEventAndMsgHash(
+		ctx context.Context,
+		event string,
+		msgHash string,
+	) (*Event, error)
 	Delete(ctx context.Context, id int) error
 }
