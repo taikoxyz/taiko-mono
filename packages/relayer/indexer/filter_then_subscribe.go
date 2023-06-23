@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/pkg/errors"
@@ -57,6 +58,8 @@ func (svc *Service) FilterThenSubscribe(
 
 	for i := svc.processingBlockHeight; i < header.Number.Uint64(); i += svc.blockBatchSize {
 		end := svc.processingBlockHeight + svc.blockBatchSize
+		fmt.Printf("block batch from %v to %v", i, end)
+		fmt.Println()
 		// if the end of the batch is greater than the latest block number, set end
 		// to the latest block number
 		if end > header.Number.Uint64() {
@@ -64,7 +67,7 @@ func (svc *Service) FilterThenSubscribe(
 		}
 
 		filterOpts := &bind.FilterOpts{
-			Start:   svc.processingBlockHeight,
+			Start:   svc.processingBlockHeight + 1,
 			End:     &end,
 			Context: ctx,
 		}
