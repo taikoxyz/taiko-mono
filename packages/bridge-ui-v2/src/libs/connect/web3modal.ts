@@ -17,6 +17,7 @@ export const web3modal = new Web3Modal(
       '--w3m-accent-color': 'var(--primary-brand)',
       '--w3m-accent-fill-color': 'var(--primary-content)',
       '--w3m-background-color': 'var(--neutral-background)',
+      // '--w3m-color-bg-1': 'var(--primary-background)',
       // TODO: customize the rest of the theme variables
     },
   },
