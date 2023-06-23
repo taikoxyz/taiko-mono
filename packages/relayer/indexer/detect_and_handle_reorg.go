@@ -19,7 +19,6 @@ func (svc *Service) detectAndHandleReorg(ctx context.Context, eventType string, 
 	}
 
 	// reorg detected
-
 	log.Infof("reorg detected for msgHash %v and eventType %v", msgHash, eventType)
 
 	err = svc.eventRepo.Delete(ctx, e.ID)
