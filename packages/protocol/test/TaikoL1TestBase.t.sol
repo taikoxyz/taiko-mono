@@ -9,6 +9,7 @@ import { TaikoConfig } from "../contracts/L1/TaikoConfig.sol";
 import { TaikoData } from "../contracts/L1/TaikoData.sol";
 import { TaikoL1 } from "../contracts/L1/TaikoL1.sol";
 import { TaikoToken } from "../contracts/L1/TaikoToken.sol";
+import { ProverPool } from "../contracts/L1/ProverPool.sol";
 import { SignalService } from "../contracts/signal/SignalService.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
@@ -24,6 +25,7 @@ abstract contract TaikoL1TestBase is Test {
     SignalService public ss;
     TaikoL1 public L1;
     TaikoData.Config conf;
+    ProverPool public proverPool;
     uint256 internal logCount;
 
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
@@ -62,11 +64,15 @@ abstract contract TaikoL1TestBase is Test {
         addressManager = new AddressManager();
         addressManager.init();
 
+        proverPool = new ProverPool();
+        proverPool.init(address(addressManager));
+
         ss = new SignalService();
         ss.init(address(addressManager));
 
         registerAddress("signal_service", address(ss));
         registerAddress("ether_vault", address(L1EthVault));
+        registerAddress("prover_pool", address(proverPool));
         registerL2Address("treasury", L2Treasury);
         registerL2Address("taiko", address(TaikoL2));
         registerL2Address("signal_service", address(L2SS));
@@ -134,6 +140,7 @@ abstract contract TaikoL1TestBase is Test {
         meta.beneficiary = proposer;
         meta.treasury = L2Treasury;
 
+        console2.log("prposer:", proposer);
         vm.prank(proposer, proposer);
         meta = L1.proposeBlock(abi.encode(input), txList);
     }
@@ -191,6 +198,8 @@ abstract contract TaikoL1TestBase is Test {
     {
         vm.deal(who, amountEth);
         tko.transfer(who, amountTko);
+        console2.log("who", who);
+        console2.log("balance:", tko.balanceOf(who));
         vm.prank(who, who);
         // L1.depositTaikoToken(amountTko);
     }
