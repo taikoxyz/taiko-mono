@@ -16,6 +16,4 @@ interface IProverPool {
     function releaseProver(address prover) external;
 
     function slashProver(address prover) external;
-
-    function getAvailableCapacity() external view returns (uint256);
 }

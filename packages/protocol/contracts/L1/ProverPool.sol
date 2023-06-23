@@ -434,11 +434,7 @@ contract ProverPool is EssentialContract, IProverPool {
         }
     }
 
-    function getAvailableCapacity()
-        external
-        view
-        returns (uint256 totalCapacity)
-    {
+    function getCapacity() external view returns (uint256 totalCapacity) {
         TopProver[32] memory mProvers = topProvers;
 
         // Find the index to insert the new staker based on their balance

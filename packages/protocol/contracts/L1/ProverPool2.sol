@@ -17,15 +17,15 @@ contract ProverPool2 is EssentialContract, IProverPool {
     uint64 public ONE_TKO = 10e8;
 
     struct Prover {
-        uint32 amount;
+        uint32 stakedAmount;
         uint16 rewardPerGas;
-        uint16 availableCapacity;
+        uint16 currentCapacity;
     }
 
     struct Staker {
         uint64 exitRequestedAt;
-        uint32 exitingAmount;
-        uint16 totalCapacity;
+        uint32 exitAmount;
+        uint16 maxCapacity;
         uint8 id;
     }
 
@@ -36,22 +36,20 @@ contract ProverPool2 is EssentialContract, IProverPool {
     uint256[165] private __gap;
 
     error UNAUTHORIZED();
-    error POOL_CANNOT_YET_EXIT();
+    error EXIT_NOT_MATURE();
     error POOL_NOT_ENOUGH_RESOURCES();
     error POOL_REWARD_CANNOT_BE_NULL();
     error POOL_NOT_MEETING_MIN_REQUIREMENTS();
 
-    event Staked(
-        address addr, uint32 amount, uint16 rewardPerGas, uint16 capacity
-    );
+    // event Staked(
+    //     address addr, uint32 amount, uint16 rewardPerGas, uint16 capacity
+    // );
 
-    event KickeOutByWithAmount(
-        address kickedOut, address newProver, uint32 totalAmount
-    );
+    // event KickeOutByWithAmount(
+    //     address kickedOut, address newProver, uint32 totalAmount
+    // );
 
-    event ExitRequested(address addr, uint64 timestamp, bool fullExit);
-
-    event Exited(address addr, uint32 amount);
+    event Exited(uint32 amount);
 
     event Slashed(address addr, uint32 newBalance);
 
@@ -65,20 +63,6 @@ contract ProverPool2 is EssentialContract, IProverPool {
 
     function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
-    }
-
-    /// Returns each prover's weight dynamically based on feePerGas.
-    function getWeights(uint32 feePerGas)
-        internal
-        view
-        returns (uint256[32] memory weights, uint256 totalWeight)
-    {
-        Prover[32] memory mProvers = provers;
-
-        for (uint8 i; i < mProvers.length; ++i) {
-            weights[i] = _calcWeight(mProvers[i], feePerGas);
-            totalWeight += weights[i];
-        }
     }
 
     function assignProver(
@@ -105,7 +89,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
             while (z < r && idx < 32) {
                 z += weights[idx++];
             }
-            provers[idx].availableCapacity--;
+            provers[idx].currentCapacity--;
 
             // Note that prover ID is 1 bigger than its index
             return (idToProver[idx + 1], provers[idx].rewardPerGas);
@@ -113,65 +97,34 @@ contract ProverPool2 is EssentialContract, IProverPool {
     }
 
     // Increases the capacity of the prover
-    function releaseProver(address prover) external onlyFromProtocol {
-        uint256 id = stakers[prover].id;
-        // the capacity being used by the protocol is totalWeight -
-        // availableCapacity,  therefore, when we release a capacity, we either
-        // add 1 to availableCapacity or subtract 1 from totalWeight.
-        unchecked {
-            if (id == 0) {
-                // This prover is no longer in the top list, availableCapacity
-                // is
-                // supposed to be 0.
-                --stakers[prover].totalCapacity;
-            } else {
-                ++provers[id - 1].availableCapacity;
-            }
-        }
-    }
+    function releaseProver(address addr) external onlyFromProtocol {
+        (Staker memory staker, Prover memory prover) = getStaker(addr);
 
-    function getStaker(address addr)
-        public
-        view
-        returns (Staker memory staker, Prover memory prover)
-    {
-        staker = stakers[addr];
-        if (staker.id != 0) {
+        if (staker.id != 0 && prover.currentCapacity < staker.maxCapacity) {
             unchecked {
-                prover = provers[staker.id - 1];
+                provers[staker.id - 1].currentCapacity += 1;
             }
         }
     }
 
-    function getSlashAmount(uint32 totalAmount)
-        public
-        pure
-        returns (uint32 amountToSlash)
-    {
-        if (totalAmount > 0) {
-            amountToSlash = totalAmount * SLASH_POINTS / 10_000;
-            // make sure we can slash even if  totalAmount is as small as 1
-            if (amountToSlash == 0) amountToSlash = 1;
-        }
-    }
-
+    // Slashes a prover
     function slashProver(address addr) external onlyFromProtocol {
         (Staker memory staker, Prover memory prover) = getStaker(addr);
         uint32 amountToSlash =
-            getSlashAmount(staker.exitingAmount + prover.amount);
+            _calcSlashAmount(prover.stakedAmount, staker.exitAmount);
 
         if (amountToSlash == 0) return;
 
-        if (amountToSlash <= staker.exitingAmount) {
-            stakers[addr].exitingAmount -= amountToSlash;
+        if (amountToSlash <= staker.exitAmount) {
+            stakers[addr].exitAmount -= amountToSlash;
         } else {
-            stakers[addr].exitingAmount = 0;
+            stakers[addr].exitAmount = 0;
 
-            uint32 _additional = amountToSlash - staker.exitingAmount;
-            if (prover.amount > _additional) {
-                provers[staker.id - 1].amount -= _additional;
+            uint32 _additional = amountToSlash - staker.exitAmount;
+            if (prover.stakedAmount > _additional) {
+                provers[staker.id - 1].stakedAmount -= _additional;
             } else {
-                provers[staker.id - 1].amount = 0;
+                provers[staker.id - 1].stakedAmount = 0;
             }
         }
 
@@ -185,30 +138,42 @@ contract ProverPool2 is EssentialContract, IProverPool {
     // logic and cases. Let handle
     // modification in a separate function
     function stake(
-        uint32 totalAmount,
+        uint32 amount,
         uint16 rewardPerGas,
-        uint16 capacity
+        uint16 maxCapacity
     )
         external
         nonReentrant
     {
-        if (capacity > 0) {
-            // check parameters here
+        uint256 kickedProverId;
+        if (maxCapacity == 0) {
+            require(amount == 0 && rewardPerGas == 0, "INVALID_PARAMS");
+        } else {
+            require(
+                maxCapacity >= 256 && amount / maxCapacity > 10_000
+                    && rewardPerGas > 0,
+                "INVALID"
+            );
         }
+
+        assert(kickedProverId > 0);
 
         // Load data into memory
         (Staker memory staker, Prover memory prover) = getStaker(msg.sender);
 
-        // Handle balances
-        if (totalAmount > prover.amount) {
+        // Handle capacity
+        stakers[msg.sender].maxCapacity = maxCapacity;
+
+        // Handle staking amounts
+        if (amount > prover.stakedAmount) {
             // Stake more tokens
-            uint32 extraNeeded = totalAmount - prover.amount;
+            uint32 extraNeeded = amount - prover.stakedAmount;
             if (extraNeeded > 0) {
-                if (staker.exitingAmount <= extraNeeded) {
-                    extraNeeded -= staker.exitingAmount;
-                    stakers[msg.sender].exitingAmount = 0;
+                if (staker.exitAmount <= extraNeeded) {
+                    extraNeeded -= staker.exitAmount;
+                    stakers[msg.sender].exitAmount = 0;
                 } else {
-                    stakers[msg.sender].exitingAmount -= extraNeeded;
+                    stakers[msg.sender].exitAmount -= extraNeeded;
                     extraNeeded = 0;
                 }
             }
@@ -217,44 +182,87 @@ contract ProverPool2 is EssentialContract, IProverPool {
                 TaikoToken(AddressResolver(this).resolve("taiko_token", false))
                     .burn(msg.sender, extraNeeded * ONE_TKO);
             }
-        } else if (totalAmount < prover.amount) {
+        } else if (amount < prover.stakedAmount) {
+            stakers[msg.sender].id = uint8(kickedProverId);
             stakers[msg.sender].exitRequestedAt = uint64(block.timestamp);
-            stakers[msg.sender].exitingAmount += prover.amount - totalAmount;
+            stakers[msg.sender].exitAmount += prover.stakedAmount - amount;
+        }
+
+        if (staker.id == kickedProverId) {
+            // re-staking
+            if (provers[staker.id - 1].currentCapacity > maxCapacity) {
+                provers[staker.id - 1].currentCapacity = maxCapacity;
+            }
+            provers[staker.id - 1].stakedAmount = amount;
+        } else {
+            Staker storage replacedStaker = stakers[idToProver[kickedProverId]];
+            replacedStaker.id = 0;
+            replacedStaker.exitAmount +=
+                provers[kickedProverId - 1].stakedAmount;
+            if (replacedStaker.exitAmount != 0) {
+                replacedStaker.exitRequestedAt = uint64(block.timestamp);
+            }
         }
     }
 
-    /// Returns the current total available capacity
-    function getAvailableCapacity() external view returns (uint256 capacity) {
+    // Withdraws staked tokens back from matured an exit
+    function exit() external nonReentrant {
+        Staker storage staker = stakers[msg.sender];
+        if (
+            staker.exitAmount == 0 || staker.exitRequestedAt == 0
+                || block.timestamp <= staker.exitRequestedAt + EXIT_PERIOD
+        ) {
+            revert EXIT_NOT_MATURE();
+        }
+
+        TaikoToken(AddressResolver(this).resolve("taiko_token", false)).mint(
+            msg.sender, staker.exitAmount * ONE_TKO
+        );
+
+        emit Exited(staker.exitAmount);
+        staker.exitRequestedAt = 0;
+        staker.exitAmount = 0;
+    }
+
+    // Returns a staker's information
+    function getStaker(address addr)
+        public
+        view
+        returns (Staker memory staker, Prover memory prover)
+    {
+        staker = stakers[addr];
+        if (staker.id != 0) {
+            unchecked {
+                prover = provers[staker.id - 1];
+            }
+        }
+    }
+
+    // Returns the pool's current total capacity
+    function getCapacity() public view returns (uint256 capacity) {
         unchecked {
             for (uint256 i; i < provers.length;) {
-                capacity += provers[i].availableCapacity;
+                capacity += provers[i].currentCapacity;
                 ++i;
             }
         }
     }
 
-    function exit(address staker) external nonReentrant {
-        // We need to have this prover 'flagged' as an exiting prover
-        Staker storage _staker = stakers[staker];
-        if (
-            _staker.exitRequestedAt == 0
-                || block.timestamp <= _staker.exitRequestedAt + EXIT_PERIOD
-        ) {
-            revert POOL_CANNOT_YET_EXIT();
+    /// Returns each prover's weight dynamically based on feePerGas.
+    function getWeights(uint32 feePerGas)
+        public
+        view
+        returns (uint256[32] memory weights, uint256 totalWeight)
+    {
+        Prover[32] memory mProvers = provers;
+
+        for (uint8 i; i < mProvers.length; ++i) {
+            weights[i] = _calcWeight(mProvers[i], feePerGas);
+            totalWeight += weights[i];
         }
-
-        TaikoToken(AddressResolver(this).resolve("taiko_token", false)).mint(
-            staker, _staker.exitingAmount * ONE_TKO
-        );
-
-        emit Exited(staker, _staker.exitingAmount);
-
-        _staker.exitRequestedAt = 0;
-        _staker.exitingAmount = 0;
-        // TODO(Daniel): deal with capacity?
     }
 
-    // The weight is dynamic based on the current fee per gas.
+    // Returns the prover's dynamic weight based on the current feePerGas
     function _calcWeight(
         Prover memory prover,
         uint32 feePerGas
@@ -263,11 +271,28 @@ contract ProverPool2 is EssentialContract, IProverPool {
         pure
         returns (uint256)
     {
-        if (prover.availableCapacity == 0) {
+        if (prover.currentCapacity == 0) {
             return 0;
         } else {
-            return (uint256(prover.amount) * feePerGas * feePerGas)
+            return (uint256(prover.stakedAmount) * feePerGas * feePerGas)
                 / prover.rewardPerGas / prover.rewardPerGas;
+        }
+    }
+
+    // Returns the amount of TKO to slash based on the total
+    function _calcSlashAmount(
+        uint32 stakedAmount,
+        uint32 exitAmount
+    )
+        private
+        pure
+        returns (uint32 amountToSlash)
+    {
+        amountToSlash = stakedAmount + exitAmount;
+        if (amountToSlash > 0) {
+            amountToSlash = amountToSlash * SLASH_POINTS / 10_000;
+            // make sure we can slash even if  totalAmount is as small as 1
+            if (amountToSlash == 0) amountToSlash = 1;
         }
     }
 }
