@@ -26,7 +26,7 @@ contract TaikoL1_NoCooldown is TaikoL1 {
         config.blockMaxVerificationsPerTx = 0;
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 12;
-        config.proofRegularCooldown = 0;
+        config.proofRegularCooldown = 15 minutes;
     }
 }
 

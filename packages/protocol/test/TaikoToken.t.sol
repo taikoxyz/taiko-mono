@@ -33,6 +33,7 @@ contract TaikoTokenTest is Test {
         addressManager = new AddressManager();
         addressManager.init();
         registerAddress("taiko", taikoL1);
+        registerAddress("dao", DaoTreasury);
 
         tko = new TaikoToken();
 
@@ -113,17 +114,17 @@ contract TaikoTokenTest is Test {
 
     function test_burn() public {
         uint256 amountToMint = 1 ether;
-        vm.prank(taikoL1);
+        vm.prank(DaoTreasury);
         tko.mint(Eve, amountToMint);
         assertEq(tko.balanceOf(Eve), amountToMint);
 
-        vm.prank(taikoL1);
+        vm.prank(DaoTreasury);
         tko.burn(Eve, amountToMint);
         assertEq(tko.balanceOf(Eve), 0);
     }
 
     function test_burn_invalid_address() public {
-        vm.prank(taikoL1);
+        vm.prank(DaoTreasury);
         vm.expectRevert("ERC20: burn from the zero address");
         tko.burn(address(0), 1 ether);
     }
@@ -141,7 +142,7 @@ contract TaikoTokenTest is Test {
         tko.mint(Eve, amountToMint);
         assertEq(tko.balanceOf(Eve), amountToMint);
 
-        vm.prank(taikoL1);
+        vm.prank(DaoTreasury);
         vm.expectRevert("ERC20: burn amount exceeds balance");
         tko.burn(Eve, amountToBurn);
         assertEq(tko.balanceOf(Eve), amountToMint);
