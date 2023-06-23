@@ -186,9 +186,17 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
         uint8 id;
         uint256 r = uint256(rand) % totalWeight;
         uint256 z;
-        while (z < r && id < 32) {
+
+        while (z <= r && id < 32) {
+            if (mTopProvers[id].rewardPerGas == 0) {
+                break;
+            }
             z += weights[++id];
         }
+        //otherwise decrement because of while-loop always increments
+        // Safe to deduct because if it was 0 (noone in the prover pool)
+        // the totalWeight == 0 already returns ! (tested)
+        id -= 1;
 
         topProvers[id].currentCapacity--;
         return (idToProver[id], topProvers[id].rewardPerGas);

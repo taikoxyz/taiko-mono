@@ -100,7 +100,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        onlyFromNamedEither("prover_pool", "dao")
+        onlyFromNamedEither("prover_pool", "taiko")
     {
         _burn(from, amount);
     }

@@ -26,6 +26,8 @@ contract TaikoTokenTest is Test {
         0x300C9b60E19634e12FC6D68B7FEa7bFB26c2E419;
     address public constant DaoTreasury =
         0x400147C0Eb43D8D71b2B03037bB7B31f8f78EF5F;
+    address public constant ProverPool =
+        0x400147c0Eb43D8d71b2B03037BB7b32f8f78EF5E;
     address public constant Eve = 0x50081b12838240B1bA02b3177153Bca678a86078;
     address public constant Dave = 0x50081b12838240B1ba02b3177153bCA678a86079;
 
@@ -34,6 +36,7 @@ contract TaikoTokenTest is Test {
         addressManager.init();
         registerAddress("taiko", taikoL1);
         registerAddress("dao", DaoTreasury);
+        registerAddress("prover_pool", ProverPool);
 
         tko = new TaikoToken();
 
@@ -114,17 +117,17 @@ contract TaikoTokenTest is Test {
 
     function test_burn() public {
         uint256 amountToMint = 1 ether;
-        vm.prank(DaoTreasury);
+        vm.prank(taikoL1);
         tko.mint(Eve, amountToMint);
         assertEq(tko.balanceOf(Eve), amountToMint);
 
-        vm.prank(DaoTreasury);
+        vm.prank(ProverPool);
         tko.burn(Eve, amountToMint);
         assertEq(tko.balanceOf(Eve), 0);
     }
 
     function test_burn_invalid_address() public {
-        vm.prank(DaoTreasury);
+        vm.prank(ProverPool);
         vm.expectRevert("ERC20: burn from the zero address");
         tko.burn(address(0), 1 ether);
     }
@@ -142,7 +145,7 @@ contract TaikoTokenTest is Test {
         tko.mint(Eve, amountToMint);
         assertEq(tko.balanceOf(Eve), amountToMint);
 
-        vm.prank(DaoTreasury);
+        vm.prank(ProverPool);
         vm.expectRevert("ERC20: burn amount exceeds balance");
         tko.burn(Eve, amountToBurn);
         assertEq(tko.balanceOf(Eve), amountToMint);
