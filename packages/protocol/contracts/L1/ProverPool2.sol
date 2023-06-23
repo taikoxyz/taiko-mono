@@ -43,7 +43,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
     event Slashed(address addr, uint32 amount);
 
     error UNAUTHORIZED();
-    error EXIT_NOT_MATURE();
+    error NO_MATURE_EXIT();
 
     modifier onlyFromProtocol() {
         if (resolve("taiko", false) != msg.sender) {
@@ -102,12 +102,19 @@ contract ProverPool2 is EssentialContract, IProverPool {
     // Slashes a prover
     function slashProver(address addr) external onlyFromProtocol {
         (Staker memory staker, Prover memory prover) = getStaker(addr);
-        uint32 amountToSlash =
-            _calcSlashAmount(prover.stakedAmount, staker.exitAmount);
 
-        if (amountToSlash == 0) return;
+        // if the exit is mature, we do not count it in the total slash-able
+        // amount
+        uint32 slashableAmount = staker.exitRequestedAt > 0
+            && block.timestamp <= staker.exitRequestedAt + EXIT_PERIOD
+            ? prover.stakedAmount + staker.exitAmount
+            : prover.stakedAmount;
 
-        if (amountToSlash <= staker.exitAmount) {
+        uint32 amountToSlash = _calcSlashAmount(slashableAmount);
+
+        if (amountToSlash == 0) {
+            // do nothing
+        } else if (amountToSlash <= staker.exitAmount) {
             stakers[addr].exitAmount -= amountToSlash;
         } else {
             stakers[addr].exitAmount = 0;
@@ -204,7 +211,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
             staker.exitAmount == 0 || staker.exitRequestedAt == 0
                 || block.timestamp <= staker.exitRequestedAt + EXIT_PERIOD
         ) {
-            revert EXIT_NOT_MATURE();
+            revert NO_MATURE_EXIT();
         }
 
         TaikoToken(AddressResolver(this).resolve("taiko_token", false)).mint(
@@ -272,17 +279,13 @@ contract ProverPool2 is EssentialContract, IProverPool {
     }
 
     // Returns the amount of TKO to slash based on the total
-    function _calcSlashAmount(
-        uint32 stakedAmount,
-        uint32 exitAmount
-    )
+    function _calcSlashAmount(uint32 slashableAmount)
         private
         pure
         returns (uint32 amountToSlash)
     {
-        amountToSlash = stakedAmount + exitAmount;
-        if (amountToSlash > 0) {
-            amountToSlash = amountToSlash * SLASH_POINTS / 10_000;
+        if (slashableAmount > 0) {
+            amountToSlash = slashableAmount * SLASH_POINTS / 10_000;
             // make sure we can slash even if  totalAmount is as small as 1
             if (amountToSlash == 0) amountToSlash = 1;
         }
