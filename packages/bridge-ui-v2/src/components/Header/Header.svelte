@@ -16,11 +16,11 @@
     <LogoWithText class="w-[88px] h-[24px]" />
   </div>
 
-  <Button on:click={() => web3modal.openModal()} class="rounded-full" type="neutral">
+  <!-- <Button on:click={() => web3modal.openModal()} class="rounded-full" type="neutral">
     <Icon type="user-circle" />
     <span>{$t('wallet.connect')}</span>
-  </Button>
+  </Button> -->
 
   <!-- TODO: think about the possibility of actually using w3m-core-button component -->
-  <!-- <w3m-core-button balance="show" icon="hide" /> -->
+  <w3m-core-button balance="show" icon="hide" />
 </header>
