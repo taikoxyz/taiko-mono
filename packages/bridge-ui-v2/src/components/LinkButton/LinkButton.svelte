@@ -11,6 +11,6 @@
 <a
   {href}
   target={external ? '_blank' : null}
-  class={classNames('btn btn-ghost p-3 rounded-full body-bold flex justify-start content-center', activeClass)}>
+  class={classNames('btn btn-sm md:btn-md btn-ghost p-3 rounded-full body-bold flex justify-start content-center', activeClass)}>
   <slot />
 </a>

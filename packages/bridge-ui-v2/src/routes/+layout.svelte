@@ -7,7 +7,7 @@
 
 <SideNavigation>
   <Header />
-  <main class="md:px-10 md:py-7">
+  <main class="flex justify-center md:px-10 md:py-7 mt-8 md:mt-14">
     <slot />
   </main>
 </SideNavigation>

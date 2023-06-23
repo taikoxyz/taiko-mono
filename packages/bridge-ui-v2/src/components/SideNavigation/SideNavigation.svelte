@@ -21,10 +21,11 @@
   <div class="drawer-side z-1 bg-primary-background">
     <label for={drawerToogleId} class="drawer-overlay bg-overlay-background" />
 
-    <aside class="w-[226px] md:px-4 md:py-8 md:border-r md:border-r-grey-600 h-full">
-      <a href="/" class="hidden md:block">
+    <aside class="w-[226px] p-2 md:px-4 md:py-8 md:border-r md:border-r-grey-600 h-full">
+      <a href="/" class="hidden md:inline-block">
         <LogoWithText />
       </a>
+
       <ul class="menu md:pt-10 space-y-2">
         <li>
           <LinkButton active>
