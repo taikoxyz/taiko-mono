@@ -14,8 +14,8 @@ This guide will help get your contract verified on Taiko!
 
 <Tabs items={["Hardhat", "Blockscout", "Foundry"]} defaultIndex="0">
   <Tab>
-   <Steps>
-        ### Add Etherscan config to Hardhat config
+        **1. Add Etherscan config to Hardhat config**
+
         <Callout type="info">
             Even though the config is called `etherscan`, it is used for all explorers that support the Etherscan API (including Blockscout). The API key is set to a dummy value `42069` because it is not used for Blockscout verification.
         </Callout>
@@ -54,23 +54,16 @@ This guide will help get your contract verified on Taiko!
         export default config;
         ```
 
-        ### Run the verify task
-        Run the verify task, but replace `DEPLOYED_CONTRACT_ADDRESS` and `"Constructor argument 1"` with the address of your deployed contract and the constructor arguments you used when deploying the contract.
+        **2. Run the verify task, but replace `DEPLOYED_CONTRACT_ADDRESS` and `"Constructor argument 1"` with the address of your deployed contract and the constructor arguments you used when deploying the contract.**
 
         ```sh
         npx hardhat verify --network taiko DEPLOYED_CONTRACT_ADDRESS "Constructor argument 1"
         ```
 
-        ### View your verified contract on Blockscout
-        Check the [Taiko block explorer](https://explorer.test.taiko.xyz) link from the output to see your contract was verified.
-
-   </Steps>
+        **3. Check the [Taiko block explorer](https://explorer.test.taiko.xyz) link from the output to see your contract was verified.**
   </Tab>
   <Tab>
-   <Steps>
-    ### Follow Blockscout's official guide
     Follow Blockscout's [official guide](https://docs.blockscout.com/for-users/verifying-a-smart-contract) to verify your contract on Taiko's blockscout explorers.
-   </Steps>
   </Tab>
   <Tab>
     <Callout type="warning">
