@@ -58,17 +58,21 @@ func (svc *Service) FilterThenSubscribe(
 
 	for i := svc.processingBlockHeight; i < header.Number.Uint64(); i += svc.blockBatchSize {
 		end := svc.processingBlockHeight + svc.blockBatchSize
-		fmt.Printf("block batch from %v to %v", i, end)
-		fmt.Println()
 		// if the end of the batch is greater than the latest block number, set end
 		// to the latest block number
 		if end > header.Number.Uint64() {
 			end = header.Number.Uint64()
 		}
 
+		// filter exclusive of the end block
+		filterEnd := end - 1
+
+		fmt.Printf("block batch from %v to %v", i, filterEnd)
+		fmt.Println()
+
 		filterOpts := &bind.FilterOpts{
-			Start:   svc.processingBlockHeight + 1,
-			End:     &end,
+			Start:   svc.processingBlockHeight,
+			End:     &filterEnd,
 			Context: ctx,
 		}
 
