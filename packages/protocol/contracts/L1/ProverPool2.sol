@@ -71,6 +71,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
         uint32 feePerGas
     )
         external
+        onlyFromProtocol
         returns (address prover, uint32 rewardPerGas)
     {
         (uint256[32] memory weights, uint256 totalWeight) =
