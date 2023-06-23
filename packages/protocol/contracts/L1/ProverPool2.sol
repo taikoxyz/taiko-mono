@@ -11,10 +11,10 @@ import { IProverPool } from "./IProverPool.sol";
 import { TaikoToken } from "./TaikoToken.sol";
 import { Proxied } from "../common/Proxied.sol";
 
-/// TODOs:
-/// - [ ] make sure prover cannot make frequent changes
-/// - [ ] implement isProverBetter
-/// - [ ] optimize `provers` to use 8 slots, not 32
+//TODOs:
+//- [ ] make sure prover cannot make frequent changes
+//- [ ] implement isProverBetter
+//- [ ] optimize `provers` to use 8 slots, not 32
 contract ProverPool2 is EssentialContract, IProverPool {
     // 8 bytes
     struct Prover {
@@ -205,7 +205,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
         }
     }
 
-    /// Returns each prover's weight dynamically based on feePerGas.
+    //Returns each prover's weight dynamically based on feePerGas.
     function getWeights(uint32 feePerGas)
         public
         view
