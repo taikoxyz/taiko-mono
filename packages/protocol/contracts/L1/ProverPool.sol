@@ -69,7 +69,6 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
     struct TopProver {
         uint32 amount; // will slash from ExistingProver's amount then from this
             // value.
-
         uint16 rewardPerGas;
         uint16 currentCapacity;
     }
@@ -204,7 +203,6 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
     function releaseProver(address prover) external onlyFromProtocol {
         /// NOTE: rewardPerGas is the indicator if object is valid/existing
         if (topProvers[proverToId[prover]].rewardPerGas != 0) {
-
             topProvers[proverToId[prover]].currentCapacity++;
         }
     }
@@ -241,7 +239,6 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
         }
 
         emit Slashed(prover, amountToSlash);
-
     }
 
     // @Daniel's comment: Adjust the staking. Users can use this funciton to
@@ -322,7 +319,6 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
                     .burn(
                     newProver,
                     uint64(totalAmount) * ONE_TKO // TODO: public constant
-
                 );
                 topProvers[proverToId[newProver]].amount += totalAmount;
                 // New reward per gas
@@ -404,7 +400,6 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
                             newProverMightBeInExitQueue.requestedAt = timestamp;
 
                             burnAmount -= newProverMightBeInExitQueue.amount;
-
                         }
                     }
 
