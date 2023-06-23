@@ -3,13 +3,11 @@
 </script>
 
 <script lang="ts">
+  import { PUBLIC_GUIDE_URL, PUBLIC_L2_EXPLORER_URL } from '$env/static/public';
+
   import Icon from '../Icon';
   import LinkButton from '../LinkButton';
   import { LogoWithText } from '../Logo';
-
-  // TODO: env vars
-  let explorerUrl = 'https://explorer.internal.taiko.xyz/';
-  let guideUrl = 'https://taiko.xyz/docs/guides/use-the-bridge';
 </script>
 
 <div class="drawer md:drawer-open">
@@ -46,13 +44,13 @@
           </LinkButton>
         </li>
         <li>
-          <LinkButton href={explorerUrl} target="_blank">
+          <LinkButton href={PUBLIC_L2_EXPLORER_URL} target="_blank">
             <Icon type="explorer" />
             <span>Exploreer</span>
           </LinkButton>
         </li>
         <li>
-          <LinkButton href={guideUrl} target="_blank">
+          <LinkButton href={PUBLIC_GUIDE_URL} target="_blank">
             <Icon type="guide" />
             <span>Guide</span>
           </LinkButton>
