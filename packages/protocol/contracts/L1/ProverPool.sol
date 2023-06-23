@@ -8,11 +8,16 @@ pragma solidity ^0.8.20;
 import { AddressResolver } from "../common/AddressResolver.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { IProverPool } from "./IProverPool.sol";
-import { TaikoErrors } from "./TaikoErrors.sol";
 import { TaikoToken } from "./TaikoToken.sol";
 import { Proxied } from "../common/Proxied.sol";
 
-contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
+contract ProverPool is EssentialContract, IProverPool {
+    error POOL_CALLER_NOT_AUTHORIZED();
+    error POOL_CANNOT_YET_EXIT();
+    error POOL_NOT_ENOUGH_RESOURCES();
+    error POOL_PROVER_NOT_FOUND();
+    error POOL_REWARD_CANNOT_BE_NULL();
+    error POOL_NOT_MEETING_MIN_REQUIREMENTS();
     // New concept TLDR:
     // 2 main data 'registry':
     // - TopProver array: we keep track of the top32. We need an array because
@@ -94,7 +99,7 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
     uint256 public constant EXIT_PERIOD = 1 weeks;
 
     // 500 means 5% if 10_000 is 100 %
-    uint256 public constant SLASH_AMOUNT_IN_BP = 500; // basis points
+    uint256 public constant SLASH_POINTS = 500; // basis points
 
     uint256 public ONE_TKO = 10e8;
 
@@ -219,7 +224,7 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
         uint32 amountToExit = exitingProvers[prover].amount;
         uint32 amountToSlash = uint32(
             (topProvers[id].amount + amountToExit)
-                * uint256(10_000 - SLASH_AMOUNT_IN_BP) / 10_000
+                * uint256(10_000 - SLASH_POINTS) / 10_000
         );
 
         if (amountToExit >= amountToSlash) {

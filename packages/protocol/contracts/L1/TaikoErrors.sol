@@ -36,10 +36,4 @@ abstract contract TaikoErrors {
     error L1_UNAUTHORIZED();
 
     // Prover pool related error
-    error POOL_CALLER_NOT_AUTHORIZED();
-    error POOL_CANNOT_YET_EXIT();
-    error POOL_NOT_ENOUGH_RESOURCES();
-    error POOL_PROVER_NOT_FOUND();
-    error POOL_REWARD_CANNOT_BE_NULL();
-    error POOL_NOT_MEETING_MIN_REQUIREMENTS();
 }
