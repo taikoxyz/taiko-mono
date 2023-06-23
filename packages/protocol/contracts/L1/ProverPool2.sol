@@ -339,4 +339,4 @@ contract ProverPool2 is EssentialContract, IProverPool {
     }
 }
 
-contract ProxiedProverPool is Proxied, ProverPool2 { }
+contract ProxiedProverPool2 is Proxied, ProverPool2 { }
