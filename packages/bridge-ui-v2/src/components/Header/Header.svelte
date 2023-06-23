@@ -1,9 +1,10 @@
 <script lang="ts">
+  import { t } from '$libs/i18n';
+
   import Button from '../Button';
   import Icon from '../Icon';
   import Logo from '../Logo';
   import { drawerToogleId } from '../SideNavigation';
-  import { t } from '$libs/i18n';
 </script>
 
 <header class="sticky md:px-10 md:py-7 flex justify-between">
@@ -16,6 +17,6 @@
 
   <Button class="rounded-full">
     <Icon type="user-circle" />
-    <span>{$t('wallet.connect.button')}</span>
+    <span>{$t('wallet.connect')}</span>
   </Button>
 </header>

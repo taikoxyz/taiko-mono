@@ -4,6 +4,7 @@
 
 <script lang="ts">
   import { PUBLIC_GUIDE_URL, PUBLIC_L2_EXPLORER_URL } from '$env/static/public';
+  import { t } from '$libs/i18n';
 
   import Icon from '../Icon';
   import LinkButton from '../LinkButton';
@@ -28,31 +29,31 @@
         <li>
           <LinkButton active>
             <Icon type="bridge" fillClass="fill-white" />
-            <span>Bridge</span>
+            <span>{$t('nav.bridge')}</span>
           </LinkButton>
         </li>
         <li>
           <LinkButton href="/faucet">
             <Icon type="faucet" />
-            <span>Faucet</span>
+            <span>{$t('nav.faucet')}</span>
           </LinkButton>
         </li>
         <li>
           <LinkButton href="/activities">
             <Icon type="activities" />
-            <span>Activities</span>
+            <span>{$t('nav.activities')}</span>
           </LinkButton>
         </li>
         <li>
           <LinkButton href={PUBLIC_L2_EXPLORER_URL} external>
             <Icon type="explorer" />
-            <span>Exploreer</span>
+            <span>{$t('nav.explorer')}</span>
           </LinkButton>
         </li>
         <li>
           <LinkButton href={PUBLIC_GUIDE_URL} external>
             <Icon type="guide" />
-            <span>Guide</span>
+            <span>{$t('nav.guide')}</span>
           </LinkButton>
         </li>
       </ul>

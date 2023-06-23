@@ -1,1 +1,1 @@
-export { _ as t } from './i18n'
+export { _ as t } from './i18n';
