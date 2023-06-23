@@ -64,7 +64,9 @@ func (svc *Service) FilterThenSubscribe(
 			end = header.Number.Uint64()
 		}
 
-		// filter exclusive of the end block
+		// filter exclusive of the end block.
+		// we use "end" as the next starting point of the batch, and
+		// process up to end - 1 for this batch.
 		filterEnd := end - 1
 
 		fmt.Printf("block batch from %v to %v", i, filterEnd)
@@ -95,6 +97,8 @@ func (svc *Service) FilterThenSubscribe(
 		}
 
 		if !messageSentEvents.Next() || messageSentEvents.Event == nil {
+			// use "end" not "filterEnd" here, because it will be used as the start
+			// of the next batch.
 			if err := svc.handleNoEventsInBatch(ctx, chainID, int64(end)); err != nil {
 				return errors.Wrap(err, "svc.handleNoEventsInBatch")
 			}
