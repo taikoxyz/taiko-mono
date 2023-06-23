@@ -12,79 +12,22 @@ import { TaikoErrors } from "./TaikoErrors.sol";
 import { TaikoToken } from "./TaikoToken.sol";
 import { Proxied } from "../common/Proxied.sol";
 
-contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
-    // New concept TLDR:
-    // 2 main data 'registry':
-    // - TopProver array: we keep track of the top32. We need an array because
-    // we need to iterate over
-    // - ExitingProver mapping: each and every prover who is either exiting or
-    // kicked out (by someone staking more) is
-    // here until they are not withdraw the funds (with exit())
-
-    // NOTE:
-    // - signalling an exit if you are a prover can be done via
-    // stake(totalAMount = 0)
-    // - modifying existing parameters also done via stake (see comments there)
-    // - there are mechanisms in the stake() code to handle scenarios like:
-    //     A: Bob is the least staker. Alice comes in and stakes more than Bob
-    // and Carol.
-    //     Now Bob forced to leave and not within the ExitingProvers. He
-    // realizes it and
-    //     tries to re-stake. Now he stakes more than Carol, so Carol is gone,
-    // but Bob can
-    //     re-use his funds currently in the 'staking queue'. So basically he is
-    // out of the
-    //     exiting queue.
-    //
-    //     B: Almost same situation as above, except that when Bob is leaving
-    // (force leaving)
-    //     Carol decided to leave as well, so she is not in the topProver array
-    // anymore. It means
-    //     Bob could come back with his stake (currenlty in the exit 'queue') or
-    // even less than that
-    //     amount since Carol left, there is 1 "free space". So he could decide
-    // to re-stake less than
-    //     his amount in the current exit 'queue', so technically he still have
-    // some left in the exit queue
-    //     while also being a topProver in the same time!
-
-    // This is 1/4 slot
-    // TODO: Dani, this structure should hold all information required to
-    // dynamically calculate the weight of the top 32 provers and select one
-    // based on a random number.
-    struct TopProver {
-        uint32 amount; // will slash from ExistingProver's amount then from this
-            // value.
+contract ProverPool2 is EssentialContract, IProverPool, TaikoErrors {
+    struct Prover {
+        uint32 amount;
         uint16 rewardPerGas;
         uint16 currentCapacity;
     }
 
-    // prover always have one Prover object,regardless if it is active or
-    // exiting.
-    // @TODO: We do not need to use both. We shall have 1 for TopProvers, and 1
-    // for ExitingProvers
-    struct ExitingProver {
+    struct Staker {
         uint64 requestedAt;
         uint32 amount;
+        uint16 totalCapacity;
     }
-    // @QUESTION: I think 'usedCapacity' is not needed here or at least cannot
-    // be calculated only from the
-    // current capacity. Because current capacity always deducted when prover is
-    // selected to
-    // prove. We can only monitor the 'usedCapacity' in case we increase it once
-    // currentCapacity
-    // deducted, but that increases writes. So simply we shall allow 'exit' with
-    // currentCapacity
-    // Then when (if) they reenter, they need to specify their actually
-    // available capacity in the exact moment
-    // they are reentering. If possible, try to avoid extra complexity into the
-    // contracts.
-    //uint16 usedCapacity;
 
-    // TOP PROVERS LIST
-    TopProver[32] public topProvers; // 32/4 = 8 slots
+    Prover[32] public topProvers; // 32/4 = 8 slots
     // EXITING PROVER MAPPING
-    mapping(address prover => ExitingProver) exitingProvers;
+    mapping(address prover => Staker) stakers;
 
     // Id mappings
     mapping(uint8 id => address) idToProver;
@@ -153,10 +96,10 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
         // Iterate over in-memory array
         // Load in-memory first, so to avoid 32 SLOAD operation reading from
         // state.
-        TopProver[32] memory mTopProvers = topProvers;
+        Prover[32] memory mProvers = topProvers;
 
-        for (uint8 i; i < mTopProvers.length; ++i) {
-            weights[i] = _calcWeight(i, mTopProvers[i], feePerGas);
+        for (uint8 i; i < mProvers.length; ++i) {
+            weights[i] = _calcWeight(i, mProvers[i], feePerGas);
             totalWeight += weights[i];
         }
 
@@ -172,17 +115,9 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
         uint8 id;
         uint256 r = uint256(rand) % totalWeight;
         uint256 z;
-
-        while (z <= r && id < 32) {
-            if (mTopProvers[id].rewardPerGas == 0) {
-                break;
-            }
+        while (z < r && id < 32) {
             z += weights[++id];
         }
-        //otherwise decrement because of while-loop always increments
-        // Safe to deduct because if it was 0 (noone in the prover pool)
-        // the totalWeight == 0 already returns ! (tested)
-        id -= 1;
 
         topProvers[id].currentCapacity--;
         return (idToProver[id], topProvers[id].rewardPerGas);
@@ -204,8 +139,7 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
     function slashProver(address prover) external onlyFromProtocol {
         uint8 id = proverToId[prover];
         if (
-            topProvers[id].rewardPerGas == 0
-                && exitingProvers[prover].requestedAt == 0
+            topProvers[id].rewardPerGas == 0 && stakers[prover].requestedAt == 0
         ) {
             revert POOL_PROVER_NOT_FOUND();
         }
@@ -216,17 +150,17 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
         // such case
         // try to punish the exiting amount
 
-        uint32 amountToExit = exitingProvers[prover].amount;
+        uint32 amountToExit = stakers[prover].amount;
         uint32 amountToSlash = uint32(
             (topProvers[id].amount + amountToExit)
                 * uint256(10_000 - SLASH_AMOUNT_IN_BP) / 10_000
         );
 
         if (amountToExit >= amountToSlash) {
-            exitingProvers[prover].amount = amountToExit - amountToSlash;
+            stakers[prover].amount = amountToExit - amountToSlash;
         } else {
             if (amountToExit > 0) {
-                delete  exitingProvers[prover];
+                delete  stakers[prover];
                 amountToSlash -= amountToExit;
             }
             topProvers[id].amount -= amountToSlash;
@@ -261,28 +195,28 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
 
             if (topProvers[currentProverId].amount == totalAmount) {
                 // Full exit
-                exitingProvers[msg.sender] = ExitingProver(
+                stakers[msg.sender] = Staker(
                     timestamp,
-                    (
-                        exitingProvers[msg.sender].amount
-                            + topProvers[currentProverId].amount
-                    )
+                    stakers[msg.sender].amount
+                        + topProvers[currentProverId].amount,
+                    capacity
                 );
 
                 // Empty in topProvers and delete from proverToId mapping
-                topProvers[currentProverId] = TopProver(0, 0, 0);
+                topProvers[currentProverId] = Prover(0, 0, 0);
                 delete proverToId[msg.sender];
                 delete idToProver[currentProverId];
 
                 emit ExitRequested(newProver, timestamp, true);
             } else {
                 // Partial exit
-                exitingProvers[msg.sender] = ExitingProver(
+                stakers[msg.sender] = Staker(
                     timestamp,
                     (
-                        exitingProvers[msg.sender].amount
+                        stakers[msg.sender].amount
                             + topProvers[currentProverId].amount
-                    )
+                    ),
+                    capacity
                 );
 
                 topProvers[currentProverId].amount -= totalAmount;
@@ -300,7 +234,7 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
 
             // This else clause can be a:
             // 1. completely new stake request (and a re-stake once prover was
-            // forced kicked out and now in the exitingProvers)
+            // forced kicked out and now in the Stakers)
             // 2. A modification
 
             // Case 2:
@@ -354,7 +288,7 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
                 // Alice herself requested to exit)
                 // 4. We replace Alice with Bob in the `provers` list.
                 uint64 timestamp = uint64(block.timestamp);
-                TopProver memory replacedProver = topProvers[id];
+                Prover memory replacedProver = topProvers[id];
                 // NOTE: Since we not allow the rewardPerGas to be 0, we can
                 // always use
                 // it as a check to see if the data is non-null.
@@ -362,10 +296,9 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
                     // The list is full so we need to kick someone out
                     // We need to see both the replacedProver and the newProver
                     // are in the exit queue or not ?
-                    ExitingProver memory kickedOutProver =
-                        exitingProvers[idToProver[id]];
-                    ExitingProver memory newProverMightBeInExitQueue =
-                        exitingProvers[newProver];
+                    Staker memory kickedOutProver = stakers[idToProver[id]];
+                    Staker memory newProverMightBeInExitQueue =
+                        stakers[newProver];
 
                     if (kickedOutProver.requestedAt != 0) {
                         // The kicked out is also in the exit queue with some
@@ -398,12 +331,11 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
                     }
 
                     // Write back to storage
-                    exitingProvers[idToProver[id]] = kickedOutProver;
-                    exitingProvers[newProver] = newProverMightBeInExitQueue;
+                    stakers[idToProver[id]] = kickedOutProver;
+                    stakers[newProver] = newProverMightBeInExitQueue;
 
                     // Rewrite it's place with the new one
-                    topProvers[id] =
-                        TopProver(totalAmount, rewardPerGas, capacity);
+                    topProvers[id] = Prover(totalAmount, rewardPerGas, capacity);
 
                     emit KickeOutByWithAmount(
                         idToProver[id], newProver, totalAmount
@@ -412,8 +344,7 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
                     proverToId[newProver] = id;
                     idToProver[id] = newProver;
                 } else {
-                    topProvers[id] =
-                        TopProver(totalAmount, rewardPerGas, capacity);
+                    topProvers[id] = Prover(totalAmount, rewardPerGas, capacity);
                     proverToId[newProver] = id;
                     idToProver[id] = newProver;
                 }
@@ -434,7 +365,7 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
         view
         returns (uint256 totalCapacity)
     {
-        TopProver[32] memory mProvers = topProvers;
+        Prover[32] memory mProvers = topProvers;
 
         // Find the index to insert the new staker based on their balance
         for (uint8 i = 0; i < mProvers.length; i++) {
@@ -445,19 +376,18 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
     function exit() external {
         // We need to have this prover 'flagged' as an exiting prover
         if (
-            exitingProvers[msg.sender].requestedAt == 0
-                || exitingProvers[msg.sender].requestedAt + EXIT_PERIOD
-                    >= block.timestamp
+            stakers[msg.sender].requestedAt == 0
+                || stakers[msg.sender].requestedAt + EXIT_PERIOD >= block.timestamp
         ) {
             revert POOL_CANNOT_YET_EXIT();
         }
 
         TaikoToken(AddressResolver(this).resolve("taiko_token", false)).mint(
-            msg.sender, exitingProvers[msg.sender].amount * ONE_TKO
+            msg.sender, stakers[msg.sender].amount * ONE_TKO
         );
 
         // Delete mapping
-        delete exitingProvers[msg.sender];
+        delete stakers[msg.sender];
 
         emit Exited(msg.sender, uint64(block.timestamp));
     }
@@ -476,7 +406,7 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
     // The weight is dynamic based on fee per gas.
     function _calcWeight(
         uint8 id,
-        TopProver memory prover,
+        Prover memory prover,
         uint32 feePerGas
     )
         private
@@ -500,7 +430,7 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
         view
         returns (uint8 stakerId, uint32 minStake)
     {
-        TopProver[32] memory mProvers = topProvers;
+        Prover[32] memory mProvers = topProvers;
         stakerId = 0;
         minStake = mProvers[0].amount;
 
@@ -519,4 +449,4 @@ contract ProverPool is EssentialContract, IProverPool, TaikoErrors {
     }
 }
 
-contract ProxiedProverPool is Proxied, ProverPool { }
+contract ProxiedProverPool is Proxied, ProverPool2 { }
