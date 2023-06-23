@@ -28,7 +28,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
         uint64 exitRequestedAt;
         uint32 exitAmount;
         uint16 maxCapacity;
-        uint8 proverId; // to indicate the staker is not a top prover
+        uint8 proverId; // 0 to indicate the staker is not a top prover
     }
 
     uint64 public constant EXIT_PERIOD = 1 weeks;
