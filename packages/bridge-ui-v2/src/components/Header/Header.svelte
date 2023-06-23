@@ -20,4 +20,7 @@
     <Icon type="user-circle" />
     <span>{$t('wallet.connect')}</span>
   </Button>
+
+  <!-- TODO: think about the possibility of actually using w3m-core-button component -->
+  <!-- <w3m-core-button balance="show" icon="hide" /> -->
 </header>
