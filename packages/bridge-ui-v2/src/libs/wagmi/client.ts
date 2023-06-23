@@ -1,16 +1,16 @@
-import { type Chain,configureChains, createConfig } from '@wagmi/core';
+import { type Chain, configureChains, createConfig } from '@wagmi/core';
 import { EthereumClient, w3mConnectors, w3mProvider } from '@web3modal/ethereum';
 import { Web3Modal } from '@web3modal/html';
 
 import {
   PUBLIC_L1_CHAIN_ID,
   PUBLIC_L1_CHAIN_NAME,
-  PUBLIC_L1_RPC_URL,
   PUBLIC_L1_EXPLORER_URL,
+  PUBLIC_L1_RPC_URL,
   PUBLIC_L2_CHAIN_ID,
   PUBLIC_L2_CHAIN_NAME,
-  PUBLIC_L2_RPC_URL,
   PUBLIC_L2_EXPLORER_URL,
+  PUBLIC_L2_RPC_URL,
   PUBLIC_WEB3_MODAL_PROJECT_ID,
 } from '$env/static/public';
 
