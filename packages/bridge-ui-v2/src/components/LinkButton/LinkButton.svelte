@@ -1,18 +1,16 @@
 <script lang="ts">
-  import { classNames } from '@libs/classNames';
-
-  type LinkTarget = '_blank' | '_self';
+  import { classNames } from '$libs/classNames';
 
   export let active = false;
   export let href = '/';
-  export let target: LinkTarget = '_self';
+  export let external = false;
 
   $: activeClass = active ? 'bg-primary-interactive hover:bg-primary-interactive-hover' : '';
 </script>
 
 <a
   {href}
-  {target}
+  target={external ? '_blank' : null}
   class={classNames('btn btn-ghost rounded-full body-bold flex justify-start content-center', activeClass)}>
   <slot />
 </a>

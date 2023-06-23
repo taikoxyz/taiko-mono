@@ -44,13 +44,13 @@
           </LinkButton>
         </li>
         <li>
-          <LinkButton href={PUBLIC_L2_EXPLORER_URL} target="_blank">
+          <LinkButton href={PUBLIC_L2_EXPLORER_URL} external>
             <Icon type="explorer" />
             <span>Exploreer</span>
           </LinkButton>
         </li>
         <li>
-          <LinkButton href={PUBLIC_GUIDE_URL} target="_blank">
+          <LinkButton href={PUBLIC_GUIDE_URL} external>
             <Icon type="guide" />
             <span>Guide</span>
           </LinkButton>

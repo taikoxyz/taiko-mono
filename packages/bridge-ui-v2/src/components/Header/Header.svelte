@@ -3,6 +3,7 @@
   import Icon from '../Icon';
   import Logo from '../Logo';
   import { drawerToogleId } from '../SideNavigation';
+  import { t } from '$libs/i18n';
 </script>
 
 <header class="sticky md:px-10 md:py-7 flex justify-between">
@@ -13,5 +14,8 @@
     <Logo />
   </div>
 
-  <Button>Connect Wallet</Button>
+  <Button class="rounded-full">
+    <Icon type="user-circle" />
+    <span>{$t('wallet.connect.button')}</span>
+  </Button>
 </header>

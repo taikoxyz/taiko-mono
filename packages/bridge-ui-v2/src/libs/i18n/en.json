@@ -1,0 +1,12 @@
+{
+  "wallet": {
+    "button": {
+      "connect": "Connect Wallet"
+    },
+    "status": {
+      "disconnected": "Disconnected",
+      "connected": "Connected",
+      "connecting": "Connecting..."
+    }
+  }
+}

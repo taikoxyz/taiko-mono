@@ -47,6 +47,7 @@
     "@web3modal/ethereum": "^2.4.7",
     "@web3modal/html": "^2.4.7",
     "debug": "^4.3.4",
+    "svelte-i18n": "^3.5.1",
     "viem": "^1.0.7"
   }
 }
