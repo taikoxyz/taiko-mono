@@ -41,7 +41,8 @@
   };
 
   const classes = classNames(
-    'btn',
+    // TODO: py-2 px-5 might not always be the case. Talk to Jane about this
+    'btn py-2 px-5',
     type ? typeMap[type] : null,
     size ? sizeMap[size] : null,
     shape ? shapeMap[shape] : null,
