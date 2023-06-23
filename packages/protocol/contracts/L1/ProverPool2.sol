@@ -11,53 +11,44 @@ import { IProverPool } from "./IProverPool.sol";
 import { TaikoToken } from "./TaikoToken.sol";
 import { Proxied } from "../common/Proxied.sol";
 
+/// TODOs:
+/// - [ ] make sure prover cannot make frequent changes
 contract ProverPool2 is EssentialContract, IProverPool {
-    uint256 public constant EXIT_PERIOD = 1 weeks;
-    uint32 public constant SLASH_POINTS = 500; // basis points
-    uint64 public ONE_TKO = 10e8;
-
+    // 8 bytes
     struct Prover {
         uint32 stakedAmount;
         uint16 rewardPerGas;
         uint16 currentCapacity;
     }
 
+    // Make sure we only use one slot
     struct Staker {
         uint64 exitRequestedAt;
         uint32 exitAmount;
         uint16 maxCapacity;
-        uint8 id;
+        uint8 proverId; // to indicate the staker is not a top prover
     }
 
-    mapping(address prover => Staker) stakers;
-    mapping(uint256 id => address) idToProver;
-    mapping(address prover => uint256 id) proverToId;
+    uint256 public constant EXIT_PERIOD = 1 weeks;
+    uint64 public constant ONE_TKO = 10e8;
+    uint32 public constant SLASH_POINTS = 500; // basis points
+
+    mapping(address prover => Staker) public stakers;
+    mapping(uint256 id => address) public idToProver;
     Prover[32] public provers; // 32/4 = 8 slots
-    uint256[165] private __gap;
+
+    uint256[166] private __gap;
+
+    event Exited(uint32 amount);
+    event Slashed(address addr, uint32 amount);
 
     error UNAUTHORIZED();
     error EXIT_NOT_MATURE();
-    error POOL_NOT_ENOUGH_RESOURCES();
-    error POOL_REWARD_CANNOT_BE_NULL();
-    error POOL_NOT_MEETING_MIN_REQUIREMENTS();
-
-    // event Staked(
-    //     address addr, uint32 amount, uint16 rewardPerGas, uint16 capacity
-    // );
-
-    // event KickeOutByWithAmount(
-    //     address kickedOut, address newProver, uint32 totalAmount
-    // );
-
-    event Exited(uint32 amount);
-
-    event Slashed(address addr, uint32 newBalance);
 
     modifier onlyFromProtocol() {
-        if (AddressResolver(this).resolve("taiko", false) != msg.sender) {
+        if (resolve("taiko", false) != msg.sender) {
             revert UNAUTHORIZED();
         }
-
         _;
     }
 
@@ -100,9 +91,10 @@ contract ProverPool2 is EssentialContract, IProverPool {
     function releaseProver(address addr) external onlyFromProtocol {
         (Staker memory staker, Prover memory prover) = getStaker(addr);
 
-        if (staker.id != 0 && prover.currentCapacity < staker.maxCapacity) {
+        if (staker.proverId != 0 && prover.currentCapacity < staker.maxCapacity)
+        {
             unchecked {
-                provers[staker.id - 1].currentCapacity += 1;
+                provers[staker.proverId - 1].currentCapacity += 1;
             }
         }
     }
@@ -122,9 +114,9 @@ contract ProverPool2 is EssentialContract, IProverPool {
 
             uint32 _additional = amountToSlash - staker.exitAmount;
             if (prover.stakedAmount > _additional) {
-                provers[staker.id - 1].stakedAmount -= _additional;
+                provers[staker.proverId - 1].stakedAmount -= _additional;
             } else {
-                provers[staker.id - 1].stakedAmount = 0;
+                provers[staker.proverId - 1].stakedAmount = 0;
             }
         }
 
@@ -183,20 +175,20 @@ contract ProverPool2 is EssentialContract, IProverPool {
                     .burn(msg.sender, extraNeeded * ONE_TKO);
             }
         } else if (amount < prover.stakedAmount) {
-            stakers[msg.sender].id = uint8(kickedProverId);
+            stakers[msg.sender].proverId = uint8(kickedProverId);
             stakers[msg.sender].exitRequestedAt = uint64(block.timestamp);
             stakers[msg.sender].exitAmount += prover.stakedAmount - amount;
         }
 
-        if (staker.id == kickedProverId) {
+        if (staker.proverId == kickedProverId) {
             // re-staking
-            if (provers[staker.id - 1].currentCapacity > maxCapacity) {
-                provers[staker.id - 1].currentCapacity = maxCapacity;
+            if (provers[staker.proverId - 1].currentCapacity > maxCapacity) {
+                provers[staker.proverId - 1].currentCapacity = maxCapacity;
             }
-            provers[staker.id - 1].stakedAmount = amount;
+            provers[staker.proverId - 1].stakedAmount = amount;
         } else {
             Staker storage replacedStaker = stakers[idToProver[kickedProverId]];
-            replacedStaker.id = 0;
+            replacedStaker.proverId = 0;
             replacedStaker.exitAmount +=
                 provers[kickedProverId - 1].stakedAmount;
             if (replacedStaker.exitAmount != 0) {
@@ -231,9 +223,9 @@ contract ProverPool2 is EssentialContract, IProverPool {
         returns (Staker memory staker, Prover memory prover)
     {
         staker = stakers[addr];
-        if (staker.id != 0) {
+        if (staker.proverId != 0) {
             unchecked {
-                prover = provers[staker.id - 1];
+                prover = provers[staker.proverId - 1];
             }
         }
     }
