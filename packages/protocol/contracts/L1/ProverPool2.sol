@@ -52,7 +52,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
 
     error INVALID_PARAMS();
     error NO_MATURE_EXIT();
-    error STAKING_NOT_GOOD_ENOUGH();
+    error PROVER_NOT_GOOD_ENOUGH();
     error UNAUTHORIZED();
 
     modifier onlyFromProtocol() {
@@ -299,7 +299,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
         }
 
         if (proverId == 0) {
-            revert STAKING_NOT_GOOD_ENOUGH();
+            revert PROVER_NOT_GOOD_ENOUGH();
         }
 
         // Force the replaced prover to exit
