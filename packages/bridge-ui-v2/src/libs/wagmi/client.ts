@@ -1,6 +1,5 @@
 import { type Chain, configureChains, createConfig } from '@wagmi/core';
-import { EthereumClient, w3mConnectors, w3mProvider } from '@web3modal/ethereum';
-import { Web3Modal } from '@web3modal/html';
+import { w3mConnectors, w3mProvider } from '@web3modal/ethereum';
 
 import {
   PUBLIC_L1_CHAIN_ID,
@@ -14,15 +13,19 @@ import {
   PUBLIC_WEB3_MODAL_PROJECT_ID,
 } from '$env/static/public';
 
+const projectId = PUBLIC_WEB3_MODAL_PROJECT_ID;
+
 const mainnet: Chain = {
-  id: PUBLIC_L1_CHAIN_ID,
+  id: parseInt(PUBLIC_L1_CHAIN_ID),
   name: PUBLIC_L1_CHAIN_NAME,
+  network: 'L1',
   nativeCurrency: {
     name: 'Ether',
     symbol: 'ETH',
     decimals: 18,
   },
   rpcUrls: {
+    public: { http: [PUBLIC_L1_RPC_URL] },
     default: { http: [PUBLIC_L1_RPC_URL] },
   },
   blockExplorers: {
@@ -34,14 +37,16 @@ const mainnet: Chain = {
 };
 
 const taiko: Chain = {
-  id: PUBLIC_L2_CHAIN_ID,
+  id: parseInt(PUBLIC_L2_CHAIN_ID),
   name: PUBLIC_L2_CHAIN_NAME,
+  network: 'L2',
   nativeCurrency: {
     name: 'Ether',
     symbol: 'ETH',
     decimals: 18,
   },
   rpcUrls: {
+    public: { http: [PUBLIC_L2_RPC_URL] },
     default: { http: [PUBLIC_L2_RPC_URL] },
   },
   blockExplorers: {
@@ -52,18 +57,12 @@ const taiko: Chain = {
   },
 };
 
-const chains = [mainnet, taiko];
-
-const projectId = PUBLIC_WEB3_MODAL_PROJECT_ID;
+export const chains = [mainnet, taiko];
 
 export const { publicClient } = configureChains(chains, [w3mProvider({ projectId })]);
 
-const wagmiConfig = createConfig({
+export const wagmiConfig = createConfig({
   autoConnect: true,
   connectors: w3mConnectors({ projectId, version: 2, chains }),
   publicClient,
 });
-
-export const ethereumClient = new EthereumClient(wagmiConfig, chains);
-
-export const web3modal = new Web3Modal({ projectId }, ethereumClient);

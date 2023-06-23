@@ -1,6 +1,6 @@
 <script lang="ts">
+  import { web3modal } from '$libs/connect';
   import { t } from '$libs/i18n';
-  import { web3modal } from '$libs/wagmi/client';
 
   import Button from '../Button';
   import Icon from '../Icon';

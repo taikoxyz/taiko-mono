@@ -1,6 +1,3 @@
 {
-  "recommendations": [
-    "esbenp.prettier-vscode",
-    "eslint.vscode-eslint",
-  ]
+  "recommendations": ["esbenp.prettier-vscode", "eslint.vscode-eslint"]
 }
