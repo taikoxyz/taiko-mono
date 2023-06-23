@@ -24,6 +24,13 @@ jobs:
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
+      # This step is needed because the .env file is not committed to the repository
+      # and the Svelte check complains about not finding the exports from $env/static/public,
+      # which will be generated based on the .env file when running `svelte-kit sync`
+      - name: Copy .env.example to .env
+        working-directory: ./packages/bridge-ui-v2
+        run: cp .env.example .env
+
       - name: Svelte check
         working-directory: ./packages/bridge-ui-v2
         run: pnpm svelte:check
@@ -37,9 +44,3 @@ jobs:
         run: pnpm test:unit
 
       # TODO: Playwright tests?
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          directory: ./packages/bridge-ui-v2/coverage
-          flags: bridge-ui
