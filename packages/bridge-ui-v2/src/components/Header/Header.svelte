@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t } from '$libs/i18n';
+  import { web3modal } from '$libs/wagmi/client';
 
   import Button from '../Button';
   import Icon from '../Icon';
@@ -17,7 +18,7 @@
 
   <span>TODO</span>
 
-  <Button class="rounded-full" type="neutral">
+  <Button on:click={() => web3modal.openModal()} class="rounded-full" type="neutral">
     <Icon type="user-circle" />
     <span>{$t('wallet.connect')}</span>
   </Button>

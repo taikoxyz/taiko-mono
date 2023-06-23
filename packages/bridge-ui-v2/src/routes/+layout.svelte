@@ -2,11 +2,12 @@
   import '../app.css';
 
   import Header from '$components/Header';
-  import Main from '$components/Main';
   import SideNavigation from '$components/SideNavigation';
 </script>
 
 <SideNavigation>
   <Header />
-  <Main />
+  <main class="md:px-10 md:py-7">
+    <slot />
+  </main>
 </SideNavigation>
