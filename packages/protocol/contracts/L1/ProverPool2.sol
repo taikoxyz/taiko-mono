@@ -33,7 +33,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
     uint64 public constant EXIT_PERIOD = 1 weeks;
     uint64 public constant ONE_TKO = 10e8;
     uint32 public constant SLASH_POINTS = 500; // basis points
-    uint32 public constant MIN_STAKE_PER_CAPACITY = 1000;
+    uint32 public constant MIN_STAKE_PER_CAPACITY = 10_000;
 
     // Given that we only have 32 slots for the top provers, if the protocol
     // can support 1 block per second with an average proof time of 1 hour,
