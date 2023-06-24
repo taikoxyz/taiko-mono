@@ -194,6 +194,10 @@ export default {
           'primary-focus': '#E81899', // pink-400
           'primary-content': '#F3F3F3', // grey-10
 
+          neutral: '#2B303B', // grey-700
+          'neutral-focus': '#444A55', // grey-600
+          'neutral-content': '#F3F3F3', // grey-10
+
           'base-100': '#0B101B', // grey-900
           'base-content': '#F3F3F3', // grey-10
 

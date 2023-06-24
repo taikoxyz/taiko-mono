@@ -4,6 +4,7 @@
 
 <script lang="ts">
   import { PUBLIC_GUIDE_URL, PUBLIC_L2_EXPLORER_URL } from '$env/static/public';
+  import { t } from '$libs/i18n';
 
   import Icon from '../Icon';
   import LinkButton from '../LinkButton';
@@ -20,39 +21,40 @@
   <div class="drawer-side z-1 bg-primary-background">
     <label for={drawerToogleId} class="drawer-overlay bg-overlay-background" />
 
-    <aside class="w-[226px] md:px-4 md:py-8 md:border-r md:border-r-grey-600 h-full">
-      <a href="/" class="hidden md:block">
+    <aside class="w-[226px] p-2 md:px-4 md:py-8 md:border-r md:border-r-grey-600 h-full">
+      <a href="/" class="hidden md:inline-block">
         <LogoWithText />
       </a>
+
       <ul class="menu md:pt-10 space-y-2">
         <li>
           <LinkButton active>
             <Icon type="bridge" fillClass="fill-white" />
-            <span>Bridge</span>
+            <span>{$t('nav.bridge')}</span>
           </LinkButton>
         </li>
         <li>
           <LinkButton href="/faucet">
             <Icon type="faucet" />
-            <span>Faucet</span>
+            <span>{$t('nav.faucet')}</span>
           </LinkButton>
         </li>
         <li>
           <LinkButton href="/activities">
             <Icon type="activities" />
-            <span>Activities</span>
+            <span>{$t('nav.activities')}</span>
           </LinkButton>
         </li>
         <li>
-          <LinkButton href={PUBLIC_L2_EXPLORER_URL} target="_blank">
+          <LinkButton href={PUBLIC_L2_EXPLORER_URL} external>
             <Icon type="explorer" />
-            <span>Exploreer</span>
+            <span>{$t('nav.explorer')}</span>
           </LinkButton>
         </li>
         <li>
-          <LinkButton href={PUBLIC_GUIDE_URL} target="_blank">
+          <LinkButton href={PUBLIC_GUIDE_URL} external>
             <Icon type="guide" />
-            <span>Guide</span>
+            <span>{$t('nav.guide')}</span>
           </LinkButton>
         </li>
       </ul>

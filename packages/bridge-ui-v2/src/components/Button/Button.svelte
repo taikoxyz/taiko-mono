@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { classNames } from '@libs/classNames';
+  import { classNames } from '$libs/util/classNames';
 
   type ButtonType = 'neutral' | 'primary' | 'secondary' | 'accent' | 'info' | 'success' | 'warning' | 'error' | 'ghost';
   type ButtonSize = 'lg' | 'md' | 'sm' | 'xs';
@@ -41,7 +41,7 @@
   };
 
   const classes = classNames(
-    'btn',
+    'btn btn-sm md:btn-md',
     type ? typeMap[type] : null,
     size ? sizeMap[size] : null,
     shape ? shapeMap[shape] : null,
