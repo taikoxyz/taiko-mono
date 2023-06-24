@@ -13,7 +13,6 @@ import { Proxied } from "../common/Proxied.sol";
 
 //TODOs:
 //- [ ] make sure prover cannot make frequent changes
-//- [ ] implement isProverBetter
 //- [ ] optimize `provers` to use 8 slots, not 32
 contract ProverPool2 is EssentialContract, IProverPool {
     // 8 bytes
@@ -34,8 +33,13 @@ contract ProverPool2 is EssentialContract, IProverPool {
     uint64 public constant EXIT_PERIOD = 1 weeks;
     uint64 public constant ONE_TKO = 10e8;
     uint32 public constant SLASH_POINTS = 500; // basis points
-    uint32 public constant MIN_STAKE_PER_CAPACITY = 10_000;
-    uint32 public constant MAX_CAPACITY_LOWER_BOUND = 64;
+    uint32 public constant MIN_STAKE_PER_CAPACITY = 1000;
+
+    // Given that we only have 32 slots for the top provers, if the protocol
+    // can support 1 block per second with an average proof time of 1 hour,
+    // then we need a min capacity of 3600, which means each prover shall
+    // provide a capacity of at least 3600/32=112.
+    uint32 public constant MAX_CAPACITY_LOWER_BOUND = 128;
 
     mapping(uint256 id => address prover) public idToProver;
     mapping(address prover => Staker) public stakers;
@@ -220,17 +224,6 @@ contract ProverPool2 is EssentialContract, IProverPool {
         }
     }
 
-    function isProverBigger(
-        Prover memory a,
-        Prover memory b
-    )
-        public
-        pure
-        returns (bool)
-    {
-        // TODO(Daniel and Dani): figure out this
-    }
-
     // Perform a full exit for the given address
     function _exit(address addr) private {
         Staker storage staker = stakers[addr];
@@ -293,7 +286,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
         // Find the prover id
         uint8 proverId;
         for (uint8 i = 1; i < 33; ++i) {
-            if (isProverBigger(_provers[proverId], _provers[i])) {
+            if (_provers[proverId].stakedAmount > _provers[i].stakedAmount) {
                 proverId = i;
             }
         }
