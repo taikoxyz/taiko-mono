@@ -159,9 +159,11 @@ contract ProverPool2 is EssentialContract, IProverPool {
         external
         nonReentrant
     {
-        // We always force this prover to fully exit
+        // Withdraw first
+        _withdraw(msg.sender);
+        // Force this prover to fully exit
         _exit(msg.sender);
-        // Then stake if necessary
+        // Then stake again
         if (amount != 0) {
             _stake(msg.sender, amount, rewardPerGas, maxCapacity);
         }
@@ -261,8 +263,10 @@ contract ProverPool2 is EssentialContract, IProverPool {
         }
 
         // Force the replaced prover to exit
-        if (idToProver[proverId] != address(0)) {
-            _exit(idToProver[proverId]);
+        address replaced = idToProver[proverId];
+        if (replaced != address(0)) {
+            _withdraw(replaced);
+            _exit(replaced);
         }
         idToProver[proverId] = addr;
 
