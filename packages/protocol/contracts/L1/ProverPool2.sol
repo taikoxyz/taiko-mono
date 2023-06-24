@@ -47,7 +47,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
 
     uint256[66] private __gap;
 
-    event Withdrawn(uint32 amount);
+    event Withdrawn(address addr, uint32 amount);
     event Exited(address addr, uint32 amount);
     event Staked(
         address addr, uint32 amount, uint16 rewardPerGas, uint16 currentCapacity
@@ -169,21 +169,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
 
     // Withdraws staked tokens back from matured an exit
     function withdraw() external nonReentrant {
-        Staker storage staker = stakers[msg.sender];
-        if (
-            staker.exitAmount == 0 || staker.exitRequestedAt == 0
-                || block.timestamp <= staker.exitRequestedAt + EXIT_PERIOD
-        ) {
-            revert NO_MATURE_EXIT();
-        }
-
-        TaikoToken(AddressResolver(this).resolve("taiko_token", false)).mint(
-            msg.sender, staker.exitAmount * ONE_TKO
-        );
-
-        emit Withdrawn(staker.exitAmount);
-        staker.exitRequestedAt = 0;
-        staker.exitAmount = 0;
+        if (!_withdraw(msg.sender)) revert NO_MATURE_EXIT();
     }
 
     // Returns a staker's information
@@ -222,27 +208,6 @@ contract ProverPool2 is EssentialContract, IProverPool {
             weights[i] = _calcWeight(mProvers[i], feePerGas);
             totalWeight += weights[i];
         }
-    }
-
-    // Perform a full exit for the given address
-    function _exit(address addr) private {
-        Staker storage staker = stakers[addr];
-        if (staker.proverId == 0) return;
-
-        delete idToProver[staker.proverId];
-
-        Prover storage prover = provers[staker.proverId - 1];
-        if (prover.stakedAmount > 0) {
-            staker.exitAmount += prover.stakedAmount;
-            staker.exitRequestedAt = uint64(block.timestamp);
-            staker.proverId = 0;
-        }
-
-        prover.stakedAmount = 0;
-        prover.rewardPerGas = 0;
-        prover.currentCapacity = 0;
-
-        emit Exited(addr, staker.exitAmount);
     }
 
     function _stake(
@@ -312,6 +277,46 @@ contract ProverPool2 is EssentialContract, IProverPool {
         });
 
         emit Staked(addr, amount, rewardPerGas, maxCapacity);
+    }
+
+    // Perform a full exit for the given address
+    function _exit(address addr) private {
+        Staker storage staker = stakers[addr];
+        if (staker.proverId == 0) return;
+
+        delete idToProver[staker.proverId];
+
+        Prover storage prover = provers[staker.proverId - 1];
+        if (prover.stakedAmount > 0) {
+            staker.exitAmount += prover.stakedAmount;
+            staker.exitRequestedAt = uint64(block.timestamp);
+            staker.proverId = 0;
+        }
+
+        prover.stakedAmount = 0;
+        prover.rewardPerGas = 0;
+        prover.currentCapacity = 0;
+
+        emit Exited(addr, staker.exitAmount);
+    }
+
+    function _withdraw(address addr) private returns (bool success) {
+        Staker storage staker = stakers[addr];
+        if (
+            staker.exitAmount == 0 || staker.exitRequestedAt == 0
+                || block.timestamp <= staker.exitRequestedAt + EXIT_PERIOD
+        ) {
+            return false;
+        }
+
+        TaikoToken(AddressResolver(this).resolve("taiko_token", false)).mint(
+            addr, staker.exitAmount * ONE_TKO
+        );
+
+        emit Withdrawn(addr, staker.exitAmount);
+        staker.exitRequestedAt = 0;
+        staker.exitAmount = 0;
+        return true;
     }
 
     // Returns the prover's dynamic weight based on the current feePerGas
