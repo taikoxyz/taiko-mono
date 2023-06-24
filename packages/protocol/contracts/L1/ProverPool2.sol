@@ -335,8 +335,10 @@ contract ProverPool2 is EssentialContract, IProverPool {
         if (prover.currentCapacity == 0) {
             return 0;
         } else {
-            return (uint256(prover.stakedAmount) * feePerGas * feePerGas)
-                / prover.rewardPerGas / prover.rewardPerGas;
+            return (
+                uint256(prover.stakedAmount) * prover.currentCapacity
+                    * feePerGas * feePerGas
+            ) / prover.rewardPerGas / prover.rewardPerGas;
         }
     }
 }
