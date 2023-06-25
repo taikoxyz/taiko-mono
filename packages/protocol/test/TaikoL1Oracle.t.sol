@@ -48,60 +48,21 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         registerAddress("oracle_prover", Alice);
     }
 
-    function testOracleProverWithSignature() external {
-        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
-        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
-
-        TaikoData.BlockMetadata memory meta = proposeBlock(Bob, 1_000_000, 1024);
-
-        proveBlock(
-            Bob,
-            Bob,
-            meta,
-            GENESIS_BLOCK_HASH,
-            10_000,
-            10_001,
-            bytes32(uint256(0x11)),
-            bytes32(uint256(0x12))
-        );
-
-        TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
-            metaHash: LibUtils.hashMetadata(meta),
-            parentHash: GENESIS_BLOCK_HASH,
-            blockHash: bytes32(uint256(0x11)),
-            signalRoot: bytes32(uint256(0x12)),
-            graffiti: 0x0,
-            prover: address(1),
-            parentGasUsed: 10_000,
-            gasUsed: 40_000,
-            verifierId: 0,
-            proof: new bytes(0)
-        });
-
-        // (uint8 v, bytes32 r, bytes32 s) =
-        //     vm.sign(AlicePK, keccak256(abi.encode(evidence)));
-
-        // evidence.sig = abi.encodePacked(v, r, s);
-
-        vm.prank(Carol, Carol);
-        L1.proveBlock(meta.id, abi.encode(evidence));
-
-        TaikoData.ForkChoice memory fc =
-            L1.getForkChoice(1, GENESIS_BLOCK_HASH, 10_000);
-
-        assertEq(fc.blockHash, bytes32(uint256(0x11)));
-        assertEq(fc.signalRoot, bytes32(uint256(0x12)));
-        assertEq(fc.provenAt, block.timestamp);
-        assertEq(fc.prover, address(1));
-        assertEq(fc.gasUsed, 40_000);
-    }
-
     function testOracleProverCanAlwaysOverwriteIfNotSameProof() external {
         // Carol is the oracle prover
         registerAddress("oracle_prover", Carol);
 
         depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
+        console2.log("Alice balance:", tko.balanceOf(Alice));
+        // This is a very weird test (code?) issue here.
+        // If this line is uncommented,
+        // Alice/Bob has no balance.. (Causing reverts !!!)
+        // Current investigations are ongoing with foundry team
         depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        console2.log("Bob balance:", tko.balanceOf(Bob));
+        // Bob
+        vm.prank(Bob, Bob);
+        proverPool.stake(10, 10, 101);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -149,14 +110,8 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             verifyBlock(Carol, 1);
 
-            // Check if shortly after proving (+verify) the last verify is not
-            // the same anymore
-            // no need to have a cooldown period
-            uint256 lastVerifiedBlockIdNow =
-                L1.getStateVariables().lastVerifiedBlockId;
-
-            assertEq(lastVerifiedBlockIdNow, lastVerifiedBlockId);
-
+            // This is verified, user cannot re-verify it
+            vm.expectRevert(TaikoErrors.L1_BLOCK_ID.selector);
             proveBlock(
                 Bob,
                 Bob,
@@ -167,13 +122,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 blockHash,
                 signalRoot
             );
-
-            vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
-
-            verifyBlock(Carol, 1);
-
-            lastVerifiedBlockIdNow = L1.getStateVariables().lastVerifiedBlockId;
-            assertFalse(lastVerifiedBlockIdNow == lastVerifiedBlockId);
 
             parentHash = blockHash;
             parentGasUsed = gasUsed;
@@ -186,7 +134,16 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         registerAddress("oracle_prover", Carol);
 
         depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
+        console2.log("Alice balance:", tko.balanceOf(Alice));
+        // This is a very weird test (code?) issue here.
+        // If this line is uncommented,
+        // Alice/Bob has no balance.. (Causing reverts !!!)
+        // Current investigations are ongoing with foundry team
         depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        console2.log("Bob balance:", tko.balanceOf(Bob));
+        // Bob
+        vm.prank(Bob, Bob);
+        proverPool.stake(10, 10, 101);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -261,9 +218,17 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     {
         registerAddress("oracle_prover", address(0));
 
-        depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
+        console2.log("Alice balance:", tko.balanceOf(Alice));
+        // This is a very weird test (code?) issue here.
+        // If this line is uncommented,
+        // Alice/Bob has no balance.. (Causing reverts !!!)
+        // Current investigations are ongoing with foundry team
         depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
-        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
+        console2.log("Bob balance:", tko.balanceOf(Bob));
+        // Bob
+        vm.prank(Bob, Bob);
+        proverPool.stake(10, 10, 101);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -307,98 +272,11 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             assertEq(lastVerifiedBlockIdNow, lastVerifiedBlockId);
 
-            vm.warp(block.timestamp + 5 minutes);
+            vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
             verifyBlock(Carol, 1);
 
             lastVerifiedBlockIdNow = L1.getStateVariables().lastVerifiedBlockId;
 
-            assertFalse(lastVerifiedBlockIdNow == lastVerifiedBlockId);
-
-            parentHash = blockHash;
-            parentGasUsed = gasUsed;
-        }
-        printVariables("");
-    }
-
-    /// @dev Test if oracle prover is the only prover it cannot be verified
-    function test_that_simple_oracle_prover_cannot_be_verified_only_if_normal_proof_comes_in(
-    )
-        external
-    {
-        // Bob is an oracle prover now
-        registerAddress("oracle_prover", Bob);
-
-        depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
-        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
-        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
-
-        bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint32 parentGasUsed = 0;
-        uint32 gasUsed = 1_000_000;
-
-        for (
-            uint256 blockId = 1;
-            blockId < conf.blockMaxProposals * 10;
-            blockId++
-        ) {
-            TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
-            printVariables("after propose");
-            mine(1);
-
-            bytes32 blockHash = bytes32(1e10 + blockId);
-            bytes32 signalRoot = bytes32(1e9 + blockId);
-
-            proveBlock(
-                Bob,
-                address(1),
-                meta,
-                parentHash,
-                parentGasUsed,
-                gasUsed,
-                blockHash,
-                signalRoot
-            );
-
-            uint256 lastVerifiedBlockId =
-                L1.getStateVariables().lastVerifiedBlockId;
-
-            vm.warp(block.timestamp + 1 seconds);
-            verifyBlock(Carol, 1);
-
-            // Check if shortly after proving (+verify) the last verify is the
-            // same (bc it is an oracle proof)
-            uint256 lastVerifiedBlockIdNow =
-                L1.getStateVariables().lastVerifiedBlockId;
-
-            // Cannot be verified
-            assertEq(lastVerifiedBlockIdNow, lastVerifiedBlockId);
-
-            // Then roll into the future to be proveable
-            // (, TaikoData.Auction[] memory auctions) =
-            //     L1.getAuctions(batchId - 1, 1);
-
-            // vm.warp(block.timestamp + auctions[0].bid.proofWindow + 1);
-            vm.roll(block.number + 100);
-
-            proveBlock(
-                Carol,
-                Carol,
-                meta,
-                parentHash,
-                parentGasUsed,
-                gasUsed,
-                blockHash,
-                signalRoot
-            );
-
-            vm.warp(block.timestamp + 1 seconds);
-            vm.warp(block.timestamp + 5 minutes);
-            verifyBlock(Carol, 1);
-
-            lastVerifiedBlockIdNow = L1.getStateVariables().lastVerifiedBlockId;
-
-            // Can be verified now bc regular user overwrote it
             assertFalse(lastVerifiedBlockIdNow == lastVerifiedBlockId);
 
             parentHash = blockHash;
@@ -411,11 +289,20 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     function test_if_oracle_proofs_can_be_verified_without_regular_proofs()
         external
     {
+        // Bob is the oracle prover
         registerAddress("oracle_prover", Bob);
 
-        depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
+        console2.log("Alice balance:", tko.balanceOf(Alice));
+        // This is a very weird test (code?) issue here.
+        // If this line is uncommented,
+        // Alice/Bob has no balance.. (Causing reverts !!!)
+        // Current investigations are ongoing with foundry team
         depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
-        depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
+        console2.log("Bob balance:", tko.balanceOf(Bob));
+        // Bob
+        vm.prank(Bob, Bob);
+        proverPool.stake(10, 10, 101);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -448,13 +335,9 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             uint256 lastVerifiedBlockId =
                 L1.getStateVariables().lastVerifiedBlockId;
 
-            // Need to wait config.proofOracleCooldown
-            vm.warp(block.timestamp + conf.proofOracleCooldown);
+            vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
             verifyBlock(Carol, 1);
 
-            // Check if shortly after proving (+verify) the last verify is not
-            // the same anymore
-            // no need to have a cooldown period
             uint256 lastVerifiedBlockIdNow =
                 L1.getStateVariables().lastVerifiedBlockId;
 
@@ -470,11 +353,23 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     function test_if_systemProver_can_prove_but_regular_provers_can_overwrite()
         external
     {
-        registerAddress("oracle_prover", Bob);
+        // Dave is the oracle prover
+        registerAddress("oracle_prover", Dave);
 
-        depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
+        console2.log("Alice balance:", tko.balanceOf(Alice));
+        // This is a very weird test (code?) issue here.
+        // If this line is uncommented,
+        // Alice/Bob has no balance.. (Causing reverts !!!)
+        // Current investigations are ongoing with foundry team
         depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        console2.log("Bob balance:", tko.balanceOf(Bob));
         depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
+        console2.log("Bob balance:", tko.balanceOf(Carol));
+
+        // Bob
+        vm.prank(Bob, Bob);
+        proverPool.stake(10, 10, 101);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -494,7 +389,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             bytes32 signalRoot = bytes32(1e9 + blockId);
 
             proveBlock(
-                Bob,
+                Dave,
                 address(1),
                 meta,
                 parentHash,
@@ -507,10 +402,10 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             uint256 lastVerifiedBlockId =
                 L1.getStateVariables().lastVerifiedBlockId;
 
-            // Carol could overwrite it
+            // Bob could overwrite it
             proveBlock(
-                Carol,
-                Carol,
+                Bob,
+                Bob,
                 meta,
                 parentHash,
                 parentGasUsed,
@@ -520,12 +415,12 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             );
 
             vm.warp(block.timestamp + 1 seconds);
-            vm.warp(block.timestamp + 5 minutes);
+            vm.warp(block.timestamp + conf.proofRegularCooldown);
 
             TaikoData.ForkChoice memory fc =
                 L1.getForkChoice(blockId, parentHash, parentGasUsed);
 
-            assertEq(fc.prover, Carol);
+            assertEq(fc.prover, Bob);
 
             verifyBlock(Carol, 1);
 
@@ -544,12 +439,26 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
     }
 
     /// @dev Test if there is no system/oracle proofs
-    function test_if_there_is_no_system_and_oracle_provers() external {
+    function test_if_there_is_no_oracle_prover_there_is_no_overwrite_at_all()
+        external
+    {
+        // Bob is the oracle prover
         registerAddress("oracle_prover", address(0));
 
-        depositTaikoToken(Alice, 1e6 * 1e8, 100 ether);
+        depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
+        console2.log("Alice balance:", tko.balanceOf(Alice));
+        // This is a very weird test (code?) issue here.
+        // If this line is uncommented,
+        // Alice/Bob has no balance.. (Causing reverts !!!)
+        // Current investigations are ongoing with foundry team
         depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        console2.log("Bob balance:", tko.balanceOf(Bob));
         depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
+        console2.log("Bob balance:", tko.balanceOf(Carol));
+
+        // Bob
+        vm.prank(Bob, Bob);
+        proverPool.stake(10, 10, 101);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -579,15 +488,8 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 signalRoot
             );
 
-            uint256 lastVerifiedBlockId =
-                L1.getStateVariables().lastVerifiedBlockId;
-            // Then roll into the future to be proveable
-            // (, TaikoData.Auction[] memory auctions) =
-            //     L1.getAuctions(batchId - 1, 1);
-            // vm.warp(block.timestamp + auctions[0].bid.proofWindow + 1);
-            vm.roll(block.number + 100);
             // Carol could not overwrite it
-            vm.expectRevert(TaikoErrors.L1_ALREADY_PROVEN.selector);
+            vm.expectRevert(TaikoErrors.L1_NOT_PROVEABLE.selector);
             proveBlock(
                 Carol,
                 Carol,
@@ -605,14 +507,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             /// overwrite a valid fk).
             vm.warp(block.timestamp + conf.proofRegularCooldown);
             verifyBlock(Carol, 1);
-
-            // Check if shortly after proving (+verify) the last verify is not
-            // the same anymore
-            // no need to have a cooldown period
-            uint256 lastVerifiedBlockIdNow =
-                L1.getStateVariables().lastVerifiedBlockId;
-
-            assertFalse(lastVerifiedBlockIdNow == lastVerifiedBlockId);
 
             parentHash = blockHash;
             parentGasUsed = gasUsed;
