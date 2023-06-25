@@ -25,6 +25,12 @@ struct Staker {
 }
 ```
 
+### MAX_CAPACITY_LOWER_BOUND
+
+```solidity
+uint32 MAX_CAPACITY_LOWER_BOUND
+```
+
 ### EXIT_PERIOD
 
 ```solidity
@@ -49,10 +55,10 @@ uint32 SLASH_POINTS
 uint32 MIN_STAKE_PER_CAPACITY
 ```
 
-### MAX_CAPACITY_LOWER_BOUND
+### MAX_NUM_PROVERS
 
 ```solidity
-uint32 MAX_CAPACITY_LOWER_BOUND
+uint256 MAX_NUM_PROVERS
 ```
 
 ### idToProver
@@ -65,12 +71,6 @@ mapping(uint256 => address) idToProver
 
 ```solidity
 mapping(address => struct ProverPool2.Staker) stakers
-```
-
-### provers
-
-```solidity
-struct ProverPool2.Prover[32] provers
 ```
 
 ### Withdrawn
@@ -157,6 +157,12 @@ function slashProver(address addr) external
 function stake(uint32 amount, uint16 rewardPerGas, uint16 maxCapacity) external
 ```
 
+### exit
+
+```solidity
+function exit() external
+```
+
 ### withdraw
 
 ```solidity
@@ -173,6 +179,12 @@ function getStaker(address addr) public view returns (struct ProverPool2.Staker 
 
 ```solidity
 function getCapacity() public view returns (uint256 capacity)
+```
+
+### getProvers
+
+```solidity
+function getProvers() public view returns (struct ProverPool2.Prover[32] provers)
 ```
 
 ### getWeights

@@ -11,11 +11,8 @@ import { IProverPool } from "./IProverPool.sol";
 import { TaikoToken } from "./TaikoToken.sol";
 import { Proxied } from "../common/Proxied.sol";
 
-//TODOs:
-//- [ ] make sure prover cannot make frequent changes
-//- [ ] optimize `provers` to use 8 slots, not 32
 contract ProverPool2 is EssentialContract, IProverPool {
-    // 8 bytes
+    // 8 bytes or 1 uint64
     struct Prover {
         uint32 stakedAmount;
         uint16 rewardPerGas;
@@ -30,20 +27,20 @@ contract ProverPool2 is EssentialContract, IProverPool {
         uint8 proverId; // 0 to indicate the staker is not a top prover
     }
 
-    uint64 public constant EXIT_PERIOD = 1 weeks;
-    uint64 public constant ONE_TKO = 10e8;
-    uint32 public constant SLASH_POINTS = 500; // basis points
-    uint32 public constant MIN_STAKE_PER_CAPACITY = 10_000;
-
     // Given that we only have 32 slots for the top provers, if the protocol
     // can support 1 block per second with an average proof time of 1 hour,
     // then we need a min capacity of 3600, which means each prover shall
     // provide a capacity of at least 3600/32=112.
     uint32 public constant MAX_CAPACITY_LOWER_BOUND = 128;
+    uint64 public constant EXIT_PERIOD = 1 weeks;
+    uint64 public constant ONE_TKO = 10e8;
+    uint32 public constant SLASH_POINTS = 500; // basis points
+    uint32 public constant MIN_STAKE_PER_CAPACITY = 10_000;
+    uint256 public constant MAX_NUM_PROVERS = 32;
 
     mapping(uint256 id => address prover) public idToProver;
-    mapping(address prover => Staker) public stakers;
-    Prover[32] public provers; // 32/4 = 8 slots
+    mapping(address staker => Staker) public stakers;
+    uint64[MAX_NUM_PROVERS] private proverData;
 
     uint256[66] private __gap;
 
@@ -78,7 +75,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
         onlyFromProtocol
         returns (address prover, uint32 rewardPerGas)
     {
-        (uint256[32] memory weights, uint256 totalWeight) =
+        (uint256[MAX_NUM_PROVERS] memory weights, uint256 totalWeight) =
             getWeights(feePerGas);
 
         if (totalWeight == 0) {
@@ -92,13 +89,15 @@ contract ProverPool2 is EssentialContract, IProverPool {
         uint256 z;
         uint8 id;
         unchecked {
-            while (z < r && id < 32) {
+            while (z < r && id < MAX_NUM_PROVERS) {
                 z += weights[id++];
             }
-            provers[id].currentCapacity--;
+            Prover memory _prover = _fromUint64(proverData[id - 1]);
+            _prover.currentCapacity -= 1;
+            proverData[id - 1] = _toUint64(_prover);
 
             // Note that prover ID is 1 bigger than its index
-            return (idToProver[idx], provers[id - 1].rewardPerGas);
+            return (idToProver[id], _prover.rewardPerGas);
         }
     }
 
@@ -109,7 +108,8 @@ contract ProverPool2 is EssentialContract, IProverPool {
         if (staker.proverId != 0 && prover.currentCapacity < staker.maxCapacity)
         {
             unchecked {
-                provers[staker.proverId - 1].currentCapacity += 1;
+                prover.currentCapacity += 1;
+                proverData[staker.proverId - 1] = _toUint64(prover);
             }
         }
     }
@@ -142,10 +142,11 @@ contract ProverPool2 is EssentialContract, IProverPool {
 
             uint32 _additional = amountToSlash - staker.exitAmount;
             if (prover.stakedAmount > _additional) {
-                provers[staker.proverId - 1].stakedAmount -= _additional;
+                prover.stakedAmount -= _additional;
             } else {
-                provers[staker.proverId - 1].stakedAmount = 0;
+                prover.stakedAmount = 0;
             }
+            proverData[staker.proverId - 1] = _toUint64(prover);
         }
 
         emit Slashed(addr, amountToSlash);
@@ -192,7 +193,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
         staker = stakers[addr];
         if (staker.proverId != 0) {
             unchecked {
-                prover = provers[staker.proverId - 1];
+                prover = _fromUint64(proverData[staker.proverId - 1]);
             }
         }
     }
@@ -200,23 +201,32 @@ contract ProverPool2 is EssentialContract, IProverPool {
     // Returns the pool's current total capacity
     function getCapacity() public view returns (uint256 capacity) {
         unchecked {
-            for (uint256 i; i < provers.length;) {
-                capacity += provers[i].currentCapacity;
+            for (uint256 i; i < MAX_NUM_PROVERS;) {
+                capacity += _fromUint64(proverData[i]).currentCapacity;
                 ++i;
             }
         }
     }
 
+    function getProvers()
+        public
+        view
+        returns (Prover[MAX_NUM_PROVERS] memory provers)
+    {
+        for (uint256 i; i < MAX_NUM_PROVERS; ++i) {
+            provers[i] = _fromUint64(proverData[i]);
+        }
+    }
     //Returns each prover's weight dynamically based on feePerGas.
+
     function getWeights(uint32 feePerGas)
         public
         view
-        returns (uint256[32] memory weights, uint256 totalWeight)
+        returns (uint256[MAX_NUM_PROVERS] memory weights, uint256 totalWeight)
     {
-        Prover[32] memory mProvers = provers;
-
-        for (uint8 i; i < mProvers.length; ++i) {
-            weights[i] = _calcWeight(mProvers[i], feePerGas);
+        for (uint8 i; i < MAX_NUM_PROVERS; ++i) {
+            Prover memory prover = _fromUint64(proverData[i]);
+            weights[i] = _calcWeight(prover, feePerGas);
             totalWeight += weights[i];
         }
     }
@@ -252,17 +262,17 @@ contract ProverPool2 is EssentialContract, IProverPool {
         staker.maxCapacity = maxCapacity;
 
         // Prepare a list 33 provers for comparison
-        Prover[33] memory _provers;
-        _provers[0] = Prover(amount, rewardPerGas, maxCapacity);
+        Prover[MAX_NUM_PROVERS + 1] memory provers;
+        provers[0] = Prover(amount, rewardPerGas, maxCapacity);
 
-        for (uint8 i; i < 32; ++i) {
-            _provers[i + 1] = provers[i];
+        for (uint8 i; i < MAX_NUM_PROVERS; ++i) {
+            provers[i + 1] = _fromUint64(proverData[i]);
         }
 
         // Find the prover id
         uint8 proverId;
-        for (uint8 i = 1; i < 33; ++i) {
-            if (_provers[proverId].stakedAmount > _provers[i].stakedAmount) {
+        for (uint8 i = 1; i < MAX_NUM_PROVERS + 1; ++i) {
+            if (provers[proverId].stakedAmount > provers[i].stakedAmount) {
                 proverId = i;
             }
         }
@@ -283,11 +293,13 @@ contract ProverPool2 is EssentialContract, IProverPool {
         staker.proverId = proverId;
 
         // Insert the prover in the top prover list
-        provers[proverId] = Prover({
-            stakedAmount: amount,
-            rewardPerGas: rewardPerGas,
-            currentCapacity: maxCapacity
-        });
+        proverData[proverId] = _toUint64(
+            Prover({
+                stakedAmount: amount,
+                rewardPerGas: rewardPerGas,
+                currentCapacity: maxCapacity
+            })
+        );
 
         emit Staked(addr, amount, rewardPerGas, maxCapacity);
     }
@@ -299,16 +311,16 @@ contract ProverPool2 is EssentialContract, IProverPool {
 
         delete idToProver[staker.proverId];
 
-        Prover storage prover = provers[staker.proverId - 1];
+        Prover memory prover = _fromUint64(proverData[staker.proverId - 1]);
         if (prover.stakedAmount > 0) {
             staker.exitAmount += prover.stakedAmount;
             staker.exitRequestedAt = uint64(block.timestamp);
             staker.proverId = 0;
         }
 
-        prover.stakedAmount = 0;
-        prover.rewardPerGas = 0;
-        prover.currentCapacity = 0;
+        // Delete the prover but make it non-zero for cheaper rewrites
+        // by keep rewardPerGas = 1
+        proverData[staker.proverId - 1] = _toUint64(Prover(0, 1, 0));
 
         emit Exited(addr, staker.exitAmount);
     }
@@ -341,12 +353,30 @@ contract ProverPool2 is EssentialContract, IProverPool {
         pure
         returns (uint256)
     {
-        if (prover.currentCapacity == 0) {
+        if (
+            prover.currentCapacity == 0 || prover.stakedAmount == 0
+                || prover.rewardPerGas == 0
+        ) {
             return 0;
         } else {
             return (uint256(prover.stakedAmount) * feePerGas * feePerGas)
                 / prover.rewardPerGas / prover.rewardPerGas;
         }
+    }
+
+    function _toUint64(Prover memory prover) private pure returns (uint64) {
+        return uint64(prover.stakedAmount) << 32
+            | uint64(prover.rewardPerGas) << 16 | uint64(prover.currentCapacity);
+    }
+
+    function _fromUint64(uint64 data)
+        private
+        pure
+        returns (Prover memory prover)
+    {
+        prover.stakedAmount = uint32(data >> 32);
+        prover.stakedAmount = uint16(uint32(data) >> 16);
+        prover.currentCapacity = uint16(data);
     }
 }
 

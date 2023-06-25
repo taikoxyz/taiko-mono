@@ -149,14 +149,6 @@ modifier onlyFromProtocol()
 function init(address _addressManager) external
 ```
 
-Initialize the rollup.
-
-#### Parameters
-
-| Name             | Type    | Description                 |
-| ---------------- | ------- | --------------------------- |
-| \_addressManager | address | The AddressManager address. |
-
 ### assignProver
 
 ```solidity
