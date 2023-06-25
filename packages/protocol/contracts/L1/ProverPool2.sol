@@ -92,7 +92,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
         uint256 z;
         uint8 idx;
         unchecked {
-            while (z < r && idx < 32) {
+            while (z <= r && idx < 32) {
                 z += weights[idx++];
             }
             provers[idx].currentCapacity--;
@@ -339,10 +339,8 @@ contract ProverPool2 is EssentialContract, IProverPool {
         if (prover.currentCapacity == 0) {
             return 0;
         } else {
-            return (
-                uint256(prover.stakedAmount) * prover.currentCapacity
-                    * feePerGas * feePerGas
-            ) / prover.rewardPerGas / prover.rewardPerGas;
+            return (uint256(prover.stakedAmount) * feePerGas * feePerGas)
+                / prover.rewardPerGas / prover.rewardPerGas;
         }
     }
 }
