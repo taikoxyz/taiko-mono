@@ -39,7 +39,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
     uint256 public constant MAX_NUM_PROVERS = 32;
 
     // reserve more slots than necessary
-    uint64[10_000] private proverData;
+    uint256[10_000] private proverData;
     mapping(uint256 id => address prover) public idToProver;
     mapping(address staker => Staker) public stakers;
 
@@ -96,9 +96,9 @@ contract ProverPool2 is EssentialContract, IProverPool {
             while (z < r && id < MAX_NUM_PROVERS) {
                 z += weights[id++];
             }
-            Prover memory _prover = _fromUint64(proverData[id - 1]);
+            Prover memory _prover = _loadProver(id);
             _prover.currentCapacity -= 1;
-            proverData[id - 1] = _toUint64(_prover);
+            _saveProver(id, _prover);
 
             // Note that prover ID is 1 bigger than its index
             return (idToProver[id], _prover.rewardPerGas);
@@ -113,7 +113,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
         {
             unchecked {
                 prover.currentCapacity += 1;
-                proverData[staker.proverId - 1] = _toUint64(prover);
+                _saveProver(staker.proverId, prover);
             }
         }
     }
@@ -150,7 +150,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
             } else {
                 prover.stakedAmount = 0;
             }
-            proverData[staker.proverId - 1] = _toUint64(prover);
+            _saveProver(staker.proverId, prover);
         }
 
         emit Slashed(addr, amountToSlash);
@@ -197,7 +197,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
         staker = stakers[addr];
         if (staker.proverId != 0) {
             unchecked {
-                prover = _fromUint64(proverData[staker.proverId - 1]);
+                prover = _loadProver(staker.proverId);
             }
         }
     }
@@ -206,7 +206,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
     function getCapacity() public view returns (uint256 capacity) {
         unchecked {
             for (uint256 i; i < MAX_NUM_PROVERS;) {
-                capacity += _fromUint64(proverData[i]).currentCapacity;
+                capacity += _loadProver(i + 1).currentCapacity;
                 ++i;
             }
         }
@@ -218,7 +218,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
         returns (Prover[MAX_NUM_PROVERS] memory provers)
     {
         for (uint256 i; i < MAX_NUM_PROVERS; ++i) {
-            provers[i] = _fromUint64(proverData[i]);
+            provers[i] = _loadProver(i + 1);
         }
     }
     //Returns each prover's weight dynamically based on feePerGas.
@@ -229,7 +229,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
         returns (uint256[MAX_NUM_PROVERS] memory weights, uint256 totalWeight)
     {
         for (uint8 i; i < MAX_NUM_PROVERS; ++i) {
-            Prover memory prover = _fromUint64(proverData[i]);
+            Prover memory prover = _loadProver(i + 1);
             weights[i] = _calcWeight(prover, feePerGas);
             totalWeight += weights[i];
         }
@@ -270,7 +270,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
         provers[0] = Prover(amount, rewardPerGas, maxCapacity);
 
         for (uint8 i; i < MAX_NUM_PROVERS; ++i) {
-            provers[i + 1] = _fromUint64(proverData[i]);
+            provers[i + 1] = _loadProver(i + 1);
         }
 
         // Find the prover id
@@ -297,7 +297,8 @@ contract ProverPool2 is EssentialContract, IProverPool {
         staker.proverId = proverId;
 
         // Insert the prover in the top prover list
-        proverData[proverId] = _toUint64(
+        _saveProver(
+            proverId,
             Prover({
                 stakedAmount: amount,
                 rewardPerGas: rewardPerGas,
@@ -315,7 +316,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
 
         delete idToProver[staker.proverId];
 
-        Prover memory prover = _fromUint64(proverData[staker.proverId - 1]);
+        Prover memory prover = _loadProver(staker.proverId);
         if (prover.stakedAmount > 0) {
             staker.exitAmount += prover.stakedAmount;
             staker.exitRequestedAt = uint64(block.timestamp);
@@ -324,7 +325,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
 
         // Delete the prover but make it non-zero for cheaper rewrites
         // by keep rewardPerGas = 1
-        proverData[staker.proverId - 1] = _toUint64(Prover(0, 1, 0));
+        _saveProver(staker.proverId, Prover(0, 1, 0));
 
         emit Exited(addr, staker.exitAmount);
     }
@@ -368,20 +369,36 @@ contract ProverPool2 is EssentialContract, IProverPool {
         }
     }
 
-    function _toUint64(Prover memory prover) private pure returns (uint64) {
-        return uint64(prover.stakedAmount) << 32
-            | uint64(prover.rewardPerGas) << 16 //
-            | uint64(prover.currentCapacity);
-    }
-
-    function _fromUint64(uint64 data)
+    function _loadProver(uint256 proverId)
         private
-        pure
+        view
         returns (Prover memory prover)
     {
+        assert(proverId > 0 && proverId <= MAX_NUM_PROVERS);
+
+        uint256 idx = proverId - 1;
+        uint256 slot = idx / 4;
+        uint256 offset = (idx % 4) * 64;
+        uint64 data = uint64(proverData[slot] >> offset);
+
         prover.stakedAmount = uint32(data >> 32);
         prover.stakedAmount = uint16(uint32(data) >> 16);
         prover.currentCapacity = uint16(data);
+    }
+
+    function _saveProver(uint256 proverId, Prover memory prover) private {
+        assert(proverId > 0 && proverId <= MAX_NUM_PROVERS);
+
+        uint256 data = uint256(prover.stakedAmount) << 32
+            | uint256(prover.rewardPerGas) << 16 //
+            | uint256(prover.currentCapacity);
+
+        uint256 idx = proverId - 1;
+        uint256 slot = idx / 4;
+        uint256 offset = (idx % 4) * 64;
+
+        proverData[slot] &= ~(uint256(type(uint64).max) << offset);
+        proverData[slot] |= data << offset;
     }
 }
 
