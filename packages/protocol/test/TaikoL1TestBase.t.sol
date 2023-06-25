@@ -140,7 +140,6 @@ abstract contract TaikoL1TestBase is Test {
         meta.beneficiary = proposer;
         meta.treasury = L2Treasury;
 
-        console2.log("prposer:", proposer);
         vm.prank(proposer, proposer);
         meta = L1.proposeBlock(abi.encode(input), txList);
     }

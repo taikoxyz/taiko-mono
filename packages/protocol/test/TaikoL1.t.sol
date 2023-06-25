@@ -73,7 +73,6 @@ contract TaikoL1Test is TaikoL1TestBase {
             blockId++
         ) {
             //printVariables("before propose");
-            //console2.log("?? Alice balance:", tko.balanceOf(Alice));
             TaikoData.BlockMetadata memory meta =
                 proposeBlock(Alice, 1_000_000, 1024);
             //printVariables("after propose");

@@ -211,7 +211,7 @@ library LibVerifying {
             proverPool.releaseProver(blk.prover);
         }
 
-        if (fc.prover != address(1)) {
+        if (fc.prover != address(1) && blk.prover != address(0)) {
             if (
                 fc.prover == blk.prover
                     && fc.provenAt <= blk.proposedAt + blk.proofWindow
