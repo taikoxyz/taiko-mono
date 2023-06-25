@@ -124,24 +124,16 @@ contract ProverPool is EssentialContract, IProverPool {
     event Slashed(address prover, uint32 newBalance);
 
     modifier onlyFromProtocol() {
-        if (AddressResolver(this).resolve("taiko", false) != msg.sender) {
+        if (resolve("taiko", false) != msg.sender) {
             revert POOL_CALLER_NOT_AUTHORIZED();
         }
 
         _;
     }
 
-    /**
-     * Initialize the rollup.
-     *
-     * @param _addressManager The AddressManager address.
-     */
     function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
     }
-
-    // A demo how to optimize the assignProver by using only 8 slots. It's still
-    // a lot of slots though.
 
     function assignProver(
         uint64 blockId,
@@ -151,7 +143,6 @@ contract ProverPool is EssentialContract, IProverPool {
         returns (address prover, uint32 rewardPerGas)
     {
         // calculate each prover's dynamic weight
-
         uint256[32] memory weights;
         uint256 totalWeight;
 
