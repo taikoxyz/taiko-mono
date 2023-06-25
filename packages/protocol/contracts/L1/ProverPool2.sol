@@ -164,7 +164,11 @@ contract ProverPool2 is EssentialContract, IProverPool {
         // Force this prover to fully exit
         _exit(msg.sender);
         // Then stake again
-        if (amount != 0) {
+        if (amount == 0) {
+            if (rewardPerGas != 0 || maxCapacity != 0) {
+                revert INVALID_PARAMS();
+            }
+        } else {
             _stake(msg.sender, amount, rewardPerGas, maxCapacity);
         }
     }
