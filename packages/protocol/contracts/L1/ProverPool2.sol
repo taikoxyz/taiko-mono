@@ -88,7 +88,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
         // Pick a prover using a pseudo random number
         bytes32 rand =
             keccak256(abi.encode(blockhash(block.number - 1), blockId));
-        uint256 r = uint256(rand) % (totalWeight + 1);
+        uint256 r = uint256(rand) % totalWeight + 1;
         uint256 z;
         uint8 id;
         unchecked {
