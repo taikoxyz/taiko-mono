@@ -1,4 +1,4 @@
-import { watchAccount, watchNetwork/*, watchPublicClient, watchWalletClient*/ } from '@wagmi/core';
+import { watchAccount, watchNetwork /*, watchPublicClient, watchWalletClient*/ } from '@wagmi/core';
 
 import { getLogger } from '$libs/util/logger';
 
