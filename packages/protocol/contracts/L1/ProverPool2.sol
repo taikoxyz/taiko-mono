@@ -173,6 +173,11 @@ contract ProverPool2 is EssentialContract, IProverPool {
         }
     }
 
+    function exit() external nonReentrant {
+        _withdraw(msg.sender);
+        _exit(msg.sender);
+    }
+
     // Withdraws staked tokens back from matured an exit
     function withdraw() external nonReentrant {
         if (!_withdraw(msg.sender)) revert NO_MATURE_EXIT();
