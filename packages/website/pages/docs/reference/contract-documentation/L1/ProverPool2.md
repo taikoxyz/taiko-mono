@@ -85,16 +85,16 @@ event Withdrawn(address addr, uint32 amount)
 event Exited(address addr, uint32 amount)
 ```
 
-### Staked
-
-```solidity
-event Staked(address addr, uint32 amount, uint16 rewardPerGas, uint16 currentCapacity)
-```
-
 ### Slashed
 
 ```solidity
 event Slashed(address addr, uint32 amount)
+```
+
+### Staked
+
+```solidity
+event Staked(address addr, uint32 amount, uint16 rewardPerGas, uint16 currentCapacity)
 ```
 
 ### INVALID_PARAMS
