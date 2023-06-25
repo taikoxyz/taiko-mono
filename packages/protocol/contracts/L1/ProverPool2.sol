@@ -38,18 +38,22 @@ contract ProverPool2 is EssentialContract, IProverPool {
     uint32 public constant MIN_STAKE_PER_CAPACITY = 10_000;
     uint256 public constant MAX_NUM_PROVERS = 32;
 
+    // reserve more slots than necessary
+    uint64[10_000] private proverData;
     mapping(uint256 id => address prover) public idToProver;
     mapping(address staker => Staker) public stakers;
-    uint64[MAX_NUM_PROVERS] private proverData;
 
-    uint256[66] private __gap;
+    uint256[48] private __gap;
 
-    event Withdrawn(address addr, uint32 amount);
-    event Exited(address addr, uint32 amount);
+    event Withdrawn(address indexed addr, uint32 amount);
+    event Exited(address indexed addr, uint32 amount);
+    event Slashed(address indexed addr, uint32 amount);
     event Staked(
-        address addr, uint32 amount, uint16 rewardPerGas, uint16 currentCapacity
+        address indexed addr,
+        uint32 amount,
+        uint16 rewardPerGas,
+        uint16 currentCapacity
     );
-    event Slashed(address addr, uint32 amount);
 
     error INVALID_PARAMS();
     error NO_MATURE_EXIT();
@@ -366,7 +370,8 @@ contract ProverPool2 is EssentialContract, IProverPool {
 
     function _toUint64(Prover memory prover) private pure returns (uint64) {
         return uint64(prover.stakedAmount) << 32
-            | uint64(prover.rewardPerGas) << 16 | uint64(prover.currentCapacity);
+            | uint64(prover.rewardPerGas) << 16 //
+            | uint64(prover.currentCapacity);
     }
 
     function _fromUint64(uint64 data)
