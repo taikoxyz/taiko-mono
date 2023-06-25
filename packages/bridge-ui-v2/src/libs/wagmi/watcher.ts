@@ -1,8 +1,8 @@
-import { watchAccount, watchNetwork, watchPublicClient, watchWalletClient } from '@wagmi/core';
+import { watchAccount, watchNetwork/*, watchPublicClient, watchWalletClient*/ } from '@wagmi/core';
 
 import { getLogger } from '$libs/util/logger';
 
-const log = getLogger('wagmi/watcher');
+const log = getLogger('wagmi:watcher');
 
 let isWatching = false;
 let unWatchNetwork: () => void;
