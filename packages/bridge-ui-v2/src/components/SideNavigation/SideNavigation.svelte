@@ -6,8 +6,8 @@
   import { PUBLIC_GUIDE_URL, PUBLIC_L2_EXPLORER_URL } from '$env/static/public';
   import { t } from '$libs/i18n';
 
-  import Icon from '../Icon';
-  import LinkButton from '../LinkButton';
+  import { Icon } from '../Icon';
+  import { LinkButton } from '../LinkButton';
   import { LogoWithText } from '../Logo';
 </script>
 

@@ -3,8 +3,8 @@
 
   import { onDestroy, onMount } from 'svelte';
 
-  import Header from '$components/Header';
-  import SideNavigation from '$components/SideNavigation';
+  import { Header } from '$components/Header';
+  import { SideNavigation } from '$components/SideNavigation';
   import { startWatching, stopWatching } from '$libs/wagmi';
 
   onMount(startWatching);

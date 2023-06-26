@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { web3modal } from '$libs/connect';
-  import { t } from '$libs/i18n';
+  // import { web3modal } from '$libs/connect';
+  // import { t } from '$libs/i18n';
 
-  import Button from '../Button';
-  import Icon from '../Icon';
+  // import {Button} from '../Button';
+  import { Icon } from '../Icon';
   import { LogoWithText } from '../Logo';
   import { drawerToggleId } from '../SideNavigation';
 </script>
