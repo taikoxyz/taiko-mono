@@ -175,7 +175,12 @@ contract TaikoL1 is
     function getBlock(uint256 blockId)
         public
         view
-        returns (bytes32 _metaHash, address _proposer, uint64 _proposedAt)
+        returns (
+            bytes32 _metaHash,
+            address _proposer,
+            uint64 _proposedAt,
+            address _prover
+        )
     {
         TaikoData.Block storage blk = LibProposing.getBlock({
             state: state,
@@ -185,6 +190,7 @@ contract TaikoL1 is
         _metaHash = blk.metaHash;
         _proposer = blk.proposer;
         _proposedAt = blk.proposedAt;
+        _prover = blk.prover;
     }
 
     function getForkChoice(

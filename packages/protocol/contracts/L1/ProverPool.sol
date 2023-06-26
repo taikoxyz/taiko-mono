@@ -5,8 +5,6 @@
 
 pragma solidity ^0.8.20;
 
-// import { console2 } from "forge-std/console2.sol";
-
 import { AddressResolver } from "../common/AddressResolver.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { IProverPool } from "./IProverPool.sol";
@@ -257,6 +255,7 @@ contract ProverPool is EssentialContract, IProverPool {
 
         // Reuse tokens that are exiting
         Staker storage staker = stakers[addr];
+
         if (staker.exitAmount >= amount) {
             staker.exitAmount -= amount;
         } else {
