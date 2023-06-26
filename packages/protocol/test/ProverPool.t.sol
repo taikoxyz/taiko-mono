@@ -6,9 +6,9 @@ import { console2 } from "forge-std/console2.sol";
 
 import { TaikoToken } from "../contracts/L1/TaikoToken.sol";
 import { AddressManager } from "../contracts/common/AddressManager.sol";
-import { ProverPool2 } from "../contracts/L1/ProverPool2.sol";
+import { ProverPool } from "../contracts/L1/ProverPool.sol";
 
-contract TestProverPool2 is Test {
+contract TestProverPool is Test {
     address public constant Alice = 0xa9bcF99f5eb19277f48b71F9b14f5960AEA58a89;
     address public constant Bob = 0x200708D76eB1B69761c23821809d53F65049939e;
     address public constant Carol = 0x300C9b60E19634e12FC6D68B7FEa7bFB26c2E419;
@@ -17,7 +17,7 @@ contract TestProverPool2 is Test {
 
     AddressManager public addressManager;
     TaikoToken public tko;
-    ProverPool2 public pp;
+    ProverPool public pp;
     uint64 public tokenPerCapacity = 10_000 * 1e8;
 
     function setUp() public {
@@ -41,12 +41,12 @@ contract TestProverPool2 is Test {
         tko.mint(address(this), 1e9 * 1e8);
         registerAddress("taiko", Protocol);
 
-        pp = new ProverPool2();
+        pp = new ProverPool();
         pp.init(address(addressManager));
         registerAddress("prover_pool", address(pp));
     }
 
-    function testProverPool2__32_stakers_replaced_by_another_32() public {
+    function testProverPool__32_stakers_replaced_by_another_32() public {
         uint16 baseCapacity = 128;
 
         for (uint16 i; i < 32; ++i) {
@@ -57,7 +57,7 @@ contract TestProverPool2 is Test {
             pp.stake(uint32(capacity) * 10_000, 10 + i, capacity);
         }
 
-        ProverPool2.Prover[] memory provers;
+        ProverPool.Prover[] memory provers;
         address[] memory stakers;
 
         (provers, stakers) = printProvers();
@@ -132,7 +132,7 @@ contract TestProverPool2 is Test {
     function printProvers()
         internal
         view
-        returns (ProverPool2.Prover[] memory provers, address[] memory stakers)
+        returns (ProverPool.Prover[] memory provers, address[] memory stakers)
     {
         (provers, stakers) = pp.getProvers();
         for (uint256 i; i < provers.length; ++i) {
