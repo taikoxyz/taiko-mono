@@ -16,6 +16,12 @@ uint256 NUM_SLOTS
 uint256 EXIT_PERIOD
 ```
 
+### SLASH_POINTS
+
+```solidity
+uint32 SLASH_POINTS
+```
+
 ### totalStaked
 
 ```solidity
@@ -28,6 +34,18 @@ uint256 totalStaked
 uint256 totalWeight
 ```
 
+### CAPACITY_TOO_HIGH
+
+```solidity
+error CAPACITY_TOO_HIGH()
+```
+
+### NOT_ENOUGH_BALANCE
+
+```solidity
+error NOT_ENOUGH_BALANCE()
+```
+
 ### Staker
 
 ```solidity
@@ -36,6 +54,7 @@ struct Staker {
   uint256 numSlots;
   uint256 maxNumSlots;
   uint256 unstakedAt;
+  uint256 unstakedAmount;
   uint16 rewardPerGas;
 }
 ```
@@ -67,13 +86,13 @@ function assignProver(uint64 blockId, uint32 feePerGas) external view returns (a
 ### stake
 
 ```solidity
-function stake(uint256 amount, uint16 rewardPerGas) external
+function stake(uint256 amount, uint16 rewardPerGas, uint16 maxCapacity) external
 ```
 
 ### unstake
 
 ```solidity
-function unstake() external
+function unstake(uint256 unstakedAmount) external
 ```
 
 ### setRewardPerGas
@@ -97,7 +116,7 @@ function claimSlot(address staker, uint256 slotIdx) external
 ### slashProver
 
 ```solidity
-function slashProver(address staker) external
+function slashProver(address slashed) external
 ```
 
 ### withdraw
