@@ -61,7 +61,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         // Bob
         vm.stopPrank();
         vm.prank(Bob, Bob);
-        proverPool.stake(10, 10, 101);
+        proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -110,7 +110,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         // Bob
         vm.stopPrank();
         vm.prank(Bob, Bob);
-        proverPool.stake(10, 10, 101);
+        proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -154,7 +154,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         // Bob
         vm.stopPrank();
         vm.prank(Bob, Bob);
-        proverPool.stake(10, 10, 101);
+        proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -283,7 +283,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         // Bob is the staker / prover
         vm.prank(Bob, Bob);
-        proverPool.stake(10, 10, 101);
+        proverPool.reset(Bob, 10);
 
         // Propose blocks
         for (uint256 blockId = 1; blockId < iterationCnt; blockId++) {

@@ -9,14 +9,41 @@ import { TaikoConfig } from "../contracts/L1/TaikoConfig.sol";
 import { TaikoData } from "../contracts/L1/TaikoData.sol";
 import { TaikoL1 } from "../contracts/L1/TaikoL1.sol";
 import { TaikoToken } from "../contracts/L1/TaikoToken.sol";
-import { ProverPool } from "../contracts/L1/ProverPool.sol";
+import { IProverPool } from "../contracts/L1/IProverPool.sol";
 import { SignalService } from "../contracts/signal/SignalService.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
-contract Verifier {
+contract MockVerifier {
     fallback(bytes calldata) external returns (bytes memory) {
         return bytes.concat(keccak256("taiko"));
     }
+}
+
+contract MockProverPool is IProverPool {
+    address private _prover;
+    uint32 private _rewardPerGas;
+
+    function reset(address prover, uint32 rewardPerGas) external {
+        assert(prover != address(0) && rewardPerGas != 0);
+        _prover = prover;
+        _rewardPerGas = rewardPerGas;
+    }
+
+    function assignProver(
+        uint64 blockId,
+        uint32 feePerGas
+    )
+        external
+        view
+        override
+        returns (address, uint32)
+    {
+        return (_prover, _rewardPerGas);
+    }
+
+    function releaseProver(address prover) external pure override { }
+
+    function slashProver(address prover) external pure override { }
 }
 
 abstract contract TaikoL1TestBase is Test {
@@ -25,7 +52,7 @@ abstract contract TaikoL1TestBase is Test {
     SignalService public ss;
     TaikoL1 public L1;
     TaikoData.Config conf;
-    ProverPool public proverPool;
+    MockProverPool public proverPool;
     uint256 internal logCount;
 
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
@@ -64,8 +91,7 @@ abstract contract TaikoL1TestBase is Test {
         addressManager = new AddressManager();
         addressManager.init();
 
-        proverPool = new ProverPool();
-        proverPool.init(address(addressManager));
+        proverPool = new MockProverPool();
 
         ss = new SignalService();
         ss.init(address(addressManager));
@@ -77,8 +103,8 @@ abstract contract TaikoL1TestBase is Test {
         registerL2Address("taiko", address(TaikoL2));
         registerL2Address("signal_service", address(L2SS));
         registerL2Address("taiko_l2", address(TaikoL2));
-        registerAddress(L1.getVerifierName(100), address(new Verifier()));
-        registerAddress(L1.getVerifierName(0), address(new Verifier()));
+        registerAddress(L1.getVerifierName(100), address(new MockVerifier()));
+        registerAddress(L1.getVerifierName(0), address(new MockVerifier()));
 
         tko = new TaikoToken();
         registerAddress("taiko_token", address(tko));

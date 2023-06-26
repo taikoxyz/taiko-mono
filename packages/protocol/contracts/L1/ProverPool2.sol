@@ -382,7 +382,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
         uint64 data = uint64(proverData[slot] >> offset);
 
         prover.stakedAmount = uint32(data >> 32);
-        prover.stakedAmount = uint16(uint32(data) >> 16);
+        prover.rewardPerGas = uint16(uint32(data) >> 16);
         prover.currentCapacity = uint16(data);
     }
 
