@@ -4,11 +4,17 @@
 
 <script lang="ts">
   import { PUBLIC_GUIDE_URL, PUBLIC_L2_EXPLORER_URL } from '$env/static/public';
+  import { page } from '$app/stores';
   import { t } from '$libs/i18n';
 
   import { Icon } from '../Icon';
   import { LinkButton } from '../LinkButton';
   import { LogoWithText } from '../Logo';
+
+  $: isBridgePage = $page.route.id === '/';
+  $: isFaucetPage = $page.route.id === '/faucet';
+  $: isActivitiesPage = $page.route.id === '/activities';
+
 </script>
 
 <div class="drawer md:drawer-open">
@@ -28,19 +34,19 @@
 
       <ul class="menu md:pt-10 space-y-2">
         <li>
-          <LinkButton active>
+          <LinkButton active={isBridgePage}>
             <Icon type="bridge" fillClass="fill-white" />
             <span>{$t('nav.bridge')}</span>
           </LinkButton>
         </li>
         <li>
-          <LinkButton href="/faucet">
+          <LinkButton href="/faucet" active={isFaucetPage}>
             <Icon type="faucet" />
             <span>{$t('nav.faucet')}</span>
           </LinkButton>
         </li>
         <li>
-          <LinkButton href="/activities">
+          <LinkButton href="/activities" active={isActivitiesPage}>
             <Icon type="activities" />
             <span>{$t('nav.activities')}</span>
           </LinkButton>
