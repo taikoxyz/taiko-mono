@@ -179,7 +179,7 @@ contract TaikoL1 is
             bytes32 _metaHash,
             address _proposer,
             uint64 _proposedAt,
-            address _prover
+            address _assignedProver
         )
     {
         TaikoData.Block storage blk = LibProposing.getBlock({
@@ -190,7 +190,7 @@ contract TaikoL1 is
         _metaHash = blk.metaHash;
         _proposer = blk.proposer;
         _proposedAt = blk.proposedAt;
-        _prover = blk.prover;
+        _assignedProver = blk.assignedProver;
     }
 
     function getForkChoice(

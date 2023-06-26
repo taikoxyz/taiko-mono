@@ -118,7 +118,7 @@ library TaikoData {
         uint32 feePerGas;
         uint64 proposedAt;
         // slot 5
-        address prover;
+        address assignedProver;
         uint32 rewardPerGas;
         uint64 proofWindow;
     }

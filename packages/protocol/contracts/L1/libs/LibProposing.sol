@@ -48,11 +48,11 @@ library LibProposing {
         returns (TaikoData.BlockMetadata memory meta)
     {
         // Try to select a prover first to revert as earlier as possible
-        (address prover, uint32 rewardPerGas) = IProverPool(
+        (address assignedProver, uint32 rewardPerGas) = IProverPool(
             resolver.resolve("prover_pool", false)
         ).assignProver(state.numBlocks, state.feePerGas);
 
-        assert(prover != address(1));
+        assert(assignedProver != address(1));
 
         {
             // Validate block input then cache txList info if requested
@@ -112,15 +112,14 @@ library LibProposing {
         blk.feePerGas = state.feePerGas;
         blk.proposedAt = meta.timestamp;
 
-        if (prover == address(0)) {
+        if (assignedProver == address(0)) {
             if (state.numOpenBlocks >= config.rewardOpenMaxCount) {
                 revert L1_TOO_MANY_OPEN_BLOCKS();
             }
-            blk.rewardPerGas =
-                state.feePerGas * config.rewardOpenMultipler / 100;
+            blk.rewardPerGas = state.feePerGas;
             ++state.numOpenBlocks;
         } else {
-            blk.prover = prover;
+            blk.assignedProver = assignedProver;
 
             // Cap the reward to a range of [95%, 105%] * blk.feePerGas, if
             // rewardPerGasRange is set to 5% (500 bp)

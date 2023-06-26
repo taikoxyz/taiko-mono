@@ -188,59 +188,65 @@ library LibVerifying {
         uint32 _gasLimit = blk.gasLimit + LibL2Consts.ANCHOR_GAS_COST;
         assert(fc.gasUsed <= _gasLimit);
 
+        IProverPool proverPool =
+            IProverPool(resolver.resolve("prover_pool", false));
+
+        if (blk.assignedProver == address(0)) {
+            --state.numOpenBlocks;
+        } else if (!blk.proverReleased) {
+            proverPool.releaseProver(blk.assignedProver);
+        }
+
+        // Reward the prover (including the oracle prover)
+        uint64 proofReward =
+            (config.blockFeeBaseGas + fc.gasUsed) * blk.rewardPerGas;
+
+        if (fc.prover == address(1)) {
+            // system prover is rewarded with `proofReward`.
+        } else if (blk.assignedProver == address(0)) {
+            // open prover is rewarded with more tokens
+            proofReward = proofReward * config.rewardOpenMultipler / 100;
+        } else if (
+            fc.prover == blk.assignedProver
+                && fc.provenAt <= blk.proposedAt + blk.proofWindow
+        ) {
+            // The selected prover managed to prove the block in time
+            state.avgProofDelay = uint16(
+                LibUtils.movingAverage({
+                    maValue: state.avgProofDelay,
+                    // TODO:  prover is not incentivized to submit proof
+                    // ASAP
+                    newValue: fc.provenAt - blk.proposedAt,
+                    maf: 7200
+                })
+            );
+
+            state.feePerGas = uint32(
+                LibUtils.movingAverage({
+                    maValue: state.feePerGas,
+                    newValue: blk.rewardPerGas,
+                    maf: 7200
+                })
+            );
+        } else {
+            // proving out side of the proof window
+            proofReward = proofReward * config.rewardOpenMultipler / 100;
+            proverPool.slashProver(blk.assignedProver);
+        }
+
+        blk.verifiedForkChoiceId = fcId;
+
         IMintableERC20 taikoToken =
             IMintableERC20(resolver.resolve("taiko_token", false));
 
+        // Reward the prover
+        taikoToken.mint(fc.prover, proofReward);
         // Refund the diff to the proposer
         taikoToken.mint({
             to: blk.proposer,
             amount: (_gasLimit - fc.gasUsed) * blk.feePerGas
         });
 
-        // Reward the prover (including the oracle prover)
-        uint64 proofReward =
-            (config.blockFeeBaseGas + fc.gasUsed) * blk.rewardPerGas;
-        taikoToken.mint(fc.prover, proofReward);
-
-        IProverPool proverPool =
-            IProverPool(resolver.resolve("prover_pool", false));
-
-        if (blk.prover == address(0)) {
-            --state.numOpenBlocks;
-        } else if (!blk.proverReleased) {
-            proverPool.releaseProver(blk.prover);
-        }
-
-        if (fc.prover != address(1) && blk.prover != address(0)) {
-            if (
-                fc.prover == blk.prover
-                    && fc.provenAt <= blk.proposedAt + blk.proofWindow
-            ) {
-                // The selected prover managed to prove the block in time
-                state.avgProofDelay = uint16(
-                    LibUtils.movingAverage({
-                        maValue: state.avgProofDelay,
-                        // TODO:  prover is not incentivized to submit proof
-                        // ASAP
-                        newValue: fc.provenAt - blk.proposedAt,
-                        maf: 7200
-                    })
-                );
-
-                state.feePerGas = uint32(
-                    LibUtils.movingAverage({
-                        maValue: state.feePerGas,
-                        newValue: blk.rewardPerGas,
-                        maf: 7200
-                    })
-                );
-            } else {
-                // The selected prover failed to prove the block in time
-                proverPool.slashProver(blk.prover);
-            }
-        }
-
-        blk.verifiedForkChoiceId = fcId;
         emit BlockVerified(blk.blockId, fc.blockHash, proofReward);
     }
 }

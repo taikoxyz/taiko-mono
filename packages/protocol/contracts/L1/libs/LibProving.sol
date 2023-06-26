@@ -79,7 +79,7 @@ library LibProving {
         if (
             evidence.prover != address(1)
             //
-            && evidence.prover != blk.prover
+            && evidence.prover != blk.assignedProver
             //
             && block.timestamp <= blk.proposedAt + blk.proofWindow
         ) revert L1_NOT_PROVEABLE();
@@ -149,10 +149,10 @@ library LibProving {
         fc.gasUsed = evidence.gasUsed;
 
         // release the prover
-        if (!blk.proverReleased && blk.prover == fc.prover) {
+        if (!blk.proverReleased && blk.assignedProver == fc.prover) {
             blk.proverReleased = true;
             IProverPool(resolver.resolve("prover_pool", false)).releaseProver(
-                blk.prover
+                blk.assignedProver
             );
         }
 
