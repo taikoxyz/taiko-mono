@@ -251,7 +251,7 @@ contract ProverPool is EssentialContract, IProverPool {
         // Check parameters
         if (
             maxCapacity < MAX_CAPACITY_LOWER_BOUND
-                || amount / maxCapacity < MIN_STAKE_PER_CAPACITY
+                || amount * ONE_TKO / maxCapacity < MIN_STAKE_PER_CAPACITY
                 || rewardPerGas == 0
         ) revert INVALID_PARAMS();
 
