@@ -5,21 +5,37 @@
 
 pragma solidity ^0.8.20;
 
+import { AddressResolver } from "../common/AddressResolver.sol";
+import { EssentialContract } from "../common/EssentialContract.sol";
+import { IProverPool } from "./IProverPool.sol";
+import { TaikoToken } from "./TaikoToken.sol";
+import { Proxied } from "../common/Proxied.sol";
+
 // author: Brecht
-contract ProverPool3 {
+contract ProverPool3 is EssentialContract {
     uint256 public constant NUM_SLOTS = 128;
     uint256 public constant EXIT_PERIOD = 1 weeks;
 
     uint256 public totalStaked;
+    uint256 public totalWeight;
 
     struct Staker {
         uint256 amount;
         uint256 numSlots;
+        uint256 maxNumSlots; //Max capacity if someone else's unstake would
+            // increase a prover's slot count
         uint256 unstakedAt;
+        uint16 rewardPerGas;
     }
 
     mapping(uint256 slot => address) slots;
     mapping(address staker => Staker) stakers;
+
+    uint256[100] private __gap;
+
+    function init(address _addressManager) external initializer {
+        EssentialContract._init(_addressManager);
+    }
 
     function assignProver(
         uint64 blockId,
@@ -29,31 +45,63 @@ contract ProverPool3 {
         view
         returns (address prover, uint32 rewardPerGas)
     {
+        if (totalStaked == 0) {
+            return (address(0), 0);
+        }
+
         bytes32 rand = keccak256(abi.encode(blockId));
         uint256 slot_idx = uint256(rand) % NUM_SLOTS;
-        return (slots[slot_idx], feePerGas);
+        // If the rewardPerGas changes infrequently, just also store it in the
+        // slot
+        // so we can keep doing 1 SLOAD.
+        prover = slots[slot_idx];
+        feePerGas = stakers[prover].rewardPerGas;
     }
 
-    function stake(address staker, uint256 amount) external {
+    function stake(uint256 amount, uint16 rewardPerGas) external {
+        address staker = msg.sender;
+        // If the staker was unstaking, first revert the unstaking
         if (stakers[staker].unstakedAt > 0) {
             totalStaked += stakers[staker].amount;
         }
+
+        totalWeight -= getWeight(staker);
         totalStaked += amount;
         stakers[staker].amount += amount;
         stakers[staker].unstakedAt = 0;
+        stakers[staker].rewardPerGas = rewardPerGas;
+        totalWeight += getWeight(staker);
     }
 
-    function unstake(address staker) external {
+    function unstake() external {
+        address staker = msg.sender;
+
+        totalWeight -= getWeight(staker);
         stakers[staker].unstakedAt = block.timestamp;
         totalStaked -= stakers[staker].amount;
     }
 
+    function setRewardPerGas(uint16 rewardPerGas) external {
+        address staker = msg.sender;
+        totalWeight -= getWeight(staker);
+        stakers[staker].rewardPerGas = rewardPerGas;
+        totalWeight += getWeight(staker);
+    }
+
+    function setMaxNumSlots(address staker, uint16 maxNumSlots) external {
+        // This is basically equal to set 'how many blocks' maximum
+        // a prover is capable to process if weighting would allow him/her
+        // theoretically to prove more (if pool changes e.g.: by unstaking)
+
+        require(stakers[staker].numSlots <= maxNumSlots);
+        stakers[staker].maxNumSlots = maxNumSlots;
+    }
+
     function claimSlot(address staker, uint256 slotIdx) external {
-        require(staker != address(0));
         // We only allow claiming slots from other stakers if they have more
-        // than their minimum amount
-        // of slots claimed. We allow anyone to claim slots to take into
-        // rounding errors.
+        // than their number of claimable slots.
+        // We allow anyone to claim slots to take into rounding errors.
+        // We allow setting the staker to 0x0 to make the proving open.
         // TODO: currently this would allow people to battle over these slot, so
         // just let the top staker claim these
         require(isSlotClaimable(slotIdx));
@@ -61,7 +109,10 @@ contract ProverPool3 {
             stakers[slots[slotIdx]].numSlots -= 1;
         }
         slots[slotIdx] = staker;
-        stakers[staker].numSlots += 1;
+        if (staker != address(0)) {
+            stakers[staker].numSlots += 1;
+            require(stakers[staker].numSlots <= stakers[staker].maxNumSlots);
+        }
     }
 
     function slashProver(address staker) external {
@@ -78,15 +129,29 @@ contract ProverPool3 {
         stakers[staker].unstakedAt = 0;
     }
 
+    function getWeight(address staker) public view returns (uint256) {
+        if (
+            stakers[staker].unstakedAt == 0 && stakers[staker].amount != 0
+                && stakers[staker].rewardPerGas != 0
+        ) {
+            return stakers[staker].amount / stakers[staker].rewardPerGas
+                / stakers[staker].rewardPerGas;
+        } else {
+            return 0;
+        }
+    }
+
     function getNumClaimableSlots(address staker)
         public
         view
         returns (uint256)
     {
-        if (stakers[staker].unstakedAt == 0) {
-            return (stakers[staker].amount * NUM_SLOTS) / totalStaked;
+        // Cap the number of slots to maxNumSlots
+        uint256 numSlotsFromWeight = getWeight(staker) * NUM_SLOTS / totalWeight;
+        if (numSlotsFromWeight > stakers[staker].maxNumSlots) {
+            return stakers[staker].maxNumSlots;
         } else {
-            return 0;
+            return numSlotsFromWeight;
         }
     }
 
@@ -120,3 +185,5 @@ contract ProverPool3 {
         return claimableSlots;
     }
 }
+
+contract ProxiedProverPool3 is Proxied, ProverPool3 { }
