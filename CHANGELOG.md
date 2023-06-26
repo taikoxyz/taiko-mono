@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.15.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-mono-v0.14.0...taiko-mono-v0.15.0) (2023-06-26)
+
+
+### Features
+
+* **bridge-ui-v2:** env vars ([#14034](https://github.com/taikoxyz/taiko-mono/issues/14034)) ([fccc0a7](https://github.com/taikoxyz/taiko-mono/commit/fccc0a7252b93148559a0438ee23366f04fc86f6))
+* **bridge-ui-v2:** initial setup v2 ([#14013](https://github.com/taikoxyz/taiko-mono/issues/14013)) ([429bf7a](https://github.com/taikoxyz/taiko-mono/commit/429bf7a1619b9554f999db29d236ce0c9c6236da))
+* **bridge-ui-v2:** tailwind config and other setups ([#14016](https://github.com/taikoxyz/taiko-mono/issues/14016)) ([be294c6](https://github.com/taikoxyz/taiko-mono/commit/be294c66764d658423d58902076594afdc470e96))
+* **bridge-ui-v2:** use web3modal ([#14043](https://github.com/taikoxyz/taiko-mono/issues/14043)) ([911c701](https://github.com/taikoxyz/taiko-mono/commit/911c701ae738a9f2e12c14455c23951845d0c4c2))
+* **bridge-ui:** sentry integration ([#13943](https://github.com/taikoxyz/taiko-mono/issues/13943)) ([05baee8](https://github.com/taikoxyz/taiko-mono/commit/05baee8ca113b607f89c3cc25354768c8d368b46))
+* **eventindexer:** add get events by address/name param for community ([#14025](https://github.com/taikoxyz/taiko-mono/issues/14025)) ([146f8d5](https://github.com/taikoxyz/taiko-mono/commit/146f8d52100c3aa7412549e0703c4fc363a6ec29))
+* **protocol:** use ring buffer for ETH deposit and optimize storage ([#13868](https://github.com/taikoxyz/taiko-mono/issues/13868)) ([acffb61](https://github.com/taikoxyz/taiko-mono/commit/acffb61b13b44fd4792e8f4a31498d788ca38961))
+* **relayer:** use gas tip cap if available ([#14024](https://github.com/taikoxyz/taiko-mono/issues/14024)) ([773331b](https://github.com/taikoxyz/taiko-mono/commit/773331bebb509ef66f3a9aab51a8927432e11dc3))
+* **repo:** update github template ([#14031](https://github.com/taikoxyz/taiko-mono/issues/14031)) ([fe82893](https://github.com/taikoxyz/taiko-mono/commit/fe82893b13cdb67c2df1c40ef35fde5439912b94))
+* **repo:** update issue templates ([#14036](https://github.com/taikoxyz/taiko-mono/issues/14036)) ([4eec587](https://github.com/taikoxyz/taiko-mono/commit/4eec587e87be3d646e215eca2939524bde319144))
+* **website:** add pheasant network to ecosystem ([#13995](https://github.com/taikoxyz/taiko-mono/issues/13995)) ([3253771](https://github.com/taikoxyz/taiko-mono/commit/32537710891448c389e891b18e658b10b7329d60))
+* **website:** add sepolia node running guide ([#14028](https://github.com/taikoxyz/taiko-mono/issues/14028)) ([e5e7b0e](https://github.com/taikoxyz/taiko-mono/commit/e5e7b0ee16fa4be5e123d383c7da1d0fa7f98780))
+* **website:** Update node troubleshooting for Windows users. ([#14032](https://github.com/taikoxyz/taiko-mono/issues/14032)) ([55145bb](https://github.com/taikoxyz/taiko-mono/commit/55145bbc1c4c572647dea30eb3c0500fa76dbc3e))
+
+
+### Bug Fixes
+
+* **bridge-ui-v2:** fixing vercel build ([#14052](https://github.com/taikoxyz/taiko-mono/issues/14052)) ([3332e70](https://github.com/taikoxyz/taiko-mono/commit/3332e70bb3b821ab4efbcfe4aed4dbc3ed614850))
+* **bridge-ui:** add extra info to sentry ([#13972](https://github.com/taikoxyz/taiko-mono/issues/13972)) ([50a1034](https://github.com/taikoxyz/taiko-mono/commit/50a1034812ded4ed890f9859fc603bfc801dcdc3))
+* **bridge-ui:** filtering out BLL token failure when bridging ([#13969](https://github.com/taikoxyz/taiko-mono/issues/13969)) ([300be15](https://github.com/taikoxyz/taiko-mono/commit/300be15d3fdcdc9297a7b28427cfcdc905991306))
+* **bridge-ui:** fix issue in beforeSend ([#13971](https://github.com/taikoxyz/taiko-mono/issues/13971)) ([08baec0](https://github.com/taikoxyz/taiko-mono/commit/08baec00cfdc235c0baf3d139a8a62df6e34e914))
+* **bridge-ui:** reduce sample rate ([#14051](https://github.com/taikoxyz/taiko-mono/issues/14051)) ([e836d7d](https://github.com/taikoxyz/taiko-mono/commit/e836d7da3fdd11e443618af15318b1d93bca117e))
+* **relayer:** cancel waiting for receipts ([#14019](https://github.com/taikoxyz/taiko-mono/issues/14019)) ([c9fcffe](https://github.com/taikoxyz/taiko-mono/commit/c9fcffe1d1227219b244b97555e96a49a865f868))
+* **relayer:** fix scanning blocks twice ([#14047](https://github.com/taikoxyz/taiko-mono/issues/14047)) ([9ee6723](https://github.com/taikoxyz/taiko-mono/commit/9ee67238eccc5218346f7cbcf936a76919bf7ae4))
+* **relayer:** make sure to return nil for first by msg hash ([#13967](https://github.com/taikoxyz/taiko-mono/issues/13967)) ([bf69226](https://github.com/taikoxyz/taiko-mono/commit/bf692264ede4545089515372002ee176e0783729))
+* **relayer:** only need to find first msg hash ([#13966](https://github.com/taikoxyz/taiko-mono/issues/13966)) ([87c6e20](https://github.com/taikoxyz/taiko-mono/commit/87c6e20340757d3bdd6075afb8b5cd264cc511a3))
+* **relayer:** relayer is slow due to inefficient indexing in sql ([#13964](https://github.com/taikoxyz/taiko-mono/issues/13964)) ([edd643c](https://github.com/taikoxyz/taiko-mono/commit/edd643cda2ba883d8060ea4921b726b499927575))
+* **relayer:** Relayer reorg ([#14033](https://github.com/taikoxyz/taiko-mono/issues/14033)) ([4794f45](https://github.com/taikoxyz/taiko-mono/commit/4794f45006aff0287bc6cf4630910a1ec3a01fbd))
+* **relayer:** return nil, not error, if we dont have a previous msghash ([#13968](https://github.com/taikoxyz/taiko-mono/issues/13968)) ([22a1171](https://github.com/taikoxyz/taiko-mono/commit/22a1171a151e26f136771b8bc303bbfefe1dcca8))
+* **status-page:** fix stretched favicon ([#13982](https://github.com/taikoxyz/taiko-mono/issues/13982)) ([103f1ae](https://github.com/taikoxyz/taiko-mono/commit/103f1aea772c5eb5e9a293f2ba661d0c4eb96156))
+* **status-page:** use ttko from env ([#13998](https://github.com/taikoxyz/taiko-mono/issues/13998)) ([2c83f3b](https://github.com/taikoxyz/taiko-mono/commit/2c83f3b8faad27315ec25d6150327631320b0798))
+* **website:** fix blockscout verification documentation ([#14037](https://github.com/taikoxyz/taiko-mono/issues/14037)) ([1353307](https://github.com/taikoxyz/taiko-mono/commit/1353307ae54024273377b0945452634f73f9b32d))
+
 ## [0.14.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-mono-v0.13.0...taiko-mono-v0.14.0) (2023-06-12)
 
 
