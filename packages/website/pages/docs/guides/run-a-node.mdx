@@ -69,14 +69,7 @@ Next, open the `.env` file in your preferred text editor:
   </Tab>
 </Tabs>
 
-Finally, set the following environment variables:
-
-- L1_ENDPOINT_HTTP
-- L1_ENDPOINT_WS
-
-If you are running a local Sepolia node, you cannot reference the L1 endpoints as `http://127.0.0.1:8545` and `ws://127.0.0.1:8546` because that is local to inside the simple-taiko-node Docker image. Depending on your firewall setup, you can do a few things. You can try:
-- Using `host.docker.internal` (see: https://stackoverflow.com/questions/24319662)
-- Using the local ip address of your machine (use something like `ip addr show` to get the ip address)
+Then, configure your Sepolia L1 endpoint.
 
 <Callout>
   You can get a Sepolia L1 endpoint from a few places, but it **must point to an archive node** to access the state trie beyond the last 128 blocks.
@@ -87,6 +80,64 @@ If you are running a local Sepolia node, you cannot reference the L1 endpoints a
   **Alternative**:
   [Alchemy](https://www.alchemy.com/) and [Infura](https://www.infura.io/) are two popular RPC providers. Make sure you select the RPC as Sepolia testnet, and not Ethereum mainnet.
 </Callout>
+
+<Tabs items={["Local", "Alchemy", "Infura"]} defaultIndex="0">
+  <Tab>
+  If you are running a local Sepolia node, you cannot reference the L1 endpoints as `http://127.0.0.1:8545` and `ws://127.0.0.1:8546` because that is local to inside the simple-taiko-node Docker image. Depending on your firewall setup, you can do a few things. You can try:
+  - Using `host.docker.internal` (see: https://stackoverflow.com/questions/24319662)
+  - Using the local ip address of your machine (use something like `ip addr show` to get the ip address)
+  </Tab>
+  <Tab>
+  First, sign in to [Alchemy's dashboard](https://www.alchemy.com/).
+  ![Alchemy dashboard sign in](/images/guides/alchemy/sign-in.png)
+  
+  Then, go to "Create App".
+  ![dashboard click create app](/images/guides/alchemy/dashboard.png)
+
+  Next, configure your app:
+  - for "name", enter "Taiko A3 Node", or your preferred name. 
+  - for "chain", select "Ethereum". 
+  - for "network", select "Ethereum Sepolia".
+
+  Then, click the "Create app" button.
+  ![create an Alchemy app](/images/guides/alchemy/create-app.png)
+
+  After, go to "Dashboard", and click "view key". 
+  
+  You should see `https://eth-sepolia...` and `wss://eth-sepolia...`. Copy both endpoints. 
+
+  These are your `L1_ENDPOINT_HTTP` and `L1_ENDPOINT_WS` on your `.env`.
+  ![view Alchemy app key](/images/guides/alchemy/view-key.png)
+  </Tab>
+  <Tab>
+  First, sign in to [Infura's dashboard](https://www.infura.io/).
+  ![Infura dashboard sign in](/images/guides/infura/sign-in.png)
+
+  Next, go to "API Keys", and click the "create new API key" button:
+  - for "network", select "Web3 API". 
+  - for "name", enter "Taiko A3 Node", or your preferred name. 
+
+  Then, click the "create" button.
+  ![create API key](/images/guides/infura/create-key.png)
+
+  You should be redirected to your app's page. 
+
+  Then go to "Endpoints", and select "Sepolia". Copy the `https://sepolia.infura...` endpoint. 
+  
+  This is your `L1_ENDPOINT_HTTP` on your `.env`.
+  ![get HTTPS endpoints](/images/guides/infura/https-endpoints.png)
+
+  Next, go to "WebSockets", and copy the `wss://sepolia.infura...` endpoint.
+
+  This is your `L1_ENDPOINT_WS` on your `.env`.
+  ![get WSS endpoints](/images/guides/infura/wss-endpoints.png)
+  </Tab>
+</Tabs>
+
+Finally, set the following environment variables:
+
+- L1_ENDPOINT_HTTP
+- L1_ENDPOINT_WS
 
 ### Enable your node as a proposer (optional)
 
