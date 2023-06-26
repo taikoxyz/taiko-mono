@@ -81,13 +81,6 @@ Verify up to N blocks.
 
 ```solidity
 function depositEtherToL2(address recipient) public payable
-
-```
-
-### canDepositEthToL2
-
-```solidity
-function canDepositEthToL2(uint256 amount) public view returns (bool)
 ```
 
 ### canDepositEthToL2
