@@ -1,0 +1,55 @@
+@tailwind components;
+
+@layer components {
+  /* Typography */
+  .title-subsection-regular {
+    @apply font-normal text-[22px]/6;
+  }
+
+  .title-subsection-bold {
+    @apply font-bold text-[22px]/6;
+  }
+
+  .title-body-regular {
+    @apply font-normal text-lg/6;
+  }
+
+  .title-body-bold {
+    @apply font-bold text-lg/6;
+  }
+
+  .body-regular {
+    @apply font-normal text-base;
+  }
+
+  .body-bold {
+    @apply font-bold text-base;
+  }
+
+  .body-small-regular {
+    @apply font-normal text-sm;
+  }
+
+  .body-small-bold {
+    @apply font-bold text-sm;
+  }
+
+  .callout-regular {
+    @apply font-normal text-sm;
+  }
+
+  .callout-bold {
+    @apply font-bold text-sm;
+  }
+
+  .link-large-regular {
+    @apply font-normal text-base;
+  }
+
+  .link-regular {
+    @apply font-normal text-sm;
+  }
+  /* End Typography */
+
+  /* TODO: add more components here */
+}

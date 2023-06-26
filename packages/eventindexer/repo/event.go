@@ -2,7 +2,9 @@ package repo
 
 import (
 	"context"
+	"net/http"
 
+	"github.com/morkid/paginate"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"gorm.io/datatypes"
@@ -111,4 +113,24 @@ func (r *EventRepository) GetCountByAddressAndEventName(
 	}
 
 	return count, nil
+}
+
+func (r *EventRepository) GetByAddressAndEventName(
+	ctx context.Context,
+	req *http.Request,
+	address string,
+	event string,
+) (paginate.Page, error) {
+	pg := paginate.New(&paginate.Config{
+		DefaultSize: 100,
+	})
+
+	q := r.db.GormDB().
+		Raw("SELECT * FROM events WHERE event = ? AND address = ?", event, address)
+
+	reqCtx := pg.With(q)
+
+	page := reqCtx.Request(req).Response(&[]eventindexer.Event{})
+
+	return page, nil
 }

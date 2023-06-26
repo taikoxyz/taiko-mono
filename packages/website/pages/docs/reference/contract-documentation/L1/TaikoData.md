@@ -32,6 +32,7 @@ struct Config {
   uint32 rewardPerGasRange;
   uint8 rewardOpenMultipler;
   uint256 rewardOpenMaxCount;
+
 }
 ```
 
