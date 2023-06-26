@@ -18,6 +18,7 @@ contract TestProverPool2 is Test {
     AddressManager public addressManager;
     TaikoToken public tko;
     ProverPool2 public pp;
+    uint64 public tokenPerCapacity = 10_000 * 1e8;
 
     function setUp() public {
         addressManager = new AddressManager();
@@ -45,57 +46,7 @@ contract TestProverPool2 is Test {
         registerAddress("prover_pool", address(pp));
     }
 
-    function registerAddress(bytes32 nameHash, address addr) internal {
-        addressManager.setAddress(block.chainid, nameHash, addr);
-        console2.log(
-            block.chainid,
-            string(abi.encodePacked(nameHash)),
-            unicode"→",
-            addr
-        );
-    }
-
-    function depositTaikoToken(
-        address who,
-        uint64 amountTko,
-        uint256 amountEth
-    )
-        internal
-    {
-        vm.deal(who, amountEth);
-        tko.transfer(who, amountTko);
-    }
-
-    function randomAddress(uint256 seed) private pure returns (address) {
-        return address(uint160(uint256(keccak256(abi.encodePacked(seed)))));
-    }
-
-    function printProvers()
-        private
-        view
-        returns (ProverPool2.Prover[] memory provers, address[] memory stakers)
-    {
-        (provers, stakers) = pp.getProvers();
-        for (uint256 i; i < provers.length; ++i) {
-            console2.log(
-                string.concat(
-                    "prover#",
-                    vm.toString(i + 1),
-                    ", addr: ",
-                    vm.toString(stakers[i]),
-                    ": stakedAmount: ",
-                    vm.toString(provers[i].stakedAmount),
-                    ", rewardPerGas: ",
-                    vm.toString(provers[i].rewardPerGas),
-                    ", currentCapacity: ",
-                    vm.toString(provers[i].currentCapacity)
-                )
-            );
-        }
-    }
-
-    function testPp2_32_stakers_replaced_by_another_32() public {
-        uint64 tokenPerCapacity = 10_000 * 1e8;
+    function testProverPool2__32_stakers_replaced_by_another_32() public {
         uint16 baseCapacity = 128;
 
         for (uint16 i; i < 32; ++i) {
@@ -148,6 +99,57 @@ contract TestProverPool2 is Test {
             assertEq(provers[i].stakedAmount, uint32(baseCapacity + i) * 10_000);
             assertEq(provers[i].rewardPerGas, 10 + i);
             assertEq(provers[i].currentCapacity, baseCapacity + i);
+        }
+    }
+
+    // --- helpers ---
+
+    function registerAddress(bytes32 nameHash, address addr) internal {
+        addressManager.setAddress(block.chainid, nameHash, addr);
+        console2.log(
+            block.chainid,
+            string(abi.encodePacked(nameHash)),
+            unicode"→",
+            addr
+        );
+    }
+
+    function depositTaikoToken(
+        address who,
+        uint64 amountTko,
+        uint256 amountEth
+    )
+        internal
+    {
+        vm.deal(who, amountEth);
+        tko.transfer(who, amountTko);
+    }
+
+    function randomAddress(uint256 seed) internal pure returns (address) {
+        return address(uint160(uint256(keccak256(abi.encodePacked(seed)))));
+    }
+
+    function printProvers()
+        internal
+        view
+        returns (ProverPool2.Prover[] memory provers, address[] memory stakers)
+    {
+        (provers, stakers) = pp.getProvers();
+        for (uint256 i; i < provers.length; ++i) {
+            console2.log(
+                string.concat(
+                    "prover#",
+                    vm.toString(i + 1),
+                    ", addr: ",
+                    vm.toString(stakers[i]),
+                    ": stakedAmount: ",
+                    vm.toString(provers[i].stakedAmount),
+                    ", rewardPerGas: ",
+                    vm.toString(provers[i].rewardPerGas),
+                    ", currentCapacity: ",
+                    vm.toString(provers[i].currentCapacity)
+                )
+            );
         }
     }
 }
