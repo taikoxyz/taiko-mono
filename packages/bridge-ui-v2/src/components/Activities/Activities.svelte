@@ -3,4 +3,4 @@
   import { t } from '$libs/i18n';
 </script>
 
-<Card>TODO: Activities</Card>
+<Card title={$t('activities.title')} text={$t('activities.subtitle')}>TODO: Activities</Card>
