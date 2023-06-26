@@ -125,7 +125,9 @@ struct Block {
   address proposer;
   uint32 feePerGas;
   uint64 proposedAt;
+
   address assignedProver;
+
   uint32 rewardPerGas;
   uint64 proofWindow;
 }

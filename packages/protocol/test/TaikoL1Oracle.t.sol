@@ -64,6 +64,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         vm.prank(Bob, Bob);
         proverPool.reset(Bob, 10);
 
+
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
         uint32 gasUsed = 1_000_000;

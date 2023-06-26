@@ -78,9 +78,8 @@ library LibProving {
 
         if (
             evidence.prover != address(1)
-            //
             && evidence.prover != blk.assignedProver
-            //
+            && blk.assignedProver != address(0)
             && block.timestamp <= blk.proposedAt + blk.proofWindow
         ) revert L1_NOT_PROVEABLE();
 
