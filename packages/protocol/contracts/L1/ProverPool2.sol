@@ -12,7 +12,7 @@ import { TaikoToken } from "./TaikoToken.sol";
 import { Proxied } from "../common/Proxied.sol";
 
 // author: Brecht
-contract ProverPool3 is EssentialContract {
+contract ProverPool2 is EssentialContract {
     uint256 public constant NUM_SLOTS = 128;
     uint256 public constant EXIT_PERIOD = 1 weeks;
 
