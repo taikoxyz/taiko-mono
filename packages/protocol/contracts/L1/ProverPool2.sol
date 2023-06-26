@@ -35,7 +35,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
     // provide a capacity of at least 3600/32=112.
     uint32 public constant MAX_CAPACITY_LOWER_BOUND = 128;
     uint64 public constant EXIT_PERIOD = 1 weeks;
-    uint64 public constant ONE_TKO = 10e8;
+    uint64 public constant ONE_TKO = 1e8;
     uint32 public constant SLASH_POINTS = 500; // basis points
     uint32 public constant MIN_STAKE_PER_CAPACITY = 10_000;
     uint256 public constant MAX_NUM_PROVERS = 32;
@@ -217,10 +217,13 @@ contract ProverPool2 is EssentialContract, IProverPool {
     function getProvers()
         public
         view
-        returns (Prover[MAX_NUM_PROVERS] memory provers)
+        returns (Prover[] memory _provers, address[] memory _stakers)
     {
+        _provers = new Prover[](MAX_NUM_PROVERS);
+        _stakers = new address[](MAX_NUM_PROVERS);
         for (uint256 i; i < MAX_NUM_PROVERS; ++i) {
-            provers[i] = _loadProver(i + 1);
+            _provers[i] = _loadProver(i + 1);
+            _stakers[i] = idToProver[i + 1];
         }
     }
     //Returns each prover's weight dynamically based on feePerGas.
@@ -258,7 +261,7 @@ contract ProverPool2 is EssentialContract, IProverPool {
             staker.exitAmount -= amount;
         } else {
             uint64 burnAmount = (amount - staker.exitAmount) * ONE_TKO;
-            // TaikoToken(resolve("taiko_token", false)).burn(addr, burnAmount);
+            TaikoToken(resolve("taiko_token", false)).burn(addr, burnAmount);
             staker.exitAmount = 0;
         }
 
@@ -289,10 +292,10 @@ contract ProverPool2 is EssentialContract, IProverPool {
 
         // Force the replaced prover to exit
         address replaced = idToProver[proverId];
-        if (replaced != address(0)) {
-            _withdraw(replaced);
-            _exit(replaced);
-        }
+        // if (replaced != address(0)) {
+        _withdraw(replaced);
+        _exit(replaced);
+        // }
         idToProver[proverId] = addr;
 
         // Assign the staker this proverId
@@ -318,16 +321,16 @@ contract ProverPool2 is EssentialContract, IProverPool {
 
         delete idToProver[staker.proverId];
 
+        // Delete the prover but make it non-zero for cheaper rewrites
+        // by keep rewardPerGas = 1
+        _saveProver(staker.proverId, Prover(0, 1, 0));
+
         Prover memory prover = _loadProver(staker.proverId);
         if (prover.stakedAmount > 0) {
             staker.exitAmount += prover.stakedAmount;
             staker.exitRequestedAt = uint64(block.timestamp);
             staker.proverId = 0;
         }
-
-        // Delete the prover but make it non-zero for cheaper rewrites
-        // by keep rewardPerGas = 1
-        _saveProver(staker.proverId, Prover(0, 1, 0));
 
         emit Exited(addr, staker.exitAmount);
     }
