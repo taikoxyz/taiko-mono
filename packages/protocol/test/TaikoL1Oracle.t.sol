@@ -62,7 +62,8 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
-        proverPool.stake(10, 10, 101);
+        proverPool.reset(Bob, 10);
+
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -143,7 +144,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
-        proverPool.stake(10, 10, 101);
+        proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -228,7 +229,8 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
-        proverPool.stake(10, 10, 101);
+        proverPool.reset(Bob, 10);
+
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -302,7 +304,8 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         console2.log("Bob balance:", tko.balanceOf(Bob));
         // Bob
         vm.prank(Bob, Bob);
-        proverPool.stake(10, 10, 101);
+        proverPool.reset(Bob, 10);
+
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -369,7 +372,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
         // Bob
         vm.prank(Bob, Bob);
-        proverPool.stake(10, 10, 101);
+        proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -458,7 +461,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
         // Bob
         vm.prank(Bob, Bob);
-        proverPool.stake(10, 10, 101);
+        proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;

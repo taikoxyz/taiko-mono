@@ -1,38 +1,45 @@
 ---
-title: IProverPool
+
+title: ProverPool
 ---
-
-## IProverPool
-
-### assignProver
-
-```solidity
-function assignProver(uint64 blockId, uint32 feePerGas) external returns (address prover, uint32 rewardPerGas)
-```
-
-### releaseProver
-
-```solidity
-function releaseProver(address prover) external
-```
-
-### slashProver
-
-```solidity
-function slashProver(address prover) external
-```
-
-### getAvailableCapacity
-
-```solidity
-function getAvailableCapacity() external view returns (uint256)
-```
-
----
-
-## title: ProverPool
 
 ## ProverPool
+
+### POOL_CALLER_NOT_AUTHORIZED
+
+```solidity
+error POOL_CALLER_NOT_AUTHORIZED()
+```
+
+### POOL_CANNOT_YET_EXIT
+
+```solidity
+error POOL_CANNOT_YET_EXIT()
+```
+
+### POOL_NOT_ENOUGH_RESOURCES
+
+```solidity
+error POOL_NOT_ENOUGH_RESOURCES()
+```
+
+### POOL_PROVER_NOT_FOUND
+
+```solidity
+error POOL_PROVER_NOT_FOUND()
+```
+
+### POOL_REWARD_CANNOT_BE_NULL
+
+```solidity
+error POOL_REWARD_CANNOT_BE_NULL()
+```
+
+### POOL_NOT_MEETING_MIN_REQUIREMENTS
+
+```solidity
+error POOL_NOT_MEETING_MIN_REQUIREMENTS()
+```
 
 ### TopProver
 
@@ -83,11 +90,11 @@ mapping(address => uint8) proverToId
 uint256 EXIT_PERIOD
 ```
 
-### SLASH_AMOUNT_IN_BP
+### SLASH_POINTS
 
 ```solidity
-uint256 SLASH_AMOUNT_IN_BP
-```
+uint256 SLASH_POINTS
+
 
 ### ONE_TKO
 
@@ -143,14 +150,6 @@ modifier onlyFromProtocol()
 function init(address _addressManager) external
 ```
 
-Initialize the rollup.
-
-#### Parameters
-
-| Name             | Type    | Description                 |
-| ---------------- | ------- | --------------------------- |
-| \_addressManager | address | The AddressManager address. |
-
 ### assignProver
 
 ```solidity
@@ -175,10 +174,11 @@ function slashProver(address prover) external
 function stake(uint32 totalAmount, uint16 rewardPerGas, uint16 capacity) external
 ```
 
-### getAvailableCapacity
+### getCapacity
 
 ```solidity
-function getAvailableCapacity() external view returns (uint256 totalCapacity)
+function getCapacity() external view returns (uint256 totalCapacity)
+
 ```
 
 ### exit

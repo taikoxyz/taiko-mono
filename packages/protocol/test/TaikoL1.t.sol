@@ -59,9 +59,8 @@ contract TaikoL1Test is TaikoL1TestBase {
         console2.log("Bob balance:", tko.balanceOf(Bob));
         depositTaikoToken(Carol, 1e8 * 1e8, 100 ether);
         // Bob
-        vm.stopPrank();
         vm.prank(Bob, Bob);
-        proverPool.stake(10, 10, 101);
+        proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -108,9 +107,8 @@ contract TaikoL1Test is TaikoL1TestBase {
         console2.log("Bob balance:", tko.balanceOf(Bob));
         depositTaikoToken(Carol, 1e8 * 1e8, 100 ether);
         // Bob
-        vm.stopPrank();
         vm.prank(Bob, Bob);
-        proverPool.stake(10, 10, 101);
+        proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -152,9 +150,8 @@ contract TaikoL1Test is TaikoL1TestBase {
         console2.log("Bob balance:", tko.balanceOf(Bob));
         depositTaikoToken(Carol, 1e8 * 1e8, 100 ether);
         // Bob
-        vm.stopPrank();
         vm.prank(Bob, Bob);
-        proverPool.stake(10, 10, 101);
+        proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -197,7 +194,6 @@ contract TaikoL1Test is TaikoL1TestBase {
         uint96 maxAmount = conf.ethDepositMaxAmount;
 
         depositTaikoToken(Alice, 0, maxAmount + 1 ether);
-        vm.stopPrank();
         vm.prank(Alice, Alice);
         vm.expectRevert();
         L1.depositEtherToL2{ value: minAmount - 1 }(address(0));
@@ -283,7 +279,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         // Bob is the staker / prover
         vm.prank(Bob, Bob);
-        proverPool.stake(10, 10, 101);
+        proverPool.reset(Bob, 10);
 
         // Propose blocks
         for (uint256 blockId = 1; blockId < iterationCnt; blockId++) {
@@ -347,7 +343,6 @@ contract TaikoL1Test is TaikoL1TestBase {
         depositTaikoToken(George, 0, maxAmount + 1 ether);
         depositTaikoToken(Hilbert, 0, maxAmount + 1 ether);
 
-        vm.stopPrank();
         // So after this point we have 8 deposits
         vm.prank(Alice, Alice);
         L1.depositEtherToL2{ value: 1 ether }(address(0));

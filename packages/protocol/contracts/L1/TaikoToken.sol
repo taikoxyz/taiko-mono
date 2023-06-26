@@ -90,7 +90,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        onlyFromNamedEither("taiko", "dao")
+        onlyFromNamed3("prover_pool", "taiko", "dao")
     {
         _mint(to, amount);
     }
@@ -100,7 +100,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        onlyFromNamedEither("prover_pool", "taiko")
+        onlyFromNamed2("prover_pool", "taiko")
     {
         _burn(from, amount);
     }

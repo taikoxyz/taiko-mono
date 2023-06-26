@@ -31,10 +31,19 @@ abstract contract AddressResolver {
         _;
     }
 
-    modifier onlyFromNamedEither(bytes32 name1, bytes32 name2) {
+    modifier onlyFromNamed2(bytes32 name1, bytes32 name2) {
         if (
             msg.sender != resolve(name1, true)
                 && msg.sender != resolve(name2, true)
+        ) revert RESOLVER_DENIED();
+        _;
+    }
+
+    modifier onlyFromNamed3(bytes32 name1, bytes32 name2, bytes32 name3) {
+        if (
+            msg.sender != resolve(name1, true)
+                && msg.sender != resolve(name2, true)
+                && msg.sender != resolve(name3, true)
         ) revert RESOLVER_DENIED();
         _;
     }
