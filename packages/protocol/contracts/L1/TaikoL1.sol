@@ -163,14 +163,6 @@ contract TaikoL1 is
         });
     }
 
-    function canDepositEthToL2(uint256 amount) public view returns (bool) {
-        return LibEthDepositing.canDepositEthToL2({
-            state: state,
-            config: getConfig(),
-            amount: amount
-        });
-    }
-
     function getBlockFee(uint32 gasLimit) public view returns (uint64) {
         return LibProposing.getBlockFee({
             state: state,
