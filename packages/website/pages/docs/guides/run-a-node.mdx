@@ -19,10 +19,25 @@ This guide will walk you through the process of operating a Taiko node via [simp
 
 <Steps>
 ### Clone simple-taiko-node
-```sh
-git clone https://github.com/taikoxyz/simple-taiko-node.git
-cd simple-taiko-node
-```
+
+{" "}
+
+<Tabs items={["Mac/Linux", "Windows"]} defaultIndex="0">
+  <Tab>
+  ```sh
+  git clone https://github.com/taikoxyz/simple-taiko-node.git
+  cd simple-taiko-node
+  ```
+  </Tab>
+  <Tab>
+  ```sh
+  git config --global core.autocrlf false
+  git clone https://github.com/taikoxyz/simple-taiko-node.git
+  cd simple-taiko-node
+  ```
+  </Tab>
+</Tabs>
+
 
 ### Configure your node (required)
 
@@ -241,3 +256,39 @@ There could be several reasons, you can check the logs `docker compose logs -f` 
 
 #### `simple-taiko-node-taiko_client_prover_relayer-1  | /bin/sh: /script/start-prover-relayer.sh: not found`
 This issue occurs on windows because of the Control Characters in this case the Line Endings, a quick fix would be to delete the node folder, run this `git config --global core.autocrlf false` in the shell, then clone the repo again.
+
+If you do not want to delete the node folder, please follow one of these steps below.
+
+{" "}
+
+<Tabs items={["Command line", "Notepad"]} defaultIndex="0">
+  <Tab>
+  ```sh
+  docker compose down -v
+  cd scripts
+  dos2unix start-zkevm-chain-rpcd.sh
+  dos2unix start-prover-relayer.sh
+  cd ..
+  docker compose up 
+  ```
+  </Tab>
+  <Tab>
+  ```sh
+  1)
+  Open Notepad++
+  Go to: File -> Open -> Locate start-prover-relayer.sh file and open it
+  Go to: Edit -> EOL Conversion -> Unix
+  Go to: File -> Save
+  Close the file
+
+  2)
+  Do the same for start-zkevm-chain-rpcd.sh
+
+  3)
+  Then go back to command line and do
+  docker compose down -v
+  docker compose up
+  ```
+  </Tab> 
+</Tabs>
+
