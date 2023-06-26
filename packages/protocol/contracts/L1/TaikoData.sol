@@ -145,7 +145,6 @@ library TaikoData {
                 )
             ) forkChoiceIds;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
-
         mapping(uint256 depositId_mode_ethDepositRingBufferSize => uint256)
             ethDeposits;
         // Never or rarely changed
