@@ -15,9 +15,13 @@ import { Proxied } from "../common/Proxied.sol";
 contract ProverPool2 is EssentialContract {
     uint256 public constant NUM_SLOTS = 128;
     uint256 public constant EXIT_PERIOD = 1 weeks;
+    uint32 public constant SLASH_POINTS = 500; // basis points
 
     uint256 public totalStaked;
     uint256 public totalWeight;
+
+    error CAPACITY_TOO_HIGH();
+    error NOT_ENOUGH_BALANCE();
 
     struct Staker {
         uint256 amount;
@@ -25,6 +29,7 @@ contract ProverPool2 is EssentialContract {
         uint256 maxNumSlots; //Max capacity if someone else's unstake would
             // increase a prover's slot count
         uint256 unstakedAt;
+        uint256 unstakedAmount;
         uint16 rewardPerGas;
     }
 
@@ -58,7 +63,16 @@ contract ProverPool2 is EssentialContract {
         feePerGas = stakers[prover].rewardPerGas;
     }
 
-    function stake(uint256 amount, uint16 rewardPerGas) external {
+    function stake(
+        uint256 amount,
+        uint16 rewardPerGas,
+        uint16 maxCapacity
+    )
+        external
+    {
+        if (maxCapacity > NUM_SLOTS) {
+            revert CAPACITY_TOO_HIGH();
+        }
         address staker = msg.sender;
         // If the staker was unstaking, first revert the unstaking
         if (stakers[staker].unstakedAt > 0) {
@@ -70,15 +84,22 @@ contract ProverPool2 is EssentialContract {
         stakers[staker].amount += amount;
         stakers[staker].unstakedAt = 0;
         stakers[staker].rewardPerGas = rewardPerGas;
+        stakers[staker].maxNumSlots = maxCapacity;
         totalWeight += getWeight(staker);
     }
 
-    function unstake() external {
+    function unstake(uint256 unstakedAmount) external {
+        if (stakers[msg.sender].amount < unstakedAmount) {
+            revert NOT_ENOUGH_BALANCE();
+        }
         address staker = msg.sender;
 
         totalWeight -= getWeight(staker);
         stakers[staker].unstakedAt = block.timestamp;
-        totalStaked -= stakers[staker].amount;
+        stakers[staker].unstakedAmount += unstakedAmount;
+        stakers[staker].amount -= unstakedAmount;
+        totalStaked -= unstakedAmount;
+        totalWeight += getWeight(staker);
     }
 
     function setRewardPerGas(uint16 rewardPerGas) external {
@@ -89,9 +110,10 @@ contract ProverPool2 is EssentialContract {
     }
 
     function setMaxNumSlots(address staker, uint16 maxNumSlots) external {
-        // This is basically equal to set 'how many blocks' maximum
-        // a prover is capable to process if weighting would allow him/her
-        // theoretically to prove more (if pool changes e.g.: by unstaking)
+        // This is basically equal to set 'how much percent' maximum
+        // a prover is capable to process.
+        // Since the GasPerSecond of the chain is known, the prover can know
+        // this number off-chain. This is what ir represents.
 
         require(stakers[staker].numSlots <= maxNumSlots);
         stakers[staker].maxNumSlots = maxNumSlots;
@@ -115,17 +137,43 @@ contract ProverPool2 is EssentialContract {
         }
     }
 
-    function slashProver(address staker) external {
-        uint256 amountToSlash = 123_456;
-        amountToSlash = stakers[staker].amount > amountToSlash
-            ? amountToSlash
-            : stakers[staker].amount;
-        stakers[staker].amount -= amountToSlash;
+    function slashProver(address slashed) external {
+        Staker memory staker = stakers[slashed];
+
+        uint256 slashableAmount = staker.unstakedAt > 0
+            && block.timestamp <= staker.unstakedAt + EXIT_PERIOD
+            ? staker.amount + staker.unstakedAmount
+            : staker.amount;
+
+        uint256 amountToSlash;
+
+        if (slashableAmount > 0) {
+            amountToSlash = slashableAmount * SLASH_POINTS / 10_000;
+            // make sure we can slash even if  totalAmount is as small as 1
+            if (amountToSlash == 0) amountToSlash = 1;
+        }
+
+        if (amountToSlash == 0) {
+            // do nothing
+        } else if (amountToSlash <= staker.unstakedAmount) {
+            staker.unstakedAmount -= amountToSlash;
+        } else {
+            uint256 _additional = amountToSlash - staker.unstakedAmount;
+            staker.unstakedAmount = 0;
+
+            if (staker.amount > _additional) {
+                staker.amount -= _additional;
+            } else {
+                staker.amount = 0;
+            }
+        }
+        //Write back memory var to storage
+        stakers[slashed] = staker;
     }
 
     function withdraw(address staker) public {
         require(stakers[staker].unstakedAt + EXIT_PERIOD >= block.timestamp);
-        stakers[staker].amount = 0;
+        stakers[staker].unstakedAmount = 0;
         stakers[staker].unstakedAt = 0;
     }
 
