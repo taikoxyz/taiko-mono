@@ -1,7 +1,8 @@
 <script>
   import { Bridge } from '$components/Bridge';
+  import { Page } from '$components/Page';
 </script>
 
-<div>
+<Page>
   <Bridge />
-</div>
+</Page>

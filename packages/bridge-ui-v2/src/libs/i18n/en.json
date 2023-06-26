@@ -7,6 +7,18 @@
     "guide": "Guide"
   },
 
+  "bridge": {
+    "title": "Bridge",
+    "subtitle": "Send your assets across chains."
+  },
+
+  "activities": {},
+
+  "faucet": {
+    "title": "Faucet",
+    "subtitle": "Mint test tokens."
+  },
+
   "wallet": {
     "connect": "Connect Wallet",
     "status": {
