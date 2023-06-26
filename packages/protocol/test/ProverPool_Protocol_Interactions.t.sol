@@ -322,7 +322,7 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
         printVariables("");
     }
 
-    function test_everyone_can_prove_if_there_are_no_stakers() external {
+    function test_everyone_can_prove_if_there_are_no_stakers() public {
         depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
         console2.log("Alice balance:", tko.balanceOf(Alice));
 
