@@ -1,141 +1,124 @@
 ---
-
 title: ProverPool
 ---
 
 ## ProverPool
 
-### POOL_CALLER_NOT_AUTHORIZED
+### Prover
 
 ```solidity
-error POOL_CALLER_NOT_AUTHORIZED()
-```
-
-### POOL_CANNOT_YET_EXIT
-
-```solidity
-error POOL_CANNOT_YET_EXIT()
-```
-
-### POOL_NOT_ENOUGH_RESOURCES
-
-```solidity
-error POOL_NOT_ENOUGH_RESOURCES()
-```
-
-### POOL_PROVER_NOT_FOUND
-
-```solidity
-error POOL_PROVER_NOT_FOUND()
-```
-
-### POOL_REWARD_CANNOT_BE_NULL
-
-```solidity
-error POOL_REWARD_CANNOT_BE_NULL()
-```
-
-### POOL_NOT_MEETING_MIN_REQUIREMENTS
-
-```solidity
-error POOL_NOT_MEETING_MIN_REQUIREMENTS()
-```
-
-### TopProver
-
-```solidity
-struct TopProver {
-  uint32 amount;
+struct Prover {
+  uint32 stakedAmount;
   uint16 rewardPerGas;
   uint16 currentCapacity;
 }
 ```
 
-### ExitingProver
+### Staker
 
 ```solidity
-struct ExitingProver {
-  uint64 requestedAt;
-  uint32 amount;
+struct Staker {
+  uint64 exitRequestedAt;
+  uint32 exitAmount;
+  uint16 maxCapacity;
+  uint8 proverId;
 }
 ```
 
-### topProvers
+### MAX_CAPACITY_LOWER_BOUND
 
 ```solidity
-struct ProverPool.TopProver[32] topProvers
-```
-
-### exitingProvers
-
-```solidity
-mapping(address => struct ProverPool.ExitingProver) exitingProvers
-```
-
-### idToProver
-
-```solidity
-mapping(uint8 => address) idToProver
-```
-
-### proverToId
-
-```solidity
-mapping(address => uint8) proverToId
+uint32 MAX_CAPACITY_LOWER_BOUND
 ```
 
 ### EXIT_PERIOD
 
 ```solidity
-uint256 EXIT_PERIOD
+uint64 EXIT_PERIOD
+```
+
+### ONE_TKO
+
+```solidity
+uint64 ONE_TKO
 ```
 
 ### SLASH_POINTS
 
 ```solidity
-uint256 SLASH_POINTS
-
-
-### ONE_TKO
-
-```solidity
-uint256 ONE_TKO
+uint32 SLASH_POINTS
 ```
 
-### Entered
+### MIN_STAKE_PER_CAPACITY
 
 ```solidity
-event Entered(address prover, uint32 amount, uint16 rewardPerGas, uint16 capacity)
+uint32 MIN_STAKE_PER_CAPACITY
 ```
 
-### ChangedParameters
+### MAX_NUM_PROVERS
 
 ```solidity
-event ChangedParameters(address prover, uint32 newBalance, uint16 newReward, uint16 newCapacity)
+uint256 MAX_NUM_PROVERS
 ```
 
-### KickeOutByWithAmount
+### idToProver
 
 ```solidity
-event KickeOutByWithAmount(address kickedOut, address newProver, uint32 totalAmount)
+mapping(uint256 => address) idToProver
 ```
 
-### ExitRequested
+### stakers
 
 ```solidity
-event ExitRequested(address prover, uint64 timestamp, bool fullExit)
+mapping(address => struct ProverPool.Staker) stakers
+```
+
+### Withdrawn
+
+```solidity
+event Withdrawn(address addr, uint32 amount)
 ```
 
 ### Exited
 
 ```solidity
-event Exited(address prover, uint64 timestamp)
+event Exited(address addr, uint32 amount)
 ```
 
 ### Slashed
 
 ```solidity
-event Slashed(address prover, uint32 newBalance)
+event Slashed(address addr, uint32 amount)
+```
+
+### Staked
+
+```solidity
+event Staked(address addr, uint32 amount, uint16 rewardPerGas, uint16 currentCapacity)
+```
+
+### INVALID_PARAMS
+
+```solidity
+error INVALID_PARAMS()
+```
+
+### NO_MATURE_EXIT
+
+```solidity
+error NO_MATURE_EXIT()
+```
+
+### PROVER_NOT_GOOD_ENOUGH
+
+```solidity
+error PROVER_NOT_GOOD_ENOUGH()
+```
+
+### UNAUTHORIZED
+
+```solidity
+error UNAUTHORIZED()
 ```
 
 ### onlyFromProtocol
@@ -159,26 +142,19 @@ function assignProver(uint64 blockId, uint32 feePerGas) external returns (addres
 ### releaseProver
 
 ```solidity
-function releaseProver(address prover) external
+function releaseProver(address addr) external
 ```
 
 ### slashProver
 
 ```solidity
-function slashProver(address prover) external
+function slashProver(address addr) external
 ```
 
 ### stake
 
 ```solidity
-function stake(uint32 totalAmount, uint16 rewardPerGas, uint16 capacity) external
-```
-
-### getCapacity
-
-```solidity
-function getCapacity() external view returns (uint256 totalCapacity)
-
+function stake(uint32 amount, uint16 rewardPerGas, uint16 maxCapacity) external
 ```
 
 ### exit
@@ -187,10 +163,34 @@ function getCapacity() external view returns (uint256 totalCapacity)
 function exit() external
 ```
 
-### lowestStakedAmountToEnter
+### withdraw
 
 ```solidity
-function lowestStakedAmountToEnter() external view returns (uint32 minStakeRequired)
+function withdraw() external
+```
+
+### getStaker
+
+```solidity
+function getStaker(address addr) public view returns (struct ProverPool.Staker staker, struct ProverPool.Prover prover)
+```
+
+### getCapacity
+
+```solidity
+function getCapacity() public view returns (uint256 capacity)
+```
+
+### getProvers
+
+```solidity
+function getProvers() public view returns (struct ProverPool.Prover[] _provers, address[] _stakers)
+```
+
+### getWeights
+
+```solidity
+function getWeights(uint32 feePerGas) public view returns (uint256[32] weights, uint256 totalWeight)
 ```
 
 ---

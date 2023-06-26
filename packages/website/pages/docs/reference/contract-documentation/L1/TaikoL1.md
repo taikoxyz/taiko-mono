@@ -98,7 +98,7 @@ function getBlockFee(uint32 gasLimit) public view returns (uint64)
 ### getBlock
 
 ```solidity
-function getBlock(uint256 blockId) public view returns (bytes32 _metaHash, address _proposer, uint64 _proposedAt)
+function getBlock(uint256 blockId) public view returns (bytes32 _metaHash, address _proposer, uint64 _proposedAt, address _prover)
 ```
 
 ### getForkChoice

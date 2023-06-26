@@ -4,127 +4,52 @@ title: ProverPool2
 
 ## ProverPool2
 
-### Prover
+### NUM_SLOTS
 
 ```solidity
-struct Prover {
-  uint32 stakedAmount;
-  uint16 rewardPerGas;
-  uint16 currentCapacity;
-}
+uint256 NUM_SLOTS
+```
+
+### EXIT_PERIOD
+
+```solidity
+uint256 EXIT_PERIOD
+```
+
+### totalStaked
+
+```solidity
+uint256 totalStaked
+```
+
+### totalWeight
+
+```solidity
+uint256 totalWeight
 ```
 
 ### Staker
 
 ```solidity
 struct Staker {
-  uint64 exitRequestedAt;
-  uint32 exitAmount;
-  uint16 maxCapacity;
-  uint8 proverId;
+  uint256 amount;
+  uint256 numSlots;
+  uint256 maxNumSlots;
+  uint256 unstakedAt;
+  uint16 rewardPerGas;
 }
 ```
 
-### MAX_CAPACITY_LOWER_BOUND
+### slots
 
 ```solidity
-uint32 MAX_CAPACITY_LOWER_BOUND
-```
-
-### EXIT_PERIOD
-
-```solidity
-uint64 EXIT_PERIOD
-```
-
-### ONE_TKO
-
-```solidity
-uint64 ONE_TKO
-```
-
-### SLASH_POINTS
-
-```solidity
-uint32 SLASH_POINTS
-```
-
-### MIN_STAKE_PER_CAPACITY
-
-```solidity
-uint32 MIN_STAKE_PER_CAPACITY
-```
-
-### MAX_NUM_PROVERS
-
-```solidity
-uint256 MAX_NUM_PROVERS
-```
-
-### idToProver
-
-```solidity
-mapping(uint256 => address) idToProver
+mapping(uint256 => address) slots
 ```
 
 ### stakers
 
 ```solidity
 mapping(address => struct ProverPool2.Staker) stakers
-```
-
-### Withdrawn
-
-```solidity
-event Withdrawn(address addr, uint32 amount)
-```
-
-### Exited
-
-```solidity
-event Exited(address addr, uint32 amount)
-```
-
-### Slashed
-
-```solidity
-event Slashed(address addr, uint32 amount)
-```
-
-### Staked
-
-```solidity
-event Staked(address addr, uint32 amount, uint16 rewardPerGas, uint16 currentCapacity)
-```
-
-### INVALID_PARAMS
-
-```solidity
-error INVALID_PARAMS()
-```
-
-### NO_MATURE_EXIT
-
-```solidity
-error NO_MATURE_EXIT()
-```
-
-### PROVER_NOT_GOOD_ENOUGH
-
-```solidity
-error PROVER_NOT_GOOD_ENOUGH()
-```
-
-### UNAUTHORIZED
-
-```solidity
-error UNAUTHORIZED()
-```
-
-### onlyFromProtocol
-
-```solidity
-modifier onlyFromProtocol()
 ```
 
 ### init
@@ -136,61 +61,73 @@ function init(address _addressManager) external
 ### assignProver
 
 ```solidity
-function assignProver(uint64 blockId, uint32 feePerGas) external returns (address prover, uint32 rewardPerGas)
-```
-
-### releaseProver
-
-```solidity
-function releaseProver(address addr) external
-```
-
-### slashProver
-
-```solidity
-function slashProver(address addr) external
+function assignProver(uint64 blockId, uint32 feePerGas) external view returns (address prover, uint32 rewardPerGas)
 ```
 
 ### stake
 
 ```solidity
-function stake(uint32 amount, uint16 rewardPerGas, uint16 maxCapacity) external
+function stake(uint256 amount, uint16 rewardPerGas) external
 ```
 
-### exit
+### unstake
 
 ```solidity
-function exit() external
+function unstake() external
+```
+
+### setRewardPerGas
+
+```solidity
+function setRewardPerGas(uint16 rewardPerGas) external
+```
+
+### setMaxNumSlots
+
+```solidity
+function setMaxNumSlots(address staker, uint16 maxNumSlots) external
+```
+
+### claimSlot
+
+```solidity
+function claimSlot(address staker, uint256 slotIdx) external
+```
+
+### slashProver
+
+```solidity
+function slashProver(address staker) external
 ```
 
 ### withdraw
 
 ```solidity
-function withdraw() external
+function withdraw(address staker) public
 ```
 
-### getStaker
+### getWeight
 
 ```solidity
-function getStaker(address addr) public view returns (struct ProverPool2.Staker staker, struct ProverPool2.Prover prover)
+function getWeight(address staker) public view returns (uint256)
 ```
 
-### getCapacity
+### getNumClaimableSlots
 
 ```solidity
-function getCapacity() public view returns (uint256 capacity)
+function getNumClaimableSlots(address staker) public view returns (uint256)
 ```
 
-### getProvers
+### isSlotClaimable
 
 ```solidity
-function getProvers() public view returns (struct ProverPool2.Prover[32] provers)
+function isSlotClaimable(uint256 slotIdx) public view returns (bool)
 ```
 
-### getWeights
+### getClaimableSlots
 
 ```solidity
-function getWeights(uint32 feePerGas) public view returns (uint256[32] weights, uint256 totalWeight)
+function getClaimableSlots() public view returns (uint256[])
 ```
 
 ---
