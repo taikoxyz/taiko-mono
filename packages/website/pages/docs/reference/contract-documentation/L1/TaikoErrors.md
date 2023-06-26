@@ -118,6 +118,12 @@ error L1_SAME_PROOF()
 error L1_TOO_MANY_BLOCKS()
 ```
 
+### L1_TOO_MANY_OPEN_BLOCKS
+
+```solidity
+error L1_TOO_MANY_OPEN_BLOCKS()
+```
+
 ### L1_TX_LIST_NOT_EXIST
 
 ```solidity

@@ -9,13 +9,41 @@ import { TaikoConfig } from "../contracts/L1/TaikoConfig.sol";
 import { TaikoData } from "../contracts/L1/TaikoData.sol";
 import { TaikoL1 } from "../contracts/L1/TaikoL1.sol";
 import { TaikoToken } from "../contracts/L1/TaikoToken.sol";
+import { IProverPool } from "../contracts/L1/IProverPool.sol";
 import { SignalService } from "../contracts/signal/SignalService.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
-contract Verifier {
+contract MockVerifier {
     fallback(bytes calldata) external returns (bytes memory) {
         return bytes.concat(keccak256("taiko"));
     }
+}
+
+contract MockProverPool is IProverPool {
+    address private _prover;
+    uint32 private _rewardPerGas;
+
+    function reset(address prover, uint32 rewardPerGas) external {
+        assert(prover != address(0) && rewardPerGas != 0);
+        _prover = prover;
+        _rewardPerGas = rewardPerGas;
+    }
+
+    function assignProver(
+        uint64 blockId,
+        uint32 feePerGas
+    )
+        external
+        view
+        override
+        returns (address, uint32)
+    {
+        return (_prover, _rewardPerGas);
+    }
+
+    function releaseProver(address prover) external pure override { }
+
+    function slashProver(address prover) external pure override { }
 }
 
 abstract contract TaikoL1TestBase is Test {
@@ -24,13 +52,14 @@ abstract contract TaikoL1TestBase is Test {
     SignalService public ss;
     TaikoL1 public L1;
     TaikoData.Config conf;
+    MockProverPool public proverPool;
     uint256 internal logCount;
 
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
     // 1 TKO --> it is to huge. It should be in 'wei' (?).
     // Because otherwise first proposal is around: 1TKO * (1_000_000+20_000)
     // required as a deposit.
-    uint48 feePerGas = 10;
+    uint32 feePerGas = 10;
     uint16 proofWindow = 60 minutes;
     uint64 l2GasExcess = 1e18;
 
@@ -62,17 +91,20 @@ abstract contract TaikoL1TestBase is Test {
         addressManager = new AddressManager();
         addressManager.init();
 
+        proverPool = new MockProverPool();
+
         ss = new SignalService();
         ss.init(address(addressManager));
 
         registerAddress("signal_service", address(ss));
         registerAddress("ether_vault", address(L1EthVault));
+        registerAddress("prover_pool", address(proverPool));
         registerL2Address("treasury", L2Treasury);
         registerL2Address("taiko", address(TaikoL2));
         registerL2Address("signal_service", address(L2SS));
         registerL2Address("taiko_l2", address(TaikoL2));
-        registerAddress(L1.getVerifierName(100), address(new Verifier()));
-        registerAddress(L1.getVerifierName(0), address(new Verifier()));
+        registerAddress(L1.getVerifierName(100), address(new MockVerifier()));
+        registerAddress(L1.getVerifierName(0), address(new MockVerifier()));
 
         tko = new TaikoToken();
         registerAddress("taiko_token", address(tko));
@@ -112,7 +144,7 @@ abstract contract TaikoL1TestBase is Test {
             txListHash: keccak256(txList),
             txListByteStart: 0,
             txListByteEnd: txListSize,
-            cacheTxListInfo: 0
+            cacheTxListInfo: false
         });
 
         TaikoData.StateVariables memory variables = L1.getStateVariables();
@@ -160,40 +192,11 @@ abstract contract TaikoL1TestBase is Test {
             parentGasUsed: parentGasUsed,
             gasUsed: gasUsed,
             verifierId: 100,
-            proof: new bytes(100),
-            sig: new bytes(0)
+            proof: new bytes(100)
         });
 
         vm.prank(msgSender, msgSender);
         L1.proveBlock(meta.id, abi.encode(evidence));
-    }
-
-    function bidForBatch(
-        address msgSender,
-        uint64 batchId,
-        TaikoData.Bid memory bid
-    )
-        internal
-    {
-        vm.prank(msgSender, msgSender);
-        L1.bidForBatch(batchId, bid);
-    }
-
-    function bidForBatchAndRollTime(
-        address msgSender,
-        uint64 batchId,
-        TaikoData.Bid memory bid
-    )
-        internal
-    {
-        bidForBatch(msgSender, batchId, bid);
-
-        // Then roll into the future to be proveable
-        (, TaikoData.Auction[] memory auctions) = L1.getAuctions(batchId, 1);
-        vm.warp(
-            block.timestamp + auctions[0].startedAt + conf.auctionWindow + 1
-        );
-        vm.roll(block.number + 100);
     }
 
     function verifyBlock(address verifier, uint256 count) internal {
@@ -208,7 +211,9 @@ abstract contract TaikoL1TestBase is Test {
 
     function registerL2Address(bytes32 nameHash, address addr) internal {
         addressManager.setAddress(conf.chainId, nameHash, addr);
-        console2.log(conf.chainId, uint256(nameHash), unicode"→", addr);
+        console2.log(
+            conf.chainId, string(abi.encodePacked(nameHash)), unicode"→", addr
+        );
     }
 
     function depositTaikoToken(
@@ -220,8 +225,10 @@ abstract contract TaikoL1TestBase is Test {
     {
         vm.deal(who, amountEth);
         tko.transfer(who, amountTko);
-        vm.prank(who, who);
-        L1.depositTaikoToken(amountTko);
+        console2.log("who", who);
+        console2.log("balance:", tko.balanceOf(who));
+        // vm.prank(who, who);
+        // L1.depositTaikoToken(amountTko);
     }
 
     function printVariables(string memory comment) internal {
@@ -233,9 +240,7 @@ abstract contract TaikoL1TestBase is Test {
             Strings.toString(vars.lastVerifiedBlockId),
             unicode"→",
             Strings.toString(vars.numBlocks),
-            "]",
-            " numAuctions:",
-            Strings.toString(vars.numAuctions)
+            "]"
         );
 
         str = string.concat(

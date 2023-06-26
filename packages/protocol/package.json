@@ -3,7 +3,7 @@
   "version": "0.9.0",
   "private": true,
   "scripts": {
-    "clean": "rm -rf abis cache && pnpm hardhat clean",
+    "clean": "rm -rf abis cache && forge clean",
     "compile": "forge build",
     "compile:hardhat": "pnpm hardhat compile",
     "deploy:foundry": "./script/download_solc.sh && ./script/test_deploy_on_l1.sh",

@@ -22,12 +22,11 @@ contract TaikoL1_NoCooldown is TaikoL1 {
     {
         config = TaikoConfig.getConfig();
 
-        config.txListCacheExpiry = 5 minutes;
-        config.maxVerificationsPerTx = 0;
-        config.maxNumProposedBlocks = 10;
+        config.blockTxListExpiry = 5 minutes;
+        config.blockMaxVerificationsPerTx = 0;
+        config.blockMaxProposals = 10;
         config.blockRingBufferSize = 12;
-        config.proofCooldownPeriod = 0;
-        config.auctionBatchSize = 100;
+        config.proofRegularCooldown = 15 minutes;
     }
 }
 
@@ -49,21 +48,27 @@ contract TaikoL1Test is TaikoL1TestBase {
     }
 
     /// @dev Test we can propose, prove, then verify more blocks than
-    /// 'maxNumProposedBlocks'
+    /// 'blockMaxProposals'
     function test_more_blocks_than_ring_buffer_size() external {
         depositTaikoToken(Alice, 1e8 * 1e8, 100 ether);
+        // This is a very weird test (code?) issue here.
+        // If this line (or Bob's query balance) is uncommented,
+        // Alice/Bob has no balance.. (Causing reverts !!!)
+        console2.log("Alice balance:", tko.balanceOf(Alice));
         depositTaikoToken(Bob, 1e8 * 1e8, 100 ether);
+        console2.log("Bob balance:", tko.balanceOf(Bob));
         depositTaikoToken(Carol, 1e8 * 1e8, 100 ether);
+        // Bob
+        vm.prank(Bob, Bob);
+        proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
         uint32 gasUsed = 1_000_000;
-        TaikoData.Bid memory bid;
 
-        uint64 batchId = 1;
         for (
             uint256 blockId = 1;
-            blockId < conf.maxNumProposedBlocks * 10;
+            blockId < conf.blockMaxProposals * 10;
             blockId++
         ) {
             //printVariables("before propose");
@@ -74,23 +79,6 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
-            // Submit an auction and wait till won
-            bid.proofWindow = 10 minutes;
-            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
-                * conf.auctionDepositMultipler;
-            bid.feePerGas = 9;
-            // Make a valid bid
-            if (
-                blockId == 1
-                    || blockId % conf.auctionBatchSize == (conf.auctionWindow) // Bid
-                    // at 'edge/end' of the batch because otherwise hard to test
-                    // decouple propose with prove. (Will test that in a
-                    // separate file)
-            ) {
-                bidForBatchAndRollTime(Bob, batchId, bid);
-                batchId++;
-            }
-
             proveBlock(
                 Bob,
                 Bob,
@@ -101,7 +89,8 @@ contract TaikoL1Test is TaikoL1TestBase {
                 blockHash,
                 signalRoot
             );
-
+            vm.roll(block.number + 15 * 12);
+            vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
             verifyBlock(Carol, 1);
             parentHash = blockHash;
             parentGasUsed = gasUsed;
@@ -113,14 +102,17 @@ contract TaikoL1Test is TaikoL1TestBase {
     ///      same L1 block.
     function test_multiple_blocks_in_one_L1_block() external {
         depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
-        depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
+        console2.log("Alice balance:", tko.balanceOf(Alice));
+        depositTaikoToken(Bob, 1e8 * 1e8, 100 ether);
+        console2.log("Bob balance:", tko.balanceOf(Bob));
+        depositTaikoToken(Carol, 1e8 * 1e8, 100 ether);
+        // Bob
+        vm.prank(Bob, Bob);
+        proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
         uint32 gasUsed = 1_000_000;
-        TaikoData.Bid memory bid;
-
-        uint64 batchId = 1;
 
         for (uint256 blockId = 1; blockId <= 2; blockId++) {
             printVariables("before propose");
@@ -131,21 +123,6 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
 
-            // Submit an auction and wait till won
-            bid.proofWindow = 10 minutes;
-            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
-                * conf.auctionDepositMultipler;
-            bid.feePerGas = 9;
-
-            // Make a valid bid
-            if (
-                blockId == 1
-                    || blockId % conf.auctionBatchSize == (conf.auctionWindow)
-            ) {
-                bidForBatchAndRollTime(Bob, batchId, bid);
-                batchId++;
-            }
-
             proveBlock(
                 Bob,
                 Bob,
@@ -156,6 +133,8 @@ contract TaikoL1Test is TaikoL1TestBase {
                 blockHash,
                 signalRoot
             );
+            vm.roll(block.number + 15 * 12);
+            vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
             verifyBlock(Alice, 2);
             parentHash = blockHash;
             parentGasUsed = gasUsed;
@@ -165,20 +144,21 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     /// @dev Test verifying multiple blocks in one transaction
     function test_verifying_multiple_blocks_once() external {
-        depositTaikoToken(Alice, 1e6 * 1e8, 1000 ether);
-        depositTaikoToken(Bob, 1e6 * 1e8, 1000 ether);
+        depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
+        console2.log("Alice balance:", tko.balanceOf(Alice));
+        depositTaikoToken(Bob, 1e8 * 1e8, 100 ether);
+        console2.log("Bob balance:", tko.balanceOf(Bob));
+        depositTaikoToken(Carol, 1e8 * 1e8, 100 ether);
+        // Bob
+        vm.prank(Bob, Bob);
+        proverPool.reset(Bob, 10);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
         uint32 gasUsed = 1_000_000;
 
-        TaikoData.Bid memory bid;
-
-        // Propose blocks
-        uint64 batchId = 1;
-        for (
-            uint256 blockId = 1; blockId <= conf.maxNumProposedBlocks; blockId++
-        ) {
+        for (uint256 blockId = 1; blockId <= conf.blockMaxProposals; blockId++)
+        {
             printVariables("before propose");
             TaikoData.BlockMetadata memory meta =
                 proposeBlock(Alice, 1_000_000, 1024);
@@ -186,20 +166,6 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
-            // Submit an auction
-            bid.proofWindow = 10 minutes;
-            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
-                * conf.auctionDepositMultipler;
-            bid.feePerGas = 9;
-
-            // Make a valid bid
-            if (
-                blockId == 1
-                    || blockId % conf.auctionBatchSize == (conf.auctionWindow)
-            ) {
-                bidForBatchAndRollTime(Bob, batchId, bid);
-                batchId++;
-            }
 
             proveBlock(
                 Bob,
@@ -215,9 +181,11 @@ contract TaikoL1Test is TaikoL1TestBase {
             parentGasUsed = gasUsed;
         }
 
-        verifyBlock(Alice, conf.maxNumProposedBlocks - 1);
+        vm.roll(block.number + 15 * 12);
+        vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
+        verifyBlock(Alice, conf.blockMaxProposals - 1);
         printVariables("after verify");
-        verifyBlock(Alice, conf.maxNumProposedBlocks);
+        verifyBlock(Alice, conf.blockMaxProposals);
         printVariables("after verify");
     }
 
@@ -226,7 +194,6 @@ contract TaikoL1Test is TaikoL1TestBase {
         uint96 maxAmount = conf.ethDepositMaxAmount;
 
         depositTaikoToken(Alice, 0, maxAmount + 1 ether);
-
         vm.prank(Alice, Alice);
         vm.expectRevert();
         L1.depositEtherToL2{ value: minAmount - 1 }(address(0));
@@ -300,17 +267,21 @@ contract TaikoL1Test is TaikoL1TestBase {
         uint256 iterationCnt = 10;
         // Declare here so that block prop/prove/verif. can be used in 1 place
         TaikoData.BlockMetadata memory meta;
-        TaikoData.Bid memory bid;
         bytes32 blockHash;
         bytes32 signalRoot;
         bytes32[] memory parentHashes = new bytes32[](iterationCnt);
         parentHashes[0] = GENESIS_BLOCK_HASH;
 
         depositTaikoToken(Alice, 1e6 * 1e8, 100_000 ether);
+        console2.log("Alice balance:", tko.balanceOf(Alice));
         depositTaikoToken(Bob, 1e7 * 1e8, 100_000 ether);
+        console2.log("Bob balance:", tko.balanceOf(Bob));
+
+        // Bob is the staker / prover
+        vm.prank(Bob, Bob);
+        proverPool.reset(Bob, 10);
 
         // Propose blocks
-        uint64 batchId = 1;
         for (uint256 blockId = 1; blockId < iterationCnt; blockId++) {
             printVariables("before propose");
             meta = proposeBlock(Alice, 1_000_000, 1024);
@@ -318,20 +289,6 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             blockHash = bytes32(1e10 + blockId);
             signalRoot = bytes32(1e9 + blockId);
-            // Submit an auction
-            bid.proofWindow = 10 minutes;
-            bid.deposit = L1.getBlockFee(uint32(conf.blockMaxGasLimit))
-                * conf.auctionDepositMultipler;
-            bid.feePerGas = 9;
-
-            // Make a valid bid
-            if (
-                blockId == 1
-                    || blockId % conf.auctionBatchSize == (conf.auctionWindow)
-            ) {
-                bidForBatchAndRollTime(Bob, batchId, bid);
-                batchId++;
-            }
 
             proveBlock(
                 Bob,
@@ -343,6 +300,10 @@ contract TaikoL1Test is TaikoL1TestBase {
                 blockHash,
                 signalRoot
             );
+
+            vm.roll(block.number + 15 * 12);
+            vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
+
             verifyBlock(Carol, 1);
 
             // Querying written blockhash
