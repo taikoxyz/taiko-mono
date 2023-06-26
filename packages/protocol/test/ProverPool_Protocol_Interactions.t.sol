@@ -267,6 +267,127 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
         printVariables("");
     }
 
+    function test_asigned_prover_distribution_if_only_have_1_prover()
+        external
+    {
+        depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
+        console2.log("Alice balance:", tko.balanceOf(Alice));
+
+        vm.prank(Ivy, Ivy);
+        realProverPool.stake(uint32(2), 10, 128);
+
+        bytes32 parentHash = GENESIS_BLOCK_HASH;
+        uint32 parentGasUsed = 0;
+        uint32 gasUsed = 1_000_000;
+        // Use multiplier 9 instead of 10, because we are at the edge of
+        // gassing-out
+        for (
+            uint256 blockId = 1; blockId < conf.blockMaxProposals * 9; blockId++
+        ) {
+            printVariables("before propose");
+            TaikoData.BlockMetadata memory meta =
+                proposeBlock(Alice, 1_000_000, 1024);
+            //printVariables("after propose");
+            mine(1);
+
+            (,,, address prover) = L1.getBlock(blockId);
+            console2.log("Prover address:", getNameFromAddress(prover));
+
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
+            // This proof cannot be verified obviously because of
+            // blockhash:blockId
+            proveBlock(
+                Ivy,
+                Ivy,
+                meta,
+                parentHash,
+                parentGasUsed,
+                gasUsed,
+                blockHash,
+                signalRoot
+            );
+
+            vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
+            uint256 lastVerifiedBlockId =
+                L1.getStateVariables().lastVerifiedBlockId;
+
+            verifyBlock(Carol, 1);
+
+            parentHash = blockHash;
+            parentGasUsed = gasUsed;
+
+            console2.log("gasLeft:", gasleft());
+        }
+        printVariables("");
+    }
+
+    function test_everyone_can_prove_if_there_are_no_stakers()
+        external
+    {
+        depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
+        console2.log("Alice balance:", tko.balanceOf(Alice));
+
+        bytes32 parentHash = GENESIS_BLOCK_HASH;
+        uint32 parentGasUsed = 0;
+        uint32 gasUsed = 1_000_000;
+        // Use multiplier 9 instead of 10, because we are at the edge of
+        // gassing-out
+        for (
+            uint256 blockId = 1; blockId < conf.blockMaxProposals * 9; blockId++
+        ) {
+            printVariables("before propose");
+            TaikoData.BlockMetadata memory meta =
+                proposeBlock(Alice, 1_000_000, 1024);
+            //printVariables("after propose");
+            mine(1);
+
+            (,,, address prover) = L1.getBlock(blockId);
+            console2.log("Prover address:", getNameFromAddress(prover));
+
+            bytes32 blockHash = bytes32(1e10 + blockId);
+            bytes32 signalRoot = bytes32(1e9 + blockId);
+            // This proof cannot be verified obviously because of
+            // blockhash:blockId
+            if (blockId % 2 == 0) {
+                proveBlock(
+                    Ivy,
+                    Ivy,
+                    meta,
+                    parentHash,
+                    parentGasUsed,
+                    gasUsed,
+                    blockHash,
+                    signalRoot
+                );
+            }
+            else {
+                proveBlock(
+                    Zoe,
+                    Zoe,
+                    meta,
+                    parentHash,
+                    parentGasUsed,
+                    gasUsed,
+                    blockHash,
+                    signalRoot
+                );
+            }
+
+            vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
+            uint256 lastVerifiedBlockId =
+                L1.getStateVariables().lastVerifiedBlockId;
+
+            verifyBlock(Carol, 1);
+
+            parentHash = blockHash;
+            parentGasUsed = gasUsed;
+
+            console2.log("gasLeft:", gasleft());
+        }
+        printVariables("");
+    }
+
     function test_asigned_prover_distribution_if_prover_pool_is_not_full()
         external
     {
