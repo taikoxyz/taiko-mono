@@ -110,7 +110,7 @@ function setMaxNumSlots(address staker, uint16 maxNumSlots) external
 ### claimSlot
 
 ```solidity
-function claimSlot(address staker, uint256 slotIdx) external
+function claimSlot(address staker, uint256 slotIdx) public
 ```
 
 ### slashProver
