@@ -211,7 +211,9 @@ abstract contract TaikoL1TestBase is Test {
 
     function registerL2Address(bytes32 nameHash, address addr) internal {
         addressManager.setAddress(conf.chainId, nameHash, addr);
-        console2.log(conf.chainId, uint256(nameHash), unicode"→", addr);
+        console2.log(
+            conf.chainId, string(abi.encodePacked(nameHash)), unicode"→", addr
+        );
     }
 
     function depositTaikoToken(
@@ -225,7 +227,7 @@ abstract contract TaikoL1TestBase is Test {
         tko.transfer(who, amountTko);
         console2.log("who", who);
         console2.log("balance:", tko.balanceOf(who));
-        vm.prank(who, who);
+        // vm.prank(who, who);
         // L1.depositTaikoToken(amountTko);
     }
 

@@ -5,6 +5,8 @@
 
 pragma solidity ^0.8.20;
 
+import { console2 } from "forge-std/console2.sol";
+
 import { AddressResolver } from "../common/AddressResolver.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { IProverPool } from "./IProverPool.sol";
@@ -251,12 +253,12 @@ contract ProverPool2 is EssentialContract, IProverPool {
         ) revert INVALID_PARAMS();
 
         // Reuse tokens that are exiting
-        Staker storage staker = stakers[msg.sender];
+        Staker storage staker = stakers[addr];
         if (staker.exitAmount >= amount) {
             staker.exitAmount -= amount;
         } else {
             uint64 burnAmount = (amount - staker.exitAmount) * ONE_TKO;
-            TaikoToken(resolve("taiko_token", false)).burn(addr, burnAmount);
+            // TaikoToken(resolve("taiko_token", false)).burn(addr, burnAmount);
             staker.exitAmount = 0;
         }
 
