@@ -153,3 +153,39 @@ error L1_TX_LIST()
 ```solidity
 error L1_UNAUTHORIZED()
 ```
+
+### POOL_CALLER_NOT_AUTHORIZED
+
+```solidity
+error POOL_CALLER_NOT_AUTHORIZED()
+```
+
+### POOL_CANNOT_YET_EXIT
+
+```solidity
+error POOL_CANNOT_YET_EXIT()
+```
+
+### POOL_NOT_ENOUGH_RESOURCES
+
+```solidity
+error POOL_NOT_ENOUGH_RESOURCES()
+```
+
+### POOL_PROVER_NOT_FOUND
+
+```solidity
+error POOL_PROVER_NOT_FOUND()
+```
+
+### POOL_REWARD_CANNOT_BE_NULL
+
+```solidity
+error POOL_REWARD_CANNOT_BE_NULL()
+```
+
+### POOL_NOT_MEETING_MIN_REQUIREMENTS
+
+```solidity
+error POOL_NOT_MEETING_MIN_REQUIREMENTS()
+```

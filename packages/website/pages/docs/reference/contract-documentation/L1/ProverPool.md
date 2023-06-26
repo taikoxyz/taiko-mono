@@ -1,4 +1,5 @@
 ---
+
 title: ProverPool
 ---
 
@@ -93,7 +94,7 @@ uint256 EXIT_PERIOD
 
 ```solidity
 uint256 SLASH_POINTS
-```
+
 
 ### ONE_TKO
 
@@ -177,6 +178,7 @@ function stake(uint32 totalAmount, uint16 rewardPerGas, uint16 capacity) externa
 
 ```solidity
 function getCapacity() external view returns (uint256 totalCapacity)
+
 ```
 
 ### exit
