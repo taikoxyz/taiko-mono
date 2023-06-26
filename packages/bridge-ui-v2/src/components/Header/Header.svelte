@@ -5,12 +5,12 @@
   import Button from '../Button';
   import Icon from '../Icon';
   import { LogoWithText } from '../Logo';
-  import { drawerToogleId } from '../SideNavigation';
+  import { drawerToggleId } from '../SideNavigation';
 </script>
 
 <header class="sticky p-2 md:px-10 md:py-7 flex justify-between md:justify-end items-center">
   <div class="flex space-x-2 items-center md:hidden">
-    <label for={drawerToogleId} class="btn btn-sm md:btn-md btn-ghost drawer-button">
+    <label for={drawerToggleId} class="btn btn-sm md:btn-md btn-ghost drawer-button">
       <Icon type="bars-menu" />
     </label>
     <LogoWithText class="w-[88px] h-[24px]" />

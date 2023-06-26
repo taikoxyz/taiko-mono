@@ -1,5 +1,5 @@
-<script context="module">
-  export const drawerToogleId = 'side-drawer-toggle';
+<script lang="ts" context="module">
+  export const drawerToggleId = 'side-drawer-toggle';
 </script>
 
 <script lang="ts">
@@ -12,14 +12,14 @@
 </script>
 
 <div class="drawer md:drawer-open">
-  <input id={drawerToogleId} type="checkbox" class="drawer-toggle" />
+  <input id={drawerToggleId} type="checkbox" class="drawer-toggle" />
 
   <div class="drawer-content">
     <slot />
   </div>
 
   <div class="drawer-side z-1 bg-primary-background">
-    <label for={drawerToogleId} class="drawer-overlay bg-overlay-background" />
+    <label for={drawerToggleId} class="drawer-overlay bg-overlay-background" />
 
     <aside class="w-[226px] p-2 md:px-4 md:py-8 md:border-r md:border-r-grey-600 h-full">
       <a href="/" class="hidden md:inline-block">
