@@ -187,7 +187,7 @@ library LibVerifying {
         // blk.gasLimit here.
         uint32 _gasLimit = blk.gasLimit + LibL2Consts.ANCHOR_GAS_COST;
         assert(fc.gasUsed <= _gasLimit);
-        
+
         IProverPool proverPool =
             IProverPool(resolver.resolve("prover_pool", false));
 
@@ -232,7 +232,6 @@ library LibVerifying {
             // proving out side of the proof window
             proofReward = proofReward * config.rewardOpenMultipler / 100;
             proverPool.slashProver(blk.assignedProver);
-
         }
 
         blk.verifiedForkChoiceId = fcId;
