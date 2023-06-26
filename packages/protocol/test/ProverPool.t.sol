@@ -46,7 +46,7 @@ contract TestProverPool is Test {
         registerAddress("prover_pool", address(pp));
     }
 
-    function testProverPool__32_stakers_replaced_by_another_32() public {
+    function testProverPool__32_stakers_replaced_by_another_32() external {
         uint16 baseCapacity = 128;
 
         for (uint16 i; i < 32; ++i) {
