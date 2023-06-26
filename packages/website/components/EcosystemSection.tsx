@@ -1,5 +1,5 @@
-import { useState } from "react";
 import EcosystemCard from "./EcosystemCard";
+import { useState } from "react";
 
 type Filters =
   | "all"
@@ -96,6 +96,14 @@ const ecosystemData: EcosystemData[] = [
     link: "https://zkpool.io",
     description:
       "ZKPool aggregates the computing power of accelerators for zero-knowledge proofs and provides services to ZKP applications.",
+    filters: [],
+  },
+  {
+    icon: "/images/ecosystem/kekkai.png",
+    name: "KEKKAI",
+    link: "https://kekkai.io",
+    description:
+      "KEKKAI is a product that protects the security of web3 user assets. It can help users get the result of asset flow in advance and analyze its risks when interacting with wallets.",
     filters: [],
   },
 ];
