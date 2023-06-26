@@ -9,7 +9,8 @@
 
   "bridge": {
     "title": "Bridge",
-    "subtitle": "Send your assets across chains."
+    "subtitle": "Send your assets across chains.",
+    "select_token": "Select Token"
   },
 
   "activities": {

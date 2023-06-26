@@ -1,15 +1,12 @@
 <script>
-  import { Card } from '$components/Card';
-  import { t } from '$libs/i18n';
+  import { t } from 'svelte-i18n';
 
-  import ChainDropdown from './ChainDropdown.svelte';
+  import { Card } from '$components/Card';
+  import { TokenDropdown } from '$components/TokenDropdown';
+  import { tokens } from '$libs/token';
 </script>
 
 <Card title={$t('bridge.title')} text={$t('bridge.subtitle')}>
   <div class="form-control">
-    <label for="from-chain" class="label">
-      <span>From:</span>
-      <ChainDropdown />
-    </label>
-  </div>
-</Card>
+    <TokenDropdown {tokens} onSelectedTokenChange={() => {}} />
+  </div></Card>

@@ -115,6 +115,11 @@ export default {
             hover: 'var(--primary-interactive-accent)',
             accent: 'var(--primary-interactive-accent)',
           },
+          border: {
+            DEFAULT: 'var(--primary-border)',
+            hover: 'var(--primary-border-hover)',
+            accent: 'var(--primary-border-accent)',
+          },
         },
 
         secondary: {
@@ -170,6 +175,9 @@ export default {
           '--primary-background': '#0B101B', // grey-900
           '--primary-interactive': '#C8047D', // pink-500
           '--primary-interactive-accent': '#E81899', // pink-400
+          '--primary-border': '#5D636F', // grey-500
+          '--primary-border-hover': '#FF6FC8', // pink-200
+          '--primary-border-accent': '#E81899', // pink-400
 
           '--secondary-brand': '#E81899', // pink-400
           '--secondary-content': '#ADB1B8', // grey-200
