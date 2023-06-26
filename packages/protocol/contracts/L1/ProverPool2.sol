@@ -86,6 +86,14 @@ contract ProverPool2 is EssentialContract {
         stakers[staker].rewardPerGas = rewardPerGas;
         stakers[staker].maxNumSlots = maxCapacity;
         totalWeight += getWeight(staker);
+
+        // Auto-claim adjustment
+        for (uint slotIdx = 0; slotIdx < NUM_SLOTS; slotIdx++) {
+            address current = slots[slotIdx];
+            if (stakers[current].numSlots > getNumClaimableSlots(current)) {
+                claimSlot(staker, slotIdx);
+            }
+        }
     }
 
     function unstake(uint256 unstakedAmount) external {
@@ -119,7 +127,7 @@ contract ProverPool2 is EssentialContract {
         stakers[staker].maxNumSlots = maxNumSlots;
     }
 
-    function claimSlot(address staker, uint256 slotIdx) external {
+    function claimSlot(address staker, uint256 slotIdx) public {
         // We only allow claiming slots from other stakers if they have more
         // than their number of claimable slots.
         // We allow anyone to claim slots to take into rounding errors.
