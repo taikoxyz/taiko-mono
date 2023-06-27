@@ -34,16 +34,22 @@ uint256 totalStaked
 uint256 totalWeight
 ```
 
-### CAPACITY_TOO_HIGH
+### CAPACITY_INCORRECT
 
 ```solidity
-error CAPACITY_TOO_HIGH()
+error CAPACITY_INCORRECT()
 ```
 
 ### NOT_ENOUGH_BALANCE
 
 ```solidity
 error NOT_ENOUGH_BALANCE()
+```
+
+### CANNOT_BE_PREFERRED
+
+```solidity
+error CANNOT_BE_PREFERRED()
 ```
 
 ### Staker
@@ -54,9 +60,14 @@ struct Staker {
   uint256 numSlots;
   uint256 maxNumSlots;
   uint256 unstakedAt;
-  uint256 unstakedAmount;
   uint16 rewardPerGas;
 }
+```
+
+### preferredProver
+
+```solidity
+address preferredProver
 ```
 
 ### slots
@@ -92,7 +103,7 @@ function stake(uint256 amount, uint16 rewardPerGas, uint16 maxCapacity) external
 ### unstake
 
 ```solidity
-function unstake(uint256 unstakedAmount) external
+function unstake() external
 ```
 
 ### setRewardPerGas
@@ -111,6 +122,12 @@ function setMaxNumSlots(address staker, uint16 maxNumSlots) external
 
 ```solidity
 function claimSlot(address staker, uint256 slotIdx) public
+```
+
+### claimPreferredProverStatus
+
+```solidity
+function claimPreferredProverStatus(address staker) external
 ```
 
 ### slashProver
