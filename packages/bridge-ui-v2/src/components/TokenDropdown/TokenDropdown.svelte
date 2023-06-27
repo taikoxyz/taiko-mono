@@ -23,7 +23,7 @@
 
   function selectToken(token: Token) {
     selectedToken = token;
-    onChange?.(token); // TODO: data binding?
+    onChange?.(token); // TODO: data binding? 🤔
     closeMenu();
   }
 
@@ -35,26 +35,24 @@
 </script>
 
 <div class="dropdown dropdown-end">
-  <button
-    aria-haspopup="true"
-    class="w-full flex justify-between items-center px-6 py-[14px] rounded-[10px] border border-primary-border hover:border-primary-border-hover focus:border-primary-border-accent">
+  <button aria-haspopup="true" class="w-full flex justify-between items-center px-6 py-[14px] input-box">
     <div class="space-x-2">
       {#if !selectedToken}
-        <span class="text-tertiary-content body-small-regular leading-8">{$t('bridge.select_token')}…</span>
+        <span class="title-subsection-bold text-tertiary-content leading-8">{$t('bridge.select_token')}…</span>
       {/if}
       {#if selectedToken}
         <div class="flex space-x-2 items-center">
           <i role="img" aria-label={selectedToken.name}>
             <svelte:component this={symbolToIconMap[selectedToken.symbol]} />
           </i>
-          <span>{selectedToken.symbol}</span>
+          <span class="title-subsection-bold">{selectedToken.symbol}</span>
         </div>
       {/if}
     </div>
     <Icon type="chevron-down" />
   </button>
 
-  <ul role="listbox" class="menu dropdown-content w-[265px] p-3 mt-2 rounded-[10px] bg-neutral-background">
+  <ul role="listbox" class="menu dropdown-content w-[265px] p-3 mt-2 rounded-[10px] bg-neutral-background z-10">
     {#each tokens as token (token.symbol)}
       <li
         role="option"

@@ -10,7 +10,8 @@
   "bridge": {
     "title": "Bridge",
     "subtitle": "Send your assets across chains.",
-    "select_token": "Select Token"
+    "select_token": "Select Token",
+    "max": "MAX"
   },
 
   "activities": {
