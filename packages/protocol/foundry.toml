@@ -1,6 +1,6 @@
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
 [profile.default]
-solc-version = "0.8.18"
+solc-version = "0.8.20"
 src = 'contracts'
 out = 'out'
 test = 'test'
@@ -28,4 +28,8 @@ fs_permissions = [
 fuzz = { runs = 256 }
 
 [fmt]
-line_length = 100
+bracket_spacing = true
+line_length = 80
+multiline_func_header = 'all'
+number_underscore = 'thousands'
+wrap_comments = true

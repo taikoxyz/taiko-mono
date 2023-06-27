@@ -24,7 +24,16 @@ func (svc *Service) saveMessageStatusChangedEvents(
 
 	for {
 		event := events.Event
+
 		log.Infof("messageStatusChanged: %v", common.Hash(event.MsgHash).Hex())
+
+		if err := svc.detectAndHandleReorg(
+			ctx,
+			relayer.EventNameMessageStatusChanged,
+			common.Hash(event.MsgHash).Hex(),
+		); err != nil {
+			return errors.Wrap(err, "svc.detectAndHandleReorg")
+		}
 
 		if err := svc.saveMessageStatusChangedEvent(ctx, chainID, event); err != nil {
 			return errors.Wrap(err, "svc.saveMessageStatusChangedEvent")
@@ -49,13 +58,13 @@ func (svc *Service) saveMessageStatusChangedEvent(
 	// get the previous MessageSent event or other message status changed events,
 	// so we can find out the previous owner of this msg hash,
 	// to save to the db.
-	previousEvents, err := svc.eventRepo.FindAllByMsgHash(ctx, common.Hash(event.MsgHash).Hex())
+	e, err := svc.eventRepo.FirstByMsgHash(ctx, common.Hash(event.MsgHash).Hex())
 	if err != nil {
-		return errors.Wrap(err, "svc.eventRepo.FindAllByMsgHash")
+		return errors.Wrap(err, "svc.eventRepo.FirstByMsgHash")
 	}
 
-	if len(previousEvents) == 0 {
-		return errors.Wrap(err, "svc.eventRepo.FindAllByMsgHash")
+	if e == nil || e.MsgHash == "" {
+		return nil
 	}
 
 	_, err = svc.eventRepo.Save(ctx, relayer.SaveEventOpts{
@@ -63,7 +72,7 @@ func (svc *Service) saveMessageStatusChangedEvent(
 		Data:         string(marshaled),
 		ChainID:      chainID,
 		Status:       relayer.EventStatus(event.Status),
-		MessageOwner: previousEvents[0].MessageOwner,
+		MessageOwner: e.MessageOwner,
 		MsgHash:      common.Hash(event.MsgHash).Hex(),
 		Event:        relayer.EventNameMessageStatusChanged,
 	})

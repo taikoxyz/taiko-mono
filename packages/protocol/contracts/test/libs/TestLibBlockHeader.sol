@@ -4,17 +4,25 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
-import {LibBlockHeader, BlockHeader} from "../../libs/LibBlockHeader.sol";
-import {LibRLPWriter} from "../../thirdparty/LibRLPWriter.sol";
+import { LibBlockHeader, BlockHeader } from "../../libs/LibBlockHeader.sol";
+import { LibRLPWriter } from "../../thirdparty/LibRLPWriter.sol";
 
 contract TestLibBlockHeader {
-    function hashBlockHeader(BlockHeader calldata header) public pure returns (bytes32) {
+    function hashBlockHeader(BlockHeader calldata header)
+        public
+        pure
+        returns (bytes32)
+    {
         return LibBlockHeader.hashBlockHeader(header);
     }
 
-    function rlpBlockHeader(BlockHeader calldata header) public pure returns (bytes memory) {
+    function rlpBlockHeader(BlockHeader calldata header)
+        public
+        pure
+        returns (bytes memory)
+    {
         bytes[] memory list = new bytes[](15);
         list[0] = LibRLPWriter.writeHash(header.parentHash);
         list[1] = LibRLPWriter.writeHash(header.ommersHash);

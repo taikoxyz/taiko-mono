@@ -4,10 +4,10 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
-import {IAddressManager} from "./AddressManager.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import { IAddressManager } from "./AddressManager.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
  * This abstract contract provides a name-to-address lookup. Under the hood,
@@ -19,6 +19,8 @@ abstract contract AddressResolver {
     IAddressManager internal _addressManager;
 
     uint256[49] private __gap;
+
+    event AddressManagerChanged(address addressManager);
 
     error RESOLVER_DENIED();
     error RESOLVER_INVALID_ADDR();
@@ -37,7 +39,10 @@ abstract contract AddressResolver {
      * @param allowZeroAddress True to allow zero address to be returned.
      * @return The name's corresponding address.
      */
-    function resolve(bytes32 name, bool allowZeroAddress)
+    function resolve(
+        bytes32 name,
+        bool allowZeroAddress
+    )
         public
         view
         virtual
@@ -55,7 +60,11 @@ abstract contract AddressResolver {
      * @param allowZeroAddress True to allow zero address to be returned.
      * @return The name's corresponding address.
      */
-    function resolve(uint256 chainId, bytes32 name, bool allowZeroAddress)
+    function resolve(
+        uint256 chainId,
+        bytes32 name,
+        bool allowZeroAddress
+    )
         public
         view
         virtual
@@ -78,7 +87,11 @@ abstract contract AddressResolver {
         _addressManager = IAddressManager(addressManager_);
     }
 
-    function _resolve(uint256 chainId, bytes32 name, bool allowZeroAddress)
+    function _resolve(
+        uint256 chainId,
+        bytes32 name,
+        bool allowZeroAddress
+    )
         private
         view
         returns (address payable addr)

@@ -1,13 +1,18 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
-import {IBridge} from "../../bridge/IBridge.sol";
+import { IBridge } from "../../bridge/IBridge.sol";
 
 contract TestMessageSender {
-    bytes32 public signal = 0x3fd54831f488a22b28398de0c567a3b064b937f54f81739ae9bd545967f3abab;
+    bytes32 public signal =
+        0x3fd54831f488a22b28398de0c567a3b064b937f54f81739ae9bd545967f3abab;
 
-    function sendMessage(IBridge.Message calldata message) external payable returns (bytes32) {
+    function sendMessage(IBridge.Message calldata message)
+        external
+        payable
+        returns (bytes32)
+    {
         message;
         return signal;
     }

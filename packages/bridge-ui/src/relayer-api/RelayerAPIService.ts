@@ -1,9 +1,11 @@
+import type { Address } from '@wagmi/core';
 import axios from 'axios';
 import { BigNumber, Contract, ethers } from 'ethers';
+
+import { chains } from '../chain/chains';
 import { bridgeABI, erc20ABI, tokenVaultABI } from '../constants/abi';
 import { MessageStatus } from '../domain/message';
-
-import type { BridgeTransaction } from '../domain/transactions';
+import type { ProvidersRecord } from '../domain/provider';
 import type {
   APIRequestParams,
   APIResponse,
@@ -14,21 +16,106 @@ import type {
   RelayerAPI,
   RelayerBlockInfo,
 } from '../domain/relayerApi';
-import { chains } from '../chain/chains';
+import type { BridgeTransaction } from '../domain/transaction';
+import { getLogger } from '../utils/logger';
 import { tokenVaults } from '../vault/tokenVaults';
-import type { ChainID } from '../domain/chain';
+
+const log = getLogger('RelayerAPIService');
 
 export class RelayerAPIService implements RelayerAPI {
-  private readonly providers: Record<
-    ChainID,
-    ethers.providers.StaticJsonRpcProvider
-  >;
+  private static _filterDuplicateAndWrongBridge(
+    items: APIResponseTransaction[],
+  ) {
+    const uniqueHashes = new Set<string>();
+    const filteredItems: APIResponseTransaction[] = [];
+
+    for (const item of items) {
+      const { transactionHash, address } = item.data?.Raw;
+      const bridgeAddress = chains[item.chainID]?.bridgeAddress; // will also handle unsupported chain
+      const hasDuplicateHash = uniqueHashes.has(transactionHash);
+      const wrongBridgeAddress =
+        address?.toLowerCase() !== bridgeAddress?.toLowerCase();
+
+      // Do not include tx if for whatever reason the properties transactionHash
+      // and address are not present in the response
+      const shouldIncludeTx =
+        transactionHash && address && !hasDuplicateHash && !wrongBridgeAddress;
+
+      if (!hasDuplicateHash) uniqueHashes.add(transactionHash);
+      if (shouldIncludeTx) filteredItems.push(item);
+    }
+
+    return filteredItems;
+  }
+
+  private static _getBridgeMessageStatus(
+    bridgeAddress: Address,
+    bridgeAbi: ethers.ContractInterface,
+    provider: ethers.providers.StaticJsonRpcProvider,
+    msgHash: string,
+  ) {
+    const bridgeContract: Contract = new Contract(
+      bridgeAddress,
+      bridgeAbi,
+      provider,
+    );
+
+    return bridgeContract.getMessageStatus(msgHash);
+  }
+
+  private static async _getTokenVaultERC20Event(
+    tokenVaultAddress: Address,
+    tokenVaultAbi: ethers.ContractInterface,
+    provider: ethers.providers.StaticJsonRpcProvider,
+    msgHash: string,
+    blockNumber: number,
+  ) {
+    const tokenVaultContract = new Contract(
+      tokenVaultAddress,
+      tokenVaultAbi,
+      provider,
+    );
+
+    const filter = tokenVaultContract.filters.ERC20Sent(msgHash);
+
+    const events = await tokenVaultContract.queryFilter(
+      filter,
+      blockNumber,
+      blockNumber,
+    );
+
+    return events.find(
+      ({ args }) => args.msgHash.toLowerCase() === msgHash.toLowerCase(),
+    );
+  }
+
+  private static async _getERC20Details(
+    erc20Event: ethers.Event,
+    erc20Abi: ethers.ContractInterface,
+    provider: ethers.providers.StaticJsonRpcProvider,
+  ): Promise<{
+    amount: BigNumber;
+    symbol: string;
+    decimals: number;
+  }> {
+    const { token, amount } = erc20Event.args;
+    const erc20Contract = new Contract(token, erc20Abi, provider);
+
+    const symbol: string = await erc20Contract.symbol();
+    const decimals: number = await erc20Contract.decimals();
+    const bnAmount: BigNumber = BigNumber.from(amount);
+
+    return {
+      symbol,
+      decimals,
+      amount: bnAmount,
+    };
+  }
+
+  private readonly providers: ProvidersRecord;
   private readonly baseUrl: string;
 
-  constructor(
-    baseUrl: string,
-    providers: Record<ChainID, ethers.providers.StaticJsonRpcProvider>,
-  ) {
+  constructor(baseUrl: string, providers: ProvidersRecord) {
     this.providers = providers;
 
     // There is a chance that by accident the env var
@@ -40,20 +127,29 @@ export class RelayerAPIService implements RelayerAPI {
   async getTransactionsFromAPI(params: APIRequestParams): Promise<APIResponse> {
     const requestURL = `${this.baseUrl}/events`;
 
-    const response = await axios.get<APIResponse>(requestURL, { params });
+    try {
+      log('Fetching events from API with params', params);
 
-    return response.data;
+      const response = await axios.get<APIResponse>(requestURL, { params });
+
+      if (response.status >= 400) throw response;
+
+      log('Events form API', response.data);
+
+      return response.data;
+    } catch (error) {
+      console.error(error);
+      throw new Error('could not fetch transactions from API', {
+        cause: error,
+      });
+    }
   }
 
   async getAllBridgeTransactionByAddress(
-    address: string,
+    address: Address,
     paginationParams: PaginationParams,
     chainID?: number,
   ): Promise<GetAllByAddressResponse> {
-    if (!address) {
-      throw new Error('Address need to passed to fetch transactions');
-    }
-
     const params = {
       address,
       chainID,
@@ -63,32 +159,31 @@ export class RelayerAPIService implements RelayerAPI {
 
     const apiTxs: APIResponse = await this.getTransactionsFromAPI(params);
 
+    const { page, size, total, total_pages, first, last, max_page } = apiTxs;
+
+    // TODO: we cannot rely on these values, because the API might return duplicates
+    //       and we need to filter them out in the Frontend side. We should fix this
+    //       in the API side.
     const paginationInfo: PaginationInfo = {
-      page: apiTxs.page,
-      size: apiTxs.size,
-      total: apiTxs.total,
-      total_pages: apiTxs.total_pages,
-      first: apiTxs.first,
-      last: apiTxs.last,
-      max_page: apiTxs.max_page,
+      page,
+      size,
+      total,
+      total_pages,
+      first,
+      last,
+      max_page,
     };
 
-    if (apiTxs?.items?.length === 0) {
+    if (apiTxs.items?.length === 0) {
       return { txs: [], paginationInfo };
     }
 
-    apiTxs.items.map((t, i) => {
-      apiTxs.items.map((tx, j) => {
-        if (
-          tx.data.Raw.transactionHash === t.data.Raw.transactionHash &&
-          i !== j
-        ) {
-          apiTxs.items = apiTxs.items.filter((_, index) => index !== j);
-        }
-      });
-    });
+    // TODO: maybe we should also filter out unsupported chains here?
+    const items = RelayerAPIService._filterDuplicateAndWrongBridge(
+      apiTxs.items,
+    );
 
-    const txs = apiTxs.items.map((tx: APIResponseTransaction) => {
+    const txs = items.map((tx: APIResponseTransaction) => {
       let data = tx.data.Message.Data;
       if (data === '') {
         data = '0x'; // ethers does not allow "" for empty bytes value
@@ -99,12 +194,12 @@ export class RelayerAPIService implements RelayerAPI {
 
       return {
         status: tx.status,
-        amountInWei: BigNumber.from(tx.amount),
+        amount: BigNumber.from(tx.amount),
         symbol: tx.canonicalTokenSymbol,
         hash: tx.data.Raw.transactionHash,
         from: tx.messageOwner,
-        fromChainId: tx.data.Message.SrcChainId,
-        toChainId: tx.data.Message.DestChainId,
+        srcChainId: tx.data.Message.SrcChainId,
+        destChainId: tx.data.Message.DestChainId,
         msgHash: tx.msgHash,
         canonicalTokenAddress: tx.canonicalTokenAddress,
         canonicalTokenSymbol: tx.canonicalTokenSymbol,
@@ -121,102 +216,139 @@ export class RelayerAPIService implements RelayerAPI {
           callValue: BigNumber.from(tx.data.Message.CallValue.toString()),
           srcChainId: tx.data.Message.SrcChainId,
           destChainId: tx.data.Message.DestChainId,
-          depositValue: BigNumber.from(
-            `${tx.data.Message.DepositValue.toString()}`,
-          ),
+          depositValue: BigNumber.from(tx.data.Message.DepositValue.toString()),
           processingFee: BigNumber.from(
-            `${tx.data.Message.ProcessingFee.toString()}`,
+            tx.data.Message.ProcessingFee.toString(),
           ),
           refundAddress: tx.data.Message.RefundAddress,
         },
       };
     });
 
-    const bridgeTxs: BridgeTransaction[] = await Promise.all(
-      (txs || []).map(async (tx) => {
-        if (tx.from.toLowerCase() !== address.toLowerCase()) return;
+    const txsPromises = txs.map(async (tx) => {
+      if (tx.from.toLowerCase() !== address.toLowerCase()) return;
 
-        const destChainId = tx.toChainId;
-        const destProvider = this.providers[destChainId];
-        const srcProvider = this.providers[tx.fromChainId];
-        const receipt = await srcProvider.getTransactionReceipt(tx.hash);
+      const bridgeTx: BridgeTransaction = {
+        message: tx.message,
+        msgHash: tx.msgHash,
+        status: tx.status,
+        amount: tx.amount,
+        symbol: tx.symbol,
+        decimals: tx.canonicalTokenDecimals,
+        srcChainId: tx.srcChainId,
+        destChainId: tx.destChainId,
+        hash: tx.hash,
+        from: tx.from,
+      };
 
-        if (!receipt) {
-          return tx;
-        }
+      const { destChainId, srcChainId, hash, msgHash } = bridgeTx;
 
-        const destBridgeAddress = chains[destChainId].bridgeAddress;
+      const destProvider = this.providers[destChainId];
+      const srcProvider = this.providers[srcChainId];
 
-        const destContract: Contract = new Contract(
-          destBridgeAddress,
-          bridgeABI,
-          destProvider,
-        );
+      // Ignore transactions from chains not supported by the bridge
+      if (!srcProvider || !destProvider) return;
 
-        const msgHash = tx.msgHash;
+      // Returns the transaction receipt for hash or null
+      // if the transaction has not been mined.
+      const receipt = await srcProvider.getTransactionReceipt(hash);
 
-        const messageStatus: number = await destContract.getMessageStatus(
+      // TODO: do we want to show these transactions?
+      //       If not, we simply return undefined and it'll
+      //       be filtered out later.
+      // if (!receipt) {
+      //   return bridgeTx;
+      // }
+      if (!receipt) return;
+
+      bridgeTx.receipt = receipt;
+
+      const destBridgeAddress = chains[destChainId].bridgeAddress;
+
+      const status = await RelayerAPIService._getBridgeMessageStatus(
+        destBridgeAddress,
+        bridgeABI,
+        destProvider,
+        msgHash,
+      );
+
+      // Update the status
+      bridgeTx.status = status;
+
+      if (tx.canonicalTokenAddress !== ethers.constants.AddressZero) {
+        // We're dealing with an ERC20 transfer.
+        // Let's get the symbol and amount from the TokenVault contract.
+
+        const srcTokenVaultAddress = tokenVaults[srcChainId];
+
+        const erc20Event = await RelayerAPIService._getTokenVaultERC20Event(
+          srcTokenVaultAddress,
+          tokenVaultABI,
+          srcProvider,
           msgHash,
+          receipt.blockNumber,
         );
 
-        let amountInWei: BigNumber = tx.amountInWei;
-        let symbol: string;
-        if (tx.canonicalTokenAddress !== ethers.constants.AddressZero) {
-          const tokenVaultContract = new Contract(
-            tokenVaults[tx.fromChainId],
-            tokenVaultABI,
-            srcProvider,
-          );
-          const filter = tokenVaultContract.filters.ERC20Sent(msgHash);
-          const erc20Events = await tokenVaultContract.queryFilter(
-            filter,
-            receipt.blockNumber,
-            receipt.blockNumber,
-          );
+        // TODO: do we want to show these transactions?
+        // if (!erc20Event) {
+        //   return bridgeTx;
+        // }
+        if (!erc20Event) return;
 
-          const erc20Event = erc20Events.find(
-            (e) => e.args.msgHash.toLowerCase() === msgHash.toLowerCase(),
-          );
-          if (!erc20Event) return;
-
-          const erc20Contract = new Contract(
-            erc20Event.args.token,
+        const { amount, symbol, decimals } =
+          await RelayerAPIService._getERC20Details(
+            erc20Event,
             erc20ABI,
             srcProvider,
           );
-          symbol = await erc20Contract.symbol();
-          amountInWei = BigNumber.from(erc20Event.args.amount);
-        }
 
-        const bridgeTx: BridgeTransaction = {
-          message: tx.message,
-          receipt: receipt,
-          msgHash: tx.msgHash,
-          status: messageStatus,
-          amountInWei: amountInWei,
-          symbol: symbol,
-          fromChainId: tx.fromChainId,
-          toChainId: tx.toChainId,
-          hash: tx.hash,
-          from: tx.from,
-        };
-        return bridgeTx;
-      }),
-    );
+        bridgeTx.amount = amount;
+        bridgeTx.symbol = symbol;
+        bridgeTx.decimals = decimals;
+      }
 
+      return bridgeTx;
+    });
+
+    const bridgeTxs: BridgeTransaction[] = (
+      await Promise.all(txsPromises)
+    ).filter((tx) => Boolean(tx)); // Removes undefined values
+
+    // Spreading to preserve original txs in case of array mutation
+    log('Enhanced transactions', [...bridgeTxs]);
+
+    // We want to show the latest transactions first
     bridgeTxs.reverse();
+
+    // Place new transactions at the top of the list
     bridgeTxs.sort((tx) => (tx.status === MessageStatus.New ? -1 : 1));
+
     return { txs: bridgeTxs, paginationInfo };
   }
 
   async getBlockInfo(): Promise<Map<number, RelayerBlockInfo>> {
     const requestURL = `${this.baseUrl}/blockInfo`;
-    const { data } = await axios.get(requestURL);
+
+    // TODO: why to use a Map here?
     const blockInfoMap: Map<number, RelayerBlockInfo> = new Map();
-    if (data?.data.length > 0) {
-      data.data.forEach((blockInfoByChain) => {
-        blockInfoMap.set(blockInfoByChain.chainID, blockInfoByChain);
-      });
+
+    try {
+      const response = await axios.get<{ data: RelayerBlockInfo[] }>(
+        requestURL,
+      );
+
+      if (response.status >= 400) throw response;
+
+      const { data } = response;
+
+      if (data?.data.length > 0) {
+        data.data.forEach((blockInfo) => {
+          blockInfoMap.set(blockInfo.chainID, blockInfo);
+        });
+      }
+    } catch (error) {
+      console.error(error);
+      throw new Error('failed to fetch block info', { cause: error });
     }
 
     return blockInfoMap;

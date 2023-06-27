@@ -1,18 +1,19 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
-import {LibL2Consts} from "../contracts/L2/LibL2Consts.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {TaikoL2} from "../contracts/L2/TaikoL2.sol";
-import {SafeCastUpgradeable} from
+import { Test } from "forge-std/Test.sol";
+import { console2 } from "forge-std/console2.sol";
+import { LibL2Consts } from "../contracts/L2/LibL2Consts.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { TaikoL2 } from "../contracts/L2/TaikoL2.sol";
+import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 contract TestTaikoL2 is Test {
     using SafeCastUpgradeable for uint256;
 
-    uint64 public constant BLOCK_GAS_LIMIT = 30000000; // same as `block_gas_limit` in foundry.toml
+    uint64 public constant BLOCK_GAS_LIMIT = 30_000_000; // same as
+        // `block_gas_limit` in foundry.toml
 
     TaikoL2 public L2;
     uint256 private logIndex;
@@ -22,10 +23,10 @@ contract TestTaikoL2 is Test {
         uint16 rand = 2;
         TaikoL2.EIP1559Params memory param1559 = TaikoL2.EIP1559Params({
             basefee: (uint256(BLOCK_GAS_LIMIT * 10) * rand).toUint64(),
-            gasIssuedPerSecond: 1000000,
-            gasExcessMax: (uint256(15000000) * 256 * rand).toUint64(),
-            gasTarget: (uint256(6000000) * rand).toUint64(),
-            ratio2x1x: 11177
+            gasIssuedPerSecond: 1_000_000,
+            gasExcessMax: (uint256(15_000_000) * 256 * rand).toUint64(),
+            gasTarget: (uint256(6_000_000) * rand).toUint64(),
+            ratio2x1x: 11_177
         });
 
         L2 = new TaikoL2();
@@ -133,25 +134,38 @@ contract TestTaikoL2 is Test {
 
     function testGetBasefee() external {
         uint32 timeSinceParent = uint32(block.timestamp - L2.parentTimestamp());
-        assertEq(_getBasefeeAndPrint(timeSinceParent, 0, 0), 317609019);
-        assertEq(_getBasefeeAndPrint(timeSinceParent, 1, 0), 317609019);
-        assertEq(_getBasefeeAndPrint(timeSinceParent, 1000000, 0), 320423332);
-        assertEq(_getBasefeeAndPrint(timeSinceParent, 5000000, 0), 332018053);
-        assertEq(_getBasefeeAndPrint(timeSinceParent, 10000000, 0), 347305199);
+        assertEq(_getBasefeeAndPrint(timeSinceParent, 0, 0), 317_609_019);
+        assertEq(_getBasefeeAndPrint(timeSinceParent, 1, 0), 317_609_019);
+        assertEq(
+            _getBasefeeAndPrint(timeSinceParent, 1_000_000, 0), 320_423_332
+        );
+        assertEq(
+            _getBasefeeAndPrint(timeSinceParent, 5_000_000, 0), 332_018_053
+        );
+        assertEq(
+            _getBasefeeAndPrint(timeSinceParent, 10_000_000, 0), 347_305_199
+        );
 
         timeSinceParent = uint32(100 + block.timestamp - L2.parentTimestamp());
-        assertEq(_getBasefeeAndPrint(timeSinceParent, 0, 0), 54544902);
-        assertEq(_getBasefeeAndPrint(timeSinceParent, 1, 0), 54544902);
-        assertEq(_getBasefeeAndPrint(timeSinceParent, 1000000, 0), 55028221);
-        assertEq(_getBasefeeAndPrint(timeSinceParent, 5000000, 0), 57019452);
-        assertEq(_getBasefeeAndPrint(timeSinceParent, 10000000, 0), 59644805);
+        assertEq(_getBasefeeAndPrint(timeSinceParent, 0, 0), 54_544_902);
+        assertEq(_getBasefeeAndPrint(timeSinceParent, 1, 0), 54_544_902);
+        assertEq(_getBasefeeAndPrint(timeSinceParent, 1_000_000, 0), 55_028_221);
+        assertEq(_getBasefeeAndPrint(timeSinceParent, 5_000_000, 0), 57_019_452);
+        assertEq(
+            _getBasefeeAndPrint(timeSinceParent, 10_000_000, 0), 59_644_805
+        );
     }
 
-    function _getBasefeeAndPrint(uint32 timeSinceParent, uint64 gasLimit, uint64 parentGasUsed)
+    function _getBasefeeAndPrint(
+        uint32 timeSinceParent,
+        uint64 gasLimit,
+        uint64 parentGasUsed
+    )
         private
         returns (uint256 _basefee)
     {
-        uint256 gasIssued = L2.gasIssuedPerSecond() * timeSinceParent;
+        uint256 gasIssued =
+            L2.getEIP1559Config().gasIssuedPerSecond * timeSinceParent;
         string memory _msg = string.concat(
             "#",
             Strings.toString(logIndex++),
@@ -180,7 +194,10 @@ contract TestTaikoL2 is Test {
         console2.log(_msg);
     }
 
-    function _getBasefeeAndPrint(uint32 timeSinceNow, uint64 gasLimit)
+    function _getBasefeeAndPrint(
+        uint32 timeSinceNow,
+        uint64 gasLimit
+    )
         private
         returns (uint256 _basefee)
     {
@@ -192,6 +209,11 @@ contract TestTaikoL2 is Test {
     }
 
     function _anchor(uint64 parentGasLimit) private {
-        L2.anchor(keccak256("a"), keccak256("b"), 12345, parentGasLimit + ANCHOR_GAS_COST);
+        L2.anchor(
+            keccak256("a"),
+            keccak256("b"),
+            12_345,
+            parentGasLimit + ANCHOR_GAS_COST
+        );
     }
 }

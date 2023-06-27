@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
 /**
  * Bridge interface.
@@ -53,11 +53,18 @@ interface IBridge {
 
     /// Sends a message to the destination chain and takes custody
     /// of Ether required in this contract. All extra Ether will be refunded.
-    function sendMessage(Message memory message) external payable returns (bytes32 msgHash);
+    function sendMessage(Message memory message)
+        external
+        payable
+        returns (bytes32 msgHash);
 
     // Release Ether with a proof that the message processing on the destination
     // chain has been failed.
-    function releaseEther(IBridge.Message calldata message, bytes calldata proof) external;
+    function releaseEther(
+        IBridge.Message calldata message,
+        bytes calldata proof
+    )
+        external;
 
     /// Checks if a msgHash has been stored on the bridge contract by the
     /// current address.
@@ -65,13 +72,21 @@ interface IBridge {
 
     /// Checks if a msgHash has been received on the destination chain and
     /// sent by the src chain.
-    function isMessageReceived(bytes32 msgHash, uint256 srcChainId, bytes calldata proof)
+    function isMessageReceived(
+        bytes32 msgHash,
+        uint256 srcChainId,
+        bytes calldata proof
+    )
         external
         view
         returns (bool);
 
     /// Checks if a msgHash has been failed on the destination chain.
-    function isMessageFailed(bytes32 msgHash, uint256 destChainId, bytes calldata proof)
+    function isMessageFailed(
+        bytes32 msgHash,
+        uint256 destChainId,
+        bytes calldata proof
+    )
         external
         view
         returns (bool);
@@ -79,5 +94,8 @@ interface IBridge {
     /// Returns the bridge state context.
     function context() external view returns (Context memory context);
 
-    function hashMessage(IBridge.Message calldata message) external pure returns (bytes32);
+    function hashMessage(IBridge.Message calldata message)
+        external
+        pure
+        returns (bytes32);
 }

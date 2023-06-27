@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { link } from 'svelte-spa-router';
   import { getContext } from 'svelte';
   import type { Writable } from 'svelte/store';
+  import { link } from 'svelte-spa-router';
+  
   import { key } from './Tabs.svelte';
 
   export let href: string = '';

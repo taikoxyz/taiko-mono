@@ -2,10 +2,10 @@
   "overview": {
     "title": "Overview"
   },
-  "creating-taiko-blocks": {
-    "title": "Creating Taiko blocks"
+  "proposing": {
+    "title": "Proposing Taiko blocks"
   },
-  "proving-taiko-blocks": {
+  "proving": {
     "title": "Proving Taiko blocks"
   },
   "bridging": {

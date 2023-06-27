@@ -25,8 +25,8 @@ func (svc *Service) saveBlockProposedEvents(
 	for {
 		event := events.Event
 
-		if event.Raw.Removed {
-			continue
+		if err := svc.detectAndHandleReorg(ctx, eventindexer.EventNameBlockProposed, event.Id.Int64()); err != nil {
+			return errors.Wrap(err, "svc.detectAndHandleReorg")
 		}
 
 		tx, _, err := svc.ethClient.TransactionByHash(ctx, event.Raw.TxHash)
@@ -59,10 +59,14 @@ func (svc *Service) saveBlockProposedEvent(
 	event *taikol1.TaikoL1BlockProposed,
 	sender common.Address,
 ) error {
+	log.Info("blockProposed event found")
+
 	marshaled, err := json.Marshal(event)
 	if err != nil {
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
+
+	blockID := event.Id.Int64()
 
 	_, err = svc.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
 		Name:    eventindexer.EventNameBlockProposed,
@@ -70,6 +74,7 @@ func (svc *Service) saveBlockProposedEvent(
 		ChainID: chainID,
 		Event:   eventindexer.EventNameBlockProposed,
 		Address: sender.Hex(),
+		BlockID: &blockID,
 	})
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.Save")

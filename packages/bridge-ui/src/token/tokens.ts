@@ -8,16 +8,10 @@ import type { Token } from '../domain/token';
 
 export const ETHToken: Token = {
   name: 'Ethereum',
-  addresses: [
-    {
-      chainId: L1_CHAIN_ID,
-      address: '0x00',
-    },
-    {
-      chainId: L2_CHAIN_ID,
-      address: '0x00',
-    },
-  ],
+  addresses: {
+    [L1_CHAIN_ID]: '0x00',
+    [L2_CHAIN_ID]: '0x00',
+  },
   decimals: 18,
   symbol: 'ETH',
   logoComponent: Eth,
@@ -25,18 +19,14 @@ export const ETHToken: Token = {
 
 export const TKOToken: Token = {
   name: 'Taiko',
-  addresses: [
-    {
-      chainId: L1_CHAIN_ID,
-      address: '0x00',
-    },
-    {
-      chainId: L2_CHAIN_ID,
-      address: '0x00',
-    },
-  ],
+  addresses: {
+    [L1_CHAIN_ID]: '0x00',
+    [L2_CHAIN_ID]: '0x00',
+  },
   decimals: 18,
   symbol: 'TKO',
+  logoUrl:
+    'https://github.com/taikoxyz/taiko-mono/tree/main/packages/branding/testnet-token-images/ttko.svg',
   logoComponent: Tko,
 };
 
@@ -47,23 +37,35 @@ const symbolToLogoComponent = {
 };
 
 export const testERC20Tokens: Token[] = TEST_ERC20.map(
-  ({ name, address, symbol }) => ({
+  ({ name, address, symbol, logoUrl }) => ({
     name,
     symbol,
 
-    addresses: [
-      {
-        chainId: L1_CHAIN_ID,
-        address,
-      },
-      {
-        chainId: L2_CHAIN_ID,
-        address: '0x00',
-      },
-    ],
+    addresses: {
+      [L1_CHAIN_ID]: address,
+      [L2_CHAIN_ID]: '0x00',
+    },
     decimals: 18,
     logoComponent: symbolToLogoComponent[symbol] || Unknown,
+    logoUrl: logoUrl,
   }),
 );
 
 export const tokens = [ETHToken, ...testERC20Tokens];
+
+export function isTestToken(token: Token): boolean {
+  const testingTokens = TEST_ERC20.map((testToken) =>
+    testToken.symbol.toLocaleLowerCase(),
+  );
+  return testingTokens.includes(token.symbol.toLocaleLowerCase());
+}
+
+export function isETH(token: Token): boolean {
+  return (
+    token.symbol.toLocaleLowerCase() === ETHToken.symbol.toLocaleLowerCase()
+  );
+}
+
+export function isERC20(token: Token): boolean {
+  return !isETH(token);
+}

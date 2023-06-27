@@ -1,4 +1,5 @@
 import type { BigNumber, ethers, Transaction } from 'ethers';
+
 import type { ChainID } from './chain';
 import type { Message } from './message';
 
@@ -10,24 +11,27 @@ export enum BridgeType {
 }
 
 export type ApproveOpts = {
-  amountInWei: BigNumber;
+  amount: BigNumber;
   contractAddress: string;
   signer: ethers.Signer;
   spenderAddress: string;
 };
 
 export type BridgeOpts = {
-  amountInWei: BigNumber;
+  amount: BigNumber;
   signer: ethers.Signer;
   tokenAddress: string;
-  fromChainId: ChainID;
-  toChainId: ChainID;
+  srcChainId: ChainID;
+  destChainId: ChainID;
   tokenVaultAddress?: string;
   bridgeAddress?: string;
   processingFeeInWei?: BigNumber;
   tokenId?: string;
   memo?: string;
+
+  // TODO: remove this, and move this check to the ERC20 bridge directly
   isBridgedTokenAlreadyDeployed?: boolean;
+
   to: string;
 };
 
@@ -50,15 +54,10 @@ export type ReleaseOpts = {
 };
 
 export interface Bridge {
-  RequiresAllowance(opts: ApproveOpts): Promise<boolean>;
-  Approve(opts: ApproveOpts): Promise<Transaction>;
-  Bridge(opts: BridgeOpts): Promise<Transaction>;
-  EstimateGas(opts: BridgeOpts): Promise<BigNumber>;
-  Claim(opts: ClaimOpts): Promise<Transaction>;
-  ReleaseTokens(opts: ReleaseOpts): Promise<Transaction>;
-}
-
-// TODO: this should not be here
-export interface HTMLBridgeForm extends HTMLFormElement {
-  customTokenAddress: HTMLInputElement;
+  requiresAllowance(opts: ApproveOpts): Promise<boolean>;
+  approve(opts: ApproveOpts): Promise<Transaction>;
+  bridge(opts: BridgeOpts): Promise<Transaction>;
+  estimateGas(opts: BridgeOpts): Promise<BigNumber>;
+  claim(opts: ClaimOpts): Promise<Transaction>;
+  release(opts: ReleaseOpts): Promise<Transaction>;
 }

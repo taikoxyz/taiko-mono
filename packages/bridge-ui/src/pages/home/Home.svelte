@@ -1,65 +1,81 @@
 <script lang="ts">
   import { location } from 'svelte-spa-router';
-  import { transactions } from '../../store/transactions';
-  import BridgeForm from '../../components/form/BridgeForm.svelte';
-  import TaikoBanner from '../../components/TaikoBanner.svelte';
-  import Transactions from '../../components/Transactions';
-  import { Tabs, TabList, Tab, TabPanel } from '../../components/Tabs';
 
-  let bridgeWidth: number;
-  let bridgeHeight: number;
+  import BridgeForm from '../../components/BridgeForm';
+  import SelectChain from '../../components/BridgeForm/SelectChain.svelte';
+  import Faucet from '../../components/Faucet/Faucet.svelte';
+  import Loading from '../../components/Loading.svelte';
+  import { Tab, TabList, TabPanel, Tabs } from '../../components/Tabs';
+  import Transactions from '../../components/Transactions';
+  import { paginationInfo } from '../../store/relayerApi';
+  import { signer } from '../../store/signer';
+  import { transactions } from '../../store/transaction';
 
   // List of tab's name <=> route association
   // TODO: add this into a general configuration.
   const tabsRoute = [
     { name: 'bridge', href: '/' },
     { name: 'transactions', href: '/transactions' },
+    { name: 'faucet', href: '/faucet' },
     // Add more tabs if needed
   ];
 
-  // TODO: we're assuming we have only two tabs here.
-  //       Change strategy if needed.
-  $: activeTab = $location === '/' ? tabsRoute[0].name : tabsRoute[1].name;
-
-  // TODO: do we really need all these tricks to style containers
-  //       Rethink this part: fluid, fixing on bigger screens
-  $: isBridge = activeTab === tabsRoute[0].name;
-  $: styleContainer = isBridge ? '' : `min-width: ${bridgeWidth}px;`;
-  $: fitClassContainer = isBridge ? 'max-w-fit' : 'w-fit';
-  $: styleInner =
-    isBridge && $transactions.length > 0
-      ? ''
-      : `min-height: ${bridgeHeight}px;`;
+  $: activeTab =
+    $location === '/' ? tabsRoute[0].name : $location.replace('/', '');
 </script>
 
-<div
-  class="container mx-auto text-center my-10 {fitClassContainer}"
-  style={styleContainer}
-  bind:clientWidth={bridgeWidth}
-  bind:clientHeight={bridgeHeight}>
+<div class="container mx-auto text-center my-10">
   <Tabs
-    class="rounded-3xl border-2 border-bridge-form border-solid p-2 md:p-6"
-    style={styleInner}
+    class="
+      tabs 
+      md:bg-tabs 
+      md:border-2 
+      md:dark:border-1 
+      md:border-gray-200 
+      md:dark:border-gray-800 
+      md:shadow-md 
+      md:rounded-3xl 
+      md:p-6 
+      md:inline-block 
+      md:min-h-[650px]
+      p-2"
     bind:activeTab>
     {@const tab1 = tabsRoute[0]}
     {@const tab2 = tabsRoute[1]}
+    {@const tab3 = tabsRoute[2]}
 
-    <TabList class="block mb-4">
+    <TabList class="block mb-4 w-full">
       <Tab name={tab1.name} href={tab1.href}>Bridge</Tab>
       <Tab name={tab2.name} href={tab2.href}>
-        Transactions ({$transactions.length})
+        <span>Transactions</span>
+        {#if $paginationInfo || !$signer}
+          ({$transactions.length})
+        {:else}
+          (<Loading />)
+        {/if}
       </Tab>
+      <Tab name={tab3.name} href={tab3.href}>Faucet</Tab>
     </TabList>
 
     <TabPanel tab={tab1.name}>
-      <TaikoBanner />
-      <div class="px-4">
+      <div class="rounded-lg py-4 flex flex-col items-center justify-center">
+        <SelectChain />
+      </div>
+      <div class="md:w-[440px] px-4">
         <BridgeForm />
       </div>
     </TabPanel>
 
     <TabPanel tab={tab2.name}>
-      <Transactions />
+      <div class="md:min-w-[440px]">
+        <Transactions />
+      </div>
+    </TabPanel>
+
+    <TabPanel tab={tab3.name}>
+      <div class="md:w-[440px] px-4">
+        <Faucet />
+      </div>
     </TabPanel>
   </Tabs>
 </div>

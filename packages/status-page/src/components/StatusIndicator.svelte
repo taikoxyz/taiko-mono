@@ -7,7 +7,6 @@
   import { fade } from "svelte/transition";
   import Tooltip from "./Tooltip.svelte";
   import TooltipModal from "./TooltipModal.svelte";
-  import DetailsModal from "./DetailsModal.svelte";
 
   export let provider: ethers.providers.JsonRpcProvider;
   export let contractAddress: string;
@@ -23,7 +22,7 @@
     provider: ethers.providers.JsonRpcProvider,
     contractAddress: string,
     onEvent: (value: Status) => void
-  ) => void;
+  ) => () => void;
 
   export let colorFunc: (value: Status) => string;
 
@@ -43,6 +42,8 @@
 
   let detailsOpen: boolean = false;
 
+  let cancelFunc: () => void = () => {};
+
   onMount(async () => {
     try {
       if (status) {
@@ -57,9 +58,16 @@
     }
 
     if (watchStatusFunc) {
-      watchStatusFunc(provider, contractAddress, (value: Status) => {
-        statusValue = value;
-      });
+      if (!statusFunc) {
+        statusValue = "Waiting for event...";
+      }
+      cancelFunc = watchStatusFunc(
+        provider,
+        contractAddress,
+        (value: Status) => {
+          statusValue = value;
+        }
+      );
     }
 
     if (intervalInMs !== 0) {
@@ -75,6 +83,7 @@
 
   onDestroy(() => {
     if (interval) clearInterval(interval);
+    if (cancelFunc) cancelFunc();
   });
 </script>
 

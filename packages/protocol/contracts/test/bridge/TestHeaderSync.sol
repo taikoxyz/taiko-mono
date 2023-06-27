@@ -4,9 +4,9 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
-import {ICrossChainSync} from "../../common/ICrossChainSync.sol";
+import { ICrossChainSync } from "../../common/ICrossChainSync.sol";
 
 // TODO(roger): remove this file. If you need extra functionality in
 // the Bridge contract, create a TestBridge.sol contract instead.

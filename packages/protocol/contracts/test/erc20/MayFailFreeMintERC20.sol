@@ -4,9 +4,9 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 // An ERC20 token for testing the Taiko Bridge on testnets.
 // This token has 50% of failure on transfers so we can
@@ -16,7 +16,7 @@ contract MayFailFreeMintERC20 is ERC20 {
 
     error HasMinted();
 
-    constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
+    constructor(string memory name, string memory symbol) ERC20(name, symbol) { }
 
     function mint(address to) public {
         if (minters[msg.sender]) {
@@ -27,12 +27,23 @@ contract MayFailFreeMintERC20 is ERC20 {
         _mint(to, 50 * (10 ** decimals()));
     }
 
-    function transfer(address to, uint256 amount) public override returns (bool) {
+    function transfer(
+        address to,
+        uint256 amount
+    )
+        public
+        override
+        returns (bool)
+    {
         _mayFail();
         return ERC20.transfer(to, amount);
     }
 
-    function transferFrom(address from, address to, uint256 amount)
+    function transferFrom(
+        address from,
+        address to,
+        uint256 amount
+    )
         public
         override
         returns (bool)

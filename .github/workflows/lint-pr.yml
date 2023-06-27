@@ -20,8 +20,10 @@ jobs:
             repo
             branding
             bridge-ui
+            bridge-ui-v2
             deps
             eventindexer
+            fork-diff
             protocol
             relayer
             starter-dapp

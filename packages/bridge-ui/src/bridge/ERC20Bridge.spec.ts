@@ -1,8 +1,9 @@
 import { BigNumber, ethers, Wallet } from 'ethers';
-import type { ApproveOpts, Bridge, BridgeOpts } from '../domain/bridge';
-import { ERC20Bridge } from './ERC20Bridge';
-import { Message, MessageStatus } from '../domain/message';
+
 import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
+import type { ApproveOpts, Bridge, BridgeOpts } from '../domain/bridge';
+import { Message, MessageStatus } from '../domain/message';
+import { ERC20Bridge } from './ERC20Bridge';
 
 jest.mock('../constants/envVars');
 
@@ -26,8 +27,7 @@ const mockProver = {
 };
 
 jest.mock('ethers', () => ({
-  /* eslint-disable-next-line */
-  ...(jest.requireActual('ethers') as object),
+  ...jest.requireActual('ethers'),
   Wallet: function () {
     return mockSigner;
   },
@@ -42,11 +42,11 @@ jest.mock('ethers', () => ({
 const wallet = new Wallet('0x');
 
 const opts: BridgeOpts = {
-  amountInWei: BigNumber.from(1),
+  amount: BigNumber.from(1),
   signer: wallet,
   tokenAddress: '0xtoken',
-  fromChainId: L1_CHAIN_ID,
-  toChainId: L2_CHAIN_ID,
+  srcChainId: L1_CHAIN_ID,
+  destChainId: L2_CHAIN_ID,
   tokenVaultAddress: '0x456',
   processingFeeInWei: BigNumber.from(2),
   memo: 'memo',
@@ -54,7 +54,7 @@ const opts: BridgeOpts = {
 };
 
 const approveOpts: ApproveOpts = {
-  amountInWei: BigNumber.from(1),
+  amount: BigNumber.from(1),
   signer: wallet,
   contractAddress: '0x456',
   spenderAddress: '0x789',
@@ -66,16 +66,14 @@ describe('bridge tests', () => {
   });
 
   it('requires allowance returns true when allowance has not been set', async () => {
-    mockContract.allowance.mockImplementationOnce(() =>
-      opts.amountInWei.sub(1),
-    );
+    mockContract.allowance.mockImplementationOnce(() => opts.amount.sub(1));
 
     mockSigner.getAddress.mockImplementationOnce(() => '0xfake');
 
     const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.allowance).not.toHaveBeenCalled();
-    const requires = await bridge.RequiresAllowance(approveOpts);
+    const requires = await bridge.requiresAllowance(approveOpts);
 
     expect(mockSigner.getAddress).toHaveBeenCalled();
     expect(mockContract.allowance).toHaveBeenCalledWith(
@@ -86,15 +84,13 @@ describe('bridge tests', () => {
   });
 
   it('requires allowance returns true when allowance is > than amount', async () => {
-    mockContract.allowance.mockImplementationOnce(() =>
-      opts.amountInWei.add(1),
-    );
+    mockContract.allowance.mockImplementationOnce(() => opts.amount.add(1));
     mockSigner.getAddress.mockImplementationOnce(() => '0xfake');
 
     const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.allowance).not.toHaveBeenCalled();
-    const requires = await bridge.RequiresAllowance(approveOpts);
+    const requires = await bridge.requiresAllowance(approveOpts);
 
     expect(mockSigner.getAddress).toHaveBeenCalled();
     expect(mockContract.allowance).toHaveBeenCalledWith(
@@ -105,13 +101,13 @@ describe('bridge tests', () => {
   });
 
   it('requires allowance returns true when allowance is === amount', async () => {
-    mockContract.allowance.mockImplementationOnce(() => opts.amountInWei);
+    mockContract.allowance.mockImplementationOnce(() => opts.amount);
     mockSigner.getAddress.mockImplementationOnce(() => '0xfake');
 
     const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.allowance).not.toHaveBeenCalled();
-    const requires = await bridge.RequiresAllowance(approveOpts);
+    const requires = await bridge.requiresAllowance(approveOpts);
 
     expect(mockSigner.getAddress).toHaveBeenCalled();
     expect(mockContract.allowance).toHaveBeenCalledWith(
@@ -122,16 +118,14 @@ describe('bridge tests', () => {
   });
 
   it('approve throws when amount is already greater than whats set', async () => {
-    mockContract.allowance.mockImplementationOnce(() =>
-      opts.amountInWei.add(1),
-    );
+    mockContract.allowance.mockImplementationOnce(() => opts.amount.add(1));
 
     mockSigner.getAddress.mockImplementationOnce(() => '0xfake');
 
     const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.allowance).not.toHaveBeenCalled();
-    await expect(bridge.Approve(approveOpts)).rejects.toThrowError(
+    await expect(bridge.approve(approveOpts)).rejects.toThrowError(
       'token vault already has required allowance',
     );
 
@@ -143,16 +137,14 @@ describe('bridge tests', () => {
   });
 
   it('approve succeeds when allowance is less than what is being requested', async () => {
-    mockContract.allowance.mockImplementationOnce(() =>
-      opts.amountInWei.sub(1),
-    );
+    mockContract.allowance.mockImplementationOnce(() => opts.amount.sub(1));
 
     mockSigner.getAddress.mockImplementationOnce(() => '0xfake');
 
     const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.allowance).not.toHaveBeenCalled();
-    await bridge.Approve(approveOpts);
+    await bridge.approve(approveOpts);
 
     expect(mockSigner.getAddress).toHaveBeenCalled();
     expect(mockContract.allowance).toHaveBeenCalledWith(
@@ -161,20 +153,18 @@ describe('bridge tests', () => {
     );
     expect(mockContract.approve).toHaveBeenCalledWith(
       approveOpts.spenderAddress,
-      approveOpts.amountInWei,
+      approveOpts.amount,
     );
   });
 
   it('bridge throws when requires approval', async () => {
-    mockContract.allowance.mockImplementationOnce(() =>
-      opts.amountInWei.sub(1),
-    );
+    mockContract.allowance.mockImplementationOnce(() => opts.amount.sub(1));
 
     const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.sendERC20).not.toHaveBeenCalled();
 
-    await expect(bridge.Bridge(opts)).rejects.toThrowError(
+    await expect(bridge.bridge(opts)).rejects.toThrowError(
       'token vault does not have required allowance',
     );
 
@@ -182,23 +172,21 @@ describe('bridge tests', () => {
   });
 
   it('bridge calls senderc20 when doesnt require approval', async () => {
-    mockContract.allowance.mockImplementationOnce(() =>
-      opts.amountInWei.add(1),
-    );
+    mockContract.allowance.mockImplementationOnce(() => opts.amount.add(1));
     mockSigner.getAddress.mockImplementation(() => '0xfake');
 
     const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.sendERC20).not.toHaveBeenCalled();
 
-    await bridge.Bridge(opts);
+    await bridge.bridge(opts);
 
     expect(mockContract.sendERC20).toHaveBeenCalled();
     expect(mockContract.sendERC20).toHaveBeenCalledWith(
-      opts.toChainId,
+      opts.destChainId,
       '0x',
       opts.tokenAddress,
-      opts.amountInWei,
+      opts.amount,
       BigNumber.from(3140000),
       opts.processingFeeInWei,
       '0xfake',
@@ -210,9 +198,7 @@ describe('bridge tests', () => {
   });
 
   it('bridge calls senderc20 when doesnt requires approval, with no processing fee and memo', async () => {
-    mockContract.allowance.mockImplementationOnce(() =>
-      opts.amountInWei.add(1),
-    );
+    mockContract.allowance.mockImplementationOnce(() => opts.amount.add(1));
     mockSigner.getAddress.mockImplementation(() => '0xfake');
 
     const bridge: Bridge = new ERC20Bridge(null);
@@ -220,22 +206,22 @@ describe('bridge tests', () => {
     expect(mockContract.sendERC20).not.toHaveBeenCalled();
 
     const opts: BridgeOpts = {
-      amountInWei: BigNumber.from(1),
+      amount: BigNumber.from(1),
       signer: wallet,
       tokenAddress: '0xtoken',
-      fromChainId: L1_CHAIN_ID,
-      toChainId: L2_CHAIN_ID,
+      srcChainId: L1_CHAIN_ID,
+      destChainId: L2_CHAIN_ID,
       tokenVaultAddress: '0x456',
       to: await wallet.getAddress(),
     };
 
-    await bridge.Bridge(opts);
+    await bridge.bridge(opts);
 
     expect(mockContract.sendERC20).toHaveBeenCalledWith(
-      opts.toChainId,
+      opts.destChainId,
       '0xfake',
       opts.tokenAddress,
-      opts.amountInWei,
+      opts.amount,
       BigNumber.from(3000000),
       BigNumber.from(0),
       '0xfake',
@@ -256,7 +242,7 @@ describe('bridge tests', () => {
     const bridge: Bridge = new ERC20Bridge(null);
 
     await expect(
-      bridge.Claim({
+      bridge.claim({
         message: {
           srcChainId: BigNumber.from(L2_CHAIN_ID),
           destChainId: BigNumber.from(L1_CHAIN_ID),
@@ -280,7 +266,7 @@ describe('bridge tests', () => {
     const bridge: Bridge = new ERC20Bridge(null);
 
     await expect(
-      bridge.Claim({
+      bridge.claim({
         message: {
           srcChainId: BigNumber.from(L2_CHAIN_ID),
           destChainId: BigNumber.from(L1_CHAIN_ID),
@@ -308,7 +294,7 @@ describe('bridge tests', () => {
     const bridge: Bridge = new ERC20Bridge(null);
 
     await expect(
-      bridge.Claim({
+      bridge.claim({
         message: {
           owner: '0x',
           srcChainId: BigNumber.from(L2_CHAIN_ID),
@@ -342,7 +328,7 @@ describe('bridge tests', () => {
 
     expect(mockProver.generateProof).not.toHaveBeenCalled();
 
-    await bridge.Claim({
+    await bridge.claim({
       message: {
         owner: '0x',
         srcChainId: BigNumber.from(L2_CHAIN_ID),
@@ -378,7 +364,7 @@ describe('bridge tests', () => {
 
     expect(mockProver.generateProof).not.toHaveBeenCalled();
 
-    await bridge.Claim({
+    await bridge.claim({
       message: {
         owner: '0x',
         srcChainId: BigNumber.from(L2_CHAIN_ID),
@@ -415,7 +401,7 @@ describe('bridge tests', () => {
     expect(mockProver.generateReleaseProof).not.toHaveBeenCalled();
 
     await expect(
-      bridge.ReleaseTokens({
+      bridge.release({
         message: {
           owner: '0x',
           srcChainId: BigNumber.from(L2_CHAIN_ID),
@@ -450,7 +436,7 @@ describe('bridge tests', () => {
 
     expect(mockProver.generateReleaseProof).not.toHaveBeenCalled();
 
-    await bridge.ReleaseTokens({
+    await bridge.release({
       message: {
         owner: '0x',
         srcChainId: BigNumber.from(L2_CHAIN_ID),

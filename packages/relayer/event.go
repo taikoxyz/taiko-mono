@@ -97,8 +97,14 @@ type EventRepository interface {
 		req *http.Request,
 		opts FindAllByAddressOpts,
 	) (paginate.Page, error)
-	FindAllByMsgHash(
+	FirstByMsgHash(
 		ctx context.Context,
 		msgHash string,
-	) ([]*Event, error)
+	) (*Event, error)
+	FirstByEventAndMsgHash(
+		ctx context.Context,
+		event string,
+		msgHash string,
+	) (*Event, error)
+	Delete(ctx context.Context, id int) error
 }

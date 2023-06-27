@@ -21,11 +21,11 @@ struct Config {
   uint256 realProofSkipSize;
   uint256 ethDepositGas;
   uint256 ethDepositMaxFee;
-  uint64 minEthDepositsPerBlock;
-  uint64 maxEthDepositsPerBlock;
-  uint96 maxEthDepositAmount;
-  uint96 minEthDepositAmount;
-  uint8 adjustmentQuotient;
+  uint256 ethDepositRingBufferSize;
+  uint64 ethDepositMinCountPerBlock;
+  uint64 ethDepositMaxCountPerBlock;
+  uint96 ethDepositMaxAmount;
+  uint96 ethDepositMinAmount;
   bool relaySignalRoot;
 }
 ```
@@ -35,14 +35,10 @@ struct Config {
 ```solidity
 struct StateVariables {
   uint64 blockFee;
-  uint64 accBlockFees;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 numBlocks;
-  uint64 proofTimeIssued;
-  uint64 proofTimeTarget;
   uint64 lastVerifiedBlockId;
-  uint64 accProposedAt;
   uint64 nextEthDepositToProcess;
   uint64 numEthDeposits;
 }
@@ -139,6 +135,7 @@ struct TxListInfo {
 struct EthDeposit {
   address recipient;
   uint96 amount;
+  uint64 id;
 }
 ```
 
@@ -150,19 +147,20 @@ struct State {
   mapping(uint256 => mapping(bytes32 => mapping(uint32 => uint256))) forkChoiceIds;
   mapping(address => uint256) taikoTokenBalances;
   mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
-  struct TaikoData.EthDeposit[] ethDeposits;
+  mapping(uint256 => uint256) ethDeposits;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
-  uint64 __reserved71;
+  uint16 __reserved70;
+  uint48 __reserved71;
   uint64 __reserved72;
-  uint64 accProposedAt;
-  uint64 accBlockFees;
+  uint64 __reserved80;
+  uint64 numEthDeposits;
   uint64 numBlocks;
   uint64 nextEthDepositToProcess;
   uint64 blockFee;
-  uint64 proofTimeIssued;
+  uint64 __reserved90;
   uint64 lastVerifiedBlockId;
-  uint64 proofTimeTarget;
+  uint64 __reserved91;
   uint256[42] __gap;
 }
 ```

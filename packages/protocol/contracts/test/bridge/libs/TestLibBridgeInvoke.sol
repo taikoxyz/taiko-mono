@@ -4,11 +4,11 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
-import {LibBridgeInvoke} from "../../../bridge/libs/LibBridgeInvoke.sol";
-import {LibBridgeData} from "../../../bridge/libs/LibBridgeData.sol";
-import {IBridge} from "../../../bridge/IBridge.sol";
+import { LibBridgeInvoke } from "../../../bridge/libs/LibBridgeInvoke.sol";
+import { LibBridgeData } from "../../../bridge/libs/LibBridgeData.sol";
+import { IBridge } from "../../../bridge/IBridge.sol";
 
 // TODO(roger): remove this file. If you need extra functionality in
 // the Bridge contract, create a TestBridge.sol contract instead.
@@ -17,11 +17,16 @@ contract TestLibBridgeInvoke {
 
     event MessageInvoked(bytes32 signal, bool success);
 
-    function invokeMessageCall(IBridge.Message calldata message, bytes32 signal, uint256 gasLimit)
+    function invokeMessageCall(
+        IBridge.Message calldata message,
+        bytes32 signal,
+        uint256 gasLimit
+    )
         public
         payable
     {
-        bool success = LibBridgeInvoke.invokeMessageCall(state, message, signal, gasLimit);
+        bool success =
+            LibBridgeInvoke.invokeMessageCall(state, message, signal, gasLimit);
         emit MessageInvoked(signal, success);
     }
 }

@@ -1,11 +1,17 @@
-import type { BridgeTransaction, Transactioner } from '../domain/transactions';
+import type { Address } from '@wagmi/core';
 import { BigNumber, Contract, ethers } from 'ethers';
-import { bridgeABI, tokenVaultABI, erc20ABI } from '../constants/abi';
-import { MessageStatus } from '../domain/message';
+
 import { chains } from '../chain/chains';
-import { tokenVaults } from '../vault/tokenVaults';
-import type { Address, ChainID } from '../domain/chain';
+import { bridgeABI, erc20ABI, tokenVaultABI } from '../constants/abi';
+import type { ChainID } from '../domain/chain';
+import { MessageStatus } from '../domain/message';
+import type { BridgeTransaction, Transactioner } from '../domain/transaction';
+import { isETHByMessage } from '../utils/isETHByMessage';
 import { jsonParseOrEmptyArray } from '../utils/jsonParseOrEmptyArray';
+import { getLogger } from '../utils/logger';
+import { tokenVaults } from '../vault/tokenVaults';
+
+const log = getLogger('StorageService');
 
 const STORAGE_PREFIX = 'transactions';
 
@@ -79,18 +85,19 @@ export class StorageService implements Transactioner {
     );
   }
 
-  private static async _getERC20SymbolAndAmount(
+  private static async _getERC20Details(
     erc20Event: ethers.Event,
     erc20Abi: ethers.ContractInterface,
     provider: ethers.providers.StaticJsonRpcProvider,
-  ): Promise<[string, BigNumber]> {
+  ): Promise<[BigNumber, string, number]> {
     const { token, amount } = erc20Event.args;
     const erc20Contract = new Contract(token, erc20Abi, provider);
 
     const symbol: string = await erc20Contract.symbol();
-    const amountInWei: BigNumber = BigNumber.from(amount);
+    const decimals: number = await erc20Contract.decimals();
+    const bnAmount: BigNumber = BigNumber.from(amount);
 
-    return [symbol, amountInWei];
+    return [bnAmount, symbol, decimals];
   }
 
   private readonly storage: Storage;
@@ -107,7 +114,7 @@ export class StorageService implements Transactioner {
     this.providers = providers;
   }
 
-  private _getTransactionsFromStorage(address: string): BridgeTransaction[] {
+  private _getTransactionsFromStorage(address: Address): BridgeTransaction[] {
     const existingTransactions = this.storage.getItem(
       `${STORAGE_PREFIX}-${address.toLowerCase()}`,
     );
@@ -115,16 +122,21 @@ export class StorageService implements Transactioner {
     return jsonParseOrEmptyArray<BridgeTransaction>(existingTransactions);
   }
 
-  async getAllByAddress(address: string): Promise<BridgeTransaction[]> {
+  async getAllByAddress(address: Address): Promise<BridgeTransaction[]> {
     const txs = this._getTransactionsFromStorage(address);
+
+    log('Transactions from storage', txs);
+    log('Getting details for each transaction from blockchain…');
 
     const txsPromises = txs.map(async (tx) => {
       if (tx.from.toLowerCase() !== address.toLowerCase()) return;
 
-      const { toChainId, fromChainId, hash } = tx;
+      const bridgeTx: BridgeTransaction = { ...tx }; // prevents mutation of tx
 
-      const destProvider = this.providers[toChainId];
-      const srcProvider = this.providers[fromChainId];
+      const { destChainId, srcChainId, hash } = bridgeTx;
+
+      const destProvider = this.providers[destChainId];
+      const srcProvider = this.providers[srcChainId];
 
       // Ignore transactions from chains not supported by the bridge
       if (!srcProvider) return;
@@ -134,13 +146,13 @@ export class StorageService implements Transactioner {
       const receipt = await srcProvider.getTransactionReceipt(hash);
 
       if (!receipt) {
-        return tx;
+        return bridgeTx;
       }
 
-      tx.receipt = receipt;
+      bridgeTx.receipt = receipt;
 
       // TODO: should we dependency-inject the chains?
-      const srcBridgeAddress = chains[fromChainId].bridgeAddress;
+      const srcBridgeAddress = chains[srcChainId].bridgeAddress;
 
       const messageSentEvent = await StorageService._getBridgeMessageSent(
         address,
@@ -152,17 +164,17 @@ export class StorageService implements Transactioner {
 
       if (!messageSentEvent) {
         // No message yet, so we can't get more info from this transaction
-        return tx;
+        return bridgeTx;
       }
 
       const { msgHash, message } = messageSentEvent.args;
 
       // Let's add this new info to the transaction in case something else
       // fails, such as the filter for ERC20Sent events
-      tx.msgHash = msgHash;
-      tx.message = message;
+      bridgeTx.msgHash = msgHash;
+      bridgeTx.message = message;
 
-      const destBridgeAddress = chains[toChainId].bridgeAddress;
+      const destBridgeAddress = chains[destChainId].bridgeAddress;
 
       const status = await StorageService._getBridgeMessageStatus(
         destBridgeAddress,
@@ -171,17 +183,17 @@ export class StorageService implements Transactioner {
         msgHash,
       );
 
-      tx.status = status;
+      bridgeTx.status = status;
 
-      let amountInWei: BigNumber;
+      let amount: BigNumber;
       let symbol: string;
+      let decimals: number;
 
-      // TODO: function isERC20Transfer(message: string): boolean?
-      if (message.data && message.data !== '0x') {
+      if (!isETHByMessage(message)) {
         // We're dealing with an ERC20 transfer.
         // Let's get the symbol and amount from the TokenVault contract.
 
-        const srcTokenVaultAddress = tokenVaults[fromChainId];
+        const srcTokenVaultAddress = tokenVaults[srcChainId];
 
         const erc20Event = await StorageService._getTokenVaultERC20Event(
           srcTokenVaultAddress,
@@ -192,22 +204,21 @@ export class StorageService implements Transactioner {
         );
 
         if (!erc20Event) {
-          return tx;
+          return bridgeTx;
         }
 
-        [symbol, amountInWei] = await StorageService._getERC20SymbolAndAmount(
+        [amount, symbol, decimals] = await StorageService._getERC20Details(
           erc20Event,
           erc20ABI,
           srcProvider,
         );
       }
 
-      return {
-        ...tx,
-        // Add the rest of the info
-        amountInWei,
-        symbol,
-      } as BridgeTransaction;
+      bridgeTx.amount = amount;
+      bridgeTx.symbol = symbol;
+      bridgeTx.decimals = decimals;
+
+      return bridgeTx;
     });
 
     const bridgeTxs: BridgeTransaction[] = (
@@ -217,23 +228,29 @@ export class StorageService implements Transactioner {
     // Place new transactions at the top of the list
     bridgeTxs.sort((tx) => (tx.status === MessageStatus.New ? -1 : 1));
 
+    // Spreading to preserve original txs in case of array mutation
+    log('Enhanced transactions', [...bridgeTxs]);
+
     return bridgeTxs;
   }
 
   async getTransactionByHash(
-    address: string,
+    address: Address,
     hash: string,
   ): Promise<BridgeTransaction | undefined> {
     const txs = this._getTransactionsFromStorage(address);
 
     const tx: BridgeTransaction = txs.find((tx) => tx.hash === hash);
 
+    // Spreading to preserve original tx
+    log('Transaction from storage', { ...tx });
+
     if (!tx || tx.from.toLowerCase() !== address.toLowerCase()) return;
 
-    const { toChainId, fromChainId } = tx;
+    const { destChainId, srcChainId } = tx;
 
-    const destProvider = this.providers[toChainId];
-    const srcProvider = this.providers[fromChainId];
+    const destProvider = this.providers[destChainId];
+    const srcProvider = this.providers[srcChainId];
 
     // Ignore transactions from chains not supported by the bridge
     if (!srcProvider) return;
@@ -249,7 +266,7 @@ export class StorageService implements Transactioner {
     tx.receipt = receipt;
 
     // TODO: should we dependency-inject the chains?
-    const srcBridgeAddress = chains[fromChainId].bridgeAddress;
+    const srcBridgeAddress = chains[srcChainId].bridgeAddress;
 
     const messageSentEvent = await StorageService._getBridgeMessageSent(
       address,
@@ -266,7 +283,7 @@ export class StorageService implements Transactioner {
     tx.msgHash = msgHash;
     tx.message = message;
 
-    const destBridgeAddress = chains[toChainId].bridgeAddress;
+    const destBridgeAddress = chains[destChainId].bridgeAddress;
 
     const status = await StorageService._getBridgeMessageStatus(
       destBridgeAddress,
@@ -277,18 +294,19 @@ export class StorageService implements Transactioner {
 
     tx.status = status;
 
-    let amountInWei: BigNumber;
+    let amount: BigNumber;
     let symbol: string;
+    let decimals: number;
 
-    if (message.data && message.data !== '0x') {
+    if (!isETHByMessage(message)) {
       // Dealing with an ERC20 transfer. Let's get the symbol
       // and amount from the TokenVault contract.
 
-      const srcTokenVaultAddress = tokenVaults[fromChainId];
+      const srcTokenVaultAddress = tokenVaults[srcChainId];
 
       const erc20Event = await StorageService._getTokenVaultERC20Event(
         srcTokenVaultAddress,
-        bridgeABI,
+        tokenVaultABI,
         srcProvider,
         msgHash,
         receipt.blockNumber,
@@ -298,21 +316,27 @@ export class StorageService implements Transactioner {
         return tx;
       }
 
-      [symbol, amountInWei] = await StorageService._getERC20SymbolAndAmount(
+      [amount, symbol, decimals] = await StorageService._getERC20Details(
         erc20Event,
         erc20ABI,
         srcProvider,
       );
     }
 
-    return {
+    const bridgeTx = {
       ...tx,
-      amountInWei,
+      amount,
       symbol,
+      decimals,
     } as BridgeTransaction;
+
+    log('Enhanced transaction', bridgeTx);
+
+    return bridgeTx;
   }
 
-  updateStorageByAddress(address: string, txs: BridgeTransaction[] = []) {
+  updateStorageByAddress(address: Address, txs: BridgeTransaction[] = []) {
+    log('Updating storage with transactions', txs);
     this.storage.setItem(
       `${STORAGE_PREFIX}-${address.toLowerCase()}`,
       JSON.stringify(txs),

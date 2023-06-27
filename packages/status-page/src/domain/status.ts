@@ -11,7 +11,7 @@ type StatusIndicatorProp = {
     provider: ethers.providers.JsonRpcProvider,
     contractAddress: string,
     onEvent: (value: Status) => void
-  ) => void;
+  ) => Promise<() => void>;
   provider: ethers.providers.JsonRpcProvider;
   contractAddress: string;
   header: string;

@@ -1,0 +1,44 @@
+name: Add a project to Taiko's ecosystem 🌐
+description: Add a project to Taiko's ecosystem
+title: Add [PROJECT_NAME] to the ecosystem
+labels: ["category.enhancement", "status.needs-triage", "category.ecosystem"]
+assignees:
+  - d1onys1us
+  - 2manslkh
+  - MarcusWentz
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to add your project. You can see existing examples on Taiko's ecosystem page [here](https://taiko.xyz/ecosystem)!
+  - type: input
+    id: title
+    attributes:
+      label: Title of your project
+    validations:
+      required: true
+  - type: input
+    id: description
+    attributes:
+      label: Short (1-2 sentence) description of your project
+    validations:
+      required: true
+  - type: input
+    id: link
+    attributes:
+      label: Link to your project
+    validations:
+      required: true
+  - type: input
+    id: evidence
+    attributes:
+      label: Please provide evidence here that your project is integrated with Taiko for us to easily check.
+    validations:
+      required: true
+  - type: textarea
+    id: logo
+    attributes:
+      label: Upload a quality logo to your project
+      description: 512x512 or 1:1 ratio is preferred. If no image is provided we will use a placeholder image.
+    validations:
+      required: false

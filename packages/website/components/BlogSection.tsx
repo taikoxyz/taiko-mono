@@ -1,28 +1,13 @@
 const posts = [
   {
-    title: "Taiko Community Update — Q1/2023",
-    href: "https://taiko.mirror.xyz/IoEGEzlf0aJAtF31YgHHLOa5dSoetLfpIfb7lRaRiCE",
+    title: "ZK-Roller-Coaster #7",
+    href: "https://taiko.mirror.xyz/6WL5I2lbpYxOjhU82eUOyUvYa0yF2_rekI0f7cBrGxw",
     description:
-      "Below is a summary of Taiko’s Q1 2023. Consider this Q1.5 as we’ll include updates that happened post-Q1 but before this update.",
-    date: "May 19, 2023",
-    datetime: "2023-05-19",
+      "This is the 7th edition of ZK-Roller-Coaster where we track and investigate the most exciting, meaningful, and crazy ZK-stuff of the prior two weeks.",
+    date: "Jun 20, 2023",
+    datetime: "2023-06-20",
     imageUrl:
-      "https://mirror-media.imgix.net/publication-images/TOXeVr7_rtitwDoja4vFR.png?height=512&width=1024&h=512&w=1024&auto=compress",
-    readingTime: "6 min",
-    author: {
-      name: "finestone",
-      imageUrl: "https://avatars.githubusercontent.com/u/36642873?v=4",
-    },
-  },
-  {
-    title: "ZK-Roller-Coaster #4",
-    href: "https://taiko.mirror.xyz/OCkE3gMDKixWYC-mlX7wAqDNJaUEpm3yeDAYJygyxkg",
-    description:
-      "This is the 4th edition of ZK-Roller-Coaster where we track and investigate the most exciting, meaningful, and crazy ZK-stuff of the prior two weeks.",
-    date: "May 06, 2023",
-    datetime: "2023-05-06",
-    imageUrl:
-      "https://mirror-media.imgix.net/publication-images/Myf4VHMd1ACmqL0jmYHWe.png?height=512&width=1024&h=512&w=1024&auto=compress",
+      "https://mirror-media.imgix.net/publication-images/HRLmI4Vmn9A637fxJm8cq.png?height=426&width=851&h=426&w=851&auto=compress",
     readingTime: "4 min",
     author: {
       name: "Lisa A.",
@@ -30,15 +15,31 @@ const posts = [
     },
   },
   {
-    title: "Taiko Protocol Overview",
-    href: "https://taiko.mirror.xyz/y_47kIOL5kavvBmG0zVujD2TRztMZt-xgM5d4oqp4_Y",
+    title: "L2 MEV wat",
+    href: "https://taiko.mirror.xyz/VjNjFws6OOVez5YCDMwjy4BUiDqZBHYDvcW4-JZGDkc",
     description:
-      "Taiko follows the “decentralized from day 1” approach. Below is the protocol description. Taiko protocol consists of three stages: block proposal, validation, and proving.",
-    date: "May 02, 2023",
-    datetime: "2023-05-02",
+      "In this article, we “map” the current landscape of L2 MEV, thinking about different MEV consequences for different L2 designs. We also briefly overview different ways of L2s decentralization and how it might impact L2 MEV.",
+    date: "Jun 13, 2023",
+    datetime: "2023-06-13",
     imageUrl:
-      "https://mirror-media.imgix.net/publication-images/o_qvD7XIAPSjiqlvvodoj.png?height=512&width=1024&h=512&w=1024&auto=compress",
-    readingTime: "6 min",
+      "https://mirror-media.imgix.net/publication-images/Qgm0gbwbCQnU8bm5Y1dGB.png?height=512&width=1024&h=512&w=1024&auto=compress",
+    readingTime: "15 min",
+    author: {
+      name: "Lisa A.",
+      imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",
+    },
+  },
+  {
+    title:
+      "Taiko Labs raises $22 million in funding to build an Ethereum-equivalent (Type 1) ZK-EVM",
+    href: "https://taiko.mirror.xyz/THTEOFtqE6pjDre5_Tzn04S0mjr7vCoMt5Y-uozfNv8",
+    description:
+      "We are thrilled to announce that we have raised $22 million across two funding rounds and launched our latest testnet (Alpha-3) in our mission to build a decentralized and Ethereum-equivalent (Type 1) ZK-EVM.",
+    date: "Jun 08, 2023",
+    datetime: "2023-06-08",
+    imageUrl:
+      "https://mirror-media.imgix.net/publication-images/N0UlPJZrY7oBrK3d4XovR.png?height=1600&width=3200&h=1600&w=3200&auto=compress",
+    readingTime: "3 min",
     author: {
       name: "Lisa A.",
       imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",
@@ -54,14 +55,14 @@ export default function BlogSection() {
       </div>
       <div className="relative mx-auto max-w-7xl">
         <div className="text-center">
-          <h2 className="font-oxanium text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl dark:text-neutral-100">
+          <h2 className="font-grotesk text-3xl tracking-tight text-neutral-900 sm:text-4xl dark:text-neutral-100">
             Latest blog posts
           </h2>
           <div className="mx-auto mt-3 max-w-2xl text-xl text-neutral-500 sm:mt-4 dark:text-neutral-300">
             Check out the full blog at{" "}
             <a
               className="underline"
-              href="https://mirror.xyz/labs.taiko.eth"
+              href="https://taiko.mirror.xyz"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -89,7 +90,7 @@ export default function BlogSection() {
                 <div className="flex flex-1 flex-col justify-between bg-white p-6 dark:bg-neutral-800 dark:hover:bg-neutral-700">
                   <div className="flex-1">
                     <div className="mt-2 block">
-                      <div className="text-xl font-semibold text-neutral-900 dark:text-neutral-200">
+                      <div className="text-xl font-semibold text-neutral-900 dark:text-neutral-200 line-clamp-1">
                         {post.title}
                       </div>
                       <div className="mt-3 text-base text-neutral-500 dark:text-neutral-300 line-clamp-3">
@@ -107,7 +108,7 @@ export default function BlogSection() {
                       />
                     </div>
                     <div className="ml-3">
-                      <div className="text-sm font-medium text-[#fc0fc0]">
+                      <div className="text-sm font-medium text-[#e81899]">
                         {post.author.name}
                       </div>
                       <div className="flex space-x-1 text-sm text-neutral-500 dark:text-neutral-400">

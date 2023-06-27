@@ -1,5 +1,46 @@
 # Changelog
 
+## [0.9.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.8.0...bridge-ui-v0.9.0) (2023-06-26)
+
+
+### Features
+
+* **bridge-ui:** sentry integration ([#13943](https://github.com/taikoxyz/taiko-mono/issues/13943)) ([05baee8](https://github.com/taikoxyz/taiko-mono/commit/05baee8ca113b607f89c3cc25354768c8d368b46))
+
+
+### Bug Fixes
+
+* **bridge-ui:** add extra info to sentry ([#13972](https://github.com/taikoxyz/taiko-mono/issues/13972)) ([50a1034](https://github.com/taikoxyz/taiko-mono/commit/50a1034812ded4ed890f9859fc603bfc801dcdc3))
+* **bridge-ui:** filtering out BLL token failure when bridging ([#13969](https://github.com/taikoxyz/taiko-mono/issues/13969)) ([300be15](https://github.com/taikoxyz/taiko-mono/commit/300be15d3fdcdc9297a7b28427cfcdc905991306))
+* **bridge-ui:** fix issue in beforeSend ([#13971](https://github.com/taikoxyz/taiko-mono/issues/13971)) ([08baec0](https://github.com/taikoxyz/taiko-mono/commit/08baec00cfdc235c0baf3d139a8a62df6e34e914))
+* **bridge-ui:** reduce sample rate ([#14051](https://github.com/taikoxyz/taiko-mono/issues/14051)) ([e836d7d](https://github.com/taikoxyz/taiko-mono/commit/e836d7da3fdd11e443618af15318b1d93bca117e))
+
+## [0.8.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.7.1...bridge-ui-v0.8.0) (2023-06-12)
+
+
+### Features
+
+* **bridge-ui:** add token to wallet ([#13902](https://github.com/taikoxyz/taiko-mono/issues/13902)) ([683b19c](https://github.com/taikoxyz/taiko-mono/commit/683b19cab30bf8c9c713e889f969336e04641187))
+* **bridge-ui:** update favicon ([#13913](https://github.com/taikoxyz/taiko-mono/issues/13913)) ([7b0976f](https://github.com/taikoxyz/taiko-mono/commit/7b0976fb7239826acc178b209126624634e90548))
+
+
+### Bug Fixes
+
+* **bridge-ui:** fix use max logic ([#13898](https://github.com/taikoxyz/taiko-mono/issues/13898)) ([1abc3ff](https://github.com/taikoxyz/taiko-mono/commit/1abc3ff1a83b8a87f3e40c498065743e40b4dfff))
+* **bridge-ui:** handle wrong bridge address ([#13880](https://github.com/taikoxyz/taiko-mono/issues/13880)) ([fe425d9](https://github.com/taikoxyz/taiko-mono/commit/fe425d90d39665ceaca7d6d5ca1b13e5369ebed5))
+* **bridge-ui:** inform connect when adding erc20 ([#13900](https://github.com/taikoxyz/taiko-mono/issues/13900)) ([2b21f59](https://github.com/taikoxyz/taiko-mono/commit/2b21f59b1171fcedfafb03cddadc5d950cf4c754))
+* **bridge-ui:** issue with decimals ([#13892](https://github.com/taikoxyz/taiko-mono/issues/13892)) ([fbed474](https://github.com/taikoxyz/taiko-mono/commit/fbed4746ec3c75972dca95238569af2a7054a5a1))
+* **bridge-ui:** mobile issues ([#13927](https://github.com/taikoxyz/taiko-mono/issues/13927)) ([2cb5125](https://github.com/taikoxyz/taiko-mono/commit/2cb51255ee44ba49d1e2444f2d56433807dda81e))
+* **bridge-ui:** notification toast ([#13926](https://github.com/taikoxyz/taiko-mono/issues/13926)) ([9d0a502](https://github.com/taikoxyz/taiko-mono/commit/9d0a502171669258ded67c8d5a3387c98c8c52e0))
+
+## [0.7.1](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.7.0...bridge-ui-v0.7.1) (2023-05-26)
+
+
+### Bug Fixes
+
+* **bridge-ui:** fix proof ([#13748](https://github.com/taikoxyz/taiko-mono/issues/13748)) ([497d7ab](https://github.com/taikoxyz/taiko-mono/commit/497d7abd895bbda2b60311d48bca5ebe3d9755c6))
+* **bridge-ui:** selecting chain was not informing of errors ([#13712](https://github.com/taikoxyz/taiko-mono/issues/13712)) ([5d29c6d](https://github.com/taikoxyz/taiko-mono/commit/5d29c6d06d4a7b24ef31d18c38e7f1941c322215))
+
 ## [0.7.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.6.0...bridge-ui-v0.7.0) (2023-05-11)
 
 

@@ -1,10 +1,11 @@
-import { BigNumber, BigNumberish, ethers } from 'ethers';
-import { MessageStatus } from '../domain/message';
-import { StorageService } from './StorageService';
-import type { BridgeTransaction } from '../domain/transactions';
+import { BigNumber } from 'ethers';
+
 import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
-import { TKOToken } from '../token/tokens';
+import { MessageStatus } from '../domain/message';
+import type { BridgeTransaction } from '../domain/transaction';
 import { providers } from '../provider/providers';
+import { TKOToken } from '../token/tokens';
+import { StorageService } from './StorageService';
 
 jest.mock('../constants/envVars');
 
@@ -22,6 +23,7 @@ const mockContract = {
   queryFilter: jest.fn(),
   getMessageStatus: jest.fn(),
   symbol: jest.fn(),
+  decimals: jest.fn(),
   filters: {
     // Returns this string to help us
     // identify the filter in the tests
@@ -40,8 +42,8 @@ const mockTx: BridgeTransaction = {
   hash: '0x123',
   from: '0x123',
   status: MessageStatus.New,
-  fromChainId: L1_CHAIN_ID,
-  toChainId: L2_CHAIN_ID,
+  srcChainId: L1_CHAIN_ID,
+  destChainId: L2_CHAIN_ID,
 };
 
 const mockTxs: BridgeTransaction[] = [mockTx];
@@ -195,7 +197,7 @@ describe('storage tests', () => {
 
     const txs = await svc.getAllByAddress('0x123');
 
-    // There is no symbol nor amountInWei
+    // There is no symbol nor amount
     expect(txs).toEqual([
       {
         ...mockTx,
@@ -230,12 +232,12 @@ describe('storage tests', () => {
 
         // We should have these two
         symbol: TKOToken.symbol,
-        amountInWei: BigNumber.from(0x64),
+        amount: BigNumber.from(0x64),
       },
     ]);
   });
 
-  it('ignore txs from unsupported chains when getting all txs', async () => {
+  it('ignores txs from unsupported chains when getting all txs', async () => {
     providers[L1_CHAIN_ID] = undefined;
 
     const svc = new StorageService(mockStorage as any, providers);
@@ -257,7 +259,7 @@ describe('storage tests', () => {
     expect(tx).toBeUndefined();
   });
 
-  it('get transaction by hash, no receipt', async () => {
+  it('gets transaction by hash, no receipt', async () => {
     mockProvider.getTransactionReceipt.mockImplementation(() => {
       return null;
     });
@@ -269,7 +271,7 @@ describe('storage tests', () => {
     expect(tx).toEqual(tx);
   });
 
-  it('get transaction by hash, no event', async () => {
+  it('gets transaction by hash, no event', async () => {
     mockContract.queryFilter.mockImplementation(() => {
       return [];
     });
@@ -284,7 +286,7 @@ describe('storage tests', () => {
     });
   });
 
-  it('get transaction by hash where tx.from !== address', async () => {
+  it('gets transaction by hash where tx.from !== address', async () => {
     const svc = new StorageService(mockStorage as any, providers);
 
     const tx = await svc.getTransactionByHash('0x666', mockTx.hash);
@@ -292,7 +294,7 @@ describe('storage tests', () => {
     expect(tx).toBeUndefined();
   });
 
-  it('get transaction by hash, ETH transfer', async () => {
+  it('gets transaction by hash, ETH transfer', async () => {
     mockContract.queryFilter.mockImplementation(() => {
       return mockQuery;
     });
@@ -314,7 +316,7 @@ describe('storage tests', () => {
     });
   });
 
-  it('get transaction by hash, no ERC20Sent event', async () => {
+  it('gets transaction by hash, no ERC20Sent event', async () => {
     mockContract.queryFilter.mockImplementation((filter: string) => {
       if (filter === 'ERC20Sent') return [];
       return mockErc20Query; // MessageSent
@@ -324,7 +326,7 @@ describe('storage tests', () => {
 
     const tx = await svc.getTransactionByHash('0x123', mockTx.hash);
 
-    // There is no symbol nor amountInWei
+    // There is no symbol nor amount
     expect(tx).toEqual({
       ...mockTx,
       receipt: { blockNumber: 1 },
@@ -333,7 +335,7 @@ describe('storage tests', () => {
     });
   });
 
-  it('get transaction by hash, ERC20 transfer', async () => {
+  it('gets transaction by hash, ERC20 transfer', async () => {
     mockContract.queryFilter.mockImplementation(() => {
       return mockErc20Query;
     });
@@ -348,7 +350,7 @@ describe('storage tests', () => {
 
     expect(tx).toEqual({
       ...mockTx,
-      amountInWei: BigNumber.from(0x64),
+      amount: BigNumber.from(0x64),
       message: mockErc20Event.args.message,
       receipt: {
         blockNumber: 1,
@@ -359,7 +361,7 @@ describe('storage tests', () => {
     });
   });
 
-  it('ignore txs from unsupported chains when getting txs by hash', async () => {
+  it('ignores txs from unsupported chains when getting txs by hash', async () => {
     providers[L1_CHAIN_ID] = undefined;
 
     const svc = new StorageService(mockStorage as any, providers);
@@ -367,6 +369,35 @@ describe('storage tests', () => {
     const tx = await svc.getTransactionByHash('0x123', mockTx.hash);
 
     expect(tx).toBeUndefined();
+  });
+
+  it('makes sure New transactions are on top of the list', async () => {
+    mockStorage.getItem.mockImplementation(() => {
+      return JSON.stringify([
+        { ...mockTx, status: MessageStatus.New },
+        { ...mockTx, status: MessageStatus.Done },
+        { ...mockTx, status: MessageStatus.Retriable },
+        { ...mockTx, status: MessageStatus.New },
+      ]);
+    });
+
+    mockContract.queryFilter.mockImplementation(() => {
+      return [];
+    });
+
+    const svc = new StorageService(mockStorage as any, providers);
+
+    const tx = await svc.getAllByAddress('0x123');
+    const statuses = tx.map((t) => t.status);
+
+    // New txs should be on top
+    expect(statuses).toEqual([
+      MessageStatus.New,
+      MessageStatus.New,
+      //----------------//
+      MessageStatus.Done,
+      MessageStatus.Retriable,
+    ]);
   });
 
   it('updates storage by address', () => {

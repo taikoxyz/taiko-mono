@@ -18,6 +18,7 @@
   },
   "include": [
     "vite.config.ts",
+    "__mocks__/**/*.ts",
     "src/**/*.d.ts",
     "src/**/*.ts",
     "src/**/*.js",

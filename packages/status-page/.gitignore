@@ -25,6 +25,6 @@ dist-ssr
 .env
 .a1.env
 .s.env
-
+.a3.env
 # vite
 vite.config.ts.timestamp-*.mjs

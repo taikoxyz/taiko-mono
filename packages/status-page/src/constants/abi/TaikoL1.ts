@@ -1,7 +1,7 @@
 export default [
   {
     inputs: [],
-    name: "L1_1559_X_SCALE_TOO_LARGE",
+    name: "L1_ALREADY_PROVEN",
     type: "error",
   },
   {
@@ -16,7 +16,28 @@ export default [
   },
   {
     inputs: [],
-    name: "L1_CONTRACT_NOT_ALLOWED",
+    name: "L1_BLOCK_ID",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_BLOCK_ID",
+    type: "error",
+  },
+  {
+    inputs: [
+      {
+        internalType: "bytes32",
+        name: "expected",
+        type: "bytes32",
+      },
+      {
+        internalType: "bytes32",
+        name: "actual",
+        type: "bytes32",
+      },
+    ],
+    name: "L1_EVIDENCE_MISMATCH",
     type: "error",
   },
   {
@@ -42,7 +63,27 @@ export default [
   },
   {
     inputs: [],
+    name: "L1_FORK_CHOICE_NOT_FOUND",
+    type: "error",
+  },
+  {
+    inputs: [],
     name: "L1_INSUFFICIENT_TOKEN",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_INSUFFICIENT_TOKEN",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_INSUFFICIENT_TOKEN",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_INVALID_CONFIG",
     type: "error",
   },
   {
@@ -57,12 +98,22 @@ export default [
   },
   {
     inputs: [],
+    name: "L1_INVALID_ETH_DEPOSIT",
+    type: "error",
+  },
+  {
+    inputs: [],
     name: "L1_INVALID_EVIDENCE",
     type: "error",
   },
   {
     inputs: [],
-    name: "L1_INVALID_L21559_PARAMS",
+    name: "L1_INVALID_EVIDENCE",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_INVALID_METADATA",
     type: "error",
   },
   {
@@ -82,17 +133,72 @@ export default [
   },
   {
     inputs: [],
-    name: "L1_NOT_ORACLE_PROVER",
+    name: "L1_INVALID_PROOF",
     type: "error",
   },
   {
     inputs: [],
-    name: "L1_NOT_SOLO_PROPOSER",
+    name: "L1_INVALID_PROOF_OVERWRITE",
     type: "error",
   },
   {
     inputs: [],
-    name: "L1_ORACLE_DISABLED",
+    name: "L1_INVALID_PROOF_OVERWRITE",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_NOT_SPECIAL_PROVER",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_NOT_SPECIAL_PROVER",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_ORACLE_PROVER_DISABLED",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_ORACLE_PROVER_DISABLED",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_SAME_PROOF",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_SAME_PROOF",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_SYSTEM_PROVER_DISABLED",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_SYSTEM_PROVER_DISABLED",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_SYSTEM_PROVER_PROHIBITED",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_SYSTEM_PROVER_PROHIBITED",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_TOO_MANY_BLOCKS",
     type: "error",
   },
   {
@@ -107,12 +213,32 @@ export default [
   },
   {
     inputs: [],
+    name: "L1_TX_LIST",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_TX_LIST_HASH",
+    type: "error",
+  },
+  {
+    inputs: [],
     name: "L1_TX_LIST_HASH",
     type: "error",
   },
   {
     inputs: [],
     name: "L1_TX_LIST_NOT_EXIST",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_TX_LIST_NOT_EXIST",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_TX_LIST_RANGE",
     type: "error",
   },
   {
@@ -134,6 +260,35 @@ export default [
     inputs: [],
     name: "RESOLVER_INVALID_ADDR",
     type: "error",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "chainId",
+        type: "uint256",
+      },
+      {
+        internalType: "bytes32",
+        name: "name",
+        type: "bytes32",
+      },
+    ],
+    name: "RESOLVER_ZERO_ADDR",
+    type: "error",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: false,
+        internalType: "address",
+        name: "addressManager",
+        type: "address",
+      },
+    ],
+    name: "AddressManagerChanged",
+    type: "event",
   },
   {
     anonymous: false,
@@ -173,11 +328,6 @@ export default [
           },
           {
             internalType: "bytes32",
-            name: "depositsRoot",
-            type: "bytes32",
-          },
-          {
-            internalType: "bytes32",
             name: "txListHash",
             type: "bytes32",
           },
@@ -200,11 +350,6 @@ export default [
             internalType: "address",
             name: "beneficiary",
             type: "address",
-          },
-          {
-            internalType: "uint8",
-            name: "cacheTxListInfo",
-            type: "uint8",
           },
           {
             internalType: "address",
@@ -233,6 +378,12 @@ export default [
         internalType: "struct TaikoData.BlockMetadata",
         name: "meta",
         type: "tuple",
+      },
+      {
+        indexed: false,
+        internalType: "uint64",
+        name: "blockFee",
+        type: "uint64",
       },
     ],
     name: "BlockProposed",
@@ -271,6 +422,12 @@ export default [
         name: "prover",
         type: "address",
       },
+      {
+        indexed: false,
+        internalType: "uint32",
+        name: "parentGasUsed",
+        type: "uint32",
+      },
     ],
     name: "BlockProven",
     type: "event",
@@ -290,8 +447,39 @@ export default [
         name: "blockHash",
         type: "bytes32",
       },
+      {
+        indexed: false,
+        internalType: "uint64",
+        name: "reward",
+        type: "uint64",
+      },
     ],
     name: "BlockVerified",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "uint256",
+        name: "srcHeight",
+        type: "uint256",
+      },
+      {
+        indexed: false,
+        internalType: "bytes32",
+        name: "blockHash",
+        type: "bytes32",
+      },
+      {
+        indexed: false,
+        internalType: "bytes32",
+        name: "signalRoot",
+        type: "bytes32",
+      },
+    ],
+    name: "CrossChainSynced",
     type: "event",
   },
   {
@@ -355,25 +543,31 @@ export default [
     anonymous: false,
     inputs: [
       {
-        indexed: true,
-        internalType: "uint256",
-        name: "srcHeight",
-        type: "uint256",
+        indexed: false,
+        internalType: "uint64",
+        name: "proofTimeTarget",
+        type: "uint64",
       },
       {
         indexed: false,
-        internalType: "bytes32",
-        name: "blockHash",
-        type: "bytes32",
+        internalType: "uint64",
+        name: "proofTimeIssued",
+        type: "uint64",
       },
       {
         indexed: false,
-        internalType: "bytes32",
-        name: "signalRoot",
-        type: "bytes32",
+        internalType: "uint64",
+        name: "blockFee",
+        type: "uint64",
+      },
+      {
+        indexed: false,
+        internalType: "uint16",
+        name: "adjustmentQuotient",
+        type: "uint16",
       },
     ],
-    name: "CrossChainSynced",
+    name: "ProofParamsChanged",
     type: "event",
   },
   {
@@ -425,11 +619,6 @@ export default [
         type: "bytes32",
       },
       {
-        internalType: "uint256",
-        name: "_deposit",
-        type: "uint256",
-      },
-      {
         internalType: "address",
         name: "_proposer",
         type: "address",
@@ -474,7 +663,7 @@ export default [
           },
           {
             internalType: "uint256",
-            name: "maxVerificationsPerTx",
+            name: "ringBufferSize",
             type: "uint256",
           },
           {
@@ -483,24 +672,19 @@ export default [
             type: "uint256",
           },
           {
-            internalType: "uint256",
+            internalType: "uint64",
             name: "blockMaxGasLimit",
-            type: "uint256",
+            type: "uint64",
           },
           {
-            internalType: "uint256",
+            internalType: "uint64",
             name: "maxTransactionsPerBlock",
-            type: "uint256",
+            type: "uint64",
           },
           {
-            internalType: "uint256",
+            internalType: "uint64",
             name: "maxBytesPerTxList",
-            type: "uint256",
-          },
-          {
-            internalType: "uint256",
-            name: "minTxGasLimit",
-            type: "uint256",
+            type: "uint64",
           },
           {
             internalType: "uint256",
@@ -513,43 +697,48 @@ export default [
             type: "uint256",
           },
           {
+            internalType: "uint256",
+            name: "systemProofCooldownPeriod",
+            type: "uint256",
+          },
+          {
+            internalType: "uint256",
+            name: "realProofSkipSize",
+            type: "uint256",
+          },
+          {
+            internalType: "uint256",
+            name: "ethDepositGas",
+            type: "uint256",
+          },
+          {
+            internalType: "uint256",
+            name: "ethDepositMaxFee",
+            type: "uint256",
+          },
+          {
             internalType: "uint64",
-            name: "minEthDepositsPerBlock",
+            name: "ethDepositMinCountPerBlock",
             type: "uint64",
           },
           {
             internalType: "uint64",
-            name: "maxEthDepositsPerBlock",
+            name: "ethDepositMaxCountPerBlock",
             type: "uint64",
           },
           {
             internalType: "uint96",
-            name: "maxEthDepositAmount",
+            name: "ethDepositMaxAmount",
             type: "uint96",
           },
           {
             internalType: "uint96",
-            name: "minEthDepositAmount",
+            name: "ethDepositMinAmount",
             type: "uint96",
-          },
-          {
-            internalType: "uint64",
-            name: "proofTimeTarget",
-            type: "uint64",
-          },
-          {
-            internalType: "uint8",
-            name: "adjustmentQuotient",
-            type: "uint8",
           },
           {
             internalType: "bool",
             name: "relaySignalRoot",
-            type: "bool",
-          },
-          {
-            internalType: "bool",
-            name: "enableSoloProposer",
             type: "bool",
           },
         ],
@@ -559,6 +748,44 @@ export default [
       },
     ],
     stateMutability: "pure",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "blockId",
+        type: "uint256",
+      },
+    ],
+    name: "getCrossChainBlockHash",
+    outputs: [
+      {
+        internalType: "bytes32",
+        name: "",
+        type: "bytes32",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "blockId",
+        type: "uint256",
+      },
+    ],
+    name: "getCrossChainSignalRoot",
+    outputs: [
+      {
+        internalType: "bytes32",
+        name: "",
+        type: "bytes32",
+      },
+    ],
+    stateMutability: "view",
     type: "function",
   },
   {
@@ -626,12 +853,7 @@ export default [
     inputs: [
       {
         internalType: "uint64",
-        name: "provenAt",
-        type: "uint64",
-      },
-      {
-        internalType: "uint64",
-        name: "proposedAt",
+        name: "proofTime",
         type: "uint64",
       },
     ],
@@ -654,7 +876,7 @@ export default [
         components: [
           {
             internalType: "uint64",
-            name: "basefee",
+            name: "blockFee",
             type: "uint64",
           },
           {
@@ -680,6 +902,11 @@ export default [
           {
             internalType: "uint64",
             name: "proofTimeIssued",
+            type: "uint64",
+          },
+          {
+            internalType: "uint64",
+            name: "proofTimeTarget",
             type: "uint64",
           },
           {
@@ -741,50 +968,12 @@ export default [
     name: "getVerifierName",
     outputs: [
       {
-        internalType: "string",
+        internalType: "bytes32",
         name: "",
-        type: "string",
+        type: "bytes32",
       },
     ],
     stateMutability: "pure",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "blockId",
-        type: "uint256",
-      },
-    ],
-    name: "getCrossChainBlockHash",
-    outputs: [
-      {
-        internalType: "bytes32",
-        name: "",
-        type: "bytes32",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "blockId",
-        type: "uint256",
-      },
-    ],
-    name: "getCrossChainSignalRoot",
-    outputs: [
-      {
-        internalType: "bytes32",
-        name: "",
-        type: "bytes32",
-      },
-    ],
-    stateMutability: "view",
     type: "function",
   },
   {
@@ -801,13 +990,23 @@ export default [
       },
       {
         internalType: "uint64",
-        name: "_initBasefee",
+        name: "_initBlockFee",
+        type: "uint64",
+      },
+      {
+        internalType: "uint64",
+        name: "_initProofTimeTarget",
         type: "uint64",
       },
       {
         internalType: "uint64",
         name: "_initProofTimeIssued",
         type: "uint64",
+      },
+      {
+        internalType: "uint16",
+        name: "_adjustmentQuotient",
+        type: "uint16",
       },
     ],
     name: "init",
@@ -872,11 +1071,6 @@ export default [
           },
           {
             internalType: "bytes32",
-            name: "depositsRoot",
-            type: "bytes32",
-          },
-          {
-            internalType: "bytes32",
             name: "txListHash",
             type: "bytes32",
           },
@@ -899,11 +1093,6 @@ export default [
             internalType: "address",
             name: "beneficiary",
             type: "address",
-          },
-          {
-            internalType: "uint8",
-            name: "cacheTxListInfo",
-            type: "uint8",
           },
           {
             internalType: "address",
@@ -964,9 +1153,14 @@ export default [
   {
     inputs: [
       {
-        internalType: "string",
+        internalType: "uint256",
+        name: "chainId",
+        type: "uint256",
+      },
+      {
+        internalType: "bytes32",
         name: "name",
-        type: "string",
+        type: "bytes32",
       },
       {
         internalType: "bool",
@@ -988,14 +1182,9 @@ export default [
   {
     inputs: [
       {
-        internalType: "uint256",
-        name: "chainId",
-        type: "uint256",
-      },
-      {
-        internalType: "string",
+        internalType: "bytes32",
         name: "name",
-        type: "string",
+        type: "bytes32",
       },
       {
         internalType: "bool",
@@ -1015,14 +1204,50 @@ export default [
     type: "function",
   },
   {
+    inputs: [
+      {
+        internalType: "address",
+        name: "newAddressManager",
+        type: "address",
+      },
+    ],
+    name: "setAddressManager",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint64",
+        name: "newProofTimeTarget",
+        type: "uint64",
+      },
+      {
+        internalType: "uint64",
+        name: "newProofTimeIssued",
+        type: "uint64",
+      },
+      {
+        internalType: "uint64",
+        name: "newBlockFee",
+        type: "uint64",
+      },
+      {
+        internalType: "uint16",
+        name: "newAdjustmentQuotient",
+        type: "uint16",
+      },
+    ],
+    name: "setProofParams",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
     inputs: [],
     name: "state",
     outputs: [
-      {
-        internalType: "bytes32",
-        name: "staticRefs",
-        type: "bytes32",
-      },
       {
         internalType: "uint64",
         name: "genesisHeight",
@@ -1034,9 +1259,14 @@ export default [
         type: "uint64",
       },
       {
-        internalType: "uint64",
+        internalType: "uint16",
+        name: "adjustmentQuotient",
+        type: "uint16",
+      },
+      {
+        internalType: "uint48",
         name: "__reserved71",
-        type: "uint64",
+        type: "uint48",
       },
       {
         internalType: "uint64",
@@ -1065,7 +1295,7 @@ export default [
       },
       {
         internalType: "uint64",
-        name: "basefee",
+        name: "blockFee",
         type: "uint64",
       },
       {
@@ -1080,7 +1310,7 @@ export default [
       },
       {
         internalType: "uint64",
-        name: "__reserved91",
+        name: "proofTimeTarget",
         type: "uint64",
       },
     ],

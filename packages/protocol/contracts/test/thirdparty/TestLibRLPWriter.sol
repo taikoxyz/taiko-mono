@@ -1,26 +1,42 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
-import {LibRLPWriter} from "../../thirdparty/LibRLPWriter.sol";
+import { LibRLPWriter } from "../../thirdparty/LibRLPWriter.sol";
 
 /**
  * @title TestLibRLPWriter
  */
 contract TestLibRLPWriter {
-    function writeBytes(bytes memory _in) public pure returns (bytes memory _out) {
+    function writeBytes(bytes memory _in)
+        public
+        pure
+        returns (bytes memory _out)
+    {
         return LibRLPWriter.writeBytes(_in);
     }
 
-    function writeList(bytes[] memory _in) public pure returns (bytes memory _out) {
+    function writeList(bytes[] memory _in)
+        public
+        pure
+        returns (bytes memory _out)
+    {
         return LibRLPWriter.writeList(_in);
     }
 
-    function writeString(string memory _in) public pure returns (bytes memory _out) {
+    function writeString(string memory _in)
+        public
+        pure
+        returns (bytes memory _out)
+    {
         return LibRLPWriter.writeString(_in);
     }
 
-    function writeAddress(address _in) public pure returns (bytes memory _out) {
+    function writeAddress(address _in)
+        public
+        pure
+        returns (bytes memory _out)
+    {
         return LibRLPWriter.writeAddress(_in);
     }
 

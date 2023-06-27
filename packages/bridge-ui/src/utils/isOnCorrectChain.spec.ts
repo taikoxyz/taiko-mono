@@ -1,4 +1,5 @@
-import { ethers, Wallet } from 'ethers';
+import { Wallet } from 'ethers';
+
 import { taikoChain } from '../chain/chains';
 import { isOnCorrectChain } from './isOnCorrectChain';
 
@@ -14,8 +15,7 @@ const mockSigner = {
 };
 
 jest.mock('ethers', () => ({
-  /* eslint-disable-next-line */
-  ...(jest.requireActual('ethers') as object),
+  ...jest.requireActual('ethers'),
   Wallet: function () {
     return mockSigner;
   },
@@ -51,16 +51,18 @@ describe('isOnCorrectChain()', () => {
   });
 
   it('should return false when bridgeAddress or tokenVaultAddress does not exist', async () => {
-    const signer = new Wallet('0x');
-
     mockSigner.getChainId.mockImplementationOnce(() => {
       return taikoChain.id;
     });
 
     mockProvider.getCode.mockImplementationOnce(() => {
-      return '0x00';
+      return '0x';
     });
-    const result = await isOnCorrectChain(signer, 1);
+
+    const signer = new Wallet('0x');
+
+    const result = await isOnCorrectChain(signer, taikoChain.id);
+
     expect(result).toBe(false);
   });
 });

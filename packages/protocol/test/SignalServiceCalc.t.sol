@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
-import {LibRLPWriter} from "../contracts/thirdparty/LibRLPWriter.sol";
+import { Test } from "forge-std/Test.sol";
+import { console2 } from "forge-std/console2.sol";
+import { LibRLPWriter } from "../contracts/thirdparty/LibRLPWriter.sol";
 
 contract TestSignalServiceCalc is Test {
-    function setUp() public {}
+    function setUp() public { }
 
     function testLibRLPWriterOne() public {
         assertEq(LibRLPWriter.writeBytes32(bytes32(uint256(1))), hex"01");

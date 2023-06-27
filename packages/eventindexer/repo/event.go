@@ -2,10 +2,13 @@ package repo
 
 import (
 	"context"
+	"net/http"
 
+	"github.com/morkid/paginate"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 type EventRepository struct {
@@ -36,6 +39,34 @@ func (r *EventRepository) Save(ctx context.Context, opts eventindexer.SaveEventO
 	}
 
 	return e, nil
+}
+
+func (r *EventRepository) FindByEventTypeAndBlockID(
+	ctx context.Context,
+	eventType string,
+	blockID int64) (*eventindexer.Event, error) {
+	e := &eventindexer.Event{}
+
+	if err := r.db.GormDB().
+		Where("event = ?", eventType).
+		Where("block_id = ?", blockID).First(e).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	return e, nil
+}
+
+func (r *EventRepository) Delete(
+	ctx context.Context,
+	id int,
+) error {
+	e := &eventindexer.Event{}
+
+	return r.db.GormDB().Delete(e, id).Error
 }
 
 func (r *EventRepository) FindUniqueProvers(
@@ -82,4 +113,24 @@ func (r *EventRepository) GetCountByAddressAndEventName(
 	}
 
 	return count, nil
+}
+
+func (r *EventRepository) GetByAddressAndEventName(
+	ctx context.Context,
+	req *http.Request,
+	address string,
+	event string,
+) (paginate.Page, error) {
+	pg := paginate.New(&paginate.Config{
+		DefaultSize: 100,
+	})
+
+	q := r.db.GormDB().
+		Raw("SELECT * FROM events WHERE event = ? AND address = ?", event, address)
+
+	reqCtx := pg.With(q)
+
+	page := reqCtx.Request(req).Response(&[]eventindexer.Event{})
+
+	return page, nil
 }

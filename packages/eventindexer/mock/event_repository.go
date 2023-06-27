@@ -3,9 +3,12 @@ package mock
 import (
 	"context"
 	"math/rand"
+	"net/http"
 
+	"github.com/morkid/paginate"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 type EventRepository struct {
@@ -56,4 +59,49 @@ func (r *EventRepository) GetCountByAddressAndEventName(
 	}
 
 	return count, nil
+}
+
+func (r *EventRepository) GetByAddressAndEventName(
+	ctx context.Context,
+	req *http.Request,
+	address string,
+	event string,
+) (paginate.Page, error) {
+	var events []*eventindexer.Event
+
+	for _, e := range r.events {
+		if e.Address == address && e.Event == event {
+			events = append(events, e)
+		}
+	}
+
+	return paginate.Page{
+		Items: events,
+	}, nil
+}
+
+func (r *EventRepository) FindByEventTypeAndBlockID(
+	ctx context.Context,
+	eventType string,
+	blockID int64) (*eventindexer.Event, error) {
+	for _, e := range r.events {
+		if e.Event == eventType && e.BlockID.Int64 == blockID {
+			return e, nil
+		}
+	}
+
+	return nil, gorm.ErrRecordNotFound
+}
+
+func (r *EventRepository) Delete(
+	ctx context.Context,
+	id int,
+) error {
+	for i, e := range r.events {
+		if e.ID == id {
+			r.events = append(r.events[:i], r.events[i+1:]...)
+		}
+	}
+
+	return nil
 }

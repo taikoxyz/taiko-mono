@@ -1,6 +1,6 @@
 {
   "name": "@taiko/website",
-  "version": "0.7.0",
+  "version": "0.10.0",
   "private": true,
   "scripts": {
     "build": "pnpm next build",
@@ -8,21 +8,21 @@
     "start": "pnpm next start"
   },
   "dependencies": {
-    "next": "^13.2.4",
+    "@vercel/analytics": "^1.0.1",
+    "next": "^13.4.6",
     "next-themes": "^0.2.1",
-    "nextra": "^2.2.19",
-    "nextra-theme-docs": "^2.2.19",
+    "nextra": "^2.7.1",
+    "nextra-theme-docs": "^2.7.1",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "sharp": "^0.31.3"
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
-    "@heroicons/react": "^2.0.16",
-    "@types/node": "^18.15.1",
-    "@types/react": "^18.0.28",
+    "@heroicons/react": "^2.0.18",
+    "@types/node": "^20.3.1",
+    "@types/react": "^18.2.13",
     "autoprefixer": "^10.4.14",
-    "postcss": "^8.4.21",
-    "tailwindcss": "^3.2.7",
-    "typescript": "^4.9.5"
+    "postcss": "^8.4.24",
+    "tailwindcss": "^3.3.2",
+    "typescript": "^5.1.3"
   }
 }

@@ -1,59 +1,53 @@
 <script lang="ts">
-  import { transactions } from '../../store/transactions';
+  import type { BridgeTransaction } from '../../domain/transaction';
+  import { paginationInfo } from '../../store/relayerApi';
   import { signer } from '../../store/signer';
-  import { relayerApi, paginationInfo } from '../../store/relayerApi';
+  import { transactions } from '../../store/transaction';
+  import Loading from '../Loading.svelte';
+  import NoticeModal from '../NoticeModal.svelte';
+  import Paginator from '../Paginator.svelte';
+  import InsufficientBalanceTooltip from './InsufficientBalanceTooltip.svelte';
+  import MessageStatusTooltip from './MessageStatusTooltip.svelte';
   import Transaction from './Transaction.svelte';
   import TransactionDetail from './TransactionDetail.svelte';
-  import MessageStatusTooltip from './MessageStatusTooltip.svelte';
-  import InsufficientBalanceTooltip from './InsufficientBalanceTooltip.svelte';
-  import type { BridgeTransaction } from '../../domain/transactions';
-  import NoticeModal from '../modals/NoticeModal.svelte';
-  import Pagination from '../Pagination.svelte';
-  import { MAX_PAGE_SIZE } from '../../domain/relayerApi';
 
   let selectedTransaction: BridgeTransaction;
   let showMessageStatusTooltip: boolean;
   let showInsufficientBalance: boolean;
   let noticeModal: NoticeModal;
 
-  let page = 1;
-  let size = 10;
-  $: totalPagesInTransactionList = $paginationInfo
-    ? Math.ceil($paginationInfo?.total / size)
-    : 0;
+  let pageSize = 8;
+  let currentPage = 1;
+  let totalItems = 0;
+  let loadingTxs = true;
 
-  $: transactionsToShow = $transactions.slice(
-    (page - 1) * size,
-    (page - 1) * size + size,
-  );
-
-  async function loadMoreTransactionsFromAPI() {
-    if ($paginationInfo.page + 1 >= $paginationInfo.max_page) {
-      return;
-    }
-
-    const userAddress = await $signer.getAddress();
-    const { txs: apiTxs, paginationInfo: info } =
-      await $relayerApi.getAllBridgeTransactionByAddress(userAddress, {
-        page: $paginationInfo.page + 1,
-        size: MAX_PAGE_SIZE,
-      });
-    paginationInfo.set(info);
-    transactions.set([...$transactions, ...apiTxs]);
+  function getTransactionsToShow(
+    page: number,
+    pageSize: number,
+    bridgeTx: BridgeTransaction[],
+  ) {
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    return bridgeTx.slice(start, end);
   }
 
-  $: {
-    if ($transactions.length > 0 && (page + 1) * size > $transactions.length) {
-      loadMoreTransactionsFromAPI();
-    }
+  $: transactionsToShow = getTransactionsToShow(
+    currentPage,
+    pageSize,
+    $transactions,
+  );
+
+  $: if ($paginationInfo) {
+    totalItems = $transactions.length;
+    loadingTxs = false;
   }
 </script>
 
 <div class="my-4 md:px-4">
   {#if transactionsToShow.length}
-    <table class="table-auto">
+    <table class="table-auto my-4">
       <thead>
-        <tr class="text-transaction-table">
+        <tr>
           <th>From</th>
           <th>To</th>
           <th>Amount</th>
@@ -74,9 +68,20 @@
         {/each}
       </tbody>
     </table>
-    <Pagination totalPages={totalPagesInTransactionList} bind:page />
+
+    <div class="flex justify-end">
+      <Paginator
+        {pageSize}
+        {totalItems}
+        on:pageChange={({ detail }) => (currentPage = detail)} />
+    </div>
+  {:else if loadingTxs && $signer}
+    <div class="flex flex-col items-center">
+      <Loading width={150} height={150} />
+      Loading transactions…
+    </div>
   {:else}
-    No transactions
+    No transactions.
   {/if}
 
   {#if selectedTransaction}

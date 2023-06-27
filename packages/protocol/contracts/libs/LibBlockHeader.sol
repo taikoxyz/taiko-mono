@@ -4,9 +4,9 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
-import {LibRLPWriter} from "../thirdparty/LibRLPWriter.sol";
+import { LibRLPWriter } from "../thirdparty/LibRLPWriter.sol";
 
 struct BlockHeader {
     bytes32 parentHash;
@@ -32,12 +32,20 @@ library LibBlockHeader {
     bytes32 public constant EMPTY_OMMERS_HASH =
         0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347;
 
-    function hashBlockHeader(BlockHeader memory header) internal pure returns (bytes32) {
-        bytes memory rlpHeader = LibRLPWriter.writeList(getBlockHeaderRLPItemsList(header, 0));
+    function hashBlockHeader(BlockHeader memory header)
+        internal
+        pure
+        returns (bytes32)
+    {
+        bytes memory rlpHeader =
+            LibRLPWriter.writeList(getBlockHeaderRLPItemsList(header, 0));
         return keccak256(rlpHeader);
     }
 
-    function getBlockHeaderRLPItemsList(BlockHeader memory header, uint256 extraCapacity)
+    function getBlockHeaderRLPItemsList(
+        BlockHeader memory header,
+        uint256 extraCapacity
+    )
         internal
         pure
         returns (bytes[] memory list)

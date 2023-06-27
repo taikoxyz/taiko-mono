@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
-import {Test} from "forge-std/Test.sol";
-import {AddressManager} from "../contracts/common/AddressManager.sol";
-import {EtherVault} from "../contracts/bridge/EtherVault.sol";
-import {BridgeErrors} from "../contracts/bridge/BridgeErrors.sol";
+import { Test } from "forge-std/Test.sol";
+import { AddressManager } from "../contracts/common/AddressManager.sol";
+import { EtherVault } from "../contracts/bridge/EtherVault.sol";
+import { BridgeErrors } from "../contracts/bridge/BridgeErrors.sol";
 
 contract TestEtherVault is Test {
     AddressManager addressManager;
@@ -46,7 +46,10 @@ contract TestEtherVault is Test {
         etherVault.authorize(address(0), true);
     }
 
-    function test_authorize_reverts_when_authorizing_already_authorized_address() public {
+    function test_authorize_reverts_when_authorizing_already_authorized_address(
+    )
+        public
+    {
         vm.startPrank(Alice);
         etherVault.authorize(Bob, true);
         vm.expectRevert(BridgeErrors.B_EV_PARAM.selector);
@@ -61,7 +64,7 @@ contract TestEtherVault is Test {
         assertEq(Alice.balance > 0, true);
         vm.startPrank(Alice);
         etherVault.authorize(Alice, true);
-        (bool aliceSent,) = address(etherVault).call{value: 1}("");
+        (bool aliceSent,) = address(etherVault).call{ value: 1 }("");
         assertEq(aliceSent, true);
         assertEq(address(etherVault).balance, 1);
 
@@ -69,7 +72,7 @@ contract TestEtherVault is Test {
         assertEq(Bob.balance > 0, true);
         vm.startPrank(Bob);
 
-        (bool bobSent,) = address(etherVault).call{value: 1}("");
+        (bool bobSent,) = address(etherVault).call{ value: 1 }("");
         assertEq(bobSent, false);
         vm.stopPrank();
     }
@@ -95,7 +98,9 @@ contract TestEtherVault is Test {
         vm.stopPrank();
     }
 
-    function test_release_ether_releases_to_receipient_via_authorized_sender() public {
+    function test_release_ether_releases_to_receipient_via_authorized_sender()
+        public
+    {
         vm.startPrank(Alice);
         etherVault.authorize(Alice, true);
         seedEtherVault();

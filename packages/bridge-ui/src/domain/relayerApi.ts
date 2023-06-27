@@ -1,8 +1,7 @@
-import type { Address, ChainID } from './chain';
-import type { BridgeTransaction } from './transactions';
+import type { Address } from '@wagmi/core';
 
-export const MAX_PAGE_SIZE = 100;
-export const DEFAULT_PAGE = 0;
+import type { ChainID } from './chain';
+import type { BridgeTransaction } from './transaction';
 
 export type GetAllByAddressResponse = {
   txs: BridgeTransaction[];
@@ -10,13 +9,13 @@ export type GetAllByAddressResponse = {
 };
 
 export type PaginationParams = {
-  size: typeof MAX_PAGE_SIZE;
+  size: number;
   page: number;
 };
 
 export interface RelayerAPI {
   getAllBridgeTransactionByAddress(
-    address: string,
+    address: Address,
     pagination: PaginationParams,
     chainID?: number,
   ): Promise<GetAllByAddressResponse>;
@@ -41,7 +40,9 @@ export type TransactionData = {
     Data: string;
   };
   Raw: {
+    address: Address;
     transactionHash: string;
+    transactionIndex: string;
   };
 };
 
@@ -52,30 +53,29 @@ export type APIResponseTransaction = {
   status: number;
   eventType: number;
   chainID: number;
-  canonicalTokenAddress: string;
+  canonicalTokenAddress: Address;
   canonicalTokenSymbol: string;
   canonicalTokenName: string;
   canonicalTokenDecimals: number;
   amount: string;
   msgHash: string;
-  messageOwner: string;
+  messageOwner: Address;
   event: string;
 };
 
 export type RelayerBlockInfo = {
-  chainId: number;
+  chainID: number;
   latestProcessedBlock: number;
   latestBlock: number;
 };
 
 export type APIRequestParams = {
-  address: string;
+  address: Address;
   chainID?: number;
   event?: string;
 };
 
-export type APIResponse = {
-  items: APIResponseTransaction[];
+export type PaginationInfo = {
   page: number;
   size: number;
   max_page: number;
@@ -83,10 +83,9 @@ export type APIResponse = {
   total: number;
   last: boolean;
   first: boolean;
-  visible: number;
 };
 
-export type PaginationInfo = Pick<
-  APIResponse,
-  'page' | 'size' | 'max_page' | 'total_pages' | 'total' | 'last' | 'first'
->;
+export type APIResponse = PaginationInfo & {
+  items: APIResponseTransaction[];
+  visible: number;
+};
