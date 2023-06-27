@@ -1,8 +1,9 @@
 <script lang="ts">
-  import type { ComponentType } from 'svelte';
+  import { onDestroy, type ComponentType, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
 
   import { BllIcon, EthIcon, HorseIcon, Icon } from '$components/Icon';
+  import { classNames } from '$libs/util/classNames';
 
   export let tokens: Token[] = [];
   export let onChange: (token: Token) => void;
@@ -14,11 +15,21 @@
   };
 
   let selectedToken: Token;
+  let menuOpen = false;
+
+  $: menuClasses = classNames(
+    'menu absolute right-0 w-[265px] p-3 mt-2 rounded-[10px] bg-neutral-background z-10',
+    menuOpen ? 'visible opacity-100' : 'invisible opacity-0',
+  );
 
   function closeMenu() {
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
+    menuOpen = false;
+  }
+
+  function openMenu(event: Event) {
+    // Prevents closing the menu immediately (button click bubbles up to the document)
+    event.stopPropagation();
+    menuOpen = true;
   }
 
   function selectToken(token: Token) {
@@ -32,13 +43,27 @@
       selectToken(token);
     }
   }
+
+  onMount(() => {
+    document.addEventListener('click', closeMenu);
+  });
+
+  onDestroy(() => {
+    document.removeEventListener('click', closeMenu);
+  });
 </script>
 
-<div class="dropdown dropdown-end">
-  <button aria-haspopup="true" class="w-full flex justify-between items-center px-6 py-[14px] input-box">
+<div class="relative">
+  <button
+    aria-haspopup="listbox"
+    aria-controls="token-listbox"
+    aria-expanded={menuOpen}
+    class="w-full flex justify-between items-center px-6 py-[14px] input-box"
+    on:click={openMenu}
+    on:focus={openMenu}>
     <div class="space-x-2">
       {#if !selectedToken}
-        <span class="title-subsection-bold text-tertiary-content leading-8">{$t('bridge.select_token')}…</span>
+        <span class="title-subsection-bold text-tertiary-content leading-8">{$t('token_dropdown.placeholder')}…</span>
       {/if}
       {#if selectedToken}
         <div class="flex space-x-2 items-center">
@@ -52,7 +77,7 @@
     <Icon type="chevron-down" />
   </button>
 
-  <ul role="listbox" class="menu dropdown-content w-[265px] p-3 mt-2 rounded-[10px] bg-neutral-background z-10">
+  <ul role="listbox" id="token-listbox" class={menuClasses}>
     {#each tokens as token (token.symbol)}
       <li
         role="option"

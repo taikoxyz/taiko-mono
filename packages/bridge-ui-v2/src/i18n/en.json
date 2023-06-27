@@ -9,9 +9,7 @@
 
   "bridge": {
     "title": "Bridge",
-    "subtitle": "Send your assets across chains.",
-    "select_token": "Select Token",
-    "max": "MAX"
+    "subtitle": "Send your assets across chains."
   },
 
   "activities": {
@@ -25,6 +23,18 @@
     "currently_on": "You are currently on",
     "mint_button": "mint",
     "warning_message": "To request Test Token, you need to mint it on Sepolia. If you are currently on Taiko, please switch your network first. Additionally, ensure that you have a small amount of ETH in your Sepolia wallet to complete the transaction."
+  },
+
+  "token_dropdown": {
+    "placeholder": "Select token"
+  },
+
+  "amount_input": {
+    "max_button": "Max"
+  },
+
+  "chain_selector": {
+    "placeholder": "Select chain"
   },
 
   "wallet": {

@@ -1,6 +1,7 @@
 <script lang="ts">
-  export let width = 32;
-  export let height = 32;
+  export let small = false;
+  export let width = small ? 20 : 32;
+  export let height = small ? 20 : 32;
 </script>
 
 <svg
