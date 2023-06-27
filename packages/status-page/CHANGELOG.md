@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.11.0](https://github.com/taikoxyz/taiko-mono/compare/status-page-v0.10.0...status-page-v0.11.0) (2023-06-26)
+
+
+### Features
+
+* **protocol:** use ring buffer for ETH deposit and optimize storage ([#13868](https://github.com/taikoxyz/taiko-mono/issues/13868)) ([acffb61](https://github.com/taikoxyz/taiko-mono/commit/acffb61b13b44fd4792e8f4a31498d788ca38961))
+
+
+### Bug Fixes
+
+* **status-page:** fix stretched favicon ([#13982](https://github.com/taikoxyz/taiko-mono/issues/13982)) ([103f1ae](https://github.com/taikoxyz/taiko-mono/commit/103f1aea772c5eb5e9a293f2ba661d0c4eb96156))
+* **status-page:** use ttko from env ([#13998](https://github.com/taikoxyz/taiko-mono/issues/13998)) ([2c83f3b](https://github.com/taikoxyz/taiko-mono/commit/2c83f3b8faad27315ec25d6150327631320b0798))
+
 ## [0.10.0](https://github.com/taikoxyz/taiko-mono/compare/status-page-v0.9.0...status-page-v0.10.0) (2023-06-12)
 
 

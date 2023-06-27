@@ -105,7 +105,7 @@
 {/if}
 
 {#if proposerDetailsOpen}
-  <DetailsModal title={"Prover Details"} bind:isOpen={proposerDetailsOpen}>
+  <DetailsModal title={"Proposer Details"} bind:isOpen={proposerDetailsOpen}>
     <div
       class="grid grid-cols-2 gap-4 text-center my-10 max-h-96 overflow-y-auto"
       slot="body"
