@@ -11,10 +11,14 @@ import { IProverPool } from "./IProverPool.sol";
 import { TaikoToken } from "./TaikoToken.sol";
 import { Proxied } from "../common/Proxied.sol";
 
+import { LibMath } from "../libs/LibMath.sol";
+
 contract ProverPool is EssentialContract, IProverPool {
+    using LibMath for uint256;
     // 8 bytes or 1 uint64
+
     struct Prover {
-        uint32 stakedAmount;
+        uint32 weight;
         uint16 rewardPerGas;
         uint16 currentCapacity;
     }
@@ -22,7 +26,8 @@ contract ProverPool is EssentialContract, IProverPool {
     // Make sure we only use one slot
     struct Staker {
         uint64 exitRequestedAt;
-        uint32 exitAmount;
+        uint64 exitAmount;
+        uint64 stakedAmount;
         uint16 maxCapacity;
         uint8 proverId; // 0 to indicate the staker is not a top prover
     }
@@ -33,7 +38,6 @@ contract ProverPool is EssentialContract, IProverPool {
     // provide a capacity of at least 3600/32=112.
     uint32 public constant MAX_CAPACITY_LOWER_BOUND = 128;
     uint64 public constant EXIT_PERIOD = 1 weeks;
-    uint64 public constant ONE_TKO = 1e8;
     uint32 public constant SLASH_POINTS = 500; // basis points
     uint32 public constant MIN_STAKE_PER_CAPACITY = 10_000;
     uint256 public constant MAX_NUM_PROVERS = 32;
@@ -42,17 +46,16 @@ contract ProverPool is EssentialContract, IProverPool {
     uint256[10_000] private proverData;
     mapping(uint256 id => address prover) public idToProver;
     // Save the weights only when: stake / unstaked / slashed
-    mapping(uint256 id => uint256 weights) public idToWeights;
     mapping(address staker => Staker) public stakers;
 
     uint256[48] private __gap;
 
-    event Withdrawn(address indexed addr, uint32 amount);
-    event Exited(address indexed addr, uint32 amount);
-    event Slashed(address indexed addr, uint32 amount);
+    event Withdrawn(address indexed addr, uint64 amount);
+    event Exited(address indexed addr, uint64 amount);
+    event Slashed(address indexed addr, uint64 amount);
     event Staked(
         address indexed addr,
-        uint32 amount,
+        uint64 amount,
         uint16 rewardPerGas,
         uint16 currentCapacity
     );
@@ -81,7 +84,7 @@ contract ProverPool is EssentialContract, IProverPool {
         onlyFromProtocol
         returns (address prover, uint32 rewardPerGas)
     {
-        (uint256[MAX_NUM_PROVERS] memory weights, uint256 totalWeight) =
+        (uint32[MAX_NUM_PROVERS] memory weights, uint256 totalWeight) =
             getWeights(feePerGas);
 
         if (totalWeight == 0) {
@@ -126,12 +129,12 @@ contract ProverPool is EssentialContract, IProverPool {
 
         // if the exit is mature, we do not count it in the total slash-able
         // amount
-        uint32 slashableAmount = staker.exitRequestedAt > 0
+        uint64 slashableAmount = staker.exitRequestedAt > 0
             && block.timestamp <= staker.exitRequestedAt + EXIT_PERIOD
-            ? prover.stakedAmount + staker.exitAmount
-            : prover.stakedAmount;
+            ? staker.stakedAmount + staker.exitAmount
+            : staker.stakedAmount;
 
-        uint32 amountToSlash;
+        uint64 amountToSlash;
 
         if (slashableAmount > 0) {
             amountToSlash = slashableAmount * SLASH_POINTS / 10_000;
@@ -146,27 +149,27 @@ contract ProverPool is EssentialContract, IProverPool {
         } else {
             stakers[addr].exitAmount = 0;
 
-            uint32 _additional = amountToSlash - staker.exitAmount;
-            if (prover.stakedAmount > _additional) {
-                prover.stakedAmount -= _additional;
+            uint64 _additional = amountToSlash - staker.exitAmount;
+            if (staker.stakedAmount > _additional) {
+                stakers[addr].stakedAmount -= _additional;
             } else {
-                prover.stakedAmount = 0;
+                stakers[addr].stakedAmount = 0;
             }
+
+            prover.weight = _calcWeight2(
+                staker.maxCapacity,
+                stakers[addr].stakedAmount,
+                prover.rewardPerGas
+            );
+
             _saveProver(staker.proverId, prover);
         }
-
-        uint256 proverWeight = _calcWeight2(
-            staker.maxCapacity,
-            prover.stakedAmount * ONE_TKO,
-            prover.rewardPerGas
-        );
-        idToWeights[staker.proverId] = proverWeight;
 
         emit Slashed(addr, amountToSlash);
     }
 
     function stake(
-        uint32 amount,
+        uint64 amount,
         uint16 rewardPerGas,
         uint16 maxCapacity
     )
@@ -238,22 +241,18 @@ contract ProverPool is EssentialContract, IProverPool {
     function getWeights(uint32 feePerGas)
         public
         view
-        returns (uint256[MAX_NUM_PROVERS] memory weights, uint256 totalWeight)
+        returns (uint32[MAX_NUM_PROVERS] memory weights, uint256 totalWeight)
     {
         for (uint8 i; i < MAX_NUM_PROVERS; ++i) {
             Prover memory prover = _loadProver(i + 1);
-            if (prover.currentCapacity == 0) {
-                weights[i] = 0;
-            } else {
-                weights[i] = idToWeights[i + 1];
-            }
+            weights[i] = prover.currentCapacity == 0 ? 0 : prover.weight;
             totalWeight += weights[i];
         }
     }
 
     function _stake(
         address addr,
-        uint32 amount,
+        uint64 amount,
         uint16 rewardPerGas,
         uint16 maxCapacity
     )
@@ -262,9 +261,24 @@ contract ProverPool is EssentialContract, IProverPool {
         // Check parameters
         if (
             maxCapacity < MAX_CAPACITY_LOWER_BOUND
-                || amount * ONE_TKO / maxCapacity < MIN_STAKE_PER_CAPACITY
+                || amount / maxCapacity < MIN_STAKE_PER_CAPACITY
                 || rewardPerGas == 0
         ) revert INVALID_PARAMS();
+
+        // Find the smallest prover's id
+        uint8 proverId = 1;
+        for (uint8 i = 2; i <= MAX_NUM_PROVERS; ++i) {
+            if (
+                stakers[idToProver[proverId]].stakedAmount
+                    > stakers[idToProver[i]].stakedAmount
+            ) {
+                proverId = i;
+            }
+        }
+
+        if (stakers[idToProver[proverId]].stakedAmount >= amount) {
+            revert PROVER_NOT_GOOD_ENOUGH();
+        }
 
         // Reuse tokens that are exiting
         Staker storage staker = stakers[addr];
@@ -272,7 +286,7 @@ contract ProverPool is EssentialContract, IProverPool {
         if (staker.exitAmount >= amount) {
             staker.exitAmount -= amount;
         } else {
-            uint64 burnAmount = (amount - staker.exitAmount) * ONE_TKO;
+            uint64 burnAmount = amount - staker.exitAmount;
             TaikoToken(resolve("taiko_token", false)).burn(addr, burnAmount);
             staker.exitAmount = 0;
         }
@@ -280,48 +294,25 @@ contract ProverPool is EssentialContract, IProverPool {
         staker.exitRequestedAt =
             staker.exitAmount == 0 ? 0 : uint64(block.timestamp);
 
+        staker.stakedAmount = amount;
         staker.maxCapacity = maxCapacity;
-
-        // Prepare a list 33 provers for comparison
-        Prover[MAX_NUM_PROVERS + 1] memory provers;
-        provers[0] = Prover(amount, rewardPerGas, maxCapacity);
-
-        for (uint8 i; i < MAX_NUM_PROVERS; ++i) {
-            provers[i + 1] = _loadProver(i + 1);
-        }
-
-        // Find the prover id
-        uint8 proverId;
-        for (uint8 i = 1; i < MAX_NUM_PROVERS + 1; ++i) {
-            if (provers[proverId].stakedAmount > provers[i].stakedAmount) {
-                proverId = i;
-            }
-        }
-
-        if (proverId == 0) {
-            revert PROVER_NOT_GOOD_ENOUGH();
-        }
+        staker.proverId = proverId;
 
         // Force the replaced prover to exit
         address replaced = idToProver[proverId];
-        // if (replaced != address(0)) {
-        _withdraw(replaced);
-        _exit(replaced);
-        // }
-        idToProver[proverId] = addr;
-        // Keep track of weights when changes ()
-        uint256 proverWeight =
-            _calcWeight2(maxCapacity, amount * ONE_TKO, rewardPerGas);
-        idToWeights[proverId] = proverWeight;
+        if (replaced != address(0)) {
+            // replaced can actually be address(0)
+            _withdraw(replaced);
+            _exit(replaced);
+        }
 
-        // Assign the staker this proverId
-        staker.proverId = proverId;
+        idToProver[proverId] = addr;
 
         // Insert the prover in the top prover list
         _saveProver(
             proverId,
             Prover({
-                stakedAmount: amount,
+                weight: _calcWeight2(maxCapacity, amount, rewardPerGas),
                 rewardPerGas: rewardPerGas,
                 currentCapacity: maxCapacity
             })
@@ -336,16 +327,16 @@ contract ProverPool is EssentialContract, IProverPool {
         if (staker.proverId == 0) return;
 
         delete idToProver[staker.proverId];
-        delete idToWeights[staker.proverId];
 
         // Delete the prover but make it non-zero for cheaper rewrites
         // by keep rewardPerGas = 1
         _saveProver(staker.proverId, Prover(0, 1, 0));
 
         Prover memory prover = _loadProver(staker.proverId);
-        if (prover.stakedAmount > 0) {
-            staker.exitAmount += prover.stakedAmount;
+        if (staker.stakedAmount > 0) {
             staker.exitRequestedAt = uint64(block.timestamp);
+            staker.exitAmount += staker.stakedAmount;
+            staker.stakedAmount = 0;
             staker.proverId = 0;
         }
 
@@ -362,33 +353,13 @@ contract ProverPool is EssentialContract, IProverPool {
         }
 
         TaikoToken(AddressResolver(this).resolve("taiko_token", false)).mint(
-            addr, staker.exitAmount * ONE_TKO
+            addr, staker.exitAmount
         );
 
         emit Withdrawn(addr, staker.exitAmount);
         staker.exitRequestedAt = 0;
         staker.exitAmount = 0;
         return true;
-    }
-
-    // Returns the prover's dynamic weight based on the current feePerGas
-    function _calcWeight(
-        Prover memory prover,
-        uint32 feePerGas
-    )
-        private
-        pure
-        returns (uint256)
-    {
-        if (
-            prover.currentCapacity == 0 || prover.stakedAmount == 0
-                || prover.rewardPerGas == 0
-        ) {
-            return 0;
-        } else {
-            return (uint256(prover.stakedAmount) * feePerGas * feePerGas)
-                / prover.rewardPerGas / prover.rewardPerGas;
-        }
     }
 
     // Calculates the user weight's when it stakes/unstakes/slashed
@@ -399,12 +370,16 @@ contract ProverPool is EssentialContract, IProverPool {
     )
         private
         pure
-        returns (uint256)
+        returns (uint32)
     {
         if (currentCapacity == 0 || stakedAmount == 0 || rewardPerGas == 0) {
             return 0;
         } else {
-            return uint256(stakedAmount) / rewardPerGas / rewardPerGas;
+            return uint32(
+                (uint256(stakedAmount) / rewardPerGas / rewardPerGas).max(
+                    type(uint32).max
+                )
+            );
         }
     }
 
@@ -420,7 +395,7 @@ contract ProverPool is EssentialContract, IProverPool {
         uint256 offset = (idx % 4) * 64;
         uint64 data = uint64(proverData[slot] >> offset);
 
-        prover.stakedAmount = uint32(data >> 32);
+        prover.weight = uint32(data >> 32);
         prover.rewardPerGas = uint16(uint32(data) >> 16);
         prover.currentCapacity = uint16(data);
     }
@@ -428,7 +403,7 @@ contract ProverPool is EssentialContract, IProverPool {
     function _saveProver(uint256 proverId, Prover memory prover) private {
         assert(proverId > 0 && proverId <= MAX_NUM_PROVERS);
 
-        uint256 data = uint256(prover.stakedAmount) << 32
+        uint256 data = uint256(prover.weight) << 32
             | uint256(prover.rewardPerGas) << 16 //
             | uint256(prover.currentCapacity);
 
