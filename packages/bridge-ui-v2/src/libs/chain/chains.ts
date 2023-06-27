@@ -68,3 +68,5 @@ export const taikoChain: ChainWithExtras = {
     signalServiceAddress: PUBLIC_L2_SIGNAL_SERVICE_ADDRESS,
   },
 };
+
+export const chains = [mainnetChain, taikoChain];

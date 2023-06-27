@@ -2,11 +2,9 @@ import { configureChains, createConfig } from '@wagmi/core';
 import { w3mConnectors, w3mProvider } from '@web3modal/ethereum';
 
 import { PUBLIC_WEB3_MODAL_PROJECT_ID } from '$env/static/public';
-import { mainnetChain, taikoChain } from '$libs/chain';
+import { chains } from '$libs/chain';
 
 const projectId = PUBLIC_WEB3_MODAL_PROJECT_ID;
-
-export const chains = [mainnetChain, taikoChain];
 
 export const { publicClient } = configureChains(chains, [w3mProvider({ projectId })]);
 

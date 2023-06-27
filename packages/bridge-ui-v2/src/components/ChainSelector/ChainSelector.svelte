@@ -1,31 +1,82 @@
-<script>
+<script lang="ts">
+  import type { ComponentType } from 'svelte';
+  import { noop } from 'svelte/internal';
   import { t } from 'svelte-i18n';
 
-  import { EthIcon } from '$components/Icon';
+  import { EthIcon, Icon, TaikoIcon } from '$components/Icon';
+  import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID } from '$env/static/public';
+  import { chains, type ChainWithExtras } from '$libs/chain';
+  import { uid } from '$libs/util/uid';
 
+  export let onChange: (chain: ChainWithExtras) => void = noop;
+
+  let chainToIconMap: Record<string, ComponentType> = {
+    [PUBLIC_L1_CHAIN_ID]: EthIcon,
+    [PUBLIC_L2_CHAIN_ID]: TaikoIcon,
+  };
+
+  let dialogId = `dialog-${uid()}`;
   let modalOpen = false;
+
+  function closeModal() {
+    modalOpen = false;
+  }
 
   function openModal() {
     modalOpen = true;
   }
+
+  function selectChain(chain: ChainWithExtras) {
+    onChange?.(chain); // TODO: data binding? 🤔
+    closeModal();
+  }
+
+  function onChainKeydown(event: KeyboardEvent, chain: ChainWithExtras) {
+    if (event.key === 'Enter') {
+      selectChain(chain);
+    }
+  }
 </script>
 
 <span>
-  <button class="px-2 py-[6px] body-small-regular bg-neutral-background rounded-md min-w-[150px]" on:click={openModal}>
+  <button
+    aria-haspopup="dialog"
+    aria-controls={dialogId}
+    aria-expanded={modalOpen}
+    class="px-2 py-[6px] body-small-regular bg-neutral-background rounded-md min-w-[150px]"
+    on:click={openModal}>
     <div class="flex space-x-2 items-center">
       <i role="img" aria-label={'Chain'}>
-        <EthIcon small />
+        <EthIcon size={20} />
       </i>
       <span>{$t('chain_selector.placeholder')}…</span>
     </div>
   </button>
 
-  <dialog class="modal" class:modal-open={modalOpen}>
-    <div class="modal-box bg-primary-base-background text-primary-base-content">
+  <dialog id={dialogId} class="modal" class:modal-open={modalOpen}>
+    <div class="modal-box relative px-6 py-[21px] bg-primary-base-background text-primary-base-content">
+      <button class="absolute right-6 top-[21px]" on:click={closeModal}>
+        <Icon type="x-close" />
+      </button>
       <h3 class="title-body-bold">{$t('chain_selector.placeholder')}</h3>
-      <ul class="menu">
-        <li>Mainnet</li>
-        <li>Taiko</li>
+      <ul class="menu space-y-4">
+        {#each chains as chain (chain.id)}
+          <li
+            role="menuitem"
+            tabindex="0"
+            on:click={() => selectChain(chain)}
+            on:keydown={(event) => onChainKeydown(event, chain)}>
+            <div class="flex flex-row justify-between">
+              <div class="flex items-center space-x-4">
+                <i role="img" aria-label={chain.name}>
+                  <svelte:component this={chainToIconMap[chain.id]} size={32} />
+                </i>
+                <span class="body-bold">{chain.name}</span>
+              </div>
+              <span class="body-regular">{chain.network}</span>
+            </div>
+          </li>
+        {/each}
       </ul>
     </div>
     <div class="modal-backdrop bg-overlay-background" />

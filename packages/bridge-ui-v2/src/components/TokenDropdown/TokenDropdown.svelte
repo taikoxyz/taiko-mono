@@ -1,12 +1,15 @@
 <script lang="ts">
   import { type ComponentType, onDestroy, onMount } from 'svelte';
+  import { noop } from 'svelte/internal';
   import { t } from 'svelte-i18n';
 
   import { BllIcon, EthIcon, HorseIcon, Icon } from '$components/Icon';
+  import type { Token } from '$libs/token';
   import { classNames } from '$libs/util/classNames';
+  import { uid } from '$libs/util/uid';
 
   export let tokens: Token[] = [];
-  export let onChange: (token: Token) => void;
+  export let onChange: (token: Token) => void = noop;
 
   let symbolToIconMap: Record<string, ComponentType> = {
     ETH: EthIcon,
@@ -14,6 +17,7 @@
     HORSE: HorseIcon,
   };
 
+  let dropdownId = `dropdown-${uid()}`;
   let selectedToken: Token;
   let menuOpen = false;
 
@@ -56,7 +60,7 @@
 <div class="relative">
   <button
     aria-haspopup="listbox"
-    aria-controls="token-listbox"
+    aria-controls={dropdownId}
     aria-expanded={menuOpen}
     class="w-full flex justify-between items-center px-6 py-[14px] input-box"
     on:click={openMenu}
@@ -77,7 +81,7 @@
     <Icon type="chevron-down" />
   </button>
 
-  <ul role="listbox" id="token-listbox" class={menuClasses}>
+  <ul role="listbox" id={dropdownId} class={menuClasses}>
     {#each tokens as token (token.symbol)}
       <li
         role="option"
