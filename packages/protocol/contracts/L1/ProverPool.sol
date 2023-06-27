@@ -155,7 +155,7 @@ contract ProverPool is EssentialContract, IProverPool {
                 stakers[addr].stakedAmount = 0;
             }
 
-            prover.weight = _calcWeight2(
+            prover.weight = _calcWeight(
                 staker.maxCapacity,
                 stakers[addr].stakedAmount,
                 prover.rewardPerGas
@@ -311,7 +311,7 @@ contract ProverPool is EssentialContract, IProverPool {
         _saveProver(
             proverId,
             Prover({
-                weight: _calcWeight2(maxCapacity, amount, rewardPerGas),
+                weight: _calcWeight(maxCapacity, amount, rewardPerGas),
                 rewardPerGas: rewardPerGas,
                 currentCapacity: maxCapacity
             })
@@ -362,7 +362,7 @@ contract ProverPool is EssentialContract, IProverPool {
     }
 
     // Calculates the user weight's when it stakes/unstakes/slashed
-    function _calcWeight2(
+    function _calcWeight(
         uint16 currentCapacity,
         uint64 stakedAmount,
         uint16 rewardPerGas
