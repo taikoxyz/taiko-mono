@@ -169,6 +169,7 @@ contract ProverPool2 is EssentialContract {
         if (
             stakers[staker].maxNumSlots != type(uint256).max
                 || stakers[preferredProver].amount >= stakers[staker].amount
+                || stakers[staker].unstakedAt != 0
         ) {
             revert CANNOT_BE_PREFERRED();
         }
