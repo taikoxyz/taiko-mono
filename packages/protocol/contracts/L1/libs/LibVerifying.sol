@@ -239,7 +239,8 @@ library LibVerifying {
         // Reward the prover
         state.taikoTokenBalances[fc.prover] += proofReward;
 
-        state.taikoTokenBalances[blk.proposer] += (_gasLimit - fc.gasUsed) * blk.feePerGas;
+        state.taikoTokenBalances[blk.proposer] +=
+            (_gasLimit - fc.gasUsed) * blk.feePerGas;
 
         emit BlockVerified(blk.blockId, fc.blockHash, proofReward);
     }

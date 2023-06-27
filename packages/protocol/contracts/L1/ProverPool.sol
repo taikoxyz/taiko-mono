@@ -155,7 +155,11 @@ contract ProverPool is EssentialContract, IProverPool {
             _saveProver(staker.proverId, prover);
         }
 
-        uint256 proverWeight = _calcWeight2(staker.maxCapacity, prover.stakedAmount * ONE_TKO, prover.rewardPerGas);
+        uint256 proverWeight = _calcWeight2(
+            staker.maxCapacity,
+            prover.stakedAmount * ONE_TKO,
+            prover.rewardPerGas
+        );
         idToWeights[staker.proverId] = proverWeight;
 
         emit Slashed(addr, amountToSlash);
@@ -238,11 +242,10 @@ contract ProverPool is EssentialContract, IProverPool {
     {
         for (uint8 i; i < MAX_NUM_PROVERS; ++i) {
             Prover memory prover = _loadProver(i + 1);
-            if(prover.currentCapacity == 0) {
+            if (prover.currentCapacity == 0) {
                 weights[i] = 0;
-            }
-            else {
-                weights[i] = idToWeights[i+1];
+            } else {
+                weights[i] = idToWeights[i + 1];
             }
             totalWeight += weights[i];
         }
@@ -307,7 +310,8 @@ contract ProverPool is EssentialContract, IProverPool {
         // }
         idToProver[proverId] = addr;
         // Keep track of weights when changes ()
-        uint256 proverWeight = _calcWeight2(maxCapacity, amount * ONE_TKO, rewardPerGas);
+        uint256 proverWeight =
+            _calcWeight2(maxCapacity, amount * ONE_TKO, rewardPerGas);
         idToWeights[proverId] = proverWeight;
 
         // Assign the staker this proverId
@@ -397,14 +401,10 @@ contract ProverPool is EssentialContract, IProverPool {
         pure
         returns (uint256)
     {
-        if (
-            currentCapacity == 0 || stakedAmount == 0
-                || rewardPerGas == 0
-        ) {
+        if (currentCapacity == 0 || stakedAmount == 0 || rewardPerGas == 0) {
             return 0;
         } else {
-            return uint256 (stakedAmount)
-                / rewardPerGas / rewardPerGas;
+            return uint256(stakedAmount) / rewardPerGas / rewardPerGas;
         }
     }
 

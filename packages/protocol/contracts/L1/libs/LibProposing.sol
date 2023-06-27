@@ -25,7 +25,9 @@ library LibProposing {
     using LibUtils for TaikoData.State;
     using SafeCastUpgradeable for uint256;
 
-    event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta, uint64 blockFee);
+    event BlockProposed(
+        uint256 indexed id, TaikoData.BlockMetadata meta, uint64 blockFee
+    );
 
     error L1_BLOCK_ID();
     error L1_INSUFFICIENT_TOKEN();
