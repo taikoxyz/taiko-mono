@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, type ComponentType, onMount } from 'svelte';
+  import { type ComponentType, onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
 
   import { BllIcon, EthIcon, HorseIcon, Icon } from '$components/Icon';

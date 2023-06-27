@@ -1,1 +1,1 @@
-export { default as ChainSelector } from './ChainSelector.svelte'
+export { default as ChainSelector } from './ChainSelector.svelte';

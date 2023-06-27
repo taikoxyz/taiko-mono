@@ -1,6 +1,7 @@
 <script>
-  import { InputBox } from '$components/InputBox';
   import { t } from 'svelte-i18n';
+
+  import { InputBox } from '$components/InputBox';
 </script>
 
 <div class="relative flex items-center">

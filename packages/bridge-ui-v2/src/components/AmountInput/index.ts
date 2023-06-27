@@ -1,1 +1,1 @@
-export { default } from './AmountInput.svelte'
+export { default } from './AmountInput.svelte';
