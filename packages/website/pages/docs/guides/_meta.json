@@ -12,7 +12,10 @@
     "title": "🔄 Swap tokens"
   },
   "run-a-node": {
-    "title": "🌐 Run a node"
+    "title": "🌐 Run a Taiko node"
+  },
+  "run-a-sepolia-node": {
+    "title": "🌳 Run a Sepolia node"
   },
   "enable-a-proposer": {
     "title": "📤 Enable a proposer"
