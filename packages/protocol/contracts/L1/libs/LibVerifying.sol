@@ -124,7 +124,7 @@ library LibVerifying {
             fcId = LibUtils.getForkChoiceId(state, blk, blockHash, gasUsed);
             if (fcId == 0) break;
 
-            TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
+            TaikoData.ForkChoice memory fc = blk.forkChoices[fcId];
             if (fc.prover == address(0)) break;
 
             uint256 proofRegularCooldown = fc.prover == address(1)
@@ -177,7 +177,7 @@ library LibVerifying {
         TaikoData.Config memory config,
         AddressResolver resolver,
         TaikoData.Block storage blk,
-        TaikoData.ForkChoice storage fc,
+        TaikoData.ForkChoice memory fc,
         uint24 fcId
     )
         private
