@@ -2,6 +2,7 @@ import Footer from "./components/Footer";
 import ThemedImage from "./components/ThemedImage";
 import { useConfig } from "nextra-theme-docs";
 import { useRouter } from "next/router";
+import ThemeToggle from "./components/ThemeToggle/ThemeToggle";
 
 export default {
   banner: {
@@ -15,7 +16,7 @@ export default {
   chat: {
     link: "https://discord.gg/taikoxyz",
   },
-  darkMode: true,
+  darkMode: false,
   docsRepositoryBase:
     "https://github.com/taikoxyz/taiko-mono/blob/main/packages/website",
   editLink: {
@@ -50,6 +51,12 @@ export default {
     );
   },
   logo: <ThemedImage />,
+  navbar: {
+    extraContent:
+  <>
+    <ThemeToggle />
+  </>,
+  },
   nextThemes: {
     defaultTheme: "light",
   },
