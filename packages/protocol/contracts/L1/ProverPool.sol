@@ -7,11 +7,10 @@ pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../common/AddressResolver.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
+import { LibMath } from "../libs/LibMath.sol";
 import { IProverPool } from "./IProverPool.sol";
 import { TaikoToken } from "./TaikoToken.sol";
 import { Proxied } from "../common/Proxied.sol";
-
-import { LibMath } from "../libs/LibMath.sol";
 
 contract ProverPool is EssentialContract, IProverPool {
     using LibMath for uint256;
