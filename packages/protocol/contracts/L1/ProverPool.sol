@@ -374,11 +374,7 @@ contract ProverPool is EssentialContract, IProverPool {
         if (currentCapacity == 0 || stakedAmount == 0 || rewardPerGas == 0) {
             return 0;
         } else {
-            return uint32(
-                (uint256(stakedAmount) / rewardPerGas / rewardPerGas).max(
-                    type(uint32).max
-                )
-            );
+            return uint32(stakedAmount / rewardPerGas);
         }
     }
 
