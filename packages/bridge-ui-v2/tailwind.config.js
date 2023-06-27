@@ -123,7 +123,7 @@ export default {
           base: {
             content: 'var(--primary-base-content)',
             background: 'var(--primary-base-background)',
-          }
+          },
         },
 
         secondary: {

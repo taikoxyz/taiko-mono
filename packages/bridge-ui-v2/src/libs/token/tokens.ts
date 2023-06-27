@@ -3,6 +3,8 @@ import { zeroAddress } from 'viem';
 import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID, PUBLIC_TEST_ERC20 } from '$env/static/public';
 import { jsonParseWithDefault } from '$libs/util/jsonParseWithDefault';
 
+import type { Token, TokenEnv } from './types';
+
 export const ETHToken: Token = {
   name: 'Ether',
   addresses: {

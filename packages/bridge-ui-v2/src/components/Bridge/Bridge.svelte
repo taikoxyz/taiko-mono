@@ -11,6 +11,10 @@
 
 <Card title={$t('bridge.title')} text={$t('bridge.subtitle')}>
   <ChainSelector />
-  <TokenDropdown {tokens} onChange={(token) => {}} />
+  <TokenDropdown
+    {tokens}
+    onChange={(token) => {
+      console.log(token);
+    }} />
   <AmountInput />
 </Card>

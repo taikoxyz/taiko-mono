@@ -1,11 +1,11 @@
-type Token = {
+export type Token = {
   name: string;
   addresses: Record<string, string>;
   symbol: string;
   decimals: number;
 };
 
-type TokenEnv = {
+export type TokenEnv = {
   name: string;
   address: string;
   symbol: string;
