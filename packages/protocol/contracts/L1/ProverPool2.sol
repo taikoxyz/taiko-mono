@@ -88,7 +88,7 @@ contract ProverPool2 is EssentialContract {
         totalWeight += getWeight(staker);
 
         // Auto-claim adjustment
-        for (uint slotIdx = 0; slotIdx < NUM_SLOTS; slotIdx++) {
+        for (uint256 slotIdx = 0; slotIdx < NUM_SLOTS; slotIdx++) {
             address current = slots[slotIdx];
             if (stakers[current].numSlots > getNumClaimableSlots(current)) {
                 claimSlot(staker, slotIdx);
