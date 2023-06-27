@@ -166,6 +166,6 @@ library TaikoData {
         uint32 feePerGas;
         uint16 avgProofDelay;
         // Reserved
-        uint256[43] __gap; // TODO: update this
+        uint256[42] __gap; // TODO: update this
     }
 }
