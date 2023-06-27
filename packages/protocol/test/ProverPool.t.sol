@@ -60,7 +60,7 @@ contract TestProverPool is Test {
         ProverPool.Prover[] memory provers;
         address[] memory stakers;
 
-        (provers, stakers) = printProvers();
+        // (provers, stakers) = printProvers();
         // for (uint16 i; i < provers.length; ++i) {
         //     assertEq(provers[i].stakedAmount, uint32(baseCapacity + i) *
         // 10_000);
@@ -135,22 +135,25 @@ contract TestProverPool is Test {
     function printProvers()
         internal
         view
-        returns (ProverPool.Prover[] memory provers, address[] memory stakers)
+        returns (
+            ProverPool.Prover[] memory provers,
+            ProverPool.Staker[] memory stakers
+        )
     {
-        (provers, stakers) = pp.getProvers();
-        for (uint256 i; i < provers.length; ++i) {
-            console2.log(
-                string.concat(
-                    "prover#",
-                    vm.toString(i + 1),
-                    ", addr: ",
-                    vm.toString(stakers[i]),
-                    ", rewardPerGas: ",
-                    vm.toString(provers[i].rewardPerGas),
-                    ", currentCapacity: ",
-                    vm.toString(provers[i].currentCapacity)
-                )
-            );
-        }
+        // (provers, stakers) = pp.getProvers();
+        // for (uint256 i; i < provers.length; ++i) {
+        //     console2.log(
+        //         string.concat(
+        //             "prover#",
+        //             vm.toString(i + 1),
+        //             ", addr: ",
+        //             vm.toString(stakers[i]),
+        //             ", rewardPerGas: ",
+        //             vm.toString(provers[i].rewardPerGas),
+        //             ", currentCapacity: ",
+        //             vm.toString(provers[i].currentCapacity)
+        //         )
+        //     );
+        // }
     }
 }

@@ -14,7 +14,7 @@ import { Proxied } from "../common/Proxied.sol";
 
 contract ProverPool is EssentialContract, IProverPool {
     using LibMath for uint256;
-    // 8 bytes or 1 uint64
+    // 1 uint64
 
     struct Prover {
         uint32 weight;
@@ -22,7 +22,7 @@ contract ProverPool is EssentialContract, IProverPool {
         uint16 currentCapacity;
     }
 
-    // Make sure we only use one slot
+    // Make sure we only use 1 slot
     struct Staker {
         uint64 exitRequestedAt;
         uint64 exitAmount;
@@ -226,13 +226,19 @@ contract ProverPool is EssentialContract, IProverPool {
     function getProvers()
         public
         view
-        returns (Prover[] memory _provers, address[] memory _stakers)
+        returns (
+            address[] memory _addrs,
+            Prover[] memory _provers,
+            Staker[] memory _stakers
+        )
     {
+        _addrs = new address[](MAX_NUM_PROVERS);
         _provers = new Prover[](MAX_NUM_PROVERS);
-        _stakers = new address[](MAX_NUM_PROVERS);
+        _stakers = new Staker[](MAX_NUM_PROVERS);
         for (uint256 i; i < MAX_NUM_PROVERS; ++i) {
+            _addrs[i] = idToProver[i + 1];
             _provers[i] = _loadProver(i + 1);
-            _stakers[i] = idToProver[i + 1];
+            _stakers[i] = stakers[_addrs[i]];
         }
     }
 
