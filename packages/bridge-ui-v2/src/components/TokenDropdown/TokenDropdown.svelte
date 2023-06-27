@@ -5,7 +5,7 @@
   import { BllIcon, EthIcon, HorseIcon, Icon } from '$components/Icon';
 
   export let tokens: Token[] = [];
-  export let onSelectedTokenChange: (token: Token) => void;
+  export let onChange: (token: Token) => void;
 
   let symbolToIconMap: Record<string, ComponentType> = {
     ETH: EthIcon,
@@ -14,29 +14,60 @@
   };
 
   let selectedToken: Token;
+
+  function closeMenu() {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  }
+
+  function selectToken(token: Token) {
+    selectedToken = token;
+    onChange?.(token); // TODO: data binding?
+    closeMenu();
+  }
+
+  function onTokenKeydown(event: KeyboardEvent, token: Token) {
+    if (event.key === 'Enter') {
+      selectToken(token);
+    }
+  }
 </script>
 
-<div class="dropdown" role="listbox">
+<div class="dropdown dropdown-end">
   <button
-    class="w-full flex justify-between items-center px-6 py-[14px] rounded-[10px] border border-primary-border hover:border-primary-border-hover">
+    aria-haspopup="true"
+    class="w-full flex justify-between items-center px-6 py-[14px] rounded-[10px] border border-primary-border hover:border-primary-border-hover focus:border-primary-border-accent">
     <div class="space-x-2">
       {#if !selectedToken}
-        <span class="text-tertiary-content body-small-regular">{$t('bridge.select_token')}…</span>
+        <span class="text-tertiary-content body-small-regular leading-8">{$t('bridge.select_token')}…</span>
       {/if}
       {#if selectedToken}
-        <i>
-          <svelte:component this={symbolToIconMap[selectedToken.symbol]} />
-        </i>
-        <span>{selectedToken.name}</span>
+        <div class="flex space-x-2 items-center">
+          <i role="img" aria-label={selectedToken.name}>
+            <svelte:component this={symbolToIconMap[selectedToken.symbol]} />
+          </i>
+          <span>{selectedToken.symbol}</span>
+        </div>
       {/if}
     </div>
     <Icon type="chevron-down" />
   </button>
-  <ul class="menu dropdown-content" role="listbox">
+
+  <ul role="listbox" class="menu dropdown-content w-[265px] p-3 mt-2 rounded-[10px] bg-neutral-background">
     {#each tokens as token (token.symbol)}
-      <li role="option" aria-selected={selectedToken === token}>
-        <i />
-        <span>{token.name}</span>
+      <li
+        role="option"
+        tabindex="0"
+        aria-selected={token === selectedToken}
+        on:click={() => selectToken(token)}
+        on:keydown={(event) => onTokenKeydown(event, token)}>
+        <div class="p-4">
+          <i role="img" aria-label={token.name}>
+            <svelte:component this={symbolToIconMap[token.symbol]} />
+          </i>
+          <span class="body-bold">{token.symbol}</span>
+        </div>
       </li>
     {/each}
   </ul>

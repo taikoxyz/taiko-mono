@@ -8,5 +8,6 @@
 
 <Card title={$t('bridge.title')} text={$t('bridge.subtitle')}>
   <div class="form-control">
-    <TokenDropdown {tokens} onSelectedTokenChange={() => {}} />
-  </div></Card>
+    <TokenDropdown {tokens} onChange={(token) => {}} />
+  </div>
+</Card>
