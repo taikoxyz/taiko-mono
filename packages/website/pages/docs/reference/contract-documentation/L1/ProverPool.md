@@ -67,6 +67,12 @@ uint256 MAX_NUM_PROVERS
 mapping(uint256 => address) idToProver
 ```
 
+### idToWeights
+
+```solidity
+mapping(uint256 => uint256) idToWeights
+```
+
 ### stakers
 
 ```solidity
