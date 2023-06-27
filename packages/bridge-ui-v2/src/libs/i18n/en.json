@@ -1,0 +1,18 @@
+{
+  "nav": {
+    "bridge": "Bridge",
+    "faucet": "Faucet",
+    "activities": "Activities",
+    "explorer": "Explorer",
+    "guide": "Guide"
+  },
+
+  "wallet": {
+    "connect": "Connect Wallet",
+    "status": {
+      "disconnected": "Disconnected",
+      "connected": "Connected",
+      "connecting": "Connecting..."
+    }
+  }
+}

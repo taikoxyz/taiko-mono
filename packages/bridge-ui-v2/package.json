@@ -1,6 +1,6 @@
 {
   "name": "bridge-ui-v2",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "scripts": {
     "dev": "vite dev",
@@ -21,6 +21,7 @@
     "@sveltejs/adapter-auto": "^2.0.0",
     "@sveltejs/adapter-static": "^2.0.2",
     "@sveltejs/kit": "^1.5.0",
+    "@types/debug": "^4.1.7",
     "@typescript-eslint/eslint-plugin": "^5.45.0",
     "@typescript-eslint/parser": "^5.45.0",
     "autoprefixer": "^10.4.14",
@@ -47,6 +48,7 @@
     "@web3modal/ethereum": "^2.4.7",
     "@web3modal/html": "^2.4.7",
     "debug": "^4.3.4",
+    "svelte-i18n": "^3.5.1",
     "viem": "^1.0.7"
   }
 }

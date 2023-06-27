@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.10.0](https://github.com/taikoxyz/taiko-mono/compare/website-v0.9.0...website-v0.10.0) (2023-06-26)
+
+
+### Features
+
+* **protocol:** use ring buffer for ETH deposit and optimize storage ([#13868](https://github.com/taikoxyz/taiko-mono/issues/13868)) ([acffb61](https://github.com/taikoxyz/taiko-mono/commit/acffb61b13b44fd4792e8f4a31498d788ca38961))
+* **website:** add pheasant network to ecosystem ([#13995](https://github.com/taikoxyz/taiko-mono/issues/13995)) ([3253771](https://github.com/taikoxyz/taiko-mono/commit/32537710891448c389e891b18e658b10b7329d60))
+* **website:** add sepolia node running guide ([#14028](https://github.com/taikoxyz/taiko-mono/issues/14028)) ([e5e7b0e](https://github.com/taikoxyz/taiko-mono/commit/e5e7b0ee16fa4be5e123d383c7da1d0fa7f98780))
+* **website:** Update node troubleshooting for Windows users. ([#14032](https://github.com/taikoxyz/taiko-mono/issues/14032)) ([55145bb](https://github.com/taikoxyz/taiko-mono/commit/55145bbc1c4c572647dea30eb3c0500fa76dbc3e))
+
+
+### Bug Fixes
+
+* **website:** fix blockscout verification documentation ([#14037](https://github.com/taikoxyz/taiko-mono/issues/14037)) ([1353307](https://github.com/taikoxyz/taiko-mono/commit/1353307ae54024273377b0945452634f73f9b32d))
+
 ## [0.9.0](https://github.com/taikoxyz/taiko-mono/compare/website-v0.8.0...website-v0.9.0) (2023-06-12)
 
 
