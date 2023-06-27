@@ -227,8 +227,9 @@ abstract contract TaikoL1TestBase is Test {
         tko.transfer(who, amountTko);
         console2.log("who", who);
         console2.log("balance:", tko.balanceOf(who));
-        // vm.prank(who, who);
-        // L1.depositTaikoToken(amountTko);
+        vm.prank(who, who);
+        // Keep half for proving and deposit half for proposing fee
+        L1.depositTaikoToken(amountTko/2);
     }
 
     function printVariables(string memory comment) internal {

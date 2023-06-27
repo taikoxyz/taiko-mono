@@ -236,16 +236,10 @@ library LibVerifying {
 
         blk.verifiedForkChoiceId = fcId;
 
-        IMintableERC20 taikoToken =
-            IMintableERC20(resolver.resolve("taiko_token", false));
-
         // Reward the prover
-        taikoToken.mint(fc.prover, proofReward);
-        // Refund the diff to the proposer
-        taikoToken.mint({
-            to: blk.proposer,
-            amount: (_gasLimit - fc.gasUsed) * blk.feePerGas
-        });
+        state.taikoTokenBalances[fc.prover] += proofReward;
+
+        state.taikoTokenBalances[blk.proposer] += (_gasLimit - fc.gasUsed) * blk.feePerGas;
 
         emit BlockVerified(blk.blockId, fc.blockHash, proofReward);
     }

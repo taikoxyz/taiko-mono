@@ -25,7 +25,7 @@ library LibProposing {
     using LibUtils for TaikoData.State;
     using SafeCastUpgradeable for uint256;
 
-    event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
+    event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta, uint64 blockFee);
 
     error L1_BLOCK_ID();
     error L1_INSUFFICIENT_TOKEN();
@@ -137,15 +137,17 @@ library LibProposing {
             );
         }
 
-        IMintableERC20(resolver.resolve("taiko_token", false)).burn({
-            from: msg.sender,
-            amount: getBlockFee(state, config, meta.gasLimit)
-        });
+        uint64 blockFee = getBlockFee(state, config, meta.gasLimit);
 
-        emit BlockProposed(state.numBlocks, meta);
+        if (state.taikoTokenBalances[msg.sender] < blockFee) {
+            revert L1_INSUFFICIENT_TOKEN();
+        }
+
+        emit BlockProposed(state.numBlocks, meta, blockFee);
 
         unchecked {
             ++state.numBlocks;
+            state.taikoTokenBalances[msg.sender] -= blockFee;
         }
     }
 
