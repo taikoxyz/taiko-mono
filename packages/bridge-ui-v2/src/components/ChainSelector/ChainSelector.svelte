@@ -16,6 +16,7 @@
   };
 
   let dialogId = `dialog-${uid()}`;
+  let selectedChain: ChainWithExtras;
   let modalOpen = false;
 
   function closeModal() {
@@ -27,6 +28,7 @@
   }
 
   function selectChain(chain: ChainWithExtras) {
+    selectedChain = chain;
     onChange?.(chain); // TODO: data binding? 🤔
     closeModal();
   }
@@ -46,17 +48,24 @@
     class="px-2 py-[6px] body-small-regular bg-neutral-background rounded-md min-w-[150px]"
     on:click={openModal}>
     <div class="flex space-x-2 items-center">
-      <i role="img" aria-label={'Chain'}>
-        <EthIcon size={20} />
-      </i>
-      <span>{$t('chain_selector.placeholder')}…</span>
+      {#if !selectedChain}
+        <span>{$t('chain_selector.placeholder')}…</span>
+      {/if}
+      {#if selectedChain}
+        <div class="flex space-x-2 items-center">
+          <i role="img" aria-label={selectedChain.name}>
+            <svelte:component this={chainToIconMap[selectedChain.id]} size={20} />
+          </i>
+          <span>{selectedChain.name}</span>
+        </div>
+      {/if}
     </div>
   </button>
 
   <dialog id={dialogId} class="modal" class:modal-open={modalOpen}>
     <div class="modal-box relative px-6 py-[21px] bg-primary-base-background text-primary-base-content">
       <button class="absolute right-6 top-[21px]" on:click={closeModal}>
-        <Icon type="x-close" />
+        <Icon type="x-close" fillClass="fill-secondary-icon" />
       </button>
       <h3 class="title-body-bold">{$t('chain_selector.placeholder')}</h3>
       <ul class="menu space-y-4">
@@ -66,7 +75,8 @@
             tabindex="0"
             on:click={() => selectChain(chain)}
             on:keydown={(event) => onChainKeydown(event, chain)}>
-            <div class="flex flex-row justify-between">
+            <!-- TODO: agree on hover:bg color -->
+            <div class="flex flex-row justify-between hover:text-primary-base-content hover:bg-grey-10">
               <div class="flex items-center space-x-4">
                 <i role="img" aria-label={chain.name}>
                   <svelte:component this={chainToIconMap[chain.id]} size={32} />
