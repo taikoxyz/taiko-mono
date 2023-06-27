@@ -41,6 +41,8 @@ contract ProverPool is EssentialContract, IProverPool {
     // reserve more slots than necessary
     uint256[10_000] private proverData;
     mapping(uint256 id => address prover) public idToProver;
+    // Save the weights only when: stake / unstaked / slashed
+    mapping(uint256 id => uint256 weights) public idToWeights;
     mapping(address staker => Staker) public stakers;
 
     uint256[48] private __gap;
@@ -153,6 +155,9 @@ contract ProverPool is EssentialContract, IProverPool {
             _saveProver(staker.proverId, prover);
         }
 
+        uint256 proverWeight = _calcWeight2(staker.maxCapacity, prover.stakedAmount * ONE_TKO, prover.rewardPerGas);
+        idToWeights[staker.proverId] = proverWeight;
+
         emit Slashed(addr, amountToSlash);
     }
 
@@ -224,8 +229,8 @@ contract ProverPool is EssentialContract, IProverPool {
             _stakers[i] = idToProver[i + 1];
         }
     }
-    //Returns each prover's weight dynamically based on feePerGas.
 
+    //Returns each prover's weight dynamically based on feePerGas.
     function getWeights(uint32 feePerGas)
         public
         view
@@ -233,7 +238,12 @@ contract ProverPool is EssentialContract, IProverPool {
     {
         for (uint8 i; i < MAX_NUM_PROVERS; ++i) {
             Prover memory prover = _loadProver(i + 1);
-            weights[i] = _calcWeight(prover, feePerGas);
+            if(prover.currentCapacity == 0) {
+                weights[i] = 0;
+            }
+            else {
+                weights[i] = idToWeights[i+1];
+            }
             totalWeight += weights[i];
         }
     }
@@ -296,6 +306,9 @@ contract ProverPool is EssentialContract, IProverPool {
         _exit(replaced);
         // }
         idToProver[proverId] = addr;
+        // Keep track of weights when changes ()
+        uint256 proverWeight = _calcWeight2(maxCapacity, amount * ONE_TKO, rewardPerGas);
+        idToWeights[proverId] = proverWeight;
 
         // Assign the staker this proverId
         staker.proverId = proverId;
@@ -319,6 +332,7 @@ contract ProverPool is EssentialContract, IProverPool {
         if (staker.proverId == 0) return;
 
         delete idToProver[staker.proverId];
+        delete idToWeights[staker.proverId];
 
         // Delete the prover but make it non-zero for cheaper rewrites
         // by keep rewardPerGas = 1
@@ -370,6 +384,27 @@ contract ProverPool is EssentialContract, IProverPool {
         } else {
             return (uint256(prover.stakedAmount) * feePerGas * feePerGas)
                 / prover.rewardPerGas / prover.rewardPerGas;
+        }
+    }
+
+    // Calculates the user weight's when it stakes/unstakes/slashed
+    function _calcWeight2(
+        uint16 currentCapacity,
+        uint64 stakedAmount,
+        uint16 rewardPerGas
+    )
+        private
+        pure
+        returns (uint256)
+    {
+        if (
+            currentCapacity == 0 || stakedAmount == 0
+                || rewardPerGas == 0
+        ) {
+            return 0;
+        } else {
+            return uint256 (stakedAmount)
+                / rewardPerGas / rewardPerGas;
         }
     }
 
