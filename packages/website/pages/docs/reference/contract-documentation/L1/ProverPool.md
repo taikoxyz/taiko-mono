@@ -8,7 +8,7 @@ title: ProverPool
 
 ```solidity
 struct Prover {
-  uint32 stakedAmount;
+  uint32 weight;
   uint16 rewardPerGas;
   uint16 currentCapacity;
 }
@@ -19,9 +19,20 @@ struct Prover {
 ```solidity
 struct Staker {
   uint64 exitRequestedAt;
-  uint32 exitAmount;
+  uint64 exitAmount;
+  uint64 stakedAmount;
   uint16 maxCapacity;
   uint8 proverId;
+}
+```
+
+### ProverInfo
+
+```solidity
+struct ProverInfo {
+  address addr;
+  struct ProverPool.Prover prover;
+  struct ProverPool.Staker staker;
 }
 ```
 
@@ -37,12 +48,6 @@ uint32 MAX_CAPACITY_LOWER_BOUND
 uint64 EXIT_PERIOD
 ```
 
-### ONE_TKO
-
-```solidity
-uint64 ONE_TKO
-```
-
 ### SLASH_POINTS
 
 ```solidity
@@ -52,7 +57,7 @@ uint32 SLASH_POINTS
 ### MIN_STAKE_PER_CAPACITY
 
 ```solidity
-uint32 MIN_STAKE_PER_CAPACITY
+uint64 MIN_STAKE_PER_CAPACITY
 ```
 
 ### MAX_NUM_PROVERS
@@ -67,12 +72,6 @@ uint256 MAX_NUM_PROVERS
 mapping(uint256 => address) idToProver
 ```
 
-### idToWeights
-
-```solidity
-mapping(uint256 => uint256) idToWeights
-```
-
 ### stakers
 
 ```solidity
@@ -82,25 +81,25 @@ mapping(address => struct ProverPool.Staker) stakers
 ### Withdrawn
 
 ```solidity
-event Withdrawn(address addr, uint32 amount)
+event Withdrawn(address addr, uint64 amount)
 ```
 
 ### Exited
 
 ```solidity
-event Exited(address addr, uint32 amount)
+event Exited(address addr, uint64 amount)
 ```
 
 ### Slashed
 
 ```solidity
-event Slashed(address addr, uint32 amount)
+event Slashed(address addr, uint64 amount)
 ```
 
 ### Staked
 
 ```solidity
-event Staked(address addr, uint32 amount, uint16 rewardPerGas, uint16 currentCapacity)
+event Staked(address addr, uint64 amount, uint16 rewardPerGas, uint16 currentCapacity)
 ```
 
 ### INVALID_PARAMS
@@ -160,7 +159,7 @@ function slashProver(address addr) external
 ### stake
 
 ```solidity
-function stake(uint32 amount, uint16 rewardPerGas, uint16 maxCapacity) external
+function stake(uint64 amount, uint16 rewardPerGas, uint16 maxCapacity) external
 ```
 
 ### exit
@@ -190,13 +189,13 @@ function getCapacity() public view returns (uint256 capacity)
 ### getProvers
 
 ```solidity
-function getProvers() public view returns (struct ProverPool.Prover[] _provers, address[] _stakers)
+function getProvers() public view returns (struct ProverPool.ProverInfo[] _provers)
 ```
 
 ### getWeights
 
 ```solidity
-function getWeights(uint32 feePerGas) public view returns (uint256[32] weights, uint256 totalWeight)
+function getWeights(uint32) public view returns (uint32[32] weights, uint256 totalWeight)
 ```
 
 ---
