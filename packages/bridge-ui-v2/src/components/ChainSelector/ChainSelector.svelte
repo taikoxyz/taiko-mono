@@ -8,6 +8,7 @@
   import { chains, type ExtendedChain } from '$libs/chain';
   import { uid } from '$libs/util/uid';
 
+  export let label: string;
   export let onChange: (chain: ExtendedChain) => void = noop;
 
   let chainToIconMap: Record<string, ComponentType> = {
@@ -15,6 +16,7 @@
     [PUBLIC_L2_CHAIN_ID]: TaikoIcon,
   };
 
+  let buttonId = `button-${uid()}`;
   let dialogId = `dialog-${uid()}`;
   let selectedChain: ExtendedChain;
   let modalOpen = false;
@@ -42,27 +44,32 @@
   onDestroy(closeModal);
 </script>
 
-<span>
-  <button
-    aria-haspopup="dialog"
-    aria-controls={dialogId}
-    aria-expanded={modalOpen}
-    class="px-2 py-[6px] body-small-regular bg-neutral-background rounded-md min-w-[150px]"
-    on:click={openModal}>
-    <div class="flex space-x-2 items-center">
-      {#if !selectedChain}
-        <span>{$t('chain_selector.placeholder')}…</span>
-      {/if}
-      {#if selectedChain}
-        <div class="flex space-x-2 items-center">
-          <i role="img" aria-label={selectedChain.name}>
-            <svelte:component this={chainToIconMap[selectedChain.id]} size={20} />
-          </i>
-          <span>{selectedChain.name}</span>
-        </div>
-      {/if}
-    </div>
-  </button>
+<div>
+  <div class="flex items-center space-x-[10px]">
+    <label class="text-secondary-content body-regular" for={buttonId}>{label}:</label>
+    <button
+      id={buttonId}
+      type="button"
+      aria-haspopup="dialog"
+      aria-controls={dialogId}
+      aria-expanded={modalOpen}
+      class="px-2 py-[6px] body-small-regular bg-neutral-background rounded-md min-w-[150px]"
+      on:click={openModal}>
+      <div class="flex space-x-2 items-center">
+        {#if !selectedChain}
+          <span>{$t('chain_selector.placeholder')}…</span>
+        {/if}
+        {#if selectedChain}
+          <div class="flex space-x-2 items-center">
+            <i role="img" aria-label={selectedChain.name}>
+              <svelte:component this={chainToIconMap[selectedChain.id]} size={20} />
+            </i>
+            <span>{selectedChain.name}</span>
+          </div>
+        {/if}
+      </div>
+    </button>
+  </div>
 
   <dialog id={dialogId} class="modal" class:modal-open={modalOpen}>
     <div class="modal-box relative px-6 py-[21px] bg-primary-base-background text-primary-base-content">
@@ -93,4 +100,4 @@
     </div>
     <div class="modal-backdrop bg-overlay-background" />
   </dialog>
-</span>
+</div>

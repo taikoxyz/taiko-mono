@@ -11,9 +11,13 @@
 </script>
 
 <Card title={$t('bridge.title')} text={$t('bridge.subtitle')}>
-  <ChainSelector />
-  <TokenDropdown {tokens} />
-  <AmountInput />
+  <div class="space-y-2">
+    <ChainSelector label="From" />
+    <TokenDropdown {tokens} />
+  </div>
+
+  <AmountInput label="Amount" />
+
   <RecipientInput />
   <ProcessingFee />
 </Card>
