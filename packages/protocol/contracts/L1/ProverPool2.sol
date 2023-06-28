@@ -5,6 +5,8 @@
 
 pragma solidity ^0.8.20;
 
+import { Test } from "forge-std/Test.sol";
+import { console2 } from "forge-std/console2.sol";
 import { AddressResolver } from "../common/AddressResolver.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { IProverPool } from "./IProverPool.sol";
@@ -16,6 +18,21 @@ contract ProverPool2 is EssentialContract {
     uint256 public constant NUM_SLOTS = 128;
     uint256 public constant EXIT_PERIOD = 1 weeks;
     uint32 public constant SLASH_POINTS = 9500; // basis points
+
+    // Ethereum has around 1.1mil gas used/sec
+    // So maxNumSlots per staker means how much percentage
+    // a staker could support from this amount. (On Taiko A3 it is around
+    // 1.6mil)
+    // Given the fact that:
+    // - high performant provers will be able to support proving all the blocks
+    // (alone)
+    // - blocks does not have to be paralelly proven (they can be proven in a
+    // sliding window)
+    // - if proof time is around 1 hour and we count that at least we have 4
+    // provers (worst case)
+    // We can conclude that 128 / 4 = 32 is a safe number with which we never
+    // run out of capacity
+    uint8 public constant MAX_CAPACITY_LOWER_BOUND = 32;
 
     uint256 public totalStaked;
     uint256 public totalWeight;
@@ -31,6 +48,7 @@ contract ProverPool2 is EssentialContract {
         // Then gets into the preferredProver (if he is also the max prover)
         uint256 maxNumSlots; // Max capacity if someone else's unstake would
             // increase a prover's slot count
+            // This is basically a theoretical edge of capacity
         uint256 unstakedAt;
         uint16 rewardPerGas;
     }
@@ -58,17 +76,14 @@ contract ProverPool2 is EssentialContract {
         view
         returns (address prover, uint32 rewardPerGas)
     {
-        if (totalStaked == 0) {
-            return (address(0), 0);
-        }
-
-        bytes32 rand = keccak256(abi.encode(blockId));
+        bytes32 rand =
+            keccak256(abi.encode(blockhash(block.number - 1), blockId));
         uint256 slot_idx = uint256(rand) % NUM_SLOTS;
         // If the rewardPerGas changes infrequently, just also store it in the
         // slot
-        // so we can keep doing 1 SLOAD.
+        // so we can keep doing 2 SLOAD.
         prover = slots[slot_idx];
-        feePerGas = stakers[prover].rewardPerGas;
+        rewardPerGas = stakers[prover].rewardPerGas;
     }
 
     function stake(
@@ -78,27 +93,42 @@ contract ProverPool2 is EssentialContract {
     )
         external
     {
-        if (maxCapacity > NUM_SLOTS && (maxCapacity != type(uint256).max)) {
+        if (
+            maxCapacity > NUM_SLOTS && (maxCapacity != type(uint256).max)
+                || MAX_CAPACITY_LOWER_BOUND > maxCapacity
+        ) {
             revert CAPACITY_INCORRECT();
         }
         address staker = msg.sender;
+
+        TaikoToken(resolve("taiko_token", false)).burn(staker, amount);
+
         // If the staker was unstaking, first revert the unstaking
         if (stakers[staker].unstakedAt > 0) {
             totalStaked += stakers[staker].amount;
         }
 
+        if (staker == preferredProver && maxCapacity != type(uint256).max) {
+            preferredProver = address(0);
+        }
+
         totalWeight -= getWeight(staker);
+
         totalStaked += amount;
         stakers[staker].amount += amount;
         stakers[staker].unstakedAt = 0;
         stakers[staker].rewardPerGas = rewardPerGas;
         stakers[staker].maxNumSlots = maxCapacity;
         totalWeight += getWeight(staker);
-
         // Auto-claim adjustment
         for (uint256 slotIdx = 0; slotIdx < NUM_SLOTS; slotIdx++) {
             address current = slots[slotIdx];
-            if (stakers[current].numSlots > getNumClaimableSlots(current)) {
+            if (
+                (
+                    current == address(0)
+                        && stakers[staker].numSlots < getNumClaimableSlots(staker)
+                ) || stakers[current].numSlots > getNumClaimableSlots(current)
+            ) {
                 claimSlot(staker, slotIdx);
             }
         }
@@ -107,30 +137,30 @@ contract ProverPool2 is EssentialContract {
     function unstake() external {
         address staker = msg.sender;
 
+        if (staker == preferredProver) {
+            preferredProver = address(0);
+        }
+
         totalWeight -= getWeight(staker);
         stakers[staker].unstakedAt = block.timestamp;
         totalStaked -= stakers[staker].amount;
 
         // Exchange unstaked slots with the preferredProver
         // Auto-claim adjustment
-        uint256 replacedSlots;
         for (uint256 slotIdx = 0; slotIdx < NUM_SLOTS; slotIdx++) {
             address current = slots[slotIdx];
             if (current == staker) {
                 slots[slotIdx] = preferredProver;
-                replacedSlots++;
+                // Someone (later) who's weight allows to actually claim
+                // the slots will do that later from preferredProver.
+                stakers[preferredProver].numSlots++;
             }
         }
-        // Someone (later) who's weight allows to actually claim
-        // the slots will do that later from preferredProver.
-        stakers[preferredProver].numSlots += replacedSlots;
     }
 
-    function setRewardPerGas(uint16 rewardPerGas) external {
-        address staker = msg.sender;
-        totalWeight -= getWeight(staker);
-        stakers[staker].rewardPerGas = rewardPerGas;
-        totalWeight += getWeight(staker);
+    // for not breaking interfaces for now
+    function releaseProver(address addr) external {
+        return;
     }
 
     function setMaxNumSlots(address staker, uint16 maxNumSlots) external {
@@ -140,6 +170,7 @@ contract ProverPool2 is EssentialContract {
         // this number off-chain. This is what ir represents.
 
         require(stakers[staker].numSlots <= maxNumSlots);
+        require(MAX_CAPACITY_LOWER_BOUND <= maxNumSlots);
         stakers[staker].maxNumSlots = maxNumSlots;
     }
 
@@ -184,9 +215,22 @@ contract ProverPool2 is EssentialContract {
     function withdraw(address staker) public {
         require(stakers[staker].unstakedAt + EXIT_PERIOD >= block.timestamp);
         stakers[staker].unstakedAt = 0;
+        TaikoToken(resolve("taiko_token", false)).mint(
+            staker, stakers[staker].amount
+        );
+        stakers[staker].amount = 0;
     }
 
     function getWeight(address staker) public view returns (uint256) {
+        // It shall never be the case that it reverts - only in tests
+        // because rewardPerGas is much lower amount than the staked amount
+        // but in such case happens, just to avoid divisioin by zero
+        require(
+            stakers[staker].amount
+                >= (stakers[staker].rewardPerGas * stakers[staker].rewardPerGas),
+            "Stake more!"
+        );
+
         if (
             stakers[staker].unstakedAt == 0 && stakers[staker].amount != 0
                 && stakers[staker].rewardPerGas != 0
@@ -203,8 +247,12 @@ contract ProverPool2 is EssentialContract {
         view
         returns (uint256)
     {
+        if (staker == address(0)) {
+            return 0;
+        }
         // Cap the number of slots to maxNumSlots
         uint256 numSlotsFromWeight = getWeight(staker) * NUM_SLOTS / totalWeight;
+
         if (numSlotsFromWeight > stakers[staker].maxNumSlots) {
             return stakers[staker].maxNumSlots;
         } else {
