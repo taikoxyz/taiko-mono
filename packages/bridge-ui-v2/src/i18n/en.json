@@ -37,6 +37,10 @@
     "placeholder": "Select chain"
   },
 
+  "custom_recipient": {
+    "placeholder": "Add custom recipient"
+  },
+
   "wallet": {
     "connect": "Connect Wallet",
     "status": {
