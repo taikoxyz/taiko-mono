@@ -86,13 +86,13 @@ function depositEtherToL2(address recipient) public payable
 ### depositTaikoToken
 
 ```solidity
-function depositTaikoToken(uint256 amount) external
+function depositTaikoToken(uint256 amount) public
 ```
 
 ### withdrawTaikoToken
 
 ```solidity
-function withdrawTaikoToken(uint256 amount) external
+function withdrawTaikoToken(uint256 amount) public
 ```
 
 ### canDepositEthToL2

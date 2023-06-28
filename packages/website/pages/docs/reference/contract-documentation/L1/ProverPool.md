@@ -196,7 +196,7 @@ function getProvers() public view returns (struct ProverPool.Prover[] _provers, 
 ### getWeights
 
 ```solidity
-function getWeights(uint32 feePerGas) public view returns (uint256[32] weights, uint256 totalWeight)
+function getWeights(uint32) public view returns (uint256[32] weights, uint256 totalWeight)
 ```
 
 ---
