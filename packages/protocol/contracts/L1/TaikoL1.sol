@@ -147,7 +147,7 @@ contract TaikoL1 is
         });
     }
 
-    function depositEtherToL2(address recipient) public payable {
+    function depositEtherToL2(address recipient) external payable {
         LibEthDepositing.depositEtherToL2({
             state: state,
             config: getConfig(),

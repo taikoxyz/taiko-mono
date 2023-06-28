@@ -365,21 +365,19 @@ contract ProverPool is EssentialContract, IProverPool {
         return true;
     }
 
-    // Calculates the user weight's when it stakes/unstakes/slashed
-    function _calcWeight(
-        uint16 currentCapacity,
-        uint64 stakedAmount,
-        uint16 rewardPerGas
-    )
-        private
-        pure
-        returns (uint32)
-    {
-        if (currentCapacity == 0 || stakedAmount == 0 || rewardPerGas == 0) {
-            return 0;
-        } else {
-            return uint32(stakedAmount / rewardPerGas);
-        }
+    function _saveProver(uint256 proverId, Prover memory prover) private {
+        assert(proverId > 0 && proverId <= MAX_NUM_PROVERS);
+
+        uint256 data = uint256(prover.weight) << 32
+            | uint256(prover.rewardPerGas) << 16 //
+            | uint256(prover.currentCapacity);
+
+        uint256 idx = proverId - 1;
+        uint256 slot = idx / 4;
+        uint256 offset = (idx % 4) * 64;
+
+        proverData[slot] &= ~(uint256(type(uint64).max) << offset);
+        proverData[slot] |= data << offset;
     }
 
     function _loadProver(uint256 proverId)
@@ -399,19 +397,21 @@ contract ProverPool is EssentialContract, IProverPool {
         prover.currentCapacity = uint16(data);
     }
 
-    function _saveProver(uint256 proverId, Prover memory prover) private {
-        assert(proverId > 0 && proverId <= MAX_NUM_PROVERS);
-
-        uint256 data = uint256(prover.weight) << 32
-            | uint256(prover.rewardPerGas) << 16 //
-            | uint256(prover.currentCapacity);
-
-        uint256 idx = proverId - 1;
-        uint256 slot = idx / 4;
-        uint256 offset = (idx % 4) * 64;
-
-        proverData[slot] &= ~(uint256(type(uint64).max) << offset);
-        proverData[slot] |= data << offset;
+    // Calculates the user weight's when it stakes/unstakes/slashed
+    function _calcWeight(
+        uint16 currentCapacity,
+        uint64 stakedAmount,
+        uint16 rewardPerGas
+    )
+        private
+        pure
+        returns (uint32)
+    {
+        if (currentCapacity == 0 || stakedAmount == 0 || rewardPerGas == 0) {
+            return 0;
+        } else {
+            return uint32(stakedAmount / rewardPerGas);
+        }
     }
 }
 
