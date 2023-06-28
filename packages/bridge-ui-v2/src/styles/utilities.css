@@ -1,1 +1,7 @@
 @tailwind utilities;
+
+@layer utilities {
+  .block-hidden {
+    @apply block invisible opacity-0;
+  }
+}

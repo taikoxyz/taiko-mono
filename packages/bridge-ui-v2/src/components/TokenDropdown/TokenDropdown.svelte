@@ -53,6 +53,7 @@
   });
 
   onDestroy(() => {
+    closeMenu();
     document.removeEventListener('click', closeMenu);
   });
 </script>

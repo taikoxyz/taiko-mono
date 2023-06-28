@@ -1,6 +1,6 @@
 import type { Chain } from '@wagmi/core';
 
-export type ChainWithExtras = Chain & {
+export type ExtendedChain = Chain & {
   contracts: {
     bridgeAddress: string;
     crossChainSyncAddress: string;

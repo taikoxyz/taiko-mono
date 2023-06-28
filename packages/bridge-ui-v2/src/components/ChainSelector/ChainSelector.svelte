@@ -1,14 +1,14 @@
 <script lang="ts">
   import type { ComponentType } from 'svelte';
-  import { noop } from 'svelte/internal';
+  import { noop, onDestroy } from 'svelte/internal';
   import { t } from 'svelte-i18n';
 
   import { EthIcon, Icon, TaikoIcon } from '$components/Icon';
   import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID } from '$env/static/public';
-  import { chains, type ChainWithExtras } from '$libs/chain';
+  import { chains, type ExtendedChain } from '$libs/chain';
   import { uid } from '$libs/util/uid';
 
-  export let onChange: (chain: ChainWithExtras) => void = noop;
+  export let onChange: (chain: ExtendedChain) => void = noop;
 
   let chainToIconMap: Record<string, ComponentType> = {
     [PUBLIC_L1_CHAIN_ID]: EthIcon,
@@ -16,7 +16,7 @@
   };
 
   let dialogId = `dialog-${uid()}`;
-  let selectedChain: ChainWithExtras;
+  let selectedChain: ExtendedChain;
   let modalOpen = false;
 
   function closeModal() {
@@ -27,17 +27,19 @@
     modalOpen = true;
   }
 
-  function selectChain(chain: ChainWithExtras) {
+  function selectChain(chain: ExtendedChain) {
     selectedChain = chain;
     onChange?.(chain); // TODO: data binding? 🤔
     closeModal();
   }
 
-  function onChainKeydown(event: KeyboardEvent, chain: ChainWithExtras) {
+  function onChainKeydown(event: KeyboardEvent, chain: ExtendedChain) {
     if (event.key === 'Enter') {
       selectChain(chain);
     }
   }
+
+  onDestroy(closeModal);
 </script>
 
 <span>

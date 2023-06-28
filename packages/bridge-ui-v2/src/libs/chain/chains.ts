@@ -15,9 +15,9 @@ import {
   PUBLIC_L2_SIGNAL_SERVICE_ADDRESS,
 } from '$env/static/public';
 
-import type { ChainWithExtras } from './types';
+import type { ExtendedChain } from './types';
 
-export const mainnetChain: ChainWithExtras = {
+export const mainnetChain: ExtendedChain = {
   id: parseInt(PUBLIC_L1_CHAIN_ID),
   name: PUBLIC_L1_CHAIN_NAME,
   network: 'L1',
@@ -43,7 +43,7 @@ export const mainnetChain: ChainWithExtras = {
   },
 };
 
-export const taikoChain: ChainWithExtras = {
+export const taikoChain: ExtendedChain = {
   id: parseInt(PUBLIC_L2_CHAIN_ID),
   name: PUBLIC_L2_CHAIN_NAME,
   network: 'L2',
