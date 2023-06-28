@@ -9,7 +9,7 @@
     {#if text}
       <p>{text}</p>
     {/if}
-    <div class="flex flex-col mt-6 md:mt-8 space-y-4">
+    <div class="flex flex-col mt-6 md:mt-8">
       <slot />
     </div>
   </div>

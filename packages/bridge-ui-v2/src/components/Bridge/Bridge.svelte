@@ -8,16 +8,34 @@
   import { TokenDropdown } from '$components/TokenDropdown';
   import { tokens } from '$libs/token';
   import { ProcessingFee } from '$components/ProcessingFee';
+  import Icon from '$components/Icon/Icon.svelte';
+  import Button from '$components/Button/Button.svelte';
 </script>
 
 <Card title={$t('bridge.title')} text={$t('bridge.subtitle')}>
-  <div class="space-y-2">
-    <ChainSelector label="From" />
-    <TokenDropdown {tokens} />
+  <div class="space-y-4">
+    <div class="space-y-2">
+      <ChainSelector label="From" />
+      <TokenDropdown {tokens} />
+    </div>
+
+    <AmountInput />
+
+    <div class="flex justify-center">
+      <button>
+        <Icon type="up-down-circle" size={36} />
+      </button>
+    </div>
+
+    <div class="space-y-2">
+      <ChainSelector label="To" />
+      <RecipientInput />
+    </div>
+
+    <ProcessingFee />
   </div>
 
-  <AmountInput label="Amount" />
+  <div class="h-[1px] border border-grey-600 my-[35px]" />
 
-  <RecipientInput />
-  <ProcessingFee />
+  <Button type="primary">Bridge</Button>
 </Card>
