@@ -155,7 +155,7 @@ contract ProverPool is EssentialContract, IProverPool {
             _saveProver(staker.proverId, prover);
         }
 
-        uint256 proverWeight = _calcWeight2(
+        uint256 proverWeight = _calcWeight(
             staker.maxCapacity,
             prover.stakedAmount * ONE_TKO,
             prover.rewardPerGas
@@ -235,7 +235,7 @@ contract ProverPool is EssentialContract, IProverPool {
     }
 
     //Returns each prover's weight dynamically based on feePerGas.
-    function getWeights(uint32 feePerGas)
+    function getWeights(uint32 /*feePerGas*/ )
         public
         view
         returns (uint256[MAX_NUM_PROVERS] memory weights, uint256 totalWeight)
@@ -311,7 +311,7 @@ contract ProverPool is EssentialContract, IProverPool {
         idToProver[proverId] = addr;
         // Keep track of weights when changes ()
         uint256 proverWeight =
-            _calcWeight2(maxCapacity, amount * ONE_TKO, rewardPerGas);
+            _calcWeight(maxCapacity, amount * ONE_TKO, rewardPerGas);
         idToWeights[proverId] = proverWeight;
 
         // Assign the staker this proverId
@@ -371,41 +371,19 @@ contract ProverPool is EssentialContract, IProverPool {
         return true;
     }
 
-    // Returns the prover's dynamic weight based on the current feePerGas
-    function _calcWeight(
-        Prover memory prover,
-        uint32 feePerGas
-    )
-        private
-        pure
-        returns (uint256)
-    {
-        if (
-            prover.currentCapacity == 0 || prover.stakedAmount == 0
-                || prover.rewardPerGas == 0
-        ) {
-            return 0;
-        } else {
-            return (uint256(prover.stakedAmount) * feePerGas * feePerGas)
-                / prover.rewardPerGas / prover.rewardPerGas;
-        }
-    }
+    function _saveProver(uint256 proverId, Prover memory prover) private {
+        assert(proverId > 0 && proverId <= MAX_NUM_PROVERS);
 
-    // Calculates the user weight's when it stakes/unstakes/slashed
-    function _calcWeight2(
-        uint16 currentCapacity,
-        uint64 stakedAmount,
-        uint16 rewardPerGas
-    )
-        private
-        pure
-        returns (uint256)
-    {
-        if (currentCapacity == 0 || stakedAmount == 0 || rewardPerGas == 0) {
-            return 0;
-        } else {
-            return uint256(stakedAmount) / rewardPerGas / rewardPerGas;
-        }
+        uint256 data = uint256(prover.stakedAmount) << 32
+            | uint256(prover.rewardPerGas) << 16 //
+            | uint256(prover.currentCapacity);
+
+        uint256 idx = proverId - 1;
+        uint256 slot = idx / 4;
+        uint256 offset = (idx % 4) * 64;
+
+        proverData[slot] &= ~(uint256(type(uint64).max) << offset);
+        proverData[slot] |= data << offset;
     }
 
     function _loadProver(uint256 proverId)
@@ -425,19 +403,21 @@ contract ProverPool is EssentialContract, IProverPool {
         prover.currentCapacity = uint16(data);
     }
 
-    function _saveProver(uint256 proverId, Prover memory prover) private {
-        assert(proverId > 0 && proverId <= MAX_NUM_PROVERS);
-
-        uint256 data = uint256(prover.stakedAmount) << 32
-            | uint256(prover.rewardPerGas) << 16 //
-            | uint256(prover.currentCapacity);
-
-        uint256 idx = proverId - 1;
-        uint256 slot = idx / 4;
-        uint256 offset = (idx % 4) * 64;
-
-        proverData[slot] &= ~(uint256(type(uint64).max) << offset);
-        proverData[slot] |= data << offset;
+    // Calculates the user weight's when it stakes/unstakes/slashed
+    function _calcWeight(
+        uint16 currentCapacity,
+        uint64 stakedAmount,
+        uint16 rewardPerGas
+    )
+        private
+        pure
+        returns (uint256)
+    {
+        if (currentCapacity == 0 || stakedAmount == 0 || rewardPerGas == 0) {
+            return 0;
+        } else {
+            return uint256(stakedAmount) / rewardPerGas / rewardPerGas;
+        }
     }
 }
 

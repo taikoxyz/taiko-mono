@@ -105,8 +105,6 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             );
 
             vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
-            uint256 lastVerifiedBlockId =
-                L1.getStateVariables().lastVerifiedBlockId;
 
             verifyBlock(Carol, 1);
 

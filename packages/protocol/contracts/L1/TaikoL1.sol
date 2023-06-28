@@ -156,14 +156,13 @@ contract TaikoL1 is
         });
     }
 
-    // From proposer side - same way paying the fees - and saving gas.
-    function depositTaikoToken(uint256 amount) external nonReentrant {
+    function depositTaikoToken(uint256 amount) public nonReentrant {
         LibTkoDistribution.depositTaikoToken(
             state, AddressResolver(this), amount
         );
     }
 
-    function withdrawTaikoToken(uint256 amount) external nonReentrant {
+    function withdrawTaikoToken(uint256 amount) public nonReentrant {
         LibTkoDistribution.withdrawTaikoToken(
             state, AddressResolver(this), amount
         );

@@ -30,8 +30,8 @@ contract MockProverPool is IProverPool {
     }
 
     function assignProver(
-        uint64 blockId,
-        uint32 feePerGas
+        uint64, /*blockId*/
+        uint32 /*feePerGas*/
     )
         external
         view
