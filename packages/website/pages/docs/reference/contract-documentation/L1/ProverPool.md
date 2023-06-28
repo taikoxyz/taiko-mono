@@ -142,7 +142,7 @@ function init(address _addressManager) external
 ### assignProver
 
 ```solidity
-function assignProver(uint64 blockId, uint32 feePerGas) external returns (address prover, uint32 rewardPerGas)
+function assignProver(uint64 blockId, uint32) external returns (address prover, uint32 rewardPerGas)
 ```
 
 ### releaseProver
@@ -191,12 +191,6 @@ function getCapacity() public view returns (uint256 capacity)
 
 ```solidity
 function getProvers() public view returns (struct ProverPool.Prover[] _provers, address[] _stakers)
-```
-
-### getWeights
-
-```solidity
-function getWeights(uint32) public view returns (uint256[32] weights, uint256 totalWeight)
 ```
 
 ---

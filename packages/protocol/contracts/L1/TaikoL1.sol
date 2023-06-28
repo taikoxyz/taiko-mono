@@ -184,15 +184,20 @@ contract TaikoL1 is
         });
     }
 
-    // TODO(dani): we need to return all fields from struct Block.
     function getBlock(uint256 blockId)
         public
         view
         returns (
             bytes32 _metaHash,
+            uint32 _gasLimit,
+            uint24 _nextForkChoiceId,
+            uint24 _verifiedForkChoiceId,
+            bool _proverReleased,
             address _proposer,
+            uint32 _feePerGas,
             uint64 _proposedAt,
             address _assignedProver,
+            uint32 _rewardPerGas,
             uint64 _proofWindow
         )
     {
@@ -202,9 +207,15 @@ contract TaikoL1 is
             blockId: blockId
         });
         _metaHash = blk.metaHash;
+        _gasLimit = blk.gasLimit;
+        _nextForkChoiceId = blk.nextForkChoiceId;
+        _verifiedForkChoiceId = blk.verifiedForkChoiceId;
+        _proverReleased = blk.proverReleased;
         _proposer = blk.proposer;
+        _feePerGas = blk.feePerGas;
         _proposedAt = blk.proposedAt;
         _assignedProver = blk.assignedProver;
+        _rewardPerGas = blk.rewardPerGas;
         _proofWindow = blk.proofWindow;
     }
 

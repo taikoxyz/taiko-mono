@@ -84,10 +84,11 @@ contract ProverPool is EssentialContract, IProverPool {
         unchecked {
             uint256[MAX_NUM_PROVERS] memory weights;
             uint256 totalWeight;
+            Prover memory _prover;
 
             for (uint8 i; i < MAX_NUM_PROVERS; ++i) {
-                Prover memory prover = _loadProver(i + 1);
-                if (prover.currentCapacity != 0) {
+                _prover = _loadProver(i + 1);
+                if (_prover.currentCapacity != 0) {
                     weights[i] = idToWeights[i + 1];
                     totalWeight += weights[i];
                 }
@@ -107,7 +108,7 @@ contract ProverPool is EssentialContract, IProverPool {
             while (z < r && id < MAX_NUM_PROVERS) {
                 z += weights[id++];
             }
-            Prover memory _prover = _loadProver(id);
+            _prover = _loadProver(id);
             _prover.currentCapacity -= 1;
             _saveProver(id, _prover);
 
