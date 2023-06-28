@@ -22,12 +22,6 @@ uint256 EXIT_PERIOD
 uint32 SLASH_POINTS
 ```
 
-### MAX_CAPACITY_LOWER_BOUND
-
-```solidity
-uint8 MAX_CAPACITY_LOWER_BOUND
-```
-
 ### totalStaked
 
 ```solidity
