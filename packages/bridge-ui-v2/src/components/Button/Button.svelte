@@ -1,7 +1,17 @@
 <script lang="ts">
   import { classNames } from '$libs/util/classNames';
 
-  type ButtonType = 'neutral' | 'primary' | 'secondary' | 'accent' | 'info' | 'success' | 'warning' | 'error' | 'ghost';
+  type ButtonType =
+    | 'neutral'
+    | 'primary'
+    | 'secondary'
+    | 'accent'
+    | 'info'
+    | 'success'
+    | 'warning'
+    | 'error'
+    | 'ghost'
+    | 'link';
   type ButtonSize = 'lg' | 'md' | 'sm' | 'xs';
   type ButtonShape = 'circle' | 'square';
 
@@ -26,6 +36,7 @@
     warning: 'btn-warning',
     error: 'btn-error',
     ghost: 'btn-ghost',
+    link: 'btn-link',
   };
 
   const sizeMap: Record<ButtonSize, string> = {
