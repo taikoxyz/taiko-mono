@@ -10,7 +10,7 @@ import { IERC20Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 
 interface IMintableERC20 is IERC20Upgradeable {
-    function mint(address account, uint256 amount) external;
+    function mint(address to, uint256 amount) external;
 
-    function burn(address account, uint256 amount) external;
+    function burn(address from, uint256 amount) external;
 }

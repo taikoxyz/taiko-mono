@@ -9,13 +9,41 @@ import { TaikoConfig } from "../contracts/L1/TaikoConfig.sol";
 import { TaikoData } from "../contracts/L1/TaikoData.sol";
 import { TaikoL1 } from "../contracts/L1/TaikoL1.sol";
 import { TaikoToken } from "../contracts/L1/TaikoToken.sol";
+import { IProverPool } from "../contracts/L1/IProverPool.sol";
 import { SignalService } from "../contracts/signal/SignalService.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
-contract Verifier {
+contract MockVerifier {
     fallback(bytes calldata) external returns (bytes memory) {
         return bytes.concat(keccak256("taiko"));
     }
+}
+
+contract MockProverPool is IProverPool {
+    address private _prover;
+    uint32 private _rewardPerGas;
+
+    function reset(address prover, uint32 rewardPerGas) external {
+        assert(prover != address(0) && rewardPerGas != 0);
+        _prover = prover;
+        _rewardPerGas = rewardPerGas;
+    }
+
+    function assignProver(
+        uint64, /*blockId*/
+        uint32 /*feePerGas*/
+    )
+        external
+        view
+        override
+        returns (address, uint32)
+    {
+        return (_prover, _rewardPerGas);
+    }
+
+    function releaseProver(address prover) external pure override { }
+
+    function slashProver(address prover) external pure override { }
 }
 
 abstract contract TaikoL1TestBase is Test {
@@ -24,10 +52,15 @@ abstract contract TaikoL1TestBase is Test {
     SignalService public ss;
     TaikoL1 public L1;
     TaikoData.Config conf;
+    MockProverPool public proverPool;
     uint256 internal logCount;
 
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
-    uint64 feeBase = 1e8; // 1 TKO
+    // 1 TKO --> it is to huge. It should be in 'wei' (?).
+    // Because otherwise first proposal is around: 1TKO * (1_000_000+20_000)
+    // required as a deposit.
+    uint32 feePerGas = 10;
+    uint16 proofWindow = 60 minutes;
     uint64 l2GasExcess = 1e18;
 
     address public constant L2Treasury =
@@ -58,17 +91,20 @@ abstract contract TaikoL1TestBase is Test {
         addressManager = new AddressManager();
         addressManager.init();
 
+        proverPool = new MockProverPool();
+
         ss = new SignalService();
         ss.init(address(addressManager));
 
         registerAddress("signal_service", address(ss));
         registerAddress("ether_vault", address(L1EthVault));
+        registerAddress("prover_pool", address(proverPool));
         registerL2Address("treasury", L2Treasury);
         registerL2Address("taiko", address(TaikoL2));
         registerL2Address("signal_service", address(L2SS));
         registerL2Address("taiko_l2", address(TaikoL2));
-        registerAddress(L1.getVerifierName(100), address(new Verifier()));
-        registerAddress(L1.getVerifierName(0), address(new Verifier()));
+        registerAddress(L1.getVerifierName(100), address(new MockVerifier()));
+        registerAddress(L1.getVerifierName(0), address(new MockVerifier()));
 
         tko = new TaikoToken();
         registerAddress("taiko_token", address(tko));
@@ -83,11 +119,13 @@ abstract contract TaikoL1TestBase is Test {
         );
 
         // Set protocol broker
-        registerAddress("proto_broker", address(this));
+        registerAddress("taiko", address(this));
         tko.mint(address(this), 1e9 * 1e8);
-        registerAddress("proto_broker", address(L1));
+        registerAddress("taiko", address(L1));
 
-        L1.init(address(addressManager), GENESIS_BLOCK_HASH, feeBase);
+        L1.init(
+            address(addressManager), GENESIS_BLOCK_HASH, feePerGas, proofWindow
+        );
         printVariables("init  ");
     }
 
@@ -106,7 +144,7 @@ abstract contract TaikoL1TestBase is Test {
             txListHash: keccak256(txList),
             txListByteStart: 0,
             txListByteEnd: txListSize,
-            cacheTxListInfo: 0
+            cacheTxListInfo: false
         });
 
         TaikoData.StateVariables memory variables = L1.getStateVariables();
@@ -173,26 +211,29 @@ abstract contract TaikoL1TestBase is Test {
 
     function registerL2Address(bytes32 nameHash, address addr) internal {
         addressManager.setAddress(conf.chainId, nameHash, addr);
-        console2.log(conf.chainId, uint256(nameHash), unicode"→", addr);
+        console2.log(
+            conf.chainId, string(abi.encodePacked(nameHash)), unicode"→", addr
+        );
     }
 
     function depositTaikoToken(
         address who,
-        uint256 amountTko,
+        uint64 amountTko,
         uint256 amountEth
     )
         internal
     {
         vm.deal(who, amountEth);
         tko.transfer(who, amountTko);
-        // vm.prank(who, who);
-        // L1.depositTaikoToken(amountTko);
+        console2.log("who", who);
+        console2.log("balance:", tko.balanceOf(who));
+        vm.prank(who, who);
+        // Keep half for proving and deposit half for proposing fee
+        L1.depositTaikoToken(amountTko / 2);
     }
 
     function printVariables(string memory comment) internal {
         TaikoData.StateVariables memory vars = L1.getStateVariables();
-
-        uint256 fee = L1.getBlockFee();
 
         string memory str = string.concat(
             Strings.toString(logCount++),
@@ -200,9 +241,7 @@ abstract contract TaikoL1TestBase is Test {
             Strings.toString(vars.lastVerifiedBlockId),
             unicode"→",
             Strings.toString(vars.numBlocks),
-            "]",
-            " fee:",
-            Strings.toString(fee)
+            "]"
         );
 
         str = string.concat(

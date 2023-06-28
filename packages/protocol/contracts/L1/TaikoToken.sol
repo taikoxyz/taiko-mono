@@ -14,13 +14,15 @@ import { ERC20SnapshotUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
 import { PausableUpgradeable } from
     "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-
+import { IERC20Upgradeable } from
+    "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { ERC20PermitUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/draft-ERC20PermitUpgradeable.sol";
 import { ERC20VotesUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
+import { IMintableERC20 } from "../common/IMintableERC20.sol";
 
 library LibTaikoTokenConfig {
     uint8 public constant DECIMALS = uint8(8);
@@ -34,7 +36,8 @@ contract TaikoToken is
     ERC20SnapshotUpgradeable,
     PausableUpgradeable,
     ERC20PermitUpgradeable,
-    ERC20VotesUpgradeable
+    ERC20VotesUpgradeable,
+    IMintableERC20
 {
     event Mint(address account, uint256 amount);
     event Burn(address account, uint256 amount);
@@ -87,7 +90,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        onlyFromNamed("proto_broker")
+        onlyFromNamed3("prover_pool", "taiko", "dao")
     {
         _mint(to, amount);
     }
@@ -97,7 +100,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        onlyFromNamed("proto_broker")
+        onlyFromNamed2("prover_pool", "taiko")
     {
         _burn(from, amount);
     }
@@ -107,7 +110,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        override
+        override(ERC20Upgradeable, IERC20Upgradeable)
         returns (bool)
     {
         if (to == address(this)) revert TKO_INVALID_ADDR();
@@ -120,7 +123,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        override
+        override(ERC20Upgradeable, IERC20Upgradeable)
         returns (bool)
     {
         if (to == address(this)) revert TKO_INVALID_ADDR();
@@ -168,7 +171,6 @@ contract TaikoToken is
     {
         super._mint(to, amount);
 
-        // TODO: do we need the following check at all?
         if (totalSupply() > type(uint64).max) revert TKO_MINT_DISALLOWED();
         emit Mint(to, amount);
     }

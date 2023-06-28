@@ -43,6 +43,18 @@ error RESOLVER_ZERO_ADDR(uint256 chainId, bytes32 name)
 modifier onlyFromNamed(bytes32 name)
 ```
 
+### onlyFromNamed2
+
+```solidity
+modifier onlyFromNamed2(bytes32 name1, bytes32 name2)
+```
+
+### onlyFromNamed3
+
+```solidity
+modifier onlyFromNamed3(bytes32 name1, bytes32 name2, bytes32 name3)
+```
+
 ### resolve
 
 ```solidity

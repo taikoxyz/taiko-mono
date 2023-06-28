@@ -7,5 +7,5 @@
 pragma solidity ^0.8.20;
 
 library LibL2Consts {
-    uint64 public constant ANCHOR_GAS_COST = 180_000; // owner:david
+    uint32 public constant ANCHOR_GAS_COST = 180_000; // owner:david
 }

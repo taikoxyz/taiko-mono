@@ -19,18 +19,19 @@ receive() external payable
 ### init
 
 ```solidity
-function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _initBlockFee) external
+function init(address _addressManager, bytes32 _genesisBlockHash, uint32 _initFeePerGas, uint16 _initAvgProofDelay) external
 ```
 
 Initialize the rollup.
 
 #### Parameters
 
-| Name               | Type    | Description                           |
-| ------------------ | ------- | ------------------------------------- |
-| \_addressManager   | address | The AddressManager address.           |
-| \_genesisBlockHash | bytes32 | The block hash of the genesis block.  |
-| \_initBlockFee     | uint64  | Initial (reasonable) block fee value. |
+| Name                | Type    | Description                           |
+| ------------------- | ------- | ------------------------------------- |
+| \_addressManager    | address | The AddressManager address.           |
+| \_genesisBlockHash  | bytes32 | The block hash of the genesis block.  |
+| \_initFeePerGas     | uint32  | Initial (reasonable) block fee value, |
+| \_initAvgProofDelay | uint16  | Initial (reasonable) proof window.    |
 
 ### proposeBlock
 
@@ -82,28 +83,34 @@ Verify up to N blocks.
 function depositEtherToL2(address recipient) public payable
 ```
 
+### depositTaikoToken
+
+```solidity
+function depositTaikoToken(uint256 amount) public
+```
+
+### withdrawTaikoToken
+
+```solidity
+function withdrawTaikoToken(uint256 amount) public
+```
+
 ### canDepositEthToL2
 
 ```solidity
 function canDepositEthToL2(uint256 amount) public view returns (bool)
 ```
 
-### getTaikoTokenBalance
-
-```solidity
-function getTaikoTokenBalance(address addr) public view returns (uint256)
-```
-
 ### getBlockFee
 
 ```solidity
-function getBlockFee() public view returns (uint64)
+function getBlockFee(uint32 gasLimit) public view returns (uint64)
 ```
 
 ### getBlock
 
 ```solidity
-function getBlock(uint256 blockId) public view returns (bytes32 _metaHash, address _proposer, uint64 _proposedAt)
+function getBlock(uint256 blockId) public view returns (bytes32 _metaHash, address _proposer, uint64 _proposedAt, address _assignedProver, uint64 _proofWindow)
 ```
 
 ### getForkChoice
