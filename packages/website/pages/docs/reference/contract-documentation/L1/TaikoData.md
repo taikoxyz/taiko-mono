@@ -172,6 +172,6 @@ struct State {
   uint64 __reserved90;
   uint32 feePerGas;
   uint16 avgProofDelay;
-  uint256[43] __gap;
+  uint256[42] __gap;
 }
 ```

@@ -15,23 +15,31 @@ import { Proxied } from "../common/Proxied.sol";
 contract ProverPool2 is EssentialContract {
     uint256 public constant NUM_SLOTS = 128;
     uint256 public constant EXIT_PERIOD = 1 weeks;
-    uint32 public constant SLASH_POINTS = 500; // basis points
+    uint32 public constant SLASH_POINTS = 9500; // basis points
 
     uint256 public totalStaked;
     uint256 public totalWeight;
 
-    error CAPACITY_TOO_HIGH();
+    error CAPACITY_INCORRECT();
     error NOT_ENOUGH_BALANCE();
+    error CANNOT_BE_PREFERRED();
 
     struct Staker {
         uint256 amount;
         uint256 numSlots;
-        uint256 maxNumSlots; //Max capacity if someone else's unstake would
+        // If type(uint256).max = signals prover can prove all of the blocks
+        // Then gets into the preferredProver (if he is also the max prover)
+        uint256 maxNumSlots; // Max capacity if someone else's unstake would
             // increase a prover's slot count
         uint256 unstakedAt;
-        uint256 unstakedAmount;
         uint16 rewardPerGas;
     }
+
+    // Temporary staker who could jump in as a new prover
+    // when someone unstakes and we need to fill their slots
+    // - until the 'weight-based-owner' claims them (!)
+    // So we basically don't increase anyone's slots unintentionally
+    address preferredProver;
 
     mapping(uint256 slot => address) slots;
     mapping(address staker => Staker) stakers;
@@ -70,8 +78,8 @@ contract ProverPool2 is EssentialContract {
     )
         external
     {
-        if (maxCapacity > NUM_SLOTS) {
-            revert CAPACITY_TOO_HIGH();
+        if (maxCapacity > NUM_SLOTS && (maxCapacity != type(uint256).max)) {
+            revert CAPACITY_INCORRECT();
         }
         address staker = msg.sender;
         // If the staker was unstaking, first revert the unstaking
@@ -96,18 +104,26 @@ contract ProverPool2 is EssentialContract {
         }
     }
 
-    function unstake(uint256 unstakedAmount) external {
-        if (stakers[msg.sender].amount < unstakedAmount) {
-            revert NOT_ENOUGH_BALANCE();
-        }
+    function unstake() external {
         address staker = msg.sender;
 
         totalWeight -= getWeight(staker);
         stakers[staker].unstakedAt = block.timestamp;
-        stakers[staker].unstakedAmount += unstakedAmount;
-        stakers[staker].amount -= unstakedAmount;
-        totalStaked -= unstakedAmount;
-        totalWeight += getWeight(staker);
+        totalStaked -= stakers[staker].amount;
+
+        // Exchange unstaked slots with the preferredProver
+        // Auto-claim adjustment
+        uint256 replacedSlots;
+        for (uint256 slotIdx = 0; slotIdx < NUM_SLOTS; slotIdx++) {
+            address current = slots[slotIdx];
+            if (current == staker) {
+                slots[slotIdx] = preferredProver;
+                replacedSlots++;
+            }
+        }
+        // Someone (later) who's weight allows to actually claim
+        // the slots will do that later from preferredProver.
+        stakers[preferredProver].numSlots += replacedSlots;
     }
 
     function setRewardPerGas(uint16 rewardPerGas) external {
@@ -145,43 +161,28 @@ contract ProverPool2 is EssentialContract {
         }
     }
 
+    // preferredProver is the one who can (theoretically) prove all
+    // the blocks and also the most staked TKO. He will be assigned
+    // with the slots which will have no 'owner' (until claimed)
+    // when someone unstakes
+    function claimPreferredProverStatus(address staker) external {
+        if (
+            stakers[staker].maxNumSlots != type(uint256).max
+                || stakers[preferredProver].amount >= stakers[staker].amount
+                || stakers[staker].unstakedAt != 0
+        ) {
+            revert CANNOT_BE_PREFERRED();
+        }
+        preferredProver = staker;
+    }
+
     function slashProver(address slashed) external {
-        Staker memory staker = stakers[slashed];
-
-        uint256 slashableAmount = staker.unstakedAt > 0
-            && block.timestamp <= staker.unstakedAt + EXIT_PERIOD
-            ? staker.amount + staker.unstakedAmount
-            : staker.amount;
-
-        uint256 amountToSlash;
-
-        if (slashableAmount > 0) {
-            amountToSlash = slashableAmount * SLASH_POINTS / 10_000;
-            // make sure we can slash even if  totalAmount is as small as 1
-            if (amountToSlash == 0) amountToSlash = 1;
-        }
-
-        if (amountToSlash == 0) {
-            // do nothing
-        } else if (amountToSlash <= staker.unstakedAmount) {
-            staker.unstakedAmount -= amountToSlash;
-        } else {
-            uint256 _additional = amountToSlash - staker.unstakedAmount;
-            staker.unstakedAmount = 0;
-
-            if (staker.amount > _additional) {
-                staker.amount -= _additional;
-            } else {
-                staker.amount = 0;
-            }
-        }
-        //Write back memory var to storage
-        stakers[slashed] = staker;
+        stakers[slashed].amount =
+            stakers[slashed].amount * SLASH_POINTS / 10_000;
     }
 
     function withdraw(address staker) public {
         require(stakers[staker].unstakedAt + EXIT_PERIOD >= block.timestamp);
-        stakers[staker].unstakedAmount = 0;
         stakers[staker].unstakedAt = 0;
     }
 
