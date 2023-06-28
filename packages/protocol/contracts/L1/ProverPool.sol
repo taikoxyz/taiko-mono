@@ -81,20 +81,29 @@ contract ProverPool is EssentialContract, IProverPool {
         onlyFromProtocol
         returns (address prover, uint32 rewardPerGas)
     {
-        (uint256[MAX_NUM_PROVERS] memory weights, uint256 totalWeight) =
-            getWeights(feePerGas);
-
-        if (totalWeight == 0) {
-            return (address(0), 0);
-        }
-
-        // Pick a prover using a pseudo random number
-        bytes32 rand =
-            keccak256(abi.encode(blockhash(block.number - 1), blockId));
-        uint256 r = uint256(rand) % totalWeight + 1;
-        uint256 z;
-        uint8 id;
         unchecked {
+            uint256[MAX_NUM_PROVERS] memory weights;
+            uint256 totalWeight;
+
+            for (uint8 i; i < MAX_NUM_PROVERS; ++i) {
+                Prover memory prover = _loadProver(i + 1);
+                if (prover.currentCapacity != 0) {
+                    weights[i] = idToWeights[i + 1];
+                    totalWeight += weights[i];
+                }
+            }
+
+            if (totalWeight == 0) {
+                return (address(0), 0);
+            }
+
+            // Pick a prover using a pseudo random number
+            bytes32 rand =
+                keccak256(abi.encode(blockhash(block.number - 1), blockId));
+            uint256 r = uint256(rand) % totalWeight + 1;
+            uint256 z;
+            uint8 id;
+
             while (z < r && id < MAX_NUM_PROVERS) {
                 z += weights[id++];
             }
