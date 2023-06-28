@@ -45,7 +45,7 @@ contract ProverPool is EssentialContract, IProverPool {
     mapping(uint256 id => uint256 weights) public idToWeights;
     mapping(address staker => Staker) public stakers;
 
-    uint256[48] private __gap;
+    uint256[47] private __gap;
 
     event Withdrawn(address indexed addr, uint32 amount);
     event Exited(address indexed addr, uint32 amount);
