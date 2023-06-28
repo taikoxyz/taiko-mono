@@ -17,6 +17,7 @@ contract ProverPool is EssentialContract, IProverPool {
         uint32 stakedAmount;
         uint16 rewardPerGas;
         uint16 currentCapacity;
+        uint64 weight;
     }
 
     // Make sure we only use one slot
@@ -38,11 +39,9 @@ contract ProverPool is EssentialContract, IProverPool {
     uint32 public constant MIN_STAKE_PER_CAPACITY = 10_000;
     uint256 public constant MAX_NUM_PROVERS = 32;
 
-    // reserve more slots than necessary
-    uint256[10_000] private proverData;
+    Prover[1 + MAX_NUM_PROVERS] public provers; // provers[0] never used
     mapping(uint256 id => address prover) public idToProver;
     // Save the weights only when: stake / unstaked / slashed
-    mapping(uint256 id => uint256 weights) public idToWeights;
     mapping(address staker => Staker) public stakers;
 
     uint256[47] private __gap;
@@ -89,7 +88,7 @@ contract ProverPool is EssentialContract, IProverPool {
             for (uint8 i; i < MAX_NUM_PROVERS; ++i) {
                 _prover = _loadProver(i + 1);
                 if (_prover.currentCapacity != 0) {
-                    weights[i] = idToWeights[i + 1];
+                    weights[i] = provers[i + 1].weight;
                     totalWeight += weights[i];
                 }
             }
@@ -165,12 +164,11 @@ contract ProverPool is EssentialContract, IProverPool {
             _saveProver(staker.proverId, prover);
         }
 
-        uint256 proverWeight = _calcWeight(
+        provers[staker.proverId].weight = _calcWeight(
             staker.maxCapacity,
             prover.stakedAmount * ONE_TKO,
             prover.rewardPerGas
         );
-        idToWeights[staker.proverId] = proverWeight;
 
         emit Slashed(addr, amountToSlash);
     }
@@ -275,23 +273,15 @@ contract ProverPool is EssentialContract, IProverPool {
 
         staker.maxCapacity = maxCapacity;
 
-        // Prepare a list 33 provers for comparison
-        Prover[MAX_NUM_PROVERS + 1] memory provers;
-        provers[0] = Prover(amount, rewardPerGas, maxCapacity);
-
-        for (uint8 i; i < MAX_NUM_PROVERS; ++i) {
-            provers[i + 1] = _loadProver(i + 1);
-        }
-
         // Find the prover id
-        uint8 proverId;
-        for (uint8 i = 1; i < MAX_NUM_PROVERS + 1; ++i) {
+        uint8 proverId = 1;
+        for (uint8 i = 2; i <= MAX_NUM_PROVERS; ++i) {
             if (provers[proverId].stakedAmount > provers[i].stakedAmount) {
                 proverId = i;
             }
         }
 
-        if (proverId == 0) {
+        if (provers[proverId].stakedAmount >= amount) {
             revert PROVER_NOT_GOOD_ENOUGH();
         }
 
@@ -303,10 +293,6 @@ contract ProverPool is EssentialContract, IProverPool {
         // }
         idToProver[proverId] = addr;
         // Keep track of weights when changes ()
-        uint256 proverWeight =
-            _calcWeight(maxCapacity, amount * ONE_TKO, rewardPerGas);
-        idToWeights[proverId] = proverWeight;
-
         // Assign the staker this proverId
         staker.proverId = proverId;
 
@@ -316,7 +302,8 @@ contract ProverPool is EssentialContract, IProverPool {
             Prover({
                 stakedAmount: amount,
                 rewardPerGas: rewardPerGas,
-                currentCapacity: maxCapacity
+                currentCapacity: maxCapacity,
+                weight: _calcWeight(maxCapacity, amount * ONE_TKO, rewardPerGas)
             })
         );
 
@@ -329,11 +316,6 @@ contract ProverPool is EssentialContract, IProverPool {
         if (staker.proverId == 0) return;
 
         delete idToProver[staker.proverId];
-        delete idToWeights[staker.proverId];
-
-        // Delete the prover but make it non-zero for cheaper rewrites
-        // by keep rewardPerGas = 1
-        _saveProver(staker.proverId, Prover(0, 1, 0));
 
         Prover memory prover = _loadProver(staker.proverId);
         if (prover.stakedAmount > 0) {
@@ -341,6 +323,10 @@ contract ProverPool is EssentialContract, IProverPool {
             staker.exitRequestedAt = uint64(block.timestamp);
             staker.proverId = 0;
         }
+
+        // Delete the prover but make it non-zero for cheaper rewrites
+        // by keep rewardPerGas = 1
+        _saveProver(staker.proverId, Prover(0, 1, 0, 0));
 
         emit Exited(addr, staker.exitAmount);
     }
@@ -365,18 +351,7 @@ contract ProverPool is EssentialContract, IProverPool {
     }
 
     function _saveProver(uint256 proverId, Prover memory prover) private {
-        assert(proverId > 0 && proverId <= MAX_NUM_PROVERS);
-
-        uint256 data = uint256(prover.stakedAmount) << 32
-            | uint256(prover.rewardPerGas) << 16 //
-            | uint256(prover.currentCapacity);
-
-        uint256 idx = proverId - 1;
-        uint256 slot = idx / 4;
-        uint256 offset = (idx % 4) * 64;
-
-        proverData[slot] &= ~(uint256(type(uint64).max) << offset);
-        proverData[slot] |= data << offset;
+        provers[proverId] = prover;
     }
 
     function _loadProver(uint256 proverId)
@@ -384,16 +359,7 @@ contract ProverPool is EssentialContract, IProverPool {
         view
         returns (Prover memory prover)
     {
-        assert(proverId > 0 && proverId <= MAX_NUM_PROVERS);
-
-        uint256 idx = proverId - 1;
-        uint256 slot = idx / 4;
-        uint256 offset = (idx % 4) * 64;
-        uint64 data = uint64(proverData[slot] >> offset);
-
-        prover.stakedAmount = uint32(data >> 32);
-        prover.rewardPerGas = uint16(uint32(data) >> 16);
-        prover.currentCapacity = uint16(data);
+        return provers[proverId];
     }
 
     // Calculates the user weight's when it stakes/unstakes/slashed
@@ -404,12 +370,12 @@ contract ProverPool is EssentialContract, IProverPool {
     )
         private
         pure
-        returns (uint256)
+        returns (uint64)
     {
         if (currentCapacity == 0 || stakedAmount == 0 || rewardPerGas == 0) {
             return 0;
         } else {
-            return uint256(stakedAmount) / rewardPerGas / rewardPerGas;
+            return stakedAmount / rewardPerGas / rewardPerGas;
         }
     }
 }
