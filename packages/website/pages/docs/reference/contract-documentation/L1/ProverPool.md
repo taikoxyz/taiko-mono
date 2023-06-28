@@ -8,9 +8,10 @@ title: ProverPool
 
 ```solidity
 struct Prover {
-  uint32 stakedAmount;
+  uint64 stakedAmount;
   uint16 rewardPerGas;
   uint16 currentCapacity;
+  uint64 weight;
 }
 ```
 
@@ -19,7 +20,7 @@ struct Prover {
 ```solidity
 struct Staker {
   uint64 exitRequestedAt;
-  uint32 exitAmount;
+  uint64 exitAmount;
   uint16 maxCapacity;
   uint8 proverId;
 }
@@ -37,12 +38,6 @@ uint32 MAX_CAPACITY_LOWER_BOUND
 uint64 EXIT_PERIOD
 ```
 
-### ONE_TKO
-
-```solidity
-uint64 ONE_TKO
-```
-
 ### SLASH_POINTS
 
 ```solidity
@@ -52,7 +47,13 @@ uint32 SLASH_POINTS
 ### MIN_STAKE_PER_CAPACITY
 
 ```solidity
-uint32 MIN_STAKE_PER_CAPACITY
+uint64 MIN_STAKE_PER_CAPACITY
+```
+
+### MIN_SLASH_AMOUNT
+
+```solidity
+uint64 MIN_SLASH_AMOUNT
 ```
 
 ### MAX_NUM_PROVERS
@@ -61,16 +62,16 @@ uint32 MIN_STAKE_PER_CAPACITY
 uint256 MAX_NUM_PROVERS
 ```
 
+### provers
+
+```solidity
+struct ProverPool.Prover[1024] provers
+```
+
 ### idToProver
 
 ```solidity
 mapping(uint256 => address) idToProver
-```
-
-### idToWeights
-
-```solidity
-mapping(uint256 => uint256) idToWeights
 ```
 
 ### stakers
@@ -82,25 +83,25 @@ mapping(address => struct ProverPool.Staker) stakers
 ### Withdrawn
 
 ```solidity
-event Withdrawn(address addr, uint32 amount)
+event Withdrawn(address addr, uint64 amount)
 ```
 
 ### Exited
 
 ```solidity
-event Exited(address addr, uint32 amount)
+event Exited(address addr, uint64 amount)
 ```
 
 ### Slashed
 
 ```solidity
-event Slashed(address addr, uint32 amount)
+event Slashed(address addr, uint64 amount)
 ```
 
 ### Staked
 
 ```solidity
-event Staked(address addr, uint32 amount, uint16 rewardPerGas, uint16 currentCapacity)
+event Staked(address addr, uint64 amount, uint16 rewardPerGas, uint16 currentCapacity)
 ```
 
 ### INVALID_PARAMS
@@ -160,7 +161,7 @@ function slashProver(address addr) external
 ### stake
 
 ```solidity
-function stake(uint32 amount, uint16 rewardPerGas, uint16 maxCapacity) external
+function stake(uint64 amount, uint16 rewardPerGas, uint16 maxCapacity) external
 ```
 
 ### exit
