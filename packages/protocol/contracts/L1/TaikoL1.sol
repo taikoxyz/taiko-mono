@@ -184,6 +184,10 @@ contract TaikoL1 is
         });
     }
 
+    function getTaikoTokenBalance(address addr) public view returns (uint256) {
+        return state.taikoTokenBalances[addr];
+    }
+
     // TODO(dani): we need to return all fields from struct Block.
     function getBlock(uint256 blockId)
         public
