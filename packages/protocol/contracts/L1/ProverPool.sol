@@ -75,7 +75,7 @@ contract ProverPool is EssentialContract, IProverPool {
 
     function assignProver(
         uint64 blockId,
-        uint32 feePerGas
+        uint32 /*feePerGas*/
     )
         external
         onlyFromProtocol
