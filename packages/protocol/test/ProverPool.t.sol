@@ -18,7 +18,7 @@ contract TestProverPool is Test {
     AddressManager public addressManager;
     TaikoToken public tko;
     ProverPool public pp;
-    uint64 public tokenPerCapacity = 10_000 * 1e8;
+    uint64 public tokenPerCapacity = 100 * 1e8;
 
     function setUp() public {
         addressManager = new AddressManager();
@@ -54,55 +54,58 @@ contract TestProverPool is Test {
             uint16 capacity = baseCapacity + i;
             depositTaikoToken(addr, tokenPerCapacity * capacity, 1 ether);
             vm.prank(addr, addr);
-            pp.stake(uint32(capacity) * 10_000, 10 + i, capacity);
+            pp.stake(tokenPerCapacity * capacity, 10 + i, capacity);
         }
 
-        ProverPool.Prover[] memory provers;
-        address[] memory stakers;
+        ProverPool.ProverInfo[] memory _provers = printProvers();
+        for (uint16 i; i < _provers.length; ++i) {
+            assertEq(
+                _provers[i].staker.stakedAmount,
+                uint32(baseCapacity + i) * tokenPerCapacity
+            );
+            assertEq(_provers[i].prover.rewardPerGas, 10 + i);
+            assertEq(_provers[i].prover.currentCapacity, baseCapacity + i);
+        }
 
-        // (provers, stakers) = printProvers();
-        // for (uint16 i; i < provers.length; ++i) {
-        //     assertEq(provers[i].stakedAmount, uint32(baseCapacity + i) *
-        // 10_000);
-        //     assertEq(provers[i].rewardPerGas, 10 + i);
-        //     assertEq(provers[i].currentCapacity, baseCapacity + i);
-        // }
+        // The same 32 provers restake
+        baseCapacity = 200;
+        for (uint16 i; i < _provers.length; ++i) {
+            address addr = randomAddress(i);
+            uint16 capacity = baseCapacity + i;
+            depositTaikoToken(addr, tokenPerCapacity * capacity, 1 ether);
+            vm.prank(addr, addr);
+            pp.stake(tokenPerCapacity * capacity, 10 + i, capacity);
+        }
 
-        // // The same 32 provers restake
-        // baseCapacity = 200;
-        // for (uint16 i; i < provers.length; ++i) {
-        //     address addr = randomAddress(i);
-        //     uint16 capacity = baseCapacity + i;
-        //     depositTaikoToken(addr, tokenPerCapacity * capacity, 1 ether);
-        //     vm.prank(addr, addr);
-        //     pp.stake(uint32(capacity) * 10_000, 10 + i, capacity);
-        // }
+        _provers = printProvers();
+        for (uint16 i; i < _provers.length; ++i) {
+            assertEq(
+                _provers[i].staker.stakedAmount,
+                uint32(baseCapacity + i) * tokenPerCapacity
+            );
+            assertEq(_provers[i].prover.rewardPerGas, 10 + i);
+            assertEq(_provers[i].prover.currentCapacity, baseCapacity + i);
+        }
 
-        // (provers, stakers) = printProvers();
-        // for (uint16 i; i < provers.length; ++i) {
-        //     assertEq(provers[i].stakedAmount, uint32(baseCapacity + i) *
-        // 10_000);
-        //     assertEq(provers[i].rewardPerGas, 10 + i);
-        //     assertEq(provers[i].currentCapacity, baseCapacity + i);
-        // }
+        // Different 32 provers stake
+        baseCapacity = 500;
+        for (uint16 i; i < _provers.length; ++i) {
+            address addr = randomAddress(i + 12_345);
+            uint16 capacity = baseCapacity + i;
+            depositTaikoToken(addr, tokenPerCapacity * capacity, 1 ether);
+            vm.prank(addr, addr);
+            pp.stake(tokenPerCapacity * capacity, 10 + i, capacity);
+        }
 
-        // // Different 32 provers stake
-        // baseCapacity = 500;
-        // for (uint16 i; i < provers.length; ++i) {
-        //     address addr = randomAddress(i + 12_345);
-        //     uint16 capacity = baseCapacity + i;
-        //     depositTaikoToken(addr, tokenPerCapacity * capacity, 1 ether);
-        //     vm.prank(addr, addr);
-        //     pp.stake(uint32(capacity) * 10_000, 10 + i, capacity);
-        // }
-
-        // (provers, stakers) = printProvers();
-        // for (uint16 i; i < provers.length; ++i) {
-        //     assertEq(provers[i].stakedAmount, uint32(baseCapacity + i) *
-        // 10_000);
-        //     assertEq(provers[i].rewardPerGas, 10 + i);
-        //     assertEq(provers[i].currentCapacity, baseCapacity + i);
-        // }
+        _provers = printProvers();
+        for (uint16 i; i < _provers.length; ++i) {
+            assertEq(
+                _provers[i].staker.stakedAmount,
+                uint32(baseCapacity + i) * tokenPerCapacity
+            );
+            assertEq(_provers[i].prover.rewardPerGas, 10 + i);
+            assertEq(_provers[i].prover.currentCapacity, baseCapacity + i);
+        }
     }
 
     // --- helpers ---
@@ -135,25 +138,26 @@ contract TestProverPool is Test {
     function printProvers()
         internal
         view
-        returns (
-            ProverPool.Prover[] memory provers,
-            ProverPool.Staker[] memory stakers
-        )
+        returns (ProverPool.ProverInfo[] memory _provers)
     {
-        // (provers, stakers) = pp.getProvers();
-        // for (uint256 i; i < provers.length; ++i) {
-        //     console2.log(
-        //         string.concat(
-        //             "prover#",
-        //             vm.toString(i + 1),
-        //             ", addr: ",
-        //             vm.toString(stakers[i]),
-        //             ", rewardPerGas: ",
-        //             vm.toString(provers[i].rewardPerGas),
-        //             ", currentCapacity: ",
-        //             vm.toString(provers[i].currentCapacity)
-        //         )
-        //     );
-        // }
+        _provers = pp.getProvers();
+        for (uint256 i; i < _provers.length; ++i) {
+            console2.log(
+                string.concat(
+                    "prover#",
+                    vm.toString(i + 1),
+                    ", addr: ",
+                    vm.toString(_provers[i].addr),
+                    ", weight: ",
+                    vm.toString(_provers[i].prover.weight),
+                    ", rewardPerGas: ",
+                    vm.toString(_provers[i].prover.rewardPerGas),
+                    ", currentCapacity: ",
+                    vm.toString(_provers[i].prover.currentCapacity),
+                    ", stakedAmount: ",
+                    vm.toString(_provers[i].staker.stakedAmount)
+                )
+            );
+        }
     }
 }

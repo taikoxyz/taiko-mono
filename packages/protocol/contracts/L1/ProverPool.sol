@@ -31,6 +31,12 @@ contract ProverPool is EssentialContract, IProverPool {
         uint8 proverId; // 0 to indicate the staker is not a top prover
     }
 
+    struct ProverInfo {
+        address addr;
+        Prover prover;
+        Staker staker;
+    }
+
     // Given that we only have 32 slots for the top provers, if the protocol
     // can support 1 block per second with an average proof time of 1 hour,
     // then we need a min capacity of 3600, which means each prover shall
@@ -38,7 +44,8 @@ contract ProverPool is EssentialContract, IProverPool {
     uint32 public constant MAX_CAPACITY_LOWER_BOUND = 128;
     uint64 public constant EXIT_PERIOD = 1 weeks;
     uint32 public constant SLASH_POINTS = 500; // basis points
-    uint32 public constant MIN_STAKE_PER_CAPACITY = 10_000;
+    uint64 public constant MIN_STAKE_PER_CAPACITY = 100 * 1e8; // 100 Taiko
+        // token
     uint256 public constant MAX_NUM_PROVERS = 32;
 
     // reserve more slots than necessary
@@ -52,6 +59,7 @@ contract ProverPool is EssentialContract, IProverPool {
     event Withdrawn(address indexed addr, uint64 amount);
     event Exited(address indexed addr, uint64 amount);
     event Slashed(address indexed addr, uint64 amount);
+
     event Staked(
         address indexed addr,
         uint64 amount,
@@ -223,27 +231,18 @@ contract ProverPool is EssentialContract, IProverPool {
         }
     }
 
-    function getProvers()
-        public
-        view
-        returns (
-            address[] memory _addrs,
-            Prover[] memory _provers,
-            Staker[] memory _stakers
-        )
-    {
-        _addrs = new address[](MAX_NUM_PROVERS);
-        _provers = new Prover[](MAX_NUM_PROVERS);
-        _stakers = new Staker[](MAX_NUM_PROVERS);
+    function getProvers() public view returns (ProverInfo[] memory _provers) {
+        _provers = new ProverInfo[](MAX_NUM_PROVERS);
         for (uint256 i; i < MAX_NUM_PROVERS; ++i) {
-            _addrs[i] = idToProver[i + 1];
-            _provers[i] = _loadProver(i + 1);
-            _stakers[i] = stakers[_addrs[i]];
+            address addr = idToProver[i + 1];
+            _provers[i].addr = addr;
+            _provers[i].prover = _loadProver(i + 1);
+            _provers[i].staker = stakers[addr];
         }
     }
 
     //Returns each prover's weight dynamically based on feePerGas.
-    function getWeights(uint32 feePerGas)
+    function getWeights(uint32 /*feePerGas*/ )
         public
         view
         returns (uint32[MAX_NUM_PROVERS] memory weights, uint256 totalWeight)
@@ -337,7 +336,6 @@ contract ProverPool is EssentialContract, IProverPool {
         // by keep rewardPerGas = 1
         _saveProver(staker.proverId, Prover(0, 1, 0));
 
-        Prover memory prover = _loadProver(staker.proverId);
         if (staker.stakedAmount > 0) {
             staker.exitRequestedAt = uint64(block.timestamp);
             staker.exitAmount += staker.stakedAmount;

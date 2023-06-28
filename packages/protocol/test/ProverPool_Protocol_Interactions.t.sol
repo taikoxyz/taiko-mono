@@ -185,7 +185,7 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
         // 32 slots we have
         for (uint256 index; index < 32; index++) {
             vm.prank(proverArray[index], proverArray[index]);
-            realProverPool.stake(uint32(index + 1), 10, 128);
+            realProverPool.stake(uint64(index + 128) * 1e10, 10, 128);
         }
     }
 
@@ -196,7 +196,7 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
         // 32 slots we have
         for (uint256 index; index < 5; index++) {
             vm.prank(proverArray[index], proverArray[index]);
-            realProverPool.stake(uint32(index + 1), 10, 128);
+            realProverPool.stake(uint64(index + 128) * 1e10, 10, 128);
         }
     }
 
@@ -254,8 +254,8 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
             );
 
             vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
-            uint256 lastVerifiedBlockId =
-                L1.getStateVariables().lastVerifiedBlockId;
+            // uint256 lastVerifiedBlockId =
+            //     L1.getStateVariables().lastVerifiedBlockId;
 
             verifyBlock(Carol, 1);
 
@@ -274,7 +274,7 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
         console2.log("Alice balance:", tko.balanceOf(Alice));
 
         vm.prank(Ivy, Ivy);
-        realProverPool.stake(uint32(2), 10, 128);
+        realProverPool.stake(uint64(130) * 1e10, 10, 128);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -309,8 +309,8 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
             );
 
             vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
-            uint256 lastVerifiedBlockId =
-                L1.getStateVariables().lastVerifiedBlockId;
+            // uint256 lastVerifiedBlockId =
+            //     L1.getStateVariables().lastVerifiedBlockId;
 
             verifyBlock(Carol, 1);
 
@@ -372,8 +372,8 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
             }
 
             vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
-            uint256 lastVerifiedBlockId =
-                L1.getStateVariables().lastVerifiedBlockId;
+            // uint256 lastVerifiedBlockId =
+            //     L1.getStateVariables().lastVerifiedBlockId;
 
             verifyBlock(Carol, 1);
 
@@ -426,8 +426,8 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
             );
 
             vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
-            uint256 lastVerifiedBlockId =
-                L1.getStateVariables().lastVerifiedBlockId;
+            // uint256 lastVerifiedBlockId =
+            //     L1.getStateVariables().lastVerifiedBlockId;
 
             verifyBlock(Carol, 1);
 
@@ -463,7 +463,8 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
 
                 // Now Khloe will be the new top staker
                 vm.prank(Khloe, Khloe);
-                realProverPool.stake(6, 10, 128); // 6 * 1e8 is the biggest, Kai
+                realProverPool.stake(128 * 1e10, 10, 128); // 6 * 1e8 is the
+                    // biggest, Kai
                     // was 5 * 1e8
             }
             printVariables("before propose");
@@ -491,8 +492,8 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
             );
 
             vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
-            uint256 lastVerifiedBlockId =
-                L1.getStateVariables().lastVerifiedBlockId;
+            // uint256 lastVerifiedBlockId =
+            //     L1.getStateVariables().lastVerifiedBlockId;
 
             verifyBlock(Carol, 1);
 
@@ -534,7 +535,7 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
 
             // Wait long so will be slashed
             vm.warp(block.timestamp + 2 hours);
-            (, ProverPool.Prover memory proverObjBeforeSlash) =
+            (ProverPool.Staker memory stakerObjBeforeSlash,) =
                 realProverPool.getStaker(prover);
 
             //Outside the proof window others can submit proofs
@@ -550,18 +551,18 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
             );
 
             vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
-            uint256 lastVerifiedBlockId =
-                L1.getStateVariables().lastVerifiedBlockId;
+            // uint256 lastVerifiedBlockId =
+            //     L1.getStateVariables().lastVerifiedBlockId;
 
             verifyBlock(Carol, 1);
 
-            (, ProverPool.Prover memory proverObjAfterSlash) =
+            (ProverPool.Staker memory stakerAfterSlash,) =
                 realProverPool.getStaker(prover);
 
-            // assertTrue(
-            //     proverObjAfterSlash.stakedAmount
-            //         < proverObjBeforeSlash.stakedAmount
-            // );
+            assertTrue(
+                stakerAfterSlash.stakedAmount
+                    < stakerObjBeforeSlash.stakedAmount
+            );
 
             parentHash = blockHash;
             parentGasUsed = gasUsed;
