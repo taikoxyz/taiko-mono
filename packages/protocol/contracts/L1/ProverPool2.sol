@@ -17,21 +17,6 @@ contract ProverPool2 is EssentialContract {
     uint256 public constant EXIT_PERIOD = 1 weeks;
     uint32 public constant SLASH_POINTS = 9500; // basis points
 
-    // Ethereum has around 1.1mil gas used/sec
-    // So maxNumSlots per staker means how much percentage
-    // a staker could support from this amount. (On Taiko A3 it is around
-    // 1.6mil)
-    // Given the fact that:
-    // - high performant provers will be able to support proving all the blocks
-    // (alone)
-    // - blocks does not have to be paralelly proven (they can be proven in a
-    // sliding window)
-    // - if proof time is around 1 hour and we count that at least we have 4
-    // provers (worst case)
-    // We can conclude that 128 / 4 = 32 is a safe number with which we never
-    // run out of capacity
-    uint8 public constant MAX_CAPACITY_LOWER_BOUND = 32;
-
     uint256 public totalStaked;
     uint256 public totalWeight;
 
@@ -101,10 +86,7 @@ contract ProverPool2 is EssentialContract {
     )
         external
     {
-        if (
-            maxCapacity > NUM_SLOTS && (maxCapacity != type(uint256).max)
-                || MAX_CAPACITY_LOWER_BOUND > maxCapacity
-        ) {
+        if (maxCapacity > NUM_SLOTS && (maxCapacity != type(uint256).max)) {
             revert PP_CAPACITY_INCORRECT();
         }
         address staker = msg.sender;
@@ -181,10 +163,7 @@ contract ProverPool2 is EssentialContract {
         // Since the GasPerSecond of the chain is known, the prover can know
         // this number off-chain. This is what ir represents.
 
-        if (
-            stakers[staker].numSlots > maxNumSlots
-                || MAX_CAPACITY_LOWER_BOUND > maxNumSlots
-        ) {
+        if (stakers[staker].numSlots > maxNumSlots) {
             revert PP_CAPACITY_INCORRECT();
         }
         stakers[staker].maxNumSlots = maxNumSlots;
