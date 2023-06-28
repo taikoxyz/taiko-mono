@@ -153,3 +153,21 @@ error L1_TX_LIST()
 ```solidity
 error L1_UNAUTHORIZED()
 ```
+
+### PP_CAPACITY_INCORRECT
+
+```solidity
+error PP_CAPACITY_INCORRECT()
+```
+
+### PP_CANNOT_BE_PREFERRED
+
+```solidity
+error PP_CANNOT_BE_PREFERRED()
+```
+
+### PP_STAKE_AMOUNT_TOO_LOW
+
+```solidity
+error PP_STAKE_AMOUNT_TOO_LOW()
+```

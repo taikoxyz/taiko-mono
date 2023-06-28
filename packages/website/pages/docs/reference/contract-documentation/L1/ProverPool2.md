@@ -22,6 +22,12 @@ uint256 EXIT_PERIOD
 uint32 SLASH_POINTS
 ```
 
+### MAX_CAPACITY_LOWER_BOUND
+
+```solidity
+uint8 MAX_CAPACITY_LOWER_BOUND
+```
+
 ### totalStaked
 
 ```solidity
@@ -34,22 +40,46 @@ uint256 totalStaked
 uint256 totalWeight
 ```
 
-### CAPACITY_INCORRECT
+### Withdrawn
 
 ```solidity
-error CAPACITY_INCORRECT()
+event Withdrawn(address addr, uint256 amount)
 ```
 
-### NOT_ENOUGH_BALANCE
+### Exited
 
 ```solidity
-error NOT_ENOUGH_BALANCE()
+event Exited(address addr, uint256 amount)
 ```
 
-### CANNOT_BE_PREFERRED
+### Slashed
 
 ```solidity
-error CANNOT_BE_PREFERRED()
+event Slashed(address addr, uint256 amount)
+```
+
+### Staked
+
+```solidity
+event Staked(address addr, uint256 amount, uint16 rewardPerGas, uint16 currentCapacity)
+```
+
+### PP_CAPACITY_INCORRECT
+
+```solidity
+error PP_CAPACITY_INCORRECT()
+```
+
+### PP_CANNOT_BE_PREFERRED
+
+```solidity
+error PP_CANNOT_BE_PREFERRED()
+```
+
+### PP_STAKE_AMOUNT_TOO_LOW
+
+```solidity
+error PP_STAKE_AMOUNT_TOO_LOW()
 ```
 
 ### Staker
@@ -106,10 +136,10 @@ function stake(uint256 amount, uint16 rewardPerGas, uint16 maxCapacity) external
 function unstake() external
 ```
 
-### setRewardPerGas
+### releaseProver
 
 ```solidity
-function setRewardPerGas(uint16 rewardPerGas) external
+function releaseProver(address addr) external pure
 ```
 
 ### setMaxNumSlots
