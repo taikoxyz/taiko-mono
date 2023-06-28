@@ -243,23 +243,6 @@ contract ProverPool is EssentialContract, IProverPool {
         }
     }
 
-    //Returns each prover's weight dynamically based on feePerGas.
-    function getWeights(uint32 /*feePerGas*/ )
-        public
-        view
-        returns (uint256[MAX_NUM_PROVERS] memory weights, uint256 totalWeight)
-    {
-        for (uint8 i; i < MAX_NUM_PROVERS; ++i) {
-            Prover memory prover = _loadProver(i + 1);
-            if (prover.currentCapacity == 0) {
-                weights[i] = 0;
-            } else {
-                weights[i] = idToWeights[i + 1];
-            }
-            totalWeight += weights[i];
-        }
-    }
-
     function _stake(
         address addr,
         uint32 amount,
