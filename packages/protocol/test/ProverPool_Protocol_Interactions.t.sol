@@ -235,7 +235,7 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
             //printVariables("after propose");
             mine(1);
 
-            (,,, address prover,) = L1.getBlock(blockId);
+            (,,,,,,,, address prover,,) = L1.getBlock(blockId);
             console2.log("Prover address:", getNameFromAddress(prover));
 
             bytes32 blockHash = bytes32(1e10 + blockId);
@@ -288,7 +288,8 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
             //printVariables("after propose");
             mine(1);
 
-            (,,, address prover,) = L1.getBlock(blockId);
+            (,,,,,,,, address prover,,) = L1.getBlock(blockId);
+
             console2.log("Prover address:", getNameFromAddress(prover));
 
             bytes32 blockHash = bytes32(1e10 + blockId);
@@ -336,7 +337,9 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
             //printVariables("after propose");
             mine(1);
 
-            (,,, address prover,) = L1.getBlock(blockId);
+
+            (,,,,,,,, address prover,,) = L1.getBlock(blockId);
+
             console2.log("Prover address:", getNameFromAddress(prover));
 
             bytes32 blockHash = bytes32(1e10 + blockId);
@@ -401,7 +404,8 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
             //printVariables("after propose");
             mine(1);
 
-            (,,, address prover,) = L1.getBlock(blockId);
+            (,,,,,,,, address prover,,) = L1.getBlock(blockId);
+
             console2.log("Prover address:", getNameFromAddress(prover));
 
             bytes32 blockHash = bytes32(1e10 + blockId);
@@ -464,7 +468,8 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
             //printVariables("after propose");
             mine(1);
 
-            (,,, address prover,) = L1.getBlock(blockId);
+            (,,,,,,,, address prover,,) = L1.getBlock(blockId);
+
             console2.log("Prover address:", getNameFromAddress(prover));
 
             bytes32 blockHash = bytes32(1e10 + blockId);
@@ -514,7 +519,8 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
             //printVariables("after propose");
             mine(1);
 
-            (,,, address prover,) = L1.getBlock(blockId);
+            (,,,,,,,, address prover,,) = L1.getBlock(blockId);
+
             console2.log("Prover address:", getNameFromAddress(prover));
 
             bytes32 blockHash = bytes32(1e10 + blockId);
@@ -577,7 +583,8 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
             //printVariables("after propose");
             mine(1);
 
-            (,,, address prover,) = L1.getBlock(blockId);
+            (,,,,,,,, address prover,,) = L1.getBlock(blockId);
+
             console2.log("Prover address:", getNameFromAddress(prover));
 
             bytes32 blockHash = bytes32(1e10 + blockId);
