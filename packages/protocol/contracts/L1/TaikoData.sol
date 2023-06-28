@@ -147,6 +147,7 @@ library TaikoData {
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         mapping(uint256 depositId_mode_ethDepositRingBufferSize => uint256)
             ethDeposits;
+        mapping(address account => uint256 balance) taikoTokenBalances;
         // Never or rarely changed
         // Slot 7: never or rarely changed
         uint64 genesisHeight;
@@ -165,6 +166,6 @@ library TaikoData {
         uint32 feePerGas;
         uint16 avgProofDelay;
         // Reserved
-        uint256[43] __gap; // TODO: update this
+        uint256[42] __gap; // TODO: update this
     }
 }

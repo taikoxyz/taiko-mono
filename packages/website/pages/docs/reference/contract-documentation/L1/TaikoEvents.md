@@ -7,7 +7,7 @@ title: TaikoEvents
 ### BlockProposed
 
 ```solidity
-event BlockProposed(uint256 id, struct TaikoData.BlockMetadata meta)
+event BlockProposed(uint256 id, struct TaikoData.BlockMetadata meta, uint64 blockFee)
 ```
 
 ### BlockProven

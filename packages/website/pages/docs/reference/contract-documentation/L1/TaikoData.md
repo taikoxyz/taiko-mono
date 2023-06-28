@@ -158,6 +158,7 @@ struct State {
   mapping(uint256 => mapping(bytes32 => mapping(uint32 => uint24))) forkChoiceIds;
   mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
   mapping(uint256 => uint256) ethDeposits;
+  mapping(address => uint256) taikoTokenBalances;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 __reserved70;
@@ -171,6 +172,6 @@ struct State {
   uint64 __reserved90;
   uint32 feePerGas;
   uint16 avgProofDelay;
-  uint256[43] __gap;
+  uint256[42] __gap;
 }
 ```

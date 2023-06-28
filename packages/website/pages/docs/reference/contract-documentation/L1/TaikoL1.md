@@ -83,6 +83,18 @@ Verify up to N blocks.
 function depositEtherToL2(address recipient) public payable
 ```
 
+### depositTaikoToken
+
+```solidity
+function depositTaikoToken(uint256 amount) external
+```
+
+### withdrawTaikoToken
+
+```solidity
+function withdrawTaikoToken(uint256 amount) external
+```
+
 ### canDepositEthToL2
 
 ```solidity
