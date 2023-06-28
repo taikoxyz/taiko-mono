@@ -12,6 +12,7 @@ export function positionElementByTarget(
   style.bottom = '';
   style.left = '';
   style.right = '';
+  style.transform = '';
 
   switch (position) {
     case 'top':
@@ -29,11 +30,13 @@ export function positionElementByTarget(
       style.transform = 'translateX(-50%)';
       break;
     case 'left':
-      style.right = `${targetElement.offsetWidth + elementToPosition.offsetWidth + gap}px`;
+      style.left = 'auto'
+      style.right = `${targetElement.offsetWidth + gap}px`;
       style.top = '50%';
       style.transform = 'translateY(-50%)';
       break;
     case 'right':
+      style.right = 'auto'
       style.left = `${targetElement.offsetWidth + gap}px`;
       style.top = '50%';
       style.transform = 'translateY(-50%)';
