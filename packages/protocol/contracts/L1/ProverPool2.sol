@@ -37,9 +37,19 @@ contract ProverPool2 is EssentialContract {
     uint256 public totalStaked;
     uint256 public totalWeight;
 
-    error CAPACITY_INCORRECT();
-    error NOT_ENOUGH_BALANCE();
-    error CANNOT_BE_PREFERRED();
+    event Withdrawn(address indexed addr, uint256 amount);
+    event Exited(address indexed addr, uint256 amount);
+    event Slashed(address indexed addr, uint256 amount);
+    event Staked(
+        address indexed addr,
+        uint256 amount,
+        uint16 rewardPerGas,
+        uint16 currentCapacity
+    );
+
+    error PP_CAPACITY_INCORRECT();
+    error PP_CANNOT_BE_PREFERRED();
+    error PP_STAKE_AMOUNT_TOO_LOW();
 
     struct Staker {
         uint256 amount;
@@ -59,8 +69,8 @@ contract ProverPool2 is EssentialContract {
     // So we basically don't increase anyone's slots unintentionally
     address preferredProver;
 
-    mapping(uint256 slot => address) slots;
-    mapping(address staker => Staker) stakers;
+    mapping(uint256 slot => address) public slots;
+    mapping(address staker => Staker) public stakers;
 
     uint256[100] private __gap;
 
@@ -97,7 +107,7 @@ contract ProverPool2 is EssentialContract {
             maxCapacity > NUM_SLOTS && (maxCapacity != type(uint256).max)
                 || MAX_CAPACITY_LOWER_BOUND > maxCapacity
         ) {
-            revert CAPACITY_INCORRECT();
+            revert PP_CAPACITY_INCORRECT();
         }
         address staker = msg.sender;
 
@@ -132,6 +142,8 @@ contract ProverPool2 is EssentialContract {
                 claimSlot(staker, slotIdx);
             }
         }
+
+        emit Staked(staker, amount, rewardPerGas, maxCapacity);
     }
 
     function unstake() external {
@@ -156,10 +168,12 @@ contract ProverPool2 is EssentialContract {
                 stakers[preferredProver].numSlots++;
             }
         }
+
+        emit Exited(staker, stakers[staker].amount);
     }
 
-    // for not breaking interfaces for now
-    function releaseProver(address addr) external {
+    // For now leave as is to not breaking interfaces
+    function releaseProver(address addr) external pure {
         return;
     }
 
@@ -169,8 +183,12 @@ contract ProverPool2 is EssentialContract {
         // Since the GasPerSecond of the chain is known, the prover can know
         // this number off-chain. This is what ir represents.
 
-        require(stakers[staker].numSlots <= maxNumSlots);
-        require(MAX_CAPACITY_LOWER_BOUND <= maxNumSlots);
+        if (
+            stakers[staker].numSlots > maxNumSlots
+                || MAX_CAPACITY_LOWER_BOUND > maxNumSlots
+        ) {
+            revert PP_CAPACITY_INCORRECT();
+        }
         stakers[staker].maxNumSlots = maxNumSlots;
     }
 
@@ -202,14 +220,17 @@ contract ProverPool2 is EssentialContract {
                 || stakers[preferredProver].amount >= stakers[staker].amount
                 || stakers[staker].unstakedAt != 0
         ) {
-            revert CANNOT_BE_PREFERRED();
+            revert PP_CANNOT_BE_PREFERRED();
         }
         preferredProver = staker;
     }
 
     function slashProver(address slashed) external {
-        stakers[slashed].amount =
-            stakers[slashed].amount * SLASH_POINTS / 10_000;
+        uint256 newBalance = stakers[slashed].amount * SLASH_POINTS / 10_000;
+
+        emit Slashed(slashed, (stakers[slashed].amount - newBalance));
+
+        stakers[slashed].amount = newBalance;
     }
 
     function withdraw(address staker) public {
@@ -218,6 +239,8 @@ contract ProverPool2 is EssentialContract {
         TaikoToken(resolve("taiko_token", false)).mint(
             staker, stakers[staker].amount
         );
+
+        emit Withdrawn(staker, stakers[staker].amount);
         stakers[staker].amount = 0;
     }
 
@@ -225,11 +248,12 @@ contract ProverPool2 is EssentialContract {
         // It shall never be the case that it reverts - only in tests
         // because rewardPerGas is much lower amount than the staked amount
         // but in such case happens, just to avoid divisioin by zero
-        require(
+        if (
             stakers[staker].amount
-                >= (stakers[staker].rewardPerGas * stakers[staker].rewardPerGas),
-            "Stake more!"
-        );
+                < (stakers[staker].rewardPerGas * stakers[staker].rewardPerGas)
+        ) {
+            revert PP_STAKE_AMOUNT_TOO_LOW();
+        }
 
         if (
             stakers[staker].unstakedAt == 0 && stakers[staker].amount != 0

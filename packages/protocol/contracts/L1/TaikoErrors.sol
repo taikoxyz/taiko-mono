@@ -36,4 +36,7 @@ abstract contract TaikoErrors {
     error L1_UNAUTHORIZED();
 
     // Prover pool related error
+    error PP_CAPACITY_INCORRECT();
+    error PP_CANNOT_BE_PREFERRED();
+    error PP_STAKE_AMOUNT_TOO_LOW();
 }
