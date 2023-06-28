@@ -185,7 +185,7 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
         // 32 slots we have
         for (uint256 index; index < 32; index++) {
             vm.prank(proverArray[index], proverArray[index]);
-            realProverPool.stake(uint32(index + 1), 10, 128);
+            realProverPool.stake(uint64(index + 1) * 1e8, 10, 128);
         }
     }
 
@@ -196,7 +196,7 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
         // 32 slots we have
         for (uint256 index; index < 5; index++) {
             vm.prank(proverArray[index], proverArray[index]);
-            realProverPool.stake(uint32(index + 1), 10, 128);
+            realProverPool.stake(uint64(index + 1) * 1e8, 10, 128);
         }
     }
 
@@ -272,7 +272,7 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
         console2.log("Alice balance:", tko.balanceOf(Alice));
 
         vm.prank(Ivy, Ivy);
-        realProverPool.stake(uint32(2), 10, 128);
+        realProverPool.stake(uint64(2) * 1e8, 10, 128);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint32 parentGasUsed = 0;
@@ -455,7 +455,8 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
 
                 // Now Khloe will be the new top staker
                 vm.prank(Khloe, Khloe);
-                realProverPool.stake(6, 10, 128); // 6 * 1e8 is the biggest, Kai
+                realProverPool.stake(uint64(6) * 1e8, 10, 128); // 6 * 1e8 is
+                    // the biggest, Kai
                     // was 5 * 1e8
             }
             printVariables("before propose");

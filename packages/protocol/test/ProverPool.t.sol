@@ -54,7 +54,7 @@ contract TestProverPool is Test {
             uint16 capacity = baseCapacity + i;
             depositTaikoToken(addr, tokenPerCapacity * capacity, 1 ether);
             vm.prank(addr, addr);
-            pp.stake(uint32(capacity) * 10_000, 10 + i, capacity);
+            pp.stake(uint64(capacity) * 10_000 * 1e8, 10 + i, capacity);
         }
 
         ProverPool.Prover[] memory provers;
@@ -62,7 +62,9 @@ contract TestProverPool is Test {
 
         (provers, stakers) = printProvers();
         for (uint16 i; i < provers.length; ++i) {
-            assertEq(provers[i].stakedAmount, uint32(baseCapacity + i) * 10_000);
+            assertEq(
+                provers[i].stakedAmount, uint64(baseCapacity + i) * 10_000 * 1e8
+            );
             assertEq(provers[i].rewardPerGas, 10 + i);
             assertEq(provers[i].currentCapacity, baseCapacity + i);
         }
@@ -74,12 +76,14 @@ contract TestProverPool is Test {
             uint16 capacity = baseCapacity + i;
             depositTaikoToken(addr, tokenPerCapacity * capacity, 1 ether);
             vm.prank(addr, addr);
-            pp.stake(uint32(capacity) * 10_000, 10 + i, capacity);
+            pp.stake(uint64(capacity) * 10_000 * 1e8, 10 + i, capacity);
         }
 
         (provers, stakers) = printProvers();
         for (uint16 i; i < provers.length; ++i) {
-            assertEq(provers[i].stakedAmount, uint32(baseCapacity + i) * 10_000);
+            assertEq(
+                provers[i].stakedAmount, uint64(baseCapacity + i) * 10_000 * 1e8
+            );
             assertEq(provers[i].rewardPerGas, 10 + i);
             assertEq(provers[i].currentCapacity, baseCapacity + i);
         }
@@ -91,12 +95,14 @@ contract TestProverPool is Test {
             uint16 capacity = baseCapacity + i;
             depositTaikoToken(addr, tokenPerCapacity * capacity, 1 ether);
             vm.prank(addr, addr);
-            pp.stake(uint32(capacity) * 10_000, 10 + i, capacity);
+            pp.stake(uint64(capacity) * 10_000 * 1e8, 10 + i, capacity);
         }
 
         (provers, stakers) = printProvers();
         for (uint16 i; i < provers.length; ++i) {
-            assertEq(provers[i].stakedAmount, uint32(baseCapacity + i) * 10_000);
+            assertEq(
+                provers[i].stakedAmount, uint64(baseCapacity + i) * 10_000 * 1e8
+            );
             assertEq(provers[i].rewardPerGas, 10 + i);
             assertEq(provers[i].currentCapacity, baseCapacity + i);
         }
