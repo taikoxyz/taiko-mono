@@ -183,7 +183,7 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
         // According to this Xenia will have the most chance to prove
         // and Ivy the least
         // 32 slots we have
-        for (uint256 index; index < 32; index++) {
+        for (uint256 index; index < 15; index++) {
             vm.prank(proverArray[index], proverArray[index]);
             realProverPool.stake(uint256((index + 1) * 1e10), 10, 128);
         }
