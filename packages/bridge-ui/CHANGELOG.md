@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.9.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.8.0...bridge-ui-v0.9.0) (2023-06-26)
+
+
+### Features
+
+* **bridge-ui:** sentry integration ([#13943](https://github.com/taikoxyz/taiko-mono/issues/13943)) ([05baee8](https://github.com/taikoxyz/taiko-mono/commit/05baee8ca113b607f89c3cc25354768c8d368b46))
+
+
+### Bug Fixes
+
+* **bridge-ui:** add extra info to sentry ([#13972](https://github.com/taikoxyz/taiko-mono/issues/13972)) ([50a1034](https://github.com/taikoxyz/taiko-mono/commit/50a1034812ded4ed890f9859fc603bfc801dcdc3))
+* **bridge-ui:** filtering out BLL token failure when bridging ([#13969](https://github.com/taikoxyz/taiko-mono/issues/13969)) ([300be15](https://github.com/taikoxyz/taiko-mono/commit/300be15d3fdcdc9297a7b28427cfcdc905991306))
+* **bridge-ui:** fix issue in beforeSend ([#13971](https://github.com/taikoxyz/taiko-mono/issues/13971)) ([08baec0](https://github.com/taikoxyz/taiko-mono/commit/08baec00cfdc235c0baf3d139a8a62df6e34e914))
+* **bridge-ui:** reduce sample rate ([#14051](https://github.com/taikoxyz/taiko-mono/issues/14051)) ([e836d7d](https://github.com/taikoxyz/taiko-mono/commit/e836d7da3fdd11e443618af15318b1d93bca117e))
+
 ## [0.8.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.7.1...bridge-ui-v0.8.0) (2023-06-12)
 
 
