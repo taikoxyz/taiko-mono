@@ -107,6 +107,12 @@ function canDepositEthToL2(uint256 amount) public view returns (bool)
 function getBlockFee(uint32 gasLimit) public view returns (uint64)
 ```
 
+### getTaikoTokenBalance
+
+```solidity
+function getTaikoTokenBalance(address addr) public view returns (uint256)
+```
+
 ### getBlock
 
 ```solidity
