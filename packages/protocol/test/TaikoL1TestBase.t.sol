@@ -27,6 +27,11 @@ abstract contract TaikoL1TestBase is Test {
     TaikoData.Config conf;
     uint256 internal logCount;
 
+    // Constants of the input - it is a workaround - most probably a
+    // forge/foundry issue. Issue link:
+    // https://github.com/foundry-rs/foundry/issues/5200
+    uint256[3] internal inputs012;
+
     bytes32 public constant GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
     uint64 feeBase = 1e8; // 1 TKO
     uint64 l2GasExcess = 1e18;
@@ -90,6 +95,14 @@ abstract contract TaikoL1TestBase is Test {
 
         L1.init(address(addressManager), GENESIS_BLOCK_HASH, feeBase);
         printVariables("init  ");
+
+        inputs012[0] =
+            uint256(uint160(address(L1.resolve("signal_service", false))));
+        inputs012[1] = uint256(
+            uint160(address(L1.resolve(conf.chainId, "signal_service", false)))
+        );
+        inputs012[2] =
+            uint256(uint160(address(L1.resolve(conf.chainId, "taiko", false))));
     }
 
     function proposeBlock(
@@ -239,18 +252,9 @@ abstract contract TaikoL1TestBase is Test {
     {
         uint256[10] memory inputs;
 
-        inputs[0] =
-            uint256(uint160(address(resolver.resolve("signal_service", false))));
-        inputs[1] = uint256(
-            uint160(
-                address(
-                    resolver.resolve(config.chainId, "signal_service", false)
-                )
-            )
-        );
-        inputs[2] = uint256(
-            uint160(address(resolver.resolve(config.chainId, "taiko", false)))
-        );
+        inputs[0] = inputs012[0];
+        inputs[1] = inputs012[1];
+        inputs[2] = inputs012[2];
 
         inputs[3] = uint256(evidence.metaHash);
         inputs[4] = uint256(evidence.parentHash);
