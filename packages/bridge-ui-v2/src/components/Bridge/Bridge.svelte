@@ -15,7 +15,7 @@
 <Card title={$t('bridge.title')} text={$t('bridge.subtitle')}>
   <div class="space-y-4">
     <div class="space-y-2">
-      <ChainSelector label="From" />
+      <ChainSelector label={$t('chain.from')} />
       <TokenDropdown {tokens} />
     </div>
 
@@ -28,14 +28,14 @@
     </div>
 
     <div class="space-y-2">
-      <ChainSelector label="To" />
+      <ChainSelector label={$t('chain.to')} />
       <RecipientInput />
     </div>
 
     <ProcessingFee />
   </div>
 
-  <div class="h-[1px] border border-grey-600 my-[35px]" />
+  <div class="h-sep my-[35px]" />
 
   <Button type="primary">Bridge</Button>
 </Card>

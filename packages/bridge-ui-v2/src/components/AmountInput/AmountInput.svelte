@@ -9,8 +9,11 @@
 
 <div class="flex flex-col space-y-2">
   <div class="flex justify-between items-center text-secondary-content body-regular">
-    <label for={inputId}>Amount</label>
-    <span>Balance: 399.92 ETH</span>
+    <label for={inputId}>{$t('amount_input.label')}</label>
+    <div>
+      <span>{$t('amount_input.balance')}:</span>
+      <span>399.92 ETH</span>
+    </div>
   </div>
   <div class="relative flex items-center">
     <InputBox

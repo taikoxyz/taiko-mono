@@ -85,5 +85,15 @@
   }
   /* End Form Controls */
 
+  /* Separatos */
+  .h-sep {
+    @apply divider h-[1px] border-grey-600;
+  }
+
+  .v-sep {
+    @apply divider divider-horizontal w-[1px] border-grey-600;
+  }
+  /* End Separatos */
+
   /* TODO: add more components here */
 }

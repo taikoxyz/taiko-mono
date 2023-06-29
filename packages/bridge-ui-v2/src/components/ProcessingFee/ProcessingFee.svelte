@@ -20,7 +20,7 @@
   <div class="flex justify-between items-center">
     <div class="flex space-x-2">
       <span class="body-small-regular text-secondary-content">Processing Fee</span>
-      <Tooltip>TODO: description here</Tooltip>
+      <Tooltip>TODO: add description about processing fee</Tooltip>
     </div>
     <button
       class="link-regular text-primary-link underline hover:text-primary-link-hover"
