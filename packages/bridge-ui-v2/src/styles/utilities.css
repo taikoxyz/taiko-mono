@@ -5,7 +5,15 @@
     @apply block invisible opacity-0;
   }
 
-  .flex-between-center {
+  .f-between-center {
     @apply flex justify-between items-center;
+  }
+
+  .f-center {
+    @apply flex justify-center items-center;
+  }
+
+  .f-items-center {
+    @apply flex items-center;
   }
 }

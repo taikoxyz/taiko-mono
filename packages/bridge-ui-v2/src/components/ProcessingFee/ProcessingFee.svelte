@@ -34,8 +34,8 @@
   }
 </script>
 
-<div id="ProcessingFee">
-  <div class="flex-between-center">
+<div class="ProcessingFee">
+  <div class="f-between-center">
     <div class="flex space-x-2">
       <span class="body-small-regular text-secondary-content">{$t('processing_fee.title')}</span>
       <Tooltip>TODO: add description about processing fee</Tooltip>
@@ -46,8 +46,8 @@
       on:focus={openModal}>{$t('processing_fee.link')}</button>
   </div>
 
-  <dialog id={dialogId} class="modal modal-bottom md:modal-middle" class:modal-open={modalOpen}>
-    <div class="modal-box relative px-6 py-[30px] bg-neutral-background">
+  <dialog id={dialogId} class="modal absolute modal-bottom px-4 pb-4" class:modal-open={modalOpen}>
+    <div class="modal-box relative px-6 py-[30px] bg-neutral-background rounded-2xl">
       <button class="absolute right-6 top-[30px]" on:click={closeModal}>
         <Icon type="x-close" fillClass="fill-primary-icon" />
       </button>
@@ -58,7 +58,7 @@
           {@const label = $t(`processing_fee.${method}.label`)}
           {@const promiseText = getMethodText(method)}
 
-          <li class="flex-between-center">
+          <li class="f-between-center">
             <div class="flex flex-col">
               <label for={`input-${method}`} class="body-bold">{label}</label>
               <span class="body-small-regular text-secondary-content">
@@ -80,7 +80,7 @@
           </li>
         {/each}
       </ul>
-      <div class="relative flex items-center">
+      <div class="relative f-items-center">
         <InputBox
           type="number"
           placeholder="0.01"
@@ -88,8 +88,8 @@
           class="w-full input-box outline-none p-6 pr-16 title-subsection-bold placeholder:text-tertiary-content" />
         <span class="absolute right-6 uppercase body-bold text-secondary-content">ETH</span>
       </div>
-
-      <div class="modal-backdrop bg-overlay-background" />
     </div>
+
+    <div class="overlay-backdrop" />
   </dialog>
 </div>

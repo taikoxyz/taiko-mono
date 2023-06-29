@@ -9,10 +9,10 @@
   import { drawerToggleId } from '../SideNavigation';
 </script>
 
-<header class="sticky py-[20px] px-4 md:px-10 md:py-7 flex justify-between md:justify-end items-center">
+<header class="sticky py-[20px] px-4 md:px-10 md:py-7 f-center md:justify-end">
   <LogoWithText class="w-[77px] h-[20px] md:hidden" />
 
-  <div class="flex justify-end items-center space-x-[10px]">
+  <div class="f-items-center justify-end space-x-[10px]">
     <Button on:click={() => web3modal.openModal()} class="rounded-full" type="neutral">
       <Icon type="user-circle" />
       <span>{$t('wallet.connect')}</span>

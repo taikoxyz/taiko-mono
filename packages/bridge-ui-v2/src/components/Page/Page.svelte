@@ -1,3 +1,3 @@
-<div class="w-full flex justify-center items-center">
+<div class="f-center w-full">
   <slot />
 </div>

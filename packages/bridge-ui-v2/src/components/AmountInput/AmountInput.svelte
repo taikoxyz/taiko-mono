@@ -8,14 +8,14 @@
 </script>
 
 <div class="flex flex-col space-y-2">
-  <div class="flex-between-center text-secondary-content body-regular">
+  <div class="f-between-center text-secondary-content body-regular">
     <label for={inputId}>{$t('amount_input.label')}</label>
     <div>
       <span>{$t('amount_input.balance')}:</span>
       <span>399.92 ETH</span>
     </div>
   </div>
-  <div class="relative flex items-center">
+  <div class="relative f-items-center">
     <InputBox
       id={inputId}
       type="number"

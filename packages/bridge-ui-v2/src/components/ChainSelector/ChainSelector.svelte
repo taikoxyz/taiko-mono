@@ -44,8 +44,8 @@
   onDestroy(closeModal);
 </script>
 
-<div>
-  <div class="flex items-center space-x-[10px]">
+<div class="ChainSelector">
+  <div class="f-items-center space-x-[10px]">
     <label class="text-secondary-content body-regular" for={buttonId}>{label}:</label>
     <button
       id={buttonId}
@@ -55,17 +55,15 @@
       aria-expanded={modalOpen}
       class="px-2 py-[6px] body-small-regular bg-neutral-background rounded-md min-w-[150px]"
       on:click={openModal}>
-      <div class="flex space-x-2 items-center">
+      <div class="f-items-center space-x-2">
         {#if !selectedChain}
           <span>{$t('chain_selector.placeholder')}…</span>
         {/if}
         {#if selectedChain}
-          <div class="flex space-x-2 items-center">
-            <i role="img" aria-label={selectedChain.name}>
-              <svelte:component this={chainToIconMap[selectedChain.id]} size={20} />
-            </i>
-            <span>{selectedChain.name}</span>
-          </div>
+          <i role="img" aria-label={selectedChain.name}>
+            <svelte:component this={chainToIconMap[selectedChain.id]} size={20} />
+          </i>
+          <span>{selectedChain.name}</span>
         {/if}
       </div>
     </button>
@@ -86,7 +84,7 @@
             on:keydown={(event) => onChainKeydown(event, chain)}>
             <!-- TODO: agree on hover:bg color -->
             <div class="flex flex-row justify-between hover:text-primary-base-content hover:bg-grey-10">
-              <div class="flex items-center space-x-4">
+              <div class="f-items-center space-x-4">
                 <i role="img" aria-label={chain.name}>
                   <svelte:component this={chainToIconMap[chain.id]} size={32} />
                 </i>
@@ -98,6 +96,7 @@
         {/each}
       </ul>
     </div>
-    <div class="modal-backdrop bg-overlay-background" />
+
+    <div class="overlay-backdrop" />
   </dialog>
 </div>

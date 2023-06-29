@@ -92,5 +92,10 @@
     @apply divider divider-horizontal w-[1px] border-grey-600;
   }
 
+  /* Other components */
+  .overlay-backdrop {
+    @apply modal-backdrop bg-overlay-background;
+  }
+
   /* TODO: add more components here */
 }
