@@ -7,7 +7,7 @@
   let inputId = `input-${uid()}`;
 </script>
 
-<div class="flex flex-col space-y-2">
+<div class="f-col space-y-2">
   <div class="f-between-center text-secondary-content body-regular">
     <label for={inputId}>{$t('amount_input.label')}</label>
     <div>

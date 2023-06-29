@@ -83,7 +83,7 @@
             on:click={() => selectChain(chain)}
             on:keydown={(event) => onChainKeydown(event, chain)}>
             <!-- TODO: agree on hover:bg color -->
-            <div class="flex flex-row justify-between hover:text-primary-base-content hover:bg-grey-10">
+            <div class="f-row justify-between hover:text-primary-base-content hover:bg-grey-10">
               <div class="f-items-center space-x-4">
                 <i role="img" aria-label={chain.name}>
                   <svelte:component this={chainToIconMap[chain.id]} size={32} />

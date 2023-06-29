@@ -10,16 +10,16 @@ export const processingFees: Map<ProcessingFeeMethod, ProcessingFeeDetails> = ne
     },
   ],
   [
-    ProcessingFeeMethod.CUSTOM,
+    ProcessingFeeMethod.NONE,
     {
-      method: ProcessingFeeMethod.CUSTOM,
+      method: ProcessingFeeMethod.NONE,
       timeToConfirm: 15 * 60 * 1000,
     },
   ],
   [
-    ProcessingFeeMethod.NONE,
+    ProcessingFeeMethod.CUSTOM,
     {
-      method: ProcessingFeeMethod.NONE,
+      method: ProcessingFeeMethod.CUSTOM,
       timeToConfirm: 15 * 60 * 1000,
     },
   ],

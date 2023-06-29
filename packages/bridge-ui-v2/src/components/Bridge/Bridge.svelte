@@ -21,7 +21,7 @@
 
     <AmountInput />
 
-    <div class="flex justify-center">
+    <div class="f-justify-center">
       <button>
         <Icon type="up-down-circle" size={36} />
       </button>
