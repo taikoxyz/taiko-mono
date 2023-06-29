@@ -9,17 +9,17 @@
   },
   "dependencies": {
     "@vercel/analytics": "^1.0.1",
-    "next": "^13.4.6",
+    "next": "^13.4.7",
     "next-themes": "^0.2.1",
-    "nextra": "^2.7.1",
-    "nextra-theme-docs": "^2.7.1",
+    "nextra": "^2.8.0",
+    "nextra-theme-docs": "^2.8.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@heroicons/react": "^2.0.18",
-    "@types/node": "^20.3.1",
-    "@types/react": "^18.2.13",
+    "@types/node": "^20.3.2",
+    "@types/react": "^18.2.14",
     "autoprefixer": "^10.4.14",
     "postcss": "^8.4.24",
     "tailwindcss": "^3.3.2",
