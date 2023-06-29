@@ -208,16 +208,25 @@ export default {
           'primary-focus': '#E81899', // pink-400
           'primary-content': '#F3F3F3', // grey-10
 
+          secondary: '#E81899', // pink-400
+          // 'secondary-focus': '',
+          'secondary-content': '#ADB1B8', // grey-200
+
           neutral: '#2B303B', // grey-700
           'neutral-focus': '#444A55', // grey-600
           'neutral-content': '#F3F3F3', // grey-10
 
           'base-100': '#0B101B', // grey-900
+          // 'base-200': '',
+          // 'base-300': '',
           'base-content': '#F3F3F3', // grey-10
 
           success: '#00321D', // green-800
+          'success-content': '#47E0A0', // green-300
           error: '#440000', // red-800
+          'error-content': '#F15C5D', // red-300
           warning: '#382800', // yellow-800
+          'warning-content': '#EBB222', // yellow-400
         },
 
         light: {
@@ -235,8 +244,11 @@ export default {
           'base-content': '#191E28', // grey-800
 
           success: '#E4FFF4', // green-10
+          'success-content': '#059458', // green-600
           error: '#FFE7E7', // red-10
+          'error-content': '#CE2C2D', // red-500
           warning: '#FFF6DE', // yellow-10
+          'warning-content': '#C28B00', // yellow-600
         },
       },
     ],

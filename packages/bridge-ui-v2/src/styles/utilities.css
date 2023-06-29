@@ -4,4 +4,8 @@
   .block-hidden {
     @apply block invisible opacity-0;
   }
+
+  .flex-between-center {
+    @apply flex justify-between items-center;
+  }
 }
