@@ -7,14 +7,12 @@ type ConnectButtonProps = {
 async function ConnectToMetamask(network: ConnectButtonProps["network"]) {
   if (!(window as any).ethereum) {
     alert("Metamask not detected! Install Metamask then try again.");
-    return;
   }
   if (
     (window as any).ethereum.networkVersion ==
     (network === "Sepolia" ? 11155111 : 167005)
   ) {
     alert(`You are already connected to ${network}.`);
-    return;
   }
   try {
     if (network === "Sepolia") {
