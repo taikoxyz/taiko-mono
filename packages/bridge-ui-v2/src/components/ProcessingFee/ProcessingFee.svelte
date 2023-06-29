@@ -1,12 +1,14 @@
-<script>
+<script lang="ts">
   import { t } from 'svelte-i18n';
 
   import { Icon } from '$components/Icon';
   import { Tooltip } from '$components/Tooltip';
+  import { ProcessingFeeMethod, processingFees } from '$libs/free';
   import { uid } from '$libs/util/uid';
+  import { InputBox } from '$components/InputBox';
 
   let dialogId = `dialog-${uid()}`;
-  let selectedFee;
+  let selectedFee: ProcessingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
   let modalOpen = false;
 
   function closeModal() {
@@ -15,6 +17,20 @@
 
   function openModal() {
     modalOpen = true;
+  }
+
+  function getMethodText(method: ProcessingFeeMethod) {
+    if (method === ProcessingFeeMethod.RECOMMENDED) {
+      // TODO: calculate recommended fee here.
+      //       Faking it for now
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve('0.0001350000 ETH');
+        }, 500);
+      });
+    }
+
+    return Promise.resolve($t(`processing_fee.${method}.text`));
   }
 </script>
 
@@ -36,44 +52,43 @@
         <Icon type="x-close" fillClass="fill-primary-icon" />
       </button>
       <h3 class="title-body-bold mb-7">{$t('processing_fee.title')}</h3>
-      <ul class="space-y-7">
-        <li class="flex-between-center">
-          <div class="flex flex-col">
-            <label for="recommended-fee" class="body-bold">{$t('processing_fee.recommended')}</label>
-            <span class="body-small-regular text-secondary-content">0.0001350000 ETH</span>
-          </div>
-          <input
-            id="recommended-fee"
-            class="radio w-6 h-6 checked:bg-primary-interactive-accent"
-            type="radio"
-            name="processing_fee"
-            value="recommended" />
-        </li>
-        <li class="flex-between-center">
-          <div class="flex flex-col">
-            <label for="none-fee" class="body-bold">{$t('processing_fee.none.label')}</label>
-            <span class="body-small-regular text-secondary-content">{$t('processing_fee.none.text')}</span>
-          </div>
-          <input
-            id="none-fee"
-            type="radio"
-            class="radio w-6 h-6 checked:bg-primary-interactive-accent"
-            name="processing_fee"
-            value="none" />
-        </li>
-        <li class="flex-between-center">
-          <div class="flex flex-col">
-            <label for="custom-fee" class="body-bold">{$t('processing_fee.custom.label')}</label>
-            <span class="body-small-regular text-secondary-content">{$t('processing_fee.custom.text')}</span>
-          </div>
-          <input
-            id="custom-fee"
-            type="radio"
-            class="radio w-6 h-6 checked:bg-primary-interactive-accent"
-            name="processing_fee"
-            value="custom" />
-        </li>
+      <ul class="space-y-7 mb-[20px]">
+        {#each Array.from(processingFees.values()) as processingFee}
+          {@const { method } = processingFee}
+          {@const label = $t(`processing_fee.${method}.label`)}
+          {@const promiseText = getMethodText(method)}
+
+          <li class="flex-between-center">
+            <div class="flex flex-col">
+              <label for={`input-${method}`} class="body-bold">{label}</label>
+              <span class="body-small-regular text-secondary-content">
+                <!-- TODO: think about the UI for this part. Talk to Jane -->
+                {#await promiseText}
+                  Calculating...
+                {:then text}
+                  {text}
+                {/await}
+              </span>
+            </div>
+            <input
+              id={`input-${method}`}
+              class="radio w-6 h-6 checked:bg-primary-interactive-accent hover:border-primary-interactive-hover"
+              type="radio"
+              value={method}
+              name="processingFeeMethod"
+              bind:group={selectedFee} />
+          </li>
+        {/each}
       </ul>
+      <div class="relative flex items-center">
+        <InputBox
+          type="number"
+          placeholder="0.01"
+          min="0"
+          class="w-full input-box outline-none p-6 pr-16 title-subsection-bold placeholder:text-tertiary-content" />
+        <span class="absolute right-6 uppercase body-bold text-secondary-content">ETH</span>
+      </div>
+
       <div class="modal-backdrop bg-overlay-background" />
     </div>
   </dialog>
