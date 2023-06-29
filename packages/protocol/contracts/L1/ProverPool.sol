@@ -287,13 +287,11 @@ contract ProverPool is EssentialContract, IProverPool {
 
         // Force the replaced prover to exit
         address replaced = idToProver[proverId];
-        // if (replaced != address(0)) {
-        _withdraw(replaced);
-        _exit(replaced);
-        // }
+        if (replaced != address(0)) {
+            _withdraw(replaced);
+            _exit(replaced);
+        }
         idToProver[proverId] = addr;
-        // Keep track of weights when changes ()
-        // Assign the staker this proverId
         staker.proverId = proverId;
 
         // Insert the prover in the top prover list
