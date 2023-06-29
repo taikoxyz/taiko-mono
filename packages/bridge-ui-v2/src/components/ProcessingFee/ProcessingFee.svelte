@@ -1,4 +1,6 @@
 <script>
+  import { t } from 'svelte-i18n';
+
   import { Icon } from '$components/Icon';
   import { Tooltip } from '$components/Tooltip';
   import { uid } from '$libs/util/uid';
@@ -19,7 +21,7 @@
 <div>
   <div class="flex justify-between items-center">
     <div class="flex space-x-2">
-      <span class="body-small-regular text-secondary-content">Processing Fee</span>
+      <span class="body-small-regular text-secondary-content">{$t('processin_fee.title')}</span>
       <Tooltip>TODO: add description about processing fee</Tooltip>
     </div>
     <button

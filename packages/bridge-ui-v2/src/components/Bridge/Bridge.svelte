@@ -2,14 +2,14 @@
   import { t } from 'svelte-i18n';
 
   import AmountInput from '$components/AmountInput';
+  import Button from '$components/Button/Button.svelte';
   import { Card } from '$components/Card';
   import { ChainSelector } from '$components/ChainSelector';
+  import Icon from '$components/Icon/Icon.svelte';
+  import { ProcessingFee } from '$components/ProcessingFee';
   import { RecipientInput } from '$components/RecipientInput';
   import { TokenDropdown } from '$components/TokenDropdown';
   import { tokens } from '$libs/token';
-  import { ProcessingFee } from '$components/ProcessingFee';
-  import Icon from '$components/Icon/Icon.svelte';
-  import Button from '$components/Button/Button.svelte';
 </script>
 
 <Card title={$t('bridge.title')} text={$t('bridge.subtitle')}>

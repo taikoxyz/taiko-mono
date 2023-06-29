@@ -12,6 +12,19 @@
     "subtitle": "Send your assets across chains."
   },
 
+  "processing_fee": {
+    "title": "Processing fee",
+    "recommended": "Recommended",
+    "none": {
+      "label": "None",
+      "text": "Use ETH to manually claim your bridged token later"
+    },
+    "custom": {
+      "label": "Custom",
+      "text": "Customize your processing fee"
+    }
+  },
+
   "activities": {
     "title": "Activities",
     "subtitle": "Track your bridge transactions here."

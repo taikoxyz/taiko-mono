@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { web3modal } from '$libs/connect';
   import { t } from 'svelte-i18n';
+
+  import { web3modal } from '$libs/connect';
 
   import { Button } from '../Button';
   import { Icon } from '../Icon';

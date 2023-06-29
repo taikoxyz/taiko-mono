@@ -30,13 +30,13 @@ export function positionElementByTarget(
       style.transform = 'translateX(-50%)';
       break;
     case 'left':
-      style.left = 'auto'
+      style.left = 'auto';
       style.right = `${targetElement.offsetWidth + gap}px`;
       style.top = '50%';
       style.transform = 'translateY(-50%)';
       break;
     case 'right':
-      style.right = 'auto'
+      style.right = 'auto';
       style.left = `${targetElement.offsetWidth + gap}px`;
       style.top = '50%';
       style.transform = 'translateY(-50%)';
