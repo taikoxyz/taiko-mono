@@ -3,11 +3,11 @@
   import { t } from 'svelte-i18n';
 
   import { Icon } from '$components/Icon';
+  import { InputBox } from '$components/InputBox';
   import { Tooltip } from '$components/Tooltip';
   import { ProcessingFeeMethod } from '$libs/free';
-  import { uid } from '$libs/util/uid';
-  import { InputBox } from '$components/InputBox';
   import { recommendProcessingFee } from '$libs/free';
+  import { uid } from '$libs/util/uid';
 
   let dialogId = `dialog-${uid()}`;
   let selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
