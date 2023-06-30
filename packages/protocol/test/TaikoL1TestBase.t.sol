@@ -306,8 +306,8 @@ abstract contract TaikoL1TestBase is Test {
 
         // Also hash configs that will be used by circuits
         inputs[9] = uint256(config.blockMaxGasLimit) << 192
-            | uint256(config.maxTransactionsPerBlock) << 128
-            | uint256(config.maxBytesPerTxList) << 64;
+            | uint256(config.blockMaxTransactions) << 128
+            | uint256(config.blockMaxTxListBytes) << 64;
 
         assembly {
             instance := keccak256(inputs, mul(32, 10))
