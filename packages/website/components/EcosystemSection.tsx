@@ -76,6 +76,13 @@ const ecosystemData: EcosystemData[] = [
     filters: [],
   },
   {
+    icon: "/images/ecosystem/particle-network.png",
+    name: "Particle Network",
+    link: "https://particle.network/",
+    description: "The full-stack infrastructure to simplify Web3.",
+    filters: [],
+  },
+  {
     icon: "/images/ecosystem/pheasant-network.png",
     name: "Pheasant Network",
     link: "https://pheasant.network",
