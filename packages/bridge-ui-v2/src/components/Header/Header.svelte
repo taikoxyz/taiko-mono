@@ -1,12 +1,11 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
 
-  import { web3modal } from '$libs/connect';
-
   import { Button } from '$components/Button';
   import { Icon } from '$components/Icon';
   import { LogoWithText } from '$components/Logo';
   import { drawerToggleId } from '$components/SideNavigation';
+  import { web3modal } from '$libs/connect';
 </script>
 
 <header

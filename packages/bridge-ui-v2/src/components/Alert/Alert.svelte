@@ -1,5 +1,6 @@
 <script lang="ts">
   import { classNames } from '$libs/util/classNames';
+
   import { Icon, type IconType } from '../Icon';
 
   type AlertType = 'success' | 'warning' | 'error' | 'info';
@@ -10,7 +11,7 @@
   };
 
   export let type: AlertType;
-  export let forceColumnFlow: boolean = false;
+  export let forceColumnFlow = false;
 
   let typeMap: Record<AlertType, AlertTypeDetails> = {
     success: {

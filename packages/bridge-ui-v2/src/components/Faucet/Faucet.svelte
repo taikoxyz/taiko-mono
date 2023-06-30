@@ -1,12 +1,12 @@
 <script>
   import { t } from 'svelte-i18n';
 
-  import { Card } from '$components/Card';
   import { Alert } from '$components/Alert';
+  import { Button } from '$components/Button';
+  import { Card } from '$components/Card';
   import { ChainSelector } from '$components/ChainSelector';
   import { TokenDropdown } from '$components/TokenDropdown';
   import { testERC20Tokens } from '$libs/token';
-  import { Button } from '$components/Button';
 </script>
 
 <Card title={$t('faucet.title')} text={$t('faucet.subtitle')}>
