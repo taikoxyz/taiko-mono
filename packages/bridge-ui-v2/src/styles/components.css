@@ -85,11 +85,11 @@
 
   /* Separatos */
   .h-sep {
-    @apply divider h-[1px] border-grey-600;
+    @apply divider h-[1px] border-divider-border;
   }
 
   .v-sep {
-    @apply divider divider-horizontal w-[1px] border-grey-600;
+    @apply divider divider-horizontal w-[1px] border-divider-border;
   }
 
   /* Other components */

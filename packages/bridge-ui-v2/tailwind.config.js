@@ -150,6 +150,8 @@ export default {
         'elevated-background': 'var(--elevated-background)',
         'neutral-background': 'var(--neutral-background)',
         'overlay-background': 'var(--overlay-background)',
+
+        'divider-border': 'var(--divider-border)',
       },
     },
   },
@@ -201,6 +203,8 @@ export default {
           '--elevated-background': '#191E28', // grey-800
           '--neutral-background': '#2B303B', // grey-700
           '--overlay-background': 'rgba(12, 17, 28, 0.5)', // grey-900|50%
+
+          '--divider-border': '#444A55', // grey-600
 
           // ================================ //
 

@@ -9,7 +9,9 @@
 
   "bridge": {
     "title": "Bridge",
-    "subtitle": "Send your assets across chains."
+    "subtitle": "Send your assets across chains.",
+    "approve_button": "Approve",
+    "bridge_button": "Bridge"
   },
 
   "processing_fee": {
@@ -39,7 +41,7 @@
     "title": "Faucet",
     "subtitle": "Mint test tokens.",
     "currently_on": "You are currently on",
-    "mint_button": "mint",
+    "mint_button": "Mint",
     "warning_message": "To request Test Token, you need to mint it on Sepolia. If you are currently on Taiko, please switch your network first. Additionally, ensure that you have a small amount of ETH in your Sepolia wallet to complete the transaction."
   },
 

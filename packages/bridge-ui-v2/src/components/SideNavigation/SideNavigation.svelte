@@ -27,7 +27,15 @@
   <div class="drawer-side z-1 bg-primary-background">
     <label for={drawerToggleId} class="drawer-overlay bg-overlay-background" />
 
-    <aside class="w-[226px] p-2 md:px-4 md:py-8 md:border-r md:border-r-grey-600 h-full">
+    <aside
+      class="
+      p-2 
+      w-[226px] 
+      h-full
+      md:px-4 
+      md:py-8 
+      md:border-r 
+      md:border-r-divider-border">
       <a href="/" class="hidden md:inline-block">
         <LogoWithText />
       </a>

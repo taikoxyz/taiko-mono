@@ -37,5 +37,7 @@
 
   <div class="h-sep my-[35px]" />
 
-  <Button type="primary">Bridge</Button>
+  <Button type="primary" class="px-[28px] py-[14px]">
+    <span class="body-bold">{$t('bridge.bridge_button')}</span>
+  </Button>
 </Card>

@@ -12,11 +12,9 @@
     | 'error'
     | 'ghost'
     | 'link';
-  type ButtonSize = 'lg' | 'md' | 'sm' | 'xs';
   type ButtonShape = 'circle' | 'square';
 
   export let type: Maybe<ButtonType> = null;
-  export let size: Maybe<ButtonSize> = null;
   export let shape: Maybe<ButtonShape> = null;
   export let outline = false;
   export let block = false;
@@ -39,22 +37,14 @@
     link: 'btn-link',
   };
 
-  const sizeMap: Record<ButtonSize, string> = {
-    lg: 'btn-lg',
-    md: 'btn-md',
-    sm: 'btn-sm',
-    xs: 'btn-xs',
-  };
-
   const shapeMap: Record<ButtonShape, string> = {
     circle: 'btn-circle',
     square: 'btn-square',
   };
 
   const classes = classNames(
-    'btn btn-sm md:btn-md',
+    'btn h-auto min-h-fit border-0',
     type ? typeMap[type] : null,
-    size ? sizeMap[size] : null,
     shape ? shapeMap[shape] : null,
     outline ? 'btn-outline' : null,
     block ? 'btn-block' : null,
