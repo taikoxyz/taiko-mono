@@ -95,9 +95,9 @@
 
   <span class="body-small-regular text-secondary-content mt-[6px]">
     {#if calculatingRecommendedAmount}
-      {$t('processing_fee.calculating')}
+      {$t('processing_fee.recommended.calculating')}…
     {:else if errorCalculatingRecommendedAmount}
-      {$t('processing_fee.error')}
+      {$t('processing_fee.recommended.error')}
     {:else}
       {selectedAmount} ETH
     {/if}
