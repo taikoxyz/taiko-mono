@@ -5,4 +5,5 @@ var (
 	CacheKeyUniqueProvers   = "unique-provers"
 	CacheKeyStats           = "stats"
 	CacheKeyPOSStats        = "pos-stats"
+	CacheKeyCurrentProvers  = "current-provers"
 )
