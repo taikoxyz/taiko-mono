@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/patrickmn/go-cache"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 
 	echoprom "github.com/labstack/echo-contrib/prometheus"
@@ -17,6 +19,7 @@ type Server struct {
 	echo      *echo.Echo
 	eventRepo eventindexer.EventRepository
 	statRepo  eventindexer.StatRepository
+	cache     *cache.Cache
 }
 
 type NewServerOpts struct {
@@ -51,10 +54,12 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 		return nil, err
 	}
 
+	cache := cache.New(5*time.Minute, 10*time.Minute)
 	srv := &Server{
 		echo:      opts.Echo,
 		eventRepo: opts.EventRepo,
 		statRepo:  opts.StatRepo,
+		cache:     cache,
 	}
 
 	corsOrigins := opts.CorsOrigins
