@@ -161,9 +161,10 @@ func (r *EventRepository) GetTotalSlashedTokens(
 	ctx context.Context,
 ) (*big.Int, error) {
 	var sum decimal.NullDecimal
+
 	if err := r.db.GormDB().
-		Table("events").
-		Select("sum(amount) where event = ?", eventindexer.EventNameSlashed).Row().Scan(&sum); err != nil {
+		Raw("SELECT SUM(amount) FROM events WHERE event = ?", eventindexer.EventNameSlashed).
+		FirstOrInit(&sum).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.FirstOrInit")
 	}
 
