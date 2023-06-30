@@ -89,6 +89,16 @@ func (svc *Service) FilterThenSubscribe(
 			return errors.Wrap(err, "svc.saveBlockVerifiedEvents")
 		}
 
+		slashedEvents, err := svc.proverPool.FilterSlashed(filterOpts, nil)
+		if err != nil {
+			return errors.Wrap(err, "svc.proverPool.FilterSlashed")
+		}
+
+		err = svc.saveSlashedEvents(ctx, chainID, slashedEvents)
+		if err != nil {
+			return errors.Wrap(err, "svc.saveSlashedEvents")
+		}
+
 		header, err := svc.ethClient.HeaderByNumber(ctx, big.NewInt(int64(end)))
 		if err != nil {
 			return errors.Wrap(err, "svc.ethClient.HeaderByNumber")
