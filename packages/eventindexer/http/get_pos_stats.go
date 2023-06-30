@@ -5,6 +5,7 @@ import (
 
 	"github.com/cyberhorsey/webutils"
 	"github.com/labstack/echo/v4"
+	"github.com/patrickmn/go-cache"
 )
 
 type posStatsResponse struct {
@@ -12,12 +13,24 @@ type posStatsResponse struct {
 }
 
 func (srv *Server) GetPOSStats(c echo.Context) error {
-	totalSlashedTokens, err := srv.eventRepo.GetTotalSlashedTokens(c.Request().Context())
-	if err != nil {
-		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
+	cached, found := srv.cache.Get(CacheKeyPOSStats)
+
+	var resp *posStatsResponse
+
+	if found {
+		resp = cached.(*posStatsResponse)
+	} else {
+		totalSlashedTokens, err := srv.eventRepo.GetTotalSlashedTokens(c.Request().Context())
+		if err != nil {
+			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
+		}
+
+		resp = &posStatsResponse{
+			TotalSlashedTokens: totalSlashedTokens.String(),
+		}
+
+		srv.cache.Set(CacheKeyPOSStats, resp, cache.DefaultExpiration)
 	}
 
-	return c.JSON(http.StatusOK, &posStatsResponse{
-		TotalSlashedTokens: totalSlashedTokens.String(),
-	})
+	return c.JSON(http.StatusOK, resp)
 }
