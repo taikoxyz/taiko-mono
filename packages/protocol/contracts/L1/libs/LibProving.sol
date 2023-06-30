@@ -10,6 +10,7 @@ import { AddressResolver } from "../../common/AddressResolver.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
+import { LibBytesUtils } from "../../thirdparty/LibBytesUtils.sol";
 
 library LibProving {
     using LibMath for uint256;
@@ -212,18 +213,29 @@ library LibProving {
                 instance := keccak256(inputs, mul(32, 10))
             }
 
+            if (
+                !LibBytesUtils.equal(
+                    LibBytesUtils.slice(evidence.proof, 0, 32),
+                    bytes.concat(bytes16(0), bytes16(instance))
+                )
+            ) {
+                revert L1_INVALID_PROOF();
+            }
+
+            if (
+                !LibBytesUtils.equal(
+                    LibBytesUtils.slice(evidence.proof, 32, 32),
+                    bytes.concat(
+                        bytes16(0), bytes16(uint128(uint256(instance)))
+                    )
+                )
+            ) {
+                revert L1_INVALID_PROOF();
+            }
+
             (bool verified, bytes memory ret) = resolver.resolve(
                 LibUtils.getVerifierName(evidence.verifierId), false
-            ).staticcall(
-                bytes.concat(
-                    bytes16(0),
-                    bytes16(instance), // left 16 bytes of the given instance
-                    bytes16(0),
-                    bytes16(uint128(uint256(instance))), // right 16 bytes of
-                        // the given instance
-                    evidence.proof
-                )
-            );
+            ).staticcall(evidence.proof);
 
             if (
                 !verified
