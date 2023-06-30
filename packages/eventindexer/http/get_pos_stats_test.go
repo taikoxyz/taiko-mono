@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/cyberhorsey/webutils/testutils"
 	"github.com/labstack/echo/v4"
@@ -11,6 +12,11 @@ import (
 
 func Test_GetPOSStats(t *testing.T) {
 	srv := newTestServer("")
+
+	srv.cache.Set(CacheKeyPOSStats, &posStatsResponse{
+		TotalSlashedTokens:      "1",
+		CurrentProtocolCapacity: "1",
+	}, 10*time.Second)
 
 	tests := []struct {
 		name                  string
@@ -22,7 +28,7 @@ func Test_GetPOSStats(t *testing.T) {
 			"success",
 			"0x123",
 			http.StatusOK,
-			[]string{`{"totalSlashedTokens":"1"}`},
+			[]string{`{"totalSlashedTokens":"1","currentProtocolCapacity":"1"}`},
 		},
 	}
 
