@@ -15,7 +15,11 @@
   "processing_fee": {
     "title": "Processing fee",
     "link": "Customise fee",
-    "recommended": "Recommended",
+    "recommended": {
+      "label": "Recommended",
+      "calculating": "Calculating",
+      "error": "Error calculating"
+    },
     "none": {
       "label": "None",
       "text": "Use ETH to manually claim your bridged token later"

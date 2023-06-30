@@ -8,7 +8,6 @@
   import { uid } from '$libs/util/uid';
   import { InputBox } from '$components/InputBox';
   import { recommendProcessingFee } from '$libs/free';
-  import { nextTick } from '$libs/util/nextTick';
 
   let dialogId = `dialog-${uid()}`;
   let selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
@@ -78,6 +77,7 @@
   // TODO: some info needs to be passed in in order to calculate the recommended amount
   $: calculateRecommendedAmount();
 
+  // TODO: how about using a onClick handler instead of this watcher?
   $: onSelectedFeeMethodChanged(selectedFeeMethod);
 </script>
 
@@ -116,14 +116,14 @@
         <li class="f-between-center">
           <div class="f-col">
             <label for="input-recommended" class="body-bold">
-              {$t('processing_fee.recommended')}
+              {$t('processing_fee.recommended.label')}
             </label>
             <span class="body-small-regular text-secondary-content">
               <!-- TODO: think about the UI for this part. Talk to Jane -->
               {#if calculatingRecommendedAmount}
-                {$t('processing_fee.calculating')}
+                {$t('processing_fee.recommended.calculating')}
               {:else if errorCalculatingRecommendedAmount}
-                {$t('processing_fee.error')}
+                {$t('processing_fee.recommended.error')}
               {:else}
                 {recommendedAmount} ETH
               {/if}
@@ -173,7 +173,6 @@
             type="radio"
             value={ProcessingFeeMethod.CUSTOM}
             name="processingFeeMethod"
-            on:click={focusCustomInput}
             bind:group={selectedFeeMethod} />
         </li>
       </ul>
