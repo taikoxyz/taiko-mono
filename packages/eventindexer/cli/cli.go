@@ -132,6 +132,7 @@ func Run(
 		EthClient:           l1EthClient,
 		RPCClient:           l1RpcClient,
 		SrcTaikoAddress:     common.HexToAddress(os.Getenv("L1_TAIKO_ADDRESS")),
+		ProverPoolAddress:   common.HexToAddress(os.Getenv("PROVER_POOL_ADDRESS")),
 		BlockBatchSize:      uint64(blockBatchSize),
 		SubscriptionBackoff: subscriptionBackoff,
 	})
