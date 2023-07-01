@@ -24,16 +24,17 @@
     <slot />
   </div>
 
-  <div class="drawer-side z-1 bg-primary-background">
+  <div class="drawer-side h-full z-50 bg-primary-background">
     <label for={drawerToggleId} class="drawer-overlay bg-overlay-background" />
 
     <aside
       class="
       p-2 
-      w-[226px] 
+      w-full
       h-full
       md:px-4 
       md:py-8 
+      md:w-[226px] 
       md:border-r 
       md:border-r-divider-border">
       <a href="/" class="hidden md:inline-block">
