@@ -5,9 +5,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/joho/godotenv"
 	echo "github.com/labstack/echo/v4"
+	"github.com/patrickmn/go-cache"
 	"github.com/stretchr/testify/assert"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/mock"
@@ -18,6 +20,7 @@ func newTestServer(url string) *Server {
 	_ = godotenv.Load("../.test.env")
 
 	srv := &Server{
+		cache:     cache.New(5*time.Second, 6*time.Second),
 		echo:      echo.New(),
 		eventRepo: mock.NewEventRepository(),
 		statRepo:  mock.NewStatRepository(),

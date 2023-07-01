@@ -8,31 +8,41 @@ pragma solidity ^0.8.20;
 
 library TaikoData {
     struct Config {
+        // Group 1: general configs
         uint256 chainId;
-        uint256 maxNumProposedBlocks;
-        uint256 ringBufferSize;
-        // This number is calculated from maxNumProposedBlocks to make
+        bool relaySignalRoot;
+        // Group 2: block level configs
+        uint256 blockMaxProposals;
+        uint256 blockRingBufferSize;
+        // This number is calculated from blockMaxProposals to make
         // the 'the maximum value of the multiplier' close to 20.0
-        uint256 maxVerificationsPerTx;
-        uint64 blockMaxGasLimit;
-        uint64 maxTransactionsPerBlock;
-        uint64 maxBytesPerTxList;
-        uint256 txListCacheExpiry;
-        uint256 proofCooldownPeriod;
-        uint256 systemProofCooldownPeriod;
-        uint256 realProofSkipSize;
-        uint256 ethDepositGas;
-        uint256 ethDepositMaxFee;
+        uint256 blockMaxVerificationsPerTx;
+        uint32 blockMaxGasLimit;
+        uint32 blockFeeBaseGas;
+        uint64 blockMaxTransactions;
+        uint64 blockMaxTxListBytes;
+        uint256 blockTxListExpiry;
+        // Group 3: proof related configs
+        uint256 proofRegularCooldown;
+        uint256 proofOracleCooldown;
+        uint16 proofMinWindow;
+        uint16 proofMaxWindow;
+        // Group 4: eth deposit related configs
         uint256 ethDepositRingBufferSize;
         uint64 ethDepositMinCountPerBlock;
         uint64 ethDepositMaxCountPerBlock;
-        uint96 ethDepositMaxAmount;
         uint96 ethDepositMinAmount;
-        bool relaySignalRoot;
+        uint96 ethDepositMaxAmount;
+        uint256 ethDepositGas;
+        uint256 ethDepositMaxFee;
+        // Group 5: tokenomics
+        uint32 rewardPerGasRange;
+        uint8 rewardOpenMultipler;
+        uint256 rewardOpenMaxCount;
     }
 
     struct StateVariables {
-        uint64 blockFee;
+        uint32 feePerGas;
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 numBlocks;
@@ -48,7 +58,7 @@ library TaikoData {
         uint32 gasLimit;
         uint24 txListByteStart; // byte-wise start index (inclusive)
         uint24 txListByteEnd; // byte-wise end index (exclusive)
-        uint8 cacheTxListInfo; // non-zero = True
+        bool cacheTxListInfo;
     }
 
     // Changing this struct requires changing LibUtils.hashMetadata accordingly.
@@ -86,24 +96,33 @@ library TaikoData {
         bytes32 key;
         bytes32 blockHash;
         bytes32 signalRoot;
-        uint64 provenAt;
         address prover;
+        uint64 provenAt;
         uint32 gasUsed;
     }
 
-    // 4 slots
+    // 5 slots
     struct Block {
-        // ForkChoice storage are reusable
+        // slot 1: ForkChoice storage are reusable
         mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
+        // slot 2
+        bytes32 metaHash;
+        // slot 3: (13 bytes available)
         uint64 blockId;
-        uint64 proposedAt;
+        uint32 gasLimit;
         uint24 nextForkChoiceId;
         uint24 verifiedForkChoiceId;
-        bytes32 metaHash;
+        bool proverReleased;
+        // slot 4
         address proposer;
+        uint32 feePerGas;
+        uint64 proposedAt;
+        // slot 5
+        address assignedProver;
+        uint32 rewardPerGas;
+        uint64 proofWindow;
     }
 
-    // This struct takes 9 slots.
     struct TxListInfo {
         uint64 validSince;
         uint24 size;
@@ -117,36 +136,36 @@ library TaikoData {
 
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
-        mapping(uint256 blockId_mode_ringBufferSize => Block) blocks;
+        mapping(uint256 blockId_mode_blockRingBufferSize => Block) blocks;
         mapping(
             uint256 blockId
                 => mapping(
                     bytes32 parentHash
-                        => mapping(uint32 parentGasUsed => uint256 forkChoiceId)
+                        => mapping(uint32 parentGasUsed => uint24 forkChoiceId)
                 )
             ) forkChoiceIds;
-        mapping(address account => uint256 balance) taikoTokenBalances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
-        mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256)
+        mapping(uint256 depositId_mode_ethDepositRingBufferSize => uint256)
             ethDeposits;
+        mapping(address account => uint256 balance) taikoTokenBalances;
         // Never or rarely changed
         // Slot 7: never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint16 __reserved70;
-        uint48 __reserved71;
-        uint64 __reserved72;
+        uint64 __reserved70;
+        uint64 __reserved71;
         // Slot 8
-        uint64 __reserved80;
+        uint64 numOpenBlocks;
         uint64 numEthDeposits;
         uint64 numBlocks;
         uint64 nextEthDepositToProcess;
         // Slot 9
-        uint64 blockFee;
-        uint64 __reserved90;
+        uint64 lastVerifiedAt;
         uint64 lastVerifiedBlockId;
-        uint64 __reserved91;
+        uint64 __reserved90;
+        uint32 feePerGas;
+        uint16 avgProofDelay;
         // Reserved
-        uint256[42] __gap;
+        uint256[42] __gap; // TODO: update this
     }
 }

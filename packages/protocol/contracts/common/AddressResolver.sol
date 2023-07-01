@@ -27,7 +27,24 @@ abstract contract AddressResolver {
     error RESOLVER_ZERO_ADDR(uint256 chainId, bytes32 name);
 
     modifier onlyFromNamed(bytes32 name) {
-        if (msg.sender != resolve(name, false)) revert RESOLVER_DENIED();
+        if (msg.sender != resolve(name, true)) revert RESOLVER_DENIED();
+        _;
+    }
+
+    modifier onlyFromNamed2(bytes32 name1, bytes32 name2) {
+        if (
+            msg.sender != resolve(name1, true)
+                && msg.sender != resolve(name2, true)
+        ) revert RESOLVER_DENIED();
+        _;
+    }
+
+    modifier onlyFromNamed3(bytes32 name1, bytes32 name2, bytes32 name3) {
+        if (
+            msg.sender != resolve(name1, true)
+                && msg.sender != resolve(name2, true)
+                && msg.sender != resolve(name3, true)
+        ) revert RESOLVER_DENIED();
         _;
     }
 

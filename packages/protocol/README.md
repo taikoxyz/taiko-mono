@@ -2,6 +2,16 @@
 
 This package contains rollup contracts on both L1 and L2, along with other assisting code. Taiko L2's chain ID is [167](https://github.com/ethereum-lists/chains/pull/1611).
 
+
+## Compile
+
+To compile smart contracts, run:
+```sh
+pnpm compile
+```
+
+If you run into `Error: Unknown version provided`, you should upgrade your foundry installation by running `curl -L https://foundry.paradigm.xyz | bash`.
+
 ## Deploy
 
 Deploy TaikoL1 on hardhat network:

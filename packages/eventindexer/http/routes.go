@@ -9,4 +9,5 @@ func (srv *Server) configureRoutes() {
 	srv.echo.GET("/eventByAddress", srv.GetCountByAddressAndEventName)
 	srv.echo.GET("/events", srv.GetByAddressAndEventName)
 	srv.echo.GET("/stats", srv.GetStats)
+	srv.echo.GET("/posStats", srv.GetPOSStats)
 }

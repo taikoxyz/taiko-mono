@@ -13,6 +13,7 @@ import { Proxied } from "../common/Proxied.sol";
 import { LibEthDepositing } from "./libs/LibEthDepositing.sol";
 import { LibProposing } from "./libs/LibProposing.sol";
 import { LibProving } from "./libs/LibProving.sol";
+import { LibTkoDistribution } from "./libs/LibTkoDistribution.sol";
 import { LibUtils } from "./libs/LibUtils.sol";
 import { LibVerifying } from "./libs/LibVerifying.sol";
 import { TaikoConfig } from "./TaikoConfig.sol";
@@ -41,12 +42,14 @@ contract TaikoL1 is
      *
      * @param _addressManager The AddressManager address.
      * @param _genesisBlockHash The block hash of the genesis block.
-     * @param _initBlockFee Initial (reasonable) block fee value.
+     * @param _initFeePerGas Initial (reasonable) block fee value,
+     * @param _initAvgProofDelay Initial (reasonable) proof window.
      */
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
-        uint64 _initBlockFee
+        uint32 _initFeePerGas,
+        uint16 _initAvgProofDelay
     )
         external
         initializer
@@ -56,7 +59,8 @@ contract TaikoL1 is
             state: state,
             config: getConfig(),
             genesisBlockHash: _genesisBlockHash,
-            initBlockFee: _initBlockFee
+            initFeePerGas: _initFeePerGas,
+            initAvgProofDelay: _initAvgProofDelay
         });
     }
 
@@ -87,12 +91,12 @@ contract TaikoL1 is
             input: abi.decode(input, (TaikoData.BlockMetadataInput)),
             txList: txList
         });
-        if (config.maxVerificationsPerTx > 0) {
+        if (config.blockMaxVerificationsPerTx > 0) {
             LibVerifying.verifyBlocks({
                 state: state,
                 config: config,
                 resolver: AddressResolver(this),
-                maxBlocks: config.maxVerificationsPerTx
+                maxBlocks: config.blockMaxVerificationsPerTx
             });
         }
     }
@@ -119,12 +123,12 @@ contract TaikoL1 is
             blockId: blockId,
             evidence: abi.decode(input, (TaikoData.BlockEvidence))
         });
-        if (config.maxVerificationsPerTx > 0) {
+        if (config.blockMaxVerificationsPerTx > 0) {
             LibVerifying.verifyBlocks({
                 state: state,
                 config: config,
                 resolver: AddressResolver(this),
-                maxBlocks: config.maxVerificationsPerTx
+                maxBlocks: config.blockMaxVerificationsPerTx
             });
         }
     }
@@ -152,6 +156,18 @@ contract TaikoL1 is
         });
     }
 
+    function depositTaikoToken(uint256 amount) public nonReentrant {
+        LibTkoDistribution.depositTaikoToken(
+            state, AddressResolver(this), amount
+        );
+    }
+
+    function withdrawTaikoToken(uint256 amount) public nonReentrant {
+        LibTkoDistribution.withdrawTaikoToken(
+            state, AddressResolver(this), amount
+        );
+    }
+
     function canDepositEthToL2(uint256 amount) public view returns (bool) {
         return LibEthDepositing.canDepositEthToL2({
             state: state,
@@ -160,18 +176,34 @@ contract TaikoL1 is
         });
     }
 
-    function getTaikoTokenBalance(address addr) public view returns (uint256) {
-        return state.taikoTokenBalances[addr];
+    function getBlockFee(uint32 gasLimit) public view returns (uint64) {
+        return LibProposing.getBlockFee({
+            state: state,
+            config: getConfig(),
+            gasLimit: gasLimit
+        });
     }
 
-    function getBlockFee() public view returns (uint64) {
-        return state.blockFee;
+    function getTaikoTokenBalance(address addr) public view returns (uint256) {
+        return state.taikoTokenBalances[addr];
     }
 
     function getBlock(uint256 blockId)
         public
         view
-        returns (bytes32 _metaHash, address _proposer, uint64 _proposedAt)
+        returns (
+            bytes32 _metaHash,
+            uint32 _gasLimit,
+            uint24 _nextForkChoiceId,
+            uint24 _verifiedForkChoiceId,
+            bool _proverReleased,
+            address _proposer,
+            uint32 _feePerGas,
+            uint64 _proposedAt,
+            address _assignedProver,
+            uint32 _rewardPerGas,
+            uint64 _proofWindow
+        )
     {
         TaikoData.Block storage blk = LibProposing.getBlock({
             state: state,
@@ -179,8 +211,16 @@ contract TaikoL1 is
             blockId: blockId
         });
         _metaHash = blk.metaHash;
+        _gasLimit = blk.gasLimit;
+        _nextForkChoiceId = blk.nextForkChoiceId;
+        _verifiedForkChoiceId = blk.verifiedForkChoiceId;
+        _proverReleased = blk.proverReleased;
         _proposer = blk.proposer;
+        _feePerGas = blk.feePerGas;
         _proposedAt = blk.proposedAt;
+        _assignedProver = blk.assignedProver;
+        _rewardPerGas = blk.rewardPerGas;
+        _proofWindow = blk.proofWindow;
     }
 
     function getForkChoice(

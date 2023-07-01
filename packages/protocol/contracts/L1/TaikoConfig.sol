@@ -11,38 +11,45 @@ import { TaikoData } from "../L1/TaikoData.sol";
 library TaikoConfig {
     function getConfig() internal pure returns (TaikoData.Config memory) {
         return TaikoData.Config({
+            // Group 1: general configs
             chainId: 167,
+            relaySignalRoot: false,
+            // Group 2: block level configs
             // Two weeks if avg block time is 10 seconds
-            maxNumProposedBlocks: 120_960,
-            ringBufferSize: 120_960 + 10,
+            blockMaxProposals: 120_960,
+            blockRingBufferSize: 120_960 + 10,
             // Each time one more block is verified, there will be ~20k
             // more gas cost.
-            maxVerificationsPerTx: 10,
+            blockMaxVerificationsPerTx: 10,
             // Set it to 6M, since its the upper limit of the Alpha-2
             // testnet's circuits.
             blockMaxGasLimit: 6_000_000,
+            blockFeeBaseGas: 20_000,
+            // Set it to 79  (+1 TaikoL2.anchor transaction = 80),
+            // and 80 is the upper limit of the Alpha-2 testnet's circuits.
+            blockMaxTransactions: 79,
             // Set it to 120KB, since 128KB is the upper size limit
             // of a geth transaction, so using 120KB for the proposed
             // transactions list calldata, 8K for the remaining tx fields.
-            maxBytesPerTxList: 120_000,
-            proofCooldownPeriod: 30 minutes,
-            systemProofCooldownPeriod: 15 minutes,
-            // Only need 1 real zkp per 10 blocks.
-            // If block number is N, then only when N % 10 == 0, the real ZKP
-            // is needed. For mainnet, this must be 0 or 1.
-            realProofSkipSize: 10,
-            // Set it to 79  (+1 TaikoL2.anchor transaction = 80),
-            // and 80 is the upper limit of the Alpha-2 testnet's circuits.
-            maxTransactionsPerBlock: 79,
+            blockMaxTxListBytes: 120_000,
+            blockTxListExpiry: 0,
+            // Group 3: proof related configs
+            proofRegularCooldown: 30 minutes,
+            proofOracleCooldown: 15 minutes,
+            proofMinWindow: 10 minutes,
+            proofMaxWindow: 90 minutes,
+            // Group 4: eth deposit related configs
+            ethDepositRingBufferSize: 1024,
             ethDepositMinCountPerBlock: 8,
             ethDepositMaxCountPerBlock: 32,
-            ethDepositMaxAmount: 10_000 ether,
             ethDepositMinAmount: 1 ether,
+            ethDepositMaxAmount: 10_000 ether,
             ethDepositGas: 21_000,
             ethDepositMaxFee: 1 ether / 10,
-            ethDepositRingBufferSize: 1024,
-            txListCacheExpiry: 0,
-            relaySignalRoot: false
+            // Group 5: tokenomics
+            rewardPerGasRange: 1000, // 10%
+            rewardOpenMultipler: 200, // percentage
+            rewardOpenMaxCount: 2000
         });
     }
 }

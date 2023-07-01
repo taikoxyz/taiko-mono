@@ -2,6 +2,7 @@ package mock
 
 import (
 	"context"
+	"math/big"
 	"math/rand"
 	"net/http"
 
@@ -104,4 +105,10 @@ func (r *EventRepository) Delete(
 	}
 
 	return nil
+}
+
+func (r *EventRepository) GetTotalSlashedTokens(
+	ctx context.Context,
+) (*big.Int, error) {
+	return big.NewInt(1), nil
 }

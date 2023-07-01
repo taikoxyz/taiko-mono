@@ -1,12 +1,20 @@
 <script lang="ts">
   import { classNames } from '$libs/util/classNames';
 
-  type ButtonType = 'neutral' | 'primary' | 'secondary' | 'accent' | 'info' | 'success' | 'warning' | 'error' | 'ghost';
-  type ButtonSize = 'lg' | 'md' | 'sm' | 'xs';
+  type ButtonType =
+    | 'neutral'
+    | 'primary'
+    | 'secondary'
+    | 'accent'
+    | 'info'
+    | 'success'
+    | 'warning'
+    | 'error'
+    | 'ghost'
+    | 'link';
   type ButtonShape = 'circle' | 'square';
 
   export let type: Maybe<ButtonType> = null;
-  export let size: Maybe<ButtonSize> = null;
   export let shape: Maybe<ButtonShape> = null;
   export let outline = false;
   export let block = false;
@@ -26,13 +34,7 @@
     warning: 'btn-warning',
     error: 'btn-error',
     ghost: 'btn-ghost',
-  };
-
-  const sizeMap: Record<ButtonSize, string> = {
-    lg: 'btn-lg',
-    md: 'btn-md',
-    sm: 'btn-sm',
-    xs: 'btn-xs',
+    link: 'btn-link',
   };
 
   const shapeMap: Record<ButtonShape, string> = {
@@ -41,9 +43,8 @@
   };
 
   const classes = classNames(
-    'btn btn-sm md:btn-md',
+    'btn w-full h-auto min-h-fit border-0',
     type ? typeMap[type] : null,
-    size ? sizeMap[size] : null,
     shape ? shapeMap[shape] : null,
     outline ? 'btn-outline' : null,
     block ? 'btn-block' : null,

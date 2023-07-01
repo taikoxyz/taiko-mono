@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/proverpool"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
 )
 
@@ -18,6 +19,7 @@ func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
 
 	errChan := make(chan error)
 
+	go svc.subscribeSlashed(ctx, chainID, errChan)
 	go svc.subscribeBlockProven(ctx, chainID, errChan)
 	go svc.subscribeBlockProposed(ctx, chainID, errChan)
 	go svc.subscribeBlockVerified(ctx, chainID, errChan)
@@ -32,6 +34,70 @@ func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
 			eventindexer.ErrorsEncounteredDuringSubscription.Inc()
 
 			return errors.Wrap(err, "errChan")
+		}
+	}
+}
+
+func (svc *Service) subscribeSlashed(
+	ctx context.Context,
+	chainID *big.Int,
+	errChan chan error,
+) {
+	sink := make(chan *proverpool.ProverPoolSlashed)
+
+	sub := event.ResubscribeErr(svc.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
+		if err != nil {
+			log.Errorf("svc.taikoL1.WatchSlashed: %v", err)
+		}
+		log.Info("resubscribing to Slashed events")
+
+		return svc.proverPool.WatchSlashed(&bind.WatchOpts{
+			Context: ctx,
+		}, sink, nil)
+	})
+
+	defer sub.Unsubscribe()
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Info("context finished")
+			return
+		case err := <-sub.Err():
+			log.Errorf("sub.Err(): %v", err)
+			errChan <- errors.Wrap(err, "sub.Err()")
+		case event := <-sink:
+			go func() {
+				log.Infof("slashedEvent for address %v, amount %v", event.Addr.Hex(), event.Amount)
+
+				if err := svc.saveSlashedEvent(ctx, chainID, event); err != nil {
+					eventindexer.SlashedEventsProcessedError.Inc()
+
+					log.Errorf("svc.subscribe, svc.saveSlashedEvent: %v", err)
+
+					return
+				}
+
+				block, err := svc.blockRepo.GetLatestBlockProcessed(chainID)
+				if err != nil {
+					log.Errorf("svc.subscribe, blockRepo.GetLatestBlockProcessed: %v", err)
+					return
+				}
+
+				if block.Height < event.Raw.BlockNumber {
+					err = svc.blockRepo.Save(eventindexer.SaveBlockOpts{
+						Height:  event.Raw.BlockNumber,
+						Hash:    event.Raw.BlockHash,
+						ChainID: chainID,
+					})
+					if err != nil {
+						log.Errorf("svc.subscribe, svc.blockRepo.Save: %v", err)
+						return
+					}
+
+					eventindexer.BlocksProcessed.Inc()
+				}
+			}()
 		}
 	}
 }

@@ -19,6 +19,7 @@ import "../contracts/signal/SignalService.sol";
 import "../contracts/common/AddressManager.sol";
 import "../contracts/test/erc20/FreeMintERC20.sol";
 import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
+import "../contracts/L1/ProverPool.sol";
 
 contract DeployOnL1 is Script {
     using SafeCastUpgradeable for uint256;
@@ -34,7 +35,6 @@ contract DeployOnL1 is Script {
     address public owner = vm.envAddress("OWNER");
 
     address public oracleProver = vm.envAddress("ORACLE_PROVER");
-    address public systemProver = vm.envAddress("SYSTEM_PROVER");
 
     address public sharedSignalService = vm.envAddress("SHARED_SIGNAL_SERVICE");
 
@@ -80,7 +80,6 @@ contract DeployOnL1 is Script {
         setAddress(l2ChainId, "taiko", taikoL2Address);
         setAddress(l2ChainId, "signal_service", l2SignalService);
         setAddress("oracle_prover", oracleProver);
-        setAddress("system_prover", systemProver);
         setAddress(l2ChainId, "treasury", treasury);
 
         // TaikoToken
@@ -106,6 +105,17 @@ contract DeployOnL1 is Script {
             )
         );
 
+        // ProverPool
+        ProverPool stakingProverPool = new ProxiedProverPool();
+        deployProxy(
+            "prover_pool",
+            address(stakingProverPool),
+            bytes.concat(
+                stakingProverPool.init.selector,
+                abi.encode(addressManagerProxy, 2048)
+            )
+        );
+
         // HorseToken && BullToken
         address horseToken = address(new FreeMintERC20("Horse Token", "HORSE"));
         console2.log("HorseToken", horseToken);
@@ -114,18 +124,20 @@ contract DeployOnL1 is Script {
             address(new MayFailFreeMintERC20("Bull Token", "BLL"));
         console2.log("BullToken", bullToken);
 
-        uint64 feeBase = uint64(1) ** taikoToken.decimals();
+        uint64 feePerGas = 10;
+        uint64 proofWindow = 60 minutes;
 
         address taikoL1Proxy = deployProxy(
             "taiko",
             address(taikoL1),
             bytes.concat(
                 taikoL1.init.selector,
-                abi.encode(addressManagerProxy, genesisHash, feeBase)
+                abi.encode(
+                    addressManagerProxy, genesisHash, feePerGas, proofWindow
+                )
             )
         );
         setAddress("taiko", taikoL1Proxy);
-        setAddress("proto_broker", taikoL1Proxy);
 
         // Bridge
         Bridge bridge = new ProxiedBridge();

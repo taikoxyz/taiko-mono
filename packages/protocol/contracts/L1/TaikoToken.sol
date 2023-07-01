@@ -23,6 +23,7 @@ import { ERC20VotesUpgradeable } from
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { Proxied } from "../common/Proxied.sol";
+import { IMintableERC20 } from "../common/IMintableERC20.sol";
 
 library LibTaikoTokenConfig {
     uint8 public constant DECIMALS = uint8(8);
@@ -37,7 +38,8 @@ contract TaikoToken is
     ERC20SnapshotUpgradeable,
     PausableUpgradeable,
     ERC20PermitUpgradeable,
-    ERC20VotesUpgradeable
+    ERC20VotesUpgradeable,
+    IMintableERC20
 {
     error TKO_INVALID_ADDR();
     error TKO_INVALID_PREMINT_PARAMS();
@@ -87,7 +89,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        onlyFromNamed("proto_broker")
+        onlyFromNamed3("prover_pool", "taiko", "dao")
     {
         _mint(to, amount);
     }
@@ -97,7 +99,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        onlyFromNamed("proto_broker")
+        onlyFromNamed2("prover_pool", "taiko")
     {
         _burn(from, amount);
     }
@@ -168,7 +170,6 @@ contract TaikoToken is
     {
         super._mint(to, amount);
 
-        // TODO: do we need the following check at all?
         if (totalSupply() > type(uint64).max) revert TKO_MINT_DISALLOWED();
         emit Mint(to, amount);
     }

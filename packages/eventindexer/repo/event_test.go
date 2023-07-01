@@ -257,3 +257,52 @@ func TestIntegration_Event_Delete(t *testing.T) {
 		})
 	}
 }
+
+func TestIntegration_Event_GetTotalSlashedTokens(t *testing.T) {
+	db, close, err := testMysql(t)
+	assert.Equal(t, nil, err)
+
+	defer close()
+
+	eventRepo, err := NewEventRepository(db)
+	assert.Equal(t, nil, err)
+
+	opts := eventindexer.SaveEventOpts{
+		Name:    eventindexer.EventNameSlashed,
+		Address: "0x123",
+		Data:    "{\"data\":\"something\"}",
+		Event:   eventindexer.EventNameSlashed,
+		ChainID: big.NewInt(1),
+		BlockID: &blockID,
+		Amount:  big.NewInt(1),
+	}
+
+	for i := 0; i < 5; i++ {
+		_, err = eventRepo.Save(context.Background(), opts)
+
+		assert.Equal(t, nil, err)
+	}
+
+	tests := []struct {
+		name     string
+		wantResp *big.Int
+		wantErr  error
+	}{
+		{
+			"success",
+			big.NewInt(5),
+			nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, err := eventRepo.GetTotalSlashedTokens(
+				context.Background(),
+			)
+			spew.Dump(resp)
+			assert.Equal(t, tt.wantErr, err)
+			assert.Equal(t, tt.wantResp, resp)
+		})
+	}
+}

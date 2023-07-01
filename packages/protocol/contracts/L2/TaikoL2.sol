@@ -67,7 +67,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     //////////////////////////////////////////////////////////////*/
 
     // Captures all block variables mentioned in
-    // https://docs.soliditylang.org/en/v0.8.18/units-and-global-variables.html
+    // https://docs.soliditylang.org/en/v0.8.20/units-and-global-variables.html
     event Anchored(
         uint64 number,
         uint64 basefee,
