@@ -185,12 +185,47 @@ contract TokenVault is EssentialContract {
      */
     error TOKENVAULT_INVALID_SENDER();
 
+    /**
+     * Thrown when the remote chain id with a Taiko token deployment is the same
+     * as this chain's ID.
+     */
+    error TOKENVAULT_INVALID_TKO_CHAINID();
+
     /*//////////////////////////////////////////////////////////////
                          USER-FACING FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-
-    function init(address addressManager) external initializer {
+    function init(
+        address addressManager,
+        uint256[] calldata tkoChainIds
+    )
+        external
+        initializer
+    {
         EssentialContract._init(addressManager);
+
+        // For each remote Taiko Token deployment, we set up the meeting to
+        // avoid dynamic deoployment of any BridgedTokens.
+        address tkoAddr = resolve("taiko_token", false);
+        ERC20Upgradeable t = ERC20Upgradeable(tkoAddr);
+
+        for (uint256 i; i < tkoChainIds.length; ++i) {
+            uint256 chainId = tkoChainIds[i];
+            if (chainId == block.chainid) {
+                revert TOKENVAULT_INVALID_TKO_CHAINID();
+            }
+
+            address remoteTkoAddr = resolve(chainId, "taiko_token", false);
+
+            canonicalToBridged[chainId][tkoAddr] = remoteTkoAddr;
+
+            bridgedToCanonical[remoteTkoAddr] = CanonicalERC20({
+                chainId: block.chainid,
+                addr: tkoAddr,
+                decimals: t.decimals(),
+                symbol: t.symbol(),
+                name: t.name()
+            });
+        }
     }
 
     /**

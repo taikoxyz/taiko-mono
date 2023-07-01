@@ -8,6 +8,7 @@ import { BridgedERC20 } from "../contracts/bridge/BridgedERC20.sol";
 import { BridgeErrors } from "../contracts/bridge/BridgeErrors.sol";
 import { FreeMintERC20 } from "../contracts/test/erc20/FreeMintERC20.sol";
 import { SignalService } from "../contracts/signal/SignalService.sol";
+import { TaikoToken } from "../contracts/L1/TaikoToken.sol";
 import { Test } from "forge-std/Test.sol";
 import { TokenVault } from "../contracts/bridge/TokenVault.sol";
 
@@ -60,6 +61,7 @@ contract PrankDestBridge {
 }
 
 contract TestTokenVault is Test {
+    TaikoToken tko;
     AddressManager addressManager;
     Bridge bridge;
     TokenVault tokenVault;
@@ -77,13 +79,19 @@ contract TestTokenVault is Test {
         vm.deal(Alice, 1 ether);
         vm.deal(Bob, 1 ether);
 
+        tko = new TaikoToken();
+
         addressManager = new AddressManager();
         addressManager.init();
+        addressManager.setAddress(block.chainid, "taiko_token", address(tko));
 
+        uint256[] memory chainsWithTaikoToken = new uint256[](0);
         tokenVault = new TokenVault();
-        tokenVault.init(address(addressManager));
+        tokenVault.init(address(addressManager), chainsWithTaikoToken);
         destChainIdTokenVault = new TokenVault();
-        destChainIdTokenVault.init(address(addressManager));
+        destChainIdTokenVault.init(
+            address(addressManager), chainsWithTaikoToken
+        );
 
         erc20 = new FreeMintERC20("ERC20", "ERC20");
         erc20.mint(Alice);
