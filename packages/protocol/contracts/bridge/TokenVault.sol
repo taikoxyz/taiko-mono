@@ -72,7 +72,9 @@ contract TokenVault is EssentialContract {
     mapping(bytes32 msgHash => MessageDeposit messageDeposit) public
         messageDeposits;
 
-    uint256[47] private __gap;
+    bool public bridgingEnabled;
+
+    uint256[45] private __gap;
 
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
@@ -192,6 +194,17 @@ contract TokenVault is EssentialContract {
      */
     error TOKENVAULT_INVALID_TKO_CHAINID();
 
+    /**
+     * Thrown when the remote chain id with a Taiko token deployment is the same
+     * as this chain's ID.
+     */
+    error TOKENVAULT_BRIDGEING_ENABLING();
+
+    modifier onlyWhenBridgingEnabled() {
+        if (!bridgingEnabled) revert TOKENVAULT_BRIDGEING_ENABLING();
+        _;
+    }
+
     /*//////////////////////////////////////////////////////////////
                          USER-FACING FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -199,7 +212,12 @@ contract TokenVault is EssentialContract {
         EssentialContract._init(addressManager);
     }
 
-    function enableTaikoTokenBridging(uint256 destChainId) external onlyOwner {
+    function enableBridging(bool enable) external onlyOwner {
+        if (bridgingEnabled == enable) revert TOKENVAULT_BRIDGEING_ENABLING();
+        bridgingEnabled = enable;
+    }
+
+    function mapTaikoToken(uint256 destChainId) external onlyOwner {
         address tkoAddr = resolve("taiko_token", false);
         address remoteTkoAddr = resolve(destChainId, "taiko_token", false);
 
@@ -249,6 +267,7 @@ contract TokenVault is EssentialContract {
     )
         external
         payable
+        onlyWhenBridgingEnabled
         nonReentrant
     {
         if (
@@ -336,6 +355,7 @@ contract TokenVault is EssentialContract {
         bytes calldata proof
     )
         external
+        onlyWhenBridgingEnabled
         nonReentrant
     {
         if (message.owner == address(0)) revert TOKENVAULT_INVALID_OWNER();
@@ -390,6 +410,7 @@ contract TokenVault is EssentialContract {
     )
         external
         nonReentrant
+        onlyWhenBridgingEnabled
         onlyFromNamed("bridge")
     {
         IBridge.Context memory ctx = IBridge(msg.sender).context();
