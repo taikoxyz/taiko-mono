@@ -34,9 +34,6 @@ contract BridgedERC20 is
     uint8 private srcDecimals;
     uint256[47] private __gap;
 
-    event Mint(address indexed account, uint256 amount);
-    event Burn(address indexed account, uint256 amount);
-
     /**
      * Initializes the contract.
      * @dev Different BridgedERC20 Contract to be deployed

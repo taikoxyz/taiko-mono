@@ -36,9 +36,6 @@ contract TaikoToken is
     ERC20PermitUpgradeable,
     ERC20VotesUpgradeable
 {
-    event Mint(address account, uint256 amount);
-    event Burn(address account, uint256 amount);
-
     error TKO_INVALID_ADDR();
     error TKO_INVALID_PREMINT_PARAMS();
     error TKO_MINT_DISALLOWED();
