@@ -9,7 +9,7 @@
     {#if text}
       <p>{text}</p>
     {/if}
-    <div class="f-col mt-6 md:mt-8">
+    <div class="f-col mt-[35px]">
       <slot />
     </div>
   </div>

@@ -172,6 +172,7 @@ export default {
         dark: {
           'color-scheme': 'dark',
           '--btn-text-case': 'capitalize',
+          // '--rounded-box': '0.625rem', // 10px
 
           '--primary-brand': '#C8047D', // pink-500
           '--primary-content': '#F3F3F3', // grey-10
@@ -238,6 +239,7 @@ export default {
 
           'color-scheme': 'light',
           '--btn-text-case': 'capitalize',
+          '--rounded-box': '0.625rem', // 10px
 
           '--primary-content': '#191E28', // grey-800
           '--primary-background': '#FAFAFA', // grey-5

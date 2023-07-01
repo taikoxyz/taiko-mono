@@ -43,7 +43,7 @@
   };
 
   const classes = classNames(
-    'btn h-auto min-h-fit border-0',
+    'btn w-full h-auto min-h-fit border-0',
     type ? typeMap[type] : null,
     shape ? shapeMap[shape] : null,
     outline ? 'btn-outline' : null,
