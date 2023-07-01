@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/morkid/paginate"
+	"github.com/shopspring/decimal"
 	"gorm.io/datatypes"
 )
 
@@ -14,19 +15,21 @@ var (
 	EventNameBlockProven   = "BlockProven"
 	EventNameBlockProposed = "BlockProposed"
 	EventNameBlockVerified = "BlockVerified"
+	EventNameSlashed       = "Slashed"
 )
 
 // Event represents a stored EVM event. The fields will be serialized
 // into the Data field to be unmarshalled into a concrete struct
 // dependant on the name of the event
 type Event struct {
-	ID      int            `json:"id"`
-	Name    string         `json:"name"`
-	Data    datatypes.JSON `json:"data"`
-	ChainID int64          `json:"chainID"`
-	Event   string         `json:"event"`
-	Address string         `json:"address"`
-	BlockID sql.NullInt64  `json:"blockID"`
+	ID      int                 `json:"id"`
+	Name    string              `json:"name"`
+	Data    datatypes.JSON      `json:"data"`
+	ChainID int64               `json:"chainID"`
+	Event   string              `json:"event"`
+	Address string              `json:"address"`
+	BlockID sql.NullInt64       `json:"blockID"`
+	Amount  decimal.NullDecimal `json:"amount"`
 }
 
 // SaveEventOpts
@@ -37,6 +40,7 @@ type SaveEventOpts struct {
 	Event   string
 	Address string
 	BlockID *int64
+	Amount  *big.Int
 }
 
 type UniqueProversResponse struct {
@@ -73,4 +77,5 @@ type EventRepository interface {
 		address string,
 		event string,
 	) (paginate.Page, error)
+	GetTotalSlashedTokens(ctx context.Context) (*big.Int, error)
 }
