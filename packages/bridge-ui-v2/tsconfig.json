@@ -12,6 +12,7 @@
 
     "paths": {
       "$components/*": ["./src/components/*"],
+      "$stores/*": ["./src/stores/*"],
       "$libs/*": ["./src/libs/*"]
     },
 

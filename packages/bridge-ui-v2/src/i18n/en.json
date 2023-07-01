@@ -1,0 +1,79 @@
+{
+  "nav": {
+    "bridge": "Bridge",
+    "faucet": "Faucet",
+    "activities": "Activities",
+    "explorer": "Explorer",
+    "guide": "Guide"
+  },
+
+  "bridge": {
+    "title": "Bridge",
+    "subtitle": "Send your assets across chains.",
+    "approve_button": "Approve",
+    "bridge_button": "Bridge"
+  },
+
+  "processing_fee": {
+    "title": "Processing fee",
+    "link": "Customise fee",
+    "recommended": {
+      "label": "Recommended",
+      "calculating": "Calculating",
+      "error": "Error calculating"
+    },
+    "none": {
+      "label": "None",
+      "text": "Use ETH to manually claim your bridged token later"
+    },
+    "custom": {
+      "label": "Custom",
+      "text": "Customize your processing fee"
+    }
+  },
+
+  "activities": {
+    "title": "Activities",
+    "subtitle": "Track your bridge transactions here."
+  },
+
+  "faucet": {
+    "title": "Faucet",
+    "subtitle": "Mint test tokens.",
+    "currently_on": "You are currently on",
+    "mint_button": "Mint",
+    "warning_message": "To request Test Token, you need to mint it on Sepolia. If you are currently on Taiko, please switch your network first. Additionally, ensure that you have a small amount of ETH in your Sepolia wallet to complete the transaction."
+  },
+
+  "token_dropdown": {
+    "placeholder": "Select token"
+  },
+
+  "amount_input": {
+    "label": "Amount",
+    "balance": "Balance",
+    "max_button": "Max"
+  },
+
+  "chain_selector": {
+    "placeholder": "Select chain"
+  },
+
+  "chain": {
+    "to": "To",
+    "from": "From"
+  },
+
+  "custom_recipient": {
+    "placeholder": "Add custom recipient"
+  },
+
+  "wallet": {
+    "connect": "Connect Wallet",
+    "status": {
+      "disconnected": "Disconnected",
+      "connected": "Connected",
+      "connecting": "Connecting..."
+    }
+  }
+}

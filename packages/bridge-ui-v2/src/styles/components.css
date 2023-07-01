@@ -2,12 +2,28 @@
 
 @layer components {
   /* Typography */
+  .title-screen-regular {
+    @apply font-normal text-[2rem]/10;
+  }
+
+  .title-screen-bold {
+    @apply font-bold text-[2rem]/10;
+  }
+
+  .title-section-regular {
+    @apply font-normal text-[1.625rem]/8;
+  }
+
+  .title-section-bold {
+    @apply font-bold text-[1.625rem]/8;
+  }
+
   .title-subsection-regular {
-    @apply font-normal text-[22px]/6;
+    @apply font-normal text-[1.375rem]/7;
   }
 
   .title-subsection-bold {
-    @apply font-bold text-[22px]/6;
+    @apply font-bold text-[1.375rem]/7;
   }
 
   .title-body-regular {
@@ -49,7 +65,37 @@
   .link-regular {
     @apply font-normal text-sm;
   }
-  /* End Typography */
+
+  /* Form Controls */
+  .input-box {
+    /* Using shadows to increase border size without impacting the surroundings */
+    @apply outline-none
+      rounded-[10px] 
+      /* border */
+      /* border-primary-border  */
+      shadow-[0_0_0_1px_#5d636f]
+      /* hover:border-2 */
+      /* hover:border-primary-border-hover */
+      enabled:hover:shadow-[0_0_0_2px_#FF6FC8]
+      /* focus:border-[3px] */
+      /* focus:border-primary-border-accent */
+      focus:shadow-[0_0_0_3px_#E81899]
+      bg-transparent;
+  }
+
+  /* Separatos */
+  .h-sep {
+    @apply divider h-[1px] border-divider-border;
+  }
+
+  .v-sep {
+    @apply divider divider-horizontal w-[1px] border-divider-border;
+  }
+
+  /* Other components */
+  .overlay-backdrop {
+    @apply modal-backdrop bg-overlay-background;
+  }
 
   /* TODO: add more components here */
 }

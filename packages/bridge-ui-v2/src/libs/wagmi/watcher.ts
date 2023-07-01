@@ -1,6 +1,8 @@
 import { watchAccount, watchNetwork /*, watchPublicClient, watchWalletClient*/ } from '@wagmi/core';
 
 import { getLogger } from '$libs/util/logger';
+import { account } from '$stores/account';
+import { network } from '$stores/network';
 
 const log = getLogger('wagmi:watcher');
 
@@ -14,12 +16,14 @@ export function startWatching() {
     // See https://wagmi.sh/core/actions/watchNetwork
     unWatchNetwork = watchNetwork((data) => {
       log('Network changed', data);
+      network.set(data);
     });
 
     // Action for subscribing to account changes.
     // See https://wagmi.sh/core/actions/watchAccount
     unWatchAccount = watchAccount((data) => {
       log('Account changed', data);
+      account.set(data);
     });
 
     isWatching = true;
