@@ -12,7 +12,7 @@ import {
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { IERC20MetadataUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
-
+import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { BridgeErrors } from "./BridgeErrors.sol";
@@ -24,7 +24,7 @@ import { BridgeErrors } from "./BridgeErrors.sol";
  */
 contract BridgedERC20 is
     EssentialContract,
-    IERC20Upgradeable,
+    IMintableERC20,
     IERC20MetadataUpgradeable,
     ERC20Upgradeable,
     BridgeErrors
@@ -34,8 +34,8 @@ contract BridgedERC20 is
     uint8 private srcDecimals;
     uint256[47] private __gap;
 
-    event BridgeMint(address indexed account, uint256 amount);
-    event BridgeBurn(address indexed account, uint256 amount);
+    event Mint(address indexed account, uint256 amount);
+    event Burn(address indexed account, uint256 amount);
 
     /**
      * Initializes the contract.
@@ -79,7 +79,7 @@ contract BridgedERC20 is
      * @param account The account to mint tokens to.
      * @param amount The amount of tokens to mint.
      */
-    function bridgeMintTo(
+    function mint(
         address account,
         uint256 amount
     )
@@ -87,7 +87,7 @@ contract BridgedERC20 is
         onlyFromNamed("token_vault")
     {
         _mint(account, amount);
-        emit BridgeMint(account, amount);
+        emit Mint(account, amount);
     }
 
     /**
@@ -96,7 +96,7 @@ contract BridgedERC20 is
      * @param account The account to burn tokens from.
      * @param amount The amount of tokens to burn.
      */
-    function bridgeBurnFrom(
+    function burn(
         address account,
         uint256 amount
     )
@@ -104,7 +104,7 @@ contract BridgedERC20 is
         onlyFromNamed("token_vault")
     {
         _burn(account, amount);
-        emit BridgeBurn(account, amount);
+        emit Burn(account, amount);
     }
 
     /**

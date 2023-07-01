@@ -14,12 +14,13 @@ import { SafeERC20Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import { Create2Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
-import { EssentialContract } from "../common/EssentialContract.sol";
-import { Proxied } from "../common/Proxied.sol";
-import { TaikoToken } from "../L1/TaikoToken.sol";
 import { BridgedERC20 } from "./BridgedERC20.sol";
+import { EssentialContract } from "../common/EssentialContract.sol";
 import { IBridge } from "./IBridge.sol";
+import { IMintableERC20 } from "../common/IMintableERC20.sol";
+import { Proxied } from "../common/Proxied.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { TaikoToken } from "../L1/TaikoToken.sol";
 
 /**
  * This vault holds all ERC20 tokens (but not Ether) that users have deposited.
@@ -271,7 +272,7 @@ contract TokenVault is EssentialContract {
 
         // is a bridged token, meaning, it does not live on this chain
         if (isBridgedToken[token]) {
-            BridgedERC20(token).bridgeBurnFrom(msg.sender, amount);
+            IMintableERC20(token).burn(msg.sender, amount);
             canonicalToken = bridgedToCanonical[token];
             if (canonicalToken.addr == address(0)) {
                 revert TOKENVAULT_CANONICAL_TOKEN_NOT_FOUND();
@@ -362,7 +363,7 @@ contract TokenVault is EssentialContract {
 
         if (amount > 0) {
             if (isBridgedToken[token]) {
-                BridgedERC20(token).bridgeMintTo(message.owner, amount);
+                IMintableERC20(token).mint(message.owner, amount);
             } else {
                 ERC20Upgradeable(token).safeTransfer(message.owner, amount);
             }
@@ -408,7 +409,7 @@ contract TokenVault is EssentialContract {
             ERC20Upgradeable(token).safeTransfer(to, amount);
         } else {
             token = _getOrDeployBridgedToken(canonicalToken);
-            BridgedERC20(token).bridgeMintTo(to, amount);
+            IMintableERC20(token).mint(to, amount);
         }
 
         emit ERC20Received({
