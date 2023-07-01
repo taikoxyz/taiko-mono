@@ -6,20 +6,22 @@
 
 pragma solidity ^0.8.20;
 
-import { ERC20Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {
+    ERC20Upgradeable,
+    IERC20Upgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { ERC20BurnableUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
 import { ERC20SnapshotUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
 import { PausableUpgradeable } from
     "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-
 import { ERC20PermitUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/draft-ERC20PermitUpgradeable.sol";
 import { ERC20VotesUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
+import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { Proxied } from "../common/Proxied.sol";
 
 library LibTaikoTokenConfig {
@@ -29,6 +31,7 @@ library LibTaikoTokenConfig {
 /// @custom:security-contact hello@taiko.xyz
 contract TaikoToken is
     EssentialContract,
+    IMintableERC20,
     ERC20Upgradeable,
     ERC20BurnableUpgradeable,
     ERC20SnapshotUpgradeable,
@@ -104,7 +107,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        override
+        override(ERC20Upgradeable, IERC20Upgradeable)
         returns (bool)
     {
         if (to == address(this)) revert TKO_INVALID_ADDR();
@@ -117,7 +120,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        override
+        override(ERC20Upgradeable, IERC20Upgradeable)
         returns (bool)
     {
         if (to == address(this)) revert TKO_INVALID_ADDR();
