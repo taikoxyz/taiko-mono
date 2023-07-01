@@ -195,40 +195,33 @@ contract TokenVault is EssentialContract {
     /*//////////////////////////////////////////////////////////////
                          USER-FACING FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-    function init(
-        address addressManager,
-        uint256[] calldata tkoChainIds
-    )
-        external
-        initializer
-    {
+    function init(address addressManager) external initializer {
         EssentialContract._init(addressManager);
-
-        // For each remote Taiko Token deployment, we set up the meeting to
-        // avoid dynamic deoployment of any BridgedTokens.
-        address tkoAddr = resolve("taiko_token", false);
-        ERC20Upgradeable t = ERC20Upgradeable(tkoAddr);
-
-        for (uint256 i; i < tkoChainIds.length; ++i) {
-            uint256 chainId = tkoChainIds[i];
-            if (chainId == block.chainid) {
-                revert TOKENVAULT_INVALID_TKO_CHAINID();
-            }
-
-            address remoteTkoAddr = resolve(chainId, "taiko_token", false);
-
-            canonicalToBridged[chainId][tkoAddr] = remoteTkoAddr;
-
-            bridgedToCanonical[remoteTkoAddr] = CanonicalERC20({
-                chainId: block.chainid,
-                addr: tkoAddr,
-                decimals: t.decimals(),
-                symbol: t.symbol(),
-                name: t.name()
-            });
-        }
     }
 
+    function enableTaikoTokenBridging(uint256 destChainId) external onlyOwner {
+        address tkoAddr = resolve("taiko_token", false);
+        address remoteTkoAddr = resolve(destChainId, "taiko_token", false);
+
+        if (
+            destChainId == 0 || destChainId == block.chainid
+                || canonicalToBridged[destChainId][tkoAddr] != address(0)
+                || bridgedToCanonical[remoteTkoAddr].addr != address(0)
+        ) {
+            revert TOKENVAULT_INVALID_TKO_CHAINID();
+        }
+
+        canonicalToBridged[destChainId][tkoAddr] = remoteTkoAddr;
+
+        ERC20Upgradeable t = ERC20Upgradeable(tkoAddr);
+        bridgedToCanonical[remoteTkoAddr] = CanonicalERC20({
+            chainId: block.chainid,
+            addr: tkoAddr,
+            decimals: t.decimals(),
+            symbol: t.symbol(),
+            name: t.name()
+        });
+    }
     /**
      * Transfers ERC20 tokens to this vault and sends a message to the
      * destination chain so the user can receive the same amount of tokens
@@ -243,6 +236,7 @@ contract TokenVault is EssentialContract {
      * @param refundAddress Address for refunds
      * @param memo Any additional data or notes
      */
+
     function sendERC20(
         uint256 destChainId,
         address to,

@@ -85,13 +85,10 @@ contract TestTokenVault is Test {
         addressManager.init();
         addressManager.setAddress(block.chainid, "taiko_token", address(tko));
 
-        uint256[] memory chainsWithTaikoToken = new uint256[](0);
         tokenVault = new TokenVault();
-        tokenVault.init(address(addressManager), chainsWithTaikoToken);
+        tokenVault.init(address(addressManager));
         destChainIdTokenVault = new TokenVault();
-        destChainIdTokenVault.init(
-            address(addressManager), chainsWithTaikoToken
-        );
+        destChainIdTokenVault.init(address(addressManager));
 
         erc20 = new FreeMintERC20("ERC20", "ERC20");
         erc20.mint(Alice);
