@@ -1,46 +1,60 @@
-<script context="module">
-  export const drawerToogleId = 'side-drawer-toggle';
+<script lang="ts" context="module">
+  export const drawerToggleId = 'side-drawer-toggle';
 </script>
 
 <script lang="ts">
-  import { PUBLIC_GUIDE_URL, PUBLIC_L2_EXPLORER_URL } from '$env/static/public';
-  import { t } from '$libs/i18n';
+  import { t } from 'svelte-i18n';
 
-  import Icon from '../Icon';
-  import LinkButton from '../LinkButton';
+  import { page } from '$app/stores';
+  import { PUBLIC_GUIDE_URL, PUBLIC_L2_EXPLORER_URL } from '$env/static/public';
+
+  import { Icon } from '../Icon';
+  import { LinkButton } from '../LinkButton';
   import { LogoWithText } from '../Logo';
+
+  $: isBridgePage = $page.route.id === '/';
+  $: isFaucetPage = $page.route.id === '/faucet';
+  $: isActivitiesPage = $page.route.id === '/activities';
 </script>
 
 <div class="drawer md:drawer-open">
-  <input id={drawerToogleId} type="checkbox" class="drawer-toggle" />
+  <input id={drawerToggleId} type="checkbox" class="drawer-toggle" />
 
   <div class="drawer-content">
     <slot />
   </div>
 
   <div class="drawer-side z-1 bg-primary-background">
-    <label for={drawerToogleId} class="drawer-overlay bg-overlay-background" />
+    <label for={drawerToggleId} class="drawer-overlay bg-overlay-background" />
 
-    <aside class="w-[226px] p-2 md:px-4 md:py-8 md:border-r md:border-r-grey-600 h-full">
+    <aside
+      class="
+      p-2 
+      w-[226px] 
+      h-full
+      md:px-4 
+      md:py-8 
+      md:border-r 
+      md:border-r-divider-border">
       <a href="/" class="hidden md:inline-block">
         <LogoWithText />
       </a>
 
       <ul class="menu md:pt-10 space-y-2">
         <li>
-          <LinkButton active>
+          <LinkButton active={isBridgePage}>
             <Icon type="bridge" fillClass="fill-white" />
             <span>{$t('nav.bridge')}</span>
           </LinkButton>
         </li>
         <li>
-          <LinkButton href="/faucet">
+          <LinkButton href="/faucet" active={isFaucetPage}>
             <Icon type="faucet" />
             <span>{$t('nav.faucet')}</span>
           </LinkButton>
         </li>
         <li>
-          <LinkButton href="/activities">
+          <LinkButton href="/activities" active={isActivitiesPage}>
             <Icon type="activities" />
             <span>{$t('nav.activities')}</span>
           </LinkButton>

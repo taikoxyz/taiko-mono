@@ -55,3 +55,9 @@
 | Name                | Address                                                                                                                          |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | ERC-4337 Entrypoint | [0x3e871218D1c0A1670552aFFcB8adFDE98f6FA4F8](https://explorer.test.taiko.xyz/address/0x3e871218D1c0A1670552aFFcB8adFDE98f6FA4F8) |
+
+## Other useful contracts
+
+| Name                                                                                         | Address                                                                                                                          |
+| -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| [Deterministic Deployment Proxy](https://github.com/Arachnid/deterministic-deployment-proxy) | [0x1C83d994f649E62cAA042097415d050732f53FF6](https://explorer.test.taiko.xyz/address/0x1C83d994f649E62cAA042097415d050732f53FF6) |

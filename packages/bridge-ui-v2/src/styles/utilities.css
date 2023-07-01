@@ -1,1 +1,40 @@
 @tailwind utilities;
+
+@layer utilities {
+  .block-hidden {
+    @apply block invisible opacity-0;
+  }
+
+  .md-show-block {
+    @apply hidden md:block;
+  }
+
+  .md-show-inblock {
+    @apply hidden md:inline-block;
+  }
+
+  /* Flex shortcuts */
+  .f-between-center {
+    @apply flex justify-between items-center;
+  }
+
+  .f-center {
+    @apply flex justify-center items-center;
+  }
+
+  .f-justify-center {
+    @apply flex justify-center;
+  }
+
+  .f-items-center {
+    @apply flex items-center;
+  }
+
+  .f-row {
+    @apply flex flex-row;
+  }
+
+  .f-col {
+    @apply flex flex-col;
+  }
+}

@@ -115,6 +115,15 @@ export default {
             hover: 'var(--primary-interactive-accent)',
             accent: 'var(--primary-interactive-accent)',
           },
+          border: {
+            DEFAULT: 'var(--primary-border)',
+            hover: 'var(--primary-border-hover)',
+            accent: 'var(--primary-border-accent)',
+          },
+          base: {
+            content: 'var(--primary-base-content)',
+            background: 'var(--primary-base-background)',
+          },
         },
 
         secondary: {
@@ -141,6 +150,8 @@ export default {
         'elevated-background': 'var(--elevated-background)',
         'neutral-background': 'var(--neutral-background)',
         'overlay-background': 'var(--overlay-background)',
+
+        'divider-border': 'var(--divider-border)',
       },
     },
   },
@@ -161,6 +172,7 @@ export default {
         dark: {
           'color-scheme': 'dark',
           '--btn-text-case': 'capitalize',
+          // '--rounded-box': '0.625rem', // 10px
 
           '--primary-brand': '#C8047D', // pink-500
           '--primary-content': '#F3F3F3', // grey-10
@@ -170,6 +182,11 @@ export default {
           '--primary-background': '#0B101B', // grey-900
           '--primary-interactive': '#C8047D', // pink-500
           '--primary-interactive-accent': '#E81899', // pink-400
+          '--primary-border': '#5D636F', // grey-500
+          '--primary-border-hover': '#FF6FC8', // pink-200
+          '--primary-border-accent': '#E81899', // pink-400
+          '--primary-base-background': '#FFFFFF', // grey-0
+          '--primary-base-content': '#191E28', // grey-800
 
           '--secondary-brand': '#E81899', // pink-400
           '--secondary-content': '#ADB1B8', // grey-200
@@ -188,22 +205,33 @@ export default {
           '--neutral-background': '#2B303B', // grey-700
           '--overlay-background': 'rgba(12, 17, 28, 0.5)', // grey-900|50%
 
+          '--divider-border': '#444A55', // grey-600
+
           // ================================ //
 
           primary: '#C8047D', // pink-500,
           'primary-focus': '#E81899', // pink-400
           'primary-content': '#F3F3F3', // grey-10
 
+          secondary: '#E81899', // pink-400
+          // 'secondary-focus': '',
+          'secondary-content': '#ADB1B8', // grey-200
+
           neutral: '#2B303B', // grey-700
           'neutral-focus': '#444A55', // grey-600
           'neutral-content': '#F3F3F3', // grey-10
 
           'base-100': '#0B101B', // grey-900
+          // 'base-200': '',
+          // 'base-300': '',
           'base-content': '#F3F3F3', // grey-10
 
           success: '#00321D', // green-800
+          'success-content': '#47E0A0', // green-300
           error: '#440000', // red-800
+          'error-content': '#F15C5D', // red-300
           warning: '#382800', // yellow-800
+          'warning-content': '#EBB222', // yellow-400
         },
 
         light: {
@@ -211,6 +239,7 @@ export default {
 
           'color-scheme': 'light',
           '--btn-text-case': 'capitalize',
+          '--rounded-box': '0.625rem', // 10px
 
           '--primary-content': '#191E28', // grey-800
           '--primary-background': '#FAFAFA', // grey-5
@@ -221,8 +250,11 @@ export default {
           'base-content': '#191E28', // grey-800
 
           success: '#E4FFF4', // green-10
+          'success-content': '#059458', // green-600
           error: '#FFE7E7', // red-10
+          'error-content': '#CE2C2D', // red-500
           warning: '#FFF6DE', // yellow-10
+          'warning-content': '#C28B00', // yellow-600
         },
       },
     ],
