@@ -23,7 +23,6 @@ import { ERC20VotesUpgradeable } from
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { Proxied } from "../common/Proxied.sol";
-import { IMintableERC20 } from "../common/IMintableERC20.sol";
 
 library LibTaikoTokenConfig {
     uint8 public constant DECIMALS = uint8(8);
@@ -32,7 +31,6 @@ library LibTaikoTokenConfig {
 /// @custom:security-contact hello@taiko.xyz
 contract TaikoToken is
     EssentialContract,
-    IMintableERC20,
     ERC20Upgradeable,
     ERC20BurnableUpgradeable,
     ERC20SnapshotUpgradeable,
@@ -89,7 +87,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        onlyFromNamed4("prover_pool", "taiko", "dao", "token_vault")
+        onlyFromNamed3("prover_pool", "dao", "token_vault")
     {
         _mint(to, amount);
     }
@@ -99,7 +97,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        onlyFromNamed4("prover_pool", "taiko", "dao", "token_vault")
+        onlyFromNamed3("prover_pool", "dao", "token_vault")
     {
         _burn(from, amount);
     }

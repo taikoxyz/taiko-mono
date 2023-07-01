@@ -48,21 +48,6 @@ abstract contract AddressResolver {
         _;
     }
 
-    modifier onlyFromNamed4(
-        bytes32 name1,
-        bytes32 name2,
-        bytes32 name3,
-        bytes32 name4
-    ) {
-        if (
-            msg.sender != resolve(name1, true)
-                && msg.sender != resolve(name2, true)
-                && msg.sender != resolve(name3, true)
-                && msg.sender != resolve(name4, true)
-        ) revert RESOLVER_DENIED();
-        _;
-    }
-
     /**
      * Resolves a name to an address on the current chain.
      *
