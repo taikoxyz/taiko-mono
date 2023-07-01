@@ -175,10 +175,25 @@ Thrown when the sender in a message context is invalid.
 This could happen if the sender isn't the expected token vault on the
 source chain.
 
+### TOKENVAULT_INVALID_TKO_CHAINID
+
+```solidity
+error TOKENVAULT_INVALID_TKO_CHAINID()
+```
+
+Thrown when the remote chain id with a Taiko token deployment is the same
+as this chain's ID.
+
 ### init
 
 ```solidity
 function init(address addressManager) external
+```
+
+### enableTaikoTokenBridging
+
+```solidity
+function enableTaikoTokenBridging(uint256 destChainId) external
 ```
 
 ### sendERC20

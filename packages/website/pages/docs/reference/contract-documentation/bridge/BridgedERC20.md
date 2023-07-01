@@ -19,18 +19,6 @@ address srcToken
 uint256 srcChainId
 ```
 
-### BridgeMint
-
-```solidity
-event BridgeMint(address account, uint256 amount)
-```
-
-### BridgeBurn
-
-```solidity
-event BridgeBurn(address account, uint256 amount)
-```
-
 ### init
 
 ```solidity
@@ -53,10 +41,10 @@ per unique \_srcToken i.e. one for USDC, one for USDT etc._
 | \_symbol         | string  | The symbol of the token.                          |
 | \_name           | string  | The name of the token.                            |
 
-### bridgeMintTo
+### mint
 
 ```solidity
-function bridgeMintTo(address account, uint256 amount) public
+function mint(address account, uint256 amount) public
 ```
 
 Mints tokens to an account.
@@ -70,10 +58,10 @@ _Only a TokenVault can call this function._
 | account | address | The account to mint tokens to. |
 | amount  | uint256 | The amount of tokens to mint.  |
 
-### bridgeBurnFrom
+### burn
 
 ```solidity
-function bridgeBurnFrom(address account, uint256 amount) public
+function burn(address account, uint256 amount) public
 ```
 
 Burns tokens from an account.
