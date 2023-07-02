@@ -40,11 +40,11 @@ contract DeployOnL1 is Script {
 
     address public treasury = vm.envAddress("TREASURY");
 
-    address public taikoTokenPremintRecipient =
-        vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
+    address[] public taikoTokenPremintRecipients =
+        vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENTS", ",");
 
-    uint256 public taikoTokenPremintAmount =
-        vm.envUint("TAIKO_TOKEN_PREMINT_AMOUNT");
+    uint256[] public taikoTokenPremintAmounts =
+        vm.envUint("TAIKO_TOKEN_PREMINT_AMOUNTS", ",");
 
     TaikoL1 taikoL1;
     address public addressManagerProxy;
@@ -57,10 +57,22 @@ contract DeployOnL1 is Script {
         require(l2SignalService != address(0), "l2SignalService is zero");
         require(treasury != address(0), "treasury is zero");
         require(
-            taikoTokenPremintRecipient != address(0),
-            "taikoTokenPremintRecipient is zero"
+            taikoTokenPremintRecipients.length != 0,
+            "taikoTokenPremintRecipients length is zero"
         );
-        require(taikoTokenPremintAmount < type(uint64).max, "premint too large");
+
+        require(
+            taikoTokenPremintRecipients.length
+                == taikoTokenPremintAmounts.length,
+            "taikoTokenPremintRecipients and taikoTokenPremintAmounts must be same length"
+        );
+
+        uint256 premintSum;
+        for (uint8 i = 0; i < taikoTokenPremintAmounts.length; i++) {
+            premintSum += taikoTokenPremintAmounts[i];
+        }
+
+        require(premintSum < type(uint64).max, "premint amount too large");
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -85,11 +97,6 @@ contract DeployOnL1 is Script {
         // TaikoToken
         TaikoToken taikoToken = new ProxiedTaikoToken();
 
-        address[] memory premintRecipients = new address[](1);
-        uint256[] memory premintAmounts = new uint256[](1);
-        premintRecipients[0] = taikoTokenPremintRecipient;
-        premintAmounts[0] = taikoTokenPremintAmount;
-
         deployProxy(
             "taiko_token",
             address(taikoToken),
@@ -99,8 +106,8 @@ contract DeployOnL1 is Script {
                     addressManagerProxy,
                     "Taiko Token",
                     "TKO",
-                    premintRecipients,
-                    premintAmounts
+                    taikoTokenPremintRecipients,
+                    taikoTokenPremintAmounts
                 )
             )
         );
