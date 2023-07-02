@@ -13,7 +13,7 @@ struct Config {
   uint256 blockMaxProposals;
   uint256 blockRingBufferSize;
   uint256 blockMaxVerificationsPerTx;
-  uint32 blockMaxGasLimit;
+  uint32 blockMaxGasUsed;
   uint32 blockFeeBaseGas;
   uint64 blockMaxTransactions;
   uint64 blockMaxTxListBytes;
@@ -55,7 +55,6 @@ struct StateVariables {
 struct BlockMetadataInput {
   bytes32 txListHash;
   address beneficiary;
-  uint32 gasLimit;
   uint24 txListByteStart;
   uint24 txListByteEnd;
   bool cacheTxListInfo;
@@ -74,7 +73,6 @@ struct BlockMetadata {
   bytes32 txListHash;
   uint24 txListByteStart;
   uint24 txListByteEnd;
-  uint32 gasLimit;
   address beneficiary;
   address treasury;
   struct TaikoData.EthDeposit[] depositsProcessed;
@@ -118,7 +116,6 @@ struct Block {
   mapping(uint256 => struct TaikoData.ForkChoice) forkChoices;
   bytes32 metaHash;
   uint64 blockId;
-  uint32 gasLimit;
   uint24 nextForkChoiceId;
   uint24 verifiedForkChoiceId;
   bool proverReleased;
