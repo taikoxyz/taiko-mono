@@ -39,6 +39,10 @@
   <div class="drawer-side h-full">
     <label for={drawerToggleId} class="drawer-overlay" />
 
+    <!--
+      Slow transitions can be pretty annoying after a while.
+      Let's reduce it to 100ms for a better experience.
+    -->
     <div class="w-h-full !duration-100">
       <header class="flex justify-end py-[20px] px-4 md:hidden">
         <button on:click={closeDrawer} class="h-9">
