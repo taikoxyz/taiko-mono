@@ -15,7 +15,7 @@ input[type='number'] {
 
 /**
  * Overrides the dafault color for the overlay component used 
- * in the drawer. Unfortunately cannot be done with variables
+ * in DaisyUI's drawer. Unfortunately cannot be done via variables
  */
 .drawer-toggle:checked ~ .drawer-side > .drawer-overlay {
   /* Primary background: '#0B101B' => grey-900 */
