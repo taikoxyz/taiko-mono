@@ -106,7 +106,7 @@ library LibUtils {
 
         inputs[5] = (uint256(meta.txListByteStart) << 232)
             | (uint256(meta.txListByteEnd) << 208) //
-            | (uint256(meta.gasLimit) << 176)
+            // | (uint256(meta.gasLimit) << 176) // Room for a uint32
             | (uint256(uint160(meta.beneficiary)) << 16);
 
         inputs[6] = (uint256(uint160(meta.treasury)) << 96);

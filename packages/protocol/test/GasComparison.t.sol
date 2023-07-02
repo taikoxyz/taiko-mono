@@ -85,7 +85,6 @@ contract FooBar {
             txListHash: bytes32(uint256(1)),
             txListByteStart: 0,
             txListByteEnd: 1000,
-            gasLimit: 1,
             mixHash: bytes32(uint256(1)),
             timestamp: 1,
             depositsProcessed: new TaikoData.EthDeposit[](0)
@@ -102,7 +101,6 @@ contract FooBar {
             txListHash: bytes32(uint256(1)),
             txListByteStart: 0,
             txListByteEnd: 1000,
-            gasLimit: 1,
             mixHash: bytes32(uint256(1)),
             timestamp: 1,
             depositsProcessed: new TaikoData.EthDeposit[](0)

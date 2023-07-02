@@ -44,7 +44,7 @@ library LibVerifying {
             config.chainId <= 1 //
                 || config.blockMaxProposals == 1
                 || config.blockRingBufferSize <= config.blockMaxProposals + 1
-                || config.blockMaxGasLimit == 0 || config.blockMaxTransactions == 0
+                || config.blockMaxGasUsed == 0 || config.blockMaxTransactions == 0
                 || config.blockMaxTxListBytes == 0
                 || config.blockTxListExpiry > 30 * 24 hours
                 || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
@@ -182,11 +182,7 @@ library LibVerifying {
     )
         private
     {
-        // the actually mined L2 block's gasLimit is blk.gasLimit +
-        // LibL2Consts.ANCHOR_GAS_COST, so fc.gasUsed may greater than
-        // blk.gasLimit here.
-        uint32 _gasLimit = blk.gasLimit + LibL2Consts.ANCHOR_GAS_COST;
-        assert(fc.gasUsed <= _gasLimit);
+        assert(fc.gasUsed <= config.blockMaxGasUsed);
 
         IProverPool proverPool =
             IProverPool(resolver.resolve("prover_pool", false));
@@ -240,7 +236,7 @@ library LibVerifying {
         state.taikoTokenBalances[fc.prover] += proofReward;
 
         state.taikoTokenBalances[blk.proposer] +=
-            (_gasLimit - fc.gasUsed) * blk.feePerGas;
+            (config.blockMaxGasUsed - fc.gasUsed) * blk.feePerGas;
 
         emit BlockVerified(blk.blockId, fc.blockHash, proofReward);
     }

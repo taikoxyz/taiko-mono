@@ -230,12 +230,11 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
             uint256 blockId = 1; blockId < conf.blockMaxProposals * 9; blockId++
         ) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             //printVariables("after propose");
             mine(1);
 
-            (,,,,,,,, address prover,,) = L1.getBlock(blockId);
+            (,,,,,,, address prover,,) = L1.getBlock(blockId);
             console2.log("Prover address:", getNameFromAddress(prover));
 
             bytes32 blockHash = bytes32(1e10 + blockId);
@@ -283,12 +282,11 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
             uint256 blockId = 1; blockId < conf.blockMaxProposals * 9; blockId++
         ) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             //printVariables("after propose");
             mine(1);
 
-            (,,,,,,,, address prover,,) = L1.getBlock(blockId);
+            (,,,,,,, address prover,,) = L1.getBlock(blockId);
             console2.log("Prover address:", getNameFromAddress(prover));
 
             bytes32 blockHash = bytes32(1e10 + blockId);
@@ -331,12 +329,11 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
             uint256 blockId = 1; blockId < conf.blockMaxProposals * 9; blockId++
         ) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             //printVariables("after propose");
             mine(1);
 
-            (,,,,,,,, address prover,,) = L1.getBlock(blockId);
+            (,,,,,,, address prover,,) = L1.getBlock(blockId);
             console2.log("Prover address:", getNameFromAddress(prover));
 
             bytes32 blockHash = bytes32(1e10 + blockId);
@@ -396,12 +393,11 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
             uint256 blockId = 1; blockId < conf.blockMaxProposals * 9; blockId++
         ) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             //printVariables("after propose");
             mine(1);
 
-            (,,,,,,,, address prover,,) = L1.getBlock(blockId);
+            (,,,,,,, address prover,,) = L1.getBlock(blockId);
             console2.log("Prover address:", getNameFromAddress(prover));
 
             bytes32 blockHash = bytes32(1e10 + blockId);
@@ -460,12 +456,11 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
                     // was 5 * 1e8
             }
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             //printVariables("after propose");
             mine(1);
 
-            (,,,,,,,, address prover,,) = L1.getBlock(blockId);
+            (,,,,,,, address prover,,) = L1.getBlock(blockId);
             console2.log("Prover address:", getNameFromAddress(prover));
 
             bytes32 blockHash = bytes32(1e10 + blockId);
@@ -510,12 +505,11 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
             uint256 blockId = 1; blockId < conf.blockMaxProposals * 1; blockId++
         ) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             //printVariables("after propose");
             mine(1);
 
-            (,,,,,,,, address prover,,) = L1.getBlock(blockId);
+            (,,,,,,, address prover,,) = L1.getBlock(blockId);
             console2.log("Prover address:", getNameFromAddress(prover));
 
             bytes32 blockHash = bytes32(1e10 + blockId);
@@ -573,12 +567,11 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
             uint256 blockId = 1; blockId < conf.blockMaxProposals * 1; blockId++
         ) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             //printVariables("after propose");
             mine(1);
 
-            (,,,,,,,, address prover,,) = L1.getBlock(blockId);
+            (,,,,,,, address prover,,) = L1.getBlock(blockId);
             console2.log("Prover address:", getNameFromAddress(prover));
 
             bytes32 blockHash = bytes32(1e10 + blockId);

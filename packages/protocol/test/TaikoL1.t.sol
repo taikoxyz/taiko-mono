@@ -72,8 +72,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             blockId++
         ) {
             //printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -116,8 +115,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (uint256 blockId = 1; blockId <= 2; blockId++) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1e10 + blockId);
@@ -160,8 +158,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         for (uint256 blockId = 1; blockId <= conf.blockMaxProposals; blockId++)
         {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1e10 + blockId);
@@ -213,9 +210,8 @@ contract TaikoL1Test is TaikoL1TestBase {
             0x569e75fc77c1a856f6daaf9e69d8a9566ca34aa47f9133711ce065a571af0cfd;
         depositTaikoToken(Alice, 1e6 * 1e8, 100_000 ether);
 
-        proposeBlock(Alice, 1_000_000, 1024);
-        TaikoData.BlockMetadata memory meta =
-            proposeBlock(Alice, 1_000_000, 1024);
+        proposeBlock(Alice, 1024);
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
         assertEq(meta.depositsProcessed.length, 0);
 
         uint256 count = conf.ethDepositMaxCountPerBlock;
@@ -228,7 +224,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         printVariables("after sending ethers");
 
         uint256 gas = gasleft();
-        meta = proposeBlock(Alice, 1_000_000, 1024);
+        meta = proposeBlock(Alice, 1024);
         uint256 gasUsedWithDeposits = gas - gasleft();
         console2.log("gas used with eth deposits:", gasUsedWithDeposits);
 
@@ -240,7 +236,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         assertEq(meta.depositsProcessed.length, count);
 
         gas = gasleft();
-        meta = proposeBlock(Alice, 1_000_000, 1024);
+        meta = proposeBlock(Alice, 1024);
         uint256 gasUsedWithoutDeposits = gas - gasleft();
 
         console2.log("gas used without eth deposits:", gasUsedWithoutDeposits);
@@ -284,7 +280,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         // Propose blocks
         for (uint256 blockId = 1; blockId < iterationCnt; blockId++) {
             printVariables("before propose");
-            meta = proposeBlock(Alice, 1_000_000, 1024);
+            meta = proposeBlock(Alice, 1024);
             mine(5);
 
             blockHash = bytes32(1e10 + blockId);
@@ -368,8 +364,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         // We shall invoke proposeBlock() because this is what will call the
         // processDeposits()
-        TaikoData.BlockMetadata memory meta =
-            proposeBlock(Alice, 1_000_000, 1024);
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
 
         // Expected:
         // 0x60386add6a400d9b23968e1239bd600d22d2eea4709246895c0e5d8f5ae49dc3  (pre

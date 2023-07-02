@@ -112,7 +112,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
             newRandomWithoutSalt = uint256(
                 keccak256(
                     abi.encodePacked(
-                        block.difficulty,
+                        block.prevrandao,
                         msg.sender,
                         block.timestamp,
                         i,
@@ -195,7 +195,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                 keccak256(
                     abi.encodePacked(
                         newRandomWithoutSalt,
-                        block.difficulty,
+                        block.prevrandao,
                         secondsElapsed,
                         msg.sender,
                         block.timestamp,
@@ -261,7 +261,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                     )
                 );
 
-                metas[proposedIndex] = proposeBlock(Alice, gasLimit, txListSize);
+                metas[proposedIndex] = proposeBlock(Alice, txListSize);
 
                 if (proposedIndex < blocksToSimulate - 1) proposedIndex++;
 
@@ -325,7 +325,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
             newRandomWithoutSalt = uint256(
                 keccak256(
                     abi.encodePacked(
-                        block.difficulty,
+                        block.prevrandao,
                         msg.sender,
                         block.timestamp,
                         i,
@@ -423,7 +423,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                 keccak256(
                     abi.encodePacked(
                         newRandomWithoutSalt,
-                        block.difficulty,
+                        block.prevrandao,
                         secondsElapsed,
                         msg.sender,
                         block.timestamp,
@@ -489,7 +489,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                     )
                 );
 
-                metas[proposedIndex] = proposeBlock(Alice, gasLimit, txListSize);
+                metas[proposedIndex] = proposeBlock(Alice, txListSize);
 
                 if (proposedIndex < blocksToSimulate - 1) proposedIndex++;
 
@@ -552,7 +552,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
             newRandomWithoutSalt = uint256(
                 keccak256(
                     abi.encodePacked(
-                        block.difficulty,
+                        block.prevrandao,
                         msg.sender,
                         block.timestamp,
                         i,
@@ -656,7 +656,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                 keccak256(
                     abi.encodePacked(
                         newRandomWithoutSalt,
-                        block.difficulty,
+                        block.prevrandao,
                         secondsElapsed,
                         msg.sender,
                         block.timestamp,
@@ -722,7 +722,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                     )
                 );
 
-                metas[proposedIndex] = proposeBlock(Alice, gasLimit, txListSize);
+                metas[proposedIndex] = proposeBlock(Alice, txListSize);
 
                 if (proposedIndex < blocksToSimulate - 1) proposedIndex++;
 

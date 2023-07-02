@@ -73,8 +73,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             blockId++
         ) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -152,8 +151,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             blockId++
         ) {
             printVariables("before propose");
-            TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -237,8 +235,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             blockId < conf.blockMaxProposals * 10;
             blockId++
         ) {
-            TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             printVariables("after propose");
             mine(1);
 
@@ -311,8 +308,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             blockId < conf.blockMaxProposals * 10;
             blockId++
         ) {
-            TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             printVariables("after propose");
             mine(1);
 
@@ -378,8 +374,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             blockId < conf.blockMaxProposals * 10;
             blockId++
         ) {
-            TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             printVariables("after propose");
             mine(1);
 
@@ -467,8 +462,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             blockId < conf.blockMaxProposals * 10;
             blockId++
         ) {
-            TaikoData.BlockMetadata memory meta =
-                proposeBlock(Alice, 1_000_000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             printVariables("after propose");
             mine(1);
 

@@ -17,7 +17,8 @@ library TaikoData {
         // This number is calculated from blockMaxProposals to make
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 blockMaxVerificationsPerTx;
-        uint32 blockMaxGasLimit;
+        // The max gas used per block, including anchor.
+        uint32 blockMaxGasUsed;
         uint32 blockFeeBaseGas;
         uint64 blockMaxTransactions;
         uint64 blockMaxTxListBytes;
@@ -55,7 +56,6 @@ library TaikoData {
     struct BlockMetadataInput {
         bytes32 txListHash;
         address beneficiary;
-        uint32 gasLimit;
         uint24 txListByteStart; // byte-wise start index (inclusive)
         uint24 txListByteEnd; // byte-wise end index (exclusive)
         bool cacheTxListInfo;
@@ -71,7 +71,6 @@ library TaikoData {
         bytes32 txListHash;
         uint24 txListByteStart;
         uint24 txListByteEnd;
-        uint32 gasLimit;
         address beneficiary;
         address treasury;
         TaikoData.EthDeposit[] depositsProcessed;
@@ -109,7 +108,6 @@ library TaikoData {
         bytes32 metaHash;
         // slot 3: (13 bytes available)
         uint64 blockId;
-        uint32 gasLimit;
         uint24 nextForkChoiceId;
         uint24 verifiedForkChoiceId;
         bool proverReleased;

@@ -176,12 +176,8 @@ contract TaikoL1 is
         });
     }
 
-    function getBlockFee(uint32 gasLimit) public view returns (uint64) {
-        return LibProposing.getBlockFee({
-            state: state,
-            config: getConfig(),
-            gasLimit: gasLimit
-        });
+    function getBlockFee() public view returns (uint64) {
+        return LibProposing.getBlockFee({ state: state, config: getConfig() });
     }
 
     function getTaikoTokenBalance(address addr) public view returns (uint256) {
@@ -193,7 +189,6 @@ contract TaikoL1 is
         view
         returns (
             bytes32 _metaHash,
-            uint32 _gasLimit,
             uint24 _nextForkChoiceId,
             uint24 _verifiedForkChoiceId,
             bool _proverReleased,
@@ -211,7 +206,6 @@ contract TaikoL1 is
             blockId: blockId
         });
         _metaHash = blk.metaHash;
-        _gasLimit = blk.gasLimit;
         _nextForkChoiceId = blk.nextForkChoiceId;
         _verifiedForkChoiceId = blk.verifiedForkChoiceId;
         _proverReleased = blk.proverReleased;

@@ -87,13 +87,12 @@ library LibProposing {
             // from the beacon chain. Since multiple Taiko blocks
             // can be proposed in one Ethereum block, we need to
             // add salt to this random number as L2 mixHash
-            meta.mixHash = bytes32(block.difficulty * state.numBlocks);
+            meta.mixHash = bytes32(block.prevrandao * state.numBlocks);
         }
 
         meta.txListHash = input.txListHash;
         meta.txListByteStart = input.txListByteStart;
         meta.txListByteEnd = input.txListByteEnd;
-        meta.gasLimit = input.gasLimit;
         meta.beneficiary = input.beneficiary;
         meta.treasury = resolver.resolve(config.chainId, "treasury", false);
         meta.depositsProcessed =
@@ -105,7 +104,6 @@ library LibProposing {
 
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.blockId = state.numBlocks;
-        blk.gasLimit = meta.gasLimit;
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = 0;
         blk.proverReleased = false;
@@ -139,7 +137,7 @@ library LibProposing {
             );
         }
 
-        uint64 blockFee = getBlockFee(state, config, meta.gasLimit);
+        uint64 blockFee = getBlockFee(state, config);
 
         if (state.taikoTokenBalances[msg.sender] < blockFee) {
             revert L1_INSUFFICIENT_TOKEN();
@@ -171,8 +169,7 @@ library LibProposing {
     // in case of differences refund after verification
     function getBlockFee(
         TaikoData.State storage state,
-        TaikoData.Config memory config,
-        uint32 gasLimit
+        TaikoData.Config memory config
     )
         internal
         view
@@ -180,8 +177,8 @@ library LibProposing {
     {
         // The diff between gasLimit and gasUsed will be redistributed back to
         // the balance of proposer
-        return state.feePerGas
-            * (gasLimit + LibL2Consts.ANCHOR_GAS_COST + config.blockFeeBaseGas);
+        return
+            state.feePerGas * (config.blockMaxGasUsed + config.blockFeeBaseGas);
     }
 
     function _validateBlock(
@@ -194,13 +191,7 @@ library LibProposing {
         view
         returns (bool cacheTxListInfo)
     {
-        if (
-            input.beneficiary == address(0)
-            //
-            || input.gasLimit == 0
-            //
-            || input.gasLimit > config.blockMaxGasLimit
-        ) revert L1_INVALID_METADATA();
+        if (input.beneficiary == address(0)) revert L1_INVALID_METADATA();
 
         if (
             state.numBlocks

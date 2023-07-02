@@ -59,6 +59,8 @@ library LibProving {
             || evidence.signalRoot == 0
             //
             || evidence.gasUsed == 0
+            //
+            || evidence.gasUsed > config.blockMaxGasUsed
         ) revert L1_INVALID_EVIDENCE();
 
         if (blockId <= state.lastVerifiedBlockId || blockId >= state.numBlocks)
@@ -191,7 +193,7 @@ library LibProving {
                     | (uint256(evidence.gasUsed) << 32);
 
                 // Also hash configs that will be used by circuits
-                inputs[9] = uint256(config.blockMaxGasLimit) << 192
+                inputs[9] = uint256(config.blockMaxGasUsed) << 192
                     | uint256(config.blockMaxTransactions) << 128
                     | uint256(config.blockMaxTxListBytes) << 64;
 

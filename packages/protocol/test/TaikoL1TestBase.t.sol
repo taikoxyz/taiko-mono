@@ -145,7 +145,6 @@ abstract contract TaikoL1TestBase is Test {
 
     function proposeBlock(
         address proposer,
-        uint32 gasLimit,
         uint24 txListSize
     )
         internal
@@ -154,7 +153,6 @@ abstract contract TaikoL1TestBase is Test {
         bytes memory txList = new bytes(txListSize);
         TaikoData.BlockMetadataInput memory input = TaikoData.BlockMetadataInput({
             beneficiary: proposer,
-            gasLimit: gasLimit,
             txListHash: keccak256(txList),
             txListByteStart: 0,
             txListByteEnd: txListSize,
@@ -165,7 +163,7 @@ abstract contract TaikoL1TestBase is Test {
 
         uint256 _mixHash;
         unchecked {
-            _mixHash = block.difficulty * variables.numBlocks;
+            _mixHash = block.prevrandao * variables.numBlocks;
         }
 
         meta.id = variables.numBlocks;
@@ -176,7 +174,6 @@ abstract contract TaikoL1TestBase is Test {
         meta.txListHash = keccak256(txList);
         meta.txListByteStart = 0;
         meta.txListByteEnd = txListSize;
-        meta.gasLimit = gasLimit;
         meta.beneficiary = proposer;
         meta.treasury = L2Treasury;
 
@@ -209,7 +206,7 @@ abstract contract TaikoL1TestBase is Test {
             proof: new bytes(100)
         });
 
-        bytes32 instance = getInstance(conf, L1, evidence);
+        bytes32 instance = getInstance(conf, evidence);
 
         evidence.proof = bytes.concat(
             bytes16(0),
@@ -282,7 +279,6 @@ abstract contract TaikoL1TestBase is Test {
 
     function getInstance(
         TaikoData.Config memory config,
-        AddressResolver resolver,
         TaikoData.BlockEvidence memory evidence
     )
         internal
@@ -305,7 +301,7 @@ abstract contract TaikoL1TestBase is Test {
             | (uint256(evidence.gasUsed) << 32);
 
         // Also hash configs that will be used by circuits
-        inputs[9] = uint256(config.blockMaxGasLimit) << 192
+        inputs[9] = uint256(config.blockMaxGasUsed) << 192
             | uint256(config.blockMaxTransactions) << 128
             | uint256(config.blockMaxTxListBytes) << 64;
 
