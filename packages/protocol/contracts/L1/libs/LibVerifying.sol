@@ -44,7 +44,8 @@ library LibVerifying {
             config.chainId <= 1 //
                 || config.blockMaxProposals == 1
                 || config.blockRingBufferSize <= config.blockMaxProposals + 1
-                || config.blockMaxGasUsed == 0 || config.blockMaxTransactions == 0
+                || config.blockMaxGasUsed <= LibL2Consts.ANCHOR_GAS_COST
+                || config.blockMaxTransactions == 0
                 || config.blockMaxTxListBytes == 0
                 || config.blockTxListExpiry > 30 * 24 hours
                 || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
@@ -182,8 +183,6 @@ library LibVerifying {
     )
         private
     {
-        assert(fc.gasUsed <= config.blockMaxGasUsed);
-
         IProverPool proverPool =
             IProverPool(resolver.resolve("prover_pool", false));
 
