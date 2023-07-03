@@ -436,9 +436,8 @@ contract TokenVault is EssentialContract {
             _symbol: canonicalToken.symbol,
             _name: string.concat(
                 canonicalToken.name,
-                unicode"(bridged🌈",
-                Strings.toString(canonicalToken.chainId),
-                ")"
+                unicode" ⭀",
+                Strings.toString(canonicalToken.chainId)
                 )
         });
 
