@@ -1,6 +1,6 @@
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
 [profile.default]
-solc-version = "0.8.18"
+solc-version = "0.8.20"
 src = 'contracts'
 out = 'out'
 test = 'test'

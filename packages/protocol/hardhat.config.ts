@@ -147,7 +147,7 @@ const config: HardhatUserConfig = {
                 },
             },
         },
-        version: "0.8.18",
+        version: "0.8.20",
     },
     preprocess: {
         eachLine: (hre) => ({

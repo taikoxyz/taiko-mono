@@ -101,7 +101,7 @@ struct BlockMetadata {
 
 ### Global Variables
 
-The following [**block level variables**](https://docs.soliditylang.org/en/v0.8.18/units-and-global-variables.html) are accessible to the EVM, but their values are not part of the MPT so we need a different way to verify their correctness.
+The following [**block level variables**](https://docs.soliditylang.org/en/v0.8.20/units-and-global-variables.html) are accessible to the EVM, but their values are not part of the MPT so we need a different way to verify their correctness.
 
 - `blockhash(uint blockNumber) returns (bytes32)`: hash of the given block when `blocknumber` is one of the 256 most recent blocks; otherwise returns zero
 - `block.basefee` (`uint`): current block's base fee ([EIP-3198](https://eips.ethereum.org/EIPS/eip-3198) and [modified EIP-1559](./L2EIP1559.md))

@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
 import {EssentialContract} from "../../../common/EssentialContract.sol";
 import {LibBridgeProcess} from "../../../bridge/libs/LibBridgeProcess.sol";

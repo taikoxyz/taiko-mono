@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {Proxied} from "../common/Proxied.sol";
@@ -67,7 +67,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     //////////////////////////////////////////////////////////////*/
 
     // Captures all block variables mentioned in
-    // https://docs.soliditylang.org/en/v0.8.18/units-and-global-variables.html
+    // https://docs.soliditylang.org/en/v0.8.20/units-and-global-variables.html
     event Anchored(
         uint64 number,
         uint64 basefee,
