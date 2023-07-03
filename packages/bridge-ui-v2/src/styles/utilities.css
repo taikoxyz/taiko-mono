@@ -13,6 +13,10 @@
     @apply hidden md:inline-block;
   }
 
+  .w-h-full {
+    @apply w-full h-full;
+  }
+
   /* Flex shortcuts */
   .f-between-center {
     @apply flex justify-between items-center;

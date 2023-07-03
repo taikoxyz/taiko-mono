@@ -12,7 +12,8 @@
   class="
     f-between-center
     py-[20px] 
-    px-4 border-b 
+    px-4 
+    border-b 
     border-b-divider-border 
     md:border-b-0 
     md:px-10 md:py-7 
