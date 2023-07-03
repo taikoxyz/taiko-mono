@@ -11,7 +11,7 @@
 </script>
 
 <div class={classes}>
-  <div class="card-body p-4 md:p-12 body-regular">
+  <div class="card-body body-regular p-0 md:p-[50px]">
     <h2 class="card-title title-screen-bold">{title}</h2>
     {#if text}
       <p>{text}</p>

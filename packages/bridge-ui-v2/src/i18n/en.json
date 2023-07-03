@@ -42,6 +42,7 @@
       "status": "Status"
     },
     "link.explorer": "View on explorer",
+    "no_transactions": "No transactions yet",
     "button": {
       "claim": "Claim",
       "retry": "Retry",
