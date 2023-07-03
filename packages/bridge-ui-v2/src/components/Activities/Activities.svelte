@@ -3,9 +3,9 @@
 
   import { Card } from '$components/Card';
   import { ChainSelector } from '$components/ChainSelector';
-  import { Tooltip } from '$components/Tooltip';
   import { EthIcon, Icon, TaikoIcon } from '$components/Icon';
   import { StatusDot } from '$components/StatusDot';
+  import { Tooltip } from '$components/Tooltip';
 </script>
 
 <Card class="md:min-w-[524px]" title={$t('activities.title')} text={$t('activities.subtitle')}>
@@ -179,7 +179,7 @@
             </div>
           </td>
           <td align="right">
-            <a class="link" href="#">View details</a>
+            <a class="link" href="https://etherscan.io/">View details</a>
           </td>
         </tr>
 
@@ -208,7 +208,7 @@
             </div>
           </td>
           <td align="right">
-            <a class="link" href="#">View details</a>
+            <a class="link" href="https://etherscan.io/">View details</a>
           </td>
         </tr>
 
@@ -238,7 +238,7 @@
             </div>
           </td>
           <td align="right">
-            <a class="link" href="#">View details</a>
+            <a class="link" href="https://etherscan.io/">View details</a>
           </td>
         </tr>
 
@@ -268,7 +268,7 @@
             </div>
           </td>
           <td align="right">
-            <a class="link" href="#">View details</a>
+            <a class="link" href="https://etherscan.io/">View details</a>
           </td>
         </tr>
 
@@ -297,7 +297,7 @@
             </div>
           </td>
           <td align="right">
-            <a class="link" href="#">View details</a>
+            <a class="link" href="https://etherscan.io/">View details</a>
           </td>
         </tr>
 
@@ -326,7 +326,7 @@
             </div>
           </td>
           <td align="right">
-            <a class="link" href="#">View details</a>
+            <a class="link" href="https://etherscan.io/">View details</a>
           </td>
         </tr>
 
@@ -356,7 +356,7 @@
             </div>
           </td>
           <td align="right">
-            <a class="link" href="#">View details</a>
+            <a class="link" href="https://etherscan.io/" target="_blank">View details</a>
           </td>
         </tr>
       </tbody>

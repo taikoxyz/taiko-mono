@@ -1,1 +1,1 @@
-export { default as StatusDot } from './StatusDot.svelte'
+export { default as StatusDot } from './StatusDot.svelte';
