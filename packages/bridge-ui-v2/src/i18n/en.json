@@ -10,8 +10,10 @@
   "bridge": {
     "title": "Bridge",
     "subtitle": "Send your assets across chains.",
-    "approve_button": "Approve",
-    "bridge_button": "Bridge"
+    "button": {
+      "approve": "Approve",
+      "bridge": "Bridge"
+    }
   },
 
   "processing_fee": {
@@ -34,15 +36,30 @@
 
   "activities": {
     "title": "Activities",
-    "subtitle": "Track your bridge transactions here."
+    "subtitle": "Track your bridge transactions here.",
+    "header": {
+      "explorer": "Explorer link",
+      "status": "Status"
+    },
+    "link.explorer": "View on explorer",
+    "button": {
+      "claim": "Claim",
+      "retry": "Retry",
+      "release": "Release"
+    },
+    "status": {
+      "initiated": "Initiated",
+      "pending": "Pending",
+      "claimed": "Claimed",
+      "failed": "Failed"
+    }
   },
 
   "faucet": {
     "title": "Faucet",
     "subtitle": "Mint test tokens.",
-    "currently_on": "You are currently on",
-    "mint_button": "Mint",
-    "warning_message": "To request Test Token, you need to mint it on Sepolia. If you are currently on Taiko, please switch your network first. Additionally, ensure that you have a small amount of ETH in your Sepolia wallet to complete the transaction."
+    "button.mint": "Mint",
+    "message.warning": "To request Test Token, you need to mint it on Sepolia. If you are currently on Taiko, please switch your network first. Additionally, ensure that you have a small amount of ETH in your Sepolia wallet to complete the transaction."
   },
 
   "token_dropdown": {
@@ -52,11 +69,12 @@
   "amount_input": {
     "label": "Amount",
     "balance": "Balance",
-    "max_button": "Max"
+    "button.max": "Max"
   },
 
   "chain_selector": {
-    "placeholder": "Select chain"
+    "placeholder": "Select chain",
+    "currently_on": "You are currently on"
   },
 
   "chain": {

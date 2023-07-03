@@ -87,10 +87,7 @@
       <span class="body-small-regular text-secondary-content">{$t('processing_fee.title')}</span>
       <Tooltip>TODO: add description about processing fee</Tooltip>
     </div>
-    <button
-      class="link-regular text-primary-link underline hover:text-primary-link-hover"
-      on:click={openModal}
-      on:focus={openModal}>{$t('processing_fee.link')}</button>
+    <button class="link" on:click={openModal} on:focus={openModal}>{$t('processing_fee.link')}</button>
   </div>
 
   <span class="body-small-regular text-secondary-content mt-[6px]">
@@ -176,6 +173,7 @@
             bind:group={selectedFeeMethod} />
         </li>
       </ul>
+
       <div class="relative f-items-center">
         <InputBox
           type="number"
