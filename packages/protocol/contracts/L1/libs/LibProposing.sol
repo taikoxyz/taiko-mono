@@ -87,7 +87,7 @@ library LibProposing {
             // from the beacon chain. Since multiple Taiko blocks
             // can be proposed in one Ethereum block, we need to
             // add salt to this random number as L2 mixHash
-            meta.mixHash = bytes32(block.difficulty * state.numBlocks);
+            meta.mixHash = bytes32(block.prevrandao * state.numBlocks);
         }
 
         meta.txListHash = input.txListHash;

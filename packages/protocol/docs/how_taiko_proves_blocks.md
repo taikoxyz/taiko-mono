@@ -39,14 +39,16 @@ The ZKP must prove that _TaikoL2.anchor(...)_ is the first transaction in the bl
 
 - The anchor transaction's `to` address must be the registered `taiko_l2` address, which is hashed into the ZKP `instance`. And the `tx.origin` must be the golden touch address.
 - The anchor transaction's ABI must be:
- ```solidity
- function anchor(
-  bytes32 l1Hash,
-  bytes32 l1SignalRoot,
-  uint64 l1Height,
-  uint64 parentGasUsed
- ) external;
- ```
+
+```solidity
+function anchor(
+ bytes32 l1Hash,
+ bytes32 l1SignalRoot,
+ uint64 l1Height,
+ uint64 parentGasUsed
+) external;
+```
+
 - A circuit will verify the integrity among: `l1Hash`, `l1SignalRoot`, and `l1SignalServiceAddress`
 - `l1SignalServiceAddress`, `l2SignalServiceAddress` and `parentGasUsed` are directly hashed into the ZKP's instance
 - `l1Height` and `l1Hash` are both part of the block metadata (`meta.l1Height` and `meta.l1Hash`), the `metaHash` is used to calculate the ZKP instance.
@@ -107,7 +109,7 @@ The following [**block level variables**](https://docs.soliditylang.org/en/v0.8.
 - `block.basefee` (`uint`): current block's base fee ([EIP-3198](https://eips.ethereum.org/EIPS/eip-3198) and [modified EIP-1559](./L2EIP1559.md))
 - `block.chainid` (`uint`): current chain id
 - `block.coinbase` (`address payable`): current block miner's address
-- `block.difficulty` (`uint`): alias for `block.prevrandao` ([EIP-4399](https://eips.ethereum.org/EIPS/eip-4399))
+- `block.prevrandao` (`uint`): alias for `block.prevrandao` ([EIP-4399](https://eips.ethereum.org/EIPS/eip-4399))
 - `block.gaslimit` (`uint`): current block gaslimit
 - `block.number` (`uint`): current block number
 - `block.prevrandao` (`uint`): random number provided by the beacon chain
@@ -116,12 +118,12 @@ The following [**block level variables**](https://docs.soliditylang.org/en/v0.8.
 We need to verify when these variables are accessed within the EVM, their values are consistent with the current world state, the block's metadata and the actual L2 block's block header:
 
 - `blockhash`: EVM allows access to the most recent 256 block hashes. All these hashes are available inside the plonk lookup table. ZKP must prove that the lookup table is consistent with L2's historical values.
- - `blockhash(block.number - 1)`, has the same value as in the block header and is also the same value as the parent block's hash on L2.
- - The other 255 hashes, `blockhash(block.number - 256)` to `blockhash(block.number - 2)` are checked in the anchor transaction to simplify circuits. Therefore, as long as the anchor transaction is zk-proven, these 255 ancestor hashes are proven indirectly.
+- `blockhash(block.number - 1)`, has the same value as in the block header and is also the same value as the parent block's hash on L2.
+- The other 255 hashes, `blockhash(block.number - 256)` to `blockhash(block.number - 2)` are checked in the anchor transaction to simplify circuits. Therefore, as long as the anchor transaction is zk-proven, these 255 ancestor hashes are proven indirectly.
 - `block.basefee`: verified to be the correct value in the anchor transaction.
 - `block.chainid`: this field is also checked by the anchor transaction, so no extra ZKP circuits are required.
 - `block.coinbase`: ZKP must verify the value must be the same as `meta.beneficiary`. Again, the metadata hash is part of the ZK instance.
-- `block.difficulty`: this is now the same as `block.prevrandao`, so we only check `block.prevrandao`.
+- `block.prevrandao`: this is now the same as `block.prevrandao`, so we only check `block.prevrandao`.
 - `block.gaslimit`: ZKP must verify this value must equal `meta.gasLimit`.
 - `block.number`: this must be checked against the block header and `meta.id`.
 - `block.prevrandao`: this must be checked against the `mixHash` field in the L2 block header and `meta.mixHash`.
