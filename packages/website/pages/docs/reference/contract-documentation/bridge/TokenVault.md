@@ -56,12 +56,6 @@ mapping(uint256 => mapping(address => address)) canonicalToBridged
 mapping(bytes32 => struct TokenVault.MessageDeposit) messageDeposits
 ```
 
-### bridgingEnabled
-
-```solidity
-bool bridgingEnabled
-```
-
 ### BridgedERC20Deployed
 
 ```solidity
@@ -130,17 +124,6 @@ error TOKENVAULT_INVALID_AMOUNT()
 Thrown when the amount in a transaction is invalid.
 This could happen if the amount is zero or exceeds the sender's balance.
 
-### TOKENVAULT_CANONICAL_TOKEN_NOT_FOUND
-
-```solidity
-error TOKENVAULT_CANONICAL_TOKEN_NOT_FOUND()
-```
-
-Thrown when a canonical token address could not be found for a bridged
-token.
-This could happen when trying to send a bridged token back to its
-original chain.
-
 ### TOKENVAULT_INVALID_OWNER
 
 ```solidity
@@ -190,37 +173,10 @@ error TOKENVAULT_INVALID_TKO_CHAINID()
 Thrown when the remote chain id with a Taiko token deployment is the same
 as this chain's ID.
 
-### TOKENVAULT_BRIDGEING_ENABLING
-
-```solidity
-error TOKENVAULT_BRIDGEING_ENABLING()
-```
-
-Thrown when the remote chain id with a Taiko token deployment is the same
-as this chain's ID.
-
-### onlyWhenBridgingEnabled
-
-```solidity
-modifier onlyWhenBridgingEnabled()
-```
-
 ### init
 
 ```solidity
 function init(address addressManager) external
-```
-
-### enableBridging
-
-```solidity
-function enableBridging(bool enable) external
-```
-
-### mapTaikoToken
-
-```solidity
-function mapTaikoToken(uint256 destChainId) external
 ```
 
 ### sendERC20
