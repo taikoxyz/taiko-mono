@@ -106,8 +106,8 @@ contract TestGenerateGenesis is Test, AddressResolver {
             uint256 gasLeftBefore = gasleft();
 
             taikoL2.anchor(
-                bytes32(block.difficulty),
-                bytes32(block.difficulty),
+                bytes32(block.prevrandao),
+                bytes32(block.prevrandao),
                 i,
                 i + LibL2Consts.ANCHOR_GAS_COST
             );
