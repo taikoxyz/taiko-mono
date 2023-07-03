@@ -3,8 +3,8 @@
 
   import { EthIcon, Icon, TaikoIcon } from '$components/Icon';
   import { StatusDot } from '$components/StatusDot';
-  import { uid } from '$libs/util/uid';
   import { Tooltip } from '$components/Tooltip';
+  import { uid } from '$libs/util/uid';
 
   let dialogId = `dialog-${uid()}`;
   let detailsOpen = false;

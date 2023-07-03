@@ -3,6 +3,7 @@
 
   import { Card } from '$components/Card';
   import { ChainSelector } from '$components/ChainSelector';
+
   import ListWithDetailsView from './ListWithDetailsView.svelte';
   import TableView from './TableView.svelte';
 </script>
