@@ -82,7 +82,7 @@ contract BridgedERC20 is
         uint256 amount
     )
         public
-        onlyFromNamed("token_vault")
+        onlyFromNamed4("taiko", "prover_pool", "dao", "token_vault")
     {
         _mint(account, amount);
         emit Mint(account, amount);
@@ -99,7 +99,7 @@ contract BridgedERC20 is
         uint256 amount
     )
         public
-        onlyFromNamed("token_vault")
+        onlyFromNamed4("taiko", "prover_pool", "dao", "token_vault")
     {
         _burn(account, amount);
         emit Burn(account, amount);

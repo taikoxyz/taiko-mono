@@ -71,9 +71,7 @@ contract TokenVault is EssentialContract {
     mapping(bytes32 msgHash => MessageDeposit messageDeposit) public
         messageDeposits;
 
-    bool public bridgingEnabled;
-
-    uint256[45] private __gap;
+    uint256[46] private __gap;
 
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
@@ -152,14 +150,6 @@ contract TokenVault is EssentialContract {
     error TOKENVAULT_INVALID_AMOUNT();
 
     /**
-     * Thrown when a canonical token address could not be found for a bridged
-     * token.
-     * This could happen when trying to send a bridged token back to its
-     * original chain.
-     */
-    error TOKENVAULT_CANONICAL_TOKEN_NOT_FOUND();
-
-    /**
      * Thrown when the owner address in a message is invalid.
      * This could happen if the owner address is zero or doesn't match the
      * expected owner.
@@ -193,17 +183,6 @@ contract TokenVault is EssentialContract {
      */
     error TOKENVAULT_INVALID_TKO_CHAINID();
 
-    /**
-     * Thrown when the remote chain id with a Taiko token deployment is the same
-     * as this chain's ID.
-     */
-    error TOKENVAULT_BRIDGEING_ENABLING();
-
-    modifier onlyWhenBridgingEnabled() {
-        if (!bridgingEnabled) revert TOKENVAULT_BRIDGEING_ENABLING();
-        _;
-    }
-
     /*//////////////////////////////////////////////////////////////
                          USER-FACING FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -211,34 +190,6 @@ contract TokenVault is EssentialContract {
         EssentialContract._init(addressManager);
     }
 
-    function enableBridging(bool enable) external onlyOwner {
-        if (bridgingEnabled == enable) revert TOKENVAULT_BRIDGEING_ENABLING();
-        bridgingEnabled = enable;
-    }
-
-    function mapTaikoToken(uint256 destChainId) external onlyOwner {
-        address tkoAddr = resolve("taiko_token", false);
-        address remoteTkoAddr = resolve(destChainId, "taiko_token", false);
-
-        if (
-            destChainId == 0 || destChainId == block.chainid
-                || canonicalToBridged[destChainId][tkoAddr] != address(0)
-                || bridgedToCanonical[remoteTkoAddr].addr != address(0)
-        ) {
-            revert TOKENVAULT_INVALID_TKO_CHAINID();
-        }
-
-        canonicalToBridged[destChainId][tkoAddr] = remoteTkoAddr;
-
-        ERC20Upgradeable t = ERC20Upgradeable(tkoAddr);
-        bridgedToCanonical[remoteTkoAddr] = CanonicalERC20({
-            chainId: block.chainid,
-            addr: tkoAddr,
-            decimals: t.decimals(),
-            symbol: t.symbol(),
-            name: t.name()
-        });
-    }
     /**
      * Transfers ERC20 tokens to this vault and sends a message to the
      * destination chain so the user can receive the same amount of tokens
@@ -266,7 +217,6 @@ contract TokenVault is EssentialContract {
     )
         external
         payable
-        onlyWhenBridgingEnabled
         nonReentrant
     {
         if (
@@ -276,7 +226,6 @@ contract TokenVault is EssentialContract {
         }
 
         if (token == address(0)) revert TOKENVAULT_INVALID_TOKEN();
-
         if (amount == 0) revert TOKENVAULT_INVALID_AMOUNT();
 
         CanonicalERC20 memory canonicalToken;
@@ -284,11 +233,9 @@ contract TokenVault is EssentialContract {
 
         // is a bridged token, meaning, it does not live on this chain
         if (isBridgedToken[token]) {
-            IMintableERC20(token).burn(msg.sender, amount);
             canonicalToken = bridgedToCanonical[token];
-            if (canonicalToken.addr == address(0)) {
-                revert TOKENVAULT_CANONICAL_TOKEN_NOT_FOUND();
-            }
+            assert(canonicalToken.addr != address(0));
+            IMintableERC20(token).burn(msg.sender, amount);
             _amount = amount;
         } else {
             // is a canonical token, meaning, it lives on this chain
@@ -301,9 +248,14 @@ contract TokenVault is EssentialContract {
                 name: t.name()
             });
 
-            uint256 _balance = t.balanceOf(address(this));
-            t.safeTransferFrom(msg.sender, address(this), amount);
-            _amount = t.balanceOf(address(this)) - _balance;
+            if (token == resolve("taiko_token", true)) {
+                IMintableERC20(token).burn(msg.sender, amount);
+                _amount = amount;
+            } else {
+                uint256 _balance = t.balanceOf(address(this));
+                t.safeTransferFrom(msg.sender, address(this), amount);
+                _amount = t.balanceOf(address(this)) - _balance;
+            }
         }
 
         IBridge.Message memory message;
@@ -354,7 +306,6 @@ contract TokenVault is EssentialContract {
         bytes calldata proof
     )
         external
-        onlyWhenBridgingEnabled
         nonReentrant
     {
         if (message.owner == address(0)) revert TOKENVAULT_INVALID_OWNER();
@@ -375,7 +326,8 @@ contract TokenVault is EssentialContract {
         messageDeposits[msgHash] = MessageDeposit(address(0), 0);
 
         if (amount > 0) {
-            if (isBridgedToken[token]) {
+            if (isBridgedToken[token] || token == resolve("taiko_token", true))
+            {
                 IMintableERC20(token).mint(message.owner, amount);
             } else {
                 ERC20Upgradeable(token).safeTransfer(message.owner, amount);
@@ -409,7 +361,6 @@ contract TokenVault is EssentialContract {
     )
         external
         nonReentrant
-        onlyWhenBridgingEnabled
         onlyFromNamed("bridge")
     {
         IBridge.Context memory ctx = IBridge(msg.sender).context();
@@ -420,7 +371,11 @@ contract TokenVault is EssentialContract {
         address token;
         if (canonicalToken.chainId == block.chainid) {
             token = canonicalToken.addr;
-            ERC20Upgradeable(token).safeTransfer(to, amount);
+            if (token == resolve("taiko_token", true)) {
+                IMintableERC20(token).mint(to, amount);
+            } else {
+                ERC20Upgradeable(token).safeTransfer(to, amount);
+            }
         } else {
             token = _getOrDeployBridgedToken(canonicalToken);
             IMintableERC20(token).mint(to, amount);

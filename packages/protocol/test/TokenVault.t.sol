@@ -87,11 +87,9 @@ contract TestTokenVault is Test {
 
         tokenVault = new TokenVault();
         tokenVault.init(address(addressManager));
-        tokenVault.enableBridging(true);
 
         destChainIdTokenVault = new TokenVault();
         destChainIdTokenVault.init(address(addressManager));
-        destChainIdTokenVault.enableBridging(true);
 
         erc20 = new FreeMintERC20("ERC20", "ERC20");
         erc20.mint(Alice);
