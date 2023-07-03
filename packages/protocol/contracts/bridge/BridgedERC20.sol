@@ -159,11 +159,11 @@ contract BridgedERC20 is
             super.name(), unicode" ⭀", Strings.toString(srcChainId)
         );
     }
+
     /**
      * Gets the number of decimal places of the token.
      * @return The number of decimal places of the token.
      */
-
     function decimals()
         public
         view
