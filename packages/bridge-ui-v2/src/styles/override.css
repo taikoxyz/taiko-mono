@@ -12,3 +12,12 @@ input::-webkit-inner-spin-button {
 input[type='number'] {
   -moz-appearance: textfield;
 }
+
+/**
+ * Overrides the dafault color for the overlay component used 
+ * in DaisyUI's drawer. Unfortunately cannot be done via variables
+ */
+.drawer-toggle:checked ~ .drawer-side > .drawer-overlay {
+  /* Primary background: '#0B101B' => grey-900 */
+  background-color: hsl(221, 42%, 7%);
+}
