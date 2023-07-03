@@ -1,9 +1,10 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
 
-  import { Icon } from '$components/Icon';
+  import { EthIcon, Icon, TaikoIcon } from '$components/Icon';
   import { StatusDot } from '$components/StatusDot';
   import { uid } from '$libs/util/uid';
+  import { Tooltip } from '$components/Tooltip';
 
   let dialogId = `dialog-${uid()}`;
   let detailsOpen = false;
@@ -169,15 +170,54 @@
     </li>
   </ul>
 
-  <dialog id={dialogId} class="modal absolute modal-bottom px-4 pb-4" class:modal-open={detailsOpen}>
-    <div class="modal-box relative px-6 py-[30px] bg-neutral-background rounded-2xl">
+  <dialog id={dialogId} class="modal modal-bottom" class:modal-open={detailsOpen}>
+    <div class="modal-box relative px-6 py-[30px] bg-neutral-background">
       <button class="absolute right-6 top-[30px]" on:click={closeDetails}>
-        <Icon type="x-close" fillClass="fill-primary-icon" />
+        <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
       </button>
 
-      <h3 class="title-body-bold mb-7">{$t('processing_fee.title')}</h3>
+      <h3 class="title-body-bold mb-7 text-primary-content">{$t('processing_fee.title')}</h3>
 
-      TODO: details here
+      <ul class="space-y-[15px] body-small-regular">
+        <li class="f-between-center">
+          <h4 class="text-secondary-content">{$t('chain.from')}</h4>
+          <div class="f-items-center space-x-2">
+            <i role="img" aria-label="Ethereum">
+              <EthIcon size={20} />
+            </i>
+            <span>Sepolia</span>
+          </div>
+        </li>
+        <li class="f-between-center">
+          <h4 class="text-secondary-content">{$t('chain.to')}</h4>
+          <div class="f-items-center space-x-2">
+            <i role="img" aria-label="Taiko">
+              <TaikoIcon size={20} />
+            </i>
+            <span>Taiko</span>
+          </div>
+        </li>
+        <li class="f-between-center">
+          <h4 class="text-secondary-content">{$t('amount_input.label')}</h4>
+          <span>2.5 ETH</span>
+        </li>
+        <li class="f-between-center">
+          <h4 class="text-secondary-content">
+            <div class="f-items-center space-x-1">
+              <span>{$t('activities.header.status')}</span>
+              <Tooltip position="right">TODO: add description about status here</Tooltip>
+            </div>
+          </h4>
+          <div class="f-items-center space-x-1">
+            <StatusDot type="pending" />
+            <span>{$t('activities.status.initiated')}</span>
+          </div>
+        </li>
+        <li class="f-between-center">
+          <h4 class="text-secondary-content">{$t('activities.header.explorer')}</h4>
+          <a class="link" href="https://etherscan.io/" target="_blank">{$t('activities.link.explorer')}</a>
+        </li>
+      </ul>
     </div>
 
     <div class="overlay-backdrop" />

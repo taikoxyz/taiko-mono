@@ -48,7 +48,7 @@
         </div>
       </td>
       <td align="right">
-        <a class="link" href="https://etherscan.io/">View details</a>
+        <a class="link" href="https://etherscan.io/">{$t('activities.link.explorer')}</a>
       </td>
     </tr>
 
@@ -77,7 +77,7 @@
         </div>
       </td>
       <td align="right">
-        <a class="link" href="https://etherscan.io/">View details</a>
+        <a class="link" href="https://etherscan.io/">{$t('activities.link.explorer')}</a>
       </td>
     </tr>
 
@@ -107,7 +107,7 @@
         </div>
       </td>
       <td align="right">
-        <a class="link" href="https://etherscan.io/">View details</a>
+        <a class="link" href="https://etherscan.io/">{$t('activities.link.explorer')}</a>
       </td>
     </tr>
 
@@ -137,7 +137,7 @@
         </div>
       </td>
       <td align="right">
-        <a class="link" href="https://etherscan.io/">View details</a>
+        <a class="link" href="https://etherscan.io/">{$t('activities.link.explorer')}</a>
       </td>
     </tr>
 
@@ -166,7 +166,7 @@
         </div>
       </td>
       <td align="right">
-        <a class="link" href="https://etherscan.io/">View details</a>
+        <a class="link" href="https://etherscan.io/">{$t('activities.link.explorer')}</a>
       </td>
     </tr>
 
@@ -195,7 +195,7 @@
         </div>
       </td>
       <td align="right">
-        <a class="link" href="https://etherscan.io/">View details</a>
+        <a class="link" href="https://etherscan.io/">{$t('activities.link.explorer')}</a>
       </td>
     </tr>
 
@@ -225,7 +225,7 @@
         </div>
       </td>
       <td align="right">
-        <a class="link" href="https://etherscan.io/" target="_blank">View details</a>
+        <a class="link" href="https://etherscan.io/" target="_blank">{$t('activities.link.explorer')}</a>
       </td>
     </tr>
   </tbody>

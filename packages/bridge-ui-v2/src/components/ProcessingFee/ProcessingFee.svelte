@@ -103,7 +103,7 @@
   <dialog id={dialogId} class="modal absolute modal-bottom px-4 pb-4" class:modal-open={modalOpen}>
     <div class="modal-box relative px-6 py-[30px] bg-neutral-background rounded-2xl">
       <button class="absolute right-6 top-[30px]" on:click={closeModal}>
-        <Icon type="x-close" fillClass="fill-primary-icon" />
+        <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
       </button>
 
       <h3 class="title-body-bold mb-7">{$t('processing_fee.title')}</h3>
