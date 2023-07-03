@@ -42,7 +42,7 @@ contract ProverPool is EssentialContract, IProverPool {
     uint64 public constant MIN_SLASH_AMOUNT = 1e8; // 1 token
     uint256 public constant MAX_NUM_PROVERS = 32;
 
-    // Reverse more slots than necessary
+    // Reserve more slots than necessary
     Prover[1024] public provers; // provers[0] is never used
     mapping(uint256 id => address prover) public idToProver;
     // Save the weights only when: stake / unstaked / slashed
