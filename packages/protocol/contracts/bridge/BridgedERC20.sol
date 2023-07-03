@@ -16,12 +16,13 @@ import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { BridgeErrors } from "./BridgeErrors.sol";
-
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 /**
  * This contract is an upgradeable ERC20 contract that represents tokens bridged
  * from another chain.
  * @custom:security-contact hello@taiko.xyz
  */
+
 contract BridgedERC20 is
     EssentialContract,
     IMintableERC20,
@@ -148,10 +149,21 @@ contract BridgedERC20 is
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }
 
+    function name()
+        public
+        view
+        override(ERC20Upgradeable, IERC20MetadataUpgradeable)
+        returns (string memory)
+    {
+        return string.concat(
+            super.name(), unicode" ⭀", Strings.toString(srcChainId)
+        );
+    }
     /**
      * Gets the number of decimal places of the token.
      * @return The number of decimal places of the token.
      */
+
     function decimals()
         public
         view
@@ -162,10 +174,10 @@ contract BridgedERC20 is
     }
 
     /**
-     * Gets the source token address and the source chain ID.
-     * @return The source token address and the source chain ID.
+     * Gets the canonical token address and the canonical chain ID.
+     * @return The canonical token address and the canonical chain ID.
      */
-    function source() public view returns (address, uint256) {
+    function canonical() public view returns (address, uint256) {
         return (srcToken, srcChainId);
     }
 }

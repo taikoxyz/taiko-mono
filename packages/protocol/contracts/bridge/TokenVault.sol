@@ -19,7 +19,6 @@ import { EssentialContract } from "../common/EssentialContract.sol";
 import { IBridge } from "./IBridge.sol";
 import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { Proxied } from "../common/Proxied.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { TaikoToken } from "../L1/TaikoToken.sol";
 
 /**
@@ -485,11 +484,7 @@ contract TokenVault is EssentialContract {
             _srcChainId: canonicalToken.chainId,
             _decimals: canonicalToken.decimals,
             _symbol: canonicalToken.symbol,
-            _name: string.concat(
-                canonicalToken.name,
-                unicode" ⭀",
-                Strings.toString(canonicalToken.chainId)
-                )
+            _name: canonicalToken.name
         });
 
         isBridgedToken[bridgedToken] = true;
