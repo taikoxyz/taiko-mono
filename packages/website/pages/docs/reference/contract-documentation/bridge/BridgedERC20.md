@@ -112,6 +112,12 @@ _Any address can call this. Caller must have allowance of at least
 | to     | address | The account to transfer tokens to.   |
 | amount | uint256 | The amount of tokens to transfer.    |
 
+### name
+
+```solidity
+function name() public view returns (string)
+```
+
 ### decimals
 
 ```solidity
@@ -126,20 +132,20 @@ Gets the number of decimal places of the token.
 | ---- | ----- | ------------------------------------------ |
 | [0]  | uint8 | The number of decimal places of the token. |
 
-### source
+### canonical
 
 ```solidity
-function source() public view returns (address, uint256)
+function canonical() public view returns (address, uint256)
 ```
 
-Gets the source token address and the source chain ID.
+Gets the canonical token address and the canonical chain ID.
 
 #### Return Values
 
-| Name | Type    | Description                                       |
-| ---- | ------- | ------------------------------------------------- |
-| [0]  | address | The source token address and the source chain ID. |
-| [1]  | uint256 |                                                   |
+| Name | Type    | Description                                             |
+| ---- | ------- | ------------------------------------------------------- |
+| [0]  | address | The canonical token address and the canonical chain ID. |
+| [1]  | uint256 |                                                         |
 
 ---
 
