@@ -35,6 +35,7 @@
     <slot />
   </div>
 
+  <!-- Side drawer's z-index (20) must be greater than content's header (10)-->
   <div class="drawer-side z-20">
     <label for={drawerToggleId} class="drawer-overlay" />
 
