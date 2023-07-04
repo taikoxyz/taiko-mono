@@ -70,6 +70,7 @@ contract TestProverPool is Test {
         }
 
         // The same 32 provers restake
+        vm.warp(block.timestamp + 24 hours);
         baseCapacity = 200;
         for (uint16 i; i < provers.length; ++i) {
             address addr = randomAddress(i);
@@ -80,6 +81,7 @@ contract TestProverPool is Test {
         }
 
         (provers, stakers) = printProvers();
+        vm.warp(block.timestamp + 24 hours);
         for (uint16 i; i < provers.length; ++i) {
             assertEq(
                 provers[i].stakedAmount, uint64(baseCapacity + i) * 10_000 * 1e8
@@ -90,6 +92,7 @@ contract TestProverPool is Test {
 
         // Different 32 provers stake
         baseCapacity = 500;
+        vm.warp(block.timestamp + 24 hours);
         for (uint16 i; i < provers.length; ++i) {
             address addr = randomAddress(i + 12_345);
             uint16 capacity = baseCapacity + i;
@@ -99,6 +102,7 @@ contract TestProverPool is Test {
         }
 
         (provers, stakers) = printProvers();
+        vm.warp(block.timestamp + 24 hours);
         for (uint16 i; i < provers.length; ++i) {
             assertEq(
                 provers[i].stakedAmount, uint64(baseCapacity + i) * 10_000 * 1e8
