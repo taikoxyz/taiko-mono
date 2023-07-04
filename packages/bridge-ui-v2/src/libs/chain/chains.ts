@@ -1,3 +1,5 @@
+import type { Chain } from 'wagmi';
+
 import {
   PUBLIC_L1_BRIDGE_ADDRESS,
   PUBLIC_L1_CHAIN_ID,
@@ -15,9 +17,7 @@ import {
   PUBLIC_L2_SIGNAL_SERVICE_ADDRESS,
 } from '$env/static/public';
 
-import type { ExtendedChain } from './types';
-
-export const mainnetChain: ExtendedChain = {
+export const mainnetChain: Chain = {
   id: parseInt(PUBLIC_L1_CHAIN_ID),
   name: PUBLIC_L1_CHAIN_NAME,
   network: 'L1',
@@ -36,14 +36,9 @@ export const mainnetChain: ExtendedChain = {
       url: PUBLIC_L1_EXPLORER_URL,
     },
   },
-  contracts: {
-    bridgeAddress: PUBLIC_L1_BRIDGE_ADDRESS,
-    crossChainSyncAddress: PUBLIC_L1_CROSS_CHAIN_SYNC_ADDRESS,
-    signalServiceAddress: PUBLIC_L1_SIGNAL_SERVICE_ADDRESS,
-  },
 };
 
-export const taikoChain: ExtendedChain = {
+export const taikoChain: Chain = {
   id: parseInt(PUBLIC_L2_CHAIN_ID),
   name: PUBLIC_L2_CHAIN_NAME,
   network: 'L2',
@@ -62,11 +57,19 @@ export const taikoChain: ExtendedChain = {
       url: PUBLIC_L2_EXPLORER_URL,
     },
   },
-  contracts: {
+};
+
+export const chains = [mainnetChain, taikoChain];
+
+export const chainContractsMap = {
+  [PUBLIC_L1_CHAIN_ID]: {
+    bridgeAddress: PUBLIC_L1_BRIDGE_ADDRESS,
+    crossChainSyncAddress: PUBLIC_L1_CROSS_CHAIN_SYNC_ADDRESS,
+    signalServiceAddress: PUBLIC_L1_SIGNAL_SERVICE_ADDRESS,
+  },
+  [PUBLIC_L2_CHAIN_ID]: {
     bridgeAddress: PUBLIC_L2_BRIDGE_ADDRESS,
     crossChainSyncAddress: PUBLIC_L2_CROSS_CHAIN_SYNC_ADDRESS,
     signalServiceAddress: PUBLIC_L2_SIGNAL_SERVICE_ADDRESS,
   },
 };
-
-export const chains = [mainnetChain, taikoChain];
