@@ -18,9 +18,8 @@ contract ProverPool is EssentialContract, IProverPool {
 
     struct Prover {
         uint64 stakedAmount;
-        uint16 rewardPerGas;
+        uint32 rewardPerGas;
         uint16 currentCapacity;
-        uint64 weight;
     }
 
     // Make sure we only use one slot
@@ -57,7 +56,7 @@ contract ProverPool is EssentialContract, IProverPool {
     event Staked(
         address indexed addr,
         uint64 amount,
-        uint16 rewardPerGas,
+        uint32 rewardPerGas,
         uint16 currentCapacity
     );
 
@@ -80,13 +79,14 @@ contract ProverPool is EssentialContract, IProverPool {
 
     function assignProver(
         uint64 blockId,
-        uint32 /*feePerGas*/
+        uint32 feePerGas
     )
         external
         onlyFromProtocol
         returns (address prover, uint32 rewardPerGas)
     {
         unchecked {
+            uint32[MAX_NUM_PROVERS] memory effectiveRewardPerGas;
             uint256[MAX_NUM_PROVERS] memory weights;
             uint256 totalWeight;
             Prover memory _prover;
@@ -94,8 +94,17 @@ contract ProverPool is EssentialContract, IProverPool {
             for (uint8 i; i < MAX_NUM_PROVERS; ++i) {
                 _prover = provers[i + 1];
                 if (_prover.currentCapacity != 0) {
-                    weights[i] = _prover.weight;
-                    totalWeight += _prover.weight;
+                    if (_prover.rewardPerGas > feePerGas * 120 / 100) {
+                        effectiveRewardPerGas[i] = feePerGas * 120 / 100;
+                    } else if (_prover.rewardPerGas < feePerGas * 80 / 100) {
+                        effectiveRewardPerGas[i] = feePerGas * 80 / 100;
+                    } else {
+                        effectiveRewardPerGas[i] = _prover.rewardPerGas;
+                    }
+                    weights[i] = _calcWeight(
+                        _prover.stakedAmount, effectiveRewardPerGas[i]
+                    );
+                    totalWeight += weights[i];
                 }
             }
 
@@ -113,10 +122,11 @@ contract ProverPool is EssentialContract, IProverPool {
             while (z < r && id < MAX_NUM_PROVERS) {
                 z += weights[id++];
             }
+            assert(id > 0);
             provers[id].currentCapacity -= 1;
 
             // Note that prover ID is 1 bigger than its index
-            return (idToProver[id], _prover.rewardPerGas);
+            return (idToProver[id], effectiveRewardPerGas[id - 1]);
         }
     }
 
@@ -160,11 +170,8 @@ contract ProverPool is EssentialContract, IProverPool {
 
                 if (prover.stakedAmount > _additional) {
                     provers[staker.proverId].stakedAmount -= _additional;
-                    provers[staker.proverId].weight =
-                        _calcWeight(prover.stakedAmount, prover.rewardPerGas);
                 } else {
                     provers[staker.proverId].stakedAmount = 0;
-                    provers[staker.proverId].weight = 0;
                 }
             }
             emit Slashed(addr, amountToSlash);
@@ -173,7 +180,7 @@ contract ProverPool is EssentialContract, IProverPool {
 
     function stake(
         uint64 amount,
-        uint16 rewardPerGas,
+        uint32 rewardPerGas,
         uint16 maxCapacity
     )
         external
@@ -240,7 +247,7 @@ contract ProverPool is EssentialContract, IProverPool {
     function _stake(
         address addr,
         uint64 amount,
-        uint16 rewardPerGas,
+        uint32 rewardPerGas,
         uint16 maxCapacity
     )
         private
@@ -298,8 +305,7 @@ contract ProverPool is EssentialContract, IProverPool {
         provers[proverId] = Prover({
             stakedAmount: amount,
             rewardPerGas: rewardPerGas,
-            currentCapacity: maxCapacity,
-            weight: _calcWeight(amount, rewardPerGas)
+            currentCapacity: maxCapacity
         });
 
         emit Staked(addr, amount, rewardPerGas, maxCapacity);
@@ -326,7 +332,7 @@ contract ProverPool is EssentialContract, IProverPool {
 
         // Delete the prover but make it non-zero for cheaper rewrites
         // by keep rewardPerGas = 1
-        provers[staker.proverId] = Prover(0, 1, 0, 0);
+        provers[staker.proverId] = Prover(0, 1, 0);
 
         delete idToProver[staker.proverId];
 
@@ -355,15 +361,18 @@ contract ProverPool is EssentialContract, IProverPool {
     // Calculates the user weight's when it stakes/unstakes/slashed
     function _calcWeight(
         uint64 stakedAmount,
-        uint16 rewardPerGas
+        uint32 rewardPerGas
     )
         private
         pure
-        returns (uint64)
+        returns (uint64 weight)
     {
         assert(rewardPerGas > 0);
         unchecked {
-            return stakedAmount / rewardPerGas / rewardPerGas;
+            weight = stakedAmount / rewardPerGas / rewardPerGas;
+            if (weight == 0) {
+                weight = 1;
+            }
         }
     }
 }

@@ -62,8 +62,6 @@ library LibVerifying {
                 || config.ethDepositMaxFee >= type(uint96).max
                 || config.ethDepositMaxFee
                     >= type(uint96).max / config.ethDepositMaxCountPerBlock
-                || config.rewardPerGasRange == 0
-                || config.rewardPerGasRange >= 10_000
                 || config.rewardOpenMultipler < 100
         ) revert L1_INVALID_CONFIG();
 
