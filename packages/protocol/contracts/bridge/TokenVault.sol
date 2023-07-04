@@ -14,12 +14,12 @@ import { SafeERC20Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import { Create2Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
+import { BridgedERC20 } from "./BridgedERC20.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
+import { IBridge } from "./IBridge.sol";
+import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { TaikoToken } from "../L1/TaikoToken.sol";
-import { BridgedERC20 } from "./BridgedERC20.sol";
-import { IBridge } from "./IBridge.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
  * This vault holds all ERC20 tokens (but not Ether) that users have deposited.
@@ -71,7 +71,7 @@ contract TokenVault is EssentialContract {
     mapping(bytes32 msgHash => MessageDeposit messageDeposit) public
         messageDeposits;
 
-    uint256[47] private __gap;
+    uint256[46] private __gap;
 
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
@@ -150,14 +150,6 @@ contract TokenVault is EssentialContract {
     error TOKENVAULT_INVALID_AMOUNT();
 
     /**
-     * Thrown when a canonical token address could not be found for a bridged
-     * token.
-     * This could happen when trying to send a bridged token back to its
-     * original chain.
-     */
-    error TOKENVAULT_CANONICAL_TOKEN_NOT_FOUND();
-
-    /**
      * Thrown when the owner address in a message is invalid.
      * This could happen if the owner address is zero or doesn't match the
      * expected owner.
@@ -188,7 +180,6 @@ contract TokenVault is EssentialContract {
     /*//////////////////////////////////////////////////////////////
                          USER-FACING FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-
     function init(address addressManager) external initializer {
         EssentialContract._init(addressManager);
     }
@@ -207,6 +198,7 @@ contract TokenVault is EssentialContract {
      * @param refundAddress Address for refunds
      * @param memo Any additional data or notes
      */
+
     function sendERC20(
         uint256 destChainId,
         address to,
@@ -228,7 +220,6 @@ contract TokenVault is EssentialContract {
         }
 
         if (token == address(0)) revert TOKENVAULT_INVALID_TOKEN();
-
         if (amount == 0) revert TOKENVAULT_INVALID_AMOUNT();
 
         CanonicalERC20 memory canonicalToken;
@@ -236,11 +227,9 @@ contract TokenVault is EssentialContract {
 
         // is a bridged token, meaning, it does not live on this chain
         if (isBridgedToken[token]) {
-            BridgedERC20(token).bridgeBurnFrom(msg.sender, amount);
             canonicalToken = bridgedToCanonical[token];
-            if (canonicalToken.addr == address(0)) {
-                revert TOKENVAULT_CANONICAL_TOKEN_NOT_FOUND();
-            }
+            assert(canonicalToken.addr != address(0));
+            IMintableERC20(token).burn(msg.sender, amount);
             _amount = amount;
         } else {
             // is a canonical token, meaning, it lives on this chain
@@ -253,9 +242,14 @@ contract TokenVault is EssentialContract {
                 name: t.name()
             });
 
-            uint256 _balance = t.balanceOf(address(this));
-            t.safeTransferFrom(msg.sender, address(this), amount);
-            _amount = t.balanceOf(address(this)) - _balance;
+            if (token == resolve("taiko_token", true)) {
+                IMintableERC20(token).burn(msg.sender, amount);
+                _amount = amount;
+            } else {
+                uint256 _balance = t.balanceOf(address(this));
+                t.safeTransferFrom(msg.sender, address(this), amount);
+                _amount = t.balanceOf(address(this)) - _balance;
+            }
         }
 
         IBridge.Message memory message;
@@ -326,8 +320,9 @@ contract TokenVault is EssentialContract {
         messageDeposits[msgHash] = MessageDeposit(address(0), 0);
 
         if (amount > 0) {
-            if (isBridgedToken[token]) {
-                BridgedERC20(token).bridgeMintTo(message.owner, amount);
+            if (isBridgedToken[token] || token == resolve("taiko_token", true))
+            {
+                IMintableERC20(token).mint(message.owner, amount);
             } else {
                 ERC20Upgradeable(token).safeTransfer(message.owner, amount);
             }
@@ -370,10 +365,14 @@ contract TokenVault is EssentialContract {
         address token;
         if (canonicalToken.chainId == block.chainid) {
             token = canonicalToken.addr;
-            ERC20Upgradeable(token).safeTransfer(to, amount);
+            if (token == resolve("taiko_token", true)) {
+                IMintableERC20(token).mint(to, amount);
+            } else {
+                ERC20Upgradeable(token).safeTransfer(to, amount);
+            }
         } else {
             token = _getOrDeployBridgedToken(canonicalToken);
-            BridgedERC20(token).bridgeMintTo(to, amount);
+            IMintableERC20(token).mint(to, amount);
         }
 
         emit ERC20Received({
@@ -434,11 +433,7 @@ contract TokenVault is EssentialContract {
             _srcChainId: canonicalToken.chainId,
             _decimals: canonicalToken.decimals,
             _symbol: canonicalToken.symbol,
-            _name: string.concat(
-                canonicalToken.name,
-                unicode" ⭀",
-                Strings.toString(canonicalToken.chainId)
-                )
+            _name: canonicalToken.name
         });
 
         isBridgedToken[bridgedToken] = true;

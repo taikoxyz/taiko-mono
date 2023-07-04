@@ -12,7 +12,7 @@
   import { tokens } from '$libs/token';
 </script>
 
-<Card title={$t('bridge.title')} text={$t('bridge.subtitle')}>
+<Card class="md:w-[524px]" title={$t('bridge.title')} text={$t('bridge.subtitle')}>
   <div class="space-y-[35px]">
     <div class="space-y-4">
       <div class="space-y-2">
@@ -39,7 +39,7 @@
     <div class="h-sep" />
 
     <Button type="primary" class="px-[28px] py-[14px]">
-      <span class="body-bold">{$t('bridge.bridge_button')}</span>
+      <span class="body-bold">{$t('bridge.button.bridge')}</span>
     </Button>
   </div>
 </Card>

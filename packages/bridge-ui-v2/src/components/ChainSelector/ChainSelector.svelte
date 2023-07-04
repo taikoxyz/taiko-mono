@@ -2,14 +2,15 @@
   import type { ComponentType } from 'svelte';
   import { noop, onDestroy } from 'svelte/internal';
   import { t } from 'svelte-i18n';
+  import type { Chain } from 'wagmi';
 
   import { EthIcon, Icon, TaikoIcon } from '$components/Icon';
   import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID } from '$env/static/public';
-  import { chains, type ExtendedChain } from '$libs/chain';
+  import { chains } from '$libs/chain';
   import { uid } from '$libs/util/uid';
 
   export let label: string;
-  export let onChange: (chain: ExtendedChain) => void = noop;
+  export let onChange: (chain: Chain) => void = noop;
 
   let chainToIconMap: Record<string, ComponentType> = {
     [PUBLIC_L1_CHAIN_ID]: EthIcon,
@@ -18,7 +19,7 @@
 
   let buttonId = `button-${uid()}`;
   let dialogId = `dialog-${uid()}`;
-  let selectedChain: ExtendedChain;
+  let selectedChain: Chain;
   let modalOpen = false;
 
   function closeModal() {
@@ -29,13 +30,13 @@
     modalOpen = true;
   }
 
-  function selectChain(chain: ExtendedChain) {
+  function selectChain(chain: Chain) {
     selectedChain = chain;
     onChange?.(chain); // TODO: data binding? 🤔
     closeModal();
   }
 
-  function onChainKeydown(event: KeyboardEvent, chain: ExtendedChain) {
+  function onChainKeydown(event: KeyboardEvent, chain: Chain) {
     if (event.key === 'Enter') {
       selectChain(chain);
     }

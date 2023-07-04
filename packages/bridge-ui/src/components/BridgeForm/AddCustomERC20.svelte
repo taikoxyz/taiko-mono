@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { getProvider } from '@wagmi/core';
   import { Contract, ethers } from 'ethers';
   import { Trash } from 'svelte-heros-v2';
+  import { getProvider } from 'wagmi/actions';
 
   import { erc20ABI } from '../../constants/abi';
   import type { Token, TokenDetails } from '../../domain/token';

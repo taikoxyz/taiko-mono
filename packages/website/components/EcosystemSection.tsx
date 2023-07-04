@@ -29,6 +29,14 @@ const ecosystemData: EcosystemData[] = [
     filters: [],
   },
   {
+    icon: "/images/ecosystem/brian.png",
+    name: "Brian",
+    link: "https://www.brianknows.org",
+    description:
+      "Brian is a collection of AI models, trained on web3-related data, that allows everyone to learn and interact with the decentralized world by prompting.",
+    filters: [],
+  },
+  {
     icon: "/images/ecosystem/taiko.svg",
     name: "Bridge",
     link: "https://bridge.test.taiko.xyz",
