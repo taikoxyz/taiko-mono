@@ -18,6 +18,7 @@
     py-[20px]
     border-b
     border-b-divider-border
+    hide-under-b
     md:border-b-0
     md:px-10
     md:py-7
