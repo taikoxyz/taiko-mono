@@ -95,11 +95,6 @@
     @apply divider divider-horizontal w-[1px] border-divider-border;
   }
 
-  /* Other components */
-  .overlay-backdrop {
-    @apply modal-backdrop bg-overlay-background;
-  }
-
   /* Links and buttons */
   .link {
     @apply link-regular text-primary-link underline hover:text-primary-link-hover;
@@ -116,6 +111,15 @@
 
       /* primary-interactive-accent[#E81899 => pink-400] */
       hover:shadow-[0_0_0_2px_#E81899];
+  }
+
+  /* Other components */
+  .overlay-backdrop {
+    @apply modal-backdrop bg-overlay-background;
+  }
+
+  .mask {
+    @apply absolute top-0 right-0 bottom-0 left-0 overflow-hidden;
   }
 
   /* TODO: add more components here */

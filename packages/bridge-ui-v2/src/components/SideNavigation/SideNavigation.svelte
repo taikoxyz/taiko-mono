@@ -28,14 +28,15 @@
   }
 </script>
 
-<div class="drawer md:drawer-open overflow-hidden">
+<div class="drawer md:drawer-open">
   <input id={drawerToggleId} type="checkbox" class="drawer-toggle" bind:this={drawerToggleElem} />
 
-  <div class="drawer-content">
+  <div class="drawer-content relative">
     <slot />
   </div>
 
-  <div class="drawer-side h-full">
+  <!-- Side drawer's z-index (20) must be greater than content's header (10)-->
+  <div class="drawer-side z-20">
     <label for={drawerToggleId} class="drawer-overlay" />
 
     <!--
