@@ -1,4 +1,4 @@
-import type { Chain } from '@wagmi/core';
+import type { Chain } from 'wagmi';
 
 export type ExtendedChain = Chain & {
   contracts: {
