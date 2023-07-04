@@ -56,3 +56,5 @@ export const TEST_ERC20 = [
 ];
 
 export const SENTRY_DSN = 'https://sentry.io/1234567890';
+
+export const WALLETCONNECT_PROJECT_ID = '1234567890';

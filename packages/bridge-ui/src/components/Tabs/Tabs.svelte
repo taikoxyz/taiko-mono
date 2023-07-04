@@ -3,8 +3,8 @@
 </script>
 
 <script lang="ts">
-  import { getContext,setContext } from 'svelte';
-  import { type Writable,writable } from 'svelte/store';
+  import { getContext, setContext } from 'svelte';
+  import { type Writable, writable } from 'svelte/store';
 
   // Props
   export let activeTab = '';
