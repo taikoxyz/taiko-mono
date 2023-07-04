@@ -82,12 +82,6 @@ error L1_INVALID_PARAM()
 error L1_INVALID_PROOF()
 ```
 
-### L1_INVALID_PROOF_OVERWRITE
-
-```solidity
-error L1_INVALID_PROOF_OVERWRITE()
-```
-
 ### L1_NOT_PROVEABLE
 
 ```solidity
