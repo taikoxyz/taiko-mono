@@ -1,6 +1,7 @@
 <script lang="ts">
   import * as Sentry from '@sentry/svelte';
-  import { type Address, fetchFeeData } from '@wagmi/core';
+  import type { Address } from 'wagmi';
+  import { fetchFeeData } from 'wagmi/actions';
   import { BigNumber, Contract, ethers, type Signer } from 'ethers';
   import { _ } from 'svelte-i18n';
 

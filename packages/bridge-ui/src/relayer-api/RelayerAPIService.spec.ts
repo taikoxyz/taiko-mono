@@ -1,4 +1,4 @@
-import type { Address } from '@wagmi/core';
+import type { Address } from 'wagmi';
 import axios from 'axios';
 import { ethers } from 'ethers';
 

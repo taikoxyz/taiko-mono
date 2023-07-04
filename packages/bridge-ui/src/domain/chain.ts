@@ -1,4 +1,4 @@
-import type { Address } from '@wagmi/core';
+import type { Address } from 'wagmi';
 import type { ComponentType } from 'svelte';
 
 export type ChainID = number;

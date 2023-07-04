@@ -1,4 +1,4 @@
-import type { Address } from '@wagmi/core';
+import type { Address } from 'wagmi';
 import type { ComponentType } from 'svelte';
 
 import type { ChainID } from './chain';

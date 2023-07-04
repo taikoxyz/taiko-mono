@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getProvider } from '@wagmi/core';
+  import { getProvider } from 'wagmi/actions';
   import { Contract, ethers } from 'ethers';
   import { ChevronDown, PlusCircle } from 'svelte-heros-v2';
 

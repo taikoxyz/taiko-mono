@@ -1,4 +1,4 @@
-import type { Chain as WagmiChain } from '@wagmi/core';
+import type { Chain as WagmiChain } from 'wagmi';
 
 import Eth from '../components/icons/ETH.svelte';
 import Taiko from '../components/icons/TKO.svelte';
@@ -56,9 +56,8 @@ export const mainnetWagmiChain: WagmiChain = {
   network: '',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
-    default: {
-      http: [L1_RPC],
-    },
+    default: { http: [L1_RPC] },
+    public: { http: [L1_RPC] },
   },
   blockExplorers: {
     default: {
@@ -75,9 +74,8 @@ export const taikoWagmiChain: WagmiChain = {
   network: '',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
-    default: {
-      http: [L2_RPC],
-    },
+    default: { http: [L2_RPC] },
+    public: { http: [L2_RPC] },
   },
   blockExplorers: {
     default: {

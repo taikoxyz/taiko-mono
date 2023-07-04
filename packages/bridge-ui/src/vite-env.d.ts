@@ -21,6 +21,7 @@ interface ImportMetaEnv {
   readonly VITE_L2_SIGNAL_SERVICE_ADDRESS: string;
   readonly VITE_TEST_ERC20: string;
   readonly VITE_SENTRY_DSN: string;
+  readonly VITE_WALLETCONNECT_PROJECT_ID: string;
 }
 
 interface ImportMeta {

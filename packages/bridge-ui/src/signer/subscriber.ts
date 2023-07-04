@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/svelte';
-import type { Address } from '@wagmi/core';
+import type { Address } from 'wagmi';
 import { constants, type Signer } from 'ethers';
 
 import type { PaginationInfo } from '../domain/relayerApi';

@@ -1,4 +1,4 @@
-import type { Address } from '@wagmi/core';
+import type { Address } from 'wagmi';
 import { BigNumber, Contract, ethers } from 'ethers';
 
 import { chains } from '../chain/chains';

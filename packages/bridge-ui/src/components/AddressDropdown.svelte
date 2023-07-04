@@ -1,6 +1,7 @@
 <script lang="ts">
   import * as Sentry from '@sentry/svelte';
-  import { disconnect as wagmiDisconnect, RpcError } from '@wagmi/core';
+  import { disconnect as wagmiDisconnect } from 'wagmi/actions';
+  import { RpcError } from 'wagmi';
   import { ethers, type Signer } from 'ethers';
   import { onMount } from 'svelte';
   import { slide } from 'svelte/transition';
