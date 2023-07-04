@@ -12,19 +12,20 @@ import {
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { IERC20MetadataUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
-
+import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { BridgeErrors } from "./BridgeErrors.sol";
-
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 /**
  * This contract is an upgradeable ERC20 contract that represents tokens bridged
  * from another chain.
  * @custom:security-contact hello@taiko.xyz
  */
+
 contract BridgedERC20 is
     EssentialContract,
-    IERC20Upgradeable,
+    IMintableERC20,
     IERC20MetadataUpgradeable,
     ERC20Upgradeable,
     BridgeErrors
@@ -33,9 +34,6 @@ contract BridgedERC20 is
     uint256 public srcChainId;
     uint8 private srcDecimals;
     uint256[47] private __gap;
-
-    event BridgeMint(address indexed account, uint256 amount);
-    event BridgeBurn(address indexed account, uint256 amount);
 
     /**
      * Initializes the contract.
@@ -79,15 +77,15 @@ contract BridgedERC20 is
      * @param account The account to mint tokens to.
      * @param amount The amount of tokens to mint.
      */
-    function bridgeMintTo(
+    function mint(
         address account,
         uint256 amount
     )
         public
-        onlyFromNamed("token_vault")
+        onlyFromNamed4("taiko", "prover_pool", "dao", "token_vault")
     {
         _mint(account, amount);
-        emit BridgeMint(account, amount);
+        emit Mint(account, amount);
     }
 
     /**
@@ -96,15 +94,15 @@ contract BridgedERC20 is
      * @param account The account to burn tokens from.
      * @param amount The amount of tokens to burn.
      */
-    function bridgeBurnFrom(
+    function burn(
         address account,
         uint256 amount
     )
         public
-        onlyFromNamed("token_vault")
+        onlyFromNamed4("taiko", "prover_pool", "dao", "token_vault")
     {
         _burn(account, amount);
-        emit BridgeBurn(account, amount);
+        emit Burn(account, amount);
     }
 
     /**
@@ -151,6 +149,17 @@ contract BridgedERC20 is
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }
 
+    function name()
+        public
+        view
+        override(ERC20Upgradeable, IERC20MetadataUpgradeable)
+        returns (string memory)
+    {
+        return string.concat(
+            super.name(), unicode" ⭀", Strings.toString(srcChainId)
+        );
+    }
+
     /**
      * Gets the number of decimal places of the token.
      * @return The number of decimal places of the token.
@@ -165,10 +174,10 @@ contract BridgedERC20 is
     }
 
     /**
-     * Gets the source token address and the source chain ID.
-     * @return The source token address and the source chain ID.
+     * Gets the canonical token address and the canonical chain ID.
+     * @return The canonical token address and the canonical chain ID.
      */
-    function source() public view returns (address, uint256) {
+    function canonical() public view returns (address, uint256) {
         return (srcToken, srcChainId);
     }
 }

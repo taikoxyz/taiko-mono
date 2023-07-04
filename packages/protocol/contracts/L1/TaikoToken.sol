@@ -6,23 +6,23 @@
 
 pragma solidity ^0.8.20;
 
-import { ERC20Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {
+    ERC20Upgradeable,
+    IERC20Upgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { ERC20BurnableUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
 import { ERC20SnapshotUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
 import { PausableUpgradeable } from
     "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-import { IERC20Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { ERC20PermitUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/draft-ERC20PermitUpgradeable.sol";
 import { ERC20VotesUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { Proxied } from "../common/Proxied.sol";
 import { IMintableERC20 } from "../common/IMintableERC20.sol";
+import { Proxied } from "../common/Proxied.sol";
 
 library LibTaikoTokenConfig {
     uint8 public constant DECIMALS = uint8(8);
@@ -39,9 +39,6 @@ contract TaikoToken is
     ERC20VotesUpgradeable,
     IMintableERC20
 {
-    event Mint(address account, uint256 amount);
-    event Burn(address account, uint256 amount);
-
     error TKO_INVALID_ADDR();
     error TKO_INVALID_PREMINT_PARAMS();
     error TKO_MINT_DISALLOWED();
@@ -90,7 +87,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        onlyFromNamed3("prover_pool", "taiko", "dao")
+        onlyFromNamed4("taiko", "prover_pool", "dao", "token_vault")
     {
         _mint(to, amount);
     }
@@ -100,7 +97,7 @@ contract TaikoToken is
         uint256 amount
     )
         public
-        onlyFromNamed2("prover_pool", "taiko")
+        onlyFromNamed4("taiko", "prover_pool", "dao", "token_vault")
     {
         _burn(from, amount);
     }

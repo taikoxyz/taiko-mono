@@ -19,18 +19,6 @@ address srcToken
 uint256 srcChainId
 ```
 
-### BridgeMint
-
-```solidity
-event BridgeMint(address account, uint256 amount)
-```
-
-### BridgeBurn
-
-```solidity
-event BridgeBurn(address account, uint256 amount)
-```
-
 ### init
 
 ```solidity
@@ -53,10 +41,10 @@ per unique \_srcToken i.e. one for USDC, one for USDT etc._
 | \_symbol         | string  | The symbol of the token.                          |
 | \_name           | string  | The name of the token.                            |
 
-### bridgeMintTo
+### mint
 
 ```solidity
-function bridgeMintTo(address account, uint256 amount) public
+function mint(address account, uint256 amount) public
 ```
 
 Mints tokens to an account.
@@ -70,10 +58,10 @@ _Only a TokenVault can call this function._
 | account | address | The account to mint tokens to. |
 | amount  | uint256 | The amount of tokens to mint.  |
 
-### bridgeBurnFrom
+### burn
 
 ```solidity
-function bridgeBurnFrom(address account, uint256 amount) public
+function burn(address account, uint256 amount) public
 ```
 
 Burns tokens from an account.
@@ -124,6 +112,12 @@ _Any address can call this. Caller must have allowance of at least
 | to     | address | The account to transfer tokens to.   |
 | amount | uint256 | The amount of tokens to transfer.    |
 
+### name
+
+```solidity
+function name() public view returns (string)
+```
+
 ### decimals
 
 ```solidity
@@ -138,20 +132,20 @@ Gets the number of decimal places of the token.
 | ---- | ----- | ------------------------------------------ |
 | [0]  | uint8 | The number of decimal places of the token. |
 
-### source
+### canonical
 
 ```solidity
-function source() public view returns (address, uint256)
+function canonical() public view returns (address, uint256)
 ```
 
-Gets the source token address and the source chain ID.
+Gets the canonical token address and the canonical chain ID.
 
 #### Return Values
 
-| Name | Type    | Description                                       |
-| ---- | ------- | ------------------------------------------------- |
-| [0]  | address | The source token address and the source chain ID. |
-| [1]  | uint256 |                                                   |
+| Name | Type    | Description                                             |
+| ---- | ------- | ------------------------------------------------------- |
+| [0]  | address | The canonical token address and the canonical chain ID. |
+| [1]  | uint256 |                                                         |
 
 ---
 

@@ -124,17 +124,6 @@ error TOKENVAULT_INVALID_AMOUNT()
 Thrown when the amount in a transaction is invalid.
 This could happen if the amount is zero or exceeds the sender's balance.
 
-### TOKENVAULT_CANONICAL_TOKEN_NOT_FOUND
-
-```solidity
-error TOKENVAULT_CANONICAL_TOKEN_NOT_FOUND()
-```
-
-Thrown when a canonical token address could not be found for a bridged
-token.
-This could happen when trying to send a bridged token back to its
-original chain.
-
 ### TOKENVAULT_INVALID_OWNER
 
 ```solidity
