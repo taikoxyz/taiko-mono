@@ -451,9 +451,11 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
             if (blockId == (conf.blockMaxProposals * 9 / 2)) {
                 // Kai is the top staker at this point
                 vm.prank(Kai, Kai);
+                vm.warp(block.timestamp + 1 days);
                 realProverPool.stake(0, 0, 0);
 
                 // Now Khloe will be the new top staker
+                vm.warp(block.timestamp + 1 days);
                 vm.prank(Khloe, Khloe);
                 realProverPool.stake(uint64(6) * 1e8, 10, 128); // 6 * 1e8 is
                     // the biggest, Kai

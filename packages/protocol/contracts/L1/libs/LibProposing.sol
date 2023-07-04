@@ -123,8 +123,8 @@ library LibProposing {
         } else {
             blk.assignedProver = assignedProver;
 
-            // Cap the reward to a range of [95%, 105%] * blk.feePerGas, if
-            // rewardPerGasRange is set to 5% (500 bp)
+            // Cap the reward to a range of [80%, 120%] * blk.feePerGas, if
+            // rewardPerGasRange is set to 20% (2000 bp)
             uint32 diff = blk.feePerGas * config.rewardPerGasRange / 10_000;
             blk.rewardPerGas = uint32(
                 uint256(rewardPerGas).min(state.feePerGas + diff).max(

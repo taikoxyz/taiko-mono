@@ -209,7 +209,7 @@ abstract contract TaikoL1TestBase is Test {
             proof: new bytes(100)
         });
 
-        bytes32 instance = getInstance(conf, L1, evidence);
+        bytes32 instance = getInstance(conf, evidence);
 
         evidence.proof = bytes.concat(
             bytes16(0),
@@ -282,7 +282,6 @@ abstract contract TaikoL1TestBase is Test {
 
     function getInstance(
         TaikoData.Config memory config,
-        AddressResolver resolver,
         TaikoData.BlockEvidence memory evidence
     )
         internal
