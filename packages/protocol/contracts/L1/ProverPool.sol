@@ -94,10 +94,11 @@ contract ProverPool is EssentialContract, IProverPool {
             for (uint8 i; i < MAX_NUM_PROVERS; ++i) {
                 _prover = provers[i + 1];
                 if (_prover.currentCapacity != 0) {
-                    if (_prover.rewardPerGas > feePerGas * 120 / 100) {
-                        effectiveRewardPerGas[i] = feePerGas * 120 / 100;
-                    } else if (_prover.rewardPerGas < feePerGas * 80 / 100) {
-                        effectiveRewardPerGas[i] = feePerGas * 80 / 100;
+                    // Keep the effective rewardPerGas in [75-125%] of feePerGas
+                    if (_prover.rewardPerGas > feePerGas * 125 / 100) {
+                        effectiveRewardPerGas[i] = feePerGas * 125 / 100;
+                    } else if (_prover.rewardPerGas < feePerGas * 75 / 100) {
+                        effectiveRewardPerGas[i] = feePerGas * 75 / 100;
                     } else {
                         effectiveRewardPerGas[i] = _prover.rewardPerGas;
                     }
