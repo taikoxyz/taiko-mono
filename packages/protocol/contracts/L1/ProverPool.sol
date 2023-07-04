@@ -14,7 +14,6 @@ import { Proxied } from "../common/Proxied.sol";
 
 contract ProverPool is EssentialContract, IProverPool {
     using LibMath for uint256;
-    // 8 bytes or 1 uint64
 
     struct Prover {
         uint64 stakedAmount;
