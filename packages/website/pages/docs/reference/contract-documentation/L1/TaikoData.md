@@ -29,7 +29,6 @@ struct Config {
   uint96 ethDepositMaxAmount;
   uint256 ethDepositGas;
   uint256 ethDepositMaxFee;
-  uint32 rewardPerGasRange;
   uint8 rewardOpenMultipler;
   uint256 rewardOpenMaxCount;
 }

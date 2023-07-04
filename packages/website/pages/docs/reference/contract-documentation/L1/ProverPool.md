@@ -9,9 +9,8 @@ title: ProverPool
 ```solidity
 struct Prover {
   uint64 stakedAmount;
-  uint16 rewardPerGas;
+  uint32 rewardPerGas;
   uint16 currentCapacity;
-  uint64 weight;
 }
 ```
 
@@ -107,7 +106,7 @@ event Slashed(address addr, uint64 amount)
 ### Staked
 
 ```solidity
-event Staked(address addr, uint64 amount, uint16 rewardPerGas, uint16 currentCapacity)
+event Staked(address addr, uint64 amount, uint32 rewardPerGas, uint16 currentCapacity)
 ```
 
 ### CHANGE_TOO_FREQUENT
@@ -155,7 +154,7 @@ function init(address _addressManager) external
 ### assignProver
 
 ```solidity
-function assignProver(uint64 blockId, uint32) external returns (address prover, uint32 rewardPerGas)
+function assignProver(uint64 blockId, uint32 feePerGas) external returns (address prover, uint32 rewardPerGas)
 ```
 
 ### releaseProver
@@ -173,7 +172,7 @@ function slashProver(address addr) external
 ### stake
 
 ```solidity
-function stake(uint64 amount, uint16 rewardPerGas, uint16 maxCapacity) external
+function stake(uint64 amount, uint32 rewardPerGas, uint16 maxCapacity) external
 ```
 
 ### exit
