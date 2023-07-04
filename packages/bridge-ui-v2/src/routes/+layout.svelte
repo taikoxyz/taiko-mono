@@ -14,7 +14,7 @@
 
 <SideNavigation>
   <Header />
-  <main class="my-8 md:my-14">
+  <main>
     <slot />
   </main>
 </SideNavigation>

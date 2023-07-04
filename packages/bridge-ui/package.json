@@ -73,14 +73,13 @@
     "@lottiefiles/svelte-lottie-player": "^0.2.0",
     "@sentry/svelte": "^7.54.0",
     "@sveltestack/svelte-query": "^1.6.0",
-    "@wagmi/connectors": "^0.1.1",
-    "@wagmi/core": "^0.8.0",
     "axios": "^1.2.0",
     "buffer": "^6.0.3",
     "debug": "^4.3.4",
     "ethers": "^5.7.1",
     "identicon.js": "^2.3.3",
     "svelte-i18n": "^3.5.1",
-    "svelte-spa-router": "^3.2.0"
+    "svelte-spa-router": "^3.2.0",
+    "wagmi": "^0.12.16"
   }
 }

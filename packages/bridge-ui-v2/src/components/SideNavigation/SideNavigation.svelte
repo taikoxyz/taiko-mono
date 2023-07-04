@@ -6,11 +6,10 @@
   import { t } from 'svelte-i18n';
 
   import { page } from '$app/stores';
+  import { Icon } from '$components/Icon';
+  import { LinkButton } from '$components/LinkButton';
+  import { LogoWithText } from '$components/Logo';
   import { PUBLIC_GUIDE_URL, PUBLIC_L2_EXPLORER_URL } from '$env/static/public';
-
-  import { Icon } from '../Icon';
-  import { LinkButton } from '../LinkButton';
-  import { LogoWithText } from '../Logo';
 
   let drawerToggleElem: HTMLInputElement;
 
@@ -29,14 +28,15 @@
   }
 </script>
 
-<div class="drawer md:drawer-open overflow-hidden">
+<div class="drawer md:drawer-open">
   <input id={drawerToggleId} type="checkbox" class="drawer-toggle" bind:this={drawerToggleElem} />
 
-  <div class="drawer-content">
+  <div class="drawer-content relative">
     <slot />
   </div>
 
-  <div class="drawer-side h-full">
+  <!-- Side drawer's z-index (20) must be greater than content's header (10)-->
+  <div class="drawer-side z-20">
     <label for={drawerToggleId} class="drawer-overlay" />
 
     <!--

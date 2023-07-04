@@ -1,5 +1,5 @@
-import type { Address } from '@wagmi/core';
 import { Contract, Signer } from 'ethers';
+import type { Address } from 'wagmi';
 
 import { tokenVaultABI } from '../constants/abi';
 import type { Chain } from '../domain/chain';

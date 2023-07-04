@@ -1,7 +1,7 @@
 <script>
   import * as Sentry from '@sentry/svelte';
-  import { UserRejectedRequestError } from '@wagmi/core';
   import { ArrowRight } from 'svelte-heros-v2';
+  import { UserRejectedRequestError } from 'wagmi';
 
   import { mainnetChain, taikoChain } from '../../chain/chains';
   import { destChain, srcChain } from '../../store/chain';

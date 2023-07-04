@@ -9,21 +9,21 @@
   import { testERC20Tokens } from '$libs/token';
 </script>
 
-<Card title={$t('faucet.title')} text={$t('faucet.subtitle')}>
+<Card class="md:w-[524px]" title={$t('faucet.title')} text={$t('faucet.subtitle')}>
   <div class="space-y-[35px]">
     <div class="space-y-2">
-      <ChainSelector label={$t('faucet.currently_on')} />
+      <ChainSelector label={$t('chain_selector.currently_on')} />
       <TokenDropdown tokens={testERC20Tokens} />
     </div>
 
     <Button type="primary" class="px-[28px] py-[14px]">
-      <span class="body-bold">{$t('faucet.mint_button')}</span>
+      <span class="body-bold">{$t('faucet.button.mint')}</span>
     </Button>
 
     <div class="h-sep" />
 
     <Alert type="warning" forceColumnFlow>
-      {$t('faucet.warning_message')}
+      {$t('faucet.message.warning')}
     </Alert>
   </div>
 </Card>
