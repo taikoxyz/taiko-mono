@@ -31,7 +31,7 @@
 <div class="drawer md:drawer-open">
   <input id={drawerToggleId} type="checkbox" class="drawer-toggle" bind:this={drawerToggleElem} />
 
-  <div class="drawer-content">
+  <div class="drawer-content relative">
     <slot />
   </div>
 

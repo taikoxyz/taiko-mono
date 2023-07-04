@@ -10,6 +10,8 @@
 
 <header
   class="
+    sticky 
+    top-0 
     f-between-center
     py-[20px] 
     px-4 
