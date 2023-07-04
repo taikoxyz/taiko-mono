@@ -1,12 +1,12 @@
-import { switchNetwork as wagmiSwitchNetwork } from '@wagmi/core';
 import { get } from 'svelte/store';
+import { switchNetwork as wagmiSwitchNetwork } from 'wagmi/actions';
 
 import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
 import { switchNetwork } from './switchNetwork';
 
 jest.mock('../constants/envVars');
 
-jest.mock('@wagmi/core', () => ({
+jest.mock('wagmi/actions', () => ({
   switchNetwork: jest.fn(),
 }));
 

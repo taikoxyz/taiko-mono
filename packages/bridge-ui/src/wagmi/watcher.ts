@@ -1,4 +1,4 @@
-import { fetchSigner, watchAccount, watchNetwork } from '@wagmi/core';
+import { fetchSigner, watchAccount, watchNetwork } from 'wagmi/actions';
 
 import { mainnetChain, taikoChain } from '../chain/chains';
 import { destChain, srcChain } from '../store/chain';
