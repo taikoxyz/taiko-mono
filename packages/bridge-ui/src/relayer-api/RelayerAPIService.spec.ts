@@ -1,6 +1,6 @@
-import type { Address } from 'wagmi';
 import axios from 'axios';
 import { ethers } from 'ethers';
+import type { Address } from 'wagmi';
 
 import {
   L1_CHAIN_ID,

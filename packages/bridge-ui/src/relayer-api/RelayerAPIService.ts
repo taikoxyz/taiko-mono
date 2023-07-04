@@ -1,6 +1,6 @@
-import type { Address } from 'wagmi';
 import axios from 'axios';
 import { BigNumber, Contract, ethers } from 'ethers';
+import type { Address } from 'wagmi';
 
 import { chains } from '../chain/chains';
 import { bridgeABI, erc20ABI, tokenVaultABI } from '../constants/abi';

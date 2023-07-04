@@ -1,7 +1,7 @@
 <script lang="ts">
   import * as Sentry from '@sentry/svelte';
-  import { UserRejectedRequestError } from 'wagmi';
   import { ethers, type Signer } from 'ethers';
+  import { UserRejectedRequestError } from 'wagmi';
 
   import {
     L1_CHAIN_ID,

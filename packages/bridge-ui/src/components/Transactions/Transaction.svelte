@@ -1,11 +1,11 @@
 <script lang="ts">
   import * as Sentry from '@sentry/svelte';
-  import { UserRejectedRequestError } from 'wagmi';
   import { Contract, errors, type Transaction, utils } from 'ethers';
   import { createEventDispatcher } from 'svelte';
   import { onDestroy, onMount } from 'svelte';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
   import { _ } from 'svelte-i18n';
+  import { UserRejectedRequestError } from 'wagmi';
 
   import { bridges } from '../../bridge/bridges';
   import { chains } from '../../chain/chains';

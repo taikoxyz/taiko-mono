@@ -1,13 +1,13 @@
 <script lang="ts">
   import * as Sentry from '@sentry/svelte';
-  import { disconnect as wagmiDisconnect } from 'wagmi/actions';
-  import { RpcError } from 'wagmi';
   import { ethers, type Signer } from 'ethers';
   import { onMount } from 'svelte';
   import { slide } from 'svelte/transition';
   import { ClipboardDocument, Power } from 'svelte-heros-v2';
   import { ChevronDown } from 'svelte-heros-v2';
   import { _ } from 'svelte-i18n';
+  import { RpcError } from 'wagmi';
+  import { disconnect as wagmiDisconnect } from 'wagmi/actions';
 
   import { srcChain } from '../store/chain';
   import { signer } from '../store/signer';

@@ -1,12 +1,12 @@
 <script lang="ts">
   import * as Sentry from '@sentry/svelte';
+  import { _ } from 'svelte-i18n';
   import {
     Connector,
     ConnectorNotFoundError,
     UserRejectedRequestError,
   } from 'wagmi';
   import { connect as wagmiConnect } from 'wagmi/actions';
-  import { _ } from 'svelte-i18n';
 
   import { getLogger } from '../utils/logger';
   import { client as wagmiClient } from '../wagmi/client';
