@@ -10,7 +10,7 @@ title: ProverPool
 struct Prover {
   uint64 stakedAmount;
   uint32 rewardPerGas;
-  uint16 currentCapacity;
+  uint32 currentCapacity;
 }
 ```
 
@@ -20,8 +20,8 @@ struct Prover {
 struct Staker {
   uint64 exitRequestedAt;
   uint64 exitAmount;
-  uint16 maxCapacity;
-  uint8 proverId;
+  uint32 maxCapacity;
+  uint32 proverId;
 }
 ```
 
@@ -106,7 +106,7 @@ event Slashed(address addr, uint64 amount)
 ### Staked
 
 ```solidity
-event Staked(address addr, uint64 amount, uint32 rewardPerGas, uint16 currentCapacity)
+event Staked(address addr, uint64 amount, uint32 rewardPerGas, uint32 currentCapacity)
 ```
 
 ### CHANGE_TOO_FREQUENT
@@ -172,7 +172,7 @@ function slashProver(address addr) external
 ### stake
 
 ```solidity
-function stake(uint64 amount, uint32 rewardPerGas, uint16 maxCapacity) external
+function stake(uint64 amount, uint32 rewardPerGas, uint32 maxCapacity) external
 ```
 
 ### exit

@@ -19,15 +19,15 @@ contract ProverPool is EssentialContract, IProverPool {
     struct Prover {
         uint64 stakedAmount;
         uint32 rewardPerGas;
-        uint16 currentCapacity;
+        uint32 currentCapacity;
     }
 
     // Make sure we only use one slot
     struct Staker {
         uint64 exitRequestedAt;
         uint64 exitAmount;
-        uint16 maxCapacity;
-        uint8 proverId; // 0 to indicate the staker is not a top prover
+        uint32 maxCapacity;
+        uint32 proverId; // 0 to indicate the staker is not a top prover
     }
 
     // Given that we only have 32 slots for the top provers, if the protocol
@@ -57,7 +57,7 @@ contract ProverPool is EssentialContract, IProverPool {
         address indexed addr,
         uint64 amount,
         uint32 rewardPerGas,
-        uint16 currentCapacity
+        uint32 currentCapacity
     );
 
     error CHANGE_TOO_FREQUENT();
@@ -91,7 +91,7 @@ contract ProverPool is EssentialContract, IProverPool {
             uint256 totalWeight;
             Prover memory _prover;
 
-            for (uint8 i; i < MAX_NUM_PROVERS; ++i) {
+            for (uint32 i; i < MAX_NUM_PROVERS; ++i) {
                 _prover = provers[i + 1];
                 if (_prover.currentCapacity != 0) {
                     // Keep the effective rewardPerGas in [75-125%] of feePerGas
@@ -118,7 +118,7 @@ contract ProverPool is EssentialContract, IProverPool {
                 keccak256(abi.encode(blockhash(block.number - 1), blockId));
             uint256 r = uint256(rand) % totalWeight + 1;
             uint256 z;
-            uint8 id;
+            uint32 id;
 
             while (z < r && id < MAX_NUM_PROVERS) {
                 z += weights[id++];
@@ -182,7 +182,7 @@ contract ProverPool is EssentialContract, IProverPool {
     function stake(
         uint64 amount,
         uint32 rewardPerGas,
-        uint16 maxCapacity
+        uint32 maxCapacity
     )
         external
         nonReentrant
@@ -249,7 +249,7 @@ contract ProverPool is EssentialContract, IProverPool {
         address addr,
         uint64 amount,
         uint32 rewardPerGas,
-        uint16 maxCapacity
+        uint32 maxCapacity
     )
         private
     {
@@ -279,8 +279,8 @@ contract ProverPool is EssentialContract, IProverPool {
         staker.maxCapacity = maxCapacity;
 
         // Find the prover id
-        uint8 proverId = 1;
-        for (uint8 i = 2; i <= MAX_NUM_PROVERS;) {
+        uint32 proverId = 1;
+        for (uint32 i = 2; i <= MAX_NUM_PROVERS;) {
             if (provers[proverId].stakedAmount > provers[i].stakedAmount) {
                 proverId = i;
             }
