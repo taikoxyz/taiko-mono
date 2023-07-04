@@ -10,22 +10,22 @@ import {AddressResolver} from "../common/AddressResolver.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {ICrossChainSync} from "../common/ICrossChainSync.sol";
 import {Proxied} from "../common/Proxied.sol";
-import {LibEthDepositing} from "./libs/LibEthDepositing.sol";
-import {LibTokenomics} from "./libs/LibTokenomics.sol";
-import {LibProposing} from "./libs/LibProposing.sol";
-import {LibProving} from "./libs/LibProving.sol";
-import {LibUtils} from "./libs/LibUtils.sol";
-import {LibVerifying} from "./libs/LibVerifying.sol";
-import {TaikoConfig} from "./TaikoConfig.sol";
+import {LibEthDepositing_A3} from "./A3/libs_a3/LibEthDepositing_A3.sol";
+import {LibTokenomics_A3} from "./A3/libs_a3/LibTokenomics_A3.sol";
+import {LibProposing_A3} from "./A3/libs_a3/LibProposing_A3.sol";
+import {LibProving_A3} from "./A3/libs_a3/LibProving_A3.sol";
+import {LibUtils_A3} from "./A3/libs_a3/LibUtils_A3.sol";
+import {LibVerifying_A3} from "./A3/libs_a3/LibVerifying_A3.sol";
+import {TaikoConfig_A3} from "./A3/TaikoConfig_A3.sol";
 import {TaikoErrors} from "./TaikoErrors.sol";
-import {TaikoData} from "./TaikoData.sol";
+import {TaikoData_A3} from "./A3/TaikoData_A3.sol";
 import {TaikoEvents} from "./TaikoEvents.sol";
 
 /// @custom:security-contact hello@taiko.xyz
 contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors {
-    using LibUtils for TaikoData.State;
+    using LibUtils_A3 for TaikoData_A3.State;
 
-    TaikoData.State public state;
+    TaikoData_A3.State public state;
     uint256[100] private __gap;
 
     receive() external payable {
@@ -52,7 +52,7 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
         uint16 _adjustmentQuotient
     ) external initializer {
         EssentialContract._init(_addressManager);
-        LibVerifying.init({
+        LibVerifying_A3.init({
             state: state,
             config: getConfig(),
             genesisBlockHash: _genesisBlockHash,
@@ -77,18 +77,18 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
     function proposeBlock(bytes calldata input, bytes calldata txList)
         external
         nonReentrant
-        returns (TaikoData.BlockMetadata memory meta)
+        returns (TaikoData_A3.BlockMetadata memory meta)
     {
-        TaikoData.Config memory config = getConfig();
-        meta = LibProposing.proposeBlock({
+        TaikoData_A3.Config memory config = getConfig();
+        meta = LibProposing_A3.proposeBlock({
             state: state,
             config: config,
             resolver: AddressResolver(this),
-            input: abi.decode(input, (TaikoData.BlockMetadataInput)),
+            input: abi.decode(input, (TaikoData_A3.BlockMetadataInput)),
             txList: txList
         });
         if (config.maxVerificationsPerTx > 0) {
-            LibVerifying.verifyBlocks({
+            LibVerifying_A3.verifyBlocks({
                 state: state,
                 config: config,
                 resolver: AddressResolver(this),
@@ -102,19 +102,19 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
      *
      * @param blockId The index of the block to prove. This is also used
      *        to select the right implementation version.
-     * @param input An abi-encoded TaikoData.BlockEvidence object.
+     * @param input An abi-encoded TaikoData_A3.BlockEvidence object.
      */
     function proveBlock(uint256 blockId, bytes calldata input) external nonReentrant {
-        TaikoData.Config memory config = getConfig();
-        LibProving.proveBlock({
+        TaikoData_A3.Config memory config = getConfig();
+        LibProving_A3.proveBlock({
             state: state,
             config: config,
             resolver: AddressResolver(this),
             blockId: blockId,
-            evidence: abi.decode(input, (TaikoData.BlockEvidence))
+            evidence: abi.decode(input, (TaikoData_A3.BlockEvidence))
         });
         if (config.maxVerificationsPerTx > 0) {
-            LibVerifying.verifyBlocks({
+            LibVerifying_A3.verifyBlocks({
                 state: state,
                 config: config,
                 resolver: AddressResolver(this),
@@ -129,7 +129,7 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
      */
     function verifyBlocks(uint256 maxBlocks) external nonReentrant {
         if (maxBlocks == 0) revert L1_INVALID_PARAM();
-        LibVerifying.verifyBlocks({
+        LibVerifying_A3.verifyBlocks({
             state: state,
             config: getConfig(),
             resolver: AddressResolver(this),
@@ -177,15 +177,15 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
     }
 
     function depositTaikoToken(uint256 amount) external nonReentrant {
-        LibTokenomics.depositTaikoToken(state, AddressResolver(this), amount);
+        LibTokenomics_A3.depositTaikoToken(state, AddressResolver(this), amount);
     }
 
     function withdrawTaikoToken(uint256 amount) external nonReentrant {
-        LibTokenomics.withdrawTaikoToken(state, AddressResolver(this), amount);
+        LibTokenomics_A3.withdrawTaikoToken(state, AddressResolver(this), amount);
     }
 
     function depositEtherToL2() public payable {
-        LibEthDepositing.depositEtherToL2(state, getConfig(), AddressResolver(this));
+        LibEthDepositing_A3.depositEtherToL2(state, getConfig(), AddressResolver(this));
     }
 
     function getTaikoTokenBalance(address addr) public view returns (uint256) {
@@ -197,7 +197,7 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
     }
 
     function getProofReward(uint64 proofTime) public view returns (uint64) {
-        return LibTokenomics.getProofReward(state, proofTime);
+        return LibTokenomics_A3.getProofReward(state, proofTime);
     }
 
     function getBlock(uint256 blockId)
@@ -205,8 +205,8 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
         view
         returns (bytes32 _metaHash, address _proposer, uint64 _proposedAt)
     {
-        TaikoData.Block storage blk =
-            LibProposing.getBlock({state: state, config: getConfig(), blockId: blockId});
+        TaikoData_A3.Block storage blk =
+            LibProposing_A3.getBlock({state: state, config: getConfig(), blockId: blockId});
         _metaHash = blk.metaHash;
         _proposer = blk.proposer;
         _proposedAt = blk.proposedAt;
@@ -215,9 +215,9 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
     function getForkChoice(uint256 blockId, bytes32 parentHash, uint32 parentGasUsed)
         public
         view
-        returns (TaikoData.ForkChoice memory)
+        returns (TaikoData_A3.ForkChoice memory)
     {
-        return LibProving.getForkChoice({
+        return LibProving_A3.getForkChoice({
             state: state,
             config: getConfig(),
             blockId: blockId,
@@ -227,28 +227,28 @@ contract TaikoL1 is EssentialContract, ICrossChainSync, TaikoEvents, TaikoErrors
     }
 
     function getCrossChainBlockHash(uint256 blockId) public view override returns (bytes32) {
-        (bool found, TaikoData.Block storage blk) =
-            LibUtils.getL2ChainData({state: state, config: getConfig(), blockId: blockId});
+        (bool found, TaikoData_A3.Block storage blk) =
+            LibUtils_A3.getL2ChainData({state: state, config: getConfig(), blockId: blockId});
         return found ? blk.forkChoices[blk.verifiedForkChoiceId].blockHash : bytes32(0);
     }
 
     function getCrossChainSignalRoot(uint256 blockId) public view override returns (bytes32) {
-        (bool found, TaikoData.Block storage blk) =
-            LibUtils.getL2ChainData({state: state, config: getConfig(), blockId: blockId});
+        (bool found, TaikoData_A3.Block storage blk) =
+            LibUtils_A3.getL2ChainData({state: state, config: getConfig(), blockId: blockId});
 
         return found ? blk.forkChoices[blk.verifiedForkChoiceId].signalRoot : bytes32(0);
     }
 
-    function getStateVariables() public view returns (TaikoData.StateVariables memory) {
+    function getStateVariables() public view returns (TaikoData_A3.StateVariables memory) {
         return state.getStateVariables();
     }
 
-    function getConfig() public pure virtual returns (TaikoData.Config memory) {
-        return TaikoConfig.getConfig();
+    function getConfig() public pure virtual returns (TaikoData_A3.Config memory) {
+        return TaikoConfig_A3.getConfig();
     }
 
     function getVerifierName(uint16 id) public pure returns (bytes32) {
-        return LibUtils.getVerifierName(id);
+        return LibUtils_A3.getVerifierName(id);
     }
 }
 

@@ -6,21 +6,21 @@
 
 pragma solidity ^0.8.20;
 
-import {AddressResolver} from "../../../common/a4/AddressResolver_A4.sol";
+import {AddressResolver} from "../../../common/AddressResolver.sol";
 import {IMintableERC20} from "../../../common/IMintableERC20.sol";
 import {IProverPool} from "../ProverPool_A4.sol";
 import {ISignalService} from "../../../signal/ISignalService.sol";
-import {LibUtils} from "./LibUtils_A4.sol";
+import {LibUtils_A4} from "./LibUtils_A4.sol";
 import {LibMath} from "../../../libs/LibMath.sol";
 import {SafeCastUpgradeable} from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {TaikoData} from "../TaikoData_A4.sol";
-import {TaikoToken} from "../TaikoToken_A4.sol";
+import {TaikoData_A4} from "../TaikoData_A4.sol";
+import {TaikoToken} from "../../TaikoToken.sol";
 import {LibL2Consts} from "../../../L2/a4/LibL2Consts_A4.sol";
 
 library LibVerifying {
     using SafeCastUpgradeable for uint256;
-    using LibUtils for TaikoData.State;
+    using LibUtils_A4 for TaikoData_A4.State;
     using LibMath for uint256;
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash, uint64 reward);
@@ -30,8 +30,8 @@ library LibVerifying {
     error L1_INVALID_CONFIG();
 
     function init(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
+        TaikoData_A4.State storage state,
+        TaikoData_A4.Config memory config,
         bytes32 genesisBlockHash,
         uint32 initFeePerGas,
         uint16 initAvgProofDelay
@@ -68,13 +68,13 @@ library LibVerifying {
             state.avgProofDelay = initAvgProofDelay;
 
             // Init the genesis block
-            TaikoData.Block storage blk = state.blocks[0];
+            TaikoData_A4.Block storage blk = state.blocks[0];
             blk.nextForkChoiceId = 2;
             blk.verifiedForkChoiceId = 1;
             blk.proposedAt = timeNow;
 
             // Init the first fork choice
-            TaikoData.ForkChoice storage fc = state.blocks[0].forkChoices[1];
+            TaikoData_A4.ForkChoice storage fc = state.blocks[0].forkChoices[1];
             fc.blockHash = genesisBlockHash;
             fc.provenAt = timeNow;
         }
@@ -83,13 +83,13 @@ library LibVerifying {
     }
 
     function verifyBlocks(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
+        TaikoData_A4.State storage state,
+        TaikoData_A4.Config memory config,
         AddressResolver resolver,
         uint256 maxBlocks
     ) internal {
         uint256 i = state.lastVerifiedBlockId;
-        TaikoData.Block storage blk = state.blocks[i % config.blockRingBufferSize];
+        TaikoData_A4.Block storage blk = state.blocks[i % config.blockRingBufferSize];
 
         uint24 fcId = blk.verifiedForkChoiceId;
         assert(fcId > 0);
@@ -107,10 +107,10 @@ library LibVerifying {
             blk = state.blocks[i % config.blockRingBufferSize];
             assert(blk.blockId == i);
 
-            fcId = LibUtils.getForkChoiceId(state, blk, blockHash, gasUsed);
+            fcId = LibUtils_A4.getForkChoiceId(state, blk, blockHash, gasUsed);
             if (fcId == 0) break;
 
-            TaikoData.ForkChoice memory fc = blk.forkChoices[fcId];
+            TaikoData_A4.ForkChoice memory fc = blk.forkChoices[fcId];
             if (fc.prover == address(0)) break;
 
             uint256 proofRegularCooldown =
@@ -155,11 +155,11 @@ library LibVerifying {
     }
 
     function _verifyBlock(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
+        TaikoData_A4.State storage state,
+        TaikoData_A4.Config memory config,
         AddressResolver resolver,
-        TaikoData.Block storage blk,
-        TaikoData.ForkChoice memory fc,
+        TaikoData_A4.Block storage blk,
+        TaikoData_A4.ForkChoice memory fc,
         uint24 fcId
     ) private {
         // the actually mined L2 block's gasLimit is blk.gasLimit +
@@ -189,7 +189,7 @@ library LibVerifying {
         ) {
             // The selected prover managed to prove the block in time
             state.avgProofDelay = uint16(
-                LibUtils.movingAverage({
+                LibUtils_A4.movingAverage({
                     maValue: state.avgProofDelay,
                     // TODO:  prover is not incentivized to submit proof
                     // ASAP
@@ -199,7 +199,7 @@ library LibVerifying {
             );
 
             state.feePerGas = uint32(
-                LibUtils.movingAverage({
+                LibUtils_A4.movingAverage({
                     maValue: state.feePerGas,
                     newValue: blk.rewardPerGas,
                     maf: 7200

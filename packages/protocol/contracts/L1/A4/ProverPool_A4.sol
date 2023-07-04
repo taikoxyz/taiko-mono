@@ -5,11 +5,13 @@
 
 pragma solidity ^0.8.20;
 
-import {AddressResolver} from "../../common/a4/AddressResolver_A4.sol";
-import {EssentialContract} from "../../common/a4/EssentialContract_A4.sol";
+import {AddressResolver} from "../../common/AddressResolver.sol";
+// This standalone /deployable/ contract uses a slightly different
+// EssentialContract with only
+import {EssentialContract} from "../../common/EssentialContract.sol";
 import {IProverPool} from "./IProverPool_A4.sol";
 import {LibMath} from "../../libs/LibMath.sol";
-import {TaikoToken} from "./TaikoToken_A4.sol";
+import {TaikoToken} from "../TaikoToken.sol";
 import {Proxied} from "../../common/Proxied.sol";
 
 contract ProverPool is EssentialContract, IProverPool {

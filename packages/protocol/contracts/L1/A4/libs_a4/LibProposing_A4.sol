@@ -7,25 +7,25 @@
 pragma solidity ^0.8.20;
 
 import {LibMath} from "../../../libs/LibMath.sol";
-import {AddressResolver} from "../../../common/a4/AddressResolver_A4.sol";
+import {AddressResolver} from "../../../common/AddressResolver.sol";
 import {IMintableERC20} from "../../../common/IMintableERC20.sol";
 import {IProverPool} from "../ProverPool_A4.sol";
 import {LibAddress} from "../../../libs/LibAddress.sol";
-import {LibEthDepositing} from "./LibEthDepositing_A4.sol";
+import {LibEthDepositing_A4} from "./LibEthDepositing_A4.sol";
 import {LibL2Consts} from "../../../L2/a4/LibL2Consts_A4.sol";
-import {LibUtils} from "./LibUtils_A4.sol";
+import {LibUtils_A4} from "./LibUtils_A4.sol";
 import {SafeCastUpgradeable} from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {TaikoData} from "../TaikoData_A4.sol";
+import {TaikoData_A4} from "../TaikoData_A4.sol";
 
-library LibProposing {
+library LibProposing_A4 {
     using LibAddress for address;
     using LibAddress for address payable;
     using LibMath for uint256;
-    using LibUtils for TaikoData.State;
+    using LibUtils_A4 for TaikoData_A4.State;
     using SafeCastUpgradeable for uint256;
 
-    event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta, uint64 blockFee);
+    event BlockProposed(uint256 indexed id, TaikoData_A4.BlockMetadata meta, uint64 blockFee);
 
     error L1_BLOCK_ID();
     error L1_INSUFFICIENT_TOKEN();
@@ -38,12 +38,12 @@ library LibProposing {
     error L1_TX_LIST();
 
     function proposeBlock(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
+        TaikoData_A4.State storage state,
+        TaikoData_A4.Config memory config,
         AddressResolver resolver,
-        TaikoData.BlockMetadataInput memory input,
+        TaikoData_A4.BlockMetadataInput memory input,
         bytes calldata txList
-    ) internal returns (TaikoData.BlockMetadata memory meta) {
+    ) internal returns (TaikoData_A4.BlockMetadata memory meta) {
         // Try to select a prover first to revert as earlier as possible
         (address assignedProver, uint32 rewardPerGas) = IProverPool(
             resolver.resolve("prover_pool", false)
@@ -58,7 +58,7 @@ library LibProposing {
 
             if (cacheTxListInfo) {
                 unchecked {
-                    state.txListInfo[input.txListHash] = TaikoData.TxListInfo({
+                    state.txListInfo[input.txListHash] = TaikoData_A4.TxListInfo({
                         validSince: uint64(block.timestamp),
                         size: uint24(txList.length)
                     });
@@ -87,12 +87,13 @@ library LibProposing {
         meta.gasLimit = input.gasLimit;
         meta.beneficiary = input.beneficiary;
         meta.treasury = resolver.resolve(config.chainId, "treasury", false);
-        meta.depositsProcessed = LibEthDepositing.processDeposits(state, config, input.beneficiary);
+        meta.depositsProcessed =
+            LibEthDepositing_A4.processDeposits(state, config, input.beneficiary);
 
         // Init the block
-        TaikoData.Block storage blk = state.blocks[state.numBlocks % config.blockRingBufferSize];
+        TaikoData_A4.Block storage blk = state.blocks[state.numBlocks % config.blockRingBufferSize];
 
-        blk.metaHash = LibUtils.hashMetadata(meta);
+        blk.metaHash = LibUtils_A4.hashMetadata(meta);
         blk.blockId = state.numBlocks;
         blk.gasLimit = meta.gasLimit;
         blk.nextForkChoiceId = 1;
@@ -141,10 +142,10 @@ library LibProposing {
     }
 
     function getBlock(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
+        TaikoData_A4.State storage state,
+        TaikoData_A4.Config memory config,
         uint256 blockId
-    ) internal view returns (TaikoData.Block storage blk) {
+    ) internal view returns (TaikoData_A4.Block storage blk) {
         blk = state.blocks[blockId % config.blockRingBufferSize];
         if (blk.blockId != blockId) revert L1_BLOCK_ID();
     }
@@ -153,8 +154,8 @@ library LibProposing {
     // this point gasUsed (in proposeBlock()) is always gasLimit, so use it and
     // in case of differences refund after verification
     function getBlockFee(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
+        TaikoData_A4.State storage state,
+        TaikoData_A4.Config memory config,
         uint32 gasLimit
     ) internal view returns (uint64) {
         // The diff between gasLimit and gasUsed will be redistributed back to
@@ -163,9 +164,9 @@ library LibProposing {
     }
 
     function _validateBlock(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        TaikoData.BlockMetadataInput memory input,
+        TaikoData_A4.State storage state,
+        TaikoData_A4.Config memory config,
+        TaikoData_A4.BlockMetadataInput memory input,
         bytes calldata txList
     ) private view returns (bool cacheTxListInfo) {
         if (
@@ -199,7 +200,7 @@ library LibProposing {
                 // caching is enabled
                 if (size == 0) {
                     // This blob shall have been submitted earlier
-                    TaikoData.TxListInfo memory info = state.txListInfo[input.txListHash];
+                    TaikoData_A4.TxListInfo memory info = state.txListInfo[input.txListHash];
 
                     if (input.txListByteEnd > info.size) {
                         revert L1_TX_LIST_RANGE();

@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-library TaikoData {
+library TaikoData_A3 {
     struct Config {
         uint256 chainId;
         uint256 maxNumProposedBlocks;
@@ -54,7 +54,7 @@ library TaikoData {
         uint8 cacheTxListInfo; // non-zero = True
     }
 
-    // Changing this struct requires changing LibUtils.hashMetadata accordingly.
+    // Changing this struct requires changing LibUtils_A3.hashMetadata accordingly.
     struct BlockMetadata {
         uint64 id;
         uint64 timestamp;
@@ -67,7 +67,7 @@ library TaikoData {
         uint32 gasLimit;
         address beneficiary;
         address treasury;
-        TaikoData.EthDeposit[] depositsProcessed;
+        TaikoData_A3.EthDeposit[] depositsProcessed;
     }
 
     struct BlockEvidence {

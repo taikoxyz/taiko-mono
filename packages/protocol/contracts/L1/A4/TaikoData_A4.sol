@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-library TaikoData {
+library TaikoData_A4 {
     struct Config {
         // Group 1: general configs
         uint256 chainId;
@@ -74,7 +74,7 @@ library TaikoData {
         uint32 gasLimit;
         address beneficiary;
         address treasury;
-        TaikoData.EthDeposit[] depositsProcessed;
+        TaikoData_A4.EthDeposit[] depositsProcessed;
     }
 
     struct BlockEvidence {

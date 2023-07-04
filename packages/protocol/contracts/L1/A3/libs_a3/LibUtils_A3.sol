@@ -6,30 +6,30 @@
 
 pragma solidity ^0.8.20;
 
-import {LibMath} from "../../libs/LibMath.sol";
-import {LibEthDepositing} from "./LibEthDepositing.sol";
+import {LibMath} from "../../../libs/LibMath.sol";
+import {LibEthDepositing_A3} from "./LibEthDepositing_A3.sol";
 import {SafeCastUpgradeable} from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {TaikoData} from "../TaikoData.sol";
+import {TaikoData_A3} from "../TaikoData_A3.sol";
 
-library LibUtils {
+library LibUtils_A3 {
     using LibMath for uint256;
 
     error L1_BLOCK_ID();
 
     function getL2ChainData(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
+        TaikoData_A3.State storage state,
+        TaikoData_A3.Config memory config,
         uint256 blockId
-    ) internal view returns (bool found, TaikoData.Block storage blk) {
+    ) internal view returns (bool found, TaikoData_A3.Block storage blk) {
         uint256 id = blockId == 0 ? state.lastVerifiedBlockId : blockId;
         blk = state.blocks[id % config.ringBufferSize];
         found = (blk.blockId == id && blk.verifiedForkChoiceId != 0);
     }
 
     function getForkChoiceId(
-        TaikoData.State storage state,
-        TaikoData.Block storage blk,
+        TaikoData_A3.State storage state,
+        TaikoData_A3.Block storage blk,
         bytes32 parentHash,
         uint32 parentGasUsed
     ) internal view returns (uint256 fcId) {
@@ -44,12 +44,12 @@ library LibUtils {
         }
     }
 
-    function getStateVariables(TaikoData.State storage state)
+    function getStateVariables(TaikoData_A3.State storage state)
         internal
         view
-        returns (TaikoData.StateVariables memory)
+        returns (TaikoData_A3.StateVariables memory)
     {
-        return TaikoData.StateVariables({
+        return TaikoData_A3.StateVariables({
             blockFee: state.blockFee,
             accBlockFees: state.accBlockFees,
             genesisHeight: state.genesisHeight,
@@ -77,7 +77,7 @@ library LibUtils {
     }
 
     /// @dev Hashing the block metadata.
-    function hashMetadata(TaikoData.BlockMetadata memory meta)
+    function hashMetadata(TaikoData_A3.BlockMetadata memory meta)
         internal
         pure
         returns (bytes32 hash)
@@ -89,7 +89,7 @@ library LibUtils {
 
         inputs[1] = uint256(meta.l1Hash);
         inputs[2] = uint256(meta.mixHash);
-        inputs[3] = uint256(LibEthDepositing.hashEthDeposits(meta.depositsProcessed));
+        inputs[3] = uint256(LibEthDepositing_A3.hashEthDeposits(meta.depositsProcessed));
         inputs[4] = uint256(meta.txListHash);
 
         inputs[5] = (uint256(meta.txListByteStart) << 232) | (uint256(meta.txListByteEnd) << 208)

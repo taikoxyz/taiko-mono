@@ -6,6 +6,10 @@
 
 pragma solidity ^0.8.20;
 
+// Every contract which is NOT part of the core protocol (and queried only via AddressManager by
+// addressResolver.getAddress("taiko_token", false)), we do not need to include in the upgrades
+// because they will be standalone deployments with their own proxy (!). So currently leave
+// TaikoToken.sol unchanged and TaikoToken_A4 simply changes it via an upgrade.
 import {ERC20Upgradeable} from
     "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {ERC20BurnableUpgradeable} from

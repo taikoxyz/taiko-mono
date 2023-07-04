@@ -6,21 +6,21 @@
 
 pragma solidity ^0.8.20;
 
-import {AddressResolver} from "../../common/AddressResolver.sol";
-import {LibMath} from "../../libs/LibMath.sol";
+import {AddressResolver} from "../../../common/AddressResolver.sol";
+import {LibMath} from "../../../libs/LibMath.sol";
 import {SafeCastUpgradeable} from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {TaikoData} from "../TaikoData.sol";
-import {TaikoToken} from "../TaikoToken.sol";
-import {LibFixedPointMath as Math} from "../../thirdparty/LibFixedPointMath.sol";
+import {TaikoData_A3} from "../TaikoData_A3.sol";
+import {TaikoToken} from "../../TaikoToken.sol";
+import {LibFixedPointMath as Math} from "../../../thirdparty/LibFixedPointMath.sol";
 
-library LibTokenomics {
+library LibTokenomics_A3 {
     using LibMath for uint256;
 
     error L1_INSUFFICIENT_TOKEN();
 
     function withdrawTaikoToken(
-        TaikoData.State storage state,
+        TaikoData_A3.State storage state,
         AddressResolver resolver,
         uint256 amount
     ) internal {
@@ -35,7 +35,7 @@ library LibTokenomics {
     }
 
     function depositTaikoToken(
-        TaikoData.State storage state,
+        TaikoData_A3.State storage state,
         AddressResolver resolver,
         uint256 amount
     ) internal {
@@ -52,7 +52,7 @@ library LibTokenomics {
      * @param proofTime The actual proof time
      * @return reward The reward given for the block proof
      */
-    function getProofReward(TaikoData.State storage state, uint64 proofTime)
+    function getProofReward(TaikoData_A3.State storage state, uint64 proofTime)
         internal
         view
         returns (uint64)
@@ -86,7 +86,7 @@ library LibTokenomics {
      * @return newProofTimeIssued Accumulated proof time
      * @return blockFee New block fee
      */
-    function getNewBlockFeeAndProofTimeIssued(TaikoData.State storage state, uint64 proofTime)
+    function getNewBlockFeeAndProofTimeIssued(TaikoData_A3.State storage state, uint64 proofTime)
         internal
         view
         returns (uint64 newProofTimeIssued, uint64 blockFee)

@@ -6,19 +6,19 @@
 
 pragma solidity ^0.8.20;
 
-import {AddressResolver} from "../../../common/a4/AddressResolver_A4.sol";
+import {AddressResolver} from "../../../common/AddressResolver.sol";
 import {LibMath} from "../../../libs/LibMath.sol";
 import {SafeCastUpgradeable} from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {TaikoData} from "../TaikoData_A4.sol";
-import {TaikoToken} from "../TaikoToken_A4.sol";
+import {TaikoData_A4} from "../TaikoData_A4.sol";
+import {TaikoToken} from "../../TaikoToken.sol";
 import {LibFixedPointMath as Math} from "../../../thirdparty/LibFixedPointMath.sol";
 
-library LibTkoDistribution {
+library LibTkoDistribution_A4 {
     error L1_INSUFFICIENT_TOKEN();
 
     function withdrawTaikoToken(
-        TaikoData.State storage state,
+        TaikoData_A4.State storage state,
         AddressResolver resolver,
         uint256 amount
     ) internal {
@@ -33,7 +33,7 @@ library LibTkoDistribution {
     }
 
     function depositTaikoToken(
-        TaikoData.State storage state,
+        TaikoData_A4.State storage state,
         AddressResolver resolver,
         uint256 amount
     ) internal {

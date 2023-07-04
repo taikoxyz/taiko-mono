@@ -6,17 +6,17 @@
 
 pragma solidity ^0.8.20;
 
-import {AddressResolver} from "../../common/AddressResolver.sol";
-import {ISignalService} from "../../signal/ISignalService.sol";
-import {LibTokenomics} from "./LibTokenomics.sol";
-import {LibUtils} from "./LibUtils.sol";
+import {AddressResolver} from "../../../common/AddressResolver.sol";
+import {ISignalService} from "../../../signal/ISignalService.sol";
+import {LibTokenomics_A3} from "./LibTokenomics_A3.sol";
+import {LibUtils_A3} from "./LibUtils_A3.sol";
 import {SafeCastUpgradeable} from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {TaikoData} from "../../L1/TaikoData.sol";
+import {TaikoData_A3} from "../TaikoData_A3.sol";
 
-library LibVerifying {
+library LibVerifying_A3 {
     using SafeCastUpgradeable for uint256;
-    using LibUtils for TaikoData.State;
+    using LibUtils_A3 for TaikoData_A3.State;
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash, uint64 reward);
 
@@ -25,8 +25,8 @@ library LibVerifying {
     error L1_INVALID_CONFIG();
 
     function init(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
+        TaikoData_A3.State storage state,
+        TaikoData_A3.Config memory config,
         bytes32 genesisBlockHash,
         uint64 initBlockFee,
         uint64 initProofTimeTarget,
@@ -57,12 +57,12 @@ library LibVerifying {
         state.adjustmentQuotient = adjustmentQuotient;
         state.numBlocks = 1;
 
-        TaikoData.Block storage blk = state.blocks[0];
+        TaikoData_A3.Block storage blk = state.blocks[0];
         blk.proposedAt = timeNow;
         blk.nextForkChoiceId = 2;
         blk.verifiedForkChoiceId = 1;
 
-        TaikoData.ForkChoice storage fc = state.blocks[0].forkChoices[1];
+        TaikoData_A3.ForkChoice storage fc = state.blocks[0].forkChoices[1];
         fc.blockHash = genesisBlockHash;
         fc.provenAt = timeNow;
 
@@ -70,13 +70,13 @@ library LibVerifying {
     }
 
     function verifyBlocks(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
+        TaikoData_A3.State storage state,
+        TaikoData_A3.Config memory config,
         AddressResolver resolver,
         uint256 maxBlocks
     ) internal {
         uint256 i = state.lastVerifiedBlockId;
-        TaikoData.Block storage blk = state.blocks[i % config.ringBufferSize];
+        TaikoData_A3.Block storage blk = state.blocks[i % config.ringBufferSize];
 
         uint256 fcId = blk.verifiedForkChoiceId;
         assert(fcId > 0);
@@ -94,11 +94,11 @@ library LibVerifying {
             blk = state.blocks[i % config.ringBufferSize];
             assert(blk.blockId == i);
 
-            fcId = LibUtils.getForkChoiceId(state, blk, blockHash, gasUsed);
+            fcId = LibUtils_A3.getForkChoiceId(state, blk, blockHash, gasUsed);
 
             if (fcId == 0) break;
 
-            TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
+            TaikoData_A3.ForkChoice storage fc = blk.forkChoices[fcId];
 
             if (fc.prover == address(0)) break;
 
@@ -138,9 +138,9 @@ library LibVerifying {
     }
 
     function _markBlockVerified(
-        TaikoData.State storage state,
-        TaikoData.Block storage blk,
-        TaikoData.ForkChoice storage fc,
+        TaikoData_A3.State storage state,
+        TaikoData_A3.Block storage blk,
+        TaikoData_A3.ForkChoice storage fc,
         uint24 fcId,
         address systemProver
     ) private {
@@ -149,10 +149,10 @@ library LibVerifying {
             proofTime = uint64(fc.provenAt - blk.proposedAt);
         }
 
-        uint64 reward = LibTokenomics.getProofReward(state, proofTime);
+        uint64 reward = LibTokenomics_A3.getProofReward(state, proofTime);
 
         (state.proofTimeIssued, state.blockFee) =
-            LibTokenomics.getNewBlockFeeAndProofTimeIssued(state, proofTime);
+            LibTokenomics_A3.getNewBlockFeeAndProofTimeIssued(state, proofTime);
 
         unchecked {
             state.accBlockFees -= reward;

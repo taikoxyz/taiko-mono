@@ -6,11 +6,11 @@
 
 pragma solidity ^0.8.20;
 
-import {TaikoData} from "../L1/TaikoData.sol";
+import {TaikoData_A3} from "./TaikoData_A3.sol";
 
-library TaikoConfig {
-    function getConfig() internal pure returns (TaikoData.Config memory) {
-        return TaikoData.Config({
+library TaikoConfig_A3 {
+    function getConfig() internal pure returns (TaikoData_A3.Config memory) {
+        return TaikoData_A3.Config({
             chainId: 167005,
             // Two weeks if avg block time is 3 seconds
             maxNumProposedBlocks: 403200,

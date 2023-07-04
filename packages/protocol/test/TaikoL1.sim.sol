@@ -3,8 +3,8 @@ pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {TaikoConfig} from "../contracts/L1/TaikoConfig.sol";
-import {TaikoData} from "../contracts/L1/TaikoData.sol";
+import {TaikoConfig_A3} from "../contracts/L1/A3/TaikoConfig_A3.sol";
+import {TaikoData_A3} from "../contracts/L1/A3/TaikoData_A3.sol";
 import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {TaikoL1TestBase} from "./TaikoL1TestBase.t.sol";
@@ -22,8 +22,8 @@ uint16 constant READJUSTED_ADJUSTMENT_QUOTIENT = 32000;
 /// @dev Warning: this test will take 7-10 minutes and require 1GB memory.
 ///      `pnpm sim`
 contract TaikoL1_b is TaikoL1 {
-    function getConfig() public pure override returns (TaikoData.Config memory config) {
-        config = TaikoConfig.getConfig();
+    function getConfig() public pure override returns (TaikoData_A3.Config memory config) {
+        config = TaikoConfig_A3.getConfig();
 
         config.txListCacheExpiry = 0;
         config.maxNumProposedBlocks = 1100;
@@ -107,7 +107,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
 
         depositTaikoToken(Alice, 1e9 * 1e8, 10000 ether);
 
-        TaikoData.BlockMetadata[] memory metas = new TaikoData.BlockMetadata[](
+        TaikoData_A3.BlockMetadata[] memory metas = new TaikoData_A3.BlockMetadata[](
             blocksToSimulate
         );
 
@@ -266,7 +266,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
 
         depositTaikoToken(Alice, 1e9 * 1e8, 10000 ether);
 
-        TaikoData.BlockMetadata[] memory metas = new TaikoData.BlockMetadata[](
+        TaikoData_A3.BlockMetadata[] memory metas = new TaikoData_A3.BlockMetadata[](
             blocksToSimulate
         );
 
@@ -440,7 +440,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
 
         depositTaikoToken(Alice, 1e6 * 1e8, 10000 ether);
 
-        TaikoData.BlockMetadata[] memory metas = new TaikoData.BlockMetadata[](
+        TaikoData_A3.BlockMetadata[] memory metas = new TaikoData_A3.BlockMetadata[](
             blocksToSimulate
         );
 
@@ -617,7 +617,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
 
         depositTaikoToken(Alice, 1e6 * 1e8, 10000 ether);
 
-        TaikoData.BlockMetadata[] memory metas = new TaikoData.BlockMetadata[](
+        TaikoData_A3.BlockMetadata[] memory metas = new TaikoData_A3.BlockMetadata[](
             blocksToSimulate
         );
 
@@ -805,7 +805,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
 
     // TODO(daniel|dani): log enough state variables for analysis.
     function printVariables() internal {
-        TaikoData.StateVariables memory vars = L1.getStateVariables();
+        TaikoData_A3.StateVariables memory vars = L1.getStateVariables();
         string memory str = string.concat(
             Strings.toString(logCount++),
             ";",
