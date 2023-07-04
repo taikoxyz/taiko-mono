@@ -17,6 +17,10 @@
     @apply w-full h-full;
   }
 
+  .sticky-top {
+    @apply sticky top-0;
+  }
+
   /* Flex shortcuts */
   .f-between-center {
     @apply flex justify-between items-center;

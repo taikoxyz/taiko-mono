@@ -10,15 +10,17 @@
 
 <header
   class="
-    sticky 
-    top-0 
+    sticky-top
     f-between-center
-    py-[20px] 
-    px-4 
-    border-b 
-    border-b-divider-border 
-    md:border-b-0 
-    md:px-10 md:py-7 
+    bg-primary-background
+    z-10
+    px-4
+    py-[20px]
+    border-b
+    border-b-divider-border
+    md:border-b-0
+    md:px-10
+    md:py-7
     md:justify-end">
   <LogoWithText class="w-[77px] h-[20px] md:hidden" />
 
