@@ -177,12 +177,6 @@ contract TokenVault is EssentialContract {
      */
     error TOKENVAULT_INVALID_SENDER();
 
-    /**
-     * Thrown when the remote chain id with a Taiko token deployment is the same
-     * as this chain's ID.
-     */
-    error TOKENVAULT_INVALID_TKO_CHAINID();
-
     /*//////////////////////////////////////////////////////////////
                          USER-FACING FUNCTIONS
     //////////////////////////////////////////////////////////////*/
