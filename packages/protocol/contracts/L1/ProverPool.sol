@@ -14,7 +14,6 @@ import { Proxied } from "../common/Proxied.sol";
 
 contract ProverPool is EssentialContract, IProverPool {
     using LibMath for uint256;
-    // 8 bytes or 1 uint64
 
     struct Prover {
         uint64 stakedAmount;
@@ -91,21 +90,26 @@ contract ProverPool is EssentialContract, IProverPool {
             uint256 totalWeight;
             Prover memory _prover;
 
-            for (uint32 i; i < MAX_NUM_PROVERS; ++i) {
-                _prover = provers[i + 1];
-                if (_prover.currentCapacity != 0) {
-                    // Keep the effective rewardPerGas in [75-125%] of feePerGas
-                    if (_prover.rewardPerGas > feePerGas * 125 / 100) {
-                        effectiveRewardPerGas[i] = feePerGas * 125 / 100;
-                    } else if (_prover.rewardPerGas < feePerGas * 75 / 100) {
-                        effectiveRewardPerGas[i] = feePerGas * 75 / 100;
-                    } else {
-                        effectiveRewardPerGas[i] = _prover.rewardPerGas;
+            if (feePerGas != 0) {
+                for (uint32 i; i < MAX_NUM_PROVERS; ++i) {
+                    _prover = provers[i + 1];
+
+                    if (_prover.currentCapacity != 0) {
+                        // Keep the effective rewardPerGas in [75-125%] of
+                        // feePerGas
+                        if (_prover.rewardPerGas > feePerGas * 125 / 100) {
+                            effectiveRewardPerGas[i] = feePerGas * 125 / 100;
+                        } else if (_prover.rewardPerGas < feePerGas * 75 / 100)
+                        {
+                            effectiveRewardPerGas[i] = feePerGas * 75 / 100;
+                        } else {
+                            effectiveRewardPerGas[i] = _prover.rewardPerGas;
+                        }
+                        weights[i] = _calcWeight(
+                            _prover.stakedAmount, effectiveRewardPerGas[i]
+                        );
+                        totalWeight += weights[i];
                     }
-                    weights[i] = _calcWeight(
-                        _prover.stakedAmount, effectiveRewardPerGas[i]
-                    );
-                    totalWeight += weights[i];
                 }
             }
 
@@ -368,8 +372,11 @@ contract ProverPool is EssentialContract, IProverPool {
         pure
         returns (uint64 weight)
     {
-        assert(rewardPerGas > 0);
         unchecked {
+            if (rewardPerGas == 0) {
+                return 0;
+            }
+
             weight = stakedAmount / rewardPerGas / rewardPerGas;
             if (weight == 0) {
                 weight = 1;
