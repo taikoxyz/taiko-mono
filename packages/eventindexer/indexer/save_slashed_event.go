@@ -54,6 +54,7 @@ func (svc *Service) saveSlashedEvent(
 		ChainID: chainID,
 		Event:   eventindexer.EventNameSlashed,
 		Address: event.Addr.Hex(),
+		Amount:  new(big.Int).SetUint64(event.Amount),
 	})
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.Save")
