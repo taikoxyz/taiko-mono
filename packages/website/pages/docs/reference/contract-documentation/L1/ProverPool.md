@@ -62,6 +62,12 @@ uint64 MIN_SLASH_AMOUNT
 uint256 MAX_NUM_PROVERS
 ```
 
+### MIN_CHANGE_DELAY
+
+```solidity
+uint256 MIN_CHANGE_DELAY
+```
+
 ### provers
 
 ```solidity
@@ -102,6 +108,12 @@ event Slashed(address addr, uint64 amount)
 
 ```solidity
 event Staked(address addr, uint64 amount, uint16 rewardPerGas, uint16 currentCapacity)
+```
+
+### CHANGE_TOO_FREQUENT
+
+```solidity
+error CHANGE_TOO_FREQUENT()
 ```
 
 ### INVALID_PARAMS

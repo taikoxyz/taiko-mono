@@ -37,10 +37,11 @@ contract ProverPool is EssentialContract, IProverPool {
     // provide a capacity of at least 3600/32=112.
     uint32 public constant MAX_CAPACITY_LOWER_BOUND = 128;
     uint64 public constant EXIT_PERIOD = 1 weeks;
-    uint32 public constant SLASH_POINTS = 500; // basis points
+    uint32 public constant SLASH_POINTS = 25; // basis points or 0.25%
     uint64 public constant MIN_STAKE_PER_CAPACITY = 10_000;
     uint64 public constant MIN_SLASH_AMOUNT = 1e8; // 1 token
     uint256 public constant MAX_NUM_PROVERS = 32;
+    uint256 public constant MIN_CHANGE_DELAY = 1 hours;
 
     // Reserve more slots than necessary
     Prover[1024] public provers; // provers[0] is never used
@@ -60,6 +61,7 @@ contract ProverPool is EssentialContract, IProverPool {
         uint16 currentCapacity
     );
 
+    error CHANGE_TOO_FREQUENT();
     error INVALID_PARAMS();
     error NO_MATURE_EXIT();
     error PROVER_NOT_GOOD_ENOUGH();
@@ -180,20 +182,18 @@ contract ProverPool is EssentialContract, IProverPool {
         // Withdraw first
         _withdraw(msg.sender);
         // Force this prover to fully exit
-        _exit(msg.sender);
+        _exit(msg.sender, true);
         // Then stake again
-        if (amount == 0) {
-            if (rewardPerGas != 0 || maxCapacity != 0) {
-                revert INVALID_PARAMS();
-            }
-        } else {
+        if (amount != 0) {
             _stake(msg.sender, amount, rewardPerGas, maxCapacity);
+        } else if (rewardPerGas != 0 || maxCapacity != 0) {
+            revert INVALID_PARAMS();
         }
     }
 
     function exit() external nonReentrant {
         _withdraw(msg.sender);
-        _exit(msg.sender);
+        _exit(msg.sender, true);
     }
 
     // Withdraws staked tokens back from matured an exit
@@ -289,7 +289,7 @@ contract ProverPool is EssentialContract, IProverPool {
         address replaced = idToProver[proverId];
         if (replaced != address(0)) {
             _withdraw(replaced);
-            _exit(replaced);
+            _exit(replaced, false);
         }
         idToProver[proverId] = addr;
         staker.proverId = proverId;
@@ -306,12 +306,19 @@ contract ProverPool is EssentialContract, IProverPool {
     }
 
     // Perform a full exit for the given address
-    function _exit(address addr) private {
+    function _exit(address addr, bool checkExitTimestamp) private {
         Staker storage staker = stakers[addr];
         if (staker.proverId == 0) return;
 
         Prover memory prover = provers[staker.proverId];
         if (prover.stakedAmount > 0) {
+            if (
+                checkExitTimestamp
+                    && block.timestamp <= staker.exitRequestedAt + MIN_CHANGE_DELAY
+            ) {
+                revert CHANGE_TOO_FREQUENT();
+            }
+
             staker.exitAmount += prover.stakedAmount;
             staker.exitRequestedAt = uint64(block.timestamp);
             staker.proverId = 0;
