@@ -28,14 +28,14 @@
   }
 </script>
 
-<div class="drawer md:drawer-open overflow-hidden">
+<div class="drawer mask md:drawer-open">
   <input id={drawerToggleId} type="checkbox" class="drawer-toggle" bind:this={drawerToggleElem} />
 
-  <div class="drawer-content">
+  <div class="drawer-content overflow-auto">
     <slot />
   </div>
 
-  <div class="drawer-side h-full">
+  <div class="drawer-side">
     <label for={drawerToggleId} class="drawer-overlay" />
 
     <!--
