@@ -21,11 +21,8 @@
     @apply sticky top-0;
   }
 
-  /* TODO: shadow color, vertical length and blur radius are hardcoded */
-  .hide-under-b {
-    /* primary-background[#0B101B => grey-900] */
-    @apply shadow-[0_5px_10px_0_#0B101B];
-    clip-path: inset(0px 0px -10px 0px);
+  .glassy-primary-background {
+    @apply bg-grey-900/60 backdrop-filter backdrop-blur-sm;
   }
 
   /* Flex shortcuts */

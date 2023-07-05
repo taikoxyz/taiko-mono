@@ -12,13 +12,12 @@
   class="
     sticky-top
     f-between-center
-    bg-primary-background
     z-10
     px-4
     py-[20px]
     border-b
     border-b-divider-border
-    hide-under-b
+    glassy-primary-background
     md:border-b-0
     md:px-10
     md:py-7
