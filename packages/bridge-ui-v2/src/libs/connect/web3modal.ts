@@ -58,9 +58,8 @@ export const web3modal = new Web3Modal(
       '--w3m-color-bg-2': 'var(--neutral-background)',
       // '--w3m-color-bg-3': '',
       '--w3m-color-overlay': 'var(--neutral-background)',
-      
     },
-    themeMode: localStorage.getItem('theme') as 'dark' | 'light' ?? 'dark',
+    themeMode: (localStorage.getItem('theme') as 'dark' | 'light') ?? 'dark',
   },
   ethereumClient,
 );
