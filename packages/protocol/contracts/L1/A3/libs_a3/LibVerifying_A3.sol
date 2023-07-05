@@ -12,11 +12,11 @@ import {LibTokenomics_A3} from "./LibTokenomics_A3.sol";
 import {LibUtils_A3} from "./LibUtils_A3.sol";
 import {SafeCastUpgradeable} from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {TaikoData_A3} from "../TaikoData_A3.sol";
+import {TaikoData} from "../../TaikoData.sol";
 
 library LibVerifying_A3 {
     using SafeCastUpgradeable for uint256;
-    using LibUtils_A3 for TaikoData_A3.State;
+    using LibUtils_A3 for TaikoData.State;
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash, uint64 reward);
 
@@ -25,8 +25,8 @@ library LibVerifying_A3 {
     error L1_INVALID_CONFIG();
 
     function init(
-        TaikoData_A3.State storage state,
-        TaikoData_A3.Config memory config,
+        TaikoData.State storage state,
+        TaikoData.Config_A3 memory config,
         bytes32 genesisBlockHash,
         uint64 initBlockFee,
         uint64 initProofTimeTarget,
@@ -57,12 +57,12 @@ library LibVerifying_A3 {
         state.adjustmentQuotient = adjustmentQuotient;
         state.numBlocks = 1;
 
-        TaikoData_A3.Block storage blk = state.blocks[0];
+        TaikoData.Block storage blk = state.blocks[0];
         blk.proposedAt = timeNow;
         blk.nextForkChoiceId = 2;
         blk.verifiedForkChoiceId = 1;
 
-        TaikoData_A3.ForkChoice storage fc = state.blocks[0].forkChoices[1];
+        TaikoData.ForkChoice storage fc = state.blocks[0].forkChoices[1];
         fc.blockHash = genesisBlockHash;
         fc.provenAt = timeNow;
 
@@ -70,13 +70,13 @@ library LibVerifying_A3 {
     }
 
     function verifyBlocks(
-        TaikoData_A3.State storage state,
-        TaikoData_A3.Config memory config,
+        TaikoData.State storage state,
+        TaikoData.Config_A3 memory config,
         AddressResolver resolver,
         uint256 maxBlocks
     ) internal {
         uint256 i = state.lastVerifiedBlockId;
-        TaikoData_A3.Block storage blk = state.blocks[i % config.ringBufferSize];
+        TaikoData.Block storage blk = state.blocks[i % config.ringBufferSize];
 
         uint256 fcId = blk.verifiedForkChoiceId;
         assert(fcId > 0);
@@ -98,7 +98,7 @@ library LibVerifying_A3 {
 
             if (fcId == 0) break;
 
-            TaikoData_A3.ForkChoice storage fc = blk.forkChoices[fcId];
+            TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
 
             if (fc.prover == address(0)) break;
 
@@ -138,9 +138,9 @@ library LibVerifying_A3 {
     }
 
     function _markBlockVerified(
-        TaikoData_A3.State storage state,
-        TaikoData_A3.Block storage blk,
-        TaikoData_A3.ForkChoice storage fc,
+        TaikoData.State storage state,
+        TaikoData.Block storage blk,
+        TaikoData.ForkChoice storage fc,
         uint24 fcId,
         address systemProver
     ) private {

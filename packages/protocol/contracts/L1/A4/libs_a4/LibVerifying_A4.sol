@@ -14,13 +14,13 @@ import {LibUtils_A4} from "./LibUtils_A4.sol";
 import {LibMath} from "../../../libs/LibMath.sol";
 import {SafeCastUpgradeable} from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {TaikoData_A4} from "../TaikoData_A4.sol";
+import {TaikoData} from "../../TaikoData.sol";
 import {TaikoToken} from "../../TaikoToken.sol";
 import {LibL2Consts} from "../../../L2/a4/LibL2Consts_A4.sol";
 
 library LibVerifying_A4 {
     using SafeCastUpgradeable for uint256;
-    using LibUtils_A4 for TaikoData_A4.State;
+    using LibUtils_A4 for TaikoData.State;
     using LibMath for uint256;
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash, uint64 reward);
@@ -30,8 +30,8 @@ library LibVerifying_A4 {
     error L1_INVALID_CONFIG();
 
     function init(
-        TaikoData_A4.State storage state,
-        TaikoData_A4.Config memory config,
+        TaikoData.State storage state,
+        TaikoData.Config_A3 memory config,
         bytes32 genesisBlockHash,
         uint32 initFeePerGas,
         uint16 initAvgProofDelay
@@ -68,13 +68,13 @@ library LibVerifying_A4 {
             state.avgProofDelay = initAvgProofDelay;
 
             // Init the genesis block
-            TaikoData_A4.Block storage blk = state.blocks[0];
+            TaikoData.Block storage blk = state.blocks[0];
             blk.nextForkChoiceId = 2;
             blk.verifiedForkChoiceId = 1;
             blk.proposedAt = timeNow;
 
             // Init the first fork choice
-            TaikoData_A4.ForkChoice storage fc = state.blocks[0].forkChoices[1];
+            TaikoData.ForkChoice storage fc = state.blocks[0].forkChoices[1];
             fc.blockHash = genesisBlockHash;
             fc.provenAt = timeNow;
         }
@@ -83,13 +83,13 @@ library LibVerifying_A4 {
     }
 
     function verifyBlocks(
-        TaikoData_A4.State storage state,
-        TaikoData_A4.Config memory config,
+        TaikoData.State storage state,
+        TaikoData.Config_A3 memory config,
         AddressResolver resolver,
         uint256 maxBlocks
     ) internal {
         uint256 i = state.lastVerifiedBlockId;
-        TaikoData_A4.Block storage blk = state.blocks[i % config.blockRingBufferSize];
+        TaikoData.Block storage blk = state.blocks[i % config.blockRingBufferSize];
 
         uint24 fcId = blk.verifiedForkChoiceId;
         assert(fcId > 0);
@@ -110,7 +110,7 @@ library LibVerifying_A4 {
             fcId = LibUtils_A4.getForkChoiceId(state, blk, blockHash, gasUsed);
             if (fcId == 0) break;
 
-            TaikoData_A4.ForkChoice memory fc = blk.forkChoices[fcId];
+            TaikoData.ForkChoice memory fc = blk.forkChoices[fcId];
             if (fc.prover == address(0)) break;
 
             uint256 proofRegularCooldown =
@@ -155,11 +155,11 @@ library LibVerifying_A4 {
     }
 
     function _verifyBlock(
-        TaikoData_A4.State storage state,
-        TaikoData_A4.Config memory config,
+        TaikoData.State storage state,
+        TaikoData.Config_A3 memory config,
         AddressResolver resolver,
-        TaikoData_A4.Block storage blk,
-        TaikoData_A4.ForkChoice memory fc,
+        TaikoData.Block storage blk,
+        TaikoData.ForkChoice memory fc,
         uint24 fcId
     ) private {
         // the actually mined L2 block's gasLimit is blk.gasLimit +

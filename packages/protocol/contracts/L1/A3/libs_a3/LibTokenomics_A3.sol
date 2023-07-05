@@ -10,7 +10,7 @@ import {AddressResolver} from "../../../common/AddressResolver.sol";
 import {LibMath} from "../../../libs/LibMath.sol";
 import {SafeCastUpgradeable} from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {TaikoData_A3} from "../TaikoData_A3.sol";
+import {TaikoData} from "../../TaikoData.sol";
 import {TaikoToken} from "../../TaikoToken.sol";
 import {LibFixedPointMath as Math} from "../../../thirdparty/LibFixedPointMath.sol";
 
@@ -20,7 +20,7 @@ library LibTokenomics_A3 {
     error L1_INSUFFICIENT_TOKEN();
 
     function withdrawTaikoToken(
-        TaikoData_A3.State storage state,
+        TaikoData.State storage state,
         AddressResolver resolver,
         uint256 amount
     ) internal {
@@ -35,7 +35,7 @@ library LibTokenomics_A3 {
     }
 
     function depositTaikoToken(
-        TaikoData_A3.State storage state,
+        TaikoData.State storage state,
         AddressResolver resolver,
         uint256 amount
     ) internal {
@@ -52,7 +52,7 @@ library LibTokenomics_A3 {
      * @param proofTime The actual proof time
      * @return reward The reward given for the block proof
      */
-    function getProofReward(TaikoData_A3.State storage state, uint64 proofTime)
+    function getProofReward(TaikoData.State storage state, uint64 proofTime)
         internal
         view
         returns (uint64)
@@ -86,7 +86,7 @@ library LibTokenomics_A3 {
      * @return newProofTimeIssued Accumulated proof time
      * @return blockFee New block fee
      */
-    function getNewBlockFeeAndProofTimeIssued(TaikoData_A3.State storage state, uint64 proofTime)
+    function getNewBlockFeeAndProofTimeIssued(TaikoData.State storage state, uint64 proofTime)
         internal
         view
         returns (uint64 newProofTimeIssued, uint64 blockFee)

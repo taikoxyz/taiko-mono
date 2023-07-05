@@ -6,7 +6,7 @@ import {console2} from "forge-std/console2.sol";
 import {AddressManager} from "../contracts/common/AddressManager.sol";
 import {LibEthDepositing_A3} from "../contracts/L1/A3/libs_a3/LibEthDepositing_A3.sol";
 import {TaikoConfig_A3} from "../contracts/L1/A3/TaikoConfig_A3.sol";
-import {TaikoData_A3} from "../contracts/L1/A3/TaikoData_A3.sol";
+import {TaikoData} from "../contracts/L1/TaikoData.sol";
 import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
 import {TaikoToken} from "../contracts/L1/TaikoToken.sol";
 import {SignalService} from "../contracts/signal/SignalService.sol";
@@ -14,7 +14,7 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {TaikoL1TestBase} from "./TaikoL1TestBase.t.sol";
 
 contract TaikoL1_NoCooldown is TaikoL1 {
-    function getConfig() public pure override returns (TaikoData_A3.Config memory config) {
+    function getConfig() public pure override returns (TaikoData.Config_A3 memory config) {
         config = TaikoConfig_A3.getConfig();
 
         config.txListCacheExpiry = 5 minutes;
@@ -54,7 +54,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (uint256 blockId = 1; blockId < conf.maxNumProposedBlocks * 10; blockId++) {
             printVariables("before propose");
-            TaikoData_A3.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             printVariables("after propose");
             mine(1);
 
@@ -80,7 +80,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (uint256 blockId = 1; blockId <= 2; blockId++) {
             printVariables("before propose");
-            TaikoData_A3.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1e10 + blockId);
@@ -105,7 +105,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (uint256 blockId = 1; blockId <= conf.maxNumProposedBlocks; blockId++) {
             printVariables("before propose");
-            TaikoData_A3.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1e10 + blockId);
@@ -149,7 +149,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         depositTaikoToken(Alice, 1e6 * 1e8, 100000 ether);
 
         proposeBlock(Alice, 1000000, 1024);
-        TaikoData_A3.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
         assertEq(meta.depositsProcessed.length, 0);
 
         uint256 count = conf.maxEthDepositsPerBlock;
@@ -196,7 +196,7 @@ contract TaikoL1Test is TaikoL1TestBase {
     function test_getCrossChainSignalRoot() external {
         uint256 iterationCnt = 10;
         // Declare here so that block prop/prove/verif. can be used in 1 place
-        TaikoData_A3.BlockMetadata memory meta;
+        TaikoData.BlockMetadata memory meta;
         bytes32 blockHash;
         bytes32 signalRoot;
         bytes32[] memory parentHashes = new bytes32[](iterationCnt);
@@ -284,7 +284,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         assertEq(L1.getStateVariables().nextEthDepositToProcess, 0); // The index / cursos of the next deposit
 
         // We shall invoke proposeBlock() because this is what will call the processDeposits()
-        TaikoData_A3.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
 
         // Expected:
         // 0x60386add6a400d9b23968e1239bd600d22d2eea4709246895c0e5d8f5ae49dc3  (pre

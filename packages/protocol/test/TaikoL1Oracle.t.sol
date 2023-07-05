@@ -6,7 +6,7 @@ import {console2} from "forge-std/console2.sol";
 import {AddressManager} from "../contracts/common/AddressManager.sol";
 import {LibUtils_A3} from "../contracts/L1/A3/libs_a3/LibUtils_A3.sol";
 import {TaikoConfig_A3} from "../contracts/L1/A3/TaikoConfig_A3.sol";
-import {TaikoData_A3} from "../contracts/L1/A3/TaikoData_A3.sol";
+import {TaikoData} from "../contracts/L1/TaikoData.sol";
 import {TaikoErrors} from "../contracts/L1/TaikoErrors.sol";
 import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
 import {TaikoToken} from "../contracts/L1/TaikoToken.sol";
@@ -15,7 +15,7 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {TaikoL1TestBase} from "./TaikoL1TestBase.t.sol";
 
 contract TaikoL1Oracle is TaikoL1 {
-    function getConfig() public pure override returns (TaikoData_A3.Config memory config) {
+    function getConfig() public pure override returns (TaikoData.Config_A3 memory config) {
         config = TaikoConfig_A3.getConfig();
 
         config.txListCacheExpiry = 5 minutes;
@@ -49,7 +49,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
         depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
 
-        TaikoData_A3.BlockMetadata memory meta = proposeBlock(Bob, 1000000, 1024);
+        TaikoData.BlockMetadata memory meta = proposeBlock(Bob, 1000000, 1024);
         proveBlock(
             Bob,
             Bob,
@@ -60,7 +60,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             bytes32(uint256(0x11)),
             bytes32(uint256(0x12))
         );
-        TaikoData_A3.BlockEvidence memory evidence = TaikoData_A3.BlockEvidence({
+        TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
             metaHash: LibUtils_A3.hashMetadata(meta),
             parentHash: GENESIS_BLOCK_HASH,
             blockHash: bytes32(uint256(0x11)),
@@ -79,7 +79,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
         vm.prank(Carol, Carol);
         L1.proveBlock(meta.id, abi.encode(evidence));
-        TaikoData_A3.ForkChoice memory fc = L1.getForkChoice(1, GENESIS_BLOCK_HASH, 10000);
+        TaikoData.ForkChoice memory fc = L1.getForkChoice(1, GENESIS_BLOCK_HASH, 10000);
 
         assertEq(fc.blockHash, bytes32(uint256(0x11)));
         assertEq(fc.signalRoot, bytes32(uint256(0x12)));
@@ -99,7 +99,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint256 blockId = 1;
-        TaikoData_A3.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
 
         for (uint256 i = 0; i < 5; ++i) {
             uint32 parentGasUsed = uint32(10000 + i);
@@ -118,7 +118,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             uint256 provenAt = block.timestamp;
 
-            TaikoData_A3.ForkChoice memory fc = L1.getForkChoice(blockId, parentHash, parentGasUsed);
+            TaikoData.ForkChoice memory fc = L1.getForkChoice(blockId, parentHash, parentGasUsed);
 
             if (i == 0) {
                 assertFalse(fc.key == 0);
@@ -168,7 +168,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint256 blockId = 1;
-        TaikoData_A3.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
 
         for (uint256 i = 0; i < 5; ++i) {
             uint32 parentGasUsed = uint32(10000 + i);
@@ -187,7 +187,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             uint256 provenAt = block.timestamp;
 
-            TaikoData_A3.ForkChoice memory fc = L1.getForkChoice(blockId, parentHash, parentGasUsed);
+            TaikoData.ForkChoice memory fc = L1.getForkChoice(blockId, parentHash, parentGasUsed);
 
             if (i == 0) {
                 assertFalse(fc.key == 0);
@@ -260,7 +260,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
         for (uint256 blockId = 1; blockId < conf.maxNumProposedBlocks * 10; blockId++) {
             printVariables("before propose");
-            TaikoData_A3.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             printVariables("after propose");
             mine(1);
 
@@ -302,7 +302,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         uint32 gasUsed = 1000000;
 
         for (uint256 blockId = 1; blockId < conf.maxNumProposedBlocks * 10; blockId++) {
-            TaikoData_A3.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             printVariables("after propose");
             mine(1);
 
@@ -351,7 +351,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         uint32 gasUsed = 1000000;
 
         for (uint256 blockId = 1; blockId < conf.maxNumProposedBlocks * 10; blockId++) {
-            TaikoData_A3.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             printVariables("after propose");
             mine(1);
 
@@ -404,7 +404,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         uint32 gasUsed = 1000000;
 
         for (uint256 blockId = 1; blockId < conf.maxNumProposedBlocks * 10; blockId++) {
-            TaikoData_A3.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             printVariables("after propose");
             mine(1);
 
@@ -469,7 +469,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         uint32 gasUsed = 1000000;
 
         for (uint256 blockId = 1; blockId < conf.maxNumProposedBlocks * 10; blockId++) {
-            TaikoData_A3.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             printVariables("after propose");
             mine(1);
 
@@ -508,7 +508,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         uint32 gasUsed = 1000000;
 
         for (uint256 blockId = 1; blockId < conf.maxNumProposedBlocks * 10; blockId++) {
-            TaikoData_A3.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             printVariables("after propose");
             mine(1);
 
@@ -539,7 +539,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             vm.warp(block.timestamp + 1 seconds);
             vm.warp(block.timestamp + 5 minutes);
 
-            TaikoData_A3.ForkChoice memory fc = L1.getForkChoice(blockId, parentHash, parentGasUsed);
+            TaikoData.ForkChoice memory fc = L1.getForkChoice(blockId, parentHash, parentGasUsed);
 
             if (realProof != 0) assertEq(fc.prover, Carol);
 
@@ -571,7 +571,7 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
         uint32 gasUsed = 1000000;
 
         for (uint256 blockId = 1; blockId < conf.maxNumProposedBlocks * 10; blockId++) {
-            TaikoData_A3.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             printVariables("after propose");
             mine(1);
 

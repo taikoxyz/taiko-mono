@@ -6,6 +6,7 @@
 
 pragma solidity ^0.8.20;
 
+// Unused, need to be merged with A4
 library TaikoData_A3 {
     struct Config {
         uint256 chainId;
@@ -67,7 +68,7 @@ library TaikoData_A3 {
         uint32 gasLimit;
         address beneficiary;
         address treasury;
-        TaikoData_A3.EthDeposit[] depositsProcessed;
+        TaikoData.EthDeposit[] depositsProcessed;
     }
 
     struct BlockEvidence {

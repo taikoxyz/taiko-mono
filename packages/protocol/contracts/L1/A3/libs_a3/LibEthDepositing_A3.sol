@@ -11,27 +11,27 @@ import {LibMath} from "../../../libs/LibMath.sol";
 import {AddressResolver} from "../../../common/AddressResolver.sol";
 import {SafeCastUpgradeable} from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {TaikoData_A3} from "../TaikoData_A3.sol";
+import {TaikoData} from "../../TaikoData.sol";
 
 library LibEthDepositing_A3 {
     using LibAddress for address;
     using LibMath for uint256;
     using SafeCastUpgradeable for uint256;
 
-    event EthDeposited(TaikoData_A3.EthDeposit deposit);
+    event EthDeposited(TaikoData.EthDeposit deposit);
 
     error L1_INVALID_ETH_DEPOSIT();
 
     function depositEtherToL2(
-        TaikoData_A3.State storage state,
-        TaikoData_A3.Config memory config,
+        TaikoData.State storage state,
+        TaikoData.Config_A3_A3 memory config,
         AddressResolver resolver
     ) internal {
         if (msg.value < config.minEthDepositAmount || msg.value > config.maxEthDepositAmount) {
             revert L1_INVALID_ETH_DEPOSIT();
         }
 
-        TaikoData_A3.EthDeposit memory deposit = TaikoData_A3.EthDeposit({
+        TaikoData.EthDeposit memory deposit = TaikoData.EthDeposit({
             recipient: msg.sender,
             amount: uint96(msg.value),
             id: uint64(state.ethDeposits.length)
@@ -48,12 +48,12 @@ library LibEthDepositing_A3 {
     }
 
     function processDeposits(
-        TaikoData_A3.State storage state,
-        TaikoData_A3.Config memory config,
+        TaikoData.State storage state,
+        TaikoData.Config_A3_A3 memory config,
         address beneficiary
-    ) internal returns (TaikoData_A3.EthDeposit[] memory depositsProcessed) {
+    ) internal returns (TaikoData.EthDeposit[] memory depositsProcessed) {
         // Allocate one extra slot for collecting fees on L2
-        depositsProcessed = new TaikoData_A3.EthDeposit[](
+        depositsProcessed = new TaikoData.EthDeposit[](
             config.maxEthDepositsPerBlock
         );
 
@@ -93,7 +93,7 @@ library LibEthDepositing_A3 {
 
                 // Fee collecting deposit
                 if (totalFee > 0) {
-                    TaikoData_A3.EthDeposit memory deposit = TaikoData_A3.EthDeposit({
+                    TaikoData.EthDeposit memory deposit = TaikoData.EthDeposit({
                         recipient: beneficiary,
                         amount: totalFee,
                         id: uint64(state.ethDeposits.length)
@@ -111,7 +111,7 @@ library LibEthDepositing_A3 {
         }
     }
 
-    function hashEthDeposits(TaikoData_A3.EthDeposit[] memory deposits)
+    function hashEthDeposits(TaikoData.EthDeposit[] memory deposits)
         internal
         pure
         returns (bytes32)

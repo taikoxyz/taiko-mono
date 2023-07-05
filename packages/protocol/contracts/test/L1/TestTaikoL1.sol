@@ -7,11 +7,11 @@
 pragma solidity ^0.8.20;
 
 import {TaikoL1} from "../../L1/TaikoL1.sol";
-import {TaikoData_A3} from "../../L1/A3/TaikoData_A3.sol";
+import {TaikoData} from "../../L1/TaikoData.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract TestTaikoL1 is TaikoL1 {
-    function getConfig() public pure override returns (TaikoData_A3.Config memory config) {
+    function getConfig() public pure override returns (TaikoData.Config_A3 memory config) {
         config.chainId = 167;
         // up to 2048 pending blocks
         config.maxNumProposedBlocks = 4;

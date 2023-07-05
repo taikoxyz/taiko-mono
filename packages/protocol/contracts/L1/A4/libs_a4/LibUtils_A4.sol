@@ -10,7 +10,7 @@ import {LibMath} from "../../../libs/LibMath.sol";
 import {LibEthDepositing_A4} from "./LibEthDepositing_A4.sol";
 import {SafeCastUpgradeable} from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {TaikoData_A4} from "../TaikoData_A4.sol";
+import {TaikoData} from "../../TaikoData.sol";
 
 library LibUtils_A4 {
     using LibMath for uint256;
@@ -18,18 +18,18 @@ library LibUtils_A4 {
     error L1_BLOCK_ID();
 
     function getL2ChainData(
-        TaikoData_A4.State storage state,
-        TaikoData_A4.Config memory config,
+        TaikoData.State storage state,
+        TaikoData.Config_A3 memory config,
         uint256 blockId
-    ) internal view returns (bool found, TaikoData_A4.Block storage blk) {
+    ) internal view returns (bool found, TaikoData.Block storage blk) {
         uint256 id = blockId == 0 ? state.lastVerifiedBlockId : blockId;
         blk = state.blocks[id % config.blockRingBufferSize];
         found = (blk.blockId == id && blk.verifiedForkChoiceId != 0);
     }
 
     function getForkChoiceId(
-        TaikoData_A4.State storage state,
-        TaikoData_A4.Block storage blk,
+        TaikoData.State storage state,
+        TaikoData.Block storage blk,
         bytes32 parentHash,
         uint32 parentGasUsed
     ) internal view returns (uint24 fcId) {
@@ -44,19 +44,19 @@ library LibUtils_A4 {
         }
     }
 
-    function getStateVariables(TaikoData_A4.State storage state)
+    function getStateVariables(TaikoData.State storage state)
         internal
         view
-        returns (TaikoData_A4.StateVariables memory)
+        returns (TaikoData.StateVariables memory)
     {
-        return TaikoData_A4.StateVariables({
+        return TaikoData.StateVariables({
             feePerGas: state.feePerGas,
             genesisHeight: state.genesisHeight,
             genesisTimestamp: state.genesisTimestamp,
             numBlocks: state.numBlocks,
             lastVerifiedBlockId: state.lastVerifiedBlockId,
             nextEthDepositToProcess: state.nextEthDepositToProcess,
-            numEthDeposits: state.numEthDeposits - state.nextEthDepositToProcess
+            numethDepositsRingBuffer: state.numethDepositsRingBuffer - state.nextEthDepositToProcess
         });
     }
 
@@ -73,7 +73,7 @@ library LibUtils_A4 {
     }
 
     /// @dev Hashing the block metadata.
-    function hashMetadata(TaikoData_A4.BlockMetadata memory meta)
+    function hashMetadata(TaikoData.BlockMetadata memory meta)
         internal
         pure
         returns (bytes32 hash)
@@ -85,7 +85,7 @@ library LibUtils_A4 {
 
         inputs[1] = uint256(meta.l1Hash);
         inputs[2] = uint256(meta.mixHash);
-        inputs[3] = uint256(LibEthDepositing_A4.hashEthDeposits(meta.depositsProcessed));
+        inputs[3] = uint256(LibEthDepositing_A4.hashethDepositsRingBuffer(meta.depositsProcessed));
         inputs[4] = uint256(meta.txListHash);
 
         inputs[5] = (uint256(meta.txListByteStart) << 232) | (uint256(meta.txListByteEnd) << 208) //

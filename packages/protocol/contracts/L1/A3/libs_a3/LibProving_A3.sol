@@ -9,11 +9,11 @@ pragma solidity ^0.8.20;
 import {AddressResolver} from "../../../common/AddressResolver.sol";
 import {LibMath} from "../../../libs/LibMath.sol";
 import {LibUtils_A3} from "./LibUtils_A3.sol";
-import {TaikoData_A3} from "../TaikoData_A3.sol";
+import {TaikoData} from "../../TaikoData.sol";
 
 library LibProving_A3 {
     using LibMath for uint256;
-    using LibUtils_A3 for TaikoData_A3.State;
+    using LibUtils_A3 for TaikoData.State;
 
     event BlockProven(
         uint256 indexed id,
@@ -38,11 +38,11 @@ library LibProving_A3 {
     error L1_SYSTEM_PROVER_PROHIBITED();
 
     function proveBlock(
-        TaikoData_A3.State storage state,
-        TaikoData_A3.Config memory config,
+        TaikoData.State storage state,
+        TaikoData.Config_A3 memory config,
         AddressResolver resolver,
         uint256 blockId,
-        TaikoData_A3.BlockEvidence memory evidence
+        TaikoData.BlockEvidence memory evidence
     ) internal {
         if (
             evidence.parentHash == 0 || evidence.blockHash == 0
@@ -54,7 +54,7 @@ library LibProving_A3 {
             revert L1_BLOCK_ID();
         }
 
-        TaikoData_A3.Block storage blk = state.blocks[blockId % config.ringBufferSize];
+        TaikoData.Block storage blk = state.blocks[blockId % config.ringBufferSize];
 
         // Check the metadata hash matches the proposed block's. This is
         // necessary to handle chain reorgs.
@@ -104,7 +104,7 @@ library LibProving_A3 {
             }
         }
 
-        TaikoData_A3.ForkChoice storage fc;
+        TaikoData.ForkChoice storage fc;
 
         uint256 fcId =
             LibUtils_A3.getForkChoiceId(state, blk, evidence.parentHash, evidence.parentGasUsed);
@@ -209,13 +209,13 @@ library LibProving_A3 {
     }
 
     function getForkChoice(
-        TaikoData_A3.State storage state,
-        TaikoData_A3.Config memory config,
+        TaikoData.State storage state,
+        TaikoData.Config_A3 memory config,
         uint256 blockId,
         bytes32 parentHash,
         uint32 parentGasUsed
-    ) internal view returns (TaikoData_A3.ForkChoice storage fc) {
-        TaikoData_A3.Block storage blk = state.blocks[blockId % config.ringBufferSize];
+    ) internal view returns (TaikoData.ForkChoice storage fc) {
+        TaikoData.Block storage blk = state.blocks[blockId % config.ringBufferSize];
         if (blk.blockId != blockId) revert L1_BLOCK_ID();
 
         uint256 fcId = LibUtils_A3.getForkChoiceId(state, blk, parentHash, parentGasUsed);

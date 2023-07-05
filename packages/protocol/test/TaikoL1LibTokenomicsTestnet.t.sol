@@ -6,7 +6,7 @@ import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 import {AddressManager} from "../contracts/common/AddressManager.sol";
 import {TaikoConfig_A3} from "../contracts/L1/A3/TaikoConfig_A3.sol";
-import {TaikoData_A3} from "../contracts/L1/A3/TaikoData_A3.sol";
+import {TaikoData} from "../contracts/L1/TaikoData.sol";
 import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
 import {TaikoToken} from "../contracts/L1/TaikoToken.sol";
 import {SignalService} from "../contracts/signal/SignalService.sol";
@@ -17,7 +17,7 @@ import {LibLn} from "./LibLn.sol";
 uint16 constant INITIAL_PROOF_TIME_TARGET = 120; //sec. Approx testnet scenario
 
 contract TaikoL1WithTestnetConfig is TaikoL1 {
-    function getConfig() public pure override returns (TaikoData_A3.Config memory config) {
+    function getConfig() public pure override returns (TaikoData.Config_A3 memory config) {
         config = TaikoConfig_A3.getConfig();
 
         config.txListCacheExpiry = 5 minutes;
@@ -68,7 +68,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         console2.log("Bob balance:", Bob_start_balance);
 
         for (uint256 blockId = 1; blockId < 10; blockId++) {
-            TaikoData_A3.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             uint64 proposedAt = uint64(block.timestamp);
             mine(blockId);
 
@@ -106,7 +106,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
 
         // Run another session with huge times
         for (uint256 blockId = 1; blockId < 10; blockId++) {
-            TaikoData_A3.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             uint64 proposedAt = uint64(block.timestamp);
             mine_huge();
 
@@ -138,7 +138,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         depositTaikoToken(Bob, 1e8 * 1e8, 100 ether);
         depositTaikoToken(Carol, 1e8 * 1e8, 100 ether);
 
-        TaikoData_A3.BlockMetadata[] memory metas = new TaikoData_A3.BlockMetadata[](
+        TaikoData.BlockMetadata[] memory metas = new TaikoData.BlockMetadata[](
             20
         );
         uint64[] memory proposedAtArr = new uint64[](20);
@@ -196,7 +196,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         // Run another iteration
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            TaikoData_A3.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             uint64 proposedAt = uint64(block.timestamp);
             printVariables("after propose");
             mine_proofTime();
@@ -242,7 +242,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         //parentHash = prove_with_increasing_time(parentHash, 10);
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            TaikoData_A3.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             uint64 proposedAt = uint64(block.timestamp);
             printVariables("after propose");
             mine(2);
@@ -287,7 +287,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
         depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
 
-        TaikoData_A3.BlockMetadata[] memory meta = new TaikoData_A3.BlockMetadata[](
+        TaikoData.BlockMetadata[] memory meta = new TaikoData.BlockMetadata[](
             30
         );
         uint64[] memory proposedAt = new uint64[](30);
@@ -355,7 +355,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
         depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
 
-        TaikoData_A3.BlockMetadata[] memory meta = new TaikoData_A3.BlockMetadata[](
+        TaikoData.BlockMetadata[] memory meta = new TaikoData.BlockMetadata[](
             20
         );
         uint64[] memory proposedAt = new uint64[](20);
@@ -433,7 +433,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         //parentHash = prove_with_increasing_time(parentHash, 10);
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            TaikoData_A3.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             uint64 proposedAt = uint64(block.timestamp);
             printVariables("after propose");
             mine(5);
@@ -478,7 +478,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         depositTaikoToken(Bob, 1e6 * 1e8, 100 ether);
         depositTaikoToken(Carol, 1e6 * 1e8, 100 ether);
 
-        TaikoData_A3.BlockMetadata[] memory meta = new TaikoData_A3.BlockMetadata[](
+        TaikoData.BlockMetadata[] memory meta = new TaikoData.BlockMetadata[](
             30
         );
         uint64[] memory proposedAt = new uint64[](30);
@@ -558,7 +558,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
 
         //parentHash = prove_with_increasing_time(parentHash, 10);
         for (uint256 blockId = 1; blockId < 10; blockId++) {
-            TaikoData_A3.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             printVariables("after propose");
             uint64 proposedAt = uint64(block.timestamp);
             mine(11 - blockId);
@@ -596,7 +596,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         // Run another session with huge times
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            TaikoData_A3.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             uint64 proposedAt = uint64(block.timestamp);
             printVariables("after propose");
             mine_proofTime();
@@ -627,7 +627,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         depositTaikoToken(Bob, 1e8 * 1e8, 100 ether);
         depositTaikoToken(Carol, 1e8 * 1e8, 100 ether);
 
-        TaikoData_A3.BlockMetadata[] memory metaArr = new TaikoData_A3.BlockMetadata[](20);
+        TaikoData.BlockMetadata[] memory metaArr = new TaikoData.BlockMetadata[](20);
         uint64[] memory proposedAtArr = new uint64[](20);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
@@ -684,7 +684,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         // Run another session with huge times
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            TaikoData_A3.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             uint64 proposedAt = uint64(block.timestamp);
             printVariables("after propose");
             mine_proofTime();
@@ -728,7 +728,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         //parentHash = prove_with_increasing_time(parentHash, 10);
         for (uint256 blockId = 1; blockId < 10; blockId++) {
             printVariables("before propose");
-            TaikoData_A3.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             uint64 proposedAt = uint64(block.timestamp);
             printVariables("after propose");
             mine_proofTime();
@@ -770,7 +770,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
         uint256 Bob_start_balance = L1.getTaikoTokenBalance(Bob);
 
         // Need constants here and in loop counter to avoid stack too deep error
-        TaikoData_A3.BlockMetadata[] memory meta = new TaikoData_A3.BlockMetadata[](
+        TaikoData.BlockMetadata[] memory meta = new TaikoData.BlockMetadata[](
             200
         );
         uint64[] memory proposedAt = new uint64[](200);
@@ -866,7 +866,7 @@ contract TaikoL1LibTokenomicsTestnet is TaikoL1TestBase {
             }
 
             printVariables("before propose");
-            TaikoData_A3.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1000000, 1024);
             uint64 proposedAt = uint64(block.timestamp);
             printVariables("after propose");
             mine(5);

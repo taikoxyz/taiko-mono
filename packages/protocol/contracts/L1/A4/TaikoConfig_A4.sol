@@ -6,11 +6,11 @@
 
 pragma solidity ^0.8.20;
 
-import {TaikoData_A4} from "./TaikoData_A4.sol";
+import {TaikoData} from "../TaikoData.sol";
 
 library TaikoConfig_A4 {
-    function getConfig() internal pure returns (TaikoData_A4.Config memory) {
-        return TaikoData_A4.Config({
+    function getConfig_A4() internal pure returns (TaikoData.Config_A4 memory) {
+        return TaikoData.Config_A4({
             // Group 1: general configs
             chainId: 167,
             relaySignalRoot: false,

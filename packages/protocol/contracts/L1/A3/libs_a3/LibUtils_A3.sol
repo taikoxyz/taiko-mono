@@ -10,7 +10,7 @@ import {LibMath} from "../../../libs/LibMath.sol";
 import {LibEthDepositing_A3} from "./LibEthDepositing_A3.sol";
 import {SafeCastUpgradeable} from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {TaikoData_A3} from "../TaikoData_A3.sol";
+import {TaikoData} from "../../TaikoData.sol";
 
 library LibUtils_A3 {
     using LibMath for uint256;
@@ -18,18 +18,18 @@ library LibUtils_A3 {
     error L1_BLOCK_ID();
 
     function getL2ChainData(
-        TaikoData_A3.State storage state,
-        TaikoData_A3.Config memory config,
+        TaikoData.State storage state,
+        TaikoData.Config_A3 memory config,
         uint256 blockId
-    ) internal view returns (bool found, TaikoData_A3.Block storage blk) {
+    ) internal view returns (bool found, TaikoData.Block storage blk) {
         uint256 id = blockId == 0 ? state.lastVerifiedBlockId : blockId;
         blk = state.blocks[id % config.ringBufferSize];
         found = (blk.blockId == id && blk.verifiedForkChoiceId != 0);
     }
 
     function getForkChoiceId(
-        TaikoData_A3.State storage state,
-        TaikoData_A3.Block storage blk,
+        TaikoData.State storage state,
+        TaikoData.Block storage blk,
         bytes32 parentHash,
         uint32 parentGasUsed
     ) internal view returns (uint256 fcId) {
@@ -44,12 +44,12 @@ library LibUtils_A3 {
         }
     }
 
-    function getStateVariables(TaikoData_A3.State storage state)
+    function getStateVariables(TaikoData.State storage state)
         internal
         view
-        returns (TaikoData_A3.StateVariables memory)
+        returns (TaikoData.StateVariables memory)
     {
-        return TaikoData_A3.StateVariables({
+        return TaikoData.StateVariables({
             blockFee: state.blockFee,
             accBlockFees: state.accBlockFees,
             genesisHeight: state.genesisHeight,
@@ -77,7 +77,7 @@ library LibUtils_A3 {
     }
 
     /// @dev Hashing the block metadata.
-    function hashMetadata(TaikoData_A3.BlockMetadata memory meta)
+    function hashMetadata(TaikoData.BlockMetadata memory meta)
         internal
         pure
         returns (bytes32 hash)

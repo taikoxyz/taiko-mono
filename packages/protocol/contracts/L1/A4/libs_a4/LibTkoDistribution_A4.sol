@@ -10,7 +10,7 @@ import {AddressResolver} from "../../../common/AddressResolver.sol";
 import {LibMath} from "../../../libs/LibMath.sol";
 import {SafeCastUpgradeable} from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {TaikoData_A4} from "../TaikoData_A4.sol";
+import {TaikoData} from "../../TaikoData.sol";
 import {TaikoToken} from "../../TaikoToken.sol";
 import {LibFixedPointMath as Math} from "../../../thirdparty/LibFixedPointMath.sol";
 
@@ -18,7 +18,7 @@ library LibTkoDistribution_A4 {
     error L1_INSUFFICIENT_TOKEN();
 
     function withdrawTaikoToken(
-        TaikoData_A4.State storage state,
+        TaikoData.State storage state,
         AddressResolver resolver,
         uint256 amount
     ) internal {
@@ -33,7 +33,7 @@ library LibTkoDistribution_A4 {
     }
 
     function depositTaikoToken(
-        TaikoData_A4.State storage state,
+        TaikoData.State storage state,
         AddressResolver resolver,
         uint256 amount
     ) internal {

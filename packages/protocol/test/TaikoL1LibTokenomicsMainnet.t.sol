@@ -6,7 +6,7 @@ import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 import {AddressManager} from "../contracts/common/AddressManager.sol";
 import {TaikoConfig_A3} from "../contracts/L1/A3/TaikoConfig_A3.sol";
-import {TaikoData_A3} from "../contracts/L1/A3/TaikoData_A3.sol";
+import {TaikoData} from "../contracts/L1/TaikoData.sol";
 import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
 import {TaikoToken} from "../contracts/L1/TaikoToken.sol";
 import {SignalService} from "../contracts/signal/SignalService.sol";
@@ -19,7 +19,7 @@ import {LibLn} from "./LibLn.sol";
 uint16 constant INITIAL_PROOF_TIME_TARGET = 2160; //sec. Approx mainnet scenario
 
 contract TaikoL1MainnetMockConfig is TaikoL1 {
-    function getConfig() public pure override returns (TaikoData_A3.Config memory config) {
+    function getConfig() public pure override returns (TaikoData.Config_A3 memory config) {
         config = TaikoConfig_A3.getConfig();
 
         config.txListCacheExpiry = 5 minutes;
@@ -79,7 +79,7 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase {
         // Can play to adjust
         proofTime = 179; // When proofs are coming, 179 means 1790 sec
 
-        TaikoData_A3.BlockMetadata[] memory meta = new TaikoData_A3.BlockMetadata[](
+        TaikoData.BlockMetadata[] memory meta = new TaikoData.BlockMetadata[](
             iterationCnt
         );
         uint64[] memory proposedAt = new uint64[](iterationCnt);
@@ -148,7 +148,7 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase {
         vm.pauseGasMetering();
         mine(1);
 
-        TaikoData_A3.BlockMetadata[] memory meta = new TaikoData_A3.BlockMetadata[](
+        TaikoData.BlockMetadata[] memory meta = new TaikoData.BlockMetadata[](
             iterationCnt
         );
         uint64[] memory proposedAt = new uint64[](iterationCnt);
@@ -218,7 +218,7 @@ contract TaikoL1LibTokenomicsMainnet is TaikoL1TestBase {
 
         proofTime = 181; // When proofs are coming, 181 means 1810 sec
 
-        TaikoData_A3.BlockMetadata[] memory meta = new TaikoData_A3.BlockMetadata[](
+        TaikoData.BlockMetadata[] memory meta = new TaikoData.BlockMetadata[](
             iterationCnt
         );
         uint64[] memory proposedAt = new uint64[](iterationCnt);

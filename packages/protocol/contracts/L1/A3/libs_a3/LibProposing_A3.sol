@@ -12,15 +12,15 @@ import {LibEthDepositing_A3} from "./LibEthDepositing_A3.sol";
 import {LibUtils_A3} from "./LibUtils_A3.sol";
 import {SafeCastUpgradeable} from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {TaikoData_A3} from "../TaikoData_A3.sol";
+import {TaikoData} from "../../TaikoData.sol";
 
 library LibProposing_A3 {
     using SafeCastUpgradeable for uint256;
     using LibAddress for address;
     using LibAddress for address payable;
-    using LibUtils_A3 for TaikoData_A3.State;
+    using LibUtils_A3 for TaikoData.State;
 
-    event BlockProposed(uint256 indexed id, TaikoData_A3.BlockMetadata meta, uint64 blockFee);
+    event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta, uint64 blockFee);
 
     error L1_BLOCK_ID();
     error L1_INSUFFICIENT_TOKEN();
@@ -32,17 +32,17 @@ library LibProposing_A3 {
     error L1_TX_LIST();
 
     function proposeBlock(
-        TaikoData_A3.State storage state,
-        TaikoData_A3.Config memory config,
+        TaikoData.State storage state,
+        TaikoData.Config_A3 memory config,
         AddressResolver resolver,
-        TaikoData_A3.BlockMetadataInput memory input,
+        TaikoData.BlockMetadataInput memory input,
         bytes calldata txList
-    ) internal returns (TaikoData_A3.BlockMetadata memory meta) {
+    ) internal returns (TaikoData.BlockMetadata memory meta) {
         uint8 cacheTxListInfo =
             _validateBlock({state: state, config: config, input: input, txList: txList});
 
         if (cacheTxListInfo != 0) {
-            state.txListInfo[input.txListHash] = TaikoData_A3.TxListInfo({
+            state.txListInfo[input.txListHash] = TaikoData.TxListInfo({
                 validSince: uint64(block.timestamp),
                 size: uint24(txList.length)
             });
@@ -70,7 +70,7 @@ library LibProposing_A3 {
             meta.mixHash = bytes32(block.difficulty * state.numBlocks);
         }
 
-        TaikoData_A3.Block storage blk = state.blocks[state.numBlocks % config.ringBufferSize];
+        TaikoData.Block storage blk = state.blocks[state.numBlocks % config.ringBufferSize];
 
         blk.blockId = state.numBlocks;
         blk.proposedAt = meta.timestamp;
@@ -97,18 +97,18 @@ library LibProposing_A3 {
     }
 
     function getBlock(
-        TaikoData_A3.State storage state,
-        TaikoData_A3.Config memory config,
+        TaikoData.State storage state,
+        TaikoData.Config_A3 memory config,
         uint256 blockId
-    ) internal view returns (TaikoData_A3.Block storage blk) {
+    ) internal view returns (TaikoData.Block storage blk) {
         blk = state.blocks[blockId % config.ringBufferSize];
         if (blk.blockId != blockId) revert L1_BLOCK_ID();
     }
 
     function _validateBlock(
-        TaikoData_A3.State storage state,
-        TaikoData_A3.Config memory config,
-        TaikoData_A3.BlockMetadataInput memory input,
+        TaikoData.State storage state,
+        TaikoData.Config_A3 memory config,
+        TaikoData.BlockMetadataInput memory input,
         bytes calldata txList
     ) private view returns (uint8 cacheTxListInfo) {
         if (
@@ -139,7 +139,7 @@ library LibProposing_A3 {
                 // caching is enabled
                 if (size == 0) {
                     // This blob shall have been submitted earlier
-                    TaikoData_A3.TxListInfo memory info = state.txListInfo[input.txListHash];
+                    TaikoData.TxListInfo memory info = state.txListInfo[input.txListHash];
 
                     if (input.txListByteEnd > info.size) {
                         revert L1_TX_LIST_RANGE();
