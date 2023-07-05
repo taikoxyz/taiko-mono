@@ -43,6 +43,7 @@ export const web3modal = new Web3Modal(
       '--w3m-text-big-bold-line-height': '24px',
 
       '--w3m-background-color': 'var(--neutral-background)',
+      '--w3m-overlay-background-color': 'var(--overlay-background)',
       '--w3m-background-border-radius': '20px',
       '--w3m-container-border-radius': '0',
 
@@ -53,9 +54,10 @@ export const web3modal = new Web3Modal(
       '--w3m-color-fg-1': 'var(--primary-content)',
       // '--w3m-color-fg-2': '',
       // '--w3m-color-fg-3': '',
-      // '--w3m-color-bg-1': '',
-      // '--w3m-color-bg-2': '',
+      '--w3m-color-bg-1': 'var(--primary-background)',
+      '--w3m-color-bg-2': 'var(--neutral-background)',
       // '--w3m-color-bg-3': '',
+      '--w3m-color-overlay': 'var(--neutral-background)',
       
     },
     themeMode: localStorage.getItem('theme') as 'dark' | 'light' ?? 'dark',
