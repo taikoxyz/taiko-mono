@@ -148,16 +148,6 @@
   },
   {
     "inputs": [],
-    "name": "L1_INVALID_PROOF_OVERWRITE",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_INVALID_PROOF_OVERWRITE",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "L1_NOT_BETTER_BID",
     "type": "error"
   },
@@ -1037,11 +1027,6 @@
             "internalType": "uint256",
             "name": "ethDepositMaxFee",
             "type": "uint256"
-          },
-          {
-            "internalType": "uint32",
-            "name": "rewardPerGasRange",
-            "type": "uint32"
           },
           {
             "internalType": "uint8",

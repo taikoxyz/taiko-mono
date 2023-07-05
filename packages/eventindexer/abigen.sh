@@ -5,9 +5,9 @@ if [ ! -d "../protocol/out" ]; then
     exit 1
 fi
 
-paths=("TaikoL1.sol")
+paths=("TaikoL1.sol" "ProverPool.sol")
 
-names=("TaikoL1")
+names=("TaikoL1" "ProverPool")
 
 for (( i = 0; i < ${#paths[@]}; ++i ));
 do

@@ -1,6 +1,11 @@
 [
   {
     "inputs": [],
+    "name": "CHANGE_TOO_FREQUENT",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "INVALID_PARAMS",
     "type": "error"
   },
@@ -145,15 +150,15 @@
       },
       {
         "indexed": false,
-        "internalType": "uint16",
+        "internalType": "uint32",
         "name": "rewardPerGas",
-        "type": "uint16"
+        "type": "uint32"
       },
       {
         "indexed": false,
-        "internalType": "uint16",
+        "internalType": "uint32",
         "name": "currentCapacity",
-        "type": "uint16"
+        "type": "uint32"
       }
     ],
     "name": "Staked",
@@ -219,6 +224,19 @@
   },
   {
     "inputs": [],
+    "name": "MIN_CHANGE_DELAY",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "MIN_SLASH_AMOUNT",
     "outputs": [
       {
@@ -248,9 +266,9 @@
     "name": "SLASH_POINTS",
     "outputs": [
       {
-        "internalType": "uint32",
+        "internalType": "uint64",
         "name": "",
-        "type": "uint32"
+        "type": "uint64"
       }
     ],
     "stateMutability": "view",
@@ -278,7 +296,7 @@
       },
       {
         "internalType": "uint32",
-        "name": "",
+        "name": "feePerGas",
         "type": "uint32"
       }
     ],
@@ -319,6 +337,30 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint32",
+        "name": "feePerGas",
+        "type": "uint32"
+      }
+    ],
+    "name": "getProverWeights",
+    "outputs": [
+      {
+        "internalType": "uint256[32]",
+        "name": "weights",
+        "type": "uint256[32]"
+      },
+      {
+        "internalType": "uint32[32]",
+        "name": "erpg",
+        "type": "uint32[32]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "getProvers",
     "outputs": [
@@ -330,19 +372,14 @@
             "type": "uint64"
           },
           {
-            "internalType": "uint16",
+            "internalType": "uint32",
             "name": "rewardPerGas",
-            "type": "uint16"
+            "type": "uint32"
           },
           {
-            "internalType": "uint16",
+            "internalType": "uint32",
             "name": "currentCapacity",
-            "type": "uint16"
-          },
-          {
-            "internalType": "uint64",
-            "name": "weight",
-            "type": "uint64"
+            "type": "uint32"
           }
         ],
         "internalType": "struct ProverPool.Prover[]",
@@ -381,14 +418,14 @@
             "type": "uint64"
           },
           {
-            "internalType": "uint16",
+            "internalType": "uint32",
             "name": "maxCapacity",
-            "type": "uint16"
+            "type": "uint32"
           },
           {
-            "internalType": "uint8",
+            "internalType": "uint32",
             "name": "proverId",
-            "type": "uint8"
+            "type": "uint32"
           }
         ],
         "internalType": "struct ProverPool.Staker",
@@ -403,43 +440,19 @@
             "type": "uint64"
           },
           {
-            "internalType": "uint16",
+            "internalType": "uint32",
             "name": "rewardPerGas",
-            "type": "uint16"
+            "type": "uint32"
           },
           {
-            "internalType": "uint16",
+            "internalType": "uint32",
             "name": "currentCapacity",
-            "type": "uint16"
-          },
-          {
-            "internalType": "uint64",
-            "name": "weight",
-            "type": "uint64"
+            "type": "uint32"
           }
         ],
         "internalType": "struct ProverPool.Prover",
         "name": "prover",
         "type": "tuple"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "id",
-        "type": "uint256"
-      }
-    ],
-    "name": "idToProver",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "prover",
-        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -475,6 +488,25 @@
     "inputs": [
       {
         "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      }
+    ],
+    "name": "proverIdToAddress",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "prover",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
         "name": "",
         "type": "uint256"
       }
@@ -487,19 +519,14 @@
         "type": "uint64"
       },
       {
-        "internalType": "uint16",
+        "internalType": "uint32",
         "name": "rewardPerGas",
-        "type": "uint16"
+        "type": "uint32"
       },
       {
-        "internalType": "uint16",
+        "internalType": "uint32",
         "name": "currentCapacity",
-        "type": "uint16"
-      },
-      {
-        "internalType": "uint64",
-        "name": "weight",
-        "type": "uint64"
+        "type": "uint32"
       }
     ],
     "stateMutability": "view",
@@ -612,14 +639,14 @@
         "type": "uint64"
       },
       {
-        "internalType": "uint16",
+        "internalType": "uint32",
         "name": "rewardPerGas",
-        "type": "uint16"
+        "type": "uint32"
       },
       {
-        "internalType": "uint16",
+        "internalType": "uint32",
         "name": "maxCapacity",
-        "type": "uint16"
+        "type": "uint32"
       }
     ],
     "name": "stake",
@@ -648,14 +675,14 @@
         "type": "uint64"
       },
       {
-        "internalType": "uint16",
+        "internalType": "uint32",
         "name": "maxCapacity",
-        "type": "uint16"
+        "type": "uint32"
       },
       {
-        "internalType": "uint8",
+        "internalType": "uint32",
         "name": "proverId",
-        "type": "uint8"
+        "type": "uint32"
       }
     ],
     "stateMutability": "view",

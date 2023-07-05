@@ -10,7 +10,7 @@ import (
 )
 
 type Prover struct {
-	CurrentCapacity uint16 `json:"currentCapacity"`
+	CurrentCapacity uint32 `json:"currentCapacity"`
 	Address         string `json:"address"`
 	AmountStaked    uint64 `json:"amountStaked"`
 }
