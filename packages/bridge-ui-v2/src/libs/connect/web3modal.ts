@@ -14,15 +14,32 @@ export const web3modal = new Web3Modal(
     projectId,
     // TODO: can we bring these vars into Tailwind theme?
     themeVariables: {
-      '--w3m-font-family': 'Public Sans, sans-serif',
+      '--w3m-font-family': '"Public Sans", sans-serif',
+      '--w3m-font-feature-settings': 'normal',
+
       '--w3m-accent-color': 'var(--primary-interactive)',
       '--w3m-accent-fill-color': 'var(--primary-content)',
+
       '--w3m-button-border-radius': '9999px',
 
-      // '--w3m-background-border-radius': '1.25rem',
-      // '--w3m-container-border-radius': '0rem',
-      
+      // Body small regular
+      '--w3m-text-small-regular-size': '0.875rem',
+      '--w3m-text-small-regular-weight': '400',
+      '--w3m-text-small-regular-line-height': '1.25rem',
+
+      // Body regular
+      '--w3m-text-medium-regular-size': '1rem',
+      '--w3m-text-medium-regular-weight': '400',
+      '--w3m-text-medium-regular-line-height': '1.5rem',
+
+      // Title body bold
+      '--w3m-text-big-bold-size': '1.125rem',
+      '--w3m-text-big-bold-weight': '700',
+      '--w3m-text-big-bold-line-height': '1.125rem',
+
       '--w3m-background-color': 'var(--neutral-background)',
+      '--w3m-background-border-radius': '1.25rem',
+      '--w3m-container-border-radius': '0rem',
 
       // TODO: customize the rest of the theme variables
 

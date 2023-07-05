@@ -6,19 +6,33 @@
   import { LogoWithText } from '$components/Logo';
   import { drawerToggleId } from '$components/SideNavigation';
   import { web3modal } from '$libs/connect';
+  import { onDestroy, onMount } from 'svelte';
+  import { Spinner } from '$components/Spinner';
 
-  let connectingWallet = false;
+  export let connected = false;
 
-  async function connectWallet() {
-    connectingWallet = true;
-    try {
-      await web3modal.openModal();
-    } catch (error) {
-      console.error(error);
-    } finally {
-      connectingWallet = false;
+  let web3modalOpen = false;
+  let unsubscribeWeb3Modal: () => void;
+
+  function connectWallet() {
+    web3modal.openModal();
+  }
+
+  function onWeb3Modal(state: { open: boolean }) {
+    if (state.open) {
+      web3modalOpen = true;
+    } else {
+      web3modalOpen = false;
     }
   }
+
+  onMount(() => {
+    unsubscribeWeb3Modal = web3modal.subscribeModal(onWeb3Modal);
+  });
+
+  onDestroy(() => {
+    unsubscribeWeb3Modal();
+  });
 </script>
 
 <header
@@ -38,17 +52,30 @@
   <LogoWithText class="w-[77px] h-[20px] md:hidden" />
 
   <div class="f-items-center justify-end space-x-[10px]">
-    <Button class="px-[20px] py-2 rounded-full" type="neutral" on:click={connectWallet}>
-      <Icon type="user-circle" class="md-show-block" />
-      <span class="body-small-regular">{$t('wallet.connect')}</span>
-    </Button>
+    <!-- 
+      We are gonna make use of Web3Modal core button when we are connected,
+      which comes with interesting features out of the box.
+      https://docs.walletconnect.com/2.0/web/web3modal/html/wagmi/components
+     -->
+    {#if connected}
+      <w3m-core-button balance="show" />
+    {:else}
+      <!-- TODO: fixing the width for English. i18n? -->
+      <Button class="px-[20px] py-2 rounded-full w-[215px]" type="neutral" on:click={connectWallet}>
+        <span class="body-regular f-items-center space-x-2">
+          {#if web3modalOpen}
+            <Spinner />
+            <span>{$t('wallet.status.connecting')}</span>
+          {:else}
+            <Icon type="user-circle" class="md-show-block" />
+            <span>{$t('wallet.connect')}</span>
+          {/if}
+        </span>
+      </Button>
+    {/if}
+
     <label for={drawerToggleId} class="md:hidden">
       <Icon type="bars-menu" />
     </label>
   </div>
-
-  {#if !connectingWallet}
-    <!-- TODO: think about the possibility of actually using w3m-core-button component -->
-    <w3m-core-button balance="show" />
-  {/if}
 </header>
