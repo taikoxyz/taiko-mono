@@ -205,10 +205,10 @@ function getCapacity() public view returns (uint256 capacity)
 function getProvers() public view returns (struct ProverPool.Prover[] _provers, address[] _stakers)
 ```
 
-### getWeights
+### getProverWeights
 
 ```solidity
-function getWeights(uint32 feePerGas) internal view returns (uint256[32] weights, uint32[32] erpg)
+function getProverWeights(uint32 feePerGas) public view returns (uint256[32] weights, uint32[32] erpg)
 ```
 
 ---
