@@ -40,7 +40,7 @@ uint64 EXIT_PERIOD
 ### SLASH_POINTS
 
 ```solidity
-uint32 SLASH_POINTS
+uint64 SLASH_POINTS
 ```
 
 ### MIN_STAKE_PER_CAPACITY
@@ -73,10 +73,10 @@ uint256 MIN_CHANGE_DELAY
 struct ProverPool.Prover[1024] provers
 ```
 
-### idToProver
+### proverIdToAddress
 
 ```solidity
-mapping(uint256 => address) idToProver
+mapping(uint256 => address) proverIdToAddress
 ```
 
 ### stakers
@@ -203,6 +203,12 @@ function getCapacity() public view returns (uint256 capacity)
 
 ```solidity
 function getProvers() public view returns (struct ProverPool.Prover[] _provers, address[] _stakers)
+```
+
+### getWeights
+
+```solidity
+function getWeights(uint32 feePerGas) internal view returns (uint256[32] weights, uint32[32] erpg)
 ```
 
 ---
