@@ -1,24 +1,50 @@
 <script lang="ts">
+  import { onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
 
   import { Button } from '$components/Button';
   import { Icon } from '$components/Icon';
   import { LogoWithText } from '$components/Logo';
   import { drawerToggleId } from '$components/SideNavigation';
+  import { Spinner } from '$components/Spinner';
   import { web3modal } from '$libs/connect';
+
+  export let connected = false;
+
+  let web3modalOpen = false;
+  let unsubscribeWeb3Modal: () => void;
+
+  function connectWallet() {
+    web3modal.openModal();
+  }
+
+  function onWeb3Modal(state: { open: boolean }) {
+    if (state.open) {
+      web3modalOpen = true;
+    } else {
+      web3modalOpen = false;
+    }
+  }
+
+  onMount(() => {
+    unsubscribeWeb3Modal = web3modal.subscribeModal(onWeb3Modal);
+  });
+
+  onDestroy(() => {
+    unsubscribeWeb3Modal();
+  });
 </script>
 
 <header
   class="
     sticky-top
     f-between-center
-    bg-primary-background
     z-10
     px-4
     py-[20px]
     border-b
     border-b-divider-border
-    hide-under-b
+    glassy-primary-background
     md:border-b-0
     md:px-10
     md:py-7
@@ -26,15 +52,30 @@
   <LogoWithText class="w-[77px] h-[20px] md:hidden" />
 
   <div class="f-items-center justify-end space-x-[10px]">
-    <Button class="px-[20px] py-2 rounded-full" type="neutral" on:click={() => web3modal.openModal()}>
-      <Icon type="user-circle" class="md-show-block" />
-      <span class="body-small-regular">{$t('wallet.connect')}</span>
-    </Button>
+    <!-- 
+      We are gonna make use of Web3Modal core button when we are connected,
+      which comes with interesting features out of the box.
+      https://docs.walletconnect.com/2.0/web/web3modal/html/wagmi/components
+     -->
+    {#if connected}
+      <w3m-core-button balance="show" />
+    {:else}
+      <!-- TODO: fixing the width for English. i18n? -->
+      <Button class="px-[20px] py-2 rounded-full w-[215px]" type="neutral" on:click={connectWallet}>
+        <span class="body-regular f-items-center space-x-2">
+          {#if web3modalOpen}
+            <Spinner />
+            <span>{$t('wallet.status.connecting')}</span>
+          {:else}
+            <Icon type="user-circle" class="md-show-block" />
+            <span>{$t('wallet.connect')}</span>
+          {/if}
+        </span>
+      </Button>
+    {/if}
+
     <label for={drawerToggleId} class="md:hidden">
       <Icon type="bars-menu" />
     </label>
   </div>
-
-  <!-- TODO: think about the possibility of actually using w3m-core-button component -->
-  <!-- <w3m-core-button balance="show" icon="hide" /> -->
 </header>

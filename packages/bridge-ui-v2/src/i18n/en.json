@@ -88,11 +88,11 @@
   },
 
   "wallet": {
-    "connect": "Connect Wallet",
+    "connect": "Connect wallet",
     "status": {
       "disconnected": "Disconnected",
       "connected": "Connected",
-      "connecting": "Connecting..."
+      "connecting": "Connecting"
     }
   }
 }

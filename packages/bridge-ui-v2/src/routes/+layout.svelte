@@ -7,13 +7,16 @@
   import { Header } from '$components/Header';
   import { SideNavigation } from '$components/SideNavigation';
   import { startWatching, stopWatching } from '$libs/wagmi';
+  import { account } from '$stores/account';
+
+  $: connected = Boolean($account?.isConnected);
 
   onMount(startWatching);
   onDestroy(stopWatching);
 </script>
 
 <SideNavigation>
-  <Header />
+  <Header {connected} />
   <main>
     <slot />
   </main>
