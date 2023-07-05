@@ -13,8 +13,8 @@ export const web3modal = new Web3Modal(
   {
     projectId,
     chainImages: {
-      [PUBLIC_L1_CHAIN_ID]: '/ethereum-chain.svg',
-      [PUBLIC_L2_CHAIN_ID]: '/taiko-chain.svg',
+      [PUBLIC_L1_CHAIN_ID]: '/ethereum-chain.png',
+      [PUBLIC_L2_CHAIN_ID]: '/taiko-chain.png',
     },
     // TODO: can we bring these vars into Tailwind theme?
     themeVariables: {
