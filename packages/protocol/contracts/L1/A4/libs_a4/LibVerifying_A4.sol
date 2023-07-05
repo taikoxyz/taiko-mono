@@ -18,7 +18,7 @@ import {TaikoData_A4} from "../TaikoData_A4.sol";
 import {TaikoToken} from "../../TaikoToken.sol";
 import {LibL2Consts} from "../../../L2/a4/LibL2Consts_A4.sol";
 
-library LibVerifying {
+library LibVerifying_A4 {
     using SafeCastUpgradeable for uint256;
     using LibUtils_A4 for TaikoData_A4.State;
     using LibMath for uint256;

@@ -11,14 +11,22 @@ import {EssentialContract} from "../common/EssentialContract.sol";
 import {ICrossChainSync} from "../common/ICrossChainSync.sol";
 import {Proxied} from "../common/Proxied.sol";
 import {LibEthDepositing_A3} from "./A3/libs_a3/LibEthDepositing_A3.sol";
+import {LibEthDepositing_A4} from "./A4/libs_a4/LibEthDepositing_A4.sol";
 import {LibTokenomics_A3} from "./A3/libs_a3/LibTokenomics_A3.sol";
+import {LibTkoDistribution_A4} from "./A4/libs_a4/LibTkoDistribution_A4.sol";
 import {LibProposing_A3} from "./A3/libs_a3/LibProposing_A3.sol";
+import {LibProposing_A4} from "./A4/libs_a4/LibProposing_A4.sol";
 import {LibProving_A3} from "./A3/libs_a3/LibProving_A3.sol";
+import {LibProving_A4} from "./A4/libs_a4/LibProving_A4.sol";
 import {LibUtils_A3} from "./A3/libs_a3/LibUtils_A3.sol";
+import {LibUtils_A4} from "./A4/libs_a4/LibUtils_A4.sol";
 import {LibVerifying_A3} from "./A3/libs_a3/LibVerifying_A3.sol";
+import {LibVerifying_A4} from "./A4/libs_a4/LibVerifying_A4.sol";
 import {TaikoConfig_A3} from "./A3/TaikoConfig_A3.sol";
+import {TaikoConfig_A4} from "./A4/TaikoConfig_A4.sol";
 import {TaikoErrors} from "./TaikoErrors.sol";
 import {TaikoData_A3} from "./A3/TaikoData_A3.sol";
+import {TaikoData_A4} from "./A4/TaikoData_A4.sol";
 import {TaikoEvents} from "./TaikoEvents.sol";
 
 /// @custom:security-contact hello@taiko.xyz
