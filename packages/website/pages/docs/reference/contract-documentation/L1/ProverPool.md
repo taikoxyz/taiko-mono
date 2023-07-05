@@ -9,9 +9,8 @@ title: ProverPool
 ```solidity
 struct Prover {
   uint64 stakedAmount;
-  uint16 rewardPerGas;
-  uint16 currentCapacity;
-  uint64 weight;
+  uint32 rewardPerGas;
+  uint32 currentCapacity;
 }
 ```
 
@@ -21,8 +20,8 @@ struct Prover {
 struct Staker {
   uint64 exitRequestedAt;
   uint64 exitAmount;
-  uint16 maxCapacity;
-  uint8 proverId;
+  uint32 maxCapacity;
+  uint32 proverId;
 }
 ```
 
@@ -41,7 +40,7 @@ uint64 EXIT_PERIOD
 ### SLASH_POINTS
 
 ```solidity
-uint32 SLASH_POINTS
+uint64 SLASH_POINTS
 ```
 
 ### MIN_STAKE_PER_CAPACITY
@@ -74,10 +73,10 @@ uint256 MIN_CHANGE_DELAY
 struct ProverPool.Prover[1024] provers
 ```
 
-### idToProver
+### proverIdToAddress
 
 ```solidity
-mapping(uint256 => address) idToProver
+mapping(uint256 => address) proverIdToAddress
 ```
 
 ### stakers
@@ -107,7 +106,7 @@ event Slashed(address addr, uint64 amount)
 ### Staked
 
 ```solidity
-event Staked(address addr, uint64 amount, uint16 rewardPerGas, uint16 currentCapacity)
+event Staked(address addr, uint64 amount, uint32 rewardPerGas, uint32 currentCapacity)
 ```
 
 ### CHANGE_TOO_FREQUENT
@@ -155,7 +154,7 @@ function init(address _addressManager) external
 ### assignProver
 
 ```solidity
-function assignProver(uint64 blockId, uint32) external returns (address prover, uint32 rewardPerGas)
+function assignProver(uint64 blockId, uint32 feePerGas) external returns (address prover, uint32 rewardPerGas)
 ```
 
 ### releaseProver
@@ -173,7 +172,7 @@ function slashProver(address addr) external
 ### stake
 
 ```solidity
-function stake(uint64 amount, uint16 rewardPerGas, uint16 maxCapacity) external
+function stake(uint64 amount, uint32 rewardPerGas, uint32 maxCapacity) external
 ```
 
 ### exit
@@ -204,6 +203,12 @@ function getCapacity() public view returns (uint256 capacity)
 
 ```solidity
 function getProvers() public view returns (struct ProverPool.Prover[] _provers, address[] _stakers)
+```
+
+### getProverWeights
+
+```solidity
+function getProverWeights(uint32 feePerGas) public view returns (uint256[32] weights, uint32[32] erpg)
 ```
 
 ---

@@ -122,18 +122,9 @@ library LibProposing {
             ++state.numOpenBlocks;
         } else {
             blk.assignedProver = assignedProver;
-
-            // Cap the reward to a range of [80%, 120%] * blk.feePerGas, if
-            // rewardPerGasRange is set to 20% (2000 bp)
-            uint32 diff = blk.feePerGas * config.rewardPerGasRange / 10_000;
-            blk.rewardPerGas = uint32(
-                uint256(rewardPerGas).min(state.feePerGas + diff).max(
-                    state.feePerGas - diff
-                )
-            );
-
+            blk.rewardPerGas = rewardPerGas;
             blk.proofWindow = uint16(
-                uint256(state.avgProofDelay * 3).min(config.proofMaxWindow).max(
+                uint256(state.avgProofDelay * 2).min(config.proofMaxWindow).max(
                     config.proofMinWindow
                 )
             );

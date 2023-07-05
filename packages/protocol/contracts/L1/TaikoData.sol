@@ -36,7 +36,6 @@ library TaikoData {
         uint256 ethDepositGas;
         uint256 ethDepositMaxFee;
         // Group 5: tokenomics
-        uint32 rewardPerGasRange;
         uint8 rewardOpenMultipler;
         uint256 rewardOpenMaxCount;
     }
