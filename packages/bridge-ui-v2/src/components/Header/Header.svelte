@@ -6,6 +6,19 @@
   import { LogoWithText } from '$components/Logo';
   import { drawerToggleId } from '$components/SideNavigation';
   import { web3modal } from '$libs/connect';
+
+  let connectingWallet = false;
+
+  async function connectWallet() {
+    connectingWallet = true;
+    try {
+      await web3modal.openModal();
+    } catch (error) {
+      console.error(error);
+    } finally {
+      connectingWallet = false;
+    }
+  }
 </script>
 
 <header
@@ -25,7 +38,7 @@
   <LogoWithText class="w-[77px] h-[20px] md:hidden" />
 
   <div class="f-items-center justify-end space-x-[10px]">
-    <Button class="px-[20px] py-2 rounded-full" type="neutral" on:click={() => web3modal.openModal()}>
+    <Button class="px-[20px] py-2 rounded-full" type="neutral" on:click={connectWallet}>
       <Icon type="user-circle" class="md-show-block" />
       <span class="body-small-regular">{$t('wallet.connect')}</span>
     </Button>
@@ -34,6 +47,8 @@
     </label>
   </div>
 
-  <!-- TODO: think about the possibility of actually using w3m-core-button component -->
-  <!-- <w3m-core-button balance="show" icon="hide" /> -->
+  {#if !connectingWallet}
+    <!-- TODO: think about the possibility of actually using w3m-core-button component -->
+    <w3m-core-button balance="show" />
+  {/if}
 </header>
