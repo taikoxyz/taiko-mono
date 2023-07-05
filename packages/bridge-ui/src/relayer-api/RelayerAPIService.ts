@@ -18,6 +18,7 @@ import type {
 } from '../domain/relayerApi';
 import type { BridgeTransaction } from '../domain/transaction';
 import { getLogger } from '../utils/logger';
+import { toBigNumber } from '../utils/toBigNumber';
 import { tokenVaults } from '../vault/tokenVaults';
 
 const log = getLogger('RelayerAPIService');
@@ -212,14 +213,12 @@ export class RelayerAPIService implements RelayerAPI {
           memo: tx.data.Message.Memo,
           owner: tx.data.Message.Owner,
           sender: tx.data.Message.Sender,
-          gasLimit: BigNumber.from(tx.data.Message.GasLimit.toString()),
-          callValue: BigNumber.from(tx.data.Message.CallValue.toString()),
+          gasLimit: toBigNumber(tx.data.Message.GasLimit),
+          callValue: toBigNumber(tx.data.Message.CallValue),
           srcChainId: tx.data.Message.SrcChainId,
           destChainId: tx.data.Message.DestChainId,
-          depositValue: BigNumber.from(tx.data.Message.DepositValue.toString()),
-          processingFee: BigNumber.from(
-            tx.data.Message.ProcessingFee.toString(),
-          ),
+          depositValue: toBigNumber(tx.data.Message.DepositValue),
+          processingFee: toBigNumber(tx.data.Message.ProcessingFee),
           refundAddress: tx.data.Message.RefundAddress,
         },
       };
