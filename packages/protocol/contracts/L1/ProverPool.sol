@@ -35,7 +35,7 @@ contract ProverPool is EssentialContract, IProverPool {
     // provide a capacity of at least 3600/32=112.
     uint32 public constant MAX_CAPACITY_LOWER_BOUND = 128;
     uint64 public constant EXIT_PERIOD = 1 weeks;
-    uint32 public constant SLASH_POINTS = 25; // basis points or 0.25%
+    uint64 public constant SLASH_POINTS = 25; // basis points or 0.25%
     uint64 public constant MIN_STAKE_PER_CAPACITY = 10_000;
     uint64 public constant MIN_SLASH_AMOUNT = 1e8; // 1 token
     uint256 public constant MAX_NUM_PROVERS = 32;
@@ -43,7 +43,7 @@ contract ProverPool is EssentialContract, IProverPool {
 
     // Reserve more slots than necessary
     Prover[1024] public provers; // provers[0] is never used
-    mapping(uint256 id => address prover) public idToProver;
+    mapping(uint256 id => address prover) public proverIdToAddress;
     // Save the weights only when: stake / unstaked / slashed
     mapping(address staker => Staker) public stakers;
 
@@ -85,53 +85,21 @@ contract ProverPool is EssentialContract, IProverPool {
         returns (address prover, uint32 rewardPerGas)
     {
         unchecked {
-            uint32[MAX_NUM_PROVERS] memory effectiveRewardPerGas;
-            uint256[MAX_NUM_PROVERS] memory weights;
-            uint256 totalWeight;
-            Prover memory _prover;
+            (
+                uint256[MAX_NUM_PROVERS] memory weights,
+                uint32[MAX_NUM_PROVERS] memory erpg
+            ) = getProverWeights(feePerGas);
 
-            if (feePerGas != 0) {
-                for (uint32 i; i < MAX_NUM_PROVERS; ++i) {
-                    _prover = provers[i + 1];
-
-                    if (_prover.currentCapacity != 0) {
-                        // Keep the effective rewardPerGas in [75-125%] of
-                        // feePerGas
-                        if (_prover.rewardPerGas > feePerGas * 125 / 100) {
-                            effectiveRewardPerGas[i] = feePerGas * 125 / 100;
-                        } else if (_prover.rewardPerGas < feePerGas * 75 / 100)
-                        {
-                            effectiveRewardPerGas[i] = feePerGas * 75 / 100;
-                        } else {
-                            effectiveRewardPerGas[i] = _prover.rewardPerGas;
-                        }
-                        weights[i] = _calcWeight(
-                            _prover.stakedAmount, effectiveRewardPerGas[i]
-                        );
-                        totalWeight += weights[i];
-                    }
-                }
-            }
-
-            if (totalWeight == 0) {
-                return (address(0), 0);
-            }
-
-            // Pick a prover using a pseudo random number
             bytes32 rand =
                 keccak256(abi.encode(blockhash(block.number - 1), blockId));
-            uint256 r = uint256(rand) % totalWeight + 1;
-            uint256 z;
-            uint32 id;
+            uint256 id = _selectProver(rand, weights);
 
-            while (z < r && id < MAX_NUM_PROVERS) {
-                z += weights[id++];
+            if (id == 0) {
+                return (address(0), 0);
+            } else {
+                provers[id].currentCapacity -= 1;
+                return (proverIdToAddress[id], erpg[id - 1]);
             }
-            assert(id > 0);
-            provers[id].currentCapacity -= 1;
-
-            // Note that prover ID is 1 bigger than its index
-            return (idToProver[id], effectiveRewardPerGas[id - 1]);
         }
     }
 
@@ -150,17 +118,16 @@ contract ProverPool is EssentialContract, IProverPool {
     // Slashes a prover
     function slashProver(address addr) external onlyFromProtocol {
         (Staker memory staker, Prover memory prover) = getStaker(addr);
-
-        // if the exit is mature, we do not count it in the total slash-able
-        // amount
-        uint256 slashableAmount = staker.exitRequestedAt > 0
-            && block.timestamp <= staker.exitRequestedAt + EXIT_PERIOD
-            ? prover.stakedAmount + staker.exitAmount
-            : prover.stakedAmount;
-
-        if (slashableAmount == 0) return;
-
         unchecked {
+            // if the exit is mature, we do not count it in the total slash-able
+            // amount
+            uint256 slashableAmount = staker.exitRequestedAt > 0
+                && block.timestamp <= staker.exitRequestedAt + EXIT_PERIOD
+                ? prover.stakedAmount + staker.exitAmount
+                : prover.stakedAmount;
+
+            if (slashableAmount == 0) return;
+
             uint64 amountToSlash = uint64(
                 (slashableAmount * SLASH_POINTS / 10_000).max(MIN_SLASH_AMOUNT)
                     .min(slashableAmount)
@@ -245,7 +212,34 @@ contract ProverPool is EssentialContract, IProverPool {
         _stakers = new address[](MAX_NUM_PROVERS);
         for (uint256 i; i < MAX_NUM_PROVERS; ++i) {
             _provers[i] = provers[i + 1];
-            _stakers[i] = idToProver[i + 1];
+            _stakers[i] = proverIdToAddress[i + 1];
+        }
+    }
+
+    function getProverWeights(uint32 feePerGas)
+        public
+        view
+        returns (
+            uint256[MAX_NUM_PROVERS] memory weights,
+            uint32[MAX_NUM_PROVERS] memory erpg
+        )
+    {
+        Prover memory _prover;
+        unchecked {
+            for (uint32 i; i < MAX_NUM_PROVERS; ++i) {
+                _prover = provers[i + 1];
+                if (_prover.currentCapacity != 0) {
+                    // Keep the effective rewardPerGas in [75-125%] of feePerGas
+                    if (_prover.rewardPerGas > feePerGas * 125 / 100) {
+                        erpg[i] = feePerGas * 125 / 100;
+                    } else if (_prover.rewardPerGas < feePerGas * 75 / 100) {
+                        erpg[i] = feePerGas * 75 / 100;
+                    } else {
+                        erpg[i] = _prover.rewardPerGas;
+                    }
+                    weights[i] = _calcWeight(_prover.stakedAmount, erpg[i]);
+                }
+            }
         }
     }
 
@@ -298,12 +292,12 @@ contract ProverPool is EssentialContract, IProverPool {
         }
 
         // Force the replaced prover to exit
-        address replaced = idToProver[proverId];
+        address replaced = proverIdToAddress[proverId];
         if (replaced != address(0)) {
             _withdraw(replaced);
             _exit(replaced, false);
         }
-        idToProver[proverId] = addr;
+        proverIdToAddress[proverId] = addr;
         staker.proverId = proverId;
 
         // Insert the prover in the top prover list
@@ -339,7 +333,7 @@ contract ProverPool is EssentialContract, IProverPool {
         // by keep rewardPerGas = 1
         provers[staker.proverId] = Prover(0, 1, 0);
 
-        delete idToProver[staker.proverId];
+        delete proverIdToAddress[staker.proverId];
 
         emit Exited(addr, staker.exitAmount);
     }
@@ -381,6 +375,33 @@ contract ProverPool is EssentialContract, IProverPool {
             if (weight == 0) {
                 weight = 1;
             }
+        }
+    }
+
+    function _selectProver(
+        bytes32 rand,
+        uint256[MAX_NUM_PROVERS] memory weights
+    )
+        private
+        pure
+        returns (uint256 proverId)
+    {
+        unchecked {
+            uint256 totalWeight;
+            for (uint256 i; i < MAX_NUM_PROVERS; ++i) {
+                totalWeight += weights[i];
+            }
+            if (totalWeight == 0) return 0;
+
+            uint256 r = uint256(rand) % totalWeight;
+            uint256 accumulatedWeight;
+            for (uint256 i; i < MAX_NUM_PROVERS; ++i) {
+                accumulatedWeight += weights[i];
+                if (r < accumulatedWeight) {
+                    return i + 1;
+                }
+            }
+            assert(false); // shall not reach here
         }
     }
 }
