@@ -1,7 +1,7 @@
 <script lang="ts">
   import { classNames } from '$libs/util/classNames';
 
-  $: classes = classNames(
+  const classes = classNames(
     'w-6 h-6',
     'animate-spin',
     'box-border inline-block',
