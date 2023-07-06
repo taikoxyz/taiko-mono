@@ -5240,7 +5240,7 @@ packages:
     dependencies:
       '@types/abstract-leveldown': 7.2.1
       '@types/level-errors': 3.0.0
-      '@types/node': 20.4.0
+      '@types/node': 12.20.55
     dev: true
 
   /@types/lru-cache@5.1.1:
