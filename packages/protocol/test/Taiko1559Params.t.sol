@@ -25,8 +25,8 @@ contract TestTaiko1559Params is Test {
         // https://ultrasound.money/
         uint64 ethereumBasefeeNow = 28_000_000_000; // 28Gwei
 
-        uint64 gasIssuedPerSecond =
-            (scaleFactor * ethereumBlockGasTarget) / ethereumBlockTime;
+        uint32 gasIssuedPerSecond =
+            uint32(scaleFactor * ethereumBlockGasTarget / ethereumBlockTime);
 
         // Tune this number manually so ratio2x1x is ~112.5%.
         uint64 maxSeconds = 7272;

@@ -18,7 +18,7 @@ struct VerifiedBlock {
 ```solidity
 struct EIP1559Params {
   uint64 basefee;
-  uint64 gasIssuedPerSecond;
+  uint32 gasIssuedPerSecond;
   uint64 gasExcessMax;
   uint64 gasTarget;
   uint64 ratio2x1x;
@@ -31,7 +31,7 @@ struct EIP1559Params {
 struct EIP1559Config {
   uint128 yscale;
   uint64 xscale;
-  uint64 gasIssuedPerSecond;
+  uint32 gasIssuedPerSecond;
 }
 ```
 
@@ -62,7 +62,7 @@ uint64 gasExcess
 ### Anchored
 
 ```solidity
-event Anchored(uint64 number, uint64 basefee, uint64 gaslimit, uint64 timestamp, bytes32 parentHash, uint256 prevrandao, address coinbase, uint32 chainid)
+event Anchored(uint64 number, uint64 basefee, uint32 gaslimit, uint64 timestamp, bytes32 parentHash, uint256 prevrandao, address coinbase, uint32 chainid)
 ```
 
 ### L2_BASEFEE_MISMATCH
@@ -101,16 +101,16 @@ error L2_PUBLIC_INPUT_HASH_MISMATCH(bytes32 expected, bytes32 actual)
 error L2_TOO_LATE()
 ```
 
-### M1559_UNEXPECTED_CHANGE
+### L2_1559_UNEXPECTED_CHANGE
 
 ```solidity
-error M1559_UNEXPECTED_CHANGE(uint64 expected, uint64 actual)
+error L2_1559_UNEXPECTED_CHANGE(uint64 expected, uint64 actual)
 ```
 
-### M1559_OUT_OF_STOCK
+### L2_1559_OUT_OF_STOCK
 
 ```solidity
-error M1559_OUT_OF_STOCK()
+error L2_1559_OUT_OF_STOCK()
 ```
 
 ### init
@@ -122,7 +122,7 @@ function init(address _addressManager, struct TaikoL2.EIP1559Params _param1559) 
 ### anchor
 
 ```solidity
-function anchor(bytes32 l1Hash, bytes32 l1SignalRoot, uint64 l1Height, uint64 parentGasUsed) external
+function anchor(bytes32 l1Hash, bytes32 l1SignalRoot, uint64 l1Height, uint32 parentGasUsed) external
 ```
 
 Persist the latest L1 block height and hash to L2 for cross-layer
@@ -145,12 +145,12 @@ This transaction shall be the first transaction in every L2 block.
 | l1Hash        | bytes32 | The latest L1 block hash when this block was proposed.    |
 | l1SignalRoot  | bytes32 | The latest value of the L1 "signal service storage root". |
 | l1Height      | uint64  | The latest L1 block height when this block was proposed.  |
-| parentGasUsed | uint64  | the gas used in the parent block.                         |
+| parentGasUsed | uint32  | the gas used in the parent block.                         |
 
 ### getBasefee
 
 ```solidity
-function getBasefee(uint32 timeSinceParent, uint64 gasLimit, uint64 parentGasUsed) public view returns (uint256 _basefee)
+function getBasefee(uint32 timeSinceParent, uint32 gasLimit, uint32 parentGasUsed) public view returns (uint256 _basefee)
 ```
 
 ### getCrossChainBlockHash
