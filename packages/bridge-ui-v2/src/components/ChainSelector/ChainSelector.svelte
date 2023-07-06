@@ -72,7 +72,7 @@
     </button>
   </div>
 
-  <dialog id={dialogId} class="modal" class:modal-open={modalOpen}>
+  <dialog id={dialogId} class="modal modal-bottom md:modal-middle" class:modal-open={modalOpen}>
     <div class="modal-box relative px-6 py-[21px] bg-primary-base-background text-primary-base-content">
       <button class="absolute right-6 top-[21px]" on:click={closeModal}>
         <Icon type="x-close" fillClass="fill-secondary-icon" />
