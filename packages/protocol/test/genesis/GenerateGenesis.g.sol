@@ -32,7 +32,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
     address private owner = configJSON.readAddress(".contractOwner");
     address private admin = configJSON.readAddress(".contractAdmin");
 
-    uint64 public constant BLOCK_GAS_LIMIT = 30_000_000;
+    uint32 public constant BLOCK_GAS_LIMIT = 30_000_000;
 
     function testContractDeployment() public {
         assertEq(block.chainid, 167);
@@ -94,7 +94,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         TaikoL2 taikoL2 = TaikoL2(getPredeployedContractAddress("TaikoL2Proxy"));
 
         vm.startPrank(taikoL2.GOLDEN_TOUCH_ADDRESS());
-        for (uint64 i = 0; i < 300; i++) {
+        for (uint32 i = 0; i < 300; i++) {
             vm.roll(block.number + 1);
             vm.warp(taikoL2.parentTimestamp() + 12);
             vm.fee(
