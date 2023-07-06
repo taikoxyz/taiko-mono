@@ -1,5 +1,5 @@
+import { configureChains, createConfig } from '@wagmi/core';
 import { w3mConnectors, w3mProvider } from '@web3modal/ethereum';
-import { configureChains, createConfig } from 'wagmi';
 
 import { PUBLIC_WALLETCONNECT_PROJECT_ID } from '$env/static/public';
 import { chains } from '$libs/chain';
