@@ -6,11 +6,12 @@
 
   import ListWithDetailsView from './ListWithDetailsView.svelte';
   import TableView from './TableView.svelte';
+  import { srcChain } from '$stores/network';
 </script>
 
 <Card class="md:min-w-[524px]" title={$t('activities.title')} text={$t('activities.subtitle')}>
   <div class="space-y-[35px]">
-    <ChainSelector label={$t('chain_selector.currently_on')} />
+    <ChainSelector label={$t('chain_selector.currently_on')} value={$srcChain} />
     <!-- Small size view  -->
     <div class="md:hidden">
       <ListWithDetailsView />

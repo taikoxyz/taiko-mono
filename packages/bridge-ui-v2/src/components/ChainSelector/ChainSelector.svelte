@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Chain } from '@wagmi/core';
+  import type { Chain, GetNetworkResult } from '@wagmi/core';
   import type { ComponentType } from 'svelte';
   import { noop, onDestroy } from 'svelte/internal';
   import { t } from 'svelte-i18n';
@@ -10,6 +10,7 @@
   import { uid } from '$libs/util/uid';
 
   export let label: string;
+  export let value: Maybe<GetNetworkResult['chain']> = null;
   export let onChange: (chain: Chain) => void = noop;
 
   let chainToIconMap: Record<string, ComponentType> = {
@@ -19,7 +20,6 @@
 
   let buttonId = `button-${uid()}`;
   let dialogId = `dialog-${uid()}`;
-  let selectedChain: Chain;
   let modalOpen = false;
 
   function closeModal() {
@@ -31,7 +31,7 @@
   }
 
   function selectChain(chain: Chain) {
-    selectedChain = chain;
+    value = chain;
     onChange?.(chain); // TODO: data binding? 🤔
     closeModal();
   }
@@ -59,14 +59,14 @@
       class="px-2 py-[6px] body-small-regular bg-neutral-background rounded-md min-w-[150px]"
       on:click={openModal}>
       <div class="f-items-center space-x-2">
-        {#if !selectedChain}
+        {#if !value}
           <span>{$t('chain_selector.placeholder')}…</span>
         {/if}
-        {#if selectedChain}
-          <i role="img" aria-label={selectedChain.name}>
-            <svelte:component this={chainToIconMap[selectedChain.id]} size={20} />
+        {#if value}
+          <i role="img" aria-label={value.name}>
+            <svelte:component this={chainToIconMap[value.id]} size={20} />
           </i>
-          <span>{selectedChain.name}</span>
+          <span>{value.name}</span>
         {/if}
       </div>
     </button>

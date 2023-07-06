@@ -10,13 +10,14 @@
   import { RecipientInput } from '$components/RecipientInput';
   import { TokenDropdown } from '$components/TokenDropdown';
   import { tokens } from '$libs/token';
+  import { srcChain, destChain } from '$stores/network';
 </script>
 
 <Card class="md:w-[524px]" title={$t('bridge.title')} text={$t('bridge.subtitle')}>
   <div class="space-y-[35px]">
     <div class="space-y-4">
       <div class="space-y-2">
-        <ChainSelector label={$t('chain.from')} />
+        <ChainSelector label={$t('chain.from')} value={$srcChain} />
         <TokenDropdown {tokens} />
       </div>
 
@@ -29,7 +30,7 @@
       </div>
 
       <div class="space-y-2">
-        <ChainSelector label={$t('chain.to')} />
+        <ChainSelector label={$t('chain.to')} value={$destChain} />
         <RecipientInput />
       </div>
     </div>
