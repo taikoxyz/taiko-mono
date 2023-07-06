@@ -8,31 +8,26 @@
   import { drawerToggleId } from '$components/SideNavigation';
   import { Spinner } from '$components/Spinner';
   import { web3modal } from '$libs/connect';
+  import { noop } from 'svelte/internal';
 
   export let connected = false;
 
   let web3modalOpen = false;
-  let unsubscribeWeb3Modal: () => void;
+  let unsubscribeWeb3Modal = noop;
 
   function connectWallet() {
     web3modal.openModal();
   }
 
   function onWeb3Modal(state: { open: boolean }) {
-    if (state.open) {
-      web3modalOpen = true;
-    } else {
-      web3modalOpen = false;
-    }
+    web3modalOpen = state.open;
   }
 
   onMount(() => {
     unsubscribeWeb3Modal = web3modal.subscribeModal(onWeb3Modal);
   });
 
-  onDestroy(() => {
-    unsubscribeWeb3Modal();
-  });
+  onDestroy(unsubscribeWeb3Modal);
 </script>
 
 <header
