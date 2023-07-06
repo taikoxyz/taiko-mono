@@ -225,7 +225,8 @@
         </div>
       </td>
       <td align="right">
-        <a class="link" href="https://etherscan.io/" target="_blank">{$t('activities.link.explorer')}</a>
+        <a class="link" href="https://etherscan.io/" target="_blank" rel="noreferrer"
+          >{$t('activities.link.explorer')}</a>
       </td>
     </tr>
   </tbody>

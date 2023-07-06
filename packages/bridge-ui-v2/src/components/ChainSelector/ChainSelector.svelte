@@ -1,8 +1,8 @@
 <script lang="ts">
+  import type { Chain } from '@wagmi/core';
   import type { ComponentType } from 'svelte';
   import { noop, onDestroy } from 'svelte/internal';
   import { t } from 'svelte-i18n';
-  import type { Chain } from 'wagmi';
 
   import { EthIcon, Icon, TaikoIcon } from '$components/Icon';
   import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID } from '$env/static/public';
