@@ -42,7 +42,7 @@
     closeMenu();
   }
 
-  function getTokenKeydownHandle(token: Token) {
+  function getTokenKeydownHandler(token: Token) {
     return (event: KeyboardEvent) => {
       if (event.key === 'Enter') {
         selectToken(token);
@@ -91,7 +91,7 @@
         tabindex="0"
         aria-selected={token === selectedToken}
         on:click={() => selectToken(token)}
-        on:keydown={getTokenKeydownHandle(token)}>
+        on:keydown={getTokenKeydownHandler(token)}>
         <div class="p-4">
           <i role="img" aria-label={token.name}>
             <svelte:component this={symbolToIconMap[token.symbol]} />
