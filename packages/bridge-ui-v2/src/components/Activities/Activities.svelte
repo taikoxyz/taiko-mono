@@ -3,10 +3,10 @@
 
   import { Card } from '$components/Card';
   import { ChainSelector } from '$components/ChainSelector';
+  import { srcChain } from '$stores/network';
 
   import ListWithDetailsView from './ListWithDetailsView.svelte';
   import TableView from './TableView.svelte';
-  import { srcChain } from '$stores/network';
 </script>
 
 <Card class="md:min-w-[524px]" title={$t('activities.title')} text={$t('activities.subtitle')}>
