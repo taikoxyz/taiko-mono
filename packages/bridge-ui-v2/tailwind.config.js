@@ -190,7 +190,7 @@ export default {
 
           '--secondary-brand': '#E81899', // pink-400
           '--secondary-content': '#ADB1B8', // grey-200
-          '--secondary-icon': '#444A55', // grey-600
+          '--secondary-icon': '#2B303B', // grey-700
           '--secondary-interactive-hover': '#2B303B', // grey-700
 
           '--tertiary-content': '#5D636F', // grey-500

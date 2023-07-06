@@ -24,8 +24,8 @@
       <AmountInput />
 
       <div class="f-justify-center">
-        <button>
-          <Icon type="up-down-circle" size={36} />
+        <button class="f-center rounded-full bg-secondary-icon w-[30px] h-[30px]">
+          <Icon type="up-down" />
         </button>
       </div>
 

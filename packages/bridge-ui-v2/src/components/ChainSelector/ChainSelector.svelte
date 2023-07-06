@@ -31,6 +31,8 @@
   }
 
   function selectChain(chain: Chain) {
+    if (chain === value) return;
+
     value = chain;
     onChange?.(chain); // TODO: data binding? 🤔
     closeModal();
@@ -56,7 +58,7 @@
       aria-haspopup="dialog"
       aria-controls={dialogId}
       aria-expanded={modalOpen}
-      class="px-2 py-[6px] body-small-regular bg-neutral-background rounded-md min-w-[150px]"
+      class="px-2 py-[6px] body-small-regular bg-neutral-background rounded-md"
       on:click={openModal}>
       <div class="f-items-center space-x-2">
         {#if !value}
@@ -83,6 +85,8 @@
           <li
             role="menuitem"
             tabindex="0"
+            class:opacity-50={chain === value}
+            aria-disabled={chain === value}
             on:click={() => selectChain(chain)}
             on:keydown={getChainKeydownHandler(chain)}>
             <!-- TODO: agree on hover:bg color -->
