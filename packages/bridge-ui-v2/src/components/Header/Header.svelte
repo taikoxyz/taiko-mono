@@ -53,7 +53,7 @@
       https://docs.walletconnect.com/2.0/web/web3modal/html/wagmi/components
      -->
     {#if connected}
-      <w3m-core-button balance="show" />
+      <w3m-core-button balance="show" class="subpixel-antialiased" />
     {:else}
       <!-- TODO: fixing the width for English. i18n? -->
       <Button class="px-[20px] py-2 rounded-full w-[215px]" type="neutral" on:click={connectWallet}>

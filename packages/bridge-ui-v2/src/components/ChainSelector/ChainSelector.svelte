@@ -62,7 +62,7 @@
       on:click={openModal}>
       <div class="f-items-center space-x-2">
         {#if !value}
-          <span>{$t('chain_selector.placeholder')}…</span>
+          <span>{$t('chain_selector.placeholder')}</span>
         {/if}
         {#if value}
           <i role="img" aria-label={value.name}>

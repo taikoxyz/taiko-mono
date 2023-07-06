@@ -143,9 +143,20 @@ export default {
           },
         },
 
-        'positive-sentiment': 'var(--positive-sentiment)',
-        'negative-sentiment': 'var(--negative-sentiment)',
-        'warning-sentiment': 'var(--warning-sentiment)',
+        positive: {
+          sentiment: 'var(--positive-sentiment)',
+          background: 'var(--positive-background)',
+        },
+
+        negative: {
+          sentiment: 'var(--negative-sentiment)',
+          background: 'var(--negative-background)',
+        },
+
+        warning: {
+          sentiment: 'var(--warning-sentiment)',
+          background: 'var(--warning-background)',
+        },
 
         'elevated-background': 'var(--elevated-background)',
         'neutral-background': 'var(--neutral-background)',
@@ -198,8 +209,13 @@ export default {
           '--tertiary-interactive-accent': '#5D636F', // grey-500
 
           '--positive-sentiment': '#47E0A0', // green-300
+          '--positive-background': '#00321D', // green-800
+
           '--negative-sentiment': '#F15C5D', // red-300
+          '--negative-background': '#440000', // red-800
+
           '--warning-sentiment': '#EBB222', // yellow-400
+          '--warning-background': '#382800', // yellow-800
 
           '--elevated-background': '#191E28', // grey-800
           '--neutral-background': '#2B303B', // grey-700
