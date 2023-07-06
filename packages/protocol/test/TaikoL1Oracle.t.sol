@@ -515,9 +515,9 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 signalRoot = bytes32(1e9 + blockId);
 
-            uint256 realProof = blockId % conf.realProofSkipSize;
+            bool realProof = blockId % conf.realProofSkipSize == 0;
 
-            if (realProof == 0) {
+            if (realProof) {
                 proveBlock(
                     Carol, Carol, meta, parentHash, parentGasUsed, gasUsed, blockHash, signalRoot
                 );
@@ -529,27 +529,18 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
 
             uint256 lastVerifiedBlockId = L1.getStateVariables().lastVerifiedBlockId;
 
-            // Carol could overwrite it
-            if (realProof != 0) {
+            // Carol could not  overwrite it
+
+            if (!realProof) {
+                vm.expectRevert(TaikoErrors.L1_ALREADY_PROVEN.selector);
                 proveBlock(
                     Carol, Carol, meta, parentHash, parentGasUsed, gasUsed, blockHash, signalRoot
                 );
             }
 
-            vm.warp(block.timestamp + 1 seconds);
-            vm.warp(block.timestamp + 5 minutes);
-
-            TaikoData.ForkChoice memory fc = L1.getForkChoice(blockId, parentHash, parentGasUsed);
-
-            if (realProof != 0) assertEq(fc.prover, Carol);
+            vm.warp(block.timestamp + 5 minutes + 1 seconds);
 
             verifyBlock(Carol, 1);
-
-            // Check if shortly after proving (+verify) the last verify is not the same anymore
-            // no need to have a cooldown period
-            uint256 lastVerifiedBlockIdNow = L1.getStateVariables().lastVerifiedBlockId;
-
-            assertFalse(lastVerifiedBlockIdNow == lastVerifiedBlockId);
 
             parentHash = blockHash;
             parentGasUsed = gasUsed;

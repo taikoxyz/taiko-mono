@@ -30,7 +30,6 @@ library LibProving {
     error L1_FORK_CHOICE_NOT_FOUND();
     error L1_INVALID_EVIDENCE();
     error L1_INVALID_PROOF();
-    error L1_INVALID_PROOF_OVERWRITE();
     error L1_NOT_SPECIAL_PROVER();
     error L1_ORACLE_PROVER_DISABLED();
     error L1_SAME_PROOF();
@@ -132,16 +131,7 @@ library LibProving {
                     && fc.gasUsed == evidence.gasUsed
             ) revert L1_SAME_PROOF();
         } else {
-            // This is the branch provers trying to overwrite
-            fc = blk.forkChoices[fcId];
-            if (fc.prover != address(0) && fc.prover != address(1)) {
-                revert L1_ALREADY_PROVEN();
-            }
-
-            if (
-                fc.blockHash != evidence.blockHash || fc.signalRoot != evidence.signalRoot
-                    || fc.gasUsed != evidence.gasUsed
-            ) revert L1_INVALID_PROOF_OVERWRITE();
+            revert L1_ALREADY_PROVEN();
         }
 
         fc.blockHash = evidence.blockHash;
