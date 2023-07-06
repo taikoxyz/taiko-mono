@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
+  import { noop } from 'svelte/internal';
   import { t } from 'svelte-i18n';
 
   import { Button } from '$components/Button';
@@ -8,7 +9,6 @@
   import { drawerToggleId } from '$components/SideNavigation';
   import { Spinner } from '$components/Spinner';
   import { web3modal } from '$libs/connect';
-  import { noop } from 'svelte/internal';
 
   export let connected = false;
 
