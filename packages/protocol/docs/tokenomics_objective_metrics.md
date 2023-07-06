@@ -1,9 +1,8 @@
-
 # Objective and Metrics in Tokenomics Design
 
 ## Objective
 
-The current tokenomics structure rewards the fastest prover, inadvertently promoting speed over cost-effectiveness. This contradicts Taiko's goal of delivering cost-efficient proofs. By shifting the incentives towards cost-effective proofs, we can dramatically decrease Taiko's overall Layer 2 (L2) expenses, thereby augmenting our competitive standing in the market.
+Taiko's goal is to promote cost-efficient proofs, which dramatically decreases Taiko's overall Layer 2 (L2) expenses, thereby augmenting our competitive standing in the market.
 
 ## Key Metrics
 
@@ -19,10 +18,10 @@ Based on the provided insights and inputs from Brecht and Hugo (zkpool), the fol
 
 1. **No Built-In PoS Reward**: To prevent being classified as a security, our tokenomics design should not offer tokens to stakers as rewards. A prover may establish a staking-based reward system allowing token holders to delegate their power, but this should not be considered as part of our tokenomics.
 
-1. **Immediate Proof Submission**: Provers should not be required to withhold their proofs and wait offline for the optimal submission moment. Introducing such a system would entail the development of additional infrastructure to store proofs and make strategic decisions regarding submission timings. This increased complexity compared to our competitors could discourage potential provers from participating. Therefore, our tokenomics should incentivize immediate proof submissions as soon as they are ready. This approach enables the system to accurately capture the actual time taken by each proof, facilitating automatic adjustment of relevant parameters.
-
 1. **Simplicity in Design**: Ensuring simplicity in the design of our tokenomics is of paramount importance. It is imperative for decision-makers and engineers within prover companies to easily comprehend the system. The design should encapsulate core concepts concisely and coherently, allowing for rapid understanding of the fundamental principles. This clarity facilitates efficient formulation of strategies and algorithms by provers, enhancing their system participation.
 
 1. **Minimal L1 Cost**: The complexity of the required code in the smart contracts/node is also an important factor to consider. Our tokenomics should strive to minimize the average additional cost per block on its base layer. Provers will likely impose higher fees on L2 to offset this cost, potentially leaving out transactions with lower fees.
+
+1. **Immediate Proof Submission**: Provers should not be required to withhold their proofs and wait offline for the optimal submission moment. Introducing such a system would entail the development of additional infrastructure to store proofs and make strategic decisions regarding submission timings. This increased complexity compared to our competitors could discourage potential provers from participating. Therefore, our tokenomics should incentivize immediate proof submissions as soon as they are ready. This approach enables the system to accurately capture the actual time taken by each proof, facilitating automatic adjustment of relevant parameters.
 
 The above comparison metrics should guide our discussions and prevent an overemphasis on subjective opinions.
