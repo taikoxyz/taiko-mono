@@ -1,8 +1,8 @@
 <script lang="ts">
+  import type { Chain } from '@wagmi/core';
   import type { ComponentType } from 'svelte';
   import { noop, onDestroy } from 'svelte/internal';
   import { t } from 'svelte-i18n';
-  import type { Chain } from 'wagmi';
 
   import { EthIcon, Icon, TaikoIcon } from '$components/Icon';
   import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID } from '$env/static/public';
@@ -36,10 +36,12 @@
     closeModal();
   }
 
-  function onChainKeydown(event: KeyboardEvent, chain: Chain) {
-    if (event.key === 'Enter') {
-      selectChain(chain);
-    }
+  function getChainKeydownHandler(chain: Chain) {
+    return (event: KeyboardEvent) => {
+      if (event.key === 'Enter') {
+        selectChain(chain);
+      }
+    };
   }
 
   onDestroy(closeModal);
@@ -82,7 +84,7 @@
             role="menuitem"
             tabindex="0"
             on:click={() => selectChain(chain)}
-            on:keydown={(event) => onChainKeydown(event, chain)}>
+            on:keydown={getChainKeydownHandler(chain)}>
             <!-- TODO: agree on hover:bg color -->
             <div class="f-row justify-between hover:text-primary-base-content hover:bg-grey-10">
               <div class="f-items-center space-x-4">

@@ -215,7 +215,8 @@
         </li>
         <li class="f-between-center">
           <h4 class="text-secondary-content">{$t('activities.header.explorer')}</h4>
-          <a class="link" href="https://etherscan.io/" target="_blank">{$t('activities.link.explorer')}</a>
+          <a class="link" href="https://etherscan.io/" target="_blank" rel="noreferrer"
+            >{$t('activities.link.explorer')}</a>
         </li>
       </ul>
     </div>
