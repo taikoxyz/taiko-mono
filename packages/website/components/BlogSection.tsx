@@ -1,5 +1,20 @@
 const posts = [
   {
+    title: "ZK-Roller-Coaster #8",
+    href: "https://taiko.mirror.xyz/tOUCZgLRV9bKH24bxhahISpdhkQmqVyM-ZX-wMWtqkI",
+    description:
+      "This is the 8th edition of ZK-Roller-Coaster where we track and investigate the most exciting, meaningful, and crazy ZK-stuff of the prior two weeks.",
+    date: "Jul 04, 2023",
+    datetime: "2023-07-04",
+    imageUrl:
+      "https://mirror-media.imgix.net/publication-images/3cfm8O9yVJ8aszk8bQ700.png?height=1536&width=3072&h=1536&w=3072&auto=compress",
+    readingTime: "4 min",
+    author: {
+      name: "Lisa A.",
+      imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",
+    },
+  },
+  {
     title: "ZK-Roller-Coaster #7",
     href: "https://taiko.mirror.xyz/6WL5I2lbpYxOjhU82eUOyUvYa0yF2_rekI0f7cBrGxw",
     description:
@@ -24,22 +39,6 @@ const posts = [
     imageUrl:
       "https://mirror-media.imgix.net/publication-images/Qgm0gbwbCQnU8bm5Y1dGB.png?height=512&width=1024&h=512&w=1024&auto=compress",
     readingTime: "15 min",
-    author: {
-      name: "Lisa A.",
-      imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",
-    },
-  },
-  {
-    title:
-      "Taiko Labs raises $22 million in funding to build an Ethereum-equivalent (Type 1) ZK-EVM",
-    href: "https://taiko.mirror.xyz/THTEOFtqE6pjDre5_Tzn04S0mjr7vCoMt5Y-uozfNv8",
-    description:
-      "We are thrilled to announce that we have raised $22 million across two funding rounds and launched our latest testnet (Alpha-3) in our mission to build a decentralized and Ethereum-equivalent (Type 1) ZK-EVM.",
-    date: "Jun 08, 2023",
-    datetime: "2023-06-08",
-    imageUrl:
-      "https://mirror-media.imgix.net/publication-images/N0UlPJZrY7oBrK3d4XovR.png?height=1600&width=3200&h=1600&w=3200&auto=compress",
-    readingTime: "3 min",
     author: {
       name: "Lisa A.",
       imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",

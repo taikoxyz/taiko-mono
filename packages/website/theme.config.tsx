@@ -52,10 +52,11 @@ export default {
   },
   logo: <ThemedImage />,
   navbar: {
-    extraContent:
-  <>
-    <ThemeToggle />
-  </>,
+    extraContent: (
+      <>
+        <ThemeToggle />
+      </>
+    ),
   },
   nextThemes: {
     defaultTheme: "light",

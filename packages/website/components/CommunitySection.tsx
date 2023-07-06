@@ -1,4 +1,8 @@
 export default function CommunitySection() {
+  // Button base class
+  const buttonClass =
+    "inline-flex items-center justify-center float w-64 px-4 md:px-6 py-2 md:py-3 mb-4 mx-2 text-base md:text-lg font-semibold text-white rounded-md shadow-md";
+
   return (
     <div className="bg-white dark:bg-neutral-900">
       <div className="mx-auto max-w-7xl py-12 px-4 text-center sm:px-6 lg:py-16 lg:px-8">
@@ -10,27 +14,35 @@ export default function CommunitySection() {
             <div className="flex flex-wrap justify-center">
               <a
                 href="https://github.com/taikoxyz/taiko-mono/blob/main/CONTRIBUTING.md"
-                target={"_blank"}
-                rel={"noreferrer"}
-                className="inline-flex items-center justify-center w-64 md:w-72 px-4 md:px-6 py-2 md:py-3 mb-4 mx-2 text-base md:text-lg font-semibold text-white bg-neutral-800 hover:bg-neutral-900 dark:bg-neutral-700 dark:hover:bg-neutral-800 rounded-md shadow-md"
+                target="_blank"
+                rel="noreferrer"
+                className={`${buttonClass} bg-[#404040] hover:bg-[#3a3a3a]`}
               >
-                Contribute to Taiko &#8599;
+                Contribute to Taiko
               </a>
               <a
                 href="https://discord.gg/taikoxyz"
-                target={"_blank"}
-                rel={"noreferrer"}
-                className="inline-flex items-center justify-center w-64 md:w-72 px-4 md:px-6 py-2 md:py-3 mb-4 mx-2 text-base md:text-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-md shadow-md"
+                target="_blank"
+                rel="noreferrer"
+                className={`${buttonClass} bg-[#5865f2] hover:bg-[#4f5bda]`}
               >
-                Join the Discord &#8599;
+                Join the Discord
+              </a>
+              <a
+                href="https://twitter.com/taikoxyz"
+                target="_blank"
+                rel="noreferrer"
+                className={`${buttonClass} bg-[#00acee] hover:bg-[#009bd6]`}
+              >
+                Follow on Twitter
               </a>
               <a
                 href="https://taikoxyz.notion.site/Taiko-Jobs-828fd7232d2c4150a11e10c8baa910a2"
-                target={"_blank"}
-                rel={"noreferrer"}
-                className="inline-flex items-center justify-center w-64 md:w-72 px-4 md:px-6 py-2 md:py-3 mb-4 mx-2 text-base md:text-lg font-semibold text-white bg-[#e81899] hover:bg-[#d1168a] dark:hover:bg-[#ea2fa3] rounded-md shadow-md"
+                target="_blank"
+                rel="noreferrer"
+                className={`${buttonClass} bg-[#e81899] hover:bg-[#d1168a]`}
               >
-                Explore open positions &#8599;
+                Explore open positions
               </a>
             </div>
           </div>
