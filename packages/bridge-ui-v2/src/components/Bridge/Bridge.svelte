@@ -10,7 +10,7 @@
   import { RecipientInput } from '$components/RecipientInput';
   import { TokenDropdown } from '$components/TokenDropdown';
   import { tokens } from '$libs/token';
-  import { destChain,srcChain } from '$stores/network';
+  import { destChain, srcChain } from '$stores/network';
 </script>
 
 <Card class="md:w-[524px]" title={$t('bridge.title')} text={$t('bridge.subtitle')}>
