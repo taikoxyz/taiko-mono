@@ -280,8 +280,8 @@ importers:
         specifier: ^3.54.0
         version: 3.54.0
       svelte-check:
-        specifier: ^3.0.1
-        version: 3.0.1(postcss@8.4.24)(svelte@3.54.0)
+        specifier: ^3.4.4
+        version: 3.4.4(postcss@8.4.24)(svelte@3.54.0)
       tailwindcss:
         specifier: ^3.3.2
         version: 3.3.2
@@ -21498,11 +21498,11 @@ packages:
       - sugarss
     dev: true
 
-  /svelte-check@3.0.1(postcss@8.4.24)(svelte@3.54.0):
-    resolution: {integrity: sha512-7YpHYWv6V2qhcvVeAlXixUPAlpLCXB1nZEQK0EItB3PtuYmENhKclbc5uKSJTodTwWR1y+4stKGcbH30k6A3Yw==}
+  /svelte-check@3.4.4(postcss@8.4.24)(svelte@3.54.0):
+    resolution: {integrity: sha512-Uys9+R65cj8TmP8f5UpS7B2xKpNLYNxEWJsA5ZoKcWq/uwvABFF7xS6iPQGLoa7hxz0DS6xU60YFpmq06E4JxA==}
     hasBin: true
     peerDependencies:
-      svelte: ^3.55.0
+      svelte: ^3.55.0 || ^4.0.0-next.0 || ^4.0.0
     dependencies:
       '@jridgewell/trace-mapping': 0.3.18
       chokidar: 3.5.3
@@ -21511,8 +21511,8 @@ packages:
       picocolors: 1.0.0
       sade: 1.8.1
       svelte: 3.54.0
-      svelte-preprocess: 5.0.4(postcss@8.4.24)(svelte@3.54.0)(typescript@4.9.5)
-      typescript: 4.9.5
+      svelte-preprocess: 5.0.4(postcss@8.4.24)(svelte@3.54.0)(typescript@5.1.6)
+      typescript: 5.1.6
     transitivePeerDependencies:
       - '@babel/core'
       - coffeescript
@@ -21658,7 +21658,7 @@ packages:
       typescript: 4.9.5
     dev: true
 
-  /svelte-preprocess@5.0.4(postcss@8.4.24)(svelte@3.54.0)(typescript@4.9.5):
+  /svelte-preprocess@5.0.4(postcss@8.4.24)(svelte@3.54.0)(typescript@5.1.6):
     resolution: {integrity: sha512-ABia2QegosxOGsVlsSBJvoWeXy1wUKSfF7SWJdTjLAbx/Y3SrVevvvbFNQqrSJw89+lNSsM58SipmZJ5SRi5iw==}
     engines: {node: '>= 14.10.0'}
     requiresBuild: true
@@ -21703,7 +21703,7 @@ packages:
       sorcery: 0.11.0
       strip-indent: 3.0.0
       svelte: 3.54.0
-      typescript: 4.9.5
+      typescript: 5.1.6
     dev: true
 
   /svelte-spa-router@3.2.0:

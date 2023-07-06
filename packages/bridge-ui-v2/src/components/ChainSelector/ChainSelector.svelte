@@ -36,10 +36,12 @@
     closeModal();
   }
 
-  function onChainKeydown(event: KeyboardEvent, chain: Chain) {
-    if (event.key === 'Enter') {
-      selectChain(chain);
-    }
+  function getChainKeydownHandle(chain: Chain) {
+    return (event: KeyboardEvent) => {
+      if (event.key === 'Enter') {
+        selectChain(chain);
+      }
+    };
   }
 
   onDestroy(closeModal);
@@ -82,7 +84,7 @@
             role="menuitem"
             tabindex="0"
             on:click={() => selectChain(chain)}
-            on:keydown={(event) => onChainKeydown(event, chain)}>
+            on:keydown={getChainKeydownHandle(chain)}>
             <!-- TODO: agree on hover:bg color -->
             <div class="f-row justify-between hover:text-primary-base-content hover:bg-grey-10">
               <div class="f-items-center space-x-4">
