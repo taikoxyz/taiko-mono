@@ -1,41 +1,37 @@
 <script lang="ts" context="module">
   import { toast } from '@zerodevx/svelte-toast';
-  import ItemToast from './ItemToast.svelte';
 
-  export function successToast(message: string) {
+  import { uid } from '$libs/util/uid';
+
+  import ItemToast from './ItemToast.svelte';
+  import type { TypeToast } from './types';
+
+  // Public API
+
+  export function notify(message: string, type: TypeToast = 'unknown', closeManually = false) {
+    const id = Number(uid());
+    const close = () => toast.pop(id);
+
     toast.push({
+      id,
+      ...(closeManually ? { initial: 0 } : {}),
       component: {
         src: ItemToast,
-        props: {
-          message,
-          type: 'success',
-        },
+        props: { type, message, close },
       },
     });
+  }
+
+  export function successToast(message: string) {
+    notify(message, 'success');
   }
 
   export function errorToast(message: string) {
-    toast.push({
-      component: {
-        src: ItemToast,
-        props: {
-          message,
-          type: 'error',
-        },
-      },
-    });
+    notify(message, 'error', true);
   }
 
   export function warningToast(message: string) {
-    toast.push({
-      component: {
-        src: ItemToast,
-        props: {
-          message,
-          type: 'warning',
-        },
-      },
-    });
+    notify(message, 'warning');
   }
 </script>
 
@@ -44,13 +40,16 @@
   import type { SvelteToastOptions } from '@zerodevx/svelte-toast/stores';
 
   const options: SvelteToastOptions = {
-    duration: 100000,
+    duration: 5000, // TODO: config file?
     pausable: false,
     theme: {
+      // We need to makes the surroundings dissapear in order
+      // to fully customize the toast with our own component
       '--toastBackground': 'transparent',
       '--toastPadding': 0,
-      '--toastBarHeight': 0, // hides progress bar
       '--toastMsgPadding': 0,
+      '--toastBarWidth': 0,
+      '--toastBarHeight': 0,
       '--toastBtnWidth': 0,
       '--toastBtnHeight': 0,
       '--toastBtnContent': '',

@@ -1,11 +1,14 @@
 <script lang="ts">
+  import { noop } from 'svelte/internal';
+
   import { Icon, type IconType } from '$components/Icon';
   import { classNames } from '$libs/util/classNames';
 
-  type TypeToast = 'success' | 'error' | 'warning' | 'unknown';
+  import type { TypeToast } from './types';
 
   export let type: TypeToast = 'unknown';
-  export let message: string = '';
+  export let message = '';
+  export let close: () => void = noop;
 
   const iconTypeMap: Record<TypeToast, IconType> = {
     success: 'check-circle',
@@ -61,7 +64,7 @@
     <Icon type={iconTypeMap[type]} size={24} fillClass={alertIconClassMap[type]} />
     <div class={messageClasses}>{message}</div>
   </div>
-  <button class="ml-6">
-    <Icon type="x-close" size={32} fillClass={iconCloseClassMap[type]} />
+  <button class="ml-6" on:click={close}>
+    <Icon type="x-close" size={24} fillClass={iconCloseClassMap[type]} />
   </button>
 </div>
