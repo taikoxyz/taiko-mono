@@ -302,7 +302,9 @@ func TestIntegration_Event_FirstByAddressAndEvent(t *testing.T) {
 				tt.event,
 			)
 			assert.Equal(t, tt.wantErr, err)
-			assert.Equal(t, tt.wantEventID, found.ID)
+			if tt.wantEventID != 0 {
+				assert.Equal(t, tt.wantEventID, found.ID)
+			}
 		})
 	}
 }
