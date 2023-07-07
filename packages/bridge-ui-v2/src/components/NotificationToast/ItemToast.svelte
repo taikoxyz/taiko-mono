@@ -60,7 +60,7 @@
 </script>
 
 <div role="alert" class={alertClasses}>
-  <div class="flex space-x-[5px]">
+  <div class="flex space-x-2">
     <Icon type={iconTypeMap[type]} size={24} fillClass={alertIconClassMap[type]} />
     <div class={messageClasses}>{message}</div>
   </div>
