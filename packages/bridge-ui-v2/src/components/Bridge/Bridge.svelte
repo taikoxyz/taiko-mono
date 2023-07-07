@@ -1,4 +1,5 @@
-<script>
+<script lang="ts">
+  import type { Chain } from '@wagmi/core';
   import { t } from 'svelte-i18n';
 
   import AmountInput from '$components/AmountInput';
@@ -11,13 +12,25 @@
   import { TokenDropdown } from '$components/TokenDropdown';
   import { tokens } from '$libs/token';
   import { destChain, srcChain } from '$stores/network';
+
+  function onSrcChainChange(chain: Chain) {
+    if (chain !== $srcChain) {
+      srcChain.set(chain);
+    }
+  }
+
+  function onDestChainChange(chain: Chain) {
+    if (chain !== $destChain) {
+      destChain.set(chain);
+    }
+  }
 </script>
 
 <Card class="md:w-[524px]" title={$t('bridge.title')} text={$t('bridge.subtitle')}>
   <div class="space-y-[35px]">
     <div class="space-y-4">
       <div class="space-y-2">
-        <ChainSelector label={$t('chain.from')} value={$srcChain} />
+        <ChainSelector label={$t('chain.from')} value={$srcChain} onChange={onSrcChainChange} />
         <TokenDropdown {tokens} />
       </div>
 
@@ -30,7 +43,7 @@
       </div>
 
       <div class="space-y-2">
-        <ChainSelector label={$t('chain.to')} value={$destChain} />
+        <ChainSelector label={$t('chain.to')} value={$destChain} onChange={onDestChainChange} />
         <RecipientInput />
       </div>
     </div>

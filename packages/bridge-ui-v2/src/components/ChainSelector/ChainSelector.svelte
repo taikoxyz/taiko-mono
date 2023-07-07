@@ -29,7 +29,9 @@
   }
 
   function openModal() {
-    if ($account.isDisconnected) {
+    // We want to inform the user that they need to connect
+    // their wallet if they want to change the chain
+    if (!$account.isConnected) {
       warningToast($t('messages.account.required'));
       return;
     }
