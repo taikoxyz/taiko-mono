@@ -29,6 +29,7 @@ library LibProposing {
         uint256 indexed id,
         address indexed assignedProver,
         uint64 blockFee,
+        uint32 rewardPerGas,
         TaikoData.BlockMetadata meta
     );
 
@@ -139,7 +140,13 @@ library LibProposing {
             revert L1_INSUFFICIENT_TOKEN();
         }
 
-        emit BlockProposed(state.numBlocks, blk.assignedProver, blockFee, meta);
+        emit BlockProposed(
+            state.numBlocks,
+            blk.assignedProver,
+            blockFee,
+            blk.rewardPerGas,
+            meta
+        );
 
         unchecked {
             ++state.numBlocks;
