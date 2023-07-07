@@ -332,8 +332,6 @@ func (svc *Service) subscribeSwap(ctx context.Context, chainID *big.Int, errChan
 			errChan <- errors.Wrap(err, "sub.Err()")
 		case event := <-sink:
 			go func() {
-				log.Infof("swap event for sender %v", event.Sender.Hex())
-
 				if err := svc.saveSwapEvent(ctx, chainID, event); err != nil {
 					eventindexer.SwapEventsProcessedError.Inc()
 

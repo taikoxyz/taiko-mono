@@ -3,8 +3,10 @@ package indexer
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
@@ -24,8 +26,6 @@ func (svc *Service) saveSwapEvents(
 	for {
 		event := events.Event
 
-		log.Infof("new Swap event for sender: %v", event.Sender.Hex())
-
 		if err := svc.saveSwapEvent(ctx, chainID, event); err != nil {
 			eventindexer.SwapEventsProcessedError.Inc()
 
@@ -43,6 +43,10 @@ func (svc *Service) saveSwapEvent(
 	chainID *big.Int,
 	event *swap.SwapSwap,
 ) error {
+	log.Infof("swap event for sender 0x%v",
+		common.Bytes2Hex(event.Raw.Topics[2].Bytes()[12:]),
+	)
+
 	marshaled, err := json.Marshal(event)
 	if err != nil {
 		return errors.Wrap(err, "json.Marshal(event)")
@@ -53,7 +57,7 @@ func (svc *Service) saveSwapEvent(
 		Data:    string(marshaled),
 		ChainID: chainID,
 		Event:   eventindexer.EventNameSwap,
-		Address: event.Sender.Hex(),
+		Address: fmt.Sprintf("0x%v", common.Bytes2Hex(event.Raw.Topics[2].Bytes()[12:])),
 	})
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.Save")
