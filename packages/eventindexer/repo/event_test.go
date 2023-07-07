@@ -299,7 +299,7 @@ func TestIntegration_Event_FirstByAddressAndEvent(t *testing.T) {
 			found, err := eventRepo.FirstByAddressAndEventName(
 				context.Background(),
 				tt.address,
-				tt.name,
+				tt.event,
 			)
 			assert.Equal(t, tt.wantErr, err)
 			assert.Equal(t, tt.wantEvent, found)
