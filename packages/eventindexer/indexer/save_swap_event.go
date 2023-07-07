@@ -13,6 +13,10 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/swap"
 )
 
+var (
+	minTradeAmount = big.NewInt(10000000000000000)
+)
+
 func (svc *Service) saveSwapEvents(
 	ctx context.Context,
 	chainID *big.Int,
@@ -43,9 +47,20 @@ func (svc *Service) saveSwapEvent(
 	chainID *big.Int,
 	event *swap.SwapSwap,
 ) error {
-	log.Infof("swap event for sender 0x%v",
+	log.Infof("swap event for sender 0x%v, amount: %v",
 		common.Bytes2Hex(event.Raw.Topics[2].Bytes()[12:]),
+		event.Amount0In.String(),
 	)
+
+	// we only want events with > 0.1 ETH swap
+	if event.Amount0In.Cmp(minTradeAmount) <= 0 && event.Amount1Out.Cmp(minTradeAmount) <= 0 {
+		log.Infof("skipping skip event, min trade too low. amountIn: %v, amountOut: %v",
+			event.Amount0In.String(),
+			event.Amount1Out.String(),
+		)
+
+		return nil
+	}
 
 	marshaled, err := json.Marshal(event)
 	if err != nil {
