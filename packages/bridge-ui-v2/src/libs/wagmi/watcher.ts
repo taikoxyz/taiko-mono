@@ -26,6 +26,7 @@ export function startWatching() {
     // See https://wagmi.sh/core/actions/watchAccount
     unWatchAccount = watchAccount((data) => {
       log('Account changed', data);
+
       account.set(data);
     });
 

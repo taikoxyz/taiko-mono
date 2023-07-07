@@ -5,9 +5,11 @@
   import { t } from 'svelte-i18n';
 
   import { EthIcon, Icon, TaikoIcon } from '$components/Icon';
+  import { warningToast } from '$components/NotificationToast';
   import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID } from '$env/static/public';
   import { chains } from '$libs/chain';
   import { uid } from '$libs/util/uid';
+  import { account } from '$stores/account';
 
   export let label: string;
   export let value: Maybe<GetNetworkResult['chain']> = null;
@@ -27,6 +29,11 @@
   }
 
   function openModal() {
+    if ($account.isDisconnected) {
+      warningToast($t('messages.account.required'));
+      return;
+    }
+
     modalOpen = true;
   }
 
