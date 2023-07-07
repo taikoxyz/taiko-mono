@@ -10,9 +10,9 @@
   import { ProcessingFee } from '$components/ProcessingFee';
   import { RecipientInput } from '$components/RecipientInput';
   import { TokenDropdown } from '$components/TokenDropdown';
+  import { web3modal } from '$libs/connect';
   import { tokens } from '$libs/token';
   import { destChain, srcChain } from '$stores/network';
-  import { web3modal } from '$libs/connect';
 
   function onSrcChainChange(chain: Chain) {
     if (chain !== $srcChain) {
