@@ -180,7 +180,7 @@ contract TaikoL1 is
         return LibUtils.getBlockFee({
             state: state,
             config: getConfig(),
-            gasLimit: gasLimit
+            gasAmount: gasLimit
         });
     }
 

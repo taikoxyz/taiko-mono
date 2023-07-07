@@ -72,22 +72,17 @@ library LibUtils {
         });
     }
 
-    // If auction is tied to gas, we should charge users based on gas as well. At
-    // this point gasUsed (in proposeBlock()) is always gasLimit, so use it and
-    // in case of differences refund after verification
     function getBlockFee(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        uint32 gasLimit
+        uint32 gasAmount
     )
         internal
         view
         returns (uint64)
     {
-        // The diff between gasLimit and gasUsed will be redistributed back to
-        // the balance of proposer
         return state.feePerGas
-            * (gasLimit + LibL2Consts.ANCHOR_GAS_COST + config.blockFeeBaseGas);
+            * (gasAmount + LibL2Consts.ANCHOR_GAS_COST + config.blockFeeBaseGas);
     }
 
     function movingAverage(
