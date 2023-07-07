@@ -14,5 +14,5 @@ func (srv *Server) configureRoutes() {
 
 	galaxeAPI.GET("/user-proposed-block", srv.UserProposedBlock)
 	galaxeAPI.GET("/user-proved-block", srv.UserProvedBlock)
-	galaxeAPI.GET("/user-bridged", srv.UserProposedBlock)
+	galaxeAPI.GET("/user-bridged", srv.UserBridged)
 }

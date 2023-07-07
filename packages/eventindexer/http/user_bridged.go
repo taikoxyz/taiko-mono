@@ -12,7 +12,7 @@ func (srv *Server) UserBridged(c echo.Context) error {
 	event, err := srv.eventRepo.FirstByAddressAndEventName(
 		c.Request().Context(),
 		c.QueryParam("address"),
-		eventindexer.EventNameBlockProven,
+		eventindexer.EventNameMessageSent,
 	)
 	if err != nil {
 		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)

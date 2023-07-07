@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -54,9 +55,17 @@ func (svc *Service) FilterThenSubscribe(
 			end = header.Number.Uint64()
 		}
 
+		// filter exclusive of the end block.
+		// we use "end" as the next starting point of the batch, and
+		// process up to end - 1 for this batch.
+		filterEnd := end - 1
+
+		fmt.Printf("block batch from %v to %v", i, filterEnd)
+		fmt.Println()
+
 		filterOpts := &bind.FilterOpts{
 			Start:   svc.processingBlockHeight,
-			End:     &end,
+			End:     &filterEnd,
 			Context: ctx,
 		}
 
