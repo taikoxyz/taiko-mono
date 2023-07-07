@@ -115,6 +115,14 @@ const ecosystemData: EcosystemData[] = [
     filters: [],
   },
   {
+    icon: "/images/ecosystem/rai-finance.png",
+    name: "RAI Finance",
+    link: "https://app.rai.finance/#/aggregateSwap",
+    description:
+      "User can easily compare and swap multiple chains on top of the Tyco blockchain. A service that links multiple swaps and organizes multiple tokens.",
+    filters: [],
+  },
+  {
     icon: "/images/ecosystem/soul-wallet.svg",
     name: "Soul Wallet",
     link: "https://soulwallet.io",
