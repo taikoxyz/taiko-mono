@@ -33,7 +33,7 @@ abstract contract TaikoEvents {
         bytes32 blockHash,
         address prover,
         uint64 blockFee,
-        uint64 reward
+        uint64 proofReward
     );
 
     event EthDeposited(TaikoData.EthDeposit deposit);

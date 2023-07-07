@@ -19,7 +19,7 @@ event BlockProven(uint256 blockId, bytes32 parentHash, bytes32 blockHash, bytes3
 ### BlockVerified
 
 ```solidity
-event BlockVerified(uint256 blockId, bytes32 blockHash, address prover, uint64 blockFee, uint64 reward)
+event BlockVerified(uint256 blockId, bytes32 blockHash, address prover, uint64 blockFee, uint64 proofReward)
 ```
 
 ### EthDeposited
