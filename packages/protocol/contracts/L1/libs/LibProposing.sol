@@ -28,8 +28,8 @@ library LibProposing {
     event BlockProposed(
         uint256 indexed id,
         address indexed assignedProver,
-        uint64 blockFee,
         uint32 rewardPerGas,
+        uint64 feePerGas,
         TaikoData.BlockMetadata meta
     );
 
@@ -143,8 +143,8 @@ library LibProposing {
         emit BlockProposed(
             state.numBlocks,
             blk.assignedProver,
-            blockFee,
             blk.rewardPerGas,
+            state.feePerGas,
             meta
         );
 

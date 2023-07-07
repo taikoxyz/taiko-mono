@@ -14,8 +14,8 @@ abstract contract TaikoEvents {
     event BlockProposed(
         uint256 indexed id,
         address indexed assignedProver,
-        uint64 blockFee,
         uint32 rewardPerGas,
+        uint64 feePerGas,
         TaikoData.BlockMetadata meta
     );
 
