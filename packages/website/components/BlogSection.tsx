@@ -1,5 +1,20 @@
 const posts = [
   {
+    title: "Alpha-3 testnet update: stats & future plans",
+    href: "https://taiko.mirror.xyz/LBukIvc5nRfNdbzk3_bDZNkBRSmavFp_D90IkBYCuFk",
+    description:
+      "Alpha-3 has been drumming along for one month now! Let's take a look at what’s happened.",
+    date: "Jul 07, 2023",
+    datetime: "2023-07-07",
+    imageUrl:
+      "https://mirror-media.imgix.net/publication-images/4vqDxKbexLf3eX3d4GtRB.jpeg?height=512&width=1024&h=512&w=1024&auto=compress",
+    readingTime: "2 min",
+    author: {
+      name: "d1onys1us",
+      imageUrl: "https://avatars.githubusercontent.com/u/13951458?v=4",
+    },
+  },
+  {
     title: "ZK-Roller-Coaster #8",
     href: "https://taiko.mirror.xyz/tOUCZgLRV9bKH24bxhahISpdhkQmqVyM-ZX-wMWtqkI",
     description:
@@ -24,21 +39,6 @@ const posts = [
     imageUrl:
       "https://mirror-media.imgix.net/publication-images/HRLmI4Vmn9A637fxJm8cq.png?height=426&width=851&h=426&w=851&auto=compress",
     readingTime: "4 min",
-    author: {
-      name: "Lisa A.",
-      imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",
-    },
-  },
-  {
-    title: "L2 MEV wat",
-    href: "https://taiko.mirror.xyz/VjNjFws6OOVez5YCDMwjy4BUiDqZBHYDvcW4-JZGDkc",
-    description:
-      "In this article, we “map” the current landscape of L2 MEV, thinking about different MEV consequences for different L2 designs. We also briefly overview different ways of L2s decentralization and how it might impact L2 MEV.",
-    date: "Jun 13, 2023",
-    datetime: "2023-06-13",
-    imageUrl:
-      "https://mirror-media.imgix.net/publication-images/Qgm0gbwbCQnU8bm5Y1dGB.png?height=512&width=1024&h=512&w=1024&auto=compress",
-    readingTime: "15 min",
     author: {
       name: "Lisa A.",
       imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",
