@@ -19,7 +19,7 @@ import { LibErc721BridgeStatus } from "./LibErc721BridgeStatus.sol";
 library LibErc721BridgeRelease {
     using LibErc721BridgeData for IErc721Bridge.Message;
 
-    event TokenReleasedErc721(bytes32 indexed msgHash, address to, address token, uint256[] tokenIds);
+    //event TokenReleasedErc721(bytes32 indexed msgHash, address to, address token, uint256[] tokenIds);
 
     error ERC721_B_TOKEN_RELEASED_ALREADY();
     error ERC721_B_FAILED_TRANSFER();
@@ -83,6 +83,6 @@ library LibErc721BridgeRelease {
             );
         }
 
-        emit TokenReleasedErc721(msgHash, message.owner, message.tokenContract, message.tokenIds);
+        //emit TokenReleasedErc721(msgHash, message.owner, message.tokenContract, message.tokenIds);
     }
 }
