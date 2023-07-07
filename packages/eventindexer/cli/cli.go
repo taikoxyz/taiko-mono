@@ -30,8 +30,7 @@ import (
 var (
 	envVars = []string{
 		"HTTP_PORT",
-		"L1_TAIKO_ADDRESS",
-		"L1_RPC_URL",
+		"RPC_URL",
 		"MYSQL_USER",
 		"MYSQL_DATABASE",
 		"MYSQL_HOST",
@@ -45,6 +44,7 @@ var (
 func Run(
 	mode eventindexer.Mode,
 	watchMode eventindexer.WatchMode,
+	httpOnly eventindexer.HTTPOnly,
 ) {
 	if err := loadAndValidateEnv(); err != nil {
 		log.Fatal(err)
@@ -73,12 +73,12 @@ func Run(
 		log.Fatal(err)
 	}
 
-	l1EthClient, err := ethclient.Dial(os.Getenv("L1_RPC_URL"))
+	ethClient, err := ethclient.Dial(os.Getenv("RPC_URL"))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	srv, err := newHTTPServer(db, l1EthClient)
+	srv, err := newHTTPServer(db, ethClient)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -91,59 +91,69 @@ func Run(
 		}
 	}()
 
-	eventRepository, err := repo.NewEventRepository(db)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	statRepository, err := repo.NewStatRepository(db)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	blockRepository, err := repo.NewBlockRepository(db)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	blockBatchSize, err := strconv.Atoi(os.Getenv("BLOCK_BATCH_SIZE"))
-	if err != nil || blockBatchSize <= 0 {
-		blockBatchSize = defaultBlockBatchSize
-	}
-
-	var subscriptionBackoff time.Duration
-
-	subscriptionBackoffInSeconds, err := strconv.Atoi(os.Getenv("SUBSCRIPTION_BACKOFF_IN_SECONDS"))
-	if err != nil || subscriptionBackoffInSeconds <= 0 {
-		subscriptionBackoff = defaultSubscriptionBackoff
-	} else {
-		subscriptionBackoff = time.Duration(subscriptionBackoffInSeconds) * time.Second
-	}
-
-	l1RpcClient, err := rpc.DialContext(context.Background(), os.Getenv("L1_RPC_URL"))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	i, err := indexer.NewService(indexer.NewServiceOpts{
-		EventRepo:           eventRepository,
-		BlockRepo:           blockRepository,
-		StatRepo:            statRepository,
-		EthClient:           l1EthClient,
-		RPCClient:           l1RpcClient,
-		SrcTaikoAddress:     common.HexToAddress(os.Getenv("L1_TAIKO_ADDRESS")),
-		BlockBatchSize:      uint64(blockBatchSize),
-		SubscriptionBackoff: subscriptionBackoff,
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	go func() {
-		if err := i.FilterThenSubscribe(context.Background(), mode, watchMode); err != nil {
+	if !httpOnly {
+		eventRepository, err := repo.NewEventRepository(db)
+		if err != nil {
 			log.Fatal(err)
 		}
-	}()
+
+		statRepository, err := repo.NewStatRepository(db)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		blockRepository, err := repo.NewBlockRepository(db)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		blockBatchSize, err := strconv.Atoi(os.Getenv("BLOCK_BATCH_SIZE"))
+		if err != nil || blockBatchSize <= 0 {
+			blockBatchSize = defaultBlockBatchSize
+		}
+
+		var subscriptionBackoff time.Duration
+
+		subscriptionBackoffInSeconds, err := strconv.Atoi(os.Getenv("SUBSCRIPTION_BACKOFF_IN_SECONDS"))
+		if err != nil || subscriptionBackoffInSeconds <= 0 {
+			subscriptionBackoff = defaultSubscriptionBackoff
+		} else {
+			subscriptionBackoff = time.Duration(subscriptionBackoffInSeconds) * time.Second
+		}
+
+		rpcClient, err := rpc.DialContext(context.Background(), os.Getenv("RPC_URL"))
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		i, err := indexer.NewService(indexer.NewServiceOpts{
+			EventRepo:           eventRepository,
+			BlockRepo:           blockRepository,
+			StatRepo:            statRepository,
+			EthClient:           ethClient,
+			RPCClient:           rpcClient,
+			SrcTaikoAddress:     common.HexToAddress(os.Getenv("L1_TAIKO_ADDRESS")),
+			SrcBridgeAddress:    common.HexToAddress(os.Getenv("BRIDGE_ADDRESS")),
+			SrcSwapAddress:      common.HexToAddress(os.Getenv("SWAP_ADDRESS")),
+			BlockBatchSize:      uint64(blockBatchSize),
+			SubscriptionBackoff: subscriptionBackoff,
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		var filterFunc indexer.FilterFunc = indexer.L1FilterFunc
+
+		if os.Getenv("L1_TAIKO_ADDRESS") == "" {
+			filterFunc = indexer.L2FilterFunc
+		}
+
+		go func() {
+			if err := i.FilterThenSubscribe(context.Background(), mode, watchMode, filterFunc); err != nil {
+				log.Fatal(err)
+			}
+		}()
+	}
 
 	<-forever
 }

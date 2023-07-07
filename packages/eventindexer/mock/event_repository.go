@@ -105,3 +105,17 @@ func (r *EventRepository) Delete(
 
 	return nil
 }
+
+func (r *EventRepository) FirstByAddressAndEventName(
+	ctx context.Context,
+	address string,
+	event string,
+) (*eventindexer.Event, error) {
+	for _, e := range r.events {
+		if e.Address == address && e.Event == event {
+			return e, nil
+		}
+	}
+
+	return nil, nil
+}

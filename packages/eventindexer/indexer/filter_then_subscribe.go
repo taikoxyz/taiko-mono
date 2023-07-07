@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -14,6 +15,7 @@ func (svc *Service) FilterThenSubscribe(
 	ctx context.Context,
 	mode eventindexer.Mode,
 	watchMode eventindexer.WatchMode,
+	filter FilterFunc,
 ) error {
 	chainID, err := svc.ethClient.ChainID(ctx)
 	if err != nil {
@@ -53,40 +55,22 @@ func (svc *Service) FilterThenSubscribe(
 			end = header.Number.Uint64()
 		}
 
+		// filter exclusive of the end block.
+		// we use "end" as the next starting point of the batch, and
+		// process up to end - 1 for this batch.
+		filterEnd := end - 1
+
+		fmt.Printf("block batch from %v to %v", i, filterEnd)
+		fmt.Println()
+
 		filterOpts := &bind.FilterOpts{
 			Start:   svc.processingBlockHeight,
-			End:     &end,
+			End:     &filterEnd,
 			Context: ctx,
 		}
 
-		blockProvenEvents, err := svc.taikol1.FilterBlockProven(filterOpts, nil)
-		if err != nil {
-			return errors.Wrap(err, "svc.taikol1.FilterBlockProven")
-		}
-
-		err = svc.saveBlockProvenEvents(ctx, chainID, blockProvenEvents)
-		if err != nil {
-			return errors.Wrap(err, "svc.saveBlockProvenEvents")
-		}
-
-		blockProposedEvents, err := svc.taikol1.FilterBlockProposed(filterOpts, nil)
-		if err != nil {
-			return errors.Wrap(err, "svc.taikol1.FilterBlockProposed")
-		}
-
-		err = svc.saveBlockProposedEvents(ctx, chainID, blockProposedEvents)
-		if err != nil {
-			return errors.Wrap(err, "svc.saveBlockProposedEvents")
-		}
-
-		blockVerifiedEvents, err := svc.taikol1.FilterBlockVerified(filterOpts, nil)
-		if err != nil {
-			return errors.Wrap(err, "svc.taikol1.FilterBlockVerified")
-		}
-
-		err = svc.saveBlockVerifiedEvents(ctx, chainID, blockVerifiedEvents)
-		if err != nil {
-			return errors.Wrap(err, "svc.saveBlockVerifiedEvents")
+		if err := filter(ctx, chainID, svc, filterOpts); err != nil {
+			return errors.Wrap(err, "filter")
 		}
 
 		header, err := svc.ethClient.HeaderByNumber(ctx, big.NewInt(int64(end)))
@@ -120,7 +104,7 @@ func (svc *Service) FilterThenSubscribe(
 	}
 
 	if svc.processingBlockHeight < latestBlock.Number.Uint64() {
-		return svc.FilterThenSubscribe(ctx, eventindexer.SyncMode, watchMode)
+		return svc.FilterThenSubscribe(ctx, eventindexer.SyncMode, watchMode, filter)
 	}
 
 	// we are caught up and specified not to subscribe, we can return now

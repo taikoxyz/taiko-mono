@@ -9,4 +9,10 @@ func (srv *Server) configureRoutes() {
 	srv.echo.GET("/eventByAddress", srv.GetCountByAddressAndEventName)
 	srv.echo.GET("/events", srv.GetByAddressAndEventName)
 	srv.echo.GET("/stats", srv.GetStats)
+
+	galaxeAPI := srv.echo.Group("/api")
+
+	galaxeAPI.GET("/user-proposed-block", srv.UserProposedBlock)
+	galaxeAPI.GET("/user-proved-block", srv.UserProvedBlock)
+	galaxeAPI.GET("/user-bridged", srv.UserBridged)
 }
