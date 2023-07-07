@@ -281,7 +281,7 @@ func TestIntegration_Event_FirstByAddressAndEvent(t *testing.T) {
 		{
 			"success",
 			dummyProveEventOpts.Address,
-			dummyProposeEventOpts.Name,
+			dummyProveEventOpts.Name,
 			nil,
 			event,
 		},

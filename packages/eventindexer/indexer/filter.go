@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-type filterFunc func(
+type FilterFunc func(
 	ctx context.Context,
 	chainID *big.Int,
 	svc *Service,
@@ -59,6 +59,27 @@ func L1FilterFunc(
 	err = svc.saveMessageSentEvents(ctx, chainID, messagesSent)
 	if err != nil {
 		return errors.Wrap(err, "svc.saveMessageSentEvents")
+	}
+
+	return nil
+}
+
+func L2FilterFunc(
+	ctx context.Context,
+	chainID *big.Int,
+	svc *Service,
+	filterOpts *bind.FilterOpts,
+) error {
+	swaps, err := svc.swap.FilterSwap(filterOpts, nil, nil)
+	if err != nil {
+		return errors.Wrap(err, "svc.bridge.FilterSwap")
+	}
+
+	// only save ones above 0.01 ETH, this is only for Galaxe
+	// and we dont care about the rest
+	err = svc.saveSwapEvents(ctx, chainID, swaps)
+	if err != nil {
+		return errors.Wrap(err, "svc.saveSwapEvents")
 	}
 
 	return nil

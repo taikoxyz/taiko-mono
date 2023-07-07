@@ -8,8 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/swap"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
 )
 
 var (
@@ -29,6 +30,7 @@ type Service struct {
 
 	taikol1 *taikol1.TaikoL1
 	bridge  *bridge.Bridge
+	swap    *swap.Swap
 }
 
 type NewServiceOpts struct {
@@ -39,6 +41,7 @@ type NewServiceOpts struct {
 	RPCClient           *rpc.Client
 	SrcTaikoAddress     common.Address
 	SrcBridgeAddress    common.Address
+	SrcSwapAddress      common.Address
 	BlockBatchSize      uint64
 	SubscriptionBackoff time.Duration
 }
@@ -56,14 +59,33 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		return nil, eventindexer.ErrNoRPCClient
 	}
 
-	taikoL1, err := taikol1.NewTaikoL1(opts.SrcTaikoAddress, opts.EthClient)
-	if err != nil {
-		return nil, errors.Wrap(err, "contracts.NewTaikoL1")
+	var taikoL1 *taikol1.TaikoL1
+
+	var err error
+
+	if opts.SrcTaikoAddress.Hex() != ZeroAddress.Hex() {
+		taikoL1, err = taikol1.NewTaikoL1(opts.SrcTaikoAddress, opts.EthClient)
+		if err != nil {
+			return nil, errors.Wrap(err, "contracts.NewTaikoL1")
+		}
 	}
 
-	bridge, err := bridge.NewBridge(opts.SrcBridgeAddress, opts.EthClient)
-	if err != nil {
-		return nil, errors.Wrap(err, "contracts.NewBridge")
+	var bridgeContract *bridge.Bridge
+
+	if opts.SrcBridgeAddress.Hex() != ZeroAddress.Hex() {
+		bridgeContract, err = bridge.NewBridge(opts.SrcBridgeAddress, opts.EthClient)
+		if err != nil {
+			return nil, errors.Wrap(err, "contracts.NewBridge")
+		}
+	}
+
+	var swapContract *swap.Swap
+
+	if opts.SrcSwapAddress.Hex() != ZeroAddress.Hex() {
+		swapContract, err = swap.NewSwap(opts.SrcSwapAddress, opts.EthClient)
+		if err != nil {
+			return nil, errors.Wrap(err, "contracts.NewBridge")
+		}
 	}
 
 	return &Service{
@@ -72,7 +94,8 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		statRepo:  opts.StatRepo,
 		ethClient: opts.EthClient,
 		taikol1:   taikoL1,
-		bridge:    bridge,
+		bridge:    bridgeContract,
+		swap:      swapContract,
 
 		blockBatchSize:      opts.BlockBatchSize,
 		subscriptionBackoff: opts.SubscriptionBackoff,

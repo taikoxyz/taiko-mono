@@ -15,6 +15,7 @@ var (
 	EventNameBlockProposed = "BlockProposed"
 	EventNameBlockVerified = "BlockVerified"
 	EventNameMessageSent   = "MessageSent"
+	EventNameSwap          = "Swap"
 )
 
 // Event represents a stored EVM event. The fields will be serialized

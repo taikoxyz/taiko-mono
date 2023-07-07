@@ -15,7 +15,7 @@ func (svc *Service) FilterThenSubscribe(
 	ctx context.Context,
 	mode eventindexer.Mode,
 	watchMode eventindexer.WatchMode,
-	filter filterFunc,
+	filter FilterFunc,
 ) error {
 	chainID, err := svc.ethClient.ChainID(ctx)
 	if err != nil {

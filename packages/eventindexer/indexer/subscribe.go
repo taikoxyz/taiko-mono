@@ -9,8 +9,9 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/swap"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
 )
 
 // subscribe subscribes to latest events
@@ -19,10 +20,19 @@ func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
 
 	errChan := make(chan error)
 
-	go svc.subscribeBlockProven(ctx, chainID, errChan)
-	go svc.subscribeBlockProposed(ctx, chainID, errChan)
-	go svc.subscribeBlockVerified(ctx, chainID, errChan)
-	go svc.subscribeMessageSent(ctx, chainID, errChan)
+	if svc.taikol1 != nil {
+		go svc.subscribeBlockProven(ctx, chainID, errChan)
+		go svc.subscribeBlockProposed(ctx, chainID, errChan)
+		go svc.subscribeBlockVerified(ctx, chainID, errChan)
+	}
+
+	if svc.bridge != nil {
+		go svc.subscribeMessageSent(ctx, chainID, errChan)
+	}
+
+	if svc.swap != nil {
+		go svc.subscribeSwap(ctx, chainID, errChan)
+	}
 
 	// nolint: gosimple
 	for {
@@ -268,6 +278,66 @@ func (svc *Service) subscribeMessageSent(ctx context.Context, chainID *big.Int, 
 					eventindexer.MessageSentEventsProcessedError.Inc()
 
 					log.Errorf("svc.subscribe, svc.saveMessageSentEvent: %v", err)
+
+					return
+				}
+
+				block, err := svc.blockRepo.GetLatestBlockProcessed(chainID)
+				if err != nil {
+					log.Errorf("svc.subscribe, blockRepo.GetLatestBlockProcessed: %v", err)
+					return
+				}
+
+				if block.Height < event.Raw.BlockNumber {
+					err = svc.blockRepo.Save(eventindexer.SaveBlockOpts{
+						Height:  event.Raw.BlockNumber,
+						Hash:    event.Raw.BlockHash,
+						ChainID: chainID,
+					})
+					if err != nil {
+						log.Errorf("svc.subscribe, svc.blockRepo.Save: %v", err)
+						return
+					}
+
+					eventindexer.BlocksProcessed.Inc()
+				}
+			}()
+		}
+	}
+}
+
+func (svc *Service) subscribeSwap(ctx context.Context, chainID *big.Int, errChan chan error) {
+	sink := make(chan *swap.SwapSwap)
+
+	sub := event.ResubscribeErr(svc.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
+		if err != nil {
+			log.Errorf("svc.swap.WatchSwap: %v", err)
+		}
+		log.Info("resubscribing to Swap events")
+
+		return svc.swap.WatchSwap(&bind.WatchOpts{
+			Context: ctx,
+		}, sink, nil, nil)
+	})
+
+	defer sub.Unsubscribe()
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Info("context finished")
+			return
+		case err := <-sub.Err():
+			log.Errorf("sub.Err(): %v", err)
+			errChan <- errors.Wrap(err, "sub.Err()")
+		case event := <-sink:
+			go func() {
+				log.Infof("swap event for sender %v", event.Sender.Hex())
+
+				if err := svc.saveSwapEvent(ctx, chainID, event); err != nil {
+					eventindexer.SwapEventsProcessedError.Inc()
+
+					log.Errorf("svc.subscribe, svc.saveSwapEvent: %v", err)
 
 					return
 				}

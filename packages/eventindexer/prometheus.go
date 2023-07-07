@@ -38,6 +38,14 @@ var (
 		Name: "message_sent_events_processed_error_ops_total",
 		Help: "The total number of processed MessageSent event errors encountered",
 	})
+	SwapEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "swap_events_processed_ops_total",
+		Help: "The total number of processed MessageSent events",
+	})
+	SwapEventsProcessedError = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "swap_events_processed_error_ops_total",
+		Help: "The total number of processed Swap event errors encountered",
+	})
 	BlocksProcessed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "blocks_processed_ops_total",
 		Help: "The total number of processed blocks",

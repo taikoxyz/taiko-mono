@@ -30,8 +30,7 @@ import (
 var (
 	envVars = []string{
 		"HTTP_PORT",
-		"L1_TAIKO_ADDRESS",
-		"L1_RPC_URL",
+		"RPC_URL",
 		"MYSQL_USER",
 		"MYSQL_DATABASE",
 		"MYSQL_HOST",
@@ -74,12 +73,12 @@ func Run(
 		log.Fatal(err)
 	}
 
-	l1EthClient, err := ethclient.Dial(os.Getenv("L1_RPC_URL"))
+	ethClient, err := ethclient.Dial(os.Getenv("RPC_URL"))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	srv, err := newHTTPServer(db, l1EthClient)
+	srv, err := newHTTPServer(db, ethClient)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -122,7 +121,7 @@ func Run(
 			subscriptionBackoff = time.Duration(subscriptionBackoffInSeconds) * time.Second
 		}
 
-		l1RpcClient, err := rpc.DialContext(context.Background(), os.Getenv("L1_RPC_URL"))
+		rpcClient, err := rpc.DialContext(context.Background(), os.Getenv("RPC_URL"))
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -131,10 +130,11 @@ func Run(
 			EventRepo:           eventRepository,
 			BlockRepo:           blockRepository,
 			StatRepo:            statRepository,
-			EthClient:           l1EthClient,
-			RPCClient:           l1RpcClient,
+			EthClient:           ethClient,
+			RPCClient:           rpcClient,
 			SrcTaikoAddress:     common.HexToAddress(os.Getenv("L1_TAIKO_ADDRESS")),
 			SrcBridgeAddress:    common.HexToAddress(os.Getenv("BRIDGE_ADDRESS")),
+			SrcSwapAddress:      common.HexToAddress(os.Getenv("SWAP_ADDRESS")),
 			BlockBatchSize:      uint64(blockBatchSize),
 			SubscriptionBackoff: subscriptionBackoff,
 		})
@@ -142,8 +142,14 @@ func Run(
 			log.Fatal(err)
 		}
 
+		var filterFunc indexer.FilterFunc = indexer.L1FilterFunc
+
+		if os.Getenv("L1_TAIKO_ADDRESS") == "" {
+			filterFunc = indexer.L2FilterFunc
+		}
+
 		go func() {
-			if err := i.FilterThenSubscribe(context.Background(), mode, watchMode, indexer.L1FilterFunc); err != nil {
+			if err := i.FilterThenSubscribe(context.Background(), mode, watchMode, filterFunc); err != nil {
 				log.Fatal(err)
 			}
 		}()
