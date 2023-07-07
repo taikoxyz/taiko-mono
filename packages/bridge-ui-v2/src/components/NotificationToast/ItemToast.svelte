@@ -50,9 +50,8 @@
     'f-between-center',
     'py-3',
     'px-[20px]',
+    'w-full',
     'rounded-full',
-    'min-w-[215px]',
-    'max-w-[315px]',
     alertClassMap[type],
   );
 
