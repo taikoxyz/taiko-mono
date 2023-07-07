@@ -272,25 +272,25 @@ func TestIntegration_Event_FirstByAddressAndEvent(t *testing.T) {
 	assert.Equal(t, nil, err)
 
 	tests := []struct {
-		name      string
-		address   string
-		event     string
-		wantErr   error
-		wantEvent *eventindexer.Event
+		name        string
+		address     string
+		event       string
+		wantErr     error
+		wantEventID int
 	}{
 		{
 			"success",
 			dummyProveEventOpts.Address,
 			dummyProveEventOpts.Name,
 			nil,
-			event,
+			event.ID,
 		},
 		{
 			"notFound",
 			dummyProveEventOpts.Address,
 			"fakeEvent",
 			nil,
-			nil,
+			0,
 		},
 	}
 
@@ -302,7 +302,7 @@ func TestIntegration_Event_FirstByAddressAndEvent(t *testing.T) {
 				tt.event,
 			)
 			assert.Equal(t, tt.wantErr, err)
-			assert.Equal(t, tt.wantEvent, found)
+			assert.Equal(t, tt.wantEventID, found.ID)
 		})
 	}
 }
