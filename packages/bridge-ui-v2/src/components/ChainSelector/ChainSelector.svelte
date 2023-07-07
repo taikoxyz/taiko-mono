@@ -30,7 +30,7 @@
 
   function openModal() {
     // We want to inform the user that they need to connect
-    // their wallet if they want to change the chain
+    // their wallet if they want to change the network
     if (!$account.isConnected) {
       warningToast($t('messages.account.required'));
       return;
