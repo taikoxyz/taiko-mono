@@ -23,7 +23,9 @@ library LibVerifying {
     using LibUtils for TaikoData.State;
     using LibMath for uint256;
 
-    event BlockVerified(uint256 indexed id, bytes32 blockHash, uint64 reward);
+    event BlockVerified(
+        uint256 indexed id, bytes32 blockHash, address prover, uint64 reward
+    );
 
     event CrossChainSynced(
         uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
@@ -88,7 +90,7 @@ library LibVerifying {
             fc.provenAt = timeNow;
         }
 
-        emit BlockVerified(0, genesisBlockHash, 0);
+        emit BlockVerified(0, genesisBlockHash, address(0), 0);
     }
 
     function verifyBlocks(
@@ -240,6 +242,6 @@ library LibVerifying {
         state.taikoTokenBalances[blk.proposer] +=
             (_gasLimit - fc.gasUsed) * blk.feePerGas;
 
-        emit BlockVerified(blk.blockId, fc.blockHash, proofReward);
+        emit BlockVerified(blk.blockId, fc.blockHash, fc.prover, proofReward);
     }
 }

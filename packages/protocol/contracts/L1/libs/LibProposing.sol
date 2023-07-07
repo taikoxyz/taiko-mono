@@ -26,7 +26,10 @@ library LibProposing {
     using SafeCastUpgradeable for uint256;
 
     event BlockProposed(
-        uint256 indexed id, TaikoData.BlockMetadata meta, uint64 blockFee
+        uint256 indexed id,
+        address indexed assignedProver,
+        uint64 blockFee,
+        TaikoData.BlockMetadata meta
     );
 
     error L1_BLOCK_ID();
@@ -136,7 +139,7 @@ library LibProposing {
             revert L1_INSUFFICIENT_TOKEN();
         }
 
-        emit BlockProposed(state.numBlocks, meta, blockFee);
+        emit BlockProposed(state.numBlocks, blk.assignedProver, blockFee, meta);
 
         unchecked {
             ++state.numBlocks;
