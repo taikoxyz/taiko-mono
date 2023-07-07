@@ -12,9 +12,8 @@ import { Proxied } from "../common/Proxied.sol";
 import { IErc721Bridge } from "./erc721/IErc721Bridge.sol";
 import { NftBridgeErrors } from "./NftBridgeErrors.sol";
 import { LibErc721BridgeData } from "./erc721/libs/LibErc721BridgeData.sol";
-// import { LibBridgeProcess } from "./libs/LibBridgeProcess.sol";
-// import { LibBridgeRelease } from "./libs/LibBridgeRelease.sol";
-// import { LibBridgeRetry } from "./libs/LibBridgeRetry.sol";
+import { LibErc721BridgeProcess } from "./erc721/libs/LibErc721BridgeProcess.sol";
+import { LibErc721BridgeRelease } from "./erc721/libs/LibErc721BridgeRelease.sol";
 import { LibErc721BridgeSend } from "./erc721/libs/LibErc721BridgeSend.sol";
 import { LibErc721BridgeStatus } from "./erc721/libs/LibErc721BridgeStatus.sol";
 
@@ -69,12 +68,12 @@ contract Erc721Bridge is EssentialContract, IErc721Bridge, NftBridgeErrors {
 
     // TODO: Implement them gradually
     /**
-     * Releases the Ether locked in the bridge as part of a cross-chain
+     * Releases the tokens locked in the bridge as part of a cross-chain
      * transfer.
      * @dev Releases the Ether by calling the LibBridgeRelease.releaseEther
      * library function.
-     * @param message The message containing the details of the Ether transfer.
-     * (See IBridge)
+     * @param message The message containing the details of the token transfer.
+     * (See IErc721Bridge)
      * @param proof The proof of the cross-chain transfer.
      */
     function releaseTokenErc721(
@@ -84,38 +83,38 @@ contract Erc721Bridge is EssentialContract, IErc721Bridge, NftBridgeErrors {
         external
         nonReentrant
     {
-        return;
-        // TODO: Implement
-        // return LibBridgeRelease.releaseEther({
-        //     state: _state,
-        //     resolver: AddressResolver(this),
-        //     message: message,
-        //     proof: proof
-        // });
+        return LibErc721BridgeRelease.releaseTokensErc721({
+            state: _state,
+            resolver: AddressResolver(this),
+            message: message,
+            proof: proof
+        });
     }
 
-    // /**
-    //  * Processes a message received from another chain.
-    //  * @dev Processes the message by calling the LibBridgeProcess.processMessage
-    //  * library function.
-    //  * @param message The message to process.
-    //  * @param proof The proof of the cross-chain transfer.
-    //  */
-    // function processMessage(
-    //     Message calldata message,
-    //     bytes calldata proof
-    // )
-    //     external
-    //     nonReentrant
-    // {
-    //     return LibBridgeProcess.processMessage({
-    //         state: _state,
-    //         resolver: AddressResolver(this),
-    //         message: message,
-    //         proof: proof
-    //     });
-    // }
+    /**
+     * Processes a message received from another chain.
+     * @dev Processes the message by calling the LibBridgeProcess.processMessage
+     * library function.
+     * @param message The message to process.
+     * @param proof The proof of the cross-chain transfer.
+     */
+    function processMessageErc721(
+        Message calldata message,
+        bytes calldata proof
+    )
+        external
+        nonReentrant
+    {
+        return LibErc721BridgeProcess.processMessageErc721({
+            state: _state,
+            resolver: AddressResolver(this),
+            message: message,
+            proof: proof
+        });
+    }
 
+    // We do not have message.data to be invoked. So the status would either be FAILED
+    // or DONE (beside the initial NEW state).
     // /**
     //  * Retries sending a message that previously failed to send.
     //  * @dev Retries the message by calling the LibBridgeRetry.retryMessage
@@ -227,15 +226,15 @@ contract Erc721Bridge is EssentialContract, IErc721Bridge, NftBridgeErrors {
         return _state.ctx;
     }
 
-    // /**
-    //  * Check if the Ether associated with the given message hash has been
-    //  * released.
-    //  * @param msgHash The hash of the message.
-    //  * @return Returns true if the Ether has been released, false otherwise.
-    //  */
-    // function isEtherReleased(bytes32 msgHash) public view returns (bool) {
-    //     return _state.etherReleased[msgHash];
-    // }
+    /**
+     * Check if the token(s) associated with the given message hash has been
+     * released.
+     * @param msgHash The hash of the message.
+     * @return Returns true if the Ether has been released, false otherwise.
+     */
+    function isTokenReleased(bytes32 msgHash) public view returns (bool) {
+        return _state.tokensReleased[msgHash];
+    }
 
     /**
      * Check if the destination chain with the given ID is enabled.

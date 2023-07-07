@@ -53,7 +53,7 @@ interface IErc721Bridge {
 
     event SignalSentErc721(address sender, bytes32 msgHash);
     event MessageSentErc721(bytes32 indexed msgHash, Message message);
-    event TokenReleasedErc721(bytes32 indexed msgHash, address to, address token, uint256 tokenId);
+    event TokenReleasedErc721(bytes32 indexed msgHash, address to, address token, uint256[] tokenIds);
 
     /// Sends a message to the destination chain and takes custody
     /// of the token(s) required in this contract.

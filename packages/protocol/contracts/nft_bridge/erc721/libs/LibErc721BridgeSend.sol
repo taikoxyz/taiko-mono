@@ -13,6 +13,7 @@ import { IErc721Bridge } from "../IErc721Bridge.sol";
 import { ISignalService } from "../../../signal/ISignalService.sol";
 import { LibAddress } from "../../../libs/LibAddress.sol";
 import { LibErc721BridgeData } from "./LibErc721BridgeData.sol";
+import { Erc721Vault } from "../../Erc721Vault.sol";
 
 /**
  * Entry point for starting a bridge transaction.
@@ -25,6 +26,7 @@ library LibErc721BridgeSend {
     error ERC721_B_OWNER_IS_NULL();
     error ERC721_B_WRONG_CHAIN_ID();
     error ERC721_B_WRONG_TO_ADDRESS();
+    error ERC721_B_ARRAY_LENGTH_DO_NOT_MATCH();
 
     /**
      * Send a message to the Bridge with the details of the request.
@@ -64,14 +66,32 @@ library LibErc721BridgeSend {
         if (message.to == address(0) || message.to == destChain) {
             revert ERC721_B_WRONG_TO_ADDRESS();
         }
+        if (message.tokenURIs.length != message.tokenIds.length) {
+            revert ERC721_B_ARRAY_LENGTH_DO_NOT_MATCH();
+        }
 
         // Send tokens to vault
-        address tokenVault = resolver.resolve("erc721_vault", true);
+        address tokenVault = resolver.resolve("erc721_vault", false);
 
         // User has to accept address(this) to transfer NFT tokens on behalf
+        // prior to using the ERC721 Birdge just as with ERC20 (!!!)
         for (uint256 i; i < message.tokenIds.length; i++) {
             IERC721Upgradeable(message.tokenContract).safeTransferFrom(
                 message.owner, tokenVault, message.tokenIds[i]);
+        }
+
+        // @Jeff please double check the logic especially here
+        // This checked internal variable (in Erc721Vault) is set during processMessage()
+        address originalCollectionToBeReleasedOnDest = Erc721Vault(tokenVault).getOriginalContractAddress(message.tokenContract);
+
+        // If the above address is non-zero it means this chain is not the
+        // original home of the assets
+        if(originalCollectionToBeReleasedOnDest != address(0)) {
+            message.tokenContract = originalCollectionToBeReleasedOnDest;
+        }
+        else {
+            // It is a native collection 
+            Erc721Vault(tokenVault).setNative(message.tokenContract);
         }
 
         message.id = state.nextMessageId++;
