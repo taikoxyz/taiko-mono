@@ -12,10 +12,17 @@
   import { TokenDropdown } from '$components/TokenDropdown';
   import { tokens } from '$libs/token';
   import { destChain, srcChain } from '$stores/network';
+  import { web3modal } from '$libs/connect';
 
   function onSrcChainChange(chain: Chain) {
     if (chain !== $srcChain) {
       srcChain.set(chain);
+
+      // Let's not forget to update the default chain
+      // in web3modal. Unfortunately we have to maintain
+      // two states here due to the fact that the user
+      // can change the chain from the UI.
+      web3modal.setDefaultChain(chain);
     }
   }
 

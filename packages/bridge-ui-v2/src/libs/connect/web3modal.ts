@@ -4,7 +4,6 @@ import { Web3Modal } from '@web3modal/html';
 import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID, PUBLIC_WALLETCONNECT_PROJECT_ID } from '$env/static/public';
 import { chains } from '$libs/chain';
 import { wagmiConfig } from '$libs/wagmi';
-import { srcChain } from '$stores/network';
 
 const projectId = PUBLIC_WALLETCONNECT_PROJECT_ID;
 
@@ -67,11 +66,3 @@ export const web3modal = new Web3Modal(
   },
   ethereumClient,
 );
-
-// If the user changes the source chain in the UI,
-// we need to update the web3modal
-srcChain.subscribe((chain) => {
-  if (chain) {
-    web3modal.setDefaultChain(chain);
-  }
-});
