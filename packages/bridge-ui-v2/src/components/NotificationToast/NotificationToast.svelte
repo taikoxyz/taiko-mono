@@ -1,29 +1,39 @@
 <script lang="ts" context="module">
   import { toast } from '@zerodevx/svelte-toast';
+  import ItemToast from './ItemToast.svelte';
 
-  export function successToast() {
-    toast.push('Success', {
-      theme: {
-        '--toastBackground': 'var(--positive-background)',
-        '--toastColor': 'var(--positive-sentiment)',
+  export function successToast(message: string) {
+    toast.push({
+      component: {
+        src: ItemToast,
+        props: {
+          message,
+          type: 'success',
+        },
       },
     });
   }
 
-  export function errorToast() {
-    toast.push('Error', {
-      theme: {
-        '--toastBackground': 'var(--negative-background)',
-        '--toastColor': 'var(--negative-sentiment)',
+  export function errorToast(message: string) {
+    toast.push({
+      component: {
+        src: ItemToast,
+        props: {
+          message,
+          type: 'error',
+        },
       },
     });
   }
 
-  export function warningToast() {
-    toast.push('Warning', {
-      theme: {
-        '--toastBackground': 'var(--warning-background)',
-        '--toastColor': 'var(--warning-sentiment)',
+  export function warningToast(message: string) {
+    toast.push({
+      component: {
+        src: ItemToast,
+        props: {
+          message,
+          type: 'warning',
+        },
       },
     });
   }
@@ -36,12 +46,14 @@
   const options: SvelteToastOptions = {
     duration: 100000,
     pausable: false,
-    classes: ['callout-regular'],
     theme: {
-      '--toastBorderRadius': '9999px', // rounded-full
-      '--toastPadding': '12px 20px',
+      '--toastBackground': 'transparent',
+      '--toastPadding': 0,
       '--toastBarHeight': 0, // hides progress bar
       '--toastMsgPadding': 0,
+      '--toastBtnWidth': 0,
+      '--toastBtnHeight': 0,
+      '--toastBtnContent': '',
     },
   };
 </script>

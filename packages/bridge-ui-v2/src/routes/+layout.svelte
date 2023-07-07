@@ -28,9 +28,9 @@
 </SideNavigation>
 
 <div class="flex space-x-4">
-  <button on:click={() => successToast()}>Success</button>
-  <button on:click={() => errorToast()}>Error</button>
-  <button on:click={() => warningToast()}>Warning</button>
+  <button on:click={() => successToast('This is a successful message')}>Success</button>
+  <button on:click={() => errorToast('This is an error message!!!')}>Error</button>
+  <button on:click={() => warningToast('This is a warning message!')}>Warning</button>
 </div>
 
 <NotificationToast />
