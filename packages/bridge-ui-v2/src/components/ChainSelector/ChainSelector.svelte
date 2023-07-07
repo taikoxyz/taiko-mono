@@ -11,6 +11,8 @@
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
 
+  // TODO: think about updating the state for the network here
+
   export let label: string;
   export let value: Maybe<GetNetworkResult['chain']> = null;
   export let onChange: (chain: Chain) => void = noop;
