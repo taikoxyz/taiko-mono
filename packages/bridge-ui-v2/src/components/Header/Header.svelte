@@ -4,8 +4,6 @@
   import { LogoWithText } from '$components/Logo';
   import { drawerToggleId } from '$components/SideNavigation';
   import { account } from '$stores/account';
-
-  $: connected = Boolean($account?.isConnected);
 </script>
 
 <header
@@ -25,7 +23,7 @@
   <LogoWithText class="w-[77px] h-[20px] md:hidden" />
 
   <div class="f-items-center justify-end space-x-[10px]">
-    <ConnectButton {connected} />
+    <ConnectButton connected={$account?.isConnected} />
 
     <label for={drawerToggleId} class="md:hidden">
       <Icon type="bars-menu" />

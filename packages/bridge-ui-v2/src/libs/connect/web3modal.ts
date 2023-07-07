@@ -71,5 +71,7 @@ export const web3modal = new Web3Modal(
 // If the user changes the source chain in the UI,
 // we need to update the web3modal
 srcChain.subscribe((chain) => {
-  web3modal.setDefaultChain(chain);
+  if(chain) {
+    web3modal.setDefaultChain(chain);
+  }
 });
