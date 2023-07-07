@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
 )
 
 var (
@@ -27,6 +28,7 @@ type Service struct {
 	subscriptionBackoff time.Duration
 
 	taikol1 *taikol1.TaikoL1
+	bridge  *bridge.Bridge
 }
 
 type NewServiceOpts struct {
@@ -36,6 +38,7 @@ type NewServiceOpts struct {
 	EthClient           *ethclient.Client
 	RPCClient           *rpc.Client
 	SrcTaikoAddress     common.Address
+	SrcBridgeAddress    common.Address
 	BlockBatchSize      uint64
 	SubscriptionBackoff time.Duration
 }
@@ -58,12 +61,18 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		return nil, errors.Wrap(err, "contracts.NewTaikoL1")
 	}
 
+	bridge, err := bridge.NewBridge(opts.SrcBridgeAddress, opts.EthClient)
+	if err != nil {
+		return nil, errors.Wrap(err, "contracts.NewBridge")
+	}
+
 	return &Service{
 		eventRepo: opts.EventRepo,
 		blockRepo: opts.BlockRepo,
 		statRepo:  opts.StatRepo,
 		ethClient: opts.EthClient,
 		taikol1:   taikoL1,
+		bridge:    bridge,
 
 		blockBatchSize:      opts.BlockBatchSize,
 		subscriptionBackoff: opts.SubscriptionBackoff,

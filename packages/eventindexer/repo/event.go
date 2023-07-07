@@ -134,3 +134,24 @@ func (r *EventRepository) GetByAddressAndEventName(
 
 	return page, nil
 }
+
+func (r *EventRepository) FirstByAddressAndEventName(
+	ctx context.Context,
+	address string,
+	event string,
+) (*eventindexer.Event, error) {
+	e := &eventindexer.Event{}
+
+	if err := r.db.GormDB().
+		Where("address = ?", address).
+		Where("event = ?", event).
+		First(e).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	return e, nil
+}

@@ -14,6 +14,7 @@ var (
 	EventNameBlockProven   = "BlockProven"
 	EventNameBlockProposed = "BlockProposed"
 	EventNameBlockVerified = "BlockVerified"
+	EventNameMessageSent   = "MessageSent"
 )
 
 // Event represents a stored EVM event. The fields will be serialized
@@ -73,4 +74,9 @@ type EventRepository interface {
 		address string,
 		event string,
 	) (paginate.Page, error)
+	FirstByAddressAndEventName(
+		ctx context.Context,
+		address string,
+		event string,
+	) (*Event, error)
 }

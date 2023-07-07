@@ -10,6 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
 )
 
 // subscribe subscribes to latest events
@@ -21,6 +22,7 @@ func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
 	go svc.subscribeBlockProven(ctx, chainID, errChan)
 	go svc.subscribeBlockProposed(ctx, chainID, errChan)
 	go svc.subscribeBlockVerified(ctx, chainID, errChan)
+	go svc.subscribeMessageSent(ctx, chainID, errChan)
 
 	// nolint: gosimple
 	for {
@@ -206,6 +208,66 @@ func (svc *Service) subscribeBlockVerified(ctx context.Context, chainID *big.Int
 				if err := svc.saveBlockVerifiedEvent(ctx, chainID, event); err != nil {
 					eventindexer.BlockVerifiedEventsProcessedError.Inc()
 					log.Errorf("svc.subscribe, svc.saveBlockVerifiedEvent: %v", err)
+
+					return
+				}
+
+				block, err := svc.blockRepo.GetLatestBlockProcessed(chainID)
+				if err != nil {
+					log.Errorf("svc.subscribe, blockRepo.GetLatestBlockProcessed: %v", err)
+					return
+				}
+
+				if block.Height < event.Raw.BlockNumber {
+					err = svc.blockRepo.Save(eventindexer.SaveBlockOpts{
+						Height:  event.Raw.BlockNumber,
+						Hash:    event.Raw.BlockHash,
+						ChainID: chainID,
+					})
+					if err != nil {
+						log.Errorf("svc.subscribe, svc.blockRepo.Save: %v", err)
+						return
+					}
+
+					eventindexer.BlocksProcessed.Inc()
+				}
+			}()
+		}
+	}
+}
+
+func (svc *Service) subscribeMessageSent(ctx context.Context, chainID *big.Int, errChan chan error) {
+	sink := make(chan *bridge.BridgeMessageSent)
+
+	sub := event.ResubscribeErr(svc.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
+		if err != nil {
+			log.Errorf("svc.taikoL1.WatchMessageSent: %v", err)
+		}
+		log.Info("resubscribing to MessageSent events")
+
+		return svc.bridge.WatchMessageSent(&bind.WatchOpts{
+			Context: ctx,
+		}, sink, nil)
+	})
+
+	defer sub.Unsubscribe()
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Info("context finished")
+			return
+		case err := <-sub.Err():
+			log.Errorf("sub.Err(): %v", err)
+			errChan <- errors.Wrap(err, "sub.Err()")
+		case event := <-sink:
+			go func() {
+				log.Infof("messageSentEvent for owner: %v", event.Message.Owner.Hex())
+
+				if err := svc.saveMessageSentEvent(ctx, chainID, event); err != nil {
+					eventindexer.MessageSentEventsProcessedError.Inc()
+
+					log.Errorf("svc.subscribe, svc.saveMessageSentEvent: %v", err)
 
 					return
 				}

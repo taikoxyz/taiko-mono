@@ -257,3 +257,52 @@ func TestIntegration_Event_Delete(t *testing.T) {
 		})
 	}
 }
+
+func TestIntegration_Event_FirstByAddressAndEvent(t *testing.T) {
+	db, close, err := testMysql(t)
+	assert.Equal(t, nil, err)
+
+	defer close()
+
+	eventRepo, err := NewEventRepository(db)
+	assert.Equal(t, nil, err)
+
+	event, err := eventRepo.Save(context.Background(), dummyProveEventOpts)
+
+	assert.Equal(t, nil, err)
+
+	tests := []struct {
+		name      string
+		address   string
+		event     string
+		wantErr   error
+		wantEvent *eventindexer.Event
+	}{
+		{
+			"success",
+			dummyProveEventOpts.Address,
+			dummyProposeEventOpts.Name,
+			nil,
+			event,
+		},
+		{
+			"notFound",
+			dummyProveEventOpts.Address,
+			"fakeEvent",
+			nil,
+			nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			found, err := eventRepo.FirstByAddressAndEventName(
+				context.Background(),
+				tt.address,
+				tt.name,
+			)
+			assert.Equal(t, tt.wantErr, err)
+			assert.Equal(t, tt.wantEvent, found)
+		})
+	}
+}
