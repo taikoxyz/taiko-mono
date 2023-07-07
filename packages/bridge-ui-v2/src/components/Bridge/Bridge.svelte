@@ -21,7 +21,7 @@
       // Let's not forget to update the default chain
       // in web3modal. Unfortunately we have to maintain
       // two states here due to the fact that the user
-      // can change the chain from the UI.
+      // can change the network from the UI.
       web3modal.setDefaultChain(chain);
     }
   }
