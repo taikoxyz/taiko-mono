@@ -24,9 +24,12 @@ library LibVerifying {
     using LibMath for uint256;
 
     event BlockVerified(
-        uint256 indexed id, bytes32 blockHash, address prover, uint64 reward
+        uint256 indexed blockId,
+        bytes32 blockHash,
+        address prover,
+        uint64 blockFee,
+        uint64 proofReward
     );
-
     event CrossChainSynced(
         uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
     );
@@ -90,7 +93,13 @@ library LibVerifying {
             fc.provenAt = timeNow;
         }
 
-        emit BlockVerified(0, genesisBlockHash, address(0), 0);
+        emit BlockVerified({
+            blockId: 0,
+            blockHash: genesisBlockHash,
+            prover: address(0),
+            blockFee: 0,
+            proofReward: 0
+        });
     }
 
     function verifyBlocks(
@@ -236,12 +245,19 @@ library LibVerifying {
 
         blk.verifiedForkChoiceId = fcId;
 
-        // Reward the prover
-        state.taikoTokenBalances[fc.prover] += proofReward;
-
+        // refund the proposer
         state.taikoTokenBalances[blk.proposer] +=
             (_gasLimit - fc.gasUsed) * blk.feePerGas;
 
-        emit BlockVerified(blk.blockId, fc.blockHash, fc.prover, proofReward);
+        // Reward the prover
+        state.taikoTokenBalances[fc.prover] += proofReward;
+
+        emit BlockVerified({
+            blockId: blk.blockId,
+            blockHash: fc.blockHash,
+            prover: fc.prover,
+            blockFee: LibUtils.getBlockFee(state, config, fc.gasUsed),
+            proofReward: proofReward
+        });
     }
 }
