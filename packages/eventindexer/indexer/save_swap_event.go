@@ -3,12 +3,18 @@ package indexer
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/swap"
+)
+
+var (
+	minTradeAmount = big.NewInt(10000000000000000)
 )
 
 func (svc *Service) saveSwapEvents(
@@ -23,8 +29,6 @@ func (svc *Service) saveSwapEvents(
 
 	for {
 		event := events.Event
-
-		log.Infof("new Swap event for sender: %v", event.Sender.Hex())
 
 		if err := svc.saveSwapEvent(ctx, chainID, event); err != nil {
 			eventindexer.SwapEventsProcessedError.Inc()
@@ -43,6 +47,21 @@ func (svc *Service) saveSwapEvent(
 	chainID *big.Int,
 	event *swap.SwapSwap,
 ) error {
+	log.Infof("swap event for sender 0x%v, amount: %v",
+		common.Bytes2Hex(event.Raw.Topics[2].Bytes()[12:]),
+		event.Amount0In.String(),
+	)
+
+	// we only want events with > 0.1 ETH swap
+	if event.Amount0In.Cmp(minTradeAmount) <= 0 && event.Amount1Out.Cmp(minTradeAmount) <= 0 {
+		log.Infof("skipping skip event, min trade too low. amountIn: %v, amountOut: %v",
+			event.Amount0In.String(),
+			event.Amount1Out.String(),
+		)
+
+		return nil
+	}
+
 	marshaled, err := json.Marshal(event)
 	if err != nil {
 		return errors.Wrap(err, "json.Marshal(event)")
@@ -53,7 +72,7 @@ func (svc *Service) saveSwapEvent(
 		Data:    string(marshaled),
 		ChainID: chainID,
 		Event:   eventindexer.EventNameSwap,
-		Address: event.Sender.Hex(),
+		Address: fmt.Sprintf("0x%v", common.Bytes2Hex(event.Raw.Topics[2].Bytes()[12:])),
 	})
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.Save")
