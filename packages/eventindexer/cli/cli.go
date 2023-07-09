@@ -160,8 +160,11 @@ func Run(
 
 func stringsToAddresses(s []string) []common.Address {
 	a := []common.Address{}
+
 	for _, v := range s {
-		a = append(a, common.HexToAddress(v))
+		if v != "" {
+			a = append(a, common.HexToAddress(v))
+		}
 	}
 
 	return a
