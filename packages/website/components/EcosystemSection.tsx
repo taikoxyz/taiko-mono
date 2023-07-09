@@ -154,6 +154,14 @@ const ecosystemData: EcosystemData[] = [
     filters: [],
   },
   {
+    icon: "/images/ecosystem/zkdelx.jpg",
+    name: "zkDELX",
+    link: "https://zkdelx-front-1.vercel.app",
+    description:
+      "zkDELX is a decentralized electricity exchange market based on zkEVM to facilitate the electrical vehicles and renewable energy industries.",
+    filters: [],
+  },
+  {
     icon: "/images/ecosystem/zkpool.png",
     name: "ZKPool",
     link: "https://zkpool.io",
