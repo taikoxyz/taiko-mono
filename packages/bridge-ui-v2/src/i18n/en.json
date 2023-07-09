@@ -80,7 +80,7 @@
 
   "messages": {
     "account": {
-      "required": "Please, connect your wallet",
+      "required": "Please connect your wallet",
       "connected": "Account connected",
       "disconnected": "Account disconnected"
     }
