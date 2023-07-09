@@ -30,7 +30,7 @@ type Service struct {
 
 	taikol1 *taikol1.TaikoL1
 	bridge  *bridge.Bridge
-	swap    *swap.Swap
+	swaps   []*swap.Swap
 }
 
 type NewServiceOpts struct {
@@ -41,7 +41,7 @@ type NewServiceOpts struct {
 	RPCClient           *rpc.Client
 	SrcTaikoAddress     common.Address
 	SrcBridgeAddress    common.Address
-	SrcSwapAddress      common.Address
+	SrcSwapAddresses    []common.Address
 	BlockBatchSize      uint64
 	SubscriptionBackoff time.Duration
 }
@@ -79,12 +79,16 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		}
 	}
 
-	var swapContract *swap.Swap
+	var swapContracts []*swap.Swap
 
-	if opts.SrcSwapAddress.Hex() != ZeroAddress.Hex() {
-		swapContract, err = swap.NewSwap(opts.SrcSwapAddress, opts.EthClient)
-		if err != nil {
-			return nil, errors.Wrap(err, "contracts.NewBridge")
+	if opts.SrcSwapAddresses != nil && len(opts.SrcSwapAddresses) > 0 {
+		for _, v := range opts.SrcSwapAddresses {
+			swapContract, err := swap.NewSwap(v, opts.EthClient)
+			if err != nil {
+				return nil, errors.Wrap(err, "contracts.NewBridge")
+			}
+
+			swapContracts = append(swapContracts, swapContract)
 		}
 	}
 
@@ -95,7 +99,7 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		ethClient: opts.EthClient,
 		taikol1:   taikoL1,
 		bridge:    bridgeContract,
-		swap:      swapContract,
+		swaps:     swapContracts,
 
 		blockBatchSize:      opts.BlockBatchSize,
 		subscriptionBackoff: opts.SubscriptionBackoff,

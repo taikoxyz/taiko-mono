@@ -5,10 +5,16 @@ import (
 	"encoding/json"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/bridge"
+)
+
+var (
+	minEthAmount = new(big.Int).SetUint64(150000000000000000)
+	zeroHash     = common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
 )
 
 func (svc *Service) saveMessageSentEvents(
@@ -43,6 +49,22 @@ func (svc *Service) saveMessageSentEvent(
 	chainID *big.Int,
 	event *bridge.BridgeMessageSent,
 ) error {
+	// only save eth transfers
+	if event.Message.Data != nil && common.BytesToHash(event.Message.Data) != zeroHash {
+		log.Info("skipping message sent event, is not eth transfer")
+		return nil
+	}
+
+	// amount must be >= 0.15 eth
+	if event.Message.DepositValue.Cmp(minEthAmount) < 0 {
+		log.Infof("skipping message sent event, value: %v, requiredValue: %v",
+			event.Message.DepositValue.String(),
+			minEthAmount.String(),
+		)
+
+		return nil
+	}
+
 	marshaled, err := json.Marshal(event)
 	if err != nil {
 		return errors.Wrap(err, "json.Marshal(event)")

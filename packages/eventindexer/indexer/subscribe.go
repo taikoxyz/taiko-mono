@@ -30,8 +30,10 @@ func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
 		go svc.subscribeMessageSent(ctx, chainID, errChan)
 	}
 
-	if svc.swap != nil {
-		go svc.subscribeSwap(ctx, chainID, errChan)
+	if svc.swaps != nil {
+		for _, swap := range svc.swaps {
+			go svc.subscribeSwap(ctx, swap, chainID, errChan)
+		}
 	}
 
 	// nolint: gosimple
@@ -306,16 +308,16 @@ func (svc *Service) subscribeMessageSent(ctx context.Context, chainID *big.Int, 
 	}
 }
 
-func (svc *Service) subscribeSwap(ctx context.Context, chainID *big.Int, errChan chan error) {
+func (svc *Service) subscribeSwap(ctx context.Context, s *swap.Swap, chainID *big.Int, errChan chan error) {
 	sink := make(chan *swap.SwapSwap)
 
 	sub := event.ResubscribeErr(svc.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
 		if err != nil {
-			log.Errorf("svc.swap.WatchSwap: %v", err)
+			log.Errorf("s.WatchSwap: %v", err)
 		}
 		log.Info("resubscribing to Swap events")
 
-		return svc.swap.WatchSwap(&bind.WatchOpts{
+		return s.WatchSwap(&bind.WatchOpts{
 			Context: ctx,
 		}, sink, nil, nil)
 	})

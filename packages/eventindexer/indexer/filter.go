@@ -70,16 +70,18 @@ func L2FilterFunc(
 	svc *Service,
 	filterOpts *bind.FilterOpts,
 ) error {
-	swaps, err := svc.swap.FilterSwap(filterOpts, nil, nil)
-	if err != nil {
-		return errors.Wrap(err, "svc.bridge.FilterSwap")
-	}
+	for _, s := range svc.swaps {
+		swaps, err := s.FilterSwap(filterOpts, nil, nil)
+		if err != nil {
+			return errors.Wrap(err, "svc.bridge.FilterSwap")
+		}
 
-	// only save ones above 0.01 ETH, this is only for Galaxe
-	// and we dont care about the rest
-	err = svc.saveSwapEvents(ctx, chainID, swaps)
-	if err != nil {
-		return errors.Wrap(err, "svc.saveSwapEvents")
+		// only save ones above 0.01 ETH, this is only for Galaxe
+		// and we dont care about the rest
+		err = svc.saveSwapEvents(ctx, chainID, swaps)
+		if err != nil {
+			return errors.Wrap(err, "svc.saveSwapEvents")
+		}
 	}
 
 	return nil

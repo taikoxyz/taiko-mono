@@ -134,7 +134,7 @@ func Run(
 			RPCClient:           rpcClient,
 			SrcTaikoAddress:     common.HexToAddress(os.Getenv("L1_TAIKO_ADDRESS")),
 			SrcBridgeAddress:    common.HexToAddress(os.Getenv("BRIDGE_ADDRESS")),
-			SrcSwapAddress:      common.HexToAddress(os.Getenv("SWAP_ADDRESS")),
+			SrcSwapAddresses:    stringsToAddresses(strings.Split(os.Getenv("SWAP_ADDRESSES"), ",")),
 			BlockBatchSize:      uint64(blockBatchSize),
 			SubscriptionBackoff: subscriptionBackoff,
 		})
@@ -156,6 +156,18 @@ func Run(
 	}
 
 	<-forever
+}
+
+func stringsToAddresses(s []string) []common.Address {
+	a := []common.Address{}
+
+	for _, v := range s {
+		if v != "" {
+			a = append(a, common.HexToAddress(v))
+		}
+	}
+
+	return a
 }
 
 func openDBConnection(opts eventindexer.DBConnectionOpts) (eventindexer.DB, error) {
