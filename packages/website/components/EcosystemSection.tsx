@@ -119,7 +119,7 @@ const ecosystemData: EcosystemData[] = [
     name: "RAI Finance",
     link: "https://app.rai.finance/#/aggregateSwap",
     description:
-      "User can easily compare and swap multiple chains on top of the Tyco blockchain. A service that links multiple swaps and organizes multiple tokens.",
+      "User can easily compare and swap multiple chains on top of the Taiko blockchain. A service that links multiple swaps and organizes multiple tokens.",
     filters: [],
   },
   {
