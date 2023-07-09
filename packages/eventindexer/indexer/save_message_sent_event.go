@@ -61,6 +61,7 @@ func (svc *Service) saveMessageSentEvent(
 			event.Message.DepositValue.String(),
 			minEthAmount.String(),
 		)
+
 		return nil
 	}
 
