@@ -12,14 +12,18 @@ import { Proxied } from "../common/Proxied.sol";
 import { IErc721Bridge } from "./erc721/IErc721Bridge.sol";
 import { NftBridgeErrors } from "./NftBridgeErrors.sol";
 import { LibErc721BridgeData } from "./erc721/libs/LibErc721BridgeData.sol";
-import { LibErc721BridgeProcess } from "./erc721/libs/LibErc721BridgeProcess.sol";
-import { LibErc721BridgeRelease } from "./erc721/libs/LibErc721BridgeRelease.sol";
+import { LibErc721BridgeProcess } from
+    "./erc721/libs/LibErc721BridgeProcess.sol";
+import { LibErc721BridgeRelease } from
+    "./erc721/libs/LibErc721BridgeRelease.sol";
 import { LibErc721BridgeSend } from "./erc721/libs/LibErc721BridgeSend.sol";
 import { LibErc721BridgeStatus } from "./erc721/libs/LibErc721BridgeStatus.sol";
 
 /**
- * This contract is an ERC-721 token bridge contract which is deployed on both L1 and L2.
- * which calls the library implementations. See _IErc721Bridge_ for more details.
+ * This contract is an ERC-721 token bridge contract which is deployed on both
+ * L1 and L2.
+ * which calls the library implementations. See _IErc721Bridge_ for more
+ * details.
  * @dev The code hash for the same address on L1 and L2 may be different.
  * @custom:security-contact hello@taiko.xyz
  */
@@ -48,7 +52,8 @@ contract Erc721Bridge is EssentialContract, IErc721Bridge, NftBridgeErrors {
     /**
      * Sends a message from the current chain to the destination chain specified
      * in the message.
-     * @dev Sends a message by calling the LibErc721BridgeSend.sendMessageErc721 library
+     * @dev Sends a message by calling the LibErc721BridgeSend.sendMessageErc721
+     * library
      * function.
      * @param message The message to send. (See IBridge)
      * @return msgHash The hash of the message that was sent.
@@ -113,14 +118,16 @@ contract Erc721Bridge is EssentialContract, IErc721Bridge, NftBridgeErrors {
         });
     }
 
-    // We do not have message.data to be invoked. So the status would either be FAILED
+    // We do not have message.data to be invoked. So the status would either be
+    // FAILED
     // or DONE (beside the initial NEW state).
     // /**
     //  * Retries sending a message that previously failed to send.
     //  * @dev Retries the message by calling the LibBridgeRetry.retryMessage
     //  * library function.
     //  * @param message The message to retry.
-    //  * @param isLastAttempt Specifies whether this is the last attempt to send
+    //  * @param isLastAttempt Specifies whether this is the last attempt to
+    // send
     //  * the message.
     //  */
     // function retryMessage(
@@ -149,7 +156,9 @@ contract Erc721Bridge is EssentialContract, IErc721Bridge, NftBridgeErrors {
         virtual
         returns (bool)
     {
-        return LibErc721BridgeSend.isMessageSentErc721(AddressResolver(this), msgHash);
+        return LibErc721BridgeSend.isMessageSentErc721(
+            AddressResolver(this), msgHash
+        );
     }
 
     /**
@@ -248,8 +257,9 @@ contract Erc721Bridge is EssentialContract, IErc721Bridge, NftBridgeErrors {
         view
         returns (bool enabled)
     {
-        (enabled,) =
-            LibErc721BridgeSend.isDestChainEnabled(AddressResolver(this), _chainId);
+        (enabled,) = LibErc721BridgeSend.isDestChainEnabled(
+            AddressResolver(this), _chainId
+        );
     }
 
     /**

@@ -8,7 +8,7 @@ pragma solidity ^0.8.20;
 
 import { IERC721ReceiverUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721ReceiverUpgradeable.sol";
-import { IERC721Upgradeable} from
+import { IERC721Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
 import { Create2Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
@@ -23,7 +23,11 @@ import { SisterContract } from "./erc721/SisterContract.sol";
  * @dev Only the contract owner can authorize or deauthorize addresses.
  * @custom:security-contact hello@taiko.xyz
  */
-contract Erc721Vault is EssentialContract, NftBridgeErrors, IERC721ReceiverUpgradeable {
+contract Erc721Vault is
+    EssentialContract,
+    NftBridgeErrors,
+    IERC721ReceiverUpgradeable
+{
     using LibAddress for address;
 
     // Maps contract to a contract on a different chain
@@ -31,12 +35,15 @@ contract Erc721Vault is EssentialContract, NftBridgeErrors, IERC721ReceiverUpgra
         address sisterContractAddress;
         string tokenName;
         string tokenSymbol;
-        mapping (uint256 tokenId => bool inVault) tokenInVault;
+        mapping(uint256 tokenId => bool inVault) tokenInVault;
     }
     // This holds the original to wrapped and additional data
-    mapping(address tokenContract => ContractMapping wrappedTokenContract) originalToWrappedCollection;
+
+    mapping(address tokenContract => ContractMapping wrappedTokenContract)
+        originalToWrappedCollection;
     // This holds the mapping for bridging back to original chain
-    mapping(address wrappedTokenContract => address originalTokenContract) wrappedToOriginal;
+    mapping(address wrappedTokenContract => address originalTokenContract)
+        wrappedToOriginal;
     // This holds if a native on this chain or not
     mapping(address tokenContract => bool isNative) isNativeCollection;
 
@@ -44,8 +51,12 @@ contract Erc721Vault is EssentialContract, NftBridgeErrors, IERC721ReceiverUpgra
     uint256[49] private __gap;
 
     event Authorized(address indexed addr, bool authorized);
-    event TokensReleased(address indexed to, address contractAddress, uint256[] tokenIds);
-    event TokensReleasedAndOrMinted(address indexed to, address contractAddress, uint256[] tokenIds);
+    event TokensReleased(
+        address indexed to, address contractAddress, uint256[] tokenIds
+    );
+    event TokensReleasedAndOrMinted(
+        address indexed to, address contractAddress, uint256[] tokenIds
+    );
 
     modifier onlyAuthorized() {
         if (!isAuthorized(msg.sender)) {
@@ -63,8 +74,10 @@ contract Erc721Vault is EssentialContract, NftBridgeErrors, IERC721ReceiverUpgra
     }
 
     /**
-     * Transfer token(s) from Erc721Vault to a designated address, checking that the
-     * sender is authorized. This function is called when we need to send back tokens
+     * Transfer token(s) from Erc721Vault to a designated address, checking that
+     * the
+     * sender is authorized. This function is called when we need to send back
+     * tokens
      * to owner due to failed messgae status on destination chain.
      * @param recipient Address to receive tokens.
      * @param tokenContract Token contract.
@@ -84,15 +97,19 @@ contract Erc721Vault is EssentialContract, NftBridgeErrors, IERC721ReceiverUpgra
         }
 
         for (uint256 i; i < tokenIds.length; i++) {
-            IERC721Upgradeable(tokenContract).safeTransferFrom(address(this), recipient, tokenIds[i]);
+            IERC721Upgradeable(tokenContract).safeTransferFrom(
+                address(this), recipient, tokenIds[i]
+            );
         }
 
         emit TokensReleased(recipient, tokenContract, tokenIds);
     }
 
     /**
-     * Transfer token(s) from Erc721Vault to a designated address, checking that the
-     * sender is authorized. This is called during bridging (!). This is called from processMessage()
+     * Transfer token(s) from Erc721Vault to a designated address, checking that
+     * the
+     * sender is authorized. This is called during bridging (!). This is called
+     * from processMessage()
      * so always on the 'other side' of the chain where was initiated.
      * @param recipient Address to receive tokens
      * @param tokenContract Token contract
@@ -119,27 +136,35 @@ contract Erc721Vault is EssentialContract, NftBridgeErrors, IERC721ReceiverUpgra
 
         // First we need to check if NOT NATIVE chain token
         if (!isNativeCollection[tokenContract]) {
-            // 1. If originalToWrappedCollection[tokenContract].sisterContract == address(0)
+            // 1. If originalToWrappedCollection[tokenContract].sisterContract
+            // == address(0)
             // Then we can say:
             // - This collection is non native and requires a new contract
-            if(originalToWrappedCollection[tokenContract].sisterContractAddress == address(0)) {
-                address freshlyDeployedContract = address(new SisterContract(tokenName, tokenSymbol));
-                originalToWrappedCollection[tokenContract].sisterContractAddress = freshlyDeployedContract;
+            if (
+                originalToWrappedCollection[tokenContract].sisterContractAddress
+                    == address(0)
+            ) {
+                address freshlyDeployedContract =
+                    address(new SisterContract(tokenName, tokenSymbol));
+                originalToWrappedCollection[tokenContract].sisterContractAddress
+                = freshlyDeployedContract;
                 wrappedToOriginal[freshlyDeployedContract] = tokenContract;
             }
 
             // 2. Anyways, we need to either MINT or TRANSFER from this vault
             // If there is no contract yet, then deploy a wrapped one
             for (uint256 i; i < tokenIds.length; i++) {
-                    SisterContract(originalToWrappedCollection[tokenContract].sisterContractAddress)
-                    .safeMintOrTransfer(recipient, tokenIds[i], tokenURIs[i]);
+                SisterContract(
+                    originalToWrappedCollection[tokenContract]
+                        .sisterContractAddress
+                ).safeMintOrTransfer(recipient, tokenIds[i], tokenURIs[i]);
             }
-        }
-        else {
+        } else {
             // These tokens are already available here to be transferred out
             for (uint256 i; i < tokenIds.length; i++) {
                 IERC721Upgradeable(tokenContract).safeTransferFrom(
-                 address(this), recipient, tokenIds[i]);
+                    address(this), recipient, tokenIds[i]
+                );
             }
         }
 
@@ -150,9 +175,7 @@ contract Erc721Vault is EssentialContract, NftBridgeErrors, IERC721ReceiverUpgra
      * Called when sendMessage is called and sets if contract is native or not.
      * @param tokenContract Token contract address
      */
-    function setNative(
-        address tokenContract
-    )
+    function setNative(address tokenContract)
         public
         onlyAuthorized
         nonReentrant
@@ -182,15 +205,31 @@ contract Erc721Vault is EssentialContract, NftBridgeErrors, IERC721ReceiverUpgra
     }
 
     /**
-     * If the asset during bridging has a counterpart in the wrappedToOriginal then we need to use it
-     * as original contract address - so that we get back our original assets on the original chain.
-     * @param tokenContract Address to check if the token in query is a wrap or original
+     * If the asset during bridging has a counterpart in the wrappedToOriginal
+     * then we need to use it
+     * as original contract address - so that we get back our original assets on
+     * the original chain.
+     * @param tokenContract Address to check if the token in query is a wrap or
+     * original
      */
-    function getOriginalContractAddress(address tokenContract) public view returns (address) {
+    function getOriginalContractAddress(address tokenContract)
+        public
+        view
+        returns (address)
+    {
         return wrappedToOriginal[tokenContract];
     }
 
-    function onERC721Received(address, address, uint256, bytes calldata ) external pure returns (bytes4) {
+    function onERC721Received(
+        address,
+        address,
+        uint256,
+        bytes calldata
+    )
+        external
+        pure
+        returns (bytes4)
+    {
         return IERC721ReceiverUpgradeable.onERC721Received.selector;
     }
 }

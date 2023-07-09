@@ -40,7 +40,9 @@ library LibErc721BridgeData {
         address(uint160(uint256(1)));
 
     // Note: These events must match the ones defined in Bridge.sol.
-    event MessageSentErc721(bytes32 indexed msgHash, IErc721Bridge.Message message);
+    event MessageSentErc721(
+        bytes32 indexed msgHash, IErc721Bridge.Message message
+    );
     event DestChainEnabledErc721(uint256 indexed chainId, bool enabled);
 
     /**
