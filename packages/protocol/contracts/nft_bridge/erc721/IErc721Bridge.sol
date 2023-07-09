@@ -9,7 +9,7 @@ pragma solidity ^0.8.20;
 /**
  * Bridge interface for NFT contracts.
  * @dev Ether is held by Bridges on L1 and by the EtherVault on L2,
- * not TokenVaults.
+ * not ERC20Vaults.
  */
 interface IErc721Bridge {
     struct Message {
@@ -27,7 +27,8 @@ interface IErc721Bridge {
         address to;
         // Alternate address to send any refund. If blank, defaults to owner.
         address refundAddress;
-        // Deposited token contract address (!It is always the deposited AKA original address)
+        // Deposited token contract address (!It is always the deposited AKA
+        // original address)
         address tokenContract;
         // Token Ids - multiple per given contract can be birdged
         // For an ERC1155 the only difference is that it can have
@@ -53,7 +54,8 @@ interface IErc721Bridge {
 
     event SignalSentErc721(address sender, bytes32 msgHash);
     event MessageSentErc721(bytes32 indexed msgHash, Message message);
-    //event TokenReleasedErc721(bytes32 indexed msgHash, address to, address token, uint256[] tokenIds);
+    //event TokenReleasedErc721(bytes32 indexed msgHash, address to, address
+    // token, uint256[] tokenIds);
 
     /// Sends a message to the destination chain and takes custody
     /// of the token(s) required in this contract.
@@ -62,7 +64,8 @@ interface IErc721Bridge {
         payable
         returns (bytes32 msgHash);
 
-    // Release token(s) with a proof that the message processing on the destination
+    // Release token(s) with a proof that the message processing on the
+    // destination
     // chain has been failed.
     function releaseTokenErc721(
         IErc721Bridge.Message calldata message,
@@ -72,7 +75,10 @@ interface IErc721Bridge {
 
     /// Checks if a msgHash has been stored on the bridge contract by the
     /// current address.
-    function isMessageSentErc721(bytes32 msgHash) external view returns (bool);
+    function isMessageSentErc721(bytes32 msgHash)
+        external
+        view
+        returns (bool);
 
     /// Checks if a msgHash has been received on the destination chain and
     /// sent by the src chain.

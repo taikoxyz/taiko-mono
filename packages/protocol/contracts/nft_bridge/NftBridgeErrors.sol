@@ -8,7 +8,7 @@ pragma solidity ^0.8.20;
 
 // Can be a common error contract for 1155 and 721
 abstract contract NftBridgeErrors {
-    // TokenVault
+    // ERC20Vault
     error ERC721_TV_NOT_AUTHORIZED();
     error ERC721_TV_DO_NOT_BURN();
     error ERC721_TV_PARAM();
@@ -23,5 +23,4 @@ abstract contract NftBridgeErrors {
     error ERC721_B_FAILED_TRANSFER();
     error ERC721_B_MSG_NOT_FAILED();
     error ERC721_B_ARRAY_LENGTH_DO_NOT_MATCH();
-
 }

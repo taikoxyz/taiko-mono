@@ -14,7 +14,7 @@ import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/bridge/Bridge.sol";
-import "../contracts/bridge/TokenVault.sol";
+import "../contracts/bridge/erc20/ERC20Vault.sol";
 import "../contracts/signal/SignalService.sol";
 import "../contracts/common/AddressManager.sol";
 import "../contracts/test/erc20/FreeMintERC20.sol";
@@ -154,13 +154,13 @@ contract DeployOnL1 is Script {
             bytes.concat(bridge.init.selector, abi.encode(addressManagerProxy))
         );
 
-        // TokenVault
-        TokenVault tokenVault = new ProxiedTokenVault();
+        // ERC20Vault
+        ERC20Vault erc20Vault = new ProxiedERC20Vault();
         deployProxy(
             "token_vault",
-            address(tokenVault),
+            address(erc20Vault),
             bytes.concat(
-                tokenVault.init.selector, abi.encode(addressManagerProxy)
+                erc20Vault.init.selector, abi.encode(addressManagerProxy)
             )
         );
 

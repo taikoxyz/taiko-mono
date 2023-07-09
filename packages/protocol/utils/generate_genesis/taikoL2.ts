@@ -147,9 +147,9 @@ async function generateContractConfigs(
             ARTIFACTS_PATH,
             "./Bridge.sol/ProxiedBridge.json"
         )),
-        ProxiedTokenVault: require(path.join(
+        ProxiedERC20Vault: require(path.join(
             ARTIFACTS_PATH,
-            "./TokenVault.sol/ProxiedTokenVault.json"
+            "./ERC20Vault.sol/ProxiedERC20Vault.json"
         )),
         ProxiedEtherVault: require(path.join(
             ARTIFACTS_PATH,
@@ -167,7 +167,7 @@ async function generateContractConfigs(
     ));
     contractArtifacts.TaikoL2Proxy = proxy;
     contractArtifacts.BridgeProxy = proxy;
-    contractArtifacts.TokenVaultProxy = proxy;
+    contractArtifacts.ERC20VaultProxy = proxy;
     contractArtifacts.EtherVaultProxy = proxy;
     contractArtifacts.SignalServiceProxy = proxy;
     contractArtifacts.AddressManagerProxy = proxy;
@@ -291,7 +291,7 @@ async function generateContractConfigs(
                         )]: addressMap.BridgeProxy,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("token_vault")
-                        )]: addressMap.TokenVaultProxy,
+                        )]: addressMap.ERC20VaultProxy,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("ether_vault")
                         )]: addressMap.EtherVaultProxy,
@@ -382,15 +382,15 @@ async function generateContractConfigs(
             },
             isProxy: true,
         },
-        ProxiedTokenVault: {
-            address: addressMap.ProxiedTokenVault,
+        ProxiedERC20Vault: {
+            address: addressMap.ProxiedERC20Vault,
             deployedBytecode:
-                contractArtifacts.ProxiedTokenVault.deployedBytecode.object,
+                contractArtifacts.ProxiedERC20Vault.deployedBytecode.object,
         },
-        TokenVaultProxy: {
-            address: addressMap.TokenVaultProxy,
+        ERC20VaultProxy: {
+            address: addressMap.ERC20VaultProxy,
             deployedBytecode:
-                contractArtifacts.TokenVaultProxy.deployedBytecode.object,
+                contractArtifacts.ERC20VaultProxy.deployedBytecode.object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -404,7 +404,7 @@ async function generateContractConfigs(
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
-                [IMPLEMENTATION_SLOT]: addressMap.ProxiedTokenVault,
+                [IMPLEMENTATION_SLOT]: addressMap.ProxiedERC20Vault,
             },
             isProxy: true,
         },

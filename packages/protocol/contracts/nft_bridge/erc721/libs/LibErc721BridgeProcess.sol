@@ -37,7 +37,9 @@ library LibErc721BridgeProcess {
      * and doing a lookup in the bridge state to see if the status is "NEW".
      * It then does 2 things. Checks if Vault already has this NFT. If yes, then
      * releases it (sends) if not it means it is a new bridging (so mints it).
-     * @param state The bridge state.  // @Jeff: Not needed here in erc721 bridge, since we dont have message.data() to invoke and no reentrancy attack for fungible tokens..(?)
+     * @param state The bridge state.  // @Jeff: Not needed here in erc721
+     * bridge, since we dont have message.data() to invoke and no reentrancy
+     * attack for fungible tokens..(?)
      * @param resolver The address resolver.
      * @param message The message to process.
      * @param proof The msgHash proof from the source chain.
@@ -50,7 +52,6 @@ library LibErc721BridgeProcess {
     )
         internal
     {
-        
         // If the gas limit is set to zero, only the owner can process the
         // message.
         if (message.gasLimit == 0 && msg.sender != message.owner) {
@@ -61,8 +62,8 @@ library LibErc721BridgeProcess {
             revert ERC721_B_WRONG_CHAIN_ID();
         }
 
-        // The message status must be "NEW"; 
-        // There is no "RETRIABLE" here because 
+        // The message status must be "NEW";
+        // There is no "RETRIABLE" here because
         // there is no message.data to be invoked
         // LibBridgeRetry.sol.
         bytes32 msgHash = message.hashMessage();
@@ -76,7 +77,9 @@ library LibErc721BridgeProcess {
 
         // Mark the status as FAILED in case something goes wrong with execution
         // ppl could claim it back on the source chain
-        LibErc721BridgeStatus.updateMessageStatusErc721(msgHash, LibErc721BridgeStatus.MessageStatus.FAILED);
+        LibErc721BridgeStatus.updateMessageStatusErc721(
+            msgHash, LibErc721BridgeStatus.MessageStatus.FAILED
+        );
 
         // Message must have been "received" on the destChain (current chain)
         address srcErc721Bridge =
@@ -96,9 +99,9 @@ library LibErc721BridgeProcess {
 
         // Release tokens needs to have the mechanism to resolve the addresses
         // and deploy modified erc721 contracts if needed (with tokenURI)
-        address tokenVault = resolver.resolve("erc721_vault", true);
-        if (tokenVault != address(0)) {
-            Erc721Vault(tokenVault).releaseOrMintTokens(
+        address erc20Vault = resolver.resolve("erc721_vault", true);
+        if (erc20Vault != address(0)) {
+            Erc721Vault(erc20Vault).releaseOrMintTokens(
                 message.owner,
                 message.tokenContract,
                 message.tokenIds,
@@ -114,6 +117,8 @@ library LibErc721BridgeProcess {
         }
 
         // Mark the status as DONE (otherwise reverts anyways)
-        LibErc721BridgeStatus.updateMessageStatusErc721(msgHash, LibErc721BridgeStatus.MessageStatus.DONE);
+        LibErc721BridgeStatus.updateMessageStatusErc721(
+            msgHash, LibErc721BridgeStatus.MessageStatus.DONE
+        );
     }
 }

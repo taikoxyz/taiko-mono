@@ -19,7 +19,8 @@ import { LibErc721BridgeStatus } from "./LibErc721BridgeStatus.sol";
 library LibErc721BridgeRelease {
     using LibErc721BridgeData for IErc721Bridge.Message;
 
-    //event TokenReleasedErc721(bytes32 indexed msgHash, address to, address token, uint256[] tokenIds);
+    //event TokenReleasedErc721(bytes32 indexed msgHash, address to, address
+    // token, uint256[] tokenIds);
 
     error ERC721_B_TOKEN_RELEASED_ALREADY();
     error ERC721_B_FAILED_TRANSFER();
@@ -71,18 +72,17 @@ library LibErc721BridgeRelease {
         state.tokensReleased[msgHash] = true;
 
         // Send tokens to vault
-        address tokenVault = resolver.resolve("erc721_vault", false);
+        address erc20Vault = resolver.resolve("erc721_vault", false);
 
         // User has to accept address(this) to transfer NFT tokens on behalf
         // prior to using the ERC721 Birdge (!) just as with ERC20
-        if (tokenVault != address(0)) {
-            Erc721Vault(tokenVault).releaseTokens(
-                message.owner,
-                message.tokenContract,
-                message.tokenIds
+        if (erc20Vault != address(0)) {
+            Erc721Vault(erc20Vault).releaseTokens(
+                message.owner, message.tokenContract, message.tokenIds
             );
         }
 
-        //emit TokenReleasedErc721(msgHash, message.owner, message.tokenContract, message.tokenIds);
+        //emit TokenReleasedErc721(msgHash, message.owner,
+        // message.tokenContract, message.tokenIds);
     }
 }

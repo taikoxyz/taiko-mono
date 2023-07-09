@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-import { IERC721Upgradeable} from
+import { IERC721Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
 import { AddressResolver } from "../../../common/AddressResolver.sol";
 import { IErc721Bridge } from "../IErc721Bridge.sol";
@@ -71,27 +71,29 @@ library LibErc721BridgeSend {
         }
 
         // Send tokens to vault
-        address tokenVault = resolver.resolve("erc721_vault", false);
+        address erc20Vault = resolver.resolve("erc721_vault", false);
 
         // User has to accept address(this) to transfer NFT tokens on behalf
         // prior to using the ERC721 Birdge just as with ERC20 (!!!)
         for (uint256 i; i < message.tokenIds.length; i++) {
             IERC721Upgradeable(message.tokenContract).safeTransferFrom(
-                message.owner, tokenVault, message.tokenIds[i]);
+                message.owner, erc20Vault, message.tokenIds[i]
+            );
         }
 
         // @Jeff please double check the logic especially here
-        // This checked internal variable (in Erc721Vault) is set during processMessage()
-        address originalCollectionToBeReleasedOnDest = Erc721Vault(tokenVault).getOriginalContractAddress(message.tokenContract);
+        // This checked internal variable (in Erc721Vault) is set during
+        // processMessage()
+        address originalCollectionToBeReleasedOnDest = Erc721Vault(erc20Vault)
+            .getOriginalContractAddress(message.tokenContract);
 
         // If the above address is non-zero it means this chain is not the
         // original home of the assets
-        if(originalCollectionToBeReleasedOnDest != address(0)) {
+        if (originalCollectionToBeReleasedOnDest != address(0)) {
             message.tokenContract = originalCollectionToBeReleasedOnDest;
-        }
-        else {
-            // It is a native collection 
-            Erc721Vault(tokenVault).setNative(message.tokenContract);
+        } else {
+            // It is a native collection
+            Erc721Vault(erc20Vault).setNative(message.tokenContract);
         }
 
         message.id = state.nextMessageId++;
