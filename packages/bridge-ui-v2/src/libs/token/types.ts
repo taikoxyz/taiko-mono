@@ -1,6 +1,8 @@
+import type { Address } from 'abitype';
+
 export type Token = {
   name: string;
-  addresses: Record<string, string>;
+  addresses: Record<string, Address>;
   symbol: string;
   decimals: number;
 };

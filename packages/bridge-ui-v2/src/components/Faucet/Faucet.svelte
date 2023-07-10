@@ -13,7 +13,7 @@
 <Card class="md:w-[524px]" title={$t('faucet.title')} text={$t('faucet.subtitle')}>
   <div class="space-y-[35px]">
     <div class="space-y-2">
-      <ChainSelector label={$t('chain_selector.currently_on')} value={$srcChain} />
+      <ChainSelector label={$t('chain_selector.currently_on')} bind:value={$srcChain} />
       <TokenDropdown tokens={testERC20Tokens} />
     </div>
 

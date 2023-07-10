@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Chain, GetNetworkResult } from '@wagmi/core';
   import type { ComponentType } from 'svelte';
-  import { noop, onDestroy } from 'svelte/internal';
+  import { onDestroy } from 'svelte/internal';
   import { t } from 'svelte-i18n';
 
   import { EthIcon, Icon, TaikoIcon } from '$components/Icon';
@@ -15,7 +15,6 @@
 
   export let label: string;
   export let value: Maybe<GetNetworkResult['chain']> = null;
-  export let onChange: (chain: Chain) => void = noop;
 
   let chainToIconMap: Record<string, ComponentType> = {
     [PUBLIC_L1_CHAIN_ID]: EthIcon,
@@ -43,9 +42,7 @@
 
   function selectChain(chain: Chain) {
     if (chain === value) return;
-
     value = chain;
-    onChange?.(chain); // TODO: data binding? 🤔
     closeModal();
   }
 
