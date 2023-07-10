@@ -7,12 +7,13 @@
   import { ChainSelector } from '$components/ChainSelector';
   import { TokenDropdown } from '$components/TokenDropdown';
   import { testERC20Tokens } from '$libs/token';
+  import { srcChain } from '$stores/network';
 </script>
 
 <Card class="md:w-[524px]" title={$t('faucet.title')} text={$t('faucet.subtitle')}>
   <div class="space-y-[35px]">
     <div class="space-y-2">
-      <ChainSelector label={$t('chain_selector.currently_on')} />
+      <ChainSelector label={$t('chain_selector.currently_on')} value={$srcChain} />
       <TokenDropdown tokens={testERC20Tokens} />
     </div>
 

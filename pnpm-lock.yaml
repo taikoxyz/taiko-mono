@@ -212,12 +212,15 @@ importers:
       '@web3modal/html':
         specifier: ^2.6.2
         version: 2.6.2(react@18.2.0)
+      '@zerodevx/svelte-toast':
+        specifier: ^0.9.5
+        version: 0.9.5(svelte@3.54.0)
       abitype:
         specifier: ^0.8.2
         version: 0.8.11(typescript@5.1.6)
       debug:
         specifier: ^4.3.4
-        version: 4.3.4(supports-color@8.1.1)
+        version: 4.3.4
       svelte-i18n:
         specifier: ^3.6.0
         version: 3.6.0(svelte@3.54.0)
@@ -2438,7 +2441,7 @@ packages:
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
     dependencies:
       ajv: 6.12.6
-      debug: 4.3.4(supports-color@8.1.1)
+      debug: 4.3.4
       espree: 9.6.0
       globals: 13.20.0
       ignore: 5.2.4
@@ -2954,7 +2957,7 @@ packages:
     engines: {node: '>=10.10.0'}
     dependencies:
       '@humanwhocodes/object-schema': 1.2.1
-      debug: 4.3.4(supports-color@8.1.1)
+      debug: 4.3.4
       minimatch: 3.1.2
     transitivePeerDependencies:
       - supports-color
@@ -3330,7 +3333,7 @@ packages:
     engines: {node: '>=14.0.0'}
     dependencies:
       '@types/debug': 4.1.8
-      debug: 4.3.4(supports-color@8.1.1)
+      debug: 4.3.4
       semver: 7.5.3
       superstruct: 1.0.3
     transitivePeerDependencies:
@@ -4798,7 +4801,7 @@ packages:
       vite: ^4.0.0
     dependencies:
       '@sveltejs/vite-plugin-svelte': 2.4.2(svelte@3.54.0)(vite@4.3.0)
-      debug: 4.3.4(supports-color@8.1.1)
+      debug: 4.3.4
       svelte: 3.54.0
       vite: 4.3.0(@types/node@20.4.0)
     transitivePeerDependencies:
@@ -4836,7 +4839,7 @@ packages:
       vite: ^4.0.0
     dependencies:
       '@sveltejs/vite-plugin-svelte-inspector': 1.0.3(@sveltejs/vite-plugin-svelte@2.4.2)(svelte@3.54.0)(vite@4.3.0)
-      debug: 4.3.4(supports-color@8.1.1)
+      debug: 4.3.4
       deepmerge: 4.3.1
       kleur: 4.1.5
       magic-string: 0.30.1
@@ -5506,7 +5509,7 @@ packages:
       '@typescript-eslint/scope-manager': 5.45.0
       '@typescript-eslint/type-utils': 5.45.0(eslint@8.28.0)(typescript@5.1.6)
       '@typescript-eslint/utils': 5.45.0(eslint@8.28.0)(typescript@5.1.6)
-      debug: 4.3.4(supports-color@8.1.1)
+      debug: 4.3.4
       eslint: 8.28.0
       ignore: 5.2.4
       natural-compare-lite: 1.4.0
@@ -5616,7 +5619,7 @@ packages:
       '@typescript-eslint/scope-manager': 5.45.0
       '@typescript-eslint/types': 5.45.0
       '@typescript-eslint/typescript-estree': 5.45.0(typescript@5.1.6)
-      debug: 4.3.4(supports-color@8.1.1)
+      debug: 4.3.4
       eslint: 8.28.0
       typescript: 5.1.6
     transitivePeerDependencies:
@@ -5699,7 +5702,7 @@ packages:
     dependencies:
       '@typescript-eslint/typescript-estree': 5.45.0(typescript@5.1.6)
       '@typescript-eslint/utils': 5.45.0(eslint@8.28.0)(typescript@5.1.6)
-      debug: 4.3.4(supports-color@8.1.1)
+      debug: 4.3.4
       eslint: 8.28.0
       tsutils: 3.21.0(typescript@5.1.6)
       typescript: 5.1.6
@@ -5795,7 +5798,7 @@ packages:
     dependencies:
       '@typescript-eslint/types': 5.45.0
       '@typescript-eslint/visitor-keys': 5.45.0
-      debug: 4.3.4(supports-color@8.1.1)
+      debug: 4.3.4
       globby: 11.1.0
       is-glob: 4.0.3
       semver: 7.5.3
@@ -7144,6 +7147,14 @@ packages:
     resolution: {integrity: sha512-k0W1JFoqHIcIQaP9ij99+Rv0ugaQSSNwOuNwwmTGRjWtIqrQr+ExLDE8LQGXLlJIprqDyMWB4lJkUql/r0RAtA==}
     dev: true
 
+  /@zerodevx/svelte-toast@0.9.5(svelte@3.54.0):
+    resolution: {integrity: sha512-JLeB/oRdJfT+dz9A5bgd3Z7TuQnBQbeUtXrGIrNWMGqWbabpepBF2KxtWVhL2qtxpRqhae2f6NAOzH7xs4jUSw==}
+    peerDependencies:
+      svelte: ^3.57.0 || ^4.0.0
+    dependencies:
+      svelte: 3.54.0
+    dev: false
+
   /JSONStream@1.3.5:
     resolution: {integrity: sha512-E+iruNOY8VV9s4JEbe1aNEm6MiszPRr/UfcHMz0TQh1BXSxHK+ASV1R6W4HpjBhSeS+54PIsAMCBmwD06LLsqQ==}
     hasBin: true
@@ -7415,7 +7426,7 @@ packages:
     resolution: {integrity: sha512-7Epl1Blf4Sy37j4v9f9FjICCh4+KAQOyXgHEwlyBiAQLbhKdq/i2QQU3amQalS/wPhdPzDXPL5DMR5bkn+YeWg==}
     engines: {node: '>= 8.0.0'}
     dependencies:
-      debug: 4.3.4(supports-color@8.1.1)
+      debug: 4.3.4
       depd: 2.0.0
       humanize-ms: 1.2.1
     transitivePeerDependencies:
@@ -10483,6 +10494,17 @@ packages:
       ms: 2.1.3
     dev: true
 
+  /debug@4.3.4:
+    resolution: {integrity: sha512-PRWFHuSU3eDtQJPvnNY7Jcket1j0t5OuOsFzPPzsekD52Zl8qUfFIPEiswXqIvHWGVHOgX+7G/vCNNhehwxfkQ==}
+    engines: {node: '>=6.0'}
+    peerDependencies:
+      supports-color: '*'
+    peerDependenciesMeta:
+      supports-color:
+        optional: true
+    dependencies:
+      ms: 2.1.2
+
   /debug@4.3.4(supports-color@8.1.1):
     resolution: {integrity: sha512-PRWFHuSU3eDtQJPvnNY7Jcket1j0t5OuOsFzPPzsekD52Zl8qUfFIPEiswXqIvHWGVHOgX+7G/vCNNhehwxfkQ==}
     engines: {node: '>=6.0'}
@@ -11886,7 +11908,7 @@ packages:
     dependencies:
       '@eslint-community/eslint-utils': 4.4.0(eslint@8.28.0)
       '@jridgewell/sourcemap-codec': 1.4.15
-      debug: 4.3.4(supports-color@8.1.1)
+      debug: 4.3.4
       eslint: 8.28.0
       esutils: 2.0.3
       known-css-properties: 0.27.0
@@ -12029,7 +12051,7 @@ packages:
       ajv: 6.12.6
       chalk: 4.1.2
       cross-spawn: 7.0.3
-      debug: 4.3.4(supports-color@8.1.1)
+      debug: 4.3.4
       doctrine: 3.0.0
       escape-string-regexp: 4.0.0
       eslint-scope: 7.2.0
@@ -23081,7 +23103,7 @@ packages:
     hasBin: true
     dependencies:
       cac: 6.7.14
-      debug: 4.3.4(supports-color@8.1.1)
+      debug: 4.3.4
       mlly: 1.4.0
       pathe: 1.1.1
       picocolors: 1.0.0
@@ -23117,7 +23139,7 @@ packages:
       vite:
         optional: true
     dependencies:
-      debug: 4.3.4(supports-color@8.1.1)
+      debug: 4.3.4
       globrex: 0.1.2
       tsconfck: 2.1.1(typescript@5.1.6)
       vite: 4.3.0(@types/node@20.4.0)
@@ -23241,7 +23263,7 @@ packages:
       cac: 6.7.14
       chai: 4.3.7
       concordance: 5.0.4
-      debug: 4.3.4(supports-color@8.1.1)
+      debug: 4.3.4
       local-pkg: 0.4.3
       magic-string: 0.30.1
       pathe: 1.1.1

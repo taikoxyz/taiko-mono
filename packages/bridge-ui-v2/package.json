@@ -49,6 +49,7 @@
     "@wagmi/core": "^1.3.6",
     "@web3modal/ethereum": "^2.6.2",
     "@web3modal/html": "^2.6.2",
+    "@zerodevx/svelte-toast": "^0.9.5",
     "abitype": "^0.8.2",
     "debug": "^4.3.4",
     "svelte-i18n": "^3.6.0",
