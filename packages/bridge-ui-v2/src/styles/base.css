@@ -1,6 +1,15 @@
 @tailwind base;
 
 @layer base {
+  *,
+  ::after,
+  ::before {
+    text-rendering: optimizespeed;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+    backface-visibility: hidden;
+  }
+
   html {
     font-family: 'Public Sans', sans-serif;
   }

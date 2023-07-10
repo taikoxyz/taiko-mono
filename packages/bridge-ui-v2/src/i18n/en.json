@@ -78,6 +78,14 @@
     "currently_on": "You are currently on"
   },
 
+  "messages": {
+    "account": {
+      "required": "Please connect your wallet",
+      "connected": "Account connected",
+      "disconnected": "Account disconnected"
+    }
+  },
+
   "chain": {
     "to": "To",
     "from": "From"

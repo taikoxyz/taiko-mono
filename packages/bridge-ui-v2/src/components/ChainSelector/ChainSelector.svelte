@@ -1,15 +1,20 @@
 <script lang="ts">
-  import type { Chain } from '@wagmi/core';
+  import type { Chain, GetNetworkResult } from '@wagmi/core';
   import type { ComponentType } from 'svelte';
   import { noop, onDestroy } from 'svelte/internal';
   import { t } from 'svelte-i18n';
 
   import { EthIcon, Icon, TaikoIcon } from '$components/Icon';
+  import { warningToast } from '$components/NotificationToast';
   import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID } from '$env/static/public';
   import { chains } from '$libs/chain';
   import { uid } from '$libs/util/uid';
+  import { account } from '$stores/account';
+
+  // TODO: think about updating the state for the network here
 
   export let label: string;
+  export let value: Maybe<GetNetworkResult['chain']> = null;
   export let onChange: (chain: Chain) => void = noop;
 
   let chainToIconMap: Record<string, ComponentType> = {
@@ -19,7 +24,6 @@
 
   let buttonId = `button-${uid()}`;
   let dialogId = `dialog-${uid()}`;
-  let selectedChain: Chain;
   let modalOpen = false;
 
   function closeModal() {
@@ -27,11 +31,20 @@
   }
 
   function openModal() {
+    // We want to inform the user that they need to connect
+    // their wallet if they want to change the network
+    if (!$account.isConnected) {
+      warningToast($t('messages.account.required'));
+      return;
+    }
+
     modalOpen = true;
   }
 
   function selectChain(chain: Chain) {
-    selectedChain = chain;
+    if (chain === value) return;
+
+    value = chain;
     onChange?.(chain); // TODO: data binding? 🤔
     closeModal();
   }
@@ -56,23 +69,23 @@
       aria-haspopup="dialog"
       aria-controls={dialogId}
       aria-expanded={modalOpen}
-      class="px-2 py-[6px] body-small-regular bg-neutral-background rounded-md min-w-[150px]"
+      class="px-2 py-[6px] body-small-regular bg-neutral-background rounded-md"
       on:click={openModal}>
       <div class="f-items-center space-x-2">
-        {#if !selectedChain}
-          <span>{$t('chain_selector.placeholder')}…</span>
+        {#if !value}
+          <span>{$t('chain_selector.placeholder')}</span>
         {/if}
-        {#if selectedChain}
-          <i role="img" aria-label={selectedChain.name}>
-            <svelte:component this={chainToIconMap[selectedChain.id]} size={20} />
+        {#if value}
+          <i role="img" aria-label={value.name}>
+            <svelte:component this={chainToIconMap[value.id]} size={20} />
           </i>
-          <span>{selectedChain.name}</span>
+          <span>{value.name}</span>
         {/if}
       </div>
     </button>
   </div>
 
-  <dialog id={dialogId} class="modal" class:modal-open={modalOpen}>
+  <dialog id={dialogId} class="modal modal-bottom md:modal-middle" class:modal-open={modalOpen}>
     <div class="modal-box relative px-6 py-[21px] bg-primary-base-background text-primary-base-content">
       <button class="absolute right-6 top-[21px]" on:click={closeModal}>
         <Icon type="x-close" fillClass="fill-secondary-icon" />
@@ -83,6 +96,8 @@
           <li
             role="menuitem"
             tabindex="0"
+            class:opacity-50={chain === value}
+            aria-disabled={chain === value}
             on:click={() => selectChain(chain)}
             on:keydown={getChainKeydownHandler(chain)}>
             <!-- TODO: agree on hover:bg color -->

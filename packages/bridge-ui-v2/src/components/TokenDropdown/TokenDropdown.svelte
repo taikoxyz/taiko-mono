@@ -70,7 +70,7 @@
     on:focus={openMenu}>
     <div class="space-x-2">
       {#if !selectedToken}
-        <span class="title-subsection-bold text-tertiary-content leading-8">{$t('token_dropdown.placeholder')}…</span>
+        <span class="title-subsection-bold text-tertiary-content leading-8">{$t('token_dropdown.placeholder')}</span>
       {/if}
       {#if selectedToken}
         <div class="flex space-x-2 items-center">
