@@ -21,44 +21,61 @@ func L1FilterFunc(
 	svc *Service,
 	filterOpts *bind.FilterOpts,
 ) error {
-	blockProvenEvents, err := svc.taikol1.FilterBlockProven(filterOpts, nil)
-	if err != nil {
-		return errors.Wrap(err, "svc.taikol1.FilterBlockProven")
+	if svc.taikol1 != nil {
+		blockProvenEvents, err := svc.taikol1.FilterBlockProven(filterOpts, nil)
+		if err != nil {
+			return errors.Wrap(err, "svc.taikol1.FilterBlockProven")
+		}
+
+		err = svc.saveBlockProvenEvents(ctx, chainID, blockProvenEvents)
+		if err != nil {
+			return errors.Wrap(err, "svc.saveBlockProvenEvents")
+		}
+
+		blockProposedEvents, err := svc.taikol1.FilterBlockProposed(filterOpts, nil)
+		if err != nil {
+			return errors.Wrap(err, "svc.taikol1.FilterBlockProposed")
+		}
+
+		err = svc.saveBlockProposedEvents(ctx, chainID, blockProposedEvents)
+		if err != nil {
+			return errors.Wrap(err, "svc.saveBlockProposedEvents")
+		}
+
+		blockVerifiedEvents, err := svc.taikol1.FilterBlockVerified(filterOpts, nil)
+		if err != nil {
+			return errors.Wrap(err, "svc.taikol1.FilterBlockVerified")
+		}
+
+		err = svc.saveBlockVerifiedEvents(ctx, chainID, blockVerifiedEvents)
+		if err != nil {
+			return errors.Wrap(err, "svc.saveBlockVerifiedEvents")
+		}
 	}
 
-	err = svc.saveBlockProvenEvents(ctx, chainID, blockProvenEvents)
-	if err != nil {
-		return errors.Wrap(err, "svc.saveBlockProvenEvents")
+	if svc.bridge != nil {
+		messagesSent, err := svc.bridge.FilterMessageSent(filterOpts, nil)
+		if err != nil {
+			return errors.Wrap(err, "svc.bridge.FilterMessageSent")
+		}
+
+		err = svc.saveMessageSentEvents(ctx, chainID, messagesSent)
+		if err != nil {
+			return errors.Wrap(err, "svc.saveMessageSentEvents")
+		}
 	}
 
-	blockProposedEvents, err := svc.taikol1.FilterBlockProposed(filterOpts, nil)
-	if err != nil {
-		return errors.Wrap(err, "svc.taikol1.FilterBlockProposed")
-	}
+	if svc.proverPool != nil {
+		slashedEvents, err := svc.proverPool.FilterSlashed(filterOpts, nil)
+		if err != nil {
+			return errors.Wrap(err, "svc.proverPool.FilterSlashed")
+		}
 
-	err = svc.saveBlockProposedEvents(ctx, chainID, blockProposedEvents)
-	if err != nil {
-		return errors.Wrap(err, "svc.saveBlockProposedEvents")
-	}
+		err = svc.saveSlashedEvents(ctx, chainID, slashedEvents)
+		if err != nil {
+			return errors.Wrap(err, "svc.saveSlashedEvents")
+		}
 
-	blockVerifiedEvents, err := svc.taikol1.FilterBlockVerified(filterOpts, nil)
-	if err != nil {
-		return errors.Wrap(err, "svc.taikol1.FilterBlockVerified")
-	}
-
-	err = svc.saveBlockVerifiedEvents(ctx, chainID, blockVerifiedEvents)
-	if err != nil {
-		return errors.Wrap(err, "svc.saveBlockVerifiedEvents")
-	}
-
-	messagesSent, err := svc.bridge.FilterMessageSent(filterOpts, nil)
-	if err != nil {
-		return errors.Wrap(err, "svc.bridge.FilterMessageSent")
-	}
-
-	err = svc.saveMessageSentEvents(ctx, chainID, messagesSent)
-	if err != nil {
-		return errors.Wrap(err, "svc.saveMessageSentEvents")
 	}
 
 	return nil
