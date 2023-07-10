@@ -12,10 +12,10 @@ import {
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { IERC20MetadataUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
-import { IMintableERC20 } from "../common/IMintableERC20.sol";
-import { EssentialContract } from "../common/EssentialContract.sol";
-import { Proxied } from "../common/Proxied.sol";
-import { BridgeErrors } from "./BridgeErrors.sol";
+import { IMintableERC20 } from "../../common/IMintableERC20.sol";
+import { EssentialContract } from "../../common/EssentialContract.sol";
+import { Proxied } from "../../common/Proxied.sol";
+import { BridgeErrors } from "../BridgeErrors.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 /**
  * This contract is an upgradeable ERC20 contract that represents tokens bridged
@@ -73,7 +73,7 @@ contract BridgedERC20 is
 
     /**
      * Mints tokens to an account.
-     * @dev Only a TokenVault can call this function.
+     * @dev Only a ERC20Vault can call this function.
      * @param account The account to mint tokens to.
      * @param amount The amount of tokens to mint.
      */
@@ -90,7 +90,7 @@ contract BridgedERC20 is
 
     /**
      * Burns tokens from an account.
-     * @dev Only a TokenVault can call this function.
+     * @dev Only a ERC20Vault can call this function.
      * @param account The account to burn tokens from.
      * @param amount The amount of tokens to burn.
      */

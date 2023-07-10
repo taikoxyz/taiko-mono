@@ -38,7 +38,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
 
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
 
-    /// Allow Bridge to receive ETH from the TaikoL1, TokenVault or EtherVault.
+    /// Allow Bridge to receive ETH from the TaikoL1, ERC20Vault or EtherVault.
     receive() external payable {
         if (
             msg.sender != resolve("token_vault", true)

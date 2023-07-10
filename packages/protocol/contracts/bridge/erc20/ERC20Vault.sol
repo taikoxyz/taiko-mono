@@ -15,21 +15,21 @@ import { SafeERC20Upgradeable } from
 import { Create2Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 import { BridgedERC20 } from "./BridgedERC20.sol";
-import { EssentialContract } from "../common/EssentialContract.sol";
-import { IBridge } from "./IBridge.sol";
-import { IMintableERC20 } from "../common/IMintableERC20.sol";
-import { Proxied } from "../common/Proxied.sol";
-import { TaikoToken } from "../L1/TaikoToken.sol";
+import { EssentialContract } from "../../common/EssentialContract.sol";
+import { IBridge } from "../IBridge.sol";
+import { IMintableERC20 } from "../../common/IMintableERC20.sol";
+import { Proxied } from "../../common/Proxied.sol";
+import { TaikoToken } from "../../L1/TaikoToken.sol";
 
 /**
  * This vault holds all ERC20 tokens (but not Ether) that users have deposited.
  * It also manages the mapping between canonical ERC20 tokens and their bridged
  * tokens.
  * @dev Ether is held by Bridges on L1 and by the EtherVault on L2, not
- * TokenVaults.
+ * ERC20Vaults.
  * @custom:security-contact hello@taiko.xyz
  */
-contract TokenVault is EssentialContract {
+contract ERC20Vault is EssentialContract {
     using SafeERC20Upgradeable for ERC20Upgradeable;
 
     /*//////////////////////////////////////////////////////////////
@@ -127,55 +127,55 @@ contract TokenVault is EssentialContract {
      * Thrown when the `to` address in an operation is invalid.
      * This can happen if it's zero address or the address of the token vault.
      */
-    error TOKENVAULT_INVALID_TO();
+    error ERC20_VAULT_INVALID_TO();
 
     /**
      * Thrown when the value in a transaction is invalid.
      * The value can be an Ether amount or the amount of a token being
      * transferred.
      */
-    error TOKENVAULT_INVALID_VALUE();
+    error ERC20_VAULT_INVALID_VALUE();
 
     /**
      * Thrown when the token address in a transaction is invalid.
      * This could happen if the token address is zero or doesn't conform to the
      * ERC20 standard.
      */
-    error TOKENVAULT_INVALID_TOKEN();
+    error ERC20_VAULT_INVALID_TOKEN();
 
     /**
      * Thrown when the amount in a transaction is invalid.
      * This could happen if the amount is zero or exceeds the sender's balance.
      */
-    error TOKENVAULT_INVALID_AMOUNT();
+    error ERC20_VAULT_INVALID_AMOUNT();
 
     /**
      * Thrown when the owner address in a message is invalid.
      * This could happen if the owner address is zero or doesn't match the
      * expected owner.
      */
-    error TOKENVAULT_INVALID_OWNER();
+    error ERC20_VAULT_INVALID_OWNER();
 
     /**
      * Thrown when the source chain ID in a message is invalid.
      * This could happen if the source chain ID doesn't match the current
      * chain's ID.
      */
-    error TOKENVAULT_INVALID_SRC_CHAIN_ID();
+    error ERC20_VAULT_INVALID_SRC_CHAIN_ID();
 
     /**
      * Thrown when a message has not failed.
      * This could happen if trying to release a message deposit without proof of
      * failure.
      */
-    error TOKENVAULT_MESSAGE_NOT_FAILED();
+    error ERC20_VAULT_MESSAGE_NOT_FAILED();
 
     /**
      * Thrown when the sender in a message context is invalid.
      * This could happen if the sender isn't the expected token vault on the
      * source chain.
      */
-    error TOKENVAULT_INVALID_SENDER();
+    error ERC20_VAULT_INVALID_SENDER();
 
     /*//////////////////////////////////////////////////////////////
                          USER-FACING FUNCTIONS
@@ -216,11 +216,11 @@ contract TokenVault is EssentialContract {
         if (
             to == address(0) || to == resolve(destChainId, "token_vault", false)
         ) {
-            revert TOKENVAULT_INVALID_TO();
+            revert ERC20_VAULT_INVALID_TO();
         }
 
-        if (token == address(0)) revert TOKENVAULT_INVALID_TOKEN();
-        if (amount == 0) revert TOKENVAULT_INVALID_AMOUNT();
+        if (token == address(0)) revert ERC20_VAULT_INVALID_TOKEN();
+        if (amount == 0) revert ERC20_VAULT_INVALID_AMOUNT();
 
         CanonicalERC20 memory canonicalToken;
         uint256 _amount;
@@ -257,7 +257,7 @@ contract TokenVault is EssentialContract {
         message.owner = msg.sender;
         message.to = resolve(destChainId, "token_vault", false);
         message.data = abi.encodeWithSelector(
-            TokenVault.receiveERC20.selector,
+            ERC20Vault.receiveERC20.selector,
             canonicalToken,
             message.owner,
             to,
@@ -287,7 +287,7 @@ contract TokenVault is EssentialContract {
     }
 
     /**
-     * Release deposited ERC20 back to the owner on the source TokenVault with
+     * Release deposited ERC20 back to the owner on the source ERC20Vault with
      * a proof that the message processing on the destination Bridge has failed.
      *
      * @param message The message that corresponds to the ERC20 deposit on the
@@ -302,9 +302,9 @@ contract TokenVault is EssentialContract {
         external
         nonReentrant
     {
-        if (message.owner == address(0)) revert TOKENVAULT_INVALID_OWNER();
+        if (message.owner == address(0)) revert ERC20_VAULT_INVALID_OWNER();
         if (message.srcChainId != block.chainid) {
-            revert TOKENVAULT_INVALID_SRC_CHAIN_ID();
+            revert ERC20_VAULT_INVALID_SRC_CHAIN_ID();
         }
 
         IBridge bridge = IBridge(resolve("bridge", false));
@@ -312,10 +312,10 @@ contract TokenVault is EssentialContract {
 
         address token = messageDeposits[msgHash].token;
         uint256 amount = messageDeposits[msgHash].amount;
-        if (token == address(0)) revert TOKENVAULT_INVALID_TOKEN();
+        if (token == address(0)) revert ERC20_VAULT_INVALID_TOKEN();
 
         if (!bridge.isMessageFailed(msgHash, message.destChainId, proof)) {
-            revert TOKENVAULT_MESSAGE_NOT_FAILED();
+            revert ERC20_VAULT_MESSAGE_NOT_FAILED();
         }
         messageDeposits[msgHash] = MessageDeposit(address(0), 0);
 
@@ -359,7 +359,7 @@ contract TokenVault is EssentialContract {
     {
         IBridge.Context memory ctx = IBridge(msg.sender).context();
         if (ctx.sender != resolve(ctx.srcChainId, "token_vault", false)) {
-            revert TOKENVAULT_INVALID_SENDER();
+            revert ERC20_VAULT_INVALID_SENDER();
         }
 
         address token;
@@ -452,4 +452,4 @@ contract TokenVault is EssentialContract {
     }
 }
 
-contract ProxiedTokenVault is Proxied, TokenVault { }
+contract ProxiedERC20Vault is Proxied, ERC20Vault { }

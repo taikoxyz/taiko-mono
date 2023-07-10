@@ -10,7 +10,7 @@ import { console2 } from "forge-std/console2.sol";
 import { TaikoL2 } from "../../contracts/L2/TaikoL2.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { Bridge } from "../../contracts/bridge/Bridge.sol";
-import { TokenVault } from "../../contracts/bridge/TokenVault.sol";
+import { ERC20Vault } from "../../contracts/bridge/erc20/ERC20Vault.sol";
 import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { LibBridgeStatus } from
@@ -38,7 +38,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         assertEq(block.chainid, 167);
 
         checkDeployedCode("ProxiedTaikoL2");
-        checkDeployedCode("ProxiedTokenVault");
+        checkDeployedCode("ProxiedERC20Vault");
         checkDeployedCode("ProxiedEtherVault");
         checkDeployedCode("ProxiedBridge");
         checkDeployedCode("RegularERC20");
@@ -47,7 +47,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         // check proxy implementations
         checkProxyImplementation("TaikoL2Proxy", "ProxiedTaikoL2");
-        checkProxyImplementation("TokenVaultProxy", "ProxiedTokenVault");
+        checkProxyImplementation("ERC20VaultProxy", "ProxiedERC20Vault");
         checkProxyImplementation("EtherVaultProxy", "ProxiedEtherVault");
         checkProxyImplementation("BridgeProxy", "ProxiedBridge");
         checkProxyImplementation("AddressManagerProxy", "ProxiedAddressManager");
@@ -55,7 +55,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         // check proxies
         checkDeployedCode("TaikoL2Proxy");
-        checkDeployedCode("TokenVaultProxy");
+        checkDeployedCode("ERC20VaultProxy");
         checkDeployedCode("EtherVaultProxy");
         checkDeployedCode("BridgeProxy");
         checkDeployedCode("AddressManagerProxy");
@@ -69,7 +69,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         assertEq(owner, addressManager.owner());
 
         checkSavedAddress(addressManager, "BridgeProxy", "bridge");
-        checkSavedAddress(addressManager, "TokenVaultProxy", "token_vault");
+        checkSavedAddress(addressManager, "ERC20VaultProxy", "token_vault");
         checkSavedAddress(addressManager, "EtherVaultProxy", "ether_vault");
         checkSavedAddress(addressManager, "TaikoL2Proxy", "taiko");
         checkSavedAddress(
@@ -205,33 +205,33 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.stopPrank();
     }
 
-    function testTokenVault() public {
-        address tokenVaultAddress =
-            getPredeployedContractAddress("TokenVaultProxy");
+    function testERC20Vault() public {
+        address erc20VaultAddress =
+            getPredeployedContractAddress("ERC20VaultProxy");
         address bridgeAddress = getPredeployedContractAddress("BridgeProxy");
 
-        TokenVault tokenVault = TokenVault(tokenVaultAddress);
+        ERC20Vault erc20Vault = ERC20Vault(erc20VaultAddress);
         AddressManager addressManager =
             AddressManager(getPredeployedContractAddress("AddressManagerProxy"));
 
-        assertEq(owner, tokenVault.owner());
+        assertEq(owner, erc20Vault.owner());
 
         vm.startPrank(addressManager.owner());
         addressManager.setAddress(1, "bridge", bridgeAddress);
-        addressManager.setAddress(1, "token_vault", tokenVaultAddress);
+        addressManager.setAddress(1, "token_vault", erc20VaultAddress);
         vm.stopPrank();
 
         vm.startPrank(admin);
 
         TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy(
-            payable(getPredeployedContractAddress("TokenVaultProxy"))
+            payable(getPredeployedContractAddress("ERC20VaultProxy"))
         );
 
-        TokenVault newTokenVault = new TokenVault();
+        ERC20Vault newERC20Vault = new ERC20Vault();
 
-        proxy.upgradeTo(address(newTokenVault));
+        proxy.upgradeTo(address(newERC20Vault));
 
-        assertEq(proxy.implementation(), address(newTokenVault));
+        assertEq(proxy.implementation(), address(newERC20Vault));
         vm.stopPrank();
     }
 
