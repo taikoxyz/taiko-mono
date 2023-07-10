@@ -10,6 +10,9 @@ abstract contract BridgeErrors {
     /// Emitted when the contract is not intended to receive Ether
     error B_CANNOT_RECEIVE();
 
+    /// Emitted when the contract is not intended to receive ERC721
+    error B_ERC721_CANNOT_RECEIVE();
+
     /// Emitted when an operation is denied due to incorrect permissions
     error B_DENIED();
 
