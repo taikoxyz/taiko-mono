@@ -10,19 +10,26 @@ import {
     IERC721Receiver
 } from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {
+    IERC1155Receiver
+} from "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
+import {
     IERC165
 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import {AddressResolver} from "../../common/AddressResolver.sol";
-import {EssentialContract} from "../../common/EssentialContract.sol";
-import {IBridge} from "../IBridge.sol";
-import {LibERC721} from "./libs/LibERC721.sol";
+import {AddressResolver} from "../common/AddressResolver.sol";
+import {EssentialContract} from "../common/EssentialContract.sol";
+import {IBridge} from "./IBridge.sol";
+import {LibERC721} from "./erc721/libs/LibERC721.sol";
 
 /**
  * This vault holds all ERC721 and ERC1155 tokens that users have deposited.
  * It also manages the mapping between canonical ERC721/1155 tokens and their bridged
  * tokens.
  */
-contract NFTVault is EssentialContract, IERC721Receiver {
+contract NFTVault is 
+    EssentialContract,
+    IERC721Receiver,
+    IERC1155Receiver
+{
     /* ***************
      * Constants     *
      *************** */
@@ -31,6 +38,7 @@ contract NFTVault is EssentialContract, IERC721Receiver {
     bytes4 constant ERC721_ENUMERABLE_INTERFACE_ID = 0x780e9d63;
 
     bytes4 constant ERC1155_INTERFACE_ID = 0xd9b67a26;
+    bytes4 constant ERC1155_METADATA_INTERFACE_ID = 0x0e89341c;
 
     enum NFTType{ ERC721, ERC1155}
 
@@ -226,11 +234,43 @@ contract NFTVault is EssentialContract, IERC721Receiver {
     }
 
     function onERC721Received(
-        address operator,
-        address from,
-        uint256 tokenId,
-        bytes calldata data
+        address,
+        address,
+        uint256,
+        bytes calldata
     ) external pure returns (bytes4) {
         return IERC721Receiver.onERC721Received.selector;
+    }
+
+    function onERC1155Received(
+        address,
+        address,
+        uint256,
+        uint256,
+        bytes calldata
+    ) external pure returns (bytes4) {
+        return IERC1155Receiver.onERC1155Received.selector;
+    }
+
+    function onERC1155BatchReceived(
+        address,
+        address,
+        uint256[] calldata,
+        uint256[] calldata,
+        bytes calldata
+    ) external pure returns (bytes4){
+        return IERC1155Receiver.onERC1155BatchReceived.selector;
+    }
+
+    /**
+     * @dev See {IERC165-supportsInterface}.
+     */
+    function supportsInterface(bytes4 interfaceId) public view virtual override(IERC165) returns (bool) {
+        return
+            interfaceId == ERC721_INTERFACE_ID ||
+            interfaceId == ERC721_METADATA_INTERFACE_ID ||
+            interfaceId == ERC721_ENUMERABLE_INTERFACE_ID ||
+            interfaceId == ERC1155_INTERFACE_ID ||
+            interfaceId == ERC1155_METADATA_INTERFACE_ID;
     }
 }

@@ -13,7 +13,7 @@ import {
 import {
     ERC721Upgradeable
 } from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
-import {NFTVault} from "../NFTVault.sol";
+import {NFTVault} from "../../NFTVault.sol";
 import {BridgedERC721} from "../BridgedERC721.sol";
 import {IBridge} from "../../IBridge.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
