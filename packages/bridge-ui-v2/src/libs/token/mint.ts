@@ -1,5 +1,4 @@
-import { getContract,type WalletClient } from '@wagmi/core';
-import { parseTransaction } from 'viem';
+import { getContract, type WalletClient } from '@wagmi/core';
 
 import { freeMintErc20ABI } from '$abi';
 
@@ -13,7 +12,7 @@ export async function mint(token: Token, walletClient: WalletClient) {
   const userAddress = walletClient.account.address;
   const chainId = walletClient.chain.id;
 
-  const l1TokenContract = getContract({
+  const tokenContract = getContract({
     walletClient,
     abi: freeMintErc20ABI,
     address: token.addresses[chainId],
@@ -22,7 +21,14 @@ export async function mint(token: Token, walletClient: WalletClient) {
   log(`Minting ${tokenSymbol} for account "${userAddress}"`);
 
   try {
-    const hash = await l1TokenContract.write.mint([userAddress]);
+    // Check whether the user has already minted this token
+    const hasMinted = await tokenContract.read.minters([userAddress]);
+
+    if (hasMinted) {
+      throw Error(`user has already minted ${tokenSymbol}`);
+    }
+
+    const hash = await tokenContract.write.mint([userAddress]);
     return hash;
   } catch (error) {
     console.error(error);

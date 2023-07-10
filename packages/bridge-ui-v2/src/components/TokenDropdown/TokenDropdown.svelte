@@ -1,6 +1,5 @@
 <script lang="ts">
   import { type ComponentType, onDestroy, onMount } from 'svelte';
-  import { noop } from 'svelte/internal';
   import { t } from 'svelte-i18n';
 
   import { BllIcon, EthIcon, HorseIcon, Icon } from '$components/Icon';
@@ -9,7 +8,7 @@
   import { uid } from '$libs/util/uid';
 
   export let tokens: Token[] = [];
-  export let onChange: (token: Token) => void = noop;
+  export let value: Maybe<Token>;
 
   let symbolToIconMap: Record<string, ComponentType> = {
     ETH: EthIcon,
@@ -18,7 +17,6 @@
   };
 
   let dropdownId = `dropdown-${uid()}`;
-  let selectedToken: Token;
   let menuOpen = false;
 
   $: menuClasses = classNames(
@@ -37,8 +35,7 @@
   }
 
   function selectToken(token: Token) {
-    selectedToken = token;
-    onChange?.(token); // TODO: data binding? 🤔
+    value = token;
     closeMenu();
   }
 
@@ -69,15 +66,15 @@
     on:click={openMenu}
     on:focus={openMenu}>
     <div class="space-x-2">
-      {#if !selectedToken}
+      {#if !value}
         <span class="title-subsection-bold text-tertiary-content leading-8">{$t('token_dropdown.placeholder')}</span>
       {/if}
-      {#if selectedToken}
+      {#if value}
         <div class="flex space-x-2 items-center">
-          <i role="img" aria-label={selectedToken.name}>
-            <svelte:component this={symbolToIconMap[selectedToken.symbol]} />
+          <i role="img" aria-label={value.name}>
+            <svelte:component this={symbolToIconMap[value.symbol]} />
           </i>
-          <span class="title-subsection-bold">{selectedToken.symbol}</span>
+          <span class="title-subsection-bold">{value.symbol}</span>
         </div>
       {/if}
     </div>
@@ -89,7 +86,7 @@
       <li
         role="option"
         tabindex="0"
-        aria-selected={token === selectedToken}
+        aria-selected={token === value}
         on:click={() => selectToken(token)}
         on:keydown={getTokenKeydownHandler(token)}>
         <div class="p-4">
