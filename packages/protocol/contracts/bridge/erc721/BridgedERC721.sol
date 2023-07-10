@@ -6,9 +6,6 @@
 
 pragma solidity ^0.8.20;
 
-import {
-    IERC721Upgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
 import {EssentialContract} from "../../common/EssentialContract.sol";
 import {
     ERC721Upgradeable
@@ -17,7 +14,6 @@ import {BridgeErrors} from "../BridgeErrors.sol";
 
 contract BridgedERC721 is
     EssentialContract,
-    IERC721Upgradeable,
     ERC721Upgradeable,
     BridgeErrors
 {
@@ -82,7 +78,7 @@ contract BridgedERC721 is
         address from,
         address to,
         uint256 tokenId
-    ) public override(ERC721Upgradeable, IERC721Upgradeable) {
+    ) public override(ERC721Upgradeable) {
         if (to == address(this)) {
             revert B_ERC721_CANNOT_RECEIVE();
         }
