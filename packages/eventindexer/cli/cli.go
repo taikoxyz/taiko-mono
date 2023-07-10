@@ -127,13 +127,12 @@ func Run(
 		}
 
 		i, err := indexer.NewService(indexer.NewServiceOpts{
-			EventRepo:       eventRepository,
-			BlockRepo:       blockRepository,
-			StatRepo:        statRepository,
-			EthClient:       ethClient,
-			RPCClient:       rpcClient,
-			SrcTaikoAddress: common.HexToAddress(os.Getenv("L1_TAIKO_ADDRESS")),
-
+			EventRepo:           eventRepository,
+			BlockRepo:           blockRepository,
+			StatRepo:            statRepository,
+			EthClient:           ethClient,
+			RPCClient:           rpcClient,
+			SrcTaikoAddress:     common.HexToAddress(os.Getenv("L1_TAIKO_ADDRESS")),
 			ProverPoolAddress:   common.HexToAddress(os.Getenv("PROVER_POOL_ADDRESS")),
 			SrcBridgeAddress:    common.HexToAddress(os.Getenv("BRIDGE_ADDRESS")),
 			SrcSwapAddresses:    stringsToAddresses(strings.Split(os.Getenv("SWAP_ADDRESSES"), ",")),
