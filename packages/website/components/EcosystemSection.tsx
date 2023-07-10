@@ -44,6 +44,14 @@ const ecosystemData: EcosystemData[] = [
     filters: [],
   },
   {
+    icon: "/images/ecosystem/crypton.png",
+    name: "Crypton",
+    link: "https://crypton.xyz",
+    description:
+      "Help to understand crypto projects by providing the necessary tools to increase your productivity and time.",
+    filters: [],
+  },
+  {
     icon: "/images/ecosystem/kekkai.png",
     name: "KEKKAI",
     link: "https://kekkai.io",
@@ -57,6 +65,14 @@ const ecosystemData: EcosystemData[] = [
     link: "https://wallet.loopring.io",
     description:
       "Loopring is your mobile gateway to Ethereum L2, enabling you to easily trade, swap, collect, stake, and invest without the costly gas fees.",
+    filters: [],
+  },
+  {
+    icon: "/images/ecosystem/mxc.svg",
+    name: "MXC",
+    link: "https://wannsee.mxc.com/docs/intro",
+    description:
+      "Layer3 IoT app chain built using Taiko's open source software.",
     filters: [],
   },
   {

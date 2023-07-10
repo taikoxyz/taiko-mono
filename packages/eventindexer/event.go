@@ -16,6 +16,8 @@ var (
 	EventNameBlockProposed = "BlockProposed"
 	EventNameBlockVerified = "BlockVerified"
 	EventNameSlashed       = "Slashed"
+	EventNameMessageSent   = "MessageSent"
+	EventNameSwap          = "Swap"
 )
 
 // Event represents a stored EVM event. The fields will be serialized
@@ -78,4 +80,9 @@ type EventRepository interface {
 		event string,
 	) (paginate.Page, error)
 	GetTotalSlashedTokens(ctx context.Context) (*big.Int, error)
+	FirstByAddressAndEventName(
+		ctx context.Context,
+		address string,
+		event string,
+	) (*Event, error)
 }

@@ -42,10 +42,12 @@
     closeMenu();
   }
 
-  function onTokenKeydown(event: KeyboardEvent, token: Token) {
-    if (event.key === 'Enter') {
-      selectToken(token);
-    }
+  function getTokenKeydownHandler(token: Token) {
+    return (event: KeyboardEvent) => {
+      if (event.key === 'Enter') {
+        selectToken(token);
+      }
+    };
   }
 
   onMount(() => {
@@ -68,7 +70,7 @@
     on:focus={openMenu}>
     <div class="space-x-2">
       {#if !selectedToken}
-        <span class="title-subsection-bold text-tertiary-content leading-8">{$t('token_dropdown.placeholder')}…</span>
+        <span class="title-subsection-bold text-tertiary-content leading-8">{$t('token_dropdown.placeholder')}</span>
       {/if}
       {#if selectedToken}
         <div class="flex space-x-2 items-center">
@@ -89,7 +91,7 @@
         tabindex="0"
         aria-selected={token === selectedToken}
         on:click={() => selectToken(token)}
-        on:keydown={(event) => onTokenKeydown(event, token)}>
+        on:keydown={getTokenKeydownHandler(token)}>
         <div class="p-4">
           <i role="img" aria-label={token.name}>
             <svelte:component this={symbolToIconMap[token.symbol]} />

@@ -40,7 +40,7 @@ export default function Footer() {
                   className="hover:underline"
                   target={"_blank"}
                 >
-                  Media kit
+                  Brand kit
                 </a>
               </li>
             </ul>
