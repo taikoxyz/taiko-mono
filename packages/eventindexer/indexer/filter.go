@@ -75,7 +75,6 @@ func L1FilterFunc(
 		if err != nil {
 			return errors.Wrap(err, "svc.saveSlashedEvents")
 		}
-
 	}
 
 	return nil
