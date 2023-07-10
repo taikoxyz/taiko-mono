@@ -86,8 +86,10 @@ export const client = createClient({
             // @ts-ignore
             // '--wcm-color-fg-1': '#E81899',
             '--wcm-accent-color': '#E81899',
-          }
-        }
+          },
+          chainImages: [],
+          tokenImages: []
+        },
       },
     }),
     new CoinbaseWalletConnector({
