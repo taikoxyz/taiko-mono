@@ -28,7 +28,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     struct EIP1559Params {
         uint64 basefee;
-        uint64 gasIssuedPerSecond;
+        uint32 gasIssuedPerSecond;
         uint64 gasExcessMax;
         uint64 gasTarget;
         uint64 ratio2x1x;
@@ -37,7 +37,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     struct EIP1559Config {
         uint128 yscale;
         uint64 xscale;
-        uint64 gasIssuedPerSecond;
+        uint32 gasIssuedPerSecond;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -71,7 +71,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     event Anchored(
         uint64 number,
         uint64 basefee,
-        uint64 gaslimit,
+        uint32 gaslimit,
         uint64 timestamp,
         bytes32 parentHash,
         uint256 prevrandao,
@@ -89,9 +89,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     error L2_INVALID_SENDER();
     error L2_PUBLIC_INPUT_HASH_MISMATCH(bytes32 expected, bytes32 actual);
     error L2_TOO_LATE();
-
-    error M1559_UNEXPECTED_CHANGE(uint64 expected, uint64 actual);
-    error M1559_OUT_OF_STOCK();
+    error L2_1559_UNEXPECTED_CHANGE(uint64 expected, uint64 actual);
+    error L2_1559_OUT_OF_STOCK();
 
     /*//////////////////////////////////////////////////////////////
                          USER-FACING FUNCTIONS
@@ -172,7 +171,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         bytes32 l1Hash,
         bytes32 l1SignalRoot,
         uint64 l1Height,
-        uint64 parentGasUsed
+        uint32 parentGasUsed
     )
         external
     {
@@ -203,7 +202,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
             (basefee, gasExcess) = _calcBasefee(
                 config,
                 block.timestamp - parentTimestamp,
-                uint64(block.gaslimit),
+                uint32(block.gaslimit),
                 parentGasUsed
             );
         }
@@ -224,7 +223,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         emit Anchored({
             number: uint64(block.number),
             basefee: uint64(basefee),
-            gaslimit: uint64(block.gaslimit),
+            gaslimit: uint32(block.gaslimit),
             timestamp: uint64(block.timestamp),
             parentHash: parentHash,
             prevrandao: block.prevrandao,
@@ -235,8 +234,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     function getBasefee(
         uint32 timeSinceParent,
-        uint64 gasLimit,
-        uint64 parentGasUsed
+        uint32 gasLimit,
+        uint32 parentGasUsed
     )
         public
         view
@@ -322,8 +321,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     function _calcBasefee(
         EIP1559Config memory config,
         uint256 timeSinceParent,
-        uint64 gasLimit,
-        uint64 parentGasUsed
+        uint32 gasLimit,
+        uint32 parentGasUsed
     )
         private
         view
@@ -331,7 +330,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     {
         // Very important to cap _gasExcess uint64
         unchecked {
-            uint64 parentGasUsedNet = parentGasUsed
+            uint32 parentGasUsedNet = parentGasUsed
                 > LibL2Consts.ANCHOR_GAS_COST
                 ? parentGasUsed - LibL2Consts.ANCHOR_GAS_COST
                 : 0;
