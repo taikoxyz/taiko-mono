@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.2.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2-v2.1.0...bridge-ui-v2-v2.2.0) (2023-07-10)
+
+
+### Features
+
+* **bridge-ui-v2:** activities page ([#14089](https://github.com/taikoxyz/taiko-mono/issues/14089)) ([f4c6f84](https://github.com/taikoxyz/taiko-mono/commit/f4c6f8482cb2fd2242b95bc3495b64481f64ab3d))
+* **bridge-ui-v2:** bridge form ([#14056](https://github.com/taikoxyz/taiko-mono/issues/14056)) ([b39b328](https://github.com/taikoxyz/taiko-mono/commit/b39b328cc602fc9ea05fcd4551b40cd91a6efe37))
+* **bridge-ui-v2:** connect button ([#14106](https://github.com/taikoxyz/taiko-mono/issues/14106)) ([ccaa498](https://github.com/taikoxyz/taiko-mono/commit/ccaa4987680f2e3640d13ed5ed1798afaab8ca1e))
+* **bridge-ui-v2:** generate abi ([#14116](https://github.com/taikoxyz/taiko-mono/issues/14116)) ([c962aac](https://github.com/taikoxyz/taiko-mono/commit/c962aac65791c9bc1836e10490ed15029dd173b3))
+* **bridge-ui-v2:** switch chain ([#14117](https://github.com/taikoxyz/taiko-mono/issues/14117)) ([d51161d](https://github.com/taikoxyz/taiko-mono/commit/d51161d424921ee002812cf69d40f5ee27a464ad))
+
+
+### Bug Fixes
+
+* **bridge-ui-v2:** fix deployment ([#14096](https://github.com/taikoxyz/taiko-mono/issues/14096)) ([4197654](https://github.com/taikoxyz/taiko-mono/commit/419765484db6c3bd94b07f8803c9465d4260a2f6))
+* **bridge-ui-v2:** fixed menus ([#14099](https://github.com/taikoxyz/taiko-mono/issues/14099)) ([fabefb2](https://github.com/taikoxyz/taiko-mono/commit/fabefb2ca20c91f1c08c858967505a991dafdf4e))
+
 ## [2.1.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2-v2.0.0...bridge-ui-v2-v2.1.0) (2023-06-26)
 
 ### Features

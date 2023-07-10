@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.9.1](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.9.0...bridge-ui-v0.9.1) (2023-07-10)
+
+
+### Bug Fixes
+
+* **bridge-ui:** fix svelte-check failures ([#14137](https://github.com/taikoxyz/taiko-mono/issues/14137)) ([a35eac2](https://github.com/taikoxyz/taiko-mono/commit/a35eac28fcef02591faa0538ecbcb0fff1db5ce2))
+* **bridge-ui:** handle scientific notation ([#14105](https://github.com/taikoxyz/taiko-mono/issues/14105)) ([fcc154e](https://github.com/taikoxyz/taiko-mono/commit/fcc154e058a28cd42ad3e9239a3943668d370fad))
+* **bridge-ui:** migrate to wallet connect 2.0 ([#14094](https://github.com/taikoxyz/taiko-mono/issues/14094)) ([eda0333](https://github.com/taikoxyz/taiko-mono/commit/eda0333e34098684b19bc37305b90772e2bf8787))
+
 ## [0.9.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.8.0...bridge-ui-v0.9.0) (2023-06-26)
 
 

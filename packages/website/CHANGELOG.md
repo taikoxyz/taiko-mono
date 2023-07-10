@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.11.0](https://github.com/taikoxyz/taiko-mono/compare/website-v0.10.0...website-v0.11.0) (2023-07-10)
+
+
+### Features
+
+* **website:** add brian to ecosystem page ([#14092](https://github.com/taikoxyz/taiko-mono/issues/14092)) ([f4ddef7](https://github.com/taikoxyz/taiko-mono/commit/f4ddef7a687620b12dc253a23aec8bc7b8071c83))
+* **website:** add dark mode toggle ([#14064](https://github.com/taikoxyz/taiko-mono/issues/14064)) ([77ea634](https://github.com/taikoxyz/taiko-mono/commit/77ea6344dd53aa23e0163982b84d56159e9712fb))
+* **website:** add deterministic deployment proxy address ([#14079](https://github.com/taikoxyz/taiko-mono/issues/14079)) ([6985a97](https://github.com/taikoxyz/taiko-mono/commit/6985a974f39acad3dd183a6a8834e9c2049e9944))
+* **website:** add kekkai to taiko ecosystem ([#14055](https://github.com/taikoxyz/taiko-mono/issues/14055)) ([e6a7945](https://github.com/taikoxyz/taiko-mono/commit/e6a7945afc3297d521eb57322a1014cf9039c549))
+* **website:** add particle network to ecosystem ([#14077](https://github.com/taikoxyz/taiko-mono/issues/14077)) ([36fe62c](https://github.com/taikoxyz/taiko-mono/commit/36fe62c0004d0cd291e664e749f02cb9b083e0a9))
+* **website:** RPC connect Metamask Networks ([#14070](https://github.com/taikoxyz/taiko-mono/issues/14070)) ([1ef2126](https://github.com/taikoxyz/taiko-mono/commit/1ef2126e0cc603a09fc452cfdae0202b30dd98e8))
+
+
+### Bug Fixes
+
+* **website:** point configure wallet to contract addresses reference ([#14072](https://github.com/taikoxyz/taiko-mono/issues/14072)) ([99c3980](https://github.com/taikoxyz/taiko-mono/commit/99c39803e52a1f95dc6a0877d3bd476a84063148))
+
 ## [0.10.0](https://github.com/taikoxyz/taiko-mono/compare/website-v0.9.0...website-v0.10.0) (2023-06-26)
 
 
