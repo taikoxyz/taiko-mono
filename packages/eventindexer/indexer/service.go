@@ -96,7 +96,7 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 	}
 
 	var proverPool *proverpool.ProverPool
-	if opts.ProverPoolAddress.Hex() != "" {
+	if opts.ProverPoolAddress.Hex() != ZeroAddress.Hex() {
 		proverPool, err = proverpool.NewProverPool(opts.ProverPoolAddress, opts.EthClient)
 		if err != nil {
 			return nil, errors.Wrap(err, "proverpool.NewProverPool")
