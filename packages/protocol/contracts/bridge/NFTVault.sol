@@ -19,6 +19,7 @@ import {AddressResolver} from "../common/AddressResolver.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {IBridge} from "./IBridge.sol";
 import {LibERC721} from "./erc721/libs/LibERC721.sol";
+import {LibERC1155} from "./erc1155/libs/LibERC1155.sol";
 
 /**
  * This vault holds all ERC721 and ERC1155 tokens that users have deposited.
@@ -90,14 +91,8 @@ contract NFTVault is
      *********************/
 
     error NFTVAULT_INVALID_TO();
-    error NFTVAULT_INVALID_VALUE();
     error NFTVAULT_INVALID_TOKEN();
     error NFTVAULT_INVALID_AMOUNT();
-    error NFTVAULT_CANONICAL_TOKEN_NOT_FOUND();
-    error NFTVAULT_INVALID_OWNER();
-    error NFTVAULT_INVALID_SRC_CHAIN_ID();
-    error NFTVAULT_MESSAGE_NOT_FAILED();
-    error NFTVAULT_INVALID_SENDER();
     error NFTVAULT_INVALID_NFT_TYPE();
 
     /*********************
@@ -109,11 +104,11 @@ contract NFTVault is
     }
 
     /**
-     * Transfers ERC721 tokens to this vault and sends a message to the
-     * destination chain so the user can receive the same amount of tokens
+     * Transfers ERC721/ERC1155 tokens to this vault and sends a message to the
+     * destination chain so the user can receive the same (bridged) tokens
      * by invoking the message call.
      *
-     * @param opts Options for sending the ERC721 token.
+     * @param opts Options for sending the ERC721/ERC1155 token.
      */
     function sendNFT(SendNFTOpts calldata opts) external payable nonReentrant {
         if (
@@ -123,7 +118,7 @@ contract NFTVault is
 
         if (opts.token == address(0)) revert NFTVAULT_INVALID_TOKEN();
 
-        if (opts.tokenId == 0) revert NFTVAULT_INVALID_AMOUNT();
+        if (opts.amount == 0) revert NFTVAULT_INVALID_AMOUNT();
 
         NFTType nftType = _getNftType(opts.token);
 
@@ -140,7 +135,17 @@ contract NFTVault is
                 NFTVault.receiveERC721.selector
             );
         } else {
-            // data = LibERC1155.sendErc1155()
+            data = LibERC1155.sendErc1155(
+                msg.sender,
+                opts.to,
+                opts.tokenId,
+                opts.token,
+                opts.tokenUri,
+                opts.amount,
+                isBridgedToken[opts.token],
+                bridgedToCanonical[opts.token],
+                NFTVault.receiveERC1155.selector
+            );
         }
 
         IBridge.Message memory message;
@@ -168,7 +173,15 @@ contract NFTVault is
                 tokenId: opts.tokenId
             });
         } else {
-            // Emit ERC1155
+            emit LibERC1155.ERC1155Sent({
+                msgHash: msgHash,
+                from: message.owner,
+                to: opts.to,
+                destChainId: opts.destChainId,
+                token: opts.token,
+                tokenId: opts.tokenId,
+                amount: opts.amount
+            });
         }
     }
 
@@ -192,7 +205,6 @@ contract NFTVault is
         address bridgedAddress = canonicalToBridged[canonicalToken.srcChainId][canonicalToken.tokenAddr];
         (
             bool bridged,
-            /*CanonicalNFT memory canonical,-> Not needed, input canonicalToken is readonly in lib and to avoid still stack too deep*/
             address bridgedToken
         ) = LibERC721.receiveERC721(
                 AddressResolver(this),
@@ -204,6 +216,44 @@ contract NFTVault is
                 bridgedAddress
             );
         
+        if (bridged) {
+            _setBridgedToken(bridgedToken, canonicalToken);
+        }
+    }
+
+    /**
+     * @dev This function can only be called by the bridge contract while
+     * invoking a message call. See sendNFT, which sets the data to invoke
+     * this function.
+     * @param canonicalToken The canonical ERC1155 token which may or may not
+     * live on this chain. If not, a BridgedERC1155 contract will be
+     * deployed.
+     * @param from The source address.
+     * @param to The destination address.
+     * @param tokenId The tokenId to be sent.
+     */
+    function receiveERC1155(
+        NFTVault.CanonicalNFT calldata canonicalToken,
+        address from,
+        address to,
+        uint256 tokenId,
+        uint256 amount
+    ) external nonReentrant onlyFromNamed("bridge") {
+        address bridgedAddress = canonicalToBridged[canonicalToken.srcChainId][canonicalToken.tokenAddr];
+        (
+            bool bridged,
+            address bridgedToken
+        ) = LibERC1155.receiveERC1155(
+                AddressResolver(this),
+                address(_addressManager),
+                canonicalToken,
+                from,
+                to,
+                tokenId,
+                amount,
+                bridgedAddress
+            );
+
         if (bridged) {
             _setBridgedToken(bridgedToken, canonicalToken);
         }

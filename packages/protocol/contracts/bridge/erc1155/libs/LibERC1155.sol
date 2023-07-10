@@ -11,61 +11,63 @@ import {
     Create2Upgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 import {
-    ERC721Upgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+    ERC1155Upgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 import {NFTVault} from "../../NFTVault.sol";
-import {BridgedERC721} from "../BridgedERC721.sol";
+import {BridgedERC1155} from "../BridgedERC1155.sol";
 import {IBridge} from "../../IBridge.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
-library LibERC721 {
+library LibERC1155 {
     /*********************
      * Events            *
      *********************/
 
-    event BridgedERC721Deployed(
+    event BridgedERC1155Deployed(
         uint256 indexed srcChainId,
         address indexed canonicalToken,
-        address indexed bridgedToken,
-        string canonicalTokenSymbol,
-        string canonicalTokenName
+        address indexed bridgedToken
     );
 
-    event ERC721Sent(
+    event ERC1155Sent(
         bytes32 indexed msgHash,
         address indexed from,
         address indexed to,
         uint256 destChainId,
         address token,
-        uint256 tokenId
+        uint256 tokenId,
+        uint256 amount
     );
 
-    event ERC721Released(
+    event ERC1155Released(
         bytes32 indexed msgHash,
         address indexed from,
         address token,
-        uint256 tokenId
+        uint256 tokenId,
+        uint256 amount
     );
 
-    event ERC721Received(
+    event ERC1155Received(
         bytes32 indexed msgHash,
         address indexed from,
         address indexed to,
         uint256 srcChainId,
         address token,
-        uint256 tokenId
+        uint256 tokenId,
+        uint256 amount
     );
 
     error NFTVAULT_CANONICAL_TOKEN_NOT_FOUND();
     error NFTVAULT_INVALID_OWNER();
     error NFTVAULT_INVALID_SENDER();
 
-    function sendErc721(
+    function sendErc1155(
         address owner,
         address to,
         uint256 tokenId,
         address token,
         string memory tokenUri,
+        uint256 amount,
         bool isBridgedToken,
         NFTVault.CanonicalNFT memory bridgedToCanonical,
         bytes4 selector
@@ -74,29 +76,29 @@ library LibERC721 {
 
         // is a bridged token, meaning, it does not live on this chain
         if (isBridgedToken) {
-            if (BridgedERC721(token).ownerOf(tokenId) != msg.sender)
+            if (BridgedERC1155(token).balanceOf(owner, tokenId) < amount)
                 revert NFTVAULT_INVALID_OWNER();
 
-            BridgedERC721(token).bridgeBurnFrom(msg.sender, tokenId);
+            BridgedERC1155(token).bridgeBurnFrom(owner, tokenId, amount);
             canonicalToken = bridgedToCanonical;
             if (canonicalToken.tokenAddr == address(0))
                 revert NFTVAULT_CANONICAL_TOKEN_NOT_FOUND();
         } else {
             // is a canonical token, meaning, it lives on this chain
-            ERC721Upgradeable t = ERC721Upgradeable(token);
-            if (t.ownerOf(tokenId) != msg.sender)
+            ERC1155Upgradeable t = ERC1155Upgradeable(token);
+            if (BridgedERC1155(token).balanceOf(owner, tokenId) < amount)
                 revert NFTVAULT_INVALID_OWNER();
 
             canonicalToken = NFTVault.CanonicalNFT({
                 srcChainId: block.chainid,
                 tokenAddr: token,
-                symbol: t.symbol(),
-                name: t.name(),
+                symbol: "",
+                name: "",
                 uri: tokenUri,
-                nftType: NFTVault.NFTType.ERC721
+                nftType: NFTVault.NFTType.ERC1155
             });
 
-            t.transferFrom(msg.sender, address(this), tokenId);
+            t.safeTransferFrom(msg.sender, address(this), tokenId, amount, "");
         }
 
         return
@@ -105,17 +107,19 @@ library LibERC721 {
                 canonicalToken,
                 owner,
                 to,
-                tokenId
+                tokenId,
+                amount
             );
     }
 
-    function receiveERC721(
+    function receiveERC1155(
         AddressResolver resolver,
         address addressManager,
         NFTVault.CanonicalNFT memory canonicalToken,
         address from,
         address to,
         uint256 tokenId,
+        uint256 amount,
         address canonicalToBridged
     ) public returns (bool bridged, address token) {
         IBridge.Context memory ctx = IBridge(msg.sender).context();
@@ -125,23 +129,30 @@ library LibERC721 {
         if (canonicalToken.srcChainId == block.chainid) {
             token = canonicalToken.tokenAddr;
             bridged = false;
-            ERC721Upgradeable(token).transferFrom(address(this), to, tokenId);
+            ERC1155Upgradeable(token).safeTransferFrom(
+                address(this),
+                to,
+                tokenId,
+                amount,
+                ""
+            );
         } else {
             (bridged, token) = _getOrDeployBridgedToken(
                 canonicalToken,
                 canonicalToBridged,
                 addressManager
             );
-            BridgedERC721(token).bridgeMintTo(to, tokenId);
+            BridgedERC1155(token).bridgeMintTo(to, tokenId, amount, "");
         }
 
-        emit ERC721Received({
+        emit ERC1155Received({
             msgHash: ctx.msgHash,
             from: from,
             to: to,
             srcChainId: ctx.srcChainId,
             token: token,
-            tokenId: tokenId
+            tokenId: tokenId,
+            amount: amount
         });
     }
 
@@ -156,14 +167,14 @@ library LibERC721 {
         return
             token != address(0)
                 ? (false, token)
-                : _deployBridgedErc721(canonicalToken, addressManager);
+                : _deployBridgedErc1155(canonicalToken, addressManager);
     }
 
     /**
      * @dev Deploys a new BridgedNFT contract and initializes it. This must be
      * called before the first time a bridged token is sent to this chain.
      */
-    function _deployBridgedErc721(
+    function _deployBridgedErc1155(
         NFTVault.CanonicalNFT memory canonicalToken,
         address addressManager
     )
@@ -178,29 +189,20 @@ library LibERC721 {
                     bytes32(uint256(uint160(canonicalToken.tokenAddr)))
                 )
             ),
-            type(BridgedERC721).creationCode
+            type(BridgedERC1155).creationCode
         );
 
-        BridgedERC721(payable(bridgedToken)).init({
+        BridgedERC1155(payable(bridgedToken)).init({
             _addressManager: addressManager,
             _srcToken: canonicalToken.tokenAddr,
             _srcChainId: canonicalToken.srcChainId,
-            _symbol: canonicalToken.symbol,
-            _name: string.concat(
-                canonicalToken.name,
-                unicode"(bridged🌈",
-                Strings.toString(canonicalToken.srcChainId),
-                ")"
-            ),
             _uri: canonicalToken.uri
         });
 
-        emit BridgedERC721Deployed({
+        emit BridgedERC1155Deployed({
             srcChainId: canonicalToken.srcChainId,
             canonicalToken: canonicalToken.tokenAddr,
-            bridgedToken: bridgedToken,
-            canonicalTokenSymbol: canonicalToken.symbol,
-            canonicalTokenName: canonicalToken.name
+            bridgedToken: bridgedToken
         });
 
         return (true, bridgedToken);
