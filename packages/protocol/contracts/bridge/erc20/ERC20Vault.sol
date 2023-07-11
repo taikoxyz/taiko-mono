@@ -44,7 +44,7 @@ contract ERC20Vault is EssentialContract {
         string name;
     }
 
-    struct MessageDeposit {
+    struct BridgeTransferOp {
         address token;
         uint256 amount;
     }
@@ -68,7 +68,7 @@ contract ERC20Vault is EssentialContract {
     ) public canonicalToBridged;
 
     // Tracks the token and amount associated with a message hash.
-    mapping(bytes32 msgHash => MessageDeposit messageDeposit) public
+    mapping(bytes32 msgHash => BridgeTransferOp messageDeposit) public
         messageDeposits;
 
     uint256[46] private __gap;
@@ -199,7 +199,7 @@ contract ERC20Vault is EssentialContract {
      * @param memo Any additional data or notes
      */
 
-    function sendERC20(
+    function sendToken(
         uint256 destChainId,
         address to,
         address token,
@@ -274,7 +274,7 @@ contract ERC20Vault is EssentialContract {
         }(message);
 
         // record the deposit for this message
-        messageDeposits[msgHash] = MessageDeposit(token, _amount);
+        messageDeposits[msgHash] = BridgeTransferOp(token, _amount);
 
         emit ERC20Sent({
             msgHash: msgHash,
@@ -295,7 +295,7 @@ contract ERC20Vault is EssentialContract {
      * @param proof The proof from the destination chain to show the message has
      * failed.
      */
-    function releaseERC20(
+    function releaseToken(
         IBridge.Message calldata message,
         bytes calldata proof
     )
@@ -317,7 +317,7 @@ contract ERC20Vault is EssentialContract {
         if (!bridge.isMessageFailed(msgHash, message.destChainId, proof)) {
             revert ERC20_VAULT_MESSAGE_NOT_FAILED();
         }
-        messageDeposits[msgHash] = MessageDeposit(address(0), 0);
+        messageDeposits[msgHash] = BridgeTransferOp(address(0), 0);
 
         if (amount > 0) {
             if (isBridgedToken[token] || token == resolve("taiko_token", true))
@@ -338,7 +338,7 @@ contract ERC20Vault is EssentialContract {
 
     /**
      * This function can only be called by the bridge contract while
-     * invoking a message call. See sendERC20, which sets the data to invoke
+     * invoking a message call. See sendToken, which sets the data to invoke
      * this function.
      *
      * @param canonicalToken The canonical ERC20 token which may or may not

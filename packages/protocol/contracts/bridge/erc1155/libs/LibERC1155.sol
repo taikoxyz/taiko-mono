@@ -13,9 +13,10 @@ import {
 import {
     ERC1155Upgradeable
 } from "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
-import {NFTVault} from "../../NFTVault.sol";
+import {NFTVaultParent} from "../../NFTVaultParent.sol";
 import {BridgedERC1155} from "../BridgedERC1155.sol";
 import {IBridge} from "../../IBridge.sol";
+import {LibExtractCalldata} from "../../libs/LibExtractCalldata.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 library LibERC1155 {
@@ -61,7 +62,7 @@ library LibERC1155 {
     error NFTVAULT_INVALID_OWNER();
     error NFTVAULT_INVALID_SENDER();
 
-    function sendErc1155(
+    function sendToken(
         address owner,
         address to,
         uint256 tokenId,
@@ -69,10 +70,10 @@ library LibERC1155 {
         string memory tokenUri,
         uint256 amount,
         bool isBridgedToken,
-        NFTVault.CanonicalNFT memory bridgedToCanonical,
+        NFTVaultParent.CanonicalNFT memory bridgedToCanonical,
         bytes4 selector
     ) public returns (bytes memory) {
-        NFTVault.CanonicalNFT memory canonicalToken;
+        NFTVaultParent.CanonicalNFT memory canonicalToken;
 
         // is a bridged token, meaning, it does not live on this chain
         if (isBridgedToken) {
@@ -89,13 +90,12 @@ library LibERC1155 {
             if (BridgedERC1155(token).balanceOf(owner, tokenId) < amount)
                 revert NFTVAULT_INVALID_OWNER();
 
-            canonicalToken = NFTVault.CanonicalNFT({
+            canonicalToken = NFTVaultParent.CanonicalNFT({
                 srcChainId: block.chainid,
                 tokenAddr: token,
                 symbol: "",
                 name: "",
-                uri: tokenUri,
-                nftType: NFTVault.NFTType.ERC1155
+                uri: tokenUri
             });
 
             t.safeTransferFrom(msg.sender, address(this), tokenId, amount, "");
@@ -112,10 +112,10 @@ library LibERC1155 {
             );
     }
 
-    function receiveERC1155(
+    function receiveToken(
         AddressResolver resolver,
         address addressManager,
-        NFTVault.CanonicalNFT memory canonicalToken,
+        NFTVaultParent.CanonicalNFT memory canonicalToken,
         address from,
         address to,
         uint256 tokenId,
@@ -123,7 +123,7 @@ library LibERC1155 {
         address canonicalToBridged
     ) public returns (bool bridged, address token) {
         IBridge.Context memory ctx = IBridge(msg.sender).context();
-        if (ctx.sender != resolver.resolve(ctx.srcChainId, "nft_vault", false))
+        if (ctx.sender != resolver.resolve(ctx.srcChainId, "erc1155_vault", false))
             revert NFTVAULT_INVALID_SENDER();
 
         if (canonicalToken.srcChainId == block.chainid) {
@@ -157,7 +157,7 @@ library LibERC1155 {
     }
 
     function _getOrDeployBridgedToken(
-        NFTVault.CanonicalNFT memory canonicalToken,
+        NFTVaultParent.CanonicalNFT memory canonicalToken,
         address token,
         address addressManager
     )
@@ -171,11 +171,25 @@ library LibERC1155 {
     }
 
     /**
+     * @dev Decodes the data which was abi.encodeWithSelector() encoded. We need this to get to know
+     * to whom / which token and tokenId we shall release.
+     */
+    function decodeTokenData(
+        bytes memory dataWithSelector
+    )
+        public pure
+        returns (NFTVaultParent.CanonicalNFT memory, address, address, uint256, uint256)
+    {
+        bytes memory calldataWithoutSelector = LibExtractCalldata.extractCalldata(dataWithSelector);
+        return abi.decode(calldataWithoutSelector, (NFTVaultParent.CanonicalNFT, address, address, uint256, uint256));
+    }
+
+    /**
      * @dev Deploys a new BridgedNFT contract and initializes it. This must be
      * called before the first time a bridged token is sent to this chain.
      */
     function _deployBridgedErc1155(
-        NFTVault.CanonicalNFT memory canonicalToken,
+        NFTVaultParent.CanonicalNFT memory canonicalToken,
         address addressManager
     )
         private

@@ -127,7 +127,7 @@ contract TestERC20Vault is Test {
         vm.startPrank(Alice);
 
         vm.expectRevert("ERC20: insufficient allowance");
-        erc20Vault.sendERC20(
+        erc20Vault.sendToken(
             destChainId, Bob, address(erc20), 1 wei, 1_000_000, 1, Bob, ""
         );
     }
@@ -141,7 +141,7 @@ contract TestERC20Vault is Test {
         uint256 aliceBalanceBefore = erc20.balanceOf(Alice);
         uint256 erc20VaultBalanceBefore = erc20.balanceOf(address(erc20Vault));
 
-        erc20Vault.sendERC20(
+        erc20Vault.sendToken(
             destChainId, Bob, address(erc20), amount, 1_000_000, 0, Bob, ""
         );
 
@@ -161,7 +161,7 @@ contract TestERC20Vault is Test {
         erc20.approve(address(erc20Vault), amount);
 
         vm.expectRevert();
-        erc20Vault.sendERC20(
+        erc20Vault.sendToken(
             destChainId,
             Bob,
             address(erc20),
@@ -182,7 +182,7 @@ contract TestERC20Vault is Test {
         uint256 aliceBalanceBefore = erc20.balanceOf(Alice);
         uint256 erc20VaultBalanceBefore = erc20.balanceOf(address(erc20Vault));
 
-        erc20Vault.sendERC20{ value: amount }(
+        erc20Vault.sendToken{ value: amount }(
             destChainId,
             Bob,
             address(erc20),
@@ -206,7 +206,7 @@ contract TestERC20Vault is Test {
         uint256 amount = 0;
 
         vm.expectRevert(ERC20Vault.ERC20_VAULT_INVALID_AMOUNT.selector);
-        erc20Vault.sendERC20(
+        erc20Vault.sendToken(
             destChainId, Bob, address(erc20), amount, 1_000_000, 0, Bob, ""
         );
     }
@@ -217,7 +217,7 @@ contract TestERC20Vault is Test {
         uint256 amount = 1;
 
         vm.expectRevert(ERC20Vault.ERC20_VAULT_INVALID_TOKEN.selector);
-        erc20Vault.sendERC20(
+        erc20Vault.sendToken(
             destChainId, Bob, address(0), amount, 1_000_000, 0, Bob, ""
         );
     }
@@ -228,7 +228,7 @@ contract TestERC20Vault is Test {
         uint256 amount = 1;
 
         vm.expectRevert(ERC20Vault.ERC20_VAULT_INVALID_TO.selector);
-        erc20Vault.sendERC20(
+        erc20Vault.sendToken(
             destChainId,
             address(0),
             address(erc20),

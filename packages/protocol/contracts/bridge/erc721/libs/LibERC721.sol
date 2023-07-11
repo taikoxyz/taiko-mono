@@ -6,6 +6,8 @@
 
 pragma solidity ^0.8.20;
 
+import { console2 } from "forge-std/console2.sol";
+import { Test } from "forge-std/Test.sol";
 import {AddressResolver} from "../../../common/AddressResolver.sol";
 import {
     Create2Upgradeable
@@ -13,9 +15,10 @@ import {
 import {
     ERC721Upgradeable
 } from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
-import {NFTVault} from "../../NFTVault.sol";
+import {NFTVaultParent} from "../../NFTVaultParent.sol";
 import {BridgedERC721} from "../BridgedERC721.sol";
 import {IBridge} from "../../IBridge.sol";
+import {LibExtractCalldata} from "../../libs/LibExtractCalldata.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 library LibERC721 {
@@ -59,18 +62,21 @@ library LibERC721 {
     error NFTVAULT_CANONICAL_TOKEN_NOT_FOUND();
     error NFTVAULT_INVALID_OWNER();
     error NFTVAULT_INVALID_SENDER();
+    error NFTVAULT_INVALID_SRC_CHAIN_ID();
+    error NFTVAULT_INVALID_TOKEN();
+    error NFTVAULT_MESSAGE_NOT_FAILED();
 
-    function sendErc721(
+    function sendToken(
         address owner,
         address to,
         uint256 tokenId,
         address token,
         string memory tokenUri,
         bool isBridgedToken,
-        NFTVault.CanonicalNFT memory bridgedToCanonical,
+        NFTVaultParent.CanonicalNFT memory bridgedToCanonical,
         bytes4 selector
     ) public returns (bytes memory) {
-        NFTVault.CanonicalNFT memory canonicalToken;
+        NFTVaultParent.CanonicalNFT memory canonicalToken;
 
         // is a bridged token, meaning, it does not live on this chain
         if (isBridgedToken) {
@@ -87,15 +93,13 @@ library LibERC721 {
             if (t.ownerOf(tokenId) != msg.sender)
                 revert NFTVAULT_INVALID_OWNER();
 
-            canonicalToken = NFTVault.CanonicalNFT({
+            canonicalToken = NFTVaultParent.CanonicalNFT({
                 srcChainId: block.chainid,
                 tokenAddr: token,
                 symbol: t.symbol(),
                 name: t.name(),
-                uri: tokenUri,
-                nftType: NFTVault.NFTType.ERC721
+                uri: tokenUri
             });
-
             t.transferFrom(msg.sender, address(this), tokenId);
         }
 
@@ -109,17 +113,17 @@ library LibERC721 {
             );
     }
 
-    function receiveERC721(
+    function receiveToken(
         AddressResolver resolver,
         address addressManager,
-        NFTVault.CanonicalNFT memory canonicalToken,
+        NFTVaultParent.CanonicalNFT memory canonicalToken,
         address from,
         address to,
         uint256 tokenId,
         address canonicalToBridged
     ) public returns (bool bridged, address token) {
         IBridge.Context memory ctx = IBridge(msg.sender).context();
-        if (ctx.sender != resolver.resolve(ctx.srcChainId, "nft_vault", false))
+        if (ctx.sender != resolver.resolve(ctx.srcChainId, "erc721_vault", false))
             revert NFTVAULT_INVALID_SENDER();
 
         if (canonicalToken.srcChainId == block.chainid) {
@@ -145,8 +149,9 @@ library LibERC721 {
         });
     }
 
+
     function _getOrDeployBridgedToken(
-        NFTVault.CanonicalNFT memory canonicalToken,
+        NFTVaultParent.CanonicalNFT memory canonicalToken,
         address token,
         address addressManager
     )
@@ -160,11 +165,25 @@ library LibERC721 {
     }
 
     /**
+     * @dev Decodes the data which was abi.encodeWithSelector() encoded. We need this to get to know
+     * to whom / which token and tokenId we shall release.
+     */
+    function decodeTokenData(
+        bytes memory dataWithSelector
+    )
+        public pure
+        returns (NFTVaultParent.CanonicalNFT memory, address, address, uint256)
+    {
+        bytes memory calldataWithoutSelector = LibExtractCalldata.extractCalldata(dataWithSelector);
+        return abi.decode(calldataWithoutSelector, (NFTVaultParent.CanonicalNFT, address, address, uint256));
+    }
+
+    /**
      * @dev Deploys a new BridgedNFT contract and initializes it. This must be
      * called before the first time a bridged token is sent to this chain.
      */
     function _deployBridgedErc721(
-        NFTVault.CanonicalNFT memory canonicalToken,
+        NFTVaultParent.CanonicalNFT memory canonicalToken,
         address addressManager
     )
         private

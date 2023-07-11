@@ -57,7 +57,7 @@ contract BridgedERC721 is
     function bridgeMintTo(
         address account,
         uint256 tokenId
-    ) public onlyFromNamed("nft_vault") {
+    ) public onlyFromNamed("erc721_vault") {
         _mint(account, tokenId);
         emit BridgeERC721Mint(account, tokenId);
     }
@@ -66,7 +66,7 @@ contract BridgedERC721 is
     function bridgeBurnFrom(
         address account,
         uint256 tokenId
-    ) public onlyFromNamed("nft_vault") {
+    ) public onlyFromNamed("erc721_vault") {
         _burn(tokenId);
         emit BridgeERC721Burn(account, tokenId);
     }
@@ -80,7 +80,7 @@ contract BridgedERC721 is
         uint256 tokenId
     ) public override(ERC721Upgradeable) {
         if (to == address(this)) {
-            revert B_ERC721_CANNOT_RECEIVE();
+            revert B_CANNOT_RECEIVE();
         }
         return ERC721Upgradeable.transferFrom(from, to, tokenId);
     }

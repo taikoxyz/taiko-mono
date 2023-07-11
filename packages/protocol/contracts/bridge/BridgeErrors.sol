@@ -10,12 +10,6 @@ abstract contract BridgeErrors {
     /// Emitted when the contract is not intended to receive Ether
     error B_CANNOT_RECEIVE();
 
-    /// Emitted when the contract is not intended to receive ERC721
-    error B_ERC721_CANNOT_RECEIVE();
-
-    /// Emitted when the contract is not intended to receive ERC1155
-    error B_ERC1155_CANNOT_RECEIVE();
-
     /// Emitted when an operation is denied due to incorrect permissions
     error B_DENIED();
 
@@ -105,4 +99,10 @@ abstract contract BridgeErrors {
 
     /// Emitted when invalid opts.token is address(0)
     error NFTVAULT_INVALID_TOKEN();
+    
+    /// Emited when invalid src chain is given
+    error NFTVAULT_INVALID_SRC_CHAIN_ID();
+
+    // Emitted when parsed proof shows, message is not failed
+    error NFTVAULT_MESSAGE_NOT_FAILED();
 }

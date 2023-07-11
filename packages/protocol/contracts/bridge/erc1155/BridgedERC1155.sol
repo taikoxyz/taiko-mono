@@ -71,7 +71,7 @@ contract BridgedERC1155 is
         uint256 tokenId,
         uint256 amount,
         bytes memory data
-    ) public onlyFromNamed("nft_vault") {
+    ) public onlyFromNamed("erc1155_vault") {
         _mint(account, tokenId, amount, data);
         emit BridgeERC1155Mint(account, tokenId, amount);
     }
@@ -81,7 +81,7 @@ contract BridgedERC1155 is
         address account,
         uint256 tokenId,
         uint256 amount
-    ) public onlyFromNamed("nft_vault") {
+    ) public onlyFromNamed("erc1155_vault") {
         _burn(account, tokenId, amount);
         emit BridgeERC1155Burn(account, tokenId, amount);
     }
@@ -97,7 +97,7 @@ contract BridgedERC1155 is
         bytes memory data
     ) public override(ERC1155Upgradeable, IERC1155Upgradeable) {
         if (to == address(this)) {
-            revert B_ERC1155_CANNOT_RECEIVE();
+            revert B_CANNOT_RECEIVE();
         }
         return
             ERC1155Upgradeable.safeTransferFrom(

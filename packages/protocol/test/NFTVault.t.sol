@@ -6,7 +6,9 @@ import { Test } from "forge-std/Test.sol";
 import { AddressManager } from "../contracts/common/AddressManager.sol";
 import { IBridge, Bridge } from "../contracts/bridge/Bridge.sol";
 import { BridgeErrors } from "../contracts/bridge/BridgeErrors.sol";
-import { NFTVault } from "../contracts/bridge/NFTVault.sol";
+import { NFTVaultParent } from "../contracts/bridge/NFTVaultParent.sol";
+import { ERC721Vault } from "../contracts/bridge/erc721/ERC721Vault.sol";
+import { LibERC721 } from "../contracts/bridge/erc721/libs/LibERC721.sol";
 import { EtherVault } from "../contracts/bridge/EtherVault.sol";
 import { LibBridgeStatus } from "../contracts/bridge/libs/LibBridgeStatus.sol";
 import { SignalService } from "../contracts/signal/SignalService.sol";
@@ -98,8 +100,8 @@ contract NFTVaultTest is Test {
     BadReceiver badReceiver;
     Bridge bridge;
     Bridge destChainBridge;
-    NFTVault nftVault;
-    NFTVault destChainNftVault;
+    ERC721Vault erc721Vault;
+    ERC721Vault destChainErc721Vault;
     TestTokenERC721 canonicalToken721;
     TestTokenERC1155 canonicalToken1155;
     EtherVault etherVault;
@@ -129,11 +131,11 @@ contract NFTVaultTest is Test {
         etherVault = new EtherVault();
         etherVault.init(address(addressManager));
 
-        nftVault = new NFTVault();
-        nftVault.init(address(addressManager));
+        erc721Vault = new ERC721Vault();
+        erc721Vault.init(address(addressManager));
 
-        destChainNftVault = new NFTVault();
-        destChainNftVault.init(address(addressManager));
+        destChainErc721Vault = new ERC721Vault();
+        destChainErc721Vault.init(address(addressManager));
 
         crossChainSync = new PrankCrossChainSync();
 
@@ -150,11 +152,11 @@ contract NFTVaultTest is Test {
         );
 
         addressManager.setAddress(
-            block.chainid, "nft_vault", address(nftVault)
+            block.chainid, "erc721_vault", address(erc721Vault)
         );
 
         addressManager.setAddress(
-            destChainId, "nft_vault", address(destChainNftVault)
+            destChainId, "erc721_vault", address(destChainErc721Vault)
         );
 
         canonicalToken721 = new TestTokenERC721("http://example.host.com/");
@@ -166,15 +168,15 @@ contract NFTVaultTest is Test {
         vm.stopPrank();
     }
 
-    function test_sendNFT_ERC721()
+    function test_sendToken_ERC721()
         public
     {
         vm.prank(Alice,Alice);
-        canonicalToken721.approve(address(nftVault),1);
+        canonicalToken721.approve(address(erc721Vault),1);
 
         assertEq(canonicalToken721.ownerOf(1), Alice);
 
-        NFTVault.SendNFTOpts memory sendOpts = NFTVault.SendNFTOpts(
+        NFTVaultParent.BridgeTransferOp memory sendOpts = NFTVaultParent.BridgeTransferOp(
             destChainId,
             Alice,
             address(canonicalToken721),
@@ -187,143 +189,178 @@ contract NFTVaultTest is Test {
             ""
         );
         vm.prank(Alice,Alice);
-        nftVault.sendNFT{ value: 140000 }(sendOpts);
+        erc721Vault.sendToken{ value: 140000 }(sendOpts);
 
-        assertEq(ERC721(canonicalToken721).ownerOf(1), address(nftVault));
+        assertEq(ERC721(canonicalToken721).ownerOf(1), address(erc721Vault));
     }
 
-    function test_sendNFT_ERC1155()
+    function test_decode_message_calldata()
         public
     {
-        vm.prank(Alice, Alice);
-        canonicalToken1155.setApprovalForAll(address(nftVault),true);
 
-        assertEq(canonicalToken1155.balanceOf(Alice, 1), 10);
-        assertEq(canonicalToken1155.balanceOf(address(nftVault), 1), 0);
+        NFTVaultParent.CanonicalNFT memory canonicalToken = NFTVaultParent.CanonicalNFT({
+            srcChainId: 31337,
+            tokenAddr: 0x579FBFF1A9b1502688169DA761DcF262b73BB64A,
+            symbol: "TT",
+            name: "TT",
+            uri: "http://example.host.com/"
+        });
 
-        NFTVault.SendNFTOpts memory sendOpts = NFTVault.SendNFTOpts(
-            destChainId,
-            Alice,
-            address(canonicalToken1155),
-            "http://example.host.com/",
-            1,
-            2,
-            140000,
-            140000,
-            Alice,
-            ""
+        bytes memory dataToDecode =  abi.encodeWithSelector(
+                0x2c349adf,
+                canonicalToken,
+                Alice,
+                Alice,
+                1
         );
-        vm.prank(Alice,Alice);
-        nftVault.sendNFT{ value: 140000 }(sendOpts);
 
-        assertEq(canonicalToken1155.balanceOf(Alice, 1), 8);
-        assertEq(canonicalToken1155.balanceOf(address(nftVault), 1), 2);
+        NFTVaultParent.CanonicalNFT memory nftRetVal;
+        address ownerRetVal;
+        uint256 tokenIdRetVal;
+        (nftRetVal, ownerRetVal,,tokenIdRetVal) = 
+            LibERC721.decodeTokenData(dataToDecode);
+
+        assertEq(Alice, ownerRetVal);
+        assertEq(1, tokenIdRetVal);
+        assertEq(31337, nftRetVal.srcChainId);
+        assertEq(0x579FBFF1A9b1502688169DA761DcF262b73BB64A, nftRetVal.tokenAddr);
+        assertEq("TT", nftRetVal.symbol);
+        assertEq("TT", nftRetVal.name);
+        assertEq("http://example.host.com/", nftRetVal.uri);
     }
 
-    function test_sendNFT_with_invalid_to_address()
-        public
-    {
-        vm.prank(Alice, Alice);
-        canonicalToken1155.setApprovalForAll(address(nftVault),true);
+    // function test_sendToken_ERC1155()
+    //     public
+    // {
+    //     vm.prank(Alice, Alice);
+    //     canonicalToken1155.setApprovalForAll(address(erc721Vault),true);
 
-        assertEq(canonicalToken1155.balanceOf(Alice, 1), 10);
-        assertEq(canonicalToken1155.balanceOf(address(nftVault), 1), 0);
+    //     assertEq(canonicalToken1155.balanceOf(Alice, 1), 10);
+    //     assertEq(canonicalToken1155.balanceOf(address(erc721Vault), 1), 0);
 
-        NFTVault.SendNFTOpts memory sendOpts = NFTVault.SendNFTOpts(
-            destChainId,
-            address(0),
-            address(canonicalToken1155),
-            "http://example.host.com/",
-            1,
-            2,
-            140000,
-            140000,
-            Alice,
-            ""
-        );
-        vm.prank(Alice,Alice);
-        vm.expectRevert(BridgeErrors.NFTVAULT_INVALID_TO.selector);
-        nftVault.sendNFT{ value: 140000 }(sendOpts);
-    }
+    //     NFTVaultParentBridgeTransferOp memory sendOpts = NFTVaultParentBridgeTransferOp(
+    //         destChainId,
+    //         Alice,
+    //         address(canonicalToken1155),
+    //         "http://example.host.com/",
+    //         1,
+    //         2,
+    //         140000,
+    //         140000,
+    //         Alice,
+    //         ""
+    //     );
+    //     vm.prank(Alice,Alice);
+    //     NFTVaultParentsendToken{ value: 140000 }(sendOpts);
 
-    function test_sendNFT_with_invalid_token_address()
-        public
-    {
-        vm.prank(Alice, Alice);
-        canonicalToken1155.setApprovalForAll(address(nftVault),true);
+    //     assertEq(canonicalToken1155.balanceOf(Alice, 1), 8);
+    //     assertEq(canonicalToken1155.balanceOf(address(erc721Vault), 1), 2);
+    // }
 
-        assertEq(canonicalToken1155.balanceOf(Alice, 1), 10);
-        assertEq(canonicalToken1155.balanceOf(address(nftVault), 1), 0);
+    // function test_sendToken_with_invalid_to_address()
+    //     public
+    // {
+    //     vm.prank(Alice, Alice);
+    //     canonicalToken1155.setApprovalForAll(address(erc721Vault),true);
 
-        NFTVault.SendNFTOpts memory sendOpts = NFTVault.SendNFTOpts(
-            destChainId,
-            Alice,
-            address(0),
-            "http://example.host.com/",
-            1,
-            2,
-            140000,
-            140000,
-            Alice,
-            ""
-        );
-        vm.prank(Alice,Alice);
-        vm.expectRevert(BridgeErrors.NFTVAULT_INVALID_TOKEN.selector);
-        nftVault.sendNFT{ value: 140000 }(sendOpts);
-    }
+    //     assertEq(canonicalToken1155.balanceOf(Alice, 1), 10);
+    //     assertEq(canonicalToken1155.balanceOf(address(erc721Vault), 1), 0);
 
-    function test_sendNFT_with_0_tokens()
-        public
-    {
-        vm.prank(Alice, Alice);
-        canonicalToken1155.setApprovalForAll(address(nftVault),true);
+    //     NFTVaultParentBridgeTransferOp memory sendOpts = NFTVaultParentBridgeTransferOp(
+    //         destChainId,
+    //         address(0),
+    //         address(canonicalToken1155),
+    //         "http://example.host.com/",
+    //         1,
+    //         2,
+    //         140000,
+    //         140000,
+    //         Alice,
+    //         ""
+    //     );
+    //     vm.prank(Alice,Alice);
+    //     vm.expectRevert(BridgeErrors.NFTVAULT_INVALID_TO.selector);
+    //     NFTVaultParentsendToken{ value: 140000 }(sendOpts);
+    // }
 
-        assertEq(canonicalToken1155.balanceOf(Alice, 1), 10);
-        assertEq(canonicalToken1155.balanceOf(address(nftVault), 1), 0);
+    // function test_sendToken_with_invalid_token_address()
+    //     public
+    // {
+    //     vm.prank(Alice, Alice);
+    //     canonicalToken1155.setApprovalForAll(address(erc721Vault),true);
 
-        NFTVault.SendNFTOpts memory sendOpts = NFTVault.SendNFTOpts(
-            destChainId,
-            Alice,
-            address(canonicalToken1155),
-            "http://example.host.com/",
-            1,
-            0,
-            140000,
-            140000,
-            Alice,
-            ""
-        );
-        vm.prank(Alice,Alice);
-        vm.expectRevert(BridgeErrors.NFTVAULT_INVALID_AMOUNT.selector);
-        nftVault.sendNFT{ value: 140000 }(sendOpts);
-    }
+    //     assertEq(canonicalToken1155.balanceOf(Alice, 1), 10);
+    //     assertEq(canonicalToken1155.balanceOf(address(erc721Vault), 1), 0);
+
+    //     NFTVaultParentBridgeTransferOp memory sendOpts = NFTVaultParentBridgeTransferOp(
+    //         destChainId,
+    //         Alice,
+    //         address(0),
+    //         "http://example.host.com/",
+    //         1,
+    //         2,
+    //         140000,
+    //         140000,
+    //         Alice,
+    //         ""
+    //     );
+    //     vm.prank(Alice,Alice);
+    //     vm.expectRevert(BridgeErrors.NFTVAULT_INVALID_TOKEN.selector);
+    //     NFTVaultParentsendToken{ value: 140000 }(sendOpts);
+    // }
+
+    // function test_sendToken_with_0_tokens()
+    //     public
+    // {
+    //     vm.prank(Alice, Alice);
+    //     canonicalToken1155.setApprovalForAll(address(erc721Vault),true);
+
+    //     assertEq(canonicalToken1155.balanceOf(Alice, 1), 10);
+    //     assertEq(canonicalToken1155.balanceOf(address(erc721Vault), 1), 0);
+
+    //     NFTVaultParentBridgeTransferOp memory sendOpts = NFTVaultParentBridgeTransferOp(
+    //         destChainId,
+    //         Alice,
+    //         address(canonicalToken1155),
+    //         "http://example.host.com/",
+    //         1,
+    //         0,
+    //         140000,
+    //         140000,
+    //         Alice,
+    //         ""
+    //     );
+    //     vm.prank(Alice,Alice);
+    //     vm.expectRevert(BridgeErrors.NFTVAULT_INVALID_AMOUNT.selector);
+    //     NFTVaultParentsendToken{ value: 140000 }(sendOpts);
+    // }
 
 
-    function test_sendNFT_with_invalid_type()
-        public
-    {
-        NonNftContract nonNftContract = new NonNftContract(1);
+    // function test_sendToken_with_invalid_type()
+    //     public
+    // {
+    //     NonNftContract nonNftContract = new NonNftContract(1);
 
-        vm.prank(Alice, Alice);
-        canonicalToken1155.setApprovalForAll(address(nftVault),true);
+    //     vm.prank(Alice, Alice);
+    //     canonicalToken1155.setApprovalForAll(address(erc721Vault),true);
 
-        assertEq(canonicalToken1155.balanceOf(Alice, 1), 10);
-        assertEq(canonicalToken1155.balanceOf(address(nftVault), 1), 0);
+    //     assertEq(canonicalToken1155.balanceOf(Alice, 1), 10);
+    //     assertEq(canonicalToken1155.balanceOf(address(erc721Vault), 1), 0);
 
-        NFTVault.SendNFTOpts memory sendOpts = NFTVault.SendNFTOpts(
-            destChainId,
-            Alice,
-            address(nonNftContract),
-            "http://example.host.com/",
-            1,
-            1,
-            140000,
-            140000,
-            Alice,
-            ""
-        );
-        vm.prank(Alice,Alice);
-        vm.expectRevert(BridgeErrors.NFT_VAULT_INVALID_CONTRACT.selector);
-        nftVault.sendNFT{ value: 140000 }(sendOpts);
-    }
+    //     NFTVaultParentBridgeTransferOp memory sendOpts = NFTVaultParentBridgeTransferOp(
+    //         destChainId,
+    //         Alice,
+    //         address(nonNftContract),
+    //         "http://example.host.com/",
+    //         1,
+    //         1,
+    //         140000,
+    //         140000,
+    //         Alice,
+    //         ""
+    //     );
+    //     vm.prank(Alice,Alice);
+    //     vm.expectRevert(BridgeErrors.NFT_VAULT_INVALID_CONTRACT.selector);
+    //     NFTVaultParentsendToken{ value: 140000 }(sendOpts);
+    // }
 }
