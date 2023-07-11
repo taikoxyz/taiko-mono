@@ -4,6 +4,7 @@
 
   export let text: string = 'Loading';
   export let textClass: string = '';
+  export let spinnerClass: string = '';
 
   let classes = classNames(
     'gap-2 z-10',
@@ -18,6 +19,6 @@
 </script>
 
 <div class={classes}>
-  <Spinner />
+  <Spinner class={spinnerClass} />
   <span class={textClasses}>{text}</span>
 </div>
