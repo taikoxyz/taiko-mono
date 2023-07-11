@@ -59,7 +59,7 @@
   "faucet": {
     "title": "Faucet",
     "subtitle": "Mint test tokens.",
-    "minting_tx": "Transaction sent to mint {token} tokens. Click <a href=\"{url}\" target=\"_blank\">here</a> to see the progress.",
+    "minting_tx": "Transaction sent to mint {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
     "button": {
       "mint": "Mint",
       "checking": "Checking mintability",

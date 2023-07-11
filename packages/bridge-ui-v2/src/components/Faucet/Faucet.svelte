@@ -69,7 +69,7 @@
         true,
       );
 
-      // TODO: pending transaction?
+      // TODO: pending transaction logic
     } catch (error) {
       console.error(error);
 

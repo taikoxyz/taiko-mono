@@ -54,8 +54,8 @@
     --toastContainerRight: auto;
     --toastContainerBottom: auto;
     --toastContainerTop: 77px;
-    --toastContainerLeft: calc(50vw - 150px);
-    --toastWidth: 300px;
+    --toastContainerLeft: calc(50vw - 160px);
+    --toastWidth: 320px;
 
     /*
       We need to makes the surroundings dissapear in order
