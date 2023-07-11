@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.12.0](https://github.com/taikoxyz/taiko-mono/compare/status-page-v0.11.0...status-page-v0.12.0) (2023-07-10)
+
+
+### Features
+
+* **eventindexer:** galaxe api, 2 indexing, http only mode, event query optimizations ([#14122](https://github.com/taikoxyz/taiko-mono/issues/14122)) ([9c6d918](https://github.com/taikoxyz/taiko-mono/commit/9c6d918c8c7c474da88912fafa59e2a2f054f3b7))
+
+
+### Bug Fixes
+
+* **status-page:** proposer title ([#14058](https://github.com/taikoxyz/taiko-mono/issues/14058)) ([412ba70](https://github.com/taikoxyz/taiko-mono/commit/412ba70b7f313c4e81d3b773733e8940d16df6e1))
+
 ## [0.11.0](https://github.com/taikoxyz/taiko-mono/compare/status-page-v0.10.0...status-page-v0.11.0) (2023-06-26)
 
 

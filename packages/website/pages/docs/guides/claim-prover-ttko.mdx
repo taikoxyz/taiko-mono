@@ -1,0 +1,48 @@
+import { Callout, Steps } from "nextra-theme-docs";
+
+# Claim prover TTKO
+
+## Overview
+
+This guide will help you claim TTKO earned as a prover.
+
+## Prerequisites
+
+- You followed the [Enable a prover](/docs/guides/enable-a-prover) guide and have a prover which has proved a block to earn TTKO rewards.
+- Must have a balance of ETH Sepolia (see: [Receive tokens](/docs/guides/receive-tokens)).
+
+## Steps
+
+<Steps>
+
+### View TTKO prover address balance
+
+Go to the Taiko L1 contract read page and select [getTokenTokenBalance(addr address)](https://sepolia.etherscan.io/address/0x6375394335f34848b850114b66A49D6F47f2cdA8#readProxyContract#F10)
+to lookup your TTKO claim balance for your prover's address. 
+
+### Enter withdraw amount
+
+Go to the Taiko L1 contract write page and select [withdrawTaikoToken(amount uint256)](https://sepolia.etherscan.io/address/0x6375394335f34848b850114b66A49D6F47f2cdA8#writeProxyContract#F11)
+to withdraw TTKO balances earned from being a prover.
+
+<Callout type="warning">
+Make sure to click the plus sign and add `10^8` decimals, or add 8 zeroes manually.
+</Callout>
+
+For example if you want to withdraw `69` TTKO, you would enter `6900000000`.
+
+<Callout type="warning">
+Make sure
+```solidity
+amount<=withdrawTaikoToken(proverAddress)
+```
+or else the transaction will revert.
+</Callout>
+
+### Withdraw your TTKO
+
+Click `Connect to Web3` and connect your wallet.
+
+Click `Write` and confirm the transaction in your wallet.
+
+</Steps>
