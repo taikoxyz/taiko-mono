@@ -21,15 +21,11 @@ export async function mint(token: Token, walletClient: WalletClient) {
   log(`Minting ${tokenSymbol} for account "${userAddress}"`);
 
   try {
-    // Check whether the user has already minted this token
-    const hasMinted = await tokenContract.read.minters([userAddress]);
+    const txHash = await tokenContract.write.mint([userAddress]);
 
-    if (hasMinted) {
-      throw Error(`user has already minted ${tokenSymbol}`);
-    }
+    log(`Minting transaction hash for ${tokenSymbol}: ${txHash}`);
 
-    const hash = await tokenContract.write.mint([userAddress]);
-    return hash;
+    return txHash;
   } catch (error) {
     console.error(error);
 

@@ -2,9 +2,9 @@
   import Spinner from '$components/Spinner/Spinner.svelte';
   import { classNames } from '$libs/util/classNames';
 
-  export let text: string = 'Loading';
-  export let textClass: string = '';
-  export let spinnerClass: string = '';
+  export let text = 'Loading';
+  export let textClass = '';
+  export let spinnerClass = '';
 
   let classes = classNames(
     'gap-2 z-10',

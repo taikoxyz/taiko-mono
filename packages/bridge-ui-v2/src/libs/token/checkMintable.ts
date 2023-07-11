@@ -10,7 +10,7 @@ import { MintableError, type Token } from './types';
 // 2. User has already minted this token
 // 3. User has insufficient balance to mint this token
 export async function checkMintable(token: Token, network: Chain) {
-  const chainId = network.id
+  const chainId = network.id;
   const walletClient = await getWalletClient({ chainId });
 
   if (!walletClient) {

@@ -1,17 +1,17 @@
 <script lang="ts">
-  import { switchNetwork, type Chain, type GetNetworkResult } from '@wagmi/core';
+  import { type Chain, type GetNetworkResult, switchNetwork } from '@wagmi/core';
   import type { ComponentType } from 'svelte';
   import { onDestroy } from 'svelte/internal';
   import { t } from 'svelte-i18n';
+  import { UserRejectedRequestError } from 'viem';
 
   import { EthIcon, Icon, TaikoIcon } from '$components/Icon';
+  import { LoadingMask } from '$components/LoadingMask';
   import { warningToast } from '$components/NotificationToast';
   import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID } from '$env/static/public';
   import { chains } from '$libs/chain';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
-  import { UserRejectedRequestError } from 'viem';
-  import { LoadingMask } from '$components/LoadingMask';
 
   export let label: string;
   export let value: Maybe<GetNetworkResult['chain']> = null;

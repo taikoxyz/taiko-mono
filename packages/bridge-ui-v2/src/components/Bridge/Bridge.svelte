@@ -1,5 +1,4 @@
 <script lang="ts">
-  import type { Chain } from '@wagmi/core';
   import { t } from 'svelte-i18n';
 
   import AmountInput from '$components/AmountInput';

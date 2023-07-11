@@ -1,21 +1,20 @@
 <script lang="ts">
   import { type Chain, getWalletClient, switchNetwork } from '@wagmi/core';
   import { t } from 'svelte-i18n';
+  import { UserRejectedRequestError } from 'viem';
 
   import { Alert } from '$components/Alert';
   import { Button } from '$components/Button';
   import { Card } from '$components/Card';
   import { ChainSelector } from '$components/ChainSelector';
-  import { TokenDropdown } from '$components/TokenDropdown';
-  import { MintableError, testERC20Tokens, type Token } from '$libs/token';
-  import { checkMintable } from '$libs/token/checkMintable';
-  import { srcChain } from '$stores/network';
-  import { PUBLIC_L1_CHAIN_ID, PUBLIC_L1_CHAIN_NAME } from '$env/static/public';
   import { Icon } from '$components/Icon';
-  import { Spinner } from '$components/Spinner';
-  import { UserRejectedRequestError } from 'viem';
-  import { warningToast } from '$components/NotificationToast';
+  import { successToast, warningToast } from '$components/NotificationToast';
+  import { TokenDropdown } from '$components/TokenDropdown';
+  import { PUBLIC_L1_CHAIN_ID, PUBLIC_L1_CHAIN_NAME, PUBLIC_L1_EXPLORER_URL } from '$env/static/public';
+  import { MintableError, testERC20Tokens, type Token } from '$libs/token';
+  import { checkMintable, mint } from '$libs/token';
   import { account } from '$stores/account';
+  import { srcChain } from '$stores/network';
 
   let minting = false;
   let checkingMintable = false;
@@ -43,8 +42,8 @@
     }
   }
 
-  async function mint() {
-    // TODO:
+  async function mintToken() {
+    // During loading state we make sure the user cannot use this function
     if (checkingMintable || minting) return;
 
     // A token and a source chain must be selected in order to be able to mint
@@ -58,7 +57,23 @@
     minting = true;
 
     try {
-      // TODO
+      const txHash = await mint(selectedToken, walletClient);
+
+      successToast(
+        $t('faucet.minting_tx', {
+          values: {
+            token: selectedToken.symbol,
+            url: `${PUBLIC_L1_EXPLORER_URL}/tx/${txHash}`,
+          },
+        }),
+        true,
+      );
+
+      // TODO: pending transaction?
+    } catch (error) {
+      console.error(error);
+
+      // const { cause } = error as Error;
     } finally {
       minting = false;
     }
@@ -94,7 +109,7 @@
           reasonNotMintable = $t('faucet.warning.insufficient_balance');
           break;
         case MintableError.TOKEN_MINTED:
-          reasonNotMintable = $t('faucet.warning.already_minted');
+          reasonNotMintable = $t('faucet.warning.token_minted');
           break;
         default:
           reasonNotMintable = $t('faucet.warning.unknown');
@@ -140,27 +155,29 @@
         {/if}
       </Button>
     {:else}
+      {#if reasonNotMintable}
+        <Alert type="warning" forceColumnFlow>
+          {reasonNotMintable}
+        </Alert>
+      {/if}
+
       <Button
         type="primary"
         class="px-[28px] py-[14px]"
         disabled={!mintButtonEnabled}
-        loading={checkingMintable}
-        on:click={mint}>
-        {#if checkingMintable}
-          <span class="body-bold">{$t('faucet.button.checking')}</span>
-        {:else}
-          <span class="body-bold">{$t('faucet.button.mint')}</span>
-        {/if}
+        loading={checkingMintable || minting}
+        on:click={mintToken}>
+        <span class="body-bold">
+          {#if checkingMintable}
+            {$t('faucet.button.checking')}
+          {:else if minting}
+            {$t('faucet.button.minting')}
+          {:else}
+            {$t('faucet.button.mint')}
+          {/if}
+        </span>
       </Button>
     {/if}
-
-    <!-- {#if reasonNoMintable}
-      <div class="h-sep" />
-
-      <Alert type="warning" forceColumnFlow>
-        {reasonNoMintable}
-      </Alert>
-    {/if} -->
   </div>
 </Card>
 

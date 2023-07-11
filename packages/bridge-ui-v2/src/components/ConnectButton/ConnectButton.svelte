@@ -5,7 +5,6 @@
 
   import { Button } from '$components/Button';
   import { Icon } from '$components/Icon';
-  import { Spinner } from '$components/Spinner';
   import { web3modal } from '$libs/connect';
 
   export let connected = false;
