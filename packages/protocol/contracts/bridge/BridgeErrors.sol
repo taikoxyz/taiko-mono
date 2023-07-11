@@ -88,6 +88,9 @@ abstract contract BridgeErrors {
     /// Emitted when opts.amount is 0
     error NFTVAULT_INVALID_AMOUNT();
 
+    /// Emitted when contract does not support supportsInterface()
+    error NFT_VAULT_INVALID_CONTRACT();
+
     /// Emitted when the set type is neither erc1155 nor erc721
     error NFTVAULT_INVALID_NFT_TYPE();
 

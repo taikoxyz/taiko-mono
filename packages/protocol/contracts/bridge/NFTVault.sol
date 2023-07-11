@@ -18,6 +18,7 @@ import {
 import {AddressResolver} from "../common/AddressResolver.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {IBridge} from "./IBridge.sol";
+import {Proxied} from "../common/Proxied.sol";
 import {LibERC721} from "./erc721/libs/LibERC721.sol";
 import {LibERC1155} from "./erc1155/libs/LibERC1155.sol";
 
@@ -60,7 +61,7 @@ contract NFTVault is
         uint256 destChainId;
         address to;
         address token;
-        string tokenUri;
+        string baseTokenUri;
         uint256 tokenId;
         uint256 amount;
         uint256 gasLimit;
@@ -94,6 +95,7 @@ contract NFTVault is
     error NFTVAULT_INVALID_TOKEN();
     error NFTVAULT_INVALID_AMOUNT();
     error NFTVAULT_INVALID_NFT_TYPE();
+    error NFT_VAULT_INVALID_CONTRACT();
 
     /*********************
      * External Functions*
@@ -129,7 +131,7 @@ contract NFTVault is
                 opts.to,
                 opts.tokenId,
                 opts.token,
-                opts.tokenUri,
+                opts.baseTokenUri,
                 isBridgedToken[opts.token],
                 bridgedToCanonical[opts.token],
                 NFTVault.receiveERC721.selector
@@ -140,7 +142,7 @@ contract NFTVault is
                 opts.to,
                 opts.tokenId,
                 opts.token,
-                opts.tokenUri,
+                opts.baseTokenUri,
                 opts.amount,
                 isBridgedToken[opts.token],
                 bridgedToCanonical[opts.token],
@@ -155,7 +157,7 @@ contract NFTVault is
         message.data = data;
         message.gasLimit = opts.gasLimit;
         message.processingFee = opts.processingFee;
-        message.depositValue = msg.value - opts.processingFee;
+        message.depositValue = 0;
         message.refundAddress = opts.refundAddress;
         message.memo = opts.memo;
 
@@ -264,15 +266,21 @@ contract NFTVault is
      *********************/
 
     function _getNftType(address token) internal view returns (NFTType) {
-        if (IERC165(token).supportsInterface(ERC721_INTERFACE_ID)
-            || IERC165(token).supportsInterface(ERC721_METADATA_INTERFACE_ID)
-            || IERC165(token).supportsInterface(ERC721_ENUMERABLE_INTERFACE_ID)) {
-            return NFTType.ERC721;
-        } else if (IERC165(token).supportsInterface(ERC1155_INTERFACE_ID)) {
-            return NFTType.ERC1155;
-        } else {
-            revert NFTVAULT_INVALID_NFT_TYPE();
+        // Check if at least suppports the function, otherwise it would revert with no data
+        try IERC165(token).supportsInterface(0x0) {
+            if (IERC165(token).supportsInterface(ERC721_INTERFACE_ID)
+                || IERC165(token).supportsInterface(ERC721_METADATA_INTERFACE_ID)
+                || IERC165(token).supportsInterface(ERC721_ENUMERABLE_INTERFACE_ID)) {
+                return NFTType.ERC721;
+            } else if (IERC165(token).supportsInterface(ERC1155_INTERFACE_ID)) {
+                return NFTType.ERC1155;
+            } else {
+                revert NFTVAULT_INVALID_NFT_TYPE();
+            }
+        } catch {
+            revert NFT_VAULT_INVALID_CONTRACT();
         }
+        
     }
 
     function _setBridgedToken(address bridgedToken, CanonicalNFT memory canonical) internal {
@@ -324,3 +332,5 @@ contract NFTVault is
             interfaceId == ERC1155_METADATA_INTERFACE_ID;
     }
 }
+
+contract ProxiedNFTVault is Proxied, NFTVault { }
