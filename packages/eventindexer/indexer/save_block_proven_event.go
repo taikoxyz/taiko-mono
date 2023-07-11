@@ -87,8 +87,10 @@ func (svc *Service) saveBlockProvenEvent(
 
 func (svc *Service) updateAverageProofTime(ctx context.Context, event *taikol1.TaikoL1BlockProven) error {
 	block, err := svc.taikol1.GetBlock(nil, event.Id)
+	// will be unable to GetBlock for older blocks, just return nil, we dont
+	// care about averageProofTime that much to be honest for older blocks
 	if err != nil {
-		return errors.Wrap(err, "svc.taikoL1.GetBlock")
+		return nil
 	}
 
 	eventBlock, err := svc.ethClient.BlockByHash(ctx, event.Raw.BlockHash)

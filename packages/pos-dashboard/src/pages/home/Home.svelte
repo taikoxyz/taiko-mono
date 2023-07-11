@@ -2,14 +2,16 @@
   import { location } from 'svelte-spa-router';
 
   import { Tab, TabList, TabPanel, Tabs } from '../../components/Tabs';
-  import Transactions from '../../components/Transactions';
+  import History from '../../components/Events/History.svelte';
+  import CurrentProvers from '../../components/CurrentProvers/CurrentProvers.svelte';
 
   // List of tab's name <=> route association
   // TODO: add this into a general configuration.
   const tabsRoute = [
     { name: 'stake', href: '/' },
     { name: 'history', href: '/history' },
-    { name: 'whatever', href: '/whatever' },
+    { name: 'proverInfo', href: '/proverInfo' },
+    { name: 'currentProvers', href: '/currentProvers' },
     // Add more tabs if needed
   ];
 
@@ -36,11 +38,13 @@
     {@const tab1 = tabsRoute[0]}
     {@const tab2 = tabsRoute[1]}
     {@const tab3 = tabsRoute[2]}
+    {@const tab4 = tabsRoute[3]}
 
     <TabList class="block mb-4 w-full">
       <Tab name={tab1.name} href={tab1.href}>Stake</Tab>
       <Tab name={tab2.name} href={tab2.href}>History</Tab>
-      <Tab name={tab3.name} href={tab3.href}>Whatever</Tab>
+      <Tab name={tab3.name} href={tab3.href}>Prover Info</Tab>
+      <Tab name={tab3.name} href={tab3.href}>Current Provers</Tab>
     </TabList>
 
     <TabPanel tab={tab1.name}>
@@ -49,12 +53,16 @@
 
     <TabPanel tab={tab2.name}>
       <div class="md:min-w-[440px]">
-        <Transactions />
+        <History />
       </div>
     </TabPanel>
 
     <TabPanel tab={tab3.name}>
-      <div class="md:w-[440px] px-4">Whatever</div>
+      <div class="md:w-[440px] px-4">prover info</div>
+    </TabPanel>
+
+    <TabPanel tab={tab4.name}>
+      <CurrentProvers />
     </TabPanel>
   </Tabs>
 </div>

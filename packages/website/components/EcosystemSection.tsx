@@ -44,6 +44,14 @@ const ecosystemData: EcosystemData[] = [
     filters: [],
   },
   {
+    icon: "/images/ecosystem/crypton.png",
+    name: "Crypton",
+    link: "https://crypton.xyz",
+    description:
+      "Help to understand crypto projects by providing the necessary tools to increase your productivity and time.",
+    filters: [],
+  },
+  {
     icon: "/images/ecosystem/kekkai.png",
     name: "KEKKAI",
     link: "https://kekkai.io",
@@ -57,6 +65,14 @@ const ecosystemData: EcosystemData[] = [
     link: "https://wallet.loopring.io",
     description:
       "Loopring is your mobile gateway to Ethereum L2, enabling you to easily trade, swap, collect, stake, and invest without the costly gas fees.",
+    filters: [],
+  },
+  {
+    icon: "/images/ecosystem/mxc.svg",
+    name: "MXC",
+    link: "https://wannsee.mxc.com/docs/intro",
+    description:
+      "Layer3 IoT app chain built using Taiko's open source software.",
     filters: [],
   },
   {
@@ -99,6 +115,22 @@ const ecosystemData: EcosystemData[] = [
     filters: [],
   },
   {
+    icon: "/images/ecosystem/rai-finance.png",
+    name: "RAI Finance",
+    link: "https://app.rai.finance/#/aggregateSwap",
+    description:
+      "User can easily compare and swap multiple chains on top of the Taiko blockchain. A service that links multiple swaps and organizes multiple tokens.",
+    filters: [],
+  },
+  {
+    icon: "/images/ecosystem/soul-wallet.svg",
+    name: "Soul Wallet",
+    link: "https://soulwallet.io",
+    description:
+      "The next-generation smart contract wallet powered by ERC-4337. Simply set up in seconds without recovery phrase.",
+    filters: [],
+  },
+  {
     icon: "/images/ecosystem/taiko.svg",
     name: "Swap",
     link: "https://swap.test.taiko.xyz",
@@ -111,6 +143,22 @@ const ecosystemData: EcosystemData[] = [
     link: "https://github.com/wolfderechter/taiko-node-dashboard-docker",
     description:
       "A user friendly, easy to read, and visually pleasing dashboard for those running a Node/Proposer/Prover.",
+    filters: [],
+  },
+  {
+    icon: "/images/ecosystem/thirdweb.png",
+    name: "thirdweb",
+    link: "https://thirdweb.com",
+    description:
+      "thirdweb is a complete web3 development framework that provides everything you need to connect your apps and games to decentralized networks.",
+    filters: [],
+  },
+  {
+    icon: "/images/ecosystem/zkdelx.jpg",
+    name: "zkDELX",
+    link: "https://zkdelx-front-1.vercel.app",
+    description:
+      "zkDELX is a decentralized electricity exchange market based on zkEVM to facilitate the electrical vehicles and renewable energy industries.",
     filters: [],
   },
   {

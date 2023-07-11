@@ -32,22 +32,21 @@ var (
 // ProverPoolProver is an auto generated low-level Go binding around an user-defined struct.
 type ProverPoolProver struct {
 	StakedAmount    uint64
-	RewardPerGas    uint16
-	CurrentCapacity uint16
-	Weight          uint64
+	RewardPerGas    uint32
+	CurrentCapacity uint32
 }
 
 // ProverPoolStaker is an auto generated low-level Go binding around an user-defined struct.
 type ProverPoolStaker struct {
 	ExitRequestedAt uint64
 	ExitAmount      uint64
-	MaxCapacity     uint16
-	ProverId        uint8
+	MaxCapacity     uint32
+	ProverId        uint32
 }
 
 // ProverPoolMetaData contains all meta data concerning the ProverPool contract.
 var ProverPoolMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[],\"name\":\"INVALID_PARAMS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NO_MATURE_EXIT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"PROVER_NOT_GOOD_ENOUGH\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RESOLVER_DENIED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RESOLVER_INVALID_ADDR\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"}],\"name\":\"RESOLVER_ZERO_ADDR\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UNAUTHORIZED\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"addressManager\",\"type\":\"address\"}],\"name\":\"AddressManagerChanged\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"amount\",\"type\":\"uint64\"}],\"name\":\"Exited\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"amount\",\"type\":\"uint64\"}],\"name\":\"Slashed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"amount\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"uint16\",\"name\":\"rewardPerGas\",\"type\":\"uint16\"},{\"indexed\":false,\"internalType\":\"uint16\",\"name\":\"currentCapacity\",\"type\":\"uint16\"}],\"name\":\"Staked\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"amount\",\"type\":\"uint64\"}],\"name\":\"Withdrawn\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"EXIT_PERIOD\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"MAX_CAPACITY_LOWER_BOUND\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"MAX_NUM_PROVERS\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"MIN_SLASH_AMOUNT\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"MIN_STAKE_PER_CAPACITY\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"SLASH_POINTS\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"addressManager\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"blockId\",\"type\":\"uint64\"},{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"name\":\"assignProver\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"prover\",\"type\":\"address\"},{\"internalType\":\"uint32\",\"name\":\"rewardPerGas\",\"type\":\"uint32\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"exit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCapacity\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"capacity\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getProvers\",\"outputs\":[{\"components\":[{\"internalType\":\"uint64\",\"name\":\"stakedAmount\",\"type\":\"uint64\"},{\"internalType\":\"uint16\",\"name\":\"rewardPerGas\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"currentCapacity\",\"type\":\"uint16\"},{\"internalType\":\"uint64\",\"name\":\"weight\",\"type\":\"uint64\"}],\"internalType\":\"structProverPool.Prover[]\",\"name\":\"_provers\",\"type\":\"tuple[]\"},{\"internalType\":\"address[]\",\"name\":\"_stakers\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"getStaker\",\"outputs\":[{\"components\":[{\"internalType\":\"uint64\",\"name\":\"exitRequestedAt\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"exitAmount\",\"type\":\"uint64\"},{\"internalType\":\"uint16\",\"name\":\"maxCapacity\",\"type\":\"uint16\"},{\"internalType\":\"uint8\",\"name\":\"proverId\",\"type\":\"uint8\"}],\"internalType\":\"structProverPool.Staker\",\"name\":\"staker\",\"type\":\"tuple\"},{\"components\":[{\"internalType\":\"uint64\",\"name\":\"stakedAmount\",\"type\":\"uint64\"},{\"internalType\":\"uint16\",\"name\":\"rewardPerGas\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"currentCapacity\",\"type\":\"uint16\"},{\"internalType\":\"uint64\",\"name\":\"weight\",\"type\":\"uint64\"}],\"internalType\":\"structProverPool.Prover\",\"name\":\"prover\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"idToProver\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"prover\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_addressManager\",\"type\":\"address\"}],\"name\":\"init\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"provers\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"stakedAmount\",\"type\":\"uint64\"},{\"internalType\":\"uint16\",\"name\":\"rewardPerGas\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"currentCapacity\",\"type\":\"uint16\"},{\"internalType\":\"uint64\",\"name\":\"weight\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"releaseProver\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"},{\"internalType\":\"bool\",\"name\":\"allowZeroAddress\",\"type\":\"bool\"}],\"name\":\"resolve\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"},{\"internalType\":\"bool\",\"name\":\"allowZeroAddress\",\"type\":\"bool\"}],\"name\":\"resolve\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newAddressManager\",\"type\":\"address\"}],\"name\":\"setAddressManager\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"slashProver\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"amount\",\"type\":\"uint64\"},{\"internalType\":\"uint16\",\"name\":\"rewardPerGas\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"maxCapacity\",\"type\":\"uint16\"}],\"name\":\"stake\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"staker\",\"type\":\"address\"}],\"name\":\"stakers\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"exitRequestedAt\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"exitAmount\",\"type\":\"uint64\"},{\"internalType\":\"uint16\",\"name\":\"maxCapacity\",\"type\":\"uint16\"},{\"internalType\":\"uint8\",\"name\":\"proverId\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"withdraw\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[],\"name\":\"CHANGE_TOO_FREQUENT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"INVALID_PARAMS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NO_MATURE_EXIT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"PROVER_NOT_GOOD_ENOUGH\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RESOLVER_DENIED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RESOLVER_INVALID_ADDR\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"}],\"name\":\"RESOLVER_ZERO_ADDR\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UNAUTHORIZED\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"addressManager\",\"type\":\"address\"}],\"name\":\"AddressManagerChanged\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"amount\",\"type\":\"uint64\"}],\"name\":\"Exited\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"amount\",\"type\":\"uint64\"}],\"name\":\"Slashed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"amount\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"rewardPerGas\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"currentCapacity\",\"type\":\"uint32\"}],\"name\":\"Staked\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"amount\",\"type\":\"uint64\"}],\"name\":\"Withdrawn\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"EXIT_PERIOD\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"MAX_CAPACITY_LOWER_BOUND\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"MAX_NUM_PROVERS\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"MIN_CHANGE_DELAY\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"MIN_SLASH_AMOUNT\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"MIN_STAKE_PER_CAPACITY\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"SLASH_POINTS\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"addressManager\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"blockId\",\"type\":\"uint64\"},{\"internalType\":\"uint32\",\"name\":\"feePerGas\",\"type\":\"uint32\"}],\"name\":\"assignProver\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"prover\",\"type\":\"address\"},{\"internalType\":\"uint32\",\"name\":\"rewardPerGas\",\"type\":\"uint32\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"exit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCapacity\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"capacity\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"feePerGas\",\"type\":\"uint32\"}],\"name\":\"getProverWeights\",\"outputs\":[{\"internalType\":\"uint256[32]\",\"name\":\"weights\",\"type\":\"uint256[32]\"},{\"internalType\":\"uint32[32]\",\"name\":\"erpg\",\"type\":\"uint32[32]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getProvers\",\"outputs\":[{\"components\":[{\"internalType\":\"uint64\",\"name\":\"stakedAmount\",\"type\":\"uint64\"},{\"internalType\":\"uint32\",\"name\":\"rewardPerGas\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"currentCapacity\",\"type\":\"uint32\"}],\"internalType\":\"structProverPool.Prover[]\",\"name\":\"_provers\",\"type\":\"tuple[]\"},{\"internalType\":\"address[]\",\"name\":\"_stakers\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"getStaker\",\"outputs\":[{\"components\":[{\"internalType\":\"uint64\",\"name\":\"exitRequestedAt\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"exitAmount\",\"type\":\"uint64\"},{\"internalType\":\"uint32\",\"name\":\"maxCapacity\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"proverId\",\"type\":\"uint32\"}],\"internalType\":\"structProverPool.Staker\",\"name\":\"staker\",\"type\":\"tuple\"},{\"components\":[{\"internalType\":\"uint64\",\"name\":\"stakedAmount\",\"type\":\"uint64\"},{\"internalType\":\"uint32\",\"name\":\"rewardPerGas\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"currentCapacity\",\"type\":\"uint32\"}],\"internalType\":\"structProverPool.Prover\",\"name\":\"prover\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_addressManager\",\"type\":\"address\"}],\"name\":\"init\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"proverIdToAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"prover\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"provers\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"stakedAmount\",\"type\":\"uint64\"},{\"internalType\":\"uint32\",\"name\":\"rewardPerGas\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"currentCapacity\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"releaseProver\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"},{\"internalType\":\"bool\",\"name\":\"allowZeroAddress\",\"type\":\"bool\"}],\"name\":\"resolve\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"},{\"internalType\":\"bool\",\"name\":\"allowZeroAddress\",\"type\":\"bool\"}],\"name\":\"resolve\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newAddressManager\",\"type\":\"address\"}],\"name\":\"setAddressManager\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"slashProver\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"amount\",\"type\":\"uint64\"},{\"internalType\":\"uint32\",\"name\":\"rewardPerGas\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxCapacity\",\"type\":\"uint32\"}],\"name\":\"stake\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"staker\",\"type\":\"address\"}],\"name\":\"stakers\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"exitRequestedAt\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"exitAmount\",\"type\":\"uint64\"},{\"internalType\":\"uint32\",\"name\":\"maxCapacity\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"proverId\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"withdraw\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
 }
 
 // ProverPoolABI is the input ABI used to generate the binding from.
@@ -289,6 +288,37 @@ func (_ProverPool *ProverPoolCallerSession) MAXNUMPROVERS() (*big.Int, error) {
 	return _ProverPool.Contract.MAXNUMPROVERS(&_ProverPool.CallOpts)
 }
 
+// MINCHANGEDELAY is a free data retrieval call binding the contract method 0x71aff3a6.
+//
+// Solidity: function MIN_CHANGE_DELAY() view returns(uint256)
+func (_ProverPool *ProverPoolCaller) MINCHANGEDELAY(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _ProverPool.contract.Call(opts, &out, "MIN_CHANGE_DELAY")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// MINCHANGEDELAY is a free data retrieval call binding the contract method 0x71aff3a6.
+//
+// Solidity: function MIN_CHANGE_DELAY() view returns(uint256)
+func (_ProverPool *ProverPoolSession) MINCHANGEDELAY() (*big.Int, error) {
+	return _ProverPool.Contract.MINCHANGEDELAY(&_ProverPool.CallOpts)
+}
+
+// MINCHANGEDELAY is a free data retrieval call binding the contract method 0x71aff3a6.
+//
+// Solidity: function MIN_CHANGE_DELAY() view returns(uint256)
+func (_ProverPool *ProverPoolCallerSession) MINCHANGEDELAY() (*big.Int, error) {
+	return _ProverPool.Contract.MINCHANGEDELAY(&_ProverPool.CallOpts)
+}
+
 // MINSLASHAMOUNT is a free data retrieval call binding the contract method 0x1972bc0d.
 //
 // Solidity: function MIN_SLASH_AMOUNT() view returns(uint64)
@@ -353,16 +383,16 @@ func (_ProverPool *ProverPoolCallerSession) MINSTAKEPERCAPACITY() (uint64, error
 
 // SLASHPOINTS is a free data retrieval call binding the contract method 0xdd9fb65c.
 //
-// Solidity: function SLASH_POINTS() view returns(uint32)
-func (_ProverPool *ProverPoolCaller) SLASHPOINTS(opts *bind.CallOpts) (uint32, error) {
+// Solidity: function SLASH_POINTS() view returns(uint64)
+func (_ProverPool *ProverPoolCaller) SLASHPOINTS(opts *bind.CallOpts) (uint64, error) {
 	var out []interface{}
 	err := _ProverPool.contract.Call(opts, &out, "SLASH_POINTS")
 
 	if err != nil {
-		return *new(uint32), err
+		return *new(uint64), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(uint32)).(*uint32)
+	out0 := *abi.ConvertType(out[0], new(uint64)).(*uint64)
 
 	return out0, err
 
@@ -370,15 +400,15 @@ func (_ProverPool *ProverPoolCaller) SLASHPOINTS(opts *bind.CallOpts) (uint32, e
 
 // SLASHPOINTS is a free data retrieval call binding the contract method 0xdd9fb65c.
 //
-// Solidity: function SLASH_POINTS() view returns(uint32)
-func (_ProverPool *ProverPoolSession) SLASHPOINTS() (uint32, error) {
+// Solidity: function SLASH_POINTS() view returns(uint64)
+func (_ProverPool *ProverPoolSession) SLASHPOINTS() (uint64, error) {
 	return _ProverPool.Contract.SLASHPOINTS(&_ProverPool.CallOpts)
 }
 
 // SLASHPOINTS is a free data retrieval call binding the contract method 0xdd9fb65c.
 //
-// Solidity: function SLASH_POINTS() view returns(uint32)
-func (_ProverPool *ProverPoolCallerSession) SLASHPOINTS() (uint32, error) {
+// Solidity: function SLASH_POINTS() view returns(uint64)
+func (_ProverPool *ProverPoolCallerSession) SLASHPOINTS() (uint64, error) {
 	return _ProverPool.Contract.SLASHPOINTS(&_ProverPool.CallOpts)
 }
 
@@ -444,9 +474,54 @@ func (_ProverPool *ProverPoolCallerSession) GetCapacity() (*big.Int, error) {
 	return _ProverPool.Contract.GetCapacity(&_ProverPool.CallOpts)
 }
 
+// GetProverWeights is a free data retrieval call binding the contract method 0x3acba718.
+//
+// Solidity: function getProverWeights(uint32 feePerGas) view returns(uint256[32] weights, uint32[32] erpg)
+func (_ProverPool *ProverPoolCaller) GetProverWeights(opts *bind.CallOpts, feePerGas uint32) (struct {
+	Weights [32]*big.Int
+	Erpg    [32]uint32
+}, error) {
+	var out []interface{}
+	err := _ProverPool.contract.Call(opts, &out, "getProverWeights", feePerGas)
+
+	outstruct := new(struct {
+		Weights [32]*big.Int
+		Erpg    [32]uint32
+	})
+	if err != nil {
+		return *outstruct, err
+	}
+
+	outstruct.Weights = *abi.ConvertType(out[0], new([32]*big.Int)).(*[32]*big.Int)
+	outstruct.Erpg = *abi.ConvertType(out[1], new([32]uint32)).(*[32]uint32)
+
+	return *outstruct, err
+
+}
+
+// GetProverWeights is a free data retrieval call binding the contract method 0x3acba718.
+//
+// Solidity: function getProverWeights(uint32 feePerGas) view returns(uint256[32] weights, uint32[32] erpg)
+func (_ProverPool *ProverPoolSession) GetProverWeights(feePerGas uint32) (struct {
+	Weights [32]*big.Int
+	Erpg    [32]uint32
+}, error) {
+	return _ProverPool.Contract.GetProverWeights(&_ProverPool.CallOpts, feePerGas)
+}
+
+// GetProverWeights is a free data retrieval call binding the contract method 0x3acba718.
+//
+// Solidity: function getProverWeights(uint32 feePerGas) view returns(uint256[32] weights, uint32[32] erpg)
+func (_ProverPool *ProverPoolCallerSession) GetProverWeights(feePerGas uint32) (struct {
+	Weights [32]*big.Int
+	Erpg    [32]uint32
+}, error) {
+	return _ProverPool.Contract.GetProverWeights(&_ProverPool.CallOpts, feePerGas)
+}
+
 // GetProvers is a free data retrieval call binding the contract method 0xc0bfd036.
 //
-// Solidity: function getProvers() view returns((uint64,uint16,uint16,uint64)[] _provers, address[] _stakers)
+// Solidity: function getProvers() view returns((uint64,uint32,uint32)[] _provers, address[] _stakers)
 func (_ProverPool *ProverPoolCaller) GetProvers(opts *bind.CallOpts) (struct {
 	Provers []ProverPoolProver
 	Stakers []common.Address
@@ -471,7 +546,7 @@ func (_ProverPool *ProverPoolCaller) GetProvers(opts *bind.CallOpts) (struct {
 
 // GetProvers is a free data retrieval call binding the contract method 0xc0bfd036.
 //
-// Solidity: function getProvers() view returns((uint64,uint16,uint16,uint64)[] _provers, address[] _stakers)
+// Solidity: function getProvers() view returns((uint64,uint32,uint32)[] _provers, address[] _stakers)
 func (_ProverPool *ProverPoolSession) GetProvers() (struct {
 	Provers []ProverPoolProver
 	Stakers []common.Address
@@ -481,7 +556,7 @@ func (_ProverPool *ProverPoolSession) GetProvers() (struct {
 
 // GetProvers is a free data retrieval call binding the contract method 0xc0bfd036.
 //
-// Solidity: function getProvers() view returns((uint64,uint16,uint16,uint64)[] _provers, address[] _stakers)
+// Solidity: function getProvers() view returns((uint64,uint32,uint32)[] _provers, address[] _stakers)
 func (_ProverPool *ProverPoolCallerSession) GetProvers() (struct {
 	Provers []ProverPoolProver
 	Stakers []common.Address
@@ -491,7 +566,7 @@ func (_ProverPool *ProverPoolCallerSession) GetProvers() (struct {
 
 // GetStaker is a free data retrieval call binding the contract method 0xa23c44b1.
 //
-// Solidity: function getStaker(address addr) view returns((uint64,uint64,uint16,uint8) staker, (uint64,uint16,uint16,uint64) prover)
+// Solidity: function getStaker(address addr) view returns((uint64,uint64,uint32,uint32) staker, (uint64,uint32,uint32) prover)
 func (_ProverPool *ProverPoolCaller) GetStaker(opts *bind.CallOpts, addr common.Address) (struct {
 	Staker ProverPoolStaker
 	Prover ProverPoolProver
@@ -516,7 +591,7 @@ func (_ProverPool *ProverPoolCaller) GetStaker(opts *bind.CallOpts, addr common.
 
 // GetStaker is a free data retrieval call binding the contract method 0xa23c44b1.
 //
-// Solidity: function getStaker(address addr) view returns((uint64,uint64,uint16,uint8) staker, (uint64,uint16,uint16,uint64) prover)
+// Solidity: function getStaker(address addr) view returns((uint64,uint64,uint32,uint32) staker, (uint64,uint32,uint32) prover)
 func (_ProverPool *ProverPoolSession) GetStaker(addr common.Address) (struct {
 	Staker ProverPoolStaker
 	Prover ProverPoolProver
@@ -526,43 +601,12 @@ func (_ProverPool *ProverPoolSession) GetStaker(addr common.Address) (struct {
 
 // GetStaker is a free data retrieval call binding the contract method 0xa23c44b1.
 //
-// Solidity: function getStaker(address addr) view returns((uint64,uint64,uint16,uint8) staker, (uint64,uint16,uint16,uint64) prover)
+// Solidity: function getStaker(address addr) view returns((uint64,uint64,uint32,uint32) staker, (uint64,uint32,uint32) prover)
 func (_ProverPool *ProverPoolCallerSession) GetStaker(addr common.Address) (struct {
 	Staker ProverPoolStaker
 	Prover ProverPoolProver
 }, error) {
 	return _ProverPool.Contract.GetStaker(&_ProverPool.CallOpts, addr)
-}
-
-// IdToProver is a free data retrieval call binding the contract method 0x2f88a7fe.
-//
-// Solidity: function idToProver(uint256 id) view returns(address prover)
-func (_ProverPool *ProverPoolCaller) IdToProver(opts *bind.CallOpts, id *big.Int) (common.Address, error) {
-	var out []interface{}
-	err := _ProverPool.contract.Call(opts, &out, "idToProver", id)
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
-}
-
-// IdToProver is a free data retrieval call binding the contract method 0x2f88a7fe.
-//
-// Solidity: function idToProver(uint256 id) view returns(address prover)
-func (_ProverPool *ProverPoolSession) IdToProver(id *big.Int) (common.Address, error) {
-	return _ProverPool.Contract.IdToProver(&_ProverPool.CallOpts, id)
-}
-
-// IdToProver is a free data retrieval call binding the contract method 0x2f88a7fe.
-//
-// Solidity: function idToProver(uint256 id) view returns(address prover)
-func (_ProverPool *ProverPoolCallerSession) IdToProver(id *big.Int) (common.Address, error) {
-	return _ProverPool.Contract.IdToProver(&_ProverPool.CallOpts, id)
 }
 
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
@@ -596,32 +640,60 @@ func (_ProverPool *ProverPoolCallerSession) Owner() (common.Address, error) {
 	return _ProverPool.Contract.Owner(&_ProverPool.CallOpts)
 }
 
+// ProverIdToAddress is a free data retrieval call binding the contract method 0xf064afa0.
+//
+// Solidity: function proverIdToAddress(uint256 id) view returns(address prover)
+func (_ProverPool *ProverPoolCaller) ProverIdToAddress(opts *bind.CallOpts, id *big.Int) (common.Address, error) {
+	var out []interface{}
+	err := _ProverPool.contract.Call(opts, &out, "proverIdToAddress", id)
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// ProverIdToAddress is a free data retrieval call binding the contract method 0xf064afa0.
+//
+// Solidity: function proverIdToAddress(uint256 id) view returns(address prover)
+func (_ProverPool *ProverPoolSession) ProverIdToAddress(id *big.Int) (common.Address, error) {
+	return _ProverPool.Contract.ProverIdToAddress(&_ProverPool.CallOpts, id)
+}
+
+// ProverIdToAddress is a free data retrieval call binding the contract method 0xf064afa0.
+//
+// Solidity: function proverIdToAddress(uint256 id) view returns(address prover)
+func (_ProverPool *ProverPoolCallerSession) ProverIdToAddress(id *big.Int) (common.Address, error) {
+	return _ProverPool.Contract.ProverIdToAddress(&_ProverPool.CallOpts, id)
+}
+
 // Provers is a free data retrieval call binding the contract method 0xfd1190ea.
 //
-// Solidity: function provers(uint256 ) view returns(uint64 stakedAmount, uint16 rewardPerGas, uint16 currentCapacity, uint64 weight)
+// Solidity: function provers(uint256 ) view returns(uint64 stakedAmount, uint32 rewardPerGas, uint32 currentCapacity)
 func (_ProverPool *ProverPoolCaller) Provers(opts *bind.CallOpts, arg0 *big.Int) (struct {
 	StakedAmount    uint64
-	RewardPerGas    uint16
-	CurrentCapacity uint16
-	Weight          uint64
+	RewardPerGas    uint32
+	CurrentCapacity uint32
 }, error) {
 	var out []interface{}
 	err := _ProverPool.contract.Call(opts, &out, "provers", arg0)
 
 	outstruct := new(struct {
 		StakedAmount    uint64
-		RewardPerGas    uint16
-		CurrentCapacity uint16
-		Weight          uint64
+		RewardPerGas    uint32
+		CurrentCapacity uint32
 	})
 	if err != nil {
 		return *outstruct, err
 	}
 
 	outstruct.StakedAmount = *abi.ConvertType(out[0], new(uint64)).(*uint64)
-	outstruct.RewardPerGas = *abi.ConvertType(out[1], new(uint16)).(*uint16)
-	outstruct.CurrentCapacity = *abi.ConvertType(out[2], new(uint16)).(*uint16)
-	outstruct.Weight = *abi.ConvertType(out[3], new(uint64)).(*uint64)
+	outstruct.RewardPerGas = *abi.ConvertType(out[1], new(uint32)).(*uint32)
+	outstruct.CurrentCapacity = *abi.ConvertType(out[2], new(uint32)).(*uint32)
 
 	return *outstruct, err
 
@@ -629,24 +701,22 @@ func (_ProverPool *ProverPoolCaller) Provers(opts *bind.CallOpts, arg0 *big.Int)
 
 // Provers is a free data retrieval call binding the contract method 0xfd1190ea.
 //
-// Solidity: function provers(uint256 ) view returns(uint64 stakedAmount, uint16 rewardPerGas, uint16 currentCapacity, uint64 weight)
+// Solidity: function provers(uint256 ) view returns(uint64 stakedAmount, uint32 rewardPerGas, uint32 currentCapacity)
 func (_ProverPool *ProverPoolSession) Provers(arg0 *big.Int) (struct {
 	StakedAmount    uint64
-	RewardPerGas    uint16
-	CurrentCapacity uint16
-	Weight          uint64
+	RewardPerGas    uint32
+	CurrentCapacity uint32
 }, error) {
 	return _ProverPool.Contract.Provers(&_ProverPool.CallOpts, arg0)
 }
 
 // Provers is a free data retrieval call binding the contract method 0xfd1190ea.
 //
-// Solidity: function provers(uint256 ) view returns(uint64 stakedAmount, uint16 rewardPerGas, uint16 currentCapacity, uint64 weight)
+// Solidity: function provers(uint256 ) view returns(uint64 stakedAmount, uint32 rewardPerGas, uint32 currentCapacity)
 func (_ProverPool *ProverPoolCallerSession) Provers(arg0 *big.Int) (struct {
 	StakedAmount    uint64
-	RewardPerGas    uint16
-	CurrentCapacity uint16
-	Weight          uint64
+	RewardPerGas    uint32
+	CurrentCapacity uint32
 }, error) {
 	return _ProverPool.Contract.Provers(&_ProverPool.CallOpts, arg0)
 }
@@ -715,12 +785,12 @@ func (_ProverPool *ProverPoolCallerSession) Resolve0(name [32]byte, allowZeroAdd
 
 // Stakers is a free data retrieval call binding the contract method 0x9168ae72.
 //
-// Solidity: function stakers(address staker) view returns(uint64 exitRequestedAt, uint64 exitAmount, uint16 maxCapacity, uint8 proverId)
+// Solidity: function stakers(address staker) view returns(uint64 exitRequestedAt, uint64 exitAmount, uint32 maxCapacity, uint32 proverId)
 func (_ProverPool *ProverPoolCaller) Stakers(opts *bind.CallOpts, staker common.Address) (struct {
 	ExitRequestedAt uint64
 	ExitAmount      uint64
-	MaxCapacity     uint16
-	ProverId        uint8
+	MaxCapacity     uint32
+	ProverId        uint32
 }, error) {
 	var out []interface{}
 	err := _ProverPool.contract.Call(opts, &out, "stakers", staker)
@@ -728,8 +798,8 @@ func (_ProverPool *ProverPoolCaller) Stakers(opts *bind.CallOpts, staker common.
 	outstruct := new(struct {
 		ExitRequestedAt uint64
 		ExitAmount      uint64
-		MaxCapacity     uint16
-		ProverId        uint8
+		MaxCapacity     uint32
+		ProverId        uint32
 	})
 	if err != nil {
 		return *outstruct, err
@@ -737,8 +807,8 @@ func (_ProverPool *ProverPoolCaller) Stakers(opts *bind.CallOpts, staker common.
 
 	outstruct.ExitRequestedAt = *abi.ConvertType(out[0], new(uint64)).(*uint64)
 	outstruct.ExitAmount = *abi.ConvertType(out[1], new(uint64)).(*uint64)
-	outstruct.MaxCapacity = *abi.ConvertType(out[2], new(uint16)).(*uint16)
-	outstruct.ProverId = *abi.ConvertType(out[3], new(uint8)).(*uint8)
+	outstruct.MaxCapacity = *abi.ConvertType(out[2], new(uint32)).(*uint32)
+	outstruct.ProverId = *abi.ConvertType(out[3], new(uint32)).(*uint32)
 
 	return *outstruct, err
 
@@ -746,47 +816,47 @@ func (_ProverPool *ProverPoolCaller) Stakers(opts *bind.CallOpts, staker common.
 
 // Stakers is a free data retrieval call binding the contract method 0x9168ae72.
 //
-// Solidity: function stakers(address staker) view returns(uint64 exitRequestedAt, uint64 exitAmount, uint16 maxCapacity, uint8 proverId)
+// Solidity: function stakers(address staker) view returns(uint64 exitRequestedAt, uint64 exitAmount, uint32 maxCapacity, uint32 proverId)
 func (_ProverPool *ProverPoolSession) Stakers(staker common.Address) (struct {
 	ExitRequestedAt uint64
 	ExitAmount      uint64
-	MaxCapacity     uint16
-	ProverId        uint8
+	MaxCapacity     uint32
+	ProverId        uint32
 }, error) {
 	return _ProverPool.Contract.Stakers(&_ProverPool.CallOpts, staker)
 }
 
 // Stakers is a free data retrieval call binding the contract method 0x9168ae72.
 //
-// Solidity: function stakers(address staker) view returns(uint64 exitRequestedAt, uint64 exitAmount, uint16 maxCapacity, uint8 proverId)
+// Solidity: function stakers(address staker) view returns(uint64 exitRequestedAt, uint64 exitAmount, uint32 maxCapacity, uint32 proverId)
 func (_ProverPool *ProverPoolCallerSession) Stakers(staker common.Address) (struct {
 	ExitRequestedAt uint64
 	ExitAmount      uint64
-	MaxCapacity     uint16
-	ProverId        uint8
+	MaxCapacity     uint32
+	ProverId        uint32
 }, error) {
 	return _ProverPool.Contract.Stakers(&_ProverPool.CallOpts, staker)
 }
 
 // AssignProver is a paid mutator transaction binding the contract method 0xbd849fe9.
 //
-// Solidity: function assignProver(uint64 blockId, uint32 ) returns(address prover, uint32 rewardPerGas)
-func (_ProverPool *ProverPoolTransactor) AssignProver(opts *bind.TransactOpts, blockId uint64, arg1 uint32) (*types.Transaction, error) {
-	return _ProverPool.contract.Transact(opts, "assignProver", blockId, arg1)
+// Solidity: function assignProver(uint64 blockId, uint32 feePerGas) returns(address prover, uint32 rewardPerGas)
+func (_ProverPool *ProverPoolTransactor) AssignProver(opts *bind.TransactOpts, blockId uint64, feePerGas uint32) (*types.Transaction, error) {
+	return _ProverPool.contract.Transact(opts, "assignProver", blockId, feePerGas)
 }
 
 // AssignProver is a paid mutator transaction binding the contract method 0xbd849fe9.
 //
-// Solidity: function assignProver(uint64 blockId, uint32 ) returns(address prover, uint32 rewardPerGas)
-func (_ProverPool *ProverPoolSession) AssignProver(blockId uint64, arg1 uint32) (*types.Transaction, error) {
-	return _ProverPool.Contract.AssignProver(&_ProverPool.TransactOpts, blockId, arg1)
+// Solidity: function assignProver(uint64 blockId, uint32 feePerGas) returns(address prover, uint32 rewardPerGas)
+func (_ProverPool *ProverPoolSession) AssignProver(blockId uint64, feePerGas uint32) (*types.Transaction, error) {
+	return _ProverPool.Contract.AssignProver(&_ProverPool.TransactOpts, blockId, feePerGas)
 }
 
 // AssignProver is a paid mutator transaction binding the contract method 0xbd849fe9.
 //
-// Solidity: function assignProver(uint64 blockId, uint32 ) returns(address prover, uint32 rewardPerGas)
-func (_ProverPool *ProverPoolTransactorSession) AssignProver(blockId uint64, arg1 uint32) (*types.Transaction, error) {
-	return _ProverPool.Contract.AssignProver(&_ProverPool.TransactOpts, blockId, arg1)
+// Solidity: function assignProver(uint64 blockId, uint32 feePerGas) returns(address prover, uint32 rewardPerGas)
+func (_ProverPool *ProverPoolTransactorSession) AssignProver(blockId uint64, feePerGas uint32) (*types.Transaction, error) {
+	return _ProverPool.Contract.AssignProver(&_ProverPool.TransactOpts, blockId, feePerGas)
 }
 
 // Exit is a paid mutator transaction binding the contract method 0xe9fad8ee.
@@ -915,24 +985,24 @@ func (_ProverPool *ProverPoolTransactorSession) SlashProver(addr common.Address)
 	return _ProverPool.Contract.SlashProver(&_ProverPool.TransactOpts, addr)
 }
 
-// Stake is a paid mutator transaction binding the contract method 0x75244643.
+// Stake is a paid mutator transaction binding the contract method 0xb19ead66.
 //
-// Solidity: function stake(uint64 amount, uint16 rewardPerGas, uint16 maxCapacity) returns()
-func (_ProverPool *ProverPoolTransactor) Stake(opts *bind.TransactOpts, amount uint64, rewardPerGas uint16, maxCapacity uint16) (*types.Transaction, error) {
+// Solidity: function stake(uint64 amount, uint32 rewardPerGas, uint32 maxCapacity) returns()
+func (_ProverPool *ProverPoolTransactor) Stake(opts *bind.TransactOpts, amount uint64, rewardPerGas uint32, maxCapacity uint32) (*types.Transaction, error) {
 	return _ProverPool.contract.Transact(opts, "stake", amount, rewardPerGas, maxCapacity)
 }
 
-// Stake is a paid mutator transaction binding the contract method 0x75244643.
+// Stake is a paid mutator transaction binding the contract method 0xb19ead66.
 //
-// Solidity: function stake(uint64 amount, uint16 rewardPerGas, uint16 maxCapacity) returns()
-func (_ProverPool *ProverPoolSession) Stake(amount uint64, rewardPerGas uint16, maxCapacity uint16) (*types.Transaction, error) {
+// Solidity: function stake(uint64 amount, uint32 rewardPerGas, uint32 maxCapacity) returns()
+func (_ProverPool *ProverPoolSession) Stake(amount uint64, rewardPerGas uint32, maxCapacity uint32) (*types.Transaction, error) {
 	return _ProverPool.Contract.Stake(&_ProverPool.TransactOpts, amount, rewardPerGas, maxCapacity)
 }
 
-// Stake is a paid mutator transaction binding the contract method 0x75244643.
+// Stake is a paid mutator transaction binding the contract method 0xb19ead66.
 //
-// Solidity: function stake(uint64 amount, uint16 rewardPerGas, uint16 maxCapacity) returns()
-func (_ProverPool *ProverPoolTransactorSession) Stake(amount uint64, rewardPerGas uint16, maxCapacity uint16) (*types.Transaction, error) {
+// Solidity: function stake(uint64 amount, uint32 rewardPerGas, uint32 maxCapacity) returns()
+func (_ProverPool *ProverPoolTransactorSession) Stake(amount uint64, rewardPerGas uint32, maxCapacity uint32) (*types.Transaction, error) {
 	return _ProverPool.Contract.Stake(&_ProverPool.TransactOpts, amount, rewardPerGas, maxCapacity)
 }
 
@@ -1760,14 +1830,14 @@ func (it *ProverPoolStakedIterator) Close() error {
 type ProverPoolStaked struct {
 	Addr            common.Address
 	Amount          uint64
-	RewardPerGas    uint16
-	CurrentCapacity uint16
+	RewardPerGas    uint32
+	CurrentCapacity uint32
 	Raw             types.Log // Blockchain specific contextual infos
 }
 
-// FilterStaked is a free log retrieval operation binding the contract event 0xb071f01ce43c8c0960b11143f30bedc46b345006ee5631abbdfd2a5cb6562774.
+// FilterStaked is a free log retrieval operation binding the contract event 0x5ca6ec890c0c084d4fe6c6c49e6aea6fd8dbf1460730c83b5b12bf22811851e3.
 //
-// Solidity: event Staked(address indexed addr, uint64 amount, uint16 rewardPerGas, uint16 currentCapacity)
+// Solidity: event Staked(address indexed addr, uint64 amount, uint32 rewardPerGas, uint32 currentCapacity)
 func (_ProverPool *ProverPoolFilterer) FilterStaked(opts *bind.FilterOpts, addr []common.Address) (*ProverPoolStakedIterator, error) {
 
 	var addrRule []interface{}
@@ -1782,9 +1852,9 @@ func (_ProverPool *ProverPoolFilterer) FilterStaked(opts *bind.FilterOpts, addr 
 	return &ProverPoolStakedIterator{contract: _ProverPool.contract, event: "Staked", logs: logs, sub: sub}, nil
 }
 
-// WatchStaked is a free log subscription operation binding the contract event 0xb071f01ce43c8c0960b11143f30bedc46b345006ee5631abbdfd2a5cb6562774.
+// WatchStaked is a free log subscription operation binding the contract event 0x5ca6ec890c0c084d4fe6c6c49e6aea6fd8dbf1460730c83b5b12bf22811851e3.
 //
-// Solidity: event Staked(address indexed addr, uint64 amount, uint16 rewardPerGas, uint16 currentCapacity)
+// Solidity: event Staked(address indexed addr, uint64 amount, uint32 rewardPerGas, uint32 currentCapacity)
 func (_ProverPool *ProverPoolFilterer) WatchStaked(opts *bind.WatchOpts, sink chan<- *ProverPoolStaked, addr []common.Address) (event.Subscription, error) {
 
 	var addrRule []interface{}
@@ -1824,9 +1894,9 @@ func (_ProverPool *ProverPoolFilterer) WatchStaked(opts *bind.WatchOpts, sink ch
 	}), nil
 }
 
-// ParseStaked is a log parse operation binding the contract event 0xb071f01ce43c8c0960b11143f30bedc46b345006ee5631abbdfd2a5cb6562774.
+// ParseStaked is a log parse operation binding the contract event 0x5ca6ec890c0c084d4fe6c6c49e6aea6fd8dbf1460730c83b5b12bf22811851e3.
 //
-// Solidity: event Staked(address indexed addr, uint64 amount, uint16 rewardPerGas, uint16 currentCapacity)
+// Solidity: event Staked(address indexed addr, uint64 amount, uint32 rewardPerGas, uint32 currentCapacity)
 func (_ProverPool *ProverPoolFilterer) ParseStaked(log types.Log) (*ProverPoolStaked, error) {
 	event := new(ProverPoolStaked)
 	if err := _ProverPool.contract.UnpackLog(event, "Staked", log); err != nil {

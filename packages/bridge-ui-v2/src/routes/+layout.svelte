@@ -4,7 +4,9 @@
 
   import { onDestroy, onMount } from 'svelte';
 
+  import { AccountConnectionToast } from '$components/AccountConnectionToast';
   import { Header } from '$components/Header';
+  import { NotificationToast } from '$components/NotificationToast';
   import { SideNavigation } from '$components/SideNavigation';
   import { startWatching, stopWatching } from '$libs/wagmi';
 
@@ -18,3 +20,7 @@
     <slot />
   </main>
 </SideNavigation>
+
+<NotificationToast />
+
+<AccountConnectionToast />

@@ -1,0 +1,22 @@
+<script lang="ts">
+  import { EVENT_INDEXER_API_URL } from '../../constants/envVars';
+  import getCurrentProvers from '../../utils/getCurrentProvers';
+  import { onMount } from 'svelte';
+  import type { Prover } from '../../domain/prover';
+  let provers: Prover[] = [];
+
+  onMount(async () => {
+    provers = await getCurrentProvers(EVENT_INDEXER_API_URL);
+  });
+</script>
+
+<div class="my-4 md:px-4">
+  <th>Address</th>
+  <th>Amount</th>
+  <th>Capacity</th>
+  {#each provers as prover}
+    <td>{prover.address}</td>
+    <td>{prover.amountStaked}</td>
+    <td>{prover.currentCapacity}</td>
+  {/each}
+</div>

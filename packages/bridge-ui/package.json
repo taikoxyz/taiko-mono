@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "pnpm run dev",
+    "start:a3": "pnpm run dev --mode a3",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",

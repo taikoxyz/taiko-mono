@@ -1,10 +1,14 @@
 import type { Chain as WagmiChain } from 'wagmi';
 
 import Eth from '../components/icons/ETH.svelte';
-import { L1_EXPLORER_URL, L1_RPC, L1_CHAIN_ID } from '../constants/envVars';
+import {
+  L1_EXPLORER_URL,
+  L1_RPC,
+  L1_CHAIN_ID,
+  L1_CHAIN_NAME,
+} from '../constants/envVars';
 import type { Chain, ChainID } from '../domain/chain';
 
-const L1_CHAIN_NAME = 'L1';
 export const mainnetChain: Chain = {
   id: L1_CHAIN_ID,
   name: L1_CHAIN_NAME,

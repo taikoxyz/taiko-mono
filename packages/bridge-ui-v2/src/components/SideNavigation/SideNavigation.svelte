@@ -26,6 +26,10 @@
       closeDrawer();
     }
   }
+
+  function getIconFillClass(active: boolean) {
+    return active ? 'fill-white' : 'fill-primary-icon';
+  }
 </script>
 
 <div class="drawer md:drawer-open">
@@ -67,19 +71,19 @@
         <ul class="menu p-0 md:pt-10 space-y-2" on:click={closeDrawer} on:keydown={onMenuKeydown}>
           <li>
             <LinkButton active={isBridgePage}>
-              <Icon type="bridge" fillClass="fill-white" />
+              <Icon type="bridge" fillClass={getIconFillClass(isBridgePage)} />
               <span>{$t('nav.bridge')}</span>
             </LinkButton>
           </li>
           <li>
             <LinkButton href="/faucet" active={isFaucetPage}>
-              <Icon type="faucet" />
+              <Icon type="faucet" fillClass={getIconFillClass(isFaucetPage)} />
               <span>{$t('nav.faucet')}</span>
             </LinkButton>
           </li>
           <li>
             <LinkButton href="/activities" active={isActivitiesPage}>
-              <Icon type="activities" />
+              <Icon type="activities" fillClass={getIconFillClass(isActivitiesPage)} />
               <span>{$t('nav.activities')}</span>
             </LinkButton>
           </li>
