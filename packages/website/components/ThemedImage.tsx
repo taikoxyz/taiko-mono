@@ -1,6 +1,7 @@
+import { useEffect, useState } from "react";
+
 import Image from "next/image";
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
 
 function ThemedImage() {
   const { resolvedTheme } = useTheme();
@@ -9,8 +10,8 @@ function ThemedImage() {
   useEffect(() => {
     setSrc(
       resolvedTheme === "dark"
-        ? "/images/logotype-white.png"
-        : "/images/logotype-black.png"
+        ? "/images/logotype-white.svg"
+        : "/images/logotype-black.svg"
     );
   }, [resolvedTheme]);
 
