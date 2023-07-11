@@ -21,7 +21,7 @@ function ThemedImage() {
       width={100}
       height={100}
       alt="logo"
-      style={{ width: "100%", height: "auto" }}
+      style={{ width: "128px", height: "auto" }}
     />
   ) : null;
 }
