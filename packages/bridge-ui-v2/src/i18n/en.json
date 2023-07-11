@@ -60,10 +60,14 @@
     "title": "Faucet",
     "subtitle": "Mint test tokens.",
     "button.mint": "Mint",
+    "wrong_chain": {
+      "message": "It appears your are on the wrong network. Switch to {network} to mint tokens.",
+      "button": "Switch to {network}",
+      "switching": "Switching network"
+    },
     "warning": {
       "no_token": "Please select a token to mint.",
       "no_network": "Please switch to {network} to mint tokens.",
-      "wrong_chain": "It appears your are on the wrong network. Switch to {network} to mint tokens.",
       "no_connected": "Please connect your wallet to mint tokens.",
       "insufficient_balance": "You don't have enough ETH to complete the transaction. Please add some ETH to your wallet.",
       "already_minted": "You have already minted this token."
@@ -87,10 +91,11 @@
 
   "messages": {
     "account": {
-      "required": "Please connect your wallet",
+      "required": "Please connect your wallet.",
       "connected": "Account connected",
       "disconnected": "Account disconnected"
-    }
+    },
+    "switch_chain.rejected": "Switch chain request rejected."
   },
 
   "chain": {

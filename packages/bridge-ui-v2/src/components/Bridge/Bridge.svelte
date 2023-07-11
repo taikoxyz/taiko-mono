@@ -18,7 +18,7 @@
   <div class="space-y-[35px]">
     <div class="space-y-4">
       <div class="space-y-2">
-        <ChainSelector label={$t('chain.from')} bind:value={$srcChain} />
+        <ChainSelector label={$t('chain.from')} value={$srcChain} />
         <TokenDropdown {tokens} />
       </div>
 
@@ -31,7 +31,7 @@
       </div>
 
       <div class="space-y-2">
-        <ChainSelector label={$t('chain.to')} bind:value={$destChain} />
+        <ChainSelector label={$t('chain.to')} value={$destChain} />
         <RecipientInput />
       </div>
     </div>

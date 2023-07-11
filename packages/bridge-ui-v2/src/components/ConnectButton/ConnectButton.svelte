@@ -14,6 +14,7 @@
   let unsubscribeWeb3Modal = noop;
 
   function connectWallet() {
+    if (web3modalOpen) return;
     web3modal.openModal();
   }
 
