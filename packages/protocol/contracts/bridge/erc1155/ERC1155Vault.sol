@@ -46,7 +46,7 @@ contract ERC1155Vault is
     function sendToken(BridgeTransferOp calldata opts) external payable nonReentrant {
         if (
             opts.to == address(0) ||
-            opts.to == resolve(opts.destChainId, "nft_vault", false)
+            opts.to == resolve(opts.destChainId, "erc1155_vault", false)
         ) revert NFTVAULT_INVALID_TO();
 
         if (opts.token == address(0)) revert NFTVAULT_INVALID_TOKEN();
@@ -68,7 +68,7 @@ contract ERC1155Vault is
         IBridge.Message memory message;
         message.destChainId = opts.destChainId;
         message.owner = msg.sender;
-        message.to = resolve(opts.destChainId, "nft_vault", false);
+        message.to = resolve(opts.destChainId, "erc1155_vault", false);
         message.data = data;
         message.gasLimit = opts.gasLimit;
         message.processingFee = opts.processingFee;
