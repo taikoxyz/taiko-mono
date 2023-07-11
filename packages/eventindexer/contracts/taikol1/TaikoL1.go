@@ -48,24 +48,28 @@ type TaikoDataBlockMetadata struct {
 // TaikoDataConfig is an auto generated low-level Go binding around an user-defined struct.
 type TaikoDataConfig struct {
 	ChainId                    *big.Int
-	MaxNumProposedBlocks       *big.Int
-	RingBufferSize             *big.Int
-	MaxVerificationsPerTx      *big.Int
-	BlockMaxGasLimit           uint64
-	MaxTransactionsPerBlock    uint64
-	MaxBytesPerTxList          uint64
-	TxListCacheExpiry          *big.Int
-	ProofCooldownPeriod        *big.Int
-	SystemProofCooldownPeriod  *big.Int
-	RealProofSkipSize          *big.Int
-	EthDepositGas              *big.Int
-	EthDepositMaxFee           *big.Int
+	RelaySignalRoot            bool
+	BlockMaxProposals          *big.Int
+	BlockRingBufferSize        *big.Int
+	BlockMaxVerificationsPerTx *big.Int
+	BlockMaxGasLimit           uint32
+	BlockFeeBaseGas            uint32
+	BlockMaxTransactions       uint64
+	BlockMaxTxListBytes        uint64
+	BlockTxListExpiry          *big.Int
+	ProofRegularCooldown       *big.Int
+	ProofOracleCooldown        *big.Int
+	ProofMinWindow             uint16
+	ProofMaxWindow             uint16
 	EthDepositRingBufferSize   *big.Int
 	EthDepositMinCountPerBlock uint64
 	EthDepositMaxCountPerBlock uint64
-	EthDepositMaxAmount        *big.Int
 	EthDepositMinAmount        *big.Int
-	RelaySignalRoot            bool
+	EthDepositMaxAmount        *big.Int
+	EthDepositGas              *big.Int
+	EthDepositMaxFee           *big.Int
+	RewardOpenMultipler        uint8
+	RewardOpenMaxCount         *big.Int
 }
 
 // TaikoDataEthDeposit is an auto generated low-level Go binding around an user-defined struct.
@@ -80,14 +84,14 @@ type TaikoDataForkChoice struct {
 	Key        [32]byte
 	BlockHash  [32]byte
 	SignalRoot [32]byte
-	ProvenAt   uint64
 	Prover     common.Address
+	ProvenAt   uint64
 	GasUsed    uint32
 }
 
 // TaikoDataStateVariables is an auto generated low-level Go binding around an user-defined struct.
 type TaikoDataStateVariables struct {
-	BlockFee                uint64
+	FeePerGas               uint32
 	GenesisHeight           uint64
 	GenesisTimestamp        uint64
 	NumBlocks               uint64
@@ -98,7 +102,7 @@ type TaikoDataStateVariables struct {
 
 // TaikoL1MetaData contains all meta data concerning the TaikoL1 contract.
 var TaikoL1MetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[],\"name\":\"L1_ALREADY_PROVEN\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_ALREADY_PROVEN\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_BLOCK_ID\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_BLOCK_ID\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_BLOCK_ID\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"expected\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"actual\",\"type\":\"bytes32\"}],\"name\":\"L1_EVIDENCE_MISMATCH\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"expected\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"actual\",\"type\":\"bytes32\"}],\"name\":\"L1_EVIDENCE_MISMATCH\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_FORK_CHOICE_NOT_FOUND\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_FORK_CHOICE_NOT_FOUND\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INVALID_CONFIG\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INVALID_CONFIG\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INVALID_ETH_DEPOSIT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INVALID_ETH_DEPOSIT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INVALID_EVIDENCE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INVALID_EVIDENCE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INVALID_METADATA\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INVALID_METADATA\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INVALID_PARAM\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INVALID_PROOF\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INVALID_PROOF\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INVALID_PROOF_OVERWRITE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INVALID_PROOF_OVERWRITE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_NOT_SPECIAL_PROVER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_NOT_SPECIAL_PROVER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_ORACLE_PROVER_DISABLED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_ORACLE_PROVER_DISABLED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_SAME_PROOF\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_SAME_PROOF\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_SYSTEM_PROVER_DISABLED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_SYSTEM_PROVER_DISABLED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_SYSTEM_PROVER_PROHIBITED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_SYSTEM_PROVER_PROHIBITED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_TOO_MANY_BLOCKS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_TOO_MANY_BLOCKS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_TX_LIST\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_TX_LIST\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_TX_LIST_HASH\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_TX_LIST_HASH\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_TX_LIST_NOT_EXIST\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_TX_LIST_NOT_EXIST\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_TX_LIST_RANGE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_TX_LIST_RANGE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RESOLVER_DENIED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RESOLVER_INVALID_ADDR\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"}],\"name\":\"RESOLVER_ZERO_ADDR\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"addressManager\",\"type\":\"address\"}],\"name\":\"AddressManagerChanged\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"components\":[{\"internalType\":\"uint64\",\"name\":\"id\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"l1Height\",\"type\":\"uint64\"},{\"internalType\":\"bytes32\",\"name\":\"l1Hash\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"mixHash\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"txListHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint24\",\"name\":\"txListByteStart\",\"type\":\"uint24\"},{\"internalType\":\"uint24\",\"name\":\"txListByteEnd\",\"type\":\"uint24\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"},{\"internalType\":\"address\",\"name\":\"beneficiary\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"treasury\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"},{\"internalType\":\"uint64\",\"name\":\"id\",\"type\":\"uint64\"}],\"internalType\":\"structTaikoData.EthDeposit[]\",\"name\":\"depositsProcessed\",\"type\":\"tuple[]\"}],\"indexed\":false,\"internalType\":\"structTaikoData.BlockMetadata\",\"name\":\"meta\",\"type\":\"tuple\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"blockFee\",\"type\":\"uint64\"}],\"name\":\"BlockProposed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"components\":[{\"internalType\":\"uint64\",\"name\":\"id\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"l1Height\",\"type\":\"uint64\"},{\"internalType\":\"bytes32\",\"name\":\"l1Hash\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"mixHash\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"txListHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint24\",\"name\":\"txListByteStart\",\"type\":\"uint24\"},{\"internalType\":\"uint24\",\"name\":\"txListByteEnd\",\"type\":\"uint24\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"},{\"internalType\":\"address\",\"name\":\"beneficiary\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"treasury\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"},{\"internalType\":\"uint64\",\"name\":\"id\",\"type\":\"uint64\"}],\"internalType\":\"structTaikoData.EthDeposit[]\",\"name\":\"depositsProcessed\",\"type\":\"tuple[]\"}],\"indexed\":false,\"internalType\":\"structTaikoData.BlockMetadata\",\"name\":\"meta\",\"type\":\"tuple\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"blockFee\",\"type\":\"uint64\"}],\"name\":\"BlockProposed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"parentHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"blockHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"signalRoot\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"prover\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"parentGasUsed\",\"type\":\"uint32\"}],\"name\":\"BlockProven\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"parentHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"blockHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"signalRoot\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"prover\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"parentGasUsed\",\"type\":\"uint32\"}],\"name\":\"BlockProven\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"blockHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"reward\",\"type\":\"uint64\"}],\"name\":\"BlockVerified\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"blockHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"reward\",\"type\":\"uint64\"}],\"name\":\"BlockVerified\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"srcHeight\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"blockHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"signalRoot\",\"type\":\"bytes32\"}],\"name\":\"CrossChainSynced\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"srcHeight\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"blockHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"signalRoot\",\"type\":\"bytes32\"}],\"name\":\"CrossChainSynced\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"},{\"internalType\":\"uint64\",\"name\":\"id\",\"type\":\"uint64\"}],\"indexed\":false,\"internalType\":\"structTaikoData.EthDeposit\",\"name\":\"deposit\",\"type\":\"tuple\"}],\"name\":\"EthDeposited\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"},{\"internalType\":\"uint64\",\"name\":\"id\",\"type\":\"uint64\"}],\"indexed\":false,\"internalType\":\"structTaikoData.EthDeposit\",\"name\":\"deposit\",\"type\":\"tuple\"}],\"name\":\"EthDeposited\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"proofTimeTarget\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"proofTimeIssued\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"blockFee\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"uint16\",\"name\":\"adjustmentQuotient\",\"type\":\"uint16\"}],\"name\":\"ProofParamsChanged\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"addressManager\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"canDepositEthToL2\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"}],\"name\":\"depositEtherToL2\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"blockId\",\"type\":\"uint256\"}],\"name\":\"getBlock\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"_metaHash\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"_proposer\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"_proposedAt\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getBlockFee\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getConfig\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"maxNumProposedBlocks\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"ringBufferSize\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"maxVerificationsPerTx\",\"type\":\"uint256\"},{\"internalType\":\"uint64\",\"name\":\"blockMaxGasLimit\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"maxTransactionsPerBlock\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"maxBytesPerTxList\",\"type\":\"uint64\"},{\"internalType\":\"uint256\",\"name\":\"txListCacheExpiry\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"proofCooldownPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"systemProofCooldownPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"realProofSkipSize\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"ethDepositGas\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"ethDepositMaxFee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"ethDepositRingBufferSize\",\"type\":\"uint256\"},{\"internalType\":\"uint64\",\"name\":\"ethDepositMinCountPerBlock\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"ethDepositMaxCountPerBlock\",\"type\":\"uint64\"},{\"internalType\":\"uint96\",\"name\":\"ethDepositMaxAmount\",\"type\":\"uint96\"},{\"internalType\":\"uint96\",\"name\":\"ethDepositMinAmount\",\"type\":\"uint96\"},{\"internalType\":\"bool\",\"name\":\"relaySignalRoot\",\"type\":\"bool\"}],\"internalType\":\"structTaikoData.Config\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"blockId\",\"type\":\"uint256\"}],\"name\":\"getCrossChainBlockHash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"blockId\",\"type\":\"uint256\"}],\"name\":\"getCrossChainSignalRoot\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"blockId\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"parentHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint32\",\"name\":\"parentGasUsed\",\"type\":\"uint32\"}],\"name\":\"getForkChoice\",\"outputs\":[{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"key\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"blockHash\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"signalRoot\",\"type\":\"bytes32\"},{\"internalType\":\"uint64\",\"name\":\"provenAt\",\"type\":\"uint64\"},{\"internalType\":\"address\",\"name\":\"prover\",\"type\":\"address\"},{\"internalType\":\"uint32\",\"name\":\"gasUsed\",\"type\":\"uint32\"}],\"internalType\":\"structTaikoData.ForkChoice\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getStateVariables\",\"outputs\":[{\"components\":[{\"internalType\":\"uint64\",\"name\":\"blockFee\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"genesisHeight\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"genesisTimestamp\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"numBlocks\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"lastVerifiedBlockId\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"nextEthDepositToProcess\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"numEthDeposits\",\"type\":\"uint64\"}],\"internalType\":\"structTaikoData.StateVariables\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"getTaikoTokenBalance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"id\",\"type\":\"uint16\"}],\"name\":\"getVerifierName\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_addressManager\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"_genesisBlockHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint64\",\"name\":\"_initBlockFee\",\"type\":\"uint64\"}],\"name\":\"init\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"input\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"txList\",\"type\":\"bytes\"}],\"name\":\"proposeBlock\",\"outputs\":[{\"components\":[{\"internalType\":\"uint64\",\"name\":\"id\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"l1Height\",\"type\":\"uint64\"},{\"internalType\":\"bytes32\",\"name\":\"l1Hash\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"mixHash\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"txListHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint24\",\"name\":\"txListByteStart\",\"type\":\"uint24\"},{\"internalType\":\"uint24\",\"name\":\"txListByteEnd\",\"type\":\"uint24\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"},{\"internalType\":\"address\",\"name\":\"beneficiary\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"treasury\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"},{\"internalType\":\"uint64\",\"name\":\"id\",\"type\":\"uint64\"}],\"internalType\":\"structTaikoData.EthDeposit[]\",\"name\":\"depositsProcessed\",\"type\":\"tuple[]\"}],\"internalType\":\"structTaikoData.BlockMetadata\",\"name\":\"meta\",\"type\":\"tuple\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"blockId\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"input\",\"type\":\"bytes\"}],\"name\":\"proveBlock\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"},{\"internalType\":\"bool\",\"name\":\"allowZeroAddress\",\"type\":\"bool\"}],\"name\":\"resolve\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"},{\"internalType\":\"bool\",\"name\":\"allowZeroAddress\",\"type\":\"bool\"}],\"name\":\"resolve\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newAddressManager\",\"type\":\"address\"}],\"name\":\"setAddressManager\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"state\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"genesisHeight\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"genesisTimestamp\",\"type\":\"uint64\"},{\"internalType\":\"uint16\",\"name\":\"__reserved70\",\"type\":\"uint16\"},{\"internalType\":\"uint48\",\"name\":\"__reserved71\",\"type\":\"uint48\"},{\"internalType\":\"uint64\",\"name\":\"__reserved72\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"__reserved80\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"numEthDeposits\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"numBlocks\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"nextEthDepositToProcess\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"blockFee\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"__reserved90\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"lastVerifiedBlockId\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"__reserved91\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"maxBlocks\",\"type\":\"uint256\"}],\"name\":\"verifyBlocks\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"}]",
+	ABI: "[{\"inputs\":[],\"name\":\"L1_ALREADY_PROVEN\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_ALREADY_PROVEN\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_BATCH_NOT_AUCTIONABLE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_BLOCK_ID\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_BLOCK_ID\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_BLOCK_ID\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"expected\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"actual\",\"type\":\"bytes32\"}],\"name\":\"L1_EVIDENCE_MISMATCH\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"expected\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"actual\",\"type\":\"bytes32\"}],\"name\":\"L1_EVIDENCE_MISMATCH\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_FORK_CHOICE_NOT_FOUND\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_FORK_CHOICE_NOT_FOUND\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INSUFFICIENT_TOKEN\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INSUFFICIENT_TOKEN\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INSUFFICIENT_TOKEN\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INVALID_BID\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INVALID_CONFIG\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INVALID_CONFIG\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INVALID_ETH_DEPOSIT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INVALID_ETH_DEPOSIT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INVALID_EVIDENCE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INVALID_EVIDENCE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INVALID_METADATA\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INVALID_METADATA\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INVALID_PARAM\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INVALID_PROOF\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_INVALID_PROOF\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_NOT_BETTER_BID\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_NOT_PROVEABLE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_NOT_PROVEABLE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_NOT_SPECIAL_PROVER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_SAME_PROOF\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_SAME_PROOF\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_TOO_MANY_BLOCKS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_TOO_MANY_BLOCKS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_TOO_MANY_OPEN_BLOCKS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_TOO_MANY_OPEN_BLOCKS\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_TX_LIST\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_TX_LIST\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_TX_LIST_HASH\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_TX_LIST_HASH\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_TX_LIST_NOT_EXIST\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_TX_LIST_NOT_EXIST\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_TX_LIST_RANGE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_TX_LIST_RANGE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_UNAUTHORIZED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"L1_UNAUTHORIZED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RESOLVER_DENIED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RESOLVER_INVALID_ADDR\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"}],\"name\":\"RESOLVER_ZERO_ADDR\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"addressManager\",\"type\":\"address\"}],\"name\":\"AddressManagerChanged\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"blockId\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"assignedProver\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"rewardPerGas\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"feePerGas\",\"type\":\"uint64\"},{\"components\":[{\"internalType\":\"uint64\",\"name\":\"id\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"l1Height\",\"type\":\"uint64\"},{\"internalType\":\"bytes32\",\"name\":\"l1Hash\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"mixHash\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"txListHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint24\",\"name\":\"txListByteStart\",\"type\":\"uint24\"},{\"internalType\":\"uint24\",\"name\":\"txListByteEnd\",\"type\":\"uint24\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"},{\"internalType\":\"address\",\"name\":\"beneficiary\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"treasury\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"},{\"internalType\":\"uint64\",\"name\":\"id\",\"type\":\"uint64\"}],\"internalType\":\"structTaikoData.EthDeposit[]\",\"name\":\"depositsProcessed\",\"type\":\"tuple[]\"}],\"indexed\":false,\"internalType\":\"structTaikoData.BlockMetadata\",\"name\":\"meta\",\"type\":\"tuple\"}],\"name\":\"BlockProposed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"blockId\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"assignedProver\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"rewardPerGas\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"feePerGas\",\"type\":\"uint64\"},{\"components\":[{\"internalType\":\"uint64\",\"name\":\"id\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"l1Height\",\"type\":\"uint64\"},{\"internalType\":\"bytes32\",\"name\":\"l1Hash\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"mixHash\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"txListHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint24\",\"name\":\"txListByteStart\",\"type\":\"uint24\"},{\"internalType\":\"uint24\",\"name\":\"txListByteEnd\",\"type\":\"uint24\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"},{\"internalType\":\"address\",\"name\":\"beneficiary\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"treasury\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"},{\"internalType\":\"uint64\",\"name\":\"id\",\"type\":\"uint64\"}],\"internalType\":\"structTaikoData.EthDeposit[]\",\"name\":\"depositsProcessed\",\"type\":\"tuple[]\"}],\"indexed\":false,\"internalType\":\"structTaikoData.BlockMetadata\",\"name\":\"meta\",\"type\":\"tuple\"}],\"name\":\"BlockProposed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"blockId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"parentHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"blockHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"signalRoot\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"prover\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"parentGasUsed\",\"type\":\"uint32\"}],\"name\":\"BlockProven\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"blockId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"parentHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"blockHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"signalRoot\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"prover\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"parentGasUsed\",\"type\":\"uint32\"}],\"name\":\"BlockProven\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"blockId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"blockHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"prover\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"blockFee\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"proofReward\",\"type\":\"uint64\"}],\"name\":\"BlockVerified\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"blockId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"blockHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"prover\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"blockFee\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"proofReward\",\"type\":\"uint64\"}],\"name\":\"BlockVerified\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"srcHeight\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"blockHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"signalRoot\",\"type\":\"bytes32\"}],\"name\":\"CrossChainSynced\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"srcHeight\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"blockHash\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"signalRoot\",\"type\":\"bytes32\"}],\"name\":\"CrossChainSynced\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"},{\"internalType\":\"uint64\",\"name\":\"id\",\"type\":\"uint64\"}],\"indexed\":false,\"internalType\":\"structTaikoData.EthDeposit\",\"name\":\"deposit\",\"type\":\"tuple\"}],\"name\":\"EthDeposited\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"},{\"internalType\":\"uint64\",\"name\":\"id\",\"type\":\"uint64\"}],\"indexed\":false,\"internalType\":\"structTaikoData.EthDeposit\",\"name\":\"deposit\",\"type\":\"tuple\"}],\"name\":\"EthDeposited\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"addressManager\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"canDepositEthToL2\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"}],\"name\":\"depositEtherToL2\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"depositTaikoToken\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"blockId\",\"type\":\"uint256\"}],\"name\":\"getBlock\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"_metaHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint32\",\"name\":\"_gasLimit\",\"type\":\"uint32\"},{\"internalType\":\"uint24\",\"name\":\"_nextForkChoiceId\",\"type\":\"uint24\"},{\"internalType\":\"uint24\",\"name\":\"_verifiedForkChoiceId\",\"type\":\"uint24\"},{\"internalType\":\"bool\",\"name\":\"_proverReleased\",\"type\":\"bool\"},{\"internalType\":\"address\",\"name\":\"_proposer\",\"type\":\"address\"},{\"internalType\":\"uint32\",\"name\":\"_feePerGas\",\"type\":\"uint32\"},{\"internalType\":\"uint64\",\"name\":\"_proposedAt\",\"type\":\"uint64\"},{\"internalType\":\"address\",\"name\":\"_assignedProver\",\"type\":\"address\"},{\"internalType\":\"uint32\",\"name\":\"_rewardPerGas\",\"type\":\"uint32\"},{\"internalType\":\"uint64\",\"name\":\"_proofWindow\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"}],\"name\":\"getBlockFee\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getConfig\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"relaySignalRoot\",\"type\":\"bool\"},{\"internalType\":\"uint256\",\"name\":\"blockMaxProposals\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"blockRingBufferSize\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"blockMaxVerificationsPerTx\",\"type\":\"uint256\"},{\"internalType\":\"uint32\",\"name\":\"blockMaxGasLimit\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"blockFeeBaseGas\",\"type\":\"uint32\"},{\"internalType\":\"uint64\",\"name\":\"blockMaxTransactions\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"blockMaxTxListBytes\",\"type\":\"uint64\"},{\"internalType\":\"uint256\",\"name\":\"blockTxListExpiry\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"proofRegularCooldown\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"proofOracleCooldown\",\"type\":\"uint256\"},{\"internalType\":\"uint16\",\"name\":\"proofMinWindow\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"proofMaxWindow\",\"type\":\"uint16\"},{\"internalType\":\"uint256\",\"name\":\"ethDepositRingBufferSize\",\"type\":\"uint256\"},{\"internalType\":\"uint64\",\"name\":\"ethDepositMinCountPerBlock\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"ethDepositMaxCountPerBlock\",\"type\":\"uint64\"},{\"internalType\":\"uint96\",\"name\":\"ethDepositMinAmount\",\"type\":\"uint96\"},{\"internalType\":\"uint96\",\"name\":\"ethDepositMaxAmount\",\"type\":\"uint96\"},{\"internalType\":\"uint256\",\"name\":\"ethDepositGas\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"ethDepositMaxFee\",\"type\":\"uint256\"},{\"internalType\":\"uint8\",\"name\":\"rewardOpenMultipler\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"rewardOpenMaxCount\",\"type\":\"uint256\"}],\"internalType\":\"structTaikoData.Config\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"blockId\",\"type\":\"uint256\"}],\"name\":\"getCrossChainBlockHash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"blockId\",\"type\":\"uint256\"}],\"name\":\"getCrossChainSignalRoot\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"blockId\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"parentHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint32\",\"name\":\"parentGasUsed\",\"type\":\"uint32\"}],\"name\":\"getForkChoice\",\"outputs\":[{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"key\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"blockHash\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"signalRoot\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"prover\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"provenAt\",\"type\":\"uint64\"},{\"internalType\":\"uint32\",\"name\":\"gasUsed\",\"type\":\"uint32\"}],\"internalType\":\"structTaikoData.ForkChoice\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getStateVariables\",\"outputs\":[{\"components\":[{\"internalType\":\"uint32\",\"name\":\"feePerGas\",\"type\":\"uint32\"},{\"internalType\":\"uint64\",\"name\":\"genesisHeight\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"genesisTimestamp\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"numBlocks\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"lastVerifiedBlockId\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"nextEthDepositToProcess\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"numEthDeposits\",\"type\":\"uint64\"}],\"internalType\":\"structTaikoData.StateVariables\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"getTaikoTokenBalance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"id\",\"type\":\"uint16\"}],\"name\":\"getVerifierName\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_addressManager\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"_genesisBlockHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint32\",\"name\":\"_initFeePerGas\",\"type\":\"uint32\"},{\"internalType\":\"uint16\",\"name\":\"_initAvgProofDelay\",\"type\":\"uint16\"}],\"name\":\"init\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"input\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"txList\",\"type\":\"bytes\"}],\"name\":\"proposeBlock\",\"outputs\":[{\"components\":[{\"internalType\":\"uint64\",\"name\":\"id\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"l1Height\",\"type\":\"uint64\"},{\"internalType\":\"bytes32\",\"name\":\"l1Hash\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"mixHash\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"txListHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint24\",\"name\":\"txListByteStart\",\"type\":\"uint24\"},{\"internalType\":\"uint24\",\"name\":\"txListByteEnd\",\"type\":\"uint24\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"},{\"internalType\":\"address\",\"name\":\"beneficiary\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"treasury\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"},{\"internalType\":\"uint64\",\"name\":\"id\",\"type\":\"uint64\"}],\"internalType\":\"structTaikoData.EthDeposit[]\",\"name\":\"depositsProcessed\",\"type\":\"tuple[]\"}],\"internalType\":\"structTaikoData.BlockMetadata\",\"name\":\"meta\",\"type\":\"tuple\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"blockId\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"input\",\"type\":\"bytes\"}],\"name\":\"proveBlock\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"},{\"internalType\":\"bool\",\"name\":\"allowZeroAddress\",\"type\":\"bool\"}],\"name\":\"resolve\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"name\",\"type\":\"bytes32\"},{\"internalType\":\"bool\",\"name\":\"allowZeroAddress\",\"type\":\"bool\"}],\"name\":\"resolve\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newAddressManager\",\"type\":\"address\"}],\"name\":\"setAddressManager\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"state\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"genesisHeight\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"genesisTimestamp\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"__reserved70\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"__reserved71\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"numOpenBlocks\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"numEthDeposits\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"numBlocks\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"nextEthDepositToProcess\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"lastVerifiedAt\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"lastVerifiedBlockId\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"__reserved90\",\"type\":\"uint64\"},{\"internalType\":\"uint32\",\"name\":\"feePerGas\",\"type\":\"uint32\"},{\"internalType\":\"uint16\",\"name\":\"avgProofDelay\",\"type\":\"uint16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"maxBlocks\",\"type\":\"uint256\"}],\"name\":\"verifyBlocks\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"withdrawTaikoToken\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"}]",
 }
 
 // TaikoL1ABI is the input ABI used to generate the binding from.
@@ -311,27 +315,51 @@ func (_TaikoL1 *TaikoL1CallerSession) CanDepositEthToL2(amount *big.Int) (bool, 
 
 // GetBlock is a free data retrieval call binding the contract method 0x04c07569.
 //
-// Solidity: function getBlock(uint256 blockId) view returns(bytes32 _metaHash, address _proposer, uint64 _proposedAt)
+// Solidity: function getBlock(uint256 blockId) view returns(bytes32 _metaHash, uint32 _gasLimit, uint24 _nextForkChoiceId, uint24 _verifiedForkChoiceId, bool _proverReleased, address _proposer, uint32 _feePerGas, uint64 _proposedAt, address _assignedProver, uint32 _rewardPerGas, uint64 _proofWindow)
 func (_TaikoL1 *TaikoL1Caller) GetBlock(opts *bind.CallOpts, blockId *big.Int) (struct {
-	MetaHash   [32]byte
-	Proposer   common.Address
-	ProposedAt uint64
+	MetaHash             [32]byte
+	GasLimit             uint32
+	NextForkChoiceId     *big.Int
+	VerifiedForkChoiceId *big.Int
+	ProverReleased       bool
+	Proposer             common.Address
+	FeePerGas            uint32
+	ProposedAt           uint64
+	AssignedProver       common.Address
+	RewardPerGas         uint32
+	ProofWindow          uint64
 }, error) {
 	var out []interface{}
 	err := _TaikoL1.contract.Call(opts, &out, "getBlock", blockId)
 
 	outstruct := new(struct {
-		MetaHash   [32]byte
-		Proposer   common.Address
-		ProposedAt uint64
+		MetaHash             [32]byte
+		GasLimit             uint32
+		NextForkChoiceId     *big.Int
+		VerifiedForkChoiceId *big.Int
+		ProverReleased       bool
+		Proposer             common.Address
+		FeePerGas            uint32
+		ProposedAt           uint64
+		AssignedProver       common.Address
+		RewardPerGas         uint32
+		ProofWindow          uint64
 	})
 	if err != nil {
 		return *outstruct, err
 	}
 
 	outstruct.MetaHash = *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
-	outstruct.Proposer = *abi.ConvertType(out[1], new(common.Address)).(*common.Address)
-	outstruct.ProposedAt = *abi.ConvertType(out[2], new(uint64)).(*uint64)
+	outstruct.GasLimit = *abi.ConvertType(out[1], new(uint32)).(*uint32)
+	outstruct.NextForkChoiceId = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
+	outstruct.VerifiedForkChoiceId = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
+	outstruct.ProverReleased = *abi.ConvertType(out[4], new(bool)).(*bool)
+	outstruct.Proposer = *abi.ConvertType(out[5], new(common.Address)).(*common.Address)
+	outstruct.FeePerGas = *abi.ConvertType(out[6], new(uint32)).(*uint32)
+	outstruct.ProposedAt = *abi.ConvertType(out[7], new(uint64)).(*uint64)
+	outstruct.AssignedProver = *abi.ConvertType(out[8], new(common.Address)).(*common.Address)
+	outstruct.RewardPerGas = *abi.ConvertType(out[9], new(uint32)).(*uint32)
+	outstruct.ProofWindow = *abi.ConvertType(out[10], new(uint64)).(*uint64)
 
 	return *outstruct, err
 
@@ -339,32 +367,48 @@ func (_TaikoL1 *TaikoL1Caller) GetBlock(opts *bind.CallOpts, blockId *big.Int) (
 
 // GetBlock is a free data retrieval call binding the contract method 0x04c07569.
 //
-// Solidity: function getBlock(uint256 blockId) view returns(bytes32 _metaHash, address _proposer, uint64 _proposedAt)
+// Solidity: function getBlock(uint256 blockId) view returns(bytes32 _metaHash, uint32 _gasLimit, uint24 _nextForkChoiceId, uint24 _verifiedForkChoiceId, bool _proverReleased, address _proposer, uint32 _feePerGas, uint64 _proposedAt, address _assignedProver, uint32 _rewardPerGas, uint64 _proofWindow)
 func (_TaikoL1 *TaikoL1Session) GetBlock(blockId *big.Int) (struct {
-	MetaHash   [32]byte
-	Proposer   common.Address
-	ProposedAt uint64
+	MetaHash             [32]byte
+	GasLimit             uint32
+	NextForkChoiceId     *big.Int
+	VerifiedForkChoiceId *big.Int
+	ProverReleased       bool
+	Proposer             common.Address
+	FeePerGas            uint32
+	ProposedAt           uint64
+	AssignedProver       common.Address
+	RewardPerGas         uint32
+	ProofWindow          uint64
 }, error) {
 	return _TaikoL1.Contract.GetBlock(&_TaikoL1.CallOpts, blockId)
 }
 
 // GetBlock is a free data retrieval call binding the contract method 0x04c07569.
 //
-// Solidity: function getBlock(uint256 blockId) view returns(bytes32 _metaHash, address _proposer, uint64 _proposedAt)
+// Solidity: function getBlock(uint256 blockId) view returns(bytes32 _metaHash, uint32 _gasLimit, uint24 _nextForkChoiceId, uint24 _verifiedForkChoiceId, bool _proverReleased, address _proposer, uint32 _feePerGas, uint64 _proposedAt, address _assignedProver, uint32 _rewardPerGas, uint64 _proofWindow)
 func (_TaikoL1 *TaikoL1CallerSession) GetBlock(blockId *big.Int) (struct {
-	MetaHash   [32]byte
-	Proposer   common.Address
-	ProposedAt uint64
+	MetaHash             [32]byte
+	GasLimit             uint32
+	NextForkChoiceId     *big.Int
+	VerifiedForkChoiceId *big.Int
+	ProverReleased       bool
+	Proposer             common.Address
+	FeePerGas            uint32
+	ProposedAt           uint64
+	AssignedProver       common.Address
+	RewardPerGas         uint32
+	ProofWindow          uint64
 }, error) {
 	return _TaikoL1.Contract.GetBlock(&_TaikoL1.CallOpts, blockId)
 }
 
-// GetBlockFee is a free data retrieval call binding the contract method 0x7baf0bc7.
+// GetBlockFee is a free data retrieval call binding the contract method 0xffb2784f.
 //
-// Solidity: function getBlockFee() view returns(uint64)
-func (_TaikoL1 *TaikoL1Caller) GetBlockFee(opts *bind.CallOpts) (uint64, error) {
+// Solidity: function getBlockFee(uint32 gasLimit) view returns(uint64)
+func (_TaikoL1 *TaikoL1Caller) GetBlockFee(opts *bind.CallOpts, gasLimit uint32) (uint64, error) {
 	var out []interface{}
-	err := _TaikoL1.contract.Call(opts, &out, "getBlockFee")
+	err := _TaikoL1.contract.Call(opts, &out, "getBlockFee", gasLimit)
 
 	if err != nil {
 		return *new(uint64), err
@@ -376,23 +420,23 @@ func (_TaikoL1 *TaikoL1Caller) GetBlockFee(opts *bind.CallOpts) (uint64, error) 
 
 }
 
-// GetBlockFee is a free data retrieval call binding the contract method 0x7baf0bc7.
+// GetBlockFee is a free data retrieval call binding the contract method 0xffb2784f.
 //
-// Solidity: function getBlockFee() view returns(uint64)
-func (_TaikoL1 *TaikoL1Session) GetBlockFee() (uint64, error) {
-	return _TaikoL1.Contract.GetBlockFee(&_TaikoL1.CallOpts)
+// Solidity: function getBlockFee(uint32 gasLimit) view returns(uint64)
+func (_TaikoL1 *TaikoL1Session) GetBlockFee(gasLimit uint32) (uint64, error) {
+	return _TaikoL1.Contract.GetBlockFee(&_TaikoL1.CallOpts, gasLimit)
 }
 
-// GetBlockFee is a free data retrieval call binding the contract method 0x7baf0bc7.
+// GetBlockFee is a free data retrieval call binding the contract method 0xffb2784f.
 //
-// Solidity: function getBlockFee() view returns(uint64)
-func (_TaikoL1 *TaikoL1CallerSession) GetBlockFee() (uint64, error) {
-	return _TaikoL1.Contract.GetBlockFee(&_TaikoL1.CallOpts)
+// Solidity: function getBlockFee(uint32 gasLimit) view returns(uint64)
+func (_TaikoL1 *TaikoL1CallerSession) GetBlockFee(gasLimit uint32) (uint64, error) {
+	return _TaikoL1.Contract.GetBlockFee(&_TaikoL1.CallOpts, gasLimit)
 }
 
 // GetConfig is a free data retrieval call binding the contract method 0xc3f909d4.
 //
-// Solidity: function getConfig() pure returns((uint256,uint256,uint256,uint256,uint64,uint64,uint64,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint64,uint64,uint96,uint96,bool))
+// Solidity: function getConfig() pure returns((uint256,bool,uint256,uint256,uint256,uint32,uint32,uint64,uint64,uint256,uint256,uint256,uint16,uint16,uint256,uint64,uint64,uint96,uint96,uint256,uint256,uint8,uint256))
 func (_TaikoL1 *TaikoL1Caller) GetConfig(opts *bind.CallOpts) (TaikoDataConfig, error) {
 	var out []interface{}
 	err := _TaikoL1.contract.Call(opts, &out, "getConfig")
@@ -409,14 +453,14 @@ func (_TaikoL1 *TaikoL1Caller) GetConfig(opts *bind.CallOpts) (TaikoDataConfig, 
 
 // GetConfig is a free data retrieval call binding the contract method 0xc3f909d4.
 //
-// Solidity: function getConfig() pure returns((uint256,uint256,uint256,uint256,uint64,uint64,uint64,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint64,uint64,uint96,uint96,bool))
+// Solidity: function getConfig() pure returns((uint256,bool,uint256,uint256,uint256,uint32,uint32,uint64,uint64,uint256,uint256,uint256,uint16,uint16,uint256,uint64,uint64,uint96,uint96,uint256,uint256,uint8,uint256))
 func (_TaikoL1 *TaikoL1Session) GetConfig() (TaikoDataConfig, error) {
 	return _TaikoL1.Contract.GetConfig(&_TaikoL1.CallOpts)
 }
 
 // GetConfig is a free data retrieval call binding the contract method 0xc3f909d4.
 //
-// Solidity: function getConfig() pure returns((uint256,uint256,uint256,uint256,uint64,uint64,uint64,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint64,uint64,uint96,uint96,bool))
+// Solidity: function getConfig() pure returns((uint256,bool,uint256,uint256,uint256,uint32,uint32,uint64,uint64,uint256,uint256,uint256,uint16,uint16,uint256,uint64,uint64,uint96,uint96,uint256,uint256,uint8,uint256))
 func (_TaikoL1 *TaikoL1CallerSession) GetConfig() (TaikoDataConfig, error) {
 	return _TaikoL1.Contract.GetConfig(&_TaikoL1.CallOpts)
 }
@@ -485,7 +529,7 @@ func (_TaikoL1 *TaikoL1CallerSession) GetCrossChainSignalRoot(blockId *big.Int) 
 
 // GetForkChoice is a free data retrieval call binding the contract method 0x7163e0ed.
 //
-// Solidity: function getForkChoice(uint256 blockId, bytes32 parentHash, uint32 parentGasUsed) view returns((bytes32,bytes32,bytes32,uint64,address,uint32))
+// Solidity: function getForkChoice(uint256 blockId, bytes32 parentHash, uint32 parentGasUsed) view returns((bytes32,bytes32,bytes32,address,uint64,uint32))
 func (_TaikoL1 *TaikoL1Caller) GetForkChoice(opts *bind.CallOpts, blockId *big.Int, parentHash [32]byte, parentGasUsed uint32) (TaikoDataForkChoice, error) {
 	var out []interface{}
 	err := _TaikoL1.contract.Call(opts, &out, "getForkChoice", blockId, parentHash, parentGasUsed)
@@ -502,21 +546,21 @@ func (_TaikoL1 *TaikoL1Caller) GetForkChoice(opts *bind.CallOpts, blockId *big.I
 
 // GetForkChoice is a free data retrieval call binding the contract method 0x7163e0ed.
 //
-// Solidity: function getForkChoice(uint256 blockId, bytes32 parentHash, uint32 parentGasUsed) view returns((bytes32,bytes32,bytes32,uint64,address,uint32))
+// Solidity: function getForkChoice(uint256 blockId, bytes32 parentHash, uint32 parentGasUsed) view returns((bytes32,bytes32,bytes32,address,uint64,uint32))
 func (_TaikoL1 *TaikoL1Session) GetForkChoice(blockId *big.Int, parentHash [32]byte, parentGasUsed uint32) (TaikoDataForkChoice, error) {
 	return _TaikoL1.Contract.GetForkChoice(&_TaikoL1.CallOpts, blockId, parentHash, parentGasUsed)
 }
 
 // GetForkChoice is a free data retrieval call binding the contract method 0x7163e0ed.
 //
-// Solidity: function getForkChoice(uint256 blockId, bytes32 parentHash, uint32 parentGasUsed) view returns((bytes32,bytes32,bytes32,uint64,address,uint32))
+// Solidity: function getForkChoice(uint256 blockId, bytes32 parentHash, uint32 parentGasUsed) view returns((bytes32,bytes32,bytes32,address,uint64,uint32))
 func (_TaikoL1 *TaikoL1CallerSession) GetForkChoice(blockId *big.Int, parentHash [32]byte, parentGasUsed uint32) (TaikoDataForkChoice, error) {
 	return _TaikoL1.Contract.GetForkChoice(&_TaikoL1.CallOpts, blockId, parentHash, parentGasUsed)
 }
 
 // GetStateVariables is a free data retrieval call binding the contract method 0xdde89cf5.
 //
-// Solidity: function getStateVariables() view returns((uint64,uint64,uint64,uint64,uint64,uint64,uint64))
+// Solidity: function getStateVariables() view returns((uint32,uint64,uint64,uint64,uint64,uint64,uint64))
 func (_TaikoL1 *TaikoL1Caller) GetStateVariables(opts *bind.CallOpts) (TaikoDataStateVariables, error) {
 	var out []interface{}
 	err := _TaikoL1.contract.Call(opts, &out, "getStateVariables")
@@ -533,14 +577,14 @@ func (_TaikoL1 *TaikoL1Caller) GetStateVariables(opts *bind.CallOpts) (TaikoData
 
 // GetStateVariables is a free data retrieval call binding the contract method 0xdde89cf5.
 //
-// Solidity: function getStateVariables() view returns((uint64,uint64,uint64,uint64,uint64,uint64,uint64))
+// Solidity: function getStateVariables() view returns((uint32,uint64,uint64,uint64,uint64,uint64,uint64))
 func (_TaikoL1 *TaikoL1Session) GetStateVariables() (TaikoDataStateVariables, error) {
 	return _TaikoL1.Contract.GetStateVariables(&_TaikoL1.CallOpts)
 }
 
 // GetStateVariables is a free data retrieval call binding the contract method 0xdde89cf5.
 //
-// Solidity: function getStateVariables() view returns((uint64,uint64,uint64,uint64,uint64,uint64,uint64))
+// Solidity: function getStateVariables() view returns((uint32,uint64,uint64,uint64,uint64,uint64,uint64))
 func (_TaikoL1 *TaikoL1CallerSession) GetStateVariables() (TaikoDataStateVariables, error) {
 	return _TaikoL1.Contract.GetStateVariables(&_TaikoL1.CallOpts)
 }
@@ -702,21 +746,21 @@ func (_TaikoL1 *TaikoL1CallerSession) Resolve0(name [32]byte, allowZeroAddress b
 
 // State is a free data retrieval call binding the contract method 0xc19d93fb.
 //
-// Solidity: function state() view returns(uint64 genesisHeight, uint64 genesisTimestamp, uint16 __reserved70, uint48 __reserved71, uint64 __reserved72, uint64 __reserved80, uint64 numEthDeposits, uint64 numBlocks, uint64 nextEthDepositToProcess, uint64 blockFee, uint64 __reserved90, uint64 lastVerifiedBlockId, uint64 __reserved91)
+// Solidity: function state() view returns(uint64 genesisHeight, uint64 genesisTimestamp, uint64 __reserved70, uint64 __reserved71, uint64 numOpenBlocks, uint64 numEthDeposits, uint64 numBlocks, uint64 nextEthDepositToProcess, uint64 lastVerifiedAt, uint64 lastVerifiedBlockId, uint64 __reserved90, uint32 feePerGas, uint16 avgProofDelay)
 func (_TaikoL1 *TaikoL1Caller) State(opts *bind.CallOpts) (struct {
 	GenesisHeight           uint64
 	GenesisTimestamp        uint64
-	Reserved70              uint16
-	Reserved71              *big.Int
-	Reserved72              uint64
-	Reserved80              uint64
+	Reserved70              uint64
+	Reserved71              uint64
+	NumOpenBlocks           uint64
 	NumEthDeposits          uint64
 	NumBlocks               uint64
 	NextEthDepositToProcess uint64
-	BlockFee                uint64
-	Reserved90              uint64
+	LastVerifiedAt          uint64
 	LastVerifiedBlockId     uint64
-	Reserved91              uint64
+	Reserved90              uint64
+	FeePerGas               uint32
+	AvgProofDelay           uint16
 }, error) {
 	var out []interface{}
 	err := _TaikoL1.contract.Call(opts, &out, "state")
@@ -724,17 +768,17 @@ func (_TaikoL1 *TaikoL1Caller) State(opts *bind.CallOpts) (struct {
 	outstruct := new(struct {
 		GenesisHeight           uint64
 		GenesisTimestamp        uint64
-		Reserved70              uint16
-		Reserved71              *big.Int
-		Reserved72              uint64
-		Reserved80              uint64
+		Reserved70              uint64
+		Reserved71              uint64
+		NumOpenBlocks           uint64
 		NumEthDeposits          uint64
 		NumBlocks               uint64
 		NextEthDepositToProcess uint64
-		BlockFee                uint64
-		Reserved90              uint64
+		LastVerifiedAt          uint64
 		LastVerifiedBlockId     uint64
-		Reserved91              uint64
+		Reserved90              uint64
+		FeePerGas               uint32
+		AvgProofDelay           uint16
 	})
 	if err != nil {
 		return *outstruct, err
@@ -742,17 +786,17 @@ func (_TaikoL1 *TaikoL1Caller) State(opts *bind.CallOpts) (struct {
 
 	outstruct.GenesisHeight = *abi.ConvertType(out[0], new(uint64)).(*uint64)
 	outstruct.GenesisTimestamp = *abi.ConvertType(out[1], new(uint64)).(*uint64)
-	outstruct.Reserved70 = *abi.ConvertType(out[2], new(uint16)).(*uint16)
-	outstruct.Reserved71 = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
-	outstruct.Reserved72 = *abi.ConvertType(out[4], new(uint64)).(*uint64)
-	outstruct.Reserved80 = *abi.ConvertType(out[5], new(uint64)).(*uint64)
-	outstruct.NumEthDeposits = *abi.ConvertType(out[6], new(uint64)).(*uint64)
-	outstruct.NumBlocks = *abi.ConvertType(out[7], new(uint64)).(*uint64)
-	outstruct.NextEthDepositToProcess = *abi.ConvertType(out[8], new(uint64)).(*uint64)
-	outstruct.BlockFee = *abi.ConvertType(out[9], new(uint64)).(*uint64)
+	outstruct.Reserved70 = *abi.ConvertType(out[2], new(uint64)).(*uint64)
+	outstruct.Reserved71 = *abi.ConvertType(out[3], new(uint64)).(*uint64)
+	outstruct.NumOpenBlocks = *abi.ConvertType(out[4], new(uint64)).(*uint64)
+	outstruct.NumEthDeposits = *abi.ConvertType(out[5], new(uint64)).(*uint64)
+	outstruct.NumBlocks = *abi.ConvertType(out[6], new(uint64)).(*uint64)
+	outstruct.NextEthDepositToProcess = *abi.ConvertType(out[7], new(uint64)).(*uint64)
+	outstruct.LastVerifiedAt = *abi.ConvertType(out[8], new(uint64)).(*uint64)
+	outstruct.LastVerifiedBlockId = *abi.ConvertType(out[9], new(uint64)).(*uint64)
 	outstruct.Reserved90 = *abi.ConvertType(out[10], new(uint64)).(*uint64)
-	outstruct.LastVerifiedBlockId = *abi.ConvertType(out[11], new(uint64)).(*uint64)
-	outstruct.Reserved91 = *abi.ConvertType(out[12], new(uint64)).(*uint64)
+	outstruct.FeePerGas = *abi.ConvertType(out[11], new(uint32)).(*uint32)
+	outstruct.AvgProofDelay = *abi.ConvertType(out[12], new(uint16)).(*uint16)
 
 	return *outstruct, err
 
@@ -760,42 +804,42 @@ func (_TaikoL1 *TaikoL1Caller) State(opts *bind.CallOpts) (struct {
 
 // State is a free data retrieval call binding the contract method 0xc19d93fb.
 //
-// Solidity: function state() view returns(uint64 genesisHeight, uint64 genesisTimestamp, uint16 __reserved70, uint48 __reserved71, uint64 __reserved72, uint64 __reserved80, uint64 numEthDeposits, uint64 numBlocks, uint64 nextEthDepositToProcess, uint64 blockFee, uint64 __reserved90, uint64 lastVerifiedBlockId, uint64 __reserved91)
+// Solidity: function state() view returns(uint64 genesisHeight, uint64 genesisTimestamp, uint64 __reserved70, uint64 __reserved71, uint64 numOpenBlocks, uint64 numEthDeposits, uint64 numBlocks, uint64 nextEthDepositToProcess, uint64 lastVerifiedAt, uint64 lastVerifiedBlockId, uint64 __reserved90, uint32 feePerGas, uint16 avgProofDelay)
 func (_TaikoL1 *TaikoL1Session) State() (struct {
 	GenesisHeight           uint64
 	GenesisTimestamp        uint64
-	Reserved70              uint16
-	Reserved71              *big.Int
-	Reserved72              uint64
-	Reserved80              uint64
+	Reserved70              uint64
+	Reserved71              uint64
+	NumOpenBlocks           uint64
 	NumEthDeposits          uint64
 	NumBlocks               uint64
 	NextEthDepositToProcess uint64
-	BlockFee                uint64
-	Reserved90              uint64
+	LastVerifiedAt          uint64
 	LastVerifiedBlockId     uint64
-	Reserved91              uint64
+	Reserved90              uint64
+	FeePerGas               uint32
+	AvgProofDelay           uint16
 }, error) {
 	return _TaikoL1.Contract.State(&_TaikoL1.CallOpts)
 }
 
 // State is a free data retrieval call binding the contract method 0xc19d93fb.
 //
-// Solidity: function state() view returns(uint64 genesisHeight, uint64 genesisTimestamp, uint16 __reserved70, uint48 __reserved71, uint64 __reserved72, uint64 __reserved80, uint64 numEthDeposits, uint64 numBlocks, uint64 nextEthDepositToProcess, uint64 blockFee, uint64 __reserved90, uint64 lastVerifiedBlockId, uint64 __reserved91)
+// Solidity: function state() view returns(uint64 genesisHeight, uint64 genesisTimestamp, uint64 __reserved70, uint64 __reserved71, uint64 numOpenBlocks, uint64 numEthDeposits, uint64 numBlocks, uint64 nextEthDepositToProcess, uint64 lastVerifiedAt, uint64 lastVerifiedBlockId, uint64 __reserved90, uint32 feePerGas, uint16 avgProofDelay)
 func (_TaikoL1 *TaikoL1CallerSession) State() (struct {
 	GenesisHeight           uint64
 	GenesisTimestamp        uint64
-	Reserved70              uint16
-	Reserved71              *big.Int
-	Reserved72              uint64
-	Reserved80              uint64
+	Reserved70              uint64
+	Reserved71              uint64
+	NumOpenBlocks           uint64
 	NumEthDeposits          uint64
 	NumBlocks               uint64
 	NextEthDepositToProcess uint64
-	BlockFee                uint64
-	Reserved90              uint64
+	LastVerifiedAt          uint64
 	LastVerifiedBlockId     uint64
-	Reserved91              uint64
+	Reserved90              uint64
+	FeePerGas               uint32
+	AvgProofDelay           uint16
 }, error) {
 	return _TaikoL1.Contract.State(&_TaikoL1.CallOpts)
 }
@@ -821,25 +865,46 @@ func (_TaikoL1 *TaikoL1TransactorSession) DepositEtherToL2(recipient common.Addr
 	return _TaikoL1.Contract.DepositEtherToL2(&_TaikoL1.TransactOpts, recipient)
 }
 
-// Init is a paid mutator transaction binding the contract method 0xf859492f.
+// DepositTaikoToken is a paid mutator transaction binding the contract method 0x98f39aba.
 //
-// Solidity: function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _initBlockFee) returns()
-func (_TaikoL1 *TaikoL1Transactor) Init(opts *bind.TransactOpts, _addressManager common.Address, _genesisBlockHash [32]byte, _initBlockFee uint64) (*types.Transaction, error) {
-	return _TaikoL1.contract.Transact(opts, "init", _addressManager, _genesisBlockHash, _initBlockFee)
+// Solidity: function depositTaikoToken(uint256 amount) returns()
+func (_TaikoL1 *TaikoL1Transactor) DepositTaikoToken(opts *bind.TransactOpts, amount *big.Int) (*types.Transaction, error) {
+	return _TaikoL1.contract.Transact(opts, "depositTaikoToken", amount)
 }
 
-// Init is a paid mutator transaction binding the contract method 0xf859492f.
+// DepositTaikoToken is a paid mutator transaction binding the contract method 0x98f39aba.
 //
-// Solidity: function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _initBlockFee) returns()
-func (_TaikoL1 *TaikoL1Session) Init(_addressManager common.Address, _genesisBlockHash [32]byte, _initBlockFee uint64) (*types.Transaction, error) {
-	return _TaikoL1.Contract.Init(&_TaikoL1.TransactOpts, _addressManager, _genesisBlockHash, _initBlockFee)
+// Solidity: function depositTaikoToken(uint256 amount) returns()
+func (_TaikoL1 *TaikoL1Session) DepositTaikoToken(amount *big.Int) (*types.Transaction, error) {
+	return _TaikoL1.Contract.DepositTaikoToken(&_TaikoL1.TransactOpts, amount)
 }
 
-// Init is a paid mutator transaction binding the contract method 0xf859492f.
+// DepositTaikoToken is a paid mutator transaction binding the contract method 0x98f39aba.
 //
-// Solidity: function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _initBlockFee) returns()
-func (_TaikoL1 *TaikoL1TransactorSession) Init(_addressManager common.Address, _genesisBlockHash [32]byte, _initBlockFee uint64) (*types.Transaction, error) {
-	return _TaikoL1.Contract.Init(&_TaikoL1.TransactOpts, _addressManager, _genesisBlockHash, _initBlockFee)
+// Solidity: function depositTaikoToken(uint256 amount) returns()
+func (_TaikoL1 *TaikoL1TransactorSession) DepositTaikoToken(amount *big.Int) (*types.Transaction, error) {
+	return _TaikoL1.Contract.DepositTaikoToken(&_TaikoL1.TransactOpts, amount)
+}
+
+// Init is a paid mutator transaction binding the contract method 0xa72111dc.
+//
+// Solidity: function init(address _addressManager, bytes32 _genesisBlockHash, uint32 _initFeePerGas, uint16 _initAvgProofDelay) returns()
+func (_TaikoL1 *TaikoL1Transactor) Init(opts *bind.TransactOpts, _addressManager common.Address, _genesisBlockHash [32]byte, _initFeePerGas uint32, _initAvgProofDelay uint16) (*types.Transaction, error) {
+	return _TaikoL1.contract.Transact(opts, "init", _addressManager, _genesisBlockHash, _initFeePerGas, _initAvgProofDelay)
+}
+
+// Init is a paid mutator transaction binding the contract method 0xa72111dc.
+//
+// Solidity: function init(address _addressManager, bytes32 _genesisBlockHash, uint32 _initFeePerGas, uint16 _initAvgProofDelay) returns()
+func (_TaikoL1 *TaikoL1Session) Init(_addressManager common.Address, _genesisBlockHash [32]byte, _initFeePerGas uint32, _initAvgProofDelay uint16) (*types.Transaction, error) {
+	return _TaikoL1.Contract.Init(&_TaikoL1.TransactOpts, _addressManager, _genesisBlockHash, _initFeePerGas, _initAvgProofDelay)
+}
+
+// Init is a paid mutator transaction binding the contract method 0xa72111dc.
+//
+// Solidity: function init(address _addressManager, bytes32 _genesisBlockHash, uint32 _initFeePerGas, uint16 _initAvgProofDelay) returns()
+func (_TaikoL1 *TaikoL1TransactorSession) Init(_addressManager common.Address, _genesisBlockHash [32]byte, _initFeePerGas uint32, _initAvgProofDelay uint16) (*types.Transaction, error) {
+	return _TaikoL1.Contract.Init(&_TaikoL1.TransactOpts, _addressManager, _genesisBlockHash, _initFeePerGas, _initAvgProofDelay)
 }
 
 // ProposeBlock is a paid mutator transaction binding the contract method 0xef16e845.
@@ -966,6 +1031,27 @@ func (_TaikoL1 *TaikoL1Session) VerifyBlocks(maxBlocks *big.Int) (*types.Transac
 // Solidity: function verifyBlocks(uint256 maxBlocks) returns()
 func (_TaikoL1 *TaikoL1TransactorSession) VerifyBlocks(maxBlocks *big.Int) (*types.Transaction, error) {
 	return _TaikoL1.Contract.VerifyBlocks(&_TaikoL1.TransactOpts, maxBlocks)
+}
+
+// WithdrawTaikoToken is a paid mutator transaction binding the contract method 0x5043f059.
+//
+// Solidity: function withdrawTaikoToken(uint256 amount) returns()
+func (_TaikoL1 *TaikoL1Transactor) WithdrawTaikoToken(opts *bind.TransactOpts, amount *big.Int) (*types.Transaction, error) {
+	return _TaikoL1.contract.Transact(opts, "withdrawTaikoToken", amount)
+}
+
+// WithdrawTaikoToken is a paid mutator transaction binding the contract method 0x5043f059.
+//
+// Solidity: function withdrawTaikoToken(uint256 amount) returns()
+func (_TaikoL1 *TaikoL1Session) WithdrawTaikoToken(amount *big.Int) (*types.Transaction, error) {
+	return _TaikoL1.Contract.WithdrawTaikoToken(&_TaikoL1.TransactOpts, amount)
+}
+
+// WithdrawTaikoToken is a paid mutator transaction binding the contract method 0x5043f059.
+//
+// Solidity: function withdrawTaikoToken(uint256 amount) returns()
+func (_TaikoL1 *TaikoL1TransactorSession) WithdrawTaikoToken(amount *big.Int) (*types.Transaction, error) {
+	return _TaikoL1.Contract.WithdrawTaikoToken(&_TaikoL1.TransactOpts, amount)
 }
 
 // Receive is a paid mutator transaction binding the contract receive function.
@@ -1192,40 +1278,50 @@ func (it *TaikoL1BlockProposedIterator) Close() error {
 
 // TaikoL1BlockProposed represents a BlockProposed event raised by the TaikoL1 contract.
 type TaikoL1BlockProposed struct {
-	Id       *big.Int
-	Meta     TaikoDataBlockMetadata
-	BlockFee uint64
-	Raw      types.Log // Blockchain specific contextual infos
+	BlockId        *big.Int
+	AssignedProver common.Address
+	RewardPerGas   uint32
+	FeePerGas      uint64
+	Meta           TaikoDataBlockMetadata
+	Raw            types.Log // Blockchain specific contextual infos
 }
 
-// FilterBlockProposed is a free log retrieval operation binding the contract event 0x555304f14500c230922dd951cfdbb74012005afbcd7350b4b9fd27dc12d710fe.
+// FilterBlockProposed is a free log retrieval operation binding the contract event 0xeff8292b096b6478c20f0047b60a36bbc7d7c8ec6465769a628fbad6b151170d.
 //
-// Solidity: event BlockProposed(uint256 indexed id, (uint64,uint64,uint64,bytes32,bytes32,bytes32,uint24,uint24,uint32,address,address,(address,uint96,uint64)[]) meta, uint64 blockFee)
-func (_TaikoL1 *TaikoL1Filterer) FilterBlockProposed(opts *bind.FilterOpts, id []*big.Int) (*TaikoL1BlockProposedIterator, error) {
+// Solidity: event BlockProposed(uint256 indexed blockId, address indexed assignedProver, uint32 rewardPerGas, uint64 feePerGas, (uint64,uint64,uint64,bytes32,bytes32,bytes32,uint24,uint24,uint32,address,address,(address,uint96,uint64)[]) meta)
+func (_TaikoL1 *TaikoL1Filterer) FilterBlockProposed(opts *bind.FilterOpts, blockId []*big.Int, assignedProver []common.Address) (*TaikoL1BlockProposedIterator, error) {
 
-	var idRule []interface{}
-	for _, idItem := range id {
-		idRule = append(idRule, idItem)
+	var blockIdRule []interface{}
+	for _, blockIdItem := range blockId {
+		blockIdRule = append(blockIdRule, blockIdItem)
+	}
+	var assignedProverRule []interface{}
+	for _, assignedProverItem := range assignedProver {
+		assignedProverRule = append(assignedProverRule, assignedProverItem)
 	}
 
-	logs, sub, err := _TaikoL1.contract.FilterLogs(opts, "BlockProposed", idRule)
+	logs, sub, err := _TaikoL1.contract.FilterLogs(opts, "BlockProposed", blockIdRule, assignedProverRule)
 	if err != nil {
 		return nil, err
 	}
 	return &TaikoL1BlockProposedIterator{contract: _TaikoL1.contract, event: "BlockProposed", logs: logs, sub: sub}, nil
 }
 
-// WatchBlockProposed is a free log subscription operation binding the contract event 0x555304f14500c230922dd951cfdbb74012005afbcd7350b4b9fd27dc12d710fe.
+// WatchBlockProposed is a free log subscription operation binding the contract event 0xeff8292b096b6478c20f0047b60a36bbc7d7c8ec6465769a628fbad6b151170d.
 //
-// Solidity: event BlockProposed(uint256 indexed id, (uint64,uint64,uint64,bytes32,bytes32,bytes32,uint24,uint24,uint32,address,address,(address,uint96,uint64)[]) meta, uint64 blockFee)
-func (_TaikoL1 *TaikoL1Filterer) WatchBlockProposed(opts *bind.WatchOpts, sink chan<- *TaikoL1BlockProposed, id []*big.Int) (event.Subscription, error) {
+// Solidity: event BlockProposed(uint256 indexed blockId, address indexed assignedProver, uint32 rewardPerGas, uint64 feePerGas, (uint64,uint64,uint64,bytes32,bytes32,bytes32,uint24,uint24,uint32,address,address,(address,uint96,uint64)[]) meta)
+func (_TaikoL1 *TaikoL1Filterer) WatchBlockProposed(opts *bind.WatchOpts, sink chan<- *TaikoL1BlockProposed, blockId []*big.Int, assignedProver []common.Address) (event.Subscription, error) {
 
-	var idRule []interface{}
-	for _, idItem := range id {
-		idRule = append(idRule, idItem)
+	var blockIdRule []interface{}
+	for _, blockIdItem := range blockId {
+		blockIdRule = append(blockIdRule, blockIdItem)
+	}
+	var assignedProverRule []interface{}
+	for _, assignedProverItem := range assignedProver {
+		assignedProverRule = append(assignedProverRule, assignedProverItem)
 	}
 
-	logs, sub, err := _TaikoL1.contract.WatchLogs(opts, "BlockProposed", idRule)
+	logs, sub, err := _TaikoL1.contract.WatchLogs(opts, "BlockProposed", blockIdRule, assignedProverRule)
 	if err != nil {
 		return nil, err
 	}
@@ -1257,9 +1353,9 @@ func (_TaikoL1 *TaikoL1Filterer) WatchBlockProposed(opts *bind.WatchOpts, sink c
 	}), nil
 }
 
-// ParseBlockProposed is a log parse operation binding the contract event 0x555304f14500c230922dd951cfdbb74012005afbcd7350b4b9fd27dc12d710fe.
+// ParseBlockProposed is a log parse operation binding the contract event 0xeff8292b096b6478c20f0047b60a36bbc7d7c8ec6465769a628fbad6b151170d.
 //
-// Solidity: event BlockProposed(uint256 indexed id, (uint64,uint64,uint64,bytes32,bytes32,bytes32,uint24,uint24,uint32,address,address,(address,uint96,uint64)[]) meta, uint64 blockFee)
+// Solidity: event BlockProposed(uint256 indexed blockId, address indexed assignedProver, uint32 rewardPerGas, uint64 feePerGas, (uint64,uint64,uint64,bytes32,bytes32,bytes32,uint24,uint24,uint32,address,address,(address,uint96,uint64)[]) meta)
 func (_TaikoL1 *TaikoL1Filterer) ParseBlockProposed(log types.Log) (*TaikoL1BlockProposed, error) {
 	event := new(TaikoL1BlockProposed)
 	if err := _TaikoL1.contract.UnpackLog(event, "BlockProposed", log); err != nil {
@@ -1338,40 +1434,50 @@ func (it *TaikoL1BlockProposed0Iterator) Close() error {
 
 // TaikoL1BlockProposed0 represents a BlockProposed0 event raised by the TaikoL1 contract.
 type TaikoL1BlockProposed0 struct {
-	Id       *big.Int
-	Meta     TaikoDataBlockMetadata
-	BlockFee uint64
-	Raw      types.Log // Blockchain specific contextual infos
+	BlockId        *big.Int
+	AssignedProver common.Address
+	RewardPerGas   uint32
+	FeePerGas      uint64
+	Meta           TaikoDataBlockMetadata
+	Raw            types.Log // Blockchain specific contextual infos
 }
 
-// FilterBlockProposed0 is a free log retrieval operation binding the contract event 0x555304f14500c230922dd951cfdbb74012005afbcd7350b4b9fd27dc12d710fe.
+// FilterBlockProposed0 is a free log retrieval operation binding the contract event 0xeff8292b096b6478c20f0047b60a36bbc7d7c8ec6465769a628fbad6b151170d.
 //
-// Solidity: event BlockProposed(uint256 indexed id, (uint64,uint64,uint64,bytes32,bytes32,bytes32,uint24,uint24,uint32,address,address,(address,uint96,uint64)[]) meta, uint64 blockFee)
-func (_TaikoL1 *TaikoL1Filterer) FilterBlockProposed0(opts *bind.FilterOpts, id []*big.Int) (*TaikoL1BlockProposed0Iterator, error) {
+// Solidity: event BlockProposed(uint256 indexed blockId, address indexed assignedProver, uint32 rewardPerGas, uint64 feePerGas, (uint64,uint64,uint64,bytes32,bytes32,bytes32,uint24,uint24,uint32,address,address,(address,uint96,uint64)[]) meta)
+func (_TaikoL1 *TaikoL1Filterer) FilterBlockProposed0(opts *bind.FilterOpts, blockId []*big.Int, assignedProver []common.Address) (*TaikoL1BlockProposed0Iterator, error) {
 
-	var idRule []interface{}
-	for _, idItem := range id {
-		idRule = append(idRule, idItem)
+	var blockIdRule []interface{}
+	for _, blockIdItem := range blockId {
+		blockIdRule = append(blockIdRule, blockIdItem)
+	}
+	var assignedProverRule []interface{}
+	for _, assignedProverItem := range assignedProver {
+		assignedProverRule = append(assignedProverRule, assignedProverItem)
 	}
 
-	logs, sub, err := _TaikoL1.contract.FilterLogs(opts, "BlockProposed0", idRule)
+	logs, sub, err := _TaikoL1.contract.FilterLogs(opts, "BlockProposed0", blockIdRule, assignedProverRule)
 	if err != nil {
 		return nil, err
 	}
 	return &TaikoL1BlockProposed0Iterator{contract: _TaikoL1.contract, event: "BlockProposed0", logs: logs, sub: sub}, nil
 }
 
-// WatchBlockProposed0 is a free log subscription operation binding the contract event 0x555304f14500c230922dd951cfdbb74012005afbcd7350b4b9fd27dc12d710fe.
+// WatchBlockProposed0 is a free log subscription operation binding the contract event 0xeff8292b096b6478c20f0047b60a36bbc7d7c8ec6465769a628fbad6b151170d.
 //
-// Solidity: event BlockProposed(uint256 indexed id, (uint64,uint64,uint64,bytes32,bytes32,bytes32,uint24,uint24,uint32,address,address,(address,uint96,uint64)[]) meta, uint64 blockFee)
-func (_TaikoL1 *TaikoL1Filterer) WatchBlockProposed0(opts *bind.WatchOpts, sink chan<- *TaikoL1BlockProposed0, id []*big.Int) (event.Subscription, error) {
+// Solidity: event BlockProposed(uint256 indexed blockId, address indexed assignedProver, uint32 rewardPerGas, uint64 feePerGas, (uint64,uint64,uint64,bytes32,bytes32,bytes32,uint24,uint24,uint32,address,address,(address,uint96,uint64)[]) meta)
+func (_TaikoL1 *TaikoL1Filterer) WatchBlockProposed0(opts *bind.WatchOpts, sink chan<- *TaikoL1BlockProposed0, blockId []*big.Int, assignedProver []common.Address) (event.Subscription, error) {
 
-	var idRule []interface{}
-	for _, idItem := range id {
-		idRule = append(idRule, idItem)
+	var blockIdRule []interface{}
+	for _, blockIdItem := range blockId {
+		blockIdRule = append(blockIdRule, blockIdItem)
+	}
+	var assignedProverRule []interface{}
+	for _, assignedProverItem := range assignedProver {
+		assignedProverRule = append(assignedProverRule, assignedProverItem)
 	}
 
-	logs, sub, err := _TaikoL1.contract.WatchLogs(opts, "BlockProposed0", idRule)
+	logs, sub, err := _TaikoL1.contract.WatchLogs(opts, "BlockProposed0", blockIdRule, assignedProverRule)
 	if err != nil {
 		return nil, err
 	}
@@ -1403,9 +1509,9 @@ func (_TaikoL1 *TaikoL1Filterer) WatchBlockProposed0(opts *bind.WatchOpts, sink 
 	}), nil
 }
 
-// ParseBlockProposed0 is a log parse operation binding the contract event 0x555304f14500c230922dd951cfdbb74012005afbcd7350b4b9fd27dc12d710fe.
+// ParseBlockProposed0 is a log parse operation binding the contract event 0xeff8292b096b6478c20f0047b60a36bbc7d7c8ec6465769a628fbad6b151170d.
 //
-// Solidity: event BlockProposed(uint256 indexed id, (uint64,uint64,uint64,bytes32,bytes32,bytes32,uint24,uint24,uint32,address,address,(address,uint96,uint64)[]) meta, uint64 blockFee)
+// Solidity: event BlockProposed(uint256 indexed blockId, address indexed assignedProver, uint32 rewardPerGas, uint64 feePerGas, (uint64,uint64,uint64,bytes32,bytes32,bytes32,uint24,uint24,uint32,address,address,(address,uint96,uint64)[]) meta)
 func (_TaikoL1 *TaikoL1Filterer) ParseBlockProposed0(log types.Log) (*TaikoL1BlockProposed0, error) {
 	event := new(TaikoL1BlockProposed0)
 	if err := _TaikoL1.contract.UnpackLog(event, "BlockProposed0", log); err != nil {
@@ -1484,7 +1590,7 @@ func (it *TaikoL1BlockProvenIterator) Close() error {
 
 // TaikoL1BlockProven represents a BlockProven event raised by the TaikoL1 contract.
 type TaikoL1BlockProven struct {
-	Id            *big.Int
+	BlockId       *big.Int
 	ParentHash    [32]byte
 	BlockHash     [32]byte
 	SignalRoot    [32]byte
@@ -1495,15 +1601,15 @@ type TaikoL1BlockProven struct {
 
 // FilterBlockProven is a free log retrieval operation binding the contract event 0x2295930c498c7b1f60143439a63dd1d24bbb730f08ff6ed383b490ba2c1cafa4.
 //
-// Solidity: event BlockProven(uint256 indexed id, bytes32 parentHash, bytes32 blockHash, bytes32 signalRoot, address prover, uint32 parentGasUsed)
-func (_TaikoL1 *TaikoL1Filterer) FilterBlockProven(opts *bind.FilterOpts, id []*big.Int) (*TaikoL1BlockProvenIterator, error) {
+// Solidity: event BlockProven(uint256 indexed blockId, bytes32 parentHash, bytes32 blockHash, bytes32 signalRoot, address prover, uint32 parentGasUsed)
+func (_TaikoL1 *TaikoL1Filterer) FilterBlockProven(opts *bind.FilterOpts, blockId []*big.Int) (*TaikoL1BlockProvenIterator, error) {
 
-	var idRule []interface{}
-	for _, idItem := range id {
-		idRule = append(idRule, idItem)
+	var blockIdRule []interface{}
+	for _, blockIdItem := range blockId {
+		blockIdRule = append(blockIdRule, blockIdItem)
 	}
 
-	logs, sub, err := _TaikoL1.contract.FilterLogs(opts, "BlockProven", idRule)
+	logs, sub, err := _TaikoL1.contract.FilterLogs(opts, "BlockProven", blockIdRule)
 	if err != nil {
 		return nil, err
 	}
@@ -1512,15 +1618,15 @@ func (_TaikoL1 *TaikoL1Filterer) FilterBlockProven(opts *bind.FilterOpts, id []*
 
 // WatchBlockProven is a free log subscription operation binding the contract event 0x2295930c498c7b1f60143439a63dd1d24bbb730f08ff6ed383b490ba2c1cafa4.
 //
-// Solidity: event BlockProven(uint256 indexed id, bytes32 parentHash, bytes32 blockHash, bytes32 signalRoot, address prover, uint32 parentGasUsed)
-func (_TaikoL1 *TaikoL1Filterer) WatchBlockProven(opts *bind.WatchOpts, sink chan<- *TaikoL1BlockProven, id []*big.Int) (event.Subscription, error) {
+// Solidity: event BlockProven(uint256 indexed blockId, bytes32 parentHash, bytes32 blockHash, bytes32 signalRoot, address prover, uint32 parentGasUsed)
+func (_TaikoL1 *TaikoL1Filterer) WatchBlockProven(opts *bind.WatchOpts, sink chan<- *TaikoL1BlockProven, blockId []*big.Int) (event.Subscription, error) {
 
-	var idRule []interface{}
-	for _, idItem := range id {
-		idRule = append(idRule, idItem)
+	var blockIdRule []interface{}
+	for _, blockIdItem := range blockId {
+		blockIdRule = append(blockIdRule, blockIdItem)
 	}
 
-	logs, sub, err := _TaikoL1.contract.WatchLogs(opts, "BlockProven", idRule)
+	logs, sub, err := _TaikoL1.contract.WatchLogs(opts, "BlockProven", blockIdRule)
 	if err != nil {
 		return nil, err
 	}
@@ -1554,7 +1660,7 @@ func (_TaikoL1 *TaikoL1Filterer) WatchBlockProven(opts *bind.WatchOpts, sink cha
 
 // ParseBlockProven is a log parse operation binding the contract event 0x2295930c498c7b1f60143439a63dd1d24bbb730f08ff6ed383b490ba2c1cafa4.
 //
-// Solidity: event BlockProven(uint256 indexed id, bytes32 parentHash, bytes32 blockHash, bytes32 signalRoot, address prover, uint32 parentGasUsed)
+// Solidity: event BlockProven(uint256 indexed blockId, bytes32 parentHash, bytes32 blockHash, bytes32 signalRoot, address prover, uint32 parentGasUsed)
 func (_TaikoL1 *TaikoL1Filterer) ParseBlockProven(log types.Log) (*TaikoL1BlockProven, error) {
 	event := new(TaikoL1BlockProven)
 	if err := _TaikoL1.contract.UnpackLog(event, "BlockProven", log); err != nil {
@@ -1633,7 +1739,7 @@ func (it *TaikoL1BlockProven0Iterator) Close() error {
 
 // TaikoL1BlockProven0 represents a BlockProven0 event raised by the TaikoL1 contract.
 type TaikoL1BlockProven0 struct {
-	Id            *big.Int
+	BlockId       *big.Int
 	ParentHash    [32]byte
 	BlockHash     [32]byte
 	SignalRoot    [32]byte
@@ -1644,15 +1750,15 @@ type TaikoL1BlockProven0 struct {
 
 // FilterBlockProven0 is a free log retrieval operation binding the contract event 0x2295930c498c7b1f60143439a63dd1d24bbb730f08ff6ed383b490ba2c1cafa4.
 //
-// Solidity: event BlockProven(uint256 indexed id, bytes32 parentHash, bytes32 blockHash, bytes32 signalRoot, address prover, uint32 parentGasUsed)
-func (_TaikoL1 *TaikoL1Filterer) FilterBlockProven0(opts *bind.FilterOpts, id []*big.Int) (*TaikoL1BlockProven0Iterator, error) {
+// Solidity: event BlockProven(uint256 indexed blockId, bytes32 parentHash, bytes32 blockHash, bytes32 signalRoot, address prover, uint32 parentGasUsed)
+func (_TaikoL1 *TaikoL1Filterer) FilterBlockProven0(opts *bind.FilterOpts, blockId []*big.Int) (*TaikoL1BlockProven0Iterator, error) {
 
-	var idRule []interface{}
-	for _, idItem := range id {
-		idRule = append(idRule, idItem)
+	var blockIdRule []interface{}
+	for _, blockIdItem := range blockId {
+		blockIdRule = append(blockIdRule, blockIdItem)
 	}
 
-	logs, sub, err := _TaikoL1.contract.FilterLogs(opts, "BlockProven0", idRule)
+	logs, sub, err := _TaikoL1.contract.FilterLogs(opts, "BlockProven0", blockIdRule)
 	if err != nil {
 		return nil, err
 	}
@@ -1661,15 +1767,15 @@ func (_TaikoL1 *TaikoL1Filterer) FilterBlockProven0(opts *bind.FilterOpts, id []
 
 // WatchBlockProven0 is a free log subscription operation binding the contract event 0x2295930c498c7b1f60143439a63dd1d24bbb730f08ff6ed383b490ba2c1cafa4.
 //
-// Solidity: event BlockProven(uint256 indexed id, bytes32 parentHash, bytes32 blockHash, bytes32 signalRoot, address prover, uint32 parentGasUsed)
-func (_TaikoL1 *TaikoL1Filterer) WatchBlockProven0(opts *bind.WatchOpts, sink chan<- *TaikoL1BlockProven0, id []*big.Int) (event.Subscription, error) {
+// Solidity: event BlockProven(uint256 indexed blockId, bytes32 parentHash, bytes32 blockHash, bytes32 signalRoot, address prover, uint32 parentGasUsed)
+func (_TaikoL1 *TaikoL1Filterer) WatchBlockProven0(opts *bind.WatchOpts, sink chan<- *TaikoL1BlockProven0, blockId []*big.Int) (event.Subscription, error) {
 
-	var idRule []interface{}
-	for _, idItem := range id {
-		idRule = append(idRule, idItem)
+	var blockIdRule []interface{}
+	for _, blockIdItem := range blockId {
+		blockIdRule = append(blockIdRule, blockIdItem)
 	}
 
-	logs, sub, err := _TaikoL1.contract.WatchLogs(opts, "BlockProven0", idRule)
+	logs, sub, err := _TaikoL1.contract.WatchLogs(opts, "BlockProven0", blockIdRule)
 	if err != nil {
 		return nil, err
 	}
@@ -1703,7 +1809,7 @@ func (_TaikoL1 *TaikoL1Filterer) WatchBlockProven0(opts *bind.WatchOpts, sink ch
 
 // ParseBlockProven0 is a log parse operation binding the contract event 0x2295930c498c7b1f60143439a63dd1d24bbb730f08ff6ed383b490ba2c1cafa4.
 //
-// Solidity: event BlockProven(uint256 indexed id, bytes32 parentHash, bytes32 blockHash, bytes32 signalRoot, address prover, uint32 parentGasUsed)
+// Solidity: event BlockProven(uint256 indexed blockId, bytes32 parentHash, bytes32 blockHash, bytes32 signalRoot, address prover, uint32 parentGasUsed)
 func (_TaikoL1 *TaikoL1Filterer) ParseBlockProven0(log types.Log) (*TaikoL1BlockProven0, error) {
 	event := new(TaikoL1BlockProven0)
 	if err := _TaikoL1.contract.UnpackLog(event, "BlockProven0", log); err != nil {
@@ -1782,40 +1888,42 @@ func (it *TaikoL1BlockVerifiedIterator) Close() error {
 
 // TaikoL1BlockVerified represents a BlockVerified event raised by the TaikoL1 contract.
 type TaikoL1BlockVerified struct {
-	Id        *big.Int
-	BlockHash [32]byte
-	Reward    uint64
-	Raw       types.Log // Blockchain specific contextual infos
+	BlockId     *big.Int
+	BlockHash   [32]byte
+	Prover      common.Address
+	BlockFee    uint64
+	ProofReward uint64
+	Raw         types.Log // Blockchain specific contextual infos
 }
 
-// FilterBlockVerified is a free log retrieval operation binding the contract event 0x71eb3f26e4ff6e88e66a79521590634475f8ddb0c9e30e0400de0c7f2b28fb83.
+// FilterBlockVerified is a free log retrieval operation binding the contract event 0x9b08b6aa43471ed7ec774671665f95855fcc9146b7f461b985aef9d9b66df06e.
 //
-// Solidity: event BlockVerified(uint256 indexed id, bytes32 blockHash, uint64 reward)
-func (_TaikoL1 *TaikoL1Filterer) FilterBlockVerified(opts *bind.FilterOpts, id []*big.Int) (*TaikoL1BlockVerifiedIterator, error) {
+// Solidity: event BlockVerified(uint256 indexed blockId, bytes32 blockHash, address prover, uint64 blockFee, uint64 proofReward)
+func (_TaikoL1 *TaikoL1Filterer) FilterBlockVerified(opts *bind.FilterOpts, blockId []*big.Int) (*TaikoL1BlockVerifiedIterator, error) {
 
-	var idRule []interface{}
-	for _, idItem := range id {
-		idRule = append(idRule, idItem)
+	var blockIdRule []interface{}
+	for _, blockIdItem := range blockId {
+		blockIdRule = append(blockIdRule, blockIdItem)
 	}
 
-	logs, sub, err := _TaikoL1.contract.FilterLogs(opts, "BlockVerified", idRule)
+	logs, sub, err := _TaikoL1.contract.FilterLogs(opts, "BlockVerified", blockIdRule)
 	if err != nil {
 		return nil, err
 	}
 	return &TaikoL1BlockVerifiedIterator{contract: _TaikoL1.contract, event: "BlockVerified", logs: logs, sub: sub}, nil
 }
 
-// WatchBlockVerified is a free log subscription operation binding the contract event 0x71eb3f26e4ff6e88e66a79521590634475f8ddb0c9e30e0400de0c7f2b28fb83.
+// WatchBlockVerified is a free log subscription operation binding the contract event 0x9b08b6aa43471ed7ec774671665f95855fcc9146b7f461b985aef9d9b66df06e.
 //
-// Solidity: event BlockVerified(uint256 indexed id, bytes32 blockHash, uint64 reward)
-func (_TaikoL1 *TaikoL1Filterer) WatchBlockVerified(opts *bind.WatchOpts, sink chan<- *TaikoL1BlockVerified, id []*big.Int) (event.Subscription, error) {
+// Solidity: event BlockVerified(uint256 indexed blockId, bytes32 blockHash, address prover, uint64 blockFee, uint64 proofReward)
+func (_TaikoL1 *TaikoL1Filterer) WatchBlockVerified(opts *bind.WatchOpts, sink chan<- *TaikoL1BlockVerified, blockId []*big.Int) (event.Subscription, error) {
 
-	var idRule []interface{}
-	for _, idItem := range id {
-		idRule = append(idRule, idItem)
+	var blockIdRule []interface{}
+	for _, blockIdItem := range blockId {
+		blockIdRule = append(blockIdRule, blockIdItem)
 	}
 
-	logs, sub, err := _TaikoL1.contract.WatchLogs(opts, "BlockVerified", idRule)
+	logs, sub, err := _TaikoL1.contract.WatchLogs(opts, "BlockVerified", blockIdRule)
 	if err != nil {
 		return nil, err
 	}
@@ -1847,9 +1955,9 @@ func (_TaikoL1 *TaikoL1Filterer) WatchBlockVerified(opts *bind.WatchOpts, sink c
 	}), nil
 }
 
-// ParseBlockVerified is a log parse operation binding the contract event 0x71eb3f26e4ff6e88e66a79521590634475f8ddb0c9e30e0400de0c7f2b28fb83.
+// ParseBlockVerified is a log parse operation binding the contract event 0x9b08b6aa43471ed7ec774671665f95855fcc9146b7f461b985aef9d9b66df06e.
 //
-// Solidity: event BlockVerified(uint256 indexed id, bytes32 blockHash, uint64 reward)
+// Solidity: event BlockVerified(uint256 indexed blockId, bytes32 blockHash, address prover, uint64 blockFee, uint64 proofReward)
 func (_TaikoL1 *TaikoL1Filterer) ParseBlockVerified(log types.Log) (*TaikoL1BlockVerified, error) {
 	event := new(TaikoL1BlockVerified)
 	if err := _TaikoL1.contract.UnpackLog(event, "BlockVerified", log); err != nil {
@@ -1928,40 +2036,42 @@ func (it *TaikoL1BlockVerified0Iterator) Close() error {
 
 // TaikoL1BlockVerified0 represents a BlockVerified0 event raised by the TaikoL1 contract.
 type TaikoL1BlockVerified0 struct {
-	Id        *big.Int
-	BlockHash [32]byte
-	Reward    uint64
-	Raw       types.Log // Blockchain specific contextual infos
+	BlockId     *big.Int
+	BlockHash   [32]byte
+	Prover      common.Address
+	BlockFee    uint64
+	ProofReward uint64
+	Raw         types.Log // Blockchain specific contextual infos
 }
 
-// FilterBlockVerified0 is a free log retrieval operation binding the contract event 0x71eb3f26e4ff6e88e66a79521590634475f8ddb0c9e30e0400de0c7f2b28fb83.
+// FilterBlockVerified0 is a free log retrieval operation binding the contract event 0x9b08b6aa43471ed7ec774671665f95855fcc9146b7f461b985aef9d9b66df06e.
 //
-// Solidity: event BlockVerified(uint256 indexed id, bytes32 blockHash, uint64 reward)
-func (_TaikoL1 *TaikoL1Filterer) FilterBlockVerified0(opts *bind.FilterOpts, id []*big.Int) (*TaikoL1BlockVerified0Iterator, error) {
+// Solidity: event BlockVerified(uint256 indexed blockId, bytes32 blockHash, address prover, uint64 blockFee, uint64 proofReward)
+func (_TaikoL1 *TaikoL1Filterer) FilterBlockVerified0(opts *bind.FilterOpts, blockId []*big.Int) (*TaikoL1BlockVerified0Iterator, error) {
 
-	var idRule []interface{}
-	for _, idItem := range id {
-		idRule = append(idRule, idItem)
+	var blockIdRule []interface{}
+	for _, blockIdItem := range blockId {
+		blockIdRule = append(blockIdRule, blockIdItem)
 	}
 
-	logs, sub, err := _TaikoL1.contract.FilterLogs(opts, "BlockVerified0", idRule)
+	logs, sub, err := _TaikoL1.contract.FilterLogs(opts, "BlockVerified0", blockIdRule)
 	if err != nil {
 		return nil, err
 	}
 	return &TaikoL1BlockVerified0Iterator{contract: _TaikoL1.contract, event: "BlockVerified0", logs: logs, sub: sub}, nil
 }
 
-// WatchBlockVerified0 is a free log subscription operation binding the contract event 0x71eb3f26e4ff6e88e66a79521590634475f8ddb0c9e30e0400de0c7f2b28fb83.
+// WatchBlockVerified0 is a free log subscription operation binding the contract event 0x9b08b6aa43471ed7ec774671665f95855fcc9146b7f461b985aef9d9b66df06e.
 //
-// Solidity: event BlockVerified(uint256 indexed id, bytes32 blockHash, uint64 reward)
-func (_TaikoL1 *TaikoL1Filterer) WatchBlockVerified0(opts *bind.WatchOpts, sink chan<- *TaikoL1BlockVerified0, id []*big.Int) (event.Subscription, error) {
+// Solidity: event BlockVerified(uint256 indexed blockId, bytes32 blockHash, address prover, uint64 blockFee, uint64 proofReward)
+func (_TaikoL1 *TaikoL1Filterer) WatchBlockVerified0(opts *bind.WatchOpts, sink chan<- *TaikoL1BlockVerified0, blockId []*big.Int) (event.Subscription, error) {
 
-	var idRule []interface{}
-	for _, idItem := range id {
-		idRule = append(idRule, idItem)
+	var blockIdRule []interface{}
+	for _, blockIdItem := range blockId {
+		blockIdRule = append(blockIdRule, blockIdItem)
 	}
 
-	logs, sub, err := _TaikoL1.contract.WatchLogs(opts, "BlockVerified0", idRule)
+	logs, sub, err := _TaikoL1.contract.WatchLogs(opts, "BlockVerified0", blockIdRule)
 	if err != nil {
 		return nil, err
 	}
@@ -1993,9 +2103,9 @@ func (_TaikoL1 *TaikoL1Filterer) WatchBlockVerified0(opts *bind.WatchOpts, sink 
 	}), nil
 }
 
-// ParseBlockVerified0 is a log parse operation binding the contract event 0x71eb3f26e4ff6e88e66a79521590634475f8ddb0c9e30e0400de0c7f2b28fb83.
+// ParseBlockVerified0 is a log parse operation binding the contract event 0x9b08b6aa43471ed7ec774671665f95855fcc9146b7f461b985aef9d9b66df06e.
 //
-// Solidity: event BlockVerified(uint256 indexed id, bytes32 blockHash, uint64 reward)
+// Solidity: event BlockVerified(uint256 indexed blockId, bytes32 blockHash, address prover, uint64 blockFee, uint64 proofReward)
 func (_TaikoL1 *TaikoL1Filterer) ParseBlockVerified0(log types.Log) (*TaikoL1BlockVerified0, error) {
 	event := new(TaikoL1BlockVerified0)
 	if err := _TaikoL1.contract.UnpackLog(event, "BlockVerified0", log); err != nil {
@@ -2846,143 +2956,6 @@ func (_TaikoL1 *TaikoL1Filterer) WatchOwnershipTransferred(opts *bind.WatchOpts,
 func (_TaikoL1 *TaikoL1Filterer) ParseOwnershipTransferred(log types.Log) (*TaikoL1OwnershipTransferred, error) {
 	event := new(TaikoL1OwnershipTransferred)
 	if err := _TaikoL1.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// TaikoL1ProofParamsChangedIterator is returned from FilterProofParamsChanged and is used to iterate over the raw logs and unpacked data for ProofParamsChanged events raised by the TaikoL1 contract.
-type TaikoL1ProofParamsChangedIterator struct {
-	Event *TaikoL1ProofParamsChanged // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *TaikoL1ProofParamsChangedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(TaikoL1ProofParamsChanged)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(TaikoL1ProofParamsChanged)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *TaikoL1ProofParamsChangedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *TaikoL1ProofParamsChangedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// TaikoL1ProofParamsChanged represents a ProofParamsChanged event raised by the TaikoL1 contract.
-type TaikoL1ProofParamsChanged struct {
-	ProofTimeTarget    uint64
-	ProofTimeIssued    uint64
-	BlockFee           uint64
-	AdjustmentQuotient uint16
-	Raw                types.Log // Blockchain specific contextual infos
-}
-
-// FilterProofParamsChanged is a free log retrieval operation binding the contract event 0x565e5aa69c99d81e441dd3bb8535d888585683743f3c6a3bf49e5e1b227bd8f9.
-//
-// Solidity: event ProofParamsChanged(uint64 proofTimeTarget, uint64 proofTimeIssued, uint64 blockFee, uint16 adjustmentQuotient)
-func (_TaikoL1 *TaikoL1Filterer) FilterProofParamsChanged(opts *bind.FilterOpts) (*TaikoL1ProofParamsChangedIterator, error) {
-
-	logs, sub, err := _TaikoL1.contract.FilterLogs(opts, "ProofParamsChanged")
-	if err != nil {
-		return nil, err
-	}
-	return &TaikoL1ProofParamsChangedIterator{contract: _TaikoL1.contract, event: "ProofParamsChanged", logs: logs, sub: sub}, nil
-}
-
-// WatchProofParamsChanged is a free log subscription operation binding the contract event 0x565e5aa69c99d81e441dd3bb8535d888585683743f3c6a3bf49e5e1b227bd8f9.
-//
-// Solidity: event ProofParamsChanged(uint64 proofTimeTarget, uint64 proofTimeIssued, uint64 blockFee, uint16 adjustmentQuotient)
-func (_TaikoL1 *TaikoL1Filterer) WatchProofParamsChanged(opts *bind.WatchOpts, sink chan<- *TaikoL1ProofParamsChanged) (event.Subscription, error) {
-
-	logs, sub, err := _TaikoL1.contract.WatchLogs(opts, "ProofParamsChanged")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(TaikoL1ProofParamsChanged)
-				if err := _TaikoL1.contract.UnpackLog(event, "ProofParamsChanged", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseProofParamsChanged is a log parse operation binding the contract event 0x565e5aa69c99d81e441dd3bb8535d888585683743f3c6a3bf49e5e1b227bd8f9.
-//
-// Solidity: event ProofParamsChanged(uint64 proofTimeTarget, uint64 proofTimeIssued, uint64 blockFee, uint16 adjustmentQuotient)
-func (_TaikoL1 *TaikoL1Filterer) ParseProofParamsChanged(log types.Log) (*TaikoL1ProofParamsChanged, error) {
-	event := new(TaikoL1ProofParamsChanged)
-	if err := _TaikoL1.contract.UnpackLog(event, "ProofParamsChanged", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
