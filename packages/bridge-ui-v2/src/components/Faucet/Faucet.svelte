@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { type Chain,getWalletClient } from '@wagmi/core';
+  import { type Chain, getWalletClient } from '@wagmi/core';
   import { t } from 'svelte-i18n';
 
   import { Alert } from '$components/Alert';
@@ -10,11 +10,13 @@
   import { MintableError, testERC20Tokens, type Token } from '$libs/token';
   import { checkMintable } from '$libs/token/checkMintable';
   import { srcChain } from '$stores/network';
+  import { PUBLIC_L1_CHAIN_NAME } from '$env/static/public';
 
   let minting = false;
   let checkingMintable = false;
   let selectedToken: Maybe<Token>;
   let mintButtonEnabled = false;
+  let reasonNoMintable = '';
 
   async function mint() {
     // A token and a source chain must be selected in order to be able to mint
@@ -36,6 +38,7 @@
 
   async function shouldEnableMintButton(token: Maybe<Token>, network: Maybe<Chain>) {
     checkingMintable = true;
+    reasonNoMintable = '';
 
     try {
       await checkMintable(token, network);
@@ -47,18 +50,25 @@
 
       switch (cause) {
         case MintableError.TOKEN_UNDEFINED:
+          reasonNoMintable = $t('faucet.warning.no_token', { values: { network: PUBLIC_L1_CHAIN_NAME } });
           break;
         case MintableError.NETWORK_UNDEFINED:
-          break;
-        case MintableError.NOT_CONNECTED:
+          reasonNoMintable = $t('faucet.warning.no_network', { values: { network: PUBLIC_L1_CHAIN_NAME } });
           break;
         case MintableError.WRONG_CHAIN:
+          reasonNoMintable = $t('faucet.warning.wrong_chain', { values: { network: PUBLIC_L1_CHAIN_NAME } });
+          break;
+        case MintableError.NOT_CONNECTED:
+          reasonNoMintable = $t('faucet.warning.no_connected');
           break;
         case MintableError.INSUFFICIENT_BALANCE:
+          reasonNoMintable = $t('faucet.warning.insufficient_balance');
           break;
         case MintableError.TOKEN_MINTED:
+          reasonNoMintable = $t('faucet.warning.already_minted');
           break;
         default:
+          reasonNoMintable = $t('faucet.warning.unknown');
           break;
       }
     } finally {
@@ -68,7 +78,7 @@
     return false;
   }
 
-  $: shouldEnableMintButton(selectedToken, $srcChain).then((enable) => (mintButtonEnabled = enable));
+  // $: shouldEnableMintButton(selectedToken, $srcChain).then((enable) => (mintButtonEnabled = enable));
 </script>
 
 <Card class="md:w-[524px]" title={$t('faucet.title')} text={$t('faucet.subtitle')}>
@@ -84,10 +94,12 @@
       </span>
     </Button>
 
-    <div class="h-sep" />
+    {#if reasonNoMintable}
+      <div class="h-sep" />
 
-    <Alert type="warning" forceColumnFlow>
-      {$t('faucet.message.warning')}
-    </Alert>
+      <Alert type="warning" forceColumnFlow>
+        {reasonNoMintable}
+      </Alert>
+    {/if}
   </div>
 </Card>

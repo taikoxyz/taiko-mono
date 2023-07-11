@@ -6,7 +6,7 @@ import { PUBLIC_L1_CHAIN_ID } from '$env/static/public';
 
 import { MintableError, type Token } from './types';
 
-// Throws an error if there is any reason for not being able to mint
+// Throws an error if there is any reason for not being mintable
 export async function checkMintable(token: Maybe<Token>, network: Maybe<Chain>) {
   if (!token) {
     throw new Error(`token is undefined`, { cause: MintableError.TOKEN_UNDEFINED });
@@ -16,18 +16,15 @@ export async function checkMintable(token: Maybe<Token>, network: Maybe<Chain>) 
     throw new Error(`network is undefined`, { cause: MintableError.NETWORK_UNDEFINED });
   }
 
+  // Are we in the right network L1? we cannot mint in L2
   const chainId = network.id;
-  const walletClient = await getWalletClient({ chainId });
-
-  if (!walletClient) {
-    throw new Error(`user is not connected to ${network.name}`, { cause: MintableError.NOT_CONNECTED });
-  }
-
-  const userAddress = walletClient.account.address;
-
-  // Are we in the right network?
   if (chainId.toString() !== PUBLIC_L1_CHAIN_ID) {
     throw new Error(`user is in the wrong chain: ${chainId}`, { cause: MintableError.WRONG_CHAIN });
+  }
+
+  const walletClient = await getWalletClient({ chainId });
+  if (!walletClient) {
+    throw new Error(`user is not connected to ${network.name}`, { cause: MintableError.NOT_CONNECTED });
   }
 
   const tokenContract = getContract({
@@ -37,10 +34,11 @@ export async function checkMintable(token: Maybe<Token>, network: Maybe<Chain>) 
   });
 
   // Check whether the user has already minted this token
+  const userAddress = walletClient.account.address;
   const hasMinted = await tokenContract.read.minters([userAddress]);
 
   if (hasMinted) {
-    throw Error(`token ${token.symbol} has already been minted}`, { cause: MintableError.TOKEN_MINTED });
+    throw Error(`token ${token.symbol} has already been minted`, { cause: MintableError.TOKEN_MINTED });
   }
 
   // Check whether the user has enough balance to mint.
