@@ -70,7 +70,7 @@ const ecosystemData: EcosystemData[] = [
   {
     icon: "/images/ecosystem/mxc.svg",
     name: "MXC",
-    link: "https://wannsee.mxc.com/docs/intro",
+    link: "https://doc.mxc.com/",
     description:
       "Layer3 IoT app chain built using Taiko's open source software.",
     filters: [],
