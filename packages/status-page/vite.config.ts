@@ -5,11 +5,16 @@ import { viteStaticCopy } from "vite-plugin-static-copy";
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      external: ["broadcast-channel"],
+    },
+  },
   define: {
-    global: 'globalThis',
-    'process.env.NODE_DEBUG': false,
-    'process.env.LINK_API_URL': false,
-    'process.env.SDK_VERSION': "'unknown'"
+    global: "globalThis",
+    "process.env.NODE_DEBUG": false,
+    "process.env.LINK_API_URL": false,
+    "process.env.SDK_VERSION": "'unknown'",
   },
   plugins: [
     svelte(),
