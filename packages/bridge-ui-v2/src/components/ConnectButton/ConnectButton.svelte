@@ -38,10 +38,9 @@
   <w3m-core-button balance="show" />
 {:else}
   <!-- TODO: fixing the width for English. i18n? -->
-  <Button class="px-[20px] py-2 rounded-full w-[215px]" type="neutral" on:click={connectWallet}>
+  <Button class="px-[20px] py-2 rounded-full w-[215px]" type="neutral" loading={web3modalOpen} on:click={connectWallet}>
     <span class="body-regular f-items-center space-x-2">
       {#if web3modalOpen}
-        <Spinner />
         <span>{$t('wallet.status.connecting')}</span>
       {:else}
         <Icon type="user-circle" class="md-show-block" />

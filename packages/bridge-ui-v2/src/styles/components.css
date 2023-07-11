@@ -118,9 +118,5 @@
     @apply modal-backdrop bg-overlay-background;
   }
 
-  .mask {
-    @apply absolute top-0 right-0 bottom-0 left-0 overflow-hidden;
-  }
-
   /* TODO: add more components here */
 }

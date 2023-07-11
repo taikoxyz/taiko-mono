@@ -2,27 +2,17 @@ import { type Chain, getContract, getPublicClient, getWalletClient } from '@wagm
 import { formatEther } from 'viem';
 
 import { freeMintErc20ABI } from '$abi';
-import { PUBLIC_L1_CHAIN_ID } from '$env/static/public';
 
 import { MintableError, type Token } from './types';
 
-// Throws an error if there is any reason for not being mintable
-export async function checkMintable(token: Maybe<Token>, network: Maybe<Chain>) {
-  if (!token) {
-    throw new Error(`token is undefined`, { cause: MintableError.TOKEN_UNDEFINED });
-  }
-
-  if (!network) {
-    throw new Error(`network is undefined`, { cause: MintableError.NETWORK_UNDEFINED });
-  }
-
-  // Are we in the right network L1? we cannot mint in L2
-  const chainId = network.id;
-  if (chainId.toString() !== PUBLIC_L1_CHAIN_ID) {
-    throw new Error(`user is in the wrong chain: ${chainId}`, { cause: MintableError.WRONG_CHAIN });
-  }
-
+// Throws an error if:
+// 1. User is not connected to the network
+// 2. User has already minted this token
+// 3. User has insufficient balance to mint this token
+export async function checkMintable(token: Token, network: Chain) {
+  const chainId = network.id
   const walletClient = await getWalletClient({ chainId });
+
   if (!walletClient) {
     throw new Error(`user is not connected to ${network.name}`, { cause: MintableError.NOT_CONNECTED });
   }

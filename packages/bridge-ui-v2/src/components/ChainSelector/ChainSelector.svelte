@@ -11,6 +11,7 @@
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
   import { UserRejectedRequestError } from 'viem';
+  import { LoadingMask } from '$components/LoadingMask';
 
   export let label: string;
   export let value: Maybe<GetNetworkResult['chain']> = null;
@@ -52,7 +53,7 @@
       console.error(error);
 
       if (error instanceof UserRejectedRequestError) {
-        warningToast($t('messages.switch_chain.rejected'));
+        warningToast($t('messages.network.rejected'));
       }
     } finally {
       switchingNetwork = false;
@@ -101,30 +102,36 @@
         <Icon type="x-close" fillClass="fill-secondary-icon" size={24} />
       </button>
       <h3 class="title-body-bold mb-[20px]">{$t('chain_selector.placeholder')}</h3>
-      <ul role="menu" class="space-y-4">
-        {#each chains as chain (chain.id)}
-          {@const disabled = chain.id === value?.id}
-          {@const liConditionalClass = disabled ? 'opacity-50' : 'hover:bg-grey-10 hover:cursor-pointer'}
-          <li
-            role="menuitem"
-            tabindex="0"
-            class={`p-4 rounded-[10px] ${liConditionalClass}`}
-            aria-disabled={disabled}
-            on:click={() => selectChain(chain)}
-            on:keydown={getChainKeydownHandler(chain)}>
-            <!-- TODO: agree on hover:bg color -->
-            <div class="f-row justify-between">
-              <div class="f-items-center space-x-4">
-                <i role="img" aria-label={chain.name}>
-                  <svelte:component this={chainToIconMap[chain.id]} size={32} />
-                </i>
-                <span class="body-bold">{chain.name}</span>
+      <div class="relative">
+        {#if switchingNetwork}
+          <LoadingMask class="bg-grey-0/60" text={$t('')} />
+        {/if}
+
+        <ul role="menu" class="space-y-4">
+          {#each chains as chain (chain.id)}
+            {@const disabled = chain.id === value?.id}
+            {@const liConditionalClass = disabled ? 'opacity-50' : 'hover:bg-grey-10 hover:cursor-pointer'}
+            <li
+              role="menuitem"
+              tabindex="0"
+              class={`p-4 rounded-[10px] ${liConditionalClass}`}
+              aria-disabled={disabled}
+              on:click={() => selectChain(chain)}
+              on:keydown={getChainKeydownHandler(chain)}>
+              <!-- TODO: agree on hover:bg color -->
+              <div class="f-row justify-between">
+                <div class="f-items-center space-x-4">
+                  <i role="img" aria-label={chain.name}>
+                    <svelte:component this={chainToIconMap[chain.id]} size={32} />
+                  </i>
+                  <span class="body-bold">{chain.name}</span>
+                </div>
+                <span class="body-regular">{chain.network}</span>
               </div>
-              <span class="body-regular">{chain.network}</span>
-            </div>
-          </li>
-        {/each}
-      </ul>
+            </li>
+          {/each}
+        </ul>
+      </div>
     </div>
 
     <div class="overlay-backdrop" />

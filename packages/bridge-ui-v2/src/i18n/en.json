@@ -59,11 +59,13 @@
   "faucet": {
     "title": "Faucet",
     "subtitle": "Mint test tokens.",
-    "button.mint": "Mint",
+    "button": {
+      "mint": "Mint",
+      "checking": "Checking mintability"
+    },
     "wrong_chain": {
       "message": "It appears your are on the wrong network. Switch to {network} to mint tokens.",
-      "button": "Switch to {network}",
-      "switching": "Switching network"
+      "button": "Switch to {network}"
     },
     "warning": {
       "no_token": "Please select a token to mint.",
@@ -95,7 +97,10 @@
       "connected": "Account connected",
       "disconnected": "Account disconnected"
     },
-    "switch_chain.rejected": "Switch chain request rejected."
+    "network": {
+      "switching": "Switching network",
+      "rejected": "Switch chain request rejected."
+    }
   },
 
   "chain": {

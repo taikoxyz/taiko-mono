@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Spinner } from '$components/Spinner';
   import { classNames } from '$libs/util/classNames';
 
   type ButtonType =
@@ -16,6 +17,7 @@
 
   export let type: Maybe<ButtonType> = null;
   export let shape: Maybe<ButtonShape> = null;
+  export let loading = false;
   export let outline = false;
   export let block = false;
   export let wide = false;
@@ -42,17 +44,35 @@
     square: 'btn-square',
   };
 
-  const classes = classNames(
+  $: classes = classNames(
     'btn w-full h-auto min-h-fit border-0',
+
+    type === 'primary' ? 'body-bold' : 'body-regular',
+
     type ? typeMap[type] : null,
     shape ? shapeMap[shape] : null,
+
     outline ? 'btn-outline' : null,
     block ? 'btn-block' : null,
     wide ? 'btn-wide' : null,
+
+    // For loading state we want to see well the content,
+    // since we're showing some important information.
+    loading ? 'btn-disabled !text-primary-content' : null,
+
     $$props.class,
   );
+
+  // Make sure to disable the button if we're in loading state
+  $: if (loading) {
+    $$restProps.disabled = true;
+  }
 </script>
 
 <button {...$$restProps} class={classes} on:click>
+  {#if loading}
+    <Spinner />
+  {/if}
+
   <slot />
 </button>

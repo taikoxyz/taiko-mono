@@ -8,7 +8,7 @@
   import { uid } from '$libs/util/uid';
 
   export let tokens: Token[] = [];
-  export let value: Maybe<Token>;
+  export let value: Maybe<Token> = null;
 
   let symbolToIconMap: Record<string, ComponentType> = {
     ETH: EthIcon,
