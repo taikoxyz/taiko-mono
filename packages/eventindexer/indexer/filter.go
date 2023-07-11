@@ -32,7 +32,7 @@ func L1FilterFunc(
 			return errors.Wrap(err, "svc.saveBlockProvenEvents")
 		}
 
-		blockProposedEvents, err := svc.taikol1.FilterBlockProposed(filterOpts, nil)
+		blockProposedEvents, err := svc.taikol1.FilterBlockProposed(filterOpts, nil, nil)
 		if err != nil {
 			return errors.Wrap(err, "svc.taikol1.FilterBlockProposed")
 		}
