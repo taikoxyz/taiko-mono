@@ -9,19 +9,19 @@
   },
   "dependencies": {
     "@vercel/analytics": "^1.0.1",
-    "next": "^13.4.8",
+    "next": "^13.4.9",
     "next-themes": "^0.2.1",
-    "nextra": "^2.8.0",
-    "nextra-theme-docs": "^2.8.0",
+    "nextra": "^2.9.0",
+    "nextra-theme-docs": "^2.9.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@heroicons/react": "^2.0.18",
-    "@types/node": "^20.3.3",
+    "@types/node": "^20.4.1",
     "@types/react": "^18.2.14",
     "autoprefixer": "^10.4.14",
-    "postcss": "^8.4.24",
+    "postcss": "^8.4.25",
     "tailwindcss": "^3.3.2",
     "typescript": "^5.1.6"
   }
