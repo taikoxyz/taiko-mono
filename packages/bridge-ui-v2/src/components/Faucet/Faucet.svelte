@@ -80,11 +80,11 @@
   }
 
   function isUserConnected(user: Maybe<typeof $account>) {
-    return user?.isConnected;
+    return Boolean(user?.isConnected);
   }
 
   function isWrongChain(network: Maybe<Chain>) {
-    return network?.id.toString() !== PUBLIC_L1_CHAIN_ID;
+    return Boolean(network?.id.toString() !== PUBLIC_L1_CHAIN_ID);
   }
 
   async function shouldEnableMintButton(token: Maybe<Token>, network: Maybe<Chain>) {
@@ -122,8 +122,15 @@
     return false;
   }
 
+  function getAlertMessage(connected: boolean, wrongChain: boolean, reasonNotMintable: string) {
+    if (!connected) return $t('messages.account.required');
+    if (wrongChain) return $t('faucet.wrong_chain.message', { values: { network: PUBLIC_L1_CHAIN_NAME } });
+    if (reasonNotMintable) return reasonNotMintable;
+  }
+
   $: connected = isUserConnected($account);
   $: wrongChain = isWrongChain($srcChain);
+  $: alertMessage = getAlertMessage(connected, wrongChain, reasonNotMintable);
 
   $: shouldEnableMintButton(selectedToken, $srcChain).then((enable) => (mintButtonEnabled = enable));
 </script>
@@ -135,15 +142,14 @@
       <TokenDropdown tokens={testERC20Tokens} bind:value={selectedToken} />
     </div>
 
-    {#if !connected}
+    {#if alertMessage}
       <Alert type="warning" forceColumnFlow>
-        {$t('messages.account.required')}
+        {alertMessage}
       </Alert>
-    {:else if wrongChain}
-      <Alert type="warning" forceColumnFlow>
-        {$t('faucet.wrong_chain.message', { values: { network: PUBLIC_L1_CHAIN_NAME } })}
-      </Alert>
+    {/if}
 
+    {#if connected && wrongChain}
+      <!-- We give the user an easier way to switch chains with this button -->
       <Button type="primary" class="px-[28px] py-[14px]" loading={switchingNetwork} on:click={switchNetworkToL1}>
         {#if switchingNetwork}
           <span>{$t('messages.network.switching')}</span>
@@ -155,12 +161,6 @@
         {/if}
       </Button>
     {:else}
-      {#if reasonNotMintable}
-        <Alert type="warning" forceColumnFlow>
-          {reasonNotMintable}
-        </Alert>
-      {/if}
-
       <Button
         type="primary"
         class="px-[28px] py-[14px]"
