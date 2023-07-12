@@ -186,8 +186,5 @@
         <span class="absolute right-6 uppercase body-bold text-secondary-content">ETH</span>
       </div>
     </div>
-
-    <!-- TODO: we might not need this brackdrop at all. Re-think this -->
-    <!-- <div class="overlay-backdrop" /> -->
   </dialog>
 </div>

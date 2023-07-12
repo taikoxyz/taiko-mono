@@ -26,6 +26,7 @@
   }
 </script>
 
+<!-- Desktop (or larger) view -->
 <ul role="listbox" {id} class={menuClasses}>
   {#each tokens as token (token.symbol)}
     <li

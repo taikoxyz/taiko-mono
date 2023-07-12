@@ -97,7 +97,7 @@
   </div>
 
   <dialog id={dialogId} class="modal modal-bottom md:modal-middle" class:modal-open={modalOpen}>
-    <div class="modal-box relative px-6 py-[21px] bg-primary-base-background text-primary-base-content">
+    <div class="modal-box relative px-6 py-[35px] md:py-[20px] bg-primary-base-background text-primary-base-content">
       {#if switchingNetwork}
         <LoadingMask
           class="bg-grey-0/60"
@@ -105,7 +105,7 @@
           text={$t('messages.network.switching')} />
       {/if}
 
-      <button class="absolute right-6 top-[21px]" on:click={closeModal}>
+      <button class="absolute right-6 top-[35px] md:top-[20px]" on:click={closeModal}>
         <Icon type="x-close" fillClass="fill-secondary-icon" size={24} />
       </button>
       <h3 class="title-body-bold mb-[20px]">{$t('chain_selector.placeholder')}</h3>

@@ -9,6 +9,7 @@
   import DialogView from './DialogView.svelte';
   import DropdownView from './DropdownView.svelte';
   import { symbolToIconMap } from './symbolToIconMap';
+  import { DesktopOrLarger } from '$components/DesktopOrLarger';
 
   export let tokens: Token[] = [];
   export let value: Maybe<Token> = null;
@@ -16,17 +17,17 @@
   let id = `menu-${uid()}`;
   let menuOpen = false;
 
-  // Default to true if globalThis or matchMedia are not available (SSR?).
-  // Desktop view looks also good in small screens.
-  let isDesktopOrLarger = globalThis?.matchMedia?.('(min-width: 768px)').matches ?? true;
+  // This will control which view to render depending on the screensize.
+  // Since markup will differ, and there is logic running when interacting
+  // with this component, it makes more sense to not render the view that's
+  // not being used, doing this with JS instead of CSS media queries
+  let isDesktopOrLarger: boolean;
 
   function closeMenu() {
     menuOpen = false;
   }
 
-  function openMenu(event: Event) {
-    // Prevents closing the menu immediately (button click bubbles up to the document)
-    event.stopPropagation();
+  function openMenu() {
     menuOpen = true;
   }
 
@@ -35,15 +36,10 @@
     closeMenu();
   }
 
-  onMount(() => {
-    document.addEventListener('click', closeMenu);
-  });
-
-  onDestroy(() => {
-    closeMenu();
-    document.removeEventListener('click', closeMenu);
-  });
+  onDestroy(closeMenu);
 </script>
+
+<DesktopOrLarger bind:is={isDesktopOrLarger} />
 
 <div class="relative">
   <button
@@ -69,10 +65,6 @@
     <Icon type="chevron-down" />
   </button>
 
-  <!--
-    TODO: does not change on resizing, but it's not a big deal since both
-          views work well on small and large screens.
-  -->
   {#if isDesktopOrLarger}
     <DropdownView {id} {menuOpen} {tokens} {value} {selectToken} />
   {:else}

@@ -15,7 +15,8 @@
   export let closeMenu: () => void = noop;
 </script>
 
-<dialog {id} class="modal modal-bottom md:px-4 md:pb-4" class:modal-open={menuOpen}>
+<!-- Mobile view -->
+<dialog {id} class="modal modal-bottom" class:modal-open={menuOpen}>
   <div class="modal-box relative px-6 py-[35px] bg-neutral-background rounded-[20px]">
     <button class="absolute right-6 top-[35px]" on:click={closeMenu}>
       <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
@@ -26,14 +27,14 @@
     <ul role="listbox" class="menu p-0 bg-neutral-background">
       {#each tokens as token (token.symbol)}
         {@const selected = token === value}
+        <!-- svelte-ignore a11y-click-events-have-key-events -->
         <li
           role="option"
           tabindex="0"
           aria-selected={selected}
           class="rounded-[10px]"
           class:bg-tertiary-interactive-accent={selected}
-          on:click={() => selectToken(token)}
-          on:keydown={() => {}}>
+          on:click={() => selectToken(token)}>
           <div class="p-4">
             <i role="img" aria-label={token.name}>
               <svelte:component this={symbolToIconMap[token.symbol]} />
@@ -44,7 +45,4 @@
       {/each}
     </ul>
   </div>
-
-  <!-- TODO: we might not need this brackdrop at all. Re-think this -->
-  <!-- <div class="overlay-backdrop" /> -->
 </dialog>

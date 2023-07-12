@@ -6,11 +6,18 @@
   import { Button } from '$components/Button';
   import { Icon } from '$components/Icon';
   import { web3modal } from '$libs/connect';
+  import { DesktopOrLarger } from '$components/DesktopOrLarger';
 
   export let connected = false;
 
+  // Will help us to programmatically show or hide the balance of
+  // the web3modal core button
+  let isDesktopOrLarger: boolean;
+
   let web3modalOpen = false;
   let unsubscribeWeb3Modal = noop;
+
+  $: web3modalBalance = connected && isDesktopOrLarger ? 'show' : 'hide';
 
   function connectWallet() {
     if (web3modalOpen) return;
@@ -28,13 +35,15 @@
   onDestroy(unsubscribeWeb3Modal);
 </script>
 
+<DesktopOrLarger bind:is={isDesktopOrLarger} />
+
 <!-- 
   We are gonna make use of Web3Modal core button when we are connected,
   which comes with interesting features out of the box.
   https://docs.walletconnect.com/2.0/web/web3modal/html/wagmi/components
 -->
 {#if connected}
-  <w3m-core-button balance="show" />
+  <w3m-core-button balance={web3modalBalance} />
 {:else}
   <!-- TODO: fixing the width for English. i18n? -->
   <Button class="px-[20px] py-2 rounded-full w-[215px]" type="neutral" loading={web3modalOpen} on:click={connectWallet}>
