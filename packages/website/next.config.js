@@ -7,13 +7,20 @@ const withNextra = require("nextra")({
 
 // NOTE: document each redirect please
 module.exports = withNextra({
-  // async redirects() {
-  //   return [
-  //     {
-  //       source: "/docs/guides/configure-your-wallet",
-  //       destination: "/docs/guides/build-on-taiko/deploy-a-contract",
-  //       permanent: true,
-  //     },
-  //   ];
-  // },
+  async redirects() {
+    return [
+      // Rename use the bridge -> bridge tokens, sounds cleaner
+      {
+        source: "/docs/guides/use-the-bridge",
+        destination: "/docs/guides/bridge-tokens",
+        permanent: true,
+      },
+      // Rename configure your wallet -> setup your wallet, sounds cleaner
+      {
+        source: "/docs/guides/configure-your-wallet",
+        destination: "/docs/guides/setup-your-wallet",
+        permanent: true,
+      },
+    ];
+  },
 });

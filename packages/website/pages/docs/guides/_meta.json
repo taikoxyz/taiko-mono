@@ -1,12 +1,12 @@
 {
-  "configure-your-wallet": {
-    "title": "💻 Configure your wallet"
+  "setup-your-wallet": {
+    "title": "💻 Setup your wallet"
   },
   "receive-tokens": {
     "title": "🎈 Receive tokens"
   },
-  "use-the-bridge": {
-    "title": "🌉 Use the bridge"
+  "bridge-tokens": {
+    "title": "🌉 Bridge tokens"
   },
   "swap-tokens": {
     "title": "🔄 Swap tokens"
