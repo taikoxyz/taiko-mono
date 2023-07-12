@@ -37,7 +37,7 @@
   };
 
   const classes = classNames(
-    'alert gap-[5px] py-[12px] px-[20px] rounded-[10px]',
+    'alert flex gap-[5px] py-[12px] px-[20px] rounded-[10px]',
     type ? typeMap[type].class : null,
     forceColumnFlow ? 'grid-flow-col text-left' : null,
     $$props.class,
