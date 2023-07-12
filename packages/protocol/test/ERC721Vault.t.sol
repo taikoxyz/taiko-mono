@@ -8,14 +8,12 @@ import { IBridge, Bridge } from "../contracts/bridge/Bridge.sol";
 import { BridgeErrors } from "../contracts/bridge/BridgeErrors.sol";
 import { NFTVaultParent } from "../contracts/bridge/NFTVaultParent.sol";
 import { ERC721Vault } from "../contracts/bridge/erc721/ERC721Vault.sol";
-import { ERC1155Vault } from "../contracts/bridge/erc1155/ERC1155Vault.sol";
 import { LibERC721 } from "../contracts/bridge/erc721/libs/LibERC721.sol";
 import { EtherVault } from "../contracts/bridge/EtherVault.sol";
 import { LibBridgeStatus } from "../contracts/bridge/libs/LibBridgeStatus.sol";
 import { SignalService } from "../contracts/signal/SignalService.sol";
 import { ICrossChainSync } from "../contracts/common/ICrossChainSync.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 
 // Template canonical erc721 token
 contract TestTokenERC721 is ERC721 {
@@ -39,16 +37,6 @@ contract TestTokenERC721 is ERC721 {
             _safeMint(msg.sender, minted + i);
         }
         minted+= amount;
-    }
-}
-
-// Template canonical erc1155 token
-contract TestTokenERC1155 is ERC1155 {
-
-    constructor(string memory baseURI) ERC1155(baseURI){}
-    
-    function mint(uint256 tokenId, uint256 amount) public {
-        _mint(msg.sender, tokenId, amount, '');
     }
 }
 
@@ -96,17 +84,14 @@ contract PrankCrossChainSync is ICrossChainSync {
     }
 }
 
-contract NFTBridgeTest is Test {
+contract ERC721VaultTest is Test {
     AddressManager addressManager;
     BadReceiver badReceiver;
     Bridge bridge;
     Bridge destChainBridge;
     ERC721Vault erc721Vault;
     ERC721Vault destChainErc721Vault;
-    ERC1155Vault erc1155Vault;
-    ERC1155Vault destChainErc1155Vault;
     TestTokenERC721 canonicalToken721;
-    TestTokenERC1155 canonicalToken1155;
     EtherVault etherVault;
     SignalService signalService;
     PrankCrossChainSync crossChainSync;
@@ -140,12 +125,6 @@ contract NFTBridgeTest is Test {
         destChainErc721Vault = new ERC721Vault();
         destChainErc721Vault.init(address(addressManager));
 
-        erc1155Vault = new ERC1155Vault();
-        erc1155Vault.init(address(addressManager));
-
-        destChainErc1155Vault = new ERC1155Vault();
-        destChainErc1155Vault.init(address(addressManager));
-
         crossChainSync = new PrankCrossChainSync();
 
         addressManager.setAddress(
@@ -168,20 +147,8 @@ contract NFTBridgeTest is Test {
             destChainId, "erc721_vault", address(destChainErc721Vault)
         );
 
-
-        addressManager.setAddress(
-            block.chainid, "erc1155_vault", address(erc1155Vault)
-        );
-
-        addressManager.setAddress(
-            destChainId, "erc1155_vault", address(destChainErc1155Vault)
-        );
-
         canonicalToken721 = new TestTokenERC721("http://example.host.com/");
         canonicalToken721.mint(10);
-
-        canonicalToken1155 = new TestTokenERC1155("http://example.host.com/");
-        canonicalToken1155.mint(1, 10);
 
         vm.stopPrank();
     }
@@ -212,7 +179,7 @@ contract NFTBridgeTest is Test {
         assertEq(ERC721(canonicalToken721).ownerOf(1), address(erc721Vault));
     }
 
-    function test_decode_message_calldata()
+    function test_decode_message_calldata_721()
         public
     {
 
@@ -245,111 +212,5 @@ contract NFTBridgeTest is Test {
         assertEq("TT", nftRetVal.symbol);
         assertEq("TT", nftRetVal.name);
         assertEq("http://example.host.com/", nftRetVal.uri);
-    }
-
-    function test_sendToken_ERC1155()
-        public
-    {
-        vm.prank(Alice, Alice);
-        canonicalToken1155.setApprovalForAll(address(erc1155Vault),true);
-
-        assertEq(canonicalToken1155.balanceOf(Alice, 1), 10);
-        assertEq(canonicalToken1155.balanceOf(address(erc1155Vault), 1), 0);
-
-        NFTVaultParent.BridgeTransferOp memory sendOpts = NFTVaultParent.BridgeTransferOp(
-            destChainId,
-            Alice,
-            address(canonicalToken1155),
-            "http://example.host.com/",
-            1,
-            2,
-            140000,
-            140000,
-            Alice,
-            ""
-        );
-        vm.prank(Alice,Alice);
-        erc1155Vault.sendToken{ value: 140000 }(sendOpts);
-
-        assertEq(canonicalToken1155.balanceOf(Alice, 1), 8);
-        assertEq(canonicalToken1155.balanceOf(address(erc1155Vault), 1), 2);
-    }
-
-    function test_sendToken_with_invalid_to_address()
-        public
-    {
-        vm.prank(Alice, Alice);
-        canonicalToken1155.setApprovalForAll(address(erc1155Vault),true);
-
-        assertEq(canonicalToken1155.balanceOf(Alice, 1), 10);
-        assertEq(canonicalToken1155.balanceOf(address(erc1155Vault), 1), 0);
-
-        NFTVaultParent.BridgeTransferOp memory sendOpts = NFTVaultParent.BridgeTransferOp(
-            destChainId,
-            address(0),
-            address(canonicalToken1155),
-            "http://example.host.com/",
-            1,
-            2,
-            140000,
-            140000,
-            Alice,
-            ""
-        );
-        vm.prank(Alice,Alice);
-        vm.expectRevert(BridgeErrors.NFTVAULT_INVALID_TO.selector);
-        erc1155Vault.sendToken{ value: 140000 }(sendOpts);
-    }
-
-    function test_sendToken_with_invalid_token_address()
-        public
-    {
-        vm.prank(Alice, Alice);
-        canonicalToken1155.setApprovalForAll(address(erc1155Vault),true);
-
-        assertEq(canonicalToken1155.balanceOf(Alice, 1), 10);
-        assertEq(canonicalToken1155.balanceOf(address(erc1155Vault), 1), 0);
-
-        NFTVaultParent.BridgeTransferOp memory sendOpts = NFTVaultParent.BridgeTransferOp(
-            destChainId,
-            Alice,
-            address(0),
-            "http://example.host.com/",
-            1,
-            2,
-            140000,
-            140000,
-            Alice,
-            ""
-        );
-        vm.prank(Alice,Alice);
-        vm.expectRevert(BridgeErrors.NFTVAULT_INVALID_TOKEN.selector);
-        erc1155Vault.sendToken{ value: 140000 }(sendOpts);
-    }
-
-    function test_sendToken_with_0_tokens()
-        public
-    {
-        vm.prank(Alice, Alice);
-        canonicalToken1155.setApprovalForAll(address(erc1155Vault),true);
-
-        assertEq(canonicalToken1155.balanceOf(Alice, 1), 10);
-        assertEq(canonicalToken1155.balanceOf(address(erc1155Vault), 1), 0);
-
-        NFTVaultParent.BridgeTransferOp memory sendOpts = NFTVaultParent.BridgeTransferOp(
-            destChainId,
-            Alice,
-            address(canonicalToken1155),
-            "http://example.host.com/",
-            1,
-            0,
-            140000,
-            140000,
-            Alice,
-            ""
-        );
-        vm.prank(Alice,Alice);
-        vm.expectRevert(BridgeErrors.NFTVAULT_INVALID_AMOUNT.selector);
-        erc1155Vault.sendToken{ value: 140000 }(sendOpts);
     }
 }

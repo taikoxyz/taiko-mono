@@ -69,7 +69,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         assertEq(owner, addressManager.owner());
 
         checkSavedAddress(addressManager, "BridgeProxy", "bridge");
-        checkSavedAddress(addressManager, "ERC20VaultProxy", "token_vault");
+        checkSavedAddress(addressManager, "ERC20VaultProxy", "erc20_vault");
         checkSavedAddress(addressManager, "EtherVaultProxy", "ether_vault");
         checkSavedAddress(addressManager, "TaikoL2Proxy", "taiko");
         checkSavedAddress(
@@ -218,7 +218,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
 
         vm.startPrank(addressManager.owner());
         addressManager.setAddress(1, "bridge", bridgeAddress);
-        addressManager.setAddress(1, "token_vault", erc20VaultAddress);
+        addressManager.setAddress(1, "erc20_vault", erc20VaultAddress);
         vm.stopPrank();
 
         vm.startPrank(admin);

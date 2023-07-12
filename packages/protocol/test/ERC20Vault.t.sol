@@ -52,7 +52,7 @@ contract PrankDestBridge {
         ctx.msgHash = msgHash;
         ctx.srcChainId = srcChainId;
 
-        destERC20Vault.receiveERC20(canonicalToken, from, to, amount);
+        destERC20Vault.receiveToken(canonicalToken, from, to, amount);
 
         ctx.sender = address(0);
         ctx.msgHash = bytes32(0);
@@ -109,11 +109,11 @@ contract TestERC20Vault is Test {
         );
 
         addressManager.setAddress(
-            block.chainid, "token_vault", address(erc20Vault)
+            block.chainid, "erc20_vault", address(erc20Vault)
         );
 
         addressManager.setAddress(
-            destChainId, "token_vault", address(destChainIdERC20Vault)
+            destChainId, "erc20_vault", address(destChainIdERC20Vault)
         );
 
         addressManager.setAddress(

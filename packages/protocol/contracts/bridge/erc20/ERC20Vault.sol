@@ -214,7 +214,7 @@ contract ERC20Vault is EssentialContract {
         nonReentrant
     {
         if (
-            to == address(0) || to == resolve(destChainId, "token_vault", false)
+            to == address(0) || to == resolve(destChainId, "erc20_vault", false)
         ) {
             revert ERC20_VAULT_INVALID_TO();
         }
@@ -255,9 +255,9 @@ contract ERC20Vault is EssentialContract {
         IBridge.Message memory message;
         message.destChainId = destChainId;
         message.owner = msg.sender;
-        message.to = resolve(destChainId, "token_vault", false);
+        message.to = resolve(destChainId, "erc20_vault", false);
         message.data = abi.encodeWithSelector(
-            ERC20Vault.receiveERC20.selector,
+            ERC20Vault.receiveToken.selector,
             canonicalToken,
             message.owner,
             to,
@@ -347,7 +347,7 @@ contract ERC20Vault is EssentialContract {
      * @param to The destination address.
      * @param amount The amount of tokens to be sent. 0 is a valid value.
      */
-    function receiveERC20(
+    function receiveToken(
         CanonicalERC20 calldata canonicalToken,
         address from,
         address to,
@@ -358,7 +358,7 @@ contract ERC20Vault is EssentialContract {
         onlyFromNamed("bridge")
     {
         IBridge.Context memory ctx = IBridge(msg.sender).context();
-        if (ctx.sender != resolve(ctx.srcChainId, "token_vault", false)) {
+        if (ctx.sender != resolve(ctx.srcChainId, "erc20_vault", false)) {
             revert ERC20_VAULT_INVALID_SENDER();
         }
 

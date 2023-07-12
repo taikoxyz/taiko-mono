@@ -157,7 +157,7 @@ contract DeployOnL1 is Script {
         // ERC20Vault
         ERC20Vault erc20Vault = new ProxiedERC20Vault();
         deployProxy(
-            "token_vault",
+            "erc20_vault",
             address(erc20Vault),
             bytes.concat(
                 erc20Vault.init.selector, abi.encode(addressManagerProxy)
