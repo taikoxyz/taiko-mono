@@ -22,8 +22,6 @@ import {AddressResolver} from "../common/AddressResolver.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {IBridge} from "./IBridge.sol";
 import {Proxied} from "../common/Proxied.sol";
-import {LibERC721} from "./erc721/libs/LibERC721.sol";
-import {LibERC1155} from "./erc1155/libs/LibERC1155.sol";
 
 /**
  * This vault is a parent contract for ERC721 and ERC1155 vaults.
@@ -87,26 +85,61 @@ contract NFTVaultParent is
      * Custom Errors*
      *********************/
 
+    error NFTVAULT_CANONICAL_TOKEN_NOT_FOUND();
+    error NFTVAULT_INVALID_AMOUNT();
+    error NFTVAULT_INVALID_OWNER();
+    error NFTVAULT_INVALID_SENDER();
+    error NFTVAULT_INVALID_SRC_CHAIN_ID();
     error NFTVAULT_INVALID_TO();
     error NFTVAULT_INVALID_TOKEN();
-    error NFTVAULT_INVALID_AMOUNT();
-    error NFT_VAULT_INVALID_CONTRACT();
-    error NFTVAULT_INVALID_OWNER();
-    error NFTVAULT_INVALID_SRC_CHAIN_ID();
-    error NFTVAULT_INVALID_NFT_TYPE();
     error NFTVAULT_MESSAGE_NOT_FAILED();
 
     /*********************
-     * Private Functions *
+     * Internal Functions *
      *********************/
     /**
      * @dev Map canonical token with a bridged address
+     * @param bridgedToken The bridged token contract address
+     * @param canonical The canonical NFT
      */
-    function _setBridgedToken(address bridgedToken, CanonicalNFT memory canonical) internal {
+    function setBridgedToken(address bridgedToken, CanonicalNFT memory canonical) internal {
             isBridgedToken[bridgedToken] = true;
             bridgedToCanonical[bridgedToken] = canonical;
             canonicalToBridged[canonical.srcChainId][
                 canonical.tokenAddr
             ] = bridgedToken;
+    }
+
+    /**
+     * @dev Checks if token is invalid, or message is not failed and reverts in case otherwise returns the message hash
+     * @param message The bridged message struct data
+     * @param proof The proof bytes
+     * @param tokenAddress The token address to be checked
+     */
+    function msgHashIfValidRequest(
+        IBridge.Message calldata message,
+        bytes calldata proof,
+        address tokenAddress
+    ) internal view returns (bytes32 msgHash){
+        IBridge bridge = IBridge(resolve("bridge", false));
+        msgHash = bridge.hashMessage(message);
+
+        if (tokenAddress == address(0)) revert NFTVAULT_INVALID_TOKEN();
+
+        if (!bridge.isMessageFailed(msgHash, message.destChainId, proof)) {
+            revert NFTVAULT_MESSAGE_NOT_FAILED();
+        }
+    }
+
+    /**
+     * @dev Checks if context is valid
+     * @param validSender The valid sender to be allowed
+     */
+    function checkValidContext(
+        bytes32 validSender
+    ) internal view returns (IBridge.Context memory ctx){
+        ctx = IBridge(msg.sender).context();
+        if (ctx.sender != AddressResolver(this).resolve(ctx.srcChainId, validSender, false))
+            revert NFTVAULT_INVALID_SENDER();
     }
 }

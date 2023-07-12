@@ -73,36 +73,4 @@ abstract contract BridgeErrors {
 
     /// Emitted when a signal of zero is used
     error B_ZERO_SIGNAL();
-
-    // NFTVault related errors
-
-    /// Emitted when a canonical token counterpart is not found for the bridged one
-    error NFTVAULT_CANONICAL_TOKEN_NOT_FOUND();
-
-    /// Emitted when opts.amount is 0
-    error NFTVAULT_INVALID_AMOUNT();
-
-    /// Emitted when contract does not support supportsInterface()
-    error NFT_VAULT_INVALID_CONTRACT();
-
-    /// Emitted when the set type is neither erc1155 nor erc721
-    error NFTVAULT_INVALID_NFT_TYPE();
-
-    /// Emitted when user/owner has not enough balance (erc1155) or not owner of the asset (erc721)
-    error NFTVAULT_INVALID_OWNER();
-
-    /// Emitted when the sender (origin) is not the vault address - tho it should be
-    error NFTVAULT_INVALID_SENDER();
-
-    /// Emitted when opts.to is address(0)
-    error NFTVAULT_INVALID_TO();
-
-    /// Emitted when invalid opts.token is address(0)
-    error NFTVAULT_INVALID_TOKEN();
-    
-    /// Emited when invalid src chain is given
-    error NFTVAULT_INVALID_SRC_CHAIN_ID();
-
-    // Emitted when parsed proof shows, message is not failed
-    error NFTVAULT_MESSAGE_NOT_FAILED();
 }

@@ -13,14 +13,22 @@ import {
     IERC721Upgradeable
 } from "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
 import {
+    Create2Upgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
+import {
+    ERC721Upgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+import {
     IERC165
 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {EssentialContract} from "../../common/EssentialContract.sol";
 import {IBridge} from "../IBridge.sol";
+import {LibExtractCalldata} from "../libs/LibExtractCalldata.sol";
 import {NFTVaultParent} from "../NFTVaultParent.sol";
+import {BridgedERC721} from "./BridgedERC721.sol";
 import {Proxied} from "../../common/Proxied.sol";
-import {LibERC721} from "./libs/LibERC721.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
  * This vault holds all ERC721 tokens that users have deposited.
@@ -32,6 +40,43 @@ contract ERC721Vault is
     NFTVaultParent,
     IERC721Receiver
 {
+    /*********************
+     * Events            *
+     *********************/
+
+    event BridgedERC721Deployed(
+        uint256 indexed srcChainId,
+        address indexed canonicalToken,
+        address indexed bridgedToken,
+        string canonicalTokenSymbol,
+        string canonicalTokenName
+    );
+
+    event ERC721Sent(
+        bytes32 indexed msgHash,
+        address indexed from,
+        address indexed to,
+        uint256 destChainId,
+        address token,
+        uint256 tokenId
+    );
+
+    event ERC721Released(
+        bytes32 indexed msgHash,
+        address indexed from,
+        address token,
+        uint256 tokenId
+    );
+
+    event ERC721Received(
+        bytes32 indexed msgHash,
+        address indexed from,
+        address indexed to,
+        uint256 srcChainId,
+        address token,
+        uint256 tokenId
+    );
+
     function init(address addressManager) external initializer {
         EssentialContract._init(addressManager);
     }
@@ -41,51 +86,51 @@ contract ERC721Vault is
      * destination chain so the user can receive the same (bridged) tokens
      * by invoking the message call.
      *
-     * @param opts Options for sending the ERC721/ERC1155 token.
+     * @param opt Option for sending the ERC721/ERC1155 token.
      */
-    function sendToken(BridgeTransferOp calldata opts) external payable nonReentrant {
+    function sendToken(BridgeTransferOp calldata opt) external payable nonReentrant {
         if (
-            opts.to == address(0) ||
-            opts.to == resolve(opts.destChainId, "erc721_vault", false)
+            opt.to == address(0) ||
+            opt.to == resolve(opt.destChainId, "erc721_vault", false)
         ) revert NFTVAULT_INVALID_TO();
 
-        if (opts.token == address(0)) revert NFTVAULT_INVALID_TOKEN();
+        if (opt.token == address(0)) revert NFTVAULT_INVALID_TOKEN();
 
-        if (opts.amount != 1) revert NFTVAULT_INVALID_AMOUNT();
+        if (opt.amount != 1) revert NFTVAULT_INVALID_AMOUNT();
 
-        bytes memory data = LibERC721.sendToken(
+        bytes memory data = _sendToken(
             msg.sender,
-            opts.to,
-            opts.tokenId,
-            opts.token,
-            opts.baseTokenUri,
-            isBridgedToken[opts.token],
-            bridgedToCanonical[opts.token],
+            opt.to,
+            opt.tokenId,
+            opt.token,
+            opt.baseTokenUri,
+            isBridgedToken[opt.token],
+            bridgedToCanonical[opt.token],
             ERC721Vault.receiveToken.selector
         );
     
         IBridge.Message memory message;
-        message.destChainId = opts.destChainId;
+        message.destChainId = opt.destChainId;
         message.owner = msg.sender;
-        message.to = resolve(opts.destChainId, "erc721_vault", false);
+        message.to = resolve(opt.destChainId, "erc721_vault", false);
         message.data = data;
-        message.gasLimit = opts.gasLimit;
-        message.processingFee = opts.processingFee;
+        message.gasLimit = opt.gasLimit;
+        message.processingFee = opt.processingFee;
         message.depositValue = 0;
-        message.refundAddress = opts.refundAddress;
-        message.memo = opts.memo;
+        message.refundAddress = opt.refundAddress;
+        message.memo = opt.memo;
 
         bytes32 msgHash = IBridge(resolve("bridge", false)).sendMessage{
             value: msg.value
         }(message);
 
-        emit LibERC721.ERC721Sent({
+        emit ERC721Sent({
             msgHash: msgHash,
             from: message.owner,
-            to: opts.to,
-            destChainId: opts.destChainId,
-            token: opts.token,
-            tokenId: opts.tokenId
+            to: opt.to,
+            destChainId: opt.destChainId,
+            token: opt.token,
+            tokenId: opt.tokenId
         });
     }
 
@@ -110,8 +155,7 @@ contract ERC721Vault is
         (
             bool bridged,
             address bridgedToken
-        ) = LibERC721.receiveToken(
-                AddressResolver(this),
+        ) = _receiveToken(
                 address(_addressManager),
                 canonicalToken,
                 from,
@@ -121,7 +165,7 @@ contract ERC721Vault is
             );
 
         if (bridged) {
-            _setBridgedToken(bridgedToken, canonicalToken);
+            setBridgedToken(bridgedToken, canonicalToken);
         }
     }
 
@@ -140,16 +184,9 @@ contract ERC721Vault is
         address owner;
         uint256 tokenId;
         (nft, owner,,tokenId) = 
-            LibERC721.decodeTokenData(message.data);
+            decodeTokenData(message.data);
 
-        IBridge bridge = IBridge(resolve("bridge", false));
-        bytes32 msgHash = bridge.hashMessage(message);
-
-        if (nft.tokenAddr == address(0)) revert NFTVAULT_INVALID_TOKEN();
-
-        if (!bridge.isMessageFailed(msgHash, message.destChainId, proof)) {
-            revert NFTVAULT_MESSAGE_NOT_FAILED();
-        }
+        bytes32 msgHash = msgHashIfValidRequest(message, proof, nft.tokenAddr);
 
         address releasedToken = nft.tokenAddr;
 
@@ -160,7 +197,7 @@ contract ERC721Vault is
 
         IERC721Upgradeable(releasedToken).safeTransferFrom(address(this), message.owner, tokenId);
 
-        emit LibERC721.ERC721Released({
+        emit ERC721Released({
             msgHash: msgHash,
             from: message.owner,
             token: releasedToken,
@@ -175,6 +212,167 @@ contract ERC721Vault is
         bytes calldata
     ) external pure returns (bytes4) {
         return IERC721Receiver.onERC721Received.selector;
+    }
+
+    /**
+     * @dev Decodes the data which was abi.encodeWithSelector() encoded. We need this to get to know
+     * to whom / which token and tokenId we shall release.
+     */
+    function decodeTokenData(
+        bytes memory dataWithSelector
+    )
+        public pure
+        returns (NFTVaultParent.CanonicalNFT memory, address, address, uint256)
+    {
+        bytes memory calldataWithoutSelector = LibExtractCalldata.extractCalldata(dataWithSelector);
+        return abi.decode(calldataWithoutSelector, (NFTVaultParent.CanonicalNFT, address, address, uint256));
+    }
+
+    /*********************
+     * Private functions *
+     *********************/
+
+    function _sendToken(
+        address owner,
+        address to,
+        uint256 tokenId,
+        address token,
+        string memory tokenUri,
+        bool isBridgedToken,
+        NFTVaultParent.CanonicalNFT memory bridgedToCanonical,
+        bytes4 selector
+    ) private returns (bytes memory) {
+        NFTVaultParent.CanonicalNFT memory canonicalToken;
+
+        // is a bridged token, meaning, it does not live on this chain
+        if (isBridgedToken) {
+            if (BridgedERC721(token).ownerOf(tokenId) != msg.sender)
+                revert NFTVAULT_INVALID_OWNER();
+
+            BridgedERC721(token).bridgeBurnFrom(msg.sender, tokenId);
+            canonicalToken = bridgedToCanonical;
+            if (canonicalToken.tokenAddr == address(0))
+                revert NFTVAULT_CANONICAL_TOKEN_NOT_FOUND();
+        } else {
+            // is a canonical token, meaning, it lives on this chain
+            ERC721Upgradeable t = ERC721Upgradeable(token);
+            if (t.ownerOf(tokenId) != msg.sender)
+                revert NFTVAULT_INVALID_OWNER();
+
+            canonicalToken = NFTVaultParent.CanonicalNFT({
+                srcChainId: block.chainid,
+                tokenAddr: token,
+                symbol: t.symbol(),
+                name: t.name(),
+                uri: tokenUri
+            });
+            t.transferFrom(msg.sender, address(this), tokenId);
+        }
+
+        return
+            abi.encodeWithSelector(
+                selector,
+                canonicalToken,
+                owner,
+                to,
+                tokenId
+            );
+    }
+
+    function _receiveToken(
+        address addressManager,
+        NFTVaultParent.CanonicalNFT memory canonicalToken,
+        address from,
+        address to,
+        uint256 tokenId,
+        address canonicalToBridged
+    ) private returns (bool bridged, address token) {
+        IBridge.Context memory ctx = checkValidContext("erc721_vault");
+
+        if (canonicalToken.srcChainId == block.chainid) {
+            token = canonicalToken.tokenAddr;
+            bridged = false;
+            ERC721Upgradeable(token).transferFrom(address(this), to, tokenId);
+        } else {
+            (bridged, token) = _getOrDeployBridgedToken(
+                canonicalToken,
+                canonicalToBridged,
+                addressManager
+            );
+            BridgedERC721(token).bridgeMintTo(to, tokenId);
+        }
+
+        emit ERC721Received({
+            msgHash: ctx.msgHash,
+            from: from,
+            to: to,
+            srcChainId: ctx.srcChainId,
+            token: token,
+            tokenId: tokenId
+        });
+    }
+
+
+    function _getOrDeployBridgedToken(
+        NFTVaultParent.CanonicalNFT memory canonicalToken,
+        address token,
+        address addressManager
+    )
+        private
+        returns (bool, address)
+    {
+        return
+            token != address(0)
+                ? (false, token)
+                : _deployBridgedErc721(canonicalToken, addressManager);
+    }
+
+
+    /**
+     * @dev Deploys a new BridgedNFT contract and initializes it. This must be
+     * called before the first time a bridged token is sent to this chain.
+     */
+    function _deployBridgedErc721(
+        NFTVaultParent.CanonicalNFT memory canonicalToken,
+        address addressManager
+    )
+        private
+        returns (bool, address bridgedToken)
+    {
+        bridgedToken = Create2Upgradeable.deploy(
+            0, // amount of Ether to send
+            keccak256(
+                bytes.concat(
+                    bytes32(canonicalToken.srcChainId),
+                    bytes32(uint256(uint160(canonicalToken.tokenAddr)))
+                )
+            ),
+            type(BridgedERC721).creationCode
+        );
+
+        BridgedERC721(payable(bridgedToken)).init({
+            _addressManager: addressManager,
+            _srcToken: canonicalToken.tokenAddr,
+            _srcChainId: canonicalToken.srcChainId,
+            _symbol: ERC721Upgradeable(canonicalToken.tokenAddr).symbol(),
+            _name: string.concat(
+                ERC721Upgradeable(canonicalToken.tokenAddr).name(),
+                unicode"(bridged🌈",
+                Strings.toString(canonicalToken.srcChainId),
+                ")"
+            ),
+            _uri: canonicalToken.uri
+        });
+
+        emit BridgedERC721Deployed({
+            srcChainId: canonicalToken.srcChainId,
+            canonicalToken: canonicalToken.tokenAddr,
+            bridgedToken: bridgedToken,
+            canonicalTokenSymbol: canonicalToken.symbol,
+            canonicalTokenName: canonicalToken.name
+        });
+
+        return (true, bridgedToken);
     }
 }
 

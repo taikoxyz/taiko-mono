@@ -9,7 +9,6 @@ import { LibBridgeData } from "../contracts/bridge/libs/LibBridgeData.sol";
 import { BridgeErrors } from "../contracts/bridge/BridgeErrors.sol";
 import { NFTVaultParent } from "../contracts/bridge/NFTVaultParent.sol";
 import { ERC721Vault } from "../contracts/bridge/erc721/ERC721Vault.sol";
-import { LibERC721 } from "../contracts/bridge/erc721/libs/LibERC721.sol";
 import { EtherVault } from "../contracts/bridge/EtherVault.sol";
 import { LibBridgeStatus } from "../contracts/bridge/libs/LibBridgeStatus.sol";
 import { SignalService } from "../contracts/signal/SignalService.sol";
@@ -56,13 +55,13 @@ contract NonNftContract {
 contract PrankDestBridge {
     ERC721Vault destERC721Vault;
 
-    struct Context {
-        bytes32 msgHash; // messageHash
+    struct BridgeContext {
+        bytes32 msgHash;
         address sender;
         uint256 srcChainId;
     }
 
-    PrankDestBridge.Context ctx;
+    BridgeContext ctx;
 
     constructor(ERC721Vault _erc721Vault) {
         destERC721Vault = _erc721Vault;
@@ -72,7 +71,7 @@ contract PrankDestBridge {
         destERC721Vault = ERC721Vault(addr);
     }
 
-    function context() public view returns (PrankDestBridge.Context memory) {
+    function context() public view returns (BridgeContext memory) {
         return ctx;
     }
 
@@ -289,7 +288,7 @@ contract ERC721VaultTest is Test {
         address ownerRetVal;
         uint256 tokenIdRetVal;
         (nftRetVal, ownerRetVal,,tokenIdRetVal) = 
-            LibERC721.decodeTokenData(dataToDecode);
+            erc721Vault.decodeTokenData(dataToDecode);
 
         assertEq(Alice, ownerRetVal);
         assertEq(1, tokenIdRetVal);
@@ -322,7 +321,7 @@ contract ERC721VaultTest is Test {
             ""
         );
         vm.prank(Alice,Alice);
-        vm.expectRevert(BridgeErrors.NFTVAULT_INVALID_TO.selector);
+        vm.expectRevert(NFTVaultParent.NFTVAULT_INVALID_TO.selector);
         erc721Vault.sendToken{ value: 140000 }(sendOpts);
     }
 
@@ -347,7 +346,7 @@ contract ERC721VaultTest is Test {
             ""
         );
         vm.prank(Alice,Alice);
-        vm.expectRevert(BridgeErrors.NFTVAULT_INVALID_TOKEN.selector);
+        vm.expectRevert(NFTVaultParent.NFTVAULT_INVALID_TOKEN.selector);
         erc721Vault.sendToken{ value: 140000 }(sendOpts);
     }
 
@@ -372,7 +371,7 @@ contract ERC721VaultTest is Test {
             ""
         );
         vm.prank(Alice,Alice);
-        vm.expectRevert(BridgeErrors.NFTVAULT_INVALID_AMOUNT.selector);
+        vm.expectRevert(NFTVaultParent.NFTVAULT_INVALID_AMOUNT.selector);
         erc721Vault.sendToken{ value: 140000 }(sendOpts);
     }
 

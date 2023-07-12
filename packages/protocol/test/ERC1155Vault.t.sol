@@ -10,7 +10,6 @@ import { LibBridgeData } from "../contracts/bridge/libs/LibBridgeData.sol";
 import { BridgeErrors } from "../contracts/bridge/BridgeErrors.sol";
 import { NFTVaultParent } from "../contracts/bridge/NFTVaultParent.sol";
 import { ERC1155Vault } from "../contracts/bridge/erc1155/ERC1155Vault.sol";
-import { LibERC1155 } from "../contracts/bridge/erc1155/libs/LibERC1155.sol";
 import { EtherVault } from "../contracts/bridge/EtherVault.sol";
 import { LibBridgeStatus } from "../contracts/bridge/libs/LibBridgeStatus.sol";
 import { SignalService } from "../contracts/signal/SignalService.sol";
@@ -42,13 +41,13 @@ contract NonNftContract {
 contract PrankDestBridge {
     ERC1155Vault destERC1155Vault;
 
-    struct Context {
-        bytes32 msgHash; // messageHash
+    struct BridgeContext {
+        bytes32 msgHash;
         address sender;
         uint256 srcChainId;
     }
 
-    PrankDestBridge.Context ctx;
+    BridgeContext ctx;
 
     constructor(ERC1155Vault _erc1155Vault) {
         destERC1155Vault = _erc1155Vault;
@@ -58,7 +57,7 @@ contract PrankDestBridge {
         destERC1155Vault = ERC1155Vault(addr);
     }
 
-    function context() public view returns (PrankDestBridge.Context memory) {
+    function context() public view returns (BridgeContext memory) {
         return ctx;
     }
 
@@ -279,7 +278,7 @@ contract ERC1155VaultTest is Test {
         uint256 tokenIdRetVal;
         uint256 tokenAmountRetVal;
         (nftRetVal, ownerRetVal,,tokenIdRetVal,tokenAmountRetVal) = 
-            LibERC1155.decodeTokenData(dataToDecode);
+            erc1155Vault.decodeTokenData(dataToDecode);
 
         assertEq(Alice, ownerRetVal);
         assertEq(1, tokenIdRetVal);
@@ -313,7 +312,7 @@ contract ERC1155VaultTest is Test {
             ""
         );
         vm.prank(Alice,Alice);
-        vm.expectRevert(BridgeErrors.NFTVAULT_INVALID_TO.selector);
+        vm.expectRevert(NFTVaultParent.NFTVAULT_INVALID_TO.selector);
         erc1155Vault.sendToken{ value: 140000 }(sendOpts);
     }
 
@@ -339,7 +338,7 @@ contract ERC1155VaultTest is Test {
             ""
         );
         vm.prank(Alice,Alice);
-        vm.expectRevert(BridgeErrors.NFTVAULT_INVALID_TOKEN.selector);
+        vm.expectRevert(NFTVaultParent.NFTVAULT_INVALID_TOKEN.selector);
         erc1155Vault.sendToken{ value: 140000 }(sendOpts);
     }
 
@@ -365,7 +364,7 @@ contract ERC1155VaultTest is Test {
             ""
         );
         vm.prank(Alice,Alice);
-        vm.expectRevert(BridgeErrors.NFTVAULT_INVALID_AMOUNT.selector);
+        vm.expectRevert(NFTVaultParent.NFTVAULT_INVALID_AMOUNT.selector);
         erc1155Vault.sendToken{ value: 140000 }(sendOpts);
     }
 

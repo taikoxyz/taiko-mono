@@ -130,13 +130,6 @@ contract ERC20Vault is EssentialContract {
     error ERC20_VAULT_INVALID_TO();
 
     /**
-     * Thrown when the value in a transaction is invalid.
-     * The value can be an Ether amount or the amount of a token being
-     * transferred.
-     */
-    error ERC20_VAULT_INVALID_VALUE();
-
-    /**
      * Thrown when the token address in a transaction is invalid.
      * This could happen if the token address is zero or doesn't conform to the
      * ERC20 standard.
