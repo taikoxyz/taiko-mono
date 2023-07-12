@@ -101,7 +101,7 @@
   </span>
 
   <dialog id={dialogId} class="modal modal-bottom md:absolute md:px-4 md:pb-4" class:modal-open={modalOpen}>
-    <div class="modal-box relative px-6 py-[35px] bg-neutral-background rounded-[20px]">
+    <div class="modal-box relative px-6 py-[35px] bg-neutral-background">
       <button class="absolute right-6 top-[35px]" on:click={closeModal}>
         <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
       </button>

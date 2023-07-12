@@ -136,7 +136,5 @@
         {/each}
       </ul>
     </div>
-
-    <div class="overlay-backdrop" />
   </dialog>
 </div>
