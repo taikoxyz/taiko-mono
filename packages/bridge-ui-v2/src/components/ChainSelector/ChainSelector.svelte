@@ -1,27 +1,27 @@
 <script lang="ts">
-  import type { Chain, GetNetworkResult } from '@wagmi/core';
+  import { type Chain, type GetNetworkResult, switchNetwork } from '@wagmi/core';
   import type { ComponentType } from 'svelte';
-  import { noop, onDestroy } from 'svelte/internal';
+  import { onDestroy } from 'svelte/internal';
   import { t } from 'svelte-i18n';
+  import { UserRejectedRequestError } from 'viem';
 
   import { EthIcon, Icon, TaikoIcon } from '$components/Icon';
+  import { LoadingMask } from '$components/LoadingMask';
   import { warningToast } from '$components/NotificationToast';
   import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID } from '$env/static/public';
   import { chains } from '$libs/chain';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
 
-  // TODO: think about updating the state for the network here
-
   export let label: string;
   export let value: Maybe<GetNetworkResult['chain']> = null;
-  export let onChange: (chain: Chain) => void = noop;
 
   let chainToIconMap: Record<string, ComponentType> = {
     [PUBLIC_L1_CHAIN_ID]: EthIcon,
     [PUBLIC_L2_CHAIN_ID]: TaikoIcon,
   };
 
+  let switchingNetwork = false;
   let buttonId = `button-${uid()}`;
   let dialogId = `dialog-${uid()}`;
   let modalOpen = false;
@@ -41,12 +41,23 @@
     modalOpen = true;
   }
 
-  function selectChain(chain: Chain) {
-    if (chain === value) return;
+  async function selectChain(chain: Chain) {
+    if (chain.id === value?.id) return;
 
-    value = chain;
-    onChange?.(chain); // TODO: data binding? 🤔
-    closeModal();
+    switchingNetwork = true;
+
+    try {
+      await switchNetwork({ chainId: chain.id });
+      closeModal();
+    } catch (error) {
+      console.error(error);
+
+      if (error instanceof UserRejectedRequestError) {
+        warningToast($t('messages.network.rejected'));
+      }
+    } finally {
+      switchingNetwork = false;
+    }
   }
 
   function getChainKeydownHandler(chain: Chain) {
@@ -86,22 +97,33 @@
   </div>
 
   <dialog id={dialogId} class="modal modal-bottom md:modal-middle" class:modal-open={modalOpen}>
-    <div class="modal-box relative px-6 py-[21px] bg-primary-base-background text-primary-base-content">
-      <button class="absolute right-6 top-[21px]" on:click={closeModal}>
-        <Icon type="x-close" fillClass="fill-secondary-icon" />
+    <div class="modal-box relative px-6 py-[35px] md:py-[20px] bg-primary-base-background text-primary-base-content">
+      {#if switchingNetwork}
+        <LoadingMask
+          class="bg-grey-0/60"
+          spinnerClass="border-primary-base-content"
+          text={$t('messages.network.switching')} />
+      {/if}
+
+      <button class="absolute right-6 top-[35px] md:top-[20px]" on:click={closeModal}>
+        <Icon type="x-close" fillClass="fill-secondary-icon" size={24} />
       </button>
-      <h3 class="title-body-bold">{$t('chain_selector.placeholder')}</h3>
-      <ul class="menu space-y-4">
+      <h3 class="title-body-bold mb-[20px]">{$t('chain_selector.placeholder')}</h3>
+      <ul role="menu" class="space-y-4">
         {#each chains as chain (chain.id)}
+          {@const disabled = chain.id === value?.id}
           <li
             role="menuitem"
             tabindex="0"
-            class:opacity-50={chain === value}
-            aria-disabled={chain === value}
+            class="p-4 rounded-[10px]"
+            class:opacity-20={disabled}
+            class:hover:bg-grey-10={!disabled}
+            class:hover:cursor-pointer={!disabled}
+            aria-disabled={disabled}
             on:click={() => selectChain(chain)}
             on:keydown={getChainKeydownHandler(chain)}>
             <!-- TODO: agree on hover:bg color -->
-            <div class="f-row justify-between hover:text-primary-base-content hover:bg-grey-10">
+            <div class="f-row justify-between">
               <div class="f-items-center space-x-4">
                 <i role="img" aria-label={chain.name}>
                   <svelte:component this={chainToIconMap[chain.id]} size={32} />
@@ -114,7 +136,5 @@
         {/each}
       </ul>
     </div>
-
-    <div class="overlay-backdrop" />
   </dialog>
 </div>
