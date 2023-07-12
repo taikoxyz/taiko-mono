@@ -1,28 +1,24 @@
 <script lang="ts">
-  import { type ComponentType, onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
 
-  import { BllIcon, EthIcon, HorseIcon, Icon } from '$components/Icon';
+  import { Icon } from '$components/Icon';
   import type { Token } from '$libs/token';
-  import { classNames } from '$libs/util/classNames';
   import { uid } from '$libs/util/uid';
+
+  import DialogView from './DialogView.svelte';
+  import DropdownView from './DropdownView.svelte';
+  import { symbolToIconMap } from './symbolToIconMap';
 
   export let tokens: Token[] = [];
   export let value: Maybe<Token> = null;
 
-  let symbolToIconMap: Record<string, ComponentType> = {
-    ETH: EthIcon,
-    BLL: BllIcon,
-    HORSE: HorseIcon,
-  };
-
-  let dropdownId = `dropdown-${uid()}`;
+  let id = `menu-${uid()}`;
   let menuOpen = false;
 
-  $: menuClasses = classNames(
-    'menu absolute right-0 w-[265px] p-3 mt-2 rounded-[10px] bg-neutral-background z-10',
-    menuOpen ? 'visible opacity-100' : 'invisible opacity-0',
-  );
+  // Default to true if globalThis or matchMedia are not available (SSR?).
+  // Desktop view looks also good in small screens.
+  let isDesktopOrLarger = globalThis?.matchMedia?.('(min-width: 768px)').matches ?? true;
 
   function closeMenu() {
     menuOpen = false;
@@ -39,14 +35,6 @@
     closeMenu();
   }
 
-  function getTokenKeydownHandler(token: Token) {
-    return (event: KeyboardEvent) => {
-      if (event.key === 'Enter') {
-        selectToken(token);
-      }
-    };
-  }
-
   onMount(() => {
     document.addEventListener('click', closeMenu);
   });
@@ -60,14 +48,14 @@
 <div class="relative">
   <button
     aria-haspopup="listbox"
-    aria-controls={dropdownId}
+    aria-controls={id}
     aria-expanded={menuOpen}
     class="f-between-center w-full px-6 py-[14px] input-box"
     on:click={openMenu}
     on:focus={openMenu}>
     <div class="space-x-2">
       {#if !value}
-        <span class="title-subsection-bold text-tertiary-content leading-8">{$t('token_dropdown.placeholder')}</span>
+        <span class="title-subsection-bold text-tertiary-content leading-8">{$t('token_dropdown.label')}</span>
       {/if}
       {#if value}
         <div class="flex space-x-2 items-center">
@@ -81,21 +69,13 @@
     <Icon type="chevron-down" />
   </button>
 
-  <ul role="listbox" id={dropdownId} class={menuClasses}>
-    {#each tokens as token (token.symbol)}
-      <li
-        role="option"
-        tabindex="0"
-        aria-selected={token === value}
-        on:click={() => selectToken(token)}
-        on:keydown={getTokenKeydownHandler(token)}>
-        <div class="p-4">
-          <i role="img" aria-label={token.name}>
-            <svelte:component this={symbolToIconMap[token.symbol]} />
-          </i>
-          <span class="body-bold">{token.symbol}</span>
-        </div>
-      </li>
-    {/each}
-  </ul>
+  <!--
+    TODO: does not change on resizing, but it's not a big deal since both
+          views work well on small and large screens.
+  -->
+  {#if isDesktopOrLarger}
+    <DropdownView {id} {menuOpen} {tokens} {value} {selectToken} />
+  {:else}
+    <DialogView {id} {menuOpen} {tokens} {value} {selectToken} {closeMenu} />
+  {/if}
 </div>

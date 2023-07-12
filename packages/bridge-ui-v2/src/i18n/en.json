@@ -77,7 +77,7 @@
   },
 
   "token_dropdown": {
-    "placeholder": "Select token"
+    "label": "Select token"
   },
 
   "amount_input": {
