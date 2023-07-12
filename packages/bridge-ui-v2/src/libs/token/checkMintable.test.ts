@@ -44,12 +44,11 @@ const mockPublicClient = {
 } as unknown as PublicClient;
 
 describe('checkMintable', () => {
-
   beforeAll(() => {
     vi.mocked(getWalletClient).mockResolvedValue(mockWalletClient);
     vi.mocked(getContract).mockReturnValue(mockTokenContract);
     vi.mocked(getPublicClient).mockReturnValue(mockPublicClient);
-  })
+  });
 
   it('should throw when wallet is not connected', async () => {
     vi.mocked(getWalletClient).mockResolvedValueOnce(null);
@@ -117,5 +116,5 @@ describe('checkMintable', () => {
     } catch (error) {
       expect.fail('should not have thrown');
     }
-  })
+  });
 });
