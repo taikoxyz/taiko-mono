@@ -5,8 +5,8 @@
   import { Icon } from '$components/Icon';
   import { InputBox } from '$components/InputBox';
   import { Tooltip } from '$components/Tooltip';
-  import { ProcessingFeeMethod } from '$libs/free';
-  import { recommendProcessingFee } from '$libs/free';
+  import { ProcessingFeeMethod } from '$libs/fee';
+  import { recommendProcessingFee } from '$libs/fee';
   import { uid } from '$libs/util/uid';
 
   let dialogId = `dialog-${uid()}`;
