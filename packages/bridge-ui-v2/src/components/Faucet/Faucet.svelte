@@ -180,7 +180,3 @@
     {/if}
   </div>
 </Card>
-
-<!-- <Modal title={$t('')}>
-
-</Modal> -->

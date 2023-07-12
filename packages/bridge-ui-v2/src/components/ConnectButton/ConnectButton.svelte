@@ -4,9 +4,9 @@
   import { t } from 'svelte-i18n';
 
   import { Button } from '$components/Button';
+  import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { Icon } from '$components/Icon';
   import { web3modal } from '$libs/connect';
-  import { DesktopOrLarger } from '$components/DesktopOrLarger';
 
   export let connected = false;
 

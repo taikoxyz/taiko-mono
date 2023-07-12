@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy } from 'svelte';
   import { t } from 'svelte-i18n';
 
+  import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { Icon } from '$components/Icon';
   import type { Token } from '$libs/token';
   import { uid } from '$libs/util/uid';
@@ -9,7 +10,6 @@
   import DialogView from './DialogView.svelte';
   import DropdownView from './DropdownView.svelte';
   import { symbolToIconMap } from './symbolToIconMap';
-  import { DesktopOrLarger } from '$components/DesktopOrLarger';
 
   export let tokens: Token[] = [];
   export let value: Maybe<Token> = null;
