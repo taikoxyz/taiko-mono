@@ -99,7 +99,7 @@
     },
     "network": {
       "switching": "Switching network",
-      "rejected": "Switch chain request rejected."
+      "rejected": "Request to switch chain rejected."
     }
   },
 
