@@ -97,4 +97,25 @@ describe('checkMintable', () => {
       expect(cause).toBe(MintableError.INSUFFICIENT_BALANCE);
     }
   });
+
+  it('should not throw', async () => {
+    vi.mocked(mockTokenContract.read.minters).mockResolvedValueOnce(false);
+
+    // Estimated gas to mint is 100
+    vi.mocked(mockTokenContract.estimateGas.mint).mockResolvedValueOnce(BigInt(100));
+
+    // Gas price is 2
+    vi.mocked(mockPublicClient.getGasPrice).mockResolvedValueOnce(BigInt(2));
+
+    // Estimated cost is 100 * 2 = 200
+
+    // User balance is 300 (more than 200)
+    vi.mocked(mockPublicClient.getBalance).mockResolvedValueOnce(BigInt(300));
+
+    try {
+      await checkMintable(mockToken, mockNetwork);
+    } catch (error) {
+      expect.fail('should not have thrown');
+    }
+  })
 });
