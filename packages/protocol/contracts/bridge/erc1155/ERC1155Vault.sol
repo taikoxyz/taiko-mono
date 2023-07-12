@@ -101,6 +101,7 @@ contract ERC1155Vault is
      * @param from The source address.
      * @param to The destination address.
      * @param tokenId The tokenId to be sent.
+     * @param amount The amount to be sent.
      */
     function receiveToken(
         NFTVaultParent.CanonicalNFT calldata canonicalToken,
