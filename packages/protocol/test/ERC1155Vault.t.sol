@@ -86,7 +86,6 @@ contract PrankDestBridge {
     }
 }
 
-
 // PrankSrcBridge lets us mock Bridge/SignalService to return true when called
 // isMessageFailed()
 contract PrankSrcBridge {
@@ -226,7 +225,7 @@ contract ERC1155VaultTest is Test {
         vm.stopPrank();
     }
 
-    function test_sendToken_ERC1155()
+    function test_sendToken_1155()
         public
     {
         vm.prank(Alice, Alice);
@@ -292,8 +291,7 @@ contract ERC1155VaultTest is Test {
         assertEq("http://example.host.com/", nftRetVal.uri);
     }
 
-
-    function test_sendToken_with_invalid_to_address()
+    function test_sendToken_with_invalid_to_address_1155()
         public
     {
         vm.prank(Alice, Alice);
@@ -319,7 +317,7 @@ contract ERC1155VaultTest is Test {
         erc1155Vault.sendToken{ value: 140000 }(sendOpts);
     }
 
-    function test_sendToken_with_invalid_token_address()
+    function test_sendToken_with_invalid_token_address_1155()
         public
     {
         vm.prank(Alice, Alice);
@@ -345,7 +343,7 @@ contract ERC1155VaultTest is Test {
         erc1155Vault.sendToken{ value: 140000 }(sendOpts);
     }
 
-    function test_sendToken_with_0_tokens()
+    function test_sendToken_with_0_tokens_1155()
         public
     {
         vm.prank(Alice, Alice);

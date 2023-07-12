@@ -204,9 +204,9 @@ library LibERC721 {
             _addressManager: addressManager,
             _srcToken: canonicalToken.tokenAddr,
             _srcChainId: canonicalToken.srcChainId,
-            _symbol: canonicalToken.symbol,
+            _symbol: ERC721Upgradeable(canonicalToken.tokenAddr).symbol(),
             _name: string.concat(
-                canonicalToken.name,
+                ERC721Upgradeable(canonicalToken.tokenAddr).name(),
                 unicode"(bridged🌈",
                 Strings.toString(canonicalToken.srcChainId),
                 ")"

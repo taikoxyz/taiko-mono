@@ -51,7 +51,7 @@ contract ERC721Vault is
 
         if (opts.token == address(0)) revert NFTVAULT_INVALID_TOKEN();
 
-        if (opts.amount == 0) revert NFTVAULT_INVALID_AMOUNT();
+        if (opts.amount != 1) revert NFTVAULT_INVALID_AMOUNT();
 
         bytes memory data = LibERC721.sendToken(
             msg.sender,
