@@ -112,11 +112,13 @@
       <ul role="menu" class="space-y-4">
         {#each chains as chain (chain.id)}
           {@const disabled = chain.id === value?.id}
-          {@const liConditionalClass = disabled ? 'opacity-50' : 'hover:bg-grey-10 hover:cursor-pointer'}
           <li
             role="menuitem"
             tabindex="0"
-            class={`p-4 rounded-[10px] ${liConditionalClass}`}
+            class="p-4 rounded-[10px]"
+            class:opacity-20={disabled}
+            class:hover:bg-grey-10={!disabled}
+            class:hover:cursor-pointer={!disabled}
             aria-disabled={disabled}
             on:click={() => selectChain(chain)}
             on:keydown={getChainKeydownHandler(chain)}>
