@@ -1,9 +1,10 @@
-import ConnectToMetamaskButton from 'components/ConnectToMetamaskButton';
+import ConnectToMetamaskButton from "components/ConnectToMetamaskButton";
 
 # RPC configuration
 
 ## Sepolia
-<br/>
+
+<br />
 <ConnectToMetamaskButton network="Sepolia" />
 
 | Name               | Value                        |
@@ -13,9 +14,10 @@ import ConnectToMetamaskButton from 'components/ConnectToMetamaskButton';
 | Symbol             | ETH                          |
 | Block Explorer URL | https://sepolia.etherscan.io |
 
-## Taiko
-<br/>
-<ConnectToMetamaskButton network="Taiko" />
+## Taiko L2 (Grimsvotn)
+
+<br />
+<ConnectToMetamaskButton network="Grimsvotn" />
 
 | Name               | Value                           |
 | ------------------ | ------------------------------- |
@@ -24,3 +26,16 @@ import ConnectToMetamaskButton from 'components/ConnectToMetamaskButton';
 | RPC (WebSocket)    | wss://ws.test.taiko.xyz         |
 | Symbol             | ETH                             |
 | Block Explorer URL | https://explorer.test.taiko.xyz |
+
+## Taiko L3 (Eldfell)
+
+<br />
+<ConnectToMetamaskButton network="Eldfell" />
+
+| Name               | Value                             |
+| ------------------ | --------------------------------- |
+| Chain ID           | 167005                            |
+| RPC (HTTPS)        | https://l3rpc.test.taiko.xyz      |
+| RPC (WebSocket)    | wss://l3ws.test.taiko.xyz         |
+| Symbol             | ETH                               |
+| Block Explorer URL | https://l3explorer.test.taiko.xyz |
