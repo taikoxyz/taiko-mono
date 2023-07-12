@@ -17,7 +17,7 @@
   let web3modalOpen = false;
   let unsubscribeWeb3Modal = noop;
 
-  $: web3modalBalance = connected && isDesktopOrLarger ? 'show' : 'hide';
+  $: web3ButtonBalance = connected && isDesktopOrLarger ? 'show' : 'hide';
 
   function connectWallet() {
     if (web3modalOpen) return;
@@ -43,7 +43,7 @@
   https://docs.walletconnect.com/2.0/web/web3modal/html/wagmi/components
 -->
 {#if connected}
-  <w3m-core-button balance={web3modalBalance} />
+  <w3m-core-button balance={web3ButtonBalance} />
 {:else}
   <!-- TODO: fixing the width for English. i18n? -->
   <Button class="px-[20px] py-2 rounded-full w-[215px]" type="neutral" loading={web3modalOpen} on:click={connectWallet}>
