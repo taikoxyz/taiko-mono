@@ -23,6 +23,9 @@
   "enable-a-prover": {
     "title": "✅ Enable a prover"
   },
+  "claim-prover-ttko": {
+    "title": "🛄 Claim prover TTKO"
+  },
   "deploy-a-contract": {
     "title": "🚀 Deploy a contract"
   },
