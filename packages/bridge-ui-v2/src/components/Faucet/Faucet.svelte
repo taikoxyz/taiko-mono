@@ -87,6 +87,9 @@
     return Boolean(network?.id.toString() !== PUBLIC_L1_CHAIN_ID);
   }
 
+  // This function will check whether or not the button to mint should be
+  // enabled. If it shouldn't it'll also set the reason why so we can inform
+  // the user why they can't mint
   async function shouldEnableMintButton(token: Maybe<Token>, network: Maybe<Chain>) {
     if (!token || !network) return false;
 
