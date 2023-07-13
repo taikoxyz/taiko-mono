@@ -21,7 +21,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     error BRIDGED_TOKEN_CANNOT_RECEIVE();
     error BRIDGED_TOKEN_INVALID_PARAMS();
 
-    // TODO(dani): remove this, use Transfer event
+    // TODO(dani): remove these events, use Transfer event
     event BridgeERC721Mint(address indexed account, uint256 tokenId);
     event BridgeERC721Burn(address indexed account, uint256 tokenId);
 

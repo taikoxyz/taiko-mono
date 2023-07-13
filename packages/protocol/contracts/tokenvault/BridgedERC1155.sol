@@ -29,7 +29,7 @@ contract BridgedERC1155 is
     string public srcUri;
     uint256[47] private gap;
 
-    // TODO(dani): remove this, use Transfer event
+    // TODO(dani): remove these events, use Transfer event
     event BridgeERC1155Mint(
         address indexed account, uint256 tokenId, uint256 amount
     );
