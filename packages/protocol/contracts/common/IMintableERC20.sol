@@ -10,10 +10,6 @@ import { IERC20Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 
 interface IMintableERC20 is IERC20Upgradeable {
-    // TODO(dani): remove these events, use Transfer event
-    event Mint(address indexed account, uint256 amount);
-    event Burn(address indexed account, uint256 amount);
-
     function mint(address account, uint256 amount) external;
     function burn(address from, uint256 amount) external;
 }

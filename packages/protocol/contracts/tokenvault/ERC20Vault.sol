@@ -44,10 +44,7 @@ contract ERC20Vault is BaseVault {
         string name;
     }
 
-    // TODO(dani): this struct has a very different meaning than those defined
-    // for NFTs. It may be an issue.
-
-    struct BridgeTransferOp {
+    struct MessageDeposit {
         address token;
         uint256 amount;
     }
@@ -71,7 +68,7 @@ contract ERC20Vault is BaseVault {
     ) public canonicalToBridged;
 
     // Tracks the token and amount associated with a message hash.
-    mapping(bytes32 msgHash => BridgeTransferOp messageDeposit) public
+    mapping(bytes32 msgHash => MessageDeposit messageDeposit) public
         messageDeposits;
 
     uint256[46] private __gap;
@@ -216,7 +213,7 @@ contract ERC20Vault is BaseVault {
         }(message);
 
         // record the deposit for this message
-        messageDeposits[msgHash] = BridgeTransferOp(token, _amount);
+        messageDeposits[msgHash] = MessageDeposit(token, _amount);
 
         emit ERC20Sent({
             msgHash: msgHash,
@@ -259,8 +256,8 @@ contract ERC20Vault is BaseVault {
         if (!bridge.isMessageFailed(msgHash, message.destChainId, proof)) {
             revert VAULT_MESSAGE_NOT_FAILED();
         }
-        // TODO(dani): why 1155 and 721 vault dontt have this
-        messageDeposits[msgHash] = BridgeTransferOp(address(0), 0);
+
+        messageDeposits[msgHash] = MessageDeposit(address(0), 0);
 
         if (amount > 0) {
             if (isBridgedToken[token] || token == resolve("taiko_token", true))

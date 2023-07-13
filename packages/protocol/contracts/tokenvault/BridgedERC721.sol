@@ -19,10 +19,6 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     error BRIDGED_TOKEN_CANNOT_RECEIVE();
     error BRIDGED_TOKEN_INVALID_PARAMS();
 
-    // TODO(dani): remove these events, use Transfer event
-    event BridgeERC721Mint(address indexed account, uint256 tokenId);
-    event BridgeERC721Burn(address indexed account, uint256 tokenId);
-
     /// @dev Initializer to be called after being deployed behind a proxy.
     // Intention is for a different BridgedERC721 Contract to be deployed
     // per unique _srcToken i.e. one for Loopheads, one for CryptoPunks, etc.
@@ -60,7 +56,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         onlyFromNamed("erc721_vault")
     {
         _mint(account, tokenId);
-        emit BridgeERC721Mint(account, tokenId);
+        emit Transfer(address(0), account, tokenId);
     }
 
     /// @dev only a TokenVault can call this function
@@ -72,7 +68,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         onlyFromNamed("erc721_vault")
     {
         _burn(tokenId);
-        emit BridgeERC721Burn(account, tokenId);
+        emit Transfer(account, address(0), tokenId);
     }
 
     /// @dev any address can call this

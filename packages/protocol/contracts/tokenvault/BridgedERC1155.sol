@@ -29,12 +29,11 @@ contract BridgedERC1155 is
     string public srcUri;
     uint256[47] private __gap;
 
-    // TODO(dani): remove these events, use Transfer event
-    event BridgeERC1155Mint(
-        address indexed account, uint256 tokenId, uint256 amount
-    );
-    event BridgeERC1155Burn(
-        address indexed account, uint256 tokenId, uint256 amount
+    event Transfer(
+        address indexed from,
+        address indexed to,
+        uint256 tokenId,
+        uint256 amount
     );
 
     /// @dev Initializer to be called after being deployed behind a proxy.
@@ -73,7 +72,7 @@ contract BridgedERC1155 is
         onlyFromNamed("erc1155_vault")
     {
         _mint(account, tokenId, amount, data);
-        emit BridgeERC1155Mint(account, tokenId, amount);
+        emit Transfer(address(0), account, tokenId, amount);
     }
 
     /// @dev only a TokenVault can call this function
@@ -86,7 +85,7 @@ contract BridgedERC1155 is
         onlyFromNamed("erc1155_vault")
     {
         _burn(account, tokenId, amount);
-        emit BridgeERC1155Burn(account, tokenId, amount);
+        emit Transfer(account, address(0), tokenId, amount);
     }
 
     /// @dev any address can call this

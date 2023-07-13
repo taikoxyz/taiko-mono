@@ -169,7 +169,7 @@ contract TaikoToken is
         super._mint(to, amount);
 
         if (totalSupply() > type(uint64).max) revert TKO_MINT_DISALLOWED();
-        emit Mint(to, amount);
+        emit Transfer(address(0), to, amount);
     }
 
     function _burn(
@@ -180,7 +180,7 @@ contract TaikoToken is
         override(ERC20Upgradeable, ERC20VotesUpgradeable)
     {
         super._burn(from, amount);
-        emit Burn(from, amount);
+        emit Transfer(from, address(0), amount);
     }
 }
 
