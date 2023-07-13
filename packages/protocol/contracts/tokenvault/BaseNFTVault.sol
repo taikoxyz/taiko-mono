@@ -22,7 +22,7 @@ import { BaseVault } from "./BaseVault.sol";
 /**
  * This vault is a parent contract for ERC721 and ERC1155 vaults.
  */
-contract BaseNFTVault is BaseVault {
+abstract contract BaseNFTVault is BaseVault {
     struct CanonicalNFT {
         uint256 srcChainId;
         address tokenAddr;
