@@ -82,9 +82,15 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
     {
         if (opt.amount == 0) revert VAULT_INVALID_AMOUNT();
 
-        if( ERC1155Upgradeable(opt.token).supportsInterface(ERC1155_INTERFACE_ID) == false
-            && ERC1155Upgradeable(opt.token).supportsInterface(ERC1155_METADATA_INTERFACE_ID) == false) {
-                revert VAULT_INTERFACE_NOT_SUPPORTED();
+        if (
+            ERC1155Upgradeable(opt.token).supportsInterface(
+                ERC1155_INTERFACE_ID
+            ) == false
+                && ERC1155Upgradeable(opt.token).supportsInterface(
+                    ERC1155_METADATA_INTERFACE_ID
+                ) == false
+        ) {
+            revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
 
         IBridge.Message memory message;

@@ -129,7 +129,9 @@ contract TestERC20Vault is Test {
 
         vm.expectRevert("ERC20: insufficient allowance");
         erc20Vault.sendToken(
-            ERC20Vault.BridgeTransferOp(destChainId, Bob, address(erc20), 1 wei, 1_000_000, 1, Bob, "")
+            ERC20Vault.BridgeTransferOp(
+                destChainId, Bob, address(erc20), 1 wei, 1_000_000, 1, Bob, ""
+            )
         );
     }
 
@@ -143,7 +145,9 @@ contract TestERC20Vault is Test {
         uint256 erc20VaultBalanceBefore = erc20.balanceOf(address(erc20Vault));
 
         erc20Vault.sendToken(
-            ERC20Vault.BridgeTransferOp(destChainId, Bob, address(erc20), amount, 1_000_000, 0, Bob, "")
+            ERC20Vault.BridgeTransferOp(
+                destChainId, Bob, address(erc20), amount, 1_000_000, 0, Bob, ""
+            )
         );
 
         uint256 aliceBalanceAfter = erc20.balanceOf(Alice);
@@ -212,7 +216,9 @@ contract TestERC20Vault is Test {
 
         vm.expectRevert(BaseVault.VAULT_INVALID_AMOUNT.selector);
         erc20Vault.sendToken(
-            ERC20Vault.BridgeTransferOp(destChainId, Bob, address(erc20), amount, 1_000_000, 0, Bob, "")
+            ERC20Vault.BridgeTransferOp(
+                destChainId, Bob, address(erc20), amount, 1_000_000, 0, Bob, ""
+            )
         );
     }
 
@@ -223,7 +229,9 @@ contract TestERC20Vault is Test {
 
         vm.expectRevert(BaseVault.VAULT_INVALID_TOKEN.selector);
         erc20Vault.sendToken(
-            ERC20Vault.BridgeTransferOp(destChainId, Bob, address(0), amount, 1_000_000, 0, Bob, "")
+            ERC20Vault.BridgeTransferOp(
+                destChainId, Bob, address(0), amount, 1_000_000, 0, Bob, ""
+            )
         );
     }
 

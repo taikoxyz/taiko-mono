@@ -66,11 +66,15 @@ abstract contract BaseVault is EssentialContract {
      */
     error VAULT_INVALID_SENDER();
 
-    modifier onlyValidAddresses(uint256 chainId, bytes32 name, address to, address token) {
-        if (
-            to == address(0)
-                || to == resolve(chainId, name, false)
-        ) revert VAULT_INVALID_TO();
+    modifier onlyValidAddresses(
+        uint256 chainId,
+        bytes32 name,
+        address to,
+        address token
+    ) {
+        if (to == address(0) || to == resolve(chainId, name, false)) {
+            revert VAULT_INVALID_TO();
+        }
 
         if (token == address(0)) revert VAULT_INVALID_TOKEN();
         _;
