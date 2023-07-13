@@ -4,13 +4,14 @@ pragma solidity ^0.8.20;
 import { AddressManager } from "../contracts/common/AddressManager.sol";
 import { AddressResolver } from "../contracts/common/AddressResolver.sol";
 import { Bridge } from "../contracts/bridge/Bridge.sol";
-import { BridgedERC20 } from "../contracts/bridge/erc20/BridgedERC20.sol";
+import { BridgedERC20 } from "../contracts/tokenvault/BridgedERC20.sol";
 import { BridgeErrors } from "../contracts/bridge/BridgeErrors.sol";
 import { FreeMintERC20 } from "../contracts/test/erc20/FreeMintERC20.sol";
 import { SignalService } from "../contracts/signal/SignalService.sol";
 import { TaikoToken } from "../contracts/L1/TaikoToken.sol";
 import { Test } from "forge-std/Test.sol";
-import { ERC20Vault } from "../contracts/bridge/erc20/ERC20Vault.sol";
+import { ERC20Vault } from "../contracts/tokenvault/ERC20Vault.sol";
+import { BaseVault } from "../contracts/tokenvault/BaseVault.sol";
 
 // PrankDestBridge lets us simulate a transaction to the ERC20Vault
 // from a named Bridge, without having to test/run through the real Bridge code,
@@ -205,7 +206,7 @@ contract TestERC20Vault is Test {
 
         uint256 amount = 0;
 
-        vm.expectRevert(ERC20Vault.ERC20_VAULT_INVALID_AMOUNT.selector);
+        vm.expectRevert(BaseVault.VAULT_INVALID_AMOUNT.selector);
         erc20Vault.sendToken(
             destChainId, Bob, address(erc20), amount, 1_000_000, 0, Bob, ""
         );
@@ -216,7 +217,7 @@ contract TestERC20Vault is Test {
 
         uint256 amount = 1;
 
-        vm.expectRevert(ERC20Vault.ERC20_VAULT_INVALID_TOKEN.selector);
+        vm.expectRevert(BaseVault.VAULT_INVALID_TOKEN.selector);
         erc20Vault.sendToken(
             destChainId, Bob, address(0), amount, 1_000_000, 0, Bob, ""
         );
@@ -227,7 +228,7 @@ contract TestERC20Vault is Test {
 
         uint256 amount = 1;
 
-        vm.expectRevert(ERC20Vault.ERC20_VAULT_INVALID_TO.selector);
+        vm.expectRevert(BaseVault.VAULT_INVALID_TO.selector);
         erc20Vault.sendToken(
             destChainId,
             address(0),

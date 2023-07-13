@@ -6,37 +6,32 @@
 
 pragma solidity ^0.8.20;
 
-import {
-    IERC1155Upgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
-import {
-    IERC1155MetadataURIUpgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/IERC1155MetadataURIUpgradeable.sol";
-import {EssentialContract} from "../../common/EssentialContract.sol";
-import {
-    ERC1155Upgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
-import {BridgeErrors} from "../BridgeErrors.sol";
+import { IERC1155Upgradeable } from
+    "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
+import { IERC1155MetadataURIUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/IERC1155MetadataURIUpgradeable.sol";
+
+import { ERC1155Upgradeable } from
+    "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
+import { EssentialContract } from "../common/EssentialContract.sol";
 
 contract BridgedERC1155 is
     EssentialContract,
     IERC1155Upgradeable,
     IERC1155MetadataURIUpgradeable,
-    ERC1155Upgradeable,
-    BridgeErrors
+    ERC1155Upgradeable
 {
+    error BRIDGED_TOKEN_CANNOT_RECEIVE();
+    error BRIDGED_TOKEN_INVALID_PARAMS();
+
     address public srcToken;
     uint256 public srcChainId;
     string public srcUri;
-    uint256[47] private gap;
+    uint256[47] private __gap;
 
-    event BridgeERC1155Mint(
-        address indexed account,
-        uint256 tokenId,
-        uint256 amount
-    );
-    event BridgeERC1155Burn(
-        address indexed account,
+    event Transfer(
+        address indexed from,
+        address indexed to,
         uint256 tokenId,
         uint256 amount
     );
@@ -49,14 +44,15 @@ contract BridgedERC1155 is
         address _srcToken,
         uint256 _srcChainId,
         string memory _uri
-    ) external initializer {
+    )
+        external
+        initializer
+    {
         if (
-            _srcToken == address(0) ||
-            _srcChainId == 0 ||
-            _srcChainId == block.chainid ||
-            bytes(_uri).length == 0
+            _srcToken == address(0) || _srcChainId == 0
+                || _srcChainId == block.chainid || bytes(_uri).length == 0
         ) {
-            revert B_INIT_PARAM_ERROR();
+            revert BRIDGED_TOKEN_INVALID_PARAMS();
         }
         EssentialContract._init(_addressManager);
         __ERC1155_init(_uri);
@@ -71,9 +67,12 @@ contract BridgedERC1155 is
         uint256 tokenId,
         uint256 amount,
         bytes memory data
-    ) public onlyFromNamed("erc1155_vault") {
+    )
+        public
+        onlyFromNamed("erc1155_vault")
+    {
         _mint(account, tokenId, amount, data);
-        emit BridgeERC1155Mint(account, tokenId, amount);
+        emit Transfer(address(0), account, tokenId, amount);
     }
 
     /// @dev only a TokenVault can call this function
@@ -81,9 +80,12 @@ contract BridgedERC1155 is
         address account,
         uint256 tokenId,
         uint256 amount
-    ) public onlyFromNamed("erc1155_vault") {
+    )
+        public
+        onlyFromNamed("erc1155_vault")
+    {
         _burn(account, tokenId, amount);
-        emit BridgeERC1155Burn(account, tokenId, amount);
+        emit Transfer(account, address(0), tokenId, amount);
     }
 
     /// @dev any address can call this
@@ -95,18 +97,15 @@ contract BridgedERC1155 is
         uint256 tokenId,
         uint256 amount,
         bytes memory data
-    ) public override(ERC1155Upgradeable, IERC1155Upgradeable) {
+    )
+        public
+        override(ERC1155Upgradeable, IERC1155Upgradeable)
+    {
         if (to == address(this)) {
-            revert B_CANNOT_RECEIVE();
+            revert BRIDGED_TOKEN_CANNOT_RECEIVE();
         }
         return
-            ERC1155Upgradeable.safeTransferFrom(
-                from,
-                to,
-                tokenId,
-                amount,
-                data
-            );
+            ERC1155Upgradeable.safeTransferFrom(from, to, tokenId, amount, data);
     }
 
     /// @dev returns the srcToken being bridged and the srcChainId

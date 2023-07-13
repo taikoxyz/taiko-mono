@@ -6,43 +6,32 @@
 
 pragma solidity ^0.8.20;
 
-import {
-    IERC1155Receiver
-} from "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
-import {
-    IERC1155Upgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
-import {
-    IERC165
-} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import {
-    Create2Upgradeable
-} from "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
-import {
-    ERC1155Upgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
-import {AddressResolver} from "../../common/AddressResolver.sol";
-import {EssentialContract} from "../../common/EssentialContract.sol";
-import {IBridge} from "../IBridge.sol";
-import {BridgedERC1155} from "./BridgedERC1155.sol";
-import {NFTVaultParent} from "../NFTVaultParent.sol";
-import {Proxied} from "../../common/Proxied.sol";
-import {LibExtractCalldata} from "../libs/LibExtractCalldata.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import { IERC1155Receiver } from
+    "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
+import { IERC1155Upgradeable } from
+    "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
+import { IERC165 } from
+    "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import { Create2Upgradeable } from
+    "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
+import { ERC1155Upgradeable } from
+    "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
+import { AddressResolver } from "../common/AddressResolver.sol";
+import { IBridge } from "../bridge/IBridge.sol";
+import { BridgedERC1155 } from "./BridgedERC1155.sol";
+import { BaseNFTVault } from "./BaseNFTVault.sol";
+import { Proxied } from "../common/Proxied.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
  * This vault holds all ERC721 and ERC1155 tokens that users have deposited.
- * It also manages the mapping between canonical ERC721/1155 tokens and their bridged
+ * It also manages the mapping between canonical ERC721/1155 tokens and their
+ * bridged
  * tokens.
  */
-contract ERC1155Vault is 
-    EssentialContract,
-    NFTVaultParent,
-    IERC1155Receiver
-{
-    /*********************
-     * Events            *
-     *********************/
+contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
+    bytes4 constant ERC1155_INTERFACE_ID = 0xd9b67a26;
+    bytes4 constant ERC1155_METADATA_INTERFACE_ID = 0x0e89341c;
 
     event BridgedERC1155Deployed(
         uint256 indexed srcChainId,
@@ -78,10 +67,6 @@ contract ERC1155Vault is
         uint256 amount
     );
 
-    function init(address addressManager) external initializer {
-        EssentialContract._init(addressManager);
-    }
-
     /**
      * Transfers ERC1155 tokens to this vault and sends a message to the
      * destination chain so the user can receive the same (bridged) tokens
@@ -89,15 +74,19 @@ contract ERC1155Vault is
      *
      * @param opt Option for sending the ERC1155 token.
      */
-    function sendToken(BridgeTransferOp calldata opt) external payable nonReentrant {
+    function sendToken(BridgeTransferOp calldata opt)
+        external
+        payable
+        nonReentrant
+    {
         if (
-            opt.to == address(0) ||
-            opt.to == resolve(opt.destChainId, "erc1155_vault", false)
-        ) revert NFTVAULT_INVALID_TO();
+            opt.to == address(0)
+                || opt.to == resolve(opt.destChainId, "erc1155_vault", false)
+        ) revert VAULT_INVALID_TO();
 
-        if (opt.token == address(0)) revert NFTVAULT_INVALID_TOKEN();
+        if (opt.token == address(0)) revert VAULT_INVALID_TOKEN();
 
-        if (opt.amount == 0) revert NFTVAULT_INVALID_AMOUNT();
+        if (opt.amount == 0) revert VAULT_INVALID_AMOUNT();
 
         bytes memory data = _sendToken(
             msg.sender,
@@ -150,25 +139,27 @@ contract ERC1155Vault is
      * @param amount The amount to be sent.
      */
     function receiveToken(
-        NFTVaultParent.CanonicalNFT calldata canonicalToken,
+        BaseNFTVault.CanonicalNFT calldata canonicalToken,
         address from,
         address to,
         uint256 tokenId,
         uint256 amount
-    ) external nonReentrant onlyFromNamed("bridge") {
-        address bridgedAddress = canonicalToBridged[canonicalToken.srcChainId][canonicalToken.tokenAddr];
-        (
-            bool bridged,
-            address bridgedToken
-        ) = _receiveToken(
-                address(_addressManager),
-                canonicalToken,
-                from,
-                to,
-                tokenId,
-                amount,
-                bridgedAddress
-            );
+    )
+        external
+        nonReentrant
+        onlyFromNamed("bridge")
+    {
+        address bridgedAddress = canonicalToBridged[canonicalToken.srcChainId][canonicalToken
+            .tokenAddr];
+        (bool bridged, address bridgedToken) = _receiveToken(
+            address(_addressManager),
+            canonicalToken,
+            from,
+            to,
+            tokenId,
+            amount,
+            bridgedAddress
+        );
 
         if (bridged) {
             setBridgedToken(bridgedToken, canonicalToken);
@@ -179,30 +170,31 @@ contract ERC1155Vault is
         IBridge.Message calldata message,
         bytes calldata proof
     )
-        external nonReentrant
+        external
+        nonReentrant
     {
-        if (message.owner == address(0)) revert NFTVAULT_INVALID_OWNER();
+        if (message.owner == address(0)) revert VAULT_INVALID_OWNER();
         if (message.srcChainId != block.chainid) {
-            revert NFTVAULT_INVALID_SRC_CHAIN_ID();
+            revert VAULT_INVALID_SRC_CHAIN_ID();
         }
 
         CanonicalNFT memory nft;
         address owner;
         uint256 tokenId;
         uint256 amount;
-        (nft, owner,,tokenId, amount) = 
-            decodeTokenData(message.data);
+        (nft, owner,, tokenId, amount) = decodeTokenData(message.data);
 
         bytes32 msgHash = msgHashIfValidRequest(message, proof, nft.tokenAddr);
 
         address releasedToken = nft.tokenAddr;
 
-        if (isBridgedToken[nft.tokenAddr])
-        {
+        if (isBridgedToken[nft.tokenAddr]) {
             releasedToken = canonicalToBridged[nft.srcChainId][nft.tokenAddr];
         }
 
-        IERC1155Upgradeable(releasedToken).safeTransferFrom(address(this), message.owner, tokenId, amount, "");
+        IERC1155Upgradeable(releasedToken).safeTransferFrom(
+            address(this), message.owner, tokenId, amount, ""
+        );
 
         emit ERC1155Released({
             msgHash: msgHash,
@@ -219,7 +211,11 @@ contract ERC1155Vault is
         uint256,
         uint256,
         bytes calldata
-    ) external pure returns (bytes4) {
+    )
+        external
+        pure
+        returns (bytes4)
+    {
         return IERC1155Receiver.onERC1155Received.selector;
     }
 
@@ -229,36 +225,56 @@ contract ERC1155Vault is
         uint256[] calldata,
         uint256[] calldata,
         bytes calldata
-    ) external pure returns (bytes4){
+    )
+        external
+        pure
+        returns (bytes4)
+    {
         return IERC1155Receiver.onERC1155BatchReceived.selector;
     }
 
     /**
      * @dev See {IERC165-supportsInterface}.
      */
-    function supportsInterface(bytes4 interfaceId) public view virtual override(IERC165) returns (bool) {
-        return
-            interfaceId == ERC1155_INTERFACE_ID ||
-            interfaceId == ERC1155_METADATA_INTERFACE_ID;
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        virtual
+        override(IERC165)
+        returns (bool)
+    {
+        return interfaceId == ERC1155_INTERFACE_ID
+            || interfaceId == ERC1155_METADATA_INTERFACE_ID;
     }
 
     /**
-     * @dev Decodes the data which was abi.encodeWithSelector() encoded. We need this to get to know
+     * @dev Decodes the data which was abi.encodeWithSelector() encoded. We need
+     * this to get to know
      * to whom / which token and tokenId we shall release.
      */
-    function decodeTokenData(
-        bytes memory dataWithSelector
-    )
-        public pure
-        returns (NFTVaultParent.CanonicalNFT memory, address, address, uint256, uint256)
+    function decodeTokenData(bytes memory dataWithSelector)
+        public
+        pure
+        returns (
+            BaseNFTVault.CanonicalNFT memory,
+            address,
+            address,
+            uint256,
+            uint256
+        )
     {
-        bytes memory calldataWithoutSelector = LibExtractCalldata.extractCalldata(dataWithSelector);
-        return abi.decode(calldataWithoutSelector, (NFTVaultParent.CanonicalNFT, address, address, uint256, uint256));
+        bytes memory calldataWithoutSelector = extractCalldata(dataWithSelector);
+        return abi.decode(
+            calldataWithoutSelector,
+            (BaseNFTVault.CanonicalNFT, address, address, uint256, uint256)
+        );
     }
 
-    /*********************
+    /**
+     *
      * Private functions *
-     *********************/
+     *
+     */
 
     function _sendToken(
         address owner,
@@ -268,27 +284,33 @@ contract ERC1155Vault is
         string memory tokenUri,
         uint256 amount,
         bool isBridgedToken,
-        NFTVaultParent.CanonicalNFT memory bridgedToCanonical,
+        BaseNFTVault.CanonicalNFT memory bridgedToCanonical,
         bytes4 selector
-    ) private returns (bytes memory) {
-        NFTVaultParent.CanonicalNFT memory canonicalToken;
+    )
+        private
+        returns (bytes memory)
+    {
+        BaseNFTVault.CanonicalNFT memory canonicalToken;
 
         // is a bridged token, meaning, it does not live on this chain
         if (isBridgedToken) {
-            if (BridgedERC1155(token).balanceOf(owner, tokenId) < amount)
-                revert NFTVAULT_INVALID_OWNER();
+            if (BridgedERC1155(token).balanceOf(owner, tokenId) < amount) {
+                revert VAULT_INVALID_OWNER();
+            }
 
             BridgedERC1155(token).bridgeBurnFrom(owner, tokenId, amount);
             canonicalToken = bridgedToCanonical;
-            if (canonicalToken.tokenAddr == address(0))
-                revert NFTVAULT_CANONICAL_TOKEN_NOT_FOUND();
+            if (canonicalToken.tokenAddr == address(0)) {
+                revert VAULT_CANONICAL_TOKEN_NOT_FOUND();
+            }
         } else {
             // is a canonical token, meaning, it lives on this chain
             ERC1155Upgradeable t = ERC1155Upgradeable(token);
-            if (BridgedERC1155(token).balanceOf(owner, tokenId) < amount)
-                revert NFTVAULT_INVALID_OWNER();
+            if (BridgedERC1155(token).balanceOf(owner, tokenId) < amount) {
+                revert VAULT_INVALID_OWNER();
+            }
 
-            canonicalToken = NFTVaultParent.CanonicalNFT({
+            canonicalToken = BaseNFTVault.CanonicalNFT({
                 srcChainId: block.chainid,
                 tokenAddr: token,
                 symbol: "",
@@ -299,43 +321,34 @@ contract ERC1155Vault is
             t.safeTransferFrom(msg.sender, address(this), tokenId, amount, "");
         }
 
-        return
-            abi.encodeWithSelector(
-                selector,
-                canonicalToken,
-                owner,
-                to,
-                tokenId,
-                amount
-            );
+        return abi.encodeWithSelector(
+            selector, canonicalToken, owner, to, tokenId, amount
+        );
     }
 
     function _receiveToken(
         address addressManager,
-        NFTVaultParent.CanonicalNFT memory canonicalToken,
+        BaseNFTVault.CanonicalNFT memory canonicalToken,
         address from,
         address to,
         uint256 tokenId,
         uint256 amount,
         address canonicalToBridged
-    ) private returns (bool bridged, address token) {
+    )
+        private
+        returns (bool bridged, address token)
+    {
         IBridge.Context memory ctx = checkValidContext("erc1155_vault");
 
         if (canonicalToken.srcChainId == block.chainid) {
             token = canonicalToken.tokenAddr;
             bridged = false;
             ERC1155Upgradeable(token).safeTransferFrom(
-                address(this),
-                to,
-                tokenId,
-                amount,
-                ""
+                address(this), to, tokenId, amount, ""
             );
         } else {
             (bridged, token) = _getOrDeployBridgedToken(
-                canonicalToken,
-                canonicalToBridged,
-                addressManager
+                canonicalToken, canonicalToBridged, addressManager
             );
             BridgedERC1155(token).bridgeMintTo(to, tokenId, amount, "");
         }
@@ -352,17 +365,16 @@ contract ERC1155Vault is
     }
 
     function _getOrDeployBridgedToken(
-        NFTVaultParent.CanonicalNFT memory canonicalToken,
+        BaseNFTVault.CanonicalNFT memory canonicalToken,
         address token,
         address addressManager
     )
         private
         returns (bool, address)
     {
-        return
-            token != address(0)
-                ? (false, token)
-                : _deployBridgedErc1155(canonicalToken, addressManager);
+        return token != address(0)
+            ? (false, token)
+            : _deployBridgedErc1155(canonicalToken, addressManager);
     }
 
     /**
@@ -370,7 +382,7 @@ contract ERC1155Vault is
      * called before the first time a bridged token is sent to this chain.
      */
     function _deployBridgedErc1155(
-        NFTVaultParent.CanonicalNFT memory canonicalToken,
+        BaseNFTVault.CanonicalNFT memory canonicalToken,
         address addressManager
     )
         private
