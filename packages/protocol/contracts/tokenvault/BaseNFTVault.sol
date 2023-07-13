@@ -14,14 +14,13 @@ import { IERC1155Receiver } from
     "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 import { IERC165 } from
     "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import { AddressResolver } from "../common/AddressResolver.sol";
-import { IBridge } from "../bridge/IBridge.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { BaseVault } from "./BaseVault.sol";
-
+import { IBridge } from "../bridge/IBridge.sol";
 /**
  * This vault is a parent contract for ERC721 and ERC1155 vaults.
  */
+
 abstract contract BaseNFTVault is BaseVault {
     struct CanonicalNFT {
         uint256 srcChainId;
@@ -100,24 +99,6 @@ abstract contract BaseNFTVault is BaseVault {
 
         if (!bridge.isMessageFailed(msgHash, message.destChainId, proof)) {
             revert VAULT_MESSAGE_NOT_FAILED();
-        }
-    }
-
-    /**
-     * @dev Checks if context is valid
-     * @param validSender The valid sender to be allowed
-     */
-    function checkValidContext(bytes32 validSender)
-        internal
-        view
-        returns (IBridge.Context memory ctx)
-    {
-        ctx = IBridge(msg.sender).context();
-        if (
-            ctx.sender
-                != AddressResolver(this).resolve(ctx.srcChainId, validSender, false)
-        ) {
-            revert VAULT_INVALID_SENDER();
         }
     }
 }

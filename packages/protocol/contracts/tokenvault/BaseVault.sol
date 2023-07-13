@@ -7,6 +7,8 @@
 pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../common/EssentialContract.sol";
+import { IBridge } from "../bridge/IBridge.sol";
+import { AddressResolver } from "../common/AddressResolver.sol";
 
 abstract contract BaseVault is EssentialContract {
     error VAULT_INIT_PARAM_ERROR();
@@ -61,5 +63,23 @@ abstract contract BaseVault is EssentialContract {
 
     function init(address addressManager) external initializer {
         EssentialContract._init(addressManager);
+    }
+
+    /**
+     * @dev Checks if context is valid
+     * @param validSender The valid sender to be allowed
+     */
+    function checkValidContext(bytes32 validSender)
+        internal
+        view
+        returns (IBridge.Context memory ctx)
+    {
+        ctx = IBridge(msg.sender).context();
+        if (
+            ctx.sender
+                != AddressResolver(this).resolve(ctx.srcChainId, validSender, false)
+        ) {
+            revert VAULT_INVALID_SENDER();
+        }
     }
 }
