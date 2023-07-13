@@ -14,7 +14,7 @@ export async function checkMintable(token: Token, network: Chain) {
   const walletClient = await getWalletClient({ chainId });
 
   if (!walletClient) {
-    throw new Error(`user is not connected to ${network.name}`, { cause: MintableError.NOT_CONNECTED });
+    throw Error(`user is not connected to ${network.name}`, { cause: MintableError.NOT_CONNECTED });
   }
 
   const tokenContract = getContract({
