@@ -103,7 +103,7 @@ abstract contract BaseNFTVault is BaseVault {
     }
 
     // TODO(dani): what are we trying to extra from the data?
-    function _extractCalldata(bytes memory calldataWithSelector)
+    function extractCalldata(bytes memory calldataWithSelector)
         internal
         pure
         returns (bytes memory)

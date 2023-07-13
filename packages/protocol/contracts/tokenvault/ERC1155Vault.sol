@@ -263,8 +263,7 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
             uint256
         )
     {
-        bytes memory calldataWithoutSelector =
-            _extractCalldata(dataWithSelector);
+        bytes memory calldataWithoutSelector = extractCalldata(dataWithSelector);
         return abi.decode(
             calldataWithoutSelector,
             (BaseNFTVault.CanonicalNFT, address, address, uint256, uint256)
