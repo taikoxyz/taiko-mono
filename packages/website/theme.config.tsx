@@ -22,6 +22,7 @@ export default {
   editLink: {
     text: "Edit this page ↗",
   },
+  // TODO: we should add the feedback link, check if nextra fixed it: https://github.com/shuding/nextra/issues/2067
   feedback: {
     content: null,
   },
@@ -69,5 +70,8 @@ export default {
     return {
       titleTemplate: "%s – Taiko",
     };
+  },
+  sidebar: {
+    autoCollapse: true,
   },
 };

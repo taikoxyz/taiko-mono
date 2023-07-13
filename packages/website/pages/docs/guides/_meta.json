@@ -1,38 +1,8 @@
 {
-  "setup-your-wallet": {
-    "title": "💻 Setup your wallet"
-  },
-  "receive-tokens": {
-    "title": "🎈 Receive tokens"
-  },
-  "bridge-tokens": {
-    "title": "🌉 Bridge tokens"
-  },
-  "swap-tokens": {
-    "title": "🔄 Swap tokens"
+  "build-on-taiko": {
+    "title": "Build on Taiko"
   },
   "run-a-node": {
-    "title": "🌐 Run a Taiko node"
-  },
-  "run-a-sepolia-node": {
-    "title": "🌳 Run a Sepolia node"
-  },
-  "enable-a-proposer": {
-    "title": "📤 Enable a proposer"
-  },
-  "enable-a-prover": {
-    "title": "✅ Enable a prover"
-  },
-  "claim-prover-ttko": {
-    "title": "🛄 Claim prover TTKO"
-  },
-  "deploy-a-contract": {
-    "title": "🚀 Deploy a contract"
-  },
-  "verify-a-contract": {
-    "title": "📜 Verify a contract"
-  },
-  "build-a-dapp": {
-    "title": "🛠️ Build a dapp"
+    "title": "Run a node"
   }
 }
