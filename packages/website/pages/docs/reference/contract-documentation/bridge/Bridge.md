@@ -28,7 +28,8 @@ event DestChainEnabled(uint256 chainId, bool enabled)
 receive() external payable
 ```
 
-Allow Bridge to receive ETH from the TaikoL1, ERC20Vault or EtherVault.
+Allow Bridge to receive ETH from the TaikoL1, ERC20Vault, EtherVault or
+any of the NFT vaults.
 
 ### init
 
