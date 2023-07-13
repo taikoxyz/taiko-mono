@@ -5,13 +5,10 @@
   import { InputBox } from '$components/InputBox';
   import LoadingText from '$components/LoadingText/LoadingText.svelte';
   import { getBalance as getTokenBalance, type Token } from '$libs/token';
-  import { getLogger } from '$libs/util/logger';
   import { truncateString } from '$libs/util/truncateString';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
   import { destChain, srcChain } from '$stores/network';
-
-  const log = getLogger('AmountInput');
 
   export let token: Token;
 
@@ -32,8 +29,6 @@
 
     try {
       tokenBalance = await getTokenBalance(token, account.address, srcChainId, destChainId);
-
-      log('Token balance', tokenBalance);
     } catch (error) {
       console.error(error);
 

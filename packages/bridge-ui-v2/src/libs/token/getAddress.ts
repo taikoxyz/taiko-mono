@@ -41,7 +41,7 @@ export async function getAddress(token: Token, srcChainId?: number, destChainId?
     } catch (error) {
       console.error(error);
 
-      throw Error(`Failed to get address for ${token.symbol} on chain ${srcChainId}`, { cause: error });
+      throw Error(`failed to get address for ${token.symbol} on chain ${srcChainId}`, { cause: error });
     }
   }
 
