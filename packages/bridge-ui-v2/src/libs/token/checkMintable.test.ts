@@ -19,6 +19,10 @@ vi.mock('@wagmi/core', () => {
   };
 });
 
+vi.mock('$abi', () => ({
+  freeMintErc20ABI: [],
+}));
+
 const mockNetwork = { id: 1 } as Chain;
 
 const mockToken = {
@@ -59,6 +63,7 @@ describe('checkMintable', () => {
     } catch (error) {
       const { cause } = error as Error;
       expect(cause).toBe(MintableError.NOT_CONNECTED);
+      expect(getWalletClient).toHaveBeenCalledWith({ chainId: mockNetwork.id });
     }
   });
 
@@ -71,6 +76,12 @@ describe('checkMintable', () => {
     } catch (error) {
       const { cause } = error as Error;
       expect(cause).toBe(MintableError.TOKEN_MINTED);
+      expect(getContract).toHaveBeenCalledWith({
+        walletClient: mockWalletClient,
+        abi: [],
+        address: mockToken.addresses[mockNetwork.id],
+      });
+      expect(mockTokenContract.read.minters).toHaveBeenCalledWith([mockWalletClient.account.address]);
     }
   });
 
@@ -94,6 +105,9 @@ describe('checkMintable', () => {
     } catch (error) {
       const { cause } = error as Error;
       expect(cause).toBe(MintableError.INSUFFICIENT_BALANCE);
+      expect(getPublicClient).toHaveBeenCalledWith({ chainId: mockNetwork.id });
+      expect(mockTokenContract.estimateGas.mint).toHaveBeenCalledWith([mockWalletClient.account.address]);
+      expect(mockPublicClient.getBalance).toHaveBeenCalledWith({ address: mockWalletClient.account.address });
     }
   });
 
