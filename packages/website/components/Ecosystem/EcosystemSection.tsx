@@ -131,6 +131,14 @@ const ecosystemData: EcosystemData[] = [
     filters: [],
   },
   {
+    icon: "/images/ecosystem/rwbydex.png",
+    name: "RwbyDex",
+    link: "https://rubydex.com/en",
+    description:
+      "Perpetuals DEX offering crypto and traditional assets like Forex, Commodities, Stocks, ETFs, NFT perps, and more.",
+    filters: [],
+  },
+  {
     icon: "/images/ecosystem/soul-wallet.svg",
     name: "Soul Wallet",
     link: "https://soulwallet.io",
@@ -151,6 +159,14 @@ const ecosystemData: EcosystemData[] = [
     link: "https://github.com/wolfderechter/taiko-node-dashboard-docker",
     description:
       "A user friendly, easy to read, and visually pleasing dashboard for those running a Node/Proposer/Prover.",
+    filters: [],
+  },
+  {
+    icon: "/images/ecosystem/taikoverse.png",
+    name: "Taikoverse",
+    link: "https://linktr.ee/taikoverse",
+    description:
+      "An infinite and unstoppable world running on Taiko's stack.",
     filters: [],
   },
   {
