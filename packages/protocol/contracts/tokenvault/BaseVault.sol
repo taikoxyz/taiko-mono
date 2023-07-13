@@ -88,7 +88,7 @@ abstract contract BaseVault is EssentialContract {
      * @dev Checks if context is valid
      * @param validSender The valid sender to be allowed
      */
-    function checkValidContext(bytes32 validSender)
+    function _checkValidContext(bytes32 validSender)
         internal
         view
         returns (IBridge.Context memory ctx)

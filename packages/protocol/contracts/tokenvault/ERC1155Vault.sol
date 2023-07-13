@@ -30,8 +30,8 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
  * tokens.
  */
 contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
-    bytes4 constant ERC1155_INTERFACE_ID = 0xd9b67a26;
-    bytes4 constant ERC1155_METADATA_INTERFACE_ID = 0x0e89341c;
+    bytes4 public constant ERC1155_INTERFACE_ID = 0xd9b67a26;
+    bytes4 public constant ERC1155_METADATA_INTERFACE_ID = 0x0e89341c;
 
     event BridgedERC1155Deployed(
         uint256 indexed srcChainId,
@@ -301,7 +301,7 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
                 revert VAULT_INVALID_OWNER();
             }
 
-            BridgedERC1155(token).bridgeBurnFrom(owner, tokenId, amount);
+            BridgedERC1155(token).burn(owner, tokenId, amount);
             canonicalToken = bridgedToCanonical;
             if (canonicalToken.tokenAddr == address(0)) {
                 revert VAULT_CANONICAL_TOKEN_NOT_FOUND();
@@ -341,7 +341,7 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
         private
         returns (bool bridged, address token)
     {
-        IBridge.Context memory ctx = checkValidContext("erc1155_vault");
+        IBridge.Context memory ctx = _checkValidContext("erc1155_vault");
 
         if (canonicalToken.srcChainId == block.chainid) {
             token = canonicalToken.tokenAddr;
@@ -353,7 +353,7 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
             (bridged, token) = _getOrDeployBridgedToken(
                 canonicalToken, canonicalToBridged, addressManager
             );
-            BridgedERC1155(token).bridgeMintTo(to, tokenId, amount, "");
+            BridgedERC1155(token).mint(to, tokenId, amount, "");
         }
 
         emit ERC1155Received({

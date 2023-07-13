@@ -48,7 +48,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     }
 
     /// @dev only a TokenVault can call this function
-    function bridgeMintTo(
+    function mint(
         address account,
         uint256 tokenId
     )
@@ -60,7 +60,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     }
 
     /// @dev only a TokenVault can call this function
-    function bridgeBurnFrom(
+    function burn(
         address account,
         uint256 tokenId
     )
@@ -88,13 +88,13 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         return ERC721Upgradeable.transferFrom(from, to, tokenId);
     }
 
-    function _baseURI() internal view override returns (string memory) {
-        return srcBaseUri;
-    }
-
     /// @dev returns the srcToken being bridged and the srcChainId
     // of the tokens being bridged
     function source() public view returns (address, uint256) {
         return (srcToken, srcChainId);
+    }
+
+    function _baseURI() internal view override returns (string memory) {
+        return srcBaseUri;
     }
 }

@@ -286,7 +286,7 @@ contract ERC20Vault is BaseVault {
         nonReentrant
         onlyFromNamed("bridge")
     {
-        IBridge.Context memory ctx = checkValidContext("erc20_vault");
+        IBridge.Context memory ctx = _checkValidContext("erc20_vault");
 
         address token;
         if (canonicalToken.chainId == block.chainid) {
