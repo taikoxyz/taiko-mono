@@ -28,8 +28,6 @@ contract BridgedERC20 is
     IERC20MetadataUpgradeable,
     ERC20Upgradeable
 {
-    bytes32 public NAME = "erc20_vault";
-
     error BRIDGED_TOKEN_CANNOT_RECEIVE();
     error BRIDGED_TOKEN_INVALID_PARAMS();
 
@@ -85,7 +83,7 @@ contract BridgedERC20 is
         uint256 amount
     )
         public
-        onlyFromNamed4("taiko", "prover_pool", "dao", NAME)
+        onlyFromNamed4("taiko", "prover_pool", "dao", "erc20_vault")
     {
         _mint(account, amount);
         emit Mint(account, amount);
@@ -102,7 +100,7 @@ contract BridgedERC20 is
         uint256 amount
     )
         public
-        onlyFromNamed4("taiko", "prover_pool", "dao", NAME)
+        onlyFromNamed4("taiko", "prover_pool", "dao", "erc20_vault")
     {
         _burn(account, amount);
         emit Burn(account, amount);

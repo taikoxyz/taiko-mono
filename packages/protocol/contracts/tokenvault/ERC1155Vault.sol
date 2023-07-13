@@ -21,7 +21,6 @@ import { IBridge } from "../bridge/IBridge.sol";
 import { BridgedERC1155 } from "./BridgedERC1155.sol";
 import { BaseNFTVault } from "./BaseNFTVault.sol";
 import { Proxied } from "../common/Proxied.sol";
-import { LibExtractCalldata } from "./LibExtractCalldata.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
@@ -33,7 +32,6 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
     bytes4 constant ERC1155_INTERFACE_ID = 0xd9b67a26;
     bytes4 constant ERC1155_METADATA_INTERFACE_ID = 0x0e89341c;
-    bytes32 constant NAME = "erc1155_vault";
 
     event BridgedERC1155Deployed(
         uint256 indexed srcChainId,
@@ -83,7 +81,7 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
     {
         if (
             opt.to == address(0)
-                || opt.to == resolve(opt.destChainId, NAME, false)
+                || opt.to == resolve(opt.destChainId, "erc1155_vault", false)
         ) revert VAULT_INVALID_TO();
 
         if (opt.token == address(0)) revert VAULT_INVALID_TOKEN();
@@ -105,7 +103,7 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
         IBridge.Message memory message;
         message.destChainId = opt.destChainId;
         message.owner = msg.sender;
-        message.to = resolve(opt.destChainId, NAME, false);
+        message.to = resolve(opt.destChainId, "erc1155_vault", false);
         message.data = data;
         message.gasLimit = opt.gasLimit;
         message.processingFee = opt.processingFee;
@@ -266,7 +264,7 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
         )
     {
         bytes memory calldataWithoutSelector =
-            LibExtractCalldata.extractCalldata(dataWithSelector);
+            _extractCalldata(dataWithSelector);
         return abi.decode(
             calldataWithoutSelector,
             (BaseNFTVault.CanonicalNFT, address, address, uint256, uint256)
@@ -341,7 +339,7 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
         private
         returns (bool bridged, address token)
     {
-        IBridge.Context memory ctx = checkValidContext(NAME);
+        IBridge.Context memory ctx = checkValidContext("erc1155_vault");
 
         if (canonicalToken.srcChainId == block.chainid) {
             token = canonicalToken.tokenAddr;

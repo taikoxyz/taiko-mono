@@ -11,8 +11,6 @@ import { ERC721Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 
 contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
-    bytes32 public NAME = "erc721_vault";
-
     address public srcToken;
     uint256 public srcChainId;
     string public srcBaseUri;
@@ -59,7 +57,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         uint256 tokenId
     )
         public
-        onlyFromNamed(NAME)
+        onlyFromNamed("erc721_vault")
     {
         _mint(account, tokenId);
         emit BridgeERC721Mint(account, tokenId);
@@ -71,7 +69,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         uint256 tokenId
     )
         public
-        onlyFromNamed(NAME)
+        onlyFromNamed("erc721_vault")
     {
         _burn(tokenId);
         emit BridgeERC721Burn(account, tokenId);

@@ -30,8 +30,6 @@ import { BaseVault } from "./BaseVault.sol";
  */
 
 contract ERC20Vault is BaseVault {
-    bytes32 public NAME = "erc20_vault";
-
     using SafeERC20Upgradeable for ERC20Upgradeable;
 
     /*//////////////////////////////////////////////////////////////
@@ -154,7 +152,9 @@ contract ERC20Vault is BaseVault {
         payable
         nonReentrant
     {
-        if (to == address(0) || to == resolve(destChainId, NAME, false)) {
+        if (
+            to == address(0) || to == resolve(destChainId, "erc20_vault", false)
+        ) {
             revert VAULT_INVALID_TO();
         }
 
@@ -194,7 +194,7 @@ contract ERC20Vault is BaseVault {
         IBridge.Message memory message;
         message.destChainId = destChainId;
         message.owner = msg.sender;
-        message.to = resolve(destChainId, NAME, false);
+        message.to = resolve(destChainId, "erc20_vault", false);
         message.data = abi.encodeWithSelector(
             ERC20Vault.receiveToken.selector,
             canonicalToken,
@@ -297,7 +297,7 @@ contract ERC20Vault is BaseVault {
         nonReentrant
         onlyFromNamed("bridge")
     {
-        IBridge.Context memory ctx = checkValidContext(NAME);
+        IBridge.Context memory ctx = checkValidContext("erc20_vault");
 
         address token;
         if (canonicalToken.chainId == block.chainid) {

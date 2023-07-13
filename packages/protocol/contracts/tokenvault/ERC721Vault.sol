@@ -18,7 +18,6 @@ import { IERC165 } from
     "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import { AddressResolver } from "../common/AddressResolver.sol";
 import { IBridge } from "../bridge/IBridge.sol";
-import { LibExtractCalldata } from "./LibExtractCalldata.sol";
 import { BaseNFTVault } from "./BaseNFTVault.sol";
 import { BridgedERC721 } from "./BridgedERC721.sol";
 import { Proxied } from "../common/Proxied.sol";
@@ -222,7 +221,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         returns (BaseNFTVault.CanonicalNFT memory, address, address, uint256)
     {
         bytes memory calldataWithoutSelector =
-            LibExtractCalldata.extractCalldata(dataWithSelector);
+            _extractCalldata(dataWithSelector);
         return abi.decode(
             calldataWithoutSelector,
             (BaseNFTVault.CanonicalNFT, address, address, uint256)
