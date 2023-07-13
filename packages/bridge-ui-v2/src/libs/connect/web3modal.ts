@@ -12,9 +12,6 @@ const ethereumClient = new EthereumClient(wagmiConfig, chains);
 export const web3modal = new Web3Modal(
   {
     projectId,
-    enableNetworkViews: true,
-    enableAccountView: true,
-    enableExplorer: true,
     chainImages: {
       [PUBLIC_L1_CHAIN_ID]: '/ethereum-chain.png',
       [PUBLIC_L2_CHAIN_ID]: '/taiko-chain.png',

@@ -5,8 +5,8 @@
   import { Icon } from '$components/Icon';
   import { InputBox } from '$components/InputBox';
   import { Tooltip } from '$components/Tooltip';
-  import { ProcessingFeeMethod } from '$libs/free';
-  import { recommendProcessingFee } from '$libs/free';
+  import { ProcessingFeeMethod } from '$libs/fee';
+  import { recommendProcessingFee } from '$libs/fee';
   import { uid } from '$libs/util/uid';
 
   let dialogId = `dialog-${uid()}`;
@@ -100,9 +100,9 @@
     {/if}
   </span>
 
-  <dialog id={dialogId} class="modal absolute modal-bottom px-4 pb-4" class:modal-open={modalOpen}>
-    <div class="modal-box relative px-6 py-[30px] bg-neutral-background rounded-2xl">
-      <button class="absolute right-6 top-[30px]" on:click={closeModal}>
+  <dialog id={dialogId} class="modal modal-bottom md:absolute md:px-4 md:pb-4" class:modal-open={modalOpen}>
+    <div class="modal-box relative px-6 py-[35px] bg-neutral-background">
+      <button class="absolute right-6 top-[35px]" on:click={closeModal}>
         <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
       </button>
 
@@ -186,8 +186,5 @@
         <span class="absolute right-6 uppercase body-bold text-secondary-content">ETH</span>
       </div>
     </div>
-
-    <!-- TODO: we might not need this brackdrop at all. Re-think this -->
-    <!-- <div class="overlay-backdrop" /> -->
   </dialog>
 </div>
