@@ -44,6 +44,9 @@ contract ERC20Vault is BaseVault {
         string name;
     }
 
+    // TODO(dani): this struct has a very different meaning than those defined
+    // for NFTs. It may be an issue.
+
     struct BridgeTransferOp {
         address token;
         uint256 amount;
