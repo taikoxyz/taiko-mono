@@ -12,7 +12,7 @@ export async function getBalance(token: Token, userAddress: Address, srcChainId?
   }
 
   // We are dealing with an ERC20 token. We need to first find out its address
-  // in order to fetch the balance.
+  // on the current chain in order to fetch the balance.
   const tokenAddress = await getAddress(token, srcChainId, destChainId);
 
   if (!tokenAddress || tokenAddress === zeroAddress) return null;
