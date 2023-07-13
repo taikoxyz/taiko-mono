@@ -88,7 +88,7 @@ contract ERC20Vault is BaseVault {
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
 
-    event BridgedERC20Deployed(
+    event BridgedTokenDeployed(
         uint256 indexed srcChainId,
         address indexed canonicalToken,
         address indexed bridgedToken,
@@ -97,15 +97,7 @@ contract ERC20Vault is BaseVault {
         uint8 canonicalTokenDecimal
     );
 
-    event EtherSent(
-        bytes32 indexed msgHash,
-        address indexed from,
-        address indexed to,
-        uint256 destChainId,
-        uint256 amount
-    );
-
-    event ERC20Sent(
+    event TokenSent(
         bytes32 indexed msgHash,
         address indexed from,
         address indexed to,
@@ -114,14 +106,14 @@ contract ERC20Vault is BaseVault {
         uint256 amount
     );
 
-    event ERC20Released(
+    event TokenReleased(
         bytes32 indexed msgHash,
         address indexed from,
         address token,
         uint256 amount
     );
 
-    event ERC20Received(
+    event TokenReceived(
         bytes32 indexed msgHash,
         address indexed from,
         address indexed to,
@@ -204,7 +196,7 @@ contract ERC20Vault is BaseVault {
         // record the deposit for this message
         messageDeposits[msgHash] = MessageDeposit(opt.token, _amount);
 
-        emit ERC20Sent({
+        emit TokenSent({
             msgHash: msgHash,
             from: message.owner,
             to: opt.to,
@@ -257,7 +249,7 @@ contract ERC20Vault is BaseVault {
             }
         }
 
-        emit ERC20Released({
+        emit TokenReleased({
             msgHash: msgHash,
             from: message.owner,
             token: token,
@@ -301,7 +293,7 @@ contract ERC20Vault is BaseVault {
             IMintableERC20(token).mint(to, amount);
         }
 
-        emit ERC20Received({
+        emit TokenReceived({
             msgHash: ctx.msgHash,
             from: from,
             to: to,
@@ -367,7 +359,7 @@ contract ERC20Vault is BaseVault {
         canonicalToBridged[canonicalToken.chainId][canonicalToken.addr] =
             bridgedToken;
 
-        emit BridgedERC20Deployed({
+        emit BridgedTokenDeployed({
             srcChainId: canonicalToken.chainId,
             canonicalToken: canonicalToken.addr,
             bridgedToken: bridgedToken,

@@ -33,13 +33,13 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
     bytes4 public constant ERC1155_INTERFACE_ID = 0xd9b67a26;
     bytes4 public constant ERC1155_METADATA_INTERFACE_ID = 0x0e89341c;
 
-    event BridgedERC1155Deployed(
+    event BridgedTokenDeployed(
         uint256 indexed srcChainId,
         address indexed canonicalToken,
         address indexed bridgedToken
     );
 
-    event ERC1155Sent(
+    event TokenSent(
         bytes32 indexed msgHash,
         address indexed from,
         address indexed to,
@@ -49,7 +49,7 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
         uint256 amount
     );
 
-    event ERC1155Released(
+    event TokenReleased(
         bytes32 indexed msgHash,
         address indexed from,
         address token,
@@ -57,7 +57,7 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
         uint256 amount
     );
 
-    event ERC1155Received(
+    event TokenReceived(
         bytes32 indexed msgHash,
         address indexed from,
         address indexed to,
@@ -118,7 +118,7 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
             value: msg.value
         }(message);
 
-        emit ERC1155Sent({
+        emit TokenSent({
             msgHash: msgHash,
             from: message.owner,
             to: opt.to,
@@ -199,7 +199,7 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
             address(this), message.owner, tokenId, amount, ""
         );
 
-        emit ERC1155Released({
+        emit TokenReleased({
             msgHash: msgHash,
             from: message.owner,
             token: releasedToken,
@@ -356,7 +356,7 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
             BridgedERC1155(token).mint(to, tokenId, amount, "");
         }
 
-        emit ERC1155Received({
+        emit TokenReceived({
             msgHash: ctx.msgHash,
             from: from,
             to: to,
@@ -409,7 +409,7 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
             _uri: canonicalToken.uri
         });
 
-        emit BridgedERC1155Deployed({
+        emit BridgedTokenDeployed({
             srcChainId: canonicalToken.srcChainId,
             canonicalToken: canonicalToken.tokenAddr,
             bridgedToken: bridgedToken

@@ -33,7 +33,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     bytes4 public constant ERC721_METADATA_INTERFACE_ID = 0x5b5e139f;
     bytes4 public constant ERC721_ENUMERABLE_INTERFACE_ID = 0x780e9d63;
 
-    event BridgedERC721Deployed(
+    event BridgedTokenDeployed(
         uint256 indexed srcChainId,
         address indexed canonicalToken,
         address indexed bridgedToken,
@@ -41,7 +41,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         string canonicalTokenName
     );
 
-    event ERC721Sent(
+    event TokenSent(
         bytes32 indexed msgHash,
         address indexed from,
         address indexed to,
@@ -50,14 +50,14 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         uint256 tokenId
     );
 
-    event ERC721Released(
+    event TokenReleased(
         bytes32 indexed msgHash,
         address indexed from,
         address token,
         uint256 tokenId
     );
 
-    event ERC721Received(
+    event TokenReceived(
         bytes32 indexed msgHash,
         address indexed from,
         address indexed to,
@@ -121,7 +121,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             value: msg.value
         }(message);
 
-        emit ERC721Sent({
+        emit TokenSent({
             msgHash: msgHash,
             from: message.owner,
             to: opt.to,
@@ -197,7 +197,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             address(this), message.owner, tokenId
         );
 
-        emit ERC721Released({
+        emit TokenReleased({
             msgHash: msgHash,
             from: message.owner,
             token: releasedToken,
@@ -312,7 +312,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             BridgedERC721(token).mint(to, tokenId);
         }
 
-        emit ERC721Received({
+        emit TokenReceived({
             msgHash: ctx.msgHash,
             from: from,
             to: to,
@@ -371,7 +371,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             _uri: canonicalToken.uri
         });
 
-        emit BridgedERC721Deployed({
+        emit BridgedTokenDeployed({
             srcChainId: canonicalToken.srcChainId,
             canonicalToken: canonicalToken.tokenAddr,
             bridgedToken: bridgedToken,
