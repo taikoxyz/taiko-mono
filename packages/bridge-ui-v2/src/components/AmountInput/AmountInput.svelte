@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { fetchBalance, type FetchBalanceResult, type GetAccountResult, type PublicClient } from '@wagmi/core';
+  import type { FetchBalanceResult, GetAccountResult, PublicClient } from '@wagmi/core';
   import { t } from 'svelte-i18n';
 
   import { InputBox } from '$components/InputBox';
   import LoadingText from '$components/LoadingText/LoadingText.svelte';
-  import { getAddress as getTokenAddress, getBalance as getTokenBalance, isETH, type Token } from '$libs/token';
+  import { getBalance as getTokenBalance, type Token } from '$libs/token';
   import { getLogger } from '$libs/util/logger';
   import { truncateString } from '$libs/util/truncateString';
   import { uid } from '$libs/util/uid';
@@ -17,7 +17,7 @@
 
   let inputId = `input-${uid()}`;
 
-  let tokenBalance: FetchBalanceResult;
+  let tokenBalance: Maybe<FetchBalanceResult>;
   let computingTokenBalance = false;
 
   async function updateTokenBalance(
@@ -31,14 +31,9 @@
     computingTokenBalance = true;
 
     try {
-      if (isETH(token)) {
-        let { address } = account;
-        tokenBalance = await fetchBalance({ address });
-        log('Token balance', tokenBalance);
-      } else {
-        tokenAddress = await getTokenAddress(token, srcChainId, destChainId);
-        tokenBalance = await getTokenBalance(token, tokenAddress);
-      }
+      tokenBalance = await getTokenBalance(token, account.address, srcChainId, destChainId);
+
+      log('Token balance', tokenBalance);
     } finally {
       computingTokenBalance = false;
     }

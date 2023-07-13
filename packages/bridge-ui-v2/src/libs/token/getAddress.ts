@@ -11,14 +11,14 @@ import type { Token } from './types';
 const log = getLogger('token:getAddress');
 
 export async function getAddress(token: Token, srcChainId?: number, destChainId?: number) {
-  if(!srcChainId) return
+  if (!srcChainId) return;
 
   // Get the address for the token on the source chain
   let address = token.addresses[srcChainId];
 
   // If the token isn't ETH or has no address...
   if (!isETH(token) && (!address || address === zeroAddress)) {
-    if (!destChainId) return
+    if (!destChainId) return;
 
     // Find the address on the destination chain instead. We are
     // most likely on Taiko chain and the token hasn't yet been
