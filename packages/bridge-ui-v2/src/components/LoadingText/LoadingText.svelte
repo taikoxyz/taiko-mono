@@ -1,7 +1,7 @@
 <script lang="ts">
   import { classNames } from '$libs/util/classNames';
 
-  export let mask: string = 'Loading';
+  export let mask = 'Loading';
 
   let classes = classNames('animate-pulse blur-sm font-bold', $$props.class);
 </script>

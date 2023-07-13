@@ -9,7 +9,7 @@
   import { ProcessingFee } from '$components/ProcessingFee';
   import { RecipientInput } from '$components/RecipientInput';
   import { TokenDropdown } from '$components/TokenDropdown';
-  import { tokens, type Token } from '$libs/token';
+  import { type Token, tokens } from '$libs/token';
   import { destChain, srcChain } from '$stores/network';
 
   let selectedToken: Token;

@@ -20,7 +20,7 @@
   let checkingMintable = false;
   let switchingNetwork = false;
 
-  let selectedToken: Maybe<Token>;
+  let selectedToken: Token;
   let mintButtonEnabled = false;
   let reasonNotMintable = '';
 
@@ -90,7 +90,7 @@
   // This function will check whether or not the button to mint should be
   // enabled. If it shouldn't it'll also set the reason why so we can inform
   // the user why they can't mint
-  async function updateMintButtonState(token: Maybe<Token>, network: Maybe<Chain>) {
+  async function updateMintButtonState(token?: Token, network?: Chain) {
     if (!token || !network) return false;
 
     checkingMintable = true;

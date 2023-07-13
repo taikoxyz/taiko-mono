@@ -1,14 +1,15 @@
 <script lang="ts">
-  import { format, t } from 'svelte-i18n';
+  import { fetchBalance, type FetchBalanceResult, type GetAccountResult, type PublicClient } from '@wagmi/core';
+  import { t } from 'svelte-i18n';
 
   import { InputBox } from '$components/InputBox';
-  import { uid } from '$libs/util/uid';
-  import { isETH, type Token } from '$libs/token';
-  import { fetchBalance, type FetchBalanceResult, type GetAccountResult, type PublicClient } from '@wagmi/core';
-  import { getLogger } from '$libs/util/logger';
-  import { account } from '$stores/account';
   import LoadingText from '$components/LoadingText/LoadingText.svelte';
+  import { getAddress as getTokenAddress, getBalance as getTokenBalance, isETH, type Token } from '$libs/token';
+  import { getLogger } from '$libs/util/logger';
   import { truncateString } from '$libs/util/truncateString';
+  import { uid } from '$libs/util/uid';
+  import { account } from '$stores/account';
+  import { destChain, srcChain } from '$stores/network';
 
   const log = getLogger('AmountInput');
 
@@ -19,19 +20,24 @@
   let tokenBalance: FetchBalanceResult;
   let computingTokenBalance = false;
 
-  async function updateTokenBalance(token: Maybe<Token>, account: Maybe<GetAccountResult<PublicClient>>) {
-    if (!token || !account) return;
+  async function updateTokenBalance(
+    token?: Token,
+    account?: GetAccountResult<PublicClient>,
+    srcChainId?: number,
+    destChainId?: number,
+  ) {
+    if (!token || !account || !account.address) return;
 
     computingTokenBalance = true;
 
     try {
       if (isETH(token)) {
-        const { address } = account;
-
-        if (address) {
-          tokenBalance = await fetchBalance({ address });
-          log('ETH balance:', tokenBalance);
-        }
+        let { address } = account;
+        tokenBalance = await fetchBalance({ address });
+        log('Token balance', tokenBalance);
+      } else {
+        tokenAddress = await getTokenAddress(token, srcChainId, destChainId);
+        tokenBalance = await getTokenBalance(token, tokenAddress);
       }
     } finally {
       computingTokenBalance = false;
@@ -43,7 +49,7 @@
     return `${truncateString(balance.formatted, 6)} ${balance.symbol}`;
   }
 
-  $: updateTokenBalance(token, $account);
+  $: updateTokenBalance(token, $account, $srcChain?.id, $destChain?.id);
 </script>
 
 <div class="f-col space-y-2">
@@ -53,7 +59,7 @@
       <span>{$t('amount_input.balance')}:</span>
       <span>
         {#if computingTokenBalance}
-          <LoadingText mask="0.000" class="text-white" />
+          <LoadingText mask="0.0000" class="text-white" />
           <LoadingText mask="XXX" class="text-white" />
         {:else}
           {renderTokenBalance(tokenBalance)}
