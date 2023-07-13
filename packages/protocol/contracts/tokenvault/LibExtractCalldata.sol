@@ -16,6 +16,10 @@ library LibExtractCalldata {
      * decode it
      * we need to extract pure calldata.
      */
+
+    // TODO(dani): extract call data for what? Please comment on the return
+    // value.
+    // TODO(dani): move this function to BaseNFTVault?
     function extractCalldata(bytes memory calldataWithSelector)
         public
         pure
