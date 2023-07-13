@@ -52,6 +52,14 @@ const ecosystemData: EcosystemData[] = [
     filters: [],
   },
   {
+    icon: "/images/ecosystem/foxwallet.png",
+    name: "FoxWallet",
+    link: "https://foxwallet.com",
+    description:
+      "FoxWallet is a safe and easy-to-use decentralized audited wallet, dedicated to creating an entrance and connection to the Web3 world.",
+    filters: [],
+  },
+  {
     icon: "/images/ecosystem/kekkai.png",
     name: "KEKKAI",
     link: "https://kekkai.io",
@@ -156,7 +164,7 @@ const ecosystemData: EcosystemData[] = [
   {
     icon: "/images/ecosystem/zkdelx.jpg",
     name: "zkDELX",
-    link: "https://zkdelx-front-1.vercel.app",
+    link: "https://zkdelx-front.vercel.app",
     description:
       "zkDELX is a decentralized electricity exchange market based on zkEVM to facilitate the electrical vehicles and renewable energy industries.",
     filters: [],

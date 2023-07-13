@@ -1,5 +1,20 @@
 const posts = [
   {
+    title: "Cross-chain communication exploration – rollups’ vision",
+    href: "https://taiko.mirror.xyz/ryYEi4gAeOWwyERqYTs7CPbNEOYXaEeiMEui6gdlnyg",
+    description:
+      "TLDR: This article explores the approaches of different L2s to cross-chain messaging from rollups’ perspective, focusing more on trustless cross-chain communication.",
+    date: "Jul 12, 2023",
+    datetime: "2023-07-12",
+    imageUrl:
+      "https://mirror-media.imgix.net/publication-images/HQGT0nBEq8AzLQxQFqqpI.png?height=512&width=1024&h=512&w=1024&auto=compress",
+    readingTime: "14 min",
+    author: {
+      name: "Lisa A.",
+      imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",
+    },
+  },
+  {
     title: "Alpha-3 testnet update: stats & future plans",
     href: "https://taiko.mirror.xyz/LBukIvc5nRfNdbzk3_bDZNkBRSmavFp_D90IkBYCuFk",
     description:
@@ -23,21 +38,6 @@ const posts = [
     datetime: "2023-07-04",
     imageUrl:
       "https://mirror-media.imgix.net/publication-images/3cfm8O9yVJ8aszk8bQ700.png?height=1536&width=3072&h=1536&w=3072&auto=compress",
-    readingTime: "4 min",
-    author: {
-      name: "Lisa A.",
-      imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",
-    },
-  },
-  {
-    title: "ZK-Roller-Coaster #7",
-    href: "https://taiko.mirror.xyz/6WL5I2lbpYxOjhU82eUOyUvYa0yF2_rekI0f7cBrGxw",
-    description:
-      "This is the 7th edition of ZK-Roller-Coaster where we track and investigate the most exciting, meaningful, and crazy ZK-stuff of the prior two weeks.",
-    date: "Jun 20, 2023",
-    datetime: "2023-06-20",
-    imageUrl:
-      "https://mirror-media.imgix.net/publication-images/HRLmI4Vmn9A637fxJm8cq.png?height=426&width=851&h=426&w=851&auto=compress",
     readingTime: "4 min",
     author: {
       name: "Lisa A.",
