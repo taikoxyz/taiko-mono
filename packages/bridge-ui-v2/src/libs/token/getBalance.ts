@@ -15,11 +15,6 @@ export async function getBalance(token: Token, userAddress: Address, srcChainId?
 
   if (!tokenAddress || tokenAddress === zeroAddress) return null;
 
-  // const tokenContract = getContract({
-  //   abi: erc20ABI,
-  //   address: tokenAddress,
-  // })
-
   return fetchBalance({
     address: userAddress,
     chainId: srcChainId,
