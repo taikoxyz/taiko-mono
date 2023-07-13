@@ -8,9 +8,9 @@ pragma solidity ^0.8.20;
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { SignalService } from "../signal/SignalService.sol";
-import { ERC20Vault } from "../bridge/erc20/ERC20Vault.sol";
+import { ERC20Vault } from "../tokenvault/ERC20Vault.sol";
 import { EtherVault } from "../bridge/EtherVault.sol";
-import { BridgedERC20 } from "../bridge/erc20/BridgedERC20.sol";
+import { BridgedERC20 } from "../tokenvault/BridgedERC20.sol";
 import { Bridge } from "../bridge/Bridge.sol";
 import { TaikoToken } from "../L1/TaikoToken.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";

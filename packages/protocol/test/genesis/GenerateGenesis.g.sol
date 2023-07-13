@@ -10,7 +10,7 @@ import { console2 } from "forge-std/console2.sol";
 import { TaikoL2 } from "../../contracts/L2/TaikoL2.sol";
 import { AddressManager } from "../../contracts/common/AddressManager.sol";
 import { Bridge } from "../../contracts/bridge/Bridge.sol";
-import { ERC20Vault } from "../../contracts/bridge/erc20/ERC20Vault.sol";
+import { ERC20Vault } from "../../contracts/tokenvault/ERC20Vault.sol";
 import { EtherVault } from "../../contracts/bridge/EtherVault.sol";
 import { SignalService } from "../../contracts/signal/SignalService.sol";
 import { LibBridgeStatus } from

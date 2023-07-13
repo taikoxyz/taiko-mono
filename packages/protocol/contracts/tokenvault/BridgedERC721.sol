@@ -6,22 +6,22 @@
 
 pragma solidity ^0.8.20;
 
-import {EssentialContract} from "../../common/EssentialContract.sol";
-import {
-    ERC721Upgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
-import {BridgeErrors} from "../BridgeErrors.sol";
+import { EssentialContract } from "../common/EssentialContract.sol";
+import { ERC721Upgradeable } from
+    "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 
-contract BridgedERC721 is
-    EssentialContract,
-    ERC721Upgradeable,
-    BridgeErrors
-{
+contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
+    bytes32 public NAME = "erc721_vault";
+
     address public srcToken;
     uint256 public srcChainId;
     string public srcBaseUri;
     uint256[47] private gap;
 
+    error BRIDGED_TOKEN_CANNOT_RECEIVE();
+    error BRIDGED_TOKEN_INVALID_PARAMS();
+
+    // TODO(dani): remove this, use Transfer event
     event BridgeERC721Mint(address indexed account, uint256 tokenId);
     event BridgeERC721Burn(address indexed account, uint256 tokenId);
 
@@ -35,19 +35,19 @@ contract BridgedERC721 is
         string memory _symbol,
         string memory _name,
         string memory _uri
-    ) external initializer {
+    )
+        external
+        initializer
+    {
         if (
-            _srcToken == address(0) ||
-            _srcChainId == 0 ||
-            _srcChainId == block.chainid ||
-            bytes(_symbol).length == 0 ||
-            bytes(_name).length == 0 ||
-            bytes(_uri).length == 0
+            _srcToken == address(0) || _srcChainId == 0
+                || _srcChainId == block.chainid || bytes(_symbol).length == 0
+                || bytes(_name).length == 0 || bytes(_uri).length == 0
         ) {
-            revert B_INIT_PARAM_ERROR();
+            revert BRIDGED_TOKEN_INVALID_PARAMS();
         }
         EssentialContract._init(_addressManager);
-        __ERC721_init(_name,_symbol);
+        __ERC721_init(_name, _symbol);
         srcToken = _srcToken;
         srcChainId = _srcChainId;
         srcBaseUri = _uri;
@@ -57,7 +57,10 @@ contract BridgedERC721 is
     function bridgeMintTo(
         address account,
         uint256 tokenId
-    ) public onlyFromNamed("erc721_vault") {
+    )
+        public
+        onlyFromNamed(NAME)
+    {
         _mint(account, tokenId);
         emit BridgeERC721Mint(account, tokenId);
     }
@@ -66,7 +69,10 @@ contract BridgedERC721 is
     function bridgeBurnFrom(
         address account,
         uint256 tokenId
-    ) public onlyFromNamed("erc721_vault") {
+    )
+        public
+        onlyFromNamed(NAME)
+    {
         _burn(tokenId);
         emit BridgeERC721Burn(account, tokenId);
     }
@@ -78,9 +84,12 @@ contract BridgedERC721 is
         address from,
         address to,
         uint256 tokenId
-    ) public override(ERC721Upgradeable) {
+    )
+        public
+        override(ERC721Upgradeable)
+    {
         if (to == address(this)) {
-            revert B_CANNOT_RECEIVE();
+            revert BRIDGED_TOKEN_CANNOT_RECEIVE();
         }
         return ERC721Upgradeable.transferFrom(from, to, tokenId);
     }

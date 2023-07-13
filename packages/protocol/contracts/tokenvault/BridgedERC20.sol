@@ -12,10 +12,9 @@ import {
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { IERC20MetadataUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
-import { IMintableERC20 } from "../../common/IMintableERC20.sol";
-import { EssentialContract } from "../../common/EssentialContract.sol";
-import { Proxied } from "../../common/Proxied.sol";
-import { BridgeErrors } from "../BridgeErrors.sol";
+import { IMintableERC20 } from "../common/IMintableERC20.sol";
+import { EssentialContract } from "../common/EssentialContract.sol";
+import { Proxied } from "../common/Proxied.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 /**
  * This contract is an upgradeable ERC20 contract that represents tokens bridged
@@ -27,9 +26,13 @@ contract BridgedERC20 is
     EssentialContract,
     IMintableERC20,
     IERC20MetadataUpgradeable,
-    ERC20Upgradeable,
-    BridgeErrors
+    ERC20Upgradeable
 {
+    bytes32 public NAME = "erc20_vault";
+
+    error BRIDGED_TOKEN_CANNOT_RECEIVE();
+    error BRIDGED_TOKEN_INVALID_PARAMS();
+
     address public srcToken;
     uint256 public srcChainId;
     uint8 private srcDecimals;
@@ -62,7 +65,7 @@ contract BridgedERC20 is
                 || _srcChainId == block.chainid || bytes(_symbol).length == 0
                 || bytes(_name).length == 0
         ) {
-            revert B_INIT_PARAM_ERROR();
+            revert BRIDGED_TOKEN_INVALID_PARAMS();
         }
         EssentialContract._init(_addressManager);
         ERC20Upgradeable.__ERC20_init({ name_: _name, symbol_: _symbol });
@@ -82,7 +85,7 @@ contract BridgedERC20 is
         uint256 amount
     )
         public
-        onlyFromNamed4("taiko", "prover_pool", "dao", "erc20_vault")
+        onlyFromNamed4("taiko", "prover_pool", "dao", NAME)
     {
         _mint(account, amount);
         emit Mint(account, amount);
@@ -99,7 +102,7 @@ contract BridgedERC20 is
         uint256 amount
     )
         public
-        onlyFromNamed4("taiko", "prover_pool", "dao", "erc20_vault")
+        onlyFromNamed4("taiko", "prover_pool", "dao", NAME)
     {
         _burn(account, amount);
         emit Burn(account, amount);
@@ -121,7 +124,7 @@ contract BridgedERC20 is
         returns (bool)
     {
         if (to == address(this)) {
-            revert B_ERC20_CANNOT_RECEIVE();
+            revert BRIDGED_TOKEN_CANNOT_RECEIVE();
         }
         return ERC20Upgradeable.transfer(to, amount);
     }
@@ -144,7 +147,7 @@ contract BridgedERC20 is
         returns (bool)
     {
         if (to == address(this)) {
-            revert B_ERC20_CANNOT_RECEIVE();
+            revert BRIDGED_TOKEN_CANNOT_RECEIVE();
         }
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }
