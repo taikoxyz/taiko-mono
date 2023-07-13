@@ -86,7 +86,7 @@ contract BridgedERC20 is
         onlyFromNamed4("taiko", "prover_pool", "dao", "erc20_vault")
     {
         _mint(account, amount);
-        emit Mint(account, amount);
+        emit Transfer(address(0), account, amount);
     }
 
     /**
@@ -103,7 +103,7 @@ contract BridgedERC20 is
         onlyFromNamed4("taiko", "prover_pool", "dao", "erc20_vault")
     {
         _burn(account, amount);
-        emit Burn(account, amount);
+        emit Transfer(account, address(0), amount);
     }
 
     /**
