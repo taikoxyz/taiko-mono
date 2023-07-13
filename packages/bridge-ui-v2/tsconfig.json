@@ -15,7 +15,8 @@
     "paths": {
       "$components/*": ["./src/components/*"],
       "$stores/*": ["./src/stores/*"],
-      "$libs/*": ["./src/libs/*"]
+      "$libs/*": ["./src/libs/*"],
+      "$abi": ["./src/abi/index.ts"]
     },
 
     // https://vitest.dev/config/#globals

@@ -1,104 +1,73 @@
 <script lang="ts">
-  import { type ComponentType, onDestroy, onMount } from 'svelte';
-  import { noop } from 'svelte/internal';
+  import { onDestroy } from 'svelte';
   import { t } from 'svelte-i18n';
 
-  import { BllIcon, EthIcon, HorseIcon, Icon } from '$components/Icon';
+  import { DesktopOrLarger } from '$components/DesktopOrLarger';
+  import { Icon } from '$components/Icon';
   import type { Token } from '$libs/token';
-  import { classNames } from '$libs/util/classNames';
   import { uid } from '$libs/util/uid';
 
+  import DialogView from './DialogView.svelte';
+  import DropdownView from './DropdownView.svelte';
+  import { symbolToIconMap } from './symbolToIconMap';
+
   export let tokens: Token[] = [];
-  export let onChange: (token: Token) => void = noop;
+  export let value: Maybe<Token> = null;
 
-  let symbolToIconMap: Record<string, ComponentType> = {
-    ETH: EthIcon,
-    BLL: BllIcon,
-    HORSE: HorseIcon,
-  };
-
-  let dropdownId = `dropdown-${uid()}`;
-  let selectedToken: Token;
+  let id = `menu-${uid()}`;
   let menuOpen = false;
 
-  $: menuClasses = classNames(
-    'menu absolute right-0 w-[265px] p-3 mt-2 rounded-[10px] bg-neutral-background z-10',
-    menuOpen ? 'visible opacity-100' : 'invisible opacity-0',
-  );
+  // This will control which view to render depending on the screensize.
+  // Since markup will differ, and there is logic running when interacting
+  // with this component, it makes more sense to not render the view that's
+  // not being used, doing this with JS instead of CSS media queries
+  let isDesktopOrLarger: boolean;
 
   function closeMenu() {
     menuOpen = false;
   }
 
-  function openMenu(event: Event) {
-    // Prevents closing the menu immediately (button click bubbles up to the document)
-    event.stopPropagation();
+  function openMenu() {
     menuOpen = true;
   }
 
   function selectToken(token: Token) {
-    selectedToken = token;
-    onChange?.(token); // TODO: data binding? 🤔
+    value = token;
     closeMenu();
   }
 
-  function getTokenKeydownHandler(token: Token) {
-    return (event: KeyboardEvent) => {
-      if (event.key === 'Enter') {
-        selectToken(token);
-      }
-    };
-  }
-
-  onMount(() => {
-    document.addEventListener('click', closeMenu);
-  });
-
-  onDestroy(() => {
-    closeMenu();
-    document.removeEventListener('click', closeMenu);
-  });
+  onDestroy(closeMenu);
 </script>
+
+<DesktopOrLarger bind:is={isDesktopOrLarger} />
 
 <div class="relative">
   <button
     aria-haspopup="listbox"
-    aria-controls={dropdownId}
+    aria-controls={id}
     aria-expanded={menuOpen}
     class="f-between-center w-full px-6 py-[14px] input-box"
     on:click={openMenu}
     on:focus={openMenu}>
     <div class="space-x-2">
-      {#if !selectedToken}
-        <span class="title-subsection-bold text-tertiary-content leading-8">{$t('token_dropdown.placeholder')}</span>
+      {#if !value}
+        <span class="title-subsection-bold text-tertiary-content leading-8">{$t('token_dropdown.label')}</span>
       {/if}
-      {#if selectedToken}
+      {#if value}
         <div class="flex space-x-2 items-center">
-          <i role="img" aria-label={selectedToken.name}>
-            <svelte:component this={symbolToIconMap[selectedToken.symbol]} />
+          <i role="img" aria-label={value.name}>
+            <svelte:component this={symbolToIconMap[value.symbol]} />
           </i>
-          <span class="title-subsection-bold">{selectedToken.symbol}</span>
+          <span class="title-subsection-bold">{value.symbol}</span>
         </div>
       {/if}
     </div>
     <Icon type="chevron-down" />
   </button>
 
-  <ul role="listbox" id={dropdownId} class={menuClasses}>
-    {#each tokens as token (token.symbol)}
-      <li
-        role="option"
-        tabindex="0"
-        aria-selected={token === selectedToken}
-        on:click={() => selectToken(token)}
-        on:keydown={getTokenKeydownHandler(token)}>
-        <div class="p-4">
-          <i role="img" aria-label={token.name}>
-            <svelte:component this={symbolToIconMap[token.symbol]} />
-          </i>
-          <span class="body-bold">{token.symbol}</span>
-        </div>
-      </li>
-    {/each}
-  </ul>
+  {#if isDesktopOrLarger}
+    <DropdownView {id} {menuOpen} {tokens} {value} {selectToken} />
+  {:else}
+    <DialogView {id} {menuOpen} {tokens} {value} {selectToken} {closeMenu} />
+  {/if}
 </div>

@@ -59,12 +59,25 @@
   "faucet": {
     "title": "Faucet",
     "subtitle": "Mint test tokens.",
-    "button.mint": "Mint",
-    "message.warning": "To request Test Token, you need to mint it on Sepolia. If you are currently on Taiko, please switch your network first. Additionally, ensure that you have a small amount of ETH in your Sepolia wallet to complete the transaction."
+    "minting_tx": "Transaction sent to mint {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
+    "button": {
+      "mint": "Mint",
+      "checking": "Checking mintability",
+      "minting": "Minting"
+    },
+    "wrong_chain": {
+      "message": "It appears your are on the wrong network. Switch to {network} to mint tokens.",
+      "button": "Switch to {network}"
+    },
+    "warning": {
+      "no_connected": "Please connect your wallet to mint tokens.",
+      "insufficient_balance": "You don't have enough ETH to complete the transaction. Please add some ETH to your wallet.",
+      "token_minted": "You have already minted this token."
+    }
   },
 
   "token_dropdown": {
-    "placeholder": "Select token"
+    "label": "Select token"
   },
 
   "amount_input": {
@@ -80,9 +93,13 @@
 
   "messages": {
     "account": {
-      "required": "Please connect your wallet",
+      "required": "Please connect your wallet.",
       "connected": "Account connected",
       "disconnected": "Account disconnected"
+    },
+    "network": {
+      "switching": "Switching network",
+      "rejected": "Request to switch chain rejected."
     }
   },
 
