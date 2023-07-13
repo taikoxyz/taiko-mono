@@ -27,7 +27,7 @@ contract BridgedERC1155 is
     address public srcToken;
     uint256 public srcChainId;
     string public srcUri;
-    uint256[47] private gap;
+    uint256[47] private __gap;
 
     // TODO(dani): remove these events, use Transfer event
     event BridgeERC1155Mint(
