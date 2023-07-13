@@ -49,6 +49,17 @@ contract ERC20Vault is BaseVault {
         uint256 amount;
     }
 
+    struct BridgeTransferOp {
+        uint256 destChainId;
+        address to;
+        address token;
+        uint256 amount;
+        uint256 gasLimit;
+        uint256 processingFee;
+        address refundAddress;
+        string memo;
+    }
+
     /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
@@ -128,99 +139,77 @@ contract ERC20Vault is BaseVault {
      * destination chain so the user can receive the same amount of tokens
      * by invoking the message call.
      *
-     * @param destChainId Chain ID of the destination chain
-     * @param to Address of the receiver
-     * @param token The address of the token to be sent.
-     * @param amount The amount of token to be transferred.
-     * @param gasLimit Gas limit for the transaction
-     * @param processingFee Processing fee for the transaction
-     * @param refundAddress Address for refunds
-     * @param memo Any additional data or notes
+     * @param opt Option for sending ERC20 tokens.
      */
 
-    function sendToken(
-        uint256 destChainId,
-        address to,
-        address token,
-        uint256 amount,
-        uint256 gasLimit,
-        uint256 processingFee,
-        address refundAddress,
-        string memory memo
-    )
+    function sendToken(BridgeTransferOp calldata opt)
         external
         payable
         nonReentrant
+        onlyValidAddresses(opt.destChainId, "erc20_vault", opt.to, opt.token)
     {
-        if (
-            to == address(0) || to == resolve(destChainId, "erc20_vault", false)
-        ) {
-            revert VAULT_INVALID_TO();
-        }
-
-        if (token == address(0)) revert VAULT_INVALID_TOKEN();
-        if (amount == 0) revert VAULT_INVALID_AMOUNT();
+        if (opt.amount == 0) revert VAULT_INVALID_AMOUNT();
 
         CanonicalERC20 memory canonicalToken;
         uint256 _amount;
 
         // is a bridged token, meaning, it does not live on this chain
-        if (isBridgedToken[token]) {
-            canonicalToken = bridgedToCanonical[token];
+        if (isBridgedToken[opt.token]) {
+            canonicalToken = bridgedToCanonical[opt.token];
             assert(canonicalToken.addr != address(0));
-            IMintableERC20(token).burn(msg.sender, amount);
-            _amount = amount;
+            IMintableERC20(opt.token).burn(msg.sender, opt.amount);
+            _amount = opt.amount;
         } else {
             // is a canonical token, meaning, it lives on this chain
-            ERC20Upgradeable t = ERC20Upgradeable(token);
+            ERC20Upgradeable t = ERC20Upgradeable(opt.token);
             canonicalToken = CanonicalERC20({
                 chainId: block.chainid,
-                addr: token,
+                addr: opt.token,
                 decimals: t.decimals(),
                 symbol: t.symbol(),
                 name: t.name()
             });
 
-            if (token == resolve("taiko_token", true)) {
-                IMintableERC20(token).burn(msg.sender, amount);
-                _amount = amount;
+            if (opt.token == resolve("taiko_token", true)) {
+                IMintableERC20(opt.token).burn(msg.sender, opt.amount);
+                _amount = opt.amount;
             } else {
                 uint256 _balance = t.balanceOf(address(this));
-                t.safeTransferFrom(msg.sender, address(this), amount);
+                t.safeTransferFrom(msg.sender, address(this), opt.amount);
                 _amount = t.balanceOf(address(this)) - _balance;
             }
         }
 
         IBridge.Message memory message;
-        message.destChainId = destChainId;
+        message.destChainId = opt.destChainId;
         message.owner = msg.sender;
-        message.to = resolve(destChainId, "erc20_vault", false);
+        message.to = resolve(opt.destChainId, "erc20_vault", false);
         message.data = abi.encodeWithSelector(
             ERC20Vault.receiveToken.selector,
             canonicalToken,
             message.owner,
-            to,
+            opt.to,
             _amount
         );
-        message.gasLimit = gasLimit;
-        message.processingFee = processingFee;
-        message.depositValue = msg.value - processingFee;
-        message.refundAddress = refundAddress;
-        message.memo = memo;
+        message.gasLimit = opt.gasLimit;
+        message.processingFee = opt.processingFee;
+        message.depositValue = msg.value - opt.processingFee;
+        message.refundAddress = opt.refundAddress;
+        message.memo = opt.memo;
 
         bytes32 msgHash = IBridge(resolve("bridge", false)).sendMessage{
             value: msg.value
         }(message);
 
         // record the deposit for this message
-        messageDeposits[msgHash] = MessageDeposit(token, _amount);
+        messageDeposits[msgHash] = MessageDeposit(opt.token, _amount);
 
         emit ERC20Sent({
             msgHash: msgHash,
             from: message.owner,
-            to: to,
-            destChainId: destChainId,
-            token: token,
+            to: opt.to,
+            destChainId: opt.destChainId,
+            token: opt.token,
             amount: _amount
         });
     }

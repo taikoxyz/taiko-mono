@@ -129,7 +129,7 @@ contract TestERC20Vault is Test {
 
         vm.expectRevert("ERC20: insufficient allowance");
         erc20Vault.sendToken(
-            destChainId, Bob, address(erc20), 1 wei, 1_000_000, 1, Bob, ""
+            ERC20Vault.BridgeTransferOp(destChainId, Bob, address(erc20), 1 wei, 1_000_000, 1, Bob, "")
         );
     }
 
@@ -143,7 +143,7 @@ contract TestERC20Vault is Test {
         uint256 erc20VaultBalanceBefore = erc20.balanceOf(address(erc20Vault));
 
         erc20Vault.sendToken(
-            destChainId, Bob, address(erc20), amount, 1_000_000, 0, Bob, ""
+            ERC20Vault.BridgeTransferOp(destChainId, Bob, address(erc20), amount, 1_000_000, 0, Bob, "")
         );
 
         uint256 aliceBalanceAfter = erc20.balanceOf(Alice);
@@ -163,14 +163,16 @@ contract TestERC20Vault is Test {
 
         vm.expectRevert();
         erc20Vault.sendToken(
-            destChainId,
-            Bob,
-            address(erc20),
-            amount,
-            1_000_000,
-            amount - 1,
-            Bob,
-            ""
+            ERC20Vault.BridgeTransferOp(
+                destChainId,
+                Bob,
+                address(erc20),
+                amount,
+                1_000_000,
+                amount - 1,
+                Bob,
+                ""
+            )
         );
     }
 
@@ -184,14 +186,16 @@ contract TestERC20Vault is Test {
         uint256 erc20VaultBalanceBefore = erc20.balanceOf(address(erc20Vault));
 
         erc20Vault.sendToken{ value: amount }(
-            destChainId,
-            Bob,
-            address(erc20),
-            amount,
-            1_000_000,
-            amount - 1,
-            Bob,
-            ""
+            ERC20Vault.BridgeTransferOp(
+                destChainId,
+                Bob,
+                address(erc20),
+                amount,
+                1_000_000,
+                amount - 1,
+                Bob,
+                ""
+            )
         );
 
         uint256 aliceBalanceAfter = erc20.balanceOf(Alice);
@@ -208,7 +212,7 @@ contract TestERC20Vault is Test {
 
         vm.expectRevert(BaseVault.VAULT_INVALID_AMOUNT.selector);
         erc20Vault.sendToken(
-            destChainId, Bob, address(erc20), amount, 1_000_000, 0, Bob, ""
+            ERC20Vault.BridgeTransferOp(destChainId, Bob, address(erc20), amount, 1_000_000, 0, Bob, "")
         );
     }
 
@@ -219,7 +223,7 @@ contract TestERC20Vault is Test {
 
         vm.expectRevert(BaseVault.VAULT_INVALID_TOKEN.selector);
         erc20Vault.sendToken(
-            destChainId, Bob, address(0), amount, 1_000_000, 0, Bob, ""
+            ERC20Vault.BridgeTransferOp(destChainId, Bob, address(0), amount, 1_000_000, 0, Bob, "")
         );
     }
 
@@ -230,14 +234,16 @@ contract TestERC20Vault is Test {
 
         vm.expectRevert(BaseVault.VAULT_INVALID_TO.selector);
         erc20Vault.sendToken(
-            destChainId,
-            address(0),
-            address(erc20),
-            amount,
-            1_000_000,
-            0,
-            Bob,
-            ""
+            ERC20Vault.BridgeTransferOp(
+                destChainId,
+                address(0),
+                address(erc20),
+                amount,
+                1_000_000,
+                0,
+                Bob,
+                ""
+            )
         );
     }
 

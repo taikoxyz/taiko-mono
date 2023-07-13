@@ -71,21 +71,21 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
      * destination chain so the user can receive the same (bridged) tokens
      * by invoking the message call.
      *
-     * @param opt Option for sending the ERC721/ERC1155 token.
+     * @param opt Option for sending the ERC721 token.
      */
     function sendToken(BridgeTransferOp calldata opt)
         external
         payable
         nonReentrant
+        onlyValidAddresses(opt.destChainId, "erc721_vault", opt.to, opt.token)
     {
-        if (
-            opt.to == address(0)
-                || opt.to == resolve(opt.destChainId, "erc721_vault", false)
-        ) revert VAULT_INVALID_TO();
-
-        if (opt.token == address(0)) revert VAULT_INVALID_TOKEN();
-
         if (opt.amount != 1) revert VAULT_INVALID_AMOUNT();
+
+        if( ERC721Upgradeable(opt.token).supportsInterface(ERC721_INTERFACE_ID) == false
+            && ERC721Upgradeable(opt.token).supportsInterface(ERC721_METADATA_INTERFACE_ID) == false
+            && ERC721Upgradeable(opt.token).supportsInterface(ERC721_ENUMERABLE_INTERFACE_ID) == false)  {
+                revert VAULT_INTERFACE_NOT_SUPPORTED();
+            }
 
         bytes memory data = _sendToken(
             msg.sender,

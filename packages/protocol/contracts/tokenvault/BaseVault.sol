@@ -48,6 +48,11 @@ abstract contract BaseVault is EssentialContract {
     error VAULT_INVALID_SRC_CHAIN_ID();
 
     /**
+     * Thrown when the interface (erc1155/erc721) is not supported.
+     */
+    error VAULT_INTERFACE_NOT_SUPPORTED();
+
+    /**
      * Thrown when a message has not failed.
      * This could happen if trying to release a message deposit without proof of
      * failure.
@@ -60,6 +65,16 @@ abstract contract BaseVault is EssentialContract {
      * source chain.
      */
     error VAULT_INVALID_SENDER();
+
+    modifier onlyValidAddresses(uint256 chainId, bytes32 name, address to, address token) {
+        if (
+            to == address(0)
+                || to == resolve(chainId, name, false)
+        ) revert VAULT_INVALID_TO();
+
+        if (token == address(0)) revert VAULT_INVALID_TOKEN();
+        _;
+    }
 
     function init(address addressManager) external initializer {
         EssentialContract._init(addressManager);

@@ -78,17 +78,20 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
         external
         payable
         nonReentrant
+        onlyValidAddresses(opt.destChainId, "erc1155_vault", opt.to, opt.token)
     {
-        if (
-            opt.to == address(0)
-                || opt.to == resolve(opt.destChainId, "erc1155_vault", false)
-        ) revert VAULT_INVALID_TO();
-
-        if (opt.token == address(0)) revert VAULT_INVALID_TOKEN();
-
         if (opt.amount == 0) revert VAULT_INVALID_AMOUNT();
 
-        bytes memory data = _sendToken(
+        if( ERC1155Upgradeable(opt.token).supportsInterface(ERC1155_INTERFACE_ID) == false
+            && ERC1155Upgradeable(opt.token).supportsInterface(ERC1155_METADATA_INTERFACE_ID) == false) {
+                revert VAULT_INTERFACE_NOT_SUPPORTED();
+        }
+
+        IBridge.Message memory message;
+        message.destChainId = opt.destChainId;
+        message.owner = msg.sender;
+        message.to = resolve(opt.destChainId, "erc1155_vault", false);
+        message.data = _sendToken(
             msg.sender,
             opt.to,
             opt.tokenId,
@@ -99,12 +102,6 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
             bridgedToCanonical[opt.token],
             ERC1155Vault.receiveToken.selector
         );
-
-        IBridge.Message memory message;
-        message.destChainId = opt.destChainId;
-        message.owner = msg.sender;
-        message.to = resolve(opt.destChainId, "erc1155_vault", false);
-        message.data = data;
         message.gasLimit = opt.gasLimit;
         message.processingFee = opt.processingFee;
         message.depositValue = 0;
