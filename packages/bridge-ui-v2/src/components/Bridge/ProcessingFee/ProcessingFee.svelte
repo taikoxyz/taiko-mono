@@ -8,6 +8,9 @@
   import { ProcessingFeeMethod } from '$libs/fee';
   import { recommendProcessingFee } from '$libs/fee';
   import { uid } from '$libs/util/uid';
+  import { destChain, srcChain } from '$stores/network';
+
+  import { selectedToken } from '../selectedToken';
 
   let dialogId = `dialog-${uid()}`;
   let selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
@@ -23,7 +26,7 @@
   async function calculateRecommendedAmount() {
     calculatingRecommendedAmount = true;
     try {
-      recommendedAmount = await recommendProcessingFee();
+      recommendedAmount = await recommendProcessingFee($selectedToken, $destChain?.id, $srcChain?.id);
       errorCalculatingRecommendedAmount = false;
     } catch (error) {
       errorCalculatingRecommendedAmount = true;

@@ -8,9 +8,15 @@ import { getLogger } from '$libs/util/logger';
 import { isETH } from './tokens';
 import type { Token } from './types';
 
+type GetAddressArgs = {
+  token: Token;
+  srcChainId?: number;
+  destChainId?: number;
+};
+
 const log = getLogger('token:getAddress');
 
-export async function getAddress(token: Token, srcChainId?: number, destChainId?: number) {
+export async function getAddress({ token, srcChainId, destChainId }: GetAddressArgs) {
   if (!srcChainId) return;
 
   // Get the address for the token on the source chain
