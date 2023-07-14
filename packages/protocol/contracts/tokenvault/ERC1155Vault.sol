@@ -34,7 +34,7 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
     bytes4 public constant ERC1155_METADATA_INTERFACE_ID = 0x0e89341c;
 
     event BridgedTokenDeployed(
-        uint256 indexed srcChainId,
+        uint256 indexed chainId,
         address indexed canonicalToken,
         address indexed bridgedToken
     );
@@ -61,7 +61,7 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
         bytes32 indexed msgHash,
         address indexed from,
         address indexed to,
-        uint256 srcChainId,
+        uint256 chainId,
         address token,
         uint256[] tokenIds,
         uint256[] amounts
@@ -89,6 +89,7 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
                     ERC1155_METADATA_INTERFACE_ID
                 ) == false
         ) {
+
             revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
 
@@ -115,6 +116,10 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
             amountsArray,
             ERC1155Vault.receiveToken.selector
         );
+
+        message.destChainId = opt.destChainId;
+        message.owner = msg.sender;
+        message.to = resolve(opt.destChainId, "erc1155_vault", false);
         message.gasLimit = opt.gasLimit;
         message.processingFee = opt.processingFee;
         message.depositValue = 0;
@@ -159,8 +164,8 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
         nonReentrant
         onlyFromNamed("bridge")
     {
-        address bridgedAddress = canonicalToBridged[canonicalToken.srcChainId][canonicalToken
-            .tokenAddr];
+        address bridgedAddress =
+            canonicalToBridged[canonicalToken.chainId][canonicalToken.addr];
         (bool bridged, address bridgedToken) = _receiveToken(
             address(_addressManager),
             canonicalToken,
@@ -195,12 +200,12 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
 
         (nft, owner,, tokenIds, amounts) = decodeTokenData(message.data);
 
-        bytes32 msgHash = msgHashIfValidRequest(message, proof, nft.tokenAddr);
+        bytes32 msgHash = msgHashIfValidRequest(message, proof, nft.addr);
 
-        address releasedToken = nft.tokenAddr;
+        address releasedToken = nft.addr;
 
-        if (isBridgedToken[nft.tokenAddr]) {
-            releasedToken = canonicalToBridged[nft.srcChainId][nft.tokenAddr];
+        if (isBridgedToken[nft.addr]) {
+            releasedToken = canonicalToBridged[nft.chainId][nft.addr];
         }
 
         for (uint256 i; i < tokenIds.length; i++) {
@@ -284,12 +289,6 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
         );
     }
 
-    /**
-     *
-     * Private functions *
-     *
-     */
-
     function _sendToken(
         address owner,
         address to,
@@ -317,7 +316,7 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
                 BridgedERC1155(token).burn(owner,tokenIds[i], amounts[i]);
             }
             canonicalToken = bridgedToCanonical;
-            if (canonicalToken.tokenAddr == address(0)) {
+            if (canonicalToken.addr == address(0)) {
                 revert VAULT_CANONICAL_TOKEN_NOT_FOUND();
             }
         } else {
@@ -326,8 +325,8 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
             ERC1155Upgradeable t = ERC1155Upgradeable(token);
 
             canonicalToken = BaseNFTVault.CanonicalNFT({
-                srcChainId: block.chainid,
-                tokenAddr: token,
+                chainId: block.chainid,
+                addr: token,
                 symbol: "",
                 name: "",
                 uri: tokenUri
@@ -360,8 +359,8 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
     {
         IBridge.Context memory ctx = _checkValidContext("erc1155_vault");
 
-        if (canonicalToken.srcChainId == block.chainid) {
-            token = canonicalToken.tokenAddr;
+        if (canonicalToken.chainId == block.chainid) {
+            token = canonicalToken.addr;
             bridged = false;
             for (uint256 i; i < tokenIds.length; i++) {
                 ERC1155Upgradeable(token).safeTransferFrom(
@@ -382,13 +381,15 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
             msgHash: ctx.msgHash,
             from: from,
             to: to,
-            srcChainId: ctx.srcChainId,
+            chainId: ctx.srcChainId,
             token: token,
             tokenIds: tokenIds,
             amounts: amounts
         });
     }
 
+    // TODO(dani): this funciton should be implemented the same way as in
+    // ERC20/ERC721 vaults.
     function _getOrDeployBridgedToken(
         BaseNFTVault.CanonicalNFT memory canonicalToken,
         address token,
@@ -417,8 +418,8 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
             0, // amount of Ether to send
             keccak256(
                 bytes.concat(
-                    bytes32(canonicalToken.srcChainId),
-                    bytes32(uint256(uint160(canonicalToken.tokenAddr)))
+                    bytes32(canonicalToken.chainId),
+                    bytes32(uint256(uint160(canonicalToken.addr)))
                 )
             ),
             type(BridgedERC1155).creationCode
@@ -426,14 +427,14 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
 
         BridgedERC1155(payable(bridgedToken)).init({
             _addressManager: addressManager,
-            _srcToken: canonicalToken.tokenAddr,
-            _srcChainId: canonicalToken.srcChainId,
+            _srcToken: canonicalToken.addr,
+            _srcChainId: canonicalToken.chainId,
             _uri: canonicalToken.uri
         });
 
         emit BridgedTokenDeployed({
-            srcChainId: canonicalToken.srcChainId,
-            canonicalToken: canonicalToken.tokenAddr,
+            chainId: canonicalToken.chainId,
+            canonicalToken: canonicalToken.addr,
             bridgedToken: bridgedToken
         });
 

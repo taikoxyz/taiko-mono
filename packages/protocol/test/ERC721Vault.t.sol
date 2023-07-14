@@ -65,7 +65,7 @@ contract PrankDestBridge {
     struct BridgeContext {
         bytes32 msgHash;
         address sender;
-        uint256 srcChainId;
+        uint256 chainId;
     }
 
     BridgeContext ctx;
@@ -89,19 +89,19 @@ contract PrankDestBridge {
         uint256[] memory tokenIds,
         bytes32 msgHash,
         address srcChainerc721Vault,
-        uint256 srcChainId
+        uint256 chainId
     )
         public
     {
         ctx.sender = srcChainerc721Vault;
         ctx.msgHash = msgHash;
-        ctx.srcChainId = srcChainId;
+        ctx.chainId = chainId;
 
         destERC721Vault.receiveToken(canonicalToken, from, to, tokenIds);
 
         ctx.sender = address(0);
         ctx.msgHash = bytes32(0);
-        ctx.srcChainId = 0;
+        ctx.chainId = 0;
     }
 }
 
@@ -276,8 +276,8 @@ contract ERC721VaultTest is Test {
     function test_decode_message_calldata_721() public {
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault
             .CanonicalNFT({
-            srcChainId: 31_337,
-            tokenAddr: 0x579FBFF1A9b1502688169DA761DcF262b73BB64A,
+            chainId: 31_337,
+            addr: 0x579FBFF1A9b1502688169DA761DcF262b73BB64A,
             symbol: "TT",
             name: "TT",
             uri: "http://example.host.com/"
@@ -301,6 +301,7 @@ contract ERC721VaultTest is Test {
         assertEq(
             0x579FBFF1A9b1502688169DA761DcF262b73BB64A, nftRetVal.tokenAddr
         );
+
         assertEq("TT", nftRetVal.symbol);
         assertEq("TT", nftRetVal.name);
         assertEq("http://example.host.com/", nftRetVal.uri);
@@ -429,14 +430,14 @@ contract ERC721VaultTest is Test {
 
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault
             .CanonicalNFT({
-            srcChainId: 31_337,
-            tokenAddr: address(canonicalToken721),
+            chainId: 31_337,
+            addr: address(canonicalToken721),
             symbol: "",
             name: "",
             uri: "http://example.host.com/"
         });
 
-        uint256 srcChainId = block.chainid;
+        uint256 chainId = block.chainid;
         vm.chainId(destChainId);
 
         destChainIdBridge.sendReceiveERC721ToERC721Vault(
@@ -446,12 +447,12 @@ contract ERC721VaultTest is Test {
             tokenIds,
             bytes32(0),
             address(erc721Vault),
-            srcChainId
+            chainId
         );
 
         // Query canonicalToBridged
         address deployedContract = destChainErc721Vault.canonicalToBridged(
-            srcChainId, address(canonicalToken721)
+            chainId, address(canonicalToken721)
         );
 
         // Alice bridged over tokenId 1
@@ -494,14 +495,14 @@ contract ERC721VaultTest is Test {
 
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault
             .CanonicalNFT({
-            srcChainId: 31_337,
-            tokenAddr: address(canonicalToken721),
+            chainId: 31_337,
+            addr: address(canonicalToken721),
             symbol: "",
             name: "",
             uri: "http://example.host.com/"
         });
 
-        uint256 srcChainId = block.chainid;
+        uint256 chainId = block.chainid;
         vm.chainId(destChainId);
 
         destChainIdBridge.sendReceiveERC721ToERC721Vault(
@@ -511,19 +512,19 @@ contract ERC721VaultTest is Test {
             tokenIds,
             bytes32(0),
             address(erc721Vault),
-            srcChainId
+            chainId
         );
 
         // Query canonicalToBridged
         address deployedContract = destChainErc721Vault.canonicalToBridged(
-            srcChainId, address(canonicalToken721)
+            chainId, address(canonicalToken721)
         );
 
         // Alice bridged over tokenId 1
         assertEq(ERC721(deployedContract).ownerOf(1), Alice);
 
         // Change back to 'L1'
-        vm.chainId(srcChainId);
+        vm.chainId(chainId);
 
         tokenIds[0] = 2;
 
@@ -555,12 +556,12 @@ contract ERC721VaultTest is Test {
             tokenIds,
             bytes32(0),
             address(erc721Vault),
-            srcChainId
+            chainId
         );
 
         // Query canonicalToBridged
         address bridgedContract = destChainErc721Vault.canonicalToBridged(
-            srcChainId, address(canonicalToken721)
+            chainId, address(canonicalToken721)
         );
 
         assertEq(bridgedContract, deployedContract);

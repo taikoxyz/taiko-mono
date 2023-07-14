@@ -34,8 +34,8 @@ abstract contract BaseNFTVault is BaseVault {
     error VAULT_MAX_TOKEN_PER_TXN_EXCEEDED();
 
     struct CanonicalNFT {
-        uint256 srcChainId;
-        address tokenAddr;
+        uint256 chainId;
+        address addr;
         string symbol;
         string name;
         string uri;
@@ -117,8 +117,7 @@ abstract contract BaseNFTVault is BaseVault {
     {
         isBridgedToken[bridgedToken] = true;
         bridgedToCanonical[bridgedToken] = canonical;
-        canonicalToBridged[canonical.srcChainId][canonical.tokenAddr] =
-            bridgedToken;
+        canonicalToBridged[canonical.chainId][canonical.addr] = bridgedToken;
     }
 
     /**
