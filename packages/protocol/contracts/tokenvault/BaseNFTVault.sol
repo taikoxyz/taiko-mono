@@ -23,8 +23,8 @@ import { IBridge } from "../bridge/IBridge.sol";
 
 abstract contract BaseNFTVault is BaseVault {
     struct CanonicalNFT {
-        uint256 srcChainId;
-        address tokenAddr;
+        uint256 chainId;
+        address addr;
         string symbol;
         string name;
         string uri;
@@ -72,8 +72,7 @@ abstract contract BaseNFTVault is BaseVault {
     {
         isBridgedToken[bridgedToken] = true;
         bridgedToCanonical[bridgedToken] = canonical;
-        canonicalToBridged[canonical.srcChainId][canonical.tokenAddr] =
-            bridgedToken;
+        canonicalToBridged[canonical.chainId][canonical.addr] = bridgedToken;
     }
 
     /**
