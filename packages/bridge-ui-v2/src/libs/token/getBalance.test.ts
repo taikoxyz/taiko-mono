@@ -12,9 +12,7 @@ vi.mock('@wagmi/core');
 vi.mock('$abi');
 
 // We don't want to test this function again, do we?
-vi.mock('./getAddress', () => ({
-  getAddress: vi.fn(),
-}));
+vi.mock('./getAddress');
 
 const BLLToken = testERC20Tokens[0];
 
