@@ -308,6 +308,27 @@ stakers.
 function getProverWeights(uint32 feePerGas) public view returns (uint256[32] weights, uint32[32] erpg)
 ```
 
+Returns the current active provers and their weights. The weight
+is dependent on the:
+
+1. The prover's amount staked.
+2. The prover's current capacity.
+3. The prover's expected reward per gas.
+4. The protocol's current fee per gas.
+
+#### Parameters
+
+| Name      | Type   | Description                         |
+| --------- | ------ | ----------------------------------- |
+| feePerGas | uint32 | The protocol's current fee per gas. |
+
+#### Return Values
+
+| Name    | Type        | Description                                                                                                                      |
+| ------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| weights | uint256[32] | The weights of the current provers in the pool.                                                                                  |
+| erpg    | uint32[32]  | The effective reward per gas of the current provers in the pool. This is smoothed out to be in range of the current fee per gas. |
+
 ---
 
 ## title: ProxiedProverPool
