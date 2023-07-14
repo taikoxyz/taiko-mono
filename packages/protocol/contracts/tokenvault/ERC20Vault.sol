@@ -324,16 +324,18 @@ contract ERC20Vault is BaseVault {
     /**
      * Internal function to get or deploy bridged token
      * @param canonicalToken Canonical token information
-     * @return token Address of the deployed bridged token
+     * @return bridgedToken Address of the deployed bridged token
      */
     function _getOrDeployBridgedToken(CanonicalERC20 calldata canonicalToken)
         private
-        returns (address)
+        returns (address bridgedToken)
     {
-        address token =
+        bridgedToken =
             canonicalToBridged[canonicalToken.chainId][canonicalToken.addr];
 
-        return token != address(0) ? token : _deployBridgedToken(canonicalToken);
+        if (bridgedToken == address(0)) {
+            bridgedToken = _deployBridgedToken(canonicalToken);
+        }
     }
 
     /**

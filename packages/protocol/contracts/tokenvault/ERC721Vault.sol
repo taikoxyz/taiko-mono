@@ -287,12 +287,14 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         BaseNFTVault.CanonicalNFT calldata canonicalToken
     )
         private
-        returns (address)
+        returns (address bridgedToken)
     {
-        address token =
+        bridgedToken =
             canonicalToBridged[canonicalToken.chainId][canonicalToken.addr];
 
-        return token != address(0) ? token : _deployBridgedToken(canonicalToken);
+        if (bridgedToken == address(0)) {
+            bridgedToken = _deployBridgedToken(canonicalToken);
+        }
     }
 
     /**
