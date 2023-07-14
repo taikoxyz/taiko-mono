@@ -24,7 +24,8 @@ import { Proxied } from "../common/Proxied.sol";
 contract ProverPool is EssentialContract, IProverPool {
     using LibMath for uint256;
 
-    /// @dev These values are used to compute the prover's rank.
+    /// @dev These values are used to compute the prover's rank (along with the
+    /// protocol feePerGas).
     struct Prover {
         uint64 stakedAmount;
         uint32 rewardPerGas;
