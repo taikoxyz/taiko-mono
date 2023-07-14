@@ -1,4 +1,5 @@
 import type { Chain } from '@wagmi/core';
+import type { Address } from 'abitype';
 
 import {
   PUBLIC_L1_BRIDGE_ADDRESS,
@@ -8,6 +9,7 @@ import {
   PUBLIC_L1_EXPLORER_URL,
   PUBLIC_L1_RPC_URL,
   PUBLIC_L1_SIGNAL_SERVICE_ADDRESS,
+  PUBLIC_L1_TOKEN_VAULT_ADDRESS,
   PUBLIC_L2_BRIDGE_ADDRESS,
   PUBLIC_L2_CHAIN_ID,
   PUBLIC_L2_CHAIN_NAME,
@@ -15,6 +17,7 @@ import {
   PUBLIC_L2_EXPLORER_URL,
   PUBLIC_L2_RPC_URL,
   PUBLIC_L2_SIGNAL_SERVICE_ADDRESS,
+  PUBLIC_L2_TOKEN_VAULT_ADDRESS,
 } from '$env/static/public';
 
 export const mainnetChain: Chain = {
@@ -61,15 +64,25 @@ export const taikoChain: Chain = {
 
 export const chains = [mainnetChain, taikoChain];
 
-export const chainContractsMap = {
+export const chainContractsMap: Record<
+  string,
+  {
+    bridgeAddress: Address;
+    tokenVaultAddress: Address;
+    crossChainSyncAddress: Address;
+    signalServiceAddress: Address;
+  }
+> = {
   [PUBLIC_L1_CHAIN_ID]: {
-    bridgeAddress: PUBLIC_L1_BRIDGE_ADDRESS,
-    crossChainSyncAddress: PUBLIC_L1_CROSS_CHAIN_SYNC_ADDRESS,
-    signalServiceAddress: PUBLIC_L1_SIGNAL_SERVICE_ADDRESS,
+    bridgeAddress: PUBLIC_L1_BRIDGE_ADDRESS as Address,
+    tokenVaultAddress: PUBLIC_L1_TOKEN_VAULT_ADDRESS as Address,
+    crossChainSyncAddress: PUBLIC_L1_CROSS_CHAIN_SYNC_ADDRESS as Address,
+    signalServiceAddress: PUBLIC_L1_SIGNAL_SERVICE_ADDRESS as Address,
   },
   [PUBLIC_L2_CHAIN_ID]: {
-    bridgeAddress: PUBLIC_L2_BRIDGE_ADDRESS,
-    crossChainSyncAddress: PUBLIC_L2_CROSS_CHAIN_SYNC_ADDRESS,
-    signalServiceAddress: PUBLIC_L2_SIGNAL_SERVICE_ADDRESS,
+    bridgeAddress: PUBLIC_L2_BRIDGE_ADDRESS as Address,
+    tokenVaultAddress: PUBLIC_L2_TOKEN_VAULT_ADDRESS as Address,
+    crossChainSyncAddress: PUBLIC_L2_CROSS_CHAIN_SYNC_ADDRESS as Address,
+    signalServiceAddress: PUBLIC_L2_SIGNAL_SERVICE_ADDRESS as Address,
   },
 };

@@ -9,8 +9,10 @@
   import { ProcessingFee } from '$components/ProcessingFee';
   import { RecipientInput } from '$components/RecipientInput';
   import { TokenDropdown } from '$components/TokenDropdown';
-  import { tokens } from '$libs/token';
+  import { type Token, tokens } from '$libs/token';
   import { destChain, srcChain } from '$stores/network';
+
+  let selectedToken: Token;
 </script>
 
 <Card class="md:w-[524px]" title={$t('bridge.title')} text={$t('bridge.subtitle')}>
@@ -18,10 +20,10 @@
     <div class="space-y-4">
       <div class="space-y-2">
         <ChainSelector label={$t('chain.from')} value={$srcChain} />
-        <TokenDropdown {tokens} />
+        <TokenDropdown {tokens} bind:value={selectedToken} />
       </div>
 
-      <AmountInput />
+      <AmountInput token={selectedToken} />
 
       <div class="f-justify-center">
         <button class="f-center rounded-full bg-secondary-icon w-[30px] h-[30px]">
