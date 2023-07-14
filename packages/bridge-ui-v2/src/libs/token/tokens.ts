@@ -48,3 +48,8 @@ export function isETH(token: Token) {
 export function isERC20(token: Token): boolean {
   return !isETH(token);
 }
+
+export function isTestToken(token: Token): boolean {
+  const testTokenSymbols = testERC20Tokens.map((testToken) => testToken.symbol.toLocaleLowerCase());
+  return testTokenSymbols.includes(token.symbol.toLocaleLowerCase());
+}

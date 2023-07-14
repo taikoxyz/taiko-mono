@@ -18,19 +18,11 @@ export async function mint(token: Token, walletClient: WalletClient) {
     address: token.addresses[chainId],
   });
 
-  log(`Minting ${tokenSymbol} for account "${userAddress}"`);
+  log(`Minting ${tokenSymbol} for account ${userAddress}`);
 
-  try {
-    const txHash = await tokenContract.write.mint([userAddress]);
+  const txHash = await tokenContract.write.mint([userAddress]);
 
-    log(`Minting transaction hash for ${tokenSymbol}: ${txHash}`);
+  log(`Transaction hash for minting ${tokenSymbol}: ${txHash}`);
 
-    return txHash;
-  } catch (error) {
-    console.error(error);
-
-    throw new Error(`found a problem minting ${tokenSymbol}`, {
-      cause: error,
-    });
-  }
+  return txHash;
 }

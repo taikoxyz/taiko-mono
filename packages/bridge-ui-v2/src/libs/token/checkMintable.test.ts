@@ -1,5 +1,4 @@
 import {
-  type Chain,
   getContract,
   type GetContractResult,
   getPublicClient,
@@ -8,22 +7,18 @@ import {
   type WalletClient,
 } from '@wagmi/core';
 
+import { freeMintErc20ABI } from '$abi';
+import { mainnetChain } from '$libs/chain';
+
 import { checkMintable } from './checkMintable';
-import { MintableError, type Token } from './types';
+import { testERC20Tokens } from './tokens';
+import { MintableError } from './types';
 
-vi.mock('@wagmi/core', () => {
-  return {
-    getWalletClient: vi.fn(),
-    getPublicClient: vi.fn(),
-    getContract: vi.fn(),
-  };
-});
+vi.mock('$env/static/public');
+vi.mock('@wagmi/core');
+vi.mock('$abi');
 
-const mockNetwork = { id: 1 } as Chain;
-
-const mockToken = {
-  addresses: { 1: '0x123' },
-} as unknown as Token;
+const BLLToken = testERC20Tokens[0];
 
 const mockWalletClient = {
   account: { address: '0x123' },
@@ -54,11 +49,12 @@ describe('checkMintable', () => {
     vi.mocked(getWalletClient).mockResolvedValueOnce(null);
 
     try {
-      await checkMintable(mockToken, mockNetwork);
+      await checkMintable(BLLToken, mainnetChain);
       expect.fail('should have thrown');
     } catch (error) {
       const { cause } = error as Error;
       expect(cause).toBe(MintableError.NOT_CONNECTED);
+      expect(getWalletClient).toHaveBeenCalledWith({ chainId: mainnetChain.id });
     }
   });
 
@@ -66,11 +62,17 @@ describe('checkMintable', () => {
     vi.mocked(mockTokenContract.read.minters).mockResolvedValueOnce(true);
 
     try {
-      await checkMintable(mockToken, mockNetwork);
+      await checkMintable(BLLToken, mainnetChain);
       expect.fail('should have thrown');
     } catch (error) {
       const { cause } = error as Error;
       expect(cause).toBe(MintableError.TOKEN_MINTED);
+      expect(getContract).toHaveBeenCalledWith({
+        walletClient: mockWalletClient,
+        abi: freeMintErc20ABI,
+        address: BLLToken.addresses[mainnetChain.id],
+      });
+      expect(mockTokenContract.read.minters).toHaveBeenCalledWith([mockWalletClient.account.address]);
     }
   });
 
@@ -89,11 +91,14 @@ describe('checkMintable', () => {
     vi.mocked(mockPublicClient.getBalance).mockResolvedValueOnce(BigInt(100));
 
     try {
-      await checkMintable(mockToken, mockNetwork);
+      await checkMintable(BLLToken, mainnetChain);
       expect.fail('should have thrown');
     } catch (error) {
       const { cause } = error as Error;
       expect(cause).toBe(MintableError.INSUFFICIENT_BALANCE);
+      expect(getPublicClient).toHaveBeenCalledWith({ chainId: mainnetChain.id });
+      expect(mockTokenContract.estimateGas.mint).toHaveBeenCalledWith([mockWalletClient.account.address]);
+      expect(mockPublicClient.getBalance).toHaveBeenCalledWith({ address: mockWalletClient.account.address });
     }
   });
 
@@ -112,7 +117,7 @@ describe('checkMintable', () => {
     vi.mocked(mockPublicClient.getBalance).mockResolvedValueOnce(BigInt(300));
 
     try {
-      await checkMintable(mockToken, mockNetwork);
+      await checkMintable(BLLToken, mainnetChain);
     } catch (error) {
       expect.fail('should not have thrown');
     }
