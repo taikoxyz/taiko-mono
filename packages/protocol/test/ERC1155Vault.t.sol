@@ -77,7 +77,9 @@ contract PrankDestBridge {
         ctx.msgHash = msgHash;
         ctx.srcChainId = srcChainId;
 
-        destERC1155Vault.receiveToken(canonicalToken, from, to, tokenIds, amounts);
+        destERC1155Vault.receiveToken(
+            canonicalToken, from, to, tokenIds, amounts
+        );
 
         ctx.sender = address(0);
         ctx.msgHash = bytes32(0);
@@ -265,7 +267,7 @@ contract ERC1155VaultTest is Test {
             name: "",
             uri: "http://example.host.com/"
         });
-        
+
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = 1;
 
@@ -287,9 +289,7 @@ contract ERC1155VaultTest is Test {
         assertEq(1, tokenIdsRetVal[0]);
         assertEq(2, tokenAmountsRetVal[0]);
         assertEq(31_337, nftRetVal.chainId);
-        assertEq(
-            0x579FBFF1A9b1502688169DA761DcF262b73BB64A, nftRetVal.addr
-        );
+        assertEq(0x579FBFF1A9b1502688169DA761DcF262b73BB64A, nftRetVal.addr);
 
         assertEq("", nftRetVal.symbol);
         assertEq("", nftRetVal.name);
@@ -466,7 +466,7 @@ contract ERC1155VaultTest is Test {
 
         assertEq(canonicalToken1155.balanceOf(Alice, 1), 10);
         assertEq(canonicalToken1155.balanceOf(address(erc1155Vault), 1), 0);
-        
+
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = 1;
 
@@ -633,10 +633,7 @@ contract ERC1155VaultTest is Test {
         assertEq(canonicalToken1155.balanceOf(address(erc1155Vault), 1), 0);
     }
 
-    function test_receiveTokens_multiple_1155(
-    )
-        public
-    {
+    function test_receiveTokens_multiple_1155() public {
         vm.prank(Alice, Alice);
         canonicalToken1155.setApprovalForAll(address(erc1155Vault), true);
 

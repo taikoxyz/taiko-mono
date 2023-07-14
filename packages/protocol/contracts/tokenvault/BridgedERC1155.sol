@@ -66,7 +66,7 @@ contract BridgedERC1155 is
         address account,
         uint256 tokenId,
         uint256 amount,
-        bytes memory data
+        bytes memory data // TODO(dani): delete this param and use ""?
     )
         public
         onlyFromNamed("erc1155_vault")

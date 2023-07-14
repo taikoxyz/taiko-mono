@@ -68,10 +68,10 @@ abstract contract BaseNFTVault is BaseVault {
             => mapping(address canonicalAddress => address bridgedAddress)
     ) public canonicalToBridged;
 
-    // In order not to gas-out we need to hard cap the nr. of max 
+    // In order not to gas-out we need to hard cap the nr. of max
     // tokens (iterations)
     uint256 public constant MAX_TOKEN_PER_TXN = 10;
- 
+
     uint256[45] private __gap;
 
     modifier onlyValidAmounts(
@@ -82,22 +82,21 @@ abstract contract BaseNFTVault is BaseVault {
         if (tokenIds.length != amounts.length) {
             revert VAULT_TOKEN_ARRAY_MISMATCH();
         }
-        
+
         if (tokenIds.length > MAX_TOKEN_PER_TXN) {
             revert VAULT_MAX_TOKEN_PER_TXN_EXCEEDED();
         }
 
         if (isERC721) {
-            for (uint i; i < tokenIds.length; i++) {
-                if(amounts[i] != 1) {
+            for (uint256 i; i < tokenIds.length; i++) {
+                if (amounts[i] != 1) {
                     revert VAULT_INVALID_AMOUNT();
                 }
             }
-        }
-        else {
+        } else {
             // ERC1155 has slightly diff check
-            for (uint i; i < amounts.length; i++) {
-                if(amounts[i] == 0) {
+            for (uint256 i; i < amounts.length; i++) {
+                if (amounts[i] == 0) {
                     revert VAULT_INVALID_AMOUNT();
                 }
             }
