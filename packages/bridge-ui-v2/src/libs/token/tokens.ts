@@ -50,8 +50,6 @@ export function isERC20(token: Token): boolean {
 }
 
 export function isTestToken(token: Token): boolean {
-  const testTokenSymbols = testERC20Tokens.map((testToken) =>
-    testToken.symbol.toLocaleLowerCase(),
-  );
+  const testTokenSymbols = testERC20Tokens.map((testToken) => testToken.symbol.toLocaleLowerCase());
   return testTokenSymbols.includes(token.symbol.toLocaleLowerCase());
 }

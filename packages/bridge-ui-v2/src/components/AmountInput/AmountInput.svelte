@@ -31,8 +31,6 @@
       tokenBalance = await getTokenBalance(token, account.address, srcChainId, destChainId);
     } catch (error) {
       console.error(error);
-
-      throw Error(`failed to get balance for ${token.symbol}`, { cause: error });
     } finally {
       computingTokenBalance = false;
     }

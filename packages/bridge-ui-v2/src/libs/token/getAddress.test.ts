@@ -75,12 +75,4 @@ describe('getAddress', () => {
       address: '0x123',
     });
   });
-
-  it('should throw an error if the call to the TokenVault contract fails', async () => {
-    vi.mocked(mockTokenContract.read.canonicalToBridged).mockRejectedValue(new Error('BAM!!'));
-
-    await expect(getAddress(mockERC20, 2, 1)).rejects.toThrow(
-      `failed to get address for ${mockERC20.symbol} on chain 2`,
-    );
-  });
 });

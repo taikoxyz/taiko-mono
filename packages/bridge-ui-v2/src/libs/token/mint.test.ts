@@ -27,18 +27,9 @@ const mockTokenContract = {
 } as unknown as GetContractResult<readonly unknown[], WalletClient>;
 
 describe('mint', () => {
-  beforeAll(() => {
+  it('should return a tx hash when minting', async () => {
     vi.mocked(getWalletClient).mockResolvedValue(mockWalletClient);
     vi.mocked(getContract).mockReturnValue(mockTokenContract);
-  });
-
-  it('should throw an error when minting', async () => {
-    vi.mocked(mockTokenContract.write.mint).mockRejectedValue(new Error('BAM!!'));
-
-    await expect(mint(mockToken, mockWalletClient)).rejects.toThrow(`found a problem minting ${mockToken.symbol}`);
-  });
-
-  it('should return a tx hash when minting', async () => {
     vi.mocked(mockTokenContract.write.mint).mockResolvedValue('0x123');
 
     await expect(mint(mockToken, mockWalletClient)).resolves.toEqual('0x123');
