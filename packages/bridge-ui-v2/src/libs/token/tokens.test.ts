@@ -1,4 +1,4 @@
-import { ETHToken, isERC20, isETH, isTestToken, testERC20Tokens,TKOToken } from './tokens';
+import { ETHToken, isERC20, isETH, isTestToken, testERC20Tokens, TKOToken } from './tokens';
 
 const BLL = testERC20Tokens[0];
 const HORSE = testERC20Tokens[1];
