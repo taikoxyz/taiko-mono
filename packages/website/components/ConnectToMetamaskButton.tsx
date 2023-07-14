@@ -1,17 +1,21 @@
-import { taikoChainConfig } from "../constants/taikoChainConfig";
+import { eldfellChainConfig, grimsvotnChainConfig } from "../constants/chains";
 
 type ConnectButtonProps = {
-  network: "Sepolia" | "Taiko";
+  network: "Eldfell" | "Grimsvotn" | "Sepolia";
+};
+
+const chainMap = {
+  Eldfell: "0x28c5d", // 167005
+  Grimsvotn: "0x28c5d", // 167005
+  Sepolia: "0xaa36a7", // 11155111
 };
 
 async function ConnectToMetamask(network: ConnectButtonProps["network"]) {
   if (!(window as any).ethereum) {
     alert("Metamask not detected! Install Metamask then try again.");
   }
-  if (
-    (window as any).ethereum.networkVersion ==
-    (network === "Sepolia" ? 11155111 : 167005)
-  ) {
+
+  if ((window as any).ethereum.chainId == chainMap[network]) {
     alert(`You are already connected to ${network}.`);
   }
   try {
@@ -20,14 +24,16 @@ async function ConnectToMetamask(network: ConnectButtonProps["network"]) {
         method: "wallet_switchEthereumChain",
         params: [
           {
-            chainId: "0xaa36a7",
+            chainId: chainMap[network],
           },
         ],
       });
     } else {
       await (window as any).ethereum.request({
         method: "wallet_addEthereumChain",
-        params: [taikoChainConfig],
+        params: [
+          network === "Eldfell" ? eldfellChainConfig : grimsvotnChainConfig,
+        ],
       });
     }
   } catch (error) {

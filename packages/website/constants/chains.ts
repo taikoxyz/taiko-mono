@@ -11,9 +11,9 @@ interface AddEthereumChainParameter {
   iconUrls?: string[]; // Currently ignored.
 }
 
-export const taikoChainConfig: AddEthereumChainParameter = {
+const grimsvotnChainConfig: AddEthereumChainParameter = {
   chainId: "0x28c5d",
-  chainName: "Taiko (Alpha-3 Testnet)",
+  chainName: "Taiko L2 (Grimsvotn)",
   nativeCurrency: {
     name: "ETH",
     symbol: "ETH",
@@ -23,3 +23,18 @@ export const taikoChainConfig: AddEthereumChainParameter = {
   blockExplorerUrls: ["https://explorer.test.taiko.xyz/"],
   iconUrls: [],
 };
+
+const eldfellChainConfig: AddEthereumChainParameter = {
+  chainId: "0x28c5d",
+  chainName: "Taiko L3 (Eldfell)",
+  nativeCurrency: {
+    name: "ETH",
+    symbol: "ETH",
+    decimals: 18,
+  },
+  rpcUrls: ["https://l3rpc.test.taiko.xyz"],
+  blockExplorerUrls: ["https://l3explorer.test.taiko.xyz/"],
+  iconUrls: [],
+};
+
+export { grimsvotnChainConfig, eldfellChainConfig };

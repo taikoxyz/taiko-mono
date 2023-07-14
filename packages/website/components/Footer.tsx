@@ -28,14 +28,6 @@ export default function Footer() {
               </li>
               <li className="mb-4">
                 <a
-                  href="/docs/resources/integration-guide"
-                  className="hover:underline"
-                >
-                  Integration guide
-                </a>
-              </li>
-              <li className="mb-4">
-                <a
                   href="https://github.com/taikoxyz/taiko-mono/tree/main/packages/branding/"
                   className="hover:underline"
                   target={"_blank"}
@@ -66,11 +58,10 @@ export default function Footer() {
               </li>
               <li className="mb-4">
                 <a
-                  href="https://taikoxyz.github.io/taiko-mono/taiko-whitepaper.pdf"
+                  href="/docs/resources/integration-guide"
                   className="hover:underline"
-                  target={"_blank"}
                 >
-                  Whitepaper
+                  Integration guide
                 </a>
               </li>
             </ul>
