@@ -252,8 +252,8 @@ contract ERC1155VaultTest is Test {
     function test_decode_message_calldata_1155() public {
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault
             .CanonicalNFT({
-            srcChainId: 31_337,
-            tokenAddr: 0x579FBFF1A9b1502688169DA761DcF262b73BB64A,
+            chainId: 31_337,
+            addr: 0x579FBFF1A9b1502688169DA761DcF262b73BB64A,
             symbol: "",
             name: "",
             uri: "http://example.host.com/"
@@ -273,10 +273,8 @@ contract ERC1155VaultTest is Test {
         assertEq(Alice, ownerRetVal);
         assertEq(1, tokenIdRetVal);
         assertEq(2, tokenAmountRetVal);
-        assertEq(31_337, nftRetVal.srcChainId);
-        assertEq(
-            0x579FBFF1A9b1502688169DA761DcF262b73BB64A, nftRetVal.tokenAddr
-        );
+        assertEq(31_337, nftRetVal.chainId);
+        assertEq(0x579FBFF1A9b1502688169DA761DcF262b73BB64A, nftRetVal.addr);
         assertEq("", nftRetVal.symbol);
         assertEq("", nftRetVal.name);
         assertEq("http://example.host.com/", nftRetVal.uri);
@@ -388,8 +386,8 @@ contract ERC1155VaultTest is Test {
 
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault
             .CanonicalNFT({
-            srcChainId: 31_337,
-            tokenAddr: address(canonicalToken1155),
+            chainId: 31_337,
+            addr: address(canonicalToken1155),
             symbol: "",
             name: "",
             uri: "http://example.host.com/"
@@ -449,8 +447,8 @@ contract ERC1155VaultTest is Test {
 
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault
             .CanonicalNFT({
-            srcChainId: 31_337,
-            tokenAddr: address(canonicalToken1155),
+            chainId: 31_337,
+            addr: address(canonicalToken1155),
             symbol: "",
             name: "",
             uri: "http://example.host.com/"
