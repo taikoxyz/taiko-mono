@@ -5,14 +5,22 @@
   import { Card } from '$components/Card';
   import { ChainSelector } from '$components/ChainSelector';
   import { Icon } from '$components/Icon';
+  import { OnAccount } from '$components/OnAccount';
   import { TokenDropdown } from '$components/TokenDropdown';
-  import { tokens } from '$libs/token';
+  import { ETHToken, tokens } from '$libs/token';
+  import type { Account } from '$stores/account';
   import { destChain, srcChain } from '$stores/network';
 
   import { AmountInput } from './AmountInput';
   import { ProcessingFee } from './ProcessingFee';
   import { RecipientInput } from './RecipientInput';
   import { selectedToken } from './selectedToken';
+
+  function onAccountChange(account: Account) {
+    if (account && account?.isConnected && !$selectedToken) {
+      $selectedToken = ETHToken;
+    }
+  }
 </script>
 
 <Card class="md:w-[524px]" title={$t('bridge.title')} text={$t('bridge.subtitle')}>
@@ -46,3 +54,5 @@
     </Button>
   </div>
 </Card>
+
+<OnAccount change={onAccountChange} />

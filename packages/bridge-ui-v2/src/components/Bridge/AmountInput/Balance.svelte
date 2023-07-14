@@ -5,19 +5,15 @@
   import LoadingText from '$components/LoadingText/LoadingText.svelte';
   import { getBalance as getTokenBalance, type Token } from '$libs/token';
   import { truncateString } from '$libs/util/truncateString';
-  import { account } from '$stores/account';
+  import { type Account,account } from '$stores/account';
   import { destChain, srcChain } from '$stores/network';
+
   import { selectedToken } from '../selectedToken';
 
   let tokenBalance: Maybe<FetchBalanceResult>;
   let computingTokenBalance = false;
 
-  async function updateTokenBalance(
-    token?: Token,
-    account?: GetAccountResult<PublicClient>,
-    srcChainId?: number,
-    destChainId?: number,
-  ) {
+  async function updateTokenBalance(token?: Token, account?: Account, srcChainId?: number, destChainId?: number) {
     if (!token || !account || !account.address) return;
 
     computingTokenBalance = true;

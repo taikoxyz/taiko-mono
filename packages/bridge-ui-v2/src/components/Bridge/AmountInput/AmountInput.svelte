@@ -3,6 +3,7 @@
 
   import { InputBox } from '$components/InputBox';
   import { uid } from '$libs/util/uid';
+
   import Balance from './Balance.svelte';
 
   let inputId = `input-${uid()}`;
