@@ -60,10 +60,8 @@
 
     switch (method) {
       case ProcessingFeeMethod.RECOMMENDED:
-        // Get the cached value if exists, otherwise calculate it
-        if (!recommendedAmount) {
-          await calculateRecommendedAmount($selectedToken, $srcChain?.id, $destChain?.id);
-        }
+        // TODO: should we cache it? keep in mind that this value could change
+        await calculateRecommendedAmount($selectedToken, $srcChain?.id, $destChain?.id);
         selectedAmount = amountToEther(recommendedAmount);
         break;
       case ProcessingFeeMethod.CUSTOM:
