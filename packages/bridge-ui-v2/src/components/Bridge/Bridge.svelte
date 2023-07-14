@@ -1,18 +1,18 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
 
-  import AmountInput from '$components/AmountInput';
-  import Button from '$components/Button/Button.svelte';
+  import { Button } from '$components/Button';
   import { Card } from '$components/Card';
   import { ChainSelector } from '$components/ChainSelector';
-  import Icon from '$components/Icon/Icon.svelte';
-  import { ProcessingFee } from '$components/ProcessingFee';
-  import { RecipientInput } from '$components/RecipientInput';
+  import { Icon } from '$components/Icon';
   import { TokenDropdown } from '$components/TokenDropdown';
-  import { type Token, tokens } from '$libs/token';
+  import { tokens } from '$libs/token';
   import { destChain, srcChain } from '$stores/network';
 
-  let selectedToken: Token;
+  import { AmountInput } from './AmountInput';
+  import { ProcessingFee } from './ProcessingFee';
+  import { RecipientInput } from './RecipientInput';
+  import { selectedToken } from './selectedToken';
 </script>
 
 <Card class="md:w-[524px]" title={$t('bridge.title')} text={$t('bridge.subtitle')}>
@@ -20,10 +20,10 @@
     <div class="space-y-4">
       <div class="space-y-2">
         <ChainSelector label={$t('chain.from')} value={$srcChain} />
-        <TokenDropdown {tokens} bind:value={selectedToken} />
+        <TokenDropdown {tokens} bind:value={$selectedToken} />
       </div>
 
-      <AmountInput token={selectedToken} />
+      <AmountInput />
 
       <div class="f-justify-center">
         <button class="f-center rounded-full bg-secondary-icon w-[30px] h-[30px]">
