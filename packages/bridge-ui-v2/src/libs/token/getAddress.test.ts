@@ -1,40 +1,18 @@
 import { getContract, type GetContractResult } from '@wagmi/core';
 import { zeroAddress } from 'viem';
 
+import { tokenVaultABI } from '$abi';
+import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID } from '$env/static/public';
+import { chainContractsMap } from '$libs/chain';
+
 import { getAddress } from './getAddress';
-import type { Token } from './types';
+import { ETHToken, testERC20Tokens } from './tokens';
 
-vi.mock('@wagmi/core', () => ({
-  getContract: vi.fn(),
-}));
+vi.mock('$env/static/public');
+vi.mock('@wagmi/core');
+vi.mock('$abi');
 
-vi.mock('$libs/chain', () => ({
-  chainContractsMap: {
-    2: {
-      tokenVaultAddress: '0x123',
-    },
-  },
-}));
-
-vi.mock('$abi', () => ({
-  tokenVaultABI: [],
-}));
-
-const mockETH = {
-  symbol: 'ETH',
-  addresses: {
-    1: zeroAddress,
-    2: zeroAddress,
-  },
-} as unknown as Token;
-
-const mockERC20 = {
-  symbol: 'MKT',
-  addresses: {
-    1: '0x123',
-    2: zeroAddress,
-  },
-} as unknown as Token;
+const HORSEToken = testERC20Tokens[1];
 
 const mockTokenContract = {
   read: {
@@ -48,31 +26,32 @@ describe('getAddress', () => {
   });
 
   it('should return undefined if no source chain id is passed in', async () => {
-    expect(await getAddress(mockETH)).toBeUndefined();
+    expect(await getAddress(ETHToken)).toBeUndefined();
   });
 
   it('should return the address if ETH', async () => {
-    expect(await getAddress(mockETH, 1)).toEqual(zeroAddress);
+    expect(await getAddress(ETHToken, +PUBLIC_L1_CHAIN_ID)).toEqual(zeroAddress);
   });
 
   it('should return the address if ERC20 and has address on the source chain', async () => {
-    expect(await getAddress(mockERC20, 1)).toEqual('0x123');
+    expect(await getAddress(HORSEToken, +PUBLIC_L1_CHAIN_ID)).toEqual(HORSEToken.addresses[PUBLIC_L1_CHAIN_ID]);
   });
 
   it('should return undefined if ERC20 and has no address on the source chain and no destination chain is is passed in', async () => {
-    const copyMockERC20 = JSON.parse(JSON.stringify(mockERC20));
-    copyMockERC20.addresses[1] = zeroAddress;
-    expect(await getAddress(copyMockERC20, 1)).toBeUndefined();
+    expect(await getAddress(HORSEToken, +PUBLIC_L2_CHAIN_ID)).toBeUndefined();
   });
 
   it('should return the address of deployed ERC20 token', async () => {
-    vi.mocked(mockTokenContract.read.canonicalToBridged).mockResolvedValue('0x456');
+    vi.mocked(mockTokenContract.read.canonicalToBridged).mockResolvedValue('0x456789');
 
-    expect(await getAddress(mockERC20, 2, 1)).toEqual('0x456');
-    expect(mockTokenContract.read.canonicalToBridged).toHaveBeenCalledWith([BigInt(1), '0x123']);
+    expect(await getAddress(HORSEToken, +PUBLIC_L2_CHAIN_ID, +PUBLIC_L1_CHAIN_ID)).toEqual('0x456789');
+    expect(mockTokenContract.read.canonicalToBridged).toHaveBeenCalledWith([
+      BigInt(1),
+      HORSEToken.addresses[PUBLIC_L1_CHAIN_ID],
+    ]);
     expect(getContract).toHaveBeenCalledWith({
-      abi: [],
-      address: '0x123',
+      abi: tokenVaultABI,
+      address: chainContractsMap[PUBLIC_L2_CHAIN_ID].tokenVaultAddress,
     });
   });
 });

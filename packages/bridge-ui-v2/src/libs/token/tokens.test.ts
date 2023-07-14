@@ -1,5 +1,7 @@
 import { ETHToken, isERC20, isETH, isTestToken, testERC20Tokens, TKOToken } from './tokens';
 
+vi.mock('$env/static/public');
+
 const BLL = testERC20Tokens[0];
 const HORSE = testERC20Tokens[1];
 
