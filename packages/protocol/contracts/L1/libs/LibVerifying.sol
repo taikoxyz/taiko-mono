@@ -216,47 +216,44 @@ library LibVerifying {
         } else if (blk.assignedProver == address(0)) {
             // open prover is rewarded with more tokens
             proofReward = proofReward * config.rewardOpenMultipler / 100;
-        } else if (fc.prover == blk.assignedProver) {
-            if (fc.provenAt <= blk.proposedAt + blk.proofWindow) {
-                // proving inside the window
-                uint64 proofDelay;
-                unchecked {
-                    proofDelay = fc.provenAt - blk.proposedAt;
-
-                    if (config.rewardMaxDelayPenalty > 0) {
-                        // Give the reward a penalty up to a small percentage.
-                        // This will encourage prover to submit proof ASAP.
-                        proofReward -= proofReward * proofDelay
-                            * config.rewardMaxDelayPenalty / 10_000
-                            / blk.proofWindow;
-                    }
-                }
-
-                // The selected prover managed to prove the block in time
-                state.avgProofDelay = uint16(
-                    LibUtils.movingAverage({
-                        maValue: state.avgProofDelay,
-                        newValue: proofDelay,
-                        maf: 7200
-                    })
-                );
-
-                state.feePerGas = uint32(
-                    LibUtils.movingAverage({
-                        maValue: state.feePerGas,
-                        newValue: blk.rewardPerGas,
-                        maf: 7200
-                    })
-                );
-            } else {
-                // proving out side of the proof window, by the assigned prover
-                proofReward = 0;
-                proverPool.slashProver(blk.assignedProver);
-            }
-        } else {
+        } else if (blk.assignedProver != fc.prover) {
             // proving out side of the proof window, by a prover other
             // than the assigned prover
             proofReward = proofReward * config.rewardOpenMultipler / 100;
+            proverPool.slashProver(blk.assignedProver);
+        } else if (fc.provenAt <= blk.proposedAt + blk.proofWindow) {
+            // proving inside the window
+            uint64 proofDelay;
+            unchecked {
+                proofDelay = fc.provenAt - blk.proposedAt;
+
+                if (config.rewardMaxDelayPenalty > 0) {
+                    // Give the reward a penalty up to a small percentage.
+                    // This will encourage prover to submit proof ASAP.
+                    proofReward -= proofReward * proofDelay
+                        * config.rewardMaxDelayPenalty / 10_000 / blk.proofWindow;
+                }
+            }
+
+            // The selected prover managed to prove the block in time
+            state.avgProofDelay = uint16(
+                LibUtils.movingAverage({
+                    maValue: state.avgProofDelay,
+                    newValue: proofDelay,
+                    maf: 7200
+                })
+            );
+
+            state.feePerGas = uint32(
+                LibUtils.movingAverage({
+                    maValue: state.feePerGas,
+                    newValue: blk.rewardPerGas,
+                    maf: 7200
+                })
+            );
+        } else {
+            // proving out side of the proof window, by the assigned prover
+            proofReward = 0;
             proverPool.slashProver(blk.assignedProver);
         }
 
