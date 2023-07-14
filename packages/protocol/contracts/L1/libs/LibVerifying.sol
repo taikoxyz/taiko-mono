@@ -222,7 +222,7 @@ library LibVerifying {
             proofReward = proofReward * config.rewardOpenMultipler / 100;
             proverPool.slashProver(blk.assignedProver);
         } else if (fc.provenAt <= blk.proposedAt + blk.proofWindow) {
-            // proving inside the window
+            // proving inside the window, by the assigned prover
             uint64 proofDelay;
             unchecked {
                 proofDelay = fc.provenAt - blk.proposedAt;
