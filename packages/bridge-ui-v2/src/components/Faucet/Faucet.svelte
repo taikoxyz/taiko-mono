@@ -30,7 +30,7 @@
     switchingNetwork = true;
 
     try {
-      await switchNetwork({ chainId: parseInt(PUBLIC_L1_CHAIN_ID) });
+      await switchNetwork({ chainId: +PUBLIC_L1_CHAIN_ID });
     } catch (error) {
       console.error(error);
 
