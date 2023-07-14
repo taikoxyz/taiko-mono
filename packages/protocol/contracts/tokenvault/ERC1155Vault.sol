@@ -87,9 +87,6 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
         }
 
         IBridge.Message memory message;
-        message.destChainId = opt.destChainId;
-        message.owner = msg.sender;
-        message.to = resolve(opt.destChainId, "erc1155_vault", false);
         message.data = _sendToken(
             msg.sender,
             opt.to,
@@ -98,9 +95,12 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
             opt.baseTokenUri,
             opt.amount,
             isBridgedToken[opt.token],
-            bridgedToCanonical[opt.token],
-            ERC1155Vault.receiveToken.selector
+            bridgedToCanonical[opt.token]
         );
+
+        message.destChainId = opt.destChainId;
+        message.owner = msg.sender;
+        message.to = resolve(opt.destChainId, "erc1155_vault", false);
         message.gasLimit = opt.gasLimit;
         message.processingFee = opt.processingFee;
         message.depositValue = 0;
@@ -266,12 +266,6 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
         );
     }
 
-    /**
-     *
-     * Private functions *
-     *
-     */
-
     function _sendToken(
         address owner,
         address to,
@@ -280,8 +274,7 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
         string memory tokenUri,
         uint256 amount,
         bool isBridgedToken,
-        BaseNFTVault.CanonicalNFT memory bridgedToCanonical,
-        bytes4 selector
+        BaseNFTVault.CanonicalNFT memory bridgedToCanonical
     )
         private
         returns (bytes memory)
@@ -318,7 +311,12 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
         }
 
         return abi.encodeWithSelector(
-            selector, canonicalToken, owner, to, tokenId, amount
+            ERC1155Vault.receiveToken.selector,
+            canonicalToken,
+            owner,
+            to,
+            tokenId,
+            amount
         );
     }
 

@@ -142,47 +142,19 @@ contract ERC20Vault is BaseVault {
     {
         if (opt.amount == 0) revert VAULT_INVALID_AMOUNT();
 
-        CanonicalERC20 memory canonicalToken;
         uint256 _amount;
-
-        // is a bridged token, meaning, it does not live on this chain
-        if (isBridgedToken[opt.token]) {
-            canonicalToken = bridgedToCanonical[opt.token];
-            assert(canonicalToken.addr != address(0));
-            IMintableERC20(opt.token).burn(msg.sender, opt.amount);
-            _amount = opt.amount;
-        } else {
-            // is a canonical token, meaning, it lives on this chain
-            ERC20Upgradeable t = ERC20Upgradeable(opt.token);
-            canonicalToken = CanonicalERC20({
-                chainId: block.chainid,
-                addr: opt.token,
-                decimals: t.decimals(),
-                symbol: t.symbol(),
-                name: t.name()
-            });
-
-            if (opt.token == resolve("taiko_token", true)) {
-                IMintableERC20(opt.token).burn(msg.sender, opt.amount);
-                _amount = opt.amount;
-            } else {
-                uint256 _balance = t.balanceOf(address(this));
-                t.safeTransferFrom(msg.sender, address(this), opt.amount);
-                _amount = t.balanceOf(address(this)) - _balance;
-            }
-        }
-
         IBridge.Message memory message;
+
+        (message.data, _amount) = _sendToken({
+            owner: message.owner,
+            token: opt.token,
+            amount: opt.amount,
+            to: opt.to
+        });
+
         message.destChainId = opt.destChainId;
         message.owner = msg.sender;
         message.to = resolve(opt.destChainId, "erc20_vault", false);
-        message.data = abi.encodeWithSelector(
-            ERC20Vault.receiveToken.selector,
-            canonicalToken,
-            message.owner,
-            opt.to,
-            _amount
-        );
         message.gasLimit = opt.gasLimit;
         message.processingFee = opt.processingFee;
         message.depositValue = msg.value - opt.processingFee;
@@ -306,6 +278,48 @@ contract ERC20Vault is BaseVault {
     /*//////////////////////////////////////////////////////////////
                            PRIVATE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+    function _sendToken(
+        address owner,
+        address token,
+        address to,
+        uint256 amount
+    )
+        private
+        returns (bytes memory data, uint256 _amount)
+    {
+        CanonicalERC20 memory canonicalToken;
+
+        // is a bridged token, meaning, it does not live on this chain
+        if (isBridgedToken[token]) {
+            canonicalToken = bridgedToCanonical[token];
+            assert(canonicalToken.addr != address(0));
+            IMintableERC20(token).burn(msg.sender, amount);
+            _amount = amount;
+        } else {
+            // is a canonical token, meaning, it lives on this chain
+            ERC20Upgradeable t = ERC20Upgradeable(token);
+            canonicalToken = CanonicalERC20({
+                chainId: block.chainid,
+                addr: token,
+                decimals: t.decimals(),
+                symbol: t.symbol(),
+                name: t.name()
+            });
+
+            if (token == resolve("taiko_token", true)) {
+                IMintableERC20(token).burn(msg.sender, amount);
+                _amount = amount;
+            } else {
+                uint256 _balance = t.balanceOf(address(this));
+                t.safeTransferFrom(msg.sender, address(this), amount);
+                _amount = t.balanceOf(address(this)) - _balance;
+            }
+        }
+
+        data = abi.encodeWithSelector(
+            ERC20Vault.receiveToken.selector, canonicalToken, owner, to, _amount
+        );
+    }
 
     /**
      * Internal function to get or deploy bridged token

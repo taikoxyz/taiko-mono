@@ -81,27 +81,24 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     {
         if (opt.amount != 1) revert VAULT_INVALID_AMOUNT();
 
-        // TODO: we need to figure this out: && or ||?
         if (!IERC165(opt.token).supportsInterface(ERC721_INTERFACE_ID)) {
             revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
 
-        bytes memory data = _sendToken(
+        IBridge.Message memory message;
+        message.data = _sendToken(
             msg.sender,
             opt.to,
             opt.tokenId,
             opt.token,
             opt.baseTokenUri,
             isBridgedToken[opt.token],
-            bridgedToCanonical[opt.token],
-            ERC721Vault.receiveToken.selector
+            bridgedToCanonical[opt.token]
         );
 
-        IBridge.Message memory message;
         message.destChainId = opt.destChainId;
         message.owner = msg.sender;
         message.to = resolve(opt.destChainId, "erc721_vault", false);
-        message.data = data;
         message.gasLimit = opt.gasLimit;
         message.processingFee = opt.processingFee;
         message.depositValue = 0;
@@ -226,12 +223,6 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         );
     }
 
-    /**
-     *
-     * Private functions *
-     *
-     */
-
     function _sendToken(
         address owner,
         address to,
@@ -239,8 +230,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         address token,
         string memory tokenUri,
         bool isBridgedToken,
-        BaseNFTVault.CanonicalNFT memory bridgedToCanonical,
-        bytes4 selector
+        BaseNFTVault.CanonicalNFT memory bridgedToCanonical
     )
         private
         returns (bytes memory)
@@ -275,8 +265,13 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             t.transferFrom(msg.sender, address(this), tokenId);
         }
 
-        return
-            abi.encodeWithSelector(selector, canonicalToken, owner, to, tokenId);
+        return abi.encodeWithSelector(
+            ERC721Vault.receiveToken.selector,
+            canonicalToken,
+            owner,
+            to,
+            tokenId
+        );
     }
 
     function _receiveToken(
