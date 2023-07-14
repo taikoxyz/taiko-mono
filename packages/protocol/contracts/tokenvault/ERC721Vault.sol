@@ -6,8 +6,6 @@
 
 pragma solidity ^0.8.20;
 
-import { console2 } from "forge-std/console2.sol";
-import { Test } from "forge-std/Test.sol";
 import { IERC721Receiver } from
     "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import { IERC721Upgradeable } from
@@ -155,14 +153,10 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             }
         } else {
             token = _getOrDeployBridgedToken(canonicalToken);
-            console2.log("token is:", token);
+
             for (uint256 i; i < tokenIds.length; i++) {
-                
-            console2.log("WTF:", token); 
                 BridgedERC721(token).mint(to, tokenIds[i]);
             }
-
-            console2.log("WTF:", token);
         }
 
         emit TokenReceived({
