@@ -21,9 +21,6 @@ contract BridgedERC1155 is
     IERC1155MetadataURIUpgradeable,
     ERC1155Upgradeable
 {
-    error BRIDGED_TOKEN_CANNOT_RECEIVE();
-    error BRIDGED_TOKEN_INVALID_PARAMS();
-
     address public srcToken;
     uint256 public srcChainId;
     string public srcUri;
@@ -35,6 +32,9 @@ contract BridgedERC1155 is
         uint256 tokenId,
         uint256 amount
     );
+
+    error BRIDGED_TOKEN_CANNOT_RECEIVE();
+    error BRIDGED_TOKEN_INVALID_PARAMS();
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     // Intention is for a different BridgedERC1155 Contract to be deployed
@@ -62,7 +62,7 @@ contract BridgedERC1155 is
     }
 
     /// @dev only a TokenVault can call this function
-    function bridgeMintTo(
+    function mint(
         address account,
         uint256 tokenId,
         uint256 amount,
@@ -76,7 +76,7 @@ contract BridgedERC1155 is
     }
 
     /// @dev only a TokenVault can call this function
-    function bridgeBurnFrom(
+    function burn(
         address account,
         uint256 tokenId,
         uint256 amount

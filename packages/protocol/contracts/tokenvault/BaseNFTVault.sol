@@ -109,7 +109,7 @@ abstract contract BaseNFTVault is BaseVault {
     {
         bytes memory calldataWithoutSelector;
 
-        require(calldataWithSelector.length >= 4);
+        assert(calldataWithSelector.length >= 4);
 
         assembly {
             let totalLength := mload(calldataWithSelector)

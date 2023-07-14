@@ -29,11 +29,11 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
  * tokens.
  */
 contract ERC721Vault is BaseNFTVault, IERC721Receiver {
-    bytes4 constant ERC721_INTERFACE_ID = 0x80ac58cd;
-    bytes4 constant ERC721_METADATA_INTERFACE_ID = 0x5b5e139f;
-    bytes4 constant ERC721_ENUMERABLE_INTERFACE_ID = 0x780e9d63;
+    bytes4 public constant ERC721_INTERFACE_ID = 0x80ac58cd;
+    bytes4 public constant ERC721_METADATA_INTERFACE_ID = 0x5b5e139f;
+    bytes4 public constant ERC721_ENUMERABLE_INTERFACE_ID = 0x780e9d63;
 
-    event BridgedERC721Deployed(
+    event BridgedTokenDeployed(
         uint256 indexed srcChainId,
         address indexed canonicalToken,
         address indexed bridgedToken,
@@ -41,7 +41,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         string canonicalTokenName
     );
 
-    event ERC721Sent(
+    event TokenSent(
         bytes32 indexed msgHash,
         address indexed from,
         address indexed to,
@@ -50,14 +50,14 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         uint256 tokenId
     );
 
-    event ERC721Released(
+    event TokenReleased(
         bytes32 indexed msgHash,
         address indexed from,
         address token,
         uint256 tokenId
     );
 
-    event ERC721Received(
+    event TokenReceived(
         bytes32 indexed msgHash,
         address indexed from,
         address indexed to,
@@ -81,6 +81,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     {
         if (opt.amount != 1) revert VAULT_INVALID_AMOUNT();
 
+        // TODO: we need to figure this out: && or ||?
         if (
             ERC721Upgradeable(opt.token).supportsInterface(ERC721_INTERFACE_ID)
                 == false
@@ -120,7 +121,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             value: msg.value
         }(message);
 
-        emit ERC721Sent({
+        emit TokenSent({
             msgHash: msgHash,
             from: message.owner,
             to: opt.to,
@@ -196,7 +197,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             address(this), message.owner, tokenId
         );
 
-        emit ERC721Released({
+        emit TokenReleased({
             msgHash: msgHash,
             from: message.owner,
             token: releasedToken,
@@ -261,7 +262,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
                 revert VAULT_INVALID_OWNER();
             }
 
-            BridgedERC721(token).bridgeBurnFrom(msg.sender, tokenId);
+            BridgedERC721(token).burn(msg.sender, tokenId);
             canonicalToken = bridgedToCanonical;
             if (canonicalToken.tokenAddr == address(0)) {
                 revert VAULT_CANONICAL_TOKEN_NOT_FOUND();
@@ -298,7 +299,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         private
         returns (bool bridged, address token)
     {
-        IBridge.Context memory ctx = checkValidContext("erc721_vault");
+        IBridge.Context memory ctx = _checkValidContext("erc721_vault");
 
         if (canonicalToken.srcChainId == block.chainid) {
             token = canonicalToken.tokenAddr;
@@ -308,10 +309,10 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             (bridged, token) = _getOrDeployBridgedToken(
                 canonicalToken, canonicalToBridged, addressManager
             );
-            BridgedERC721(token).bridgeMintTo(to, tokenId);
+            BridgedERC721(token).mint(to, tokenId);
         }
 
-        emit ERC721Received({
+        emit TokenReceived({
             msgHash: ctx.msgHash,
             from: from,
             to: to,
@@ -370,7 +371,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             _uri: canonicalToken.uri
         });
 
-        emit BridgedERC721Deployed({
+        emit BridgedTokenDeployed({
             srcChainId: canonicalToken.srcChainId,
             canonicalToken: canonicalToken.tokenAddr,
             bridgedToken: bridgedToken,
