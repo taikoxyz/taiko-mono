@@ -297,9 +297,9 @@ contract ERC721VaultTest is Test {
 
         assertEq(Alice, ownerRetVal);
         assertEq(1, tokenIdsRetVal[0]);
-        assertEq(31_337, nftRetVal.srcChainId);
+        assertEq(31_337, nftRetVal.chainId);
         assertEq(
-            0x579FBFF1A9b1502688169DA761DcF262b73BB64A, nftRetVal.tokenAddr
+            0x579FBFF1A9b1502688169DA761DcF262b73BB64A, nftRetVal.addr
         );
 
         assertEq("TT", nftRetVal.symbol);
@@ -670,8 +670,8 @@ contract ERC721VaultTest is Test {
 
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault
             .CanonicalNFT({
-            srcChainId: 31_337,
-            tokenAddr: address(canonicalToken721),
+            chainId: 31_337,
+            addr: address(canonicalToken721),
             symbol: "",
             name: "",
             uri: "http://example.host.com/"

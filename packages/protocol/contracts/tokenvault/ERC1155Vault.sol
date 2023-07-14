@@ -81,15 +81,7 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
         onlyValidAddresses(opt.destChainId, "erc1155_vault", opt.to, opt.token)
         onlyValidAmounts(opt.amounts, opt.tokenIds, false)
     {
-        if (
-            ERC1155Upgradeable(opt.token).supportsInterface(
-                ERC1155_INTERFACE_ID
-            ) == false
-                && ERC1155Upgradeable(opt.token).supportsInterface(
-                    ERC1155_METADATA_INTERFACE_ID
-                ) == false
-        ) {
-
+        if (!IERC165(opt.token).supportsInterface(ERC1155_INTERFACE_ID)) {
             revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
 
