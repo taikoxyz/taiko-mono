@@ -185,10 +185,13 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         address owner;
         uint256[] memory tokenIds;
         (nft, owner,, tokenIds) = decodeTokenData(message.data);
-        // TODO(dani):
-        // How to prevent releasing the same token more than once?
 
         bytes32 msgHash = msgHashIfValidRequest(message, proof, nft.addr);
+
+        if(releasedMessages[msgHash]){
+            revert VAULT_MESSAGE_RELEASED_ALREADY();
+        }
+        releasedMessages[msgHash] = true;
 
         address releasedToken = nft.addr;
 
@@ -201,9 +204,6 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
                 address(this), message.owner, tokenIds[i]
             );
         }
-        // TODO(dani): if it is a bridged token, shall we use Mint instead of
-        // transfer?
-
 
         emit TokenReleased({
             msgHash: msgHash,
@@ -236,7 +236,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         pure
         returns (BaseNFTVault.CanonicalNFT memory, address, address, uint256[] memory)
     {
-        bytes memory calldataWithoutSelector = extractCalldata(dataWithSelector);
+        bytes memory calldataWithoutSelector = _extractCalldata(dataWithSelector);
         return abi.decode(
             calldataWithoutSelector,
             (BaseNFTVault.CanonicalNFT, address, address, uint256[])
@@ -272,7 +272,6 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
                 revert VAULT_CANONICAL_TOKEN_NOT_FOUND();
             }
         } else {
-
             // is a canonical token, meaning, it lives on this chain
             ERC721Upgradeable t = ERC721Upgradeable(token);
 

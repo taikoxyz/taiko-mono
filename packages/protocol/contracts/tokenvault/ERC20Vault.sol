@@ -44,11 +44,6 @@ contract ERC20Vault is BaseVault {
         string name;
     }
 
-    struct MessageDeposit {
-        address token;
-        uint256 amount;
-    }
-
     struct BridgeTransferOp {
         uint256 destChainId;
         address to;
@@ -77,10 +72,6 @@ contract ERC20Vault is BaseVault {
         uint256 chainId
             => mapping(address canonicalAddress => address bridgedAddress)
     ) public canonicalToBridged;
-
-    // Tracks the token and amount associated with a message hash.
-    mapping(bytes32 msgHash => MessageDeposit messageDeposit) public
-        messageDeposits;
 
     uint256[46] private __gap;
 
@@ -165,9 +156,6 @@ contract ERC20Vault is BaseVault {
             value: msg.value
         }(message);
 
-        // record the deposit for this message
-        messageDeposits[msgHash] = MessageDeposit(opt.token, _amount);
-
         emit TokenSent({
             msgHash: msgHash,
             from: message.owner,
@@ -248,15 +236,18 @@ contract ERC20Vault is BaseVault {
         IBridge bridge = IBridge(resolve("bridge", false));
         bytes32 msgHash = bridge.hashMessage(message);
 
-        address token = messageDeposits[msgHash].token;
-        uint256 amount = messageDeposits[msgHash].amount;
+        if(releasedMessages[msgHash]){
+            revert VAULT_MESSAGE_RELEASED_ALREADY();
+        }
+        releasedMessages[msgHash] = true;
+
+        (,address token,,uint256 amount) = decodeTokenData(message.data);
+
         if (token == address(0)) revert VAULT_INVALID_TOKEN();
 
         if (!bridge.isMessageFailed(msgHash, message.destChainId, proof)) {
             revert VAULT_MESSAGE_NOT_FAILED();
         }
-
-        messageDeposits[msgHash] = MessageDeposit(address(0), 0);
 
         if (amount > 0) {
             if (isBridgedToken[token] || token == resolve("taiko_token", true))
@@ -278,6 +269,24 @@ contract ERC20Vault is BaseVault {
     /*//////////////////////////////////////////////////////////////
                            PRIVATE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @dev Decodes the data which was abi.encodeWithSelector() encoded. We need
+     * this to get to know
+     * to whom / which token and how much we shall release.
+     */
+    function decodeTokenData(bytes memory dataWithSelector)
+        public
+        pure
+        returns (CanonicalERC20 memory, address, address, uint256)
+    {
+        bytes memory calldataWithoutSelector = _extractCalldata(dataWithSelector);
+        return abi.decode(
+            calldataWithoutSelector,
+            (CanonicalERC20, address, address, uint256)
+        );
+    }
+
     function _sendToken(
         address owner,
         address token,

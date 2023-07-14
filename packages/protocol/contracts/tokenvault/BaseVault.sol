@@ -60,11 +60,19 @@ abstract contract BaseVault is EssentialContract {
     error VAULT_MESSAGE_NOT_FAILED();
 
     /**
+     * Thrown when a message has already released
+     */
+    error VAULT_MESSAGE_RELEASED_ALREADY();
+
+    /**
      * Thrown when the sender in a message context is invalid.
      * This could happen if the sender isn't the expected token vault on the
      * source chain.
      */
     error VAULT_INVALID_SENDER();
+
+    // Released message hashes
+    mapping(bytes32 msgHash => bool released) releasedMessages;
 
     modifier onlyValidAddresses(
         uint256 chainId,
@@ -100,5 +108,48 @@ abstract contract BaseVault is EssentialContract {
         ) {
             revert VAULT_INVALID_SENDER();
         }
+    }
+
+    /**
+     * @dev Returns the decoded data without selector
+     * @param calldataWithSelector Encoded data with selector
+     */
+    function _extractCalldata(bytes memory calldataWithSelector)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        bytes memory calldataWithoutSelector;
+
+        assert(calldataWithSelector.length >= 4);
+
+        assembly {
+            let totalLength := mload(calldataWithSelector)
+            let targetLength := sub(totalLength, 4)
+            calldataWithoutSelector := mload(0x40)
+
+            // Set the length of callDataWithoutSelector (initial length - 4)
+            mstore(calldataWithoutSelector, targetLength)
+
+            // Mark the memory space taken for callDataWithoutSelector as
+            // allocated
+            mstore(0x40, add(calldataWithoutSelector, add(0x20, targetLength)))
+
+            // Process first 32 bytes (we only take the last 28 bytes)
+            mstore(
+                add(calldataWithoutSelector, 0x20),
+                shl(0x20, mload(add(calldataWithSelector, 0x20)))
+            )
+
+            // Process all other data by chunks of 32 bytes
+            for { let i := 0x1C } lt(i, targetLength) { i := add(i, 0x20) } {
+                mstore(
+                    add(add(calldataWithoutSelector, 0x20), i),
+                    mload(add(add(calldataWithSelector, 0x20), add(i, 0x04)))
+                )
+            }
+        }
+
+        return calldataWithoutSelector;
     }
 }
