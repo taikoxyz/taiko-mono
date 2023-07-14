@@ -27,7 +27,7 @@
   <div class="space-y-[35px]">
     <div class="space-y-4">
       <div class="space-y-2">
-        <ChainSelector label={$t('chain.from')} value={$srcChain} />
+        <ChainSelector label={$t('chain.from')} value={$srcChain} switchWallet />
         <TokenDropdown {tokens} bind:value={$selectedToken} />
       </div>
 
@@ -40,7 +40,7 @@
       </div>
 
       <div class="space-y-2">
-        <ChainSelector label={$t('chain.to')} value={$destChain} />
+        <ChainSelector label={$t('chain.to')} value={$destChain} readOnly />
         <RecipientInput />
       </div>
     </div>

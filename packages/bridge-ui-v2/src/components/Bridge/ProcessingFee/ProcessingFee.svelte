@@ -1,19 +1,19 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { t } from 'svelte-i18n';
+  import { formatEther } from 'viem';
 
   import { Icon } from '$components/Icon';
   import { InputBox } from '$components/InputBox';
+  import LoadingText from '$components/LoadingText/LoadingText.svelte';
   import { Tooltip } from '$components/Tooltip';
   import { ProcessingFeeMethod } from '$libs/fee';
   import { recommendProcessingFee } from '$libs/fee';
+  import type { Token } from '$libs/token';
   import { uid } from '$libs/util/uid';
   import { destChain, srcChain } from '$stores/network';
 
   import { selectedToken } from '../selectedToken';
-  import LoadingText from '$components/LoadingText/LoadingText.svelte';
-  import { formatEther } from 'viem';
-  import type { Token } from '$libs/token';
 
   let dialogId = `dialog-${uid()}`;
   let selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
