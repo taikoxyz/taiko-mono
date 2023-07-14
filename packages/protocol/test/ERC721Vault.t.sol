@@ -86,7 +86,7 @@ contract PrankDestBridge {
         BaseNFTVault.CanonicalNFT calldata canonicalToken,
         address from,
         address to,
-        uint256 tokenId,
+        uint256[] memory tokenIds,
         bytes32 msgHash,
         address srcChainerc721Vault,
         uint256 srcChainId
@@ -97,7 +97,7 @@ contract PrankDestBridge {
         ctx.msgHash = msgHash;
         ctx.srcChainId = srcChainId;
 
-        destERC721Vault.receiveToken(canonicalToken, from, to, tokenId);
+        destERC721Vault.receiveToken(canonicalToken, from, to, tokenIds);
 
         ctx.sender = address(0);
         ctx.msgHash = bytes32(0);
@@ -123,7 +123,7 @@ contract PrankSrcBridge {
 
     function getPreDeterminedDataBytes() external pure returns (bytes memory) {
         return
-        hex"afdef9d600000000000000000000000000000000000000000000000000000000000000a000000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba4000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000007a69000000000000000000000000266fa2526b3d68a1bd9685b87b4d14ae6079f70600000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000018687474703a2f2f6578616d706c652e686f73742e636f6d2f0000000000000000";
+        hex"1d7b460b000000000000000000000000000000000000000000000000000000000000008000000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000000000000000000000000000000000000000001e00000000000000000000000000000000000000000000000000000000000007a69000000000000000000000000266fa2526b3d68a1bd9685b87b4d14ae6079f70600000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000000025454000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000254540000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000018687474703a2f2f6578616d706c652e686f73742e636f6d2f000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001";
     }
 
     function hashMessage(IBridge.Message calldata message)
@@ -248,14 +248,20 @@ contract ERC721VaultTest is Test {
 
         assertEq(canonicalToken721.ownerOf(1), Alice);
 
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 1;
+
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
             .BridgeTransferOp(
             destChainId,
             Alice,
             address(canonicalToken721),
             "http://example.host.com/",
-            1,
-            1, // With ERC721 still need to specify 1
+            tokenIds,
+            amounts, // With ERC721 still need to specify 1
             140_000,
             140_000,
             Alice,
@@ -277,17 +283,20 @@ contract ERC721VaultTest is Test {
             uri: "http://example.host.com/"
         });
 
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+
         bytes memory dataToDecode =
-            abi.encodeWithSelector(0x2c349adf, canonicalToken, Alice, Alice, 1);
+            abi.encodeWithSelector(0x2c349adf, canonicalToken, Alice, Alice, tokenIds);
 
         BaseNFTVault.CanonicalNFT memory nftRetVal;
         address ownerRetVal;
-        uint256 tokenIdRetVal;
-        (nftRetVal, ownerRetVal,, tokenIdRetVal) =
+        uint256[] memory tokenIdsRetVal;
+        (nftRetVal, ownerRetVal,, tokenIdsRetVal) =
             erc721Vault.decodeTokenData(dataToDecode);
 
         assertEq(Alice, ownerRetVal);
-        assertEq(1, tokenIdRetVal);
+        assertEq(1, tokenIdsRetVal[0]);
         assertEq(31_337, nftRetVal.srcChainId);
         assertEq(
             0x579FBFF1A9b1502688169DA761DcF262b73BB64A, nftRetVal.tokenAddr
@@ -303,14 +312,20 @@ contract ERC721VaultTest is Test {
 
         assertEq(canonicalToken721.ownerOf(1), Alice);
 
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 1;
+
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
             .BridgeTransferOp(
             destChainId,
             address(0),
             address(canonicalToken721),
             "http://example.host.com/",
-            1,
-            1,
+            tokenIds,
+            amounts,
             140_000,
             140_000,
             Alice,
@@ -327,14 +342,19 @@ contract ERC721VaultTest is Test {
 
         assertEq(canonicalToken721.ownerOf(1), Alice);
 
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 2;
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
             .BridgeTransferOp(
             destChainId,
             Alice,
             address(0),
             "http://example.host.com/",
-            1,
-            2,
+            tokenIds,
+            amounts,
             140_000,
             140_000,
             Alice,
@@ -351,14 +371,19 @@ contract ERC721VaultTest is Test {
 
         assertEq(canonicalToken721.ownerOf(1), Alice);
 
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 0;
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
             .BridgeTransferOp(
             destChainId,
             Alice,
             address(canonicalToken721),
             "http://example.host.com/",
-            1,
-            0,
+            tokenIds,
+            amounts,
             140_000,
             140_000,
             Alice,
@@ -378,14 +403,20 @@ contract ERC721VaultTest is Test {
 
         assertEq(canonicalToken721.ownerOf(1), Alice);
 
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 1;
+
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
             .BridgeTransferOp(
             destChainId,
             Alice,
             address(canonicalToken721),
             "http://example.host.com/",
-            1,
-            1,
+            tokenIds,
+            amounts,
             140_000,
             140_000,
             Alice,
@@ -412,7 +443,7 @@ contract ERC721VaultTest is Test {
             canonicalToken,
             Alice,
             Alice,
-            1,
+            tokenIds,
             bytes32(0),
             address(erc721Vault),
             srcChainId
@@ -437,14 +468,20 @@ contract ERC721VaultTest is Test {
 
         assertEq(canonicalToken721.ownerOf(1), Alice);
 
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 1;
+
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
             .BridgeTransferOp(
             destChainId,
             Alice,
             address(canonicalToken721),
             "http://example.host.com/",
-            1,
-            1,
+            tokenIds,
+            amounts,
             140_000,
             140_000,
             Alice,
@@ -471,7 +508,7 @@ contract ERC721VaultTest is Test {
             canonicalToken,
             Alice,
             Alice,
-            1,
+            tokenIds,
             bytes32(0),
             address(erc721Vault),
             srcChainId
@@ -488,13 +525,17 @@ contract ERC721VaultTest is Test {
         // Change back to 'L1'
         vm.chainId(srcChainId);
 
+        tokenIds[0] = 2;
+
+        amounts[0] = 1;
+
         sendOpts = BaseNFTVault.BridgeTransferOp(
             destChainId,
             Alice,
             address(canonicalToken721),
             "http://example.host.com/",
-            2,
-            1,
+            tokenIds,
+            amounts,
             140_000,
             140_000,
             Alice,
@@ -511,7 +552,7 @@ contract ERC721VaultTest is Test {
             canonicalToken,
             Alice,
             Alice,
-            2,
+            tokenIds,
             bytes32(0),
             address(erc721Vault),
             srcChainId
@@ -531,14 +572,20 @@ contract ERC721VaultTest is Test {
 
         assertEq(canonicalToken721.ownerOf(1), Alice);
 
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 1;
+
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
             .BridgeTransferOp(
             destChainId,
             Alice,
             address(canonicalToken721),
             "http://example.host.com/",
-            1,
-            1,
+            tokenIds,
+            amounts,
             140_000,
             140_000,
             Alice,
@@ -579,5 +626,76 @@ contract ERC721VaultTest is Test {
 
         // Alice got back her NFT
         assertEq(canonicalToken721.ownerOf(1), Alice);
+    }
+
+    function test_receiveTokens_multiple_721(
+    )
+        public
+    {
+        vm.prank(Alice, Alice);
+        canonicalToken721.approve(address(erc721Vault), 1);
+        vm.prank(Alice, Alice);
+        canonicalToken721.approve(address(erc721Vault), 2);
+
+        assertEq(canonicalToken721.ownerOf(1), Alice);
+        assertEq(canonicalToken721.ownerOf(2), Alice);
+
+        uint256[] memory tokenIds = new uint256[](2);
+        tokenIds[0] = 1;
+        tokenIds[1] = 2;
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 1;
+        amounts[1] = 1;
+
+        BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
+            .BridgeTransferOp(
+            destChainId,
+            Alice,
+            address(canonicalToken721),
+            "http://example.host.com/",
+            tokenIds,
+            amounts,
+            140_000,
+            140_000,
+            Alice,
+            ""
+        );
+        vm.prank(Alice, Alice);
+        erc721Vault.sendToken{ value: 140_000 }(sendOpts);
+
+        assertEq(canonicalToken721.ownerOf(1), address(erc721Vault));
+        assertEq(canonicalToken721.ownerOf(2), address(erc721Vault));
+
+        BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault
+            .CanonicalNFT({
+            srcChainId: 31_337,
+            tokenAddr: address(canonicalToken721),
+            symbol: "",
+            name: "",
+            uri: "http://example.host.com/"
+        });
+
+        uint256 srcChainId = block.chainid;
+        vm.chainId(destChainId);
+
+        destChainIdBridge.sendReceiveERC721ToERC721Vault(
+            canonicalToken,
+            Alice,
+            Alice,
+            tokenIds,
+            bytes32(0),
+            address(erc721Vault),
+            srcChainId
+        );
+
+        // Query canonicalToBridged
+        address deployedContract = destChainErc721Vault.canonicalToBridged(
+            srcChainId, address(canonicalToken721)
+        );
+
+        // Alice bridged over tokenId 1
+        assertEq(ERC721(deployedContract).ownerOf(1), Alice);
+        assertEq(ERC721(deployedContract).ownerOf(2), Alice);
     }
 }

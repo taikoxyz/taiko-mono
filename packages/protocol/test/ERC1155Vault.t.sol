@@ -65,8 +65,8 @@ contract PrankDestBridge {
         BaseNFTVault.CanonicalNFT calldata canonicalToken,
         address from,
         address to,
-        uint256 tokenId,
-        uint256 amount,
+        uint256[] memory tokenIds,
+        uint256[] memory amounts,
         bytes32 msgHash,
         address srcChainERC1155Vault,
         uint256 srcChainId
@@ -77,7 +77,7 @@ contract PrankDestBridge {
         ctx.msgHash = msgHash;
         ctx.srcChainId = srcChainId;
 
-        destERC1155Vault.receiveToken(canonicalToken, from, to, tokenId, amount);
+        destERC1155Vault.receiveToken(canonicalToken, from, to, tokenIds, amounts);
 
         ctx.sender = address(0);
         ctx.msgHash = bytes32(0);
@@ -103,7 +103,7 @@ contract PrankSrcBridge {
 
     function getPreDeterminedDataBytes() external pure returns (bytes memory) {
         return
-        hex"afdef9d600000000000000000000000000000000000000000000000000000000000000a000000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba4000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000007a69000000000000000000000000266fa2526b3d68a1bd9685b87b4d14ae6079f70600000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000018687474703a2f2f6578616d706c652e686f73742e636f6d2f0000000000000000";
+        hex"2605fc9100000000000000000000000000000000000000000000000000000000000000a000000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000000000000000000000000000000000000000001c000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000007a69000000000000000000000000266fa2526b3d68a1bd9685b87b4d14ae6079f70600000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000018687474703a2f2f6578616d706c652e686f73742e636f6d2f00000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002";
     }
 
     function hashMessage(IBridge.Message calldata message)
@@ -218,6 +218,7 @@ contract ERC1155VaultTest is Test {
 
         canonicalToken1155 = new TestTokenERC1155("http://example.host.com/");
         canonicalToken1155.mint(1, 10);
+        canonicalToken1155.mint(2, 10);
 
         vm.stopPrank();
     }
@@ -229,14 +230,20 @@ contract ERC1155VaultTest is Test {
         assertEq(canonicalToken1155.balanceOf(Alice, 1), 10);
         assertEq(canonicalToken1155.balanceOf(address(erc1155Vault), 1), 0);
 
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 2;
+
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
             .BridgeTransferOp(
             destChainId,
             Alice,
             address(canonicalToken1155),
             "http://example.host.com/",
-            1,
-            2,
+            tokenIds,
+            amounts,
             140_000,
             140_000,
             Alice,
@@ -258,21 +265,27 @@ contract ERC1155VaultTest is Test {
             name: "",
             uri: "http://example.host.com/"
         });
+        
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 2;
 
         bytes memory dataToDecode = abi.encodeWithSelector(
-            0xafdef9d6, canonicalToken, Alice, Alice, 1, 2
+            0xafdef9d6, canonicalToken, Alice, Alice, tokenIds, amounts
         );
 
         BaseNFTVault.CanonicalNFT memory nftRetVal;
         address ownerRetVal;
-        uint256 tokenIdRetVal;
-        uint256 tokenAmountRetVal;
-        (nftRetVal, ownerRetVal,, tokenIdRetVal, tokenAmountRetVal) =
+        uint256[] memory tokenIdsRetVal;
+        uint256[] memory tokenAmountsRetVal;
+        (nftRetVal, ownerRetVal,, tokenIdsRetVal, tokenAmountsRetVal) =
             erc1155Vault.decodeTokenData(dataToDecode);
 
         assertEq(Alice, ownerRetVal);
-        assertEq(1, tokenIdRetVal);
-        assertEq(2, tokenAmountRetVal);
+        assertEq(1, tokenIdsRetVal[0]);
+        assertEq(2, tokenAmountsRetVal[0]);
         assertEq(31_337, nftRetVal.srcChainId);
         assertEq(
             0x579FBFF1A9b1502688169DA761DcF262b73BB64A, nftRetVal.tokenAddr
@@ -289,14 +302,20 @@ contract ERC1155VaultTest is Test {
         assertEq(canonicalToken1155.balanceOf(Alice, 1), 10);
         assertEq(canonicalToken1155.balanceOf(address(erc1155Vault), 1), 0);
 
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 2;
+
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
             .BridgeTransferOp(
             destChainId,
             address(0),
             address(canonicalToken1155),
             "http://example.host.com/",
-            1,
-            2,
+            tokenIds,
+            amounts,
             140_000,
             140_000,
             Alice,
@@ -314,14 +333,20 @@ contract ERC1155VaultTest is Test {
         assertEq(canonicalToken1155.balanceOf(Alice, 1), 10);
         assertEq(canonicalToken1155.balanceOf(address(erc1155Vault), 1), 0);
 
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 2;
+
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
             .BridgeTransferOp(
             destChainId,
             Alice,
             address(0),
             "http://example.host.com/",
-            1,
-            2,
+            tokenIds,
+            amounts,
             140_000,
             140_000,
             Alice,
@@ -339,14 +364,20 @@ contract ERC1155VaultTest is Test {
         assertEq(canonicalToken1155.balanceOf(Alice, 1), 10);
         assertEq(canonicalToken1155.balanceOf(address(erc1155Vault), 1), 0);
 
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 0;
+
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
             .BridgeTransferOp(
             destChainId,
             Alice,
             address(canonicalToken1155),
             "http://example.host.com/",
-            1,
-            0,
+            tokenIds,
+            amounts,
             140_000,
             140_000,
             Alice,
@@ -367,14 +398,20 @@ contract ERC1155VaultTest is Test {
         assertEq(canonicalToken1155.balanceOf(Alice, 1), 10);
         assertEq(canonicalToken1155.balanceOf(address(erc1155Vault), 1), 0);
 
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 2;
+
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
             .BridgeTransferOp(
             destChainId,
             Alice,
             address(canonicalToken1155),
             "http://example.host.com/",
-            1,
-            2,
+            tokenIds,
+            amounts,
             140_000,
             140_000,
             Alice,
@@ -386,6 +423,7 @@ contract ERC1155VaultTest is Test {
         assertEq(canonicalToken1155.balanceOf(Alice, 1), 8);
         assertEq(canonicalToken1155.balanceOf(address(erc1155Vault), 1), 2);
 
+        amounts[0] = 2;
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault
             .CanonicalNFT({
             srcChainId: 31_337,
@@ -402,8 +440,8 @@ contract ERC1155VaultTest is Test {
             canonicalToken,
             Alice,
             Alice,
-            1,
-            2,
+            tokenIds,
+            amounts,
             bytes32(0),
             address(erc1155Vault),
             srcChainId
@@ -427,6 +465,12 @@ contract ERC1155VaultTest is Test {
 
         assertEq(canonicalToken1155.balanceOf(Alice, 1), 10);
         assertEq(canonicalToken1155.balanceOf(address(erc1155Vault), 1), 0);
+        
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 2;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
             .BridgeTransferOp(
@@ -434,8 +478,8 @@ contract ERC1155VaultTest is Test {
             Alice,
             address(canonicalToken1155),
             "http://example.host.com/",
-            1,
-            2,
+            tokenIds,
+            amounts,
             140_000,
             140_000,
             Alice,
@@ -463,8 +507,8 @@ contract ERC1155VaultTest is Test {
             canonicalToken,
             Alice,
             Alice,
-            1,
-            2,
+            tokenIds,
+            amounts,
             bytes32(0),
             address(erc1155Vault),
             srcChainId
@@ -481,13 +525,16 @@ contract ERC1155VaultTest is Test {
         // Change back to 'L1'
         vm.chainId(srcChainId);
 
+        tokenIds[0] = 1;
+        amounts[0] = 1;
+
         sendOpts = BaseNFTVault.BridgeTransferOp(
             destChainId,
             Alice,
             address(canonicalToken1155),
             "http://example.host.com/",
-            1,
-            1,
+            tokenIds,
+            amounts,
             140_000,
             140_000,
             Alice,
@@ -505,8 +552,8 @@ contract ERC1155VaultTest is Test {
             canonicalToken,
             Alice,
             Alice,
-            1,
-            1,
+            tokenIds,
+            amounts,
             bytes32(0),
             address(erc1155Vault),
             srcChainId
@@ -527,14 +574,20 @@ contract ERC1155VaultTest is Test {
         assertEq(canonicalToken1155.balanceOf(Alice, 1), 10);
         assertEq(canonicalToken1155.balanceOf(address(erc1155Vault), 1), 0);
 
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 2;
+
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
             .BridgeTransferOp(
             destChainId,
             Alice,
             address(canonicalToken1155),
             "http://example.host.com/",
-            1,
-            2,
+            tokenIds,
+            amounts,
             140_000,
             140_000,
             Alice,
@@ -577,5 +630,81 @@ contract ERC1155VaultTest is Test {
         // Alice got back her NFTs, and vault has 0
         assertEq(canonicalToken1155.balanceOf(Alice, 1), 10);
         assertEq(canonicalToken1155.balanceOf(address(erc1155Vault), 1), 0);
+    }
+
+    function test_receiveTokens_multiple_1155(
+    )
+        public
+    {
+        vm.prank(Alice, Alice);
+        canonicalToken1155.setApprovalForAll(address(erc1155Vault), true);
+
+        assertEq(canonicalToken1155.balanceOf(Alice, 1), 10);
+        assertEq(canonicalToken1155.balanceOf(address(erc1155Vault), 1), 0);
+
+        assertEq(canonicalToken1155.balanceOf(Alice, 2), 10);
+        assertEq(canonicalToken1155.balanceOf(address(erc1155Vault), 2), 0);
+
+        uint256[] memory tokenIds = new uint256[](2);
+        tokenIds[0] = 1;
+        tokenIds[1] = 2;
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 2;
+        amounts[1] = 5;
+
+        BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
+            .BridgeTransferOp(
+            destChainId,
+            Alice,
+            address(canonicalToken1155),
+            "http://example.host.com/",
+            tokenIds,
+            amounts,
+            140_000,
+            140_000,
+            Alice,
+            ""
+        );
+        vm.prank(Alice, Alice);
+        erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
+
+        assertEq(canonicalToken1155.balanceOf(Alice, 1), 8);
+        assertEq(canonicalToken1155.balanceOf(address(erc1155Vault), 1), 2);
+
+        assertEq(canonicalToken1155.balanceOf(Alice, 2), 5);
+        assertEq(canonicalToken1155.balanceOf(address(erc1155Vault), 2), 5);
+
+        BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault
+            .CanonicalNFT({
+            srcChainId: 31_337,
+            tokenAddr: address(canonicalToken1155),
+            symbol: "",
+            name: "",
+            uri: "http://example.host.com/"
+        });
+
+        uint256 srcChainId = block.chainid;
+        vm.chainId(destChainId);
+
+        destChainIdBridge.sendReceiveERC1155ToERC1155Vault(
+            canonicalToken,
+            Alice,
+            Alice,
+            tokenIds,
+            amounts,
+            bytes32(0),
+            address(erc1155Vault),
+            srcChainId
+        );
+
+        // Query canonicalToBridged
+        address deployedContract = destChainErc1155Vault.canonicalToBridged(
+            srcChainId, address(canonicalToken1155)
+        );
+
+        // Alice bridged over 2 items
+        assertEq(ERC1155(deployedContract).balanceOf(Alice, 1), 2);
+        assertEq(ERC1155(deployedContract).balanceOf(Alice, 2), 5);
     }
 }
