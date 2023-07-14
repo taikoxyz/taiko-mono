@@ -15,10 +15,11 @@ import { Proxied } from "../common/Proxied.sol";
 
 /**
  * @title ProverPool
- * @notice This contract manages a pool of the top 32 provers. There are two
- * actors:
+ * @notice This contract manages a pool of the top 32 provers. This pool is
+ * where the protocol selects provers from to prove L1 block validity. There are
+ * two actors:
  * - Provers (generating the proofs)
- * - Stakers (staking tokens to support the provers)
+ * - Stakers (staking tokens for the provers)
  */
 contract ProverPool is EssentialContract, IProverPool {
     using LibMath for uint256;
@@ -204,7 +205,7 @@ contract ProverPool is EssentialContract, IProverPool {
         _exit(msg.sender, true);
     }
 
-    // Withdraws staked tokens back from matured an exit
+    /// @notice Withdraws staked tokens back from matured an exit.
     function withdraw() external nonReentrant {
         if (!_withdraw(msg.sender)) revert NO_MATURE_EXIT();
     }
