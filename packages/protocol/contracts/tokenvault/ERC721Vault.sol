@@ -193,22 +193,23 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         }
         releasedMessages[msgHash] = true;
 
-        address releasedToken = nft.addr;
-
         if (isBridgedToken[nft.addr]) {
-            releasedToken = canonicalToBridged[nft.chainId][nft.addr];
+            for (uint256 i; i < tokenIds.length; i++) {
+                BridgedERC721(nft.addr).mint(message.owner, tokenIds[i]);
+            }
         }
-
-        for (uint256 i; i < tokenIds.length; i++) {
-            IERC721Upgradeable(releasedToken).safeTransferFrom(
-                address(this), message.owner, tokenIds[i]
-            );
+        else {
+            for (uint256 i; i < tokenIds.length; i++) {
+                IERC721Upgradeable(nft.addr).safeTransferFrom(
+                    address(this), message.owner, tokenIds[i]
+                );
+            }
         }
 
         emit TokenReleased({
             msgHash: msgHash,
             from: message.owner,
-            token: releasedToken,
+            token: nft.addr,
             tokenIds: tokenIds
         });
     }
