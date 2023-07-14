@@ -179,6 +179,52 @@ contract ERC20Vault is BaseVault {
     }
 
     /**
+     * This function can only be called by the bridge contract while
+     * invoking a message call. See sendToken, which sets the data to invoke
+     * this function.
+     *
+     * @param canonicalToken The canonical ERC20 token which may or may not
+     * live on this chain. If not, a BridgedERC20 contract will be deployed.
+     * @param from The source address.
+     * @param to The destination address.
+     * @param amount The amount of tokens to be sent. 0 is a valid value.
+     */
+    function receiveToken(
+        CanonicalERC20 calldata canonicalToken,
+        address from,
+        address to,
+        uint256 amount
+    )
+        external
+        nonReentrant
+        onlyFromNamed("bridge")
+    {
+        IBridge.Context memory ctx = _checkValidContext("erc20_vault");
+
+        address token;
+        if (canonicalToken.chainId == block.chainid) {
+            token = canonicalToken.addr;
+            if (token == resolve("taiko_token", true)) {
+                IMintableERC20(token).mint(to, amount);
+            } else {
+                ERC20Upgradeable(token).safeTransfer(to, amount);
+            }
+        } else {
+            token = _getOrDeployBridgedToken(canonicalToken);
+            IMintableERC20(token).mint(to, amount);
+        }
+
+        emit TokenReceived({
+            msgHash: ctx.msgHash,
+            from: from,
+            to: to,
+            srcChainId: ctx.srcChainId,
+            token: token,
+            amount: amount
+        });
+    }
+
+    /**
      * Release deposited ERC20 back to the owner on the source ERC20Vault with
      * a proof that the message processing on the destination Bridge has failed.
      *
@@ -224,52 +270,6 @@ contract ERC20Vault is BaseVault {
         emit TokenReleased({
             msgHash: msgHash,
             from: message.owner,
-            token: token,
-            amount: amount
-        });
-    }
-
-    /**
-     * This function can only be called by the bridge contract while
-     * invoking a message call. See sendToken, which sets the data to invoke
-     * this function.
-     *
-     * @param canonicalToken The canonical ERC20 token which may or may not
-     * live on this chain. If not, a BridgedERC20 contract will be deployed.
-     * @param from The source address.
-     * @param to The destination address.
-     * @param amount The amount of tokens to be sent. 0 is a valid value.
-     */
-    function receiveToken(
-        CanonicalERC20 calldata canonicalToken,
-        address from,
-        address to,
-        uint256 amount
-    )
-        external
-        nonReentrant
-        onlyFromNamed("bridge")
-    {
-        IBridge.Context memory ctx = _checkValidContext("erc20_vault");
-
-        address token;
-        if (canonicalToken.chainId == block.chainid) {
-            token = canonicalToken.addr;
-            if (token == resolve("taiko_token", true)) {
-                IMintableERC20(token).mint(to, amount);
-            } else {
-                ERC20Upgradeable(token).safeTransfer(to, amount);
-            }
-        } else {
-            token = _getOrDeployBridgedToken(canonicalToken);
-            IMintableERC20(token).mint(to, amount);
-        }
-
-        emit TokenReceived({
-            msgHash: ctx.msgHash,
-            from: from,
-            to: to,
-            srcChainId: ctx.srcChainId,
             token: token,
             amount: amount
         });
