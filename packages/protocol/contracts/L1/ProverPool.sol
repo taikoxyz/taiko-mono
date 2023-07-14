@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 //  _____     _ _         _         _
 // |_   _|_ _(_) |_____  | |   __ _| |__ ___
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
@@ -12,16 +13,24 @@ import { LibMath } from "../libs/LibMath.sol";
 import { TaikoToken } from "./TaikoToken.sol";
 import { Proxied } from "../common/Proxied.sol";
 
+/**
+ * @title ProverPool
+ * @notice This contract manages a pool of the top 32 provers. There are two
+ * actors:
+ * - Provers (generating the proofs)
+ * - Stakers (staking tokens to support the provers)
+ */
 contract ProverPool is EssentialContract, IProverPool {
     using LibMath for uint256;
 
+    /// @dev These values are used to compute the prover's rank.
     struct Prover {
         uint64 stakedAmount;
         uint32 rewardPerGas;
         uint32 currentCapacity;
     }
 
-    // Make sure we only use one slot
+    /// @dev Make sure we only use one slot.
     struct Staker {
         uint64 exitRequestedAt;
         uint64 exitAmount;
@@ -76,6 +85,12 @@ contract ProverPool is EssentialContract, IProverPool {
         EssentialContract._init(_addressManager);
     }
 
+    /// @dev Protocol specifies the current feePerGas and assigns a prover to a
+    /// block.
+    /// @param blockId The block id.
+    /// @param feePerGas The current fee per gas.
+    /// @return prover The address of the assigned prover.
+    /// @return rewardPerGas The reward per gas for the assigned prover.
     function assignProver(
         uint64 blockId,
         uint32 feePerGas
@@ -103,7 +118,8 @@ contract ProverPool is EssentialContract, IProverPool {
         }
     }
 
-    // Increases the capacity of the prover
+    /// @dev Increases the capacity of the prover by releasing a prover.
+    /// @param addr The address of the prover to release.
     function releaseProver(address addr) external onlyFromProtocol {
         (Staker memory staker, Prover memory prover) = getStaker(addr);
 
@@ -115,7 +131,8 @@ contract ProverPool is EssentialContract, IProverPool {
         }
     }
 
-    // Slashes a prover
+    /// @dev Slashes a prover.
+    /// @param addr The address of the prover to slash.
     function slashProver(address addr) external onlyFromProtocol {
         (Staker memory staker, Prover memory prover) = getStaker(addr);
         unchecked {
@@ -150,6 +167,15 @@ contract ProverPool is EssentialContract, IProverPool {
         }
     }
 
+    /// @notice This function is used for a staker to stake tokens for a prover.
+    /// It will also perform the logic of updating the prover's rank, possibly
+    /// moving it into the active prover pool.
+    /// @param amount The amount of Taiko tokens to stake.
+    /// @param rewardPerGas The expected reward per gas for the prover. If the
+    /// expected reward is higher (implying that the prover is less efficient),
+    /// the prover will be ranked lower.
+    /// @param maxCapacity The maximum number of blocks that a prover can
+    /// handle.
     function stake(
         uint64 amount,
         uint32 rewardPerGas,
@@ -170,6 +196,9 @@ contract ProverPool is EssentialContract, IProverPool {
         }
     }
 
+    /// @notice Request an exit for the staker. This will withdraw the staked
+    /// tokens and exit
+    /// prover from the pool.
     function exit() external nonReentrant {
         _withdraw(msg.sender);
         _exit(msg.sender, true);
@@ -180,7 +209,11 @@ contract ProverPool is EssentialContract, IProverPool {
         if (!_withdraw(msg.sender)) revert NO_MATURE_EXIT();
     }
 
-    // Returns a staker's information
+    /// @notice Retrieves the information of a staker and their corresponding
+    /// prover using their address.
+    /// @param addr The address of the staker.
+    /// @return staker The staker's information.
+    /// @return prover The prover's information.
     function getStaker(address addr)
         public
         view
@@ -194,7 +227,8 @@ contract ProverPool is EssentialContract, IProverPool {
         }
     }
 
-    // Returns the pool's current total capacity
+    /// @notice Calculates and returns the current total capacity of the pool.
+    /// @return capacity The total capacity of the pool.
     function getCapacity() public view returns (uint256 capacity) {
         unchecked {
             for (uint256 i = 1; i <= MAX_NUM_PROVERS; ++i) {
@@ -203,6 +237,10 @@ contract ProverPool is EssentialContract, IProverPool {
         }
     }
 
+    /// @notice Retreives the current active provers and their corresponding
+    /// stakers.
+    /// @return _provers The active provers.
+    /// @return _stakers The stakers of the active provers.
     function getProvers()
         public
         view
