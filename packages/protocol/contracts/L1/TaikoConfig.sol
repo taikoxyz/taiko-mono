@@ -48,7 +48,8 @@ library TaikoConfig {
             ethDepositMaxFee: 1 ether / 10,
             // Group 5: tokenomics
             rewardOpenMultipler: 200, // percentage
-            rewardOpenMaxCount: 2000
-        });
+            rewardOpenMaxCount: 2000,
+            rewardMaxDelayPenalty: 250 // bps
+         });
     }
 }

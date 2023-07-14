@@ -68,6 +68,7 @@ library LibVerifying {
                 || config.ethDepositMaxFee
                     >= type(uint96).max / config.ethDepositMaxCountPerBlock
                 || config.rewardOpenMultipler < 100
+                || config.rewardMaxDelayPenalty >= 10_000
         ) revert L1_INVALID_CONFIG();
 
         unchecked {
@@ -219,13 +220,23 @@ library LibVerifying {
             fc.prover == blk.assignedProver
                 && fc.provenAt <= blk.proposedAt + blk.proofWindow
         ) {
+            uint64 proofDelay;
+            unchecked {
+                proofDelay = fc.provenAt - blk.proposedAt;
+
+                if (config.rewardMaxDelayPenalty > 0) {
+                    // Give the reward a penalty up to a small percentage.
+                    // This will encourage prover to submit proof ASAP.
+                    proofReward -= proofReward * proofDelay
+                        * config.rewardMaxDelayPenalty / 10_000 / blk.proofWindow;
+                }
+            }
+
             // The selected prover managed to prove the block in time
             state.avgProofDelay = uint16(
                 LibUtils.movingAverage({
                     maValue: state.avgProofDelay,
-                    // TODO:  prover is not incentivized to submit proof
-                    // ASAP
-                    newValue: fc.provenAt - blk.proposedAt,
+                    newValue: proofDelay,
                     maf: 7200
                 })
             );
