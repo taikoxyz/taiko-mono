@@ -22,6 +22,17 @@ import { IBridge } from "../bridge/IBridge.sol";
  */
 
 abstract contract BaseNFTVault is BaseVault {
+    /**
+     * Thrown when the length of the tokenIds array and the amounts
+     * array differs.
+     */
+    error VAULT_TOKEN_ARRAY_MISMATCH();
+
+    /**
+     * Thrown when more tokens are about to be bridged than allowed.
+     */
+    error VAULT_MAX_TOKEN_PER_TXN_EXCEEDED();
+
     struct CanonicalNFT {
         uint256 chainId;
         address addr;
@@ -35,8 +46,8 @@ abstract contract BaseNFTVault is BaseVault {
         address to;
         address token;
         string baseTokenUri;
-        uint256 tokenId;
-        uint256 amount;
+        uint256[] tokenIds;
+        uint256[] amounts;
         uint256 gasLimit;
         uint256 processingFee;
         address refundAddress;
@@ -57,7 +68,41 @@ abstract contract BaseNFTVault is BaseVault {
             => mapping(address canonicalAddress => address bridgedAddress)
     ) public canonicalToBridged;
 
-    uint256[46] private __gap;
+    // In order not to gas-out we need to hard cap the nr. of
+    uint256 public constant MAX_TOKEN_PER_TXN = 10;
+ 
+    uint256[45] private __gap;
+
+    modifier onlyValidAmounts(
+        uint256[] memory amounts,
+        uint256[] memory tokenIds,
+        bool isERC721
+    ) {
+        if (tokenIds.length != amounts.length) {
+            revert VAULT_TOKEN_ARRAY_MISMATCH();
+        }
+        
+        if (tokenIds.length > MAX_TOKEN_PER_TXN) {
+            revert VAULT_MAX_TOKEN_PER_TXN_EXCEEDED();
+        }
+
+        if (isERC721) {
+            for (uint i; i < tokenIds.length; i++) {
+                if(amounts[i] != 1) {
+                    revert VAULT_INVALID_AMOUNT();
+                }
+            }
+        }
+        else {
+            // ERC1155 has slightly diff check
+            for (uint i; i < amounts.length; i++) {
+                if(amounts[i] == 0) {
+                    revert VAULT_INVALID_AMOUNT();
+                }
+            }
+        }
+        _;
+    }
 
     /**
      * @dev Map canonical token with a bridged address

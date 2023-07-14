@@ -45,16 +45,16 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
         address indexed to,
         uint256 destChainId,
         address token,
-        uint256 tokenId,
-        uint256 amount
+        uint256[] tokenIds,
+        uint256[] amounts
     );
 
     event TokenReleased(
         bytes32 indexed msgHash,
         address indexed from,
         address token,
-        uint256 tokenId,
-        uint256 amount
+        uint256[] tokenIds,
+        uint256[] amounts
     );
 
     event TokenReceived(
@@ -63,8 +63,8 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
         address indexed to,
         uint256 chainId,
         address token,
-        uint256 tokenId,
-        uint256 amount
+        uint256[] tokenIds,
+        uint256[] amounts
     );
 
     /**
@@ -74,28 +74,39 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
      *
      * @param opt Option for sending the ERC1155 token.
      */
-    function sendToken(BridgeTransferOp calldata opt)
+    function sendToken(BridgeTransferOp memory opt)
         external
         payable
         nonReentrant
         onlyValidAddresses(opt.destChainId, "erc1155_vault", opt.to, opt.token)
+        onlyValidAmounts(opt.amounts, opt.tokenIds, false)
     {
-        if (opt.amount == 0) revert VAULT_INVALID_AMOUNT();
-
         if (!IERC165(opt.token).supportsInterface(ERC1155_INTERFACE_ID)) {
             revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
 
         IBridge.Message memory message;
+        message.destChainId = opt.destChainId;
+        message.owner = msg.sender;
+        message.to = resolve(opt.destChainId, "erc1155_vault", false);
+    
+        // We need to save them into memory - bc structs containing 
+        // dynamic arrays will cause stack-too-deep error when passed
+        uint256[] memory amountsArray = opt.amounts;
+        string memory baseUri = opt.baseTokenUri;
+        address token = opt.token;
+        uint256[] memory tokenIdsArray = opt.tokenIds;
+        address to = opt.to;
+        uint256 destChainId = opt.destChainId;
+
         message.data = _sendToken(
             msg.sender,
-            opt.to,
-            opt.tokenId,
-            opt.token,
-            opt.baseTokenUri,
-            opt.amount,
-            isBridgedToken[opt.token],
-            bridgedToCanonical[opt.token]
+            to,
+            tokenIdsArray,
+            token,
+            baseUri,
+            amountsArray,
+            ERC1155Vault.receiveToken.selector
         );
 
         message.destChainId = opt.destChainId;
@@ -114,11 +125,11 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
         emit TokenSent({
             msgHash: msgHash,
             from: message.owner,
-            to: opt.to,
-            destChainId: opt.destChainId,
-            token: opt.token,
-            tokenId: opt.tokenId,
-            amount: opt.amount
+            to: to,
+            destChainId: destChainId,
+            token: token,
+            tokenIds: tokenIdsArray,
+            amounts: amountsArray
         });
     }
 
@@ -131,15 +142,15 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
      * deployed.
      * @param from The source address.
      * @param to The destination address.
-     * @param tokenId The tokenId to be sent.
-     * @param amount The amount to be sent.
+     * @param tokenIds The tokenIds to be sent.
+     * @param amounts The amounts to be sent.
      */
     function receiveToken(
         BaseNFTVault.CanonicalNFT calldata canonicalToken,
         address from,
         address to,
-        uint256 tokenId,
-        uint256 amount
+        uint256[] memory tokenIds,
+        uint256[] memory amounts
     )
         external
         nonReentrant
@@ -152,8 +163,8 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
             canonicalToken,
             from,
             to,
-            tokenId,
-            amount,
+            tokenIds,
+            amounts,
             bridgedAddress
         );
 
@@ -176,9 +187,10 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
 
         CanonicalNFT memory nft;
         address owner;
-        uint256 tokenId;
-        uint256 amount;
-        (nft, owner,, tokenId, amount) = decodeTokenData(message.data);
+        uint256[] memory tokenIds;
+        uint256[] memory amounts;
+
+        (nft, owner,, tokenIds, amounts) = decodeTokenData(message.data);
 
         bytes32 msgHash = msgHashIfValidRequest(message, proof, nft.addr);
 
@@ -188,16 +200,18 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
             releasedToken = canonicalToBridged[nft.chainId][nft.addr];
         }
 
-        IERC1155Upgradeable(releasedToken).safeTransferFrom(
-            address(this), message.owner, tokenId, amount, ""
-        );
+        for (uint256 i; i < tokenIds.length; i++) {
+            IERC1155Upgradeable(releasedToken).safeTransferFrom(
+                address(this), message.owner, tokenIds[i], amounts[i], ""
+            );  
+        }
 
         emit TokenReleased({
             msgHash: msgHash,
             from: message.owner,
             token: releasedToken,
-            tokenId: tokenId,
-            amount: amount
+            tokenIds: tokenIds,
+            amounts: amounts
         });
     }
 
@@ -255,49 +269,52 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
             BaseNFTVault.CanonicalNFT memory,
             address,
             address,
-            uint256,
-            uint256
+            uint256[] memory,
+            uint256[] memory
         )
     {
         bytes memory calldataWithoutSelector = extractCalldata(dataWithSelector);
+
         return abi.decode(
             calldataWithoutSelector,
-            (BaseNFTVault.CanonicalNFT, address, address, uint256, uint256)
+            (BaseNFTVault.CanonicalNFT, address, address, uint256[], uint256[])
         );
     }
 
     function _sendToken(
         address owner,
         address to,
-        uint256 tokenId,
+        uint256[] memory tokenIds,
         address token,
         string memory tokenUri,
-        uint256 amount,
-        bool isBridgedToken,
-        BaseNFTVault.CanonicalNFT memory bridgedToCanonical
+        uint256[] memory amounts,
+        bytes4 selector
     )
         private
         returns (bytes memory)
     {
+        bool isBridgedToken = isBridgedToken[token];
+        CanonicalNFT memory bridgedToCanonical = bridgedToCanonical[token];
+
         BaseNFTVault.CanonicalNFT memory canonicalToken;
 
         // is a bridged token, meaning, it does not live on this chain
         if (isBridgedToken) {
-            if (BridgedERC1155(token).balanceOf(owner, tokenId) < amount) {
-                revert VAULT_INVALID_OWNER();
-            }
+            for (uint256 i; i < tokenIds.length; i++) {
+                if (BridgedERC1155(token).balanceOf(owner, tokenIds[i]) < amounts[i]) {
+                    revert VAULT_INVALID_OWNER();
+                }
 
-            BridgedERC1155(token).burn(owner, tokenId, amount);
+                BridgedERC1155(token).burn(owner,tokenIds[i], amounts[i]);
+            }
             canonicalToken = bridgedToCanonical;
             if (canonicalToken.addr == address(0)) {
                 revert VAULT_CANONICAL_TOKEN_NOT_FOUND();
             }
         } else {
+
             // is a canonical token, meaning, it lives on this chain
             ERC1155Upgradeable t = ERC1155Upgradeable(token);
-            if (BridgedERC1155(token).balanceOf(owner, tokenId) < amount) {
-                revert VAULT_INVALID_OWNER();
-            }
 
             canonicalToken = BaseNFTVault.CanonicalNFT({
                 chainId: block.chainid,
@@ -307,16 +324,16 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
                 uri: tokenUri
             });
 
-            t.safeTransferFrom(msg.sender, address(this), tokenId, amount, "");
+            for (uint256 i; i < tokenIds.length; i++) {
+                if (BridgedERC1155(token).balanceOf(owner, tokenIds[i]) < amounts[i]) {
+                    revert VAULT_INVALID_OWNER();
+                }
+                t.safeTransferFrom(msg.sender, address(this), tokenIds[i], amounts[i], "");  
+            }
         }
 
         return abi.encodeWithSelector(
-            ERC1155Vault.receiveToken.selector,
-            canonicalToken,
-            owner,
-            to,
-            tokenId,
-            amount
+            selector, canonicalToken, owner, to, tokenIds, amounts
         );
     }
 
@@ -325,8 +342,8 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
         BaseNFTVault.CanonicalNFT memory canonicalToken,
         address from,
         address to,
-        uint256 tokenId,
-        uint256 amount,
+        uint256[] memory tokenIds,
+        uint256[] memory amounts,
         address canonicalToBridged
     )
         private
@@ -337,14 +354,19 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
         if (canonicalToken.chainId == block.chainid) {
             token = canonicalToken.addr;
             bridged = false;
-            ERC1155Upgradeable(token).safeTransferFrom(
-                address(this), to, tokenId, amount, ""
-            );
+            for (uint256 i; i < tokenIds.length; i++) {
+                ERC1155Upgradeable(token).safeTransferFrom(
+                    address(this), to, tokenIds[i], amounts[i], ""
+                );   
+            }
         } else {
             (bridged, token) = _getOrDeployBridgedToken(
                 canonicalToken, canonicalToBridged, addressManager
             );
-            BridgedERC1155(token).mint(to, tokenId, amount, "");
+
+            for (uint256 i; i < tokenIds.length; i++) {
+                BridgedERC1155(token).mint(to, tokenIds[i], amounts[i], "");
+            }
         }
 
         emit TokenReceived({
@@ -353,8 +375,8 @@ contract ERC1155Vault is BaseNFTVault, IERC1155Receiver {
             to: to,
             chainId: ctx.srcChainId,
             token: token,
-            tokenId: tokenId,
-            amount: amount
+            tokenIds: tokenIds,
+            amounts: amounts
         });
     }
 
