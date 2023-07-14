@@ -5,7 +5,7 @@
   import LoadingText from '$components/LoadingText/LoadingText.svelte';
   import { getBalance as getTokenBalance, type Token } from '$libs/token';
   import { truncateString } from '$libs/util/truncateString';
-  import { type Account,account } from '$stores/account';
+  import { type Account, account } from '$stores/account';
   import { destChain, srcChain } from '$stores/network';
 
   import { selectedToken } from '../selectedToken';
@@ -39,8 +39,8 @@
   <span>{$t('amount_input.balance')}:</span>
   <span>
     {#if computingTokenBalance}
-      <LoadingText mask="0.0000" class="text-white" />
-      <LoadingText mask="XXX" class="text-white" />
+      <LoadingText mask="0.0000" />
+      <LoadingText mask="XXX" />
     {:else}
       {renderTokenBalance(tokenBalance)}
     {/if}
