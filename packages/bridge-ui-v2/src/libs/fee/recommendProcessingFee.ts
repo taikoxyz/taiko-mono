@@ -4,9 +4,15 @@ import { zeroAddress } from 'viem';
 import { recommentProcessingFee } from '$config';
 import { getAddress, isERC20, type Token } from '$libs/token';
 
+type RecommendProcessingFeeArgs = {
+  token: Token;
+  destChainId?: number;
+  srcChainId?: number;
+};
+
 const { ethGasLimit, erc20NotDeployedGasLimit, erc20DeployedGasLimit } = recommentProcessingFee;
 
-export async function recommendProcessingFee(token: Token, destChainId?: number, srcChainId?: number) {
+export async function recommendProcessingFee({ token, destChainId, srcChainId }: RecommendProcessingFeeArgs) {
   if (!destChainId) return null;
 
   const destPublicClient = getPublicClient({ chainId: destChainId });
@@ -19,7 +25,7 @@ export async function recommendProcessingFee(token: Token, destChainId?: number,
   if (isERC20(token)) {
     if (!srcChainId) return null;
 
-    const tokenAddress = await getAddress(token, srcChainId, destChainId);
+    const tokenAddress = await getAddress({ token, srcChainId, destChainId });
 
     if (!tokenAddress || tokenAddress === zeroAddress) {
       // Gas limit for erc20 if not deployed on the destination chain

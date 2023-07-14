@@ -11,11 +11,14 @@
   import { destChain, srcChain } from '$stores/network';
 
   import { selectedToken } from '../selectedToken';
+  import LoadingText from '$components/LoadingText/LoadingText.svelte';
+  import { formatEther } from 'viem';
+  import type { Token } from '$libs/token';
 
   let dialogId = `dialog-${uid()}`;
   let selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
 
-  let recommendedAmount = 0;
+  let recommendedAmount: Maybe<bigint> = null;
   let calculatingRecommendedAmount = false;
   let errorCalculatingRecommendedAmount = false;
 
@@ -23,14 +26,20 @@
   let modalOpen = false;
   let customInput: InputBox;
 
-  async function calculateRecommendedAmount() {
+  async function calculateRecommendedAmount(token: Token, srcChainId?: number, destChainId?: number) {
     calculatingRecommendedAmount = true;
+    errorCalculatingRecommendedAmount = false;
+
     try {
-      recommendedAmount = await recommendProcessingFee($selectedToken, $destChain?.id, $srcChain?.id);
-      errorCalculatingRecommendedAmount = false;
+      recommendedAmount = await recommendProcessingFee({
+        token,
+        destChainId,
+        srcChainId,
+      });
     } catch (error) {
+      console.error(error);
+
       errorCalculatingRecommendedAmount = true;
-      recommendedAmount = 0;
     } finally {
       calculatingRecommendedAmount = false;
     }
@@ -42,13 +51,20 @@
     customInput?.focus();
   }
 
+  function amountToEther(amount: Maybe<bigint>) {
+    return amount ? +formatEther(amount) : 0;
+  }
+
   async function onSelectedFeeMethodChanged(method: ProcessingFeeMethod) {
     // customInput?.clear();
 
     switch (method) {
       case ProcessingFeeMethod.RECOMMENDED:
         // Get the cached value if exists, otherwise calculate it
-        selectedAmount = recommendedAmount ? recommendedAmount : await calculateRecommendedAmount();
+        if (!recommendedAmount) {
+          await calculateRecommendedAmount($selectedToken, $srcChain?.id, $destChain?.id);
+        }
+        selectedAmount = amountToEther(recommendedAmount);
         break;
       case ProcessingFeeMethod.CUSTOM:
         // Get a previous value entered if exists, otherwise default to 0
@@ -77,8 +93,7 @@
     modalOpen = true;
   }
 
-  // TODO: some info needs to be passed in in order to calculate the recommended amount
-  $: calculateRecommendedAmount();
+  $: calculateRecommendedAmount($selectedToken, $srcChain?.id, $destChain?.id);
 
   // TODO: how about using a onClick handler instead of this watcher?
   $: onSelectedFeeMethodChanged(selectedFeeMethod);
@@ -95,7 +110,7 @@
 
   <span class="body-small-regular text-secondary-content mt-[6px]">
     {#if calculatingRecommendedAmount}
-      {$t('processing_fee.recommended.calculating')}
+      <LoadingText mask="0.0001" /> ETH
     {:else if errorCalculatingRecommendedAmount}
       {$t('processing_fee.recommended.error')}
     {:else}
@@ -121,11 +136,11 @@
             <span class="body-small-regular text-secondary-content">
               <!-- TODO: think about the UI for this part. Talk to Jane -->
               {#if calculatingRecommendedAmount}
-                {$t('processing_fee.recommended.calculating')}
+                <LoadingText mask="0.0001" /> ETH
               {:else if errorCalculatingRecommendedAmount}
                 {$t('processing_fee.recommended.error')}
               {:else}
-                {recommendedAmount} ETH
+                {amountToEther(recommendedAmount)} ETH
               {/if}
             </span>
           </div>

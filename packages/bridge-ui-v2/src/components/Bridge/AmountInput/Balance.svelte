@@ -12,16 +12,19 @@
 
   let tokenBalance: Maybe<FetchBalanceResult>;
   let computingTokenBalance = false;
+  let errorComputingTokenBalance = false;
 
   async function updateTokenBalance(token?: Token, account?: Account, srcChainId?: number, destChainId?: number) {
     if (!token || !account || !account.address) return;
 
     computingTokenBalance = true;
+    errorComputingTokenBalance = false;
 
     try {
-      tokenBalance = await getTokenBalance(token, account.address, srcChainId, destChainId);
+      tokenBalance = await getTokenBalance({ token, userAddress: account.address, srcChainId, destChainId });
     } catch (error) {
       console.error(error);
+      errorComputingTokenBalance = true;
     } finally {
       computingTokenBalance = false;
     }
