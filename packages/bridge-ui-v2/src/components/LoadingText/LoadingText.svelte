@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { classNames } from '$libs/util/classNames';
   import { onMount } from 'svelte';
+
+  import { classNames } from '$libs/util/classNames';
 
   export let mask = 'Loading';
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { FetchBalanceResult, GetAccountResult, PublicClient } from '@wagmi/core';
+  import type { FetchBalanceResult } from '@wagmi/core';
   import { t } from 'svelte-i18n';
 
   import LoadingText from '$components/LoadingText/LoadingText.svelte';

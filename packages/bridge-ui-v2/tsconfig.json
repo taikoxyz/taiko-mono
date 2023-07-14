@@ -15,6 +15,7 @@
     "paths": {
       "$components/*": ["./src/components/*"],
       "$stores/*": ["./src/stores/*"],
+      "$config": ["./src/app.config.ts"],
       "$libs/*": ["./src/libs/*"],
       "$abi": ["./src/abi/index.ts"]
     },

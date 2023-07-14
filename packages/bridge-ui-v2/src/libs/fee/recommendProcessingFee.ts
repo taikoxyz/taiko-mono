@@ -1,8 +1,36 @@
-export async function recommendProcessingFee(): Promise<number> {
-  // TODO: implement
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(0.000135);
-    }, 1000);
-  });
+import { getPublicClient } from '@wagmi/core';
+import { zeroAddress } from 'viem';
+
+import { recommentProcessingFee } from '$config';
+import { getAddress, isERC20, type Token } from '$libs/token';
+
+const { ethGasLimit, erc20NotDeployedGasLimit, erc20DeployedGasLimit } = recommentProcessingFee;
+
+export async function recommendProcessingFee(token: Token, destChainId?: number, srcChainId?: number) {
+  if (!destChainId) return null;
+
+  const destPublicClient = getPublicClient({ chainId: destChainId });
+  const gasPrice = await destPublicClient.getGasPrice();
+
+  // The gas limit for processMessage call for ETH is about ~800k.
+  // To make it enticing, we say 900k
+  let gasLimit = ethGasLimit;
+
+  if (isERC20(token)) {
+    if (!srcChainId) return null;
+
+    const tokenAddress = await getAddress(token, srcChainId, destChainId);
+
+    if (!tokenAddress || tokenAddress === zeroAddress) {
+      // Gas limit for erc20 if not deployed on the destination chain
+      // already is about ~2.9m, so we add some to make it enticing
+      gasLimit = erc20NotDeployedGasLimit;
+    } else {
+      // Gas limit for erc20 if already deployed on the destination chain is
+      // about ~1m, so again, add some to ensure processing
+      gasLimit = erc20DeployedGasLimit;
+    }
+  }
+
+  return gasPrice * gasLimit;
 }
