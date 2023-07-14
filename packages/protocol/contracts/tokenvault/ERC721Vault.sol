@@ -82,16 +82,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         if (opt.amount != 1) revert VAULT_INVALID_AMOUNT();
 
         // TODO: we need to figure this out: && or ||?
-        if (
-            ERC721Upgradeable(opt.token).supportsInterface(ERC721_INTERFACE_ID)
-                == false
-                && ERC721Upgradeable(opt.token).supportsInterface(
-                    ERC721_METADATA_INTERFACE_ID
-                ) == false
-                && ERC721Upgradeable(opt.token).supportsInterface(
-                    ERC721_ENUMERABLE_INTERFACE_ID
-                ) == false
-        ) {
+        if (!IERC165(opt.token).supportsInterface(ERC721_INTERFACE_ID)) {
             revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
 
