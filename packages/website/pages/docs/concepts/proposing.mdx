@@ -61,7 +61,7 @@ The transaction list intrinsic validity function checks that the transaction lis
 A transaction list is valid if and only if:
 
 1. The transaction list is well-formed RLP, with no additional trailing bytes (rule #1 in Ethereum yellow paper).
-2. The transaction list is no larger than than $K_{TxListMaxBytes}$.
+2. The transaction list is no larger than $K_{TxListMaxBytes}$.
 3. The sum of all transactions' gas limit is no larger than the protocol constant $K_{BlockMaxGasLimit}$.
 4. The total number of transactions is no larger than the protocol constant $K_{BlockMaxTxs}$.
 
