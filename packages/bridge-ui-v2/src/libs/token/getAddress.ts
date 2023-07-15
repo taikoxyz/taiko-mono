@@ -22,7 +22,7 @@ export async function getAddress({ token, srcChainId, destChainId }: GetAddressA
   // Get the address for the token on the source chain
   let address = token.addresses[srcChainId];
 
-  // If the token isn't ETH or has no address...
+  // If the token isn't ETH and has no address...
   if (!isETH(token) && (!address || address === zeroAddress)) {
     if (!destChainId) return;
 
