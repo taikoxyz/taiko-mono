@@ -108,6 +108,13 @@ const ecosystemData: EcosystemData[] = [
     filters: [],
   },
   {
+    icon: "/images/ecosystem/owlto.png",
+    name: "Owlto",
+    link: "https://stg.owlto.finance",
+    description: "The decentralized cross-rollup bridge focused on Layer2.",
+    filters: [],
+  },
+  {
     icon: "/images/ecosystem/particle-network.png",
     name: "Particle Network",
     link: "https://particle.network/",
@@ -165,8 +172,7 @@ const ecosystemData: EcosystemData[] = [
     icon: "/images/ecosystem/taikoverse.png",
     name: "Taikoverse",
     link: "https://linktr.ee/taikoverse",
-    description:
-      "An infinite and unstoppable world running on Taiko's stack.",
+    description: "An infinite and unstoppable world running on Taiko's stack.",
     filters: [],
   },
   {
