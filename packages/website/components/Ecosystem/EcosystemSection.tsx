@@ -131,7 +131,7 @@ const ecosystemData: EcosystemData[] = [
     filters: [],
   },
   {
-    icon: "/images/ecosystem/rwbydex.png",
+    icon: "/images/ecosystem/rubydex.png",
     name: "RwbyDex",
     link: "https://rubydex.com/en",
     description:
