@@ -34,15 +34,9 @@ export async function getAddress(token: Token, srcChainId?: number, destChainId?
       address: chainContractsMap[srcChainId].tokenVaultAddress,
     });
 
-    try {
-      address = await srcTokenVaultContract.read.canonicalToBridged([BigInt(destChainId), destChainTokenAddress]);
+    address = await srcTokenVaultContract.read.canonicalToBridged([BigInt(destChainId), destChainTokenAddress]);
 
-      log(`Bridged address for ${token.symbol} is "${address}"`);
-    } catch (error) {
-      console.error(error);
-
-      throw Error(`Failed to get address for ${token.symbol} on chain ${srcChainId}`, { cause: error });
-    }
+    log(`Bridged address for ${token.symbol} is "${address}"`);
   }
 
   return address;

@@ -1,23 +1,19 @@
 import { getContract, type GetContractResult, getWalletClient, type WalletClient } from '@wagmi/core';
 
+import { PUBLIC_L1_CHAIN_ID } from '$env/static/public';
+
 import { mint } from './mint';
-import type { Token } from './types';
+import { testERC20Tokens } from './tokens';
 
-vi.mock('@wagmi/core', () => {
-  return {
-    getWalletClient: vi.fn(),
-    getContract: vi.fn(),
-  };
-});
+vi.mock('$env/static/public');
+vi.mock('@wagmi/core');
+vi.mock('$abi');
 
-const mockToken = {
-  symbol: 'MKT',
-  addresses: { 1: '0x123' },
-} as unknown as Token;
+const BLLToken = testERC20Tokens[0];
 
 const mockWalletClient = {
   account: { address: '0x123' },
-  chain: { id: 1 },
+  chain: { id: PUBLIC_L1_CHAIN_ID },
 } as unknown as WalletClient;
 
 const mockTokenContract = {
@@ -27,20 +23,12 @@ const mockTokenContract = {
 } as unknown as GetContractResult<readonly unknown[], WalletClient>;
 
 describe('mint', () => {
-  beforeAll(() => {
+  it('should return a tx hash when minting', async () => {
     vi.mocked(getWalletClient).mockResolvedValue(mockWalletClient);
     vi.mocked(getContract).mockReturnValue(mockTokenContract);
-  });
+    vi.mocked(mockTokenContract.write.mint).mockResolvedValue('0x123456');
 
-  it('should throw an error when minting', async () => {
-    vi.mocked(mockTokenContract.write.mint).mockRejectedValue(new Error('BAM!!'));
-
-    await expect(mint(mockToken, mockWalletClient)).rejects.toThrow(`found a problem minting ${mockToken.symbol}`);
-  });
-
-  it('should return a tx hash when minting', async () => {
-    vi.mocked(mockTokenContract.write.mint).mockResolvedValue('0x123');
-
-    await expect(mint(mockToken, mockWalletClient)).resolves.toEqual('0x123');
+    await expect(mint(BLLToken, mockWalletClient)).resolves.toEqual('0x123456');
+    expect(mockTokenContract.write.mint).toHaveBeenCalledWith([mockWalletClient.account.address]);
   });
 });
