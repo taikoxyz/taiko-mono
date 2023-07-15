@@ -10,34 +10,41 @@ This guide will help you deploy a smart contract to Taiko using Foundry or Hardh
 
 - You have [Foundry](https://book.getfoundry.sh/getting-started/installation) or [Hardhat](https://hardhat.org/hardhat-runner/docs/getting-started#quick-start) installed.
 - You have testnet ETH on Taiko (to pay the transaction fee for deploying the contract).
-   - You can [request Sepolia ETH](/docs/guides/receive-tokens#receive-sepolia-eth) from the faucet and then [use the bridge](/docs/guides/use-the-bridge) to send the testnet ETH to Taiko.
+  - You can [request Sepolia ETH](/docs/guides/build-on-taiko/receive-tokens#receive-sepolia-eth) from the faucet and then [use the bridge](/docs/guides/build-on-taiko/bridge-tokens) to send the testnet ETH to Taiko.
 - You have the private key to the account with testnet ETH on Taiko.
 
 ### Additional Remix prerequisites
-- You have [configured your wallet](/docs/guides/configure-your-wallet) to connect to Taiko.
+
+- You have [setup your wallet](/docs/guides/build-on-taiko/setup-your-wallet) to connect to Taiko.
 
 ## Steps
 
-<Tabs items={["Foundry", "Hardhat", "Remix"]} defaultIndex="0">
+<Tabs items={["Foundry", "Hardhat", "Remix", "thirdweb"]} defaultIndex="0">
   <Tab>
    <Steps>
-   ### Create a project with Foundry
-   ```sh
-   forge init hello_foundry && cd hello_foundry
-   ```
+      ### Create a project with Foundry
+      ```sh
+      forge init hello_foundry && cd hello_foundry
+      ```
 
-   ### Deploy your contract
-   Deploy the contract located at `src/Counter.sol`. Replace `YOUR_PRIVATE_KEY` below with your private key which has some testnet ETH on Taiko.
-   <Callout type="warning">
-   Use a throwaway wallet to be safe. Don't reveal the private key of a wallet with significant value!
-   </Callout>
+      ### Deploy your contract
 
-   ```sh
-   forge create --rpc-url https://rpc.test.taiko.xyz --private-key YOUR_PRIVATE_KEY src/Counter.sol:Counter
-   ```
+      Deploy the contract located at `src/Counter.sol`. Replace `YOUR_PRIVATE_KEY` below with your private key which has some testnet ETH on Taiko.
 
-   ### View your contract
-   Paste the address from the output into the [Taiko block explorer](https://explorer.test.taiko.xyz) and verify that the contract was deployed.
+      {" "}
+
+      <Callout type="warning">
+      Use a throwaway wallet to be safe. Don't reveal the private key of a wallet
+      with significant value!
+      </Callout>
+
+      ```sh
+      forge create --rpc-url https://rpc.test.taiko.xyz --private-key YOUR_PRIVATE_KEY src/Counter.sol:Counter
+      ```
+
+      ### View your contract
+
+      Paste the address from the output into the [Taiko block explorer](https://explorer.test.taiko.xyz) and verify that the contract was deployed.
    </Steps>
   </Tab>
   <Tab>
@@ -96,6 +103,35 @@ This guide will help you deploy a smart contract to Taiko using Foundry or Hardh
 
       ### Deploy your smart contract
       ![deploy your smart contract](/images/guides/deploy-remix/deploy.png)
+
+   </Steps>
+  </Tab> 
+  <Tab>
+   <Steps>
+      ### To deploy your smart contract using deploy, navigate to the root directory of your project and execute the following command:
+
+      ```bash
+      npx thirdweb deploy
+      ```
+
+      Executing this command will trigger the following actions:
+
+      - Compiling all the contracts in the current directory.
+      - Providing the option to select which contract(s) you wish to deploy.
+      - Uploading your contract source code (ABI) to IPFS.
+
+      ### When it is completed, it will open a dashboard interface to finish filling out the parameters.
+
+      - `_name`: contract name
+      - `_symbol`: symbol or "ticker"
+      - `_royaltyRecipient`: wallet address to receive royalties from secondary sales
+      - `_royaltyBps`: basis points (bps) that will be given to the royalty recipient for each secondary sale, e.g. 500 = 5%
+
+      ### Select `Taiko (Alpha-3 Testnet)` as the network
+
+      ### Manage additional settings on your contract’s dashboard as needed such as uploading NFTs, configuring permissions, and more.
+
+      For additional information on Deploy, please reference [thirdweb’s documentation](https://portal.thirdweb.com/deploy?utm_source=taiko&utm_medium=docs&utm_campaign=chain_docs).
    </Steps>
   </Tab>
 </Tabs>
