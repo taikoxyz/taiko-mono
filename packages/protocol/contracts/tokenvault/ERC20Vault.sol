@@ -236,12 +236,12 @@ contract ERC20Vault is BaseVault {
         IBridge bridge = IBridge(resolve("bridge", false));
         bytes32 msgHash = bridge.hashMessage(message);
 
-        if(releasedMessages[msgHash]){
+        if (releasedMessages[msgHash]) {
             revert VAULT_MESSAGE_RELEASED_ALREADY();
         }
         releasedMessages[msgHash] = true;
 
-        (,address token,,uint256 amount) = decodeTokenData(message.data);
+        (, address token,, uint256 amount) = decodeTokenData(message.data);
 
         if (token == address(0)) revert VAULT_INVALID_TOKEN();
 
@@ -280,10 +280,10 @@ contract ERC20Vault is BaseVault {
         pure
         returns (CanonicalERC20 memory, address, address, uint256)
     {
-        bytes memory calldataWithoutSelector = _extractCalldata(dataWithSelector);
+        bytes memory calldataWithoutSelector =
+            _extractCalldata(dataWithSelector);
         return abi.decode(
-            calldataWithoutSelector,
-            (CanonicalERC20, address, address, uint256)
+            calldataWithoutSelector, (CanonicalERC20, address, address, uint256)
         );
     }
 
@@ -360,14 +360,16 @@ contract ERC20Vault is BaseVault {
         returns (address bridgedToken)
     {
         bridgedToken = Create2Upgradeable.deploy(
-            0, // amount of Ether to send
-            keccak256(
-                bytes.concat(
-                    bytes32(canonicalToken.chainId),
-                    bytes32(uint256(uint160(canonicalToken.addr)))
-                )
-            ),
-            type(BridgedERC20).creationCode
+            {
+                amount: 0, // amount of Ether to send
+                salt: keccak256(
+                    bytes.concat(
+                        bytes32(canonicalToken.chainId),
+                        bytes32(uint256(uint160(canonicalToken.addr)))
+                    )
+                ),
+                bytecode: type(BridgedERC20).creationCode
+            }
         );
 
         BridgedERC20(payable(bridgedToken)).init({

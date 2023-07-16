@@ -286,8 +286,9 @@ contract ERC721VaultTest is Test {
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = 1;
 
-        bytes memory dataToDecode =
-            abi.encodeWithSelector(0x2c349adf, canonicalToken, Alice, Alice, tokenIds);
+        bytes memory dataToDecode = abi.encodeWithSelector(
+            0x2c349adf, canonicalToken, Alice, Alice, tokenIds
+        );
 
         BaseNFTVault.CanonicalNFT memory nftRetVal;
         address ownerRetVal;
@@ -298,9 +299,7 @@ contract ERC721VaultTest is Test {
         assertEq(Alice, ownerRetVal);
         assertEq(1, tokenIdsRetVal[0]);
         assertEq(31_337, nftRetVal.chainId);
-        assertEq(
-            0x579FBFF1A9b1502688169DA761DcF262b73BB64A, nftRetVal.addr
-        );
+        assertEq(0x579FBFF1A9b1502688169DA761DcF262b73BB64A, nftRetVal.addr);
 
         assertEq("TT", nftRetVal.symbol);
         assertEq("TT", nftRetVal.name);
@@ -629,10 +628,7 @@ contract ERC721VaultTest is Test {
         assertEq(canonicalToken721.ownerOf(1), Alice);
     }
 
-    function test_receiveTokens_multiple_721(
-    )
-        public
-    {
+    function test_receiveTokens_multiple_721() public {
         vm.prank(Alice, Alice);
         canonicalToken721.approve(address(erc721Vault), 1);
         vm.prank(Alice, Alice);
