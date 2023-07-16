@@ -122,18 +122,17 @@ abstract contract BaseNFTVault is BaseVault {
 
     /**
      * @dev Checks if token is invalid, or message is not failed and reverts in
-     * case otherwise returns the message hash
+     * case, otherwise returns the message hash
      * @param message The bridged message struct data
      * @param proof The proof bytes
      * @param tokenAddress The token address to be checked
      */
-    function msgHashIfValidRequest(
+    function hashAndMarkMsgReleased(
         IBridge.Message calldata message,
         bytes calldata proof,
         address tokenAddress
     )
         internal
-        view
         returns (bytes32 msgHash)
     {
         IBridge bridge = IBridge(resolve("bridge", false));
@@ -144,5 +143,10 @@ abstract contract BaseNFTVault is BaseVault {
         if (!bridge.isMessageFailed(msgHash, message.destChainId, proof)) {
             revert VAULT_MESSAGE_NOT_FAILED();
         }
+
+        if (releasedMessages[msgHash]) {
+            revert VAULT_MESSAGE_RELEASED_ALREADY();
+        }
+        releasedMessages[msgHash] = true;
     }
 }

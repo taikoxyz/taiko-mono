@@ -360,14 +360,16 @@ contract ERC20Vault is BaseVault {
         returns (address bridgedToken)
     {
         bridgedToken = Create2Upgradeable.deploy(
-            0, // amount of Ether to send
-            keccak256(
-                bytes.concat(
-                    bytes32(canonicalToken.chainId),
-                    bytes32(uint256(uint160(canonicalToken.addr)))
-                )
-            ),
-            type(BridgedERC20).creationCode
+            {
+                amount: 0, // amount of Ether to send
+                salt: keccak256(
+                    bytes.concat(
+                        bytes32(canonicalToken.chainId),
+                        bytes32(uint256(uint160(canonicalToken.addr)))
+                    )
+                ),
+                bytecode: type(BridgedERC20).creationCode
+            }
         );
 
         BridgedERC20(payable(bridgedToken)).init({

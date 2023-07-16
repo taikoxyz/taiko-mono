@@ -65,13 +65,12 @@ contract BridgedERC1155 is
     function mint(
         address account,
         uint256 tokenId,
-        uint256 amount,
-        bytes memory data // TODO(dani): delete this param and use ""?
+        uint256 amount
     )
         public
         onlyFromNamed("erc1155_vault")
     {
-        _mint(account, tokenId, amount, data);
+        _mint(account, tokenId, amount, "");
         emit Transfer(address(0), account, tokenId, amount);
     }
 

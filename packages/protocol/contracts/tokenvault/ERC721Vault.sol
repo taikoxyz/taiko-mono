@@ -90,10 +90,14 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         IBridge.Message memory message;
         message.destChainId = opt.destChainId;
 
-        // TODO(dani): for function calls that take >= 3 params,
-        // please use function_call({param1:v1, param2:v2,...})
         message.data =
-            _sendToken(msg.sender, opt.to, _tokenIds, _token, _baseTokenUri);
+            _sendToken({
+                owner: msg.sender,
+                to: opt.to,
+                tokenIds: _tokenIds, 
+                token: _token, 
+                tokenUri: _baseTokenUri
+            });
 
         message.owner = msg.sender;
         message.to = resolve(message.destChainId, "erc721_vault", false);
@@ -178,22 +182,14 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             revert VAULT_INVALID_SRC_CHAIN_ID();
         }
 
-        // TODO(dani): the 'owner' variable is not used, do we need to extract
-        // it
-        // or we should use message.owner?
         (
             CanonicalNFT memory nft, //
-            address owner,
+            ,
             ,
             uint256[] memory tokenIds
         ) = decodeTokenData(message.data);
 
-        bytes32 msgHash = msgHashIfValidRequest(message, proof, nft.addr);
-
-        if (releasedMessages[msgHash]) {
-            revert VAULT_MESSAGE_RELEASED_ALREADY();
-        }
-        releasedMessages[msgHash] = true;
+        bytes32 msgHash = hashAndMarkMsgReleased(message, proof, nft.addr);
 
         if (isBridgedToken[nft.addr]) {
             for (uint256 i; i < tokenIds.length; i++) {
@@ -229,24 +225,26 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     }
 
     /**
-     * @dev Decodes the data which was abi.encodeWithSelector() encoded. We need
-     * this to get to know
-     * to whom / which token and tokenId we shall release.
+     * Decodes the data which was abi.encodeWithSelector() encoded.
+     * @param dataWithSelector Data encoded with abi.encodedWithSelector
+     * @return nft CanonicalNFT data
+     * @return owner Owner of the message
+     * @return to The to address messages sent to
+     * @return tokenIds The tokenIds
      */
     function decodeTokenData(bytes memory dataWithSelector)
         public
         pure
         returns (
-            // TODO(dani): add return value name for better documentation
-            BaseNFTVault.CanonicalNFT memory,
-            address,
-            address,
-            uint256[] memory
+            CanonicalNFT memory nft,
+            address owner,
+            address to,
+            uint256[] memory tokenIds
         )
     {
         return abi.decode(
             _extractCalldata(dataWithSelector),
-            (BaseNFTVault.CanonicalNFT, address, address, uint256[])
+            (CanonicalNFT, address, address, uint256[])
         );
     }
 
@@ -261,29 +259,18 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         returns (bytes memory)
     {
         bool isBridgedToken = isBridgedToken[token];
-        // TODO(dani): bridgedToCanonical has same name as state variable, not
-        // good
-        CanonicalNFT memory bridgedToCanonical = bridgedToCanonical[token];
-
-        BaseNFTVault.CanonicalNFT memory canonicalToken;
+        CanonicalNFT memory mBridgedToCanonical = bridgedToCanonical[token];
 
         // is a bridged token, meaning, it does not live on this chain
         if (isBridgedToken) {
             for (uint256 i; i < tokenIds.length; i++) {
-                if (BridgedERC721(token).ownerOf(tokenIds[i]) != msg.sender) {
-                    revert VAULT_INVALID_OWNER();
-                }
                 BridgedERC721(token).burn(msg.sender, tokenIds[i]);
-            }
-            canonicalToken = bridgedToCanonical;
-            if (canonicalToken.addr == address(0)) {
-                revert VAULT_CANONICAL_TOKEN_NOT_FOUND();
             }
         } else {
             // is a canonical token, meaning, it lives on this chain
             ERC721Upgradeable t = ERC721Upgradeable(token);
 
-            canonicalToken = BaseNFTVault.CanonicalNFT({
+            mBridgedToCanonical = CanonicalNFT({
                 chainId: block.chainid,
                 addr: token,
                 symbol: t.symbol(),
@@ -301,7 +288,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 
         return abi.encodeWithSelector(
             ERC721Vault.receiveToken.selector,
-            canonicalToken,
+            mBridgedToCanonical,
             owner,
             to,
             tokenIds
@@ -309,7 +296,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     }
 
     function _getOrDeployBridgedToken(
-        BaseNFTVault.CanonicalNFT calldata canonicalToken
+        CanonicalNFT calldata canonicalToken
     )
         private
         returns (address bridgedToken)
@@ -327,20 +314,22 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
      * called before the first time a bridged token is sent to this chain.
      */
     function _deployBridgedToken(
-        BaseNFTVault.CanonicalNFT memory canonicalToken
+        CanonicalNFT memory canonicalToken
     )
         private
         returns (address bridgedToken)
     {
         bridgedToken = Create2Upgradeable.deploy(
-            0, // amount of Ether to send
-            keccak256(
-                bytes.concat(
-                    bytes32(canonicalToken.chainId),
-                    bytes32(uint256(uint160(canonicalToken.addr)))
-                )
-            ),
-            type(BridgedERC721).creationCode
+            {
+                amount: 0, // amount of Ether to send
+                salt: keccak256(
+                    bytes.concat(
+                        bytes32(canonicalToken.chainId),
+                        bytes32(uint256(uint160(canonicalToken.addr)))
+                    )
+                ),
+                bytecode: type(BridgedERC721).creationCode
+            }
         );
 
         BridgedERC721(payable(bridgedToken)).init({

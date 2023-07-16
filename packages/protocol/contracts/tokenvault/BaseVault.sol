@@ -12,8 +12,6 @@ import { AddressResolver } from "../common/AddressResolver.sol";
 
 abstract contract BaseVault is EssentialContract {
     error VAULT_INIT_PARAM_ERROR();
-    error VAULT_CANONICAL_TOKEN_NOT_FOUND();
-
     /**
      * Thrown when the `to` address in an operation is invalid.
      * This can happen if it's zero address or the address of the token vault.
