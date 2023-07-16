@@ -297,7 +297,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     {
         bool isBridgedToken = isBridgedToken[token];
 
-        CanonicalNFT memory mBridgedToCanonical = bridgedToCanonical[token];
+        CanonicalNFT memory nft = bridgedToCanonical[token];
 
         // is a bridged token, meaning, it does not live on this chain
         if (isBridgedToken) {
@@ -308,7 +308,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             // is a canonical token, meaning, it lives on this chain
             ERC1155Upgradeable t = ERC1155Upgradeable(token);
 
-            mBridgedToCanonical = CanonicalNFT({
+            nft = CanonicalNFT({
                 chainId: block.chainid,
                 addr: token,
                 symbol: "",
@@ -332,7 +332,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 
         return abi.encodeWithSelector(
             ERC1155Vault.receiveToken.selector,
-            mBridgedToCanonical,
+            nft,
             owner,
             to,
             tokenIds,
