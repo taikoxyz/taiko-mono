@@ -2,11 +2,9 @@ import {
   SEPOLIA_CONFIG,
   GRIMSVOTN_CONFIG,
   ELDFELL_CONFIG,
-} from "../../domain/chain/config";
-import {
   GRIMSVOTN_ADD_ETHEREUM_CHAIN,
   ELDFELL_ADD_ETHEREUM_CHAIN,
-} from "../../domain/chain/addEthereumChain";
+} from "../../domain/chain";
 import { ethereumRequest } from "../../utils/ethereumRequest";
 
 type ConnectButtonProps = {

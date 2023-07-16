@@ -1,4 +1,4 @@
-export default function Footer() {
+export function Footer() {
   return (
     <footer className="bg-neutral-100 dark:bg-neutral-900">
       <div className="mx-auto max-w-[90rem] pl-3">

@@ -22,4 +22,4 @@ function EcosystemCard({ icon, name, link, description }) {
   );
 }
 
-export default EcosystemCard;
+export { EcosystemCard };

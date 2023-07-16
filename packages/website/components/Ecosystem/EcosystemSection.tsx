@@ -1,4 +1,4 @@
-import EcosystemCard from "./EcosystemCard";
+import { EcosystemCard } from "./EcosystemCard";
 import { useState } from "react";
 
 type Filters =
@@ -179,7 +179,7 @@ const ecosystemData: EcosystemData[] = [
   },
 ];
 
-export default function EcosystemSection() {
+export function EcosystemSection() {
   // NOTE: commented out because we won't need this until we have grown our ecosystem page further
   // const [activeFilter, setActiveFilter] = useState<Filters>("all");
 

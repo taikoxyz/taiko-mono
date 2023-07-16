@@ -1,4 +1,4 @@
-export default function CommunitySection() {
+export function CommunitySection() {
   // Button base class
   const buttonClass =
     "inline-flex items-center justify-center float w-64 px-4 md:px-6 py-2 md:py-3 mb-4 mx-2 text-base md:text-lg font-semibold text-white rounded-md shadow-md";

@@ -1,15 +1,15 @@
-import Footer from "./components/Footer";
-import ThemedImage from "./components/ThemedImage";
+import { Footer } from "./components/Home";
+import { ThemedImage } from "./components/ThemedImage";
 import { useConfig } from "nextra-theme-docs";
 import { useRouter } from "next/router";
-import ThemeToggle from "./components/ThemeToggle/ThemeToggle";
+import { ThemeToggle } from "./components/ThemeToggle";
 
 export default {
   banner: {
     key: "banner",
     text: (
       <a href="/docs/guides" target="_blank">
-        📌 Alpha-3 is here! Get started →
+        📌 Eldfell came! Get started →
       </a>
     ),
   },

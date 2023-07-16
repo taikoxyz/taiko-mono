@@ -2,13 +2,36 @@ import {
   SEPOLIA_CONFIG,
   GRIMSVOTN_CONFIG,
   ELDFELL_CONFIG,
-} from "../../../domain/chain/config";
+} from "../../../domain/chain";
+import { NetworkConfigTable } from "components/NetworkConfigTable";
 
 # Contract addresses
 
 ## Protocol contracts
 
 **{SEPOLIA_CONFIG.names.mediumName}**
+
+**table:**
+
+<table>
+  <thead>
+    <tr>
+      <th>Country</th>
+      <th>Flag</th>
+    </tr>
+  </thead>
+  <tbody>
+    {[
+      { country: "France", flag: "🇫🇷" },
+      { country: "Ukraine", flag: "🇺🇦" },
+    ].map((item) => (
+      <tr key={item.country}>
+        <td>{item.country}</td>
+        <td>{item.flag}</td>
+      </tr>
+    ))}
+  </tbody>
+</table>
 
 | Contract name  | Contract address                                                                                                              |
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------- |

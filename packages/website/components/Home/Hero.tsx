@@ -1,4 +1,4 @@
-export default function Hero() {
+export function Hero() {
   // Enlarges and decreases the opacity of the taikoGeom image upon scroll
   if (typeof window !== "undefined") {
     const changeTaikoGeom = () => {
