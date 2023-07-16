@@ -16,7 +16,7 @@
   const tabsRoute = [
     { name: 'bridge', href: '/' },
     { name: 'transactions', href: '/transactions' },
-    { name: 'faucet', href: '/faucet' },
+    { name: 'faucet', href: '/faucet' }, // faucet wont be used if disabled in env
     // Add more tabs if needed
   ];
 
