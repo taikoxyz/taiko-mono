@@ -3,6 +3,7 @@
   import getCurrentProvers from '../../utils/getCurrentProvers';
   import { onMount } from 'svelte';
   import type { Prover } from '../../domain/prover';
+  import { ethers } from 'ethers';
   let provers: Prover[] = [];
 
   onMount(async () => {
@@ -15,8 +16,10 @@
   <th>Amount</th>
   <th>Capacity</th>
   {#each provers as prover}
-    <td>{prover.address}</td>
-    <td>{prover.amountStaked}</td>
-    <td>{prover.currentCapacity}</td>
+    <tr>
+      <td>{prover.address}</td>
+      <td>{ethers.utils.formatUnits(prover.amountStaked.toString(), 8)}</td>
+      <td>{prover.currentCapacity}</td>
+    </tr>
   {/each}
 </div>

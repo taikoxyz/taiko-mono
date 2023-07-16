@@ -27,7 +27,7 @@ importers:
       '@types/debug': ^4.1.7
       '@types/eslint': ^8.2.1
       '@types/estree': ^0.0.50
-      '@types/jest': ^27.0.2
+      '@types/jest': ^27.5.2
       '@types/mixpanel': ^2.14.3
       '@types/sanitize-html': ^2.6.2
       '@typescript-eslint/eslint-plugin': ^5.16.0
@@ -2856,7 +2856,7 @@ packages:
       chalk: 4.1.2
       emittery: 0.8.1
       exit: 0.1.2
-      graceful-fs: 4.2.10
+      graceful-fs: 4.2.11
       jest-changed-files: 27.5.1
       jest-config: 27.5.1
       jest-haste-map: 27.5.1
@@ -13611,7 +13611,7 @@ packages:
     resolution: {integrity: sha512-oRXApq54ETRj4eMiFzGnHWGy+zo5raudjuxN0b8H7s/RU2oW0Wvsx9O0ACRN/kRq9E8Vu/ReskGB5o3ji+FzHQ==}
     engines: {node: '>=12'}
     dependencies:
-      graceful-fs: 4.2.10
+      graceful-fs: 4.2.11
       jsonfile: 6.1.0
       universalify: 2.0.0
     dev: true
@@ -15579,7 +15579,7 @@ packages:
       '@jest/types': 27.5.1
       chalk: 4.1.2
       exit: 0.1.2
-      graceful-fs: 4.2.10
+      graceful-fs: 4.2.11
       import-local: 3.1.0
       jest-config: 27.5.1
       jest-util: 27.5.1

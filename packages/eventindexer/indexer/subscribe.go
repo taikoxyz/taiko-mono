@@ -190,7 +190,7 @@ func (svc *Service) subscribeBlockProposed(ctx context.Context, chainID *big.Int
 
 		return svc.taikol1.WatchBlockProposed(&bind.WatchOpts{
 			Context: ctx,
-		}, sink, nil)
+		}, sink, nil, nil)
 	})
 
 	defer sub.Unsubscribe()

@@ -291,8 +291,26 @@
       {
         "indexed": true,
         "internalType": "uint256",
-        "name": "id",
+        "name": "blockId",
         "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "assignedProver",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "rewardPerGas",
+        "type": "uint32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "feePerGas",
+        "type": "uint64"
       },
       {
         "components": [
@@ -378,12 +396,6 @@
         "internalType": "struct TaikoData.BlockMetadata",
         "name": "meta",
         "type": "tuple"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint64",
-        "name": "blockFee",
-        "type": "uint64"
       }
     ],
     "name": "BlockProposed",
@@ -395,8 +407,26 @@
       {
         "indexed": true,
         "internalType": "uint256",
-        "name": "id",
+        "name": "blockId",
         "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "assignedProver",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "rewardPerGas",
+        "type": "uint32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "feePerGas",
+        "type": "uint64"
       },
       {
         "components": [
@@ -482,12 +512,6 @@
         "internalType": "struct TaikoData.BlockMetadata",
         "name": "meta",
         "type": "tuple"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint64",
-        "name": "blockFee",
-        "type": "uint64"
       }
     ],
     "name": "BlockProposed",
@@ -499,7 +523,7 @@
       {
         "indexed": true,
         "internalType": "uint256",
-        "name": "id",
+        "name": "blockId",
         "type": "uint256"
       },
       {
@@ -542,7 +566,7 @@
       {
         "indexed": true,
         "internalType": "uint256",
-        "name": "id",
+        "name": "blockId",
         "type": "uint256"
       },
       {
@@ -585,7 +609,7 @@
       {
         "indexed": true,
         "internalType": "uint256",
-        "name": "id",
+        "name": "blockId",
         "type": "uint256"
       },
       {
@@ -593,11 +617,23 @@
         "internalType": "bytes32",
         "name": "blockHash",
         "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "prover",
+        "type": "address"
       },
       {
         "indexed": false,
         "internalType": "uint64",
-        "name": "reward",
+        "name": "blockFee",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "proofReward",
         "type": "uint64"
       }
     ],
@@ -610,7 +646,7 @@
       {
         "indexed": true,
         "internalType": "uint256",
-        "name": "id",
+        "name": "blockId",
         "type": "uint256"
       },
       {
@@ -621,8 +657,20 @@
       },
       {
         "indexed": false,
+        "internalType": "address",
+        "name": "prover",
+        "type": "address"
+      },
+      {
+        "indexed": false,
         "internalType": "uint64",
-        "name": "reward",
+        "name": "blockFee",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "proofReward",
         "type": "uint64"
       }
     ],
@@ -824,28 +872,9 @@
         "type": "uint256"
       }
     ],
-    "name": "canDepositEthToL2",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "recipient",
-        "type": "address"
-      }
-    ],
-    "name": "depositEtherToL2",
+    "name": "depositTaikoToken",
     "outputs": [],
-    "stateMutability": "payable",
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -1011,11 +1040,6 @@
             "internalType": "uint16",
             "name": "proofMaxWindow",
             "type": "uint16"
-          },
-          {
-            "internalType": "uint256",
-            "name": "ethDepositRingBufferSize",
-            "type": "uint256"
           },
           {
             "internalType": "uint256",
@@ -1588,6 +1612,19 @@
       }
     ],
     "name": "verifyBlocks",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "withdrawTaikoToken",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

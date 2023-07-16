@@ -24,6 +24,7 @@
     if (!allEvents) return [];
     const start = (page - 1) * pageSize;
     const end = start + pageSize;
+    loading = false;
     return allEvents.slice(start, end);
   }
 

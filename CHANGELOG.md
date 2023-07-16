@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.16.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-mono-v0.15.0...taiko-mono-v0.16.0) (2023-07-10)
+
+
+### Features
+
+* **bridge-ui-v2:** activities page ([#14089](https://github.com/taikoxyz/taiko-mono/issues/14089)) ([f4c6f84](https://github.com/taikoxyz/taiko-mono/commit/f4c6f8482cb2fd2242b95bc3495b64481f64ab3d))
+* **bridge-ui-v2:** bridge form ([#14056](https://github.com/taikoxyz/taiko-mono/issues/14056)) ([b39b328](https://github.com/taikoxyz/taiko-mono/commit/b39b328cc602fc9ea05fcd4551b40cd91a6efe37))
+* **bridge-ui-v2:** connect button ([#14106](https://github.com/taikoxyz/taiko-mono/issues/14106)) ([ccaa498](https://github.com/taikoxyz/taiko-mono/commit/ccaa4987680f2e3640d13ed5ed1798afaab8ca1e))
+* **bridge-ui-v2:** generate abi ([#14116](https://github.com/taikoxyz/taiko-mono/issues/14116)) ([c962aac](https://github.com/taikoxyz/taiko-mono/commit/c962aac65791c9bc1836e10490ed15029dd173b3))
+* **bridge-ui-v2:** switch chain ([#14117](https://github.com/taikoxyz/taiko-mono/issues/14117)) ([d51161d](https://github.com/taikoxyz/taiko-mono/commit/d51161d424921ee002812cf69d40f5ee27a464ad))
+* **eventindexer:** galaxe api, 2 indexing, http only mode, event query optimizations ([#14122](https://github.com/taikoxyz/taiko-mono/issues/14122)) ([9c6d918](https://github.com/taikoxyz/taiko-mono/commit/9c6d918c8c7c474da88912fafa59e2a2f054f3b7))
+* **eventindexer:** store swap sender correctly, plus check min amt ([#14128](https://github.com/taikoxyz/taiko-mono/issues/14128)) ([67ba5e4](https://github.com/taikoxyz/taiko-mono/commit/67ba5e44eca82c301dcd2a8d3c0909ac080a804c))
+* **eventindexer:** support multiple swap pairs ([#14130](https://github.com/taikoxyz/taiko-mono/issues/14130)) ([2f4a0be](https://github.com/taikoxyz/taiko-mono/commit/2f4a0beb1a431c5c7ff40c3c4b7fcecb094d2e52))
+* **protocol:** update PlonkVerifier for new L3 circuits ([#14023](https://github.com/taikoxyz/taiko-mono/issues/14023)) ([9d7bc39](https://github.com/taikoxyz/taiko-mono/commit/9d7bc39c282c6ceb0e62146aa6271d5ceaee7633))
+* **website:** add brian to ecosystem page ([#14092](https://github.com/taikoxyz/taiko-mono/issues/14092)) ([f4ddef7](https://github.com/taikoxyz/taiko-mono/commit/f4ddef7a687620b12dc253a23aec8bc7b8071c83))
+* **website:** add dark mode toggle ([#14064](https://github.com/taikoxyz/taiko-mono/issues/14064)) ([77ea634](https://github.com/taikoxyz/taiko-mono/commit/77ea6344dd53aa23e0163982b84d56159e9712fb))
+* **website:** add deterministic deployment proxy address ([#14079](https://github.com/taikoxyz/taiko-mono/issues/14079)) ([6985a97](https://github.com/taikoxyz/taiko-mono/commit/6985a974f39acad3dd183a6a8834e9c2049e9944))
+* **website:** add kekkai to taiko ecosystem ([#14055](https://github.com/taikoxyz/taiko-mono/issues/14055)) ([e6a7945](https://github.com/taikoxyz/taiko-mono/commit/e6a7945afc3297d521eb57322a1014cf9039c549))
+* **website:** add particle network to ecosystem ([#14077](https://github.com/taikoxyz/taiko-mono/issues/14077)) ([36fe62c](https://github.com/taikoxyz/taiko-mono/commit/36fe62c0004d0cd291e664e749f02cb9b083e0a9))
+* **website:** RPC connect Metamask Networks ([#14070](https://github.com/taikoxyz/taiko-mono/issues/14070)) ([1ef2126](https://github.com/taikoxyz/taiko-mono/commit/1ef2126e0cc603a09fc452cfdae0202b30dd98e8))
+
+
+### Bug Fixes
+
+* **bridge-ui-v2:** fix deployment ([#14096](https://github.com/taikoxyz/taiko-mono/issues/14096)) ([4197654](https://github.com/taikoxyz/taiko-mono/commit/419765484db6c3bd94b07f8803c9465d4260a2f6))
+* **bridge-ui-v2:** fixed menus ([#14099](https://github.com/taikoxyz/taiko-mono/issues/14099)) ([fabefb2](https://github.com/taikoxyz/taiko-mono/commit/fabefb2ca20c91f1c08c858967505a991dafdf4e))
+* **bridge-ui:** fix svelte-check failures ([#14137](https://github.com/taikoxyz/taiko-mono/issues/14137)) ([a35eac2](https://github.com/taikoxyz/taiko-mono/commit/a35eac28fcef02591faa0538ecbcb0fff1db5ce2))
+* **bridge-ui:** handle scientific notation ([#14105](https://github.com/taikoxyz/taiko-mono/issues/14105)) ([fcc154e](https://github.com/taikoxyz/taiko-mono/commit/fcc154e058a28cd42ad3e9239a3943668d370fad))
+* **bridge-ui:** migrate to wallet connect 2.0 ([#14094](https://github.com/taikoxyz/taiko-mono/issues/14094)) ([eda0333](https://github.com/taikoxyz/taiko-mono/commit/eda0333e34098684b19bc37305b90772e2bf8787))
+* **eventindexer:** missing swap route ([#14126](https://github.com/taikoxyz/taiko-mono/issues/14126)) ([dc7edce](https://github.com/taikoxyz/taiko-mono/commit/dc7edce0163e252600e15e745728d7f476efec4c))
+* **eventindexer:** route fix ([#14127](https://github.com/taikoxyz/taiko-mono/issues/14127)) ([03eb96f](https://github.com/taikoxyz/taiko-mono/commit/03eb96fad45365ace3b9662c27bd6bc4c972a676))
+* **status-page:** proposer title ([#14058](https://github.com/taikoxyz/taiko-mono/issues/14058)) ([412ba70](https://github.com/taikoxyz/taiko-mono/commit/412ba70b7f313c4e81d3b773733e8940d16df6e1))
+* **website:** point configure wallet to contract addresses reference ([#14072](https://github.com/taikoxyz/taiko-mono/issues/14072)) ([99c3980](https://github.com/taikoxyz/taiko-mono/commit/99c39803e52a1f95dc6a0877d3bd476a84063148))
+
 ## [0.15.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-mono-v0.14.0...taiko-mono-v0.15.0) (2023-06-26)
 
 

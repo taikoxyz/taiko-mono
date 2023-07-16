@@ -44,7 +44,7 @@
       <Tab name={tab1.name} href={tab1.href}>Stake</Tab>
       <Tab name={tab2.name} href={tab2.href}>History</Tab>
       <Tab name={tab3.name} href={tab3.href}>Prover Info</Tab>
-      <Tab name={tab3.name} href={tab3.href}>Current Provers</Tab>
+      <Tab name={tab4.name} href={tab4.href}>Current Provers</Tab>
     </TabList>
 
     <TabPanel tab={tab1.name}>
