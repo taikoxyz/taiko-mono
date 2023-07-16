@@ -10,6 +10,7 @@
   import { paginationInfo } from '../../store/relayerApi';
   import { signer } from '../../store/signer';
   import { transactions } from '../../store/transaction';
+  import { ENABLE_FAUCET } from '../../constants/envVars';
 
   // List of tab's name <=> route association
   // TODO: add this into a general configuration.
@@ -42,7 +43,6 @@
     bind:activeTab>
     {@const tab1 = tabsRoute[0]}
     {@const tab2 = tabsRoute[1]}
-    {@const tab3 = tabsRoute[2]}
 
     <TabList class="block mb-4 w-full">
       <Tab name={tab1.name} href={tab1.href}>Bridge</Tab>
@@ -54,7 +54,9 @@
           (<Loading />)
         {/if}
       </Tab>
-      <Tab name={tab3.name} href={tab3.href}>Faucet</Tab>
+      {#if ENABLE_FAUCET}
+        <Tab name={tabsRoute[2].name} href={tabsRoute[2].href}>Faucet</Tab>
+      {/if}
     </TabList>
 
     <TabPanel tab={tab1.name}>
@@ -72,10 +74,12 @@
       </div>
     </TabPanel>
 
-    <TabPanel tab={tab3.name}>
-      <div class="md:w-[440px] px-4">
-        <Faucet />
-      </div>
-    </TabPanel>
+    {#if ENABLE_FAUCET}
+      <TabPanel tab={tabsRoute[2].name}>
+        <div class="md:w-[440px] px-4">
+          <Faucet />
+        </div>
+      </TabPanel>
+    {/if}
   </Tabs>
 </div>
