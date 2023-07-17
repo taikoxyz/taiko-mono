@@ -50,6 +50,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 
         // We need to save them into memory - because structs containing
         // dynamic arrays will cause stack-too-deep error when passed
+        uint256[] memory _amounts = opt.amounts;
         address _token = opt.token;
         uint256[] memory _tokenIds = opt.tokenIds;
 
@@ -74,7 +75,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             destChainId: message.destChainId,
             token: _token,
             tokenIds: _tokenIds,
-            amounts: new uint256[](0)
+            amounts: _amounts
         });
     }
 
