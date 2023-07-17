@@ -366,6 +366,13 @@ contract ProverPool is EssentialContract, IProverPool {
         if (staker.proverId == 0) return;
 
         Prover memory prover = provers[staker.proverId];
+
+        delete proverIdToAddress[staker.proverId];
+
+        // Delete the prover but make it non-zero for cheaper rewrites
+        // by keep rewardPerGas = 1
+        provers[staker.proverId] = Prover(0, 1, 0);
+
         if (prover.stakedAmount > 0) {
             if (
                 checkExitTimestamp
@@ -378,12 +385,6 @@ contract ProverPool is EssentialContract, IProverPool {
             staker.exitRequestedAt = uint64(block.timestamp);
             staker.proverId = 0;
         }
-
-        // Delete the prover but make it non-zero for cheaper rewrites
-        // by keep rewardPerGas = 1
-        provers[staker.proverId] = Prover(0, 1, 0);
-
-        delete proverIdToAddress[staker.proverId];
 
         emit Exited(addr, staker.exitAmount);
     }
