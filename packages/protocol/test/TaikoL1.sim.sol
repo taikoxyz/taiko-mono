@@ -763,7 +763,6 @@ contract TaikoL1Simulation is TaikoL1TestBase {
         console2.log("-----------------------------!");
     }
 
-    // TODO(daniel|dani): log enough state variables for analysis.
     function printVariableHeaders() internal view {
         string memory str = string.concat(
             "\nlogCount,",
@@ -775,7 +774,6 @@ contract TaikoL1Simulation is TaikoL1TestBase {
         console2.log(str);
     }
 
-    // TODO(daniel|dani): log enough state variables for analysis.
     function printVariables() internal {
         TaikoData.StateVariables memory vars = L1.getStateVariables();
         string memory str = string.concat(

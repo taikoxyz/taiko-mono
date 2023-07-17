@@ -14,10 +14,6 @@ import { ERC1155Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 
-// TODO(dani): override the name() function, learn from BridgedERC20
-// There is nothing to overwrite because ERC1155 has no name and symbol
-// But i'll put a public name and symbol into this contract. (public name()
-// and symbol() functions will be generated this way.
 contract BridgedERC1155 is
     EssentialContract,
     IERC1155Upgradeable,
