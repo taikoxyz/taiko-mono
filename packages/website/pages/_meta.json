@@ -17,14 +17,11 @@
     "items": {
       "bridge": {
         "title": "Bridge (L1 ↔ L2)",
-        "type": "page",
         "href": "https://bridge.test.taiko.xyz",
         "newWindow": true
       },
       "swap": {
         "title": "Swap",
-        "type": "page",
-        "display": "hidden",
         "href": "https://swap.test.taiko.xyz",
         "newWindow": true
       },
@@ -40,7 +37,6 @@
       },
       "uptime": {
         "title": "Uptime ↗",
-        "type": "page",
         "href": "https://status.taiko.xyz",
         "newWindow": true
       }
@@ -52,14 +48,11 @@
     "items": {
       "bridge": {
         "title": "Bridge (L2 ↔ L3)",
-        "type": "page",
         "href": "https://bridge.l3test.taiko.xyz",
         "newWindow": true
       },
       "swap": {
         "title": "Swap",
-        "type": "page",
-        "display": "hidden",
         "href": "https://swap.l3test.taiko.xyz",
         "newWindow": true
       },
@@ -75,7 +68,6 @@
       },
       "uptime": {
         "title": "Uptime ↗",
-        "type": "page",
         "href": "https://status.taiko.xyz",
         "newWindow": true
       }
