@@ -12,8 +12,6 @@
   let rewardPerGas: number = 0;
   let capacity: number = 0;
 
-  let disabled: boolean = false;
-
   let errorMessage: string = '';
 
   // set sane defaults
@@ -39,6 +37,8 @@
     );
     minCapacity = reqs.minCapacity;
     minStakePerCapacity = reqs.minStakePerCapacity;
+    amount = ethers.utils.formatUnits(minStakePerCapacity.toString(), 8);
+    capacity = reqs.minCapacity;
   }
 
   async function submitForm() {
@@ -59,7 +59,11 @@
     capacity = 0;
   }
 
-  function handleRequirements(capacity: number, amount: string) {
+  function handleRequirements(
+    capacity: number,
+    amount: string,
+    rewardPerGas: number,
+  ) {
     if (BigNumber.from(minCapacity).gt(capacity)) {
       errorMessage = `Minimum capacity is ${minCapacity}`;
       return;
@@ -90,16 +94,33 @@
     }
     errorMessage = '';
   }
-  $: handleRequirements(capacity, amount);
+
+  $: handleRequirements(capacity, amount, rewardPerGas);
   $: fetchTTKOBalance($signer).catch(console.error);
 </script>
 
 <div class="space-y-6 md:space-y-4">
   {#if $signer}
     <div class="form-control">
+      <label class="label" for="description" />
+      <span class="label-text"
+        >Staking to be a prover on Eldfell L3 requires you to provide some
+        paramaters: the capacity (how many blocks you can prove simultaneously
+        within the proof window), the amount you want to stake per capacity, and
+        the reward you want to receive per gas. These parameters will influence
+        your position on the top provers. 32 provers can be assigned blocks. You
+        can click the "Current Provers" tab to see the current top 32 provers,
+        and what staking amount you will require to override the bottom existing
+        prover and enter the top 32.
+      </span>
+    </div>
+    <div class="form-control">
       <label class="label" for="ttko-balance" />
       <span class="label-text"
-        >TTKOe Balance: {ethers.utils.formatUnits(ttkoBalanceInWei, 8)}</span>
+        >Your TTKOe Balance: {ethers.utils.formatUnits(
+          ttkoBalanceInWei,
+          8,
+        )}</span>
     </div>
 
     <div class="form-control">
@@ -124,7 +145,6 @@
           id="amount"
           name="amount"
           type="number"
-          placeholder="1"
           min="0"
           class="input input-primary bg-dark-2 input-md md:input-lg w-full focus:ring-0 border-dark-2"
           value={amount}
@@ -155,7 +175,6 @@
           id="capacity"
           name="capacity"
           type="number"
-          placeholder="1"
           min="0"
           class="input input-primary bg-dark-2 input-md md:input-lg w-full focus:ring-0 border-dark-2"
           bind:value={capacity} />
