@@ -82,7 +82,10 @@
       BigNumber.from(ethers.utils.parseUnits(amount, 8)),
     );
     if (ttkoBalanceInWei.lt(reqTtko)) {
-      errorMessage = `Not enough TTKO balance, Required: ${reqTtko}`;
+      errorMessage = `Not enough TTKO balance, Required: ${ethers.utils.formatUnits(
+        reqTtko,
+        8,
+      )}`;
       return;
     }
     errorMessage = '';
