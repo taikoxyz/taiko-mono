@@ -14,7 +14,7 @@
   import { MintableError, testERC20Tokens, type Token } from '$libs/token';
   import { checkMintable, mint } from '$libs/token';
   import { account } from '$stores/account';
-  import { srcChain } from '$stores/network';
+  import { network } from '$stores/network';
 
   let minting = false;
   let checkingMintable = false;
@@ -47,10 +47,10 @@
     if (checkingMintable || minting) return;
 
     // A token and a source chain must be selected in order to be able to mint
-    if (!selectedToken || !$srcChain) return;
+    if (!selectedToken || !$network) return;
 
     // ... and of course, our wallet must be connected
-    const walletClient = await getWalletClient({ chainId: $srcChain.id });
+    const walletClient = await getWalletClient({ chainId: $network.id });
     if (!walletClient) return;
 
     // Let's begin the minting process
@@ -131,16 +131,16 @@
   }
 
   $: connected = isUserConnected($account);
-  $: wrongChain = isWrongChain($srcChain);
+  $: wrongChain = isWrongChain($network);
   $: alertMessage = getAlertMessage(connected, wrongChain, reasonNotMintable);
 
-  $: updateMintButtonState(selectedToken, $srcChain);
+  $: updateMintButtonState(selectedToken, $network);
 </script>
 
 <Card class="md:w-[524px]" title={$t('faucet.title')} text={$t('faucet.subtitle')}>
   <div class="space-y-[35px]">
     <div class="space-y-2">
-      <ChainSelector label={$t('chain_selector.currently_on')} value={$srcChain} />
+      <ChainSelector label={$t('chain_selector.currently_on')} value={$network} />
       <TokenDropdown tokens={testERC20Tokens} bind:value={selectedToken} />
     </div>
 

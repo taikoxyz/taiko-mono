@@ -6,7 +6,8 @@
   import { getBalance as getTokenBalance, type Token } from '$libs/token';
   import { truncateString } from '$libs/util/truncateString';
   import { type Account, account } from '$stores/account';
-  import { destChain, srcChain } from '$stores/network';
+  import { network } from '$stores/network';
+  import { destNetwork } from '../destNetwork';
 
   import { selectedToken } from '../selectedToken';
 
@@ -35,7 +36,7 @@
     return `${truncateString(balance.formatted, 6)} ${balance.symbol}`;
   }
 
-  $: updateTokenBalance($selectedToken, $account, $srcChain?.id, $destChain?.id);
+  $: updateTokenBalance($selectedToken, $account, $network?.id, $destNetwork?.id);
 </script>
 
 <div class="body-small-regular">

@@ -11,7 +11,8 @@
   import { recommendProcessingFee } from '$libs/fee';
   import type { Token } from '$libs/token';
   import { uid } from '$libs/util/uid';
-  import { destChain, srcChain } from '$stores/network';
+  import { network } from '$stores/network';
+  import { destNetwork } from '../destNetwork';
 
   import { selectedToken } from '../selectedToken';
 
@@ -61,7 +62,7 @@
     switch (method) {
       case ProcessingFeeMethod.RECOMMENDED:
         // TODO: should we cache it? keep in mind that this value could change
-        await calculateRecommendedAmount($selectedToken, $srcChain?.id, $destChain?.id);
+        await calculateRecommendedAmount($selectedToken, $network?.id, $destNetwork?.id);
         selectedAmount = amountToEther(recommendedAmount);
         break;
       case ProcessingFeeMethod.CUSTOM:
@@ -91,7 +92,7 @@
     modalOpen = true;
   }
 
-  $: calculateRecommendedAmount($selectedToken, $srcChain?.id, $destChain?.id);
+  $: calculateRecommendedAmount($selectedToken, $network?.id, $destNetwork?.id);
 
   // TODO: how about using a onClick handler instead of this watcher?
   $: onSelectedFeeMethodChanged(selectedFeeMethod);
