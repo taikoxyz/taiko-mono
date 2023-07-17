@@ -50,33 +50,12 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 
         // We need to save them into memory - because structs containing
         // dynamic arrays will cause stack-too-deep error when passed
-
-        // TODO(dani): so the user can specify the base URL as any value?
-        // Daniel: We have (at least) 3 different options here. Unfortunately
-        // no standard makes public 'baseURI' (just the tokenURI which)
-        // is respective to each token so what we could do:
-        //
-        // 1. Not the user, but the FE fills (querys) this information by
-        // collection.tokenURI(tokenId) and then chops down until the last
-        // '/' character and feed into the BridgeTransferOp calldata opt
-        // variable -> That is the cheapest and this is how it works now.
-        // 2. We do the exact same thing but on smart contract level - so
-        // it would require String manipulation library to run at each
-        // briding
-        // 3. When someone bridges - we query the tokenURI and we modify
-        // minting function to feed the tokenURI with the tokenID, so we
-        // need to modify the Birdged contracts..
-        // Please let me know you preferred solution. Nr1 and Nr3 seems
-        // the best, i'd not go the Nr2 way.
-
         address _token = opt.token;
         uint256[] memory _tokenIds = opt.tokenIds;
 
         IBridge.Message memory message;
         message.destChainId = opt.destChainId;
-
         message.data = _sendToken(msg.sender, opt);
-
         message.owner = msg.sender;
         message.to = resolve(message.destChainId, "erc721_vault", false);
         message.gasLimit = opt.gasLimit;
@@ -166,7 +145,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             ,
             ,
             uint256[] memory tokenIds
-        ) = decodeTokenData(message.data);
+        ) = decodeMessageData(message.data);
 
         bytes32 msgHash = hashAndMarkMsgReleased(message, proof, nft.addr);
 
@@ -212,7 +191,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
      * @return to The to address messages sent to
      * @return tokenIds The tokenIds
      */
-    function decodeTokenData(bytes memory dataWithSelector)
+    function decodeMessageData(bytes memory dataWithSelector)
         public
         pure
         returns (
@@ -252,9 +231,8 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
                 addr: opt.token,
                 symbol: ERC721Upgradeable(t).symbol(),
                 name: ERC721Upgradeable(t).name(),
-                uri: "" // do not supply the URI, it's not used on the
-                    // destination chain.
-             });
+                uri: ""
+            });
 
             for (uint256 i; i < opt.tokenIds.length; i++) {
                 t.transferFrom(owner, address(this), opt.tokenIds[i]);

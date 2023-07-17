@@ -107,10 +107,10 @@ function supportsInterface(bytes4 interfaceId) public view virtual returns (bool
 
 _See {IERC165-supportsInterface}._
 
-### decodeTokenData
+### decodeMessageData
 
 ```solidity
-function decodeTokenData(bytes dataWithSelector) public pure returns (struct BaseNFTVault.CanonicalNFT, address, address, uint256, uint256)
+function decodeMessageData(bytes dataWithSelector) public pure returns (struct BaseNFTVault.CanonicalNFT, address, address, uint256, uint256)
 ```
 
 _Decodes the data which was abi.encodeWithSelector() encoded. We need

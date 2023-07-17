@@ -279,7 +279,7 @@ contract ERC1155VaultTest is Test {
         uint256[] memory tokenIdsRetVal;
         uint256[] memory tokenAmountsRetVal;
         (nftRetVal, ownerRetVal,, tokenIdsRetVal, tokenAmountsRetVal) =
-            erc1155Vault.decodeTokenData(dataToDecode);
+            erc1155Vault.decodeMessageData(dataToDecode);
 
         assertEq(Alice, ownerRetVal);
         assertEq(1, tokenIdsRetVal[0]);

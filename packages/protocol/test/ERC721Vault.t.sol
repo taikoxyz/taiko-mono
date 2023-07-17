@@ -293,7 +293,7 @@ contract ERC721VaultTest is Test {
         address ownerRetVal;
         uint256[] memory tokenIdsRetVal;
         (nftRetVal, ownerRetVal,, tokenIdsRetVal) =
-            erc721Vault.decodeTokenData(dataToDecode);
+            erc721Vault.decodeMessageData(dataToDecode);
 
         assertEq(Alice, ownerRetVal);
         assertEq(1, tokenIdsRetVal[0]);

@@ -248,7 +248,7 @@ contract ERC20Vault is BaseVault {
         }
         releasedMessages[msgHash] = true;
 
-        (, address token,, uint256 amount) = decodeTokenData(message.data);
+        (, address token,, uint256 amount) = decodeMessageData(message.data);
 
         if (token == address(0)) revert VAULT_INVALID_TOKEN();
 
@@ -282,7 +282,7 @@ contract ERC20Vault is BaseVault {
      * this to get to know
      * to whom / which token and how much we shall release.
      */
-    function decodeTokenData(bytes memory dataWithSelector)
+    function decodeMessageData(bytes memory dataWithSelector)
         public
         pure
         returns (CanonicalERC20 memory, address, address, uint256)

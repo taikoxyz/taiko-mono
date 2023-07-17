@@ -28,7 +28,7 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
  * Some ERC1155 contracts implementing the name() and symbol()
  * functions, although they are not part of the interface
  */
-interface Erc1155NameAndSymbol {
+interface ERC1155NameAndSymbol {
     function name() external view returns (string memory);
     function symbol() external view returns (string memory);
 }
@@ -70,7 +70,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         IBridge.Message memory message;
         message.destChainId = opt.destChainId;
 
-        message.data = _sendToken({ owner: msg.sender, opt: opt });
+        message.data = _sendToken(msg.sender, opt);
 
         message.owner = msg.sender;
         message.to = resolve(message.destChainId, "erc1155_vault", false);
@@ -164,7 +164,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             ,
             uint256[] memory tokenIds,
             uint256[] memory amounts
-        ) = decodeTokenData(message.data);
+        ) = decodeMessageData(message.data);
 
         bytes32 msgHash = hashAndMarkMsgReleased(message, proof, nft.addr);
 
@@ -228,7 +228,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
      * @return tokenIds The tokenIds
      * @return amounts The amount per respective ERC1155 tokenid
      */
-    function decodeTokenData(bytes memory dataWithSelector)
+    function decodeMessageData(bytes memory dataWithSelector)
         public
         pure
         returns (
@@ -266,14 +266,14 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         } else {
             // is a ctoken token, meaning, it lives on this chain
             ERC1155Upgradeable t = ERC1155Upgradeable(opt.token);
-            // Try to query if imiplements name() or symbol()
-            string memory symbol;
             string memory name;
-            try Erc1155NameAndSymbol(opt.token).name() {
-                name = Erc1155NameAndSymbol(opt.token).name();
+            try ERC1155NameAndSymbol(opt.token).name() {
+                name = ERC1155NameAndSymbol(opt.token).name();
             } catch { }
-            try Erc1155NameAndSymbol(opt.token).symbol() {
-                symbol = Erc1155NameAndSymbol(opt.token).symbol();
+
+            string memory symbol;
+            try ERC1155NameAndSymbol(opt.token).symbol() {
+                symbol = ERC1155NameAndSymbol(opt.token).symbol();
             } catch { }
 
             nft = CanonicalNFT({
