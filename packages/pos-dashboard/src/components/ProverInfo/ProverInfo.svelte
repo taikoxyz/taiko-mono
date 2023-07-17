@@ -14,8 +14,6 @@
       PROVER_POOL_ADDRESS,
       await signer.getAddress(),
     );
-
-    console.log(proverInfo);
   }
 
   $: fetchProverInfo($signer).catch(console.error);
@@ -33,7 +31,9 @@
     <p>Max Capacity: {proverInfo.staker.maxCapacity}</p>
     <p>Current Capacity: {proverInfo.prover.currentCapacity}</p>
     <p>Prover ID: {proverInfo.staker.proverId}</p>
-    <p>Exit Amount: {proverInfo.staker.exitAmount}</p>
+    <p>
+      Exit Amount: {ethers.utils.formatUnits(proverInfo.staker.exitAmount, 8)} TTKO
+    </p>
     <p>Exit Requested At: {proverInfo.staker.exitRequestedAt}</p>
   {:else}
     Connect wallet to view your current prover information
