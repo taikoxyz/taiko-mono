@@ -93,7 +93,7 @@
       // cicle, meaning the change above will not start a new one. This is how Svelte
       // works, batching all the changes and kicking off an update cicle. This could
       // also prevent infinite loops. It's safe though to call this function because
-      // we're not change state that could potentially end up in an such situation.
+      // we're not changing state that could potentially end up in such situation.
       updateProcessingFee(selectedFeeMethod, recommendedAmount);
     }
   }
