@@ -75,7 +75,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         IBridge.Message memory message;
         message.destChainId = opt.destChainId;
 
-        message.data = _sendToken({ owner: msg.sender, opt: opt });
+        message.data = _sendToken(msg.sender, opt);
 
         message.owner = msg.sender;
         message.to = resolve(message.destChainId, "erc721_vault", false);
@@ -252,8 +252,9 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
                 addr: opt.token,
                 symbol: ERC721Upgradeable(t).symbol(),
                 name: ERC721Upgradeable(t).name(),
-                uri: opt.baseTokenUri
-            });
+                uri: "" // do not supply the URI, it's not used on the
+                    // destination chain.
+             });
 
             for (uint256 i; i < opt.tokenIds.length; i++) {
                 t.transferFrom(owner, address(this), opt.tokenIds[i]);
@@ -299,8 +300,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             _srcToken: ctoken.addr,
             _srcChainId: ctoken.chainId,
             _symbol: ctoken.symbol,
-            _name: ctoken.name,
-            _uri: ctoken.uri
+            _name: ctoken.name
         });
 
         isBridgedToken[btoken] = true;

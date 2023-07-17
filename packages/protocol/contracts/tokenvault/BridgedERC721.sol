@@ -16,7 +16,6 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     address public srcToken;
     uint256 public srcChainId;
-    string public srcBaseUri;
     uint256[47] private __gap;
 
     error BRIDGED_TOKEN_CANNOT_RECEIVE();
@@ -30,8 +29,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         address _srcToken,
         uint256 _srcChainId,
         string memory _symbol,
-        string memory _name,
-        string memory _uri
+        string memory _name
     )
         external
         initializer
@@ -39,7 +37,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         if (
             _srcToken == address(0) || _srcChainId == 0
                 || _srcChainId == block.chainid || bytes(_symbol).length == 0
-                || bytes(_name).length == 0 || bytes(_uri).length == 0
+                || bytes(_name).length == 0
         ) {
             revert BRIDGED_TOKEN_INVALID_PARAMS();
         }
@@ -47,7 +45,6 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         __ERC721_init(_name, _symbol);
         srcToken = _srcToken;
         srcChainId = _srcChainId;
-        srcBaseUri = _uri;
     }
 
     /// @dev only a TokenVault can call this function
@@ -108,7 +105,13 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         return (srcToken, srcChainId);
     }
 
-    function _baseURI() internal view override returns (string memory) {
-        return srcBaseUri;
+    function tokenURI(uint256)
+        public
+        view
+        virtual
+        override
+        returns (string memory)
+    {
+        return "unknown";
     }
 }

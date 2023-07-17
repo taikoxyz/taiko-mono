@@ -26,9 +26,9 @@ contract BridgedERC1155 is
 {
     address public srcToken;
     uint256 public srcChainId;
-    string public srcUri;
     string public name;
     string public symbol;
+    string private _srcUri;
 
     uint256[47] private __gap;
 
@@ -58,7 +58,7 @@ contract BridgedERC1155 is
     {
         if (
             _srcToken == address(0) || _srcChainId == 0
-                || _srcChainId == block.chainid || bytes(_uri).length == 0
+                || _srcChainId == block.chainid
         ) {
             revert BRIDGED_TOKEN_INVALID_PARAMS();
         }
@@ -66,7 +66,7 @@ contract BridgedERC1155 is
         __ERC1155_init(_uri);
         srcToken = _srcToken;
         srcChainId = _srcChainId;
-        srcUri = _uri;
+        _srcUri = _uri;
         // name and symbol can be "" intentionally, so check
         // not required (not part of the ERC1155 standard).
         name = _name;
@@ -123,5 +123,15 @@ contract BridgedERC1155 is
     // of the tokens being bridged
     function source() public view returns (address, uint256) {
         return (srcToken, srcChainId);
+    }
+
+    function uri(uint256)
+        public
+        view
+        virtual
+        override(ERC1155Upgradeable, IERC1155MetadataURIUpgradeable)
+        returns (string memory)
+    {
+        return _srcUri;
     }
 }
