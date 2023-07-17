@@ -49,8 +49,10 @@
   <button class="btn justify-around md:w-[194px]" disabled={cannotSwitch}>
     <span class="font-normal flex-1 text-left mr-2">
       {#if $srcChain}
-        <svelte:component this={$srcChain.icon} />
-        <span class="ml-2 hidden md:inline-block">{$srcChain.name}</span>
+        <span class="flex items-center">
+          <svelte:component this={$srcChain.icon} />
+          <span class="ml-2 hidden md:inline-block">{$srcChain.name}</span>
+        </span>
       {:else}
         <span class="ml-2 flex items-center">
           <ExclamationTriangle class="mr-2" size="20" />
