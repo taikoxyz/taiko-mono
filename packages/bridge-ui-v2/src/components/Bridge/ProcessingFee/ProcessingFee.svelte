@@ -8,6 +8,7 @@
   import { InputBox } from '$components/InputBox';
   import { LoadingText } from '$components/LoadingText';
   import { Tooltip } from '$components/Tooltip';
+  import { processingFeeComponent } from '$config';
   import { ProcessingFeeMethod } from '$libs/fee';
   import { parseToWei } from '$libs/util/parseToWei';
   import { uid } from '$libs/util/uid';
@@ -15,7 +16,6 @@
   import { processingFee } from '../state';
   import NoneOption from './NoneOption.svelte';
   import RecommendedAmount from './RecommendedAmount.svelte';
-  import { processingFeeComponent } from '$config';
 
   let dialogId = `dialog-${uid()}`;
   let selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
