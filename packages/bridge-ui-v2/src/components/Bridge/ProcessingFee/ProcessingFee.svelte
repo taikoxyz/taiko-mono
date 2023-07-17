@@ -1,20 +1,17 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+  import { tick } from 'svelte';
   import { t } from 'svelte-i18n';
-  import { formatEther, parseUnits } from 'viem';
+  import { formatEther } from 'viem';
 
   import { Icon } from '$components/Icon';
   import { InputBox } from '$components/InputBox';
   import LoadingText from '$components/LoadingText/LoadingText.svelte';
   import { Tooltip } from '$components/Tooltip';
   import { ProcessingFeeMethod } from '$libs/fee';
-  import { recommendProcessingFee } from '$libs/fee';
-  import type { Token } from '$libs/token';
-  import { uid } from '$libs/util/uid';
-  import { network } from '$stores/network';
-
-  import { destNetwork, processingFee, selectedToken } from '../state';
   import { parseToWei } from '$libs/util/parseToWei';
+  import { uid } from '$libs/util/uid';
+
+  import { processingFee } from '../state';
   import RecommendedAmount from './RecommendedAmount.svelte';
 
   let dialogId = `dialog-${uid()}`;

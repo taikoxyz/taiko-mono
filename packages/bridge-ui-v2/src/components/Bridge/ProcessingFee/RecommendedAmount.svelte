@@ -1,9 +1,9 @@
 <script lang="ts">
   import { recommendProcessingFee } from '$libs/fee';
   import type { Token } from '$libs/token';
-  import { onMount } from 'svelte';
   import { network } from '$stores/network';
-  import { selectedToken, destNetwork } from '../state';
+
+  import { destNetwork, selectedToken } from '../state';
 
   export let value: bigint;
   export let calculating = false;
@@ -19,8 +19,8 @@
         destChainId,
         srcChainId,
       });
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error(err);
       error = true;
     } finally {
       calculating = false;
