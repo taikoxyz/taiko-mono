@@ -10,17 +10,17 @@ import type { Token } from './types';
 
 type GetAddressArgs = {
   token: Token;
-  srcChainId?: number;
+  chainId?: number;
   destChainId?: number;
 };
 
 const log = getLogger('token:getAddress');
 
-export async function getAddress({ token, srcChainId, destChainId }: GetAddressArgs) {
-  if (!srcChainId) return;
+export async function getAddress({ token, chainId, destChainId }: GetAddressArgs) {
+  if (!chainId) return;
 
   // Get the address for the token on the source chain
-  let address = token.addresses[srcChainId];
+  let address = token.addresses[chainId];
 
   // If the token isn't ETH and has no address...
   if (!isETH(token) && (!address || address === zeroAddress)) {
@@ -37,7 +37,7 @@ export async function getAddress({ token, srcChainId, destChainId }: GetAddressA
     // cacnonicalToBridged mapping.
     const srcTokenVaultContract = getContract({
       abi: tokenVaultABI,
-      address: chainContractsMap[srcChainId].tokenVaultAddress,
+      address: chainContractsMap[chainId].tokenVaultAddress,
     });
 
     address = await srcTokenVaultContract.read.canonicalToBridged([BigInt(destChainId), destChainTokenAddress]);

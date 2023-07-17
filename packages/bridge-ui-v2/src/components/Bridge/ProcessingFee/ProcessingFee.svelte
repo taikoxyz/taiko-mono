@@ -13,6 +13,8 @@
 
   import { processingFee } from '../state';
   import RecommendedAmount from './RecommendedAmount.svelte';
+  import { Alert } from '$components/Alert';
+  import NoneOption from './NoneOption.svelte';
 
   let dialogId = `dialog-${uid()}`;
   let selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
@@ -20,6 +22,10 @@
   let recommendedAmount = BigInt(0);
   let calculatingRecommendedAmount = false;
   let errorCalculatingRecommendedAmount = false;
+
+  let hasEnoughEth = false;
+  let calculatingEnoughEth = false;
+  let errorCalculatingEnoughEth = false;
 
   let modalOpen = false;
   let customInput: InputBox;
@@ -126,7 +132,7 @@
         </li>
 
         <!-- NONE -->
-        <li>
+        <li class="space-y-2">
           <div class="f-between-center">
             <div class="f-col">
               <label for="input-none" class="body-bold">
@@ -140,11 +146,18 @@
               id="input-none"
               class="radio w-6 h-6 checked:bg-primary-interactive-accent hover:border-primary-interactive-hover"
               type="radio"
+              disabled={!hasEnoughEth}
               value={ProcessingFeeMethod.NONE}
               name="processingFeeMethod"
               bind:group={selectedFeeMethod}
               on:click={closeModal} />
           </div>
+
+          {#if !hasEnoughEth}
+            <Alert type="warning">
+              {$t('processing_fee.none.warning')}
+            </Alert>
+          {/if}
         </li>
 
         <!-- CUSTOM -->
@@ -186,3 +199,8 @@
   bind:value={recommendedAmount}
   bind:calculating={calculatingRecommendedAmount}
   bind:error={errorCalculatingRecommendedAmount} />
+
+<NoneOption
+  bind:enoughEth={hasEnoughEth}
+  bind:calculating={calculatingEnoughEth}
+  bind:error={errorCalculatingEnoughEth} />

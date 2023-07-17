@@ -26,7 +26,8 @@
     },
     "none": {
       "label": "None",
-      "text": "Use ETH to manually claim your bridged token later"
+      "text": "Use ETH to manually claim your bridged token later",
+      "warning": "This option cannot be selected. You have not enough ETH to cover the gas fees for claiming."
     },
     "custom": {
       "label": "Custom",

@@ -21,7 +21,12 @@
     errorComputingTokenBalance = false;
 
     try {
-      tokenBalance = await getTokenBalance({ token, userAddress: account.address, srcChainId, destChainId });
+      tokenBalance = await getTokenBalance({
+        token,
+        destChainId,
+        userAddress: account.address,
+        chainId: srcChainId,
+      });
     } catch (error) {
       console.error(error);
       errorComputingTokenBalance = true;

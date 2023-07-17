@@ -25,7 +25,7 @@ export async function recommendProcessingFee({ token, destChainId, srcChainId }:
   if (isERC20(token)) {
     if (!srcChainId) return BigInt(0);
 
-    const tokenAddress = await getAddress({ token, srcChainId, destChainId });
+    const tokenAddress = await getAddress({ token, chainId: srcChainId, destChainId });
 
     if (!tokenAddress || tokenAddress === zeroAddress) {
       // Gas limit for erc20 if not deployed on the destination chain
