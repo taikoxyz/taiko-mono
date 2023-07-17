@@ -1,7 +1,10 @@
+import type { BigNumber } from 'ethers';
+
 export type Prover = {
   currentCapacity: number;
   address: string;
-  amountStaked: BigNumber;
+  stakedAmount: BigNumber;
+  amountStaked: BigNumber; // stupid hack
 };
 
 export type ProversResp = {

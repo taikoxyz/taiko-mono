@@ -19,4 +19,4 @@ export const PROVER_POOL_ADDRESS: string = import.meta.env
 
 export const TAIKO_L1_ADDRESS: string = import.meta.env?.VITE_TAIKO_L1_ADDRESS;
 
-export const TKO_ADDRESS: string = import.meta.env?.VITE_TKO_ADDRESS;
+export const TTKO_ADDRESS: string = import.meta.env?.VITE_TTKO_ADDRESS;

@@ -59,4 +59,5 @@ export const SENTRY_DSN: string = import.meta.env?.VITE_SENTRY_DSN;
 export const WALLETCONNECT_PROJECT_ID: string = import.meta.env
   ?.VITE_WALLETCONNECT_PROJECT_ID;
 
-export const ENABLE_FAUCET: boolean = import.meta.env?.VITE_ENABLE_FAUCET;
+export const ENABLE_FAUCET: boolean =
+  import.meta.env?.VITE_ENABLE_FAUCET === 'true';

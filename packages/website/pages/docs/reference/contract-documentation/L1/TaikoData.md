@@ -30,7 +30,8 @@ struct Config {
   uint256 ethDepositGas;
   uint256 ethDepositMaxFee;
   uint8 rewardOpenMultipler;
-  uint256 rewardOpenMaxCount;
+  uint32 rewardOpenMaxCount;
+  uint32 rewardMaxDelayPenalty;
 }
 ```
 

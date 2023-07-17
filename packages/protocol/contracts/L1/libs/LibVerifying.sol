@@ -68,6 +68,7 @@ library LibVerifying {
                 || config.ethDepositMaxFee
                     >= type(uint96).max / config.ethDepositMaxCountPerBlock
                 || config.rewardOpenMultipler < 100
+                || config.rewardMaxDelayPenalty >= 10_000
         ) revert L1_INVALID_CONFIG();
 
         unchecked {
@@ -215,17 +216,30 @@ library LibVerifying {
         } else if (blk.assignedProver == address(0)) {
             // open prover is rewarded with more tokens
             proofReward = proofReward * config.rewardOpenMultipler / 100;
-        } else if (
-            fc.prover == blk.assignedProver
-                && fc.provenAt <= blk.proposedAt + blk.proofWindow
-        ) {
+        } else if (blk.assignedProver != fc.prover) {
+            // proving out side of the proof window, by a prover other
+            // than the assigned prover
+            proofReward = proofReward * config.rewardOpenMultipler / 100;
+            proverPool.slashProver(blk.assignedProver);
+        } else if (fc.provenAt <= blk.proposedAt + blk.proofWindow) {
+            // proving inside the window, by the assigned prover
+            uint64 proofDelay;
+            unchecked {
+                proofDelay = fc.provenAt - blk.proposedAt;
+
+                if (config.rewardMaxDelayPenalty > 0) {
+                    // Give the reward a penalty up to a small percentage.
+                    // This will encourage prover to submit proof ASAP.
+                    proofReward -= proofReward * proofDelay
+                        * config.rewardMaxDelayPenalty / 10_000 / blk.proofWindow;
+                }
+            }
+
             // The selected prover managed to prove the block in time
             state.avgProofDelay = uint16(
                 LibUtils.movingAverage({
                     maValue: state.avgProofDelay,
-                    // TODO:  prover is not incentivized to submit proof
-                    // ASAP
-                    newValue: fc.provenAt - blk.proposedAt,
+                    newValue: proofDelay,
                     maf: 7200
                 })
             );
@@ -238,8 +252,8 @@ library LibVerifying {
                 })
             );
         } else {
-            // proving out side of the proof window
-            proofReward = proofReward * config.rewardOpenMultipler / 100;
+            // proving out side of the proof window, by the assigned prover
+            proofReward = 0;
             proverPool.slashProver(blk.assignedProver);
         }
 
