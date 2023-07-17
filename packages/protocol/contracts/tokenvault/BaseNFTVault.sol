@@ -22,6 +22,42 @@ import { IBridge } from "../bridge/IBridge.sol";
  */
 
 abstract contract BaseNFTVault is BaseVault {
+    event BridgedTokenDeployed(
+        uint256 indexed chainId,
+        address indexed canonical,
+        address indexed bridgedToken,
+        string canonicalSymbol,
+        string canonicalName
+    );
+
+    event TokenSent(
+        bytes32 indexed msgHash,
+        address indexed from,
+        address indexed to,
+        uint256 destChainId,
+        address token,
+        uint256[] tokenIds,
+        uint256[] amounts
+    );
+
+    event TokenReleased(
+        bytes32 indexed msgHash,
+        address indexed from,
+        address token,
+        uint256[] tokenIds,
+        uint256[] amounts
+    );
+
+    event TokenReceived(
+        bytes32 indexed msgHash,
+        address indexed from,
+        address indexed to,
+        uint256 srcChainId,
+        address token,
+        uint256[] tokenIds,
+        uint256[] amounts
+    );
+
     /**
      * Thrown when the length of the tokenIds array and the amounts
      * array differs.

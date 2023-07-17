@@ -101,6 +101,14 @@ contract ERC20Vault is BaseVault {
         bytes32 indexed msgHash,
         address indexed from,
         address token,
+        uint256[] tokenIds,
+        uint256[] amounts
+    );
+
+    event TokenReleased(
+        bytes32 indexed msgHash,
+        address indexed from,
+        address token,
         uint256 amount
     );
 
@@ -359,18 +367,16 @@ contract ERC20Vault is BaseVault {
         private
         returns (address bridgedToken)
     {
-        bridgedToken = Create2Upgradeable.deploy(
-            {
-                amount: 0, // amount of Ether to send
-                salt: keccak256(
-                    bytes.concat(
-                        bytes32(canonicalToken.chainId),
-                        bytes32(uint256(uint160(canonicalToken.addr)))
-                    )
+        bridgedToken = Create2Upgradeable.deploy({
+            amount: 0, // amount of Ether to send
+            salt: keccak256(
+                bytes.concat(
+                    bytes32(canonicalToken.chainId),
+                    bytes32(uint256(uint160(canonicalToken.addr)))
+                )
                 ),
-                bytecode: type(BridgedERC20).creationCode
-            }
-        );
+            bytecode: type(BridgedERC20).creationCode
+        });
 
         BridgedERC20(payable(bridgedToken)).init({
             _addressManager: address(_addressManager),

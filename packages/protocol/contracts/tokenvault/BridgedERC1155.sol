@@ -15,6 +15,7 @@ import { ERC1155Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 
+// TODO(dani): override the name() function, learn from BridgedERC20
 contract BridgedERC1155 is
     EssentialContract,
     IERC1155Upgradeable,

@@ -10,6 +10,8 @@ import { EssentialContract } from "../common/EssentialContract.sol";
 import { ERC721Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 
+// TODO(dani): override the name() function, learn from BridgedERC20
+
 contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     address public srcToken;
     uint256 public srcChainId;

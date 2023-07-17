@@ -30,39 +30,6 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     bytes4 public constant ERC721_INTERFACE_ID = 0x80ac58cd;
 
-    event BridgedTokenDeployed(
-        uint256 indexed chainId,
-        address indexed canonicalToken,
-        address indexed bridgedToken,
-        string canonicalTokenSymbol,
-        string canonicalTokenName
-    );
-
-    event TokenSent(
-        bytes32 indexed msgHash,
-        address indexed from,
-        address indexed to,
-        uint256 destChainId,
-        address token,
-        uint256[] tokenIds
-    );
-
-    event TokenReleased(
-        bytes32 indexed msgHash,
-        address indexed from,
-        address token,
-        uint256[] tokenIds
-    );
-
-    event TokenReceived(
-        bytes32 indexed msgHash,
-        address indexed from,
-        address indexed to,
-        uint256 srcChainId,
-        address token,
-        uint256[] tokenIds
-    );
-
     /**
      * Transfers ERC721 tokens to this vault and sends a message to the
      * destination chain so the user can receive the same (bridged) tokens
@@ -77,33 +44,37 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         onlyValidAddresses(opt.destChainId, "erc721_vault", opt.to, opt.token)
         onlyValidAmounts(opt.amounts, opt.tokenIds, true)
     {
+        // TODO(dani): make sure this token doesnt support
+        // ERC1155_INTERFACE_ID, otherwise, they should use
+        // ERC1155Vault
         if (!IERC165(opt.token).supportsInterface(ERC721_INTERFACE_ID)) {
             revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
 
         // We need to save them into memory - because structs containing
         // dynamic arrays will cause stack-too-deep error when passed
+        // TODO(dani): so the user can specify the base URL as any value?
         string memory _baseTokenUri = opt.baseTokenUri;
+
         address _token = opt.token;
         uint256[] memory _tokenIds = opt.tokenIds;
 
         IBridge.Message memory message;
         message.destChainId = opt.destChainId;
 
-        message.data =
-            _sendToken({
-                owner: msg.sender,
-                to: opt.to,
-                tokenIds: _tokenIds, 
-                token: _token, 
-                tokenUri: _baseTokenUri
-            });
+        // TODO(dani): why not pass in the opt object?
+        message.data = _sendToken({
+            owner: msg.sender,
+            to: opt.to,
+            tokenIds: _tokenIds,
+            token: _token,
+            tokenUri: _baseTokenUri // TODO(dani):from user?
+         });
 
         message.owner = msg.sender;
         message.to = resolve(message.destChainId, "erc721_vault", false);
         message.gasLimit = opt.gasLimit;
         message.processingFee = opt.processingFee;
-        message.depositValue = 0;
         message.refundAddress = opt.refundAddress;
         message.memo = opt.memo;
 
@@ -117,7 +88,8 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             to: opt.to,
             destChainId: message.destChainId,
             token: _token,
-            tokenIds: _tokenIds
+            tokenIds: _tokenIds,
+            amounts: new uint256[](0)
         });
     }
 
@@ -125,7 +97,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
      * @dev This function can only be called by the bridge contract while
      * invoking a message call. See sendToken, which sets the data to invoke
      * this function.
-     * @param canonicalToken The canonical ERC721 token which may or may not
+     * @param canonical The canonical ERC721 token which may or may not
      * live on this chain. If not, a BridgedERC721 contract will be
      * deployed.
      * @param from The source address.
@@ -133,7 +105,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
      * @param tokenIds The tokenId array to be sent.
      */
     function receiveToken(
-        CanonicalNFT calldata canonicalToken,
+        CanonicalNFT calldata canonical,
         address from,
         address to,
         uint256[] memory tokenIds
@@ -145,15 +117,15 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         IBridge.Context memory ctx = _checkValidContext("erc721_vault");
         address token;
 
-        if (canonicalToken.chainId == block.chainid) {
-            token = canonicalToken.addr;
+        if (canonical.chainId == block.chainid) {
+            token = canonical.addr;
             for (uint256 i; i < tokenIds.length; i++) {
                 ERC721Upgradeable(token).transferFrom(
                     address(this), to, tokenIds[i]
                 );
             }
         } else {
-            token = _getOrDeployBridgedToken(canonicalToken);
+            token = _getOrDeployBridgedToken(canonical);
 
             for (uint256 i; i < tokenIds.length; ++i) {
                 BridgedERC721(token).mint(to, tokenIds[i]);
@@ -166,7 +138,8 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             to: to,
             srcChainId: ctx.srcChainId,
             token: token,
-            tokenIds: tokenIds
+            tokenIds: tokenIds,
+            amounts: new uint256[](0)
         });
     }
 
@@ -207,7 +180,8 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             msgHash: msgHash,
             from: message.owner,
             token: nft.addr,
-            tokenIds: tokenIds
+            tokenIds: tokenIds,
+            amounts: new uint256[](0)
         });
     }
 
@@ -279,33 +253,23 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             });
 
             for (uint256 i; i < tokenIds.length; i++) {
-                if (t.ownerOf(tokenIds[i]) != msg.sender) {
-                    revert VAULT_INVALID_OWNER();
-                }
                 t.transferFrom(msg.sender, address(this), tokenIds[i]);
             }
         }
 
         return abi.encodeWithSelector(
-            ERC721Vault.receiveToken.selector,
-            nft,
-            owner,
-            to,
-            tokenIds
+            ERC721Vault.receiveToken.selector, nft, owner, to, tokenIds
         );
     }
 
-    function _getOrDeployBridgedToken(
-        CanonicalNFT calldata canonicalToken
-    )
+    function _getOrDeployBridgedToken(CanonicalNFT calldata canonical)
         private
         returns (address bridgedToken)
     {
-        bridgedToken =
-            canonicalToBridged[canonicalToken.chainId][canonicalToken.addr];
+        bridgedToken = canonicalToBridged[canonical.chainId][canonical.addr];
 
         if (bridgedToken == address(0)) {
-            bridgedToken = _deployBridgedToken(canonicalToken);
+            bridgedToken = _deployBridgedToken(canonical);
         }
     }
 
@@ -313,50 +277,43 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
      * @dev Deploys a new BridgedNFT contract and initializes it. This must be
      * called before the first time a bridged token is sent to this chain.
      */
-    function _deployBridgedToken(
-        CanonicalNFT memory canonicalToken
-    )
+    function _deployBridgedToken(CanonicalNFT memory canonical)
         private
         returns (address bridgedToken)
     {
-        bridgedToken = Create2Upgradeable.deploy(
-            {
-                amount: 0, // amount of Ether to send
-                salt: keccak256(
-                    bytes.concat(
-                        bytes32(canonicalToken.chainId),
-                        bytes32(uint256(uint160(canonicalToken.addr)))
-                    )
+        bridgedToken = Create2Upgradeable.deploy({
+            amount: 0, // amount of Ether to send
+            salt: keccak256(
+                bytes.concat(
+                    bytes32(canonical.chainId),
+                    bytes32(uint256(uint160(canonical.addr)))
+                )
                 ),
-                bytecode: type(BridgedERC721).creationCode
-            }
-        );
+            bytecode: type(BridgedERC721).creationCode
+        });
 
+        // TODO(dani): learn from BridgedERC20, override the name() function
         BridgedERC721(payable(bridgedToken)).init({
             _addressManager: address(_addressManager),
-            _srcToken: canonicalToken.addr,
-            _srcChainId: canonicalToken.chainId,
-            _symbol: ERC721Upgradeable(canonicalToken.addr).symbol(),
-            _name: string.concat(
-                ERC721Upgradeable(canonicalToken.addr).name(),
-                unicode"(bridged🌈",
-                Strings.toString(canonicalToken.chainId),
-                ")"
-                ),
-            _uri: canonicalToken.uri
+            _srcToken: canonical.addr,
+            _srcChainId: canonical.chainId,
+            // TODO(dani): canonical.addr is not on this chain,
+            // how can you query symbol and name?
+            _symbol: ERC721Upgradeable(canonical.addr).symbol(),
+            _name: canonical.name,
+            _uri: canonical.uri
         });
 
         isBridgedToken[bridgedToken] = true;
-        bridgedToCanonical[bridgedToken] = canonicalToken;
-        canonicalToBridged[canonicalToken.chainId][canonicalToken.addr] =
-            bridgedToken;
+        bridgedToCanonical[bridgedToken] = canonical;
+        canonicalToBridged[canonical.chainId][canonical.addr] = bridgedToken;
 
         emit BridgedTokenDeployed({
-            chainId: canonicalToken.chainId,
-            canonicalToken: canonicalToken.addr,
+            chainId: canonical.chainId,
+            canonical: canonical.addr,
             bridgedToken: bridgedToken,
-            canonicalTokenSymbol: canonicalToken.symbol,
-            canonicalTokenName: canonicalToken.name
+            canonicalSymbol: canonical.symbol,
+            canonicalName: canonical.name
         });
     }
 }
