@@ -31,8 +31,8 @@
 
     try {
       await switchNetwork({ chainId: +PUBLIC_L1_CHAIN_ID });
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error(err);
 
       if (error instanceof UserRejectedRequestError) {
         warningToast($t('messages.network.rejected'));
@@ -70,8 +70,8 @@
       );
 
       // TODO: pending transaction logic
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error(err);
 
       // const { cause } = error as Error;
     } finally {
@@ -100,8 +100,8 @@
     try {
       await checkMintable(token, network);
       mintButtonEnabled = true;
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error(err);
 
       const { cause } = error as Error;
 

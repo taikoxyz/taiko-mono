@@ -27,8 +27,8 @@
         userAddress: account.address,
         chainId: srcChainId,
       });
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error(err);
       errorComputingTokenBalance = true;
     } finally {
       computingTokenBalance = false;
