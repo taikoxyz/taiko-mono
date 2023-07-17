@@ -86,6 +86,7 @@ contract PrankDestBridge {
         address from,
         address to,
         uint256[] memory tokenIds,
+        string[] memory tokenUris,
         bytes32 msgHash,
         address srcChainerc721Vault,
         uint256 chainId
@@ -96,7 +97,9 @@ contract PrankDestBridge {
         ctx.msgHash = msgHash;
         ctx.chainId = chainId;
 
-        destERC721Vault.receiveToken(canonicalToken, from, to, tokenIds);
+        destERC721Vault.receiveToken(
+            canonicalToken, from, to, tokenIds, tokenUris
+        );
 
         ctx.sender = address(0);
         ctx.msgHash = bytes32(0);
@@ -122,7 +125,7 @@ contract PrankSrcBridge {
 
     function getPreDeterminedDataBytes() external pure returns (bytes memory) {
         return
-        hex"1d7b460b000000000000000000000000000000000000000000000000000000000000008000000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000000000000000000000000000000000000000001e00000000000000000000000000000000000000000000000000000000000007a69000000000000000000000000266fa2526b3d68a1bd9685b87b4d14ae6079f70600000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000000025454000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000254540000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000018687474703a2f2f6578616d706c652e686f73742e636f6d2f000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001";
+        hex"68f3061100000000000000000000000000000000000000000000000000000000000000a000000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000000000000000000000000000000000000000001a000000000000000000000000000000000000000000000000000000000000001e00000000000000000000000000000000000000000000000000000000000007a69000000000000000000000000266fa2526b3d68a1bd9685b87b4d14ae6079f706000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000000254540000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002545400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000019687474703a2f2f6578616d706c652e686f73742e636f6d2f3100000000000000";
     }
 
     function hashMessage(IBridge.Message calldata message)
@@ -258,9 +261,8 @@ contract ERC721VaultTest is Test {
             destChainId,
             Alice,
             address(canonicalToken721),
-            "http://example.host.com/",
             tokenIds,
-            amounts, // With ERC721 still need to specify 1
+            amounts, // With ERC721 still need to specify 0
             140_000,
             140_000,
             Alice,
@@ -278,21 +280,23 @@ contract ERC721VaultTest is Test {
             chainId: 31_337,
             addr: 0x579FBFF1A9b1502688169DA761DcF262b73BB64A,
             symbol: "TT",
-            name: "TT",
-            uri: "http://example.host.com/"
+            name: "TT"
         });
 
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = 1;
+        string[] memory tokenUris = new string[](1);
+        tokenUris[0] = "http://example.host.com/1.json";
 
         bytes memory dataToDecode = abi.encodeWithSelector(
-            0x2c349adf, canonicalToken, Alice, Alice, tokenIds
+            0x2c349adf, canonicalToken, Alice, Alice, tokenIds, tokenUris
         );
 
         BaseNFTVault.CanonicalNFT memory nftRetVal;
         address ownerRetVal;
         uint256[] memory tokenIdsRetVal;
-        (nftRetVal, ownerRetVal,, tokenIdsRetVal) =
+        string[] memory tokenUrisRetVal;
+        (nftRetVal, ownerRetVal,, tokenIdsRetVal, tokenUrisRetVal) =
             erc721Vault.decodeTokenData(dataToDecode);
 
         assertEq(Alice, ownerRetVal);
@@ -302,7 +306,7 @@ contract ERC721VaultTest is Test {
 
         assertEq("TT", nftRetVal.symbol);
         assertEq("TT", nftRetVal.name);
-        assertEq("http://example.host.com/", nftRetVal.uri);
+        assertEq(tokenUris[0], tokenUrisRetVal[0]);
     }
 
     function test_sendToken_with_invalid_to_address_721() public {
@@ -322,7 +326,6 @@ contract ERC721VaultTest is Test {
             destChainId,
             address(0),
             address(canonicalToken721),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -351,7 +354,6 @@ contract ERC721VaultTest is Test {
             destChainId,
             Alice,
             address(0),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -382,7 +384,6 @@ contract ERC721VaultTest is Test {
             destChainId,
             Alice,
             address(canonicalToken721),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -407,6 +408,9 @@ contract ERC721VaultTest is Test {
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = 1;
 
+        string[] memory tokenUris = new string[](1);
+        tokenUris[0] = "http://example.host.com/1.json";
+
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = 0;
 
@@ -415,7 +419,6 @@ contract ERC721VaultTest is Test {
             destChainId,
             Alice,
             address(canonicalToken721),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -433,8 +436,7 @@ contract ERC721VaultTest is Test {
             chainId: 31_337,
             addr: address(canonicalToken721),
             symbol: "TT",
-            name: "TT",
-            uri: "http://example.host.com/"
+            name: "TT"
         });
 
         uint256 chainId = block.chainid;
@@ -445,6 +447,7 @@ contract ERC721VaultTest is Test {
             Alice,
             Alice,
             tokenIds,
+            tokenUris,
             bytes32(0),
             address(erc721Vault),
             chainId
@@ -480,7 +483,6 @@ contract ERC721VaultTest is Test {
             destChainId,
             Alice,
             address(canonicalToken721),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -501,18 +503,21 @@ contract ERC721VaultTest is Test {
             chainId: 31_337,
             addr: address(canonicalToken721),
             symbol: "TT",
-            name: "TT",
-            uri: "http://example.host.com/"
+            name: "TT"
         });
 
         uint256 chainId = block.chainid;
         vm.chainId(destChainId);
+
+        string[] memory tokenUris = new string[](1);
+        tokenUris[0] = "http://example.host.com/1.json";
 
         destChainIdBridge.sendReceiveERC721ToERC721Vault(
             canonicalToken,
             Alice,
             Alice,
             tokenIds,
+            tokenUris,
             bytes32(0),
             address(erc721Vault),
             chainId
@@ -537,7 +542,6 @@ contract ERC721VaultTest is Test {
             destChainId,
             Alice,
             address(canonicalToken721),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -557,6 +561,7 @@ contract ERC721VaultTest is Test {
             Alice,
             Alice,
             tokenIds,
+            tokenUris,
             bytes32(0),
             address(erc721Vault),
             chainId
@@ -587,7 +592,6 @@ contract ERC721VaultTest is Test {
             destChainId,
             Alice,
             address(canonicalToken721),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -654,7 +658,6 @@ contract ERC721VaultTest is Test {
             destChainId,
             Alice,
             address(canonicalToken721),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -673,18 +676,22 @@ contract ERC721VaultTest is Test {
             chainId: 31_337,
             addr: address(canonicalToken721),
             symbol: "TT",
-            name: "TT",
-            uri: "http://example.host.com/"
+            name: "TT"
         });
 
         uint256 srcChainId = block.chainid;
         vm.chainId(destChainId);
+
+        string[] memory tokenUris = new string[](2);
+        tokenUris[0] = "http://example.host.com/1.json";
+        tokenUris[1] = "http://example.host.com/2.json";
 
         destChainIdBridge.sendReceiveERC721ToERC721Vault(
             canonicalToken,
             Alice,
             Alice,
             tokenIds,
+            tokenUris,
             bytes32(0),
             address(erc721Vault),
             srcChainId

@@ -27,15 +27,12 @@ abstract contract BaseNFTVault is BaseVault {
         address addr;
         string symbol;
         string name;
-        string uri;
     }
 
     struct BridgeTransferOp {
         uint256 destChainId;
         address to;
         address token;
-        string baseTokenUri; // TODO(dani): remove this,we have multiple options
-            // please see my answer at ERC721Vault.sol line 57
         uint256[] tokenIds;
         uint256[] amounts;
         uint256 gasLimit;

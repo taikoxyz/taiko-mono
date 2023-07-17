@@ -109,12 +109,14 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
      * @param from The source address.
      * @param to The destination address.
      * @param tokenIds The tokenId array to be sent.
+     * @param uris The uris per respective token.
      */
     function receiveToken(
         CanonicalNFT calldata ctoken,
         address from,
         address to,
-        uint256[] memory tokenIds
+        uint256[] memory tokenIds,
+        string[] memory uris
     )
         external
         nonReentrant
@@ -134,7 +136,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             token = _getOrDeployBridgedToken(ctoken);
 
             for (uint256 i; i < tokenIds.length; ++i) {
-                BridgedERC721(token).mint(to, tokenIds[i]);
+                BridgedERC721(token).mint(to, tokenIds[i], uris[i]);
             }
         }
 
@@ -165,14 +167,17 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             CanonicalNFT memory nft, //
             ,
             ,
-            uint256[] memory tokenIds
+            uint256[] memory tokenIds,
+            string[] memory uris
         ) = decodeTokenData(message.data);
 
         bytes32 msgHash = hashAndMarkMsgReleased(message, proof, nft.addr);
 
         if (isBridgedToken[nft.addr]) {
             for (uint256 i; i < tokenIds.length; i++) {
-                BridgedERC721(nft.addr).mint(message.owner, tokenIds[i]);
+                BridgedERC721(nft.addr).mint(
+                    message.owner, tokenIds[i], uris[i]
+                );
             }
         } else {
             for (uint256 i; i < tokenIds.length; i++) {
@@ -211,6 +216,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
      * @return owner Owner of the message
      * @return to The to address messages sent to
      * @return tokenIds The tokenIds
+     * @return uris The uris per respective ERC1155 tokenid
      */
     function decodeTokenData(bytes memory dataWithSelector)
         public
@@ -219,12 +225,13 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             CanonicalNFT memory nft,
             address owner,
             address to,
-            uint256[] memory tokenIds
+            uint256[] memory tokenIds,
+            string[] memory uris
         )
     {
         return abi.decode(
             _extractCalldata(dataWithSelector),
-            (CanonicalNFT, address, address, uint256[])
+            (CanonicalNFT, address, address, uint256[], string[])
         );
     }
 
@@ -237,12 +244,15 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     {
         bool isBridgedToken = isBridgedToken[opt.token];
         CanonicalNFT memory nft = bridgedToCanonical[opt.token];
+        string[] memory tokenURIs = new string[](opt.tokenIds.length);
 
         // is a btoken, meaning, it does not live on this chain
         if (isBridgedToken) {
             for (uint256 i; i < opt.tokenIds.length; i++) {
                 BridgedERC721(opt.token).burn(owner, opt.tokenIds[i]);
             }
+            // We dont need this array when bridged
+            tokenURIs = new string[](0);
         } else {
             // is a ctoken token, meaning, it lives on this chain
             ERC721Upgradeable t = ERC721Upgradeable(opt.token);
@@ -251,17 +261,22 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
                 chainId: block.chainid,
                 addr: opt.token,
                 symbol: ERC721Upgradeable(t).symbol(),
-                name: ERC721Upgradeable(t).name(),
-                uri: opt.baseTokenUri
+                name: ERC721Upgradeable(t).name()
             });
 
             for (uint256 i; i < opt.tokenIds.length; i++) {
                 t.transferFrom(owner, address(this), opt.tokenIds[i]);
+                tokenURIs[i] = ERC721Upgradeable(t).tokenURI(opt.tokenIds[i]);
             }
         }
 
         return abi.encodeWithSelector(
-            ERC721Vault.receiveToken.selector, nft, owner, opt.to, opt.tokenIds
+            ERC721Vault.receiveToken.selector,
+            nft,
+            owner,
+            opt.to,
+            opt.tokenIds,
+            tokenURIs
         );
     }
 
@@ -299,8 +314,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             _srcToken: ctoken.addr,
             _srcChainId: ctoken.chainId,
             _symbol: ctoken.symbol,
-            _name: ctoken.name,
-            _uri: ctoken.uri
+            _name: ctoken.name
         });
 
         isBridgedToken[btoken] = true;

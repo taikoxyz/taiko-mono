@@ -26,11 +26,13 @@ contract BridgedERC1155 is
 {
     address public srcToken;
     uint256 public srcChainId;
-    string public srcUri;
     string public name;
     string public symbol;
 
-    uint256[47] private __gap;
+    // Mapping from token ID to uri
+    mapping(uint256 => string) private _uris;
+
+    uint256[45] private __gap;
 
     event Transfer(
         address indexed from,
@@ -50,23 +52,21 @@ contract BridgedERC1155 is
         address _srcToken,
         uint256 _srcChainId,
         string memory _symbol,
-        string memory _name,
-        string memory _uri
+        string memory _name
     )
         external
         initializer
     {
         if (
             _srcToken == address(0) || _srcChainId == 0
-                || _srcChainId == block.chainid || bytes(_uri).length == 0
+                || _srcChainId == block.chainid
         ) {
             revert BRIDGED_TOKEN_INVALID_PARAMS();
         }
         EssentialContract._init(_addressManager);
-        __ERC1155_init(_uri);
+        __ERC1155_init(""); // Just init with empty string, will not be used
         srcToken = _srcToken;
         srcChainId = _srcChainId;
-        srcUri = _uri;
         // name and symbol can be "" intentionally, so check
         // not required (not part of the ERC1155 standard).
         name = _name;
@@ -77,12 +77,14 @@ contract BridgedERC1155 is
     function mint(
         address account,
         uint256 tokenId,
-        uint256 amount
+        uint256 amount,
+        string memory tokenUri
     )
         public
         onlyFromNamed("erc1155_vault")
     {
         _mint(account, tokenId, amount, "");
+        _uris[tokenId] = tokenUri;
         emit Transfer(address(0), account, tokenId, amount);
     }
 
@@ -123,5 +125,15 @@ contract BridgedERC1155 is
     // of the tokens being bridged
     function source() public view returns (address, uint256) {
         return (srcToken, srcChainId);
+    }
+
+    /// @dev returns the token uri per given token
+    function uri(uint256 id)
+        public
+        view
+        override(ERC1155Upgradeable, IERC1155MetadataURIUpgradeable)
+        returns (string memory)
+    {
+        return _uris[id];
     }
 }

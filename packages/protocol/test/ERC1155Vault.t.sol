@@ -66,6 +66,7 @@ contract PrankDestBridge {
         address to,
         uint256[] memory tokenIds,
         uint256[] memory amounts,
+        string[] memory tokenUris,
         bytes32 msgHash,
         address srcChainERC1155Vault,
         uint256 srcChainId
@@ -76,7 +77,9 @@ contract PrankDestBridge {
         ctx.msgHash = msgHash;
         ctx.srcChainId = srcChainId;
 
-        destERC1155Vault.receiveToken(ctoken, from, to, tokenIds, amounts);
+        destERC1155Vault.receiveToken(
+            ctoken, from, to, tokenIds, amounts, tokenUris
+        );
 
         ctx.sender = address(0);
         ctx.msgHash = bytes32(0);
@@ -102,7 +105,7 @@ contract PrankSrcBridge {
 
     function getPreDeterminedDataBytes() external pure returns (bytes memory) {
         return
-        hex"2605fc9100000000000000000000000000000000000000000000000000000000000000a000000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000000000000000000000000000000000000000001c000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000007a69000000000000000000000000266fa2526b3d68a1bd9685b87b4d14ae6079f70600000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000018687474703a2f2f6578616d706c652e686f73742e636f6d2f00000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002";
+        hex"aa9aaa1200000000000000000000000000000000000000000000000000000000000000c000000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba4000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001c000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000007a69000000000000000000000000266fa2526b3d68a1bd9685b87b4d14ae6079f706000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000018687474703a2f2f6578616d706c652e686f73742e636f6d2f0000000000000000";
     }
 
     function hashMessage(IBridge.Message calldata message)
@@ -240,7 +243,6 @@ contract ERC1155VaultTest is Test {
             destChainId,
             Alice,
             address(ctoken1155),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -260,8 +262,7 @@ contract ERC1155VaultTest is Test {
             chainId: 31_337,
             addr: 0x579FBFF1A9b1502688169DA761DcF262b73BB64A,
             symbol: "",
-            name: "",
-            uri: "http://example.host.com/"
+            name: ""
         });
 
         uint256[] memory tokenIds = new uint256[](1);
@@ -270,16 +271,26 @@ contract ERC1155VaultTest is Test {
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = 2;
 
+        string[] memory tokenUris = new string[](1);
+        tokenUris[0] = "http://example.host.com/1.json";
+
         bytes memory dataToDecode = abi.encodeWithSelector(
-            0xafdef9d6, ctoken, Alice, Alice, tokenIds, amounts
+            0xafdef9d6, ctoken, Alice, Alice, tokenIds, amounts, tokenUris
         );
 
         BaseNFTVault.CanonicalNFT memory nftRetVal;
         address ownerRetVal;
         uint256[] memory tokenIdsRetVal;
         uint256[] memory tokenAmountsRetVal;
-        (nftRetVal, ownerRetVal,, tokenIdsRetVal, tokenAmountsRetVal) =
-            erc1155Vault.decodeTokenData(dataToDecode);
+        string[] memory tokenUrisRetVal;
+        (
+            nftRetVal,
+            ownerRetVal,
+            ,
+            tokenIdsRetVal,
+            tokenAmountsRetVal,
+            tokenUrisRetVal
+        ) = erc1155Vault.decodeTokenData(dataToDecode);
 
         assertEq(Alice, ownerRetVal);
         assertEq(1, tokenIdsRetVal[0]);
@@ -289,7 +300,7 @@ contract ERC1155VaultTest is Test {
 
         assertEq("", nftRetVal.symbol);
         assertEq("", nftRetVal.name);
-        assertEq("http://example.host.com/", nftRetVal.uri);
+        assertEq(tokenUris[0], tokenUrisRetVal[0]);
     }
 
     function test_sendToken_with_invalid_to_address_1155() public {
@@ -310,7 +321,6 @@ contract ERC1155VaultTest is Test {
             destChainId,
             address(0),
             address(ctoken1155),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -341,7 +351,6 @@ contract ERC1155VaultTest is Test {
             destChainId,
             Alice,
             address(0),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -372,7 +381,6 @@ contract ERC1155VaultTest is Test {
             destChainId,
             Alice,
             address(ctoken1155),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -401,12 +409,14 @@ contract ERC1155VaultTest is Test {
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = 2;
 
+        string[] memory tokenUris = new string[](1);
+        tokenUris[0] = "http://example.host.com/1.json";
+
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
             .BridgeTransferOp(
             destChainId,
             Alice,
             address(ctoken1155),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -425,8 +435,7 @@ contract ERC1155VaultTest is Test {
             chainId: 31_337,
             addr: address(ctoken1155),
             symbol: "",
-            name: "",
-            uri: "http://example.host.com/"
+            name: ""
         });
 
         uint256 srcChainId = block.chainid;
@@ -438,6 +447,7 @@ contract ERC1155VaultTest is Test {
             Alice,
             tokenIds,
             amounts,
+            tokenUris,
             bytes32(0),
             address(erc1155Vault),
             srcChainId
@@ -473,7 +483,6 @@ contract ERC1155VaultTest is Test {
             destChainId,
             Alice,
             address(ctoken1155),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -491,12 +500,14 @@ contract ERC1155VaultTest is Test {
             chainId: 31_337,
             addr: address(ctoken1155),
             symbol: "",
-            name: "",
-            uri: "http://example.host.com/"
+            name: ""
         });
 
         uint256 srcChainId = block.chainid;
         vm.chainId(destChainId);
+
+        string[] memory tokenUris = new string[](1);
+        tokenUris[0] = "http://example.host.com/1.json";
 
         destChainIdBridge.sendReceiveERC1155ToERC1155Vault(
             ctoken,
@@ -504,6 +515,7 @@ contract ERC1155VaultTest is Test {
             Alice,
             tokenIds,
             amounts,
+            tokenUris,
             bytes32(0),
             address(erc1155Vault),
             srcChainId
@@ -527,7 +539,6 @@ contract ERC1155VaultTest is Test {
             destChainId,
             Alice,
             address(ctoken1155),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -549,6 +560,7 @@ contract ERC1155VaultTest is Test {
             Alice,
             tokenIds,
             amounts,
+            tokenUris,
             bytes32(0),
             address(erc1155Vault),
             srcChainId
@@ -580,7 +592,6 @@ contract ERC1155VaultTest is Test {
             destChainId,
             Alice,
             address(ctoken1155),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -650,7 +661,6 @@ contract ERC1155VaultTest is Test {
             destChainId,
             Alice,
             address(ctoken1155),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -671,12 +681,15 @@ contract ERC1155VaultTest is Test {
             chainId: 31_337,
             addr: address(ctoken1155),
             symbol: "",
-            name: "",
-            uri: "http://example.host.com/"
+            name: ""
         });
 
         uint256 srcChainId = block.chainid;
         vm.chainId(destChainId);
+
+        string[] memory tokenUris = new string[](2);
+        tokenUris[0] = "http://example.host.com/1.json";
+        tokenUris[1] = "http://example.host.com/2.json";
 
         destChainIdBridge.sendReceiveERC1155ToERC1155Vault(
             ctoken,
@@ -684,6 +697,7 @@ contract ERC1155VaultTest is Test {
             Alice,
             tokenIds,
             amounts,
+            tokenUris,
             bytes32(0),
             address(erc1155Vault),
             srcChainId

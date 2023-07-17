@@ -69,9 +69,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 
         IBridge.Message memory message;
         message.destChainId = opt.destChainId;
-
         message.data = _sendToken({ owner: msg.sender, opt: opt });
-
         message.owner = msg.sender;
         message.to = resolve(message.destChainId, "erc1155_vault", false);
         message.gasLimit = opt.gasLimit;
@@ -105,13 +103,15 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
      * @param to The destination address.
      * @param tokenIds The tokenIds to be sent.
      * @param amounts The amounts to be sent.
+     * @param uris The uris per respective token.
      */
     function receiveToken(
         CanonicalNFT calldata ctoken,
         address from,
         address to,
         uint256[] memory tokenIds,
-        uint256[] memory amounts
+        uint256[] memory amounts,
+        string[] memory uris
     )
         external
         nonReentrant
@@ -131,7 +131,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             token = _getOrDeployBridgedToken(ctoken);
 
             for (uint256 i; i < tokenIds.length; ++i) {
-                BridgedERC1155(token).mint(to, tokenIds[i], amounts[i]);
+                BridgedERC1155(token).mint(to, tokenIds[i], amounts[i], uris[i]);
             }
         }
 
@@ -163,7 +163,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             ,
             ,
             uint256[] memory tokenIds,
-            uint256[] memory amounts
+            uint256[] memory amounts,
+            string[] memory uris
         ) = decodeTokenData(message.data);
 
         bytes32 msgHash = hashAndMarkMsgReleased(message, proof, nft.addr);
@@ -171,7 +172,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         if (isBridgedToken[nft.addr]) {
             for (uint256 i; i < tokenIds.length; i++) {
                 BridgedERC1155(nft.addr).mint(
-                    message.owner, tokenIds[i], amounts[i]
+                    message.owner, tokenIds[i], amounts[i], uris[i]
                 );
             }
         } else {
@@ -227,6 +228,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
      * @return to The to address messages sent to
      * @return tokenIds The tokenIds
      * @return amounts The amount per respective ERC1155 tokenid
+     * @return uris The uris per respective ERC1155 tokenid
      */
     function decodeTokenData(bytes memory dataWithSelector)
         public
@@ -236,12 +238,13 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             address owner,
             address to,
             uint256[] memory tokenIds,
-            uint256[] memory amounts
+            uint256[] memory amounts,
+            string[] memory uris
         )
     {
         return abi.decode(
             _extractCalldata(dataWithSelector),
-            (CanonicalNFT, address, address, uint256[], uint256[])
+            (CanonicalNFT, address, address, uint256[], uint256[], string[])
         );
     }
 
@@ -255,6 +258,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         bool isBridgedToken = isBridgedToken[opt.token];
 
         CanonicalNFT memory nft = bridgedToCanonical[opt.token];
+        string[] memory tokenURIs = new string[](opt.tokenIds.length);
 
         // is a btoken, meaning, it does not live on this chain
         if (isBridgedToken) {
@@ -263,6 +267,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                     owner, opt.tokenIds[i], opt.amounts[i]
                 );
             }
+            // We dont need this array when bridged
+            tokenURIs = new string[](0);
         } else {
             // is a ctoken token, meaning, it lives on this chain
             ERC1155Upgradeable t = ERC1155Upgradeable(opt.token);
@@ -280,10 +286,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                 chainId: block.chainid,
                 addr: opt.token,
                 symbol: symbol,
-                name: name,
-                uri: opt.baseTokenUri // TODO(dani):from user? Please see my
-                    // design props/questions ERC721Vault line 56.
-             });
+                name: name
+            });
 
             for (uint256 i; i < opt.tokenIds.length; i++) {
                 t.safeTransferFrom(
@@ -293,6 +297,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                     opt.amounts[i],
                     ""
                 );
+
+                tokenURIs[i] = ERC1155Upgradeable(t).uri(opt.tokenIds[i]);
             }
         }
 
@@ -302,7 +308,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             owner,
             opt.to,
             opt.tokenIds,
-            opt.amounts
+            opt.amounts,
+            tokenURIs
         );
     }
 
@@ -340,8 +347,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             _srcToken: ctoken.addr,
             _srcChainId: ctoken.chainId,
             _name: ctoken.name,
-            _symbol: ctoken.symbol,
-            _uri: ctoken.uri
+            _symbol: ctoken.symbol
         });
 
         isBridgedToken[btoken] = true;
