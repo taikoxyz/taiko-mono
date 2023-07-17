@@ -16,7 +16,6 @@ import { ICrossChainSync } from "../contracts/common/ICrossChainSync.sol";
 import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import { BaseVault } from "../contracts/tokenvault/BaseVault.sol";
 
-// Template canonical erc721 token
 contract TestTokenERC721 is ERC721 {
     string _baseTokenURI;
     uint256 minted;

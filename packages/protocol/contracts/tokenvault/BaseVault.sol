@@ -11,6 +11,10 @@ import { IBridge } from "../bridge/IBridge.sol";
 import { AddressResolver } from "../common/AddressResolver.sol";
 
 abstract contract BaseVault is EssentialContract {
+    // Released message hashes
+    mapping(bytes32 msgHash => bool released) public releasedMessages;
+    uint256[49] private __gap;
+
     error VAULT_INIT_PARAM_ERROR();
     /**
      * Thrown when the `to` address in an operation is invalid.
@@ -46,7 +50,7 @@ abstract contract BaseVault is EssentialContract {
     error VAULT_INVALID_SRC_CHAIN_ID();
 
     /**
-     * Thrown when the interface (erc1155/erc721) is not supported.
+     * Thrown when the interface (ERC1155/ERC721) is not supported.
      */
     error VAULT_INTERFACE_NOT_SUPPORTED();
 
@@ -68,9 +72,6 @@ abstract contract BaseVault is EssentialContract {
      * source chain.
      */
     error VAULT_INVALID_SENDER();
-
-    // Released message hashes
-    mapping(bytes32 msgHash => bool released) releasedMessages;
 
     modifier onlyValidAddresses(
         uint256 chainId,

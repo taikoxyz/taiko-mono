@@ -59,18 +59,17 @@ contract ERC20Vault is BaseVault {
                             STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
 
-    // Tracks if a token on the current chain is a canonical or bridged token.
+    // Tracks if a token on the current chain is a canonical or btoken.
     mapping(address tokenAddress => bool isBridged) public isBridgedToken;
 
-    // Mappings from bridged tokens to their canonical tokens.
-    mapping(address bridgedAddress => CanonicalERC20 canonicalErc20) public
+    // Mappings from btokens to their canonical tokens.
+    mapping(address btoken => CanonicalERC20 canonicalErc20) public
         bridgedToCanonical;
 
-    // Mappings from canonical tokens to their bridged tokens.
+    // Mappings from canonical tokens to their btokens.
     // Also storing chainId for tokens across other chains aside from Ethereum.
     mapping(
-        uint256 chainId
-            => mapping(address canonicalAddress => address bridgedAddress)
+        uint256 chainId => mapping(address canonicalAddress => address btoken)
     ) public canonicalToBridged;
 
     uint256[46] private __gap;
@@ -81,11 +80,11 @@ contract ERC20Vault is BaseVault {
 
     event BridgedTokenDeployed(
         uint256 indexed srcChainId,
-        address indexed canonicalToken,
-        address indexed bridgedToken,
-        string canonicalTokenSymbol,
-        string canonicalTokenName,
-        uint8 canonicalTokenDecimal
+        address indexed ctoken,
+        address indexed btoken,
+        string ctokenSymbol,
+        string ctokenName,
+        uint8 ctokenDecimal
     );
 
     event TokenSent(
@@ -179,14 +178,14 @@ contract ERC20Vault is BaseVault {
      * invoking a message call. See sendToken, which sets the data to invoke
      * this function.
      *
-     * @param canonicalToken The canonical ERC20 token which may or may not
+     * @param ctoken The canonical ERC20 token which may or may not
      * live on this chain. If not, a BridgedERC20 contract will be deployed.
      * @param from The source address.
      * @param to The destination address.
      * @param amount The amount of tokens to be sent. 0 is a valid value.
      */
     function receiveToken(
-        CanonicalERC20 calldata canonicalToken,
+        CanonicalERC20 calldata ctoken,
         address from,
         address to,
         uint256 amount
@@ -198,15 +197,15 @@ contract ERC20Vault is BaseVault {
         IBridge.Context memory ctx = _checkValidContext("erc20_vault");
 
         address token;
-        if (canonicalToken.chainId == block.chainid) {
-            token = canonicalToken.addr;
+        if (ctoken.chainId == block.chainid) {
+            token = ctoken.addr;
             if (token == resolve("taiko_token", true)) {
                 IMintableERC20(token).mint(to, amount);
             } else {
                 ERC20Upgradeable(token).safeTransfer(to, amount);
             }
         } else {
-            token = _getOrDeployBridgedToken(canonicalToken);
+            token = _getOrDeployBridgedToken(ctoken);
             IMintableERC20(token).mint(to, amount);
         }
 
@@ -304,18 +303,18 @@ contract ERC20Vault is BaseVault {
         private
         returns (bytes memory data, uint256 _amount)
     {
-        CanonicalERC20 memory canonicalToken;
+        CanonicalERC20 memory ctoken;
 
-        // is a bridged token, meaning, it does not live on this chain
+        // is a btoken, meaning, it does not live on this chain
         if (isBridgedToken[token]) {
-            canonicalToken = bridgedToCanonical[token];
-            assert(canonicalToken.addr != address(0));
+            ctoken = bridgedToCanonical[token];
+            assert(ctoken.addr != address(0));
             IMintableERC20(token).burn(msg.sender, amount);
             _amount = amount;
         } else {
             // is a canonical token, meaning, it lives on this chain
             ERC20Upgradeable t = ERC20Upgradeable(token);
-            canonicalToken = CanonicalERC20({
+            ctoken = CanonicalERC20({
                 chainId: block.chainid,
                 addr: token,
                 decimals: t.decimals(),
@@ -334,71 +333,68 @@ contract ERC20Vault is BaseVault {
         }
 
         data = abi.encodeWithSelector(
-            ERC20Vault.receiveToken.selector, canonicalToken, owner, to, _amount
+            ERC20Vault.receiveToken.selector, ctoken, owner, to, _amount
         );
     }
 
     /**
-     * Internal function to get or deploy bridged token
-     * @param canonicalToken Canonical token information
-     * @return bridgedToken Address of the deployed bridged token
+     * Internal function to get or deploy btoken
+     * @param ctoken Canonical token information
+     * @return btoken Address of the deployed btoken
      */
-    function _getOrDeployBridgedToken(CanonicalERC20 calldata canonicalToken)
+    function _getOrDeployBridgedToken(CanonicalERC20 calldata ctoken)
         private
-        returns (address bridgedToken)
+        returns (address btoken)
     {
-        bridgedToken =
-            canonicalToBridged[canonicalToken.chainId][canonicalToken.addr];
+        btoken = canonicalToBridged[ctoken.chainId][ctoken.addr];
 
-        if (bridgedToken == address(0)) {
-            bridgedToken = _deployBridgedToken(canonicalToken);
+        if (btoken == address(0)) {
+            btoken = _deployBridgedToken(ctoken);
         }
     }
 
     /**
      * Internal function to deploy a new BridgedERC20 contract and initializes
      * it.
-     * This must be called before the first time a bridged token is sent to this
+     * This must be called before the first time a btoken is sent to this
      * chain.
-     * @param canonicalToken Canonical token information
-     * @return bridgedToken Address of the newly deployed bridged token
+     * @param ctoken Canonical token information
+     * @return btoken Address of the newly deployed btoken
      */
-    function _deployBridgedToken(CanonicalERC20 calldata canonicalToken)
+    function _deployBridgedToken(CanonicalERC20 calldata ctoken)
         private
-        returns (address bridgedToken)
+        returns (address btoken)
     {
-        bridgedToken = Create2Upgradeable.deploy({
+        btoken = Create2Upgradeable.deploy({
             amount: 0, // amount of Ether to send
             salt: keccak256(
                 bytes.concat(
-                    bytes32(canonicalToken.chainId),
-                    bytes32(uint256(uint160(canonicalToken.addr)))
+                    bytes32(ctoken.chainId), bytes32(uint256(uint160(ctoken.addr)))
                 )
                 ),
             bytecode: type(BridgedERC20).creationCode
         });
 
-        BridgedERC20(payable(bridgedToken)).init({
+        BridgedERC20(payable(btoken)).init({
             _addressManager: address(_addressManager),
-            _srcToken: canonicalToken.addr,
-            _srcChainId: canonicalToken.chainId,
-            _decimals: canonicalToken.decimals,
-            _symbol: canonicalToken.symbol,
-            _name: canonicalToken.name
+            _srcToken: ctoken.addr,
+            _srcChainId: ctoken.chainId,
+            _decimals: ctoken.decimals,
+            _symbol: ctoken.symbol,
+            _name: ctoken.name
         });
 
-        isBridgedToken[bridgedToken] = true;
-        bridgedToCanonical[bridgedToken] = canonicalToken;
-        canonicalToBridged[canonicalToken.chainId][canonicalToken.addr] =
-            bridgedToken;
+        isBridgedToken[btoken] = true;
+        bridgedToCanonical[btoken] = ctoken;
+        canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
 
         emit BridgedTokenDeployed({
-            srcChainId: canonicalToken.chainId,
-            canonicalToken: canonicalToken.addr,
-            bridgedToken: bridgedToken,
-            canonicalTokenSymbol: canonicalToken.symbol,
-            canonicalTokenName: canonicalToken.name,
-            canonicalTokenDecimal: canonicalToken.decimals
+            srcChainId: ctoken.chainId,
+            ctoken: ctoken.addr,
+            btoken: btoken,
+            ctokenSymbol: ctoken.symbol,
+            ctokenName: ctoken.name,
+            ctokenDecimal: ctoken.decimals
         });
     }
 }
