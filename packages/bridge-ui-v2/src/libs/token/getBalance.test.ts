@@ -43,7 +43,7 @@ describe('getBalance', () => {
   it('should return the balance of ETH', async () => {
     vi.mocked(fetchBalance).mockResolvedValueOnce(mockBalanceForETH);
 
-    const balance = await getBalance(ETHToken, mockWalletClient.account.address);
+    const balance = await getBalance({ token: ETHToken, userAddress: mockWalletClient.account.address });
 
     expect(balance).toEqual(mockBalanceForETH);
     expect(getAddress).not.toHaveBeenCalled();
@@ -54,13 +54,21 @@ describe('getBalance', () => {
     vi.mocked(getAddress).mockResolvedValueOnce(BLLToken.addresses[PUBLIC_L1_CHAIN_ID]);
     vi.mocked(fetchBalance).mockResolvedValueOnce(mockBalanceForBLL);
 
-    const balance = await getBalance(BLLToken, mockWalletClient.account.address, +PUBLIC_L1_CHAIN_ID);
+    const balance = await getBalance({
+      token: BLLToken,
+      userAddress: mockWalletClient.account.address,
+      chainId: Number(PUBLIC_L1_CHAIN_ID),
+    });
 
     expect(balance).toEqual(mockBalanceForBLL);
-    expect(getAddress).toHaveBeenCalledWith(BLLToken, +PUBLIC_L1_CHAIN_ID, undefined);
+    expect(getAddress).toHaveBeenCalledWith({
+      token: BLLToken,
+      chainId: Number(PUBLIC_L1_CHAIN_ID),
+      destChainId: undefined,
+    });
     expect(fetchBalance).toHaveBeenCalledWith({
       address: mockWalletClient.account.address,
-      chainId: +PUBLIC_L1_CHAIN_ID,
+      chainId: Number(PUBLIC_L1_CHAIN_ID),
       token: BLLToken.addresses[PUBLIC_L1_CHAIN_ID],
     });
   });
@@ -68,10 +76,18 @@ describe('getBalance', () => {
   it('should return null if the token address is not found', async () => {
     vi.mocked(getAddress).mockResolvedValueOnce(zeroAddress);
 
-    const balance = await getBalance(BLLToken, mockWalletClient.account.address, +PUBLIC_L1_CHAIN_ID);
+    const balance = await getBalance({
+      token: BLLToken,
+      userAddress: mockWalletClient.account.address,
+      chainId: Number(PUBLIC_L1_CHAIN_ID),
+    });
 
     expect(balance).toBeNull();
-    expect(getAddress).toHaveBeenCalledWith(BLLToken, +PUBLIC_L1_CHAIN_ID, undefined);
+    expect(getAddress).toHaveBeenCalledWith({
+      token: BLLToken,
+      chainId: Number(PUBLIC_L1_CHAIN_ID),
+      destChainId: undefined,
+    });
     expect(fetchBalance).not.toHaveBeenCalled();
   });
 });
