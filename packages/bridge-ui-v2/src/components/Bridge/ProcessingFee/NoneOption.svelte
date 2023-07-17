@@ -1,8 +1,9 @@
 <script lang="ts">
+  import type { Address } from 'abitype';
+
   import { recommendProcessingFee } from '$libs/fee';
   import { getBalance, type Token } from '$libs/token';
-  import { network, account } from '$stores';
-  import type { Address } from 'abitype';
+  import { account,network } from '$stores';
 
   import { destNetwork, selectedToken } from '../state';
 

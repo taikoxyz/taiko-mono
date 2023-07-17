@@ -3,6 +3,7 @@
   import { t } from 'svelte-i18n';
   import { formatEther } from 'viem';
 
+  import { Alert } from '$components/Alert';
   import { Icon } from '$components/Icon';
   import { InputBox } from '$components/InputBox';
   import LoadingText from '$components/LoadingText/LoadingText.svelte';
@@ -12,9 +13,8 @@
   import { uid } from '$libs/util/uid';
 
   import { processingFee } from '../state';
-  import RecommendedAmount from './RecommendedAmount.svelte';
-  import { Alert } from '$components/Alert';
   import NoneOption from './NoneOption.svelte';
+  import RecommendedAmount from './RecommendedAmount.svelte';
 
   let dialogId = `dialog-${uid()}`;
   let selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
