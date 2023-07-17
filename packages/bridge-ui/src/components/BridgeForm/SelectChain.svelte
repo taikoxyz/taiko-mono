@@ -3,7 +3,7 @@
   import { ArrowRight } from 'svelte-heros-v2';
   import { UserRejectedRequestError } from 'wagmi';
 
-  import { mainnetChain, taikoChain } from '../../chain/chains';
+  import { L1Chain, L2Chain } from '../../chain/chains';
   import { destChain, srcChain } from '../../store/chain';
   import { signer } from '../../store/signer';
   import { pendingTransactions } from '../../store/transaction';
@@ -20,7 +20,7 @@
       return;
     }
 
-    const chain = $srcChain === mainnetChain ? taikoChain : mainnetChain;
+    const chain = $srcChain === L1Chain ? L2Chain : L1Chain;
 
     try {
       await switchNetwork(chain.id);
@@ -52,8 +52,8 @@
       <svelte:component this={$srcChain.icon} />
       <span class="ml-2">{$srcChain.name}</span>
     {:else}
-      <svelte:component this={mainnetChain.icon} />
-      <span class="ml-2">{mainnetChain.name}</span>
+      <svelte:component this={L1Chain.icon} />
+      <span class="ml-2">{L1Chain.name}</span>
     {/if}
   </div>
 
@@ -69,8 +69,8 @@
       <svelte:component this={$destChain.icon} />
       <span class="ml-2">{$destChain.name}</span>
     {:else}
-      <svelte:component this={taikoChain.icon} />
-      <span class="ml-2">{taikoChain.name}</span>
+      <svelte:component this={L2Chain.icon} />
+      <span class="ml-2">{L2Chain.name}</span>
     {/if}
   </div>
 </div>
