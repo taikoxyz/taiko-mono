@@ -50,7 +50,7 @@
     <span class="font-normal flex-1 text-left mr-2">
       {#if $srcChain}
         <span class="flex items-center">
-          <svelte:component this={$srcChain.icon} />
+          <img src={$srcChain.iconUrl} alt={$srcChain.name} />
           <span class="ml-2 hidden md:inline-block">{$srcChain.name}</span>
         </span>
       {:else}
@@ -70,7 +70,7 @@
       <button
         class="flex items-center px-2 py-4 hover:bg-dark-5 rounded-sm"
         on:click={() => switchChains(L1Chain)}>
-        <svelte:component this={L1Chain.icon} height={24} />
+        <img src={L1Chain.iconUrl} alt={L1Chain.name} height={24} />
         <span class="pl-1.5 text-left flex-1">{L1Chain.name}</span>
       </button>
     </li>
@@ -78,7 +78,7 @@
       <button
         class="flex items-center px-2 py-4 hover:bg-dark-5 rounded-sm"
         on:click={() => switchChains(L2Chain)}>
-        <svelte:component this={L2Chain.icon} height={24} />
+        <img src={L2Chain.iconUrl} alt={L2Chain.name} height={24} />
         <span class="pl-1.5 text-left flex-1">{L2Chain.name}</span>
       </button>
     </li>

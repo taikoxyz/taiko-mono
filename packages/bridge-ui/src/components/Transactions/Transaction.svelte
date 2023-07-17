@@ -385,13 +385,21 @@
 <tr>
   <td>
     <div class="flex items-center">
-      <svelte:component this={txFromChain.icon} height={18} width={18} />
+      <img
+        src={txFromChain.iconUrl}
+        alt={txFromChain.name}
+        height={18}
+        width={18} />
       <span class="ml-2 hidden md:inline-block">{txFromChain.name}</span>
     </div>
   </td>
   <td>
     <div class="flex items-center">
-      <svelte:component this={txToChain.icon} height={18} width={18} />
+      <img
+        src={txToChain.iconUrl}
+        alt={txToChain.name}
+        height={18}
+        width={18} />
       <span class="ml-2 hidden md:inline-block">{txToChain.name}</span>
     </div>
   </td>

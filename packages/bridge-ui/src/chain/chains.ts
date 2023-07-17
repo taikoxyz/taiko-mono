@@ -25,23 +25,12 @@ import {
 } from '../constants/envVars';
 import type { Chain, ChainID } from '../domain/chain';
 
-// TODO: in the future the whole URL will come from env var,
-//       so we won't need any mapping
-const chainIcons = {
-  'sepolia': Eth,
-  'taiko': TKO,
-  'eldfell': Eldfell,
-  'l1': Sepolia,
-  'l2': Taiko,
-  'l3': Eldfell,
-};
-
 export const L1Chain: Chain = {
   id: L1_CHAIN_ID,
   name: L1_CHAIN_NAME,
   rpc: L1_RPC,
   enabled: true,
-  icon: chainIcons[L1_CHAIN_ICON.toLowerCase()] || Sepolia,
+  iconUrl: L1_CHAIN_ICON,
   bridgeAddress: L1_BRIDGE_ADDRESS,
   crossChainSyncAddress: L1_CROSS_CHAIN_SYNC_ADDRESS,
   explorerUrl: L1_EXPLORER_URL,
@@ -53,7 +42,7 @@ export const L2Chain: Chain = {
   name: L2_CHAIN_NAME,
   rpc: L2_RPC,
   enabled: true,
-  icon: chainIcons[L2_CHAIN_ICON.toLowerCase()] || Taiko,
+  iconUrl: L2_CHAIN_ICON,
   bridgeAddress: L2_BRIDGE_ADDRESS,
   crossChainSyncAddress: L2_CROSS_CHAIN_SYNC_ADDRESS,
   explorerUrl: L2_EXPLORER_URL,

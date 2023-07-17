@@ -49,10 +49,10 @@
   class="flex items-center justify-between w-full px-4 md:px-7 py-6 text-sm md:text-lg">
   <div class="flex items-center w-2/5 justify-center">
     {#if $srcChain}
-      <svelte:component this={$srcChain.icon} />
+      <img src={$srcChain.iconUrl} alt={$srcChain.name} />
       <span class="ml-2">{$srcChain.name}</span>
     {:else}
-      <svelte:component this={L1Chain.icon} />
+      <img src={L1Chain.iconUrl} alt={L1Chain.name} />
       <span class="ml-2">{L1Chain.name}</span>
     {/if}
   </div>
@@ -66,10 +66,10 @@
 
   <div class="flex items-center w-2/5 justify-center">
     {#if $destChain}
-      <svelte:component this={$destChain.icon} />
+      <img src={$destChain.iconUrl} alt={$destChain.name} />
       <span class="ml-2">{$destChain.name}</span>
     {:else}
-      <svelte:component this={L2Chain.icon} />
+      <img src={L2Chain.iconUrl} alt={L2Chain.name} />
       <span class="ml-2">{L2Chain.name}</span>
     {/if}
   </div>
