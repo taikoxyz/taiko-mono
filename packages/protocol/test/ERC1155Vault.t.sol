@@ -240,7 +240,6 @@ contract ERC1155VaultTest is Test {
             destChainId,
             Alice,
             address(ctoken1155),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -260,8 +259,7 @@ contract ERC1155VaultTest is Test {
             chainId: 31_337,
             addr: 0x579FBFF1A9b1502688169DA761DcF262b73BB64A,
             symbol: "",
-            name: "",
-            uri: "http://example.host.com/"
+            name: ""
         });
 
         uint256[] memory tokenIds = new uint256[](1);
@@ -289,7 +287,6 @@ contract ERC1155VaultTest is Test {
 
         assertEq("", nftRetVal.symbol);
         assertEq("", nftRetVal.name);
-        assertEq("http://example.host.com/", nftRetVal.uri);
     }
 
     function test_sendToken_with_invalid_to_address_1155() public {
@@ -310,7 +307,6 @@ contract ERC1155VaultTest is Test {
             destChainId,
             address(0),
             address(ctoken1155),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -341,7 +337,6 @@ contract ERC1155VaultTest is Test {
             destChainId,
             Alice,
             address(0),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -372,7 +367,6 @@ contract ERC1155VaultTest is Test {
             destChainId,
             Alice,
             address(ctoken1155),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -406,7 +400,6 @@ contract ERC1155VaultTest is Test {
             destChainId,
             Alice,
             address(ctoken1155),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -425,8 +418,7 @@ contract ERC1155VaultTest is Test {
             chainId: 31_337,
             addr: address(ctoken1155),
             symbol: "",
-            name: "",
-            uri: "http://example.host.com/"
+            name: ""
         });
 
         uint256 srcChainId = block.chainid;
@@ -473,7 +465,6 @@ contract ERC1155VaultTest is Test {
             destChainId,
             Alice,
             address(ctoken1155),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -491,8 +482,7 @@ contract ERC1155VaultTest is Test {
             chainId: 31_337,
             addr: address(ctoken1155),
             symbol: "",
-            name: "",
-            uri: "http://example.host.com/"
+            name: ""
         });
 
         uint256 srcChainId = block.chainid;
@@ -527,7 +517,6 @@ contract ERC1155VaultTest is Test {
             destChainId,
             Alice,
             address(ctoken1155),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -580,7 +569,6 @@ contract ERC1155VaultTest is Test {
             destChainId,
             Alice,
             address(ctoken1155),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -650,7 +638,6 @@ contract ERC1155VaultTest is Test {
             destChainId,
             Alice,
             address(ctoken1155),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -671,8 +658,7 @@ contract ERC1155VaultTest is Test {
             chainId: 31_337,
             addr: address(ctoken1155),
             symbol: "",
-            name: "",
-            uri: "http://example.host.com/"
+            name: ""
         });
 
         uint256 srcChainId = block.chainid;

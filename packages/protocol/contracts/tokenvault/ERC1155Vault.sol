@@ -280,10 +280,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                 chainId: block.chainid,
                 addr: opt.token,
                 symbol: symbol,
-                name: name,
-                uri: opt.baseTokenUri // TODO(dani):from user? Please see my
-                    // design props/questions ERC721Vault line 56.
-             });
+                name: name
+            });
 
             for (uint256 i; i < opt.tokenIds.length; i++) {
                 t.safeTransferFrom(
@@ -340,8 +338,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             _srcToken: ctoken.addr,
             _srcChainId: ctoken.chainId,
             _name: ctoken.name,
-            _symbol: ctoken.symbol,
-            _uri: ctoken.uri
+            _symbol: ctoken.symbol
         });
 
         isBridgedToken[btoken] = true;

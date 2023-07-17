@@ -107,11 +107,11 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
 
     function tokenURI(uint256)
         public
-        view
+        pure
         virtual
         override
         returns (string memory)
     {
-        return "unknown";
+        return "<null>";
     }
 }

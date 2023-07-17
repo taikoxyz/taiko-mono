@@ -28,9 +28,8 @@ contract BridgedERC1155 is
     uint256 public srcChainId;
     string public name;
     string public symbol;
-    string private _srcUri;
 
-    uint256[47] private __gap;
+    uint256[46] private __gap;
 
     event Transfer(
         address indexed from,
@@ -50,8 +49,7 @@ contract BridgedERC1155 is
         address _srcToken,
         uint256 _srcChainId,
         string memory _symbol,
-        string memory _name,
-        string memory _uri
+        string memory _name
     )
         external
         initializer
@@ -63,10 +61,9 @@ contract BridgedERC1155 is
             revert BRIDGED_TOKEN_INVALID_PARAMS();
         }
         EssentialContract._init(_addressManager);
-        __ERC1155_init(_uri);
+        __ERC1155_init("<null>");
         srcToken = _srcToken;
         srcChainId = _srcChainId;
-        _srcUri = _uri;
         // name and symbol can be "" intentionally, so check
         // not required (not part of the ERC1155 standard).
         name = _name;
@@ -117,21 +114,5 @@ contract BridgedERC1155 is
         }
         return
             ERC1155Upgradeable.safeTransferFrom(from, to, tokenId, amount, data);
-    }
-
-    /// @dev returns the srcToken being bridged and the srcChainId
-    // of the tokens being bridged
-    function source() public view returns (address, uint256) {
-        return (srcToken, srcChainId);
-    }
-
-    function uri(uint256)
-        public
-        view
-        virtual
-        override(ERC1155Upgradeable, IERC1155MetadataURIUpgradeable)
-        returns (string memory)
-    {
-        return _srcUri;
     }
 }

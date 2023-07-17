@@ -258,7 +258,6 @@ contract ERC721VaultTest is Test {
             destChainId,
             Alice,
             address(canonicalToken721),
-            "http://example.host.com/",
             tokenIds,
             amounts, // With ERC721 still need to specify 1
             140_000,
@@ -278,8 +277,7 @@ contract ERC721VaultTest is Test {
             chainId: 31_337,
             addr: 0x579FBFF1A9b1502688169DA761DcF262b73BB64A,
             symbol: "TT",
-            name: "TT",
-            uri: "http://example.host.com/"
+            name: "TT"
         });
 
         uint256[] memory tokenIds = new uint256[](1);
@@ -302,7 +300,6 @@ contract ERC721VaultTest is Test {
 
         assertEq("TT", nftRetVal.symbol);
         assertEq("TT", nftRetVal.name);
-        assertEq("http://example.host.com/", nftRetVal.uri);
     }
 
     function test_sendToken_with_invalid_to_address_721() public {
@@ -322,7 +319,6 @@ contract ERC721VaultTest is Test {
             destChainId,
             address(0),
             address(canonicalToken721),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -351,7 +347,6 @@ contract ERC721VaultTest is Test {
             destChainId,
             Alice,
             address(0),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -382,7 +377,6 @@ contract ERC721VaultTest is Test {
             destChainId,
             Alice,
             address(canonicalToken721),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -415,7 +409,6 @@ contract ERC721VaultTest is Test {
             destChainId,
             Alice,
             address(canonicalToken721),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -433,8 +426,7 @@ contract ERC721VaultTest is Test {
             chainId: 31_337,
             addr: address(canonicalToken721),
             symbol: "TT",
-            name: "TT",
-            uri: "http://example.host.com/"
+            name: "TT"
         });
 
         uint256 chainId = block.chainid;
@@ -480,7 +472,6 @@ contract ERC721VaultTest is Test {
             destChainId,
             Alice,
             address(canonicalToken721),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -501,8 +492,7 @@ contract ERC721VaultTest is Test {
             chainId: 31_337,
             addr: address(canonicalToken721),
             symbol: "TT",
-            name: "TT",
-            uri: "http://example.host.com/"
+            name: "TT"
         });
 
         uint256 chainId = block.chainid;
@@ -537,7 +527,6 @@ contract ERC721VaultTest is Test {
             destChainId,
             Alice,
             address(canonicalToken721),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -587,7 +576,6 @@ contract ERC721VaultTest is Test {
             destChainId,
             Alice,
             address(canonicalToken721),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -654,7 +642,6 @@ contract ERC721VaultTest is Test {
             destChainId,
             Alice,
             address(canonicalToken721),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -673,8 +660,7 @@ contract ERC721VaultTest is Test {
             chainId: 31_337,
             addr: address(canonicalToken721),
             symbol: "TT",
-            name: "TT",
-            uri: "http://example.host.com/"
+            name: "TT"
         });
 
         uint256 srcChainId = block.chainid;
