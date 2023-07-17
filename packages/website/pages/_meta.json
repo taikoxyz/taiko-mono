@@ -66,6 +66,11 @@
         "href": "https://explorer.l3test.taiko.xyz",
         "newWindow": true
       },
+      "staking-dashboard": {
+        "title": "Staking dashboard",
+        "href": "https://staking.l3test.taiko.xyz",
+        "newWindow": true
+      },
       "uptime": {
         "title": "Uptime ↗",
         "href": "https://status.taiko.xyz",
