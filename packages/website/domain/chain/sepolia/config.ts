@@ -29,41 +29,41 @@ export const SEPOLIA_CONFIG = {
     addressManager: {
       name: "AddressManager",
       address: {
-        proxy: "0xAC9251ee97Ed8beF31706354310C6b020C35d87b",
-        implementation: "0xA4b744c9f38B8822F217206373Ca6eed142F20BB",
+        proxy: "0xB566C97d37662f8a5843D523bE7806e04b02D99d",
+        implementation: "0x98c5042C5fD3B38F250961546d271760b504278E",
       },
     },
     taikoL1: {
       name: "TaikoL1",
       address: {
-        proxy: "0x4e7c942D51d977459108bA497FDc71ae0Fc54a00",
-        implementation: "0x26Dc222448e28567af82CB6D6DEeeDe337102B2a",
+        proxy: "0x6375394335f34848b850114b66A49D6F47f2cdA8",
+        implementation: "0x07eb4fe3c621393702cee6643af9c728fbac116a",
       },
     },
     tokenVault: {
       name: "TokenVault",
       address: {
-        proxy: "0xD90d8e85d0472eBC61267Ecbba544252b7197452",
-        implementation: "0xCFa53BCa7677040Eb48143d09F42BcA45d76B5e8",
+        proxy: "0xD70506580B5F65e68ed0dbA7B4Ae507641C48197",
+        implementation: "0x90871108691796cee8307C8610Da353F4Ef41774",
       },
     },
     bridge: {
       name: "Bridge",
       address: {
-        proxy: "0x21561e1c1c64e18aB02654F365F3b0f7509d9481",
-        implementation: "0x2c787dF59552bec40B7eEb4449cCb5403ae7B409",
+        proxy: "0x7D992599E1B8b4508Ba6E2Ba97893b4C36C23A28",
+        implementation: "0xd7C538576c78ab62EFE867CffC23F7e722E73A7D",
       },
     },
     signalService: {
       name: "SignalService",
       address: {
-        proxy: "0x5d2a35AC6464596b7aA04fdb69c5aFC37e391dFf",
-        implementation: "0x844b0EC81a737AfF882ff93010613Bb09EcFC0e8",
+        proxy: "0x23baAc3892a823e9E59B85d6c90068474fe60086",
+        implementation: "0x4E0924758cBbe463c58c6F2519086411d084f242",
       },
     },
     plonkVerifier: {
       name: "PlonkVerifier",
-      address: "0x183b0B26120053729B01198fEa2Fc931F1AB4ADd",
+      address: "0xd46eb8cF2b47cd99bdb1dD8C76EEc55ac6eb930E",
     },
     taikoToken: {
       name: "Taiko Token",
