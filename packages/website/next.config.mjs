@@ -1,12 +1,23 @@
-const withNextra = require("nextra")({
+import nextra from "nextra";
+import remarkMdxDisableExplicitJsx from "remark-mdx-disable-explicit-jsx";
+
+const withNextra = nextra({
   defaultShowCopyCode: true,
   latex: true,
   theme: "nextra-theme-docs",
   themeConfig: "./theme.config.tsx",
+  mdxOptions: {
+    remarkPlugins: [
+      [
+        remarkMdxDisableExplicitJsx,
+        { whiteList: ["table", "thead", "tbody", "tr", "th", "td"] },
+      ],
+    ],
+  },
 });
 
 // NOTE: please document the redirects
-module.exports = withNextra({
+export default withNextra({
   async redirects() {
     return [
       // Migrate builder guides to new "Build on Taiko" section

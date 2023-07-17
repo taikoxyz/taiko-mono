@@ -1,26 +1,15 @@
-interface ContractProps {
+interface Contract {
   name: string;
-}
-
-interface ERC20Props {
-  decimals: number;
-  symbol: string;
-}
-
-interface Contract extends ContractProps {
-  address: `0x${string}`;
-}
-
-interface ProxyContract extends ContractProps {
   address: {
-    proxy: `0x${string}`;
-    implementation: `0x${string}`;
+    proxy?: `0x${string}`;
+    impl: `0x${string}`; // implementation
   };
 }
 
-interface ERC20Contract extends Contract, ERC20Props {}
-
-interface ProxyERC20Contract extends ProxyContract, ERC20Props {}
+interface ERC20Contract extends Contract {
+  decimals: number;
+  symbol: string;
+}
 
 // Generic network type
 interface Network {
@@ -66,43 +55,52 @@ interface AddEthereumChainParameter {
 }
 
 // Taiko network types
-interface L1Contracts {
-  addressManager: ProxyContract;
-  taikoL1: ProxyContract;
-  tokenVault: ProxyContract;
-  bridge: ProxyContract;
-  signalService: ProxyContract;
+interface BasedContracts {
+  addressManager: Contract;
+  taikoL1: Contract;
+  tokenVault: Contract;
+  bridge: Contract;
+  signalService: Contract;
   plonkVerifier: Contract;
-  proverPool?: ProxyContract; // optional since it's not present in all alpha versions
-  taikoToken?: ProxyERC20Contract;
-  horseToken?: ERC20Contract;
-  bullToken?: ERC20Contract;
+  proverPool?: Contract; // optional since it's not present in all alpha versions
+  erc20Contracts?: {
+    taikoToken?: ERC20Contract;
+    horseToken?: ERC20Contract;
+    bullToken?: ERC20Contract;
+  };
 }
 
-interface L2Contracts {
+interface RollupContracts {
   taikoL2: Contract;
   tokenVault: Contract;
   etherVault: Contract;
   bridge: Contract;
   signalService: Contract;
-  bridgedTaikoToken: ERC20Contract;
-  bridgedHorseToken: ERC20Contract;
-  bridgedBullToken: ERC20Contract;
+  erc20Contracts: {
+    bridgedTaikoToken: ERC20Contract;
+    bridgedHorseToken: ERC20Contract;
+    bridgedBullToken: ERC20Contract;
+  };
+}
+
+interface OtherContracts {
+  deterministicDeploymentProxy?: Contract;
+  erc4337Entrypoint?: Contract;
 }
 
 interface TaikoL1Alpha3 extends Network {
-  l1Contracts: L1Contracts;
-  otherContracts: readonly Contract[];
+  basedContracts: BasedContracts;
+  otherContracts: OtherContracts;
 }
 
 interface TaikoL1Alpha4 extends Network {
-  l1Contracts: L1Contracts & { proverPool: ProxyContract };
-  otherContracts: readonly Contract[];
+  basedContracts: BasedContracts & { proverPool: Contract };
+  otherContracts: OtherContracts;
 }
 
 interface TaikoL2Alpha3 extends Network {
-  l2Contracts: L2Contracts;
-  otherContracts: readonly Contract[];
+  rollupContracts: RollupContracts;
+  otherContracts: OtherContracts;
 }
 
 type TaikoL2Alpha4 = TaikoL2Alpha3;
@@ -113,4 +111,7 @@ export type {
   TaikoL1Alpha4,
   TaikoL2Alpha3,
   TaikoL2Alpha4,
+  BasedContracts,
+  RollupContracts,
+  OtherContracts,
 };

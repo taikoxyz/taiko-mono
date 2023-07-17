@@ -26,46 +26,64 @@ export const ELDFELL_CONFIG = {
     url: "https://explorer.l3test.taiko.xyz",
   },
   testnet: true,
-  l2Contracts: {
+  rollupContracts: {
     taikoL2: {
       name: "TaikoL2",
-      address: "0x1000777700000000000000000000000000000001",
+      address: {
+        impl: "0x1000777700000000000000000000000000000001",
+      },
     },
     bridge: {
       name: "Bridge",
-      address: "0x1000777700000000000000000000000000000004",
+      address: {
+        impl: "0x1000777700000000000000000000000000000004",
+      },
     },
     tokenVault: {
       name: "TokenVault",
-      address: "0x1000777700000000000000000000000000000002",
+      address: {
+        impl: "0x1000777700000000000000000000000000000002",
+      },
     },
     etherVault: {
       name: "EtherVault",
-      address: "0x1000777700000000000000000000000000000003",
+      address: {
+        impl: "0x1000777700000000000000000000000000000003",
+      },
     },
     signalService: {
       name: "SignalService",
-      address: "0x1000777700000000000000000000000000000007",
+      address: {
+        impl: "0x1000777700000000000000000000000000000007",
+      },
     },
     // Bridged ERC-20 contracts
-    bridgedTaikoToken: {
-      name: "Bridged Taiko Token Eldfell",
-      address: "0x804fade1e0f9b1f5af6bef6c615c9af3af823336",
-      decimals: 8,
-      symbol: "TTKOe",
-    },
-    bridgedHorseToken: {
-      name: "Bridged Bridged Horse Token",
-      address: "0x060b5388daf7e57b52bf5959a9fe8462b88a9b86",
-      decimals: 18,
-      symbol: "HORSE",
-    },
-    bridgedBullToken: {
-      name: "Bridged Bridged Bull Token",
-      address: "0x8fa0a752c585b749a5a8d555cc50a350c93f7693",
-      decimals: 18,
-      symbol: "BLL",
+    erc20Contracts: {
+      bridgedTaikoToken: {
+        name: "Bridged Taiko Token Eldfell",
+        address: {
+          impl: "0x804fade1e0f9b1f5af6bef6c615c9af3af823336",
+        },
+        decimals: 8,
+        symbol: "TTKOe",
+      },
+      bridgedHorseToken: {
+        name: "Bridged Bridged Horse Token",
+        address: {
+          impl: "0x060b5388daf7e57b52bf5959a9fe8462b88a9b86",
+        },
+        decimals: 18,
+        symbol: "HORSE",
+      },
+      bridgedBullToken: {
+        name: "Bridged Bridged Bull Token",
+        address: {
+          impl: "0x8fa0a752c585b749a5a8d555cc50a350c93f7693",
+        },
+        decimals: 18,
+        symbol: "BLL",
+      },
     },
   },
-  otherContracts: [],
+  otherContracts: {},
 } as const satisfies TaikoL2Alpha4;
