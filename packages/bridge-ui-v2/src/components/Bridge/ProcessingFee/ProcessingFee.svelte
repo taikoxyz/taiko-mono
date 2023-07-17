@@ -15,7 +15,7 @@
 
   import { processingFee } from '../state';
   import NoneOption from './NoneOption.svelte';
-  import RecommendedAmount from './RecommendedAmount.svelte';
+  import RecommendedFee from './RecommendedFee.svelte';
 
   let dialogId = `dialog-${uid()}`;
   let selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
@@ -32,6 +32,12 @@
   let customInput: InputBox;
 
   function closeModal() {
+    // Let's check if we are closing with CUSTOM method selected and zero amount entered
+    if (selectedFeeMethod === ProcessingFeeMethod.CUSTOM && $processingFee === BigInt(0)) {
+      // If so, let's switch to RECOMMENDED method
+      selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
+    }
+
     modalOpen = false;
   }
 
@@ -57,11 +63,10 @@
   }
 
   async function updateProcessingFee(method: ProcessingFeeMethod, recommendedAmount: bigint) {
-    // customInput?.clear();
-
     switch (method) {
       case ProcessingFeeMethod.RECOMMENDED:
         $processingFee = recommendedAmount;
+        customInput?.clear();
 
         break;
       case ProcessingFeeMethod.CUSTOM:
@@ -74,6 +79,7 @@
         break;
       case ProcessingFeeMethod.NONE:
         $processingFee = BigInt(0);
+        customInput?.clear();
 
         break;
     }
@@ -82,6 +88,13 @@
   function unselectNoneIfNotEnoughETH(method: ProcessingFeeMethod, enoughEth: boolean) {
     if (method === ProcessingFeeMethod.NONE && !enoughEth) {
       selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
+
+      // We need to manually trigger this update because we are already in an update
+      // cicle, meaning the change above will not start a new one. This is how Svelte
+      // works, batching all the changes and kicking off an update cicle. This could
+      // also prevent infinite loops. It's safe though to call this function because
+      // we're not change state that could potentially end up in an such situation.
+      updateProcessingFee(selectedFeeMethod, recommendedAmount);
     }
   }
 
@@ -209,10 +222,7 @@
   </dialog>
 </div>
 
-<RecommendedAmount
-  bind:amount={recommendedAmount}
-  bind:calculating={calculatingRecommendedAmount}
-  bind:error={errorCalculatingRecommendedAmount} />
+<RecommendedFee bind:amount={recommendedAmount} />
 
 <NoneOption
   bind:enoughEth={hasEnoughEth}

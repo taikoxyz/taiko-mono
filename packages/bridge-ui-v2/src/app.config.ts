@@ -6,4 +6,5 @@ export const recommentProcessingFee = {
 
 export const processingFeeComponent = {
   closingDelayOptionClick: 300,
+  intervalComputeRecommendedFee: 20000,
 };
