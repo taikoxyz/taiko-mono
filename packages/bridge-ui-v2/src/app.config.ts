@@ -3,3 +3,7 @@ export const recommentProcessingFee = {
   erc20NotDeployedGasLimit: BigInt(3100000),
   erc20DeployedGasLimit: BigInt(1100000),
 };
+
+export const processingFeeComponent = {
+  delayOptionClick: 300,
+}

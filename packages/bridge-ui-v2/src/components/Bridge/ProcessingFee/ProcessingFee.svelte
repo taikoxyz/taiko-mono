@@ -15,6 +15,7 @@
   import { processingFee } from '../state';
   import NoneOption from './NoneOption.svelte';
   import RecommendedAmount from './RecommendedAmount.svelte';
+  import { processingFeeComponent } from '$config';
 
   let dialogId = `dialog-${uid()}`;
   let selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
@@ -38,6 +39,10 @@
     modalOpen = true;
   }
 
+  function closeOnOptionClick() {
+    setTimeout(closeModal, processingFeeComponent.delayOptionClick);
+  }
+
   function focusCustomInput() {
     customInput?.focus();
   }
@@ -49,7 +54,7 @@
     $processingFee = parseToWei(input.value);
   }
 
-  async function onSelectedFeeMethodChanged(method: ProcessingFeeMethod, recommendedAmount: bigint) {
+  async function updateProcessingFee(method: ProcessingFeeMethod, recommendedAmount: bigint) {
     // customInput?.clear();
 
     switch (method) {
@@ -72,8 +77,15 @@
     }
   }
 
-  // TODO: how about using a onClick handler instead of this watcher?
-  $: onSelectedFeeMethodChanged(selectedFeeMethod, recommendedAmount);
+  function unselectNoneIfNotEnoughETH(enoughEth: boolean, method: ProcessingFeeMethod) {
+    if (enoughEth && method !== ProcessingFeeMethod.NONE) return;
+
+    selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
+  }
+
+  $: updateProcessingFee(selectedFeeMethod, recommendedAmount);
+
+  // $: unselectNoneIfNotEnoughETH(hasEnoughEth, selectedFeeMethod);
 </script>
 
 <div class="ProcessingFee">
@@ -128,7 +140,7 @@
             value={ProcessingFeeMethod.RECOMMENDED}
             name="processingFeeMethod"
             bind:group={selectedFeeMethod}
-            on:click={closeModal} />
+            on:click={closeOnOptionClick} />
         </li>
 
         <!-- NONE -->
@@ -150,7 +162,7 @@
               value={ProcessingFeeMethod.NONE}
               name="processingFeeMethod"
               bind:group={selectedFeeMethod}
-              on:click={closeModal} />
+              on:click={closeOnOptionClick} />
           </div>
 
           {#if !hasEnoughEth}
@@ -196,7 +208,7 @@
 </div>
 
 <RecommendedAmount
-  bind:value={recommendedAmount}
+  bind:amount={recommendedAmount}
   bind:calculating={calculatingRecommendedAmount}
   bind:error={errorCalculatingRecommendedAmount} />
 

@@ -5,7 +5,7 @@
 
   import { destNetwork, selectedToken } from '../state';
 
-  export let value: bigint;
+  export let amount: bigint;
   export let calculating = false;
   export let error = false;
 
@@ -16,7 +16,7 @@
     error = false;
 
     try {
-      value = await recommendProcessingFee({
+      amount = await recommendProcessingFee({
         token,
         destChainId,
         srcChainId,
