@@ -22,9 +22,6 @@ import { IBridge } from "../bridge/IBridge.sol";
  */
 
 abstract contract BaseNFTVault is BaseVault {
-    bytes4 public constant ERC1155_INTERFACE_ID = 0xd9b67a26;
-    bytes4 public constant ERC721_INTERFACE_ID = 0x80ac58cd;
-
     struct CanonicalNFT {
         uint256 chainId;
         address addr;
@@ -46,6 +43,9 @@ abstract contract BaseNFTVault is BaseVault {
         address refundAddress;
         string memo;
     }
+
+    bytes4 public constant ERC1155_INTERFACE_ID = 0xd9b67a26;
+    bytes4 public constant ERC721_INTERFACE_ID = 0x80ac58cd;
 
     // Tracks if a token on the current chain is a ctoken or btoken.
     mapping(address tokenAddress => bool isBridged) public isBridgedToken;
