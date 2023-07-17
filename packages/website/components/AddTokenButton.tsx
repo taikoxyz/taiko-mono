@@ -40,7 +40,7 @@ async function AddToken(network: AddTokenButtonProps["network"], token: AddToken
 
   const tokenAddress = tokenMap[network][token];
   const tokenSymbol = token;
-  const tokenDecimals = 18;
+  const tokenDecimals = token === "TTKO" ? 8 : 18;
   //   const tokenImage = 'http://placekitten.com/200/300';
 
   if ((window as any).ethereum.chainId != chainMap[network]) {
