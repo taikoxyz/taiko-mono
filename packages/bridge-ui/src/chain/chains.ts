@@ -1,10 +1,5 @@
 import type { Chain as WagmiChain } from 'wagmi';
 
-import Eldfell from '../components/icons/Eldfell.svelte';
-import Eth from '../components/icons/ETH.svelte';
-import Sepolia from '../components/icons/Sepolia.svelte';
-import Taiko from '../components/icons/Taiko.svelte';
-import TKO from '../components/icons/TKO.svelte';
 import {
   L1_BRIDGE_ADDRESS,
   L1_CHAIN_ICON,

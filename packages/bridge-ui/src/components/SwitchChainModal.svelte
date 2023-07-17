@@ -32,16 +32,16 @@
         on:click={async () => {
           await switchChain(L1Chain);
         }}>
-        <svelte:component this={L1Chain.icon} /><span class="ml-2"
-          >{L1Chain.name}</span>
+        <img src={L1Chain.iconUrl} alt={L1Chain.name} />
+        <span class="ml-2">{L1Chain.name}</span>
       </button>
       <button
         class="btn btn-dark-5 h-[60px] text-base"
         on:click={async () => {
           await switchChain(L2Chain);
         }}>
-        <svelte:component this={L2Chain.icon} /><span class="ml-2"
-          >{L2Chain.name}</span>
+        <img src={L2Chain.iconUrl} alt={L2Chain.name} />
+        <span class="ml-2">{L2Chain.name}</span>
       </button>
     </div>
   </div>
