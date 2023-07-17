@@ -7,8 +7,8 @@
   import { truncateString } from '$libs/util/truncateString';
   import { type Account, account } from '$stores/account';
   import { network } from '$stores/network';
-  import { destNetwork } from '../destNetwork';
 
+  import { destNetwork } from '../destNetwork';
   import { selectedToken } from '../selectedToken';
 
   let tokenBalance: Maybe<FetchBalanceResult>;

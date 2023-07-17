@@ -12,8 +12,8 @@
   import type { Token } from '$libs/token';
   import { uid } from '$libs/util/uid';
   import { network } from '$stores/network';
-  import { destNetwork } from '../destNetwork';
 
+  import { destNetwork } from '../destNetwork';
   import { selectedToken } from '../selectedToken';
 
   let dialogId = `dialog-${uid()}`;

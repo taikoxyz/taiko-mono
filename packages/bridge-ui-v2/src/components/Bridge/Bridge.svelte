@@ -6,18 +6,18 @@
   import { ChainSelector } from '$components/ChainSelector';
   import { Icon } from '$components/Icon';
   import { OnAccount } from '$components/OnAccount';
+  import { OnNetwork } from '$components/OnNetwork';
   import { TokenDropdown } from '$components/TokenDropdown';
+  import { chains } from '$libs/chain';
   import { ETHToken, tokens } from '$libs/token';
   import type { Account } from '$stores/account';
-  import { network, type Network } from '$stores/network';
+  import { type Network,network } from '$stores/network';
 
   import { AmountInput } from './AmountInput';
+  import { destNetwork } from './destNetwork';
   import { ProcessingFee } from './ProcessingFee';
   import { RecipientInput } from './RecipientInput';
   import { selectedToken } from './selectedToken';
-  import { destNetwork } from './destNetwork';
-  import { OnNetwork } from '$components/OnNetwork';
-  import { chains } from '$libs/chain';
 
   function onNetworkChange(network: Network) {
     if (network && chains.length === 2) {
