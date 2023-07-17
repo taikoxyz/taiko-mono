@@ -3,13 +3,115 @@ import {
   GRIMSVOTN_CONFIG,
   ELDFELL_CONFIG,
 } from "../../../domain/chain";
-import { NetworkConfigTable } from "components/NetworkConfigTable";
+import { contractAddressToLink } from "../../../utils/contractAddressToLink";
+import Link from "next/link";
+
+{/* TODO: interpolate network names from domain config objects, see: https://github.com/shuding/nextra/issues/2076 */}
 
 # Contract addresses
 
-## Protocol contracts
+**Based contracts** refer to contracts deployed on the base layer, where the rollup relies on for data availability (DA). **Rollup contracts** refer to contracts deployed on the rollup.
 
-**{SEPOLIA_CONFIG.names.mediumName}**
+{/* Sepolia L1 contracts */}
+
+## Sepolia L1
+
+### Based contracts
+
+<br />
+<table>
+  <thead>
+    <tr>
+      <th style={{ textAlign: "left" }}>Name</th>
+      <th style={{ textAlign: "left" }}>Proxy</th>
+      <th style={{ textAlign: "left" }}>Implementation</th>
+    </tr>
+  </thead>
+  <tbody>
+    {Object.keys(SEPOLIA_CONFIG.l1Contracts).map((key) => {
+      const contract = SEPOLIA_CONFIG.l1Contracts[key];
+      const baseUrl = SEPOLIA_CONFIG.blockExplorer.url;
+      const proxyAddress = contract.address.proxy ?? "None";
+      const implementationAddress = contract.address.implementation ?? contract.address;
+      return (
+        <tr key={contract.name}>
+          <td>{contract.name}</td>
+          <td>
+            {proxyAddress === "None"
+              ? "None"
+              : <a href={contractAddressToLink(baseUrl, proxyAddress)}>
+                  Link
+                </a>
+            }
+          </td>
+          <td>
+            <a href={contractAddressToLink(baseUrl, implementationAddress)}>
+              Link
+            </a>
+          </td>
+        </tr>
+      );
+    })}
+  </tbody>
+</table>
+
+### Rollup contracts
+
+None.
+
+### Other contracts
+
+#### ERC-20
+
+TODO
+
+#### Else
+
+None.
+
+{/* Grimsvotn L2 contracts */}
+
+## Grimsvotn L2
+
+### Based contracts
+
+TODO
+
+### Rollup contracts
+
+TODO
+
+### Other contracts
+
+#### ERC-20
+
+TODO
+
+#### Else
+
+TODO
+
+{/* Eldfell L3 contracts */}
+
+## Eldfell L3
+
+### Based contracts
+
+None.
+
+### Rollup contracts
+
+TODO
+
+### Other contracts
+
+#### ERC-20
+
+TODO
+
+#### Else
+
+None.
 
 **table:**
 
