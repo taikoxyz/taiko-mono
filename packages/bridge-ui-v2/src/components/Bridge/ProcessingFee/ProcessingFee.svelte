@@ -6,7 +6,7 @@
   import { Alert } from '$components/Alert';
   import { Icon } from '$components/Icon';
   import { InputBox } from '$components/InputBox';
-  import LoadingText from '$components/LoadingText/LoadingText.svelte';
+  import { LoadingText } from '$components/LoadingText';
   import { Tooltip } from '$components/Tooltip';
   import { ProcessingFeeMethod } from '$libs/fee';
   import { parseToWei } from '$libs/util/parseToWei';

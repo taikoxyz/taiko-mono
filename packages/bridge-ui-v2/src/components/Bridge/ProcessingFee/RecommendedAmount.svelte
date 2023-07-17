@@ -9,7 +9,9 @@
   export let calculating = false;
   export let error = false;
 
-  async function compute(token: Token, srcChainId?: number, destChainId?: number) {
+  async function compute(token: Maybe<Token>, srcChainId?: number, destChainId?: number) {
+    if (!token) return;
+
     calculating = true;
     error = false;
 

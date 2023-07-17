@@ -9,7 +9,7 @@
   let inputId = `input-${uid()}`;
 </script>
 
-<div class="f-col space-y-2">
+<div class="AmountInput f-col space-y-2">
   <div class="f-between-center text-secondary-content">
     <label class="body-regular" for={inputId}>{$t('amount_input.label')}</label>
     <Balance />

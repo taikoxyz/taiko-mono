@@ -3,7 +3,7 @@
 
   import { recommendProcessingFee } from '$libs/fee';
   import { getBalance, type Token } from '$libs/token';
-  import { account,network } from '$stores';
+  import { account, network } from '$stores';
 
   import { destNetwork, selectedToken } from '../state';
 
@@ -11,8 +11,8 @@
   export let calculating = false;
   export let error = false;
 
-  async function compute(token: Token, userAddress?: Address, srcChainId?: number, destChainId?: number) {
-    if (!userAddress || !srcChainId || !destChainId) {
+  async function compute(token: Maybe<Token>, userAddress?: Address, srcChainId?: number, destChainId?: number) {
+    if (!token || !userAddress || !srcChainId || !destChainId) {
       enoughEth = false;
       return;
     }

@@ -4,7 +4,6 @@
   import { Button } from '$components/Button';
   import { Card } from '$components/Card';
   import { ChainSelector } from '$components/ChainSelector';
-  import { Icon } from '$components/Icon';
   import { OnAccount } from '$components/OnAccount';
   import { OnNetwork } from '$components/OnNetwork';
   import { TokenDropdown } from '$components/TokenDropdown';
@@ -17,6 +16,7 @@
   import { ProcessingFee } from './ProcessingFee';
   import { RecipientInput } from './RecipientInput';
   import { destNetwork, selectedToken } from './state';
+  import SwitchChainsButton from './SwitchChainsButton.svelte';
 
   function onNetworkChange(network: Network) {
     if (network && chains.length === 2) {
@@ -28,8 +28,11 @@
   }
 
   function onAccountChange(account: Account) {
-    if (account && account?.isConnected && !$selectedToken) {
+    if (account && account.isConnected && !$selectedToken) {
       $selectedToken = ETHToken;
+    } else if (account && account.isDisconnected) {
+      $selectedToken = null;
+      $destNetwork = null;
     }
   }
 </script>
@@ -45,9 +48,7 @@
       <AmountInput />
 
       <div class="f-justify-center">
-        <button class="f-center rounded-full bg-secondary-icon w-[30px] h-[30px]">
-          <Icon type="up-down" />
-        </button>
+        <SwitchChainsButton />
       </div>
 
       <div class="space-y-2">
