@@ -114,28 +114,19 @@
         prover and enter the top 32.
       </span>
     </div>
-    <div class="form-control">
-      <label class="label" for="ttko-balance" />
-      <span class="label-text"
-        >Your TTKOe Balance: {ethers.utils.formatUnits(
-          ttkoBalanceInWei,
-          8,
-        )}</span>
-    </div>
+    <span class="label-text"
+      >Your TTKOe Balance: {ethers.utils.formatUnits(
+        ttkoBalanceInWei,
+        8,
+      )}</span>
 
-    <div class="form-control">
-      <label class="label" for="min-stake-balance" />
-      <span class="label-text"
-        >Min Stake per Capacity: {ethers.utils.formatUnits(
-          minStakePerCapacity,
-          8,
-        )} TTKOe</span>
-    </div>
+    <span class="label-text"
+      >Min Stake per Capacity: {ethers.utils.formatUnits(
+        minStakePerCapacity,
+        8,
+      )} TTKOe</span>
 
-    <div class="form-control">
-      <label class="label" for="min-stake-balance" />
-      <span class="label-text">Min Capacity: {minCapacity.toString()}</span>
-    </div>
+    <span class="label-text">Min Capacity: {minCapacity.toString()}</span>
 
     <div>
       <span class="label-text text-left block">Amount per Capacity: </span>
