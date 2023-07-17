@@ -25,13 +25,20 @@ import { Proxied } from "../common/Proxied.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
+ * Some ERC1155 contracts implementing the name() and symbol()
+ * functions, although they are not part of the interface
+ */
+interface Erc1155NameAndSymbol {
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+}
+
+/**
  * This vault holds all ERC1155 tokens that users have deposited.
  * It also manages the mapping between canonical tokens and their bridged
  * tokens.
  */
 contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
-    bytes4 public constant ERC1155_INTERFACE_ID = 0xd9b67a26;
-
     /**
      * Transfers ERC1155 tokens to this vault and sends a message to the
      * destination chain so the user can receive the same (bridged) tokens
@@ -46,31 +53,24 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         onlyValidAddresses(opt.destChainId, "erc1155_vault", opt.to, opt.token)
         onlyValidAmounts(opt.amounts, opt.tokenIds, false)
     {
-        if (!IERC165(opt.token).supportsInterface(ERC1155_INTERFACE_ID)) {
+        if (
+            !IERC165(opt.token).supportsInterface(ERC1155_INTERFACE_ID)
+                || IERC165(opt.token).supportsInterface(ERC721_INTERFACE_ID)
+        ) {
             revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
 
         // We need to save them into memory - because structs containing
-        // dynamic arrays will cause stack-too-deep error when passed
+        // dynamic arrays will cause stack-too-deep error when passed to the
+        // emited event
         uint256[] memory _amounts = opt.amounts;
-        // TODO(dani): so the user can specify the base URL as any value?
-        string memory _baseTokenUri = opt.baseTokenUri;
-
         address _token = opt.token;
         uint256[] memory _tokenIds = opt.tokenIds;
 
         IBridge.Message memory message;
         message.destChainId = opt.destChainId;
 
-        // TODO(dani): why not pass in the opt object?
-        message.data = _sendToken({
-            owner: msg.sender,
-            to: opt.to,
-            tokenIds: _tokenIds,
-            token: _token,
-            tokenUri: _baseTokenUri,
-            amounts: _amounts
-        });
+        message.data = _sendToken({ owner: msg.sender, opt: opt });
 
         message.owner = msg.sender;
         message.to = resolve(message.destChainId, "erc1155_vault", false);
@@ -247,39 +247,51 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 
     function _sendToken(
         address owner,
-        address to,
-        uint256[] memory tokenIds,
-        address token,
-        string memory tokenUri,
-        uint256[] memory amounts
+        BridgeTransferOp memory opt
     )
         private
         returns (bytes memory)
     {
-        bool isBridgedToken = isBridgedToken[token];
+        bool isBridgedToken = isBridgedToken[opt.token];
 
-        CanonicalNFT memory nft = bridgedToCanonical[token];
+        CanonicalNFT memory nft = bridgedToCanonical[opt.token];
 
         // is a btoken, meaning, it does not live on this chain
         if (isBridgedToken) {
-            for (uint256 i; i < tokenIds.length; i++) {
-                BridgedERC1155(token).burn(owner, tokenIds[i], amounts[i]);
+            for (uint256 i; i < opt.tokenIds.length; i++) {
+                BridgedERC1155(opt.token).burn(
+                    owner, opt.tokenIds[i], opt.amounts[i]
+                );
             }
         } else {
             // is a ctoken token, meaning, it lives on this chain
-            ERC1155Upgradeable t = ERC1155Upgradeable(token);
+            ERC1155Upgradeable t = ERC1155Upgradeable(opt.token);
+            // Try to query if imiplements name() or symbol()
+            string memory symbol;
+            string memory name;
+            try Erc1155NameAndSymbol(opt.token).name() {
+                name = Erc1155NameAndSymbol(opt.token).name();
+            } catch { }
+            try Erc1155NameAndSymbol(opt.token).symbol() {
+                symbol = Erc1155NameAndSymbol(opt.token).symbol();
+            } catch { }
 
             nft = CanonicalNFT({
                 chainId: block.chainid,
-                addr: token,
-                symbol: "",
-                name: "",
-                uri: tokenUri // TODO(dani):from user?
+                addr: opt.token,
+                symbol: symbol,
+                name: name,
+                uri: opt.baseTokenUri // TODO(dani):from user? Please see my
+                    // design props/questions ERC721Vault line 56.
              });
 
-            for (uint256 i; i < tokenIds.length; i++) {
+            for (uint256 i; i < opt.tokenIds.length; i++) {
                 t.safeTransferFrom(
-                    msg.sender, address(this), tokenIds[i], amounts[i], ""
+                    msg.sender,
+                    address(this),
+                    opt.tokenIds[i],
+                    opt.amounts[i],
+                    ""
                 );
             }
         }
@@ -288,9 +300,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             ERC1155Vault.receiveToken.selector,
             nft,
             owner,
-            to,
-            tokenIds,
-            amounts
+            opt.to,
+            opt.tokenIds,
+            opt.amounts
         );
     }
 
@@ -327,6 +339,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             _addressManager: address(_addressManager),
             _srcToken: ctoken.addr,
             _srcChainId: ctoken.chainId,
+            _name: ctoken.name,
+            _symbol: ctoken.symbol,
             _uri: ctoken.uri
         });
 
@@ -338,8 +352,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             chainId: ctoken.chainId,
             ctoken: ctoken.addr,
             btoken: btoken,
-            ctokenSymbol: "",
-            ctokenName: ""
+            ctokenSymbol: ctoken.symbol,
+            ctokenName: ctoken.name
         });
     }
 }

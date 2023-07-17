@@ -10,12 +10,14 @@ import { IERC1155Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
 import { IERC1155MetadataURIUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/IERC1155MetadataURIUpgradeable.sol";
-
 import { ERC1155Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 
 // TODO(dani): override the name() function, learn from BridgedERC20
+// There is nothing to overwrite because ERC1155 has no name and symbol
+// But i'll put a public name and symbol into this contract. (public name()
+// and symbol() functions will be generated this way.
 contract BridgedERC1155 is
     EssentialContract,
     IERC1155Upgradeable,
@@ -25,6 +27,9 @@ contract BridgedERC1155 is
     address public srcToken;
     uint256 public srcChainId;
     string public srcUri;
+    string public name;
+    string public symbol;
+
     uint256[47] private __gap;
 
     event Transfer(
@@ -44,6 +49,8 @@ contract BridgedERC1155 is
         address _addressManager,
         address _srcToken,
         uint256 _srcChainId,
+        string memory _symbol,
+        string memory _name,
         string memory _uri
     )
         external
@@ -60,6 +67,10 @@ contract BridgedERC1155 is
         srcToken = _srcToken;
         srcChainId = _srcChainId;
         srcUri = _uri;
+        // name and symbol can be "" intentionally, so check
+        // not required (not part of the ERC1155 standard).
+        name = _name;
+        symbol = _symbol;
     }
 
     /// @dev only a TokenVault can call this function

@@ -6,11 +6,12 @@
 
 pragma solidity ^0.8.20;
 
+import { console2 } from "forge-std/console2.sol";
+import { Test } from "forge-std/Test.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { ERC721Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
-
-// TODO(dani): override the name() function, learn from BridgedERC20
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     address public srcToken;
@@ -88,6 +89,17 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
             revert BRIDGED_TOKEN_CANNOT_RECEIVE();
         }
         return ERC721Upgradeable.transferFrom(from, to, tokenId);
+    }
+
+    function name()
+        public
+        view
+        override(ERC721Upgradeable)
+        returns (string memory)
+    {
+        return string.concat(
+            super.name(), unicode" ⭀", Strings.toString(srcChainId)
+        );
     }
 
     /// @dev returns the srcToken being bridged and the srcChainId

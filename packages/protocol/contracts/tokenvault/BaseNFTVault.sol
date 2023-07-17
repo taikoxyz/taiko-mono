@@ -22,6 +22,9 @@ import { IBridge } from "../bridge/IBridge.sol";
  */
 
 abstract contract BaseNFTVault is BaseVault {
+    bytes4 public constant ERC1155_INTERFACE_ID = 0xd9b67a26;
+    bytes4 public constant ERC721_INTERFACE_ID = 0x80ac58cd;
+
     struct CanonicalNFT {
         uint256 chainId;
         address addr;
@@ -34,7 +37,8 @@ abstract contract BaseNFTVault is BaseVault {
         uint256 destChainId;
         address to;
         address token;
-        string baseTokenUri; // TODO(dani): remove this
+        string baseTokenUri; // TODO(dani): remove this,we have multiple options
+            // please see my answer at ERC721Vault.sol line 57
         uint256[] tokenIds;
         uint256[] amounts;
         uint256 gasLimit;
@@ -121,10 +125,8 @@ abstract contract BaseNFTVault is BaseVault {
         }
 
         if (isERC721) {
-            // TODO(dani): for 721, require the amount
-            // array is empty, instead of all 1s.
             for (uint256 i; i < tokenIds.length; i++) {
-                if (amounts[i] != 1) {
+                if (amounts[i] != 0) {
                     revert VAULT_INVALID_AMOUNT();
                 }
             }

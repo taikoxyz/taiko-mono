@@ -20,7 +20,6 @@ import { IBridge } from "../bridge/IBridge.sol";
 import { BaseNFTVault } from "./BaseNFTVault.sol";
 import { BridgedERC721 } from "./BridgedERC721.sol";
 import { Proxied } from "../common/Proxied.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
  * This vault holds all ERC721 tokens that users have deposited.
@@ -28,8 +27,6 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
  * tokens.
  */
 contract ERC721Vault is BaseNFTVault, IERC721Receiver {
-    bytes4 public constant ERC721_INTERFACE_ID = 0x80ac58cd;
-
     /**
      * Transfers ERC721 tokens to this vault and sends a message to the
      * destination chain so the user can receive the same (bridged) tokens
@@ -44,17 +41,33 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         onlyValidAddresses(opt.destChainId, "erc721_vault", opt.to, opt.token)
         onlyValidAmounts(opt.amounts, opt.tokenIds, true)
     {
-        // TODO(dani): make sure this token doesnt support
-        // ERC1155_INTERFACE_ID, otherwise, they should use
-        // ERC1155Vault
-        if (!IERC165(opt.token).supportsInterface(ERC721_INTERFACE_ID)) {
+        if (
+            !IERC165(opt.token).supportsInterface(ERC721_INTERFACE_ID)
+                || IERC165(opt.token).supportsInterface(ERC1155_INTERFACE_ID)
+        ) {
             revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
 
         // We need to save them into memory - because structs containing
         // dynamic arrays will cause stack-too-deep error when passed
+
         // TODO(dani): so the user can specify the base URL as any value?
-        string memory _baseTokenUri = opt.baseTokenUri;
+        // Daniel: We have (at least) 3 different options here. Unfortunately
+        // no standard makes public 'baseURI' (just the tokenURI which)
+        // is respective to each token so what we could do:
+        //
+        // 1. Not the user, but the FE fills (querys) this information by
+        // collection.tokenURI(tokenId) and then chops down until the last
+        // '/' character and feed into the BridgeTransferOp calldata opt
+        // variable -> That is the cheapest and this is how it works now.
+        // 2. We do the exact same thing but on smart contract level - so
+        // it would require String manipulation library to run at each
+        // briding
+        // 3. When someone bridges - we query the tokenURI and we modify
+        // minting function to feed the tokenURI with the tokenID, so we
+        // need to modify the Birdged contracts..
+        // Please let me know you preferred solution. Nr1 and Nr3 seems
+        // the best, i'd not go the Nr2 way.
 
         address _token = opt.token;
         uint256[] memory _tokenIds = opt.tokenIds;
@@ -62,14 +75,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         IBridge.Message memory message;
         message.destChainId = opt.destChainId;
 
-        // TODO(dani): why not pass in the opt object?
-        message.data = _sendToken({
-            owner: msg.sender,
-            to: opt.to,
-            tokenIds: _tokenIds,
-            token: _token,
-            tokenUri: _baseTokenUri // TODO(dani):from user?
-         });
+        message.data = _sendToken({ owner: msg.sender, opt: opt });
 
         message.owner = msg.sender;
         message.to = resolve(message.destChainId, "erc721_vault", false);
@@ -224,41 +230,38 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 
     function _sendToken(
         address owner,
-        address to,
-        uint256[] memory tokenIds,
-        address token,
-        string memory tokenUri
+        BridgeTransferOp calldata opt
     )
         private
         returns (bytes memory)
     {
-        bool isBridgedToken = isBridgedToken[token];
-        CanonicalNFT memory nft = bridgedToCanonical[token];
+        bool isBridgedToken = isBridgedToken[opt.token];
+        CanonicalNFT memory nft = bridgedToCanonical[opt.token];
 
         // is a btoken, meaning, it does not live on this chain
         if (isBridgedToken) {
-            for (uint256 i; i < tokenIds.length; i++) {
-                BridgedERC721(token).burn(msg.sender, tokenIds[i]);
+            for (uint256 i; i < opt.tokenIds.length; i++) {
+                BridgedERC721(opt.token).burn(owner, opt.tokenIds[i]);
             }
         } else {
             // is a ctoken token, meaning, it lives on this chain
-            ERC721Upgradeable t = ERC721Upgradeable(token);
+            ERC721Upgradeable t = ERC721Upgradeable(opt.token);
 
             nft = CanonicalNFT({
                 chainId: block.chainid,
-                addr: token,
-                symbol: t.symbol(),
-                name: t.name(),
-                uri: tokenUri
+                addr: opt.token,
+                symbol: ERC721Upgradeable(t).symbol(),
+                name: ERC721Upgradeable(t).name(),
+                uri: opt.baseTokenUri
             });
 
-            for (uint256 i; i < tokenIds.length; i++) {
-                t.transferFrom(msg.sender, address(this), tokenIds[i]);
+            for (uint256 i; i < opt.tokenIds.length; i++) {
+                t.transferFrom(owner, address(this), opt.tokenIds[i]);
             }
         }
 
         return abi.encodeWithSelector(
-            ERC721Vault.receiveToken.selector, nft, owner, to, tokenIds
+            ERC721Vault.receiveToken.selector, nft, owner, opt.to, opt.tokenIds
         );
     }
 
@@ -291,14 +294,11 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             bytecode: type(BridgedERC721).creationCode
         });
 
-        // TODO(dani): learn from BridgedERC20, override the name() function
         BridgedERC721(payable(btoken)).init({
             _addressManager: address(_addressManager),
             _srcToken: ctoken.addr,
             _srcChainId: ctoken.chainId,
-            // TODO(dani): ctoken.addr is not on this chain,
-            // how can you query symbol and name?
-            _symbol: ERC721Upgradeable(ctoken.addr).symbol(),
+            _symbol: ctoken.symbol,
             _name: ctoken.name,
             _uri: ctoken.uri
         });
