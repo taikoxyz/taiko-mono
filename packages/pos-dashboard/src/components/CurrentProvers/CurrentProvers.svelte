@@ -4,6 +4,7 @@
   import { onMount } from 'svelte';
   import type { Prover } from '../../domain/prover';
   import { ethers } from 'ethers';
+  import { truncateString } from '../../utils/truncateString';
   let provers: Prover[] = [];
 
   onMount(async () => {
@@ -17,7 +18,7 @@
   <th>Capacity</th>
   {#each provers as prover}
     <tr>
-      <td>{prover.address}</td>
+      <td>{truncateString(prover.address, 8)}...</td>
       <td>{ethers.utils.formatUnits(prover.amountStaked.toString(), 8)}</td>
       <td>{prover.currentCapacity}</td>
     </tr>
