@@ -40,7 +40,9 @@
   }
 
   function closeOnOptionClick() {
-    setTimeout(closeModal, processingFeeComponent.delayOptionClick);
+    // By adding delay there is enough time to see the selected option
+    // before closing the modal. Better experience for the user.
+    setTimeout(closeModal, processingFeeComponent.closingDelayOptionClick);
   }
 
   function focusCustomInput() {
@@ -77,15 +79,15 @@
     }
   }
 
-  function unselectNoneIfNotEnoughETH(enoughEth: boolean, method: ProcessingFeeMethod) {
-    if (enoughEth && method !== ProcessingFeeMethod.NONE) return;
-
-    selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
+  function unselectNoneIfNotEnoughETH(method: ProcessingFeeMethod, enoughEth: boolean) {
+    if (method === ProcessingFeeMethod.NONE && !enoughEth) {
+      selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
+    }
   }
 
   $: updateProcessingFee(selectedFeeMethod, recommendedAmount);
 
-  // $: unselectNoneIfNotEnoughETH(hasEnoughEth, selectedFeeMethod);
+  $: unselectNoneIfNotEnoughETH(selectedFeeMethod, hasEnoughEth);
 </script>
 
 <div class="ProcessingFee">
