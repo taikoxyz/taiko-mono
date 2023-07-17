@@ -71,6 +71,17 @@ module.exports = withNextra({
         destination: "/docs/guides/run-a-node/claim-prover-ttko",
         permanent: true,
       },
+      // Introduce the concept of manuals
+      {
+        source: "/docs/resources/contributing",
+        destination: "/docs/manuals/contributing-manual",
+        permanent: true,
+      },
+      {
+        source: "/docs/resources/integration-guide",
+        destination: "/docs/manuals/integration-manual",
+        permanent: true,
+      },
     ];
   },
 });
