@@ -1,4 +1,4 @@
-## Overview
+# What is Taiko?
 
 Taiko aims to build a secure, decentralized, and permissionless [rollup](https://www.youtube.com/watch?v=7pWxCklcNsU) on Ethereum. These requirements dictate the following properties:
 
