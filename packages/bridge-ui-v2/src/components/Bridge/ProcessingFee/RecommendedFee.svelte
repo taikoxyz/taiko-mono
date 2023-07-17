@@ -1,11 +1,12 @@
 <script lang="ts">
+  import { onDestroy, onMount } from 'svelte';
+
+  import { processingFeeComponent } from '$config';
   import { recommendProcessingFee } from '$libs/fee';
   import type { Token } from '$libs/token';
   import { network } from '$stores/network';
-  import { onDestroy, onMount } from 'svelte';
 
   import { destNetwork, selectedToken } from '../state';
-  import { processingFeeComponent } from '$config';
 
   export let amount: bigint;
   export let calculating = false;
