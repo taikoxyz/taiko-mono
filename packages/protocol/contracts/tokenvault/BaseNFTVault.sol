@@ -34,7 +34,7 @@ abstract contract BaseNFTVault is BaseVault {
         uint256 destChainId;
         address to;
         address token;
-        string baseTokenUri;
+        string baseTokenUri; // TODO(dani): remove this
         uint256[] tokenIds;
         uint256[] amounts;
         uint256 gasLimit;
@@ -121,6 +121,8 @@ abstract contract BaseNFTVault is BaseVault {
         }
 
         if (isERC721) {
+            // TODO(dani): for 721, require the amount
+            // array is empty, instead of all 1s.
             for (uint256 i; i < tokenIds.length; i++) {
                 if (amounts[i] != 1) {
                     revert VAULT_INVALID_AMOUNT();
