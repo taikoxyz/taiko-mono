@@ -61,7 +61,7 @@ export function Footer() {
                   href="/docs/resources/integration-guide"
                   className="hover:underline"
                 >
-                  Integration guide
+                  Integration manual
                 </a>
               </li>
             </ul>

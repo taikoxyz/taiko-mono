@@ -24,7 +24,20 @@ export default {
   },
   // TODO: we should add the feedback link, check if nextra fixed it: https://github.com/shuding/nextra/issues/2067
   feedback: {
-    content: null,
+    content: (
+      <button
+        onClick={() => {
+          const win = window.open(
+            "https://forms.gle/9JWjWtjbWytZZcNRA",
+            "_blank",
+            "noopener,noreferrer"
+          );
+          if (win) win.opener = null;
+        }}
+      >
+        Leave feedback ↗
+      </button>
+    ),
   },
   footer: {
     component: Footer,
