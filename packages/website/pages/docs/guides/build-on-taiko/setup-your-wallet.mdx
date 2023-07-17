@@ -1,4 +1,6 @@
 import { Steps } from "nextra-theme-docs";
+import AddTokenButton from "components/AddTokenButton";
+import ConnectToMetamaskButton from "components/ConnectToMetamaskButton";
 
 # Setup your wallet
 
@@ -11,11 +13,24 @@ This guide helps you connect your wallet to Taiko's networks.
 ## Steps
 
 <Steps>
-    ### Visit RPC configuration
-    Visit the [RPC configuration page](/docs/reference/rpc-configuration) and click the buttons to add the networks. Or, add them manually in your wallet with the provided configuration.
+
+    ### Add the Sepolia testnet
+
+    <ConnectToMetamaskButton network="Sepolia" />
+
+    ### Add the Taiko testnet (Grimsvotn)
+
+    <ConnectToMetamaskButton network="Grimsvotn" />
 
     ### Add tokens to your wallet
-    Use your wallet (e.g., Metamask) to [import the tokens](https://support.ledger.com/hc/en-us/articles/6375103346077-Add-custom-tokens-to-MetaMask?docs=true). You can find all deployed tokens contract addresses [here](/docs/reference/contract-addresses).
+    <AddTokenButton token="TTKO" network="Sepolia"/>
+    <AddTokenButton token="BLL" network="Sepolia"/>
+    <AddTokenButton token="HORSE" network="Sepolia"/>
+
+    
+    <AddTokenButton token="TTKO" network="Grimsvotn"/>
+    <AddTokenButton token="BLL" network="Grimsvotn"/>
+    <AddTokenButton token="HORSE" network="Grimsvotn"/>
 
 </Steps>
 
