@@ -45,7 +45,7 @@ interface Network {
     wss?: string;
   };
   blockExplorer: {
-    name: string;
+    name: "Blockscout" | "Etherscan";
     url: string;
   };
   testnet: boolean;
@@ -74,9 +74,9 @@ interface L1Contracts {
   signalService: ProxyContract;
   plonkVerifier: Contract;
   proverPool?: ProxyContract; // optional since it's not present in all alpha versions
-  taikoToken: ProxyERC20Contract;
-  horseToken: ERC20Contract;
-  bullToken: ERC20Contract;
+  taikoToken?: ProxyERC20Contract;
+  horseToken?: ERC20Contract;
+  bullToken?: ERC20Contract;
 }
 
 interface L2Contracts {

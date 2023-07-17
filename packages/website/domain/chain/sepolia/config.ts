@@ -68,23 +68,24 @@ export const SEPOLIA_CONFIG = {
     taikoToken: {
       name: "Taiko Token",
       address: {
-        proxy: "0x4e7c942D51d977459108bA497FDc71ae0Fc54a00",
-        implementation: "0x26Dc222448e28567af82CB6D6DEeeDe337102B2a",
+        proxy: "0xE52952B8063d0AE6Bd35E894866d8148976ce645",
+        implementation: "0x517976c137606f040168E5ec7f15e5d32f29C73F",
       },
       decimals: 8,
       symbol: "TTKO",
     },
     horseToken: {
       name: "Horse Token",
-      address: "0x812d923E6a108900dF1304Dc5Bd96600837488DB",
+      address: "0x958b482c4E9479a600bFFfDDfe94D974951Ca3c7",
       decimals: 18,
       symbol: "HORSE",
     },
     bullToken: {
       name: "Bull Token",
-      address: "0xE2D396faef4F950AaBD4591F05cc0f29b63aC98A",
+      address: "0x39e12053803898211F21047D56017986E0f070c1",
       decimals: 18,
       symbol: "BLL",
     },
   },
+  otherContracts: [],
 } as const satisfies TaikoL1Alpha3;

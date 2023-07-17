@@ -22,7 +22,7 @@ export const GRIMSVOTN_CONFIG = {
     wss: "wss://ws.test.taiko.xyz",
   },
   blockExplorer: {
-    name: "blockscout",
+    name: "Blockscout",
     url: "https://explorer.test.taiko.xyz",
   },
   testnet: true,
@@ -74,25 +74,13 @@ export const GRIMSVOTN_CONFIG = {
       address: "0xd46eb8cF2b47cd99bdb1dD8C76EEc55ac6eb930E",
     },
     taikoToken: {
-      name: "Taiko Token",
-      address: {
-        proxy: "0xE52952B8063d0AE6Bd35E894866d8148976ce645",
-        implementation: "0x517976c137606f040168E5ec7f15e5d32f29C73F",
-      },
+      name: "Taiko Token Eldfell",
+      symbol: "TTKOe",
       decimals: 8,
-      symbol: "TTKO",
-    },
-    horseToken: {
-      name: "Horse Token",
-      address: "0x958b482c4E9479a600bFFfDDfe94D974951Ca3c7",
-      decimals: 18,
-      symbol: "HORSE",
-    },
-    bullToken: {
-      name: "Bull Token",
-      address: "0x39e12053803898211F21047D56017986E0f070c1",
-      decimals: 18,
-      symbol: "BLL",
+      address: {
+        proxy: "0x4284890d4AcD0bcb017eCE481B96fD4Cb457CAc8",
+        implementation: "0x81d4843aCBD5bB37580033951300804091516d81",
+      },
     },
   },
   l2Contracts: {
@@ -122,7 +110,7 @@ export const GRIMSVOTN_CONFIG = {
       name: "Bridged Taiko Token",
       address: "0x7b1a3117B2b9BE3a3C31e5a097c7F890199666aC",
       decimals: 8,
-      symbol: "TTKO", // TODO is that right
+      symbol: "TTKO",
     },
     bridgedHorseToken: {
       name: "Bridged Horse Token",

@@ -22,7 +22,7 @@ export const ELDFELL_CONFIG = {
     wss: "wss://ws.l3test.taiko.xyz",
   },
   blockExplorer: {
-    name: "blockscout",
+    name: "Blockscout",
     url: "https://explorer.l3test.taiko.xyz",
   },
   testnet: true,
@@ -49,22 +49,23 @@ export const ELDFELL_CONFIG = {
     },
     // Bridged ERC-20 contracts
     bridgedTaikoToken: {
-      name: "Bridged Taiko Token",
+      name: "Bridged Taiko Token Eldfell",
       address: "0x804fade1e0f9b1f5af6bef6c615c9af3af823336",
       decimals: 8,
-      symbol: "TTKO", // TODO is that right
+      symbol: "TTKOe",
     },
     bridgedHorseToken: {
-      name: "Bridged Horse Token",
+      name: "Bridged Bridged Horse Token",
       address: "0x060b5388daf7e57b52bf5959a9fe8462b88a9b86",
       decimals: 18,
       symbol: "HORSE",
     },
     bridgedBullToken: {
-      name: "Bridged Bull Token",
+      name: "Bridged Bridged Bull Token",
       address: "0x8fa0a752c585b749a5a8d555cc50a350c93f7693",
       decimals: 18,
       symbol: "BLL",
     },
   },
+  otherContracts: [],
 } as const satisfies TaikoL2Alpha4;

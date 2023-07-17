@@ -7,6 +7,7 @@ import { contractAddressToLink } from "../../../utils/contractAddressToLink";
 import Link from "next/link";
 
 {/* TODO: interpolate network names from domain config objects, see: https://github.com/shuding/nextra/issues/2076 */}
+{/* TODO: make this file DRYer */}
 
 # Contract addresses
 
@@ -32,21 +33,77 @@ import Link from "next/link";
       const contract = SEPOLIA_CONFIG.l1Contracts[key];
       const baseUrl = SEPOLIA_CONFIG.blockExplorer.url;
       const proxyAddress = contract.address.proxy ?? "None";
-      const implementationAddress = contract.address.implementation ?? contract.address;
+      const implementationAddress =
+        contract.address.implementation ?? contract.address;
       return (
         <tr key={contract.name}>
           <td>{contract.name}</td>
           <td>
-            {proxyAddress === "None"
-              ? "None"
-              : <a href={contractAddressToLink(baseUrl, proxyAddress)}>
-                  Link
-                </a>
-            }
+            {proxyAddress === "None" ? (
+              "None"
+            ) : (
+              <a href={contractAddressToLink(baseUrl, proxyAddress)}>
+                {`${SEPOLIA_CONFIG.blockExplorer.name} ↗`}
+              </a>
+            )}
           </td>
           <td>
             <a href={contractAddressToLink(baseUrl, implementationAddress)}>
-              Link
+              {`${SEPOLIA_CONFIG.blockExplorer.name} ↗`}
+            </a>
+          </td>
+        </tr>
+      );
+    })}
+
+  </tbody>
+</table>
+
+### Rollup contracts
+
+None.
+
+### Other contracts
+
+None.
+
+{/* Grimsvotn L2 contracts */}
+
+## Grimsvotn L2
+
+### Based contracts
+
+<br />
+<table>
+  <thead>
+    <tr>
+      <th style={{ textAlign: "left" }}>Name</th>
+      <th style={{ textAlign: "left" }}>Proxy</th>
+      <th style={{ textAlign: "left" }}>Implementation</th>
+    </tr>
+  </thead>
+  <tbody>
+    {Object.keys(GRIMSVOTN_CONFIG.l1Contracts).map((key) => {
+      const contract = GRIMSVOTN_CONFIG.l1Contracts[key];
+      const baseUrl = GRIMSVOTN_CONFIG.blockExplorer.url;
+      const proxyAddress = contract.address.proxy ?? "None";
+      const implementationAddress =
+        contract.address.implementation ?? contract.address;
+      return (
+        <tr key={contract.name}>
+          <td>{contract.name}</td>
+          <td>
+            {proxyAddress === "None" ? (
+              "None"
+            ) : (
+              <a href={contractAddressToLink(baseUrl, proxyAddress)}>
+                {`${GRIMSVOTN_CONFIG.blockExplorer.name} ↗`}
+              </a>
+            )}
+          </td>
+          <td>
+            <a href={contractAddressToLink(baseUrl, implementationAddress)}>
+              {`${GRIMSVOTN_CONFIG.blockExplorer.name} ↗`}
             </a>
           </td>
         </tr>
@@ -57,39 +114,85 @@ import Link from "next/link";
 
 ### Rollup contracts
 
-None.
+<br />
+<table>
+  <thead>
+    <tr>
+      <th style={{ textAlign: "left" }}>Name</th>
+      <th style={{ textAlign: "left" }}>Proxy</th>
+      <th style={{ textAlign: "left" }}>Implementation</th>
+    </tr>
+  </thead>
+  <tbody>
+    {Object.keys(GRIMSVOTN_CONFIG.l2Contracts).map((key) => {
+      const contract = GRIMSVOTN_CONFIG.l2Contracts[key];
+      const baseUrl = GRIMSVOTN_CONFIG.blockExplorer.url;
+      const proxyAddress = contract.address.proxy ?? "None";
+      const implementationAddress =
+        contract.address.implementation ?? contract.address;
+      return (
+        <tr key={contract.name}>
+          <td>{contract.name}</td>
+          <td>
+            {proxyAddress === "None" ? (
+              "None"
+            ) : (
+              <a href={contractAddressToLink(baseUrl, proxyAddress)}>
+                {`${GRIMSVOTN_CONFIG.blockExplorer.name} ↗`}
+              </a>
+            )}
+          </td>
+          <td>
+            <a href={contractAddressToLink(baseUrl, implementationAddress)}>
+              {`${GRIMSVOTN_CONFIG.blockExplorer.name} ↗`}
+            </a>
+          </td>
+        </tr>
+      );
+    })}
+  </tbody>
+</table>
 
 ### Other contracts
 
-#### ERC-20
-
-TODO
-
-#### Else
-
-None.
-
-{/* Grimsvotn L2 contracts */}
-
-## Grimsvotn L2
-
-### Based contracts
-
-TODO
-
-### Rollup contracts
-
-TODO
-
-### Other contracts
-
-#### ERC-20
-
-TODO
-
-#### Else
-
-TODO
+<br />
+<table>
+  <thead>
+    <tr>
+      <th style={{ textAlign: "left" }}>Name</th>
+      <th style={{ textAlign: "left" }}>Proxy</th>
+      <th style={{ textAlign: "left" }}>Implementation</th>
+    </tr>
+  </thead>
+  <tbody>
+    {GRIMSVOTN_CONFIG.otherContracts.map((key) => {
+      const contract = key;
+      const baseUrl = GRIMSVOTN_CONFIG.blockExplorer.url;
+      const proxyAddress = contract.address.proxy ?? "None";
+      const implementationAddress =
+        contract.address.implementation ?? contract.address;
+      return (
+        <tr key={contract.name}>
+          <td>{contract.name}</td>
+          <td>
+            {proxyAddress === "None" ? (
+              "None"
+            ) : (
+              <a href={contractAddressToLink(baseUrl, proxyAddress)}>
+                {`${GRIMSVOTN_CONFIG.blockExplorer.name} ↗`}
+              </a>
+            )}
+          </td>
+          <td>
+            <a href={contractAddressToLink(baseUrl, implementationAddress)}>
+              {`${GRIMSVOTN_CONFIG.blockExplorer.name} ↗`}
+            </a>
+          </td>
+        </tr>
+      );
+    })}
+  </tbody>
+</table>
 
 {/* Eldfell L3 contracts */}
 
@@ -101,104 +204,45 @@ None.
 
 ### Rollup contracts
 
-TODO
-
-### Other contracts
-
-#### ERC-20
-
-TODO
-
-#### Else
-
-None.
-
-**table:**
-
+<br />
 <table>
   <thead>
     <tr>
-      <th>Country</th>
-      <th>Flag</th>
+      <th style={{ textAlign: "left" }}>Name</th>
+      <th style={{ textAlign: "left" }}>Proxy</th>
+      <th style={{ textAlign: "left" }}>Implementation</th>
     </tr>
   </thead>
   <tbody>
-    {[
-      { country: "France", flag: "🇫🇷" },
-      { country: "Ukraine", flag: "🇺🇦" },
-    ].map((item) => (
-      <tr key={item.country}>
-        <td>{item.country}</td>
-        <td>{item.flag}</td>
-      </tr>
-    ))}
+    {Object.keys(ELDFELL_CONFIG.l2Contracts).map((key) => {
+      const contract = ELDFELL_CONFIG.l2Contracts[key];
+      const baseUrl = ELDFELL_CONFIG.blockExplorer.url;
+      const proxyAddress = contract.address.proxy ?? "None";
+      const implementationAddress =
+        contract.address.implementation ?? contract.address;
+      return (
+        <tr key={contract.name}>
+          <td>{contract.name}</td>
+          <td>
+            {proxyAddress === "None" ? (
+              "None"
+            ) : (
+              <a href={contractAddressToLink(baseUrl, proxyAddress)}>
+                {`${ELDFELL_CONFIG.blockExplorer.name} ↗`}
+              </a>
+            )}
+          </td>
+          <td>
+            <a href={contractAddressToLink(baseUrl, implementationAddress)}>
+              {`${ELDFELL_CONFIG.blockExplorer.name} ↗`}
+            </a>
+          </td>
+        </tr>
+      );
+    })}
   </tbody>
 </table>
 
-| Contract name  | Contract address                                                                                                              |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| AddressManager | [0xB566C97d37662f8a5843D523bE7806e04b02D99d](https://sepolia.etherscan.io/address/0xB566C97d37662f8a5843D523bE7806e04b02D99d) |
-| Bridge         | [0x7D992599E1B8b4508Ba6E2Ba97893b4C36C23A28](https://sepolia.etherscan.io/address/0x7D992599E1B8b4508Ba6E2Ba97893b4C36C23A28) |
-| SignalService  | [0x23baAc3892a823e9E59B85d6c90068474fe60086](https://sepolia.etherscan.io/address/0x23baAc3892a823e9E59B85d6c90068474fe60086) |
-| TaikoL1        | [0x6375394335f34848b850114b66A49D6F47f2cdA8](https://sepolia.etherscan.io/address/0x6375394335f34848b850114b66A49D6F47f2cdA8) |
-| TokenVault     | [0xD70506580B5F65e68ed0dbA7B4Ae507641C48197](https://sepolia.etherscan.io/address/0xD70506580B5F65e68ed0dbA7B4Ae507641C48197) |
+### Other contracts
 
-**{GRIMSVOTN_CONFIG.names.mediumName}**
-
-| Contract name | Contract address                                                                                                                 |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Bridge        | [0x1000777700000000000000000000000000000004](https://explorer.test.taiko.xyz/address/0x1000777700000000000000000000000000000004) |
-| EtherVault    | [0x0000777700000000000000000000000000000003](https://explorer.test.taiko.xyz/address/0x0000777700000000000000000000000000000003) |
-| SignalService | [0x1000777700000000000000000000000000000007](https://explorer.test.taiko.xyz/address/0x1000777700000000000000000000000000000007) |
-| TaikoL2       | [0x0000777700000000000000000000000000000001](https://explorer.test.taiko.xyz/address/0x0000777700000000000000000000000000000001) |
-| TokenVault    | [0x0000777700000000000000000000000000000002](https://explorer.test.taiko.xyz/address/0x0000777700000000000000000000000000000002) |
-
-**{ELDFELL_CONFIG.names.mediumName}**
-
-TODO
-
-## ERC-20 token contracts
-
-**{SEPOLIA_CONFIG.names.mediumName}**
-
-| Name             | Symbol | Contract address                                                                                                              |
-| ---------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| Bull Token       | BLL    | [0x39e12053803898211F21047D56017986E0f070c1](https://sepolia.etherscan.io/address/0x39e12053803898211F21047D56017986E0f070c1) |
-| Horse Token      | HORSE  | [0x958b482c4E9479a600bFFfDDfe94D974951Ca3c7](https://sepolia.etherscan.io/address/0x958b482c4E9479a600bFFfDDfe94D974951Ca3c7) |
-| Test Taiko Token | TTKO   | [0xE52952B8063d0AE6Bd35E894866d8148976ce645](https://sepolia.etherscan.io/address/0xE52952B8063d0AE6Bd35E894866d8148976ce645) |
-
-**{GRIMSVOTN_CONFIG.names.mediumName}**
-
-| Name             | Symbol | Contract address                                                                                                                 |
-| ---------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| Bull Token       | BLL    | [0x6302744962a0578E814c675B40909e64D9966B0d](https://explorer.test.taiko.xyz/address/0x6302744962a0578E814c675B40909e64D9966B0d) |
-| Horse Token      | HORSE  | [0xa4505BB7AA37c2B68CfBC92105D10100220748EB](https://explorer.test.taiko.xyz/address/0xa4505BB7AA37c2B68CfBC92105D10100220748EB) |
-| Test Taiko Token | TTKO   | [0x7b1a3117B2b9BE3a3C31e5a097c7F890199666aC](https://explorer.test.taiko.xyz/address/0x7b1a3117B2b9BE3a3C31e5a097c7F890199666aC) |
-
-**{ELDFELL_CONFIG.names.mediumName}**
-
-TODO
-
-## Node addresses
-
-**{GRIMSVOTN_CONFIG.names.mediumName}**
-
-| Name                      | Address                                                                                                                       |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Taiko's personal proposer | [0xE09e4fF4353fbf984F99fa824524277F704e7475](https://sepolia.etherscan.io/address/0xE09e4fF4353fbf984F99fa824524277F704e7475) |
-| Taiko's relayer           | [0xe07b3455f382E6912558f613e072c1a46964eDBb](https://sepolia.etherscan.io/address/0xe07b3455f382E6912558f613e072c1a46964eDBb) |
-| Oracle prover             | [0x6798639591530FbBAfd12c2826422B58bD2c5219](https://sepolia.etherscan.io/address/0x6798639591530FbBAfd12c2826422B58bD2c5219) |
-| System prover 1           | [0x89697A45BA1FEFbc575BdcA6e0C50D5112A5a766](https://sepolia.etherscan.io/address/0x89697A45BA1FEFbc575BdcA6e0C50D5112A5a766) |
-| System prover 2           | [0xC9060A394ab1986D29aaB985ba41B2E516325900](https://sepolia.etherscan.io/address/0xC9060A394ab1986D29aaB985ba41B2E516325900) |
-
-**{ELDFELL_CONFIG.names.mediumName}**
-
-TODO
-
-## Other useful contracts
-
-**{GRIMSVOTN_CONFIG.names.mediumName}**
-| Name | Address |
-| -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| [Deterministic Deployment Proxy](https://github.com/Arachnid/deterministic-deployment-proxy) | [0x1C83d994f649E62cAA042097415d050732f53FF6](https://explorer.test.taiko.xyz/address/0x1C83d994f649E62cAA042097415d050732f53FF6) |
-| ERC-4337 Entrypoint (account abstraction) | [0x3e871218D1c0A1670552aFFcB8adFDE98f6FA4F8](https://explorer.test.taiko.xyz/address/0x3e871218D1c0A1670552aFFcB8adFDE98f6FA4F8) |
+None.
