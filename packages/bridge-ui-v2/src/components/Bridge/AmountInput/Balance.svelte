@@ -8,8 +8,7 @@
   import { type Account, account } from '$stores/account';
   import { network } from '$stores/network';
 
-  import { destNetwork } from '../destNetwork';
-  import { selectedToken } from '../selectedToken';
+  import { destNetwork, selectedToken } from '../state';
 
   let tokenBalance: Maybe<FetchBalanceResult>;
   let computingTokenBalance = false;

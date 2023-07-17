@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { t } from 'svelte-i18n';
-  import { formatEther } from 'viem';
+  import { formatEther, parseUnits } from 'viem';
 
   import { Icon } from '$components/Icon';
   import { InputBox } from '$components/InputBox';
@@ -13,76 +13,19 @@
   import { uid } from '$libs/util/uid';
   import { network } from '$stores/network';
 
-  import { destNetwork } from '../destNetwork';
-  import { selectedToken } from '../selectedToken';
+  import { destNetwork, processingFee, selectedToken } from '../state';
+  import { parseToWei } from '$libs/util/parseToWei';
+  import RecommendedAmount from './RecommendedAmount.svelte';
 
   let dialogId = `dialog-${uid()}`;
   let selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
 
-  let recommendedAmount: Maybe<bigint> = null;
+  let recommendedAmount = BigInt(0);
   let calculatingRecommendedAmount = false;
   let errorCalculatingRecommendedAmount = false;
 
-  let selectedAmount = 0;
   let modalOpen = false;
   let customInput: InputBox;
-
-  async function calculateRecommendedAmount(token: Token, srcChainId?: number, destChainId?: number) {
-    calculatingRecommendedAmount = true;
-    errorCalculatingRecommendedAmount = false;
-
-    try {
-      recommendedAmount = await recommendProcessingFee({
-        token,
-        destChainId,
-        srcChainId,
-      });
-    } catch (error) {
-      console.error(error);
-
-      errorCalculatingRecommendedAmount = true;
-    } finally {
-      calculatingRecommendedAmount = false;
-    }
-
-    return recommendedAmount;
-  }
-
-  function focusCustomInput() {
-    customInput?.focus();
-  }
-
-  function amountToEther(amount: Maybe<bigint>) {
-    return amount ? +formatEther(amount) : 0;
-  }
-
-  async function onSelectedFeeMethodChanged(method: ProcessingFeeMethod) {
-    // customInput?.clear();
-
-    switch (method) {
-      case ProcessingFeeMethod.RECOMMENDED:
-        // TODO: should we cache it? keep in mind that this value could change
-        await calculateRecommendedAmount($selectedToken, $network?.id, $destNetwork?.id);
-        selectedAmount = amountToEther(recommendedAmount);
-        break;
-      case ProcessingFeeMethod.CUSTOM:
-        // Get a previous value entered if exists, otherwise default to 0
-        selectedAmount = Number(customInput?.value() ?? 0);
-
-        // We need to wait for Svelte to set the attribute `disabled` on the input
-        // to false to be able to focus it
-        tick().then(focusCustomInput);
-        break;
-      case ProcessingFeeMethod.NONE:
-        selectedAmount = 0;
-        break;
-    }
-  }
-
-  function onCustomInputChange(event: Event) {
-    const { value } = event.target as HTMLInputElement;
-    selectedAmount = Number(value);
-  }
 
   function closeModal() {
     modalOpen = false;
@@ -92,10 +35,42 @@
     modalOpen = true;
   }
 
-  $: calculateRecommendedAmount($selectedToken, $network?.id, $destNetwork?.id);
+  function focusCustomInput() {
+    customInput?.focus();
+  }
+
+  function onCustomInputChange(event: Event) {
+    if (selectedFeeMethod !== ProcessingFeeMethod.CUSTOM) return;
+
+    const input = event.target as HTMLInputElement;
+    $processingFee = parseToWei(input.value);
+  }
+
+  async function onSelectedFeeMethodChanged(method: ProcessingFeeMethod, recommendedAmount: bigint) {
+    // customInput?.clear();
+
+    switch (method) {
+      case ProcessingFeeMethod.RECOMMENDED:
+        $processingFee = recommendedAmount;
+
+        break;
+      case ProcessingFeeMethod.CUSTOM:
+        // Get a previous value entered if exists, otherwise default to 0
+        $processingFee = parseToWei(customInput?.value());
+
+        // We need to wait for Svelte to set the attribute `disabled` on the input
+        // to false to be able to focus it
+        tick().then(focusCustomInput);
+        break;
+      case ProcessingFeeMethod.NONE:
+        $processingFee = BigInt(0);
+
+        break;
+    }
+  }
 
   // TODO: how about using a onClick handler instead of this watcher?
-  $: onSelectedFeeMethodChanged(selectedFeeMethod);
+  $: onSelectedFeeMethodChanged(selectedFeeMethod, recommendedAmount);
 </script>
 
 <div class="ProcessingFee">
@@ -113,7 +88,7 @@
     {:else if errorCalculatingRecommendedAmount}
       {$t('processing_fee.recommended.error')}
     {:else}
-      {selectedAmount} ETH
+      {formatEther($processingFee ?? BigInt(0))} ETH
     {/if}
   </span>
 
@@ -139,7 +114,7 @@
               {:else if errorCalculatingRecommendedAmount}
                 {$t('processing_fee.recommended.error')}
               {:else}
-                {amountToEther(recommendedAmount)} ETH
+                {formatEther(recommendedAmount)} ETH
               {/if}
             </span>
           </div>
@@ -149,26 +124,30 @@
             type="radio"
             value={ProcessingFeeMethod.RECOMMENDED}
             name="processingFeeMethod"
-            bind:group={selectedFeeMethod} />
+            bind:group={selectedFeeMethod}
+            on:click={closeModal} />
         </li>
 
         <!-- NONE -->
-        <li class="f-between-center">
-          <div class="f-col">
-            <label for="input-none" class="body-bold">
-              {$t('processing_fee.none.label')}
-            </label>
-            <span class="body-small-regular text-secondary-content">
-              {$t('processing_fee.none.text')}
-            </span>
+        <li>
+          <div class="f-between-center">
+            <div class="f-col">
+              <label for="input-none" class="body-bold">
+                {$t('processing_fee.none.label')}
+              </label>
+              <span class="body-small-regular text-secondary-content">
+                {$t('processing_fee.none.text')}
+              </span>
+            </div>
+            <input
+              id="input-none"
+              class="radio w-6 h-6 checked:bg-primary-interactive-accent hover:border-primary-interactive-hover"
+              type="radio"
+              value={ProcessingFeeMethod.NONE}
+              name="processingFeeMethod"
+              bind:group={selectedFeeMethod}
+              on:click={closeModal} />
           </div>
-          <input
-            id="input-none"
-            class="radio w-6 h-6 checked:bg-primary-interactive-accent hover:border-primary-interactive-hover"
-            type="radio"
-            value={ProcessingFeeMethod.NONE}
-            name="processingFeeMethod"
-            bind:group={selectedFeeMethod} />
         </li>
 
         <!-- CUSTOM -->
@@ -205,3 +184,8 @@
     </div>
   </dialog>
 </div>
+
+<RecommendedAmount
+  bind:value={recommendedAmount}
+  bind:calculating={calculatingRecommendedAmount}
+  bind:error={errorCalculatingRecommendedAmount} />

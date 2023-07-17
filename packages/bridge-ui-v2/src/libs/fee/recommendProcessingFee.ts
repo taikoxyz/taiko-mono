@@ -13,7 +13,7 @@ type RecommendProcessingFeeArgs = {
 const { ethGasLimit, erc20NotDeployedGasLimit, erc20DeployedGasLimit } = recommentProcessingFee;
 
 export async function recommendProcessingFee({ token, destChainId, srcChainId }: RecommendProcessingFeeArgs) {
-  if (!destChainId) return null;
+  if (!destChainId) return BigInt(0);
 
   const destPublicClient = getPublicClient({ chainId: destChainId });
   const gasPrice = await destPublicClient.getGasPrice();
@@ -23,7 +23,7 @@ export async function recommendProcessingFee({ token, destChainId, srcChainId }:
   let gasLimit = ethGasLimit;
 
   if (isERC20(token)) {
-    if (!srcChainId) return null;
+    if (!srcChainId) return BigInt(0);
 
     const tokenAddress = await getAddress({ token, srcChainId, destChainId });
 

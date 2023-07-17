@@ -57,18 +57,18 @@ describe('getBalance', () => {
     const balance = await getBalance({
       token: BLLToken,
       userAddress: mockWalletClient.account.address,
-      srcChainId: +PUBLIC_L1_CHAIN_ID,
+      srcChainId: Number(PUBLIC_L1_CHAIN_ID),
     });
 
     expect(balance).toEqual(mockBalanceForBLL);
     expect(getAddress).toHaveBeenCalledWith({
       token: BLLToken,
-      srcChainId: +PUBLIC_L1_CHAIN_ID,
+      srcChainId: Number(PUBLIC_L1_CHAIN_ID),
       destChainId: undefined,
     });
     expect(fetchBalance).toHaveBeenCalledWith({
       address: mockWalletClient.account.address,
-      chainId: +PUBLIC_L1_CHAIN_ID,
+      chainId: Number(PUBLIC_L1_CHAIN_ID),
       token: BLLToken.addresses[PUBLIC_L1_CHAIN_ID],
     });
   });
@@ -79,13 +79,13 @@ describe('getBalance', () => {
     const balance = await getBalance({
       token: BLLToken,
       userAddress: mockWalletClient.account.address,
-      srcChainId: +PUBLIC_L1_CHAIN_ID,
+      srcChainId: Number(PUBLIC_L1_CHAIN_ID),
     });
 
     expect(balance).toBeNull();
     expect(getAddress).toHaveBeenCalledWith({
       token: BLLToken,
-      srcChainId: +PUBLIC_L1_CHAIN_ID,
+      srcChainId: Number(PUBLIC_L1_CHAIN_ID),
       destChainId: undefined,
     });
     expect(fetchBalance).not.toHaveBeenCalled();

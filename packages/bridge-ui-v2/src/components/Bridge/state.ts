@@ -1,3 +1,4 @@
+import type { Chain } from '@wagmi/core';
 import { writable } from 'svelte/store';
 
 import type { Token } from '$libs/token';
@@ -12,3 +13,5 @@ import type { Token } from '$libs/token';
 // prevent other components outside the Bridge from accessing this store.
 
 export const selectedToken = writable<Token>();
+export const destNetwork = writable<Chain>();
+export const processingFee = writable<bigint>();
