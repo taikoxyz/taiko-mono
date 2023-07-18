@@ -34,7 +34,7 @@ contract BridgedERC20 is
     uint256 public srcChainId;
     uint8 private srcDecimals;
     bool private inceptionBridged;
-    uint256[46] private __gap;
+    uint256[47] private __gap;
 
     /**
      * Initializes the contract.
