@@ -108,6 +108,14 @@ const ecosystemData: EcosystemData[] = [
     filters: [],
   },
   {
+    icon: "/images/ecosystem/owlto.png",
+    name: "Owlto Finance",
+    link: "https://owlto.finance",
+    description:
+      "The decentralized cross-rollup bridge focused on Layer2.",
+    filters: [],
+  },
+  {
     icon: "/images/ecosystem/particle-network.png",
     name: "Particle Network",
     link: "https://particle.network/",
