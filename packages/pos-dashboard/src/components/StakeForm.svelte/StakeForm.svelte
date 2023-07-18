@@ -114,22 +114,25 @@
         prover and enter the top 32.
       </span>
     </div>
-    <span class="label-text"
-      >Your TTKOe Balance: {ethers.utils.formatUnits(
-        ttkoBalanceInWei,
-        8,
-      )}</span>
+    <span class="label-text block mt-4"
+      ><span class="font-bold">Your TTKOe Balance:</span>
+      {ethers.utils.formatUnits(ttkoBalanceInWei, 8)}</span>
+    <br />
 
-    <span class="label-text"
-      >Min Stake per Capacity: {ethers.utils.formatUnits(
-        minStakePerCapacity,
-        8,
-      )} TTKOe</span>
+    <span class="label-text block"
+      ><span class="font-bold">Min Stake per Capacity:</span>
+      {ethers.utils.formatUnits(minStakePerCapacity, 8)} TTKOe</span>
+    <br />
 
-    <span class="label-text">Min Capacity: {minCapacity.toString()}</span>
+    <span class="label-text block"
+      ><span class="font-bold">Min Capacity:</span>
+      {minCapacity.toString()}</span>
+    <br />
 
     <div>
-      <span class="label-text text-left block">Amount per Capacity: </span>
+      <span class="label-text text-left block mb-2 font-bold"
+        >Amount per Capacity:
+      </span>
       <div
         class="flex relative rounded-md bg-dark-2 justify-between items-center pr-4">
         <input
@@ -144,7 +147,9 @@
     </div>
 
     <div>
-      <span class="label-text text-left block">RewardPerGas: </span>
+      <span class="label-text text-left block mb-2 font-bold"
+        >RewardPerGas:
+      </span>
       <div
         class="flex relative rounded-md bg-dark-2 justify-between items-center pr-4">
         <input
@@ -159,7 +164,7 @@
     </div>
 
     <div>
-      <span class="label-text text-left block">Capacity: </span>
+      <span class="label-text text-left block mb-2 font-bold">Capacity: </span>
       <div
         class="flex relative rounded-md bg-dark-2 justify-between items-center pr-4">
         <input
