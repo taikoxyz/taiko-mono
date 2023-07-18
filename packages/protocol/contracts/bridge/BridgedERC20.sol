@@ -33,7 +33,8 @@ contract BridgedERC20 is
     address public srcToken;
     uint256 public srcChainId;
     uint8 private srcDecimals;
-    uint256[47] private __gap;
+    bool private inceptionBridged;
+    uint256[46] private __gap;
 
     /**
      * Initializes the contract.
@@ -45,6 +46,8 @@ contract BridgedERC20 is
      * @param _decimals The number of decimal places of the source token.
      * @param _symbol The symbol of the token.
      * @param _name The name of the token.
+     * @param _inceptionBridged If true, it means the canonical token
+     * is at least 2 layers below.
      */
     function init(
         address _addressManager,
@@ -52,7 +55,8 @@ contract BridgedERC20 is
         uint256 _srcChainId,
         uint8 _decimals,
         string memory _symbol,
-        string memory _name
+        string memory _name,
+        bool _inceptionBridged
     )
         external
         initializer
@@ -69,6 +73,7 @@ contract BridgedERC20 is
         srcToken = _srcToken;
         srcChainId = _srcChainId;
         srcDecimals = _decimals;
+        inceptionBridged = _inceptionBridged;
     }
 
     /**
@@ -155,6 +160,9 @@ contract BridgedERC20 is
         override(ERC20Upgradeable, IERC20MetadataUpgradeable)
         returns (string memory)
     {
+        if(inceptionBridged) {
+            return super.name();
+        }
         return string.concat(
             super.name(), unicode" ⭀", Strings.toString(srcChainId)
         );

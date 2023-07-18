@@ -44,7 +44,8 @@ contract PrankDestBridge {
         uint256 amount,
         bytes32 msgHash,
         address srcChainTokenVault,
-        uint256 srcChainId
+        uint256 srcChainId,
+        bool isInceptionBridged
     )
         public
     {
@@ -52,7 +53,7 @@ contract PrankDestBridge {
         ctx.msgHash = msgHash;
         ctx.srcChainId = srcChainId;
 
-        destTokenVault.receiveERC20(canonicalToken, from, to, amount);
+        destTokenVault.receiveERC20(canonicalToken, from, to, amount, isInceptionBridged);
 
         ctx.sender = address(0);
         ctx.msgHash = bytes32(0);
@@ -66,6 +67,7 @@ contract TestTokenVault is Test {
     Bridge bridge;
     TokenVault tokenVault;
     TokenVault destChainIdTokenVault;
+    TokenVault tokenVault_L2; // Lives on the same chain as destChainIdTokenVault
     PrankDestBridge destChainIdBridge;
     FreeMintERC20 erc20;
     SignalService signalService;
@@ -87,6 +89,9 @@ contract TestTokenVault is Test {
 
         tokenVault = new TokenVault();
         tokenVault.init(address(addressManager));
+
+        tokenVault_L2 = new TokenVault();
+        tokenVault_L2.init(address(addressManager));
 
         destChainIdTokenVault = new TokenVault();
         destChainIdTokenVault.init(address(addressManager));
@@ -114,6 +119,10 @@ contract TestTokenVault is Test {
 
         addressManager.setAddress(
             destChainId, "token_vault", address(destChainIdTokenVault)
+        );
+
+        addressManager.setAddress(
+            destChainId, "token_vault_L2", address(tokenVault_L2)
         );
 
         addressManager.setAddress(
@@ -264,7 +273,8 @@ contract TestTokenVault is Test {
             amount,
             bytes32(0),
             address(tokenVault),
-            srcChainId
+            srcChainId,
+            false
         );
 
         uint256 tokenVaultBalanceAfter = erc20.balanceOf(address(tokenVault));
@@ -298,7 +308,8 @@ contract TestTokenVault is Test {
             amount,
             bytes32(0),
             address(tokenVault),
-            srcChainId
+            srcChainId,
+            false
         );
 
         address bridgedAddressAfter =
@@ -308,6 +319,40 @@ contract TestTokenVault is Test {
 
         assertEq(bridgedERC20.name(), unicode"ERC20 ⭀31337");
         assertEq(bridgedERC20.balanceOf(Bob), amount);
+    }
+
+    function test_receive_erc20_name_if_already_a_bridged_token_name_does_not_changes(
+    )
+        public
+    {
+        // This is the test on the 'receiving chain'
+        vm.startPrank(Alice);
+
+        uint256 srcChainId = block.chainid;
+        vm.chainId(destChainId);
+
+        uint256 amount = 1;
+
+        destChainIdBridge.setTokenVault(address(destChainIdTokenVault));
+
+        destChainIdBridge.sendReceiveERC20ToTokenVault(
+            erc20ToCanonicalERC20(srcChainId),
+            Alice,
+            Bob,
+            amount,
+            bytes32(0),
+            address(tokenVault),
+            srcChainId,
+            true // An already bridged asset it signals
+        );
+
+        address bridgedAddressAfter =
+            destChainIdTokenVault.canonicalToBridged(srcChainId, address(erc20));
+
+        BridgedERC20 bridgedERC20 = BridgedERC20(bridgedAddressAfter);
+
+        // Name does not changes because it is an already 'bridged' asset
+        assertEq(bridgedERC20.name(), unicode"ERC20");
     }
 
     function erc20ToCanonicalERC20(uint256 chainId)

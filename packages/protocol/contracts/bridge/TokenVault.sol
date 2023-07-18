@@ -71,7 +71,12 @@ contract TokenVault is EssentialContract {
     mapping(bytes32 msgHash => MessageDeposit messageDeposit) public
         messageDeposits;
 
-    uint256[46] private __gap;
+    // There might be multiple tokenVault (e.g. L3's 'canoincal' tokenVault's
+    // L2 counterpart deployed on this chain) so we need to query if this is 
+    // a BridgedToken or not.
+    address[] public otherTokenVaults;
+
+    uint256[45] private __gap;
 
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
@@ -119,6 +124,10 @@ contract TokenVault is EssentialContract {
         uint256 amount
     );
 
+    event TokenVaultAdded(
+        address vaultAddress
+    );
+
     /*//////////////////////////////////////////////////////////////
                              CUSTOM ERRORS
     //////////////////////////////////////////////////////////////*/
@@ -142,6 +151,11 @@ contract TokenVault is EssentialContract {
      * ERC20 standard.
      */
     error TOKENVAULT_INVALID_TOKEN();
+
+    /**
+     * Thrown when the address supplied is not a valid token vault.
+     */
+    error TOKENVAULT_INVALID_TOKENVAULT();
 
     /**
      * Thrown when the amount in a transaction is invalid.
@@ -261,7 +275,8 @@ contract TokenVault is EssentialContract {
             canonicalToken,
             message.owner,
             to,
-            _amount
+            _amount,
+            _checkIfInceptedBridging(token)
         );
         message.gasLimit = gasLimit;
         message.processingFee = processingFee;
@@ -346,12 +361,15 @@ contract TokenVault is EssentialContract {
      * @param from The source address.
      * @param to The destination address.
      * @param amount The amount of tokens to be sent. 0 is a valid value.
+     * @param isInceptedBridging This means it is an incepted token so canonical is at least
+     * 2 layers below.
      */
     function receiveERC20(
         CanonicalERC20 calldata canonicalToken,
         address from,
         address to,
-        uint256 amount
+        uint256 amount,
+        bool isInceptedBridging
     )
         external
         nonReentrant
@@ -371,7 +389,7 @@ contract TokenVault is EssentialContract {
                 ERC20Upgradeable(token).safeTransfer(to, amount);
             }
         } else {
-            token = _getOrDeployBridgedToken(canonicalToken);
+            token = _getOrDeployBridgedToken(canonicalToken, isInceptedBridging);
             IMintableERC20(token).mint(to, amount);
         }
 
@@ -385,6 +403,30 @@ contract TokenVault is EssentialContract {
         });
     }
 
+    /**
+     * This function can add an address to the otherTokenVaults array
+     * @param vaultAddress The vaultAddress of another deployed tokenVault.
+     */
+    function addTokenVault(
+        address vaultAddress
+    )
+        external
+        onlyOwner
+    {
+        // If this call does not revert, we can be (almost) sure
+        // the address is a correct TokenVault - tho we still
+        // need to be careful, although this 'just' only affects
+        // the bridged token's name.
+        try TokenVault(vaultAddress).isBridgedToken(vaultAddress) {
+            otherTokenVaults.push(vaultAddress);
+            emit TokenVaultAdded({
+                vaultAddress: vaultAddress
+            });
+        } catch  {
+            revert TOKENVAULT_INVALID_TOKENVAULT();
+        }
+    }
+
     /*//////////////////////////////////////////////////////////////
                            PRIVATE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -392,16 +434,17 @@ contract TokenVault is EssentialContract {
     /**
      * Internal function to get or deploy bridged token
      * @param canonicalToken Canonical token information
+     * @param isInceptedBridging If token is 'incepted bridged'
      * @return token Address of the deployed bridged token
      */
-    function _getOrDeployBridgedToken(CanonicalERC20 calldata canonicalToken)
+    function _getOrDeployBridgedToken(CanonicalERC20 calldata canonicalToken, bool isInceptedBridging)
         private
         returns (address)
     {
         address token =
             canonicalToBridged[canonicalToken.chainId][canonicalToken.addr];
 
-        return token != address(0) ? token : _deployBridgedToken(canonicalToken);
+        return token != address(0) ? token : _deployBridgedToken(canonicalToken, isInceptedBridging);
     }
 
     /**
@@ -410,9 +453,10 @@ contract TokenVault is EssentialContract {
      * This must be called before the first time a bridged token is sent to this
      * chain.
      * @param canonicalToken Canonical token information
+     * @param isInceptedBridging If token is 'incepted bridged'
      * @return bridgedToken Address of the newly deployed bridged token
      */
-    function _deployBridgedToken(CanonicalERC20 calldata canonicalToken)
+    function _deployBridgedToken(CanonicalERC20 calldata canonicalToken, bool isInceptedBridging)
         private
         returns (address bridgedToken)
     {
@@ -433,7 +477,8 @@ contract TokenVault is EssentialContract {
             _srcChainId: canonicalToken.chainId,
             _decimals: canonicalToken.decimals,
             _symbol: canonicalToken.symbol,
-            _name: canonicalToken.name
+            _name: canonicalToken.name,
+            _inceptionBridged: isInceptedBridging
         });
 
         isBridgedToken[bridgedToken] = true;
@@ -449,6 +494,28 @@ contract TokenVault is EssentialContract {
             canonicalTokenName: canonicalToken.name,
             canonicalTokenDecimal: canonicalToken.decimals
         });
+    }
+
+
+    /**
+     * Internal function that tries to queries other vault contracts
+     * if the given address is tracked as 'isBridgedToken[token]' = true
+     * @param token Token we query information from
+     * @return bridgedToken True if already a bridged token
+     */
+    function _checkIfInceptedBridging(address token)
+        private
+        view
+        returns (bool bridgedToken)
+    {
+        for (uint256 i; i < otherTokenVaults.length; i++) {
+            try TokenVault(otherTokenVaults[i]).isBridgedToken(token){
+                if (TokenVault(otherTokenVaults[i]).isBridgedToken(token)) {
+                    return true;
+                }
+            }
+            catch{}
+        }
     }
 }
 
