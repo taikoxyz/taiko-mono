@@ -79,7 +79,7 @@ export default withNextra({
       },
       {
         source: "/docs/guides/claim-prover-ttko",
-        destination: "/docs/guides/run-a-node/claim-prover-ttko",
+        destination: "/docs/guides/run-a-node/claim-prover-rewards",
         permanent: true,
       },
       // Introduce the concept of manuals
@@ -91,6 +91,12 @@ export default withNextra({
       {
         source: "/docs/resources/integration-guide",
         destination: "/docs/manuals/integration-manual",
+        permanent: true,
+      },
+      // Migrate dependency on "TTKO" symbol for claiming rewards
+      {
+        source: "/docs/guides/run-a-node/claim-prover-ttko",
+        destination: "/docs/guides/run-a-node/claim-prover-rewards",
         permanent: true,
       },
     ];
