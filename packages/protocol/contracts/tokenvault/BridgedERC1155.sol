@@ -114,9 +114,7 @@ contract BridgedERC1155 is
     }
 
     function name() public view returns (string memory) {
-        if (bytes(name_).length == 0) {
-            return "";
-        } else {
+        if (bytes(name_).length > 0) {
             return
                 string.concat(name_, unicode" ⭀", Strings.toString(srcChainId));
         }
