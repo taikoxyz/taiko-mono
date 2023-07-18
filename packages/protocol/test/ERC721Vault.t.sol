@@ -77,6 +77,15 @@ contract PrankDestBridge {
         destERC721Vault = ERC721Vault(addr);
     }
 
+    function sendMessage(IBridge.Message memory message)
+        external
+        payable
+        returns (bytes32 msgHash)
+    {
+        // Dummy return value
+        return keccak256(abi.encode(message.id));
+    }
+
     function context() public view returns (BridgeContext memory) {
         return ctx;
     }
@@ -191,6 +200,7 @@ contract ERC721VaultTest is Test {
     function setUp() public {
         vm.startPrank(Alice);
         vm.deal(Alice, 100 ether);
+        vm.deal(Bob, 100 ether);
         addressManager = new AddressManager();
         addressManager.init();
 
@@ -557,6 +567,122 @@ contract ERC721VaultTest is Test {
         );
 
         assertEq(bridgedContract, deployedContract);
+    }
+
+    function test_bridge_back_but_owner_is_different_now_721() public {
+        vm.prank(Alice, Alice);
+        canonicalToken721.approve(address(erc721Vault), 1);
+        vm.prank(Alice, Alice);
+        canonicalToken721.approve(address(erc721Vault), 2);
+
+        assertEq(canonicalToken721.ownerOf(1), Alice);
+
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 0;
+
+        BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
+            .BridgeTransferOp(
+            destChainId,
+            Alice,
+            address(canonicalToken721),
+            tokenIds,
+            amounts,
+            140_000,
+            140_000,
+            Alice,
+            ""
+        );
+        vm.prank(Alice, Alice);
+        erc721Vault.sendToken{ value: 140_000 }(sendOpts);
+
+        assertEq(canonicalToken721.ownerOf(1), address(erc721Vault));
+
+        // This canonicalToken is basically need to be exact same as the
+        // sendToken() puts together
+        // - here is just mocking putting it together.
+        BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault
+            .CanonicalNFT({
+            chainId: 31_337,
+            addr: address(canonicalToken721),
+            symbol: "TT",
+            name: "TT"
+        });
+
+        uint256 chainId = block.chainid;
+        vm.chainId(destChainId);
+
+        vm.prank(Alice, Alice);
+        addressManager.setAddress(chainId, "bridge", address(destChainIdBridge));
+
+        destChainIdBridge.sendReceiveERC721ToERC721Vault(
+            canonicalToken,
+            Alice,
+            Alice,
+            tokenIds,
+            bytes32(0),
+            address(erc721Vault),
+            chainId
+        );
+
+        // Query canonicalToBridged
+        address deployedContract = destChainErc721Vault.canonicalToBridged(
+            chainId, address(canonicalToken721)
+        );
+
+        // Alice bridged over tokenId 1
+        assertEq(ERC721(deployedContract).ownerOf(1), Alice);
+
+        // Transfer the asset to Bob, and Bob can receive it back on canonical
+        // chain
+        vm.prank(Alice, Alice);
+        ERC721(deployedContract).transferFrom(Alice, Bob, 1);
+
+        assertEq(ERC721(deployedContract).ownerOf(1), Bob);
+
+        vm.prank(Bob, Bob);
+        ERC721(deployedContract).approve(address(destChainErc721Vault), 1);
+
+        sendOpts = BaseNFTVault.BridgeTransferOp(
+            chainId,
+            Bob,
+            address(deployedContract),
+            tokenIds,
+            amounts,
+            140_000,
+            140_000,
+            Bob,
+            ""
+        );
+
+        vm.prank(Bob, Bob);
+        destChainErc721Vault.sendToken{ value: 140_000 }(sendOpts);
+
+        //assertEq(ERC721(deployedContract).ownerOf(1), Bob);
+        //uint256 chainId = block.chainid;
+        vm.chainId(chainId);
+
+        assertEq(ERC721(canonicalToken721).ownerOf(1), address(erc721Vault));
+        console2.log("Vault address is:");
+        console2.log(address(erc721Vault));
+        console2.log("Alice address is:");
+        console2.log(address(Alice));
+        console2.log("Bob address is:");
+        console2.log(address(Bob));
+        console2.log("Destionation address is:");
+        console2.log(address(destChainErc721Vault));
+        console2.log("END");
+        destChainIdBridge.sendReceiveERC721ToERC721Vault(
+            canonicalToken,
+            Bob,
+            Bob,
+            tokenIds,
+            bytes32(0),
+            address(erc721Vault),
+            chainId
+        );
     }
 
     function test_releaseToken_721() public {
