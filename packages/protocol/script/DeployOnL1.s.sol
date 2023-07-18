@@ -15,8 +15,6 @@ import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
-import "../contracts/tokenvault/ERC1155Vault.sol";
-import "../contracts/tokenvault/ERC721Vault.sol";
 import "../contracts/signal/SignalService.sol";
 import "../contracts/common/AddressManager.sol";
 import "../contracts/test/erc20/FreeMintERC20.sol";
@@ -163,26 +161,6 @@ contract DeployOnL1 is Script {
             address(erc20Vault),
             bytes.concat(
                 erc20Vault.init.selector, abi.encode(addressManagerProxy)
-            )
-        );
-
-        // ERC721Vault
-        ERC721Vault erc721Vault = new ProxiedERC721Vault();
-        deployProxy(
-            "erc721_vault",
-            address(erc721Vault),
-            bytes.concat(
-                erc721Vault.init.selector, abi.encode(addressManagerProxy)
-            )
-        );
-
-        // ERC1155Vault
-        ERC1155Vault erc1155Vault = new ProxiedERC1155Vault();
-        deployProxy(
-            "erc1155_vault",
-            address(erc1155Vault),
-            bytes.concat(
-                erc1155Vault.init.selector, abi.encode(addressManagerProxy)
             )
         );
 
