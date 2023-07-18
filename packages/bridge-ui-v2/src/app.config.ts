@@ -8,3 +8,7 @@ export const processingFeeComponent = {
   closingDelayOptionClick: 300,
   intervalComputeRecommendedFee: 20000,
 };
+
+export const bridge = {
+  nonOwnerGasLimit: BigInt(140000),
+};
