@@ -74,7 +74,7 @@
       Loading event history...
     </div>
   {:else}
-    No history. When you have proven a block or been slashes, those events will
+    No history. When you have proven a block or been slashed, those events will
     show here.
   {/if}
 </div>
