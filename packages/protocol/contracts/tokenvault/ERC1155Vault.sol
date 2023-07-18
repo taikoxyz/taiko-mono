@@ -130,7 +130,6 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                 }
             } else {
                 token = _getOrDeployBridgedToken(ctoken);
-
                 for (uint256 i; i < tokenIds.length; ++i) {
                     BridgedERC1155(token).mint(to, tokenIds[i], amounts[i]);
                 }
