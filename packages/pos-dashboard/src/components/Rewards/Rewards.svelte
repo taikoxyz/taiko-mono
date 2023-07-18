@@ -57,7 +57,7 @@
   {#if balance}
     TaikoL1 Contract Balance: {ethers.utils.formatUnits(balance, 8)}
 
-    <div>
+    <div class="mb-2">
       <span class="label-text text-left block">Amount: </span>
       <div
         class="flex relative rounded-md bg-dark-2 justify-between items-center pr-4">
