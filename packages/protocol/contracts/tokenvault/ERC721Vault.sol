@@ -216,10 +216,11 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         returns (bytes memory)
     {
         bool isBridgedToken = isBridgedToken[opt.token];
-        CanonicalNFT memory nft = bridgedToCanonical[opt.token];
+        CanonicalNFT memory nft;
 
         // is a btoken, meaning, it does not live on this chain
         if (isBridgedToken) {
+            nft = bridgedToCanonical[opt.token];
             for (uint256 i; i < opt.tokenIds.length; i++) {
                 BridgedERC721(opt.token).burn(owner, opt.tokenIds[i]);
             }
