@@ -9,7 +9,7 @@ export default {
     key: "banner",
     text: (
       <a href="/docs/guides" target="_blank">
-        📌 Eldfell came! Get started →
+        📌 Eldell L3 is here! Get started →
       </a>
     ),
   },

@@ -40,15 +40,21 @@ cd simple-taiko-node
 
 ### Configure your node (required)
 
-First, copy the `.env.sample` to a new file `.env`:
+To run a Grimsvotn L2 node:
 
 ```sh
 cp .env.sample .env
 ```
 
-Next, open the `.env` file in your preferred text editor:
+To run a Eldfell L3 node:
 
-{" "}
+```sh
+cp .env.sample.l3 .env.l3
+```
+
+We will refer to `.env.l3` as `.env` for the purpose of this guide.
+
+Next, open the `.env` file in your preferred text editor:
 
 <Tabs items={["Mac", "Linux", "Windows"]} defaultIndex="0">
   <Tab>
@@ -74,13 +80,13 @@ notepad .env
   </Tab>
 </Tabs>
 
-Then, configure your Sepolia L1 endpoint.
+Then, configure your base layer endpoint. This would be a Sepolia L1 RPC to run a Grimsvotn L2 node, and a Grimsvotn L2 RPC to run an Eldfell L3 node.
 
 <Callout>
-  You can get a Sepolia L1 endpoint from a few places, but it **must point to an archive node** to access the state trie beyond the last 128 blocks.
+  You can get a base layer endpoint from a few places, but it **must point to an archive node** to access the state trie beyond the last 128 blocks.
 
 **Recommended**:
-Run your own Sepolia archive node, see: [Run a Sepolia node](/docs/guides/run-a-sepolia-node). This is recommended because you will eventually be rate-limited by public RPC providers.
+Run your own Sepolia archive node, see: [Run a Sepolia node](/docs/guides/run-a-sepolia-node). This is recommended because you will eventually be rate-limited by public RPC providers. If you are running an Elfell L3 node, you will need to have a fully synced Grimsvotn L2 node.
 
 **Alternative**:
 [Alchemy](https://www.alchemy.com/) and [Infura](https://www.infura.io/) are two popular RPC providers. Make sure you select the RPC as Sepolia testnet, and not Ethereum mainnet.
@@ -159,18 +165,24 @@ See [enable a prover](/docs/guides/enable-a-prover) for more information.
 
 ### Start a node
 
-<Callout>
-  If you ran a testnet node previously make sure to first run a `docker compose
-  down -v` to remove the old volumes. Also, it may take some time to synchronize
-  from the genesis block. You can monitor this progress through logs, or in the
-  local grafana dashboard and see the latest L2 chain status in the [Taiko block
-  explorer](https://explorer.test.taiko.xyz/).
+<Callout type="info">
+  Keep in mind that for a Grimsvotn L2 node you will use `docker compose` for
+  all commands, and for an Eldfell L3 node you will use `docker compose -f
+  ./docker-compose.l3.yml --env-file .env.l3` for all commands.
 </Callout>
 
 Make sure Docker is running and then run the following command to start the node. If you want to run it in the background, please add the `-d` flag (`docker compose up -d`).
 
+For a Grimsvotn L2 node:
+
 ```sh
 docker compose up
+```
+
+For a Eldfell L3 node:
+
+```sh
+docker compose -f ./docker-compose.l3.yml --env-file .env.l3 up
 ```
 
 To run the node in the background (detached mode), use the `-d` flag:
