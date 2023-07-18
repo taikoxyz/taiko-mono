@@ -1,6 +1,6 @@
 import { fetchSigner, watchAccount, watchNetwork } from 'wagmi/actions';
 
-import { mainnetChain, taikoChain } from '../chain/chains';
+import { L1Chain, L2Chain } from '../chain/chains';
 import { destChain, srcChain } from '../store/chain';
 import { isSwitchChainModalOpen } from '../store/modal';
 import { signer } from '../store/signer';
@@ -13,16 +13,16 @@ let unWatchNetwork: () => void;
 let unWatchAccount: () => void;
 
 const setChain = (chainId: number) => {
-  if (chainId === mainnetChain.id) {
-    srcChain.set(mainnetChain);
-    destChain.set(taikoChain);
+  if (chainId === L1Chain.id) {
+    srcChain.set(L1Chain);
+    destChain.set(L2Chain);
 
-    log(`Network swtiched to ${mainnetChain.name}`);
-  } else if (chainId === taikoChain.id) {
-    srcChain.set(taikoChain);
-    destChain.set(mainnetChain);
+    log(`Network swtiched to ${L1Chain.name}`);
+  } else if (chainId === L2Chain.id) {
+    srcChain.set(L2Chain);
+    destChain.set(L1Chain);
 
-    log(`Network swtiched to ${taikoChain.name}`);
+    log(`Network swtiched to ${L2Chain.name}`);
   } else {
     isSwitchChainModalOpen.set(true);
   }
