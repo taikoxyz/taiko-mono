@@ -7,10 +7,10 @@
   import Loading from '../../components/Loading.svelte';
   import { Tab, TabList, TabPanel, Tabs } from '../../components/Tabs';
   import Transactions from '../../components/Transactions';
+  import { ENABLE_FAUCET } from '../../constants/envVars';
   import { paginationInfo } from '../../store/relayerApi';
   import { signer } from '../../store/signer';
   import { transactions } from '../../store/transaction';
-  import { ENABLE_FAUCET } from '../../constants/envVars';
 
   // List of tab's name <=> route association
   // TODO: add this into a general configuration.
