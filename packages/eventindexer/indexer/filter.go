@@ -75,6 +75,36 @@ func L1FilterFunc(
 		if err != nil {
 			return errors.Wrap(err, "svc.saveSlashedEvents")
 		}
+
+		stakedEvents, err := svc.proverPool.FilterStaked(filterOpts, nil)
+		if err != nil {
+			return errors.Wrap(err, "svc.proverPool.FilterStaked")
+		}
+
+		err = svc.saveStakedEvents(ctx, chainID, stakedEvents)
+		if err != nil {
+			return errors.Wrap(err, "svc.saveStakedEvents")
+		}
+
+		exitedEvents, err := svc.proverPool.FilterExited(filterOpts, nil)
+		if err != nil {
+			return errors.Wrap(err, "svc.proverPool.FilterExited")
+		}
+
+		err = svc.saveExitedEvents(ctx, chainID, exitedEvents)
+		if err != nil {
+			return errors.Wrap(err, "svc.saveExitedEvents")
+		}
+
+		withdrawnEvents, err := svc.proverPool.FilterWithdrawn(filterOpts, nil)
+		if err != nil {
+			return errors.Wrap(err, "svc.proverPool.FilterWithdrawn")
+		}
+
+		err = svc.saveWithdrawnEvents(ctx, chainID, withdrawnEvents)
+		if err != nil {
+			return errors.Wrap(err, "svc.saveWithdrawnEvents")
+		}
 	}
 
 	return nil

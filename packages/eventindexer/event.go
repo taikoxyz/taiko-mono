@@ -18,6 +18,9 @@ var (
 	EventNameSlashed       = "Slashed"
 	EventNameMessageSent   = "MessageSent"
 	EventNameSwap          = "Swap"
+	EventNameStaked        = "Staked"
+	EventNameExited        = "Exited"
+	EventNameWithdrawn     = "Withdrawn"
 )
 
 // Event represents a stored EVM event. The fields will be serialized
