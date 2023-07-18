@@ -2,8 +2,6 @@ import { Callout, Steps, Tab, Tabs } from "nextra-theme-docs";
 
 # Run a Taiko node
 
-## Overview
-
 This guide will walk you through the process of operating a Taiko node via [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node). You will be able to:
 
 - Run a Taiko node easily from the command line on Windows, Mac, and Linux.
@@ -20,65 +18,79 @@ This guide will walk you through the process of operating a Taiko node via [simp
 <Steps>
 ### Clone simple-taiko-node
 
-{" "}
-
 <Tabs items={["Mac/Linux", "Windows"]} defaultIndex="0">
   <Tab>
-  ```sh
-  git clone https://github.com/taikoxyz/simple-taiko-node.git
-  cd simple-taiko-node
-  ```
+
+```sh
+git clone https://github.com/taikoxyz/simple-taiko-node.git
+cd simple-taiko-node
+```
+
   </Tab>
   <Tab>
-  ```sh
-  git config --global core.autocrlf false
-  git clone https://github.com/taikoxyz/simple-taiko-node.git
-  cd simple-taiko-node
-  ```
+
+```sh
+git config --global core.autocrlf false
+git clone https://github.com/taikoxyz/simple-taiko-node.git
+cd simple-taiko-node
+```
+
   </Tab>
 </Tabs>
 
-
 ### Configure your node (required)
 
-First, copy the `.env.sample` to a new file `.env`:
+To run a Grimsvotn L2 node:
 
 ```sh
 cp .env.sample .env
 ```
 
-Next, open the `.env` file in your preferred text editor:
+To run a Eldfell L3 node:
 
-{" "}
+```sh
+cp .env.sample.l3 .env.l3
+```
+
+We will refer to `.env.l3` as `.env` for the purpose of this guide.
+
+Next, open the `.env` file in your preferred text editor:
 
 <Tabs items={["Mac", "Linux", "Windows"]} defaultIndex="0">
   <Tab>
-  ```sh
-  nano .env
-  ```
+
+```sh
+nano .env
+```
+
   </Tab>
   <Tab>
-  ```sh
-  vim .env
-  ```
+  
+```sh
+vim .env
+```
+  
   </Tab>
   <Tab>
-  ```sh
-  notepad .env
-  ```
+  
+```sh
+notepad .env
+```
+
   </Tab>
 </Tabs>
 
-Then, configure your Sepolia L1 endpoint.
+Then, configure your base layer endpoint. This would be a Sepolia L1 RPC to run a Grimsvotn L2 node, and a Grimsvotn L2 RPC to run an Eldfell L3 node.
 
 <Callout>
-  You can get a Sepolia L1 endpoint from a few places, but it **must point to an archive node** to access the state trie beyond the last 128 blocks.
+  You can get a base layer endpoint from a few places, but it **must point to an archive node** to access the state trie beyond the last 128 blocks.
 
-  **Recommended**:
-  Run your own Sepolia archive node, see: [Run a Sepolia node](/docs/guides/run-a-sepolia-node). This is recommended because you will eventually be rate-limited by public RPC providers.
+**Recommended**:
+Run your own Sepolia archive node, see: [Run a Sepolia node](/docs/guides/run-a-sepolia-node). This is recommended because you will eventually be rate-limited by public RPC providers. If you are running an Elfell L3 node, you will need to have a fully synced Grimsvotn L2 node.
 
-  **Alternative**:
-  [Alchemy](https://www.alchemy.com/) and [Infura](https://www.infura.io/) are two popular RPC providers. Make sure you select the RPC as Sepolia testnet, and not Ethereum mainnet.
+**Alternative**:
+[Alchemy](https://www.alchemy.com/) and [Infura](https://www.infura.io/) are two popular RPC providers. Make sure you select the RPC as Sepolia testnet, and not Ethereum mainnet.
+
 </Callout>
 
 <Tabs items={["Local", "Alchemy", "Infura"]} defaultIndex="0">
@@ -94,43 +106,47 @@ Then, configure your Sepolia L1 endpoint.
   Then, go to "Create App".
   ![dashboard click create app](/images/guides/alchemy/dashboard.png)
 
-  Next, configure your app:
-  - for "name", enter "Taiko A3 Node", or your preferred name. 
-  - for "chain", select "Ethereum". 
-  - for "network", select "Ethereum Sepolia".
+Next, configure your app:
 
-  Then, click the "Create app" button.
-  ![create an Alchemy app](/images/guides/alchemy/create-app.png)
+- for "name", enter "Taiko A3 Node", or your preferred name.
+- for "chain", select "Ethereum".
+- for "network", select "Ethereum Sepolia".
 
-  After, go to "Dashboard", and click "view key". 
-  
-  You should see `https://eth-sepolia...` and `wss://eth-sepolia...`. Copy both endpoints. 
+Then, click the "Create app" button.
+![create an Alchemy app](/images/guides/alchemy/create-app.png)
 
-  These are your `L1_ENDPOINT_HTTP` and `L1_ENDPOINT_WS` on your `.env`.
-  ![view Alchemy app key](/images/guides/alchemy/view-key.png)
+After, go to "Dashboard", and click "view key".
+
+You should see `https://eth-sepolia...` and `wss://eth-sepolia...`. Copy both endpoints.
+
+These are your `L1_ENDPOINT_HTTP` and `L1_ENDPOINT_WS` on your `.env`.
+![view Alchemy app key](/images/guides/alchemy/view-key.png)
+
   </Tab>
   <Tab>
   First, sign in to [Infura's dashboard](https://www.infura.io/).
   ![Infura dashboard sign in](/images/guides/infura/sign-in.png)
 
-  Next, go to "API Keys", and click the "create new API key" button:
-  - for "network", select "Web3 API". 
-  - for "name", enter "Taiko A3 Node", or your preferred name. 
+Next, go to "API Keys", and click the "create new API key" button:
 
-  Then, click the "create" button.
-  ![create API key](/images/guides/infura/create-key.png)
+- for "network", select "Web3 API".
+- for "name", enter "Taiko A3 Node", or your preferred name.
 
-  You should be redirected to your app's page. 
+Then, click the "create" button.
+![create API key](/images/guides/infura/create-key.png)
 
-  Then go to "Endpoints", and select "Sepolia". Copy the `https://sepolia.infura...` endpoint. 
-  
-  This is your `L1_ENDPOINT_HTTP` on your `.env`.
-  ![get HTTPS endpoints](/images/guides/infura/https-endpoints.png)
+You should be redirected to your app's page.
 
-  Next, go to "WebSockets", and copy the `wss://sepolia.infura...` endpoint.
+Then go to "Endpoints", and select "Sepolia". Copy the `https://sepolia.infura...` endpoint.
 
-  This is your `L1_ENDPOINT_WS` on your `.env`.
-  ![get WSS endpoints](/images/guides/infura/wss-endpoints.png)
+This is your `L1_ENDPOINT_HTTP` on your `.env`.
+![get HTTPS endpoints](/images/guides/infura/https-endpoints.png)
+
+Next, go to "WebSockets", and copy the `wss://sepolia.infura...` endpoint.
+
+This is your `L1_ENDPOINT_WS` on your `.env`.
+![get WSS endpoints](/images/guides/infura/wss-endpoints.png)
+
   </Tab>
 </Tabs>
 
@@ -143,21 +159,30 @@ Finally, set the following environment variables:
 
 See [enable a proposer](/docs/guides/enable-a-proposer) for more information.
 
-
 ### Enable your node as a prover (optional)
 
 See [enable a prover](/docs/guides/enable-a-prover) for more information.
 
 ### Start a node
 
-<Callout>
-  If you ran a testnet node previously make sure to first run a `docker compose down -v` to remove the old volumes. Also, it may take some time to synchronize from the genesis block. You can monitor this progress through logs, or in the local grafana dashboard and see the latest L2 chain status in the [Taiko block explorer](https://explorer.test.taiko.xyz/).
+<Callout type="info">
+  Keep in mind that for a Grimsvotn L2 node you will use `docker compose` for
+  all commands, and for an Eldfell L3 node you will use `docker compose -f
+  ./docker-compose.l3.yml --env-file .env.l3` for all commands.
 </Callout>
 
 Make sure Docker is running and then run the following command to start the node. If you want to run it in the background, please add the `-d` flag (`docker compose up -d`).
 
+For a Grimsvotn L2 node:
+
 ```sh
 docker compose up
+```
+
+For a Eldfell L3 node:
+
+```sh
+docker compose -f ./docker-compose.l3.yml --env-file .env.l3 up
 ```
 
 To run the node in the background (detached mode), use the `-d` flag:
@@ -220,18 +245,20 @@ docker compose logs -f l2_execution_engine
 ```
 
 #### View the live data streams of your running containers
+
 This shows the CPU/MEM USAGE % and consumption of your machine's resources (add prefix "`docker stats -a`" to display all containers)
+
 ```sh
 docker stats
 ```
 
-### View the node's status dashboard  
+### View the node's status dashboard
 
 A [Grafana](https://grafana.com/) dashboard with a [Prometheus](https://prometheus.io/) datasource is also included to display the L2 execution engine's real time status.
 
 You can visit it at [http://localhost:3000/d/L2ExecutionEngine/l2-execution-engine-overview](http://localhost:3000/d/L2ExecutionEngine/l2-execution-engine-overview).
 
-<br/>
+<br />
 
 <img
   width="2556"
@@ -244,68 +271,88 @@ You can visit it at [http://localhost:3000/d/L2ExecutionEngine/l2-execution-engi
 ## Troubleshooting
 
 ### Node warning logs
+
 You can ignore any WARN logs.
 
 ### Node error logs
 
 #### `error: "failed to insert new head to L2 execution engine: missing trie node"`
+
 Make sure that your RPC is pointing to an Sepolia archive node, and not a full node.
 
 #### `error: "daily request count exceeded, request rate limited"`
+
 Your RPC provider has a limit on the number of requests. You can try using a different provider that offers higher limits.
 
 #### `error: L1_BLOCK_ID`
+
 The block that you want to prove has already been verified, you can ignore this.
 
 #### `error: L1_ALREADY_PROVEN`
+
 This block has been proven by someone else, but it's not verified yet, you can ignore it.
 
 #### `Fatal: Failed to register the Ethereum service: database contains incompatible genesis`
+
 Try to remove the node with `docker compose down -v` and then try again.
 
 #### `Unhandled trie error: missing trie node`
+
 You can ignore this error, it doesn't affect you and goes away after a while.
 
 #### `Block batch iterator callback error; error="failed to fetch L2 parent block: not found`
+
 You can ignore this error.
 
 #### `Error starting ...: listen tcp4 0.0.0.0:{port} bind: address already in use`
+
 The port is already in use by another service. You can either shut down the other program or change the port in the .env file.
 
 #### `error parsing HTTP 403 response body: invalid character '<' looking for beginning of value`
+
 Your IP address is being geo-blocked due to sanctions lists. If you're affected, try changing hosting locations or utilize a VPN to change your IP address.
 
 #### `ERROR: The Compose file './docker-compose.yml' is invalid because: Unsupported config option for some_service 'pull_policy'`
+
 Your docker installation is out of date. You need to update your docker compose installation: https://docs.docker.com/compose/install/.
 
 #### `daemon docker is not running` <br></br> `Cannot connect to the Docker daemon`
+
 Need to start the Docker before running the commands.
 
 #### `database contains incompatible genesis`
+
 If you ran an alpha-1 testnet node make sure to first run a docker compose down -v to remove the old volumes.
 
 #### `Bind for 0.0.0.0:port` failed: port already allocated
+
 This error just means that the port taiko-node is trying to allocate is already being used by either some other node you're running
 or by a left-over container of taiko node if you did not close down the node correctly, you can try running `docker compose down` in the simple-taiko-node folder and start it again using `docker compose up -d`
 or edit the `.env` and replace the problematic port with a different one.
 
 #### `Failed to fetch L1Origin from L2 execution engine <br></br> err="not found"`
+
 This seems to be a common issue if you're using Alchemy endpoints, switching to Infura should fix this issue.
 
 #### `no configuration file provided: not found`
+
 You are in the wrong directory, `cd simple-taiko-node` and run the command again.
 
 #### `unknown shorthand flag: 'd' in -d`
+
 You are using v1 of docker-compose, use the command: `docker-compose up -d` instead of `docker compose up -d`, I highly recommend that you upgrade to the v2 of docker compose plugin [Installation Guide](https://docs.docker.com/compose/install/linux/)
 
 #### `docker: 'compose' is not a docker command`
+
 You are missing the docker compose plugin [Installation Guide](https://docs.docker.com/compose/install/linux/)
 
 #### `taiko_client_prover_relayer not printing any logs`
+
 There could be several reasons, you can check the logs `docker compose logs -f` to make sure there are no errors but one of the most common cause for this is a typo in the `.env` file
 `ENABLE_PROVER=True/TRUE` when setting this to true `true` has to be in all lowercase or the script to start relayer won't run.
 
 #### `simple-taiko-node-taiko_client_prover_relayer-1  | /bin/sh: /script/start-prover-relayer.sh: not found`
+
 This issue occurs on windows because of the Control Characters in this case the Line Endings, a quick fix would be to delete the node folder, run this `git config --global core.autocrlf false` in the shell, then clone the repo again.
 
 If you do not want to delete the node folder, please follow one of these steps below.
@@ -314,32 +361,31 @@ If you do not want to delete the node folder, please follow one of these steps b
 
 <Tabs items={["Command line", "Notepad"]} defaultIndex="0">
   <Tab>
-  ```sh
+
+```sh
   docker compose down -v
   cd scripts
   dos2unix start-zkevm-chain-rpcd.sh
   dos2unix start-prover-relayer.sh
   cd ..
-  docker compose up 
-  ```
+  docker compose up
+```
+
   </Tab>
   <Tab>
-  ```sh
-  1)
-  Open Notepad++
-  Go to: File -> Open -> Locate start-prover-relayer.sh file and open it
-  Go to: Edit -> EOL Conversion -> Unix
-  Go to: File -> Save
-  Close the file
 
-  2)
-  Do the same for start-zkevm-chain-rpcd.sh
+1. Open Notepad++
+2. Go to: File -> Open -> Locate `start-prover-relayer.sh` file and open it
+3. Go to: Edit -> EOL Conversion -> Unix
+4. Go to: File -> Save
+5. Close the file
+6. Do the same for `start-zkevm-chain-rpcd.sh`
+7. Then go back to command line and do:
 
-  3)
-  Then go back to command line and do
-  docker compose down -v
-  docker compose up
-  ```
-  </Tab> 
+   ```sh
+   docker compose down -v
+   docker compose up
+   ```
+
+  </Tab>
 </Tabs>
-

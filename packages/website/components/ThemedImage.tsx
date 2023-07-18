@@ -26,4 +26,4 @@ function ThemedImage() {
   ) : null;
 }
 
-export default ThemedImage;
+export { ThemedImage };

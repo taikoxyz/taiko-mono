@@ -2,9 +2,7 @@ import { Callout, Steps } from "nextra-theme-docs";
 
 # Receive tokens
 
-## Overview
-
-This guide will help you receive testnet tokens from the faucet(s).
+This guide will help you receive testnet tokens. You can see all the deployed tokens [here](/docs/reference/contract-addresses). Keep in mind HORSE and BLL faucets only distribute to Grimsvotn L2. To get HORSE and BLL on Eldfell L3, you will need to [use the bridge](/docs/guides/bridge-tokens).
 
 ## Prerequisites
 
@@ -23,7 +21,9 @@ This guide will help you receive testnet tokens from the faucet(s).
       - [coinbase.com/faucets/ethereum-sepolia-faucet](https://coinbase.com/faucets/ethereum-sepolia-faucet)
 
     ### Receive HORSE
-    Navigate to [the bridge](https://bridge.test.taiko.xyz), select HORSE from the dropdown, and click "Faucet".
+    Navigate to the [Sepolia L1 ↔ Grimsvotn L2 bridge](https://bridge.test.taiko.xyz), select HORSE from the dropdown, and click "Faucet".
+
+    To receive HORSE on Eldfell L3, you will need to [use the bridge](/docs/guides/bridge-tokens).
 
     ![receive horse](/images/guides/receive-horse.png)
 
@@ -36,4 +36,10 @@ This guide will help you receive testnet tokens from the faucet(s).
     It's possible more will be distributed, especially considering those that did not run a proposer/prover in alpha1/alpha2, and those who are new to the Taiko community.
 
     Otherwise, you can obtain TTKO by successfully [proving blocks](/docs/guides/enable-a-prover) (the protocol rewards you in TTKO), from [Swap](https://swap.test.taiko.xyz), or by asking a community member on our [Discord](https://discord.gg/taikoxyz).
+
+    By the way, TTKO is specific to Grimsvotn testnet, you won't earn any TTKO for proving Eldfell blocks (you will earn TTKOe, see below).
+
+    ### Receive TTKOe
+    TTKOe has not been distributed yet, but will be soon!
+
 </Steps>

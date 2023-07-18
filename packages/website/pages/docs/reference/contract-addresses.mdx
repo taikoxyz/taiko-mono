@@ -1,0 +1,432 @@
+import {
+  SEPOLIA_CONFIG,
+  GRIMSVOTN_CONFIG,
+  ELDFELL_CONFIG,
+} from "../../../domain/chain";
+import { contractAddressToLink } from "../../../utils/contractAddressToLink";
+import Link from "next/link";
+import { ContractAddressTable } from "components/ContractAddressTable";
+
+{/* TODO: interpolate network names from domain config objects, see: https://github.com/shuding/nextra/issues/2076 */}
+{/* TODO: make this file DRYer, somehow if we use a component it doesn't get styled so just being redundent for now. See: ContractAddressTable component */}
+{/* TODO: can maybe remove the contract links if verified contract is sufficient and this is clear */}
+
+# Contract addresses
+
+**Based contracts** refer to contracts deployed on the base layer and **rollup contracts** refer to contracts deployed on the rollup. Learn more about inception layers [here](/docs/concepts/inception-layers)!
+
+{/* Sepolia L1 contracts */}
+
+## Sepolia L1
+
+Sepolia L1 is used as a **base layer**.
+
+### Based contracts
+
+> Read the deployed alpha-3 based contracts [here](https://github.com/taikoxyz/taiko-mono/tree/alpha-3/packages/protocol/contracts).
+
+<table>
+  <thead>
+    <tr>
+      <th style={{ textAlign: "left" }}>Name</th>
+      <th style={{ textAlign: "left" }}>Proxy</th>
+      <th style={{ textAlign: "left" }}>Implementation</th>
+    </tr>
+  </thead>
+  <tbody>
+    {Object.keys(SEPOLIA_CONFIG.basedContracts).map((key) => {
+      if (key === "erc20Contracts") return;
+      const contract = SEPOLIA_CONFIG.basedContracts[key];
+      const baseUrl = SEPOLIA_CONFIG.blockExplorer.url;
+      const blockExplorerName = SEPOLIA_CONFIG.blockExplorer.name;
+      const proxyAddress = contract.address.proxy;
+      const implementationAddress = contract.address.impl;
+      return (
+        <tr key={contract.name}>
+          <td>{contract.name}</td>
+          <td>
+            {proxyAddress ? (
+              <a href={contractAddressToLink(baseUrl, proxyAddress)}>
+                {`${blockExplorerName} ↗`}
+              </a>
+            ) : (
+              "None"
+            )}
+          </td>
+          <td>
+            <a href={contractAddressToLink(baseUrl, implementationAddress)}>
+              {`${blockExplorerName} ↗`}
+            </a>
+          </td>
+        </tr>
+      );
+    })}
+  </tbody>
+</table>
+
+<table>
+  <thead>
+    <tr>
+      <th style={{ textAlign: "left" }}>Name</th>
+      <th style={{ textAlign: "left" }}>Symbol</th>
+      <th style={{ textAlign: "left" }}>Decimals</th>
+      <th style={{ textAlign: "left" }}>Proxy</th>
+      <th style={{ textAlign: "left" }}>Implementation</th>
+    </tr>
+  </thead>
+  <tbody>
+    {Object.keys(SEPOLIA_CONFIG.basedContracts.erc20Contracts).map((key) => {
+      const contract = SEPOLIA_CONFIG.basedContracts.erc20Contracts[key];
+      const baseUrl = SEPOLIA_CONFIG.blockExplorer.url;
+      const blockExplorerName = SEPOLIA_CONFIG.blockExplorer.name;
+      const proxyAddress = contract.address.proxy;
+      const implementationAddress = contract.address.impl;
+      return (
+        <tr key={contract.name}>
+          <td>{contract.name}</td>
+          <td>{contract.symbol}</td>
+          <td>{contract.decimals}</td>
+          <td>
+            {proxyAddress ? (
+              <a href={contractAddressToLink(baseUrl, proxyAddress)}>
+                {`${blockExplorerName} ↗`}
+              </a>
+            ) : (
+              "None"
+            )}
+          </td>
+          <td>
+            <a href={contractAddressToLink(baseUrl, implementationAddress)}>
+              {`${blockExplorerName} ↗`}
+            </a>
+          </td>
+        </tr>
+      );
+    })}
+  </tbody>
+</table>
+
+### Rollup contracts
+
+None.
+
+### Other contracts
+
+None.
+
+{/* Grimsvotn L2 contracts */}
+
+## Grimsvotn L2
+
+Grimsvotn L2 is used as a **base layer** and a **rollup**.
+
+### Based contracts
+
+> Read the deployed alpha-4 based contracts [here](https://github.com/taikoxyz/taiko-mono/tree/alpha-4/packages/protocol/contracts).
+
+<table>
+  <thead>
+    <tr>
+      <th style={{ textAlign: "left" }}>Name</th>
+      <th style={{ textAlign: "left" }}>Proxy</th>
+      <th style={{ textAlign: "left" }}>Implementation</th>
+    </tr>
+  </thead>
+  <tbody>
+    {Object.keys(GRIMSVOTN_CONFIG.basedContracts).map((key) => {
+      if (key === "erc20Contracts") return;
+      const contract = GRIMSVOTN_CONFIG.basedContracts[key];
+      const baseUrl = GRIMSVOTN_CONFIG.blockExplorer.url;
+      const blockExplorerName = GRIMSVOTN_CONFIG.blockExplorer.name;
+      const proxyAddress = contract.address.proxy;
+      const implementationAddress = contract.address.impl;
+      return (
+        <tr key={contract.name}>
+          <td>{contract.name}</td>
+          <td>
+            {proxyAddress ? (
+              <a href={contractAddressToLink(baseUrl, proxyAddress)}>
+                {`${blockExplorerName} ↗`}
+              </a>
+            ) : (
+              "None"
+            )}
+          </td>
+          <td>
+            <a href={contractAddressToLink(baseUrl, implementationAddress)}>
+              {`${blockExplorerName} ↗`}
+            </a>
+          </td>
+        </tr>
+      );
+    })}
+  </tbody>
+</table>
+
+<table>
+  <thead>
+    <tr>
+      <th style={{ textAlign: "left" }}>Name</th>
+      <th style={{ textAlign: "left" }}>Symbol</th>
+      <th style={{ textAlign: "left" }}>Decimals</th>
+      <th style={{ textAlign: "left" }}>Proxy</th>
+      <th style={{ textAlign: "left" }}>Implementation</th>
+    </tr>
+  </thead>
+  <tbody>
+    {Object.keys(GRIMSVOTN_CONFIG.basedContracts.erc20Contracts).map((key) => {
+      const contract = GRIMSVOTN_CONFIG.basedContracts.erc20Contracts[key];
+      const baseUrl = GRIMSVOTN_CONFIG.blockExplorer.url;
+      const blockExplorerName = GRIMSVOTN_CONFIG.blockExplorer.name;
+      const proxyAddress = contract.address.proxy;
+      const implementationAddress = contract.address.impl;
+      return (
+        <tr key={contract.name}>
+          <td>{contract.name}</td>
+          <td>{contract.symbol}</td>
+          <td>{contract.decimals}</td>
+          <td>
+            {proxyAddress ? (
+              <a href={contractAddressToLink(baseUrl, proxyAddress)}>
+                {`${blockExplorerName} ↗`}
+              </a>
+            ) : (
+              "None"
+            )}
+          </td>
+          <td>
+            <a href={contractAddressToLink(baseUrl, implementationAddress)}>
+              {`${blockExplorerName} ↗`}
+            </a>
+          </td>
+        </tr>
+      );
+    })}
+  </tbody>
+</table>
+
+### Rollup contracts
+
+> Read the deployed alpha-3 rollup contracts [here](https://github.com/taikoxyz/taiko-mono/tree/alpha-3/packages/protocol/contracts).
+
+<table>
+  <thead>
+    <tr>
+      <th style={{ textAlign: "left" }}>Name</th>
+      <th style={{ textAlign: "left" }}>Proxy</th>
+      <th style={{ textAlign: "left" }}>Implementation</th>
+    </tr>
+  </thead>
+  <tbody>
+    {Object.keys(GRIMSVOTN_CONFIG.rollupContracts).map((key) => {
+      if (key === "erc20Contracts") return;
+      const contract = GRIMSVOTN_CONFIG.rollupContracts[key];
+      const baseUrl = GRIMSVOTN_CONFIG.blockExplorer.url;
+      const blockExplorerName = GRIMSVOTN_CONFIG.blockExplorer.name;
+      const proxyAddress = contract.address.proxy;
+      const implementationAddress = contract.address.impl;
+      return (
+        <tr key={contract.name}>
+          <td>{contract.name}</td>
+          <td>
+            {proxyAddress ? (
+              <a href={contractAddressToLink(baseUrl, proxyAddress)}>
+                {`${blockExplorerName} ↗`}
+              </a>
+            ) : (
+              "None"
+            )}
+          </td>
+          <td>
+            <a href={contractAddressToLink(baseUrl, implementationAddress)}>
+              {`${blockExplorerName} ↗`}
+            </a>
+          </td>
+        </tr>
+      );
+    })}
+  </tbody>
+</table>
+
+<table>
+  <thead>
+    <tr>
+      <th style={{ textAlign: "left" }}>Name</th>
+      <th style={{ textAlign: "left" }}>Symbol</th>
+      <th style={{ textAlign: "left" }}>Decimals</th>
+      <th style={{ textAlign: "left" }}>Proxy</th>
+      <th style={{ textAlign: "left" }}>Implementation</th>
+    </tr>
+  </thead>
+  <tbody>
+    {Object.keys(GRIMSVOTN_CONFIG.rollupContracts.erc20Contracts).map((key) => {
+      const contract = GRIMSVOTN_CONFIG.rollupContracts.erc20Contracts[key];
+      const baseUrl = GRIMSVOTN_CONFIG.blockExplorer.url;
+      const blockExplorerName = GRIMSVOTN_CONFIG.blockExplorer.name;
+      const proxyAddress = contract.address.proxy;
+      const implementationAddress = contract.address.impl;
+      return (
+        <tr key={contract.name}>
+          <td>{contract.name}</td>
+          <td>{contract.symbol}</td>
+          <td>{contract.decimals}</td>
+          <td>
+            {proxyAddress ? (
+              <a href={contractAddressToLink(baseUrl, proxyAddress)}>
+                {`${blockExplorerName} ↗`}
+              </a>
+            ) : (
+              "None"
+            )}
+          </td>
+          <td>
+            <a href={contractAddressToLink(baseUrl, implementationAddress)}>
+              {`${blockExplorerName} ↗`}
+            </a>
+          </td>
+        </tr>
+      );
+    })}
+  </tbody>
+</table>
+
+### Other contracts
+
+<br />
+<table>
+  <thead>
+    <tr>
+      <th style={{ textAlign: "left" }}>Name</th>
+      <th style={{ textAlign: "left" }}>Proxy</th>
+      <th style={{ textAlign: "left" }}>Implementation</th>
+    </tr>
+  </thead>
+  <tbody>
+    {Object.keys(GRIMSVOTN_CONFIG.otherContracts).map((key) => {
+      if (key === "erc20Contracts") return;
+      const contract = GRIMSVOTN_CONFIG.otherContracts[key];
+      const baseUrl = GRIMSVOTN_CONFIG.blockExplorer.url;
+      const blockExplorerName = GRIMSVOTN_CONFIG.blockExplorer.name;
+      const proxyAddress = contract.address.proxy;
+      const implementationAddress = contract.address.impl;
+      return (
+        <tr key={contract.name}>
+          <td>{contract.name}</td>
+          <td>
+            {proxyAddress ? (
+              <a href={contractAddressToLink(baseUrl, proxyAddress)}>
+                {`${blockExplorerName} ↗`}
+              </a>
+            ) : (
+              "None"
+            )}
+          </td>
+          <td>
+            <a href={contractAddressToLink(baseUrl, implementationAddress)}>
+              {`${blockExplorerName} ↗`}
+            </a>
+          </td>
+        </tr>
+      );
+    })}
+  </tbody>
+</table>
+
+{/* Eldfell L3 contracts */}
+
+## Eldfell L3
+
+Elfell L3 is used as a **rollup**.
+
+### Based contracts
+
+None.
+
+### Rollup contracts
+
+> Read the deployed alpha-4 rollup contracts [here](https://github.com/taikoxyz/taiko-mono/tree/alpha-3/packages/protocol/contracts).
+
+<table>
+  <thead>
+    <tr>
+      <th style={{ textAlign: "left" }}>Name</th>
+      <th style={{ textAlign: "left" }}>Proxy</th>
+      <th style={{ textAlign: "left" }}>Implementation</th>
+    </tr>
+  </thead>
+  <tbody>
+    {Object.keys(ELDFELL_CONFIG.rollupContracts).map((key) => {
+      if (key === "erc20Contracts") return;
+      const contract = ELDFELL_CONFIG.rollupContracts[key];
+      const baseUrl = ELDFELL_CONFIG.blockExplorer.url;
+      const blockExplorerName = ELDFELL_CONFIG.blockExplorer.name;
+      const proxyAddress = contract.address.proxy;
+      const implementationAddress = contract.address.impl;
+      return (
+        <tr key={contract.name}>
+          <td>{contract.name}</td>
+          <td>
+            {proxyAddress ? (
+              <a href={contractAddressToLink(baseUrl, proxyAddress)}>
+                {`${blockExplorerName} ↗`}
+              </a>
+            ) : (
+              "None"
+            )}
+          </td>
+          <td>
+            <a href={contractAddressToLink(baseUrl, implementationAddress)}>
+              {`${blockExplorerName} ↗`}
+            </a>
+          </td>
+        </tr>
+      );
+    })}
+  </tbody>
+</table>
+
+<table>
+  <thead>
+    <tr>
+      <th style={{ textAlign: "left" }}>Name</th>
+      <th style={{ textAlign: "left" }}>Symbol</th>
+      <th style={{ textAlign: "left" }}>Decimals</th>
+      <th style={{ textAlign: "left" }}>Proxy</th>
+      <th style={{ textAlign: "left" }}>Implementation</th>
+    </tr>
+  </thead>
+  <tbody>
+    {Object.keys(ELDFELL_CONFIG.rollupContracts.erc20Contracts).map((key) => {
+      const contract = ELDFELL_CONFIG.rollupContracts.erc20Contracts[key];
+      const baseUrl = ELDFELL_CONFIG.blockExplorer.url;
+      const blockExplorerName = ELDFELL_CONFIG.blockExplorer.name;
+      const proxyAddress = contract.address.proxy;
+      const implementationAddress = contract.address.impl;
+      return (
+        <tr key={contract.name}>
+          <td>{contract.name}</td>
+          <td>{contract.symbol}</td>
+          <td>{contract.decimals}</td>
+          <td>
+            {proxyAddress ? (
+              <a href={contractAddressToLink(baseUrl, proxyAddress)}>
+                {`${blockExplorerName} ↗`}
+              </a>
+            ) : (
+              "None"
+            )}
+          </td>
+          <td>
+            <a href={contractAddressToLink(baseUrl, implementationAddress)}>
+              {`${blockExplorerName} ↗`}
+            </a>
+          </td>
+        </tr>
+      );
+    })}
+  </tbody>
+</table>
+
+### Other contracts
+
+None.

@@ -1,14 +1,15 @@
 # Proposing Taiko blocks
-## Overview
+
 On Taiko, the next L2 state is known immediately and deterministically at the time a block is proposed to the TaikoL1 contract. After a block is proposed, a series of checks are done to compute this post-L2 state:
 
 1. Block is proposed by any proposer (permissionlessly).
 2. Block level properties' validity is checked by the TaikoL1 contract with the ([proposed block intrinsic validity function](./proposing#proposed-block-intrinsic-validity-function)).
 3. Proposed block is downloaded by a Taiko node, and the transaction list is parsed over and checked for validity ([transaction list intrinsic validity function](./proposing#transaction-list-intrinsic-validity-function)).
-    - IF every transaction in the list is valid, an ordered subset of the list is created by skipping over transactions which have an invalid nonce or the sender has too little Ether balance to pay for the transaction. This ordered subset is used along with the [anchor transaction](./proposing#anchor-transaction) to create a Taiko L2 block.
-    - IF any transaction in the list is invalid, an empty block (with only the anchor tx) is created on L2.
+   - IF every transaction in the list is valid, an ordered subset of the list is created by skipping over transactions which have an invalid nonce or the sender has too little Ether balance to pay for the transaction. This ordered subset is used along with the [anchor transaction](./proposing#anchor-transaction) to create a Taiko L2 block.
+   - IF any transaction in the list is invalid, an empty block (with only the anchor tx) is created on L2.
 
 ## Intrinsic validity functions
+
 The Ethereum yellow paper has a well defined set of rules to compute the state transition. We use these same rules to take a proposed block, and compute the post-block state on Taiko. A proposed block on Taiko has two parts:
 
 - The block metadata
@@ -78,15 +79,15 @@ If any of these fails, an empty block will be created on L2 (with only the ancho
 The anchor transaction is a way for the protocol to make use of the programmability of the EVM (which we already need to be able to proof) to enforce certain protocol behavior. We can add additional tasks to anchor transactions to enrich Taiko’s functionalities by writing standard smart contract code (instead of requiring more complicated changes to Taiko’s ZK-EVM and node subsystems).
 
 The anchor transaction is required to be the first transaction in a Taiko block (which is important to make the block deterministic). The anchor transaction is currently used as follows:
+
 1. Persisting `l1Height` $C_a$, `l1Hash` $C_h$, `l1SignalRoot`, and `parentGasUsed` (data inherited from L1) to the storage trie. These values can be used by bridges to validate cross-chain messages.
 2. Comparing $ρ_{i−1}$, the public input hash stored by the previous block, with `KEC(i − 1, d, h[2..256])`. The anchor transaction will throw an exception if such comparison fails. The protocol requires the anchor transaction to execute successfully and will not accept a proof for a block that fails to do so. Note that the genesis block has $ρ_0$ ≡ `KEC(0, d, [0, ..., 0])`.
 3. Persisting a new public input hash $ρ_i$ ≡ `KEC(i, d, h[1..255])` to the storage trie for the next block to use. This allows transactions, in the current and all following blocks, to access these public input data with confidence as their values are now covered by ZK-EVM’s storage proof.
-4. With anchoring, the block mapping function `M` (defined in the [whitepaper](https://taikoxyz.github.io/taiko-mono/taiko-whitepaper.pdf)) can be simplified to:  
-$$$
-\begin{aligned}
-B &≡ (H, T, U) \\
-&≡ M(δ, θ, B, \dot{B}) \\
-&≡ M(δ, θ, C, L)
-\end{aligned}
-$$$
-
+4. With anchoring, the block mapping function `M` (defined in the [whitepaper](https://taikoxyz.github.io/taiko-mono/taiko-whitepaper.pdf)) can be simplified to:
+   $$
+   \begin{aligned}
+   B &≡ (H, T, U) \\
+   &≡ M(δ, θ, B, \dot{B}) \\
+   &≡ M(δ, θ, C, L)
+   \end{aligned}
+   $$
