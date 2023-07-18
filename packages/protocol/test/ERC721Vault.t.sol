@@ -16,7 +16,6 @@ import { ICrossChainSync } from "../contracts/common/ICrossChainSync.sol";
 import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import { BaseVault } from "../contracts/tokenvault/BaseVault.sol";
 
-// Template canonical erc721 token
 contract TestTokenERC721 is ERC721 {
     string _baseTokenURI;
     uint256 minted;
@@ -252,14 +251,13 @@ contract ERC721VaultTest is Test {
         tokenIds[0] = 1;
 
         uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 1;
+        amounts[0] = 0;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
             .BridgeTransferOp(
             destChainId,
             Alice,
             address(canonicalToken721),
-            "http://example.host.com/",
             tokenIds,
             amounts, // With ERC721 still need to specify 1
             140_000,
@@ -279,8 +277,7 @@ contract ERC721VaultTest is Test {
             chainId: 31_337,
             addr: 0x579FBFF1A9b1502688169DA761DcF262b73BB64A,
             symbol: "TT",
-            name: "TT",
-            uri: "http://example.host.com/"
+            name: "TT"
         });
 
         uint256[] memory tokenIds = new uint256[](1);
@@ -294,7 +291,7 @@ contract ERC721VaultTest is Test {
         address ownerRetVal;
         uint256[] memory tokenIdsRetVal;
         (nftRetVal, ownerRetVal,, tokenIdsRetVal) =
-            erc721Vault.decodeTokenData(dataToDecode);
+            erc721Vault.decodeMessageData(dataToDecode);
 
         assertEq(Alice, ownerRetVal);
         assertEq(1, tokenIdsRetVal[0]);
@@ -303,7 +300,6 @@ contract ERC721VaultTest is Test {
 
         assertEq("TT", nftRetVal.symbol);
         assertEq("TT", nftRetVal.name);
-        assertEq("http://example.host.com/", nftRetVal.uri);
     }
 
     function test_sendToken_with_invalid_to_address_721() public {
@@ -316,14 +312,13 @@ contract ERC721VaultTest is Test {
         tokenIds[0] = 1;
 
         uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 1;
+        amounts[0] = 0;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
             .BridgeTransferOp(
             destChainId,
             address(0),
             address(canonicalToken721),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -352,7 +347,6 @@ contract ERC721VaultTest is Test {
             destChainId,
             Alice,
             address(0),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -365,7 +359,9 @@ contract ERC721VaultTest is Test {
         erc721Vault.sendToken{ value: 140_000 }(sendOpts);
     }
 
-    function test_sendToken_with_0_tokens() public {
+    function test_sendToken_with_1_tokens_but_erc721_amount_1_invalid()
+        public
+    {
         vm.prank(Alice, Alice);
         canonicalToken721.approve(address(erc721Vault), 1);
 
@@ -375,13 +371,12 @@ contract ERC721VaultTest is Test {
         tokenIds[0] = 1;
 
         uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 0;
+        amounts[0] = 1;
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
             .BridgeTransferOp(
             destChainId,
             Alice,
             address(canonicalToken721),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -407,14 +402,13 @@ contract ERC721VaultTest is Test {
         tokenIds[0] = 1;
 
         uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 1;
+        amounts[0] = 0;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
             .BridgeTransferOp(
             destChainId,
             Alice,
             address(canonicalToken721),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -431,9 +425,8 @@ contract ERC721VaultTest is Test {
             .CanonicalNFT({
             chainId: 31_337,
             addr: address(canonicalToken721),
-            symbol: "",
-            name: "",
-            uri: "http://example.host.com/"
+            symbol: "TT",
+            name: "TT"
         });
 
         uint256 chainId = block.chainid;
@@ -472,14 +465,13 @@ contract ERC721VaultTest is Test {
         tokenIds[0] = 1;
 
         uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 1;
+        amounts[0] = 0;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
             .BridgeTransferOp(
             destChainId,
             Alice,
             address(canonicalToken721),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -492,13 +484,15 @@ contract ERC721VaultTest is Test {
 
         assertEq(canonicalToken721.ownerOf(1), address(erc721Vault));
 
+        // This canonicalToken is basically need to be exact same as the
+        // sendToken() puts together
+        // - here is just mocking putting it together.
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault
             .CanonicalNFT({
             chainId: 31_337,
             addr: address(canonicalToken721),
-            symbol: "",
-            name: "",
-            uri: "http://example.host.com/"
+            symbol: "TT",
+            name: "TT"
         });
 
         uint256 chainId = block.chainid;
@@ -527,13 +521,12 @@ contract ERC721VaultTest is Test {
 
         tokenIds[0] = 2;
 
-        amounts[0] = 1;
+        amounts[0] = 0;
 
         sendOpts = BaseNFTVault.BridgeTransferOp(
             destChainId,
             Alice,
             address(canonicalToken721),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -576,14 +569,13 @@ contract ERC721VaultTest is Test {
         tokenIds[0] = 1;
 
         uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 1;
+        amounts[0] = 0;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
             .BridgeTransferOp(
             destChainId,
             Alice,
             address(canonicalToken721),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -642,15 +634,14 @@ contract ERC721VaultTest is Test {
         tokenIds[1] = 2;
 
         uint256[] memory amounts = new uint256[](2);
-        amounts[0] = 1;
-        amounts[1] = 1;
+        amounts[0] = 0;
+        amounts[1] = 0;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
             .BridgeTransferOp(
             destChainId,
             Alice,
             address(canonicalToken721),
-            "http://example.host.com/",
             tokenIds,
             amounts,
             140_000,
@@ -668,9 +659,8 @@ contract ERC721VaultTest is Test {
             .CanonicalNFT({
             chainId: 31_337,
             addr: address(canonicalToken721),
-            symbol: "",
-            name: "",
-            uri: "http://example.host.com/"
+            symbol: "TT",
+            name: "TT"
         });
 
         uint256 srcChainId = block.chainid;

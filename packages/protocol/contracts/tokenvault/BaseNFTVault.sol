@@ -22,6 +22,81 @@ import { IBridge } from "../bridge/IBridge.sol";
  */
 
 abstract contract BaseNFTVault is BaseVault {
+    struct CanonicalNFT {
+        uint256 chainId;
+        address addr;
+        string symbol;
+        string name;
+    }
+
+    struct BridgeTransferOp {
+        uint256 destChainId;
+        address to;
+        address token;
+        uint256[] tokenIds;
+        uint256[] amounts;
+        uint256 gasLimit;
+        uint256 processingFee;
+        address refundAddress;
+        string memo;
+    }
+
+    bytes4 public constant ERC1155_INTERFACE_ID = 0xd9b67a26;
+    bytes4 public constant ERC721_INTERFACE_ID = 0x80ac58cd;
+
+    // Tracks if a token on the current chain is a ctoken or btoken.
+    mapping(address tokenAddress => bool isBridged) public isBridgedToken;
+
+    // Mappings from btokens to their ctoken tokens.
+    mapping(address btoken => CanonicalNFT ctoken) public bridgedToCanonical;
+
+    // Mappings from ctoken tokens to their btokens.
+    // Also storing chainId for tokens across other chains aside from Ethereum.
+    mapping(uint256 chainId => mapping(address ctokenAddress => address btoken))
+        public canonicalToBridged;
+
+    // In order not to gas-out we need to hard cap the nr. of max
+    // tokens (iterations)
+    uint256 public constant MAX_TOKEN_PER_TXN = 10;
+
+    uint256[46] private __gap;
+
+    event BridgedTokenDeployed(
+        uint256 indexed chainId,
+        address indexed ctoken,
+        address indexed btoken,
+        string ctokenSymbol,
+        string ctokenName
+    );
+
+    event TokenSent(
+        bytes32 indexed msgHash,
+        address indexed from,
+        address indexed to,
+        uint256 destChainId,
+        address token,
+        uint256[] tokenIds,
+        uint256[] amounts
+    );
+
+    event TokenReleased(
+        bytes32 indexed msgHash,
+        address indexed from,
+        address token,
+        uint256[] tokenIds,
+        uint256[] amounts
+    );
+
+    event TokenReceived(
+        bytes32 indexed msgHash,
+        address indexed from,
+        address indexed to,
+        uint256 srcChainId,
+        address token,
+        uint256[] tokenIds,
+        uint256[] amounts
+    );
+
     /**
      * Thrown when the length of the tokenIds array and the amounts
      * array differs.
@@ -32,47 +107,6 @@ abstract contract BaseNFTVault is BaseVault {
      * Thrown when more tokens are about to be bridged than allowed.
      */
     error VAULT_MAX_TOKEN_PER_TXN_EXCEEDED();
-
-    struct CanonicalNFT {
-        uint256 chainId;
-        address addr;
-        string symbol;
-        string name;
-        string uri;
-    }
-
-    struct BridgeTransferOp {
-        uint256 destChainId;
-        address to;
-        address token;
-        string baseTokenUri;
-        uint256[] tokenIds;
-        uint256[] amounts;
-        uint256 gasLimit;
-        uint256 processingFee;
-        address refundAddress;
-        string memo;
-    }
-
-    // Tracks if a token on the current chain is a canonical or bridged token.
-    mapping(address tokenAddress => bool isBridged) public isBridgedToken;
-
-    // Mappings from bridged tokens to their canonical tokens.
-    mapping(address bridgedAddress => CanonicalNFT canonicalNft) public
-        bridgedToCanonical;
-
-    // Mappings from canonical tokens to their bridged tokens.
-    // Also storing chainId for tokens across other chains aside from Ethereum.
-    mapping(
-        uint256 chainId
-            => mapping(address canonicalAddress => address bridgedAddress)
-    ) public canonicalToBridged;
-
-    // In order not to gas-out we need to hard cap the nr. of max
-    // tokens (iterations)
-    uint256 public constant MAX_TOKEN_PER_TXN = 10;
-
-    uint256[45] private __gap;
 
     modifier onlyValidAmounts(
         uint256[] memory amounts,
@@ -89,7 +123,7 @@ abstract contract BaseNFTVault is BaseVault {
 
         if (isERC721) {
             for (uint256 i; i < tokenIds.length; i++) {
-                if (amounts[i] != 1) {
+                if (amounts[i] != 0) {
                     revert VAULT_INVALID_AMOUNT();
                 }
             }
@@ -106,18 +140,18 @@ abstract contract BaseNFTVault is BaseVault {
 
     /**
      * @dev Map canonical token with a bridged address
-     * @param bridgedToken The bridged token contract address
-     * @param canonical The canonical NFT
+     * @param btoken The bridged token address
+     * @param ctoken The canonical token
      */
     function setBridgedToken(
-        address bridgedToken,
-        CanonicalNFT memory canonical
+        address btoken,
+        CanonicalNFT memory ctoken
     )
         internal
     {
-        isBridgedToken[bridgedToken] = true;
-        bridgedToCanonical[bridgedToken] = canonical;
-        canonicalToBridged[canonical.chainId][canonical.addr] = bridgedToken;
+        isBridgedToken[btoken] = true;
+        bridgedToCanonical[btoken] = ctoken;
+        canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
     }
 
     /**

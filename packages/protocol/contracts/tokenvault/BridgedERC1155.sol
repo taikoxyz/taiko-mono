@@ -10,7 +10,6 @@ import { IERC1155Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
 import { IERC1155MetadataURIUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/IERC1155MetadataURIUpgradeable.sol";
-
 import { ERC1155Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
@@ -23,8 +22,10 @@ contract BridgedERC1155 is
 {
     address public srcToken;
     uint256 public srcChainId;
-    string public srcUri;
-    uint256[47] private __gap;
+    string public name;
+    string public symbol;
+
+    uint256[46] private __gap;
 
     event Transfer(
         address indexed from,
@@ -43,22 +44,26 @@ contract BridgedERC1155 is
         address _addressManager,
         address _srcToken,
         uint256 _srcChainId,
-        string memory _uri
+        string memory _symbol,
+        string memory _name
     )
         external
         initializer
     {
         if (
             _srcToken == address(0) || _srcChainId == 0
-                || _srcChainId == block.chainid || bytes(_uri).length == 0
+                || _srcChainId == block.chainid
         ) {
             revert BRIDGED_TOKEN_INVALID_PARAMS();
         }
         EssentialContract._init(_addressManager);
-        __ERC1155_init(_uri);
+        __ERC1155_init("<null>");
         srcToken = _srcToken;
         srcChainId = _srcChainId;
-        srcUri = _uri;
+        // name and symbol can be "" intentionally, so check
+        // not required (not part of the ERC1155 standard).
+        name = _name;
+        symbol = _symbol;
     }
 
     /// @dev only a TokenVault can call this function
@@ -105,11 +110,5 @@ contract BridgedERC1155 is
         }
         return
             ERC1155Upgradeable.safeTransferFrom(from, to, tokenId, amount, data);
-    }
-
-    /// @dev returns the srcToken being bridged and the srcChainId
-    // of the tokens being bridged
-    function source() public view returns (address, uint256) {
-        return (srcToken, srcChainId);
     }
 }

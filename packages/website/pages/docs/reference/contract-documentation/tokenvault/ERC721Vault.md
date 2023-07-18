@@ -97,10 +97,10 @@ function releaseToken(struct IBridge.Message message, bytes proof) external
 function onERC721Received(address, address, uint256, bytes) external pure returns (bytes4)
 ```
 
-### decodeTokenData
+### decodeMessageData
 
 ```solidity
-function decodeTokenData(bytes dataWithSelector) public pure returns (struct BaseNFTVault.CanonicalNFT, address, address, uint256)
+function decodeMessageData(bytes dataWithSelector) public pure returns (struct BaseNFTVault.CanonicalNFT, address, address, uint256)
 ```
 
 _Decodes the data which was abi.encodeWithSelector() encoded. We need

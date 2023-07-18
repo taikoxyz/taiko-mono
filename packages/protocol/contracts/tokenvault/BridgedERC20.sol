@@ -175,8 +175,7 @@ contract BridgedERC20 is
     }
 
     /**
-     * Gets the canonical token address and the canonical chain ID.
-     * @return The canonical token address and the canonical chain ID.
+     * Gets the canonical token's address and chain ID.
      */
     function canonical() public view returns (address, uint256) {
         return (srcToken, srcChainId);
