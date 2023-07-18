@@ -235,8 +235,8 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
                 nft = CanonicalNFT({
                     chainId: block.chainid,
                     addr: opt.token,
-                    symbol: ERC721Upgradeable(t).symbol(),
-                    name: ERC721Upgradeable(t).name()
+                    symbol: t.symbol(),
+                    name: t.name()
                 });
 
                 for (uint256 i; i < opt.tokenIds.length; ++i) {
