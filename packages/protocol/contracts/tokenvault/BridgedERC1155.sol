@@ -13,6 +13,7 @@ import { IERC1155MetadataURIUpgradeable } from
 import { ERC1155Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract BridgedERC1155 is
     EssentialContract,
@@ -22,8 +23,8 @@ contract BridgedERC1155 is
 {
     address public srcToken;
     uint256 public srcChainId;
-    string public name;
     string public symbol;
+    string private name_;
 
     uint256[46] private __gap;
 
@@ -62,8 +63,8 @@ contract BridgedERC1155 is
         srcChainId = _srcChainId;
         // name and symbol can be "" intentionally, so check
         // not required (not part of the ERC1155 standard).
-        name = _name;
         symbol = _symbol;
+        name_ = _name;
     }
 
     /// @dev only a TokenVault can call this function
@@ -110,5 +111,14 @@ contract BridgedERC1155 is
         }
         return
             ERC1155Upgradeable.safeTransferFrom(from, to, tokenId, amount, data);
+    }
+
+    function name() public view returns (string memory) {
+        if (bytes(name_).length == 0) {
+            return "";
+        } else {
+            return
+                string.concat(name_, unicode" ⭀", Strings.toString(srcChainId));
+        }
     }
 }
