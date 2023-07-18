@@ -124,9 +124,13 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             if (ctoken.chainId == block.chainid) {
                 token = ctoken.addr;
                 for (uint256 i; i < tokenIds.length; ++i) {
-                    ERC1155Upgradeable(token).safeTransferFrom(
-                        address(this), to, tokenIds[i], amounts[i], ""
-                    );
+                    ERC1155Upgradeable(token).safeTransferFrom({
+                        from: address(this),
+                        to: to,
+                        id: tokenIds[i],
+                        amount: amounts[i],
+                        data: ""
+                    });
                 }
             } else {
                 token = _getOrDeployBridgedToken(ctoken);
@@ -177,13 +181,13 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                 }
             } else {
                 for (uint256 i; i < tokenIds.length; ++i) {
-                    IERC1155Upgradeable(nft.addr).safeTransferFrom(
-                        address(this),
-                        message.owner,
-                        tokenIds[i],
-                        amounts[i],
-                        ""
-                    );
+                    IERC1155Upgradeable(nft.addr).safeTransferFrom({
+                        from: address(this),
+                        to: message.owner,
+                        id: tokenIds[i],
+                        amount: amounts[i],
+                        data: ""
+                    });
                 }
             }
         }
@@ -258,12 +262,10 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         private
         returns (bytes memory)
     {
-        bool isBridgedToken = isBridgedToken[opt.token];
-
         CanonicalNFT memory nft;
         unchecked {
             // is a btoken, meaning, it does not live on this chain
-            if (isBridgedToken) {
+            if (isBridgedToken[opt.token]) {
                 nft = bridgedToCanonical[opt.token];
                 for (uint256 i; i < opt.tokenIds.length; ++i) {
                     BridgedERC1155(opt.token).burn(
@@ -289,13 +291,13 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                 } catch { }
 
                 for (uint256 i; i < opt.tokenIds.length; ++i) {
-                    ERC1155Upgradeable(opt.token).safeTransferFrom(
-                        msg.sender,
-                        address(this),
-                        opt.tokenIds[i],
-                        opt.amounts[i],
-                        ""
-                    );
+                    ERC1155Upgradeable(opt.token).safeTransferFrom({
+                        from: msg.sender,
+                        to: address(this),
+                        id: opt.tokenIds[i],
+                        amount: opt.amounts[i],
+                        data: ""
+                    });
                 }
             }
         }

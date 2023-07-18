@@ -107,9 +107,11 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             if (ctoken.chainId == block.chainid) {
                 token = ctoken.addr;
                 for (uint256 i; i < tokenIds.length; ++i) {
-                    ERC721Upgradeable(token).transferFrom(
-                        address(this), to, tokenIds[i]
-                    );
+                    ERC721Upgradeable(token).transferFrom({
+                        from: address(this),
+                        to: to,
+                        tokenId: tokenIds[i]
+                    });
                 }
             } else {
                 token = _getOrDeployBridgedToken(ctoken);
@@ -158,9 +160,11 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
                 }
             } else {
                 for (uint256 i; i < tokenIds.length; ++i) {
-                    IERC721Upgradeable(nft.addr).safeTransferFrom(
-                        address(this), message.owner, tokenIds[i]
-                    );
+                    IERC721Upgradeable(nft.addr).safeTransferFrom({
+                        from: address(this),
+                        to: message.owner,
+                        tokenId: tokenIds[i]
+                    });
                 }
             }
         }
@@ -218,12 +222,11 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         private
         returns (bytes memory)
     {
-        bool isBridgedToken = isBridgedToken[opt.token];
         CanonicalNFT memory nft;
 
         unchecked {
             // is a btoken, meaning, it does not live on this chain
-            if (isBridgedToken) {
+            if (isBridgedToken[opt.token]) {
                 nft = bridgedToCanonical[opt.token];
                 for (uint256 i; i < opt.tokenIds.length; ++i) {
                     BridgedERC721(opt.token).burn(owner, opt.tokenIds[i]);
