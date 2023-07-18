@@ -103,18 +103,19 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         IBridge.Context memory ctx = _checkValidContext("erc721_vault");
         address token;
 
-        if (ctoken.chainId == block.chainid) {
-            token = ctoken.addr;
-            for (uint256 i; i < tokenIds.length; i++) {
-                ERC721Upgradeable(token).transferFrom(
-                    address(this), to, tokenIds[i]
-                );
-            }
-        } else {
-            token = _getOrDeployBridgedToken(ctoken);
-
-            for (uint256 i; i < tokenIds.length; ++i) {
-                BridgedERC721(token).mint(to, tokenIds[i]);
+        unchecked {
+            if (ctoken.chainId == block.chainid) {
+                token = ctoken.addr;
+                for (uint256 i; i < tokenIds.length; ++i) {
+                    ERC721Upgradeable(token).transferFrom(
+                        address(this), to, tokenIds[i]
+                    );
+                }
+            } else {
+                token = _getOrDeployBridgedToken(ctoken);
+                for (uint256 i; i < tokenIds.length; ++i) {
+                    BridgedERC721(token).mint(to, tokenIds[i]);
+                }
             }
         }
 
@@ -150,15 +151,17 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 
         bytes32 msgHash = hashAndMarkMsgReleased(message, proof, nft.addr);
 
-        if (isBridgedToken[nft.addr]) {
-            for (uint256 i; i < tokenIds.length; i++) {
-                BridgedERC721(nft.addr).mint(message.owner, tokenIds[i]);
-            }
-        } else {
-            for (uint256 i; i < tokenIds.length; i++) {
-                IERC721Upgradeable(nft.addr).safeTransferFrom(
-                    address(this), message.owner, tokenIds[i]
-                );
+        unchecked {
+            if (isBridgedToken[nft.addr]) {
+                for (uint256 i; i < tokenIds.length; ++i) {
+                    BridgedERC721(nft.addr).mint(message.owner, tokenIds[i]);
+                }
+            } else {
+                for (uint256 i; i < tokenIds.length; ++i) {
+                    IERC721Upgradeable(nft.addr).safeTransferFrom(
+                        address(this), message.owner, tokenIds[i]
+                    );
+                }
             }
         }
 
@@ -218,28 +221,29 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         bool isBridgedToken = isBridgedToken[opt.token];
         CanonicalNFT memory nft;
 
-        // is a btoken, meaning, it does not live on this chain
-        if (isBridgedToken) {
-            nft = bridgedToCanonical[opt.token];
-            for (uint256 i; i < opt.tokenIds.length; i++) {
-                BridgedERC721(opt.token).burn(owner, opt.tokenIds[i]);
-            }
-        } else {
-            // is a ctoken token, meaning, it lives on this chain
-            ERC721Upgradeable t = ERC721Upgradeable(opt.token);
+        unchecked {
+            // is a btoken, meaning, it does not live on this chain
+            if (isBridgedToken) {
+                nft = bridgedToCanonical[opt.token];
+                for (uint256 i; i < opt.tokenIds.length; ++i) {
+                    BridgedERC721(opt.token).burn(owner, opt.tokenIds[i]);
+                }
+            } else {
+                // is a ctoken token, meaning, it lives on this chain
+                ERC721Upgradeable t = ERC721Upgradeable(opt.token);
 
-            nft = CanonicalNFT({
-                chainId: block.chainid,
-                addr: opt.token,
-                symbol: ERC721Upgradeable(t).symbol(),
-                name: ERC721Upgradeable(t).name()
-            });
+                nft = CanonicalNFT({
+                    chainId: block.chainid,
+                    addr: opt.token,
+                    symbol: ERC721Upgradeable(t).symbol(),
+                    name: ERC721Upgradeable(t).name()
+                });
 
-            for (uint256 i; i < opt.tokenIds.length; i++) {
-                t.transferFrom(owner, address(this), opt.tokenIds[i]);
+                for (uint256 i; i < opt.tokenIds.length; ++i) {
+                    t.transferFrom(owner, address(this), opt.tokenIds[i]);
+                }
             }
         }
-
         return abi.encodeWithSelector(
             ERC721Vault.receiveToken.selector, nft, owner, opt.to, opt.tokenIds
         );
