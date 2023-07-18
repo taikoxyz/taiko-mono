@@ -15,6 +15,8 @@
 
   export let label: string;
   export let value: Maybe<GetNetworkResult['chain']> = null;
+  export let switchWallet = false;
+  export let readOnly = false;
 
   let chainToIconMap: Record<string, ComponentType> = {
     [PUBLIC_L1_CHAIN_ID]: EthIcon,
@@ -31,6 +33,8 @@
   }
 
   function openModal() {
+    if (readOnly) return;
+
     // We want to inform the user that they need to connect
     // their wallet if they want to change the network
     if (!$account.isConnected) {
@@ -44,19 +48,26 @@
   async function selectChain(chain: Chain) {
     if (chain.id === value?.id) return;
 
-    switchingNetwork = true;
+    if (switchWallet) {
+      // We want to switch the wallet to the selected network.
+      // This will trigger the network switch in the UI also
+      switchingNetwork = true;
 
-    try {
-      await switchNetwork({ chainId: chain.id });
-      closeModal();
-    } catch (error) {
-      console.error(error);
+      try {
+        await switchNetwork({ chainId: chain.id });
+        closeModal();
+      } catch (error) {
+        console.error(error);
 
-      if (error instanceof UserRejectedRequestError) {
-        warningToast($t('messages.network.rejected'));
+        if (error instanceof UserRejectedRequestError) {
+          warningToast($t('messages.network.rejected'));
+        }
+      } finally {
+        switchingNetwork = false;
       }
-    } finally {
-      switchingNetwork = false;
+    } else {
+      value = chain;
+      closeModal();
     }
   }
 
@@ -77,6 +88,7 @@
     <button
       id={buttonId}
       type="button"
+      disabled={readOnly}
       aria-haspopup="dialog"
       aria-controls={dialogId}
       aria-expanded={modalOpen}

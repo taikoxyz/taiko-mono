@@ -1,72 +1,43 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { t } from 'svelte-i18n';
+  import { formatEther } from 'viem';
 
+  import { Alert } from '$components/Alert';
   import { Icon } from '$components/Icon';
   import { InputBox } from '$components/InputBox';
+  import { LoadingText } from '$components/LoadingText';
   import { Tooltip } from '$components/Tooltip';
+  import { processingFeeComponent } from '$config';
   import { ProcessingFeeMethod } from '$libs/fee';
-  import { recommendProcessingFee } from '$libs/fee';
+  import { parseToWei } from '$libs/util/parseToWei';
   import { uid } from '$libs/util/uid';
+
+  import { processingFee } from '../state';
+  import NoneOption from './NoneOption.svelte';
+  import RecommendedFee from './RecommendedFee.svelte';
 
   let dialogId = `dialog-${uid()}`;
   let selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
 
-  let recommendedAmount = 0;
+  let recommendedAmount = BigInt(0);
   let calculatingRecommendedAmount = false;
   let errorCalculatingRecommendedAmount = false;
 
-  let selectedAmount = 0;
+  let hasEnoughEth = false;
+  let calculatingEnoughEth = false;
+  let errorCalculatingEnoughEth = false;
+
   let modalOpen = false;
   let customInput: InputBox;
 
-  async function calculateRecommendedAmount() {
-    calculatingRecommendedAmount = true;
-    try {
-      recommendedAmount = await recommendProcessingFee();
-      errorCalculatingRecommendedAmount = false;
-    } catch (error) {
-      errorCalculatingRecommendedAmount = true;
-      recommendedAmount = 0;
-    } finally {
-      calculatingRecommendedAmount = false;
-    }
-
-    return recommendedAmount;
-  }
-
-  function focusCustomInput() {
-    customInput?.focus();
-  }
-
-  async function onSelectedFeeMethodChanged(method: ProcessingFeeMethod) {
-    // customInput?.clear();
-
-    switch (method) {
-      case ProcessingFeeMethod.RECOMMENDED:
-        // Get the cached value if exists, otherwise calculate it
-        selectedAmount = recommendedAmount ? recommendedAmount : await calculateRecommendedAmount();
-        break;
-      case ProcessingFeeMethod.CUSTOM:
-        // Get a previous value entered if exists, otherwise default to 0
-        selectedAmount = Number(customInput?.value() ?? 0);
-
-        // We need to wait for Svelte to set the attribute `disabled` on the input
-        // to false to be able to focus it
-        tick().then(focusCustomInput);
-        break;
-      case ProcessingFeeMethod.NONE:
-        selectedAmount = 0;
-        break;
-    }
-  }
-
-  function onCustomInputChange(event: Event) {
-    const { value } = event.target as HTMLInputElement;
-    selectedAmount = Number(value);
-  }
-
   function closeModal() {
+    // Let's check if we are closing with CUSTOM method selected and zero amount entered
+    if (selectedFeeMethod === ProcessingFeeMethod.CUSTOM && $processingFee === BigInt(0)) {
+      // If so, let's switch to RECOMMENDED method
+      selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
+    }
+
     modalOpen = false;
   }
 
@@ -74,11 +45,62 @@
     modalOpen = true;
   }
 
-  // TODO: some info needs to be passed in in order to calculate the recommended amount
-  $: calculateRecommendedAmount();
+  function closeOnOptionClick() {
+    // By adding delay there is enough time to see the selected option
+    // before closing the modal. Better experience for the user.
+    setTimeout(closeModal, processingFeeComponent.closingDelayOptionClick);
+  }
 
-  // TODO: how about using a onClick handler instead of this watcher?
-  $: onSelectedFeeMethodChanged(selectedFeeMethod);
+  function focusCustomInput() {
+    customInput?.focus();
+  }
+
+  function onCustomInputChange(event: Event) {
+    if (selectedFeeMethod !== ProcessingFeeMethod.CUSTOM) return;
+
+    const input = event.target as HTMLInputElement;
+    $processingFee = parseToWei(input.value);
+  }
+
+  async function updateProcessingFee(method: ProcessingFeeMethod, recommendedAmount: bigint) {
+    switch (method) {
+      case ProcessingFeeMethod.RECOMMENDED:
+        $processingFee = recommendedAmount;
+        customInput?.clear();
+
+        break;
+      case ProcessingFeeMethod.CUSTOM:
+        // Get a previous value entered if exists, otherwise default to 0
+        $processingFee = parseToWei(customInput?.value());
+
+        // We need to wait for Svelte to set the attribute `disabled` on the input
+        // to false to be able to focus it
+        tick().then(focusCustomInput);
+        break;
+      case ProcessingFeeMethod.NONE:
+        $processingFee = BigInt(0);
+        customInput?.clear();
+
+        break;
+    }
+  }
+
+  function unselectNoneIfNotEnoughETH(method: ProcessingFeeMethod, enoughEth: boolean) {
+    if (method === ProcessingFeeMethod.NONE && !enoughEth) {
+      selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
+
+      // We need to manually trigger this update because we are already in an update
+      // cicle, meaning the change above will not start a new one. This is how Svelte
+      // works, batching all the changes and kicking off an update cicle. This could
+      // also prevent infinite loops. It's safe though to call this function because
+      // we're not changing state that could potentially end up in such situation.
+      updateProcessingFee(selectedFeeMethod, recommendedAmount);
+    }
+  }
+
+  $: updateProcessingFee(selectedFeeMethod, recommendedAmount);
+
+  $: unselectNoneIfNotEnoughETH(selectedFeeMethod, hasEnoughEth);
 </script>
 
 <div class="ProcessingFee">
@@ -92,16 +114,16 @@
 
   <span class="body-small-regular text-secondary-content mt-[6px]">
     {#if calculatingRecommendedAmount}
-      {$t('processing_fee.recommended.calculating')}
+      <LoadingText mask="0.0001" /> ETH
     {:else if errorCalculatingRecommendedAmount}
       {$t('processing_fee.recommended.error')}
     {:else}
-      {selectedAmount} ETH
+      {formatEther($processingFee ?? BigInt(0))} ETH
     {/if}
   </span>
 
   <dialog id={dialogId} class="modal modal-bottom md:absolute md:px-4 md:pb-4" class:modal-open={modalOpen}>
-    <div class="modal-box relative px-6 py-[35px] bg-neutral-background">
+    <div class="modal-box relative px-6 py-[35px] md:rounded-[20px] bg-neutral-background">
       <button class="absolute right-6 top-[35px]" on:click={closeModal}>
         <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
       </button>
@@ -118,11 +140,11 @@
             <span class="body-small-regular text-secondary-content">
               <!-- TODO: think about the UI for this part. Talk to Jane -->
               {#if calculatingRecommendedAmount}
-                {$t('processing_fee.recommended.calculating')}
+                <LoadingText mask="0.0001" /> ETH
               {:else if errorCalculatingRecommendedAmount}
                 {$t('processing_fee.recommended.error')}
               {:else}
-                {recommendedAmount} ETH
+                {formatEther(recommendedAmount)} ETH
               {/if}
             </span>
           </div>
@@ -132,26 +154,37 @@
             type="radio"
             value={ProcessingFeeMethod.RECOMMENDED}
             name="processingFeeMethod"
-            bind:group={selectedFeeMethod} />
+            bind:group={selectedFeeMethod}
+            on:click={closeOnOptionClick} />
         </li>
 
         <!-- NONE -->
-        <li class="f-between-center">
-          <div class="f-col">
-            <label for="input-none" class="body-bold">
-              {$t('processing_fee.none.label')}
-            </label>
-            <span class="body-small-regular text-secondary-content">
-              {$t('processing_fee.none.text')}
-            </span>
+        <li class="space-y-2">
+          <div class="f-between-center">
+            <div class="f-col">
+              <label for="input-none" class="body-bold">
+                {$t('processing_fee.none.label')}
+              </label>
+              <span class="body-small-regular text-secondary-content">
+                {$t('processing_fee.none.text')}
+              </span>
+            </div>
+            <input
+              id="input-none"
+              class="radio w-6 h-6 checked:bg-primary-interactive-accent hover:border-primary-interactive-hover"
+              type="radio"
+              disabled={!hasEnoughEth}
+              value={ProcessingFeeMethod.NONE}
+              name="processingFeeMethod"
+              bind:group={selectedFeeMethod}
+              on:click={closeOnOptionClick} />
           </div>
-          <input
-            id="input-none"
-            class="radio w-6 h-6 checked:bg-primary-interactive-accent hover:border-primary-interactive-hover"
-            type="radio"
-            value={ProcessingFeeMethod.NONE}
-            name="processingFeeMethod"
-            bind:group={selectedFeeMethod} />
+
+          {#if !hasEnoughEth}
+            <Alert type="warning">
+              {$t('processing_fee.none.warning')}
+            </Alert>
+          {/if}
         </li>
 
         <!-- CUSTOM -->
@@ -188,3 +221,10 @@
     </div>
   </dialog>
 </div>
+
+<RecommendedFee bind:amount={recommendedAmount} />
+
+<NoneOption
+  bind:enoughEth={hasEnoughEth}
+  bind:calculating={calculatingEnoughEth}
+  bind:error={errorCalculatingEnoughEth} />

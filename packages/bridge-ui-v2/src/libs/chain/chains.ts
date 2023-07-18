@@ -21,7 +21,7 @@ import {
 } from '$env/static/public';
 
 export const mainnetChain: Chain = {
-  id: +PUBLIC_L1_CHAIN_ID,
+  id: Number(PUBLIC_L1_CHAIN_ID),
   name: PUBLIC_L1_CHAIN_NAME,
   network: 'L1',
   nativeCurrency: {
@@ -42,7 +42,7 @@ export const mainnetChain: Chain = {
 };
 
 export const taikoChain: Chain = {
-  id: +PUBLIC_L2_CHAIN_ID,
+  id: Number(PUBLIC_L2_CHAIN_ID),
   name: PUBLIC_L2_CHAIN_NAME,
   network: 'L2',
   nativeCurrency: {
