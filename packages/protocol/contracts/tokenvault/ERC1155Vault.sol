@@ -279,22 +279,17 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                     name: ""
                 });
 
-                ERC1155Upgradeable t = ERC1155Upgradeable(opt.token);
-
-                try ERC1155NameAndSymbol(opt.token).name() returns (
-                    string memory _name
-                ) {
+                ERC1155NameAndSymbol t = ERC1155NameAndSymbol(opt.token);
+                try t.name() returns (string memory _name) {
                     nft.name = _name;
                 } catch { }
 
-                try ERC1155NameAndSymbol(opt.token).symbol() returns (
-                    string memory _symbol
-                ) {
+                try t.symbol() returns (string memory _symbol) {
                     nft.symbol = _symbol;
                 } catch { }
 
                 for (uint256 i; i < opt.tokenIds.length; ++i) {
-                    t.safeTransferFrom(
+                    ERC1155Upgradeable(opt.token).safeTransferFrom(
                         msg.sender,
                         address(this),
                         opt.tokenIds[i],
