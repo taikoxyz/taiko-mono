@@ -2,13 +2,13 @@ import { Callout, Steps } from "nextra-theme-docs";
 
 # Enable a prover
 
-This guide will help you enable your Taiko node as a prover. Read more about prover dynamics [here](/docs/concepts/proving#prover-dynamics).
+This guide will help you enable your Taiko node as a prover. Read more about prover dynamics [here](/docs/concepts/proving#prover-dynamics) (especially to set your expectations about running a prover).
 
 ## Prerequisites
 
 - You have already setup a node (see: [Run a node](/docs/guides/run-a-node))
 - Must have some ETH on Sepolia (see: [Receive tokens](/docs/guides/receive-tokens)).
-- Should have at least 8/16 core CPU and 32GB of RAM. (**note: see warning above**)
+- Should have at least 8/16 core CPU and 32GB of RAM.
 
 ## Steps
 
@@ -22,6 +22,12 @@ Set the following environment variables to enable your node as a prover:
 
 - Set `ENABLE_PROVER` to `true` (replacing the default `false` with `true`).
 - Set `L1_PROVER_PRIVATE_KEY` to that of your wallet's private key; it will need some ETH on Sepolia to prove blocks (if using MetaMask, follow these directions to [retrieve the private key](https://metamask.zendesk.com/hc/en-us/articles/360015289632-How-to-export-an-account-s-private-key)).
+
+### Stake your TTKOe (Eldfell L3 provers only)
+
+If you are trying to run a prover for Eldfell L3 first keep in mind, the competition for getting into the prover pool will be high. But don't worry! Even if you get slashed, there's nothing wrong with that. TTKOe is a worthless testnet token, and even getting slashed really helps us to test the network.
+
+To stake your TTKOe try using the [staking dashboard](https://staking.l3test.taiko.xyz/) or the base layer contract manually (see [TaikoL1](/docs/reference/contract-addresses)).
 
 ### Verify prover logs
 
