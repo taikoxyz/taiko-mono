@@ -140,7 +140,7 @@ const ecosystemData: EcosystemData[] = [
   {
     icon: "/images/ecosystem/rubydex.png",
     name: "RwbyDex",
-    link: "https://rubydex.com/en",
+    link: "https://testnet.rubydex.com/en",
     description:
       "Perpetuals DEX offering crypto and traditional assets like Forex, Commodities, Stocks, ETFs, NFT perps, and more.",
     filters: [],
