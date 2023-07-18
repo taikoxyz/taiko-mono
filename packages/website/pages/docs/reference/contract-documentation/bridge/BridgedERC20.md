@@ -22,7 +22,7 @@ uint256 srcChainId
 ### init
 
 ```solidity
-function init(address _addressManager, address _srcToken, uint256 _srcChainId, uint8 _decimals, string _symbol, string _name) external
+function init(address _addressManager, address _srcToken, uint256 _srcChainId, uint8 _decimals, string _symbol, string _name, bool _inceptionBridged) external
 ```
 
 Initializes the contract.
@@ -32,14 +32,15 @@ per unique \_srcToken i.e. one for USDC, one for USDT etc._
 
 #### Parameters
 
-| Name             | Type    | Description                                       |
-| ---------------- | ------- | ------------------------------------------------- |
-| \_addressManager | address | The address manager.                              |
-| \_srcToken       | address | The source token address.                         |
-| \_srcChainId     | uint256 | The source chain ID.                              |
-| \_decimals       | uint8   | The number of decimal places of the source token. |
-| \_symbol         | string  | The symbol of the token.                          |
-| \_name           | string  | The name of the token.                            |
+| Name               | Type    | Description                                                       |
+| ------------------ | ------- | ----------------------------------------------------------------- |
+| \_addressManager   | address | The address manager.                                              |
+| \_srcToken         | address | The source token address.                                         |
+| \_srcChainId       | uint256 | The source chain ID.                                              |
+| \_decimals         | uint8   | The number of decimal places of the source token.                 |
+| \_symbol           | string  | The symbol of the token.                                          |
+| \_name             | string  | The name of the token.                                            |
+| \_inceptionBridged | bool    | If true, it means the canonical token is at least 2 layers below. |
 
 ### mint
 

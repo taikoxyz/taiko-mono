@@ -56,6 +56,12 @@ mapping(uint256 => mapping(address => address)) canonicalToBridged
 mapping(bytes32 => struct TokenVault.MessageDeposit) messageDeposits
 ```
 
+### otherTokenVaults
+
+```solidity
+address[] otherTokenVaults
+```
+
 ### BridgedERC20Deployed
 
 ```solidity
@@ -86,6 +92,12 @@ event ERC20Released(bytes32 msgHash, address from, address token, uint256 amount
 event ERC20Received(bytes32 msgHash, address from, address to, uint256 srcChainId, address token, uint256 amount)
 ```
 
+### TokenVaultAdded
+
+```solidity
+event TokenVaultAdded(address vaultAddress)
+```
+
 ### TOKENVAULT_INVALID_TO
 
 ```solidity
@@ -114,6 +126,14 @@ error TOKENVAULT_INVALID_TOKEN()
 Thrown when the token address in a transaction is invalid.
 This could happen if the token address is zero or doesn't conform to the
 ERC20 standard.
+
+### TOKENVAULT_INVALID_TOKENVAULT
+
+```solidity
+error TOKENVAULT_INVALID_TOKENVAULT()
+```
+
+Thrown when the address supplied is not a valid token vault.
 
 ### TOKENVAULT_INVALID_AMOUNT
 
@@ -212,7 +232,7 @@ a proof that the message processing on the destination Bridge has failed.
 ### receiveERC20
 
 ```solidity
-function receiveERC20(struct TokenVault.CanonicalERC20 canonicalToken, address from, address to, uint256 amount) external
+function receiveERC20(struct TokenVault.CanonicalERC20 canonicalToken, address from, address to, uint256 amount, bool isInceptedBridging) external
 ```
 
 This function can only be called by the bridge contract while
@@ -221,12 +241,27 @@ this function.
 
 #### Parameters
 
-| Name           | Type                             | Description                                                                                                          |
-| -------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| canonicalToken | struct TokenVault.CanonicalERC20 | The canonical ERC20 token which may or may not live on this chain. If not, a BridgedERC20 contract will be deployed. |
-| from           | address                          | The source address.                                                                                                  |
-| to             | address                          | The destination address.                                                                                             |
-| amount         | uint256                          | The amount of tokens to be sent. 0 is a valid value.                                                                 |
+| Name               | Type                             | Description                                                                                                          |
+| ------------------ | -------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| canonicalToken     | struct TokenVault.CanonicalERC20 | The canonical ERC20 token which may or may not live on this chain. If not, a BridgedERC20 contract will be deployed. |
+| from               | address                          | The source address.                                                                                                  |
+| to                 | address                          | The destination address.                                                                                             |
+| amount             | uint256                          | The amount of tokens to be sent. 0 is a valid value.                                                                 |
+| isInceptedBridging | bool                             | This means it is an incepted token so canonical is at least 2 layers below.                                          |
+
+### addTokenVault
+
+```solidity
+function addTokenVault(address vaultAddress) external
+```
+
+This function can add an address to the otherTokenVaults array
+
+#### Parameters
+
+| Name         | Type    | Description                                      |
+| ------------ | ------- | ------------------------------------------------ |
+| vaultAddress | address | The vaultAddress of another deployed tokenVault. |
 
 ---
 
