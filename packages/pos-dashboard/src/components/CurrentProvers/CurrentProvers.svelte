@@ -8,7 +8,8 @@
   let provers: Prover[] = [];
 
   onMount(async () => {
-    provers = await getCurrentProvers(EVENT_INDEXER_API_URL);
+    const p = await getCurrentProvers(EVENT_INDEXER_API_URL);
+    provers = p.sort((a, b) => (a.amountStaked < b.amountStaked ? 1 : -1));
   });
 </script>
 
@@ -16,11 +17,13 @@
   <th>Address</th>
   <th>Amount</th>
   <th>Capacity</th>
+  <th>RewardPerGas</th>
   {#each provers as prover}
     <tr>
       <td>{truncateString(prover.address, 8)}...</td>
       <td>{ethers.utils.formatUnits(prover.amountStaked.toString(), 8)}</td>
       <td>{prover.currentCapacity}</td>
+      <td>{prover.rewardPerGas}</td>
     </tr>
   {/each}
 </div>

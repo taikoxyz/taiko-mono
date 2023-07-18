@@ -15,7 +15,7 @@
     { name: 'history', href: '/history' },
     { name: 'proverInfo', href: '/proverInfo' },
     { name: 'currentProvers', href: '/currentProvers' },
-    { name: 'rewards', href: '/rewards' },
+    { name: 'taikoToken', href: '/taikoToken' },
     // Add more tabs if needed
   ];
 
@@ -50,7 +50,7 @@
       <Tab name={tab2.name} href={tab2.href}>History</Tab>
       <Tab name={tab3.name} href={tab3.href}>Prover Info</Tab>
       <Tab name={tab4.name} href={tab4.href}>Current Provers</Tab>
-      <Tab name={tab5.name} href={tab5.href}>Rewards</Tab>
+      <Tab name={tab5.name} href={tab5.href}>Taiko Token</Tab>
     </TabList>
 
     <TabPanel tab={tab1.name}>
