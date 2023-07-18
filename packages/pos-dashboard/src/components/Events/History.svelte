@@ -8,6 +8,9 @@
   import Event from './Event.svelte';
   import type { ethers } from 'ethers';
   import { getBlockProvenEvents } from '../../utils/getBlocksProven';
+  import { getStakedEvents } from '../../utils/getStakedEvents';
+  import { getWithdrawnEvents } from '../../utils/getWithdrawnEvents';
+  import { getExitedEvents } from '../../utils/getExitedEvents';
 
   let pageSize = 8;
   let currentPage = 1;
@@ -35,8 +38,19 @@
       EVENT_INDEXER_API_URL,
       signer,
     );
+    const staked = await getStakedEvents(EVENT_INDEXER_API_URL, signer);
+    const withdrawn = await getWithdrawnEvents(EVENT_INDEXER_API_URL, signer);
+    const exited = await getExitedEvents(EVENT_INDEXER_API_URL, signer);
 
-    return slashed.concat(blockProven);
+    const all = slashed
+      .concat(blockProven)
+      .concat(withdrawn)
+      .concat(exited)
+      .concat(staked);
+
+    console.log(all);
+
+    return all;
   }
 
   $: eventsToShow = getEventsToShow(currentPage, pageSize, events);
@@ -74,7 +88,7 @@
       Loading event history...
     </div>
   {:else}
-    No history. When you have proven a block or been slashed, those events will
-    show here.
+    No history. When you have staked, withdrawn, exited, proven a block, or been
+    slashed, those events will show here.
   {/if}
 </div>

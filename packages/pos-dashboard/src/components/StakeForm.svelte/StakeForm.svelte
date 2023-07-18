@@ -119,12 +119,12 @@
       {ethers.utils.formatUnits(ttkoBalanceInWei, 8)}</span>
     <br />
 
-    <span class="label-text block"
+    <span class="label-text block" style="margin-top: 0;"
       ><span class="font-bold">Min Stake per Capacity:</span>
       {ethers.utils.formatUnits(minStakePerCapacity, 8)} TTKOe</span>
     <br />
 
-    <span class="label-text block"
+    <span class="label-text block" style="margin-top: 0;"
       ><span class="font-bold">Min Capacity:</span>
       {minCapacity.toString()}</span>
     <br />
