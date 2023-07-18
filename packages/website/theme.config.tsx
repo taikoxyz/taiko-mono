@@ -1,15 +1,15 @@
-import Footer from "./components/Footer";
-import ThemedImage from "./components/ThemedImage";
+import { Footer } from "./components/Home";
+import { ThemedImage } from "./components/ThemedImage";
 import { useConfig } from "nextra-theme-docs";
 import { useRouter } from "next/router";
-import ThemeToggle from "./components/ThemeToggle/ThemeToggle";
+import { ThemeToggle } from "./components/ThemeToggle";
 
 export default {
   banner: {
     key: "banner",
     text: (
       <a href="/docs/guides" target="_blank">
-        📌 Alpha-3 is here! Get started →
+        📌 Eldell L3 is here! Get started →
       </a>
     ),
   },
@@ -24,7 +24,20 @@ export default {
   },
   // TODO: we should add the feedback link, check if nextra fixed it: https://github.com/shuding/nextra/issues/2067
   feedback: {
-    content: null,
+    content: (
+      <button
+        onClick={() => {
+          const win = window.open(
+            "https://forms.gle/9JWjWtjbWytZZcNRA",
+            "_blank",
+            "noopener,noreferrer"
+          );
+          if (win) win.opener = null;
+        }}
+      >
+        Leave feedback ↗
+      </button>
+    ),
   },
   footer: {
     component: Footer,

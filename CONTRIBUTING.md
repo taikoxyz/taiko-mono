@@ -1,4 +1,4 @@
-# Taiko contributing guide
+# Contributing manual
 
 **Table of contents:**
 
@@ -7,7 +7,7 @@
 - [Coding standards](#coding-standards)
 - [Documentation standards](#documentation-standards)
 
-# Make a contribution
+## Make a contribution
 
 Here are some ways you can contribute:
 
@@ -16,13 +16,13 @@ Here are some ways you can contribute:
 
 > Check out the [coding standards](#coding-standards) and [documentation standards](#documentation-standards) before you start working on a pull request.
 
-# Claim a Taiko Contributor GitPOAP
+## Claim a Taiko Contributor GitPOAP
 
 A Taiko Contributor GitPOAP is rewarded to anyone that merges in a pull request to one of Taiko's GitHub repositories (you can see which repositories here: [2023 Taiko Contributor GitPOAP](https://www.gitpoap.io/gp/893)).
 
 After your pull request is merged, a bot will automatically leave a comment with instructions to receive your GitPOAP. You only receive a Taiko Contributor GitPOAP for the first pull request you merge in a given year.
 
-# Coding standards
+## Coding standards
 
 ### Pull requests
 
@@ -40,7 +40,7 @@ Follow the [NatSpec format](https://docs.soliditylang.org/en/latest/natspec-form
 - Omit the usage of `@notice` and let the compiler automatically pick it up to save column space.
   - For example: `/** @notice This is a notice */` becomes `/** This is a notice */`.
 
-# Documentation standards
+## Documentation standards
 
 Use the [Microsoft Writing Style Guide](https://learn.microsoft.com/en-us/style-guide/welcome/) as a base point of reference for writing style.
 
@@ -49,15 +49,6 @@ Use the [Microsoft Writing Style Guide](https://learn.microsoft.com/en-us/style-
 - Create the minimum viable documentation.
 - Don't repeat yourself, use links to existing documentation or inherit it.
 - Keep documentation close to what it's describing (for example, in the source code).
-
-### Document types
-
-Group documentation under one of the four categories (adopted from [Diátaxis](https://diataxis.fr/)):
-
-- Concepts
-- Guides
-- Reference
-- Resources
 
 ### Creating content
 
