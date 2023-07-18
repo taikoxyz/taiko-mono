@@ -32,11 +32,35 @@ var (
 	})
 	SlashedEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "slashed_events_processed_ops_total",
-		Help: "The total number of processed BlockVerified events",
+		Help: "The total number of processed Slashed events",
 	})
 	SlashedEventsProcessedError = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "slashed_events_processed_error_ops_total",
-		Help: "The total number of processed BlockVerified event errors encountered",
+		Help: "The total number of processed Slashed event errors encountered",
+	})
+	StakedEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "staked_events_processed_ops_total",
+		Help: "The total number of processed Staked events",
+	})
+	StakedEventsProcessedError = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "staked_events_processed_error_ops_total",
+		Help: "The total number of processed Staked event errors encountered",
+	})
+	ExitedEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "exited_events_processed_ops_total",
+		Help: "The total number of processed Exited events",
+	})
+	ExitedEventsProcessedError = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "exited_events_processed_error_ops_total",
+		Help: "The total number of processed Exited event errors encountered",
+	})
+	WithdrawnEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "withdrawn_events_processed_ops_total",
+		Help: "The total number of processed Exited events",
+	})
+	WithdrawnEventsProcessedError = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "withdrawn_events_processed_error_ops_total",
+		Help: "The total number of processed Exited event errors encountered",
 	})
 	MessageSentEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "message_sent_events_processed_ops_total",
