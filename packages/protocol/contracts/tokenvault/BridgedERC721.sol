@@ -112,6 +112,6 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         override
         returns (string memory)
     {
-        return "<null>";
+        return "";
     }
 }

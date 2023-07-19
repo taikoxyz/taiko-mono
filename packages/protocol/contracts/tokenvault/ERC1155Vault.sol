@@ -120,18 +120,23 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         IBridge.Context memory ctx = _checkValidContext("erc1155_vault");
         address token;
 
-        if (ctoken.chainId == block.chainid) {
-            token = ctoken.addr;
-            for (uint256 i; i < tokenIds.length; i++) {
-                ERC1155Upgradeable(token).safeTransferFrom(
-                    address(this), to, tokenIds[i], amounts[i], ""
-                );
-            }
-        } else {
-            token = _getOrDeployBridgedToken(ctoken);
-
-            for (uint256 i; i < tokenIds.length; ++i) {
-                BridgedERC1155(token).mint(to, tokenIds[i], amounts[i]);
+        unchecked {
+            if (ctoken.chainId == block.chainid) {
+                token = ctoken.addr;
+                for (uint256 i; i < tokenIds.length; ++i) {
+                    ERC1155Upgradeable(token).safeTransferFrom({
+                        from: address(this),
+                        to: to,
+                        id: tokenIds[i],
+                        amount: amounts[i],
+                        data: ""
+                    });
+                }
+            } else {
+                token = _getOrDeployBridgedToken(ctoken);
+                for (uint256 i; i < tokenIds.length; ++i) {
+                    BridgedERC1155(token).mint(to, tokenIds[i], amounts[i]);
+                }
             }
         }
 
@@ -167,18 +172,23 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         ) = decodeMessageData(message.data);
 
         bytes32 msgHash = hashAndMarkMsgReleased(message, proof, nft.addr);
-
-        if (isBridgedToken[nft.addr]) {
-            for (uint256 i; i < tokenIds.length; i++) {
-                BridgedERC1155(nft.addr).mint(
-                    message.owner, tokenIds[i], amounts[i]
-                );
-            }
-        } else {
-            for (uint256 i; i < tokenIds.length; i++) {
-                IERC1155Upgradeable(nft.addr).safeTransferFrom(
-                    address(this), message.owner, tokenIds[i], amounts[i], ""
-                );
+        unchecked {
+            if (isBridgedToken[nft.addr]) {
+                for (uint256 i; i < tokenIds.length; ++i) {
+                    BridgedERC1155(nft.addr).mint(
+                        message.owner, tokenIds[i], amounts[i]
+                    );
+                }
+            } else {
+                for (uint256 i; i < tokenIds.length; ++i) {
+                    IERC1155Upgradeable(nft.addr).safeTransferFrom({
+                        from: address(this),
+                        to: message.owner,
+                        id: tokenIds[i],
+                        amount: amounts[i],
+                        data: ""
+                    });
+                }
             }
         }
 
@@ -252,45 +262,43 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         private
         returns (bytes memory)
     {
-        bool isBridgedToken = isBridgedToken[opt.token];
+        CanonicalNFT memory nft;
+        unchecked {
+            // is a btoken, meaning, it does not live on this chain
+            if (isBridgedToken[opt.token]) {
+                nft = bridgedToCanonical[opt.token];
+                for (uint256 i; i < opt.tokenIds.length; ++i) {
+                    BridgedERC1155(opt.token).burn(
+                        owner, opt.tokenIds[i], opt.amounts[i]
+                    );
+                }
+            } else {
+                // is a ctoken token, meaning, it lives on this chain
+                nft = CanonicalNFT({
+                    chainId: block.chainid,
+                    addr: opt.token,
+                    symbol: "",
+                    name: ""
+                });
 
-        CanonicalNFT memory nft = bridgedToCanonical[opt.token];
+                ERC1155NameAndSymbol t = ERC1155NameAndSymbol(opt.token);
+                try t.name() returns (string memory _name) {
+                    nft.name = _name;
+                } catch { }
 
-        // is a btoken, meaning, it does not live on this chain
-        if (isBridgedToken) {
-            for (uint256 i; i < opt.tokenIds.length; i++) {
-                BridgedERC1155(opt.token).burn(
-                    owner, opt.tokenIds[i], opt.amounts[i]
-                );
-            }
-        } else {
-            // is a ctoken token, meaning, it lives on this chain
-            ERC1155Upgradeable t = ERC1155Upgradeable(opt.token);
-            string memory name;
-            try ERC1155NameAndSymbol(opt.token).name() {
-                name = ERC1155NameAndSymbol(opt.token).name();
-            } catch { }
+                try t.symbol() returns (string memory _symbol) {
+                    nft.symbol = _symbol;
+                } catch { }
 
-            string memory symbol;
-            try ERC1155NameAndSymbol(opt.token).symbol() {
-                symbol = ERC1155NameAndSymbol(opt.token).symbol();
-            } catch { }
-
-            nft = CanonicalNFT({
-                chainId: block.chainid,
-                addr: opt.token,
-                symbol: symbol,
-                name: name
-            });
-
-            for (uint256 i; i < opt.tokenIds.length; i++) {
-                t.safeTransferFrom(
-                    msg.sender,
-                    address(this),
-                    opt.tokenIds[i],
-                    opt.amounts[i],
-                    ""
-                );
+                for (uint256 i; i < opt.tokenIds.length; ++i) {
+                    ERC1155Upgradeable(opt.token).safeTransferFrom({
+                        from: msg.sender,
+                        to: address(this),
+                        id: opt.tokenIds[i],
+                        amount: opt.amounts[i],
+                        data: ""
+                    });
+                }
             }
         }
 
