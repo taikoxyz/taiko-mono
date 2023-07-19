@@ -220,7 +220,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         BridgeTransferOp calldata opt
     )
         private
-        returns (bytes memory)
+        returns (bytes memory msgData)
     {
         CanonicalNFT memory nft;
 
@@ -247,7 +247,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
                 }
             }
         }
-        return abi.encodeWithSelector(
+        msgData = abi.encodeWithSelector(
             ERC721Vault.receiveToken.selector, nft, owner, opt.to, opt.tokenIds
         );
     }
