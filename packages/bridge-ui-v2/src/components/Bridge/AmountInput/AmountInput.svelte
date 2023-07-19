@@ -53,8 +53,9 @@
     } catch (err) {
       console.error(err);
 
-      // Viem might throw an error that contains the following message, indicating
+      // Viem will throw an error that contains the following message, indicating
       // that the user won't have enough to pay the transaction
+      // TODO: better way to handle this. Error codes?
       if (`${err}`.toLocaleLowerCase().match('transaction exceeds the balance')) {
         errorAmount = true;
       }
@@ -128,7 +129,7 @@
 
   <div class="relative f-items-center">
     <InputBox
-      id="{inputId}x"
+      id={inputId}
       type="number"
       placeholder="0.01"
       min="0"
