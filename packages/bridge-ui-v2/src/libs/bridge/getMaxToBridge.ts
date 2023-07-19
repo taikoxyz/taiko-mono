@@ -1,6 +1,5 @@
 import type { Address } from 'viem';
 
-import { bridge } from '$config';
 import { chainContractsMap, chains } from '$libs/chain';
 import { isETH, type Token } from '$libs/token';
 import { getLogger } from '$libs/util/logger';

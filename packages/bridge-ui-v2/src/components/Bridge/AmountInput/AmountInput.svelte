@@ -3,17 +3,17 @@
   import { t } from 'svelte-i18n';
   import { formatEther, parseUnits } from 'viem';
 
+  import Icon from '$components/Icon/Icon.svelte';
   import { InputBox } from '$components/InputBox';
+  import { warningToast } from '$components/NotificationToast';
   import { getMaxToBridge } from '$libs/bridge/getMaxToBridge';
+  import { debounce } from '$libs/util/debounce';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
   import { network } from '$stores/network';
 
   import { destNetwork, enteredAmount, processingFee, selectedToken } from '../state';
   import Balance from './Balance.svelte';
-  import { warningToast } from '$components/NotificationToast';
-  import { debounce } from '$libs/util/debounce';
-  import Icon from '$components/Icon/Icon.svelte';
 
   let inputId = `input-${uid()}`;
   let tokenBalance: FetchBalanceResult;
@@ -22,6 +22,9 @@
   let computingMaxAmount = false;
   let errorAmount = false;
 
+  // Simple, let's get the max amount to bridge and see if it's less
+  // than what the user has entered. For ETH, will actually get an error
+  // when trying to get that max amount, if the user has entered too much ETH
   async function checkEnteredAmount() {
     if (
       !$selectedToken ||
@@ -61,6 +64,8 @@
   // We want to debounce this function for input events
   const debouncedCheckEnteredAmount = debounce(checkEnteredAmount, 300);
 
+  // Will trigger on input events. We update the entered amount
+  // and check it's validity
   function updateAmount(event: Event) {
     errorAmount = false;
 
@@ -82,7 +87,10 @@
     $enteredAmount = amount;
   }
 
+  // Will trigger when the user clicks on the "Max" button
   async function useMaxAmount() {
+    errorAmount = false;
+
     if (!$selectedToken || !$network || !$account?.address) return;
 
     computingMaxAmount = true;
@@ -98,7 +106,6 @@
       });
 
       setETHAmount(maxAmount);
-      checkEnteredAmount();
     } catch (err) {
       console.error(err);
       warningToast($t('amount_input.button.failed_max'));
