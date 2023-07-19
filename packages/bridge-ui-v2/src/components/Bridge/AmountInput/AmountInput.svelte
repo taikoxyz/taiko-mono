@@ -22,7 +22,7 @@
   let computingMaxAmount = false;
   let errorAmount = false;
 
-  // Simple, let's get the max amount to bridge and see if it's less
+  // Let's get the max amount to bridge and see if it's less
   // than what the user has entered. For ETH, will actually get an error
   // when trying to get that max amount, if the user has entered too much ETH
   async function checkEnteredAmount() {
@@ -116,6 +116,7 @@
 
   // Let's also trigger the check when either the processingFee or
   // the selectedToken change and debounce it, just in case
+  // TODO: better way? maybe store.subscribe(), or different component
   $: $processingFee && $selectedToken && debouncedCheckEnteredAmount();
 </script>
 
