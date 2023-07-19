@@ -14,6 +14,7 @@ export enum BridgeType {
   ERC1155 = 'ERC1155',
 }
 
+// Bridge sendMessage(message: Message)
 export type Message = {
   // Message ID. Will be set in contract
   id: bigint;
@@ -43,6 +44,7 @@ export type Message = {
   memo: string;
 };
 
+// TokenVault sendERC20(...args)
 export type SendERC20Args = [
   bigint,   // destChainId
   Address,  // to
@@ -53,6 +55,18 @@ export type SendERC20Args = [
   Address,  // refundAddress
   string,   // memo
 ];
+
+// TODO: future sendToken(op: BridgeTransferOp)
+export type BridgeTransferOp = {
+  destChainId: bigint;
+  to: Address;
+  token: Address;
+  amount: bigint;
+  gasLimit: bigint;
+  processingFee: bigint;
+  refundAddress: Address;
+  memo: string;
+};
 
 export type ApproveArgs = {
   amount: bigint;
