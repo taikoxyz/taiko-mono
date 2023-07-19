@@ -1,4 +1,4 @@
-import { getContract, getWalletClient } from '@wagmi/core';
+import { getContract } from '@wagmi/core';
 
 import { tokenVaultABI } from '$abi';
 import { bridge } from '$config';

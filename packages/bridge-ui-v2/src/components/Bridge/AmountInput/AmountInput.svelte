@@ -4,6 +4,7 @@
   import { formatEther, parseUnits } from 'viem';
 
   import { InputBox } from '$components/InputBox';
+  import { amountInputComponent } from '$config';
   import { bridges } from '$libs/bridge';
   import { estimateCostOfBridging } from '$libs/bridge/estimateCostOfBridging';
   import { ETHBridge } from '$libs/bridge/ETHBridge';
@@ -16,7 +17,6 @@
 
   import { destNetwork, enteredAmount, processingFee, selectedToken } from '../state';
   import Balance from './Balance.svelte';
-  import { amountInputComponent } from '$config';
 
   let inputId = `input-${uid()}`;
   let tokenBalance: FetchBalanceResult;

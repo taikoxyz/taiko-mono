@@ -15,5 +15,5 @@ export const bridge = {
 };
 
 export const amountInputComponent = {
-  estimatedCostBridging: BigInt(136000000)
-}
+  estimatedCostBridging: BigInt(136000000),
+};
