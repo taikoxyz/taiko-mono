@@ -1,6 +1,8 @@
 import type { GetNetworkResult } from '@wagmi/core';
 import { writable } from 'svelte/store';
 
-export type Network = GetNetworkResult['chain'];
+export const srcChain = writable<GetNetworkResult['chain']>();
 
-export const network = writable<Network>();
+export const destChain = writable<GetNetworkResult['chain']>();
+
+export const network = writable<GetNetworkResult['chain']>();
