@@ -1,5 +1,35 @@
 const posts = [
   {
+    title: "Eldfell L3 (alpha-4) is live!",
+    href: "https://taiko.mirror.xyz/HJCWBluTwmNyWRkhzIXXr0k5xAaalRNtmlyDMJTu_ws",
+    description:
+      "Taiko’s fourth testnet has arrived! Eldfell L3 (alpha-4) is our first experiment with inception layers and a new staking based proving design.",
+    date: "Jul 18, 2023",
+    datetime: "2023-07-18",
+    imageUrl:
+      "https://mirror-media.imgix.net/publication-images/ew9PQRsaJTLtGd8ShGiyR.jpeg?height=600&width=1200&h=600&w=1200&auto=compress",
+    readingTime: "3 min",
+    author: {
+      name: "d1onys1us",
+      imageUrl: "https://avatars.githubusercontent.com/u/13951458?v=4",
+    },
+  },
+  {
+    title: "Announcing our first community grant program",
+    href: "https://taiko.mirror.xyz/G7dmuoR42S4D55vT8bs_lAxPZP63kAgRu2IfqkJdf6U",
+    description:
+      "We are excited to launch our first community grant program to discover & support builders to enhance our ecosystem with funds and dev resources.",
+    date: "Jul 14, 2023",
+    datetime: "2023-07-14",
+    imageUrl:
+      "https://mirror-media.imgix.net/publication-images/wmQORiddLvZqlHJi8ma1k.jpeg?height=960&width=1920&h=960&w=1920&auto=compress",
+    readingTime: "10 min",
+    author: {
+      name: "d1onys1us",
+      imageUrl: "https://avatars.githubusercontent.com/u/13951458?v=4",
+    },
+  },
+  {
     title: "Cross-chain communication exploration – rollups’ vision",
     href: "https://taiko.mirror.xyz/ryYEi4gAeOWwyERqYTs7CPbNEOYXaEeiMEui6gdlnyg",
     description:
@@ -9,36 +39,6 @@ const posts = [
     imageUrl:
       "https://mirror-media.imgix.net/publication-images/HQGT0nBEq8AzLQxQFqqpI.png?height=512&width=1024&h=512&w=1024&auto=compress",
     readingTime: "14 min",
-    author: {
-      name: "Lisa A.",
-      imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",
-    },
-  },
-  {
-    title: "Alpha-3 testnet update: stats & future plans",
-    href: "https://taiko.mirror.xyz/LBukIvc5nRfNdbzk3_bDZNkBRSmavFp_D90IkBYCuFk",
-    description:
-      "Alpha-3 has been drumming along for one month now! Let's take a look at what’s happened.",
-    date: "Jul 07, 2023",
-    datetime: "2023-07-07",
-    imageUrl:
-      "https://mirror-media.imgix.net/publication-images/4vqDxKbexLf3eX3d4GtRB.jpeg?height=512&width=1024&h=512&w=1024&auto=compress",
-    readingTime: "2 min",
-    author: {
-      name: "d1onys1us",
-      imageUrl: "https://avatars.githubusercontent.com/u/13951458?v=4",
-    },
-  },
-  {
-    title: "ZK-Roller-Coaster #8",
-    href: "https://taiko.mirror.xyz/tOUCZgLRV9bKH24bxhahISpdhkQmqVyM-ZX-wMWtqkI",
-    description:
-      "This is the 8th edition of ZK-Roller-Coaster where we track and investigate the most exciting, meaningful, and crazy ZK-stuff of the prior two weeks.",
-    date: "Jul 04, 2023",
-    datetime: "2023-07-04",
-    imageUrl:
-      "https://mirror-media.imgix.net/publication-images/3cfm8O9yVJ8aszk8bQ700.png?height=1536&width=3072&h=1536&w=3072&auto=compress",
-    readingTime: "4 min",
     author: {
       name: "Lisa A.",
       imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",
