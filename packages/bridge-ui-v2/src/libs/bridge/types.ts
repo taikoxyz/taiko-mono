@@ -1,4 +1,3 @@
-import type { WalletClient } from '@wagmi/core';
 import type { Address, Hex } from 'viem';
 
 export enum BridgeType {
