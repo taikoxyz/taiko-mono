@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { type Chain, getWalletClient, switchNetwork } from '@wagmi/core';
+  import { type Chain, switchNetwork } from '@wagmi/core';
   import { t } from 'svelte-i18n';
   import { UserRejectedRequestError } from 'viem';
 

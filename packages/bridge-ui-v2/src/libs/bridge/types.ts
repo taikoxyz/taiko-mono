@@ -72,7 +72,6 @@ export type ApproveArgs = {
   amount: bigint;
   tokenAddress: Address;
   spenderAddress: Address;
-  walletClient: WalletClient;
 };
 
 export type BridgeArgs = {
@@ -80,7 +79,6 @@ export type BridgeArgs = {
   srcChainId: number;
   destChainId: number;
   amount: bigint;
-  walletClient: WalletClient;
   processingFee: bigint;
   memo?: string;
 };

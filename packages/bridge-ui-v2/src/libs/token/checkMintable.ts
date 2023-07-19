@@ -1,7 +1,7 @@
-import { type Chain, getContract, getPublicClient, getWalletClient } from '@wagmi/core';
-import { formatEther } from 'viem';
+import { getContract, getPublicClient, getWalletClient } from '@wagmi/core';
 
 import { freeMintErc20ABI } from '$abi';
+import { getConnectedWallet } from '$libs/util/getWallet';
 
 import { MintableError, type Token } from './types';
 
@@ -10,10 +10,7 @@ import { MintableError, type Token } from './types';
 // 2. User has already minted this token
 // 3. User has insufficient balance to mint this token
 export async function checkMintable(token: Token, chainId: number) {
-  const walletClient = await getWalletClient();
-  if (!walletClient) {
-    throw Error(`wallet is not connected`, { cause: MintableError.NOT_CONNECTED });
-  }
+  const walletClient = await getConnectedWallet();
 
   const tokenContract = getContract({
     walletClient,

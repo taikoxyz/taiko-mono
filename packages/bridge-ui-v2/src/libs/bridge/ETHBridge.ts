@@ -2,6 +2,7 @@ import { getContract } from '@wagmi/core';
 
 import { bridgeABI } from '$abi';
 import { bridge } from '$config';
+import { getConnectedWallet } from '$libs/util/getWallet';
 import { getLogger } from '$libs/util/logger';
 
 import type { Bridge, ETHBridgeArgs, Message } from './types';
@@ -10,7 +11,9 @@ const log = getLogger('ETHBridge');
 
 export class ETHBridge implements Bridge {
   private static async _prepareTransaction(args: ETHBridgeArgs) {
-    const { to, memo = '', amount, srcChainId, destChainId, walletClient, bridgeAddress, processingFee } = args;
+    const walletClient = await getConnectedWallet();
+
+    const { to, memo = '', amount, srcChainId, destChainId, bridgeAddress, processingFee } = args;
 
     const bridgeContract = getContract({
       walletClient,
@@ -52,8 +55,14 @@ export class ETHBridge implements Bridge {
     return { bridgeContract, message };
   }
 
-  async estimateGas(args: ETHBridgeArgs): Promise<bigint> {
+  async estimateGas(args: ETHBridgeArgs) {
     const { bridgeContract, message } = await ETHBridge._prepareTransaction(args);
-    return bridgeContract.estimateGas.sendMessage([message]);
+    const { depositValue, callValue, processingFee } = message;
+
+    const value = depositValue + callValue + processingFee;
+
+    log('Estimating gas for sendMessage call. Sending value', value);
+
+    return bridgeContract.estimateGas.sendMessage([message], { value });
   }
 }

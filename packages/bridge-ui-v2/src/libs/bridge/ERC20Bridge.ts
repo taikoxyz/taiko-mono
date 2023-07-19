@@ -1,7 +1,8 @@
-import { getContract } from '@wagmi/core';
+import { getContract, getWalletClient } from '@wagmi/core';
 
-import { bridgeABI, tokenVaultABI } from '$abi';
+import { tokenVaultABI } from '$abi';
 import { bridge } from '$config';
+import { getConnectedWallet } from '$libs/util/getWallet';
 import { getLogger } from '$libs/util/logger';
 
 import type { Bridge, ERC20BridgeArgs, SendERC20Args } from './types';
@@ -10,12 +11,13 @@ const log = getLogger('ERC20Bridge');
 
 export class ERC20Bridge implements Bridge {
   private static async _prepareTransaction(args: ERC20BridgeArgs) {
+    const walletClient = await getConnectedWallet();
+
     const {
       to,
       memo = '',
       amount,
       destChainId,
-      walletClient,
       tokenAddress,
       processingFee,
       tokenVaultAddress,
@@ -52,7 +54,7 @@ export class ERC20Bridge implements Bridge {
     return { tokenVaultContract, sendERC20Args };
   }
 
-  async estimateGas(args: ERC20BridgeArgs): Promise<bigint> {
+  async estimateGas(args: ERC20BridgeArgs) {
     const { tokenVaultContract, sendERC20Args } = await ERC20Bridge._prepareTransaction(args);
     return tokenVaultContract.estimateGas.sendERC20([...sendERC20Args]);
   }

@@ -1,28 +1,24 @@
-import { getPublicClient, getWalletClient } from '@wagmi/core';
+import { getPublicClient } from '@wagmi/core';
 
+import { getConnectedWallet } from '$libs/util/getWallet';
+
+import { estimateCostOfBridging } from './estimateCostOfBridging';
 import { ETHBridge } from './ETHBridge';
 import type { Bridge, BridgeArgs } from './types';
 
 export async function hasEnoughBalanceToBridge(bridge: Bridge, bridgeArgs: BridgeArgs) {
-  const walletClient = await getWalletClient();
-  if (!walletClient) {
-    throw Error('wallet is not connected');
-  }
+  const walletClient = await getConnectedWallet();
 
-  const userAddress = walletClient.account.address;
+  const estimatedCost = await estimateCostOfBridging(bridge, bridgeArgs);
+
   const publicClient = getPublicClient();
-
-  // Calculate the estimated cost of bridging
-  const estimatedGas = await bridge.estimateGas(bridgeArgs);
-  const gasPrice = await publicClient.getGasPrice();
-  const estimatedCost = estimatedGas * gasPrice;
-
+  const userAddress = walletClient.account.address;
   const userBalance = await publicClient.getBalance({ address: userAddress });
 
   let balanceAvailable = userBalance;
 
   if (bridge instanceof ETHBridge) {
-    // If it's ETH, we need to subtract the amount we're trying to bridge
+    // If dealing with ETH, we need to subtract the amount we're trying to bridge
     balanceAvailable = userBalance - bridgeArgs.amount;
   }
 
