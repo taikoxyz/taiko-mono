@@ -134,7 +134,7 @@ contract PrankSrcBridge {
 
     function getPreDeterminedDataBytes() external pure returns (bytes memory) {
         return
-        hex"1d7b460b000000000000000000000000000000000000000000000000000000000000008000000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000000000000000000000000000000000000000001e00000000000000000000000000000000000000000000000000000000000007a69000000000000000000000000266fa2526b3d68a1bd9685b87b4d14ae6079f70600000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000000025454000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000254540000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000018687474703a2f2f6578616d706c652e686f73742e636f6d2f000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001";
+        hex"a9976baf000000000000000000000000000000000000000000000000000000000000008000000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000000000000000000000000000000000000000001800000000000000000000000000000000000000000000000000000000000007a69000000000000000000000000f349eda7118cad7972b7401c1f5d71e9ea218ef8000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000000254540000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002545400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001";
     }
 
     function hashMessage(IBridge.Message calldata message)
@@ -203,16 +203,14 @@ contract ERC721VaultTest is Test {
     uint256 destChainId = 19_389;
 
     address public constant Alice = 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4;
-
     address public constant Bob = 0x50081b12838240B1bA02b3177153Bca678a86078;
-
-    // Mock proxy admins for bridge contracts
-    address public constant BridgedProxyAdmin =
-        0x60081B12838240B1BA02b3177153BCa678A86080;
+    //Need +1 bc. and Amelia is the proxied bridge contracts owner
+    address public constant Amelia = 0x60081B12838240B1BA02b3177153BCa678A86080;
 
     function setUp() public {
-        vm.startPrank(Alice);
+        vm.startPrank(Amelia);
         vm.deal(Alice, 100 ether);
+        vm.deal(Amelia, 100 ether);
         vm.deal(Bob, 100 ether);
         addressManager = new AddressManager();
         addressManager.init();
@@ -230,10 +228,10 @@ contract ERC721VaultTest is Test {
         etherVault.init(address(addressManager));
 
         erc721Vault = new ERC721Vault();
-        erc721Vault.init(address(addressManager), BridgedProxyAdmin);
+        erc721Vault.init(address(addressManager));
 
         destChainErc721Vault = new ERC721Vault();
-        destChainErc721Vault.init(address(addressManager), BridgedProxyAdmin);
+        destChainErc721Vault.init(address(addressManager));
 
         destChainIdBridge = new PrankDestBridge(destChainErc721Vault);
         srcPrankBridge = new PrankSrcBridge();
@@ -258,6 +256,9 @@ contract ERC721VaultTest is Test {
             destChainId, "erc721_vault", address(destChainErc721Vault)
         );
 
+        vm.stopPrank();
+
+        vm.startPrank(Alice);
         canonicalToken721 = new TestTokenERC721("http://example.host.com/");
         canonicalToken721.mint(10);
 
@@ -613,7 +614,7 @@ contract ERC721VaultTest is Test {
 
         // Let's test that message is failed and we want to release it back to
         // the owner
-        vm.prank(Alice, Alice);
+        vm.prank(Amelia, Amelia);
         addressManager.setAddress(
             block.chainid, "bridge", address(srcPrankBridge)
         );
@@ -803,7 +804,7 @@ contract ERC721VaultTest is Test {
 
         destChainIdBridge.setERC721Vault(address(erc721Vault));
 
-        vm.prank(Alice, Alice);
+        vm.prank(Amelia, Amelia);
         addressManager.setAddress(
             block.chainid, "bridge", address(destChainIdBridge)
         );
@@ -985,7 +986,7 @@ contract ERC721VaultTest is Test {
         // Upgrade the implementation of that contract
         // so that it supports now the 'helloWorld' call
         UpdatedBridgedERC721 newBridgedContract = new UpdatedBridgedERC721();
-        vm.prank(BridgedProxyAdmin, BridgedProxyAdmin);
+        vm.prank(Amelia, Amelia);
         TransparentUpgradeableProxy(payable(deployedContract)).upgradeTo(
             address(newBridgedContract)
         );

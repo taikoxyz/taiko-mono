@@ -16,21 +16,7 @@ abstract contract BaseVault is EssentialContract {
     // Released message hashes
     mapping(bytes32 msgHash => bool released) public releasedMessages;
 
-    // When deploying with TransparentUpgreadableProxy pattern we need
-    // proxy admin feed into the constructor. The 'problem' (not really)
-    // is that we cannot feed address(this) as the 'owner' of the proxy
-    // because then we cannot call BridgedERCXXXX.mint() functions from
-    // address(this), because the 'admin calls' will never be forwarded
-    // to the implementation contracts, and would revert with
-    // TransparentUpgradeableProxy: admin cannot fallback to proxy target
-    // Please see description:
-    // https://github.com/OpenZeppelin/openzeppelin-contracts/blob/f347b410cf6aeeaaf5197e1fece139c793c03b2b/contracts/proxy/transparent/TransparentUpgradeableProxy.sol#L31
-    // This is why we need to introduce an 'owner' which will be able to
-    // upgrade.
-    address public bridgeProxyAdmin;
-    uint256[48] private __gap;
-
-    event BridgeProxyAdminChanged(address newProxyAdmin);
+    uint256[49] private __gap;
 
     error VAULT_INIT_PARAM_ERROR();
     /**
@@ -108,45 +94,25 @@ abstract contract BaseVault is EssentialContract {
         _;
     }
 
-    function init(
-        address addressManager,
-        address proxyAdmin
-    )
-        external
-        initializer
-    {
+    function init(address addressManager) external initializer {
         EssentialContract._init(addressManager);
-        bridgeProxyAdmin = proxyAdmin;
-    }
-
-    /**
-     * Sets a new bridgeProxyAdmin's address.
-     *
-     * @param newBridgeProxyAdmin New proxyAdmin
-     */
-    function setProxyAdmin(address newBridgeProxyAdmin) external onlyOwner {
-        if (newBridgeProxyAdmin == address(0)) {
-            revert VAULT_INVALID_PROXY_OWNER();
-        }
-        bridgeProxyAdmin = newBridgeProxyAdmin;
-
-        emit BridgeProxyAdminChanged(newBridgeProxyAdmin);
     }
 
     /**
      * @dev Deploys a contract (via proxy)
      * @param implementation The new implementation address
-     * @param data Data for the initialization
+     * @param initializationData Data for the initialization
      */
     function _deployProxy(
         address implementation,
-        bytes memory data
+        bytes memory initializationData
     )
         internal
         returns (address proxy)
     {
+        assert(implementation != address(0));
         proxy = address(
-            new TransparentUpgradeableProxy(implementation, bridgeProxyAdmin, data)
+            new TransparentUpgradeableProxy(implementation, owner(), initializationData)
         );
     }
 

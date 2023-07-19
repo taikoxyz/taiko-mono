@@ -82,14 +82,13 @@ contract TestERC20Vault is Test {
 
     address public constant Alice = 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4;
     address public constant Bob = 0x200708D76eB1B69761c23821809d53F65049939e;
-
-    // Mock proxy admins for bridge contracts
-    address public constant BridgedProxyAdmin =
-        0x60081B12838240B1BA02b3177153BCa678A86080;
+    //Need +1 bc. and Amelia is the proxied bridge contracts owner
+    address public constant Amelia = 0x60081B12838240B1BA02b3177153BCa678A86080;
 
     function setUp() public {
-        vm.startPrank(Alice);
+        vm.startPrank(Amelia);
         vm.deal(Alice, 1 ether);
+        vm.deal(Amelia, 1 ether);
         vm.deal(Bob, 1 ether);
 
         tko = new TaikoToken();
@@ -99,10 +98,10 @@ contract TestERC20Vault is Test {
         addressManager.setAddress(block.chainid, "taiko_token", address(tko));
 
         erc20Vault = new ERC20Vault();
-        erc20Vault.init(address(addressManager), BridgedProxyAdmin);
+        erc20Vault.init(address(addressManager));
 
         destChainIdERC20Vault = new ERC20Vault();
-        destChainIdERC20Vault.init(address(addressManager), BridgedProxyAdmin);
+        destChainIdERC20Vault.init(address(addressManager));
 
         erc20 = new FreeMintERC20("ERC20", "ERC20");
         erc20.mint(Alice);
@@ -389,7 +388,7 @@ contract TestERC20Vault is Test {
         // Upgrade the implementation of that contract
         // so that it supports now the 'helloWorld' call
         UpdatedBridgedERC20 newBridgedContract = new UpdatedBridgedERC20();
-        vm.prank(BridgedProxyAdmin, BridgedProxyAdmin);
+        vm.prank(Amelia, Amelia);
         TransparentUpgradeableProxy(payable(bridgedAddressAfter)).upgradeTo(
             address(newBridgedContract)
         );

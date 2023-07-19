@@ -20,7 +20,7 @@ import { Create2Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 import { IBridge } from "../bridge/IBridge.sol";
 import { BaseNFTVault } from "./BaseNFTVault.sol";
-import { BridgedERC1155, ProxiedBridgedERC1155 } from "./BridgedERC1155.sol";
+import { ProxiedBridgedERC1155 } from "./BridgedERC1155.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
@@ -71,7 +71,6 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         message.destChainId = opt.destChainId;
 
         message.data = _sendToken(msg.sender, opt);
-
         message.owner = msg.sender;
         message.to = resolve(message.destChainId, "erc1155_vault", false);
         message.gasLimit = opt.gasLimit;
@@ -135,7 +134,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             } else {
                 token = _getOrDeployBridgedToken(ctoken);
                 for (uint256 i; i < tokenIds.length; ++i) {
-                    BridgedERC1155(token).mint(to, tokenIds[i], amounts[i]);
+                    ProxiedBridgedERC1155(token).mint(
+                        to, tokenIds[i], amounts[i]
+                    );
                 }
             }
         }
@@ -175,7 +176,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         unchecked {
             if (isBridgedToken[nft.addr]) {
                 for (uint256 i; i < tokenIds.length; ++i) {
-                    BridgedERC1155(nft.addr).mint(
+                    ProxiedBridgedERC1155(nft.addr).mint(
                         message.owner, tokenIds[i], amounts[i]
                     );
                 }
@@ -268,7 +269,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             if (isBridgedToken[opt.token]) {
                 nft = bridgedToCanonical[opt.token];
                 for (uint256 i; i < opt.tokenIds.length; ++i) {
-                    BridgedERC1155(opt.token).burn(
+                    ProxiedBridgedERC1155(opt.token).burn(
                         owner, opt.tokenIds[i], opt.amounts[i]
                     );
                 }

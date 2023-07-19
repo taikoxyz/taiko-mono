@@ -114,7 +114,7 @@ contract PrankSrcBridge {
 
     function getPreDeterminedDataBytes() external pure returns (bytes memory) {
         return
-        hex"2605fc9100000000000000000000000000000000000000000000000000000000000000a000000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000000000000000000000000000000000000000001c000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000007a69000000000000000000000000266fa2526b3d68a1bd9685b87b4d14ae6079f70600000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000018687474703a2f2f6578616d706c652e686f73742e636f6d2f00000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002";
+        hex"20b8155900000000000000000000000000000000000000000000000000000000000000a000000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba4000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000007a69000000000000000000000000a64f94242628683ea967cd7dd6a10b5ed0400662000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002";
     }
 
     function hashMessage(IBridge.Message calldata message)
@@ -183,16 +183,14 @@ contract ERC1155VaultTest is Test {
     uint256 destChainId = 19_389;
 
     address public constant Alice = 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4;
-
     address public constant Bob = 0x50081b12838240B1bA02b3177153Bca678a86078;
-
-    // Mock proxy admins for bridge contracts
-    address public constant BridgedProxyAdmin =
-        0x60081B12838240B1BA02b3177153BCa678A86080;
+    //Need +1 bc. and Amelia is the proxied bridge contracts owner
+    address public constant Amelia = 0x60081B12838240B1BA02b3177153BCa678A86080;
 
     function setUp() public {
-        vm.startPrank(Alice);
+        vm.startPrank(Amelia);
         vm.deal(Alice, 100 ether);
+        vm.deal(Amelia, 100 ether);
         vm.deal(Bob, 100 ether);
         addressManager = new AddressManager();
         addressManager.init();
@@ -210,10 +208,10 @@ contract ERC1155VaultTest is Test {
         etherVault.init(address(addressManager));
 
         erc1155Vault = new ERC1155Vault();
-        erc1155Vault.init(address(addressManager), BridgedProxyAdmin);
+        erc1155Vault.init(address(addressManager));
 
         destChainErc1155Vault = new ERC1155Vault();
-        destChainErc1155Vault.init(address(addressManager), BridgedProxyAdmin);
+        destChainErc1155Vault.init(address(addressManager));
 
         destChainIdBridge = new PrankDestBridge(destChainErc1155Vault);
         srcPrankBridge = new PrankSrcBridge();
@@ -239,6 +237,8 @@ contract ERC1155VaultTest is Test {
         );
 
         ctoken1155 = new TestTokenERC1155("http://example.host.com/");
+        vm.stopPrank();
+        vm.startPrank(Alice, Alice);
         ctoken1155.mint(1, 10);
         ctoken1155.mint(2, 10);
 
@@ -607,7 +607,7 @@ contract ERC1155VaultTest is Test {
 
         // Let's test that message is failed and we want to release it back to
         // the owner
-        vm.prank(Alice, Alice);
+        vm.prank(Amelia, Amelia);
         addressManager.setAddress(
             block.chainid, "bridge", address(srcPrankBridge)
         );
@@ -805,7 +805,7 @@ contract ERC1155VaultTest is Test {
 
         destChainIdBridge.setERC1155Vault(address(erc1155Vault));
 
-        vm.prank(Alice, Alice);
+        vm.prank(Amelia, Amelia);
         addressManager.setAddress(
             block.chainid, "bridge", address(destChainIdBridge)
         );
@@ -886,7 +886,6 @@ contract ERC1155VaultTest is Test {
         address deployedContract = destChainErc1155Vault.canonicalToBridged(
             chainId, address(ctoken1155)
         );
-
         // Alice bridged over 1 from tokenId 1
         assertEq(ERC1155(deployedContract).balanceOf(Alice, 1), 1);
 
@@ -987,7 +986,7 @@ contract ERC1155VaultTest is Test {
         // Upgrade the implementation of that contract
         // so that it supports now the 'helloWorld' call
         UpdatedBridgedERC1155 newBridgedContract = new UpdatedBridgedERC1155();
-        vm.prank(BridgedProxyAdmin, BridgedProxyAdmin);
+        vm.prank(Amelia, Amelia);
         TransparentUpgradeableProxy(payable(deployedContract)).upgradeTo(
             address(newBridgedContract)
         );
