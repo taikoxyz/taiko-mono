@@ -13,6 +13,7 @@
   import Balance from './Balance.svelte';
   import { warningToast } from '$components/NotificationToast';
   import { debounce } from '$libs/util/debounce';
+  import Icon from '$components/Icon/Icon.svelte';
 
   let inputId = `input-${uid()}`;
   let tokenBalance: FetchBalanceResult;
@@ -102,6 +103,7 @@
     <label class="body-regular" for={inputId}>{$t('amount_input.label')}</label>
     <Balance bind:value={tokenBalance} />
   </div>
+
   <div class="relative f-items-center">
     <InputBox
       id="{inputId}x"
@@ -120,7 +122,14 @@
       {$t('amount_input.button.max')}
     </button>
   </div>
+
   {#if errorAmount}
-    BAM!!!
+    <!-- TODO: should we make another component for flat error messages? -->
+    <div class="f-items-center space-x-1 mt-3">
+      <Icon type="exclamation-circle" fillClass="fill-negative-sentiment" />
+      <div class="body-small-regular text-negative-sentiment">
+        {$t('amount_input.error.insufficient_balance')}
+      </div>
+    </div>
   {/if}
 </div>
