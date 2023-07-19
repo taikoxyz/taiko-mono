@@ -86,6 +86,10 @@
       focus:shadow-[0_0_0_3px_#E81899];
   }
 
+  .input-box.error {
+    @apply !shadow-[0_0_0_3px_#F15C5D];
+  }
+
   /* Separatos */
   .h-sep {
     @apply divider h-[1px] border-divider-border;

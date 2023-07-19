@@ -45,12 +45,13 @@ export async function getMaxToBridge({
 
       // If no destination chain is selected, find another chain to estimate
       // TODO: we might want to really find a compatible chain to bridge to
+      //       if we have multiple layers
       destChainId: destChainId ?? chains.find((chain) => chain.id !== srcChainId)?.id,
     } as ETHBridgeArgs;
 
     const estimatedCost = await estimateCostOfBridging(bridges.ETH, bridgeArgs);
 
-    log('Estimated cost of bridging', estimatedCost, 'with argument', bridgeArgs, );
+    log('Estimated cost of bridging', estimatedCost, 'with argument', bridgeArgs);
 
     return balance - processingFee - estimatedCost;
   }

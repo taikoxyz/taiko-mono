@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { FetchBalanceResult } from '@wagmi/core';
   import { t } from 'svelte-i18n';
-  import { formatEther, parseUnits } from 'viem';
+  import { ContractFunctionExecutionError, EstimateGasExecutionError, formatEther, parseUnits } from 'viem';
 
   import { InputBox } from '$components/InputBox';
   import { getMaxToBridge } from '$libs/bridge/getMaxToBridge';
@@ -12,6 +12,7 @@
   import { destNetwork, enteredAmount, processingFee, selectedToken } from '../state';
   import Balance from './Balance.svelte';
   import { warningToast } from '$components/NotificationToast';
+  import { debounce } from '$libs/util/debounce';
 
   let inputId = `input-${uid()}`;
   let tokenBalance: FetchBalanceResult;
@@ -20,29 +21,36 @@
   let computingMaxAmount = false;
   let errorAmount = false;
 
-  // Handler for when the user leaves the amount input.
-  // Will inform the users if they have enough balance to bridge
-  // the amount they entered
   async function checkAmount() {
     if (!$selectedToken || !$network || !$account?.address) return;
 
-    const maxAmount = await getMaxToBridge({
-      token: $selectedToken,
-      balance: tokenBalance.value,
-      processingFee: $processingFee,
-      srcChainId: $network.id,
-      destChainId: $destNetwork?.id,
-      userAddress: $account.address,
-      amount: $enteredAmount,
-    });
+    try {
+      const maxAmount = await getMaxToBridge({
+        token: $selectedToken,
+        balance: tokenBalance.value,
+        processingFee: $processingFee,
+        srcChainId: $network.id,
+        destChainId: $destNetwork?.id,
+        userAddress: $account.address,
+        amount: $enteredAmount,
+      });
 
-    if ($enteredAmount > maxAmount) {
-      errorAmount = true;
+      if ($enteredAmount > maxAmount) {
+        errorAmount = true;
+      }
+    } catch (err) {
+      console.error(err);
+
+      // Viem might throw an error that contains the following message, indicating
+      // that the user won't have enough to pay the transaction
+      if (`${err}`.toLocaleLowerCase().match('transaction exceeds the balance')) {
+        errorAmount = true;
+      }
     }
   }
 
-  // Handle for when the user changes the amount input.
-  // Will update the entered amount in the store
+  const debouncedCheckAmount = debounce(checkAmount, 500);
+
   function updateAmount(event: Event) {
     errorAmount = false;
 
@@ -52,6 +60,8 @@
 
     try {
       $enteredAmount = parseUnits(target.value, $selectedToken?.decimals);
+
+      debouncedCheckAmount();
     } catch (err) {
       $enteredAmount = BigInt(0);
     }
@@ -62,7 +72,6 @@
     $enteredAmount = amount;
   }
 
-  // We call this function when clicking on the "MAX" button
   async function useMaxAmount() {
     if (!$selectedToken || !$network || !$account?.address) return;
 
@@ -95,11 +104,12 @@
   </div>
   <div class="relative f-items-center">
     <InputBox
-      id={inputId}
+      id="{inputId}x"
       type="number"
       placeholder="0.01"
       min="0"
       loading={computingMaxAmount}
+      error={errorAmount}
       on:input={updateAmount}
       bind:this={inputBox}
       class="w-full input-box outline-none py-6 pr-16 px-[26px] title-subsection-bold placeholder:text-tertiary-content" />
@@ -110,4 +120,7 @@
       {$t('amount_input.button.max')}
     </button>
   </div>
+  {#if errorAmount}
+    BAM!!!
+  {/if}
 </div>
