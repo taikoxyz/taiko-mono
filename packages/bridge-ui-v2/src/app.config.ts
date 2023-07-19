@@ -13,7 +13,3 @@ export const bridge = {
   noOwnerGasLimit: BigInt(140000),
   noTokenDeployedGasLimit: BigInt(3000000),
 };
-
-export const amountInputComponent = {
-  estimatedCostBridging: BigInt(136000000),
-};

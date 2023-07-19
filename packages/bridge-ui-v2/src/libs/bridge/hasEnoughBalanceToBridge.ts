@@ -1,19 +1,14 @@
-import { getPublicClient } from '@wagmi/core';
-
-import { getConnectedWallet } from '$libs/util/getWallet';
+import { type Address, getPublicClient } from '@wagmi/core';
 
 import { estimateCostOfBridging } from './estimateCostOfBridging';
 import { ETHBridge } from './ETHBridge';
 import type { Bridge, BridgeArgs } from './types';
 
-export async function hasEnoughBalanceToBridge(bridge: Bridge, bridgeArgs: BridgeArgs) {
-  const walletClient = await getConnectedWallet();
-
+export async function hasEnoughBalanceToBridge(bridge: Bridge, bridgeArgs: BridgeArgs, address: Address) {
   const estimatedCost = await estimateCostOfBridging(bridge, bridgeArgs);
 
   const publicClient = getPublicClient();
-  const userAddress = walletClient.account.address;
-  const userBalance = await publicClient.getBalance({ address: userAddress });
+  const userBalance = await publicClient.getBalance({ address });
 
   let balanceAvailable = userBalance;
 

@@ -1,4 +1,4 @@
-import { getContract, getWalletClient } from '@wagmi/core';
+import { getContract } from '@wagmi/core';
 
 import { freeMintErc20ABI } from '$abi';
 import { getConnectedWallet } from '$libs/util/getWallet';

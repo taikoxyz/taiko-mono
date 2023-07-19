@@ -13,4 +13,4 @@
   export const focus = () => input.focus();
 </script>
 
-<input class={classes} disabled={loading} {...$$restProps} on:input bind:this={input} />
+<input class={classes} disabled={loading} {...$$restProps} bind:this={input} on:input on:blur />
