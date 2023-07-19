@@ -7,6 +7,7 @@
   import ProverInfo from '../../components/ProverInfo/ProverInfo.svelte';
   import StakeForm from '../..//components/StakeForm.svelte/StakeForm.svelte';
   import Rewards from '../../components/Rewards/Rewards.svelte';
+  import key from '../../components/Tabs/Tabs.svelte';
 
   // List of tab's name <=> route association
   // TODO: add this into a general configuration.
@@ -46,11 +47,11 @@
     {@const tab5 = tabsRoute[4]}
 
     <TabList class="block mb-4 w-full">
-      <Tab name={tab1.name} href={tab1.href}>Stake</Tab>
-      <Tab name={tab2.name} href={tab2.href}>History</Tab>
-      <Tab name={tab3.name} href={tab3.href}>Prover Info</Tab>
-      <Tab name={tab4.name} href={tab4.href}>Current Provers</Tab>
-      <Tab name={tab5.name} href={tab5.href}>Taiko Token</Tab>
+      <Tab type="main" name={tab1.name} href={tab1.href}>Stake</Tab>
+      <Tab type="main" name={tab2.name} href={tab2.href}>History</Tab>
+      <Tab type="main" name={tab3.name} href={tab3.href}>Prover Info</Tab>
+      <Tab type="main" name={tab4.name} href={tab4.href}>Current Provers</Tab>
+      <Tab type="main" name={tab5.name} href={tab5.href}>Taiko Token</Tab>
     </TabList>
 
     <TabPanel tab={tab1.name}>

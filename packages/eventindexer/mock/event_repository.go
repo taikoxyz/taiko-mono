@@ -126,3 +126,21 @@ func (r *EventRepository) FirstByAddressAndEventName(
 
 	return nil, nil
 }
+
+func (r *EventRepository) GetAssignedBlocksByProverAddress(
+	ctx context.Context,
+	req *http.Request,
+	address string,
+) (paginate.Page, error) {
+	var events []*eventindexer.Event
+
+	for _, e := range r.events {
+		if e.AssignedProver == address && e.Event == eventindexer.EventNameBlockProposed {
+			events = append(events, e)
+		}
+	}
+
+	return paginate.Page{
+		Items: events,
+	}, nil
+}

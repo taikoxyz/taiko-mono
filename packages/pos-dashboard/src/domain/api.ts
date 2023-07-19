@@ -33,6 +33,7 @@ export type APIResponseEvent = {
   msgHash: string;
   messageOwner: string;
   event: string;
+  assignedProver: string;
 };
 
 export type APIResponse = PaginationInfo & {
