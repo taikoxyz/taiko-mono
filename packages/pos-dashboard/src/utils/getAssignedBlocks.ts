@@ -10,7 +10,7 @@ export const getAssignedBlocks = async (
     `${eventIndexerApiUrl}/assignedBlocks`,
     {
       params: {
-        address: '0x67acA3B6D5b5744c8e8abf7661734A7344EE0bcC',
+        address: await signer.getAddress(),
       },
     },
   );
