@@ -16,7 +16,6 @@
   import TabList from '../Tabs/TabList.svelte';
   import Tab from '../Tabs/Tab.svelte';
   import TabPanel from '../Tabs/TabPanel.svelte';
-  import subKey from '../Tabs/Tabs.svelte';
 
   let pageSize = 8;
   let currentPage = 1;
@@ -24,7 +23,7 @@
   let loading = true;
   let events: APIResponseEvent[] = [];
   let eventsToShow: APIResponseEvent[] = [];
-  let activeTab: string = 'staked';
+  let activeTab: string = 'Staked';
 
   function getEventsToShow(
     page: number,
@@ -49,6 +48,8 @@
 
   async function getEvents(signer: ethers.Signer, activeTab: string) {
     if (!signer) return [];
+
+    console.log('activetab', activeTab);
 
     switch (activeTab) {
       case tabs[0].name:
@@ -76,60 +77,56 @@
 </script>
 
 <div class="my-4 md:px-4">
-  <Tabs
-    class="
-      tabs 
-      md:bg-tabs 
-      md:border-2 
-      md:dark:border-1 
-      md:border-gray-200 
-      md:dark:border-gray-800 
-      md:shadow-md 
-      md:rounded-3xl 
-      md:p-6 
-      md:inline-block 
-      md:min-h-[650px]
-      p-2"
-    bind:activeSubTab={activeTab}
-    type="sub">
-    <TabList class="block mb-4 w-full">
-      {#each tabs as tab}
-        <Tab type="sub" name={tab.name} href="">{tab.name}</Tab>
-      {/each}
-    </TabList>
-  </Tabs>
+  <div
+    class="tabs md:bg-tabs 
+  md:border-2 
+  md:dark:border-1 
+  md:border-gray-200 
+  md:dark:border-gray-800 
+  md:shadow-md 
+  md:rounded-3xl 
+  md:p-6 
+  md:inline-block 
+  md:min-h-[650px]
+  p-2">
+    {#each tabs as tab}
+      <a
+        class="tab tab-bordered {tab.name === activeTab ? 'tab-active' : ''}"
+        on:click={() => (activeTab = tab.name)}>{tab.name}</a>
+    {/each}
 
-  {#each tabs as tab}
-    <TabPanel tab={tab.name}>
-      {#if eventsToShow && eventsToShow.length}
-        <table class="table-auto my-4">
-          <thead>
-            <tr>
-              <th>Event</th>
-              <th>Data</th>
-            </tr>
-          </thead>
-          <tbody class="text-sm md:text-base">
-            {#each eventsToShow as event}
-              <Event {event} />
-            {/each}
-          </tbody>
-        </table>
+    {#each tabs as tab}
+      <div class={activeTab === tab.name ? '' : 'hidden'}>
+        {#if eventsToShow && eventsToShow.length}
+          <table class="table-auto my-4">
+            <thead>
+              <tr>
+                <th>Event</th>
+                <th>Data</th>
+              </tr>
+            </thead>
+            <tbody class="text-sm md:text-base">
+              {#each eventsToShow as event}
+                <Event {event} />
+              {/each}
+            </tbody>
+          </table>
 
-        <div class="flex justify-end">
-          <Paginator
-            {pageSize}
-            {totalItems}
-            on:pageChange={({ detail }) => (currentPage = detail)} />
-        </div>
-      {:else if loading && $signer}
-        <div class="flex flex-col items-center">
-          <Loading width={150} height={150} />
-          Loading event history...
-        </div>
-      {:else}
-        No history. When you have a {tab.name} event, those events will show here.
-      {/if}
-    </TabPanel>
-  {/each}
+          <div class="flex justify-end">
+            <Paginator
+              {pageSize}
+              {totalItems}
+              on:pageChange={({ detail }) => (currentPage = detail)} />
+          </div>
+        {:else if loading && $signer}
+          <div class="flex flex-col items-center">
+            <Loading width={150} height={150} />
+            Loading event history...
+          </div>
+        {:else}
+          No history. When you have a {tab.name} event, those events will show here.
+        {/if}
+      </div>
+    {/each}
+  </div>
 </div>

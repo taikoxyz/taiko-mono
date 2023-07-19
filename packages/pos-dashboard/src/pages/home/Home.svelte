@@ -54,25 +54,25 @@
       <Tab type="main" name={tab5.name} href={tab5.href}>Taiko Token</Tab>
     </TabList>
 
-    <TabPanel tab={tab1.name}>
+    <TabPanel type={'main'} tab={tab1.name}>
       <div class="md:w-[440px] px-4"><StakeForm /></div>
     </TabPanel>
 
-    <TabPanel tab={tab2.name}>
+    <TabPanel type={'main'} tab={tab2.name}>
       <div class="md:min-w-[440px]">
         <History />
       </div>
     </TabPanel>
 
-    <TabPanel tab={tab3.name}>
+    <TabPanel type={'main'} tab={tab3.name}>
       <div class="md:w-[440px] px-4"><ProverInfo /></div>
     </TabPanel>
 
-    <TabPanel tab={tab4.name}>
+    <TabPanel type={'main'} tab={tab4.name}>
       <CurrentProvers />
     </TabPanel>
 
-    <TabPanel tab={tab5.name}>
+    <TabPanel type={'main'} tab={tab5.name}>
       <Rewards />
     </TabPanel>
   </Tabs>

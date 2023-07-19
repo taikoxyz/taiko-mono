@@ -8,7 +8,7 @@
   export let name: string = '';
   export let type: string = 'main';
 
-  let activeTab;
+  let activeTab: Writable<string>;
   if (type == 'main') {
     activeTab = getContext<Writable<string>>(key);
   } else {
@@ -19,21 +19,12 @@
   $: tabActiveCls = selected ? 'tab-active' : '';
 </script>
 
-{#if href != ''}
-  <a
-    role="tab"
-    aria-selected={selected}
-    class="tab tab-bordered {tabActiveCls}"
-    on:click={() => ($activeTab = name)}
-    {href}
-    use:link>
-    <slot />
-  </a>
-{:else}
-  <span
-    role="tab"
-    aria-selected={selected}
-    class="tab tab-bordered {tabActiveCls}">
-    <slot />
-  </span>
-{/if}
+<a
+  role="tab"
+  aria-selected={selected}
+  class="tab tab-bordered {tabActiveCls}"
+  on:click={() => ($activeTab = name)}
+  {href}
+  use:link>
+  <slot />
+</a>
