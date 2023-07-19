@@ -58,7 +58,7 @@ contract BridgedERC1155 is
             revert BRIDGED_TOKEN_INVALID_PARAMS();
         }
         EssentialContract._init(_addressManager);
-        __ERC1155_init("<null>");
+        __ERC1155_init("");
         srcToken = _srcToken;
         srcChainId = _srcChainId;
         // name and symbol can be "" intentionally, so check
@@ -114,9 +114,6 @@ contract BridgedERC1155 is
     }
 
     function name() public view returns (string memory) {
-        string memory _name = bytes(name_).length > 0
-            ? name_
-            : Strings.toHexString(uint256(uint160(srcToken)), 6);
-        return string.concat(_name, unicode" ⭀", Strings.toString(srcChainId));
+        return string.concat(name_, unicode" ⭀", Strings.toString(srcChainId));
     }
 }
