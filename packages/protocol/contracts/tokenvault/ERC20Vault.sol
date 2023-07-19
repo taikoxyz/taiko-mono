@@ -14,7 +14,7 @@ import { SafeERC20Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import { Create2Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
-import { BridgedERC20 } from "./BridgedERC20.sol";
+import { BridgedERC20, ProxiedBridgedERC20 } from "./BridgedERC20.sol";
 import { IBridge } from "../bridge/IBridge.sol";
 import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { Proxied } from "../common/Proxied.sol";
@@ -369,24 +369,22 @@ contract ERC20Vault is BaseVault {
         private
         returns (address btoken)
     {
-        btoken = Create2Upgradeable.deploy({
-            amount: 0, // amount of Ether to send
-            salt: keccak256(
-                bytes.concat(
-                    bytes32(ctoken.chainId), bytes32(uint256(uint160(ctoken.addr)))
-                )
-                ),
-            bytecode: type(BridgedERC20).creationCode
-        });
+        ProxiedBridgedERC20 bridgedToken = new ProxiedBridgedERC20();
 
-        BridgedERC20(payable(btoken)).init({
-            _addressManager: address(_addressManager),
-            _srcToken: ctoken.addr,
-            _srcChainId: ctoken.chainId,
-            _decimals: ctoken.decimals,
-            _symbol: ctoken.symbol,
-            _name: ctoken.name
-        });
+        btoken = _deployProxy(
+            address(bridgedToken),
+            bytes.concat(
+                bridgedToken.init.selector,
+                abi.encode(
+                    address(_addressManager),
+                    ctoken.addr,
+                    ctoken.chainId,
+                    ctoken.decimals,
+                    ctoken.symbol,
+                    ctoken.name
+                )
+            )
+        );
 
         isBridgedToken[btoken] = true;
         bridgedToCanonical[btoken] = ctoken;

@@ -12,6 +12,8 @@ import { TaikoToken } from "../contracts/L1/TaikoToken.sol";
 import { Test } from "forge-std/Test.sol";
 import { ERC20Vault } from "../contracts/tokenvault/ERC20Vault.sol";
 import { BaseVault } from "../contracts/tokenvault/BaseVault.sol";
+import
+    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 // PrankDestBridge lets us simulate a transaction to the ERC20Vault
 // from a named Bridge, without having to test/run through the real Bridge code,
@@ -61,6 +63,12 @@ contract PrankDestBridge {
     }
 }
 
+contract UpdatedBridgedERC20 is BridgedERC20 {
+    function helloWorld() public pure returns (string memory) {
+        return "helloworld";
+    }
+}
+
 contract TestERC20Vault is Test {
     TaikoToken tko;
     AddressManager addressManager;
@@ -75,6 +83,10 @@ contract TestERC20Vault is Test {
     address public constant Alice = 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4;
     address public constant Bob = 0x200708D76eB1B69761c23821809d53F65049939e;
 
+    // Mock proxy admins for bridge contracts
+    address public constant BridgedProxyAdmin =
+        0x60081B12838240B1BA02b3177153BCa678A86080;
+
     function setUp() public {
         vm.startPrank(Alice);
         vm.deal(Alice, 1 ether);
@@ -87,10 +99,10 @@ contract TestERC20Vault is Test {
         addressManager.setAddress(block.chainid, "taiko_token", address(tko));
 
         erc20Vault = new ERC20Vault();
-        erc20Vault.init(address(addressManager));
+        erc20Vault.init(address(addressManager), BridgedProxyAdmin);
 
         destChainIdERC20Vault = new ERC20Vault();
-        destChainIdERC20Vault.init(address(addressManager));
+        destChainIdERC20Vault.init(address(addressManager), BridgedProxyAdmin);
 
         erc20 = new FreeMintERC20("ERC20", "ERC20");
         erc20.mint(Alice);
@@ -337,5 +349,56 @@ contract TestERC20Vault is Test {
             symbol: erc20.symbol(),
             name: erc20.name()
         });
+    }
+
+    function test_upgrade_bridged_tokens_20() public {
+        vm.startPrank(Alice);
+
+        uint256 srcChainId = block.chainid;
+        vm.chainId(destChainId);
+
+        uint256 amount = 1;
+
+        destChainIdBridge.setERC20Vault(address(destChainIdERC20Vault));
+
+        address bridgedAddressBefore =
+            destChainIdERC20Vault.canonicalToBridged(srcChainId, address(erc20));
+        assertEq(bridgedAddressBefore == address(0), true);
+
+        destChainIdBridge.sendReceiveERC20ToERC20Vault(
+            erc20ToCanonicalERC20(srcChainId),
+            Alice,
+            Bob,
+            amount,
+            bytes32(0),
+            address(erc20Vault),
+            srcChainId
+        );
+
+        address bridgedAddressAfter =
+            destChainIdERC20Vault.canonicalToBridged(srcChainId, address(erc20));
+        assertEq(bridgedAddressAfter != address(0), true);
+
+        try UpdatedBridgedERC20(bridgedAddressAfter).helloWorld() {
+            assertEq(false, true);
+        } catch {
+            //It should not yet support this function call
+            assertEq(true, true);
+        }
+
+        // Upgrade the implementation of that contract
+        // so that it supports now the 'helloWorld' call
+        UpdatedBridgedERC20 newBridgedContract = new UpdatedBridgedERC20();
+        vm.prank(BridgedProxyAdmin, BridgedProxyAdmin);
+        TransparentUpgradeableProxy(payable(bridgedAddressAfter)).upgradeTo(
+            address(newBridgedContract)
+        );
+
+        try UpdatedBridgedERC20(bridgedAddressAfter).helloWorld() {
+            //It should support now this function call
+            assertEq(true, true);
+        } catch {
+            assertEq(false, true);
+        }
     }
 }

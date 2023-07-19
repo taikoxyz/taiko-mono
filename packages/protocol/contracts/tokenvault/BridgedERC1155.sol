@@ -13,6 +13,7 @@ import { IERC1155MetadataURIUpgradeable } from
 import { ERC1155Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
+import { Proxied } from "../common/Proxied.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract BridgedERC1155 is
@@ -117,3 +118,5 @@ contract BridgedERC1155 is
         return string.concat(name_, unicode" ⭀", Strings.toString(srcChainId));
     }
 }
+
+contract ProxiedBridgedERC1155 is Proxied, BridgedERC1155 { }

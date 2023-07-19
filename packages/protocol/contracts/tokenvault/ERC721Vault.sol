@@ -18,7 +18,7 @@ import { Create2Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 import { IBridge } from "../bridge/IBridge.sol";
 import { BaseNFTVault } from "./BaseNFTVault.sol";
-import { BridgedERC721 } from "./BridgedERC721.sol";
+import { BridgedERC721, ProxiedBridgedERC721 } from "./BridgedERC721.sol";
 import { Proxied } from "../common/Proxied.sol";
 
 /**
@@ -271,23 +271,21 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         private
         returns (address btoken)
     {
-        btoken = Create2Upgradeable.deploy({
-            amount: 0, // amount of Ether to send
-            salt: keccak256(
-                bytes.concat(
-                    bytes32(ctoken.chainId), bytes32(uint256(uint160(ctoken.addr)))
-                )
-                ),
-            bytecode: type(BridgedERC721).creationCode
-        });
+        ProxiedBridgedERC721 bridgedToken = new ProxiedBridgedERC721();
 
-        BridgedERC721(payable(btoken)).init({
-            _addressManager: address(_addressManager),
-            _srcToken: ctoken.addr,
-            _srcChainId: ctoken.chainId,
-            _symbol: ctoken.symbol,
-            _name: ctoken.name
-        });
+        btoken = _deployProxy(
+            address(bridgedToken),
+            bytes.concat(
+                bridgedToken.init.selector,
+                abi.encode(
+                    address(_addressManager),
+                    ctoken.addr,
+                    ctoken.chainId,
+                    ctoken.symbol,
+                    ctoken.name
+                )
+            )
+        );
 
         isBridgedToken[btoken] = true;
         bridgedToCanonical[btoken] = ctoken;

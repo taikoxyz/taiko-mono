@@ -9,11 +9,28 @@ pragma solidity ^0.8.20;
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { IBridge } from "../bridge/IBridge.sol";
 import { AddressResolver } from "../common/AddressResolver.sol";
+import
+    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 abstract contract BaseVault is EssentialContract {
     // Released message hashes
     mapping(bytes32 msgHash => bool released) public releasedMessages;
-    uint256[49] private __gap;
+
+    // When deploying with TransparentUpgreadableProxy pattern we need
+    // proxy admin feed into the constructor. The 'problem' (not really)
+    // is that we cannot feed address(this) as the 'owner' of the proxy
+    // because then we cannot call BridgedERCXXXX.mint() functions from
+    // address(this), because the 'admin calls' will never be forwarded
+    // to the implementation contracts, and would revert with
+    // TransparentUpgradeableProxy: admin cannot fallback to proxy target
+    // Please see description:
+    // https://github.com/OpenZeppelin/openzeppelin-contracts/blob/f347b410cf6aeeaaf5197e1fece139c793c03b2b/contracts/proxy/transparent/TransparentUpgradeableProxy.sol#L31
+    // This is why we need to introduce an 'owner' which will be able to
+    // upgrade.
+    address public bridgeProxyAdmin;
+    uint256[48] private __gap;
+
+    event BridgeProxyAdminChanged(address newProxyAdmin);
 
     error VAULT_INIT_PARAM_ERROR();
     /**
@@ -49,6 +66,10 @@ abstract contract BaseVault is EssentialContract {
      */
     error VAULT_INVALID_SRC_CHAIN_ID();
 
+    /**
+     * Thrown when the new proxy owner is zero address.
+     */
+    error VAULT_INVALID_PROXY_OWNER();
     /**
      * Thrown when the interface (ERC1155/ERC721) is not supported.
      */
@@ -87,8 +108,46 @@ abstract contract BaseVault is EssentialContract {
         _;
     }
 
-    function init(address addressManager) external initializer {
+    function init(
+        address addressManager,
+        address proxyAdmin
+    )
+        external
+        initializer
+    {
         EssentialContract._init(addressManager);
+        bridgeProxyAdmin = proxyAdmin;
+    }
+
+    /**
+     * Sets a new bridgeProxyAdmin's address.
+     *
+     * @param newBridgeProxyAdmin New proxyAdmin
+     */
+    function setProxyAdmin(address newBridgeProxyAdmin) external onlyOwner {
+        if (newBridgeProxyAdmin == address(0)) {
+            revert VAULT_INVALID_PROXY_OWNER();
+        }
+        bridgeProxyAdmin = newBridgeProxyAdmin;
+
+        emit BridgeProxyAdminChanged(newBridgeProxyAdmin);
+    }
+
+    /**
+     * @dev Deploys a contract (via proxy)
+     * @param implementation The new implementation address
+     * @param data Data for the initialization
+     */
+    function _deployProxy(
+        address implementation,
+        bytes memory data
+    )
+        internal
+        returns (address proxy)
+    {
+        proxy = address(
+            new TransparentUpgradeableProxy(implementation, bridgeProxyAdmin, data)
+        );
     }
 
     /**

@@ -16,6 +16,8 @@ import { SignalService } from "../contracts/signal/SignalService.sol";
 import { ICrossChainSync } from "../contracts/common/ICrossChainSync.sol";
 import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import { BaseVault } from "../contracts/tokenvault/BaseVault.sol";
+import
+    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract TestTokenERC721 is ERC721 {
     string _baseTokenURI;
@@ -179,6 +181,12 @@ contract PrankCrossChainSync is ICrossChainSync {
     }
 }
 
+contract UpdatedBridgedERC721 is BridgedERC721 {
+    function helloWorld() public pure returns (string memory) {
+        return "helloworld";
+    }
+}
+
 contract ERC721VaultTest is Test {
     AddressManager addressManager;
     BadReceiver badReceiver;
@@ -197,6 +205,10 @@ contract ERC721VaultTest is Test {
     address public constant Alice = 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4;
 
     address public constant Bob = 0x50081b12838240B1bA02b3177153Bca678a86078;
+
+    // Mock proxy admins for bridge contracts
+    address public constant BridgedProxyAdmin =
+        0x60081B12838240B1BA02b3177153BCa678A86080;
 
     function setUp() public {
         vm.startPrank(Alice);
@@ -218,10 +230,10 @@ contract ERC721VaultTest is Test {
         etherVault.init(address(addressManager));
 
         erc721Vault = new ERC721Vault();
-        erc721Vault.init(address(addressManager));
+        erc721Vault.init(address(addressManager), BridgedProxyAdmin);
 
         destChainErc721Vault = new ERC721Vault();
-        destChainErc721Vault.init(address(addressManager));
+        destChainErc721Vault.init(address(addressManager), BridgedProxyAdmin);
 
         destChainIdBridge = new PrankDestBridge(destChainErc721Vault);
         srcPrankBridge = new PrankSrcBridge();
@@ -901,5 +913,88 @@ contract ERC721VaultTest is Test {
         vm.prank(Alice, Alice);
         vm.expectRevert(BridgedERC721.BRIDGED_TOKEN_INVALID_BURN.selector);
         destChainErc721Vault.sendToken{ value: 140_000 }(sendOpts);
+    }
+
+    function test_upgrade_bridged_tokens_721() public {
+        vm.prank(Alice, Alice);
+        canonicalToken721.approve(address(erc721Vault), 1);
+        vm.prank(Alice, Alice);
+        canonicalToken721.approve(address(erc721Vault), 2);
+
+        assertEq(canonicalToken721.ownerOf(1), Alice);
+
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 0;
+
+        BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
+            .BridgeTransferOp(
+            destChainId,
+            Alice,
+            address(canonicalToken721),
+            tokenIds,
+            amounts,
+            140_000,
+            140_000,
+            Alice,
+            ""
+        );
+        vm.prank(Alice, Alice);
+        erc721Vault.sendToken{ value: 140_000 }(sendOpts);
+
+        assertEq(canonicalToken721.ownerOf(1), address(erc721Vault));
+
+        // This canonicalToken is basically need to be exact same as the
+        // sendToken() puts together
+        // - here is just mocking putting it together.
+        BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault
+            .CanonicalNFT({
+            chainId: 31_337,
+            addr: address(canonicalToken721),
+            symbol: "TT",
+            name: "TT"
+        });
+
+        uint256 chainId = block.chainid;
+        vm.chainId(destChainId);
+
+        destChainIdBridge.sendReceiveERC721ToERC721Vault(
+            canonicalToken,
+            Alice,
+            Alice,
+            tokenIds,
+            bytes32(0),
+            address(erc721Vault),
+            chainId
+        );
+
+        // Query canonicalToBridged
+        address deployedContract = destChainErc721Vault.canonicalToBridged(
+            chainId, address(canonicalToken721)
+        );
+
+        try UpdatedBridgedERC721(deployedContract).helloWorld() {
+            assertEq(false, true);
+        } catch {
+            //It should not yet support this function call
+            assertEq(true, true);
+        }
+
+        // Upgrade the implementation of that contract
+        // so that it supports now the 'helloWorld' call
+        UpdatedBridgedERC721 newBridgedContract = new UpdatedBridgedERC721();
+        vm.prank(BridgedProxyAdmin, BridgedProxyAdmin);
+        TransparentUpgradeableProxy(payable(deployedContract)).upgradeTo(
+            address(newBridgedContract)
+        );
+
+        try UpdatedBridgedERC721(deployedContract).helloWorld() {
+            //It should support now this function call
+            assertEq(true, true);
+        } catch {
+            assertEq(false, true);
+        }
     }
 }
