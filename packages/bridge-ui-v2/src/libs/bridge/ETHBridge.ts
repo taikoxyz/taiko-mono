@@ -26,7 +26,7 @@ export class ETHBridge {
       to.toLowerCase() === owner.toLowerCase() ? [amount, BigInt(0)] : [BigInt(0), amount];
 
     // If there is a processing fee
-    const gasLimit = processingFee > 0 ? bridge.nonOwnerGasLimit : BigInt(0);
+    const gasLimit = processingFee > 0 ? bridge.noOwnerGasLimit : BigInt(0);
 
     const message: Message = {
       to,
@@ -34,8 +34,8 @@ export class ETHBridge {
       sender: owner,
       refundAddress: owner,
 
-      srcChainId,
-      destChainId,
+      srcChainId: BigInt(srcChainId),
+      destChainId: BigInt(destChainId),
 
       gasLimit,
       callValue,
@@ -44,36 +44,16 @@ export class ETHBridge {
 
       memo,
       data: '0x',
+      id: BigInt(0), // will be set in contract
     };
 
     log('Preparing transaction with message', message);
 
-    return { bridgeContract, owner, message };
+    return { bridgeContract, message };
   }
 
-  // async estimateGas(args: ): Promise<BigNumber> {
-  //   const { contract, message } = await ETHBridge._prepareTransaction(opts);
-
-  //   const value = message.depositValue
-  //     .add(message.processingFee)
-  //     .add(message.callValue);
-
-  //   log(`Estimating gas for sendMessage. Value to send: ${value}`);
-
-  //   try {
-  //     // See https://docs.ethers.org/v5/api/contract/contract/#contract-estimateGas
-  //     const gasEstimate = await contract.estimateGas.sendMessage(message, {
-  //       value,
-  //     });
-
-  //     log('Estimated gas', gasEstimate.toString());
-
-  //     return gasEstimate;
-  //   } catch (error) {
-  //     console.error(error);
-  //     throw new Error('failed to estimate gas for sendMessage', {
-  //       cause: error,
-  //     });
-  //   }
-  // }
+  static async estimateGas(args: ETHBridgeArgs): Promise<bigint> {
+    const { bridgeContract, message } = await ETHBridge._prepareTransaction(args);
+    return bridgeContract.estimateGas.sendMessage([message]);
+  }
 }

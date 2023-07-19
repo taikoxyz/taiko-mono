@@ -1,5 +1,5 @@
 import type { WalletClient } from '@wagmi/core';
-import type { Address } from 'abitype';
+import type { Address, Hex } from 'viem';
 
 export enum BridgeType {
   ETH = 'ETH',
@@ -15,12 +15,14 @@ export enum BridgeType {
 }
 
 export type Message = {
+  // Message ID. Will be set in contract
+  id: bigint;
   // Message sender address (auto filled)
   sender: Address;
   // Source chain ID (auto filled)
-  srcChainId: number;
+  srcChainId: bigint;
   // Destination chain ID where the `to` address lives (auto filled)
-  destChainId: number;
+  destChainId: bigint;
   // Owner address of the bridged asset.
   owner: Address;
   // Destination owner address
@@ -35,13 +37,22 @@ export type Message = {
   processingFee: bigint;
   // gasLimit to invoke on the destination chain, for ERC20 transfers.
   gasLimit: bigint;
-  // Message ID. Will be set in contract
-  id?: number;
   // callData to invoke on the destination chain, for ERC20 transfers.
-  data?: string;
+  data: Hex;
   // Optional memo.
-  memo?: string;
+  memo: string;
 };
+
+export type SendERC20Args = [
+  bigint,   // destChainId
+  Address,  // to
+  Address,  // token
+  bigint,   // amount
+  bigint,   // gasLimit
+  bigint,   // processingFee
+  Address,  // refundAddress
+  string,   // memo
+];
 
 export type ApproveArgs = {
   amount: bigint;
@@ -67,5 +78,5 @@ export type ETHBridgeArgs = BridgeArgs & {
 export type ERC20BridgeArgs = BridgeArgs & {
   tokenAddress: Address;
   tokenVaultAddress: Address;
-  isBridgedTokenAlreadyDeployed?: boolean;
+  isTokenAlreadyDeployed?: boolean;
 };

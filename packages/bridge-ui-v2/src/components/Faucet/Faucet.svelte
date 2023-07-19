@@ -30,11 +30,11 @@
     switchingNetwork = true;
 
     try {
-      await switchNetwork({ chainId: +PUBLIC_L1_CHAIN_ID });
+      await switchNetwork({ chainId: Number(PUBLIC_L1_CHAIN_ID) });
     } catch (err) {
       console.error(err);
 
-      if (error instanceof UserRejectedRequestError) {
+      if (err instanceof UserRejectedRequestError) {
         warningToast($t('messages.network.rejected'));
       }
     } finally {
@@ -50,7 +50,7 @@
     if (!selectedToken || !$network) return;
 
     // ... and of course, our wallet must be connected
-    const walletClient = await getWalletClient({ chainId: $network.id });
+    const walletClient = await getWalletClient();
     if (!walletClient) return;
 
     // Let's begin the minting process
@@ -103,7 +103,7 @@
     } catch (err) {
       console.error(err);
 
-      const { cause } = error as Error;
+      const { cause } = err as Error;
 
       switch (cause) {
         case MintableError.NOT_CONNECTED:
@@ -140,7 +140,7 @@
 <Card class="md:w-[524px]" title={$t('faucet.title')} text={$t('faucet.subtitle')}>
   <div class="space-y-[35px]">
     <div class="space-y-2">
-      <ChainSelector label={$t('chain_selector.currently_on')} value={$network} />
+      <ChainSelector label={$t('chain_selector.currently_on')} value={$network} switchWallet />
       <TokenDropdown tokens={testERC20Tokens} bind:value={selectedToken} />
     </div>
 

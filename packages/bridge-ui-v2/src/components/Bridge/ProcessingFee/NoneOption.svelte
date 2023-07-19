@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Address } from 'abitype';
+  import type { Address } from 'viem';
 
   import { recommendProcessingFee } from '$libs/fee';
   import { getBalance, type Token } from '$libs/token';

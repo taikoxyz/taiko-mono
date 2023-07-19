@@ -1,14 +1,19 @@
 <script lang="ts">
+  import type { FetchBalanceResult } from '@wagmi/core';
   import { t } from 'svelte-i18n';
   import { parseUnits } from 'viem';
 
   import { InputBox } from '$components/InputBox';
+  import type { Token } from '$libs/token';
   import { uid } from '$libs/util/uid';
 
   import { enteredAmount, selectedToken } from '../state';
   import Balance from './Balance.svelte';
 
   let inputId = `input-${uid()}`;
+  let tokenBalance: FetchBalanceResult;
+
+  let maxAmount: bigint;
 
   function updateAmount(event: Event) {
     if (!$selectedToken) return;
@@ -21,12 +26,16 @@
       $enteredAmount = BigInt(0);
     }
   }
+
+  function computMaxAmountToSend(token: Token, balance: bigint) {
+    if (!token) return;
+  }
 </script>
 
 <div class="AmountInput f-col space-y-2">
   <div class="f-between-center text-secondary-content">
     <label class="body-regular" for={inputId}>{$t('amount_input.label')}</label>
-    <Balance />
+    <Balance bind:value={tokenBalance} />
   </div>
   <div class="relative f-items-center">
     <InputBox

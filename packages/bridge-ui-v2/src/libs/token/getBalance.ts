@@ -1,6 +1,5 @@
 import { fetchBalance, type FetchBalanceResult } from '@wagmi/core';
-import type { Address } from 'abitype';
-import { zeroAddress } from 'viem';
+import { type Address, zeroAddress } from 'viem';
 
 import { getLogger } from '$libs/util/logger';
 

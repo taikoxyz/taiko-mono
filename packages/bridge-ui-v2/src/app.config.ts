@@ -10,5 +10,6 @@ export const processingFeeComponent = {
 };
 
 export const bridge = {
-  nonOwnerGasLimit: BigInt(140000),
+  noOwnerGasLimit: BigInt(140000),
+  noTokenDeployedGasLimit: BigInt(3000000),
 };
