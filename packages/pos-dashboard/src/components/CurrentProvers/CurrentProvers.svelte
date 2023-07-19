@@ -20,7 +20,13 @@
   <th>RewardPerGas</th>
   {#each provers as prover}
     <tr>
-      <td>{truncateString(prover.address, 8)}...</td>
+      <td
+        class="cursor-pointer"
+        on:click={() =>
+          window.open(
+            `https://explorer.test.taiko.xyz/address/${prover.address}`,
+            '_blank',
+          )}>{truncateString(prover.address, 8)}...</td>
       <td>{ethers.utils.formatUnits(prover.amountStaked.toString(), 8)}</td>
       <td>{prover.currentCapacity}</td>
       <td>{prover.rewardPerGas}</td>

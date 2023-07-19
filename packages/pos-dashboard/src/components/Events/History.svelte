@@ -12,13 +12,13 @@
   import { getExitedEvents } from '../../utils/getExitedEvents';
   import { getAssignedBlocks } from '../../utils/getAssignedBlocks';
 
-  let pageSize = 8;
+  let pageSize = 10;
   let currentPage = 1;
   let totalItems = 0;
-  let loading = true;
   let events: APIResponseEvent[] = [];
   let eventsToShow: APIResponseEvent[] = [];
   let activeTab: string = 'Staked';
+  let loading: boolean = false;
 
   function getEventsToShow(
     page: number,
@@ -28,8 +28,10 @@
     if (!allEvents) return [];
     const start = (page - 1) * pageSize;
     const end = start + pageSize;
-    loading = false;
-    return allEvents.slice(start, end);
+    console.log('total items', totalItems);
+    const ret = allEvents.slice(start, end);
+    console.log(ret);
+    return ret;
   }
 
   const tabs = [
@@ -42,26 +44,35 @@
   ];
 
   async function getEvents(signer: ethers.Signer, activeTab: string) {
+    let items = [];
     if (!signer) return [];
-
-    console.log('activetab', activeTab);
 
     switch (activeTab) {
       case tabs[0].name:
-        return await getStakedEvents(EVENT_INDEXER_API_URL, signer);
+        items = await getStakedEvents(EVENT_INDEXER_API_URL, signer);
+        break;
       case tabs[1].name:
-        return await getBlockProvenEvents(EVENT_INDEXER_API_URL, signer);
+        items = await getBlockProvenEvents(EVENT_INDEXER_API_URL, signer);
+        break;
       case tabs[2].name:
-        return await getWithdrawnEvents(EVENT_INDEXER_API_URL, signer);
+        items = await getWithdrawnEvents(EVENT_INDEXER_API_URL, signer);
+        break;
       case tabs[3].name:
-        return await getExitedEvents(EVENT_INDEXER_API_URL, signer);
+        items = await getExitedEvents(EVENT_INDEXER_API_URL, signer);
+        break;
       case tabs[4].name:
-        return await getAssignedBlocks(EVENT_INDEXER_API_URL, signer);
+        items = await getAssignedBlocks(EVENT_INDEXER_API_URL, signer);
+        break;
       case tabs[5].name:
-        return await getSlashedTokensEvents(EVENT_INDEXER_API_URL, signer);
+        items = await getSlashedTokensEvents(EVENT_INDEXER_API_URL, signer);
+        break;
       default:
-        return [];
+        items = [];
+        break;
     }
+
+    totalItems = items.length;
+    return items;
   }
 
   $: eventsToShow = getEventsToShow(currentPage, pageSize, events);
@@ -92,7 +103,7 @@
 
     {#each tabs as tab}
       <div class={activeTab === tab.name ? '' : 'hidden'}>
-        {#if eventsToShow && eventsToShow.length}
+        {#if eventsToShow && eventsToShow.length && !loading}
           <table class="table-auto my-4">
             <thead>
               <tr>
@@ -102,7 +113,7 @@
                 {:else if tab.name === tabs[1].name}{:else if tab.name === tabs[2].name}
                   <th>Amount</th>
                 {:else if tab.name === tabs[3].name}{:else if tab.name === tabs[4].name}
-
+                  <th>Block ID</th>
                 {:else if tab.name === tabs[5].name}
                   <th>Amount</th>
                 {/if}
@@ -125,7 +136,9 @@
                     <td>{ethers.utils.formatUnits(event.amount, 8)} TTKOe</td>
                   {:else if tab.name === tabs[1].name}{:else if tab.name === tabs[2].name}
                     <td>{ethers.utils.formatUnits(event.amount, 8)} TTKOe</td>
-                  {:else if tab.name === tabs[3].name}{:else if tab.name === tabs[4].name}{:else if tab.name === tabs[5].name}
+                  {:else if tab.name === tabs[3].name}{:else if tab.name === tabs[4].name}
+                    <td>{event.blockID.Int64}</td>
+                  {:else if tab.name === tabs[5].name}
                     <td>{ethers.utils.formatUnits(event.amount, 8)} TTKOe</td
                     >{/if}
                 </tr>

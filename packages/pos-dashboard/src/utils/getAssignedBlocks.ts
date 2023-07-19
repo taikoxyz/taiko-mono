@@ -10,10 +10,12 @@ export const getAssignedBlocks = async (
     `${eventIndexerApiUrl}/assignedBlocks`,
     {
       params: {
-        address: await signer.getAddress(),
+        address: '0x67acA3B6D5b5744c8e8abf7661734A7344EE0bcC',
       },
     },
   );
-
-  return resp.data.items;
+  return resp.data.items.map((item) => {
+    item.amount = '0';
+    return item;
+  });
 };

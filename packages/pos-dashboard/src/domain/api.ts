@@ -1,3 +1,4 @@
+import type { BigNumber } from 'ethers';
 import type { ChainID } from './chain';
 
 export type PaginationInfo = {
@@ -34,6 +35,7 @@ export type APIResponseEvent = {
   messageOwner: string;
   event: string;
   assignedProver: string;
+  blockID: { Int64: number; Valid: boolean };
 };
 
 export type APIResponse = PaginationInfo & {
