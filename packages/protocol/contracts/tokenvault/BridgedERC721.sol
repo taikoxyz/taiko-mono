@@ -6,8 +6,6 @@
 
 pragma solidity ^0.8.20;
 
-import { console2 } from "forge-std/console2.sol";
-import { Test } from "forge-std/Test.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { ERC721Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
@@ -20,6 +18,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
 
     error BRIDGED_TOKEN_CANNOT_RECEIVE();
     error BRIDGED_TOKEN_INVALID_PARAMS();
+    error BRIDGED_TOKEN_INVALID_BURN();
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     // Intention is for a different BridgedERC721 Contract to be deployed
@@ -67,6 +66,13 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         public
         onlyFromNamed("erc721_vault")
     {
+        // ERC721Upgradeable internal _burn() function
+        // does not have this ownership check so we
+        // need to be careful when exposing the function.
+        if (ownerOf(tokenId) != account) {
+            revert BRIDGED_TOKEN_INVALID_BURN();
+        }
+
         _burn(tokenId);
         emit Transfer(account, address(0), tokenId);
     }
