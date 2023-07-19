@@ -1,38 +1,58 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
 
-  import AmountInput from '$components/AmountInput';
-  import Button from '$components/Button/Button.svelte';
+  import { Button } from '$components/Button';
   import { Card } from '$components/Card';
   import { ChainSelector } from '$components/ChainSelector';
-  import Icon from '$components/Icon/Icon.svelte';
-  import { ProcessingFee } from '$components/ProcessingFee';
-  import { RecipientInput } from '$components/RecipientInput';
+  import { OnAccount } from '$components/OnAccount';
+  import { OnNetwork } from '$components/OnNetwork';
   import { TokenDropdown } from '$components/TokenDropdown';
-  import { type Token, tokens } from '$libs/token';
-  import { destChain, srcChain } from '$stores/network';
+  import { chains } from '$libs/chain';
+  import { ETHToken, tokens } from '$libs/token';
+  import type { Account } from '$stores/account';
+  import { type Network, network } from '$stores/network';
 
-  let selectedToken: Token;
+  import { AmountInput } from './AmountInput';
+  import { ProcessingFee } from './ProcessingFee';
+  import { RecipientInput } from './RecipientInput';
+  import { destNetwork, selectedToken } from './state';
+  import SwitchChainsButton from './SwitchChainsButton.svelte';
+
+  function onNetworkChange(network: Network) {
+    if (network && chains.length === 2) {
+      // If there are only two chains, the destination chain will be the other one
+      const otherChain = chains.find((chain) => chain.id !== network.id);
+
+      if (otherChain) destNetwork.set(otherChain);
+    }
+  }
+
+  function onAccountChange(account: Account) {
+    if (account && account.isConnected && !$selectedToken) {
+      $selectedToken = ETHToken;
+    } else if (account && account.isDisconnected) {
+      $selectedToken = null;
+      $destNetwork = null;
+    }
+  }
 </script>
 
 <Card class="md:w-[524px]" title={$t('bridge.title')} text={$t('bridge.subtitle')}>
   <div class="space-y-[35px]">
     <div class="space-y-4">
       <div class="space-y-2">
-        <ChainSelector label={$t('chain.from')} value={$srcChain} />
-        <TokenDropdown {tokens} bind:value={selectedToken} />
+        <ChainSelector label={$t('chain.from')} value={$network} switchWallet />
+        <TokenDropdown {tokens} bind:value={$selectedToken} />
       </div>
 
-      <AmountInput token={selectedToken} />
+      <AmountInput />
 
       <div class="f-justify-center">
-        <button class="f-center rounded-full bg-secondary-icon w-[30px] h-[30px]">
-          <Icon type="up-down" />
-        </button>
+        <SwitchChainsButton />
       </div>
 
       <div class="space-y-2">
-        <ChainSelector label={$t('chain.to')} value={$destChain} />
+        <ChainSelector label={$t('chain.to')} value={$destNetwork} readOnly />
         <RecipientInput />
       </div>
     </div>
@@ -46,3 +66,7 @@
     </Button>
   </div>
 </Card>
+
+<OnNetwork change={onNetworkChange} />
+
+<OnAccount change={onAccountChange} />

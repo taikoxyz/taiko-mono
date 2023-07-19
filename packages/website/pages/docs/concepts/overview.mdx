@@ -1,6 +1,6 @@
 import Image from "next/image";
 
-## Overview
+# What is Taiko?
 
 Taiko is a secure, decentralized, and permissionless [rollup](https://www.youtube.com/watch?v=7pWxCklcNsU) on Ethereum. Taiko achieves this by:
 
@@ -26,32 +26,33 @@ EIP-1559 on Taiko dynamically adjusts the block space price.
 
 ## Rate Limiting using EIP-1559
 
-Although rollups can have significantly 
+Although rollups can have significantly
 higher network capacity than L1s,
 this capacity is not without limit. As such the protocol
 needs to be able to limit how much work the L2 network
 needs to do to keep up with the tip of the chain. Ethereum
 already has a mechanism in place to do just that with
 that we can use as well.
+
 <center>
-    <Image src="/images/diagrams/concepts/eip-1559/fee-layout.png" alt="proposed" width={1200} height={500} />
+  <Image
+    src="/images/diagrams/concepts/eip-1559/fee-layout.png"
+    alt="proposed"
+    width={1200}
+    height={500}
+  />
 </center>
-At block proposal we keep track of how much work
-(measured in gas) is required to process the block, while
-subtracting the amount of work the Taiko network can handle. 
-This effectively creates a market for network capacity
-(in gas) per ETH. This will impact how expensive Taiko
-block space is (paid by the block proposer), the higher
-the demand the higher the network fee (a fee paid to the
-Taiko DAO). This way, rate limiting is achieved in a way
-that does not simply impose a hard and inefficient cap
-on the network, instead this mechanism allows users to
-utilize the network in a fair way while allowing the Taiko
-network to capture the created value. And because the
-same mechanism is used on Ethereum it allows Taiko to
-be Ethereum equivalent (with some small implementation
-detail changes) even for this part of its network, which is
-not obviously the case for L2s.
+At block proposal we keep track of how much work (measured in gas) is required to
+process the block, while subtracting the amount of work the Taiko network can handle.
+This effectively creates a market for network capacity (in gas) per ETH. This will
+impact how expensive Taiko block space is (paid by the block proposer), the higher
+the demand the higher the network fee (a fee paid to the Taiko DAO). This way, rate
+limiting is achieved in a way that does not simply impose a hard and inefficient
+cap on the network, instead this mechanism allows users to utilize the network in
+a fair way while allowing the Taiko network to capture the created value. And because
+the same mechanism is used on Ethereum it allows Taiko to be Ethereum equivalent
+(with some small implementation detail changes) even for this part of its network,
+which is not obviously the case for L2s.
 
 ## EIP-1559 Powered Prover fees
 
@@ -62,16 +63,16 @@ attract provers that are willing to do this work. How much
 to pay for a proof is not obvious however:
 
 1. The Ethereum gas cost to publish/verify a proof
-on Ethereum is unpredictable.
+   on Ethereum is unpredictable.
 2. The proof generation cost does not necessarily
-match perfectly with the gas cost.
+   match perfectly with the gas cost.
 3. The proof generation cost keeps changing as proving software is optimized and the hardware used
-gets faster and cheaper.
+   gets faster and cheaper.
 4. The proof generation cost depends on how fast a
-proof needs to be generated.
+   proof needs to be generated.
 
 Because the proving cost impacts the transaction fees
-paid by the users, the goal is to pay only as much as 
+paid by the users, the goal is to pay only as much as
 required for the network to function well. This means not
 underpaying provers because blocks may remain unproven,
 but certainly also not overpaying provers so that it doesn’t
@@ -87,7 +88,7 @@ of the chain.
 
 The network, somehow, has to find the correct price between
 two resources where the demand/supply is ever changing.
-We can model this problem as a market between the proving 
+We can model this problem as a market between the proving
 fee (per gas) per proof delay (per time unit), striking
 a dynamic balance between proving cost and proof delay.
 An additional complication is that the protocol expects
@@ -99,7 +100,7 @@ actual cost is only known when the proof is submitted. If
 the estimated cost was too high the difference is returned
 to the block proposer and the baseFee is decreased. If
 the estimated cost was too low extra Taiko tokens are
-minted to make up the difference and the baseFee is 
+minted to make up the difference and the baseFee is
 increased. To lower the chance that the estimated cost is too
 low and extra Taiko tokens need to be minted, a slightly
 higher baseFee can be charged to the proposer than the

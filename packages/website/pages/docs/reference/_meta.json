@@ -2,9 +2,6 @@
   "contract-addresses": {
     "title": "Contract addresses"
   },
-  "contract-documentation": {
-    "title": "Contract documentation"
-  },
   "rpc-configuration": {
     "title": "RPC configuration"
   }
