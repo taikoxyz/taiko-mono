@@ -6,16 +6,22 @@
     "explorer": "Explorer",
     "guide": "Guide"
   },
-
   "bridge": {
-    "title": "Bridge",
+    "erc20": {
+      "title": "Bridge Token"
+    },
+    "nft": {
+      "title": "Bridge NFTs"
+    },
     "subtitle": "Send your assets across chains.",
     "button": {
       "approve": "Approve",
-      "bridge": "Bridge"
+      "bridge": "Bridge",
+      "erc20": "Token",
+      "nft": "NFT",
+      "import": "Fetch NFT info"
     }
   },
-
   "processing_fee": {
     "title": "Processing fee",
     "link": "Customise fee",
@@ -34,7 +40,6 @@
       "text": "Customize your processing fee"
     }
   },
-
   "activities": {
     "title": "Activities",
     "subtitle": "Track your bridge transactions here.",
@@ -56,7 +61,6 @@
       "failed": "Failed"
     }
   },
-
   "faucet": {
     "title": "Faucet",
     "subtitle": "Mint test tokens.",
@@ -76,22 +80,30 @@
       "token_minted": "You have already minted this token."
     }
   },
-
   "token_dropdown": {
     "label": "Select token"
   },
-
-  "amount_input": {
-    "label": "Amount",
-    "balance": "Balance",
-    "button.max": "Max"
+  "inputs": {
+    "nft": {
+      "token_id": {
+        "label": "Token ID(s)",
+        "placeholder": "1 or 5,14,733"
+      }
+    },
+    "amount_input": {
+      "label": "Amount",
+      "balance": "Balance",
+      "button.max": "Max"
+    },
+    "address_input": {
+      "label": "Address",
+      "placeholder": "Enter address"
+    }
   },
-
   "chain_selector": {
     "placeholder": "Select chain",
     "currently_on": "You are currently on"
   },
-
   "messages": {
     "account": {
       "required": "Please connect your wallet.",
@@ -103,16 +115,13 @@
       "rejected": "Request to switch chain rejected."
     }
   },
-
   "chain": {
     "to": "To",
     "from": "From"
   },
-
   "custom_recipient": {
     "placeholder": "Add custom recipient"
   },
-
   "wallet": {
     "connect": "Connect wallet",
     "status": {

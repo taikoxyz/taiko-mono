@@ -2,17 +2,8 @@
   import { Spinner } from '$components/Spinner';
   import { classNames } from '$libs/util/classNames';
 
-  type ButtonType =
-    | 'neutral'
-    | 'primary'
-    | 'secondary'
-    | 'accent'
-    | 'info'
-    | 'success'
-    | 'warning'
-    | 'error'
-    | 'ghost'
-    | 'link';
+  import type { ButtonType } from './types';
+
   type ButtonShape = 'circle' | 'square';
 
   export let type: Maybe<ButtonType> = null;

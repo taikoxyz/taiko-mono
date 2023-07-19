@@ -44,7 +44,7 @@
 </script>
 
 <div class="body-small-regular">
-  <span>{$t('amount_input.balance')}:</span>
+  <span>{$t('inputs.amount_input.balance')}:</span>
   <span>
     {#if computingTokenBalance}
       <LoadingText mask="0.0000" />

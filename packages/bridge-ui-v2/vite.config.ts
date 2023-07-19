@@ -6,6 +6,11 @@ export default defineConfig({
   build: {
     sourcemap: true,
   },
+  server: {
+    proxy: {
+      '/ipfs': 'https://gateway.pinata.cloud',
+    },
+  },
   plugins: [
     sveltekit(),
 
