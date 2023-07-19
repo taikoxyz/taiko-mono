@@ -20,7 +20,7 @@ export async function getBalance({ token, userAddress, chainId, destChainId }: G
   let tokenBalance: FetchBalanceResult | null = null;
 
   if (isETH(token)) {
-    tokenBalance = await fetchBalance({ address: userAddress, chainId });
+    tokenBalance = await fetchBalance({ address: userAddress });
   } else {
     // We are dealing with an ERC20 token. We need to first find out its address
     // on the current chain in order to fetch the balance.
@@ -31,7 +31,6 @@ export async function getBalance({ token, userAddress, chainId, destChainId }: G
     // Wagmi is such an amazing library. We had to do this
     // more manually before.
     tokenBalance = await fetchBalance({
-      chainId,
       address: userAddress,
       token: tokenAddress,
     });

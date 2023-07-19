@@ -4,11 +4,11 @@ import { bridgeABI } from '$abi';
 import { bridge } from '$config';
 import { getLogger } from '$libs/util/logger';
 
-import type { ETHBridgeArgs, Message } from './types';
+import type { Bridge, ETHBridgeArgs, Message } from './types';
 
 const log = getLogger('ETHBridge');
 
-export class ETHBridge {
+export class ETHBridge implements Bridge {
   private static async _prepareTransaction(args: ETHBridgeArgs) {
     const { to, memo = '', amount, srcChainId, destChainId, walletClient, bridgeAddress, processingFee } = args;
 
@@ -52,7 +52,7 @@ export class ETHBridge {
     return { bridgeContract, message };
   }
 
-  static async estimateGas(args: ETHBridgeArgs): Promise<bigint> {
+  async estimateGas(args: ETHBridgeArgs): Promise<bigint> {
     const { bridgeContract, message } = await ETHBridge._prepareTransaction(args);
     return bridgeContract.estimateGas.sendMessage([message]);
   }

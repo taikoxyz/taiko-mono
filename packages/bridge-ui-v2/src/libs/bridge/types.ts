@@ -46,14 +46,14 @@ export type Message = {
 
 // TokenVault sendERC20(...args)
 export type SendERC20Args = [
-  bigint,   // destChainId
-  Address,  // to
-  Address,  // token
-  bigint,   // amount
-  bigint,   // gasLimit
-  bigint,   // processingFee
-  Address,  // refundAddress
-  string,   // memo
+  bigint, // destChainId
+  Address, // to
+  Address, // token
+  bigint, // amount
+  bigint, // gasLimit
+  bigint, // processingFee
+  Address, // refundAddress
+  string, // memo
 ];
 
 // TODO: future sendToken(op: BridgeTransferOp)
@@ -94,3 +94,7 @@ export type ERC20BridgeArgs = BridgeArgs & {
   tokenVaultAddress: Address;
   isTokenAlreadyDeployed?: boolean;
 };
+
+export interface Bridge {
+  estimateGas(args: BridgeArgs): Promise<bigint>;
+}

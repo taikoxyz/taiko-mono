@@ -49,15 +49,11 @@
     // A token and a source chain must be selected in order to be able to mint
     if (!selectedToken || !$network) return;
 
-    // ... and of course, our wallet must be connected
-    const walletClient = await getWalletClient();
-    if (!walletClient) return;
-
     // Let's begin the minting process
     minting = true;
 
     try {
-      const txHash = await mint(selectedToken, walletClient);
+      const txHash = await mint(selectedToken);
 
       successToast(
         $t('faucet.minting_tx', {
@@ -98,7 +94,7 @@
     reasonNotMintable = '';
 
     try {
-      await checkMintable(token, network);
+      await checkMintable(token, network.id);
       mintButtonEnabled = true;
     } catch (err) {
       console.error(err);

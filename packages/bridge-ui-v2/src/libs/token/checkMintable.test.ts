@@ -45,16 +45,20 @@ describe('checkMintable', () => {
     vi.mocked(getPublicClient).mockReturnValue(mockPublicClient);
   });
 
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('should throw when wallet is not connected', async () => {
     vi.mocked(getWalletClient).mockResolvedValueOnce(null);
 
     try {
-      await checkMintable(BLLToken, mainnetChain);
+      await checkMintable(BLLToken, mainnetChain.id);
       expect.fail('should have thrown');
     } catch (error) {
       const { cause } = error as Error;
       expect(cause).toBe(MintableError.NOT_CONNECTED);
-      expect(getWalletClient).toHaveBeenCalledWith({ chainId: mainnetChain.id });
+      expect(getWalletClient).toHaveBeenCalled();
     }
   });
 
@@ -62,7 +66,7 @@ describe('checkMintable', () => {
     vi.mocked(mockTokenContract.read.minters).mockResolvedValueOnce(true);
 
     try {
-      await checkMintable(BLLToken, mainnetChain);
+      await checkMintable(BLLToken, mainnetChain.id);
       expect.fail('should have thrown');
     } catch (error) {
       const { cause } = error as Error;
@@ -91,7 +95,7 @@ describe('checkMintable', () => {
     vi.mocked(mockPublicClient.getBalance).mockResolvedValueOnce(BigInt(100));
 
     try {
-      await checkMintable(BLLToken, mainnetChain);
+      await checkMintable(BLLToken, mainnetChain.id);
       expect.fail('should have thrown');
     } catch (error) {
       const { cause } = error as Error;
@@ -117,7 +121,7 @@ describe('checkMintable', () => {
     vi.mocked(mockPublicClient.getBalance).mockResolvedValueOnce(BigInt(300));
 
     try {
-      await checkMintable(BLLToken, mainnetChain);
+      await checkMintable(BLLToken, mainnetChain.id);
     } catch (error) {
       expect.fail('should not have thrown');
     }

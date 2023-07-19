@@ -27,9 +27,11 @@
     }
   }
 
-  function computMaxAmountToSend(token: Token, balance: bigint) {
+  function computMaxAmountToSend(token: Maybe<Token>, balance: bigint) {
     if (!token) return;
   }
+
+  $: maxAmount = computMaxAmountToSend($selectedToken, tokenBalance?.value);
 </script>
 
 <div class="AmountInput f-col space-y-2">

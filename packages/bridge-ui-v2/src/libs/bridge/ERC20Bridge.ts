@@ -4,11 +4,11 @@ import { bridgeABI, tokenVaultABI } from '$abi';
 import { bridge } from '$config';
 import { getLogger } from '$libs/util/logger';
 
-import type { ERC20BridgeArgs, Message, SendERC20Args } from './types';
+import type { Bridge, ERC20BridgeArgs, SendERC20Args } from './types';
 
 const log = getLogger('ERC20Bridge');
 
-export class ERC20Bridge {
+export class ERC20Bridge implements Bridge {
   private static async _prepareTransaction(args: ERC20BridgeArgs) {
     const {
       to,
@@ -28,7 +28,7 @@ export class ERC20Bridge {
       address: tokenVaultAddress,
     });
 
-    const refundAddress = walletClient.account.address
+    const refundAddress = walletClient.account.address;
 
     const gasLimit = !isTokenAlreadyDeployed
       ? BigInt(bridge.noTokenDeployedGasLimit)
@@ -52,7 +52,7 @@ export class ERC20Bridge {
     return { tokenVaultContract, sendERC20Args };
   }
 
-  static async estimateGas(args: ERC20BridgeArgs): Promise<bigint> {
+  async estimateGas(args: ERC20BridgeArgs): Promise<bigint> {
     const { tokenVaultContract, sendERC20Args } = await ERC20Bridge._prepareTransaction(args);
     return tokenVaultContract.estimateGas.sendERC20([...sendERC20Args]);
   }
