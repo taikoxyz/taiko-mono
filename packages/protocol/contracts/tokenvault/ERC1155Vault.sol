@@ -261,7 +261,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         BridgeTransferOp memory opt
     )
         private
-        returns (bytes memory)
+        returns (bytes memory msgData)
     {
         CanonicalNFT memory nft;
         unchecked {
@@ -303,7 +303,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             }
         }
 
-        return abi.encodeWithSelector(
+        msgData = abi.encodeWithSelector(
             ERC1155Vault.receiveToken.selector,
             nft,
             owner,

@@ -301,7 +301,7 @@ contract ERC20Vault is BaseVault {
         uint256 amount
     )
         private
-        returns (bytes memory data, uint256 _amount)
+        returns (bytes memory msgData, uint256 _amount)
     {
         CanonicalERC20 memory ctoken;
 
@@ -336,7 +336,7 @@ contract ERC20Vault is BaseVault {
             }
         }
 
-        data = abi.encodeWithSelector(
+        msgData = abi.encodeWithSelector(
             ERC20Vault.receiveToken.selector, ctoken, owner, to, _amount
         );
     }
