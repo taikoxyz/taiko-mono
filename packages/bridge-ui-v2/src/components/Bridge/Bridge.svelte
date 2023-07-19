@@ -61,7 +61,7 @@
 
     <div class="h-sep" />
 
-    <Button type="primary" class="px-[28px] py-[14px]">
+    <Button type="primary" class="px-[28px] py-[14px] rounded-full">
       <span class="body-bold">{$t('bridge.button.bridge')}</span>
     </Button>
   </div>

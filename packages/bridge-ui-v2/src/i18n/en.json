@@ -32,6 +32,10 @@
     "custom": {
       "label": "Custom",
       "text": "Customize your processing fee"
+    },
+    "button": {
+      "confirm": "Confirm",
+      "cancel": "Cancel"
     }
   },
 
