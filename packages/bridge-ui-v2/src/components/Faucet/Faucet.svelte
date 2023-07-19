@@ -145,7 +145,11 @@
 
     {#if connected && wrongChain}
       <!-- We give the user an easier way to switch chains with this button -->
-      <Button type="primary" class="px-[28px] py-[14px]" loading={switchingNetwork} on:click={switchNetworkToL1}>
+      <Button
+        type="primary"
+        class="px-[28px] py-[14px] rounded-full"
+        loading={switchingNetwork}
+        on:click={switchNetworkToL1}>
         {#if switchingNetwork}
           <span>{$t('messages.network.switching')}</span>
         {:else}
@@ -158,7 +162,7 @@
     {:else}
       <Button
         type="primary"
-        class="px-[28px] py-[14px]"
+        class="px-[28px] py-[14px] rounded-full"
         disabled={!mintButtonEnabled}
         loading={checkingMintable || minting}
         on:click={mintToken}>

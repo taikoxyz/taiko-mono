@@ -6,7 +6,9 @@
   import Icon from '$components/Icon/Icon.svelte';
   import { InputBox } from '$components/InputBox';
   import { warningToast } from '$components/NotificationToast';
-  import { getMaxToBridge } from '$libs/bridge/getMaxToBridge';
+  import { bridges, estimateCostOfBridging, type ETHBridgeArgs } from '$libs/bridge';
+  import { getMaxAmountToBridge } from '$libs/bridge/getMaxAmountToBridge';
+  import { chainContractsMap } from '$libs/chain';
   import { debounce } from '$libs/util/debounce';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
@@ -37,17 +39,35 @@
     }
 
     try {
-      const maxAmount = await getMaxToBridge({
-        token: $selectedToken,
-        balance: tokenBalance.value,
-        processingFee: $processingFee,
-        srcChainId: $network.id,
-        destChainId: $destNetwork?.id,
-        userAddress: $account.address,
-        amount: $enteredAmount,
-      });
+      // const maxAmount = await getMaxAmountToBridge({
+      //   token: $selectedToken,
+      //   balance: tokenBalance.value,
+      //   processingFee: $processingFee,
+      //   srcChainId: $network.id,
+      //   destChainId: $destNetwork?.id,
+      //   userAddress: $account.address,
+      //   amount: $enteredAmount,
+      // });
 
-      if ($enteredAmount > maxAmount) {
+      const { bridgeAddress } = chainContractsMap[$network.id.toString()];
+
+      const bridgeArgs = {
+        to: $account.address,
+        srcChainId: $network.id,
+        bridgeAddress,
+        processingFee: $processingFee,
+
+        amount: $enteredAmount,
+
+        // If no destination chain is selected, find another chain to estimate
+        // TODO: we might want to really find a compatible chain to bridge to
+        //       if we have multiple layers
+        destChainId: $destNetwork?.id,
+      } as ETHBridgeArgs;
+
+      const estimatedCost = await estimateCostOfBridging(bridges.ETH, bridgeArgs);
+
+      if (tokenBalance.value - $enteredAmount > estimatedCost) {
         errorAmount = true;
       }
     } catch (err) {
@@ -92,18 +112,19 @@
   async function useMaxAmount() {
     errorAmount = false;
 
-    if (!$selectedToken || !$network || !$account?.address) return;
+    if (!$selectedToken || !$network || !$destNetwork || !$account?.address) return;
 
     computingMaxAmount = true;
 
     try {
-      const maxAmount = await getMaxToBridge({
+      const maxAmount = await getMaxAmountToBridge({
         token: $selectedToken,
         balance: tokenBalance.value,
         processingFee: $processingFee,
         srcChainId: $network.id,
-        destChainId: $destNetwork?.id,
+        destChainId: $destNetwork.id,
         userAddress: $account.address,
+        amount: BigInt(1), // whatever amount to estimate the cost
       });
 
       setETHAmount(maxAmount);

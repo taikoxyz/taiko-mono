@@ -53,7 +53,7 @@
 
       <div class="space-y-2">
         <ChainSelector label={$t('chain.to')} value={$destNetwork} readOnly />
-        <RecipientInput />
+        <!-- <RecipientInput /> -->
       </div>
     </div>
 

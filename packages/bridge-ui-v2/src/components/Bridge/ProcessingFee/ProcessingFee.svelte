@@ -4,6 +4,7 @@
   import { formatEther } from 'viem';
 
   import { Alert } from '$components/Alert';
+  import { Button } from '$components/Button';
   import { Icon } from '$components/Icon';
   import { InputBox } from '$components/InputBox';
   import { LoadingText } from '$components/LoadingText';
@@ -16,7 +17,6 @@
   import { processingFee } from '../state';
   import NoneOption from './NoneOption.svelte';
   import RecommendedFee from './RecommendedFee.svelte';
-  import { Button } from '$components/Button';
 
   let dialogId = `dialog-${uid()}`;
   let selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
@@ -54,7 +54,7 @@
   function cancelModal() {
     inputBox.clear();
     selectedFeeMethod = prevOptionSelected;
-    closeModalWithDelay();
+    closeModal();
   }
 
   function closeModalWithDelay() {
