@@ -6,8 +6,6 @@
 
 pragma solidity ^0.8.20;
 
-import { console2 } from "forge-std/console2.sol";
-import { Test } from "forge-std/Test.sol";
 import { IERC165 } from
     "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import { IERC721Receiver } from
@@ -108,8 +106,6 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         if (ctoken.chainId == block.chainid) {
             token = ctoken.addr;
             for (uint256 i; i < tokenIds.length; i++) {
-                console2.log(address(this));
-                console2.log(ERC721Upgradeable(token).ownerOf(tokenIds[i]));
                 ERC721Upgradeable(token).transferFrom(
                     address(this), to, tokenIds[i]
                 );
@@ -224,7 +220,6 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 
         // is a btoken, meaning, it does not live on this chain
         if (isBridgedToken) {
-            console2.log("we burning");
             for (uint256 i; i < opt.tokenIds.length; i++) {
                 BridgedERC721(opt.token).burn(owner, opt.tokenIds[i]);
             }
