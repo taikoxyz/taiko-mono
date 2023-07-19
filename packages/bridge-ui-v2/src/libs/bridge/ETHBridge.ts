@@ -25,6 +25,7 @@ export class ETHBridge {
     const [depositValue, callValue] =
       to.toLowerCase() === owner.toLowerCase() ? [amount, BigInt(0)] : [BigInt(0), amount];
 
+    // If there is a processing fee
     const gasLimit = processingFee > 0 ? bridge.nonOwnerGasLimit : BigInt(0);
 
     const message: Message = {
