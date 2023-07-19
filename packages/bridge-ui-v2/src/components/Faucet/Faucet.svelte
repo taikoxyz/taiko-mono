@@ -102,9 +102,6 @@
       const { cause } = err as Error;
 
       switch (cause) {
-        case MintableError.NOT_CONNECTED:
-          reasonNotMintable = $t('faucet.warning.no_connected');
-          break;
         case MintableError.INSUFFICIENT_BALANCE:
           reasonNotMintable = $t('faucet.warning.insufficient_balance');
           break;
