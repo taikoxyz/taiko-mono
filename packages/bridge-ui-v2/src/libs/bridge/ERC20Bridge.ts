@@ -56,7 +56,7 @@ export class ERC20Bridge implements Bridge {
 
   async estimateGas(args: ERC20BridgeArgs) {
     const { tokenVaultContract, sendERC20Args } = await ERC20Bridge._prepareTransaction(args);
-    const [,,,,,processingFee] = sendERC20Args;
+    const [, , , , , processingFee] = sendERC20Args;
 
     const value = processingFee;
 
