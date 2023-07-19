@@ -49,19 +49,6 @@ describe('checkMintable', () => {
     vi.clearAllMocks();
   });
 
-  it('should throw when wallet is not connected', async () => {
-    vi.mocked(getWalletClient).mockResolvedValueOnce(null);
-
-    try {
-      await checkMintable(BLLToken, mainnetChain.id);
-      expect.fail('should have thrown');
-    } catch (error) {
-      const { cause } = error as Error;
-      expect(cause).toBe(MintableError.NOT_CONNECTED);
-      expect(getWalletClient).toHaveBeenCalled();
-    }
-  });
-
   it('should throw when user has already minted', async () => {
     vi.mocked(mockTokenContract.read.minters).mockResolvedValueOnce(true);
 
@@ -100,7 +87,7 @@ describe('checkMintable', () => {
     } catch (error) {
       const { cause } = error as Error;
       expect(cause).toBe(MintableError.INSUFFICIENT_BALANCE);
-      expect(getPublicClient).toHaveBeenCalledWith({ chainId: mainnetChain.id });
+      expect(getPublicClient).toHaveBeenCalled();
       expect(mockTokenContract.estimateGas.mint).toHaveBeenCalledWith([mockWalletClient.account.address]);
       expect(mockPublicClient.getBalance).toHaveBeenCalledWith({ address: mockWalletClient.account.address });
     }

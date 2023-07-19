@@ -6,9 +6,8 @@ import { getConnectedWallet } from '$libs/util/getWallet';
 import { MintableError, type Token } from './types';
 
 // Throws an error if:
-// 1. Wallet is not connected
-// 2. User has already minted this token
-// 3. User has insufficient balance to mint this token
+// 1. User has already minted this token
+// 2. User has insufficient balance to mint this token
 export async function checkMintable(token: Token, chainId: number) {
   const walletClient = await getConnectedWallet();
 
