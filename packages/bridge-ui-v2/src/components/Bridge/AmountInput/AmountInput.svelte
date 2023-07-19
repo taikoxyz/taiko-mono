@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { FetchBalanceResult } from '@wagmi/core';
   import { t } from 'svelte-i18n';
-  import { ContractFunctionExecutionError, EstimateGasExecutionError, formatEther, parseUnits } from 'viem';
+  import { formatEther, parseUnits } from 'viem';
 
   import { InputBox } from '$components/InputBox';
   import { getMaxToBridge } from '$libs/bridge/getMaxToBridge';
@@ -22,8 +22,16 @@
   let computingMaxAmount = false;
   let errorAmount = false;
 
-  async function checkAmount() {
-    if (!$selectedToken || !$network || !$account?.address) return;
+  async function checkEnteredAmount() {
+    if (
+      !$selectedToken ||
+      !$network ||
+      !$account?.address ||
+      $enteredAmount === BigInt(0) // why to even bother, right?
+    ) {
+      errorAmount = false;
+      return;
+    }
 
     try {
       const maxAmount = await getMaxToBridge({
@@ -50,7 +58,8 @@
     }
   }
 
-  const debouncedCheckAmount = debounce(checkAmount, 500);
+  // We want to debounce this function for input events
+  const debouncedCheckEnteredAmount = debounce(checkEnteredAmount, 300);
 
   function updateAmount(event: Event) {
     errorAmount = false;
@@ -62,7 +71,7 @@
     try {
       $enteredAmount = parseUnits(target.value, $selectedToken?.decimals);
 
-      debouncedCheckAmount();
+      debouncedCheckEnteredAmount();
     } catch (err) {
       $enteredAmount = BigInt(0);
     }
@@ -89,6 +98,7 @@
       });
 
       setETHAmount(maxAmount);
+      checkEnteredAmount();
     } catch (err) {
       console.error(err);
       warningToast($t('amount_input.button.failed_max'));
@@ -96,6 +106,10 @@
       computingMaxAmount = false;
     }
   }
+
+  // Let's also trigger the check when either the processingFee or
+  // the selectedToken change and debounce it, just in case
+  $: $processingFee && $selectedToken && debouncedCheckEnteredAmount();
 </script>
 
 <div class="AmountInput f-col space-y-2">
