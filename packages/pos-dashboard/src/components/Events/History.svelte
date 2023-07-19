@@ -5,17 +5,12 @@
   import { getSlashedTokensEvents } from '../../utils/getSlashedTokensEvents';
   import { EVENT_INDEXER_API_URL } from '../../constants/envVars';
   import type { APIResponseEvent } from '../../domain/api';
-  import Event from './Event.svelte';
-  import type { ethers } from 'ethers';
+  import { ethers } from 'ethers';
   import { getBlockProvenEvents } from '../../utils/getBlocksProven';
   import { getStakedEvents } from '../../utils/getStakedEvents';
   import { getWithdrawnEvents } from '../../utils/getWithdrawnEvents';
   import { getExitedEvents } from '../../utils/getExitedEvents';
   import { getAssignedBlocks } from '../../utils/getAssignedBlocks';
-  import Tabs from '../Tabs/Tabs.svelte';
-  import TabList from '../Tabs/TabList.svelte';
-  import Tab from '../Tabs/Tab.svelte';
-  import TabPanel from '../Tabs/TabPanel.svelte';
 
   let pageSize = 8;
   let currentPage = 1;
@@ -102,12 +97,38 @@
             <thead>
               <tr>
                 <th>Event</th>
-                <th>Data</th>
+                {#if tab.name === tabs[0].name}
+                  <th>Amount</th>
+                {:else if tab.name === tabs[1].name}{:else if tab.name === tabs[2].name}
+                  <th>Amount</th>
+                {:else if tab.name === tabs[3].name}{:else if tab.name === tabs[4].name}
+
+                {:else if tab.name === tabs[5].name}
+                  <th>Amount</th>
+                {/if}
               </tr>
             </thead>
             <tbody class="text-sm md:text-base">
               {#each eventsToShow as event}
-                <Event {event} />
+                <tr>
+                  <td>
+                    <span
+                      on:click={() =>
+                        window.open(
+                          `https://explorer.test.taiko.xyz/tx/${event.data.Raw.transactionHash}`,
+                          '_blank',
+                        )}
+                      class="cursor-pointer ml-2 hidden md:inline-block"
+                      >{event.event}</span>
+                  </td>
+                  {#if tab.name === tabs[0].name}
+                    <td>{ethers.utils.formatUnits(event.amount, 8)} TTKOe</td>
+                  {:else if tab.name === tabs[1].name}{:else if tab.name === tabs[2].name}
+                    <td>{ethers.utils.formatUnits(event.amount, 8)} TTKOe</td>
+                  {:else if tab.name === tabs[3].name}{:else if tab.name === tabs[4].name}{:else if tab.name === tabs[5].name}
+                    <td>{ethers.utils.formatUnits(event.amount, 8)} TTKOe</td
+                    >{/if}
+                </tr>
               {/each}
             </tbody>
           </table>

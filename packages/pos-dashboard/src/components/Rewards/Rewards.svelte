@@ -79,9 +79,9 @@
 
 <div class="my-4 md:px-4">
   {#if balance}
-    TaikoL1 Contract Balance: {ethers.utils.formatUnits(balance, 8)} TTKO
+    TaikoL1 Contract Balance: {ethers.utils.formatUnits(balance, 8)} TTKOe
     <br />
-    Wallet Balance: {ethers.utils.formatUnits(ttkoBalanceInWei, 8)} TTKO
+    Wallet Balance: {ethers.utils.formatUnits(ttkoBalanceInWei, 8)} TTKOe
 
     <div class="mb-2">
       <span class="label-text text-left block">Amount: </span>
