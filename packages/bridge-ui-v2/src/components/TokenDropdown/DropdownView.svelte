@@ -1,6 +1,7 @@
 <script lang="ts">
   import { noop } from 'svelte/internal';
 
+  import { ClickMask } from '$components/ClickMask';
   import type { Token } from '$libs/token';
   import { classNames } from '$libs/util/classNames';
 
@@ -11,6 +12,7 @@
   export let tokens: Token[] = [];
   export let value: Maybe<Token> = null;
   export let selectToken: (token: Token) => void = noop;
+  export let closeMenu: () => void = noop;
 
   $: menuClasses = classNames(
     'menu absolute right-0 w-[265px] p-3 mt-2 rounded-[10px] bg-neutral-background z-10',
@@ -44,3 +46,5 @@
     </li>
   {/each}
 </ul>
+
+<ClickMask fn={closeMenu} active={menuOpen} />
