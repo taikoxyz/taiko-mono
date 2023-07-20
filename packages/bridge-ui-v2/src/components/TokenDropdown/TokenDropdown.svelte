@@ -66,7 +66,7 @@
   </button>
 
   {#if isDesktopOrLarger}
-    <DropdownView {id} {menuOpen} {tokens} {value} {selectToken} />
+    <DropdownView {id} {menuOpen} {tokens} {value} {selectToken} {closeMenu} />
   {:else}
     <DialogView {id} {menuOpen} {tokens} {value} {selectToken} {closeMenu} />
   {/if}
