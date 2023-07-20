@@ -12,8 +12,3 @@ export type TokenEnv = {
   address: Address;
   symbol: string;
 };
-
-export enum MintableError {
-  TOKEN_MINTED = 'TOKEN_MINTED',
-  INSUFFICIENT_BALANCE = 'INSUFFICIENT_BALANCE',
-}

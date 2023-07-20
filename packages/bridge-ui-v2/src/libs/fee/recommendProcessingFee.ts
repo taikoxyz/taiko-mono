@@ -6,15 +6,13 @@ import { getAddress, isERC20, type Token } from '$libs/token';
 
 type RecommendProcessingFeeArgs = {
   token: Token;
-  destChainId?: number;
+  destChainId: number;
   srcChainId?: number;
 };
 
 const { ethGasLimit, erc20NotDeployedGasLimit, erc20DeployedGasLimit } = recommentProcessingFee;
 
 export async function recommendProcessingFee({ token, destChainId, srcChainId }: RecommendProcessingFeeArgs) {
-  if (!destChainId) return BigInt(0);
-
   const destPublicClient = getPublicClient({ chainId: destChainId });
   const gasPrice = await destPublicClient.getGasPrice();
 
@@ -23,9 +21,11 @@ export async function recommendProcessingFee({ token, destChainId, srcChainId }:
   let gasLimit = ethGasLimit;
 
   if (isERC20(token)) {
-    if (!srcChainId) return BigInt(0);
+    if (!srcChainId) {
+      throw Error('missing required source chain for ERC20 token');
+    }
 
-    const tokenAddress = await getAddress({ token, chainId: srcChainId, destChainId });
+    const tokenAddress = await getAddress({ token, srcChainId, destChainId });
 
     if (!tokenAddress || tokenAddress === zeroAddress) {
       // Gas limit for erc20 if not deployed on the destination chain

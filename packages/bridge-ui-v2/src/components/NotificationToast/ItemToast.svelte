@@ -59,7 +59,7 @@
 </script>
 
 <div role="alert" class={alertClasses}>
-  <div class="grid grid-cols-[24px_auto] space-x-2">
+  <div class="grid grid-cols-[24px_auto] items-center space-x-2">
     <Icon type={iconTypeMap[type]} size={24} fillClass={alertIconClassMap[type]} />
     <!-- eslint-disable-next-line svelte/no-at-html-tags -->
     <div class={messageClasses}>{@html message}</div>

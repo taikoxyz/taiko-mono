@@ -11,7 +11,8 @@
   import { successToast, warningToast } from '$components/NotificationToast';
   import { TokenDropdown } from '$components/TokenDropdown';
   import { PUBLIC_L1_CHAIN_ID, PUBLIC_L1_CHAIN_NAME, PUBLIC_L1_EXPLORER_URL } from '$env/static/public';
-  import { MintableError, testERC20Tokens, type Token } from '$libs/token';
+  import { InsufficientBalanceError, TokenMintedError } from '$libs/error';
+  import { testERC20Tokens, type Token } from '$libs/token';
   import { checkMintable, mint } from '$libs/token';
   import { account } from '$stores/account';
   import { network } from '$stores/network';
@@ -46,14 +47,14 @@
     // During loading state we make sure the user cannot use this function
     if (checkingMintable || minting) return;
 
-    // A token and a source chain must be selected in order to be able to mint
+    // Token and source chain are needed to mint
     if (!selectedToken || !$network) return;
 
     // Let's begin the minting process
     minting = true;
 
     try {
-      const txHash = await mint(selectedToken);
+      const txHash = await mint(selectedToken, $network.id);
 
       successToast(
         $t('faucet.minting_tx', {
@@ -69,7 +70,10 @@
     } catch (err) {
       console.error(err);
 
-      // const { cause } = error as Error;
+      const { cause } = err as Error;
+      if (cause instanceof UserRejectedRequestError) {
+        warningToast($t('messages.mint.rejected'));
+      }
     } finally {
       minting = false;
     }
@@ -99,13 +103,11 @@
     } catch (err) {
       console.error(err);
 
-      const { cause } = err as Error;
-
-      switch (cause) {
-        case MintableError.INSUFFICIENT_BALANCE:
+      switch (true) {
+        case err instanceof InsufficientBalanceError:
           reasonNotMintable = $t('faucet.warning.insufficient_balance');
           break;
-        case MintableError.TOKEN_MINTED:
+        case err instanceof TokenMintedError:
           reasonNotMintable = $t('faucet.warning.token_minted');
           break;
         default:
@@ -145,7 +147,11 @@
 
     {#if connected && wrongChain}
       <!-- We give the user an easier way to switch chains with this button -->
-      <Button type="primary" class="px-[28px] py-[14px]" loading={switchingNetwork} on:click={switchNetworkToL1}>
+      <Button
+        type="primary"
+        class="px-[28px] py-[14px] rounded-full w-full"
+        loading={switchingNetwork}
+        on:click={switchNetworkToL1}>
         {#if switchingNetwork}
           <span>{$t('messages.network.switching')}</span>
         {:else}
@@ -158,7 +164,7 @@
     {:else}
       <Button
         type="primary"
-        class="px-[28px] py-[14px]"
+        class="px-[28px] py-[14px] rounded-full w-full"
         disabled={!mintButtonEnabled}
         loading={checkingMintable || minting}
         on:click={mintToken}>

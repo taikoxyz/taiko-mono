@@ -23,9 +23,8 @@
     try {
       // Get the balance of the user on the destination chain
       const destBalance = await getBalance({
-        token,
         userAddress,
-        chainId: destChainId,
+        srcChainId: destChainId,
       });
 
       // Calculate the recommended amount of ETH needed for processMessage call

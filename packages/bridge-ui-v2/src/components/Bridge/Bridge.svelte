@@ -12,9 +12,9 @@
   import type { Account } from '$stores/account';
   import { type Network, network } from '$stores/network';
 
-  import { AmountInput } from './AmountInput';
+  import { Amount } from './Amount';
   import { ProcessingFee } from './ProcessingFee';
-  import { RecipientInput } from './RecipientInput';
+  import { Recipient } from './Recipient';
   import { destNetwork, selectedToken } from './state';
   import SwitchChainsButton from './SwitchChainsButton.svelte';
 
@@ -45,7 +45,7 @@
         <TokenDropdown {tokens} bind:value={$selectedToken} />
       </div>
 
-      <AmountInput />
+      <Amount />
 
       <div class="f-justify-center">
         <SwitchChainsButton />
@@ -53,7 +53,7 @@
 
       <div class="space-y-2">
         <ChainSelector label={$t('chain.to')} value={$destNetwork} readOnly />
-        <RecipientInput />
+        <!-- <RecipientInput /> -->
       </div>
     </div>
 
@@ -61,7 +61,7 @@
 
     <div class="h-sep" />
 
-    <Button type="primary" class="px-[28px] py-[14px]">
+    <Button type="primary" class="px-[28px] py-[14px] rounded-full w-full">
       <span class="body-bold">{$t('bridge.button.bridge')}</span>
     </Button>
   </div>

@@ -2,7 +2,7 @@ import { getContract } from '@wagmi/core';
 
 import { bridgeABI } from '$abi';
 import { bridge } from '$config';
-import { getConnectedWallet } from '$libs/util/getWallet';
+import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { getLogger } from '$libs/util/logger';
 
 import type { Bridge, ETHBridgeArgs, Message } from './types';
@@ -29,7 +29,7 @@ export class ETHBridge implements Bridge {
       to.toLowerCase() === owner.toLowerCase() ? [amount, BigInt(0)] : [BigInt(0), amount];
 
     // If there is a processing fee, use the specified message gas limit
-    // if not called by the owner
+    // as might not be called by the owner
     const gasLimit = processingFee > 0 ? bridge.noOwnerGasLimit : BigInt(0);
 
     const message: Message = {

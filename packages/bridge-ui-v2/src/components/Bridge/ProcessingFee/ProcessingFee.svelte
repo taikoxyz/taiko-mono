@@ -4,6 +4,7 @@
   import { formatEther } from 'viem';
 
   import { Alert } from '$components/Alert';
+  import { Button } from '$components/Button';
   import { Icon } from '$components/Icon';
   import { InputBox } from '$components/InputBox';
   import { LoadingText } from '$components/LoadingText';
@@ -19,6 +20,7 @@
 
   let dialogId = `dialog-${uid()}`;
   let selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
+  let prevOptionSelected = ProcessingFeeMethod.RECOMMENDED;
 
   let recommendedAmount = BigInt(0);
   let calculatingRecommendedAmount = false;
@@ -42,10 +44,20 @@
   }
 
   function openModal() {
+    // Keep track of the selected method before opening the modal
+    // so if we cancel we can go back to the previous method
+    prevOptionSelected = selectedFeeMethod;
+
     modalOpen = true;
   }
 
-  function closeOnOptionClick() {
+  function cancelModal() {
+    inputBox.clear();
+    selectedFeeMethod = prevOptionSelected;
+    closeModal();
+  }
+
+  function closeModalWithDelay() {
     // By adding delay there is enough time to see the selected option
     // before closing the modal. Better experience for the user.
     setTimeout(closeModal, processingFeeComponent.closingDelayOptionClick);
@@ -122,7 +134,7 @@
     {/if}
   </span>
 
-  <dialog id={dialogId} class="modal modal-bottom md:absolute md:px-4 md:pb-4" class:modal-open={modalOpen}>
+  <dialog id={dialogId} class="modal" class:modal-open={modalOpen}>
     <div class="modal-box relative px-6 py-[35px] md:rounded-[20px] bg-neutral-background">
       <button class="absolute right-6 top-[35px]" on:click={closeModal}>
         <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
@@ -130,7 +142,7 @@
 
       <h3 class="title-body-bold mb-7">{$t('processing_fee.title')}</h3>
 
-      <ul class="space-y-7 mb-[20px]">
+      <ul class="space-y-7">
         <!-- RECOMMENDED -->
         <li class="f-between-center">
           <div class="f-col">
@@ -155,7 +167,7 @@
             value={ProcessingFeeMethod.RECOMMENDED}
             name="processingFeeMethod"
             bind:group={selectedFeeMethod}
-            on:click={closeOnOptionClick} />
+            on:click={closeModalWithDelay} />
         </li>
 
         <!-- NONE -->
@@ -177,7 +189,7 @@
               value={ProcessingFeeMethod.NONE}
               name="processingFeeMethod"
               bind:group={selectedFeeMethod}
-              on:click={closeOnOptionClick} />
+              on:click={closeModalWithDelay} />
           </div>
 
           {#if !hasEnoughEth}
@@ -207,7 +219,7 @@
         </li>
       </ul>
 
-      <div class="relative f-items-center">
+      <div class="relative f-items-center my-[20px]">
         <InputBox
           type="number"
           min="0"
@@ -217,6 +229,18 @@
           on:input={onInputBoxChange}
           bind:this={inputBox} />
         <span class="absolute right-6 uppercase body-bold text-secondary-content">ETH</span>
+      </div>
+
+      <div class="grid grid-cols-2 gap-[20px]">
+        <Button
+          on:click={cancelModal}
+          type="neutral"
+          class="px-[28px] py-[10px] rounded-full w-auto bg-transparent !border border-primary-brand hover:border-primary-interactive-hover">
+          <span class="body-bold">{$t('processing_fee.button.cancel')}</span>
+        </Button>
+        <Button type="primary" class="px-[28px] py-[10px] rounded-full w-auto" on:click={closeModal}>
+          <span class="body-bold">{$t('processing_fee.button.confirm')}</span>
+        </Button>
       </div>
     </div>
   </dialog>

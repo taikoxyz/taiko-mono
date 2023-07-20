@@ -16,7 +16,7 @@
   let errorComputingTokenBalance = false;
 
   async function updateTokenBalance(token: Maybe<Token>, account?: Account, srcChainId?: number, destChainId?: number) {
-    if (!token || !account || !account.address) return;
+    if (!token || !srcChainId || !account?.address) return;
 
     computingTokenBalance = true;
     errorComputingTokenBalance = false;
@@ -24,9 +24,9 @@
     try {
       value = await getTokenBalance({
         token,
+        srcChainId,
         destChainId,
         userAddress: account.address,
-        chainId: srcChainId,
       });
     } catch (err) {
       console.error(err);

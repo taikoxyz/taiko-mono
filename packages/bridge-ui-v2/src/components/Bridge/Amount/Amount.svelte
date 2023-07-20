@@ -1,12 +1,13 @@
 <script lang="ts">
   import type { FetchBalanceResult } from '@wagmi/core';
   import { t } from 'svelte-i18n';
-  import { formatEther, parseUnits } from 'viem';
+  import { formatUnits, parseUnits } from 'viem';
 
   import Icon from '$components/Icon/Icon.svelte';
   import { InputBox } from '$components/InputBox';
   import { warningToast } from '$components/NotificationToast';
-  import { getMaxToBridge } from '$libs/bridge/getMaxToBridge';
+  import { checkBalanceToBridge, getMaxAmountToBridge } from '$libs/bridge';
+  import { InsufficientAllowanceError, InsufficientBalanceError } from '$libs/error';
   import { debounce } from '$libs/util/debounce';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
@@ -20,44 +21,49 @@
   let inputBox: InputBox;
 
   let computingMaxAmount = false;
-  let errorAmount = false;
 
-  // Let's get the max amount to bridge and see if it's less
-  // than what the user has entered. For ETH, will actually get an error
-  // when trying to get that max amount, if the user has entered too much ETH
+  // There are two possible errors that can happen when the user
+  // enters an amount:
+  // 1. Insufficient balance
+  // 2. Insufficient allowance
+  // The first one is an error and the user cannot proceed. The second one
+  // is a warning but the user must approve allowance before bridging.
+  let insufficientBalance = false;
+  let insufficientAllowance = false;
+
   async function checkEnteredAmount() {
+    insufficientBalance = false;
+    insufficientAllowance = false;
+
     if (
       !$selectedToken ||
       !$network ||
+      !$destNetwork ||
       !$account?.address ||
-      $enteredAmount === BigInt(0) // why to even bother, right?
-    ) {
-      errorAmount = false;
+      $enteredAmount === BigInt(0) // no need to check if the amount is 0
+    )
       return;
-    }
 
     try {
-      const maxAmount = await getMaxToBridge({
+      await checkBalanceToBridge({
+        to: $account.address,
         token: $selectedToken,
-        balance: tokenBalance.value,
-        processingFee: $processingFee,
-        srcChainId: $network.id,
-        destChainId: $destNetwork?.id,
-        userAddress: $account.address,
         amount: $enteredAmount,
+        balance: tokenBalance.value,
+        srcChainId: $network.id,
+        destChainId: $destNetwork.id,
+        processingFee: $processingFee,
       });
-
-      if ($enteredAmount > maxAmount) {
-        errorAmount = true;
-      }
     } catch (err) {
       console.error(err);
 
-      // Viem will throw an error that contains the following message, indicating
-      // that the user won't have enough to pay the transaction
-      // TODO: better way to handle this. Error codes?
-      if (`${err}`.toLocaleLowerCase().match('transaction exceeds the balance')) {
-        errorAmount = true;
+      switch (true) {
+        case err instanceof InsufficientBalanceError:
+          insufficientBalance = true;
+          break;
+        case err instanceof InsufficientAllowanceError:
+          insufficientAllowance = true;
+          break;
       }
     }
   }
@@ -68,14 +74,15 @@
   // Will trigger on input events. We update the entered amount
   // and check it's validity
   function updateAmount(event: Event) {
-    errorAmount = false;
+    insufficientBalance = false;
+    insufficientAllowance = false;
 
     if (!$selectedToken) return;
 
     const target = event.target as HTMLInputElement;
 
     try {
-      $enteredAmount = parseUnits(target.value, $selectedToken?.decimals);
+      $enteredAmount = parseUnits(target.value, $selectedToken.decimals);
 
       debouncedCheckEnteredAmount();
     } catch (err) {
@@ -83,30 +90,35 @@
     }
   }
 
-  function setETHAmount(amount: bigint) {
-    inputBox.setValue(formatEther(amount));
-    $enteredAmount = amount;
-  }
-
-  // Will trigger when the user clicks on the "Max" button
+  // "MAX" button handler
   async function useMaxAmount() {
-    errorAmount = false;
+    insufficientBalance = false;
+    insufficientAllowance = false;
 
-    if (!$selectedToken || !$network || !$account?.address) return;
+    // We cannot calculate the max amount without these guys
+    if (!$selectedToken || !$network || !$destNetwork || !$account?.address) return;
 
     computingMaxAmount = true;
 
     try {
-      const maxAmount = await getMaxToBridge({
+      const maxAmount = await getMaxAmountToBridge({
+        to: $account.address,
         token: $selectedToken,
         balance: tokenBalance.value,
         processingFee: $processingFee,
         srcChainId: $network.id,
-        destChainId: $destNetwork?.id,
-        userAddress: $account.address,
+        destChainId: $destNetwork.id,
+        amount: BigInt(1), // whatever amount to estimate the cost
       });
 
-      setETHAmount(maxAmount);
+      // Update UI
+      inputBox.setValue(formatUnits(maxAmount, $selectedToken.decimals));
+
+      // Update state
+      $enteredAmount = maxAmount;
+
+      // Check validity
+      checkEnteredAmount();
     } catch (err) {
       console.error(err);
       warningToast($t('amount_input.button.failed_max'));
@@ -134,24 +146,34 @@
       placeholder="0.01"
       min="0"
       loading={computingMaxAmount}
-      error={errorAmount}
+      error={insufficientBalance}
       on:input={updateAmount}
       bind:this={inputBox}
       class="w-full input-box outline-none py-6 pr-16 px-[26px] title-subsection-bold placeholder:text-tertiary-content" />
+    <!-- TODO: talk to Jane about the MAX button and its styling -->
     <button
-      class="absolute right-6 uppercase"
+      class="absolute right-6 uppercase hover:font-bold"
       disabled={!$selectedToken || !$network || computingMaxAmount}
       on:click={useMaxAmount}>
       {$t('amount_input.button.max')}
     </button>
   </div>
 
-  {#if errorAmount}
+  {#if insufficientBalance}
     <!-- TODO: should we make another component for flat error messages? -->
     <div class="f-items-center space-x-1 mt-3">
       <Icon type="exclamation-circle" fillClass="fill-negative-sentiment" />
       <div class="body-small-regular text-negative-sentiment">
         {$t('amount_input.error.insufficient_balance')}
+      </div>
+    </div>
+  {/if}
+
+  {#if insufficientAllowance}
+    <div class="f-items-center space-x-1 mt-3">
+      <Icon type="exclamation-circle" fillClass="fill-warning-sentiment" />
+      <div class="body-small-regular text-warning-sentiment">
+        {$t('amount_input.error.insufficient_allowance')}
       </div>
     </div>
   {/if}
