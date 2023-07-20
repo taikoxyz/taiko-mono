@@ -5,6 +5,7 @@ export type Prover = {
   address: string;
   stakedAmount: BigNumber;
   amountStaked: BigNumber; // stupid hack
+  rewardPerGas: number;
 };
 
 export type ProversResp = {

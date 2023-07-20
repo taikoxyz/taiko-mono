@@ -11,6 +11,7 @@ func (srv *Server) configureRoutes() {
 	srv.echo.GET("/stats", srv.GetStats)
 	srv.echo.GET("/posStats", srv.GetPOSStats)
 	srv.echo.GET("/currentProvers", srv.GetCurrentProvers)
+	srv.echo.GET("/assignedBlocks", srv.GetAssignedBlocksByProverAddress)
 
 	galaxeAPI := srv.echo.Group("/api")
 

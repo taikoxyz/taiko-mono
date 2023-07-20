@@ -24,36 +24,34 @@
   }
 </script>
 
-{#if totalPages > 1}
-  <!-- 
+<!-- 
     We only want to show the buttons if we actually need them.
     If we can fit all the items in one page, there is no need.
   -->
-  <div class="pagination btn-group">
+<div class="pagination btn-group">
+  <button
+    class="btn btn-xs"
+    on:click={() => goToPage(1)}
+    disabled={currentPage === 1}>First</button>
+  <button
+    class="btn btn-xs"
+    on:click={() => goToPage(currentPage - 1)}
+    disabled={currentPage === 1}>Previous</button>
+  {#each pages as page (page)}
     <button
       class="btn btn-xs"
-      on:click={() => goToPage(1)}
-      disabled={currentPage === 1}>First</button>
-    <button
-      class="btn btn-xs"
-      on:click={() => goToPage(currentPage - 1)}
-      disabled={currentPage === 1}>Previous</button>
-    {#each pages as page (page)}
-      <button
-        class="btn btn-xs"
-        class:btn-active={currentPage === page}
-        on:click={() => goToPage(page)}>{page}</button>
-    {/each}
-    <button
-      class="btn btn-xs"
-      on:click={() => goToPage(currentPage + 1)}
-      disabled={currentPage === totalPages}>Next</button>
-    <button
-      class="btn btn-xs"
-      on:click={() => goToPage(totalPages)}
-      disabled={currentPage === totalPages}>Last</button>
-  </div>
-{/if}
+      class:btn-active={currentPage === page}
+      on:click={() => goToPage(page)}>{page}</button>
+  {/each}
+  <button
+    class="btn btn-xs"
+    on:click={() => goToPage(currentPage + 1)}
+    disabled={currentPage === totalPages}>Next</button>
+  <button
+    class="btn btn-xs"
+    on:click={() => goToPage(totalPages)}
+    disabled={currentPage === totalPages}>Last</button>
+</div>
 
 <style>
   .pagination .btn-active {

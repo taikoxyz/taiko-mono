@@ -2,11 +2,19 @@
   import { getContext } from 'svelte';
   import type { Writable } from 'svelte/store';
 
-  import { key } from './Tabs.svelte';
+  import { key, subKey } from './Tabs.svelte';
 
   export let tab: string = '';
 
-  const activeTab = getContext<Writable<string>>(key);
+  export let type: string = 'main';
+
+  let activeTab;
+  if (type == 'main') {
+    activeTab = getContext<Writable<string>>(key);
+  } else {
+    activeTab = getContext<Writable<string>>(subKey);
+    console.log('EYY', tab, activeTab);
+  }
 
   $: selected = tab === $activeTab;
   $: classes = `${$$restProps.class || ''} ${!selected ? 'hidden' : ''}`;
