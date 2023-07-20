@@ -8,18 +8,19 @@ import { isETH } from './tokens';
 import type { Token } from './types';
 
 type GetBalanceArgs = {
-  token: Token;
   userAddress: Address;
+  token?: Token;
   srcChainId?: number;
   destChainId?: number;
 };
 
 const log = getLogger('token:getBalance');
 
-export async function getBalance({ token, userAddress, srcChainId, destChainId }: GetBalanceArgs) {
+export async function getBalance({ userAddress, token, srcChainId, destChainId }: GetBalanceArgs) {
   let tokenBalance: FetchBalanceResult;
 
-  if (isETH(token)) {
+  if (!token || isETH(token)) {
+    // If no token is passed in, we assume is ETH
     tokenBalance = await fetchBalance({ address: userAddress });
   } else {
     // We need at least the source chain to find the address
