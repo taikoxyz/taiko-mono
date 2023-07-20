@@ -46,7 +46,7 @@
   }
 
   async function handleImport() {
-    contractTypeStore.set(await detectContractType(contractAddress));
+    contractTypeStore.set(await detectContractType(contractAddress, tokenIds[0]));
     let result = null;
     if ($contractTypeStore === 'ERC721') {
       result = await fetchERC721Images(contractAddress, tokenIds);

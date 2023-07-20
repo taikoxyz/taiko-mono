@@ -11,8 +11,7 @@
   let inputId = `input-${uid()}`;
   let showAlert = true;
 
-  //Todo: change this to '', just testing
-  let ethereumAddress = '0xe9bbBfbB3dC24037F7FD336Fc7a79D35e2880dFf';
+  let ethereumAddress = '';
 
   let isValidEthereumAddress = false;
   let tooShort = true;
