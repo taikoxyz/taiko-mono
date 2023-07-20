@@ -74,11 +74,11 @@ export class ETHBridge implements Bridge {
 
     const value = depositValue + callValue + processingFee;
 
-    log('Sending message to bridge with value', value);
+    log('Calling sendMessage with value', value);
 
     const txHash = await bridgeContract.write.sendMessage([message], { value });
 
-    log(`Transaction hash for sendMessage call: "${txHash}"`);
+    log('Transaction hash for sendMessage call', txHash);
 
     return txHash;
   }
