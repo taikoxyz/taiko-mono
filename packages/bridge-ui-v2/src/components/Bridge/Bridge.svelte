@@ -39,8 +39,7 @@
 
 <Card class="md:w-[524px]" title={$t('bridge.title')} text={$t('bridge.subtitle')}>
   <div class="space-y-[35px]">
-    <div class="space-y-4">
-      <div class="space-y-2">
+    <!-- <div class="space-y-2">
         <ChainSelector label={$t('chain.from')} value={$network} switchWallet />
         <TokenDropdown {tokens} bind:value={$selectedToken} />
       </div>
@@ -53,9 +52,20 @@
 
       <div class="space-y-2">
         <ChainSelector label={$t('chain.to')} value={$destNetwork} readOnly />
-        <!-- <RecipientInput /> -->
-      </div>
+        <RecipientInput />
+      </div> -->
+
+    <div class="f-between-center">
+      <ChainSelector value={$network} switchWallet />
+      <SwitchChainsButton />
+      <ChainSelector value={$destNetwork} readOnly />
     </div>
+
+    <TokenDropdown {tokens} bind:value={$selectedToken} />
+
+    <Amount />
+
+    <Recipient />
 
     <ProcessingFee />
 

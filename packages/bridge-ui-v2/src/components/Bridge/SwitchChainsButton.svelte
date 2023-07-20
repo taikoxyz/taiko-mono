@@ -27,5 +27,5 @@
   class="f-center rounded-full bg-secondary-icon w-[30px] h-[30px]"
   disabled={!$destNetwork}
   on:click={switchToDestChain}>
-  <Icon type="up-down" />
+  <Icon type="up-down" class="rotate-90" />
 </button>

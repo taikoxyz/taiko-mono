@@ -13,7 +13,7 @@
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
 
-  export let label: string;
+  export let label: string = '';
   export let value: Maybe<GetNetworkResult['chain']> = null;
   export let switchWallet = false;
   export let readOnly = false;
@@ -84,7 +84,10 @@
 
 <div class="ChainSelector">
   <div class="f-items-center space-x-[10px]">
-    <label class="text-secondary-content body-regular" for={buttonId}>{label}:</label>
+    {#if label}
+      <label class="text-secondary-content body-regular" for={buttonId}>{label}:</label>
+    {/if}
+
     <button
       id={buttonId}
       type="button"
@@ -92,7 +95,7 @@
       aria-haspopup="dialog"
       aria-controls={dialogId}
       aria-expanded={modalOpen}
-      class="px-2 py-[6px] body-small-regular bg-neutral-background rounded-md"
+      class="px-2 py-[6px] body-small-regular bg-neutral-background rounded-md min-w-[150px]"
       on:click={openModal}>
       <div class="f-items-center space-x-2">
         {#if !value}
