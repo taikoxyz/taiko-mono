@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
 
   import { Alert } from '$components/Alert';
@@ -6,8 +7,7 @@
   import { Card } from '$components/Card';
   import { ChainSelector } from '$components/ChainSelector';
   import { Icon } from '$components/Icon';
-  import { detectContractType, fetchERC721Images,fetchERC1155Images } from '$libs/token';
-  import { activeTab } from '$stores/bridgetabs';
+  import { detectContractType, fetchERC721Images, fetchERC1155Images } from '$libs/token';
   import { network } from '$stores/network';
   import { contractTypeStore, errorIdStore, tokenIdStore } from '$stores/nfts';
 
@@ -33,9 +33,9 @@
   };
 
   //Todo: figure out a better way to do this?
-  $: if ($activeTab === 'nft_tab') {
+  onMount(() => {
     resetAllStates();
-  }
+  });
 
   function resetAllStates() {
     isAddressValid = false;
