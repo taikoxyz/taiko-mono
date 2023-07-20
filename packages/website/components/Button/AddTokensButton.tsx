@@ -2,8 +2,10 @@ import {
   ELDFELL_ADD_ETHEREUM_CHAIN,
   ELDFELL_CONFIG,
   GRIMSVOTN_ADD_ETHEREUM_CHAIN,
+  GRIMSVOTN_ADD_TOKENS,
   GRIMSVOTN_CONFIG,
   SEPOLIA_ADD_ETHEREUM_CHAIN,
+  SEPOLIA_ADD_TOKENS,
   SEPOLIA_CONFIG,
 } from "../../domain/chain";
 
@@ -28,41 +30,39 @@ const configMap = {
   Sepolia: SEPOLIA_ADD_ETHEREUM_CHAIN,
 };
 
-interface AddTokenButtonProps {
-  address: string;
-  symbol: string;
-  decimals: number;
-  image: string;
+const tokenConfigMap = {
+  Grimsvotn: GRIMSVOTN_ADD_TOKENS,
+  Sepolia: SEPOLIA_ADD_TOKENS,
+};
+
+interface AddTokensButtonProps {
   network: ConnectButtonProps["network"];
 }
 
-const addTokenToWallet = async (token: AddTokenButtonProps) => {
+const addTokensToWallet = async ({ network }: AddTokensButtonProps) => {
   const { ethereum } = window as any;
 
-  if (ethereum.chainId != chainMap[token.network]) {
-    await ethereumRequest("wallet_addEthereumChain", [configMap[token.network]]);
+  if (ethereum.chainId != chainMap[network]) {
+    await ethereumRequest("wallet_addEthereumChain", [configMap[network]]);
   }
 
-  const params = { options: { address: token.address, symbol: token.symbol, decimals: token.decimals, image: token.image }, type: "ERC20" };
-
-  await ethereumRequest("wallet_watchAsset", params);
+  for (const token of tokenConfigMap[network]) {
+    const params = { options: { address: token.address, symbol: token.symbol, decimals: token.decimals, image: token.image }, type: "ERC20" };
+    await ethereumRequest("wallet_watchAsset", params);
+  }
 
 
 };
 
-export function AddTokenButton({
-  address,
-  symbol,
-  decimals,
-  image,
+export function AddTokensButton({
   network,
-}: AddTokenButtonProps) {
+}: AddTokensButtonProps) {
   return (
     <div
-      onClick={() => addTokenToWallet({ address, symbol, decimals, image, network })}
+      onClick={() => addTokensToWallet({ network })}
       className="hover:cursor-pointer text-neutral-100 bg-[#E81899] hover:bg-[#d1168a] border-solid border-neutral-200 focus:ring-4 focus:outline-none focus:ring-neutral-100 font-medium rounded-lg text-sm px-3 py-2 text-center inline-flex items-center"
     >
-      Add {symbol} ({network})
+      Add {network} Tokens
     </div>
   );
 }
