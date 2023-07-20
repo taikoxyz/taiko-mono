@@ -118,10 +118,10 @@
 <div class="ProcessingFee">
   <div class="f-between-center">
     <div class="flex space-x-2">
-      <span class="body-small-regular text-secondary-content">{$t('processing_fee.title')}</span>
+      <span class="body-small-bold text-primary-content">{$t('processing_fee.title')}</span>
       <Tooltip>TODO: add description about processing fee</Tooltip>
     </div>
-    <button class="link" on:click={openModal} on:focus={openModal}>{$t('processing_fee.link')}</button>
+    <button class="link" on:click={openModal} on:focus={openModal}>{$t('common.edit')}</button>
   </div>
 
   <span class="body-small-regular text-secondary-content mt-[6px]">
@@ -236,10 +236,10 @@
           on:click={cancelModal}
           type="neutral"
           class="px-[28px] py-[10px] rounded-full w-auto bg-transparent !border border-primary-brand hover:border-primary-interactive-hover">
-          <span class="body-bold">{$t('processing_fee.button.cancel')}</span>
+          <span class="body-bold">{$t('common.cancel')}</span>
         </Button>
         <Button type="primary" class="px-[28px] py-[10px] rounded-full w-auto" on:click={closeModal}>
-          <span class="body-bold">{$t('processing_fee.button.confirm')}</span>
+          <span class="body-bold">{$t('common.confirm')}</span>
         </Button>
       </div>
     </div>

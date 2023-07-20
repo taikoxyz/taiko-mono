@@ -12,11 +12,14 @@
   import { chains } from '$libs/chain';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
+  import { classNames } from '$libs/util/classNames';
 
   export let label: string = '';
   export let value: Maybe<GetNetworkResult['chain']> = null;
   export let switchWallet = false;
   export let readOnly = false;
+
+  let classes = classNames('ChainSelector', $$props.class);
 
   let chainToIconMap: Record<string, ComponentType> = {
     [PUBLIC_L1_CHAIN_ID]: EthIcon,
@@ -82,7 +85,7 @@
   onDestroy(closeModal);
 </script>
 
-<div class="ChainSelector">
+<div class={classes}>
   <div class="f-items-center space-x-[10px]">
     {#if label}
       <label class="text-secondary-content body-regular" for={buttonId}>{label}:</label>
@@ -95,9 +98,9 @@
       aria-haspopup="dialog"
       aria-controls={dialogId}
       aria-expanded={modalOpen}
-      class="px-2 py-[6px] body-small-regular bg-neutral-background rounded-md min-w-[150px]"
+      class="px-2 py-[10px] body-small-regular bg-neutral-background rounded-[10px] w-full"
       on:click={openModal}>
-      <div class="f-items-center space-x-2">
+      <div class="f-center space-x-2">
         {#if !value}
           <span>{$t('chain_selector.placeholder')}</span>
         {/if}

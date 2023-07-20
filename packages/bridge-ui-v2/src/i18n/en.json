@@ -16,6 +16,12 @@
     }
   },
 
+  "recipient": {
+    "title": "Recipient address",
+    "link": "Change recipient",
+    "placeholder": "Add custom recipient"
+  },
+
   "processing_fee": {
     "title": "Processing fee",
     "link": "Customize fee",
@@ -32,10 +38,6 @@
     "custom": {
       "label": "Custom",
       "text": "Customize your processing fee"
-    },
-    "button": {
-      "confirm": "Confirm",
-      "cancel": "Cancel"
     }
   },
 
@@ -103,6 +105,20 @@
     "currently_on": "You are currently on"
   },
 
+  "chain": {
+    "to": "To",
+    "from": "From"
+  },
+
+  "wallet": {
+    "connect": "Connect wallet",
+    "status": {
+      "disconnected": "Disconnected",
+      "connected": "Connected",
+      "connecting": "Connecting"
+    }
+  },
+
   "messages": {
     "account": {
       "required": "Please connect your wallet.",
@@ -118,21 +134,12 @@
     }
   },
 
-  "chain": {
-    "to": "To",
-    "from": "From"
-  },
-
-  "custom_recipient": {
-    "placeholder": "Add custom recipient"
-  },
-
-  "wallet": {
-    "connect": "Connect wallet",
-    "status": {
-      "disconnected": "Disconnected",
-      "connected": "Connected",
-      "connecting": "Connecting"
-    }
+  "common": {
+    "edit": "Edit",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "close": "Close",
+    "loading": "Loading",
+    "ok": "Ok"
   }
 }
