@@ -1,34 +1,20 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
 
-  import { TabButton } from '$components/TabButton';
-  import { activeTab, checkIsActive } from '$stores/bridgetabs';
+  import { page } from '$app/stores';
+  import { LinkButton } from '$components/LinkButton';
 
-  let isErc20TabActive = false;
-  let isNftTabActive = false;
-
-  const unsubscribe = activeTab.subscribe(() => {
-    isErc20TabActive = checkIsActive('erc20_tab');
-    isNftTabActive = checkIsActive('nft_tab');
-  });
-
-  onMount(() => {
-    isErc20TabActive = checkIsActive('erc20_tab');
-    isNftTabActive = checkIsActive('nft_tab');
-  });
-
-  onDestroy(() => {
-    unsubscribe();
-  });
+  $: isERC20Bridge = $page.route.id === '/bridge/erc20' || $page.route.id === '/' ? true : false;
+  $: isNFTBridge = $page.route.id === '/bridge/nft' ? true : false;
+  $: classes = `flex-basis-0 mr-2 p-3 rounded-full flex justify-center items-center  w-auto sm:w-20 2xl:w-32`;
 </script>
 
-<div class="flex">
-  <TabButton tabName="erc20_tab">
-    {$t('bridge.button.erc20')}
-  </TabButton>
+<div class="flex w-full ml-2">
+  <LinkButton class={classes} href="/bridge/erc20" active={isERC20Bridge}>
+    <span> {$t('bridge.button.erc20')}</span>
+  </LinkButton>
 
-  <TabButton tabName="nft_tab">
-    {$t('bridge.button.nft')}
-  </TabButton>
+  <LinkButton class={classes} href="/bridge/nft" active={isNFTBridge}>
+    <span> {$t('bridge.button.nft')}</span>
+  </LinkButton>
 </div>
