@@ -1,6 +1,6 @@
 import { readContract } from '@wagmi/core';
 
-export async function detectContractType(contractAddress: string) {
+export async function detectContractType(contractAddress: string, tokenId: number) {
   // eslint-disable-next-line no-console
   console.info('detectContractType', contractAddress);
   const ERC721_ABI = [
@@ -35,12 +35,14 @@ export async function detectContractType(contractAddress: string) {
       address: contractAddress as `0x${string}`,
       abi: ERC721_ABI,
       functionName: 'ownerOf',
-      args: [0],
+      args: [tokenId],
     });
     // eslint-disable-next-line no-console
     console.info('ERC721');
     return 'ERC721';
   } catch (err) {
+    // eslint-disable-next-line no-console
+    console.log(err);
     try {
       await readContract({
         address: contractAddress as `0x${string}`,
