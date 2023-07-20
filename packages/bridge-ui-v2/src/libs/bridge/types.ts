@@ -94,4 +94,5 @@ export type ERC20BridgeArgs = BridgeArgs & {
 
 export interface Bridge {
   estimateGas(args: BridgeArgs): Promise<bigint>;
+  bridge(args: BridgeArgs): Promise<unknown>;
 }

@@ -66,4 +66,19 @@ export class ETHBridge implements Bridge {
 
     return bridgeContract.estimateGas.sendMessage([message], { value });
   }
+
+  async bridge(args: ETHBridgeArgs) {
+    const { bridgeContract, message } = await ETHBridge._prepareTransaction(args);
+    const { depositValue, callValue, processingFee } = message;
+
+    const value = depositValue + callValue + processingFee;
+
+    log('Sending message to bridge with value', value);
+
+    const txHash = await bridgeContract.write.sendMessage([message], { value });
+
+    log(`Transaction hash for sendMessage call: "${txHash}"`);
+
+    return txHash;
+  }
 }

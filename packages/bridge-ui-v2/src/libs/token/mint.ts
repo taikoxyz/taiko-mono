@@ -24,7 +24,7 @@ export async function mint(token: Token, chainId: number) {
 
   const txHash = await tokenContract.write.mint([userAddress]);
 
-  log(`Transaction hash for minting ${tokenSymbol}: ${txHash}`);
+  log(`Transaction hash for mint call: "${txHash}"`);
 
   return txHash;
 }

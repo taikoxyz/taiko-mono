@@ -64,4 +64,8 @@ export class ERC20Bridge implements Bridge {
 
     return tokenVaultContract.estimateGas.sendERC20([...sendERC20Args], { value });
   }
+
+  async bridge(args: ERC20BridgeArgs) {
+    return Promise.resolve();
+  }
 }
