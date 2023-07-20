@@ -10,6 +10,7 @@ import { AddressResolver } from "../../common/AddressResolver.sol";
 import { IProverPool } from "../ProverPool.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
+import { IProofVerifier } from "../IProofVerifier.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
 import { LibBytesUtils } from "../../thirdparty/LibBytesUtils.sol";
 
@@ -206,19 +207,15 @@ library LibProving {
                 revert L1_INVALID_PROOF();
             }
 
-            (bool verified, bytes memory ret) = resolver.resolve(
-                LibUtils.getVerifierName(evidence.verifierId), false
-            ).staticcall(evidence.proof);
-
-            if (
-                !verified
-                //
-                || ret.length != 32
-                //
-                || bytes32(ret) != keccak256("taiko")
-            ) {
-                revert L1_INVALID_PROOF();
-            }
+            // Later on it can be like verifyProofs(bytes) where the bytes would
+            // include all of the proofs (ZK, SGX, Oracle, etc. ).
+            IProofVerifier(resolver.resolve("proof_verifier", false)).verifyProofs(
+                abi.encode(
+                    evidence.verifierId, 
+                    keccak256("ZK"), 
+                    evidence.proof
+                )
+            );
         }
 
         emit BlockProven({

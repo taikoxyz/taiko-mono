@@ -10,6 +10,7 @@ import { TaikoData } from "../contracts/L1/TaikoData.sol";
 import { TaikoL1 } from "../contracts/L1/TaikoL1.sol";
 import { TaikoToken } from "../contracts/L1/TaikoToken.sol";
 import { IProverPool } from "../contracts/L1/IProverPool.sol";
+import { ProofVerifier } from "../contracts/L1/ProofVerifier.sol";
 import { SignalService } from "../contracts/signal/SignalService.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { AddressResolver } from "../contracts/common/AddressResolver.sol";
@@ -55,6 +56,7 @@ abstract contract TaikoL1TestBase is Test {
     TaikoData.Config conf;
     MockProverPool public proverPool;
     uint256 internal logCount;
+    ProofVerifier public pv;
 
     // Constants of the input - it is a workaround - most probably a
     // forge/foundry issue. Issue link:
@@ -102,6 +104,10 @@ abstract contract TaikoL1TestBase is Test {
         ss = new SignalService();
         ss.init(address(addressManager));
 
+        pv = new ProofVerifier();
+        pv.init(address(addressManager));
+
+        registerAddress("proof_verifier", address(pv));
         registerAddress("signal_service", address(ss));
         registerAddress("ether_vault", address(L1EthVault));
         registerAddress("prover_pool", address(proverPool));
