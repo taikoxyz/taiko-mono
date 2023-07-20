@@ -12,7 +12,6 @@ import { mainnetChain } from '$libs/chain';
 
 import { checkMintable } from './checkMintable';
 import { testERC20Tokens } from './tokens';
-import { MintableError } from './types';
 
 vi.mock('$env/static/public');
 vi.mock('@wagmi/core');
@@ -56,8 +55,7 @@ describe('checkMintable', () => {
       await checkMintable(BLLToken, mainnetChain.id);
       expect.fail('should have thrown');
     } catch (error) {
-      const { cause } = error as Error;
-      expect(cause).toBe(MintableError.TOKEN_MINTED);
+      expect(`${error}`).toBe('Error: token already minted')
       expect(getContract).toHaveBeenCalledWith({
         walletClient: mockWalletClient,
         abi: freeMintErc20ABI,
@@ -85,8 +83,7 @@ describe('checkMintable', () => {
       await checkMintable(BLLToken, mainnetChain.id);
       expect.fail('should have thrown');
     } catch (error) {
-      const { cause } = error as Error;
-      expect(cause).toBe(MintableError.INSUFFICIENT_BALANCE);
+      expect(`${error}`).toBe('Error: insufficient balance')
       expect(getPublicClient).toHaveBeenCalled();
       expect(mockTokenContract.estimateGas.mint).toHaveBeenCalledWith([mockWalletClient.account.address]);
       expect(mockPublicClient.getBalance).toHaveBeenCalledWith({ address: mockWalletClient.account.address });

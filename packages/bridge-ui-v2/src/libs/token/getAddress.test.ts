@@ -42,7 +42,7 @@ describe('getAddress', () => {
     vi.mocked(mockTokenContract.read.canonicalToBridged).mockResolvedValue('0x456789');
 
     expect(
-      await getAddress({ token: HORSEToken, srcChainId: Number(PUBLIC_L2_CHAIN_ID), destChainId: +PUBLIC_L1_CHAIN_ID }),
+      await getAddress({ token: HORSEToken, srcChainId: Number(PUBLIC_L2_CHAIN_ID), destChainId: Number(PUBLIC_L1_CHAIN_ID) }),
     ).toEqual('0x456789');
     expect(mockTokenContract.read.canonicalToBridged).toHaveBeenCalledWith([
       BigInt(1),
@@ -51,6 +51,7 @@ describe('getAddress', () => {
     expect(getContract).toHaveBeenCalledWith({
       abi: tokenVaultABI,
       address: chainContractsMap[PUBLIC_L2_CHAIN_ID].tokenVaultAddress,
+      chainId: Number(PUBLIC_L2_CHAIN_ID),
     });
   });
 });

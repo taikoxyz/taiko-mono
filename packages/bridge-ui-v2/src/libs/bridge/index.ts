@@ -1,5 +1,5 @@
 export { bridges } from './bridges';
-export { checkEnoughBalanceToBridge } from './checkEnoughBalanceToBridge';
 export { estimateCostOfBridging } from './estimateCostOfBridging';
 export { getMaxAmountToBridge } from './getMaxAmountToBridge';
+export { hasEnoughBalanceToBridge } from './hasEnoughBalanceToBridge';
 export * from './types';

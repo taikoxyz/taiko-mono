@@ -1,4 +1,4 @@
-import { type Address,zeroAddress } from 'viem';
+import { type Address, zeroAddress } from 'viem';
 
 import { getLogger } from '$libs/util/logger';
 
@@ -26,8 +26,8 @@ export async function getAddress({ token, srcChainId, destChainId }: GetAddressA
     if (!destChainId) return;
 
     // Find the address on the destination chain instead. We are
-    // most likely on Taiko chain and the token hasn't yet been
-    // deployed on it.
+    // most likely on Taiko chain. We need to then query the
+    // canonicalToBridged mapping on the other chain
     address = await getCrossChainAddress(token, destChainId, srcChainId);
 
     log(`Bridged address for ${token.symbol} is "${address}"`);

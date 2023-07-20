@@ -13,7 +13,8 @@ export function getCrossChainAddress(token: Token, srcChainId: number, destChain
 
   const srcChainTokenAddress = token.addresses[srcChainId];
 
-  // We cannot find the address if it's not deployed on the source chain
+  // We cannot find the address if we don't have
+  // the token address on the source chain
   if (!srcChainTokenAddress) return;
 
   const destTokenVaultContract = getContract({

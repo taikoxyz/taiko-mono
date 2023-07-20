@@ -50,7 +50,7 @@ export async function hasEnoughBalanceToBridge({
 
     if (!tokenAddress || tokenAddress === zeroAddress) return false;
 
-    const isTokenAlreadyDeployed = await isDeployedCrossChain({ token, destChainId, srcChainId });
+    const isTokenAlreadyDeployed = await isDeployedCrossChain(token, destChainId, srcChainId);
 
     estimatedCost = await estimateCostOfBridging(bridges.ERC20, {
       ...bridgeArgs,

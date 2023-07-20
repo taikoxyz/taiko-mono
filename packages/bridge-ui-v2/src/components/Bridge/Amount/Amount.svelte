@@ -6,9 +6,7 @@
   import Icon from '$components/Icon/Icon.svelte';
   import { InputBox } from '$components/InputBox';
   import { warningToast } from '$components/NotificationToast';
-  import { bridges, estimateCostOfBridging, type ETHBridgeArgs, hasEnoughBalanceToBridge } from '$libs/bridge';
-  import { getMaxAmountToBridge } from '$libs/bridge';
-  import { chainContractsMap } from '$libs/chain';
+  import { getMaxAmountToBridge, hasEnoughBalanceToBridge } from '$libs/bridge';
   import { debounce } from '$libs/util/debounce';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
@@ -27,15 +25,7 @@
   async function checkEnteredAmount() {
     errorAmount = false;
 
-    if (
-      !$selectedToken ||
-      !$network ||
-      !$destNetwork ||
-      !$account?.address ||
-      !$enteredAmount ||
-      $enteredAmount === BigInt(0)
-    )
-      return;
+    if (!$selectedToken || !$network || !$destNetwork || !$account?.address || $enteredAmount === BigInt(0)) return;
 
     try {
       const hasEnough = await hasEnoughBalanceToBridge({
@@ -51,7 +41,10 @@
       errorAmount = !hasEnough;
     } catch (err) {
       console.error(err);
-      errorAmount = true;
+
+      if (`${err}`.match('transaction exceeds the balance')) {
+        errorAmount = true;
+      }
     }
   }
 
