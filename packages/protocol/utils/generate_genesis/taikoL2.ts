@@ -306,6 +306,9 @@ async function generateContractConfigs(
                             ethers.utils.toUtf8Bytes("erc721_vault")
                         )]: addressMap.ERC721VaultProxy,
                         [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("erc1155_vault")
+                        )]: addressMap.ERC1155VaultProxy,
+                        [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("ether_vault")
                         )]: addressMap.EtherVaultProxy,
                         [ethers.utils.hexlify(
