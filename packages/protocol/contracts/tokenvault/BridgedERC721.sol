@@ -9,6 +9,7 @@ pragma solidity ^0.8.20;
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { ERC721Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+import { Proxied } from "../common/Proxied.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
@@ -121,3 +122,5 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         return "";
     }
 }
+
+contract ProxiedBridgedERC721 is Proxied, BridgedERC721 { }

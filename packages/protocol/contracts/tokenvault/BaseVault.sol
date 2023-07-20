@@ -9,10 +9,13 @@ pragma solidity ^0.8.20;
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { IBridge } from "../bridge/IBridge.sol";
 import { AddressResolver } from "../common/AddressResolver.sol";
+import
+    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 abstract contract BaseVault is EssentialContract {
     // Released message hashes
     mapping(bytes32 msgHash => bool released) public releasedMessages;
+
     uint256[49] private __gap;
 
     error VAULT_INIT_PARAM_ERROR();
@@ -89,6 +92,24 @@ abstract contract BaseVault is EssentialContract {
 
     function init(address addressManager) external initializer {
         EssentialContract._init(addressManager);
+    }
+
+    /**
+     * @dev Deploys a contract (via proxy)
+     * @param implementation The new implementation address
+     * @param initializationData Data for the initialization
+     */
+    function _deployProxy(
+        address implementation,
+        bytes memory initializationData
+    )
+        internal
+        returns (address proxy)
+    {
+        assert(implementation != address(0));
+        proxy = address(
+            new TransparentUpgradeableProxy(implementation, owner(), initializationData)
+        );
     }
 
     /**

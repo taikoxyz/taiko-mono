@@ -18,7 +18,7 @@ import { Create2Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 import { IBridge } from "../bridge/IBridge.sol";
 import { BaseNFTVault } from "./BaseNFTVault.sol";
-import { BridgedERC721 } from "./BridgedERC721.sol";
+import { ProxiedBridgedERC721 } from "./BridgedERC721.sol";
 import { Proxied } from "../common/Proxied.sol";
 
 /**
@@ -116,7 +116,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             } else {
                 token = _getOrDeployBridgedToken(ctoken);
                 for (uint256 i; i < tokenIds.length; ++i) {
-                    BridgedERC721(token).mint(to, tokenIds[i]);
+                    ProxiedBridgedERC721(token).mint(to, tokenIds[i]);
                 }
             }
         }
@@ -156,7 +156,9 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         unchecked {
             if (isBridgedToken[nft.addr]) {
                 for (uint256 i; i < tokenIds.length; ++i) {
-                    BridgedERC721(nft.addr).mint(message.owner, tokenIds[i]);
+                    ProxiedBridgedERC721(nft.addr).mint(
+                        message.owner, tokenIds[i]
+                    );
                 }
             } else {
                 for (uint256 i; i < tokenIds.length; ++i) {
@@ -229,7 +231,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             if (isBridgedToken[opt.token]) {
                 nft = bridgedToCanonical[opt.token];
                 for (uint256 i; i < opt.tokenIds.length; ++i) {
-                    BridgedERC721(opt.token).burn(owner, opt.tokenIds[i]);
+                    ProxiedBridgedERC721(opt.token).burn(owner, opt.tokenIds[i]);
                 }
             } else {
                 // is a ctoken token, meaning, it lives on this chain
@@ -247,6 +249,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
                 }
             }
         }
+
         msgData = abi.encodeWithSelector(
             ERC721Vault.receiveToken.selector, nft, owner, opt.to, opt.tokenIds
         );
@@ -271,23 +274,21 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         private
         returns (address btoken)
     {
-        btoken = Create2Upgradeable.deploy({
-            amount: 0, // amount of Ether to send
-            salt: keccak256(
-                bytes.concat(
-                    bytes32(ctoken.chainId), bytes32(uint256(uint160(ctoken.addr)))
-                )
-                ),
-            bytecode: type(BridgedERC721).creationCode
-        });
+        ProxiedBridgedERC721 bridgedToken = new ProxiedBridgedERC721();
 
-        BridgedERC721(payable(btoken)).init({
-            _addressManager: address(_addressManager),
-            _srcToken: ctoken.addr,
-            _srcChainId: ctoken.chainId,
-            _symbol: ctoken.symbol,
-            _name: ctoken.name
-        });
+        btoken = _deployProxy(
+            address(bridgedToken),
+            bytes.concat(
+                bridgedToken.init.selector,
+                abi.encode(
+                    address(_addressManager),
+                    ctoken.addr,
+                    ctoken.chainId,
+                    ctoken.symbol,
+                    ctoken.name
+                )
+            )
+        );
 
         isBridgedToken[btoken] = true;
         bridgedToCanonical[btoken] = ctoken;

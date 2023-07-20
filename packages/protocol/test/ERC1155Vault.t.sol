@@ -10,12 +10,15 @@ import { LibBridgeData } from "../contracts/bridge/libs/LibBridgeData.sol";
 import { BridgeErrors } from "../contracts/bridge/BridgeErrors.sol";
 import { BaseNFTVault } from "../contracts/tokenvault/BaseNFTVault.sol";
 import { ERC1155Vault } from "../contracts/tokenvault/ERC1155Vault.sol";
+import { BridgedERC1155 } from "../contracts/tokenvault/BridgedERC1155.sol";
 import { EtherVault } from "../contracts/bridge/EtherVault.sol";
 import { LibBridgeStatus } from "../contracts/bridge/libs/LibBridgeStatus.sol";
 import { SignalService } from "../contracts/signal/SignalService.sol";
 import { ICrossChainSync } from "../contracts/common/ICrossChainSync.sol";
 import { BaseVault } from "../contracts/tokenvault/BaseVault.sol";
 import { ERC1155 } from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import
+    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract TestTokenERC1155 is ERC1155 {
     constructor(string memory baseURI) ERC1155(baseURI) { }
@@ -111,7 +114,7 @@ contract PrankSrcBridge {
 
     function getPreDeterminedDataBytes() external pure returns (bytes memory) {
         return
-        hex"2605fc9100000000000000000000000000000000000000000000000000000000000000a000000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000000000000000000000000000000000000000001c000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000007a69000000000000000000000000266fa2526b3d68a1bd9685b87b4d14ae6079f70600000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000018687474703a2f2f6578616d706c652e686f73742e636f6d2f00000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002";
+        hex"20b8155900000000000000000000000000000000000000000000000000000000000000a000000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba4000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000007a69000000000000000000000000a64f94242628683ea967cd7dd6a10b5ed0400662000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002";
     }
 
     function hashMessage(IBridge.Message calldata message)
@@ -158,6 +161,12 @@ contract PrankCrossChainSync is ICrossChainSync {
     }
 }
 
+contract UpdatedBridgedERC1155 is BridgedERC1155 {
+    function helloWorld() public pure returns (string memory) {
+        return "helloworld";
+    }
+}
+
 contract ERC1155VaultTest is Test {
     AddressManager addressManager;
     BadReceiver badReceiver;
@@ -174,12 +183,14 @@ contract ERC1155VaultTest is Test {
     uint256 destChainId = 19_389;
 
     address public constant Alice = 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4;
-
     address public constant Bob = 0x50081b12838240B1bA02b3177153Bca678a86078;
+    //Need +1 bc. and Amelia is the proxied bridge contracts owner
+    address public constant Amelia = 0x60081B12838240B1BA02b3177153BCa678A86080;
 
     function setUp() public {
-        vm.startPrank(Alice);
+        vm.startPrank(Amelia);
         vm.deal(Alice, 100 ether);
+        vm.deal(Amelia, 100 ether);
         vm.deal(Bob, 100 ether);
         addressManager = new AddressManager();
         addressManager.init();
@@ -226,6 +237,8 @@ contract ERC1155VaultTest is Test {
         );
 
         ctoken1155 = new TestTokenERC1155("http://example.host.com/");
+        vm.stopPrank();
+        vm.startPrank(Alice, Alice);
         ctoken1155.mint(1, 10);
         ctoken1155.mint(2, 10);
 
@@ -594,7 +607,7 @@ contract ERC1155VaultTest is Test {
 
         // Let's test that message is failed and we want to release it back to
         // the owner
-        vm.prank(Alice, Alice);
+        vm.prank(Amelia, Amelia);
         addressManager.setAddress(
             block.chainid, "bridge", address(srcPrankBridge)
         );
@@ -792,7 +805,7 @@ contract ERC1155VaultTest is Test {
 
         destChainIdBridge.setERC1155Vault(address(erc1155Vault));
 
-        vm.prank(Alice, Alice);
+        vm.prank(Amelia, Amelia);
         addressManager.setAddress(
             block.chainid, "bridge", address(destChainIdBridge)
         );
@@ -873,7 +886,6 @@ contract ERC1155VaultTest is Test {
         address deployedContract = destChainErc1155Vault.canonicalToBridged(
             chainId, address(ctoken1155)
         );
-
         // Alice bridged over 1 from tokenId 1
         assertEq(ERC1155(deployedContract).balanceOf(Alice, 1), 1);
 
@@ -905,5 +917,85 @@ contract ERC1155VaultTest is Test {
         vm.prank(Alice, Alice);
         vm.expectRevert("ERC1155: burn amount exceeds balance");
         destChainErc1155Vault.sendToken{ value: 140_000 }(sendOpts);
+    }
+
+    function test_upgrade_bridged_tokens_1155() public {
+        vm.prank(Alice, Alice);
+        ctoken1155.setApprovalForAll(address(erc1155Vault), true);
+
+        assertEq(ctoken1155.balanceOf(Alice, 1), 10);
+        assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 0);
+
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 2;
+
+        BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
+            .BridgeTransferOp(
+            destChainId,
+            Alice,
+            address(ctoken1155),
+            tokenIds,
+            amounts,
+            140_000,
+            140_000,
+            Alice,
+            ""
+        );
+        vm.prank(Alice, Alice);
+        erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
+
+        assertEq(ctoken1155.balanceOf(Alice, 1), 8);
+        assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 2);
+
+        BaseNFTVault.CanonicalNFT memory ctoken = BaseNFTVault.CanonicalNFT({
+            chainId: 31_337,
+            addr: address(ctoken1155),
+            symbol: "",
+            name: ""
+        });
+
+        uint256 srcChainId = block.chainid;
+        vm.chainId(destChainId);
+
+        destChainIdBridge.sendReceiveERC1155ToERC1155Vault(
+            ctoken,
+            Alice,
+            Alice,
+            tokenIds,
+            amounts,
+            bytes32(0),
+            address(erc1155Vault),
+            srcChainId
+        );
+
+        // Query canonicalToBridged
+        address deployedContract = destChainErc1155Vault.canonicalToBridged(
+            srcChainId, address(ctoken1155)
+        );
+
+        try UpdatedBridgedERC1155(deployedContract).helloWorld() {
+            assertEq(false, true);
+        } catch {
+            //It should not yet support this function call
+            assertEq(true, true);
+        }
+
+        // Upgrade the implementation of that contract
+        // so that it supports now the 'helloWorld' call
+        UpdatedBridgedERC1155 newBridgedContract = new UpdatedBridgedERC1155();
+        vm.prank(Amelia, Amelia);
+        TransparentUpgradeableProxy(payable(deployedContract)).upgradeTo(
+            address(newBridgedContract)
+        );
+
+        try UpdatedBridgedERC1155(deployedContract).helloWorld() {
+            //It should support now this function call
+            assertEq(true, true);
+        } catch {
+            assertEq(false, true);
+        }
     }
 }
