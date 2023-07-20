@@ -1,4 +1,12 @@
 import { Steps } from "nextra-theme-docs";
+import { AddTokenButton } from "components/Button/AddTokenButton";
+import { ConnectToMetamaskButton } from "components/Button/ConnectToMetamaskButton";
+
+import {
+  ELDFELL_CONFIG,
+  GRIMSVOTN_CONFIG,
+  SEPOLIA_CONFIG,
+} from "domain/chain";
 
 # Setup your wallet
 
@@ -11,11 +19,45 @@ This guide helps you connect your wallet to Taiko's networks.
 ## Steps
 
 <Steps>
-    ### Visit RPC configuration
-    Visit the [RPC configuration page](/docs/reference/rpc-configuration) and click the buttons to add the networks. Or, add them manually in your wallet with the provided configuration.
+    ### Add chains to your wallet
+    <ConnectToMetamaskButton network={SEPOLIA_CONFIG.names.shortName} />
+    <br />
+    <ConnectToMetamaskButton network={GRIMSVOTN_CONFIG.names.shortName} />
+    <br />
+    <ConnectToMetamaskButton network={ELDFELL_CONFIG.names.shortName} />
 
     ### Add tokens to your wallet
-    Use your wallet (e.g., Metamask) to [import the tokens](https://support.ledger.com/hc/en-us/articles/6375103346077-Add-custom-tokens-to-MetaMask?docs=true). You can find all deployed tokens contract addresses [here](/docs/reference/contract-addresses).
+    <AddTokenButton address={SEPOLIA_CONFIG.basedContracts.erc20Contracts.taikoToken.address.proxy} 
+    symbol={SEPOLIA_CONFIG.basedContracts.erc20Contracts.taikoToken.symbol} 
+    decimals={SEPOLIA_CONFIG.basedContracts.erc20Contracts.taikoToken.decimals} 
+    image="https://raw.githubusercontent.com/taikoxyz/taiko-mono/main/packages/branding/testnet-token-images/ttko.svg" 
+    network="Sepolia"/>
+    <AddTokenButton address={SEPOLIA_CONFIG.basedContracts.erc20Contracts.bullToken.address.impl} 
+    symbol={SEPOLIA_CONFIG.basedContracts.erc20Contracts.bullToken.symbol} 
+    decimals={SEPOLIA_CONFIG.basedContracts.erc20Contracts.bullToken.decimals} 
+    image="https://raw.githubusercontent.com/taikoxyz/taiko-mono/main/packages/branding/testnet-token-images/bull_32x32.svg" 
+    network="Sepolia"/>
+    <AddTokenButton address={SEPOLIA_CONFIG.basedContracts.erc20Contracts.horseToken.address.impl} 
+    symbol={SEPOLIA_CONFIG.basedContracts.erc20Contracts.horseToken.symbol} 
+    decimals={SEPOLIA_CONFIG.basedContracts.erc20Contracts.horseToken.decimals} 
+    image="https://raw.githubusercontent.com/taikoxyz/taiko-mono/main/packages/branding/testnet-token-images/horse.svg" 
+    network="Sepolia"/>
+    <br />
+    <AddTokenButton address={GRIMSVOTN_CONFIG.rollupContracts.erc20Contracts.bridgedTaikoToken.address.impl} 
+    symbol={GRIMSVOTN_CONFIG.rollupContracts.erc20Contracts.bridgedTaikoToken.symbol} 
+    decimals={GRIMSVOTN_CONFIG.rollupContracts.erc20Contracts.bridgedTaikoToken.decimals} 
+    image="https://raw.githubusercontent.com/taikoxyz/taiko-mono/main/packages/branding/testnet-token-images/ttko.svg" 
+    network="Grimsvotn"/>
+    <AddTokenButton address={GRIMSVOTN_CONFIG.rollupContracts.erc20Contracts.bridgedBullToken.address.impl} 
+    symbol={GRIMSVOTN_CONFIG.rollupContracts.erc20Contracts.bridgedBullToken.symbol} 
+    decimals={GRIMSVOTN_CONFIG.rollupContracts.erc20Contracts.bridgedBullToken.decimals} 
+    image="https://raw.githubusercontent.com/taikoxyz/taiko-mono/main/packages/branding/testnet-token-images/bull_32x32.svg" 
+    network="Grimsvotn"/>
+    <AddTokenButton address={GRIMSVOTN_CONFIG.rollupContracts.erc20Contracts.bridgedHorseToken.address.impl} 
+    symbol={GRIMSVOTN_CONFIG.rollupContracts.erc20Contracts.bridgedHorseToken.symbol} 
+    decimals={GRIMSVOTN_CONFIG.rollupContracts.erc20Contracts.bridgedHorseToken.decimals} 
+    image="https://raw.githubusercontent.com/taikoxyz/taiko-mono/main/packages/branding/testnet-token-images/horse.svg" 
+    network="Grimsvotn"/>
 
 </Steps>
 

@@ -68,7 +68,6 @@ describe('getBalance', () => {
     });
     expect(fetchBalance).toHaveBeenCalledWith({
       address: mockWalletClient.account.address,
-      chainId: Number(PUBLIC_L1_CHAIN_ID),
       token: BLLToken.addresses[PUBLIC_L1_CHAIN_ID],
     });
   });

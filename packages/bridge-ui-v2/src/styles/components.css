@@ -83,7 +83,11 @@
 
       /* focus:border-[3px] */
       /* focus:border-primary-border-accent */
-      focus:shadow-[0_0_0_3px_#E81899];
+      focus:!shadow-[0_0_0_3px_#E81899];
+  }
+
+  .input-box.error {
+    @apply !shadow-[0_0_0_3px_#F15C5D];
   }
 
   /* Separatos */

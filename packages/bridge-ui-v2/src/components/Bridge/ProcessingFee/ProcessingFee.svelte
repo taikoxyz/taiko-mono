@@ -29,7 +29,7 @@
   let errorCalculatingEnoughEth = false;
 
   let modalOpen = false;
-  let customInput: InputBox;
+  let inputBox: InputBox;
 
   function closeModal() {
     // Let's check if we are closing with CUSTOM method selected and zero amount entered
@@ -51,11 +51,11 @@
     setTimeout(closeModal, processingFeeComponent.closingDelayOptionClick);
   }
 
-  function focusCustomInput() {
-    customInput?.focus();
+  function focusInputBox() {
+    inputBox.focus();
   }
 
-  function onCustomInputChange(event: Event) {
+  function onInputBoxChange(event: Event) {
     if (selectedFeeMethod !== ProcessingFeeMethod.CUSTOM) return;
 
     const input = event.target as HTMLInputElement;
@@ -66,20 +66,20 @@
     switch (method) {
       case ProcessingFeeMethod.RECOMMENDED:
         $processingFee = recommendedAmount;
-        customInput?.clear();
+        inputBox?.clear();
 
         break;
       case ProcessingFeeMethod.CUSTOM:
         // Get a previous value entered if exists, otherwise default to 0
-        $processingFee = parseToWei(customInput?.value());
+        $processingFee = parseToWei(inputBox?.getValue());
 
         // We need to wait for Svelte to set the attribute `disabled` on the input
         // to false to be able to focus it
-        tick().then(focusCustomInput);
+        tick().then(focusInputBox);
         break;
       case ProcessingFeeMethod.NONE:
         $processingFee = BigInt(0);
-        customInput?.clear();
+        inputBox?.clear();
 
         break;
     }
@@ -214,8 +214,8 @@
           placeholder="0.01"
           disabled={selectedFeeMethod !== ProcessingFeeMethod.CUSTOM}
           class="w-full input-box outline-none p-6 pr-16 title-subsection-bold placeholder:text-tertiary-content"
-          on:input={onCustomInputChange}
-          bind:this={customInput} />
+          on:input={onInputBoxChange}
+          bind:this={inputBox} />
         <span class="absolute right-6 uppercase body-bold text-secondary-content">ETH</span>
       </div>
     </div>

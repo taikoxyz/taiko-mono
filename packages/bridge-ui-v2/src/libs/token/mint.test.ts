@@ -28,7 +28,7 @@ describe('mint', () => {
     vi.mocked(getContract).mockReturnValue(mockTokenContract);
     vi.mocked(mockTokenContract.write.mint).mockResolvedValue('0x123456');
 
-    await expect(mint(BLLToken, mockWalletClient)).resolves.toEqual('0x123456');
+    await expect(mint(BLLToken)).resolves.toEqual('0x123456');
     expect(mockTokenContract.write.mint).toHaveBeenCalledWith([mockWalletClient.account.address]);
   });
 });
