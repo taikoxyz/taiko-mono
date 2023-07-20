@@ -2,7 +2,7 @@ import { getContract } from '@wagmi/core';
 
 import { tokenVaultABI } from '$abi';
 import { bridge } from '$config';
-import { getConnectedWallet } from '$libs/util/getWallet';
+import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { getLogger } from '$libs/util/logger';
 
 import type { Bridge, ERC20BridgeArgs, SendERC20Args } from './types';

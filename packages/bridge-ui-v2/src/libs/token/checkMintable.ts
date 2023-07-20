@@ -1,7 +1,7 @@
 import { getContract, getPublicClient } from '@wagmi/core';
 
 import { freeMintErc20ABI } from '$abi';
-import { getConnectedWallet } from '$libs/util/getWallet';
+import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 
 import { MintableError, type Token } from './types';
 
