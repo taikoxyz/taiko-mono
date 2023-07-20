@@ -19,7 +19,7 @@
   "recipient": {
     "title": "Recipient address",
     "link": "Change recipient",
-    "placeholder": "Add custom recipient"
+    "placeholder": "Add custom recipient 0x…"
   },
 
   "processing_fee": {

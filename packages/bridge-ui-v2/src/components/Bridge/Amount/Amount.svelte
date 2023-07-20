@@ -15,6 +15,7 @@
 
   import { destNetwork, enteredAmount, processingFee, selectedToken } from '../state';
   import Balance from './Balance.svelte';
+  import { FlatAlert } from '$components/Alert';
 
   let inputId = `input-${uid()}`;
   let tokenBalance: FetchBalanceResult;
@@ -73,7 +74,7 @@
 
   // Will trigger on input events. We update the entered amount
   // and check it's validity
-  function updateAmount(event: Event) {
+  function inputAmount(event: Event) {
     insufficientBalance = false;
     insufficientAllowance = false;
 
@@ -139,42 +140,36 @@
     <Balance bind:value={tokenBalance} />
   </div>
 
-  <div class="relative f-items-center">
-    <InputBox
-      id={inputId}
-      type="number"
-      placeholder="0.01"
-      min="0"
-      loading={computingMaxAmount}
-      error={insufficientBalance}
-      on:input={updateAmount}
-      bind:this={inputBox}
-      class="w-full input-box outline-none py-6 pr-16 px-[26px] title-subsection-bold placeholder:text-tertiary-content" />
-    <!-- TODO: talk to Jane about the MAX button and its styling -->
-    <button
-      class="absolute right-6 uppercase hover:font-bold"
-      disabled={!$selectedToken || !$network || computingMaxAmount}
-      on:click={useMaxAmount}>
-      {$t('amount_input.button.max')}
-    </button>
+  <div class="relative">
+    <div class="relative f-items-center">
+      <InputBox
+        id={inputId}
+        type="number"
+        placeholder="0.01"
+        min="0"
+        loading={computingMaxAmount}
+        error={insufficientBalance}
+        on:input={inputAmount}
+        bind:this={inputBox}
+        class="w-full input-box outline-none py-6 pr-16 px-[26px] title-subsection-bold placeholder:text-tertiary-content" />
+      <!-- TODO: talk to Jane about the MAX button and its styling -->
+      <button
+        class="absolute right-6 uppercase hover:font-bold"
+        disabled={!$selectedToken || !$network || computingMaxAmount}
+        on:click={useMaxAmount}>
+        {$t('amount_input.button.max')}
+      </button>
+    </div>
+
+    {#if insufficientBalance}
+      <FlatAlert type="error" message={$t('amount_input.error.insufficient_balance')} class="absolute bottom-[-26px]" />
+    {/if}
+
+    {#if insufficientAllowance}
+      <FlatAlert
+        type="warning"
+        message={$t('amount_input.error.insufficient_allowance')}
+        class="absolute bottom-[-26px]" />
+    {/if}
   </div>
-
-  {#if insufficientBalance}
-    <!-- TODO: should we make another component for flat error messages? -->
-    <div class="f-items-center space-x-1 mt-3">
-      <Icon type="exclamation-circle" fillClass="fill-negative-sentiment" />
-      <div class="body-small-regular text-negative-sentiment">
-        {$t('amount_input.error.insufficient_balance')}
-      </div>
-    </div>
-  {/if}
-
-  {#if insufficientAllowance}
-    <div class="f-items-center space-x-1 mt-3">
-      <Icon type="exclamation-circle" fillClass="fill-warning-sentiment" />
-      <div class="body-small-regular text-warning-sentiment">
-        {$t('amount_input.error.insufficient_allowance')}
-      </div>
-    </div>
-  {/if}
 </div>

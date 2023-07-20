@@ -16,3 +16,4 @@ export const selectedToken = writable<Maybe<Token>>(null);
 export const enteredAmount = writable<bigint>(BigInt(0));
 export const destNetwork = writable<Maybe<Chain>>(null);
 export const processingFee = writable<bigint>(BigInt(0));
+export const recipientAddress = writable<string>('');

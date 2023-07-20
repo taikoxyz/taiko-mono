@@ -9,9 +9,14 @@
   import { account } from '$stores/account';
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { onMount } from 'svelte';
+  import { recipientAddress } from '../state';
+  import { isAddress } from 'viem';
 
   let dialogId = `dialog-${uid()}`;
+
   let modalOpen = false;
+  let invalidAddress = false;
+
   let inputBox: InputBox;
 
   function closeModal() {
@@ -31,8 +36,14 @@
     inputBox.focus();
   }
 
-  function onInputBoxChange(event: Event) {
-    const input = event.target as HTMLInputElement;
+  function inputRecipientAddress(event: Event) {
+    const { value } = event.target as HTMLInputElement;
+    if (isAddress(value)) {
+      invalidAddress = false;
+      $recipientAddress = value;
+    } else {
+      invalidAddress = true;
+    }
   }
 
   onMount(focusInputBox);
@@ -69,7 +80,7 @@
         <InputBox
           placeholder={$t('recipient.placeholder')}
           class="w-full input-box outline-none p-6 pr-16 title-subsection-bold placeholder:text-tertiary-content"
-          on:input={onInputBoxChange}
+          on:input={inputRecipientAddress}
           bind:this={inputBox} />
       </div>
 

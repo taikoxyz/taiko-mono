@@ -67,11 +67,11 @@
     inputBox.focus();
   }
 
-  function onInputBoxChange(event: Event) {
+  function inputProcessFee(event: Event) {
     if (selectedFeeMethod !== ProcessingFeeMethod.CUSTOM) return;
 
-    const input = event.target as HTMLInputElement;
-    $processingFee = parseToWei(input.value);
+    const { value } = event.target as HTMLInputElement;
+    $processingFee = parseToWei(value);
   }
 
   async function updateProcessingFee(method: ProcessingFeeMethod, recommendedAmount: bigint) {
@@ -226,7 +226,7 @@
           placeholder="0.01"
           disabled={selectedFeeMethod !== ProcessingFeeMethod.CUSTOM}
           class="w-full input-box outline-none p-6 pr-16 title-subsection-bold placeholder:text-tertiary-content"
-          on:input={onInputBoxChange}
+          on:input={inputProcessFee}
           bind:this={inputBox} />
         <span class="absolute right-6 uppercase body-bold text-secondary-content">ETH</span>
       </div>
