@@ -41,17 +41,13 @@ interface AddTokensButtonProps {
 
 const addTokensToWallet = async ({ network }: AddTokensButtonProps) => {
   const { ethereum } = window as any;
-
   if (ethereum.chainId != chainMap[network]) {
     await ethereumRequest("wallet_addEthereumChain", [configMap[network]]);
   }
-
   for (const token of tokenConfigMap[network]) {
     const params = { options: { address: token.address, symbol: token.symbol, decimals: token.decimals, image: token.image }, type: "ERC20" };
     await ethereumRequest("wallet_watchAsset", params);
   }
-
-
 };
 
 export function AddTokensButton({
@@ -60,7 +56,7 @@ export function AddTokensButton({
   return (
     <div
       onClick={() => addTokensToWallet({ network })}
-      className="hover:cursor-pointer text-neutral-100 bg-[#E81899] hover:bg-[#d1168a] border-solid border-neutral-200 focus:ring-4 focus:outline-none focus:ring-neutral-100 font-medium rounded-lg text-sm px-3 py-2 text-center inline-flex items-center"
+      className="hover:cursor-pointer text-neutral-100 bg-[#E81899] hover:bg-[#d1168a] border-solid border-neutral-200 focus:ring-4 focus:outline-none focus:ring-neutral-100 font-medium rounded-lg text-sm px-3 py-2 text-center inline-flex items-center m-1 w-48 justify-center"
     >
       Add {network} Tokens
     </div>
