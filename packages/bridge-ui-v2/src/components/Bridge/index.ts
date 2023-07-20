@@ -1,1 +1,1 @@
-export { default as Bridge } from './Bridge.svelte';
+export { default as ERC20Bridge } from './ERC20Bridge.svelte';
