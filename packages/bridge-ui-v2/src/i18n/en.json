@@ -109,6 +109,9 @@
     "network": {
       "switching": "Switching network",
       "rejected": "Request to switch chain rejected."
+    },
+    "mint": {
+      "rejected": "Request to mint rejected."
     }
   },
 

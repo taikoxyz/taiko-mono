@@ -46,18 +46,14 @@
     // During loading state we make sure the user cannot use this function
     if (checkingMintable || minting) return;
 
-    // Token, source chain and user address are needed to mint
-    if (!selectedToken || !$network || !$account?.address) return;
+    // Token and source chain are needed to mint
+    if (!selectedToken || !$network) return;
 
     // Let's begin the minting process
     minting = true;
 
     try {
-      const txHash = await mint({
-        token: selectedToken,
-        chainId: $network.id,
-        userAddress: $account.address,
-      });
+      const txHash = await mint(selectedToken, $network.id);
 
       successToast(
         $t('faucet.minting_tx', {
@@ -73,7 +69,10 @@
     } catch (err) {
       console.error(err);
 
-      // const { cause } = error as Error;
+      const { cause } = err as Error;
+      if (cause instanceof UserRejectedRequestError) {
+        warningToast($t('messages.mint.rejected'));
+      }
     } finally {
       minting = false;
     }
