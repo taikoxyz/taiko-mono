@@ -24,9 +24,9 @@
     try {
       value = await getTokenBalance({
         token,
+        srcChainId,
         destChainId,
         userAddress: account.address,
-        chainId: srcChainId,
       });
     } catch (err) {
       console.error(err);

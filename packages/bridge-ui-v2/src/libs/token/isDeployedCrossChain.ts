@@ -12,9 +12,9 @@ type IsTokenDeployedCrossChainArgs = {
   destChainId: number;
 };
 
-const log = getLogger('bridge:isTokenDeployedCrossChain');
+const log = getLogger('token:isDeployedCrossChain');
 
-export async function isTokenDeployedCrossChain({ token, srcChainId, destChainId }: IsTokenDeployedCrossChainArgs) {
+export async function isDeployedCrossChain({ token, srcChainId, destChainId }: IsTokenDeployedCrossChainArgs) {
   const { tokenVaultAddress } = chainContractsMap[destChainId.toString()];
 
   const destTokenVaultContract = getContract({
