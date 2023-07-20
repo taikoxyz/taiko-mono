@@ -7,17 +7,13 @@
   import ProverInfo from '../../components/ProverInfo/ProverInfo.svelte';
   import StakeForm from '../..//components/StakeForm.svelte/StakeForm.svelte';
   import Rewards from '../../components/Rewards/Rewards.svelte';
-  import key from '../../components/Tabs/Tabs.svelte';
 
-  // List of tab's name <=> route association
-  // TODO: add this into a general configuration.
   const tabsRoute = [
     { name: 'stake', href: '/' },
     { name: 'history', href: '/history' },
     { name: 'proverInfo', href: '/proverInfo' },
     { name: 'currentProvers', href: '/currentProvers' },
     { name: 'taikoToken', href: '/taikoToken' },
-    // Add more tabs if needed
   ];
 
   $: activeTab =

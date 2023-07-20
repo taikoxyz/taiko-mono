@@ -54,7 +54,7 @@ Then:
 
 To run down migrations you can use:
 
-``GOOSE_DRIVER=mysql GOOSE_DBSTRING="username:password@/dbname" goose down`
+`GOOSE_DRIVER=mysql GOOSE_DBSTRING="username:password@/dbname" goose down`
 
 ### mock
 
