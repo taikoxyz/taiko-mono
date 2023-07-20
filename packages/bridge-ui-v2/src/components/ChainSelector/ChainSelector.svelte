@@ -56,10 +56,10 @@
       try {
         await switchNetwork({ chainId: chain.id });
         closeModal();
-      } catch (error) {
-        console.error(error);
+      } catch (err) {
+        console.error(err);
 
-        if (error instanceof UserRejectedRequestError) {
+        if (err instanceof UserRejectedRequestError) {
           warningToast($t('messages.network.rejected'));
         }
       } finally {

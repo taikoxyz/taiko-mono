@@ -1,13 +1,16 @@
-import { getContract, type WalletClient } from '@wagmi/core';
+import { getContract } from '@wagmi/core';
 
 import { freeMintErc20ABI } from '$abi';
+import { getConnectedWallet } from '$libs/util/getWallet';
 
 import { getLogger } from '../util/logger';
 import type { Token } from './types';
 
 const log = getLogger('token:mint');
 
-export async function mint(token: Token, walletClient: WalletClient) {
+export async function mint(token: Token) {
+  const walletClient = await getConnectedWallet();
+
   const tokenSymbol = token.symbol;
   const userAddress = walletClient.account.address;
   const chainId = walletClient.chain.id;

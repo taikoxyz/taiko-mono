@@ -1,5 +1,4 @@
-import type { Chain } from '@wagmi/core';
-import type { Address } from 'abitype';
+import type { Address, Chain } from '@wagmi/core';
 
 import {
   PUBLIC_L1_BRIDGE_ADDRESS,

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { type Chain, getWalletClient, switchNetwork } from '@wagmi/core';
+  import { type Chain, switchNetwork } from '@wagmi/core';
   import { t } from 'svelte-i18n';
   import { UserRejectedRequestError } from 'viem';
 
@@ -30,11 +30,11 @@
     switchingNetwork = true;
 
     try {
-      await switchNetwork({ chainId: +PUBLIC_L1_CHAIN_ID });
-    } catch (error) {
-      console.error(error);
+      await switchNetwork({ chainId: Number(PUBLIC_L1_CHAIN_ID) });
+    } catch (err) {
+      console.error(err);
 
-      if (error instanceof UserRejectedRequestError) {
+      if (err instanceof UserRejectedRequestError) {
         warningToast($t('messages.network.rejected'));
       }
     } finally {
@@ -49,15 +49,11 @@
     // A token and a source chain must be selected in order to be able to mint
     if (!selectedToken || !$network) return;
 
-    // ... and of course, our wallet must be connected
-    const walletClient = await getWalletClient({ chainId: $network.id });
-    if (!walletClient) return;
-
     // Let's begin the minting process
     minting = true;
 
     try {
-      const txHash = await mint(selectedToken, walletClient);
+      const txHash = await mint(selectedToken);
 
       successToast(
         $t('faucet.minting_tx', {
@@ -70,8 +66,8 @@
       );
 
       // TODO: pending transaction logic
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error(err);
 
       // const { cause } = error as Error;
     } finally {
@@ -98,17 +94,14 @@
     reasonNotMintable = '';
 
     try {
-      await checkMintable(token, network);
+      await checkMintable(token, network.id);
       mintButtonEnabled = true;
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error(err);
 
-      const { cause } = error as Error;
+      const { cause } = err as Error;
 
       switch (cause) {
-        case MintableError.NOT_CONNECTED:
-          reasonNotMintable = $t('faucet.warning.no_connected');
-          break;
         case MintableError.INSUFFICIENT_BALANCE:
           reasonNotMintable = $t('faucet.warning.insufficient_balance');
           break;
@@ -140,7 +133,7 @@
 <Card class="md:w-[524px]" title={$t('faucet.title')} text={$t('faucet.subtitle')}>
   <div class="space-y-[35px]">
     <div class="space-y-2">
-      <ChainSelector label={$t('chain_selector.currently_on')} value={$network} />
+      <ChainSelector label={$t('chain_selector.currently_on')} value={$network} switchWallet />
       <TokenDropdown tokens={testERC20Tokens} bind:value={selectedToken} />
     </div>
 
