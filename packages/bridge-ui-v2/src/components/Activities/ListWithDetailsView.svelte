@@ -25,150 +25,148 @@
 </script>
 
 <div>
-  <ul class="space-y-[10px]">
-    <li
-      class="f-between-center pb-[10px] border-b border-b-divider-border"
-      on:click={openDetails}
-      on:keydown={onItemKeydown}>
-      <div class="space-y-[5px]">
-        <div class="body-bold f-items-center space-x-[6px] text-white">
-          <span>Sepolia</span>
-          <i role="img" aria-label="arrow to">
-            <Icon type="arrow-right" />
-          </i>
-          <span>Taiko</span>
-        </div>
-        <div class="text-primary-content">2.5 ETH</div>
+  <button
+    class="f-between-center pb-[10px] border-b border-b-divider-border"
+    on:click={openDetails}
+    on:keydown={onItemKeydown}>
+    <div class="space-y-[5px]">
+      <div class="body-bold f-items-center space-x-[6px] text-white">
+        <span>Sepolia</span>
+        <i role="img" aria-label="arrow to">
+          <Icon type="arrow-right" />
+        </i>
+        <span>Taiko</span>
       </div>
-      <div class="f-items-center justify-end space-x-1">
-        <StatusDot type="pending" />
-        <span>{$t('activities.status.initiated')}</span>
-      </div>
-    </li>
+      <div class="text-primary-content">2.5 ETHHH</div>
+    </div>
+    <div class="f-items-center justify-end space-x-1">
+      <StatusDot type="pending" />
+      <span>{$t('activities.status.initiated')}</span>
+    </div>
+  </button>
 
-    <li
-      class="f-between-center pb-[10px] border-b border-b-divider-border"
-      on:click={openDetails}
-      on:keydown={onItemKeydown}>
-      <div class="space-y-[5px]">
-        <div class="body-bold f-items-center space-x-[6px] text-white">
-          <span>Taiko</span>
-          <i role="img" aria-label="arrow to">
-            <Icon type="arrow-right" />
-          </i>
-          <span>Sepolia</span>
-        </div>
-        <div class="text-primary-content">0.342 ETH</div>
+  <button
+    class="f-between-center pb-[10px] border-b border-b-divider-border"
+    on:click={openDetails}
+    on:keydown={onItemKeydown}>
+    <div class="space-y-[5px]">
+      <div class="body-bold f-items-center space-x-[6px] text-white">
+        <span>Taiko</span>
+        <i role="img" aria-label="arrow to">
+          <Icon type="arrow-right" />
+        </i>
+        <span>Sepolia</span>
       </div>
-      <div class="f-items-center justify-end space-x-1">
-        <StatusDot type="pending" />
-        <span>{$t('activities.status.pending')}</span>
-      </div>
-    </li>
+      <div class="text-primary-content">0.342 ETH</div>
+    </div>
+    <div class="f-items-center justify-end space-x-1">
+      <StatusDot type="pending" />
+      <span>{$t('activities.status.pending')}</span>
+    </div>
+  </button>
 
-    <li
-      class="f-between-center pb-[10px] border-b border-b-divider-border"
-      on:click={openDetails}
-      on:keydown={onItemKeydown}>
-      <div class="space-y-[5px]">
-        <div class="body-bold f-items-center space-x-[6px] text-white">
-          <span>Taiko</span>
-          <i role="img" aria-label="arrow to">
-            <Icon type="arrow-right" />
-          </i>
-          <span>Sepolia</span>
-        </div>
-        <div class="text-primary-content">7 HORSE</div>
+  <button
+    class="f-between-center pb-[10px] border-b border-b-divider-border"
+    on:click={openDetails}
+    on:keydown={onItemKeydown}>
+    <div class="space-y-[5px]">
+      <div class="body-bold f-items-center space-x-[6px] text-white">
+        <span>Taiko</span>
+        <i role="img" aria-label="arrow to">
+          <Icon type="arrow-right" />
+        </i>
+        <span>Sepolia</span>
       </div>
-      <div class="f-items-center justify-end space-x-1">
-        <button class="status-btn w-full">
-          {$t('activities.button.claim')}
-        </button>
-      </div>
-    </li>
+      <div class="text-primary-content">7 HORSE</div>
+    </div>
+    <div class="f-items-center justify-end space-x-1">
+      <button class="status-btn w-full">
+        {$t('activities.button.claim')}
+      </button>
+    </div>
+  </button>
 
-    <li
-      class="f-between-center pb-[10px] border-b border-b-divider-border"
-      on:click={openDetails}
-      on:keydown={onItemKeydown}>
-      <div class="space-y-[5px]">
-        <div class="body-bold f-items-center space-x-[6px] text-white">
-          <span>Taiko</span>
-          <i role="img" aria-label="arrow to">
-            <Icon type="arrow-right" />
-          </i>
-          <span>Sepolia</span>
-        </div>
-        <div class="text-primary-content">3 BLL</div>
+  <button
+    class="f-between-center pb-[10px] border-b border-b-divider-border"
+    on:click={openDetails}
+    on:keydown={onItemKeydown}>
+    <div class="space-y-[5px]">
+      <div class="body-bold f-items-center space-x-[6px] text-white">
+        <span>Taiko</span>
+        <i role="img" aria-label="arrow to">
+          <Icon type="arrow-right" />
+        </i>
+        <span>Sepolia</span>
       </div>
-      <div class="f-items-center justify-end space-x-1">
-        <button class="status-btn w-full">
-          {$t('activities.button.retry')}
-        </button>
-      </div>
-    </li>
+      <div class="text-primary-content">3 BLL</div>
+    </div>
+    <div class="f-items-center justify-end space-x-1">
+      <button class="status-btn w-full">
+        {$t('activities.button.retry')}
+      </button>
+    </div>
+  </button>
 
-    <li
-      class="f-between-center pb-[10px] border-b border-b-divider-border"
-      on:click={openDetails}
-      on:keydown={onItemKeydown}>
-      <div class="space-y-[5px]">
-        <div class="body-bold f-items-center space-x-[6px] text-white">
-          <span>Sepolia</span>
-          <i role="img" aria-label="arrow to">
-            <Icon type="arrow-right" />
-          </i>
-          <span>Taiko</span>
-        </div>
-        <div class="text-primary-content">3.204 ETH</div>
+  <button
+    class="f-between-center pb-[10px] border-b border-b-divider-border"
+    on:click={openDetails}
+    on:keydown={onItemKeydown}>
+    <div class="space-y-[5px]">
+      <div class="body-bold f-items-center space-x-[6px] text-white">
+        <span>Sepolia</span>
+        <i role="img" aria-label="arrow to">
+          <Icon type="arrow-right" />
+        </i>
+        <span>Taiko</span>
       </div>
-      <div class="f-items-center justify-end space-x-1">
-        <StatusDot type="success" />
-        <span>{$t('activities.status.claimed')}</span>
-      </div>
-    </li>
+      <div class="text-primary-content">3.204 ETH</div>
+    </div>
+    <div class="f-items-center justify-end space-x-1">
+      <StatusDot type="success" />
+      <span>{$t('activities.status.claimed')}</span>
+    </div>
+  </button>
 
-    <li
-      class="f-between-center pb-[10px] border-b border-b-divider-border"
-      on:click={openDetails}
-      on:keydown={onItemKeydown}>
-      <div class="space-y-[5px]">
-        <div class="body-bold f-items-center space-x-[6px] text-white">
-          <span>Sepolia</span>
-          <i role="img" aria-label="arrow to">
-            <Icon type="arrow-right" />
-          </i>
-          <span>Taiko</span>
-        </div>
-        <div class="text-primary-content">2.5 BLL</div>
+  <button
+    class="f-between-center pb-[10px] border-b border-b-divider-border"
+    on:click={openDetails}
+    on:keydown={onItemKeydown}>
+    <div class="space-y-[5px]">
+      <div class="body-bold f-items-center space-x-[6px] text-white">
+        <span>Sepolia</span>
+        <i role="img" aria-label="arrow to">
+          <Icon type="arrow-right" />
+        </i>
+        <span>Taiko</span>
       </div>
-      <div class="f-items-center justify-end space-x-1">
-        <StatusDot type="error" />
-        <span>{$t('activities.status.failed')}</span>
-      </div>
-    </li>
+      <div class="text-primary-content">2.5 BLL</div>
+    </div>
+    <div class="f-items-center justify-end space-x-1">
+      <StatusDot type="error" />
+      <span>{$t('activities.status.failed')}</span>
+    </div>
+  </button>
 
-    <li
-      class="f-between-center pb-[10px] border-b border-b-divider-border"
-      on:click={openDetails}
-      on:keydown={onItemKeydown}>
-      <div class="space-y-[5px]">
-        <div class="body-bold f-items-center space-x-[6px] text-white">
-          <span>Taiko</span>
-          <i role="img" aria-label="arrow to">
-            <Icon type="arrow-right" />
-          </i>
-          <span>Sepolia</span>
-        </div>
-        <div class="text-primary-content">1.203 HORSE</div>
+  <button
+    class="f-between-center pb-[10px] border-b border-b-divider-border"
+    on:click={openDetails}
+    on:keydown={onItemKeydown}>
+    <div class="space-y-[5px]">
+      <div class="body-bold f-items-center space-x-[6px] text-white">
+        <span>Taiko</span>
+        <i role="img" aria-label="arrow to">
+          <Icon type="arrow-right" />
+        </i>
+        <span>Sepolia</span>
       </div>
-      <div class="f-items-center justify-end space-x-1">
-        <button class="status-btn w-full">
-          {$t('activities.button.release')}
-        </button>
-      </div>
-    </li>
-  </ul>
+      <div class="text-primary-content">1.203 HORSE</div>
+    </div>
+    <div class="f-items-center justify-end space-x-1">
+      <button class="status-btn w-full">
+        {$t('activities.button.release')}
+      </button>
+    </div>
+  </button>
 
   <dialog id={dialogId} class="modal modal-bottom" class:modal-open={detailsOpen}>
     <div class="modal-box relative px-6 py-[30px] bg-neutral-background">
