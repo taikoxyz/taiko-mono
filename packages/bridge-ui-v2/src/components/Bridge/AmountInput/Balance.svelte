@@ -10,7 +10,8 @@
 
   import { destNetwork, selectedToken } from '../state';
 
-  let tokenBalance: Maybe<FetchBalanceResult>;
+  export let value: Maybe<FetchBalanceResult>;
+
   let computingTokenBalance = false;
   let errorComputingTokenBalance = false;
 
@@ -21,14 +22,14 @@
     errorComputingTokenBalance = false;
 
     try {
-      tokenBalance = await getTokenBalance({
+      value = await getTokenBalance({
         token,
         destChainId,
         userAddress: account.address,
         chainId: srcChainId,
       });
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error(err);
       errorComputingTokenBalance = true;
     } finally {
       computingTokenBalance = false;
@@ -50,7 +51,7 @@
       <LoadingText mask="0.0000" />
       <LoadingText mask="XXX" />
     {:else}
-      {renderTokenBalance(tokenBalance)}
+      {renderTokenBalance(value)}
     {/if}
   </span>
 </div>

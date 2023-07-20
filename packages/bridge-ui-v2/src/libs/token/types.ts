@@ -1,4 +1,4 @@
-import type { Address } from 'abitype';
+import type { Address } from 'viem';
 
 export type Token = {
   name: string;
@@ -14,7 +14,6 @@ export type TokenEnv = {
 };
 
 export enum MintableError {
-  NOT_CONNECTED = 'NOT_CONNECTED',
   TOKEN_MINTED = 'TOKEN_MINTED',
   INSUFFICIENT_BALANCE = 'INSUFFICIENT_BALANCE',
 }

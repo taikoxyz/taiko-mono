@@ -45,24 +45,15 @@ describe('checkMintable', () => {
     vi.mocked(getPublicClient).mockReturnValue(mockPublicClient);
   });
 
-  it('should throw when wallet is not connected', async () => {
-    vi.mocked(getWalletClient).mockResolvedValueOnce(null);
-
-    try {
-      await checkMintable(BLLToken, mainnetChain);
-      expect.fail('should have thrown');
-    } catch (error) {
-      const { cause } = error as Error;
-      expect(cause).toBe(MintableError.NOT_CONNECTED);
-      expect(getWalletClient).toHaveBeenCalledWith({ chainId: mainnetChain.id });
-    }
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
   it('should throw when user has already minted', async () => {
     vi.mocked(mockTokenContract.read.minters).mockResolvedValueOnce(true);
 
     try {
-      await checkMintable(BLLToken, mainnetChain);
+      await checkMintable(BLLToken, mainnetChain.id);
       expect.fail('should have thrown');
     } catch (error) {
       const { cause } = error as Error;
@@ -91,12 +82,12 @@ describe('checkMintable', () => {
     vi.mocked(mockPublicClient.getBalance).mockResolvedValueOnce(BigInt(100));
 
     try {
-      await checkMintable(BLLToken, mainnetChain);
+      await checkMintable(BLLToken, mainnetChain.id);
       expect.fail('should have thrown');
     } catch (error) {
       const { cause } = error as Error;
       expect(cause).toBe(MintableError.INSUFFICIENT_BALANCE);
-      expect(getPublicClient).toHaveBeenCalledWith({ chainId: mainnetChain.id });
+      expect(getPublicClient).toHaveBeenCalled();
       expect(mockTokenContract.estimateGas.mint).toHaveBeenCalledWith([mockWalletClient.account.address]);
       expect(mockPublicClient.getBalance).toHaveBeenCalledWith({ address: mockWalletClient.account.address });
     }
@@ -117,7 +108,7 @@ describe('checkMintable', () => {
     vi.mocked(mockPublicClient.getBalance).mockResolvedValueOnce(BigInt(300));
 
     try {
-      await checkMintable(BLLToken, mainnetChain);
+      await checkMintable(BLLToken, mainnetChain.id);
     } catch (error) {
       expect.fail('should not have thrown');
     }
