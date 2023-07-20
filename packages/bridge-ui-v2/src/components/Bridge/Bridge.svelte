@@ -12,9 +12,9 @@
   import type { Account } from '$stores/account';
   import { type Network, network } from '$stores/network';
 
-  import { AmountInput } from './AmountInput';
+  import { Amount } from './Amount';
   import { ProcessingFee } from './ProcessingFee';
-  import { RecipientInput } from './RecipientInput';
+  import { Recipient } from './Recipient';
   import { destNetwork, selectedToken } from './state';
   import SwitchChainsButton from './SwitchChainsButton.svelte';
 
@@ -45,7 +45,7 @@
         <TokenDropdown {tokens} bind:value={$selectedToken} />
       </div>
 
-      <AmountInput />
+      <Amount />
 
       <div class="f-justify-center">
         <SwitchChainsButton />

@@ -1,49 +1,68 @@
-// import { chainContractsMap, chains } from "$libs/chain";
-// import { isETH } from "$libs/token";
-// import { bridges } from "./bridges";
-// import { estimateCostOfBridging } from "./estimateCostOfBridging";
-// import type { ERC20BridgeArgs, ETHBridgeArgs } from "./types";
+import { type Address, zeroAddress } from 'viem';
 
-// export async function hasEnoughBalanceToBridge({
-//   token,
-//   balance,
-//   srcChainId,
-//   userAddress,
-//   processingFee,
-//   destChainId,
-//   amount
-// }) {
-//   const to = userAddress;
-//   destChainId = destChainId ?? chains.find((chain) => chain.id !== srcChainId)?.id,
+import { chainContractsMap } from '$libs/chain';
+import { getAddress, isETH, type Token } from '$libs/token';
+import { isDeployedCrossChain } from '$libs/token/isDeployedCrossChain';
 
-//   if (isETH(token)) {
+import { bridges } from './bridges';
+import { estimateCostOfBridging } from './estimateCostOfBridging';
+import type { ERC20BridgeArgs, ETHBridgeArgs } from './types';
 
-//     const { bridgeAddress } = chainContractsMap[srcChainId.toString()];
+type HasEnoughBalanceToBridgeArgs = {
+  to: Address;
+  token: Token;
+  amount: bigint;
+  balance: bigint;
+  srcChainId: number;
+  destChainId: number;
+  processingFee?: bigint;
+};
 
-//     const bridgeArgs = {
-//       to,
-//       amount,
-//       srcChainId,
-//       bridgeAddress,
-//       processingFee,
-//       destChainId,
-//     } as ETHBridgeArgs;
+export async function hasEnoughBalanceToBridge({
+  to,
+  token,
+  amount,
+  balance,
+  srcChainId,
+  destChainId,
+  processingFee,
+}: HasEnoughBalanceToBridgeArgs) {
+  if (isETH(token)) {
+    const { bridgeAddress } = chainContractsMap[srcChainId];
 
-//     const estimatedCost = await estimateCostOfBridging(bridges.ETH, bridgeArgs);
+    const bridgeArgs = {
+      to,
+      amount,
+      srcChainId,
+      destChainId,
+      bridgeAddress,
+      processingFee,
+    } as ETHBridgeArgs;
 
-//     return balance - processingFee - amount > estimatedCost
-//   } else {
-//     // const {  }
+    const estimatedCost = await estimateCostOfBridging(bridges.ETH, bridgeArgs);
 
-//     // const bridgeArgs = {
-//     //   to,
-//     //   amount,
-//     //   srcChainId,
-//     //   bridgeAddress,
-//     //   processingFee,
-//     //   destChainId,
-//     // } as ERC20BridgeArgs;
+    return balance - amount > estimatedCost;
+  } else {
+    const { tokenVaultAddress } = chainContractsMap[srcChainId];
+    const tokenAddress = await getAddress({ token, srcChainId, destChainId });
 
-//     // const estimatedCost = await estimateCostOfBridging(bridges.ERC20, bridgeArgs);
-//   }
-// }
+    if (!tokenAddress || tokenAddress === zeroAddress) return false;
+
+    const isTokenAlreadyDeployed = await isDeployedCrossChain({ token, destChainId, srcChainId });
+
+    const bridgeArgs = {
+      to,
+      amount,
+      srcChainId,
+      destChainId,
+      processingFee,
+      tokenAddress,
+      tokenVaultAddress,
+      isTokenAlreadyDeployed,
+    } as ERC20BridgeArgs;
+
+    const estimatedCost = await estimateCostOfBridging(bridges.ERC20, bridgeArgs);
+
+    return balance - amount > estimatedCost;
+  }
+}

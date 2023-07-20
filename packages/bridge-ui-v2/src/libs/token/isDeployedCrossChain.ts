@@ -8,40 +8,43 @@ import { getLogger } from '$libs/util/logger';
 
 type IsTokenDeployedCrossChainArgs = {
   token: Token;
-  srcChainId: number;
   destChainId: number;
+  srcChainId: number;
 };
 
 const log = getLogger('token:isDeployedCrossChain');
 
-export async function isDeployedCrossChain({ token, srcChainId, destChainId }: IsTokenDeployedCrossChainArgs) {
-  const { tokenVaultAddress } = chainContractsMap[destChainId.toString()];
-
-  const destTokenVaultContract = getContract({
-    chainId: destChainId,
-    abi: tokenVaultABI,
-    address: tokenVaultAddress,
-  });
-
+export async function isDeployedCrossChain({ token, destChainId, srcChainId }: IsTokenDeployedCrossChainArgs) {
   const destTokenAddressOnDestChain = token.addresses[destChainId];
 
   if (destTokenAddressOnDestChain === zeroAddress) {
+    const { tokenVaultAddress } = chainContractsMap[destChainId];
+
+    const destTokenVaultContract = getContract({
+      abi: tokenVaultABI,
+      chainId: destChainId,
+      address: tokenVaultAddress,
+    });
+
     // Check if token is already deployed as BridgedERC20 on destination chain
     const srcTokenAddressOnSourceChain = token.addresses[srcChainId];
 
-    log('Checking if token', token, 'is deployed as BridgedERC20 on destination chain', destChainId);
+    log(`Checking if token ${token.symbol} is deployed as BridgedERC20 on destination chain ${destChainId}`);
 
-    const bridgedTokenAddress = await destTokenVaultContract.read.canonicalToBridged([
-      BigInt(srcChainId),
-      srcTokenAddressOnSourceChain,
-    ]);
+    try {
+      const bridgedTokenAddress = await destTokenVaultContract.read.canonicalToBridged([
+        BigInt(srcChainId),
+        srcTokenAddressOnSourceChain,
+      ]);
 
-    log(`Address of bridged token "${bridgedTokenAddress}"`);
+      log(`Address of bridged token "${bridgedTokenAddress}"`);
 
-    if (bridgedTokenAddress !== zeroAddress) {
-      return true;
+      return bridgedTokenAddress !== zeroAddress;
+    } catch (err) {
+      console.error(err);
+      return false;
     }
   }
 
-  return false;
+  return true;
 }

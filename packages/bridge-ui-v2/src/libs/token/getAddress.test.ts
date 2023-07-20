@@ -1,5 +1,4 @@
 import { getContract, type GetContractResult } from '@wagmi/core';
-import { zeroAddress } from 'viem';
 
 import { tokenVaultABI } from '$abi';
 import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID } from '$env/static/public';
@@ -25,8 +24,8 @@ describe('getAddress', () => {
     vi.mocked(getContract).mockReturnValue(mockTokenContract);
   });
 
-  it('should return zeroAddress if ETH', async () => {
-    expect(await getAddress({ token: ETHToken, srcChainId: Number(PUBLIC_L1_CHAIN_ID) })).toEqual(zeroAddress);
+  it('should return undefined if ETH', async () => {
+    expect(await getAddress({ token: ETHToken, srcChainId: Number(PUBLIC_L1_CHAIN_ID) })).toBeUndefined();
   });
 
   it('should return the address if ERC20 and has address on the source chain', async () => {

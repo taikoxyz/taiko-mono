@@ -46,14 +46,18 @@
     // During loading state we make sure the user cannot use this function
     if (checkingMintable || minting) return;
 
-    // A token and a source chain must be selected in order to be able to mint
-    if (!selectedToken || !$network) return;
+    // Token, source chain and user address are needed to mint
+    if (!selectedToken || !$network || !$account?.address) return;
 
     // Let's begin the minting process
     minting = true;
 
     try {
-      const txHash = await mint(selectedToken);
+      const txHash = await mint({
+        token: selectedToken,
+        chainId: $network.id,
+        userAddress: $account.address,
+      });
 
       successToast(
         $t('faucet.minting_tx', {

@@ -9,29 +9,36 @@ import { estimateCostOfBridging } from './estimateCostOfBridging';
 import type { ETHBridgeArgs } from './types';
 
 type GetMaxToBridgeArgs = {
+  to: Address;
   token: Token;
   balance: bigint;
-  srcChainId: number;
-  userAddress: Address;
-  processingFee: bigint;
-  destChainId?: number;
   amount?: bigint;
+  srcChainId?: number;
+  destChainId?: number;
+  processingFee?: bigint;
 };
 
 const log = getLogger('bridge:getMaxAmountToBridge');
 
 export async function getMaxAmountToBridge({
+  to,
   token,
+  amount,
   balance,
   srcChainId,
-  userAddress,
-  processingFee,
   destChainId,
-  amount,
+  processingFee,
 }: GetMaxToBridgeArgs) {
+  // For ERC20 tokens, we can bridge the whole balance
+  let maxAmount = balance;
+
   if (isETH(token)) {
-    const to = userAddress;
-    const { bridgeAddress } = chainContractsMap[srcChainId.toString()];
+    // We cannot really compute the cost of bridging ETH without
+    if (!to || !srcChainId || !destChainId) {
+      throw Error('missing required arguments to compute cost');
+    }
+
+    const { bridgeAddress } = chainContractsMap[srcChainId];
 
     const bridgeArgs = {
       to,
@@ -46,9 +53,9 @@ export async function getMaxAmountToBridge({
 
     log('Estimated cost of bridging', estimatedCost, 'with argument', bridgeArgs);
 
-    return balance - processingFee - estimatedCost;
+    // We also need to take into account the processing fee if any
+    maxAmount = balance - estimatedCost - (processingFee ?? BigInt(0));
   }
 
-  // For ERC20 tokens, we can bridge the whole balance
-  return balance;
+  return maxAmount;
 }

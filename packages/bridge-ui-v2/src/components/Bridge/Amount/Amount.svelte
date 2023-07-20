@@ -6,8 +6,8 @@
   import Icon from '$components/Icon/Icon.svelte';
   import { InputBox } from '$components/InputBox';
   import { warningToast } from '$components/NotificationToast';
-  import { bridges, estimateCostOfBridging, type ETHBridgeArgs } from '$libs/bridge';
-  import { getMaxAmountToBridge } from '$libs/bridge/getMaxAmountToBridge';
+  import { bridges, estimateCostOfBridging, type ETHBridgeArgs, hasEnoughBalanceToBridge } from '$libs/bridge';
+  import { getMaxAmountToBridge } from '$libs/bridge';
   import { chainContractsMap } from '$libs/chain';
   import { debounce } from '$libs/util/debounce';
   import { uid } from '$libs/util/uid';
@@ -24,61 +24,26 @@
   let computingMaxAmount = false;
   let errorAmount = false;
 
-  // Let's get the max amount to bridge and see if it's less
-  // than what the user has entered. For ETH, will actually get an error
-  // when trying to get that max amount, if the user has entered too much ETH
   async function checkEnteredAmount() {
-    if (
-      !$selectedToken ||
-      !$network ||
-      !$account?.address ||
-      $enteredAmount === BigInt(0) // why to even bother, right?
-    ) {
-      errorAmount = false;
-      return;
-    }
+    errorAmount = false;
+
+    if (!$selectedToken || !$network || !$destNetwork || !$account?.address) return;
 
     try {
-      // const maxAmount = await getMaxAmountToBridge({
-      //   token: $selectedToken,
-      //   balance: tokenBalance.value,
-      //   processingFee: $processingFee,
-      //   srcChainId: $network.id,
-      //   destChainId: $destNetwork?.id,
-      //   userAddress: $account.address,
-      //   amount: $enteredAmount,
-      // });
-
-      const { bridgeAddress } = chainContractsMap[$network.id.toString()];
-
-      const bridgeArgs = {
+      const hasEnough = await hasEnoughBalanceToBridge({
         to: $account.address,
-        srcChainId: $network.id,
-        bridgeAddress,
-        processingFee: $processingFee,
-
+        token: $selectedToken,
         amount: $enteredAmount,
+        balance: tokenBalance.value,
+        srcChainId: $network.id,
+        destChainId: $destNetwork.id,
+        processingFee: $processingFee,
+      });
 
-        // If no destination chain is selected, find another chain to estimate
-        // TODO: we might want to really find a compatible chain to bridge to
-        //       if we have multiple layers
-        destChainId: $destNetwork?.id,
-      } as ETHBridgeArgs;
-
-      const estimatedCost = await estimateCostOfBridging(bridges.ETH, bridgeArgs);
-
-      if (tokenBalance.value - $enteredAmount > estimatedCost) {
-        errorAmount = true;
-      }
+      errorAmount = !hasEnough;
     } catch (err) {
       console.error(err);
-
-      // Viem will throw an error that contains the following message, indicating
-      // that the user won't have enough to pay the transaction
-      // TODO: better way to handle this. Error codes?
-      if (`${err}`.toLocaleLowerCase().match('transaction exceeds the balance')) {
-        errorAmount = true;
-      }
+      errorAmount = true;
     }
   }
 
@@ -108,22 +73,23 @@
     $enteredAmount = amount;
   }
 
-  // Will trigger when the user clicks on the "Max" button
+  // "MAX" button handler
   async function useMaxAmount() {
     errorAmount = false;
 
+    // We cannot calculate the max amount without these guys
     if (!$selectedToken || !$network || !$destNetwork || !$account?.address) return;
 
     computingMaxAmount = true;
 
     try {
       const maxAmount = await getMaxAmountToBridge({
+        to: $account.address,
         token: $selectedToken,
         balance: tokenBalance.value,
         processingFee: $processingFee,
         srcChainId: $network.id,
         destChainId: $destNetwork.id,
-        userAddress: $account.address,
         amount: BigInt(1), // whatever amount to estimate the cost
       });
 
