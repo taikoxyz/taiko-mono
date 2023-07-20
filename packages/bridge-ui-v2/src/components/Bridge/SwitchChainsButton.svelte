@@ -4,11 +4,22 @@
   import { Icon } from '$components/Icon';
 
   import { destNetwork } from './state';
+  import { UserRejectedRequestError } from 'viem';
+  import { warningToast } from '$components/NotificationToast';
+  import { t } from 'svelte-i18n';
 
   async function switchToDestChain() {
     if (!$destNetwork) return;
 
-    await switchNetwork({ chainId: $destNetwork.id });
+    try {
+      await switchNetwork({ chainId: $destNetwork.id });
+    } catch (err) {
+      console.error(err);
+
+      if (err instanceof UserRejectedRequestError) {
+        warningToast($t('messages.network.rejected'));
+      }
+    }
   }
 </script>
 
