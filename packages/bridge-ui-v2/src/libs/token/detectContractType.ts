@@ -50,7 +50,8 @@ export async function detectContractType(contractAddress: string) {
       console.info('ERC1155');
       return 'ERC1155';
     } catch (err) {
-      console.error(err);
+      // eslint-disable-next-line no-console
+      console.log(err);
       return 'UNKNOWN';
     }
   }
