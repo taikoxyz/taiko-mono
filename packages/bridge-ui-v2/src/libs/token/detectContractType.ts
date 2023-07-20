@@ -1,6 +1,8 @@
 import { readContract } from '@wagmi/core';
 
 export async function detectContractType(contractAddress: string) {
+  // eslint-disable-next-line no-console
+  console.info('detectContractType', contractAddress);
   const ERC721_ABI = [
     {
       constant: true,
