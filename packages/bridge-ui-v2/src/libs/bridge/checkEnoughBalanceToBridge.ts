@@ -6,7 +6,7 @@ import { isDeployedCrossChain } from '$libs/token/isDeployedCrossChain';
 
 import { bridges } from './bridges';
 import { estimateCostOfBridging } from './estimateCostOfBridging';
-import type { ERC20BridgeArgs, ETHBridgeArgs } from './types';
+import type { BridgeArgs, ERC20BridgeArgs, ETHBridgeArgs } from './types';
 
 type HasEnoughBalanceToBridgeArgs = {
   to: Address;
@@ -27,21 +27,23 @@ export async function hasEnoughBalanceToBridge({
   destChainId,
   processingFee,
 }: HasEnoughBalanceToBridgeArgs) {
+  let estimatedCost = BigInt(0);
+
+  const bridgeArgs = {
+    to,
+    amount,
+    srcChainId,
+    destChainId,
+    processingFee,
+  } as BridgeArgs;
+
   if (isETH(token)) {
     const { bridgeAddress } = chainContractsMap[srcChainId];
 
-    const bridgeArgs = {
-      to,
-      amount,
-      srcChainId,
-      destChainId,
+    estimatedCost = await estimateCostOfBridging(bridges.ETH, {
+      ...bridgeArgs,
       bridgeAddress,
-      processingFee,
-    } as ETHBridgeArgs;
-
-    const estimatedCost = await estimateCostOfBridging(bridges.ETH, bridgeArgs);
-
-    return balance - amount > estimatedCost;
+    } as ETHBridgeArgs);
   } else {
     const { tokenVaultAddress } = chainContractsMap[srcChainId];
     const tokenAddress = await getAddress({ token, srcChainId, destChainId });
@@ -50,19 +52,13 @@ export async function hasEnoughBalanceToBridge({
 
     const isTokenAlreadyDeployed = await isDeployedCrossChain({ token, destChainId, srcChainId });
 
-    const bridgeArgs = {
-      to,
-      amount,
-      srcChainId,
-      destChainId,
-      processingFee,
+    estimatedCost = await estimateCostOfBridging(bridges.ERC20, {
+      ...bridgeArgs,
       tokenAddress,
       tokenVaultAddress,
       isTokenAlreadyDeployed,
-    } as ERC20BridgeArgs;
-
-    const estimatedCost = await estimateCostOfBridging(bridges.ERC20, bridgeArgs);
-
-    return balance - amount > estimatedCost;
+    } as ERC20BridgeArgs);
   }
+
+  return balance - amount > estimatedCost;
 }

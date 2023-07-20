@@ -1,12 +1,12 @@
 <script lang="ts">
   import { switchNetwork } from '@wagmi/core';
+  import { t } from 'svelte-i18n';
+  import { UserRejectedRequestError } from 'viem';
 
   import { Icon } from '$components/Icon';
+  import { warningToast } from '$components/NotificationToast';
 
   import { destNetwork } from './state';
-  import { UserRejectedRequestError } from 'viem';
-  import { warningToast } from '$components/NotificationToast';
-  import { t } from 'svelte-i18n';
 
   async function switchToDestChain() {
     if (!$destNetwork) return;

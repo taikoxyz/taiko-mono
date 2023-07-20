@@ -27,7 +27,15 @@
   async function checkEnteredAmount() {
     errorAmount = false;
 
-    if (!$selectedToken || !$network || !$destNetwork || !$account?.address) return;
+    if (
+      !$selectedToken ||
+      !$network ||
+      !$destNetwork ||
+      !$account?.address ||
+      !$enteredAmount ||
+      $enteredAmount === BigInt(0)
+    )
+      return;
 
     try {
       const hasEnough = await hasEnoughBalanceToBridge({
