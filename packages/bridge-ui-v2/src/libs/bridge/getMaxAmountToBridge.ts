@@ -2,6 +2,7 @@ import type { Address } from 'viem';
 
 import { chainContractsMap } from '$libs/chain';
 import { isETH, type Token } from '$libs/token';
+import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { getLogger } from '$libs/util/logger';
 
 import { bridges } from './bridges';
@@ -38,11 +39,13 @@ export async function getMaxAmountToBridge({
       throw Error('missing required arguments to compute cost');
     }
 
+    const wallet = await getConnectedWallet();
     const { bridgeAddress } = chainContractsMap[srcChainId];
 
     const bridgeArgs = {
       to,
       amount,
+      wallet,
       srcChainId,
       destChainId,
       bridgeAddress,

@@ -1,3 +1,4 @@
+import type { WalletClient } from '@wagmi/core';
 import type { Address, Hex } from 'viem';
 
 export enum BridgeType {
@@ -75,6 +76,7 @@ export type ApproveArgs = {
 
 export type BridgeArgs = {
   to: Address;
+  wallet: WalletClient;
   srcChainId: number;
   destChainId: number;
   amount: bigint;
@@ -90,6 +92,13 @@ export type ERC20BridgeArgs = BridgeArgs & {
   tokenAddress: Address;
   tokenVaultAddress: Address;
   isTokenAlreadyDeployed?: boolean;
+};
+
+export type RequireAllowanceArgs = {
+  tokenAddress: Address;
+  ownerAddress: Address;
+  spenderAddress: Address;
+  amount: bigint;
 };
 
 export interface Bridge {

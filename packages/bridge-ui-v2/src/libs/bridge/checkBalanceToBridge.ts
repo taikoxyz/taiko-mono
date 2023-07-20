@@ -4,6 +4,7 @@ import { chainContractsMap } from '$libs/chain';
 import { InsufficientAllowanceError, InsufficientBalanceError } from '$libs/error';
 import { getAddress, isETH, type Token } from '$libs/token';
 import { isDeployedCrossChain } from '$libs/token/isDeployedCrossChain';
+import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 
 import { bridges } from './bridges';
 import { estimateCostOfBridging } from './estimateCostOfBridging';
@@ -28,11 +29,13 @@ export async function checkBalanceToBridge({
   destChainId,
   processingFee,
 }: HasEnoughBalanceToBridgeArgs) {
+  const wallet = await getConnectedWallet();
   let estimatedCost = BigInt(0);
 
   const bridgeArgs = {
     to,
     amount,
+    wallet,
     srcChainId,
     destChainId,
     processingFee,
