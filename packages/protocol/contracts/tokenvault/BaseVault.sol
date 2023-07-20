@@ -53,10 +53,6 @@ abstract contract BaseVault is EssentialContract {
     error VAULT_INVALID_SRC_CHAIN_ID();
 
     /**
-     * Thrown when the new proxy owner is zero address.
-     */
-    error VAULT_INVALID_PROXY_OWNER();
-    /**
      * Thrown when the interface (ERC1155/ERC721) is not supported.
      */
     error VAULT_INTERFACE_NOT_SUPPORTED();

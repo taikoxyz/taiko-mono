@@ -100,14 +100,6 @@ contract ERC20Vault is BaseVault {
         bytes32 indexed msgHash,
         address indexed from,
         address token,
-        uint256[] tokenIds,
-        uint256[] amounts
-    );
-
-    event TokenReleased(
-        bytes32 indexed msgHash,
-        address indexed from,
-        address token,
         uint256 amount
     );
 
