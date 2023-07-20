@@ -1,6 +1,7 @@
 import { getContract, getPublicClient } from '@wagmi/core';
 
 import { freeMintErc20ABI } from '$abi';
+import { InsufficientBalanceError, TokenMintedError } from '$libs/error';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 
 import type { Token } from './types';
@@ -22,7 +23,7 @@ export async function checkMintable(token: Token, chainId: number) {
   const hasMinted = await tokenContract.read.minters([userAddress]);
 
   if (hasMinted) {
-    throw Error(`token already minted`);
+    throw new TokenMintedError();
   }
 
   // Check whether the user has enough balance to mint.
@@ -36,6 +37,6 @@ export async function checkMintable(token: Token, chainId: number) {
   const userBalance = await publicClient.getBalance({ address: userAddress });
 
   if (estimatedCost > userBalance) {
-    throw Error('insufficient balance');
+    throw new InsufficientBalanceError();
   }
 }

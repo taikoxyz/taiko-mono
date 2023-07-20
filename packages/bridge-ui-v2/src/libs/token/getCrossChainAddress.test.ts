@@ -1,5 +1,5 @@
 describe('getCrossChainAddress', () => {
   it('TODO', () => {
-    expect(true).toBeTruthy()
-  })
-})
+    expect(true).toBeTruthy();
+  });
+});

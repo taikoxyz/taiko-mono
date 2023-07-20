@@ -10,9 +10,9 @@ type GetCrossChainAddressArgs = {
   token: Token;
   srcChainId: number;
   destChainId: number;
-}
+};
 
-export function getCrossChainAddress({token, srcChainId, destChainId}: GetCrossChainAddressArgs) {
+export function getCrossChainAddress({ token, srcChainId, destChainId }: GetCrossChainAddressArgs) {
   if (isETH(token)) return; // ETH doesn't have an address
 
   const { tokenVaultAddress } = chainContractsMap[destChainId];

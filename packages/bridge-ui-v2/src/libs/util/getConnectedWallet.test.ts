@@ -1,5 +1,5 @@
 describe('getConnectedWallet', () => {
   it('TODO', () => {
-    expect(true).toBeTruthy()
-  })
-})
+    expect(true).toBeTruthy();
+  });
+});

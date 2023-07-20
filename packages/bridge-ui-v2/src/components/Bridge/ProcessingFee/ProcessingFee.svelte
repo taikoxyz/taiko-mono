@@ -235,7 +235,7 @@
         <Button
           on:click={cancelModal}
           type="neutral"
-          class="px-[28px] py-[10px] rounded-full w-auto bg-transparent border border-primary-brand hover:border-primary-interactive-hover">
+          class="px-[28px] py-[10px] rounded-full w-auto bg-transparent !border border-primary-brand hover:border-primary-interactive-hover">
           <span class="body-bold">{$t('processing_fee.button.cancel')}</span>
         </Button>
         <Button type="primary" class="px-[28px] py-[10px] rounded-full w-auto" on:click={closeModal}>

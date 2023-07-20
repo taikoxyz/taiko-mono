@@ -18,7 +18,7 @@
 
   "processing_fee": {
     "title": "Processing fee",
-    "link": "Edit",
+    "link": "Customize fee",
     "recommended": {
       "label": "Recommended",
       "calculating": "Calculating",
@@ -92,7 +92,10 @@
       "max": "Max",
       "failed_max": "Coult not estimate max amount to bridge."
     },
-    "error.insufficient_balance": "Insufficient balance"
+    "error": {
+      "insufficient_balance": "Insufficient balance",
+      "insufficient_allowance": "Insufficient allowance"
+    }
   },
 
   "chain_selector": {

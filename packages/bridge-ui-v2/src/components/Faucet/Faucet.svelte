@@ -11,7 +11,8 @@
   import { successToast, warningToast } from '$components/NotificationToast';
   import { TokenDropdown } from '$components/TokenDropdown';
   import { PUBLIC_L1_CHAIN_ID, PUBLIC_L1_CHAIN_NAME, PUBLIC_L1_EXPLORER_URL } from '$env/static/public';
-  import { MintableError, testERC20Tokens, type Token } from '$libs/token';
+  import { InsufficientBalanceError, TokenMintedError } from '$libs/error';
+  import { testERC20Tokens, type Token } from '$libs/token';
   import { checkMintable, mint } from '$libs/token';
   import { account } from '$stores/account';
   import { network } from '$stores/network';
@@ -102,13 +103,11 @@
     } catch (err) {
       console.error(err);
 
-      const { cause } = err as Error;
-
-      switch (cause) {
-        case MintableError.INSUFFICIENT_BALANCE:
+      switch (true) {
+        case err instanceof InsufficientBalanceError:
           reasonNotMintable = $t('faucet.warning.insufficient_balance');
           break;
-        case MintableError.TOKEN_MINTED:
+        case err instanceof TokenMintedError:
           reasonNotMintable = $t('faucet.warning.token_minted');
           break;
         default:
@@ -150,7 +149,7 @@
       <!-- We give the user an easier way to switch chains with this button -->
       <Button
         type="primary"
-        class="px-[28px] py-[14px] rounded-full"
+        class="px-[28px] py-[14px] rounded-full w-full"
         loading={switchingNetwork}
         on:click={switchNetworkToL1}>
         {#if switchingNetwork}
@@ -165,7 +164,7 @@
     {:else}
       <Button
         type="primary"
-        class="px-[28px] py-[14px] rounded-full"
+        class="px-[28px] py-[14px] rounded-full w-full"
         disabled={!mintButtonEnabled}
         loading={checkingMintable || minting}
         on:click={mintToken}>

@@ -9,6 +9,7 @@ import {
 
 import { freeMintErc20ABI } from '$abi';
 import { mainnetChain } from '$libs/chain';
+import { InsufficientBalanceError, TokenMintedError } from '$libs/error';
 
 import { checkMintable } from './checkMintable';
 import { testERC20Tokens } from './tokens';
@@ -55,7 +56,7 @@ describe('checkMintable', () => {
       await checkMintable(BLLToken, mainnetChain.id);
       expect.fail('should have thrown');
     } catch (error) {
-      expect(`${error}`).toBe('Error: token already minted')
+      expect(error).toBeInstanceOf(TokenMintedError);
       expect(getContract).toHaveBeenCalledWith({
         walletClient: mockWalletClient,
         abi: freeMintErc20ABI,
@@ -83,7 +84,7 @@ describe('checkMintable', () => {
       await checkMintable(BLLToken, mainnetChain.id);
       expect.fail('should have thrown');
     } catch (error) {
-      expect(`${error}`).toBe('Error: insufficient balance')
+      expect(error).toBeInstanceOf(InsufficientBalanceError);
       expect(getPublicClient).toHaveBeenCalled();
       expect(mockTokenContract.estimateGas.mint).toHaveBeenCalledWith([mockWalletClient.account.address]);
       expect(mockPublicClient.getBalance).toHaveBeenCalledWith({ address: mockWalletClient.account.address });
