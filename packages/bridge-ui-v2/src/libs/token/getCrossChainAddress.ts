@@ -6,7 +6,13 @@ import { chainContractsMap } from '$libs/chain';
 import { isETH } from './tokens';
 import type { Token } from './types';
 
-export function getCrossChainAddress(token: Token, srcChainId: number, destChainId: number) {
+type GetCrossChainAddressArgs = {
+  token: Token;
+  srcChainId: number;
+  destChainId: number;
+}
+
+export function getCrossChainAddress({token, srcChainId, destChainId}: GetCrossChainAddressArgs) {
   if (isETH(token)) return; // ETH doesn't have an address
 
   const { tokenVaultAddress } = chainContractsMap[destChainId];
