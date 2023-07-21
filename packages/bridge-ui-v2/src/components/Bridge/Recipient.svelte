@@ -1,15 +1,16 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
+  import { type Address, isAddress } from 'viem';
 
+  import { Button } from '$components/Button';
+  import { Icon } from '$components/Icon';
   import { InputBox } from '$components/InputBox';
   import { Tooltip } from '$components/Tooltip';
-  import { Button } from '$components/Button';
-  import { uid } from '$libs/util/uid';
-  import { Icon } from '$components/Icon';
-  import { account } from '$stores/account';
   import { shortenAddress } from '$libs/util/shortenAddress';
+  import { uid } from '$libs/util/uid';
+  import { account } from '$stores/account';
+
   import { recipientAddress } from './state';
-  import { isAddress, type Address } from 'viem';
 
   let dialogId = `dialog-${uid()}`;
 

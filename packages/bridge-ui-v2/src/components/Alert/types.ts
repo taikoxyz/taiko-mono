@@ -1,4 +1,4 @@
-import type { IconType } from "$components/Icon";
+import type { IconType } from '$components/Icon';
 
 export type AlertType = 'success' | 'warning' | 'error' | 'info';
 

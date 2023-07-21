@@ -10,11 +10,11 @@
   import { warningToast } from '$components/NotificationToast';
   import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID } from '$env/static/public';
   import { chains } from '$libs/chain';
+  import { classNames } from '$libs/util/classNames';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
-  import { classNames } from '$libs/util/classNames';
 
-  export let label: string = '';
+  export let label = '';
   export let value: Maybe<GetNetworkResult['chain']> = null;
   export let switchWallet = false;
   export let readOnly = false;

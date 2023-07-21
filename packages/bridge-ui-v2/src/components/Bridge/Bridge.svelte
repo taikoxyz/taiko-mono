@@ -1,7 +1,6 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
 
-  import { Button } from '$components/Button';
   import { Card } from '$components/Card';
   import { ChainSelector } from '$components/ChainSelector';
   import { OnAccount } from '$components/OnAccount';
@@ -12,7 +11,8 @@
   import type { Account } from '$stores/account';
   import { type Network, network } from '$stores/network';
 
-  import { Amount } from './Amount';
+  import Actions from './Actions.svelte';
+  import Amount from './Amount.svelte';
   import { ProcessingFee } from './ProcessingFee';
   import Recipient from './Recipient.svelte';
   import { destNetwork, selectedToken } from './state';
@@ -34,6 +34,14 @@
       $selectedToken = null;
       $destNetwork = null;
     }
+  }
+
+  function approve() {
+    // TODO
+  }
+
+  function bridge() {
+    // TODO
   }
 </script>
 
@@ -57,9 +65,7 @@
 
     <div class="h-sep" />
 
-    <Button type="primary" class="px-[28px] py-[14px] rounded-full w-full">
-      <span class="body-bold">{$t('bridge.button.bridge')}</span>
-    </Button>
+    <Actions {approve} {bridge} />
   </div>
 </Card>
 

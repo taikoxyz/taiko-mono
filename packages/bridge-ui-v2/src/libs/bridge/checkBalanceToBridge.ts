@@ -52,6 +52,7 @@ export async function checkBalanceToBridge({
     } catch (err) {
       console.error(err);
 
+      // TODO: rely on error code, or instance, instead of string matching
       if (`${err}`.includes('transaction exceeds the balance of the account')) {
         throw new InsufficientBalanceError('you do not have enough balance to bridge ETH', { cause: err });
       }
@@ -78,6 +79,7 @@ export async function checkBalanceToBridge({
     } catch (err) {
       console.error(err);
 
+      // TODO: same here. Error code or instance would be better
       if (`${err}`.includes('insufficient allowance')) {
         throw new InsufficientAllowanceError(`insufficient allowance for the amount ${amount}`, { cause: err });
       }

@@ -2,7 +2,7 @@
   import { classNames } from '$libs/util/classNames';
 
   import { Icon } from '../Icon';
-  import type { AlertType, AlertIconDetails } from './types';
+  import type { AlertIconDetails, AlertType } from './types';
 
   type AlertTypeDetails = AlertIconDetails & {
     textClass: string;

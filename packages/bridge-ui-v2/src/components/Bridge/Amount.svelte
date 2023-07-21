@@ -1,91 +1,119 @@
 <script lang="ts">
-  import type { FetchBalanceResult } from '@wagmi/core';
+  import type { Address, FetchBalanceResult } from '@wagmi/core';
   import { t } from 'svelte-i18n';
   import { formatUnits, parseUnits } from 'viem';
 
-  import Icon from '$components/Icon/Icon.svelte';
+  import { FlatAlert } from '$components/Alert';
   import { InputBox } from '$components/InputBox';
+  import { LoadingText } from '$components/LoadingText';
   import { warningToast } from '$components/NotificationToast';
   import { checkBalanceToBridge, getMaxAmountToBridge } from '$libs/bridge';
   import { InsufficientAllowanceError, InsufficientBalanceError } from '$libs/error';
+  import { getBalance as getTokenBalance, type Token } from '$libs/token';
   import { debounce } from '$libs/util/debounce';
+  import { truncateString } from '$libs/util/truncateString';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
   import { network } from '$stores/network';
 
-  import { destNetwork, enteredAmount, processingFee, recipientAddress, selectedToken } from '../state';
-  import Balance from './Balance.svelte';
-  import { FlatAlert } from '$components/Alert';
+  import {
+    computingBalance,
+    destNetwork,
+    enteredAmount,
+    errorComputingBalance,
+    insufficientAllowance,
+    insufficientBalance,
+    processingFee,
+    recipientAddress,
+    selectedToken,
+    tokenBalance,
+  } from './state';
 
   let inputId = `input-${uid()}`;
-  let tokenBalance: FetchBalanceResult;
   let inputBox: InputBox;
-
   let computingMaxAmount = false;
 
-  // There are two possible errors that can happen when the user
-  // enters an amount:
-  // 1. Insufficient balance
-  // 2. Insufficient allowance
-  // The first one is an error and the user cannot proceed. The second one
-  // is a warning but the user must approve allowance before bridging.
-  let insufficientBalance = false;
-  let insufficientAllowance = false;
+  async function validate(token: Maybe<Token>, amount: bigint, processingFee: bigint) {
+    $insufficientBalance = false;
+    $insufficientAllowance = false;
 
-  async function checkEnteredAmount() {
-    insufficientBalance = false;
-    insufficientAllowance = false;
+    const to = $recipientAddress || $account?.address;
 
+    // We need all these guys to validate
     if (
-      !$selectedToken ||
+      !to ||
+      !token ||
       !$network ||
       !$destNetwork ||
-      !$account?.address ||
-      $enteredAmount === BigInt(0) // no need to check if the amount is 0
+      !$tokenBalance ||
+      amount === BigInt(0) // no need to check if the amount is 0
     )
       return;
 
     try {
       await checkBalanceToBridge({
-        to: $recipientAddress || $account.address,
-        token: $selectedToken,
-        amount: $enteredAmount,
-        balance: tokenBalance.value,
+        to,
+        token,
+        amount,
+        processingFee,
+        balance: $tokenBalance.value,
         srcChainId: $network.id,
         destChainId: $destNetwork.id,
-        processingFee: $processingFee,
       });
     } catch (err) {
       console.error(err);
 
       switch (true) {
         case err instanceof InsufficientBalanceError:
-          insufficientBalance = true;
+          $insufficientBalance = true;
           break;
         case err instanceof InsufficientAllowanceError:
-          insufficientAllowance = true;
+          $insufficientAllowance = true;
           break;
       }
     }
   }
 
-  // We want to debounce this function for input events
-  const debouncedCheckEnteredAmount = debounce(checkEnteredAmount, 300);
+  // We want to debounce this function for input events.
+  // Could happen as the user enters an amount
+  const debouncedValidate = debounce(validate, 300);
+
+  async function updateBalance(token: Maybe<Token>, userAddress?: Address, srcChainId?: number, destChainId?: number) {
+    if (!token || !srcChainId || !userAddress) return;
+
+    $computingBalance = true;
+    $errorComputingBalance = false;
+
+    try {
+      $tokenBalance = await getTokenBalance({
+        token,
+        srcChainId,
+        destChainId,
+        userAddress,
+      });
+    } catch (err) {
+      console.error(err);
+      $errorComputingBalance = true;
+    } finally {
+      $computingBalance = false;
+    }
+  }
+
+  export function renderBalance(balance: Maybe<FetchBalanceResult>) {
+    if (!balance) return '0.00';
+
+    return `${truncateString(balance.formatted, 6)} ${balance.symbol}`;
+  }
 
   // Will trigger on input events. We update the entered amount
   // and check it's validity
   function inputAmount(event: Event) {
-    insufficientBalance = false;
-    insufficientAllowance = false;
-
     if (!$selectedToken) return;
 
-    const target = event.target as HTMLInputElement;
+    const { value } = event.target as HTMLInputElement;
 
     try {
-      $enteredAmount = parseUnits(target.value, $selectedToken.decimals);
-
-      debouncedCheckEnteredAmount();
+      $enteredAmount = parseUnits(value, $selectedToken.decimals);
     } catch (err) {
       $enteredAmount = BigInt(0);
     }
@@ -93,11 +121,8 @@
 
   // "MAX" button handler
   async function useMaxAmount() {
-    insufficientBalance = false;
-    insufficientAllowance = false;
-
     // We cannot calculate the max amount without these guys
-    if (!$selectedToken || !$network || !$destNetwork || !$account?.address) return;
+    if (!$selectedToken || !$network || !$destNetwork || !$tokenBalance || !$account?.address) return;
 
     computingMaxAmount = true;
 
@@ -105,7 +130,7 @@
       const maxAmount = await getMaxAmountToBridge({
         to: $recipientAddress || $account.address,
         token: $selectedToken,
-        balance: tokenBalance.value,
+        balance: $tokenBalance.value,
         processingFee: $processingFee,
         srcChainId: $network.id,
         destChainId: $destNetwork.id,
@@ -113,13 +138,15 @@
       });
 
       // Update UI
+      // Note: triggering the event manually does not always work, specially
+      // in other browsers (looking at you, Safari!!)
       inputBox.setValue(formatUnits(maxAmount, $selectedToken.decimals));
 
       // Update state
       $enteredAmount = maxAmount;
 
       // Check validity
-      checkEnteredAmount();
+      validate($selectedToken, $enteredAmount, $processingFee);
     } catch (err) {
       console.error(err);
       warningToast($t('amount_input.button.failed_max'));
@@ -128,16 +155,26 @@
     }
   }
 
-  // Let's also trigger the check when either the processingFee or
-  // the selectedToken change and debounce it, just in case
-  // TODO: better way? maybe store.subscribe(), or different component
-  $: $processingFee && $selectedToken && debouncedCheckEnteredAmount();
+  $: updateBalance($selectedToken, $account?.address, $network?.id, $destNetwork?.id);
+
+  $: debouncedValidate($selectedToken, $enteredAmount, $processingFee);
 </script>
 
 <div class="AmountInput f-col space-y-2">
   <div class="f-between-center text-secondary-content">
     <label class="body-regular" for={inputId}>{$t('amount_input.label')}</label>
-    <Balance bind:value={tokenBalance} />
+    <div class="body-small-regular">
+      <span>{$t('amount_input.balance')}:</span>
+      <span>
+        {#if $computingBalance}
+          <LoadingText mask="0.0000" />
+          <LoadingText mask="XXX" />
+        {:else}
+          {renderBalance($tokenBalance)}
+        {/if}
+        <!-- TODO: we know when there was an error computing. Show it -->
+      </span>
+    </div>
   </div>
 
   <div class="relative">
@@ -148,7 +185,7 @@
         placeholder="0.01"
         min="0"
         loading={computingMaxAmount}
-        error={insufficientBalance}
+        error={$insufficientBalance}
         on:input={inputAmount}
         bind:this={inputBox}
         class="w-full input-box outline-none py-6 pr-16 px-[26px] title-subsection-bold placeholder:text-tertiary-content" />
@@ -161,11 +198,11 @@
       </button>
     </div>
 
-    {#if insufficientBalance}
+    {#if $insufficientBalance}
       <FlatAlert type="error" message={$t('amount_input.error.insufficient_balance')} class="absolute bottom-[-26px]" />
     {/if}
 
-    {#if insufficientAllowance}
+    {#if $insufficientAllowance}
       <FlatAlert
         type="warning"
         message={$t('amount_input.error.insufficient_allowance')}
