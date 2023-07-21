@@ -10,11 +10,10 @@ This vault is a parent contract for ERC721 and ERC1155 vaults.
 
 ```solidity
 struct CanonicalNFT {
-  uint256 srcChainId;
-  address tokenAddr;
+  uint256 chainId;
+  address addr;
   string symbol;
   string name;
-  string uri;
 }
 ```
 
@@ -25,14 +24,25 @@ struct BridgeTransferOp {
   uint256 destChainId;
   address to;
   address token;
-  string baseTokenUri;
-  uint256 tokenId;
-  uint256 amount;
+  uint256[] tokenIds;
+  uint256[] amounts;
   uint256 gasLimit;
   uint256 processingFee;
   address refundAddress;
   string memo;
 }
+```
+
+### ERC1155_INTERFACE_ID
+
+```solidity
+bytes4 ERC1155_INTERFACE_ID
+```
+
+### ERC721_INTERFACE_ID
+
+```solidity
+bytes4 ERC721_INTERFACE_ID
 ```
 
 ### isBridgedToken
@@ -53,23 +63,76 @@ mapping(address => struct BaseNFTVault.CanonicalNFT) bridgedToCanonical
 mapping(uint256 => mapping(address => address)) canonicalToBridged
 ```
 
+### MAX_TOKEN_PER_TXN
+
+```solidity
+uint256 MAX_TOKEN_PER_TXN
+```
+
+### BridgedTokenDeployed
+
+```solidity
+event BridgedTokenDeployed(uint256 chainId, address ctoken, address btoken, string ctokenSymbol, string ctokenName)
+```
+
+### TokenSent
+
+```solidity
+event TokenSent(bytes32 msgHash, address from, address to, uint256 destChainId, address token, uint256[] tokenIds, uint256[] amounts)
+```
+
+### TokenReleased
+
+```solidity
+event TokenReleased(bytes32 msgHash, address from, address token, uint256[] tokenIds, uint256[] amounts)
+```
+
+### TokenReceived
+
+```solidity
+event TokenReceived(bytes32 msgHash, address from, address to, uint256 srcChainId, address token, uint256[] tokenIds, uint256[] amounts)
+```
+
+### VAULT_TOKEN_ARRAY_MISMATCH
+
+```solidity
+error VAULT_TOKEN_ARRAY_MISMATCH()
+```
+
+Thrown when the length of the tokenIds array and the amounts
+array differs.
+
+### VAULT_MAX_TOKEN_PER_TXN_EXCEEDED
+
+```solidity
+error VAULT_MAX_TOKEN_PER_TXN_EXCEEDED()
+```
+
+Thrown when more tokens are about to be bridged than allowed.
+
+### onlyValidAmounts
+
+```solidity
+modifier onlyValidAmounts(uint256[] amounts, uint256[] tokenIds, bool isERC721)
+```
+
 ### setBridgedToken
 
 ```solidity
-function setBridgedToken(address bridgedToken, struct BaseNFTVault.CanonicalNFT canonical) internal
+function setBridgedToken(address btoken, struct BaseNFTVault.CanonicalNFT ctoken) internal
 ```
 
 #### Parameters
 
-| Name         | Type                             | Description                        |
-| ------------ | -------------------------------- | ---------------------------------- |
-| bridgedToken | address                          | The bridged token contract address |
-| canonical    | struct BaseNFTVault.CanonicalNFT | The canonical NFT                  |
+| Name   | Type                             | Description               |
+| ------ | -------------------------------- | ------------------------- |
+| btoken | address                          | The bridged token address |
+| ctoken | struct BaseNFTVault.CanonicalNFT | The canonical token       |
 
-### msgHashIfValidRequest
+### hashAndMarkMsgReleased
 
 ```solidity
-function msgHashIfValidRequest(struct IBridge.Message message, bytes proof, address tokenAddress) internal view returns (bytes32 msgHash)
+function hashAndMarkMsgReleased(struct IBridge.Message message, bytes proof, address tokenAddress) internal returns (bytes32 msgHash)
 ```
 
 #### Parameters
@@ -79,9 +142,3 @@ function msgHashIfValidRequest(struct IBridge.Message message, bytes proof, addr
 | message      | struct IBridge.Message | The bridged message struct data |
 | proof        | bytes                  | The proof bytes                 |
 | tokenAddress | address                | The token address to be checked |
-
-### extractCalldata
-
-```solidity
-function extractCalldata(bytes calldataWithSelector) internal pure returns (bytes)
-```

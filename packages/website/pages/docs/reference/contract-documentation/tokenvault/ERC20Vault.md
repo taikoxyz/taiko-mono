@@ -23,15 +23,6 @@ struct CanonicalERC20 {
 }
 ```
 
-### MessageDeposit
-
-```solidity
-struct MessageDeposit {
-  address token;
-  uint256 amount;
-}
-```
-
 ### BridgeTransferOp
 
 ```solidity
@@ -65,16 +56,10 @@ mapping(address => struct ERC20Vault.CanonicalERC20) bridgedToCanonical
 mapping(uint256 => mapping(address => address)) canonicalToBridged
 ```
 
-### messageDeposits
-
-```solidity
-mapping(bytes32 => struct ERC20Vault.MessageDeposit) messageDeposits
-```
-
 ### BridgedTokenDeployed
 
 ```solidity
-event BridgedTokenDeployed(uint256 srcChainId, address canonicalToken, address bridgedToken, string canonicalTokenSymbol, string canonicalTokenName, uint8 canonicalTokenDecimal)
+event BridgedTokenDeployed(uint256 srcChainId, address ctoken, address btoken, string ctokenSymbol, string ctokenName, uint8 ctokenDecimal)
 ```
 
 ### TokenSent
@@ -111,6 +96,25 @@ by invoking the message call.
 | ---- | ---------------------------------- | -------------------------------- |
 | opt  | struct ERC20Vault.BridgeTransferOp | Option for sending ERC20 tokens. |
 
+### receiveToken
+
+```solidity
+function receiveToken(struct ERC20Vault.CanonicalERC20 ctoken, address from, address to, uint256 amount) external
+```
+
+This function can only be called by the bridge contract while
+invoking a message call. See sendToken, which sets the data to invoke
+this function.
+
+#### Parameters
+
+| Name   | Type                             | Description                                                                                                          |
+| ------ | -------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| ctoken | struct ERC20Vault.CanonicalERC20 | The canonical ERC20 token which may or may not live on this chain. If not, a BridgedERC20 contract will be deployed. |
+| from   | address                          | The source address.                                                                                                  |
+| to     | address                          | The destination address.                                                                                             |
+| amount | uint256                          | The amount of tokens to be sent. 0 is a valid value.                                                                 |
+
 ### releaseToken
 
 ```solidity
@@ -127,24 +131,15 @@ a proof that the message processing on the destination Bridge has failed.
 | message | struct IBridge.Message | The message that corresponds to the ERC20 deposit on the source chain. |
 | proof   | bytes                  | The proof from the destination chain to show the message has failed.   |
 
-### receiveToken
+### decodeMessageData
 
 ```solidity
-function receiveToken(struct ERC20Vault.CanonicalERC20 canonicalToken, address from, address to, uint256 amount) external
+function decodeMessageData(bytes dataWithSelector) public pure returns (struct ERC20Vault.CanonicalERC20, address, address, uint256)
 ```
 
-This function can only be called by the bridge contract while
-invoking a message call. See sendToken, which sets the data to invoke
-this function.
-
-#### Parameters
-
-| Name           | Type                             | Description                                                                                                          |
-| -------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| canonicalToken | struct ERC20Vault.CanonicalERC20 | The canonical ERC20 token which may or may not live on this chain. If not, a BridgedERC20 contract will be deployed. |
-| from           | address                          | The source address.                                                                                                  |
-| to             | address                          | The destination address.                                                                                             |
-| amount         | uint256                          | The amount of tokens to be sent. 0 is a valid value.                                                                 |
+_Decodes the data which was abi.encodeWithSelector() encoded. We need
+this to get to know
+to whom / which token and how much we shall release._
 
 ---
 

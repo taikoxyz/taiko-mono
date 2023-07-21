@@ -1,49 +1,33 @@
 ---
-title: ERC1155Vault
+title: ERC1155NameAndSymbol
 ---
+
+## ERC1155NameAndSymbol
+
+Some ERC1155 contracts implementing the name() and symbol()
+functions, although they are not part of the interface
+
+### name
+
+```solidity
+function name() external view returns (string)
+```
+
+### symbol
+
+```solidity
+function symbol() external view returns (string)
+```
+
+---
+
+## title: ERC1155Vault
 
 ## ERC1155Vault
 
-This vault holds all ERC721 and ERC1155 tokens that users have deposited.
-It also manages the mapping between canonical ERC721/1155 tokens and their
-bridged
+This vault holds all ERC1155 tokens that users have deposited.
+It also manages the mapping between canonical tokens and their bridged
 tokens.
-
-### ERC1155_INTERFACE_ID
-
-```solidity
-bytes4 ERC1155_INTERFACE_ID
-```
-
-### ERC1155_METADATA_INTERFACE_ID
-
-```solidity
-bytes4 ERC1155_METADATA_INTERFACE_ID
-```
-
-### BridgedTokenDeployed
-
-```solidity
-event BridgedTokenDeployed(uint256 srcChainId, address canonicalToken, address bridgedToken)
-```
-
-### TokenSent
-
-```solidity
-event TokenSent(bytes32 msgHash, address from, address to, uint256 destChainId, address token, uint256 tokenId, uint256 amount)
-```
-
-### TokenReleased
-
-```solidity
-event TokenReleased(bytes32 msgHash, address from, address token, uint256 tokenId, uint256 amount)
-```
-
-### TokenReceived
-
-```solidity
-event TokenReceived(bytes32 msgHash, address from, address to, uint256 srcChainId, address token, uint256 tokenId, uint256 amount)
-```
 
 ### sendToken
 
@@ -64,7 +48,7 @@ by invoking the message call.
 ### receiveToken
 
 ```solidity
-function receiveToken(struct BaseNFTVault.CanonicalNFT canonicalToken, address from, address to, uint256 tokenId, uint256 amount) external
+function receiveToken(struct BaseNFTVault.CanonicalNFT ctoken, address from, address to, uint256[] tokenIds, uint256[] amounts) external
 ```
 
 _This function can only be called by the bridge contract while
@@ -73,13 +57,13 @@ this function._
 
 #### Parameters
 
-| Name           | Type                             | Description                                                                                                              |
-| -------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| canonicalToken | struct BaseNFTVault.CanonicalNFT | The canonical ERC1155 token which may or may not live on this chain. If not, a BridgedERC1155 contract will be deployed. |
-| from           | address                          | The source address.                                                                                                      |
-| to             | address                          | The destination address.                                                                                                 |
-| tokenId        | uint256                          | The tokenId to be sent.                                                                                                  |
-| amount         | uint256                          | The amount to be sent.                                                                                                   |
+| Name     | Type                             | Description                                                                                                              |
+| -------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| ctoken   | struct BaseNFTVault.CanonicalNFT | The canonical ERC1155 token which may or may not live on this chain. If not, a BridgedERC1155 contract will be deployed. |
+| from     | address                          | The source address.                                                                                                      |
+| to       | address                          | The destination address.                                                                                                 |
+| tokenIds | uint256[]                        | The tokenIds to be sent.                                                                                                 |
+| amounts  | uint256[]                        | The amounts to be sent.                                                                                                  |
 
 ### releaseToken
 
@@ -99,23 +83,29 @@ function onERC1155Received(address, address, uint256, uint256, bytes) external p
 function onERC1155BatchReceived(address, address, uint256[], uint256[], bytes) external pure returns (bytes4)
 ```
 
-### supportsInterface
-
-```solidity
-function supportsInterface(bytes4 interfaceId) public view virtual returns (bool)
-```
-
-_See {IERC165-supportsInterface}._
-
 ### decodeMessageData
 
 ```solidity
-function decodeMessageData(bytes dataWithSelector) public pure returns (struct BaseNFTVault.CanonicalNFT, address, address, uint256, uint256)
+function decodeMessageData(bytes dataWithSelector) public pure returns (struct BaseNFTVault.CanonicalNFT nft, address owner, address to, uint256[] tokenIds, uint256[] amounts)
 ```
 
-_Decodes the data which was abi.encodeWithSelector() encoded. We need
-this to get to know
-to whom / which token and tokenId we shall release._
+Decodes the data which was abi.encodeWithSelector() encoded.
+
+#### Parameters
+
+| Name             | Type  | Description                               |
+| ---------------- | ----- | ----------------------------------------- |
+| dataWithSelector | bytes | Data encoded with abi.encodedWithSelector |
+
+#### Return Values
+
+| Name     | Type                             | Description                               |
+| -------- | -------------------------------- | ----------------------------------------- |
+| nft      | struct BaseNFTVault.CanonicalNFT | CanonicalNFT data                         |
+| owner    | address                          | Owner of the message                      |
+| to       | address                          | The to address messages sent to           |
+| tokenIds | uint256[]                        | The tokenIds                              |
+| amounts  | uint256[]                        | The amount per respective ERC1155 tokenid |
 
 ---
 

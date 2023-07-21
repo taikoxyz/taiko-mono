@@ -16,10 +16,10 @@ address srcToken
 uint256 srcChainId
 ```
 
-### srcUri
+### symbol
 
 ```solidity
-string srcUri
+string symbol
 ```
 
 ### Transfer
@@ -43,7 +43,7 @@ error BRIDGED_TOKEN_INVALID_PARAMS()
 ### init
 
 ```solidity
-function init(address _addressManager, address _srcToken, uint256 _srcChainId, string _uri) external
+function init(address _addressManager, address _srcToken, uint256 _srcChainId, string _symbol, string _name) external
 ```
 
 _Initializer to be called after being deployed behind a proxy._
@@ -51,7 +51,7 @@ _Initializer to be called after being deployed behind a proxy._
 ### mint
 
 ```solidity
-function mint(address account, uint256 tokenId, uint256 amount, bytes data) public
+function mint(address account, uint256 tokenId, uint256 amount) public
 ```
 
 _only a TokenVault can call this function_
@@ -72,10 +72,14 @@ function safeTransferFrom(address from, address to, uint256 tokenId, uint256 amo
 
 _any address can call this_
 
-### source
+### name
 
 ```solidity
-function source() public view returns (address, uint256)
+function name() public view returns (string)
 ```
 
-_returns the srcToken being bridged and the srcChainId_
+---
+
+## title: ProxiedBridgedERC1155
+
+## ProxiedBridgedERC1155

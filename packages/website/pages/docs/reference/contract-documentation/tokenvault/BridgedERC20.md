@@ -150,14 +150,7 @@ Gets the number of decimal places of the token.
 function canonical() public view returns (address, uint256)
 ```
 
-Gets the canonical token address and the canonical chain ID.
-
-#### Return Values
-
-| Name | Type    | Description                                             |
-| ---- | ------- | ------------------------------------------------------- |
-| [0]  | address | The canonical token address and the canonical chain ID. |
-| [1]  | uint256 |                                                         |
+Gets the canonical token's address and chain ID.
 
 ---
 

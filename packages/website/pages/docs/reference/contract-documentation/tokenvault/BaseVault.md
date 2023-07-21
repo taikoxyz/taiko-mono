@@ -4,16 +4,16 @@ title: BaseVault
 
 ## BaseVault
 
+### releasedMessages
+
+```solidity
+mapping(bytes32 => bool) releasedMessages
+```
+
 ### VAULT_INIT_PARAM_ERROR
 
 ```solidity
 error VAULT_INIT_PARAM_ERROR()
-```
-
-### VAULT_CANONICAL_TOKEN_NOT_FOUND
-
-```solidity
-error VAULT_CANONICAL_TOKEN_NOT_FOUND()
 ```
 
 ### VAULT_INVALID_TO
@@ -70,7 +70,7 @@ chain's ID.
 error VAULT_INTERFACE_NOT_SUPPORTED()
 ```
 
-Thrown when the interface (erc1155/erc721) is not supported.
+Thrown when the interface (ERC1155/ERC721) is not supported.
 
 ### VAULT_MESSAGE_NOT_FAILED
 
@@ -81,6 +81,14 @@ error VAULT_MESSAGE_NOT_FAILED()
 Thrown when a message has not failed.
 This could happen if trying to release a message deposit without proof of
 failure.
+
+### VAULT_MESSAGE_RELEASED_ALREADY
+
+```solidity
+error VAULT_MESSAGE_RELEASED_ALREADY()
+```
+
+Thrown when a message has already released
 
 ### VAULT_INVALID_SENDER
 
@@ -104,6 +112,19 @@ modifier onlyValidAddresses(uint256 chainId, bytes32 name, address to, address t
 function init(address addressManager) external
 ```
 
+### \_deployProxy
+
+```solidity
+function _deployProxy(address implementation, bytes initializationData) internal returns (address proxy)
+```
+
+#### Parameters
+
+| Name               | Type    | Description                    |
+| ------------------ | ------- | ------------------------------ |
+| implementation     | address | The new implementation address |
+| initializationData | bytes   | Data for the initialization    |
+
 ### \_checkValidContext
 
 ```solidity
@@ -115,3 +136,15 @@ function _checkValidContext(bytes32 validSender) internal view returns (struct I
 | Name        | Type    | Description                    |
 | ----------- | ------- | ------------------------------ |
 | validSender | bytes32 | The valid sender to be allowed |
+
+### \_extractCalldata
+
+```solidity
+function _extractCalldata(bytes calldataWithSelector) internal pure returns (bytes)
+```
+
+#### Parameters
+
+| Name                 | Type  | Description                |
+| -------------------- | ----- | -------------------------- |
+| calldataWithSelector | bytes | Encoded data with selector |
