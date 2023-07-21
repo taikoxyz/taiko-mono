@@ -8,6 +8,13 @@ export const GRIMSVOTN_ADD_TTKO: AddTokenParameter = {
     image: "https://raw.githubusercontent.com/taikoxyz/taiko-mono/main/packages/branding/testnet-token-images/ttko.svg"
 };
 
+export const GRIMSVOTN_ADD_TTKOE: AddTokenParameter = {
+    address: GRIMSVOTN_CONFIG.basedContracts.erc20Contracts.taikoToken.address.proxy,
+    symbol: GRIMSVOTN_CONFIG.basedContracts.erc20Contracts.taikoToken.symbol,
+    decimals: GRIMSVOTN_CONFIG.basedContracts.erc20Contracts.taikoToken.decimals,
+    image: "https://raw.githubusercontent.com/taikoxyz/taiko-mono/main/packages/branding/testnet-token-images/ttko.svg"
+};
+
 export const GRIMSVOTN_ADD_BLL: AddTokenParameter = {
     address: GRIMSVOTN_CONFIG.rollupContracts.erc20Contracts.bridgedBullToken.address.impl,
     symbol: GRIMSVOTN_CONFIG.rollupContracts.erc20Contracts.bridgedBullToken.symbol,
@@ -24,6 +31,7 @@ export const GRIMSVOTN_ADD_HORSE: AddTokenParameter = {
 
 export const GRIMSVOTN_ADD_TOKENS = [
     GRIMSVOTN_ADD_TTKO,
+    GRIMSVOTN_ADD_TTKOE,
     GRIMSVOTN_ADD_BLL,
     GRIMSVOTN_ADD_HORSE
 ]
