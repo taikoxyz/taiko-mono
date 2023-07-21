@@ -15,7 +15,7 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     address public srcToken;
     uint256 public srcChainId;
-    uint256[47] private __gap;
+    uint256[48] private __gap;
 
     error BRIDGED_TOKEN_CANNOT_RECEIVE();
     error BRIDGED_TOKEN_INVALID_PARAMS();

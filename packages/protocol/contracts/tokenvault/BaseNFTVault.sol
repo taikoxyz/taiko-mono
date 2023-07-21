@@ -63,7 +63,7 @@ abstract contract BaseNFTVault is EssentialContract {
     // tokens (iterations)
     uint256 public constant MAX_TOKEN_PER_TXN = 10;
 
-    uint256[46] private __gap;
+    uint256[44] private __gap;
 
     event BridgedTokenDeployed(
         uint256 indexed chainId,
@@ -203,7 +203,6 @@ abstract contract BaseNFTVault is EssentialContract {
                 }
             }
         } else {
-            // ERC1155 has slightly diff check
             for (uint256 i; i < amounts.length; i++) {
                 if (amounts[i] == 0) {
                     revert VAULT_INVALID_AMOUNT();

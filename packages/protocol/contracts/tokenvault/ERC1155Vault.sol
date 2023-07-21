@@ -154,6 +154,16 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         });
     }
 
+    /**
+     * Release deposited ERC1155 token(s) back to the owner on the source chain
+     * with
+     * a proof that the message processing on the destination Bridge has failed.
+     *
+     * @param message The message that corresponds to the ERC1155 deposit on the
+     * source chain.
+     * @param proof The proof from the destination chain to show the message has
+     * failed.
+     */
     function releaseToken(
         IBridge.Message calldata message,
         bytes calldata proof
@@ -258,6 +268,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         );
     }
 
+    /**
+     * @dev Vaults / burns the tokens and creates msg.data
+     */
     function _sendToken(
         address owner,
         BridgeTransferOp memory opt
@@ -315,6 +328,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         );
     }
 
+    /**
+     * @dev Returns the contract address per given canonical token.
+     */
     function _getOrDeployBridgedToken(CanonicalNFT memory ctoken)
         private
         returns (address btoken)
