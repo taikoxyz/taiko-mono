@@ -62,8 +62,8 @@ const ecosystemData: EcosystemData[] = [
   {
     icon: "/images/ecosystem/kalkiswap.png",
     name: "KALKI SWAP",
-    link: "https://bridge.test.taiko.xyz",
-    description: "We are establishing a startup called Kalkilabs that specializes in creating diverse projects across different blockchains. Our initial undertaking will involve building a decentralized exchange (DEX) named Kalkiswap",
+    link: "https://kalkiswap.org",
+    description: "KalkiSwap is a cutting-edge decentralized exchange (DEX) that provides lightning-fast token swapping and innovative liquidity provision across diverse blockchains.",
     filters: [],
   },
   {
@@ -117,7 +117,7 @@ const ecosystemData: EcosystemData[] = [
   {
     icon: "/images/ecosystem/owlto.png",
     name: "Owlto",
-    link: "https://stg.owlto.finance",
+    link: "https://owlto.finance",
     description: "The decentralized cross-rollup bridge focused on Layer2.",
     filters: [],
   },
