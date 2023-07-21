@@ -21,19 +21,24 @@ This guide will help you enable your Taiko node as a proposer.
 <Steps>
 ### Visit the TaikoL1 contract on block explorer
 
-Navigate to the TaikoL1 contract on the block explorer (see contract addresses [here](/docs/reference/contract-addresses)).
+First, you need to visit the `TaikoL1` **proxy contract**:
 
-Then, visit the "read contract" tab.
+- If you are depositing **TTKO**, you can find the link here under [Sepolia L1 based contracts](https://taiko.xyz/docs/reference/contract-addresses#based-contracts).
+- If you are depositing **TTKOe**, you can find the link here under [Grimsvotn L2 based contracts](https://taiko.xyz/docs/reference/contract-addresses#based-contracts-1).
+
+### Click the write proxy tab
+
+Then, visit the "Write proxy" (Blockscout) or "Write as proxy" (Etherscan) tab.
 
 Click the wallet connect button on the explorer.
 
 ### Enter deposit amount
 
-Click `depositTaikoToken` and enter the amount of TTKO/TTKOe you would like to deposit followed by 8 zeroes.
+Click the text field for `depositTaikoToken` and enter the amount of TTKO or TTKOe you would like to deposit followed by 8 zeroes.
 
 <Callout type="warning">
-  Make sure to click the plus sign and add `10^8` decimals, or add 8 zeroes
-  manually.
+  Make sure to click the plus sign and click `10^8` decimals to add 8 zeroes, or
+  add 8 zeroes manually.
 </Callout>
 
 For example if you want to deposit `69` TTKO/TTKOe, you would enter `6900000000`.
