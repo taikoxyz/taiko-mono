@@ -57,7 +57,7 @@
       const txHash = await mint(selectedToken, $network.id);
 
       successToast(
-        $t('faucet.minting_tx', {
+        $t('faucet.mint_tx', {
           values: {
             token: selectedToken.symbol,
             url: `${PUBLIC_L1_EXPLORER_URL}/tx/${txHash}`,

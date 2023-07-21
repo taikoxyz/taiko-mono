@@ -1,5 +1,6 @@
 import { type Address, zeroAddress } from 'viem';
 
+import { NoTokenAddressError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 
 import { getCrossChainAddress } from './getCrossChainAddress';
@@ -33,6 +34,10 @@ export async function getAddress({ token, srcChainId, destChainId }: GetAddressA
       srcChainId: destChainId,
       destChainId: srcChainId,
     });
+
+    if (!address || address === zeroAddress) {
+      throw new NoTokenAddressError(`no address found for ${token.symbol} on chain ${srcChainId}`);
+    }
 
     log(`Bridged address for ${token.symbol} is "${address}"`);
   }

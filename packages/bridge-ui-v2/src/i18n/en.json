@@ -10,6 +10,7 @@
   "bridge": {
     "title": "Bridge",
     "description": "Send your assets across chains.",
+    "approve_tx": "Transaction sent to approve {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
     "button": {
       "approve": "Approve",
       "approving": "Approving",
@@ -75,7 +76,7 @@
   "faucet": {
     "title": "Faucet",
     "description": "Mint test tokens.",
-    "minting_tx": "Transaction sent to mint {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
+    "mint_tx": "Transaction sent to mint {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
     "button": {
       "mint": "Mint",
       "checking": "Checking mintability",

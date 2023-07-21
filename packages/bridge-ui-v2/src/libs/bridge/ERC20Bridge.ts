@@ -2,10 +2,10 @@ import { getContract } from '@wagmi/core';
 
 import { erc20ABI, tokenVaultABI } from '$abi';
 import { bridge } from '$config';
-import { InsufficientAllowanceError } from '$libs/error';
+import { InsufficientAllowanceError, NoAllowanceRequiredError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 
-import type { Bridge, ERC20BridgeArgs, RequireAllowanceArgs, SendERC20Args } from './types';
+import type { ApproveArgs, Bridge, ERC20BridgeArgs, RequireAllowanceArgs, SendERC20Args } from './types';
 
 const log = getLogger('ERC20Bridge');
 
@@ -83,6 +83,35 @@ export class ERC20Bridge implements Bridge {
     log('Allowance is', allowance, 'requires allowance?', requiresAllowance);
 
     return requiresAllowance;
+  }
+
+  async approve(args: ApproveArgs) {
+    const { amount, tokenAddress, spenderAddress, wallet } = args;
+
+    const requireAllowance = await this.requireAllowance({
+      amount,
+      tokenAddress,
+      ownerAddress: wallet.account.address,
+      spenderAddress,
+    });
+
+    if (!requireAllowance) {
+      throw new NoAllowanceRequiredError(`no allowance required for the amount ${amount}`);
+    }
+
+    const tokenContract = getContract({
+      walletClient: wallet,
+      abi: erc20ABI,
+      address: tokenAddress,
+    });
+
+    log(`Calling approve for spender "${spenderAddress}" with amount`, amount);
+
+    const txHash = await tokenContract.write.approve([spenderAddress, amount]);
+
+    log('Transaction hash for approve call', txHash);
+
+    return txHash;
   }
 
   async bridge(args: ERC20BridgeArgs) {

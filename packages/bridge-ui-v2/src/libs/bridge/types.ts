@@ -72,6 +72,7 @@ export type ApproveArgs = {
   amount: bigint;
   tokenAddress: Address;
   spenderAddress: Address;
+  wallet: WalletClient;
 };
 
 export type BridgeArgs = {

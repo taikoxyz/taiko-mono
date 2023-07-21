@@ -3,11 +3,16 @@
 
   import { Card } from '$components/Card';
   import { ChainSelector } from '$components/ChainSelector';
+  import { successToast } from '$components/NotificationToast';
   import { OnAccount } from '$components/OnAccount';
   import { OnNetwork } from '$components/OnNetwork';
   import { TokenDropdown } from '$components/TokenDropdown';
-  import { chains } from '$libs/chain';
-  import { ETHToken, tokens } from '$libs/token';
+  import { PUBLIC_L1_EXPLORER_URL } from '$env/static/public';
+  import { bridges } from '$libs/bridge';
+  import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
+  import { chainContractsMap, chains } from '$libs/chain';
+  import { ETHToken, getAddress, tokens } from '$libs/token';
+  import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import type { Account } from '$stores/account';
   import { type Network, network } from '$stores/network';
 
@@ -15,7 +20,7 @@
   import Amount from './Amount.svelte';
   import { ProcessingFee } from './ProcessingFee';
   import Recipient from './Recipient.svelte';
-  import { destNetwork, selectedToken } from './state';
+  import { destNetwork, enteredAmount, insufficientAllowance, selectedToken } from './state';
   import SwitchChainsButton from './SwitchChainsButton.svelte';
 
   function onNetworkChange(network: Network) {
@@ -36,11 +41,48 @@
     }
   }
 
-  function approve() {
-    // TODO
+  async function approve() {
+    if (!$selectedToken || !$network || !$destNetwork) return;
+
+    const erc20Bridge = bridges.ERC20 as ERC20Bridge;
+
+    try {
+      const walletClient = await getConnectedWallet($network.id);
+
+      const tokenAddress = await getAddress({
+        token: $selectedToken,
+        srcChainId: $network.id,
+        destChainId: $destNetwork.id,
+      });
+
+      if (!tokenAddress) {
+        throw new Error('token address not found');
+      }
+
+      const spenderAddress = chainContractsMap[$network.id].tokenVaultAddress;
+
+      const txHash = await erc20Bridge.approve({
+        tokenAddress,
+        spenderAddress,
+        amount: $enteredAmount,
+        wallet: walletClient,
+      });
+
+      successToast(
+        $t('bridge.approve_tx', {
+          values: {
+            token: $selectedToken.symbol,
+            url: `${PUBLIC_L1_EXPLORER_URL}/tx/${txHash}`,
+          },
+        }),
+        true,
+      );
+    } catch (err) {
+      console.error(err);
+    }
   }
 
-  function bridge() {
+  async function bridge() {
     // TODO
   }
 </script>

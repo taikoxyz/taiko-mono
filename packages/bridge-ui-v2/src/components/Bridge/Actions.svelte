@@ -38,6 +38,8 @@
     });
   }
 
+  // TODO: feels like we need a state machine here
+
   // Basic conditions so we can even start the bridging process
   $: hasAddress = $recipientAddress || $account?.address;
   $: hasNetworks = $network?.id && $destNetwork?.id;
@@ -51,7 +53,7 @@
 
   // Conditions to disable/enable buttons
   $: disableApprove = canDoNothing || !$insufficientAllowance || approving;
-  $: disableBridge = canDoNothing || $insufficientBalance || bridging;
+  $: disableBridge = canDoNothing || $insufficientAllowance || $insufficientBalance || bridging;
 
   // General loading state
   $: loading = approving || bridging;
