@@ -144,6 +144,13 @@ contract ERC20Vault is EssentialContract {
     error VAULT_INVALID_OWNER();
 
     /**
+     * Thrown when the sender in a message context is invalid.
+     * This could happen if the sender isn't the expected token vault on the
+     * source chain.
+     */
+    error VAULT_INVALID_SENDER();
+
+    /**
      * Thrown when the source chain ID in a message is invalid.
      * This could happen if the source chain ID doesn't match the current
      * chain's ID.
