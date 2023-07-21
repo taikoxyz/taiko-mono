@@ -12,7 +12,10 @@
     "description": "Send your assets across chains.",
     "button": {
       "approve": "Approve",
-      "bridge": "Bridge"
+      "approving": "Approving",
+      "approved": "Approved",
+      "bridge": "Bridge",
+      "bridging": "Bridging"
     }
   },
 
