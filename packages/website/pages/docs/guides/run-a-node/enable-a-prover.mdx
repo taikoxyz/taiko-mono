@@ -1,8 +1,10 @@
 import { Callout, Steps } from "nextra-theme-docs";
 
 <Callout type="warning">
-    Keep in mind that running a prover is a very competitive space, and those who generate proofs will have very powerful machines and optimized clients. 
-    It's unlikely to prove a block and gain rewards with the default client and minimum hardware requirements.
+  Keep in mind that running a prover is a very competitive space, and those who
+  generate proofs will have very powerful machines and optimized clients. It's
+  unlikely to prove a block and gain rewards with the default client and minimum
+  hardware requirements.
 </Callout>
 
 # Enable a prover
@@ -22,6 +24,12 @@ This guide will help you enable your Taiko node as a prover. Read more about pro
 Open the `.env` file in the `simple-taiko-node` directory.
 
 ### Set environment variables to enable prover
+
+<Callout type="warning">
+  Do **not** use a private key that is valuable to you. The private key will be
+  stored in plain text in the `.env` file, and this is not secure. There is a
+  real risk of losing your assets. You should **only use a test account**.
+</Callout>
 
 Set the following environment variables to enable your node as a prover:
 
