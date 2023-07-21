@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { type Chain, getWalletClient, switchNetwork } from '@wagmi/core';
+  import { type Chain, switchNetwork } from '@wagmi/core';
   import { t } from 'svelte-i18n';
   import { UserRejectedRequestError } from 'viem';
 
@@ -11,7 +11,8 @@
   import { successToast, warningToast } from '$components/NotificationToast';
   import { TokenDropdown } from '$components/TokenDropdown';
   import { PUBLIC_L1_CHAIN_ID, PUBLIC_L1_CHAIN_NAME, PUBLIC_L1_EXPLORER_URL } from '$env/static/public';
-  import { MintableError, testERC20Tokens, type Token } from '$libs/token';
+  import { InsufficientBalanceError, TokenMintedError } from '$libs/error';
+  import { testERC20Tokens, type Token } from '$libs/token';
   import { checkMintable, mint } from '$libs/token';
   import { account } from '$stores/account';
   import { network } from '$stores/network';
@@ -30,11 +31,11 @@
     switchingNetwork = true;
 
     try {
-      await switchNetwork({ chainId: +PUBLIC_L1_CHAIN_ID });
-    } catch (error) {
-      console.error(error);
+      await switchNetwork({ chainId: Number(PUBLIC_L1_CHAIN_ID) });
+    } catch (err) {
+      console.error(err);
 
-      if (error instanceof UserRejectedRequestError) {
+      if (err instanceof UserRejectedRequestError) {
         warningToast($t('messages.network.rejected'));
       }
     } finally {
@@ -46,18 +47,14 @@
     // During loading state we make sure the user cannot use this function
     if (checkingMintable || minting) return;
 
-    // A token and a source chain must be selected in order to be able to mint
+    // Token and source chain are needed to mint
     if (!selectedToken || !$network) return;
-
-    // ... and of course, our wallet must be connected
-    const walletClient = await getWalletClient({ chainId: $network.id });
-    if (!walletClient) return;
 
     // Let's begin the minting process
     minting = true;
 
     try {
-      const txHash = await mint(selectedToken, walletClient);
+      const txHash = await mint(selectedToken, $network.id);
 
       successToast(
         $t('faucet.minting_tx', {
@@ -70,10 +67,13 @@
       );
 
       // TODO: pending transaction logic
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error(err);
 
-      // const { cause } = error as Error;
+      const { cause } = err as Error;
+      if (cause instanceof UserRejectedRequestError) {
+        warningToast($t('messages.mint.rejected'));
+      }
     } finally {
       minting = false;
     }
@@ -98,21 +98,16 @@
     reasonNotMintable = '';
 
     try {
-      await checkMintable(token, network);
+      await checkMintable(token, network.id);
       mintButtonEnabled = true;
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error(err);
 
-      const { cause } = error as Error;
-
-      switch (cause) {
-        case MintableError.NOT_CONNECTED:
-          reasonNotMintable = $t('faucet.warning.no_connected');
-          break;
-        case MintableError.INSUFFICIENT_BALANCE:
+      switch (true) {
+        case err instanceof InsufficientBalanceError:
           reasonNotMintable = $t('faucet.warning.insufficient_balance');
           break;
-        case MintableError.TOKEN_MINTED:
+        case err instanceof TokenMintedError:
           reasonNotMintable = $t('faucet.warning.token_minted');
           break;
         default:
@@ -140,7 +135,7 @@
 <Card class="md:w-[524px]" title={$t('faucet.title')} text={$t('faucet.subtitle')}>
   <div class="space-y-[35px]">
     <div class="space-y-2">
-      <ChainSelector label={$t('chain_selector.currently_on')} value={$network} />
+      <ChainSelector label={$t('chain_selector.currently_on')} value={$network} switchWallet />
       <TokenDropdown tokens={testERC20Tokens} bind:value={selectedToken} />
     </div>
 
@@ -152,7 +147,11 @@
 
     {#if connected && wrongChain}
       <!-- We give the user an easier way to switch chains with this button -->
-      <Button type="primary" class="px-[28px] py-[14px]" loading={switchingNetwork} on:click={switchNetworkToL1}>
+      <Button
+        type="primary"
+        class="px-[28px] py-[14px] rounded-full w-full"
+        loading={switchingNetwork}
+        on:click={switchNetworkToL1}>
         {#if switchingNetwork}
           <span>{$t('messages.network.switching')}</span>
         {:else}
@@ -165,7 +164,7 @@
     {:else}
       <Button
         type="primary"
-        class="px-[28px] py-[14px]"
+        class="px-[28px] py-[14px] rounded-full w-full"
         disabled={!mintButtonEnabled}
         loading={checkingMintable || minting}
         on:click={mintToken}>

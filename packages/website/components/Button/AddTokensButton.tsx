@@ -13,9 +13,9 @@ import { ethereumRequest } from "../../utils/ethereumRequest";
 
 type ConnectButtonProps = {
   network:
-  | typeof SEPOLIA_CONFIG.names.shortName
-  | typeof ELDFELL_CONFIG.names.shortName
-  | typeof GRIMSVOTN_CONFIG.names.shortName;
+    | typeof SEPOLIA_CONFIG.names.shortName
+    | typeof ELDFELL_CONFIG.names.shortName
+    | typeof GRIMSVOTN_CONFIG.names.shortName;
 };
 
 const chainMap = {
@@ -45,20 +45,26 @@ const addTokensToWallet = async ({ network }: AddTokensButtonProps) => {
     await ethereumRequest("wallet_addEthereumChain", [configMap[network]]);
   }
   for (const token of tokenConfigMap[network]) {
-    const params = { options: { address: token.address, symbol: token.symbol, decimals: token.decimals, image: token.image }, type: "ERC20" };
+    const params = {
+      options: {
+        address: token.address,
+        symbol: token.symbol,
+        decimals: token.decimals,
+        image: token.image,
+      },
+      type: "ERC20",
+    };
     await ethereumRequest("wallet_watchAsset", params);
   }
 };
 
-export function AddTokensButton({
-  network,
-}: AddTokensButtonProps) {
+export function AddTokensButton({ network }: AddTokensButtonProps) {
   return (
     <div
       onClick={() => addTokensToWallet({ network })}
       className="hover:cursor-pointer text-neutral-100 bg-[#E81899] hover:bg-[#d1168a] border-solid border-neutral-200 focus:ring-4 focus:outline-none focus:ring-neutral-100 font-medium rounded-lg text-sm px-3 py-2 text-center inline-flex items-center m-1 w-48 justify-center"
     >
-      Add {network} Tokens
+      Add {network} tokens
     </div>
   );
 }

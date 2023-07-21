@@ -18,7 +18,7 @@
 
   "processing_fee": {
     "title": "Processing fee",
-    "link": "Customise fee",
+    "link": "Customize fee",
     "recommended": {
       "label": "Recommended",
       "calculating": "Calculating",
@@ -32,6 +32,10 @@
     "custom": {
       "label": "Custom",
       "text": "Customize your processing fee"
+    },
+    "button": {
+      "confirm": "Confirm",
+      "cancel": "Cancel"
     }
   },
 
@@ -84,7 +88,14 @@
   "amount_input": {
     "label": "Amount",
     "balance": "Balance",
-    "button.max": "Max"
+    "button": {
+      "max": "Max",
+      "failed_max": "Coult not estimate max amount to bridge."
+    },
+    "error": {
+      "insufficient_balance": "Insufficient balance",
+      "insufficient_allowance": "Insufficient allowance"
+    }
   },
 
   "chain_selector": {
@@ -101,6 +112,9 @@
     "network": {
       "switching": "Switching network",
       "rejected": "Request to switch chain rejected."
+    },
+    "mint": {
+      "rejected": "Request to mint rejected."
     }
   },
 

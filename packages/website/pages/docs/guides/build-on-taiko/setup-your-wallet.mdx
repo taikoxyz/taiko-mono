@@ -2,11 +2,7 @@ import { Steps } from "nextra-theme-docs";
 import { AddTokensButton } from "components/Button/AddTokensButton";
 import { ConnectToMetamaskButton } from "components/Button/ConnectToMetamaskButton";
 
-import {
-  ELDFELL_CONFIG,
-  GRIMSVOTN_CONFIG,
-  SEPOLIA_CONFIG,
-} from "domain/chain";
+import { ELDFELL_CONFIG, GRIMSVOTN_CONFIG, SEPOLIA_CONFIG } from "domain/chain";
 
 # Setup your wallet
 
@@ -28,11 +24,11 @@ This guide helps you connect your wallet to Taiko's networks.
 
     ### Add tokens to your wallet
     <AddTokensButton
-    network="Sepolia"/>
+    network={SEPOLIA_CONFIG.names.shortName}/>
 
     <br />
-    <AddTokensButton 
-    network="Grimsvotn"/>
+    <AddTokensButton
+    network={GRIMSVOTN_CONFIG.names.shortName}/>
 
 
 </Steps>

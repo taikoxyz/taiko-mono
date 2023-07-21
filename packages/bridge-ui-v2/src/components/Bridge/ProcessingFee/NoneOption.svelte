@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Address } from 'abitype';
+  import type { Address } from 'viem';
 
   import { recommendProcessingFee } from '$libs/fee';
   import { getBalance, type Token } from '$libs/token';
@@ -23,9 +23,8 @@
     try {
       // Get the balance of the user on the destination chain
       const destBalance = await getBalance({
-        token,
         userAddress,
-        chainId: destChainId,
+        srcChainId: destChainId,
       });
 
       // Calculate the recommended amount of ETH needed for processMessage call
