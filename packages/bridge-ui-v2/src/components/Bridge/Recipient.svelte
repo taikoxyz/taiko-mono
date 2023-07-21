@@ -8,7 +8,7 @@
   import { Icon } from '$components/Icon';
   import { account } from '$stores/account';
   import { shortenAddress } from '$libs/util/shortenAddress';
-  import { recipientAddress } from '../state';
+  import { recipientAddress } from './state';
   import { isAddress, type Address } from 'viem';
 
   let dialogId = `dialog-${uid()}`;

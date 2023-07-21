@@ -11,7 +11,7 @@
 
 <Card class="md:min-w-[524px]" title={$t('activities.title')} text={$t('activities.description')}>
   <div class="space-y-[35px]">
-    <ChainSelector label={$t('chain_selector.currently_on')} value={$network} />
+    <ChainSelector label={$t('chain_selector.currently_on')} value={$network} small />
     <!-- Small size view  -->
     <div class="md:hidden">
       <ListWithDetailsView />

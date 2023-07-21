@@ -14,7 +14,7 @@
 
   import { Amount } from './Amount';
   import { ProcessingFee } from './ProcessingFee';
-  import { Recipient } from './Recipient';
+  import Recipient from './Recipient.svelte';
   import { destNetwork, selectedToken } from './state';
   import SwitchChainsButton from './SwitchChainsButton.svelte';
 
