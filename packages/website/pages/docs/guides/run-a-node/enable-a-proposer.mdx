@@ -1,4 +1,9 @@
 import { Callout, Steps } from "nextra-theme-docs";
+import { contractAddressToLink } from "../../../../utils/contractAddressToLink";
+import { SEPOLIA_CONFIG, GRIMSVOTN_CONFIG } from "../../../../domain/chain";
+import { StyledLink } from "/components/StyledLink";
+
+{console.log(contractAddressToLink(SEPOLIA_CONFIG.blockExplorer.url, SEPOLIA_CONFIG.basedContracts.taikoL1.address.proxy))}
 
 # Enable a proposer
 
@@ -23,8 +28,8 @@ This guide will help you enable your Taiko node as a proposer.
 
 First, you need to visit the `TaikoL1` **proxy contract**:
 
-- If you are depositing **TTKO**, you can find the link here under [Sepolia L1 based contracts](https://taiko.xyz/docs/reference/contract-addresses#based-contracts).
-- If you are depositing **TTKOe**, you can find the link here under [Grimsvotn L2 based contracts](https://taiko.xyz/docs/reference/contract-addresses#based-contracts-1).
+- If you are depositing **TTKO**, you can visit it <StyledLink href={contractAddressToLink(SEPOLIA_CONFIG.blockExplorer.url, SEPOLIA_CONFIG.basedContracts.taikoL1.address.proxy)} text="here" />.
+- If you are depositing **TTKOe**, you can visit it <StyledLink href={contractAddressToLink(GRIMSVOTN_CONFIG.blockExplorer.url, GRIMSVOTN_CONFIG.basedContracts.taikoL1.address.proxy)} text="here" />.
 
 ### Click the write proxy tab
 
