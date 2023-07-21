@@ -7,10 +7,7 @@
 pragma solidity ^0.8.20;
 
 import { EssentialContract } from "../common/EssentialContract.sol";
-import { IBridge } from "../bridge/IBridge.sol";
 import { AddressResolver } from "../common/AddressResolver.sol";
-import
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 abstract contract BaseVault is EssentialContract {
     // Released message hashes
