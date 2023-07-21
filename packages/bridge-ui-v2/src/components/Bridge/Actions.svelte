@@ -1,13 +1,26 @@
-<script>
+<script lang="ts">
   import { noop } from 'svelte/internal';
   import { t } from 'svelte-i18n';
 
   import { Button } from '$components/Button';
   import { Icon } from '$components/Icon';
-  import { insufficientAllowance } from './state';
+  import {
+    computingBalance,
+    destNetwork,
+    enteredAmount,
+    errorComputingBalance,
+    insufficientAllowance,
+    insufficientBalance,
+    recipientAddress,
+    selectedToken,
+    tokenBalance,
+  } from './state';
+  import { network } from '$stores/network';
+  import { account } from '$stores/account';
+  import { isERC20 } from '$libs/token';
 
-  export let approve = noop;
-  export let bridge = noop;
+  export let approve: () => Promise<void>;
+  export let bridge: () => Promise<void>;
 
   let approving = false;
   let bridging = false;
@@ -26,24 +39,36 @@
     });
   }
 
-  $: showSteps = true;
+  // Basic conditions so we can even start the bridging process
+  $: hasAddress = $recipientAddress || $account?.address;
+  $: hasNetworks = $network?.id && $destNetwork?.id;
+  $: hasBalance =
+    !$computingBalance && !$errorComputingBalance && $tokenBalance?.value && $tokenBalance?.value > BigInt(0);
+  $: canDoNothing = !hasAddress || !hasNetworks || !hasBalance || !$selectedToken || !$enteredAmount;
 
-  $: cannotBridge = true;
+  // Conditions for approve/bridge steps
+  $: isSelectedERC20 = $selectedToken && isERC20($selectedToken);
+  $: isTokenApproved = isSelectedERC20 && $enteredAmount && !$insufficientAllowance;
 
+  // Conditions to disable/enable buttons
+  $: disableApprove = canDoNothing || !$insufficientAllowance || approving;
+  $: disableBridge = canDoNothing || $insufficientBalance || bridging;
+
+  // General loading state
   $: loading = approving || bridging;
 </script>
 
 <div class="f-between-center w-full gap-4">
-  {#if showSteps}
+  {#if isSelectedERC20}
     <Button
       type="primary"
       class="px-[28px] py-[14px] rounded-full flex-1"
-      disabled={!$insufficientAllowance || approving}
+      disabled={disableApprove}
       loading={approving}
       on:click={onApproveClick}>
       {#if approving}
         <span class="body-bold">{$t('bridge.button.approving')}</span>
-      {:else if !$insufficientAllowance}
+      {:else if isTokenApproved}
         <div class="f-items-center">
           <Icon type="check" />
           <span class="body-bold">{$t('bridge.button.approved')}</span>
@@ -58,7 +83,7 @@
   <Button
     type="primary"
     class="px-[28px] py-[14px] rounded-full flex-1"
-    disabled={cannotBridge || bridging}
+    disabled={disableBridge}
     loading={bridging}
     on:click={onBridgeClick}>
     {#if bridging}
