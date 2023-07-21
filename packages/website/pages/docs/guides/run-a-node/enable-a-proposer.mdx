@@ -58,6 +58,12 @@ Open the `.env` file in the `simple-taiko-node` directory.
 
 ### Set environment variables to enable a proposer
 
+<Callout type="warning">
+  Do **not** use a private key that is valuable to you. The private key will be
+  stored in plain text in the `.env` file, and this is not secure. There is a
+  real risk of losing your assets. You should **only use a test account**.
+</Callout>
+
 Set the following environment variables to enable your node as a proposer:
 
 - Set `ENABLE_PROPOSER` to `true` (replacing the default `false` with `true`).
