@@ -132,7 +132,7 @@
   $: updateMintButtonState(selectedToken, $network);
 </script>
 
-<Card class="md:w-[524px]" title={$t('faucet.title')} text={$t('faucet.subtitle')}>
+<Card class="md:w-[524px]" title={$t('faucet.title')} text={$t('faucet.description')}>
   <div class="space-y-[35px]">
     <div class="space-y-2">
       <ChainSelector label={$t('chain_selector.currently_on')} value={$network} switchWallet />

@@ -8,7 +8,6 @@
   import { Icon } from '$components/Icon';
   import { account } from '$stores/account';
   import { shortenAddress } from '$libs/util/shortenAddress';
-  import { onMount } from 'svelte';
   import { recipientAddress } from '../state';
   import { isAddress } from 'viem';
 
@@ -16,6 +15,7 @@
 
   let modalOpen = false;
   let invalidAddress = false;
+  let prevRecipientAddress: string = '';
 
   let inputBox: InputBox;
 
@@ -29,15 +29,16 @@
 
   function cancelModal() {
     inputBox.clear();
-    closeModal();
-  }
 
-  function focusInputBox() {
-    inputBox.focus();
+    // Revert change of recipient address
+    $recipientAddress = prevRecipientAddress;
+
+    closeModal();
   }
 
   function inputRecipientAddress(event: Event) {
     const { value } = event.target as HTMLInputElement;
+
     if (isAddress(value)) {
       invalidAddress = false;
       $recipientAddress = value;
@@ -46,7 +47,24 @@
     }
   }
 
-  onMount(focusInputBox);
+  function deleteRecipient() {
+    $recipientAddress = ''; // update state
+    inputBox.clear(); // update UI
+  }
+
+  function modalOpenChange(open: boolean) {
+    if (open) {
+      // Save it in case we want to cancel
+      prevRecipientAddress = $recipientAddress;
+
+      inputBox.setValue($recipientAddress);
+      inputBox.focus();
+    }
+  }
+
+  $: modalOpenChange(modalOpen);
+
+  $: displayedRecipient = $recipientAddress || $account?.address;
 </script>
 
 <div class="Recipient">
@@ -59,8 +77,8 @@
   </div>
 
   <span class="body-small-regular text-secondary-content mt-[6px]">
-    {#if $account?.address}
-      {shortenAddress($account.address, 15, 13)}
+    {#if displayedRecipient}
+      {shortenAddress(displayedRecipient, 15, 13)}
     {:else}
       {$t('recipient.placeholder')}
     {/if}
@@ -74,7 +92,7 @@
 
       <h3 class="title-body-bold mb-7">{$t('recipient.title')}</h3>
 
-      <!-- TODO -->
+      <p class="body-regular text-secondary-content mb-3">{$t('recipient.description')}</p>
 
       <div class="relative f-items-center my-[20px]">
         <InputBox
@@ -82,6 +100,9 @@
           class="w-full input-box outline-none p-6 pr-16 title-subsection-bold placeholder:text-tertiary-content"
           on:input={inputRecipientAddress}
           bind:this={inputBox} />
+        <button class="absolute right-6 uppercase body-bold text-secondary-content" on:click={deleteRecipient}>
+          <Icon type="x-close-circle" fillClass="fill-primary-icon" size={24} />
+        </button>
       </div>
 
       <div class="grid grid-cols-2 gap-[20px]">

@@ -142,6 +142,8 @@
 
       <h3 class="title-body-bold mb-7">{$t('processing_fee.title')}</h3>
 
+      <p class="body-regular text-secondary-content mb-3">{$t('processing_fee.description')}</p>
+
       <ul class="space-y-7">
         <!-- RECOMMENDED -->
         <li class="f-between-center">

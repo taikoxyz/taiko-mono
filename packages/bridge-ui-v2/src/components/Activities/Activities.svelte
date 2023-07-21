@@ -9,7 +9,7 @@
   import TableView from './TableView.svelte';
 </script>
 
-<Card class="md:min-w-[524px]" title={$t('activities.title')} text={$t('activities.subtitle')}>
+<Card class="md:min-w-[524px]" title={$t('activities.title')} text={$t('activities.description')}>
   <div class="space-y-[35px]">
     <ChainSelector label={$t('chain_selector.currently_on')} value={$network} />
     <!-- Small size view  -->

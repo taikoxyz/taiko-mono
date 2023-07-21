@@ -37,7 +37,7 @@
   }
 </script>
 
-<Card class="md:w-[524px]" title={$t('bridge.title')} text={$t('bridge.subtitle')}>
+<Card class="md:w-[524px]" title={$t('bridge.title')} text={$t('bridge.description')}>
   <div class="space-y-[35px]">
     <div class="f-between-center gap-4">
       <ChainSelector class="flex-1" value={$network} switchWallet />

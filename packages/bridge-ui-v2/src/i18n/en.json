@@ -9,7 +9,7 @@
 
   "bridge": {
     "title": "Bridge",
-    "subtitle": "Send your assets across chains.",
+    "description": "Send your assets across chains.",
     "button": {
       "approve": "Approve",
       "bridge": "Bridge"
@@ -18,12 +18,14 @@
 
   "recipient": {
     "title": "Recipient address",
+    "description": "Customize the recipient address for your bridged tokens instead of using your current wallet address.",
     "link": "Change recipient",
     "placeholder": "Add custom recipient 0x…"
   },
 
   "processing_fee": {
     "title": "Processing fee",
+    "description": "Some description about the processing fee",
     "link": "Customize fee",
     "recommended": {
       "label": "Recommended",
@@ -47,7 +49,7 @@
 
   "activities": {
     "title": "Activities",
-    "subtitle": "Track your bridge transactions here.",
+    "description": "Track your bridge transactions here.",
     "header": {
       "explorer": "Explorer link",
       "status": "Status"
@@ -69,7 +71,7 @@
 
   "faucet": {
     "title": "Faucet",
-    "subtitle": "Mint test tokens.",
+    "description": "Mint test tokens.",
     "minting_tx": "Transaction sent to mint {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
     "button": {
       "mint": "Mint",
