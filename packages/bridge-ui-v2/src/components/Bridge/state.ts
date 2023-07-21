@@ -1,4 +1,4 @@
-import type { Chain } from '@wagmi/core';
+import type { Address, Chain } from '@wagmi/core';
 import { writable } from 'svelte/store';
 
 import type { Token } from '$libs/token';
@@ -16,4 +16,4 @@ export const selectedToken = writable<Maybe<Token>>(null);
 export const enteredAmount = writable<bigint>(BigInt(0));
 export const destNetwork = writable<Maybe<Chain>>(null);
 export const processingFee = writable<bigint>(BigInt(0));
-export const recipientAddress = writable<string>('');
+export const recipientAddress = writable<Maybe<Address>>(null);

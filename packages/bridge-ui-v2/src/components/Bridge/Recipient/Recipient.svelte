@@ -9,13 +9,13 @@
   import { account } from '$stores/account';
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { recipientAddress } from '../state';
-  import { isAddress } from 'viem';
+  import { isAddress, type Address } from 'viem';
 
   let dialogId = `dialog-${uid()}`;
 
   let modalOpen = false;
   let invalidAddress = false;
-  let prevRecipientAddress: string = '';
+  let prevRecipientAddress: Maybe<Address> = null;
 
   let inputBox: InputBox;
 
@@ -48,8 +48,8 @@
   }
 
   function deleteRecipient() {
-    $recipientAddress = ''; // update state
     inputBox.clear(); // update UI
+    $recipientAddress = null; // update state
   }
 
   function modalOpenChange(open: boolean) {
@@ -57,7 +57,7 @@
       // Save it in case we want to cancel
       prevRecipientAddress = $recipientAddress;
 
-      inputBox.setValue($recipientAddress);
+      inputBox.setValue($recipientAddress as string);
       inputBox.focus();
     }
   }

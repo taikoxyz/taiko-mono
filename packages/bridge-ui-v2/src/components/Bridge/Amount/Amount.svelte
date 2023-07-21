@@ -13,7 +13,7 @@
   import { account } from '$stores/account';
   import { network } from '$stores/network';
 
-  import { destNetwork, enteredAmount, processingFee, selectedToken } from '../state';
+  import { destNetwork, enteredAmount, processingFee, recipientAddress, selectedToken } from '../state';
   import Balance from './Balance.svelte';
   import { FlatAlert } from '$components/Alert';
 
@@ -47,7 +47,7 @@
 
     try {
       await checkBalanceToBridge({
-        to: $account.address,
+        to: $recipientAddress || $account.address,
         token: $selectedToken,
         amount: $enteredAmount,
         balance: tokenBalance.value,
@@ -103,7 +103,7 @@
 
     try {
       const maxAmount = await getMaxAmountToBridge({
-        to: $account.address,
+        to: $recipientAddress || $account.address,
         token: $selectedToken,
         balance: tokenBalance.value,
         processingFee: $processingFee,
