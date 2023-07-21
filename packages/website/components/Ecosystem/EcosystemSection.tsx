@@ -60,6 +60,13 @@ const ecosystemData: EcosystemData[] = [
     filters: [],
   },
   {
+    icon: "/images/ecosystem/kalkiswap.png",
+    name: "KALKI SWAP",
+    link: "https://bridge.test.taiko.xyz",
+    description: "We are establishing a startup called Kalkilabs that specializes in creating diverse projects across different blockchains. Our initial undertaking will involve building a decentralized exchange (DEX) named Kalkiswap",
+    filters: [],
+  },
+  {
     icon: "/images/ecosystem/kekkai.png",
     name: "KEKKAI",
     link: "https://kekkai.io",
