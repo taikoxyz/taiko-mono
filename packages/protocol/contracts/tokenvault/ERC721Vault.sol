@@ -20,6 +20,7 @@ import { IBridge } from "../bridge/IBridge.sol";
 import { BaseNFTVault } from "./BaseNFTVault.sol";
 import { ProxiedBridgedERC721 } from "./BridgedERC721.sol";
 import { Proxied } from "../common/Proxied.sol";
+import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
 
 /**
  * This vault holds all ERC721 tokens that users have deposited.
@@ -100,7 +101,8 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         nonReentrant
         onlyFromNamed("bridge")
     {
-        IBridge.Context memory ctx = _checkValidContext("erc721_vault");
+        IBridge.Context memory ctx =
+            LibVaultUtils.checkValidContext("erc721_vault", address(this));
         address token;
 
         unchecked {
@@ -212,7 +214,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         )
     {
         return abi.decode(
-            _extractCalldata(dataWithSelector),
+            LibVaultUtils.extractCalldata(dataWithSelector),
             (CanonicalNFT, address, address, uint256[])
         );
     }
@@ -276,8 +278,9 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     {
         ProxiedBridgedERC721 bridgedToken = new ProxiedBridgedERC721();
 
-        btoken = _deployProxy(
+        btoken = LibVaultUtils.deployProxy(
             address(bridgedToken),
+            owner(),
             bytes.concat(
                 bridgedToken.init.selector,
                 abi.encode(

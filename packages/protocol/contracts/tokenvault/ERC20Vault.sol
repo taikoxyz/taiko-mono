@@ -20,6 +20,7 @@ import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { TaikoToken } from "../L1/TaikoToken.sol";
 import { BaseVault } from "./BaseVault.sol";
+import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
 /**
  * This vault holds all ERC20 tokens (but not Ether) that users have deposited.
  * It also manages the mapping between canonical ERC20 tokens and their bridged
@@ -186,7 +187,8 @@ contract ERC20Vault is BaseVault {
         nonReentrant
         onlyFromNamed("bridge")
     {
-        IBridge.Context memory ctx = _checkValidContext("erc20_vault");
+        IBridge.Context memory ctx =
+            LibVaultUtils.checkValidContext("erc20_vault", address(this));
 
         address token;
         if (ctoken.chainId == block.chainid) {
@@ -279,10 +281,9 @@ contract ERC20Vault is BaseVault {
         pure
         returns (CanonicalERC20 memory, address, address, uint256)
     {
-        bytes memory calldataWithoutSelector =
-            _extractCalldata(dataWithSelector);
         return abi.decode(
-            calldataWithoutSelector, (CanonicalERC20, address, address, uint256)
+            LibVaultUtils.extractCalldata(dataWithSelector),
+            (CanonicalERC20, address, address, uint256)
         );
     }
 
@@ -363,8 +364,9 @@ contract ERC20Vault is BaseVault {
     {
         ProxiedBridgedERC20 bridgedToken = new ProxiedBridgedERC20();
 
-        btoken = _deployProxy(
+        btoken = LibVaultUtils.deployProxy(
             address(bridgedToken),
+            owner(),
             bytes.concat(
                 bridgedToken.init.selector,
                 abi.encode(

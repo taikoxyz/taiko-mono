@@ -23,6 +23,7 @@ import { BaseNFTVault } from "./BaseNFTVault.sol";
 import { ProxiedBridgedERC1155 } from "./BridgedERC1155.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
 
 /**
  * Some ERC1155 contracts implementing the name() and symbol()
@@ -116,7 +117,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         nonReentrant
         onlyFromNamed("bridge")
     {
-        IBridge.Context memory ctx = _checkValidContext("erc1155_vault");
+        IBridge.Context memory ctx =
+            LibVaultUtils.checkValidContext("erc1155_vault", address(this));
         address token;
 
         unchecked {
@@ -251,7 +253,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         )
     {
         return abi.decode(
-            _extractCalldata(dataWithSelector),
+            LibVaultUtils.extractCalldata(dataWithSelector),
             (CanonicalNFT, address, address, uint256[], uint256[])
         );
     }
@@ -334,8 +336,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     {
         ProxiedBridgedERC1155 bridgedToken = new ProxiedBridgedERC1155();
 
-        btoken = _deployProxy(
+        btoken = LibVaultUtils.deployProxy(
             address(bridgedToken),
+            owner(),
             bytes.concat(
                 bridgedToken.init.selector,
                 abi.encode(
