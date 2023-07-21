@@ -1,9 +1,11 @@
 <script lang="ts">
-  import { noop } from 'svelte/internal';
   import { t } from 'svelte-i18n';
 
   import { Button } from '$components/Button';
   import { Icon } from '$components/Icon';
+  import { isERC20 } from '$libs/token';
+  import { account, network } from '$stores';
+
   import {
     computingBalance,
     destNetwork,
@@ -15,9 +17,6 @@
     selectedToken,
     tokenBalance,
   } from './state';
-  import { network } from '$stores/network';
-  import { account } from '$stores/account';
-  import { isERC20 } from '$libs/token';
 
   export let approve: () => Promise<void>;
   export let bridge: () => Promise<void>;
