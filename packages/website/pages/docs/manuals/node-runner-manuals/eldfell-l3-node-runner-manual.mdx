@@ -1,0 +1,67 @@
+# Eldfell L3 node runner manual
+
+## Start node
+
+```sh
+docker compose -f ./docker-compose.l3.yml --env-file .env.l3 up -d
+```
+
+## Stop node
+
+```sh
+docker compose -f ./docker-compose.l3.yml --env-file .env.l3 down
+```
+
+## Update node
+
+```sh
+git pull origin main && docker compose -f ./docker-compose.l3.yml --env-file .env.l3 pull
+```
+
+## Remove node
+
+```sh
+docker compose -f ./docker-compose.l3.yml --env-file .env.l3 down -v
+```
+
+## View grafana dashboard
+
+```sh
+open http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview
+```
+
+## View all logs
+
+```sh
+docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f
+```
+
+## View execution logs
+
+```sh
+docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f l2_execution_engine
+```
+
+## View client driver logs
+
+```sh
+docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f taiko_client_driver
+```
+
+## View client proposer logs
+
+```sh
+docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f taiko_client_proposer
+```
+
+## View client prover relayer logs
+
+```sh
+docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f taiko_client_prover_relayer
+```
+
+## View zkevm prover logs
+
+```sh
+docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f zkevm-chain-prover-rpcd
+```
