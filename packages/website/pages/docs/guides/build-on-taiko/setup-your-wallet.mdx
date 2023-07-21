@@ -43,6 +43,7 @@ This guide helps you connect your wallet to Taiko's networks.
     image="https://raw.githubusercontent.com/taikoxyz/taiko-mono/main/packages/branding/testnet-token-images/horse.svg" 
     network="Sepolia"/>
     <br />
+<<<<<<< Updated upstream
     <AddTokenButton address={GRIMSVOTN_CONFIG.rollupContracts.erc20Contracts.bridgedTaikoToken.address.impl} 
     symbol={GRIMSVOTN_CONFIG.rollupContracts.erc20Contracts.bridgedTaikoToken.symbol} 
     decimals={GRIMSVOTN_CONFIG.rollupContracts.erc20Contracts.bridgedTaikoToken.decimals} 
@@ -58,6 +59,10 @@ This guide helps you connect your wallet to Taiko's networks.
     decimals={GRIMSVOTN_CONFIG.rollupContracts.erc20Contracts.bridgedHorseToken.decimals} 
     image="https://raw.githubusercontent.com/taikoxyz/taiko-mono/main/packages/branding/testnet-token-images/horse.svg" 
     network="Grimsvotn"/>
+=======
+    <AddTokensButton
+    network={GRIMSVOTN_CONFIG.names.shortName}/>
+>>>>>>> Stashed changes
 
 </Steps>
 
@@ -66,3 +71,9 @@ This guide helps you connect your wallet to Taiko's networks.
 ### The add chain buttons did not work
 
 Try to manually add the network to your wallet using the [RPC configuration](/docs/reference/rpc-configuration), or by using [chainlist.org](https://chainlist.org) (make sure to check the box for "Include testnets").
+
+### Transactions are stuck in "pending"
+
+You may have transactions stuck in Metamask as "pending" but they don't exist in the mempool anymore. This is a known issue with Metamask. You can try to fix it by following these steps:
+
+1. Go to Settings > Advanced > Clear activity and nonce data
