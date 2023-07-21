@@ -10,3 +10,4 @@ export { ELDFELL_ADD_ETHEREUM_CHAIN } from "./eldfell/addEthereumChain";
 
 export { SEPOLIA_ADD_TOKENS } from "./sepolia/addTokens";
 export { GRIMSVOTN_ADD_TOKENS } from "./grimsvotn/addTokens";
+export { ELDFELL_ADD_TOKENS } from "./eldfell/addTokens";

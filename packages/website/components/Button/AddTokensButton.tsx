@@ -1,5 +1,6 @@
 import {
   ELDFELL_ADD_ETHEREUM_CHAIN,
+  ELDFELL_ADD_TOKENS,
   ELDFELL_CONFIG,
   GRIMSVOTN_ADD_ETHEREUM_CHAIN,
   GRIMSVOTN_ADD_TOKENS,
@@ -13,9 +14,9 @@ import { ethereumRequest } from "../../utils/ethereumRequest";
 
 type ConnectButtonProps = {
   network:
-    | typeof SEPOLIA_CONFIG.names.shortName
-    | typeof ELDFELL_CONFIG.names.shortName
-    | typeof GRIMSVOTN_CONFIG.names.shortName;
+  | typeof SEPOLIA_CONFIG.names.shortName
+  | typeof ELDFELL_CONFIG.names.shortName
+  | typeof GRIMSVOTN_CONFIG.names.shortName;
 };
 
 const chainMap = {
@@ -33,6 +34,7 @@ const configMap = {
 const tokenConfigMap = {
   Grimsvotn: GRIMSVOTN_ADD_TOKENS,
   Sepolia: SEPOLIA_ADD_TOKENS,
+  Eldfell: ELDFELL_ADD_TOKENS,
 };
 
 interface AddTokensButtonProps {
