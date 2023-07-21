@@ -1,7 +1,22 @@
 import EcosystemSection from "components/EcosystemSection";
+import Link from "next/link";
 
-{<h1 className="font-grotesk text-3xl mt-10 mb-4 text-center text-[2.5rem] tracking-tight text-neutral-900 dark:text-neutral-200">Ecosystem</h1>}
+{
 
-{<p className="mb-16 text-center text-lg"><a href="https://github.com/taikoxyz/taiko-mono/issues/new?assignees=&labels=category.enhancement%2Cstatus.needs-triage&projects=&template=add_project.yml" target="_blank" rel="noopener noreferrer">Add/update your project</a></p>}
+<div className="text-center">
+  <h1 className="font-grotesk text-3xl mt-10 mb-4 text-[2.5rem] tracking-tight text-neutral-900 dark:text-neutral-200">
+    Ecosystem
+  </h1>
+  <div className="hover:cursor-pointer inline-flex items-center rounded-md border border-transparent bg-[#e81899] px-5 py-3 text-base font-semibold text-white dark:text-neutral-100 hover:bg-[#d1168a] hover:no-underline hover:text-white">
+    <Link
+      href="https://github.com/taikoxyz/taiko-mono/issues/new?assignees=&labels=category.enhancement%2Cstatus.needs-triage&projects=&template=add_project.yml"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      Add or update your project
+    </Link>
+  </div>
+</div>
+}
 
 <EcosystemSection />

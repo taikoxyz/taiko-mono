@@ -106,8 +106,8 @@ contract DeployOnL1 is Script {
                 taikoToken.init.selector,
                 abi.encode(
                     addressManagerProxy,
-                    "Taiko Token",
-                    "TKO",
+                    "Taiko Token Eldfell",
+                    "TTKOe",
                     taikoTokenPremintRecipients,
                     taikoTokenPremintAmounts
                 )

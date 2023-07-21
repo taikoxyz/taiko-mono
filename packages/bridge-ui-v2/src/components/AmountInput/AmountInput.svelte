@@ -8,9 +8,9 @@
 </script>
 
 <div class="f-col space-y-2">
-  <div class="f-between-center text-secondary-content body-regular">
-    <label for={inputId}>{$t('amount_input.label')}</label>
-    <div>
+  <div class="f-between-center text-secondary-content">
+    <label class="body-regular" for={inputId}>{$t('amount_input.label')}</label>
+    <div class="body-small-regular">
       <span>{$t('amount_input.balance')}:</span>
       <span>399.92 ETH</span>
     </div>

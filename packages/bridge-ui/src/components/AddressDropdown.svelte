@@ -112,7 +112,7 @@
       class="dropdown-content rounded-box menu shadow bg-dark-2 w-48 mt-2 pb-2 text-sm">
       <div class="p-5 pb-0 flex flex-col items-center" transition:slide>
         {#if $srcChain && $signer}
-          <svelte:component this={$srcChain.icon} />
+          <img src={$srcChain.iconUrl} alt={$srcChain.name} />
           <div class="text-lg mt-2">
             {tokenBalance.length > 10
               ? `${truncateString(tokenBalance)}…`

@@ -12,12 +12,12 @@ library TaikoConfig {
     function getConfig() internal pure returns (TaikoData.Config memory) {
         return TaikoData.Config({
             // Group 1: general configs
-            chainId: 167,
+            chainId: 167_006,
             relaySignalRoot: false,
             // Group 2: block level configs
-            // Two weeks if avg block time is 10 seconds
-            blockMaxProposals: 120_960,
-            blockRingBufferSize: 120_960 + 10,
+            // Two weeks if avg block time is 3 seconds
+            blockMaxProposals: 403_200,
+            blockRingBufferSize: 403_200 + 10,
             // Each time one more block is verified, there will be ~20k
             // more gas cost.
             blockMaxVerificationsPerTx: 10,
@@ -48,7 +48,8 @@ library TaikoConfig {
             ethDepositMaxFee: 1 ether / 10,
             // Group 5: tokenomics
             rewardOpenMultipler: 200, // percentage
-            rewardOpenMaxCount: 2000
-        });
+            rewardOpenMaxCount: 201_600, // blockMaxProposals / 2,
+            rewardMaxDelayPenalty: 250 // bps
+         });
     }
 }

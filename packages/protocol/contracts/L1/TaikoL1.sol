@@ -177,10 +177,10 @@ contract TaikoL1 is
     }
 
     function getBlockFee(uint32 gasLimit) public view returns (uint64) {
-        return LibProposing.getBlockFee({
+        return LibUtils.getBlockFee({
             state: state,
             config: getConfig(),
-            gasLimit: gasLimit
+            gasAmount: gasLimit
         });
     }
 

@@ -112,3 +112,35 @@ func (r *EventRepository) GetTotalSlashedTokens(
 ) (*big.Int, error) {
 	return big.NewInt(1), nil
 }
+
+func (r *EventRepository) FirstByAddressAndEventName(
+	ctx context.Context,
+	address string,
+	event string,
+) (*eventindexer.Event, error) {
+	for _, e := range r.events {
+		if e.Address == address && e.Event == event {
+			return e, nil
+		}
+	}
+
+	return nil, nil
+}
+
+func (r *EventRepository) GetAssignedBlocksByProverAddress(
+	ctx context.Context,
+	req *http.Request,
+	address string,
+) (paginate.Page, error) {
+	var events []*eventindexer.Event
+
+	for _, e := range r.events {
+		if e.AssignedProver == address && e.Event == eventindexer.EventNameBlockProposed {
+			events = append(events, e)
+		}
+	}
+
+	return paginate.Page{
+		Items: events,
+	}, nil
+}

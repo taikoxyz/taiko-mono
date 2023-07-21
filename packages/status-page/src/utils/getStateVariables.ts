@@ -25,6 +25,7 @@ export const getStateVariables = async (
 
   const contract: Contract = new Contract(contractAddress, TaikoL1, provider);
   const vars = await contract.getStateVariables();
+
   stateVarsCache = {
     stateVars: vars,
     cachedAt: Date.now(),

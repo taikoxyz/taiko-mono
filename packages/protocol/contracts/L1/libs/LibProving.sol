@@ -18,7 +18,7 @@ library LibProving {
     using LibUtils for TaikoData.State;
 
     event BlockProven(
-        uint256 indexed id,
+        uint256 indexed blockId,
         bytes32 parentHash,
         bytes32 blockHash,
         bytes32 signalRoot,
@@ -222,7 +222,7 @@ library LibProving {
         }
 
         emit BlockProven({
-            id: blk.blockId,
+            blockId: blk.blockId,
             parentHash: evidence.parentHash,
             blockHash: evidence.blockHash,
             signalRoot: evidence.signalRoot,

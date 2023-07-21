@@ -25,7 +25,7 @@ func (svc *Service) saveBlockProposedEvents(
 	for {
 		event := events.Event
 
-		if err := svc.detectAndHandleReorg(ctx, eventindexer.EventNameBlockProposed, event.Id.Int64()); err != nil {
+		if err := svc.detectAndHandleReorg(ctx, eventindexer.EventNameBlockProposed, event.BlockId.Int64()); err != nil {
 			return errors.Wrap(err, "svc.detectAndHandleReorg")
 		}
 
@@ -66,15 +66,18 @@ func (svc *Service) saveBlockProposedEvent(
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
-	blockID := event.Id.Int64()
+	blockID := event.BlockId.Int64()
+
+	assignedProver := event.AssignedProver.Hex()
 
 	_, err = svc.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
-		Name:    eventindexer.EventNameBlockProposed,
-		Data:    string(marshaled),
-		ChainID: chainID,
-		Event:   eventindexer.EventNameBlockProposed,
-		Address: sender.Hex(),
-		BlockID: &blockID,
+		Name:           eventindexer.EventNameBlockProposed,
+		Data:           string(marshaled),
+		ChainID:        chainID,
+		Event:          eventindexer.EventNameBlockProposed,
+		Address:        sender.Hex(),
+		BlockID:        &blockID,
+		AssignedProver: &assignedProver,
 	})
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.Save")
