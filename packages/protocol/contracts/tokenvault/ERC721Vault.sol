@@ -203,7 +203,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
      * @return to The to address messages sent to
      * @return tokenIds The tokenIds
      */
-    function decodeMessageData(bytes memory dataWithSelector)
+    function decodeMessageData(bytes calldata dataWithSelector)
         public
         pure
         returns (
@@ -214,8 +214,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         )
     {
         return abi.decode(
-            LibVaultUtils.extractCalldata(dataWithSelector),
-            (CanonicalNFT, address, address, uint256[])
+            dataWithSelector[4:], (CanonicalNFT, address, address, uint256[])
         );
     }
 

@@ -241,7 +241,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
      * @return tokenIds The tokenIds
      * @return amounts The amount per respective ERC1155 tokenid
      */
-    function decodeMessageData(bytes memory dataWithSelector)
+    function decodeMessageData(bytes calldata dataWithSelector)
         public
         pure
         returns (
@@ -253,7 +253,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         )
     {
         return abi.decode(
-            LibVaultUtils.extractCalldata(dataWithSelector),
+            dataWithSelector[4:],
             (CanonicalNFT, address, address, uint256[], uint256[])
         );
     }

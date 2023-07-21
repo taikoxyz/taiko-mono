@@ -15,13 +15,14 @@ import { IERC1155Receiver } from
 import { IERC165 } from
     "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import { Proxied } from "../common/Proxied.sol";
-import { BaseVault } from "./BaseVault.sol";
 import { IBridge } from "../bridge/IBridge.sol";
+import { EssentialContract } from "../common/EssentialContract.sol";
+
 /**
  * This vault is a parent contract for ERC721 and ERC1155 vaults.
  */
 
-abstract contract BaseNFTVault is BaseVault {
+abstract contract BaseNFTVault is EssentialContract {
     struct CanonicalNFT {
         uint256 chainId;
         address addr;
@@ -54,6 +55,9 @@ abstract contract BaseNFTVault is BaseVault {
     // Also storing chainId for tokens across other chains aside from Ethereum.
     mapping(uint256 chainId => mapping(address ctokenAddress => address btoken))
         public canonicalToBridged;
+
+    // Released message hashes
+    mapping(bytes32 msgHash => bool released) public releasedMessages;
 
     // In order not to gas-out we need to hard cap the nr. of max
     // tokens (iterations)
@@ -98,6 +102,56 @@ abstract contract BaseNFTVault is BaseVault {
     );
 
     /**
+     * Thrown when the `to` address in an operation is invalid.
+     * This can happen if it's zero address or the address of the token vault.
+     */
+    error VAULT_INVALID_TO();
+
+    /**
+     * Thrown when the token address in a transaction is invalid.
+     * This could happen if the token address is zero or doesn't conform to the
+     * ERC20 standard.
+     */
+    error VAULT_INVALID_TOKEN();
+
+    /**
+     * Thrown when the amount in a transaction is invalid.
+     * This could happen if the amount is zero or exceeds the sender's balance.
+     */
+    error VAULT_INVALID_AMOUNT();
+
+    /**
+     * Thrown when the owner address in a message is invalid.
+     * This could happen if the owner address is zero or doesn't match the
+     * expected owner.
+     */
+    error VAULT_INVALID_OWNER();
+
+    /**
+     * Thrown when the source chain ID in a message is invalid.
+     * This could happen if the source chain ID doesn't match the current
+     * chain's ID.
+     */
+    error VAULT_INVALID_SRC_CHAIN_ID();
+
+    /**
+     * Thrown when the interface (ERC1155/ERC721) is not supported.
+     */
+    error VAULT_INTERFACE_NOT_SUPPORTED();
+
+    /**
+     * Thrown when a message has not failed.
+     * This could happen if trying to release a message deposit without proof of
+     * failure.
+     */
+    error VAULT_MESSAGE_NOT_FAILED();
+
+    /**
+     * Thrown when a message has already released
+     */
+    error VAULT_MESSAGE_RELEASED_ALREADY();
+
+    /**
      * Thrown when the length of the tokenIds array and the amounts
      * array differs.
      */
@@ -107,6 +161,20 @@ abstract contract BaseNFTVault is BaseVault {
      * Thrown when more tokens are about to be bridged than allowed.
      */
     error VAULT_MAX_TOKEN_PER_TXN_EXCEEDED();
+
+    modifier onlyValidAddresses(
+        uint256 chainId,
+        bytes32 name,
+        address to,
+        address token
+    ) {
+        if (to == address(0) || to == resolve(chainId, name, false)) {
+            revert VAULT_INVALID_TO();
+        }
+
+        if (token == address(0)) revert VAULT_INVALID_TOKEN();
+        _;
+    }
 
     modifier onlyValidAmounts(
         uint256[] memory amounts,
@@ -136,6 +204,10 @@ abstract contract BaseNFTVault is BaseVault {
             }
         }
         _;
+    }
+
+    function init(address addressManager) external initializer {
+        EssentialContract._init(addressManager);
     }
 
     /**
