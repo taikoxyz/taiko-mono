@@ -41,3 +41,7 @@ export class ApproveError extends Error {
 export class RevertedWithFailedError extends Error {
   name = 'RevertedWithFailedError';
 }
+
+export class MintError extends Error {
+  name = 'MintError';
+}

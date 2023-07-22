@@ -85,7 +85,11 @@
   "faucet": {
     "title": "Faucet",
     "description": "Mint test tokens.",
-    "mint_tx": "Transaction sent to mint {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
+    "mint": {
+      "tx": "Transaction sent to mint {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
+      "success": "Minted {token} tokens!. You can see your tokens on the Bridge page.",
+      "rejected": "Request to mint rejected."
+    },
     "button": {
       "mint": "Mint",
       "checking": "Checking mintability",
@@ -99,9 +103,6 @@
       "no_connected": "Please connect your wallet to mint tokens.",
       "insufficient_balance": "You don't have enough ETH to complete the transaction. Please add some ETH to your wallet.",
       "token_minted": "You have already minted this token."
-    },
-    "mint": {
-      "rejected": "Request to mint rejected."
     }
   },
 

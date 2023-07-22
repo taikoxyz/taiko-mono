@@ -9,10 +9,10 @@
   import { ChainSelector } from '$components/ChainSelector';
   import { Icon } from '$components/Icon';
   import { successToast, warningToast } from '$components/NotificationToast';
-  import { infoToast } from '$components/NotificationToast/NotificationToast.svelte';
+  import { errorToast, infoToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { TokenDropdown } from '$components/TokenDropdown';
   import { PUBLIC_L1_CHAIN_ID, PUBLIC_L1_CHAIN_NAME, PUBLIC_L1_EXPLORER_URL } from '$env/static/public';
-  import { InsufficientBalanceError, TokenMintedError } from '$libs/error';
+  import { InsufficientBalanceError, MintError, TokenMintedError } from '$libs/error';
   import { testERC20Tokens, type Token } from '$libs/token';
   import { checkMintable, mint } from '$libs/token';
   import { account, network, pendingTransactions } from '$stores';
@@ -57,7 +57,7 @@
       const txHash = await mint(selectedToken, $network.id);
 
       infoToast(
-        $t('faucet.mint_tx', {
+        $t('faucet.mint.tx', {
           values: {
             token: selectedToken.symbol,
             url: `${PUBLIC_L1_EXPLORER_URL}/tx/${txHash}`,
@@ -71,9 +71,17 @@
     } catch (err) {
       console.error(err);
 
-      const { cause } = err as Error;
-      if (cause instanceof UserRejectedRequestError) {
-        warningToast($t('faucet.mint.rejected'));
+      switch (true) {
+        case err instanceof UserRejectedRequestError:
+          warningToast($t('faucet.mint.rejected'));
+          break;
+        case err instanceof MintError:
+          // TODO: see contract for all possible errors
+          errorToast($t('faucet.mint.error'));
+          break;
+        default:
+          errorToast($t('faucet.mint.unknown_error'));
+          break;
       }
     } finally {
       minting = false;
