@@ -10,8 +10,16 @@
   "bridge": {
     "title": "Bridge",
     "description": "Send your assets across chains.",
-    "approve_tx": "Transaction sent to approve {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
-    "bridge_tx": "Transaction sent to bridge {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
+    "approve": {
+      "tx": "Transaction sent to approve {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
+      "success": "Approved {token} tokens!. You can now proceed to bridge.",
+      "rejected": "Request to approve rejected."
+    },
+    "bridge": {
+      "tx": "Transaction sent to bridge {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
+      "success": "Transaction completed!. Your funds are getting ready to be claimed on {network}",
+      "rejected": "Request to bridge rejected."
+    },
     "button": {
       "approve": "Approve",
       "approving": "Approving",
@@ -91,6 +99,9 @@
       "no_connected": "Please connect your wallet to mint tokens.",
       "insufficient_balance": "You don't have enough ETH to complete the transaction. Please add some ETH to your wallet.",
       "token_minted": "You have already minted this token."
+    },
+    "mint": {
+      "rejected": "Request to mint rejected."
     }
   },
 
@@ -139,9 +150,6 @@
     "network": {
       "switching": "Switching network",
       "rejected": "Request to switch chain rejected."
-    },
-    "mint": {
-      "rejected": "Request to mint rejected."
     }
   },
 

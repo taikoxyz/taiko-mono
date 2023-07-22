@@ -1,7 +1,7 @@
 import { type Address, zeroAddress } from 'viem';
 
 import { chainContractsMap } from '$libs/chain';
-import { InsufficientAllowanceError, InsufficientBalanceError } from '$libs/error';
+import { InsufficientAllowanceError, InsufficientBalanceError, RevertedWithFailedError } from '$libs/error';
 import { getAddress, isETH, type Token } from '$libs/token';
 import { isDeployedCrossChain } from '$libs/token/isDeployedCrossChain';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
@@ -53,8 +53,12 @@ export async function checkBalanceToBridge({
       console.error(err);
 
       // TODO: rely on error code, or instance, instead of string matching
-      if (`${err}`.includes('transaction exceeds the balance of the account')) {
+      if (`${err}`.includes('transaction exceeds the balance')) {
         throw new InsufficientBalanceError('you do not have enough balance to bridge ETH', { cause: err });
+      }
+
+      if (`${err}`.includes('reverted with the following reason: Failed')) {
+        throw new RevertedWithFailedError('BLL token doing its thing', { cause: err });
       }
     }
   } else {

@@ -8,7 +8,7 @@
   import { LoadingText } from '$components/LoadingText';
   import { warningToast } from '$components/NotificationToast';
   import { checkBalanceToBridge, getMaxAmountToBridge } from '$libs/bridge';
-  import { InsufficientAllowanceError, InsufficientBalanceError } from '$libs/error';
+  import { InsufficientAllowanceError, InsufficientBalanceError, RevertedWithFailedError } from '$libs/error';
   import { getBalance as getTokenBalance } from '$libs/token';
   import { debounce } from '$libs/util/debounce';
   import { truncateString } from '$libs/util/truncateString';
@@ -75,6 +75,9 @@
           break;
         case err instanceof InsufficientAllowanceError:
           $insufficientAllowance = true;
+          break;
+        case err instanceof RevertedWithFailedError:
+          warningToast($t('messages.network.rejected'));
           break;
       }
     }

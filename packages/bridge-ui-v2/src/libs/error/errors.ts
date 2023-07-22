@@ -37,3 +37,7 @@ export class SendERC20Error extends Error {
 export class ApproveError extends Error {
   name = 'ApproveError';
 }
+
+export class RevertedWithFailedError extends Error {
+  name = 'RevertedWithFailedError';
+}

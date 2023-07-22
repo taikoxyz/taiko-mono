@@ -62,7 +62,6 @@
             url: `${PUBLIC_L1_EXPLORER_URL}/tx/${txHash}`,
           },
         }),
-        true,
       );
 
       await pendingTransactions.add(txHash, $network.id);
@@ -73,7 +72,7 @@
 
       const { cause } = err as Error;
       if (cause instanceof UserRejectedRequestError) {
-        warningToast($t('messages.mint.rejected'));
+        warningToast($t('faucet.mint.rejected'));
       }
     } finally {
       minting = false;

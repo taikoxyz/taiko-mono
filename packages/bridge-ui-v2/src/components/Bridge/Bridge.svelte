@@ -76,16 +76,23 @@
       });
 
       successToast(
-        $t('bridge.approve_tx', {
+        $t('bridge.approve.tx', {
           values: {
             token: $selectedToken.symbol,
             url: `${PUBLIC_L1_EXPLORER_URL}/tx/${txHash}`,
           },
         }),
-        true,
       );
 
       await pendingTransactions.add(txHash, $network.id);
+
+      successToast(
+        $t('bridge.approve.success', {
+          values: {
+            token: $selectedToken.symbol,
+          },
+        }),
+      );
 
       // Let's run the validation again, which will update UI
       amountComponent.validate();
@@ -93,7 +100,7 @@
       console.error(err);
 
       if (err instanceof UserRejectedRequestError) {
-        warningToast($t('messages.network.rejected'));
+        warningToast($t('bridge.approve.rejected'));
       }
     }
   }
@@ -159,16 +166,23 @@
       const txHash = await bridge.bridge(bridgeArgs);
 
       successToast(
-        $t('bridge.bridge_tx', {
+        $t('bridge.bridge.tx', {
           values: {
             token: $selectedToken.symbol,
             url: `${PUBLIC_L1_EXPLORER_URL}/tx/${txHash}`,
           },
         }),
-        true,
       );
 
       await pendingTransactions.add(txHash, $network.id);
+
+      successToast(
+        $t('bridge.bridge.success', {
+          values: {
+            network: $destNetwork.name,
+          },
+        }),
+      );
 
       // Reset the form
       amountComponent.clearAmount();
@@ -181,7 +195,7 @@
       console.error(err);
 
       if (err instanceof UserRejectedRequestError) {
-        warningToast($t('messages.network.rejected'));
+        warningToast($t('bridge.bridge.rejected'));
       }
     }
   }
@@ -200,11 +214,11 @@
 
     <TokenDropdown {tokens} bind:value={$selectedToken} />
 
-    <Amount />
+    <Amount bind:this={amountComponent} />
 
-    <Recipient />
+    <Recipient bind:this={recipientComponent} />
 
-    <ProcessingFee />
+    <ProcessingFee bind:this={processingFeeComponent} />
 
     <div class="h-sep" />
 
