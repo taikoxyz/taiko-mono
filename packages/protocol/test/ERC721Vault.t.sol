@@ -15,7 +15,6 @@ import { LibBridgeStatus } from "../contracts/bridge/libs/LibBridgeStatus.sol";
 import { SignalService } from "../contracts/signal/SignalService.sol";
 import { ICrossChainSync } from "../contracts/common/ICrossChainSync.sol";
 import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import { BaseVault } from "../contracts/tokenvault/BaseVault.sol";
 import
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
@@ -320,7 +319,7 @@ contract ERC721VaultTest is Test {
             ""
         );
         vm.prank(Alice, Alice);
-        vm.expectRevert(BaseVault.VAULT_INVALID_TO.selector);
+        vm.expectRevert(BaseNFTVault.VAULT_INVALID_TO.selector);
         erc721Vault.sendToken{ value: 140_000 }(sendOpts);
     }
 
@@ -348,7 +347,7 @@ contract ERC721VaultTest is Test {
             ""
         );
         vm.prank(Alice, Alice);
-        vm.expectRevert(BaseVault.VAULT_INVALID_TOKEN.selector);
+        vm.expectRevert(BaseNFTVault.VAULT_INVALID_TOKEN.selector);
         erc721Vault.sendToken{ value: 140_000 }(sendOpts);
     }
 
@@ -378,7 +377,7 @@ contract ERC721VaultTest is Test {
             ""
         );
         vm.prank(Alice, Alice);
-        vm.expectRevert(BaseVault.VAULT_INVALID_AMOUNT.selector);
+        vm.expectRevert(BaseNFTVault.VAULT_INVALID_AMOUNT.selector);
         erc721Vault.sendToken{ value: 140_000 }(sendOpts);
     }
 

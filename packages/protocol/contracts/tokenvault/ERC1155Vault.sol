@@ -23,6 +23,7 @@ import { BaseNFTVault } from "./BaseNFTVault.sol";
 import { ProxiedBridgedERC1155 } from "./BridgedERC1155.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
 
 /**
  * Some ERC1155 contracts implementing the name() and symbol()
@@ -118,7 +119,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         nonReentrant
         onlyFromNamed("bridge")
     {
-        IBridge.Context memory ctx = _checkValidContext("erc1155_vault");
+        IBridge.Context memory ctx =
+            LibVaultUtils.checkValidContext("erc1155_vault", address(this));
         address token;
 
         unchecked {
@@ -154,6 +156,16 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         });
     }
 
+    /**
+     * Release deposited ERC1155 token(s) back to the owner on the source chain
+     * with
+     * a proof that the message processing on the destination Bridge has failed.
+     *
+     * @param message The message that corresponds to the ERC1155 deposit on the
+     * source chain.
+     * @param proof The proof from the destination chain to show the message has
+     * failed.
+     */
     function releaseToken(
         IBridge.Message calldata message,
         bytes calldata proof
@@ -235,6 +247,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         return IERC1155Receiver.onERC1155BatchReceived.selector;
     }
 
+
     function _sendToken(
         address owner,
         BridgeTransferOp memory opt
@@ -292,6 +305,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         );
     }
 
+    /**
+     * @dev Returns the contract address per given canonical token.
+     */
     function _getOrDeployBridgedToken(CanonicalNFT memory ctoken)
         private
         returns (address btoken)
@@ -313,8 +329,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     {
         ProxiedBridgedERC1155 bridgedToken = new ProxiedBridgedERC1155();
 
-        btoken = _deployProxy(
+        btoken = LibVaultUtils.deployProxy(
             address(bridgedToken),
+            owner(),
             bytes.concat(
                 bridgedToken.init.selector,
                 abi.encode(

@@ -15,7 +15,6 @@ import { EtherVault } from "../contracts/bridge/EtherVault.sol";
 import { LibBridgeStatus } from "../contracts/bridge/libs/LibBridgeStatus.sol";
 import { SignalService } from "../contracts/signal/SignalService.sol";
 import { ICrossChainSync } from "../contracts/common/ICrossChainSync.sol";
-import { BaseVault } from "../contracts/tokenvault/BaseVault.sol";
 import { ERC1155 } from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
@@ -303,7 +302,7 @@ contract ERC1155VaultTest is Test {
             ""
         );
         vm.prank(Alice, Alice);
-        vm.expectRevert(BaseVault.VAULT_INVALID_TO.selector);
+        vm.expectRevert(BaseNFTVault.VAULT_INVALID_TO.selector);
         erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
     }
 
@@ -333,7 +332,7 @@ contract ERC1155VaultTest is Test {
             ""
         );
         vm.prank(Alice, Alice);
-        vm.expectRevert(BaseVault.VAULT_INVALID_TOKEN.selector);
+        vm.expectRevert(BaseNFTVault.VAULT_INVALID_TOKEN.selector);
         erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
     }
 
@@ -363,7 +362,7 @@ contract ERC1155VaultTest is Test {
             ""
         );
         vm.prank(Alice, Alice);
-        vm.expectRevert(BaseVault.VAULT_INVALID_AMOUNT.selector);
+        vm.expectRevert(BaseNFTVault.VAULT_INVALID_AMOUNT.selector);
         erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
     }
 
