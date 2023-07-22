@@ -159,12 +159,14 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         }
 
         (
+            ,
             CanonicalNFT memory nft, //
             ,
             ,
             uint256[] memory tokenIds
         ) = abi.decode(
-            message.data[4:], (CanonicalNFT, address, address, uint256[])
+
+            message.data, (bytes4, CanonicalNFT, address, address, uint256[])
         );
 
         bytes32 msgHash = hashAndMarkMsgReleased(message, proof, nft.addr);
