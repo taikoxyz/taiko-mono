@@ -1,4 +1,5 @@
 import { getContract } from '@wagmi/core';
+import { UserRejectedRequestError } from 'viem';
 
 import { freeMintErc20ABI } from '$abi';
 import { MintError } from '$libs/error';
@@ -6,7 +7,6 @@ import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 
 import { getLogger } from '../util/logger';
 import type { Token } from './types';
-import { UserRejectedRequestError } from 'viem';
 
 const log = getLogger('token:mint');
 

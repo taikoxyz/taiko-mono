@@ -87,7 +87,7 @@
     "description": "Mint test tokens.",
     "mint": {
       "tx": "Transaction sent to mint {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
-      "success": "Minted {token} tokens!. You can see your tokens on the Bridge page.",
+      "success": "Minted {token} tokens!. Check out your balance on the Bridge page.",
       "rejected": "Request to mint rejected."
     },
     "button": {

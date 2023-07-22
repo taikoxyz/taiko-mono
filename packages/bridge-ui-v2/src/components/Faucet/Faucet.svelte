@@ -67,7 +67,13 @@
 
       await pendingTransactions.add(txHash, $network.id);
 
-      // TODO: pending transaction logic
+      successToast(
+        $t('faucet.mint.success', {
+          values: {
+            token: selectedToken.symbol,
+          },
+        }),
+      );
     } catch (err) {
       console.error(err);
 
