@@ -1,67 +1,113 @@
-# Eldfell L3 node runner manual
+# Nodes runner manual
+
+Here's docs showing manual commands of Grimsvotn L2 and Eldfell L3 nodes. If you're looking for the recommended way, please visit [Run a Taiko node](/docs/guides/run-a-node/run-a-taiko-node)
 
 ## Start node
 
 ```sh
+# Grimsvotn L2
+docker compose up -d 
+
+# Eldfell L3
 docker compose -f ./docker-compose.l3.yml --env-file .env.l3 up -d
 ```
 
 ## Stop node
 
 ```sh
+# Grimsvotn L2
+docker compose down
+
+# Eldfell L3
 docker compose -f ./docker-compose.l3.yml --env-file .env.l3 down
 ```
 
 ## Update node
 
 ```sh
+# Grimsvotn L2
+git pull origin main && docker compose pull
+
+# Eldfell L3
 git pull origin main && docker compose -f ./docker-compose.l3.yml --env-file .env.l3 pull
 ```
 
 ## Remove node
 
 ```sh
+# Grimsvotn L2
+docker compose down -v
+
+# Eldfell L3
 docker compose -f ./docker-compose.l3.yml --env-file .env.l3 down -v
 ```
 
 ## View grafana dashboard
 
 ```sh
+# Grimsvotn L2
+open http://localhost:3000/d/L2ExecutionEngine/l2-execution-engine-overview
+
+# Eldfell L3
 open http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview
 ```
 
 ## View all logs
 
 ```sh
+# Grimsvotn L2
+docker compose logs -f
+
+# Eldfell L3
 docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f
 ```
 
 ## View execution logs
 
 ```sh
+# Grimsvotn L2
+docker compose logs -f l2_execution_engine
+
+# Eldfell L3
 docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f l2_execution_engine
 ```
 
 ## View client driver logs
 
 ```sh
+# Grimsvotn L2
+docker compose logs -f taiko_client_driver
+
+# Eldfell L3
 docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f taiko_client_driver
 ```
 
 ## View client proposer logs
 
 ```sh
+# Grimsvotn L2
+docker compose logs -f taiko_client_proposer
+
+# Eldfell L3
 docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f taiko_client_proposer
 ```
 
 ## View client prover relayer logs
 
 ```sh
+# Grimsvotn L2
+docker compose logs -f taiko_client_prover_relayer
+
+# Eldfell L3
 docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f taiko_client_prover_relayer
 ```
 
 ## View zkevm prover logs
 
 ```sh
+# Grimsvotn L2
+docker compose logs -f zkevm-chain-prover-rpcd
+
+# Eldfell L3
 docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f zkevm-chain-prover-rpcd
 ```
