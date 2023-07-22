@@ -60,6 +60,13 @@ const ecosystemData: EcosystemData[] = [
     filters: [],
   },
   {
+    icon: "/images/ecosystem/kalkiswap.png",
+    name: "KALKI SWAP",
+    link: "https://kalkiswap.org",
+    description: "KalkiSwap is a cutting-edge decentralized exchange (DEX) that provides lightning-fast token swapping and innovative liquidity provision across diverse blockchains.",
+    filters: [],
+  },
+  {
     icon: "/images/ecosystem/kekkai.png",
     name: "KEKKAI",
     link: "https://kekkai.io",
@@ -110,7 +117,7 @@ const ecosystemData: EcosystemData[] = [
   {
     icon: "/images/ecosystem/owlto.png",
     name: "Owlto",
-    link: "https://stg.owlto.finance",
+    link: "https://owlto.finance",
     description: "The decentralized cross-rollup bridge focused on Layer2.",
     filters: [],
   },
