@@ -20,13 +20,13 @@ export const ETHToken: Token = {
 export const TKOToken: Token = {
   name: 'Taiko',
   addresses: {
-    [L1_CHAIN_ID]: '0x00',
-    [L2_CHAIN_ID]: '0x00',
+    [L1_CHAIN_ID]: '0xE52952B8063d0AE6Bd35E894866d8148976ce645',
+    [L2_CHAIN_ID]: '0x7b1a3117B2b9BE3a3C31e5a097c7F890199666aC',
   },
-  decimals: 18,
-  symbol: 'TKO',
+  decimals: 8,
+  symbol: 'TTKO',
   logoUrl:
-    'https://github.com/taikoxyz/taiko-mono/tree/main/packages/branding/testnet-token-images/ttko.svg',
+    'https://raw.githubusercontent.com/taikoxyz/taiko-mono/main/packages/branding/testnet-token-images/ttko.svg',
   logoComponent: Tko,
 };
 
@@ -51,7 +51,7 @@ export const testERC20Tokens: Token[] = TEST_ERC20.map(
   }),
 );
 
-export const tokens = [ETHToken, ...testERC20Tokens];
+export const tokens = [ETHToken, ...testERC20Tokens, TKOToken];
 
 export function isTestToken(token: Token): boolean {
   const testingTokens = TEST_ERC20.map((testToken) =>
