@@ -295,37 +295,6 @@ contract ERC721VaultTest is Test {
         assertEq(ERC721(canonicalToken721).ownerOf(1), address(erc721Vault));
     }
 
-    function test_decode_message_calldata_721() public {
-        BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault
-            .CanonicalNFT({
-            chainId: 31_337,
-            addr: 0x579FBFF1A9b1502688169DA761DcF262b73BB64A,
-            symbol: "TT",
-            name: "TT"
-        });
-
-        uint256[] memory tokenIds = new uint256[](1);
-        tokenIds[0] = 1;
-
-        bytes memory dataToDecode = abi.encodeWithSelector(
-            0x2c349adf, canonicalToken, Alice, Alice, tokenIds
-        );
-
-        BaseNFTVault.CanonicalNFT memory nftRetVal;
-        address ownerRetVal;
-        uint256[] memory tokenIdsRetVal;
-        (nftRetVal, ownerRetVal,, tokenIdsRetVal) =
-            erc721Vault.decodeMessageData(dataToDecode);
-
-        assertEq(Alice, ownerRetVal);
-        assertEq(1, tokenIdsRetVal[0]);
-        assertEq(31_337, nftRetVal.chainId);
-        assertEq(0x579FBFF1A9b1502688169DA761DcF262b73BB64A, nftRetVal.addr);
-
-        assertEq("TT", nftRetVal.symbol);
-        assertEq("TT", nftRetVal.name);
-    }
-
     function test_sendToken_with_invalid_to_address_721() public {
         vm.prank(Alice, Alice);
         canonicalToken721.approve(address(erc721Vault), 1);

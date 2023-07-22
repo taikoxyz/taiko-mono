@@ -172,7 +172,10 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             ,
             uint256[] memory tokenIds,
             uint256[] memory amounts
-        ) = decodeMessageData(message.data);
+        ) = abi.decode(
+            message.data[4:],
+            (CanonicalNFT, address, address, uint256[], uint256[])
+        );
 
         bytes32 msgHash = hashAndMarkMsgReleased(message, proof, nft.addr);
         unchecked {
@@ -230,32 +233,6 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         returns (bytes4)
     {
         return IERC1155Receiver.onERC1155BatchReceived.selector;
-    }
-
-    /**
-     * Decodes the data which was abi.encodeWithSelector() encoded.
-     * @param dataWithSelector Data encoded with abi.encodedWithSelector
-     * @return nft CanonicalNFT data
-     * @return owner Owner of the message
-     * @return to The to address messages sent to
-     * @return tokenIds The tokenIds
-     * @return amounts The amount per respective ERC1155 tokenid
-     */
-    function decodeMessageData(bytes memory dataWithSelector)
-        public
-        pure
-        returns (
-            CanonicalNFT memory nft,
-            address owner,
-            address to,
-            uint256[] memory tokenIds,
-            uint256[] memory amounts
-        )
-    {
-        return abi.decode(
-            _extractCalldata(dataWithSelector),
-            (CanonicalNFT, address, address, uint256[], uint256[])
-        );
     }
 
     function _sendToken(
