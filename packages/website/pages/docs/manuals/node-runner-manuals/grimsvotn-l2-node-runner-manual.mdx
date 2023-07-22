@@ -1,0 +1,67 @@
+# Grimsvotn L2 node runner manual
+
+## Start node
+
+```sh
+docker compose up -d
+```
+
+## Stop node
+
+```sh
+docker compose down
+```
+
+## Update node
+
+```sh
+git pull origin main && docker compose pull
+```
+
+## Remove node
+
+```sh
+docker compose down -v
+```
+
+## View grafana dashboard
+
+```sh
+open http://localhost:3000/d/L2ExecutionEngine/l2-execution-engine-overview
+```
+
+## View all logs
+
+```sh
+docker compose logs -f
+```
+
+## View execution logs
+
+```sh
+docker compose logs -f l2_execution_engine
+```
+
+## View client driver logs
+
+```sh
+docker compose logs -f taiko_client_driver
+```
+
+## View client proposer logs
+
+```sh
+docker compose logs -f taiko_client_proposer
+```
+
+## View client prover relayer logs
+
+```sh
+docker compose logs -f taiko_client_prover_relayer
+```
+
+## View zkevm prover logs
+
+```sh
+docker compose logs -f zkevm-chain-prover-rpcd
+```

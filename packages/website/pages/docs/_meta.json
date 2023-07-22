@@ -8,13 +8,13 @@
   "reference": {
     "title": "Reference"
   },
+  "manuals": {
+    "title": "Manuals"
+  },
   "concepts": {
     "title": "Concepts"
   },
   "resources": {
     "title": "Resources"
-  },
-  "manuals": {
-    "title": "Manuals"
   }
 }
