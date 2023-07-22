@@ -36,7 +36,7 @@
 
   // We want to debounce this function for input events.
   // Could happen as the user enters an amount
-  const debouncedValidate = debounce(() => validator?.validate(), 300);
+  const debouncedValidate = debounce(() => validator.validate(), 300);
 
   async function updateBalance(token: Maybe<Token>, userAddress?: Address, srcChainId?: number, destChainId?: number) {
     if (!token || !srcChainId || !userAddress) return;
@@ -71,12 +71,9 @@
     if (!$selectedToken) return;
 
     const { value } = event.target as HTMLInputElement;
+    $enteredAmount = parseUnits(value, $selectedToken.decimals);
 
-    try {
-      $enteredAmount = parseUnits(value, $selectedToken.decimals);
-    } catch (err) {
-      $enteredAmount = BigInt(0);
-    }
+    debouncedValidate();
   }
 
   // "MAX" button handler
@@ -117,7 +114,7 @@
 
   $: updateBalance($selectedToken, $account?.address, $network?.id, $destNetwork?.id);
 
-  $: $selectedToken && $enteredAmount && $processingFee && debouncedValidate();
+  $: $selectedToken && $processingFee && validator.validate();
 </script>
 
 <div class="AmountInput f-col space-y-2">
