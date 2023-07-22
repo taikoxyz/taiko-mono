@@ -20,6 +20,7 @@ import { IBridge } from "../bridge/IBridge.sol";
 import { BaseNFTVault } from "./BaseNFTVault.sol";
 import { ProxiedBridgedERC721 } from "./BridgedERC721.sol";
 import { Proxied } from "../common/Proxied.sol";
+import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
 
 /**
  * This vault holds all ERC721 tokens that users have deposited.
@@ -100,7 +101,8 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         nonReentrant
         onlyFromNamed("bridge")
     {
-        IBridge.Context memory ctx = _checkValidContext("erc721_vault");
+        IBridge.Context memory ctx =
+            LibVaultUtils.checkValidContext("erc721_vault", address(this));
         address token;
 
         unchecked {
@@ -132,6 +134,16 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         });
     }
 
+    /**
+     * Release deposited ERC721 token(s) back to the owner on the source chain
+     * with
+     * a proof that the message processing on the destination Bridge has failed.
+     *
+     * @param message The message that corresponds to the ERC721 deposit on the
+     * source chain.
+     * @param proof The proof from the destination chain to show the message has
+     * failed.
+     */
     function releaseToken(
         IBridge.Message calldata message,
         bytes calldata proof
@@ -201,7 +213,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
      * @return to The to address messages sent to
      * @return tokenIds The tokenIds
      */
-    function decodeMessageData(bytes memory dataWithSelector)
+    function decodeMessageData(bytes calldata dataWithSelector)
         public
         pure
         returns (
@@ -212,11 +224,13 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         )
     {
         return abi.decode(
-            _extractCalldata(dataWithSelector),
-            (CanonicalNFT, address, address, uint256[])
+            dataWithSelector[4:], (CanonicalNFT, address, address, uint256[])
         );
     }
 
+    /**
+     * @dev Vaults / burns the tokens and creates msg.data
+     */
     function _sendToken(
         address owner,
         BridgeTransferOp calldata opt
@@ -255,6 +269,9 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         );
     }
 
+    /**
+     * @dev Returns the contract address per given canonical token.
+     */
     function _getOrDeployBridgedToken(CanonicalNFT calldata ctoken)
         private
         returns (address btoken)
@@ -276,8 +293,9 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     {
         ProxiedBridgedERC721 bridgedToken = new ProxiedBridgedERC721();
 
-        btoken = _deployProxy(
+        btoken = LibVaultUtils.deployProxy(
             address(bridgedToken),
+            owner(),
             bytes.concat(
                 bridgedToken.init.selector,
                 abi.encode(

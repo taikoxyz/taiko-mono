@@ -11,7 +11,6 @@ import { SignalService } from "../contracts/signal/SignalService.sol";
 import { TaikoToken } from "../contracts/L1/TaikoToken.sol";
 import { Test } from "forge-std/Test.sol";
 import { ERC20Vault } from "../contracts/tokenvault/ERC20Vault.sol";
-import { BaseVault } from "../contracts/tokenvault/BaseVault.sol";
 import
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
@@ -225,7 +224,7 @@ contract TestERC20Vault is Test {
 
         uint256 amount = 0;
 
-        vm.expectRevert(BaseVault.VAULT_INVALID_AMOUNT.selector);
+        vm.expectRevert(ERC20Vault.VAULT_INVALID_AMOUNT.selector);
         erc20Vault.sendToken(
             ERC20Vault.BridgeTransferOp(
                 destChainId, Bob, address(erc20), amount, 1_000_000, 0, Bob, ""
@@ -238,7 +237,7 @@ contract TestERC20Vault is Test {
 
         uint256 amount = 1;
 
-        vm.expectRevert(BaseVault.VAULT_INVALID_TOKEN.selector);
+        vm.expectRevert(ERC20Vault.VAULT_INVALID_TOKEN.selector);
         erc20Vault.sendToken(
             ERC20Vault.BridgeTransferOp(
                 destChainId, Bob, address(0), amount, 1_000_000, 0, Bob, ""
@@ -251,7 +250,7 @@ contract TestERC20Vault is Test {
 
         uint256 amount = 1;
 
-        vm.expectRevert(BaseVault.VAULT_INVALID_TO.selector);
+        vm.expectRevert(ERC20Vault.VAULT_INVALID_TO.selector);
         erc20Vault.sendToken(
             ERC20Vault.BridgeTransferOp(
                 destChainId,
