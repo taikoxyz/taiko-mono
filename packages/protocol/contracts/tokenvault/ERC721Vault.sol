@@ -145,11 +145,14 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         }
 
         (
+            ,
             CanonicalNFT memory nft, //
             ,
             ,
             uint256[] memory tokenIds
-        ) = decodeMessageData(message.data);
+        ) = abi.decode(
+            message.data, (bytes4, CanonicalNFT, address, address, uint256[])
+        );
 
         bytes32 msgHash = hashAndMarkMsgReleased(message, proof, nft.addr);
 
@@ -191,30 +194,6 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         returns (bytes4)
     {
         return IERC721Receiver.onERC721Received.selector;
-    }
-
-    /**
-     * Decodes the data which was abi.encodeWithSelector() encoded.
-     * @param dataWithSelector Data encoded with abi.encodedWithSelector
-     * @return nft CanonicalNFT data
-     * @return owner Owner of the message
-     * @return to The to address messages sent to
-     * @return tokenIds The tokenIds
-     */
-    function decodeMessageData(bytes memory dataWithSelector)
-        public
-        pure
-        returns (
-            CanonicalNFT memory nft,
-            address owner,
-            address to,
-            uint256[] memory tokenIds
-        )
-    {
-        return abi.decode(
-            _extractCalldata(dataWithSelector),
-            (CanonicalNFT, address, address, uint256[])
-        );
     }
 
     function _sendToken(
