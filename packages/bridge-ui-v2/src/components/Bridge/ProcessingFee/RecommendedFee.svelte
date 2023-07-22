@@ -15,7 +15,8 @@
   let interval: ReturnType<typeof setInterval>;
 
   async function compute(token: Maybe<Token>, srcChainId?: number, destChainId?: number) {
-    if (!token) return;
+    // Without token nor destination chain we cannot compute this fee
+    if (!token || !destChainId) return;
 
     calculating = true;
     error = false;

@@ -1,5 +1,4 @@
 import { getContract, type GetContractResult } from '@wagmi/core';
-import { zeroAddress } from 'viem';
 
 import { tokenVaultABI } from '$abi';
 import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID } from '$env/static/public';
@@ -25,29 +24,29 @@ describe('getAddress', () => {
     vi.mocked(getContract).mockReturnValue(mockTokenContract);
   });
 
-  it('should return undefined if no source chain id is passed in', async () => {
-    expect(await getAddress({ token: ETHToken })).toBeUndefined();
-  });
-
-  it('should return the address if ETH', async () => {
-    expect(await getAddress({ token: ETHToken, chainId: Number(PUBLIC_L1_CHAIN_ID) })).toEqual(zeroAddress);
+  it('should return undefined if ETH', async () => {
+    expect(await getAddress({ token: ETHToken, srcChainId: Number(PUBLIC_L1_CHAIN_ID) })).toBeUndefined();
   });
 
   it('should return the address if ERC20 and has address on the source chain', async () => {
-    expect(await getAddress({ token: HORSEToken, chainId: Number(PUBLIC_L1_CHAIN_ID) })).toEqual(
+    expect(await getAddress({ token: HORSEToken, srcChainId: Number(PUBLIC_L1_CHAIN_ID) })).toEqual(
       HORSEToken.addresses[PUBLIC_L1_CHAIN_ID],
     );
   });
 
   it('should return undefined if ERC20 and has no address on the source chain and no destination chain is is passed in', async () => {
-    expect(await getAddress({ token: HORSEToken, chainId: Number(PUBLIC_L2_CHAIN_ID) })).toBeUndefined();
+    expect(await getAddress({ token: HORSEToken, srcChainId: Number(PUBLIC_L2_CHAIN_ID) })).toBeUndefined();
   });
 
   it('should return the address of deployed ERC20 token', async () => {
     vi.mocked(mockTokenContract.read.canonicalToBridged).mockResolvedValue('0x456789');
 
     expect(
-      await getAddress({ token: HORSEToken, chainId: Number(PUBLIC_L2_CHAIN_ID), destChainId: +PUBLIC_L1_CHAIN_ID }),
+      await getAddress({
+        token: HORSEToken,
+        srcChainId: Number(PUBLIC_L2_CHAIN_ID),
+        destChainId: Number(PUBLIC_L1_CHAIN_ID),
+      }),
     ).toEqual('0x456789');
     expect(mockTokenContract.read.canonicalToBridged).toHaveBeenCalledWith([
       BigInt(1),
@@ -56,6 +55,7 @@ describe('getAddress', () => {
     expect(getContract).toHaveBeenCalledWith({
       abi: tokenVaultABI,
       address: chainContractsMap[PUBLIC_L2_CHAIN_ID].tokenVaultAddress,
+      chainId: Number(PUBLIC_L2_CHAIN_ID),
     });
   });
 });

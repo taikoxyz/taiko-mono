@@ -12,6 +12,7 @@ import type { Token } from '$libs/token';
 // but once again, we don't need such level of security that we have to
 // prevent other components outside the Bridge from accessing this store.
 
-export const selectedToken = writable<Maybe<Token>>();
-export const destNetwork = writable<Maybe<Chain>>();
-export const processingFee = writable<bigint>();
+export const selectedToken = writable<Maybe<Token>>(null);
+export const enteredAmount = writable<bigint>(BigInt(0));
+export const destNetwork = writable<Maybe<Chain>>(null);
+export const processingFee = writable<bigint>(BigInt(0));

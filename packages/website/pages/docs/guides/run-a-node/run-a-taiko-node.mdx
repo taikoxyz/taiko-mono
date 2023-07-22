@@ -220,19 +220,19 @@ docker compose pull
 
 To view the Docker logs, the following commands can be ran:
 
-#### View all logs
+#### View all L2 logs
 
 ```sh
 docker compose logs -f
 ```
 
-#### View the proposer image's logs
+#### View the L2 proposer image's logs
 
 ```sh
 docker compose logs -f taiko_client_proposer
 ```
 
-#### View the prover image's logs
+#### View the L2 prover image's logs
 
 ```sh
 docker compose logs -f taiko_client_prover_relayer
@@ -242,6 +242,30 @@ docker compose logs -f taiko_client_prover_relayer
 
 ```sh
 docker compose logs -f l2_execution_engine
+```
+
+#### View all L3 logs
+
+```sh
+docker compose -f docker-compose.l3.yml logs -f 
+```
+
+#### View the L3 proposer image's logs
+
+```sh
+docker compose -f docker-compose.l3.yml logs -f l3_taiko_client_proposer
+```
+
+#### View the L3 prover image's logs
+
+```sh
+docker compose -f docker-compose.l3.yml logs -f l3_taiko_client_prover_relayer
+```
+
+#### View the L3 execution engine logs
+
+```sh
+docker compose -f docker-compose.l3.yml logs -f l3_execution_engine
 ```
 
 #### View the live data streams of your running containers
@@ -356,6 +380,10 @@ There could be several reasons, you can check the logs `docker compose logs -f` 
 This issue occurs on windows because of the Control Characters in this case the Line Endings, a quick fix would be to delete the node folder, run this `git config --global core.autocrlf false` in the shell, then clone the repo again.
 
 If you do not want to delete the node folder, please follow one of these steps below.
+
+#### `no contract code at given address`
+
+When running a L3 node, users may run into this issue if their underlying L2 is still syncing. Please wait until your L2 is fully synced before starting your L3 node.
 
 {" "}
 

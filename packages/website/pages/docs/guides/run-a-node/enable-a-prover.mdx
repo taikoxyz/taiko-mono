@@ -1,5 +1,12 @@
 import { Callout, Steps } from "nextra-theme-docs";
 
+<Callout type="warning">
+  Keep in mind that running a prover is a very competitive space, and those who
+  generate proofs will have very powerful machines and optimized clients. It's
+  unlikely to prove a block and gain rewards with the default client and minimum
+  hardware requirements.
+</Callout>
+
 # Enable a prover
 
 This guide will help you enable your Taiko node as a prover. Read more about prover dynamics [here](/docs/concepts/proving#prover-dynamics) (especially to set your expectations about running a prover).
@@ -18,6 +25,12 @@ Open the `.env` file in the `simple-taiko-node` directory.
 
 ### Set environment variables to enable prover
 
+<Callout type="warning">
+  Do **not** use a private key that is valuable to you. The private key will be
+  stored in plain text in the `.env` file, and this is not secure. There is a
+  real risk of losing your assets. You should **only use a test account**.
+</Callout>
+
 Set the following environment variables to enable your node as a prover:
 
 - Set `ENABLE_PROVER` to `true` (replacing the default `false` with `true`).
@@ -34,7 +47,7 @@ To stake your TTKOe try using the [staking dashboard](https://staking.l3test.tai
 Verify you have some prover logs:
 
 - `💰 Your block proof was accepted` means you are the first prover and receive the reward.
-- `✅ Valid block proven` just means a proposed block was successfully proved on TaikoL1 (by anyone).
+- `✅ Block proven` just means a proposed block was successfully proved on TaikoL1 (by anyone).
 
 If you are running a node in the background, you can view the logs with `docker compose logs -f`.
 

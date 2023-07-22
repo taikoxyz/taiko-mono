@@ -45,7 +45,7 @@
   };
 
   $: classes = classNames(
-    'btn w-full h-auto min-h-fit border-0',
+    'btn h-auto min-h-fit border-0',
 
     type === 'primary' ? 'body-bold' : 'body-regular',
 
