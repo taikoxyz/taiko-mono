@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Address, FetchBalanceResult } from '@wagmi/core';
+  import type { FetchBalanceResult } from '@wagmi/core';
   import { t } from 'svelte-i18n';
   import { formatUnits, parseUnits } from 'viem';
 
@@ -7,8 +7,9 @@
   import { InputBox } from '$components/InputBox';
   import { LoadingText } from '$components/LoadingText';
   import { warningToast } from '$components/NotificationToast';
-  import { getMaxAmountToBridge } from '$libs/bridge';
-  import { getBalance as getTokenBalance, type Token } from '$libs/token';
+  import { checkBalanceToBridge, getMaxAmountToBridge } from '$libs/bridge';
+  import { InsufficientAllowanceError, InsufficientBalanceError } from '$libs/error';
+  import { getBalance as getTokenBalance } from '$libs/token';
   import { debounce } from '$libs/util/debounce';
   import { truncateString } from '$libs/util/truncateString';
   import { uid } from '$libs/util/uid';
@@ -27,18 +28,64 @@
     selectedToken,
     tokenBalance,
   } from './state';
-  import Validator from './Validator.svelte';
 
   let inputId = `input-${uid()}`;
   let inputBox: InputBox;
   let computingMaxAmount = false;
-  let validator: Validator;
 
-  // We want to debounce this function for input events.
-  // Could happen as the user enters an amount
-  const debouncedValidate = debounce(() => validator.validate(), 300);
+  // Public API
+  export function clearAmount() {
+    inputBox.clear();
+    $enteredAmount = BigInt(0);
+  }
 
-  async function updateBalance(token: Maybe<Token>, userAddress?: Address, srcChainId?: number, destChainId?: number) {
+  export async function validateAmount(token = $selectedToken, fee = $processingFee) {
+    $insufficientBalance = false;
+    $insufficientAllowance = false;
+
+    const to = $recipientAddress || $account?.address;
+
+    // We need all these guys to validate
+    if (
+      !to ||
+      !token ||
+      !$network ||
+      !$destNetwork ||
+      !$tokenBalance ||
+      $enteredAmount === BigInt(0) // no need to check if the amount is 0
+    )
+      return;
+
+    try {
+      await checkBalanceToBridge({
+        to,
+        token,
+        amount: $enteredAmount,
+        processingFee: fee,
+        balance: $tokenBalance.value,
+        srcChainId: $network.id,
+        destChainId: $destNetwork.id,
+      });
+    } catch (err) {
+      console.error(err);
+
+      switch (true) {
+        case err instanceof InsufficientBalanceError:
+          $insufficientBalance = true;
+          break;
+        case err instanceof InsufficientAllowanceError:
+          $insufficientAllowance = true;
+          break;
+      }
+    }
+  }
+
+  export async function updateBalance(
+    token = $selectedToken,
+    userAddress = $account.address,
+    srcChainId = $network?.id,
+    destChainId = $destNetwork?.id,
+  ) {
     if (!token || !srcChainId || !userAddress) return;
 
     $computingBalance = true;
@@ -59,7 +106,11 @@
     }
   }
 
-  export function renderBalance(balance: Maybe<FetchBalanceResult>) {
+  // We want to debounce this function for input events.
+  // Could happen as the user enters an amount
+  const debouncedValidateAmount = debounce(validateAmount, 300);
+
+  function renderBalance(balance: Maybe<FetchBalanceResult>) {
     if (!balance) return '0.00';
 
     return `${truncateString(balance.formatted, 6)} ${balance.symbol}`;
@@ -73,7 +124,7 @@
     const { value } = event.target as HTMLInputElement;
     $enteredAmount = parseUnits(value, $selectedToken.decimals);
 
-    debouncedValidate();
+    debouncedValidateAmount();
   }
 
   // "MAX" button handler
@@ -103,7 +154,7 @@
       $enteredAmount = maxAmount;
 
       // Check validity
-      validator.validate();
+      validateAmount();
     } catch (err) {
       console.error(err);
       warningToast($t('amount_input.button.failed_max'));
@@ -114,7 +165,7 @@
 
   $: updateBalance($selectedToken, $account?.address, $network?.id, $destNetwork?.id);
 
-  $: $selectedToken && $processingFee && validator.validate();
+  $: validateAmount($selectedToken, $processingFee);
 </script>
 
 <div class="AmountInput f-col space-y-2">
@@ -167,5 +218,3 @@
     {/if}
   </div>
 </div>
-
-<Validator bind:this={validator} />

@@ -5,3 +5,6 @@ export class InsufficientAllowanceError extends Error {}
 export class NoAllowanceRequiredError extends Error {}
 export class NoTokenAddressError extends Error {}
 export class FailedTransactionError extends Error {}
+export class SendMessageError extends Error {}
+export class SendERC20Error extends Error {}
+export class ApproveError extends Error {}

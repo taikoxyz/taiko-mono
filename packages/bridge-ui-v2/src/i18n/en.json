@@ -11,6 +11,7 @@
     "title": "Bridge",
     "description": "Send your assets across chains.",
     "approve_tx": "Transaction sent to approve {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
+    "bridge_tx": "Transaction sent to bridge {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
     "button": {
       "approve": "Approve",
       "approving": "Approving",

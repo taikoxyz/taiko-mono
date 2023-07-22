@@ -2,7 +2,7 @@ import { getContract } from '@wagmi/core';
 
 import { erc20ABI, tokenVaultABI } from '$abi';
 import { bridge } from '$config';
-import { InsufficientAllowanceError, NoAllowanceRequiredError } from '$libs/error';
+import { ApproveError, InsufficientAllowanceError, NoAllowanceRequiredError, SendERC20Error } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 
 import type { ApproveArgs, Bridge, ERC20BridgeArgs, RequireAllowanceArgs, SendERC20Args } from './types';
@@ -105,13 +105,18 @@ export class ERC20Bridge implements Bridge {
       address: tokenAddress,
     });
 
-    log(`Calling approve for spender "${spenderAddress}" with amount`, amount);
+    try {
+      log(`Calling approve for spender "${spenderAddress}" with amount`, amount);
 
-    const txHash = await tokenContract.write.approve([spenderAddress, amount]);
+      const txHash = await tokenContract.write.approve([spenderAddress, amount]);
 
-    log('Transaction hash for approve call', txHash);
+      log('Transaction hash for approve call', txHash);
 
-    return txHash;
+      return txHash;
+    } catch (err) {
+      console.error(err);
+      throw new ApproveError('failed to approve ERC20 token', { cause: err });
+    }
   }
 
   async bridge(args: ERC20BridgeArgs) {
@@ -133,10 +138,18 @@ export class ERC20Bridge implements Bridge {
 
     const value = processingFee;
 
-    log('Calling sendERC20 with value', value);
+    try {
+      log('Calling sendERC20 with value', value);
 
-    const txHash = tokenVaultContract.write.sendERC20([...sendERC20Args], { value });
+      const txHash = tokenVaultContract.write.sendERC20([...sendERC20Args], { value });
 
-    log('Transaction hash for sendERC20 call', txHash);
+      log('Transaction hash for sendERC20 call', txHash);
+
+      return txHash;
+    } catch (err) {
+      console.error(err);
+
+      throw new SendERC20Error('failed to bridge ERC20 token', { cause: err });
+    }
   }
 }

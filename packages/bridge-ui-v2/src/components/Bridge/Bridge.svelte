@@ -8,12 +8,13 @@
   import { OnNetwork } from '$components/OnNetwork';
   import { TokenDropdown } from '$components/TokenDropdown';
   import { PUBLIC_L1_EXPLORER_URL } from '$env/static/public';
-  import { bridges } from '$libs/bridge';
+  import { type Bridge, type BridgeArgs, bridges, type ERC20BridgeArgs, type ETHBridgeArgs } from '$libs/bridge';
   import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
+  import type { ETHBridge } from '$libs/bridge/ETHBridge';
   import { chainContractsMap, chains } from '$libs/chain';
-  import { ETHToken, getAddress, tokens } from '$libs/token';
+  import { ETHToken, getAddress, isDeployedCrossChain, isETH, tokens } from '$libs/token';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
-  import type { Account } from '$stores/account';
+  import { type Account, account } from '$stores/account';
   import { type Network, network } from '$stores/network';
   import { pendingTransactions } from '$stores/pendingTransactions';
 
@@ -21,11 +22,12 @@
   import Amount from './Amount.svelte';
   import { ProcessingFee } from './ProcessingFee';
   import Recipient from './Recipient.svelte';
-  import { destNetwork, enteredAmount, processingFee, selectedToken } from './state';
+  import { destNetwork, enteredAmount, processingFee, recipientAddress, selectedToken } from './state';
   import SwitchChainsButton from './SwitchChainsButton.svelte';
-  import Validator from './Validator.svelte';
 
-  let validator: Validator;
+  let amountComponent: Amount;
+  let recipientComponent: Recipient;
+  let processingFeeComponent: ProcessingFee;
 
   function onNetworkChange(network: Network) {
     if (network && chains.length === 2) {
@@ -84,15 +86,95 @@
 
       await pendingTransactions.add(txHash, $network.id);
 
-      // Let's run the validation again, which will update UI state
-      validator.validate();
+      // Let's run the validation again, which will update UI
+      amountComponent.validate();
     } catch (err) {
       console.error(err);
     }
   }
 
   async function bridge() {
-    // TODO
+    if (!$selectedToken || !$network || !$destNetwork || !$account?.address) return;
+
+    try {
+      const walletClient = await getConnectedWallet($network.id);
+
+      let bridge: Bridge;
+
+      // Common arguments for both ETH and ERC20 bridges
+      let bridgeArgs = {
+        to: $recipientAddress || $account.address,
+        wallet: walletClient,
+        srcChainId: $network.id,
+        destChainId: $destNetwork.id,
+        amount: $enteredAmount,
+        processingFee: $processingFee,
+      } as BridgeArgs;
+
+      if (isETH($selectedToken)) {
+        bridge = bridges.ETH as ETHBridge;
+
+        // Specific arguments for ETH bridge:
+        // - bridgeAddress
+        const bridgeAddress = chainContractsMap[$network.id].bridgeAddress;
+        bridgeArgs = { ...bridgeArgs, bridgeAddress } as ETHBridgeArgs;
+      } else {
+        bridge = bridges.ERC20 as ERC20Bridge;
+
+        // Specific arguments for ERC20 bridge
+        // - tokenAddress
+        // - tokenVaultAddress
+        // - isTokenAlreadyDeployed
+        const tokenAddress = await getAddress({
+          token: $selectedToken,
+          srcChainId: $network.id,
+          destChainId: $destNetwork.id,
+        });
+
+        if (!tokenAddress) {
+          throw new Error('token address not found');
+        }
+
+        const tokenVaultAddress = chainContractsMap[$network.id].tokenVaultAddress;
+
+        const isTokenAlreadyDeployed = await isDeployedCrossChain({
+          token: $selectedToken,
+          srcChainId: $network.id,
+          destChainId: $destNetwork.id,
+        });
+
+        bridgeArgs = {
+          ...bridgeArgs,
+          tokenAddress,
+          tokenVaultAddress,
+          isTokenAlreadyDeployed,
+        } as ERC20BridgeArgs;
+      }
+
+      const txHash = await bridge.bridge(bridgeArgs);
+
+      successToast(
+        $t('bridge.bridge_tx', {
+          values: {
+            token: $selectedToken.symbol,
+            url: `${PUBLIC_L1_EXPLORER_URL}/tx/${txHash}`,
+          },
+        }),
+        true,
+      );
+
+      await pendingTransactions.add(txHash, $network.id);
+
+      // Reset the form
+      amountComponent.clearAmount();
+      recipientComponent.clearRecipient();
+      processingFeeComponent.resetProcessingFee();
+
+      // Update balance
+      amountComponent.updateBalance();
+    } catch (err) {
+      console.error(err);
+    }
   }
 </script>
 
@@ -103,6 +185,7 @@
 
       <SwitchChainsButton />
 
+      <!-- TODO: should not be readOnly when multiple layers -->
       <ChainSelector class="flex-1" value={$destNetwork} readOnly />
     </div>
 
@@ -123,5 +206,3 @@
 <OnNetwork change={onNetworkChange} />
 
 <OnAccount change={onAccountChange} />
-
-<Validator bind:this={validator} />

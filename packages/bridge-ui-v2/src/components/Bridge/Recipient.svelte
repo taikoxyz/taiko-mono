@@ -20,6 +20,12 @@
 
   let inputBox: InputBox;
 
+  // Public API
+  export function clearRecipient() {
+    inputBox.clear(); // update UI
+    $recipientAddress = null; // update state
+  }
+
   function closeModal() {
     modalOpen = false;
   }
@@ -46,11 +52,6 @@
     } else {
       invalidAddress = true;
     }
-  }
-
-  function deleteRecipient() {
-    inputBox.clear(); // update UI
-    $recipientAddress = null; // update state
   }
 
   function modalOpenChange(open: boolean) {
@@ -101,7 +102,7 @@
           class="w-full input-box outline-none p-6 pr-16 title-subsection-bold placeholder:text-tertiary-content"
           on:input={inputRecipientAddress}
           bind:this={inputBox} />
-        <button class="absolute right-6 uppercase body-bold text-secondary-content" on:click={deleteRecipient}>
+        <button class="absolute right-6 uppercase body-bold text-secondary-content" on:click={clearRecipient}>
           <Icon type="x-close-circle" fillClass="fill-primary-icon" size={24} />
         </button>
       </div>

@@ -2,6 +2,7 @@ import { getContract } from '@wagmi/core';
 
 import { bridgeABI } from '$abi';
 import { bridge } from '$config';
+import { SendMessageError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 
 import type { Bridge, ETHBridgeArgs, Message } from './types';
@@ -74,12 +75,17 @@ export class ETHBridge implements Bridge {
 
     const value = depositValue + callValue + processingFee;
 
-    log('Calling sendMessage with value', value);
+    try {
+      log('Calling sendMessage with value', value);
 
-    const txHash = await bridgeContract.write.sendMessage([message], { value });
+      const txHash = await bridgeContract.write.sendMessage([message], { value });
 
-    log('Transaction hash for sendMessage call', txHash);
+      log('Transaction hash for sendMessage call', txHash);
 
-    return txHash;
+      return txHash;
+    } catch (err) {
+      console.error(err);
+      throw new SendMessageError('failed to bridge ETH', { cause: err });
+    }
   }
 }

@@ -33,6 +33,12 @@
   let modalOpen = false;
   let inputBox: InputBox;
 
+  // Public API
+  export function resetProcessingFee() {
+    inputBox.clear();
+    selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
+  }
+
   function closeModal() {
     // Let's check if we are closing with CUSTOM method selected and zero amount entered
     if (selectedFeeMethod === ProcessingFeeMethod.CUSTOM && $processingFee === BigInt(0)) {
