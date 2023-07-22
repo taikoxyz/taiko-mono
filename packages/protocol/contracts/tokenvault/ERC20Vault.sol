@@ -72,7 +72,7 @@ contract ERC20Vault is BaseVault {
         uint256 chainId => mapping(address canonicalAddress => address btoken)
     ) public canonicalToBridged;
 
-    uint256[46] private __gap;
+    uint256[47] private __gap;
 
     /*//////////////////////////////////////////////////////////////
                                  EVENTS

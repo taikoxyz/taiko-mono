@@ -58,7 +58,7 @@ abstract contract BaseNFTVault is BaseVault {
     mapping(uint256 chainId => mapping(address ctokenAddress => address btoken))
         public canonicalToBridged;
 
-    uint256[46] private __gap;
+    uint256[47] private __gap;
 
     event BridgedTokenDeployed(
         uint256 indexed chainId,
