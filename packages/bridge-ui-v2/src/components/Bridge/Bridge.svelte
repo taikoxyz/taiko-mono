@@ -202,7 +202,7 @@
       recipientComponent.clearRecipient();
       processingFeeComponent.resetProcessingFee();
 
-      // Update balance
+      // Update balance after bridging
       amountComponent.updateBalance();
     } catch (err) {
       console.error(err);
