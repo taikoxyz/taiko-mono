@@ -5,6 +5,7 @@
   import { Card } from '$components/Card';
   import { ChainSelector } from '$components/ChainSelector';
   import { successToast, warningToast } from '$components/NotificationToast';
+  import { errorToast, infoToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { OnAccount } from '$components/OnAccount';
   import { OnNetwork } from '$components/OnNetwork';
   import { TokenDropdown } from '$components/TokenDropdown';
@@ -13,6 +14,7 @@
   import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
   import type { ETHBridge } from '$libs/bridge/ETHBridge';
   import { chainContractsMap, chains } from '$libs/chain';
+  import { ApproveError, NoAllowanceRequiredError, SendERC20Error, SendMessageError } from '$libs/error';
   import { ETHToken, getAddress, isDeployedCrossChain, isETH, tokens } from '$libs/token';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { type Account, account } from '$stores/account';
@@ -75,7 +77,7 @@
         wallet: walletClient,
       });
 
-      successToast(
+      infoToast(
         $t('bridge.approve.tx', {
           values: {
             token: $selectedToken.symbol,
@@ -95,12 +97,23 @@
       );
 
       // Let's run the validation again, which will update UI
-      amountComponent.validate();
+      amountComponent.validateAmount();
     } catch (err) {
       console.error(err);
 
-      if (err instanceof UserRejectedRequestError) {
-        warningToast($t('bridge.approve.rejected'));
+      switch (true) {
+        case err instanceof UserRejectedRequestError:
+          warningToast($t('bridge.approve.rejected'));
+          break;
+        case err instanceof NoAllowanceRequiredError:
+          errorToast($t('bridge.approve.no_allowance_required'));
+          break;
+        case err instanceof ApproveError:
+          // TODO: see contract for all possible errors
+          errorToast($t('bridge.approve.error'));
+          break;
+        default:
+          errorToast($t('bridge.approve.unknown_error'));
       }
     }
   }
@@ -165,7 +178,7 @@
 
       const txHash = await bridge.bridge(bridgeArgs);
 
-      successToast(
+      infoToast(
         $t('bridge.bridge.tx', {
           values: {
             token: $selectedToken.symbol,
@@ -194,8 +207,20 @@
     } catch (err) {
       console.error(err);
 
-      if (err instanceof UserRejectedRequestError) {
-        warningToast($t('bridge.bridge.rejected'));
+      switch (true) {
+        case err instanceof UserRejectedRequestError:
+          warningToast($t('bridge.bridge.rejected'));
+          break;
+        case err instanceof SendMessageError:
+          // TODO: see contract for all possible errors
+          errorToast($t('bridge.bridge.send_message_error'));
+          break;
+        case err instanceof SendERC20Error:
+          // TODO: see contract for all possible errors
+          errorToast($t('bridge.bridge.send_erc20_error'));
+          break;
+        default:
+          errorToast($t('bridge.approve.unknown_error'));
       }
     }
   }

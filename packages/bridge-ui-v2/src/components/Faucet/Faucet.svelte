@@ -9,6 +9,7 @@
   import { ChainSelector } from '$components/ChainSelector';
   import { Icon } from '$components/Icon';
   import { successToast, warningToast } from '$components/NotificationToast';
+  import { infoToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { TokenDropdown } from '$components/TokenDropdown';
   import { PUBLIC_L1_CHAIN_ID, PUBLIC_L1_CHAIN_NAME, PUBLIC_L1_EXPLORER_URL } from '$env/static/public';
   import { InsufficientBalanceError, TokenMintedError } from '$libs/error';
@@ -55,7 +56,7 @@
     try {
       const txHash = await mint(selectedToken, $network.id);
 
-      successToast(
+      infoToast(
         $t('faucet.mint_tx', {
           values: {
             token: selectedToken.symbol,
