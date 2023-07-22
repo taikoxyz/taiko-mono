@@ -38,7 +38,7 @@ abstract contract BaseNFTVault is EssentialContract {
         string memo;
     }
 
-    // In order not to gas-out we need to hard cap the nr. of max
+// In order not to gas-out we need to hard cap the nr. of max
     // tokens (iterations)
     uint256 public constant MAX_TOKEN_PER_TXN = 10;
     bytes4 public constant ERC1155_INTERFACE_ID = 0xd9b67a26;
