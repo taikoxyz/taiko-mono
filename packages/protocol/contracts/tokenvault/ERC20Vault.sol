@@ -348,7 +348,6 @@ contract ERC20Vault is EssentialContract {
                            PRIVATE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-
     function _sendToken(
         address owner,
         address token,

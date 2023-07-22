@@ -159,7 +159,6 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         }
 
         (
-            ,
             CanonicalNFT memory nft, //
             ,
             ,
