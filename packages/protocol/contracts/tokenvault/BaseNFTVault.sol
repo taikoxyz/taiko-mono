@@ -43,6 +43,9 @@ abstract contract BaseNFTVault is BaseVault {
 
     bytes4 public constant ERC1155_INTERFACE_ID = 0xd9b67a26;
     bytes4 public constant ERC721_INTERFACE_ID = 0x80ac58cd;
+    // In order not to gas-out we need to hard cap the nr. of max
+    // tokens (iterations)
+    uint256 public constant MAX_TOKEN_PER_TXN = 10;
 
     // Tracks if a token on the current chain is a ctoken or btoken.
     mapping(address tokenAddress => bool isBridged) public isBridgedToken;
@@ -54,10 +57,6 @@ abstract contract BaseNFTVault is BaseVault {
     // Also storing chainId for tokens across other chains aside from Ethereum.
     mapping(uint256 chainId => mapping(address ctokenAddress => address btoken))
         public canonicalToBridged;
-
-    // In order not to gas-out we need to hard cap the nr. of max
-    // tokens (iterations)
-    uint256 public constant MAX_TOKEN_PER_TXN = 10;
 
     uint256[46] private __gap;
 
