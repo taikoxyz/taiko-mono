@@ -1,4 +1,5 @@
 import { getContract } from '@wagmi/core';
+import { UserRejectedRequestError } from 'viem';
 
 import { erc20ABI, tokenVaultABI } from '$abi';
 import { bridge } from '$config';
@@ -115,6 +116,11 @@ export class ERC20Bridge implements Bridge {
       return txHash;
     } catch (err) {
       console.error(err);
+
+      if (`${err}`.includes('denied transaction signature')) {
+        throw new UserRejectedRequestError(err as Error);
+      }
+
       throw new ApproveError('failed to approve ERC20 token', { cause: err });
     }
   }
@@ -148,6 +154,10 @@ export class ERC20Bridge implements Bridge {
       return txHash;
     } catch (err) {
       console.error(err);
+
+      if (`${err}`.includes('denied transaction signature')) {
+        throw new UserRejectedRequestError(err as Error);
+      }
 
       throw new SendERC20Error('failed to bridge ERC20 token', { cause: err });
     }

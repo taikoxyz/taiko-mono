@@ -82,7 +82,7 @@
 
   export async function updateBalance(
     token = $selectedToken,
-    userAddress = $account.address,
+    userAddress = $account?.address,
     srcChainId = $network?.id,
     destChainId = $destNetwork?.id,
   ) {

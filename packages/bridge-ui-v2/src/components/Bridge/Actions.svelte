@@ -88,7 +88,7 @@
     loading={bridging}
     on:click={onBridgeClick}>
     {#if bridging}
-      <span class="body-bold">{$t('bridge.button.briding')}</span>
+      <span class="body-bold">{$t('bridge.button.bridging')}</span>
     {:else}
       <span class="body-bold">{$t('bridge.button.bridge')}</span>
     {/if}

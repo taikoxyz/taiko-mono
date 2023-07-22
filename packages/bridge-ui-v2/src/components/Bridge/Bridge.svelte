@@ -1,9 +1,10 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
+  import { UserRejectedRequestError } from 'viem';
 
   import { Card } from '$components/Card';
   import { ChainSelector } from '$components/ChainSelector';
-  import { successToast } from '$components/NotificationToast';
+  import { successToast, warningToast } from '$components/NotificationToast';
   import { OnAccount } from '$components/OnAccount';
   import { OnNetwork } from '$components/OnNetwork';
   import { TokenDropdown } from '$components/TokenDropdown';
@@ -90,6 +91,10 @@
       amountComponent.validate();
     } catch (err) {
       console.error(err);
+
+      if (err instanceof UserRejectedRequestError) {
+        warningToast($t('messages.network.rejected'));
+      }
     }
   }
 
@@ -174,6 +179,10 @@
       amountComponent.updateBalance();
     } catch (err) {
       console.error(err);
+
+      if (err instanceof UserRejectedRequestError) {
+        warningToast($t('messages.network.rejected'));
+      }
     }
   }
 </script>

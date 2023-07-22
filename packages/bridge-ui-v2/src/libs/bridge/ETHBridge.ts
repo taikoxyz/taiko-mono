@@ -1,4 +1,5 @@
 import { getContract } from '@wagmi/core';
+import { UserRejectedRequestError } from 'viem';
 
 import { bridgeABI } from '$abi';
 import { bridge } from '$config';
@@ -85,6 +86,11 @@ export class ETHBridge implements Bridge {
       return txHash;
     } catch (err) {
       console.error(err);
+
+      if (`${err}`.includes('denied transaction signature')) {
+        throw new UserRejectedRequestError(err as Error);
+      }
+
       throw new SendMessageError('failed to bridge ETH', { cause: err });
     }
   }
