@@ -3,6 +3,7 @@ import { writable } from 'svelte/store';
 import type { Hex, TransactionReceipt } from 'viem';
 
 import { pendingTransaction } from '$config';
+import { FailedTransactionError } from '$libs/error';
 import { Deferred } from '$libs/util/Deferred';
 import { getLogger } from '$libs/util/logger';
 
@@ -59,7 +60,7 @@ export const pendingTransactions = {
             log('Transaction successful');
             deferred.resolve(receipt);
           } else {
-            deferred.reject(new Error('transaction failed', { cause: receipt }));
+            deferred.reject(new FailedTransactionError(`transaction with hash "${hash}" failed`, { cause: receipt }));
           }
         })
         .catch((err) => {

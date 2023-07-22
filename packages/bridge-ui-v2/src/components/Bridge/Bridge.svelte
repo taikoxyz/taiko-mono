@@ -15,13 +15,17 @@
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import type { Account } from '$stores/account';
   import { type Network, network } from '$stores/network';
+  import { pendingTransactions } from '$stores/pendingTransactions';
 
   import Actions from './Actions.svelte';
   import Amount from './Amount.svelte';
   import { ProcessingFee } from './ProcessingFee';
   import Recipient from './Recipient.svelte';
-  import { destNetwork, enteredAmount, insufficientAllowance, selectedToken } from './state';
+  import { destNetwork, enteredAmount, processingFee, selectedToken } from './state';
   import SwitchChainsButton from './SwitchChainsButton.svelte';
+  import Validator from './Validator.svelte';
+
+  let validator: Validator;
 
   function onNetworkChange(network: Network) {
     if (network && chains.length === 2) {
@@ -77,6 +81,11 @@
         }),
         true,
       );
+
+      await pendingTransactions.add(txHash, $network.id);
+
+      // Let's run the validation again, which will update UI state
+      validator.validate();
     } catch (err) {
       console.error(err);
     }
@@ -114,3 +123,5 @@
 <OnNetwork change={onNetworkChange} />
 
 <OnAccount change={onAccountChange} />
+
+<Validator bind:this={validator} />

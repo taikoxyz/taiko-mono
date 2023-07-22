@@ -7,8 +7,7 @@
   import { InputBox } from '$components/InputBox';
   import { LoadingText } from '$components/LoadingText';
   import { warningToast } from '$components/NotificationToast';
-  import { checkBalanceToBridge, getMaxAmountToBridge } from '$libs/bridge';
-  import { InsufficientAllowanceError, InsufficientBalanceError } from '$libs/error';
+  import { getMaxAmountToBridge } from '$libs/bridge';
   import { getBalance as getTokenBalance, type Token } from '$libs/token';
   import { debounce } from '$libs/util/debounce';
   import { truncateString } from '$libs/util/truncateString';
@@ -28,55 +27,16 @@
     selectedToken,
     tokenBalance,
   } from './state';
+  import Validator from './Validator.svelte';
 
   let inputId = `input-${uid()}`;
   let inputBox: InputBox;
   let computingMaxAmount = false;
-
-  async function validate(token: Maybe<Token>, amount: bigint, processingFee: bigint) {
-    $insufficientBalance = false;
-    $insufficientAllowance = false;
-
-    const to = $recipientAddress || $account?.address;
-
-    // We need all these guys to validate
-    if (
-      !to ||
-      !token ||
-      !$network ||
-      !$destNetwork ||
-      !$tokenBalance ||
-      amount === BigInt(0) // no need to check if the amount is 0
-    )
-      return;
-
-    try {
-      await checkBalanceToBridge({
-        to,
-        token,
-        amount,
-        processingFee,
-        balance: $tokenBalance.value,
-        srcChainId: $network.id,
-        destChainId: $destNetwork.id,
-      });
-    } catch (err) {
-      console.error(err);
-
-      switch (true) {
-        case err instanceof InsufficientBalanceError:
-          $insufficientBalance = true;
-          break;
-        case err instanceof InsufficientAllowanceError:
-          $insufficientAllowance = true;
-          break;
-      }
-    }
-  }
+  let validator: Validator;
 
   // We want to debounce this function for input events.
   // Could happen as the user enters an amount
-  const debouncedValidate = debounce(validate, 300);
+  const debouncedValidate = debounce(() => validator?.validate(), 300);
 
   async function updateBalance(token: Maybe<Token>, userAddress?: Address, srcChainId?: number, destChainId?: number) {
     if (!token || !srcChainId || !userAddress) return;
@@ -146,7 +106,7 @@
       $enteredAmount = maxAmount;
 
       // Check validity
-      validate($selectedToken, $enteredAmount, $processingFee);
+      validator.validate();
     } catch (err) {
       console.error(err);
       warningToast($t('amount_input.button.failed_max'));
@@ -157,7 +117,7 @@
 
   $: updateBalance($selectedToken, $account?.address, $network?.id, $destNetwork?.id);
 
-  $: debouncedValidate($selectedToken, $enteredAmount, $processingFee);
+  $: $selectedToken && $enteredAmount && $processingFee && debouncedValidate();
 </script>
 
 <div class="AmountInput f-col space-y-2">
@@ -210,3 +170,5 @@
     {/if}
   </div>
 </div>
+
+<Validator bind:this={validator} />

@@ -4,3 +4,4 @@ export class InsufficientBalanceError extends Error {}
 export class InsufficientAllowanceError extends Error {}
 export class NoAllowanceRequiredError extends Error {}
 export class NoTokenAddressError extends Error {}
+export class FailedTransactionError extends Error {}

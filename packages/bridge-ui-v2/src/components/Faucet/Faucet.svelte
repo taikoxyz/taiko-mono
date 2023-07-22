@@ -14,8 +14,7 @@
   import { InsufficientBalanceError, TokenMintedError } from '$libs/error';
   import { testERC20Tokens, type Token } from '$libs/token';
   import { checkMintable, mint } from '$libs/token';
-  import { account } from '$stores/account';
-  import { network } from '$stores/network';
+  import { account, network, pendingTransactions } from '$stores';
 
   let minting = false;
   let checkingMintable = false;
@@ -65,6 +64,8 @@
         }),
         true,
       );
+
+      await pendingTransactions.add(txHash, $network.id);
 
       // TODO: pending transaction logic
     } catch (err) {
