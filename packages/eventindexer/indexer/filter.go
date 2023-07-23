@@ -5,9 +5,10 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/labstack/gommon/log"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
+	log "github.com/sirupsen/logrus"
 )
 
 type FilterFunc func(
@@ -162,18 +163,26 @@ func L2FilterFunc(
 	svc *Service,
 	filterOpts *bind.FilterOpts,
 ) error {
-	for _, s := range svc.swaps {
-		swaps, err := s.FilterSwap(filterOpts, nil, nil)
-		if err != nil {
-			return errors.Wrap(err, "svc.bridge.FilterSwap")
-		}
+	wg, ctx := errgroup.WithContext(ctx)
 
-		// only save ones above 0.01 ETH, this is only for Galaxe
-		// and we dont care about the rest
-		err = svc.saveSwapEvents(ctx, chainID, swaps)
-		if err != nil {
-			return errors.Wrap(err, "svc.saveSwapEvents")
-		}
+	for _, s := range svc.swaps {
+		swap := s
+
+		wg.Go(func() error {
+			swaps, err := swap.FilterSwap(filterOpts, nil, nil)
+			if err != nil {
+				return errors.Wrap(err, "svc.bridge.FilterSwap")
+			}
+
+			// only save ones above 0.01 ETH, this is only for Galaxe
+			// and we dont care about the rest
+			err = svc.saveSwapEvents(ctx, chainID, swaps)
+			if err != nil {
+				return errors.Wrap(err, "svc.saveSwapEvents")
+			}
+
+			return nil
+		})
 	}
 
 	return nil
