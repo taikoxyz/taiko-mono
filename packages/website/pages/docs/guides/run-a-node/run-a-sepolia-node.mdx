@@ -1,0 +1,56 @@
+import { Callout, Steps, Tab, Tabs } from "nextra-theme-docs";
+
+# Run a Sepolia node
+
+This guide will help you get a Sepolia archive node up and running.
+
+## Prerequisites
+
+- [Docker](https://docs.docker.com/engine/install/) is installed and **running**.
+- [Git](https://github.com/git-guides/install-git/) is installed.
+- As of `2023-06-21T16:59:11+00:00` a full archive node sync takes **207.3 GB** with geth + lighthouse. Consult the hardware requirements of the execution + consensus clients you are using.
+
+## Steps
+
+<Steps>
+### Clone eth-docker
+```sh
+git clone https://github.com/eth-educators/eth-docker
+cd eth-docker
+```
+
+### Enable archive mode
+
+First, copy `default.env` to `.env`:
+
+```
+cp default.env .env
+```
+
+Next, open the `.env` file in your preferred text editor and set:
+
+```filename=e
+ARCHIVE_NODE=true
+```
+
+### Complete the eth-docker quickstart
+
+Complete the eth-docker quickstart: https://eth-docker.net/Usage/QuickStart/.
+
+### Check your connection
+
+You can do a simple curl command to check if the node is synced (change port from `8545` to whatever you have the execution client p2p port set to in your `.env` file):
+
+```bash
+curl -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":0}' http://127.0.0.1:8545
+```
+
+### Harden your network (optional)
+
+This is important especially if you `ssh` into machine or open ports to the internet (be careful about that). Here are some recommended resources:
+
+- https://eth-docker.net/Usage/LinuxSecurity
+- https://www.coincashew.com/coins/overview-eth/guide-or-how-to-setup-a-validator-on-eth2-mainnet/part-i-installation/guide-or-security-best-practices-for-a-eth2-validator-beaconchain-node
+- https://tailscale.com/kb/1077/secure-server-ubuntu-18-04/ (but also see: https://danthesalmon.com/ufw-docker-tailscale/, `tailscale0` may not behave as you think)
+
+</Steps>

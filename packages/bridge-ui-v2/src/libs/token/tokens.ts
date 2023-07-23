@@ -39,3 +39,17 @@ export const testERC20Tokens: Token[] = jsonParseWithDefault<TokenEnv[]>(PUBLIC_
 );
 
 export const tokens = [ETHToken, ...testERC20Tokens];
+
+export function isETH(token: Token) {
+  // Should be fine just by checking the symbol
+  return token.symbol.toLocaleLowerCase() === ETHToken.symbol.toLocaleLowerCase();
+}
+
+export function isERC20(token: Token): boolean {
+  return !isETH(token);
+}
+
+export function isTestToken(token: Token): boolean {
+  const testTokenSymbols = testERC20Tokens.map((testToken) => testToken.symbol.toLocaleLowerCase());
+  return testTokenSymbols.includes(token.symbol.toLocaleLowerCase());
+}

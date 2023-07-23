@@ -2,7 +2,7 @@ import { watchAccount, watchNetwork /*, watchPublicClient, watchWalletClient*/ }
 
 import { getLogger } from '$libs/util/logger';
 import { account } from '$stores/account';
-import { srcChain } from '$stores/network';
+import { network } from '$stores/network';
 
 const log = getLogger('wagmi:watcher');
 
@@ -19,7 +19,7 @@ export function startWatching() {
 
       // When we switch networks, we are actually selecting
       // the source chain.
-      srcChain.set(data.chain);
+      network.set(data.chain);
     });
 
     // Action for subscribing to account changes.

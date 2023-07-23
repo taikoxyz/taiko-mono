@@ -1,0 +1,43 @@
+import { Callout, Steps } from "nextra-theme-docs";
+
+# Claim prover rewards
+
+This guide will help you claim TTKO/TTKOe earned as a prover.
+
+## Prerequisites
+
+- You followed the [Enable a prover](/docs/guides/enable-a-prover) guide and have a prover which has proved a block to earn TTKO/TTKOe rewards.
+- Must have a balance of ETH Sepolia (see: [Receive tokens](/docs/guides/receive-tokens)).
+
+## Steps
+
+<Steps>
+
+### View TTKO/TTKOe prover address balance
+
+Go to the TaikoL1 contract read page (see contract addresses [here](/docs/reference/contract-addresses)) and select `getTaikoTokenBalance(addr address)` to lookup your TTKO/TTKOe claim balance for your prover's address.
+
+### Enter withdraw amount
+
+Switch to the contract write page and select `withdrawTaikoToken(amount uint256)` to withdraw TTKO/TTKOe balances earned from being a prover.
+
+<Callout type="warning">
+  Make sure to click the plus sign and add `10^8` decimals, or add 8 zeroes
+  manually.
+</Callout>
+
+For example if you want to withdraw `69` TTKO, you would enter `6900000000`.
+
+<Callout type="warning">
+Make sure
+```solidity
+amount<=withdrawTaikoToken(proverAddress)
+```
+or else the transaction will revert.
+</Callout>
+
+### Withdraw your TTKO
+
+Click `Write` and confirm the transaction in your wallet.
+
+</Steps>

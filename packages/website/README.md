@@ -1,6 +1,6 @@
 # Taiko documentation website
 
-## Pre-Installation
+## Install pnpm
 
 Make sure you have pnpm installed on your system. You can install it by npm as well:
 
@@ -14,21 +14,23 @@ or on any POSIX systems by wget one-line official command:
 wget -qO- https://get.pnpm.io/install.sh | sh -
 ```
 
-for any specific cases or systems check the official page https://pnpm.io/installation
+for any specific cases or systems check the official page: https://pnpm.io/installation.
 
-## Installation
+## Install dependencies
 
 ```sh
 pnpm install
 ```
 
-## Local development
-
-Start a local development server:
+## Start a local development server
 
 ```sh
 pnpm dev
 ```
+
+## Create redirects for broken links
+
+Look at [next.config.js](./next.config.js) and [nextjs redirect docs](https://nextjs.org/docs/pages/api-reference/next-config-js/redirects).
 
 ## Contributing
 

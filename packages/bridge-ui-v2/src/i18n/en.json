@@ -18,7 +18,7 @@
 
   "processing_fee": {
     "title": "Processing fee",
-    "link": "Customise fee",
+    "link": "Customize fee",
     "recommended": {
       "label": "Recommended",
       "calculating": "Calculating",
@@ -26,11 +26,16 @@
     },
     "none": {
       "label": "None",
-      "text": "Use ETH to manually claim your bridged token later"
+      "text": "Use ETH to manually claim your bridged token later",
+      "warning": "This option cannot be selected. You have not enough ETH to cover the gas fees for claiming."
     },
     "custom": {
       "label": "Custom",
       "text": "Customize your processing fee"
+    },
+    "button": {
+      "confirm": "Confirm",
+      "cancel": "Cancel"
     }
   },
 
@@ -59,18 +64,38 @@
   "faucet": {
     "title": "Faucet",
     "subtitle": "Mint test tokens.",
-    "button.mint": "Mint",
-    "message.warning": "To request Test Token, you need to mint it on Sepolia. If you are currently on Taiko, please switch your network first. Additionally, ensure that you have a small amount of ETH in your Sepolia wallet to complete the transaction."
+    "minting_tx": "Transaction sent to mint {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
+    "button": {
+      "mint": "Mint",
+      "checking": "Checking mintability",
+      "minting": "Minting"
+    },
+    "wrong_chain": {
+      "message": "It appears your are on the wrong network. Switch to {network} to mint tokens.",
+      "button": "Switch to {network}"
+    },
+    "warning": {
+      "no_connected": "Please connect your wallet to mint tokens.",
+      "insufficient_balance": "You don't have enough ETH to complete the transaction. Please add some ETH to your wallet.",
+      "token_minted": "You have already minted this token."
+    }
   },
 
   "token_dropdown": {
-    "placeholder": "Select token"
+    "label": "Select token"
   },
 
   "amount_input": {
     "label": "Amount",
     "balance": "Balance",
-    "button.max": "Max"
+    "button": {
+      "max": "Max",
+      "failed_max": "Coult not estimate max amount to bridge."
+    },
+    "error": {
+      "insufficient_balance": "Insufficient balance",
+      "insufficient_allowance": "Insufficient allowance"
+    }
   },
 
   "chain_selector": {
@@ -80,9 +105,16 @@
 
   "messages": {
     "account": {
-      "required": "Please connect your wallet",
+      "required": "Please connect your wallet.",
       "connected": "Account connected",
       "disconnected": "Account disconnected"
+    },
+    "network": {
+      "switching": "Switching network",
+      "rejected": "Request to switch chain rejected."
+    },
+    "mint": {
+      "rejected": "Request to mint rejected."
     }
   },
 
