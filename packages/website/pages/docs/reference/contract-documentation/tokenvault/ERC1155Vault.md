@@ -71,6 +71,17 @@ this function._
 function releaseToken(struct IBridge.Message message, bytes proof) external
 ```
 
+Release deposited ERC1155 token(s) back to the owner on the source chain
+with
+a proof that the message processing on the destination Bridge has failed.
+
+#### Parameters
+
+| Name    | Type                   | Description                                                              |
+| ------- | ---------------------- | ------------------------------------------------------------------------ |
+| message | struct IBridge.Message | The message that corresponds to the ERC1155 deposit on the source chain. |
+| proof   | bytes                  | The proof from the destination chain to show the message has failed.     |
+
 ### onERC1155Received
 
 ```solidity
@@ -82,30 +93,6 @@ function onERC1155Received(address, address, uint256, uint256, bytes) external p
 ```solidity
 function onERC1155BatchReceived(address, address, uint256[], uint256[], bytes) external pure returns (bytes4)
 ```
-
-### decodeMessageData
-
-```solidity
-function decodeMessageData(bytes dataWithSelector) public pure returns (struct BaseNFTVault.CanonicalNFT nft, address owner, address to, uint256[] tokenIds, uint256[] amounts)
-```
-
-Decodes the data which was abi.encodeWithSelector() encoded.
-
-#### Parameters
-
-| Name             | Type  | Description                               |
-| ---------------- | ----- | ----------------------------------------- |
-| dataWithSelector | bytes | Data encoded with abi.encodedWithSelector |
-
-#### Return Values
-
-| Name     | Type                             | Description                               |
-| -------- | -------------------------------- | ----------------------------------------- |
-| nft      | struct BaseNFTVault.CanonicalNFT | CanonicalNFT data                         |
-| owner    | address                          | Owner of the message                      |
-| to       | address                          | The to address messages sent to           |
-| tokenIds | uint256[]                        | The tokenIds                              |
-| amounts  | uint256[]                        | The amount per respective ERC1155 tokenid |
 
 ---
 
