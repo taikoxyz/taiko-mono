@@ -41,6 +41,7 @@ interface ERC1155NameAndSymbol {
  */
 contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     uint256[50] private __gap;
+
     /**
      * Transfers ERC1155 tokens to this vault and sends a message to the
      * destination chain so the user can receive the same (bridged) tokens

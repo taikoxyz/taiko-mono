@@ -18,9 +18,6 @@ import { IERC165 } from
 import { Proxied } from "../common/Proxied.sol";
 import { IBridge } from "../bridge/IBridge.sol";
 
-/**
- * This vault is a base contract for ERC721 and ERC1155 vaults.
- */
 abstract contract BaseNFTVault is EssentialContract {
     struct CanonicalNFT {
         uint256 chainId;

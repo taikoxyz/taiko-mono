@@ -29,6 +29,7 @@ import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
  */
 contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     uint256[50] private __gap;
+
     /**
      * Transfers ERC721 tokens to this vault and sends a message to the
      * destination chain so the user can receive the same (bridged) tokens
@@ -36,7 +37,6 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
      *
      * @param opt Option for sending the ERC721 token.
      */
-
     function sendToken(BridgeTransferOp calldata opt)
         external
         payable
