@@ -39,29 +39,29 @@ docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f
 ## View execution logs
 
 ```sh
-docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f l2_execution_engine
+docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f l3_execution_engine
 ```
 
 ## View client driver logs
 
 ```sh
-docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f taiko_client_driver
+docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f l3_taiko_client_driver
 ```
 
 ## View client proposer logs
 
 ```sh
-docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f taiko_client_proposer
+docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f l3_taiko_client_proposer
 ```
 
 ## View client prover relayer logs
 
 ```sh
-docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f taiko_client_prover_relayer
+docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f l3_taiko_client_prover_relayer
 ```
 
 ## View zkevm prover logs
 
 ```sh
-docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f zkevm-chain-prover-rpcd
+docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f l3_zkevm_chain_prover_rpcd
 ```
