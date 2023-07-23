@@ -7,7 +7,7 @@
   import TokenBridgeTabs from '$components/TokenBridgeTabs/TokenBridgeTabs.svelte';
   import { account } from '$stores/account';
 
-  $: isBridgePage = $page.route.id === '/' || $page.route.id === '/bridge/erc20' || $page.route.id === '/bridge/nft';
+  $: isBridgePage = $page.route.id === '/' || $page.route.id === '/nft';
 </script>
 
 <header

@@ -4,17 +4,17 @@
   import { page } from '$app/stores';
   import { LinkButton } from '$components/LinkButton';
 
-  $: isERC20Bridge = $page.route.id === '/bridge/erc20' || $page.route.id === '/' ? true : false;
-  $: isNFTBridge = $page.route.id === '/bridge/nft' ? true : false;
+  $: isERC20Bridge = $page.route.id === '/' ? true : false;
+  $: isNFTBridge = $page.route.id === '/nft' ? true : false;
   $: classes = `flex-basis-0 mr-2 p-3 rounded-full flex justify-center items-center  w-auto sm:w-20 2xl:w-32`;
 </script>
 
 <div class="flex w-full ml-2">
-  <LinkButton class={classes} href="/bridge/erc20" active={isERC20Bridge}>
+  <LinkButton class={classes} href="/" active={isERC20Bridge}>
     <span> {$t('bridge.button.erc20')}</span>
   </LinkButton>
 
-  <LinkButton class={classes} href="/bridge/nft" active={isNFTBridge}>
+  <LinkButton class={classes} href="/nft" active={isNFTBridge}>
     <span> {$t('bridge.button.nft')}</span>
   </LinkButton>
 </div>
