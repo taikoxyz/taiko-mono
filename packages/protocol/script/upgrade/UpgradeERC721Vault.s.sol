@@ -11,16 +11,16 @@ import "forge-std/console2.sol";
 import
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import "../../contracts/bridge/TokenVault.sol";
+import "../../contracts/tokenvault/ERC721Vault.sol";
 import "./UpgradeScript.s.sol";
 
-contract UpgradeTokenVault is UpgradeScript {
+contract UpgradeERC721Vault is UpgradeScript {
     function run() external setUp {
-        TokenVault newTokenVault = new ProxiedTokenVault();
-        proxy.upgradeTo(address(newTokenVault));
+        ERC721Vault newERC721Vault = new ProxiedERC721Vault();
+        proxy.upgradeTo(address(newERC721Vault));
         console2.log(
-            "proxy upgraded TokenVault implementation to",
-            address(newTokenVault)
+            "proxy upgraded ERC721Vault implementation to",
+            address(newERC721Vault)
         );
     }
 }

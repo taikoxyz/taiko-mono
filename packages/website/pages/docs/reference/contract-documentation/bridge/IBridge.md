@@ -7,7 +7,7 @@ title: IBridge
 Bridge interface.
 
 _Ether is held by Bridges on L1 and by the EtherVault on L2,
-not TokenVaults._
+not by token vaults._
 
 ### Message
 

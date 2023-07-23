@@ -147,9 +147,17 @@ async function generateContractConfigs(
             ARTIFACTS_PATH,
             "./Bridge.sol/ProxiedBridge.json"
         )),
-        ProxiedTokenVault: require(path.join(
+        ProxiedERC20Vault: require(path.join(
             ARTIFACTS_PATH,
-            "./TokenVault.sol/ProxiedTokenVault.json"
+            "./ERC20Vault.sol/ProxiedERC20Vault.json"
+        )),
+        ProxiedERC721Vault: require(path.join(
+            ARTIFACTS_PATH,
+            "./ERC721Vault.sol/ProxiedERC721Vault.json"
+        )),
+        ProxiedERC1155Vault: require(path.join(
+            ARTIFACTS_PATH,
+            "./ERC1155Vault.sol/ProxiedERC1155Vault.json"
         )),
         ProxiedEtherVault: require(path.join(
             ARTIFACTS_PATH,
@@ -167,7 +175,9 @@ async function generateContractConfigs(
     ));
     contractArtifacts.TaikoL2Proxy = proxy;
     contractArtifacts.BridgeProxy = proxy;
-    contractArtifacts.TokenVaultProxy = proxy;
+    contractArtifacts.ERC20VaultProxy = proxy;
+    contractArtifacts.ERC721VaultProxy = proxy;
+    contractArtifacts.ERC1155VaultProxy = proxy;
     contractArtifacts.EtherVaultProxy = proxy;
     contractArtifacts.SignalServiceProxy = proxy;
     contractArtifacts.AddressManagerProxy = proxy;
@@ -290,8 +300,14 @@ async function generateContractConfigs(
                             ethers.utils.toUtf8Bytes("bridge")
                         )]: addressMap.BridgeProxy,
                         [ethers.utils.hexlify(
-                            ethers.utils.toUtf8Bytes("token_vault")
-                        )]: addressMap.TokenVaultProxy,
+                            ethers.utils.toUtf8Bytes("erc20_vault")
+                        )]: addressMap.ERC20VaultProxy,
+                        [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("erc721_vault")
+                        )]: addressMap.ERC721VaultProxy,
+                        [ethers.utils.hexlify(
+                            ethers.utils.toUtf8Bytes("erc1155_vault")
+                        )]: addressMap.ERC1155VaultProxy,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("ether_vault")
                         )]: addressMap.EtherVaultProxy,
@@ -382,15 +398,15 @@ async function generateContractConfigs(
             },
             isProxy: true,
         },
-        ProxiedTokenVault: {
-            address: addressMap.ProxiedTokenVault,
+        ProxiedERC20Vault: {
+            address: addressMap.ProxiedERC20Vault,
             deployedBytecode:
-                contractArtifacts.ProxiedTokenVault.deployedBytecode.object,
+                contractArtifacts.ProxiedERC20Vault.deployedBytecode.object,
         },
-        TokenVaultProxy: {
-            address: addressMap.TokenVaultProxy,
+        ERC20VaultProxy: {
+            address: addressMap.ERC20VaultProxy,
             deployedBytecode:
-                contractArtifacts.TokenVaultProxy.deployedBytecode.object,
+                contractArtifacts.ERC20VaultProxy.deployedBytecode.object,
             variables: {
                 // initializer
                 _initialized: 1,
@@ -404,7 +420,59 @@ async function generateContractConfigs(
             },
             slots: {
                 [ADMIN_SLOT]: contractAdmin,
-                [IMPLEMENTATION_SLOT]: addressMap.ProxiedTokenVault,
+                [IMPLEMENTATION_SLOT]: addressMap.ProxiedERC20Vault,
+            },
+            isProxy: true,
+        },
+        ProxiedERC721Vault: {
+            address: addressMap.ProxiedERC721Vault,
+            deployedBytecode:
+                contractArtifacts.ProxiedERC721Vault.deployedBytecode.object,
+        },
+        ERC721VaultProxy: {
+            address: addressMap.ERC721VaultProxy,
+            deployedBytecode:
+                contractArtifacts.ERC721VaultProxy.deployedBytecode.object,
+            variables: {
+                // initializer
+                _initialized: 1,
+                _initializing: false,
+                // ReentrancyGuardUpgradeable
+                _status: 1, // _NOT_ENTERED
+                // OwnableUpgradeable
+                _owner: contractOwner,
+                // AddressResolver
+                _addressManager: addressMap.AddressManagerProxy,
+            },
+            slots: {
+                [ADMIN_SLOT]: contractAdmin,
+                [IMPLEMENTATION_SLOT]: addressMap.ProxiedERC721Vault,
+            },
+            isProxy: true,
+        },
+        ProxiedERC1155Vault: {
+            address: addressMap.ProxiedERC1155Vault,
+            deployedBytecode:
+                contractArtifacts.ProxiedERC1155Vault.deployedBytecode.object,
+        },
+        ERC1155VaultProxy: {
+            address: addressMap.ERC1155VaultProxy,
+            deployedBytecode:
+                contractArtifacts.ERC1155VaultProxy.deployedBytecode.object,
+            variables: {
+                // initializer
+                _initialized: 1,
+                _initializing: false,
+                // ReentrancyGuardUpgradeable
+                _status: 1, // _NOT_ENTERED
+                // OwnableUpgradeable
+                _owner: contractOwner,
+                // AddressResolver
+                _addressManager: addressMap.AddressManagerProxy,
+            },
+            slots: {
+                [ADMIN_SLOT]: contractAdmin,
+                [IMPLEMENTATION_SLOT]: addressMap.ProxiedERC1155Vault,
             },
             isProxy: true,
         },

@@ -19,6 +19,18 @@ address srcToken
 uint256 srcChainId
 ```
 
+### BRIDGED_TOKEN_CANNOT_RECEIVE
+
+```solidity
+error BRIDGED_TOKEN_CANNOT_RECEIVE()
+```
+
+### BRIDGED_TOKEN_INVALID_PARAMS
+
+```solidity
+error BRIDGED_TOKEN_INVALID_PARAMS()
+```
+
 ### init
 
 ```solidity
@@ -49,7 +61,7 @@ function mint(address account, uint256 amount) public
 
 Mints tokens to an account.
 
-_Only a TokenVault can call this function._
+_Only a ERC20Vault can call this function._
 
 #### Parameters
 
@@ -66,7 +78,7 @@ function burn(address account, uint256 amount) public
 
 Burns tokens from an account.
 
-_Only a TokenVault can call this function._
+_Only a ERC20Vault can call this function._
 
 #### Parameters
 
@@ -138,14 +150,7 @@ Gets the number of decimal places of the token.
 function canonical() public view returns (address, uint256)
 ```
 
-Gets the canonical token address and the canonical chain ID.
-
-#### Return Values
-
-| Name | Type    | Description                                             |
-| ---- | ------- | ------------------------------------------------------- |
-| [0]  | address | The canonical token address and the canonical chain ID. |
-| [1]  | uint256 |                                                         |
+Gets the canonical token's address and chain ID.
 
 ---
 

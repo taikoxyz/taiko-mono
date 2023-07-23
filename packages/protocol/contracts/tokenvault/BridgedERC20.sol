@@ -15,7 +15,6 @@ import { IERC20MetadataUpgradeable } from
 import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
-import { BridgeErrors } from "./BridgeErrors.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 /**
  * This contract is an upgradeable ERC20 contract that represents tokens bridged
@@ -27,13 +26,15 @@ contract BridgedERC20 is
     EssentialContract,
     IMintableERC20,
     IERC20MetadataUpgradeable,
-    ERC20Upgradeable,
-    BridgeErrors
+    ERC20Upgradeable
 {
     address public srcToken;
     uint256 public srcChainId;
     uint8 private srcDecimals;
     uint256[47] private __gap;
+
+    error BRIDGED_TOKEN_CANNOT_RECEIVE();
+    error BRIDGED_TOKEN_INVALID_PARAMS();
 
     /**
      * Initializes the contract.
@@ -62,7 +63,7 @@ contract BridgedERC20 is
                 || _srcChainId == block.chainid || bytes(_symbol).length == 0
                 || bytes(_name).length == 0
         ) {
-            revert B_INIT_PARAM_ERROR();
+            revert BRIDGED_TOKEN_INVALID_PARAMS();
         }
         EssentialContract._init(_addressManager);
         ERC20Upgradeable.__ERC20_init({ name_: _name, symbol_: _symbol });
@@ -73,7 +74,7 @@ contract BridgedERC20 is
 
     /**
      * Mints tokens to an account.
-     * @dev Only a TokenVault can call this function.
+     * @dev Only a ERC20Vault can call this function.
      * @param account The account to mint tokens to.
      * @param amount The amount of tokens to mint.
      */
@@ -82,15 +83,15 @@ contract BridgedERC20 is
         uint256 amount
     )
         public
-        onlyFromNamed3("taiko", "prover_pool", "token_vault")
+        onlyFromNamed3("taiko", "prover_pool", "erc20_vault")
     {
         _mint(account, amount);
-        emit Mint(account, amount);
+        emit Transfer(address(0), account, amount);
     }
 
     /**
      * Burns tokens from an account.
-     * @dev Only a TokenVault can call this function.
+     * @dev Only a ERC20Vault can call this function.
      * @param account The account to burn tokens from.
      * @param amount The amount of tokens to burn.
      */
@@ -99,10 +100,10 @@ contract BridgedERC20 is
         uint256 amount
     )
         public
-        onlyFromNamed3("taiko", "prover_pool", "token_vault")
+        onlyFromNamed3("taiko", "prover_pool", "erc20_vault")
     {
         _burn(account, amount);
-        emit Burn(account, amount);
+        emit Transfer(account, address(0), amount);
     }
 
     /**
@@ -121,7 +122,7 @@ contract BridgedERC20 is
         returns (bool)
     {
         if (to == address(this)) {
-            revert B_ERC20_CANNOT_RECEIVE();
+            revert BRIDGED_TOKEN_CANNOT_RECEIVE();
         }
         return ERC20Upgradeable.transfer(to, amount);
     }
@@ -144,7 +145,7 @@ contract BridgedERC20 is
         returns (bool)
     {
         if (to == address(this)) {
-            revert B_ERC20_CANNOT_RECEIVE();
+            revert BRIDGED_TOKEN_CANNOT_RECEIVE();
         }
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }
@@ -174,8 +175,7 @@ contract BridgedERC20 is
     }
 
     /**
-     * Gets the canonical token address and the canonical chain ID.
-     * @return The canonical token address and the canonical chain ID.
+     * Gets the canonical token's address and chain ID.
      */
     function canonical() public view returns (address, uint256) {
         return (srcToken, srcChainId);

@@ -44,4 +44,3 @@ issues:
     - path: contracts\.go
       linters:
         - lll
-
