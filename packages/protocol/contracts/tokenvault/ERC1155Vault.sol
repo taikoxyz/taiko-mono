@@ -179,14 +179,15 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         }
 
         (
+            ,
             CanonicalNFT memory nft,
             ,
             ,
             uint256[] memory tokenIds,
             uint256[] memory amounts
         ) = abi.decode(
-            message.data[4:],
-            (CanonicalNFT, address, address, uint256[], uint256[])
+            message.data,
+            (bytes4, CanonicalNFT, address, address, uint256[], uint256[])
         );
 
         bytes32 msgHash = hashAndMarkMsgReleased(message, proof, nft.addr);
