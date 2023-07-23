@@ -159,12 +159,12 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         }
 
         (
+            ,
             CanonicalNFT memory nft, //
             ,
             ,
             uint256[] memory tokenIds
         ) = abi.decode(
-
             message.data, (bytes4, CanonicalNFT, address, address, uint256[])
         );
 
@@ -209,7 +209,6 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     {
         return IERC721Receiver.onERC721Received.selector;
     }
-
 
     function _sendToken(
         address owner,

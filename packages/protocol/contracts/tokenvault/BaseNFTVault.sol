@@ -6,6 +6,7 @@
 
 pragma solidity ^0.8.20;
 
+import { EssentialContract } from "../common/EssentialContract.sol";
 import { IERC721Receiver } from
     "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import { IERC721Upgradeable } from
@@ -16,7 +17,6 @@ import { IERC165 } from
     "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { IBridge } from "../bridge/IBridge.sol";
-
 
 abstract contract BaseNFTVault is EssentialContract {
     struct CanonicalNFT {

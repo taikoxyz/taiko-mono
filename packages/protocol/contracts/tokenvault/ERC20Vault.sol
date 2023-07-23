@@ -74,7 +74,6 @@ contract ERC20Vault is EssentialContract {
         uint256 chainId => mapping(address canonicalAddress => address btoken)
     ) public canonicalToBridged;
 
-
     // Released message hashes
     mapping(bytes32 msgHash => bool released) public releasedMessages;
 
