@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.20;
 
-import
+import { TransparentUpgradeableProxy } from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import { IBridge } from "../../bridge/IBridge.sol";
 import { AddressResolver } from "../../common/AddressResolver.sol";
