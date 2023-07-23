@@ -38,12 +38,11 @@ abstract contract BaseNFTVault is EssentialContract {
         string memo;
     }
 
-// In order not to gas-out we need to hard cap the nr. of max
+    // In order not to gas-out we need to hard cap the nr. of max
     // tokens (iterations)
     uint256 public constant MAX_TOKEN_PER_TXN = 10;
     bytes4 public constant ERC1155_INTERFACE_ID = 0xd9b67a26;
     bytes4 public constant ERC721_INTERFACE_ID = 0x80ac58cd;
-
 
     // Tracks if a token on the current chain is a ctoken or btoken.
     mapping(address tokenAddress => bool isBridged) public isBridgedToken;
@@ -59,9 +58,7 @@ abstract contract BaseNFTVault is EssentialContract {
     // Released message hashes
     mapping(bytes32 msgHash => bool released) public releasedMessages;
 
-
     uint256[46] private __gap;
-
 
     event BridgedTokenDeployed(
         uint256 indexed chainId,

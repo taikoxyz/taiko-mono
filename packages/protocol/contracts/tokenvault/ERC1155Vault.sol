@@ -247,7 +247,6 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         return IERC1155Receiver.onERC1155BatchReceived.selector;
     }
 
-
     function _sendToken(
         address owner,
         BridgeTransferOp memory opt
