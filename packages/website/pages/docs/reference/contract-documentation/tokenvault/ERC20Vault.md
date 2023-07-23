@@ -56,6 +56,12 @@ mapping(address => struct ERC20Vault.CanonicalERC20) bridgedToCanonical
 mapping(uint256 => mapping(address => address)) canonicalToBridged
 ```
 
+### releasedMessages
+
+```solidity
+mapping(bytes32 => bool) releasedMessages
+```
+
 ### BridgedTokenDeployed
 
 ```solidity
@@ -78,6 +84,94 @@ event TokenReleased(bytes32 msgHash, address from, address token, uint256 amount
 
 ```solidity
 event TokenReceived(bytes32 msgHash, address from, address to, uint256 srcChainId, address token, uint256 amount)
+```
+
+### VAULT_INVALID_TO
+
+```solidity
+error VAULT_INVALID_TO()
+```
+
+Thrown when the `to` address in an operation is invalid.
+This can happen if it's zero address or the address of the token vault.
+
+### VAULT_INVALID_TOKEN
+
+```solidity
+error VAULT_INVALID_TOKEN()
+```
+
+Thrown when the token address in a transaction is invalid.
+This could happen if the token address is zero or doesn't conform to the
+ERC20 standard.
+
+### VAULT_INVALID_AMOUNT
+
+```solidity
+error VAULT_INVALID_AMOUNT()
+```
+
+Thrown when the amount in a transaction is invalid.
+This could happen if the amount is zero or exceeds the sender's balance.
+
+### VAULT_INVALID_OWNER
+
+```solidity
+error VAULT_INVALID_OWNER()
+```
+
+Thrown when the owner address in a message is invalid.
+This could happen if the owner address is zero or doesn't match the
+expected owner.
+
+### VAULT_INVALID_SENDER
+
+```solidity
+error VAULT_INVALID_SENDER()
+```
+
+Thrown when the sender in a message context is invalid.
+This could happen if the sender isn't the expected token vault on the
+source chain.
+
+### VAULT_INVALID_SRC_CHAIN_ID
+
+```solidity
+error VAULT_INVALID_SRC_CHAIN_ID()
+```
+
+Thrown when the source chain ID in a message is invalid.
+This could happen if the source chain ID doesn't match the current
+chain's ID.
+
+### VAULT_MESSAGE_NOT_FAILED
+
+```solidity
+error VAULT_MESSAGE_NOT_FAILED()
+```
+
+Thrown when a message has not failed.
+This could happen if trying to release a message deposit without proof of
+failure.
+
+### VAULT_MESSAGE_RELEASED_ALREADY
+
+```solidity
+error VAULT_MESSAGE_RELEASED_ALREADY()
+```
+
+Thrown when a message has already released
+
+### onlyValidAddresses
+
+```solidity
+modifier onlyValidAddresses(uint256 chainId, bytes32 name, address to, address token)
+```
+
+### init
+
+```solidity
+function init(address addressManager) external
 ```
 
 ### sendToken

@@ -49,6 +49,17 @@ this function._
 function releaseToken(struct IBridge.Message message, bytes proof) external
 ```
 
+Release deposited ERC721 token(s) back to the owner on the source chain
+with
+a proof that the message processing on the destination Bridge has failed.
+
+#### Parameters
+
+| Name    | Type                   | Description                                                             |
+| ------- | ---------------------- | ----------------------------------------------------------------------- |
+| message | struct IBridge.Message | The message that corresponds to the ERC721 deposit on the source chain. |
+| proof   | bytes                  | The proof from the destination chain to show the message has failed.    |
+
 ### onERC721Received
 
 ```solidity
