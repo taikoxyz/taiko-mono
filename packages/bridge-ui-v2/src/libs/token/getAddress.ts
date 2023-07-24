@@ -4,8 +4,7 @@ import { NoTokenAddressError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 
 import { getCrossChainAddress } from './getCrossChainAddress';
-import { isETH } from './tokens';
-import type { Token } from './types';
+import { type Token,TokenType } from './types';
 
 type GetAddressArgs = {
   token: Token;
@@ -16,7 +15,7 @@ type GetAddressArgs = {
 const log = getLogger('token:getAddress');
 
 export async function getAddress({ token, srcChainId, destChainId }: GetAddressArgs) {
-  if (isETH(token)) return; // ETH doesn't have an address
+  if (token.type === TokenType.ETH) return; // ETH doesn't have an address
 
   // Get the address for the token on the source chain
   let address: Maybe<Address> = token.addresses[srcChainId];

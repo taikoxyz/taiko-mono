@@ -1,6 +1,7 @@
 import type { Address, Chain, FetchBalanceResult } from '@wagmi/core';
-import { writable } from 'svelte/store';
+import { derived, writable } from 'svelte/store';
 
+import { bridges } from '$libs/bridge';
 import type { Token } from '$libs/token';
 
 // Note: we could combine this with Context API, but since we'll only
@@ -35,3 +36,6 @@ export const errorComputingBalance = writable<boolean>(false);
 // is a warning but the user must approve allowance before bridging
 export const insufficientBalance = writable<boolean>(false);
 export const insufficientAllowance = writable<boolean>(false);
+
+// Derived state
+export const bridgeService = derived(selectedToken, (token) => (token ? bridges[token.type] : null));

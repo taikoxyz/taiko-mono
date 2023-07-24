@@ -3,7 +3,7 @@ import { zeroAddress } from 'viem';
 import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID, PUBLIC_TEST_ERC20 } from '$env/static/public';
 import { jsonParseWithDefault } from '$libs/util/jsonParseWithDefault';
 
-import type { Token, TokenEnv } from './types';
+import { type Token, type TokenEnv, TokenType } from './types';
 
 export const ETHToken: Token = {
   name: 'Ether',
@@ -13,6 +13,7 @@ export const ETHToken: Token = {
   },
   decimals: 18,
   symbol: 'ETH',
+  type: TokenType.ETH,
 };
 
 export const TKOToken: Token = {
@@ -23,6 +24,7 @@ export const TKOToken: Token = {
   },
   decimals: 8,
   symbol: 'TKO',
+  type: TokenType.ERC20,
 };
 
 export const testERC20Tokens: Token[] = jsonParseWithDefault<TokenEnv[]>(PUBLIC_TEST_ERC20, []).map(
@@ -35,21 +37,8 @@ export const testERC20Tokens: Token[] = jsonParseWithDefault<TokenEnv[]>(PUBLIC_
       [PUBLIC_L2_CHAIN_ID]: zeroAddress,
     },
     decimals: 18,
+    type: TokenType.ERC20,
   }),
 );
 
 export const tokens = [ETHToken, ...testERC20Tokens];
-
-export function isETH(token: Token) {
-  // Should be fine just by checking the symbol
-  return token.symbol.toLocaleLowerCase() === ETHToken.symbol.toLocaleLowerCase();
-}
-
-export function isERC20(token: Token): boolean {
-  return !isETH(token);
-}
-
-export function isTestToken(token: Token): boolean {
-  const testTokenSymbols = testERC20Tokens.map((testToken) => testToken.symbol.toLocaleLowerCase());
-  return testTokenSymbols.includes(token.symbol.toLocaleLowerCase());
-}

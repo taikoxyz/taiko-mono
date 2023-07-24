@@ -2,7 +2,7 @@ import { type Address, zeroAddress } from 'viem';
 
 import { chainContractsMap } from '$libs/chain';
 import { InsufficientAllowanceError, InsufficientBalanceError, RevertedWithFailedError } from '$libs/error';
-import { getAddress, isETH, type Token } from '$libs/token';
+import { getAddress, type Token,TokenType } from '$libs/token';
 import { isDeployedCrossChain } from '$libs/token/isDeployedCrossChain';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 
@@ -41,7 +41,7 @@ export async function checkBalanceToBridge({
     processingFee,
   } as BridgeArgs;
 
-  if (isETH(token)) {
+  if (token.type === TokenType.ETH) {
     const { bridgeAddress } = chainContractsMap[srcChainId];
 
     try {

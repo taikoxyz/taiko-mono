@@ -1,19 +1,6 @@
 import type { WalletClient } from '@wagmi/core';
 import type { Address, Hex } from 'viem';
 
-export enum BridgeType {
-  ETH = 'ETH',
-
-  // https://ethereum.org/en/developers/docs/standards/tokens/erc-20/
-  ERC20 = 'ERC20',
-
-  // https://ethereum.org/en/developers/docs/standards/tokens/erc-721/
-  ERC721 = 'ERC721',
-
-  // https://ethereum.org/en/developers/docs/standards/tokens/erc-1155/
-  ERC1155 = 'ERC1155',
-}
-
 // Bridge sendMessage(message: Message)
 export type Message = {
   // Message ID. Will be set in contract

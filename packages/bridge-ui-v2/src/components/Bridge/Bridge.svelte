@@ -12,10 +12,9 @@
   import { PUBLIC_L1_EXPLORER_URL } from '$env/static/public';
   import { type Bridge, type BridgeArgs, bridges, type ERC20BridgeArgs, type ETHBridgeArgs } from '$libs/bridge';
   import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
-  import type { ETHBridge } from '$libs/bridge/ETHBridge';
   import { chainContractsMap, chains } from '$libs/chain';
   import { ApproveError, NoAllowanceRequiredError, SendERC20Error, SendMessageError } from '$libs/error';
-  import { ETHToken, getAddress, isDeployedCrossChain, isETH, tokens } from '$libs/token';
+  import { ETHToken, getAddress, isDeployedCrossChain, tokens, TokenType } from '$libs/token';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { type Account, account } from '$stores/account';
   import { type Network, network } from '$stores/network';
@@ -25,7 +24,7 @@
   import Amount from './Amount.svelte';
   import { ProcessingFee } from './ProcessingFee';
   import Recipient from './Recipient.svelte';
-  import { destNetwork, enteredAmount, processingFee, recipientAddress, selectedToken } from './state';
+  import { bridgeService, destNetwork, enteredAmount, processingFee, recipientAddress, selectedToken } from './state';
   import SwitchChainsButton from './SwitchChainsButton.svelte';
 
   let amountComponent: Amount;
@@ -119,12 +118,10 @@
   }
 
   async function bridge() {
-    if (!$selectedToken || !$network || !$destNetwork || !$account?.address) return;
+    if (!$bridgeService || !$selectedToken || !$network || !$destNetwork || !$account?.address) return;
 
     try {
       const walletClient = await getConnectedWallet($network.id);
-
-      let bridge: Bridge;
 
       // Common arguments for both ETH and ERC20 bridges
       let bridgeArgs = {
@@ -136,47 +133,52 @@
         processingFee: $processingFee,
       } as BridgeArgs;
 
-      if (isETH($selectedToken)) {
-        bridge = bridges.ETH as ETHBridge;
-
-        // Specific arguments for ETH bridge:
-        // - bridgeAddress
-        const bridgeAddress = chainContractsMap[$network.id].bridgeAddress;
-        bridgeArgs = { ...bridgeArgs, bridgeAddress } as ETHBridgeArgs;
-      } else {
-        bridge = bridges.ERC20 as ERC20Bridge;
-
-        // Specific arguments for ERC20 bridge
-        // - tokenAddress
-        // - tokenVaultAddress
-        // - isTokenAlreadyDeployed
-        const tokenAddress = await getAddress({
-          token: $selectedToken,
-          srcChainId: $network.id,
-          destChainId: $destNetwork.id,
-        });
-
-        if (!tokenAddress) {
-          throw new Error('token address not found');
+      switch ($selectedToken.type) {
+        case TokenType.ETH: {
+          // Specific arguments for ETH bridge:
+          // - bridgeAddress
+          const bridgeAddress = chainContractsMap[$network.id].bridgeAddress;
+          bridgeArgs = { ...bridgeArgs, bridgeAddress } as ETHBridgeArgs;
+          break;
         }
 
-        const tokenVaultAddress = chainContractsMap[$network.id].tokenVaultAddress;
+        case TokenType.ERC20: {
+          // Specific arguments for ERC20 bridge
+          // - tokenAddress
+          // - tokenVaultAddress
+          // - isTokenAlreadyDeployed
+          const tokenAddress = await getAddress({
+            token: $selectedToken,
+            srcChainId: $network.id,
+            destChainId: $destNetwork.id,
+          });
 
-        const isTokenAlreadyDeployed = await isDeployedCrossChain({
-          token: $selectedToken,
-          srcChainId: $network.id,
-          destChainId: $destNetwork.id,
-        });
+          if (!tokenAddress) {
+            throw new Error('token address not found');
+          }
 
-        bridgeArgs = {
-          ...bridgeArgs,
-          tokenAddress,
-          tokenVaultAddress,
-          isTokenAlreadyDeployed,
-        } as ERC20BridgeArgs;
+          const tokenVaultAddress = chainContractsMap[$network.id].tokenVaultAddress;
+
+          const isTokenAlreadyDeployed = await isDeployedCrossChain({
+            token: $selectedToken,
+            srcChainId: $network.id,
+            destChainId: $destNetwork.id,
+          });
+
+          bridgeArgs = {
+            ...bridgeArgs,
+            tokenAddress,
+            tokenVaultAddress,
+            isTokenAlreadyDeployed,
+          } as ERC20BridgeArgs;
+          break;
+        }
+
+        default:
+          throw new Error('invalid token type');
       }
 
-      const txHash = await bridge.bridge(bridgeArgs);
+      const txHash = await $bridgeService.bridge(bridgeArgs);
 
       infoToast(
         $t('bridge.bridge.tx', {
