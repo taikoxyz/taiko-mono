@@ -1,5 +1,5 @@
 import type { WalletClient } from '@wagmi/core';
-import type { Address, Hex } from 'viem';
+import type { Address, Hash, Hex } from 'viem';
 
 // Bridge sendMessage(message: Message)
 export type Message = {
@@ -95,7 +95,7 @@ export interface Bridge {
 }
 
 export type GenerateProofArgs = {
-  msgHash: Hex;
+  msgHash: Hash;
   chainId: number;
   sender: Address;
   srcChainId: number;
@@ -122,9 +122,9 @@ export type StorageEntry = {
 
 export type EthGetProofResponse = {
   balance: bigint;
-  codeHash: Hex;
+  codeHash: Hash;
   nonce: number;
-  storageHash: Hex;
+  storageHash: Hash;
 
   // Array of rlp-serialized MerkleTree-Nodes, starting with the stateRoot-Node, following the path of the SHA3 (address) as key.
   accountProof: Hex[];
@@ -136,6 +136,6 @@ export type EthGetProofResponse = {
 export type ClientWithEthProofRequest = {
   request(getProofArgs: {
     method: 'eth_getProof';
-    params: [Address, Hex[], number | Hex | 'latest' | 'earliest'];
+    params: [Address, Hex[], number | Hash | 'latest' | 'earliest'];
   }): Promise<EthGetProofResponse>;
 };
