@@ -40,6 +40,8 @@ interface ERC1155NameAndSymbol {
  * tokens.
  */
 contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
+    uint256[50] private __gap;
+
     /**
      * Transfers ERC1155 tokens to this vault and sends a message to the
      * destination chain so the user can receive the same (bridged) tokens
@@ -47,6 +49,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
      *
      * @param opt Option for sending the ERC1155 token.
      */
+
     function sendToken(BridgeTransferOp memory opt)
         external
         payable
@@ -182,7 +185,10 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             ,
             uint256[] memory tokenIds,
             uint256[] memory amounts
-        ) = decodeMessageData(message.data);
+        ) = abi.decode(
+            message.data[4:],
+            (CanonicalNFT, address, address, uint256[], uint256[])
+        );
 
         bytes32 msgHash = hashAndMarkMsgReleased(message, proof, nft.addr);
         unchecked {
@@ -242,35 +248,6 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         return IERC1155Receiver.onERC1155BatchReceived.selector;
     }
 
-    /**
-     * Decodes the data which was abi.encodeWithSelector() encoded.
-     * @param dataWithSelector Data encoded with abi.encodedWithSelector
-     * @return nft CanonicalNFT data
-     * @return owner Owner of the message
-     * @return to The to address messages sent to
-     * @return tokenIds The tokenIds
-     * @return amounts The amount per respective ERC1155 tokenid
-     */
-    function decodeMessageData(bytes calldata dataWithSelector)
-        public
-        pure
-        returns (
-            CanonicalNFT memory nft,
-            address owner,
-            address to,
-            uint256[] memory tokenIds,
-            uint256[] memory amounts
-        )
-    {
-        return abi.decode(
-            dataWithSelector[4:],
-            (CanonicalNFT, address, address, uint256[], uint256[])
-        );
-    }
-
-    /**
-     * @dev Vaults / burns the tokens and creates msg.data
-     */
     function _sendToken(
         address owner,
         BridgeTransferOp memory opt

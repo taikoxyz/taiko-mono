@@ -94,30 +94,6 @@ function onERC1155Received(address, address, uint256, uint256, bytes) external p
 function onERC1155BatchReceived(address, address, uint256[], uint256[], bytes) external pure returns (bytes4)
 ```
 
-### decodeMessageData
-
-```solidity
-function decodeMessageData(bytes dataWithSelector) public pure returns (struct BaseNFTVault.CanonicalNFT nft, address owner, address to, uint256[] tokenIds, uint256[] amounts)
-```
-
-Decodes the data which was abi.encodeWithSelector() encoded.
-
-#### Parameters
-
-| Name             | Type  | Description                               |
-| ---------------- | ----- | ----------------------------------------- |
-| dataWithSelector | bytes | Data encoded with abi.encodedWithSelector |
-
-#### Return Values
-
-| Name     | Type                             | Description                               |
-| -------- | -------------------------------- | ----------------------------------------- |
-| nft      | struct BaseNFTVault.CanonicalNFT | CanonicalNFT data                         |
-| owner    | address                          | Owner of the message                      |
-| to       | address                          | The to address messages sent to           |
-| tokenIds | uint256[]                        | The tokenIds                              |
-| amounts  | uint256[]                        | The amount per respective ERC1155 tokenid |
-
 ---
 
 ## title: ProxiedERC1155Vault
