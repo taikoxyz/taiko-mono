@@ -56,7 +56,7 @@ library LibVerifying {
                 || config.proofRegularCooldown < config.proofOracleCooldown
                 || config.proofWindowMin == 0
                 || config.proofWindowMax < config.proofWindowMin
-                || config.proofWindowMultiplier <= 1
+                || config.proofWindowMultiplier <= 100
                 || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0
                 || config.ethDepositMaxCountPerBlock

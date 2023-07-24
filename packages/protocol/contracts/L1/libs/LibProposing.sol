@@ -134,9 +134,9 @@ library LibProposing {
             blk.assignedProver = assignedProver;
             blk.rewardPerGas = rewardPerGas;
             blk.proofWindow = uint16(
-                uint256(state.avgProofDelay * config.proofWindowMultiplier).min(
-                    config.proofWindowMax
-                ).max(config.proofWindowMin)
+                uint256(
+                    state.avgProofDelay * config.proofWindowMultiplier / 100
+                ).min(config.proofWindowMax).max(config.proofWindowMin)
             );
         }
 
