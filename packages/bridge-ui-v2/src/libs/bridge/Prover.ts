@@ -37,7 +37,15 @@ export class Prover {
     //   bytes proof;
     // }
     const signalProof = encodeAbiParameters(
-      ['tuple(uint256 height, bytes proof)'],
+      // ['tuple(uint256 height, bytes proof)'],
+      [{
+        type: 'tuple',
+        components: [
+          { name: 'height', type: 'uint256' },
+          { name: 'proof', type: 'bytes' },
+        ],
+        
+      }],
       [{ height: blockHeight, proof: encodedProof }],
     );
 
@@ -47,6 +55,10 @@ export class Prover {
   async generateProof({msgHash, chainId, sender, crossChainSyncAddress, signalServiceAddress}: GenerateProofArgs) {
     const key = await Prover._getKey(sender, msgHash);
     const block = await Prover._getLatestBlock(crossChainSyncAddress, chainId);
+
+    if (block.hash === null) {
+      throw new Error('block is pending');
+    }
 
     publicClient({ chainId }).getStorageAt
 
