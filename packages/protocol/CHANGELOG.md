@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.12.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v0.11.0...protocol-v0.12.0) (2023-07-24)
+
+
+### Features
+
+* **website:** Docs Taiko L2 EIP-1559 high level overview ([#14187](https://github.com/taikoxyz/taiko-mono/issues/14187)) ([ac52f57](https://github.com/taikoxyz/taiko-mono/commit/ac52f575b6ac5a173bc6e96679f0614fcd61aa27))
+
+
+### Bug Fixes
+
+* **repo:** fix typos ([#14165](https://github.com/taikoxyz/taiko-mono/issues/14165)) ([020972a](https://github.com/taikoxyz/taiko-mono/commit/020972acd0e71877b5f0d76e6a5319f5a814038e))
+
 ## [0.11.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v0.10.0...protocol-v0.11.0) (2023-07-10)
 
 
