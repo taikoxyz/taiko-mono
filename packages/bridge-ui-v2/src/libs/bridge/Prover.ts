@@ -1,16 +1,17 @@
 import { getContract, type GetContractResult, type PublicClient } from '@wagmi/core';
-import { type Address, encodeAbiParameters, encodePacked, type Hex, keccak256, toRlp } from 'viem';
+import { type Address, encodeAbiParameters, encodePacked, type Hex, keccak256, toHex,toRlp } from 'viem';
 
 import { crossChainSyncABI } from '$abi';
 import { InvalidProofError, PendingBlockError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { publicClient } from '$libs/wagmi';
 
-import type {
-  ClientWithEthProofRequest,
-  EthGetProofResponse,
-  GenerateProofClaimArgs,
-  GenerateProofReleaseArgs,
+import {
+  type ClientWithEthProofRequest,
+  type EthGetProofResponse,
+  type GenerateProofClaimArgs,
+  type GenerateProofReleaseArgs,
+  MessageStatus,
 } from './types';
 
 const log = getLogger('bridge:Prover');
@@ -103,9 +104,9 @@ export class Prover {
 
     log('Proof from eth_getProof', proof);
 
-    // Value must be 1 => isSignalSent
-    if (proof.storageProof[0].value !== '0x1') {
-      throw new InvalidProofError('storage proof value is not 1: SignalSent');
+    // Value must be 0x1 => isSignalSent
+    if (proof.storageProof[0].value !== toHex(true)) {
+      throw new InvalidProofError('storage proof value is not 1');
     }
 
     return Prover._getSignalProof(proof, block.number);
@@ -156,9 +157,9 @@ export class Prover {
 
     log('Proof from eth_getProof', proof);
 
-    // Value must be 3 => MessageStatus.FAILED
-    if (proof.storageProof[0].value !== '0x3') {
-      throw new InvalidProofError('storage proof value is not 3: MessageStatus.FAILED');
+    // Value must be 0x3 => MessageStatus.FAILED
+    if (proof.storageProof[0].value !== toHex(MessageStatus.FAILED)) {
+      throw new InvalidProofError('storage proof value is not FAILED');
     }
 
     return Prover._getSignalProof(proof, block.number);

@@ -1,6 +1,13 @@
 import type { WalletClient } from '@wagmi/core';
 import type { Address, Hash, Hex } from 'viem';
 
+export enum MessageStatus {
+  NEW,
+  RETRIABLE,
+  DONE,
+  FAILED,
+}
+
 // Bridge sendMessage(message: Message)
 export type Message = {
   // Message ID. Will be set in contract
@@ -114,7 +121,7 @@ export type GenerateProofReleaseArgs = GenerateProofArgs & {
 
 export type StorageEntry = {
   key: string;
-  value: string;
+  value: Hex;
 
   // Array of rlp-serialized MerkleTree-Nodes, starting with the storageHash-Node, following the path of the SHA3 (key) as path.
   proof: Hex[];
