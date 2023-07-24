@@ -1033,12 +1033,12 @@ export default [
           },
           {
             internalType: 'uint16',
-            name: 'proofMinWindow',
+            name: 'proofWindowMin',
             type: 'uint16',
           },
           {
             internalType: 'uint16',
-            name: 'proofMaxWindow',
+            name: 'proofWindowMax',
             type: 'uint16',
           },
           {

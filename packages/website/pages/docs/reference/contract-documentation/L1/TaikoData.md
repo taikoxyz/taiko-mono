@@ -20,8 +20,9 @@ struct Config {
   uint256 blockTxListExpiry;
   uint256 proofRegularCooldown;
   uint256 proofOracleCooldown;
-  uint16 proofMinWindow;
-  uint16 proofMaxWindow;
+  uint16 proofWindowMin;
+  uint16 proofWindowMax;
+  uint8 proofWindowMultiplier;
   uint256 ethDepositRingBufferSize;
   uint64 ethDepositMinCountPerBlock;
   uint64 ethDepositMaxCountPerBlock;
