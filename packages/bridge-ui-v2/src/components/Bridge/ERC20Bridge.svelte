@@ -12,14 +12,13 @@
   import { chains } from '$libs/chain';
   import { detectContractType, ETHToken, fetchERC721Images, fetchERC1155Images, type Token, tokens } from '$libs/token';
   import type { Account } from '$stores/account';
-
   import { activeTab } from '$stores/bridgetabs';
-
-  import Erc20Bridge from './ERC20Bridge.svelte';
-
   import { type Network, network } from '$stores/network';
 
+  import { AmountInput } from './AmountInput';
+  import Erc20Bridge from './ERC20Bridge.svelte';
   import { ProcessingFee } from './ProcessingFee';
+  import { RecipientInput } from './RecipientInput';
   import { destNetwork, selectedToken } from './state';
   import SwitchChainsButton from './SwitchChainsButton.svelte';
 
