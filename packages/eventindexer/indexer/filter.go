@@ -211,7 +211,6 @@ func L2FilterFunc(
 		}
 
 		return err
-
 	}
 
 	return nil
