@@ -1,6 +1,8 @@
 import { getContract } from '@wagmi/core';
+import { UserRejectedRequestError } from 'viem';
 
 import { freeMintErc20ABI } from '$abi';
+import { MintError } from '$libs/error';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 
 import { getLogger } from '../util/logger';
@@ -20,11 +22,21 @@ export async function mint(token: Token, chainId: number) {
     address: token.addresses[chainId],
   });
 
-  log(`Minting ${tokenSymbol} for account ${userAddress}`);
+  try {
+    log(`Minting ${tokenSymbol} for account ${userAddress}`);
 
-  const txHash = await tokenContract.write.mint([userAddress]);
+    const txHash = await tokenContract.write.mint([userAddress]);
 
-  log(`Transaction hash for minting ${tokenSymbol}: ${txHash}`);
+    log(`Transaction hash for mint call: "${txHash}"`);
 
-  return txHash;
+    return txHash;
+  } catch (err) {
+    console.error(err);
+
+    if (`${err}`.includes('denied transaction signature')) {
+      throw new UserRejectedRequestError(err as Error);
+    }
+
+    throw new MintError(`failed to mint ${tokenSymbol} tokens`, { cause: err });
+  }
 }

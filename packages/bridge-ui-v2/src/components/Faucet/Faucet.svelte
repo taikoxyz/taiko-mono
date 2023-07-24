@@ -9,13 +9,13 @@
   import { ChainSelector } from '$components/ChainSelector';
   import { Icon } from '$components/Icon';
   import { successToast, warningToast } from '$components/NotificationToast';
+  import { errorToast, infoToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { TokenDropdown } from '$components/TokenDropdown';
   import { PUBLIC_L1_CHAIN_ID, PUBLIC_L1_CHAIN_NAME, PUBLIC_L1_EXPLORER_URL } from '$env/static/public';
-  import { InsufficientBalanceError, TokenMintedError } from '$libs/error';
+  import { InsufficientBalanceError, MintError, TokenMintedError } from '$libs/error';
   import { testERC20Tokens, type Token } from '$libs/token';
   import { checkMintable, mint } from '$libs/token';
-  import { account } from '$stores/account';
-  import { network } from '$stores/network';
+  import { account, network, pendingTransactions } from '$stores';
 
   let minting = false;
   let checkingMintable = false;
@@ -56,23 +56,38 @@
     try {
       const txHash = await mint(selectedToken, $network.id);
 
-      successToast(
-        $t('faucet.minting_tx', {
+      infoToast(
+        $t('faucet.mint.tx', {
           values: {
             token: selectedToken.symbol,
             url: `${PUBLIC_L1_EXPLORER_URL}/tx/${txHash}`,
           },
         }),
-        true,
       );
 
-      // TODO: pending transaction logic
+      await pendingTransactions.add(txHash, $network.id);
+
+      successToast(
+        $t('faucet.mint.success', {
+          values: {
+            token: selectedToken.symbol,
+          },
+        }),
+      );
     } catch (err) {
       console.error(err);
 
-      const { cause } = err as Error;
-      if (cause instanceof UserRejectedRequestError) {
-        warningToast($t('messages.mint.rejected'));
+      switch (true) {
+        case err instanceof UserRejectedRequestError:
+          warningToast($t('faucet.mint.rejected'));
+          break;
+        case err instanceof MintError:
+          // TODO: see contract for all possible errors
+          errorToast($t('faucet.mint.error'));
+          break;
+        default:
+          errorToast($t('faucet.mint.unknown_error'));
+          break;
       }
     } finally {
       minting = false;
@@ -132,10 +147,10 @@
   $: updateMintButtonState(selectedToken, $network);
 </script>
 
-<Card class="md:w-[524px]" title={$t('faucet.title')} text={$t('faucet.subtitle')}>
+<Card class="md:w-[524px]" title={$t('faucet.title')} text={$t('faucet.description')}>
   <div class="space-y-[35px]">
     <div class="space-y-2">
-      <ChainSelector label={$t('chain_selector.currently_on')} value={$network} switchWallet />
+      <ChainSelector label={$t('chain_selector.currently_on')} value={$network} switchWallet small />
       <TokenDropdown tokens={testERC20Tokens} bind:value={selectedToken} />
     </div>
 
