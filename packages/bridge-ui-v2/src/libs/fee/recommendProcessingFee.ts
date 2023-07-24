@@ -2,7 +2,7 @@ import { getPublicClient } from '@wagmi/core';
 import { zeroAddress } from 'viem';
 
 import { recommentProcessingFee } from '$config';
-import { getAddress, type Token,TokenType } from '$libs/token';
+import { getAddress, type Token, TokenType } from '$libs/token';
 
 type RecommendProcessingFeeArgs = {
   token: Token;

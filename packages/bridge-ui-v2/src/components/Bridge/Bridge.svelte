@@ -10,7 +10,7 @@
   import { OnNetwork } from '$components/OnNetwork';
   import { TokenDropdown } from '$components/TokenDropdown';
   import { PUBLIC_L1_EXPLORER_URL } from '$env/static/public';
-  import { type Bridge, type BridgeArgs, bridges, type ERC20BridgeArgs, type ETHBridgeArgs } from '$libs/bridge';
+  import { type BridgeArgs, bridges, type ERC20BridgeArgs, type ETHBridgeArgs } from '$libs/bridge';
   import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
   import { chainContractsMap, chains } from '$libs/chain';
   import { ApproveError, NoAllowanceRequiredError, SendERC20Error, SendMessageError } from '$libs/error';

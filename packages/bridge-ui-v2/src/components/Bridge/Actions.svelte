@@ -3,6 +3,7 @@
 
   import { Button } from '$components/Button';
   import { Icon } from '$components/Icon';
+  import { TokenType } from '$libs/token';
   import { account, network } from '$stores';
 
   import {
@@ -16,7 +17,6 @@
     selectedToken,
     tokenBalance,
   } from './state';
-  import { TokenType } from '$libs/token';
 
   export let approve: () => Promise<void>;
   export let bridge: () => Promise<void>;
