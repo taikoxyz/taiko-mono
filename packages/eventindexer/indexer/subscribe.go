@@ -41,6 +41,7 @@ func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
 	if svc.swaps != nil {
 		for _, swap := range svc.swaps {
 			go svc.subscribeSwap(ctx, swap, chainID, errChan)
+			go svc.subscribeLiquidityAdded(ctx, swap, chainID, errChan)
 		}
 	}
 
@@ -602,6 +603,64 @@ func (svc *Service) subscribeSwap(ctx context.Context, s *swap.Swap, chainID *bi
 					eventindexer.SwapEventsProcessedError.Inc()
 
 					log.Errorf("svc.subscribe, svc.saveSwapEvent: %v", err)
+
+					return
+				}
+
+				block, err := svc.blockRepo.GetLatestBlockProcessed(chainID)
+				if err != nil {
+					log.Errorf("svc.subscribe, blockRepo.GetLatestBlockProcessed: %v", err)
+					return
+				}
+
+				if block.Height < event.Raw.BlockNumber {
+					err = svc.blockRepo.Save(eventindexer.SaveBlockOpts{
+						Height:  event.Raw.BlockNumber,
+						Hash:    event.Raw.BlockHash,
+						ChainID: chainID,
+					})
+					if err != nil {
+						log.Errorf("svc.subscribe, svc.blockRepo.Save: %v", err)
+						return
+					}
+
+					eventindexer.BlocksProcessed.Inc()
+				}
+			}()
+		}
+	}
+}
+
+func (svc *Service) subscribeLiquidityAdded(ctx context.Context, s *swap.Swap, chainID *big.Int, errChan chan error) {
+	sink := make(chan *swap.SwapMint)
+
+	sub := event.ResubscribeErr(svc.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
+		if err != nil {
+			log.Errorf("s.WatchMint: %v", err)
+		}
+		log.Info("resubscribing to Swap events")
+
+		return s.WatchMint(&bind.WatchOpts{
+			Context: ctx,
+		}, sink, nil)
+	})
+
+	defer sub.Unsubscribe()
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Info("context finished")
+			return
+		case err := <-sub.Err():
+			log.Errorf("sub.Err(): %v", err)
+			errChan <- errors.Wrap(err, "sub.Err()")
+		case event := <-sink:
+			go func() {
+				if err := svc.saveLiquidityAddedEvent(ctx, chainID, event); err != nil {
+					eventindexer.SwapEventsProcessedError.Inc()
+
+					log.Errorf("svc.subscribe, svc.saveLiquidityAddedEvent: %v", err)
 
 					return
 				}
