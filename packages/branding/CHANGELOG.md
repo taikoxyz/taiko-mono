@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/taikoxyz/taiko-mono/compare/branding-v0.1.2...branding-v0.2.0) (2023-07-24)
+
+
+### Features
+
+* **website:** update setting up wallet docs ([#14227](https://github.com/taikoxyz/taiko-mono/issues/14227)) ([3751198](https://github.com/taikoxyz/taiko-mono/commit/3751198826c1db7de00ecb83645c13b23d1ed9e3))
+
 ## [0.1.2](https://github.com/taikoxyz/taiko-mono/compare/branding-v0.1.1...branding-v0.1.2) (2023-06-12)
 
 
