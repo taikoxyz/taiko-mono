@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	minLiquidityAddedAmount = big.NewInt(10000000000000000)
+	minLiquidityAddedAmount = big.NewInt(100000000000000000)
 )
 
 func (svc *Service) saveLiquidityAddedEvents(
