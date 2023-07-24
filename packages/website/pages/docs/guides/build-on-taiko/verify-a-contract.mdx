@@ -1,0 +1,82 @@
+import { Callout, Steps, Tab, Tabs } from "nextra-theme-docs";
+
+# Verify a contract
+
+This guide will help get your contract verified on a Taiko testnet!
+
+## Prerequisites
+
+- You have a contract deployed on a Taiko testnet and the source code available.
+
+## Steps
+
+<Callout type="info">
+  Make sure to set the RPC to the network you are trying to deploy to. The ones
+  here just use Grimsvotn L2 as an example. You can see all the RPC urls under
+  [RPC configuration](/docs/reference/rpc-configuration).
+</Callout>
+
+<Tabs items={["Hardhat", "Blockscout", "Foundry"]} defaultIndex="0">
+  <Tab>
+    **1. Add Etherscan config to Hardhat config**
+
+    <Callout type="info">
+        Even though the config is called `etherscan`, it is used for all explorers that support the Etherscan API (including Blockscout). The API key is set to a dummy value `42069` because it is not used for Blockscout verification.
+    </Callout>
+
+    ```ts {14-28} filename=hardhat.config.ts
+    import { HardhatUserConfig } from "hardhat/config";
+    import "@nomicfoundation/hardhat-toolbox";
+
+    const config: HardhatUserConfig = {
+        solidity: "0.8.18",
+        networks: {
+            taiko: {
+                url: "https://rpc.test.taiko.xyz",
+                accounts: [
+                    "0xf214f2b2cd398c806f84e317254e0f0b801d0643303237d97a22a48e01628897",
+                ],
+            },
+        },
+        etherscan: {
+            apiKey: {
+                taiko: "42069",
+            },
+            customChains: [
+                {
+                    network: "taiko",
+                    chainId: 167005,
+                    urls: {
+                        apiURL: "https://explorer.test.taiko.xyz/api",
+                        browserURL: "https://explorer.test.taiko.xyz",
+                    },
+                },
+            ],
+        },
+    };
+
+    export default config;
+    ```
+
+    **2. Run the verify task**
+
+    Run the verify task, but replace `DEPLOYED_CONTRACT_ADDRESS` and `"Constructor argument 1"` with the address of your deployed contract and the constructor arguments you used when deploying the contract.
+
+    ```sh
+    npx hardhat verify --network taiko DEPLOYED_CONTRACT_ADDRESS "Constructor argument 1"
+    ```
+
+    **3. View your verified contract on Blockscout**
+
+    Check the [Taiko block explorer](https://explorer.test.taiko.xyz) link from the output to see your contract was verified.
+
+  </Tab>
+  <Tab>
+    Follow Blockscout's [official guide](https://docs.blockscout.com/for-users/verifying-a-smart-contract) to verify your contract on Taiko's blockscout explorers.
+  </Tab>
+  <Tab>
+    <Callout type="warning">
+        Foundry's `verify-contract` command is currently broken with Blockscout (see why [here](https://github.com/foundry-rs/foundry/issues/4909)). Please check the Hardhat or Blockscout steps to verify your contract.
+    </Callout>
+  </Tab>
+</Tabs>

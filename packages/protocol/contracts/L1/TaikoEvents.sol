@@ -8,9 +8,12 @@ pragma solidity ^0.8.20;
 
 import { TaikoData } from "./TaikoData.sol";
 
+/// @title TaikoEvents - Event declarations for the Taiko protocol
 abstract contract TaikoEvents {
     // The following events must match the definitions in corresponding L1
     // libraries.
+
+    /// @dev Emitted when a block is proposed
     event BlockProposed(
         uint256 indexed blockId,
         address indexed assignedProver,
@@ -19,6 +22,7 @@ abstract contract TaikoEvents {
         TaikoData.BlockMetadata meta
     );
 
+    /// @dev Emitted when a block is proven
     event BlockProven(
         uint256 indexed blockId,
         bytes32 parentHash,
@@ -36,5 +40,6 @@ abstract contract TaikoEvents {
         uint64 proofReward
     );
 
+    /// @dev Emitted when an Ethereum deposit is made
     event EthDeposited(TaikoData.EthDeposit deposit);
 }

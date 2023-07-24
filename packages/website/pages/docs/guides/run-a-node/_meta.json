@@ -1,0 +1,17 @@
+{
+  "run-a-taiko-node": {
+    "title": "🌐 Run a Taiko node"
+  },
+  "run-a-sepolia-node": {
+    "title": "🌳 Run a Sepolia node"
+  },
+  "enable-a-proposer": {
+    "title": "📤 Enable a proposer"
+  },
+  "enable-a-prover": {
+    "title": "✅ Enable a prover"
+  },
+  "claim-prover-rewards": {
+    "title": "🛄 Claim prover rewards"
+  }
+}

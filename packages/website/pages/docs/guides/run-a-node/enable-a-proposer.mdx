@@ -1,0 +1,79 @@
+import { Callout, Steps } from "nextra-theme-docs";
+import { contractAddressToLink } from "../../../../utils/contractAddressToLink";
+import { SEPOLIA_CONFIG, GRIMSVOTN_CONFIG } from "../../../../domain/chain";
+import { StyledLink } from "/components/StyledLink";
+
+{console.log(contractAddressToLink(SEPOLIA_CONFIG.blockExplorer.url, SEPOLIA_CONFIG.basedContracts.taikoL1.address.proxy))}
+
+# Enable a proposer
+
+This guide will help you enable your Taiko node as a proposer.
+
+## Prerequisites
+
+- You have already setup a node (see: [Run a node](/docs/guides/run-a-node))
+
+### Grimsvotn L2
+
+- Must have a balance of ETH and TTKO on Sepolia L1 (see: [Receive tokens](/docs/guides/receive-tokens)).
+
+### Eldfell L3
+
+- Must have a balance of ETH and TTKOe on Grimsvotn L2 (see: [Receive tokens](/docs/guides/receive-tokens)).
+
+## Steps
+
+<Steps>
+### Visit the TaikoL1 contract on block explorer
+
+First, you need to visit the `TaikoL1` **proxy contract**:
+
+- If you are depositing **TTKO**, you can visit it <StyledLink href={contractAddressToLink(SEPOLIA_CONFIG.blockExplorer.url, SEPOLIA_CONFIG.basedContracts.taikoL1.address.proxy)} text="here" />.
+- If you are depositing **TTKOe**, you can visit it <StyledLink href={contractAddressToLink(GRIMSVOTN_CONFIG.blockExplorer.url, GRIMSVOTN_CONFIG.basedContracts.taikoL1.address.proxy)} text="here" />.
+
+### Click the write proxy tab
+
+Then, visit the "Write proxy" (Blockscout) or "Write as proxy" (Etherscan) tab.
+
+Click the wallet connect button on the explorer.
+
+### Enter deposit amount
+
+Click the text field for `depositTaikoToken` and enter the amount of TTKO or TTKOe you would like to deposit followed by 8 zeroes.
+
+<Callout type="warning">
+  Make sure to click the plus sign and click `10^8` decimals to add 8 zeroes, or
+  add 8 zeroes manually.
+</Callout>
+
+For example if you want to deposit `69` TTKO/TTKOe, you would enter `6900000000`.
+
+### Deposit your TTKO/TTKOe
+
+Click `Write` and confirm the transaction in your wallet.
+
+### Open `.env` file in `simple-taiko-node`
+
+Open the `.env` file in the `simple-taiko-node` directory.
+
+### Set environment variables to enable a proposer
+
+<Callout type="warning">
+  Do **not** use a private key that is valuable to you. The private key will be
+  stored in plain text in the `.env` file, and this is not secure. There is a
+  real risk of losing your assets. You should **only use a test account**.
+</Callout>
+
+Set the following environment variables to enable your node as a proposer:
+
+- Set `ENABLE_PROPOSER` to `true` (replacing the default `false` with `true`).
+- Set `L1_PROPOSER_PRIVATE_KEY` to that of your wallet's private key; it will need some TTKO/TTKOe on Sepolia/Grimsvotn to propose blocks (if using MetaMask, follow these directions to [retrieve the private key](https://metamask.zendesk.com/hc/en-us/articles/360015289632-How-to-export-an-account-s-private-key)).
+- Set `L2_SUGGESTED_FEE_RECIPIENT` to the recipient of L2/L3 ETH rewards.
+
+### Verify proposer logs
+
+You should see a log if you have proposed a block: `📝 Propose transactions succeeded`.
+
+If you are running a node in the background, you can view the logs with `docker compose logs -f`.
+
+</Steps>
