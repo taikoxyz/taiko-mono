@@ -1,4 +1,4 @@
-import { getContract } from '@wagmi/core';
+import { getContract, type Hash } from '@wagmi/core';
 import { UserRejectedRequestError } from 'viem';
 
 import { bridgeABI } from '$abi';
@@ -93,5 +93,13 @@ export class ETHBridge implements Bridge {
 
       throw new SendMessageError('failed to bridge ETH', { cause: err });
     }
+  }
+
+  async claim() {
+    return Promise.resolve('0x' as Hash)
+  }
+
+  async release() {
+    return Promise.resolve('0x' as Hash)
   }
 }

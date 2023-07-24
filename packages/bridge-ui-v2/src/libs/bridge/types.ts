@@ -98,7 +98,9 @@ export type RequireAllowanceArgs = {
 
 export interface Bridge {
   estimateGas(args: BridgeArgs): Promise<bigint>;
-  bridge(args: BridgeArgs): Promise<Hex>;
+  bridge(args: BridgeArgs): Promise<Hash>;
+  claim(): Promise<Hash>
+  release(): Promise<Hash>
 }
 
 export type GenerateProofArgs = {

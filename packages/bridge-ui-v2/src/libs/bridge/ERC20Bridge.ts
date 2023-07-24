@@ -162,4 +162,12 @@ export class ERC20Bridge implements Bridge {
       throw new SendERC20Error('failed to bridge ERC20 token', { cause: err });
     }
   }
+
+  async claim() {
+    return Promise.resolve('0x' as Hash)
+  }
+
+  async release() {
+    return Promise.resolve('0x' as Hash)
+  }
 }
