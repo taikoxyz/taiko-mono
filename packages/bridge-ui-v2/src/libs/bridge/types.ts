@@ -93,3 +93,39 @@ export interface Bridge {
   estimateGas(args: BridgeArgs): Promise<bigint>;
   bridge(args: BridgeArgs): Promise<Hex>;
 }
+
+export type GenerateProofArgs = {
+  msgHash: Hex, 
+  chainId: number, 
+  sender: Address, 
+  crossChainSyncAddress: Address, 
+  signalServiceAddress: Address,
+}
+
+export type StorageEntry = {
+  key: string;
+  value: string;
+
+  // Array of rlp-serialized MerkleTree-Nodes, starting with the storageHash-Node, following the path of the SHA3 (key) as path.
+  proof: Hex[];
+};
+
+export type EthGetProofResponse = {
+  balance: bigint;
+  codeHash: Hex;
+  nonce: number;
+  storageHash: Hex;
+
+  // Array of rlp-serialized MerkleTree-Nodes, starting with the stateRoot-Node, following the path of the SHA3 (address) as key.
+  accountProof: Hex[];
+
+  // Array of storage-entries as requested
+  storageProof: StorageEntry[];
+};
+
+export type ClientWithEthProofRequest = {
+  request(getProofArgs: {
+    method: 'eth_getProof',
+    params: [Address, Hex[], number | Hex | 'latest' | 'earliest']
+  }): Promise<EthGetProofResponse>;
+}
