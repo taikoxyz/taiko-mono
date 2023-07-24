@@ -1,11 +1,13 @@
 <script lang="ts">
   import { classNames } from '$libs/util/classNames';
 
-  import { Icon } from '../Icon';
-  import type { AlertIconDetails, AlertType } from './types';
+  import { Icon, type IconType } from '../Icon';
 
-  type AlertTypeDetails = AlertIconDetails & {
-    alertClass: string;
+  type AlertType = 'success' | 'warning' | 'error' | 'info';
+  type AlertTypeDetails = {
+    class: string;
+    iconType: IconType;
+    iconFillClass: string;
   };
 
   export let type: AlertType;
@@ -13,35 +15,35 @@
 
   let typeMap: Record<AlertType, AlertTypeDetails> = {
     success: {
-      alertClass: 'alert-success',
+      class: 'alert-success',
       iconType: 'check-circle',
       iconFillClass: 'fill-success-content',
     },
     warning: {
-      alertClass: 'alert-warning',
+      class: 'alert-warning',
       iconType: 'exclamation-circle',
       iconFillClass: 'fill-warning-content',
     },
     error: {
-      alertClass: 'alert-danger',
+      class: 'alert-danger',
       iconType: 'x-close-circle',
       iconFillClass: 'fill-error-content',
     },
     info: {
-      alertClass: 'alert-info',
+      class: 'alert-info',
       iconType: 'info-circle',
       iconFillClass: 'fill-info-content',
     },
   };
 
-  const { alertClass, iconType, iconFillClass } = typeMap[type];
-
   const classes = classNames(
     'alert flex gap-[5px] py-[12px] px-[20px] rounded-[10px]',
-    type ? alertClass : null,
+    type ? typeMap[type].class : null,
     forceColumnFlow ? 'grid-flow-col text-left' : null,
     $$props.class,
   );
+  const iconType = typeMap[type].iconType;
+  const iconFillClass = typeMap[type].iconFillClass;
 </script>
 
 <div class={classes}>

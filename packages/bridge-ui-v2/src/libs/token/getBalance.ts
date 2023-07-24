@@ -4,7 +4,8 @@ import { type Address, zeroAddress } from 'viem';
 import { getLogger } from '$libs/util/logger';
 
 import { getAddress } from './getAddress';
-import { type Token, TokenType } from './types';
+import { isETH } from './tokens';
+import type { Token } from './types';
 
 type GetBalanceArgs = {
   userAddress: Address;
@@ -18,7 +19,7 @@ const log = getLogger('token:getBalance');
 export async function getBalance({ userAddress, token, srcChainId, destChainId }: GetBalanceArgs) {
   let tokenBalance: FetchBalanceResult;
 
-  if (!token || token.type === TokenType.ETH) {
+  if (!token || isETH(token)) {
     // If no token is passed in, we assume is ETH
     tokenBalance = await fetchBalance({ address: userAddress });
   } else {

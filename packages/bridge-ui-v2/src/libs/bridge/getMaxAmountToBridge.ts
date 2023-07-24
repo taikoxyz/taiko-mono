@@ -1,8 +1,7 @@
 import type { Address } from 'viem';
 
 import { chainContractsMap } from '$libs/chain';
-import { type Token, TokenType } from '$libs/token';
-import { getConnectedWallet } from '$libs/util/getConnectedWallet';
+import { isETH, type Token } from '$libs/token';
 import { getLogger } from '$libs/util/logger';
 
 import { bridges } from './bridges';
@@ -33,19 +32,17 @@ export async function getMaxAmountToBridge({
   // For ERC20 tokens, we can bridge the whole balance
   let maxAmount = balance;
 
-  if (token.type === TokenType.ETH) {
+  if (isETH(token)) {
     // We cannot really compute the cost of bridging ETH without
     if (!to || !srcChainId || !destChainId) {
       throw Error('missing required arguments to compute cost');
     }
 
-    const wallet = await getConnectedWallet();
     const { bridgeAddress } = chainContractsMap[srcChainId];
 
     const bridgeArgs = {
       to,
       amount,
-      wallet,
       srcChainId,
       destChainId,
       bridgeAddress,

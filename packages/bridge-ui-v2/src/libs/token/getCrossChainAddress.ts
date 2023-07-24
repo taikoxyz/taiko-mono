@@ -3,7 +3,8 @@ import { getContract } from '@wagmi/core';
 import { tokenVaultABI } from '$abi';
 import { chainContractsMap } from '$libs/chain';
 
-import { type Token, TokenType } from './types';
+import { isETH } from './tokens';
+import type { Token } from './types';
 
 type GetCrossChainAddressArgs = {
   token: Token;
@@ -12,7 +13,7 @@ type GetCrossChainAddressArgs = {
 };
 
 export function getCrossChainAddress({ token, srcChainId, destChainId }: GetCrossChainAddressArgs) {
-  if (token.type === TokenType.ETH) return; // ETH doesn't have an address
+  if (isETH(token)) return; // ETH doesn't have an address
 
   const { tokenVaultAddress } = chainContractsMap[destChainId];
 

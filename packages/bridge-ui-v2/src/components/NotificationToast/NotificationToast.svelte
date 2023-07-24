@@ -33,10 +33,6 @@
   export function warningToast(message: string, closeManually = false) {
     notify(message, 'warning', closeManually);
   }
-
-  export function infoToast(message: string, closeManually = false) {
-    notify(message, 'info', closeManually);
-  }
 </script>
 
 <script lang="ts">

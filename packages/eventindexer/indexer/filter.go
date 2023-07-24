@@ -5,10 +5,9 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/labstack/gommon/log"
 	"github.com/pkg/errors"
-	"golang.org/x/sync/errgroup"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 )
 
 type FilterFunc func(
@@ -145,7 +144,6 @@ func L1FilterFunc(
 	}
 
 	err := wg.Wait()
-
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			log.Error("context cancelled")
@@ -164,26 +162,18 @@ func L2FilterFunc(
 	svc *Service,
 	filterOpts *bind.FilterOpts,
 ) error {
-	wg, ctx := errgroup.WithContext(ctx)
-
 	for _, s := range svc.swaps {
-		swap := s
+		swaps, err := s.FilterSwap(filterOpts, nil, nil)
+		if err != nil {
+			return errors.Wrap(err, "svc.bridge.FilterSwap")
+		}
 
-		wg.Go(func() error {
-			swaps, err := swap.FilterSwap(filterOpts, nil, nil)
-			if err != nil {
-				return errors.Wrap(err, "svc.bridge.FilterSwap")
-			}
-
-			// only save ones above 0.01 ETH, this is only for Galaxe
-			// and we dont care about the rest
-			err = svc.saveSwapEvents(ctx, chainID, swaps)
-			if err != nil {
-				return errors.Wrap(err, "svc.saveSwapEvents")
-			}
-
-			return nil
-		})
+		// only save ones above 0.01 ETH, this is only for Galaxe
+		// and we dont care about the rest
+		err = svc.saveSwapEvents(ctx, chainID, swaps)
+		if err != nil {
+			return errors.Wrap(err, "svc.saveSwapEvents")
+		}
 	}
 
 	return nil

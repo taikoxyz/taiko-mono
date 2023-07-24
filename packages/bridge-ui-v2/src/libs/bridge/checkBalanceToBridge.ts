@@ -1,10 +1,9 @@
 import { type Address, zeroAddress } from 'viem';
 
 import { chainContractsMap } from '$libs/chain';
-import { InsufficientAllowanceError, InsufficientBalanceError, RevertedWithFailedError } from '$libs/error';
-import { getAddress, type Token, TokenType } from '$libs/token';
+import { InsufficientAllowanceError, InsufficientBalanceError } from '$libs/error';
+import { getAddress, isETH, type Token } from '$libs/token';
 import { isDeployedCrossChain } from '$libs/token/isDeployedCrossChain';
-import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 
 import { bridges } from './bridges';
 import { estimateCostOfBridging } from './estimateCostOfBridging';
@@ -29,19 +28,17 @@ export async function checkBalanceToBridge({
   destChainId,
   processingFee,
 }: HasEnoughBalanceToBridgeArgs) {
-  const wallet = await getConnectedWallet();
   let estimatedCost = BigInt(0);
 
   const bridgeArgs = {
     to,
     amount,
-    wallet,
     srcChainId,
     destChainId,
     processingFee,
   } as BridgeArgs;
 
-  if (token.type === TokenType.ETH) {
+  if (isETH(token)) {
     const { bridgeAddress } = chainContractsMap[srcChainId];
 
     try {
@@ -52,13 +49,8 @@ export async function checkBalanceToBridge({
     } catch (err) {
       console.error(err);
 
-      // TODO: rely on error code, or instance, instead of string matching
-      if (`${err}`.includes('transaction exceeds the balance')) {
+      if (`${err}`.includes('transaction exceeds the balance of the account')) {
         throw new InsufficientBalanceError('you do not have enough balance to bridge ETH', { cause: err });
-      }
-
-      if (`${err}`.includes('reverted with the following reason: Failed')) {
-        throw new RevertedWithFailedError('BLL token doing its thing', { cause: err });
       }
     }
   } else {
@@ -83,7 +75,6 @@ export async function checkBalanceToBridge({
     } catch (err) {
       console.error(err);
 
-      // TODO: same here. Error code or instance would be better
       if (`${err}`.includes('insufficient allowance')) {
         throw new InsufficientAllowanceError(`insufficient allowance for the amount ${amount}`, { cause: err });
       }
