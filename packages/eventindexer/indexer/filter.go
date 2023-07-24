@@ -145,6 +145,7 @@ func L1FilterFunc(
 	}
 
 	err := wg.Wait()
+
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			log.Error("context cancelled")
