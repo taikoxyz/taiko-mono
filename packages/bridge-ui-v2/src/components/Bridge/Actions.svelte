@@ -3,7 +3,6 @@
 
   import { Button } from '$components/Button';
   import { Icon } from '$components/Icon';
-  import { isERC20 } from '$libs/token';
   import { account, network } from '$stores';
 
   import {
@@ -17,6 +16,7 @@
     selectedToken,
     tokenBalance,
   } from './state';
+  import { TokenType } from '$libs/token';
 
   export let approve: () => Promise<void>;
   export let bridge: () => Promise<void>;
@@ -48,7 +48,7 @@
   $: canDoNothing = !hasAddress || !hasNetworks || !hasBalance || !$selectedToken || !$enteredAmount;
 
   // Conditions for approve/bridge steps
-  $: isSelectedERC20 = $selectedToken && isERC20($selectedToken);
+  $: isSelectedERC20 = $selectedToken && $selectedToken.type === TokenType.ERC20;
   $: isTokenApproved = isSelectedERC20 && $enteredAmount && !$insufficientAllowance;
 
   // Conditions to disable/enable buttons

@@ -3,7 +3,7 @@ import { getContract } from '@wagmi/core';
 import { tokenVaultABI } from '$abi';
 import { chainContractsMap } from '$libs/chain';
 
-import { type Token,TokenType } from './types';
+import { type Token, TokenType } from './types';
 
 type GetCrossChainAddressArgs = {
   token: Token;

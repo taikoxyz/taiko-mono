@@ -4,7 +4,7 @@ import { NoTokenAddressError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 
 import { getCrossChainAddress } from './getCrossChainAddress';
-import { type Token,TokenType } from './types';
+import { type Token, TokenType } from './types';
 
 type GetAddressArgs = {
   token: Token;

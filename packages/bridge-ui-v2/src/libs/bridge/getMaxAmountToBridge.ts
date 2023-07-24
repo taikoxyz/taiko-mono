@@ -1,7 +1,7 @@
 import type { Address } from 'viem';
 
 import { chainContractsMap } from '$libs/chain';
-import { type Token,TokenType } from '$libs/token';
+import { type Token, TokenType } from '$libs/token';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { getLogger } from '$libs/util/logger';
 

@@ -4,7 +4,7 @@ import { type Address, zeroAddress } from 'viem';
 import { getLogger } from '$libs/util/logger';
 
 import { getAddress } from './getAddress';
-import { type Token,TokenType } from './types';
+import { type Token, TokenType } from './types';
 
 type GetBalanceArgs = {
   userAddress: Address;
