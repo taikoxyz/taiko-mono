@@ -133,11 +133,11 @@ library LibProposing {
         } else {
             blk.assignedProver = assignedProver;
             blk.rewardPerGas = rewardPerGas;
+
+            uint256 _window = uint256(state.avgProofDelay)
+                * config.proofWindowMultiplier / 100;
             blk.proofWindow = uint16(
-                (
-                    uint256(state.avgProofDelay) * config.proofWindowMultiplier
-                        / 100
-                ).min(config.proofWindowMax).max(config.proofWindowMin)
+                _window.min(config.proofWindowMax).max(config.proofWindowMin)
             );
         }
 
