@@ -51,7 +51,7 @@ abstract contract TaikoEvents {
     /// @param proofTimeTarget The target time of proof generation
     /// @param proofTimeIssued The actual time of proof generation
     /// @param blockFee The fee associated with the proposed block
-    /// @param adjustmentQuotient The quotient used for adjusting future 
+    /// @param adjustmentQuotient The quotient used for adjusting future
     /// proof generation time to the target time
     event ProofParamsChanged(
         uint64 proofTimeTarget,
