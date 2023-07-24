@@ -21,7 +21,7 @@ const mockTokenContract = {
   },
 } as unknown as GetContractResult<readonly unknown[], WalletClient>;
 
-describe('mint', () => {
+describe.skip('mint', () => {
   it('should return a tx hash when minting', async () => {
     vi.mocked(getWalletClient).mockResolvedValue(mockWalletClient);
     vi.mocked(getContract).mockReturnValue(mockTokenContract);

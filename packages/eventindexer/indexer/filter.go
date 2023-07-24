@@ -5,9 +5,10 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/labstack/gommon/log"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
+	log "github.com/sirupsen/logrus"
 )
 
 type FilterFunc func(
@@ -144,6 +145,7 @@ func L1FilterFunc(
 	}
 
 	err := wg.Wait()
+
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			log.Error("context cancelled")
@@ -209,6 +211,7 @@ func L2FilterFunc(
 		}
 
 		return err
+
 	}
 
 	return nil

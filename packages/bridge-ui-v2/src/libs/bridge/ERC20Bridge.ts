@@ -1,36 +1,36 @@
 import { getContract } from '@wagmi/core';
+import { UserRejectedRequestError } from 'viem';
 
-import { tokenVaultABI } from '$abi';
+import { erc20ABI, tokenVaultABI } from '$abi';
 import { bridge } from '$config';
-import { getConnectedWallet } from '$libs/util/getConnectedWallet';
+import { ApproveError, InsufficientAllowanceError, NoAllowanceRequiredError, SendERC20Error } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 
-import type { Bridge, ERC20BridgeArgs, SendERC20Args } from './types';
+import type { ApproveArgs, Bridge, ERC20BridgeArgs, RequireAllowanceArgs, SendERC20Args } from './types';
 
 const log = getLogger('ERC20Bridge');
 
 export class ERC20Bridge implements Bridge {
   private static async _prepareTransaction(args: ERC20BridgeArgs) {
-    const walletClient = await getConnectedWallet();
-
     const {
       to,
-      memo = '',
       amount,
+      wallet,
       destChainId,
       tokenAddress,
       processingFee,
       tokenVaultAddress,
       isTokenAlreadyDeployed,
+      memo = '',
     } = args;
 
     const tokenVaultContract = getContract({
-      walletClient,
+      walletClient: wallet,
       abi: tokenVaultABI,
       address: tokenVaultAddress,
     });
 
-    const refundAddress = walletClient.account.address;
+    const refundAddress = wallet.account.address;
 
     const gasLimit = !isTokenAlreadyDeployed
       ? BigInt(bridge.noTokenDeployedGasLimit)
@@ -60,8 +60,106 @@ export class ERC20Bridge implements Bridge {
 
     const value = processingFee;
 
-    log('Estimating gas for sendERC20 call. Sending value', value);
+    log('Estimating gas for sendERC20 call with value', value);
 
-    return tokenVaultContract.estimateGas.sendERC20([...sendERC20Args], { value });
+    const estimatedGas = tokenVaultContract.estimateGas.sendERC20([...sendERC20Args], { value });
+
+    log('Gas estimated', estimatedGas);
+
+    return estimatedGas;
+  }
+
+  async requireAllowance({ amount, tokenAddress, ownerAddress, spenderAddress }: RequireAllowanceArgs) {
+    const tokenContract = getContract({
+      abi: erc20ABI,
+      address: tokenAddress,
+    });
+
+    log('Checking allowance for the amount', amount);
+
+    const allowance = await tokenContract.read.allowance([ownerAddress, spenderAddress]);
+
+    const requiresAllowance = allowance < amount;
+
+    log('Allowance is', allowance, 'requires allowance?', requiresAllowance);
+
+    return requiresAllowance;
+  }
+
+  async approve(args: ApproveArgs) {
+    const { amount, tokenAddress, spenderAddress, wallet } = args;
+
+    const requireAllowance = await this.requireAllowance({
+      amount,
+      tokenAddress,
+      ownerAddress: wallet.account.address,
+      spenderAddress,
+    });
+
+    if (!requireAllowance) {
+      throw new NoAllowanceRequiredError(`no allowance required for the amount ${amount}`);
+    }
+
+    const tokenContract = getContract({
+      walletClient: wallet,
+      abi: erc20ABI,
+      address: tokenAddress,
+    });
+
+    try {
+      log(`Calling approve for spender "${spenderAddress}" with amount`, amount);
+
+      const txHash = await tokenContract.write.approve([spenderAddress, amount]);
+
+      log('Transaction hash for approve call', txHash);
+
+      return txHash;
+    } catch (err) {
+      console.error(err);
+
+      if (`${err}`.includes('denied transaction signature')) {
+        throw new UserRejectedRequestError(err as Error);
+      }
+
+      throw new ApproveError('failed to approve ERC20 token', { cause: err });
+    }
+  }
+
+  async bridge(args: ERC20BridgeArgs) {
+    const { amount, tokenAddress, wallet, tokenVaultAddress } = args;
+
+    const requireAllowance = await this.requireAllowance({
+      amount,
+      tokenAddress,
+      ownerAddress: wallet.account.address,
+      spenderAddress: tokenVaultAddress,
+    });
+
+    if (requireAllowance) {
+      throw new InsufficientAllowanceError(`Insufficient allowance for the amount ${amount}`);
+    }
+
+    const { tokenVaultContract, sendERC20Args } = await ERC20Bridge._prepareTransaction(args);
+    const [, , , , , processingFee] = sendERC20Args;
+
+    const value = processingFee;
+
+    try {
+      log('Calling sendERC20 with value', value);
+
+      const txHash = tokenVaultContract.write.sendERC20([...sendERC20Args], { value });
+
+      log('Transaction hash for sendERC20 call', txHash);
+
+      return txHash;
+    } catch (err) {
+      console.error(err);
+
+      if (`${err}`.includes('denied transaction signature')) {
+        throw new UserRejectedRequestError(err as Error);
+      }
+
+      throw new SendERC20Error('failed to bridge ERC20 token', { cause: err });
+    }
   }
 }
