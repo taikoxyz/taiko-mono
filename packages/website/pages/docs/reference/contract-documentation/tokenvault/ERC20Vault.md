@@ -225,16 +225,6 @@ a proof that the message processing on the destination Bridge has failed.
 | message | struct IBridge.Message | The message that corresponds to the ERC20 deposit on the source chain. |
 | proof   | bytes                  | The proof from the destination chain to show the message has failed.   |
 
-### decodeMessageData
-
-```solidity
-function decodeMessageData(bytes dataWithSelector) public pure returns (struct ERC20Vault.CanonicalERC20, address, address, uint256)
-```
-
-_Decodes the data which was abi.encodeWithSelector() encoded. We need
-this to get to know
-to whom / which token and how much we shall release._
-
 ---
 
 ## title: ProxiedERC20Vault

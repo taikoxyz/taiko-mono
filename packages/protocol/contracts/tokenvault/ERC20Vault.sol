@@ -316,7 +316,9 @@ contract ERC20Vault is EssentialContract {
         }
         releasedMessages[msgHash] = true;
 
-        (, address token,, uint256 amount) = decodeMessageData(message.data);
+        (, address token,, uint256 amount) = abi.decode(
+            message.data[4:], (CanonicalERC20, address, address, uint256)
+        );
 
         if (token == address(0)) revert VAULT_INVALID_TOKEN();
 
@@ -344,21 +346,6 @@ contract ERC20Vault is EssentialContract {
     /*//////////////////////////////////////////////////////////////
                            PRIVATE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-
-    /**
-     * @dev Decodes the data which was abi.encodeWithSelector() encoded. We need
-     * this to get to know
-     * to whom / which token and how much we shall release.
-     */
-    function decodeMessageData(bytes calldata dataWithSelector)
-        public
-        pure
-        returns (CanonicalERC20 memory, address, address, uint256)
-    {
-        return abi.decode(
-            dataWithSelector[4:], (CanonicalERC20, address, address, uint256)
-        );
-    }
 
     function _sendToken(
         address owner,

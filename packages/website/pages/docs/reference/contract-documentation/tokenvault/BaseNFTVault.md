@@ -4,8 +4,6 @@ title: BaseNFTVault
 
 ## BaseNFTVault
 
-This vault is a parent contract for ERC721 and ERC1155 vaults.
-
 ### CanonicalNFT
 
 ```solidity
@@ -31,6 +29,12 @@ struct BridgeTransferOp {
   address refundAddress;
   string memo;
 }
+```
+
+### MAX_TOKEN_PER_TXN
+
+```solidity
+uint256 MAX_TOKEN_PER_TXN
 ```
 
 ### ERC1155_INTERFACE_ID
@@ -67,12 +71,6 @@ mapping(uint256 => mapping(address => address)) canonicalToBridged
 
 ```solidity
 mapping(bytes32 => bool) releasedMessages
-```
-
-### MAX_TOKEN_PER_TXN
-
-```solidity
-uint256 MAX_TOKEN_PER_TXN
 ```
 
 ### BridgedTokenDeployed
