@@ -1,4 +1,4 @@
-import { getContract } from '@wagmi/core';
+import { getContract, type GetContractResult, type PublicClient } from '@wagmi/core';
 import { type Address, encodeAbiParameters, encodePacked, type Hex, keccak256, toRlp } from 'viem';
 
 import { crossChainSyncABI } from '$abi';
@@ -6,7 +6,12 @@ import { InvalidProofError, PendingBlockError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { publicClient } from '$libs/wagmi';
 
-import type { ClientWithEthProofRequest, EthGetProofResponse, GenerateProofClaimArgs } from './types';
+import type {
+  ClientWithEthProofRequest,
+  EthGetProofResponse,
+  GenerateProofClaimArgs,
+  GenerateProofReleaseArgs,
+} from './types';
 
 const log = getLogger('bridge:Prover');
 
@@ -15,16 +20,12 @@ export class Prover {
     return keccak256(encodePacked(['address', 'bytes32'], [sender, msgHash]));
   }
 
-  private static async _getLatestBlock(crossChainSyncAddress: Address, srcChainId: number, destChainId: number) {
-    const crossChainSyncContract = getContract({
-      chainId: destChainId,
-      address: crossChainSyncAddress,
-      abi: crossChainSyncABI,
-    });
-
+  private static async _getLatestBlock(
+    crossChainSyncContract: GetContractResult<typeof crossChainSyncABI>,
+    provider: PublicClient,
+  ) {
     const latestBlockHash = await crossChainSyncContract.read.getCrossChainBlockHash([BigInt(0)]);
-
-    return publicClient({ chainId: srcChainId }).getBlock({ blockHash: latestBlockHash });
+    return provider.getBlock({ blockHash: latestBlockHash });
   }
 
   private static _getSignalProof(proof: EthGetProofResponse, blockHeight: bigint) {
@@ -62,15 +63,23 @@ export class Prover {
     destCrossChainSyncAddress,
     srcSignalServiceAddress,
   }: GenerateProofClaimArgs) {
-    const key = await Prover._getKey(sender, msgHash);
-
     // Get the block from the source chain based on the latest block hash
     // we get cross chain (Taiko contract on the destination chain)
-    const block = await Prover._getLatestBlock(destCrossChainSyncAddress, srcChainId, destChainId);
+
+    const crossChainSyncContract = getContract({
+      chainId: destChainId,
+      address: destCrossChainSyncAddress,
+      abi: crossChainSyncABI,
+    });
+
+    const provider = publicClient({ chainId: srcChainId });
+    const block = await Prover._getLatestBlock(crossChainSyncContract, provider);
 
     if (block.hash === null || block.number === null) {
       throw new PendingBlockError('block is pending');
     }
+
+    const key = await Prover._getKey(sender, msgHash);
 
     // Unfortunately, since this method is stagnant, it hasn't been included into Viem lib
     // as supported methods. Still stupported  by Alchmey, Infura and others.
@@ -94,8 +103,62 @@ export class Prover {
 
     log('Proof from eth_getProof', proof);
 
+    // Value must be 1 => isSignalSent
     if (proof.storageProof[0].value !== '0x1') {
-      throw new InvalidProofError('storage proof value is not 1');
+      throw new InvalidProofError('storage proof value is not 1: SignalSent');
+    }
+
+    return Prover._getSignalProof(proof, block.number);
+  }
+
+  async generateProofToRelease({
+    msgHash,
+    chainId,
+    sender,
+    srcChainId,
+    destChainId,
+    destBridgeAddress,
+    srcCrossChainSyncAddress,
+  }: GenerateProofReleaseArgs) {
+    // Get the block from the destination chain based on the latest block hash
+    // we get cross chain (Taiko contract on the source chain)
+
+    const crossChainSyncContract = getContract({
+      chainId: srcChainId,
+      address: srcCrossChainSyncAddress,
+      abi: crossChainSyncABI,
+    });
+
+    const provider = publicClient({ chainId: destChainId });
+    const block = await Prover._getLatestBlock(crossChainSyncContract, provider);
+
+    if (block.hash === null || block.number === null) {
+      throw new PendingBlockError('block is pending');
+    }
+
+    const key = await Prover._getKey(sender, msgHash);
+
+    const clientWithEthProofRequest = publicClient({ chainId }) as ClientWithEthProofRequest;
+
+    // RPC call to get the merkle proof what value is at key on the SignalService contract
+    const proof = await clientWithEthProofRequest.request({
+      method: 'eth_getProof',
+      params: [
+        // Address of the account to get the proof for
+        destBridgeAddress,
+
+        // Array of storage-keys that should be proofed and included
+        [key],
+
+        block.hash,
+      ],
+    });
+
+    log('Proof from eth_getProof', proof);
+
+    // Value must be 3 => MessageStatus.FAILED
+    if (proof.storageProof[0].value !== '0x3') {
+      throw new InvalidProofError('storage proof value is not 3: MessageStatus.FAILED');
     }
 
     return Prover._getSignalProof(proof, block.number);
