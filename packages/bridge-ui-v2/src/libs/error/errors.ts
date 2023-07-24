@@ -45,3 +45,11 @@ export class RevertedWithFailedError extends Error {
 export class MintError extends Error {
   name = 'MintError';
 }
+
+export class PendingBlockError extends Error {
+  name = 'PendingBlockError';
+}
+
+export class InvalidProofError extends Error {
+  name = 'InvalidProofError';
+}

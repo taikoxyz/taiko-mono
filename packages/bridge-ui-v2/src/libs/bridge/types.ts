@@ -95,12 +95,22 @@ export interface Bridge {
 }
 
 export type GenerateProofArgs = {
-  msgHash: Hex, 
-  chainId: number, 
-  sender: Address, 
-  crossChainSyncAddress: Address, 
-  signalServiceAddress: Address,
-}
+  msgHash: Hex;
+  chainId: number;
+  sender: Address;
+  srcChainId: number;
+  destChainId: number;
+};
+
+export type GenerateProofClaimArgs = GenerateProofArgs & {
+  destCrossChainSyncAddress: Address;
+  srcSignalServiceAddress: Address;
+};
+
+export type GenerateProofReleaseArgs = GenerateProofArgs & {
+  srcCrossChainSyncAddress: Address;
+  destBridgeAddress: Address;
+};
 
 export type StorageEntry = {
   key: string;
@@ -125,7 +135,7 @@ export type EthGetProofResponse = {
 
 export type ClientWithEthProofRequest = {
   request(getProofArgs: {
-    method: 'eth_getProof',
-    params: [Address, Hex[], number | Hex | 'latest' | 'earliest']
+    method: 'eth_getProof';
+    params: [Address, Hex[], number | Hex | 'latest' | 'earliest'];
   }): Promise<EthGetProofResponse>;
-}
+};
