@@ -16,7 +16,7 @@ import {
 
 const log = getLogger('bridge:Prover');
 
-export class Prover {
+export class ProofService {
   private static async _getKey(sender: Address, msgHash: Hex) {
     return keccak256(encodePacked(['address', 'bytes32'], [sender, msgHash]));
   }
@@ -74,13 +74,13 @@ export class Prover {
     });
 
     const provider = publicClient({ chainId: srcChainId });
-    const block = await Prover._getLatestBlock(crossChainSyncContract, provider);
+    const block = await ProofService._getLatestBlock(crossChainSyncContract, provider);
 
     if (block.hash === null || block.number === null) {
       throw new PendingBlockError('block is pending');
     }
 
-    const key = await Prover._getKey(sender, msgHash);
+    const key = await ProofService._getKey(sender, msgHash);
 
     // Unfortunately, since this method is stagnant, it hasn't been included into Viem lib
     // as supported methods. Still stupported  by Alchmey, Infura and others.
@@ -109,7 +109,7 @@ export class Prover {
       throw new InvalidProofError('storage proof value is not 1');
     }
 
-    return Prover._getSignalProof(proof, block.number);
+    return ProofService._getSignalProof(proof, block.number);
   }
 
   async generateProofToRelease({
@@ -131,13 +131,13 @@ export class Prover {
     });
 
     const provider = publicClient({ chainId: destChainId });
-    const block = await Prover._getLatestBlock(crossChainSyncContract, provider);
+    const block = await ProofService._getLatestBlock(crossChainSyncContract, provider);
 
     if (block.hash === null || block.number === null) {
       throw new PendingBlockError('block is pending');
     }
 
-    const key = await Prover._getKey(sender, msgHash);
+    const key = await ProofService._getKey(sender, msgHash);
 
     const clientWithEthProofRequest = publicClient({ chainId }) as ClientWithEthGetProofRequest;
 
@@ -162,6 +162,6 @@ export class Prover {
       throw new InvalidProofError('storage proof value is not FAILED');
     }
 
-    return Prover._getSignalProof(proof, block.number);
+    return ProofService._getSignalProof(proof, block.number);
   }
 }
