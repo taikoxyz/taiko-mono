@@ -54,6 +54,15 @@ interface AddEthereumChainParameter {
   rpcUrls: string[];
 }
 
+// Interface from EIP-747: https://eips.ethereum.org/EIPS/eip-747
+interface AddTokenParameter {
+  address: string;
+  symbol: string;
+  decimals: number;
+  image: string;
+}
+
+
 // Taiko network types
 interface BasedContracts {
   addressManager: Contract;
@@ -107,6 +116,7 @@ type TaikoL2Alpha4 = TaikoL2Alpha3;
 
 export type {
   AddEthereumChainParameter,
+  AddTokenParameter,
   TaikoL1Alpha3,
   TaikoL1Alpha4,
   TaikoL2Alpha3,
