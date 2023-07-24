@@ -4,5 +4,8 @@
   },
   "rpc-configuration": {
     "title": "RPC configuration"
+  },
+  "contract-documentation": {
+    "display": "hidden"
   }
 }

@@ -1,5 +1,5 @@
 import { Steps } from "nextra-theme-docs";
-import { AddTokenButton } from "components/Button/AddTokenButton";
+import { AddTokensButton } from "components/Button/AddTokensButton";
 import { ConnectToMetamaskButton } from "components/Button/ConnectToMetamaskButton";
 
 import { ELDFELL_CONFIG, GRIMSVOTN_CONFIG, SEPOLIA_CONFIG } from "domain/chain";
@@ -23,37 +23,14 @@ This guide helps you connect your wallet to Taiko's networks.
     <ConnectToMetamaskButton network={ELDFELL_CONFIG.names.shortName} />
 
     ### Add tokens to your wallet
-    <AddTokenButton address={SEPOLIA_CONFIG.basedContracts.erc20Contracts.taikoToken.address.proxy}
-    symbol={SEPOLIA_CONFIG.basedContracts.erc20Contracts.taikoToken.symbol}
-    decimals={SEPOLIA_CONFIG.basedContracts.erc20Contracts.taikoToken.decimals}
-    image="https://raw.githubusercontent.com/taikoxyz/taiko-mono/main/packages/branding/testnet-token-images/ttko.svg"
-    network="Sepolia"/>
-    <AddTokenButton address={SEPOLIA_CONFIG.basedContracts.erc20Contracts.bullToken.address.impl}
-    symbol={SEPOLIA_CONFIG.basedContracts.erc20Contracts.bullToken.symbol}
-    decimals={SEPOLIA_CONFIG.basedContracts.erc20Contracts.bullToken.decimals}
-    image="https://raw.githubusercontent.com/taikoxyz/taiko-mono/main/packages/branding/testnet-token-images/bull_32x32.svg"
-    network="Sepolia"/>
-    <AddTokenButton address={SEPOLIA_CONFIG.basedContracts.erc20Contracts.horseToken.address.impl}
-    symbol={SEPOLIA_CONFIG.basedContracts.erc20Contracts.horseToken.symbol}
-    decimals={SEPOLIA_CONFIG.basedContracts.erc20Contracts.horseToken.decimals}
-    image="https://raw.githubusercontent.com/taikoxyz/taiko-mono/main/packages/branding/testnet-token-images/horse.svg"
-    network="Sepolia"/>
+    <AddTokensButton
+    network={SEPOLIA_CONFIG.names.shortName}/>
     <br />
-    <AddTokenButton address={GRIMSVOTN_CONFIG.rollupContracts.erc20Contracts.bridgedTaikoToken.address.impl}
-    symbol={GRIMSVOTN_CONFIG.rollupContracts.erc20Contracts.bridgedTaikoToken.symbol}
-    decimals={GRIMSVOTN_CONFIG.rollupContracts.erc20Contracts.bridgedTaikoToken.decimals}
-    image="https://raw.githubusercontent.com/taikoxyz/taiko-mono/main/packages/branding/testnet-token-images/ttko.svg"
-    network="Grimsvotn"/>
-    <AddTokenButton address={GRIMSVOTN_CONFIG.rollupContracts.erc20Contracts.bridgedBullToken.address.impl}
-    symbol={GRIMSVOTN_CONFIG.rollupContracts.erc20Contracts.bridgedBullToken.symbol}
-    decimals={GRIMSVOTN_CONFIG.rollupContracts.erc20Contracts.bridgedBullToken.decimals}
-    image="https://raw.githubusercontent.com/taikoxyz/taiko-mono/main/packages/branding/testnet-token-images/bull_32x32.svg"
-    network="Grimsvotn"/>
-    <AddTokenButton address={GRIMSVOTN_CONFIG.rollupContracts.erc20Contracts.bridgedHorseToken.address.impl}
-    symbol={GRIMSVOTN_CONFIG.rollupContracts.erc20Contracts.bridgedHorseToken.symbol}
-    decimals={GRIMSVOTN_CONFIG.rollupContracts.erc20Contracts.bridgedHorseToken.decimals}
-    image="https://raw.githubusercontent.com/taikoxyz/taiko-mono/main/packages/branding/testnet-token-images/horse.svg"
-    network="Grimsvotn"/>
+    <AddTokensButton
+    network={GRIMSVOTN_CONFIG.names.shortName}/>
+    <br />
+    <AddTokensButton
+    network={ELDFELL_CONFIG.names.shortName}/>
 
 </Steps>
 
