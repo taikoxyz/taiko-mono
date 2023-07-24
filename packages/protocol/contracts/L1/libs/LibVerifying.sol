@@ -54,8 +54,9 @@ library LibVerifying {
                 || config.blockTxListExpiry > 30 * 24 hours
                 || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
                 || config.proofRegularCooldown < config.proofOracleCooldown
-                || config.proofMinWindow == 0
-                || config.proofMaxWindow < config.proofMinWindow
+                || config.proofWindowMin == 0
+                || config.proofWindowMax < config.proofWindowMin
+                || config.proofWindowMultiplier <= 1
                 || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0
                 || config.ethDepositMaxCountPerBlock
