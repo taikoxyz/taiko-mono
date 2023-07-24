@@ -140,7 +140,7 @@ export type EthGetProofResponse = {
   storageProof: StorageEntry[];
 };
 
-export type ClientWithEthProofRequest = {
+export type ClientWithEthGetProofRequest = {
   request(getProofArgs: {
     method: 'eth_getProof';
     params: [Address, Hex[], number | Hash | 'latest' | 'earliest'];

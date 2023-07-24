@@ -7,7 +7,7 @@ import { getLogger } from '$libs/util/logger';
 import { publicClient } from '$libs/wagmi';
 
 import {
-  type ClientWithEthProofRequest,
+  type ClientWithEthGetProofRequest,
   type EthGetProofResponse,
   type GenerateProofClaimArgs,
   type GenerateProofReleaseArgs,
@@ -86,7 +86,7 @@ export class Prover {
     // as supported methods. Still stupported  by Alchmey, Infura and others.
     // See https://eips.ethereum.org/EIPS/eip-1186
     // Following is a workaround to support this method.
-    const clientWithEthProofRequest = publicClient({ chainId }) as ClientWithEthProofRequest;
+    const clientWithEthProofRequest = publicClient({ chainId }) as ClientWithEthGetProofRequest;
 
     // RPC call to get the merkle proof what value is at key on the SignalService contract
     const proof = await clientWithEthProofRequest.request({
@@ -139,7 +139,7 @@ export class Prover {
 
     const key = await Prover._getKey(sender, msgHash);
 
-    const clientWithEthProofRequest = publicClient({ chainId }) as ClientWithEthProofRequest;
+    const clientWithEthProofRequest = publicClient({ chainId }) as ClientWithEthGetProofRequest;
 
     // RPC call to get the merkle proof what value is at key on the SignalService contract
     const proof = await clientWithEthProofRequest.request({
