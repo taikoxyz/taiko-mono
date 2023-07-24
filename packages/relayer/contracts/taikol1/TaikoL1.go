@@ -59,8 +59,9 @@ type TaikoDataConfig struct {
 	BlockTxListExpiry          *big.Int
 	ProofRegularCooldown       *big.Int
 	ProofOracleCooldown        *big.Int
-	ProofMinWindow             uint16
-	ProofMaxWindow             uint16
+	ProofWindowMin             uint16
+	ProofWindowMax             uint16
+	ProofWindowMultiplier      uint16
 	EthDepositRingBufferSize   *big.Int
 	EthDepositMinCountPerBlock uint64
 	EthDepositMaxCountPerBlock uint64
