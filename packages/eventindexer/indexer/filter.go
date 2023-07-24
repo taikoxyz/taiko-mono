@@ -188,14 +188,14 @@ func L2FilterFunc(
 			liquidityAdded, err := swap.FilterMint(filterOpts, nil)
 
 			if err != nil {
-				return errors.Wrap(err, "svc.bridge.FilterSwap")
+				return errors.Wrap(err, "svc.bridge.FilterMint")
 			}
 
-			// only save ones above 0.01 ETH, this is only for Galaxe
+			// only save ones above 0.1 ETH, this is only for Galaxe
 			// and we dont care about the rest
 			err = svc.saveLiquidityAddedEvents(ctx, chainID, liquidityAdded)
 			if err != nil {
-				return errors.Wrap(err, "svc.saveSwapEvents")
+				return errors.Wrap(err, "svc.saveLiquidityAddedEvents")
 			}
 
 			return nil
