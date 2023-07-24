@@ -31,6 +31,7 @@ contract BridgedERC20 is
     address public srcToken;
     uint256 public srcChainId;
     uint8 private srcDecimals;
+
     uint256[47] private __gap;
 
     error BRIDGED_TOKEN_CANNOT_RECEIVE();

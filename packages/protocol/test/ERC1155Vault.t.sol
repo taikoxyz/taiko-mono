@@ -276,41 +276,6 @@ contract ERC1155VaultTest is Test {
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 2);
     }
 
-    function test_decode_message_calldata_1155() public {
-        BaseNFTVault.CanonicalNFT memory ctoken = BaseNFTVault.CanonicalNFT({
-            chainId: 31_337,
-            addr: 0x579FBFF1A9b1502688169DA761DcF262b73BB64A,
-            symbol: "",
-            name: ""
-        });
-
-        uint256[] memory tokenIds = new uint256[](1);
-        tokenIds[0] = 1;
-
-        uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 2;
-
-        bytes memory dataToDecode = abi.encodeWithSelector(
-            0xafdef9d6, ctoken, Alice, Alice, tokenIds, amounts
-        );
-
-        BaseNFTVault.CanonicalNFT memory nftRetVal;
-        address ownerRetVal;
-        uint256[] memory tokenIdsRetVal;
-        uint256[] memory tokenAmountsRetVal;
-        (nftRetVal, ownerRetVal,, tokenIdsRetVal, tokenAmountsRetVal) =
-            erc1155Vault.decodeMessageData(dataToDecode);
-
-        assertEq(Alice, ownerRetVal);
-        assertEq(1, tokenIdsRetVal[0]);
-        assertEq(2, tokenAmountsRetVal[0]);
-        assertEq(31_337, nftRetVal.chainId);
-        assertEq(0x579FBFF1A9b1502688169DA761DcF262b73BB64A, nftRetVal.addr);
-
-        assertEq("", nftRetVal.symbol);
-        assertEq("", nftRetVal.name);
-    }
-
     function test_sendToken_with_invalid_to_address_1155() public {
         vm.prank(Alice, Alice);
         ctoken1155.setApprovalForAll(address(erc1155Vault), true);

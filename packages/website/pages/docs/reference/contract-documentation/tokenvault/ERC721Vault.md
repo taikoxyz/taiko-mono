@@ -66,29 +66,6 @@ a proof that the message processing on the destination Bridge has failed.
 function onERC721Received(address, address, uint256, bytes) external pure returns (bytes4)
 ```
 
-### decodeMessageData
-
-```solidity
-function decodeMessageData(bytes dataWithSelector) public pure returns (struct BaseNFTVault.CanonicalNFT nft, address owner, address to, uint256[] tokenIds)
-```
-
-Decodes the data which was abi.encodeWithSelector() encoded.
-
-#### Parameters
-
-| Name             | Type  | Description                               |
-| ---------------- | ----- | ----------------------------------------- |
-| dataWithSelector | bytes | Data encoded with abi.encodedWithSelector |
-
-#### Return Values
-
-| Name     | Type                             | Description                     |
-| -------- | -------------------------------- | ------------------------------- |
-| nft      | struct BaseNFTVault.CanonicalNFT | CanonicalNFT data               |
-| owner    | address                          | Owner of the message            |
-| to       | address                          | The to address messages sent to |
-| tokenIds | uint256[]                        | The tokenIds                    |
-
 ---
 
 ## title: ProxiedERC721Vault

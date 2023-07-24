@@ -28,6 +28,8 @@ import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
  * tokens.
  */
 contract ERC721Vault is BaseNFTVault, IERC721Receiver {
+    uint256[50] private __gap;
+
     /**
      * Transfers ERC721 tokens to this vault and sends a message to the
      * destination chain so the user can receive the same (bridged) tokens
@@ -161,7 +163,9 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             ,
             ,
             uint256[] memory tokenIds
-        ) = decodeMessageData(message.data);
+        ) = abi.decode(
+            message.data[4:], (CanonicalNFT, address, address, uint256[])
+        );
 
         bytes32 msgHash = hashAndMarkMsgReleased(message, proof, nft.addr);
 
@@ -205,32 +209,6 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         return IERC721Receiver.onERC721Received.selector;
     }
 
-    /**
-     * Decodes the data which was abi.encodeWithSelector() encoded.
-     * @param dataWithSelector Data encoded with abi.encodedWithSelector
-     * @return nft CanonicalNFT data
-     * @return owner Owner of the message
-     * @return to The to address messages sent to
-     * @return tokenIds The tokenIds
-     */
-    function decodeMessageData(bytes calldata dataWithSelector)
-        public
-        pure
-        returns (
-            CanonicalNFT memory nft,
-            address owner,
-            address to,
-            uint256[] memory tokenIds
-        )
-    {
-        return abi.decode(
-            dataWithSelector[4:], (CanonicalNFT, address, address, uint256[])
-        );
-    }
-
-    /**
-     * @dev Vaults / burns the tokens and creates msg.data
-     */
     function _sendToken(
         address owner,
         BridgeTransferOp calldata opt
