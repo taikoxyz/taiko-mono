@@ -1,5 +1,5 @@
 import { getContract, type GetContractResult, type PublicClient } from '@wagmi/core';
-import { type Address, encodeAbiParameters, encodePacked, type Hex, keccak256, toHex,toRlp } from 'viem';
+import { type Address, encodeAbiParameters, encodePacked, type Hex, keccak256, toHex, toRlp } from 'viem';
 
 import { crossChainSyncABI } from '$abi';
 import { InvalidProofError, PendingBlockError } from '$libs/error';
