@@ -1,8 +1,9 @@
 import { getContract } from '@wagmi/core';
+import { UserRejectedRequestError } from 'viem';
 
 import { bridgeABI } from '$abi';
 import { bridge } from '$config';
-import { getConnectedWallet } from '$libs/util/getConnectedWallet';
+import { SendMessageError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 
 import type { Bridge, ETHBridgeArgs, Message } from './types';
@@ -11,17 +12,15 @@ const log = getLogger('ETHBridge');
 
 export class ETHBridge implements Bridge {
   private static async _prepareTransaction(args: ETHBridgeArgs) {
-    const walletClient = await getConnectedWallet();
-
-    const { to, memo = '', amount, srcChainId, destChainId, bridgeAddress, processingFee } = args;
+    const { to, amount, wallet, srcChainId, destChainId, bridgeAddress, processingFee, memo = '' } = args;
 
     const bridgeContract = getContract({
-      walletClient,
+      walletClient: wallet,
       abi: bridgeABI,
       address: bridgeAddress,
     });
 
-    const owner = walletClient.account.address;
+    const owner = wallet.account.address;
 
     // TODO: contract actually supports bridging to ourselves as well as
     //       to another address at the same time
@@ -62,8 +61,37 @@ export class ETHBridge implements Bridge {
 
     const value = depositValue + callValue + processingFee;
 
-    log('Estimating gas for sendMessage call. Sending value', value);
+    log('Estimating gas for sendMessage call with value', value);
 
-    return bridgeContract.estimateGas.sendMessage([message], { value });
+    const estimatedGas = await bridgeContract.estimateGas.sendMessage([message], { value });
+
+    log('Gas estimated', estimatedGas);
+
+    return estimatedGas;
+  }
+
+  async bridge(args: ETHBridgeArgs) {
+    const { bridgeContract, message } = await ETHBridge._prepareTransaction(args);
+    const { depositValue, callValue, processingFee } = message;
+
+    const value = depositValue + callValue + processingFee;
+
+    try {
+      log('Calling sendMessage with value', value);
+
+      const txHash = await bridgeContract.write.sendMessage([message], { value });
+
+      log('Transaction hash for sendMessage call', txHash);
+
+      return txHash;
+    } catch (err) {
+      console.error(err);
+
+      if (`${err}`.includes('denied transaction signature')) {
+        throw new UserRejectedRequestError(err as Error);
+      }
+
+      throw new SendMessageError('failed to bridge ETH', { cause: err });
+    }
   }
 }

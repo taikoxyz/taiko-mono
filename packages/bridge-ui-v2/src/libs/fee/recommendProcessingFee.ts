@@ -2,7 +2,7 @@ import { getPublicClient } from '@wagmi/core';
 import { zeroAddress } from 'viem';
 
 import { recommentProcessingFee } from '$config';
-import { getAddress, isERC20, type Token } from '$libs/token';
+import { getAddress, type Token, TokenType } from '$libs/token';
 
 type RecommendProcessingFeeArgs = {
   token: Token;
@@ -20,7 +20,7 @@ export async function recommendProcessingFee({ token, destChainId, srcChainId }:
   // To make it enticing, we say 900k
   let gasLimit = ethGasLimit;
 
-  if (isERC20(token)) {
+  if (token.type === TokenType.ERC20) {
     if (!srcChainId) {
       throw Error('missing required source chain for ERC20 token');
     }

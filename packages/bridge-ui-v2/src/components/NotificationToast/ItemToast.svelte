@@ -14,6 +14,7 @@
     success: 'check-circle',
     error: 'x-close-circle',
     warning: 'info-circle',
+    info: 'info-circle',
     unknown: 'question-circle',
   };
 
@@ -21,6 +22,7 @@
     success: 'bg-positive-background',
     error: 'bg-negative-background',
     warning: 'bg-warning-background',
+    info: 'bg-primary-interactive',
     unknown: 'bg-neutral-background',
   };
 
@@ -28,6 +30,7 @@
     success: 'fill-positive-sentiment',
     error: 'fill-negative-sentiment',
     warning: 'fill-warning-sentiment',
+    info: 'fill-pink-50',
     unknown: 'fill-primary-content',
   };
 
@@ -35,6 +38,7 @@
     success: 'text-positive-sentiment',
     error: 'text-negative-sentiment',
     warning: 'text-warning-sentiment',
+    info: 'text-white',
     unknown: 'text-primary-content',
   };
 
@@ -42,6 +46,7 @@
     success: 'fill-green-600',
     error: 'fill-red-500',
     warning: 'fill-yellow-500',
+    info: 'fill-pink-700',
     unknown: 'fill-grey-5',
   };
 

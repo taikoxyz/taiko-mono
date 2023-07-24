@@ -9,15 +9,36 @@
 
   "bridge": {
     "title": "Bridge",
-    "subtitle": "Send your assets across chains.",
+    "description": "Send your assets across chains.",
+    "approve": {
+      "tx": "Transaction sent to approve {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
+      "success": "Approved {token} tokens!. You can now proceed to bridge.",
+      "rejected": "Request to approve rejected."
+    },
+    "bridge": {
+      "tx": "Transaction sent to bridge {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
+      "success": "Transaction completed!. Your funds are getting ready to be claimed on {network}",
+      "rejected": "Request to bridge rejected."
+    },
     "button": {
       "approve": "Approve",
-      "bridge": "Bridge"
+      "approving": "Approving",
+      "approved": "Approved",
+      "bridge": "Bridge",
+      "bridging": "Bridging"
     }
+  },
+
+  "recipient": {
+    "title": "Recipient address",
+    "description": "Customize the recipient address for your bridged tokens instead of using your current wallet address.",
+    "link": "Change recipient",
+    "placeholder": "Add custom recipient 0x…"
   },
 
   "processing_fee": {
     "title": "Processing fee",
+    "description": "Some description about the processing fee",
     "link": "Customize fee",
     "recommended": {
       "label": "Recommended",
@@ -41,7 +62,7 @@
 
   "activities": {
     "title": "Activities",
-    "subtitle": "Track your bridge transactions here.",
+    "description": "Track your bridge transactions here.",
     "header": {
       "explorer": "Explorer link",
       "status": "Status"
@@ -63,8 +84,12 @@
 
   "faucet": {
     "title": "Faucet",
-    "subtitle": "Mint test tokens.",
-    "minting_tx": "Transaction sent to mint {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
+    "description": "Mint test tokens.",
+    "mint": {
+      "tx": "Transaction sent to mint {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
+      "success": "Minted {token} tokens!. Check out your balance on the Bridge page.",
+      "rejected": "Request to mint rejected."
+    },
     "button": {
       "mint": "Mint",
       "checking": "Checking mintability",
@@ -103,28 +128,9 @@
     "currently_on": "You are currently on"
   },
 
-  "messages": {
-    "account": {
-      "required": "Please connect your wallet.",
-      "connected": "Account connected",
-      "disconnected": "Account disconnected"
-    },
-    "network": {
-      "switching": "Switching network",
-      "rejected": "Request to switch chain rejected."
-    },
-    "mint": {
-      "rejected": "Request to mint rejected."
-    }
-  },
-
   "chain": {
     "to": "To",
     "from": "From"
-  },
-
-  "custom_recipient": {
-    "placeholder": "Add custom recipient"
   },
 
   "wallet": {
@@ -134,5 +140,26 @@
       "connected": "Connected",
       "connecting": "Connecting"
     }
+  },
+
+  "messages": {
+    "account": {
+      "required": "Please connect your wallet.",
+      "connected": "Account connected",
+      "disconnected": "Account disconnected"
+    },
+    "network": {
+      "switching": "Switching network",
+      "rejected": "Request to switch chain rejected."
+    }
+  },
+
+  "common": {
+    "edit": "Edit",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "close": "Close",
+    "loading": "Loading",
+    "ok": "Ok"
   }
 }
