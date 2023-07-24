@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.3.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2-v2.2.0...bridge-ui-v2-v2.3.0) (2023-07-24)
+
+
+### Features
+
+* **bridge-ui-v2:** account balance ([#14159](https://github.com/taikoxyz/taiko-mono/issues/14159)) ([081be64](https://github.com/taikoxyz/taiko-mono/commit/081be64591b48cfa4fb10baf3067cf974476e298))
+* **bridge-ui-v2:** amount input validation ([#14213](https://github.com/taikoxyz/taiko-mono/issues/14213)) ([4b639d7](https://github.com/taikoxyz/taiko-mono/commit/4b639d7a5315c20a6766fb2b59d0ce5d3b973453))
+* **bridge-ui-v2:** bridging ETH and ERC20 ([#14225](https://github.com/taikoxyz/taiko-mono/issues/14225)) ([c3375a4](https://github.com/taikoxyz/taiko-mono/commit/c3375a4ce43cea719568a6661428b78b2354ec51))
+* **bridge-ui-v2:** Faucet ([#14145](https://github.com/taikoxyz/taiko-mono/issues/14145)) ([b2f2388](https://github.com/taikoxyz/taiko-mono/commit/b2f23889e903ca933dde00bc7f20d88f78bc72a7))
+* **bridge-ui-v2:** Processing Fee ([#14170](https://github.com/taikoxyz/taiko-mono/issues/14170)) ([13ebf1c](https://github.com/taikoxyz/taiko-mono/commit/13ebf1c54f147bfb0ad754abc24271caf97c3775))
+
+
+### Bug Fixes
+
+* **bridge-ui-v2:** processing fee and amount input validation ([#14220](https://github.com/taikoxyz/taiko-mono/issues/14220)) ([61138a8](https://github.com/taikoxyz/taiko-mono/commit/61138a88b529d70df0e81468052971a4fc4fde16))
+* **bridge-ui-v2:** token dropdown click away ([#14224](https://github.com/taikoxyz/taiko-mono/issues/14224)) ([4f879cb](https://github.com/taikoxyz/taiko-mono/commit/4f879cbbbd77f5f82ea150391756cc92879d5848))
+
 ## [2.2.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2-v2.1.0...bridge-ui-v2-v2.2.0) (2023-07-10)
 
 
