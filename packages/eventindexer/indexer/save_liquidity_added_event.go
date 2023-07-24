@@ -3,10 +3,9 @@ package indexer
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
@@ -47,8 +46,18 @@ func (svc *Service) saveLiquidityAddedEvent(
 	chainID *big.Int,
 	event *swap.SwapMint,
 ) error {
-	log.Infof("liquidityAdded event for sender 0x%v, amount0: %v, amount1: %v",
-		common.Bytes2Hex(event.Raw.Topics[2].Bytes()[12:]),
+	tx, _, err := svc.ethClient.TransactionByHash(ctx, event.Raw.TxHash)
+	if err != nil {
+		return err
+	}
+
+	from, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx)
+	if err != nil {
+		return err
+	}
+
+	log.Infof("liquidityAdded event for sender %v, amount0: %v, amount1: %v",
+		from.Hex(),
 		event.Amount0.String(),
 		event.Amount1.String(),
 	)
@@ -73,7 +82,7 @@ func (svc *Service) saveLiquidityAddedEvent(
 		Data:    string(marshaled),
 		ChainID: chainID,
 		Event:   eventindexer.EventNameMint,
-		Address: fmt.Sprintf("0x%v", common.Bytes2Hex(event.Raw.Topics[2].Bytes()[12:])),
+		Address: from.Hex(),
 	})
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.Save")
