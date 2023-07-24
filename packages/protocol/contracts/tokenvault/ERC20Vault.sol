@@ -316,8 +316,8 @@ contract ERC20Vault is EssentialContract {
         }
         releasedMessages[msgHash] = true;
 
-        (,, address token,, uint256 amount) = abi.decode(
-            message.data, (bytes4, CanonicalERC20, address, address, uint256)
+        (, address token,, uint256 amount) = abi.decode(
+            message.data[4:], (CanonicalERC20, address, address, uint256)
         );
 
         if (token == address(0)) revert VAULT_INVALID_TOKEN();
