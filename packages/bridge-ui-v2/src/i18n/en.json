@@ -4,38 +4,50 @@
     "faucet": "Faucet",
     "activities": "Activities",
     "explorer": "Explorer",
-    "guide": "Guide"
+    "guide": "Guide",
+    "nft": "NFT",
+    "token": "Token"
   },
-
   "bridge": {
-    "title": "Bridge",
-    "description": "Send your assets across chains.",
-    "approve": {
-      "tx": "Transaction sent to approve {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
-      "success": "Approved {token} tokens!. You can now proceed to bridge.",
-      "rejected": "Request to approve rejected."
+    "title": {
+      "default": "Bridge Token",
+      "nft": "Bridge NFT"
     },
-    "bridge": {
-      "tx": "Transaction sent to bridge {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
-      "success": "Transaction completed!. Your funds are getting ready to be claimed on {network}",
-      "rejected": "Request to bridge rejected."
+    "description": "Send your assets across chains.",
+    "actions": {
+      "approve": {
+        "tx": "Transaction sent to approve {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
+        "success": "Approved {token} tokens!. You can now proceed to bridge.",
+        "rejected": "Request to approve rejected."
+      },
+      "bridge": {
+        "tx": "Transaction sent to bridge {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
+        "success": "Transaction completed!. Your funds are getting ready to be claimed on {network}"
+      }
+    },
+    "errors": {
+      "send_erc20_error": "Failed to send ERC20 token",
+      "send_message_error": "Failed to send message",
+      "approve_error": "Failed to approve token",
+      "rejected": "Request to bridge rejected.",
+      "no_allowance_required": "You need to add allowance to bridge this token.",
+      "unknown_error": "An error occured"
     },
     "button": {
       "approve": "Approve",
       "approving": "Approving",
       "approved": "Approved",
       "bridge": "Bridge",
-      "bridging": "Bridging"
+      "bridging": "Bridging",
+      "import": "Fetch NFT data"
     }
   },
-
   "recipient": {
     "title": "Recipient address",
     "description": "Customize the recipient address for your bridged tokens instead of using your current wallet address.",
     "link": "Change recipient",
     "placeholder": "Add custom recipient 0x…"
   },
-
   "processing_fee": {
     "title": "Processing fee",
     "description": "Some description about the processing fee",
@@ -59,7 +71,6 @@
       "cancel": "Cancel"
     }
   },
-
   "activities": {
     "title": "Activities",
     "description": "Track your bridge transactions here.",
@@ -81,7 +92,6 @@
       "failed": "Failed"
     }
   },
-
   "faucet": {
     "title": "Faucet",
     "description": "Mint test tokens.",
@@ -105,34 +115,49 @@
       "token_minted": "You have already minted this token."
     }
   },
-
   "token_dropdown": {
     "label": "Select token"
   },
-
   "amount_input": {
     "label": "Amount",
     "balance": "Balance",
     "button": {
       "max": "Max",
       "failed_max": "Coult not estimate max amount to bridge."
-    },
-    "error": {
-      "insufficient_balance": "Insufficient balance",
-      "insufficient_allowance": "Insufficient allowance"
     }
   },
-
+  "error": {
+    "insufficient_balance": "Insufficient balance",
+    "insufficient_allowance": "Insufficient allowance"
+  },
+  "inputs": {
+    "nft": {
+      "token_id": {
+        "label": "Token ID(s)",
+        "placeholder": "1 or 5,14,733"
+      }
+    },
+    "amount_input": {
+      "label": "Amount",
+      "balance": "Balance",
+      "button.max": "Max"
+    },
+    "address_input": {
+      "label": "Address",
+      "placeholder": "Enter address"
+    }
+  },
   "chain_selector": {
     "placeholder": "Select chain",
     "currently_on": "You are currently on"
   },
-
   "chain": {
     "to": "To",
     "from": "From"
   },
-
+  "custom_recipient": {
+    "placeholder": "Add custom recipient"
+  },
   "wallet": {
     "connect": "Connect wallet",
     "status": {
@@ -141,7 +166,6 @@
       "connecting": "Connecting"
     }
   },
-
   "messages": {
     "account": {
       "required": "Please connect your wallet.",
@@ -153,7 +177,6 @@
       "rejected": "Request to switch chain rejected."
     }
   },
-
   "common": {
     "edit": "Edit",
     "cancel": "Cancel",
