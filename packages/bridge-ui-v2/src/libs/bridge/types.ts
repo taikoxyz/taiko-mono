@@ -1,17 +1,5 @@
+import type { WalletClient } from '@wagmi/core';
 import type { Address, Hex } from 'viem';
-
-export enum BridgeType {
-  ETH = 'ETH',
-
-  // https://ethereum.org/en/developers/docs/standards/tokens/erc-20/
-  ERC20 = 'ERC20',
-
-  // https://ethereum.org/en/developers/docs/standards/tokens/erc-721/
-  ERC721 = 'ERC721',
-
-  // https://ethereum.org/en/developers/docs/standards/tokens/erc-1155/
-  ERC1155 = 'ERC1155',
-}
 
 // Bridge sendMessage(message: Message)
 export type Message = {
@@ -71,10 +59,12 @@ export type ApproveArgs = {
   amount: bigint;
   tokenAddress: Address;
   spenderAddress: Address;
+  wallet: WalletClient;
 };
 
 export type BridgeArgs = {
   to: Address;
+  wallet: WalletClient;
   srcChainId: number;
   destChainId: number;
   amount: bigint;
@@ -92,6 +82,14 @@ export type ERC20BridgeArgs = BridgeArgs & {
   isTokenAlreadyDeployed?: boolean;
 };
 
+export type RequireAllowanceArgs = {
+  tokenAddress: Address;
+  ownerAddress: Address;
+  spenderAddress: Address;
+  amount: bigint;
+};
+
 export interface Bridge {
   estimateGas(args: BridgeArgs): Promise<bigint>;
+  bridge(args: BridgeArgs): Promise<Hex>;
 }

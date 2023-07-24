@@ -5,50 +5,43 @@
   import type { AlertIconDetails, AlertType } from './types';
 
   type AlertTypeDetails = AlertIconDetails & {
-    alertClass: string;
+    textClass: string;
   };
 
   export let type: AlertType;
-  export let forceColumnFlow = false;
+  export let message: string;
 
   let typeMap: Record<AlertType, AlertTypeDetails> = {
     success: {
-      alertClass: 'alert-success',
+      textClass: 'text-positive-sentiment',
       iconType: 'check-circle',
       iconFillClass: 'fill-success-content',
     },
     warning: {
-      alertClass: 'alert-warning',
+      textClass: 'text-warning-sentiment',
       iconType: 'exclamation-circle',
       iconFillClass: 'fill-warning-content',
     },
     error: {
-      alertClass: 'alert-danger',
+      textClass: 'text-negative-sentiment',
       iconType: 'x-close-circle',
       iconFillClass: 'fill-error-content',
     },
     info: {
-      alertClass: 'alert-info',
+      textClass: 'text-secondary-content',
       iconType: 'info-circle',
       iconFillClass: 'fill-info-content',
     },
   };
 
-  const { alertClass, iconType, iconFillClass } = typeMap[type];
+  const { textClass, iconType, iconFillClass } = typeMap[type];
 
-  const classes = classNames(
-    'alert flex gap-[5px] py-[12px] px-[20px] rounded-[10px]',
-    type ? alertClass : null,
-    forceColumnFlow ? 'grid-flow-col text-left' : null,
-    $$props.class,
-  );
+  const classes = classNames('f-items-center space-x-1', $$props.class);
 </script>
 
 <div class={classes}>
-  <div class="self-start">
-    <Icon type={iconType} fillClass={iconFillClass} size={24} />
-  </div>
-  <div class="callout-regular">
-    <slot />
+  <Icon type={iconType} fillClass={iconFillClass} />
+  <div class="body-small-regular {textClass}">
+    {message}
   </div>
 </div>
