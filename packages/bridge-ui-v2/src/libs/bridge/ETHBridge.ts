@@ -6,7 +6,7 @@ import { bridge } from '$config';
 import { SendMessageError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 
-import { checkBeforeClaiming } from './checkBeforeClaiming';
+import { beforeClaiming, checkBeforeClaiming } from './beforeClaiming';
 import { type Bridge, type ClaimArgs, type ETHBridgeArgs, type Message,MessageStatus, type GenerateProofArgs, type GenerateProofClaimArgs } from './types';
 import { chainContractsMap } from '$libs/chain';
 import { ProofService } from './ProofService';
@@ -99,9 +99,13 @@ export class ETHBridge implements Bridge {
   }
 
   async claim(args: ClaimArgs) {
-    const messageStatus = await checkBeforeClaiming(args);
+    const { msgHash, wallet, message } = args;
 
-    const { msgHash, message } = args;
+    const {messageStatus, bridgeContract} = await beforeClaiming({
+      wallet,
+      msgHash,
+      ownerAddress: message.owner,
+    });
 
     if (messageStatus === MessageStatus.NEW) {
       const proofService = new ProofService();
@@ -124,6 +128,10 @@ export class ETHBridge implements Bridge {
       log('Generating proof with args', proofArgs);
 
       const proof = await proofService.generateProofToClaim(proofArgs);
+
+      const txHash = bridgeContract.write.processMessage([message, proof]);
+
+      log('Transaction hash for processMessage call', txHash);
 
     } else {
       // MessageStatus.RETRIABLE
