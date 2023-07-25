@@ -5,7 +5,7 @@
   "rpc-configuration": {
     "title": "RPC configuration"
   },
-  "contract-documentation": {
-    "display": "hidden"
+  "node-troubleshooting": {
+    "title": "Node troubleshooting"
   }
 }
