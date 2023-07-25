@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { noop } from '$libs/util/noop';
   import { onDestroy, onMount } from 'svelte';
+
+  import { noop } from '$libs/util/noop';
 
   export let active = false;
   export let fn = noop;

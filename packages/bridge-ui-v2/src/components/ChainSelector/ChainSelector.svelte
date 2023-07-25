@@ -1,6 +1,6 @@
 <script lang="ts">
   import { type Chain, type GetNetworkResult, switchNetwork } from '@wagmi/core';
-  import { onDestroy, type ComponentType } from 'svelte';
+  import { type ComponentType,onDestroy } from 'svelte';
   import { t } from 'svelte-i18n';
   import { UserRejectedRequestError } from 'viem';
 

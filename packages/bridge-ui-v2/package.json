@@ -14,8 +14,8 @@
     "test:unit:watch": "vitest",
     "svelte:check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --ignore ./wagmi.config.ts",
     "svelte:check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --ignore ./wagmi.config.ts --watch",
-    "format": "prettier --plugin-search-dir . --write .",
-    "lint": "prettier --plugin-search-dir . --check . && eslint .",
+    "format": "prettier --write .",
+    "lint": "prettier --check . && eslint .",
     "lint:fix": "pnpm format && eslint . --fix",
     "generate:abi": "pnpm wagmi generate"
   },
