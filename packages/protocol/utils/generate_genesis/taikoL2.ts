@@ -8,7 +8,6 @@ const {
     getStorageLayout,
 } = require("@defi-wonderland/smock/dist/src/utils");
 const ARTIFACTS_PATH = path.join(__dirname, "../../out");
-
 const IMPLEMENTATION_SLOT =
     "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc";
 
@@ -133,6 +132,10 @@ async function generateContractConfigs(
         LibBridgeProcess: require(path.join(
             ARTIFACTS_PATH,
             "./LibBridgeProcess.sol/LibBridgeProcess.json"
+        )),
+        LibVaultUtils: require(path.join(
+            ARTIFACTS_PATH,
+            "./LibVaultUtils.sol/LibVaultUtils.json"
         )),
         // Contracts
         ProxiedAddressManager: require(path.join(
@@ -400,8 +403,10 @@ async function generateContractConfigs(
         },
         ProxiedERC20Vault: {
             address: addressMap.ProxiedERC20Vault,
-            deployedBytecode:
-                contractArtifacts.ProxiedERC20Vault.deployedBytecode.object,
+            deployedBytecode: linkContractLibs(
+                contractArtifacts.ProxiedERC20Vault,
+                addressMap
+            ),
         },
         ERC20VaultProxy: {
             address: addressMap.ERC20VaultProxy,
@@ -426,8 +431,10 @@ async function generateContractConfigs(
         },
         ProxiedERC721Vault: {
             address: addressMap.ProxiedERC721Vault,
-            deployedBytecode:
-                contractArtifacts.ProxiedERC721Vault.deployedBytecode.object,
+            deployedBytecode: linkContractLibs(
+                contractArtifacts.ProxiedERC721Vault,
+                addressMap
+            ),
         },
         ERC721VaultProxy: {
             address: addressMap.ERC721VaultProxy,
@@ -452,8 +459,10 @@ async function generateContractConfigs(
         },
         ProxiedERC1155Vault: {
             address: addressMap.ProxiedERC1155Vault,
-            deployedBytecode:
-                contractArtifacts.ProxiedERC1155Vault.deployedBytecode.object,
+            deployedBytecode: linkContractLibs(
+                contractArtifacts.ProxiedERC1155Vault,
+                addressMap
+            ),
         },
         ERC1155VaultProxy: {
             address: addressMap.ERC1155VaultProxy,
