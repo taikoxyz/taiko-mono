@@ -15,7 +15,7 @@
   let dialogId = `dialog-${uid()}`;
 
   let modalOpen = false;
-  let invalidAddress = false;
+  let invalidAddress = false; // TODO: will be used soon
   let prevRecipientAddress: Maybe<Address> = null;
 
   let inputBox: InputBox;

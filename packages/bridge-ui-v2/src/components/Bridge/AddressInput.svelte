@@ -1,10 +1,9 @@
 <script lang="ts">
   import { isAddress } from 'ethereum-address';
-  import { createEventDispatcher, onMount } from 'svelte';
+  import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
 
   import { Alert } from '$components/Alert';
-  import { classNames } from '$libs/util/classNames';
   import { uid } from '$libs/util/uid';
 
   let input: HTMLInputElement;
@@ -15,9 +14,10 @@
 
   let isValidEthereumAddress = false;
   let tooShort = true;
-  let classes = classNames('', $$props.class);
   const dispatch = createEventDispatcher();
 
+  // TODO: nope!!, this should go inside a function whose arguments
+  //       are the values that trigger reactivity
   $: {
     ethereumAddress;
     if (ethereumAddress.length > 41) {

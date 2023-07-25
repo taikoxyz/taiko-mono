@@ -56,7 +56,7 @@
   $: disableBridge = canDoNothing || $insufficientAllowance || $insufficientBalance || bridging;
 
   // General loading state
-  $: loading = approving || bridging;
+  // $: loading = approving || bridging;
 </script>
 
 <div class="f-between-center w-full gap-4">
