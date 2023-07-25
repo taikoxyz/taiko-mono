@@ -11,8 +11,6 @@ import type { ClientWithEthGetProofRequest, GenerateProofArgs } from './types';
 
 const log = getLogger('proof:Prover');
 
-// TODO: make a general Prover that can be reused for other things, not just the bridge,
-//       with a specific bridge proof service that can generate a proof to claim and release.
 export class Prover {
   protected async _getKey(contractAddress: Address, msgHash: Hex) {
     return keccak256(encodePacked(['address', 'bytes32'], [contractAddress, msgHash]));

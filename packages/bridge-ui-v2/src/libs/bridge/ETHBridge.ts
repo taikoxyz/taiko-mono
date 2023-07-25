@@ -117,7 +117,7 @@ export class ETHBridge extends Bridge {
 
       log('Transaction hash for processMessage call', txHash);
 
-      // TODO: possibly handle unpredictable gas limit error
+      // TODO: handle unpredictable gas limit error
       //       by trying with a higher gas limit
     } else {
       // MessageStatus.RETRIABLE

@@ -189,7 +189,7 @@ export class ERC20Bridge extends Bridge {
     if (messageStatus === MessageStatus.NEW) {
       const proof = await this._prover.generateProofToProcessMessage(msgHash, srcChainId, destChainId);
 
-      if (message.gasLimit > BigInt(2500000)) {
+      if (message.gasLimit > bridgeService.erc20GasLimitThreshold) {
         txHash = await destBridgeContract.write.processMessage([message, proof], {
           gas: message.gasLimit,
         });
@@ -199,7 +199,7 @@ export class ERC20Bridge extends Bridge {
 
       log('Transaction hash for processMessage call', txHash);
 
-      // TODO: possibly handle unpredictable gas limit error
+      // TODO: handle unpredictable gas limit error
       //       by trying with a higher gas limit
     } else {
       // MessageStatus.RETRIABLE
