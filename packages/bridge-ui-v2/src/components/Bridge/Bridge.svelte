@@ -77,7 +77,7 @@
       });
 
       infoToast(
-        $t('bridge.approve.tx', {
+        $t('bridge.actions.approve.tx', {
           values: {
             token: $selectedToken.symbol,
             url: `${PUBLIC_L1_EXPLORER_URL}/tx/${txHash}`,
@@ -88,7 +88,7 @@
       await pendingTransactions.add(txHash, $network.id);
 
       successToast(
-        $t('bridge.approve.success', {
+        $t('bridge.actions.approve.success', {
           values: {
             token: $selectedToken.symbol,
           },
@@ -102,17 +102,17 @@
 
       switch (true) {
         case err instanceof UserRejectedRequestError:
-          warningToast($t('bridge.approve.rejected'));
+          warningToast($t('bridge.errors.rejected'));
           break;
         case err instanceof NoAllowanceRequiredError:
-          errorToast($t('bridge.approve.no_allowance_required'));
+          errorToast($t('bridge.errors.no_allowance_required'));
           break;
         case err instanceof ApproveError:
           // TODO: see contract for all possible errors
-          errorToast($t('bridge.approve.error'));
+          errorToast($t('bridge.errors.approve_error'));
           break;
         default:
-          errorToast($t('bridge.approve.unknown_error'));
+          errorToast($t('bridge.errors.unknown_error'));
       }
     }
   }
@@ -181,7 +181,7 @@
       const txHash = await $bridgeService.bridge(bridgeArgs);
 
       infoToast(
-        $t('bridge.bridge.tx', {
+        $t('bridge.actions.bridge.tx', {
           values: {
             token: $selectedToken.symbol,
             url: `${PUBLIC_L1_EXPLORER_URL}/tx/${txHash}`,
@@ -192,7 +192,7 @@
       await pendingTransactions.add(txHash, $network.id);
 
       successToast(
-        $t('bridge.bridge.success', {
+        $t('bridge.actions.bridge.success', {
           values: {
             network: $destNetwork.name,
           },
@@ -211,24 +211,24 @@
 
       switch (true) {
         case err instanceof UserRejectedRequestError:
-          warningToast($t('bridge.bridge.rejected'));
+          warningToast($t('bridge.errors.rejected'));
           break;
         case err instanceof SendMessageError:
           // TODO: see contract for all possible errors
-          errorToast($t('bridge.bridge.send_message_error'));
+          errorToast($t('bridge.errors.send_message_error'));
           break;
         case err instanceof SendERC20Error:
           // TODO: see contract for all possible errors
-          errorToast($t('bridge.bridge.send_erc20_error'));
+          errorToast($t('bridge.errors.send_erc20_error'));
           break;
         default:
-          errorToast($t('bridge.approve.unknown_error'));
+          errorToast($t('bridge.errors.unknown_error'));
       }
     }
   }
 </script>
 
-<Card class="md:w-[524px]" title={$t('bridge.title')} text={$t('bridge.description')}>
+<Card class="md:w-[524px]" title={$t('bridge.title.default')} text={$t('bridge.description')}>
   <div class="space-y-[35px]">
     <div class="f-between-center gap-4">
       <ChainSelector class="flex-1" value={$network} switchWallet />
