@@ -37,10 +37,10 @@ struct Staker {
 }
 ```
 
-### MAX_CAPACITY_LOWER_BOUND
+### MIN_CAPACITY
 
 ```solidity
-uint32 MAX_CAPACITY_LOWER_BOUND
+uint32 MIN_CAPACITY
 ```
 
 ### EXIT_PERIOD
@@ -55,16 +55,16 @@ uint64 EXIT_PERIOD
 uint64 SLASH_POINTS
 ```
 
+### SLASH_MULTIPLIER
+
+```solidity
+uint64 SLASH_MULTIPLIER
+```
+
 ### MIN_STAKE_PER_CAPACITY
 
 ```solidity
 uint64 MIN_STAKE_PER_CAPACITY
-```
-
-### MIN_SLASH_AMOUNT
-
-```solidity
-uint64 MIN_SLASH_AMOUNT
 ```
 
 ### MAX_NUM_PROVERS
@@ -203,16 +203,17 @@ _Increases the capacity of the prover by releasing a prover._
 ### slashProver
 
 ```solidity
-function slashProver(address addr) external
+function slashProver(address addr, uint64 proofReward) external
 ```
 
 _Slashes a prover._
 
 #### Parameters
 
-| Name | Type    | Description                         |
-| ---- | ------- | ----------------------------------- |
-| addr | address | The address of the prover to slash. |
+| Name        | Type    | Description                         |
+| ----------- | ------- | ----------------------------------- |
+| addr        | address | The address of the prover to slash. |
+| proofReward | uint64  |                                     |
 
 ### stake
 

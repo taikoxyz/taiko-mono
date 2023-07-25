@@ -24,11 +24,11 @@ _Deploys a contract (via proxy)_
 
 #### Parameters
 
-| Name               | Type    | Description                           |
-| ------------------ | ------- | ------------------------------------- |
-| implementation     | address | The new implementation address        |
-| owner              | address | The owner of the proxy admin contract |
-| initializationData | bytes   | Data for the initialization           |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| implementation | address | The new implementation address |
+| owner | address | The owner of the proxy admin contract |
+| initializationData | bytes | Data for the initialization |
 
 ### checkValidContext
 
@@ -40,7 +40,8 @@ _Checks if context is valid_
 
 #### Parameters
 
-| Name        | Type    | Description                    |
-| ----------- | ------- | ------------------------------ |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | validSender | bytes32 | The valid sender to be allowed |
-| resolver    | address | The address of the resolver    |
+| resolver | address | The address of the resolver |
+
