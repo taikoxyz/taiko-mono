@@ -4,7 +4,7 @@ import type { Hash } from 'viem';
 import { bridgeABI } from '$abi';
 import { chainContractsMap } from '$libs/chain';
 import { MessageStatusError, WrongChainError, WrongOwnerError } from '$libs/error';
-import type { Prover } from '$libs/proof';
+import type { BridgeProver } from '$libs/proof';
 import { getLogger } from '$libs/util/logger';
 
 import { type BridgeArgs, type ClaimArgs, MessageStatus, type ReleaseArgs } from './types';
@@ -12,9 +12,9 @@ import { type BridgeArgs, type ClaimArgs, MessageStatus, type ReleaseArgs } from
 const log = getLogger('bridge:Bridge');
 
 export abstract class Bridge {
-  protected readonly _prover: Prover;
+  protected readonly _prover: BridgeProver;
 
-  constructor(prover: Prover) {
+  constructor(prover: BridgeProver) {
     this._prover = prover;
   }
 

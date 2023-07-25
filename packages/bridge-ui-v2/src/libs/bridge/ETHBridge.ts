@@ -5,9 +5,9 @@ import { bridgeABI } from '$abi';
 import { bridgeService } from '$config';
 import { chainContractsMap } from '$libs/chain';
 import { SendMessageError } from '$libs/error';
+import type { BridgeProver } from '$libs/proof';
 import { getLogger } from '$libs/util/logger';
 
-import type { Prover } from '../proof/Prover';
 import { Bridge } from './Bridge';
 import { type ClaimArgs, type ETHBridgeArgs, type Message, MessageStatus, type ReleaseArgs } from './types';
 
@@ -58,7 +58,7 @@ export class ETHBridge extends Bridge {
     return { bridgeContract, message };
   }
 
-  constructor(prover: Prover) {
+  constructor(prover: BridgeProver) {
     super(prover);
   }
 
@@ -111,7 +111,7 @@ export class ETHBridge extends Bridge {
     const destChainId = Number(message.destChainId);
 
     if (messageStatus === MessageStatus.NEW) {
-      const proof = await this._prover.generateProofToClaim(msgHash, srcChainId, destChainId);
+      const proof = await this._prover.generateProofToProcessMessage(msgHash, srcChainId, destChainId);
 
       txHash = await destBridgeContract.write.processMessage([message, proof]);
 

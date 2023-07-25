@@ -5,9 +5,9 @@ import { erc20ABI, tokenVaultABI } from '$abi';
 import { bridgeService } from '$config';
 import { chainContractsMap } from '$libs/chain';
 import { ApproveError, InsufficientAllowanceError, NoAllowanceRequiredError, SendERC20Error } from '$libs/error';
+import type { BridgeProver } from '$libs/proof';
 import { getLogger } from '$libs/util/logger';
 
-import type { Prover } from '../proof/Prover';
 import { Bridge } from './Bridge';
 import {
   type ApproveArgs,
@@ -65,7 +65,7 @@ export class ERC20Bridge extends Bridge {
     return { tokenVaultContract, sendERC20Args };
   }
 
-  constructor(prover: Prover) {
+  constructor(prover: BridgeProver) {
     super(prover);
   }
 
@@ -187,7 +187,7 @@ export class ERC20Bridge extends Bridge {
     const destChainId = Number(message.destChainId);
 
     if (messageStatus === MessageStatus.NEW) {
-      const proof = await this._prover.generateProofToClaim(msgHash, srcChainId, destChainId);
+      const proof = await this._prover.generateProofToProcessMessage(msgHash, srcChainId, destChainId);
 
       if (message.gasLimit > BigInt(2500000)) {
         txHash = await destBridgeContract.write.processMessage([message, proof], {
