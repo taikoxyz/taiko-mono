@@ -1,10 +1,10 @@
 import type { TokenType } from '$libs/token';
 
+import { ProofService } from '../proof/Prover';
 import { ERC20Bridge } from './ERC20Bridge';
 import { ERC721Bridge } from './ERC721Bridge';
 import { ERC1155Bridge } from './ERC1155Bridge';
 import { ETHBridge } from './ETHBridge';
-import { ProofService } from './ProofService';
 import type { Bridge } from './types';
 
 const proofService = new ProofService();

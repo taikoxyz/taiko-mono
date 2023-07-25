@@ -1,4 +1,4 @@
-import { getContract, type Hash } from '@wagmi/core';
+import { getContract, type Hash, type WalletClient } from '@wagmi/core';
 import { UserRejectedRequestError } from 'viem';
 
 import { erc20ABI, tokenVaultABI } from '$abi';
@@ -6,23 +6,22 @@ import { bridgeService } from '$config';
 import { ApproveError, InsufficientAllowanceError, NoAllowanceRequiredError, SendERC20Error } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 
+import type { Prover } from '../proof/Prover';
 import { beforeClaiming } from './beforeClaiming';
-import type { ProofService } from './ProofService';
 import {
   type ApproveArgs,
-  type Bridge,
   type ClaimArgs,
   type ERC20BridgeArgs,
   MessageStatus,
   type RequireAllowanceArgs,
   type SendERC20Args,
+  type Message,
 } from './types';
+import { Bridge } from './Bridge';
 
 const log = getLogger('ERC20Bridge');
 
-export class ERC20Bridge implements Bridge {
-  private readonly _prover: ProofService;
-
+export class ERC20Bridge extends Bridge {
   private static async _prepareTransaction(args: ERC20BridgeArgs) {
     const {
       to,
@@ -66,8 +65,8 @@ export class ERC20Bridge implements Bridge {
     return { tokenVaultContract, sendERC20Args };
   }
 
-  constructor(prover: ProofService) {
-    this._prover = prover;
+  constructor(prover: Prover) {
+    super(prover);
   }
 
   async estimateGas(args: ERC20BridgeArgs) {
@@ -179,14 +178,10 @@ export class ERC20Bridge implements Bridge {
     }
   }
 
-  async claim(args: ClaimArgs) {
-    const { msgHash, wallet, message } = args;
+  async claim(msgHash: Hash, message: Message, wallet: WalletClient) {
+    const { messageStatus, bridgeContract } = await super.beforeClaiming(msgHash, message.owner, wallet);
 
-    const { messageStatus, bridgeContract } = await beforeClaiming({
-      wallet,
-      msgHash,
-      ownerAddress: message.owner,
-    });
+    let txHash: Hash;
 
     if (messageStatus === MessageStatus.NEW) {
       const srcChainId = Number(message.srcChainId);
@@ -194,7 +189,7 @@ export class ERC20Bridge implements Bridge {
 
       const proof = await this._prover.generateProofToClaim(msgHash, srcChainId, destChainId);
 
-      const txHash = bridgeContract.write.processMessage([message, proof]);
+      txHash = await bridgeContract.write.processMessage([message, proof]);
 
       log('Transaction hash for processMessage call', txHash);
 
@@ -205,12 +200,12 @@ export class ERC20Bridge implements Bridge {
       log('Retrying message', message);
 
       // Last attempt to send the message: isLastAttempt = true
-      const txHash = bridgeContract.write.retryMessage([message, true]);
+      txHash = await bridgeContract.write.retryMessage([message, true]);
 
       log('Transaction hash for retryMessage call', txHash);
     }
 
-    return Promise.resolve('0x' as Hash);
+    return txHash;
   }
 
   async release() {

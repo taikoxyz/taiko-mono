@@ -2,6 +2,7 @@ import { getContract, type GetContractResult, type PublicClient } from '@wagmi/c
 import { type Address, encodeAbiParameters, encodePacked, type Hash, type Hex, keccak256, toHex, toRlp } from 'viem';
 
 import { crossChainSyncABI } from '$abi';
+import { MessageStatus } from '$libs/bridge';
 import { chainContractsMap } from '$libs/chain';
 import { InvalidProofError, PendingBlockError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
@@ -9,19 +10,21 @@ import { publicClient } from '$libs/wagmi';
 
 import type { ClientWithEthGetProofRequest, EthGetProofResponse } from './types';
 
-const log = getLogger('bridge:ProofService');
+const log = getLogger('proof:Prover');
 
-export class ProofService {
+// TODO: make a general Prover that can be reused for other things, not just the bridge,
+//       with a specific bridge proof service that can generate a proof to claim and release.
+export class Prover {
   private static async _getKey(sender: Address, msgHash: Hex) {
     return keccak256(encodePacked(['address', 'bytes32'], [sender, msgHash]));
   }
 
   private static async _getLatestBlock(
+    client: PublicClient,
     crossChainSyncContract: GetContractResult<typeof crossChainSyncABI>,
-    provider: PublicClient,
   ) {
     const latestBlockHash = await crossChainSyncContract.read.getCrossChainBlockHash([BigInt(0)]);
-    return provider.getBlock({ blockHash: latestBlockHash });
+    return client.getBlock({ blockHash: latestBlockHash });
   }
 
   private static _getSignalProof(proof: EthGetProofResponse, blockHeight: bigint) {
@@ -63,20 +66,21 @@ export class ProofService {
       abi: crossChainSyncABI,
     });
 
-    const provider = publicClient({ chainId: srcChainId });
-    const block = await ProofService._getLatestBlock(destCrossChainSyncContract, provider);
+    const srcClient = publicClient({ chainId: srcChainId });
+    const block = await Prover._getLatestBlock(srcClient, destCrossChainSyncContract);
 
     if (block.hash === null || block.number === null) {
       throw new PendingBlockError('block is pending');
     }
 
-    const key = await ProofService._getKey(srcBridgeAddress, msgHash);
+    // sender => srcBridgeAddress
+    const key = await Prover._getKey(srcBridgeAddress, msgHash);
 
     // Unfortunately, since this method is stagnant, it hasn't been included into Viem lib
     // as supported methods. Still stupported  by Alchmey, Infura and others.
     // See https://eips.ethereum.org/EIPS/eip-1186
     // Following is a workaround to support this method.
-    const clientWithEthProofRequest = provider as ClientWithEthGetProofRequest;
+    const clientWithEthProofRequest = srcClient as ClientWithEthGetProofRequest;
 
     // RPC call to get the merkle proof what value is at key on the SignalService contract
     const proof = await clientWithEthProofRequest.request({
@@ -99,51 +103,56 @@ export class ProofService {
       throw new InvalidProofError('storage proof value is not 1');
     }
 
-    return ProofService._getSignalProof(proof, block.number);
+    return Prover._getSignalProof(proof, block.number);
   }
 
-  // async generateProofToRelease(msgHash: Hash, srcChainId: number, destChainId: number) {
-  //   // Get the block from the destination chain based on the latest block hash
-  //   // we get cross chain (Taiko contract on the source chain)
+  async generateProofToRelease(msgHash: Hash, srcChainId: number, destChainId: number) {
+    const srcBridgeAddress = chainContractsMap[srcChainId].bridgeAddress;
+    const destBridgeAddress = chainContractsMap[destChainId].bridgeAddress;
+    const srcCrossChainSyncAddress = chainContractsMap[srcChainId].crossChainSyncAddress;
 
-  //   const crossChainSyncContract = getContract({
-  //     chainId: srcChainId,
-  //     address: srcCrossChainSyncAddress,
-  //     abi: crossChainSyncABI,
-  //   });
+    // Get the block from the destination chain based on the latest block hash
+    // we get cross chain (Taiko contract on the source chain)
 
-  //   const provider = publicClient({ chainId: destChainId });
-  //   const block = await ProofService._getLatestBlock(crossChainSyncContract, provider);
+    const srcCrossChainSyncContract = getContract({
+      chainId: srcChainId,
+      address: srcCrossChainSyncAddress,
+      abi: crossChainSyncABI,
+    });
 
-  //   if (block.hash === null || block.number === null) {
-  //     throw new PendingBlockError('block is pending');
-  //   }
+    const destClient = publicClient({ chainId: destChainId });
+    const block = await Prover._getLatestBlock(destClient, srcCrossChainSyncContract);
 
-  //   const key = await ProofService._getKey(sender, msgHash);
+    if (block.hash === null || block.number === null) {
+      throw new PendingBlockError('block is pending');
+    }
 
-  //   const clientWithEthProofRequest = publicClient({ chainId: destChainId }) as ClientWithEthGetProofRequest;
+    // ender => srcBridgeAddress
+    const key = await Prover._getKey(srcBridgeAddress, msgHash);
 
-  //   // RPC call to get the merkle proof what value is at key on the SignalService contract
-  //   const proof = await clientWithEthProofRequest.request({
-  //     method: 'eth_getProof',
-  //     params: [
-  //       // Address of the account to get the proof for
-  //       destBridgeAddress,
+    const clientWithEthProofRequest = destClient as ClientWithEthGetProofRequest;
 
-  //       // Array of storage-keys that should be proofed and included
-  //       [key],
+    // RPC call to get the merkle proof what value is at key on the SignalService contract
+    const proof = await clientWithEthProofRequest.request({
+      method: 'eth_getProof',
+      params: [
+        // Address of the account to get the proof for
+        destBridgeAddress,
 
-  //       block.hash,
-  //     ],
-  //   });
+        // Array of storage-keys that should be proofed and included
+        [key],
 
-  //   log('Proof from eth_getProof', proof);
+        block.hash,
+      ],
+    });
 
-  //   // Value must be 0x3 => MessageStatus.FAILED
-  //   if (proof.storageProof[0].value !== toHex(MessageStatus.FAILED)) {
-  //     throw new InvalidProofError('storage proof value is not FAILED');
-  //   }
+    log('Proof from eth_getProof', proof);
 
-  //   return ProofService._getSignalProof(proof, block.number);
-  // }
+    // Value must be 0x3 => MessageStatus.FAILED
+    if (proof.storageProof[0].value !== toHex(MessageStatus.FAILED)) {
+      throw new InvalidProofError('storage proof value is not FAILED');
+    }
+
+    return Prover._getSignalProof(proof, block.number);
+  }
 }

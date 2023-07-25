@@ -1,4 +1,4 @@
-import { getContract, type Hash } from '@wagmi/core';
+import { getContract, type Hash, type WalletClient } from '@wagmi/core';
 import { UserRejectedRequestError } from 'viem';
 
 import { bridgeABI } from '$abi';
@@ -6,15 +6,13 @@ import { bridgeService } from '$config';
 import { SendMessageError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 
-import { beforeClaiming } from './beforeClaiming';
-import type { ProofService } from './ProofService';
-import { type Bridge, type ClaimArgs, type ETHBridgeArgs, type Message, MessageStatus } from './types';
+import type { Prover } from '../proof/Prover';
+import { Bridge } from './Bridge';
+import { type ETHBridgeArgs, type Message, MessageStatus } from './types';
 
 const log = getLogger('bridge:ETHBridge');
 
-export class ETHBridge implements Bridge {
-  private readonly _prover: ProofService;
-
+export class ETHBridge extends Bridge {
   private static async _prepareTransaction(args: ETHBridgeArgs) {
     const { to, amount, wallet, srcChainId, destChainId, bridgeAddress, processingFee, memo = '' } = args;
 
@@ -59,8 +57,8 @@ export class ETHBridge implements Bridge {
     return { bridgeContract, message };
   }
 
-  constructor(prover: ProofService) {
-    this._prover = prover;
+  constructor(prover: Prover) {
+    super(prover);
   }
 
   async estimateGas(args: ETHBridgeArgs) {
@@ -103,14 +101,8 @@ export class ETHBridge implements Bridge {
     }
   }
 
-  async claim(args: ClaimArgs) {
-    const { msgHash, wallet, message } = args;
-
-    const { messageStatus, bridgeContract } = await beforeClaiming({
-      wallet,
-      msgHash,
-      ownerAddress: message.owner,
-    });
+  async claim(msgHash: Hash, message: Message, wallet: WalletClient) {
+    const { messageStatus, bridgeContract } = await super.beforeClaiming(msgHash, message.owner, wallet);
 
     let txHash: Hash;
 
@@ -139,7 +131,27 @@ export class ETHBridge implements Bridge {
     return txHash;
   }
 
-  async release() {
-    return Promise.resolve('0x' as Hash);
+  async release(msgHash: Hash, message: Message, wallet: WalletClient) {
+    const { messageStatus, bridgeContract } = await beforeReleasing({
+      wallet,
+      msgHash,
+      ownerAddress: message.owner,
+    });
+
+    let txHash: Hash;
+
+    const srcChainId = Number(message.srcChainId);
+    const destChainId = Number(message.destChainId);
+
+    const proof = await this._prover.generateProofToRelease(msgHash, srcChainId, destChainId);
+
+    txHash = await bridgeContract.write.releaseEther([message, proof]);
+
+    log('Transaction hash for processMessage call', txHash);
+
+    // TODO: possibly handle unpredictable gas limit error
+    //       by trying with a higher gas limit
+
+    return txHash;
   }
 }

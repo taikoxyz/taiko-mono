@@ -1,7 +1,7 @@
 import type { WalletClient } from '@wagmi/core';
 import type { Address, Hash, Hex } from 'viem';
 
-import type { ProofService } from './ProofService';
+import type { ProofService } from '../proof/Prover';
 
 export enum MessageStatus {
   NEW,
@@ -98,61 +98,14 @@ export type RequireAllowanceArgs = {
   amount: bigint;
 };
 
-export interface Bridge {
-  estimateGas(args: BridgeArgs): Promise<bigint>;
-  bridge(args: BridgeArgs): Promise<Hash>;
-  claim(args: ClaimArgs): Promise<Hash>;
-  release(): Promise<Hash>;
-}
-
-export type GenerateProofArgs = {
-  msgHash: Hash;
-  sender: Address;
-  srcChainId: number;
-  destChainId: number;
-};
-
-export type GenerateProofClaimArgs = GenerateProofArgs & {
-  destCrossChainSyncAddress: Address;
-  srcSignalServiceAddress: Address;
-};
-
-export type GenerateProofReleaseArgs = GenerateProofArgs & {
-  srcCrossChainSyncAddress: Address;
-  destBridgeAddress: Address;
-};
-
-export type StorageEntry = {
-  key: string;
-  value: Hex;
-
-  // Array of rlp-serialized MerkleTree-Nodes, starting with the storageHash-Node, following the path of the SHA3 (key) as path.
-  proof: Hex[];
-};
-
-export type EthGetProofResponse = {
-  balance: bigint;
-  codeHash: Hash;
-  nonce: number;
-  storageHash: Hash;
-
-  // Array of rlp-serialized MerkleTree-Nodes, starting with the stateRoot-Node, following the path of the SHA3 (address) as key.
-  accountProof: Hex[];
-
-  // Array of storage-entries as requested
-  storageProof: StorageEntry[];
-};
-
-export type ClientWithEthGetProofRequest = {
-  request(getProofArgs: {
-    method: 'eth_getProof';
-    params: [Address, Hex[], number | Hash | 'latest' | 'earliest'];
-  }): Promise<EthGetProofResponse>;
-};
-
 export type ClaimArgs = {
   msgHash: Hash;
   message: Message;
-  ownerAddress: Address;
+  wallet: WalletClient;
+};
+
+export type ReleaseArgs = {
+  msgHash: Hash;
+  message: Message;
   wallet: WalletClient;
 };
