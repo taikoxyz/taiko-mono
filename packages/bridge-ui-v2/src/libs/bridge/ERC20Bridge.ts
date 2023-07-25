@@ -6,7 +6,9 @@ import { bridge } from '$config';
 import { ApproveError, InsufficientAllowanceError, NoAllowanceRequiredError, SendERC20Error } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 
-import type { ApproveArgs, Bridge, ERC20BridgeArgs, RequireAllowanceArgs, SendERC20Args } from './types';
+import { MessageStatus, type ApproveArgs, type Bridge, type ClaimArgs, type ERC20BridgeArgs, type RequireAllowanceArgs, type SendERC20Args } from './types';
+import { beforeClaiming } from './beforeClaiming';
+import { ProofService } from './proofService';
 
 const log = getLogger('ERC20Bridge');
 
@@ -163,11 +165,53 @@ export class ERC20Bridge implements Bridge {
     }
   }
 
-  async claim() {
-    return Promise.resolve('0x' as Hash);
-  }
+  async claim(args: ClaimArgs) {
+    const { msgHash, wallet, message } = args;
 
-  async retry() {
+    const { messageStatus, bridgeContract } = await beforeClaiming({
+      wallet,
+      msgHash,
+      ownerAddress: message.owner,
+    });
+
+    if (messageStatus === MessageStatus.NEW) {
+      const proofService = new ProofService();
+
+      const srcChainId = Number(message.srcChainId);
+      const destChainId = Number(message.destChainId);
+      const srcBridgeAddress = chainContractsMap[srcChainId].bridgeAddress;
+      const srcSignalServiceAddress = chainContractsMap[srcChainId].signalServiceAddress;
+      const destCrossChainSyncAddress = chainContractsMap[destChainId].crossChainSyncAddress;
+
+      const proofArgs: GenerateProofClaimArgs = {
+        msgHash,
+        srcChainId,
+        destChainId,
+        sender: srcBridgeAddress,
+        destCrossChainSyncAddress,
+        srcSignalServiceAddress,
+      };
+
+      log('Generating proof with args', proofArgs);
+
+      const proof = await proofService.generateProofToClaim(proofArgs);
+
+      const txHash = bridgeContract.write.processMessage([message, proof]);
+
+      log('Transaction hash for processMessage call', txHash);
+
+      // TODO: possibly handle unpredictable gas limit error
+      //       by trying with a higher gas limit
+    } else {
+      // MessageStatus.RETRIABLE
+      log('Retrying message', message);
+
+      // Last attempt to send the message: isLastAttempt = true
+      const txHash = bridgeContract.write.retryMessage([message, true]);
+
+      log('Transaction hash for retryMessage call', txHash);
+    }
+
     return Promise.resolve('0x' as Hash);
   }
 

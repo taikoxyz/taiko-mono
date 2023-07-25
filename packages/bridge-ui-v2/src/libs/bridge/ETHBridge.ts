@@ -8,7 +8,7 @@ import { SendMessageError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 
 import { beforeClaiming } from './beforeClaiming';
-import { ProofService } from './ProofService';
+import { generateProofToClaim } from './proofService';
 import {
   type Bridge,
   type ClaimArgs,
@@ -115,8 +115,6 @@ export class ETHBridge implements Bridge {
     });
 
     if (messageStatus === MessageStatus.NEW) {
-      const proofService = new ProofService();
-
       const srcChainId = Number(message.srcChainId);
       const destChainId = Number(message.destChainId);
       const srcBridgeAddress = chainContractsMap[srcChainId].bridgeAddress;
@@ -134,7 +132,7 @@ export class ETHBridge implements Bridge {
 
       log('Generating proof with args', proofArgs);
 
-      const proof = await proofService.generateProofToClaim(proofArgs);
+      const proof = await generateProofToClaim(proofArgs);
 
       const txHash = bridgeContract.write.processMessage([message, proof]);
 
