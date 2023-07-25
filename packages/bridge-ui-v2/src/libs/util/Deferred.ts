@@ -1,5 +1,5 @@
-import { noop } from 'svelte/internal';
 
+import { noop } from 'svelte/internal';
 export class Deferred<T> {
   public promise: Promise<T>;
   public resolve: (value: T | PromiseLike<T>) => void = noop;
