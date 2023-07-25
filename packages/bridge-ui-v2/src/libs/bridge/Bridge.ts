@@ -27,7 +27,7 @@ export abstract class Bridge {
    *
    * Important: wallet must be connected to the destination chain
    */
-  async beforeClaiming({ msgHash, message, wallet }: ClaimArgs) {
+  protected async beforeClaiming({ msgHash, message, wallet }: ClaimArgs) {
     const destChainId = Number(message.destChainId);
     // Are we connected to the destination chain?
     if (wallet.chain.id !== destChainId) {
@@ -75,7 +75,7 @@ export abstract class Bridge {
    * 2. Check that the message is owned by the user
    * 3. Check that the message has failed
    */
-  async beforeReleasing({ msgHash, message, wallet }: ClaimArgs) {
+  protected async beforeReleasing({ msgHash, message, wallet }: ClaimArgs) {
     const srcChainId = Number(message.srcChainId);
     // Are we connected to the source chain?
     if (wallet.chain.id !== srcChainId) {
