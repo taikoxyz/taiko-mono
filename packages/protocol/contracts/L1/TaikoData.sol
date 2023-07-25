@@ -27,6 +27,7 @@ library TaikoData {
         uint256 proofOracleCooldown;
         uint16 proofMinWindow;
         uint16 proofMaxWindow;
+        uint16 proofWindowMultiplier;
         // Group 4: eth deposit related configs
         uint256 ethDepositRingBufferSize;
         uint64 ethDepositMinCountPerBlock;

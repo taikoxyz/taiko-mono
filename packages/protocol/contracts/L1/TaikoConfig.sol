@@ -42,6 +42,7 @@ library TaikoConfig {
             proofOracleCooldown: 15 minutes,
             proofMinWindow: 10 minutes,
             proofMaxWindow: 90 minutes,
+            proofWindowMultiplier: 200, // 200%
             // Group 4: eth deposit related configs
             ethDepositRingBufferSize: 1024,
             ethDepositMinCountPerBlock: 8,
