@@ -1,4 +1,4 @@
-import { getContract } from '@wagmi/core';
+import { getContract, type Hash } from '@wagmi/core';
 import { UserRejectedRequestError } from 'viem';
 
 import { erc20ABI, tokenVaultABI } from '$abi';
@@ -164,10 +164,14 @@ export class ERC20Bridge implements Bridge {
   }
 
   async claim() {
-    return Promise.resolve('0x' as Hash)
+    return Promise.resolve('0x' as Hash);
+  }
+
+  async retry() {
+    return Promise.resolve('0x' as Hash);
   }
 
   async release() {
-    return Promise.resolve('0x' as Hash)
+    return Promise.resolve('0x' as Hash);
   }
 }

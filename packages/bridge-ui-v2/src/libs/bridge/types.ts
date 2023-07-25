@@ -99,13 +99,12 @@ export type RequireAllowanceArgs = {
 export interface Bridge {
   estimateGas(args: BridgeArgs): Promise<bigint>;
   bridge(args: BridgeArgs): Promise<Hash>;
-  claim(): Promise<Hash>
-  release(): Promise<Hash>
+  claim(args: ClaimArgs): Promise<Hash>;
+  release(): Promise<Hash>;
 }
 
 export type GenerateProofArgs = {
   msgHash: Hash;
-  chainId: number;
   sender: Address;
   srcChainId: number;
   destChainId: number;
@@ -147,4 +146,11 @@ export type ClientWithEthGetProofRequest = {
     method: 'eth_getProof';
     params: [Address, Hex[], number | Hash | 'latest' | 'earliest'];
   }): Promise<EthGetProofResponse>;
+};
+
+export type ClaimArgs = {
+  msgHash: Hash;
+  message: Message;
+  ownerAddress: Address;
+  wallet: WalletClient;
 };

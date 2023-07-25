@@ -53,3 +53,11 @@ export class PendingBlockError extends Error {
 export class InvalidProofError extends Error {
   name = 'InvalidProofError';
 }
+
+export class MessageStatusError extends Error {
+  name = 'MessageStatusError';
+}
+
+export class NoOwnerError extends Error {
+  name = 'NoOwnerError';
+}

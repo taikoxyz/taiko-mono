@@ -57,7 +57,6 @@ export class ProofService {
 
   async generateProofToClaim({
     msgHash,
-    chainId,
     sender,
     srcChainId,
     destChainId,
@@ -86,7 +85,7 @@ export class ProofService {
     // as supported methods. Still stupported  by Alchmey, Infura and others.
     // See https://eips.ethereum.org/EIPS/eip-1186
     // Following is a workaround to support this method.
-    const clientWithEthProofRequest = publicClient({ chainId }) as ClientWithEthGetProofRequest;
+    const clientWithEthProofRequest = publicClient({ chainId: srcChainId }) as ClientWithEthGetProofRequest;
 
     // RPC call to get the merkle proof what value is at key on the SignalService contract
     const proof = await clientWithEthProofRequest.request({
@@ -114,7 +113,6 @@ export class ProofService {
 
   async generateProofToRelease({
     msgHash,
-    chainId,
     sender,
     srcChainId,
     destChainId,
@@ -139,7 +137,7 @@ export class ProofService {
 
     const key = await ProofService._getKey(sender, msgHash);
 
-    const clientWithEthProofRequest = publicClient({ chainId }) as ClientWithEthGetProofRequest;
+    const clientWithEthProofRequest = publicClient({ chainId: destChainId }) as ClientWithEthGetProofRequest;
 
     // RPC call to get the merkle proof what value is at key on the SignalService contract
     const proof = await clientWithEthProofRequest.request({

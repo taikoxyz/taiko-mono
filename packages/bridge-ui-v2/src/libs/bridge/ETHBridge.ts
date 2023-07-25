@@ -6,9 +6,12 @@ import { bridge } from '$config';
 import { SendMessageError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 
-import type { Bridge, ETHBridgeArgs, Message } from './types';
+import { checkBeforeClaiming } from './checkBeforeClaiming';
+import { type Bridge, type ClaimArgs, type ETHBridgeArgs, type Message,MessageStatus, type GenerateProofArgs, type GenerateProofClaimArgs } from './types';
+import { chainContractsMap } from '$libs/chain';
+import { ProofService } from './ProofService';
 
-const log = getLogger('ETHBridge');
+const log = getLogger('bridge:ETHBridge');
 
 export class ETHBridge implements Bridge {
   private static async _prepareTransaction(args: ETHBridgeArgs) {
@@ -95,11 +98,45 @@ export class ETHBridge implements Bridge {
     }
   }
 
-  async claim() {
-    return Promise.resolve('0x' as Hash)
+  async claim(args: ClaimArgs) {
+    const messageStatus = await checkBeforeClaiming(args);
+
+    const { msgHash, message } = args;
+
+    if (messageStatus === MessageStatus.NEW) {
+      const proofService = new ProofService();
+
+      const srcChainId = Number(message.srcChainId)
+      const destChainId = Number(message.destChainId)
+      const srcBridgeAddress = chainContractsMap[srcChainId].bridgeAddress
+      const srcSignalServiceAddress = chainContractsMap[srcChainId].signalServiceAddress
+      const destCrossChainSyncAddress = chainContractsMap[destChainId].crossChainSyncAddress
+
+      const proofArgs: GenerateProofClaimArgs = {
+        msgHash,
+        srcChainId,
+        destChainId,
+        sender: srcBridgeAddress,
+        destCrossChainSyncAddress,
+        srcSignalServiceAddress,
+      }
+
+      log('Generating proof with args', proofArgs);
+
+      const proof = await proofService.generateProofToClaim(proofArgs);
+
+    } else {
+      // MessageStatus.RETRIABLE
+    }
+
+    return Promise.resolve('0x' as Hash);
+  }
+
+  async retry() {
+    return Promise.resolve('0x' as Hash);
   }
 
   async release() {
-    return Promise.resolve('0x' as Hash)
+    return Promise.resolve('0x' as Hash);
   }
 }
