@@ -240,7 +240,7 @@ library LibVerifying {
         } else {
             // proving out side of the proof window
             proofReward = proofReward * config.rewardOpenMultipler / 100;
-            proverPool.slashProver(blk.assignedProver);
+            proverPool.slashProver(blk.assignedProver, proofReward);
         }
 
         blk.verifiedForkChoiceId = fcId;

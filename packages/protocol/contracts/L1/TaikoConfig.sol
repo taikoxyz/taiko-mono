@@ -47,7 +47,7 @@ library TaikoConfig {
             ethDepositGas: 21_000,
             ethDepositMaxFee: 1 ether / 10,
             // Group 5: tokenomics
-            rewardOpenMultipler: 200, // percentage
+            rewardOpenMultipler: 150, // percentage
             rewardOpenMaxCount: 201_600 // blockMaxProposals / 2
          });
     }

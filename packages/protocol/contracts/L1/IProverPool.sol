@@ -15,5 +15,5 @@ interface IProverPool {
 
     function releaseProver(address prover) external;
 
-    function slashProver(address prover) external;
+    function slashProver(address prover, uint64 proofReward) external;
 }
