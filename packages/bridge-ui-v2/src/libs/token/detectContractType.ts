@@ -34,7 +34,7 @@ export async function detectContractType(contractAddress: string, tokenId: numbe
 
   try {
     await readContract({
-      address: contractAddress as `0x${string}`,
+      address: contractAddress as `0x${string}`, // TODO: type Address
       abi: ERC721_ABI,
       functionName: 'ownerOf',
       args: [tokenId],
