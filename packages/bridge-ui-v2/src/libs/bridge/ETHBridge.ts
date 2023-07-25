@@ -2,25 +2,19 @@ import { getContract, type Hash } from '@wagmi/core';
 import { UserRejectedRequestError } from 'viem';
 
 import { bridgeABI } from '$abi';
-import { bridge } from '$config';
-import { chainContractsMap } from '$libs/chain';
+import { bridgeService } from '$config';
 import { SendMessageError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 
 import { beforeClaiming } from './beforeClaiming';
-import { generateProofToClaim } from './proofService';
-import {
-  type Bridge,
-  type ClaimArgs,
-  type ETHBridgeArgs,
-  type GenerateProofClaimArgs,
-  type Message,
-  MessageStatus,
-} from './types';
+import type { ProofService } from './ProofService';
+import { type Bridge, type ClaimArgs, type ETHBridgeArgs, type Message, MessageStatus } from './types';
 
 const log = getLogger('bridge:ETHBridge');
 
 export class ETHBridge implements Bridge {
+  private readonly _prover: ProofService;
+
   private static async _prepareTransaction(args: ETHBridgeArgs) {
     const { to, amount, wallet, srcChainId, destChainId, bridgeAddress, processingFee, memo = '' } = args;
 
@@ -39,7 +33,7 @@ export class ETHBridge implements Bridge {
 
     // If there is a processing fee, use the specified message gas limit
     // as might not be called by the owner
-    const gasLimit = processingFee > 0 ? bridge.noOwnerGasLimit : BigInt(0);
+    const gasLimit = processingFee > 0 ? bridgeService.noOwnerGasLimit : BigInt(0);
 
     const message: Message = {
       to,
@@ -63,6 +57,10 @@ export class ETHBridge implements Bridge {
     log('Preparing transaction with message', message);
 
     return { bridgeContract, message };
+  }
+
+  constructor(prover: ProofService) {
+    this._prover = prover;
   }
 
   async estimateGas(args: ETHBridgeArgs) {
@@ -114,27 +112,15 @@ export class ETHBridge implements Bridge {
       ownerAddress: message.owner,
     });
 
+    let txHash: Hash;
+
     if (messageStatus === MessageStatus.NEW) {
       const srcChainId = Number(message.srcChainId);
       const destChainId = Number(message.destChainId);
-      const srcBridgeAddress = chainContractsMap[srcChainId].bridgeAddress;
-      const srcSignalServiceAddress = chainContractsMap[srcChainId].signalServiceAddress;
-      const destCrossChainSyncAddress = chainContractsMap[destChainId].crossChainSyncAddress;
 
-      const proofArgs: GenerateProofClaimArgs = {
-        msgHash,
-        srcChainId,
-        destChainId,
-        sender: srcBridgeAddress,
-        destCrossChainSyncAddress,
-        srcSignalServiceAddress,
-      };
+      const proof = await this._prover.generateProofToClaim(msgHash, srcChainId, destChainId);
 
-      log('Generating proof with args', proofArgs);
-
-      const proof = await generateProofToClaim(proofArgs);
-
-      const txHash = bridgeContract.write.processMessage([message, proof]);
+      txHash = await bridgeContract.write.processMessage([message, proof]);
 
       log('Transaction hash for processMessage call', txHash);
 
@@ -145,16 +131,12 @@ export class ETHBridge implements Bridge {
       log('Retrying message', message);
 
       // Last attempt to send the message: isLastAttempt = true
-      const txHash = bridgeContract.write.retryMessage([message, true]);
+      txHash = await bridgeContract.write.retryMessage([message, true]);
 
       log('Transaction hash for retryMessage call', txHash);
     }
 
-    return Promise.resolve('0x' as Hash);
-  }
-
-  async retry() {
-    return Promise.resolve('0x' as Hash);
+    return txHash;
   }
 
   async release() {

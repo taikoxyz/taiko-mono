@@ -9,7 +9,7 @@ export const processingFeeComponent = {
   intervalComputeRecommendedFee: 20000,
 };
 
-export const bridge = {
+export const bridgeService = {
   noOwnerGasLimit: BigInt(140000),
   noTokenDeployedGasLimit: BigInt(3000000),
 };

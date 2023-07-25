@@ -1,4 +1,4 @@
-import type { Hex } from 'viem';
+import type { Hash, Hex } from 'viem';
 
 import type { Bridge } from './types';
 
@@ -9,5 +9,13 @@ export class ERC721Bridge implements Bridge {
 
   async bridge(): Promise<Hex> {
     return Promise.resolve('0x');
+  }
+
+  async claim() {
+    return Promise.resolve('0x' as Hash);
+  }
+
+  async release() {
+    return Promise.resolve('0x' as Hash);
   }
 }

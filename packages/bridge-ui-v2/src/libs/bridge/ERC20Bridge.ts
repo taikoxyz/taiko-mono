@@ -2,17 +2,27 @@ import { getContract, type Hash } from '@wagmi/core';
 import { UserRejectedRequestError } from 'viem';
 
 import { erc20ABI, tokenVaultABI } from '$abi';
-import { bridge } from '$config';
+import { bridgeService } from '$config';
 import { ApproveError, InsufficientAllowanceError, NoAllowanceRequiredError, SendERC20Error } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 
-import { MessageStatus, type ApproveArgs, type Bridge, type ClaimArgs, type ERC20BridgeArgs, type RequireAllowanceArgs, type SendERC20Args } from './types';
 import { beforeClaiming } from './beforeClaiming';
-import { ProofService } from './proofService';
+import type { ProofService } from './ProofService';
+import {
+  type ApproveArgs,
+  type Bridge,
+  type ClaimArgs,
+  type ERC20BridgeArgs,
+  MessageStatus,
+  type RequireAllowanceArgs,
+  type SendERC20Args,
+} from './types';
 
 const log = getLogger('ERC20Bridge');
 
 export class ERC20Bridge implements Bridge {
+  private readonly _prover: ProofService;
+
   private static async _prepareTransaction(args: ERC20BridgeArgs) {
     const {
       to,
@@ -35,9 +45,9 @@ export class ERC20Bridge implements Bridge {
     const refundAddress = wallet.account.address;
 
     const gasLimit = !isTokenAlreadyDeployed
-      ? BigInt(bridge.noTokenDeployedGasLimit)
+      ? BigInt(bridgeService.noTokenDeployedGasLimit)
       : processingFee > 0
-      ? bridge.noOwnerGasLimit
+      ? bridgeService.noOwnerGasLimit
       : BigInt(0);
 
     const sendERC20Args: SendERC20Args = [
@@ -54,6 +64,10 @@ export class ERC20Bridge implements Bridge {
     log('Preparing transaction with args', sendERC20Args);
 
     return { tokenVaultContract, sendERC20Args };
+  }
+
+  constructor(prover: ProofService) {
+    this._prover = prover;
   }
 
   async estimateGas(args: ERC20BridgeArgs) {
@@ -175,26 +189,10 @@ export class ERC20Bridge implements Bridge {
     });
 
     if (messageStatus === MessageStatus.NEW) {
-      const proofService = new ProofService();
-
       const srcChainId = Number(message.srcChainId);
       const destChainId = Number(message.destChainId);
-      const srcBridgeAddress = chainContractsMap[srcChainId].bridgeAddress;
-      const srcSignalServiceAddress = chainContractsMap[srcChainId].signalServiceAddress;
-      const destCrossChainSyncAddress = chainContractsMap[destChainId].crossChainSyncAddress;
 
-      const proofArgs: GenerateProofClaimArgs = {
-        msgHash,
-        srcChainId,
-        destChainId,
-        sender: srcBridgeAddress,
-        destCrossChainSyncAddress,
-        srcSignalServiceAddress,
-      };
-
-      log('Generating proof with args', proofArgs);
-
-      const proof = await proofService.generateProofToClaim(proofArgs);
+      const proof = await this._prover.generateProofToClaim(msgHash, srcChainId, destChainId);
 
       const txHash = bridgeContract.write.processMessage([message, proof]);
 

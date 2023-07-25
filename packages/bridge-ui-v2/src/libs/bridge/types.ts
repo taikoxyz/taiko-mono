@@ -1,6 +1,8 @@
 import type { WalletClient } from '@wagmi/core';
 import type { Address, Hash, Hex } from 'viem';
 
+import type { ProofService } from './ProofService';
+
 export enum MessageStatus {
   NEW,
   RETRIABLE,

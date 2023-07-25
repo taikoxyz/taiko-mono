@@ -15,13 +15,17 @@ type BeforeClaimingArgs = {
   wallet: WalletClient;
 };
 
+/**
+ * We are gonna run some common checks here:
+ * 1. Check that the message is owned by the user
+ * 2. Check that the message has not already been processed
+ * 3. Check that the message has not failed
+ * 4. Check that the message is owned by the user
+ *
+ * If all fine, we get back the message status and the bridge contract
+ * in order to continue with the claim
+ */
 export async function beforeClaiming({ wallet, msgHash, ownerAddress }: BeforeClaimingArgs) {
-  // We are gonna run some common checks here:
-  // 1. Check that the message is owned by the user
-  // 2. Check that the message has not already been processed
-  // 3. Check that the message has not failed
-  // 4. Check that the message is owned by the user
-
   const userAddress = wallet.account.address;
   if (ownerAddress.toLowerCase() !== userAddress.toLowerCase()) {
     throw new NoOwnerError('user can not process this as it is not their message');
