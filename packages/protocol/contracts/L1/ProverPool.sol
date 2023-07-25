@@ -44,7 +44,7 @@ contract ProverPool is EssentialContract, IProverPool {
     // can support 1 block per second with an average proof time of 1 hour,
     // then we need a min capacity of 3600, which means each prover shall
     // provide a capacity of at least 3600/32=112.
-    uint32 public constant MAX_CAPACITY_LOWER_BOUND = 32;
+    uint32 public constant MIN_CAPACITY = 32;
     uint64 public constant EXIT_PERIOD = 1 weeks;
     uint64 public constant SLASH_POINTS = 25; // basis points or 0.25%
     uint64 public constant SLASH_MULTIPLIER = 4;
@@ -309,7 +309,7 @@ contract ProverPool is EssentialContract, IProverPool {
     {
         // Check parameters
         if (
-            maxCapacity < MAX_CAPACITY_LOWER_BOUND
+            maxCapacity < MIN_CAPACITY
                 || amount / maxCapacity < MIN_STAKE_PER_CAPACITY
                 || rewardPerGas == 0
         ) revert INVALID_PARAMS();
