@@ -37,7 +37,6 @@
     );
     minCapacity = reqs.minCapacity;
     minStakePerCapacity = reqs.minStakePerCapacity;
-    console.log('reqs', reqs);
     amount = ethers.utils.formatUnits(minStakePerCapacity.toString(), 8);
     capacity = reqs.minCapacity;
   }
