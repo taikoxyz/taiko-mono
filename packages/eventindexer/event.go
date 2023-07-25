@@ -21,6 +21,7 @@ var (
 	EventNameStaked        = "Staked"
 	EventNameExited        = "Exited"
 	EventNameWithdrawn     = "Withdrawn"
+	EventNameMint          = "Mint"
 )
 
 // Event represents a stored EVM event. The fields will be serialized
