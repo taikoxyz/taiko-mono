@@ -5,10 +5,9 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/labstack/gommon/log"
 	"github.com/pkg/errors"
-	"golang.org/x/sync/errgroup"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 )
 
 type FilterFunc func(
@@ -184,6 +183,33 @@ func L2FilterFunc(
 
 			return nil
 		})
+
+		wg.Go(func() error {
+			liquidityAdded, err := swap.FilterMint(filterOpts, nil)
+
+			if err != nil {
+				return errors.Wrap(err, "svc.bridge.FilterMint")
+			}
+
+			// only save ones above 0.1 ETH, this is only for Galaxe
+			// and we dont care about the rest
+			err = svc.saveLiquidityAddedEvents(ctx, chainID, liquidityAdded)
+			if err != nil {
+				return errors.Wrap(err, "svc.saveLiquidityAddedEvents")
+			}
+
+			return nil
+		})
+	}
+
+	err := wg.Wait()
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			log.Error("context cancelled")
+			return err
+		}
+
+		return err
 	}
 
 	return nil
