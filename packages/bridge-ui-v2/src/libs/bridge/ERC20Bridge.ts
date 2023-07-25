@@ -1,23 +1,23 @@
-import { getContract, type Hash, type WalletClient } from '@wagmi/core';
+import { getContract, type Hash } from '@wagmi/core';
 import { UserRejectedRequestError } from 'viem';
 
 import { erc20ABI, tokenVaultABI } from '$abi';
 import { bridgeService } from '$config';
+import { chainContractsMap } from '$libs/chain';
 import { ApproveError, InsufficientAllowanceError, NoAllowanceRequiredError, SendERC20Error } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 
 import type { Prover } from '../proof/Prover';
-import { beforeClaiming } from './beforeClaiming';
+import { Bridge } from './Bridge';
 import {
   type ApproveArgs,
   type ClaimArgs,
   type ERC20BridgeArgs,
   MessageStatus,
+  type ReleaseArgs,
   type RequireAllowanceArgs,
   type SendERC20Args,
-  type Message,
 } from './types';
-import { Bridge } from './Bridge';
 
 const log = getLogger('ERC20Bridge');
 
@@ -178,18 +178,24 @@ export class ERC20Bridge extends Bridge {
     }
   }
 
-  async claim(msgHash: Hash, message: Message, wallet: WalletClient) {
-    const { messageStatus, bridgeContract } = await super.beforeClaiming(msgHash, message.owner, wallet);
+  async claim(args: ClaimArgs) {
+    const { messageStatus, destBridgeContract } = await super.beforeClaiming(args);
 
     let txHash: Hash;
+    const { msgHash, message } = args;
+    const srcChainId = Number(message.srcChainId);
+    const destChainId = Number(message.destChainId);
 
     if (messageStatus === MessageStatus.NEW) {
-      const srcChainId = Number(message.srcChainId);
-      const destChainId = Number(message.destChainId);
-
       const proof = await this._prover.generateProofToClaim(msgHash, srcChainId, destChainId);
 
-      txHash = await bridgeContract.write.processMessage([message, proof]);
+      if (message.gasLimit > BigInt(2500000)) {
+        txHash = await destBridgeContract.write.processMessage([message, proof], {
+          gas: message.gasLimit,
+        });
+      } else {
+        txHash = await destBridgeContract.write.processMessage([message, proof]);
+      }
 
       log('Transaction hash for processMessage call', txHash);
 
@@ -200,7 +206,7 @@ export class ERC20Bridge extends Bridge {
       log('Retrying message', message);
 
       // Last attempt to send the message: isLastAttempt = true
-      txHash = await bridgeContract.write.retryMessage([message, true]);
+      txHash = await destBridgeContract.write.retryMessage([message, true]);
 
       log('Transaction hash for retryMessage call', txHash);
     }
@@ -208,7 +214,26 @@ export class ERC20Bridge extends Bridge {
     return txHash;
   }
 
-  async release() {
-    return Promise.resolve('0x' as Hash);
+  async release(args: ReleaseArgs) {
+    await super.beforeReleasing(args);
+
+    const { msgHash, message, wallet } = args;
+    const srcChainId = Number(message.srcChainId);
+    const destChainId = Number(message.destChainId);
+
+    const proof = await this._prover.generateProofToRelease(msgHash, srcChainId, destChainId);
+
+    const srcTokenVaultAddress = chainContractsMap[wallet.chain.id].tokenVaultAddress;
+    const srcTokenVaultContract = getContract({
+      walletClient: wallet,
+      abi: tokenVaultABI,
+      address: srcTokenVaultAddress,
+    });
+
+    const txHash = await srcTokenVaultContract.write.releaseERC20([message, proof]);
+
+    log('Transaction hash for releaseEther call', txHash);
+
+    return txHash;
   }
 }

@@ -1,6 +1,8 @@
 import type { Hash, Hex } from 'viem';
 
-export class ERC721Bridge implements Bridge {
+import { Bridge } from './Bridge';
+
+export class ERC721Bridge extends Bridge {
   async estimateGas(): Promise<bigint> {
     return Promise.resolve(BigInt(0));
   }

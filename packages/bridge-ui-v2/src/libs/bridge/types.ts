@@ -1,7 +1,5 @@
-import type { WalletClient } from '@wagmi/core';
-import type { Address, Hash, Hex } from 'viem';
-
-import type { ProofService } from '../proof/Prover';
+import type { Hash, WalletClient } from '@wagmi/core';
+import type { Address, Hex } from 'viem';
 
 export enum MessageStatus {
   NEW,
@@ -104,8 +102,4 @@ export type ClaimArgs = {
   wallet: WalletClient;
 };
 
-export type ReleaseArgs = {
-  msgHash: Hash;
-  message: Message;
-  wallet: WalletClient;
-};
+export type ReleaseArgs = ClaimArgs;

@@ -58,6 +58,10 @@ export class MessageStatusError extends Error {
   name = 'MessageStatusError';
 }
 
-export class NoOwnerError extends Error {
-  name = 'NoOwnerError';
+export class WrongOwnerError extends Error {
+  name = 'WrongOwnerError';
+}
+
+export class WrongChainError extends Error {
+  name = 'WrongChainError';
 }

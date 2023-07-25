@@ -127,7 +127,7 @@ export class Prover {
       throw new PendingBlockError('block is pending');
     }
 
-    // ender => srcBridgeAddress
+    // sender => srcBridgeAddress
     const key = await Prover._getKey(srcBridgeAddress, msgHash);
 
     const clientWithEthProofRequest = destClient as ClientWithEthGetProofRequest;
