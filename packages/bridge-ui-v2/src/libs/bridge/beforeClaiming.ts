@@ -1,11 +1,11 @@
-import { getContract, type Address, type Hash, type WalletClient } from '@wagmi/core';
+import { type Address, getContract, type Hash, type WalletClient } from '@wagmi/core';
 
 import { bridgeABI } from '$abi';
+import { chainContractsMap } from '$libs/chain';
 import { MessageStatusError, NoOwnerError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 
 import { MessageStatus } from './types';
-import { chainContractsMap } from '$libs/chain';
 
 const log = getLogger('bridge:beforeClaiming');
 
@@ -13,7 +13,7 @@ type BeforeClaimingArgs = {
   msgHash: Hash;
   ownerAddress: Address;
   wallet: WalletClient;
-}
+};
 
 export async function beforeClaiming({ wallet, msgHash, ownerAddress }: BeforeClaimingArgs) {
   // We are gonna run some common checks here:
@@ -27,7 +27,7 @@ export async function beforeClaiming({ wallet, msgHash, ownerAddress }: BeforeCl
     throw new NoOwnerError('user can not process this as it is not their message');
   }
 
-  const { bridgeAddress } = chainContractsMap[wallet.chain.id]
+  const { bridgeAddress } = chainContractsMap[wallet.chain.id];
 
   const bridgeContract = getContract({
     address: bridgeAddress,
@@ -50,5 +50,6 @@ export async function beforeClaiming({ wallet, msgHash, ownerAddress }: BeforeCl
     throw new MessageStatusError('user can not process this as message has failed');
   }
 
-  return {messageStatus, bridgeContract};
+  // We will need these guys to continue with the claim
+  return { messageStatus, bridgeContract };
 }

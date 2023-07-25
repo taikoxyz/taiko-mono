@@ -3,13 +3,20 @@ import { UserRejectedRequestError } from 'viem';
 
 import { bridgeABI } from '$abi';
 import { bridge } from '$config';
+import { chainContractsMap } from '$libs/chain';
 import { SendMessageError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 
-import { beforeClaiming, checkBeforeClaiming } from './beforeClaiming';
-import { type Bridge, type ClaimArgs, type ETHBridgeArgs, type Message,MessageStatus, type GenerateProofArgs, type GenerateProofClaimArgs } from './types';
-import { chainContractsMap } from '$libs/chain';
+import { beforeClaiming } from './beforeClaiming';
 import { ProofService } from './ProofService';
+import {
+  type Bridge,
+  type ClaimArgs,
+  type ETHBridgeArgs,
+  type GenerateProofClaimArgs,
+  type Message,
+  MessageStatus,
+} from './types';
 
 const log = getLogger('bridge:ETHBridge');
 
@@ -101,7 +108,7 @@ export class ETHBridge implements Bridge {
   async claim(args: ClaimArgs) {
     const { msgHash, wallet, message } = args;
 
-    const {messageStatus, bridgeContract} = await beforeClaiming({
+    const { messageStatus, bridgeContract } = await beforeClaiming({
       wallet,
       msgHash,
       ownerAddress: message.owner,
@@ -110,11 +117,11 @@ export class ETHBridge implements Bridge {
     if (messageStatus === MessageStatus.NEW) {
       const proofService = new ProofService();
 
-      const srcChainId = Number(message.srcChainId)
-      const destChainId = Number(message.destChainId)
-      const srcBridgeAddress = chainContractsMap[srcChainId].bridgeAddress
-      const srcSignalServiceAddress = chainContractsMap[srcChainId].signalServiceAddress
-      const destCrossChainSyncAddress = chainContractsMap[destChainId].crossChainSyncAddress
+      const srcChainId = Number(message.srcChainId);
+      const destChainId = Number(message.destChainId);
+      const srcBridgeAddress = chainContractsMap[srcChainId].bridgeAddress;
+      const srcSignalServiceAddress = chainContractsMap[srcChainId].signalServiceAddress;
+      const destCrossChainSyncAddress = chainContractsMap[destChainId].crossChainSyncAddress;
 
       const proofArgs: GenerateProofClaimArgs = {
         msgHash,
@@ -123,7 +130,7 @@ export class ETHBridge implements Bridge {
         sender: srcBridgeAddress,
         destCrossChainSyncAddress,
         srcSignalServiceAddress,
-      }
+      };
 
       log('Generating proof with args', proofArgs);
 
@@ -133,8 +140,16 @@ export class ETHBridge implements Bridge {
 
       log('Transaction hash for processMessage call', txHash);
 
+      // TODO: possibly handle unpredictable gas limit error
+      //       by trying with a higher gas limit
     } else {
       // MessageStatus.RETRIABLE
+      log('Retrying message', message);
+
+      // Last attempt to send the message: isLastAttempt = true
+      const txHash = bridgeContract.write.retryMessage([message, true]);
+
+      log('Transaction hash for retryMessage call', txHash);
     }
 
     return Promise.resolve('0x' as Hash);
