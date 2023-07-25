@@ -1,5 +1,13 @@
 import type { Address, Hash, Hex } from 'viem';
 
+export type GenerateProofArgs = {
+  msgHash: Hash;
+  contractAddress: Address;
+  proofForAccountAddress: Address;
+  crossChainSyncChainId: number;
+  clientChainId: number;
+};
+
 export type StorageEntry = {
   key: string;
   value: Hex;

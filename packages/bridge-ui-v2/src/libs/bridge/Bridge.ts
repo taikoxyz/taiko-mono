@@ -22,20 +22,21 @@ export abstract class Bridge {
    * We are gonna run some common checks here:
    * 1. Check that the wallet is connected to the destination chain
    * 2. Check that the message is owned by the user
-   * 3. Check that the message has not already been processed
+   * 3. Check that the message has not been claimed already
    * 4. Check that the message has not failed
-   * 5. Check that the message is owned by the user
    *
    * Important: wallet must be connected to the destination chain
    */
   async beforeClaiming({ msgHash, message, wallet }: ClaimArgs) {
     const destChainId = Number(message.destChainId);
+    // Are we connected to the destination chain?
     if (wallet.chain.id !== destChainId) {
       throw new WrongChainError('wallet must be connected to the destination chain');
     }
 
     const { owner } = message;
     const userAddress = wallet.account.address;
+    // Are we the owner of the message?
     if (owner.toLowerCase() !== userAddress.toLowerCase()) {
       throw new WrongOwnerError('user cannot process this as it is not their message');
     }
@@ -45,6 +46,9 @@ export abstract class Bridge {
     const destBridgeContract = getContract({
       address: destBridgeAddress,
       abi: bridgeABI,
+
+      // We are gonna resuse this contract to actually process the message
+      // so we'll need to sign the transaction
       walletClient: wallet,
     });
 
@@ -52,10 +56,12 @@ export abstract class Bridge {
 
     log(`Claiming message with status ${messageStatus}`);
 
+    // Has it been claimed already?
     if (messageStatus === MessageStatus.DONE) {
       throw new MessageStatusError('message already processed');
     }
 
+    // Has it failed?
     if (messageStatus === MessageStatus.FAILED) {
       throw new MessageStatusError('user can not process this as message has failed');
     }
@@ -71,16 +77,19 @@ export abstract class Bridge {
    */
   async beforeReleasing({ msgHash, message, wallet }: ClaimArgs) {
     const srcChainId = Number(message.srcChainId);
+    // Are we connected to the source chain?
     if (wallet.chain.id !== srcChainId) {
       throw new WrongChainError('wallet must be connected to the source chain');
     }
 
     const { owner } = message;
     const userAddress = wallet.account.address;
+    // Are we the owner of the message?
     if (owner.toLowerCase() !== userAddress.toLowerCase()) {
       throw new WrongOwnerError('user cannot process this as it is not their message');
     }
 
+    // Before releasing we need to make sure the message has failed
     const destChainId = Number(message.destChainId);
     const destBridgeAddress = chainContractsMap[destChainId].bridgeAddress;
 
