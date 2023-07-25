@@ -14,7 +14,7 @@ export const getProverRequirements = async (
   );
 
   const minStakePerCapacity = await contract.MIN_STAKE_PER_CAPACITY();
-  const minCapacity = await contract.MAX_CAPACITY_LOWER_BOUND();
+  const minCapacity = await contract.MIN_CAPACITY();
 
   return { minStakePerCapacity, minCapacity };
 };
