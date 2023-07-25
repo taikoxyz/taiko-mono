@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { noop } from 'svelte/internal';
   import { t } from 'svelte-i18n';
 
   import { Icon } from '$components/Icon';
   import type { Token } from '$libs/token';
+  import { noop } from '$libs/util/noop';
 
   import { symbolToIconMap } from './symbolToIconMap';
 
