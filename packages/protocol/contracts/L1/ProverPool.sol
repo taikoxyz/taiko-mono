@@ -47,8 +47,8 @@ contract ProverPool is EssentialContract, IProverPool {
     uint32 public constant MAX_CAPACITY_LOWER_BOUND = 128;
     uint64 public constant EXIT_PERIOD = 1 weeks;
     uint64 public constant SLASH_POINTS = 25; // basis points or 0.25%
+    uint64 public constant SLASH_MULTIPLIER = 4;
     uint64 public constant MIN_STAKE_PER_CAPACITY = 10_000;
-    uint64 public constant MIN_SLASH_AMOUNT = 1e8; // 1 token
     uint256 public constant MAX_NUM_PROVERS = 32;
     uint256 public constant MIN_CHANGE_DELAY = 1 hours;
 
@@ -135,7 +135,13 @@ contract ProverPool is EssentialContract, IProverPool {
 
     /// @dev Slashes a prover.
     /// @param addr The address of the prover to slash.
-    function slashProver(address addr) external onlyFromProtocol {
+    function slashProver(
+        address addr,
+        uint64 proofReward
+    )
+        external
+        onlyFromProtocol
+    {
         (Staker memory staker, Prover memory prover) = getStaker(addr);
         unchecked {
             // if the exit is mature, we do not count it in the total slash-able
@@ -148,8 +154,8 @@ contract ProverPool is EssentialContract, IProverPool {
             if (slashableAmount == 0) return;
 
             uint64 amountToSlash = uint64(
-                (slashableAmount * SLASH_POINTS / 10_000).max(MIN_SLASH_AMOUNT)
-                    .min(slashableAmount)
+                (slashableAmount * SLASH_POINTS / 10_000 / staker.maxCapacity)
+                    .max(SLASH_MULTIPLIER * proofReward).min(slashableAmount)
             );
 
             if (amountToSlash <= staker.exitAmount) {
