@@ -75,8 +75,27 @@ This guide will help get your contract verified on a Taiko testnet!
     Follow Blockscout's [official guide](https://docs.blockscout.com/for-users/verifying-a-smart-contract) to verify your contract on Taiko's blockscout explorers.
   </Tab>
   <Tab>
-    <Callout type="warning">
-        Foundry's `verify-contract` command is currently broken with Blockscout (see why [here](https://github.com/foundry-rs/foundry/issues/4909)). Please check the Hardhat or Blockscout steps to verify your contract.
-    </Callout>
+    Copy the following Foundry test repo https://github.com/MarcusWentz/foundry-testing using git clone SSH
+    ```sh
+    git clone git@github.com:MarcusWentz/foundry-testing.git
+    ```
+    Deploy to Taiko Grimsvotn L2 network and verify at the same time on Blockscout (with EIP-1559 gas [transaction type 1])
+    ```sh
+    forge create --rpc-url https://rpc.test.taiko.xyz --private-key $devTestnetPrivateKey src/Contract.sol:SimpleStorage --verify --verifier blockscout --verifier-url https://explorer.test.taiko.xyz/api\? 
+    ```
+    Deploy to Taiko Eldfell L3 network and verify at the same time on Blockscout (with EIP-1559 gas [transaction type 1]) 
+    ```sh
+    forge create --rpc-url https://rpc.l3test.taiko.xyz --private-key $devTestnetPrivateKey src/Contract.sol:SimpleStorage --verify --verifier blockscout --verifier-url https://blockscoutapi.l3test.taiko.xyz/api\?
+    ```    
+    <Callout type="info">
+        To use Legacy gas for [transaction type 0], add the 
+        ```sh
+        --legacy 
+        ```
+        flag with forge create. Example: 
+        ```
+        forge create --legacy --rpc-url https://rpc.test.taiko.xyz --private-key $devTestnetPrivateKey src/Contract.sol:SimpleStorage --verify --verifier blockscout --verifier-url https://explorer.test.taiko.xyz/api\?  
+        ```
+    </Callout> 
   </Tab>
 </Tabs>
