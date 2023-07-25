@@ -29,7 +29,7 @@ export class Prover {
 
     const crossChainSyncAddress = chainContractsMap[crossChainSyncChainId].crossChainSyncAddress;
 
-    // Get the block from the chain A based on the latest block hash
+    // Get the block from chain A based on the latest block hash
     // we get cross chain (Taiko contract on chain B)
     const crossChainSyncContract = getContract({
       chainId: crossChainSyncChainId,
