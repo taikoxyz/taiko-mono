@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.8.0...eventindexer-v0.9.0) (2023-07-24)
+
+
+### Features
+
+* **eventindexer:** speed up sync ([#14258](https://github.com/taikoxyz/taiko-mono/issues/14258)) ([d337174](https://github.com/taikoxyz/taiko-mono/commit/d337174742bfd8d9c220fda0a0e1c9626fd571c2))
+
 ## [0.8.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.7.0...eventindexer-v0.8.0) (2023-07-10)
 
 

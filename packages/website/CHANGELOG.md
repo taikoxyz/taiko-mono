@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.12.0](https://github.com/taikoxyz/taiko-mono/compare/website-v0.11.0...website-v0.12.0) (2023-07-24)
+
+
+### Features
+
+* **website:** add deploy a contract documentation using thirdweb ([#13935](https://github.com/taikoxyz/taiko-mono/issues/13935)) ([4ce016a](https://github.com/taikoxyz/taiko-mono/commit/4ce016a6a2be1ed4bdc2ed8835f427152406321a))
+* **website:** add l3 error handling ([#14231](https://github.com/taikoxyz/taiko-mono/issues/14231)) ([2b9909e](https://github.com/taikoxyz/taiko-mono/commit/2b9909eb673a3e81c67deac4f6616d0f081b2f40))
+* **website:** add node runner manuals ([#14236](https://github.com/taikoxyz/taiko-mono/issues/14236)) ([76d2127](https://github.com/taikoxyz/taiko-mono/commit/76d2127a5863a19b80ae661a95c16986c9c1c47b))
+* **website:** add private key warning ([#14240](https://github.com/taikoxyz/taiko-mono/issues/14240)) ([485906b](https://github.com/taikoxyz/taiko-mono/commit/485906b0d76081f939fbee434d65e8cbe6f4e0c2))
+* **website:** add reset metamask step ([#14229](https://github.com/taikoxyz/taiko-mono/issues/14229)) ([bb77e83](https://github.com/taikoxyz/taiko-mono/commit/bb77e83b1500f596234ece45be65b89dfb8613ea))
+* **website:** add warning for casual provers ([#14232](https://github.com/taikoxyz/taiko-mono/issues/14232)) ([6608d63](https://github.com/taikoxyz/taiko-mono/commit/6608d63c91f73d3814fe6ba3a1df66bc601553b2))
+* **website:** docs guide prover withdraw TTKO ([#14133](https://github.com/taikoxyz/taiko-mono/issues/14133)) ([1a136d4](https://github.com/taikoxyz/taiko-mono/commit/1a136d48a733d386482102ca0710f0276f0acbf4))
+* **website:** Docs Taiko L2 EIP-1559 high level overview ([#14187](https://github.com/taikoxyz/taiko-mono/issues/14187)) ([ac52f57](https://github.com/taikoxyz/taiko-mono/commit/ac52f575b6ac5a173bc6e96679f0614fcd61aa27))
+* **website:** update blogs ([#14201](https://github.com/taikoxyz/taiko-mono/issues/14201)) ([3ae2597](https://github.com/taikoxyz/taiko-mono/commit/3ae25973f7d1789cba880a2d423c1d1f3b4e049a))
+* **website:** Update eldfell-l3-node-runner-manual.mdx ([#14247](https://github.com/taikoxyz/taiko-mono/issues/14247)) ([e45f89c](https://github.com/taikoxyz/taiko-mono/commit/e45f89cac1b2ba114616cb176a1d2082016bb8df))
+* **website:** update mxc link ([#14143](https://github.com/taikoxyz/taiko-mono/issues/14143)) ([0bba1e4](https://github.com/taikoxyz/taiko-mono/commit/0bba1e4ba4226849725b3f59baa018f807e3db25))
+* **website:** update owlto and kalkiswap ([#14234](https://github.com/taikoxyz/taiko-mono/issues/14234)) ([01ff9fc](https://github.com/taikoxyz/taiko-mono/commit/01ff9fc5ae62fe420c21567ec024d37a8c63a873))
+* **website:** update setting up wallet docs ([#14227](https://github.com/taikoxyz/taiko-mono/issues/14227)) ([3751198](https://github.com/taikoxyz/taiko-mono/commit/3751198826c1db7de00ecb83645c13b23d1ed9e3))
+* **website:** update wallet setup docs ([#14209](https://github.com/taikoxyz/taiko-mono/issues/14209)) ([57ef8f2](https://github.com/taikoxyz/taiko-mono/commit/57ef8f271b5b248ea8492525731bcaf68367aed4))
+* **website:** update website logo to use svg ([#14142](https://github.com/taikoxyz/taiko-mono/issues/14142)) ([1217fb6](https://github.com/taikoxyz/taiko-mono/commit/1217fb6acb8e0324821f7fac829e55eb88228e98))
+
+
+### Bug Fixes
+
+* **docs:** fix links ([#14205](https://github.com/taikoxyz/taiko-mono/issues/14205)) ([a7fd219](https://github.com/taikoxyz/taiko-mono/commit/a7fd219aa7ef320ae4ab2e737e71a48527c6b386))
+* **repo:** fix typos ([#14165](https://github.com/taikoxyz/taiko-mono/issues/14165)) ([020972a](https://github.com/taikoxyz/taiko-mono/commit/020972acd0e71877b5f0d76e6a5319f5a814038e))
+* **website:** broken link ([#14153](https://github.com/taikoxyz/taiko-mono/issues/14153)) ([077b2a1](https://github.com/taikoxyz/taiko-mono/commit/077b2a19607486e5d835adc2a59ab6c662c8c0aa))
+* **website:** fix broken link ([#14200](https://github.com/taikoxyz/taiko-mono/issues/14200)) ([8fddb30](https://github.com/taikoxyz/taiko-mono/commit/8fddb30395ae43e257885d6a4af01dff3e4499db))
+* **website:** fix typo in banner ([#14204](https://github.com/taikoxyz/taiko-mono/issues/14204)) ([64a8766](https://github.com/taikoxyz/taiko-mono/commit/64a8766963088158c884289a494c0bb4f4c1e12a))
+* **website:** make more clear ttko deposit step ([#14228](https://github.com/taikoxyz/taiko-mono/issues/14228)) ([1d7d9b7](https://github.com/taikoxyz/taiko-mono/commit/1d7d9b7a50ff3317ab51105651920df996f07e82))
+* **website:** update bridging docs link ([#14193](https://github.com/taikoxyz/taiko-mono/issues/14193)) ([4bc4038](https://github.com/taikoxyz/taiko-mono/commit/4bc4038d0bd23ceee1955ea4d134968644d428a7))
+
 ## [0.11.0](https://github.com/taikoxyz/taiko-mono/compare/website-v0.10.0...website-v0.11.0) (2023-07-10)
 
 
