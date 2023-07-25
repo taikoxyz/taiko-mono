@@ -198,12 +198,12 @@ export default [
   },
   {
     inputs: [],
-    name: 'MAX_CAPACITY_LOWER_BOUND',
+    name: 'MAX_NUM_PROVERS',
     outputs: [
       {
-        internalType: 'uint32',
+        internalType: 'uint256',
         name: '',
-        type: 'uint32',
+        type: 'uint256',
       },
     ],
     stateMutability: 'view',
@@ -211,12 +211,12 @@ export default [
   },
   {
     inputs: [],
-    name: 'MAX_NUM_PROVERS',
+    name: 'MIN_CAPACITY',
     outputs: [
       {
-        internalType: 'uint256',
+        internalType: 'uint32',
         name: '',
-        type: 'uint256',
+        type: 'uint32',
       },
     ],
     stateMutability: 'view',
@@ -237,7 +237,7 @@ export default [
   },
   {
     inputs: [],
-    name: 'MIN_SLASH_AMOUNT',
+    name: 'MIN_STAKE_PER_CAPACITY',
     outputs: [
       {
         internalType: 'uint64',
@@ -250,7 +250,7 @@ export default [
   },
   {
     inputs: [],
-    name: 'MIN_STAKE_PER_CAPACITY',
+    name: 'SLASH_MULTIPLIER',
     outputs: [
       {
         internalType: 'uint64',
@@ -624,6 +624,11 @@ export default [
         internalType: 'address',
         name: 'addr',
         type: 'address',
+      },
+      {
+        internalType: 'uint64',
+        name: 'proofReward',
+        type: 'uint64',
       },
     ],
     name: 'slashProver',
