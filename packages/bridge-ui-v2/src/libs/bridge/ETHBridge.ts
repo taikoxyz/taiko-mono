@@ -1,4 +1,4 @@
-import { getContract, type Hash, type WalletClient } from '@wagmi/core';
+import { getContract, type Hash } from '@wagmi/core';
 import { UserRejectedRequestError } from 'viem';
 
 import { bridgeABI } from '$abi';

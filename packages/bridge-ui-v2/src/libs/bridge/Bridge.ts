@@ -1,13 +1,13 @@
-import { getContract, type WalletClient } from '@wagmi/core';
-import type { Address, Hash } from 'viem';
+import { getContract } from '@wagmi/core';
+import type { Hash } from 'viem';
 
 import { bridgeABI } from '$abi';
 import { chainContractsMap } from '$libs/chain';
-import { MessageStatusError, NoOwnerError, WrongChainError, WrongOwnerError } from '$libs/error';
+import { MessageStatusError, WrongChainError, WrongOwnerError } from '$libs/error';
 import type { Prover } from '$libs/proof';
 import { getLogger } from '$libs/util/logger';
 
-import { type BridgeArgs, type ClaimArgs, type Message, MessageStatus, type ReleaseArgs } from './types';
+import { type BridgeArgs, type ClaimArgs, MessageStatus, type ReleaseArgs } from './types';
 
 const log = getLogger('bridge:Bridge');
 
