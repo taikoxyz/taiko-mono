@@ -1,58 +1,58 @@
-import type { WalletClient } from '@wagmi/core';
-import type { Address, Hex } from 'viem';
+import type { ChainID } from '$libs/chain';
+import type { Hash, WalletClient } from '@wagmi/core';
+import type { Address, Hex, TransactionReceipt } from 'viem';
 
 export enum MessageStatus {
-  New,
-  Retriable,
-  Done,
-  Failed,
+  NEW,
+  RETRIABLE,
+  DONE,
+  FAILED,
 }
 
-// Bridge sendMessage(message: Message)
-export type BridgeMessage = {
+// Bridge sendMessage()
+// Claim/Retry processMessage()/retryMessage()
+// Release releaseEthe()/releaseERC20()
+export type Message = {
   // Message ID. Will be set in contract
-  Id: bigint;
+  id: bigint;
   // Message sender address (auto filled)
-  Sender: Address;
+  sender: Address;
   // Source chain ID (auto filled)
-  SrcChainId: bigint;
+  srcChainId: bigint;
   // Destination chain ID where the `to` address lives (auto filled)
-  DestChainId: bigint;
+  destChainId: bigint;
   // Owner address of the bridged asset.
-  Owner: Address;
+  owner: Address;
   // Destination owner address
-  To: Address;
+  to: Address;
   // Alternate address to send any refund. If blank, defaults to owner.
-  RefundAddress: Address;
+  refundAddress: Address;
   // Deposited Ether minus the processingFee.
-  DepositValue: bigint;
+  depositValue: bigint;
   // callValue to invoke on the destination chain, for ERC20 transfers.
-  CallValue: bigint;
+  callValue: bigint;
   // Processing fee for the relayer. Zero if owner will process themself.
-  ProcessingFee: bigint;
+  processingFee: bigint;
   // gasLimit to invoke on the destination chain, for ERC20 transfers.
-  GasLimit: bigint;
+  gasLimit: bigint;
   // callData to invoke on the destination chain, for ERC20 transfers.
-  Data: Hex;
+  data: Hex;
   // Optional memo.
-  Memo: string;
+  memo: string;
 };
 
-// todo: relayer returns with capital letters, switch to lowercase
-export type Message = {
-  id: bigint;
-  sender: Address;
-  srcChainId: bigint;
-  destChainId: bigint;
+export type BridgeTransaction = {
+  hash: Hash;
   owner: Address;
-  to: Address;
-  refundAddress: Address;
-  depositValue: bigint;
-  callValue: bigint;
-  processingFee: bigint;
-  gasLimit: bigint;
-  data: Hex;
-  memo: string;
+  status: MessageStatus;
+  amount: bigint;
+  symbol: string;
+  decimals: number;
+  srcChainId: ChainID;
+  destChainId: ChainID;
+  receipt?: TransactionReceipt;
+  msgHash?: Hash;
+  message?: Message;
 };
 
 // TokenVault sendERC20(...args)
