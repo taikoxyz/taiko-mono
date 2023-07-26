@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from 'svelte';
+  import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
 
   import { Tooltip } from '$components/Tooltip';
@@ -10,6 +10,7 @@
 
   const dispatch = createEventDispatcher();
 
+  // TODO: nope!!
   $: {
     let tokenIds;
     if (tokenIdInput === '') {

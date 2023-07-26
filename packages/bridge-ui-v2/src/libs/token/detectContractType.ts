@@ -3,6 +3,8 @@ import { readContract } from '@wagmi/core';
 export async function detectContractType(contractAddress: string, tokenId: number) {
   // eslint-disable-next-line no-console
   console.info('detectContractType', contractAddress);
+
+  // Use abi from @wagmi/core, and get it setup in wagmi.config.ts
   const ERC721_ABI = [
     {
       constant: true,
@@ -32,14 +34,15 @@ export async function detectContractType(contractAddress: string, tokenId: numbe
 
   try {
     await readContract({
-      address: contractAddress as `0x${string}`,
+      address: contractAddress as `0x${string}`, // TODO: type Address
       abi: ERC721_ABI,
       functionName: 'ownerOf',
       args: [tokenId],
     });
+    // TODO: please use getLogger from util/logger
     // eslint-disable-next-line no-console
     console.info('ERC721');
-    return 'ERC721';
+    return 'ERC721'; // TODO: use TokenType
   } catch (err) {
     // eslint-disable-next-line no-console
     console.log(err);
@@ -52,11 +55,11 @@ export async function detectContractType(contractAddress: string, tokenId: numbe
       });
       // eslint-disable-next-line no-console
       console.info('ERC1155');
-      return 'ERC1155';
+      return 'ERC1155'; // TODO: use TokenType
     } catch (err) {
       // eslint-disable-next-line no-console
       console.log(err);
-      return 'UNKNOWN';
+      return 'UNKNOWN'; // TODO: throw UnknownTypeError and handle in the UI?
     }
   }
 }
