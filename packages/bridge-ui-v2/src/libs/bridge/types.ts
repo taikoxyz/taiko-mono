@@ -62,13 +62,13 @@ export type RelayerMessage = {
 
 export type BridgeTransaction = {
   hash: Hash;
-  owner: Address;
-  status: MessageStatus;
+  from: Address;
   amount: bigint;
   symbol: string;
   decimals: number;
   srcChainId: ChainID;
   destChainId: ChainID;
+  status?: MessageStatus;
   receipt?: TransactionReceipt;
   msgHash?: Hash;
   message?: Message;
