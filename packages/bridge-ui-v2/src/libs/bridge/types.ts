@@ -1,6 +1,7 @@
-import type { ChainID } from '$libs/chain';
 import type { Hash, WalletClient } from '@wagmi/core';
 import type { Address, Hex, TransactionReceipt } from 'viem';
+
+import type { ChainID } from '$libs/chain';
 
 export enum MessageStatus {
   NEW,
