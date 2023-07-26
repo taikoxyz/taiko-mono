@@ -44,7 +44,14 @@ contract MockProverPool is IProverPool {
 
     function releaseProver(address prover) external pure override { }
 
-    function slashProver(address prover) external pure override { }
+    function slashProver(
+        address prover,
+        uint64 proofReward
+    )
+        external
+        pure
+        override
+    { }
 }
 
 abstract contract TaikoL1TestBase is Test {
