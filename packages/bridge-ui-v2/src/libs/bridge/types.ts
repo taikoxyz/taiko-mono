@@ -1,4 +1,5 @@
 import type { Hash, WalletClient } from '@wagmi/core';
+
 import type { Address, Hex, TransactionReceipt } from 'viem';
 
 import type { ChainID } from '$libs/chain';
@@ -13,6 +14,7 @@ export enum MessageStatus {
 // Bridge sendMessage()
 // Claim/Retry processMessage()/retryMessage()
 // Release releaseEthe()/releaseERC20()
+// Bridge sendMessage(message: Message)
 export type Message = {
   // Message ID. Will be set in contract
   id: bigint;
@@ -132,7 +134,10 @@ export type RequireAllowanceArgs = {
   amount: bigint;
 };
 
-export interface Bridge {
-  estimateGas(args: BridgeArgs): Promise<bigint>;
-  bridge(args: BridgeArgs): Promise<Hex>;
-}
+export type ClaimArgs = {
+  msgHash: Hash;
+  message: Message;
+  wallet: WalletClient;
+};
+
+export type ReleaseArgs = ClaimArgs;

@@ -21,8 +21,8 @@
 
   let classes = classNames('ChainSelector', $$props.class);
   let buttonClasses = classNames(
-    'px-2 body-small-regular bg-neutral-background',
-    small ? 'py-[6px]' : 'py-[10px]',
+    'body-regular bg-neutral-background',
+    small ? 'px-2 py-[6px]' : 'px-6 py-[10px]',
     small ? 'rounded-md' : 'rounded-[10px]',
     small ? 'w-auto' : 'w-full',
   );

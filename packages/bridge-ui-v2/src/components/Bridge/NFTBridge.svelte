@@ -18,7 +18,7 @@
   let isAddressValid = false;
 
   let contractAddress = '';
-  let imageUrls = Array<any>();
+  let imageUrls = Array<string>();
 
   $: tokenIds = $tokenIdStore;
   $: isButtonDisabled = !($tokenIdStore?.length ?? 0);
@@ -38,6 +38,7 @@
   });
 
   function resetAllStates() {
+    // TODO: change to $store format
     isAddressValid = false;
     contractTypeStore.set('');
     tokenIdStore.set([]);
@@ -48,6 +49,7 @@
   async function handleImport() {
     contractTypeStore.set(await detectContractType(contractAddress, tokenIds[0]));
     let result = null;
+    // TODO: use TokenType enum
     if ($contractTypeStore === 'ERC721') {
       result = await fetchERC721Images(contractAddress, tokenIds);
     } else if ($contractTypeStore === 'ERC1155') {
