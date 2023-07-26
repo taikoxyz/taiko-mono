@@ -5,9 +5,11 @@ import type { Abi } from 'abitype';
 import axios from 'axios';
 
 import { bridgeABI } from '$abi';
-import { type Message, MessageStatus } from '$libs/bridge';
+import type { Message } from '$libs/bridge';
+import { TokenType } from '$libs/token';
 import { getLogger } from '$libs/util/logger';
 
+// import mockedData from '../../mocktx.json'
 import { chainContractsMap, type ChainID, isSupportedChain } from '../chain/chains';
 import type {
   APIRequestParams,
@@ -25,7 +27,7 @@ import type {
 const log = getLogger('RelayerAPIService');
 
 export class RelayerAPIService implements RelayerAPI {
-  private static _filterDuplicateAndWrongBridge(items: APIResponseTransaction[]) {
+  private static _filterDuplicateAndWrongBridge(items: APIResponseTransaction[]): APIResponseTransaction[] {
     const uniqueHashes = new Set<string>();
     const filteredItems: APIResponseTransaction[] = [];
     for (const item of items) {
@@ -84,7 +86,10 @@ export class RelayerAPIService implements RelayerAPI {
 
       const response = await axios.get<APIResponse>(requestURL, { params });
 
+      // response.data.items.push(...mockedData);
       if (response.status >= 400) throw response;
+
+      console.log(response);
 
       log('Events form API', response.data);
 
@@ -133,7 +138,7 @@ export class RelayerAPIService implements RelayerAPI {
     // TODO: maybe we should also filter out unsupported chains here?
     const items = RelayerAPIService._filterDuplicateAndWrongBridge(apiTxs.items);
 
-    const txs = items.map((tx: APIResponseTransaction) => {
+    const txs: BridgeTransaction[] = items.map((tx: APIResponseTransaction) => {
       let data: string = tx.data.Message.Data;
       if (data === '') {
         data = '0x';
@@ -145,16 +150,13 @@ export class RelayerAPIService implements RelayerAPI {
       const transformedTx = {
         status: tx.status,
         amount: BigInt(tx.amount),
-        symbol: tx.canonicalTokenSymbol,
+        symbol: tx.canonicalTokenSymbol || 'ETH',
+        decimals: tx.canonicalTokenDecimals,
         hash: tx.data.Raw.transactionHash,
         from: tx.messageOwner,
         srcChainId: tx.data.Message.SrcChainId,
         destChainId: tx.data.Message.DestChainId,
         msgHash: tx.msgHash,
-        canonicalTokenAddress: tx.canonicalTokenAddress,
-        canonicalTokenSymbol: tx.canonicalTokenSymbol,
-        canonicalTokenName: tx.canonicalTokenName,
-        canonicalTokenDecimals: tx.canonicalTokenDecimals,
         message: {
           id: tx.data.Message.Id,
           to: tx.data.Message.To,
@@ -169,29 +171,15 @@ export class RelayerAPIService implements RelayerAPI {
           depositValue: BigInt(tx.data.Message.DepositValue),
           processingFee: BigInt(tx.data.Message.ProcessingFee),
           refundAddress: tx.data.Message.RefundAddress,
-        } as Message,
+        },
       };
 
       return transformedTx;
     });
 
-    const txsPromises = txs.map(async (tx) => {
-      if (!tx) return;
-      if (tx.from.toLowerCase() !== address.toLowerCase()) return;
-
-      const bridgeTx: BridgeTransaction = {
-        message: tx.message,
-        msgHash: tx.msgHash,
-        status: tx.status,
-        amount: tx.amount,
-        symbol: tx.symbol,
-        decimals: tx.canonicalTokenDecimals,
-        srcChainId: tx.srcChainId,
-        destChainId: tx.destChainId,
-        hash: tx.hash,
-        from: tx.from,
-      };
-
+    const txsPromises = txs.map(async (bridgeTx) => {
+      if (!bridgeTx) return;
+      if (bridgeTx.from.toLowerCase() !== address.toLowerCase()) return;
       const { destChainId, srcChainId, hash, msgHash } = bridgeTx;
 
       // Returns the transaction receipt for hash or null
@@ -217,16 +205,22 @@ export class RelayerAPIService implements RelayerAPI {
       // Update the status
       bridgeTx.status = status;
 
-      if (
-        tx.canonicalTokenAddress &&
-        tx.canonicalTokenAddress !== ('0x0000000000000000000000000000000000000000' as Address)
-      ) {
-        // if it has a canonical address it is a token transfer
+      const type = checkType(bridgeTx);
 
-        bridgeTx.amount = tx.amount;
-        bridgeTx.symbol = tx.symbol;
-        bridgeTx.decimals = tx.canonicalTokenDecimals;
-      }
+      // bridgeTx.message?.data.
+
+      // bridgeTx.symbol = type === TokenType.ETH ? 'ETH' : bridgeTx.symbol;
+
+      // if (
+      //   bridgeTx.symbol &&
+      //   tx.canonicalTokenAddress !== ('0x0000000000000000000000000000000000000000' as Address)
+      // ) {
+      //   // if it has a canonical address it is a token transfer
+
+      //   bridgeTx.amount = tx.amount;
+      //   bridgeTx.symbol = tx.symbol;
+      //   bridgeTx.decimals = tx.canonicalTokenDecimals;
+      // }
 
       return bridgeTx;
     });
@@ -242,7 +236,7 @@ export class RelayerAPIService implements RelayerAPI {
     bridgeTxs.reverse();
 
     // Place new transactions at the top of the list
-    bridgeTxs.sort((tx) => (tx.status === MessageStatus.New ? -1 : 1));
+    // bridgeTxs.sort((tx) => (tx.status === MessageStatus.New ? -1 : 1));
 
     return { txs: bridgeTxs, paginationInfo };
   }
@@ -269,5 +263,19 @@ export class RelayerAPIService implements RelayerAPI {
     }
 
     return blockInfoMap;
+  }
+}
+
+function checkType(bridgeTx: BridgeTransaction): TokenType {
+  const to = bridgeTx.message?.to;
+  switch (to) {
+    case chainContractsMap[Number(bridgeTx.srcChainId)].tokenVaultAddress:
+      return TokenType.ERC20;
+    case chainContractsMap[Number(bridgeTx.srcChainId)].erc721VaultAddress:
+      return TokenType.ERC721;
+    case chainContractsMap[Number(bridgeTx.srcChainId)].erc1155VaultAddress:
+      return TokenType.ERC1155;
+    default:
+      return TokenType.ETH;
   }
 }

@@ -1,7 +1,7 @@
 import type { Address } from '@wagmi/core';
 import type { TransactionReceipt } from 'viem';
 
-import type { BridgeMessage, Message, MessageStatus } from '$libs/bridge';
+import type { Message, MessageStatus, RelayerMessage } from '$libs/bridge';
 import type { ChainID } from '$libs/chain';
 
 export type GetAllByAddressResponse = {
@@ -34,7 +34,7 @@ export interface RelayerAPI {
 }
 
 export type TransactionData = {
-  Message: BridgeMessage;
+  Message: RelayerMessage;
   Raw: {
     address: Address;
     transactionHash: string;

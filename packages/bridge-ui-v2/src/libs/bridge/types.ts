@@ -42,6 +42,24 @@ export type Message = {
   memo: string;
 };
 
+// Todo: adjust relayer to return same as bridge
+// Identical to Message, but relayer uses capitalization
+export type RelayerMessage = {
+  Id: bigint;
+  Sender: Address;
+  SrcChainId: bigint;
+  DestChainId: bigint;
+  Owner: Address;
+  To: Address;
+  RefundAddress: Address;
+  DepositValue: bigint;
+  CallValue: bigint;
+  ProcessingFee: bigint;
+  GasLimit: bigint;
+  Data: Hex;
+  Memo: string;
+};
+
 export type BridgeTransaction = {
   hash: Hash;
   owner: Address;
