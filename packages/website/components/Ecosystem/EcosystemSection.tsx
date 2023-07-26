@@ -1,12 +1,13 @@
 import { EcosystemCard } from "./EcosystemCard";
 import { useState } from "react";
 
-type Filters =
+type Category =
   | "all"
   | "bridge"
   | "dashboard"
-  | "dapp"
+  | "defi"
   | "explorer"
+  | "gaming"
   | "nft"
   | "oracle"
   | "wallet"
@@ -17,7 +18,8 @@ interface EcosystemData {
   name: string;
   link: string;
   description: string;
-  filters: Filters[];
+  filters: Category[];
+  isLive: boolean;
 }
 
 const ecosystemData: EcosystemData[] = [
@@ -27,6 +29,7 @@ const ecosystemData: EcosystemData[] = [
     link: "https://blockscout.com",
     description: "Blockchain Explorer for inspecting and analyzing EVM Chains.",
     filters: [],
+    isLive: true,
   },
   {
     icon: "/images/ecosystem/brian.png",
@@ -35,6 +38,7 @@ const ecosystemData: EcosystemData[] = [
     description:
       "Brian is a collection of AI models, trained on web3-related data, that allows everyone to learn and interact with the decentralized world by prompting.",
     filters: [],
+    isLive: true,
   },
   {
     icon: "/images/ecosystem/taiko.svg",
@@ -42,6 +46,7 @@ const ecosystemData: EcosystemData[] = [
     link: "https://bridge.test.taiko.xyz",
     description: "Bridge is a dapp that lets you bridge tokens with Taiko.",
     filters: [],
+    isLive: true,
   },
   {
     icon: "/images/ecosystem/crypton.png",
@@ -50,6 +55,7 @@ const ecosystemData: EcosystemData[] = [
     description:
       "Help to understand crypto projects by providing the necessary tools to increase your productivity and time.",
     filters: [],
+    isLive: true,
   },
   {
     icon: "/images/ecosystem/foxwallet.png",
@@ -58,13 +64,16 @@ const ecosystemData: EcosystemData[] = [
     description:
       "FoxWallet is a safe and easy-to-use decentralized audited wallet, dedicated to creating an entrance and connection to the Web3 world.",
     filters: [],
+    isLive: true,
   },
   {
     icon: "/images/ecosystem/kalkiswap.png",
     name: "KALKI SWAP",
     link: "https://kalkiswap.org",
-    description: "KalkiSwap is a cutting-edge decentralized exchange (DEX) that provides lightning-fast token swapping and innovative liquidity provision across diverse blockchains.",
+    description:
+      "KalkiSwap is a cutting-edge decentralized exchange (DEX) that provides lightning-fast token swapping and innovative liquidity provision across diverse blockchains.",
     filters: [],
+    isLive: true,
   },
   {
     icon: "/images/ecosystem/kekkai.png",
@@ -73,6 +82,7 @@ const ecosystemData: EcosystemData[] = [
     description:
       "KEKKAI is a product that protects the security of web3 user assets. It can help users get the result of asset flow in advance and analyze its risks when interacting with wallets.",
     filters: [],
+    isLive: true,
   },
   {
     icon: "/images/ecosystem/loopring.svg",
@@ -81,6 +91,7 @@ const ecosystemData: EcosystemData[] = [
     description:
       "Loopring is your mobile gateway to Ethereum L2, enabling you to easily trade, swap, collect, stake, and invest without the costly gas fees.",
     filters: [],
+    isLive: true,
   },
   {
     icon: "/images/ecosystem/mxc.svg",
@@ -89,6 +100,7 @@ const ecosystemData: EcosystemData[] = [
     description:
       "Layer3 IoT app chain built using Taiko's open source software.",
     filters: [],
+    isLive: true,
   },
   {
     icon: "/images/ecosystem/nfts2me.jpg",
@@ -97,6 +109,7 @@ const ecosystemData: EcosystemData[] = [
     description:
       "NFTs2Me is a multichain user-friendly comprehensive platform to create, deploy and manage your NFT collection and community, 100% free with advanced functionalities.",
     filters: [],
+    isLive: true,
   },
   {
     icon: "/images/ecosystem/orally.png",
@@ -105,6 +118,7 @@ const ecosystemData: EcosystemData[] = [
     description:
       "The fully on-chain oracles for secure and reliable decentralized data feeding and automation across multiple chains.",
     filters: [],
+    isLive: true,
   },
   {
     icon: "/images/ecosystem/orbiter.jpg",
@@ -113,6 +127,7 @@ const ecosystemData: EcosystemData[] = [
     description:
       "A decentralized cross-rollup Layer 2 bridge with a contract only on the destination side.",
     filters: [],
+    isLive: true,
   },
   {
     icon: "/images/ecosystem/owlto.png",
@@ -120,6 +135,7 @@ const ecosystemData: EcosystemData[] = [
     link: "https://owlto.finance",
     description: "The decentralized cross-rollup bridge focused on Layer2.",
     filters: [],
+    isLive: true,
   },
   {
     icon: "/images/ecosystem/particle-network.png",
@@ -127,6 +143,7 @@ const ecosystemData: EcosystemData[] = [
     link: "https://particle.network/",
     description: "The full-stack infrastructure to simplify Web3.",
     filters: [],
+    isLive: true,
   },
   {
     icon: "/images/ecosystem/pheasant-network.png",
@@ -135,6 +152,7 @@ const ecosystemData: EcosystemData[] = [
     description:
       "Pheasant Network is an optimistic bridge between Layer 1 and Layer 2.",
     filters: [],
+    isLive: true,
   },
   {
     icon: "/images/ecosystem/rai-finance.png",
@@ -143,6 +161,7 @@ const ecosystemData: EcosystemData[] = [
     description:
       "User can easily compare and swap multiple chains on top of the Taiko blockchain. A service that links multiple swaps and organizes multiple tokens.",
     filters: [],
+    isLive: true,
   },
   {
     icon: "/images/ecosystem/rubydex.png",
@@ -151,6 +170,7 @@ const ecosystemData: EcosystemData[] = [
     description:
       "Perpetuals DEX offering crypto and traditional assets like Forex, Commodities, Stocks, ETFs, NFT perps, and more.",
     filters: [],
+    isLive: true,
   },
   {
     icon: "/images/ecosystem/soul-wallet.svg",
@@ -159,6 +179,7 @@ const ecosystemData: EcosystemData[] = [
     description:
       "The next-generation smart contract wallet powered by ERC-4337. Simply set up in seconds without recovery phrase.",
     filters: [],
+    isLive: true,
   },
   {
     icon: "/images/ecosystem/taiko.svg",
@@ -166,6 +187,7 @@ const ecosystemData: EcosystemData[] = [
     link: "https://swap.test.taiko.xyz",
     description: "Swap is a dapp that lets you swap tokens on Taiko.",
     filters: [],
+    isLive: true,
   },
   {
     icon: "/images/ecosystem/taiko-dashboard.png",
@@ -174,6 +196,7 @@ const ecosystemData: EcosystemData[] = [
     description:
       "A user friendly, easy to read, and visually pleasing dashboard for those running a Node/Proposer/Prover.",
     filters: [],
+    isLive: true,
   },
   {
     icon: "/images/ecosystem/taikoverse.png",
@@ -181,6 +204,7 @@ const ecosystemData: EcosystemData[] = [
     link: "https://linktr.ee/taikoverse",
     description: "An infinite and unstoppable world running on Taiko's stack.",
     filters: [],
+    isLive: true,
   },
   {
     icon: "/images/ecosystem/thirdweb.png",
@@ -189,6 +213,7 @@ const ecosystemData: EcosystemData[] = [
     description:
       "thirdweb is a complete web3 development framework that provides everything you need to connect your apps and games to decentralized networks.",
     filters: [],
+    isLive: true,
   },
   {
     icon: "/images/ecosystem/zkdelx.jpg",
@@ -197,6 +222,7 @@ const ecosystemData: EcosystemData[] = [
     description:
       "zkDELX is a decentralized electricity exchange market based on zkEVM to facilitate the electrical vehicles and renewable energy industries.",
     filters: [],
+    isLive: true,
   },
   {
     icon: "/images/ecosystem/zkpool.png",
@@ -204,23 +230,25 @@ const ecosystemData: EcosystemData[] = [
     link: "https://zkpool.io",
     description:
       "ZKPool aggregates the computing power of accelerators for zero-knowledge proofs and provides services to ZKP applications.",
-    filters: [],
+    filters: ["zk"],
+    isLive: true,
   },
 ];
 
 export function EcosystemSection() {
   // NOTE: commented out because we won't need this until we have grown our ecosystem page further
-  // const [activeFilter, setActiveFilter] = useState<Filters>("all");
+  const [activeFilter, setActiveFilter] = useState<Category>("all");
 
-  // const filteredData =
-  //   activeFilter === "all"
-  //     ? ecosystemData
-  //     : ecosystemData.filter((data) => data.filters.includes(activeFilter));
+  const filteredData =
+    activeFilter === "all"
+      ? ecosystemData
+      : ecosystemData.filter((data) => data.filters.includes(activeFilter));
 
   return (
     <>
       {/* NOTE: commented out because we won't need this until we have grown our ecosystem page further */}
-      {/* <div className="flex justify-center space-x-4 mb-8">
+      {/* <br/>
+      <div className="flex justify-center space-x-4 mb-8">
         <FilterLabel
           text="all"
           activeFilter={activeFilter}
@@ -232,17 +260,22 @@ export function EcosystemSection() {
           setActiveFilter={setActiveFilter}
         />
         <FilterLabel
-          text="dapp"
-          activeFilter={activeFilter}
-          setActiveFilter={setActiveFilter}
-        />
-        <FilterLabel
           text="dashboard"
           activeFilter={activeFilter}
           setActiveFilter={setActiveFilter}
         />
         <FilterLabel
+          text="defi"
+          activeFilter={activeFilter}
+          setActiveFilter={setActiveFilter}
+        />
+        <FilterLabel
           text="explorer"
+          activeFilter={activeFilter}
+          setActiveFilter={setActiveFilter}
+        />
+        <FilterLabel
+          text="gaming"
           activeFilter={activeFilter}
           setActiveFilter={setActiveFilter}
         />
@@ -269,12 +302,13 @@ export function EcosystemSection() {
       </div> */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pt-6">
         {/* NOTE: commented out because we won't need this until we have grown our ecosystem page further */}
-        {/* {filteredData.map((_) => ( */}
-        {ecosystemData.map((_) => (
+        {filteredData.map((_) => (
+          // {ecosystemData.map((_) => (
           <EcosystemCard
             key={_.name}
             icon={_.icon}
             name={_.name}
+            isLive={_.isLive}
             link={_.link}
             description={_.description}
           />
@@ -285,22 +319,22 @@ export function EcosystemSection() {
 }
 
 // NOTE: commented out because we won't need this until we have grown our ecosystem page further
-// function FilterLabel({ text, activeFilter, setActiveFilter }) {
-//   const isActive = activeFilter === text;
+function FilterLabel({ text, activeFilter, setActiveFilter }) {
+  const isActive = activeFilter === text;
 
-//   const buttonStyles = `border rounded-full py-1 px-4 text-sm focus:outline-none transition-colors duration-200 ${
-//     isActive
-//       ? "bg-primary-500 text-black font-bold"
-//       : "bg-white text-gray-700 dark:bg-black dark:text-gray-300"
-//   } ${
-//     isActive
-//       ? "hover:bg-primary-600"
-//       : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
-//   }`;
+  const buttonStyles = `border rounded-full py-1 px-4 text-sm focus:outline-none transition-colors duration-200 font-bold ${
+    isActive
+      ? "bg-gray-300 text-black"
+      : "bg-white text-gray-700 dark:bg-black dark:text-gray-300"
+  } ${
+    isActive
+      ? "hover:bg-gray-400"
+      : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
+  }`;
 
-//   return (
-//     <button className={buttonStyles} onClick={() => setActiveFilter(text)}>
-//       {text === "all" ? "all" : text}
-//     </button>
-//   );
-// }
+  return (
+    <button className={buttonStyles} onClick={() => setActiveFilter(text)}>
+      {text === "all" ? "all" : text}
+    </button>
+  );
+}
