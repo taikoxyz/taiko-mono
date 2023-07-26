@@ -23,8 +23,11 @@ library TaikoData {
         uint64 blockMaxTxListBytes;
         uint256 blockTxListExpiry;
         // Group 3: proof related configs
+	    uint256 proofCooldownPeriod; //A3 lib related
+        uint256 systemProofCooldownPeriod; //A3 lib related
         uint256 proofRegularCooldown;
         uint256 proofOracleCooldown;
+	    uint256 realProofSkipSize;
         uint16 proofMinWindow;
         uint16 proofMaxWindow;
         // Group 4: eth deposit related configs
@@ -49,6 +52,20 @@ library TaikoData {
         uint64 nextEthDepositToProcess;
         uint64 numEthDeposits;
     }
+    
+    struct StateVariables_A3 {
+        uint64 blockFee;
+        uint64 accBlockFees;
+        uint64 genesisHeight;
+        uint64 genesisTimestamp;
+        uint64 numBlocks;
+        uint64 proofTimeIssued;
+        uint64 proofTimeTarget;
+        uint64 lastVerifiedBlockId;
+        uint64 accProposedAt;
+        uint64 nextEthDepositToProcess;
+        uint64 numEthDeposits;
+    }
 
     // 3 slots
     struct BlockMetadataInput {
@@ -57,7 +74,7 @@ library TaikoData {
         uint32 gasLimit;
         uint24 txListByteStart; // byte-wise start index (inclusive)
         uint24 txListByteEnd; // byte-wise end index (exclusive)
-        bool cacheTxListInfo;
+        uint8 cacheTxListInfo; // uint8 to bool, (should not require change)
     }
 
     // Changing this struct requires changing LibUtils.hashMetadata accordingly.
@@ -95,8 +112,8 @@ library TaikoData {
         bytes32 key;
         bytes32 blockHash;
         bytes32 signalRoot;
-        address prover;
         uint64 provenAt;
+        address prover;
         uint32 gasUsed;
     }
 
@@ -121,6 +138,18 @@ library TaikoData {
         uint32 rewardPerGas;
         uint64 proofWindow;
     }
+    
+    // 4 slots
+    struct Block_A3 {
+        // ForkChoice storage are reusable
+        mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
+        uint64 blockId;
+        uint64 proposedAt;
+        uint24 nextForkChoiceId;
+        uint24 verifiedForkChoiceId;
+        bytes32 metaHash;
+        address proposer;
+    }
 
     struct TxListInfo {
         uint64 validSince;
@@ -133,9 +162,32 @@ library TaikoData {
         uint64 id;
     }
 
+    struct Slot6 {
+        uint64 genesisHeight;
+        uint64 genesisTimestamp;
+        uint16 adjustmentQuotient;
+        uint32 feePerGas;
+        uint16 avgProofDelay;
+        uint64 numOpenBlocks;
+    }
+
+    struct Slot7 {
+        uint64 accProposedAt;
+        uint64 accBlockFees;
+        uint64 numBlocks;
+        uint64 nextEthDepositToProcess;
+    }
+
+    struct Slot8 {
+        uint64 blockFee;
+        uint64 proofTimeIssued;
+        uint64 lastVerifiedBlockId;
+        uint64 proofTimeTarget;
+    }
+
     struct State {
-        // Ring buffer for proposed blocks and a some recent verified blocks.
-        mapping(uint256 blockId_mode_blockRingBufferSize => Block) blocks;
+        // Ring buffer for (A3) proposed blocks and a some recent verified blocks.
+        mapping(uint256 blockId_mode_blockRingBufferSize => Block_A3) blocks_A3;
         mapping(
             uint256 blockId
                 => mapping(
@@ -143,28 +195,25 @@ library TaikoData {
                         => mapping(uint32 parentGasUsed => uint24 forkChoiceId)
                 )
             ) forkChoiceIds;
-        mapping(bytes32 txListHash => TxListInfo) txListInfo;
-        mapping(uint256 depositId_mode_ethDepositRingBufferSize => uint256)
-            ethDeposits;
         mapping(address account => uint256 balance) taikoTokenBalances;
+        mapping(bytes32 txListHash => TxListInfo) txListInfo;
+        EthDeposit[] ethDeposits_A3;
         // Never or rarely changed
-        // Slot 7: never or rarely changed
-        uint64 genesisHeight;
-        uint64 genesisTimestamp;
-        uint64 __reserved70;
-        uint64 __reserved71;
+        // Slot 6: never or rarely changed
+        Slot6 slot6;
+        // Slot 7
+        Slot7 slot7;
         // Slot 8
-        uint64 numOpenBlocks;
+        Slot8 slot8;
+        // Slot 10
         uint64 numEthDeposits;
-        uint64 numBlocks;
-        uint64 nextEthDepositToProcess;
-        // Slot 9
         uint64 lastVerifiedAt;
-        uint64 lastVerifiedBlockId;
-        uint64 __reserved90;
-        uint32 feePerGas;
-        uint16 avgProofDelay;
-        // Reserved
-        uint256[42] __gap; // TODO: update this
+        // Slot 11
+	    // Ring buffer for (A4) proposed blocks and a some recent verified blocks.
+        mapping(uint256 blockId_mode_blockRingBufferSize => Block) blocks;
+        // SLot 12
+	    mapping(uint256 depositId_mode_ethDepositRingBufferSize => uint256)
+            ethDeposits;
+        uint256[38] __gap; // TODO: update this
     }
 }

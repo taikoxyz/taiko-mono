@@ -73,7 +73,7 @@ library LibEthDepositing {
         returns (TaikoData.EthDeposit[] memory deposits)
     {
         uint256 numPending =
-            state.numEthDeposits - state.nextEthDepositToProcess;
+            state.numEthDeposits - state.slot7.nextEthDepositToProcess;
         if (numPending < config.ethDepositMinCountPerBlock) {
             deposits = new TaikoData.EthDeposit[](0);
         } else {
@@ -86,7 +86,7 @@ library LibEthDepositing {
                     block.basefee * config.ethDepositGas
                 )
             );
-            uint64 j = state.nextEthDepositToProcess;
+            uint64 j = state.slot7.nextEthDepositToProcess;
             uint96 totalFee;
             for (uint256 i; i < deposits.length;) {
                 uint256 data =
@@ -108,7 +108,7 @@ library LibEthDepositing {
                     ++j;
                 }
             }
-            state.nextEthDepositToProcess = j;
+            state.slot7.nextEthDepositToProcess = j;
 
             // This is the fee deposit
             state.ethDeposits[state.numEthDeposits
@@ -139,7 +139,7 @@ library LibEthDepositing {
 
         unchecked {
             uint256 numPending =
-                state.numEthDeposits - state.nextEthDepositToProcess;
+                state.numEthDeposits - state.slot7.nextEthDepositToProcess;
 
             // We need to make sure we always reverve one slot for the fee
             // deposit

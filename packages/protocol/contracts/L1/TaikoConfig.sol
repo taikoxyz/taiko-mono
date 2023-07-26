@@ -34,8 +34,11 @@ library TaikoConfig {
             blockMaxTxListBytes: 120_000,
             blockTxListExpiry: 0,
             // Group 3: proof related configs
+	        proofCooldownPeriod: 30 minutes,//A3 lib related
+            systemProofCooldownPeriod: 15 minutes,//A3 lib related
             proofRegularCooldown: 30 minutes,
             proofOracleCooldown: 15 minutes,
+	        realProofSkipSize: 10,
             proofMinWindow: 10 minutes,
             proofMaxWindow: 90 minutes,
             // Group 4: eth deposit related configs
