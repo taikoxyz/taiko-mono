@@ -1,33 +1,57 @@
 import type { WalletClient } from '@wagmi/core';
 import type { Address, Hex } from 'viem';
 
+export enum MessageStatus {
+  New,
+  Retriable,
+  Done,
+  Failed,
+}
+
 // Bridge sendMessage(message: Message)
-export type Message = {
+export type BridgeMessage = {
   // Message ID. Will be set in contract
-  id: bigint;
+  Id: bigint;
   // Message sender address (auto filled)
-  sender: Address;
+  Sender: Address;
   // Source chain ID (auto filled)
-  srcChainId: bigint;
+  SrcChainId: bigint;
   // Destination chain ID where the `to` address lives (auto filled)
-  destChainId: bigint;
+  DestChainId: bigint;
   // Owner address of the bridged asset.
-  owner: Address;
+  Owner: Address;
   // Destination owner address
-  to: Address;
+  To: Address;
   // Alternate address to send any refund. If blank, defaults to owner.
-  refundAddress: Address;
+  RefundAddress: Address;
   // Deposited Ether minus the processingFee.
-  depositValue: bigint;
+  DepositValue: bigint;
   // callValue to invoke on the destination chain, for ERC20 transfers.
-  callValue: bigint;
+  CallValue: bigint;
   // Processing fee for the relayer. Zero if owner will process themself.
-  processingFee: bigint;
+  ProcessingFee: bigint;
   // gasLimit to invoke on the destination chain, for ERC20 transfers.
-  gasLimit: bigint;
+  GasLimit: bigint;
   // callData to invoke on the destination chain, for ERC20 transfers.
-  data: Hex;
+  Data: Hex;
   // Optional memo.
+  Memo: string;
+};
+
+// todo: relayer returns with capital letters, switch to lowercase
+export type Message = {
+  id: bigint;
+  sender: Address;
+  srcChainId: bigint;
+  destChainId: bigint;
+  owner: Address;
+  to: Address;
+  refundAddress: Address;
+  depositValue: bigint;
+  callValue: bigint;
+  processingFee: bigint;
+  gasLimit: bigint;
+  data: Hex;
   memo: string;
 };
 

@@ -17,5 +17,13 @@
   html,
   body {
     height: 100%;
+    background-image: url(/bg/spotlights.svg);
+    background-size: cover;
+  }
+
+  #wrapper {
+    background-image: url(/bg/grid.svg);
+    background-size: 840px;
+    background-attachment: fixed;
   }
 }
