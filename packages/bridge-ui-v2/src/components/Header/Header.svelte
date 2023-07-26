@@ -32,6 +32,8 @@
   <div class="flex justify-end md:f-between-center w-full">
     {#if isBridgePage}
       <BridgeTabs class="hidden md:flex" />
+    {:else}
+      <div></div>
     {/if}
 
     <ConnectButton connected={$account?.isConnected} />

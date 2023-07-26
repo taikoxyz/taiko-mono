@@ -5,7 +5,6 @@ import type { Abi } from 'abitype';
 import axios from 'axios';
 
 import { bridgeABI } from '$abi';
-import type { Message } from '$libs/bridge';
 import { TokenType } from '$libs/token';
 import { getLogger } from '$libs/util/logger';
 
@@ -71,7 +70,7 @@ export class RelayerAPIService implements RelayerAPI {
   private readonly baseUrl: string;
 
   constructor(baseUrl: string) {
-    console.log('relayer instantiated');
+    log('relayer service instantiated');
     // There is a chance that by accident the env var
     // does (or does not) have trailing slash for
     // this baseURL. Normalize it, preventing errors
@@ -84,12 +83,13 @@ export class RelayerAPIService implements RelayerAPI {
     try {
       log('Fetching events from API with params', params);
 
-      const response = await axios.get<APIResponse>(requestURL, { params });
+      const response = await axios.get<APIResponse>(requestURL, {
+        params,
+        timeout: 5000, // todo: discuss and move to config
+      });
 
       // response.data.items.push(...mockedData);
       if (response.status >= 400) throw response;
-
-      console.log(response);
 
       log('Events form API', response.data);
 

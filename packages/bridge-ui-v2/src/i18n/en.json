@@ -75,8 +75,11 @@
     "title": "Activities",
     "description": "Track your bridge transactions here.",
     "header": {
-      "explorer": "Explorer link",
-      "status": "Status"
+      "explorer": "Explorer",
+      "status": "Status",
+      "from": "From",
+      "to": "To",
+      "amount": "Amount"
     },
     "link.explorer": "View details",
     "no_transactions": "No transactions yet",
