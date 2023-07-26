@@ -205,15 +205,15 @@ library TaikoData {
         Slot7 slot7;
         // Slot 8
         Slot8 slot8;
-        // Slot 10
+        // Slot 9
         uint64 numEthDeposits;
         uint64 lastVerifiedAt;
-        // Slot 11
+        // Slot 10
 	    // Ring buffer for (A4) proposed blocks and a some recent verified blocks.
         mapping(uint256 blockId_mode_blockRingBufferSize => Block) blocks;
-        // SLot 12
+        // SLot 11
 	    mapping(uint256 depositId_mode_ethDepositRingBufferSize => uint256)
             ethDeposits;
-        uint256[38] __gap; // TODO: update this
+        uint256[39] __gap; // TODO: update this
     }
 }
