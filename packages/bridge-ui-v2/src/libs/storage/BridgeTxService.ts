@@ -65,7 +65,7 @@ export class BridgeTxService {
 
   private async _enhanceTx(tx: BridgeTransaction, address: Address, waitForTx = false) {
     // Filters out the transactions that are not from the current address
-    if (tx.owner.toLowerCase() !== address.toLowerCase()) return;
+    if (tx.from.toLowerCase() !== address.toLowerCase()) return;
 
     const bridgeTx: BridgeTransaction = { ...tx }; // prevent mutation
 
@@ -77,6 +77,7 @@ export class BridgeTxService {
     let receipt: TransactionReceipt | null = null;
 
     if (waitForTx) {
+      // We might want to wait for the transaction to be mined
       receipt = await waitForTransaction({
         hash,
         chainId: Number(srcChainId),
@@ -118,12 +119,12 @@ export class BridgeTxService {
     bridgeTx.status = status;
   }
 
-  async getAllTxByAddress(userAddress: Address) {
-    const txs = this._getTxFromStorage(userAddress);
+  async getAllTxByAddress(address: Address) {
+    const txs = this._getTxFromStorage(address);
 
     log('Bridge transactions from storage', txs);
 
-    const enhancedTxPromises = txs.map(async (tx) => this._enhanceTx(tx, userAddress));
+    const enhancedTxPromises = txs.map(async (tx) => this._enhanceTx(tx, address));
 
     const enhancedTxs = (await Promise.all(enhancedTxPromises))
       // Removes undefined values
@@ -149,5 +150,26 @@ export class BridgeTxService {
     log('Enhanced transaction', enhancedTx);
 
     return enhancedTx;
+  }
+
+  addTxByAddress(address: Address, tx: BridgeTransaction) {
+    const txs = this._getTxFromStorage(address);
+
+    txs.unshift(tx);
+
+    log('Adding transaction to storage', tx);
+
+    const key = `${storageService.bridgeTxPrefix}:${address}`;
+    this.storage.setItem(
+      key,
+      // We need to serialize the BigInts as strings
+      JSON.stringify(txs, (_, value) => (typeof value === 'bigint' ? value.toString() : value)),
+    );
+  }
+
+  updateByAddress(address: Address, txs: BridgeTransaction[]) {
+    log('Updating storage with transactions', txs);
+    const key = `${storageService.bridgeTxPrefix}:${address}`;
+    this.storage.setItem(key, JSON.stringify(txs));
   }
 }
