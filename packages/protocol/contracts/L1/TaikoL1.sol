@@ -12,10 +12,13 @@ import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { LibEthDepositing } from "./libs/LibEthDepositing.sol";
 import { LibProposing } from "./libs/LibProposing.sol";
+import { LibProposing_A3 } from "./A3/libs/LibProposing_A3.sol";
 import { LibProving } from "./libs/LibProving.sol";
+import { LibProving_A3 } from "./A3/libs/LibProving_A3.sol";
 import { LibTkoDistribution } from "./libs/LibTkoDistribution.sol";
 import { LibUtils } from "./libs/LibUtils.sol";
 import { LibVerifying } from "./libs/LibVerifying.sol";
+import { LibVerifying_A3 } from "./A3/libs/LibVerifying_A3.sol";
 import { TaikoConfig } from "./TaikoConfig.sol";
 import { TaikoErrors } from "./TaikoErrors.sol";
 import { TaikoData } from "./TaikoData.sol";
@@ -37,6 +40,7 @@ contract TaikoL1 is
         depositEtherToL2(address(0));
     }
 
+    // This - as an upgrade - so the init() will not have any effect
     /**
      * Initialize the rollup.
      *
@@ -65,6 +69,27 @@ contract TaikoL1 is
     }
 
     /**
+     * Initialize vars necessary for the upgrade
+     * 
+     * @param _activationHeight When activation shall happen (block height)
+     * @param _initFeePerGas Initial (reasonable) block fee value,
+     * @param _initAvgProofDelay Initial (reasonable) proof window.
+     */
+    function initA4(
+        uint32 _activationHeight,
+        uint32 _initFeePerGas,
+        uint16 _initAvgProofDelay
+    )
+        external
+        onlyOwner
+    {
+        state.plannedActivationHeight = _activationHeight;
+        state.slot6.feePerGas = _initFeePerGas;
+        state.slot6.avgProofDelay = _initAvgProofDelay;
+    }
+
+    // proposeBlock has no change in terms of return value
+    /**
      * Propose a Taiko L2 block.
      *
      * @param input An abi-encoded BlockMetadataInput that the actual L2
@@ -84,23 +109,60 @@ contract TaikoL1 is
         returns (TaikoData.BlockMetadata memory meta)
     {
         TaikoData.Config memory config = getConfig();
-        meta = LibProposing.proposeBlock({
-            state: state,
-            config: config,
-            resolver: AddressResolver(this),
-            input: abi.decode(input, (TaikoData.BlockMetadataInput)),
-            txList: txList
-        });
-        if (config.blockMaxVerificationsPerTx > 0) {
-            LibVerifying.verifyBlocks({
+
+        // If we haven't set the plannedActivationHeight yet OR
+        // we set but we haven't elapsed that go with the 'old'
+        // system
+        if(state.plannedActivationHeight == 0
+            || 
+            (state.plannedActivationHeight != 0 
+            && state.slot7.numBlocks < state.plannedActivationHeight)
+        ) {
+                meta = LibProposing_A3.proposeBlock({
+                    state: state,
+                    config: config,
+                    resolver: AddressResolver(this),
+                    input: abi.decode(input, (TaikoData.BlockMetadataInput)),
+                    txList: txList
+                });
+        }
+        else {
+            meta = LibProposing.proposeBlock({
                 state: state,
                 config: config,
                 resolver: AddressResolver(this),
-                maxBlocks: config.blockMaxVerificationsPerTx
+                input: abi.decode(input, (TaikoData.BlockMetadataInput)),
+                txList: txList
             });
         }
-    }
 
+        // Which verification to be called
+        if(state.plannedActivationHeight == 0
+            || 
+            (state.plannedActivationHeight != 0 
+            && state.slot8.lastVerifiedBlockId < state.plannedActivationHeight)
+        ) {
+            if (config.blockMaxVerificationsPerTx > 0) {
+                    LibVerifying_A3.verifyBlocks({
+                        state: state,
+                        config: config,
+                        resolver: AddressResolver(this),
+                        maxBlocks: config.blockMaxVerificationsPerTx
+                    });
+                }
+        }
+        else {
+            if (config.blockMaxVerificationsPerTx > 0) {
+                LibVerifying.verifyBlocks({
+                    state: state,
+                    config: config,
+                    resolver: AddressResolver(this),
+                    maxBlocks: config.blockMaxVerificationsPerTx
+                });
+            }
+        }
+    }
+    // proposeBlock has no change in terms of return value
     /**
      * Prove a block with a zero-knowledge proof.
      *
@@ -116,20 +178,54 @@ contract TaikoL1 is
         nonReentrant
     {
         TaikoData.Config memory config = getConfig();
-        LibProving.proveBlock({
-            state: state,
-            config: config,
-            resolver: AddressResolver(this),
-            blockId: blockId,
-            evidence: abi.decode(input, (TaikoData.BlockEvidence))
-        });
-        if (config.blockMaxVerificationsPerTx > 0) {
-            LibVerifying.verifyBlocks({
+        if(state.plannedActivationHeight == 0
+            || 
+            (state.plannedActivationHeight != 0 
+            && state.slot7.numBlocks < state.plannedActivationHeight)
+        ) {
+
+            LibProving_A3.proveBlock({
                 state: state,
                 config: config,
                 resolver: AddressResolver(this),
-                maxBlocks: config.blockMaxVerificationsPerTx
+                blockId: blockId,
+                evidence: abi.decode(input, (TaikoData.BlockEvidence))
             });
+        }
+        else {
+            LibProving.proveBlock({
+                state: state,
+                config: config,
+                resolver: AddressResolver(this),
+                blockId: blockId,
+                evidence: abi.decode(input, (TaikoData.BlockEvidence))
+            });
+        }
+
+        // Which verification to be called
+        if(state.plannedActivationHeight == 0
+            || 
+            (state.plannedActivationHeight != 0 
+            && state.slot8.lastVerifiedBlockId < state.plannedActivationHeight)
+        ) {
+            if (config.blockMaxVerificationsPerTx > 0) {
+                    LibVerifying_A3.verifyBlocks({
+                        state: state,
+                        config: config,
+                        resolver: AddressResolver(this),
+                        maxBlocks: config.blockMaxVerificationsPerTx
+                    });
+                }
+        }
+        else {
+            if (config.blockMaxVerificationsPerTx > 0) {
+                LibVerifying.verifyBlocks({
+                    state: state,
+                    config: config,
+                    resolver: AddressResolver(this),
+                    maxBlocks: config.blockMaxVerificationsPerTx
+                });
+            }
         }
     }
 
@@ -139,12 +235,27 @@ contract TaikoL1 is
      */
     function verifyBlocks(uint256 maxBlocks) external nonReentrant {
         if (maxBlocks == 0) revert L1_INVALID_PARAM();
-        LibVerifying.verifyBlocks({
-            state: state,
-            config: getConfig(),
-            resolver: AddressResolver(this),
-            maxBlocks: maxBlocks
-        });
+         // Which verification to be called
+        if(state.plannedActivationHeight == 0
+            || 
+            (state.plannedActivationHeight != 0 
+            && state.slot8.lastVerifiedBlockId < state.plannedActivationHeight)
+        ) {
+            LibVerifying_A3.verifyBlocks({
+                state: state,
+                config: getConfig(),
+                resolver: AddressResolver(this),
+                maxBlocks: maxBlocks
+            });
+        }
+        else {
+            LibVerifying.verifyBlocks({
+                state: state,
+                config: getConfig(),
+                resolver: AddressResolver(this),
+                maxBlocks: maxBlocks
+            });
+        }
     }
 
     function depositEtherToL2(address recipient) public payable {
