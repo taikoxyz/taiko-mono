@@ -5,7 +5,6 @@
   import { LinkButton } from '$components/LinkButton';
   import { classNames } from '$libs/util/classNames';
 
-  // TODO: mobile first approach? by default all it's for `sm`
   let classes = classNames('space-x-2', $$props.class);
 
   $: isERC20Bridge = $page.route.id === '/';
