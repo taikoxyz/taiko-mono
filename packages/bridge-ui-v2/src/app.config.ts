@@ -17,3 +17,8 @@ export const bridge = {
 export const pendingTransaction = {
   waitTimeout: 300000,
 };
+
+export const storageService = {
+  bridgeTxPrefix: 'bridge-tx',
+  customTokenPrefix: 'custom-token',
+};
