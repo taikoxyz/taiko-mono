@@ -17,13 +17,8 @@
   html,
   body {
     height: 100%;
-    background-image: url(/bg/spotlights.svg);
-    background-size: cover;
-  }
-
-  #wrapper {
-    background-image: url(/bg/grid.svg);
-    background-size: 840px;
-    background-attachment: fixed;
+    background-image: url(/bg/grid.svg), url(/bg/spotlights.svg), linear-gradient(270deg, #1f1f1f 0%, #000000 100%);
+    background-size: 840px, cover, cover;
+    background-blend-mode: color-dodge, lighten, multiply;
   }
 }
