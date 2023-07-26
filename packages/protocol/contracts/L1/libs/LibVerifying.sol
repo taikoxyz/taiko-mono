@@ -56,6 +56,7 @@ library LibVerifying {
                 || config.proofRegularCooldown < config.proofOracleCooldown
                 || config.proofMinWindow == 0
                 || config.proofMaxWindow < config.proofMinWindow
+                || config.proofWindowMultiplier <= 100
                 || config.ethDepositRingBufferSize <= 1
                 || config.ethDepositMinCountPerBlock == 0
                 || config.ethDepositMaxCountPerBlock
@@ -220,7 +221,7 @@ library LibVerifying {
             // proving out side of the proof window, by a prover other
             // than the assigned prover
             proofReward = proofReward * config.rewardOpenMultipler / 100;
-            proverPool.slashProver(blk.assignedProver);
+            proverPool.slashProver(blk.assignedProver, proofReward);
         } else if (fc.provenAt <= blk.proposedAt + blk.proofWindow) {
             // proving inside the window, by the assigned prover
             uint64 proofDelay;
@@ -253,8 +254,8 @@ library LibVerifying {
             );
         } else {
             // proving out side of the proof window, by the assigned prover
+            proverPool.slashProver(blk.assignedProver, proofReward);
             proofReward = 0;
-            proverPool.slashProver(blk.assignedProver);
         }
 
         blk.verifiedForkChoiceId = fcId;

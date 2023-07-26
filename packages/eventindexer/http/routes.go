@@ -19,4 +19,5 @@ func (srv *Server) configureRoutes() {
 	galaxeAPI.GET("/user-proved-block", srv.UserProvedBlock)
 	galaxeAPI.GET("/user-bridged", srv.UserBridged)
 	galaxeAPI.GET("/user-swapped-on-taiko", srv.UserSwappedOnTaiko)
+	galaxeAPI.GET("/user-added-liquidity", srv.UserAddedLiquidity)
 }

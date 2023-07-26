@@ -1,0 +1,31 @@
+import { Callout, Steps } from "nextra-theme-docs";
+
+# Bridge tokens
+
+<Callout type="warning">
+  The BLL token is **expected to fail** about 50% of the time when
+  bridging--this is done intentionally to test error handling.
+</Callout>
+
+## Overview
+
+This guide will help you use the bridge to send tokens between Taiko testnets and their base chains. You can read more about how bridging works [here](/docs/concepts/bridging).
+
+## Prerequisites
+
+- A wallet with some testnet ETH on Sepolia or a Taiko testnet (you can [receive tokens here](/docs/guides/receive-tokens)).
+
+## Steps
+
+<Steps>
+    ### Visit a bridge
+    There two bridges, one if for bridging between Sepolia L1 and Grimsvotn L2, and the other is for bridging between Grimsvotn L2 and Eldfell L3. Try them out here:
+    - [Sepolia L1 ↔ Grimsvotn L2 bridge](https://bridge.test.taiko.xyz/)
+    - [Grimsvotn L2 ↔ Eldfell L3 bridge](https://bridge.l3test.taiko.xyz)
+
+    ### Bridge tokens
+    Try bridging tokens between testnets by selecting them from the dropdown. You can also manually claim the transfer yourself by clicking the "Claim" button under the "Transactions" tab (but **only** if you already have some ETH on the destination chain).
+
+    ![bridge claim](/images/guides/bridge-claim.png)
+
+</Steps>

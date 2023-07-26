@@ -8,7 +8,11 @@ pragma solidity ^0.8.20;
 
 import { TaikoData } from "../L1/TaikoData.sol";
 
+/// @title TaikoConfig - Library for retrieving Taiko configuration parameters
 library TaikoConfig {
+    /// @dev Retrieves the Taiko configuration parameters
+    /// @return config The Taiko configuration object
+
     function getConfig() internal pure returns (TaikoData.Config memory) {
         return TaikoData.Config({
             // Group 1: general configs
@@ -38,6 +42,7 @@ library TaikoConfig {
             proofOracleCooldown: 15 minutes,
             proofMinWindow: 10 minutes,
             proofMaxWindow: 90 minutes,
+            proofWindowMultiplier: 200, // 200%
             // Group 4: eth deposit related configs
             ethDepositRingBufferSize: 1024,
             ethDepositMinCountPerBlock: 8,
@@ -47,7 +52,7 @@ library TaikoConfig {
             ethDepositGas: 21_000,
             ethDepositMaxFee: 1 ether / 10,
             // Group 5: tokenomics
-            rewardOpenMultipler: 200, // percentage
+            rewardOpenMultipler: 150, // percentage
             rewardOpenMaxCount: 201_600, // blockMaxProposals / 2,
             rewardMaxDelayPenalty: 250 // bps
          });

@@ -1,2 +1,5 @@
 .next
 node_modules
+# temporarily ignoring auto-generated contract documentation until
+# we can separate L2/L3 contracts
+contract-documentation

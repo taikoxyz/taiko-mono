@@ -21,3 +21,16 @@ input[type='number'] {
   /* Primary background: '#0B101B' => grey-900 */
   background-color: hsl(221, 42%, 7%);
 }
+
+/**
+ * By design we don't have any opacity on disabled buttons,
+ * also font color is tertiary-content
+ */
+.btn.btn-disabled,
+.btn[disabled],
+.btn:disabled {
+  --tw-border-opacity: 1;
+  --tw-bg-opacity: 1;
+  --tw-text-opacity: 1;
+  @apply text-tertiary-content;
+}

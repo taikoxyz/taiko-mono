@@ -11,36 +11,69 @@
     "title": "Docs",
     "type": "page"
   },
-  "bridge": {
-    "title": "Bridge",
-    "type": "page",
-    "href": "https://bridge.test.taiko.xyz",
-    "newWindow": true
-  },
-  "swap": {
-    "title": "Swap",
-    "type": "page",
-    "display": "hidden",
-    "href": "https://swap.test.taiko.xyz",
-    "newWindow": true
-  },
-  "explorers": {
-    "title": "Explorers",
+  "grimsvotn": {
+    "title": "Grimsvotn L2",
     "type": "menu",
     "items": {
+      "bridge": {
+        "title": "Bridge (L1 ↔ L2)",
+        "href": "https://bridge.test.taiko.xyz",
+        "newWindow": true
+      },
+      "swap": {
+        "title": "Swap",
+        "href": "https://swap.test.taiko.xyz",
+        "newWindow": true
+      },
       "status": {
-        "title": "Protocol Status",
+        "title": "Grimsvotn Protocol Status",
         "href": "https://status.test.taiko.xyz",
         "newWindow": true
       },
-      "l1-block-explorer": {
-        "title": "L1 Block Explorer",
-        "href": "https://sepolia.etherscan.io",
+      "l2-block-explorer": {
+        "title": "Grimsvotn L2 Block Explorer",
+        "href": "https://explorer.test.taiko.xyz",
         "newWindow": true
       },
-      "l2-block-explorer": {
-        "title": "L2 Block Explorer",
-        "href": "https://explorer.test.taiko.xyz",
+      "uptime": {
+        "title": "Uptime",
+        "href": "https://status.taiko.xyz",
+        "newWindow": true
+      }
+    }
+  },
+  "eldfell": {
+    "title": "Eldfell L3",
+    "type": "menu",
+    "items": {
+      "bridge": {
+        "title": "Bridge (L2 ↔ L3)",
+        "href": "https://bridge.l3test.taiko.xyz",
+        "newWindow": true
+      },
+      "swap": {
+        "title": "Swap",
+        "href": "https://swap.l3test.taiko.xyz",
+        "newWindow": true
+      },
+      "status": {
+        "title": "Eldfell Protocol Status",
+        "href": "https://explorer.l3test.taiko.xyz/stats",
+        "newWindow": true
+      },
+      "l3-block-explorer": {
+        "title": "Eldfell L3 Block Explorer",
+        "href": "https://explorer.l3test.taiko.xyz",
+        "newWindow": true
+      },
+      "staking-dashboard": {
+        "title": "Staking dashboard",
+        "href": "https://staking.l3test.taiko.xyz",
+        "newWindow": true
+      },
+      "uptime": {
+        "title": "Uptime",
+        "href": "https://status.taiko.xyz",
         "newWindow": true
       }
     }
@@ -53,21 +86,15 @@
     }
   },
   "blog": {
-    "title": "Blog",
+    "title": "Blog ↗",
     "type": "page",
     "href": "https://mirror.xyz/labs.taiko.eth",
     "newWindow": true
   },
   "forum": {
-    "title": "Forum",
+    "title": "Forum ↗",
     "type": "page",
     "href": "https://community.taiko.xyz/",
-    "newWindow": true
-  },
-  "feedback": {
-    "title": "Feedback",
-    "type": "page",
-    "href": "https://forms.gle/9JWjWtjbWytZZcNRA",
     "newWindow": true
   }
 }
