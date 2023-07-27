@@ -168,7 +168,7 @@ abstract contract TaikoL1TestBase is Test {
             cacheTxListInfo: 0
         });
 
-        TaikoData.StateVariables memory variables = L1.getStateVariables();
+        TaikoData.StateVariables memory variables = abi.decode(L1.getStateVariables(),(TaikoData.StateVariables));
 
         uint256 _mixHash;
         unchecked {
@@ -264,7 +264,7 @@ abstract contract TaikoL1TestBase is Test {
     }
 
     function printVariables(string memory comment) internal {
-        TaikoData.StateVariables memory vars = L1.getStateVariables();
+        TaikoData.StateVariables memory vars = abi.decode(L1.getStateVariables(),(TaikoData.StateVariables));
 
         string memory str = string.concat(
             Strings.toString(logCount++),

@@ -11,12 +11,15 @@ import { EssentialContract } from "../common/EssentialContract.sol";
 import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { LibEthDepositing } from "./libs/LibEthDepositing.sol";
+import { LibEthDepositing_A3 } from "./A3/libs/LibEthDepositing_A3.sol";
 import { LibProposing } from "./libs/LibProposing.sol";
 import { LibProposing_A3 } from "./A3/libs/LibProposing_A3.sol";
 import { LibProving } from "./libs/LibProving.sol";
 import { LibProving_A3 } from "./A3/libs/LibProving_A3.sol";
 import { LibTkoDistribution } from "./libs/LibTkoDistribution.sol";
+import { LibTokenomics_A3 } from "./A3/libs/LibTokenomics_A3.sol";
 import { LibUtils } from "./libs/LibUtils.sol";
+import { LibUtils_A3 } from "./A3/libs/LibUtils_A3.sol";
 import { LibVerifying } from "./libs/LibVerifying.sol";
 import { LibVerifying_A3 } from "./A3/libs/LibVerifying_A3.sol";
 import { TaikoConfig } from "./TaikoConfig.sol";
@@ -258,80 +261,176 @@ contract TaikoL1 is
         }
     }
 
+
+    /** A3 related
+     * Change proof parameters (time target and time issued) - to avoid complex/risky upgrades in case need to change relatively frequently.
+     * @param newProofTimeTarget New proof time target.
+     * @param newProofTimeIssued New proof time issued. If set to type(uint64).max, let it be unchanged.
+     * @param newBlockFee New blockfee. If set to type(uint64).max, let it be unchanged.
+     * @param newAdjustmentQuotient New adjustment quotient. If set to type(uint16).max, let it be unchanged.
+     */
+    function setProofParams(
+        uint64 newProofTimeTarget,
+        uint64 newProofTimeIssued,
+        uint64 newBlockFee,
+        uint16 newAdjustmentQuotient
+    ) external onlyOwner {
+        if (newProofTimeTarget == 0 || newProofTimeIssued == 0) {
+            revert L1_INVALID_PARAM();
+        }
+
+        state.slot8.proofTimeTarget = newProofTimeTarget;
+        // Special case in a way - that we leave the proofTimeIssued unchanged
+        // because we think provers will adjust behavior.
+        if (newProofTimeIssued != type(uint64).max) {
+            state.slot8.proofTimeIssued = newProofTimeIssued;
+        }
+        // Special case in a way - that we leave the blockFee unchanged
+        // because the level we are at is fine.
+        if (newBlockFee != type(uint64).max) {
+            state.slot8.blockFee = newBlockFee;
+        }
+        // Special case in a way - that we leave the adjustmentQuotient unchanged
+        // because we the 'slowlyness' of the curve is fine.
+        if (newAdjustmentQuotient != type(uint16).max) {
+            state.slot6.adjustmentQuotient = newAdjustmentQuotient;
+        }
+
+        emit ProofParamsChanged(
+            newProofTimeTarget, newProofTimeIssued, newBlockFee, newAdjustmentQuotient
+        );
+    }
+
+    /// @dev For A3 - simply address(0) call makes it, because A3 did
+    /// not have this parameter.
     function depositEtherToL2(address recipient) public payable {
-        LibEthDepositing.depositEtherToL2({
-            state: state,
-            config: getConfig(),
-            resolver: AddressResolver(this),
-            recipient: recipient
-        });
+        if(state.plannedActivationHeight == 0
+            || 
+            (state.plannedActivationHeight != 0 
+            && state.slot7.numBlocks < state.plannedActivationHeight)
+        ) {
+            LibEthDepositing_A3.depositEtherToL2({
+                state: state,
+                config: getConfig(),
+                resolver: AddressResolver(this)
+            });
+        }
+        else {
+            LibEthDepositing.depositEtherToL2({
+                state: state,
+                config: getConfig(),
+                resolver: AddressResolver(this),
+                recipient: recipient
+            });
+        }
     }
 
     function depositTaikoToken(uint256 amount) public nonReentrant {
-        LibTkoDistribution.depositTaikoToken(
-            state, AddressResolver(this), amount
-        );
+        if(state.plannedActivationHeight == 0
+            || 
+            (state.plannedActivationHeight != 0 
+            && state.slot7.numBlocks < state.plannedActivationHeight)
+        ) {
+            LibTokenomics_A3.depositTaikoToken(state, AddressResolver(this), amount);
+        }
+        else {
+            LibTkoDistribution.depositTaikoToken(
+                state, AddressResolver(this), amount
+            );
+        }
     }
 
     function withdrawTaikoToken(uint256 amount) public nonReentrant {
-        LibTkoDistribution.withdrawTaikoToken(
-            state, AddressResolver(this), amount
-        );
+        if(state.plannedActivationHeight == 0
+            || 
+            (state.plannedActivationHeight != 0 
+            && state.slot7.numBlocks < state.plannedActivationHeight)
+        ) {
+            LibTokenomics_A3.withdrawTaikoToken(state, AddressResolver(this), amount);
+        }
+        else {    
+            LibTkoDistribution.withdrawTaikoToken(
+                state, AddressResolver(this), amount
+            );
+        }
     }
 
+    // A3 does not have it (as a funciton but checks when actually depositing)
+    // so safe to just leaves this as is.
     function canDepositEthToL2(uint256 amount) public view returns (bool) {
         return LibEthDepositing.canDepositEthToL2({
             state: state,
             config: getConfig(),
             amount: amount
         });
+
     }
 
     function getBlockFee(uint32 gasLimit) public view returns (uint64) {
-        return LibUtils.getBlockFee({
-            state: state,
-            config: getConfig(),
-            gasAmount: gasLimit
-        });
+        if(state.plannedActivationHeight == 0
+            || 
+            (state.plannedActivationHeight != 0 
+            && state.slot7.numBlocks < state.plannedActivationHeight)
+        ) {
+            return state.slot8.blockFee;
+        }
+        else {
+            return LibUtils.getBlockFee({
+                state: state,
+                config: getConfig(),
+                gasAmount: gasLimit
+            });
+        }
     }
 
     function getTaikoTokenBalance(address addr) public view returns (uint256) {
         return state.taikoTokenBalances[addr];
     }
 
+    // After the upgrade the return value will (bytes) because
+    // A3 and A4 has different Block structure.
     function getBlock(uint256 blockId)
         public
         view
         returns (
-            bytes32 _metaHash,
-            uint32 _gasLimit,
-            uint24 _nextForkChoiceId,
-            uint24 _verifiedForkChoiceId,
-            bool _proverReleased,
-            address _proposer,
-            uint32 _feePerGas,
-            uint64 _proposedAt,
-            address _assignedProver,
-            uint32 _rewardPerGas,
-            uint64 _proofWindow
+            bytes memory
         )
     {
-        TaikoData.Block storage blk = LibProposing.getBlock({
-            state: state,
-            config: getConfig(),
-            blockId: blockId
-        });
-        _metaHash = blk.metaHash;
-        _gasLimit = blk.gasLimit;
-        _nextForkChoiceId = blk.nextForkChoiceId;
-        _verifiedForkChoiceId = blk.verifiedForkChoiceId;
-        _proverReleased = blk.proverReleased;
-        _proposer = blk.proposer;
-        _feePerGas = blk.feePerGas;
-        _proposedAt = blk.proposedAt;
-        _assignedProver = blk.assignedProver;
-        _rewardPerGas = blk.rewardPerGas;
-        _proofWindow = blk.proofWindow;
+        if(state.plannedActivationHeight == 0
+            || 
+            (state.plannedActivationHeight != 0 
+            && state.slot7.numBlocks < state.plannedActivationHeight)
+        ) {
+            TaikoData.Block_A3 storage blk =
+                LibProposing_A3.getBlock({state: state, config: getConfig(), blockId: blockId});
+            
+            return abi.encode(
+                blk.metaHash,
+                blk.proposer,
+                blk.proposedAt
+            );
+        }
+        else {
+            TaikoData.Block storage blk = LibProposing.getBlock({
+                state: state,
+                config: getConfig(),
+                blockId: blockId
+            });
+
+            return abi.encode(
+                blk.metaHash,
+                blk.gasLimit,
+                blk.nextForkChoiceId,
+                blk.verifiedForkChoiceId,
+                blk.proverReleased,
+                blk.proposer,
+                blk.feePerGas,
+                blk.proposedAt,
+                blk.assignedProver,
+                blk.rewardPerGas,
+                blk.proofWindow
+            );
+        }
     }
 
     function getForkChoice(
@@ -343,13 +442,28 @@ contract TaikoL1 is
         view
         returns (TaikoData.ForkChoice memory)
     {
-        return LibProving.getForkChoice({
-            state: state,
-            config: getConfig(),
-            blockId: blockId,
-            parentHash: parentHash,
-            parentGasUsed: parentGasUsed
-        });
+        if(state.plannedActivationHeight == 0
+            || 
+            (state.plannedActivationHeight != 0 
+            && state.slot7.numBlocks < state.plannedActivationHeight)
+        ) {
+            return LibProving_A3.getForkChoice({
+                state: state,
+                config: getConfig(),
+                blockId: blockId,
+                parentHash: parentHash,
+                parentGasUsed: parentGasUsed
+            });
+        }
+        else {
+            return LibProving.getForkChoice({
+                state: state,
+                config: getConfig(),
+                blockId: blockId,
+                parentHash: parentHash,
+                parentGasUsed: parentGasUsed
+            });
+        }
     }
 
     function getCrossChainBlockHash(uint256 blockId)
@@ -358,14 +472,25 @@ contract TaikoL1 is
         override
         returns (bytes32)
     {
-        (bool found, TaikoData.Block storage blk) = LibUtils.getL2ChainData({
-            state: state,
-            config: getConfig(),
-            blockId: blockId
-        });
-        return found
-            ? blk.forkChoices[blk.verifiedForkChoiceId].blockHash
-            : bytes32(0);
+        if(state.plannedActivationHeight == 0
+            || 
+            (state.plannedActivationHeight != 0 
+            && state.slot7.numBlocks < state.plannedActivationHeight)
+        ) {
+            (bool found, TaikoData.Block_A3 storage blk) =
+            LibUtils_A3.getL2ChainData({state: state, config: getConfig(), blockId: blockId});
+            return found ? blk.forkChoices[blk.verifiedForkChoiceId].blockHash : bytes32(0);
+        }
+        else {
+            (bool found, TaikoData.Block storage blk) = LibUtils.getL2ChainData({
+                state: state,
+                config: getConfig(),
+                blockId: blockId
+            });
+            return found
+                ? blk.forkChoices[blk.verifiedForkChoiceId].blockHash
+                : bytes32(0);
+        }
     }
 
     function getCrossChainSignalRoot(uint256 blockId)
@@ -374,23 +499,42 @@ contract TaikoL1 is
         override
         returns (bytes32)
     {
-        (bool found, TaikoData.Block storage blk) = LibUtils.getL2ChainData({
-            state: state,
-            config: getConfig(),
-            blockId: blockId
-        });
-
-        return found
-            ? blk.forkChoices[blk.verifiedForkChoiceId].signalRoot
-            : bytes32(0);
+        if(state.plannedActivationHeight == 0
+            || 
+            (state.plannedActivationHeight != 0 
+            && state.slot7.numBlocks < state.plannedActivationHeight)
+        ) {
+            (bool found, TaikoData.Block_A3 storage blk) =
+            LibUtils_A3.getL2ChainData({state: state, config: getConfig(), blockId: blockId});
+            return found ? blk.forkChoices[blk.verifiedForkChoiceId].signalRoot : bytes32(0);
+        }
+        else {
+            (bool found, TaikoData.Block storage blk) = LibUtils.getL2ChainData({
+                state: state,
+                config: getConfig(),
+                blockId: blockId
+            });
+            return found
+                ? blk.forkChoices[blk.verifiedForkChoiceId].signalRoot
+                : bytes32(0);
+        }
     }
 
     function getStateVariables()
         public
         view
-        returns (TaikoData.StateVariables memory)
+        returns (bytes memory)
     {
-        return state.getStateVariables();
+        if(state.plannedActivationHeight == 0
+            ||
+            (state.plannedActivationHeight != 0 
+            && state.slot7.numBlocks < state.plannedActivationHeight)
+        ) {
+            return abi.encode(LibUtils_A3.getStateVariables({state: state}));
+        }
+        else {
+            return abi.encode(state.getStateVariables());
+        }
     }
 
     function getConfig()
@@ -402,6 +546,7 @@ contract TaikoL1 is
         return TaikoConfig.getConfig();
     }
 
+    // Same in A3
     function getVerifierName(uint16 id) public pure returns (bytes32) {
         return LibUtils.getVerifierName(id);
     }

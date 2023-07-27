@@ -777,7 +777,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
 
     // TODO(daniel|dani): log enough state variables for analysis.
     function printVariables() internal {
-        TaikoData.StateVariables memory vars = L1.getStateVariables();
+        TaikoData.StateVariables memory vars = abi.decode(L1.getStateVariables(),(TaikoData.StateVariables));
         string memory str = string.concat(
             Strings.toString(logCount++),
             ";",

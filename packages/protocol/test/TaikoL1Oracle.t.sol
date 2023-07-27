@@ -185,16 +185,19 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             );
 
             vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
+
+            TaikoData.StateVariables memory vars = abi.decode(L1.getStateVariables(),(TaikoData.StateVariables));
             uint256 lastVerifiedBlockId =
-                L1.getStateVariables().lastVerifiedBlockId;
+                vars.lastVerifiedBlockId;
 
             verifyBlock(Carol, 1);
 
             // Check if shortly after proving (+verify) the last verify is not
             // the same anymore
             // no need to have a cooldown period
+            vars = abi.decode(L1.getStateVariables(),(TaikoData.StateVariables));
             uint256 lastVerifiedBlockIdNow =
-                L1.getStateVariables().lastVerifiedBlockId;
+                vars.lastVerifiedBlockId;
 
             assertFalse(lastVerifiedBlockIdNow == lastVerifiedBlockId);
 
@@ -256,8 +259,9 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 signalRoot
             );
 
+            TaikoData.StateVariables memory vars = abi.decode(L1.getStateVariables(),(TaikoData.StateVariables));
             uint256 lastVerifiedBlockId =
-                L1.getStateVariables().lastVerifiedBlockId;
+                vars.lastVerifiedBlockId;
 
             vm.warp(block.timestamp + 1 seconds);
             verifyBlock(Carol, 1);
@@ -265,15 +269,17 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             // Check if shortly after proving (+verify) the last verify is not
             // the same anymore
             // no need to have a cooldown period
+            vars = abi.decode(L1.getStateVariables(),(TaikoData.StateVariables));
             uint256 lastVerifiedBlockIdNow =
-                L1.getStateVariables().lastVerifiedBlockId;
+                vars.lastVerifiedBlockId;
 
             assertEq(lastVerifiedBlockIdNow, lastVerifiedBlockId);
 
             vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
             verifyBlock(Carol, 1);
 
-            lastVerifiedBlockIdNow = L1.getStateVariables().lastVerifiedBlockId;
+            vars = abi.decode(L1.getStateVariables(),(TaikoData.StateVariables));
+            lastVerifiedBlockIdNow = vars.lastVerifiedBlockId;
 
             assertFalse(lastVerifiedBlockIdNow == lastVerifiedBlockId);
 
@@ -330,14 +336,16 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 signalRoot
             );
 
+            TaikoData.StateVariables memory vars = abi.decode(L1.getStateVariables(),(TaikoData.StateVariables));
             uint256 lastVerifiedBlockId =
-                L1.getStateVariables().lastVerifiedBlockId;
+                vars.lastVerifiedBlockId;
 
             vm.warp(block.timestamp + conf.proofRegularCooldown + 1);
             verifyBlock(Carol, 1);
 
+            vars = abi.decode(L1.getStateVariables(),(TaikoData.StateVariables));
             uint256 lastVerifiedBlockIdNow =
-                L1.getStateVariables().lastVerifiedBlockId;
+                vars.lastVerifiedBlockId;
 
             assertFalse(lastVerifiedBlockIdNow == lastVerifiedBlockId);
 
@@ -398,8 +406,9 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
                 signalRoot
             );
 
+            TaikoData.StateVariables memory vars = abi.decode(L1.getStateVariables(),(TaikoData.StateVariables));
             uint256 lastVerifiedBlockId =
-                L1.getStateVariables().lastVerifiedBlockId;
+                vars.lastVerifiedBlockId;
 
             // Bob cannot overwrite it
             vm.expectRevert(TaikoErrors.L1_ALREADY_PROVEN.selector);
@@ -427,8 +436,9 @@ contract TaikoL1OracleTest is TaikoL1TestBase {
             // Check if shortly after proving (+verify) the last verify is not
             // the same anymore
             // no need to have a cooldown period
+            vars = abi.decode(L1.getStateVariables(),(TaikoData.StateVariables));
             uint256 lastVerifiedBlockIdNow =
-                L1.getStateVariables().lastVerifiedBlockId;
+                vars.lastVerifiedBlockId;
 
             assertFalse(lastVerifiedBlockIdNow == lastVerifiedBlockId);
 
