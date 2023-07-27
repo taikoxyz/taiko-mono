@@ -23,7 +23,7 @@ interface IBridge {
         uint256 destChainId;
         // Owner address of the bridged asset.
         address owner;
-        // Destination owner address.
+        // Target invocation address.
         address to;
         // Alternate address to send any refund. If blank, defaults to owner.
         address refundAddress;
