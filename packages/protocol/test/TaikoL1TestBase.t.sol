@@ -218,13 +218,14 @@ abstract contract TaikoL1TestBase is Test {
             prover: prover,
             parentGasUsed: parentGasUsed,
             gasUsed: gasUsed,
-            verifierId: 100,
-            proof: new bytes(100)
+            proofs: new bytes(102)
         });
 
         bytes32 instance = getInstance(conf, evidence);
+        uint16 verifierId = 100;
 
-        evidence.proof = bytes.concat(
+        evidence.proofs = bytes.concat(
+            bytes2(verifierId),
             bytes16(0),
             bytes16(instance),
             bytes16(0),

@@ -187,9 +187,12 @@ library LibProving {
                 }
             }
 
+            // Formal check of the instance equality. Shifted with
+            // 2 bytes because of the verifierId is also part of
+            // the evidence.proofs on a uint16 (2 bytes)
             if (
                 !LibBytesUtils.equal(
-                    LibBytesUtils.slice(evidence.proof, 0, 32),
+                    LibBytesUtils.slice(evidence.proofs, 2, 32),
                     bytes.concat(bytes16(0), bytes16(instance))
                 )
             ) {
@@ -198,7 +201,7 @@ library LibProving {
 
             if (
                 !LibBytesUtils.equal(
-                    LibBytesUtils.slice(evidence.proof, 32, 32),
+                    LibBytesUtils.slice(evidence.proofs, 34, 32),
                     bytes.concat(
                         bytes16(0), bytes16(uint128(uint256(instance)))
                     )
@@ -210,12 +213,8 @@ library LibProving {
             // Later on it can be like verifyProofs(bytes) where the bytes would
             // include all of the proofs (ZK, SGX, Oracle, etc. ).
             IProofVerifier(resolver.resolve("proof_verifier", false)).verifyProofs(
-                abi.encode(
-                    evidence.verifierId, 
-                    keccak256("ZK"), 
-                    evidence.proof
-                )
-            );
+                blockId,
+                evidence.proofs);
         }
 
         emit BlockProven({

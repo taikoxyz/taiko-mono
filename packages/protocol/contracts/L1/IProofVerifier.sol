@@ -10,9 +10,11 @@ interface IProofVerifier {
     /**
      * Verifying proof via the ProofVerifier contract
      *
+     * @param blockId BlockId
      * @param blockProofs Raw bytes of proof(s)
      */
     function verifyProofs(
+        uint256 blockId,
         bytes calldata blockProofs
     ) external;
 }
