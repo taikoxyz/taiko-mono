@@ -148,7 +148,7 @@
 
     <div>
       <span class="label-text text-left block mb-2 font-bold"
-        >RewardPerGas:
+        >RewardPerGas (in wei):
       </span>
       <div
         class="flex relative rounded-md bg-dark-2 justify-between items-center pr-4">

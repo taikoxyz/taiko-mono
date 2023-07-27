@@ -1,6 +1,4 @@
 import { BigNumber, Contract, ethers } from 'ethers';
-import type { Prover } from '../domain/prover';
-import type { Staker } from '../domain/staker';
 import ProverPool from '../constants/abi/ProverPool';
 
 export const getProverRequirements = async (
