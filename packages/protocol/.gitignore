@@ -21,7 +21,6 @@ cache
 cache_forge
 cache_hardhat
 out
-cache_hardhat
 
 # Foundry
 broadcast
