@@ -15,11 +15,11 @@ This guide will help you claim TTKO/TTKOe earned as a prover.
 
 ### View TTKO/TTKOe prover address balance
 
-Go to the TaikoL1 contract read page (see contract addresses [here](/docs/reference/contract-addresses)) and select `getTaikoTokenBalance(addr address)` to lookup your TTKO/TTKOe claim balance for your prover's address.
+Go to the TaikoL1 contract read page ([TTKO](https://sepolia.etherscan.io/address/0x6375394335f34848b850114b66A49D6F47f2cdA8#readProxyContract#F10)/[TTKOe](https://explorer.test.taiko.xyz/address/0x4e7c942D51d977459108bA497FDc71ae0Fc54a00/read-proxy#address-tabs)) and input your prover address to lookup your TTKO/TTKOe claim balance.
 
 ### Enter withdraw amount
 
-Switch to the contract write page and select `withdrawTaikoToken(amount uint256)` to withdraw TTKO/TTKOe balances earned from being a prover.
+Switch to the contract write page and select `withdrawTaikoToken(amount uint256)` to withdraw [TTKO](https://sepolia.etherscan.io/address/0x6375394335f34848b850114b66A49D6F47f2cdA8#writeProxyContract#F11)/[TTKOe](https://explorer.test.taiko.xyz/address/0x4e7c942D51d977459108bA497FDc71ae0Fc54a00/write-proxy#address-tabs) balances earned from being a prover.
 
 <Callout type="warning">
   Make sure to click the plus sign and add `10^8` decimals, or add 8 zeroes
@@ -36,7 +36,7 @@ amount<=withdrawTaikoToken(proverAddress)
 or else the transaction will revert.
 </Callout>
 
-### Withdraw your TTKO
+### Withdraw your tokens
 
 Click `Write` and confirm the transaction in your wallet.
 
