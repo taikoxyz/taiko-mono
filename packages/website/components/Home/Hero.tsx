@@ -49,12 +49,20 @@ export function Hero() {
                 Decentralized, Ethereum-equivalent ZK-Rollup.
               </p>
               <div className="mt-10 flex md:justify-left">
+                <div className="inline-flex rounded-md shadow mr-4">
+                  <a
+                    href="/docs/guides/deploy-a-contract"
+                    className="inline-flex items-center rounded-md border border-transparent bg-[#e81899] px-5 py-2.5 text-base font-semibold text-white dark:text-neutral-100 hover:bg-[#d1168a] hover:no-underline hover:text-white"
+                  >
+                    Deploy a contract
+                  </a>
+                </div>
                 <div className="inline-flex rounded-md shadow">
                   <a
-                    href="/docs"
-                    className="inline-flex items-center rounded-md border border-transparent bg-[#e81899] px-5 py-3 text-base font-semibold text-white dark:text-neutral-100 hover:bg-[#d1168a] hover:no-underline hover:text-white"
+                    href="/docs/guides/run-a-node"
+                    className="inline-flex items-center rounded-md border-2 border-[#e81899] bg-transparent px-5 py-2.5 text-base font-semibold text-[#e81899] hover:border-[#d1168a] hover:text-[#d1168a] hover:no-underline"
                   >
-                    Get started →
+                    Run a node
                   </a>
                 </div>
               </div>
