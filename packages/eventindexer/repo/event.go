@@ -56,6 +56,10 @@ func (r *EventRepository) Save(ctx context.Context, opts eventindexer.SaveEventO
 		}
 	}
 
+	if opts.AssignedProver != nil {
+		e.AssignedProver = *opts.AssignedProver
+	}
+
 	if err := r.db.GormDB().Create(e).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Create")
 	}
@@ -173,4 +177,44 @@ func (r *EventRepository) GetTotalSlashedTokens(
 	}
 
 	return sum.Decimal.BigInt(), nil
+}
+
+func (r *EventRepository) FirstByAddressAndEventName(
+	ctx context.Context,
+	address string,
+	event string,
+) (*eventindexer.Event, error) {
+	e := &eventindexer.Event{}
+
+	if err := r.db.GormDB().
+		Where("address = ?", address).
+		Where("event = ?", event).
+		First(e).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	return e, nil
+}
+
+func (r *EventRepository) GetAssignedBlocksByProverAddress(
+	ctx context.Context,
+	req *http.Request,
+	address string,
+) (paginate.Page, error) {
+	pg := paginate.New(&paginate.Config{
+		DefaultSize: 100,
+	})
+
+	q := r.db.GormDB().
+		Raw("SELECT * FROM events WHERE event = ? AND assigned_prover = ?", eventindexer.EventNameBlockProposed, address)
+
+	reqCtx := pg.With(q)
+
+	page := reqCtx.Request(req).Response(&[]eventindexer.Event{})
+
+	return page, nil
 }

@@ -4,7 +4,9 @@
 
   import { onDestroy, onMount } from 'svelte';
 
+  import { AccountConnectionToast } from '$components/AccountConnectionToast';
   import { Header } from '$components/Header';
+  import { NotificationToast } from '$components/NotificationToast';
   import { SideNavigation } from '$components/SideNavigation';
   import { startWatching, stopWatching } from '$libs/wagmi';
 
@@ -12,9 +14,19 @@
   onDestroy(stopWatching);
 </script>
 
+<!-- App components -->
 <SideNavigation>
   <Header />
-  <main class="my-8 md:my-14">
+  <main>
     <slot />
   </main>
 </SideNavigation>
+
+<!--
+  The following UI is global and should be rendered 
+  at the root of the app.
+-->
+
+<NotificationToast />
+
+<AccountConnectionToast />

@@ -31,7 +31,7 @@ linters-settings:
     lines: 200
     statements: 100
   gocognit:
-    min-complexity: 60
+    min-complexity: 100
   lll:
     line-length: 150
 
@@ -44,4 +44,3 @@ issues:
     - path: contracts\.go
       linters:
         - lll
-

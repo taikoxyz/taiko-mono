@@ -24,12 +24,12 @@ func (svc *Service) saveSlashedEvents(
 	for {
 		event := events.Event
 
-		log.Infof("new slashed event, addr: %v", event.Addr.Hex())
+		log.Infof("new slashed event, addr: %v, amt: %v", event.Addr.Hex(), event.Amount)
 
 		if err := svc.saveSlashedEvent(ctx, chainID, event); err != nil {
 			eventindexer.SlashedEventsProcessedError.Inc()
 
-			return errors.Wrap(err, "svc.saveBlockVerifiedEvent")
+			return errors.Wrap(err, "svc.saveSlashedEvent")
 		}
 
 		if !events.Next() {
@@ -53,7 +53,8 @@ func (svc *Service) saveSlashedEvent(
 		Data:    string(marshaled),
 		ChainID: chainID,
 		Event:   eventindexer.EventNameSlashed,
-		Address: "",
+		Address: event.Addr.Hex(),
+		Amount:  new(big.Int).SetUint64(event.Amount),
 	})
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.Save")

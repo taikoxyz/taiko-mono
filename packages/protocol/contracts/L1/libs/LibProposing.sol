@@ -12,7 +12,6 @@ import { IMintableERC20 } from "../../common/IMintableERC20.sol";
 import { IProverPool } from "../ProverPool.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibEthDepositing } from "./LibEthDepositing.sol";
-import { LibL2Consts } from "../../L2/LibL2Consts.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
@@ -26,12 +25,17 @@ library LibProposing {
     using SafeCastUpgradeable for uint256;
 
     event BlockProposed(
-        uint256 indexed id, TaikoData.BlockMetadata meta, uint64 blockFee
+        uint256 indexed blockId,
+        address indexed assignedProver,
+        uint32 rewardPerGas,
+        uint64 feePerGas,
+        TaikoData.BlockMetadata meta
     );
 
     error L1_BLOCK_ID();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
+    error L1_PERMISSION_DENIED();
     error L1_TOO_MANY_BLOCKS();
     error L1_TOO_MANY_OPEN_BLOCKS();
     error L1_TX_LIST_NOT_EXIST();
@@ -49,6 +53,12 @@ library LibProposing {
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
+        {
+            address proposer = resolver.resolve("proposer", true);
+            if (proposer != address(0) && msg.sender != proposer) {
+                revert L1_PERMISSION_DENIED();
+            }
+        }
         // Try to select a prover first to revert as earlier as possible
         (address assignedProver, uint32 rewardPerGas) = IProverPool(
             resolver.resolve("prover_pool", false)
@@ -120,30 +130,27 @@ library LibProposing {
             ++state.numOpenBlocks;
         } else {
             blk.assignedProver = assignedProver;
-
-            // Cap the reward to a range of [95%, 105%] * blk.feePerGas, if
-            // rewardPerGasRange is set to 5% (500 bp)
-            uint32 diff = blk.feePerGas * config.rewardPerGasRange / 10_000;
-            blk.rewardPerGas = uint32(
-                uint256(rewardPerGas).min(state.feePerGas + diff).max(
-                    state.feePerGas - diff
-                )
-            );
-
+            blk.rewardPerGas = rewardPerGas;
+            uint256 _window = uint256(state.avgProofDelay)
+                * config.proofWindowMultiplier / 100;
             blk.proofWindow = uint16(
-                uint256(state.avgProofDelay * 3).min(config.proofMaxWindow).max(
-                    config.proofMinWindow
-                )
+                _window.min(config.proofMaxWindow).max(config.proofMinWindow)
             );
         }
 
-        uint64 blockFee = getBlockFee(state, config);
+        uint64 blockFee = LibUtils.getBlockFee(state, config);
 
         if (state.taikoTokenBalances[msg.sender] < blockFee) {
             revert L1_INSUFFICIENT_TOKEN();
         }
 
-        emit BlockProposed(state.numBlocks, meta, blockFee);
+        emit BlockProposed({
+            blockId: state.numBlocks,
+            assignedProver: blk.assignedProver,
+            rewardPerGas: blk.rewardPerGas,
+            feePerGas: state.feePerGas,
+            meta: meta
+        });
 
         unchecked {
             ++state.numBlocks;
@@ -162,23 +169,6 @@ library LibProposing {
     {
         blk = state.blocks[blockId % config.blockRingBufferSize];
         if (blk.blockId != blockId) revert L1_BLOCK_ID();
-    }
-
-    // If auction is tied to gas, we should charge users based on gas as well. At
-    // this point gasUsed (in proposeBlock()) is always gasLimit, so use it and
-    // in case of differences refund after verification
-    function getBlockFee(
-        TaikoData.State storage state,
-        TaikoData.Config memory config
-    )
-        internal
-        view
-        returns (uint64)
-    {
-        // The diff between gasLimit and gasUsed will be redistributed back to
-        // the balance of proposer
-        return
-            state.feePerGas * (config.blockMaxGasUsed + config.blockFeeBaseGas);
     }
 
     function _validateBlock(

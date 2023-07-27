@@ -4,32 +4,43 @@ title: ProverPool
 
 ## ProverPool
 
+This contract manages a pool of the top 32 provers. This pool is
+where the protocol selects provers from to prove L1 block validity. There are
+two actors:
+
+- Provers (generating the proofs)
+- Stakers (staking tokens for the provers)
+
 ### Prover
+
+_These values are used to compute the prover's rank (along with the
+protocol feePerGas)._
 
 ```solidity
 struct Prover {
   uint64 stakedAmount;
-  uint16 rewardPerGas;
-  uint16 currentCapacity;
-  uint64 weight;
+  uint32 rewardPerGas;
+  uint32 currentCapacity;
 }
 ```
 
 ### Staker
 
+_Make sure we only use one slot._
+
 ```solidity
 struct Staker {
   uint64 exitRequestedAt;
   uint64 exitAmount;
-  uint16 maxCapacity;
-  uint8 proverId;
+  uint32 maxCapacity;
+  uint32 proverId;
 }
 ```
 
-### MAX_CAPACITY_LOWER_BOUND
+### MIN_CAPACITY
 
 ```solidity
-uint32 MAX_CAPACITY_LOWER_BOUND
+uint32 MIN_CAPACITY
 ```
 
 ### EXIT_PERIOD
@@ -41,7 +52,13 @@ uint64 EXIT_PERIOD
 ### SLASH_POINTS
 
 ```solidity
-uint32 SLASH_POINTS
+uint64 SLASH_POINTS
+```
+
+### SLASH_MULTIPLIER
+
+```solidity
+uint64 SLASH_MULTIPLIER
 ```
 
 ### MIN_STAKE_PER_CAPACITY
@@ -50,16 +67,16 @@ uint32 SLASH_POINTS
 uint64 MIN_STAKE_PER_CAPACITY
 ```
 
-### MIN_SLASH_AMOUNT
-
-```solidity
-uint64 MIN_SLASH_AMOUNT
-```
-
 ### MAX_NUM_PROVERS
 
 ```solidity
 uint256 MAX_NUM_PROVERS
+```
+
+### MIN_CHANGE_DELAY
+
+```solidity
+uint256 MIN_CHANGE_DELAY
 ```
 
 ### provers
@@ -68,10 +85,10 @@ uint256 MAX_NUM_PROVERS
 struct ProverPool.Prover[1024] provers
 ```
 
-### idToProver
+### proverIdToAddress
 
 ```solidity
-mapping(uint256 => address) idToProver
+mapping(uint256 => address) proverIdToAddress
 ```
 
 ### stakers
@@ -101,7 +118,13 @@ event Slashed(address addr, uint64 amount)
 ### Staked
 
 ```solidity
-event Staked(address addr, uint64 amount, uint16 rewardPerGas, uint16 currentCapacity)
+event Staked(address addr, uint64 amount, uint32 rewardPerGas, uint32 currentCapacity)
+```
+
+### CHANGE_TOO_FREQUENT
+
+```solidity
+error CHANGE_TOO_FREQUENT()
 ```
 
 ### INVALID_PARAMS
@@ -143,8 +166,25 @@ function init(address _addressManager) external
 ### assignProver
 
 ```solidity
-function assignProver(uint64 blockId, uint32) external returns (address prover, uint32 rewardPerGas)
+function assignProver(uint64 blockId, uint32 feePerGas) external returns (address prover, uint32 rewardPerGas)
 ```
+
+_Protocol specifies the current feePerGas and assigns a prover to a
+block._
+
+#### Parameters
+
+| Name      | Type   | Description              |
+| --------- | ------ | ------------------------ |
+| blockId   | uint64 | The block id.            |
+| feePerGas | uint32 | The current fee per gas. |
+
+#### Return Values
+
+| Name         | Type    | Description                                 |
+| ------------ | ------- | ------------------------------------------- |
+| prover       | address | The address of the assigned prover.         |
+| rewardPerGas | uint32  | The reward per gas for the assigned prover. |
 
 ### releaseProver
 
@@ -152,17 +192,46 @@ function assignProver(uint64 blockId, uint32) external returns (address prover, 
 function releaseProver(address addr) external
 ```
 
+_Increases the capacity of the prover by releasing a prover._
+
+#### Parameters
+
+| Name | Type    | Description                           |
+| ---- | ------- | ------------------------------------- |
+| addr | address | The address of the prover to release. |
+
 ### slashProver
 
 ```solidity
-function slashProver(address addr) external
+function slashProver(address addr, uint64 proofReward) external
 ```
+
+_Slashes a prover._
+
+#### Parameters
+
+| Name        | Type    | Description                         |
+| ----------- | ------- | ----------------------------------- |
+| addr        | address | The address of the prover to slash. |
+| proofReward | uint64  |                                     |
 
 ### stake
 
 ```solidity
-function stake(uint64 amount, uint16 rewardPerGas, uint16 maxCapacity) external
+function stake(uint64 amount, uint32 rewardPerGas, uint32 maxCapacity) external
 ```
+
+This function is used for a staker to stake tokens for a prover.
+It will also perform the logic of updating the prover's rank, possibly
+moving it into the active prover pool.
+
+#### Parameters
+
+| Name         | Type   | Description                                                                                                                                                 |
+| ------------ | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| amount       | uint64 | The amount of Taiko tokens to stake.                                                                                                                        |
+| rewardPerGas | uint32 | The expected reward per gas for the prover. If the expected reward is higher (implying that the prover is less efficient), the prover will be ranked lower. |
+| maxCapacity  | uint32 | The maximum number of blocks that a prover can handle.                                                                                                      |
 
 ### exit
 
@@ -170,11 +239,17 @@ function stake(uint64 amount, uint16 rewardPerGas, uint16 maxCapacity) external
 function exit() external
 ```
 
+Request an exit for the staker. This will withdraw the staked
+tokens and exit
+prover from the pool.
+
 ### withdraw
 
 ```solidity
 function withdraw() external
 ```
+
+Withdraws staked tokens back from matured an exit.
 
 ### getStaker
 
@@ -182,17 +257,78 @@ function withdraw() external
 function getStaker(address addr) public view returns (struct ProverPool.Staker staker, struct ProverPool.Prover prover)
 ```
 
+Retrieves the information of a staker and their corresponding
+prover using their address.
+
+#### Parameters
+
+| Name | Type    | Description                |
+| ---- | ------- | -------------------------- |
+| addr | address | The address of the staker. |
+
+#### Return Values
+
+| Name   | Type                     | Description               |
+| ------ | ------------------------ | ------------------------- |
+| staker | struct ProverPool.Staker | The staker's information. |
+| prover | struct ProverPool.Prover | The prover's information. |
+
 ### getCapacity
 
 ```solidity
 function getCapacity() public view returns (uint256 capacity)
 ```
 
+Calculates and returns the current total capacity of the pool.
+
+#### Return Values
+
+| Name     | Type    | Description                     |
+| -------- | ------- | ------------------------------- |
+| capacity | uint256 | The total capacity of the pool. |
+
 ### getProvers
 
 ```solidity
 function getProvers() public view returns (struct ProverPool.Prover[] _provers, address[] _stakers)
 ```
+
+Retreives the current active provers and their corresponding
+stakers.
+
+#### Return Values
+
+| Name      | Type                       | Description                        |
+| --------- | -------------------------- | ---------------------------------- |
+| \_provers | struct ProverPool.Prover[] | The active provers.                |
+| \_stakers | address[]                  | The stakers of the active provers. |
+
+### getProverWeights
+
+```solidity
+function getProverWeights(uint32 feePerGas) public view returns (uint256[32] weights, uint32[32] erpg)
+```
+
+Returns the current active provers and their weights. The weight
+is dependent on the:
+
+1. The prover's amount staked.
+2. The prover's current capacity.
+3. The prover's expected reward per gas.
+4. The protocol's current fee per gas.
+
+#### Parameters
+
+| Name      | Type   | Description                         |
+| --------- | ------ | ----------------------------------- |
+| feePerGas | uint32 | The protocol's current fee per gas. |
+
+#### Return Values
+
+| Name    | Type        | Description                                                                                                                      |
+| ------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| weights | uint256[32] | The weights of the current provers in the pool.                                                                                  |
+| erpg    | uint32[32]  | The effective reward per gas of the current provers in the pool. This is smoothed out to be in range of the current fee per gas. |
 
 ---
 

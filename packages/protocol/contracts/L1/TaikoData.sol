@@ -28,6 +28,7 @@ library TaikoData {
         uint256 proofOracleCooldown;
         uint16 proofMinWindow;
         uint16 proofMaxWindow;
+        uint16 proofWindowMultiplier;
         // Group 4: eth deposit related configs
         uint256 ethDepositRingBufferSize;
         uint64 ethDepositMinCountPerBlock;
@@ -37,9 +38,9 @@ library TaikoData {
         uint256 ethDepositGas;
         uint256 ethDepositMaxFee;
         // Group 5: tokenomics
-        uint32 rewardPerGasRange;
         uint8 rewardOpenMultipler;
-        uint256 rewardOpenMaxCount;
+        uint32 rewardOpenMaxCount;
+        uint32 rewardMaxDelayPenalty;
     }
 
     struct StateVariables {

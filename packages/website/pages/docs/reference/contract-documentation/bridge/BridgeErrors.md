@@ -4,14 +4,6 @@ title: BridgeErrors
 
 ## BridgeErrors
 
-### B_CANNOT_RECEIVE
-
-```solidity
-error B_CANNOT_RECEIVE()
-```
-
-Emitted when the contract is not intended to receive Ether
-
 ### B_DENIED
 
 ```solidity

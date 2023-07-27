@@ -22,10 +22,10 @@ abstract contract TaikoErrors {
     error L1_INVALID_METADATA();
     error L1_INVALID_PARAM();
     error L1_INVALID_PROOF();
-    error L1_INVALID_PROOF_OVERWRITE();
     error L1_NOT_PROVEABLE();
     error L1_NOT_BETTER_BID();
     error L1_NOT_SPECIAL_PROVER();
+    error L1_PERMISSION_DENIED();
     error L1_SAME_PROOF();
     error L1_TOO_MANY_BLOCKS();
     error L1_TOO_MANY_OPEN_BLOCKS();
@@ -34,6 +34,4 @@ abstract contract TaikoErrors {
     error L1_TX_LIST_RANGE();
     error L1_TX_LIST();
     error L1_UNAUTHORIZED();
-
-    // Prover pool related error
 }

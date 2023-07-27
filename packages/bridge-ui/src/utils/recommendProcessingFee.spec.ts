@@ -1,7 +1,7 @@
 import { BigNumber, ethers, Signer } from 'ethers';
 import { get } from 'svelte/store';
 
-import { mainnetChain, taikoChain } from '../chain/chains';
+import { L1Chain, L2Chain } from '../chain/chains';
 import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
 import { ProcessingFeeMethod } from '../domain/fee';
 import type { Token } from '../domain/token';
@@ -32,8 +32,8 @@ const gasPrice = 2;
 const mockGetGasPrice = async () => Promise.resolve(BigNumber.from(gasPrice));
 
 // Mocking providers to return the desired gasPrice
-providers[mainnetChain.id].getGasPrice = mockGetGasPrice;
-providers[taikoChain.id].getGasPrice = mockGetGasPrice;
+providers[L1Chain.id].getGasPrice = mockGetGasPrice;
+providers[L2Chain.id].getGasPrice = mockGetGasPrice;
 
 const mockSigner = {} as Signer;
 
@@ -57,7 +57,7 @@ describe('recommendProcessingFee()', () => {
     expect(
       await recommendProcessingFee(
         null,
-        mainnetChain,
+        L1Chain,
         ProcessingFeeMethod.RECOMMENDED,
         ETHToken,
         get(signer),
@@ -66,7 +66,7 @@ describe('recommendProcessingFee()', () => {
 
     expect(
       await recommendProcessingFee(
-        mainnetChain,
+        L1Chain,
         null,
         ProcessingFeeMethod.RECOMMENDED,
         ETHToken,
@@ -76,8 +76,8 @@ describe('recommendProcessingFee()', () => {
 
     expect(
       await recommendProcessingFee(
-        mainnetChain,
-        taikoChain,
+        L1Chain,
+        L2Chain,
         null,
         ETHToken,
         get(signer),
@@ -86,8 +86,8 @@ describe('recommendProcessingFee()', () => {
 
     expect(
       await recommendProcessingFee(
-        taikoChain,
-        mainnetChain,
+        L2Chain,
+        L1Chain,
         ProcessingFeeMethod.RECOMMENDED,
         null,
         get(signer),
@@ -96,8 +96,8 @@ describe('recommendProcessingFee()', () => {
 
     expect(
       await recommendProcessingFee(
-        taikoChain,
-        mainnetChain,
+        L2Chain,
+        L1Chain,
         ProcessingFeeMethod.RECOMMENDED,
         ETHToken,
         null,
@@ -107,8 +107,8 @@ describe('recommendProcessingFee()', () => {
 
   it('uses ethGasLimit if the token is ETH', async () => {
     const fee = await recommendProcessingFee(
-      taikoChain,
-      mainnetChain,
+      L2Chain,
+      L1Chain,
       ProcessingFeeMethod.RECOMMENDED,
       ETHToken,
       mockSigner,
@@ -127,8 +127,8 @@ describe('recommendProcessingFee()', () => {
     );
 
     const fee = await recommendProcessingFee(
-      taikoChain,
-      mainnetChain,
+      L2Chain,
+      L1Chain,
       ProcessingFeeMethod.RECOMMENDED,
       testERC20Tokens[0],
       mockSigner,
@@ -145,8 +145,8 @@ describe('recommendProcessingFee()', () => {
     mockContract.canonicalToBridged.mockImplementationOnce(() => '0x123');
 
     const fee = await recommendProcessingFee(
-      taikoChain,
-      mainnetChain,
+      L2Chain,
+      L1Chain,
       ProcessingFeeMethod.RECOMMENDED,
       testERC20Tokens[0],
       mockSigner,
@@ -161,15 +161,15 @@ describe('recommendProcessingFee()', () => {
 
   it('uses destination token address', async () => {
     await recommendProcessingFee(
-      taikoChain,
-      mainnetChain,
+      L2Chain,
+      L1Chain,
       ProcessingFeeMethod.RECOMMENDED,
       mockToken,
       mockSigner,
     );
 
     expect(mockContract.canonicalToBridged).toHaveBeenCalledWith(
-      taikoChain.id,
+      L2Chain.id,
       mockToken.addresses[L2_CHAIN_ID],
     );
   });
@@ -179,8 +179,8 @@ describe('recommendProcessingFee()', () => {
 
     await expect(
       recommendProcessingFee(
-        taikoChain,
-        mainnetChain,
+        L2Chain,
+        L1Chain,
         ProcessingFeeMethod.RECOMMENDED,
         testERC20Tokens[0],
         mockSigner,

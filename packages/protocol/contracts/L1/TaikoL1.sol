@@ -177,7 +177,7 @@ contract TaikoL1 is
     }
 
     function getBlockFee() public view returns (uint64) {
-        return LibProposing.getBlockFee({ state: state, config: getConfig() });
+        return LibUtils.getBlockFee({ state: state, config: getConfig() });
     }
 
     function getTaikoTokenBalance(address addr) public view returns (uint256) {

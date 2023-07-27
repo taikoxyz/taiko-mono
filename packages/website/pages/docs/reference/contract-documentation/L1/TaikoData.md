@@ -22,6 +22,7 @@ struct Config {
   uint256 proofOracleCooldown;
   uint16 proofMinWindow;
   uint16 proofMaxWindow;
+  uint16 proofWindowMultiplier;
   uint256 ethDepositRingBufferSize;
   uint64 ethDepositMinCountPerBlock;
   uint64 ethDepositMaxCountPerBlock;
@@ -29,9 +30,9 @@ struct Config {
   uint96 ethDepositMaxAmount;
   uint256 ethDepositGas;
   uint256 ethDepositMaxFee;
-  uint32 rewardPerGasRange;
   uint8 rewardOpenMultipler;
-  uint256 rewardOpenMaxCount;
+  uint32 rewardOpenMaxCount;
+  uint32 rewardMaxDelayPenalty;
 }
 ```
 

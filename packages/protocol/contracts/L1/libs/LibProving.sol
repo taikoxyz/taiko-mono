@@ -18,7 +18,7 @@ library LibProving {
     using LibUtils for TaikoData.State;
 
     event BlockProven(
-        uint256 indexed id,
+        uint256 indexed blockId,
         bytes32 parentHash,
         bytes32 blockHash,
         bytes32 signalRoot,
@@ -32,7 +32,6 @@ library LibProving {
     error L1_FORK_CHOICE_NOT_FOUND();
     error L1_INVALID_EVIDENCE();
     error L1_INVALID_PROOF();
-    error L1_INVALID_PROOF_OVERWRITE();
     error L1_NOT_PROVEABLE();
     error L1_NOT_SPECIAL_PROVER();
     error L1_SAME_PROOF();
@@ -128,20 +127,7 @@ library LibProving {
                     && fc.gasUsed == evidence.gasUsed
             ) revert L1_SAME_PROOF();
         } else {
-            // This is the branch provers trying to overwrite
-            fc = blk.forkChoices[fcId];
-
-            // Only oracle proof can be overwritten by regular proof
-            if (fc.prover != address(1)) {
-                revert L1_ALREADY_PROVEN();
-            }
-
-            // The regular proof must be the same as the oracle proof
-            if (
-                fc.blockHash != evidence.blockHash
-                    || fc.signalRoot != evidence.signalRoot
-                    || fc.gasUsed != evidence.gasUsed
-            ) revert L1_INVALID_PROOF_OVERWRITE();
+            revert L1_ALREADY_PROVEN();
         }
 
         fc.blockHash = evidence.blockHash;
@@ -238,7 +224,7 @@ library LibProving {
         }
 
         emit BlockProven({
-            id: blk.blockId,
+            blockId: blk.blockId,
             parentHash: evidence.parentHash,
             blockHash: evidence.blockHash,
             signalRoot: evidence.signalRoot,

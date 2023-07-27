@@ -55,6 +55,12 @@ modifier onlyFromNamed2(bytes32 name1, bytes32 name2)
 modifier onlyFromNamed3(bytes32 name1, bytes32 name2, bytes32 name3)
 ```
 
+### onlyFromNamed4
+
+```solidity
+modifier onlyFromNamed4(bytes32 name1, bytes32 name2, bytes32 name3, bytes32 name4)
+```
+
 ### resolve
 
 ```solidity

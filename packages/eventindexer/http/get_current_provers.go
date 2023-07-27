@@ -10,9 +10,10 @@ import (
 )
 
 type Prover struct {
-	CurrentCapacity uint16 `json:"currentCapacity"`
+	CurrentCapacity uint32 `json:"currentCapacity"`
 	Address         string `json:"address"`
 	AmountStaked    uint64 `json:"amountStaked"`
+	RewardPerGas    uint32 `json:"rewardPerGas"`
 }
 
 type currentProversResponse struct {
@@ -53,6 +54,7 @@ func (srv *Server) getCurrentProvers(ctx context.Context) (*currentProversRespon
 			CurrentCapacity: prover.CurrentCapacity,
 			AmountStaked:    prover.StakedAmount,
 			Address:         provers.Stakers[i].Hex(),
+			RewardPerGas:    prover.RewardPerGas,
 		})
 	}
 

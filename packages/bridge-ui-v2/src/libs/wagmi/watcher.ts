@@ -16,13 +16,17 @@ export function startWatching() {
     // See https://wagmi.sh/core/actions/watchNetwork
     unWatchNetwork = watchNetwork((data) => {
       log('Network changed', data);
-      network.set(data);
+
+      // When we switch networks, we are actually selecting
+      // the source chain.
+      network.set(data.chain);
     });
 
     // Action for subscribing to account changes.
     // See https://wagmi.sh/core/actions/watchAccount
     unWatchAccount = watchAccount((data) => {
       log('Account changed', data);
+
       account.set(data);
     });
 

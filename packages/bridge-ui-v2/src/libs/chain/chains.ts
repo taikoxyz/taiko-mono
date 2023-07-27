@@ -1,3 +1,5 @@
+import type { Address, Chain } from '@wagmi/core';
+
 import {
   PUBLIC_L1_BRIDGE_ADDRESS,
   PUBLIC_L1_CHAIN_ID,
@@ -6,6 +8,7 @@ import {
   PUBLIC_L1_EXPLORER_URL,
   PUBLIC_L1_RPC_URL,
   PUBLIC_L1_SIGNAL_SERVICE_ADDRESS,
+  PUBLIC_L1_TOKEN_VAULT_ADDRESS,
   PUBLIC_L2_BRIDGE_ADDRESS,
   PUBLIC_L2_CHAIN_ID,
   PUBLIC_L2_CHAIN_NAME,
@@ -13,12 +16,11 @@ import {
   PUBLIC_L2_EXPLORER_URL,
   PUBLIC_L2_RPC_URL,
   PUBLIC_L2_SIGNAL_SERVICE_ADDRESS,
+  PUBLIC_L2_TOKEN_VAULT_ADDRESS,
 } from '$env/static/public';
 
-import type { ExtendedChain } from './types';
-
-export const mainnetChain: ExtendedChain = {
-  id: parseInt(PUBLIC_L1_CHAIN_ID),
+export const mainnetChain: Chain = {
+  id: Number(PUBLIC_L1_CHAIN_ID),
   name: PUBLIC_L1_CHAIN_NAME,
   network: 'L1',
   nativeCurrency: {
@@ -36,15 +38,10 @@ export const mainnetChain: ExtendedChain = {
       url: PUBLIC_L1_EXPLORER_URL,
     },
   },
-  contracts: {
-    bridgeAddress: PUBLIC_L1_BRIDGE_ADDRESS,
-    crossChainSyncAddress: PUBLIC_L1_CROSS_CHAIN_SYNC_ADDRESS,
-    signalServiceAddress: PUBLIC_L1_SIGNAL_SERVICE_ADDRESS,
-  },
 };
 
-export const taikoChain: ExtendedChain = {
-  id: parseInt(PUBLIC_L2_CHAIN_ID),
+export const taikoChain: Chain = {
+  id: Number(PUBLIC_L2_CHAIN_ID),
   name: PUBLIC_L2_CHAIN_NAME,
   network: 'L2',
   nativeCurrency: {
@@ -62,11 +59,29 @@ export const taikoChain: ExtendedChain = {
       url: PUBLIC_L2_EXPLORER_URL,
     },
   },
-  contracts: {
-    bridgeAddress: PUBLIC_L2_BRIDGE_ADDRESS,
-    crossChainSyncAddress: PUBLIC_L2_CROSS_CHAIN_SYNC_ADDRESS,
-    signalServiceAddress: PUBLIC_L2_SIGNAL_SERVICE_ADDRESS,
-  },
 };
 
 export const chains = [mainnetChain, taikoChain];
+
+export const chainContractsMap: Record<
+  string,
+  {
+    bridgeAddress: Address;
+    tokenVaultAddress: Address;
+    crossChainSyncAddress: Address;
+    signalServiceAddress: Address;
+  }
+> = {
+  [PUBLIC_L1_CHAIN_ID]: {
+    bridgeAddress: PUBLIC_L1_BRIDGE_ADDRESS as Address,
+    tokenVaultAddress: PUBLIC_L1_TOKEN_VAULT_ADDRESS as Address,
+    crossChainSyncAddress: PUBLIC_L1_CROSS_CHAIN_SYNC_ADDRESS as Address,
+    signalServiceAddress: PUBLIC_L1_SIGNAL_SERVICE_ADDRESS as Address,
+  },
+  [PUBLIC_L2_CHAIN_ID]: {
+    bridgeAddress: PUBLIC_L2_BRIDGE_ADDRESS as Address,
+    tokenVaultAddress: PUBLIC_L2_TOKEN_VAULT_ADDRESS as Address,
+    crossChainSyncAddress: PUBLIC_L2_CROSS_CHAIN_SYNC_ADDRESS as Address,
+    signalServiceAddress: PUBLIC_L2_SIGNAL_SERVICE_ADDRESS as Address,
+  },
+};

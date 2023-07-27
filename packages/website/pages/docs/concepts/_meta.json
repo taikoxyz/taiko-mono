@@ -1,6 +1,6 @@
 {
   "overview": {
-    "title": "Overview"
+    "title": "What is Taiko?"
   },
   "proposing": {
     "title": "Proposing Taiko blocks"
@@ -13,5 +13,8 @@
   },
   "taiko-nodes": {
     "title": "Taiko nodes"
+  },
+  "inception-layers": {
+    "title": "Inception layers"
   }
 }

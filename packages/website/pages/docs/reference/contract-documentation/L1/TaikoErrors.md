@@ -82,12 +82,6 @@ error L1_INVALID_PARAM()
 error L1_INVALID_PROOF()
 ```
 
-### L1_INVALID_PROOF_OVERWRITE
-
-```solidity
-error L1_INVALID_PROOF_OVERWRITE()
-```
-
 ### L1_NOT_PROVEABLE
 
 ```solidity
@@ -104,6 +98,12 @@ error L1_NOT_BETTER_BID()
 
 ```solidity
 error L1_NOT_SPECIAL_PROVER()
+```
+
+### L1_PERMISSION_DENIED
+
+```solidity
+error L1_PERMISSION_DENIED()
 ```
 
 ### L1_SAME_PROOF

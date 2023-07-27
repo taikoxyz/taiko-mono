@@ -1,0 +1,23 @@
+{
+  "setup-your-wallet": {
+    "title": "💻 Setup your wallet"
+  },
+  "receive-tokens": {
+    "title": "🎈 Receive tokens"
+  },
+  "bridge-tokens": {
+    "title": "🌉 Bridge tokens"
+  },
+  "swap-tokens": {
+    "title": "🔄 Swap tokens"
+  },
+  "deploy-a-contract": {
+    "title": "🚀 Deploy a contract"
+  },
+  "verify-a-contract": {
+    "title": "📜 Verify a contract"
+  },
+  "build-a-dapp": {
+    "title": "🛠️ Build a dapp"
+  }
+}

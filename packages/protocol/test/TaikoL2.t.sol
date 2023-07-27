@@ -12,12 +12,12 @@ import { SafeCastUpgradeable } from
 contract TestTaikoL2 is Test {
     using SafeCastUpgradeable for uint256;
 
-    uint64 public constant BLOCK_GAS_LIMIT = 30_000_000; // same as
+    uint32 public constant BLOCK_GAS_LIMIT = 30_000_000; // same as
         // `block_gas_limit` in foundry.toml
 
     TaikoL2 public L2;
     uint256 private logIndex;
-    uint64 private ANCHOR_GAS_COST = LibL2Consts.ANCHOR_GAS_COST;
+    uint32 private ANCHOR_GAS_COST = LibL2Consts.ANCHOR_GAS_COST;
 
     function setUp() public {
         uint16 rand = 2;
@@ -158,8 +158,8 @@ contract TestTaikoL2 is Test {
 
     function _getBasefeeAndPrint(
         uint32 timeSinceParent,
-        uint64 gasLimit,
-        uint64 parentGasUsed
+        uint32 gasLimit,
+        uint32 parentGasUsed
     )
         private
         returns (uint256 _basefee)
@@ -196,7 +196,7 @@ contract TestTaikoL2 is Test {
 
     function _getBasefeeAndPrint(
         uint32 timeSinceNow,
-        uint64 gasLimit
+        uint32 gasLimit
     )
         private
         returns (uint256 _basefee)
@@ -208,7 +208,7 @@ contract TestTaikoL2 is Test {
         );
     }
 
-    function _anchor(uint64 parentGasLimit) private {
+    function _anchor(uint32 parentGasLimit) private {
         L2.anchor(
             keccak256("a"),
             keccak256("b"),
