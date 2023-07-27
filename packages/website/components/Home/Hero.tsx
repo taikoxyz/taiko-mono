@@ -48,19 +48,19 @@ export function Hero() {
               <p className="font-groteskmedium mt-3 text-lg text-neutral-600 sm:text-xl md:mt-5 dark:text-neutral-100">
                 Decentralized, Ethereum-equivalent ZK-Rollup.
               </p>
-              <div className="mt-10 flex md:justify-left">
-                <div className="inline-flex rounded-md shadow mr-4">
+              <div className="mt-10 flex flex-col sm:flex-row md:justify-left">
+                <div className="inline-flex mb-4 sm:mb-0 sm:mr-4">
                   <a
                     href="/docs/guides/deploy-a-contract"
-                    className="inline-flex items-center rounded-md border border-transparent bg-[#e81899] px-5 py-2.5 text-base font-semibold text-white dark:text-neutral-100 hover:bg-[#d1168a] hover:no-underline hover:text-white"
+                    className="inline-flex items-center rounded-md border border-transparent bg-[#e81899] px-5 py-2.5 text-base font-semibold text-white dark:text-neutral-100 hover:bg-[#d1168a] hover:no-underline hover:text-white w-auto"
                   >
                     Deploy a contract
                   </a>
                 </div>
-                <div className="inline-flex rounded-md shadow">
+                <div className="inline-flex">
                   <a
                     href="/docs/guides/run-a-node"
-                    className="inline-flex items-center rounded-md border-2 border-[#e81899] bg-transparent px-5 py-2.5 text-base font-semibold text-[#e81899] hover:border-[#d1168a] hover:text-[#d1168a] hover:no-underline"
+                    className="inline-flex items-center rounded-md border-2 border-[#e81899] bg-transparent px-5 py-2.5 text-base font-semibold text-[#e81899] hover:border-[#d1168a] hover:text-[#d1168a] hover:no-underline w-auto"
                   >
                     Run a node
                   </a>
