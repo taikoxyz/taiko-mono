@@ -5,6 +5,7 @@ import type { Abi } from 'abitype';
 import axios from 'axios';
 
 import { bridgeABI } from '$abi';
+import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
 import { TokenType } from '$libs/token';
 import { getLogger } from '$libs/util/logger';
 
@@ -14,13 +15,11 @@ import type {
   APIRequestParams,
   APIResponse,
   APIResponseTransaction,
-  BridgeTransaction,
   GetAllByAddressResponse,
   PaginationInfo,
   PaginationParams,
   RelayerAPI,
   RelayerBlockInfo,
-  TxUIStatus,
 } from './relayerApi';
 
 const log = getLogger('RelayerAPIService');
@@ -40,7 +39,9 @@ export class RelayerAPIService implements RelayerAPI {
       const hasDuplicateHash = uniqueHashes.has(transactionHash);
       const wrongBridgeAddress = address?.toLowerCase() !== bridgeAddress?.toLowerCase();
 
+      // Filter unsupported Chains
       const isSupported: boolean = isSupportedChain(BigInt(DestChainId)) && isSupportedChain(BigInt(SrcChainId));
+
       // Do not include tx if for whatever reason the properties transactionHash
       // and address are not present in the response
       const shouldIncludeTx = transactionHash && address && !hasDuplicateHash && !wrongBridgeAddress && isSupported;
@@ -64,7 +65,7 @@ export class RelayerAPIService implements RelayerAPI {
       functionName: 'getMessageStatus',
       args: [msgHash],
     });
-    return result as TxUIStatus;
+    return result as MessageStatus;
   }
 
   private readonly baseUrl: string;
@@ -135,7 +136,6 @@ export class RelayerAPIService implements RelayerAPI {
       return { txs: [], paginationInfo };
     }
 
-    // TODO: maybe we should also filter out unsupported chains here?
     const items = RelayerAPIService._filterDuplicateAndWrongBridge(apiTxs.items);
 
     const txs: BridgeTransaction[] = items.map((tx: APIResponseTransaction) => {
@@ -172,7 +172,7 @@ export class RelayerAPIService implements RelayerAPI {
           processingFee: BigInt(tx.data.Message.ProcessingFee),
           refundAddress: tx.data.Message.RefundAddress,
         },
-      };
+      } as BridgeTransaction;
 
       return transformedTx;
     });
@@ -195,12 +195,12 @@ export class RelayerAPIService implements RelayerAPI {
 
       if (!msgHash) return; //todo: handle this case
 
-      const status = (await RelayerAPIService._getBridgeMessageStatus(
+      const status: MessageStatus = await RelayerAPIService._getBridgeMessageStatus(
         destBridgeAddress,
         bridgeABI,
         destChainId,
         msgHash,
-      )) as TxUIStatus;
+      );
 
       // Update the status
       bridgeTx.status = status;
@@ -236,7 +236,7 @@ export class RelayerAPIService implements RelayerAPI {
     bridgeTxs.reverse();
 
     // Place new transactions at the top of the list
-    // bridgeTxs.sort((tx) => (tx.status === MessageStatus.New ? -1 : 1));
+    bridgeTxs.sort((tx) => (tx.status === MessageStatus.NEW ? -1 : 1));
 
     return { txs: bridgeTxs, paginationInfo };
   }

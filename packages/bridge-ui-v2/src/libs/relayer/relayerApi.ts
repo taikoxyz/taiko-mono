@@ -1,8 +1,6 @@
 import type { Address } from '@wagmi/core';
-import type { TransactionReceipt } from 'viem';
 
-import type { Message, MessageStatus, RelayerMessage } from '$libs/bridge';
-import type { ChainID } from '$libs/chain';
+import type { BridgeTransaction, RelayerMessage } from '$libs/bridge';
 
 export type GetAllByAddressResponse = {
   txs: BridgeTransaction[];
@@ -21,8 +19,6 @@ export enum TxExtendedStatus {
   Released = 'Released',
 }
 
-export type TxUIStatus = MessageStatus | TxExtendedStatus;
-
 export interface RelayerAPI {
   getTransactionsFromAPI(params: APIRequestParams): Promise<APIResponse>;
   getAllBridgeTransactionByAddress(
@@ -40,21 +36,6 @@ export type TransactionData = {
     transactionHash: string;
     transactionIndex: string;
   };
-};
-
-export type BridgeTransaction = {
-  hash: string;
-  from: string;
-  receipt?: TransactionReceipt;
-  status: TxUIStatus;
-  msgHash?: string;
-  message?: Message;
-  interval?: NodeJS.Timer;
-  amount?: bigint;
-  symbol?: string;
-  decimals?: number;
-  srcChainId: ChainID;
-  destChainId: ChainID;
 };
 
 export type APIResponseTransaction = {

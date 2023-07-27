@@ -108,6 +108,27 @@ export const isSupportedChain = (chainId: ChainID): boolean => {
   return chains.some((chain) => BigInt(chain.id) === chainId);
 };
 
+export const chainUrlMap: Record<
+  string,
+  {
+    rpcUrl: string;
+    explorerUrl: string;
+  }
+> = {
+  [PUBLIC_L1_CHAIN_ID]: {
+    rpcUrl: PUBLIC_L1_RPC_URL,
+    explorerUrl: PUBLIC_L1_EXPLORER_URL,
+  },
+  [PUBLIC_L2_CHAIN_ID]: {
+    rpcUrl: PUBLIC_L2_RPC_URL,
+    explorerUrl: PUBLIC_L2_EXPLORER_URL,
+  },
+  [PUBLIC_L3_CHAIN_ID]: {
+    rpcUrl: PUBLIC_L3_RPC_URL,
+    explorerUrl: PUBLIC_L3_EXPLORER_URL,
+  },
+};
+
 export const chainContractsMap: Record<
   string,
   {

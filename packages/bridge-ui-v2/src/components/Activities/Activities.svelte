@@ -3,20 +3,20 @@
   import { onMount } from 'svelte';
   import { writable } from 'svelte/store';
   import { t } from 'svelte-i18n';
-  import { formatEther } from 'viem';
 
   import { Button } from '$components/Button';
   import { Card } from '$components/Card';
-  import { EthIcon, TaikoIcon } from '$components/Icon';
   import { Paginator } from '$components/Paginator';
   import { Spinner } from '$components/Spinner';
   import { PUBLIC_RELAYER_URL } from '$env/static/public';
-  import { taikoChain } from '$libs/chain';
+  import type { BridgeTransaction } from '$libs/bridge';
   import { web3modal } from '$libs/connect';
-  import type { BridgeTransaction, TxUIStatus } from '$libs/relayer/relayerApi';
   import { RelayerAPIService } from '$libs/relayer/RelayerAPIService';
   import { account } from '$stores/account';
   import { paginationInfo as paginationStore } from '$stores/relayerApi';
+
+  import Transaction from './Transaction.svelte';
+
   export const transactions = writable<BridgeTransaction[]>([]);
 
   let poller: string | number | NodeJS.Timeout | undefined;
@@ -73,21 +73,6 @@
     totalItems = $transactions.length;
   }
 
-  const explorerURL = 'https://explorer.example.com/tx';
-
-  const mapStatusToText = (status: TxUIStatus) => {
-    switch (status) {
-      case 1:
-        return 'Pending';
-      case 2:
-        return 'Claimed';
-      case 3:
-        return 'Failed';
-      default:
-        return 'Unknown';
-    }
-  };
-
   function onWalletConnect() {
     web3modal.openModal();
   }
@@ -110,56 +95,7 @@
       <div class="flex flex-col items-center justify-center" style={`min-height: calc(${pageSize - 1} * 80px);`}>
         {#if transactionsToShow.length && !loadingTxs}
           {#each transactionsToShow as item (item.hash)}
-            <div class="flex text-white h-[80px] w-full">
-              <div class="w-1/5 px-4 py-2 flex flex-col justify-center items-stretch">
-                {#if Number(item.srcChainId) === sepolia.id}
-                  <div class="f-items-center space-x-2">
-                    <i role="img" aria-label="Ethereum">
-                      <EthIcon size={20} />
-                    </i>
-                    <span>Sepolia</span>
-                  </div>
-                {:else if Number(item.srcChainId) === taikoChain.id}
-                  <div class="f-items-center space-x-2">
-                    <i role="img" aria-label="Taiko">
-                      <TaikoIcon size={20} />
-                    </i>
-                    <span>Taiko</span>
-                  </div>
-                {:else}
-                  {item.srcChainId}
-                {/if}
-              </div>
-              <div class="w-1/5 px-4 py-2 flex flex-col justify-center items-stretch">
-                {#if Number(item.destChainId) === sepolia.id}
-                  <div class="f-items-center space-x-2">
-                    <i role="img" aria-label="Ethereum">
-                      <EthIcon size={20} />
-                    </i>
-                    <span>Sepolia</span>
-                  </div>
-                {:else if Number(item.destChainId) === taikoChain.id}
-                  <div class="f-items-center space-x-2">
-                    <i role="img" aria-label="Taiko">
-                      <TaikoIcon size={20} />
-                    </i>
-                    <span>Taiko</span>
-                  </div>
-                {:else}
-                  item.destChainId
-                {/if}
-              </div>
-              <div class="w-1/5 px-4 py-2 flex flex-col justify-center items-stretch">
-                {formatEther(item.amount ? item.amount : BigInt(0))}
-                {item.symbol}
-              </div>
-              <div class="w-1/5 px-4 py-2 flex flex-col justify-center items-stretch">
-                {mapStatusToText(item.status)}
-              </div>
-              <div class="w-1/5 px-4 py-2 flex flex-col justify-center items-stretch">
-                <a href={`${explorerURL}/${item.hash}`} target="_blank"> {$t('activities.link.explorer')} </a>
-              </div>
-            </div>
+            <Transaction {item} />
           {/each}
         {/if}
       </div>
