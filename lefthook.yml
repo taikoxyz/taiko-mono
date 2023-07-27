@@ -14,6 +14,6 @@ pre-commit:
     protocol_ts:
       glob: "packages/protocol/**.{ts}"
       run: pnpm -F protocol eslint:fix && git add {staged_files}
-    repo:
-      glob: "**.{json,md,yaml,yml}"
-      run: pnpm prettier {staged_files} --write && git add {staged_files}
+    # repo:
+    #   glob: "**.{json,md,yaml,yml}"
+    #   run: pnpm prettier {staged_files} --write && git add {staged_files}
