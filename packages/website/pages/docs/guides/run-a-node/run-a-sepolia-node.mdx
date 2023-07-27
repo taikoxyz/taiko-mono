@@ -8,7 +8,7 @@ This guide will help you get a Sepolia archive node up and running.
 
 - [Docker](https://docs.docker.com/engine/install/) is installed and **running**.
 - [Git](https://github.com/git-guides/install-git/) is installed.
-- As of `2023-06-21T16:59:11+00:00` a full archive node sync takes **207.3 GB** with geth + lighthouse. Consult the hardware requirements of the execution + consensus clients you are using.
+- As of `2023-06-21` a full archive node sync takes **326 GB** with geth + lighthouse. Consult the hardware requirements of the execution + consensus clients you are using.
 
 ## Steps
 
@@ -33,9 +33,19 @@ Next, open the `.env` file in your preferred text editor and set:
 ARCHIVE_NODE=true
 ```
 
+### Expose RPC ports
+
+You need to expose the node's RPC ports so that the Taiko L2 node can make calls to it. eth-docker offers a few options that you can read about [here](https://eth-docker.net/Usage/Advanced#sharing-rpc-and-rest-ports).
+
+An easy option is to append `el-shared.yml` to the list of files set with the `COMPOSE_FILE` variable in the `.env` file. Keep in mind this is **not encrypted**, so you should not expose it to the internet.
+
 ### Complete the eth-docker quickstart
 
-Complete the eth-docker quickstart: https://eth-docker.net/Usage/QuickStart/.
+Complete the [eth-docker quickstart](https://eth-docker.net/Usage/QuickStart/). You will need to run the config command:
+
+```sh
+./ethd config
+```
 
 ### Check your connection
 
@@ -51,6 +61,12 @@ This is important especially if you `ssh` into machine or open ports to the inte
 
 - https://eth-docker.net/Usage/LinuxSecurity
 - https://www.coincashew.com/coins/overview-eth/guide-or-how-to-setup-a-validator-on-eth2-mainnet/part-i-installation/guide-or-security-best-practices-for-a-eth2-validator-beaconchain-node
-- https://tailscale.com/kb/1077/secure-server-ubuntu-18-04/ (but also see: https://danthesalmon.com/ufw-docker-tailscale/, `tailscale0` may not behave as you think)
+- https://tailscale.com/kb/1077/secure-server-ubuntu-18-04
+- https://danthesalmon.com/ufw-docker-tailscale
+- https://github.com/chaifeng/ufw-docker
 
 </Steps>
+
+## Videos
+
+- [Run a Sepolia L1 archive node (YouTube)](https://www.youtube.com/watch?v=7Lg_cY7iP2o)
