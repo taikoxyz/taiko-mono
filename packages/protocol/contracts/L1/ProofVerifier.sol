@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../common/AddressResolver.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
@@ -27,19 +27,20 @@ contract ProofVerifier is EssentialContract, IProofVerifier {
      */
     function verifyProofs(
         uint256, //Can be used later when supporting different types of proofs
-        bytes calldata blockProofs
+        bytes calldata blockProofs,
+        bytes32 instance
     )
-    external
-    view
+        external
+        view
     {
+        if (instance == 0) return;
+
         uint16 verifierId = uint16(bytes2(blockProofs[0:2]));
         // For now, only ZK
         LibVerifyZKP.verifyProof(
-            AddressResolver(address(this)),
-            blockProofs[2:],
-            verifierId
+            AddressResolver(address(this)), blockProofs[2:], verifierId
         );
     }
 }
 
-contract ProxiedProofVerifier is Proxied, ProofVerifier {}
+contract ProxiedProofVerifier is Proxied, ProofVerifier { }

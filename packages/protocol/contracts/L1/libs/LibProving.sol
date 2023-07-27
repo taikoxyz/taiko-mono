@@ -143,79 +143,75 @@ library LibProving {
             );
         }
 
+        bytes32 instance;
         if (evidence.prover != address(1)) {
-            bytes32 instance;
-            {
-                uint256[10] memory inputs;
+            uint256[10] memory inputs;
 
-                inputs[0] = uint256(
-                    uint160(address(resolver.resolve("signal_service", false)))
-                );
-                inputs[1] = uint256(
-                    uint160(
-                        address(
-                            resolver.resolve(
-                                config.chainId, "signal_service", false
-                            )
+            inputs[0] = uint256(
+                uint160(address(resolver.resolve("signal_service", false)))
+            );
+            inputs[1] = uint256(
+                uint160(
+                    address(
+                        resolver.resolve(
+                            config.chainId, "signal_service", false
                         )
                     )
-                );
-                inputs[2] = uint256(
-                    uint160(
-                        address(
-                            resolver.resolve(config.chainId, "taiko", false)
-                        )
-                    )
-                );
-
-                inputs[3] = uint256(evidence.metaHash);
-                inputs[4] = uint256(evidence.parentHash);
-                inputs[5] = uint256(evidence.blockHash);
-                inputs[6] = uint256(evidence.signalRoot);
-                inputs[7] = uint256(evidence.graffiti);
-                inputs[8] = (uint256(uint160(evidence.prover)) << 96)
-                    | (uint256(evidence.parentGasUsed) << 64)
-                    | (uint256(evidence.gasUsed) << 32);
-
-                // Also hash configs that will be used by circuits
-                inputs[9] = uint256(config.blockMaxGasLimit) << 192
-                    | uint256(config.blockMaxTransactions) << 128
-                    | uint256(config.blockMaxTxListBytes) << 64;
-
-                assembly {
-                    instance := keccak256(inputs, mul(32, 10))
-                }
-            }
-
-            // Formal check of the instance equality. Shifted with
-            // 2 bytes because of the verifierId is also part of
-            // the evidence.proofs on a uint16 (2 bytes)
-            if (
-                !LibBytesUtils.equal(
-                    LibBytesUtils.slice(evidence.proofs, 2, 32),
-                    bytes.concat(bytes16(0), bytes16(instance))
                 )
-            ) {
-                revert L1_INVALID_PROOF();
-            }
-
-            if (
-                !LibBytesUtils.equal(
-                    LibBytesUtils.slice(evidence.proofs, 34, 32),
-                    bytes.concat(
-                        bytes16(0), bytes16(uint128(uint256(instance)))
-                    )
+            );
+            inputs[2] = uint256(
+                uint160(
+                    address(resolver.resolve(config.chainId, "taiko", false))
                 )
-            ) {
-                revert L1_INVALID_PROOF();
-            }
+            );
 
-            // Later on it can be like verifyProofs(bytes) where the bytes would
-            // include all of the proofs (ZK, SGX, Oracle, etc. ).
-            IProofVerifier(resolver.resolve("proof_verifier", false)).verifyProofs(
-                blockId,
-                evidence.proofs);
+            inputs[3] = uint256(evidence.metaHash);
+            inputs[4] = uint256(evidence.parentHash);
+            inputs[5] = uint256(evidence.blockHash);
+            inputs[6] = uint256(evidence.signalRoot);
+            inputs[7] = uint256(evidence.graffiti);
+            inputs[8] = (uint256(uint160(evidence.prover)) << 96)
+                | (uint256(evidence.parentGasUsed) << 64)
+                | (uint256(evidence.gasUsed) << 32);
+
+            // Also hash configs that will be used by circuits
+            inputs[9] = uint256(config.blockMaxGasLimit) << 192
+                | uint256(config.blockMaxTransactions) << 128
+                | uint256(config.blockMaxTxListBytes) << 64;
+
+            assembly {
+                instance := keccak256(inputs, mul(32, 10))
+            }
         }
+
+        // Formal check of the instance equality. Shifted with
+        // 2 bytes because of the verifierId is also part of
+        // the evidence.proofs on a uint16 (2 bytes)
+
+        // TODO(dani): move these two IF into IProofVerifier
+        if (
+            !LibBytesUtils.equal(
+                LibBytesUtils.slice(evidence.proofs, 2, 32),
+                bytes.concat(bytes16(0), bytes16(instance))
+            )
+        ) {
+            revert L1_INVALID_PROOF();
+        }
+
+        if (
+            !LibBytesUtils.equal(
+                LibBytesUtils.slice(evidence.proofs, 34, 32),
+                bytes.concat(bytes16(0), bytes16(uint128(uint256(instance))))
+            )
+        ) {
+            revert L1_INVALID_PROOF();
+        }
+
+        // Later on it can be like verifyProofs(bytes) where the bytes would
+        // include all of the proofs (ZK, SGX, Oracle, etc. ).
+        IProofVerifier(resolver.resolve("proof_verifier", false)).verifyProofs(
+            blockId, evidence.proofs, instance
+        );
 
         emit BlockProven({
             blockId: blk.blockId,

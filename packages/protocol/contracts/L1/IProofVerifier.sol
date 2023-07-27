@@ -15,6 +15,8 @@ interface IProofVerifier {
      */
     function verifyProofs(
         uint256 blockId,
-        bytes calldata blockProofs
-    ) external;
+        bytes calldata blockProofs,
+        bytes32 instance
+    )
+        external;
 }
