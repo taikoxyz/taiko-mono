@@ -182,6 +182,7 @@ library LibProving {
             assembly {
                 instance := keccak256(inputs, mul(32, 10))
             }
+            assert(instance != 0);
         }
 
         // Formal check of the instance equality. Shifted with
