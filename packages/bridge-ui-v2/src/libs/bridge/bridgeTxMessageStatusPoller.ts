@@ -24,9 +24,9 @@ export enum PollingEvent {
 const intervalEmitterMap: Record<number, EventEmitter> = {};
 
 /**
- * @example:
+ * @example
  * try {
- *   const emitter = startPolling(bridgeTx);
+ *   const [ emitter, stopPolling ] = startPolling(bridgeTx);
  *
  *   if(emitter) {
  *     emitter.on(PollingEvent.STOP, () => {});
@@ -37,7 +37,7 @@ const intervalEmitterMap: Record<number, EventEmitter> = {};
  *   // something really bad with this bridgeTx
  * }
  */
-export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true): Maybe<EventEmitter> {
+export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true) {
   const { destChainId, msgHash, status } = bridgeTx;
 
   // Without this we cannot poll at all. Let's throw an error
@@ -116,12 +116,15 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
       nextTick(pollingFn);
     }
 
-    return emitter;
+    return [emitter, stopPolling];
   }
 
   log('Already polling for transaction', bridgeTx);
 
   // We are already polling for this transaction.
   // Return the emitter associated to it
-  return intervalEmitterMap[Number(bridgeTx.interval)];
+  return {
+    stopPolling,
+    emitter: intervalEmitterMap[Number(bridgeTx.interval)],
+  };
 }

@@ -6,12 +6,18 @@
   import { StatusDot } from '$components/StatusDot';
   import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
   import { PollingEvent, startPolling } from '$libs/bridge/bridgeTxMessageStatusPoller';
+  import { noop } from '$libs/util/noop';
 
   export let bridgeTx: BridgeTransaction;
 
   let emitter: Maybe<EventEmitter> = null;
+  let stopPolling: Maybe<() => void> = noop;
+
+  // UI state
   let processable = false;
   let bridgeTxStatus: Maybe<MessageStatus> = bridgeTx.status;
+
+  // TODO: enum?
   let loading: 'claiming' | 'retrying' | 'releasing' | false = false;
 
   function onProcessable(isTxProcessable: boolean) {
@@ -22,18 +28,56 @@
     bridgeTxStatus = status;
   }
 
-  function claim() {}
+  // We need this function to update the model and UI manually
+  function setBridgeTxStatus(status: MessageStatus) {
+    bridgeTx.status = status;
+    onStatusChange(status);
+  }
 
-  function retry() {}
+  function claim() {
+    loading = 'claiming';
 
-  function release() {}
+    // Step 1: ensure correct chain. We need
+    //         $network and bridgeTx.destChainId
+
+    // Step 2: make sure the user has enough balance on
+    //         the destination chain, otherwise errorToast
+    //         publicClient.getBalance()
+
+    // Step 3: Find out the type of bridge: ETHBridge, ERC20Bridge, etc..
+
+    // Step 4: Call bridge.claim() method with the right params:
+    //         try {
+    //           const txHash = await bridge.claim(...)
+    //           infoToast()
+    //           await pendingTransactions.add(txHash, $network.id);
+    //           stopPolling()
+    //           setBridgeTxStatus(MessageStatus.DONE)
+    //           successToast()
+    //         } catch (err) {
+    //           // Check type of error
+    //           errorToast()
+    //         }
+    //         finally { loading = false; }
+  }
+
+  function retry() {
+    // TODO
+  }
+
+  function release() {
+    // TODO
+  }
 
   onMount(() => {
     if (bridgeTx) {
       try {
-        emitter = startPolling(bridgeTx);
+        [emitter, stopPolling] = startPolling(bridgeTx);
 
+        // If there is no emitter, means the bridgeTx is already DONE
+        // so we do nothing here
         if (emitter) {
+          // The following listeners will trigger change in the UI
           emitter.on(PollingEvent.PROCESSABLE, onProcessable);
           emitter.on(PollingEvent.STATUS, onStatusChange);
         }
@@ -56,7 +100,7 @@
     <StatusDot type="pending" />
     <span>{$t('activities.status.initiated')}</span>
   {:else if loading}
-    TODO: add loading indicator
+    TODO: add loading indicator and text for 'claiming', 'retrying', 'releasing'
   {:else if bridgeTxStatus === MessageStatus.NEW}
     <button class="status-btn w-full" on:click={claim}>
       {$t('activities.button.claim')}
