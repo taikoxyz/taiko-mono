@@ -58,6 +58,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/chaindrop.png",
+    name: "Chaindrop Faucet",
+    link: "chaindrop.org",
+    description:
+      "ChainDrop offers an effortless way to access Web3 test tokens. With just one click, you can receive free Web3 test tokens directly into your wallet.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/foxwallet.png",
     name: "FoxWallet",
     link: "https://foxwallet.com",
@@ -322,15 +331,13 @@ export function EcosystemSection() {
 function FilterLabel({ text, activeFilter, setActiveFilter }) {
   const isActive = activeFilter === text;
 
-  const buttonStyles = `border rounded-full py-1 px-4 text-sm focus:outline-none transition-colors duration-200 font-bold ${
-    isActive
-      ? "bg-gray-300 text-black"
-      : "bg-white text-gray-700 dark:bg-black dark:text-gray-300"
-  } ${
-    isActive
+  const buttonStyles = `border rounded-full py-1 px-4 text-sm focus:outline-none transition-colors duration-200 font-bold ${isActive
+    ? "bg-gray-300 text-black"
+    : "bg-white text-gray-700 dark:bg-black dark:text-gray-300"
+    } ${isActive
       ? "hover:bg-gray-400"
       : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
-  }`;
+    }`;
 
   return (
     <button className={buttonStyles} onClick={() => setActiveFilter(text)}>
