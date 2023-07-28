@@ -73,6 +73,8 @@ export type BridgeTransaction = {
   receipt?: TransactionReceipt;
   msgHash?: Hash;
   message?: Message;
+
+  interval?: ReturnType<typeof setInterval> | null
 };
 
 // TokenVault sendERC20(...args)

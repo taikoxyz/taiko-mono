@@ -24,3 +24,7 @@ export const storageService = {
   bridgeTxPrefix: 'bridge-tx',
   customTokenPrefix: 'custom-token',
 };
+
+export const bridgeTransactionPoller = {
+  interval: 20_000,
+}
