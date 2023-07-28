@@ -164,21 +164,11 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
      *
      * @param message The message that corresponds to the ERC1155 deposit on the
      * source chain.
-     * @param proof The proof from the destination chain to show the message has
-     * failed.
      */
-    function releaseToken(
-        IBridge.Message calldata message,
-        bytes calldata proof
-    )
+    function releaseToken(IBridge.Message calldata message)
         external
         nonReentrant
     {
-        if (message.owner == address(0)) revert VAULT_INVALID_OWNER();
-        if (message.srcChainId != block.chainid) {
-            revert VAULT_INVALID_SRC_CHAIN_ID();
-        }
-
         (
             CanonicalNFT memory nft,
             ,
@@ -190,7 +180,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             (CanonicalNFT, address, address, uint256[], uint256[])
         );
 
-        bytes32 msgHash = hashAndMarkMsgReleased(message, proof, nft.addr);
+        bytes32 msgHash = hashAndCheckToken(message, nft.addr);
         unchecked {
             if (isBridgedToken[nft.addr]) {
                 for (uint256 i; i < tokenIds.length; ++i) {

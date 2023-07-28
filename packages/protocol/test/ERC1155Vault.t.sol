@@ -234,6 +234,20 @@ contract ERC1155VaultTest is Test {
         addressManager.setAddress(
             destChainId, "erc1155_vault", address(destChainErc1155Vault)
         );
+        // Below 2 registrations (mock) are needed bc of LibBridgeRelease.sol's
+        // resolve address
+        addressManager.setAddress(
+            destChainId, "erc721_vault", address(srcPrankBridge)
+        );
+        addressManager.setAddress(
+            destChainId, "erc20_vault", address(srcPrankBridge)
+        );
+        addressManager.setAddress(
+            block.chainid, "erc721_vault", address(srcPrankBridge)
+        );
+        addressManager.setAddress(
+            block.chainid, "erc20_vault", address(srcPrankBridge)
+        );
 
         ctoken1155 = new TestTokenERC1155("http://example.host.com/");
         vm.stopPrank();
@@ -595,7 +609,8 @@ contract ERC1155VaultTest is Test {
         message.memo = "";
 
         bytes memory proof = bytes("");
-        erc1155Vault.releaseToken(message, proof);
+        bridge.recallMessage(message, proof);
+        //erc1155Vault.releaseToken(message, proof);
 
         // Alice got back her NFTs, and vault has 0
         assertEq(ctoken1155.balanceOf(Alice, 1), 10);

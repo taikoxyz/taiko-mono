@@ -250,9 +250,22 @@ contract ERC721VaultTest is Test {
         addressManager.setAddress(
             block.chainid, "erc721_vault", address(erc721Vault)
         );
-
         addressManager.setAddress(
             destChainId, "erc721_vault", address(destChainErc721Vault)
+        );
+        // Below 2 registrations (mock) are needed bc of LibBridgeRelease.sol's
+        // resolve address
+        addressManager.setAddress(
+            destChainId, "erc1155_vault", address(srcPrankBridge)
+        );
+        addressManager.setAddress(
+            destChainId, "erc20_vault", address(srcPrankBridge)
+        );
+        addressManager.setAddress(
+            block.chainid, "erc1155_vault", address(srcPrankBridge)
+        );
+        addressManager.setAddress(
+            block.chainid, "erc20_vault", address(srcPrankBridge)
         );
 
         vm.stopPrank();
@@ -583,9 +596,7 @@ contract ERC721VaultTest is Test {
         // Let's test that message is failed and we want to release it back to
         // the owner
         vm.prank(Amelia, Amelia);
-        addressManager.setAddress(
-            block.chainid, "bridge", address(srcPrankBridge)
-        );
+        addressManager.setAddress(block.chainid, "bridge", address(bridge));
 
         // Reconstruct the message.
         // Actually the only 2 things absolute necessary to fill are the owner
@@ -606,7 +617,13 @@ contract ERC721VaultTest is Test {
         message.memo = "";
 
         bytes memory proof = bytes("");
-        erc721Vault.releaseToken(message, proof);
+
+        console2.log("Alice:", Alice);
+        console2.log("Bridge:", address(bridge));
+        console2.log("erc721Vault:", address(erc721Vault));
+
+        bridge.recallMessage(message, proof);
+        //erc721Vault.releaseToken(message, proof);
 
         // Alice got back her NFT
         assertEq(canonicalToken721.ownerOf(1), Alice);

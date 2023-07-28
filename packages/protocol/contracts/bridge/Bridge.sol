@@ -71,22 +71,24 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * Releases the Ether locked in the bridge as part of a cross-chain
+     * Releases the Ether (+ tokens) locked in the bridge as part of a
+     * cross-chain
      * transfer.
-     * @dev Releases the Ether by calling the LibBridgeRelease.releaseEther
+     * @dev Releases the Ether (+ tokens) by calling the
+     * LibBridgeRelease.recallMessage
      * library function.
      * @param message The message containing the details of the Ether transfer.
      * (See IBridge)
      * @param proof The proof of the cross-chain transfer.
      */
-    function releaseEther(
+    function recallMessage(
         IBridge.Message calldata message,
         bytes calldata proof
     )
         external
         nonReentrant
     {
-        return LibBridgeRelease.releaseEther({
+        return LibBridgeRelease.recallMessage({
             state: _state,
             resolver: AddressResolver(this),
             message: message,
@@ -233,8 +235,12 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
      * @param msgHash The hash of the message.
      * @return Returns true if the Ether has been released, false otherwise.
      */
-    function isEtherReleased(bytes32 msgHash) public view returns (bool) {
-        return _state.etherReleased[msgHash];
+    function getMessageRecallStatus(bytes32 msgHash)
+        public
+        view
+        returns (LibBridgeData.RecallStatus)
+    {
+        return _state.recallStatus[msgHash];
     }
 
     /**

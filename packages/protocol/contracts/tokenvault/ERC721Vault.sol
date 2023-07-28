@@ -143,13 +143,8 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
      *
      * @param message The message that corresponds to the ERC721 deposit on the
      * source chain.
-     * @param proof The proof from the destination chain to show the message has
-     * failed.
      */
-    function releaseToken(
-        IBridge.Message calldata message,
-        bytes calldata proof
-    )
+    function releaseToken(IBridge.Message calldata message)
         external
         nonReentrant
     {
@@ -167,7 +162,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             message.data[4:], (CanonicalNFT, address, address, uint256[])
         );
 
-        bytes32 msgHash = hashAndMarkMsgReleased(message, proof, nft.addr);
+        bytes32 msgHash = hashAndCheckToken(message, nft.addr);
 
         unchecked {
             if (isBridgedToken[nft.addr]) {

@@ -293,28 +293,24 @@ contract ERC20Vault is EssentialContract {
      *
      * @param message The message that corresponds to the ERC20 deposit on the
      * source chain.
-     * @param proof The proof from the destination chain to show the message has
-     * failed.
      */
-    function releaseToken(
-        IBridge.Message calldata message,
-        bytes calldata proof
-    )
+    function releaseToken(IBridge.Message calldata message)
         external
         nonReentrant
+        onlyFromNamed("bridge")
     {
-        if (message.owner == address(0)) revert VAULT_INVALID_OWNER();
-        if (message.srcChainId != block.chainid) {
-            revert VAULT_INVALID_SRC_CHAIN_ID();
-        }
+        // if (message.owner == address(0)) revert VAULT_INVALID_OWNER();
+        // if (message.srcChainId != block.chainid) {
+        //     revert VAULT_INVALID_SRC_CHAIN_ID();
+        // }
 
         IBridge bridge = IBridge(resolve("bridge", false));
         bytes32 msgHash = bridge.hashMessage(message);
 
-        if (releasedMessages[msgHash]) {
-            revert VAULT_MESSAGE_RELEASED_ALREADY();
-        }
-        releasedMessages[msgHash] = true;
+        //if (releasedMessages[msgHash]) {
+        //    revert VAULT_MESSAGE_RELEASED_ALREADY();
+        //}
+        //releasedMessages[msgHash] = true;
 
         (, address token,, uint256 amount) = abi.decode(
             message.data[4:], (CanonicalERC20, address, address, uint256)
@@ -322,9 +318,9 @@ contract ERC20Vault is EssentialContract {
 
         if (token == address(0)) revert VAULT_INVALID_TOKEN();
 
-        if (!bridge.isMessageFailed(msgHash, message.destChainId, proof)) {
-            revert VAULT_MESSAGE_NOT_FAILED();
-        }
+        // if (!bridge.isMessageFailed(msgHash, message.destChainId, proof)) {
+        //     revert VAULT_MESSAGE_NOT_FAILED();
+        // }
 
         if (amount > 0) {
             if (isBridgedToken[token] || token == resolve("taiko_token", true))

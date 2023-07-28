@@ -55,10 +55,7 @@ abstract contract BaseNFTVault is EssentialContract {
     mapping(uint256 chainId => mapping(address ctokenAddress => address btoken))
         public canonicalToBridged;
 
-    // Released message hashes
-    mapping(bytes32 msgHash => bool released) public releasedMessages;
-
-    uint256[46] private __gap;
+    uint256[47] private __gap;
 
     event BridgedTokenDeployed(
         uint256 indexed chainId,
@@ -228,32 +225,21 @@ abstract contract BaseNFTVault is EssentialContract {
     }
 
     /**
-     * @dev Checks if token is invalid, or message is not failed and reverts in
-     * case, otherwise returns the message hash
+     * @dev Checks if token is invalid and returns the message hash
      * @param message The bridged message struct data
-     * @param proof The proof bytes
      * @param tokenAddress The token address to be checked
      */
-    function hashAndMarkMsgReleased(
+    function hashAndCheckToken(
         IBridge.Message calldata message,
-        bytes calldata proof,
         address tokenAddress
     )
         internal
+        view
         returns (bytes32 msgHash)
     {
         IBridge bridge = IBridge(resolve("bridge", false));
         msgHash = bridge.hashMessage(message);
 
         if (tokenAddress == address(0)) revert VAULT_INVALID_TOKEN();
-
-        if (!bridge.isMessageFailed(msgHash, message.destChainId, proof)) {
-            revert VAULT_MESSAGE_NOT_FAILED();
-        }
-
-        if (releasedMessages[msgHash]) {
-            revert VAULT_MESSAGE_RELEASED_ALREADY();
-        }
-        releasedMessages[msgHash] = true;
     }
 }

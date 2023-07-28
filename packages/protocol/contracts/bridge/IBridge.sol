@@ -60,7 +60,7 @@ interface IBridge {
 
     // Release Ether with a proof that the message processing on the destination
     // chain has been failed.
-    function releaseEther(
+    function recallMessage(
         IBridge.Message calldata message,
         bytes calldata proof
     )
