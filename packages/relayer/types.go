@@ -13,7 +13,7 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/tokenvault"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/erc20vault"
 )
 
 var (
@@ -125,7 +125,7 @@ func DecodeMessageSentData(event *bridge.BridgeMessageSent) (EventType, *Canonic
 
 	if event.Message.Data != nil && common.BytesToHash(event.Message.Data) != ZeroHash {
 		tokenVaultMD := bind.MetaData{
-			ABI: tokenvault.TokenVaultABI,
+			ABI: erc20vault.ERC20VaultABI,
 		}
 
 		tokenVaultABI, err := tokenVaultMD.GetAbi()

@@ -177,9 +177,9 @@ func (p *Processor) sendProcessMessageCall(
 	// it is incorrect and the tx will revert.
 	if eventType == relayer.EventTypeSendERC20 && event.Message.DestChainId.Cmp(canonicalToken.ChainId) != 0 {
 		// determine whether the canonical token is bridged or not on this chain
-		bridgedAddress, err := p.destTokenVault.CanonicalToBridged(nil, canonicalToken.ChainId, canonicalToken.Addr)
+		bridgedAddress, err := p.destERC20Vault.CanonicalToBridged(nil, canonicalToken.ChainId, canonicalToken.Addr)
 		if err != nil {
-			return nil, errors.Wrap(err, "p.destTokenVault.IsBridgedToken")
+			return nil, errors.Wrap(err, "p.destERC20Vault.CanonicalToBridged")
 		}
 
 		if bridgedAddress == relayer.ZeroAddress {
@@ -257,9 +257,9 @@ func (p *Processor) hardcodeGasLimit(
 		auth.GasLimit = 500000
 	} else {
 		// determine whether the canonical token is bridged or not on this chain
-		bridgedAddress, err := p.destTokenVault.CanonicalToBridged(nil, canonicalToken.ChainId, canonicalToken.Addr)
+		bridgedAddress, err := p.destERC20Vault.CanonicalToBridged(nil, canonicalToken.ChainId, canonicalToken.Addr)
 		if err != nil {
-			return nil, errors.Wrap(err, "p.destTokenVault.IsBridgedToken")
+			return nil, errors.Wrap(err, "p.destTokenVault.CanonicalToBridged")
 		}
 
 		if bridgedAddress == relayer.ZeroAddress {

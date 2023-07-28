@@ -168,6 +168,16 @@
   },
   {
     "inputs": [],
+    "name": "L1_PERMISSION_DENIED",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "L1_PERMISSION_DENIED",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "L1_SAME_PROOF",
     "type": "error"
   },
@@ -1042,6 +1052,11 @@
             "type": "uint16"
           },
           {
+            "internalType": "uint16",
+            "name": "proofWindowMultiplier",
+            "type": "uint16"
+          },
+          {
             "internalType": "uint256",
             "name": "ethDepositRingBufferSize",
             "type": "uint256"
@@ -1082,9 +1097,14 @@
             "type": "uint8"
           },
           {
-            "internalType": "uint256",
+            "internalType": "uint32",
             "name": "rewardOpenMaxCount",
-            "type": "uint256"
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint32",
+            "name": "rewardMaxDelayPenalty",
+            "type": "uint32"
           }
         ],
         "internalType": "struct TaikoData.Config",

@@ -15,9 +15,9 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/erc20vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/icrosschainsync"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/taikol1"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/tokenvault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/message"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/proof"
 )
@@ -152,9 +152,9 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		}
 	}
 
-	destTokenVault, err := tokenvault.NewTokenVault(opts.DestTokenVaultAddress, opts.DestEthClient)
+	erc20Vault, err := erc20vault.NewERC20Vault(opts.DestTokenVaultAddress, opts.DestEthClient)
 	if err != nil {
-		return nil, errors.Wrap(err, "tokenvault.NewTokenVault")
+		return nil, errors.Wrap(err, "tokenvault.NewERC20Vault")
 	}
 
 	processor, err := message.NewProcessor(message.NewProcessorOpts{
@@ -172,7 +172,7 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		HeaderSyncIntervalSeconds:     opts.HeaderSyncIntervalInSeconds,
 		SrcSignalServiceAddress:       opts.SrcSignalServiceAddress,
 		ConfirmationsTimeoutInSeconds: opts.ConfirmationsTimeoutInSeconds,
-		DestTokenVault:                destTokenVault,
+		DestERC20Vault:                erc20Vault,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "message.NewProcessor")
