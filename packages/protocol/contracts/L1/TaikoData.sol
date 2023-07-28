@@ -19,9 +19,10 @@ library TaikoData {
         uint256 blockMaxVerificationsPerTx;
         // The max gas used per block, including anchor.
         uint32 blockMaxGasUsed;
+        uint32 blockMaxGasLimit;
         uint32 blockFeeBaseGas;
-        uint64 blockMaxTransactions;
-        uint64 blockMaxTxListBytes;
+        uint32 blockMaxTransactions;
+        uint32 blockMaxTxListBytes;
         uint256 blockTxListExpiry;
         // Group 3: proof related configs
         uint256 proofRegularCooldown;

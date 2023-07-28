@@ -179,9 +179,10 @@ library LibProving {
                     | (uint256(evidence.gasUsed) << 32);
 
                 // Also hash configs that will be used by circuits
-                inputs[9] = uint256(config.blockMaxGasUsed) << 192
-                    | uint256(config.blockMaxTransactions) << 128
-                    | uint256(config.blockMaxTxListBytes) << 64;
+                inputs[9] = uint256(config.blockMaxGasUsed) << 224 // 32 bits
+                    | uint256(config.blockMaxGasLimit) << 192 // 32 bits
+                    | uint256(config.blockMaxTransactions) << 160 // 32 bits
+                    | uint256(config.blockMaxTxListBytes) << 128; // 32 bits
 
                 assembly {
                     instance := keccak256(inputs, mul(32, 10))

@@ -50,6 +50,7 @@ library LibVerifying {
                 || config.blockMaxProposals == 1
                 || config.blockRingBufferSize <= config.blockMaxProposals + 1
                 || config.blockMaxGasUsed <= LibL2Consts.ANCHOR_GAS_COST
+                || config.blockMaxGasLimit < config.blockMaxGasUsed
                 || config.blockMaxTransactions == 0
                 || config.blockMaxTxListBytes == 0
                 || config.blockTxListExpiry > 30 * 24 hours

@@ -26,6 +26,7 @@ contract TestTaikoL1EnableTokenomics is TaikoL1 {
         config.blockMaxVerificationsPerTx = 0; // dont verify blocks
             // automatically
         config.blockMaxGasUsed = 30_000_000;
+        config.blockMaxGasLimit = 60_000_000;
         config.blockMaxTransactions = 20;
         config.blockMaxTxListBytes = 120_000;
     }
