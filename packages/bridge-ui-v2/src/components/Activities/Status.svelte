@@ -6,12 +6,10 @@
   import { StatusDot } from '$components/StatusDot';
   import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
   import { PollingEvent, startPolling } from '$libs/bridge/bridgeTxMessageStatusPoller';
-  import { noop } from '$libs/util/noop';
 
   export let bridgeTx: BridgeTransaction;
 
-  let emitter: Maybe<EventEmitter> = null;
-  let stopPolling: Maybe<() => void> = noop;
+  let polling: ReturnType<typeof startPolling>;
 
   // UI state
   let processable = false;
@@ -72,14 +70,14 @@
   onMount(() => {
     if (bridgeTx) {
       try {
-        [emitter, stopPolling] = startPolling(bridgeTx);
+        polling = startPolling(bridgeTx);
 
         // If there is no emitter, means the bridgeTx is already DONE
         // so we do nothing here
-        if (emitter) {
+        if (polling?.emitter) {
           // The following listeners will trigger change in the UI
-          emitter.on(PollingEvent.PROCESSABLE, onProcessable);
-          emitter.on(PollingEvent.STATUS, onStatusChange);
+          polling.emitter.on(PollingEvent.PROCESSABLE, onProcessable);
+          polling.emitter.on(PollingEvent.STATUS, onStatusChange);
         }
       } catch (err) {
         console.error(err);
@@ -89,8 +87,8 @@
   });
 
   onDestroy(() => {
-    if (emitter) {
-      emitter.removeAllListeners();
+    if (polling) {
+      polling.destroy();
     }
   });
 </script>

@@ -26,7 +26,7 @@ const intervalEmitterMap: Record<number, EventEmitter> = {};
 /**
  * @example
  * try {
- *   const [ emitter, stopPolling ] = startPolling(bridgeTx);
+ *   const { emitter, stopPolling } = startPolling(bridgeTx);
  *
  *   if(emitter) {
  *     emitter.on(PollingEvent.STOP, () => {});
@@ -66,6 +66,11 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
       emitter.emit(PollingEvent.STOP);
     }
   };
+
+  const destroy = () => {
+    stopPolling();
+    emitter.removeAllListeners();
+  }
 
   const pollingFn = async () => {
     const isProcessable = await isBridgeTxProcessable(bridgeTx);
@@ -116,7 +121,7 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
       nextTick(pollingFn);
     }
 
-    return [emitter, stopPolling];
+    return { emitter, destroy };
   }
 
   log('Already polling for transaction', bridgeTx);
@@ -124,7 +129,7 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
   // We are already polling for this transaction.
   // Return the emitter associated to it
   return {
-    stopPolling,
+    destroy,
     emitter: intervalEmitterMap[Number(bridgeTx.interval)],
   };
 }
