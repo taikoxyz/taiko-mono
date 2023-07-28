@@ -6,13 +6,8 @@
   export let currentPage = 1;
   export let totalItems = 0;
   export let pageSize = 5;
-  export let buttonsToShow = 5;
-  $: totalPages = Math.ceil(totalItems / pageSize);
-  $: buttons = Math.min(buttonsToShow, totalPages);
 
-  $: startPage = Math.max(1, currentPage - Math.floor(buttons / 2));
-  $: endPage = Math.min(totalPages, startPage + buttons - 1);
-  $: pages = Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
+  $: totalPages = Math.ceil(totalItems / pageSize);
 
   const dispatch = createEventDispatcher<{ pageChange: number }>();
 
@@ -26,6 +21,8 @@
       goToPage(currentPage);
     }
   }
+
+  const btnClass = 'btn btn-xs btn-ghost';
 </script>
 
 {#if totalPages > 1}
@@ -33,9 +30,10 @@
     We only want to show the buttons if we actually need them.
     If we can fit all the items in one page, there is no need.
   -->
-  <div class="pagination btn-group">
-    <button class="btn btn-xs" on:click={() => goToPage(currentPage - 1)} disabled={currentPage === 1}>
-      <Icon type="chevron-left" /></button>
+  <div class="pagination btn-group pt-4">
+    {#if currentPage !== 1}
+      <button class={btnClass} on:click={() => goToPage(currentPage - 1)}> <Icon type="chevron-left" /></button>
+    {/if}
     Page
     <input
       type="number"
@@ -45,17 +43,23 @@
       max={totalPages}
       on:keydown={handleKeydown}
       on:blur={() => goToPage(currentPage)} />
-    of {totalPages} Pages
-    <button class="btn btn-xs" on:click={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages}
-      ><Icon type="chevron-right" /></button>
+    of {totalPages}
+    <button
+      class={btnClass + (currentPage === totalPages ? ' invisible' : '')}
+      on:click={() => goToPage(currentPage + 1)}><Icon type="chevron-right" /></button>
   </div>
 {/if}
 
 <style>
   .pagination {
-    display: inline-flex;
     justify-content: flex-end;
     align-items: flex-end;
-    gap: 20px;
+    gap: 10px;
+    display: flex;
+    align-items: center;
+  }
+  .invisible {
+    opacity: 0;
+    pointer-events: none;
   }
 </style>

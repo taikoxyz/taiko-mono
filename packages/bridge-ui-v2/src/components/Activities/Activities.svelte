@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { sepolia } from '@wagmi/core';
   import { onMount } from 'svelte';
   import { writable } from 'svelte/store';
+  import { fade } from 'svelte/transition';
   import { t } from 'svelte-i18n';
 
   import { Button } from '$components/Button';
@@ -31,13 +31,21 @@
   let currentPage = 1;
   let totalItems = 0;
   let loadingTxs = true;
+  let isBlurred = false;
+
+  const handlePageChange = (detail: number) => {
+    isBlurred = true;
+    setTimeout(() => {
+      currentPage = detail;
+      isBlurred = false;
+    }, 220);
+  };
 
   onMount(async () => {
-    loadingTxs = false;
     if (!$account?.isConnected) {
+      loadingTxs = false;
       return;
     }
-    loadingTxs = true;
     await fetchTransactions();
   });
 
@@ -90,9 +98,9 @@
   };
 </script>
 
-<div class="flex flex-col items-center justify-center w-full">
+<div class="flex flex-col justify-center w-full">
   <Card class="md:min-w-[524px]" title={$t('activities.title')} text={$t('activities.description')}>
-    <div class="flex flex-col" style={`min-height: calc(${pageSize} * 150px);`}>
+    <div class="flex flex-col" style={`min-height: calc(${pageSize} * 80px);`}>
       <div class="h-sep" />
       <div class="flex text-white">
         <div class="w-1/5 px-4 py-2">{$t('activities.header.from')}</div>
@@ -102,29 +110,43 @@
         <div class="w-1/5 px-4 py-2">{$t('activities.header.explorer')}</div>
       </div>
       <div class="h-sep" />
-      <div class="flex flex-col items-center justify-center" style={`min-height: calc(${pageSize - 1} * 80px);`}>
-        {#if transactionsToShow.length && !loadingTxs && $account?.isConnected}
+      {#if transactionsToShow.length && !loadingTxs && $account?.isConnected}
+        <div
+          class="flex flex-col items-center justify-center {isBlurred ? 'blur' : ''}"
+          style={`min-height: calc(${pageSize - 1} * 80px);`}>
           {#each transactionsToShow as item (item.hash)}
             <Transaction {item} />
+            <div class="h-sep" />
           {/each}
-        {/if}
-      </div>
-      <div class="flex items-center justify-center text-white h-[80px]">
-        {#if loadingTxs && $account?.isConnected}
+        </div>
+      {/if}
+      {#if loadingTxs && $account?.isConnected}
+        <div class="flex items-center justify-center text-white h-[80px]">
           <Spinner /> <span class="pl-3">{$t('common.loading')}...</span>
-        {:else if !transactionsToShow.length && $account?.isConnected}
+        </div>
+      {:else if !transactionsToShow.length && $account?.isConnected}
+        <div class="flex items-center justify-center text-white h-[80px]">
           <span class="pl-3">{$t('activities.no_transactions')}</span>
-        {:else if !$account?.isConnected}
+        </div>
+      {:else if !$account?.isConnected}
+        <div class="flex items-center justify-center text-white h-[80px]">
           <Button type="primary" on:click={onWalletConnect} class="px-[28px] py-[14px] ">
             <span class="body-bold">{$t('wallet.connect')}</span>
           </Button>
-        {/if}
-      </div>
+        </div>
+      {/if}
     </div>
   </Card>
 
   <div class="flex justify-end pt-2">
-    <Paginator {pageSize} {totalItems} on:pageChange={({ detail }) => (currentPage = detail)} />
+    <Paginator {pageSize} {totalItems} on:pageChange={({ detail }) => handlePageChange(detail)} />
   </div>
 </div>
 <OnAccount change={onAccountChange} />
+
+<style>
+  .blur {
+    filter: blur(5px);
+    transition: filter 0.1s ease-in-out;
+  }
+</style>
