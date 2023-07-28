@@ -15,7 +15,8 @@
   import { RelayerAPIService } from '$libs/relayer/RelayerAPIService';
   import { bridgeTxService } from '$libs/storage/services';
   import { getLogger } from '$libs/util/logger';
-  import { type Account,account } from '$stores/account';
+  import { mergeUniqueTransactions } from '$libs/util/mergeTransactions';
+  import { type Account, account } from '$stores/account';
   import { paginationInfo as paginationStore } from '$stores/relayerApi';
 
   import Transaction from './Transaction.svelte';
@@ -57,27 +58,6 @@
     });
 
     loadingTxs = false;
-
-    // merging local and relayer transactions
-    // Todo: move to a util
-    const mergeUniqueTransactions = (
-      localTxs: BridgeTransaction[],
-      relayerTx: BridgeTransaction[],
-    ): BridgeTransaction[] => {
-      const keyForTransaction = (tx: BridgeTransaction): string => `${tx.status}-${tx.msgHash}-${tx.hash}`;
-
-      const uniqueTransactionsMap = [...localTxs, ...relayerTx].reduce((map, transaction) => {
-        const key = keyForTransaction(transaction);
-        if (!map.has(key)) {
-          map.set(key, transaction);
-        } else {
-          log('duplicate transaction', transaction.hash);
-        }
-        return map;
-      }, new Map<string, BridgeTransaction>());
-
-      return Array.from(uniqueTransactionsMap.values());
-    };
 
     $transactions = mergeUniqueTransactions(localTxs, txs);
 
