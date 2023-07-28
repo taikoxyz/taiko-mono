@@ -12,6 +12,7 @@ interface IProofVerifier {
      *
      * @param blockId BlockId
      * @param blockProofs Raw bytes of proof(s)
+     * @param instance Hashed evidence & config data
      */
     function verifyProofs(
         uint256 blockId,

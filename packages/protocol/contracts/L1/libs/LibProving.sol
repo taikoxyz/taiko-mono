@@ -12,7 +12,6 @@ import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { IProofVerifier } from "../IProofVerifier.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
-import { LibBytesUtils } from "../../thirdparty/LibBytesUtils.sol";
 
 library LibProving {
     using LibMath for uint256;
@@ -185,31 +184,6 @@ library LibProving {
             assert(instance != 0);
         }
 
-        // Formal check of the instance equality. Shifted with
-        // 2 bytes because of the verifierId is also part of
-        // the evidence.proofs on a uint16 (2 bytes)
-
-        // TODO(dani): move these two IF into IProofVerifier
-        if (
-            !LibBytesUtils.equal(
-                LibBytesUtils.slice(evidence.proofs, 2, 32),
-                bytes.concat(bytes16(0), bytes16(instance))
-            )
-        ) {
-            revert L1_INVALID_PROOF();
-        }
-
-        if (
-            !LibBytesUtils.equal(
-                LibBytesUtils.slice(evidence.proofs, 34, 32),
-                bytes.concat(bytes16(0), bytes16(uint128(uint256(instance))))
-            )
-        ) {
-            revert L1_INVALID_PROOF();
-        }
-
-        // Later on it can be like verifyProofs(bytes) where the bytes would
-        // include all of the proofs (ZK, SGX, Oracle, etc. ).
         IProofVerifier(resolver.resolve("proof_verifier", false)).verifyProofs(
             blockId, evidence.proofs, instance
         );
