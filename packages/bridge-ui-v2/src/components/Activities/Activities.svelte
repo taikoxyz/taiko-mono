@@ -12,6 +12,7 @@
   import type { BridgeTransaction } from '$libs/bridge';
   import { web3modal } from '$libs/connect';
   import { RelayerAPIService } from '$libs/relayer/RelayerAPIService';
+  import { bridgeTxService } from '$libs/storage/services';
   import { account } from '$stores/account';
   import { paginationInfo as paginationStore } from '$stores/relayerApi';
 
@@ -19,7 +20,6 @@
 
   export const transactions = writable<BridgeTransaction[]>([]);
 
-  let poller: string | number | NodeJS.Timeout | undefined;
   const relayerApi = new RelayerAPIService(PUBLIC_RELAYER_URL);
 
   let pageSize = 3;
@@ -27,30 +27,22 @@
   let totalItems = 0;
   let loadingTxs = true;
 
-  onMount(() => {
+  onMount(async () => {
     loadingTxs = false;
     if (!$account?.isConnected) {
       return;
     }
     loadingTxs = true;
-    doPoll();
+    await fetchTransactions();
   });
 
-  const setupPoller = () => {
-    if (poller) {
-      clearInterval(poller);
-    }
-    poller = setInterval(doPoll(), 6000);
-  };
-
-  const doPoll = () => async () => {
+  const fetchTransactions = async () => {
     loadingTxs = true;
-    let address = $account.address;
-    if (!address || totalItems > 0) {
+    if (!$account.address || totalItems > 0) {
       loadingTxs = false;
       return;
     }
-    const { txs, paginationInfo } = await relayerApi.getAllBridgeTransactionByAddress(address, {
+    const { txs, paginationInfo } = await relayerApi.getAllBridgeTransactionByAddress($account.address, {
       page: 0,
       size: 100,
     });
@@ -76,8 +68,6 @@
   function onWalletConnect() {
     web3modal.openModal();
   }
-
-  $: setupPoller();
 </script>
 
 <div class="flex flex-col items-center justify-center w-full">

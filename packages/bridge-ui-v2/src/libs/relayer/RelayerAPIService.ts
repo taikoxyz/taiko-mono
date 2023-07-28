@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
-import type { Address } from '@wagmi/core';
-import { readContract, waitForTransaction } from '@wagmi/core';
+import type { Address, Hash } from '@wagmi/core';
+import { readContract } from '@wagmi/core';
 import type { Abi } from 'abitype';
 import axios from 'axios';
 
@@ -8,8 +8,8 @@ import { bridgeABI } from '$abi';
 import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
 import { TokenType } from '$libs/token';
 import { getLogger } from '$libs/util/logger';
+import { publicClient } from '$libs/wagmi';
 
-// import mockedData from '../../mocktx.json'
 import { chainContractsMap, type ChainID, isSupportedChain } from '../chain/chains';
 import type {
   APIRequestParams,
@@ -25,6 +25,11 @@ import type {
 const log = getLogger('RelayerAPIService');
 
 export class RelayerAPIService implements RelayerAPI {
+  private static async _getTransactionReceipt(chainId: ChainID, hash: Hash) {
+    const client = publicClient({ chainId: Number(chainId) });
+    return client.getTransactionReceipt({ hash });
+  }
+
   private static _filterDuplicateAndWrongBridge(items: APIResponseTransaction[]): APIResponseTransaction[] {
     const uniqueHashes = new Set<string>();
     const filteredItems: APIResponseTransaction[] = [];
@@ -184,7 +189,7 @@ export class RelayerAPIService implements RelayerAPI {
 
       // Returns the transaction receipt for hash or null
       // if the transaction has not been mined.
-      const receipt = await waitForTransaction({ chainId: Number(srcChainId), hash: hash as `0x${string}` });
+      const receipt = await RelayerAPIService._getTransactionReceipt(srcChainId, hash);
 
       // TODO: do we want to show these transactions?
       if (!receipt) return;
@@ -206,21 +211,6 @@ export class RelayerAPIService implements RelayerAPI {
       bridgeTx.status = status;
 
       const type = checkType(bridgeTx);
-
-      // bridgeTx.message?.data.
-
-      // bridgeTx.symbol = type === TokenType.ETH ? 'ETH' : bridgeTx.symbol;
-
-      // if (
-      //   bridgeTx.symbol &&
-      //   tx.canonicalTokenAddress !== ('0x0000000000000000000000000000000000000000' as Address)
-      // ) {
-      //   // if it has a canonical address it is a token transfer
-
-      //   bridgeTx.amount = tx.amount;
-      //   bridgeTx.symbol = tx.symbol;
-      //   bridgeTx.decimals = tx.canonicalTokenDecimals;
-      // }
 
       return bridgeTx;
     });
