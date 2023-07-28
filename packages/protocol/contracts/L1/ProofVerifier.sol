@@ -36,6 +36,9 @@ contract ProofVerifier is EssentialContract, IProofVerifier {
         external
         view
     {
+        // Not checked if oracle/system prover
+        if (instance == 0) return;
+
         if (
             !LibBytesUtils.equal(
                 LibBytesUtils.slice(blockProofs, 2, 32),
