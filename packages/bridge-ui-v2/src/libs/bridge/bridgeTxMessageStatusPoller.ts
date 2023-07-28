@@ -9,23 +9,25 @@ import { getLogger } from '$libs/util/logger';
 import { nextTick } from '$libs/util/nextTick';
 
 import { isBridgeTxProcessable } from './isBridgeTxProcessable';
-import { type BridgeTransaction,MessageStatus } from './types';
+import { type BridgeTransaction, MessageStatus } from './types';
 
 const log = getLogger('bridge:bridgeTxMessageStatusPoller');
 
 export enum PollingEvent {
   STOP = 'stop',
   STATUS = 'status', // emits MessageStatus
-  PROCESSABLE = 'processable', // whether or not the tx can be processed
+
+  // Whether or not the tx can be clamied/retried/released
+  PROCESSABLE = 'processable',
 }
 
-const intervalEmitterMap: Record<number, EventEmitter> = {}
+const intervalEmitterMap: Record<number, EventEmitter> = {};
 
 /**
  * @example:
  * try {
  *   const emitter = startPolling(bridgeTx);
- *   
+ *
  *   if(emitter) {
  *     emitter.on(PollingEvent.STOP, () => {});
  *     emitter.on(PollingEvent.STATUS, (status: MessageStatus) => {});
@@ -48,7 +50,7 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
   // by the time we want to start polling, in which case we're already done
   if (status === MessageStatus.DONE) return;
 
-  // We want to notify whoever is calling this function of different 
+  // We want to notify whoever is calling this function of different
   // events: PollingEvent
   const emitter = new EventEmitter();
 
@@ -94,8 +96,8 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
 
       stopPolling();
 
-      // 😱... UI should handle this error
-      throw new BridgeTxPollingError('something bad happened while polling for status', {cause: err});
+      // 😱 UI should handle this error
+      throw new BridgeTxPollingError('something bad happened while polling for status', { cause: err });
     }
   };
 
@@ -116,5 +118,9 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
     return emitter;
   }
 
+  log('Already polling for transaction', bridgeTx);
+
+  // We are already polling for this transaction.
+  // Return the emitter associated to it
   return intervalEmitterMap[Number(bridgeTx.interval)];
 }
