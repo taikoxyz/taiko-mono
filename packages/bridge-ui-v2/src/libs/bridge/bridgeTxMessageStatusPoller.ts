@@ -60,7 +60,7 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
 
       // Clean up
       clearInterval(bridgeTx.interval);
-      delete intervalEmitterMap[Number(bridgeTx.interval)]
+      delete intervalEmitterMap[Number(bridgeTx.interval)];
       bridgeTx.interval = null;
 
       emitter.emit(PollingEvent.STOP);
