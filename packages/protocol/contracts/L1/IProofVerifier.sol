@@ -8,7 +8,8 @@ pragma solidity ^0.8.20;
 
 interface IProofVerifier {
     /**
-     * Verifying proof via the ProofVerifier contract
+     * Verifying proof via the ProofVerifier contract. This function must throw
+     * if verificaiton fails.
      *
      * @param blockId BlockId
      * @param blockProofs Raw bytes of proof(s)

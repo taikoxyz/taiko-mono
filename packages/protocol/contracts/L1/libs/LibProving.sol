@@ -184,9 +184,11 @@ library LibProving {
             assert(instance != 0);
         }
 
-        IProofVerifier(resolver.resolve("proof_verifier", false)).verifyProofs(
-            blockId, evidence.proofs, instance
-        );
+        IProofVerifier(resolver.resolve("proof_verifier", false)).verifyProofs({
+            blockId: blockId,
+            blockProofs: evidence.proofs,
+            instance: instance
+        });
 
         emit BlockProven({
             blockId: blk.blockId,
