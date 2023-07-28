@@ -27,4 +27,4 @@ export const storageService = {
 
 export const bridgeTransactionPoller = {
   interval: 20_000,
-}
+};
