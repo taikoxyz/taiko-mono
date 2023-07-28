@@ -211,7 +211,9 @@ m_id --- h_height --- v_block_number;
 m_h1_height --- a_l1_height;
 h_gas_limit --- v_block_gaslimit
 
-c_block_gas_limit_max -.->|>=| h_gas_limit -.->|>=| h_gas_used ---|<=|c_block_gas_used_max;
+c_block_gas_limit_max -->|>=| h_gas_limit;
+h_gas_used ---|<=|c_block_gas_used_max;
+
 m_timestamp --- h_timestamp --- v_block_timestamp;
 m_txlist_first ---|<=| m_txlist_last --- |<= len| tx_list;
 m_h1_hash --- a_l1_hash;
