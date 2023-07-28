@@ -14,9 +14,10 @@ struct Config {
   uint256 blockRingBufferSize;
   uint256 blockMaxVerificationsPerTx;
   uint32 blockMaxGasUsed;
+  uint32 blockMaxGasLimit;
   uint32 blockFeeBaseGas;
-  uint64 blockMaxTransactions;
-  uint64 blockMaxTxListBytes;
+  uint32 blockMaxTransactions;
+  uint32 blockMaxTxListBytes;
   uint256 blockTxListExpiry;
   uint256 proofRegularCooldown;
   uint256 proofOracleCooldown;
