@@ -117,6 +117,7 @@ export class BridgeTxService {
     const status = await BridgeTxService._getBridgeMessageStatus(msgHash, Number(destChainId));
 
     bridgeTx.status = status;
+    return bridgeTx;
   }
 
   async getAllTxByAddress(address: Address) {
@@ -124,11 +125,12 @@ export class BridgeTxService {
 
     log('Bridge transactions from storage', txs);
 
-    const enhancedTxPromises = txs.map(async (tx) => this._enhanceTx(tx, address));
+    const enhancedTxPromises = txs.map((tx) => this._enhanceTx(tx, address));
 
-    const enhancedTxs = (await Promise.all(enhancedTxPromises))
-      // Removes undefined values
-      .filter((tx) => Boolean(tx)) as BridgeTransaction[];
+    const resolvedTxs = await Promise.all(enhancedTxPromises);
+
+    // Remove any undefined values from the array of resolved transactions
+    const enhancedTxs = resolvedTxs.filter((tx): tx is BridgeTransaction => Boolean(tx));
 
     // Place new transactions at the top of the list
     enhancedTxs.sort((tx) => (tx.status === MessageStatus.NEW ? -1 : 1));
