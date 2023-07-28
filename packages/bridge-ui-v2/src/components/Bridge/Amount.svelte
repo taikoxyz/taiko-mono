@@ -205,19 +205,16 @@
         class="absolute right-6 uppercase hover:font-bold"
         disabled={!$selectedToken || !$network || computingMaxAmount}
         on:click={useMaxAmount}>
-        {$t('amount_input.button.max')}
+        {$t('inputs.amount_input.button.max')}
       </button>
     </div>
 
     {#if $insufficientBalance}
-      <FlatAlert type="error" message={$t('amount_input.error.insufficient_balance')} class="absolute bottom-[-26px]" />
+      <FlatAlert type="error" message={$t('bridge.errors.insufficient_balance')} class="absolute bottom-[-26px]" />
     {/if}
 
     {#if $insufficientAllowance}
-      <FlatAlert
-        type="warning"
-        message={$t('amount_input.error.insufficient_allowance')}
-        class="absolute bottom-[-26px]" />
+      <FlatAlert type="warning" message={$t('bridge.errors.insufficient_allowance')} class="absolute bottom-[-26px]" />
     {/if}
   </div>
 </div>

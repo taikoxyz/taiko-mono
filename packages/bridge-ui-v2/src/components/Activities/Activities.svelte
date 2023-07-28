@@ -6,6 +6,7 @@
 
   import { Button } from '$components/Button';
   import { Card } from '$components/Card';
+  import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import { Paginator } from '$components/Paginator';
   import { Spinner } from '$components/Spinner';
   import { PUBLIC_RELAYER_URL } from '$env/static/public';
@@ -13,10 +14,13 @@
   import { web3modal } from '$libs/connect';
   import { RelayerAPIService } from '$libs/relayer/RelayerAPIService';
   import { bridgeTxService } from '$libs/storage/services';
-  import { account } from '$stores/account';
+  import { getLogger } from '$libs/util/logger';
+  import { type Account,account } from '$stores/account';
   import { paginationInfo as paginationStore } from '$stores/relayerApi';
 
   import Transaction from './Transaction.svelte';
+
+  const log = getLogger('Transactions.svelte');
 
   export const transactions = writable<BridgeTransaction[]>([]);
 
@@ -42,13 +46,43 @@
       loadingTxs = false;
       return;
     }
+
+    // Transactions from local storage
+    const localTxs: BridgeTransaction[] = await bridgeTxService.getAllTxByAddress($account.address);
+
+    // Transactions from relayer
     const { txs, paginationInfo } = await relayerApi.getAllBridgeTransactionByAddress($account.address, {
       page: 0,
       size: 100,
     });
 
     loadingTxs = false;
-    $transactions = txs;
+
+    // merging local and relayer transactions
+    // Todo: move to a util
+    const mergeUniqueTransactions = (
+      localTxs: BridgeTransaction[],
+      relayerTx: BridgeTransaction[],
+    ): BridgeTransaction[] => {
+      const keyForTransaction = (tx: BridgeTransaction): string => `${tx.status}-${tx.msgHash}-${tx.hash}`;
+
+      const uniqueTransactionsMap = [...localTxs, ...relayerTx].reduce((map, transaction) => {
+        const key = keyForTransaction(transaction);
+        if (!map.has(key)) {
+          map.set(key, transaction);
+        } else {
+          log('duplicate transaction', transaction.hash);
+        }
+        return map;
+      }, new Map<string, BridgeTransaction>());
+
+      return Array.from(uniqueTransactionsMap.values());
+    };
+
+    $transactions = mergeUniqueTransactions(localTxs, txs);
+
+    log(`merging ${localTxs.length} local and ${txs.length} relayer transactions. New size: ${$transactions.length}`);
+
     paginationStore.set(paginationInfo);
   };
 
@@ -68,6 +102,12 @@
   function onWalletConnect() {
     web3modal.openModal();
   }
+
+  const onAccountChange = async (newAccount: Account, oldAccount?: Account) => {
+    if (newAccount?.isConnected) {
+      await fetchTransactions();
+    }
+  };
 </script>
 
 <div class="flex flex-col items-center justify-center w-full">
@@ -83,7 +123,7 @@
       </div>
       <div class="h-sep" />
       <div class="flex flex-col items-center justify-center" style={`min-height: calc(${pageSize - 1} * 80px);`}>
-        {#if transactionsToShow.length && !loadingTxs}
+        {#if transactionsToShow.length && !loadingTxs && $account?.isConnected}
           {#each transactionsToShow as item (item.hash)}
             <Transaction {item} />
           {/each}
@@ -107,3 +147,4 @@
     <Paginator {pageSize} {totalItems} on:pageChange={({ detail }) => (currentPage = detail)} />
   </div>
 </div>
+<OnAccount change={onAccountChange} />
