@@ -15,20 +15,24 @@ const log = getLogger('bridge:bridgeTxMessageStatusPoller');
 
 export enum PollingEvent {
   STOP = 'stop',
-  START = 'start',
   STATUS = 'status', // emits MessageStatus
   PROCESSABLE = 'processable', // whether or not the tx can be processed
 }
 
+const intervalEmitterMap: Record<number, EventEmitter> = {}
+
 /**
  * @example:
- * const emitter = startPolling(bridgeTx);
- *
- * if(emitter) {
- *   emitter.on(PollingEvent.STOP, () => {});
- *   emitter.on(PollingEvent.START, () => {});
- *   emitter.on(PollingEvent.STATUS, (status: MessageStatus) => {});
- *   emitter.on(PollingEvent.PROCESSABLE, (isProcessable: boolean) => {});
+ * try {
+ *   const emitter = startPolling(bridgeTx);
+ *   
+ *   if(emitter) {
+ *     emitter.on(PollingEvent.STOP, () => {});
+ *     emitter.on(PollingEvent.STATUS, (status: MessageStatus) => {});
+ *     emitter.on(PollingEvent.PROCESSABLE, (isProcessable: boolean) => {});
+ *   }
+ * } catch (err) {
+ *   // something really bad with this bridgeTx
  * }
  */
 export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true): Maybe<EventEmitter> {
@@ -44,7 +48,8 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
   // by the time we want to start polling, in which case we're already done
   if (status === MessageStatus.DONE) return;
 
-  // We want to notify whoever is calling this function of different events
+  // We want to notify whoever is calling this function of different 
+  // events: PollingEvent
   const emitter = new EventEmitter();
 
   const stopPolling = () => {
@@ -72,16 +77,25 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
       chainId: Number(destChainId),
     });
 
-    // We want to poll for status changes
-    const messageStatus: MessageStatus = await destBridgeContract.read.getMessageStatus([msgHash]);
+    try {
+      // We want to poll for status changes
+      const messageStatus: MessageStatus = await destBridgeContract.read.getMessageStatus([msgHash]);
 
-    bridgeTx.status = messageStatus;
+      bridgeTx.status = messageStatus;
 
-    emitter.emit('status', messageStatus);
+      emitter.emit('status', messageStatus);
 
-    if (messageStatus === MessageStatus.DONE) {
-      log('Poller has picked up the change of status to DONE');
+      if (messageStatus === MessageStatus.DONE) {
+        log('Poller has picked up the change of status to DONE');
+        stopPolling();
+      }
+    } catch (err) {
+      console.error(err);
+
       stopPolling();
+
+      // 😱... UI should handle this error
+      throw new BridgeTxPollingError('something bad happened while polling for status', {cause: err});
     }
   };
 
@@ -90,7 +104,7 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
 
     bridgeTx.interval = setInterval(pollingFn, bridgeTransactionPoller.interval);
 
-    emitter.emit('start');
+    intervalEmitterMap[Number(bridgeTx.interval)] = emitter;
 
     // setImmediate isn't standard
     if (runImmediately) {
@@ -101,4 +115,6 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
 
     return emitter;
   }
+
+  return intervalEmitterMap[Number(bridgeTx.interval)];
 }
