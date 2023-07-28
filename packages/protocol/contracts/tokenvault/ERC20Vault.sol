@@ -74,10 +74,7 @@ contract ERC20Vault is EssentialContract {
         uint256 chainId => mapping(address canonicalAddress => address btoken)
     ) public canonicalToBridged;
 
-    // Released message hashes
-    mapping(bytes32 msgHash => bool released) public releasedMessages;
-
-    uint256[46] private __gap;
+    uint256[47] private __gap;
 
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
@@ -299,28 +296,14 @@ contract ERC20Vault is EssentialContract {
         nonReentrant
         onlyFromNamed("bridge")
     {
-        // if (message.owner == address(0)) revert VAULT_INVALID_OWNER();
-        // if (message.srcChainId != block.chainid) {
-        //     revert VAULT_INVALID_SRC_CHAIN_ID();
-        // }
-
         IBridge bridge = IBridge(resolve("bridge", false));
         bytes32 msgHash = bridge.hashMessage(message);
-
-        //if (releasedMessages[msgHash]) {
-        //    revert VAULT_MESSAGE_RELEASED_ALREADY();
-        //}
-        //releasedMessages[msgHash] = true;
 
         (, address token,, uint256 amount) = abi.decode(
             message.data[4:], (CanonicalERC20, address, address, uint256)
         );
 
         if (token == address(0)) revert VAULT_INVALID_TOKEN();
-
-        // if (!bridge.isMessageFailed(msgHash, message.destChainId, proof)) {
-        //     revert VAULT_MESSAGE_NOT_FAILED();
-        // }
 
         if (amount > 0) {
             if (isBridgedToken[token] || token == resolve("taiko_token", true))
