@@ -70,7 +70,7 @@
     {item.status ? mapStatusToText(item.status) : 'Unknown'}
   </div>
   <div class="w-1/5 px-4 py-2 flex flex-col justify-center items-stretch">
-    <a href={`${chainUrlMap[Number(item.srcChainId)].explorerUrl}/${item.hash}`} target="_blank">
+    <a href={`${chainUrlMap[Number(item.srcChainId)].explorerUrl}/tx/${item.hash}`} target="_blank">
       {$t('activities.link.explorer')}
     </a>
   </div>
