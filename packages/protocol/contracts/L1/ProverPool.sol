@@ -217,6 +217,20 @@ contract ProverPool is EssentialContract, IProverPool {
         if (!_withdraw(msg.sender)) revert NO_MATURE_EXIT();
     }
 
+    /// @notice Owner kicks out people from prover pool - fixing a previous bug
+    function kickFromPosition(uint256 proverId) external onlyOwner {
+        Prover memory prover = provers[proverId];
+
+        TaikoToken(resolve("taiko_token", false)).mint(
+            proverIdToAddress[proverId], prover.stakedAmount
+        );
+        delete proverIdToAddress[proverId];
+
+        // Delete the prover but make it non-zero for cheaper rewrites
+        // by keep rewardPerGas = 1
+        provers[proverId] = Prover(0, 1, 0);
+    }
+
     /// @notice Retrieves the information of a staker and their corresponding
     /// prover using their address.
     /// @param addr The address of the staker.
