@@ -204,11 +204,14 @@ classDef otherCircuits stroke-width:4px,stroke:#6ECEB0,fill:#6ECEB0,color:#FFF;
 classDef constant stroke-width:4px,stroke:#323745,fill:#323745,color:#FFF;
 classDef group stroke-width:2px,stroke:#EA27C2,fill:#FFD2F630;
 
+c_block_gas_limit_max(blockMaxGasLimit):::constant;
+c_block_gas_used_max(blockMaxGasUsed):::constant;
+
 m_id --- h_height --- v_block_number;
 m_h1_height --- a_l1_height;
 h_gas_limit --- v_block_gaslimit
 
-c_block_gas_limit_max(blockMaxGasLimit):::constant --|>=| h_gas_limit -- |>=| h_gas_used ---|<=| c_block_gas_used_max(blockMaxGasUsed):::constant;
+c_block_gas_limit_max -.->|>=| h_gas_limit -.->|>=| h_gas_used ---|<=|c_block_gas_used_max;
 m_timestamp --- h_timestamp --- v_block_timestamp;
 m_txlist_first ---|<=| m_txlist_last --- |<= len| tx_list;
 m_h1_hash --- a_l1_hash;
