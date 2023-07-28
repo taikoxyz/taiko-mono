@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { writable } from 'svelte/store';
-  import { fade } from 'svelte/transition';
   import { t } from 'svelte-i18n';
 
   import { Button } from '$components/Button';
@@ -19,6 +18,7 @@
   import { type Account, account } from '$stores/account';
   import { paginationInfo as paginationStore } from '$stores/relayerApi';
 
+  import MobileDetailsDialog from './MobileDetailsDialog.svelte';
   import Transaction from './Transaction.svelte';
 
   const log = getLogger('Transactions.svelte');
@@ -32,6 +32,8 @@
   let totalItems = 0;
   let loadingTxs = true;
   let isBlurred = false;
+  let clickable = window.innerWidth < 768;
+  let selectedItem: BridgeTransaction | null = null;
 
   const handlePageChange = (detail: number) => {
     isBlurred = true;
@@ -96,6 +98,18 @@
       await fetchTransactions();
     }
   };
+
+  let detailsOpen = false;
+
+  function closeDetails() {
+    detailsOpen = false;
+    selectedItem = null;
+  }
+
+  function openDetails(tx: BridgeTransaction) {
+    detailsOpen = true;
+    selectedItem = tx;
+  }
 </script>
 
 <div class="flex flex-col justify-center w-full">
@@ -103,11 +117,11 @@
     <div class="flex flex-col" style={`min-height: calc(${pageSize} * 80px);`}>
       <div class="h-sep" />
       <div class="flex text-white">
-        <div class="w-1/5 px-4 py-2">{$t('activities.header.from')}</div>
-        <div class="w-1/5 px-4 py-2">{$t('activities.header.to')}</div>
-        <div class="w-1/5 px-4 py-2">{$t('activities.header.amount')}</div>
-        <div class="w-1/5 px-4 py-2">{$t('activities.header.status')}</div>
-        <div class="w-1/5 px-4 py-2">{$t('activities.header.explorer')}</div>
+        <div class="w-1/4 md-w-1/5 px-4 py-2">{$t('activities.header.from')}</div>
+        <div class="w-1/4 md-w-1/5 px-4 py-2">{$t('activities.header.to')}</div>
+        <div class="w-1/4 md-w-1/5 px-4 py-2">{$t('activities.header.amount')}</div>
+        <div class="w-1/4 md-w-1/5 px-4 py-2">{$t('activities.header.status')}</div>
+        <div class="w-1/5 hidden md:flex px-4 py-2">{$t('activities.header.explorer')}</div>
       </div>
       <div class="h-sep" />
       {#if transactionsToShow.length && !loadingTxs && $account?.isConnected}
@@ -115,7 +129,7 @@
           class="flex flex-col items-center justify-center {isBlurred ? 'blur' : ''}"
           style={`min-height: calc(${pageSize - 1} * 80px);`}>
           {#each transactionsToShow as item (item.hash)}
-            <Transaction {item} />
+            <Transaction {item} on:click={clickable ? () => openDetails(item) : undefined} />
             <div class="h-sep" />
           {/each}
         </div>
@@ -142,6 +156,9 @@
     <Paginator {pageSize} {totalItems} on:pageChange={({ detail }) => handlePageChange(detail)} />
   </div>
 </div>
+
+<MobileDetailsDialog {closeDetails} {detailsOpen} {selectedItem} />
+
 <OnAccount change={onAccountChange} />
 
 <style>

@@ -26,7 +26,7 @@
 
 <div>
   <button
-    class="f-between-center pb-[10px] border-b border-b-divider-border"
+    class="f-between-center pb-[10px] border-b border-b-divider-border w-full"
     on:click={openDetails}
     on:keydown={onItemKeydown}>
     <div class="space-y-[5px]">
