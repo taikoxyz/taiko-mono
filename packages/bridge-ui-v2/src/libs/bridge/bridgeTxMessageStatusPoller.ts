@@ -58,8 +58,8 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
     if (bridgeTx.interval) {
       log('Stop polling for transaction', bridgeTx);
 
+      // Clean up
       clearInterval(bridgeTx.interval);
-
       delete intervalEmitterMap[Number(bridgeTx.interval)]
       bridgeTx.interval = null;
 
