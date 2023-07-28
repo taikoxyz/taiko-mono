@@ -19,7 +19,7 @@ export function Footer() {
               </li>
               <li className="mb-4">
                 <a
-                  href="https://www.notion.so/taikoxyz/Taiko-Jobs-828fd7232d2c4150a11e10c8baa910a2"
+                  href="https://taikoxyz.notion.site/Taiko-Jobs-828fd7232d2c4150a11e10c8baa910a2"
                   className="hover:underline"
                   target={"_blank"}
                 >
