@@ -34,25 +34,38 @@ export class RelayerAPIService implements RelayerAPI {
     const uniqueHashes = new Set<string>();
     const filteredItems: APIResponseTransaction[] = [];
     for (const item of items) {
-      const { bridgeAddress } = chainContractsMap[item.chainID]; // todo:  also handle unsupported chain
+      const { Message, Raw } = item.data || {};
 
-      // Todo: fix
-      // eslint-disable-next-line no-unsafe-optional-chaining
-      const { DestChainId, SrcChainId } = item.data?.Message;
-      // eslint-disable-next-line no-unsafe-optional-chaining
-      const { transactionHash, address } = item.data?.Raw;
-      const hasDuplicateHash = uniqueHashes.has(transactionHash);
-      const wrongBridgeAddress = address?.toLowerCase() !== bridgeAddress?.toLowerCase();
+      // If no data is present, we skip this item
+      if (!Message || !Raw) {
+        continue;
+      }
 
-      // Filter unsupported Chains
-      const isSupported: boolean = isSupportedChain(BigInt(DestChainId)) && isSupportedChain(BigInt(SrcChainId));
+      const { bridgeAddress } = chainContractsMap[item.chainID]; // TODO: also handle unsupported chain
+      const { DestChainId, SrcChainId } = Message;
+      const { transactionHash, address } = Raw;
 
-      // Do not include tx if for whatever reason the properties transactionHash
-      // and address are not present in the response
-      const shouldIncludeTx = transactionHash && address && !hasDuplicateHash && !wrongBridgeAddress && isSupported;
+      // Check all conditions
+      const isTransactionHashPresent = Boolean(transactionHash);
+      const isAddressPresent = Boolean(address);
+      const isUniqueHash = !uniqueHashes.has(transactionHash);
+      const isCorrectBridgeAddress = address?.toLowerCase() === bridgeAddress?.toLowerCase();
+      const areChainsSupported = isSupportedChain(BigInt(DestChainId)) && isSupportedChain(BigInt(SrcChainId));
 
-      if (!hasDuplicateHash) uniqueHashes.add(transactionHash);
-      if (shouldIncludeTx) filteredItems.push(item);
+      // If the transaction hash is unique, add it to the set for future checks
+      if (isUniqueHash) uniqueHashes.add(transactionHash);
+
+      // All these conditions must be true
+      const satisfiesAllConditions = [
+        isTransactionHashPresent,
+        isAddressPresent,
+        isUniqueHash,
+        isCorrectBridgeAddress,
+        areChainsSupported,
+      ].every(Boolean);
+
+      // If all conditions are satisfied, add the item to the filtered list
+      if (satisfiesAllConditions) filteredItems.push(item);
     }
     return filteredItems;
   }
