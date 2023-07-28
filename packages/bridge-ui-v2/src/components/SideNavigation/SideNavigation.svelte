@@ -68,38 +68,40 @@
           <LogoWithText />
         </a>
 
-        <ul class="menu p-0 md:pt-10 space-y-2" on:click={closeDrawer} on:keydown={onMenuKeydown}>
-          <li>
-            <LinkButton active={isBridgePage}>
-              <Icon type="bridge" fillClass={getIconFillClass(isBridgePage)} />
-              <span>{$t('nav.bridge')}</span>
-            </LinkButton>
-          </li>
-          <li>
-            <LinkButton href="/faucet" active={isFaucetPage}>
-              <Icon type="faucet" fillClass={getIconFillClass(isFaucetPage)} />
-              <span>{$t('nav.faucet')}</span>
-            </LinkButton>
-          </li>
-          <li>
-            <LinkButton href="/activities" active={isActivitiesPage}>
-              <Icon type="activities" fillClass={getIconFillClass(isActivitiesPage)} />
-              <span>{$t('nav.activities')}</span>
-            </LinkButton>
-          </li>
-          <li>
-            <LinkButton href={PUBLIC_L2_EXPLORER_URL} external>
-              <Icon type="explorer" />
-              <span>{$t('nav.explorer')}</span>
-            </LinkButton>
-          </li>
-          <li>
-            <LinkButton href={PUBLIC_GUIDE_URL} external>
-              <Icon type="guide" />
-              <span>{$t('nav.guide')}</span>
-            </LinkButton>
-          </li>
-        </ul>
+        <div role="button" tabindex="0" on:click={closeDrawer} on:keydown={onMenuKeydown}>
+          <ul class="menu p-0 md:pt-10 space-y-2">
+            <li>
+              <LinkButton active={isBridgePage}>
+                <Icon type="bridge" fillClass={getIconFillClass(isBridgePage)} />
+                <span>{$t('nav.bridge')}</span>
+              </LinkButton>
+            </li>
+            <li>
+              <LinkButton href="/faucet" active={isFaucetPage}>
+                <Icon type="faucet" fillClass={getIconFillClass(isFaucetPage)} />
+                <span>{$t('nav.faucet')}</span>
+              </LinkButton>
+            </li>
+            <li>
+              <LinkButton href="/activities" active={isActivitiesPage}>
+                <Icon type="activities" fillClass={getIconFillClass(isActivitiesPage)} />
+                <span>{$t('nav.activities')}</span>
+              </LinkButton>
+            </li>
+            <li>
+              <LinkButton href={PUBLIC_L2_EXPLORER_URL} external>
+                <Icon type="explorer" />
+                <span>{$t('nav.explorer')}</span>
+              </LinkButton>
+            </li>
+            <li>
+              <LinkButton href={PUBLIC_GUIDE_URL} external>
+                <Icon type="guide" />
+                <span>{$t('nav.guide')}</span>
+              </LinkButton>
+            </li>
+          </ul>
+        </div>
       </aside>
     </div>
   </div>

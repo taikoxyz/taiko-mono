@@ -1,9 +1,8 @@
 <script lang="ts">
-  import { noop } from 'svelte/internal';
-
   import { ClickMask } from '$components/ClickMask';
   import type { Token } from '$libs/token';
   import { classNames } from '$libs/util/classNames';
+  import { noop } from '$libs/util/noop';
 
   import { symbolToIconMap } from './symbolToIconMap';
 

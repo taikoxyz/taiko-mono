@@ -1,5 +1,12 @@
-import type { WalletClient } from '@wagmi/core';
+import type { Hash, WalletClient } from '@wagmi/core';
 import type { Address, Hex } from 'viem';
+
+export enum MessageStatus {
+  NEW,
+  RETRIABLE,
+  DONE,
+  FAILED,
+}
 
 // Bridge sendMessage(message: Message)
 export type Message = {
@@ -89,7 +96,10 @@ export type RequireAllowanceArgs = {
   amount: bigint;
 };
 
-export interface Bridge {
-  estimateGas(args: BridgeArgs): Promise<bigint>;
-  bridge(args: BridgeArgs): Promise<Hex>;
-}
+export type ClaimArgs = {
+  msgHash: Hash;
+  message: Message;
+  wallet: WalletClient;
+};
+
+export type ReleaseArgs = ClaimArgs;

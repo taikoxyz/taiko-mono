@@ -1,6 +1,7 @@
 import { getPublicClient } from '@wagmi/core';
 
-import type { Bridge, BridgeArgs } from './types';
+import type { Bridge } from './Bridge';
+import type { BridgeArgs } from './types';
 
 export async function estimateCostOfBridging(bridge: Bridge, bridgeArgs: BridgeArgs) {
   const publicClient = getPublicClient();
