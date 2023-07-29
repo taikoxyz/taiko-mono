@@ -164,6 +164,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/polyhedra.svg",
+    name: "Polyhedra",
+    link: "https://polyhedra.network/",
+    description:
+      "Polyhedra Network is building the infrastructure for Web3 interoperability with efficient zero-knowledge proof protocols. Polyhedra Network designs and implements zkBridge, providing trustless and efficient cross-chain infrastructures for layer-1 and layer-2 interoperability.",
+    filters: ["zk"],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/rai-finance.png",
     name: "RAI Finance",
     link: "https://app.rai.finance/#/aggregateSwap",
