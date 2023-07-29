@@ -10,8 +10,8 @@ import { AddressResolver } from "../../common/AddressResolver.sol";
 import { IProverPool } from "../ProverPool.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibUtils } from "./LibUtils.sol";
+import { IProofVerifier } from "../IProofVerifier.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
-import { LibBytesUtils } from "../../thirdparty/LibBytesUtils.sol";
 
 library LibProving {
     using LibMath for uint256;
@@ -144,39 +144,36 @@ library LibProving {
             );
         }
 
+        bytes32 instance;
         if (evidence.prover != address(1)) {
-            bytes32 instance;
-            {
-                uint256[10] memory inputs;
+            uint256[10] memory inputs;
 
-                inputs[0] = uint256(
-                    uint160(address(resolver.resolve("signal_service", false)))
-                );
-                inputs[1] = uint256(
-                    uint160(
-                        address(
-                            resolver.resolve(
-                                config.chainId, "signal_service", false
-                            )
+            inputs[0] = uint256(
+                uint160(address(resolver.resolve("signal_service", false)))
+            );
+            inputs[1] = uint256(
+                uint160(
+                    address(
+                        resolver.resolve(
+                            config.chainId, "signal_service", false
                         )
                     )
-                );
-                inputs[2] = uint256(
-                    uint160(
-                        address(
-                            resolver.resolve(config.chainId, "taiko", false)
-                        )
-                    )
-                );
+                )
+            );
+            inputs[2] = uint256(
+                uint160(
+                    address(resolver.resolve(config.chainId, "taiko", false))
+                )
+            );
 
-                inputs[3] = uint256(evidence.metaHash);
-                inputs[4] = uint256(evidence.parentHash);
-                inputs[5] = uint256(evidence.blockHash);
-                inputs[6] = uint256(evidence.signalRoot);
-                inputs[7] = uint256(evidence.graffiti);
-                inputs[8] = (uint256(uint160(evidence.prover)) << 96)
-                    | (uint256(evidence.parentGasUsed) << 64)
-                    | (uint256(evidence.gasUsed) << 32);
+            inputs[3] = uint256(evidence.metaHash);
+            inputs[4] = uint256(evidence.parentHash);
+            inputs[5] = uint256(evidence.blockHash);
+            inputs[6] = uint256(evidence.signalRoot);
+            inputs[7] = uint256(evidence.graffiti);
+            inputs[8] = (uint256(uint160(evidence.prover)) << 96)
+                | (uint256(evidence.parentGasUsed) << 64)
+                | (uint256(evidence.gasUsed) << 32);
 
                 // Also hash configs that will be used by circuits
                 inputs[9] = uint256(config.blockMaxGasUsed) << 224 // 32 bits
@@ -184,45 +181,17 @@ library LibProving {
                     | uint256(config.blockMaxTransactions) << 160 // 32 bits
                     | uint256(config.blockMaxTxListBytes) << 128; // 32 bits
 
-                assembly {
-                    instance := keccak256(inputs, mul(32, 10))
-                }
+            assembly {
+                instance := keccak256(inputs, mul(32, 10))
             }
-
-            if (
-                !LibBytesUtils.equal(
-                    LibBytesUtils.slice(evidence.proof, 0, 32),
-                    bytes.concat(bytes16(0), bytes16(instance))
-                )
-            ) {
-                revert L1_INVALID_PROOF();
-            }
-
-            if (
-                !LibBytesUtils.equal(
-                    LibBytesUtils.slice(evidence.proof, 32, 32),
-                    bytes.concat(
-                        bytes16(0), bytes16(uint128(uint256(instance)))
-                    )
-                )
-            ) {
-                revert L1_INVALID_PROOF();
-            }
-
-            (bool verified, bytes memory ret) = resolver.resolve(
-                LibUtils.getVerifierName(evidence.verifierId), false
-            ).staticcall(evidence.proof);
-
-            if (
-                !verified
-                //
-                || ret.length != 32
-                //
-                || bytes32(ret) != keccak256("taiko")
-            ) {
-                revert L1_INVALID_PROOF();
-            }
+            assert(instance != 0);
         }
+
+        IProofVerifier(resolver.resolve("proof_verifier", false)).verifyProofs({
+            blockId: blockId,
+            blockProofs: evidence.proofs,
+            instance: instance
+        });
 
         emit BlockProven({
             blockId: blk.blockId,
