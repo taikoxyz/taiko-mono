@@ -91,6 +91,10 @@ If you do not want to delete the node folder, please follow one of these steps b
 
 When running a L3 node, users may run into this issue if their underlying L2 is still syncing. Please wait until your L2 is fully synced before starting your L3 node.
 
+#### `Failed to start Taiko client with error code 1 | project ID does not have access to archive state`
+
+The L1 node that the user is pointing to is not an archive node. Please change your RPC endpoint to point to an archive node.
+
 {" "}
 
 <Tabs items={["Command line", "Notepad"]} defaultIndex="0">
