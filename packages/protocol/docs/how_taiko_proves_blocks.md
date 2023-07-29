@@ -14,7 +14,7 @@ A valid `txList` (until [issue #13724](https://github.com/taikoxyz/taiko-mono/is
 - Has a byte-size smaller than the protocol constant _`blockMaxTxListBytes`_ (also enforced in contracts);
 - Can be RLP-decoded into a list of transactions without trailing space;
 - Contains no more transactions (valid and invalid) than the protocol constant _`blockMaxTransactions`_;
-- Has a total gas limit for all valid transactions not exceeding the protocol constant _`blockMaxGasLimit`_;
+- Has a total gas limit for all valid transactions not exceeding the protocol constant _`blockAndTxMaxGasUsed * blockMaxTransactions`_;
 
 ZKP must prove whether the `txList` is valid or invalid. For an invalid `txList`, the corresponding L2 block will only have an anchor transaction.
 
@@ -204,8 +204,8 @@ classDef otherCircuits stroke-width:4px,stroke:#6ECEB0,fill:#6ECEB0,color:#FFF;
 classDef constant stroke-width:4px,stroke:#323745,fill:#323745,color:#FFF;
 classDef group stroke-width:2px,stroke:#EA27C2,fill:#FFD2F630;
 
-c_block_gas_limit_max(blockMaxGasLimit):::constant;
-c_block_gas_used_max(blockMaxGasUsed):::constant;
+c_block_gas_limit_max(blockAndTxMaxGasUsed * blockMaxTransactions):::constant;
+c_block_gas_used_max(blockAndTxMaxGasUsed):::constant;
 
 m_id --- h_height --- v_block_number;
 m_h1_height --- a_l1_height;

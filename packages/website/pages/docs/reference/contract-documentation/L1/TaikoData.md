@@ -13,8 +13,7 @@ struct Config {
   uint256 blockMaxProposals;
   uint256 blockRingBufferSize;
   uint256 blockMaxVerificationsPerTx;
-  uint32 blockMaxGasUsed;
-  uint32 blockMaxGasLimit;
+  uint32 blockAndTxMaxGasUsed;
   uint32 blockFeeBaseGas;
   uint32 blockMaxTransactions;
   uint32 blockMaxTxListBytes;
@@ -93,8 +92,7 @@ struct BlockEvidence {
   address prover;
   uint32 parentGasUsed;
   uint32 gasUsed;
-  uint16 verifierId;
-  bytes proof;
+  bytes proofs;
 }
 ```
 

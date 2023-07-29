@@ -85,8 +85,8 @@ library LibUtils {
     {
         // The diff between gasLimit and gasUsed will be redistributed back to
         // the balance of proposer
-        return
-            state.feePerGas * (config.blockMaxGasUsed + config.blockFeeBaseGas);
+        return state.feePerGas
+            * (config.blockAndTxMaxGasUsed + config.blockFeeBaseGas);
     }
 
     function movingAverage(

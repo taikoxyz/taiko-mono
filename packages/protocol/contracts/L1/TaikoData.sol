@@ -18,8 +18,7 @@ library TaikoData {
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 blockMaxVerificationsPerTx;
         // The max gas used per block, including anchor.
-        uint32 blockMaxGasUsed;
-        uint32 blockMaxGasLimit;
+        uint32 blockAndTxMaxGasUsed;
         uint32 blockFeeBaseGas;
         uint32 blockMaxTransactions;
         uint32 blockMaxTxListBytes;

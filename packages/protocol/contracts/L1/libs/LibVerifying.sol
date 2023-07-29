@@ -49,9 +49,10 @@ library LibVerifying {
             config.chainId <= 1 //
                 || config.blockMaxProposals == 1
                 || config.blockRingBufferSize <= config.blockMaxProposals + 1
-                || config.blockMaxGasUsed <= LibL2Consts.ANCHOR_GAS_COST
-                || config.blockMaxGasLimit < config.blockMaxGasUsed
+                || config.blockAndTxMaxGasUsed <= LibL2Consts.ANCHOR_GAS_COST
                 || config.blockMaxTransactions == 0
+                || uint256(config.blockMaxTransactions)
+                    * config.blockMaxTransactions >= type(uint64).max
                 || config.blockMaxTxListBytes == 0
                 || config.blockTxListExpiry > 30 * 24 hours
                 || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
@@ -258,7 +259,7 @@ library LibVerifying {
 
         // refund the proposer
         state.taikoTokenBalances[blk.proposer] +=
-            (config.blockMaxGasUsed - fc.gasUsed) * blk.feePerGas;
+            (config.blockAndTxMaxGasUsed - fc.gasUsed) * blk.feePerGas;
 
         // Reward the prover
         state.taikoTokenBalances[fc.prover] += proofReward;

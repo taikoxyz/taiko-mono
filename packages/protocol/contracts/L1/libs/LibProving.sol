@@ -59,7 +59,7 @@ library LibProving {
             //
             || evidence.gasUsed == 0
             //
-            || evidence.gasUsed > config.blockMaxGasUsed
+            || evidence.gasUsed > config.blockAndTxMaxGasUsed
         ) revert L1_INVALID_EVIDENCE();
 
         if (blockId <= state.lastVerifiedBlockId || blockId >= state.numBlocks)
@@ -175,11 +175,10 @@ library LibProving {
                 | (uint256(evidence.parentGasUsed) << 64)
                 | (uint256(evidence.gasUsed) << 32);
 
-                // Also hash configs that will be used by circuits
-                inputs[9] = uint256(config.blockMaxGasUsed) << 224 // 32 bits
-                    | uint256(config.blockMaxGasLimit) << 192 // 32 bits
-                    | uint256(config.blockMaxTransactions) << 160 // 32 bits
-                    | uint256(config.blockMaxTxListBytes) << 128; // 32 bits
+            // Also hash configs that will be used by circuits
+            inputs[9] = uint256(config.blockAndTxMaxGasUsed) << 224 // 32 bits
+                | uint256(config.blockMaxTransactions) << 192 // 32 bits
+                | uint256(config.blockMaxTxListBytes) << 160; // 32 bits
 
             assembly {
                 instance := keccak256(inputs, mul(32, 10))
