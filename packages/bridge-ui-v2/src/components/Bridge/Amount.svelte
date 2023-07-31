@@ -173,9 +173,9 @@
 
 <div class="AmountInput f-col space-y-2">
   <div class="f-between-center text-secondary-content">
-    <label class="body-regular" for={inputId}>{$t('amount_input.label')}</label>
+    <label class="body-regular" for={inputId}>{$t('inputs.amount_input.label')}</label>
     <div class="body-small-regular">
-      <span>{$t('amount_input.balance')}:</span>
+      <span>{$t('inputs.amount_input.balance')}:</span>
       <span>
         {#if $computingBalance}
           <LoadingText mask="0.0000" />
