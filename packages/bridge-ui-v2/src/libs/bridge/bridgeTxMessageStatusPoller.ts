@@ -130,16 +130,9 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
       // attach listeners before the polling function is called
       nextTick(pollingFn);
     }
-
-    return { emitter, destroy };
+  } else {
+    log('Already polling for transaction', bridgeTx);
   }
 
-  log('Already polling for transaction', bridgeTx);
-
-  // We are already polling for this transaction.
-  // Return the emitter associated to it
-  return {
-    destroy,
-    emitter,
-  };
+  return { destroy, emitter };
 }
