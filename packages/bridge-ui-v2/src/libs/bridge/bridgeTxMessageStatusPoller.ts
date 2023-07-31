@@ -1,4 +1,4 @@
-import { getContract } from '@wagmi/core';
+import { getContract, type Hash } from '@wagmi/core';
 import { EventEmitter } from 'events';
 
 import { bridgeABI } from '$abi';
@@ -21,7 +21,15 @@ export enum PollingEvent {
   PROCESSABLE = 'processable',
 }
 
-const intervalEmitterMap: Record<number, EventEmitter> = {};
+type Interval = Maybe<ReturnType<typeof setInterval>>
+
+// bridgeTx hash => emitter. If there is already a polling ongoing
+// we return the emitter associated to it
+const hashEmitterMap: Record<Hash, EventEmitter> = {};
+
+// bridgeTx hash => interval. There might be a polling ongoing
+// associated to this hash, so we don't want to start another one
+const hashIntervalMap: Record<Hash, Interval> = {};
 
 /**
  * @example
@@ -38,7 +46,7 @@ const intervalEmitterMap: Record<number, EventEmitter> = {};
  * }
  */
 export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true) {
-  const { destChainId, msgHash, status } = bridgeTx;
+  const { hash, destChainId, msgHash, status } = bridgeTx;
 
   // Without this we cannot poll at all. Let's throw an error
   // that can be handled in the UI
@@ -52,17 +60,27 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
 
   // We want to notify whoever is calling this function of different
   // events: PollingEvent
-  const emitter = new EventEmitter();
+  let emitter = hashEmitterMap[hash];
+  let interval = hashIntervalMap[hash];
+
+  // We are gonna be polling the destination bridge contract
+  const destBridgeAddress = chainContractsMap[Number(destChainId)].bridgeAddress;
+  const destBridgeContract = getContract({
+    address: destBridgeAddress,
+    abi: bridgeABI,
+    chainId: Number(destChainId),
+  });
 
   const stopPolling = () => {
-    if (bridgeTx.interval) {
+    if (interval) {
       log('Stop polling for transaction', bridgeTx);
 
       // Clean up
-      clearInterval(bridgeTx.interval);
-      delete intervalEmitterMap[Number(bridgeTx.interval)];
-      bridgeTx.interval = null;
+      clearInterval(interval);
+      delete hashEmitterMap[hash];
+      delete hashIntervalMap[hash];
 
+      interval = null
       emitter.emit(PollingEvent.STOP);
     }
   };
@@ -77,19 +95,9 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
 
     emitter.emit(PollingEvent.PROCESSABLE, isProcessable);
 
-    const destBridgeAddress = chainContractsMap[Number(destChainId)].bridgeAddress;
-
-    const destBridgeContract = getContract({
-      address: destBridgeAddress,
-      abi: bridgeABI,
-      chainId: Number(destChainId),
-    });
-
     try {
       // We want to poll for status changes
       const messageStatus: MessageStatus = await destBridgeContract.read.getMessageStatus([msgHash]);
-
-      bridgeTx.status = messageStatus;
 
       emitter.emit('status', messageStatus);
 
@@ -107,12 +115,14 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
     }
   };
 
-  if (!bridgeTx.interval) {
+  if (!interval) {
     log('Starting polling for transaction', bridgeTx);
 
-    bridgeTx.interval = setInterval(pollingFn, bridgeTransactionPoller.interval);
+    emitter = new EventEmitter();
+    interval = setInterval(pollingFn, bridgeTransactionPoller.interval);
 
-    intervalEmitterMap[Number(bridgeTx.interval)] = emitter;
+    hashEmitterMap[hash] = emitter;
+    hashIntervalMap[hash] = interval;
 
     // setImmediate isn't standard
     if (runImmediately) {
@@ -130,6 +140,6 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
   // Return the emitter associated to it
   return {
     destroy,
-    emitter: intervalEmitterMap[Number(bridgeTx.interval)],
+    emitter,
   };
 }
