@@ -60,15 +60,6 @@ library LibBridgeRelease {
 
         bytes32 msgHash = message.hashMessage();
 
-        // Todo: (dantaik)
-        // I think this enum, or int (for evaluate what was released) not
-        // necessary
-        //  not necessary as written in the issue because if the below 3 if-else
-        // if
-        // (for token vaults) does not TRUE, it will not call the token vult
-        // contracts.
-        // And if it calls them, then the TXN shall need to go through
-        // successfully.
         if (state.msgReleased[msgHash] == true) {
             revert B_ETHER_RELEASED_ALREADY(); //Rather tokens released (?)
         }
