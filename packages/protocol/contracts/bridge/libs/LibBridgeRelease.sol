@@ -76,21 +76,13 @@ library LibBridgeRelease {
             revert B_ETHER_RELEASED_ALREADY(); //Rather tokens released (?)
         }
 
-        ////////////////////////////
-        //   TEMPORARY SOLUTION   //
-        ////////////////////////////
-        // Bridge.isMessageFailed() can be mocked but
-        // LibBridgeStatus.isMessageFailed cannot !!
-        // Either need to have a valid proof OR for
-        // testing we assume this is true ! (functionality)
-        // proven already.
-        // if (
-        //     !LibBridgeStatus.isMessageFailed(
-        //         resolver, msgHash, message.destChainId, proof
-        //     )
-        // ) {
-        //     revert B_MSG_NOT_FAILED();
-        // }
+        if (
+            !LibBridgeStatus.isMessageFailed(
+                resolver, msgHash, message.destChainId, proof
+            )
+        ) {
+            revert B_MSG_NOT_FAILED();
+        }
 
         state.recallStatus[msgHash] = LibBridgeData.RecallStatus.ETH_RELEASED;
 

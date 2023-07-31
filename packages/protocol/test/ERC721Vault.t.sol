@@ -5,6 +5,7 @@ import { console2 } from "forge-std/console2.sol";
 import { Test } from "forge-std/Test.sol";
 import { AddressManager } from "../contracts/common/AddressManager.sol";
 import { IBridge, Bridge } from "../contracts/bridge/Bridge.sol";
+import { mBridge } from "./mBridge.t.sol";
 import { LibBridgeData } from "../contracts/bridge/libs/LibBridgeData.sol";
 import { BridgeErrors } from "../contracts/bridge/BridgeErrors.sol";
 import { BaseNFTVault } from "../contracts/tokenvault/BaseNFTVault.sol";
@@ -191,6 +192,8 @@ contract ERC721VaultTest is Test {
     BadReceiver badReceiver;
     Bridge bridge;
     Bridge destChainBridge;
+    // Mocking the proofs for releaseToken() calls
+    mBridge mockBridge;
     PrankDestBridge destChainIdBridge;
     PrankSrcBridge srcPrankBridge;
     ERC721Vault erc721Vault;
@@ -216,6 +219,9 @@ contract ERC721VaultTest is Test {
 
         bridge = new Bridge();
         bridge.init(address(addressManager));
+
+        mockBridge = new mBridge();
+        mockBridge.init(address(addressManager));
 
         destChainBridge = new Bridge();
         destChainBridge.init(address(addressManager));
@@ -253,7 +259,8 @@ contract ERC721VaultTest is Test {
         addressManager.setAddress(
             destChainId, "erc721_vault", address(destChainErc721Vault)
         );
-        // Below 2 registrations (mock) are needed bc of LibBridgeRelease.sol's
+        // Below 2-2 registrations (mock) are needed bc of
+        // LibBridgeRelease.sol's
         // resolve address
         addressManager.setAddress(
             destChainId, "erc1155_vault", address(srcPrankBridge)
@@ -596,7 +603,7 @@ contract ERC721VaultTest is Test {
         // Let's test that message is failed and we want to release it back to
         // the owner
         vm.prank(Amelia, Amelia);
-        addressManager.setAddress(block.chainid, "bridge", address(bridge));
+        addressManager.setAddress(block.chainid, "bridge", address(mockBridge));
 
         // Reconstruct the message.
         // Actually the only 2 things absolute necessary to fill are the owner
@@ -618,12 +625,7 @@ contract ERC721VaultTest is Test {
 
         bytes memory proof = bytes("");
 
-        console2.log("Alice:", Alice);
-        console2.log("Bridge:", address(bridge));
-        console2.log("erc721Vault:", address(erc721Vault));
-
-        bridge.recallMessage(message, proof);
-        //erc721Vault.releaseToken(message, proof);
+        mockBridge.recallMessage(message, proof);
 
         // Alice got back her NFT
         assertEq(canonicalToken721.ownerOf(1), Alice);

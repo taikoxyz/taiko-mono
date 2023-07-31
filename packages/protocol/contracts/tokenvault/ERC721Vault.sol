@@ -147,6 +147,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     function releaseToken(IBridge.Message calldata message)
         external
         nonReentrant
+        onlyFromNamed("bridge")
     {
         if (message.owner == address(0)) revert VAULT_INVALID_OWNER();
         if (message.srcChainId != block.chainid) {

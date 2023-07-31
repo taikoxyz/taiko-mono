@@ -168,6 +168,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     function releaseToken(IBridge.Message calldata message)
         external
         nonReentrant
+        onlyFromNamed("bridge")
     {
         (
             CanonicalNFT memory nft,
