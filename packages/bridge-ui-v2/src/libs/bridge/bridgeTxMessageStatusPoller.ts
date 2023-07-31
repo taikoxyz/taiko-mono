@@ -21,7 +21,7 @@ export enum PollingEvent {
   PROCESSABLE = 'processable',
 }
 
-type Interval = Maybe<ReturnType<typeof setInterval>>
+type Interval = Maybe<ReturnType<typeof setInterval>>;
 
 // bridgeTx hash => emitter. If there is already a polling ongoing
 // we return the emitter associated to it
@@ -80,7 +80,7 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
       delete hashEmitterMap[hash];
       delete hashIntervalMap[hash];
 
-      interval = null
+      interval = null;
       emitter.emit(PollingEvent.STOP);
     }
   };
@@ -88,7 +88,7 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
   const destroy = () => {
     stopPolling();
     emitter.removeAllListeners();
-  }
+  };
 
   const pollingFn = async () => {
     const isProcessable = await isBridgeTxProcessable(bridgeTx);
