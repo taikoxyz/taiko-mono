@@ -1,7 +1,7 @@
 import { AddTokenParameter } from "../baseTypes";
 import { ELDFELL_CONFIG } from "./config";
 
-export const ELDFELL_ADD_TTKO: AddTokenParameter = {
+export const ELDFELL_ADD_TTKOE: AddTokenParameter = {
     address: ELDFELL_CONFIG.rollupContracts.erc20Contracts.bridgedTaikoToken.address.impl,
     symbol: ELDFELL_CONFIG.rollupContracts.erc20Contracts.bridgedTaikoToken.symbol,
     decimals: ELDFELL_CONFIG.rollupContracts.erc20Contracts.bridgedTaikoToken.decimals,
@@ -21,7 +21,7 @@ export const ELDFELL_ADD_HORSE: AddTokenParameter = {
     decimals: ELDFELL_CONFIG.rollupContracts.erc20Contracts.bridgedHorseToken.decimals,
     image: "https://raw.githubusercontent.com/taikoxyz/taiko-mono/main/packages/branding/testnet-token-images/horse.svg"
 };
-export const ELDFELL_ADD_TTKO_NEW: AddTokenParameter = {
+export const ELDFELL_ADD_TTKO: AddTokenParameter = {
     address: ELDFELL_CONFIG.rollupContracts.erc20Contracts.TTKO.address.impl,
     symbol: ELDFELL_CONFIG.rollupContracts.erc20Contracts.TaikoToken.symbol,
     decimals: ELDFELL_CONFIG.rollupContracts.erc20Contracts.TTKO.decimals,
