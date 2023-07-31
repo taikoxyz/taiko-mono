@@ -187,6 +187,16 @@ contract DeployOnL1 is Script {
             )
         );
 
+        // ProofVerifier
+        ProofVerifier proofVerifier = new ProxiedProofVerifier();
+        deployProxy(
+            "proof_verifier",
+            address(proofVerifier),
+            bytes.concat(
+                proofVerifier.init.selector, abi.encode(addressManagerProxy)
+            )
+        );
+
         // SignalService
         if (sharedSignalService == address(0)) {
             SignalService signalService = new ProxiedSignalService();
@@ -206,15 +216,6 @@ contract DeployOnL1 is Script {
 
         // PlonkVerifier
         deployPlonkVerifiers();
-
-        ProofVerifier proofVerifier = new ProxiedProofVerifier();
-        deployProxy(
-            "proof_verifier",
-            address(proofVerifier),
-            bytes.concat(
-                proofVerifier.init.selector, abi.encode(addressManagerProxy)
-            )
-        );
 
         vm.stopBroadcast();
     }
