@@ -1,6 +1,4 @@
 import { BigNumber, Contract, ethers } from 'ethers';
-import type { Prover } from '../domain/prover';
-import type { Staker } from '../domain/staker';
 import ProverPool from '../constants/abi/ProverPool';
 
 export const getProverRequirements = async (
@@ -14,7 +12,7 @@ export const getProverRequirements = async (
   );
 
   const minStakePerCapacity = await contract.MIN_STAKE_PER_CAPACITY();
-  const minCapacity = await contract.MAX_CAPACITY_LOWER_BOUND();
+  const minCapacity = await contract.MIN_CAPACITY();
 
   return { minStakePerCapacity, minCapacity };
 };

@@ -68,13 +68,16 @@ func (svc *Service) saveBlockProposedEvent(
 
 	blockID := event.BlockId.Int64()
 
+	assignedProver := event.AssignedProver.Hex()
+
 	_, err = svc.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
-		Name:    eventindexer.EventNameBlockProposed,
-		Data:    string(marshaled),
-		ChainID: chainID,
-		Event:   eventindexer.EventNameBlockProposed,
-		Address: sender.Hex(),
-		BlockID: &blockID,
+		Name:           eventindexer.EventNameBlockProposed,
+		Data:           string(marshaled),
+		ChainID:        chainID,
+		Event:          eventindexer.EventNameBlockProposed,
+		Address:        sender.Hex(),
+		BlockID:        &blockID,
+		AssignedProver: &assignedProver,
 	})
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.Save")

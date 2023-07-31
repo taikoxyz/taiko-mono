@@ -27,6 +27,7 @@ library TaikoData {
         uint256 proofOracleCooldown;
         uint16 proofMinWindow;
         uint16 proofMaxWindow;
+        uint16 proofWindowMultiplier;
         // Group 4: eth deposit related configs
         uint256 ethDepositRingBufferSize;
         uint64 ethDepositMinCountPerBlock;
@@ -86,8 +87,7 @@ library TaikoData {
         address prover;
         uint32 parentGasUsed;
         uint32 gasUsed;
-        uint16 verifierId;
-        bytes proof;
+        bytes proofs;
     }
 
     // 4 slots

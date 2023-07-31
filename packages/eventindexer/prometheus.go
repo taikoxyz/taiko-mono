@@ -72,11 +72,19 @@ var (
 	})
 	SwapEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "swap_events_processed_ops_total",
-		Help: "The total number of processed MessageSent events",
+		Help: "The total number of processed Swap events",
 	})
 	SwapEventsProcessedError = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "swap_events_processed_error_ops_total",
 		Help: "The total number of processed Swap event errors encountered",
+	})
+	LiquidityAddedEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "liquidity_added_events_processed_ops_total",
+		Help: "The total number of processed LiquidityAdded events",
+	})
+	LiquidityAddedEventsProcessedError = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "liquidity_added_events_processed_error_ops_total",
+		Help: "The total number of processed LiquidityAdded event errors encountered",
 	})
 	BlocksProcessed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "blocks_processed_ops_total",

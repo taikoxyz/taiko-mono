@@ -35,14 +35,14 @@ A verifier will take the value (a leaf in the merkle tree) and the sibling hashe
 
 ## The signal service
 
-Taiko's signal service is a smart contract available on both L1 and L2, available for any dapp developer to use. It exposes a [simple interface](/docs/reference/contract-documentation/signal/ISignalService). And it's what uses the previously mentioned merkle proofs to provide a service for secure cross-chain messaging.
+Taiko's signal service is a smart contract available on both L1 and L2, available for any dapp developer to use. It's what uses the previously mentioned merkle proofs to provide a service for secure cross-chain messaging.
 
 You can store signals and check if a signal was sent from an address. It also exposes one more important function: `isSignalReceived`.
 
 What does this function do? The first thing to understand is that the Taiko protocol maintains two important contracts:
 
-- [TaikoL1](/docs/reference/contract-documentation/L1/TaikoL1)
-- [TaikoL2](/docs/reference/contract-documentation/L2/TaikoL2)
+- `TaikoL1`
+- `TaikoL2`
 
 These contracts both keep track of the block hashes on the **other chain**. So TaikoL1, which is deployed on Ethereum, has access to the latest block hashes on Taiko. And TaikoL2, which is deployed on Taiko, has access to the latest block hashes on Ethereum.
 
@@ -68,7 +68,7 @@ And boom! We have sent a cross-chain message. Confusing? Well leave some feedbac
 
 ## How the bridge works
 
-The bridge is a set of smart contracts and a frontend web app that allow you to send testnet ETH and ERC-20 tokens between Sepolia and Taiko. This bridge is just one possible implementation built on top of Taiko's core protocol, specifically the signal service which anybody can use to build bridges. You can try the bridge [here](https://bridge.test.taiko.xyz).
+The bridge is a set of smart contracts and a frontend web app that allow you to send testnet ETH and ERC-20 tokens between Sepolia and Taiko. This bridge is just one possible implementation built on top of Taiko's core protocol, specifically the signal service which anybody can use to build bridges.
 
 First, here is a flowchart of how our bridge dapp implementation works, which uses the signal service:
 
@@ -107,4 +107,3 @@ Okay now let's do the reverse, how do we transfer a bridged token from a source 
 2. Call sendERC20 on the source chain TokenVault, this will **burn** the ERC-20 on the BridgedERC20 contract.
 3. Send a message to the Signal Service (on the source chain), this message will contain some metadata related to the bridge request, but most importantly it includes the calldata for the `receiveERC20` method.
 4. Process the message on the destination chain by submitting a merkle proof (generated from the source chain), proving that a message is included in the state of the source chain Signal Service. After verifying this occurred and doing some checks, it will attempt to invoke the `receiveERC20` method encoded in this message. This will **transfer** the amount from the destination chain TokenVault to the `to` address on the destination chain.
-

@@ -144,6 +144,7 @@ func L1FilterFunc(
 	}
 
 	err := wg.Wait()
+
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			log.Error("context cancelled")
@@ -162,18 +163,53 @@ func L2FilterFunc(
 	svc *Service,
 	filterOpts *bind.FilterOpts,
 ) error {
+	wg, ctx := errgroup.WithContext(ctx)
+
 	for _, s := range svc.swaps {
-		swaps, err := s.FilterSwap(filterOpts, nil, nil)
-		if err != nil {
-			return errors.Wrap(err, "svc.bridge.FilterSwap")
+		swap := s
+
+		wg.Go(func() error {
+			swaps, err := swap.FilterSwap(filterOpts, nil, nil)
+			if err != nil {
+				return errors.Wrap(err, "svc.bridge.FilterSwap")
+			}
+
+			// only save ones above 0.01 ETH, this is only for Galaxe
+			// and we dont care about the rest
+			err = svc.saveSwapEvents(ctx, chainID, swaps)
+			if err != nil {
+				return errors.Wrap(err, "svc.saveSwapEvents")
+			}
+
+			return nil
+		})
+
+		wg.Go(func() error {
+			liquidityAdded, err := swap.FilterMint(filterOpts, nil)
+
+			if err != nil {
+				return errors.Wrap(err, "svc.bridge.FilterMint")
+			}
+
+			// only save ones above 0.1 ETH, this is only for Galaxe
+			// and we dont care about the rest
+			err = svc.saveLiquidityAddedEvents(ctx, chainID, liquidityAdded)
+			if err != nil {
+				return errors.Wrap(err, "svc.saveLiquidityAddedEvents")
+			}
+
+			return nil
+		})
+	}
+
+	err := wg.Wait()
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			log.Error("context cancelled")
+			return err
 		}
 
-		// only save ones above 0.01 ETH, this is only for Galaxe
-		// and we dont care about the rest
-		err = svc.saveSwapEvents(ctx, chainID, swaps)
-		if err != nil {
-			return errors.Wrap(err, "svc.saveSwapEvents")
-		}
+		return err
 	}
 
 	return nil

@@ -140,6 +140,7 @@ export default {
           content: 'var(--tertiary-content)',
           interactive: {
             hover: 'var(--tertiary-interactive-hover)',
+            accent: 'var(--tertiary-interactive-accent)',
           },
         },
 

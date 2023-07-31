@@ -22,16 +22,20 @@
     });
   }
 
-  export function successToast(message: string) {
-    notify(message, 'success');
+  export function successToast(message: string, closeManually = false) {
+    notify(message, 'success', closeManually);
   }
 
-  export function errorToast(message: string) {
-    notify(message, 'error', true);
+  export function errorToast(message: string, closeManually = true) {
+    notify(message, 'error', closeManually);
   }
 
-  export function warningToast(message: string) {
-    notify(message, 'warning');
+  export function warningToast(message: string, closeManually = false) {
+    notify(message, 'warning', closeManually);
+  }
+
+  export function infoToast(message: string, closeManually = false) {
+    notify(message, 'info', closeManually);
   }
 </script>
 
@@ -54,8 +58,8 @@
     --toastContainerRight: auto;
     --toastContainerBottom: auto;
     --toastContainerTop: 77px;
-    --toastContainerLeft: calc(50vw - 150px);
-    --toastWidth: 300px;
+    --toastContainerLeft: calc(50vw - 160px);
+    --toastWidth: 320px;
 
     /*
       We need to makes the surroundings dissapear in order

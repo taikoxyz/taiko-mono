@@ -14,12 +14,18 @@
   onDestroy(stopWatching);
 </script>
 
+<!-- App components -->
 <SideNavigation>
   <Header />
   <main>
     <slot />
   </main>
 </SideNavigation>
+
+<!--
+  The following UI is global and should be rendered 
+  at the root of the app.
+-->
 
 <NotificationToast />
 

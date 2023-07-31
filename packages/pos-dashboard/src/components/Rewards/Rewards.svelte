@@ -1,15 +1,15 @@
 <script lang="ts">
-  import {
-    PROVER_POOL_ADDRESS,
-    TAIKO_L1_ADDRESS,
-  } from '../../constants/envVars';
+  import { TAIKO_L1_ADDRESS, TTKO_ADDRESS } from '../../constants/envVars';
   import { BigNumber, ethers } from 'ethers';
   import { signer } from '../../store/signer';
   import { getTaikoL1Balance } from '../../utils/getTaikoL1Balance';
   import { withdrawTaikoToken } from '../../utils/withdrawTaikoToken';
+  import { depositTaikoToken } from '../../utils/depositTaikoToken';
   import { successToast } from '../NotificationToast.svelte';
   import { pendingTransactions } from '../../store/transaction';
-  let balance: BigNumber;
+  import { getTTKOBalance } from '../../utils/getTTKOBalance';
+  let balance: BigNumber = BigNumber.from(0);
+  let ttkoBalanceInWei: BigNumber = BigNumber.from(0);
 
   let amount: string = '0';
 
@@ -50,12 +50,38 @@
     amount = '';
   }
 
+  async function fetchTTKOBalance(signer: ethers.Signer) {
+    if (!signer) return;
+    ttkoBalanceInWei = await getTTKOBalance(
+      signer.provider,
+      TTKO_ADDRESS,
+      await signer.getAddress(),
+    );
+  }
+
+  async function deposit() {
+    const tx = await depositTaikoToken(
+      $signer,
+      TAIKO_L1_ADDRESS,
+      ethers.utils.parseUnits(amount, 8),
+    );
+
+    successToast('Transaction sent to deposit.');
+
+    await pendingTransactions.add(tx, $signer);
+
+    amount = '';
+  }
+
   $: fetchTaikoL1Balance($signer).catch(console.error);
+  $: fetchTTKOBalance($signer).catch(console.error);
 </script>
 
 <div class="my-4 md:px-4">
   {#if balance}
-    TaikoL1 Contract Balance: {ethers.utils.formatUnits(balance, 8)}
+    TaikoL1 Contract Balance: {ethers.utils.formatUnits(balance, 8)} TTKOe
+    <br />
+    Wallet Balance: {ethers.utils.formatUnits(ttkoBalanceInWei, 8)} TTKOe
 
     <div class="mb-2">
       <span class="label-text text-left block">Amount: </span>
@@ -72,13 +98,15 @@
       </div>
     </div>
 
-    {#if errorMessage}
-      <p style="color: yellow">{errorMessage}</p>
-    {/if}
     <button
       disabled={errorMessage != ''}
       class="btn btn-accent"
       on:click={withdraw}>Withdraw</button>
+
+    <button
+      disabled={ttkoBalanceInWei.lt(ethers.utils.parseUnits(amount, 8))}
+      class="btn btn-accent"
+      on:click={deposit}>Deposit</button>
   {:else}
     Connect Wallet
   {/if}

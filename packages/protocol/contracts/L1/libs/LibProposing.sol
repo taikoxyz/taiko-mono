@@ -35,6 +35,7 @@ library LibProposing {
     error L1_BLOCK_ID();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
+    error L1_PERMISSION_DENIED();
     error L1_TOO_MANY_BLOCKS();
     error L1_TOO_MANY_OPEN_BLOCKS();
     error L1_TX_LIST_NOT_EXIST();
@@ -52,6 +53,12 @@ library LibProposing {
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
+        {
+            address proposer = resolver.resolve("proposer", true);
+            if (proposer != address(0) && msg.sender != proposer) {
+                revert L1_PERMISSION_DENIED();
+            }
+        }
         // Try to select a prover first to revert as earlier as possible
         (address assignedProver, uint32 rewardPerGas) = IProverPool(
             resolver.resolve("prover_pool", false)
@@ -126,10 +133,10 @@ library LibProposing {
         } else {
             blk.assignedProver = assignedProver;
             blk.rewardPerGas = rewardPerGas;
+            uint256 _window = uint256(state.avgProofDelay)
+                * config.proofWindowMultiplier / 100;
             blk.proofWindow = uint16(
-                uint256(state.avgProofDelay * 2).min(config.proofMaxWindow).max(
-                    config.proofMinWindow
-                )
+                _window.min(config.proofMaxWindow).max(config.proofMinWindow)
             );
         }
 

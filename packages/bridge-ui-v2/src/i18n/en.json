@@ -4,21 +4,54 @@
     "faucet": "Faucet",
     "activities": "Activities",
     "explorer": "Explorer",
-    "guide": "Guide"
+    "guide": "Guide",
+    "nft": "NFT",
+    "token": "Token"
   },
-
   "bridge": {
-    "title": "Bridge",
-    "subtitle": "Send your assets across chains.",
+    "title": {
+      "default": "Bridge Token",
+      "nft": "Bridge NFT"
+    },
+    "description": "Send your assets across chains.",
+    "actions": {
+      "approve": {
+        "tx": "Transaction sent to approve {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
+        "success": "Approved {token} tokens!. You can now proceed to bridge.",
+        "rejected": "Request to approve rejected."
+      },
+      "bridge": {
+        "tx": "Transaction sent to bridge {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
+        "success": "Transaction completed!. Your funds are getting ready to be claimed on {network}"
+      }
+    },
+    "errors": {
+      "send_erc20_error": "Failed to send ERC20 token",
+      "send_message_error": "Failed to send message",
+      "approve_error": "Failed to approve token",
+      "rejected": "Request to bridge rejected.",
+      "no_allowance_required": "You need to add allowance to bridge this token.",
+      "unknown_error": "An error occured"
+    },
     "button": {
       "approve": "Approve",
-      "bridge": "Bridge"
+      "approving": "Approving",
+      "approved": "Approved",
+      "bridge": "Bridge",
+      "bridging": "Bridging",
+      "import": "Fetch NFT data"
     }
   },
-
+  "recipient": {
+    "title": "Recipient address",
+    "description": "Customize the recipient address for your bridged tokens instead of using your current wallet address.",
+    "link": "Change recipient",
+    "placeholder": "Add custom recipient 0x…"
+  },
   "processing_fee": {
     "title": "Processing fee",
-    "link": "Customise fee",
+    "description": "Some description about the processing fee",
+    "link": "Customize fee",
     "recommended": {
       "label": "Recommended",
       "calculating": "Calculating",
@@ -26,17 +59,21 @@
     },
     "none": {
       "label": "None",
-      "text": "Use ETH to manually claim your bridged token later"
+      "text": "Use ETH to manually claim your bridged token later",
+      "warning": "This option cannot be selected. You have not enough ETH to cover the gas fees for claiming."
     },
     "custom": {
       "label": "Custom",
       "text": "Customize your processing fee"
+    },
+    "button": {
+      "confirm": "Confirm",
+      "cancel": "Cancel"
     }
   },
-
   "activities": {
     "title": "Activities",
-    "subtitle": "Track your bridge transactions here.",
+    "description": "Track your bridge transactions here.",
     "header": {
       "explorer": "Explorer link",
       "status": "Status"
@@ -55,46 +92,72 @@
       "failed": "Failed"
     }
   },
-
   "faucet": {
     "title": "Faucet",
-    "subtitle": "Mint test tokens.",
-    "button.mint": "Mint",
-    "message.warning": "To request Test Token, you need to mint it on Sepolia. If you are currently on Taiko, please switch your network first. Additionally, ensure that you have a small amount of ETH in your Sepolia wallet to complete the transaction."
+    "description": "Mint test tokens.",
+    "mint": {
+      "tx": "Transaction sent to mint {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
+      "success": "Minted {token} tokens!. Check out your balance on the Bridge page.",
+      "rejected": "Request to mint rejected."
+    },
+    "button": {
+      "mint": "Mint",
+      "checking": "Checking mintability",
+      "minting": "Minting"
+    },
+    "wrong_chain": {
+      "message": "It appears your are on the wrong network. Switch to {network} to mint tokens.",
+      "button": "Switch to {network}"
+    },
+    "warning": {
+      "no_connected": "Please connect your wallet to mint tokens.",
+      "insufficient_balance": "You don't have enough ETH to complete the transaction. Please add some ETH to your wallet.",
+      "token_minted": "You have already minted this token."
+    }
   },
-
   "token_dropdown": {
-    "placeholder": "Select token"
+    "label": "Select token"
   },
-
   "amount_input": {
     "label": "Amount",
     "balance": "Balance",
-    "button.max": "Max"
+    "button": {
+      "max": "Max",
+      "failed_max": "Coult not estimate max amount to bridge."
+    }
   },
-
+  "error": {
+    "insufficient_balance": "Insufficient balance",
+    "insufficient_allowance": "Insufficient allowance"
+  },
+  "inputs": {
+    "nft": {
+      "token_id": {
+        "label": "Token ID(s)",
+        "placeholder": "1 or 5,14,733"
+      }
+    },
+    "amount_input": {
+      "label": "Amount",
+      "balance": "Balance",
+      "button.max": "Max"
+    },
+    "address_input": {
+      "label": "Address",
+      "placeholder": "Enter address"
+    }
+  },
   "chain_selector": {
     "placeholder": "Select chain",
     "currently_on": "You are currently on"
   },
-
-  "messages": {
-    "account": {
-      "required": "Please connect your wallet",
-      "connected": "Account connected",
-      "disconnected": "Account disconnected"
-    }
-  },
-
   "chain": {
     "to": "To",
     "from": "From"
   },
-
   "custom_recipient": {
     "placeholder": "Add custom recipient"
   },
-
   "wallet": {
     "connect": "Connect wallet",
     "status": {
@@ -102,5 +165,24 @@
       "connected": "Connected",
       "connecting": "Connecting"
     }
+  },
+  "messages": {
+    "account": {
+      "required": "Please connect your wallet.",
+      "connected": "Account connected",
+      "disconnected": "Account disconnected"
+    },
+    "network": {
+      "switching": "Switching network",
+      "rejected": "Request to switch chain rejected."
+    }
+  },
+  "common": {
+    "edit": "Edit",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "close": "Close",
+    "loading": "Loading",
+    "ok": "Ok"
   }
 }
