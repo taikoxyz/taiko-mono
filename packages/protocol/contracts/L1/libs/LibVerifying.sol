@@ -52,7 +52,7 @@ library LibVerifying {
                 || config.blockAndTxMaxGasUsed <= LibL2Consts.ANCHOR_GAS_COST
                 || config.blockMaxTransactions == 0
                 || uint256(config.blockMaxTransactions)
-                    * config.blockMaxTransactions >= type(uint64).max
+                    * config.blockMaxTransactions >= type(uint32).max
                 || config.blockMaxTxListBytes == 0
                 || config.blockTxListExpiry > 30 * 24 hours
                 || config.blockMaxTxListBytes > 128 * 1024 //blob up to 128K
