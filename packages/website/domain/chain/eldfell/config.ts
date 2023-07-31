@@ -86,7 +86,7 @@ export const ELDFELL_CONFIG = {
       TaikoToken: {
         name: "TTKO Token",
         address: {
-        impl: "0x3cC15f2Fd7705fEAc79172532B5200457e4B157e",
+          impl: "0x3cC15f2Fd7705fEAc79172532B5200457e4B157e",
         },
         decimals: 8,
         symbol: "TTKO",
