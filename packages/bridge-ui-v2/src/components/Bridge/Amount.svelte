@@ -160,7 +160,7 @@
       validateAmount();
     } catch (err) {
       console.error(err);
-      warningToast($t('amount_input.button.failed_max'));
+      warningToast($t('inputs.amount_input.button.failed_max'));
     } finally {
       computingMaxAmount = false;
     }

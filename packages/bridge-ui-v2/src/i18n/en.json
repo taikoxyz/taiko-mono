@@ -117,7 +117,8 @@
     "warning": {
       "no_connected": "Please connect your wallet to mint tokens.",
       "insufficient_balance": "You don't have enough ETH to complete the transaction. Please add some ETH to your wallet.",
-      "token_minted": "You have already minted this token."
+      "token_minted": "You have already minted this token.",
+      "unknown": "Something did not work"
     }
   },
   "token_dropdown": {
