@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { sepolia } from '@wagmi/core';
   import { onMount } from 'svelte';
   import { writable } from 'svelte/store';
   import { t } from 'svelte-i18n';
@@ -15,9 +14,11 @@
   import { RelayerAPIService } from '$libs/relayer/RelayerAPIService';
   import { bridgeTxService } from '$libs/storage/services';
   import { getLogger } from '$libs/util/logger';
-  import { type Account,account } from '$stores/account';
+  import { mergeUniqueTransactions } from '$libs/util/mergeTransactions';
+  import { type Account, account } from '$stores/account';
   import { paginationInfo as paginationStore } from '$stores/relayerApi';
 
+  import MobileDetailsDialog from './MobileDetailsDialog.svelte';
   import Transaction from './Transaction.svelte';
 
   const log = getLogger('Transactions.svelte');
@@ -30,13 +31,23 @@
   let currentPage = 1;
   let totalItems = 0;
   let loadingTxs = true;
+  let isBlurred = false;
+  let clickable = window.innerWidth < 768;
+  let selectedItem: BridgeTransaction | null = null;
+
+  const handlePageChange = (detail: number) => {
+    isBlurred = true;
+    setTimeout(() => {
+      currentPage = detail;
+      isBlurred = false;
+    }, 220);
+  };
 
   onMount(async () => {
-    loadingTxs = false;
     if (!$account?.isConnected) {
+      loadingTxs = false;
       return;
     }
-    loadingTxs = true;
     await fetchTransactions();
   });
 
@@ -57,27 +68,6 @@
     });
 
     loadingTxs = false;
-
-    // merging local and relayer transactions
-    // Todo: move to a util
-    const mergeUniqueTransactions = (
-      localTxs: BridgeTransaction[],
-      relayerTx: BridgeTransaction[],
-    ): BridgeTransaction[] => {
-      const keyForTransaction = (tx: BridgeTransaction): string => `${tx.status}-${tx.msgHash}-${tx.hash}`;
-
-      const uniqueTransactionsMap = [...localTxs, ...relayerTx].reduce((map, transaction) => {
-        const key = keyForTransaction(transaction);
-        if (!map.has(key)) {
-          map.set(key, transaction);
-        } else {
-          log('duplicate transaction', transaction.hash);
-        }
-        return map;
-      }, new Map<string, BridgeTransaction>());
-
-      return Array.from(uniqueTransactionsMap.values());
-    };
 
     $transactions = mergeUniqueTransactions(localTxs, txs);
 
@@ -108,43 +98,72 @@
       await fetchTransactions();
     }
   };
+
+  let detailsOpen = false;
+
+  function closeDetails() {
+    detailsOpen = false;
+    selectedItem = null;
+  }
+
+  function openDetails(tx: BridgeTransaction) {
+    detailsOpen = true;
+    selectedItem = tx;
+  }
 </script>
 
-<div class="flex flex-col items-center justify-center w-full">
+<div class="flex flex-col justify-center w-full">
   <Card class="md:min-w-[524px]" title={$t('activities.title')} text={$t('activities.description')}>
-    <div class="flex flex-col" style={`min-height: calc(${pageSize} * 150px);`}>
+    <div class="flex flex-col" style={`min-height: calc(${pageSize} * 80px);`}>
       <div class="h-sep" />
       <div class="flex text-white">
-        <div class="w-1/5 px-4 py-2">{$t('activities.header.from')}</div>
-        <div class="w-1/5 px-4 py-2">{$t('activities.header.to')}</div>
-        <div class="w-1/5 px-4 py-2">{$t('activities.header.amount')}</div>
-        <div class="w-1/5 px-4 py-2">{$t('activities.header.status')}</div>
-        <div class="w-1/5 px-4 py-2">{$t('activities.header.explorer')}</div>
+        <div class="w-1/4 md-w-1/5 px-4 py-2">{$t('activities.header.from')}</div>
+        <div class="w-1/4 md-w-1/5 px-4 py-2">{$t('activities.header.to')}</div>
+        <div class="w-1/4 md-w-1/5 px-4 py-2">{$t('activities.header.amount')}</div>
+        <div class="w-1/4 md-w-1/5 px-4 py-2">{$t('activities.header.status')}</div>
+        <div class="w-1/5 hidden md:flex px-4 py-2">{$t('activities.header.explorer')}</div>
       </div>
       <div class="h-sep" />
-      <div class="flex flex-col items-center justify-center" style={`min-height: calc(${pageSize - 1} * 80px);`}>
-        {#if transactionsToShow.length && !loadingTxs && $account?.isConnected}
+      {#if transactionsToShow.length && !loadingTxs && $account?.isConnected}
+        <div
+          class="flex flex-col items-center justify-center {isBlurred ? 'blur' : ''}"
+          style={`min-height: calc(${pageSize - 1} * 80px);`}>
           {#each transactionsToShow as item (item.hash)}
-            <Transaction {item} />
+            <Transaction {item} on:click={clickable ? () => openDetails(item) : undefined} />
+            <div class="h-sep" />
           {/each}
-        {/if}
-      </div>
-      <div class="flex items-center justify-center text-white h-[80px]">
-        {#if loadingTxs && $account?.isConnected}
+        </div>
+      {/if}
+      {#if loadingTxs && $account?.isConnected}
+        <div class="flex items-center justify-center text-white h-[80px]">
           <Spinner /> <span class="pl-3">{$t('common.loading')}...</span>
-        {:else if !transactionsToShow.length && $account?.isConnected}
+        </div>
+      {:else if !transactionsToShow.length && $account?.isConnected}
+        <div class="flex items-center justify-center text-white h-[80px]">
           <span class="pl-3">{$t('activities.no_transactions')}</span>
-        {:else if !$account?.isConnected}
+        </div>
+      {:else if !$account?.isConnected}
+        <div class="flex items-center justify-center text-white h-[80px]">
           <Button type="primary" on:click={onWalletConnect} class="px-[28px] py-[14px] ">
             <span class="body-bold">{$t('wallet.connect')}</span>
           </Button>
-        {/if}
-      </div>
+        </div>
+      {/if}
     </div>
   </Card>
 
   <div class="flex justify-end pt-2">
-    <Paginator {pageSize} {totalItems} on:pageChange={({ detail }) => (currentPage = detail)} />
+    <Paginator {pageSize} {totalItems} on:pageChange={({ detail }) => handlePageChange(detail)} />
   </div>
 </div>
+
+<MobileDetailsDialog {closeDetails} {detailsOpen} {selectedItem} />
+
 <OnAccount change={onAccountChange} />
+
+<style>
+  .blur {
+    filter: blur(5px);
+    transition: filter 0.1s ease-in-out;
+  }
+</style>
