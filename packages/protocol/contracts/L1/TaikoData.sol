@@ -87,8 +87,7 @@ library TaikoData {
         address prover;
         uint32 parentGasUsed;
         uint32 gasUsed;
-        uint16 verifierId;
-        bytes proof;
+        bytes proofs;
     }
 
     // 4 slots
