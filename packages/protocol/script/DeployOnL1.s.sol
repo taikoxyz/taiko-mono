@@ -13,6 +13,7 @@ import
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
+import "../contracts/L1/ProofVerifier.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/tokenvault/ERC20Vault.sol";
 import "../contracts/tokenvault/ERC1155Vault.sol";
@@ -205,6 +206,15 @@ contract DeployOnL1 is Script {
 
         // PlonkVerifier
         deployPlonkVerifiers();
+
+        ProofVerifier proofVerifier = new ProxiedProofVerifier();
+        deployProxy(
+            "proof_verifier",
+            address(proofVerifier),
+            bytes.concat(
+                proofVerifier.init.selector, abi.encode(addressManagerProxy)
+            )
+        );
 
         vm.stopBroadcast();
     }
