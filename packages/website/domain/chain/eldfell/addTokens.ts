@@ -21,11 +21,19 @@ export const ELDFELL_ADD_HORSE: AddTokenParameter = {
     decimals: ELDFELL_CONFIG.rollupContracts.erc20Contracts.bridgedHorseToken.decimals,
     image: "https://raw.githubusercontent.com/taikoxyz/taiko-mono/main/packages/branding/testnet-token-images/horse.svg"
 };
+export const ELDFELL_ADD_TTKO_NEW: AddTokenParameter = {
+    address: ELDFELL_CONFIG.rollupContracts.erc20Contracts.TTKO.address.impl,
+    symbol: ELDFELL_CONFIG.rollupContracts.erc20Contracts.TTKO.symbol,
+    decimals: ELDFELL_CONFIG.rollupContracts.erc20Contracts.TTKO.decimals,
+    image: "https://raw.githubusercontent.com/taikoxyz/taiko-mono/main/packages/branding/testnet-token-images/ttko.svg"
+};
+
 
 export const ELDFELL_ADD_TOKENS = [
-    ELDFELL_ADD_TTKO,
+    ELDFELL_ADD_TTKOE,
     ELDFELL_ADD_BLL,
     ELDFELL_ADD_HORSE
+    ELDFELL_ADD_TTKO
 ]
 
 
