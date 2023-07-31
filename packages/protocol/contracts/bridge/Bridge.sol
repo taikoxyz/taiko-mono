@@ -230,17 +230,13 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * Check if the Ether associated with the given message hash has been
+     * Check if the associated tokens with the given message hash has been
      * released.
      * @param msgHash The hash of the message.
      * @return Returns true if the Ether has been released, false otherwise.
      */
-    function getMessageRecallStatus(bytes32 msgHash)
-        public
-        view
-        returns (LibBridgeData.RecallStatus)
-    {
-        return _state.recallStatus[msgHash];
+    function isMessageReleased(bytes32 msgHash) public view returns (bool) {
+        return _state.msgReleased[msgHash];
     }
 
     /**
