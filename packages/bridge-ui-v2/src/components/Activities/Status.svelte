@@ -23,7 +23,8 @@
   }
 
   function onStatusChange(status: MessageStatus) {
-    bridgeTxStatus = status;
+    // We need to keep model and UI in sync
+    bridgeTxStatus = bridgeTx.status = status;
   }
 
   // We need this function to update the model and UI manually
