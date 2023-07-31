@@ -59,6 +59,14 @@ export const ELDFELL_CONFIG = {
     },
     // Bridged ERC-20 contracts
     erc20Contracts: {
+      TaikoToken: {
+        name: "TTKO Token",
+        address: {
+          impl: "0x3cC15f2Fd7705fEAc79172532B5200457e4B157e",
+        },
+        decimals: 8,
+        symbol: "TTKO",
+      },
       bridgedTaikoToken: {
         name: "Bridged Taiko Token Eldfell",
         address: {
@@ -83,14 +91,6 @@ export const ELDFELL_CONFIG = {
         decimals: 18,
         symbol: "BLL",
       },
-      TaikoToken: {
-        name: "TTKO Token",
-        address: {
-          impl: "0x3cC15f2Fd7705fEAc79172532B5200457e4B157e",
-        },
-        decimals: 8,
-        symbol: "TTKO",
-    },
   },
   otherContracts: {},
 } as const satisfies TaikoL2Alpha4;
