@@ -1,14 +1,22 @@
 <script lang="ts">
-  import { type Address,fetchBalance, switchNetwork } from '@wagmi/core';
+  import { type Address, fetchBalance, switchNetwork } from '@wagmi/core';
   import { onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
-  import { parseEther } from 'viem';
+  import { parseEther,UserRejectedRequestError } from 'viem';
 
   import { infoToast, successToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { StatusDot } from '$components/StatusDot';
-  import { bridges,type BridgeTransaction, MessageStatus } from '$libs/bridge';
+  import { bridges, type BridgeTransaction, MessageStatus } from '$libs/bridge';
   import { PollingEvent, startPolling } from '$libs/bridge/bridgeTxMessageStatusPoller';
-  import { chains,chainUrlMap } from '$libs/chain';
+  import { chains, chainUrlMap } from '$libs/chain';
+  import {
+    InsufficientBalanceError,
+    InvalidProofError,
+    NotConnectedError,
+    ProcessMessageError,
+    ReleaseError,
+    RetryError,
+  } from '$libs/error';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { getLogger } from '$libs/util/logger';
   import { account } from '$stores/account';
@@ -48,7 +56,9 @@
 
   async function checkEnoughBalance(address: Address) {
     const balance = await fetchBalance({ address });
-    return balance.value > parseEther('0.0001');
+    if (balance.value < parseEther('0.0001')) {
+      throw new InsufficientBalanceError('user has insufficient balance');
+    }
   }
 
   async function claim() {
@@ -102,7 +112,22 @@
     } catch (err) {
       console.error(err);
 
-      // TODO: handle errors
+      switch (true) {
+        case err instanceof NotConnectedError:
+          break;
+        case err instanceof UserRejectedRequestError:
+          break;
+        case err instanceof InsufficientBalanceError:
+          break;
+        case err instanceof InvalidProofError:
+          break;
+        case err instanceof ProcessMessageError:
+          break;
+        case err instanceof RetryError:
+          break;
+        default:
+          break;
+      }
     } finally {
       loading = false;
     }
@@ -126,15 +151,12 @@
       // Step 2: ensure correct chain
       await ensureCorrectChain(Number($network.id), Number(bridgeTx.srcChainId));
 
-      // Step 3: make sure the user has enough balance on the source chain
-      await checkEnoughBalance($account.address);
-
-      // Step 4: Find out the type of bridge: ETHBridge, ERC20Bridge, etc
+      // Step 3: Find out the type of bridge: ETHBridge, ERC20Bridge, etc
       const bridge = bridges[bridgeTx.tokenType];
 
       log(`Releasing ${bridgeTx.tokenType} for transaction`, bridgeTx);
 
-      // Step 5: Call release() method on the bridge
+      // Step 4: Call release() method on the bridge
       const txHash = await bridge.claim({ msgHash, message, wallet });
 
       const { explorerUrl } = chainUrlMap[Number(bridgeTx.destChainId)];
@@ -159,7 +181,18 @@
     } catch (err) {
       console.error(err);
 
-      // TODO: handle errors
+      switch (true) {
+        case err instanceof NotConnectedError:
+          break;
+        case err instanceof UserRejectedRequestError:
+          break;
+        case err instanceof InvalidProofError:
+          break;
+        case err instanceof ReleaseError:
+          break;
+        default:
+          break;
+      }
     } finally {
       loading = false;
     }
