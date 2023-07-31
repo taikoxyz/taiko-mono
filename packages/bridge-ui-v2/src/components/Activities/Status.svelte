@@ -27,12 +27,6 @@
     bridgeTxStatus = bridgeTx.status = status;
   }
 
-  // We need this function to update the model and UI manually
-  function setBridgeTxStatus(status: MessageStatus) {
-    bridgeTx.status = status;
-    onStatusChange(status);
-  }
-
   function claim() {
     loading = 'claiming';
 
@@ -51,7 +45,7 @@
     //           infoToast()
     //           await pendingTransactions.add(txHash, $network.id);
     //           stopPolling()
-    //           setBridgeTxStatus(MessageStatus.DONE)
+    //           onStatusChange(MessageStatus.DONE)
     //           successToast()
     //         } catch (err) {
     //           // Check type of error
