@@ -23,7 +23,7 @@ export const ELDFELL_ADD_HORSE: AddTokenParameter = {
 };
 export const ELDFELL_ADD_TTKO_NEW: AddTokenParameter = {
     address: ELDFELL_CONFIG.rollupContracts.erc20Contracts.TTKO.address.impl,
-    symbol: ELDFELL_CONFIG.rollupContracts.erc20Contracts.taikoToken.symbol,
+    symbol: ELDFELL_CONFIG.rollupContracts.erc20Contracts.TaikoToken.symbol,
     decimals: ELDFELL_CONFIG.rollupContracts.erc20Contracts.TTKO.decimals,
     image: "https://raw.githubusercontent.com/taikoxyz/taiko-mono/main/packages/branding/testnet-token-images/ttko.svg"
 };
