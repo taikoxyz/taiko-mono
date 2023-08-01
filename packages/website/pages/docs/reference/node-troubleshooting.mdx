@@ -10,6 +10,10 @@ You can ignore any WARN logs.
 
 Make sure that your RPC is pointing to an Sepolia archive node, and not a full node.
 
+#### `error: "initialize rpc clients error"`
+
+The RPC in your config is incorrect.  You have to set the ENDPOINT correctly.  Please refer to the following page to set the correct RPC: https://taiko.xyz/docs/guides/run-a-node/run-a-taiko-node
+
 #### `error: "daily request count exceeded, request rate limited"`
 
 Your RPC provider has a limit on the number of requests. You can try using a different provider that offers higher limits.
