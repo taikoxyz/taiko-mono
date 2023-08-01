@@ -10,7 +10,6 @@ import {
   NoAllowanceRequiredError,
   ProcessMessageError,
   ReleaseError,
-  RetryError,
   SendERC20Error,
 } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';

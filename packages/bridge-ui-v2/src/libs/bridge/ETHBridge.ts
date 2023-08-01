@@ -4,7 +4,7 @@ import { UserRejectedRequestError } from 'viem';
 import { bridgeABI } from '$abi';
 import { bridgeService } from '$config';
 import { chainContractsMap } from '$libs/chain';
-import { ProcessMessageError, ReleaseError, RetryError, SendMessageError } from '$libs/error';
+import { ProcessMessageError, ReleaseError, SendMessageError } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
 import { getLogger } from '$libs/util/logger';
 
