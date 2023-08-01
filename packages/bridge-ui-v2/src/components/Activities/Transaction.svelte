@@ -12,6 +12,7 @@
   import { createEventDispatcher } from 'svelte';
 
   import ChainIcon from './ChainIcon.svelte';
+  import Status from './Status.svelte';
 
   const dispatch = createEventDispatcher();
 
@@ -49,7 +50,7 @@
     {item.symbol}
   </div>
   <div class="w-1/4 md-w-1/5 px-4 py-2 flex flex-col justify-center items-stretch">
-    {item.status ? mapStatusToText(item.status) : 'Unknown'}
+    <Status bridgeTx={item} />
   </div>
   <div class="hidden md:flex w-1/5 px-4 py-2 flex flex-col justify-center items-stretch">
     <a href={`${chainUrlMap[Number(item.srcChainId)].explorerUrl}/tx/${item.hash}`} target="_blank">

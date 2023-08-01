@@ -37,8 +37,8 @@
   let polling: ReturnType<typeof startPolling>;
 
   // UI state
-  let processable = false;
-  let bridgeTxStatus: Maybe<MessageStatus> = bridgeTx.status;
+  let processable = false; // bridge tx state to be processed: claimed/retried/released
+  let bridgeTxStatus: Maybe<MessageStatus>;
 
   // TODO: enum?
   let loading: 'claiming' | 'releasing' | false = false;
@@ -232,6 +232,9 @@
           // The following listeners will trigger change in the UI
           polling.emitter.on(PollingEvent.PROCESSABLE, onProcessable);
           polling.emitter.on(PollingEvent.STATUS, onStatusChange);
+        } else {
+          // There is no polling, most likely the bridgeTx is already DONE
+          bridgeTxStatus = bridgeTx.status; // get the current status
         }
       } catch (err) {
         console.error(err);
@@ -248,10 +251,7 @@
 </script>
 
 <div class="Status f-items-center space-x-1">
-  {#if !processable}
-    <StatusDot type="pending" />
-    <span>{$t('activities.status.initiated')}</span>
-  {:else if loading}
+  {#if loading}
     TODO: add loading indicator and text for 'claiming', 'retrying', 'releasing'
   {:else if bridgeTxStatus === MessageStatus.NEW}
     <button class="status-btn w-full" on:click={claim}>
@@ -268,7 +268,11 @@
     <button class="status-btn w-full" on:click={release}>
       {$t('activities.button.claim')}
     </button>
+  {:else if !processable}
+    <StatusDot type="pending" />
+    <span>{$t('activities.status.initiated')}</span>
   {:else}
+    <!-- TODO: look into this possible state -->
     <StatusDot type="error" />
     <span>{$t('activities.status.error')}</span>
   {/if}

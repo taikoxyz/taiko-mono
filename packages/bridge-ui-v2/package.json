@@ -58,6 +58,7 @@
     "@zerodevx/svelte-toast": "^0.9.5",
     "axios": "^1.2.0",
     "debug": "^4.3.4",
+    "events": "^3.3.0",
     "svelte-i18n": "^3.6.0",
     "viem": "^1.4.1"
   }

@@ -4,20 +4,15 @@ import { crossChainSyncABI } from '$abi';
 import { chainContractsMap } from '$libs/chain';
 import { publicClient } from '$libs/wagmi';
 
-import { type BridgeTransaction, MessageStatus } from './types';
+import type { BridgeTransaction } from './types';
 
 export async function isBridgeTxProcessable(bridgeTx: BridgeTransaction) {
-  const { receipt, message, status, srcChainId, destChainId } = bridgeTx;
+  const { receipt, message, srcChainId, destChainId } = bridgeTx;
 
   // Without these guys there is no way we can process this
   // bridge transaction. The receipt is needed in order to compare
   // the block number with the cross chain block number.
   if (!receipt || !message) return false;
-
-  // TODO: Not sure this could ever happens. When we add the
-  // transaction to the local storage, we don't set the status,
-  // but when we fetch them, then we query the contract for this status.
-  if (status !== MessageStatus.NEW) return true;
 
   const destCrossChainSyncAddress = chainContractsMap[Number(destChainId)].crossChainSyncAddress;
 

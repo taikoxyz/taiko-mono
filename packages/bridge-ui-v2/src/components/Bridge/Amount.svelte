@@ -171,11 +171,11 @@
   $: validateAmount($selectedToken, $processingFee);
 </script>
 
-<div class="AmountInput f-col space-y-2">
+<div class="Amount f-col space-y-2">
   <div class="f-between-center text-secondary-content">
     <label class="body-regular" for={inputId}>{$t('amount.label')}</label>
     <div class="body-small-regular">
-      <span>{$t('inputs.amount_input.balance')}:</span>
+      <span>{$t('amount.balance')}:</span>
       <span>
         {#if $computingBalance}
           <LoadingText mask="0.0000" />
@@ -205,7 +205,7 @@
         class="absolute right-6 uppercase hover:font-bold"
         disabled={!$selectedToken || !$network || computingMaxAmount}
         on:click={useMaxAmount}>
-        {$t('inputs.amount_input.button.max')}
+        {$t('amount.button.max')}
       </button>
     </div>
 
