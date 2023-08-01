@@ -85,12 +85,6 @@ You are missing the docker compose plugin [Installation Guide](https://docs.dock
 There could be several reasons, you can check the logs `docker compose logs -f` to make sure there are no errors but one of the most common cause for this is a typo in the `.env` file
 `ENABLE_PROVER=True/TRUE` when setting this to true `true` has to be in all lowercase or the script to start relayer won't run.
 
-#### `simple-taiko-node-taiko_client_prover_relayer-1  | /bin/sh: /script/start-prover-relayer.sh: not found`
-
-This issue occurs on windows because of the Control Characters in this case the Line Endings, a quick fix would be to delete the node folder, run this `git config --global core.autocrlf false` in the shell, then clone the repo again.
-
-If you do not want to delete the node folder, please follow one of these steps below.
-
 #### `no contract code at given address`
 
 When running a L3 node, users may run into this issue if their underlying L2 is still syncing. Please wait until your L2 is fully synced before starting your L3 node.
@@ -99,7 +93,11 @@ When running a L3 node, users may run into this issue if their underlying L2 is 
 
 The L1 node that the user is pointing to is not an archive node. Please change your RPC endpoint to point to an archive node.
 
-{" "}
+#### `simple-taiko-node-taiko_client_prover_relayer-1  | /bin/sh: /script/start-prover-relayer.sh: not found`
+
+This issue occurs on windows because of the Control Characters in this case the Line Endings, a quick fix would be to delete the node folder, run this `git config --global core.autocrlf false` in the shell, then clone the repo again.
+
+If you do not want to delete the node folder, please follow one of these steps below.
 
 <Tabs items={["Command line", "Notepad"]} defaultIndex="0">
   <Tab>
