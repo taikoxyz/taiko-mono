@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { FetchBalanceResult } from '@wagmi/core';
+  import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
   import { formatUnits, parseUnits } from 'viem';
 
@@ -8,14 +9,16 @@
   import { LoadingText } from '$components/LoadingText';
   import { warningToast } from '$components/NotificationToast';
   import { bridges, checkBalanceToBridge, getMaxAmountToBridge, type RequireAllowanceArgs } from '$libs/bridge';
+  import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
+  import { chainContractsMap } from '$libs/chain';
   import { InsufficientAllowanceError, InsufficientBalanceError, RevertedWithFailedError } from '$libs/error';
-  import { getBalance as getTokenBalance, getAddress } from '$libs/token';
+  import { getAddress,getBalance as getTokenBalance } from '$libs/token';
   import { debounce } from '$libs/util/debounce';
+  import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { truncateString } from '$libs/util/truncateString';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
   import { network } from '$stores/network';
-  import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
 
   import {
     computingBalance,
@@ -29,9 +32,6 @@
     selectedToken,
     tokenBalance,
   } from './state';
-  import { getConnectedWallet } from '$libs/util/getConnectedWallet';
-  import { chainContractsMap } from '$libs/chain';
-  import { onMount } from 'svelte';
 
   let inputId = `input-${uid()}`;
   let inputBox: InputBox;
