@@ -1,11 +1,18 @@
 <script lang="ts">
+  import { error } from '@sveltejs/kit';
   import { type Address, fetchBalance, switchNetwork } from '@wagmi/core';
   import { onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
-  import { parseEther,UserRejectedRequestError } from 'viem';
+  import { parseEther, UserRejectedRequestError } from 'viem';
 
-  import { infoToast, successToast } from '$components/NotificationToast/NotificationToast.svelte';
+  import {
+    errorToast,
+    infoToast,
+    successToast,
+    warningToast,
+  } from '$components/NotificationToast/NotificationToast.svelte';
   import { StatusDot } from '$components/StatusDot';
+  import { statusComponent } from '$config';
   import { bridges, type BridgeTransaction, MessageStatus } from '$libs/bridge';
   import { PollingEvent, startPolling } from '$libs/bridge/bridgeTxMessageStatusPoller';
   import { chains, chainUrlMap } from '$libs/chain';
@@ -41,7 +48,7 @@
   }
 
   function onStatusChange(status: MessageStatus) {
-    // We need to keep model and UI in sync
+    // Keeping model and UI in sync
     bridgeTxStatus = bridgeTx.status = status;
   }
 
@@ -50,13 +57,15 @@
     log(`Are we on the correct chain? ${isCorrectChain}`);
 
     if (!isCorrectChain) {
+      // TODO: shouldn't we inform the user about this change? wallet will popup,
+      //       but it's not clear why
       await switchNetwork({ chainId: wannaBeChainId });
     }
   }
 
   async function checkEnoughBalance(address: Address) {
     const balance = await fetchBalance({ address });
-    if (balance.value < parseEther('0.0001')) {
+    if (balance.value < parseEther(String(statusComponent.minimumEthToClaim))) {
       throw new InsufficientBalanceError('user has insufficient balance');
     }
   }
@@ -76,7 +85,7 @@
       // Step 1: get the user's wallet
       const wallet = await getConnectedWallet();
 
-      // Step 2: ensure correct chain
+      // Step 2: make sure the user is on the correct chain
       await ensureCorrectChain(Number($network.id), Number(bridgeTx.destChainId));
 
       // Step 3: make sure the user has enough balance on the destination chain
@@ -95,6 +104,7 @@
       infoToast(
         $t('activities.actions.claim.tx', {
           values: {
+            token: bridgeTx.symbol,
             url: `${explorerUrl}/tx/${txHash}`,
           },
         }),
@@ -114,18 +124,25 @@
 
       switch (true) {
         case err instanceof NotConnectedError:
+          warningToast($t('messages.account.required'));
           break;
         case err instanceof UserRejectedRequestError:
+          warningToast($t('activities.actions.claim_rejected'));
           break;
         case err instanceof InsufficientBalanceError:
+          errorToast($t('activities.errors.insufficient_balance'));
           break;
         case err instanceof InvalidProofError:
+          errorToast($t('TODO: InvalidProofError'));
           break;
         case err instanceof ProcessMessageError:
+          errorToast($t('TODO: ProcessMessageError'));
           break;
         case err instanceof RetryError:
+          errorToast($t('TODO: RetryError'));
           break;
         default:
+          errorToast($t('TODO: UnknownError'));
           break;
       }
     } finally {
@@ -148,7 +165,7 @@
       // Step 1: get the user's wallet
       const wallet = await getConnectedWallet();
 
-      // Step 2: ensure correct chain
+      // Step 2: make sure the user is on the correct chain
       await ensureCorrectChain(Number($network.id), Number(bridgeTx.srcChainId));
 
       // Step 3: Find out the type of bridge: ETHBridge, ERC20Bridge, etc
@@ -164,6 +181,7 @@
       infoToast(
         $t('activities.actions.release.tx', {
           values: {
+            token: bridgeTx.symbol,
             url: `${explorerUrl}/tx/${txHash}`,
           },
         }),
@@ -183,14 +201,19 @@
 
       switch (true) {
         case err instanceof NotConnectedError:
+          warningToast($t('messages.account.required'));
           break;
         case err instanceof UserRejectedRequestError:
+          warningToast($t('activities.actions.release_rejected'));
           break;
         case err instanceof InvalidProofError:
+          errorToast($t('TODO: InvalidProofError'));
           break;
         case err instanceof ReleaseError:
+          errorToast($t('TODO: ReleaseError'));
           break;
         default:
+          errorToast($t('TODO: UnknownError'));
           break;
       }
     } finally {

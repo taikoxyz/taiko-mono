@@ -95,6 +95,21 @@
       "pending": "Pending",
       "claimed": "Claimed",
       "failed": "Failed"
+    },
+    "actions": {
+      "claim": {
+        "tx": "Transaction sent to claim {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
+        "success": "Transaction completed! Your funds have been successfully claimed on ${network}.",
+        "rejected": "Request to claim rejected."
+      },
+      "release": {
+        "tx": "Transaction sent to release {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
+        "success": "Transaction completed!. Your funds have been released on {network}",
+        "rejected": "Request to release rejected."
+      }
+    },
+    "errors": {
+      "insufficient_balance": "Insufficient balance to claim. Please add some ETH to your wallet."
     }
   },
   "faucet": {
@@ -124,19 +139,17 @@
   "token_dropdown": {
     "label": "Select token"
   },
+  "amount": {
+    "label": "Amount",
+    "balance": "Balance",
+    "button.max": "Max",
+    "errors.failed_max": "Coult not estimate max amount to bridge."
+  },
   "inputs": {
     "nft": {
       "token_id": {
         "label": "Token ID(s)",
         "placeholder": "1 or 5,14,733"
-      }
-    },
-    "amount_input": {
-      "label": "Amount",
-      "balance": "Balance",
-      "button": {
-        "max": "Max",
-        "failed_max": "Coult not estimate max amount to bridge."
       }
     },
     "address_input": {

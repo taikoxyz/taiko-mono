@@ -160,7 +160,7 @@
       validateAmount();
     } catch (err) {
       console.error(err);
-      warningToast($t('inputs.amount_input.button.failed_max'));
+      warningToast($t('amount_input.failed_max'));
     } finally {
       computingMaxAmount = false;
     }
@@ -173,7 +173,7 @@
 
 <div class="AmountInput f-col space-y-2">
   <div class="f-between-center text-secondary-content">
-    <label class="body-regular" for={inputId}>{$t('inputs.amount_input.label')}</label>
+    <label class="body-regular" for={inputId}>{$t('amount.label')}</label>
     <div class="body-small-regular">
       <span>{$t('inputs.amount_input.balance')}:</span>
       <span>

@@ -28,3 +28,7 @@ export const storageService = {
 export const bridgeTransactionPoller = {
   interval: 20_000,
 };
+
+export const statusComponent = {
+  minimumEthToClaim: 0.0001,
+};
