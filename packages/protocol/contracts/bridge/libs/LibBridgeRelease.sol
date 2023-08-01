@@ -69,7 +69,10 @@ library LibBridgeRelease {
         // contracts.
         // And if it calls them, then the TXN shall need to go through
         // successfully.
-        if (state.msgReleased[msgHash] == true) {
+        if (
+            state.recallStatus[msgHash]
+                != LibBridgeData.RecallStatus.NOT_RECALLED
+        ) {
             revert B_ETHER_RELEASED_ALREADY(); //Rather tokens released (?)
         }
 
@@ -81,7 +84,7 @@ library LibBridgeRelease {
             revert B_MSG_NOT_FAILED();
         }
 
-        state.msgReleased[msgHash] = true;
+        state.recallStatus[msgHash] = LibBridgeData.RecallStatus.ETH_RELEASED;
 
         uint256 releaseAmount = message.depositValue + message.callValue;
 
@@ -114,6 +117,8 @@ library LibBridgeRelease {
                     message.srcChainId, "erc20_vault", false
                 )
             ).releaseToken(message);
+            state.recallStatus[msgHash] =
+                LibBridgeData.RecallStatus.ETH_AND_TOKEN_RELEASED;
         } else if (
             message.to
                 == AddressResolver(address(this)).resolve(
@@ -125,6 +130,8 @@ library LibBridgeRelease {
                     message.srcChainId, "erc721_vault", false
                 )
             ).releaseToken(message);
+            state.recallStatus[msgHash] =
+                LibBridgeData.RecallStatus.ETH_AND_TOKEN_RELEASED;
         } else if (
             message.to
                 == AddressResolver(address(this)).resolve(
@@ -136,6 +143,8 @@ library LibBridgeRelease {
                     message.srcChainId, "erc1155_vault", false
                 )
             ).releaseToken(message);
+            state.recallStatus[msgHash] =
+                LibBridgeData.RecallStatus.ETH_AND_TOKEN_RELEASED;
         }
 
         emit EtherReleased(msgHash, message.owner, releaseAmount);

@@ -19,12 +19,18 @@ import { LibMath } from "../../libs/LibMath.sol";
  * check their status.
  */
 library LibBridgeData {
+    enum RecallStatus {
+        NOT_RECALLED,
+        ETH_RELEASED,
+        ETH_AND_TOKEN_RELEASED
+    }
     /// @dev The State struct stores the state of messages in the Bridge
     /// contract.
+
     struct State {
         uint256 nextMessageId;
         IBridge.Context ctx; // 3 slots
-        mapping(bytes32 msgHash => bool released) msgReleased;
+        mapping(bytes32 msgHash => RecallStatus status) recallStatus;
         uint256[45] __gap;
     }
 
