@@ -145,10 +145,11 @@ export class ETHBridge extends Bridge {
     const { msgHash, message, wallet } = args;
     const srcChainId = Number(message.srcChainId);
     const destChainId = Number(message.destChainId);
+    const connectedChainId = await wallet.getChainId();
 
     const proof = await this._prover.generateProofToRelease(msgHash, srcChainId, destChainId);
 
-    const srcBridgeAddress = chainContractsMap[wallet.chain.id].bridgeAddress;
+    const srcBridgeAddress = chainContractsMap[connectedChainId].bridgeAddress;
     const srcBridgeContract = getContract({
       walletClient: wallet,
       abi: bridgeABI,

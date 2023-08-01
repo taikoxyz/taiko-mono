@@ -223,6 +223,8 @@
 
   onMount(() => {
     if (bridgeTx) {
+      bridgeTxStatus = bridgeTx.status; // get the current status
+
       try {
         polling = startPolling(bridgeTx);
 
@@ -232,9 +234,6 @@
           // The following listeners will trigger change in the UI
           polling.emitter.on(PollingEvent.PROCESSABLE, onProcessable);
           polling.emitter.on(PollingEvent.STATUS, onStatusChange);
-        } else {
-          // There is no polling, most likely the bridgeTx is already DONE
-          bridgeTxStatus = bridgeTx.status; // get the current status
         }
       } catch (err) {
         console.error(err);

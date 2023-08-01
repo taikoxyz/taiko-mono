@@ -28,9 +28,10 @@ export abstract class Bridge {
    * Important: wallet must be connected to the destination chain
    */
   protected async beforeClaiming({ msgHash, message, wallet }: ClaimArgs) {
+    const connectedChainId = await wallet.getChainId();
     const destChainId = Number(message.destChainId);
     // Are we connected to the destination chain?
-    if (wallet.chain.id !== destChainId) {
+    if (connectedChainId !== destChainId) {
       throw new WrongChainError('wallet must be connected to the destination chain');
     }
 
@@ -41,7 +42,7 @@ export abstract class Bridge {
       throw new WrongOwnerError('user cannot process this as it is not their message');
     }
 
-    const destBridgeAddress = chainContractsMap[wallet.chain.id].bridgeAddress;
+    const destBridgeAddress = chainContractsMap[connectedChainId].bridgeAddress;
 
     const destBridgeContract = getContract({
       address: destBridgeAddress,
@@ -76,9 +77,10 @@ export abstract class Bridge {
    * 3. Check that the message has failed
    */
   protected async beforeReleasing({ msgHash, message, wallet }: ClaimArgs) {
+    const connectedChainId = await wallet.getChainId();
     const srcChainId = Number(message.srcChainId);
     // Are we connected to the source chain?
-    if (wallet.chain.id !== srcChainId) {
+    if (connectedChainId !== srcChainId) {
       throw new WrongChainError('wallet must be connected to the source chain');
     }
 

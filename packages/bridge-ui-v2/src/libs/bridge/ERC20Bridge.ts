@@ -234,10 +234,11 @@ export class ERC20Bridge extends Bridge {
     const { msgHash, message, wallet } = args;
     const srcChainId = Number(message.srcChainId);
     const destChainId = Number(message.destChainId);
+    const connectedChainId = await wallet.getChainId();
 
     const proof = await this._prover.generateProofToRelease(msgHash, srcChainId, destChainId);
 
-    const srcTokenVaultAddress = chainContractsMap[wallet.chain.id].tokenVaultAddress;
+    const srcTokenVaultAddress = chainContractsMap[connectedChainId].tokenVaultAddress;
     const srcTokenVaultContract = getContract({
       walletClient: wallet,
       abi: tokenVaultABI,

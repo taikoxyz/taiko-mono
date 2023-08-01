@@ -215,6 +215,7 @@
         decimals: $selectedToken.decimals,
         srcChainId: BigInt($network.id),
         destChainId: BigInt($destNetwork.id),
+        tokenType: $selectedToken.type,
 
         // TODO: do we need something else? we can have
         // access to the Transaction object:
