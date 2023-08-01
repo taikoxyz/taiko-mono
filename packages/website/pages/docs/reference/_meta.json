@@ -7,5 +7,8 @@
   },
   "node-troubleshooting": {
     "title": "Node troubleshooting"
+  },
+  "faq": {
+    "title": "FAQ"
   }
 }
