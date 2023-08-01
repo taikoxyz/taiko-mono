@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { noop } from 'svelte/internal';
-
+  import { noop } from '$libs/util/noop';
   import { type Network, network } from '$stores/network';
 
   export let change: (newNetwork: Network, oldNetwork: Network) => void = noop;

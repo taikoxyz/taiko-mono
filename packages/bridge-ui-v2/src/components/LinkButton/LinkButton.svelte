@@ -13,6 +13,6 @@
 <a
   {href}
   target={external ? '_blank' : null}
-  class={classNames('p-3 rounded-full flex justify-start content-center', activeClass)}>
+  class={classNames('p-3 rounded-full flex justify-start content-center', activeClass, $$props.class)}>
   <slot />
 </a>

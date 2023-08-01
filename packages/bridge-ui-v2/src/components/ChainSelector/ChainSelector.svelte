@@ -1,7 +1,6 @@
 <script lang="ts">
   import { type Chain, type GetNetworkResult, switchNetwork } from '@wagmi/core';
-  import type { ComponentType } from 'svelte';
-  import { onDestroy } from 'svelte/internal';
+  import { type ComponentType,onDestroy } from 'svelte';
   import { t } from 'svelte-i18n';
   import { UserRejectedRequestError } from 'viem';
 
@@ -10,13 +9,23 @@
   import { warningToast } from '$components/NotificationToast';
   import { PUBLIC_L1_CHAIN_ID, PUBLIC_L2_CHAIN_ID } from '$env/static/public';
   import { chains } from '$libs/chain';
+  import { classNames } from '$libs/util/classNames';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
 
-  export let label: string;
+  export let label = '';
   export let value: Maybe<GetNetworkResult['chain']> = null;
   export let switchWallet = false;
   export let readOnly = false;
+  export let small = false;
+
+  let classes = classNames('ChainSelector', $$props.class);
+  let buttonClasses = classNames(
+    'body-regular bg-neutral-background',
+    small ? 'px-2 py-[6px]' : 'px-6 py-[10px]',
+    small ? 'rounded-md' : 'rounded-[10px]',
+    small ? 'w-auto' : 'w-full',
+  );
 
   let chainToIconMap: Record<string, ComponentType> = {
     [PUBLIC_L1_CHAIN_ID]: EthIcon,
@@ -82,9 +91,12 @@
   onDestroy(closeModal);
 </script>
 
-<div class="ChainSelector">
+<div class={classes}>
   <div class="f-items-center space-x-[10px]">
-    <label class="text-secondary-content body-regular" for={buttonId}>{label}:</label>
+    {#if label}
+      <label class="text-secondary-content body-regular" for={buttonId}>{label}:</label>
+    {/if}
+
     <button
       id={buttonId}
       type="button"
@@ -92,9 +104,9 @@
       aria-haspopup="dialog"
       aria-controls={dialogId}
       aria-expanded={modalOpen}
-      class="px-2 py-[6px] body-small-regular bg-neutral-background rounded-md"
+      class={buttonClasses}
       on:click={openModal}>
-      <div class="f-items-center space-x-2">
+      <div class="{small ? 'f-items-center' : 'f-center'} space-x-2">
         {#if !value}
           <span>{$t('chain_selector.placeholder')}</span>
         {/if}

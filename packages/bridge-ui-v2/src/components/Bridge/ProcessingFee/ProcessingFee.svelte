@@ -33,6 +33,12 @@
   let modalOpen = false;
   let inputBox: InputBox;
 
+  // Public API
+  export function resetProcessingFee() {
+    inputBox.clear();
+    selectedFeeMethod = ProcessingFeeMethod.RECOMMENDED;
+  }
+
   function closeModal() {
     // Let's check if we are closing with CUSTOM method selected and zero amount entered
     if (selectedFeeMethod === ProcessingFeeMethod.CUSTOM && $processingFee === BigInt(0)) {
@@ -67,11 +73,11 @@
     inputBox.focus();
   }
 
-  function onInputBoxChange(event: Event) {
+  function inputProcessFee(event: Event) {
     if (selectedFeeMethod !== ProcessingFeeMethod.CUSTOM) return;
 
-    const input = event.target as HTMLInputElement;
-    $processingFee = parseToWei(input.value);
+    const { value } = event.target as HTMLInputElement;
+    $processingFee = parseToWei(value);
   }
 
   async function updateProcessingFee(method: ProcessingFeeMethod, recommendedAmount: bigint) {
@@ -118,10 +124,10 @@
 <div class="ProcessingFee">
   <div class="f-between-center">
     <div class="flex space-x-2">
-      <span class="body-small-regular text-secondary-content">{$t('processing_fee.title')}</span>
+      <span class="body-small-bold text-primary-content">{$t('processing_fee.title')}</span>
       <Tooltip>TODO: add description about processing fee</Tooltip>
     </div>
-    <button class="link" on:click={openModal} on:focus={openModal}>{$t('processing_fee.link')}</button>
+    <button class="link" on:click={openModal} on:focus={openModal}>{$t('common.edit')}</button>
   </div>
 
   <span class="body-small-regular text-secondary-content mt-[6px]">
@@ -141,6 +147,8 @@
       </button>
 
       <h3 class="title-body-bold mb-7">{$t('processing_fee.title')}</h3>
+
+      <p class="body-regular text-secondary-content mb-3">{$t('processing_fee.description')}</p>
 
       <ul class="space-y-7">
         <!-- RECOMMENDED -->
@@ -226,7 +234,7 @@
           placeholder="0.01"
           disabled={selectedFeeMethod !== ProcessingFeeMethod.CUSTOM}
           class="w-full input-box outline-none p-6 pr-16 title-subsection-bold placeholder:text-tertiary-content"
-          on:input={onInputBoxChange}
+          on:input={inputProcessFee}
           bind:this={inputBox} />
         <span class="absolute right-6 uppercase body-bold text-secondary-content">ETH</span>
       </div>
@@ -236,10 +244,10 @@
           on:click={cancelModal}
           type="neutral"
           class="px-[28px] py-[10px] rounded-full w-auto bg-transparent !border border-primary-brand hover:border-primary-interactive-hover">
-          <span class="body-bold">{$t('processing_fee.button.cancel')}</span>
+          <span class="body-bold">{$t('common.cancel')}</span>
         </Button>
         <Button type="primary" class="px-[28px] py-[10px] rounded-full w-auto" on:click={closeModal}>
-          <span class="body-bold">{$t('processing_fee.button.confirm')}</span>
+          <span class="body-bold">{$t('common.confirm')}</span>
         </Button>
       </div>
     </div>
