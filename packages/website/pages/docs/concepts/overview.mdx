@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { Callout } from "nextra-theme-docs";
 
 # What is Taiko?
 
@@ -105,3 +106,62 @@ increased. To lower the chance that the estimated cost is too
 low and extra Taiko tokens need to be minted, a slightly
 higher baseFee can be charged to the proposer than the
 one predicted by the model.
+
+## EIP-4844 Scaling Via Blob Data
+
+EIP-4844 is an Ethereum upgrade that bolts blob data to consensus layer blocks.
+<center>
+  <Image
+    src="/images/diagrams/concepts/eip-4844/blob-bolt-block.png"
+    alt="proposed"
+    width={1200}
+    height={500}
+  />
+</center>
+
+YouTube Video Presentation: [Ethereum's first steps towards serious scalability/EIP-4844 (Proto-danksharding)](https://www.youtube.com/watch?v=JQDUvqv60qw)
+
+The main motivation for EIP-4844 is scaling Ethereum with transactions that are:
+```
+-compressed [similar to raw byte calldata for rollups to read and execute from]
+-cheap [blob data is cheaper than calldata]
+-expire
+    -exist long enough for rollups to execute data
+    -with enough verification data after expiration recorded to prove blob data 
+```
+Impact: 
+```
+-cheaper transactions are achieved 
+-increase rollup TPS [transactions per second] by 10 times as much
+``` 
+
+<center>
+  <Image
+    src="/images/diagrams/concepts/eip-4844/scale-rollup-ten-times.png"
+    alt="proposed"
+    width={1200}
+    height={500}
+  />
+</center>
+
+EIP-4844 focuses on using Polynomial Commitments instead of Merkle Trees.
+This is because Polynomial Commitments have data recovery and are more lightweight than Merkle Trees as shown below.
+However, Polynomial Commitments are more challenging to develop with, since they use complicated math. 
+
+<center>
+  <Image
+    src="/images/diagrams/concepts/eip-4844/merkle-tree-vs-polynomial-commitment.png"
+    alt="proposed"
+    width={1200}
+    height={500}
+  />
+</center>
+
+EIP-4844 will be released in the Ethereum Cancun upgrade.
+The Cancun upgrade ETA is Q4 2023 and can be tracked with other Ethereum upgrades at [Wen Merge?](https://wenmerge.com/)
+
+Taiko Mainnet will launch with blob data transaction support after EIP-4844 is released.
+
+<Callout type="info">
+Taiko can support transactions without EIP-4844 blob data as well. 
+</Callout> 
