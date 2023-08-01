@@ -8,6 +8,7 @@
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import { Paginator } from '$components/Paginator';
   import { Spinner } from '$components/Spinner';
+  import { activitiesConfig } from '$config';
   import { PUBLIC_RELAYER_URL } from '$env/static/public';
   import type { BridgeTransaction } from '$libs/bridge';
   import { web3modal } from '$libs/connect';
@@ -27,20 +28,22 @@
 
   const relayerApi = new RelayerAPIService(PUBLIC_RELAYER_URL);
 
-  let pageSize = 3;
+  let pageSize = activitiesConfig.pageSize;
   let currentPage = 1;
   let totalItems = 0;
   let loadingTxs = true;
   let isBlurred = false;
-  let clickable = window.innerWidth < 768;
+  let clickable = window.innerWidth < 768; // row should be clickable only on mobile
   let selectedItem: BridgeTransaction | null = null;
+
+  const transitionTime = activitiesConfig.blurTransitionTime;
 
   const handlePageChange = (detail: number) => {
     isBlurred = true;
     setTimeout(() => {
       currentPage = detail;
       isBlurred = false;
-    }, 220);
+    }, transitionTime);
   };
 
   onMount(async () => {
@@ -113,8 +116,8 @@
 </script>
 
 <div class="flex flex-col justify-center w-full">
-  <Card class="md:min-w-[524px]" title={$t('activities.title')} text={$t('activities.description')}>
-    <div class="flex flex-col" style={`min-height: calc(${pageSize} * 80px);`}>
+  <Card title={$t('activities.title')} text={$t('activities.description')}>
+    <div class="flex flex-col" style={`min-height: calc(${transactionsToShow.length} * 80px);`}>
       <div class="h-sep" />
       <div class="flex text-white">
         <div class="w-1/4 md-w-1/5 px-4 py-2">{$t('activities.header.from')}</div>
@@ -126,8 +129,8 @@
       <div class="h-sep" />
       {#if transactionsToShow.length && !loadingTxs && $account?.isConnected}
         <div
-          class="flex flex-col items-center justify-center {isBlurred ? 'blur' : ''}"
-          style={`min-height: calc(${pageSize - 1} * 80px);`}>
+          class="flex flex-col items-center"
+          style={isBlurred ? `filter: blur(5px); transition: filter ${transitionTime / 1000}s ease-in-out` : ''}>
           {#each transactionsToShow as item (item.hash)}
             <Transaction {item} on:click={clickable ? () => openDetails(item) : undefined} />
             <div class="h-sep" />
@@ -160,10 +163,3 @@
 <MobileDetailsDialog {closeDetails} {detailsOpen} {selectedItem} />
 
 <OnAccount change={onAccountChange} />
-
-<style>
-  .blur {
-    filter: blur(5px);
-    transition: filter 0.1s ease-in-out;
-  }
-</style>
