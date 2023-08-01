@@ -104,6 +104,11 @@ export const taikoL3Chain: Chain = {
 //Todo: add L3 chain
 export const chains = [mainnetChain, taikoChain];
 
+export const getChainName = (chainId: number) => {
+  const chain = chains.find((chain) => chain.id === chainId);
+  return chain?.name || chainId;
+};
+
 export const isSupportedChain = (chainId: ChainID): boolean => {
   return chains.some((chain) => BigInt(chain.id) === chainId);
 };
@@ -127,6 +132,13 @@ export const chainUrlMap: Record<
     rpcUrl: PUBLIC_L3_RPC_URL,
     explorerUrl: PUBLIC_L3_EXPLORER_URL,
   },
+};
+
+// Todo: export to env?
+export const chainIcons = {
+  [PUBLIC_L1_CHAIN_ID]: '/ethereum-chain.png',
+  [PUBLIC_L2_CHAIN_ID]: '/taiko-chain.png',
+  [PUBLIC_L3_CHAIN_ID]: '',
 };
 
 export const chainContractsMap: Record<

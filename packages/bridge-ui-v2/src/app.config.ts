@@ -34,6 +34,7 @@ export const statusComponent = {
 };
 
 export const activitiesConfig = {
-  pageSize: 6,
+  pageSizeDesktop: 6,
+  pageSizeMobile: 4,
   blurTransitionTime: 300,
 };

@@ -9,7 +9,7 @@
   import { noop } from '$libs/util/noop';
   import { uid } from '$libs/util/uid';
 
-  import ChainIcon from './ChainIcon.svelte';
+  import ChainSymbolName from './ChainSymbolName.svelte';
 
   export let closeDetails = noop;
   export let detailsOpen = false;
@@ -31,11 +31,11 @@
       <ul class="space-y-[15px] body-small-regular">
         <li class="f-between-center">
           <h4 class="text-secondary-content">{$t('chain.from')}</h4>
-          <ChainIcon chainId={selectedItem.srcChainId} />
+          <ChainSymbolName chainId={selectedItem.srcChainId} />
         </li>
         <li class="f-between-center">
           <h4 class="text-secondary-content">{$t('chain.to')}</h4>
-          <ChainIcon chainId={selectedItem.destChainId} />
+          <ChainSymbolName chainId={selectedItem.destChainId} />
         </li>
         <li class="f-between-center">
           <h4 class="text-secondary-content">{$t('inputs.amount_input.label')}</h4>
