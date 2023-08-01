@@ -4,7 +4,15 @@ import { UserRejectedRequestError } from 'viem';
 import { erc20ABI, tokenVaultABI } from '$abi';
 import { bridgeService } from '$config';
 import { chainContractsMap } from '$libs/chain';
-import { ApproveError, InsufficientAllowanceError, NoAllowanceRequiredError, SendERC20Error } from '$libs/error';
+import {
+  ApproveError,
+  InsufficientAllowanceError,
+  NoAllowanceRequiredError,
+  ProcessMessageError,
+  ReleaseError,
+  RetryError,
+  SendERC20Error,
+} from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
 import { getLogger } from '$libs/util/logger';
 
@@ -189,26 +197,33 @@ export class ERC20Bridge extends Bridge {
     if (messageStatus === MessageStatus.NEW) {
       const proof = await this._prover.generateProofToProcessMessage(msgHash, srcChainId, destChainId);
 
-      if (message.gasLimit > bridgeService.erc20GasLimitThreshold) {
-        txHash = await destBridgeContract.write.processMessage([message, proof], {
-          gas: message.gasLimit,
-        });
-      } else {
-        txHash = await destBridgeContract.write.processMessage([message, proof]);
+      try {
+        if (message.gasLimit > bridgeService.erc20GasLimitThreshold) {
+          txHash = await destBridgeContract.write.processMessage([message, proof], {
+            gas: message.gasLimit,
+          });
+        } else {
+          txHash = await destBridgeContract.write.processMessage([message, proof]);
+        }
+
+        log('Transaction hash for processMessage call', txHash);
+      } catch (err) {
+        console.error(err);
+
+        // TODO: possibly same logic as ETHBridge
+
+        // TODO: handle unpredictable gas limit error
+        //       by trying with a higher gas limit
+
+        if (`${err}`.includes('denied transaction signature')) {
+          throw new UserRejectedRequestError(err as Error);
+        }
+
+        throw new ProcessMessageError('failed to process message', { cause: err });
       }
-
-      log('Transaction hash for processMessage call', txHash);
-
-      // TODO: handle unpredictable gas limit error
-      //       by trying with a higher gas limit
     } else {
       // MessageStatus.RETRIABLE
-      log('Retrying message', message);
-
-      // Last attempt to send the message: isLastAttempt = true
-      txHash = await destBridgeContract.write.retryMessage([message, true]);
-
-      log('Transaction hash for retryMessage call', txHash);
+      txHash = await super.retryClaim(message, destBridgeContract);
     }
 
     return txHash;
@@ -230,10 +245,20 @@ export class ERC20Bridge extends Bridge {
       address: srcTokenVaultAddress,
     });
 
-    const txHash = await srcTokenVaultContract.write.releaseERC20([message, proof]);
+    try {
+      const txHash = await srcTokenVaultContract.write.releaseERC20([message, proof]);
 
-    log('Transaction hash for releaseEther call', txHash);
+      log('Transaction hash for releaseERC20 call', txHash);
 
-    return txHash;
+      return txHash;
+    } catch (err) {
+      console.error(err);
+
+      if (`${err}`.includes('denied transaction signature')) {
+        throw new UserRejectedRequestError(err as Error);
+      }
+
+      throw new ReleaseError('failed to release ERC20', { cause: err });
+    }
   }
 }

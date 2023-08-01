@@ -120,6 +120,8 @@ export class ETHBridge extends Bridge {
       } catch (err) {
         console.error(err);
 
+        // TODO: possibly same logic as ERC20Bridge
+
         // TODO: handle unpredictable gas limit error
         //       by trying with a higher gas limit
 
@@ -131,22 +133,7 @@ export class ETHBridge extends Bridge {
       }
     } else {
       // MessageStatus.RETRIABLE
-      log('Retrying message', message);
-
-      try {
-        // Last attempt to send the message: isLastAttempt = true
-        txHash = await destBridgeContract.write.retryMessage([message, true]);
-
-        log('Transaction hash for retryMessage call', txHash);
-      } catch (err) {
-        console.error(err);
-
-        if (`${err}`.includes('denied transaction signature')) {
-          throw new UserRejectedRequestError(err as Error);
-        }
-
-        throw new RetryError('failed to retry', { cause: err });
-      }
+      txHash = await super.retryClaim(message, destBridgeContract);
     }
 
     return txHash;
@@ -176,9 +163,6 @@ export class ETHBridge extends Bridge {
       return txHash;
     } catch (err) {
       console.error(err);
-
-      // TODO: possibly handle unpredictable gas limit error
-      //       by trying with a higher gas limit
 
       if (`${err}`.includes('denied transaction signature')) {
         throw new UserRejectedRequestError(err as Error);
