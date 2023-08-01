@@ -90,12 +90,12 @@ contract mBridge is EssentialContract, IBridge, BridgeErrors {
         external
         nonReentrant
     {
-        return LibBridgeRelease.recallMessage({
-            state: _state,
-            resolver: AddressResolver(this),
-            message: message,
-            proof: proof
-        });
+        return LibBridgeRelease.recallMessage(
+            _state,
+            AddressResolver(this),
+            message,
+            proof
+        );
     }
 
     /**

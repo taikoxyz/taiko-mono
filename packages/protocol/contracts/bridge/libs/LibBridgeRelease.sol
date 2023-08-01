@@ -25,7 +25,7 @@ library LibBridgeRelease {
 
     event EtherReleased(bytes32 indexed msgHash, address to, uint256 amount);
 
-    error B_ETHER_RELEASED_ALREADY();
+    error B_TOKENS_RELEASED_ALREADY();
     error B_FAILED_TRANSFER();
     error B_MSG_NOT_FAILED();
     error B_OWNER_IS_NULL();
@@ -60,22 +60,6 @@ library LibBridgeRelease {
 
         bytes32 msgHash = message.hashMessage();
 
-        // Todo: (dantaik)
-        // I think this enum, or int (for evaluate what was released) not
-        // necessary
-        //  not necessary as written in the issue because if the below 3 if-else
-        // if
-        // (for token vaults) does not TRUE, it will not call the token vult
-        // contracts.
-        // And if it calls them, then the TXN shall need to go through
-        // successfully.
-        if (
-            state.recallStatus[msgHash]
-                != LibBridgeData.RecallStatus.NOT_RECALLED
-        ) {
-            revert B_ETHER_RELEASED_ALREADY(); //Rather tokens released (?)
-        }
-
         if (
             !LibBridgeStatus.isMessageFailed(
                 resolver, msgHash, message.destChainId, proof
@@ -83,70 +67,92 @@ library LibBridgeRelease {
         ) {
             revert B_MSG_NOT_FAILED();
         }
+        
+        if(state.recallStatus[msgHash] 
+                == LibBridgeData.RecallStatus.ETH_AND_TOKEN_RELEASED
+        ){
+            // Both ether and tokens are released
+            revert B_TOKENS_RELEASED_ALREADY();
+        }
 
-        state.recallStatus[msgHash] = LibBridgeData.RecallStatus.ETH_RELEASED;
+        uint256 releaseAmount;
 
-        uint256 releaseAmount = message.depositValue + message.callValue;
+        if(state.recallStatus[msgHash] 
+                == LibBridgeData.RecallStatus.NOT_RECALLED
+        ) {
+            // Release ETH first
+            state.recallStatus[msgHash] = LibBridgeData.RecallStatus.ETH_RELEASED;
 
-        if (releaseAmount > 0) {
-            address ethVault = resolver.resolve("ether_vault", true);
-            // if on Taiko
-            if (ethVault != address(0)) {
-                EtherVault(payable(ethVault)).releaseEther(
-                    message.owner, releaseAmount
-                );
-            } else {
-                // if on Ethereum
-                (bool success,) = message.owner.call{ value: releaseAmount }("");
-                if (!success) {
-                    revert B_FAILED_TRANSFER();
+            releaseAmount = message.depositValue + message.callValue;
+
+            if (releaseAmount > 0) {
+                address ethVault = resolver.resolve("ether_vault", true);
+                // if on Taiko
+                if (ethVault != address(0)) {
+                    EtherVault(payable(ethVault)).releaseEther(
+                        message.owner, releaseAmount
+                    );
+                } else {
+                    // if on Ethereum
+                    (bool success,) = message.owner.call{ value: releaseAmount }("");
+                    if (!success) {
+                        revert B_FAILED_TRANSFER();
+                    }
                 }
             }
         }
-
-        // Now try to process message.data via calling the releaseToken() on
-        // the proper vault
-        if (
-            message.to
-                == AddressResolver(address(this)).resolve(
-                    message.destChainId, "erc20_vault", false
-                )
+        //2nd stage is releasing the tokens
+        if(state.recallStatus[msgHash] 
+                == LibBridgeData.RecallStatus.ETH_RELEASED 
+                && message.to != address(0)
+                && message.data.length != 0
         ) {
-            VaultContract(
-                AddressResolver(address(this)).resolve(
-                    message.srcChainId, "erc20_vault", false
-                )
-            ).releaseToken(message);
-            state.recallStatus[msgHash] =
-                LibBridgeData.RecallStatus.ETH_AND_TOKEN_RELEASED;
-        } else if (
-            message.to
-                == AddressResolver(address(this)).resolve(
-                    message.destChainId, "erc721_vault", false
-                )
-        ) {
-            VaultContract(
-                AddressResolver(address(this)).resolve(
-                    message.srcChainId, "erc721_vault", false
-                )
-            ).releaseToken(message);
-            state.recallStatus[msgHash] =
-                LibBridgeData.RecallStatus.ETH_AND_TOKEN_RELEASED;
-        } else if (
-            message.to
-                == AddressResolver(address(this)).resolve(
-                    message.destChainId, "erc1155_vault", false
-                )
-        ) {
-            VaultContract(
-                AddressResolver(address(this)).resolve(
-                    message.srcChainId, "erc1155_vault", false
-                )
-            ).releaseToken(message);
-            state.recallStatus[msgHash] =
-                LibBridgeData.RecallStatus.ETH_AND_TOKEN_RELEASED;
+            // We now, need to know which tokenVault 'IS' the one. So from message.to - we cannot
+            // really query that because it contains the destination address so we need to 'trial
+            // and error.'
+            // We have 3 vaults, so we need to try to get those and execute
+            for (uint i = 0; i < 3; i++) { 
+                // Now try to process message.data via calling the releaseToken() on
+                // the proper vault
+                state.recallStatus[msgHash] =
+                    LibBridgeData.RecallStatus.ETH_AND_TOKEN_RELEASED;
+                try VaultContract(
+                    _getVaultSrcChain(message.srcChainId,i)
+                ).releaseToken(message){
+                    //If sucess, then break
+                    break;
+                } catch {
+                    // If it had a token (erc20/721/1115) try to release
+                    // it and if unsuccessfull set the status back
+                    state.recallStatus[msgHash] = LibBridgeData.RecallStatus.ETH_RELEASED;
+                }
+            }
         }
-
         emit EtherReleased(msgHash, message.owner, releaseAmount);
+    }
+
+    function _getVaultSrcChain(
+        uint srcChainId,
+        uint256 idx
+    )
+        internal
+        view
+        returns(address retVal)
+    {
+        if (idx == 0) {
+            return AddressResolver(address(this)).resolve(
+                    srcChainId, "erc20_vault", false
+                );
+        }
+        else if (idx == 1) {
+            return AddressResolver(address(this)).resolve(
+                    srcChainId, "erc721_vault", false
+                );
+        }
+        else if (idx == 2) {
+            return AddressResolver(address(this)).resolve(
+                    srcChainId, "erc1155_vault", false
+                );
+        }
     }
 }
