@@ -25,9 +25,15 @@ contract FailWhenBridgeBackCanonical is ERC20 {
         _mint(to, 50 * (10 ** decimals()));
     }
 
-    // When canonical token, 'safeTransfer()' is called
-    //  - in receiveToken() - it will fail.
-    function safeTransfer(address, uint256) public pure returns (bool) {
+    function transfer(
+        address,
+        uint256
+    )
+        public
+        virtual
+        override
+        returns (bool)
+    {
         revert("Cannot bridge back to canonical (intentional).");
     }
 }
