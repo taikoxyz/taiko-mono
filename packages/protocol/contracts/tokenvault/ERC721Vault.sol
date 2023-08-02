@@ -42,9 +42,14 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
         external
         payable
         nonReentrant
-        onlyValidAddresses(opt.destChainId, "erc721_vault", opt.to, opt.token)
-        onlyValidAmounts(opt.amounts, opt.tokenIds, true)
     {
+        LibVaultUtils.checkIfValidAmounts(opt.amounts, opt.tokenIds, true);
+        LibVaultUtils.checkIfValidAddresses(
+            resolve(opt.destChainId, "erc721_vault", false),
+            opt.to,
+            opt.token
+        );
+
         if (
             !IERC165Upgradeable(opt.token).supportsInterface(ERC721_INTERFACE_ID)
                 || IERC165Upgradeable(opt.token).supportsInterface(ERC1155_INTERFACE_ID)

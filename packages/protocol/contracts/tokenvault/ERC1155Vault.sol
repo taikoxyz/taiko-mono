@@ -55,9 +55,14 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         external
         payable
         nonReentrant
-        onlyValidAddresses(opt.destChainId, "erc1155_vault", opt.to, opt.token)
-        onlyValidAmounts(opt.amounts, opt.tokenIds, false)
     {
+        LibVaultUtils.checkIfValidAmounts(opt.amounts, opt.tokenIds, false);
+        LibVaultUtils.checkIfValidAddresses(
+            resolve(opt.destChainId, "erc1155_vault", false),
+            opt.to,
+            opt.token
+        );
+
         if (
             !IERC165Upgradeable(opt.token).supportsInterface(ERC1155_INTERFACE_ID)
                 || IERC165Upgradeable(opt.token).supportsInterface(ERC721_INTERFACE_ID)
@@ -74,7 +79,6 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 
         IBridge.Message memory message;
         message.destChainId = opt.destChainId;
-
         message.data = _sendToken(msg.sender, opt);
         message.owner = msg.sender;
         message.to = resolve(message.destChainId, "erc1155_vault", false);
@@ -183,7 +187,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         );
 
         bytes32 msgHash = LibVaultUtils.hashAndCheckToken(message, resolve("bridge", false), nft.addr);
-        //LibVaultUtils.distribute1155Tokens(tokenIds, amounts, message.owner, nft.addr,isBridgedToken[nft.addr]);
+
         unchecked {
             if (isBridgedToken[nft.addr]) {
                 for (uint256 i; i < tokenIds.length; ++i) {
@@ -217,8 +221,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
      * @dev See {IERC165-supportsInterface}.
      */
     function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155ReceiverUpgradeable) returns (bool) {
-        return interfaceId == type(ERC1155ReceiverUpgradeable).interfaceId || super.supportsInterface(interfaceId)
-        || interfaceId == ERC1155Vault.releaseToken.selector;
+        return interfaceId == type(ERC1155ReceiverUpgradeable).interfaceId
+            || interfaceId == ERC1155Vault.releaseToken.selector
+            || super.supportsInterface(interfaceId);
     }
 
     function onERC1155Received(

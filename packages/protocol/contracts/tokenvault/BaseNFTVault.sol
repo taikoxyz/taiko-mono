@@ -38,9 +38,6 @@ abstract contract BaseNFTVault is EssentialContract {
         string memo;
     }
 
-    // In order not to gas-out we need to hard cap the nr. of max
-    // tokens (iterations)
-    uint256 public constant MAX_TOKEN_PER_TXN = 10;
     bytes4 public constant ERC1155_INTERFACE_ID = 0xd9b67a26;
     bytes4 public constant ERC721_INTERFACE_ID = 0x80ac58cd;
 
@@ -161,85 +158,7 @@ abstract contract BaseNFTVault is EssentialContract {
      */
     error VAULT_MAX_TOKEN_PER_TXN_EXCEEDED();
 
-    modifier onlyValidAddresses(
-        uint256 chainId,
-        bytes32 name,
-        address to,
-        address token
-    ) {
-        if (to == address(0) || to == resolve(chainId, name, false)) {
-            revert VAULT_INVALID_TO();
-        }
-
-        if (token == address(0)) revert VAULT_INVALID_TOKEN();
-        _;
-    }
-
-    modifier onlyValidAmounts(
-        uint256[] memory amounts,
-        uint256[] memory tokenIds,
-        bool isERC721
-    ) {
-        if (tokenIds.length != amounts.length) {
-            revert VAULT_TOKEN_ARRAY_MISMATCH();
-        }
-
-        if (tokenIds.length > MAX_TOKEN_PER_TXN) {
-            revert VAULT_MAX_TOKEN_PER_TXN_EXCEEDED();
-        }
-
-        if (isERC721) {
-            for (uint256 i; i < tokenIds.length; i++) {
-                if (amounts[i] != 0) {
-                    revert VAULT_INVALID_AMOUNT();
-                }
-            }
-        } else {
-            for (uint256 i; i < amounts.length; i++) {
-                if (amounts[i] == 0) {
-                    revert VAULT_INVALID_AMOUNT();
-                }
-            }
-        }
-        _;
-    }
-
     function init(address addressManager) external initializer {
         EssentialContract._init(addressManager);
     }
-
-    /**
-     * @dev Map canonical token with a bridged address
-     * @param btoken The bridged token address
-     * @param ctoken The canonical token
-     */
-    function setBridgedToken(
-        address btoken,
-        CanonicalNFT memory ctoken
-    )
-        internal
-    {
-        isBridgedToken[btoken] = true;
-        bridgedToCanonical[btoken] = ctoken;
-        canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
-    }
-
-    // /**
-    //  * @dev Checks if token is invalid and returns the message hash
-    //  * @param message The bridged message struct data
-    //  * @param tokenAddress The token address to be checked
-    //  */
-    // function hashAndCheckToken(
-    //     IBridge.Message calldata message,
-    //     address tokenAddress
-    // )
-    //     internal
-    //     view
-    //     returns (bytes32 msgHash)
-    // {
-    //     IBridge bridge = IBridge(resolve("bridge", false));
-    //     msgHash = bridge.hashMessage(message);
-
-    //     if (tokenAddress == address(0)) revert VAULT_INVALID_TOKEN();
-    // }
 }

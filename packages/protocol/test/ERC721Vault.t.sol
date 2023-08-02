@@ -353,7 +353,7 @@ contract ERC721VaultTest is Test {
         tokenIds[0] = 1;
 
         uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 2;
+        amounts[0] = 0;
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
             .BridgeTransferOp(
             destChainId,
