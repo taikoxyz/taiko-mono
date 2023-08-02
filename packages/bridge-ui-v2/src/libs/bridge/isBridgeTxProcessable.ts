@@ -4,7 +4,7 @@ import { crossChainSyncABI } from '$abi';
 import { chainContractsMap } from '$libs/chain';
 import { publicClient } from '$libs/wagmi';
 
-import { type BridgeTransaction,MessageStatus } from './types';
+import { type BridgeTransaction, MessageStatus } from './types';
 
 export async function isBridgeTxProcessable(bridgeTx: BridgeTransaction) {
   const { receipt, message, srcChainId, destChainId, status } = bridgeTx;

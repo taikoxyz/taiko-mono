@@ -16,6 +16,7 @@
     type BridgeTransaction,
     type ERC20BridgeArgs,
     type ETHBridgeArgs,
+    MessageStatus,
   } from '$libs/bridge';
   import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
   import { chainContractsMap, chains } from '$libs/chain';
@@ -216,6 +217,7 @@
         srcChainId: BigInt($network.id),
         destChainId: BigInt($destNetwork.id),
         tokenType: $selectedToken.type,
+        status: MessageStatus.NEW,
 
         // TODO: do we need something else? we can have
         // access to the Transaction object:

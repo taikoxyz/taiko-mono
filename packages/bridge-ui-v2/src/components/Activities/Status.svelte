@@ -121,6 +121,9 @@
           },
         }),
       );
+
+      // We trigger this event to manually to update the UI
+      onStatusChange(MessageStatus.DONE);
     } catch (err) {
       console.error(err);
 
