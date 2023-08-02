@@ -145,6 +145,13 @@ For an Eldfell L3 node this would be:
 - `L2_ENDPOINT_HTTP`
 - `L2_ENDPOINT_WS`
 
+If you are running both L2 and L3 node , port will be 8545 for HTTP and 8546 for WSS.
+ex.)
+host.docker.internal:8545
+host.docker.internal:8546
+
+If you are accessing the L2 node in different location, the port number will be 8547 and 8548 as in .env file.
+
 ### Start a node
 
 Make sure Docker is running and then run the following command to start the node.
