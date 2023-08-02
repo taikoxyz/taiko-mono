@@ -262,18 +262,18 @@
   {:else if loading}
     TODO: add loading indicator and text for 'claiming', 'retrying', 'releasing'
   {:else if bridgeTxStatus === MessageStatus.NEW}
-    <button class="status-btn w-full" on:click={claim}>
+    <button class="status-btn" on:click={claim}>
       {$t('activities.button.claim')}
     </button>
   {:else if bridgeTxStatus === MessageStatus.RETRIABLE}
-    <button class="status-btn w-full" on:click={claim}>
+    <button class="status-btn" on:click={claim}>
       {$t('activities.button.claim')}
     </button>
   {:else if bridgeTxStatus === MessageStatus.DONE}
     <StatusDot type="success" />
     <span>{$t('activities.status.claimed')}</span>
   {:else if bridgeTxStatus === MessageStatus.FAILED}
-    <button class="status-btn w-full" on:click={release}>
+    <button class="status-btn" on:click={release}>
       {$t('activities.button.claim')}
     </button>
   {:else}
