@@ -245,9 +245,9 @@
       </button>
     </div>
     {#if $insufficientBalance && $enteredAmount > 0}
-      <FlatAlert type="error" message={$t('error.insufficient_balance')} class="absolute bottom-[-26px]" />
+      <FlatAlert type="error" message={$t('bridge.errors.insufficient_balance')} class="absolute bottom-[-26px]" />
     {:else if $insufficientAllowance && $enteredAmount > 0}
-      <FlatAlert type="warning" message={$t('error.insufficient_allowance')} class="absolute bottom-[-26px]" />
+      <FlatAlert type="warning" message={$t('bridge.errors.insufficient_allowance')} class="absolute bottom-[-26px]" />
     {/if}
   </div>
 </div>

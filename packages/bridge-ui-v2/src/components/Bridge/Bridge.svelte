@@ -93,6 +93,7 @@
         $t('bridge.actions.approve.tx', {
           values: {
             token: $selectedToken.symbol,
+            //Todo: must link to the correct explorer, not just L1
             url: `${PUBLIC_L1_EXPLORER_URL}/tx/${txHash}`,
           },
         }),
@@ -200,6 +201,7 @@
         $t('bridge.actions.bridge.tx', {
           values: {
             token: $selectedToken.symbol,
+            //Todo: must link to the correct explorer, not just L1
             url: `${PUBLIC_L1_EXPLORER_URL}/tx/${txHash}`,
           },
         }),
