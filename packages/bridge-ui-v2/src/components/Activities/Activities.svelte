@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { writable } from 'svelte/store';
+  import { type Unsubscriber, writable } from 'svelte/store';
   import { t } from 'svelte-i18n';
 
   import { Button } from '$components/Button';
@@ -8,6 +8,7 @@
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import { Paginator } from '$components/Paginator';
   import { Spinner } from '$components/Spinner';
+  import { activitiesConfig } from '$config';
   import { PUBLIC_RELAYER_URL } from '$env/static/public';
   import type { BridgeTransaction } from '$libs/bridge';
   import { web3modal } from '$libs/connect';
@@ -25,23 +26,32 @@
 
   export const transactions = writable<BridgeTransaction[]>([]);
 
-  const relayerApi = new RelayerAPIService(PUBLIC_RELAYER_URL);
-
-  let pageSize = 3;
   let currentPage = 1;
-  let totalItems = 0;
-  let loadingTxs = true;
+
   let isBlurred = false;
-  let clickable = window.innerWidth < 768;
-  let selectedItem: BridgeTransaction | null = null;
+  const transitionTime = activitiesConfig.blurTransitionTime;
 
   const handlePageChange = (detail: number) => {
     isBlurred = true;
     setTimeout(() => {
       currentPage = detail;
       isBlurred = false;
-    }, 220);
+    }, transitionTime);
   };
+
+  const relayerApi = new RelayerAPIService(PUBLIC_RELAYER_URL);
+
+  let totalItems = 0;
+  let pageSize = activitiesConfig.pageSizeDesktop;
+  $: pageSize = isMobile ? activitiesConfig.pageSizeMobile : activitiesConfig.pageSizeDesktop;
+
+  let loadingTxs = true;
+
+  let unsubscribe: Unsubscriber;
+  let detailsOpen = false;
+  let isMobile = false;
+
+  let selectedItem: BridgeTransaction | null = null;
 
   onMount(async () => {
     if (!$account?.isConnected) {
@@ -51,6 +61,13 @@
     await fetchTransactions();
   });
 
+  const getTransactionsToShow = (page: number, pageSize: number, bridgeTx: BridgeTransaction[]) => {
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    return bridgeTx.slice(start, end);
+  };
+
+  // Todo: move logic out of component
   const fetchTransactions = async () => {
     loadingTxs = true;
     if (!$account.address || totalItems > 0) {
@@ -76,22 +93,7 @@
     paginationStore.set(paginationInfo);
   };
 
-  function getTransactionsToShow(page: number, pageSize: number, bridgeTx: BridgeTransaction[]) {
-    const start = (page - 1) * pageSize;
-    const end = start + pageSize;
-
-    return bridgeTx.slice(start, end);
-  }
-
-  $: transactionsToShow = getTransactionsToShow(currentPage, pageSize, $transactions);
-
-  $: if ($paginationStore) {
-    totalItems = $transactions.length;
-  }
-
-  function onWalletConnect() {
-    web3modal.openModal();
-  }
+  const onWalletConnect = () => web3modal.openModal();
 
   const onAccountChange = async (newAccount: Account, oldAccount?: Account) => {
     if (newAccount?.isConnected) {
@@ -99,37 +101,43 @@
     }
   };
 
-  let detailsOpen = false;
-
-  function closeDetails() {
+  const closeDetails = () => {
     detailsOpen = false;
     selectedItem = null;
-  }
+  };
 
-  function openDetails(tx: BridgeTransaction) {
+  const openDetails = (tx: BridgeTransaction) => {
     detailsOpen = true;
     selectedItem = tx;
+  };
+
+  $: transactionsToShow = getTransactionsToShow(currentPage, pageSize, $transactions);
+
+  $: if ($paginationStore) {
+    totalItems = $transactions.length;
   }
 </script>
 
 <div class="flex flex-col justify-center w-full">
-  <Card class="md:min-w-[524px]" title={$t('activities.title')} text={$t('activities.description')}>
-    <div class="flex flex-col" style={`min-height: calc(${pageSize} * 80px);`}>
-      <div class="h-sep" />
-      <div class="flex text-white">
-        <div class="w-1/4 md-w-1/5 px-4 py-2">{$t('activities.header.from')}</div>
-        <div class="w-1/4 md-w-1/5 px-4 py-2">{$t('activities.header.to')}</div>
-        <div class="w-1/4 md-w-1/5 px-4 py-2">{$t('activities.header.amount')}</div>
-        <div class="w-1/4 md-w-1/5 px-4 py-2">{$t('activities.header.status')}</div>
-        <div class="w-1/5 hidden md:flex px-4 py-2">{$t('activities.header.explorer')}</div>
-      </div>
-      <div class="h-sep" />
+  <Card title={$t('activities.title')} text={$t('activities.description')}>
+    <div class="flex flex-col" style={`min-height: calc(${transactionsToShow.length} * 80px);`}>
+      {#if !isMobile}
+        <div class="h-sep" />
+        <div class=" text-white flex">
+          <div class="w-1/5 px-4 py-2">{$t('activities.header.from')}</div>
+          <div class="w-1/5 px-4 py-2">{$t('activities.header.to')}</div>
+          <div class="w-1/5 px-4 py-2">{$t('activities.header.amount')}</div>
+          <div class="w-1/5 px-4 py-2">{$t('activities.header.status')}</div>
+          <div class="w-1/5 px-4 py-2">{$t('activities.header.explorer')}</div>
+        </div>
+        <div class="h-sep" />
+      {/if}
       {#if transactionsToShow.length && !loadingTxs && $account?.isConnected}
         <div
-          class="flex flex-col items-center justify-center {isBlurred ? 'blur' : ''}"
-          style={`min-height: calc(${pageSize - 1} * 80px);`}>
+          class="flex flex-col items-center"
+          style={isBlurred ? `filter: blur(5px); transition: filter ${transitionTime / 1000}s ease-in-out` : ''}>
           {#each transactionsToShow as item (item.hash)}
-            <Transaction {item} on:click={clickable ? () => openDetails(item) : undefined} />
+            <Transaction {item} on:click={isMobile ? () => openDetails(item) : undefined} />
             <div class="h-sep" />
           {/each}
         </div>
@@ -160,10 +168,3 @@
 <MobileDetailsDialog {closeDetails} {detailsOpen} {selectedItem} />
 
 <OnAccount change={onAccountChange} />
-
-<style>
-  .blur {
-    filter: blur(5px);
-    transition: filter 0.1s ease-in-out;
-  }
-</style>

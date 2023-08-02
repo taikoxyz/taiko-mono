@@ -9,7 +9,7 @@
   import { noop } from '$libs/util/noop';
   import { uid } from '$libs/util/uid';
 
-  import ChainIcon from './ChainIcon.svelte';
+  import ChainSymbolName from './ChainSymbolName.svelte';
 
   export let closeDetails = noop;
   export let detailsOpen = false;
@@ -20,7 +20,9 @@
 </script>
 
 <dialog id={dialogId} class="modal modal-bottom" class:modal-open={detailsOpen}>
-  <div class="modal-box relative px-6 py-[30px] bg-neutral-background">
+  <div
+    class="modal-box relative border border-gray-700 px-6 py-[30px] bg-gray-800/30 bg-gradient-to-r from-glass-gradient-from to-glass-gradient-to
+      backdrop-blur-sm">
     <button class="absolute right-6 top-[30px]" on:click={closeDetails}>
       <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
     </button>
@@ -31,11 +33,11 @@
       <ul class="space-y-[15px] body-small-regular">
         <li class="f-between-center">
           <h4 class="text-secondary-content">{$t('chain.from')}</h4>
-          <ChainIcon chainId={selectedItem.srcChainId} />
+          <ChainSymbolName chainId={selectedItem.srcChainId} />
         </li>
         <li class="f-between-center">
           <h4 class="text-secondary-content">{$t('chain.to')}</h4>
-          <ChainIcon chainId={selectedItem.destChainId} />
+          <ChainSymbolName chainId={selectedItem.destChainId} />
         </li>
         <li class="f-between-center">
           <h4 class="text-secondary-content">{$t('inputs.amount.label')}</h4>

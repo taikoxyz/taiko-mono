@@ -1,21 +1,24 @@
 <script lang="ts">
   import { classNames } from '$libs/util/classNames';
 
-  export let title: string;
-  export let text = '';
-
-  export let classes = classNames(
-    ` card 
+  const desktopStyle = `card 
       w-full 
       rounded-xl 
       md:border 
       md:border-gray-700 
       bg-gradient-to-r from-glass-gradient-from to-glass-gradient-to 
       backdrop-blur-sm
-      bg-gray-800/30 
-    `,
-    $$props.class,
-  );
+      bg-gray-800/30 `;
+
+  const mobileStyle = 'backdrop-blur p-5';
+
+  export let isMobile = window.innerWidth < 768;
+
+  export let title: string;
+  export let text = '';
+
+  // export let classes = classNames(isMobile ? mobileStyle : desktopStyle, $$props.class);
+  $: classes = classNames(isMobile ? mobileStyle : desktopStyle, $$props.class);
 </script>
 
 <div class={classes}>
