@@ -164,7 +164,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
             message.data[4:], (CanonicalNFT, address, address, uint256[])
         );
 
-        bytes32 msgHash = hashAndCheckToken(message, nft.addr);
+        bytes32 msgHash = LibVaultUtils.hashAndCheckToken(message, resolve("bridge", false), nft.addr);
 
         unchecked {
             if (isBridgedToken[nft.addr]) {

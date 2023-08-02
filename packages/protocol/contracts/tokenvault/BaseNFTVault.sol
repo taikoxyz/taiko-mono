@@ -224,22 +224,22 @@ abstract contract BaseNFTVault is EssentialContract {
         canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
     }
 
-    /**
-     * @dev Checks if token is invalid and returns the message hash
-     * @param message The bridged message struct data
-     * @param tokenAddress The token address to be checked
-     */
-    function hashAndCheckToken(
-        IBridge.Message calldata message,
-        address tokenAddress
-    )
-        internal
-        view
-        returns (bytes32 msgHash)
-    {
-        IBridge bridge = IBridge(resolve("bridge", false));
-        msgHash = bridge.hashMessage(message);
+    // /**
+    //  * @dev Checks if token is invalid and returns the message hash
+    //  * @param message The bridged message struct data
+    //  * @param tokenAddress The token address to be checked
+    //  */
+    // function hashAndCheckToken(
+    //     IBridge.Message calldata message,
+    //     address tokenAddress
+    // )
+    //     internal
+    //     view
+    //     returns (bytes32 msgHash)
+    // {
+    //     IBridge bridge = IBridge(resolve("bridge", false));
+    //     msgHash = bridge.hashMessage(message);
 
-        if (tokenAddress == address(0)) revert VAULT_INVALID_TOKEN();
-    }
+    //     if (tokenAddress == address(0)) revert VAULT_INVALID_TOKEN();
+    // }
 }

@@ -182,7 +182,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             (CanonicalNFT, address, address, uint256[], uint256[])
         );
 
-        bytes32 msgHash = hashAndCheckToken(message, nft.addr);
+        bytes32 msgHash = LibVaultUtils.hashAndCheckToken(message, resolve("bridge", false), nft.addr);
+        //LibVaultUtils.distribute1155Tokens(tokenIds, amounts, message.owner, nft.addr,isBridgedToken[nft.addr]);
         unchecked {
             if (isBridgedToken[nft.addr]) {
                 for (uint256 i; i < tokenIds.length; ++i) {
