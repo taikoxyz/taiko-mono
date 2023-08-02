@@ -13,7 +13,7 @@ import { IBridge } from "../contracts/bridge/IBridge.sol";
 import { BridgeErrors } from "../contracts/bridge/BridgeErrors.sol";
 import { LibBridgeData } from "../contracts/bridge/libs/LibBridgeData.sol";
 import { LibBridgeProcess } from "../contracts/bridge/libs/LibBridgeProcess.sol";
-import { LibBridgeRelease } from "./mLibBridgeRelease.t.sol";
+import { LibBridgeRecall } from "./mLibBridgeRecall.t.sol";
 import { LibBridgeRetry } from "../contracts/bridge/libs/LibBridgeRetry.sol";
 import { LibBridgeSend } from "../contracts/bridge/libs/LibBridgeSend.sol";
 import { LibBridgeStatus } from "../contracts/bridge/libs/LibBridgeStatus.sol";
@@ -73,12 +73,8 @@ contract mBridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * Releases the Ether (+ tokens) locked in the bridge as part of a
-     * cross-chain
-     * transfer.
-     * @dev Releases the Ether (+ tokens) by calling the
-     * LibBridgeRelease.recallMessage
-     * library function.
+     * Releases the Ether (+ tokens) locked in the bridge as part of a cross-chain transfer.
+     * @dev Releases the Ether (+ tokens) by calling the LibBridgeRecall.recallMessage library function.
      * @param message The message containing the details of the Ether transfer.
      * (See IBridge)
      * @param proof The proof of the cross-chain transfer.
@@ -90,7 +86,7 @@ contract mBridge is EssentialContract, IBridge, BridgeErrors {
         external
         nonReentrant
     {
-        return LibBridgeRelease.recallMessage(
+        return LibBridgeRecall.recallMessage(
             _state,
             AddressResolver(this),
             message,

@@ -13,7 +13,7 @@ import { IBridge } from "./IBridge.sol";
 import { BridgeErrors } from "./BridgeErrors.sol";
 import { LibBridgeData } from "./libs/LibBridgeData.sol";
 import { LibBridgeProcess } from "./libs/LibBridgeProcess.sol";
-import { LibBridgeRelease } from "./libs/LibBridgeRelease.sol";
+import { LibBridgeRecall } from "./libs/LibBridgeRecall.sol";
 import { LibBridgeRetry } from "./libs/LibBridgeRetry.sol";
 import { LibBridgeSend } from "./libs/LibBridgeSend.sol";
 import { LibBridgeStatus } from "./libs/LibBridgeStatus.sol";
@@ -71,12 +71,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * Releases the Ether (+ tokens) locked in the bridge as part of a
-     * cross-chain
-     * transfer.
-     * @dev Releases the Ether (+ tokens) by calling the
-     * LibBridgeRelease.recallMessage
-     * library function.
+     * Releases the Ether (+ tokens) locked in the bridge as part of a cross-chain transfer.
+     * @dev Releases the Ether (+ tokens) by calling the LibBridgeRecall.recallMessage library function.
      * @param message The message containing the details of the Ether transfer.
      * (See IBridge)
      * @param proof The proof of the cross-chain transfer.
@@ -88,7 +84,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         external
         nonReentrant
     {
-        return LibBridgeRelease.recallMessage({
+        return LibBridgeRecall.recallMessage({
             state: _state,
             resolver: AddressResolver(this),
             message: message,

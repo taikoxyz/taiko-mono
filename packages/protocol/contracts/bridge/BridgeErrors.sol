@@ -14,7 +14,7 @@ abstract contract BridgeErrors {
     error B_ERC20_CANNOT_RECEIVE();
 
     /// Emitted when Ether has already been released as part of a transfer
-    error B_TOKENS_RELEASED_ALREADY();
+    error B_ETHER_RELEASED_ALREADY();
 
     /// Emitted when attempting to burn Ether in EtherVault
     error B_EV_DO_NOT_BURN();

@@ -50,12 +50,19 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
             opt.token
         );
 
-        if (
-            !IERC165Upgradeable(opt.token).supportsInterface(ERC721_INTERFACE_ID)
-                || IERC165Upgradeable(opt.token).supportsInterface(ERC1155_INTERFACE_ID)
-        ) {
+        try IERC165Upgradeable(opt.token).supportsInterface(ERC721_INTERFACE_ID) {
+            if (!IERC165Upgradeable(opt.token).supportsInterface(ERC721_INTERFACE_ID)) {
+                revert VAULT_INTERFACE_NOT_SUPPORTED();
+            }
+        } catch {
             revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
+        // if (
+        //     !IERC165Upgradeable(opt.token).supportsInterface(ERC721_INTERFACE_ID)
+        //         || IERC165Upgradeable(opt.token).supportsInterface(ERC1155_INTERFACE_ID)
+        // ) {
+        //     revert VAULT_INTERFACE_NOT_SUPPORTED();
+        // }
 
         // We need to save them into memory - because structs containing
         // dynamic arrays will cause stack-too-deep error when passed
@@ -150,10 +157,11 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
      * @param message The message that corresponds to the ERC721 deposit on the
      * source chain.
      */
-    function releaseToken(IBridge.Message calldata message)
+    function onMessageRecalled(IBridge.Message calldata message)
         external
         nonReentrant
         onlyFromNamed("bridge")
+        returns (bytes4)
     {
         if (message.owner == address(0)) revert VAULT_INVALID_OWNER();
         if (message.srcChainId != block.chainid) {
@@ -196,13 +204,15 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
             tokenIds: tokenIds,
             amounts: new uint256[](0)
         });
+
+        return ERC721Vault.onMessageRecalled.selector;
     }
 
     /**
      * @dev See {IERC165-supportsInterface}.
      */
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-        return interfaceId == ERC721Vault.releaseToken.selector;
+        return interfaceId == ERC721Vault.onMessageRecalled.selector;
     }
 
     function onERC721Received(

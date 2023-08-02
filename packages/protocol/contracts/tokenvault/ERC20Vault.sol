@@ -294,10 +294,11 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
      * @param message The message that corresponds to the ERC20 deposit on the
      * source chain.
      */
-    function releaseToken(IBridge.Message calldata message)
+    function onMessageRecalled(IBridge.Message calldata message)
         external
         nonReentrant
         onlyFromNamed("bridge")
+        returns (bytes4)
     {
         IBridge bridge = IBridge(resolve("bridge", false));
         bytes32 msgHash = bridge.hashMessage(message);
@@ -323,13 +324,15 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
             token: token,
             amount: amount
         });
+
+        return ERC20Vault.onMessageRecalled.selector;
     }
 
     /**
      * @dev See {IERC165-supportsInterface}.
      */
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-        return interfaceId == ERC20Vault.releaseToken.selector;
+        return interfaceId == ERC20Vault.onMessageRecalled.selector;
     }
 
     /*//////////////////////////////////////////////////////////////

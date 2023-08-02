@@ -172,7 +172,7 @@ contract ERC1155VaultTest is Test {
     BadReceiver badReceiver;
     Bridge bridge;
     Bridge destChainBridge;
-    // Mocking the proofs for releaseToken() calls
+    // Mocking the proofs for onMessageRecalled() calls
     mBridge mockBridge;
     PrankDestBridge destChainIdBridge;
     PrankSrcBridge srcPrankBridge;
@@ -241,7 +241,7 @@ contract ERC1155VaultTest is Test {
             destChainId, "erc1155_vault", address(destChainErc1155Vault)
         );
         // Below 2-2 registrations (mock) are needed bc of
-        // LibBridgeRelease.sol's
+        // LibBridgeRecall.sol's
         // resolve address
         addressManager.setAddress(
             destChainId, "erc721_vault", address(srcPrankBridge)
@@ -559,7 +559,7 @@ contract ERC1155VaultTest is Test {
         assertEq(bridgedContract, deployedContract);
     }
 
-    function test_releaseToken_1155() public {
+    function test_onMessageRecalled_1155() public {
         vm.prank(Alice, Alice);
         ctoken1155.setApprovalForAll(address(erc1155Vault), true);
 

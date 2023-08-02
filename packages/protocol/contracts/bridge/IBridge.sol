@@ -6,6 +6,14 @@
 
 pragma solidity ^0.8.20;
 
+import { LibBridgeData } from "./libs/LibBridgeData.sol";
+/**
+ * Recalling a message interface.
+ */
+interface IRecallableMessageSender {
+    function onMessageRecalled(IBridge.Message calldata message) external returns (bytes4);
+}
+
 /**
  * Bridge interface.
  * @dev Ether is held by Bridges on L1 and by the EtherVault on L2,
@@ -49,7 +57,7 @@ interface IBridge {
 
     event SignalSent(address sender, bytes32 msgHash);
     event MessageSent(bytes32 indexed msgHash, Message message);
-    event EtherReleased(bytes32 indexed msgHash, address to, uint256 amount);
+    event MessageRecalled(bytes32 indexed msgHash, address to, uint256 amount, LibBridgeData.RecallStatus status);
 
     /// Sends a message to the destination chain and takes custody
     /// of Ether required in this contract. All extra Ether will be refunded.

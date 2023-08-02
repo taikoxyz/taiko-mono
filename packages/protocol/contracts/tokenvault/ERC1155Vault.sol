@@ -63,10 +63,11 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             opt.token
         );
 
-        if (
-            !IERC165Upgradeable(opt.token).supportsInterface(ERC1155_INTERFACE_ID)
-                || IERC165Upgradeable(opt.token).supportsInterface(ERC721_INTERFACE_ID)
-        ) {
+        try IERC165Upgradeable(opt.token).supportsInterface(ERC1155_INTERFACE_ID) {
+            if (!IERC165Upgradeable(opt.token).supportsInterface(ERC1155_INTERFACE_ID)) {
+                revert VAULT_INTERFACE_NOT_SUPPORTED();
+            }
+        } catch {
             revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
 
@@ -170,10 +171,11 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
      * @param message The message that corresponds to the ERC1155 deposit on the
      * source chain.
      */
-    function releaseToken(IBridge.Message calldata message)
+    function onMessageRecalled(IBridge.Message calldata message)
         external
         nonReentrant
         onlyFromNamed("bridge")
+        returns (bytes4)
     {
         (
             CanonicalNFT memory nft,
@@ -215,6 +217,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             tokenIds: tokenIds,
             amounts: amounts
         });
+
+        return ERC1155Vault.onMessageRecalled.selector;
     }
 
     /**
@@ -222,7 +226,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
      */
     function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155ReceiverUpgradeable) returns (bool) {
         return interfaceId == type(ERC1155ReceiverUpgradeable).interfaceId
-            || interfaceId == ERC1155Vault.releaseToken.selector
+            || interfaceId == ERC1155Vault.onMessageRecalled.selector
             || super.supportsInterface(interfaceId);
     }
 
