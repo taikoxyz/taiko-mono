@@ -82,24 +82,25 @@
         throw new Error('Missing msgHash or message');
       }
 
-      // Step 1: get the user's wallet
-      const wallet = await getConnectedWallet();
-
-      // Step 2: make sure the user is on the correct chain
+      // Step 1: make sure the user is on the correct chain
       await ensureCorrectChain(Number($network.id), Number(bridgeTx.destChainId));
 
-      // Step 3: make sure the user has enough balance on the destination chain
+      // Step 2: make sure the user has enough balance on the destination chain
       await checkEnoughBalance($account.address);
 
-      // Step 4: Find out the type of bridge: ETHBridge, ERC20Bridge, etc
+      // Step 3: Find out the type of bridge: ETHBridge, ERC20Bridge, etc
       const bridge = bridges[bridgeTx.tokenType];
+
+      // Step 4: get the user's wallet
+      // TODO: do we really need to pass the chainId here? we are already on the dest chain
+      const wallet = await getConnectedWallet(Number(bridgeTx.destChainId));
 
       log(`Claiming ${bridgeTx.tokenType} for transaction`, bridgeTx);
 
       // Step 5: Call claim() method on the bridge
       const txHash = await bridge.claim({ msgHash, message, wallet });
 
-      const explorerUrl = chains[Number(bridgeTx.destChainId)].blockExplorers?.default.url;
+      const { explorerUrl } = chainUrlMap[Number(bridgeTx.destChainId)];
 
       infoToast(
         $t('activities.actions.claim.tx', {
@@ -162,14 +163,15 @@
         throw new Error('Missing msgHash or message');
       }
 
-      // Step 1: get the user's wallet
-      const wallet = await getConnectedWallet();
-
-      // Step 2: make sure the user is on the correct chain
+      // Step 1: make sure the user is on the correct chain
       await ensureCorrectChain(Number($network.id), Number(bridgeTx.srcChainId));
 
-      // Step 3: Find out the type of bridge: ETHBridge, ERC20Bridge, etc
+      // Step 2: Find out the type of bridge: ETHBridge, ERC20Bridge, etc
       const bridge = bridges[bridgeTx.tokenType];
+
+      // Step 3: get the user's wallet
+      // TODO: might not be needed to pass the chainId here
+      const wallet = await getConnectedWallet(Number(bridgeTx.destChainId));
 
       log(`Releasing ${bridgeTx.tokenType} for transaction`, bridgeTx);
 

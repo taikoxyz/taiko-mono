@@ -21,8 +21,8 @@ export const pendingTransaction = {
 };
 
 export const storageService = {
-  bridgeTxPrefix: 'bridge-tx',
-  customTokenPrefix: 'custom-token',
+  bridgeTxPrefix: 'transactions',
+  customTokenPrefix: 'custom-tokens',
 };
 
 export const bridgeTransactionPoller = {
