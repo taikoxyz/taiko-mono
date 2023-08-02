@@ -30,7 +30,8 @@
       "send_message_error": "Failed to send message",
       "approve_error": "Failed to approve token",
       "rejected": "Request to bridge rejected.",
-      "no_allowance_required": "You need to add allowance to bridge this token.",
+      "no_allowance_required": "You already have enough allowance.",
+      "insufficient_allowance": "You need to increase your allowance in order to be able to bridge.",
       "unknown_error": "An error occured"
     },
     "button": {
@@ -174,7 +175,8 @@
     },
     "network": {
       "switching": "Switching network",
-      "rejected": "Request to switch chain rejected."
+      "rejected": "Request to switch chain rejected.",
+      "pending": "A network switch is still pending, open your wallet to check the status."
     }
   },
   "common": {
