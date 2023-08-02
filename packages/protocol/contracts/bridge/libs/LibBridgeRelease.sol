@@ -117,20 +117,12 @@ library LibBridgeRelease {
             ) {
                 state.recallStatus[msgHash] = LibBridgeData.RecallStatus.FULLY_RECALLED;
             } else {
-                // Set state before successfull call because of reentrancy
-                // we changing it back in the catch() if call unsuccessful
-                state.recallStatus[msgHash] =
-                    LibBridgeData.RecallStatus.FULLY_RECALLED;
                 try VaultContract(
                     (message.sender)
                 ).releaseToken(message){
-                } catch {
-                    // If it had a token (erc20/721/1115) try to release
-                    // it and if unsuccessfull set the status back so that
-                    // we might try once more to releaseTokens - if it
-                    // fails bc. we forgot to set AddressManager or something (?)
-                    state.recallStatus[msgHash] = LibBridgeData.RecallStatus.ETH_RELEASED;
-                }
+                    state.recallStatus[msgHash] =
+                        LibBridgeData.RecallStatus.FULLY_RECALLED;
+                } catch {}
             }
         }
         emit EtherReleased(msgHash, message.owner, releaseAmount);
