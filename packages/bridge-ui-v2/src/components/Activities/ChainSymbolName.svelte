@@ -2,8 +2,7 @@
   import { onDestroy } from 'svelte';
 
   import { chainIcons, type ChainID, getChainName } from '$libs/chain';
-
-  import { isMobileStore } from './state';
+  import { isMobile as isMobileStore } from '$stores/isMobile';
 
   export let chainId: ChainID;
 

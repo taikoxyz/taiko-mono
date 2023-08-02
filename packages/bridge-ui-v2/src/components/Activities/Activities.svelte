@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
-  import { type Unsubscriber,writable } from 'svelte/store';
+  import { onMount } from 'svelte';
+  import { type Unsubscriber, writable } from 'svelte/store';
   import { t } from 'svelte-i18n';
 
   import { Button } from '$components/Button';
@@ -20,44 +20,13 @@
   import { paginationInfo as paginationStore } from '$stores/relayerApi';
 
   import MobileDetailsDialog from './MobileDetailsDialog.svelte';
-  import { isMobileStore } from './state';
   import Transaction from './Transaction.svelte';
 
   const log = getLogger('Transactions.svelte');
 
   export const transactions = writable<BridgeTransaction[]>([]);
 
-  onMount(() => {
-    unsubscribe = isMobileStore.subscribe((value) => {
-      isMobile = value;
-    });
-  });
-
-  onDestroy(() => {
-    if (unsubscribe) {
-      unsubscribe();
-    }
-  });
-
-  // todo: can be removed later, probably useless in production
-  window.addEventListener('resize', () => {
-    isMobileStore.set(window.innerWidth < 768);
-  });
-
-  const relayerApi = new RelayerAPIService(PUBLIC_RELAYER_URL);
-
   let currentPage = 1;
-  let totalItems = 0;
-  let pageSize = activitiesConfig.pageSizeDesktop;
-  $: pageSize = isMobile ? activitiesConfig.pageSizeMobile : activitiesConfig.pageSizeDesktop;
-
-  let loadingTxs = true;
-
-  let unsubscribe: Unsubscriber;
-  let detailsOpen = false;
-  let isMobile = false;
-
-  let selectedItem: BridgeTransaction | null = null;
 
   let isBlurred = false;
   const transitionTime = activitiesConfig.blurTransitionTime;
@@ -70,6 +39,20 @@
     }, transitionTime);
   };
 
+  const relayerApi = new RelayerAPIService(PUBLIC_RELAYER_URL);
+
+  let totalItems = 0;
+  let pageSize = activitiesConfig.pageSizeDesktop;
+  $: pageSize = isMobile ? activitiesConfig.pageSizeMobile : activitiesConfig.pageSizeDesktop;
+
+  let loadingTxs = true;
+
+  let unsubscribe: Unsubscriber;
+  let detailsOpen = false;
+  let isMobile = false;
+
+  let selectedItem: BridgeTransaction | null = null;
+
   onMount(async () => {
     if (!$account?.isConnected) {
       loadingTxs = false;
@@ -77,6 +60,12 @@
     }
     await fetchTransactions();
   });
+
+  const getTransactionsToShow = (page: number, pageSize: number, bridgeTx: BridgeTransaction[]) => {
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    return bridgeTx.slice(start, end);
+  };
 
   // Todo: move logic out of component
   const fetchTransactions = async () => {
@@ -102,12 +91,6 @@
     log(`merging ${localTxs.length} local and ${txs.length} relayer transactions. New size: ${$transactions.length}`);
 
     paginationStore.set(paginationInfo);
-  };
-
-  const getTransactionsToShow = (page: number, pageSize: number, bridgeTx: BridgeTransaction[]) => {
-    const start = (page - 1) * pageSize;
-    const end = start + pageSize;
-    return bridgeTx.slice(start, end);
   };
 
   const onWalletConnect = () => web3modal.openModal();
@@ -136,7 +119,7 @@
 </script>
 
 <div class="flex flex-col justify-center w-full">
-  <Card {isMobile} title={$t('activities.title')} text={$t('activities.description')}>
+  <Card title={$t('activities.title')} text={$t('activities.description')}>
     <div class="flex flex-col" style={`min-height: calc(${transactionsToShow.length} * 80px);`}>
       {#if !isMobile}
         <div class="h-sep" />

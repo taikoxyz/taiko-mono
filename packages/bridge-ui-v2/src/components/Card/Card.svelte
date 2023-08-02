@@ -12,7 +12,7 @@
 
   const mobileStyle = 'backdrop-blur p-5';
 
-  export let isMobile = false;
+  export let isMobile = window.innerWidth < 768;
 
   export let title: string;
   export let text = '';

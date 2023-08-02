@@ -48,12 +48,14 @@
     "title": "Recipient address",
     "description": "Customize the recipient address for your bridged tokens instead of using your current wallet address.",
     "link": "Change recipient",
-    "placeholder": "Add custom recipient 0x…"
+    "placeholder": "Add custom recipient 0x…",
+    "tooltip": "Defaults to your address. You can add a custom recipient address as well."
   },
   "processing_fee": {
     "title": "Processing fee",
     "description": "Some description about the processing fee",
     "link": "Customize fee",
+    "tooltip": "The current calculated proccessing fee for this transaction. Click edit to customize it",
     "recommended": {
       "label": "Recommended",
       "calculating": "Calculating",

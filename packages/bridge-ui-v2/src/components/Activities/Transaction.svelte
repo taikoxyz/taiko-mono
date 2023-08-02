@@ -10,9 +10,9 @@
   import { createEventDispatcher, onDestroy } from 'svelte';
 
   import { Icon } from '$components/Icon';
+  import { isMobile as isMobileStore } from '$stores/isMobile';
 
   import ChainSymbolName from './ChainSymbolName.svelte';
-  import { isMobileStore } from './state';
 
   const dispatch = createEventDispatcher();
 
