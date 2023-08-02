@@ -173,7 +173,8 @@
     },
     "network": {
       "switching": "Switching network",
-      "rejected": "Request to switch chain rejected."
+      "rejected": "Request to switch chain rejected.",
+      "pending": "A network switch is still pending, open your wallet to check the status."
     }
   },
   "common": {

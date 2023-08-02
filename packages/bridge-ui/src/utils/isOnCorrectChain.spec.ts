@@ -1,6 +1,6 @@
 import { Wallet } from 'ethers';
 
-import { taikoChain } from '../chain/chains';
+import { L2Chain } from '../chain/chains';
 import { isOnCorrectChain } from './isOnCorrectChain';
 
 jest.mock('../constants/envVars');
@@ -30,13 +30,13 @@ describe('isOnCorrectChain()', () => {
     const signer = new Wallet('0x');
 
     mockSigner.getChainId.mockImplementationOnce(() => {
-      return taikoChain.id;
+      return L2Chain.id;
     });
 
     mockProvider.getCode.mockImplementationOnce(() => {
       return '0x00';
     });
-    const result = await isOnCorrectChain(signer, taikoChain.id);
+    const result = await isOnCorrectChain(signer, L2Chain.id);
     expect(result).toBe(true);
   });
 
@@ -44,15 +44,15 @@ describe('isOnCorrectChain()', () => {
     const signer = new Wallet('0x');
 
     mockSigner.getChainId.mockImplementationOnce(() => {
-      return taikoChain.id + 1;
+      return L2Chain.id + 1;
     });
-    const result = await isOnCorrectChain(signer, taikoChain.id);
+    const result = await isOnCorrectChain(signer, L2Chain.id);
     expect(result).toBe(false);
   });
 
   it('should return false when bridgeAddress or tokenVaultAddress does not exist', async () => {
     mockSigner.getChainId.mockImplementationOnce(() => {
-      return taikoChain.id;
+      return L2Chain.id;
     });
 
     mockProvider.getCode.mockImplementationOnce(() => {
@@ -61,7 +61,7 @@ describe('isOnCorrectChain()', () => {
 
     const signer = new Wallet('0x');
 
-    const result = await isOnCorrectChain(signer, taikoChain.id);
+    const result = await isOnCorrectChain(signer, L2Chain.id);
 
     expect(result).toBe(false);
   });

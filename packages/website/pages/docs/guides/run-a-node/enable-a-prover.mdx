@@ -14,33 +14,35 @@ This guide will help you enable your Taiko node as a prover. Read more about pro
 ## Prerequisites
 
 - You have already setup a node (see: [Run a node](/docs/guides/run-a-node))
-- Must have some ETH on Sepolia (see: [Receive tokens](/docs/guides/receive-tokens)).
 - Should have at least 8/16 core CPU and 32GB of RAM.
+
+### Grimsvotn L2
+
+- Must have a balance of ETH on Sepolia L1 (see: [Receive tokens](/docs/guides/receive-tokens)).
+
+### Eldfell L3
+
+- Must have a balance of ETH on Grimsvotn L2 (see: [Receive tokens](/docs/guides/receive-tokens)).
 
 ## Steps
 
 <Steps>
-### Open `.env` file in `simple-taiko-node`
-Open the `.env` file in the `simple-taiko-node` directory.
+### Open the .env file in `simple-taiko-node`
+Open the `.env` (or `.env.l3` for Eldfell L3 provers) file in the `simple-taiko-node` directory.
 
 ### Set environment variables to enable prover
 
 <Callout type="warning">
   Do **not** use a private key that is valuable to you. The private key will be
-  stored in plain text in the `.env` file, and this is not secure. There is a
-  real risk of losing your assets. You should **only use a test account**.
+  stored in plain text in the `.env` or `.env.l3` file, and this is not secure.
+  There is a real risk of losing your assets. You should **only use a test
+  account**.
 </Callout>
 
 Set the following environment variables to enable your node as a prover:
 
 - Set `ENABLE_PROVER` to `true` (replacing the default `false` with `true`).
-- Set `L1_PROVER_PRIVATE_KEY` to that of your wallet's private key; it will need some ETH on Sepolia to prove blocks (if using MetaMask, follow these directions to [retrieve the private key](https://metamask.zendesk.com/hc/en-us/articles/360015289632-How-to-export-an-account-s-private-key)).
-
-### Stake your TTKOe (Eldfell L3 provers only)
-
-If you are trying to run a prover for Eldfell L3 first keep in mind, the competition for getting into the prover pool will be high. But don't worry! Even if you get slashed, there's nothing wrong with that. TTKOe is a worthless testnet token, and even getting slashed really helps us to test the network.
-
-To stake your TTKOe try using the [staking dashboard](https://staking.l3test.taiko.xyz/) or the base layer contract manually (see [TaikoL1](/docs/reference/contract-addresses)).
+- Set `L1_PROVER_PRIVATE_KEY` (or `L2_PROVER_PRIVATE_KEY` for Eldfell L3 provers) to that of your wallet's private key; it will need some ETH on Sepolia to prove blocks (if using MetaMask, follow these directions to [retrieve the private key](https://metamask.zendesk.com/hc/en-us/articles/360015289632-How-to-export-an-account-s-private-key)).
 
 ### Verify prover logs
 
@@ -49,10 +51,31 @@ Verify you have some prover logs:
 - `💰 Your block proof was accepted` means you are the first prover and receive the reward.
 - `✅ Block proven` just means a proposed block was successfully proved on TaikoL1 (by anyone).
 
-If you are running a node in the background, you can view the logs with `docker compose logs -f`.
+You can check all commands to see prover logs in the [node runner manual](/docs/manuals/node-runner-manual#view-client-prover-relayer-logs).
+
+### Stake your TTKOe (Eldfell L3 provers only)
+
+The simple-taiko-node comes with a default value of `PROVE_UNASSIGNED_BLOCKS` set to `true`. This means that your prover will attempt to prove these open blocks. To be assigned blocks by the protocol, you need to stake your TTKOe.
+
+To stake your TTKOe try using the [staking dashboard](https://staking.l3test.taiko.xyz/) or the base layer contract manually (see [TaikoL1](/docs/reference/contract-addresses)).
+
+1. Set the amount per capacity. This is the amount you in TTKOe you are staking. The more you stake, the higher your rank will be in prover pool.
+2. Set the reward per gas. This is the reward you want to receive in TTKOe. A good value would be close to the current protocol `feePerGas`.
+3. Set the capacity you can provide. This is the amount of parallel blocks you can handle within the proof window.
+
+### Exit your prover from prover pool (Eldfell L3 provers only)
+
+If you want to stop proving, you can exit your prover from the prover pool. This will stop your prover from being assigned blocks.
+
+There are two actions you can use on the `ProverPool.sol` contract, the proxy contract can be found [here](/docs/reference/contract-addresses#based-contracts-1):
+
+1. Withdraw. This will withdraw your stake for your prover.
+2. Exit. This will withdraw your stake and fully exit you from the prover pool (delete from storage).
+
+If want to temporarily leave the pool a withdraw should be enough, if you want to completely leave the pool you should use exit.
 
 </Steps>
 
 ## Troubleshooting
 
-Consult [Run a node - Troubleshooting](/docs/guides/run-a-node#troubleshooting) for common issues.
+View the [Node troubleshooting reference](/docs/reference/node-troubleshooting) for help on any common error codes / issues.

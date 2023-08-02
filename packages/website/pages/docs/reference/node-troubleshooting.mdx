@@ -6,9 +6,17 @@ You can ignore any WARN logs.
 
 ### Node error logs
 
+#### `error: "failed to check token balance: proposer does not have enough tko balance to propose"`
+
+You have not deposited enough TKO to pay the block fee. Deposit enough TKO from TKO token contracts. See [enable a proposer](/docs/guides/run-a-node/enable-a-proposer) for more info.
+
 #### `error: "failed to insert new head to L2 execution engine: missing trie node"`
 
 Make sure that your RPC is pointing to an Sepolia archive node, and not a full node.
+
+#### `error: "initialize rpc clients error"`
+
+The RPC in your config is incorrect.  You have to set the ENDPOINT correctly.  Please refer to the following page to set the correct RPC: https://taiko.xyz/docs/guides/run-a-node/run-a-taiko-node
 
 #### `error: "daily request count exceeded, request rate limited"`
 
@@ -81,17 +89,19 @@ You are missing the docker compose plugin [Installation Guide](https://docs.dock
 There could be several reasons, you can check the logs `docker compose logs -f` to make sure there are no errors but one of the most common cause for this is a typo in the `.env` file
 `ENABLE_PROVER=True/TRUE` when setting this to true `true` has to be in all lowercase or the script to start relayer won't run.
 
+#### `no contract code at given address`
+
+When running a L3 node, users may run into this issue if their underlying L2 is still syncing. Please wait until your L2 is fully synced before starting your L3 node.
+
+#### `Failed to start Taiko client with error code 1 | project ID does not have access to archive state`
+
+The L1 node that the user is pointing to is not an archive node. Please change your RPC endpoint to point to an archive node.
+
 #### `simple-taiko-node-taiko_client_prover_relayer-1  | /bin/sh: /script/start-prover-relayer.sh: not found`
 
 This issue occurs on windows because of the Control Characters in this case the Line Endings, a quick fix would be to delete the node folder, run this `git config --global core.autocrlf false` in the shell, then clone the repo again.
 
 If you do not want to delete the node folder, please follow one of these steps below.
-
-#### `no contract code at given address`
-
-When running a L3 node, users may run into this issue if their underlying L2 is still syncing. Please wait until your L2 is fully synced before starting your L3 node.
-
-{" "}
 
 <Tabs items={["Command line", "Notepad"]} defaultIndex="0">
   <Tab>
@@ -123,3 +133,7 @@ When running a L3 node, users may run into this issue if their underlying L2 is 
 
   </Tab>
 </Tabs>
+
+#### `dial tcp: connect: connection refused`
+
+This means that you are not able to connect to the RPC endpoint. Check if you have a firewall up and that you are allowing those ports. For Ubuntu, this would be checked with "sudo ufw status".

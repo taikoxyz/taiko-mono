@@ -6,6 +6,7 @@
   "scripts": {
     "start": "pnpm run dev",
     "start:a3": "pnpm run dev --mode a3",
+    "start:l3": "pnpm run dev --mode l3",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
