@@ -566,6 +566,8 @@ contract ERC1155VaultTest is Test {
         assertEq(ctoken1155.balanceOf(Alice, 1), 10);
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 0);
 
+        console2.log("Vault address:", address(erc1155Vault));
+
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = 1;
 
@@ -605,6 +607,7 @@ contract ERC1155VaultTest is Test {
         message.srcChainId = 31_337;
         message.destChainId = destChainId;
         message.owner = Alice;
+        message.sender = address(erc1155Vault);
         message.to = address(destChainErc1155Vault);
         message.data = srcPrankBridge.getPreDeterminedDataBytes();
         message.gasLimit = 140_000;

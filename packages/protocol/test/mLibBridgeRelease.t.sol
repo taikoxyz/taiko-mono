@@ -6,11 +6,12 @@
 
 pragma solidity ^0.8.20;
 
-import { Test } from "forge-std/Test.sol";
-import { console2 } from "forge-std/console2.sol";
 import { AddressResolver } from "../contracts/common/AddressResolver.sol";
 import { EtherVault } from "../contracts/bridge/EtherVault.sol";
 import { IBridge } from "../contracts/bridge/IBridge.sol";
+import {
+    IERC165Upgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import { LibBridgeData } from "../contracts/bridge/libs/LibBridgeData.sol";
 import { LibBridgeStatus } from "../contracts/bridge/libs/LibBridgeStatus.sol";
 
@@ -24,6 +25,9 @@ interface VaultContract {
 
 library LibBridgeRelease {
     using LibBridgeData for IBridge.Message;
+
+    // All of the vaults has the same interface id
+    bytes4 public constant VAULT_INTERFACE_ID = 0x156ef222;
 
     event EtherReleased(bytes32 indexed msgHash, address to, uint256 amount);
 
@@ -73,7 +77,7 @@ library LibBridgeRelease {
         }
         
         if(state.recallStatus[msgHash] 
-                == LibBridgeData.RecallStatus.ETH_AND_TOKEN_RELEASED
+                == LibBridgeData.RecallStatus.FULLY_RECALLED
         ){
             // Both ether and tokens are released
             revert B_TOKENS_RELEASED_ALREADY();
@@ -108,26 +112,25 @@ library LibBridgeRelease {
         //2nd stage is releasing the tokens
         if(state.recallStatus[msgHash] 
                 == LibBridgeData.RecallStatus.ETH_RELEASED 
-                && message.to != address(0)
-                && message.data.length != 0
         ) {
-            // We now, need to know which tokenVault 'IS' the one. So from message.to - we cannot
-            // really query that because it contains the destination address so we need to 'trial
-            // and error.'
-            // We have 3 vaults, so we need to try to get those and execute
-            for (uint i = 0; i < 3; i++) { 
-                // Now try to process message.data via calling the releaseToken() on
-                // the proper vault
+            if( message.to == address(0)
+                || !_isContract(message.sender)
+                || !IERC165Upgradeable(message.sender).supportsInterface(VAULT_INTERFACE_ID) 
+            ) {
+                state.recallStatus[msgHash] = LibBridgeData.RecallStatus.FULLY_RECALLED;
+            } else {
+                // Set state before successfull call because of reentrancy
+                // we changing it back in the catch() if call unsuccessful
                 state.recallStatus[msgHash] =
-                    LibBridgeData.RecallStatus.ETH_AND_TOKEN_RELEASED;
+                    LibBridgeData.RecallStatus.FULLY_RECALLED;
                 try VaultContract(
-                    _getVaultSrcChain(message.srcChainId,i)
+                    (message.sender)
                 ).releaseToken(message){
-                    //If sucess, then break
-                    break;
                 } catch {
                     // If it had a token (erc20/721/1115) try to release
-                    // it and if unsuccessfull set the status back
+                    // it and if unsuccessfull set the status back so that
+                    // we might try once more to releaseTokens - if it
+                    // fails bc. we forgot to set AddressManager or something (?)
                     state.recallStatus[msgHash] = LibBridgeData.RecallStatus.ETH_RELEASED;
                 }
             }
@@ -135,29 +138,11 @@ library LibBridgeRelease {
         emit EtherReleased(msgHash, message.owner, releaseAmount);
     }
 
-    function _getVaultSrcChain(
-        uint srcChainId,
-        uint256 idx
-    )
-        internal
-        view
-        returns(address retVal)
-    {
-        if (idx == 0) {
-            return AddressResolver(address(this)).resolve(
-                    srcChainId, "erc20_vault", false
-                );
+    function _isContract(address _addr) private view returns (bool isContract){
+        uint32 size;
+        assembly {
+            size := extcodesize(_addr)
         }
-        else if (idx == 1) {
-            return AddressResolver(address(this)).resolve(
-                    srcChainId, "erc721_vault", false
-                );
-        }
-        else if (idx == 2) {
-            return AddressResolver(address(this)).resolve(
-                    srcChainId, "erc1155_vault", false
-                );
-        }
+        return (size > 0);
     }
 }
-

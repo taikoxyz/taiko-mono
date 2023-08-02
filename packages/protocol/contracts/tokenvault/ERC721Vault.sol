@@ -6,14 +6,15 @@
 
 pragma solidity ^0.8.20;
 
-import { IERC165 } from
-    "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import { IERC721Receiver } from
     "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import { IERC721Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
 import { ERC721Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+import {
+    IERC165Upgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import { Create2Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 import { IBridge } from "../bridge/IBridge.sol";
@@ -27,7 +28,7 @@ import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
  * It also manages the mapping between canonical tokens and their bridged
  * tokens.
  */
-contract ERC721Vault is BaseNFTVault, IERC721Receiver {
+contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
     uint256[50] private __gap;
 
     /**
@@ -45,8 +46,8 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         onlyValidAmounts(opt.amounts, opt.tokenIds, true)
     {
         if (
-            !IERC165(opt.token).supportsInterface(ERC721_INTERFACE_ID)
-                || IERC165(opt.token).supportsInterface(ERC1155_INTERFACE_ID)
+            !IERC165Upgradeable(opt.token).supportsInterface(ERC721_INTERFACE_ID)
+                || IERC165Upgradeable(opt.token).supportsInterface(ERC1155_INTERFACE_ID)
         ) {
             revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
@@ -190,6 +191,13 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             tokenIds: tokenIds,
             amounts: new uint256[](0)
         });
+    }
+
+    /**
+     * @dev See {IERC165-supportsInterface}.
+     */
+    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+        return interfaceId == ERC721Vault.releaseToken.selector;
     }
 
     function onERC721Received(

@@ -6,8 +6,9 @@
 
 pragma solidity ^0.8.20;
 
-import { IERC165 } from
-    "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import {
+    IERC165Upgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import { ERC1155ReceiverUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
 import { IERC1155Receiver } from
@@ -58,8 +59,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         onlyValidAmounts(opt.amounts, opt.tokenIds, false)
     {
         if (
-            !IERC165(opt.token).supportsInterface(ERC1155_INTERFACE_ID)
-                || IERC165(opt.token).supportsInterface(ERC721_INTERFACE_ID)
+            !IERC165Upgradeable(opt.token).supportsInterface(ERC1155_INTERFACE_ID)
+                || IERC165Upgradeable(opt.token).supportsInterface(ERC721_INTERFACE_ID)
         ) {
             revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
@@ -209,6 +210,14 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             tokenIds: tokenIds,
             amounts: amounts
         });
+    }
+
+    /**
+     * @dev See {IERC165-supportsInterface}.
+     */
+    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155ReceiverUpgradeable) returns (bool) {
+        return interfaceId == type(ERC1155ReceiverUpgradeable).interfaceId || super.supportsInterface(interfaceId)
+        || interfaceId == ERC1155Vault.releaseToken.selector;
     }
 
     function onERC1155Received(

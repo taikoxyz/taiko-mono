@@ -22,7 +22,7 @@ library LibBridgeData {
     enum RecallStatus {
         NOT_RECALLED,
         ETH_RELEASED,
-        ETH_AND_TOKEN_RELEASED
+        FULLY_RECALLED
     }
     /// @dev The State struct stores the state of messages in the Bridge
     /// contract.
