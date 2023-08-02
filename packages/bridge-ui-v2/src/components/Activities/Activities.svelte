@@ -1,10 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { type Unsubscriber, writable } from 'svelte/store';
+  import { writable } from 'svelte/store';
   import { t } from 'svelte-i18n';
 
   import { Button } from '$components/Button';
   import { Card } from '$components/Card';
+  import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import { Paginator } from '$components/Paginator';
   import { Spinner } from '$components/Spinner';
@@ -43,13 +44,12 @@
 
   let totalItems = 0;
   let pageSize = activitiesConfig.pageSizeDesktop;
-  $: pageSize = isMobile ? activitiesConfig.pageSizeMobile : activitiesConfig.pageSizeDesktop;
+  $: pageSize = isDesktopOrLarger ? activitiesConfig.pageSizeDesktop : activitiesConfig.pageSizeMobile;
 
   let loadingTxs = true;
 
-  let unsubscribe: Unsubscriber;
   let detailsOpen = false;
-  let isMobile = false;
+  let isDesktopOrLarger: boolean;
 
   let selectedItem: BridgeTransaction | null = null;
 
@@ -87,6 +87,7 @@
     loadingTxs = false;
 
     $transactions = mergeUniqueTransactions(localTxs, txs);
+    //Todo: clear storage if local tx are identical to relayer tx
 
     log(`merging ${localTxs.length} local and ${txs.length} relayer transactions. New size: ${$transactions.length}`);
 
@@ -121,7 +122,7 @@
 <div class="flex flex-col justify-center w-full">
   <Card title={$t('activities.title')} text={$t('activities.description')}>
     <div class="flex flex-col" style={`min-height: calc(${transactionsToShow.length} * 80px);`}>
-      {#if !isMobile}
+      {#if isDesktopOrLarger}
         <div class="h-sep" />
         <div class=" text-white flex">
           <div class="w-1/5 px-4 py-2">{$t('activities.header.from')}</div>
@@ -137,7 +138,7 @@
           class="flex flex-col items-center"
           style={isBlurred ? `filter: blur(5px); transition: filter ${transitionTime / 1000}s ease-in-out` : ''}>
           {#each transactionsToShow as item (item.hash)}
-            <Transaction {item} on:click={isMobile ? () => openDetails(item) : undefined} />
+            <Transaction {item} on:click={isDesktopOrLarger ? undefined : () => openDetails(item)} />
             <div class="h-sep" />
           {/each}
         </div>
@@ -168,3 +169,4 @@
 <MobileDetailsDialog {closeDetails} {detailsOpen} {selectedItem} />
 
 <OnAccount change={onAccountChange} />
+<DesktopOrLarger bind:is={isDesktopOrLarger} />

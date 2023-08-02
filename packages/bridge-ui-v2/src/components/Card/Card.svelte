@@ -1,5 +1,8 @@
 <script lang="ts">
+  import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { classNames } from '$libs/util/classNames';
+
+  let isDesktopOrLarger: boolean;
 
   const desktopStyle = `card 
       w-full 
@@ -12,13 +15,10 @@
 
   const mobileStyle = 'backdrop-blur p-5';
 
-  export let isMobile = window.innerWidth < 768;
-
   export let title: string;
   export let text = '';
 
-  // export let classes = classNames(isMobile ? mobileStyle : desktopStyle, $$props.class);
-  $: classes = classNames(isMobile ? mobileStyle : desktopStyle, $$props.class);
+  $: classes = classNames(isDesktopOrLarger ? desktopStyle : mobileStyle, $$props.class);
 </script>
 
 <div class={classes}>
@@ -32,3 +32,5 @@
     </div>
   </div>
 </div>
+
+<DesktopOrLarger bind:is={isDesktopOrLarger} />
