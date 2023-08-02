@@ -15,6 +15,7 @@
   import { statusComponent } from '$config';
   import { bridges, type BridgeTransaction, MessageStatus } from '$libs/bridge';
   import { PollingEvent, startPolling } from '$libs/bridge/bridgeTxMessageStatusPoller';
+  import { isBridgeTxProcessable } from '$libs/bridge/isBridgeTxProcessable';
   import { chains, chainUrlMap } from '$libs/chain';
   import {
     InsufficientBalanceError,
@@ -223,9 +224,12 @@
     }
   }
 
-  onMount(() => {
+  onMount(async () => {
     if (bridgeTx) {
       bridgeTxStatus = bridgeTx.status; // get the current status
+
+      // Can we start claiming/retrying/releasing?
+      processable = await isBridgeTxProcessable(bridgeTx);
 
       try {
         polling = startPolling(bridgeTx);
@@ -252,7 +256,10 @@
 </script>
 
 <div class="Status f-items-center space-x-1">
-  {#if loading}
+  {#if !processable}
+    <StatusDot type="pending" />
+    <span>{$t('activities.status.initiated')}</span>
+  {:else if loading}
     TODO: add loading indicator and text for 'claiming', 'retrying', 'releasing'
   {:else if bridgeTxStatus === MessageStatus.NEW}
     <button class="status-btn w-full" on:click={claim}>
@@ -269,9 +276,6 @@
     <button class="status-btn w-full" on:click={release}>
       {$t('activities.button.claim')}
     </button>
-  {:else if !processable}
-    <StatusDot type="pending" />
-    <span>{$t('activities.status.initiated')}</span>
   {:else}
     <!-- TODO: look into this possible state -->
     <StatusDot type="error" />

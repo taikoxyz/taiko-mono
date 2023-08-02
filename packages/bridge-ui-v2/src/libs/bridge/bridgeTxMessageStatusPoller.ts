@@ -45,7 +45,7 @@ const hashIntervalMap: Record<Hash, Interval> = {};
  *   // something really bad with this bridgeTx
  * }
  */
-export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true) {
+export function startPolling(bridgeTx: BridgeTransaction, runImmediately = false) {
   const { hash, destChainId, msgHash, status } = bridgeTx;
 
   // Without this we cannot poll at all. Let's throw an error

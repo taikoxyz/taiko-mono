@@ -29,7 +29,7 @@ export async function isBridgeTxProcessable(bridgeTx: BridgeTransaction) {
       blockHash,
     });
 
-    return srcBlock.number && receipt.blockNumber <= srcBlock.number;
+    return srcBlock.number !== null && receipt.blockNumber <= srcBlock.number;
   } catch (error) {
     return false;
   }
