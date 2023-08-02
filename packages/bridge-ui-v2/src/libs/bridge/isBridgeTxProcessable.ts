@@ -4,15 +4,20 @@ import { crossChainSyncABI } from '$abi';
 import { chainContractsMap } from '$libs/chain';
 import { publicClient } from '$libs/wagmi';
 
-import type { BridgeTransaction } from './types';
+import { type BridgeTransaction,MessageStatus } from './types';
 
 export async function isBridgeTxProcessable(bridgeTx: BridgeTransaction) {
-  const { receipt, message, srcChainId, destChainId } = bridgeTx;
+  const { receipt, message, srcChainId, destChainId, status } = bridgeTx;
 
   // Without these guys there is no way we can process this
   // bridge transaction. The receipt is needed in order to compare
   // the block number with the cross chain block number.
   if (!receipt || !message) return false;
+
+  // Any other status that's not NEW we assume this bridge tx
+  // has already been processed (was processable)
+  // TODO: do better job here as this is to make the UI happy
+  if (status !== MessageStatus.NEW) return true;
 
   const destCrossChainSyncAddress = chainContractsMap[Number(destChainId)].crossChainSyncAddress;
 
