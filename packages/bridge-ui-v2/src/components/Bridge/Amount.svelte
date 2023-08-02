@@ -208,12 +208,9 @@
         {$t('inputs.amount_input.button.max')}
       </button>
     </div>
-
-    {#if $insufficientBalance}
+    {#if $insufficientBalance && $enteredAmount > 0}
       <FlatAlert type="error" message={$t('bridge.errors.insufficient_balance')} class="absolute bottom-[-26px]" />
-    {/if}
-
-    {#if $insufficientAllowance}
+    {:else if $insufficientAllowance && $enteredAmount > 0}
       <FlatAlert type="warning" message={$t('bridge.errors.insufficient_allowance')} class="absolute bottom-[-26px]" />
     {/if}
   </div>
