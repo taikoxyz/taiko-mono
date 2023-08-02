@@ -387,7 +387,7 @@ contract TestERC20Vault is Test {
         // Upgrade the implementation of that contract
         // so that it supports now the 'helloWorld' call
         UpdatedBridgedERC20 newBridgedContract = new UpdatedBridgedERC20();
-        vm.prank(Amelia, Amelia);
+        vm.startPrank(Amelia);
         TransparentUpgradeableProxy(payable(bridgedAddressAfter)).upgradeTo(
             address(newBridgedContract)
         );
