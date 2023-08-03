@@ -387,11 +387,13 @@ contract TestERC20Vault is Test {
         // Upgrade the implementation of that contract
         // so that it supports now the 'helloWorld' call
         UpdatedBridgedERC20 newBridgedContract = new UpdatedBridgedERC20();
+        vm.stopPrank();
         vm.prank(Amelia, Amelia);
         TransparentUpgradeableProxy(payable(bridgedAddressAfter)).upgradeTo(
             address(newBridgedContract)
         );
 
+        vm.prank(Alice, Alice);
         try UpdatedBridgedERC20(bridgedAddressAfter).helloWorld() {
             //It should support now this function call
             assertEq(true, true);
