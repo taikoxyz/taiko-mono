@@ -46,8 +46,10 @@ export const testERC20Tokens: Token[] = TEST_ERC20.map(
       [L2_CHAIN_ID]: '0x00',
     },
     decimals: 18,
+
+    // TODO: in the future the whole URL will come from env var
     logoComponent: symbolToLogoComponent[symbol] || Unknown,
-    logoUrl: logoUrl,
+    logoUrl, // TODO: this is not used yet
   }),
 );
 
