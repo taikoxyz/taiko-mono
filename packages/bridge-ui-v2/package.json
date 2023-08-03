@@ -29,9 +29,8 @@
     "@typescript-eslint/parser": "^5.45.0",
     "@vitest/coverage-v8": "^0.33.0",
     "@wagmi/cli": "^1.0.1",
-    "abitype": "^0.9.5",
+    "abitype": "^0.8.7",
     "autoprefixer": "^10.4.14",
-    "axios": "^1.4.0",
     "daisyui": "3.1.7",
     "eslint": "^8.28.0",
     "eslint-config-prettier": "^8.5.0",
@@ -57,7 +56,9 @@
     "@web3modal/ethereum": "^2.6.2",
     "@web3modal/html": "^2.6.2",
     "@zerodevx/svelte-toast": "^0.9.5",
+    "axios": "^1.4.0",
     "debug": "^4.3.4",
+    "events": "^3.3.0",
     "svelte-i18n": "^3.6.0",
     "viem": "^1.4.1"
   }

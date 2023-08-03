@@ -11,7 +11,7 @@
     <tr class="border-b border-b-divider-border">
       <th>{$t('chain.from')}</th>
       <th>{$t('chain.to')}</th>
-      <th align="center">{$t('amount_input.label')}</th>
+      <th align="center">{$t('amount.label')}</th>
       <th>
         <div class="f-items-center space-x-1">
           <span>{$t('activities.header.status')}</span>

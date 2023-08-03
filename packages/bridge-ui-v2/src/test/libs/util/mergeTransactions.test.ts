@@ -1,6 +1,7 @@
 import type { Address, Hex } from 'viem';
 
 import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
+import { TokenType } from '$libs/token';
 import { mergeUniqueTransactions } from '$libs/util/mergeTransactions';
 
 describe('mergeUniqueTransactions', () => {
@@ -17,7 +18,7 @@ describe('mergeUniqueTransactions', () => {
       status: MessageStatus.DONE,
       msgHash: 'msg1' as Hex,
       receipt: undefined,
-      interval: null,
+      tokenType: TokenType.ERC20,
     },
     {
       hash: 'hash2' as Hex,
@@ -30,7 +31,7 @@ describe('mergeUniqueTransactions', () => {
       status: MessageStatus.DONE,
       msgHash: 'msg2' as Hex,
       receipt: undefined,
-      interval: null,
+      tokenType: TokenType.ERC20,
     },
   ];
 
@@ -46,7 +47,7 @@ describe('mergeUniqueTransactions', () => {
       status: MessageStatus.DONE,
       msgHash: 'msg3' as Hex,
       receipt: undefined,
-      interval: null,
+      tokenType: TokenType.ERC20,
     },
     {
       hash: 'hash4' as Hex,
@@ -59,7 +60,7 @@ describe('mergeUniqueTransactions', () => {
       status: MessageStatus.DONE,
       msgHash: 'msg4' as Hex,
       receipt: undefined,
-      interval: null,
+      tokenType: TokenType.ERC20,
     },
   ];
 

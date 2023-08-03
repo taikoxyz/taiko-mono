@@ -2,6 +2,7 @@ import type { Hash, WalletClient } from '@wagmi/core';
 import type { Address, Hex, TransactionReceipt } from 'viem';
 
 import type { ChainID } from '$libs/chain';
+import type { TokenType } from '$libs/token';
 
 export enum MessageStatus {
   NEW,
@@ -47,8 +48,8 @@ export type Message = {
 export type RelayerMessage = {
   Id: bigint;
   Sender: Address;
-  SrcChainId: bigint;
-  DestChainId: bigint;
+  SrcChainId: number | string | bigint;
+  DestChainId: number | string | bigint;
   Owner: Address;
   To: Address;
   RefundAddress: Address;
@@ -68,13 +69,15 @@ export type BridgeTransaction = {
   decimals: number;
   srcChainId: ChainID;
   destChainId: ChainID;
+  tokenType: TokenType;
+
+  // Used for sorting local ones
+  timestamp?: number;
 
   status?: MessageStatus;
   receipt?: TransactionReceipt;
   msgHash?: Hash;
   message?: Message;
-
-  interval: Maybe<ReturnType<typeof setInterval>>;
 };
 
 // TokenVault sendERC20(...args)
