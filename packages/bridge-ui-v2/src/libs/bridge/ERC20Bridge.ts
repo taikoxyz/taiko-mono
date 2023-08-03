@@ -169,7 +169,7 @@ export class ERC20Bridge extends Bridge {
     try {
       log('Calling sendERC20 with value', value);
 
-      const txHash = tokenVaultContract.write.sendERC20([...sendERC20Args], { value });
+      const txHash = await tokenVaultContract.write.sendERC20([...sendERC20Args], { value });
 
       log('Transaction hash for sendERC20 call', txHash);
 
