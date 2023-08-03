@@ -216,7 +216,7 @@ importers:
         specifier: ^0.9.5
         version: 0.9.5(svelte@4.1.0)
       axios:
-        specifier: ^1.2.0
+        specifier: ^1.4.0
         version: 1.4.0(debug@4.3.4)
       debug:
         specifier: ^4.3.4
@@ -259,7 +259,7 @@ importers:
         specifier: ^1.0.1
         version: 1.0.1(@wagmi/core@1.3.6)(typescript@5.1.6)
       abitype:
-        specifier: ^0.8.2
+        specifier: ^0.8.7
         version: 0.8.7(typescript@5.1.6)(zod@3.21.4)
       autoprefixer:
         specifier: ^10.4.14
