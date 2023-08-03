@@ -23,7 +23,7 @@ var (
 
 func testMysql(t *testing.T) (eventindexer.DB, func(), error) {
 	req := testcontainers.ContainerRequest{
-		Image:        "mysql:latest",
+		Image:        "mysql:8.0.33",
 		ExposedPorts: []string{"3306/tcp", "33060/tcp"},
 		Env: map[string]string{
 			"MYSQL_ROOT_PASSWORD": dbPassword,
