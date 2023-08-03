@@ -106,8 +106,8 @@
 
   // Controls what we render on the page
   $: renderLoading = loadingTxs && isConnected;
-  $: renderTransactions = !loadingTxs && isConnected && hasTxs;
-  $: renderNoTransactions = !loadingTxs && (!isConnected || !hasTxs);
+  $: renderTransactions = !renderLoading && isConnected && hasTxs;
+  $: renderNoTransactions = !renderLoading && !renderTransactions;
 </script>
 
 <div class="flex flex-col justify-center w-full">
