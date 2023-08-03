@@ -48,12 +48,8 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
         );
 
         try IERC165Upgradeable(opt.token).supportsInterface(ERC721_INTERFACE_ID)
-        {
-            if (
-                !IERC165Upgradeable(opt.token).supportsInterface(
-                    ERC721_INTERFACE_ID
-                )
-            ) {
+        returns (bool _supports) {
+            if (!_supports) {
                 revert VAULT_INTERFACE_NOT_SUPPORTED();
             }
         } catch {

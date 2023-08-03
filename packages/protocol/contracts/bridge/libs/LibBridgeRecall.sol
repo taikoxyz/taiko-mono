@@ -13,7 +13,6 @@ import { IERC165Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import { LibBridgeData } from "./LibBridgeData.sol";
 import { LibBridgeStatus } from "./LibBridgeStatus.sol";
-import { LibAddress } from "../../libs/LibAddress.sol";
 
 /**
  * This library provides functions for releasing Ether (and tokens) related to
@@ -23,14 +22,13 @@ import { LibAddress } from "../../libs/LibAddress.sol";
 
 library LibBridgeRecall {
     using LibBridgeData for IBridge.Message;
-    using LibAddress for address;
 
     // All of the vaults has the same interface id
     bytes4 public constant RECALLABLE_MESSAGE_SENDER_INTERFACE_ID = 0x59dca5b0;
 
     event MessageRecalled(
         bytes32 indexed msgHash,
-        address to,
+        address sender,
         uint256 amount,
         LibBridgeData.RecallStatus status
     );
@@ -60,7 +58,7 @@ library LibBridgeRecall {
     )
         internal
     {
-        if (message.owner == address(0)) {
+        if (message.sender == address(0)) {
             revert B_OWNER_IS_NULL();
         }
 
@@ -82,7 +80,6 @@ library LibBridgeRecall {
             state.recallStatus[msgHash]
                 == LibBridgeData.RecallStatus.FULLY_RECALLED
         ) {
-            // Both ether and tokens are released
             revert B_ETHER_RELEASED_ALREADY();
         }
 
@@ -120,14 +117,16 @@ library LibBridgeRecall {
             state.recallStatus[msgHash]
                 == LibBridgeData.RecallStatus.ETH_RELEASED
         ) {
-            if (message.sender.isContract()) {
-                if (isRecallableMessageSender(message.sender)) {
-                    try IRecallableMessageSender((message.sender))
-                        .onMessageRecalled(message) {
-                        state.recallStatus[msgHash] =
-                            LibBridgeData.RecallStatus.FULLY_RECALLED;
-                    } catch { }
-                }
+            if (
+                message.sender.code.length > 0
+                    && isRecallableMessageSender(message.sender)
+            ) {
+                try IRecallableMessageSender((message.sender)).onMessageRecalled(
+                    message
+                ) {
+                    state.recallStatus[msgHash] =
+                        LibBridgeData.RecallStatus.FULLY_RECALLED;
+                } catch { }
             } else {
                 state.recallStatus[msgHash] =
                     LibBridgeData.RecallStatus.FULLY_RECALLED;
@@ -145,16 +144,8 @@ library LibBridgeRecall {
     {
         try IERC165Upgradeable(addr).supportsInterface(
             RECALLABLE_MESSAGE_SENDER_INTERFACE_ID
-        ) {
-            if (
-                IERC165Upgradeable(addr).supportsInterface(
-                    RECALLABLE_MESSAGE_SENDER_INTERFACE_ID
-                )
-            ) {
-                // It not only succeeds but also returned true
-                // RECALLABLE_MESSAGE_SENDER_INTERFACE_ID
-                return true;
-            }
+        ) returns (bool _supports) {
+            retVal = _supports;
         } catch { }
     }
 }

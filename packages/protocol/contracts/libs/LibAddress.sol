@@ -28,12 +28,4 @@ library LibAddress {
             codehash := extcodehash(addr)
         }
     }
-
-    function isContract(address addr) internal view returns (bool) {
-        uint32 size;
-        assembly {
-            size := extcodesize(addr)
-        }
-        return (size > 0);
-    }
 }

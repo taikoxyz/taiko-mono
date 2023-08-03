@@ -15,7 +15,6 @@ import { IERC165Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import { LibBridgeData } from "../contracts/bridge/libs/LibBridgeData.sol";
 import { LibBridgeStatus } from "../contracts/bridge/libs/LibBridgeStatus.sol";
-import { LibAddress } from "../contracts/libs/LibAddress.sol";
 
 interface VaultContract {
     function releaseToken(IBridge.Message calldata message) external;
@@ -27,7 +26,6 @@ interface VaultContract {
 
 library LibBridgeRecall {
     using LibBridgeData for IBridge.Message;
-    using LibAddress for address;
 
     // All of the vaults has the same interface id
     bytes4 public constant RECALLABLE_MESSAGE_SENDER_INTERFACE_ID = 0x59dca5b0;
@@ -126,7 +124,7 @@ library LibBridgeRecall {
             state.recallStatus[msgHash]
                 == LibBridgeData.RecallStatus.ETH_RELEASED
         ) {
-            if (message.sender.isContract()) {
+            if (message.sender.code.length > 0) {
                 if (isRecallableMessageSender(message.sender)) {
                     try IRecallableMessageSender((message.sender))
                         .onMessageRecalled(message) {

@@ -62,12 +62,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 
         try IERC165Upgradeable(opt.token).supportsInterface(
             ERC1155_INTERFACE_ID
-        ) {
-            if (
-                !IERC165Upgradeable(opt.token).supportsInterface(
-                    ERC1155_INTERFACE_ID
-                )
-            ) {
+        ) returns (bool _supports) {
+            if (!_supports) {
                 revert VAULT_INTERFACE_NOT_SUPPORTED();
             }
         } catch {
