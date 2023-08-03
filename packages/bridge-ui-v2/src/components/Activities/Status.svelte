@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { error } from '@sveltejs/kit';
   import { type Address, fetchBalance, switchNetwork } from '@wagmi/core';
   import { onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
@@ -16,7 +15,7 @@
   import { bridges, type BridgeTransaction, MessageStatus } from '$libs/bridge';
   import { isTransactionProcessable } from '$libs/bridge/isTransactionProcessable';
   import { PollingEvent, startPolling } from '$libs/bridge/messageStatusPoller';
-  import { chains, chainUrlMap } from '$libs/chain';
+  import { chainUrlMap } from '$libs/chain';
   import {
     InsufficientBalanceError,
     InvalidProofError,
