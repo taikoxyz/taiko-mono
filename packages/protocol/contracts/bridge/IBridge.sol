@@ -9,7 +9,7 @@ pragma solidity ^0.8.20;
 /**
  * Bridge interface.
  * @dev Ether is held by Bridges on L1 and by the EtherVault on L2,
- * not TokenVaults.
+ * not by token vaults.
  */
 interface IBridge {
     struct Message {

@@ -5,25 +5,34 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/patrickmn/go-cache"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/proverpool"
 
 	echoprom "github.com/labstack/echo-contrib/prometheus"
 	echo "github.com/labstack/echo/v4"
 )
 
 type Server struct {
-	echo      *echo.Echo
-	eventRepo eventindexer.EventRepository
-	statRepo  eventindexer.StatRepository
+	echo       *echo.Echo
+	eventRepo  eventindexer.EventRepository
+	statRepo   eventindexer.StatRepository
+	cache      *cache.Cache
+	proverPool *proverpool.ProverPool
 }
 
 type NewServerOpts struct {
-	Echo        *echo.Echo
-	EventRepo   eventindexer.EventRepository
-	StatRepo    eventindexer.StatRepository
-	CorsOrigins []string
+	Echo              *echo.Echo
+	EventRepo         eventindexer.EventRepository
+	StatRepo          eventindexer.StatRepository
+	ProverPoolAddress common.Address
+	EthClient         *ethclient.Client
+	CorsOrigins       []string
 }
 
 func (opts NewServerOpts) Validate() error {
@@ -43,6 +52,8 @@ func (opts NewServerOpts) Validate() error {
 		return eventindexer.ErrNoCORSOrigins
 	}
 
+	// proverpooladdress is optional
+
 	return nil
 }
 
@@ -51,10 +62,25 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 		return nil, err
 	}
 
+	cache := cache.New(5*time.Minute, 10*time.Minute)
+
+	var proverPool *proverpool.ProverPool
+
+	var err error
+
+	if opts.ProverPoolAddress.Hex() != "" {
+		proverPool, err = proverpool.NewProverPool(opts.ProverPoolAddress, opts.EthClient)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	srv := &Server{
-		echo:      opts.Echo,
-		eventRepo: opts.EventRepo,
-		statRepo:  opts.StatRepo,
+		echo:       opts.Echo,
+		eventRepo:  opts.EventRepo,
+		statRepo:   opts.StatRepo,
+		cache:      cache,
+		proverPool: proverPool,
 	}
 
 	corsOrigins := opts.CorsOrigins
