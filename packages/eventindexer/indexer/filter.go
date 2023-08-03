@@ -5,8 +5,8 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/labstack/gommon/log"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -17,6 +17,7 @@ type FilterFunc func(
 	filterOpts *bind.FilterOpts,
 ) error
 
+// nolint
 func L1FilterFunc(
 	ctx context.Context,
 	chainID *big.Int,
@@ -25,61 +26,122 @@ func L1FilterFunc(
 ) error {
 	wg, ctx := errgroup.WithContext(ctx)
 
-	wg.Go(func() error {
-		blockProvenEvents, err := svc.taikol1.FilterBlockProven(filterOpts, nil)
-		if err != nil {
-			return errors.Wrap(err, "svc.taikol1.FilterBlockProven")
-		}
+	if svc.taikol1 != nil {
+		wg.Go(func() error {
+			blockProvenEvents, err := svc.taikol1.FilterBlockProven(filterOpts, nil)
+			if err != nil {
+				return errors.Wrap(err, "svc.taikol1.FilterBlockProven")
+			}
 
-		err = svc.saveBlockProvenEvents(ctx, chainID, blockProvenEvents)
-		if err != nil {
-			return errors.Wrap(err, "svc.saveBlockProvenEvents")
-		}
+			err = svc.saveBlockProvenEvents(ctx, chainID, blockProvenEvents)
+			if err != nil {
+				return errors.Wrap(err, "svc.saveBlockProvenEvents")
+			}
 
-		return nil
-	})
+			return nil
+		})
 
-	wg.Go(func() error {
-		blockProposedEvents, err := svc.taikol1.FilterBlockProposed(filterOpts, nil)
-		if err != nil {
-			return errors.Wrap(err, "svc.taikol1.FilterBlockProposed")
-		}
+		wg.Go(func() error {
+			blockProposedEvents, err := svc.taikol1.FilterBlockProposed(filterOpts, nil, nil)
+			if err != nil {
+				return errors.Wrap(err, "svc.taikol1.FilterBlockProposed")
+			}
 
-		err = svc.saveBlockProposedEvents(ctx, chainID, blockProposedEvents)
-		if err != nil {
-			return errors.Wrap(err, "svc.saveBlockProposedEvents")
-		}
+			err = svc.saveBlockProposedEvents(ctx, chainID, blockProposedEvents)
+			if err != nil {
+				return errors.Wrap(err, "svc.saveBlockProposedEvents")
+			}
 
-		return nil
-	})
+			return nil
+		})
 
-	wg.Go(func() error {
-		blockVerifiedEvents, err := svc.taikol1.FilterBlockVerified(filterOpts, nil)
-		if err != nil {
-			return errors.Wrap(err, "svc.taikol1.FilterBlockVerified")
-		}
+		wg.Go(func() error {
+			blockVerifiedEvents, err := svc.taikol1.FilterBlockVerified(filterOpts, nil)
+			if err != nil {
+				return errors.Wrap(err, "svc.taikol1.FilterBlockVerified")
+			}
 
-		err = svc.saveBlockVerifiedEvents(ctx, chainID, blockVerifiedEvents)
-		if err != nil {
-			return errors.Wrap(err, "svc.saveBlockVerifiedEvents")
-		}
+			err = svc.saveBlockVerifiedEvents(ctx, chainID, blockVerifiedEvents)
+			if err != nil {
+				return errors.Wrap(err, "svc.saveBlockVerifiedEvents")
+			}
 
-		return nil
-	})
+			return nil
+		})
+	}
 
-	wg.Go(func() error {
-		messagesSent, err := svc.bridge.FilterMessageSent(filterOpts, nil)
-		if err != nil {
-			return errors.Wrap(err, "svc.bridge.FilterMessageSent")
-		}
+	if svc.bridge != nil {
+		wg.Go(func() error {
+			messagesSent, err := svc.bridge.FilterMessageSent(filterOpts, nil)
+			if err != nil {
+				return errors.Wrap(err, "svc.bridge.FilterMessageSent")
+			}
 
-		err = svc.saveMessageSentEvents(ctx, chainID, messagesSent)
-		if err != nil {
-			return errors.Wrap(err, "svc.saveMessageSentEvents")
-		}
+			err = svc.saveMessageSentEvents(ctx, chainID, messagesSent)
+			if err != nil {
+				return errors.Wrap(err, "svc.saveMessageSentEvents")
+			}
 
-		return nil
-	})
+			return nil
+		})
+	}
+
+	if svc.proverPool != nil {
+		wg.Go(func() error {
+			slashedEvents, err := svc.proverPool.FilterSlashed(filterOpts, nil)
+			if err != nil {
+				return errors.Wrap(err, "svc.proverPool.FilterSlashed")
+			}
+
+			err = svc.saveSlashedEvents(ctx, chainID, slashedEvents)
+			if err != nil {
+				return errors.Wrap(err, "svc.saveSlashedEvents")
+			}
+
+			return nil
+		})
+
+		wg.Go(func() error {
+			stakedEvents, err := svc.proverPool.FilterStaked(filterOpts, nil)
+			if err != nil {
+				return errors.Wrap(err, "svc.proverPool.FilterStaked")
+			}
+
+			err = svc.saveStakedEvents(ctx, chainID, stakedEvents)
+			if err != nil {
+				return errors.Wrap(err, "svc.saveStakedEvents")
+			}
+
+			return nil
+		})
+
+		wg.Go(func() error {
+			exitedEvents, err := svc.proverPool.FilterExited(filterOpts, nil)
+			if err != nil {
+				return errors.Wrap(err, "svc.proverPool.FilterExited")
+			}
+
+			err = svc.saveExitedEvents(ctx, chainID, exitedEvents)
+			if err != nil {
+				return errors.Wrap(err, "svc.saveExitedEvents")
+			}
+
+			return nil
+		})
+
+		wg.Go(func() error {
+			withdrawnEvents, err := svc.proverPool.FilterWithdrawn(filterOpts, nil)
+			if err != nil {
+				return errors.Wrap(err, "svc.proverPool.FilterWithdrawn")
+			}
+
+			err = svc.saveWithdrawnEvents(ctx, chainID, withdrawnEvents)
+			if err != nil {
+				return errors.Wrap(err, "svc.saveWithdrawnEvents")
+			}
+			return nil
+		})
+	}
 
 	err := wg.Wait()
 
@@ -121,6 +183,33 @@ func L2FilterFunc(
 
 			return nil
 		})
+
+		wg.Go(func() error {
+			liquidityAdded, err := swap.FilterMint(filterOpts, nil)
+
+			if err != nil {
+				return errors.Wrap(err, "svc.bridge.FilterMint")
+			}
+
+			// only save ones above 0.1 ETH, this is only for Galaxe
+			// and we dont care about the rest
+			err = svc.saveLiquidityAddedEvents(ctx, chainID, liquidityAdded)
+			if err != nil {
+				return errors.Wrap(err, "svc.saveLiquidityAddedEvents")
+			}
+
+			return nil
+		})
+	}
+
+	err := wg.Wait()
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			log.Error("context cancelled")
+			return err
+		}
+
+		return err
 	}
 
 	return nil

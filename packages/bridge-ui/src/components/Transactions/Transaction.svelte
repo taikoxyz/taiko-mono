@@ -384,12 +384,24 @@
 
 <tr>
   <td>
-    <svelte:component this={txFromChain.icon} height={18} width={18} />
-    <span class="ml-2 hidden md:inline-block">{txFromChain.name}</span>
+    <div class="flex items-center">
+      <img
+        src={txFromChain.iconUrl}
+        alt={txFromChain.name}
+        height={18}
+        width={18} />
+      <span class="ml-2 hidden md:inline-block">{txFromChain.name}</span>
+    </div>
   </td>
   <td>
-    <svelte:component this={txToChain.icon} height={18} width={18} />
-    <span class="ml-2 hidden md:inline-block">{txToChain.name}</span>
+    <div class="flex items-center">
+      <img
+        src={txToChain.iconUrl}
+        alt={txToChain.name}
+        height={18}
+        width={18} />
+      <span class="ml-2 hidden md:inline-block">{txToChain.name}</span>
+    </div>
   </td>
   <td>
     {#if Boolean(transaction.message) && isETHByMessage(transaction.message)}
