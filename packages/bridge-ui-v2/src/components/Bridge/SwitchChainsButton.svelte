@@ -1,7 +1,7 @@
 <script lang="ts">
   import { switchNetwork } from '@wagmi/core';
   import { t } from 'svelte-i18n';
-  import { UserRejectedRequestError } from 'viem';
+  import { SwitchChainError, UserRejectedRequestError } from 'viem';
 
   import { Icon } from '$components/Icon';
   import { warningToast } from '$components/NotificationToast';
@@ -15,8 +15,9 @@
       await switchNetwork({ chainId: $destNetwork.id });
     } catch (err) {
       console.error(err);
-
-      if (err instanceof UserRejectedRequestError) {
+      if (err instanceof SwitchChainError) {
+        warningToast($t('messages.network.pending'));
+      } else if (err instanceof UserRejectedRequestError) {
         warningToast($t('messages.network.rejected'));
       }
     }
