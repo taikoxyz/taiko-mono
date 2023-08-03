@@ -260,7 +260,7 @@
 <div class="Status f-items-center space-x-1">
   {#if !processable}
     <StatusDot type="pending" />
-    <span>{$t('activities.status.initiated')}</span>
+    <span>{$t('activities.status.initiated.name')}</span>
   {:else if loading}
     TODO: add loading indicator and text for 'claiming', 'retrying', 'releasing'
   {:else if bridgeTxStatus === MessageStatus.NEW}
@@ -273,7 +273,7 @@
     </button>
   {:else if bridgeTxStatus === MessageStatus.DONE}
     <StatusDot type="success" />
-    <span>{$t('activities.status.claimed')}</span>
+    <span>{$t('activities.status.claimed.name')}</span>
   {:else if bridgeTxStatus === MessageStatus.FAILED}
     <button class="status-btn" on:click={release}>
       {$t('activities.button.claim')}
@@ -281,6 +281,6 @@
   {:else}
     <!-- TODO: look into this possible state -->
     <StatusDot type="error" />
-    <span>{$t('activities.status.error')}</span>
+    <span>{$t('activities.status.error.name')}</span>
   {/if}
 </div>
