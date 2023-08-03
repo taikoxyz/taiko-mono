@@ -1,7 +1,6 @@
 import type { Address, Chain } from '@wagmi/core';
 
 import {
-  // L1
   PUBLIC_L1_BRIDGE_ADDRESS,
   PUBLIC_L1_CHAIN_ID,
   PUBLIC_L1_CHAIN_NAME,
@@ -12,7 +11,6 @@ import {
   PUBLIC_L1_RPC_URL,
   PUBLIC_L1_SIGNAL_SERVICE_ADDRESS,
   PUBLIC_L1_TOKEN_VAULT_ADDRESS,
-  // L2
   PUBLIC_L2_BRIDGE_ADDRESS,
   PUBLIC_L2_CHAIN_ID,
   PUBLIC_L2_CHAIN_NAME,
@@ -33,7 +31,6 @@ import {
   PUBLIC_L3_RPC_URL,
   PUBLIC_L3_SIGNAL_SERVICE_ADDRESS,
   PUBLIC_L3_TOKEN_VAULT_ADDRESS,
-  // L3
 } from '$env/static/public';
 
 export type ChainID = bigint;
