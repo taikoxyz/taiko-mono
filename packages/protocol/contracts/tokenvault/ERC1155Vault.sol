@@ -226,6 +226,20 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         return ERC1155Vault.onMessageRecalled.selector;
     }
 
+    function onERC1155BatchReceived(
+        address,
+        address,
+        uint256[] calldata,
+        uint256[] calldata,
+        bytes calldata
+    )
+        external
+        pure
+        returns (bytes4)
+    {
+        return IERC1155Receiver.onERC1155BatchReceived.selector;
+    }
+
     function onERC1155Received(
         address,
         address,
@@ -253,20 +267,6 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         return interfaceId == type(ERC1155ReceiverUpgradeable).interfaceId
             || interfaceId == ERC1155Vault.onMessageRecalled.selector
             || super.supportsInterface(interfaceId);
-    }
-
-    function onERC1155BatchReceived(
-        address,
-        address,
-        uint256[] calldata,
-        uint256[] calldata,
-        bytes calldata
-    )
-        external
-        pure
-        returns (bytes4)
-    {
-        return IERC1155Receiver.onERC1155BatchReceived.selector;
     }
 
     function _sendToken(
