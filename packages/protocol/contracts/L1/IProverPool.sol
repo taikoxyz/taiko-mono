@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 //  _____     _ _         _         _
 // |_   _|_ _(_) |_____  | |   __ _| |__ ___
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
@@ -15,5 +16,10 @@ interface IProverPool {
 
     function releaseProver(address prover) external;
 
-    function slashProver(address prover, uint64 proofReward) external;
+    function slashProver(
+        uint64 blockId,
+        address prover,
+        uint64 proofReward
+    )
+        external;
 }

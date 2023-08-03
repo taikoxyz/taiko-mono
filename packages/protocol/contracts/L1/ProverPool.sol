@@ -62,7 +62,7 @@ contract ProverPool is EssentialContract, IProverPool {
 
     event Withdrawn(address indexed addr, uint64 amount);
     event Exited(address indexed addr, uint64 amount);
-    event Slashed(address indexed addr, uint64 amount);
+    event Slashed(uint64 indexed blockId, address indexed addr, uint64 amount);
     event Staked(
         address indexed addr,
         uint64 amount,
@@ -136,6 +136,7 @@ contract ProverPool is EssentialContract, IProverPool {
     /// @dev Slashes a prover.
     /// @param addr The address of the prover to slash.
     function slashProver(
+        uint64 blockId,
         address addr,
         uint64 proofReward
     )
@@ -171,7 +172,7 @@ contract ProverPool is EssentialContract, IProverPool {
                     provers[staker.proverId].stakedAmount = 0;
                 }
             }
-            emit Slashed(addr, amountToSlash);
+            emit Slashed(blockId, addr, amountToSlash);
         }
     }
 
