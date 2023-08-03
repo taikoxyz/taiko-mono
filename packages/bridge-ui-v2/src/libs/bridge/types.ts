@@ -71,6 +71,9 @@ export type BridgeTransaction = {
   destChainId: ChainID;
   tokenType: TokenType;
 
+  // Used for sorting local ones
+  timestamp?: number;
+
   status?: MessageStatus;
   receipt?: TransactionReceipt;
   msgHash?: Hash;

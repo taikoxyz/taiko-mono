@@ -218,6 +218,7 @@
         destChainId: BigInt($destNetwork.id),
         tokenType: $selectedToken.type,
         status: MessageStatus.NEW,
+        timestamp: Date.now(),
 
         // TODO: do we need something else? we can have
         // access to the Transaction object:
