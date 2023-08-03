@@ -55,6 +55,23 @@ You can do a simple curl command to check if the node is synced (change port fro
 curl -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":0}' http://127.0.0.1:8545
 ```
 
+
+
+<Callout type="warning">
+If you get the following error after running the curl command above to test your Execution Layer client's connection to request the latest Sepolia block
+```bash
+curl: (7) failed to connect to localhost port 8545 after 0 ms: connection refused
+```
+check that your Execution Layer client ports 
+are setup by adding `el-shared.yml` to the list of files set with the `COMPOSE_FILE` variable in the `.env` file as mentioned in step `Expose RPC ports`.
+
+For example, your `COMPOSE_FILE` flag in your `.env` file should look something like 
+```bash
+COMPOSE_FILE=lighthouse-cl-only.yml:geth.yml:el-shared.yml
+```
+
+</Callout>
+
 ### Harden your network (optional)
 
 This is important especially if you `ssh` into machine or open ports to the internet (be careful about that). Here are some recommended resources:
