@@ -2,7 +2,6 @@
   import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
 
-  import { Button } from '$components/Button';
   import { Card } from '$components/Card';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import { Paginator } from '$components/Paginator';
@@ -97,6 +96,7 @@
 
   $: totalItems = transactions.length;
 
+  // Some shortcuts to make the code more readable
   $: isConnected = $account?.isConnected;
   $: hasTxs = transactions.length > 0;
 
