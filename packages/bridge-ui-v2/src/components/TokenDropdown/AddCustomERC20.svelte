@@ -94,6 +94,8 @@
       tokenDetails = { ...tokenInfo, balance };
       const { chain } = getNetwork();
 
+      if (!chain) throw new Error('Chain not found');
+
       if ($account.address && chain) {
         customToken = {
           name: tokenDetails.name,
@@ -104,12 +106,12 @@
           symbol: tokenDetails.symbol,
           logoComponent: null,
           type: TokenType.ERC20,
+          imported: true,
         } as Token;
-        log({ customToken });
       }
     } catch (error) {
       tokenError = 'Error fetching token details';
-      console.error('Failed to fetch token: ', error);
+      log('Failed to fetch token: ', error);
     }
   };
 

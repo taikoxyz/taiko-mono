@@ -13,6 +13,7 @@
   import { symbolToIconMap } from './symbolToIconMap';
   import Erc20 from '$components/Icon/ERC20.svelte';
   import { onMount, onDestroy } from 'svelte';
+  import { OnAccount } from '$components/OnAccount';
 
   export let id: string;
   export let menuOpen = false;
@@ -46,14 +47,17 @@
 
   onMount(() => {
     tokenService.subscribeToChanges(handleStorageChange);
-    if ($account?.address) {
-      customTokens = tokenService.getTokens($account?.address as Address);
-    }
   });
 
   onDestroy(() => {
     tokenService.unsubscribeFromChanges(handleStorageChange);
   });
+
+  const onAccountChange = () => {
+    if ($account?.address) {
+      customTokens = tokenService.getTokens($account?.address as Address);
+    }
+  };
 </script>
 
 <!-- Desktop (or larger) view -->
@@ -73,7 +77,7 @@
       </div>
     </li>
   {/each}
-  {#each customTokens as token (token.symbol)}
+  {#each customTokens as token, index (index)}
     <li
       role="option"
       tabindex="0"
@@ -109,3 +113,6 @@
 
 <ClickMask fn={closeMenu} active={menuOpen} />
 <AddCustomErc20 bind:modalOpen />
+
+<!-- <OnNetwork change={onNetworkChange} /> -->
+<OnAccount change={onAccountChange} />

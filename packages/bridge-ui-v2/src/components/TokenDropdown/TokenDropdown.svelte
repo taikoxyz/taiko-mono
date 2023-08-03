@@ -7,9 +7,16 @@
   import type { Token } from '$libs/token';
   import { uid } from '$libs/util/uid';
 
+  import { getNetwork, type Address } from '@wagmi/core';
+
   import DialogView from './DialogView.svelte';
   import DropdownView from './DropdownView.svelte';
   import { symbolToIconMap } from './symbolToIconMap';
+  import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
+  import { destNetwork } from '../Bridge/state';
+  import { tokenService } from '$libs/storage/services';
+  import { account } from '$stores/account';
+  import Erc20 from '$components/Icon/ERC20.svelte';
 
   export let tokens: Token[] = [];
   export let value: Maybe<Token> = null;
@@ -31,8 +38,26 @@
     menuOpen = true;
   }
 
-  function selectToken(token: Token) {
+  async function selectToken(token: Token) {
+    const { chain } = getNetwork();
+    const destChain = $destNetwork;
+
+    if (!chain || !destChain) throw new Error('Chain not found');
+
+    // if it is an imported Token, chances are we do not yet have the bridged address
+    // for the destination chain, so we need to fetch it
+    if (token.imported) {
+      const bridgedAddress = await getCrossChainAddress({
+        token,
+        srcChainId: chain.id,
+        destChainId: destChain.id,
+      });
+      token.addresses[destChain.id] = bridgedAddress as Address;
+
+      tokenService.updateToken(token, $account?.address as Address);
+    }
     value = token;
+
     closeMenu();
   }
 
@@ -55,9 +80,15 @@
       {/if}
       {#if value}
         <div class="flex space-x-2 items-center">
-          <i role="img" aria-label={value.name}>
-            <svelte:component this={symbolToIconMap[value.symbol]} />
-          </i>
+          {#if symbolToIconMap[value.symbol]}
+            <i role="img" aria-label={value.name}>
+              <svelte:component this={symbolToIconMap[value.symbol]} />
+            </i>
+          {:else}
+            <i role="img" aria-label={value.symbol}>
+              <Erc20 />
+            </i>
+          {/if}
           <span class="title-subsection-bold">{value.symbol}</span>
         </div>
       {/if}

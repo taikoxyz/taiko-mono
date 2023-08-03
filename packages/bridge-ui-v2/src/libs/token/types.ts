@@ -19,6 +19,7 @@ export type Token = {
   symbol: string;
   decimals: number;
   type: TokenType;
+  imported?: boolean;
 };
 
 export type TokenEnv = {
@@ -32,4 +33,5 @@ export interface TokenService {
   storeToken(token: Token, address: string): Token[];
   getTokens(address: string): Token[];
   removeToken(token: Token, address: string): Token[];
+  updateToken(token: Token, address: string): boolean;
 }
