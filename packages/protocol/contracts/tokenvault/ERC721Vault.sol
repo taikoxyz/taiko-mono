@@ -59,13 +59,6 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
         } catch {
             revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
-        // if (
-        //     !IERC165Upgradeable(opt.token).supportsInterface(ERC721_INTERFACE_ID)
-        //         ||
-        // IERC165Upgradeable(opt.token).supportsInterface(ERC1155_INTERFACE_ID)
-        // ) {
-        //     revert VAULT_INTERFACE_NOT_SUPPORTED();
-        // }
 
         // We need to save them into memory - because structs containing
         // dynamic arrays will cause stack-too-deep error when passed
@@ -213,19 +206,6 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
         return ERC721Vault.onMessageRecalled.selector;
     }
 
-    /**
-     * @dev See {IERC165-supportsInterface}.
-     */
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        virtual
-        override
-        returns (bool)
-    {
-        return interfaceId == ERC721Vault.onMessageRecalled.selector;
-    }
-
     function onERC721Received(
         address,
         address,
@@ -237,6 +217,19 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
         returns (bytes4)
     {
         return IERC721Receiver.onERC721Received.selector;
+    }
+
+    /**
+     * @dev See {IERC165-supportsInterface}.
+     */
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        virtual
+        override
+        returns (bool)
+    {
+        return interfaceId == ERC721Vault.onMessageRecalled.selector;
     }
 
     function _sendToken(
