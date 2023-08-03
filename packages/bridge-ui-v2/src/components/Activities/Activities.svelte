@@ -17,11 +17,15 @@
   import { bridgeTxService } from '$libs/storage/services';
   import { getLogger } from '$libs/util/logger';
   import { mergeUniqueTransactions } from '$libs/util/mergeTransactions';
-  import { type Account, account } from '$stores/account';
+  import type { Account } from '$stores/account';
+  import { account, network } from '$stores';
   import { paginationInfo as paginationStore } from '$stores/relayerApi';
 
   import MobileDetailsDialog from './MobileDetailsDialog.svelte';
   import Transaction from './Transaction.svelte';
+  import ChainSelector from '$components/ChainSelector/ChainSelector.svelte';
+  import Tooltip from '$components/Tooltip/Tooltip.svelte';
+  import StatusInfoDialog from './StatusInfoDialog.svelte';
 
   const log = getLogger('Transactions.svelte');
 
@@ -121,6 +125,7 @@
 
 <div class="flex flex-col justify-center w-full">
   <Card title={$t('activities.title')} text={$t('activities.description')}>
+    <ChainSelector class="py-[35px] " label={$t('chain_selector.currently_on')} value={$network} switchWallet small />
     <div class="flex flex-col" style={`min-height: calc(${transactionsToShow.length} * 80px);`}>
       {#if isDesktopOrLarger}
         <div class="h-sep" />
@@ -128,7 +133,10 @@
           <div class="w-1/5 px-4 py-2">{$t('activities.header.from')}</div>
           <div class="w-1/5 px-4 py-2">{$t('activities.header.to')}</div>
           <div class="w-1/5 px-4 py-2">{$t('activities.header.amount')}</div>
-          <div class="w-1/5 px-4 py-2">{$t('activities.header.status')}</div>
+          <div class="w-1/5 px-4 py-2 f-row">
+            {$t('activities.header.status')}
+            <StatusInfoDialog />
+          </div>
           <div class="w-1/5 px-4 py-2">{$t('activities.header.explorer')}</div>
         </div>
         <div class="h-sep" />

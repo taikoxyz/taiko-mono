@@ -119,7 +119,7 @@
 
   /* Other components */
   .overlay-backdrop {
-    @apply modal-backdrop bg-overlay-background;
+    @apply modal-backdrop bg-overlay-background rounded-xl;
   }
 
   /* TODO: add more components here */
