@@ -46,6 +46,7 @@ contract MockProverPool is IProverPool {
     function releaseProver(address prover) external pure override { }
 
     function slashProver(
+        uint64 blockId,
         address prover,
         uint64 proofReward
     )
