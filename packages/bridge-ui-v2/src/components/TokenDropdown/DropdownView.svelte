@@ -1,15 +1,25 @@
 <script lang="ts">
   import { ClickMask } from '$components/ClickMask';
+  import { Icon } from '$components/Icon';
+  import { tokenService } from '$libs/storage/services';
   import type { Token } from '$libs/token';
   import { classNames } from '$libs/util/classNames';
   import { noop } from '$libs/util/noop';
+  import { account } from '$stores/account';
+  import AddCustomErc20 from './AddCustomERC20.svelte';
+
+  import type { Address } from 'viem';
 
   import { symbolToIconMap } from './symbolToIconMap';
+  import Erc20 from '$components/Icon/ERC20.svelte';
+  import { onMount, onDestroy } from 'svelte';
 
   export let id: string;
   export let menuOpen = false;
   export let tokens: Token[] = [];
+  export let customTokens: Token[] = [];
   export let value: Maybe<Token> = null;
+  let modalOpen = false;
   export let selectToken: (token: Token) => void = noop;
   export let closeMenu: () => void = noop;
 
@@ -25,6 +35,25 @@
       }
     };
   }
+
+  function showAddERC20() {
+    modalOpen = true;
+  }
+
+  const handleStorageChange = (newTokens: Token[]) => {
+    customTokens = newTokens;
+  };
+
+  onMount(() => {
+    tokenService.subscribeToChanges(handleStorageChange);
+    if ($account?.address) {
+      customTokens = tokenService.getTokens($account?.address as Address);
+    }
+  });
+
+  onDestroy(() => {
+    tokenService.unsubscribeFromChanges(handleStorageChange);
+  });
 </script>
 
 <!-- Desktop (or larger) view -->
@@ -44,6 +73,39 @@
       </div>
     </li>
   {/each}
+  {#each customTokens as token (token.symbol)}
+    <li
+      role="option"
+      tabindex="0"
+      aria-selected={token === value}
+      on:click={() => selectToken(token)}
+      on:keydown={getTokenKeydownHandler(token)}>
+      <div class="p-4">
+        <i role="img" aria-label={token.name}>
+          <Erc20 />
+        </i>
+        <span class="body-bold">{token.symbol}</span>
+      </div>
+    </li>
+  {/each}
+  <div class="h-sep" />
+  <li>
+    <button on:click={showAddERC20} class="flex hover:bg-dark-5 flex justify-center items-center p-4 rounded-sm">
+      <Icon type="plus-circle" fillClass="fill-primary-icon" size={20} vWidth={30} vHeight={30} />
+      <span
+        class="
+            text-sm
+            font-medium
+            bg-transparent
+            flex-1
+            w-[100px]
+            px-0
+            pl-2">
+        Add Custom
+      </span>
+    </button>
+  </li>
 </ul>
 
 <ClickMask fn={closeMenu} active={menuOpen} />
+<AddCustomErc20 bind:modalOpen />

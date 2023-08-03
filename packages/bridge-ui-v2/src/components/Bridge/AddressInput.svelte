@@ -2,7 +2,7 @@
   import { isAddress } from 'ethereum-address';
   import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
-
+  import type { Address } from 'viem';
   import { Alert } from '$components/Alert';
   import { uid } from '$libs/util/uid';
 
@@ -10,7 +10,7 @@
   let inputId = `input-${uid()}`;
   let showAlert = true;
 
-  let ethereumAddress = '';
+  export let ethereumAddress: Address | string = '';
 
   let isValidEthereumAddress = false;
   let tooShort = true;
@@ -23,6 +23,7 @@
     if (ethereumAddress.length > 41) {
       tooShort = false;
       validateEthereumAddress();
+      dispatch('input', ethereumAddress);
     } else {
       tooShort = true;
     }
@@ -39,9 +40,6 @@
   };
 
   export const focus = () => input.focus();
-  export const value = () => {
-    return input.value;
-  };
 </script>
 
 <div class="f-col space-y-2">
