@@ -8,7 +8,7 @@
   import { Paginator } from '$components/Paginator';
   import { Spinner } from '$components/Spinner';
   import { activitiesConfig } from '$config';
-  import { type BridgeTransaction,fetchTransactions } from '$libs/bridge';
+  import { type BridgeTransaction, fetchTransactions } from '$libs/bridge';
   import { web3modal } from '$libs/connect';
   import { type Account, account } from '$stores/account';
 
@@ -25,7 +25,7 @@
   let totalItems = 0;
   let pageSize = activitiesConfig.pageSizeDesktop;
 
-  let loadingTxs = true;
+  let loadingTxs = false;
 
   let detailsOpen = false;
   let isMobile = false;
@@ -52,6 +52,8 @@
     // We want to make sure that we are connected and only
     // fetch if the account has changed
     if (newAccount?.isConnected && newAccount.address && newAccount.address !== oldAccount?.address) {
+      loadingTxs = true;
+
       try {
         transactions = await fetchTransactions(newAccount.address);
       } catch (err) {
@@ -74,10 +76,10 @@
   };
 
   onMount(async () => {
-    if (!$account?.isConnected || !$account?.address) {
-      loadingTxs = false;
-      return;
-    }
+    // We want to make sure that we are connected before fetching
+    if (!$account?.isConnected || !$account?.address) return;
+
+    loadingTxs = true;
 
     try {
       transactions = await fetchTransactions($account.address);
@@ -94,6 +96,14 @@
   $: transactionsToShow = getTransactionsToShow(currentPage, pageSize, transactions);
 
   $: totalItems = transactions.length;
+
+  $: isConnected = $account?.isConnected;
+  $: hasTxs = transactions.length > 0;
+
+  // Controls what we render on the page
+  $: renderLoading = loadingTxs && isConnected;
+  $: renderTransactions = !loadingTxs && isConnected && hasTxs;
+  $: renderNoTransactions = !loadingTxs && (!isConnected || !hasTxs);
 </script>
 
 <div class="flex flex-col justify-center w-full">
@@ -110,7 +120,14 @@
         </div>
         <div class="h-sep" />
       {/if}
-      {#if transactionsToShow.length && !loadingTxs && $account?.isConnected}
+
+      {#if renderLoading}
+        <div class="flex items-center justify-center text-white h-[80px]">
+          <Spinner /> <span class="pl-3">{$t('common.loading')}...</span>
+        </div>
+      {/if}
+
+      {#if renderTransactions}
         <div
           class="flex flex-col items-center"
           style={isBlurred ? `filter: blur(5px); transition: filter ${transitionTime / 1000}s ease-in-out` : ''}>
@@ -120,21 +137,21 @@
           {/each}
         </div>
       {/if}
-      {#if loadingTxs && $account?.isConnected}
-        <div class="flex items-center justify-center text-white h-[80px]">
-          <Spinner /> <span class="pl-3">{$t('common.loading')}...</span>
-        </div>
-      {:else if !transactionsToShow.length && $account?.isConnected}
+
+      {#if renderNoTransactions}
         <div class="flex items-center justify-center text-white h-[80px]">
           <span class="pl-3">{$t('activities.no_transactions')}</span>
         </div>
-      {:else if !$account?.isConnected}
+      {/if}
+
+      <!-- TODO: we don't have this in the design -->
+      <!-- {#if !$account?.isConnected}
         <div class="flex items-center justify-center text-white h-[80px]">
           <Button type="primary" on:click={onWalletConnect} class="px-[28px] py-[14px] ">
             <span class="body-bold">{$t('wallet.connect')}</span>
           </Button>
         </div>
-      {/if}
+      {/if} -->
     </div>
   </Card>
 
