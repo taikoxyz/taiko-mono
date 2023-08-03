@@ -46,7 +46,6 @@
     <div class="w-1/4 md-w-1/5 px-4 py-2 flex flex-row justify-left items-stretch">
       <ChainSymbolName chainId={item.srcChainId} />
     </div>
-
     <div class="w-1/4 md-w-1/5 px-4 py-2 flex flex-row justify-left items-stretch">
       <ChainSymbolName chainId={item.destChainId} />
     </div>
