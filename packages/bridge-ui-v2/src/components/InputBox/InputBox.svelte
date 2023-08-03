@@ -10,7 +10,7 @@
 
   let { class: restClass = '', ...restProps } = $$restProps;
   let classes = classNames(
-    'w-full input-box placeholder:text-tertiary-content bg-gray-700 border-0 shadow-none outline-none font-bold text-2xl',
+    'w-full input-box placeholder:text-tertiary-content bg-neutral-background border-0 shadow-none outline-none font-bold text-2xl',
     restClass,
     error ? 'error' : '',
   );

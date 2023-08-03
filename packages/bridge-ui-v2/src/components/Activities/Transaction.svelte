@@ -41,7 +41,12 @@
 <!-- We disable these warnings as we dynamically add the role -->
 <!-- svelte-ignore a11y-no-noninteractive-tabindex -->
 <!-- svelte-ignore a11y-no-static-element-interactions -->
-<div {...attrs} tabindex="0" on:click={handleClick} on:keydown={handlePress} class="flex text-white h-[80px] w-full">
+<div
+  {...attrs}
+  tabindex="0"
+  on:click={handleClick}
+  on:keydown={handlePress}
+  class="flex text-white md:h-[80px] h-[45px] w-full">
   {#if isDesktopOrLarger}
     <div class="w-1/4 md-w-1/5 px-4 py-2 flex flex-row justify-left items-stretch">
       <ChainSymbolName chainId={item.srcChainId} />
