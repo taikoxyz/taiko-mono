@@ -16,6 +16,7 @@
     type BridgeTransaction,
     type ERC20BridgeArgs,
     type ETHBridgeArgs,
+    MessageStatus,
   } from '$libs/bridge';
   import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
   import { chainContractsMap, chains } from '$libs/chain';
@@ -26,7 +27,7 @@
     SendERC20Error,
     SendMessageError,
   } from '$libs/error';
-  import { bridgeTxService } from '$libs/storage/services';
+  import { bridgeTxService } from '$libs/storage';
   import { ETHToken, getAddress, isDeployedCrossChain, tokens, TokenType } from '$libs/token';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { type Account, account } from '$stores/account';
@@ -226,6 +227,9 @@
         decimals: $selectedToken.decimals,
         srcChainId: BigInt($network.id),
         destChainId: BigInt($destNetwork.id),
+        tokenType: $selectedToken.type,
+        status: MessageStatus.NEW,
+        timestamp: Date.now(),
 
         // TODO: do we need something else? we can have
         // access to the Transaction object:

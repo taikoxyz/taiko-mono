@@ -196,7 +196,7 @@
           </div>
         </li>
         <li class="f-between-center">
-          <h4 class="text-secondary-content">{$t('amount_input.label')}</h4>
+          <h4 class="text-secondary-content">{$t('amount.label')}</h4>
           <span>2.5 ETH</span>
         </li>
         <li class="f-between-center">

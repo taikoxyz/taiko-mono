@@ -1,4 +1,4 @@
-import { getContract } from '@wagmi/core';
+import { getContract, type Hash } from '@wagmi/core';
 import { EventEmitter } from 'events';
 
 import { bridgeABI } from '$abi';
@@ -8,10 +8,10 @@ import { BridgeTxPollingError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { nextTick } from '$libs/util/nextTick';
 
-import { isBridgeTxProcessable } from './isBridgeTxProcessable';
+import { isTransactionProcessable } from './isTransactionProcessable';
 import { type BridgeTransaction, MessageStatus } from './types';
 
-const log = getLogger('bridge:bridgeTxMessageStatusPoller');
+const log = getLogger('bridge:messageStatusPoller');
 
 export enum PollingEvent {
   STOP = 'stop',
@@ -21,12 +21,20 @@ export enum PollingEvent {
   PROCESSABLE = 'processable',
 }
 
-const intervalEmitterMap: Record<number, EventEmitter> = {};
+type Interval = Maybe<ReturnType<typeof setInterval>>;
+
+// bridgeTx hash => emitter. If there is already a polling ongoing
+// we return the emitter associated to it
+const hashEmitterMap: Record<Hash, EventEmitter> = {};
+
+// bridgeTx hash => interval. There might be a polling ongoing
+// associated to this hash, so we don't want to start another one
+const hashIntervalMap: Record<Hash, Interval> = {};
 
 /**
- * @example:
+ * @example
  * try {
- *   const emitter = startPolling(bridgeTx);
+ *   const { emitter, stopPolling } = startPolling(bridgeTx);
  *
  *   if(emitter) {
  *     emitter.on(PollingEvent.STOP, () => {});
@@ -37,8 +45,8 @@ const intervalEmitterMap: Record<number, EventEmitter> = {};
  *   // something really bad with this bridgeTx
  * }
  */
-export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true): Maybe<EventEmitter> {
-  const { destChainId, msgHash, status } = bridgeTx;
+export function startPolling(bridgeTx: BridgeTransaction, runImmediately = false) {
+  const { hash, destChainId, msgHash, status } = bridgeTx;
 
   // Without this we cannot poll at all. Let's throw an error
   // that can be handled in the UI
@@ -52,39 +60,44 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
 
   // We want to notify whoever is calling this function of different
   // events: PollingEvent
-  const emitter = new EventEmitter();
+  let emitter = hashEmitterMap[hash];
+  let interval = hashIntervalMap[hash];
+
+  // We are gonna be polling the destination bridge contract
+  const destBridgeAddress = chainContractsMap[Number(destChainId)].bridgeAddress;
+  const destBridgeContract = getContract({
+    address: destBridgeAddress,
+    abi: bridgeABI,
+    chainId: Number(destChainId),
+  });
 
   const stopPolling = () => {
-    if (bridgeTx.interval) {
+    if (interval) {
       log('Stop polling for transaction', bridgeTx);
 
       // Clean up
-      clearInterval(bridgeTx.interval);
-      delete intervalEmitterMap[Number(bridgeTx.interval)];
-      bridgeTx.interval = null;
+      clearInterval(interval);
+      delete hashEmitterMap[hash];
+      delete hashIntervalMap[hash];
 
+      interval = null;
       emitter.emit(PollingEvent.STOP);
     }
   };
 
+  const destroy = () => {
+    stopPolling();
+    emitter.removeAllListeners();
+  };
+
   const pollingFn = async () => {
-    const isProcessable = await isBridgeTxProcessable(bridgeTx);
+    const isProcessable = await isTransactionProcessable(bridgeTx);
 
     emitter.emit(PollingEvent.PROCESSABLE, isProcessable);
-
-    const destBridgeAddress = chainContractsMap[Number(destChainId)].bridgeAddress;
-
-    const destBridgeContract = getContract({
-      address: destBridgeAddress,
-      abi: bridgeABI,
-      chainId: Number(destChainId),
-    });
 
     try {
       // We want to poll for status changes
       const messageStatus: MessageStatus = await destBridgeContract.read.getMessageStatus([msgHash]);
-
-      bridgeTx.status = messageStatus;
 
       emitter.emit('status', messageStatus);
 
@@ -102,12 +115,14 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
     }
   };
 
-  if (!bridgeTx.interval) {
+  if (!interval) {
     log('Starting polling for transaction', bridgeTx);
 
-    bridgeTx.interval = setInterval(pollingFn, bridgeTransactionPoller.interval);
+    emitter = new EventEmitter();
+    interval = setInterval(pollingFn, bridgeTransactionPoller.interval);
 
-    intervalEmitterMap[Number(bridgeTx.interval)] = emitter;
+    hashEmitterMap[hash] = emitter;
+    hashIntervalMap[hash] = interval;
 
     // setImmediate isn't standard
     if (runImmediately) {
@@ -115,13 +130,9 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
       // attach listeners before the polling function is called
       nextTick(pollingFn);
     }
-
-    return emitter;
+  } else {
+    log('Already polling for transaction', bridgeTx);
   }
 
-  log('Already polling for transaction', bridgeTx);
-
-  // We are already polling for this transaction.
-  // Return the emitter associated to it
-  return intervalEmitterMap[Number(bridgeTx.interval)];
+  return { destroy, emitter };
 }

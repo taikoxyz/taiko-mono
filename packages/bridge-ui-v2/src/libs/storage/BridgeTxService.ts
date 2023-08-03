@@ -134,7 +134,22 @@ export class BridgeTxService {
     const enhancedTxs = resolvedTxs.filter((tx): tx is BridgeTransaction => Boolean(tx));
 
     // Place new transactions at the top of the list
-    enhancedTxs.sort((tx) => (tx.status === MessageStatus.NEW ? -1 : 1));
+    enhancedTxs.sort((tx1, tx2) => {
+      if (tx1.status === MessageStatus.NEW && tx2.status !== MessageStatus.NEW) {
+        return -1; // tx1 is newer
+      }
+
+      if (tx1.status !== MessageStatus.NEW && tx2.status === MessageStatus.NEW) {
+        return 1; // tx2 is newer
+      }
+
+      if (tx1.status === MessageStatus.NEW && tx2.status === MessageStatus.NEW) {
+        // If both are new, sort by timestamp
+        return tx2.timestamp && tx1.timestamp ? tx2.timestamp - tx1.timestamp : 0;
+      }
+
+      return 0;
+    });
 
     log('Enhanced transactions', [...enhancedTxs]);
 

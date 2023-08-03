@@ -40,7 +40,7 @@
           <ChainSymbolName chainId={selectedItem.destChainId} />
         </li>
         <li class="f-between-center">
-          <h4 class="text-secondary-content">{$t('inputs.amount_input.label')}</h4>
+          <h4 class="text-secondary-content">{$t('inputs.amount.label')}</h4>
           <span>{formatEther(selectedItem.amount ? selectedItem.amount : BigInt(0))} {selectedItem.symbol}</span>
         </li>
         <li class="f-between-center">

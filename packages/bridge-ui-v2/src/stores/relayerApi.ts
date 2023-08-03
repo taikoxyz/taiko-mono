@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 
-import type { PaginationInfo, RelayerBlockInfo } from '$libs/relayer/relayerApi';
+import type { PaginationInfo, RelayerBlockInfo } from '$libs/relayer/types';
 
 export const paginationInfo = writable<PaginationInfo>();
 

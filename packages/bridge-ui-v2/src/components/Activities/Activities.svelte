@@ -1,40 +1,39 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { writable } from 'svelte/store';
   import { t } from 'svelte-i18n';
 
-  import { Button } from '$components/Button';
   import { Card } from '$components/Card';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import { Paginator } from '$components/Paginator';
   import { Spinner } from '$components/Spinner';
   import { activitiesConfig } from '$config';
-  import { PUBLIC_RELAYER_URL } from '$env/static/public';
-  import type { BridgeTransaction } from '$libs/bridge';
+  import { type BridgeTransaction, fetchTransactions } from '$libs/bridge';
   import { web3modal } from '$libs/connect';
-  import { RelayerAPIService } from '$libs/relayer/RelayerAPIService';
-  import { bridgeTxService } from '$libs/storage/services';
-  import { getLogger } from '$libs/util/logger';
-  import { mergeUniqueTransactions } from '$libs/util/mergeTransactions';
   import type { Account } from '$stores/account';
   import { account, network } from '$stores';
-  import { paginationInfo as paginationStore } from '$stores/relayerApi';
 
   import MobileDetailsDialog from './MobileDetailsDialog.svelte';
   import Transaction from './Transaction.svelte';
   import ChainSelector from '$components/ChainSelector/ChainSelector.svelte';
-  import Tooltip from '$components/Tooltip/Tooltip.svelte';
   import StatusInfoDialog from './StatusInfoDialog.svelte';
 
-  const log = getLogger('Transactions.svelte');
-
-  export const transactions = writable<BridgeTransaction[]>([]);
+  let transactions: BridgeTransaction[] = [];
 
   let currentPage = 1;
 
   let isBlurred = false;
   const transitionTime = activitiesConfig.blurTransitionTime;
+
+  let totalItems = 0;
+  let pageSize = activitiesConfig.pageSizeDesktop;
+
+  let loadingTxs = false;
+
+  let detailsOpen = false;
+  let isDesktopOrLarger: boolean;
+
+  let selectedItem: BridgeTransaction | null = null;
 
   const handlePageChange = (detail: number) => {
     isBlurred = true;
@@ -44,65 +43,28 @@
     }, transitionTime);
   };
 
-  const relayerApi = new RelayerAPIService(PUBLIC_RELAYER_URL);
-
-  let totalItems = 0;
-  let pageSize = activitiesConfig.pageSizeDesktop;
-  $: pageSize = isDesktopOrLarger ? activitiesConfig.pageSizeDesktop : activitiesConfig.pageSizeMobile;
-
-  let loadingTxs = true;
-
-  let detailsOpen = false;
-  let isDesktopOrLarger: boolean;
-
-  let selectedItem: BridgeTransaction | null = null;
-
-  onMount(async () => {
-    if (!$account?.isConnected) {
-      loadingTxs = false;
-      return;
-    }
-    await fetchTransactions();
-  });
-
   const getTransactionsToShow = (page: number, pageSize: number, bridgeTx: BridgeTransaction[]) => {
     const start = (page - 1) * pageSize;
     const end = start + pageSize;
     return bridgeTx.slice(start, end);
   };
 
-  // Todo: move logic out of component
-  const fetchTransactions = async () => {
-    loadingTxs = true;
-    if (!$account.address || totalItems > 0) {
-      loadingTxs = false;
-      return;
-    }
-
-    // Transactions from local storage
-    const localTxs: BridgeTransaction[] = await bridgeTxService.getAllTxByAddress($account.address);
-
-    // Transactions from relayer
-    const { txs, paginationInfo } = await relayerApi.getAllBridgeTransactionByAddress($account.address, {
-      page: 0,
-      size: 100,
-    });
-
-    loadingTxs = false;
-
-    $transactions = mergeUniqueTransactions(localTxs, txs);
-    //Todo: clear storage if local tx are identical to relayer tx
-
-    log(`merging ${localTxs.length} local and ${txs.length} relayer transactions. New size: ${$transactions.length}`);
-
-    paginationStore.set(paginationInfo);
-  };
-
   const onWalletConnect = () => web3modal.openModal();
 
   const onAccountChange = async (newAccount: Account, oldAccount?: Account) => {
-    if (newAccount?.isConnected) {
-      await fetchTransactions();
+    // We want to make sure that we are connected and only
+    // fetch if the account has changed
+    if (newAccount?.isConnected && newAccount.address && newAccount.address !== oldAccount?.address) {
+      loadingTxs = true;
+
+      try {
+        transactions = await fetchTransactions(newAccount.address);
+      } catch (err) {
+        console.error(err);
+        // TODO: handle
+      } finally {
+        loadingTxs = false;
+      }
     }
   };
 
@@ -116,11 +78,36 @@
     selectedItem = tx;
   };
 
-  $: transactionsToShow = getTransactionsToShow(currentPage, pageSize, $transactions);
+  onMount(async () => {
+    // We want to make sure that we are connected before fetching
+    if (!$account?.isConnected || !$account?.address) return;
 
-  $: if ($paginationStore) {
-    totalItems = $transactions.length;
-  }
+    loadingTxs = true;
+
+    try {
+      transactions = await fetchTransactions($account.address);
+    } catch (err) {
+      console.error(err);
+      // TODO: handle
+    } finally {
+      loadingTxs = false;
+    }
+  });
+
+  $: pageSize = isDesktopOrLarger ? activitiesConfig.pageSizeDesktop : activitiesConfig.pageSizeMobile;
+
+  $: transactionsToShow = getTransactionsToShow(currentPage, pageSize, transactions);
+
+  $: totalItems = transactions.length;
+
+  // Some shortcuts to make the code more readable
+  $: isConnected = $account?.isConnected;
+  $: hasTxs = transactions.length > 0;
+
+  // Controls what we render on the page
+  $: renderLoading = loadingTxs && isConnected;
+  $: renderTransactions = !renderLoading && isConnected && hasTxs;
+  $: renderNoTransactions = !renderLoading && !renderTransactions;
 </script>
 
 <div class="flex flex-col justify-center w-full">
@@ -141,7 +128,14 @@
         </div>
         <div class="h-sep" />
       {/if}
-      {#if transactionsToShow.length && !loadingTxs && $account?.isConnected}
+
+      {#if renderLoading}
+        <div class="flex items-center justify-center text-white h-[80px]">
+          <Spinner /> <span class="pl-3">{$t('common.loading')}...</span>
+        </div>
+      {/if}
+
+      {#if renderTransactions}
         <div
           class="flex flex-col items-center"
           style={isBlurred ? `filter: blur(5px); transition: filter ${transitionTime / 1000}s ease-in-out` : ''}>
@@ -151,21 +145,21 @@
           {/each}
         </div>
       {/if}
-      {#if loadingTxs && $account?.isConnected}
-        <div class="flex items-center justify-center text-white h-[80px]">
-          <Spinner /> <span class="pl-3">{$t('common.loading')}...</span>
-        </div>
-      {:else if !transactionsToShow.length && $account?.isConnected}
+
+      {#if renderNoTransactions}
         <div class="flex items-center justify-center text-white h-[80px]">
           <span class="pl-3">{$t('activities.no_transactions')}</span>
         </div>
-      {:else if !$account?.isConnected}
+      {/if}
+
+      <!-- TODO: we don't have this in the design -->
+      <!-- {#if !$account?.isConnected}
         <div class="flex items-center justify-center text-white h-[80px]">
           <Button type="primary" on:click={onWalletConnect} class="px-[28px] py-[14px] ">
             <span class="body-bold">{$t('wallet.connect')}</span>
           </Button>
         </div>
-      {/if}
+      {/if} -->
     </div>
   </Card>
 
@@ -177,4 +171,5 @@
 <MobileDetailsDialog {closeDetails} {detailsOpen} {selectedItem} />
 
 <OnAccount change={onAccountChange} />
+
 <DesktopOrLarger bind:is={isDesktopOrLarger} />

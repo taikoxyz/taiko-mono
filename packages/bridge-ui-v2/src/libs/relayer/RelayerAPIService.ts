@@ -1,7 +1,6 @@
 /* eslint-disable no-console */
 import type { Address, Hash } from '@wagmi/core';
 import { readContract } from '@wagmi/core';
-import type { Abi } from 'abitype';
 import axios from 'axios';
 
 import { bridgeABI } from '$abi';
@@ -18,13 +17,12 @@ import type {
   GetAllByAddressResponse,
   PaginationInfo,
   PaginationParams,
-  RelayerAPI,
   RelayerBlockInfo,
-} from './relayerApi';
+} from './types';
 
 const log = getLogger('RelayerAPIService');
 
-export class RelayerAPIService implements RelayerAPI {
+export class RelayerAPIService {
   private static async _getTransactionReceipt(chainId: ChainID, hash: Hash) {
     const client = publicClient({ chainId: Number(chainId) });
     return client.getTransactionReceipt({ hash });
@@ -70,15 +68,11 @@ export class RelayerAPIService implements RelayerAPI {
     return filteredItems;
   }
 
-  private static async _getBridgeMessageStatus(
-    bridgeAddress: Address,
-    bridgeAbi: Abi,
-    chainId: ChainID,
-    msgHash: string,
-  ) {
+  private static async _getBridgeMessageStatus(msgHash: Hash, chainId: number) {
+    const { bridgeAddress } = chainContractsMap[Number(chainId)];
     const result = await readContract({
       address: bridgeAddress,
-      abi: bridgeAbi,
+      abi: bridgeABI,
       chainId: Number(chainId),
       functionName: 'getMessageStatus',
       args: [msgHash],
@@ -184,8 +178,8 @@ export class RelayerAPIService implements RelayerAPI {
           sender: tx.data.Message.Sender,
           gasLimit: BigInt(tx.data.Message.GasLimit),
           callValue: BigInt(tx.data.Message.CallValue),
-          srcChainId: tx.data.Message.SrcChainId,
-          destChainId: tx.data.Message.DestChainId,
+          srcChainId: BigInt(tx.data.Message.SrcChainId),
+          destChainId: BigInt(tx.data.Message.DestChainId),
           depositValue: BigInt(tx.data.Message.DepositValue),
           processingFee: BigInt(tx.data.Message.ProcessingFee),
           refundAddress: tx.data.Message.RefundAddress,
@@ -209,21 +203,14 @@ export class RelayerAPIService implements RelayerAPI {
 
       bridgeTx.receipt = receipt;
 
-      const { bridgeAddress: destBridgeAddress } = chainContractsMap[Number(destChainId)];
-
       if (!msgHash) return; //todo: handle this case
 
-      const status: MessageStatus = await RelayerAPIService._getBridgeMessageStatus(
-        destBridgeAddress,
-        bridgeABI,
-        destChainId,
-        msgHash,
-      );
+      const status = await RelayerAPIService._getBridgeMessageStatus(msgHash, Number(destChainId));
 
       // Update the status
       bridgeTx.status = status;
 
-      const type = checkType(bridgeTx);
+      bridgeTx.tokenType = checkType(bridgeTx);
 
       return bridgeTx;
     });

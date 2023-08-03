@@ -69,3 +69,15 @@ export class WrongChainError extends Error {
 export class BridgeTxPollingError extends Error {
   name = 'BridgeTxPollingError';
 }
+
+export class ProcessMessageError extends Error {
+  name = 'ProcessMessageError';
+}
+
+export class RetryError extends Error {
+  name = 'RetryError';
+}
+
+export class ReleaseError extends Error {
+  name = 'ReleaseError';
+}
