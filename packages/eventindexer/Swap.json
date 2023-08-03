@@ -1004,6 +1004,28 @@
     "anonymous": false
   },
   {
+    "type": "event",
+    "name": "Mint",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "sender",
+        "indexed": true
+      },
+      {
+        "type": "uint256",
+        "name": "amount0",
+        "indexed": false
+      },
+      {
+        "type": "uint256",
+        "name": "amount1",
+        "indexed": false
+      }
+    ],
+    "anonymous": false
+  },
+  {
     "stateMutability": "payable",
     "type": "receive"
   }

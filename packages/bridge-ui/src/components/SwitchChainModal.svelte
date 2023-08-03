@@ -1,7 +1,7 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
 
-  import { mainnetChain, taikoChain } from '../chain/chains';
+  import { L1Chain, L2Chain } from '../chain/chains';
   import type { Chain } from '../domain/chain';
   import { isSwitchChainModalOpen } from '../store/modal';
   import { switchNetwork } from '../utils/switchNetwork';
@@ -30,18 +30,18 @@
       <button
         class="btn btn-dark-5 h-[60px] text-base"
         on:click={async () => {
-          await switchChain(mainnetChain);
+          await switchChain(L1Chain);
         }}>
-        <svelte:component this={mainnetChain.icon} /><span class="ml-2"
-          >{mainnetChain.name}</span>
+        <img src={L1Chain.iconUrl} alt={L1Chain.name} />
+        <span class="ml-2">{L1Chain.name}</span>
       </button>
       <button
         class="btn btn-dark-5 h-[60px] text-base"
         on:click={async () => {
-          await switchChain(taikoChain);
+          await switchChain(L2Chain);
         }}>
-        <svelte:component this={taikoChain.icon} /><span class="ml-2"
-          >{taikoChain.name}</span>
+        <img src={L2Chain.iconUrl} alt={L2Chain.name} />
+        <span class="ml-2">{L2Chain.name}</span>
       </button>
     </div>
   </div>
