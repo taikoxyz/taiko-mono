@@ -105,6 +105,7 @@
         "name": "Claim",
         "description": "Your asset is now ready for claiming on the destination chain and requires a transaction. If you have set a processing fee, the relayer will automatically handle the claiming process on your behalf."
       },
+      "claiming": "Claiming",
       "claimed": {
         "name": "Claimed",
         "description": "Your asset has successfully completed the bridging process and is now available to you on the destination chain."
@@ -117,6 +118,7 @@
         "name": "Release",
         "description": "Your bridged asset cannot be processed and is now accessible to you on the source chain."
       },
+      "releasing": "Releasing",
       "failed": {
         "name": "Failed",
         "description": "Your bridge transaction was unsuccessful."

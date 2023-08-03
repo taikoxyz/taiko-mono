@@ -29,6 +29,7 @@
   import { account } from '$stores/account';
   import { network } from '$stores/network';
   import { pendingTransactions } from '$stores/pendingTransactions';
+  import { Spinner } from '$components/Spinner';
 
   const log = getLogger('components:Status');
 
@@ -262,7 +263,10 @@
     <StatusDot type="pending" />
     <span>{$t('activities.status.initiated.name')}</span>
   {:else if loading}
-    TODO: add loading indicator and text for 'claiming', 'retrying', 'releasing'
+    <div class="f-items-center space-x-2">
+      <Spinner />
+      <span>{$t(`activities.status.${loading}`)}</span>
+    </div>
   {:else if bridgeTxStatus === MessageStatus.NEW}
     <button class="status-btn" on:click={claim}>
       {$t('activities.button.claim')}
