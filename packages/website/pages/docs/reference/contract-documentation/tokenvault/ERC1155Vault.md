@@ -65,10 +65,10 @@ this function._
 | tokenIds | uint256[]                        | The tokenIds to be sent.                                                                                                 |
 | amounts  | uint256[]                        | The amounts to be sent.                                                                                                  |
 
-### releaseToken
+### onMessageRecalled
 
 ```solidity
-function releaseToken(struct IBridge.Message message, bytes proof) external
+function onMessageRecalled(struct IBridge.Message message) external returns (bytes4)
 ```
 
 Release deposited ERC1155 token(s) back to the owner on the source chain
@@ -80,7 +80,12 @@ a proof that the message processing on the destination Bridge has failed.
 | Name    | Type                   | Description                                                              |
 | ------- | ---------------------- | ------------------------------------------------------------------------ |
 | message | struct IBridge.Message | The message that corresponds to the ERC1155 deposit on the source chain. |
-| proof   | bytes                  | The proof from the destination chain to show the message has failed.     |
+
+### onERC1155BatchReceived
+
+```solidity
+function onERC1155BatchReceived(address, address, uint256[], uint256[], bytes) external pure returns (bytes4)
+```
 
 ### onERC1155Received
 
@@ -88,11 +93,13 @@ a proof that the message processing on the destination Bridge has failed.
 function onERC1155Received(address, address, uint256, uint256, bytes) external pure returns (bytes4)
 ```
 
-### onERC1155BatchReceived
+### supportsInterface
 
 ```solidity
-function onERC1155BatchReceived(address, address, uint256[], uint256[], bytes) external pure returns (bytes4)
+function supportsInterface(bytes4 interfaceId) public view virtual returns (bool)
 ```
+
+_See {IERC165-supportsInterface}._
 
 ---
 

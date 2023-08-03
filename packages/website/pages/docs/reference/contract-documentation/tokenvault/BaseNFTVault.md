@@ -31,12 +31,6 @@ struct BridgeTransferOp {
 }
 ```
 
-### MAX_TOKEN_PER_TXN
-
-```solidity
-uint256 MAX_TOKEN_PER_TXN
-```
-
 ### ERC1155_INTERFACE_ID
 
 ```solidity
@@ -65,12 +59,6 @@ mapping(address => struct BaseNFTVault.CanonicalNFT) bridgedToCanonical
 
 ```solidity
 mapping(uint256 => mapping(address => address)) canonicalToBridged
-```
-
-### releasedMessages
-
-```solidity
-mapping(bytes32 => bool) releasedMessages
 ```
 
 ### BridgedTokenDeployed
@@ -198,47 +186,8 @@ error VAULT_MAX_TOKEN_PER_TXN_EXCEEDED()
 
 Thrown when more tokens are about to be bridged than allowed.
 
-### onlyValidAddresses
-
-```solidity
-modifier onlyValidAddresses(uint256 chainId, bytes32 name, address to, address token)
-```
-
-### onlyValidAmounts
-
-```solidity
-modifier onlyValidAmounts(uint256[] amounts, uint256[] tokenIds, bool isERC721)
-```
-
 ### init
 
 ```solidity
 function init(address addressManager) external
 ```
-
-### setBridgedToken
-
-```solidity
-function setBridgedToken(address btoken, struct BaseNFTVault.CanonicalNFT ctoken) internal
-```
-
-#### Parameters
-
-| Name   | Type                             | Description               |
-| ------ | -------------------------------- | ------------------------- |
-| btoken | address                          | The bridged token address |
-| ctoken | struct BaseNFTVault.CanonicalNFT | The canonical token       |
-
-### hashAndMarkMsgReleased
-
-```solidity
-function hashAndMarkMsgReleased(struct IBridge.Message message, bytes proof, address tokenAddress) internal returns (bytes32 msgHash)
-```
-
-#### Parameters
-
-| Name         | Type                   | Description                     |
-| ------------ | ---------------------- | ------------------------------- |
-| message      | struct IBridge.Message | The bridged message struct data |
-| proof        | bytes                  | The proof bytes                 |
-| tokenAddress | address                | The token address to be checked |

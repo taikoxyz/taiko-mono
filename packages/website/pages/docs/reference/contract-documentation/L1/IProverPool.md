@@ -19,5 +19,5 @@ function releaseProver(address prover) external
 ### slashProver
 
 ```solidity
-function slashProver(address prover, uint64 proofReward) external
+function slashProver(uint64 blockId, address prover, uint64 proofReward) external
 ```

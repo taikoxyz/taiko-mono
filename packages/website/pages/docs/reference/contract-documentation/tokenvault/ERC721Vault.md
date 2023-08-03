@@ -43,10 +43,10 @@ this function._
 | to       | address                          | The destination address.                                                                                            |
 | tokenIds | uint256[]                        | The tokenId array to be sent.                                                                                       |
 
-### releaseToken
+### onMessageRecalled
 
 ```solidity
-function releaseToken(struct IBridge.Message message, bytes proof) external
+function onMessageRecalled(struct IBridge.Message message) external returns (bytes4)
 ```
 
 Release deposited ERC721 token(s) back to the owner on the source chain
@@ -58,13 +58,20 @@ a proof that the message processing on the destination Bridge has failed.
 | Name    | Type                   | Description                                                             |
 | ------- | ---------------------- | ----------------------------------------------------------------------- |
 | message | struct IBridge.Message | The message that corresponds to the ERC721 deposit on the source chain. |
-| proof   | bytes                  | The proof from the destination chain to show the message has failed.    |
 
 ### onERC721Received
 
 ```solidity
 function onERC721Received(address, address, uint256, bytes) external pure returns (bytes4)
 ```
+
+### supportsInterface
+
+```solidity
+function supportsInterface(bytes4 interfaceId) public view virtual returns (bool)
+```
+
+_See {IERC165-supportsInterface}._
 
 ---
 

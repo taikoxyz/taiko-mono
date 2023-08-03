@@ -112,7 +112,7 @@ event Exited(address addr, uint64 amount)
 ### Slashed
 
 ```solidity
-event Slashed(address addr, uint64 amount)
+event Slashed(uint64 blockId, address addr, uint64 amount)
 ```
 
 ### Staked
@@ -203,7 +203,7 @@ _Increases the capacity of the prover by releasing a prover._
 ### slashProver
 
 ```solidity
-function slashProver(address addr, uint64 proofReward) external
+function slashProver(uint64 blockId, address addr, uint64 proofReward) external
 ```
 
 _Slashes a prover._
@@ -212,6 +212,7 @@ _Slashes a prover._
 
 | Name        | Type    | Description                         |
 | ----------- | ------- | ----------------------------------- |
+| blockId     | uint64  |                                     |
 | addr        | address | The address of the prover to slash. |
 | proofReward | uint64  |                                     |
 
