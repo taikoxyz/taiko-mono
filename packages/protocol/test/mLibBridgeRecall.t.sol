@@ -8,12 +8,14 @@ pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../contracts/common/AddressResolver.sol";
 import { EtherVault } from "../contracts/bridge/EtherVault.sol";
-import { IBridge } from "../contracts/bridge/IBridge.sol";
 import {
-    IERC165Upgradeable
-} from "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
+    IRecallableMessageSender, IBridge
+} from "../contracts/bridge/IBridge.sol";
+import { IERC165Upgradeable } from
+    "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import { LibBridgeData } from "../contracts/bridge/libs/LibBridgeData.sol";
 import { LibBridgeStatus } from "../contracts/bridge/libs/LibBridgeStatus.sol";
+import { LibAddress } from "../contracts/libs/LibAddress.sol";
 
 interface VaultContract {
     function releaseToken(IBridge.Message calldata message) external;
@@ -23,15 +25,21 @@ interface VaultContract {
  * execution on the Bridge.
  */
 
-library LibBridgeRelease {
+library LibBridgeRecall {
     using LibBridgeData for IBridge.Message;
+    using LibAddress for address;
 
     // All of the vaults has the same interface id
-    bytes4 public constant VAULT_INTERFACE_ID = 0x156ef222;
+    bytes4 public constant RECALLABLE_MESSAGE_SENDER_INTERFACE_ID = 0x59dca5b0;
 
-    event EtherReleased(bytes32 indexed msgHash, address to, uint256 amount);
+    event MessageRecalled(
+        bytes32 indexed msgHash,
+        address to,
+        uint256 amount,
+        LibBridgeData.RecallStatus status
+    );
 
-    error B_TOKENS_RELEASED_ALREADY();
+    error B_ETHER_RELEASED_ALREADY();
     error B_FAILED_TRANSFER();
     error B_MSG_NOT_FAILED();
     error B_OWNER_IS_NULL();
@@ -75,21 +83,24 @@ library LibBridgeRelease {
         if (false) {
             revert B_MSG_NOT_FAILED();
         }
-        
-        if(state.recallStatus[msgHash] 
+
+        if (
+            state.recallStatus[msgHash]
                 == LibBridgeData.RecallStatus.FULLY_RECALLED
-        ){
+        ) {
             // Both ether and tokens are released
-            revert B_TOKENS_RELEASED_ALREADY();
+            revert B_ETHER_RELEASED_ALREADY();
         }
 
         uint256 releaseAmount;
 
-        if(state.recallStatus[msgHash] 
+        if (
+            state.recallStatus[msgHash]
                 == LibBridgeData.RecallStatus.NOT_RECALLED
         ) {
             // Release ETH first
-            state.recallStatus[msgHash] = LibBridgeData.RecallStatus.ETH_RELEASED;
+            state.recallStatus[msgHash] =
+                LibBridgeData.RecallStatus.ETH_RELEASED;
 
             releaseAmount = message.depositValue + message.callValue;
 
@@ -102,7 +113,8 @@ library LibBridgeRelease {
                     );
                 } else {
                     // if on Ethereum
-                    (bool success,) = message.owner.call{ value: releaseAmount }("");
+                    (bool success,) =
+                        message.owner.call{ value: releaseAmount }("");
                     if (!success) {
                         revert B_FAILED_TRANSFER();
                     }
@@ -110,39 +122,45 @@ library LibBridgeRelease {
             }
         }
         //2nd stage is releasing the tokens
-        if(state.recallStatus[msgHash] 
-                == LibBridgeData.RecallStatus.ETH_RELEASED 
+        if (
+            state.recallStatus[msgHash]
+                == LibBridgeData.RecallStatus.ETH_RELEASED
         ) {
-            if( message.to == address(0)
-                || !_isContract(message.sender)
-                || !IERC165Upgradeable(message.sender).supportsInterface(VAULT_INTERFACE_ID) 
-            ) {
-                state.recallStatus[msgHash] = LibBridgeData.RecallStatus.FULLY_RECALLED;
+            if (message.sender.isContract()) {
+                if (isRecallableMessageSender(message.sender)) {
+                    try IRecallableMessageSender((message.sender))
+                        .onMessageRecalled(message) {
+                        state.recallStatus[msgHash] =
+                            LibBridgeData.RecallStatus.FULLY_RECALLED;
+                    } catch { }
+                }
             } else {
-                // Set state before successfull call because of reentrancy
-                // we changing it back in the catch() if call unsuccessful
                 state.recallStatus[msgHash] =
                     LibBridgeData.RecallStatus.FULLY_RECALLED;
-                try VaultContract(
-                    (message.sender)
-                ).releaseToken(message){
-                } catch {
-                    // If it had a token (erc20/721/1115) try to release
-                    // it and if unsuccessfull set the status back so that
-                    // we might try once more to releaseTokens - if it
-                    // fails bc. we forgot to set AddressManager or something (?)
-                    state.recallStatus[msgHash] = LibBridgeData.RecallStatus.ETH_RELEASED;
-                }
             }
         }
-        emit EtherReleased(msgHash, message.owner, releaseAmount);
+        emit MessageRecalled(
+            msgHash, message.owner, releaseAmount, state.recallStatus[msgHash]
+        );
     }
 
-    function _isContract(address _addr) private view returns (bool isContract){
-        uint32 size;
-        assembly {
-            size := extcodesize(_addr)
-        }
-        return (size > 0);
+    function isRecallableMessageSender(address addr)
+        private
+        view
+        returns (bool retVal)
+    {
+        try IERC165Upgradeable(addr).supportsInterface(
+            RECALLABLE_MESSAGE_SENDER_INTERFACE_ID
+        ) {
+            if (
+                IERC165Upgradeable(addr).supportsInterface(
+                    RECALLABLE_MESSAGE_SENDER_INTERFACE_ID
+                )
+            ) {
+                // It not only succeeds but also returned true
+                // RECALLABLE_MESSAGE_SENDER_INTERFACE_ID
+                return true;
+            }
+        } catch { }
     }
 }
