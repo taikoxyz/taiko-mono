@@ -111,7 +111,7 @@
         }),
       );
 
-      await pendingTransactions.add(txHash, $network.id);
+      await pendingTransactions.add(txHash, Number(bridgeTx.destChainId));
 
       successToast(
         $t('activities.actions.claim.success', {
@@ -174,14 +174,14 @@
 
       // Step 3: get the user's wallet
       // TODO: might not be needed to pass the chainId here
-      const wallet = await getConnectedWallet(Number(bridgeTx.destChainId));
+      const wallet = await getConnectedWallet(Number(bridgeTx.srcChainId));
 
       log(`Releasing ${bridgeTx.tokenType} for transaction`, bridgeTx);
 
       // Step 4: Call release() method on the bridge
       const txHash = await bridge.claim({ msgHash, message, wallet });
 
-      const { explorerUrl } = chainUrlMap[Number(bridgeTx.destChainId)];
+      const { explorerUrl } = chainUrlMap[Number(bridgeTx.srcChainId)];
 
       infoToast(
         $t('activities.actions.release.tx', {
@@ -192,7 +192,7 @@
         }),
       );
 
-      await pendingTransactions.add(txHash, $network.id);
+      await pendingTransactions.add(txHash, Number(bridgeTx.srcChainId));
 
       successToast(
         $t('activities.actions.release.success', {
