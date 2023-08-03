@@ -12,9 +12,8 @@ import { IERC721Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
 import { ERC721Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
-import {
-    IERC165Upgradeable
-} from "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
+import { IERC165Upgradeable } from
+    "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import { Create2Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 import { IBridge } from "../bridge/IBridge.sol";
@@ -45,13 +44,16 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
     {
         LibVaultUtils.checkIfValidAmounts(opt.amounts, opt.tokenIds, true);
         LibVaultUtils.checkIfValidAddresses(
-            resolve(opt.destChainId, "erc721_vault", false),
-            opt.to,
-            opt.token
+            resolve(opt.destChainId, "erc721_vault", false), opt.to, opt.token
         );
 
-        try IERC165Upgradeable(opt.token).supportsInterface(ERC721_INTERFACE_ID) {
-            if (!IERC165Upgradeable(opt.token).supportsInterface(ERC721_INTERFACE_ID)) {
+        try IERC165Upgradeable(opt.token).supportsInterface(ERC721_INTERFACE_ID)
+        {
+            if (
+                !IERC165Upgradeable(opt.token).supportsInterface(
+                    ERC721_INTERFACE_ID
+                )
+            ) {
                 revert VAULT_INTERFACE_NOT_SUPPORTED();
             }
         } catch {
@@ -59,7 +61,8 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
         }
         // if (
         //     !IERC165Upgradeable(opt.token).supportsInterface(ERC721_INTERFACE_ID)
-        //         || IERC165Upgradeable(opt.token).supportsInterface(ERC1155_INTERFACE_ID)
+        //         ||
+        // IERC165Upgradeable(opt.token).supportsInterface(ERC1155_INTERFACE_ID)
         // ) {
         //     revert VAULT_INTERFACE_NOT_SUPPORTED();
         // }
@@ -177,7 +180,9 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
             message.data[4:], (CanonicalNFT, address, address, uint256[])
         );
 
-        bytes32 msgHash = LibVaultUtils.hashAndCheckToken(message, resolve("bridge", false), nft.addr);
+        bytes32 msgHash = LibVaultUtils.hashAndCheckToken(
+            message, resolve("bridge", false), nft.addr
+        );
 
         unchecked {
             if (isBridgedToken[nft.addr]) {
@@ -211,7 +216,13 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
     /**
      * @dev See {IERC165-supportsInterface}.
      */
-    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        virtual
+        override
+        returns (bool)
+    {
         return interfaceId == ERC721Vault.onMessageRecalled.selector;
     }
 

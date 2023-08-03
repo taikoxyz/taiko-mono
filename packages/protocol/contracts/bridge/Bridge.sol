@@ -71,8 +71,10 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * Releases the Ether (+ tokens) locked in the bridge as part of a cross-chain transfer.
-     * @dev Releases the Ether (+ tokens) by calling the LibBridgeRecall.recallMessage library function.
+     * Releases the Ether (+ tokens) locked in the bridge as part of a
+     * cross-chain transfer.
+     * @dev Releases the Ether (+ tokens) by calling the
+     * LibBridgeRecall.recallMessage library function.
      * @param message The message containing the details of the Ether transfer.
      * (See IBridge)
      * @param proof The proof of the cross-chain transfer.

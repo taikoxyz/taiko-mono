@@ -6,9 +6,8 @@
 
 pragma solidity ^0.8.20;
 
-import {
-    IERC165Upgradeable
-} from "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
+import { IERC165Upgradeable } from
+    "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import { ERC1155ReceiverUpgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
 import { IERC1155Receiver } from
@@ -58,13 +57,17 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     {
         LibVaultUtils.checkIfValidAmounts(opt.amounts, opt.tokenIds, false);
         LibVaultUtils.checkIfValidAddresses(
-            resolve(opt.destChainId, "erc1155_vault", false),
-            opt.to,
-            opt.token
+            resolve(opt.destChainId, "erc1155_vault", false), opt.to, opt.token
         );
 
-        try IERC165Upgradeable(opt.token).supportsInterface(ERC1155_INTERFACE_ID) {
-            if (!IERC165Upgradeable(opt.token).supportsInterface(ERC1155_INTERFACE_ID)) {
+        try IERC165Upgradeable(opt.token).supportsInterface(
+            ERC1155_INTERFACE_ID
+        ) {
+            if (
+                !IERC165Upgradeable(opt.token).supportsInterface(
+                    ERC1155_INTERFACE_ID
+                )
+            ) {
                 revert VAULT_INTERFACE_NOT_SUPPORTED();
             }
         } catch {
@@ -188,7 +191,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             (CanonicalNFT, address, address, uint256[], uint256[])
         );
 
-        bytes32 msgHash = LibVaultUtils.hashAndCheckToken(message, resolve("bridge", false), nft.addr);
+        bytes32 msgHash = LibVaultUtils.hashAndCheckToken(
+            message, resolve("bridge", false), nft.addr
+        );
 
         unchecked {
             if (isBridgedToken[nft.addr]) {
@@ -224,7 +229,13 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     /**
      * @dev See {IERC165-supportsInterface}.
      */
-    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155ReceiverUpgradeable) returns (bool) {
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        virtual
+        override(ERC1155ReceiverUpgradeable)
+        returns (bool)
+    {
         return interfaceId == type(ERC1155ReceiverUpgradeable).interfaceId
             || interfaceId == ERC1155Vault.onMessageRecalled.selector
             || super.supportsInterface(interfaceId);

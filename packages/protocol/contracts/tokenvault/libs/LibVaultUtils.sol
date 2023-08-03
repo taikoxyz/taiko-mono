@@ -12,7 +12,6 @@ import { IBridge } from "../../bridge/IBridge.sol";
 import { AddressResolver } from "../../common/AddressResolver.sol";
 
 library LibVaultUtils {
-
     uint256 public constant MAX_TOKEN_PER_TXN = 10;
 
     /**
@@ -42,7 +41,7 @@ library LibVaultUtils {
      * Thrown when more tokens are about to be bridged than allowed.
      */
     error VAULT_MAX_TOKEN_PER_TXN_EXCEEDED();
-    
+
     /**
      * Thrown when the amount in a transaction is invalid.
      * This could happen if the amount is zero or exceeds the sender's balance.
@@ -118,7 +117,7 @@ library LibVaultUtils {
         address vault,
         address to,
         address token
-    ) 
+    )
         external
         pure
     {
@@ -133,7 +132,7 @@ library LibVaultUtils {
         uint256[] memory amounts,
         uint256[] memory tokenIds,
         bool isERC721
-    ) 
+    )
         external
         pure
     {

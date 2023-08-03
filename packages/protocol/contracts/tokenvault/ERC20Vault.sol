@@ -10,9 +10,8 @@ import {
     IERC20Upgradeable,
     ERC20Upgradeable
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import {
-    IERC165Upgradeable
-} from "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
+import { IERC165Upgradeable } from
+    "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import { SafeERC20Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import { Create2Upgradeable } from
@@ -331,7 +330,13 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
     /**
      * @dev See {IERC165-supportsInterface}.
      */
-    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        virtual
+        override
+        returns (bool)
+    {
         return interfaceId == ERC20Vault.onMessageRecalled.selector;
     }
 

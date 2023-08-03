@@ -9,15 +9,15 @@ pragma solidity ^0.8.20;
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { EtherVault } from "../EtherVault.sol";
 import { IRecallableMessageSender, IBridge } from "../IBridge.sol";
-import {
-    IERC165Upgradeable
-} from "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
+import { IERC165Upgradeable } from
+    "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import { LibBridgeData } from "./LibBridgeData.sol";
 import { LibBridgeStatus } from "./LibBridgeStatus.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 
 /**
- * This library provides functions for releasing Ether (and tokens) related to message
+ * This library provides functions for releasing Ether (and tokens) related to
+ * message
  * execution on the Bridge.
  */
 
@@ -28,7 +28,12 @@ library LibBridgeRecall {
     // All of the vaults has the same interface id
     bytes4 public constant RECALLABLE_MESSAGE_SENDER_INTERFACE_ID = 0x59dca5b0;
 
-    event MessageRecalled(bytes32 indexed msgHash, address to, uint256 amount, LibBridgeData.RecallStatus status);
+    event MessageRecalled(
+        bytes32 indexed msgHash,
+        address to,
+        uint256 amount,
+        LibBridgeData.RecallStatus status
+    );
 
     error B_ETHER_RELEASED_ALREADY();
     error B_FAILED_TRANSFER();
@@ -72,21 +77,24 @@ library LibBridgeRecall {
         ) {
             revert B_MSG_NOT_FAILED();
         }
-        
-        if(state.recallStatus[msgHash] 
+
+        if (
+            state.recallStatus[msgHash]
                 == LibBridgeData.RecallStatus.FULLY_RECALLED
-        ){
+        ) {
             // Both ether and tokens are released
             revert B_ETHER_RELEASED_ALREADY();
         }
 
         uint256 releaseAmount;
 
-        if(state.recallStatus[msgHash] 
+        if (
+            state.recallStatus[msgHash]
                 == LibBridgeData.RecallStatus.NOT_RECALLED
         ) {
             // Release ETH first
-            state.recallStatus[msgHash] = LibBridgeData.RecallStatus.ETH_RELEASED;
+            state.recallStatus[msgHash] =
+                LibBridgeData.RecallStatus.ETH_RELEASED;
 
             releaseAmount = message.depositValue + message.callValue;
 
@@ -99,7 +107,8 @@ library LibBridgeRecall {
                     );
                 } else {
                     // if on Ethereum
-                    (bool success,) = message.owner.call{ value: releaseAmount }("");
+                    (bool success,) =
+                        message.owner.call{ value: releaseAmount }("");
                     if (!success) {
                         revert B_FAILED_TRANSFER();
                     }
@@ -107,32 +116,45 @@ library LibBridgeRecall {
             }
         }
         //2nd stage is releasing the tokens
-        if(state.recallStatus[msgHash] 
-                == LibBridgeData.RecallStatus.ETH_RELEASED 
+        if (
+            state.recallStatus[msgHash]
+                == LibBridgeData.RecallStatus.ETH_RELEASED
         ) {
-            if(message.sender.isContract()) {
-                if(isRecallableMessageSender(message.sender)){
-                    try IRecallableMessageSender(
-                        (message.sender)
-                    ).onMessageRecalled(message){
+            if (message.sender.isContract()) {
+                if (isRecallableMessageSender(message.sender)) {
+                    try IRecallableMessageSender((message.sender))
+                        .onMessageRecalled(message) {
                         state.recallStatus[msgHash] =
                             LibBridgeData.RecallStatus.FULLY_RECALLED;
-                    } catch {}
+                    } catch { }
                 }
-            } 
-            else {
-                state.recallStatus[msgHash] = LibBridgeData.RecallStatus.FULLY_RECALLED;
+            } else {
+                state.recallStatus[msgHash] =
+                    LibBridgeData.RecallStatus.FULLY_RECALLED;
             }
         }
-        emit MessageRecalled(msgHash, message.owner, releaseAmount, state.recallStatus[msgHash]);
+        emit MessageRecalled(
+            msgHash, message.owner, releaseAmount, state.recallStatus[msgHash]
+        );
     }
 
-    function isRecallableMessageSender(address addr) private view returns (bool retVal){
-        try IERC165Upgradeable(addr).supportsInterface(RECALLABLE_MESSAGE_SENDER_INTERFACE_ID) {
-            if (IERC165Upgradeable(addr).supportsInterface(RECALLABLE_MESSAGE_SENDER_INTERFACE_ID)) {
-                // It not only succeeds but also returned true RECALLABLE_MESSAGE_SENDER_INTERFACE_ID
+    function isRecallableMessageSender(address addr)
+        private
+        view
+        returns (bool retVal)
+    {
+        try IERC165Upgradeable(addr).supportsInterface(
+            RECALLABLE_MESSAGE_SENDER_INTERFACE_ID
+        ) {
+            if (
+                IERC165Upgradeable(addr).supportsInterface(
+                    RECALLABLE_MESSAGE_SENDER_INTERFACE_ID
+                )
+            ) {
+                // It not only succeeds but also returned true
+                // RECALLABLE_MESSAGE_SENDER_INTERFACE_ID
                 return true;
             }
-        } catch {}
+        } catch { }
     }
 }

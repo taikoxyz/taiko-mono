@@ -10,8 +10,11 @@ import { LibBridgeData } from "./libs/LibBridgeData.sol";
 /**
  * Recalling a message interface.
  */
+
 interface IRecallableMessageSender {
-    function onMessageRecalled(IBridge.Message calldata message) external returns (bytes4);
+    function onMessageRecalled(IBridge.Message calldata message)
+        external
+        returns (bytes4);
 }
 
 /**
@@ -57,7 +60,12 @@ interface IBridge {
 
     event SignalSent(address sender, bytes32 msgHash);
     event MessageSent(bytes32 indexed msgHash, Message message);
-    event MessageRecalled(bytes32 indexed msgHash, address to, uint256 amount, LibBridgeData.RecallStatus status);
+    event MessageRecalled(
+        bytes32 indexed msgHash,
+        address to,
+        uint256 amount,
+        LibBridgeData.RecallStatus status
+    );
 
     /// Sends a message to the destination chain and takes custody
     /// of Ether required in this contract. All extra Ether will be refunded.
