@@ -6,7 +6,7 @@ import { publicClient } from '$libs/wagmi';
 
 import { type BridgeTransaction, MessageStatus } from './types';
 
-export async function isBridgeTxProcessable(bridgeTx: BridgeTransaction) {
+export async function isTransactionProcessable(bridgeTx: BridgeTransaction) {
   const { receipt, message, srcChainId, destChainId, status } = bridgeTx;
 
   // Without these guys there is no way we can process this

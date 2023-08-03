@@ -17,13 +17,12 @@ import type {
   GetAllByAddressResponse,
   PaginationInfo,
   PaginationParams,
-  RelayerAPI,
   RelayerBlockInfo,
-} from './relayerApi';
+} from './types';
 
 const log = getLogger('RelayerAPIService');
 
-export class RelayerAPIService implements RelayerAPI {
+export class RelayerAPIService {
   private static async _getTransactionReceipt(chainId: ChainID, hash: Hash) {
     const client = publicClient({ chainId: Number(chainId) });
     return client.getTransactionReceipt({ hash });

@@ -8,10 +8,10 @@ import { BridgeTxPollingError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { nextTick } from '$libs/util/nextTick';
 
-import { isBridgeTxProcessable } from './isBridgeTxProcessable';
+import { isTransactionProcessable } from './isTransactionProcessable';
 import { type BridgeTransaction, MessageStatus } from './types';
 
-const log = getLogger('bridge:bridgeTxMessageStatusPoller');
+const log = getLogger('bridge:messageStatusPoller');
 
 export enum PollingEvent {
   STOP = 'stop',
@@ -91,7 +91,7 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = false
   };
 
   const pollingFn = async () => {
-    const isProcessable = await isBridgeTxProcessable(bridgeTx);
+    const isProcessable = await isTransactionProcessable(bridgeTx);
 
     emitter.emit(PollingEvent.PROCESSABLE, isProcessable);
 

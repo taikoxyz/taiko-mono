@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { type Unsubscriber, writable } from 'svelte/store';
   import { t } from 'svelte-i18n';
 
   import { Button } from '$components/Button';
@@ -9,27 +8,29 @@
   import { Paginator } from '$components/Paginator';
   import { Spinner } from '$components/Spinner';
   import { activitiesConfig } from '$config';
-  import { PUBLIC_RELAYER_URL } from '$env/static/public';
-  import type { BridgeTransaction } from '$libs/bridge';
+  import { type BridgeTransaction,fetchTransactions } from '$libs/bridge';
   import { web3modal } from '$libs/connect';
-  import { RelayerAPIService } from '$libs/relayer/RelayerAPIService';
-  import { bridgeTxService } from '$libs/storage/services';
-  import { getLogger } from '$libs/util/logger';
-  import { mergeUniqueTransactions } from '$libs/util/mergeTransactions';
   import { type Account, account } from '$stores/account';
-  import { paginationInfo as paginationStore } from '$stores/relayerApi';
 
   import MobileDetailsDialog from './MobileDetailsDialog.svelte';
   import Transaction from './Transaction.svelte';
 
-  const log = getLogger('Transactions.svelte');
-
-  export const transactions = writable<BridgeTransaction[]>([]);
+  let transactions: BridgeTransaction[] = [];
 
   let currentPage = 1;
 
   let isBlurred = false;
   const transitionTime = activitiesConfig.blurTransitionTime;
+
+  let totalItems = 0;
+  let pageSize = activitiesConfig.pageSizeDesktop;
+
+  let loadingTxs = true;
+
+  let detailsOpen = false;
+  let isMobile = false;
+
+  let selectedItem: BridgeTransaction | null = null;
 
   const handlePageChange = (detail: number) => {
     isBlurred = true;
@@ -39,65 +40,26 @@
     }, transitionTime);
   };
 
-  const relayerApi = new RelayerAPIService(PUBLIC_RELAYER_URL);
-
-  let totalItems = 0;
-  let pageSize = activitiesConfig.pageSizeDesktop;
-  $: pageSize = isMobile ? activitiesConfig.pageSizeMobile : activitiesConfig.pageSizeDesktop;
-
-  let loadingTxs = true;
-
-  let unsubscribe: Unsubscriber;
-  let detailsOpen = false;
-  let isMobile = false;
-
-  let selectedItem: BridgeTransaction | null = null;
-
-  onMount(async () => {
-    if (!$account?.isConnected) {
-      loadingTxs = false;
-      return;
-    }
-    await fetchTransactions();
-  });
-
   const getTransactionsToShow = (page: number, pageSize: number, bridgeTx: BridgeTransaction[]) => {
     const start = (page - 1) * pageSize;
     const end = start + pageSize;
     return bridgeTx.slice(start, end);
   };
 
-  // Todo: move logic out of component
-  const fetchTransactions = async () => {
-    loadingTxs = true;
-    if (!$account.address || totalItems > 0) {
-      loadingTxs = false;
-      return;
-    }
-
-    // Transactions from local storage
-    const localTxs: BridgeTransaction[] = await bridgeTxService.getAllTxByAddress($account.address);
-
-    // Transactions from relayer
-    const { txs, paginationInfo } = await relayerApi.getAllBridgeTransactionByAddress($account.address, {
-      page: 0,
-      size: 100,
-    });
-
-    loadingTxs = false;
-
-    $transactions = mergeUniqueTransactions(localTxs, txs);
-
-    log(`merging ${localTxs.length} local and ${txs.length} relayer transactions. New size: ${$transactions.length}`);
-
-    paginationStore.set(paginationInfo);
-  };
-
   const onWalletConnect = () => web3modal.openModal();
 
   const onAccountChange = async (newAccount: Account, oldAccount?: Account) => {
-    if (newAccount?.isConnected) {
-      await fetchTransactions();
+    // We want to make sure that we are connected and only
+    // fetch if the account has changed
+    if (newAccount?.isConnected && newAccount.address && newAccount.address !== oldAccount?.address) {
+      try {
+        transactions = await fetchTransactions(newAccount.address);
+      } catch (err) {
+        console.error(err);
+        // TODO: handle
+      } finally {
+        loadingTxs = false;
+      }
     }
   };
 
@@ -111,11 +73,27 @@
     selectedItem = tx;
   };
 
-  $: transactionsToShow = getTransactionsToShow(currentPage, pageSize, $transactions);
+  onMount(async () => {
+    if (!$account?.isConnected || !$account?.address) {
+      loadingTxs = false;
+      return;
+    }
 
-  $: if ($paginationStore) {
-    totalItems = $transactions.length;
-  }
+    try {
+      transactions = await fetchTransactions($account.address);
+    } catch (err) {
+      console.error(err);
+      // TODO: handle
+    } finally {
+      loadingTxs = false;
+    }
+  });
+
+  $: pageSize = isMobile ? activitiesConfig.pageSizeMobile : activitiesConfig.pageSizeDesktop;
+
+  $: transactionsToShow = getTransactionsToShow(currentPage, pageSize, transactions);
+
+  $: totalItems = transactions.length;
 </script>
 
 <div class="flex flex-col justify-center w-full">

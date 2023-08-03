@@ -195,7 +195,7 @@
         type="number"
         placeholder="0.01"
         min="0"
-        loading={computingMaxAmount}
+        disabled={computingMaxAmount}
         error={$insufficientBalance}
         on:input={inputAmount}
         bind:this={inputBox}

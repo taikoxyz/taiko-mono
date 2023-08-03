@@ -14,8 +14,8 @@
   import { StatusDot } from '$components/StatusDot';
   import { statusComponent } from '$config';
   import { bridges, type BridgeTransaction, MessageStatus } from '$libs/bridge';
-  import { PollingEvent, startPolling } from '$libs/bridge/bridgeTxMessageStatusPoller';
-  import { isBridgeTxProcessable } from '$libs/bridge/isBridgeTxProcessable';
+  import { isTransactionProcessable } from '$libs/bridge/isTransactionProcessable';
+  import { PollingEvent, startPolling } from '$libs/bridge/messageStatusPoller';
   import { chains, chainUrlMap } from '$libs/chain';
   import {
     InsufficientBalanceError,
@@ -232,7 +232,7 @@
       bridgeTxStatus = bridgeTx.status; // get the current status
 
       // Can we start claiming/retrying/releasing?
-      processable = await isBridgeTxProcessable(bridgeTx);
+      processable = await isTransactionProcessable(bridgeTx);
 
       try {
         polling = startPolling(bridgeTx);

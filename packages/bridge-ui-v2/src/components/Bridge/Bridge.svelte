@@ -21,7 +21,7 @@
   import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
   import { chainContractsMap, chains } from '$libs/chain';
   import { ApproveError, NoAllowanceRequiredError, SendERC20Error, SendMessageError } from '$libs/error';
-  import { bridgeTxService } from '$libs/storage/services';
+  import { bridgeTxService } from '$libs/storage';
   import { ETHToken, getAddress, isDeployedCrossChain, tokens, TokenType } from '$libs/token';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { type Account, account } from '$stores/account';
