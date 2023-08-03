@@ -13,8 +13,8 @@ import { SafeCastUpgradeable } from
 library Lib1559Math {
     using SafeCastUpgradeable for uint256;
 
-    error M1559_UNEXPECTED_CHANGE(uint64 expected, uint64 actual);
-    error M1559_OUT_OF_STOCK();
+    error L2_1559_UNEXPECTED_CHANGE(uint64 expected, uint64 actual);
+    error L2_1559_OUT_OF_STOCK();
 
     function calculateScales(
         uint64 xExcessMax,
@@ -42,7 +42,7 @@ library Lib1559Math {
         uint64 ratio = uint64((price2x * 10_000) / price1x);
 
         if (ratio2x1x != ratio) {
-            revert M1559_UNEXPECTED_CHANGE(ratio2x1x, ratio);
+            revert L2_1559_UNEXPECTED_CHANGE(ratio2x1x, ratio);
         }
     }
 
@@ -66,7 +66,7 @@ library Lib1559Math {
     function _calcY(uint256 x, uint128 xscale) private pure returns (uint256) {
         uint256 _x = x * xscale;
         if (_x >= LibFixedPointMath.MAX_EXP_INPUT) {
-            revert M1559_OUT_OF_STOCK();
+            revert L2_1559_OUT_OF_STOCK();
         }
         return uint256(LibFixedPointMath.exp(int256(_x)));
     }

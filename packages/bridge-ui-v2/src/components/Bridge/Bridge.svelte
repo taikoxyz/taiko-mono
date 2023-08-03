@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
-  import { UserRejectedRequestError } from 'viem';
+  import { TransactionExecutionError, UserRejectedRequestError } from 'viem';
 
   import { Card } from '$components/Card';
   import { ChainSelector } from '$components/ChainSelector';
@@ -20,7 +20,13 @@
   } from '$libs/bridge';
   import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
   import { chainContractsMap, chains } from '$libs/chain';
-  import { ApproveError, NoAllowanceRequiredError, SendERC20Error, SendMessageError } from '$libs/error';
+  import {
+    ApproveError,
+    InsufficientAllowanceError,
+    NoAllowanceRequiredError,
+    SendERC20Error,
+    SendMessageError,
+  } from '$libs/error';
   import { bridgeTxService } from '$libs/storage';
   import { ETHToken, getAddress, isDeployedCrossChain, tokens, TokenType } from '$libs/token';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
@@ -88,6 +94,7 @@
         $t('bridge.actions.approve.tx', {
           values: {
             token: $selectedToken.symbol,
+            //Todo: must link to the correct explorer, not just L1
             url: `${PUBLIC_L1_EXPLORER_URL}/tx/${txHash}`,
           },
         }),
@@ -114,6 +121,9 @@
           break;
         case err instanceof NoAllowanceRequiredError:
           errorToast($t('bridge.errors.no_allowance_required'));
+          break;
+        case err instanceof InsufficientAllowanceError:
+          errorToast($t('bridge.errors.insufficient_allowance'));
           break;
         case err instanceof ApproveError:
           // TODO: see contract for all possible errors
@@ -192,6 +202,7 @@
         $t('bridge.actions.bridge.tx', {
           values: {
             token: $selectedToken.symbol,
+            //Todo: must link to the correct explorer, not just L1
             url: `${PUBLIC_L1_EXPLORER_URL}/tx/${txHash}`,
           },
         }),
@@ -239,8 +250,8 @@
       console.error(err);
 
       switch (true) {
-        case err instanceof UserRejectedRequestError:
-          warningToast($t('bridge.errors.rejected'));
+        case err instanceof InsufficientAllowanceError:
+          errorToast($t('bridge.errors.insufficient_allowance'));
           break;
         case err instanceof SendMessageError:
           // TODO: see contract for all possible errors
@@ -249,6 +260,14 @@
         case err instanceof SendERC20Error:
           // TODO: see contract for all possible errors
           errorToast($t('bridge.errors.send_erc20_error'));
+          break;
+        case err instanceof UserRejectedRequestError:
+          // Todo: viem does not seem to detect UserRejectError
+          warningToast($t('bridge.errors.rejected'));
+          break;
+        case err instanceof TransactionExecutionError && err.shortMessage === 'User rejected the request.':
+          //Todo: so we catch it by string comparison below, suboptimal
+          warningToast($t('bridge.errors.rejected'));
           break;
         default:
           errorToast($t('bridge.errors.unknown_error'));

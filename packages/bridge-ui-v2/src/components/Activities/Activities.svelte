@@ -3,16 +3,20 @@
   import { t } from 'svelte-i18n';
 
   import { Card } from '$components/Card';
+  import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import { Paginator } from '$components/Paginator';
   import { Spinner } from '$components/Spinner';
   import { activitiesConfig } from '$config';
   import { type BridgeTransaction, fetchTransactions } from '$libs/bridge';
   import { web3modal } from '$libs/connect';
-  import { type Account, account } from '$stores/account';
+  import type { Account } from '$stores/account';
+  import { account, network } from '$stores';
 
   import MobileDetailsDialog from './MobileDetailsDialog.svelte';
   import Transaction from './Transaction.svelte';
+  import ChainSelector from '$components/ChainSelector/ChainSelector.svelte';
+  import StatusInfoDialog from './StatusInfoDialog.svelte';
 
   let transactions: BridgeTransaction[] = [];
 
@@ -27,7 +31,7 @@
   let loadingTxs = false;
 
   let detailsOpen = false;
-  let isMobile = false;
+  let isDesktopOrLarger: boolean;
 
   let selectedItem: BridgeTransaction | null = null;
 
@@ -90,7 +94,7 @@
     }
   });
 
-  $: pageSize = isMobile ? activitiesConfig.pageSizeMobile : activitiesConfig.pageSizeDesktop;
+  $: pageSize = isDesktopOrLarger ? activitiesConfig.pageSizeDesktop : activitiesConfig.pageSizeMobile;
 
   $: transactionsToShow = getTransactionsToShow(currentPage, pageSize, transactions);
 
@@ -108,14 +112,18 @@
 
 <div class="flex flex-col justify-center w-full">
   <Card title={$t('activities.title')} text={$t('activities.description')}>
+    <ChainSelector class="py-[35px] " label={$t('chain_selector.currently_on')} value={$network} switchWallet small />
     <div class="flex flex-col" style={`min-height: calc(${transactionsToShow.length} * 80px);`}>
-      {#if !isMobile}
+      {#if isDesktopOrLarger}
         <div class="h-sep" />
         <div class=" text-white flex">
           <div class="w-1/5 px-4 py-2">{$t('activities.header.from')}</div>
           <div class="w-1/5 px-4 py-2">{$t('activities.header.to')}</div>
           <div class="w-1/5 px-4 py-2">{$t('activities.header.amount')}</div>
-          <div class="w-1/5 px-4 py-2">{$t('activities.header.status')}</div>
+          <div class="w-1/5 px-4 py-2 f-row">
+            {$t('activities.header.status')}
+            <StatusInfoDialog />
+          </div>
           <div class="w-1/5 px-4 py-2">{$t('activities.header.explorer')}</div>
         </div>
         <div class="h-sep" />
@@ -132,7 +140,7 @@
           class="flex flex-col items-center"
           style={isBlurred ? `filter: blur(5px); transition: filter ${transitionTime / 1000}s ease-in-out` : ''}>
           {#each transactionsToShow as item (item.hash)}
-            <Transaction {item} on:click={isMobile ? () => openDetails(item) : undefined} />
+            <Transaction {item} on:click={isDesktopOrLarger ? undefined : () => openDetails(item)} />
             <div class="h-sep" />
           {/each}
         </div>
@@ -163,3 +171,5 @@
 <MobileDetailsDialog {closeDetails} {detailsOpen} {selectedItem} />
 
 <OnAccount change={onAccountChange} />
+
+<DesktopOrLarger bind:is={isDesktopOrLarger} />

@@ -9,21 +9,15 @@
 
   import { createEventDispatcher, onDestroy } from 'svelte';
 
+  import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { Icon } from '$components/Icon';
-  import { isMobile as isMobileStore } from '$stores/isMobile';
 
   import ChainSymbolName from './ChainSymbolName.svelte';
   import Status from './Status.svelte';
 
   const dispatch = createEventDispatcher();
 
-  let isMobile = false;
-
-  const unsubscribe = isMobileStore.subscribe((value: boolean) => {
-    isMobile = value;
-  });
-
-  onDestroy(unsubscribe);
+  let isDesktopOrLarger = false;
 
   const handleClick = () => dispatch('click');
 
@@ -42,14 +36,30 @@
     }
   };
 
-  let attrs = isMobile ? { role: 'button' } : {};
+  let attrs = isDesktopOrLarger ? {} : { role: 'button' };
 </script>
 
 <!-- We disable these warnings as we dynamically add the role -->
 <!-- svelte-ignore a11y-no-noninteractive-tabindex -->
 <!-- svelte-ignore a11y-no-static-element-interactions -->
-<div {...attrs} tabindex="0" on:click={handleClick} on:keydown={handlePress} class="flex text-white h-[80px] w-full">
-  {#if isMobile}
+<div
+  {...attrs}
+  tabindex="0"
+  on:click={handleClick}
+  on:keydown={handlePress}
+  class="flex text-white md:h-[80px] h-[45px] w-full">
+  {#if isDesktopOrLarger}
+    <div class="w-1/4 md-w-1/5 px-4 py-2 flex flex-row justify-left items-stretch">
+      <ChainSymbolName chainId={item.srcChainId} />
+    </div>
+    <div class="w-1/4 md-w-1/5 px-4 py-2 flex flex-row justify-left items-stretch">
+      <ChainSymbolName chainId={item.destChainId} />
+    </div>
+    <div class="w-1/4 md-w-1/5 px-4 py-2 flex flex-col justify-center items-stretch">
+      {formatEther(item.amount ? item.amount : BigInt(0))}
+      {item.symbol}
+    </div>
+  {:else}
     <div class="flex text-white h-[80px] w-full">
       <div class="flex-col">
         <div class="flex">
@@ -65,18 +75,6 @@
         </div>
       </div>
     </div>
-  {:else}
-    <div class="w-1/4 md-w-1/5 px-4 py-2 flex flex-row justify-left items-stretch">
-      <ChainSymbolName chainId={item.srcChainId} />
-    </div>
-
-    <div class="w-1/4 md-w-1/5 px-4 py-2 flex flex-row justify-left items-stretch">
-      <ChainSymbolName chainId={item.destChainId} />
-    </div>
-    <div class="w-1/4 md-w-1/5 px-4 py-2 flex flex-col justify-center items-stretch">
-      {formatEther(item.amount ? item.amount : BigInt(0))}
-      {item.symbol}
-    </div>
   {/if}
 
   <div class="w-1/4 md-w-1/5 px-4 py-2 flex flex-col justify-center items-stretch">
@@ -88,3 +86,4 @@
     </a>
   </div>
 </div>
+<DesktopOrLarger bind:is={isDesktopOrLarger} />

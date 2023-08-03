@@ -21,7 +21,7 @@
 
 <dialog id={dialogId} class="modal modal-bottom" class:modal-open={detailsOpen}>
   <div
-    class="modal-box relative border border-gray-700 px-6 py-[30px] bg-gray-800/30 bg-gradient-to-r from-glass-gradient-from to-glass-gradient-to
+    class="modal-box relative border border-neutral-background px-6 py-[30px] bg-gray-800/30 bg-gradient-to-r from-glass-gradient-from to-glass-gradient-to
       backdrop-blur-sm">
     <button class="absolute right-6 top-[30px]" on:click={closeDetails}>
       <Icon type="x-close" fillClass="fill-primary-icon" size={24} />

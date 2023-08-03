@@ -35,6 +35,7 @@ export class BridgeTxService {
       toBlock: BigInt(blockNumber),
     });
 
+    // todo: this seems to fail sometimes, work out why and add error handling
     const messageSentEvents = await client.getFilterLogs({ filter });
 
     // Filter out those events that are not from the current address
@@ -188,5 +189,16 @@ export class BridgeTxService {
     log('Updating storage with transactions', txs);
     const key = `${storageService.bridgeTxPrefix}:${address}`;
     this.storage.setItem(key, JSON.stringify(txs));
+  }
+
+  // Todo: remove message by hash
+  removeMessageByHash(address: Address, hash: Hash) {
+    throw new Error('Not implemented');
+  }
+
+  clearStorageByAddress(address: Address) {
+    log('Clearing storage for address', address);
+    const key = `${storageService.bridgeTxPrefix}:${address}`;
+    this.storage.removeItem(key);
   }
 }

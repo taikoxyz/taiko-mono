@@ -1,24 +1,12 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
-
   import { chainIcons, type ChainID, getChainName } from '$libs/chain';
-  import { isMobile as isMobileStore } from '$stores/isMobile';
 
   export let chainId: ChainID;
-
   const chainName = getChainName(Number(chainId));
   const icon = chainIcons[Number(chainId)];
-
-  let isMobile = false;
-
-  const unsubscribe = isMobileStore.subscribe((value: boolean) => {
-    isMobile = value;
-  });
-
-  onDestroy(unsubscribe);
 </script>
 
-<div class="flex {isMobile ? 'justify-items-start' : 'items-stretch self-center'}">
+<div class="flex md:items-stretch self-center justify-items-start'}">
   <img src={icon} alt="chain-logo" class="rounded-full w-5 h-5 hidden md:block mr-2" />
-  <span class={isMobile ? 'font-bold' : ''}>{chainName}</span>
+  <span class="md:font-bold font-normal">{chainName}</span>
 </div>
