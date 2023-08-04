@@ -224,9 +224,6 @@ export default {
 
           '--divider-border': '#444A55', // grey-600
 
-          '--glass-gradient-from': 'rgba(93, 99, 111, 0.10)',
-          '--glass-gradient-to': 'rgba(25, 30, 40, 0.20)',
-
           // ================================ //
 
           primary: '#C8047D', // pink-500,
