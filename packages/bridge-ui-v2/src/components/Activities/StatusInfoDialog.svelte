@@ -1,7 +1,8 @@
 <script lang="ts">
+  import { t } from 'svelte-i18n';
+
   import { Icon } from '$components/Icon';
   import { uid } from '$libs/util/uid';
-  import { t } from 'svelte-i18n';
 
   let dialogId = `dialog-${uid()}`;
   let modalOpen = false;

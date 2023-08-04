@@ -27,6 +27,7 @@
     recipientAddress,
     selectedToken,
     tokenBalance,
+    validatingAmount,
   } from './state';
 
   let inputId = `input-${uid()}`;
@@ -42,6 +43,7 @@
   export async function validateAmount(token = $selectedToken, fee = $processingFee) {
     $insufficientBalance = false;
     $insufficientAllowance = false;
+    $validatingAmount = true; // During validation, we disable all the actions
 
     const to = $recipientAddress || $account?.address;
 
@@ -80,6 +82,8 @@
           warningToast($t('messages.network.rejected'));
           break;
       }
+    } finally {
+      $validatingAmount = false;
     }
   }
 
