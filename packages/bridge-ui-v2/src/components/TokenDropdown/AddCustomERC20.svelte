@@ -18,8 +18,7 @@
   import { Button } from '$components/Button';
 
   const log = getLogger('component:AddCustomERC20');
-
-  let dialogId = `dialog-${uid()}`;
+  const dialogId = `dialog-${uid()}`;
 
   export let modalOpen: boolean = false;
   export let loading: boolean = false;

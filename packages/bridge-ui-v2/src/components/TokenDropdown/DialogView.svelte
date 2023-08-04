@@ -27,22 +27,14 @@
 
   const dispatch = createEventDispatcher();
 
-  function showAddERC20() {
+  const showAddERC20 = () => {
     dispatch('closemenu');
     modalOpen = true;
-  }
+  };
 
   const handleStorageChange = (newTokens: Token[]) => {
     customTokens = newTokens;
   };
-
-  onMount(() => {
-    tokenService.subscribeToChanges(handleStorageChange);
-  });
-
-  onDestroy(() => {
-    tokenService.unsubscribeFromChanges(handleStorageChange);
-  });
 
   const onAccountChange = () => {
     if ($account?.address) {
@@ -50,13 +42,17 @@
     }
   };
 
-  function getTokenKeydownHandler(token: Token) {
+  const getTokenKeydownHandler = (token: Token) => {
     return (event: KeyboardEvent) => {
       if (event.key === 'Enter') {
         selectToken(token);
       }
     };
-  }
+  };
+
+  onMount(() => tokenService.subscribeToChanges(handleStorageChange));
+
+  onDestroy(() => tokenService.unsubscribeFromChanges(handleStorageChange));
 </script>
 
 <!-- Mobile view -->

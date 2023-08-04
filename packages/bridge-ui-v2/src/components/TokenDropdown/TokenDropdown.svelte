@@ -95,7 +95,7 @@
   </button>
 
   {#if isDesktopOrLarger}
-    <DropdownView {id} {menuOpen} {tokens} {value} {selectToken} {closeMenu} />
+    <DropdownView {id} {menuOpen} {tokens} {value} {selectToken} />
   {:else}
     <DialogView {id} {menuOpen} {tokens} {value} {selectToken} {closeMenu} on:closemenu={closeMenu} />
   {/if}

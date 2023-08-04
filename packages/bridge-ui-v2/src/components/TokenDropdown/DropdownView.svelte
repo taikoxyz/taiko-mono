@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { ClickMask } from '$components/ClickMask';
   import { Icon } from '$components/Icon';
   import { tokenService } from '$libs/storage/services';
   import type { Token } from '$libs/token';
@@ -20,29 +19,33 @@
   export let tokens: Token[] = [];
   export let customTokens: Token[] = [];
   export let value: Maybe<Token> = null;
-  let modalOpen = false;
   export let selectToken: (token: Token) => void = noop;
-  export let closeMenu: () => void = noop;
+
+  let modalOpen = false;
 
   $: menuClasses = classNames(
     'menu absolute right-0 w-[265px] p-3 mt-2 rounded-[10px] bg-neutral-background z-10',
     menuOpen ? 'visible opacity-100' : 'invisible opacity-0',
   );
 
-  function getTokenKeydownHandler(token: Token) {
+  const getTokenKeydownHandler = (token: Token) => {
     return (event: KeyboardEvent) => {
       if (event.key === 'Enter') {
         selectToken(token);
       }
     };
-  }
+  };
 
-  function showAddERC20() {
-    modalOpen = true;
-  }
+  const showAddERC20 = () => (modalOpen = true);
 
   const handleStorageChange = (newTokens: Token[]) => {
     customTokens = newTokens;
+  };
+
+  const onAccountChange = () => {
+    if ($account?.address) {
+      customTokens = tokenService.getTokens($account?.address as Address);
+    }
   };
 
   onMount(() => {
@@ -52,12 +55,6 @@
   onDestroy(() => {
     tokenService.unsubscribeFromChanges(handleStorageChange);
   });
-
-  const onAccountChange = () => {
-    if ($account?.address) {
-      customTokens = tokenService.getTokens($account?.address as Address);
-    }
-  };
 </script>
 
 <!-- Desktop (or larger) view -->
@@ -113,5 +110,4 @@
 
 <AddCustomErc20 bind:modalOpen />
 
-<!-- <OnNetwork change={onNetworkChange} /> -->
 <OnAccount change={onAccountChange} />
