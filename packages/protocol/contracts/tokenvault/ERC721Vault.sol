@@ -27,7 +27,7 @@ import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
  * It also manages the mapping between canonical tokens and their bridged
  * tokens.
  */
-contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
+contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     uint256[50] private __gap;
 
     /**
@@ -213,19 +213,6 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
         returns (bytes4)
     {
         return IERC721Receiver.onERC721Received.selector;
-    }
-
-    /**
-     * @dev See {IERC165-supportsInterface}.
-     */
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        virtual
-        override
-        returns (bool)
-    {
-        return interfaceId == ERC721Vault.onMessageRecalled.selector;
     }
 
     function _sendToken(

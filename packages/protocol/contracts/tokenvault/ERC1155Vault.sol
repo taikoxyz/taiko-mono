@@ -261,7 +261,6 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         returns (bool)
     {
         return interfaceId == type(ERC1155ReceiverUpgradeable).interfaceId
-            || interfaceId == ERC1155Vault.onMessageRecalled.selector
             || super.supportsInterface(interfaceId);
     }
 

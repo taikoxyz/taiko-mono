@@ -33,7 +33,7 @@ import { EssentialContract } from "../common/EssentialContract.sol";
  * @custom:security-contact hello@taiko.xyz
  */
 
-contract ERC20Vault is EssentialContract, IERC165Upgradeable {
+contract ERC20Vault is EssentialContract {
     using SafeERC20Upgradeable for ERC20Upgradeable;
 
     /*//////////////////////////////////////////////////////////////
@@ -325,19 +325,6 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
         });
 
         return ERC20Vault.onMessageRecalled.selector;
-    }
-
-    /**
-     * @dev See {IERC165-supportsInterface}.
-     */
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        virtual
-        override
-        returns (bool)
-    {
-        return interfaceId == ERC20Vault.onMessageRecalled.selector;
     }
 
     /*//////////////////////////////////////////////////////////////

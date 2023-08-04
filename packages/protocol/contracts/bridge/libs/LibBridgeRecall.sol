@@ -9,8 +9,6 @@ pragma solidity ^0.8.20;
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { EtherVault } from "../EtherVault.sol";
 import { IRecallableMessageSender, IBridge } from "../IBridge.sol";
-import { IERC165Upgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import { LibBridgeData } from "./LibBridgeData.sol";
 import { LibBridgeStatus } from "./LibBridgeStatus.sol";
 
@@ -24,7 +22,7 @@ library LibBridgeRecall {
     using LibBridgeData for IBridge.Message;
 
     // All of the vaults has the same interface id
-    bytes4 public constant RECALLABLE_MESSAGE_SENDER_INTERFACE_ID = 0x59dca5b0;
+    bytes4 public constant ON_MESSAGE_RECEIVED_SELECTOR = 0x59dca5b0;
 
     event MessageRecalled(
         bytes32 indexed msgHash,
@@ -117,15 +115,14 @@ library LibBridgeRecall {
             state.recallStatus[msgHash]
                 == LibBridgeData.RecallStatus.ETH_RELEASED
         ) {
-            if (
-                message.sender.code.length > 0
-                    && isRecallableMessageSender(message.sender)
-            ) {
+            if (message.sender.code.length > 0) {
                 try IRecallableMessageSender((message.sender)).onMessageRecalled(
                     message
-                ) {
-                    state.recallStatus[msgHash] =
-                        LibBridgeData.RecallStatus.FULLY_RECALLED;
+                ) returns (bytes4 _selector) {
+                    if (ON_MESSAGE_RECEIVED_SELECTOR == _selector) {
+                        state.recallStatus[msgHash] =
+                            LibBridgeData.RecallStatus.FULLY_RECALLED;
+                    }
                 } catch { }
             } else {
                 state.recallStatus[msgHash] =
@@ -135,17 +132,5 @@ library LibBridgeRecall {
         emit MessageRecalled(
             msgHash, message.owner, releaseAmount, state.recallStatus[msgHash]
         );
-    }
-
-    function isRecallableMessageSender(address addr)
-        private
-        view
-        returns (bool retVal)
-    {
-        try IERC165Upgradeable(addr).supportsInterface(
-            RECALLABLE_MESSAGE_SENDER_INTERFACE_ID
-        ) returns (bool _supports) {
-            retVal = _supports;
-        } catch { }
     }
 }
