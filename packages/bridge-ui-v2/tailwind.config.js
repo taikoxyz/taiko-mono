@@ -164,9 +164,6 @@ export default {
         'overlay-background': 'var(--overlay-background)',
 
         'divider-border': 'var(--divider-border)',
-
-        'glass-gradient-from': 'var(--glass-gradient-from)',
-        'glass-gradient-to': 'var(--glass-gradient-to)',
       },
     },
   },
