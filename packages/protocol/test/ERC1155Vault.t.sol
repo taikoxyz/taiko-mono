@@ -240,6 +240,7 @@ contract ERC1155VaultTest is Test {
         addressManager.setAddress(
             destChainId, "erc1155_vault", address(destChainErc1155Vault)
         );
+
         // Below 2-2 registrations (mock) are needed bc of
         // LibBridgeRecall.sol's
         // resolve address
@@ -608,6 +609,7 @@ contract ERC1155VaultTest is Test {
         message.destChainId = destChainId;
         message.owner = Alice;
         message.sender = address(erc1155Vault);
+
         message.to = address(destChainErc1155Vault);
         message.data = srcPrankBridge.getPreDeterminedDataBytes();
         message.gasLimit = 140_000;
@@ -615,8 +617,8 @@ contract ERC1155VaultTest is Test {
         message.depositValue = 0;
         message.refundAddress = Alice;
         message.memo = "";
-
         bytes memory proof = bytes("");
+    
         mockBridge.recallMessage(message, proof);
 
         // Alice got back her NFTs, and vault has 0

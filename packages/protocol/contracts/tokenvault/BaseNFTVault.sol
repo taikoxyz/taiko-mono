@@ -54,6 +54,7 @@ abstract contract BaseNFTVault is EssentialContract {
 
     uint256[47] private __gap;
 
+
     event BridgedTokenDeployed(
         uint256 indexed chainId,
         address indexed ctoken,

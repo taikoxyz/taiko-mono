@@ -14,12 +14,12 @@ This guide will help you get a Sepolia archive node up and running.
 
 <Steps>
 ### Clone eth-docker
-```sh
+```bash
 git clone https://github.com/eth-educators/eth-docker
 cd eth-docker
 ```
 
-### Enable archive mode
+### Enable archive node
 
 First, copy `default.env` to `.env`:
 
@@ -29,31 +29,60 @@ cp default.env .env
 
 Next, open the `.env` file in your preferred text editor and set:
 
-```filename=e
+```
 ARCHIVE_NODE=true
 ```
 
 ### Expose RPC ports
 
-You need to expose the node's RPC ports so that the Taiko L2 node can make calls to it. eth-docker offers a few options that you can read about [here](https://eth-docker.net/Usage/Advanced#sharing-rpc-and-rest-ports).
+To expose the node's RPC ports (for a Taiko L2 node to make calls to it), you can append `el-shared.yml` to the list of files in the `COMPOSE_FILE` variable in your `.env` file:
 
-An easy option is to append `el-shared.yml` to the list of files set with the `COMPOSE_FILE` variable in the `.env` file. Keep in mind this is **not encrypted**, so you should not expose it to the internet.
+```bash /el-shared.yml/
+COMPOSE_FILE=lighthouse-cl-only.yml:geth.yml:el-shared.yml
+```
+
+Keep in mind this is **not encrypted**, so you should not expose it to the internet. eth-docker offers a few other options that you can read about [here](https://eth-docker.net/Usage/Advanced#sharing-rpc-and-rest-ports).
 
 ### Complete the eth-docker quickstart
 
 Complete the [eth-docker quickstart](https://eth-docker.net/Usage/QuickStart/). You will need to run the config command:
 
-```sh
+```bash
 ./ethd config
+```
+
+After setting up the config, start the Execution Layer and Consensus Layer clients with admin permission
+
+```bash
+sudo ./ethd up
 ```
 
 ### Check your connection
 
-You can do a simple curl command to check if the node is synced (change port from `8545` to whatever you have the execution client p2p port set to in your `.env` file):
+Check if the node is connected and synced by requesting the latest Sepolia block from the Execution Layer client (change port from `8545` to whatever you have the execution client p2p port set to in your `.env` file):
 
 ```bash
 curl -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":0}' http://127.0.0.1:8545
 ```
+
+If your response block number is less than the current block, check the Execution Layer client logs:
+
+```bash
+./ethd logs -f execution
+```
+
+and wait to sync for the latest block as shown here on [Sepolia's Etherscan Blocks](https://sepolia.etherscan.io/blocks).
+
+<Callout type="warning">
+If you get the following error after running the curl command:
+
+```bash
+curl: (7) failed to connect to localhost port 8545 after 0 ms: connection refused
+```
+
+make sure that your Execution Layer client ports are setup by updating `COMPOSE_FILE` to include `el-shared.yml` as described in step `Expose RPC ports`.
+
+</Callout>
 
 ### Harden your network (optional)
 

@@ -23,6 +23,7 @@ import { Proxied } from "../common/Proxied.sol";
 import { TaikoToken } from "../L1/TaikoToken.sol";
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
+
 /**
  * This vault holds all ERC20 tokens (but not Ether) that users have deposited.
  * It also manages the mapping between canonical ERC20 tokens and their bridged
@@ -300,7 +301,7 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
     {
         IBridge bridge = IBridge(resolve("bridge", false));
         bytes32 msgHash = bridge.hashMessage(message);
-
+    
         (, address token,, uint256 amount) = abi.decode(
             message.data[4:], (CanonicalERC20, address, address, uint256)
         );

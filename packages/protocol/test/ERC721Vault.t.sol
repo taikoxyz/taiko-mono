@@ -256,6 +256,7 @@ contract ERC721VaultTest is Test {
         addressManager.setAddress(
             block.chainid, "erc721_vault", address(erc721Vault)
         );
+
         addressManager.setAddress(
             destChainId, "erc721_vault", address(destChainErc721Vault)
         );
@@ -354,6 +355,7 @@ contract ERC721VaultTest is Test {
 
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = 0;
+
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
             .BridgeTransferOp(
             destChainId,
@@ -623,7 +625,6 @@ contract ERC721VaultTest is Test {
         message.depositValue = 0;
         message.refundAddress = Alice;
         message.memo = "";
-
         bytes memory proof = bytes("");
 
         mockBridge.recallMessage(message, proof);
