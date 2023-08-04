@@ -15,6 +15,7 @@
   import { account } from '$stores/account';
   import { tokenService } from '$libs/storage/services';
   import { Alert } from '$components/Alert';
+  import { Button } from '$components/Button';
 
   const log = getLogger('component:AddCustomERC20');
 
@@ -26,10 +27,11 @@
 
   let tokenDetails: (TokenEnv & { balance: bigint; decimals: number }) | null;
   let tokenError: string = '';
-  let tokenAddress: Address | string = '0x6A08CDA7dde383BBc8267f079d20E1ad3C270fff';
+  let tokenAddress: Address | string = '';
   let customTokens: Token[] = [];
   let customToken: Token | null = null;
   let disabled = true;
+  let isValidEthereumAddress = false;
 
   const addCustomErc20Token = () => {
     if (customToken) {
@@ -37,6 +39,7 @@
       customTokens = tokenService.getTokens($account?.address as Address);
     }
     tokenAddress = '';
+    tokenDetails = null;
   };
 
   const closeModal = () => {
@@ -51,20 +54,12 @@
     isValidEthereumAddress = false;
   };
 
-  const openModal = () => {
-    modalOpen = true;
-    customTokens = tokenService.getTokens($account?.address as Address);
-    log('customTokens', customTokens);
-  };
-
   const remove = async (token: Token) => {
     log('remove token', token);
     const address = $account.address;
     tokenService.removeToken(token, address as Address);
     customTokens = tokenService.getTokens(address as Address);
   };
-
-  let isValidEthereumAddress = false;
 
   const onAddressValidation = async (event: { detail: { isValidEthereumAddress: boolean } }) => {
     log('triggered onAddressValidation');
@@ -79,7 +74,7 @@
 
   const onAddressChange = async (tokenAddress: string) => {
     log('Fetching token details for address "%s"…', tokenAddress);
-
+    tokenError = '';
     try {
       const tokenInfo = await fetchToken({ address: tokenAddress as Address });
       const balance = await readContract({
@@ -115,18 +110,15 @@
     }
   };
 
-  $: {
-    if (modalOpen) openModal();
-
+  $: if (isValidEthereumAddress) {
+    onAddressChange(tokenAddress);
+  } else {
     resetForm();
-    if (isValidEthereumAddress) {
-      onAddressChange(tokenAddress);
-    }
   }
 
   $: customTokens = tokenService.getTokens($account?.address as Address);
 
-  $: disabled = tokenError !== '';
+  $: disabled = tokenError !== '' || tokenAddress === '' || tokenAddress.length !== 42;
 
   const closeModalIfClickedOutside = (e: MouseEvent) => {
     if (e.target === e.currentTarget) {
@@ -143,11 +135,14 @@
 <svelte:window on:keydown={closeModalIfKeyDown} />
 
 <dialog id={dialogId} class="modal modal-bottom md:modal-middle" class:modal-open={modalOpen}>
-  <div
-    class="modal-box relative px-6 py-[35px] md:py-[20px] bg-primary-base-background text-primary-base-content text-center">
-    <button class="absolute right-6 top-[35px] md:top-[20px]" on:click={closeModal}>
-      <Icon type="x-close" fillClass="fill-secondary-icon" size={24} />
+  <div class="modal-box relative px-6 py-[35px] md:rounded-[20px] bg-neutral-background">
+    <button class="absolute right-6 top-[35px]" on:click={closeModal}>
+      <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
     </button>
+
+    <h3 class="title-body-bold mb-7">{$t('processing_fee.title')}</h3>
+
+    <p class="body-regular text-secondary-content mb-3">{$t('processing_fee.description')}</p>
     <div class="mt-4 mb-2">
       <AddressInput bind:ethereumAddress={tokenAddress} on:addressvalidation={onAddressValidation} />
       {#if tokenDetails}
@@ -157,7 +152,7 @@
         </div>
       {:else if loadingTokenDetails}
         <Spinner />
-      {:else if tokenError !== '' && tokenAddress !== ''}
+      {:else if tokenError !== '' && tokenAddress !== '' && isValidEthereumAddress}
         <Alert type="error" forceColumnFlow>
           <p class="font-bold">{$t('bridge.errors.custom_token.not_found')}</p>
           <p>{$t('bridge.errors.custom_token.description')}</p>
@@ -169,22 +164,30 @@
     {#if loading}
       <Spinner />
     {:else}
-      <button class="btn btn-primary" disabled={Boolean(disabled)} on:click={addCustomErc20Token}> Add </button>
+      <Button
+        type="primary"
+        class="px-[28px] py-[14px] rounded-full flex-1 w-full"
+        {disabled}
+        on:click={addCustomErc20Token}>
+        Add
+      </Button>
     {/if}
 
     {#if customTokens.length > 0}
       <div class="flex h-full w-full flex-col justify-between mt-6">
-        <h3>Your imported tokens:</h3>
+        <h3 class="title-body-bold mb-7">Your imported tokens:</h3>
         {#each customTokens as ct (ct.symbol)}
           <div class="flex items-center justify-between">
-            <div class="flex items-center">
+            <div class="flex items-center m-2 space-x-2">
               <Erc20 />
-              <span class="bg-transparent">{ct.symbol}</span>
+              <span>{ct.symbol}</span>
             </div>
+
             <button class="btn btn-sm btn-ghost flex justify-center items-center" on:click={() => remove(ct)}>
-              <Icon type="trash" fillClass="fill-secondary-icon" size={24} />
+              <Icon type="trash" fillClass="fill-primary-icon" size={24} />
             </button>
           </div>
+          <div class="h-sep" />
         {/each}
       </div>
     {/if}
