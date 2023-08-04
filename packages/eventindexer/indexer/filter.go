@@ -143,6 +143,15 @@ func L1FilterFunc(
 		})
 	}
 
+	if svc.indexNfts {
+		wg.Go(func() error {
+			if err := svc.indexNftTransfers(ctx, chainID, filterOpts.Start, *filterOpts.End); err != nil {
+				return errors.Wrap(err, "svc.indexNftTransfers")
+			}
+			return nil
+		})
+	}
+
 	err := wg.Wait()
 
 	if err != nil {
@@ -198,6 +207,15 @@ func L2FilterFunc(
 				return errors.Wrap(err, "svc.saveLiquidityAddedEvents")
 			}
 
+			return nil
+		})
+	}
+
+	if svc.indexNfts {
+		wg.Go(func() error {
+			if err := svc.indexNftTransfers(ctx, chainID, filterOpts.Start, *filterOpts.End); err != nil {
+				return errors.Wrap(err, "svc.indexNftTransfers")
+			}
 			return nil
 		})
 	}
