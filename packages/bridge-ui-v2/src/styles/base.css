@@ -18,23 +18,4 @@
   body {
     height: 100%;
   }
-
-  body {
-    /* No grid background by default */
-    background-image: url(/bg/spotlights.svg), linear-gradient(180deg, rgb(11 16 27 / 70%) 0%, rgb(11 16 27 / 0%) 100%);
-    background-size: 840px, cover, cover;
-    background-blend-mode: color-dodge, lighten, multiply;
-    background-attachment: fixed;
-  }
-
-  @media (min-width: 768px) {
-    body {
-      /* Desktop of larger screens (md) have grid */
-      /* TODO: Ask Jane if we have the right svgs here */
-      background-image:
-        url(/bg/grid.svg),
-        url(/bg/spotlights.svg),
-        /* grey-900/70 => grey-900/0 */ linear-gradient(180deg, rgb(11 16 27 / 70%) 0%, rgb(11 16 27 / 0%) 100%);
-    }
-  }
 }
