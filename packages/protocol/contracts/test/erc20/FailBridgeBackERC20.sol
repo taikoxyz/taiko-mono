@@ -47,6 +47,6 @@ contract FailWhenBridgeBackCanonical is ERC20 {
         override
         returns (bool)
     {
-        revert("Cannot bridge back to canonical (intentional).");
+        revert("Cannot bridge back to canonical.");
     }
 }
