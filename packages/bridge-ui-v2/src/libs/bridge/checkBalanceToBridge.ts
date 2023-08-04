@@ -84,7 +84,7 @@ export async function checkBalanceToBridge({
         spenderAddress: tokenVaultAddress,
       });
 
-      if (allowance) {
+      if (!allowance) {
         throw new InsufficientAllowanceError(`insufficient allowance for the amount ${amount}`);
       }
     }
