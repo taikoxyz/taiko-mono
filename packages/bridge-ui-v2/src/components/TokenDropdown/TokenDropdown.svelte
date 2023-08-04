@@ -46,7 +46,7 @@
     aria-haspopup="listbox"
     aria-controls={id}
     aria-expanded={menuOpen}
-    class="f-between-center w-full px-6 py-[14px] input-box"
+    class="f-between-center w-full px-6 py-[14px] input-box bg-neutral-background"
     on:click={openMenu}
     on:focus={openMenu}>
     <div class="space-x-2">

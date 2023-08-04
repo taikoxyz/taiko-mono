@@ -164,9 +164,6 @@ export default {
         'overlay-background': 'var(--overlay-background)',
 
         'divider-border': 'var(--divider-border)',
-
-        'glass-gradient-from': 'var(--glass-gradient-from)',
-        'glass-gradient-to': 'var(--glass-gradient-to)',
       },
     },
   },
@@ -226,9 +223,6 @@ export default {
           '--overlay-background': 'rgba(12, 17, 28, 0.5)', // grey-900|50%
 
           '--divider-border': '#444A55', // grey-600
-
-          '--glass-gradient-from': 'rgba(93, 99, 111, 0.10)',
-          '--glass-gradient-to': 'rgba(25, 30, 40, 0.20)',
 
           // ================================ //
 
