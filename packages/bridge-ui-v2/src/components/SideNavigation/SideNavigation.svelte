@@ -124,7 +124,7 @@
         url(/bg/grid.svg),
         url(/bg/spotlights.svg),
         /* grey-900/70 => grey-900/0 */ linear-gradient(180deg, rgb(11 16 27 / 70%) 0%, rgb(11 16 27 / 0%) 100%);
-      background-size: cover, cover, cover;
+      background-size: 840px, cover, cover;
       background-blend-mode: color-dodge, lighten, multiply;
     }
   }
