@@ -235,7 +235,7 @@
         error={$insufficientBalance}
         on:input={inputAmount}
         bind:this={inputBox}
-        class="w-full input-box outline-none py-6 pr-16 px-[26px] title-subsection-bold placeholder:text-tertiary-content" />
+        class="py-6 pr-16 px-[26px] title-subsection-bold" />
       <!-- TODO: talk to Jane about the MAX button and its styling -->
       <button
         class="absolute right-6 uppercase hover:font-bold"
