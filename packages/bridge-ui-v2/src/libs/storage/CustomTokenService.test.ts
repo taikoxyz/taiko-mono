@@ -1,7 +1,7 @@
-import { type Address,zeroAddress } from 'viem';
+import { type Address, zeroAddress } from 'viem';
 import { describe, expect, test, vi } from 'vitest';
 
-import { type Token, type TokenEnv, TokenType } from '$libs/token';
+import { type Token, TokenType } from '$libs/token';
 
 import { CustomTokenService } from './CustomTokenService';
 
