@@ -18,3 +18,5 @@ var (
 )
 
 type HTTPOnly bool
+
+type IndexNFTS bool

@@ -28,11 +28,18 @@ func main() {
 	  false: run an http server and index blocks
 	`)
 
+	indexNfts := flag.Bool("index-nfts", false, `index nft transfer events.
+	options:
+	  true: index
+	  false: dont index
+	`)
+
 	flag.Parse()
 
 	cli.Run(
 		eventindexer.Mode(*modePtr),
 		eventindexer.WatchMode(*watchModePtr),
 		eventindexer.HTTPOnly(*httpOnlyPtr),
+		eventindexer.IndexNFTS(*indexNfts),
 	)
 }

@@ -20,10 +20,11 @@ func newTestServer(url string) *Server {
 	_ = godotenv.Load("../.test.env")
 
 	srv := &Server{
-		cache:     cache.New(5*time.Second, 6*time.Second),
-		echo:      echo.New(),
-		eventRepo: mock.NewEventRepository(),
-		statRepo:  mock.NewStatRepository(),
+		cache:          cache.New(5*time.Second, 6*time.Second),
+		echo:           echo.New(),
+		eventRepo:      mock.NewEventRepository(),
+		statRepo:       mock.NewStatRepository(),
+		nftBalanceRepo: mock.NewNFTBalanceRepository(),
 	}
 
 	srv.configureMiddleware([]string{"*"})
