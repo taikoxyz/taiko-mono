@@ -17,9 +17,22 @@
   html,
   body {
     height: 100%;
-    background-image: url(/bg/grid.svg), url(/bg/spotlights.svg), linear-gradient(270deg, #1f1f1f 0%, #000000 100%);
+  }
+
+  body {
+    background-image: url(/bg/spotlights.svg),
+      linear-gradient(180deg, rgba(11, 16, 27, 0.7) 0%, rgba(11, 16, 27, 0) 100%);
     background-size: 840px, cover, cover;
     background-blend-mode: color-dodge, lighten, multiply;
     background-attachment: fixed;
+  }
+
+  @media (min-width: 768px) {
+    body {
+      /* Desktop of larger screens have grid */
+      /* TODO: Ask Jane if we have the right svgs here */
+      background-image: url(/bg/grid.svg), url(/bg/spotlights.svg),
+        linear-gradient(180deg, rgba(11, 16, 27, 0.7) 0%, rgba(11, 16, 27, 0) 100%);
+    }
   }
 }
