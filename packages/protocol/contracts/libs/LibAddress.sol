@@ -6,6 +6,9 @@
 
 pragma solidity ^0.8.20;
 
+import { IERC165Upgradeable } from
+    "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
+
 /**
  * This library offers address-related methods.
  */
@@ -27,5 +30,20 @@ library LibAddress {
         assembly {
             codehash := extcodehash(addr)
         }
+    }
+
+    function supportsInterface(
+        address addr,
+        bytes4 interfaceId
+    )
+        internal
+        view
+        returns (bool result)
+    {
+        try IERC165Upgradeable(addr).supportsInterface(interfaceId) returns (
+            bool _result
+        ) {
+            result = _result;
+        } catch { }
     }
 }

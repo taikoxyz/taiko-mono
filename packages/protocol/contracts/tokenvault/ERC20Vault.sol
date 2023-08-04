@@ -17,13 +17,12 @@ import { SafeERC20Upgradeable } from
 import { Create2Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 import { BridgedERC20, ProxiedBridgedERC20 } from "./BridgedERC20.sol";
-import { IBridge } from "../bridge/IBridge.sol";
+import { IRecallableMessageSender, IBridge } from "../bridge/IBridge.sol";
 import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { TaikoToken } from "../L1/TaikoToken.sol";
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
-
 /**
  * This vault holds all ERC20 tokens (but not Ether) that users have deposited.
  * It also manages the mapping between canonical ERC20 tokens and their bridged
@@ -33,7 +32,7 @@ import { EssentialContract } from "../common/EssentialContract.sol";
  * @custom:security-contact hello@taiko.xyz
  */
 
-contract ERC20Vault is EssentialContract {
+contract ERC20Vault is EssentialContract, IERC165Upgradeable {
     using SafeERC20Upgradeable for ERC20Upgradeable;
 
     /*//////////////////////////////////////////////////////////////
@@ -324,7 +323,20 @@ contract ERC20Vault is EssentialContract {
             amount: amount
         });
 
-        return ERC20Vault.onMessageRecalled.selector;
+        return type(IRecallableMessageSender).interfaceId;
+    }
+
+    /**
+     * @dev See {IERC165-supportsInterface}.
+     */
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        virtual
+        override
+        returns (bool)
+    {
+        return interfaceId == type(IRecallableMessageSender).interfaceId;
     }
 
     /*//////////////////////////////////////////////////////////////

@@ -13,6 +13,7 @@ import {
 } from "../contracts/bridge/IBridge.sol";
 import { LibBridgeData } from "../contracts/bridge/libs/LibBridgeData.sol";
 import { LibBridgeStatus } from "../contracts/bridge/libs/LibBridgeStatus.sol";
+import { LibAddress } from "../contracts/libs/LibAddress.sol";
 
 interface VaultContract {
     function releaseToken(IBridge.Message calldata message) external;
@@ -24,13 +25,11 @@ interface VaultContract {
 
 library LibBridgeRecall {
     using LibBridgeData for IBridge.Message;
-
-    // All of the vaults has the same interface id
-    bytes4 public constant ON_MESSAGE_RECEIVED_SELECTOR = 0x59dca5b0;
+    using LibAddress for address;
 
     event MessageRecalled(
         bytes32 indexed msgHash,
-        address to,
+        address owner,
         uint256 amount,
         LibBridgeData.RecallStatus status
     );
@@ -38,8 +37,6 @@ library LibBridgeRecall {
     error B_ETHER_RELEASED_ALREADY();
     error B_FAILED_TRANSFER();
     error B_MSG_NOT_FAILED();
-    error B_OWNER_IS_NULL();
-    error B_WRONG_CHAIN_ID();
 
     /**
      * Release Ether to the message owner
@@ -59,14 +56,6 @@ library LibBridgeRecall {
     )
         internal
     {
-        if (message.owner == address(0)) {
-            revert B_OWNER_IS_NULL();
-        }
-
-        if (message.srcChainId != block.chainid) {
-            revert B_WRONG_CHAIN_ID();
-        }
-
         bytes32 msgHash = message.hashMessage();
 
         ///////////////////////////
@@ -117,23 +106,30 @@ library LibBridgeRecall {
                 }
             }
         }
-        //2nd stage is releasing the tokens
+        // 2nd stage is releasing the tokens
         if (
             state.recallStatus[msgHash]
                 == LibBridgeData.RecallStatus.ETH_RELEASED
         ) {
-            if (message.sender.code.length > 0) {
-                try IRecallableMessageSender((message.sender)).onMessageRecalled(
+            if (
+                !message.sender.supportsInterface(
+                    type(IRecallableMessageSender).interfaceId
+                )
+            ) {
+                state.recallStatus[msgHash] =
+                    LibBridgeData.RecallStatus.FULLY_RECALLED;
+            } else {
+                try IRecallableMessageSender(message.sender).onMessageRecalled(
                     message
                 ) returns (bytes4 _selector) {
-                    if (ON_MESSAGE_RECEIVED_SELECTOR == _selector) {
+                    if (
+                        IRecallableMessageSender.onMessageRecalled.selector
+                            == _selector
+                    ) {
                         state.recallStatus[msgHash] =
                             LibBridgeData.RecallStatus.FULLY_RECALLED;
                     }
                 } catch { }
-            } else {
-                state.recallStatus[msgHash] =
-                    LibBridgeData.RecallStatus.FULLY_RECALLED;
             }
         }
         emit MessageRecalled(

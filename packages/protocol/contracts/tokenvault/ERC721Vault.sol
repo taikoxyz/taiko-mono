@@ -16,18 +16,21 @@ import { IERC165Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import { Create2Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
-import { IBridge } from "../bridge/IBridge.sol";
+import { IRecallableMessageSender, IBridge } from "../bridge/IBridge.sol";
 import { BaseNFTVault } from "./BaseNFTVault.sol";
 import { ProxiedBridgedERC721 } from "./BridgedERC721.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
+import { LibAddress } from "../libs/LibAddress.sol";
 
 /**
  * This vault holds all ERC721 tokens that users have deposited.
  * It also manages the mapping between canonical tokens and their bridged
  * tokens.
  */
-contract ERC721Vault is BaseNFTVault, IERC721Receiver {
+contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
+    using LibAddress for address;
+
     uint256[50] private __gap;
 
     /**
@@ -47,12 +50,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             resolve(opt.destChainId, "erc721_vault", false), opt.to, opt.token
         );
 
-        try IERC165Upgradeable(opt.token).supportsInterface(ERC721_INTERFACE_ID)
-        returns (bool _supports) {
-            if (!_supports) {
-                revert VAULT_INTERFACE_NOT_SUPPORTED();
-            }
-        } catch {
+        if (!opt.token.supportsInterface(ERC721_INTERFACE_ID)) {
             revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
 
@@ -199,7 +197,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             amounts: new uint256[](0)
         });
 
-        return ERC721Vault.onMessageRecalled.selector;
+        return type(IRecallableMessageSender).interfaceId;
     }
 
     function onERC721Received(
@@ -213,6 +211,19 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         returns (bytes4)
     {
         return IERC721Receiver.onERC721Received.selector;
+    }
+
+    /**
+     * @dev See {IERC165-supportsInterface}.
+     */
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        virtual
+        override
+        returns (bool)
+    {
+        return interfaceId == type(IRecallableMessageSender).interfaceId;
     }
 
     function _sendToken(

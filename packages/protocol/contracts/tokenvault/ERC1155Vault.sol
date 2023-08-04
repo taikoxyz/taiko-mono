@@ -18,12 +18,13 @@ import { ERC1155Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 import { Create2Upgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
-import { IBridge } from "../bridge/IBridge.sol";
+import { IRecallableMessageSender, IBridge } from "../bridge/IBridge.sol";
 import { BaseNFTVault } from "./BaseNFTVault.sol";
 import { ProxiedBridgedERC1155 } from "./BridgedERC1155.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
+import { LibAddress } from "../libs/LibAddress.sol";
 
 /**
  * Some ERC1155 contracts implementing the name() and symbol()
@@ -40,6 +41,8 @@ interface ERC1155NameAndSymbol {
  * tokens.
  */
 contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
+    using LibAddress for address;
+
     uint256[50] private __gap;
 
     /**
@@ -60,13 +63,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             resolve(opt.destChainId, "erc1155_vault", false), opt.to, opt.token
         );
 
-        try IERC165Upgradeable(opt.token).supportsInterface(
-            ERC1155_INTERFACE_ID
-        ) returns (bool _supports) {
-            if (!_supports) {
-                revert VAULT_INTERFACE_NOT_SUPPORTED();
-            }
-        } catch {
+        if (!opt.token.supportsInterface(ERC1155_INTERFACE_ID)) {
             revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
 
@@ -219,7 +216,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             amounts: amounts
         });
 
-        return ERC1155Vault.onMessageRecalled.selector;
+        return type(IRecallableMessageSender).interfaceId;
     }
 
     function onERC1155BatchReceived(
@@ -261,6 +258,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         returns (bool)
     {
         return interfaceId == type(ERC1155ReceiverUpgradeable).interfaceId
+            || interfaceId == type(IRecallableMessageSender).interfaceId
             || super.supportsInterface(interfaceId);
     }
 
