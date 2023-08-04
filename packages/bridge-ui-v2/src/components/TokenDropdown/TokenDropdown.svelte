@@ -30,15 +30,13 @@
   // not being used, doing this with JS instead of CSS media queries
   let isDesktopOrLarger: boolean;
 
-  function closeMenu() {
-    menuOpen = false;
-  }
+  const closeMenu = () => (menuOpen = false);
 
-  function openMenu() {
+  const openMenu = () => {
     menuOpen = true;
-  }
+  };
 
-  async function selectToken(token: Token) {
+  const selectToken = async (token: Token) => {
     const { chain } = getNetwork();
     const destChain = $destNetwork;
 
@@ -59,9 +57,9 @@
     value = token;
 
     closeMenu();
-  }
+  };
 
-  onDestroy(closeMenu);
+  onDestroy(() => closeMenu());
 </script>
 
 <DesktopOrLarger bind:is={isDesktopOrLarger} />
@@ -99,6 +97,6 @@
   {#if isDesktopOrLarger}
     <DropdownView {id} {menuOpen} {tokens} {value} {selectToken} {closeMenu} />
   {:else}
-    <DialogView {id} {menuOpen} {tokens} {value} {selectToken} {closeMenu} />
+    <DialogView {id} {menuOpen} {tokens} {value} {selectToken} {closeMenu} on:closemenu={closeMenu} />
   {/if}
 </div>

@@ -32,6 +32,9 @@
     selectedToken,
     tokenBalance,
   } from './state';
+  import { getLogger } from '$libs/util/logger';
+
+  const log = getLogger('component:Amount');
 
   let inputId = `input-${uid()}`;
   let inputBox: InputBox;
@@ -101,8 +104,6 @@
         destChainId: $destNetwork.id,
       });
     } catch (err) {
-      console.error(err);
-
       switch (true) {
         case err instanceof InsufficientBalanceError:
           $insufficientBalance = true;
@@ -136,7 +137,7 @@
         userAddress,
       });
     } catch (err) {
-      console.error(err);
+      log('Error updating balance: ', err);
       //most likely we have a custom token that is not bridged yet
       $errorComputingBalance = true;
       clearAmount();
@@ -195,7 +196,7 @@
       // Check validity
       validateAmount();
     } catch (err) {
-      console.error(err);
+      log('Error in getting maxAmount ', err);
       warningToast($t('amount_input.button.failed_max'));
     } finally {
       computingMaxAmount = false;

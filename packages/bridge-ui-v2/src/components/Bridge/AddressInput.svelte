@@ -16,15 +16,19 @@
   let tooShort = true;
   const dispatch = createEventDispatcher();
 
-  const validateEthereumAddress = (address: string) => {
-    if (address.length > 41) {
-      tooShort = false;
-      isValidEthereumAddress = isAddress(address);
-      dispatch('input', address);
-    } else {
-      tooShort = true;
+  const validateEthereumAddress = (address: string | EventTarget | null) => {
+    if (address && address instanceof EventTarget) {
+      address = (address as HTMLInputElement).value;
     }
-    dispatch('addressvalidation', { isValidEthereumAddress, address });
+    const addr = address as string;
+    if (addr.length < 42) {
+      tooShort = true;
+    } else {
+      tooShort = false;
+      isValidEthereumAddress = isAddress(addr);
+      dispatch('input', addr);
+    }
+    dispatch('addressvalidation', { isValidEthereumAddress, addr });
   };
 
   $: validateEthereumAddress(ethereumAddress);
@@ -47,6 +51,7 @@
       type="string"
       placeholder="0x1B77..."
       bind:value={ethereumAddress}
+      on:input={(e) => validateEthereumAddress(e.target)}
       class="w-full input-box outline-none py-6 pr-16 px-[26px] title-subsection-bold placeholder:text-tertiary-content" />
   </div>
 </div>

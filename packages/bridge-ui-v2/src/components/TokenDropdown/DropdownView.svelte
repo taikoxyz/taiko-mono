@@ -111,7 +111,6 @@
   </li>
 </ul>
 
-<ClickMask fn={closeMenu} active={menuOpen} />
 <AddCustomErc20 bind:modalOpen />
 
 <!-- <OnNetwork change={onNetworkChange} /> -->
