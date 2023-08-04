@@ -10,8 +10,8 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /// @notice An ERC20 token for creating a 'failed' status (testing only!)
 /// @dev Need to create failed messages on the destination chain, and
-/// @dev by getting a storage proof (eth_getProof) of the message
-/// @dev (that it failed) so that can perform some actions.
+/// by getting a storage proof (eth_getProof) of the message
+/// (that it failed) so that can perform some actions.
 contract FailWhenBridgeBackCanonical is ERC20 {
     mapping(address minter => bool hasMinted) public minters;
 
