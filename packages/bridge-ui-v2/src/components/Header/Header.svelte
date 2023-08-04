@@ -10,8 +10,6 @@
   $: isBridgePage = $page.route.id === '/' || $page.route.id === '/nft';
 </script>
 
-<!-- <DesktopOrLarger bind:is={isDesktopOrLarger} /> -->
-
 <header
   class="
     sticky-top
@@ -27,13 +25,11 @@
     md:px-10
     md:py-7
  ">
-  <LogoWithText width={150} height={50} class="md:hidden" />
+  <LogoWithText width={77} height={21} class="md:hidden" />
 
   <div class="flex justify-end md:f-between-center w-full">
     {#if isBridgePage}
       <BridgeTabs class="hidden md:flex" />
-    {:else}
-      <div></div>
     {/if}
 
     <ConnectButton connected={$account?.isConnected} />
