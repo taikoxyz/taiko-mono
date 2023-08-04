@@ -16,27 +16,22 @@
   let tooShort = true;
   const dispatch = createEventDispatcher();
 
-  // TODO: nope!!, this should go inside a function whose arguments
-  //       are the values that trigger reactivity
-  $: {
-    ethereumAddress;
-    if (ethereumAddress.length > 41) {
+  const validateEthereumAddress = (address: string) => {
+    if (address.length > 41) {
       tooShort = false;
-      validateEthereumAddress();
-      dispatch('input', ethereumAddress);
+      isValidEthereumAddress = isAddress(address);
+      dispatch('input', address);
     } else {
       tooShort = true;
     }
-    dispatch('addressvalidation', { isValidEthereumAddress, ethereumAddress });
-  }
-
-  const validateEthereumAddress = () => {
-    isValidEthereumAddress = isAddress(ethereumAddress);
+    dispatch('addressvalidation', { isValidEthereumAddress, address });
   };
+
+  $: validateEthereumAddress(ethereumAddress);
 
   export const clear = () => {
     input.value = '';
-    validateEthereumAddress();
+    validateEthereumAddress('');
   };
 
   export const focus = () => input.focus();
@@ -58,6 +53,7 @@
 <div>
   {#if !isValidEthereumAddress && !tooShort}
     <Alert type="error" forceColumnFlow>
+      <!-- TODO: i18n! -->
       <p class="font-bold">Invalid address</p>
       <p>This doesn't seem to be a valid Ethereum address</p>
     </Alert>

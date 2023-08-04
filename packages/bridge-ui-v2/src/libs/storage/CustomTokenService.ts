@@ -73,39 +73,35 @@ export class CustomTokenService implements TokenService {
         return updatedTokenList;
     }
 
-    updateToken(token: Token, address: Address): boolean {
-        // const tokens: Token[] = this._getTokensFromStorage(address);
-        // const addressesToUpdate = Object.values(token.addresses);
-
-        // const tokenIndex = tokens.findIndex(storedToken =>
-        //     addressesToUpdate.some(addressToUpdate =>
-        //         addressToUpdate !== zeroAddress &&
-        //         Object.values(storedToken.addresses).includes(addressToUpdate)
-        //     )
-        // );
-
-        // if (tokenIndex !== -1) {
-        //     tokens[tokenIndex] = token;
-        // } else {
-        //     return false
-        // }
+    updateToken(token: Token, address: Address): Token[] {
+        // Get the tokens from storage
         const tokens: Token[] = this._getTokensFromStorage(address);
-        const addressesToUpdate = Object.values(token.addresses).filter(a => a !== zeroAddress);
 
-        const storedToken = tokens.find(t =>
-            addressesToUpdate.some(addressToUpdate => Object.values(t.addresses).includes(addressToUpdate))
+        // Filter out zero addresses from the new token's addresses
+        const filteredAddresses = Object.fromEntries(
+            Object.entries(token.addresses).filter(([key, value]) => value !== zeroAddress)
         );
 
-        if (!storedToken) return false;
-
-        storedToken.addresses = { ...storedToken.addresses, ...token.addresses };
-        this.storage.setItem(
-            `${STORAGE_PREFIX}-${address.toLowerCase()}`,
-            JSON.stringify(tokens),
+        // Find the stored token to update
+        const storedToken = tokens.find(storedToken =>
+            Object.values(filteredAddresses).some(addressToUpdate =>
+                Object.values(storedToken.addresses).includes(addressToUpdate)
+            )
         );
-        this.storageChangeNotifier.dispatchEvent(new CustomEvent('storageChange', { detail: tokens }));
 
-        return true;
+        // If the stored token was found, update its addresses
+        if (storedToken) {
+            storedToken.addresses = { ...storedToken.addresses, ...filteredAddresses };
+
+            // Save the updated tokens back to storage
+            this.storage.setItem(
+                `${STORAGE_PREFIX}-${address.toLowerCase()}`,
+                JSON.stringify(tokens),
+            );
+            this.storageChangeNotifier.dispatchEvent(new CustomEvent('storageChange', { detail: tokens }));
+        }
+
+        return tokens;
     }
 
     subscribeToChanges(callback: (tokens: Token[]) => void): void {
