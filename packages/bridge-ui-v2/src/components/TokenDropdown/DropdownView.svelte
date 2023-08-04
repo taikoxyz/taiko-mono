@@ -1,18 +1,18 @@
 <script lang="ts">
+  import { onDestroy,onMount } from 'svelte';
+  import type { Address } from 'viem';
+
   import { Icon } from '$components/Icon';
+  import Erc20 from '$components/Icon/ERC20.svelte';
+  import { OnAccount } from '$components/OnAccount';
   import { tokenService } from '$libs/storage/services';
   import type { Token } from '$libs/token';
   import { classNames } from '$libs/util/classNames';
   import { noop } from '$libs/util/noop';
   import { account } from '$stores/account';
+
   import AddCustomErc20 from './AddCustomERC20.svelte';
-
-  import type { Address } from 'viem';
-
   import { symbolToIconMap } from './symbolToIconMap';
-  import Erc20 from '$components/Icon/ERC20.svelte';
-  import { onMount, onDestroy } from 'svelte';
-  import { OnAccount } from '$components/OnAccount';
 
   export let id: string;
   export let menuOpen = false;

@@ -3,6 +3,7 @@
   import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
+
   import { Alert } from '$components/Alert';
   import { uid } from '$libs/util/uid';
 

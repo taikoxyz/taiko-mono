@@ -1,22 +1,21 @@
 <script lang="ts">
+  import { type Address,getNetwork } from '@wagmi/core';
   import { onDestroy } from 'svelte';
   import { t } from 'svelte-i18n';
 
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { Icon } from '$components/Icon';
+  import Erc20 from '$components/Icon/ERC20.svelte';
+  import { tokenService } from '$libs/storage/services';
   import type { Token } from '$libs/token';
+  import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
   import { uid } from '$libs/util/uid';
+  import { account } from '$stores/account';
 
-  import { getNetwork, type Address } from '@wagmi/core';
-
+  import { destNetwork } from '../Bridge/state';
   import DialogView from './DialogView.svelte';
   import DropdownView from './DropdownView.svelte';
   import { symbolToIconMap } from './symbolToIconMap';
-  import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
-  import { destNetwork } from '../Bridge/state';
-  import { tokenService } from '$libs/storage/services';
-  import { account } from '$stores/account';
-  import Erc20 from '$components/Icon/ERC20.svelte';
 
   export let tokens: Token[] = [];
   export let value: Maybe<Token> = null;

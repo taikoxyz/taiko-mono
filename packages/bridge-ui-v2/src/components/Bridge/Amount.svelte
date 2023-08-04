@@ -15,6 +15,7 @@
   import { getAddress, getBalance as getTokenBalance } from '$libs/token';
   import { debounce } from '$libs/util/debounce';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
+  import { getLogger } from '$libs/util/logger';
   import { truncateString } from '$libs/util/truncateString';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
@@ -32,7 +33,6 @@
     selectedToken,
     tokenBalance,
   } from './state';
-  import { getLogger } from '$libs/util/logger';
 
   const log = getLogger('component:Amount');
 

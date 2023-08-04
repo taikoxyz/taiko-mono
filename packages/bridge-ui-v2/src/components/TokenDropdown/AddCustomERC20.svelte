@@ -1,31 +1,31 @@
 <script lang="ts">
-  import AddressInput from '$components/Bridge/AddressInput.svelte';
-  import type { Address } from 'viem';
-  import { erc20ABI, readContract, getNetwork } from '@wagmi/core';
-  import { formatUnits } from 'viem';
+  import { erc20ABI, getNetwork,readContract } from '@wagmi/core';
+  import { fetchToken } from '@wagmi/core';
   import { t } from 'svelte-i18n';
+  import type { Address } from 'viem';
+  import { formatUnits } from 'viem';
+
+  import { Alert } from '$components/Alert';
+  import AddressInput from '$components/Bridge/AddressInput.svelte';
+  import { Button } from '$components/Button';
   import { Icon } from '$components/Icon';
   import Erc20 from '$components/Icon/ERC20.svelte';
-  import { fetchToken } from '@wagmi/core';
-
   import { Spinner } from '$components/Spinner';
-  import { TokenType, type Token, type TokenEnv } from '$libs/token';
+  import { tokenService } from '$libs/storage/services';
+  import { type Token, type TokenEnv,TokenType } from '$libs/token';
   import { getLogger } from '$libs/util/logger';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
-  import { tokenService } from '$libs/storage/services';
-  import { Alert } from '$components/Alert';
-  import { Button } from '$components/Button';
 
   const log = getLogger('component:AddCustomERC20');
   const dialogId = `dialog-${uid()}`;
 
-  export let modalOpen: boolean = false;
-  export let loading: boolean = false;
-  export let loadingTokenDetails: boolean = false;
+  export let modalOpen = false;
+  export let loading = false;
+  export let loadingTokenDetails = false;
 
   let tokenDetails: (TokenEnv & { balance: bigint; decimals: number }) | null;
-  let tokenError: string = '';
+  let tokenError = '';
   let tokenAddress: Address | string = '';
   let customTokens: Token[] = [];
   let customToken: Token | null = null;

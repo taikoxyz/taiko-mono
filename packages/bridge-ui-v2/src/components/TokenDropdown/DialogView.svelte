@@ -1,20 +1,20 @@
 <script lang="ts">
+  import { onDestroy,onMount } from 'svelte';
+  import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
+  import type { Address } from 'viem';
 
+  import { ClickMask } from '$components/ClickMask';
   import { Icon } from '$components/Icon';
-  import type { Token } from '$libs/token';
-  import { noop } from '$libs/util/noop';
-
-  import { symbolToIconMap } from './symbolToIconMap';
   import Erc20 from '$components/Icon/ERC20.svelte';
   import { OnAccount } from '$components/OnAccount';
-  import AddCustomErc20 from './AddCustomERC20.svelte';
   import { tokenService } from '$libs/storage/services';
-  import { onMount, onDestroy } from 'svelte';
+  import type { Token } from '$libs/token';
+  import { noop } from '$libs/util/noop';
   import { account } from '$stores/account';
-  import type { Address } from 'viem';
-  import { ClickMask } from '$components/ClickMask';
-  import { createEventDispatcher } from 'svelte';
+
+  import AddCustomErc20 from './AddCustomERC20.svelte';
+  import { symbolToIconMap } from './symbolToIconMap';
 
   export let id: string;
   export let tokens: Token[] = [];
