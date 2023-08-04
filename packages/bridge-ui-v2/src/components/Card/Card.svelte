@@ -7,9 +7,7 @@
       md:rounded-xl 
       md:border 
       md:border-neutral-background
-      md:bg-gradient-to-r from-glass-gradient-from to-glass-gradient-to 
-      backdrop-blur-sm
-      md:bg-gray-800/30`;
+      md:glassy-gradient-card`;
 
   export let title: string;
   export let text = '';
