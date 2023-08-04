@@ -8,6 +8,7 @@
 
   import {
     computingBalance,
+    validatingAmount,
     destNetwork,
     enteredAmount,
     errorComputingBalance,
@@ -52,8 +53,8 @@
   $: isTokenApproved = isSelectedERC20 && $enteredAmount && !$insufficientAllowance;
 
   // Conditions to disable/enable buttons
-  $: disableApprove = canDoNothing || !$insufficientAllowance || approving;
-  $: disableBridge = canDoNothing || $insufficientAllowance || $insufficientBalance || bridging;
+  $: disableApprove = canDoNothing || !$insufficientAllowance || $validatingAmount || approving;
+  $: disableBridge = canDoNothing || $insufficientAllowance || $insufficientBalance || $validatingAmount || bridging;
 
   // General loading state
   // $: loading = approving || bridging;

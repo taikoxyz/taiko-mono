@@ -10,6 +10,7 @@
     successToast,
     warningToast,
   } from '$components/NotificationToast/NotificationToast.svelte';
+  import { Spinner } from '$components/Spinner';
   import { StatusDot } from '$components/StatusDot';
   import { statusComponent } from '$config';
   import { bridges, type BridgeTransaction, MessageStatus } from '$libs/bridge';
@@ -29,7 +30,6 @@
   import { account } from '$stores/account';
   import { network } from '$stores/network';
   import { pendingTransactions } from '$stores/pendingTransactions';
-  import { Spinner } from '$components/Spinner';
 
   const log = getLogger('components:Status');
 

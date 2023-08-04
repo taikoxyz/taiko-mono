@@ -8,13 +8,10 @@
   import { InputBox } from '$components/InputBox';
   import { LoadingText } from '$components/LoadingText';
   import { warningToast } from '$components/NotificationToast';
-  import { bridges, checkBalanceToBridge, getMaxAmountToBridge, type RequireAllowanceArgs } from '$libs/bridge';
-  import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
-  import { chainContractsMap } from '$libs/chain';
+  import { checkBalanceToBridge, getMaxAmountToBridge } from '$libs/bridge';
   import { InsufficientAllowanceError, InsufficientBalanceError, RevertedWithFailedError } from '$libs/error';
-  import { getAddress, getBalance as getTokenBalance } from '$libs/token';
+  import { getBalance as getTokenBalance } from '$libs/token';
   import { debounce } from '$libs/util/debounce';
-  import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { truncateString } from '$libs/util/truncateString';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
@@ -31,6 +28,7 @@
     recipientAddress,
     selectedToken,
     tokenBalance,
+    validatingAmount,
   } from './state';
 
   let inputId = `input-${uid()}`;
@@ -47,9 +45,83 @@
     $enteredAmount = BigInt(0);
   }
 
+  // export async function validateAmount(token = $selectedToken, fee = $processingFee) {
+  //   const to = $recipientAddress || $account?.address;
+
+  //   // We need all these guys to validate
+  //   if (
+  //     !to ||
+  //     !token ||
+  //     !$network ||
+  //     !$destNetwork ||
+  //     !$tokenBalance ||
+  //     $enteredAmount === BigInt(0) // no need to check if the amount is 0
+  //   ) {
+  //     $insufficientBalance = false;
+  //     return;
+  //   }
+
+  //   if ($enteredAmount > $tokenBalance.value) {
+  //     $insufficientBalance = true;
+  //     // no need to check any further if the amount is greater than the balance
+  //     return;
+  //   }
+  //   $insufficientBalance = false;
+
+  //   const erc20Bridge = bridges.ERC20 as ERC20Bridge;
+  //   const spenderAddress = chainContractsMap[$network.id].tokenVaultAddress;
+
+  //   const tokenAddress = await getAddress({
+  //     token,
+  //     srcChainId: $network.id,
+  //     destChainId: $destNetwork.id,
+  //   });
+
+  //   if (!tokenAddress) return;
+
+  //   // Check for allowance
+  //   $insufficientAllowance = await erc20Bridge.requireAllowance({
+  //     amount: $enteredAmount,
+  //     tokenAddress,
+  //     ownerAddress: walletClient.account.address,
+  //     spenderAddress,
+  //   } as RequireAllowanceArgs);
+
+  //   if ($insufficientAllowance) return;
+
+  //   try {
+  //     await checkBalanceToBridge({
+  //       to,
+  //       token,
+  //       amount: $enteredAmount,
+  //       processingFee: fee,
+  //       balance: $tokenBalance.value,
+  //       srcChainId: $network.id,
+  //       destChainId: $destNetwork.id,
+  //     });
+  //   } catch (err) {
+  //     console.error(err);
+
+  //     switch (true) {
+  //       case err instanceof InsufficientBalanceError:
+  //         $insufficientBalance = true;
+  //         break;
+  //       case err instanceof InsufficientAllowanceError:
+  //         $insufficientAllowance = true;
+  //         break;
+  //       case err instanceof RevertedWithFailedError:
+  //         warningToast($t('messages.network.rejected'));
+  //         break;
+  //     }
+  //   }
+  // }
+
   export async function validateAmount(token = $selectedToken, fee = $processingFee) {
+    $insufficientBalance = false;
+    $insufficientAllowance = false;
+    $validatingAmount = true; // During validation, we disable all the actions
+
     const to = $recipientAddress || $account?.address;
-    const walletClient = await getConnectedWallet();
 
     // We need all these guys to validate
     if (
@@ -59,38 +131,8 @@
       !$destNetwork ||
       !$tokenBalance ||
       $enteredAmount === BigInt(0) // no need to check if the amount is 0
-    ) {
-      $insufficientBalance = false;
+    )
       return;
-    }
-
-    if ($enteredAmount > $tokenBalance.value) {
-      $insufficientBalance = true;
-      // no need to check any further if the amount is greater than the balance
-      return;
-    }
-    $insufficientBalance = false;
-
-    const erc20Bridge = bridges.ERC20 as ERC20Bridge;
-    const spenderAddress = chainContractsMap[$network.id].tokenVaultAddress;
-
-    const tokenAddress = await getAddress({
-      token,
-      srcChainId: $network.id,
-      destChainId: $destNetwork.id,
-    });
-
-    if (!tokenAddress) return;
-
-    // Check for allowance
-    $insufficientAllowance = await erc20Bridge.requireAllowance({
-      amount: $enteredAmount,
-      tokenAddress,
-      ownerAddress: walletClient.account.address,
-      spenderAddress,
-    } as RequireAllowanceArgs);
-
-    if ($insufficientAllowance) return;
 
     try {
       await checkBalanceToBridge({
@@ -116,6 +158,8 @@
           warningToast($t('messages.network.rejected'));
           break;
       }
+    } finally {
+      $validatingAmount = false;
     }
   }
 

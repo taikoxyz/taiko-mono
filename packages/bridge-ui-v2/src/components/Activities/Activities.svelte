@@ -3,6 +3,7 @@
   import { t } from 'svelte-i18n';
 
   import { Card } from '$components/Card';
+  import ChainSelector from '$components/ChainSelector/ChainSelector.svelte';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import { Paginator } from '$components/Paginator';
@@ -10,13 +11,12 @@
   import { activitiesConfig } from '$config';
   import { type BridgeTransaction, fetchTransactions } from '$libs/bridge';
   import { web3modal } from '$libs/connect';
-  import type { Account } from '$stores/account';
   import { account, network } from '$stores';
+  import type { Account } from '$stores/account';
 
   import MobileDetailsDialog from './MobileDetailsDialog.svelte';
-  import Transaction from './Transaction.svelte';
-  import ChainSelector from '$components/ChainSelector/ChainSelector.svelte';
   import StatusInfoDialog from './StatusInfoDialog.svelte';
+  import Transaction from './Transaction.svelte';
 
   let transactions: BridgeTransaction[] = [];
 
