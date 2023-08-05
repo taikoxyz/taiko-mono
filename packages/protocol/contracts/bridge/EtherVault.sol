@@ -70,6 +70,7 @@ contract EtherVault is EssentialContract, BridgeErrors {
         onlyAuthorized
         nonReentrant
     {
+        if (amount == 0) return;
         if (recipient == address(0)) {
             revert B_EV_DO_NOT_BURN();
         }

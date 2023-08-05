@@ -64,7 +64,7 @@ library LibBridgeRecall {
         // We retrieve the necessary ether from EtherVault if receiving on
         // Taiko, otherwise it is already available in this Bridge.
         address ethVault = resolver.resolve("ether_vault", true);
-        if (ethVault != address(0) && message.callValue > 0) {
+        if (ethVault != address(0)) {
             EtherVault(payable(ethVault)).releaseEther(
                 address(this), message.callValue
             );
