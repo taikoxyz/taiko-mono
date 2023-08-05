@@ -3,7 +3,7 @@
   import { ArrowRight } from 'svelte-heros-v2';
   import { UserRejectedRequestError } from 'wagmi';
 
-  import { mainnetChain, taikoChain } from '../../chain/chains';
+  import { L1Chain, L2Chain } from '../../chain/chains';
   import { destChain, srcChain } from '../../store/chain';
   import { signer } from '../../store/signer';
   import { pendingTransactions } from '../../store/transaction';
@@ -20,7 +20,7 @@
       return;
     }
 
-    const chain = $srcChain === mainnetChain ? taikoChain : mainnetChain;
+    const chain = $srcChain === L1Chain ? L2Chain : L1Chain;
 
     try {
       await switchNetwork(chain.id);
@@ -49,11 +49,11 @@
   class="flex items-center justify-between w-full px-4 md:px-7 py-6 text-sm md:text-lg">
   <div class="flex items-center w-2/5 justify-center">
     {#if $srcChain}
-      <svelte:component this={$srcChain.icon} />
+      <img src={$srcChain.iconUrl} alt={$srcChain.name} />
       <span class="ml-2">{$srcChain.name}</span>
     {:else}
-      <svelte:component this={mainnetChain.icon} />
-      <span class="ml-2">{mainnetChain.name}</span>
+      <img src={L1Chain.iconUrl} alt={L1Chain.name} />
+      <span class="ml-2">{L1Chain.name}</span>
     {/if}
   </div>
 
@@ -66,11 +66,11 @@
 
   <div class="flex items-center w-2/5 justify-center">
     {#if $destChain}
-      <svelte:component this={$destChain.icon} />
+      <img src={$destChain.iconUrl} alt={$destChain.name} />
       <span class="ml-2">{$destChain.name}</span>
     {:else}
-      <svelte:component this={taikoChain.icon} />
-      <span class="ml-2">{taikoChain.name}</span>
+      <img src={L2Chain.iconUrl} alt={L2Chain.name} />
+      <span class="ml-2">{L2Chain.name}</span>
     {/if}
   </div>
 </div>

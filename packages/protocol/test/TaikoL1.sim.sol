@@ -20,12 +20,11 @@ contract TaikoL1_b is TaikoL1 {
     {
         config = TaikoConfig.getConfig();
 
-        config.txListCacheExpiry = 0;
-        config.maxNumProposedBlocks = 1100;
-        config.ringBufferSize = 1200;
-        config.maxVerificationsPerTx = 10;
-        config.proofCooldownPeriod = 5 minutes;
-        config.realProofSkipSize = 0;
+        config.blockTxListExpiry = 0;
+        config.blockMaxProposals = 1100;
+        config.blockRingBufferSize = 1200;
+        config.blockMaxVerificationsPerTx = 10;
+        config.proofRegularCooldown = 5 minutes;
     }
 }
 
@@ -113,7 +112,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
             newRandomWithoutSalt = uint256(
                 keccak256(
                     abi.encodePacked(
-                        block.difficulty,
+                        block.prevrandao,
                         msg.sender,
                         block.timestamp,
                         i,
@@ -196,7 +195,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                 keccak256(
                     abi.encodePacked(
                         newRandomWithoutSalt,
-                        block.difficulty,
+                        block.prevrandao,
                         secondsElapsed,
                         msg.sender,
                         block.timestamp,
@@ -238,8 +237,8 @@ contract TaikoL1Simulation is TaikoL1TestBase {
 
                 uint24 txListSize = uint24(
                     pickRandomNumber(
-                        newRandomWithoutSalt, 1, conf.maxBytesPerTxList
-                    ) //Actually (conf.maxBytesPerTxList-1)+1 but that's the
+                        newRandomWithoutSalt, 1, conf.blockMaxTxListBytes
+                    ) //Actually (conf.blockMaxTxListBytes-1)+1 but that's the
                         // same
                 );
                 salt = uint256(keccak256(abi.encodePacked(txListSize, salt)));
@@ -326,7 +325,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
             newRandomWithoutSalt = uint256(
                 keccak256(
                     abi.encodePacked(
-                        block.difficulty,
+                        block.prevrandao,
                         msg.sender,
                         block.timestamp,
                         i,
@@ -424,7 +423,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                 keccak256(
                     abi.encodePacked(
                         newRandomWithoutSalt,
-                        block.difficulty,
+                        block.prevrandao,
                         secondsElapsed,
                         msg.sender,
                         block.timestamp,
@@ -466,8 +465,8 @@ contract TaikoL1Simulation is TaikoL1TestBase {
 
                 uint24 txListSize = uint24(
                     pickRandomNumber(
-                        newRandomWithoutSalt, 1, conf.maxBytesPerTxList
-                    ) //Actually (conf.maxBytesPerTxList-1)+1 but that's the
+                        newRandomWithoutSalt, 1, conf.blockMaxTxListBytes
+                    ) //Actually (conf.blockMaxTxListBytes-1)+1 but that's the
                         // same
                 );
                 salt = uint256(keccak256(abi.encodePacked(txListSize, salt)));
@@ -553,7 +552,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
             newRandomWithoutSalt = uint256(
                 keccak256(
                     abi.encodePacked(
-                        block.difficulty,
+                        block.prevrandao,
                         msg.sender,
                         block.timestamp,
                         i,
@@ -657,7 +656,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
                 keccak256(
                     abi.encodePacked(
                         newRandomWithoutSalt,
-                        block.difficulty,
+                        block.prevrandao,
                         secondsElapsed,
                         msg.sender,
                         block.timestamp,
@@ -699,8 +698,8 @@ contract TaikoL1Simulation is TaikoL1TestBase {
 
                 uint24 txListSize = uint24(
                     pickRandomNumber(
-                        newRandomWithoutSalt, 1, conf.maxBytesPerTxList
-                    ) //Actually (conf.maxBytesPerTxList-1)+1 but that's the
+                        newRandomWithoutSalt, 1, conf.blockMaxTxListBytes
+                    ) //Actually (conf.blockMaxTxListBytes-1)+1 but that's the
                         // same
                 );
                 salt = uint256(keccak256(abi.encodePacked(txListSize, salt)));
@@ -764,19 +763,17 @@ contract TaikoL1Simulation is TaikoL1TestBase {
         console2.log("-----------------------------!");
     }
 
-    // TODO(daniel|dani): log enough state variables for analysis.
     function printVariableHeaders() internal view {
         string memory str = string.concat(
             "\nlogCount,",
             "time,",
             "lastVerifiedBlockId,",
             "numBlocks,",
-            "blockFee,"
+            "numAuctions,"
         );
         console2.log(str);
     }
 
-    // TODO(daniel|dani): log enough state variables for analysis.
     function printVariables() internal {
         TaikoData.StateVariables memory vars = L1.getStateVariables();
         string memory str = string.concat(
@@ -786,9 +783,7 @@ contract TaikoL1Simulation is TaikoL1TestBase {
             ";",
             Strings.toString(vars.lastVerifiedBlockId),
             ";",
-            Strings.toString(vars.numBlocks),
-            ";",
-            Strings.toString(vars.blockFee)
+            Strings.toString(vars.numBlocks)
         );
         console2.log(str);
     }

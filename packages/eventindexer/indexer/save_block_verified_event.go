@@ -24,9 +24,9 @@ func (svc *Service) saveBlockVerifiedEvents(
 	for {
 		event := events.Event
 
-		log.Infof("new blockVerified event, blockId: %v", event.Id)
+		log.Infof("new blockVerified event, blockId: %v", event.BlockId.Int64())
 
-		if err := svc.detectAndHandleReorg(ctx, eventindexer.EventNameBlockVerified, event.Id.Int64()); err != nil {
+		if err := svc.detectAndHandleReorg(ctx, eventindexer.EventNameBlockVerified, event.BlockId.Int64()); err != nil {
 			return errors.Wrap(err, "svc.detectAndHandleReorg")
 		}
 
@@ -52,7 +52,7 @@ func (svc *Service) saveBlockVerifiedEvent(
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
-	blockID := event.Id.Int64()
+	blockID := event.BlockId.Int64()
 
 	_, err = svc.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
 		Name:    eventindexer.EventNameBlockVerified,
@@ -76,7 +76,7 @@ func (svc *Service) saveBlockVerifiedEvent(
 }
 
 func (svc *Service) updateAverageBlockReward(ctx context.Context, event *taikol1.TaikoL1BlockVerified) error {
-	reward := event.Reward
+	reward := event.ProofReward
 
 	stat, err := svc.statRepo.Find(ctx)
 	if err != nil {
@@ -94,7 +94,7 @@ func (svc *Service) updateAverageBlockReward(ctx context.Context, event *taikol1
 		new(big.Int).SetUint64(reward),
 	)
 	log.Infof("blockVerified reward update. id: %v, newAvg: %v, oldAvg: %v, reward: %v",
-		event.Id.String(),
+		event.BlockId.String(),
 		newAverageProofReward.String(),
 		avg.String(),
 		reward,

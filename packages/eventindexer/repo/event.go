@@ -2,10 +2,13 @@ package repo
 
 import (
 	"context"
+	"database/sql"
+	"math/big"
 	"net/http"
 
 	"github.com/morkid/paginate"
 	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -32,6 +35,29 @@ func (r *EventRepository) Save(ctx context.Context, opts eventindexer.SaveEventO
 		Name:    opts.Name,
 		Event:   opts.Event,
 		Address: opts.Address,
+	}
+
+	if opts.BlockID != nil {
+		e.BlockID = sql.NullInt64{
+			Valid: true,
+			Int64: *opts.BlockID,
+		}
+	}
+
+	if opts.Amount != nil {
+		amt, err := decimal.NewFromString(opts.Amount.String())
+		if err != nil {
+			return nil, errors.Wrap(err, "decimal.NewFromString")
+		}
+
+		e.Amount = decimal.NullDecimal{
+			Valid:   true,
+			Decimal: amt,
+		}
+	}
+
+	if opts.AssignedProver != nil {
+		e.AssignedProver = *opts.AssignedProver
 	}
 
 	if err := r.db.GormDB().Create(e).Error; err != nil {
@@ -135,6 +161,24 @@ func (r *EventRepository) GetByAddressAndEventName(
 	return page, nil
 }
 
+func (r *EventRepository) GetTotalSlashedTokens(
+	ctx context.Context,
+) (*big.Int, error) {
+	var sum decimal.NullDecimal
+
+	if err := r.db.GormDB().
+		Raw("SELECT SUM(amount) FROM events WHERE event = ?", eventindexer.EventNameSlashed).
+		FirstOrInit(&sum).Error; err != nil {
+		return nil, errors.Wrap(err, "r.db.FirstOrInit")
+	}
+
+	if !sum.Valid {
+		return big.NewInt(0), nil
+	}
+
+	return sum.Decimal.BigInt(), nil
+}
+
 func (r *EventRepository) FirstByAddressAndEventName(
 	ctx context.Context,
 	address string,
@@ -154,4 +198,23 @@ func (r *EventRepository) FirstByAddressAndEventName(
 	}
 
 	return e, nil
+}
+
+func (r *EventRepository) GetAssignedBlocksByProverAddress(
+	ctx context.Context,
+	req *http.Request,
+	address string,
+) (paginate.Page, error) {
+	pg := paginate.New(&paginate.Config{
+		DefaultSize: 100,
+	})
+
+	q := r.db.GormDB().
+		Raw("SELECT * FROM events WHERE event = ? AND assigned_prover = ?", eventindexer.EventNameBlockProposed, address)
+
+	reqCtx := pg.With(q)
+
+	page := reqCtx.Request(req).Response(&[]eventindexer.Event{})
+
+	return page, nil
 }
