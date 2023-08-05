@@ -60,13 +60,26 @@ library LibBridgeRelease {
             revert B_ETHER_RELEASED_ALREADY();
         }
 
-        if (
-            !LibBridgeStatus.isMessageFailed(
-                resolver, msgHash, message.destChainId, proof
+        // if (
+        //     !LibBridgeStatus.isMessageFailed(
+        //         resolver, msgHash, message.destChainId, proof
+        //     )
+        // ) {
+        //     revert B_MSG_NOT_FAILED();
+        // }
+
+        // Call address(this)'s isMessageFailed directly so we can override it
+        // in tests.
+        (bool ok, bytes memory result) = address(this).staticcall(
+            abi.encodeWithSelector(
+                IBridge.isMessageFailed.selector,
+                msgHash,
+                message.destChainId,
+                proof
             )
-        ) {
-            revert B_MSG_NOT_FAILED();
-        }
+        );
+
+        if (!ok || !abi.decode(result, (bool))) revert B_MSG_NOT_FAILED();
 
         state.etherReleased[msgHash] = true;
 
