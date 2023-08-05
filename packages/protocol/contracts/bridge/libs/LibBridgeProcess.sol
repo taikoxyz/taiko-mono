@@ -126,9 +126,7 @@ library LibBridgeProcess {
                 status = LibBridgeStatus.MessageStatus.DONE;
             } else {
                 status = LibBridgeStatus.MessageStatus.RETRIABLE;
-                if (message.callValue > 0) {
-                    ethVault.sendEther(message.callValue);
-                }
+                ethVault.sendEther(message.callValue);
             }
         }
 

@@ -78,7 +78,7 @@ library LibBridgeRecall {
             IRecallableMessageSender(message.sender).onMessageRecalled.value(
                 message.callValue
             )(message);
-        } else if (message.callValue > 0) {
+        } else {
             message.owner.sendEther(message.callValue);
         }
 
