@@ -119,11 +119,7 @@ library LibProposing {
         view
         returns (uint8 cacheTxListInfo)
     {
-        if (
-            input.beneficiary == address(0)
-            //
-            || input.gasLimit == 0
-        ) revert L1_INVALID_METADATA();
+        if (input.beneficiary == address(0)) revert L1_INVALID_METADATA();
 
         if (
             state.numBlocks

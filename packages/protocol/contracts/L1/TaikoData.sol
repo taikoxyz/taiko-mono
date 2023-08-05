@@ -41,11 +41,10 @@ library TaikoData {
         uint64 numEthDeposits;
     }
 
-    // 3 slots
+    // 2 slots
     struct BlockMetadataInput {
         bytes32 txListHash;
         address beneficiary;
-        uint32 gasLimit;
         uint24 txListByteStart; // byte-wise start index (inclusive)
         uint24 txListByteEnd; // byte-wise end index (exclusive)
         uint8 cacheTxListInfo; // non-zero = True
