@@ -71,10 +71,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * Releases the Ether (+ tokens) locked in the bridge as part of a
-     * cross-chain transfer.
-     * @dev Releases the Ether (+ tokens) by calling the
-     * LibBridgeRecall.recallMessage library function.
+     * Recall a failed message on its source chain.
+     * @dev This function will potentially release any Ether or tokens locked.
      * @param message The message containing the details of the Ether transfer.
      * (See IBridge)
      * @param proof The proof of the cross-chain transfer.
@@ -231,14 +229,10 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
      * Check if the Ether associated with the given message hash has been
      * released.
      * @param msgHash The hash of the message.
-     * @return Returns true if the Ether has been released, false otherwise.
+     * @return Returns true if the message has been recalled.
      */
-    function getMessageRecallStatus(bytes32 msgHash)
-        public
-        view
-        returns (LibBridgeData.RecallStatus)
-    {
-        return _state.recallStatus[msgHash];
+    function isMessageRecalled(bytes32 msgHash) public view returns (bool) {
+        return _state.recalls[msgHash];
     }
 
     /**

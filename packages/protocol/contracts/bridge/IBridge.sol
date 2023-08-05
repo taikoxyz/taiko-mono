@@ -8,13 +8,13 @@ pragma solidity ^0.8.20;
 
 import { LibBridgeData } from "./libs/LibBridgeData.sol";
 /**
- * Recalling a message interface.
+ * An interface that all recallable message sender shall implement.
  */
 
 interface IRecallableMessageSender {
     function onMessageRecalled(IBridge.Message calldata message)
         external
-        returns (bytes4);
+        payable;
 }
 
 /**
@@ -58,14 +58,9 @@ interface IBridge {
         uint256 srcChainId;
     }
 
-    event SignalSent(address sender, bytes32 msgHash);
+    event SignalSent(address indexed sender, bytes32 msgHash);
     event MessageSent(bytes32 indexed msgHash, Message message);
-    event MessageRecalled(
-        bytes32 indexed msgHash,
-        address to,
-        uint256 amount,
-        LibBridgeData.RecallStatus status
-    );
+    event MessageRecalled(bytes32 indexed msgHash);
 
     /// Sends a message to the destination chain and takes custody
     /// of Ether required in this contract. All extra Ether will be refunded.

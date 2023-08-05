@@ -63,7 +63,9 @@ library LibBridgeRetry {
 
         address ethVault = resolver.resolve("ether_vault", true);
         if (ethVault != address(0)) {
-            EtherVault(payable(ethVault)).releaseEther(message.callValue);
+            EtherVault(payable(ethVault)).releaseEther(
+                address(this), message.callValue
+            );
         }
 
         // successful invocation

@@ -25,6 +25,9 @@ import { LibBridgeStatus } from "../contracts/bridge/libs/LibBridgeStatus.sol";
  * @dev The code hash for the same address on L1 and L2 may be different.
  * @custom:security-contact hello@taiko.xyz
  */
+
+// TODO(dani): why we have this contract? Shall we simply sub-class the real
+// Bridge then modify a few functions if necessary?
 contract mBridge is EssentialContract, IBridge, BridgeErrors {
     /// @notice A mock contract which returns always 'true' for isMessageFailed
     /// @notice Use with release/recall() tests only.
@@ -232,12 +235,8 @@ contract mBridge is EssentialContract, IBridge, BridgeErrors {
      * @param msgHash The hash of the message.
      * @return Returns true if the Ether has been released, false otherwise.
      */
-    function getMessageRecallStatus(bytes32 msgHash)
-        public
-        view
-        returns (LibBridgeData.RecallStatus)
-    {
-        return _state.recallStatus[msgHash];
+    function isMessageRecalled(bytes32 msgHash) public view returns (bool) {
+        return _state.recalls[msgHash];
     }
 
     /**

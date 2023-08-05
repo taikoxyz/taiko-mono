@@ -92,7 +92,7 @@ contract TestEtherVault is Test {
         seedEtherVault();
 
         uint256 aliceBalanceBefore = Alice.balance;
-        etherVault.releaseEther(1 ether);
+        etherVault.releaseEther(Alice, 1 ether);
         uint256 aliceBalanceAfter = Alice.balance;
         assertEq(aliceBalanceAfter - aliceBalanceBefore, 1 ether);
         vm.stopPrank();

@@ -15,24 +15,18 @@ import { LibBridgeData } from "../contracts/bridge/libs/LibBridgeData.sol";
 import { LibBridgeStatus } from "../contracts/bridge/libs/LibBridgeStatus.sol";
 import { LibAddress } from "../contracts/libs/LibAddress.sol";
 
-interface VaultContract {
-    function releaseToken(IBridge.Message calldata message) external;
-}
 /**
  * This library provides functions for releasing Ether related to message
  * execution on the Bridge.
  */
 
+// TODO(dani): why we have this library? I really don't like duplicate code,
+// it's a disaster for maintaince.
 library LibBridgeRecall {
     using LibBridgeData for IBridge.Message;
     using LibAddress for address;
 
-    event MessageRecalled(
-        bytes32 indexed msgHash,
-        address owner,
-        uint256 amount,
-        LibBridgeData.RecallStatus status
-    );
+    event MessageRecalled(bytes32 indexed msgHash);
 
     error B_ETHER_RELEASED_ALREADY();
     error B_FAILED_TRANSFER();

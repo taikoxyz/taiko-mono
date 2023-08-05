@@ -301,7 +301,7 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
     {
         IBridge bridge = IBridge(resolve("bridge", false));
         bytes32 msgHash = bridge.hashMessage(message);
-    
+
         (, address token,, uint256 amount) = abi.decode(
             message.data[4:], (CanonicalERC20, address, address, uint256)
         );

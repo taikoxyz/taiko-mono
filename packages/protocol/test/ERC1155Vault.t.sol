@@ -618,7 +618,7 @@ contract ERC1155VaultTest is Test {
         message.refundAddress = Alice;
         message.memo = "";
         bytes memory proof = bytes("");
-    
+
         mockBridge.recallMessage(message, proof);
 
         // Alice got back her NFTs, and vault has 0
