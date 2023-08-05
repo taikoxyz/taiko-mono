@@ -103,7 +103,7 @@ library LibProposing {
         meta.txListHash = input.txListHash;
         meta.txListByteStart = input.txListByteStart;
         meta.txListByteEnd = input.txListByteEnd;
-        meta.gasLimit = uint32(config.blockMaxGasLimit);
+        meta.gasLimit = config.blockMaxGasLimit;
         meta.beneficiary = input.beneficiary;
         meta.treasury = resolver.resolve(config.chainId, "treasury", false);
         meta.depositsProcessed =

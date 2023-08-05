@@ -330,10 +330,10 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     {
         // Very important to cap _gasExcess uint64
         unchecked {
-            uint32 parentGasUsedNet = parentGasUsed
-                > LibL2Consts.ANCHOR_GAS_COST
-                ? parentGasUsed - LibL2Consts.ANCHOR_GAS_COST
-                : 0;
+            uint32 parentGasUsedNet;
+            if (parentGasUsed > LibL2Consts.ANCHOR_GAS_COST) {
+                parentGasUsedNet = parentGasUsed - LibL2Consts.ANCHOR_GAS_COST;
+            }
 
             uint256 a = uint256(gasExcess) + parentGasUsedNet;
             uint256 b = config.gasIssuedPerSecond * timeSinceParent;
