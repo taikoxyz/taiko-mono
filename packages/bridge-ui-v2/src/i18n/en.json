@@ -33,7 +33,11 @@
       "no_allowance_required": "You need to add allowance to bridge this token.",
       "unknown_error": "An error occured",
       "insufficient_balance": "Insufficient balance",
-      "insufficient_allowance": "Insufficient allowance"
+      "insufficient_allowance": "Insufficient allowance",
+      "custom_token": {
+        "not_found": "Token not found",
+        "description": "Are you on the right network?"
+      }
     },
     "button": {
       "approve": "Approve",
