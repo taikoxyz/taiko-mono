@@ -199,9 +199,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         uint256 basefee;
         EIP1559Config memory config = getEIP1559Config();
         if (config.gasIssuedPerSecond != 0) {
-            (basefee, gasExcess) = _calcBasefee(
-                config, block.timestamp - parentTimestamp, parentGasUsed
-            );
+            (basefee, gasExcess) = _calcBasefee({
+                config: config,
+                timeSinceParent: block.timestamp - parentTimestamp,
+                parentGasUsed: parentGasUsed
+            });
         }
 
         // On L2, basefee is not burnt, but sent to a treasury instead.
@@ -237,8 +239,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         view
         returns (uint256 _basefee)
     {
-        (_basefee,) =
-            _calcBasefee(getEIP1559Config(), timeSinceParent, parentGasUsed);
+        (_basefee,) = _calcBasefee({
+            config: getEIP1559Config(),
+            timeSinceParent: timeSinceParent,
+            parentGasUsed: parentGasUsed
+        });
     }
 
     function getCrossChainBlockHash(uint256 number)
