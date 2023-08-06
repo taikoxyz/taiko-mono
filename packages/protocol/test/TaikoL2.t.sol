@@ -133,15 +133,18 @@ contract TestTaikoL2 is Test {
     }
 
     function testGetBasefee() external {
-        uint32 timeSinceParent = uint32(block.timestamp - L2.parentTimestamp());
-        assertEq(_getBasefeeAndPrint(timeSinceParent, 0), 538_808_482);
+        uint64 timeSinceParent = uint64(block.timestamp - L2.parentTimestamp());
+        assertEq(_getBasefeeAndPrint(timeSinceParent, 0), 317_609_019);
 
-        timeSinceParent += 1000;
-        assertEq(_getBasefeeAndPrint(timeSinceParent, 0), 538_808_482);
+        timeSinceParent += 100;
+        assertEq(_getBasefeeAndPrint(timeSinceParent, 0), 54_544_902);
+
+        timeSinceParent += 10_000;
+        assertEq(_getBasefeeAndPrint(timeSinceParent, 0), 1);
     }
 
     function _getBasefeeAndPrint(
-        uint32 timeSinceParent,
+        uint64 timeSinceParent,
         uint32 parentGasUsed
     )
         private

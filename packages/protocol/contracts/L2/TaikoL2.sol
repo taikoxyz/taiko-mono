@@ -232,7 +232,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     }
 
     function getBasefee(
-        uint32 timeSinceParent,
+        uint64 timeSinceParent,
         uint32 parentGasUsed
     )
         public
@@ -327,31 +327,29 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         view
         returns (uint256 _basefee, uint64 _gasExcess)
     {
-        uint32 parentGasUsedNet;
-
-        if (parentGasUsed > LibL2Consts.ANCHOR_GAS_COST) {
-            unchecked {
+        unchecked {
+            uint32 parentGasUsedNet;
+            if (parentGasUsed > LibL2Consts.ANCHOR_GAS_COST) {
                 parentGasUsedNet = parentGasUsed - LibL2Consts.ANCHOR_GAS_COST;
             }
+
+            uint256 issued = timeSinceParent * config.gasIssuedPerSecond;
+            uint256 excess = (uint256(gasExcess) + parentGasUsedNet).max(issued);
+            // Very important to cap _gasExcess uint64
+            _gasExcess = uint64((excess - issued).min(type(uint64).max));
         }
 
         _basefee = Lib1559Math.calculatePrice({
             xscale: config.xscale,
             yscale: config.yscale,
-            xExcess: gasExcess,
-            xPurchase: parentGasUsedNet
+            xExcess: _gasExcess,
+            xPurchase: 0
         });
+
         if (_basefee == 0) {
             // To make sure when 1559 is enabled, the basefee is non-zero
             // (geth never use 0 values for basefee)
             _basefee = 1;
-        }
-
-        // Very important to cap _gasExcess uint64
-        unchecked {
-            uint256 issued = timeSinceParent * config.gasIssuedPerSecond;
-            uint256 excess = (uint256(gasExcess) + parentGasUsedNet).max(issued);
-            _gasExcess = uint64((excess - issued).min(type(uint64).max));
         }
     }
 }
