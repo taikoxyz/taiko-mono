@@ -15,10 +15,12 @@
     | 'up-down-circle'
     | 'check-circle'
     | 'info-circle'
+    | 'plus-circle'
     | 'circle'
     | 'arrow-right'
     | 'up-down'
-    | 'check';
+    | 'check'
+    | 'trash';
 </script>
 
 <script lang="ts">
@@ -26,10 +28,15 @@
   export let size = 20;
   export let width = size;
   export let height = size;
+  export let minX = 0;
+  export let minY = 0;
+  export let vWidth = width;
+  export let vHeight = height;
+  export let viewBox = `${minX} ${minY} ${vWidth} ${vHeight}`;
   export let fillClass = 'fill-primary-icon';
 </script>
 
-<svg {width} {height} class={$$props.class} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg {width} {height} class={$$props.class} {viewBox} fill="none" xmlns="http://www.w3.org/2000/svg">
   {#if type === 'bridge'}
     <path
       class={fillClass}
@@ -123,6 +130,12 @@
       fill-rule="evenodd"
       clip-rule="evenodd"
       d="M18 10C18 14.4183 14.4183 18 10 18C5.58172 18 2 14.4183 2 10C2 5.58172 5.58172 2 10 2C14.4183 2 18 5.58172 18 10ZM11 6C11 6.55228 10.5523 7 10 7C9.44771 7 9 6.55228 9 6C9 5.44772 9.44771 5 10 5C10.5523 5 11 5.44772 11 6ZM9 9C8.58579 9 8.25 9.33579 8.25 9.75C8.25 10.1642 8.58579 10.5 9 10.5H9.25338C9.41332 10.5 9.53213 10.6481 9.49743 10.8042L9.03829 12.8704C8.79542 13.9633 9.62706 15 10.7466 15H11C11.4142 15 11.75 14.6642 11.75 14.25C11.75 13.8358 11.4142 13.5 11 13.5H10.7466C10.5867 13.5 10.4679 13.3519 10.5026 13.1958L10.9617 11.1296C11.2046 10.0367 10.3729 9 9.25338 9H9Z" />
+  {:else if type === 'plus-circle'}
+    <path
+      class={fillClass}
+      fill-rule="evenodd"
+      clip-rule="evenodd"
+      d="M15.5 29.5c-7.18 0-13-5.82-13-13s5.82-13 13-13 13 5.82 13 13-5.82 13-13 13zM21.938 15.938c0-0.552-0.448-1-1-1h-4v-4c0-0.552-0.447-1-1-1h-1c-0.553 0-1 0.448-1 1v4h-4c-0.553 0-1 0.448-1 1v1c0 0.553 0.447 1 1 1h4v4c0 0.553 0.447 1 1 1h1c0.553 0 1-0.447 1-1v-4h4c0.552 0 1-0.447 1-1v-1z" />
   {:else if type === 'circle'}
     <circle class={fillClass} cx="10" cy="10" r="6" />
   {:else if type === 'arrow-right'}
@@ -145,5 +158,11 @@
         clip-rule="evenodd"
         d="M16.7045 4.15347C17.034 4.4045 17.0976 4.87509 16.8466 5.20457L8.84657 15.7046C8.71541 15.8767 8.51627 15.9838 8.30033 15.9983C8.08439 16.0129 7.87271 15.9334 7.71967 15.7804L3.21967 11.2804C2.92678 10.9875 2.92678 10.5126 3.21967 10.2197C3.51256 9.92682 3.98744 9.92682 4.28033 10.2197L8.17351 14.1129L15.6534 4.29551C15.9045 3.96603 16.3751 3.90243 16.7045 4.15347Z" />
     </svg>
+  {:else if type === 'trash'}
+    <path
+      class={fillClass}
+      fill-rule="evenodd"
+      clip-rule="evenodd"
+      d="M20,6H16V5a3,3,0,0,0-3-3H11A3,3,0,0,0,8,5V6H4A1,1,0,0,0,4,8H5V19a3,3,0,0,0,3,3h8a3,3,0,0,0,3-3V8h1a1,1,0,0,0,0-2ZM10,5a1,1,0,0,1,1-1h2a1,1,0,0,1,1,1V6H10Zm7,14a1,1,0,0,1-1,1H8a1,1,0,0,1-1-1V8H17Z" />
   {/if}
 </svg>
