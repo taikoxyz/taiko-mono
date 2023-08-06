@@ -200,10 +200,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         EIP1559Config memory config = getEIP1559Config();
         if (config.gasIssuedPerSecond != 0) {
             (basefee, gasExcess) = _calcBasefee(
-                config,
-                block.timestamp - parentTimestamp,
-                uint32(block.gaslimit),
-                parentGasUsed
+                config, block.timestamp - parentTimestamp, parentGasUsed
             );
         }
 
@@ -234,16 +231,14 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     function getBasefee(
         uint32 timeSinceParent,
-        uint32 gasLimit,
         uint32 parentGasUsed
     )
         public
         view
         returns (uint256 _basefee)
     {
-        (_basefee,) = _calcBasefee(
-            getEIP1559Config(), timeSinceParent, gasLimit, parentGasUsed
-        );
+        (_basefee,) =
+            _calcBasefee(getEIP1559Config(), timeSinceParent, parentGasUsed);
     }
 
     function getCrossChainBlockHash(uint256 number)
@@ -321,35 +316,41 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     function _calcBasefee(
         EIP1559Config memory config,
         uint256 timeSinceParent,
-        uint32 gasLimit,
         uint32 parentGasUsed
     )
         private
         view
         returns (uint256 _basefee, uint64 _gasExcess)
     {
-        // Very important to cap _gasExcess uint64
-        unchecked {
-            uint32 parentGasUsedNet;
-            if (parentGasUsed > LibL2Consts.ANCHOR_GAS_COST) {
+        uint32 parentGasUsedNet;
+
+        if (parentGasUsed > LibL2Consts.ANCHOR_GAS_COST) {
+            unchecked {
                 parentGasUsedNet = parentGasUsed - LibL2Consts.ANCHOR_GAS_COST;
             }
-
-            uint256 a = uint256(gasExcess) + parentGasUsedNet;
-            uint256 b = config.gasIssuedPerSecond * timeSinceParent;
-            _gasExcess = uint64((a.max(b) - b).min(type(uint64).max));
         }
 
         _basefee = Lib1559Math.calculatePrice({
             xscale: config.xscale,
             yscale: config.yscale,
-            xExcess: _gasExcess,
-            xPurchase: gasLimit
+            xExcess: gasExcess,
+            xPurchase: parentGasUsedNet
         });
         if (_basefee == 0) {
             // To make sure when 1559 is enabled, the basefee is non-zero
             // (geth never use 0 values for basefee)
             _basefee = 1;
+        }
+
+        // Very important to cap _gasExcess uint64
+        unchecked {
+            uint256 _newlyIssued = timeSinceParent * config.gasIssuedPerSecond;
+            _gasExcess = uint64(
+                (
+                    uint256(gasExcess).max(_newlyIssued) + parentGasUsedNet
+                        - _newlyIssued
+                ).min(type(uint64).max)
+            );
         }
     }
 }
