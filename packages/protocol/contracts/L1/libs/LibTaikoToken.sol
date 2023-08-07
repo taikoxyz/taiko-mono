@@ -15,7 +15,7 @@ import { TaikoToken } from "../TaikoToken.sol";
 import { LibFixedPointMath as Math } from
     "../../thirdparty/LibFixedPointMath.sol";
 
-library LibTkoDistribution {
+library LibTaikoToken {
     error L1_INSUFFICIENT_TOKEN();
 
     function withdrawTaikoToken(

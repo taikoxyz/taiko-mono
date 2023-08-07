@@ -13,7 +13,7 @@ import { Proxied } from "../common/Proxied.sol";
 import { LibEthDepositing } from "./libs/LibEthDepositing.sol";
 import { LibProposing } from "./libs/LibProposing.sol";
 import { LibProving } from "./libs/LibProving.sol";
-import { LibTkoDistribution } from "./libs/LibTkoDistribution.sol";
+import { LibTaikoToken } from "./libs/LibTaikoToken.sol";
 import { LibUtils } from "./libs/LibUtils.sol";
 import { LibVerifying } from "./libs/LibVerifying.sol";
 import { TaikoConfig } from "./TaikoConfig.sol";
@@ -157,15 +157,11 @@ contract TaikoL1 is
     }
 
     function depositTaikoToken(uint256 amount) public nonReentrant {
-        LibTkoDistribution.depositTaikoToken(
-            state, AddressResolver(this), amount
-        );
+        LibTaikoToken.depositTaikoToken(state, AddressResolver(this), amount);
     }
 
     function withdrawTaikoToken(uint256 amount) public nonReentrant {
-        LibTkoDistribution.withdrawTaikoToken(
-            state, AddressResolver(this), amount
-        );
+        LibTaikoToken.withdrawTaikoToken(state, AddressResolver(this), amount);
     }
 
     function canDepositEthToL2(uint256 amount) public view returns (bool) {
