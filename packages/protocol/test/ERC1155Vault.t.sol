@@ -6,7 +6,6 @@ import { Test } from "forge-std/Test.sol";
 import { AddressResolver } from "../contracts/common/AddressResolver.sol";
 import { AddressManager } from "../contracts/common/AddressManager.sol";
 import { IBridge, Bridge } from "../contracts/bridge/Bridge.sol";
-import { mBridge } from "./mBridge.t.sol";
 import { LibBridgeData } from "../contracts/bridge/libs/LibBridgeData.sol";
 import { BridgeErrors } from "../contracts/bridge/BridgeErrors.sol";
 import { BaseNFTVault } from "../contracts/tokenvault/BaseNFTVault.sol";
@@ -98,31 +97,17 @@ contract PrankDestBridge {
 
 // PrankSrcBridge lets us mock Bridge/SignalService to return true when called
 // isMessageFailed()
-contract PrankSrcBridge {
-    function isMessageFailed(
-        bytes32,
-        uint256,
-        bytes calldata
-    )
-        public
-        view
-        virtual
-        returns (bool)
-    {
-        return true;
+contract PrankSrcBridge is Bridge {
+
+    bool constant internal CHECK_MSG_FAILURE_USING_LIB = false;
+
+    function getRealProofCheck() internal override pure returns (bool) {
+        return CHECK_MSG_FAILURE_USING_LIB;
     }
 
     function getPreDeterminedDataBytes() external pure returns (bytes memory) {
         return
-        hex"20b8155900000000000000000000000000000000000000000000000000000000000000a000000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba4000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000007a69000000000000000000000000efb787f82718bdac060ce28b059af6a69134c817000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002";
-    }
-
-    function hashMessage(IBridge.Message calldata message)
-        public
-        pure
-        returns (bytes32)
-    {
-        return LibBridgeData.hashMessage(message);
+        hex"20b8155900000000000000000000000000000000000000000000000000000000000000a000000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba4000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000007a69000000000000000000000000a64f94242628683ea967cd7dd6a10b5ed0400662000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002";
     }
 }
 
@@ -172,8 +157,6 @@ contract ERC1155VaultTest is Test {
     BadReceiver badReceiver;
     Bridge bridge;
     Bridge destChainBridge;
-    // Mocking the proofs for onMessageRecalled() calls
-    mBridge mockBridge;
     PrankDestBridge destChainIdBridge;
     PrankSrcBridge srcPrankBridge;
     ERC1155Vault erc1155Vault;
@@ -200,9 +183,6 @@ contract ERC1155VaultTest is Test {
         bridge = new Bridge();
         bridge.init(address(addressManager));
 
-        mockBridge = new mBridge();
-        mockBridge.init(address(addressManager));
-
         destChainBridge = new Bridge();
         destChainBridge.init(address(addressManager));
 
@@ -220,6 +200,7 @@ contract ERC1155VaultTest is Test {
 
         destChainIdBridge = new PrankDestBridge(destChainErc1155Vault);
         srcPrankBridge = new PrankSrcBridge();
+        srcPrankBridge.init(address(addressManager));
 
         crossChainSync = new PrankCrossChainSync();
 
@@ -256,6 +237,14 @@ contract ERC1155VaultTest is Test {
         addressManager.setAddress(
             block.chainid, "erc20_vault", address(srcPrankBridge)
         );
+        addressManager.setAddress(
+            block.chainid, "ether_vault", address(etherVault)
+        );
+        // Authorize
+        etherVault.authorize(address(srcPrankBridge), true);
+        etherVault.authorize(address(bridge), true);
+
+        vm.deal(address(etherVault), 100 ether);
 
         ctoken1155 = new TestTokenERC1155("http://example.host.com/");
         vm.stopPrank();
@@ -567,8 +556,6 @@ contract ERC1155VaultTest is Test {
         assertEq(ctoken1155.balanceOf(Alice, 1), 10);
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 0);
 
-        console2.log("Vault address:", address(erc1155Vault));
-
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = 1;
 
@@ -587,16 +574,17 @@ contract ERC1155VaultTest is Test {
             Alice,
             ""
         );
+
+        // Let's test that message is failed and we want to release it back to
+        // the owner
+        vm.prank(Amelia, Amelia);
+        addressManager.setAddress(block.chainid, "bridge", address(srcPrankBridge));
+
         vm.prank(Alice, Alice);
         erc1155Vault.sendToken{ value: 140_000 }(sendOpts);
 
         assertEq(ctoken1155.balanceOf(Alice, 1), 8);
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 2);
-
-        // Let's test that message is failed and we want to release it back to
-        // the owner
-        vm.prank(Amelia, Amelia);
-        addressManager.setAddress(block.chainid, "bridge", address(mockBridge));
 
         // Reconstruct the message.
         // Actually the only 2 things absolute necessary to fill are the owner
@@ -609,7 +597,6 @@ contract ERC1155VaultTest is Test {
         message.destChainId = destChainId;
         message.owner = Alice;
         message.sender = address(erc1155Vault);
-
         message.to = address(destChainErc1155Vault);
         message.data = srcPrankBridge.getPreDeterminedDataBytes();
         message.gasLimit = 140_000;
@@ -619,7 +606,7 @@ contract ERC1155VaultTest is Test {
         message.memo = "";
         bytes memory proof = bytes("");
 
-        mockBridge.recallMessage(message, proof);
+        srcPrankBridge.recallMessage(message, proof);
 
         // Alice got back her NFTs, and vault has 0
         assertEq(ctoken1155.balanceOf(Alice, 1), 10);

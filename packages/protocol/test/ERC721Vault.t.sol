@@ -118,31 +118,17 @@ contract PrankDestBridge {
 
 // PrankSrcBridge lets us mock Bridge/SignalService to return true when called
 // isMessageFailed()
-contract PrankSrcBridge {
-    function isMessageFailed(
-        bytes32,
-        uint256,
-        bytes calldata
-    )
-        public
-        view
-        virtual
-        returns (bool)
-    {
-        return true;
+contract PrankSrcBridge is Bridge {
+
+    bool constant internal CHECK_MSG_FAILURE_USING_LIB = false;
+
+    function getRealProofCheck() internal override pure returns (bool) {
+        return CHECK_MSG_FAILURE_USING_LIB;
     }
 
     function getPreDeterminedDataBytes() external pure returns (bytes memory) {
         return
         hex"a9976baf000000000000000000000000000000000000000000000000000000000000008000000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000010020fcb72e27650651b05ed2ceca493bc807ba400000000000000000000000000000000000000000000000000000000000001800000000000000000000000000000000000000000000000000000000000007a69000000000000000000000000f349eda7118cad7972b7401c1f5d71e9ea218ef8000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000000254540000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002545400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001";
-    }
-
-    function hashMessage(IBridge.Message calldata message)
-        public
-        pure
-        returns (bytes32)
-    {
-        return LibBridgeData.hashMessage(message);
     }
 }
 
@@ -192,8 +178,6 @@ contract ERC721VaultTest is Test {
     BadReceiver badReceiver;
     Bridge bridge;
     Bridge destChainBridge;
-    // Mocking the proofs for onMessageRecalled() calls
-    mBridge mockBridge;
     PrankDestBridge destChainIdBridge;
     PrankSrcBridge srcPrankBridge;
     ERC721Vault erc721Vault;
@@ -220,9 +204,6 @@ contract ERC721VaultTest is Test {
         bridge = new Bridge();
         bridge.init(address(addressManager));
 
-        mockBridge = new mBridge();
-        mockBridge.init(address(addressManager));
-
         destChainBridge = new Bridge();
         destChainBridge.init(address(addressManager));
 
@@ -240,6 +221,7 @@ contract ERC721VaultTest is Test {
 
         destChainIdBridge = new PrankDestBridge(destChainErc721Vault);
         srcPrankBridge = new PrankSrcBridge();
+        srcPrankBridge.init(address(addressManager));
 
         crossChainSync = new PrankCrossChainSync();
 
@@ -274,7 +256,13 @@ contract ERC721VaultTest is Test {
         );
         addressManager.setAddress(
             block.chainid, "erc20_vault", address(srcPrankBridge)
+        );        
+        addressManager.setAddress(
+            block.chainid, "ether_vault", address(etherVault)
         );
+        // Authorize
+        etherVault.authorize(address(srcPrankBridge), true);
+        etherVault.authorize(address(bridge), true);
 
         vm.stopPrank();
 
@@ -597,15 +585,15 @@ contract ERC721VaultTest is Test {
             Alice,
             ""
         );
+        // Let's test that message is failed and we want to release it back to
+        // the owner
+        vm.prank(Amelia, Amelia);
+        addressManager.setAddress(block.chainid, "bridge", address(srcPrankBridge));
+
         vm.prank(Alice, Alice);
         erc721Vault.sendToken{ value: 140_000 }(sendOpts);
 
         assertEq(canonicalToken721.ownerOf(1), address(erc721Vault));
-
-        // Let's test that message is failed and we want to release it back to
-        // the owner
-        vm.prank(Amelia, Amelia);
-        addressManager.setAddress(block.chainid, "bridge", address(mockBridge));
 
         // Reconstruct the message.
         // Actually the only 2 things absolute necessary to fill are the owner
@@ -627,7 +615,7 @@ contract ERC721VaultTest is Test {
         message.memo = "";
         bytes memory proof = bytes("");
 
-        mockBridge.recallMessage(message, proof);
+        srcPrankBridge.recallMessage(message, proof);
 
         // Alice got back her NFT
         assertEq(canonicalToken721.ownerOf(1), Alice);

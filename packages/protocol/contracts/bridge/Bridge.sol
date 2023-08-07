@@ -88,7 +88,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
             state: _state,
             resolver: AddressResolver(this),
             message: message,
-            proof: proof
+            proof: proof,
+            proofCheck: getRealProofCheck()
         });
     }
 
@@ -259,7 +260,6 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     function hashMessage(Message calldata message)
         public
         pure
-        override
         returns (bytes32)
     {
         return LibBridgeData.hashMessage(message);
@@ -276,6 +276,14 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         returns (bytes32)
     {
         return LibBridgeStatus.getMessageStatusSlot(msgHash);
+    }
+
+    /**
+     * Tells if we need to check real proof or it is a test.
+     * @return Returns true if this contract, or can be false if mock/test.
+     */
+    function getRealProofCheck() internal virtual pure returns (bool) {
+        return true;
     }
 }
 
