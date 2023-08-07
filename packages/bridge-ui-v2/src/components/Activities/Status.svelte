@@ -132,7 +132,7 @@
           warningToast($t('messages.account.required'));
           break;
         case err instanceof UserRejectedRequestError:
-          warningToast($t('activities.actions.claim_rejected'));
+          warningToast($t('activities.actions.claim.rejected'));
           break;
         case err instanceof InsufficientBalanceError:
           errorToast($t('activities.errors.insufficient_balance'));
