@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.18.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-mono-v0.17.0...taiko-mono-v0.18.0) (2023-08-07)
+
+
+### Features
+
+* **bridge-ui-v2:** Addition of custom token ([#14365](https://github.com/taikoxyz/taiko-mono/issues/14365)) ([a82fecb](https://github.com/taikoxyz/taiko-mono/commit/a82fecb63fe357af4f1fbcf07ed8b2f39d66fa50))
+* **bridge-ui-v2:** Claim & Release ([#14267](https://github.com/taikoxyz/taiko-mono/issues/14267)) ([6c6089e](https://github.com/taikoxyz/taiko-mono/commit/6c6089e75e3bb418bced2f230d481580971929e3))
+* **bridge-ui-v2:** NFT Bridge UI initial setup ([#14261](https://github.com/taikoxyz/taiko-mono/issues/14261)) ([d634033](https://github.com/taikoxyz/taiko-mono/commit/d634033e6dd3459d30bd248b9d809c4c1b5f910f))
+* **bridge-ui-v2:** Style adjustments ([#14350](https://github.com/taikoxyz/taiko-mono/issues/14350)) ([17bbf07](https://github.com/taikoxyz/taiko-mono/commit/17bbf07ac80b4f78f0d3b17e374e9d88ed634eaa))
+* **protocol:** alpha-4 with staking-based tokenomics ([#14065](https://github.com/taikoxyz/taiko-mono/issues/14065)) ([1eeba9d](https://github.com/taikoxyz/taiko-mono/commit/1eeba9d97ed8e6e4a8d07a8b0af163a16fbc9ccf))
+* **protocol:** Gas limit behavior changes ([#14339](https://github.com/taikoxyz/taiko-mono/issues/14339)) ([06710eb](https://github.com/taikoxyz/taiko-mono/commit/06710eb41132f7b920d80053ed8b906d90c18bb3))
+* **protocol:** LibFixedPointMath contract library license different MAX_EXP_INPUT values ([#14344](https://github.com/taikoxyz/taiko-mono/issues/14344)) ([c6e391d](https://github.com/taikoxyz/taiko-mono/commit/c6e391d37c91623bf2673d86042c17892f5af54c))
+* **website:** add live on testnet badge ([#14290](https://github.com/taikoxyz/taiko-mono/issues/14290)) ([cee172b](https://github.com/taikoxyz/taiko-mono/commit/cee172baf98748368b7f76fabccd028adea590a6))
+* **website:** add morkie to ecosystem ([#14401](https://github.com/taikoxyz/taiko-mono/issues/14401)) ([39e4727](https://github.com/taikoxyz/taiko-mono/commit/39e47273b33e4047c0c94722c9899e8a25e3858c))
+* **website:** add node troubleshooting ([#14277](https://github.com/taikoxyz/taiko-mono/issues/14277)) ([48ce89e](https://github.com/taikoxyz/taiko-mono/commit/48ce89e6890fda1b64501b7cc916e9454f8fbc1d))
+* **website:** add polyhedra to the ecosystem ([#14317](https://github.com/taikoxyz/taiko-mono/issues/14317)) ([3c37431](https://github.com/taikoxyz/taiko-mono/commit/3c37431aa74b953089a099d939712144dedf52e1))
+* **website:** optimize claim prover rewards page ([#14285](https://github.com/taikoxyz/taiko-mono/issues/14285)) ([0906c13](https://github.com/taikoxyz/taiko-mono/commit/0906c131f240dcba3ea9da094df441c99573c659))
+* **website:** update contract addresses for Eldfell L3 ([#14276](https://github.com/taikoxyz/taiko-mono/issues/14276)) ([fd62ce9](https://github.com/taikoxyz/taiko-mono/commit/fd62ce97b8b98ef5953a88dea20d16753b3f4131))
+* **website:** update prover pool impl address ([#14308](https://github.com/taikoxyz/taiko-mono/issues/14308)) ([ef6c52e](https://github.com/taikoxyz/taiko-mono/commit/ef6c52e8d2ec67b9c055290d024e02f3602fdc9f))
+
+
+### Bug Fixes
+
+* **website:** fix broken link on run-a-sepolia-node.mdx ([#14304](https://github.com/taikoxyz/taiko-mono/issues/14304)) ([50ad6f5](https://github.com/taikoxyz/taiko-mono/commit/50ad6f580d05da53b1d26500d2b5f09706cfd55c))
+* **website:** Fix Careers link in footer ([#14300](https://github.com/taikoxyz/taiko-mono/issues/14300)) ([1020269](https://github.com/taikoxyz/taiko-mono/commit/102026976a19e89b100026bd7e59b63b1bc6795e))
+* **website:** fix port number on node-runner-manual.mdx and run-a-taiko-node.mdx ([#14306](https://github.com/taikoxyz/taiko-mono/issues/14306)) ([759ae0c](https://github.com/taikoxyz/taiko-mono/commit/759ae0ce86d29f9ef7104cd909c40ec060f48acb))
+* **website:** mobile view for homepage buttons ([#14299](https://github.com/taikoxyz/taiko-mono/issues/14299)) ([bfc3f12](https://github.com/taikoxyz/taiko-mono/commit/bfc3f12628d857c3035bc839873ea8e7ddf518d4))
+* **website:** update troubleshooting ([#14326](https://github.com/taikoxyz/taiko-mono/issues/14326)) ([a44f502](https://github.com/taikoxyz/taiko-mono/commit/a44f5022ef544d930c775b8c6e812ea12c62cf95))
+
 ## [0.17.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-mono-v0.16.0...taiko-mono-v0.17.0) (2023-07-24)
 
 

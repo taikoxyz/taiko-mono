@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/taikoxyz/taiko-mono/compare/branding-v0.2.0...branding-v0.3.0) (2023-08-07)
+
+
+### Features
+
+* **protocol:** alpha-4 with staking-based tokenomics ([#14065](https://github.com/taikoxyz/taiko-mono/issues/14065)) ([1eeba9d](https://github.com/taikoxyz/taiko-mono/commit/1eeba9d97ed8e6e4a8d07a8b0af163a16fbc9ccf))
+
 ## [0.2.0](https://github.com/taikoxyz/taiko-mono/compare/branding-v0.1.2...branding-v0.2.0) (2023-07-24)
 
 
