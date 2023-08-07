@@ -14,6 +14,7 @@ export default defineConfig({
     tsconfigPaths(),
   ],
   test: {
+    environment: 'jsdom',
     globals: true,
     include: ['src/**/*.{test,spec}.{js,ts}'],
   },

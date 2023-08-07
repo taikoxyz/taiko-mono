@@ -2,6 +2,7 @@
   import { isAddress } from 'ethereum-address';
   import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
+  import type { Address } from 'viem';
 
   import { Alert } from '$components/Alert';
   import { uid } from '$libs/util/uid';
@@ -10,38 +11,35 @@
   let inputId = `input-${uid()}`;
   let showAlert = true;
 
-  let ethereumAddress = '';
+  export let ethereumAddress: Address | string = '';
 
   let isValidEthereumAddress = false;
   let tooShort = true;
   const dispatch = createEventDispatcher();
 
-  // TODO: nope!!, this should go inside a function whose arguments
-  //       are the values that trigger reactivity
-  $: {
-    ethereumAddress;
-    if (ethereumAddress.length > 41) {
-      tooShort = false;
-      validateEthereumAddress();
-    } else {
-      tooShort = true;
+  const validateEthereumAddress = (address: string | EventTarget | null) => {
+    if (address && address instanceof EventTarget) {
+      address = (address as HTMLInputElement).value;
     }
-    dispatch('addressvalidation', { isValidEthereumAddress, ethereumAddress });
-  }
-
-  const validateEthereumAddress = () => {
-    isValidEthereumAddress = isAddress(ethereumAddress);
+    const addr = address as string;
+    if (addr.length < 42) {
+      tooShort = true;
+    } else {
+      tooShort = false;
+      isValidEthereumAddress = isAddress(addr);
+      dispatch('input', addr);
+    }
+    dispatch('addressvalidation', { isValidEthereumAddress, addr });
   };
+
+  $: validateEthereumAddress(ethereumAddress);
 
   export const clear = () => {
     input.value = '';
-    validateEthereumAddress();
+    validateEthereumAddress('');
   };
 
   export const focus = () => input.focus();
-  export const value = () => {
-    return input.value;
-  };
 </script>
 
 <div class="f-col space-y-2">
@@ -54,12 +52,14 @@
       type="string"
       placeholder="0x1B77..."
       bind:value={ethereumAddress}
+      on:input={(e) => validateEthereumAddress(e.target)}
       class="w-full input-box outline-none py-6 pr-16 px-[26px] title-subsection-bold placeholder:text-tertiary-content" />
   </div>
 </div>
 <div>
   {#if !isValidEthereumAddress && !tooShort}
     <Alert type="error" forceColumnFlow>
+      <!-- TODO: i18n! -->
       <p class="font-bold">Invalid address</p>
       <p>This doesn't seem to be a valid Ethereum address</p>
     </Alert>
