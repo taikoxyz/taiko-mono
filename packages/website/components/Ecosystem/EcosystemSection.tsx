@@ -103,6 +103,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/morkie.png",
+    name: "Morkie",
+    link: "https://www.morkie.xyz/",
+    description:
+      "Morkie aims to create an immersive oasis for NFT enthusiasts and collectors, offering them a unique space to not only showcase their digital assets but also to earn rewards for their loyalty and participation in the ecosystem. Our vision is to foster a thriving community that embraces the potential of NFTs beyond static ownership.",
+    filters: ['nft'],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/mxc.svg",
     name: "MXC",
     link: "https://doc.mxc.com/",
@@ -357,15 +366,13 @@ export function EcosystemSection() {
 function FilterLabel({ text, activeFilter, setActiveFilter }) {
   const isActive = activeFilter === text;
 
-  const buttonStyles = `border rounded-full py-1 px-4 text-sm focus:outline-none transition-colors duration-200 font-bold ${
-    isActive
-      ? "bg-gray-300 text-black"
-      : "bg-white text-gray-700 dark:bg-black dark:text-gray-300"
-  } ${
-    isActive
+  const buttonStyles = `border rounded-full py-1 px-4 text-sm focus:outline-none transition-colors duration-200 font-bold ${isActive
+    ? "bg-gray-300 text-black"
+    : "bg-white text-gray-700 dark:bg-black dark:text-gray-300"
+    } ${isActive
       ? "hover:bg-gray-400"
       : "hover:bg-neutral-100 dark:hover:bg-neutral-800"
-  }`;
+    }`;
 
   return (
     <button className={buttonStyles} onClick={() => setActiveFilter(text)}>
