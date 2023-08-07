@@ -5,7 +5,6 @@ import { console2 } from "forge-std/console2.sol";
 import { Test } from "forge-std/Test.sol";
 import { AddressManager } from "../contracts/common/AddressManager.sol";
 import { IBridge, Bridge } from "../contracts/bridge/Bridge.sol";
-import { mBridge } from "./mBridge.t.sol";
 import { LibBridgeData } from "../contracts/bridge/libs/LibBridgeData.sol";
 import { BridgeErrors } from "../contracts/bridge/BridgeErrors.sol";
 import { BaseNFTVault } from "../contracts/tokenvault/BaseNFTVault.sol";
