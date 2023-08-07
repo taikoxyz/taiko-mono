@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy,onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import type { Address } from 'viem';
 
   import { Icon } from '$components/Icon';
@@ -13,6 +13,7 @@
 
   import AddCustomErc20 from './AddCustomERC20.svelte';
   import { symbolToIconMap } from './symbolToIconMap';
+  import { ClickMask } from '$components/ClickMask';
 
   export let id: string;
   export let menuOpen = false;
@@ -20,6 +21,7 @@
   export let customTokens: Token[] = [];
   export let value: Maybe<Token> = null;
   export let selectToken: (token: Token) => void = noop;
+  export let closeMenu: () => void = noop;
 
   let modalOpen = false;
 
@@ -107,6 +109,8 @@
     </button>
   </li>
 </ul>
+
+<ClickMask fn={closeMenu} active={modalOpen} />
 
 <AddCustomErc20 bind:modalOpen />
 

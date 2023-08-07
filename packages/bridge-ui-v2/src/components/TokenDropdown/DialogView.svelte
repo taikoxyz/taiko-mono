@@ -1,10 +1,9 @@
 <script lang="ts">
-  import { onDestroy,onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
-  import { ClickMask } from '$components/ClickMask';
   import { Icon } from '$components/Icon';
   import Erc20 from '$components/Icon/ERC20.svelte';
   import { OnAccount } from '$components/OnAccount';
@@ -118,7 +117,7 @@
     </ul>
   </div>
 </dialog>
-<ClickMask fn={closeMenu} active={modalOpen} />
+
 <AddCustomErc20 bind:modalOpen />
 
 <!-- <OnNetwork change={onNetworkChange} /> -->
