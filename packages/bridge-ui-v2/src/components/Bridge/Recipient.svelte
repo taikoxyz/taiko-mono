@@ -69,11 +69,11 @@
   $: displayedRecipient = $recipientAddress || $account?.address;
 </script>
 
-<div class="Recipient f-col space-y-2">
+<div class="Recipient">
   <div class="f-between-center">
     <div class="flex space-x-2">
       <span class="body-small-bold text-primary-content">{$t('recipient.title')}</span>
-      <Tooltip>{$t('recipient.tooltip')}</Tooltip>
+      <Tooltip>TODO: add description about processing fee</Tooltip>
     </div>
     <button class="link" on:click={openModal} on:focus={openModal}>{$t('common.edit')}</button>
   </div>

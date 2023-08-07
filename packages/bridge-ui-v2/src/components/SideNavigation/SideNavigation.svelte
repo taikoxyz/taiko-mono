@@ -13,7 +13,7 @@
 
   let drawerToggleElem: HTMLInputElement;
 
-  $: isBridgePage = $page.route.id === '/' || $page.route.id === '/nft';
+  $: isBridgePage = $page.route.id === '/';
   $: isFaucetPage = $page.route.id === '/faucet';
   $: isActivitiesPage = $page.route.id === '/activities';
 
@@ -47,7 +47,7 @@
       Slow transitions can be pretty annoying after a while.
       Let's reduce it to 100ms for a better experience.
     -->
-    <div class="w-h-full !duration-100">
+    <div class="w-h-full bg-primary-background !duration-100">
       <header class="flex justify-end py-[20px] px-4 md:hidden">
         <button on:click={closeDrawer} class="h-9">
           <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
@@ -106,3 +106,26 @@
     </div>
   </div>
 </div>
+
+<style>
+  .drawer-content {
+    /* No grid background by default */
+    background-image: url(/bg/spotlights.svg), linear-gradient(180deg, rgb(11 16 27 / 70%) 0%, rgb(11 16 27 / 0%) 100%);
+    background-size: cover, cover;
+    background-blend-mode: lighten, multiply;
+    background-attachment: fixed;
+  }
+
+  @media (min-width: 768px) {
+    .drawer-content {
+      /* Desktop of larger screens (md) have grid */
+      /* TODO: Ask Jane if we have the right svgs here */
+      background-image:
+        url(/bg/grid.svg),
+        url(/bg/spotlights.svg),
+        /* grey-900/70 => grey-900/0 */ linear-gradient(180deg, rgb(11 16 27 / 70%) 0%, rgb(11 16 27 / 0%) 100%);
+      background-size: 840px, cover, cover;
+      background-blend-mode: color-dodge, lighten, multiply;
+    }
+  }
+</style>

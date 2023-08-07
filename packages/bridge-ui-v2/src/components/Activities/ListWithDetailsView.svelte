@@ -26,7 +26,7 @@
 
 <div>
   <button
-    class="f-between-center pb-[10px] border-b border-b-divider-border"
+    class="f-between-center pb-[10px] border-b border-b-divider-border w-full"
     on:click={openDetails}
     on:keydown={onItemKeydown}>
     <div class="space-y-[5px]">
@@ -196,7 +196,7 @@
           </div>
         </li>
         <li class="f-between-center">
-          <h4 class="text-secondary-content">{$t('amount_input.label')}</h4>
+          <h4 class="text-secondary-content">{$t('amount.label')}</h4>
           <span>2.5 ETH</span>
         </li>
         <li class="f-between-center">

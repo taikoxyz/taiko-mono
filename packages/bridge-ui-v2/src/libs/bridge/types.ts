@@ -1,5 +1,8 @@
 import type { Hash, WalletClient } from '@wagmi/core';
-import type { Address, Hex } from 'viem';
+import type { Address, Hex, TransactionReceipt } from 'viem';
+
+import type { ChainID } from '$libs/chain';
+import type { TokenType } from '$libs/token';
 
 export enum MessageStatus {
   NEW,
@@ -8,7 +11,9 @@ export enum MessageStatus {
   FAILED,
 }
 
-// Bridge sendMessage(message: Message)
+// Bridge sendMessage()
+// Claim/Retry processMessage()/retryMessage()
+// Release releaseEthe()/releaseERC20()
 export type Message = {
   // Message ID. Will be set in contract
   id: bigint;
@@ -36,6 +41,43 @@ export type Message = {
   data: Hex;
   // Optional memo.
   memo: string;
+};
+
+// Todo: adjust relayer to return same as bridge
+// Identical to Message, but relayer uses capitalization
+export type RelayerMessage = {
+  Id: bigint;
+  Sender: Address;
+  SrcChainId: number | string | bigint;
+  DestChainId: number | string | bigint;
+  Owner: Address;
+  To: Address;
+  RefundAddress: Address;
+  DepositValue: bigint;
+  CallValue: bigint;
+  ProcessingFee: bigint;
+  GasLimit: bigint;
+  Data: Hex;
+  Memo: string;
+};
+
+export type BridgeTransaction = {
+  hash: Hash;
+  from: Address;
+  amount: bigint;
+  symbol: string;
+  decimals: number;
+  srcChainId: ChainID;
+  destChainId: ChainID;
+  tokenType: TokenType;
+
+  // Used for sorting local ones
+  timestamp?: number;
+
+  status?: MessageStatus;
+  receipt?: TransactionReceipt;
+  msgHash?: Hash;
+  message?: Message;
 };
 
 // TokenVault sendERC20(...args)
@@ -95,7 +137,6 @@ export type RequireAllowanceArgs = {
   spenderAddress: Address;
   amount: bigint;
 };
-
 export type ClaimArgs = {
   msgHash: Hash;
   message: Message;
@@ -103,3 +144,7 @@ export type ClaimArgs = {
 };
 
 export type ReleaseArgs = ClaimArgs;
+export interface Bridge {
+  estimateGas(args: BridgeArgs): Promise<bigint>;
+  bridge(args: BridgeArgs): Promise<Hex>;
+}
