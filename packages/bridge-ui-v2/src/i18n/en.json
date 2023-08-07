@@ -32,7 +32,12 @@
       "rejected": "Request to bridge rejected.",
       "no_allowance_required": "You already have enough allowance.",
       "insufficient_allowance": "You need to increase your allowance in order to be able to bridge.",
-      "unknown_error": "An error occured"
+      "cannot_fetch_balance": "Error fetching balance. Wrong chain?",
+      "unknown_error": "An error occured",
+      "custom_token": {
+        "not_found": "Token not found",
+        "description": "Are you on the right network?"
+      }
     },
     "button": {
       "approve": "Approve",
