@@ -15,6 +15,8 @@ export const L1_CHAIN_ID = 31336;
 
 export const L1_CHAIN_NAME = 'Ethereum';
 
+export const L1_CHAIN_ICON = 'l1';
+
 export const L1_EXPLORER_URL = 'https://l1explorer.internal.taiko.xyz';
 
 export const L2_RPC = 'https://l2rpc.internal.taiko.xyz';
@@ -35,6 +37,8 @@ export const L2_SIGNAL_SERVICE_ADDRESS =
 export const L2_CHAIN_ID = 167001;
 
 export const L2_CHAIN_NAME = 'Taiko';
+
+export const L2_CHAIN_ICON = 'l2';
 
 export const L2_EXPLORER_URL = 'https://l2explorer.internal.taiko.xyz';
 

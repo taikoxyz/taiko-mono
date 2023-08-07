@@ -13,12 +13,16 @@ import
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
+import "../contracts/L1/ProofVerifier.sol";
 import "../contracts/bridge/Bridge.sol";
-import "../contracts/bridge/TokenVault.sol";
+import "../contracts/tokenvault/ERC20Vault.sol";
+import "../contracts/tokenvault/ERC1155Vault.sol";
+import "../contracts/tokenvault/ERC721Vault.sol";
 import "../contracts/signal/SignalService.sol";
 import "../contracts/common/AddressManager.sol";
 import "../contracts/test/erc20/FreeMintERC20.sol";
 import "../contracts/test/erc20/MayFailFreeMintERC20.sol";
+import "../contracts/L1/ProverPool.sol";
 
 contract DeployOnL1 is Script {
     using SafeCastUpgradeable for uint256;
@@ -34,17 +38,16 @@ contract DeployOnL1 is Script {
     address public owner = vm.envAddress("OWNER");
 
     address public oracleProver = vm.envAddress("ORACLE_PROVER");
-    address public systemProver = vm.envAddress("SYSTEM_PROVER");
 
     address public sharedSignalService = vm.envAddress("SHARED_SIGNAL_SERVICE");
 
     address public treasury = vm.envAddress("TREASURY");
 
-    address public taikoTokenPremintRecipient =
-        vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
+    address[] public taikoTokenPremintRecipients =
+        vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENTS", ",");
 
-    uint256 public taikoTokenPremintAmount =
-        vm.envUint("TAIKO_TOKEN_PREMINT_AMOUNT");
+    uint256[] public taikoTokenPremintAmounts =
+        vm.envUint("TAIKO_TOKEN_PREMINT_AMOUNTS", ",");
 
     TaikoL1 taikoL1;
     address public addressManagerProxy;
@@ -57,10 +60,22 @@ contract DeployOnL1 is Script {
         require(l2SignalService != address(0), "l2SignalService is zero");
         require(treasury != address(0), "treasury is zero");
         require(
-            taikoTokenPremintRecipient != address(0),
-            "taikoTokenPremintRecipient is zero"
+            taikoTokenPremintRecipients.length != 0,
+            "taikoTokenPremintRecipients length is zero"
         );
-        require(taikoTokenPremintAmount < type(uint64).max, "premint too large");
+
+        require(
+            taikoTokenPremintRecipients.length
+                == taikoTokenPremintAmounts.length,
+            "taikoTokenPremintRecipients and taikoTokenPremintAmounts must be same length"
+        );
+
+        uint256 premintSum;
+        for (uint8 i = 0; i < taikoTokenPremintAmounts.length; i++) {
+            premintSum += taikoTokenPremintAmounts[i];
+        }
+
+        require(premintSum < type(uint64).max, "premint amount too large");
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -80,16 +95,10 @@ contract DeployOnL1 is Script {
         setAddress(l2ChainId, "taiko", taikoL2Address);
         setAddress(l2ChainId, "signal_service", l2SignalService);
         setAddress("oracle_prover", oracleProver);
-        setAddress("system_prover", systemProver);
         setAddress(l2ChainId, "treasury", treasury);
 
         // TaikoToken
         TaikoToken taikoToken = new ProxiedTaikoToken();
-
-        address[] memory premintRecipients = new address[](1);
-        uint256[] memory premintAmounts = new uint256[](1);
-        premintRecipients[0] = taikoTokenPremintRecipient;
-        premintAmounts[0] = taikoTokenPremintAmount;
 
         deployProxy(
             "taiko_token",
@@ -98,11 +107,22 @@ contract DeployOnL1 is Script {
                 taikoToken.init.selector,
                 abi.encode(
                     addressManagerProxy,
-                    "Taiko Token",
-                    "TKO",
-                    premintRecipients,
-                    premintAmounts
+                    "Taiko Token Eldfell",
+                    "TTKOe",
+                    taikoTokenPremintRecipients,
+                    taikoTokenPremintAmounts
                 )
+            )
+        );
+
+        // ProverPool
+        ProverPool stakingProverPool = new ProxiedProverPool();
+        deployProxy(
+            "prover_pool",
+            address(stakingProverPool),
+            bytes.concat(
+                stakingProverPool.init.selector,
+                abi.encode(addressManagerProxy, 2048)
             )
         );
 
@@ -114,18 +134,20 @@ contract DeployOnL1 is Script {
             address(new MayFailFreeMintERC20("Bull Token", "BLL"));
         console2.log("BullToken", bullToken);
 
-        uint64 feeBase = uint64(1) ** taikoToken.decimals();
+        uint64 feePerGas = 10;
+        uint64 proofWindow = 60 minutes;
 
         address taikoL1Proxy = deployProxy(
             "taiko",
             address(taikoL1),
             bytes.concat(
                 taikoL1.init.selector,
-                abi.encode(addressManagerProxy, genesisHash, feeBase)
+                abi.encode(
+                    addressManagerProxy, genesisHash, feePerGas, proofWindow
+                )
             )
         );
         setAddress("taiko", taikoL1Proxy);
-        setAddress("proto_broker", taikoL1Proxy);
 
         // Bridge
         Bridge bridge = new ProxiedBridge();
@@ -135,13 +157,43 @@ contract DeployOnL1 is Script {
             bytes.concat(bridge.init.selector, abi.encode(addressManagerProxy))
         );
 
-        // TokenVault
-        TokenVault tokenVault = new ProxiedTokenVault();
+        // ERC20Vault
+        ERC20Vault erc20Vault = new ProxiedERC20Vault();
         deployProxy(
-            "token_vault",
-            address(tokenVault),
+            "erc20_vault",
+            address(erc20Vault),
             bytes.concat(
-                tokenVault.init.selector, abi.encode(addressManagerProxy)
+                erc20Vault.init.selector, abi.encode(addressManagerProxy)
+            )
+        );
+
+        // ERC721Vault
+        ERC721Vault erc721Vault = new ProxiedERC721Vault();
+        deployProxy(
+            "erc721_vault",
+            address(erc721Vault),
+            bytes.concat(
+                erc721Vault.init.selector, abi.encode(addressManagerProxy)
+            )
+        );
+
+        // ERC1155Vault
+        ERC1155Vault erc1155Vault = new ProxiedERC1155Vault();
+        deployProxy(
+            "erc1155_vault",
+            address(erc1155Vault),
+            bytes.concat(
+                erc1155Vault.init.selector, abi.encode(addressManagerProxy)
+            )
+        );
+
+        // ProofVerifier
+        ProofVerifier proofVerifier = new ProxiedProofVerifier();
+        deployProxy(
+            "proof_verifier",
+            address(proofVerifier),
+            bytes.concat(
+                proofVerifier.init.selector, abi.encode(addressManagerProxy)
             )
         );
 

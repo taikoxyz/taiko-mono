@@ -1,3 +1,4 @@
+import { getPublicClient } from '@wagmi/core';
 import { type Address, zeroAddress } from 'viem';
 
 import { chainContractsMap } from '$libs/chain';
@@ -61,9 +62,15 @@ export async function checkBalanceToBridge({
         throw new RevertedWithFailedError('BLL token doing its thing', { cause: err });
       }
     }
+    if (estimatedCost > balance - amount) {
+      throw new InsufficientBalanceError('you do not have enough balance to bridge');
+    }
   } else {
     const { tokenVaultAddress } = chainContractsMap[srcChainId];
     const tokenAddress = await getAddress({ token, srcChainId, destChainId });
+
+    // since we are briding a token, we need the ETH balance of the wallet
+    balance = await getPublicClient().getBalance(wallet.account);
 
     if (!tokenAddress || tokenAddress === zeroAddress) return false;
 
@@ -88,9 +95,9 @@ export async function checkBalanceToBridge({
         throw new InsufficientAllowanceError(`insufficient allowance for the amount ${amount}`, { cause: err });
       }
     }
-  }
-
-  if (estimatedCost > balance - amount) {
-    throw new InsufficientBalanceError('you do not have enough balance to bridge');
+    // no need to deduct the amount we want to bridge from the balance as we pay in ETH
+    if (estimatedCost > balance) {
+      throw new InsufficientBalanceError('you do not have enough balance to bridge');
+    }
   }
 }

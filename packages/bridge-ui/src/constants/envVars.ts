@@ -23,6 +23,8 @@ export const L1_CHAIN_ID: ChainID = parseInt(import.meta.env?.VITE_L1_CHAIN_ID);
 
 export const L1_CHAIN_NAME: string = import.meta.env?.VITE_L1_CHAIN_NAME;
 
+export const L1_CHAIN_ICON: string = import.meta.env?.VITE_L1_CHAIN_ICON;
+
 export const L1_EXPLORER_URL: string = import.meta.env?.VITE_L1_EXPLORER_URL;
 
 export const L2_RPC: string = import.meta.env?.VITE_L2_RPC_URL;
@@ -43,6 +45,8 @@ export const L2_CHAIN_ID: ChainID = parseInt(import.meta.env?.VITE_L2_CHAIN_ID);
 
 export const L2_CHAIN_NAME: string = import.meta.env?.VITE_L2_CHAIN_NAME;
 
+export const L2_CHAIN_ICON: string = import.meta.env?.VITE_L2_CHAIN_ICON;
+
 export const L2_EXPLORER_URL: string = import.meta.env?.VITE_L2_EXPLORER_URL;
 
 export const RELAYER_URL: string = import.meta.env?.VITE_RELAYER_URL;
@@ -58,3 +62,6 @@ export const SENTRY_DSN: string = import.meta.env?.VITE_SENTRY_DSN;
 
 export const WALLETCONNECT_PROJECT_ID: string = import.meta.env
   ?.VITE_WALLETCONNECT_PROJECT_ID;
+
+export const ENABLE_FAUCET: boolean =
+  import.meta.env?.VITE_ENABLE_FAUCET === 'true';

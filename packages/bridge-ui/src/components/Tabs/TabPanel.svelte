@@ -12,7 +12,7 @@
   $: classes = `${$$restProps.class || ''} ${!selected ? 'hidden' : ''}`;
 </script>
 
-<div role="tabpanel" aria-expanded={selected} class={classes}>
+<div role="tabpanel" class={classes}>
   <slot />
 </div>
 

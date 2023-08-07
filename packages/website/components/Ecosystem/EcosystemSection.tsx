@@ -49,6 +49,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/chaindrop-faucet.png",
+    name: "Chaindrop Faucet",
+    link: "https://chaindrop.org",
+    description:
+      "ChainDrop offers an effortless way to access Web3 test tokens. With just one click, you can receive free Web3 test tokens directly into your wallet.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/crypton.png",
     name: "Crypton",
     link: "https://crypton.xyz",
@@ -155,6 +164,24 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/pizzap.png",
+    name: "Pizzap",
+    link: "https://taiko.pizzap.io",
+    description:
+      "Pizzap is a user-benefit-oriented and mass-adopted AI ecosystem. Members can create, show and trade NFTs in this community on Taiko.",
+    filters: [],
+    isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/polyhedra.svg",
+    name: "Polyhedra",
+    link: "https://polyhedra.network/",
+    description:
+      "Polyhedra Network is building the infrastructure for Web3 interoperability with efficient zero-knowledge proof protocols. Polyhedra Network designs and implements zkBridge, providing trustless and efficient cross-chain infrastructures for layer-1 and layer-2 interoperability.",
+    filters: ["zk"],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/rai-finance.png",
     name: "RAI Finance",
     link: "https://app.rai.finance/#/aggregateSwap",
@@ -165,7 +192,7 @@ const ecosystemData: EcosystemData[] = [
   },
   {
     icon: "/images/ecosystem/rubydex.png",
-    name: "RwbyDex",
+    name: "RubyDex",
     link: "https://testnet.rubydex.com/en",
     description:
       "Perpetuals DEX offering crypto and traditional assets like Forex, Commodities, Stocks, ETFs, NFT perps, and more.",
@@ -178,6 +205,14 @@ const ecosystemData: EcosystemData[] = [
     link: "https://soulwallet.io",
     description:
       "The next-generation smart contract wallet powered by ERC-4337. Simply set up in seconds without recovery phrase.",
+    filters: [],
+    isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/surfer-monkey.png",
+    name: "SurferMonkey",
+    link: "https://www.surfermonkey.io",
+    description: "DarkWeb3.0: Anonymous on chain-tx and interoperability.",
     filters: [],
     isLive: true,
   },
@@ -216,21 +251,21 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
-    icon: "/images/ecosystem/zkdelx.jpg",
-    name: "zkDELX",
-    link: "https://zkdelx-front.vercel.app",
-    description:
-      "zkDELX is a decentralized electricity exchange market based on zkEVM to facilitate the electrical vehicles and renewable energy industries.",
-    filters: [],
-    isLive: true,
-  },
-  {
     icon: "/images/ecosystem/zkpool.png",
     name: "ZKPool",
     link: "https://zkpool.io",
     description:
       "ZKPool aggregates the computing power of accelerators for zero-knowledge proofs and provides services to ZKP applications.",
     filters: ["zk"],
+    isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/zkdelx.jpg",
+    name: "zkDELX",
+    link: "https://zkdelx-front.vercel.app",
+    description:
+      "zkDELX is a decentralized electricity exchange market based on zkEVM to facilitate the electrical vehicles and renewable energy industries.",
+    filters: [],
     isLive: true,
   },
 ];

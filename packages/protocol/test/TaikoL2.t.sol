@@ -12,12 +12,12 @@ import { SafeCastUpgradeable } from
 contract TestTaikoL2 is Test {
     using SafeCastUpgradeable for uint256;
 
-    uint64 public constant BLOCK_GAS_LIMIT = 30_000_000; // same as
+    uint32 public constant BLOCK_GAS_LIMIT = 30_000_000; // same as
         // `block_gas_limit` in foundry.toml
 
     TaikoL2 public L2;
     uint256 private logIndex;
-    uint64 private ANCHOR_GAS_COST = LibL2Consts.ANCHOR_GAS_COST;
+    uint32 private ANCHOR_GAS_COST = LibL2Consts.ANCHOR_GAS_COST;
 
     function setUp() public {
         uint16 rand = 2;
@@ -39,7 +39,7 @@ contract TestTaikoL2 is Test {
     function testAnchorTxsBlocktimeConstant() external {
         uint256 firstBasefee;
         for (uint256 i = 0; i < 100; i++) {
-            uint256 basefee = _getBasefeeAndPrint(0, BLOCK_GAS_LIMIT);
+            uint256 basefee = _getBasefeeAndPrint2(0, BLOCK_GAS_LIMIT);
             vm.fee(basefee);
 
             if (firstBasefee == 0) {
@@ -60,7 +60,7 @@ contract TestTaikoL2 is Test {
         uint256 prevBasefee;
 
         for (uint256 i = 0; i < 32; i++) {
-            uint256 basefee = _getBasefeeAndPrint(0, BLOCK_GAS_LIMIT);
+            uint256 basefee = _getBasefeeAndPrint2(0, BLOCK_GAS_LIMIT);
             vm.fee(basefee);
 
             assertGe(basefee, prevBasefee);
@@ -78,7 +78,7 @@ contract TestTaikoL2 is Test {
         uint256 prevBasefee;
 
         for (uint256 i = 0; i < 30; i++) {
-            uint256 basefee = _getBasefeeAndPrint(0, BLOCK_GAS_LIMIT);
+            uint256 basefee = _getBasefeeAndPrint2(0, BLOCK_GAS_LIMIT);
             vm.fee(basefee);
 
             if (prevBasefee != 0) {
@@ -97,7 +97,7 @@ contract TestTaikoL2 is Test {
 
     // calling anchor in the same block more than once should fail
     function testAnchorTxsFailInTheSameBlock() external {
-        uint256 expectedBasefee = _getBasefeeAndPrint(0, BLOCK_GAS_LIMIT);
+        uint256 expectedBasefee = _getBasefeeAndPrint2(0, BLOCK_GAS_LIMIT);
         vm.fee(expectedBasefee);
 
         vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
@@ -110,7 +110,7 @@ contract TestTaikoL2 is Test {
 
     // calling anchor in the same block more than once should fail
     function testAnchorTxsFailByNonTaikoL2Signer() external {
-        uint256 expectedBasefee = _getBasefeeAndPrint(0, BLOCK_GAS_LIMIT);
+        uint256 expectedBasefee = _getBasefeeAndPrint2(0, BLOCK_GAS_LIMIT);
         vm.fee(expectedBasefee);
         vm.expectRevert();
         _anchor(BLOCK_GAS_LIMIT);
@@ -133,33 +133,19 @@ contract TestTaikoL2 is Test {
     }
 
     function testGetBasefee() external {
-        uint32 timeSinceParent = uint32(block.timestamp - L2.parentTimestamp());
-        assertEq(_getBasefeeAndPrint(timeSinceParent, 0, 0), 317_609_019);
-        assertEq(_getBasefeeAndPrint(timeSinceParent, 1, 0), 317_609_019);
-        assertEq(
-            _getBasefeeAndPrint(timeSinceParent, 1_000_000, 0), 320_423_332
-        );
-        assertEq(
-            _getBasefeeAndPrint(timeSinceParent, 5_000_000, 0), 332_018_053
-        );
-        assertEq(
-            _getBasefeeAndPrint(timeSinceParent, 10_000_000, 0), 347_305_199
-        );
+        uint64 timeSinceParent = uint64(block.timestamp - L2.parentTimestamp());
+        assertEq(_getBasefeeAndPrint(timeSinceParent, 0), 317_609_019);
 
-        timeSinceParent = uint32(100 + block.timestamp - L2.parentTimestamp());
-        assertEq(_getBasefeeAndPrint(timeSinceParent, 0, 0), 54_544_902);
-        assertEq(_getBasefeeAndPrint(timeSinceParent, 1, 0), 54_544_902);
-        assertEq(_getBasefeeAndPrint(timeSinceParent, 1_000_000, 0), 55_028_221);
-        assertEq(_getBasefeeAndPrint(timeSinceParent, 5_000_000, 0), 57_019_452);
-        assertEq(
-            _getBasefeeAndPrint(timeSinceParent, 10_000_000, 0), 59_644_805
-        );
+        timeSinceParent += 100;
+        assertEq(_getBasefeeAndPrint(timeSinceParent, 0), 54_544_902);
+
+        timeSinceParent += 10_000;
+        assertEq(_getBasefeeAndPrint(timeSinceParent, 0), 1);
     }
 
     function _getBasefeeAndPrint(
-        uint32 timeSinceParent,
-        uint64 gasLimit,
-        uint64 parentGasUsed
+        uint64 timeSinceParent,
+        uint32 parentGasUsed
     )
         private
         returns (uint256 _basefee)
@@ -175,12 +161,10 @@ contract TestTaikoL2 is Test {
             Strings.toString(timeSinceParent),
             ", gasIssued=",
             Strings.toString(gasIssued),
-            ", gasLimit=",
-            Strings.toString(gasLimit),
             ", parentGasUsed=",
             Strings.toString(parentGasUsed)
         );
-        _basefee = L2.getBasefee(timeSinceParent, gasLimit, parentGasUsed);
+        _basefee = L2.getBasefee(timeSinceParent, parentGasUsed);
         assertTrue(_basefee != 0);
 
         _msg = string.concat(
@@ -194,21 +178,20 @@ contract TestTaikoL2 is Test {
         console2.log(_msg);
     }
 
-    function _getBasefeeAndPrint(
+    function _getBasefeeAndPrint2(
         uint32 timeSinceNow,
-        uint64 gasLimit
+        uint32 gasLimit
     )
         private
         returns (uint256 _basefee)
     {
         return _getBasefeeAndPrint(
             uint32(timeSinceNow + block.timestamp - L2.parentTimestamp()),
-            gasLimit,
             gasLimit + ANCHOR_GAS_COST
         );
     }
 
-    function _anchor(uint64 parentGasLimit) private {
+    function _anchor(uint32 parentGasLimit) private {
         L2.anchor(
             keccak256("a"),
             keccak256("b"),
