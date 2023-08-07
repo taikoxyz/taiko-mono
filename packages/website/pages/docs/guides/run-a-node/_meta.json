@@ -11,7 +11,10 @@
   "enable-a-prover": {
     "title": "🔎 Enable a prover"
   },
-  "claim-prover-rewards": {
-    "title": "🛄 Claim prover rewards"
+  "check-ttko-balance": {
+    "title": "👀 Check TTKO/TTKOe Balance"
+  },
+  "withdraw-ttko-balance": {
+    "title": "🛄 Withdraw TTKO/TTKOe Balance"
   }
 }
