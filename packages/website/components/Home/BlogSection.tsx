@@ -1,44 +1,45 @@
 const posts = [
   {
-    title: "Eldfell L3 (alpha-4) is live!",
-    href: "https://taiko.mirror.xyz/HJCWBluTwmNyWRkhzIXXr0k5xAaalRNtmlyDMJTu_ws",
+    title: "ZK-Roller-Coaster #10",
+    href: "https://taiko.mirror.xyz/225yWAX3qFRNHSjNJ2gXGgkUbi-OGLhidBaNqbOW_Ds",
     description:
-      "Taiko’s fourth testnet has arrived! Eldfell L3 (alpha-4) is our first experiment with inception layers and a new staking based proving design.",
-    date: "Jul 18, 2023",
-    datetime: "2023-07-18",
+      "This is the 10th edition of ZK-Roller-Coaster where we track and investigate the most exciting, meaningful, and crazy ZK-stuff of the prior two weeks.",
+    date: "Aug 02, 2023",
+    datetime: "2023-08-02",
     imageUrl:
-      "https://mirror-media.imgix.net/publication-images/ew9PQRsaJTLtGd8ShGiyR.jpeg?height=600&width=1200&h=600&w=1200&auto=compress",
-    readingTime: "3 min",
+      "https://mirror-media.imgix.net/publication-images/nFoeprNnv0zOk8jUbmssg.png?height=2048&width=4096&h=2048&w=4096&auto=compress",
+    readingTime: "4 min",
     author: {
-      name: "d1onys1us",
-      imageUrl: "https://avatars.githubusercontent.com/u/13951458?v=4",
+      name: "Lisa A.",
+      imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",
     },
   },
   {
-    title: "Announcing our first community grant program",
-    href: "https://taiko.mirror.xyz/G7dmuoR42S4D55vT8bs_lAxPZP63kAgRu2IfqkJdf6U",
+    title:
+      "Unlocking new scaling paradigms with Taiko Inception Layers: customized functions, compatibility, and trust-level",
+    href: "https://taiko.mirror.xyz/JMR41gK1TcTWa0NpwLfchJ-IJTtEX6RajqHF-A9qsZo",
     description:
-      "We are excited to launch our first community grant program to discover & support builders to enhance our ecosystem with funds and dev resources.",
-    date: "Jul 14, 2023",
-    datetime: "2023-07-14",
+      "TL;DR: In this article, we unpack the recently launched L3s on Taiko. We discuss the role of L3s in scaling Ethereum, the new use cases that L3s allow us to have, and some details on Taiko's specific approach.",
+    date: "Jul 26, 2023",
+    datetime: "2023-07-26",
     imageUrl:
-      "https://mirror-media.imgix.net/publication-images/wmQORiddLvZqlHJi8ma1k.jpeg?height=960&width=1920&h=960&w=1920&auto=compress",
-    readingTime: "10 min",
+      "https://mirror-media.imgix.net/publication-images/bTEeVmXOnxWKND7BCtQ9U.png?height=512&width=1024&h=512&w=1024&auto=compress",
+    readingTime: "4 min",
     author: {
-      name: "d1onys1us",
-      imageUrl: "https://avatars.githubusercontent.com/u/13951458?v=4",
+      name: "Lisa A.",
+      imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",
     },
   },
   {
-    title: "Cross-chain communication exploration – rollups’ vision",
-    href: "https://taiko.mirror.xyz/ryYEi4gAeOWwyERqYTs7CPbNEOYXaEeiMEui6gdlnyg",
+    title: "ZK-Roller-Coaster #9",
+    href: "https://taiko.mirror.xyz/A7xzi9qGBUx9r8ZKpTJztu9GxDUNF9MaNtFPysjjpe0",
     description:
-      "TLDR: This article explores the approaches of different L2s to cross-chain messaging from rollups’ perspective, focusing more on trustless cross-chain communication.",
-    date: "Jul 12, 2023",
-    datetime: "2023-07-12",
+      "This is the 9th edition of ZK-Roller-Coaster where we track and investigate the most exciting, meaningful, and crazy ZK-stuff of the prior two weeks.",
+    date: "Jul 20, 2023",
+    datetime: "2023-07-20",
     imageUrl:
-      "https://mirror-media.imgix.net/publication-images/HQGT0nBEq8AzLQxQFqqpI.png?height=512&width=1024&h=512&w=1024&auto=compress",
-    readingTime: "14 min",
+      "https://mirror-media.imgix.net/publication-images/05-g-CAHjCG7LnhaBwUQO.png?height=2048&width=4096&h=2048&w=4096&auto=compress",
+    readingTime: "4 min",
     author: {
       name: "Lisa A.",
       imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",

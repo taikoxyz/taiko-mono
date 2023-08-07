@@ -61,11 +61,11 @@ jobs:
       #     directory: ./packages/protocol/coverage
       #     flags: protocol
 
-      - name: protocol - Generate contract documentation
-        run: pnpm -F protocol export:docs
+      # - name: protocol - Generate contract documentation
+      #   run: pnpm -F protocol export:docs
 
-      - name: protocol - Commit contract documentation
-        uses: stefanzweifel/git-auto-commit-action@v4
-        with:
-          commit_message: Add auto-generated contract documentation
-          file_pattern: "**/*.md"
+      # - name: protocol - Commit contract documentation
+      #   uses: stefanzweifel/git-auto-commit-action@v4
+      #   with:
+      #     commit_message: Add auto-generated contract documentation
+      #     file_pattern: "**/*.md"

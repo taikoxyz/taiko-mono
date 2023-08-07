@@ -1,6 +1,6 @@
-// SPDX-License-Identifier: UNLICENSED
-// Taken from:
-// https://github.com/recmo/experiment-solexp/blob/main/src/FixedPointMathLib.sol
+// SPDX-License-Identifier: MIT
+// Taken from the contract below, expWad() function tailored to Taiko's need
+// https://github.com/transmissions11/solmate/blob/v7/src/utils/FixedPointMathLib.sol
 pragma solidity ^0.8.20;
 
 library LibFixedPointMath {
@@ -43,22 +43,22 @@ library LibFixedPointMath {
             x = x - k * 54_916_777_467_707_473_351_141_471_128;
             // k is in the range [-61, 195].
 
-            // Evaluate using a (6, 7)-term rational approximation
-            // p is made monic, we will multiply by a scale factor later
-            int256 p = x + 2_772_001_395_605_857_295_435_445_496_992;
-            p = ((p * x) >> 96) + 44_335_888_930_127_919_016_834_873_520_032;
-            p = ((p * x) >> 96) + 398_888_492_587_501_845_352_592_340_339_721;
-            p = ((p * x) >> 96) + 1_993_839_819_670_624_470_859_228_494_792_842;
-            p = p * x + (4_385_272_521_454_847_904_632_057_985_693_276 << 96);
+            // Evaluate using a (6, 7)-term rational approximation.
+            // p is made monic, we'll multiply by a scale factor later.
+            int256 y = x + 1_346_386_616_545_796_478_920_950_773_328;
+            y = ((y * x) >> 96) + 57_155_421_227_552_351_082_224_309_758_442;
+            int256 p = y + x - 94_201_549_194_550_492_254_356_042_504_812;
+            p = ((p * y) >> 96) + 28_719_021_644_029_726_153_956_944_680_412_240;
+            p = p * x + (4_385_272_521_454_847_904_659_076_985_693_276 << 96);
+
             // We leave p in 2**192 basis so we don't need to scale it back up
             // for the division.
-            // Evaluate using using Knuth's scheme from p. 491.
-            int256 z = x + 750_530_180_792_738_023_273_180_420_736;
-            z = ((z * x) >> 96) + 32_788_456_221_302_202_726_307_501_949_080;
-            int256 w = x - 2_218_138_959_503_481_824_038_194_425_854;
-            w = ((w * z) >> 96) + 892_943_633_302_991_980_437_332_862_907_700;
-            int256 q = z + w - 78_174_809_823_045_304_726_920_794_422_040;
-            q = ((q * w) >> 96) + 4_203_224_763_890_128_580_604_056_984_195_872;
+            int256 q = x - 2_855_989_394_907_223_263_936_484_059_900;
+            q = ((q * x) >> 96) + 50_020_603_652_535_783_019_961_831_881_945;
+            q = ((q * x) >> 96) - 533_845_033_583_426_703_283_633_433_725_380;
+            q = ((q * x) >> 96) + 3_604_857_256_930_695_427_073_651_918_091_429;
+            q = ((q * x) >> 96) - 14_423_608_567_350_463_180_887_372_962_807_573;
+            q = ((q * x) >> 96) + 26_449_188_498_355_588_339_934_803_723_976_023;
             assembly {
                 // Div in assembly because solidity adds a zero check despite
                 // the `unchecked`.
