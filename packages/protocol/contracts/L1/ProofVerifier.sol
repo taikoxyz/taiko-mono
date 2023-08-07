@@ -9,7 +9,7 @@ pragma solidity ^0.8.20;
 import { AddressResolver } from "../common/AddressResolver.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
-import { LibVerifyZKP } from "./libs/proofTypes/LibVerifyZKP.sol";
+import { LibZKPVerifier } from "./libs/verifiers/LibZKPVerifier.sol";
 import { IProofVerifier } from "./IProofVerifier.sol";
 import { LibBytesUtils } from "../thirdparty/LibBytesUtils.sol";
 
@@ -60,7 +60,7 @@ contract ProofVerifier is EssentialContract, IProofVerifier {
         uint16 verifierId = uint16(bytes2(blockProofs[0:2]));
 
         // Verify ZK proof
-        LibVerifyZKP.verifyProof(
+        LibZKPVerifier.verifyProof(
             AddressResolver(address(this)), blockProofs[2:], verifierId
         );
     }
