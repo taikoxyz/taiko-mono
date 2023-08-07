@@ -103,7 +103,7 @@ library LibProposing {
         meta.txListHash = input.txListHash;
         meta.txListByteStart = input.txListByteStart;
         meta.txListByteEnd = input.txListByteEnd;
-        meta.gasLimit = input.gasLimit;
+        meta.gasLimit = config.blockMaxGasLimit;
         meta.beneficiary = input.beneficiary;
         meta.treasury = resolver.resolve(config.chainId, "treasury", false);
         meta.depositsProcessed =
@@ -183,13 +183,7 @@ library LibProposing {
         view
         returns (bool cacheTxListInfo)
     {
-        if (
-            input.beneficiary == address(0)
-            //
-            || input.gasLimit == 0
-            //
-            || input.gasLimit > config.blockMaxGasLimit
-        ) revert L1_INVALID_METADATA();
+        if (input.beneficiary == address(0)) revert L1_INVALID_METADATA();
 
         if (
             state.numBlocks
