@@ -21,10 +21,12 @@ import { TaikoErrors } from "./TaikoErrors.sol";
 import { TaikoData } from "./TaikoData.sol";
 import { TaikoEvents } from "./TaikoEvents.sol";
 
-/// @title TaikoL1 - Layer 1 contract of the Taiko protocol
-/// @notice This contract serves as the Layer 1 contract of the Taiko protocol,
-/// providing functionalities for proposing, proving, and verifying blocks. It
-/// also handles deposit and withdrawal of Taiko tokens and Ether.
+/**
+ * @title TaikoL1
+ * @notice This contract serves as the Layer 1 contract of the Taiko protocol,
+ * providing functionalities for proposing, proving, and verifying blocks. It
+ * also handles deposit and withdrawal of Taiko tokens and Ether.
+ */
 contract TaikoL1 is
     EssentialContract,
     ICrossChainSync,
