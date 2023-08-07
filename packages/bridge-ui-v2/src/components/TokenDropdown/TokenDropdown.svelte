@@ -1,12 +1,18 @@
 <script lang="ts">
+  import { type Address,getNetwork } from '@wagmi/core';
   import { onDestroy } from 'svelte';
   import { t } from 'svelte-i18n';
 
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { Icon } from '$components/Icon';
+  import Erc20 from '$components/Icon/ERC20.svelte';
+  import { tokenService } from '$libs/storage/services';
   import type { Token } from '$libs/token';
+  import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
   import { uid } from '$libs/util/uid';
+  import { account } from '$stores/account';
 
+  import { destNetwork } from '../Bridge/state';
   import DialogView from './DialogView.svelte';
   import DropdownView from './DropdownView.svelte';
   import { symbolToIconMap } from './symbolToIconMap';
@@ -23,20 +29,36 @@
   // not being used, doing this with JS instead of CSS media queries
   let isDesktopOrLarger: boolean;
 
-  function closeMenu() {
-    menuOpen = false;
-  }
+  const closeMenu = () => (menuOpen = false);
 
-  function openMenu() {
+  const openMenu = () => {
     menuOpen = true;
-  }
+  };
 
-  function selectToken(token: Token) {
+  const selectToken = async (token: Token) => {
+    const { chain } = getNetwork();
+    const destChain = $destNetwork;
+
+    if (!chain || !destChain) throw new Error('Chain not found');
+
+    // if it is an imported Token, chances are we do not yet have the bridged address
+    // for the destination chain, so we need to fetch it
+    if (token.imported) {
+      const bridgedAddress = await getCrossChainAddress({
+        token,
+        srcChainId: chain.id,
+        destChainId: destChain.id,
+      });
+      token.addresses[destChain.id] = bridgedAddress as Address;
+
+      tokenService.updateToken(token, $account?.address as Address);
+    }
     value = token;
-    closeMenu();
-  }
 
-  onDestroy(closeMenu);
+    closeMenu();
+  };
+
+  onDestroy(() => closeMenu());
 </script>
 
 <DesktopOrLarger bind:is={isDesktopOrLarger} />
@@ -46,7 +68,7 @@
     aria-haspopup="listbox"
     aria-controls={id}
     aria-expanded={menuOpen}
-    class="f-between-center w-full px-6 py-[14px] input-box"
+    class="f-between-center w-full px-6 py-[14px] input-box bg-neutral-background border-0 shadow-none outline-none font-bold text-2xl"
     on:click={openMenu}
     on:focus={openMenu}>
     <div class="space-x-2">
@@ -55,9 +77,15 @@
       {/if}
       {#if value}
         <div class="flex space-x-2 items-center">
-          <i role="img" aria-label={value.name}>
-            <svelte:component this={symbolToIconMap[value.symbol]} />
-          </i>
+          {#if symbolToIconMap[value.symbol]}
+            <i role="img" aria-label={value.name}>
+              <svelte:component this={symbolToIconMap[value.symbol]} />
+            </i>
+          {:else}
+            <i role="img" aria-label={value.symbol}>
+              <Erc20 />
+            </i>
+          {/if}
           <span class="title-subsection-bold">{value.symbol}</span>
         </div>
       {/if}
@@ -66,8 +94,8 @@
   </button>
 
   {#if isDesktopOrLarger}
-    <DropdownView {id} {menuOpen} {tokens} {value} {selectToken} {closeMenu} />
+    <DropdownView {id} {menuOpen} {tokens} {value} {selectToken} />
   {:else}
-    <DialogView {id} {menuOpen} {tokens} {value} {selectToken} {closeMenu} />
+    <DialogView {id} {menuOpen} {tokens} {value} {selectToken} {closeMenu} on:closemenu={closeMenu} />
   {/if}
 </div>

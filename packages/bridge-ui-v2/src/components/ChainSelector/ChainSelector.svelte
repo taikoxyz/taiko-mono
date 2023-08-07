@@ -1,6 +1,6 @@
 <script lang="ts">
   import { type Chain, type GetNetworkResult, switchNetwork } from '@wagmi/core';
-  import { type ComponentType,onDestroy } from 'svelte';
+  import { type ComponentType, onDestroy } from 'svelte';
   import { t } from 'svelte-i18n';
   import { UserRejectedRequestError } from 'viem';
 
@@ -25,6 +25,8 @@
     small ? 'px-2 py-[6px]' : 'px-6 py-[10px]',
     small ? 'rounded-md' : 'rounded-[10px]',
     small ? 'w-auto' : 'w-full',
+    readOnly ? '' : 'hover:bg-primary-interactive-hover',
+    'flex justify-start content-center body-bold py-2 px-[20px]',
   );
 
   let chainToIconMap: Record<string, ComponentType> = {
