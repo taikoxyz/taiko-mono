@@ -6,9 +6,16 @@
 
 pragma solidity ^0.8.20;
 
+/**
+ * @title TaikoErrors - Custom error declarations for the Taiko protocol
+ * @notice This contract provides custom error declarations used in the Taiko
+ * protocol.
+ *         Each error corresponds to specific situations where exceptions might
+ * be thrown.
+ */
 abstract contract TaikoErrors {
-    // The following custom errors must match the definitions in other V1
-    // libraries.
+    // The following custom errors must match the definitions in
+    // `L1/libs/*.sol`.
     error L1_ALREADY_PROVEN();
     error L1_BATCH_NOT_AUCTIONABLE();
     error L1_BLOCK_ID();

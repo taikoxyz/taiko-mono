@@ -424,15 +424,13 @@ contract ProverPool is EssentialContract, IProverPool {
         pure
         returns (uint64 weight)
     {
-        unchecked {
-            if (rewardPerGas == 0) {
-                return 0;
-            }
+        if (rewardPerGas == 0) {
+            return 0;
+        }
 
-            weight = stakedAmount / rewardPerGas / rewardPerGas;
-            if (weight == 0) {
-                weight = 1;
-            }
+        weight = stakedAmount / rewardPerGas / rewardPerGas;
+        if (weight == 0) {
+            weight = 1;
         }
     }
 
@@ -464,4 +462,8 @@ contract ProverPool is EssentialContract, IProverPool {
     }
 }
 
+/**
+ * @title ProxiedProverPool
+ * @dev Proxied version of the ProverPool contract.
+ */
 contract ProxiedProverPool is Proxied, ProverPool { }

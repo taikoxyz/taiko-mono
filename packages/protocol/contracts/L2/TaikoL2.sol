@@ -16,7 +16,6 @@ import { TaikoL2Signer } from "./TaikoL2Signer.sol";
 import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
-/// @custom:security-contact hello@taiko.xyz
 contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     using SafeCastUpgradeable for uint256;
     using LibMath for uint256;
@@ -354,4 +353,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     }
 }
 
+/**
+ * @title ProxiedTaikoL2
+ * @dev Proxied version of the TaikoL2 contract.
+ */
 contract ProxiedTaikoL2 is Proxied, TaikoL2 { }

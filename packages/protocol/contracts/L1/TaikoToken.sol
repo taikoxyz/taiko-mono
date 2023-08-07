@@ -28,7 +28,6 @@ library LibTaikoTokenConfig {
     uint8 public constant DECIMALS = uint8(8);
 }
 
-/// @custom:security-contact hello@taiko.xyz
 contract TaikoToken is
     EssentialContract,
     ERC20Upgradeable,
@@ -184,4 +183,8 @@ contract TaikoToken is
     }
 }
 
+/**
+ * @title ProxiedTaikoToken
+ * @dev Proxied version of the TaikoToken contract.
+ */
 contract ProxiedTaikoToken is Proxied, TaikoToken { }

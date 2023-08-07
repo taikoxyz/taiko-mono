@@ -35,7 +35,6 @@ import { LibTaikoTokenConfig } from "../L1/TaikoToken.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
 
-/// @custom:security-contact hello@taiko.xyz
 contract TaikoGovernor is
     EssentialContract,
     GovernorUpgradeable,
@@ -181,4 +180,8 @@ contract TaikoGovernor is
     }
 }
 
+/**
+ * @title ProxiedTaikoGovernor
+ * @dev Proxied version of the TaikoGovernor contract.
+ */
 contract ProxiedTaikoGovernor is Proxied, TaikoGovernor { }

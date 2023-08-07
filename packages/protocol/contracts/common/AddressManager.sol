@@ -115,6 +115,6 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
 
 /**
  * @title ProxiedAddressManager
- * @dev Extension of AddressManager designed for proxy-based upgrades.
+ * @dev Proxied version of the AddressManager contract.
  */
 contract ProxiedAddressManager is Proxied, AddressManager { }

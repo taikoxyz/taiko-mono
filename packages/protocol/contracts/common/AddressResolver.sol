@@ -19,7 +19,7 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 abstract contract AddressResolver {
     IAddressManager internal _addressManager;
 
-    uint256[49] private __gap; // storage gap for future upgrades
+    uint256[49] private __gap;
 
     event AddressManagerChanged(address indexed addressManager);
 
