@@ -25,6 +25,9 @@
 
 pragma solidity ^0.8.20;
 
+/**
+ * @title LibUint512Math Library
+ */
 library LibUint512Math {
     /**
      * @notice Multiplies two uint256 numbers to return a 512-bit result.
