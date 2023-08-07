@@ -155,8 +155,7 @@ export class RelayerAPIService {
       if (data === '') {
         data = '0x';
       } else if (data !== '0x') {
-        const buffer = Buffer.from(data, 'base64');
-        data = `0x${buffer.toString('hex')}`;
+        data = `0x${_base64ToHex(data)}`;
       }
 
       const transformedTx = {
@@ -210,7 +209,7 @@ export class RelayerAPIService {
       // Update the status
       bridgeTx.status = status;
 
-      bridgeTx.tokenType = checkType(bridgeTx);
+      bridgeTx.tokenType = _checkType(bridgeTx);
 
       return bridgeTx;
     });
@@ -256,7 +255,7 @@ export class RelayerAPIService {
   }
 }
 
-function checkType(bridgeTx: BridgeTransaction): TokenType {
+function _checkType(bridgeTx: BridgeTransaction): TokenType {
   const to = bridgeTx.message?.to;
   switch (to) {
     case chainContractsMap[Number(bridgeTx.srcChainId)].tokenVaultAddress:
@@ -268,4 +267,17 @@ function checkType(bridgeTx: BridgeTransaction): TokenType {
     default:
       return TokenType.ETH;
   }
+}
+
+
+function _base64ToHex(base64: string): string {
+  const raw = atob(base64);
+  let result = '';
+
+  for (let i = 0; i < raw.length; i++) {
+    const hex = raw.charCodeAt(i).toString(16);
+    result += (hex.length === 2 ? hex : '0' + hex);
+  }
+
+  return result;
 }
