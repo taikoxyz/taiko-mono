@@ -93,7 +93,7 @@
   {/each}
   <div class="h-sep" />
   <li>
-    <button on:click={showAddERC20} class="flex hover:bg-dark-5 flex justify-center items-center p-4 rounded-sm">
+    <button on:click={showAddERC20} class="flex hover:bg-dark-5 justify-center items-center p-4 rounded-sm">
       <Icon type="plus-circle" fillClass="fill-primary-icon" size={20} vWidth={30} vHeight={30} />
       <span
         class="
