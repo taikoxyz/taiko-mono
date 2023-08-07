@@ -13,7 +13,7 @@
 
   let drawerToggleElem: HTMLInputElement;
 
-  $: isBridgePage = $page.route.id === '/';
+  $: isBridgePage = $page.route.id === '/' || $page.route.id === '/nft';
   $: isFaucetPage = $page.route.id === '/faucet';
   $: isActivitiesPage = $page.route.id === '/activities';
 

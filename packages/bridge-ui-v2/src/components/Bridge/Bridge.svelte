@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
-  import { UserRejectedRequestError } from 'viem';
+  import { TransactionExecutionError, UserRejectedRequestError } from 'viem';
 
   import { Card } from '$components/Card';
   import { ChainSelector } from '$components/ChainSelector';
@@ -121,6 +121,9 @@
           break;
         case err instanceof NoAllowanceRequiredError:
           errorToast($t('bridge.errors.no_allowance_required'));
+          break;
+        case err instanceof InsufficientAllowanceError:
+          errorToast($t('bridge.errors.insufficient_allowance'));
           break;
         case err instanceof ApproveError:
           // TODO: see contract for all possible errors
@@ -247,8 +250,8 @@
       console.error(err);
 
       switch (true) {
-        case err instanceof UserRejectedRequestError:
-          warningToast($t('bridge.errors.rejected'));
+        case err instanceof InsufficientAllowanceError:
+          errorToast($t('bridge.errors.insufficient_allowance'));
           break;
         case err instanceof SendMessageError:
           // TODO: see contract for all possible errors
@@ -258,6 +261,14 @@
           // TODO: see contract for all possible errors
           errorToast($t('bridge.errors.send_erc20_error'));
           break;
+        case err instanceof UserRejectedRequestError:
+          // Todo: viem does not seem to detect UserRejectError
+          warningToast($t('bridge.errors.rejected'));
+          break;
+        case err instanceof TransactionExecutionError && err.shortMessage === 'User rejected the request.':
+          //Todo: so we catch it by string comparison below, suboptimal
+          warningToast($t('bridge.errors.rejected'));
+          break;
         default:
           errorToast($t('bridge.errors.unknown_error'));
       }
@@ -265,10 +276,10 @@
   }
 </script>
 
-<Card class="md:w-[524px]" title={$t('bridge.title.default')} text={$t('bridge.description')}>
+<Card class="w-full md:w-[524px]" title={$t('bridge.title.default')} text={$t('bridge.description')}>
   <div class="space-y-[35px]">
     <div class="f-between-center gap-4">
-      <ChainSelector class="flex-1" value={$network} switchWallet />
+      <ChainSelector class="flex-1 " value={$network} switchWallet />
 
       <SwitchChainsButton />
 

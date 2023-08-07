@@ -11,6 +11,8 @@
   import { InsufficientAllowanceError, InsufficientBalanceError, RevertedWithFailedError } from '$libs/error';
   import { getBalance as getTokenBalance } from '$libs/token';
   import { debounce } from '$libs/util/debounce';
+  import { getConnectedWallet } from '$libs/util/getConnectedWallet';
+  import { getLogger } from '$libs/util/logger';
   import { truncateString } from '$libs/util/truncateString';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
@@ -29,6 +31,8 @@
     tokenBalance,
     validatingAmount,
   } from './state';
+
+  const log = getLogger('component:Amount');
 
   let inputId = `input-${uid()}`;
   let inputBox: InputBox;
@@ -54,7 +58,9 @@
       !$network ||
       !$destNetwork ||
       !$tokenBalance ||
-      $enteredAmount === BigInt(0) // no need to check if the amount is 0
+      !$selectedToken ||
+      $enteredAmount === BigInt(0) || // no need to check if the amount is 0
+      $tokenBalance.symbol !== $selectedToken.symbol
     )
       return;
 
@@ -69,8 +75,6 @@
         destChainId: $destNetwork.id,
       });
     } catch (err) {
-      console.error(err);
-
       switch (true) {
         case err instanceof InsufficientBalanceError:
           $insufficientBalance = true;
@@ -106,8 +110,10 @@
         userAddress,
       });
     } catch (err) {
-      console.error(err);
+      log('Error updating balance: ', err);
+      //most likely we have a custom token that is not bridged yet
       $errorComputingBalance = true;
+      clearAmount();
     } finally {
       $computingBalance = false;
     }
@@ -164,7 +170,7 @@
       validateAmount();
     } catch (err) {
       console.error(err);
-      warningToast($t('amount_input.failed_max'));
+      warningToast($t('amount.failed_max'));
     } finally {
       computingMaxAmount = false;
     }
@@ -179,16 +185,19 @@
   <div class="f-between-center text-secondary-content">
     <label class="body-regular" for={inputId}>{$t('amount.label')}</label>
     <div class="body-small-regular">
-      <span>{$t('amount.balance')}:</span>
-      <span>
-        {#if $computingBalance}
-          <LoadingText mask="0.0000" />
-          <LoadingText mask="XXX" />
-        {:else}
-          {renderBalance($tokenBalance)}
-        {/if}
-        <!-- TODO: we know when there was an error computing. Show it -->
-      </span>
+      {#if $errorComputingBalance}
+        <FlatAlert type="error" message={$t('bridge.errors.cannot_fetch_balance')} />
+      {:else}
+        <span>{$t('amount_input.balance')}:</span>
+        <span>
+          {#if $computingBalance}
+            <LoadingText mask="0.0000" />
+            <LoadingText mask="XXX" />
+          {:else}
+            {renderBalance($tokenBalance)}
+          {/if}
+        </span>
+      {/if}
     </div>
   </div>
 
@@ -199,23 +208,23 @@
         type="number"
         placeholder="0.01"
         min="0"
-        disabled={computingMaxAmount}
+        disabled={$errorComputingBalance || computingMaxAmount}
         error={$insufficientBalance}
         on:input={inputAmount}
         bind:this={inputBox}
-        class="w-full input-box outline-none py-6 pr-16 px-[26px] title-subsection-bold placeholder:text-tertiary-content" />
+        class="py-6 pr-16 px-[26px] title-subsection-bold" />
       <!-- TODO: talk to Jane about the MAX button and its styling -->
       <button
         class="absolute right-6 uppercase hover:font-bold"
-        disabled={!$selectedToken || !$network || computingMaxAmount}
+        disabled={!$selectedToken || !$network || computingMaxAmount || $errorComputingBalance}
         on:click={useMaxAmount}>
         {$t('amount.button.max')}
       </button>
     </div>
-    {#if $insufficientBalance && $enteredAmount > 0}
-      <FlatAlert type="error" message={$t('bridge.errors.insufficient_balance')} class="absolute bottom-[-26px]" />
-    {:else if $insufficientAllowance && $enteredAmount > 0}
-      <FlatAlert type="warning" message={$t('bridge.errors.insufficient_allowance')} class="absolute bottom-[-26px]" />
+    {#if $insufficientBalance && $enteredAmount > 0 && !errorComputingBalance}
+      <FlatAlert type="error" message={$t('error.insufficient_balance')} class="absolute bottom-[-26px]" />
+    {:else if $insufficientAllowance && $enteredAmount > 0 && !errorComputingBalance}
+      <FlatAlert type="warning" message={$t('error.insufficient_allowance')} class="absolute bottom-[-26px]" />
     {/if}
   </div>
 </div>

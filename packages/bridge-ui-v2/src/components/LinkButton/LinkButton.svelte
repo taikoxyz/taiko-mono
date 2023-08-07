@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Icon } from '$components/Icon';
   import { classNames } from '$libs/util/classNames';
 
   export let active = false;
@@ -14,4 +15,7 @@
 
 <a {href} target={external ? '_blank' : null} class={classes}>
   <slot />
+  {#if external}
+    <Icon type="arrow-top-right" flillClass="fill-white" />
+  {/if}
 </a>
