@@ -2,7 +2,7 @@ name: Eventindexer
 
 on:
   push:
-    branches: [main, alpha-2]
+    branches: [main]
     paths:
       - "packages/eventindexer/**"
   pull_request:

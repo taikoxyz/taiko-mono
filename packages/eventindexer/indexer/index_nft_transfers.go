@@ -162,13 +162,15 @@ func (svc *Service) saveERC721Transfer(ctx context.Context, chainID *big.Int, vL
 // saveERC1155Transfer parses and saves either a TransferSingle or TransferBatch event to
 // the database and updates the user's balances
 func (svc *Service) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLog types.Log) error {
-	from := vLog.Topics[1].Hex()
+	from := fmt.Sprintf("0x%v", common.Bytes2Hex(vLog.Topics[2].Bytes()[12:]))
 
-	to := vLog.Topics[2].Hex()
+	to := fmt.Sprintf("0x%v", common.Bytes2Hex(vLog.Topics[3].Bytes()[12:]))
+
+	log.Info("erc1155 found")
 
 	type transfer struct {
-		ID     *big.Int `json:"_id"`
-		Amount *big.Int `json:"_value"`
+		ID     *big.Int `abi:"id"`
+		Amount *big.Int `abi:"value"`
 	}
 
 	var transfers []transfer
