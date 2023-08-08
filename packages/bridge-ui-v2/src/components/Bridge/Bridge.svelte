@@ -19,7 +19,7 @@
     MessageStatus,
   } from '$libs/bridge';
   import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
-  import { chainContractsMap, chains } from '$libs/chain';
+  import { chainContractsMap, chains, chainUrlMap } from '$libs/chain';
   import {
     ApproveError,
     InsufficientAllowanceError,
@@ -90,12 +90,14 @@
         wallet: walletClient,
       });
 
+      const { explorerUrl } = chainUrlMap[$network.id];
+
       infoToast(
         $t('bridge.actions.approve.tx', {
           values: {
             token: $selectedToken.symbol,
             //Todo: must link to the correct explorer, not just L1
-            url: `${PUBLIC_L1_EXPLORER_URL}/tx/${txHash}`,
+            url: `${explorerUrl}/tx/${txHash}`,
           },
         }),
       );
