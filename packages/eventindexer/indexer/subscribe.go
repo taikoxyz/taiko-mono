@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -45,6 +46,10 @@ func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
 		}
 	}
 
+	if svc.indexNfts {
+		go svc.subscribeNftTransfers(ctx, chainID, errChan)
+	}
+
 	// nolint: gosimple
 	for {
 		select {
@@ -55,6 +60,40 @@ func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
 			eventindexer.ErrorsEncounteredDuringSubscription.Inc()
 
 			return errors.Wrap(err, "errChan")
+		}
+	}
+}
+
+func (svc *Service) subscribeNftTransfers(
+	ctx context.Context,
+	chainID *big.Int,
+	errChan chan error,
+) {
+	headers := make(chan *types.Header)
+
+	sub := event.ResubscribeErr(svc.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
+		if err != nil {
+			log.Errorf("svc.SubscribeNewHead: %v", err)
+		}
+		log.Info("resubscribing to NewHead events for nft trasnfers")
+
+		return svc.ethClient.SubscribeNewHead(ctx, headers)
+	})
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Info("context finished")
+			return
+		case err := <-sub.Err():
+			log.Errorf("sub.Err(): %v", err)
+			errChan <- errors.Wrap(err, "sub.Err()")
+		case header := <-headers:
+			go func() {
+				if err := svc.indexNFTTransfers(ctx, chainID, header.Number.Uint64(), header.Number.Uint64()); err != nil {
+					log.Errorf("svc.indexNFTTransfers: %v", err)
+				}
+			}()
 		}
 	}
 }
