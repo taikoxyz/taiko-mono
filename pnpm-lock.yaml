@@ -218,6 +218,9 @@ importers:
       axios:
         specifier: ^1.4.0
         version: 1.4.0(debug@4.3.4)
+      buffer:
+        specifier: ^6.0.3
+        version: 6.0.3
       debug:
         specifier: ^4.3.4
         version: 4.3.4(supports-color@8.1.1)

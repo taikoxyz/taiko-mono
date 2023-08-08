@@ -59,7 +59,7 @@ export class BridgeTxService {
   }
 
   private _getTxFromStorage(address: Address) {
-    const key = `${storageService.bridgeTxPrefix}:${address}`;
+    const key = `${storageService.bridgeTxPrefix}-${address}`;
     const txs = jsonParseWithDefault(this.storage.getItem(key), []) as BridgeTransaction[];
     return txs;
   }
@@ -177,7 +177,7 @@ export class BridgeTxService {
 
     log('Adding transaction to storage', tx);
 
-    const key = `${storageService.bridgeTxPrefix}:${address}`;
+    const key = `${storageService.bridgeTxPrefix}-${address}`;
     this.storage.setItem(
       key,
       // We need to serialize the BigInts as strings
@@ -187,7 +187,7 @@ export class BridgeTxService {
 
   updateByAddress(address: Address, txs: BridgeTransaction[]) {
     log('Updating storage with transactions', txs);
-    const key = `${storageService.bridgeTxPrefix}:${address}`;
+    const key = `${storageService.bridgeTxPrefix}-${address}`;
     this.storage.setItem(key, JSON.stringify(txs));
   }
 
@@ -198,7 +198,7 @@ export class BridgeTxService {
 
   clearStorageByAddress(address: Address) {
     log('Clearing storage for address', address);
-    const key = `${storageService.bridgeTxPrefix}:${address}`;
+    const key = `${storageService.bridgeTxPrefix}-${address}`;
     this.storage.removeItem(key);
   }
 }

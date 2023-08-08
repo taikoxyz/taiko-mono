@@ -1,7 +1,7 @@
-/* eslint-disable no-console */
 import type { Address, Hash } from '@wagmi/core';
 import { readContract } from '@wagmi/core';
 import axios from 'axios';
+import { Buffer } from 'buffer';
 
 import { bridgeABI } from '$abi';
 import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
