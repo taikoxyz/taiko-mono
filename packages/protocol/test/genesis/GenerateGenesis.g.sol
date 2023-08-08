@@ -162,7 +162,6 @@ contract TestGenerateGenesis is Test, AddressResolver {
                 user: address(0),
                 to: address(0),
                 refundAddress: address(0),
-                depositValue: 0,
                 value: 0,
                 fee: 0,
                 gasLimit: 0,

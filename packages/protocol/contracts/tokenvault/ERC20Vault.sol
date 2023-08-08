@@ -221,7 +221,6 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
         message.to = resolve(opt.destChainId, "erc20_vault", false);
         message.gasLimit = opt.gasLimit;
         message.fee = opt.fee;
-        message.depositValue = msg.value - opt.fee;
         message.refundAddress = opt.refundAddress;
         message.memo = opt.memo;
 

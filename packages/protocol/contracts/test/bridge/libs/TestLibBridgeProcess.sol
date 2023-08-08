@@ -29,7 +29,7 @@ contract TestLibBridgeProcess is EssentialContract {
         payable
     {
         LibBridgeProcess.processMessage(
-            state, AddressResolver(this), message, proof
+            state, AddressResolver(this), message, proof, true
         );
     }
 }

@@ -111,7 +111,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
             state: _state,
             resolver: AddressResolver(this),
             message: message,
-            proof: proof
+            proof: proof,
+            proofCheck: getRealProofCheck()
         });
     }
 

@@ -48,7 +48,8 @@ library LibBridgeProcess {
         LibBridgeData.State storage state,
         AddressResolver resolver,
         IBridge.Message calldata message,
-        bytes calldata proof
+        bytes calldata proof,
+        bool proofCheck
     )
         internal
     {
@@ -75,29 +76,27 @@ library LibBridgeProcess {
         address srcBridge =
             resolver.resolve(message.srcChainId, "bridge", false);
 
-        if (
-            !ISignalService(resolver.resolve("signal_service", false))
-                .isSignalReceived({
-                srcChainId: message.srcChainId,
-                app: srcBridge,
-                signal: msgHash,
-                proof: proof
-            })
-        ) {
-            revert B_SIGNAL_NOT_RECEIVED();
+        if (proofCheck) {
+            if (
+                !ISignalService(resolver.resolve("signal_service", false))
+                    .isSignalReceived({
+                    srcChainId: message.srcChainId,
+                    app: srcBridge,
+                    signal: msgHash,
+                    proof: proof
+                })
+            ) {
+                revert B_SIGNAL_NOT_RECEIVED();
+            }
         }
 
-        uint256 allValue =
-            message.depositValue + message.value + message.fee;
+        uint256 allValue = message.value + message.fee;
         // We retrieve the necessary ether from EtherVault if receiving on
         // Taiko, otherwise it is already available in this Bridge.
         address ethVault = resolver.resolve("ether_vault", true);
         if (ethVault != address(0)) {
             EtherVault(payable(ethVault)).releaseEther(address(this), allValue);
         }
-        // We send the Ether before the message call in case the call will
-        // actually consume Ether.
-        message.user.sendEther(message.depositValue);
 
         LibBridgeStatus.MessageStatus status;
         uint256 refundAmount;
