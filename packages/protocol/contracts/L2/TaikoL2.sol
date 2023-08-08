@@ -28,7 +28,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     struct EIP1559Params {
         uint64 basefee;
-        uint64 gasIssuedPerSecond;
+        uint32 gasIssuedPerSecond;
         uint64 gasExcessMax;
         uint64 gasTarget;
         uint64 ratio2x1x;
@@ -37,7 +37,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     struct EIP1559Config {
         uint128 yscale;
         uint64 xscale;
-        uint64 gasIssuedPerSecond;
+        uint32 gasIssuedPerSecond;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -67,11 +67,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     //////////////////////////////////////////////////////////////*/
 
     // Captures all block variables mentioned in
-    // https://docs.soliditylang.org/en/v0.8.18/units-and-global-variables.html
+    // https://docs.soliditylang.org/en/v0.8.20/units-and-global-variables.html
     event Anchored(
         uint64 number,
         uint64 basefee,
-        uint64 gaslimit,
+        uint32 gaslimit,
         uint64 timestamp,
         bytes32 parentHash,
         uint256 prevrandao,
@@ -89,9 +89,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     error L2_INVALID_SENDER();
     error L2_PUBLIC_INPUT_HASH_MISMATCH(bytes32 expected, bytes32 actual);
     error L2_TOO_LATE();
-
-    error M1559_UNEXPECTED_CHANGE(uint64 expected, uint64 actual);
-    error M1559_OUT_OF_STOCK();
+    error L2_1559_UNEXPECTED_CHANGE(uint64 expected, uint64 actual);
+    error L2_1559_OUT_OF_STOCK();
 
     /*//////////////////////////////////////////////////////////////
                          USER-FACING FUNCTIONS
@@ -172,7 +171,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         bytes32 l1Hash,
         bytes32 l1SignalRoot,
         uint64 l1Height,
-        uint64 parentGasUsed
+        uint32 parentGasUsed
     )
         external
     {
@@ -200,12 +199,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         uint256 basefee;
         EIP1559Config memory config = getEIP1559Config();
         if (config.gasIssuedPerSecond != 0) {
-            (basefee, gasExcess) = _calcBasefee(
-                config,
-                block.timestamp - parentTimestamp,
-                uint64(block.gaslimit),
-                parentGasUsed
-            );
+            (basefee, gasExcess) = _calcBasefee({
+                config: config,
+                timeSinceParent: block.timestamp - parentTimestamp,
+                parentGasUsed: parentGasUsed
+            });
         }
 
         // On L2, basefee is not burnt, but sent to a treasury instead.
@@ -224,27 +222,28 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         emit Anchored({
             number: uint64(block.number),
             basefee: uint64(basefee),
-            gaslimit: uint64(block.gaslimit),
+            gaslimit: uint32(block.gaslimit),
             timestamp: uint64(block.timestamp),
             parentHash: parentHash,
-            prevrandao: block.difficulty,
+            prevrandao: block.prevrandao,
             coinbase: block.coinbase,
             chainid: uint32(block.chainid)
         });
     }
 
     function getBasefee(
-        uint32 timeSinceParent,
-        uint64 gasLimit,
-        uint64 parentGasUsed
+        uint64 timeSinceParent,
+        uint32 parentGasUsed
     )
         public
         view
         returns (uint256 _basefee)
     {
-        (_basefee,) = _calcBasefee(
-            getEIP1559Config(), timeSinceParent, gasLimit, parentGasUsed
-        );
+        (_basefee,) = _calcBasefee({
+            config: getEIP1559Config(),
+            timeSinceParent: timeSinceParent,
+            parentGasUsed: parentGasUsed
+        });
     }
 
     function getCrossChainBlockHash(uint256 number)
@@ -322,31 +321,31 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     function _calcBasefee(
         EIP1559Config memory config,
         uint256 timeSinceParent,
-        uint64 gasLimit,
-        uint64 parentGasUsed
+        uint32 parentGasUsed
     )
         private
         view
         returns (uint256 _basefee, uint64 _gasExcess)
     {
-        // Very important to cap _gasExcess uint64
         unchecked {
-            uint64 parentGasUsedNet = parentGasUsed
-                > LibL2Consts.ANCHOR_GAS_COST
-                ? parentGasUsed - LibL2Consts.ANCHOR_GAS_COST
-                : 0;
+            uint32 parentGasUsedNet;
+            if (parentGasUsed > LibL2Consts.ANCHOR_GAS_COST) {
+                parentGasUsedNet = parentGasUsed - LibL2Consts.ANCHOR_GAS_COST;
+            }
 
-            uint256 a = uint256(gasExcess) + parentGasUsedNet;
-            uint256 b = config.gasIssuedPerSecond * timeSinceParent;
-            _gasExcess = uint64((a.max(b) - b).min(type(uint64).max));
+            uint256 issued = timeSinceParent * config.gasIssuedPerSecond;
+            uint256 excess = (uint256(gasExcess) + parentGasUsedNet).max(issued);
+            // Very important to cap _gasExcess uint64
+            _gasExcess = uint64((excess - issued).min(type(uint64).max));
         }
 
         _basefee = Lib1559Math.calculatePrice({
             xscale: config.xscale,
             yscale: config.yscale,
             xExcess: _gasExcess,
-            xPurchase: gasLimit
+            xPurchase: 0
         });
+
         if (_basefee == 0) {
             // To make sure when 1559 is enabled, the basefee is non-zero
             // (geth never use 0 values for basefee)

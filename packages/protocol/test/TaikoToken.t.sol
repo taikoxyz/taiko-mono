@@ -21,19 +21,22 @@ contract TaikoTokenTest is Test {
 
     address public constant tokenAdmin =
         0x200C9b60e19634E12FC6D68B7FeA7Bfb26c2e418;
-    address public constant protoBroker =
-        0x300C9b60E19634e12FC6D68B7FEa7bFB26c2E419;
+    address public constant taikoL1 = 0x300C9b60E19634e12FC6D68B7FEa7bFB26c2E419;
     address public constant TeamWallet =
         0x300C9b60E19634e12FC6D68B7FEa7bFB26c2E419;
     address public constant DaoTreasury =
         0x400147C0Eb43D8D71b2B03037bB7B31f8f78EF5F;
+    address public constant ProverPool =
+        0x400147c0Eb43D8d71b2B03037BB7b32f8f78EF5E;
     address public constant Eve = 0x50081b12838240B1bA02b3177153Bca678a86078;
     address public constant Dave = 0x50081b12838240B1ba02b3177153bCA678a86079;
 
     function setUp() public {
         addressManager = new AddressManager();
         addressManager.init();
-        registerAddress("proto_broker", protoBroker);
+        registerAddress("taiko", taikoL1);
+        registerAddress("dao", DaoTreasury);
+        registerAddress("prover_pool", ProverPool);
 
         tko = new TaikoToken();
 
@@ -90,46 +93,46 @@ contract TaikoTokenTest is Test {
         assertEq(tko.balanceOf(Eve), 0 ether);
 
         uint256 amountToMint = 1 ether;
-        vm.prank(protoBroker);
+        vm.prank(taikoL1);
         tko.mint(Eve, amountToMint);
         assertEq(tko.balanceOf(Eve), amountToMint);
     }
 
     function test_mint_invalid_amount() public {
-        vm.prank(protoBroker);
+        vm.prank(taikoL1);
         vm.expectRevert(TaikoToken.TKO_MINT_DISALLOWED.selector);
         tko.mint(Eve, 1000 ether);
     }
 
     function test_mint_invalid_address() public {
-        vm.prank(protoBroker);
+        vm.prank(taikoL1);
         vm.expectRevert("ERC20: mint to the zero address");
         tko.mint(address(0), 1 ether);
     }
 
-    function test_mint_not_proto_broker() public {
+    function test_mint_not_taiko_l1() public {
         vm.expectRevert(AddressResolver.RESOLVER_DENIED.selector);
         tko.mint(Eve, 1 ether);
     }
 
     function test_burn() public {
         uint256 amountToMint = 1 ether;
-        vm.prank(protoBroker);
+        vm.prank(taikoL1);
         tko.mint(Eve, amountToMint);
         assertEq(tko.balanceOf(Eve), amountToMint);
 
-        vm.prank(protoBroker);
+        vm.prank(ProverPool);
         tko.burn(Eve, amountToMint);
         assertEq(tko.balanceOf(Eve), 0);
     }
 
     function test_burn_invalid_address() public {
-        vm.prank(protoBroker);
+        vm.prank(ProverPool);
         vm.expectRevert("ERC20: burn from the zero address");
         tko.burn(address(0), 1 ether);
     }
 
-    function test_burn_not_proto_broker() public {
+    function test_burn_not_taiko_l1() public {
         vm.expectRevert(AddressResolver.RESOLVER_DENIED.selector);
         tko.burn(address(0), 1 ether);
     }
@@ -138,11 +141,11 @@ contract TaikoTokenTest is Test {
         uint256 amountToMint = 1 ether;
         uint256 amountToBurn = 2 ether;
 
-        vm.prank(protoBroker);
+        vm.prank(taikoL1);
         tko.mint(Eve, amountToMint);
         assertEq(tko.balanceOf(Eve), amountToMint);
 
-        vm.prank(protoBroker);
+        vm.prank(ProverPool);
         vm.expectRevert("ERC20: burn amount exceeds balance");
         tko.burn(Eve, amountToBurn);
         assertEq(tko.balanceOf(Eve), amountToMint);
@@ -150,7 +153,7 @@ contract TaikoTokenTest is Test {
 
     function test_transfer() public {
         uint256 amountToMint = 1 ether;
-        vm.prank(protoBroker);
+        vm.prank(taikoL1);
         tko.mint(Eve, amountToMint);
         assertEq(tko.balanceOf(Eve), amountToMint);
 
@@ -163,7 +166,7 @@ contract TaikoTokenTest is Test {
 
     function test_transfer_invalid_address() public {
         uint256 amountToMint = 1 ether;
-        vm.prank(protoBroker);
+        vm.prank(taikoL1);
         tko.mint(Eve, amountToMint);
         assertEq(tko.balanceOf(Eve), amountToMint);
 
@@ -174,7 +177,7 @@ contract TaikoTokenTest is Test {
 
     function test_transfer_to_contract_address() public {
         uint256 amountToMint = 1 ether;
-        vm.prank(protoBroker);
+        vm.prank(taikoL1);
         tko.mint(Eve, amountToMint);
         assertEq(tko.balanceOf(Eve), amountToMint);
 
@@ -186,7 +189,7 @@ contract TaikoTokenTest is Test {
     function test_transfer_amount_exceeded() public {
         uint256 amountToMint = 1 ether;
         uint256 amountToTransfer = 2 ether;
-        vm.prank(protoBroker);
+        vm.prank(taikoL1);
         tko.mint(Eve, amountToMint);
         assertEq(tko.balanceOf(Eve), amountToMint);
 
@@ -198,7 +201,7 @@ contract TaikoTokenTest is Test {
 
     function test_transferFrom() public {
         uint256 amountToMint = 1 ether;
-        vm.prank(protoBroker);
+        vm.prank(taikoL1);
         tko.mint(Eve, amountToMint);
         assertEq(tko.balanceOf(Eve), amountToMint);
 
@@ -214,7 +217,7 @@ contract TaikoTokenTest is Test {
 
     function test_transferFrom_to_is_invalid() public {
         uint256 amountToMint = 1 ether;
-        vm.prank(protoBroker);
+        vm.prank(taikoL1);
         tko.mint(Eve, amountToMint);
         assertEq(tko.balanceOf(Eve), amountToMint);
 
@@ -228,7 +231,7 @@ contract TaikoTokenTest is Test {
 
     function test_transferFrom_to_is_the_contract() public {
         uint256 amountToMint = 1 ether;
-        vm.prank(protoBroker);
+        vm.prank(taikoL1);
         tko.mint(Eve, amountToMint);
         assertEq(tko.balanceOf(Eve), amountToMint);
 
@@ -242,7 +245,7 @@ contract TaikoTokenTest is Test {
 
     function test_transferFrom_from_is_invalid() public {
         uint256 amountToMint = 1 ether;
-        vm.prank(protoBroker);
+        vm.prank(taikoL1);
         tko.mint(Eve, amountToMint);
         assertEq(tko.balanceOf(Eve), amountToMint);
 
@@ -258,7 +261,7 @@ contract TaikoTokenTest is Test {
     function test_transferFrom_amount_exceeded() public {
         uint256 amountToMint = 1 ether;
         uint256 amountToTransfer = 2 ether;
-        vm.prank(protoBroker);
+        vm.prank(taikoL1);
         tko.mint(Eve, amountToMint);
         assertEq(tko.balanceOf(Eve), amountToMint);
 

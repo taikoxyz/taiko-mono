@@ -1,3 +1,3 @@
-<div role="tablist" class={$$restProps.class || ''}>
+<div role="tablist" class={$$props.class || ''}>
   <slot />
 </div>
