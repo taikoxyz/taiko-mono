@@ -9,7 +9,7 @@ import { TokenType } from '$libs/token';
 import { getLogger } from '$libs/util/logger';
 import { publicClient } from '$libs/wagmi';
 
-import { chainContractsMap, type ChainID, isSupportedChain } from '../chain/chains';
+import { chainContractsMap, isSupportedChain } from '../chain/chains';
 import type {
   APIRequestParams,
   APIResponse,
@@ -23,9 +23,17 @@ import type {
 const log = getLogger('RelayerAPIService');
 
 export class RelayerAPIService {
-  private static async _getTransactionReceipt(chainId: ChainID, hash: Hash) {
-    const client = publicClient({ chainId: Number(chainId) });
-    return client.getTransactionReceipt({ hash });
+  //Todo: duplicate code in BridgeTxService
+  private static async _getTransactionReceipt(chainId: number, hash: Hash) {
+    log(`Getting transaction receipt for ${hash} on chain ${chainId}`);
+    try {
+      const client = publicClient({ chainId });
+      const receipt = await client.getTransactionReceipt({ hash });
+      return receipt;
+    } catch (error) {
+      log(`Error getting transaction receipt for ${hash}: ${error}`);
+      return null;
+    }
   }
 
   private static _filterDuplicateAndWrongBridge(items: APIResponseTransaction[]): APIResponseTransaction[] {
@@ -155,7 +163,8 @@ export class RelayerAPIService {
       if (data === '') {
         data = '0x';
       } else if (data !== '0x') {
-        data = `0x${_base64ToHex(data)}`;
+        const buffer = Buffer.from(data, 'base64');
+        data = `0x${buffer.toString('hex')}`;
       }
 
       const transformedTx = {
@@ -195,7 +204,7 @@ export class RelayerAPIService {
 
       // Returns the transaction receipt for hash or null
       // if the transaction has not been mined.
-      const receipt = await RelayerAPIService._getTransactionReceipt(srcChainId, hash);
+      const receipt = await RelayerAPIService._getTransactionReceipt(Number(srcChainId), hash);
 
       // TODO: do we want to show these transactions?
       if (!receipt) return;
@@ -267,17 +276,4 @@ function _checkType(bridgeTx: BridgeTransaction): TokenType {
     default:
       return TokenType.ETH;
   }
-}
-
-
-function _base64ToHex(base64: string): string {
-  const raw = atob(base64);
-  let result = '';
-
-  for (let i = 0; i < raw.length; i++) {
-    const hex = raw.charCodeAt(i).toString(16);
-    result += (hex.length === 2 ? hex : '0' + hex);
-  }
-
-  return result;
 }

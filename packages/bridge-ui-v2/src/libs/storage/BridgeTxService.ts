@@ -14,9 +14,17 @@ const log = getLogger('storage:BridgeTxService');
 export class BridgeTxService {
   private readonly storage: Storage;
 
+  //Todo: duplicate code in RelayerAPIService
   private static async _getTransactionReceipt(chainId: number, hash: Hash) {
-    const client = publicClient({ chainId });
-    return client.getTransactionReceipt({ hash });
+    log(`Getting transaction receipt for ${hash} on chain ${chainId}`);
+    try {
+      const client = publicClient({ chainId });
+      const receipt = await client.getTransactionReceipt({ hash });
+      return receipt;
+    } catch (error) {
+      log(`Error getting transaction receipt for ${hash}: ${error}`);
+      return null;
+    }
   }
 
   private static async _getBridgeMessageSent(userAddress: Address, chainId: number, blockNumber: number) {
