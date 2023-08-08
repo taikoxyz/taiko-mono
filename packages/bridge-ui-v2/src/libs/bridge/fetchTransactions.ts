@@ -3,7 +3,7 @@ import type { Address } from 'viem';
 import { relayerApiService } from '$libs/relayer';
 import { bridgeTxService } from '$libs/storage';
 import { getLogger } from '$libs/util/logger';
-import { mergeUniqueTransactions } from '$libs/util/mergeTransactions';
+import { mergeAndCaptureOutdatedTransactions } from '$libs/util/mergeTransactions';
 
 import type { BridgeTransaction } from './types';
 
@@ -19,9 +19,12 @@ export async function fetchTransactions(userAddress: Address) {
     size: 100,
   });
 
-  const transactions = mergeUniqueTransactions(localTxs, txs);
+  const { mergedTransactions, outdatedLocalTransactions } = mergeAndCaptureOutdatedTransactions(localTxs, txs);
 
-  log(`merging ${localTxs.length} local and ${txs.length} relayer transactions. New size: ${transactions.length}`);
+  log(`merging ${localTxs.length} local and ${txs.length} relayer transactions. New size: ${mergedTransactions.length}`);
+  if (outdatedLocalTransactions.length > 0) {
+    log(`found ${outdatedLocalTransactions.length} outdated transaction(s)`, outdatedLocalTransactions.map((tx) => tx.hash));
+  }
 
-  return transactions;
+  return { mergedTransactions, outdatedLocalTransactions };
 }

@@ -2,23 +2,34 @@ import type { BridgeTransaction } from '$libs/bridge';
 
 import { getLogger } from './logger';
 
-export const mergeUniqueTransactions = (
+type MergeResult = {
+  mergedTransactions: BridgeTransaction[];
+  outdatedLocalTransactions: BridgeTransaction[];
+}
+
+export const mergeAndCaptureOutdatedTransactions = (
   localTxs: BridgeTransaction[],
   relayerTx: BridgeTransaction[],
-): BridgeTransaction[] => {
-  const keyForTransaction = (tx: BridgeTransaction): string => `${tx.status}-${tx.msgHash}-${tx.hash}`;
-  const log = getLogger('utils:mergeTransactions');
+): MergeResult => {
 
-  const uniqueTransactionsMap = [...localTxs, ...relayerTx].reduce((map, transaction) => {
-    const key = keyForTransaction(transaction);
-    if (!map.has(key)) {
-      map.set(key, transaction);
-    } else {
-      log('duplicate transaction', transaction.hash);
-      //todo: remove the tx from storage
+  const relayerTxMap = new Map<string, BridgeTransaction>();
+  relayerTx.forEach(tx => relayerTxMap.set(tx.hash, tx));
+
+  const outdatedLocalTransactions: BridgeTransaction[] = [];
+  const mergedTransactions: BridgeTransaction[] = localTxs.map(tx => {
+    const overrideTx = relayerTxMap.get(tx.hash);
+    if (overrideTx) {
+      outdatedLocalTransactions.push(tx);
+      return overrideTx;
     }
-    return map;
-  }, new Map<string, BridgeTransaction>());
+    return tx;
+  });
 
-  return Array.from(uniqueTransactionsMap.values());
+  relayerTx.forEach(tx => {
+    if (!mergedTransactions.some(localTx => localTx.hash === tx.hash)) {
+      mergedTransactions.push(tx);
+    }
+  });
+
+  return { mergedTransactions, outdatedLocalTransactions };
 };

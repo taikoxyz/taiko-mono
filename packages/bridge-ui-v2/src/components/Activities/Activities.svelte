@@ -14,9 +14,12 @@
   import { account, network } from '$stores';
   import type { Account } from '$stores/account';
 
+  import { bridgeTxService } from '$libs/storage';
+
   import MobileDetailsDialog from './MobileDetailsDialog.svelte';
   import StatusInfoDialog from './StatusInfoDialog.svelte';
   import Transaction from './Transaction.svelte';
+  import type { Address } from 'viem';
 
   let transactions: BridgeTransaction[] = [];
 
@@ -58,7 +61,7 @@
       loadingTxs = true;
 
       try {
-        transactions = await fetchTransactions(newAccount.address);
+        updateTransactions(newAccount.address);
       } catch (err) {
         console.error(err);
         // TODO: handle
@@ -78,6 +81,15 @@
     selectedItem = tx;
   };
 
+  const updateTransactions = async (address: Address) => {
+    console.log('Fetching transactions');
+    const { mergedTransactions, outdatedLocalTransactions } = await fetchTransactions(address);
+    transactions = mergedTransactions;
+    if (outdatedLocalTransactions.length > 0) {
+      await bridgeTxService.removeTransactions(address, outdatedLocalTransactions);
+    }
+  };
+
   onMount(async () => {
     // We want to make sure that we are connected before fetching
     if (!$account?.isConnected || !$account?.address) return;
@@ -85,7 +97,7 @@
     loadingTxs = true;
 
     try {
-      transactions = await fetchTransactions($account.address);
+      await updateTransactions($account.address);
     } catch (err) {
       console.error(err);
       // TODO: handle
