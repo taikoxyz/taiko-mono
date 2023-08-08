@@ -9,13 +9,7 @@ This guide is for users who:
 
 ## Prerequisites
 
-### Grimsvotn L2 (TTKO)
-
-- Must have a balance of ETH on Sepolia L1 (see: [Receive tokens](/docs/guides/receive-tokens)).
-### Eldfell L3 (TTKOe)
-
-- Must have a balance of ETH on Grimsvotn L2 (see: [Receive tokens](/docs/guides/receive-tokens)/[Bridge tokens](/docs/guides/build-on-taiko/bridge-tokens)).
->>>>>>> edd8af25 (docs(website): Update claim-prover-rewards.mdx (#14368)):packages/website/pages/docs/guides/run-a-node/claim-prover-rewards.mdx
+- Must have a balance of Sepolia ETH (if withdrawing TTKO) or Grimsvotn ETH (if withdrawing TTKOe) (see: [Receive tokens](/docs/guides/receive-tokens)).
 
 ## Steps
 
@@ -33,11 +27,9 @@ Switch to the contract write page and select `withdrawTaikoToken(amount uint256)
 For example if you want to withdraw `69` TTKO, you would enter `6900000000`.
 
 <Callout type="warning">
-Make sure
-```solidity
-amount<=getTaikoTokenBalance(proverAddress)
-```
-or else the transaction will revert.
+
+Make sure that you have enough balance of TTKO/TTKOe for the amount you are withdrawing, or the transaction will revert. You can check your balance with the `getTaikoTokenBalance()` function.
+
 </Callout>
 
 ### Withdraw your tokens
