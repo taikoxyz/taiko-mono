@@ -42,6 +42,7 @@ func (r *NFTBalanceRepository) IncreaseBalance(
 		Where("contract_address = ?", opts.ContractAddress).
 		Where("token_id = ?", opts.TokenID).
 		Where("address = ?", opts.Address).
+		Where("chain_id = ?", opts.ChainID).
 		First(b).
 		Error
 	if err != nil {
@@ -80,6 +81,7 @@ func (r *NFTBalanceRepository) SubtractBalance(
 		Where("contract_address = ?", opts.ContractAddress).
 		Where("token_id = ?", opts.TokenID).
 		Where("address = ?", opts.Address).
+		Where("chain_id = ?", opts.ChainID).
 		First(b).
 		Error
 	if err != nil {
