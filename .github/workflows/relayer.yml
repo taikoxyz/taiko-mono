@@ -2,7 +2,7 @@ name: Relayer
 
 on:
   push:
-    branches: [main, alpha-2]
+    branches: [main]
     paths:
       - "packages/relayer/**"
   pull_request:
