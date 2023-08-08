@@ -380,7 +380,7 @@ contract ProverPool is EssentialContract, IProverPool {
         // by keep rewardPerGas = 1
         provers[staker.proverId] = Prover(0, 1, 0);
 
-        if (prover.stakedAmount > 0) {
+        if (prover.stakedAmount > 0 || !checkExitTimestamp) {
             if (
                 checkExitTimestamp
                     && block.timestamp <= staker.exitRequestedAt + MIN_CHANGE_DELAY
