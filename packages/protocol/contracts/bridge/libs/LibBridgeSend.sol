@@ -77,7 +77,7 @@ library LibBridgeSend {
         ethVault.sendEther(expectedAmount);
 
         message.id = state.nextMessageId++;
-        message.sender = msg.sender;
+        message.from = msg.sender;
         message.srcChainId = block.chainid;
 
         msgHash = message.hashMessage();

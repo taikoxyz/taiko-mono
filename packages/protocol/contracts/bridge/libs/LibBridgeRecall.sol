@@ -74,11 +74,11 @@ library LibBridgeRecall {
             );
         }
         if (
-            message.sender.supportsInterface(
+            message.from.supportsInterface(
                 type(IRecallableMessageSender).interfaceId
             )
         ) {
-            IRecallableMessageSender(message.sender).onMessageRecalled{
+            IRecallableMessageSender(message.from).onMessageRecalled{
                 value: message.callValue
             }(message);
         } else {

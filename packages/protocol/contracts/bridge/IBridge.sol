@@ -27,7 +27,7 @@ interface IBridge {
         // Message ID.
         uint256 id;
         // Message sender address (auto filled).
-        address sender;
+        address from;
         // Source chain ID (auto filled).
         uint256 srcChainId;
         // Destination chain ID where the `to` address lives (auto filled).

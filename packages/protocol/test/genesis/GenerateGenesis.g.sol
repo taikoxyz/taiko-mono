@@ -156,7 +156,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
         bridge.processMessage(
             IBridge.Message({
                 id: 0,
-                sender: address(0),
+                from: address(0),
                 srcChainId: 1,
                 destChainId: 167,
                 user: address(0),

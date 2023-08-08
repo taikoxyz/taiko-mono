@@ -604,7 +604,7 @@ contract ERC721VaultTest is Test {
         message.srcChainId = 31_337;
         message.destChainId = destChainId;
         message.user = Alice;
-        message.sender = address(erc721Vault);
+        message.from = address(erc721Vault);
         message.to = address(destChainErc721Vault);
         message.data = srcPrankBridge.getPreDeterminedDataBytes();
         message.gasLimit = 140_000;

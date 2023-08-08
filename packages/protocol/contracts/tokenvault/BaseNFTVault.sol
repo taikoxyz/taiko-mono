@@ -117,11 +117,11 @@ abstract contract BaseNFTVault is EssentialContract {
     error VAULT_INVALID_USER();
 
     /**
-     * Thrown when the sender in a message context is invalid.
+     * Thrown when the from in a message context is invalid.
      * This could happen if the sender isn't the expected token vault on the
      * source chain.
      */
-    error VAULT_INVALID_SENDER();
+    error VAULT_INVALID_FROM();
 
     /**
      * Thrown when the source chain ID in a message is invalid.

@@ -596,7 +596,7 @@ contract ERC1155VaultTest is Test {
         message.srcChainId = 31_337;
         message.destChainId = destChainId;
         message.user = Alice;
-        message.sender = address(erc1155Vault);
+        message.from = address(erc1155Vault);
         message.to = address(destChainErc1155Vault);
         message.data = srcPrankBridge.getPreDeterminedDataBytes();
         message.gasLimit = 140_000;

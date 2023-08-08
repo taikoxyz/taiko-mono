@@ -147,7 +147,7 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
      * This could happen if the sender isn't the expected token vault on the
      * source chain.
      */
-    error VAULT_INVALID_SENDER();
+    error VAULT_INVALID_FROM();
 
     /**
      * Thrown when the source chain ID in a message is invalid.

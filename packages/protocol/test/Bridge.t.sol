@@ -369,7 +369,7 @@ contract BridgeTest is Test {
         // known message that corresponds with below proof.
         IBridge.Message memory message = IBridge.Message({
             id: 0,
-            sender: 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39,
+            from: 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39,
             srcChainId: 1336,
             destChainId: dest,
             user: 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39,
@@ -410,7 +410,7 @@ contract BridgeTest is Test {
             callValue: callValue,
             processingFee: processingFee,
             id: 0, // placeholder, will be overwritten
-            sender: user, // placeholder, will be overwritten
+            from: user, // placeholder, will be overwritten
             srcChainId: block.chainid, // will be overwritten
             refundAddress: user,
             gasLimit: gasLimit,
