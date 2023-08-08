@@ -28,7 +28,19 @@ This guide will help you enable your Taiko node as a prover. Read more about pro
 
 <Steps>
 ### Open the .env file in `simple-taiko-node`
-Open the `.env` (or `.env.l3` for Eldfell L3 provers) file in the `simple-taiko-node` directory.
+
+For Grimsvotn L2:
+
+```sh
+nano .env
+```
+
+For Eldfell L3:
+
+```sh
+nano .env.l3
+```
+
 
 ### Set environment variables to enable prover
 
@@ -41,8 +53,21 @@ Open the `.env` (or `.env.l3` for Eldfell L3 provers) file in the `simple-taiko-
 
 Set the following environment variables to enable your node as a prover:
 
-- Set `ENABLE_PROVER` to `true` (replacing the default `false` with `true`).
-- Set `L1_PROVER_PRIVATE_KEY` (or `L2_PROVER_PRIVATE_KEY` for Eldfell L3 provers) to that of your wallet's private key; it will need some ETH on Sepolia to prove blocks (if using MetaMask, follow these directions to [retrieve the private key](https://metamask.zendesk.com/hc/en-us/articles/360015289632-How-to-export-an-account-s-private-key)).
+For Grimsvotn L2 `.env`:
+
+```sh
+ENABLE_PROVER=true # change from false to true
+# A L1 account (with balance) private key which will send the TaikoL1.proveBlock transactions.
+L1_PROVER_PRIVATE_KEY=0x0000000000000000000000000000000000000000000000000000000000000000 # your prover's private key
+```
+
+For Eldfell L3 `.env.l3`:
+
+```sh
+ENABLE_PROVER=true # change from false to true
+# A L2 account (with balance) private key which will send the TaikoL1.proveBlock transactions.
+L2_PROVER_PRIVATE_KEY=0x0000000000000000000000000000000000000000000000000000000000000000 # your prover's private key
+```
 
 ### Verify prover logs
 
