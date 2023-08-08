@@ -2,6 +2,7 @@
   import { onDestroy, onMount } from 'svelte';
   import type { Address } from 'viem';
 
+  import { ClickMask } from '$components/ClickMask';
   import { Icon } from '$components/Icon';
   import Erc20 from '$components/Icon/ERC20.svelte';
   import { OnAccount } from '$components/OnAccount';
@@ -13,7 +14,6 @@
 
   import AddCustomErc20 from './AddCustomERC20.svelte';
   import { symbolToIconMap } from './symbolToIconMap';
-  import { ClickMask } from '$components/ClickMask';
 
   export let id: string;
   export let menuOpen = false;
