@@ -145,8 +145,8 @@ func L1FilterFunc(
 
 	if svc.indexNfts {
 		wg.Go(func() error {
-			if err := svc.indexNftTransfers(ctx, chainID, filterOpts.Start, *filterOpts.End); err != nil {
-				return errors.Wrap(err, "svc.indexNftTransfers")
+			if err := svc.indexNFTTransfers(ctx, chainID, filterOpts.Start, *filterOpts.End); err != nil {
+				return errors.Wrap(err, "svc.indexNFTTransfers")
 			}
 			return nil
 		})
@@ -213,8 +213,8 @@ func L2FilterFunc(
 
 	if svc.indexNfts {
 		wg.Go(func() error {
-			if err := svc.indexNftTransfers(ctx, chainID, filterOpts.Start, *filterOpts.End); err != nil {
-				return errors.Wrap(err, "svc.indexNftTransfers")
+			if err := svc.indexNFTTransfers(ctx, chainID, filterOpts.Start, *filterOpts.End); err != nil {
+				return errors.Wrap(err, "svc.indexNFTTransfers")
 			}
 			return nil
 		})
