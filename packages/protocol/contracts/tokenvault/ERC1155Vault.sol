@@ -77,7 +77,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         IBridge.Message memory message;
         message.destChainId = opt.destChainId;
         message.data = _sendToken(msg.sender, opt);
-        message.owner = msg.sender;
+        message.user = msg.sender;
         message.to = resolve(message.destChainId, "erc1155_vault", false);
         message.gasLimit = opt.gasLimit;
         message.processingFee = opt.processingFee;
@@ -90,7 +90,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 
         emit TokenSent({
             msgHash: msgHash,
-            from: message.owner,
+            from: message.user,
             to: opt.to,
             destChainId: message.destChainId,
             token: _token,
@@ -160,7 +160,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     }
 
     /**
-     * Release deposited ERC1155 token(s) back to the owner on the source chain
+     * Release deposited ERC1155 token(s) back to the user on the source chain
      * with
      * a proof that the message processing on the destination Bridge has failed.
      *
@@ -192,14 +192,14 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             if (isBridgedToken[nft.addr]) {
                 for (uint256 i; i < tokenIds.length; ++i) {
                     ProxiedBridgedERC1155(nft.addr).mint(
-                        message.owner, tokenIds[i], amounts[i]
+                        message.user, tokenIds[i], amounts[i]
                     );
                 }
             } else {
                 for (uint256 i; i < tokenIds.length; ++i) {
                     IERC1155Upgradeable(nft.addr).safeTransferFrom({
                         from: address(this),
-                        to: message.owner,
+                        to: message.user,
                         id: tokenIds[i],
                         amount: amounts[i],
                         data: ""
@@ -210,7 +210,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 
         emit TokenReleased({
             msgHash: msgHash,
-            from: message.owner,
+            from: message.user,
             token: nft.addr,
             tokenIds: tokenIds,
             amounts: amounts
@@ -263,7 +263,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     }
 
     function _sendToken(
-        address owner,
+        address user,
         BridgeTransferOp memory opt
     )
         private
@@ -276,7 +276,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                 nft = bridgedToCanonical[opt.token];
                 for (uint256 i; i < opt.tokenIds.length; ++i) {
                     ProxiedBridgedERC1155(opt.token).burn(
-                        owner, opt.tokenIds[i], opt.amounts[i]
+                        user, opt.tokenIds[i], opt.amounts[i]
                     );
                 }
             } else {
@@ -312,7 +312,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         msgData = abi.encodeWithSelector(
             ERC1155Vault.receiveToken.selector,
             nft,
-            owner,
+            user,
             opt.to,
             opt.tokenIds,
             opt.amounts

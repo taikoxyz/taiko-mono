@@ -82,7 +82,7 @@ library LibBridgeRecall {
                 value: message.callValue
             }(message);
         } else {
-            message.owner.sendEther(message.callValue);
+            message.user.sendEther(message.callValue);
         }
 
         emit MessageRecalled(msgHash);

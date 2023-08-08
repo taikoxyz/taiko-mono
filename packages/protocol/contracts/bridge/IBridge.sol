@@ -32,17 +32,17 @@ interface IBridge {
         uint256 srcChainId;
         // Destination chain ID where the `to` address lives (auto filled).
         uint256 destChainId;
-        // Owner address of the bridged asset.
-        address owner;
-        // Destination owner address.
+        // User address of the bridged asset.
+        address user;
+        // Destination user address.
         address to;
-        // Alternate address to send any refund. If blank, defaults to owner.
+        // Alternate address to send any refund. If blank, defaults to user.
         address refundAddress;
         // Deposited Ether minus the processingFee.
         uint256 depositValue;
         // callValue to invoke on the destination chain, for ERC20 transfers.
         uint256 callValue;
-        // Processing fee for the relayer. Zero if owner will process themself.
+        // Processing fee for the relayer. Zero if user will process themself.
         uint256 processingFee;
         // gasLimit to invoke on the destination chain, for ERC20 transfers.
         uint256 gasLimit;

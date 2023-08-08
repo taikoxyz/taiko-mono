@@ -595,7 +595,7 @@ contract ERC1155VaultTest is Test {
         IBridge.Message memory message;
         message.srcChainId = 31_337;
         message.destChainId = destChainId;
-        message.owner = Alice;
+        message.user = Alice;
         message.sender = address(erc1155Vault);
         message.to = address(destChainErc1155Vault);
         message.data = srcPrankBridge.getPreDeterminedDataBytes();

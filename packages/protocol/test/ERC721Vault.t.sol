@@ -603,7 +603,7 @@ contract ERC721VaultTest is Test {
         IBridge.Message memory message;
         message.srcChainId = 31_337;
         message.destChainId = destChainId;
-        message.owner = Alice;
+        message.user = Alice;
         message.sender = address(erc721Vault);
         message.to = address(destChainErc721Vault);
         message.data = srcPrankBridge.getPreDeterminedDataBytes();

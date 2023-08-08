@@ -52,8 +52,8 @@ abstract contract BridgeErrors {
     /// Emitted when a null address is used in an application
     error B_NULL_APP_ADDR();
 
-    /// Emitted when a null owner address is used
-    error B_OWNER_IS_NULL();
+    /// Emitted when a null user address is used
+    error B_USER_IS_NULL();
 
     /// Emitted when a signal has not been received
     error B_SIGNAL_NOT_RECEIVED();

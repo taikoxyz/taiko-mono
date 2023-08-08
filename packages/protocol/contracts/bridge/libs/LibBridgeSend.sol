@@ -20,7 +20,7 @@ library LibBridgeSend {
     using LibBridgeData for IBridge.Message;
 
     error B_INCORRECT_VALUE();
-    error B_OWNER_IS_NULL();
+    error B_USER_IS_NULL();
     error B_WRONG_CHAIN_ID();
     error B_WRONG_TO_ADDRESS();
 
@@ -49,8 +49,8 @@ library LibBridgeSend {
         internal
         returns (bytes32 msgHash)
     {
-        if (message.owner == address(0)) {
-            revert B_OWNER_IS_NULL();
+        if (message.user == address(0)) {
+            revert B_USER_IS_NULL();
         }
 
         (bool destChainEnabled, address destChain) =

@@ -110,11 +110,11 @@ abstract contract BaseNFTVault is EssentialContract {
     error VAULT_INVALID_AMOUNT();
 
     /**
-     * Thrown when the owner address in a message is invalid.
-     * This could happen if the owner address is zero or doesn't match the
-     * expected owner.
+     * Thrown when the user address in a message is invalid.
+     * This could happen if the user address is zero or doesn't match the
+     * expected user.
      */
-    error VAULT_INVALID_OWNER();
+    error VAULT_INVALID_USER();
 
     /**
      * Thrown when the sender in a message context is invalid.

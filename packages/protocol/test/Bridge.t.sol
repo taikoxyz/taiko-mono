@@ -96,7 +96,7 @@ contract BridgeTest is Test {
     {
         uint256 amount = 1 wei;
         IBridge.Message memory message = newMessage({
-            owner: Alice,
+            user: Alice,
             to: Alice,
             depositValue: amount,
             callValue: 0,
@@ -114,7 +114,7 @@ contract BridgeTest is Test {
     {
         uint256 amount = 1 wei;
         IBridge.Message memory message = newMessage({
-            owner: address(0),
+            user: address(0),
             to: Alice,
             depositValue: amount,
             callValue: 0,
@@ -123,7 +123,7 @@ contract BridgeTest is Test {
             destChain: destChainId
         });
 
-        vm.expectRevert(BridgeErrors.B_OWNER_IS_NULL.selector);
+        vm.expectRevert(BridgeErrors.B_USER_IS_NULL.selector);
         bridge.sendMessage{ value: amount }(message);
     }
 
@@ -132,7 +132,7 @@ contract BridgeTest is Test {
     {
         uint256 amount = 1 wei;
         IBridge.Message memory message = newMessage({
-            owner: Alice,
+            user: Alice,
             to: Alice,
             depositValue: amount,
             callValue: 0,
@@ -151,7 +151,7 @@ contract BridgeTest is Test {
     {
         uint256 amount = 1 wei;
         IBridge.Message memory message = newMessage({
-            owner: Alice,
+            user: Alice,
             to: Alice,
             depositValue: amount,
             callValue: 0,
@@ -167,7 +167,7 @@ contract BridgeTest is Test {
     function test_send_message_ether_reverts_when_to_is_zero_address() public {
         uint256 amount = 1 wei;
         IBridge.Message memory message = newMessage({
-            owner: Alice,
+            user: Alice,
             to: address(0),
             depositValue: amount,
             callValue: 0,
@@ -183,7 +183,7 @@ contract BridgeTest is Test {
     function test_send_message_ether_with_no_processing_fee() public {
         uint256 amount = 1 wei;
         IBridge.Message memory message = newMessage({
-            owner: Alice,
+            user: Alice,
             to: Alice,
             depositValue: amount,
             callValue: 0,
@@ -202,7 +202,7 @@ contract BridgeTest is Test {
         uint256 amount = 1 wei;
         uint256 processingFee = 1 wei;
         IBridge.Message memory message = newMessage({
-            owner: Alice,
+            user: Alice,
             to: Alice,
             depositValue: amount,
             callValue: 0,
@@ -224,7 +224,7 @@ contract BridgeTest is Test {
         uint256 amount = 1 wei;
         uint256 processingFee = 1 wei;
         IBridge.Message memory message = newMessage({
-            owner: Alice,
+            user: Alice,
             to: Alice,
             depositValue: amount,
             callValue: 0,
@@ -286,7 +286,7 @@ contract BridgeTest is Test {
         assertEq(status == LibBridgeStatus.MessageStatus.RETRIABLE, true);
 
         vm.stopPrank();
-        vm.prank(message.owner);
+        vm.prank(message.user);
 
         destChainBridge.retryMessage(message, true);
 
@@ -298,7 +298,7 @@ contract BridgeTest is Test {
 
     function retry_message_reverts_when_status_non_retriable() public {
         IBridge.Message memory message = newMessage({
-            owner: Alice,
+            user: Alice,
             to: Alice,
             depositValue: 1,
             callValue: 0,
@@ -316,7 +316,7 @@ contract BridgeTest is Test {
     {
         vm.startPrank(Alice);
         IBridge.Message memory message = newMessage({
-            owner: Bob,
+            user: Bob,
             to: Alice,
             depositValue: 1,
             callValue: 0,
@@ -372,7 +372,7 @@ contract BridgeTest is Test {
             sender: 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39,
             srcChainId: 1336,
             destChainId: dest,
-            owner: 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39,
+            user: 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39,
             to: 0x200708D76eB1B69761c23821809d53F65049939e,
             refundAddress: 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4,
             depositValue: 1000,
@@ -390,7 +390,7 @@ contract BridgeTest is Test {
     }
 
     function newMessage(
-        address owner,
+        address user,
         address to,
         uint256 depositValue,
         uint256 callValue,
@@ -403,16 +403,16 @@ contract BridgeTest is Test {
         returns (IBridge.Message memory)
     {
         return IBridge.Message({
-            owner: owner,
+            user: user,
             destChainId: destChain,
             to: to,
             depositValue: depositValue,
             callValue: callValue,
             processingFee: processingFee,
             id: 0, // placeholder, will be overwritten
-            sender: owner, // placeholder, will be overwritten
+            sender: user, // placeholder, will be overwritten
             srcChainId: block.chainid, // will be overwritten
-            refundAddress: owner,
+            refundAddress: user,
             gasLimit: gasLimit,
             data: "",
             memo: ""
