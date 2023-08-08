@@ -608,7 +608,7 @@ contract ERC721VaultTest is Test {
         message.to = address(destChainErc721Vault);
         message.data = srcPrankBridge.getPreDeterminedDataBytes();
         message.gasLimit = 140_000;
-        message.processingFee = 140_000;
+        message.fee = 140_000;
         message.depositValue = 0;
         message.refundAddress = Alice;
         message.memo = "";

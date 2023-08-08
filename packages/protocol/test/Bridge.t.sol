@@ -99,9 +99,9 @@ contract BridgeTest is Test {
             user: Alice,
             to: Alice,
             depositValue: amount,
-            callValue: 0,
+            value: 0,
             gasLimit: 0,
-            processingFee: 0,
+            fee: 0,
             destChain: destChainId
         });
 
@@ -117,9 +117,9 @@ contract BridgeTest is Test {
             user: address(0),
             to: Alice,
             depositValue: amount,
-            callValue: 0,
+            value: 0,
             gasLimit: 0,
-            processingFee: 0,
+            fee: 0,
             destChain: destChainId
         });
 
@@ -135,9 +135,9 @@ contract BridgeTest is Test {
             user: Alice,
             to: Alice,
             depositValue: amount,
-            callValue: 0,
+            value: 0,
             gasLimit: 0,
-            processingFee: 0,
+            fee: 0,
             destChain: destChainId + 1
         });
 
@@ -154,9 +154,9 @@ contract BridgeTest is Test {
             user: Alice,
             to: Alice,
             depositValue: amount,
-            callValue: 0,
+            value: 0,
             gasLimit: 0,
-            processingFee: 0,
+            fee: 0,
             destChain: block.chainid
         });
 
@@ -170,9 +170,9 @@ contract BridgeTest is Test {
             user: Alice,
             to: address(0),
             depositValue: amount,
-            callValue: 0,
+            value: 0,
             gasLimit: 0,
-            processingFee: 0,
+            fee: 0,
             destChain: destChainId
         });
 
@@ -186,9 +186,9 @@ contract BridgeTest is Test {
             user: Alice,
             to: Alice,
             depositValue: amount,
-            callValue: 0,
+            value: 0,
             gasLimit: 0,
-            processingFee: 0,
+            fee: 0,
             destChain: destChainId
         });
 
@@ -200,19 +200,19 @@ contract BridgeTest is Test {
 
     function test_send_message_ether_with_processing_fee() public {
         uint256 amount = 1 wei;
-        uint256 processingFee = 1 wei;
+        uint256 fee = 1 wei;
         IBridge.Message memory message = newMessage({
             user: Alice,
             to: Alice,
             depositValue: amount,
-            callValue: 0,
+            value: 0,
             gasLimit: 0,
-            processingFee: processingFee,
+            fee: fee,
             destChain: destChainId
         });
 
         bytes32 msgHash =
-            bridge.sendMessage{ value: amount + processingFee }(message);
+            bridge.sendMessage{ value: amount + fee }(message);
 
         bool isMessageSent = bridge.isMessageSent(msgHash);
         assertEq(isMessageSent, true);
@@ -222,14 +222,14 @@ contract BridgeTest is Test {
         public
     {
         uint256 amount = 1 wei;
-        uint256 processingFee = 1 wei;
+        uint256 fee = 1 wei;
         IBridge.Message memory message = newMessage({
             user: Alice,
             to: Alice,
             depositValue: amount,
-            callValue: 0,
+            value: 0,
             gasLimit: 0,
-            processingFee: processingFee,
+            fee: fee,
             destChain: destChainId
         });
 
@@ -301,9 +301,9 @@ contract BridgeTest is Test {
             user: Alice,
             to: Alice,
             depositValue: 1,
-            callValue: 0,
+            value: 0,
             gasLimit: 10_000,
-            processingFee: 1,
+            fee: 1,
             destChain: destChainId
         });
 
@@ -319,9 +319,9 @@ contract BridgeTest is Test {
             user: Bob,
             to: Alice,
             depositValue: 1,
-            callValue: 0,
+            value: 0,
             gasLimit: 10_000,
-            processingFee: 1,
+            fee: 1,
             destChain: destChainId
         });
 
@@ -376,8 +376,8 @@ contract BridgeTest is Test {
             to: 0x200708D76eB1B69761c23821809d53F65049939e,
             refundAddress: 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4,
             depositValue: 1000,
-            callValue: 1000,
-            processingFee: 1000,
+            value: 1000,
+            fee: 1000,
             gasLimit: 1_000_000,
             data: "",
             memo: ""
@@ -393,9 +393,9 @@ contract BridgeTest is Test {
         address user,
         address to,
         uint256 depositValue,
-        uint256 callValue,
+        uint256 value,
         uint256 gasLimit,
-        uint256 processingFee,
+        uint256 fee,
         uint256 destChain
     )
         internal
@@ -407,8 +407,8 @@ contract BridgeTest is Test {
             destChainId: destChain,
             to: to,
             depositValue: depositValue,
-            callValue: callValue,
-            processingFee: processingFee,
+            value: value,
+            fee: fee,
             id: 0, // placeholder, will be overwritten
             from: user, // placeholder, will be overwritten
             srcChainId: block.chainid, // will be overwritten

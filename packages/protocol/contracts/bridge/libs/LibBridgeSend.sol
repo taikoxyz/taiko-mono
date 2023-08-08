@@ -31,8 +31,8 @@ library LibBridgeSend {
      * in which case the funds are sent to and managed by the EtherVault.
      * @param state The current state of the Bridge
      * @param resolver The address resolver
-     * @param message Specifies the `depositValue`, `callValue`, and
-     * `processingFee`.
+     * @param message Specifies the `depositValue`, `value`, and
+     * `fee`.
      * These must sum to `msg.value`. It also specifies the `destChainId`
      * which must have a `bridge` address set on the AddressResolver and
      * differ from the current chain ID.
@@ -64,7 +64,7 @@ library LibBridgeSend {
         }
 
         uint256 expectedAmount =
-            message.depositValue + message.callValue + message.processingFee;
+            message.depositValue + message.value + message.fee;
 
         if (expectedAmount != msg.value) {
             revert B_INCORRECT_VALUE();

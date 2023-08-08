@@ -64,7 +64,7 @@ library LibBridgeRetry {
         address ethVault = resolver.resolve("ether_vault", true);
         if (ethVault != address(0)) {
             EtherVault(payable(ethVault)).releaseEther(
-                address(this), message.callValue
+                address(this), message.value
             );
         }
 
@@ -93,9 +93,9 @@ library LibBridgeRetry {
                 ? message.user
                 : message.refundAddress;
 
-            refundAddress.sendEther(message.callValue);
+            refundAddress.sendEther(message.value);
         } else {
-            ethVault.sendEther(message.callValue);
+            ethVault.sendEther(message.value);
         }
     }
 }

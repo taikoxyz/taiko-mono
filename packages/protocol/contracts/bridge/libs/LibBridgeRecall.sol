@@ -70,7 +70,7 @@ library LibBridgeRecall {
         address ethVault = resolver.resolve("ether_vault", true);
         if (ethVault != address(0)) {
             EtherVault(payable(ethVault)).releaseEther(
-                address(this), message.callValue
+                address(this), message.value
             );
         }
         if (
@@ -79,10 +79,10 @@ library LibBridgeRecall {
             )
         ) {
             IRecallableMessageSender(message.from).onMessageRecalled{
-                value: message.callValue
+                value: message.value
             }(message);
         } else {
-            message.user.sendEther(message.callValue);
+            message.user.sendEther(message.value);
         }
 
         emit MessageRecalled(msgHash);

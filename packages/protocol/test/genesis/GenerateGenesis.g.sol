@@ -163,8 +163,8 @@ contract TestGenerateGenesis is Test, AddressResolver {
                 to: address(0),
                 refundAddress: address(0),
                 depositValue: 0,
-                callValue: 0,
-                processingFee: 0,
+                value: 0,
+                fee: 0,
                 gasLimit: 0,
                 data: "",
                 memo: ""

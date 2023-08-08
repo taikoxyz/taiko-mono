@@ -50,7 +50,7 @@ library LibBridgeInvoke {
             srcChainId: message.srcChainId
         });
 
-        (success,) = message.to.call{ value: message.callValue, gas: gasLimit }(
+        (success,) = message.to.call{ value: message.value, gas: gasLimit }(
             message.data
         );
 

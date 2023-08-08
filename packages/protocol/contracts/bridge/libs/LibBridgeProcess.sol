@@ -88,7 +88,7 @@ library LibBridgeProcess {
         }
 
         uint256 allValue =
-            message.depositValue + message.callValue + message.processingFee;
+            message.depositValue + message.value + message.fee;
         // We retrieve the necessary ether from EtherVault if receiving on
         // Taiko, otherwise it is already available in this Bridge.
         address ethVault = resolver.resolve("ether_vault", true);
@@ -107,9 +107,9 @@ library LibBridgeProcess {
         // and refund the user
         if (message.to == address(this) || message.to == address(0)) {
             // For these two special addresses, the call will not be actually
-            // invoked but will be marked DONE. The callValue will be refunded.
+            // invoked but will be marked DONE. The value will be refunded.
             status = LibBridgeStatus.MessageStatus.DONE;
-            refundAmount = message.callValue;
+            refundAmount = message.value;
         } else {
             // use the specified message gas limit if not called by the user
             uint256 gasLimit =
@@ -126,7 +126,7 @@ library LibBridgeProcess {
                 status = LibBridgeStatus.MessageStatus.DONE;
             } else {
                 status = LibBridgeStatus.MessageStatus.RETRIABLE;
-                ethVault.sendEther(message.callValue);
+                ethVault.sendEther(message.value);
             }
         }
 
@@ -139,13 +139,13 @@ library LibBridgeProcess {
 
         // if sender is the refundAddress
         if (msg.sender == refundAddress) {
-            uint256 amount = message.processingFee + refundAmount;
+            uint256 amount = message.fee + refundAmount;
             refundAddress.sendEther(amount);
         } else {
             // if sender is another address (eg. the relayer)
-            // First attempt relayer is rewarded the processingFee
+            // First attempt relayer is rewarded the fee
             // message.user has to eat the cost
-            msg.sender.sendEther(message.processingFee);
+            msg.sender.sendEther(message.fee);
             refundAddress.sendEther(refundAmount);
         }
     }

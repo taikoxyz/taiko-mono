@@ -38,12 +38,12 @@ interface IBridge {
         address to;
         // Alternate address to send any refund. If blank, defaults to user.
         address refundAddress;
-        // Deposited Ether minus the processingFee.
+        // Deposited Ether minus the fee.
         uint256 depositValue;
-        // callValue to invoke on the destination chain, for ERC20 transfers.
-        uint256 callValue;
+        // value to invoke on the destination chain, for ERC20 transfers.
+        uint256 value;
         // Processing fee for the relayer. Zero if user will process themself.
-        uint256 processingFee;
+        uint256 fee;
         // gasLimit to invoke on the destination chain, for ERC20 transfers.
         uint256 gasLimit;
         // callData to invoke on the destination chain, for ERC20 transfers.
