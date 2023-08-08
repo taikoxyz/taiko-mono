@@ -162,7 +162,7 @@
       "minting": "Minting"
     },
     "wrong_chain": {
-      "message": "It appears your are on the wrong network. Switch to {network} to mint tokens.",
+      "message": "It appears you are on the wrong network. Switch to {network} to mint tokens.",
       "button": "Switch to {network}"
     },
     "warning": {
@@ -175,12 +175,6 @@
   "token_dropdown": {
     "label": "Select token"
   },
-  "amount": {
-    "label": "Amount",
-    "balance": "Balance",
-    "button.max": "Max",
-    "errors.failed_max": "Coult not estimate max amount to bridge."
-  },
   "inputs": {
     "nft": {
       "token_id": {
@@ -190,7 +184,13 @@
     },
     "address_input": {
       "label": "Address",
-      "placeholder": "Enter address"
+      "placeholder": "Enter an address"
+    },
+    "amount": {
+      "label": "Amount",
+      "balance": "Balance",
+      "button.max": "Max",
+      "errors.failed_max": "Could not estimate max amount to bridge."
     }
   },
   "chain_selector": {

@@ -11,7 +11,6 @@
   import { InsufficientAllowanceError, InsufficientBalanceError, RevertedWithFailedError } from '$libs/error';
   import { getBalance as getTokenBalance } from '$libs/token';
   import { debounce } from '$libs/util/debounce';
-  import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { getLogger } from '$libs/util/logger';
   import { truncateString } from '$libs/util/truncateString';
   import { uid } from '$libs/util/uid';
@@ -170,7 +169,7 @@
       validateAmount();
     } catch (err) {
       console.error(err);
-      warningToast($t('amount.failed_max'));
+      warningToast($t('amount.errors.failed_max'));
     } finally {
       computingMaxAmount = false;
     }
@@ -183,12 +182,12 @@
 
 <div class="Amount f-col space-y-2">
   <div class="f-between-center text-secondary-content">
-    <label class="body-regular" for={inputId}>{$t('amount.label')}</label>
+    <label class="body-regular" for={inputId}>{$t('inputs.amount.label')}</label>
     <div class="body-small-regular">
       {#if $errorComputingBalance}
         <FlatAlert type="error" message={$t('bridge.errors.cannot_fetch_balance')} />
       {:else}
-        <span>{$t('amount_input.balance')}:</span>
+        <span>{$t('inputs.amount.balance')}:</span>
         <span>
           {#if $computingBalance}
             <LoadingText mask="0.0000" />
@@ -218,7 +217,7 @@
         class="absolute right-6 uppercase hover:font-bold"
         disabled={!$selectedToken || !$network || computingMaxAmount || $errorComputingBalance}
         on:click={useMaxAmount}>
-        {$t('amount.button.max')}
+        {$t('inputs.amount.button.max')}
       </button>
     </div>
     {#if $insufficientBalance && $enteredAmount > 0 && !errorComputingBalance}
