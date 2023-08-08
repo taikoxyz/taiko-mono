@@ -54,7 +54,7 @@ interface IBridge {
 
     struct Context {
         bytes32 msgHash; // messageHash
-        address sender;
+        address from;
         uint256 srcChainId;
     }
 

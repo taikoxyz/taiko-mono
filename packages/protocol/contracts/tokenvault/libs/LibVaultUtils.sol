@@ -83,7 +83,7 @@ library LibVaultUtils {
     {
         ctx = IBridge(msg.sender).context();
         if (
-            ctx.sender
+            ctx.from
                 != AddressResolver(resolver).resolve(
                     ctx.srcChainId, validSender, false
                 )

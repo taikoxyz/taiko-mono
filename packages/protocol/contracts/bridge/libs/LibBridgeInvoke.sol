@@ -46,7 +46,7 @@ library LibBridgeInvoke {
 
         state.ctx = IBridge.Context({
             msgHash: msgHash,
-            sender: message.from,
+            from: message.from,
             srcChainId: message.srcChainId
         });
 
@@ -56,7 +56,7 @@ library LibBridgeInvoke {
 
         state.ctx = IBridge.Context({
             msgHash: LibBridgeData.MESSAGE_HASH_PLACEHOLDER,
-            sender: LibBridgeData.SRC_CHAIN_SENDER_PLACEHOLDER,
+            from: LibBridgeData.SRC_CHAIN_SENDER_PLACEHOLDER,
             srcChainId: LibBridgeData.CHAINID_PLACEHOLDER
         });
     }
