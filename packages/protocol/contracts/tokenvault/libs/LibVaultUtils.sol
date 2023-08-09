@@ -19,7 +19,7 @@ library LibVaultUtils {
      * This could happen if the sender isn't the expected token vault on the
      * source chain.
      */
-    error VAULT_INVALID_SENDER();
+    error VAULT_INVALID_FROM();
 
     /**
      * Thrown when token contract is 0 address.
@@ -83,12 +83,12 @@ library LibVaultUtils {
     {
         ctx = IBridge(msg.sender).context();
         if (
-            ctx.sender
+            ctx.from
                 != AddressResolver(resolver).resolve(
                     ctx.srcChainId, validSender, false
                 )
         ) {
-            revert VAULT_INVALID_SENDER();
+            revert VAULT_INVALID_FROM();
         }
     }
 

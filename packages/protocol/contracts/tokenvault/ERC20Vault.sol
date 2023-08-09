@@ -54,8 +54,8 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
         address token;
         uint256 amount;
         uint256 gasLimit;
-        uint256 processingFee;
-        address refundAddress;
+        uint256 fee;
+        address refundTo;
         string memo;
     }
 
@@ -136,18 +136,18 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
     error VAULT_INVALID_AMOUNT();
 
     /**
-     * Thrown when the owner address in a message is invalid.
-     * This could happen if the owner address is zero or doesn't match the
-     * expected owner.
+     * Thrown when the user address in a message is invalid.
+     * This could happen if the user address is zero or doesn't match the
+     * expected user.
      */
-    error VAULT_INVALID_OWNER();
+    error VAULT_INVALID_USER();
 
     /**
      * Thrown when the sender in a message context is invalid.
      * This could happen if the sender isn't the expected token vault on the
      * source chain.
      */
-    error VAULT_INVALID_SENDER();
+    error VAULT_INVALID_FROM();
 
     /**
      * Thrown when the source chain ID in a message is invalid.
@@ -210,20 +210,20 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
         IBridge.Message memory message;
 
         (message.data, _amount) = _sendToken({
-            owner: message.owner,
+            user: message.user,
             token: opt.token,
             amount: opt.amount,
             to: opt.to
         });
 
         message.destChainId = opt.destChainId;
-        message.owner = msg.sender;
+        message.user = msg.sender;
         message.to = resolve(opt.destChainId, "erc20_vault", false);
         message.gasLimit = opt.gasLimit;
-        message.processingFee = opt.processingFee;
-        message.depositValue = msg.value - opt.processingFee;
-        message.refundAddress = opt.refundAddress;
+        message.fee = opt.fee;
+        message.refundTo = opt.refundTo;
         message.memo = opt.memo;
+        message.value = msg.value - opt.fee;
 
         bytes32 msgHash = IBridge(resolve("bridge", false)).sendMessage{
             value: msg.value
@@ -231,7 +231,7 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
 
         emit TokenSent({
             msgHash: msgHash,
-            from: message.owner,
+            from: message.user,
             to: opt.to,
             destChainId: opt.destChainId,
             token: opt.token,
@@ -287,7 +287,7 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
     }
 
     /**
-     * Release deposited ERC20 back to the owner on the source ERC20Vault with
+     * Release deposited ERC20 back to the user on the source ERC20Vault with
      * a proof that the message processing on the destination Bridge has failed.
      *
      * @param message The message that corresponds to the ERC20 deposit on the
@@ -301,7 +301,7 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
     {
         IBridge bridge = IBridge(resolve("bridge", false));
         bytes32 msgHash = bridge.hashMessage(message);
-    
+
         (, address token,, uint256 amount) = abi.decode(
             message.data[4:], (CanonicalERC20, address, address, uint256)
         );
@@ -311,15 +311,15 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
         if (amount > 0) {
             if (isBridgedToken[token] || token == resolve("taiko_token", true))
             {
-                IMintableERC20(token).mint(message.owner, amount);
+                IMintableERC20(token).mint(message.user, amount);
             } else {
-                ERC20Upgradeable(token).safeTransfer(message.owner, amount);
+                ERC20Upgradeable(token).safeTransfer(message.user, amount);
             }
         }
 
         emit TokenReleased({
             msgHash: msgHash,
-            from: message.owner,
+            from: message.user,
             token: token,
             amount: amount
         });
@@ -345,7 +345,7 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
     //////////////////////////////////////////////////////////////*/
 
     function _sendToken(
-        address owner,
+        address user,
         address token,
         address to,
         uint256 amount
@@ -387,7 +387,7 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
         }
 
         msgData = abi.encodeWithSelector(
-            ERC20Vault.receiveToken.selector, ctoken, owner, to, _amount
+            ERC20Vault.receiveToken.selector, ctoken, user, to, _amount
         );
     }
 

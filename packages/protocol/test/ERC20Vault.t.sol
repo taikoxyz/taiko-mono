@@ -204,7 +204,7 @@ contract TestERC20Vault is Test {
                 destChainId,
                 Bob,
                 address(erc20),
-                amount,
+                amount - 1, // value: (msg.value - fee)
                 1_000_000,
                 amount - 1,
                 Bob,
@@ -215,8 +215,8 @@ contract TestERC20Vault is Test {
         uint256 aliceBalanceAfter = erc20.balanceOf(Alice);
         uint256 erc20VaultBalanceAfter = erc20.balanceOf(address(erc20Vault));
 
-        assertEq(aliceBalanceBefore - aliceBalanceAfter, amount);
-        assertEq(erc20VaultBalanceAfter - erc20VaultBalanceBefore, amount);
+        assertEq(aliceBalanceBefore - aliceBalanceAfter, 1);
+        assertEq(erc20VaultBalanceAfter - erc20VaultBalanceBefore, 1);
     }
 
     function test_send_erc20_reverts_invalid_amount() public {

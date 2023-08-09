@@ -33,8 +33,8 @@ abstract contract BaseNFTVault is EssentialContract {
         uint256[] tokenIds;
         uint256[] amounts;
         uint256 gasLimit;
-        uint256 processingFee;
-        address refundAddress;
+        uint256 fee;
+        address refundTo;
         string memo;
     }
 
@@ -53,7 +53,6 @@ abstract contract BaseNFTVault is EssentialContract {
         public canonicalToBridged;
 
     uint256[47] private __gap;
-
 
     event BridgedTokenDeployed(
         uint256 indexed chainId,
@@ -111,18 +110,18 @@ abstract contract BaseNFTVault is EssentialContract {
     error VAULT_INVALID_AMOUNT();
 
     /**
-     * Thrown when the owner address in a message is invalid.
-     * This could happen if the owner address is zero or doesn't match the
-     * expected owner.
+     * Thrown when the user address in a message is invalid.
+     * This could happen if the user address is zero or doesn't match the
+     * expected user.
      */
-    error VAULT_INVALID_OWNER();
+    error VAULT_INVALID_USER();
 
     /**
-     * Thrown when the sender in a message context is invalid.
+     * Thrown when the from in a message context is invalid.
      * This could happen if the sender isn't the expected token vault on the
      * source chain.
      */
-    error VAULT_INVALID_SENDER();
+    error VAULT_INVALID_FROM();
 
     /**
      * Thrown when the source chain ID in a message is invalid.

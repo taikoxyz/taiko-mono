@@ -8,13 +8,13 @@ pragma solidity ^0.8.20;
 
 import { LibBridgeData } from "./libs/LibBridgeData.sol";
 /**
- * Recalling a message interface.
+ * An interface that all recallable message sender shall implement.
  */
 
 interface IRecallableMessageSender {
     function onMessageRecalled(IBridge.Message calldata message)
         external
-        returns (bytes4);
+        payable;
 }
 
 /**
@@ -27,23 +27,21 @@ interface IBridge {
         // Message ID.
         uint256 id;
         // Message sender address (auto filled).
-        address sender;
+        address from;
         // Source chain ID (auto filled).
         uint256 srcChainId;
         // Destination chain ID where the `to` address lives (auto filled).
         uint256 destChainId;
-        // Owner address of the bridged asset.
-        address owner;
-        // Destination owner address.
+        // User address of the bridged asset.
+        address user;
+        // Destination user address.
         address to;
-        // Alternate address to send any refund. If blank, defaults to owner.
-        address refundAddress;
-        // Deposited Ether minus the processingFee.
-        uint256 depositValue;
-        // callValue to invoke on the destination chain, for ERC20 transfers.
-        uint256 callValue;
-        // Processing fee for the relayer. Zero if owner will process themself.
-        uint256 processingFee;
+        // Alternate address to send any refund. If blank, defaults to user.
+        address refundTo;
+        // value to invoke on the destination chain, for ERC20 transfers.
+        uint256 value;
+        // Processing fee for the relayer. Zero if user will process themself.
+        uint256 fee;
         // gasLimit to invoke on the destination chain, for ERC20 transfers.
         uint256 gasLimit;
         // callData to invoke on the destination chain, for ERC20 transfers.
@@ -54,18 +52,13 @@ interface IBridge {
 
     struct Context {
         bytes32 msgHash; // messageHash
-        address sender;
+        address from;
         uint256 srcChainId;
     }
 
-    event SignalSent(address sender, bytes32 msgHash);
+    event SignalSent(address indexed sender, bytes32 msgHash);
     event MessageSent(bytes32 indexed msgHash, Message message);
-    event MessageRecalled(
-        bytes32 indexed msgHash,
-        address to,
-        uint256 amount,
-        LibBridgeData.RecallStatus status
-    );
+    event MessageRecalled(bytes32 indexed msgHash);
 
     /// Sends a message to the destination chain and takes custody
     /// of Ether required in this contract. All extra Ether will be refunded.

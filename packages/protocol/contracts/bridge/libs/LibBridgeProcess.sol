@@ -33,7 +33,7 @@ library LibBridgeProcess {
 
     /**
      * Process the bridge message on the destination chain. It can be called by
-     * any address, including `message.owner`.
+     * any address, including `message.user`.
      * @dev It starts by hashing the message,
      * and doing a lookup in the bridge state to see if the status is "NEW". It
      * then takes custody of the ether from the EtherVault and attempts to
@@ -48,13 +48,14 @@ library LibBridgeProcess {
         LibBridgeData.State storage state,
         AddressResolver resolver,
         IBridge.Message calldata message,
-        bytes calldata proof
+        bytes calldata proof,
+        bool checkProof
     )
         internal
     {
-        // If the gas limit is set to zero, only the owner can process the
+        // If the gas limit is set to zero, only the user can process the
         // message.
-        if (message.gasLimit == 0 && msg.sender != message.owner) {
+        if (message.gasLimit == 0 && msg.sender != message.user) {
             revert B_FORBIDDEN();
         }
 
@@ -76,44 +77,43 @@ library LibBridgeProcess {
             resolver.resolve(message.srcChainId, "bridge", false);
 
         if (
-            !ISignalService(resolver.resolve("signal_service", false))
-                .isSignalReceived({
-                srcChainId: message.srcChainId,
-                app: srcBridge,
-                signal: msgHash,
-                proof: proof
-            })
+            checkProof
+                && !ISignalService(resolver.resolve("signal_service", false))
+                    .isSignalReceived({
+                    srcChainId: message.srcChainId,
+                    app: srcBridge,
+                    signal: msgHash,
+                    proof: proof
+                })
         ) {
             revert B_SIGNAL_NOT_RECEIVED();
         }
 
-        uint256 allValue =
-            message.depositValue + message.callValue + message.processingFee;
         // We retrieve the necessary ether from EtherVault if receiving on
         // Taiko, otherwise it is already available in this Bridge.
         address ethVault = resolver.resolve("ether_vault", true);
-        if (ethVault != address(0) && (allValue > 0)) {
-            EtherVault(payable(ethVault)).releaseEther(allValue);
+        if (ethVault != address(0)) {
+            EtherVault(payable(ethVault)).releaseEther(
+                address(this), message.value + message.fee
+            );
         }
-        // We send the Ether before the message call in case the call will
-        // actually consume Ether.
-        message.owner.sendEther(message.depositValue);
 
         LibBridgeStatus.MessageStatus status;
         uint256 refundAmount;
 
         // if the user is sending to the bridge or zero-address, just process as
-        // DONE
-        // and refund the owner
+        // DONE and refund the user
         if (message.to == address(this) || message.to == address(0)) {
             // For these two special addresses, the call will not be actually
-            // invoked but will be marked DONE. The callValue will be refunded.
+            // invoked but will be marked DONE. The value will be refunded.
+            // UI can use this as a feature to deposit Ether to the refundTo
+            // address.
             status = LibBridgeStatus.MessageStatus.DONE;
-            refundAmount = message.callValue;
+            refundAmount = message.value;
         } else {
-            // use the specified message gas limit if not called by the owner
+            // use the specified message gas limit if not called by the user
             uint256 gasLimit =
-                msg.sender == message.owner ? gasleft() : message.gasLimit;
+                msg.sender == message.user ? gasleft() : message.gasLimit;
 
             bool success = LibBridgeInvoke.invokeMessageCall({
                 state: state,
@@ -126,27 +126,26 @@ library LibBridgeProcess {
                 status = LibBridgeStatus.MessageStatus.DONE;
             } else {
                 status = LibBridgeStatus.MessageStatus.RETRIABLE;
-                ethVault.sendEther(message.callValue);
+                ethVault.sendEther(message.value);
             }
         }
 
         // Mark the status as DONE or RETRIABLE.
         LibBridgeStatus.updateMessageStatus(msgHash, status);
 
-        address refundAddress = message.refundAddress == address(0)
-            ? message.owner
-            : message.refundAddress;
+        address refundTo =
+            message.refundTo == address(0) ? message.user : message.refundTo;
 
-        // if sender is the refundAddress
-        if (msg.sender == refundAddress) {
-            uint256 amount = message.processingFee + refundAmount;
-            refundAddress.sendEther(amount);
+        // if sender is the refundTo
+        if (msg.sender == refundTo) {
+            uint256 amount = message.fee + refundAmount;
+            refundTo.sendEther(amount);
         } else {
-            // if sender is another address (eg. the relayer)
-            // First attempt relayer is rewarded the processingFee
-            // message.owner has to eat the cost
-            msg.sender.sendEther(message.processingFee);
-            refundAddress.sendEther(refundAmount);
+            // if sender is another address (eg. a vault)
+            // First attempt relayer is rewarded the fee
+            // message.user has to eat the cost
+            msg.sender.sendEther(message.fee);
+            refundTo.sendEther(refundAmount);
         }
     }
 }

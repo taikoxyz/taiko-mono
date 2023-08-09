@@ -152,15 +152,14 @@ contract TestGenerateGenesis is Test, AddressResolver {
         bridge.processMessage(
             IBridge.Message({
                 id: 0,
-                sender: address(0),
+                from: address(0),
                 srcChainId: 1,
                 destChainId: 167,
-                owner: address(0),
+                user: address(0),
                 to: address(0),
-                refundAddress: address(0),
-                depositValue: 0,
-                callValue: 0,
-                processingFee: 0,
+                refundTo: address(0),
+                value: 0,
+                fee: 0,
                 gasLimit: 0,
                 data: "",
                 memo: ""

@@ -53,7 +53,7 @@ library LibBridgeStatus {
     }
 
     /**
-     * Gets the status of a bridge message.
+     * Gets, on the desination chain, the status of a bridge message.
      * @param msgHash The hash of the message.
      * @return The status of the message.
      */
@@ -71,7 +71,8 @@ library LibBridgeStatus {
     }
 
     /**
-     * Checks if a bridge message has failed.
+     * Checks, on the source chain, whether a bridge message has failed on its
+     * destination chain.
      * @param resolver The address resolver.
      * @param msgHash The hash of the message.
      * @param destChainId The ID of the destination chain.

@@ -57,16 +57,6 @@ contract EtherVault is EssentialContract, BridgeErrors {
     }
 
     /**
-     * Transfer Ether from EtherVault to the sender, checking that the sender
-     * is authorized.
-     * @param amount Amount of Ether to send.
-     */
-    function releaseEther(uint256 amount) public onlyAuthorized nonReentrant {
-        msg.sender.sendEther(amount);
-        emit EtherReleased(msg.sender, amount);
-    }
-
-    /**
      * Transfer Ether from EtherVault to a designated address, checking that the
      * sender is authorized.
      * @param recipient Address to receive Ether.
@@ -80,6 +70,7 @@ contract EtherVault is EssentialContract, BridgeErrors {
         onlyAuthorized
         nonReentrant
     {
+        if (amount == 0) return;
         if (recipient == address(0)) {
             revert B_EV_DO_NOT_BURN();
         }

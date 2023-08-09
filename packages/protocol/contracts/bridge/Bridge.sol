@@ -71,10 +71,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * Releases the Ether (+ tokens) locked in the bridge as part of a
-     * cross-chain transfer.
-     * @dev Releases the Ether (+ tokens) by calling the
-     * LibBridgeRecall.recallMessage library function.
+     * Recall a failed message on its source chain.
+     * @dev This function will potentially release any Ether or tokens locked.
      * @param message The message containing the details of the Ether transfer.
      * (See IBridge)
      * @param proof The proof of the cross-chain transfer.
@@ -90,7 +88,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
             state: _state,
             resolver: AddressResolver(this),
             message: message,
-            proof: proof
+            proof: proof,
+            checkProof: shouldCheckProof()
         });
     }
 
@@ -112,7 +111,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
             state: _state,
             resolver: AddressResolver(this),
             message: message,
-            proof: proof
+            proof: proof,
+            checkProof: shouldCheckProof()
         });
     }
 
@@ -140,7 +140,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * Check if the message with the given hash has been sent.
+     * Checks, on the source chain, if the message with the given hash has been
+     * sent.
      * @param msgHash The hash of the message.
      * @return Returns true if the message has been sent, false otherwise.
      */
@@ -154,7 +155,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * Check if the message with the given hash has been received.
+     * Checks, on the destination chain, whether the message with the given hash
+     * has been received.
      * @param msgHash The hash of the message.
      * @param srcChainId The source chain ID.
      * @param proof The proof of message receipt.
@@ -180,7 +182,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * Check if the message with the given hash has failed.
+     * Checks, on the source chain, whether a bridge message has failed on its
+     * destination chain.
      * @param msgHash The hash of the message.
      * @param destChainId The destination chain ID.
      * @param proof The proof of message failure.
@@ -206,7 +209,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * Get the status of the message with the given hash.
+     * Gets, on the desination chain, the status of a bridge message.
      * @param msgHash The hash of the message.
      * @return Returns the status of the message.
      */
@@ -231,14 +234,10 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
      * Check if the Ether associated with the given message hash has been
      * released.
      * @param msgHash The hash of the message.
-     * @return Returns true if the Ether has been released, false otherwise.
+     * @return Returns true if the message has been recalled.
      */
-    function getMessageRecallStatus(bytes32 msgHash)
-        public
-        view
-        returns (LibBridgeData.RecallStatus)
-    {
-        return _state.recallStatus[msgHash];
+    function isMessageRecalled(bytes32 msgHash) public view returns (bool) {
+        return _state.recalls[msgHash];
     }
 
     /**
@@ -265,7 +264,6 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     function hashMessage(Message calldata message)
         public
         pure
-        override
         returns (bytes32)
     {
         return LibBridgeData.hashMessage(message);
@@ -282,6 +280,14 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         returns (bytes32)
     {
         return LibBridgeStatus.getMessageStatusSlot(msgHash);
+    }
+
+    /**
+     * Tells if we need to check real proof or it is a test.
+     * @return Returns true if this contract, or can be false if mock/test.
+     */
+    function shouldCheckProof() internal pure virtual returns (bool) {
+        return true;
     }
 }
 

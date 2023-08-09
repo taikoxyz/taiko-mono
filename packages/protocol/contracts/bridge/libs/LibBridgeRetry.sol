@@ -26,9 +26,9 @@ library LibBridgeRetry {
     error B_MSG_NON_RETRIABLE();
 
     /**
-     * Retries to invoke the messageCall after Ether has been sent to the owner.
+     * Retries to invoke the messageCall after Ether has been sent to the user.
      * @dev This function can be called by any address, including
-     * `message.owner`.
+     * `message.user`.
      * Can only be called on messages marked "RETRIABLE". If it succeeds, the
      * message is marked as "DONE".
      * If it fails and `isLastAttempt` is true, the message is marked as
@@ -48,9 +48,9 @@ library LibBridgeRetry {
         internal
     {
         // If the gasLimit is set to 0 or isLastAttempt is true, the
-        // address calling this function must be message.owner.
+        // address calling this function must be message.user.
         if (message.gasLimit == 0 || isLastAttempt) {
-            if (msg.sender != message.owner) revert B_DENIED();
+            if (msg.sender != message.user) revert B_DENIED();
         }
 
         bytes32 msgHash = message.hashMessage();
@@ -63,7 +63,9 @@ library LibBridgeRetry {
 
         address ethVault = resolver.resolve("ether_vault", true);
         if (ethVault != address(0)) {
-            EtherVault(payable(ethVault)).releaseEther(message.callValue);
+            EtherVault(payable(ethVault)).releaseEther(
+                address(this), message.value
+            );
         }
 
         // successful invocation
@@ -87,13 +89,12 @@ library LibBridgeRetry {
                 msgHash, LibBridgeStatus.MessageStatus.FAILED
             );
 
-            address refundAddress = message.refundAddress == address(0)
-                ? message.owner
-                : message.refundAddress;
+            address refundTo =
+                message.refundTo == address(0) ? message.user : message.refundTo;
 
-            refundAddress.sendEther(message.callValue);
+            refundTo.sendEther(message.value);
         } else {
-            ethVault.sendEther(message.callValue);
+            ethVault.sendEther(message.value);
         }
     }
 }

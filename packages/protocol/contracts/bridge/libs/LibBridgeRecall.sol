@@ -23,110 +23,67 @@ library LibBridgeRecall {
     using LibBridgeData for IBridge.Message;
     using LibAddress for address;
 
-    event MessageRecalled(
-        bytes32 indexed msgHash,
-        address owner,
-        uint256 amount,
-        LibBridgeData.RecallStatus status
-    );
+    event MessageRecalled(bytes32 indexed msgHash);
 
-    error B_ETHER_RELEASED_ALREADY();
-    error B_FAILED_TRANSFER();
     error B_MSG_NOT_FAILED();
+    error B_MSG_RECALLED_ALREADY();
 
     /**
-     * Release Ether to the message owner
-     * @dev This function releases Ether to the message owner, only if the
-     * Bridge state says:
-     * - Ether for this message has not been released before.
-     * - The message is in a failed state.
+     * /**
+     * Recall a failed message on its source chain.
+     * @dev This function will potentially release any Ether or tokens locked.
      * @param state The current state of the Bridge
      * @param resolver The AddressResolver instance
      * @param message The message whose associated Ether should be released
      * @param proof The proof data
+     * @param checkProof Indicating if checking the proof or not (test version)
      */
     function recallMessage(
         LibBridgeData.State storage state,
         AddressResolver resolver,
         IBridge.Message calldata message,
-        bytes calldata proof
+        bytes calldata proof,
+        bool checkProof
     )
         internal
     {
         bytes32 msgHash = message.hashMessage();
 
+        if (state.recalls[msgHash]) {
+            revert B_MSG_RECALLED_ALREADY();
+        }
+
         if (
-            !LibBridgeStatus.isMessageFailed(
-                resolver, msgHash, message.destChainId, proof
-            )
+            checkProof
+                && !LibBridgeStatus.isMessageFailed(
+                    resolver, msgHash, message.destChainId, proof
+                )
         ) {
             revert B_MSG_NOT_FAILED();
         }
 
+        state.recalls[msgHash] = true;
+
+        // We retrieve the necessary ether from EtherVault if receiving on
+        // Taiko, otherwise it is already available in this Bridge.
+        address ethVault = resolver.resolve("ether_vault", true);
+        if (ethVault != address(0)) {
+            EtherVault(payable(ethVault)).releaseEther(
+                address(this), message.value
+            );
+        }
         if (
-            state.recallStatus[msgHash]
-                == LibBridgeData.RecallStatus.FULLY_RECALLED
+            message.from.supportsInterface(
+                type(IRecallableMessageSender).interfaceId
+            )
         ) {
-            revert B_ETHER_RELEASED_ALREADY();
+            IRecallableMessageSender(message.from).onMessageRecalled{
+                value: message.value
+            }(message);
+        } else {
+            message.user.sendEther(message.value);
         }
 
-        uint256 releaseAmount;
-
-        if (
-            state.recallStatus[msgHash]
-                == LibBridgeData.RecallStatus.NOT_RECALLED
-        ) {
-            // Release ETH first
-            state.recallStatus[msgHash] =
-                LibBridgeData.RecallStatus.ETH_RELEASED;
-
-            releaseAmount = message.depositValue + message.callValue;
-
-            if (releaseAmount > 0) {
-                address ethVault = resolver.resolve("ether_vault", true);
-                // if on Taiko
-                if (ethVault != address(0)) {
-                    EtherVault(payable(ethVault)).releaseEther(
-                        message.owner, releaseAmount
-                    );
-                } else {
-                    // if on Ethereum
-                    (bool success,) =
-                        message.owner.call{ value: releaseAmount }("");
-                    if (!success) {
-                        revert B_FAILED_TRANSFER();
-                    }
-                }
-            }
-        }
-        // 2nd stage is releasing the tokens
-        if (
-            state.recallStatus[msgHash]
-                == LibBridgeData.RecallStatus.ETH_RELEASED
-        ) {
-            if (
-                !message.sender.supportsInterface(
-                    type(IRecallableMessageSender).interfaceId
-                )
-            ) {
-                state.recallStatus[msgHash] =
-                    LibBridgeData.RecallStatus.FULLY_RECALLED;
-            } else {
-                try IRecallableMessageSender(message.sender).onMessageRecalled(
-                    message
-                ) returns (bytes4 _selector) {
-                    if (
-                        IRecallableMessageSender.onMessageRecalled.selector
-                            == _selector
-                    ) {
-                        state.recallStatus[msgHash] =
-                            LibBridgeData.RecallStatus.FULLY_RECALLED;
-                    }
-                } catch { }
-            }
-        }
-        emit MessageRecalled(
-            msgHash, message.owner, releaseAmount, state.recallStatus[msgHash]
-        );
+        emit MessageRecalled(msgHash);
     }
 }

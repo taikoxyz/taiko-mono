@@ -44,19 +44,20 @@ library LibBridgeInvoke {
             revert B_GAS_LIMIT();
         }
 
+        // Should we simply provide the message itself rather than
+        // a context object?
         state.ctx = IBridge.Context({
             msgHash: msgHash,
-            sender: message.sender,
+            from: message.from,
             srcChainId: message.srcChainId
         });
 
-        (success,) = message.to.call{ value: message.callValue, gas: gasLimit }(
-            message.data
-        );
+        (success,) =
+            message.to.call{ value: message.value, gas: gasLimit }(message.data);
 
         state.ctx = IBridge.Context({
             msgHash: LibBridgeData.MESSAGE_HASH_PLACEHOLDER,
-            sender: LibBridgeData.SRC_CHAIN_SENDER_PLACEHOLDER,
+            from: LibBridgeData.SRC_CHAIN_SENDER_PLACEHOLDER,
             srcChainId: LibBridgeData.CHAINID_PLACEHOLDER
         });
     }

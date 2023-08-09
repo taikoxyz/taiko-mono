@@ -20,7 +20,7 @@ library LibBridgeSend {
     using LibBridgeData for IBridge.Message;
 
     error B_INCORRECT_VALUE();
-    error B_OWNER_IS_NULL();
+    error B_USER_IS_NULL();
     error B_WRONG_CHAIN_ID();
     error B_WRONG_TO_ADDRESS();
 
@@ -31,8 +31,8 @@ library LibBridgeSend {
      * in which case the funds are sent to and managed by the EtherVault.
      * @param state The current state of the Bridge
      * @param resolver The address resolver
-     * @param message Specifies the `depositValue`, `callValue`, and
-     * `processingFee`.
+     * @param message Specifies the `value`, and
+     * `fee`.
      * These must sum to `msg.value`. It also specifies the `destChainId`
      * which must have a `bridge` address set on the AddressResolver and
      * differ from the current chain ID.
@@ -49,8 +49,8 @@ library LibBridgeSend {
         internal
         returns (bytes32 msgHash)
     {
-        if (message.owner == address(0)) {
-            revert B_OWNER_IS_NULL();
+        if (message.user == address(0)) {
+            revert B_USER_IS_NULL();
         }
 
         (bool destChainEnabled, address destChain) =
@@ -63,8 +63,7 @@ library LibBridgeSend {
             revert B_WRONG_TO_ADDRESS();
         }
 
-        uint256 expectedAmount =
-            message.depositValue + message.callValue + message.processingFee;
+        uint256 expectedAmount = message.value + message.fee;
 
         if (expectedAmount != msg.value) {
             revert B_INCORRECT_VALUE();
@@ -77,7 +76,7 @@ library LibBridgeSend {
         ethVault.sendEther(expectedAmount);
 
         message.id = state.nextMessageId++;
-        message.sender = msg.sender;
+        message.from = msg.sender;
         message.srcChainId = block.chainid;
 
         msgHash = message.hashMessage();
