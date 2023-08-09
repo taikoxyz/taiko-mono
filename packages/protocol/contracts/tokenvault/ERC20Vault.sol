@@ -297,7 +297,9 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
         external
         nonReentrant
         onlyFromNamed("bridge")
-        returns (bytes4)
+        returns (
+            bytes4 // TODO(dani): you can remove the return
+        )
     {
         IBridge bridge = IBridge(resolve("bridge", false));
         bytes32 msgHash = bridge.hashMessage(message);
