@@ -149,9 +149,10 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
      */
     function onMessageRecalled(IBridge.Message calldata message)
         external
+        payable
+        override
         nonReentrant
         onlyFromNamed("bridge")
-        returns (bytes4)
     {
         if (message.user == address(0)) revert VAULT_INVALID_USER();
         if (message.srcChainId != block.chainid) {
@@ -189,6 +190,9 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
             }
         }
 
+        // send back Ether
+        message.user.sendEther(message.value);
+
         emit TokenReleased({
             msgHash: msgHash,
             from: message.user,
@@ -196,8 +200,6 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
             tokenIds: tokenIds,
             amounts: new uint256[](0)
         });
-
-        return type(IRecallableMessageSender).interfaceId;
     }
 
     function onERC721Received(

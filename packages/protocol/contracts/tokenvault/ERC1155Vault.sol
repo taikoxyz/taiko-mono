@@ -169,9 +169,10 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
      */
     function onMessageRecalled(IBridge.Message calldata message)
         external
+        payable
+        override
         nonReentrant
         onlyFromNamed("bridge")
-        returns (bytes4)
     {
         (
             CanonicalNFT memory nft,
@@ -208,6 +209,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             }
         }
 
+        // send back Ether
+        message.user.sendEther(message.value);
+
         emit TokenReleased({
             msgHash: msgHash,
             from: message.user,
@@ -215,8 +219,6 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             tokenIds: tokenIds,
             amounts: amounts
         });
-
-        return type(IRecallableMessageSender).interfaceId;
     }
 
     function onERC1155BatchReceived(

@@ -16,9 +16,12 @@ import { IERC1155Receiver } from
 import { IERC165 } from
     "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import { Proxied } from "../common/Proxied.sol";
-import { IBridge } from "../bridge/IBridge.sol";
+import { IRecallableMessageSender, IBridge } from "../bridge/IBridge.sol";
 
-abstract contract BaseNFTVault is EssentialContract {
+abstract contract BaseNFTVault is
+    EssentialContract,
+    IRecallableMessageSender
+{
     struct CanonicalNFT {
         uint256 chainId;
         address addr;
