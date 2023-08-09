@@ -76,7 +76,7 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
-    icon: "/images/ecosystem/goneuron.jepg",
+    icon: "/images/ecosystem/goneuron.jpeg",
     name: "neuron 🧠",
     link: "https://goneuron.xyz/",
     description:
