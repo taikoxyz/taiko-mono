@@ -34,6 +34,16 @@ contract BadReceiver {
     }
 }
 
+
+contract GoodReceiver {
+    receive() external payable {
+    }
+
+    function forward(address addr) public payable {
+        payable(addr).transfer(address(this).balance / 2);
+    }
+}
+
 contract PrankCrossChainSync is ICrossChainSync {
     bytes32 private _blockHash;
     bytes32 private _signalRoot;
@@ -58,6 +68,7 @@ contract PrankCrossChainSync is ICrossChainSync {
 contract BridgeTest is Test {
     AddressManager addressManager;
     BadReceiver badReceiver;
+    GoodReceiver goodReceiver;
     Bridge bridge;
     Bridge destChainBridge;
     EtherVault etherVault;
@@ -67,8 +78,8 @@ contract BridgeTest is Test {
     uint256 destChainId = 19_389;
 
     address public constant Alice = 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4;
-
     address public constant Bob = 0x50081b12838240B1bA02b3177153Bca678a86078;
+    address public constant Cecile = 0x60081B12838240b1Ba02B3177153BCa678a86086;
 
     function setUp() public {
         vm.startPrank(Alice);
@@ -82,8 +93,12 @@ contract BridgeTest is Test {
         destChainBridge = new Bridge();
         destChainBridge.init(address(addressManager));
 
+        vm.deal(address(destChainBridge), 100 ether);
+
         mockProofBridge = new MockProofBridge();
         mockProofBridge.init(address(addressManager));
+
+        vm.deal(address(mockProofBridge), 100 ether);
 
         signalService = new SignalService();
         signalService.init(address(addressManager));
@@ -101,7 +116,128 @@ contract BridgeTest is Test {
             destChainId, "bridge", address(destChainBridge)
         );
 
+        addressManager.setAddress(
+            block.chainid, "bridge", address(bridge)
+        );
+
         vm.stopPrank();
+    }
+
+    function test_send_ether_to_to_with_value() public {
+        IBridge.Message memory message = IBridge.Message({
+            id: 0,
+            from: address(bridge),
+            srcChainId: block.chainid,
+            destChainId: destChainId,
+            user: Alice,
+            to: Alice,
+            refundAddress: Alice,
+            value: 1000,
+            fee: 1000,
+            gasLimit: 1_000_000,
+            data: "",
+            memo: ""
+        });
+        // Mocking proof - but obviously it needs to be created in prod
+        // coresponding to the message
+        bytes memory proof =
+            hex"00";
+
+        bytes32 msgHash = destChainBridge.hashMessage(message);
+
+        vm.chainId(destChainId);
+        vm.prank(Bob, Bob);
+        mockProofBridge.processMessage(message, proof);
+
+        LibBridgeStatus.MessageStatus status =
+            mockProofBridge.getMessageStatus(msgHash);
+
+        assertEq(status == LibBridgeStatus.MessageStatus.DONE, true);
+        // Alice has 100 ether + 1000 wei balance, because we did not use the 'sendMessage'
+        // since we mocking the proof, so therefore the 1000 wei deduction/transfer did
+        // not happen
+        assertEq(Alice.balance, 100000000000000001000);
+        assertEq(Bob.balance, 1000);
+    }
+
+    function test_send_ether_to_contract_with_value() public {
+        goodReceiver = new GoodReceiver();
+
+        IBridge.Message memory message = IBridge.Message({
+            id: 0,
+            from: address(bridge),
+            srcChainId: block.chainid,
+            destChainId: destChainId,
+            user: Alice,
+            to: address(goodReceiver),
+            refundAddress: Alice,
+            value: 1000,
+            fee: 1000,
+            gasLimit: 1_000_000,
+            data: "",
+            memo: ""
+        });
+        // Mocking proof - but obviously it needs to be created in prod
+        // coresponding to the message
+        bytes memory proof =
+            hex"00";
+
+        bytes32 msgHash = destChainBridge.hashMessage(message);
+
+        vm.chainId(destChainId);
+
+        vm.prank(Bob, Bob);
+        mockProofBridge.processMessage(message, proof);
+
+        LibBridgeStatus.MessageStatus status =
+            mockProofBridge.getMessageStatus(msgHash);
+
+        assertEq(status == LibBridgeStatus.MessageStatus.DONE, true);
+
+        // Bob (relayer) and goodContract has 1000 wei balance
+        assertEq(address(goodReceiver).balance, 1000);
+        assertEq(Bob.balance, 1000);
+    }
+
+    function test_send_ether_to_contract_with_value_and_message_data() public {
+        goodReceiver = new GoodReceiver();
+
+        IBridge.Message memory message = IBridge.Message({
+            id: 0,
+            from: address(bridge),
+            srcChainId: block.chainid,
+            destChainId: destChainId,
+            user: Alice,
+            to: address(goodReceiver),
+            refundAddress: Alice,
+            value: 1000,
+            fee: 1000,
+            gasLimit: 1_000_000,
+            data: abi.encodeWithSelector(
+                GoodReceiver.forward.selector, Cecile
+            ),
+            memo: ""
+        });
+        // Mocking proof - but obviously it needs to be created in prod
+        // coresponding to the message
+        bytes memory proof =
+            hex"00";
+
+        bytes32 msgHash = destChainBridge.hashMessage(message);
+
+        vm.chainId(destChainId);
+
+        vm.prank(Bob, Bob);
+        mockProofBridge.processMessage(message, proof);
+
+        LibBridgeStatus.MessageStatus status =
+            mockProofBridge.getMessageStatus(msgHash);
+
+        assertEq(status == LibBridgeStatus.MessageStatus.DONE, true);
+
+        // Cecile and goodContract has 500 wei balance
+        assertEq(address(goodReceiver).balance, 500);
+        assertEq(Cecile.balance, 500);
     }
 
     function test_send_message_ether_reverts_if_value_doesnt_match_expected()
