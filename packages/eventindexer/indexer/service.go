@@ -19,10 +19,11 @@ var (
 )
 
 type Service struct {
-	eventRepo eventindexer.EventRepository
-	blockRepo eventindexer.BlockRepository
-	statRepo  eventindexer.StatRepository
-	ethClient *ethclient.Client
+	eventRepo      eventindexer.EventRepository
+	blockRepo      eventindexer.BlockRepository
+	statRepo       eventindexer.StatRepository
+	nftBalanceRepo eventindexer.NFTBalanceRepository
+	ethClient      *ethclient.Client
 
 	processingBlockHeight uint64
 
@@ -33,12 +34,15 @@ type Service struct {
 	proverPool *proverpool.ProverPool
 	bridge     *bridge.Bridge
 	swaps      []*swap.Swap
+
+	indexNfts bool
 }
 
 type NewServiceOpts struct {
 	EventRepo           eventindexer.EventRepository
 	BlockRepo           eventindexer.BlockRepository
 	StatRepo            eventindexer.StatRepository
+	NFTBalanceRepo      eventindexer.NFTBalanceRepository
 	EthClient           *ethclient.Client
 	RPCClient           *rpc.Client
 	SrcTaikoAddress     common.Address
@@ -47,11 +51,16 @@ type NewServiceOpts struct {
 	SrcSwapAddresses    []common.Address
 	BlockBatchSize      uint64
 	SubscriptionBackoff time.Duration
+	IndexNFTs           bool
 }
 
 func NewService(opts NewServiceOpts) (*Service, error) {
 	if opts.EventRepo == nil {
 		return nil, eventindexer.ErrNoEventRepository
+	}
+
+	if opts.IndexNFTs && opts.NFTBalanceRepo == nil {
+		return nil, eventindexer.ErrNoNFTBalanceRepository
 	}
 
 	if opts.EthClient == nil {
@@ -104,16 +113,19 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 	}
 
 	return &Service{
-		eventRepo:  opts.EventRepo,
-		blockRepo:  opts.BlockRepo,
-		statRepo:   opts.StatRepo,
-		ethClient:  opts.EthClient,
-		taikol1:    taikoL1,
-		bridge:     bridgeContract,
-		proverPool: proverPool,
-		swaps:      swapContracts,
+		eventRepo:      opts.EventRepo,
+		blockRepo:      opts.BlockRepo,
+		statRepo:       opts.StatRepo,
+		nftBalanceRepo: opts.NFTBalanceRepo,
+		ethClient:      opts.EthClient,
+		taikol1:        taikoL1,
+		bridge:         bridgeContract,
+		proverPool:     proverPool,
+		swaps:          swapContracts,
 
 		blockBatchSize:      opts.BlockBatchSize,
 		subscriptionBackoff: opts.SubscriptionBackoff,
+
+		indexNfts: opts.IndexNFTs,
 	}, nil
 }

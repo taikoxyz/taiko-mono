@@ -38,22 +38,13 @@ struct BlockHeader {
  * @notice Provides functions to handle Ethereum block headers.
  */
 library LibBlockHeader {
-    // Constant for an empty ommers hash.
-    bytes32 public constant EMPTY_OMMERS_HASH =
-        0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347;
-
-    /**
-     * @dev Computes the Keccak-256 hash of an Ethereum block header.
-     * @param header The block header to hash.
-     * @return The Keccak-256 hash of the block header.
-     */
     function hashBlockHeader(BlockHeader memory header)
         internal
         pure
         returns (bytes32)
     {
         bytes memory rlpHeader =
-            LibRLPWriter.writeList(getBlockHeaderRLPItemsList(header, 0));
+            LibRLPWriter.writeList(_getBlockHeaderRLPItemsList(header, 0));
         return keccak256(rlpHeader);
     }
 
@@ -65,11 +56,11 @@ library LibBlockHeader {
      * @param extraCapacity Additional capacity for the list.
      * @return list The RLP item list for the block header.
      */
-    function getBlockHeaderRLPItemsList(
+    function _getBlockHeaderRLPItemsList(
         BlockHeader memory header,
         uint256 extraCapacity
     )
-        internal
+        private
         pure
         returns (bytes[] memory list)
     {

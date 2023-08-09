@@ -39,18 +39,4 @@ library LibAddress {
         // Ensure the transfer was successful
         require(success, "ETH transfer failed");
     }
-
-    /**
-     * @dev Retrieves the code hash of a specified address.
-     *
-     * @param addr The address to retrieve the code hash from.
-     * @return codehash The Keccak-256 hash of the contract code located at the
-     * address.
-     */
-    function codeHash(address addr) internal view returns (bytes32 codehash) {
-        assembly {
-            // Retrieve the code hash using assembly for efficiency
-            codehash := extcodehash(addr)
-        }
-    }
 }
