@@ -78,6 +78,16 @@ Verify you have some prover logs:
 
 You can check all commands to see prover logs in the [node runner manual](/docs/manuals/node-runner-manual#view-client-prover-relayer-logs).
 
+L2
+```sh
+docker compose logs -f l3_taiko_client_prover_relayer |egrep "block proof was|proof submission error|Block proven"
+```
+
+L3
+```sh
+docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f l3_taiko_client_prover_relayer |egrep "block proof was|proof submission error|Block proven"
+```
+
 ### Stake your TTKOe (Eldfell L3 provers only)
 
 The simple-taiko-node comes with a default value of `PROVE_UNASSIGNED_BLOCKS` set to `true`. This means that your prover will attempt to prove these open blocks. To be assigned blocks by the protocol, you need to stake your TTKOe.
