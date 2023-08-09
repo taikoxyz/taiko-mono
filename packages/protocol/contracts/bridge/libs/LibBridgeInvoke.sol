@@ -44,6 +44,8 @@ library LibBridgeInvoke {
             revert B_GAS_LIMIT();
         }
 
+        // Should we simply provide the message itself rather than
+        // a context object?
         state.ctx = IBridge.Context({
             msgHash: msgHash,
             from: message.from,
