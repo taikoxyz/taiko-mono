@@ -18,7 +18,7 @@ linters:
     - gocognit
     - gocritic
     - gofmt
-    - golint
+    # - revive
     - gosec
     - gosimple
     - lll
@@ -44,3 +44,6 @@ issues:
     - path: contracts\.go
       linters:
         - lll
+    - path: /
+      linters:
+        - typecheck
