@@ -162,28 +162,43 @@ sudo docker compose -f ./docker-compose.l3.yml --env-file .env.l3 up -d
 ```
 
 ### Verify node is running
-Check if the Execution Layer client is connected to Taiko L2
+
+#### Check with curl commands
+
+1. Check if the Execution Layer client is connected to Taiko L2:
+
 ```bash
 curl http://localhost:8547 \
   -X POST \
   -H "Content-Type: application/json" \
   --data '{"method":"eth_chainId","params":[],"id":1,"jsonrpc":"2.0"}'
 ```
-which should return chainId = 0x28c5d = 167005
-```bash 
+
+, which should return the chainId as `0x28c5d` (167005):
+
+```json
 {"jsonrpc":"2.0","id":0,"result":"0x28c5d"}
 ```
-Check if the Execution Layer client is synced by requesting the latest Taiko L2 block from the Execution Layer client
+
+2. Check if the Execution Layer client is synced by requesting the latest Taiko L2 block from the Execution Layer client:
+
 ```bash
 curl http://localhost:8547 \
   -X POST \
   -H "Content-Type: application/json" \
   --data '{"method":"eth_blockNumber","params":[],"id":1,"jsonrpc":"2.0"}'
 ```
-If the block response value is 0 or not growing, check the Taiko L2 logs here
+
+3. If the blockNumber response value is `0` or not growing, check the Taiko L2 logs here:
+
 ```bash
 sudo docker compose logs -f
 ```
+
+If you find an error, check the [Node troubleshooting](/docs/reference/node-troubleshooting) page.
+
+#### Check with the node dashboard
+
 A node dashboard will be running on `localhost` on the `GRAFANA_PORT` you set in your `.env` or `.env.l3` file. For a Grimsvotn L2 node that would default to: [http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview](http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview).
 
 You can verify that your node is syncing by checking the **chain head** on the dashboard and seeing that it is increasing. Once the chain head matches what's on the block explorer, you are fully synced.
@@ -196,6 +211,8 @@ You can verify that your node is syncing by checking the **chain head** on the d
   width={2539}
   height={1106}
 />
+
+If you find an error, check the [Node troubleshooting](/docs/reference/node-troubleshooting) page.
 
 ### Operate the node
 
