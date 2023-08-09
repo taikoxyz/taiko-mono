@@ -16,21 +16,24 @@ import { LibAddress } from "../libs/LibAddress.sol";
 import { BridgeErrors } from "./BridgeErrors.sol";
 
 /**
- * This contract is initialized with 2^128 Ether and allows authorized addresses
- * to release Ether.
- * @dev Only the contract owner can authorize or deauthorize addresses.
- * @custom:security-contact hello@taiko.xyz
+ * @title EtherVault
+ * @notice This contract is initialized with 2^128 Ether and allows authorized
+ * addresses
+ * to release Ether. Only the contract owner can authorize or deauthorize
+ * addresses.
  */
 contract EtherVault is EssentialContract, BridgeErrors {
     using LibAddress for address;
 
-    mapping(address addr => bool isAuthorized) private _authorizedAddrs;
-    uint256[49] private __gap;
+    mapping(address addr => bool isAuthorized) private _authorizedAddrs; // Authorized
+        // addresses
+    uint256[49] private __gap; // Gap for potential storage expansion
 
     event Authorized(address indexed addr, bool authorized);
     event EtherReleased(address indexed to, uint256 amount);
 
     modifier onlyAuthorized() {
+        // Ensure the caller is authorized to perform the action
         if (!isAuthorized(msg.sender)) {
             revert B_EV_NOT_AUTHORIZED();
         }
@@ -38,8 +41,9 @@ contract EtherVault is EssentialContract, BridgeErrors {
     }
 
     /**
-     * Function to receive Ether
-     * @dev Only authorized addresses can send Ether to the contract
+     * @notice Function to receive Ether. Only authorized addresses can send
+     * Ether
+     * to the contract.
      */
     receive() external payable {
         // EthVault's balance must == 0 OR the sender isAuthorized.
@@ -49,18 +53,18 @@ contract EtherVault is EssentialContract, BridgeErrors {
     }
 
     /**
-     * Initialize the contract with an address manager
-     * @param addressManager The address of the address manager
+     * @notice Initialize the contract with an address manager.
+     * @param addressManager The address of the address manager.
      */
     function init(address addressManager) external initializer {
         EssentialContract._init(addressManager);
     }
 
     /**
-     * Transfer Ether from EtherVault to a designated address, checking that the
-     * sender is authorized.
+     * @notice Transfer Ether from EtherVault to a designated address, checking
+     * that the sender is authorized.
      * @param recipient Address to receive Ether.
-     * @param amount Amount of ether to send.
+     * @param amount Amount of Ether to send.
      */
     function releaseEther(
         address recipient,
@@ -79,7 +83,8 @@ contract EtherVault is EssentialContract, BridgeErrors {
     }
 
     /**
-     * Set the authorized status of an address, only the owner can call this.
+     * @notice Set the authorized status of an address. Only the owner can call
+     * this.
      * @param addr Address to set the authorized status of.
      * @param authorized Authorized status to set.
      */
@@ -92,8 +97,9 @@ contract EtherVault is EssentialContract, BridgeErrors {
     }
 
     /**
-     * Get the authorized status of an address.
+     * @notice Get the authorized status of an address.
      * @param addr Address to get the authorized status of.
+     * @return Returns true if the address is authorized, false otherwise.
      */
     function isAuthorized(address addr) public view returns (bool) {
         return _authorizedAddrs[addr];

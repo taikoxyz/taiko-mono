@@ -16,12 +16,12 @@ import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
-/**
- * This contract is an upgradeable ERC20 contract that represents tokens bridged
- * from another chain.
- * @custom:security-contact hello@taiko.xyz
- */
 
+/**
+ * @title BridgedERC20
+ * @notice An upgradeable ERC20 contract that represents tokens bridged from
+ * another chain.
+ */
 contract BridgedERC20 is
     EssentialContract,
     IMintableERC20,
@@ -34,13 +34,14 @@ contract BridgedERC20 is
 
     uint256[47] private __gap;
 
+    // Custom error messages
     error BRIDGED_TOKEN_CANNOT_RECEIVE();
     error BRIDGED_TOKEN_INVALID_PARAMS();
 
     /**
-     * Initializes the contract.
-     * @dev Different BridgedERC20 Contract to be deployed
-     * per unique _srcToken i.e. one for USDC, one for USDT etc.
+     * @notice Initializes the contract.
+     * @dev Different BridgedERC20 Contract is deployed per unique _srcToken
+     * (e.g., one for USDC, one for USDT, etc.).
      * @param _addressManager The address manager.
      * @param _srcToken The source token address.
      * @param _srcChainId The source chain ID.
@@ -59,6 +60,7 @@ contract BridgedERC20 is
         external
         initializer
     {
+        // Check if provided parameters are valid
         if (
             _srcToken == address(0) || _srcChainId == 0
                 || _srcChainId == block.chainid || bytes(_symbol).length == 0
@@ -66,16 +68,20 @@ contract BridgedERC20 is
         ) {
             revert BRIDGED_TOKEN_INVALID_PARAMS();
         }
+
+        // Initialize EssentialContract and ERC20Upgradeable
         EssentialContract._init(_addressManager);
         ERC20Upgradeable.__ERC20_init({ name_: _name, symbol_: _symbol });
+
+        // Set contract properties
         srcToken = _srcToken;
         srcChainId = _srcChainId;
         srcDecimals = _decimals;
     }
 
     /**
-     * Mints tokens to an account.
-     * @dev Only a ERC20Vault can call this function.
+     * @notice Mints tokens to an account.
+     * @dev Only an ERC20Vault can call this function.
      * @param account The account to mint tokens to.
      * @param amount The amount of tokens to mint.
      */
@@ -91,8 +97,8 @@ contract BridgedERC20 is
     }
 
     /**
-     * Burns tokens from an account.
-     * @dev Only a ERC20Vault can call this function.
+     * @notice Burns tokens from an account.
+     * @dev Only an ERC20Vault can call this function.
      * @param account The account to burn tokens from.
      * @param amount The amount of tokens to burn.
      */
@@ -108,7 +114,7 @@ contract BridgedERC20 is
     }
 
     /**
-     * Transfers tokens from the caller to another account.
+     * @notice Transfers tokens from the caller to another account.
      * @dev Any address can call this. Caller must have at least 'amount' to
      * call this.
      * @param to The account to transfer tokens to.
@@ -129,7 +135,7 @@ contract BridgedERC20 is
     }
 
     /**
-     * Transfers tokens from one account to another account.
+     * @notice Transfers tokens from one account to another account.
      * @dev Any address can call this. Caller must have allowance of at least
      * 'amount' for 'from's tokens.
      * @param from The account to transfer tokens from.
@@ -151,6 +157,10 @@ contract BridgedERC20 is
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }
 
+    /**
+     * @notice Gets the name of the token.
+     * @return The name of the token with the source chain ID appended.
+     */
     function name()
         public
         view
@@ -163,7 +173,7 @@ contract BridgedERC20 is
     }
 
     /**
-     * Gets the number of decimal places of the token.
+     * @notice Gets the number of decimal places of the token.
      * @return The number of decimal places of the token.
      */
     function decimals()
@@ -176,11 +186,16 @@ contract BridgedERC20 is
     }
 
     /**
-     * Gets the canonical token's address and chain ID.
+     * @notice Gets the canonical token's address and chain ID.
+     * @return The canonical token's address and chain ID.
      */
     function canonical() public view returns (address, uint256) {
         return (srcToken, srcChainId);
     }
 }
 
+/**
+ * @title ProxiedBridgedERC20
+ * @dev Contract that extends Proxied and BridgedERC20.
+ */
 contract ProxiedBridgedERC20 is Proxied, BridgedERC20 { }

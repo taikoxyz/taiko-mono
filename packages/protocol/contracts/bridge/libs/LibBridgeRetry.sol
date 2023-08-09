@@ -15,7 +15,13 @@ import { LibBridgeInvoke } from "./LibBridgeInvoke.sol";
 import { LibBridgeStatus } from "./LibBridgeStatus.sol";
 
 /**
- * This library provides functions for retrying bridge messages.
+ * @title LibBridgeRetry Library
+ * @notice This library provides functions for retrying bridge messages that are
+ * marked as "RETRIABLE".
+ * The library facilitates the process of invoking the messageCall after
+ * releasing any associated Ether, allowing for retries. It handles the
+ * transition of message status from "RETRIABLE" to "DONE" on success, and to
+ * "FAILED" on the last attempt if unsuccessful.
  */
 library LibBridgeRetry {
     using LibAddress for address;
@@ -26,18 +32,17 @@ library LibBridgeRetry {
     error B_MSG_NON_RETRIABLE();
 
     /**
-     * Retries to invoke the messageCall after Ether has been sent to the user.
-     * @dev This function can be called by any address, including
+     * @notice Retry to invoke the messageCall after releasing associated Ether
+     * and tokens.
+     * @dev This function can be called by any address, including the
      * `message.user`.
-     * Can only be called on messages marked "RETRIABLE". If it succeeds, the
-     * message is marked as "DONE".
-     * If it fails and `isLastAttempt` is true, the message is marked as
-     * "FAILED" and cannot be retried.
-     * @param state The current state of the Bridge
-     * @param resolver The address resolver
-     * @param message The message to retry
+     * It attempts to invoke the messageCall and updates the message status
+     * accordingly.
+     * @param state The current state of the Bridge.
+     * @param resolver The address resolver.
+     * @param message The message to retry.
      * @param isLastAttempt Specifies if this is the last attempt to retry the
-     * message
+     * message.
      */
     function retryMessage(
         LibBridgeData.State storage state,
@@ -47,8 +52,8 @@ library LibBridgeRetry {
     )
         internal
     {
-        // If the gasLimit is set to 0 or isLastAttempt is true, the
-        // address calling this function must be message.user.
+        // If the gasLimit is set to 0 or isLastAttempt is true, the caller must
+        // be the message.user.
         if (message.gasLimit == 0 || isLastAttempt) {
             if (msg.sender != message.user) revert B_DENIED();
         }
@@ -61,6 +66,8 @@ library LibBridgeRetry {
             revert B_MSG_NON_RETRIABLE();
         }
 
+        // Release necessary Ether from EtherVault if on Taiko, otherwise it's
+        // already available on this Bridge.
         address ethVault = resolver.resolve("ether_vault", true);
         if (ethVault != address(0)) {
             EtherVault(payable(ethVault)).releaseEther(
@@ -68,32 +75,33 @@ library LibBridgeRetry {
             );
         }
 
-        // successful invocation
+        // Attempt to invoke the messageCall.
         if (
-            LibBridgeInvoke
-                // The message.gasLimit only apply for processMessage, if it
-                // fails
-                // then whoever calls retryMessage will use the tx's gasLimit.
-                .invokeMessageCall({
+            LibBridgeInvoke.invokeMessageCall({
                 state: state,
                 message: message,
                 msgHash: msgHash,
                 gasLimit: gasleft()
             })
         ) {
+            // Update the message status to "DONE" on successful invocation.
             LibBridgeStatus.updateMessageStatus(
                 msgHash, LibBridgeStatus.MessageStatus.DONE
             );
         } else if (isLastAttempt) {
+            // Update the message status to "FAILED" on the last attempt if
+            // unsuccessful.
             LibBridgeStatus.updateMessageStatus(
                 msgHash, LibBridgeStatus.MessageStatus.FAILED
             );
 
+            // Refund to the specified address, or the user if not specified.
             address refundTo =
                 message.refundTo == address(0) ? message.user : message.refundTo;
 
             refundTo.sendEther(message.value);
         } else {
+            // Release Ether back to EtherVault if not the last attempt.
             ethVault.sendEther(message.value);
         }
     }

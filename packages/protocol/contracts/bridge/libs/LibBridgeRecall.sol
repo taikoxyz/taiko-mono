@@ -14,10 +14,12 @@ import { LibBridgeStatus } from "./LibBridgeStatus.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 
 /**
- * This library provides functions for releasing Ether (and tokens) related to
- * message execution on the Bridge.
+ * @title LibBridgeRecall Library
+ * @notice This library provides functions for releasing Ether and tokens
+ * related to message execution on the Bridge.
+ * The library allows recalling failed messages on their source chain, releasing
+ * associated assets.
  */
-
 library LibBridgeRecall {
     using LibBridgeData for IBridge.Message;
     using LibAddress for address;
@@ -28,14 +30,16 @@ library LibBridgeRecall {
     error B_MSG_RECALLED_ALREADY();
 
     /**
-     * /**
-     * Recall a failed message on its source chain.
-     * @dev This function will potentially release any Ether or tokens locked.
-     * @param state The current state of the Bridge
-     * @param resolver The AddressResolver instance
-     * @param message The message whose associated Ether should be released
-     * @param proof The proof data
-     * @param checkProof Indicating if checking the proof or not (test version)
+     * @notice Recall a failed message on its source chain, releasing associated
+     * assets.
+     * @dev This function checks if the message failed on the source chain and
+     * releases associated Ether or tokens.
+     * @param state The current state of the Bridge.
+     * @param resolver The AddressResolver instance.
+     * @param message The message whose associated Ether should be released.
+     * @param proof The proof data.
+     * @param checkProof A flag indicating whether to check the proof (test
+     * version).
      */
     function recallMessage(
         LibBridgeData.State storage state,
@@ -63,14 +67,17 @@ library LibBridgeRecall {
 
         state.recalls[msgHash] = true;
 
-        // We retrieve the necessary ether from EtherVault if receiving on
-        // Taiko, otherwise it is already available in this Bridge.
+        // Release necessary Ether from EtherVault if on Taiko, otherwise it's
+        // already available on this Bridge.
         address ethVault = resolver.resolve("ether_vault", true);
         if (ethVault != address(0)) {
             EtherVault(payable(ethVault)).releaseEther(
                 address(this), message.value
             );
         }
+
+        // Execute the recall logic based on the contract's support for the
+        // IRecallableMessageSender interface
         if (
             message.from.supportsInterface(
                 type(IRecallableMessageSender).interfaceId

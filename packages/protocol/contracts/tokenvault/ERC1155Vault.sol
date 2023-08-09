@@ -27,8 +27,11 @@ import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 
 /**
- * Some ERC1155 contracts implementing the name() and symbol()
- * functions, although they are not part of the interface
+ * @title ERC1155NameAndSymbol
+ * @notice Interface for ERC1155 contracts that provide name() and symbol()
+ * functions.
+ * These functions may not be part of the official interface but are used by
+ * some contracts.
  */
 interface ERC1155NameAndSymbol {
     function name() external view returns (string memory);
@@ -36,7 +39,8 @@ interface ERC1155NameAndSymbol {
 }
 
 /**
- * This vault holds all ERC1155 tokens that users have deposited.
+ * @title ERC1155Vault
+ * @notice This vault holds all ERC1155 tokens that users have deposited.
  * It also manages the mapping between canonical tokens and their bridged
  * tokens.
  */
@@ -46,34 +50,33 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     uint256[50] private __gap;
 
     /**
-     * Transfers ERC1155 tokens to this vault and sends a message to the
+     * @notice Transfers ERC1155 tokens to this vault and sends a message to the
      * destination chain so the user can receive the same (bridged) tokens
      * by invoking the message call.
-     *
      * @param opt Option for sending the ERC1155 token.
      */
-
     function sendToken(BridgeTransferOp memory opt)
         external
         payable
         nonReentrant
     {
+        // Validate amounts and addresses
         LibVaultUtils.checkIfValidAmounts(opt.amounts, opt.tokenIds, false);
         LibVaultUtils.checkIfValidAddresses(
             resolve(opt.destChainId, "erc1155_vault", false), opt.to, opt.token
         );
 
+        // Check token interface support
         if (!opt.token.supportsInterface(ERC1155_INTERFACE_ID)) {
             revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
 
-        // We need to save them into memory - because structs containing
-        // dynamic arrays will cause stack-too-deep error when passed to the
-        // emited event
+        // Store variables in memory to avoid stack-too-deep error
         uint256[] memory _amounts = opt.amounts;
         address _token = opt.token;
         uint256[] memory _tokenIds = opt.tokenIds;
 
+        // Create a message to send to the destination chain
         IBridge.Message memory message;
         message.destChainId = opt.destChainId;
         message.data = _sendToken(msg.sender, opt);
@@ -84,10 +87,12 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         message.refundTo = opt.refundTo;
         message.memo = opt.memo;
 
+        // Send the message and obtain the message hash
         bytes32 msgHash = IBridge(resolve("bridge", false)).sendMessage{
             value: msg.value
         }(message);
 
+        // Emit TokenSent event
         emit TokenSent({
             msgHash: msgHash,
             from: message.user,
@@ -100,12 +105,11 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     }
 
     /**
-     * @dev This function can only be called by the bridge contract while
+     * @notice This function can only be called by the bridge contract while
      * invoking a message call. See sendToken, which sets the data to invoke
      * this function.
      * @param ctoken The canonical ERC1155 token which may or may not
-     * live on this chain. If not, a BridgedERC1155 contract will be
-     * deployed.
+     * live on this chain. If not, a BridgedERC1155 contract will be deployed.
      * @param from The source address.
      * @param to The destination address.
      * @param tokenIds The tokenIds to be sent.
@@ -122,12 +126,14 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         nonReentrant
         onlyFromNamed("bridge")
     {
+        // Check context validity
         IBridge.Context memory ctx =
             LibVaultUtils.checkValidContext("erc1155_vault", address(this));
         address token;
 
         unchecked {
             if (ctoken.chainId == block.chainid) {
+                // Token lives on this chain
                 token = ctoken.addr;
                 for (uint256 i; i < tokenIds.length; ++i) {
                     ERC1155Upgradeable(token).safeTransferFrom({
@@ -139,6 +145,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                     });
                 }
             } else {
+                // Token does not live on this chain
                 token = _getOrDeployBridgedToken(ctoken);
                 for (uint256 i; i < tokenIds.length; ++i) {
                     ProxiedBridgedERC1155(token).mint(
@@ -148,6 +155,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             }
         }
 
+        // Emit TokenReceived event
         emit TokenReceived({
             msgHash: ctx.msgHash,
             from: from,
@@ -160,10 +168,10 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     }
 
     /**
-     * Release deposited ERC1155 token(s) back to the user on the source chain
-     * with
-     * a proof that the message processing on the destination Bridge has failed.
-     *
+     * @notice Release deposited ERC1155 token(s) back to the user on the source
+     * chain
+     * with a proof that the message processing on the destination Bridge has
+     * failed.
      * @param message The message that corresponds to the ERC1155 deposit on the
      * source chain.
      */
@@ -209,9 +217,10 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             }
         }
 
-        // send back Ether
+        // Send back Ether
         message.user.sendEther(message.value);
 
+        // Emit TokenReleased event
         emit TokenReleased({
             msgHash: msgHash,
             from: message.user,
@@ -289,16 +298,13 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                     symbol: "",
                     name: ""
                 });
-
                 ERC1155NameAndSymbol t = ERC1155NameAndSymbol(opt.token);
                 try t.name() returns (string memory _name) {
                     nft.name = _name;
                 } catch { }
-
                 try t.symbol() returns (string memory _symbol) {
                     nft.symbol = _symbol;
                 } catch { }
-
                 for (uint256 i; i < opt.tokenIds.length; ++i) {
                     ERC1155Upgradeable(opt.token).safeTransferFrom({
                         from: msg.sender,
@@ -310,7 +316,6 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                 }
             }
         }
-
         msgData = abi.encodeWithSelector(
             ERC1155Vault.receiveToken.selector,
             nft,
@@ -329,7 +334,6 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         returns (address btoken)
     {
         btoken = canonicalToBridged[ctoken.chainId][ctoken.addr];
-
         if (btoken == address(0)) {
             btoken = _deployBridgedToken(ctoken);
         }
@@ -344,7 +348,6 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         returns (address btoken)
     {
         ProxiedBridgedERC1155 bridgedToken = new ProxiedBridgedERC1155();
-
         btoken = LibVaultUtils.deployProxy(
             address(bridgedToken),
             owner(),
@@ -359,11 +362,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                 )
             )
         );
-
         isBridgedToken[btoken] = true;
         bridgedToCanonical[btoken] = ctoken;
         canonicalToBridged[ctoken.chainId][ctoken.addr] = btoken;
-
         emit BridgedTokenDeployed({
             chainId: ctoken.chainId,
             ctoken: ctoken.addr,

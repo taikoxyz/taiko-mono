@@ -17,8 +17,11 @@ import { LibBridgeStatus } from "./LibBridgeStatus.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 
 /**
- * This library provides functions for processing bridge messages on the
+ * @title LibBridgeProcess Library
+ * @notice This library provides functions for processing bridge messages on the
  * destination chain.
+ * The library handles the execution of bridge messages, status updates, and fee
+ * refunds.
  */
 library LibBridgeProcess {
     using LibMath for uint256;
@@ -32,17 +35,20 @@ library LibBridgeProcess {
     error B_WRONG_CHAIN_ID();
 
     /**
-     * Process the bridge message on the destination chain. It can be called by
-     * any address, including `message.user`.
-     * @dev It starts by hashing the message,
-     * and doing a lookup in the bridge state to see if the status is "NEW". It
-     * then takes custody of the ether from the EtherVault and attempts to
-     * invoke the messageCall, changing the message's status accordingly.
-     * Finally, it refunds the processing fee if needed.
-     * @param state The bridge state.
+     * @notice Process a bridge message on the destination chain. This function
+     * is callable by any address, including the `message.user`.
+     * @dev The process begins by hashing the message and checking the message
+     * status in the bridge state.
+     * If the status is "NEW", custody of Ether is taken from the EtherVault,
+     * and the message is invoked.
+     * The status is updated accordingly, and processing fees are refunded as
+     * needed.
+     * @param state The state of the bridge.
      * @param resolver The address resolver.
-     * @param message The message to process.
-     * @param proof The msgHash proof from the source chain.
+     * @param message The message to be processed.
+     * @param proof The proof of the message hash from the source chain.
+     * @param checkProof A boolean flag indicating whether to verify the signal
+     * receipt proof.
      */
     function processMessage(
         LibBridgeData.State storage state,
@@ -63,7 +69,7 @@ library LibBridgeProcess {
             revert B_WRONG_CHAIN_ID();
         }
 
-        // The message status must be "NEW"; "RETRIABLE" is handled in
+        // The message status must be "NEW"; "RETRIABLE" is managed in
         // LibBridgeRetry.sol.
         bytes32 msgHash = message.hashMessage();
         if (
@@ -72,7 +78,8 @@ library LibBridgeProcess {
         ) {
             revert B_STATUS_MISMATCH();
         }
-        // Message must have been "received" on the destChain (current chain)
+
+        // Check if the signal has been received on the source chain
         address srcBridge =
             resolver.resolve(message.srcChainId, "bridge", false);
 
@@ -89,8 +96,8 @@ library LibBridgeProcess {
             revert B_SIGNAL_NOT_RECEIVED();
         }
 
-        // We retrieve the necessary ether from EtherVault if receiving on
-        // Taiko, otherwise it is already available in this Bridge.
+        // Release necessary Ether from EtherVault if on Taiko, otherwise it's
+        // already available on this Bridge.
         address ethVault = resolver.resolve("ether_vault", true);
         if (ethVault != address(0)) {
             EtherVault(payable(ethVault)).releaseEther(
@@ -101,17 +108,15 @@ library LibBridgeProcess {
         LibBridgeStatus.MessageStatus status;
         uint256 refundAmount;
 
-        // if the user is sending to the bridge or zero-address, just process as
-        // DONE and refund the user
+        // Process message differently based on the target address
         if (message.to == address(this) || message.to == address(0)) {
-            // For these two special addresses, the call will not be actually
-            // invoked but will be marked DONE. The value will be refunded.
-            // UI can use this as a feature to deposit Ether to the refundTo
-            // address.
+            // Handle special addresses that don't require actual invocation but
+            // mark message as DONE
             status = LibBridgeStatus.MessageStatus.DONE;
             refundAmount = message.value;
         } else {
-            // use the specified message gas limit if not called by the user
+            // Use the specified message gas limit if called by the user, else
+            // use remaining gas
             uint256 gasLimit =
                 msg.sender == message.user ? gasleft() : message.gasLimit;
 
@@ -130,20 +135,19 @@ library LibBridgeProcess {
             }
         }
 
-        // Mark the status as DONE or RETRIABLE.
+        // Update the message status
         LibBridgeStatus.updateMessageStatus(msgHash, status);
 
+        // Determine the refund recipient
         address refundTo =
             message.refundTo == address(0) ? message.user : message.refundTo;
 
-        // if sender is the refundTo
+        // Refund the processing fee
         if (msg.sender == refundTo) {
             uint256 amount = message.fee + refundAmount;
             refundTo.sendEther(amount);
         } else {
-            // if sender is another address (eg. a vault)
-            // First attempt relayer is rewarded the fee
-            // message.user has to eat the cost
+            // If sender is another address, reward it and refund the rest
             msg.sender.sendEther(message.fee);
             refundTo.sendEther(refundAmount);
         }
