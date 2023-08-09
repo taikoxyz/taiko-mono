@@ -137,9 +137,8 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
 
     /**
      * @notice Release deposited ERC721 token(s) back to the user on the source
-     * chain
-     * with a proof that the message processing on the destination Bridge has
-     * failed.
+     * chain with a proof that the message processing on the destination Bridge
+     * has failed.
      * @param message The message that corresponds to the ERC721 deposit on the
      * source chain.
      */
