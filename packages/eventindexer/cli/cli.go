@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -15,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/db"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/http"
@@ -50,8 +50,6 @@ func Run(
 	if err := loadAndValidateEnv(); err != nil {
 		log.Fatal(err)
 	}
-
-	log.SetFormatter(&log.JSONFormatter{})
 
 	db, err := openDBConnection(eventindexer.DBConnectionOpts{
 		Name:     os.Getenv("MYSQL_USER"),

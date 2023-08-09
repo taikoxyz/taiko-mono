@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"math/big"
 
+	"log/slog"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
 )
@@ -18,14 +19,14 @@ func (svc *Service) handleEvent(
 	chainID *big.Int,
 	event *bridge.BridgeMessageSent,
 ) error {
-	log.Infof("event found for msgHash: %v, txHash: %v", common.Hash(event.MsgHash).Hex(), event.Raw.TxHash.Hex())
+	slog.Info("event found for msgHash", "msgHash", common.Hash(event.MsgHash).Hex(), "txHash", event.Raw.TxHash.Hex())
 
 	if err := svc.detectAndHandleReorg(ctx, relayer.EventNameMessageSent, common.Hash(event.MsgHash).Hex()); err != nil {
 		return errors.Wrap(err, "svc.detectAndHandleReorg")
 	}
 
 	if event.MsgHash == relayer.ZeroHash {
-		log.Warn("Zero msgHash found. This is unexpected. Returning early")
+		slog.Warn("Zero msgHash found. This is unexpected. Returning early")
 		return nil
 	}
 
@@ -64,7 +65,7 @@ func (svc *Service) handleEvent(
 	}
 
 	if !canProcessMessage(ctx, eventStatus, event.Message.Owner, svc.relayerAddr) {
-		log.Warnf("cant process msgHash: %v, eventStatus: %v", common.Hash(event.MsgHash).Hex(), eventStatus)
+		slog.Warn("cant process message", "msgHash", common.Hash(event.MsgHash).Hex(), "eventStatus", eventStatus)
 		return nil
 	}
 
@@ -85,7 +86,7 @@ func canProcessMessage(
 	// we can not process, exit early
 	if eventStatus == relayer.EventStatusNewOnlyOwner {
 		if messageOwner != relayerAddress {
-			log.Infof("gasLimit == 0 and owner is not the current relayer key, can not process. continuing loop")
+			slog.Info("gasLimit == 0 and owner is not the current relayer key, can not process. continuing loop")
 			return false
 		}
 
