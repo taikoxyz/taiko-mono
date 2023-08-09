@@ -50,7 +50,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * Sends a message from the current chain to the destination chain specified
+     * Send a message from the current chain to the destination chain specified
      * in the message.
      * @dev Sends a message by calling the LibBridgeSend.sendMessage library
      * function.
@@ -94,7 +94,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * Processes a message received from another chain.
+     * Process a message received from another chain.
      * @dev Processes the message by calling the LibBridgeProcess.processMessage
      * library function.
      * @param message The message to process.
@@ -117,7 +117,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * Retries sending a message that previously failed to send.
+     * Retry sending a message that previously failed to send.
      * @dev Retries the message by calling the LibBridgeRetry.retryMessage
      * library function.
      * @param message The message to retry.
@@ -140,7 +140,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * Checks, on the source chain, if the message with the given hash has been
+     * Check, on the source chain, if the message with the given hash has been
      * sent.
      * @param msgHash The hash of the message.
      * @return Returns true if the message has been sent, false otherwise.
@@ -155,7 +155,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * Checks, on the destination chain, whether the message with the given hash
+     * Check, on the destination chain, whether the message with the given hash
      * has been received.
      * @param msgHash The hash of the message.
      * @param srcChainId The source chain ID.
@@ -182,7 +182,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * Checks, on the source chain, whether a bridge message has failed on its
+     * Check, on the source chain, whether a bridge message has failed on its
      * destination chain.
      * @param msgHash The hash of the message.
      * @param destChainId The destination chain ID.
@@ -209,7 +209,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * Gets, on the desination chain, the status of a bridge message.
+     * Get, on the desination chain, the status of a bridge message.
      * @param msgHash The hash of the message.
      * @return Returns the status of the message.
      */
@@ -283,7 +283,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * Tells if we need to check real proof or it is a test.
+     * Tell if we need to check real proof or it is a test.
      * @return Returns true if this contract, or can be false if mock/test.
      */
     function shouldCheckProof() internal pure virtual returns (bool) {
