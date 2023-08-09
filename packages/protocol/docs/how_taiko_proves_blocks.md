@@ -173,7 +173,6 @@ In addition, ZKP must also prove the following:
 - `mixHash` == `meta.mixHash`.
 - `nonce` == 0.
 - `baseFeePerGas` == `block.basefee`
-- `withdrawalsRoot` == empty MPT withdrawals root
 
 Note that some of the header field checks above are duplicates of checks done in the Global Variable section.
 
@@ -289,7 +288,6 @@ h_difficulty("difficulty = 0")
 h_extra_data("extraData = ''")
 h_nonce("nonce = 0")
 h_basefee(basefee)
-h_withdrawals_root("withdrawalsRoot = empty MPT withdrawals root")
 end
 
 BlockHeader:::group
