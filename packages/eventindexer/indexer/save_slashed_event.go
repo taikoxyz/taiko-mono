@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"math/big"
+	"strconv"
+
+	"log/slog"
 
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/proverpool"
 )
@@ -17,14 +19,17 @@ func (svc *Service) saveSlashedEvents(
 	events *proverpool.ProverPoolSlashedIterator,
 ) error {
 	if !events.Next() || events.Event == nil {
-		log.Infof("no Slashed events")
+		slog.Info("no Slashed events")
 		return nil
 	}
 
 	for {
 		event := events.Event
 
-		log.Infof("new slashed event, addr: %v, amt: %v", event.Addr.Hex(), event.Amount)
+		slog.Info("new slashed event",
+			"address", event.Addr.Hex(),
+			"amount", strconv.FormatUint(event.Amount, 10),
+		)
 
 		if err := svc.saveSlashedEvent(ctx, chainID, event); err != nil {
 			eventindexer.SlashedEventsProcessedError.Inc()
