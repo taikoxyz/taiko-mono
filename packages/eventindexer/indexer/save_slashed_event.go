@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"math/big"
+	"strconv"
 
 	"log/slog"
 
@@ -25,7 +26,10 @@ func (svc *Service) saveSlashedEvents(
 	for {
 		event := events.Event
 
-		slog.Info("new slashed event", "address", event.Addr.Hex(), "amount", event.Amount)
+		slog.Info("new slashed event",
+			"address", event.Addr.Hex(),
+			"amount", strconv.FormatUint(event.Amount, 10),
+		)
 
 		if err := svc.saveSlashedEvent(ctx, chainID, event); err != nil {
 			eventindexer.SlashedEventsProcessedError.Inc()

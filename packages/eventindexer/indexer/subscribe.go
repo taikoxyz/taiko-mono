@@ -3,6 +3,7 @@ package indexer
 import (
 	"context"
 	"math/big"
+	"strconv"
 
 	"log/slog"
 
@@ -130,7 +131,10 @@ func (svc *Service) subscribeSlashed(
 			errChan <- errors.Wrap(err, "sub.Err()")
 		case event := <-sink:
 			go func() {
-				slog.Info("slashedEvent", "address", event.Addr.Hex(), "amount", event.Amount)
+				slog.Info("slashedEvent",
+					"address", event.Addr.Hex(),
+					"amount", strconv.FormatUint(event.Amount, 10),
+				)
 
 				if err := svc.saveSlashedEvent(ctx, chainID, event); err != nil {
 					eventindexer.SlashedEventsProcessedError.Inc()
@@ -194,7 +198,9 @@ func (svc *Service) subscribeStaked(
 			errChan <- errors.Wrap(err, "sub.Err()")
 		case event := <-sink:
 			go func() {
-				slog.Info("stakedEvent", "address", event.Addr.Hex(), event.Amount)
+				slog.Info("stakedEvent",
+					"address", event.Addr.Hex(),
+					"amount", event.Amount)
 
 				if err := svc.saveStakedEvent(ctx, chainID, event); err != nil {
 					eventindexer.StakedEventsProcessedError.Inc()

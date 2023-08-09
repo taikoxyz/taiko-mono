@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"math/big"
+	"strconv"
 
 	"log/slog"
 
@@ -25,7 +26,10 @@ func (svc *Service) saveStakedEvents(
 	for {
 		event := events.Event
 
-		slog.Info("new Staked event", "address", event.Addr.Hex(), "amount", event.Amount)
+		slog.Info("new Staked event",
+			"address", event.Addr.Hex(),
+			"amount", strconv.FormatUint(event.Amount, 10),
+		)
 
 		if err := svc.saveStakedEvent(ctx, chainID, event); err != nil {
 			eventindexer.StakedEventsProcessedError.Inc()

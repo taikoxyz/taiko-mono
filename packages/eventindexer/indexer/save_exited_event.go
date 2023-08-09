@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"math/big"
+	"strconv"
 
 	"log/slog"
 
@@ -25,7 +26,12 @@ func (svc *Service) saveExitedEvents(
 	for {
 		event := events.Event
 
-		slog.Info("new Exited event", "address", event.Addr.Hex(), "amount", event.Amount)
+		slog.Info("new Exited event",
+			"address",
+			event.Addr.Hex(),
+			"amount",
+			strconv.FormatUint(event.Amount, 10),
+		)
 
 		if err := svc.saveExitedEvent(ctx, chainID, event); err != nil {
 			eventindexer.ExitedEventsProcessedError.Inc()

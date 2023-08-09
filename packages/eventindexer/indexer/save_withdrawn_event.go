@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"math/big"
+	"strconv"
 
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
@@ -24,7 +25,10 @@ func (svc *Service) saveWithdrawnEvents(
 	for {
 		event := events.Event
 
-		slog.Info("new Withdrawn event", "address", event.Addr.Hex(), "amount", event.Amount)
+		slog.Info("new Withdrawn event",
+			"address", event.Addr.Hex(),
+			"amount", strconv.FormatUint(event.Amount, 10),
+		)
 
 		if err := svc.saveWithdrawnEvent(ctx, chainID, event); err != nil {
 			eventindexer.WithdrawnEventsProcessedError.Inc()
