@@ -140,7 +140,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * Check , on the source chain, if the message with the given hash has been
+     * Checks, on the source chain, if the message with the given hash has been
      * sent.
      * @param msgHash The hash of the message.
      * @return Returns true if the message has been sent, false otherwise.
