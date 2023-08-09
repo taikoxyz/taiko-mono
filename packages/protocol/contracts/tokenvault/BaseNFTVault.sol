@@ -34,7 +34,7 @@ abstract contract BaseNFTVault is EssentialContract {
         uint256[] amounts;
         uint256 gasLimit;
         uint256 fee;
-        address refundAddress;
+        address refundTo;
         string memo;
     }
 

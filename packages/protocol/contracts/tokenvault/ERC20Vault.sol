@@ -55,7 +55,7 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
         uint256 amount;
         uint256 gasLimit;
         uint256 fee;
-        address refundAddress;
+        address refundTo;
         string memo;
     }
 
@@ -221,7 +221,7 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
         message.to = resolve(opt.destChainId, "erc20_vault", false);
         message.gasLimit = opt.gasLimit;
         message.fee = opt.fee;
-        message.refundAddress = opt.refundAddress;
+        message.refundTo = opt.refundTo;
         message.memo = opt.memo;
         message.value = msg.value - opt.fee;
 

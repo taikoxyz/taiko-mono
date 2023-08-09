@@ -602,7 +602,7 @@ contract ERC1155VaultTest is Test {
         message.data = srcPrankBridge.getPreDeterminedDataBytes();
         message.gasLimit = 140_000;
         message.fee = 140_000;
-        message.refundAddress = Alice;
+        message.refundTo = Alice;
         message.memo = "";
         bytes memory proof = bytes("");
 

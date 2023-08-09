@@ -89,11 +89,10 @@ library LibBridgeRetry {
                 msgHash, LibBridgeStatus.MessageStatus.FAILED
             );
 
-            address refundAddress = message.refundAddress == address(0)
-                ? message.user
-                : message.refundAddress;
+            address refundTo =
+                message.refundTo == address(0) ? message.user : message.refundTo;
 
-            refundAddress.sendEther(message.value);
+            refundTo.sendEther(message.value);
         } else {
             ethVault.sendEther(message.value);
         }

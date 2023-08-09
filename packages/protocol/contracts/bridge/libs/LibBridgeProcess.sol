@@ -101,8 +101,7 @@ library LibBridgeProcess {
         uint256 refundAmount;
 
         // if the user is sending to the bridge or zero-address, just process as
-        // DONE
-        // and refund the user
+        // DONE and refund the user
         if (message.to == address(this) || message.to == address(0)) {
             // For these two special addresses, the call will not be actually
             // invoked but will be marked DONE. The value will be refunded.
@@ -131,20 +130,19 @@ library LibBridgeProcess {
         // Mark the status as DONE or RETRIABLE.
         LibBridgeStatus.updateMessageStatus(msgHash, status);
 
-        address refundAddress = message.refundAddress == address(0)
-            ? message.user
-            : message.refundAddress;
+        address refundTo =
+            message.refundTo == address(0) ? message.user : message.refundTo;
 
-        // if sender is the refundAddress
-        if (msg.sender == refundAddress) {
+        // if sender is the refundTo
+        if (msg.sender == refundTo) {
             uint256 amount = message.fee + refundAmount;
-            refundAddress.sendEther(amount);
+            refundTo.sendEther(amount);
         } else {
             // if sender is another address (eg. the relayer)
             // First attempt relayer is rewarded the fee
             // message.user has to eat the cost
             msg.sender.sendEther(message.fee);
-            refundAddress.sendEther(refundAmount);
+            refundTo.sendEther(refundAmount);
         }
     }
 }

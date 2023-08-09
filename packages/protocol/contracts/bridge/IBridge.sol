@@ -37,7 +37,7 @@ interface IBridge {
         // Destination user address.
         address to;
         // Alternate address to send any refund. If blank, defaults to user.
-        address refundAddress;
+        address refundTo;
         // value to invoke on the destination chain, for ERC20 transfers.
         uint256 value;
         // Processing fee for the relayer. Zero if user will process themself.

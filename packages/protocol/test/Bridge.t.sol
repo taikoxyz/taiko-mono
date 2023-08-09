@@ -126,7 +126,7 @@ contract BridgeTest is Test {
             destChainId: destChainId,
             user: Alice,
             to: Alice,
-            refundAddress: Alice,
+            refundTo: Alice,
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
@@ -166,7 +166,7 @@ contract BridgeTest is Test {
             destChainId: destChainId,
             user: Alice,
             to: address(goodReceiver),
-            refundAddress: Alice,
+            refundTo: Alice,
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
@@ -204,7 +204,7 @@ contract BridgeTest is Test {
             destChainId: destChainId,
             user: Alice,
             to: address(goodReceiver),
-            refundAddress: Alice,
+            refundTo: Alice,
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
@@ -507,7 +507,7 @@ contract BridgeTest is Test {
             destChainId: dest,
             user: 0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39,
             to: 0x200708D76eB1B69761c23821809d53F65049939e,
-            refundAddress: 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4,
+            refundTo: 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4,
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
@@ -542,7 +542,7 @@ contract BridgeTest is Test {
             id: 0, // placeholder, will be overwritten
             from: user, // placeholder, will be overwritten
             srcChainId: block.chainid, // will be overwritten
-            refundAddress: user,
+            refundTo: user,
             gasLimit: gasLimit,
             data: "",
             memo: ""

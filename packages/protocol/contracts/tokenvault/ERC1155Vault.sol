@@ -81,7 +81,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         message.to = resolve(message.destChainId, "erc1155_vault", false);
         message.gasLimit = opt.gasLimit;
         message.fee = opt.fee;
-        message.refundAddress = opt.refundAddress;
+        message.refundTo = opt.refundTo;
         message.memo = opt.memo;
 
         bytes32 msgHash = IBridge(resolve("bridge", false)).sendMessage{
