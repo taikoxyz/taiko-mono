@@ -87,6 +87,18 @@ contract ProverPool is EssentialContract, IProverPool {
         EssentialContract._init(_addressManager);
     }
 
+    /// @dev Admin function to clear/wipe trash data. Be careful with the length
+    /// of the array - (with lots of addresses might gas out)
+    /// @param wrongAddresses The array of addresses which have proverId stuck
+    function clearWrongProverIds(address[] memory wrongAddresses)
+        external
+        onlyOwner
+    {
+        for (uint256 i = 0; i < wrongAddresses.length; i++) {
+            stakers[wrongAddresses[i]].proverId = 0;
+        }
+    }
+
     /// @dev Protocol specifies the current feePerGas and assigns a prover to a
     /// block.
     /// @param blockId The block id.
