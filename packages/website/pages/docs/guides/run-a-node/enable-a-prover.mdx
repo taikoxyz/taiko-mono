@@ -90,20 +90,20 @@ To stake your TTKOe try using the [staking dashboard](https://staking.l3test.tai
 
 ### Changing the Staked TTKOe Amount (Only for Eldfell L3 Provers)
 
-In the event that you have staked TTKOe and made an error in the amount, you can change the staked amount at any time here.
-However, there are some considerations.
+In the event that you have staked TTKOe and made an error in the amount, you can change the staked amount at any time here. However, there are some considerations.
+
 For example, if you've staked 2 TTKOe and want to change the staked amount to 1 TTKOe, the difference of 1 TTKOe will be exited and you will not be able to withdraw it for a week. Be careful when entering the amount.
 
 <Callout type="warning">
   Always manually add eight zeros for the decimal '10^8`.
 </Callout>
 
-Enter an arbitrary number below. Unlike the UI's Amount per Capacity, the entered amount will be directly reflected.
+Enter the amount you wish to change your stake to for `amount` on the `stake()` function. Unlike the Staking Dashboard's Amount per Capacity, the entered amount will be the total staked amount. You can call the stake function on the ProverPool contract [here](https://explorer.test.taiko.xyz/address/0xC9580414A4372BDdBd8e19e01854DC0B2b1390Cf).
 
-8.stake →
-`amount`
-`rewardPerGas (uint32)`
-`maxCapacity (uint32)` (minimum:32)
+Here are the parameters to set for `stake()`:
+- `amount`
+- `rewardPerGas (uint32)`
+- `maxCapacity (uint32)` (minimum: 32)
 
 In the example above, if you enter 1 in the amount and click Write, the amount will change from 2 to 1, and 1 TTKOe will be exited.
 
