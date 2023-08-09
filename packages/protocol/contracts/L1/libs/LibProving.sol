@@ -76,6 +76,8 @@ library LibProving {
             revert L1_EVIDENCE_MISMATCH(blk.metaHash, evidence.metaHash);
         }
 
+        // If not the assigned prover must wait until the proof window has
+        // passed before proving the open block.
         if (
             evidence.prover != address(1)
                 && evidence.prover != blk.assignedProver

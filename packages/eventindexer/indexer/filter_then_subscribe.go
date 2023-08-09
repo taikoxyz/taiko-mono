@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"math/big"
 
+	"log/slog"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 )
 
@@ -36,15 +37,15 @@ func (svc *Service) FilterThenSubscribe(
 	}
 
 	if svc.processingBlockHeight == header.Number.Uint64() {
-		log.Infof("chain ID %v caught up, subscribing to new incoming events", chainID.Uint64())
+		slog.Info("indexing caught up subscribing to new incoming events", "chainID", chainID.Uint64())
 		return svc.subscribe(ctx, chainID)
 	}
 
-	log.Infof("chain ID %v getting events between %v and %v in batches of %v",
-		chainID.Uint64(),
-		svc.processingBlockHeight,
-		header.Number.Int64(),
-		svc.blockBatchSize,
+	slog.Info("getting batch of events",
+		"chainID", chainID.Uint64(),
+		"startBlock", svc.processingBlockHeight,
+		"endBlock", header.Number.Int64(),
+		"batchSize", svc.blockBatchSize,
 	)
 
 	for i := svc.processingBlockHeight; i < header.Number.Uint64(); i += svc.blockBatchSize {
@@ -78,7 +79,7 @@ func (svc *Service) FilterThenSubscribe(
 			return errors.Wrap(err, "svc.ethClient.HeaderByNumber")
 		}
 
-		log.Infof("setting last processed block to height: %v, hash: %v", end, header.Hash().Hex())
+		slog.Info("setting last processed block", "height", end, "hash", header.Hash().Hex())
 
 		if err := svc.blockRepo.Save(eventindexer.SaveBlockOpts{
 			Height:  uint64(end),
@@ -93,9 +94,9 @@ func (svc *Service) FilterThenSubscribe(
 		svc.processingBlockHeight = uint64(end)
 	}
 
-	log.Infof(
-		"chain id %v indexer fully caught up, checking latest block number to see if it's advanced",
-		chainID.Uint64(),
+	slog.Info(
+		"fully caught up, checking blockNumber to see if advanced",
+		"chainID", chainID.Uint64(),
 	)
 
 	latestBlock, err := svc.ethClient.HeaderByNumber(ctx, nil)
