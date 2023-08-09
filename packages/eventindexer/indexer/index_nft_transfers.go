@@ -66,7 +66,7 @@ func (svc *Service) isERC1155Transfer(ctx context.Context, vLog types.Log) bool 
 	}
 
 	// the first topic is ALWAYS the hash of the event signature.
-	// this is how peopel are expected to look up which event is which.
+	// this is how people are expected to look up which event is which.
 	if vLog.Topics[0].Hex() != transferSingleSignatureHash.Hex() &&
 		vLog.Topics[0].Hex() != transferBatchSignatureHash.Hex() {
 		return false
