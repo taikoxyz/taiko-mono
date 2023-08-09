@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"math/big"
 
+	"log/slog"
+
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/swap"
 )
@@ -22,7 +23,7 @@ func (svc *Service) saveLiquidityAddedEvents(
 	events *swap.SwapMintIterator,
 ) error {
 	if !events.Next() || events.Event == nil {
-		log.Infof("no LiquidityAdded events")
+		slog.Info("no LiquidityAdded events")
 		return nil
 	}
 
@@ -56,17 +57,17 @@ func (svc *Service) saveLiquidityAddedEvent(
 		return err
 	}
 
-	log.Infof("liquidityAdded event for sender %v, amount0: %v, amount1: %v",
-		from.Hex(),
-		event.Amount0.String(),
-		event.Amount1.String(),
+	slog.Info("liquidityAdded event for",
+		"sender", from.Hex(),
+		"amount0", event.Amount0.String(),
+		"amount1", event.Amount1.String(),
 	)
 
 	// we only want events with > 0.1 ETH swap
 	if event.Amount0.Cmp(minLiquidityAddedAmount) <= 0 && event.Amount1.Cmp(minLiquidityAddedAmount) <= 0 {
-		log.Infof("skipping liquidityAdded event, min trade too low. amountIn: %v, amountOut: %v",
-			event.Amount0.String(),
-			event.Amount1.String(),
+		slog.Info("skipping liquidityAdded event, min trade too low",
+			"amount0", event.Amount0.String(),
+			"amount1", event.Amount1.String(),
 		)
 
 		return nil

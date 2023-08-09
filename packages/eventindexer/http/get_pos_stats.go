@@ -4,10 +4,11 @@ import (
 	"context"
 	"net/http"
 
+	"log/slog"
+
 	"github.com/cyberhorsey/webutils"
 	"github.com/labstack/echo/v4"
 	"github.com/patrickmn/go-cache"
-	log "github.com/sirupsen/logrus"
 )
 
 type posStatsResponse struct {
@@ -48,10 +49,10 @@ func (srv *Server) getPosStats(ctx context.Context) (*posStatsResponse, error) {
 		return nil, err
 	}
 
-	log.Infof(
-		"pos stats, slashedTokens: %v, capacity: %v",
-		totalSlashedTokens.String(),
-		capacity.String(),
+	slog.Info(
+		"pos stats",
+		"totalSlashedTokens", totalSlashedTokens.String(),
+		"capacity", capacity.String(),
 	)
 
 	resp := &posStatsResponse{

@@ -3,10 +3,11 @@ package indexer
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"math/big"
+	"strconv"
 
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/proverpool"
 )
@@ -17,14 +18,17 @@ func (svc *Service) saveWithdrawnEvents(
 	events *proverpool.ProverPoolWithdrawnIterator,
 ) error {
 	if !events.Next() || events.Event == nil {
-		log.Infof("no Withdrawn events")
+		slog.Info("no Withdrawn events")
 		return nil
 	}
 
 	for {
 		event := events.Event
 
-		log.Infof("new Withdrawn event, addr: %v, amt: %v", event.Addr.Hex(), event.Amount)
+		slog.Info("new Withdrawn event",
+			"address", event.Addr.Hex(),
+			"amount", strconv.FormatUint(event.Amount, 10),
+		)
 
 		if err := svc.saveWithdrawnEvent(ctx, chainID, event); err != nil {
 			eventindexer.WithdrawnEventsProcessedError.Inc()

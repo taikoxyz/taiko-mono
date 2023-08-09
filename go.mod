@@ -1,6 +1,6 @@
 module github.com/taikoxyz/taiko-mono
 
-go 1.19
+go 1.21
 
 require (
 	github.com/buildkite/terminal-to-html/v3 v3.8.0
