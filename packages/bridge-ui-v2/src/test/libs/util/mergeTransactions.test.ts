@@ -2,7 +2,7 @@ import type { Address, Hex } from 'viem';
 
 import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
 import { TokenType } from '$libs/token';
-import { mergeUniqueTransactions } from '$libs/util/mergeTransactions';
+import { mergeAndCaptureOutdatedTransactions } from '$libs/util/mergeTransactions';
 
 describe('mergeUniqueTransactions', () => {
   // Given
@@ -64,23 +64,60 @@ describe('mergeUniqueTransactions', () => {
     },
   ];
 
-  it('should merge transactions without duplicates', () => {
+  it('should merge transactions when no outdated local ones', () => {
     // When
-    const result = mergeUniqueTransactions(localTxs, relayerTx);
+    const result = mergeAndCaptureOutdatedTransactions(localTxs, relayerTx);
 
     // Then
-    expect(result).toEqual([...localTxs, ...relayerTx]);
+    expect(extractHashes(result.mergedTransactions)).toEqual(extractHashes([...localTxs, ...relayerTx]));
+    expect(result.outdatedLocalTransactions).toEqual([]);
   });
 
-  it('should merge transactions and remove duplicates', () => {
+  it('should identify and capture outdated local transactions', () => {
     // Given
-    const duplicateTx = relayerTx[1];
-    const relayerTxWithDupes = [...relayerTx, duplicateTx];
+    const outdatedTx = relayerTx[0];
+    const localWithOutdated = [...localTxs, outdatedTx];
 
     // When
-    const result = mergeUniqueTransactions(localTxs, relayerTxWithDupes);
+    const result = mergeAndCaptureOutdatedTransactions(localWithOutdated, relayerTx);
 
     // Then
-    expect(result).toEqual([...localTxs, ...relayerTx]);
+    expect(extractHashes(result.mergedTransactions)).toEqual(extractHashes([...localTxs, ...relayerTx]));
+    expect(result.outdatedLocalTransactions).toEqual([outdatedTx]);
+  });
+
+  it('should merge transactions and capture outdated ones, complex', () => {
+    // Given
+
+    const localWithOutdated = [
+      ...localTxs,
+      {
+        hash: 'hash3' as Hex,
+        from: 'address2' as Address,
+        amount: BigInt(2000),
+        symbol: 'symbol2',
+        decimals: 2,
+        srcChainId: BigInt(1),
+        destChainId: BigInt(2),
+        status: MessageStatus.DONE,
+        msgHash: 'msg2' as Hex,
+        receipt: undefined,
+        tokenType: TokenType.ERC20,
+      },
+    ];
+
+    const expectedMergedHashes = extractHashes([...localTxs, ...relayerTx]);
+    const expectedOutdatedHashes = ['hash3' as Hex];
+
+    // When
+    const result = mergeAndCaptureOutdatedTransactions(localWithOutdated, relayerTx);
+
+    // Then
+    expect(extractHashes(result.mergedTransactions)).toEqual(expectedMergedHashes);
+    expect(extractHashes(result.outdatedLocalTransactions)).toEqual(expectedOutdatedHashes);
   });
 });
+
+function extractHashes(transactions: BridgeTransaction[]): Hex[] {
+  return transactions.map((tx) => tx.hash);
+}

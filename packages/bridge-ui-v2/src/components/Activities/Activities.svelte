@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
+  import type { Address } from 'viem';
 
   import { Card } from '$components/Card';
   import ChainSelector from '$components/ChainSelector/ChainSelector.svelte';
@@ -11,15 +12,13 @@
   import { activitiesConfig } from '$config';
   import { type BridgeTransaction, fetchTransactions } from '$libs/bridge';
   import { web3modal } from '$libs/connect';
+  import { bridgeTxService } from '$libs/storage';
   import { account, network } from '$stores';
   import type { Account } from '$stores/account';
-
-  import { bridgeTxService } from '$libs/storage';
 
   import MobileDetailsDialog from './MobileDetailsDialog.svelte';
   import StatusInfoDialog from './StatusInfoDialog.svelte';
   import Transaction from './Transaction.svelte';
-  import type { Address } from 'viem';
 
   let transactions: BridgeTransaction[] = [];
 
@@ -82,7 +81,6 @@
   };
 
   const updateTransactions = async (address: Address) => {
-    console.log('Fetching transactions');
     const { mergedTransactions, outdatedLocalTransactions } = await fetchTransactions(address);
     transactions = mergedTransactions;
     if (outdatedLocalTransactions.length > 0) {

@@ -18,12 +18,17 @@ export async function fetchTransactions(userAddress: Address) {
     page: 0,
     size: 100,
   });
-
+  log(`fetched ${txs.length} transactions from relayer`, txs);
   const { mergedTransactions, outdatedLocalTransactions } = mergeAndCaptureOutdatedTransactions(localTxs, txs);
 
-  log(`merging ${localTxs.length} local and ${txs.length} relayer transactions. New size: ${mergedTransactions.length}`);
+  log(
+    `merging ${localTxs.length} local and ${txs.length} relayer transactions. New size: ${mergedTransactions.length}`,
+  );
   if (outdatedLocalTransactions.length > 0) {
-    log(`found ${outdatedLocalTransactions.length} outdated transaction(s)`, outdatedLocalTransactions.map((tx) => tx.hash));
+    log(
+      `found ${outdatedLocalTransactions.length} outdated transaction(s)`,
+      outdatedLocalTransactions.map((tx) => tx.hash),
+    );
   }
 
   return { mergedTransactions, outdatedLocalTransactions };
