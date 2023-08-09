@@ -7,7 +7,6 @@
 pragma solidity ^0.8.20;
 
 import { LibBridgeData } from "./libs/LibBridgeData.sol";
-
 /**
  * @title IRecallableMessageSender
  * @notice An interface that all recallable message senders shall implement.
@@ -28,23 +27,30 @@ interface IRecallableMessageSender {
 interface IBridge {
     // Struct representing a message sent across the bridge.
     struct Message {
-        uint256 id; // Message ID.
-        address from; // Message sender address (auto-filled).
-        uint256 srcChainId; // Source chain ID (auto-filled).
-        uint256 destChainId; // Destination chain ID (auto-filled).
-        address user; // User address of the bridged asset.
-        address to; // Destination address.
-        address refundTo; // Alternate address to send any refund. If blank,
-            // defaults to user.
-        uint256 value; // Value to invoke on the destination chain, for ERC20
-            // transfers.
-        uint256 fee; // Processing fee for the relayer. Zero if user will
-            // process themselves.
-        uint256 gasLimit; // Gas limit to invoke on the destination chain, for
-            // ERC20 transfers.
-        bytes data; // Call data to invoke on the destination chain, for ERC20
-            // transfers.
-        string memo; // Optional memo.
+        // Message ID.
+        uint256 id;
+        // Message sender address (auto filled).
+        address from;
+        // Source chain ID (auto filled).
+        uint256 srcChainId;
+        // Destination chain ID where the `to` address lives (auto filled).
+        uint256 destChainId;
+        // User address of the bridged asset.
+        address user;
+        // Destination address.
+        address to;
+        // Alternate address to send any refund. If blank, defaults to user.
+        address refundTo;
+        // value to invoke on the destination chain, for ERC20 transfers.
+        uint256 value;
+        // Processing fee for the relayer. Zero if user will process themself.
+        uint256 fee;
+        // gasLimit to invoke on the destination chain, for ERC20 transfers.
+        uint256 gasLimit;
+        // callData to invoke on the destination chain, for ERC20 transfers.
+        bytes data;
+        // Optional memo.
+        string memo;
     }
 
     // Struct representing the context of a bridge operation.
