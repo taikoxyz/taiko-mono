@@ -2,10 +2,10 @@ package indexer
 
 import (
 	"context"
+	"log/slog"
 	"math/big"
 
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 )
 
@@ -38,7 +38,7 @@ func (svc *Service) setInitialProcessingBlockByMode(
 			startingBlock = latestProcessedBlock.Height
 		}
 
-		log.Infof("starting block: %v", startingBlock)
+		slog.Info("set processingBlockHeight", "startingBlock", startingBlock)
 
 		svc.processingBlockHeight = startingBlock
 

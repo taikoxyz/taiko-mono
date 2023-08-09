@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"math/big"
 
+	"log/slog"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/swap"
 )
@@ -23,7 +24,7 @@ func (svc *Service) saveSwapEvents(
 	events *swap.SwapSwapIterator,
 ) error {
 	if !events.Next() || events.Event == nil {
-		log.Infof("no Swap events")
+		slog.Info("no Swap events")
 		return nil
 	}
 
@@ -47,16 +48,16 @@ func (svc *Service) saveSwapEvent(
 	chainID *big.Int,
 	event *swap.SwapSwap,
 ) error {
-	log.Infof("swap event for sender 0x%v, amount: %v",
-		common.Bytes2Hex(event.Raw.Topics[2].Bytes()[12:]),
-		event.Amount0In.String(),
+	slog.Info("swap event",
+		"sender", fmt.Sprintf("0x%v", common.Bytes2Hex(event.Raw.Topics[2].Bytes()[12:])),
+		"amount", event.Amount0In.String(),
 	)
 
 	// we only want events with > 0.1 ETH swap
 	if event.Amount0In.Cmp(minTradeAmount) <= 0 && event.Amount1Out.Cmp(minTradeAmount) <= 0 {
-		log.Infof("skipping skip event, min trade too low. amountIn: %v, amountOut: %v",
-			event.Amount0In.String(),
-			event.Amount1Out.String(),
+		slog.Info("skipping skip event, min trade too low",
+			"amount0", event.Amount0In.String(),
+			"amount1", event.Amount1Out.String(),
 		)
 
 		return nil

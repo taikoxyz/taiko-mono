@@ -380,18 +380,18 @@ contract ProverPool is EssentialContract, IProverPool {
         // by keep rewardPerGas = 1
         provers[staker.proverId] = Prover(0, 1, 0);
 
-        if (prover.stakedAmount > 0) {
-            if (
-                checkExitTimestamp
-                    && block.timestamp <= staker.exitRequestedAt + MIN_CHANGE_DELAY
-            ) {
-                revert CHANGE_TOO_FREQUENT();
-            }
-
-            staker.exitAmount += prover.stakedAmount;
-            staker.exitRequestedAt = uint64(block.timestamp);
-            staker.proverId = 0;
+        // Clear data if there is an 'exit' anyway, regardless of
+        // staked amount.
+        if (
+            checkExitTimestamp
+                && block.timestamp <= staker.exitRequestedAt + MIN_CHANGE_DELAY
+        ) {
+            revert CHANGE_TOO_FREQUENT();
         }
+
+        staker.exitAmount += prover.stakedAmount;
+        staker.exitRequestedAt = uint64(block.timestamp);
+        staker.proverId = 0;
 
         emit Exited(addr, staker.exitAmount);
     }
