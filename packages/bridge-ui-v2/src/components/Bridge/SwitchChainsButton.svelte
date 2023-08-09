@@ -25,7 +25,7 @@
 </script>
 
 <button
-  class="f-center rounded-full bg-secondary-icon w-[30px] h-[30px]"
+  class="f-center rounded-full bg-secondary-icon w-[30px] h-[30px] hover:bg-primary-interactive-hover"
   disabled={!$destNetwork}
   on:click={switchToDestChain}>
   <Icon type="up-down" class="rotate-90" />

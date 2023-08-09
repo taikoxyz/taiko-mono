@@ -19,17 +19,19 @@ import (
 )
 
 type Server struct {
-	echo       *echo.Echo
-	eventRepo  eventindexer.EventRepository
-	statRepo   eventindexer.StatRepository
-	cache      *cache.Cache
-	proverPool *proverpool.ProverPool
+	echo           *echo.Echo
+	eventRepo      eventindexer.EventRepository
+	statRepo       eventindexer.StatRepository
+	nftBalanceRepo eventindexer.NFTBalanceRepository
+	cache          *cache.Cache
+	proverPool     *proverpool.ProverPool
 }
 
 type NewServerOpts struct {
 	Echo              *echo.Echo
 	EventRepo         eventindexer.EventRepository
 	StatRepo          eventindexer.StatRepository
+	NFTBalanceRepo    eventindexer.NFTBalanceRepository
 	ProverPoolAddress common.Address
 	EthClient         *ethclient.Client
 	CorsOrigins       []string
@@ -50,6 +52,10 @@ func (opts NewServerOpts) Validate() error {
 
 	if opts.CorsOrigins == nil {
 		return eventindexer.ErrNoCORSOrigins
+	}
+
+	if opts.NFTBalanceRepo == nil {
+		return eventindexer.ErrNoNFTBalanceRepository
 	}
 
 	// proverpooladdress is optional
@@ -76,11 +82,12 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 	}
 
 	srv := &Server{
-		echo:       opts.Echo,
-		eventRepo:  opts.EventRepo,
-		statRepo:   opts.StatRepo,
-		cache:      cache,
-		proverPool: proverPool,
+		echo:           opts.Echo,
+		eventRepo:      opts.EventRepo,
+		statRepo:       opts.StatRepo,
+		nftBalanceRepo: opts.NFTBalanceRepo,
+		cache:          cache,
+		proverPool:     proverPool,
 	}
 
 	corsOrigins := opts.CorsOrigins

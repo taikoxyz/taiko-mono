@@ -5,7 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	log "github.com/sirupsen/logrus"
+	"log/slog"
 )
 
 func (svc *Service) detectAndHandleReorg(ctx context.Context, eventType string, msgHash string) error {
@@ -19,7 +19,7 @@ func (svc *Service) detectAndHandleReorg(ctx context.Context, eventType string, 
 	}
 
 	// reorg detected
-	log.Infof("reorg detected for msgHash %v and eventType %v", msgHash, eventType)
+	slog.Info("reorg detected", "msgHash", msgHash, "eventType", eventType)
 
 	err = svc.eventRepo.Delete(ctx, e.ID)
 	if err != nil {
