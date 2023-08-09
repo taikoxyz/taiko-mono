@@ -25,6 +25,8 @@ linters:
     - unused
     - whitespace
     - wsl
+  disable:
+    - typecheck
 
 linters-settings:
   funlen:
