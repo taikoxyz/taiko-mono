@@ -15,8 +15,7 @@ import { LibAddress } from "../../libs/LibAddress.sol";
 
 /**
  * This library provides functions for releasing Ether (and tokens) related to
- * message
- * execution on the Bridge.
+ * message execution on the Bridge.
  */
 
 library LibBridgeRecall {

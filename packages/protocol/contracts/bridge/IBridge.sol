@@ -8,7 +8,7 @@ pragma solidity ^0.8.20;
 
 import { LibBridgeData } from "./libs/LibBridgeData.sol";
 /**
- * An interface that all recallable message sender shall implement.
+ * An interface that all recallable message senders shall implement.
  */
 
 interface IRecallableMessageSender {
@@ -34,7 +34,7 @@ interface IBridge {
         uint256 destChainId;
         // User address of the bridged asset.
         address user;
-        // Destination user address.
+        // Destination address.
         address to;
         // Alternate address to send any refund. If blank, defaults to user.
         address refundTo;
