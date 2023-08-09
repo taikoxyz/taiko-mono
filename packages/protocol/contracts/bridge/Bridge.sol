@@ -140,7 +140,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * Check if the message with the given hash has been sent.
+     * Check , on the source chain, if the message with the given hash has been
+     * sent.
      * @param msgHash The hash of the message.
      * @return Returns true if the message has been sent, false otherwise.
      */
@@ -154,7 +155,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * Check if the message with the given hash has been received.
+     * Checks, on the destination chain, whether the message with the given hash
+     * has been received.
      * @param msgHash The hash of the message.
      * @param srcChainId The source chain ID.
      * @param proof The proof of message receipt.
@@ -180,7 +182,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * Check if the message with the given hash has failed.
+     * Checks, on the source chain, whether a bridge message has failed on its
+     * destination chain.
      * @param msgHash The hash of the message.
      * @param destChainId The destination chain ID.
      * @param proof The proof of message failure.
@@ -206,7 +209,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /**
-     * Get the status of the message with the given hash.
+     * Gets, on the desination chain, the status of a bridge message.
      * @param msgHash The hash of the message.
      * @return Returns the status of the message.
      */

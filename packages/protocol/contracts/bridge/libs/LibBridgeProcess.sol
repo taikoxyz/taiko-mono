@@ -89,12 +89,13 @@ library LibBridgeProcess {
             revert B_SIGNAL_NOT_RECEIVED();
         }
 
-        uint256 allValue = message.value + message.fee;
         // We retrieve the necessary ether from EtherVault if receiving on
         // Taiko, otherwise it is already available in this Bridge.
         address ethVault = resolver.resolve("ether_vault", true);
         if (ethVault != address(0)) {
-            EtherVault(payable(ethVault)).releaseEther(address(this), allValue);
+            EtherVault(payable(ethVault)).releaseEther(
+                address(this), message.value + message.fee
+            );
         }
 
         LibBridgeStatus.MessageStatus status;
@@ -105,6 +106,8 @@ library LibBridgeProcess {
         if (message.to == address(this) || message.to == address(0)) {
             // For these two special addresses, the call will not be actually
             // invoked but will be marked DONE. The value will be refunded.
+            // UI can use this as a feature to deposit Ether to the refundTo
+            // address.
             status = LibBridgeStatus.MessageStatus.DONE;
             refundAmount = message.value;
         } else {
@@ -138,7 +141,7 @@ library LibBridgeProcess {
             uint256 amount = message.fee + refundAmount;
             refundTo.sendEther(amount);
         } else {
-            // if sender is another address (eg. the relayer)
+            // if sender is another address (eg. a vault)
             // First attempt relayer is rewarded the fee
             // message.user has to eat the cost
             msg.sender.sendEther(message.fee);
