@@ -58,8 +58,8 @@ func (p *Processor) ProcessMessage(
 	encodedSignalProof, err := p.prover.EncodedSignalProof(ctx, p.rpc, p.srcSignalServiceAddress, key, latestSyncedHeader)
 	if err != nil {
 		slog.Error("srcChainID: %v, destChainID: %v, txHash: %v: msgHash: %v, from: %v encountered signalProofError %v",
-			event.Message.SrcChainId,
-			event.Message.DestChainId,
+			event.Message.SrcChainId.String(),
+			event.Message.DestChainId.String(),
 			event.Raw.TxHash.Hex(),
 			common.Hash(event.MsgHash).Hex(),
 			event.Message.Owner.Hex(),
@@ -83,7 +83,7 @@ func (p *Processor) ProcessMessage(
 	if !received {
 		slog.Warn("Message not received on dest chain",
 			"msgHash", common.Hash(event.MsgHash).Hex(),
-			"srcChainId", event.Message.SrcChainId,
+			"srcChainId", event.Message.SrcChainId.String(),
 		)
 
 		relayer.MessagesNotReceivedOnDestChain.Inc()
