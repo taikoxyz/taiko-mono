@@ -21,6 +21,7 @@ import { IRecallableMessageSender, IBridge } from "../bridge/IBridge.sol";
 import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { TaikoToken } from "../L1/TaikoToken.sol";
+import { LibAddress } from "../libs/LibAddress.sol";
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 
@@ -33,7 +34,12 @@ import { EssentialContract } from "../common/EssentialContract.sol";
  * @custom:security-contact hello@taiko.xyz
  */
 
-contract ERC20Vault is EssentialContract, IERC165Upgradeable {
+contract ERC20Vault is
+    EssentialContract,
+    IERC165Upgradeable,
+    IRecallableMessageSender
+{
+    using LibAddress for address;
     using SafeERC20Upgradeable for ERC20Upgradeable;
 
     /*//////////////////////////////////////////////////////////////
@@ -295,11 +301,10 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
      */
     function onMessageRecalled(IBridge.Message calldata message)
         external
+        payable
+        override
         nonReentrant
         onlyFromNamed("bridge")
-        returns (
-            bytes4 // TODO(dani): you can remove the return
-        )
     {
         IBridge bridge = IBridge(resolve("bridge", false));
         bytes32 msgHash = bridge.hashMessage(message);
@@ -319,14 +324,15 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
             }
         }
 
+        // send back Ether
+        message.user.sendEther(message.value);
+
         emit TokenReleased({
             msgHash: msgHash,
             from: message.user,
             token: token,
             amount: amount
         });
-
-        return type(IRecallableMessageSender).interfaceId;
     }
 
     /**
