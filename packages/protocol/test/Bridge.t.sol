@@ -12,10 +12,9 @@ import { Test } from "forge-std/Test.sol";
 import { ICrossChainSync } from "../contracts/common/ICrossChainSync.sol";
 
 contract MockProofBridge is Bridge {
+    bool internal constant CHECK_MSG_FAILURE_USING_LIB = false;
 
-    bool constant internal CHECK_MSG_FAILURE_USING_LIB = false;
-
-    function getRealProofCheck() internal override pure returns (bool) {
+    function shouldCheckProof() internal pure override returns (bool) {
         return CHECK_MSG_FAILURE_USING_LIB;
     }
 }
@@ -34,10 +33,8 @@ contract BadReceiver {
     }
 }
 
-
 contract GoodReceiver {
-    receive() external payable {
-    }
+    receive() external payable { }
 
     function forward(address addr) public payable {
         payable(addr).transfer(address(this).balance / 2);
@@ -116,9 +113,7 @@ contract BridgeTest is Test {
             destChainId, "bridge", address(destChainBridge)
         );
 
-        addressManager.setAddress(
-            block.chainid, "bridge", address(bridge)
-        );
+        addressManager.setAddress(block.chainid, "bridge", address(bridge));
 
         vm.stopPrank();
     }
@@ -140,8 +135,7 @@ contract BridgeTest is Test {
         });
         // Mocking proof - but obviously it needs to be created in prod
         // coresponding to the message
-        bytes memory proof =
-            hex"00";
+        bytes memory proof = hex"00";
 
         bytes32 msgHash = destChainBridge.hashMessage(message);
 
@@ -153,10 +147,12 @@ contract BridgeTest is Test {
             mockProofBridge.getMessageStatus(msgHash);
 
         assertEq(status == LibBridgeStatus.MessageStatus.DONE, true);
-        // Alice has 100 ether + 1000 wei balance, because we did not use the 'sendMessage'
-        // since we mocking the proof, so therefore the 1000 wei deduction/transfer did
+        // Alice has 100 ether + 1000 wei balance, because we did not use the
+        // 'sendMessage'
+        // since we mocking the proof, so therefore the 1000 wei
+        // deduction/transfer did
         // not happen
-        assertEq(Alice.balance, 100000000000000001000);
+        assertEq(Alice.balance, 100_000_000_000_000_001_000);
         assertEq(Bob.balance, 1000);
     }
 
@@ -179,8 +175,7 @@ contract BridgeTest is Test {
         });
         // Mocking proof - but obviously it needs to be created in prod
         // coresponding to the message
-        bytes memory proof =
-            hex"00";
+        bytes memory proof = hex"00";
 
         bytes32 msgHash = destChainBridge.hashMessage(message);
 
@@ -213,15 +208,12 @@ contract BridgeTest is Test {
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
-            data: abi.encodeWithSelector(
-                GoodReceiver.forward.selector, Cecile
-            ),
+            data: abi.encodeWithSelector(GoodReceiver.forward.selector, Cecile),
             memo: ""
         });
         // Mocking proof - but obviously it needs to be created in prod
         // coresponding to the message
-        bytes memory proof =
-            hex"00";
+        bytes memory proof = hex"00";
 
         bytes32 msgHash = destChainBridge.hashMessage(message);
 
@@ -353,8 +345,7 @@ contract BridgeTest is Test {
             destChain: destChainId
         });
 
-        bytes32 msgHash =
-            bridge.sendMessage{ value: amount + fee }(message);
+        bytes32 msgHash = bridge.sendMessage{ value: amount + fee }(message);
 
         bool isMessageSent = bridge.isMessageSent(msgHash);
         assertEq(isMessageSent, true);
@@ -383,7 +374,7 @@ contract BridgeTest is Test {
     // in foundry
     function test_process_message() public {
         /* DISCALIMER: From now on we do not need to have real
-        proofs because we cna bypass with overriding getRealProofCheck()
+        proofs because we cna bypass with overriding shouldCheckProof()
         in a mockBirdge AND proof system already 'battle tested'.*/
         // This predefined successful process message call fails now
         // since we modified the iBridge.Message struct and cut out
@@ -407,7 +398,7 @@ contract BridgeTest is Test {
     // in foundry
     function test_retry_message_and_end_up_in_failed_status() public {
         /* DISCALIMER: From now on we do not need to have real
-        proofs because we cna bypass with overriding getRealProofCheck()
+        proofs because we cna bypass with overriding shouldCheckProof()
         in a mockBirdge AND proof system already 'battle tested'.*/
         vm.startPrank(Alice);
         (IBridge.Message memory message, bytes memory proof) =
@@ -468,7 +459,7 @@ contract BridgeTest is Test {
     }
 
     /* DISCALIMER: From now on we do not need to have real
-    proofs because we cna bypass with overriding getRealProofCheck()
+    proofs because we cna bypass with overriding shouldCheckProof()
     in a mockBirdge AND proof system already 'battle tested'.*/
     function setUpPredefinedSuccessfulProcessMessageCall()
         internal

@@ -49,7 +49,7 @@ library LibBridgeProcess {
         AddressResolver resolver,
         IBridge.Message calldata message,
         bytes calldata proof,
-        bool proofCheck
+        bool checkProof
     )
         internal
     {
@@ -76,18 +76,17 @@ library LibBridgeProcess {
         address srcBridge =
             resolver.resolve(message.srcChainId, "bridge", false);
 
-        if (proofCheck) {
-            if (
-                !ISignalService(resolver.resolve("signal_service", false))
+        if (
+            checkProof
+                && !ISignalService(resolver.resolve("signal_service", false))
                     .isSignalReceived({
                     srcChainId: message.srcChainId,
                     app: srcBridge,
                     signal: msgHash,
                     proof: proof
                 })
-            ) {
-                revert B_SIGNAL_NOT_RECEIVED();
-            }
+        ) {
+            revert B_SIGNAL_NOT_RECEIVED();
         }
 
         uint256 allValue = message.value + message.fee;

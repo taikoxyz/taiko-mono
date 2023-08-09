@@ -36,14 +36,14 @@ library LibBridgeRecall {
      * @param resolver The AddressResolver instance
      * @param message The message whose associated Ether should be released
      * @param proof The proof data
-     * @param proofCheck Indicating if checking the proof or not (test version)
+     * @param checkProof Indicating if checking the proof or not (test version)
      */
     function recallMessage(
         LibBridgeData.State storage state,
         AddressResolver resolver,
         IBridge.Message calldata message,
         bytes calldata proof,
-        bool proofCheck
+        bool checkProof
     )
         internal
     {
@@ -53,14 +53,13 @@ library LibBridgeRecall {
             revert B_MSG_RECALLED_ALREADY();
         }
 
-        if (proofCheck) {
-            if (
-                !LibBridgeStatus.isMessageFailed(
+        if (
+            checkProof
+                && !LibBridgeStatus.isMessageFailed(
                     resolver, msgHash, message.destChainId, proof
                 )
-            ) {
-                revert B_MSG_NOT_FAILED();
-            }
+        ) {
+            revert B_MSG_NOT_FAILED();
         }
 
         state.recalls[msgHash] = true;

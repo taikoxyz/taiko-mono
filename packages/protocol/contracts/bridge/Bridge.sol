@@ -89,7 +89,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
             resolver: AddressResolver(this),
             message: message,
             proof: proof,
-            proofCheck: getRealProofCheck()
+            checkProof: shouldCheckProof()
         });
     }
 
@@ -112,7 +112,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
             resolver: AddressResolver(this),
             message: message,
             proof: proof,
-            proofCheck: getRealProofCheck()
+            checkProof: shouldCheckProof()
         });
     }
 
@@ -283,7 +283,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
      * Tells if we need to check real proof or it is a test.
      * @return Returns true if this contract, or can be false if mock/test.
      */
-    function getRealProofCheck() internal virtual pure returns (bool) {
+    function shouldCheckProof() internal pure virtual returns (bool) {
         return true;
     }
 }

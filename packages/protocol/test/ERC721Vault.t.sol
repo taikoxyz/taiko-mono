@@ -118,10 +118,9 @@ contract PrankDestBridge {
 // PrankSrcBridge lets us mock Bridge/SignalService to return true when called
 // isMessageFailed()
 contract PrankSrcBridge is Bridge {
+    bool internal constant CHECK_MSG_FAILURE_USING_LIB = false;
 
-    bool constant internal CHECK_MSG_FAILURE_USING_LIB = false;
-
-    function getRealProofCheck() internal override pure returns (bool) {
+    function shouldCheckProof() internal pure override returns (bool) {
         return CHECK_MSG_FAILURE_USING_LIB;
     }
 
@@ -255,7 +254,7 @@ contract ERC721VaultTest is Test {
         );
         addressManager.setAddress(
             block.chainid, "erc20_vault", address(srcPrankBridge)
-        );        
+        );
         addressManager.setAddress(
             block.chainid, "ether_vault", address(etherVault)
         );
@@ -587,7 +586,9 @@ contract ERC721VaultTest is Test {
         // Let's test that message is failed and we want to release it back to
         // the owner
         vm.prank(Amelia, Amelia);
-        addressManager.setAddress(block.chainid, "bridge", address(srcPrankBridge));
+        addressManager.setAddress(
+            block.chainid, "bridge", address(srcPrankBridge)
+        );
 
         vm.prank(Alice, Alice);
         erc721Vault.sendToken{ value: 140_000 }(sendOpts);
