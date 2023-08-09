@@ -2,13 +2,13 @@ package message
 
 import (
 	"context"
+	"log/slog"
 	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
 )
 
@@ -21,11 +21,10 @@ func (p *Processor) waitHeaderSynced(ctx context.Context, event *bridge.BridgeMe
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			log.Infof(
-				"msgHash: %v, txHash: %v is waiting to be processable. occurred in block %v",
-				common.Hash(event.MsgHash).Hex(),
-				event.Raw.TxHash.Hex(),
-				event.Raw.BlockNumber,
+			slog.Info("waitHeaderSynced checking if tx is processable",
+				"msgHash", common.Hash(event.MsgHash).Hex(),
+				"txHash", event.Raw.TxHash.Hex(),
+				"blockNumber", event.Raw.BlockNumber,
 			)
 			// get latest synced header since not every header is synced from L1 => L2,
 			// and later blocks still have the storage trie proof from previous blocks.
@@ -41,23 +40,21 @@ func (p *Processor) waitHeaderSynced(ctx context.Context, event *bridge.BridgeMe
 
 			// header is caught up and processible
 			if header.Number.Uint64() >= event.Raw.BlockNumber {
-				log.Infof(
-					"msgHash: %v, txHash: %v is processable. occurred in block %v, latestSynced is block %v",
-					common.Hash(event.MsgHash).Hex(),
-					event.Raw.TxHash.Hex(),
-					event.Raw.BlockNumber,
-					header.Number.Uint64(),
+				slog.Info("waitHeaderSynced processable",
+					"msgHash", common.Hash(event.MsgHash).Hex(),
+					"txHash", event.Raw.TxHash.Hex(),
+					"eventBlockNum", event.Raw.BlockNumber,
+					"latestSyncedBlockNum", header.Number.Uint64(),
 				)
 
 				return nil
 			}
 
-			log.Infof(
-				"msgHash: %v, txHash: %v is waiting to be processable. occurred in block %v, latestSynced is block %v",
-				common.Hash(event.MsgHash).Hex(),
-				event.Raw.TxHash.Hex(),
-				event.Raw.BlockNumber,
-				header.Number.Uint64(),
+			slog.Info("waitHeaderSynced waiting to be processable",
+				"msgHash", common.Hash(event.MsgHash).Hex(),
+				"txHash", event.Raw.TxHash.Hex(),
+				"eventBlockNum", event.Raw.BlockNumber,
+				"latestSyncedBlockNum", header.Number.Uint64(),
 			)
 		}
 	}

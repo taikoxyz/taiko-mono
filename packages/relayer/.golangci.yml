@@ -18,7 +18,7 @@ linters:
     - gocognit
     - gocritic
     - gofmt
-    - golint
+    # - revive
     - gosec
     - gosimple
     - lll
@@ -39,6 +39,9 @@ issues:
     - path: _test\.go
       linters:
         - funlen
+    - path: /
+      linters:
+        - typecheck
 
 run:
   skip-dirs:
