@@ -109,7 +109,7 @@ library LibBridgeStatus {
             return false;
         }
 
-        return LibTrieProof.verifyWithAccountProof({
+        return LibTrieProof.verifyWithFullMerkleProof({
             stateRoot: sp.header.stateRoot,
             addr: resolver.resolve(destChainId, "bridge", false),
             slot: getMessageStatusSlot(msgHash),
