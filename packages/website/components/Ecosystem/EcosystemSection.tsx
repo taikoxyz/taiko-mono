@@ -58,6 +58,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/cloak.png",
+    name: "Cloak",
+    link: "https://cloak.exchange/",
+    description:
+      "Cloak is a non-custodial dark pool, offering trustless, MEV-resistant, and slippage-resistant trades for any ERC-20 trading pairs.",
+    filters: [],
+    isLive: false,
+  },
+  {
     icon: "/images/ecosystem/crypton.png",
     name: "Crypton",
     link: "https://crypton.xyz",
