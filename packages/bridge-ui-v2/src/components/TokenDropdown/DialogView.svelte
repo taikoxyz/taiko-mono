@@ -103,14 +103,13 @@
           <Icon type="plus-circle" fillClass="fill-primary-icon" size={20} vWidth={30} vHeight={30} />
           <span
             class="
-            text-sm
-            font-medium
+            body-bold
             bg-transparent
             flex-1
             w-[100px]
             px-0
             pl-2">
-            Add Custom
+            {$t('token_dropdown.add_custom')}
           </span>
         </button>
       </li>

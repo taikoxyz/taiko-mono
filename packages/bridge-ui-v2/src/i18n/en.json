@@ -173,7 +173,8 @@
     }
   },
   "token_dropdown": {
-    "label": "Select token"
+    "label": "Select token",
+    "add_custom": "Add Custom"
   },
   "inputs": {
     "nft": {
