@@ -22,10 +22,4 @@ library LibAddress {
         (bool success,) = payable(to).call{ value: amount }("");
         require(success, "ETH transfer failed");
     }
-
-    function codeHash(address addr) internal view returns (bytes32 codehash) {
-        assembly {
-            codehash := extcodehash(addr)
-        }
-    }
 }

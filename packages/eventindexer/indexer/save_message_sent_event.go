@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"math/big"
 
+	"log/slog"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/bridge"
 )
@@ -23,14 +24,14 @@ func (svc *Service) saveMessageSentEvents(
 	events *bridge.BridgeMessageSentIterator,
 ) error {
 	if !events.Next() || events.Event == nil {
-		log.Infof("no MessageSent events")
+		slog.Info("no MessageSent events")
 		return nil
 	}
 
 	for {
 		event := events.Event
 
-		log.Infof("new messageSent event for owner: %v", event.Message.Owner.Hex())
+		slog.Info("new messageSent event", "owner", event.Message.Owner.Hex())
 
 		if err := svc.saveMessageSentEvent(ctx, chainID, event); err != nil {
 			eventindexer.MessageSentEventsProcessedError.Inc()
@@ -51,14 +52,16 @@ func (svc *Service) saveMessageSentEvent(
 ) error {
 	// only save eth transfers
 	if event.Message.Data != nil && common.BytesToHash(event.Message.Data) != zeroHash {
-		log.Info("skipping message sent event, is not eth transfer")
+		slog.Info("skipping message sent event, is not eth transfer")
 		return nil
 	}
 
 	// amount must be >= 0.15 eth
 	if event.Message.DepositValue.Cmp(minEthAmount) < 0 {
-		log.Infof("skipping message sent event, value: %v, requiredValue: %v",
+		slog.Info("skipping message sent event",
+			"value",
 			event.Message.DepositValue.String(),
+			"requiredValue",
 			minEthAmount.String(),
 		)
 

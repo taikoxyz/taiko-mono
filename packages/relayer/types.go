@@ -6,12 +6,13 @@ import (
 	"math/big"
 	"time"
 
+	"log/slog"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/tokenvault"
 )
@@ -43,7 +44,7 @@ func WaitReceipt(ctx context.Context, confirmer confirmer, txHash common.Hash) (
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
-	log.Infof("waiting for transaction receipt for txHash %v", txHash.Hex())
+	slog.Info("waiting for transaction receipt", "txHash", txHash.Hex())
 
 	for {
 		select {
@@ -59,7 +60,7 @@ func WaitReceipt(ctx context.Context, confirmer confirmer, txHash common.Hash) (
 				return nil, fmt.Errorf("transaction reverted, hash: %s", txHash)
 			}
 
-			log.Infof("transaction receipt found for txHash %v", txHash.Hex())
+			slog.Info("transaction receipt found", "txHash", txHash.Hex())
 
 			return receipt, nil
 		}
@@ -69,7 +70,7 @@ func WaitReceipt(ctx context.Context, confirmer confirmer, txHash common.Hash) (
 // WaitConfirmations won't return before N blocks confirmations have been seen
 // on destination chain.
 func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations uint64, txHash common.Hash) error {
-	log.Infof("txHash %v beginning waiting for confirmations", txHash.Hex())
+	slog.Info("beginning waiting for confirmations", "txHash", txHash.Hex())
 
 	ticker := time.NewTicker(10 * time.Second)
 
@@ -86,7 +87,7 @@ func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations u
 					continue
 				}
 
-				log.Errorf("txHash: %v encountered error getting receipt: %v", txHash.Hex(), err)
+				slog.Error("encountered error getting receipt", "txHash", txHash.Hex(), "error", err)
 
 				return err
 			}
@@ -97,19 +98,19 @@ func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations u
 			}
 
 			want := receipt.BlockNumber.Uint64() + confirmations
-			log.Infof(
-				"txHash: %v waiting for %v confirmations which will happen in block number: %v, latestBlockNumber: %v",
-				txHash.Hex(),
-				confirmations,
-				want,
-				latest,
+			slog.Info(
+				"waiting for confirmations",
+				"txHash", txHash.Hex(),
+				"confirmations", confirmations,
+				"blockNumWillbeConfirmed", want,
+				"latestBlockNum", latest,
 			)
 
 			if latest < receipt.BlockNumber.Uint64()+confirmations {
 				continue
 			}
 
-			log.Infof("txHash %v received %v confirmations, done", txHash.Hex(), confirmations)
+			slog.Info("done waiting for confirmations", "txHash", txHash.Hex(), "confirmations", confirmations)
 
 			return nil
 		}

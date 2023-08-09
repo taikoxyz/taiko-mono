@@ -66,7 +66,7 @@ export const GRIMSVOTN_CONFIG = {
       name: "ProverPool",
       address: {
         proxy: "0xC9580414A4372BDdBd8e19e01854DC0B2b1390Cf",
-        impl: "0xd30b06F3eb20B55aDFaF51344FC0595d4EF3FC06",
+        impl: "0xD2951Ec51a2724aE37fA697E20643232fa810C0c",
       },
     },
     plonkVerifier: {
