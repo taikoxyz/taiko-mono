@@ -143,10 +143,6 @@ library LibBytesUtils {
             // 32 bytes
     }
 
-    function toUint256(bytes memory _bytes) internal pure returns (uint256) {
-        return uint256(toBytes32(_bytes));
-    }
-
     function toNibbles(bytes memory _bytes)
         internal
         pure
@@ -160,20 +156,6 @@ library LibBytesUtils {
         }
 
         return nibbles;
-    }
-
-    function fromNibbles(bytes memory _bytes)
-        internal
-        pure
-        returns (bytes memory)
-    {
-        bytes memory ret = new bytes(_bytes.length / 2);
-
-        for (uint256 i; i < ret.length; ++i) {
-            ret[i] = (_bytes[i * 2] << 4) | (_bytes[i * 2 + 1]);
-        }
-
-        return ret;
     }
 
     function equal(
