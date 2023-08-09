@@ -4,8 +4,18 @@ import "github.com/cyberhorsey/errors"
 
 var (
 	ErrNoEthClient       = errors.Validation.NewWithKeyAndDetail("ERR_NO_ETH_CLIENT", "EthClient is required")
-	ErrNoEventRepository = errors.Validation.NewWithKeyAndDetail("ERR_NO_EVENT_REPOSITORY", "EventRepository is required")
-	ErrNoStatRepository  = errors.Validation.NewWithKeyAndDetail("ERR_NO_STAT_REPOSITORY", "StatRepository is required")
+	ErrNoEventRepository = errors.Validation.NewWithKeyAndDetail(
+		"ERR_NO_EVENT_REPOSITORY",
+		"EventRepository is required",
+	)
+	ErrNoNFTBalanceRepository = errors.Validation.NewWithKeyAndDetail(
+		"ERR_NO_NFT_BALANCE_REPOSITORY",
+		"NFTBalanceRepository is required",
+	)
+	ErrNoStatRepository = errors.Validation.NewWithKeyAndDetail(
+		"ERR_NO_STAT_REPOSITORY",
+		"StatRepository is required",
+	)
 	ErrNoBlockRepository = errors.Validation.NewWithKeyAndDetail(
 		"ERR_NO_BLOCK_REPOSITORY",
 		"BlockRepository is required",

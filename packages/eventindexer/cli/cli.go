@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -15,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/db"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/http"
@@ -45,12 +45,11 @@ func Run(
 	mode eventindexer.Mode,
 	watchMode eventindexer.WatchMode,
 	httpOnly eventindexer.HTTPOnly,
+	indexNfts eventindexer.IndexNFTS,
 ) {
 	if err := loadAndValidateEnv(); err != nil {
 		log.Fatal(err)
 	}
-
-	log.SetFormatter(&log.JSONFormatter{})
 
 	db, err := openDBConnection(eventindexer.DBConnectionOpts{
 		Name:     os.Getenv("MYSQL_USER"),
@@ -126,10 +125,20 @@ func Run(
 			log.Fatal(err)
 		}
 
+		var nftBalanceRepo eventindexer.NFTBalanceRepository
+
+		if indexNfts {
+			nftBalanceRepo, err = repo.NewNFTBalanceRepository(db)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+
 		i, err := indexer.NewService(indexer.NewServiceOpts{
 			EventRepo:           eventRepository,
 			BlockRepo:           blockRepository,
 			StatRepo:            statRepository,
+			NFTBalanceRepo:      nftBalanceRepo,
 			EthClient:           ethClient,
 			RPCClient:           rpcClient,
 			SrcTaikoAddress:     common.HexToAddress(os.Getenv("L1_TAIKO_ADDRESS")),
@@ -138,6 +147,7 @@ func Run(
 			SrcSwapAddresses:    stringsToAddresses(strings.Split(os.Getenv("SWAP_ADDRESSES"), ",")),
 			BlockBatchSize:      uint64(blockBatchSize),
 			SubscriptionBackoff: subscriptionBackoff,
+			IndexNFTs:           bool(indexNfts),
 		})
 		if err != nil {
 			log.Fatal(err)
@@ -267,9 +277,15 @@ func newHTTPServer(db eventindexer.DB, l1EthClient *ethclient.Client) (*http.Ser
 		return nil, err
 	}
 
+	nftBalanceRepo, err := repo.NewNFTBalanceRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
 	srv, err := http.NewServer(http.NewServerOpts{
 		EventRepo:         eventRepo,
 		StatRepo:          statRepo,
+		NFTBalanceRepo:    nftBalanceRepo,
 		Echo:              echo.New(),
 		CorsOrigins:       strings.Split(os.Getenv("CORS_ORIGINS"), ","),
 		EthClient:         l1EthClient,

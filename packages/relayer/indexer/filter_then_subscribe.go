@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"log/slog"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/labstack/gommon/log"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"golang.org/x/sync/errgroup"
 )
@@ -45,15 +47,15 @@ func (svc *Service) FilterThenSubscribe(
 	}
 
 	if svc.processingBlockHeight == header.Number.Uint64() {
-		log.Infof("chain ID %v caught up, subscribing to new incoming events", chainID.Uint64())
+		slog.Info("indexing caught up, subscribing to new incoming events", "chainID", chainID.Uint64())
 		return svc.subscribe(ctx, chainID)
 	}
 
-	log.Infof("chain ID %v getting events between %v and %v in batches of %v",
-		chainID.Uint64(),
-		svc.processingBlockHeight,
-		header.Number.Int64(),
-		svc.blockBatchSize,
+	slog.Info("fetching batch block events",
+		"chainID", chainID.Uint64(),
+		"startblock", svc.processingBlockHeight,
+		"endblock", header.Number.Int64(),
+		"batchsize", svc.blockBatchSize,
 	)
 
 	for i := svc.processingBlockHeight; i < header.Number.Uint64(); i += svc.blockBatchSize {

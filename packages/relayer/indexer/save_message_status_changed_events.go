@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"math/big"
 
+	"log/slog"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
 )
@@ -18,14 +19,14 @@ func (svc *Service) saveMessageStatusChangedEvents(
 	events *bridge.BridgeMessageStatusChangedIterator,
 ) error {
 	if !events.Next() || events.Event == nil {
-		log.Infof("no messageStatusChanged events")
+		slog.Info("no messageStatusChanged events")
 		return nil
 	}
 
 	for {
 		event := events.Event
 
-		log.Infof("messageStatusChanged: %v", common.Hash(event.MsgHash).Hex())
+		slog.Info("messageStatusChanged", "msgHash", common.Hash(event.MsgHash).Hex())
 
 		if err := svc.detectAndHandleReorg(
 			ctx,

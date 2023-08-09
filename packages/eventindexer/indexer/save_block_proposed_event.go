@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"math/big"
 
+	"log/slog"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
 )
@@ -18,7 +19,7 @@ func (svc *Service) saveBlockProposedEvents(
 	events *taikol1.TaikoL1BlockProposedIterator,
 ) error {
 	if !events.Next() || events.Event == nil {
-		log.Infof("no blockProposed events")
+		slog.Info("no blockProposed events")
 		return nil
 	}
 
@@ -39,8 +40,6 @@ func (svc *Service) saveBlockProposedEvents(
 			return errors.Wrap(err, "svc.ethClient.TransactionSender")
 		}
 
-		log.Infof("blockProposed by: %v", sender.Hex())
-
 		if err := svc.saveBlockProposedEvent(ctx, chainID, event, sender); err != nil {
 			eventindexer.BlockProposedEventsProcessedError.Inc()
 
@@ -59,7 +58,7 @@ func (svc *Service) saveBlockProposedEvent(
 	event *taikol1.TaikoL1BlockProposed,
 	sender common.Address,
 ) error {
-	log.Info("blockProposed event found")
+	slog.Info("blockProposed", "proposer", sender.Hex())
 
 	marshaled, err := json.Marshal(event)
 	if err != nil {
