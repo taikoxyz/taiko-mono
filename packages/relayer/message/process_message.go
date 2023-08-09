@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"strings"
 	"time"
@@ -14,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
 )
@@ -57,9 +57,9 @@ func (p *Processor) ProcessMessage(
 
 	encodedSignalProof, err := p.prover.EncodedSignalProof(ctx, p.rpc, p.srcSignalServiceAddress, key, latestSyncedHeader)
 	if err != nil {
-		log.Errorf("srcChainID: %v, destChainID: %v, txHash: %v: msgHash: %v, from: %v encountered signalProofError %v",
-			event.Message.SrcChainId,
-			event.Message.DestChainId,
+		slog.Error("srcChainID: %v, destChainID: %v, txHash: %v: msgHash: %v, from: %v encountered signalProofError %v",
+			event.Message.SrcChainId.String(),
+			event.Message.DestChainId.String(),
 			event.Raw.TxHash.Hex(),
 			common.Hash(event.MsgHash).Hex(),
 			event.Message.Owner.Hex(),
@@ -81,11 +81,9 @@ func (p *Processor) ProcessMessage(
 
 	// message will fail when we try to process it
 	if !received {
-		log.Warnf(
-			"msgHash: %v, srcChainId: %v, encodedSignalProof: %v not received on dest chain",
-			common.Hash(event.MsgHash).Hex(),
-			event.Message.SrcChainId,
-			hex.EncodeToString(encodedSignalProof),
+		slog.Warn("Message not received on dest chain",
+			"msgHash", common.Hash(event.MsgHash).Hex(),
+			"srcChainId", event.Message.SrcChainId.String(),
 		)
 
 		relayer.MessagesNotReceivedOnDestChain.Inc()
@@ -113,18 +111,18 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "p.saveMEssageStatusChangedEvent")
 	}
 
-	log.Infof("Mined tx %s", hex.EncodeToString(tx.Hash().Bytes()))
+	slog.Info("Mined tx", "txHash", hex.EncodeToString(tx.Hash().Bytes()))
 
 	messageStatus, err := p.destBridge.GetMessageStatus(&bind.CallOpts{}, event.MsgHash)
 	if err != nil {
 		return errors.Wrap(err, "p.destBridge.GetMessageStatus")
 	}
 
-	log.Infof(
-		"updating message status to: %v for txHash: %v, processed in txHash: %v",
-		relayer.EventStatus(messageStatus).String(),
-		event.Raw.TxHash.Hex(),
-		hex.EncodeToString(tx.Hash().Bytes()),
+	slog.Info(
+		"updating message status",
+		"status", relayer.EventStatus(messageStatus).String(),
+		"occuredtxHash", event.Raw.TxHash.Hex(),
+		"processedTxHash", hex.EncodeToString(tx.Hash().Bytes()),
 	)
 
 	if messageStatus == uint8(relayer.EventStatusRetriable) {
