@@ -26,7 +26,7 @@ jobs:
 
           # Optional: working directory, useful for monorepos
           working-directory: ./packages/relayer
-          args: --config=.golangci.yml
+          args: --config=.golangci.yml --timout=4m
 
   test:
     runs-on: ubuntu-latest
