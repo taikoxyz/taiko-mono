@@ -307,10 +307,10 @@ export default {
 
           secondary: '#E81899', // pink-400
           // 'secondary-focus': '',
-          'secondary-content': '#ADB1B8', // grey-200
+          'secondary-content': '#444A55', // grey-600
 
-          neutral: '#2B303B', // grey-700
-          'neutral-focus': '#444A55', // grey-600
+          neutral: '#E7E7E7', // grey-50
+          'neutral-focus': '#CACBCE', // grey-100
           'neutral-content': '#F3F3F3', // grey-10
 
           'base-100': '#FAFAFA', // grey-5
@@ -318,12 +318,12 @@ export default {
           // 'base-300': '',
           'base-content': '#191E28', // grey-800
 
-          success: '#E4FFF4', // green-10
-          'success-content': '#059458', // green-600
+          success: '#BFFFE4', // green-50
+          'success-content': '#005E36', // green-700
           error: '#FFE7E7', // red-10
-          'error-content': '#CE2C2D', // red-500
+          'error-content': '#BB1A1B', // red-600
           warning: '#FFF6DE', // yellow-10
-          'warning-content': '#C28B00', // yellow-600
+          'warning-content': '#775602', // yellow-700
         },
       },
     ],
