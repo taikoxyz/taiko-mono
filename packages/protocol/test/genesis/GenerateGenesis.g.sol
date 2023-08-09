@@ -20,7 +20,7 @@ import { LibBridgeStatus } from
 import { LibL2Consts } from "../../contracts/L2/LibL2Consts.sol";
 import { RegularERC20 } from "../../contracts/test/erc20/RegularERC20.sol";
 import { TransparentUpgradeableProxy } from
-    "../../contracts/thirdparty/TransparentUpgradeableProxy.sol";
+    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract TestGenerateGenesis is Test, AddressResolver {
     using stdJson for string;
