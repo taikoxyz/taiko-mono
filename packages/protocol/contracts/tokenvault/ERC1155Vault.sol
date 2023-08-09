@@ -169,9 +169,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
 
     /**
      * @notice Release deposited ERC1155 token(s) back to the user on the source
-     * chain
-     * with a proof that the message processing on the destination Bridge has
-     * failed.
+     * chain with a proof that the message processing on the destination Bridge
+     * has failed.
      * @param message The message that corresponds to the ERC1155 deposit on the
      * source chain.
      */

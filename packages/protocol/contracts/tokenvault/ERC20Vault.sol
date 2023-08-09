@@ -215,9 +215,8 @@ contract ERC20Vault is
 
     /**
      * @notice Release deposited ERC20 tokens back to the user on the source
-     * ERC20Vault
-     * with a proof that the message processing on the destination Bridge has
-     * failed.
+     * ERC20Vault with a proof that the message processing on the destination
+     * Bridge has failed.
      * @param message The message that corresponds to the ERC20 deposit on the
      * source chain.
      */
