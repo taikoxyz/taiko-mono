@@ -26,12 +26,6 @@ library LibAddress {
         require(success, "ETH transfer failed");
     }
 
-    function codeHash(address addr) internal view returns (bytes32 codehash) {
-        assembly {
-            codehash := extcodehash(addr)
-        }
-    }
-
     function supportsInterface(
         address addr,
         bytes4 interfaceId
