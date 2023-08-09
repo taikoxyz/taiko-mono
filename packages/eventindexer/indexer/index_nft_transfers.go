@@ -6,13 +6,14 @@ import (
 	"math/big"
 	"strings"
 
+	"log/slog"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/erc1155"
 )
@@ -118,12 +119,12 @@ func (svc *Service) saveERC721Transfer(ctx context.Context, chainID *big.Int, vL
 
 	tokenID := vLog.Topics[3].Big().Int64()
 
-	log.Infof(
-		"erc721 transfer found. from: %v, to: %v, tokenId: %v, contractAddress: %v",
-		from,
-		to,
-		tokenID,
-		vLog.Address.Hex(),
+	slog.Info(
+		"erc721 transfer found",
+		"from", from,
+		"to", to,
+		"tokenID", tokenID,
+		"contractAddress", vLog.Address.Hex(),
 	)
 
 	// increment To address's balance
@@ -166,7 +167,7 @@ func (svc *Service) saveERC1155Transfer(ctx context.Context, chainID *big.Int, v
 
 	to := fmt.Sprintf("0x%v", common.Bytes2Hex(vLog.Topics[3].Bytes()[12:]))
 
-	log.Info("erc1155 found")
+	slog.Info("erc1155 found")
 
 	type transfer struct {
 		ID     *big.Int `abi:"id"`
@@ -200,12 +201,12 @@ func (svc *Service) saveERC1155Transfer(ctx context.Context, chainID *big.Int, v
 		transfers = t
 	}
 
-	log.Infof(
-		"erc1155 transfer found. from: %v, to: %v, transfers: %v, contractAddress: %v",
-		from,
-		to,
-		transfers,
-		vLog.Address.Hex(),
+	slog.Info(
+		"erc1155 transfer found",
+		"from", from,
+		"to", to,
+		"transfers", transfers,
+		"contractAddress", vLog.Address.Hex(),
 	)
 
 	// increment To address's balance

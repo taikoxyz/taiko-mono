@@ -4,8 +4,9 @@ import (
 	"context"
 	"math/big"
 
+	"log/slog"
+
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
@@ -21,7 +22,7 @@ func (svc *Service) handleNoEventsInBatch(
 		return errors.Wrap(err, "svc.ethClient.HeaderByNumber")
 	}
 
-	log.Infof("setting last processed block to height: %v, hash: %v", blockNumber, header.Hash().Hex())
+	slog.Info("setting last processed block", "blockNum", blockNumber, "headerHash", header.Hash().Hex())
 
 	if err := svc.blockRepo.Save(relayer.SaveBlockOpts{
 		Height:    uint64(blockNumber),
