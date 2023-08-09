@@ -18,15 +18,13 @@ linters:
     - gocognit
     - gocritic
     - gofmt
-    - revive
+    - golint
     - gosec
     - gosimple
     - lll
     - unused
     - whitespace
     - wsl
-  disable:
-    - typecheck
 
 linters-settings:
   funlen:
@@ -41,6 +39,9 @@ issues:
     - path: _test\.go
       linters:
         - funlen
+    - path: /
+      linters:
+        - typecheck
 
 run:
   skip-dirs:
