@@ -204,7 +204,7 @@ contract TestERC20Vault is Test {
                 destChainId,
                 Bob,
                 address(erc20),
-                amount,
+                amount - 1, // value: (msg.value - fee)
                 1_000_000,
                 amount - 1,
                 Bob,
