@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"math/big"
 
+	"log/slog"
+
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/proverpool"
 )
@@ -17,14 +18,14 @@ func (svc *Service) saveStakedEvents(
 	events *proverpool.ProverPoolStakedIterator,
 ) error {
 	if !events.Next() || events.Event == nil {
-		log.Infof("no Staked events")
+		slog.Info("no Staked events")
 		return nil
 	}
 
 	for {
 		event := events.Event
 
-		log.Infof("new Staked event, addr: %v, amt: %v", event.Addr.Hex(), event.Amount)
+		slog.Info("new Staked event", "address", event.Addr.Hex(), "amount", event.Amount)
 
 		if err := svc.saveStakedEvent(ctx, chainID, event); err != nil {
 			eventindexer.StakedEventsProcessedError.Inc()

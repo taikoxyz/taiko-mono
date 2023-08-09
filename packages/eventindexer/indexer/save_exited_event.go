@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"math/big"
 
+	"log/slog"
+
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/proverpool"
 )
@@ -17,14 +18,14 @@ func (svc *Service) saveExitedEvents(
 	events *proverpool.ProverPoolExitedIterator,
 ) error {
 	if !events.Next() || events.Event == nil {
-		log.Infof("no Exited events")
+		slog.Info("no Exited events")
 		return nil
 	}
 
 	for {
 		event := events.Event
 
-		log.Infof("new Exited event, addr: %v, amt: %v", event.Addr.Hex(), event.Amount)
+		slog.Info("new Exited event", "address", event.Addr.Hex(), "amount", event.Amount)
 
 		if err := svc.saveExitedEvent(ctx, chainID, event); err != nil {
 			eventindexer.ExitedEventsProcessedError.Inc()

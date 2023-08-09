@@ -4,9 +4,10 @@ import (
 	"context"
 	"math/big"
 
+	"log/slog"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -156,7 +157,7 @@ func L1FilterFunc(
 
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			log.Error("context cancelled")
+			slog.Error("context cancelled")
 			return err
 		}
 
@@ -223,7 +224,7 @@ func L2FilterFunc(
 	err := wg.Wait()
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			log.Error("context cancelled")
+			slog.Error("context cancelled")
 			return err
 		}
 
