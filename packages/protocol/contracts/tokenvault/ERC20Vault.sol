@@ -223,6 +223,7 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
         message.fee = opt.fee;
         message.refundAddress = opt.refundAddress;
         message.memo = opt.memo;
+        message.value = msg.value - opt.fee;
 
         bytes32 msgHash = IBridge(resolve("bridge", false)).sendMessage{
             value: msg.value
