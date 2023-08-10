@@ -260,19 +260,19 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
-    icon: "/images/ecosystem/vooi.jpeg",
-    name: "Vooi",
-    link: "https://vooi.io/",
-    description: "vooi is a stableswap AMM DEX built for L2 chains on top of Unbounded pool technology.",
-    filters: [],
-    isLive: true,
-  },
-  {
     icon: "/images/ecosystem/thirdweb.png",
     name: "thirdweb",
     link: "https://thirdweb.com",
     description:
       "thirdweb is a complete web3 development framework that provides everything you need to connect your apps and games to decentralized networks.",
+    filters: [],
+    isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/vooi.jpeg",
+    name: "Vooi",
+    link: "https://vooi.io/",
+    description: "vooi is a stableswap AMM DEX built for L2 chains on top of Unbounded pool technology.",
     filters: [],
     isLive: true,
   },
