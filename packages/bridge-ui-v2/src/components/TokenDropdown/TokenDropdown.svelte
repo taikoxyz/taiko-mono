@@ -49,7 +49,7 @@
     const destChain = $destNetwork;
 
     // In order to select a token, we only need the source chain to be selected,
-    // unles it's an imported token...
+    // unless it's an imported token...
     if (!chain) {
       warningToast($t('messages.network.required'));
       return;
