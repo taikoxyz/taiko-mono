@@ -85,6 +85,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/goneuron.jpeg",
+    name: "neuron 🧠",
+    link: "https://goneuron.xyz/",
+    description:
+      "neuron is a blazing fast privacy focused cross-chain bridge for transferring Ethereum native assets quickly and privately between chains faster than L1 native bridges cheaply.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/kalkiswap.png",
     name: "KALKI SWAP",
     link: "https://kalkiswap.org",
@@ -285,6 +294,15 @@ const ecosystemData: EcosystemData[] = [
       "zkDELX is a decentralized electricity exchange market based on zkEVM to facilitate the electrical vehicles and renewable energy industries.",
     filters: [],
     isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/zksynth.png",
+    name: "ZKSynth",
+    link: "https://app.zksynth.com/",
+    description:
+      "zkSynth allows you to create and trade synthetic assets that track the price of any real-world asset, such as stocks, commodities, currencies, and more.",
+    filters: [],
+    isLive: false,
   },
 ];
 
