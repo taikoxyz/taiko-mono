@@ -33,9 +33,78 @@ For example, `feat(scope): description of feature` should only impact the `scope
 
 Follow the [NatSpec format](https://docs.soliditylang.org/en/latest/natspec-format.html) for documenting smart contract source code. Please adhere to a few additional standards:
 
-- Choose `/** */` over `///` for multi-line NatSpec comments to save column space.
-- Omit the usage of `@notice` and let the compiler automatically pick it up to save column space.
-  - For example: `/** @notice This is a notice */` becomes `/** This is a notice */`.
+#### Multi-line comments
+
+Choose `/** */` over `///` for multi-line NatSpec comments to save column space.
+
+#### Notice tag
+
+Omit the usage of `@notice` and let the compiler automatically pick it up to save column space. For example, this:
+
+```
+/// @notice This is a notice.
+```
+
+becomes this:
+
+```
+/// This is a notice.
+```
+
+#### Annotation indentation
+
+For multi-line annotations, do not "align". For example, this is **wrong**:
+
+```
+/**
+ * Here is a comment.
+ * @param someParam Here is a long parameter blah blah blah
+ *        and I wrap it to here.
+ * @return someThing Here is a long return parameter blah
+ *                   and I wrap it to here.
+ */
+```
+
+This is **correct**:
+
+```
+/**
+ * Here is a comment.
+ * @param someParam Here is a long parameter blah blah blah
+ * and I wrap it to here.
+ * @return someThing Here is a long return parameter blah
+ * and I wrap it to here.
+ */
+```
+
+#### Extra line breaks
+
+Use extra line breaks as you see fit. By default, do not use them unless it improves the readability.
+
+This is **preferred**:
+
+```
+/**
+ * Here is a comment.
+ * @param someParam Here is a long parameter blah blah blah
+ * and I wrap it to here.
+ * @return someThing Here is a long return parameter blah
+ * and I wrap it to here.
+ */
+```
+
+This is also **okay**:
+
+```
+/**
+ * Here is a comment.
+ *
+ * @param someParam Here is a long parameter blah blah blah
+ * and I wrap it to here.
+ * @return someThing Here is a long return parameter blah
+ * and I wrap it to here.
+ */
+```
 
 ## Documentation standards
 
