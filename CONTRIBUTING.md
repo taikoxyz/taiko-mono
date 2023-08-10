@@ -106,6 +106,52 @@ This is also **okay**:
  */
 ```
 
+#### Additional comments
+
+You can use additional comments with `//`. These can be above what it is describing **or** to the side. Try to remain consistent in what you are commenting. Do not use `/* */`. You can align comments on the side or not, whichever improves readability.
+
+This is **correct**:
+
+```
+struct Some {
+  // This is foo
+  uint256 foo;
+  uint256 bar; // This is bar
+}
+```
+
+This is **wrong**:
+
+```
+struct Some {
+  uint256 foo; /* This is foo */
+}
+```
+
+#### Periods
+
+Periods are optional for comments, but recommended if it's a proper sentence. However, remain consistent in whatever file or section you are commenting.
+
+This is **correct**:
+
+```
+struct Some {
+  // This is foo
+  uint256 foo;
+}
+```
+
+This is **wrong**:
+
+```
+struct Some {
+  // This is foo.
+  uint256 foo;
+  // This is bar
+  uint256 bar;
+}
+```
+
 ## Documentation standards
 
 This section describes our documentation standards at Taiko.
