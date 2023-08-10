@@ -10,28 +10,19 @@ import { IERC20Upgradeable } from
     "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 
 /**
+ * Interface for ERC20 tokens with mint and burn functionality.
  * @title IMintableERC20
- * @dev Interface for ERC20 tokens with mint and burn functionality.
- *
- * This interface extends the standard IERC20Upgradeable interface with
- * additional methods for minting and burning tokens. Contracts that
- * implement this interface can mint new tokens to an account or
- * burn tokens from an account.
  */
 interface IMintableERC20 is IERC20Upgradeable {
     /**
-     * @notice Creates `amount` tokens and assigns them to `account`.
-     * @dev This can increase the total supply of the token.
-     *
+     * Mints `amount` tokens and assigns them to the `account` address.
      * @param account The account to receive the minted tokens.
      * @param amount The amount of tokens to mint.
      */
     function mint(address account, uint256 amount) external;
 
     /**
-     * @notice Destroys `amount` tokens from `from`.
-     * @dev This can decrease the total supply of the token.
-     *
+     * Burns `amount` tokens from the `from` address.
      * @param from The account from which the tokens will be burned.
      * @param amount The amount of tokens to burn.
      */

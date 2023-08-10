@@ -9,13 +9,12 @@ pragma solidity ^0.8.20;
 import { LibUint512Math } from "../libs/LibUint512Math.sol";
 
 /**
+ * This contract allows for signing operations required on Taiko L2.
+ * @dev It uses precomputed values for optimized signature creation.
  * @title TaikoL2Signer
- * @notice This contract allows for signing operations related to Layer 2 (L2)
- * within the Taiko ecosystem.
- * It uses precomputed values for optimized signature creation.
  */
 abstract contract TaikoL2Signer {
-    // Constants related to the golden touch mechanism.
+    // Constants related to the golden touch signature.
     address public constant GOLDEN_TOUCH_ADDRESS =
         0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
     uint256 public constant GOLDEN_TOUCH_PRIVATEKEY =
@@ -52,7 +51,7 @@ abstract contract TaikoL2Signer {
     error L2_INVALID_GOLDEN_TOUCH_K();
 
     /**
-     * @notice Signs the provided digest using the golden touch mechanism.
+     * Signs the provided digest using the golden touch mechanism.
      * @param digest The hash of the data to be signed.
      * @param k The selector for signature optimization.
      * @return v The recovery id.
@@ -116,7 +115,7 @@ abstract contract TaikoL2Signer {
         assembly {
             // Define pointer
             let p := mload(0x40)
-            // store data assembly-favouring ways
+            // Store data in assembly-favouring ways
             mstore(p, 0x40) // Length of Base
             mstore(add(p, 0x20), 0x20) // Length of Exponent
             mstore(add(p, 0x40), 0x20) // Length of Modulus

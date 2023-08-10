@@ -22,10 +22,12 @@ import { TaikoData } from "./TaikoData.sol";
 import { TaikoEvents } from "./TaikoEvents.sol";
 
 /**
+ * This contract serves as the "base layer contract" of the Taiko protocol,
+ * providing functionalities for proposing, proving, and verifying blocks. The
+ * term "base layer contract" means that although this is usually deployed on
+ * L1, it can also be deployed on L2s to create L3s ("inception layers"). The
+ * contract also handles the deposit and withdrawal of Taiko tokens and Ether.
  * @title TaikoL1
- * @notice This contract serves as the Layer 1 contract of the Taiko protocol,
- * providing functionalities for proposing, proving, and verifying blocks. It
- * also handles deposit and withdrawal of Taiko tokens and Ether.
  */
 contract TaikoL1 is
     EssentialContract,
@@ -38,15 +40,14 @@ contract TaikoL1 is
     TaikoData.State public state;
     uint256[100] private __gap;
 
-    // Fallback function to receive Ether and deposit it to Layer 2.
+    /// @dev Fallback function to receive Ether and deposit to to Layer 2.
     receive() external payable {
         depositEtherToL2(address(0));
     }
 
     /**
      * Initialize the rollup.
-     *
-     * @param _addressManager The AddressManager address.
+     * @param _addressManager The {AddressManager} address.
      * @param _genesisBlockHash The block hash of the genesis block.
      * @param _initFeePerGas Initial (reasonable) block fee value.
      * @param _initAvgProofDelay Initial (reasonable) proof window.
@@ -72,14 +73,12 @@ contract TaikoL1 is
 
     /**
      * Propose a Taiko L2 block.
-     *
-     * @param input An abi-encoded BlockMetadataInput that the actual L2
-     *        block header must satisfy.
+     * @param input An abi-encoded BlockMetadataInput that the actual L2 block
+     * header must satisfy.
      * @param txList A list of transactions in this block, encoded with RLP.
-     *        Note, in the corresponding L2 block an _anchor transaction_
-     *        will be the first transaction in the block -- if there are
-     *        `n` transactions in `txList`, then there will be up to `n + 1`
-     *        transactions in the L2 block.
+     * Note, in the corresponding L2 block an "anchor transaction" will be the
+     * first transaction in the block. If there are `n` transactions in the
+     * `txList`, then there will be up to `n + 1` transactions in the L2 block.
      * @return meta The metadata of the proposed L2 block.
      */
     function proposeBlock(
@@ -110,10 +109,9 @@ contract TaikoL1 is
 
     /**
      * Prove a block with a zero-knowledge proof.
-     *
-     * @param blockId The index of the block to prove. This is also used
-     *        to select the right implementation version.
-     * @param input An abi-encoded TaikoData.BlockEvidence object.
+     * @param blockId The index of the block to prove. This is also used to
+     * select the right implementation version.
+     * @param input An abi-encoded {TaikoData.BlockEvidence} object.
      */
     function proveBlock(
         uint256 blockId,
@@ -275,7 +273,7 @@ contract TaikoL1 is
      * @param blockId Index of the block.
      * @param parentHash Parent hash of the block.
      * @param parentGasUsed Gas used by the parent block.
-     * @return ForkChoice struct of the block.
+     * @return ForkChoice data of the block.
      */
     function getForkChoice(
         uint256 blockId,
@@ -339,7 +337,7 @@ contract TaikoL1 is
     }
 
     /**
-     * Get the state variables of the Taiko L1 contract.
+     * Get the state variables of the TaikoL1 contract.
      * @return StateVariables struct containing state variables.
      */
     function getStateVariables()
@@ -351,8 +349,8 @@ contract TaikoL1 is
     }
 
     /**
-     * Get the configuration of the Taiko L1 contract.
-     * @return TaikoData.Config struct containing configuration parameters.
+     * Get the configuration of the TaikoL1 contract.
+     * @return Config struct containing configuration parameters.
      */
     function getConfig()
         public
@@ -364,7 +362,7 @@ contract TaikoL1 is
     }
 
     /**
-     * Get the name of the verifier by ID.
+     * Get the name of the proof verifier by ID.
      * @param id ID of the verifier.
      * @return Verifier name.
      */
@@ -374,7 +372,7 @@ contract TaikoL1 is
 }
 
 /**
+ * Proxied version of the TaikoL1 contract.
  * @title ProxiedTaikoL1
- * @dev Proxied version of the TaikoL1 contract.
  */
 contract ProxiedTaikoL1 is Proxied, TaikoL1 { }

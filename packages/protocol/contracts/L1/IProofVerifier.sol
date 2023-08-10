@@ -7,18 +7,17 @@
 pragma solidity ^0.8.20;
 
 /**
- * @title IProofVerifier Interface
- * @dev Interface for the ProofVerifier contract which is responsible for
- * verifying proofs.
+ * Contract that is responsible for verifying proofs.
+ * @title IProofVerifier
  */
 interface IProofVerifier {
     /**
-     * @notice Verify proof(s) for the given block.
-     * This function should revert if the verification fails.
-     *
+     * Verify the given proof(s) for the given blockId. This function should
+     * revert if the verification fails.
      * @param blockId Unique identifier for the block.
      * @param blockProofs Raw bytes representing the proof(s).
-     * @param instance Hash combining evidence and configuration data.
+     * @param instance Hashed evidence & config data. If set to zero, proof is
+     * assumed to be from oracle/system prover.
      */
     function verifyProofs(
         uint256 blockId,

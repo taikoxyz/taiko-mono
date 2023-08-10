@@ -10,11 +10,11 @@ import { IAddressManager } from "./AddressManager.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
+ * This contract acts as a bridge for name-to-address resolution. It delegates
+ * the resolution to the AddressManager. By separating the logic, we can
+ * maintain flexibility in address management without affecting the resolving
+ * process.
  * @title AddressResolver
- * @notice This contract acts as a bridge for name-to-address resolution.
- * It delegates the resolution to the AddressManager. By separating the logic,
- * we can maintain flexibility in address management without affecting the
- * resolving process.
  */
 abstract contract AddressResolver {
     IAddressManager internal _addressManager;
@@ -91,7 +91,7 @@ abstract contract AddressResolver {
     }
 
     /**
-     * @notice Resolves a name to its address on the current chain.
+     * Resolves a name to its address on the current chain.
      * @param name Name whose address is to be resolved.
      * @param allowZeroAddress If set to true, does not throw if the resolved
      * address is `address(0)`.
@@ -110,7 +110,7 @@ abstract contract AddressResolver {
     }
 
     /**
-     * @notice Resolves a name to its address on a specified chain.
+     * Resolves a name to its address on a specified chain.
      * @param chainId The chainId of interest.
      * @param name Name whose address is to be resolved.
      * @param allowZeroAddress If set to true, does not throw if the resolved
@@ -132,7 +132,7 @@ abstract contract AddressResolver {
     }
 
     /**
-     * @notice Fetch the AddressManager's address.
+     * Fetches the AddressManager's address.
      * @return The current address of the AddressManager.
      */
     function addressManager() public view returns (address) {
