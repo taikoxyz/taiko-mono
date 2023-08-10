@@ -122,6 +122,11 @@
     @apply modal-backdrop bg-overlay-background rounded-xl;
   }
 
+  .chainselector {
+    @apply /* background: var(--interactive-dark-tertiary, #444A55); */
+    hover:background-color: var(--interactive-dark-tertiary-hover, #5D636F);
+  }
+
   .glassy-gradient-card {
     /* Trying to be consistent with design */
     /* grey-500/10 => grey-800/20 */
