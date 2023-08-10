@@ -6,6 +6,7 @@
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { Icon } from '$components/Icon';
   import Erc20 from '$components/Icon/ERC20.svelte';
+  import { warningToast } from '$components/NotificationToast';
   import { tokenService } from '$libs/storage/services';
   import type { Token } from '$libs/token';
   import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
@@ -16,7 +17,6 @@
   import DialogView from './DialogView.svelte';
   import DropdownView from './DropdownView.svelte';
   import { symbolToIconMap } from './symbolToIconMap';
-  import { warningToast } from '$components/NotificationToast';
 
   export let tokens: Token[] = [];
   export let value: Maybe<Token> = null;

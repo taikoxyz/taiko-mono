@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
+  import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
   import { Icon } from '$components/Icon';
@@ -13,7 +14,6 @@
 
   import AddCustomErc20 from './AddCustomERC20.svelte';
   import { symbolToIconMap } from './symbolToIconMap';
-  import { t } from 'svelte-i18n';
 
   export let id: string;
   export let menuOpen = false;
