@@ -3,6 +3,7 @@
 
   import { page } from '$app/stores';
   import { LinkButton } from '$components/LinkButton';
+  import { PUBLIC_NFT_BRIDGE_ENABLED } from '$env/static/public';
   import { classNames } from '$libs/util/classNames';
 
   let classes = classNames('space-x-2', $$props.class);
@@ -11,12 +12,14 @@
   $: isNFTBridge = $page.route.id === '/nft';
 </script>
 
-<div class={classes}>
-  <LinkButton class="py-2 px-[20px]" href="/" active={isERC20Bridge}>
-    <span> {$t('nav.token')}</span>
-  </LinkButton>
+{#if PUBLIC_NFT_BRIDGE_ENABLED === 'true'}
+  <div class={classes}>
+    <LinkButton class="py-2 px-[20px]" href="/" active={isERC20Bridge}>
+      <span> {$t('nav.token')}</span>
+    </LinkButton>
 
-  <LinkButton class="py-2 px-[20px]" href="/nft" active={isNFTBridge}>
-    <span> {$t('nav.nft')}</span>
-  </LinkButton>
-</div>
+    <LinkButton class="py-2 px-[20px]" href="/nft" active={isNFTBridge}>
+      <span> {$t('nav.nft')}</span>
+    </LinkButton>
+  </div>
+{/if}

@@ -16,6 +16,6 @@
 <a {href} target={external ? '_blank' : null} class={classes}>
   <slot />
   {#if external}
-    <Icon type="arrow-top-right" flillClass="fill-white" />
+    <Icon type="arrow-top-right" />
   {/if}
 </a>

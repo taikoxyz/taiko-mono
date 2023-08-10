@@ -6,6 +6,7 @@
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { Icon } from '$components/Icon';
   import Erc20 from '$components/Icon/ERC20.svelte';
+  import { warningToast } from '$components/NotificationToast';
   import { tokenService } from '$libs/storage/services';
   import type { Token } from '$libs/token';
   import { getCrossChainAddress } from '$libs/token/getCrossChainAddress';
@@ -29,21 +30,40 @@
   // not being used, doing this with JS instead of CSS media queries
   let isDesktopOrLarger: boolean;
 
-  const closeMenu = () => (menuOpen = false);
+  const closeMenu = () => {
+    menuOpen = false;
+    document.removeEventListener('click', closeMenu);
+  };
 
-  const openMenu = () => {
+  const openMenu = (event: Event) => {
+    event.stopPropagation();
+
     menuOpen = true;
+
+    // Click away to close menu
+    document.addEventListener('click', closeMenu, { once: true });
   };
 
   const selectToken = async (token: Token) => {
     const { chain } = getNetwork();
     const destChain = $destNetwork;
 
-    if (!chain || !destChain) throw new Error('Chain not found');
+    // In order to select a token, we only need the source chain to be selected,
+    // unless it's an imported token...
+    if (!chain) {
+      warningToast($t('messages.network.required'));
+      return;
+    }
 
     // if it is an imported Token, chances are we do not yet have the bridged address
     // for the destination chain, so we need to fetch it
     if (token.imported) {
+      // ... in the case of imported tokens, we also require the destination chain to be selected.
+      if (!destChain) {
+        warningToast($t('messages.network.required_dest'));
+        return;
+      }
+
       const bridgedAddress = await getCrossChainAddress({
         token,
         srcChainId: chain.id,
@@ -94,7 +114,7 @@
   </button>
 
   {#if isDesktopOrLarger}
-    <DropdownView {id} {menuOpen} {tokens} {value} {selectToken} {closeMenu} />
+    <DropdownView {id} {menuOpen} {tokens} {value} {selectToken} />
   {:else}
     <DialogView {id} {menuOpen} {tokens} {value} {selectToken} {closeMenu} />
   {/if}
