@@ -40,7 +40,7 @@ export const checkIfTokenIsDeployedCrossChain = async (
 
     try {
       const isBridgedToken = await destTokenVaultContract.isBridgedToken(
-        token.addresses[srcChain.id],
+        tokenAddressOnSourceChain,
       );
 
       if (isBridgedToken) {
