@@ -59,8 +59,6 @@ export class ERC20Bridge implements Bridge {
       message.gasLimit = message.gasLimit.add(BigNumber.from(3000000));
     }
 
-    console.log('isBridgedalreadydeployed', opts.isBridgedTokenAlreadyDeployed);
-
     log('Preparing transaction with message:', message);
 
     return { contract, owner, message };
