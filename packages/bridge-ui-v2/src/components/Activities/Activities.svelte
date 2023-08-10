@@ -126,15 +126,15 @@
     <div class="flex flex-col" style={`min-height: calc(${transactionsToShow.length} * 80px);`}>
       {#if isDesktopOrLarger}
         <div class="h-sep" />
-        <div class=" text-white flex">
-          <div class="w-1/5 px-4 py-2">{$t('activities.header.from')}</div>
-          <div class="w-1/5 px-4 py-2">{$t('activities.header.to')}</div>
-          <div class="w-1/5 px-4 py-2">{$t('activities.header.amount')}</div>
-          <div class="w-1/5 px-4 py-2 f-row">
+        <div class="text-white flex">
+          <div class="w-1/5 py-2">{$t('activities.header.from')}</div>
+          <div class="w-1/5 py-2">{$t('activities.header.to')}</div>
+          <div class="w-1/5 py-2">{$t('activities.header.amount')}</div>
+          <div class="w-1/5 py-2 flex flex-row">
             {$t('activities.header.status')}
             <StatusInfoDialog />
           </div>
-          <div class="w-1/5 px-4 py-2">{$t('activities.header.explorer')}</div>
+          <div class="w-1/5 py-2">{$t('activities.header.explorer')}</div>
         </div>
         <div class="h-sep" />
       {/if}

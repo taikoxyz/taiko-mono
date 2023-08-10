@@ -4,7 +4,7 @@
   const styles = `
     w-full 
     md:card 
-    md:rounded-xl 
+    md:rounded-[20px] 
     md:border 
     md:border-divider-border
     md:glassy-gradient-card`;

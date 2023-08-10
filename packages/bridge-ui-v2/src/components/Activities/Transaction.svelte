@@ -49,13 +49,13 @@
   on:keydown={handlePress}
   class="flex text-white md:h-[80px] h-[45px] w-full">
   {#if isDesktopOrLarger}
-    <div class="w-1/4 md-w-1/5 px-4 py-2 flex flex-row justify-left items-stretch">
+    <div class="w-1/5 py-2 flex flex-row">
       <ChainSymbolName chainId={item.srcChainId} />
     </div>
-    <div class="w-1/4 md-w-1/5 px-4 py-2 flex flex-row justify-left items-stretch">
+    <div class="w-1/5 py-2 flex flex-row">
       <ChainSymbolName chainId={item.destChainId} />
     </div>
-    <div class="w-1/4 md-w-1/5 px-4 py-2 flex flex-col justify-center items-stretch">
+    <div class="w-1/5 py-2 flex flex-col justify-center">
       {formatEther(item.amount ? item.amount : BigInt(0))}
       {item.symbol}
     </div>
@@ -77,12 +77,16 @@
     </div>
   {/if}
 
-  <div class="w-1/4 md-w-1/5 px-4 py-2 flex flex-col justify-center items-stretch">
+  <div class="sm:w-1/4 md:w-1/5 py-2 flex flex-col justify-center">
     <Status bridgeTx={item} />
   </div>
-  <div class="hidden md:flex w-1/5 px-4 py-2 flex flex-col justify-center items-stretch">
-    <a href={`${chainUrlMap[Number(item.srcChainId)].explorerUrl}/tx/${item.hash}`} target="_blank">
+  <div class="hidden md:flex w-1/5 py-2 flex flex-col justify-center">
+    <a
+      class="flex justify-start py-3 link"
+      href={`${chainUrlMap[Number(item.srcChainId)].explorerUrl}/tx/${item.hash}`}
+      target="_blank">
       {$t('activities.link.explorer')}
+      <Icon type="arrow-top-right" fillClass="fill-primary-link" />
     </a>
   </div>
 </div>
