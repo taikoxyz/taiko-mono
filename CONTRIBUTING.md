@@ -3,7 +3,6 @@
 **Table of contents:**
 
 - [Make a contribution](#make-a-contribution)
-- [Claim a Taiko Contributor GitPOAP](#claim-a-taiko-contributor-gitpoap)
 - [Coding standards](#coding-standards)
 - [Documentation standards](#documentation-standards)
 
@@ -14,15 +13,13 @@ Here are some ways you can contribute:
 - Open a new issue [here](https://github.com/taikoxyz/taiko-mono/issues) (please check the issue does not already exist).
 - Work on an existing issue (check out the [good first issues list](https://github.com/orgs/taikoxyz/projects/9/views/31) on our public project board).
 
-> Check out the [coding standards](#coding-standards) and [documentation standards](#documentation-standards) before you start working on a pull request.
+Please comment on the issue that you're interested in working on. Also, check out the [coding standards](#coding-standards) and [documentation standards](#documentation-standards) before you start working on the pull request.
 
-## Claim a Taiko Contributor GitPOAP
-
-A Taiko Contributor GitPOAP is rewarded to anyone that merges in a pull request to one of Taiko's GitHub repositories (you can see which repositories here: [2023 Taiko Contributor GitPOAP](https://www.gitpoap.io/gp/893)).
-
-After your pull request is merged, a bot will automatically leave a comment with instructions to receive your GitPOAP. You only receive a Taiko Contributor GitPOAP for the first pull request you merge in a given year.
+Once the pull request is merged to one of Taiko's GitHub repositories (you can see which repositories here: [2023 Taiko Contributor GitPOAP](https://www.gitpoap.io/gp/893)), you will be automatically awarded a Taiko Contributor GitPOAP. Opening a good new issue (not a spam issue) is also eligible for a GitPOAP, just leave a comment and we will manually invoke a GitHub bot that will send the GitPOAP.
 
 ## Coding standards
+
+This section describes our coding standards at Taiko.
 
 ### Pull requests
 
@@ -42,13 +39,17 @@ Follow the [NatSpec format](https://docs.soliditylang.org/en/latest/natspec-form
 
 ## Documentation standards
 
-Use the [Microsoft Writing Style Guide](https://learn.microsoft.com/en-us/style-guide/welcome/) as a base point of reference for writing style.
+This section describes our documentation standards at Taiko.
 
-### Philosophy
+### Philosophies
 
 - Create the minimum viable documentation.
 - Don't repeat yourself, use links to existing documentation or inherit it.
 - Keep documentation close to what it's describing (for example, in the source code).
+
+### Writing style
+
+Use the [Microsoft Writing Style Guide](https://learn.microsoft.com/en-us/style-guide/welcome/) as a base point of reference for writing style. Generally, don't worry too much about things like typos. What's more important is following the basic [philosophies](#philosophies) outlined above and following structural standards for highly readable and minimal documentation.
 
 ### Creating content
 
