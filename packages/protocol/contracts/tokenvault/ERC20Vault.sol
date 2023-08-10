@@ -60,12 +60,18 @@ contract ERC20Vault is
         string memo;
     }
 
-    // Mapping to track if a token on the current chain is bridged or canonical
-    mapping(address => bool) public isBridgedToken;
+    // Tracks if a token on the current chain is a canonical or btoken.
+    mapping(address tokenAddress => bool isBridged) public isBridgedToken;
 
-    // Mappings to link bridged and canonical tokens
-    mapping(address => CanonicalERC20) public bridgedToCanonical;
-    mapping(uint256 => mapping(address => address)) public canonicalToBridged;
+    // Mappings from btokens to their canonical tokens.
+    mapping(address btoken => CanonicalERC20 canonicalErc20) public
+        bridgedToCanonical;
+
+    // Mappings from canonical tokens to their btokens.
+    // Also storing chainId for tokens across other chains aside from Ethereum.
+    mapping(
+        uint256 chainId => mapping(address canonicalAddress => address btoken)
+    ) public canonicalToBridged;
 
     uint256[47] private __gap;
 
@@ -113,6 +119,20 @@ contract ERC20Vault is
     error VAULT_INVALID_SRC_CHAIN_ID();
     error VAULT_MESSAGE_NOT_FAILED();
     error VAULT_MESSAGE_RELEASED_ALREADY();
+
+    modifier onlyValidAddresses(
+        uint256 chainId,
+        bytes32 name,
+        address to,
+        address token
+    ) {
+        if (to == address(0) || to == resolve(chainId, name, false)) {
+            revert VAULT_INVALID_TO();
+        }
+
+        if (token == address(0)) revert VAULT_INVALID_TOKEN();
+        _;
+    }
 
     /**
      * @notice Initialize the contract with the address manager.
