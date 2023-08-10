@@ -24,38 +24,40 @@ export const checkIfTokenIsDeployedCrossChain = async (
 
     const tokenAddressOnDestChain = token.addresses[destChain.id];
 
-    if (tokenAddressOnDestChain === '0x00') {
-      // Check if token is already deployed as BridgedERC20 on destination chain
-      const tokenAddressOnSourceChain = token.addresses[srcChain.id];
+    if (tokenAddressOnDestChain !== '0x00') {
+      return true;
+    }
 
-      log(
-        'Checking if token',
-        token,
-        'is deployed as BridgedERC20 on destination chain',
-        destChain,
-      );
+    // Check if token is already deployed as BridgedERC20 on destination chain
+    const tokenAddressOnSourceChain = token.addresses[srcChain.id];
 
-      try {
-        const bridgedTokenAddress =
-          await destTokenVaultContract.canonicalToBridged(
-            srcChain.id,
-            tokenAddressOnSourceChain,
-          );
+    log(
+      'Checking if token',
+      token,
+      'is deployed as BridgedERC20 on destination chain',
+      destChain,
+    );
 
-        log(`Address of bridged token: ${bridgedTokenAddress}`);
-
-        if (bridgedTokenAddress !== ethers.constants.AddressZero) {
-          return true;
-        }
-      } catch (error) {
-        console.error(error);
-        throw new Error(
-          'encountered an issue when checking if token is deployed cross-chain',
-          {
-            cause: error,
-          },
+    try {
+      const bridgedTokenAddress =
+        await destTokenVaultContract.canonicalToBridged(
+          srcChain.id,
+          tokenAddressOnSourceChain,
         );
+
+      log(`Address of bridged token: ${bridgedTokenAddress}`);
+
+      if (bridgedTokenAddress !== ethers.constants.AddressZero) {
+        return true;
       }
+    } catch (error) {
+      console.error(error);
+      throw new Error(
+        'encountered an issue when checking if token is deployed cross-chain',
+        {
+          cause: error,
+        },
+      );
     }
   }
   return false;
