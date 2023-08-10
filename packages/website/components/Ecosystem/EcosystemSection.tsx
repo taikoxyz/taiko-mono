@@ -278,6 +278,14 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/vooi.jpeg",
+    name: "Vooi",
+    link: "https://vooi.io/",
+    description: "vooi is a stableswap AMM DEX built for L2 chains on top of Unbounded pool technology.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/zkpool.png",
     name: "ZKPool",
     link: "https://zkpool.io",
