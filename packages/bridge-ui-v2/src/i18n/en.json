@@ -173,7 +173,8 @@
     }
   },
   "token_dropdown": {
-    "label": "Select token"
+    "label": "Select token",
+    "add_custom": "Add Custom"
   },
   "inputs": {
     "nft": {
@@ -221,7 +222,9 @@
     "network": {
       "switching": "Switching network",
       "rejected": "Request to switch chain rejected.",
-      "pending": "A network switch is still pending, open your wallet to check the status."
+      "pending": "A network switch is still pending, open your wallet to check the status.",
+      "required": "Source chain must be selected.",
+      "required_dest": "Destination chain must be selected."
     }
   },
   "common": {
