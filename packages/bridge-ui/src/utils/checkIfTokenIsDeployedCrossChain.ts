@@ -49,6 +49,14 @@ export const checkIfTokenIsDeployedCrossChain = async (
 
       if (bridgedTokenAddress !== ethers.constants.AddressZero) {
         return true;
+      } else {
+        const canonicalTokenAddress =
+          await destTokenVaultContract.canonicalToBridged(
+            srcChain.id,
+            tokenAddressOnSourceChain,
+          );
+
+        return canonicalTokenAddress !== ethers.constants.AddressZero;
       }
     } catch (error) {
       console.error(error);
