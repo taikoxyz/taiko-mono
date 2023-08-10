@@ -92,7 +92,15 @@ docker compose -f ./docker-compose.l3.yml --env-file .env.l3 logs -f l3_taiko_cl
 
 The simple-taiko-node comes with a default value of `PROVE_UNASSIGNED_BLOCKS` set to `true`. This means that your prover will attempt to prove these open blocks. To be assigned blocks by the protocol, you need to stake your TTKOe.
 
+If you are trying to run a prover for Eldfell L3 first keep in mind, the competition for getting into the prover pool will be high. But don't worry! Even if you get slashed, there's nothing wrong with that. TTKOe is a worthless testnet token, and even getting slashed really helps us to test the network.
+
 To stake your TTKOe try using the [staking dashboard](https://staking.l3test.taiko.xyz/) or the base layer contract manually (see [TaikoL1](/docs/reference/contract-addresses)).
+
+To be one of the provers, you must stake more than current prover stakes, and in the list of top 32 stakers [here](https://staking.l3test.taiko.xyz/#/currentProvers).
+
+The stake amount would be calculated by Capacity/Amount per Capacity. If you want to stake 2 TTKOe with 32 capacity, your Amount per Capacity will be calculated as: `2 / 32 = 0.0625`.
+
+If you have already staked some amount, only the difference will be deducted from your balance.
 
 1. Set the amount per capacity. This is the amount you in TTKOe you are staking. The more you stake, the higher your rank will be in prover pool.
 2. Set the reward per gas. This is the reward you want to receive in TTKOe. A good value would be close to the current protocol `feePerGas`.
