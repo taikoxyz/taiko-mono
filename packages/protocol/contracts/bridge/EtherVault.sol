@@ -27,7 +27,7 @@ contract EtherVault is EssentialContract, BridgeErrors {
 
     mapping(address addr => bool isAuthorized) private _authorizedAddrs; // Authorized
         // addresses
-    uint256[49] private __gap; // Gap for potential storage expansion
+    uint256[49] private __gap;
 
     event Authorized(address indexed addr, bool authorized);
     event EtherReleased(address indexed to, uint256 amount);

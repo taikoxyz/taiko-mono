@@ -20,7 +20,7 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     address public srcToken; // Address of the source token contract.
     uint256 public srcChainId; // Source chain ID where the token originates.
 
-    uint256[48] private __gap; // Gap for storage layout compatibility.
+    uint256[48] private __gap;
 
     // Errors that can be thrown by the contract.
     error BRIDGED_TOKEN_CANNOT_RECEIVE();

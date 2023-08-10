@@ -75,7 +75,6 @@ contract ERC20Vault is
 
     uint256[47] private __gap;
 
-    // Events to log important actions
     event BridgedTokenDeployed(
         uint256 indexed srcChainId,
         address indexed ctoken,

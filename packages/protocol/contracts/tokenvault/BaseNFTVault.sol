@@ -52,18 +52,17 @@ abstract contract BaseNFTVault is
     bytes4 public constant ERC721_INTERFACE_ID = 0x80ac58cd;
 
     // Mapping to track bridged tokens.
-    mapping(address => bool) public isBridgedToken;
+    mapping(address tokenAddress => bool isBridged) public isBridgedToken;
 
     // Mapping to store bridged NFTs and their canonical counterparts.
-    mapping(address => CanonicalNFT) public bridgedToCanonical;
+    mapping(address btoken => CanonicalNFT ctoken) public bridgedToCanonical;
 
     // Mapping to store canonical NFTs and their bridged counterparts.
-    mapping(uint256 => mapping(address => address)) public canonicalToBridged;
+    mapping(uint256 chainId => mapping(address ctokenAddress => address btoken))
+        public canonicalToBridged;
 
-    // Gap for storage layout compatibility.
     uint256[47] private __gap;
 
-    // Events for token bridging and operations.
     event BridgedTokenDeployed(
         uint256 indexed chainId,
         address indexed ctoken,

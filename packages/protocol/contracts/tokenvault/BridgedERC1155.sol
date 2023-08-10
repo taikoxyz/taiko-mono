@@ -31,7 +31,7 @@ contract BridgedERC1155 is
     string public symbol; // Symbol of the bridged token.
     string private name_; // Name of the bridged token.
 
-    uint256[46] private __gap; // Gap for storage layout compatibility.
+    uint256[46] private __gap;
 
     // Event triggered upon token transfer.
     event Transfer(
