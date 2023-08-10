@@ -108,7 +108,7 @@
       aria-expanded={modalOpen}
       class={buttonClasses}
       on:click={openModal}>
-      <div class="{small ? 'f-items-center' : 'f-center'} space-x-2">
+      <div class="{small ? 'f-items-center' : 'f-center'} space-x-2 w-full">
         {#if !value}
           <span>{$t('chain_selector.placeholder')}</span>
         {/if}
