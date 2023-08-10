@@ -199,9 +199,8 @@ export class BridgeTxService {
     this.storage.setItem(key, JSON.stringify(txs));
   }
 
-
   removeTransactions(address: Address, txs: BridgeTransaction[]) {
-    log('Removing transactions from storage', txs)
+    log('Removing transactions from storage', txs);
     const txsFromStorage = this._getTxFromStorage(address);
 
     const txsToRemove = txs.map((tx) => tx.hash);
