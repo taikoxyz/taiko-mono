@@ -9,10 +9,12 @@
   let mask: HTMLDivElement;
 
   onMount(() => {
+    document.body.appendChild(mask);
     mask?.addEventListener('click', fn);
   });
 
   onDestroy(() => {
+    document.body.removeChild(mask);
     mask?.removeEventListener('click', fn);
   });
 

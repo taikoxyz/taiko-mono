@@ -24,7 +24,7 @@
   export let selectToken: (token: Token) => void = noop;
   export let closeMenu: () => void = noop;
 
-  let modalOpen = false;
+  let addArc20ModalOpen = false;
 
   $: menuClasses = classNames(
     'menu absolute right-0 w-[265px] p-3 mt-2 rounded-[10px] bg-neutral-background z-10',
@@ -39,7 +39,7 @@
     };
   };
 
-  const showAddERC20 = () => (modalOpen = true);
+  const showAddERC20 = () => (addArc20ModalOpen = true);
 
   const handleStorageChange = (newTokens: Token[]) => {
     customTokens = newTokens;
@@ -110,8 +110,8 @@
   </li>
 </ul>
 
-<ClickMask fn={closeMenu} active={modalOpen} />
+<ClickMask fn={closeMenu} active={menuOpen} />
 
-<AddCustomErc20 bind:modalOpen />
+<AddCustomErc20 bind:modalOpen={addArc20ModalOpen} />
 
 <OnAccount change={onAccountChange} />
