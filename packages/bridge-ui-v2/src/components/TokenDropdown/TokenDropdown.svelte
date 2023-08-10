@@ -34,7 +34,7 @@
     document.removeEventListener('click', closeMenu);
   };
 
-  const openMenu = (event: MouseEvent) => {
+  const openMenu = (event: Event) => {
     event.stopPropagation();
 
     menuOpen = true;
@@ -102,7 +102,7 @@
   </button>
 
   {#if isDesktopOrLarger}
-    <DropdownView {id} {menuOpen} {tokens} {value} {selectToken} {closeMenu} />
+    <DropdownView {id} {menuOpen} {tokens} {value} {selectToken} />
   {:else}
     <DialogView {id} {menuOpen} {tokens} {value} {selectToken} {closeMenu} />
   {/if}
