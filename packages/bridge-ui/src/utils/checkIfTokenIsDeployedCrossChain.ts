@@ -23,6 +23,8 @@ export const checkIfTokenIsDeployedCrossChain = async (
     );
 
     const tokenAddressOnDestChain = token.addresses[destChain.id];
+    console.log('token', token);
+    console.log('tokenAddressOnDestChain', tokenAddressOnDestChain);
 
     if (tokenAddressOnDestChain === '0x00') {
       // Check if token is already deployed as BridgedERC20 on destination chain
@@ -56,6 +58,8 @@ export const checkIfTokenIsDeployedCrossChain = async (
           },
         );
       }
+    } else {
+      return true;
     }
   }
   return false;
