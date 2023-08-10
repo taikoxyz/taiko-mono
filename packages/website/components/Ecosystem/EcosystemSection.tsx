@@ -286,6 +286,15 @@ const ecosystemData: EcosystemData[] = [
     filters: [],
     isLive: true,
   },
+  {
+    icon: "/images/ecosystem/zksynth.png",
+    name: "ZKSynth",
+    link: "https://app.zksynth.com/",
+    description:
+      "zkSynth allows you to create and trade synthetic assets that track the price of any real-world asset, such as stocks, commodities, currencies, and more.",
+    filters: [],
+    isLive: false,
+  },
 ];
 
 export function EcosystemSection() {
