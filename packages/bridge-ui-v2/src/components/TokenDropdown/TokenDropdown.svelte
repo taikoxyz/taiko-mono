@@ -29,10 +29,18 @@
   // not being used, doing this with JS instead of CSS media queries
   let isDesktopOrLarger: boolean;
 
-  const closeMenu = () => (menuOpen = false);
+  const closeMenu = () => {
+    menuOpen = false;
+    document.removeEventListener('click', closeMenu);
+  };
 
-  const openMenu = () => {
+  const openMenu = (event: MouseEvent) => {
+    event.stopPropagation();
+
     menuOpen = true;
+
+    // Click away to close menu
+    document.addEventListener('click', closeMenu, { once: true });
   };
 
   const selectToken = async (token: Token) => {
