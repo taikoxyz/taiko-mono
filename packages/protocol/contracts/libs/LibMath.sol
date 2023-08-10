@@ -7,16 +7,12 @@
 pragma solidity ^0.8.20;
 
 /**
- * @title LibMath Library
- * @notice This library offers additional math functions for uint256.
- * @dev Libraries in Solidity are similar to classes of OOP languages. They
- * provide functions that can be applied to variables in a more native way
- * without actually having an instance of a library.
+ * This library offers additional math functions for uint256.
+ * @title LibMath
  */
 library LibMath {
     /**
-     * @notice Returns the smaller of the two given values.
-     * @dev Uses the ternary operator to determine and return the smaller value.
+     * Returns the smaller of the two given values.
      * @param a The first number to compare.
      * @param b The second number to compare.
      * @return The smaller of the two numbers.
@@ -26,8 +22,7 @@ library LibMath {
     }
 
     /**
-     * @notice Returns the larger of the two given values.
-     * @dev Uses the ternary operator to determine and return the larger value.
+     * Returns the larger of the two given values.
      * @param a The first number to compare.
      * @param b The second number to compare.
      * @return The larger of the two numbers.

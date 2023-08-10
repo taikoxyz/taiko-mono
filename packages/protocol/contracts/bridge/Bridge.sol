@@ -20,9 +20,10 @@ import { LibBridgeStatus } from "./libs/LibBridgeStatus.sol";
 
 /**
  * This contract is a Bridge contract which is deployed on both L1 and L2. Mostly
- * a thin wrapper
- * which calls the library implementations. See _IBridge_ for more details.
+ * a thin wrapper which calls the library implementations. See the documentation
+ * in {IBridge}.
  * @dev The code hash for the same address on L1 and L2 may be different.
+ * @title Bridge
  */
 contract Bridge is EssentialContract, IBridge, BridgeErrors {
     using LibBridgeData for Message;
@@ -281,7 +282,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
 }
 
 /**
+ * Proxied version of the Bridge contract.
  * @title ProxiedBridge
- * @dev Proxied version of the Bridge contract.
  */
 contract ProxiedBridge is Proxied, Bridge { }

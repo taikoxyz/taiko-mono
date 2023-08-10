@@ -11,13 +11,12 @@ import { OwnableUpgradeable } from
 import { Proxied } from "./Proxied.sol";
 
 /**
- * @title IAddressManager Interface
- * @dev Specifies methods to manage address mappings for given domain-name
- * pairs.
+ * Specifies methods to manage address mappings for given domain-name pairs.
+ * @title IAddressManager
  */
 interface IAddressManager {
     /**
-     * @notice Set the address for a specific domain-name pair.
+     * Set the address for a specific domain-name pair.
      * @param domain The domain to which the address will be mapped.
      * @param name The name to which the address will be mapped.
      * @param newAddress The Ethereum address to be mapped.
@@ -30,7 +29,7 @@ interface IAddressManager {
         external;
 
     /**
-     * @notice Get the address mapped to a specific domain-name pair.
+     * Get the address mapped to a specific domain-name pair.
      * @param domain The domain for which the address needs to be fetched.
      * @param name The name for which the address needs to be fetched.
      * @return Address associated with the domain-name pair.
@@ -45,10 +44,8 @@ interface IAddressManager {
 }
 
 /**
+ * Manages a mapping of domain-name pairs to Ethereum addresses.
  * @title AddressManager
- * @dev Manages a mapping of domain-name pairs to Ethereum addresses.
- * Only the contract owner can modify these mappings. Address changes
- * are emitted as events.
  */
 contract AddressManager is OwnableUpgradeable, IAddressManager {
     mapping(uint256 => mapping(bytes32 => address)) private addresses;
@@ -63,18 +60,14 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
     error EOA_OWNER_NOT_ALLOWED();
 
     /**
-     * @notice Initializes the owner for the upgradable contract.
+     * Initializes the owner for the upgradable contract.
      */
     function init() external initializer {
         OwnableUpgradeable.__Ownable_init();
     }
 
     /**
-     * @notice Maps a domain-name pair to an Ethereum address.
-     * @dev Can only be called by the contract owner.
-     * @param domain The domain to which the address will be mapped.
-     * @param name The name to which the address will be mapped.
-     * @param newAddress The Ethereum address to be mapped.
+     * @inheritdoc IAddressManager
      */
     function setAddress(
         uint256 domain,
@@ -95,10 +88,7 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
     }
 
     /**
-     * @notice Retrieves the address mapped to a domain-name pair.
-     * @param domain The domain for which the address needs to be fetched.
-     * @param name The name for which the address needs to be fetched.
-     * @return Address associated with the domain-name pair.
+     * @inheritdoc IAddressManager
      */
     function getAddress(
         uint256 domain,
@@ -114,7 +104,7 @@ contract AddressManager is OwnableUpgradeable, IAddressManager {
 }
 
 /**
+ * Proxied version of the AddressManager contract.
  * @title ProxiedAddressManager
- * @dev Proxied version of the AddressManager contract.
  */
 contract ProxiedAddressManager is Proxied, AddressManager { }

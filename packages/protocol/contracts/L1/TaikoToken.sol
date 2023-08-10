@@ -29,15 +29,9 @@ library LibTaikoTokenConfig {
 }
 
 /**
+ * The TaikoToken (TKO) is used for proposing blocks and also for staking in
+ * the Taiko protocol. It is an ERC20 token with 8 decimal places of precision.
  * @title TaikoToken
- * @dev TaikoToken is a ERC20 compliant token contract that extends several
- * OpenZeppelin ERC20 extensions and implements additional functionalities
- * specific to the Taiko protocol.
- *
- * It allows users to initialize, mint, burn, pause, and unpause tokens. The
- * contract supports snapshots, voting, and permits for ERC20 transfers. The
- * contract is also upgradable and mints initial tokens to specified recipients
- * during initialization.
  */
 contract TaikoToken is
     EssentialContract,
@@ -58,10 +52,9 @@ contract TaikoToken is
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Initializes the TaikoToken contract and mints initial tokens to
+     * Initializes the TaikoToken contract and mints initial tokens to
      * specified recipients.
-     * @param _addressManager Address of the contract that manages proxy
-     * addresses.
+     * @param _addressManager The {AddressManager} address.
      * @param _name The name of the token.
      * @param _symbol The symbol of the token.
      * @param _premintRecipients An array of addresses to receive initial token
@@ -93,7 +86,7 @@ contract TaikoToken is
     }
 
     /**
-     * @notice Creates a new token snapshot.
+     * Creates a new token snapshot.
      * @dev Only the contract owner can call this function.
      */
     function snapshot() public onlyOwner {
@@ -101,7 +94,7 @@ contract TaikoToken is
     }
 
     /**
-     * @notice Pauses all token transfers.
+     * Pauses all token transfers.
      * @dev Only the contract owner can call this function.
      */
     function pause() public onlyOwner {
@@ -109,7 +102,7 @@ contract TaikoToken is
     }
 
     /**
-     * @notice Unpauses token transfers.
+     * Unpauses token transfers.
      * @dev Only the contract owner can call this function.
      */
     function unpause() public onlyOwner {
@@ -117,7 +110,9 @@ contract TaikoToken is
     }
 
     /**
-     * @notice Mints new tokens to the specified address.
+     * Mints new tokens to the specified address.
+     * @dev Only the TaikoL1, ProverPool, DAO, and ERC20Vault contracts can call
+     * this function.
      * @param to The address to receive the minted tokens.
      * @param amount The amount of tokens to mint.
      */
@@ -132,7 +127,9 @@ contract TaikoToken is
     }
 
     /**
-     * @notice Burns tokens from the specified address.
+     * Burns tokens from the specified address.
+     * @dev Only the TaikoL1, ProverPool, DAO, and ERC20Vault contracts can call
+     * this function.
      * @param from The address to burn tokens from.
      * @param amount The amount of tokens to burn.
      */
@@ -147,7 +144,7 @@ contract TaikoToken is
     }
 
     /**
-     * @notice Transfers tokens to a specified address.
+     * Transfers tokens to a specified address.
      * @param to The address to transfer tokens to.
      * @param amount The amount of tokens to transfer.
      * @return A boolean indicating whether the transfer was successful or not.
@@ -165,7 +162,7 @@ contract TaikoToken is
     }
 
     /**
-     * @notice Transfers tokens from one address to another.
+     * Transfers tokens from one address to another.
      * @param from The address to transfer tokens from.
      * @param to The address to transfer tokens to.
      * @param amount The amount of tokens to transfer.
@@ -185,7 +182,7 @@ contract TaikoToken is
     }
 
     /**
-     * @notice Returns the number of decimals used for token display.
+     * Returns the number of decimals used for token display.
      * @return The number of decimals used for token display.
      */
     function decimals() public pure override returns (uint8) {
@@ -208,7 +205,6 @@ contract TaikoToken is
         super._beforeTokenTransfer(from, to, amount);
     }
 
-    // The following functions are overrides required by Solidity.
     function _afterTokenTransfer(
         address from,
         address to,
@@ -246,7 +242,7 @@ contract TaikoToken is
 }
 
 /**
+ * Proxied version of the TaikoToken contract.
  * @title ProxiedTaikoToken
- * @dev Proxied version of the TaikoToken contract.
  */
 contract ProxiedTaikoToken is Proxied, TaikoToken { }

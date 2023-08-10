@@ -12,8 +12,8 @@ import { AddressResolver } from "../../common/AddressResolver.sol";
 import { TaikoData } from "../TaikoData.sol";
 
 /**
- * @title LibEthDepositing Library
- * @notice A library for handling Ethereum deposits in the Taiko system.
+ * A library for handling Ethereum deposits in the Taiko protocol.
+ * @title LibEthDepositing
  */
 library LibEthDepositing {
     using LibAddress for address;
@@ -24,9 +24,9 @@ library LibEthDepositing {
     error L1_INVALID_ETH_DEPOSIT();
 
     /**
-     * @notice Deposit Ethereum to Layer 2.
-     * @param state The current state of the Taiko system.
-     * @param config Configuration for deposits.
+     * Deposit Ether into Taiko.
+     * @param state The current state of the Taiko protocol.
+     * @param config The config of the Taiko protocol.
      * @param resolver The AddressResolver instance for address resolution.
      * @param recipient The address of the deposit recipient.
      */
@@ -67,9 +67,9 @@ library LibEthDepositing {
     }
 
     /**
-     * @notice Process the ETH deposits in a batched manner.
-     * @param state The current state of the Taiko system.
-     * @param config Configuration for deposits.
+     * Process the ETH deposits in a batched manner.
+     * @param state The current state of the Taiko protocol.
+     * @param config The config of the Taiko protocol.
      * @param feeRecipient Address to receive the deposit fee.
      * @return deposits The array of processed deposits.
      */
@@ -103,7 +103,7 @@ library LibEthDepositing {
                     state.ethDeposits[j % config.ethDepositRingBufferSize];
                 deposits[i] = TaikoData.EthDeposit({
                     recipient: address(uint160(data >> 96)),
-                    amount: uint96(data), // works
+                    amount: uint96(data),
                     id: j
                 });
                 uint96 _fee =
@@ -127,9 +127,9 @@ library LibEthDepositing {
     }
 
     /**
-     * @notice Check if the given deposit amount is valid.
-     * @param state The current state of the Taiko system.
-     * @param config Configuration for deposits.
+     * Check if the given deposit amount is valid.
+     * @param state The current state of the Taiko protocol.
+     * @param config The config of the Taiko protocol.
      * @param amount The amount to deposit.
      * @return true if the deposit is valid, false otherwise.
      */
@@ -151,7 +151,7 @@ library LibEthDepositing {
     }
 
     /**
-     * @notice Compute the hash for a set of deposits.
+     * Compute the hash for a set of deposits.
      * @param deposits Array of EthDeposit to hash.
      * @return The computed hash.
      */
