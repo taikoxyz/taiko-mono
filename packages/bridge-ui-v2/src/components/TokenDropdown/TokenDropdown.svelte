@@ -69,9 +69,13 @@
         srcChainId: chain.id,
         destChainId: destChain.id,
       });
-      token.addresses[destChain.id] = bridgedAddress as Address;
 
-      tokenService.updateToken(token, $account?.address as Address);
+      // only update the token if we actually have a bridged address
+      if (bridgedAddress) {
+        token.addresses[destChain.id] = bridgedAddress as Address;
+
+        tokenService.updateToken(token, $account?.address as Address);
+      }
     }
     value = token;
 
