@@ -31,6 +31,7 @@
       "approve_error": "Failed to approve token",
       "rejected": "Request to bridge rejected.",
       "no_allowance_required": "You already have enough allowance.",
+      "insufficient_balance": "Not enough balance in your wallet for this token.",
       "insufficient_allowance": "You need to increase your allowance in order to be able to bridge.",
       "cannot_fetch_balance": "Error fetching balance. Wrong chain?",
       "unknown_error": "An error occured",

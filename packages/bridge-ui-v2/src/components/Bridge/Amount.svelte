@@ -178,6 +178,11 @@
   $: updateBalance($selectedToken, $account?.address, $network?.id, $destNetwork?.id);
 
   $: validateAmount($selectedToken, $processingFee);
+
+  // There is no reason to show any error/warning message if we are computing the balance
+  // or there is an issue computing it
+  $: showInsifficientBalanceAlert = $insufficientBalance && !$errorComputingBalance && !$computingBalance;
+  $: showInsiffucientAllowanceAlert = $insufficientAllowance && !$errorComputingBalance && !$computingBalance;
 </script>
 
 <div class="Amount f-col space-y-2">
@@ -220,10 +225,10 @@
         {$t('inputs.amount.button.max')}
       </button>
     </div>
-    {#if $insufficientBalance && $enteredAmount > 0 && !errorComputingBalance}
-      <FlatAlert type="error" message={$t('error.insufficient_balance')} class="absolute bottom-[-26px]" />
-    {:else if $insufficientAllowance && $enteredAmount > 0 && !errorComputingBalance}
-      <FlatAlert type="warning" message={$t('error.insufficient_allowance')} class="absolute bottom-[-26px]" />
+    {#if showInsifficientBalanceAlert}
+      <FlatAlert type="error" message={$t('bridge.errors.insufficient_balance')} class="absolute bottom-[-26px]" />
+    {:else if showInsiffucientAllowanceAlert}
+      <FlatAlert type="warning" message={$t('bridge.errors.insufficient_allowance')} class="absolute bottom-[-26px]" />
     {/if}
   </div>
 </div>
