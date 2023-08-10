@@ -16,6 +16,7 @@
   import DialogView from './DialogView.svelte';
   import DropdownView from './DropdownView.svelte';
   import { symbolToIconMap } from './symbolToIconMap';
+  import { warningToast } from '$components/NotificationToast';
 
   export let tokens: Token[] = [];
   export let value: Maybe<Token> = null;
@@ -47,11 +48,22 @@
     const { chain } = getNetwork();
     const destChain = $destNetwork;
 
-    if (!chain || !destChain) throw new Error('Chain not found');
+    // In order to select a token, we only need the source chain to be selected,
+    // unles it's an imported token...
+    if (!chain) {
+      warningToast($t('messages.network.required'));
+      return;
+    }
 
     // if it is an imported Token, chances are we do not yet have the bridged address
     // for the destination chain, so we need to fetch it
     if (token.imported) {
+      // ... in the case of imported tokens, we also require the destination chain to be selected.
+      if (!destChain) {
+        warningToast($t('messages.network.required_dest'));
+        return;
+      }
+
       const bridgedAddress = await getCrossChainAddress({
         token,
         srcChainId: chain.id,
