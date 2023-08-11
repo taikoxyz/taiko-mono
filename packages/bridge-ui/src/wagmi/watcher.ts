@@ -17,12 +17,12 @@ const setChain = (chainId: number) => {
     srcChain.set(L1Chain);
     destChain.set(L2Chain);
 
-    log(`Network swtiched to ${L1Chain.name}`);
+    log(`Network switched to ${L1Chain.name}`);
   } else if (chainId === L2Chain.id) {
     srcChain.set(L2Chain);
     destChain.set(L1Chain);
 
-    log(`Network swtiched to ${L2Chain.name}`);
+    log(`Network switched to ${L2Chain.name}`);
   } else {
     isSwitchChainModalOpen.set(true);
   }
