@@ -168,7 +168,10 @@ func (p *Processor) sendProcessMessageCall(
 
 	var cost *big.Int
 
-	needsContractDeployment, err := p.needsContractDeployment(ctx, event, eventType)
+	needsContractDeployment, err := p.needsContractDeployment(ctx, event, eventType, canonicalToken)
+	if err != nil {
+		return nil, errors.Wrap(err, "p.needsContractDeployment")
+	}
 
 	if needsContractDeployment {
 		auth.GasLimit = 3000000
@@ -227,25 +230,32 @@ func (p *Processor) needsContractDeployment(
 	ctx context.Context,
 	event *bridge.BridgeMessageSent,
 	eventType relayer.EventType,
-	canonicalToken *relayer.CanonicalToken,
+	canonicalToken relayer.CanonicalToken,
 ) (bool, error) {
+	if eventType == relayer.EventTypeSendETH {
+		return false, nil
+	}
+
 	var bridgedAddress common.Address
+
 	var err error
 
-	if eventType == relayer.EventTypeSendERC20 && event.Message.DestChainId.Cmp(canonicalToken.ChainId) != 0 {
-		// determine whether the canonical token is bridged or not on this chain
-		bridgedAddress, err = p.destERC20Vault.CanonicalToBridged(nil, canonicalToken.ChainId, canonicalToken.Addr)
+	chainID := canonicalToken.ChainID()
+	addr := canonicalToken.Address()
 
+	if eventType == relayer.EventTypeSendERC20 && event.Message.DestChainId.Cmp(chainID) != 0 {
+		// determine whether the canonical token is bridged or not on this chain
+		bridgedAddress, err = p.destERC20Vault.CanonicalToBridged(nil, chainID, addr)
 	}
 
-	if eventType == relayer.EventTypeSendERC721 && event.Message.DestChainId.Cmp(canonicalToken.ChainId) != 0 {
+	if eventType == relayer.EventTypeSendERC721 && event.Message.DestChainId.Cmp(chainID) != 0 {
 		// determine whether the canonical token is bridged or not on this chain
-		bridgedAddress, err = p.destERC721Vault.CanonicalToBridged(nil, canonicalToken.ChainId, canonicalToken.Addr)
+		bridgedAddress, err = p.destERC721Vault.CanonicalToBridged(nil, chainID, addr)
 	}
 
-	if eventType == relayer.EventTypeSendERC1155 && event.Message.DestChainId.Cmp(canonicalToken.ChainId) != 0 {
+	if eventType == relayer.EventTypeSendERC1155 && event.Message.DestChainId.Cmp(chainID) != 0 {
 		// determine whether the canonical token is bridged or not on this chain
-		bridgedAddress, err = p.destERC1155Vault.CanonicalToBridged(nil, canonicalToken.ChainId, canonicalToken.Addr)
+		bridgedAddress, err = p.destERC1155Vault.CanonicalToBridged(nil, chainID, addr)
 	}
 
 	if err != nil {
@@ -266,27 +276,58 @@ func (p *Processor) hardcodeGasLimit(
 	auth *bind.TransactOpts,
 	event *bridge.BridgeMessageSent,
 	eventType relayer.EventType,
-	canonicalToken *relayer.CanonicalToken,
+	canonicalToken relayer.CanonicalToken,
 ) (*big.Int, error) {
-	if eventType == relayer.EventTypeSendETH {
+	var bridgedAddress common.Address
+
+	var err error
+
+	switch eventType {
+	case relayer.EventTypeSendETH:
 		// eth bridges take much less gas, from 250k to 450k.
 		auth.GasLimit = 500000
-	} else {
+	case relayer.EventTypeSendERC20:
 		// determine whether the canonical token is bridged or not on this chain
-		bridgedAddress, err := p.destERC20Vault.CanonicalToBridged(nil, canonicalToken.ChainId, canonicalToken.Addr)
+		bridgedAddress, err = p.destERC20Vault.CanonicalToBridged(
+			nil,
+			canonicalToken.ChainID(),
+			canonicalToken.Address(),
+		)
 		if err != nil {
-			return nil, errors.Wrap(err, "p.destTokenVault.IsBridgedToken")
+			return nil, errors.Wrap(err, "p.destERC20Vault.CanonicalToBridged")
 		}
+	case relayer.EventTypeSendERC721:
+		// determine whether the canonical token is bridged or not on this chain
+		bridgedAddress, err = p.destERC721Vault.CanonicalToBridged(
+			nil,
+			canonicalToken.ChainID(),
+			canonicalToken.Address(),
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "p.destERC721Vault.CanonicalToBridged")
+		}
+	case relayer.EventTypeSendERC1155:
+		// determine whether the canonical token is bridged or not on this chain
+		bridgedAddress, err = p.destERC1155Vault.CanonicalToBridged(
+			nil,
+			canonicalToken.ChainID(),
+			canonicalToken.Address(),
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "p.destERC1155Vault.CanonicalToBridged")
+		}
+	default:
+		return nil, errors.New("unexpected event type")
+	}
 
-		if bridgedAddress == relayer.ZeroAddress {
-			// needs large gas limit because it has to deploy an ERC20 contract on destination
-			// chain. deploying ERC20 can be 2 mil by itself.
-			auth.GasLimit = 3000000
-		} else {
-			// needs larger than ETH gas limit but not as much as deploying ERC20.
-			// takes 450-550k gas after signalRoot refactors.
-			auth.GasLimit = 600000
-		}
+	if bridgedAddress == relayer.ZeroAddress {
+		// needs large gas limit because it has to deploy an ERC20 contract on destination
+		// chain. deploying ERC20 can be 2 mil by itself.
+		auth.GasLimit = 3000000
+	} else {
+		// needs larger than ETH gas limit but not as much as deploying ERC20.
+		// takes 450-550k gas after signalRoot refactors.
+		auth.GasLimit = 600000
 	}
 
 	gasPrice, err := p.destEthClient.SuggestGasPrice(ctx)
