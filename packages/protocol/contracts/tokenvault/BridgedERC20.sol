@@ -19,7 +19,6 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 /**
  * This contract is an upgradeable ERC20 contract that represents tokens bridged
  * from another chain.
- * @custom:security-contact hello@taiko.xyz
  */
 
 contract BridgedERC20 is

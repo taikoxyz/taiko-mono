@@ -13,7 +13,7 @@ import { Proxied } from "../common/Proxied.sol";
 import { LibEthDepositing } from "./libs/LibEthDepositing.sol";
 import { LibProposing } from "./libs/LibProposing.sol";
 import { LibProving } from "./libs/LibProving.sol";
-import { LibTkoDistribution } from "./libs/LibTkoDistribution.sol";
+import { LibTaikoToken } from "./libs/LibTaikoToken.sol";
 import { LibUtils } from "./libs/LibUtils.sol";
 import { LibVerifying } from "./libs/LibVerifying.sol";
 import { TaikoConfig } from "./TaikoConfig.sol";
@@ -21,7 +21,12 @@ import { TaikoErrors } from "./TaikoErrors.sol";
 import { TaikoData } from "./TaikoData.sol";
 import { TaikoEvents } from "./TaikoEvents.sol";
 
-/// @custom:security-contact hello@taiko.xyz
+/**
+ * @title TaikoL1
+ * @notice This contract serves as the Layer 1 contract of the Taiko protocol,
+ * providing functionalities for proposing, proving, and verifying blocks. It
+ * also handles deposit and withdrawal of Taiko tokens and Ether.
+ */
 contract TaikoL1 is
     EssentialContract,
     ICrossChainSync,
@@ -33,6 +38,7 @@ contract TaikoL1 is
     TaikoData.State public state;
     uint256[100] private __gap;
 
+    // Fallback function to receive Ether and deposit it to Layer 2.
     receive() external payable {
         depositEtherToL2(address(0));
     }
@@ -42,7 +48,7 @@ contract TaikoL1 is
      *
      * @param _addressManager The AddressManager address.
      * @param _genesisBlockHash The block hash of the genesis block.
-     * @param _initFeePerGas Initial (reasonable) block fee value,
+     * @param _initFeePerGas Initial (reasonable) block fee value.
      * @param _initAvgProofDelay Initial (reasonable) proof window.
      */
     function init(
@@ -74,6 +80,7 @@ contract TaikoL1 is
      *        will be the first transaction in the block -- if there are
      *        `n` transactions in `txList`, then there will be up to `n + 1`
      *        transactions in the L2 block.
+     * @return meta The metadata of the proposed L2 block.
      */
     function proposeBlock(
         bytes calldata input,
@@ -147,6 +154,11 @@ contract TaikoL1 is
         });
     }
 
+    /**
+     * Deposit Ether to Layer 2.
+     * @param recipient Address of the recipient for the deposited Ether on
+     * Layer 2.
+     */
     function depositEtherToL2(address recipient) public payable {
         LibEthDepositing.depositEtherToL2({
             state: state,
@@ -156,18 +168,27 @@ contract TaikoL1 is
         });
     }
 
+    /**
+     * Deposit Taiko tokens to the contract.
+     * @param amount Amount of Taiko tokens to deposit.
+     */
     function depositTaikoToken(uint256 amount) public nonReentrant {
-        LibTkoDistribution.depositTaikoToken(
-            state, AddressResolver(this), amount
-        );
+        LibTaikoToken.depositTaikoToken(state, AddressResolver(this), amount);
     }
 
+    /**
+     * Withdraw Taiko tokens from the contract.
+     * @param amount Amount of Taiko tokens to withdraw.
+     */
     function withdrawTaikoToken(uint256 amount) public nonReentrant {
-        LibTkoDistribution.withdrawTaikoToken(
-            state, AddressResolver(this), amount
-        );
+        LibTaikoToken.withdrawTaikoToken(state, AddressResolver(this), amount);
     }
 
+    /**
+     * Check if Ether deposit is allowed for Layer 2.
+     * @param amount Amount of Ether to be deposited.
+     * @return true if Ether deposit is allowed, false otherwise.
+     */
     function canDepositEthToL2(uint256 amount) public view returns (bool) {
         return LibEthDepositing.canDepositEthToL2({
             state: state,
@@ -176,6 +197,11 @@ contract TaikoL1 is
         });
     }
 
+    /**
+     * Get the block fee for a given gas limit.
+     * @param gasLimit Gas limit for the block.
+     * @return The block fee in Taiko tokens.
+     */
     function getBlockFee(uint32 gasLimit) public view returns (uint64) {
         return LibUtils.getBlockFee({
             state: state,
@@ -184,10 +210,31 @@ contract TaikoL1 is
         });
     }
 
+    /**
+     * Get the Taiko token balance for a specific address.
+     * @param addr Address to check the Taiko token balance.
+     * @return The Taiko token balance of the address.
+     */
     function getTaikoTokenBalance(address addr) public view returns (uint256) {
         return state.taikoTokenBalances[addr];
     }
 
+    /**
+     * Get the details of a block.
+     * @param blockId Index of the block.
+     * @return _metaHash Metadata hash of the block.
+     * @return _gasLimit Gas limit of the block.
+     * @return _nextForkChoiceId Next fork choice ID of the block.
+     * @return _verifiedForkChoiceId Verified fork choice ID of the block.
+     * @return _proverReleased True if the prover has been released for the
+     * block, false otherwise.
+     * @return _proposer Address of the block proposer.
+     * @return _feePerGas Fee per gas of the block.
+     * @return _proposedAt Timestamp when the block was proposed.
+     * @return _assignedProver Address of the assigned prover for the block.
+     * @return _rewardPerGas Reward per gas of the block.
+     * @return _proofWindow Proof window of the block.
+     */
     function getBlock(uint256 blockId)
         public
         view
@@ -223,6 +270,13 @@ contract TaikoL1 is
         _proofWindow = blk.proofWindow;
     }
 
+    /**
+     * Get the fork choice for a specific block.
+     * @param blockId Index of the block.
+     * @param parentHash Parent hash of the block.
+     * @param parentGasUsed Gas used by the parent block.
+     * @return ForkChoice struct of the block.
+     */
     function getForkChoice(
         uint256 blockId,
         bytes32 parentHash,
@@ -241,6 +295,11 @@ contract TaikoL1 is
         });
     }
 
+    /**
+     * Get the block hash of the specified Layer 2 block.
+     * @param blockId Index of the block.
+     * @return Block hash of the specified block.
+     */
     function getCrossChainBlockHash(uint256 blockId)
         public
         view
@@ -257,6 +316,11 @@ contract TaikoL1 is
             : bytes32(0);
     }
 
+    /**
+     * Get the signal root of the specified Layer 2 block.
+     * @param blockId Index of the block.
+     * @return Signal root of the specified block.
+     */
     function getCrossChainSignalRoot(uint256 blockId)
         public
         view
@@ -274,6 +338,10 @@ contract TaikoL1 is
             : bytes32(0);
     }
 
+    /**
+     * Get the state variables of the Taiko L1 contract.
+     * @return StateVariables struct containing state variables.
+     */
     function getStateVariables()
         public
         view
@@ -282,6 +350,10 @@ contract TaikoL1 is
         return state.getStateVariables();
     }
 
+    /**
+     * Get the configuration of the Taiko L1 contract.
+     * @return TaikoData.Config struct containing configuration parameters.
+     */
     function getConfig()
         public
         pure
@@ -291,9 +363,18 @@ contract TaikoL1 is
         return TaikoConfig.getConfig();
     }
 
+    /**
+     * Get the name of the verifier by ID.
+     * @param id ID of the verifier.
+     * @return Verifier name.
+     */
     function getVerifierName(uint16 id) public pure returns (bytes32) {
         return LibUtils.getVerifierName(id);
     }
 }
 
+/**
+ * @title ProxiedTaikoL1
+ * @dev Proxied version of the TaikoL1 contract.
+ */
 contract ProxiedTaikoL1 is Proxied, TaikoL1 { }
