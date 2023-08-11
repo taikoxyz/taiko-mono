@@ -91,6 +91,9 @@ export class ProofService implements Prover {
     ]);
 
     log('Proof from eth_getProof', proof);
+    log('ProofOpts', opts);
+    log('Key', key);
+    log('Proof value', proof.storageProof[0].value);
 
     if (proof.storageProof[0].value !== '0x1') {
       throw Error('invalid proof');
