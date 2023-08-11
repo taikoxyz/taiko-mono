@@ -67,10 +67,7 @@ describe('checkIfTokenIsDeployedCrossChain', () => {
       canonicalToBridged: jest
         .fn()
         .mockResolvedValue(ethers.constants.AddressZero),
-      bridgedToCanonical: jest
-        .fn()
-        .mockResolvedValue(ethers.constants.AddressZero),
-      isBridgedToken: jest.fn().mockResolvedValue(true),
+      isBridgedToken: jest.fn().mockResolvedValue(false),
     };
     jest
       .spyOn(ethers, 'Contract')
@@ -130,6 +127,7 @@ describe('checkIfTokenIsDeployedCrossChain', () => {
   it('catches and rethrows error when canonicalToBridged method fails', async () => {
     const destTokenVaultContract = {
       canonicalToBridged: jest.fn().mockRejectedValue(new Error('BOOM!!')),
+      isBridgedToken: jest.fn().mockResolvedValue(false),
     };
 
     jest
