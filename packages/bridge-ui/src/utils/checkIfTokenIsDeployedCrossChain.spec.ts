@@ -67,6 +67,10 @@ describe('checkIfTokenIsDeployedCrossChain', () => {
       canonicalToBridged: jest
         .fn()
         .mockResolvedValue(ethers.constants.AddressZero),
+      bridgedToCanonical: jest
+        .fn()
+        .mockResolvedValue(ethers.constants.AddressZero),
+      isBridgedToken: jest.fn().mockResolvedValue(true),
     };
     jest
       .spyOn(ethers, 'Contract')
