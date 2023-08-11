@@ -8,17 +8,13 @@ pragma solidity ^0.8.20;
 
 import { TaikoData } from "../L1/TaikoData.sol";
 
-/**
- * This library provides functions to access various configuration
- * parameters used in Taiko contracts.
- * @title TaikoConfig
- */
+/// @title TaikoConfig
+/// @notice This library provides functions to access various configuration
+/// parameters used in Taiko contracts.
 library TaikoConfig {
-    /**
-     * @dev See {TaikoData.Config} for explanations of each parameter.
-     * @return config The Taiko configuration object containing various
-     * configuration values.
-     */
+    /// @dev See {TaikoData.Config} for explanations of each parameter.
+    /// @return config The Taiko configuration object containing various
+    /// configuration values.
     function getConfig() internal pure returns (TaikoData.Config memory) {
         return TaikoData.Config({
             chainId: 167_006,

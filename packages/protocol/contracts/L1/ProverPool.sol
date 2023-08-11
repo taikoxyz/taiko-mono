@@ -13,12 +13,8 @@ import { LibMath } from "../libs/LibMath.sol";
 import { TaikoToken } from "./TaikoToken.sol";
 import { Proxied } from "../common/Proxied.sol";
 
-/**
- * Implementation of {IProverPool}. This contract manages a pool of the top 32
- * provers. This pool is where the protocol selects provers from to prove L1
- * block validity.
- * @title ProverPool
- */
+/// @title ProverPool
+/// @notice See the documentation in {IProverPool}.
 contract ProverPool is EssentialContract, IProverPool {
     using LibMath for uint256;
 
@@ -81,22 +77,18 @@ contract ProverPool is EssentialContract, IProverPool {
         _;
     }
 
-    /**
-     * Initializes the ProverPool contract.
-     * @param _addressManager Address of the contract that manages proxy
-     * addresses.
-     */
+    /// @notice Initializes the ProverPool contract.
+    /// @param _addressManager Address of the contract that manages proxy.
     function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
     }
 
-    /**
-     * Protocol specifies the current feePerGas and assigns a prover to a block.
-     * @param blockId The block id.
-     * @param feePerGas The current fee per gas.
-     * @return prover The address of the assigned prover.
-     * @return rewardPerGas The reward per gas for the assigned prover.
-     */
+    /// @notice Protocol specifies the current feePerGas and assigns a prover to
+    /// a block.
+    /// @param blockId The block id.
+    /// @param feePerGas The current fee per gas.
+    /// @return prover The address of the assigned prover.
+    /// @return rewardPerGas The reward per gas for the assigned prover.
     function assignProver(
         uint64 blockId,
         uint32 feePerGas
@@ -124,10 +116,8 @@ contract ProverPool is EssentialContract, IProverPool {
         }
     }
 
-    /**
-     * Increases the capacity of the prover by releasing a prover.
-     * @param addr The address of the prover to release.
-     */
+    /// @notice Increases the capacity of the prover by releasing a prover.
+    /// @param addr The address of the prover to release.
     function releaseProver(address addr) external onlyFromProtocol {
         (Staker memory staker, Prover memory prover) = getStaker(addr);
 
@@ -139,12 +129,10 @@ contract ProverPool is EssentialContract, IProverPool {
         }
     }
 
-    /**
-     * Slashes a prover.
-     * @param addr The address of the prover to slash.
-     * @param blockId The block id of the block which was not proved in time.
-     * @param proofReward The reward that was set for the block's proof.
-     */
+    /// @notice Slashes a prover.
+    /// @param addr The address of the prover to slash.
+    /// @param blockId The block id of the block which was not proved in time.
+    /// @param proofReward The reward that was set for the block's proof.
     function slashProver(
         uint64 blockId,
         address addr,
@@ -186,12 +174,11 @@ contract ProverPool is EssentialContract, IProverPool {
         }
     }
 
-    /**
-     * Stakes tokens for a prover in the pool.
-     * @param amount The amount of Taiko tokens to stake.
-     * @param rewardPerGas The expected reward per gas for the prover.
-     * @param maxCapacity The maximum number of blocks that a prover can handle.
-     */
+    /// @notice Stakes tokens for a prover in the pool.
+    /// @param amount The amount of Taiko tokens to stake.
+    /// @param rewardPerGas The expected reward per gas for the prover.
+    /// @param maxCapacity The maximum number of blocks that a prover can
+    /// handle.
     function stake(
         uint64 amount,
         uint32 rewardPerGas,
@@ -212,27 +199,23 @@ contract ProverPool is EssentialContract, IProverPool {
         }
     }
 
-    /**
-     * Request an exit for the staker. This will withdraw the staked tokens and
-     * exit the prover from the pool.
-     */
+    /// @notice Requests an exit for the staker. This will withdraw the staked
+    /// tokens and exit the prover from the pool.
     function exit() external nonReentrant {
         _withdraw(msg.sender);
         _exit(msg.sender, true);
     }
 
-    /// Withdraws staked tokens back from a matured exit.
+    /// @notice Withdraws staked tokens back from a matured exit.
     function withdraw() external nonReentrant {
         if (!_withdraw(msg.sender)) revert NO_MATURE_EXIT();
     }
 
-    /**
-     * Retrieves the information of a staker and their corresponding prover
-     * using their address.
-     * @param addr The address of the staker.
-     * @return staker The staker's information.
-     * @return prover The prover's information.
-     */
+    /// @notice Retrieves the information of a staker and their corresponding
+    /// prover using their address.
+    /// @param addr The address of the staker.
+    /// @return staker The staker's information.
+    /// @return prover The prover's information.
     function getStaker(address addr)
         public
         view
@@ -246,10 +229,8 @@ contract ProverPool is EssentialContract, IProverPool {
         }
     }
 
-    /**
-     * Calculates and returns the current total capacity of the pool.
-     * @return capacity The total capacity of the pool.
-     */
+    /// @notice Calculates and returns the current total capacity of the pool.
+    /// @return capacity The total capacity of the pool.
     function getCapacity() public view returns (uint256 capacity) {
         unchecked {
             for (uint256 i = 1; i <= MAX_NUM_PROVERS; ++i) {
@@ -258,11 +239,10 @@ contract ProverPool is EssentialContract, IProverPool {
         }
     }
 
-    /**
-     * Retrieves the current active provers and their corresponding stakers.
-     * @return _provers The active provers.
-     * @return _stakers The stakers of the active provers.
-     */
+    /// @notice Retrieves the current active provers and their corresponding
+    /// stakers.
+    /// @return _provers The active provers.
+    /// @return _stakers The stakers of the active provers.
     function getProvers()
         public
         view
@@ -276,13 +256,11 @@ contract ProverPool is EssentialContract, IProverPool {
         }
     }
 
-    /**
-     * Returns the current active provers and their weights.
-     * @param feePerGas The protocol's current fee per gas.
-     * @return weights The weights of the current provers in the pool.
-     * @return erpg The effective reward per gas of the current provers in the
-     * pool. This is smoothed out to be in range of the current fee per gas.
-     */
+    /// @notice Retrieves the current active provers and their weights.
+    /// @param feePerGas The protocol's current fee per gas.
+    /// @return weights The weights of the current provers in the pool.
+    /// @return erpg The effective reward per gas of the current provers in the
+    /// pool. This is smoothed out to be in range of the current fee per gas.
     function getProverWeights(uint32 feePerGas)
         public
         view
@@ -409,12 +387,10 @@ contract ProverPool is EssentialContract, IProverPool {
         emit Exited(addr, staker.exitAmount);
     }
 
-    /**
-     * @dev See the documentation for the callers of this internal function.
-     * @param addr The address of the staker to withdraw. This is where the
-     * staked tokens are sent.
-     * @return success Whether the withdrawal is successful.
-     */
+    /// @dev See the documentation for the callers of this internal function.
+    /// @param addr The address of the staker to withdraw. This is where the
+    /// staked tokens are sent.
+    /// @return success Whether the withdrawal is successful.
     function _withdraw(address addr) private returns (bool success) {
         Staker storage staker = stakers[addr];
         if (
@@ -434,12 +410,10 @@ contract ProverPool is EssentialContract, IProverPool {
         return true;
     }
 
-    /**
-     * @dev See the documentation for the callers of this internal function.
-     * @param stakedAmount The staked amount of the prover.
-     * @param rewardPerGas The reward per gas of the prover.
-     * @return weight The weight of the prover (essentially a "score").
-     */
+    /// @dev See the documentation for the callers of this internal function.
+    /// @param stakedAmount The staked amount of the prover.
+    /// @param rewardPerGas The reward per gas of the prover.
+    /// @return weight The weight of the prover (essentially a "score").
     function _calcWeight(
         uint64 stakedAmount,
         uint32 rewardPerGas
@@ -459,14 +433,12 @@ contract ProverPool is EssentialContract, IProverPool {
         }
     }
 
-    /**
-     * @dev See the documentation for the callers of this internal function.
-     * This function will select a prover and those that have a higher weight
-     * are more likely to be selected.
-     * @param rand A random input used as a seed.
-     * @param weights An array of the weights of the provers.
-     * @return proverId The selected prover id.
-     */
+    /// @dev See the documentation for the callers of this internal function.
+    /// This function will select a prover and those that have a higher weight
+    /// are more likely to be selected.
+    /// @param rand A random input used as a seed.
+    /// @param weights An array of the weights of the provers.
+    /// @return proverId The selected prover id.
     function _selectProver(
         bytes32 rand,
         uint256[MAX_NUM_PROVERS] memory weights
@@ -500,8 +472,6 @@ contract ProverPool is EssentialContract, IProverPool {
     }
 }
 
-/**
- * Proxied version of the ProverPool contract.
- * @title ProxiedProverPool
- */
+/// @title ProxiedProverPool
+/// @notice Proxied version of the ProverPool contract.
 contract ProxiedProverPool is Proxied, ProverPool { }

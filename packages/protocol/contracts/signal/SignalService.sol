@@ -12,10 +12,8 @@ import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { ISignalService } from "./ISignalService.sol";
 import { LibSecureMerkleTrie } from "../thirdparty/LibSecureMerkleTrie.sol";
 
-/**
- * See the documentation in {ISignalService} for more details.
- * @title SignalService
- */
+/// @title SignalService
+/// @notice See the documentation in {ISignalService} for more details.
 contract SignalService is ISignalService, EssentialContract {
     struct SignalProof {
         uint256 height;
@@ -46,9 +44,7 @@ contract SignalService is ISignalService, EssentialContract {
         EssentialContract._init(_addressManager);
     }
 
-    /**
-     * @inheritdoc ISignalService
-     */
+    /// @inheritdoc ISignalService
     function sendSignal(bytes32 signal)
         public
         validSignal(signal)
@@ -60,9 +56,7 @@ contract SignalService is ISignalService, EssentialContract {
         }
     }
 
-    /**
-     * @inheritdoc ISignalService
-     */
+    /// @inheritdoc ISignalService
     function isSignalSent(
         address app,
         bytes32 signal
@@ -81,9 +75,7 @@ contract SignalService is ISignalService, EssentialContract {
         return value == 1;
     }
 
-    /**
-     * @inheritdoc ISignalService
-     */
+    /// @inheritdoc ISignalService
     function isSignalReceived(
         uint256 srcChainId,
         address app,
@@ -109,13 +101,11 @@ contract SignalService is ISignalService, EssentialContract {
         );
     }
 
-    /**
-     * Get the storage slot of the signal.
-     * @param app The address that initiated the signal.
-     * @param signal The signal to get the storage slot of.
-     * @return signalSlot The unique storage slot of the signal which is
-     * created by encoding the sender address with the signal (message).
-     */
+    /// @notice Get the storage slot of the signal.
+    /// @param app The address that initiated the signal.
+    /// @param signal The signal to get the storage slot of.
+    /// @return signalSlot The unique storage slot of the signal which is
+    /// created by encoding the sender address with the signal (message).
     function getSignalSlot(
         address app,
         bytes32 signal
@@ -140,8 +130,6 @@ contract SignalService is ISignalService, EssentialContract {
     }
 }
 
-/**
- * Proxied version of the SignalService contract.
- * @title ProxiedSignalService
- */
+/// @title ProxiedSignalService
+/// @notice Proxied version of the SignalService contract.
 contract ProxiedSignalService is Proxied, SignalService { }

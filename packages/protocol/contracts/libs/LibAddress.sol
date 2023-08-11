@@ -6,19 +6,15 @@
 
 pragma solidity ^0.8.20;
 
-/**
- * Provides utilities for address-related operations.
- * @title LibAddress
- */
+/// @title LibAddress
+/// @dev Provides utilities for address-related operations.
 library LibAddress {
-    /**
-     * @dev Sends Ether to the specified address. It is recommended to avoid
-     * using `.transfer()` due to potential reentrancy issues.
-     * Reference:
-     * https://consensys.net/diligence/blog/2019/09/stop-using-soliditys-transfer-now
-     * @param to The recipient address.
-     * @param amount The amount of Ether to send in wei.
-     */
+    /// @dev Sends Ether to the specified address. It is recommended to avoid
+    /// using `.transfer()` due to potential reentrancy issues.
+    /// Reference:
+    /// https://consensys.net/diligence/blog/2019/09/stop-using-soliditys-transfer-now
+    /// @param to The recipient address.
+    /// @param amount The amount of Ether to send in wei.
     function sendEther(address to, uint256 amount) internal {
         // Check for zero-value or zero-address transactions
         if (amount == 0 || to == address(0)) return;

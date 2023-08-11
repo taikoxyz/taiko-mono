@@ -10,25 +10,22 @@ import { LibFixedPointMath } from "../thirdparty/LibFixedPointMath.sol";
 import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
-/**
- * This library provides utilities related to the L2 EIP-1559 implementation.
- * @title Lib1559Math
- */
+/// @title Lib1559Math
+/// @dev This library provides utilities related to the L2 EIP-1559
+/// implementation.
 library Lib1559Math {
     using SafeCastUpgradeable for uint256;
 
     error L2_1559_UNEXPECTED_CHANGE(uint64 expected, uint64 actual);
     error L2_1559_OUT_OF_STOCK();
 
-    /**
-     * Calculates xscale and yscale values used for pricing.
-     * @param xExcessMax The maximum excess value.
-     * @param price The current price.
-     * @param target The target gas value.
-     * @param ratio2x1x Expected ratio of gas price for two blocks.
-     * @return xscale Calculated x scale value.
-     * @return yscale Calculated y scale value.
-     */
+    /// @dev Calculates xscale and yscale values used for pricing.
+    /// @param xExcessMax The maximum excess value.
+    /// @param price The current price.
+    /// @param target The target gas value.
+    /// @param ratio2x1x Expected ratio of gas price for two blocks.
+    /// @return xscale Calculated x scale value.
+    /// @return yscale Calculated y scale value.
     function calculateScales(
         uint64 xExcessMax,
         uint64 price,
@@ -59,14 +56,12 @@ library Lib1559Math {
         }
     }
 
-    /**
-     * Calculates the price based on provided scales.
-     * @param xscale The x scale value.
-     * @param yscale The y scale value.
-     * @param xExcess Current excess value.
-     * @param xPurchase Amount of gas purchased.
-     * @return The calculated price.
-     */
+    /// @dev Calculates the price based on provided scales.
+    /// @param xscale The x scale value.
+    /// @param yscale The y scale value.
+    /// @param xExcess Current excess value.
+    /// @param xPurchase Amount of gas purchased.
+    /// @return The calculated price.
     function calculatePrice(
         uint128 xscale,
         uint128 yscale,
@@ -84,12 +79,10 @@ library Lib1559Math {
         return (_after - _before) / _xPurchase / yscale;
     }
 
-    /**
-     * Internal function to calculate y value based on x value and scale.
-     * @param x The x value.
-     * @param xscale The x scale value.
-     * @return The calculated y value.
-     */
+    /// @dev Internal function to calculate y value based on x value and scale.
+    /// @param x The x value.
+    /// @param xscale The x scale value.
+    /// @return The calculated y value.
     function _calcY(uint256 x, uint128 xscale) private pure returns (uint256) {
         uint256 _x = x * xscale;
         if (_x >= LibFixedPointMath.MAX_EXP_INPUT) {

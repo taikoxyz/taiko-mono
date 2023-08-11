@@ -6,12 +6,10 @@
 
 pragma solidity ^0.8.20;
 
-/**
- * This abstract contract provides custom error declartions used in the Taiko
- * protocol. Each error corresponds to specific situations where exceptions
- * might be thrown.
- * @title TaikoErrors
- */
+/// @title TaikoErrors
+/// @notice This abstract contract provides custom error declartions used in
+/// the Taiko protocol. Each error corresponds to specific situations where
+/// exceptions might be thrown.
 abstract contract TaikoErrors {
     // NOTE: The following custom errors must match the definitions in
     // `L1/libs/*.sol`.

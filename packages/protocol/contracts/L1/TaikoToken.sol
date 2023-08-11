@@ -28,11 +28,10 @@ library LibTaikoTokenConfig {
     uint8 public constant DECIMALS = uint8(8);
 }
 
-/**
- * The TaikoToken (TKO) is used for proposing blocks and also for staking in
- * the Taiko protocol. It is an ERC20 token with 8 decimal places of precision.
- * @title TaikoToken
- */
+/// @title TaikoToken
+/// @notice The TaikoToken (TKO) is used for proposing blocks and also for
+/// staking in the Taiko protocol. It is an ERC20 token with 8 decimal places of
+/// precision.
 contract TaikoToken is
     EssentialContract,
     ERC20Upgradeable,
@@ -51,17 +50,15 @@ contract TaikoToken is
                          USER-FACING FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /**
-     * Initializes the TaikoToken contract and mints initial tokens to
-     * specified recipients.
-     * @param _addressManager The {AddressManager} address.
-     * @param _name The name of the token.
-     * @param _symbol The symbol of the token.
-     * @param _premintRecipients An array of addresses to receive initial token
-     * minting.
-     * @param _premintAmounts An array of token amounts to mint for each
-     * corresponding recipient.
-     */
+    /// @notice Initializes the TaikoToken contract and mints initial tokens to
+    /// specified recipients.
+    /// @param _addressManager The {AddressManager} address.
+    /// @param _name The name of the token.
+    /// @param _symbol The symbol of the token.
+    /// @param _premintRecipients An array of addresses to receive initial token
+    /// minting.
+    /// @param _premintAmounts An array of token amounts to mint for each
+    /// corresponding recipient.
     function init(
         address _addressManager,
         string calldata _name,
@@ -85,37 +82,24 @@ contract TaikoToken is
         }
     }
 
-    /**
-     * Creates a new token snapshot.
-     * @dev Only the contract owner can call this function.
-     */
+    /// @notice Creates a new token snapshot.
     function snapshot() public onlyOwner {
         _snapshot();
     }
 
-    /**
-     * Pauses all token transfers.
-     * @dev Only the contract owner can call this function.
-     */
+    /// @notice Pauses token transfers.
     function pause() public onlyOwner {
         _pause();
     }
 
-    /**
-     * Unpauses token transfers.
-     * @dev Only the contract owner can call this function.
-     */
+    /// @notice Unpauses token transfers.
     function unpause() public onlyOwner {
         _unpause();
     }
 
-    /**
-     * Mints new tokens to the specified address.
-     * @dev Only the TaikoL1, ProverPool, DAO, and ERC20Vault contracts can call
-     * this function.
-     * @param to The address to receive the minted tokens.
-     * @param amount The amount of tokens to mint.
-     */
+    /// @notice Mints new tokens to the specified address.
+    /// @param to The address to receive the minted tokens.
+    /// @param amount The amount of tokens to mint.
     function mint(
         address to,
         uint256 amount
@@ -126,13 +110,9 @@ contract TaikoToken is
         _mint(to, amount);
     }
 
-    /**
-     * Burns tokens from the specified address.
-     * @dev Only the TaikoL1, ProverPool, DAO, and ERC20Vault contracts can call
-     * this function.
-     * @param from The address to burn tokens from.
-     * @param amount The amount of tokens to burn.
-     */
+    /// @notice Burns tokens from the specified address.
+    /// @param from The address to burn tokens from.
+    /// @param amount The amount of tokens to burn.
     function burn(
         address from,
         uint256 amount
@@ -143,12 +123,10 @@ contract TaikoToken is
         _burn(from, amount);
     }
 
-    /**
-     * Transfers tokens to a specified address.
-     * @param to The address to transfer tokens to.
-     * @param amount The amount of tokens to transfer.
-     * @return A boolean indicating whether the transfer was successful or not.
-     */
+    /// @notice Transfers tokens to a specified address.
+    /// @param to The address to transfer tokens to.
+    /// @param amount The amount of tokens to transfer.
+    /// @return A boolean indicating whether the transfer was successful or not.
     function transfer(
         address to,
         uint256 amount
@@ -161,13 +139,11 @@ contract TaikoToken is
         return ERC20Upgradeable.transfer(to, amount);
     }
 
-    /**
-     * Transfers tokens from one address to another.
-     * @param from The address to transfer tokens from.
-     * @param to The address to transfer tokens to.
-     * @param amount The amount of tokens to transfer.
-     * @return A boolean indicating whether the transfer was successful or not.
-     */
+    /// @notice Transfers tokens from one address to another.
+    /// @param from The address to transfer tokens from.
+    /// @param to The address to transfer tokens to.
+    /// @param amount The amount of tokens to transfer.
+    /// @return A boolean indicating whether the transfer was successful or not.
     function transferFrom(
         address from,
         address to,
@@ -181,10 +157,8 @@ contract TaikoToken is
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }
 
-    /**
-     * Returns the number of decimals used for token display.
-     * @return The number of decimals used for token display.
-     */
+    /// @notice Returns the number of decimals used for token display.
+    /// @return The number of decimals used for token display.
     function decimals() public pure override returns (uint8) {
         return LibTaikoTokenConfig.DECIMALS;
     }
@@ -241,8 +215,6 @@ contract TaikoToken is
     }
 }
 
-/**
- * Proxied version of the TaikoToken contract.
- * @title ProxiedTaikoToken
- */
+/// @title ProxiedTaikoToken
+/// @notice Proxied version of the TaikoToken contract.
 contract ProxiedTaikoToken is Proxied, TaikoToken { }

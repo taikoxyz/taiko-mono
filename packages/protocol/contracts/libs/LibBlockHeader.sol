@@ -8,9 +8,7 @@ pragma solidity ^0.8.20;
 
 import { LibRLPWriter } from "../thirdparty/LibRLPWriter.sol";
 
-/**
- * @dev Defines the data structure for an Ethereum block header.
- */
+/// @dev Defines the data structure for an Ethereum block header.
 struct BlockHeader {
     bytes32 parentHash;
     bytes32 ommersHash;
@@ -31,16 +29,12 @@ struct BlockHeader {
     bytes32 withdrawalsRoot;
 }
 
-/**
- * Provides utilities for Ethereum block headers.
- * @title LibBlockHeader
- */
+/// @title LibBlockHeader
+/// @dev Provides utilities for Ethereum block headers.
 library LibBlockHeader {
-    /**
-     * @dev Returns the hash of a block header.
-     * @param header The block header.
-     * @return The hash of the block header.
-     */
+    /// @dev Returns the hash of a block header.
+    /// @param header The block header.
+    /// @return The hash of the block header.
     function hashBlockHeader(BlockHeader memory header)
         internal
         pure
@@ -51,12 +45,10 @@ library LibBlockHeader {
         return keccak256(rlpHeader);
     }
 
-    /**
-     * @dev Constructs the RLP item list for a block header.
-     * @param header The block header.
-     * @param extraCapacity Additional capacity for the list.
-     * @return list The RLP item list for the block header.
-     */
+    /// @dev Constructs the RLP item list for a block header.
+    /// @param header The block header.
+    /// @param extraCapacity Additional capacity for the list.
+    /// @return list The RLP item list for the block header.
     function _getBlockHeaderRLPItemsList(
         BlockHeader memory header,
         uint256 extraCapacity

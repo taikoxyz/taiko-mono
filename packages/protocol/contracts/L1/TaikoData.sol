@@ -6,10 +6,9 @@
 
 pragma solidity ^0.8.20;
 
-/**
- * This library defines various data structures used in the Taiko protocol.
- * @title TaikoData
- */
+/// @title TaikoData
+/// @notice This library defines various data structures used in the Taiko
+/// protocol.
 library TaikoData {
     /// @dev Struct holding Taiko configuration parameters. See {TaikoConfig}.
     struct Config {

@@ -13,19 +13,15 @@ import { LibZKPVerifier } from "./libs/verifiers/LibZKPVerifier.sol";
 import { IProofVerifier } from "./IProofVerifier.sol";
 import { LibBytesUtils } from "../thirdparty/LibBytesUtils.sol";
 
-/**
- * See the documentation in {IProofVerifier}
- * @title ProofVerifier
- */
+/// @title ProofVerifier
+/// @notice See the documentation in {IProofVerifier}.
 contract ProofVerifier is EssentialContract, IProofVerifier {
     uint256[50] private __gap;
 
     error L1_INVALID_PROOF();
 
-    /**
-     * Initializes the contract with the provided address manager.
-     * @param _addressManager The address of the address manager contract.
-     */
+    /// @notice Initializes the contract with the provided address manager.
+    /// @param _addressManager The address of the address manager contract.
     function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
     }
@@ -74,8 +70,6 @@ contract ProofVerifier is EssentialContract, IProofVerifier {
     }
 }
 
-/**
- * Proxied version of the ProofVerifier contract.
- * @title ProxiedProofVerifier
- */
+/// @title ProxiedProofVerifier
+/// @notice Proxied version of the ProofVerifier contract.
 contract ProxiedProofVerifier is Proxied, ProofVerifier { }
