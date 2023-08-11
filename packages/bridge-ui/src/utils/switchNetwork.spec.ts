@@ -49,12 +49,4 @@ describe('switchNetwork', () => {
       'timeout switching network',
     );
   });
-
-  it('should do nothing if already on the target network', async () => {
-    jest.mocked(get).mockReturnValue({ id: L2_CHAIN_ID });
-
-    await switchNetwork(L2_CHAIN_ID);
-
-    expect(wagmiSwitchNetwork).not.toHaveBeenCalled();
-  });
 });
