@@ -28,7 +28,6 @@ import { EssentialContract } from "../common/EssentialContract.sol";
  * tokens.
  * @dev Ether is held by Bridges on L1 and by the EtherVault on L2, not
  * ERC20Vaults.
- * @custom:security-contact hello@taiko.xyz
  */
 
 contract ERC20Vault is EssentialContract {

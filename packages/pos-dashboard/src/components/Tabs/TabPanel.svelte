@@ -13,7 +13,6 @@
     activeTab = getContext<Writable<string>>(key);
   } else {
     activeTab = getContext<Writable<string>>(subKey);
-    console.log('EYY', tab, activeTab);
   }
 
   $: selected = tab === $activeTab;

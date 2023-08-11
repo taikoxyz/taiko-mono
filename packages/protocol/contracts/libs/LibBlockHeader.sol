@@ -8,26 +8,35 @@ pragma solidity ^0.8.20;
 
 import { LibRLPWriter } from "../thirdparty/LibRLPWriter.sol";
 
+/**
+ * @title BlockHeader Struct
+ * @notice Defines the data structure for an Ethereum block header.
+ */
 struct BlockHeader {
-    bytes32 parentHash;
-    bytes32 ommersHash;
-    address beneficiary;
-    bytes32 stateRoot;
-    bytes32 transactionsRoot;
-    bytes32 receiptsRoot;
-    bytes32[8] logsBloom;
-    uint256 difficulty;
-    uint128 height;
-    uint64 gasLimit;
-    uint64 gasUsed;
-    uint64 timestamp;
-    bytes extraData;
-    bytes32 mixHash;
-    uint64 nonce;
-    uint256 baseFeePerGas;
-    bytes32 withdrawalsRoot;
+    bytes32 parentHash; // Hash of the parent block.
+    bytes32 ommersHash; // Hash of the ommers data.
+    address beneficiary; // Address of the beneficiary (miner).
+    bytes32 stateRoot; // State root after applying the block's transactions.
+    bytes32 transactionsRoot; // Merkle root of the block's transactions.
+    bytes32 receiptsRoot; // Merkle root of the block's receipts.
+    bytes32[8] logsBloom; // Bloom filter for logs in the block.
+    uint256 difficulty; // Mining difficulty.
+    uint128 height; // Block number.
+    uint64 gasLimit; // Gas limit for the block.
+    uint64 gasUsed; // Total gas used by all transactions in the block.
+    uint64 timestamp; // Unix timestamp.
+    bytes extraData; // Extra data (e.g., miner's arbitrary data).
+    bytes32 mixHash; // Proof-of-Work related data.
+    uint64 nonce; // Proof-of-Work nonce.
+    uint256 baseFeePerGas; // Base fee per gas (introduced in EIP-1559).
+    bytes32 withdrawalsRoot; // Merkle root for withdrawals (introduced in
+        // EIP-4895).
 }
 
+/**
+ * @title LibBlockHeader Library
+ * @notice Provides functions to handle Ethereum block headers.
+ */
 library LibBlockHeader {
     function hashBlockHeader(BlockHeader memory header)
         internal
@@ -39,6 +48,14 @@ library LibBlockHeader {
         return keccak256(rlpHeader);
     }
 
+    /**
+     * @dev Constructs the RLP item list for a block header.
+     * Different Ethereum Improvement Proposals (EIPs) may add different fields,
+     * and this function accounts for those variations.
+     * @param header The block header.
+     * @param extraCapacity Additional capacity for the list.
+     * @return list The RLP item list for the block header.
+     */
     function _getBlockHeaderRLPItemsList(
         BlockHeader memory header,
         uint256 extraCapacity

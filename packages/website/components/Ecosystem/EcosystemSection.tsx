@@ -58,6 +58,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/cloak.png",
+    name: "Cloak",
+    link: "https://cloak.exchange/",
+    description:
+      "Cloak is a non-custodial dark pool, offering trustless, MEV-resistant, and slippage-resistant trades for any ERC-20 trading pairs.",
+    filters: [],
+    isLive: false,
+  },
+  {
     icon: "/images/ecosystem/crypton.png",
     name: "Crypton",
     link: "https://crypton.xyz",
@@ -269,6 +278,14 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/vooi.jpeg",
+    name: "Vooi",
+    link: "https://vooi.io/",
+    description: "vooi is a stableswap AMM DEX built for L2 chains on top of Unbounded pool technology.",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/zkpool.png",
     name: "ZKPool",
     link: "https://zkpool.io",
@@ -285,6 +302,15 @@ const ecosystemData: EcosystemData[] = [
       "zkDELX is a decentralized electricity exchange market based on zkEVM to facilitate the electrical vehicles and renewable energy industries.",
     filters: [],
     isLive: true,
+  },
+  {
+    icon: "/images/ecosystem/zksynth.png",
+    name: "ZKSynth",
+    link: "https://app.zksynth.com/",
+    description:
+      "zkSynth allows you to create and trade synthetic assets that track the price of any real-world asset, such as stocks, commodities, currencies, and more.",
+    filters: [],
+    isLive: false,
   },
 ];
 

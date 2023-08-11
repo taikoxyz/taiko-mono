@@ -9,19 +9,27 @@ pragma solidity ^0.8.20;
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { AddressResolver } from "../../common/AddressResolver.sol";
-import { SafeCastUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import { TaikoData } from "../TaikoData.sol";
 
+/**
+ * @title LibEthDepositing Library
+ * @notice A library for handling Ethereum deposits in the Taiko system.
+ */
 library LibEthDepositing {
     using LibAddress for address;
     using LibMath for uint256;
-    using SafeCastUpgradeable for uint256;
 
     event EthDeposited(TaikoData.EthDeposit deposit);
 
     error L1_INVALID_ETH_DEPOSIT();
 
+    /**
+     * @notice Deposit Ethereum to Layer 2.
+     * @param state The current state of the Taiko system.
+     * @param config Configuration for deposits.
+     * @param resolver The AddressResolver instance for address resolution.
+     * @param recipient The address of the deposit recipient.
+     */
     function depositEtherToL2(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -40,7 +48,7 @@ library LibEthDepositing {
         }
         to.sendEther(msg.value);
 
-        // Put the deposit and the end of the queue.
+        // Append the deposit to the queue.
         address _recipient = recipient == address(0) ? msg.sender : recipient;
         uint256 slot = state.numEthDeposits % config.ethDepositRingBufferSize;
         state.ethDeposits[slot] = _encodeEthDeposit(_recipient, msg.value);
@@ -58,12 +66,13 @@ library LibEthDepositing {
         }
     }
 
-    // When ethDepositMaxCountPerBlock is 32, the average gas cost per
-    // EthDeposit is about 2700 gas. We use 21000 so the proposer
-    // may earn a small profit if there are 32 deposits included
-    // in the block; if there are less EthDeposit to process, the
-    // proposer may suffer a loss so the proposer should simply wait
-    // for more EthDeposit be become available.
+    /**
+     * @notice Process the ETH deposits in a batched manner.
+     * @param state The current state of the Taiko system.
+     * @param config Configuration for deposits.
+     * @param feeRecipient Address to receive the deposit fee.
+     * @return deposits The array of processed deposits.
+     */
     function processDeposits(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -72,15 +81,16 @@ library LibEthDepositing {
         internal
         returns (TaikoData.EthDeposit[] memory deposits)
     {
+        // Calculate the number of pending deposits.
         uint256 numPending =
             state.numEthDeposits - state.nextEthDepositToProcess;
+
         if (numPending < config.ethDepositMinCountPerBlock) {
             deposits = new TaikoData.EthDeposit[](0);
         } else {
             deposits = new TaikoData.EthDeposit[](
-                numPending.min(config.ethDepositMaxCountPerBlock)
+               numPending.min(config.ethDepositMaxCountPerBlock)
             );
-
             uint96 fee = uint96(
                 config.ethDepositMaxFee.min(
                     block.basefee * config.ethDepositGas
@@ -91,16 +101,13 @@ library LibEthDepositing {
             for (uint256 i; i < deposits.length;) {
                 uint256 data =
                     state.ethDeposits[j % config.ethDepositRingBufferSize];
-
                 deposits[i] = TaikoData.EthDeposit({
                     recipient: address(uint160(data >> 96)),
                     amount: uint96(data), // works
                     id: j
                 });
-
                 uint96 _fee =
                     deposits[i].amount > fee ? fee : deposits[i].amount;
-
                 unchecked {
                     deposits[i].amount -= _fee;
                     totalFee += _fee;
@@ -109,18 +116,23 @@ library LibEthDepositing {
                 }
             }
             state.nextEthDepositToProcess = j;
-
             // This is the fee deposit
             state.ethDeposits[state.numEthDeposits
                 % config.ethDepositRingBufferSize] =
                 _encodeEthDeposit(feeRecipient, totalFee);
-
             unchecked {
                 state.numEthDeposits++;
             }
         }
     }
 
+    /**
+     * @notice Check if the given deposit amount is valid.
+     * @param state The current state of the Taiko system.
+     * @param config Configuration for deposits.
+     * @param amount The amount to deposit.
+     * @return true if the deposit is valid, false otherwise.
+     */
     function canDepositEthToL2(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -130,27 +142,19 @@ library LibEthDepositing {
         view
         returns (bool)
     {
-        if (
-            amount < config.ethDepositMinAmount
-                || amount > config.ethDepositMaxAmount
-        ) {
-            return false;
-        }
-
         unchecked {
-            uint256 numPending =
-                state.numEthDeposits - state.nextEthDepositToProcess;
-
-            // We need to make sure we always reverve one slot for the fee
-            // deposit
-            if (numPending >= config.ethDepositRingBufferSize - 1) {
-                return false;
-            }
+            return amount >= config.ethDepositMinAmount
+                && amount <= config.ethDepositMaxAmount
+                && state.numEthDeposits - state.nextEthDepositToProcess
+                    < config.ethDepositRingBufferSize - 1;
         }
-
-        return true;
     }
 
+    /**
+     * @notice Compute the hash for a set of deposits.
+     * @param deposits Array of EthDeposit to hash.
+     * @return The computed hash.
+     */
     function hashEthDeposits(TaikoData.EthDeposit[] memory deposits)
         internal
         pure
@@ -168,6 +172,6 @@ library LibEthDepositing {
         returns (uint256)
     {
         if (amount >= type(uint96).max) revert L1_INVALID_ETH_DEPOSIT();
-        return uint256(uint160(addr)) << 96 | amount;
+        return (uint256(uint160(addr)) << 96) | amount;
     }
 }
