@@ -19,7 +19,7 @@ export async function getAddressForToken(
   // Get the address for the token on the source chain
   let address = token.addresses[srcChain.id];
 
-  // If the token isn't ETH or has no address...
+  // If the token isn't ETH and has no address...
   if (!isETH(token) && (!address || address === '0x00')) {
     // Find the address on the destination chain instead
     const destChainAddress = token.addresses[destChain.id];

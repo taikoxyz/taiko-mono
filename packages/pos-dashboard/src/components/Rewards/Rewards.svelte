@@ -8,6 +8,10 @@
   import { successToast } from '../NotificationToast.svelte';
   import { pendingTransactions } from '../../store/transaction';
   import { getTTKOBalance } from '../../utils/getTTKOBalance';
+  import { switchNetwork } from '../../utils/switchNetwork';
+  import { mainnetChain } from '../../chain/chains';
+  import { srcChain } from '../../store/chain';
+
   let balance: BigNumber = BigNumber.from(0);
   let ttkoBalanceInWei: BigNumber = BigNumber.from(0);
 
@@ -37,6 +41,10 @@
   }
 
   async function withdraw() {
+    if ($srcChain.id !== mainnetChain.id) {
+      await switchNetwork(mainnetChain.id);
+    }
+
     const tx = await withdrawTaikoToken(
       $signer,
       TAIKO_L1_ADDRESS,
@@ -60,6 +68,10 @@
   }
 
   async function deposit() {
+    if ($srcChain.id !== mainnetChain.id) {
+      await switchNetwork(mainnetChain.id);
+    }
+
     const tx = await depositTaikoToken(
       $signer,
       TAIKO_L1_ADDRESS,
