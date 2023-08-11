@@ -24,6 +24,7 @@ export function setupSentry(dsn?: string) {
     sampleRate: isProd ? 0.1 : 1.0,
     tracesSampleRate: isProd ? 0.1 : 1.0,
     maxBreadcrumbs: 50,
+    ignoreErrors: ['issue getting minters for BLL'],
 
     beforeSend(event, hint) {
       const processedEvent = { ...event };
