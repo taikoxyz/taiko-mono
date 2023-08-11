@@ -14,8 +14,10 @@ import { ReentrancyGuardUpgradeable } from
 import { AddressResolver } from "./AddressResolver.sol";
 
 /**
- * @dev This abstract contract serves as the base contract for many core
- *      components in this package.
+ * @title EssentialContract
+ * @dev This contract serves as the foundational contract for core components.
+ *      It combines reentrancy protection, ownership functionality, and
+ *      address resolution.
  */
 abstract contract EssentialContract is
     ReentrancyGuardUpgradeable,
@@ -23,14 +25,12 @@ abstract contract EssentialContract is
     AddressResolver
 {
     /**
-     * Sets a new AddressManager's address.
-     *
-     * @param newAddressManager New address manager contract address
+     * @notice Update the AddressManager's address.
+     * @param newAddressManager Address of the new AddressManager.
      */
     function setAddressManager(address newAddressManager) external onlyOwner {
         if (newAddressManager == address(0)) revert RESOLVER_INVALID_ADDR();
         _addressManager = IAddressManager(newAddressManager);
-
         emit AddressManagerChanged(newAddressManager);
     }
 

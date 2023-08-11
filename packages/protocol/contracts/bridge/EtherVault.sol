@@ -19,7 +19,6 @@ import { BridgeErrors } from "./BridgeErrors.sol";
  * This contract is initialized with 2^128 Ether and allows authorized addresses
  * to release Ether.
  * @dev Only the contract owner can authorize or deauthorize addresses.
- * @custom:security-contact hello@taiko.xyz
  */
 contract EtherVault is EssentialContract, BridgeErrors {
     using LibAddress for address;
@@ -109,4 +108,8 @@ contract EtherVault is EssentialContract, BridgeErrors {
     }
 }
 
+/**
+ * @title ProxiedEtherVault
+ * @dev Proxied version of the EtherVault contract.
+ */
 contract ProxiedEtherVault is Proxied, EtherVault { }

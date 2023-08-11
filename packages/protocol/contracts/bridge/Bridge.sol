@@ -23,7 +23,6 @@ import { LibBridgeStatus } from "./libs/LibBridgeStatus.sol";
  * a thin wrapper
  * which calls the library implementations. See _IBridge_ for more details.
  * @dev The code hash for the same address on L1 and L2 may be different.
- * @custom:security-contact hello@taiko.xyz
  */
 contract Bridge is EssentialContract, IBridge, BridgeErrors {
     using LibBridgeData for Message;
@@ -281,4 +280,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 }
 
+/**
+ * @title ProxiedBridge
+ * @dev Proxied version of the Bridge contract.
+ */
 contract ProxiedBridge is Proxied, Bridge { }
