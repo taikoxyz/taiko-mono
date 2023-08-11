@@ -19,8 +19,8 @@ func Test_sendProcessMessageCall(t *testing.T) {
 		context.Background(),
 		&bridge.BridgeMessageSent{
 			Message: bridge.IBridgeMessage{
-				DestChainId:   mock.MockChainID,
-				ProcessingFee: new(big.Int).Add(mock.ProcessMessageTx.Cost(), big.NewInt(1)),
+				DestChainId: mock.MockChainID,
+				Fee:         new(big.Int).Add(mock.ProcessMessageTx.Cost(), big.NewInt(1)),
 			},
 		}, []byte{})
 
@@ -64,10 +64,10 @@ func Test_ProcessMessage(t *testing.T) {
 
 	err := p.ProcessMessage(context.Background(), &bridge.BridgeMessageSent{
 		Message: bridge.IBridgeMessage{
-			GasLimit:      big.NewInt(1),
-			DestChainId:   mock.MockChainID,
-			ProcessingFee: big.NewInt(1000000000),
-			SrcChainId:    mock.MockChainID,
+			GasLimit:    big.NewInt(1),
+			DestChainId: mock.MockChainID,
+			Fee:         big.NewInt(1000000000),
+			SrcChainId:  mock.MockChainID,
 		},
 		MsgHash: mock.SuccessMsgHash,
 	}, &relayer.Event{})

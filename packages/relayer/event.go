@@ -32,6 +32,8 @@ type EventType int
 const (
 	EventTypeSendETH EventType = iota
 	EventTypeSendERC20
+	EventTypeSendERC721
+	EventTypeSendERC1155
 )
 
 // String returns string representation of an event status for logging
@@ -40,7 +42,7 @@ func (e EventStatus) String() string {
 }
 
 func (e EventType) String() string {
-	return [...]string{"sendETH", "sendERC20"}[e]
+	return [...]string{"sendETH", "sendERC20", "sendERC721", "sendERC1155"}[e]
 }
 
 // Event represents a stored EVM event. The fields will be serialized
