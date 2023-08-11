@@ -23,7 +23,6 @@ import { LibBridgeStatus } from "./libs/LibBridgeStatus.sol";
  * a thin wrapper
  * which calls the library implementations. See _IBridge_ for more details.
  * @dev The code hash for the same address on L1 and L2 may be different.
- * @custom:security-contact hello@taiko.xyz
  */
 contract Bridge is EssentialContract, IBridge, BridgeErrors {
     using LibBridgeData for Message;
@@ -38,16 +37,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
 
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
 
-    /// Allow Bridge to receive ETH from the TaikoL1, TokenVault or EtherVault.
-    receive() external payable {
-        if (
-            msg.sender != resolve("token_vault", true)
-                && msg.sender != resolve("ether_vault", true)
-                && msg.sender != resolve("taiko", true) && msg.sender != owner()
-        ) {
-            revert B_CANNOT_RECEIVE();
-        }
-    }
+    receive() external payable { }
 
     /**
      * Initializer to be called after being deployed behind a proxy.
@@ -290,4 +280,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 }
 
+/**
+ * @title ProxiedBridge
+ * @dev Proxied version of the Bridge contract.
+ */
 contract ProxiedBridge is Proxied, Bridge { }

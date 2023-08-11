@@ -6,10 +6,9 @@
 
 pragma solidity ^0.8.20;
 
+import { LibL2Consts } from "../../L2/LibL2Consts.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 import { LibEthDepositing } from "./LibEthDepositing.sol";
-import { SafeCastUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import { TaikoData } from "../TaikoData.sol";
 
 library LibUtils {
@@ -27,7 +26,7 @@ library LibUtils {
         returns (bool found, TaikoData.Block storage blk)
     {
         uint256 id = blockId == 0 ? state.lastVerifiedBlockId : blockId;
-        blk = state.blocks[id % config.ringBufferSize];
+        blk = state.blocks[id % config.blockRingBufferSize];
         found = (blk.blockId == id && blk.verifiedForkChoiceId != 0);
     }
 
@@ -39,7 +38,7 @@ library LibUtils {
     )
         internal
         view
-        returns (uint256 fcId)
+        returns (uint24 fcId)
     {
         if (
             blk.forkChoices[1].key
@@ -61,7 +60,7 @@ library LibUtils {
         returns (TaikoData.StateVariables memory)
     {
         return TaikoData.StateVariables({
-            blockFee: state.blockFee,
+            feePerGas: state.feePerGas,
             genesisHeight: state.genesisHeight,
             genesisTimestamp: state.genesisTimestamp,
             numBlocks: state.numBlocks,
@@ -69,6 +68,19 @@ library LibUtils {
             nextEthDepositToProcess: state.nextEthDepositToProcess,
             numEthDeposits: state.numEthDeposits - state.nextEthDepositToProcess
         });
+    }
+
+    function getBlockFee(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        uint32 gasAmount
+    )
+        internal
+        view
+        returns (uint64)
+    {
+        return state.feePerGas
+            * (gasAmount + LibL2Consts.ANCHOR_GAS_COST + config.blockFeeBaseGas);
     }
 
     function movingAverage(

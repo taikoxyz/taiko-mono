@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"math/big"
 
+	"log/slog"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
 )
@@ -23,18 +24,16 @@ func (svc *Service) saveBlockProvenEvents(
 	events *taikol1.TaikoL1BlockProvenIterator,
 ) error {
 	if !events.Next() || events.Event == nil {
-		log.Infof("no blockProven events")
+		slog.Info("no blockProven events")
 		return nil
 	}
 
 	for {
 		event := events.Event
 
-		if err := svc.detectAndHandleReorg(ctx, eventindexer.EventNameBlockProven, event.Id.Int64()); err != nil {
+		if err := svc.detectAndHandleReorg(ctx, eventindexer.EventNameBlockProven, event.BlockId.Int64()); err != nil {
 			return errors.Wrap(err, "svc.detectAndHandleReorg")
 		}
-
-		log.Infof("blockProven by: %v", event.Prover.Hex())
 
 		if err := svc.saveBlockProvenEvent(ctx, chainID, event); err != nil {
 			eventindexer.BlockProvenEventsProcessedError.Inc()
@@ -53,14 +52,16 @@ func (svc *Service) saveBlockProvenEvent(
 	chainID *big.Int,
 	event *taikol1.TaikoL1BlockProven,
 ) error {
-	log.Infof("blockProven event found, id: %v", event.Id.Int64())
+	slog.Info("blockProven event found",
+		"blockID", event.BlockId.Int64(),
+		"prover", event.Prover.Hex())
 
 	marshaled, err := json.Marshal(event)
 	if err != nil {
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
-	blockID := event.Id.Int64()
+	blockID := event.BlockId.Int64()
 
 	_, err = svc.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
 		Name:    eventindexer.EventNameBlockProven,
@@ -86,7 +87,7 @@ func (svc *Service) saveBlockProvenEvent(
 }
 
 func (svc *Service) updateAverageProofTime(ctx context.Context, event *taikol1.TaikoL1BlockProven) error {
-	block, err := svc.taikol1.GetBlock(nil, event.Id)
+	block, err := svc.taikol1.GetBlock(nil, event.BlockId)
 	// will be unable to GetBlock for older blocks, just return nil, we dont
 	// care about averageProofTime that much to be honest for older blocks
 	if err != nil {
@@ -120,13 +121,20 @@ func (svc *Service) updateAverageProofTime(ctx context.Context, event *taikol1.T
 		new(big.Int).SetUint64(proofTime),
 	)
 
-	log.Infof("avgProofTime update: id: %v, prover: %v, proposedAt: %v, provenAt: %v, proofTIme: %v, avg: %v, newAvg: %v",
-		event.Id.Int64(),
+	slog.Info("avgProofWindow update",
+		"id",
+		event.BlockId.Int64(),
+		"prover",
 		event.Prover.Hex(),
+		"proposedAt",
 		proposedAt,
+		"provenAt",
 		provenAt,
+		"proofTime",
 		proofTime,
+		"avg",
 		avg.String(),
+		"newAvg",
 		newAverageProofTime.String(),
 	)
 

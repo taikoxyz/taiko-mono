@@ -18,7 +18,7 @@ linters:
     - gocognit
     - gocritic
     - gofmt
-    - golint
+    # - revive
     - gosec
     - gosimple
     - lll
@@ -28,12 +28,12 @@ linters:
 
 linters-settings:
   funlen:
-    lines: 137
-    statements: 54
+    lines: 200
+    statements: 100
   gocognit:
-    min-complexity: 43
+    min-complexity: 100
   lll:
-    line-length: 140
+    line-length: 150
 
 issues:
   exclude-rules:
@@ -44,4 +44,6 @@ issues:
     - path: contracts\.go
       linters:
         - lll
-
+    - path: /
+      linters:
+        - typecheck

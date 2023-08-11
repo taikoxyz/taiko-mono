@@ -68,7 +68,11 @@ This seems to be a common issue if you're using Alchemy endpoints, switching to 
 
 #### `no configuration file provided: not found`
 
-You are in the wrong directory, `cd simple-taiko-node` and run the command again.
+This command is searching for the docker-compose.yml file. You are in the wrong directory, `cd simple-taiko-node` and run the command again.
+
+#### `Couldn't find env file`
+
+This command is searching for the .env file. You are in the wrong directory, `cd simple-taiko-node` and run the command again.
 
 #### `unknown shorthand flag: 'd' in -d`
 
@@ -83,28 +87,40 @@ You are missing the docker compose plugin [Installation Guide](https://docs.dock
 There could be several reasons, you can check the logs `docker compose logs -f` to make sure there are no errors but one of the most common cause for this is a typo in the `.env` file
 `ENABLE_PROVER=True/TRUE` when setting this to true `true` has to be in all lowercase or the script to start relayer won't run.
 
+#### `no contract code at given address`
+
+When running a L3 node, users may run into this issue if their underlying L2 is still syncing. Please wait until your L2 is fully synced before starting your L3 node.
+
+#### `Failed to start Taiko client with error code 1 | project ID does not have access to archive state`
+
+The L1 node that the user is pointing to is not an archive node. Please change your RPC endpoint to point to an archive node.
+
 #### `simple-taiko-node-taiko_client_prover_relayer-1  | /bin/sh: /script/start-prover-relayer.sh: not found`
 
 This issue occurs on windows because of the Control Characters in this case the Line Endings, a quick fix would be to delete the node folder, run this `git config --global core.autocrlf false` in the shell, then clone the repo again.
 
 If you do not want to delete the node folder, please follow one of these steps below.
 
-#### `no contract code at given address`
-
-When running a L3 node, users may run into this issue if their underlying L2 is still syncing. Please wait until your L2 is fully synced before starting your L3 node.
-
-{" "}
-
 <Tabs items={["Command line", "Notepad"]} defaultIndex="0">
   <Tab>
 
 ```sh
-  docker compose down -v
-  cd scripts
-  dos2unix start-zkevm-chain-rpcd.sh
+  docker compose -f ./docker-compose.l3.yml --env-file .env.l3 down -v
+  docker compose down -v  
+  cd script/l2
+  dos2unix start-zkevm-chain-rpcd.sh  
   dos2unix start-prover-relayer.sh
-  cd ..
-  docker compose up
+  dos2unix start-proposer.sh
+  dos2unix start-driver.sh
+  cd ../l3
+  dos2unix start-zkevm-chain-rpcd.sh  
+  dos2unix start-prover-relayer.sh
+  dos2unix start-proposer.sh
+  dos2unix start-driver.sh 
+  cd ../..  
+  docker compose up -d
+  docker compose -f ./docker-compose.l3.yml --env-file .env.l3 up -d
+
 ```
 
   </Tab>
@@ -116,12 +132,21 @@ When running a L3 node, users may run into this issue if their underlying L2 is 
 4. Go to: File -> Save
 5. Close the file
 6. Do the same for `start-zkevm-chain-rpcd.sh`
-7. Then go back to command line and do:
+7. Do the same for `start-proposer.sh`
+8. Do the same for `start-driver.sh`
+9. The same goes for files in the l3 folder
+10. Then go back to command line and do:
 
    ```sh
-   docker compose down -v
-   docker compose up
+   docker compose -f ./docker-compose.l3.yml --env-file .env.l3 down -v
+   docker compose down -v  
+   docker compose up -d
+   docker compose -f ./docker-compose.l3.yml --env-file .env.l3 up -d
    ```
 
   </Tab>
 </Tabs>
+
+#### `dial tcp: connect: connection refused`
+
+This means that you are not able to connect to the RPC endpoint. Check if you have a firewall up and that you are allowing those ports. For Ubuntu, this would be checked with "sudo ufw status".

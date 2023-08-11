@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"math/big"
 
+	"log/slog"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
 )
@@ -18,14 +19,14 @@ func (svc *Service) saveBlockProposedEvents(
 	events *taikol1.TaikoL1BlockProposedIterator,
 ) error {
 	if !events.Next() || events.Event == nil {
-		log.Infof("no blockProposed events")
+		slog.Info("no blockProposed events")
 		return nil
 	}
 
 	for {
 		event := events.Event
 
-		if err := svc.detectAndHandleReorg(ctx, eventindexer.EventNameBlockProposed, event.Id.Int64()); err != nil {
+		if err := svc.detectAndHandleReorg(ctx, eventindexer.EventNameBlockProposed, event.BlockId.Int64()); err != nil {
 			return errors.Wrap(err, "svc.detectAndHandleReorg")
 		}
 
@@ -38,8 +39,6 @@ func (svc *Service) saveBlockProposedEvents(
 		if err != nil {
 			return errors.Wrap(err, "svc.ethClient.TransactionSender")
 		}
-
-		log.Infof("blockProposed by: %v", sender.Hex())
 
 		if err := svc.saveBlockProposedEvent(ctx, chainID, event, sender); err != nil {
 			eventindexer.BlockProposedEventsProcessedError.Inc()
@@ -59,22 +58,25 @@ func (svc *Service) saveBlockProposedEvent(
 	event *taikol1.TaikoL1BlockProposed,
 	sender common.Address,
 ) error {
-	log.Info("blockProposed event found")
+	slog.Info("blockProposed", "proposer", sender.Hex())
 
 	marshaled, err := json.Marshal(event)
 	if err != nil {
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
-	blockID := event.Id.Int64()
+	blockID := event.BlockId.Int64()
+
+	assignedProver := event.AssignedProver.Hex()
 
 	_, err = svc.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
-		Name:    eventindexer.EventNameBlockProposed,
-		Data:    string(marshaled),
-		ChainID: chainID,
-		Event:   eventindexer.EventNameBlockProposed,
-		Address: sender.Hex(),
-		BlockID: &blockID,
+		Name:           eventindexer.EventNameBlockProposed,
+		Data:           string(marshaled),
+		ChainID:        chainID,
+		Event:          eventindexer.EventNameBlockProposed,
+		Address:        sender.Hex(),
+		BlockID:        &blockID,
+		AssignedProver: &assignedProver,
 	})
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.Save")

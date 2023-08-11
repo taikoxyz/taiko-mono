@@ -56,6 +56,8 @@ export const checkIfTokenIsDeployedCrossChain = async (
           },
         );
       }
+    } else {
+      return true;
     }
   }
   return false;

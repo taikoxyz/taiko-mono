@@ -3,8 +3,6 @@ import { contractAddressToLink } from "../../../../utils/contractAddressToLink";
 import { SEPOLIA_CONFIG, GRIMSVOTN_CONFIG } from "../../../../domain/chain";
 import { StyledLink } from "/components/StyledLink";
 
-{console.log(contractAddressToLink(SEPOLIA_CONFIG.blockExplorer.url, SEPOLIA_CONFIG.basedContracts.taikoL1.address.proxy))}
-
 # Enable a proposer
 
 This guide will help you enable your Taiko node as a proposer.
@@ -48,32 +46,73 @@ Click the text field for `depositTaikoToken` and enter the amount of TTKO or TTK
 
 For example if you want to deposit `69` TTKO/TTKOe, you would enter `6900000000`.
 
+<Callout type="note">
+  For accurate deposit amounts, refer to "Block Fee" on the L2/L3 Protocol
+  Status page (see: [L2 Protocol Status](https://status.test.taiko.xyz), [L3
+  Protocol Status](https://explorer.l3test.taiko.xyz/stats)). Insufficient
+  deposits may result in proposal failure.
+</Callout>
+
 ### Deposit your TTKO/TTKOe
 
 Click `Write` and confirm the transaction in your wallet.
 
-### Open `.env` file in `simple-taiko-node`
+### Open .env file in `simple-taiko-node`
 
-Open the `.env` file in the `simple-taiko-node` directory.
+For Grimsvotn L2:
+```sh
+nano .env
+```
+
+For Eldfell L3:
+
+```sh
+nano .env.l3
+```
 
 ### Set environment variables to enable a proposer
 
 <Callout type="warning">
   Do **not** use a private key that is valuable to you. The private key will be
-  stored in plain text in the `.env` file, and this is not secure. There is a
-  real risk of losing your assets. You should **only use a test account**.
+  stored in plain text in the `.env` or `.env.l3` file, and this is not secure.
+  There is a real risk of losing your assets. You should **only use a test
+  account**.
 </Callout>
 
 Set the following environment variables to enable your node as a proposer:
 
-- Set `ENABLE_PROPOSER` to `true` (replacing the default `false` with `true`).
-- Set `L1_PROPOSER_PRIVATE_KEY` to that of your wallet's private key; it will need some TTKO/TTKOe on Sepolia/Grimsvotn to propose blocks (if using MetaMask, follow these directions to [retrieve the private key](https://metamask.zendesk.com/hc/en-us/articles/360015289632-How-to-export-an-account-s-private-key)).
-- Set `L2_SUGGESTED_FEE_RECIPIENT` to the recipient of L2/L3 ETH rewards.
+For Grimsvotn L2 `.env`:
+
+```sh
+ENABLE_PROPOSER=true # change from false to true
+# A L1 account (with balance) private key who will send TaikoL1.proposeBlock transactions
+L1_PROPOSER_PRIVATE_KEY=0x0000000000000000000000000000000000000000000000000000000000000000 # your wallet's private key
+# A L2 account address who will be the tx fee beneficiary of the L2 blocks that you proposed
+L2_SUGGESTED_FEE_RECIPIENT=0x0000000000000000000000000000000000000000 # the recipient of L2/L3 ETH rewards.
+```
+
+For Eldfell L3 `.env.l3`:
+
+```sh
+ENABLE_PROPOSER=true # change from false to true
+# A L2 account (with balance) private key who will send TaikoL1.proposeBlock transactions
+L2_PROPOSER_PRIVATE_KEY=0x0000000000000000000000000000000000000000000000000000000000000000 # your wallet's private key
+# A L3 account address who will be the tx fee beneficiary of the L3 blocks that you proposed
+L3_SUGGESTED_FEE_RECIPIENT=0x0000000000000000000000000000000000000000 # the recipient of L2/L3 ETH rewards.
+```
 
 ### Verify proposer logs
 
 You should see a log if you have proposed a block: `📝 Propose transactions succeeded`.
 
-If you are running a node in the background, you can view the logs with `docker compose logs -f`.
+You can check all commands to see proposer logs in the [node runner manual](/docs/manuals/node-runner-manual#view-client-proposer-logs).
 
 </Steps>
+
+## Videos
+
+- [Enable a proposer on your Taiko L2/L3 node](https://www.youtube.com/watch?v=z3gWKEoJidw)
+
+## Troubleshooting
+
+View the [Node troubleshooting reference](/docs/reference/node-troubleshooting) for help on any common error codes / issues.

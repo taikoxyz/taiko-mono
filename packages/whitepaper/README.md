@@ -1,11 +1,3 @@
 # README
 
-Latex source files for Taiko's whitepaper. A PDF will be published automatically to this repository's GitHub Pages [link](https://taikoxyz.github.io/taiko-mono/taiko-whitepaper.pdf) (linked from https://taiko.xyz).
-
-## Usage
-
-```
-git clone https://github.com/taikoxyz/taiko-mono.git
-cd packages/whitepaper
-./build.sh
-```
+Disclaimer: This whitepaper is now out of date and has been deprecated. The information contained within may no longer be accurate or relevant. For the latest information, please refer to Taiko's [DESIGN](../protocol/docs/DESIGN.md) document.

@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/proverpool"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/swap"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
 )
@@ -18,37 +19,48 @@ var (
 )
 
 type Service struct {
-	eventRepo eventindexer.EventRepository
-	blockRepo eventindexer.BlockRepository
-	statRepo  eventindexer.StatRepository
-	ethClient *ethclient.Client
+	eventRepo      eventindexer.EventRepository
+	blockRepo      eventindexer.BlockRepository
+	statRepo       eventindexer.StatRepository
+	nftBalanceRepo eventindexer.NFTBalanceRepository
+	ethClient      *ethclient.Client
 
 	processingBlockHeight uint64
 
 	blockBatchSize      uint64
 	subscriptionBackoff time.Duration
 
-	taikol1 *taikol1.TaikoL1
-	bridge  *bridge.Bridge
-	swaps   []*swap.Swap
+	taikol1    *taikol1.TaikoL1
+	proverPool *proverpool.ProverPool
+	bridge     *bridge.Bridge
+	swaps      []*swap.Swap
+
+	indexNfts bool
 }
 
 type NewServiceOpts struct {
 	EventRepo           eventindexer.EventRepository
 	BlockRepo           eventindexer.BlockRepository
 	StatRepo            eventindexer.StatRepository
+	NFTBalanceRepo      eventindexer.NFTBalanceRepository
 	EthClient           *ethclient.Client
 	RPCClient           *rpc.Client
 	SrcTaikoAddress     common.Address
+	ProverPoolAddress   common.Address
 	SrcBridgeAddress    common.Address
 	SrcSwapAddresses    []common.Address
 	BlockBatchSize      uint64
 	SubscriptionBackoff time.Duration
+	IndexNFTs           bool
 }
 
 func NewService(opts NewServiceOpts) (*Service, error) {
 	if opts.EventRepo == nil {
 		return nil, eventindexer.ErrNoEventRepository
+	}
+
+	if opts.IndexNFTs && opts.NFTBalanceRepo == nil {
+		return nil, eventindexer.ErrNoNFTBalanceRepository
 	}
 
 	if opts.EthClient == nil {
@@ -92,16 +104,28 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		}
 	}
 
+	var proverPool *proverpool.ProverPool
+	if opts.ProverPoolAddress.Hex() != ZeroAddress.Hex() {
+		proverPool, err = proverpool.NewProverPool(opts.ProverPoolAddress, opts.EthClient)
+		if err != nil {
+			return nil, errors.Wrap(err, "proverpool.NewProverPool")
+		}
+	}
+
 	return &Service{
-		eventRepo: opts.EventRepo,
-		blockRepo: opts.BlockRepo,
-		statRepo:  opts.StatRepo,
-		ethClient: opts.EthClient,
-		taikol1:   taikoL1,
-		bridge:    bridgeContract,
-		swaps:     swapContracts,
+		eventRepo:      opts.EventRepo,
+		blockRepo:      opts.BlockRepo,
+		statRepo:       opts.StatRepo,
+		nftBalanceRepo: opts.NFTBalanceRepo,
+		ethClient:      opts.EthClient,
+		taikol1:        taikoL1,
+		bridge:         bridgeContract,
+		proverPool:     proverPool,
+		swaps:          swapContracts,
 
 		blockBatchSize:      opts.BlockBatchSize,
 		subscriptionBackoff: opts.SubscriptionBackoff,
+
+		indexNfts: opts.IndexNFTs,
 	}, nil
 }

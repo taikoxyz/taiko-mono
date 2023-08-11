@@ -3,7 +3,7 @@
   import { ChevronDown, ExclamationTriangle } from 'svelte-heros-v2';
   import { UserRejectedRequestError } from 'wagmi';
 
-  import { mainnetChain, taikoChain } from '../chain/chains';
+  import { L1Chain, L2Chain } from '../chain/chains';
   import type { Chain } from '../domain/chain';
   import { srcChain } from '../store/chain';
   import { signer } from '../store/signer';
@@ -49,8 +49,10 @@
   <button class="btn justify-around md:w-[194px]" disabled={cannotSwitch}>
     <span class="font-normal flex-1 text-left mr-2">
       {#if $srcChain}
-        <svelte:component this={$srcChain.icon} />
-        <span class="ml-2 hidden md:inline-block">{$srcChain.name}</span>
+        <span class="flex items-center">
+          <img src={$srcChain.iconUrl} alt={$srcChain.name} />
+          <span class="ml-2 hidden md:inline-block">{$srcChain.name}</span>
+        </span>
       {:else}
         <span class="ml-2 flex items-center">
           <ExclamationTriangle class="mr-2" size="20" />
@@ -67,17 +69,17 @@
     <li>
       <button
         class="flex items-center px-2 py-4 hover:bg-dark-5 rounded-sm"
-        on:click={() => switchChains(mainnetChain)}>
-        <svelte:component this={mainnetChain.icon} height={24} />
-        <span class="pl-1.5 text-left flex-1">{mainnetChain.name}</span>
+        on:click={() => switchChains(L1Chain)}>
+        <img src={L1Chain.iconUrl} alt={L1Chain.name} height={24} />
+        <span class="pl-1.5 text-left flex-1">{L1Chain.name}</span>
       </button>
     </li>
     <li>
       <button
         class="flex items-center px-2 py-4 hover:bg-dark-5 rounded-sm"
-        on:click={() => switchChains(taikoChain)}>
-        <svelte:component this={taikoChain.icon} height={24} />
-        <span class="pl-1.5 text-left flex-1">{taikoChain.name}</span>
+        on:click={() => switchChains(L2Chain)}>
+        <img src={L2Chain.iconUrl} alt={L2Chain.name} height={24} />
+        <span class="pl-1.5 text-left flex-1">{L2Chain.name}</span>
       </button>
     </li>
   </ul>
