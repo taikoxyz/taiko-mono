@@ -10,10 +10,9 @@ export default defineConfig({
     svelte(),
     polyfillNode(),
     sentryVitePlugin({
-      telemetry: false,
       org: process.env.SENTRY_ORG,
       project: process.env.SENTRY_PROJECT,
-      authToken: process.env.SENTRY_AUTH_TOKEN,
+      // authToken: process.env.SENTRY_AUTH_TOKEN,
     }),
   ],
 });
