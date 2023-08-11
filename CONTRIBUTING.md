@@ -33,9 +33,9 @@ For example, `feat(scope): description of feature` should only impact the `scope
 
 Follow the [NatSpec format](https://docs.soliditylang.org/en/latest/natspec-format.html) for documenting smart contract source code. Please adhere to a few additional standards:
 
-#### Multi-line comments
+#### Comment style
 
-Choose `/** */` over `///` for multi-line NatSpec comments to save column space.
+Choose `///` over `/** */` for multi-line NatSpec comments for consistency. All NatSpec comments should use `///` instead of `/** */`. Additional explanatory comments should use `//`, even for multi-line comments.
 
 #### Notice tag
 
