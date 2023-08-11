@@ -21,25 +21,26 @@ import { IRecallableMessageSender, IBridge } from "../bridge/IBridge.sol";
 import { IMintableERC20 } from "../common/IMintableERC20.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { TaikoToken } from "../L1/TaikoToken.sol";
+import { LibAddress } from "../libs/LibAddress.sol";
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 
 /**
- * This vault holds all ERC20 tokens (but not Ether) that users have deposited.
+ * @title ERC20Vault
+ * @notice This vault holds all ERC20 tokens (excluding Ether) that users have
+ * deposited.
  * It also manages the mapping between canonical ERC20 tokens and their bridged
  * tokens.
- * @dev Ether is held by Bridges on L1 and by the EtherVault on L2, not
- * ERC20Vaults.
- * @custom:security-contact hello@taiko.xyz
  */
-
-contract ERC20Vault is EssentialContract, IERC165Upgradeable {
+contract ERC20Vault is
+    EssentialContract,
+    IERC165Upgradeable,
+    IRecallableMessageSender
+{
+    using LibAddress for address;
     using SafeERC20Upgradeable for ERC20Upgradeable;
 
-    /*//////////////////////////////////////////////////////////////
-                                STRUCTS
-    //////////////////////////////////////////////////////////////*/
-
+    // Structs for canonical ERC20 tokens and transfer operations
     struct CanonicalERC20 {
         uint256 chainId;
         address addr;
@@ -59,10 +60,6 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
         string memo;
     }
 
-    /*//////////////////////////////////////////////////////////////
-                            STATE VARIABLES
-    //////////////////////////////////////////////////////////////*/
-
     // Tracks if a token on the current chain is a canonical or btoken.
     mapping(address tokenAddress => bool isBridged) public isBridgedToken;
 
@@ -77,10 +74,6 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
     ) public canonicalToBridged;
 
     uint256[47] private __gap;
-
-    /*//////////////////////////////////////////////////////////////
-                                 EVENTS
-    //////////////////////////////////////////////////////////////*/
 
     event BridgedTokenDeployed(
         uint256 indexed srcChainId,
@@ -116,56 +109,14 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
         uint256 amount
     );
 
-    /**
-     * Thrown when the `to` address in an operation is invalid.
-     * This can happen if it's zero address or the address of the token vault.
-     */
+    // Error messages
     error VAULT_INVALID_TO();
-
-    /**
-     * Thrown when the token address in a transaction is invalid.
-     * This could happen if the token address is zero or doesn't conform to the
-     * ERC20 standard.
-     */
     error VAULT_INVALID_TOKEN();
-
-    /**
-     * Thrown when the amount in a transaction is invalid.
-     * This could happen if the amount is zero or exceeds the sender's balance.
-     */
     error VAULT_INVALID_AMOUNT();
-
-    /**
-     * Thrown when the user address in a message is invalid.
-     * This could happen if the user address is zero or doesn't match the
-     * expected user.
-     */
     error VAULT_INVALID_USER();
-
-    /**
-     * Thrown when the sender in a message context is invalid.
-     * This could happen if the sender isn't the expected token vault on the
-     * source chain.
-     */
     error VAULT_INVALID_FROM();
-
-    /**
-     * Thrown when the source chain ID in a message is invalid.
-     * This could happen if the source chain ID doesn't match the current
-     * chain's ID.
-     */
     error VAULT_INVALID_SRC_CHAIN_ID();
-
-    /**
-     * Thrown when a message has not failed.
-     * This could happen if trying to release a message deposit without proof of
-     * failure.
-     */
     error VAULT_MESSAGE_NOT_FAILED();
-
-    /**
-     * Thrown when a message has already released
-     */
     error VAULT_MESSAGE_RELEASED_ALREADY();
 
     modifier onlyValidAddresses(
@@ -182,22 +133,22 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
         _;
     }
 
+    /**
+     * @notice Initialize the contract with the address manager.
+     * @param addressManager Address manager contract address.
+     */
     function init(address addressManager) external initializer {
         EssentialContract._init(addressManager);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                         USER-FACING FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
+    // User-facing functions
 
     /**
-     * Transfers ERC20 tokens to this vault and sends a message to the
+     * @notice Transfers ERC20 tokens to this vault and sends a message to the
      * destination chain so the user can receive the same amount of tokens
      * by invoking the message call.
-     *
      * @param opt Option for sending ERC20 tokens.
      */
-
     function sendToken(BridgeTransferOp calldata opt)
         external
         payable
@@ -240,15 +191,11 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
     }
 
     /**
-     * This function can only be called by the bridge contract while
-     * invoking a message call. See sendToken, which sets the data to invoke
-     * this function.
-     *
-     * @param ctoken The canonical ERC20 token which may or may not
-     * live on this chain. If not, a BridgedERC20 contract will be deployed.
-     * @param from The source address.
-     * @param to The destination address.
-     * @param amount The amount of tokens to be sent. 0 is a valid value.
+     * @notice Receive bridged ERC20 tokens and handle them accordingly.
+     * @param ctoken Canonical ERC20 data for the token being received.
+     * @param from Source address.
+     * @param to Destination address.
+     * @param amount Amount of tokens being received.
      */
     function receiveToken(
         CanonicalERC20 calldata ctoken,
@@ -287,17 +234,18 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
     }
 
     /**
-     * Release deposited ERC20 back to the user on the source ERC20Vault with
-     * a proof that the message processing on the destination Bridge has failed.
-     *
+     * @notice Release deposited ERC20 tokens back to the user on the source
+     * ERC20Vault with a proof that the message processing on the destination
+     * Bridge has failed.
      * @param message The message that corresponds to the ERC20 deposit on the
      * source chain.
      */
     function onMessageRecalled(IBridge.Message calldata message)
         external
+        payable
+        override
         nonReentrant
         onlyFromNamed("bridge")
-        returns (bytes4)
     {
         IBridge bridge = IBridge(resolve("bridge", false));
         bytes32 msgHash = bridge.hashMessage(message);
@@ -317,18 +265,21 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
             }
         }
 
+        // Send back Ether
+        message.user.sendEther(message.value);
+
         emit TokenReleased({
             msgHash: msgHash,
             from: message.user,
             token: token,
             amount: amount
         });
-
-        return type(IRecallableMessageSender).interfaceId;
     }
 
     /**
-     * @dev See {IERC165-supportsInterface}.
+     * @notice Check if the contract supports the given interface.
+     * @param interfaceId The interface identifier.
+     * @return true if the contract supports the interface, false otherwise.
      */
     function supportsInterface(bytes4 interfaceId)
         public
@@ -339,10 +290,6 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
     {
         return interfaceId == type(IRecallableMessageSender).interfaceId;
     }
-
-    /*//////////////////////////////////////////////////////////////
-                           PRIVATE FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
 
     function _sendToken(
         address user,
@@ -355,14 +302,14 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
     {
         CanonicalERC20 memory ctoken;
 
-        // is a btoken, meaning, it does not live on this chain
+        // If it's a bridged token
         if (isBridgedToken[token]) {
             ctoken = bridgedToCanonical[token];
             assert(ctoken.addr != address(0));
             IMintableERC20(token).burn(msg.sender, amount);
             _amount = amount;
         } else {
-            // is a canonical token, meaning, it lives on this chain
+            // If it's a canonical token
             ERC20Upgradeable t = ERC20Upgradeable(token);
             ctoken = CanonicalERC20({
                 chainId: block.chainid,
@@ -391,11 +338,6 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
         );
     }
 
-    /**
-     * Internal function to get or deploy btoken
-     * @param ctoken Canonical token information
-     * @return btoken Address of the deployed btoken
-     */
     function _getOrDeployBridgedToken(CanonicalERC20 calldata ctoken)
         private
         returns (address btoken)
@@ -407,14 +349,6 @@ contract ERC20Vault is EssentialContract, IERC165Upgradeable {
         }
     }
 
-    /**
-     * Internal function to deploy a new BridgedERC20 contract and initializes
-     * it.
-     * This must be called before the first time a btoken is sent to this
-     * chain.
-     * @param ctoken Canonical token information
-     * @return btoken Address of the newly deployed btoken
-     */
     function _deployBridgedToken(CanonicalERC20 calldata ctoken)
         private
         returns (address btoken)

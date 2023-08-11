@@ -16,39 +16,48 @@ import { IERC1155Receiver } from
 import { IERC165 } from
     "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import { Proxied } from "../common/Proxied.sol";
-import { IBridge } from "../bridge/IBridge.sol";
+import { IRecallableMessageSender, IBridge } from "../bridge/IBridge.sol";
 
-abstract contract BaseNFTVault is EssentialContract {
+/**
+ * @title BaseNFTVault
+ * @notice Abstract contract for bridging NFTs across different chains.
+ */
+abstract contract BaseNFTVault is
+    EssentialContract,
+    IRecallableMessageSender
+{
+    // Struct representing the canonical NFT on another chain.
     struct CanonicalNFT {
-        uint256 chainId;
-        address addr;
-        string symbol;
-        string name;
+        uint256 chainId; // Chain ID of the NFT.
+        address addr; // Address of the NFT contract.
+        string symbol; // Symbol of the NFT.
+        string name; // Name of the NFT.
     }
 
+    // Struct representing the details of a bridged token transfer operation.
     struct BridgeTransferOp {
-        uint256 destChainId;
-        address to;
-        address token;
-        uint256[] tokenIds;
-        uint256[] amounts;
-        uint256 gasLimit;
-        uint256 fee;
-        address refundTo;
-        string memo;
+        uint256 destChainId; // Destination chain ID.
+        address to; // Recipient address.
+        address token; // Address of the token.
+        uint256[] tokenIds; // IDs of the tokens to transfer.
+        uint256[] amounts; // Amounts of tokens to transfer.
+        uint256 gasLimit; // Gas limit for the operation.
+        uint256 fee; // Processing fee for the relayer.
+        address refundTo; // Address for refund, if needed.
+        string memo; // Optional memo.
     }
 
+    // Constants for interface IDs.
     bytes4 public constant ERC1155_INTERFACE_ID = 0xd9b67a26;
     bytes4 public constant ERC721_INTERFACE_ID = 0x80ac58cd;
 
-    // Tracks if a token on the current chain is a ctoken or btoken.
+    // Mapping to track bridged tokens.
     mapping(address tokenAddress => bool isBridged) public isBridgedToken;
 
-    // Mappings from btokens to their ctoken tokens.
+    // Mapping to store bridged NFTs and their canonical counterparts.
     mapping(address btoken => CanonicalNFT ctoken) public bridgedToCanonical;
 
-    // Mappings from ctoken tokens to their btokens.
-    // Also storing chainId for tokens across other chains aside from Ethereum.
+    // Mapping to store canonical NFTs and their bridged counterparts.
     mapping(uint256 chainId => mapping(address ctokenAddress => address btoken))
         public canonicalToBridged;
 
@@ -90,74 +99,23 @@ abstract contract BaseNFTVault is EssentialContract {
         uint256[] amounts
     );
 
-    /**
-     * Thrown when the `to` address in an operation is invalid.
-     * This can happen if it's zero address or the address of the token vault.
-     */
+    // Errors that can be thrown by the contract.
     error VAULT_INVALID_TO();
-
-    /**
-     * Thrown when the token address in a transaction is invalid.
-     * This could happen if the token address is zero or doesn't conform to the
-     * ERC20 standard.
-     */
     error VAULT_INVALID_TOKEN();
-
-    /**
-     * Thrown when the amount in a transaction is invalid.
-     * This could happen if the amount is zero or exceeds the sender's balance.
-     */
     error VAULT_INVALID_AMOUNT();
-
-    /**
-     * Thrown when the user address in a message is invalid.
-     * This could happen if the user address is zero or doesn't match the
-     * expected user.
-     */
     error VAULT_INVALID_USER();
-
-    /**
-     * Thrown when the from in a message context is invalid.
-     * This could happen if the sender isn't the expected token vault on the
-     * source chain.
-     */
     error VAULT_INVALID_FROM();
-
-    /**
-     * Thrown when the source chain ID in a message is invalid.
-     * This could happen if the source chain ID doesn't match the current
-     * chain's ID.
-     */
     error VAULT_INVALID_SRC_CHAIN_ID();
-
-    /**
-     * Thrown when the interface (ERC1155/ERC721) is not supported.
-     */
     error VAULT_INTERFACE_NOT_SUPPORTED();
-
-    /**
-     * Thrown when a message has not failed.
-     * This could happen if trying to release a message deposit without proof of
-     * failure.
-     */
     error VAULT_MESSAGE_NOT_FAILED();
-
-    /**
-     * Thrown when a message has already released
-     */
     error VAULT_MESSAGE_RELEASED_ALREADY();
-
-    /**
-     * Thrown when the length of the tokenIds array and the amounts
-     * array differs.
-     */
     error VAULT_TOKEN_ARRAY_MISMATCH();
-
-    /**
-     * Thrown when more tokens are about to be bridged than allowed.
-     */
     error VAULT_MAX_TOKEN_PER_TXN_EXCEEDED();
 
+    /**
+     * @notice Initialize the contract with an address manager.
+     * @param addressManager The address of the address manager.
+     */
     function init(address addressManager) external initializer {
         EssentialContract._init(addressManager);
     }
