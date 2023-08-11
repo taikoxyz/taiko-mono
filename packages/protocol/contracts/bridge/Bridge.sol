@@ -290,4 +290,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 }
 
+/**
+ * @title ProxiedBridge
+ * @dev Proxied version of the Bridge contract.
+ */
 contract ProxiedBridge is Proxied, Bridge { }

@@ -7,6 +7,7 @@
 pragma solidity ^0.8.20;
 
 library TaikoData {
+    // Struct holding Taiko configuration parameters
     struct Config {
         // Group 1: general configs
         uint256 chainId;
@@ -42,6 +43,7 @@ library TaikoData {
         uint32 rewardMaxDelayPenalty;
     }
 
+    // Struct holding state variables
     struct StateVariables {
         uint32 feePerGas;
         uint64 genesisHeight;
@@ -52,6 +54,7 @@ library TaikoData {
         uint64 numEthDeposits;
     }
 
+    // Struct representing input data for block metadata
     // 2 slots
     struct BlockMetadataInput {
         bytes32 txListHash;
@@ -61,7 +64,9 @@ library TaikoData {
         bool cacheTxListInfo;
     }
 
-    // Changing this struct requires changing LibUtils.hashMetadata accordingly.
+    // Struct representing block metadata
+    // Warning: changing this struct requires changing LibUtils.hashMetadata
+    // accordingly.
     struct BlockMetadata {
         uint64 id;
         uint64 timestamp;
@@ -77,6 +82,7 @@ library TaikoData {
         TaikoData.EthDeposit[] depositsProcessed;
     }
 
+    // Struct representing block evidence
     struct BlockEvidence {
         bytes32 metaHash;
         bytes32 parentHash;
@@ -89,6 +95,7 @@ library TaikoData {
         bytes proofs;
     }
 
+    // Struct representing fork choice data
     // 4 slots
     struct ForkChoice {
         // Key is only written/read for the 1st fork choice.
@@ -100,6 +107,7 @@ library TaikoData {
         uint32 gasUsed;
     }
 
+    // Struct representing a block
     // 5 slots
     struct Block {
         // slot 1: ForkChoice storage are reusable
@@ -122,17 +130,20 @@ library TaikoData {
         uint64 proofWindow;
     }
 
+    // Struct representing information about a transaction list
     struct TxListInfo {
         uint64 validSince;
         uint24 size;
     }
 
+    // Struct representing an Ethereum deposit
     struct EthDeposit {
         address recipient;
         uint96 amount;
         uint64 id;
     }
 
+    // Struct holding the state variables for the Taiko contract
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint256 blockId_mode_blockRingBufferSize => Block) blocks;
@@ -165,6 +176,6 @@ library TaikoData {
         uint32 feePerGas;
         uint16 avgProofDelay;
         // Reserved
-        uint256[42] __gap; // TODO: update this
+        uint256[42] __gap;
     }
 }

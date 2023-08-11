@@ -12,14 +12,11 @@ import { IProverPool } from "../ProverPool.sol";
 import { ISignalService } from "../../signal/ISignalService.sol";
 import { LibUtils } from "./LibUtils.sol";
 import { LibMath } from "../../libs/LibMath.sol";
-import { SafeCastUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import { TaikoData } from "../../L1/TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
 import { LibL2Consts } from "../../L2/LibL2Consts.sol";
 
 library LibVerifying {
-    using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.State;
     using LibMath for uint256;
 
