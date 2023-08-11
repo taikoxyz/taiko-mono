@@ -8,14 +8,12 @@ pragma solidity ^0.8.20;
 
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { LibMath } from "../../libs/LibMath.sol";
-import { SafeCastUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import { TaikoData } from "../TaikoData.sol";
 import { TaikoToken } from "../TaikoToken.sol";
 import { LibFixedPointMath as Math } from
     "../../thirdparty/LibFixedPointMath.sol";
 
-library LibTkoDistribution {
+library LibTaikoToken {
     error L1_INSUFFICIENT_TOKEN();
 
     function withdrawTaikoToken(

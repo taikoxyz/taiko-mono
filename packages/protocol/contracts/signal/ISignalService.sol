@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+
 //  _____     _ _         _         _
 // |_   _|_ _(_) |_____  | |   __ _| |__ ___
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
@@ -6,22 +7,26 @@
 
 pragma solidity ^0.8.20;
 
+/**
+ * @title ISignalService
+ * @notice This interface defines methods for sending and verifying signals
+ * across chains.
+ */
 interface ISignalService {
     /**
-     * Send a signal by storing the key with a value of 1.
-     *
-     * @param signal The signal to send.
-     * @return storageSlot The slot in storage that this signal is persisted.
+     * @notice Emit a signal by setting the specified key to a value of 1.
+     * @param signal The unique identifier for the signal to be emitted.
+     * @return storageSlot The location in storage where this signal is stored.
      */
     function sendSignal(bytes32 signal)
         external
         returns (bytes32 storageSlot);
 
     /**
-     * Check if a signal has been sent (key stored with a value of 1).
-     *
-     * @param app The address that sent this message.
-     * @param signal The signal to check.
+     * @notice Verifies if a particular signal has already been emitted.
+     * @param app The address that initiated the signal.
+     * @param signal The unique identifier for the signal to verify.
+     * @return True if the signal has been emitted, otherwise false.
      */
     function isSignalSent(
         address app,
@@ -32,12 +37,13 @@ interface ISignalService {
         returns (bool);
 
     /**
-     * Check if signal has been received on the destination chain (current).
-     *
-     * @param srcChainId The source chain ID.
-     * @param app The address that sent this message.
-     * @param signal The signal to check.
-     * @param proof The proof of the signal being sent on the source chain.
+     * @notice Verifies if a signal has been acknowledged on the target chain.
+     * @param srcChainId The identifier for the source chain from which the
+     * signal originated.
+     * @param app The address that initiated the signal.
+     * @param signal The unique identifier for the signal to verify.
+     * @param proof Data proving the signal was emitted on the source chain.
+     * @return True if the signal has been acknowledged, otherwise false.
      */
     function isSignalReceived(
         uint256 srcChainId,
