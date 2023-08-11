@@ -101,6 +101,7 @@ describe('checkIfTokenIsDeployedCrossChain', () => {
     // mock the `ethers.Contract` object for testing purposes
     const destTokenVaultContract = {
       canonicalToBridged: jest.fn().mockResolvedValue(bridgedTokenAddress),
+      isBridgedToken: jest.fn().mockResolvedValue(false),
     };
     jest
       .spyOn(ethers, 'Contract')
