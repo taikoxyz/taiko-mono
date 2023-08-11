@@ -434,10 +434,12 @@ contract ProverPool is EssentialContract, IProverPool {
         return true;
     }
 
-    /// @dev See the documentation for the callers of this internal function.
-    /// @param stakedAmount The staked amount of the prover.
-    /// @param rewardPerGas The reward per gas of the prover.
-    /// @return weight The weight of the prover (essentially a "score").
+    /**
+     * @dev See the documentation for the callers of this internal function.
+     * @param stakedAmount The staked amount of the prover.
+     * @param rewardPerGas The reward per gas of the prover.
+     * @return weight The weight of the prover (essentially a "score").
+     */
     function _calcWeight(
         uint64 stakedAmount,
         uint32 rewardPerGas
@@ -457,12 +459,14 @@ contract ProverPool is EssentialContract, IProverPool {
         }
     }
 
-    /// @dev See the documentation for the callers of this internal function.
-    /// This function will select a prover and those that have a higher weight
-    /// are more likely to be selected.
-    /// @param rand A random input used as a seed.
-    /// @param weights An array of the weights of the provers.
-    /// @return proverId The selected prover id.
+    /**
+     * @dev See the documentation for the callers of this internal function.
+     * This function will select a prover and those that have a higher weight
+     * are more likely to be selected.
+     * @param rand A random input used as a seed.
+     * @param weights An array of the weights of the provers.
+     * @return proverId The selected prover id.
+     */
     function _selectProver(
         bytes32 rand,
         uint256[MAX_NUM_PROVERS] memory weights
