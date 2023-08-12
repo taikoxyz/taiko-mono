@@ -25,19 +25,14 @@
 
 pragma solidity ^0.8.20;
 
-/**
- * @title LibUint512Math Library
- */
+/// @title LibUint512Math
 library LibUint512Math {
-    /**
-     * @notice Multiplies two uint256 numbers to return a 512-bit result.
-     * @dev This function utilizes inline assembly for optimization.
-     * Reference: https://xn--2-umb.com/17/full-mul/index.html
-     * @param a The first uint256 operand.
-     * @param b The second uint256 operand.
-     * @return r0 The lower 256 bits of the result.
-     * @return r1 The higher 256 bits of the result.
-     */
+    /// @dev Multiplies two uint256 numbers to return a 512-bit result.
+    /// Taken from: https://xn--2-umb.com/17/full-mul/index.html
+    /// @param a The first uint256 operand.
+    /// @param b The second uint256 operand.
+    /// @return r0 The lower 256 bits of the result.
+    /// @return r1 The higher 256 bits of the result.
     function mul(
         uint256 a,
         uint256 b
@@ -57,18 +52,15 @@ library LibUint512Math {
         }
     }
 
-    /**
-     * @notice Adds two 512-bit numbers represented by two pairs of uint256.
-     * @dev This function uses inline assembly for optimization.
-     * Reference:
-     * https://xn--2-umb.com/17/512-bit-division/#add-subtract-two-512-bit-numbers
-     * @param a0 The lower 256 bits of the first number.
-     * @param a1 The higher 256 bits of the first number.
-     * @param b0 The lower 256 bits of the second number.
-     * @param b1 The higher 256 bits of the second number.
-     * @return r0 The lower 256 bits of the result.
-     * @return r1 The higher 256 bits of the result.
-     */
+    /// @dev Adds two 512-bit numbers represented by two pairs of uint256.
+    /// Taken from:
+    /// https://xn--2-umb.com/17/512-bit-division/#add-subtract-two-512-bit-numbers
+    /// @param a0 The lower 256 bits of the first number.
+    /// @param a1 The higher 256 bits of the first number.
+    /// @param b0 The lower 256 bits of the second number.
+    /// @param b1 The higher 256 bits of the second number.
+    /// @return r0 The lower 256 bits of the result.
+    /// @return r1 The higher 256 bits of the result.
     function add(
         uint256 a0,
         uint256 a1,

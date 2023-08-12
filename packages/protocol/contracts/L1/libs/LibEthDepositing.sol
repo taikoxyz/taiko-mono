@@ -11,10 +11,8 @@ import { LibMath } from "../../libs/LibMath.sol";
 import { AddressResolver } from "../../common/AddressResolver.sol";
 import { TaikoData } from "../TaikoData.sol";
 
-/**
- * @title LibEthDepositing Library
- * @notice A library for handling Ethereum deposits in the Taiko system.
- */
+/// @title LibEthDepositing
+/// @notice A library for handling Ethereum deposits in the Taiko protocol.
 library LibEthDepositing {
     using LibAddress for address;
     using LibMath for uint256;
@@ -23,13 +21,11 @@ library LibEthDepositing {
 
     error L1_INVALID_ETH_DEPOSIT();
 
-    /**
-     * @notice Deposit Ethereum to Layer 2.
-     * @param state The current state of the Taiko system.
-     * @param config Configuration for deposits.
-     * @param resolver The AddressResolver instance for address resolution.
-     * @param recipient The address of the deposit recipient.
-     */
+    /// @dev Deposits Ether into Taiko.
+    /// @param state The current state of the Taiko protocol.
+    /// @param config The config of the Taiko protocol.
+    /// @param resolver The {AddressResolver} instance for address resolution.
+    /// @param recipient The address of the deposit recipient.
     function depositEtherToL2(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -66,13 +62,11 @@ library LibEthDepositing {
         }
     }
 
-    /**
-     * @notice Process the ETH deposits in a batched manner.
-     * @param state The current state of the Taiko system.
-     * @param config Configuration for deposits.
-     * @param feeRecipient Address to receive the deposit fee.
-     * @return deposits The array of processed deposits.
-     */
+    /// @dev Processes the ETH deposits in a batched manner.
+    /// @param state The current state of the Taiko protocol.
+    /// @param config The config of the Taiko protocol.
+    /// @param feeRecipient Address to receive the deposit fee.
+    /// @return deposits The array of processed deposits.
     function processDeposits(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -103,7 +97,7 @@ library LibEthDepositing {
                     state.ethDeposits[j % config.ethDepositRingBufferSize];
                 deposits[i] = TaikoData.EthDeposit({
                     recipient: address(uint160(data >> 96)),
-                    amount: uint96(data), // works
+                    amount: uint96(data),
                     id: j
                 });
                 uint96 _fee =
@@ -126,13 +120,11 @@ library LibEthDepositing {
         }
     }
 
-    /**
-     * @notice Check if the given deposit amount is valid.
-     * @param state The current state of the Taiko system.
-     * @param config Configuration for deposits.
-     * @param amount The amount to deposit.
-     * @return true if the deposit is valid, false otherwise.
-     */
+    /// @dev Checks if the given deposit amount is valid.
+    /// @param state The current state of the Taiko protocol.
+    /// @param config The config of the Taiko protocol.
+    /// @param amount The amount to deposit.
+    /// @return true if the deposit is valid, false otherwise.
     function canDepositEthToL2(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -150,11 +142,9 @@ library LibEthDepositing {
         }
     }
 
-    /**
-     * @notice Compute the hash for a set of deposits.
-     * @param deposits Array of EthDeposit to hash.
-     * @return The computed hash.
-     */
+    /// @dev Computes the hash of the given deposits.
+    /// @param deposits The deposits to hash.
+    /// @return The computed hash.
     function hashEthDeposits(TaikoData.EthDeposit[] memory deposits)
         internal
         pure
@@ -163,6 +153,10 @@ library LibEthDepositing {
         return keccak256(abi.encode(deposits));
     }
 
+    /// @dev Encodes the given deposit into a uint256.
+    /// @param addr The address of the deposit recipient.
+    /// @param amount The amount of the deposit.
+    /// @return The encoded deposit.
     function _encodeEthDeposit(
         address addr,
         uint256 amount
