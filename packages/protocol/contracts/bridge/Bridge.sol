@@ -58,7 +58,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
-    /// @notice Recalls a failed message on its source chain.
+    /// @notice Recalls a failed message on its source chain
     /// @param message The message containing the details of the Ether transfer.
     /// (See {IBridge})
     /// @param proof The proof of the cross-chain transfer.
