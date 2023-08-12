@@ -41,10 +41,9 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         EssentialContract._init(_addressManager);
     }
 
-    /// @notice Sends a message from the current chain to the destination chain
-    /// specified in the message.
-    /// @param message The message to send. (See {IBridge})
-    /// @return msgHash The hash of the message that was sent.
+    /// Sends a message to the destination chain and takes custody
+    /// of Ether required in this contract. All extra Ether will be refunded.
+    /// @inheritdoc IBridge
     function sendMessage(Message calldata message)
         external
         payable
@@ -58,29 +57,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
-    /// @notice Recalls a failed message on its source chain
-    /// @param message The message containing the details of the Ether transfer.
-    /// (See {IBridge})
-    /// @param proof The proof of the cross-chain transfer.
-    function recallMessage(
-        IBridge.Message calldata message,
-        bytes calldata proof
-    )
-        external
-        nonReentrant
-    {
-        return LibBridgeRecall.recallMessage({
-            state: _state,
-            resolver: AddressResolver(this),
-            message: message,
-            proof: proof,
-            checkProof: shouldCheckProof()
-        });
-    }
-
     /// @notice Processes a message received from another chain.
-    /// @param message The message to process.
-    /// @param proof The proof of the cross-chain transfer.
+    /// @inheritdoc IBridge
     function processMessage(
         Message calldata message,
         bytes calldata proof
@@ -97,10 +75,9 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
-    /// @notice Retries sending a message that previously failed to send.
-    /// @param message The message to retry.
-    /// @param isLastAttempt Specifies whether this is the last attempt to send
-    /// the message.
+    /// @notice Retries executing a message that previously failed on its
+    /// destination chain.
+    /// @inheritdoc IBridge
     function retryMessage(
         Message calldata message,
         bool isLastAttempt
@@ -116,9 +93,27 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
-    /// @notice Checks if the message with the given hash has been sent.
-    /// @param msgHash The hash of the message.
-    /// @return Returns true if the message has been sent, false otherwise.
+    /// @notice Recalls a failed message on its source chain
+    /// @inheritdoc IBridge
+    function recallMessage(
+        IBridge.Message calldata message,
+        bytes calldata proof
+    )
+        external
+        nonReentrant
+    {
+        return LibBridgeRecall.recallMessage({
+            state: _state,
+            resolver: AddressResolver(this),
+            message: message,
+            proof: proof,
+            checkProof: shouldCheckProof()
+        });
+    }
+
+    /// @notice Checks if the message with the given hash has been sent on its
+    /// source chain.
+    /// @inheritdoc IBridge
     function isMessageSent(bytes32 msgHash)
         public
         view
@@ -128,11 +123,9 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         return LibBridgeSend.isMessageSent(AddressResolver(this), msgHash);
     }
 
-    /// @notice Checks if the message with the given hash has been received.
-    /// @param msgHash The hash of the message.
-    /// @param srcChainId The source chain ID.
-    /// @param proof The proof of message receipt.
-    /// @return Returns true if the message has been received, false otherwise.
+    /// @notice Checks if the message with the given hash has been received on
+    /// its destination chain.
+    /// @inheritdoc IBridge
     function isMessageReceived(
         bytes32 msgHash,
         uint256 srcChainId,
@@ -152,11 +145,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
-    /// @notice Checks if the message with the given hash has failed.
-    /// @param msgHash The hash of the message.
-    /// @param destChainId The destination chain ID.
-    /// @param proof The proof of message failure.
-    /// @return Returns true if the message has failed, false otherwise.
+    /// @notice Checks if a msgHash has failed on its destination chain.
+    /// @inheritdoc IBridge
     function isMessageFailed(
         bytes32 msgHash,
         uint256 destChainId,
@@ -176,7 +166,15 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
-    /// @notice Gets the status of the message with the given hash.
+    /// @notice Checks if a failed message has been recalled on its source
+    /// chain.
+    /// @inheritdoc IBridge
+    function isMessageRecalled(bytes32 msgHash) public view returns (bool) {
+        return _state.recalls[msgHash];
+    }
+
+    /// @notice Gets the execution status of the message with the given hash on
+    /// its destination chain.
     /// @param msgHash The hash of the message.
     /// @return Returns the status of the message.
     function getMessageStatus(bytes32 msgHash)
@@ -189,17 +187,9 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /// @notice Gets the current context.
-    /// @return Returns the current context.
+    /// @inheritdoc IBridge
     function context() public view returns (Context memory) {
         return _state.ctx;
-    }
-
-    /// @notice Checks if a failed message has been recalled on its source
-    /// chain.
-    /// @param msgHash The hash of the message.
-    /// @return Returns true if the Ether has been released, false otherwise.
-    function isMessageRecalled(bytes32 msgHash) public view returns (bool) {
-        return _state.etherReleased[msgHash];
     }
 
     /// @notice Checks if the destination chain with the given ID is enabled.
@@ -216,8 +206,7 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     }
 
     /// @notice Computes the hash of a given message.
-    /// @param message The message to compute the hash for.
-    /// @return Returns the hash of the message.
+    /// @inheritdoc IBridge
     function hashMessage(Message calldata message)
         public
         pure

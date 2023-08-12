@@ -67,6 +67,26 @@ interface IBridge {
         payable
         returns (bytes32 msgHash);
 
+    /// @notice Processes a message received from another chain.
+    /// @param message The message to process.
+    /// @param proof The proof of the cross-chain transfer.
+    function processMessage(
+        Message calldata message,
+        bytes calldata proof
+    )
+        external;
+
+    /// @notice Retries executing a message that previously failed on its
+    /// destination chain.
+    /// @param message The message to retry.
+    /// @param isLastAttempt Specifies whether this is the last attempt to send
+    /// the message.
+    function retryMessage(
+        Message calldata message,
+        bool isLastAttempt
+    )
+        external;
+
     /// @notice Recalls a failed message on its source chain.
     /// @param message The message to be recalled.
     /// @param proof The proof of message processing failure.
@@ -76,16 +96,14 @@ interface IBridge {
     )
         external;
 
-    /// @notice Checks if a msgHash has been stored on the bridge contract by
-    /// the
-    /// current address.
+    /// @notice Checks if the message with the given hash has been sent on its
+    /// source chain.
     /// @param msgHash The hash of the message.
     /// @return Returns true if the message has been sent, false otherwise.
     function isMessageSent(bytes32 msgHash) external view returns (bool);
 
-    /// @notice Checks if a msgHash has been received on the destination chain
-    /// and
-    /// sent by the source chain.
+    /// @notice Checks if the message with the given hash has been received on
+    /// its destination chain.
     /// @param msgHash The hash of the message.
     /// @param srcChainId The source chain ID.
     /// @param proof The proof of message receipt.
@@ -99,7 +117,7 @@ interface IBridge {
         view
         returns (bool);
 
-    /// @notice Checks if a msgHash has failed on the destination chain.
+    /// @notice Checks if a msgHash has failed on its destination chain.
     /// @param msgHash The hash of the message.
     /// @param destChainId The destination chain ID.
     /// @param proof The proof of message failure.
@@ -112,6 +130,12 @@ interface IBridge {
         external
         view
         returns (bool);
+
+    /// @notice Checks if a failed message has been recalled on its source
+    /// chain.
+    /// @param msgHash The hash of the message.
+    /// @return Returns true if the Ether has been released, false otherwise.
+    function isMessageRecalled(bytes32 msgHash) external view returns (bool);
 
     /// @notice Returns the bridge state context.
     /// @return context The context of the current bridge operation.
