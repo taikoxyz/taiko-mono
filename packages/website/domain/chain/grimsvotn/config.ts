@@ -151,7 +151,7 @@ export const GRIMSVOTN_CONFIG = {
     deterministicDeploymentProxy: {
       name: "Deterministic Deployment Proxy",
       address: {
-        impl: "0x1C83d994f649E62cAA042097415d050732f53FF6",
+        impl: "0x4e59b44847b379578588920ca78fbf26c0b4956c",
       },
     },
     erc4337Entrypoint: {
