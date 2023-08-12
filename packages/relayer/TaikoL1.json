@@ -143,21 +143,6 @@
   },
   {
     "inputs": [],
-    "name": "L1_INVALID_PROOF",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_INVALID_PROOF_OVERWRITE",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_INVALID_PROOF_OVERWRITE",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "L1_NOT_BETTER_BID",
     "type": "error"
   },
@@ -174,6 +159,16 @@
   {
     "inputs": [],
     "name": "L1_NOT_SPECIAL_PROVER",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "L1_PERMISSION_DENIED",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "L1_PERMISSION_DENIED",
     "type": "error"
   },
   {
@@ -286,7 +281,7 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "address",
         "name": "addressManager",
         "type": "address"
@@ -301,8 +296,26 @@
       {
         "indexed": true,
         "internalType": "uint256",
-        "name": "id",
+        "name": "blockId",
         "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "assignedProver",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "rewardPerGas",
+        "type": "uint32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "feePerGas",
+        "type": "uint64"
       },
       {
         "components": [
@@ -388,12 +401,6 @@
         "internalType": "struct TaikoData.BlockMetadata",
         "name": "meta",
         "type": "tuple"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint64",
-        "name": "blockFee",
-        "type": "uint64"
       }
     ],
     "name": "BlockProposed",
@@ -405,8 +412,26 @@
       {
         "indexed": true,
         "internalType": "uint256",
-        "name": "id",
+        "name": "blockId",
         "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "assignedProver",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "rewardPerGas",
+        "type": "uint32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "feePerGas",
+        "type": "uint64"
       },
       {
         "components": [
@@ -492,12 +517,6 @@
         "internalType": "struct TaikoData.BlockMetadata",
         "name": "meta",
         "type": "tuple"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint64",
-        "name": "blockFee",
-        "type": "uint64"
       }
     ],
     "name": "BlockProposed",
@@ -509,7 +528,7 @@
       {
         "indexed": true,
         "internalType": "uint256",
-        "name": "id",
+        "name": "blockId",
         "type": "uint256"
       },
       {
@@ -552,7 +571,7 @@
       {
         "indexed": true,
         "internalType": "uint256",
-        "name": "id",
+        "name": "blockId",
         "type": "uint256"
       },
       {
@@ -595,7 +614,7 @@
       {
         "indexed": true,
         "internalType": "uint256",
-        "name": "id",
+        "name": "blockId",
         "type": "uint256"
       },
       {
@@ -603,11 +622,23 @@
         "internalType": "bytes32",
         "name": "blockHash",
         "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "prover",
+        "type": "address"
       },
       {
         "indexed": false,
         "internalType": "uint64",
-        "name": "reward",
+        "name": "blockFee",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "proofReward",
         "type": "uint64"
       }
     ],
@@ -620,7 +651,7 @@
       {
         "indexed": true,
         "internalType": "uint256",
-        "name": "id",
+        "name": "blockId",
         "type": "uint256"
       },
       {
@@ -631,8 +662,20 @@
       },
       {
         "indexed": false,
+        "internalType": "address",
+        "name": "prover",
+        "type": "address"
+      },
+      {
+        "indexed": false,
         "internalType": "uint64",
-        "name": "reward",
+        "name": "blockFee",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "proofReward",
         "type": "uint64"
       }
     ],
@@ -1004,6 +1047,11 @@
             "type": "uint16"
           },
           {
+            "internalType": "uint16",
+            "name": "proofWindowMultiplier",
+            "type": "uint16"
+          },
+          {
             "internalType": "uint256",
             "name": "ethDepositRingBufferSize",
             "type": "uint256"
@@ -1039,19 +1087,19 @@
             "type": "uint256"
           },
           {
-            "internalType": "uint32",
-            "name": "rewardPerGasRange",
-            "type": "uint32"
-          },
-          {
             "internalType": "uint8",
             "name": "rewardOpenMultipler",
             "type": "uint8"
           },
           {
-            "internalType": "uint256",
+            "internalType": "uint32",
             "name": "rewardOpenMaxCount",
-            "type": "uint256"
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint32",
+            "name": "rewardMaxDelayPenalty",
+            "type": "uint32"
           }
         ],
         "internalType": "struct TaikoData.Config",
@@ -1440,7 +1488,7 @@
     "outputs": [
       {
         "internalType": "address payable",
-        "name": "",
+        "name": "addr",
         "type": "address"
       }
     ],
@@ -1464,7 +1512,7 @@
     "outputs": [
       {
         "internalType": "address payable",
-        "name": "",
+        "name": "addr",
         "type": "address"
       }
     ],

@@ -31,7 +31,9 @@ type Processor struct {
 
 	destBridge       relayer.Bridge
 	destHeaderSyncer relayer.HeaderSyncer
-	destTokenVault   relayer.TokenVault
+	destERC20Vault   relayer.TokenVault
+	destERC1155Vault relayer.TokenVault
+	destERC721Vault  relayer.TokenVault
 
 	prover *proof.Prover
 
@@ -57,7 +59,9 @@ type NewProcessorOpts struct {
 	DestBridge                    relayer.Bridge
 	EventRepo                     relayer.EventRepository
 	DestHeaderSyncer              relayer.HeaderSyncer
-	DestTokenVault                relayer.TokenVault
+	DestERC20Vault                relayer.TokenVault
+	DestERC721Vault               relayer.TokenVault
+	DestERC1155Vault              relayer.TokenVault
 	RelayerAddress                common.Address
 	SrcSignalServiceAddress       common.Address
 	Confirmations                 uint64
@@ -118,7 +122,9 @@ func NewProcessor(opts NewProcessorOpts) (*Processor, error) {
 		destEthClient:    opts.DestETHClient,
 		destBridge:       opts.DestBridge,
 		destHeaderSyncer: opts.DestHeaderSyncer,
-		destTokenVault:   opts.DestTokenVault,
+		destERC20Vault:   opts.DestERC20Vault,
+		destERC721Vault:  opts.DestERC1155Vault,
+		destERC1155Vault: opts.DestERC721Vault,
 
 		mu: &sync.Mutex{},
 
