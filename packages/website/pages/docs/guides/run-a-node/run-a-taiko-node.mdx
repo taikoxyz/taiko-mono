@@ -154,21 +154,13 @@ Make sure Docker is running and then run the following command to start the node
 For a Grimsvotn L2 node:
 
 ```sh
-
-docker compose up -d --remove-orphans
-=======
-docker compose up -d --remove-orphans
-
+sudo docker compose up -d --remove-orphans
 ```
 
 For an Eldfell L3 node:
 
 ```sh
-
-docker compose -f ./docker-compose.l3.yml --env-file .env.l3 up -d --remove-orphans
-=======
-docker compose -f ./docker-compose.l3.yml --env-file .env.l3 up -d --remove-orphans
-
+sudo docker compose -f ./docker-compose.l3.yml --env-file .env.l3 up -d --remove-orphans
 ```
 
 ### Verify node is running
