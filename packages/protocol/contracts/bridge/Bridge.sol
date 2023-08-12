@@ -194,7 +194,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         return _state.ctx;
     }
 
-    /// @notice Checks if a failed message has been recalled on its source chain.
+    /// @notice Checks if a failed message has been recalled on its source
+    /// chain.
     /// @param msgHash The hash of the message.
     /// @return Returns true if the Ether has been released, false otherwise.
     function isMessageRecalled(bytes32 msgHash) public view returns (bool) {
@@ -236,8 +237,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         return LibBridgeStatus.getMessageStatusSlot(msgHash);
     }
 
-/// @notice Tells if we need to check real proof or it is a test.
-/// @return Returns true if this contract, or can be false if mock/test.
+    /// @notice Tells if we need to check real proof or it is a test.
+    /// @return Returns true if this contract, or can be false if mock/test.
     function shouldCheckProof() internal pure virtual returns (bool) {
         return true;
     }

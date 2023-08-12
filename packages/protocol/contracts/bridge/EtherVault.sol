@@ -15,7 +15,6 @@ import { Proxied } from "../common/Proxied.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 import { BridgeErrors } from "./BridgeErrors.sol";
 
-
 /// @title EtherVault
 /// @notice This contract is initialized with 2^128 Ether and allows authorized
 /// addresses to release Ether.
@@ -61,7 +60,8 @@ contract EtherVault is EssentialContract, BridgeErrors {
         emit EtherReleased(msg.sender, amount);
     }
 
-    /// @notice Transfers Ether from EtherVault to a designated address, checking
+    /// @notice Transfers Ether from EtherVault to a designated address,
+    /// checking
     /// that the sender is authorized.
     /// @param recipient Address to receive Ether.
     /// @param amount Amount of ether to send.
@@ -81,8 +81,8 @@ contract EtherVault is EssentialContract, BridgeErrors {
         emit EtherReleased(recipient, amount);
     }
 
-
-    /// @notice Sets the authorized status of an address, only the owner can call
+    /// @notice Sets the authorized status of an address, only the owner can
+    /// call
     /// this.
     /// @param addr Address to set the authorized status of.
     /// @param authorized Authorized status to set.
@@ -93,7 +93,6 @@ contract EtherVault is EssentialContract, BridgeErrors {
         _authorizedAddrs[addr] = authorized;
         emit Authorized(addr, authorized);
     }
-
 
     /// @notice Gets the authorized status of an address.
     /// @param addr Address to get the authorized status of.

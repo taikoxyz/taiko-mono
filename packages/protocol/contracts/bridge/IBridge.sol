@@ -76,19 +76,20 @@ interface IBridge {
     )
         external;
 
-/// @notice Checks if a msgHash has been stored on the bridge contract by the
-/// current address.
-/// @param msgHash The hash of the message.
-     /// @return Returns true if the message has been sent, false otherwise.
+    /// @notice Checks if a msgHash has been stored on the bridge contract by
+    /// the
+    /// current address.
+    /// @param msgHash The hash of the message.
+    /// @return Returns true if the message has been sent, false otherwise.
     function isMessageSent(bytes32 msgHash) external view returns (bool);
 
-/// @notice Checks if a msgHash has been received on the destination chain
-/// and
-/// sent by the source chain.
-/// @param msgHash The hash of the message.
-     /// @param srcChainId The source chain ID.
-     /// @param proof The proof of message receipt.
-     /// @return Returns true if the message has been received, false otherwise.
+    /// @notice Checks if a msgHash has been received on the destination chain
+    /// and
+    /// sent by the source chain.
+    /// @param msgHash The hash of the message.
+    /// @param srcChainId The source chain ID.
+    /// @param proof The proof of message receipt.
+    /// @return Returns true if the message has been received, false otherwise.
     function isMessageReceived(
         bytes32 msgHash,
         uint256 srcChainId,
@@ -98,11 +99,11 @@ interface IBridge {
         view
         returns (bool);
 
-  /// @notice Checks if a msgHash has failed on the destination chain.
- /// @param msgHash The hash of the message.
-  /// @param destChainId The destination chain ID.
-  /// @param proof The proof of message failure.
-  /// @return Returns true if the message has failed, false otherwise.
+    /// @notice Checks if a msgHash has failed on the destination chain.
+    /// @param msgHash The hash of the message.
+    /// @param destChainId The destination chain ID.
+    /// @param proof The proof of message failure.
+    /// @return Returns true if the message has failed, false otherwise.
     function isMessageFailed(
         bytes32 msgHash,
         uint256 destChainId,
@@ -112,13 +113,13 @@ interface IBridge {
         view
         returns (bool);
 
-/// @notice Returns the bridge state context.
-/// @return context The context of the current bridge operation.
+    /// @notice Returns the bridge state context.
+    /// @return context The context of the current bridge operation.
     function context() external view returns (Context memory context);
 
-   /// @notice Computes the hash of a given message.
-   /// @param message The message to compute the hash for.
-   /// @return Returns the hash of the message.
+    /// @notice Computes the hash of a given message.
+    /// @param message The message to compute the hash for.
+    /// @return Returns the hash of the message.
     function hashMessage(IBridge.Message calldata message)
         external
         pure
