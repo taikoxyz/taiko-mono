@@ -213,7 +213,7 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
         }
     }
 
-    function test_asigned_prover_distribution_if_prover_pool_is_full()
+    function test_assigned_prover_distribution_if_prover_pool_is_full()
         external
     {
         depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
@@ -265,7 +265,7 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
         printVariables("");
     }
 
-    function test_asigned_prover_distribution_if_only_have_1_prover()
+    function test_assigned_prover_distribution_if_only_have_1_prover()
         external
     {
         depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);
@@ -379,7 +379,7 @@ contract TaikoL1ProverPool is TaikoL1TestBase {
         printVariables("");
     }
 
-    function test_asigned_prover_distribution_if_prover_pool_is_not_full()
+    function test_assigned_prover_distribution_if_prover_pool_is_not_full()
         external
     {
         depositTaikoToken(Alice, 1000 * 1e8, 1000 ether);

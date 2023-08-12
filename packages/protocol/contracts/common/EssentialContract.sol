@@ -13,27 +13,23 @@ import { ReentrancyGuardUpgradeable } from
     "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import { AddressResolver } from "./AddressResolver.sol";
 
-/**
- * @title EssentialContract
- * @dev This contract serves as the foundational contract for core components.
- *      It combines reentrancy protection, ownership functionality, and
- *      address resolution.
- */
+/// @title EssentialContract
+/// @notice This contract serves as the base contract for many core components.
 abstract contract EssentialContract is
     ReentrancyGuardUpgradeable,
     OwnableUpgradeable,
     AddressResolver
 {
-    /**
-     * @notice Update the AddressManager's address.
-     * @param newAddressManager Address of the new AddressManager.
-     */
+    /// @notice Sets a new address manager.
+    /// @param newAddressManager Address of the new address manager.
     function setAddressManager(address newAddressManager) external onlyOwner {
         if (newAddressManager == address(0)) revert RESOLVER_INVALID_ADDR();
         _addressManager = IAddressManager(newAddressManager);
         emit AddressManagerChanged(newAddressManager);
     }
 
+    /// @notice Initializes the contract with an address manager.
+    /// @param _addressManager The address of the address manager.
     function _init(address _addressManager) internal virtual override {
         ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
         OwnableUpgradeable.__Ownable_init();
