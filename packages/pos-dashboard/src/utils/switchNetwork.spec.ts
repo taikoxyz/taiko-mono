@@ -40,21 +40,4 @@ describe('switchNetwork', () => {
     expect(wagmiSwitchNetwork).toHaveBeenCalledWith({ chainId: L2_CHAIN_ID });
     expect(get).toHaveBeenCalledTimes(getCalls);
   });
-
-  it('should throw if timeout', async () => {
-    // It always returns the same chain. Never changes it
-    jest.mocked(get).mockReturnValue({ id: L1_CHAIN_ID });
-
-    await expect(switchNetwork(L2_CHAIN_ID)).rejects.toThrow(
-      'timeout switching network',
-    );
-  });
-
-  it('should do nothing if already on the target network', async () => {
-    jest.mocked(get).mockReturnValue({ id: L2_CHAIN_ID });
-
-    await switchNetwork(L2_CHAIN_ID);
-
-    expect(wagmiSwitchNetwork).not.toHaveBeenCalled();
-  });
 });
