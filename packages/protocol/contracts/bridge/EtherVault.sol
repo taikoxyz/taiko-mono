@@ -61,8 +61,7 @@ contract EtherVault is EssentialContract, BridgeErrors {
     }
 
     /// @notice Transfers Ether from EtherVault to a designated address,
-    /// checking
-    /// that the sender is authorized.
+    /// checking that the sender is authorized.
     /// @param recipient Address to receive Ether.
     /// @param amount Amount of ether to send.
     function releaseEther(
@@ -82,8 +81,7 @@ contract EtherVault is EssentialContract, BridgeErrors {
     }
 
     /// @notice Sets the authorized status of an address, only the owner can
-    /// call
-    /// this.
+    /// call this function.
     /// @param addr Address to set the authorized status of.
     /// @param authorized Authorized status to set.
     function authorize(address addr, bool authorized) public onlyOwner {
