@@ -16,11 +16,11 @@ Make sure that your RPC is pointing to an Sepolia archive node, and not a full n
 
 #### `error: "initialize rpc clients error"`
 
-The RPC in your config is incorrect.  You have to set the ENDPOINT correctly.  Please refer to the following page to set the correct RPC: https://taiko.xyz/docs/guides/run-a-node/run-a-taiko-node
+The RPC in your config is incorrect. You have to set the ENDPOINT correctly. Please refer to the following page to set the correct RPC: https://taiko.xyz/docs/guides/run-a-node/run-a-taiko-node.
 
 #### `error: "daily request count exceeded, request rate limited"`
 
-Your RPC provider has a limit on the number of requests. You can try using a different provider that offers higher limits.
+Your RPC provider has a limit on the number of requests. You can try using an RPC provider with higher limits or [run your own Sepolia node](/docs/guides/run-a-node/run-a-sepolia-node) which has no limit.
 
 #### `error: L1_BLOCK_ID`
 
@@ -112,18 +112,18 @@ If you do not want to delete the node folder, please follow one of these steps b
 
 ```sh
   docker compose -f ./docker-compose.l3.yml --env-file .env.l3 down -v
-  docker compose down -v  
+  docker compose down -v
   cd script/l2
-  dos2unix start-zkevm-chain-rpcd.sh  
+  dos2unix start-zkevm-chain-rpcd.sh
   dos2unix start-prover-relayer.sh
   dos2unix start-proposer.sh
   dos2unix start-driver.sh
   cd ../l3
-  dos2unix start-zkevm-chain-rpcd.sh  
+  dos2unix start-zkevm-chain-rpcd.sh
   dos2unix start-prover-relayer.sh
   dos2unix start-proposer.sh
-  dos2unix start-driver.sh 
-  cd ../..  
+  dos2unix start-driver.sh
+  cd ../..
   docker compose up -d
   docker compose -f ./docker-compose.l3.yml --env-file .env.l3 up -d
 
@@ -143,12 +143,12 @@ If you do not want to delete the node folder, please follow one of these steps b
 9. The same goes for files in the l3 folder
 10. Then go back to command line and do:
 
-   ```sh
-   docker compose -f ./docker-compose.l3.yml --env-file .env.l3 down -v
-   docker compose down -v  
-   docker compose up -d
-   docker compose -f ./docker-compose.l3.yml --env-file .env.l3 up -d
-   ```
+```sh
+docker compose -f ./docker-compose.l3.yml --env-file .env.l3 down -v
+docker compose down -v
+docker compose up -d
+docker compose -f ./docker-compose.l3.yml --env-file .env.l3 up -d
+```
 
   </Tab>
 </Tabs>
