@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT
-// ASCII art representing the file header
+//  _____     _ _         _         _
+// |_   _|_ _(_) |_____  | |   __ _| |__ ___
+//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
+//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
 pragma solidity ^0.8.20;
 
@@ -8,10 +11,13 @@ import { LibRLPWriter } from "../thirdparty/LibRLPWriter.sol";
 import { LibSecureMerkleTrie } from "../thirdparty/LibSecureMerkleTrie.sol";
 
 /**
- * @title LibTrieProof Library
- * @notice This library is used for verifying the proof of values within the
+ * This library is used for verifying the proof of values within the
  * storage trie of an Ethereum account.
+ * @title LibTrieProof
  */
+/// @title LibTrieProof
+/// @dev This library is used for verifying the proof of values within the
+/// storage trie of an Ethereum account.
 library LibTrieProof {
     // Constant defining the index for the storage hash in the RLP-encoded
     // account structure.
@@ -19,18 +25,16 @@ library LibTrieProof {
     uint256 private constant ACCOUNT_FIELD_INDEX_STORAGE_HASH = 2;
 
     error INVALID_ACCOUNT_PROOF();
-    /**
-     * @notice Verifies that the value of a specific slot in the storage of an
-     * account equals the given value.
-     * @param stateRoot The merkle root of the state tree.
-     * @param addr The address of the account.
-     * @param slot The specific slot within the storage of the contract.
-     * @param value The value to be verified against the proof.
-     * @param mkproof The concatenated proof containing both account and storage
-     * proofs.
-     * @return verified Boolean result indicating if the proof is valid.
-     */
 
+    /// @dev Verifies that the value of a specific slot in the storage of an
+    /// account equals the given value.
+    /// @param stateRoot The merkle root of the state tree.
+    /// @param addr The address of the account.
+    /// @param slot The specific slot within the storage of the contract.
+    /// @param value The value to be verified against the proof.
+    /// @param mkproof The concatenated proof containing both account and
+    /// storage proofs.
+    /// @return verified Boolean result indicating if the proof is valid.
     function verifyWithFullMerkleProof(
         bytes32 stateRoot,
         address addr,

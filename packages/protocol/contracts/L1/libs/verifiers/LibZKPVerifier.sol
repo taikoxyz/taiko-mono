@@ -6,27 +6,21 @@
 
 pragma solidity ^0.8.20;
 
-// Taiko System Dependencies
 import { AddressResolver } from "../../../common/AddressResolver.sol";
 import { LibUtils } from "../LibUtils.sol";
 import { TaikoData } from "../../TaikoData.sol";
 
-/**
- * @title LibZKPVerifier Library
- * @notice A library for verifying Zero-Knowledge Proofs (ZKP) in the Taiko
- * system.
- */
+/// @title LibZKPVerifier
+/// @notice A library for verifying ZK proofs in the Taiko protocol.
 library LibZKPVerifier {
     // Custom error to signal an invalid proof.
     error L1_INVALID_PROOF();
 
-    /**
-     * @notice Verifies the provided proof using the designated verifier.
-     * @param resolver The AddressResolver instance to resolve the verifier's
-     * address.
-     * @param proof The ZKP to verify.
-     * @param verifierId The identifier of the ZKP verifier.
-     */
+    /// @dev Verifies the provided proof using the designated verifier.
+    /// @param resolver The {AddressResolver} instance to resolve the verifier's
+    /// address.
+    /// @param proof The ZKP to verify.
+    /// @param verifierId The identifier of the ZKP verifier.
     function verifyProof(
         AddressResolver resolver,
         bytes memory proof,

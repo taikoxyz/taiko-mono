@@ -15,13 +15,11 @@ import { Proxied } from "../common/Proxied.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 import { BridgeErrors } from "./BridgeErrors.sol";
 
-/**
- * @title EtherVault
- * @notice This contract is initialized with 2^128 Ether and allows authorized
- * addresses
- * to release Ether. Only the contract owner can authorize or deauthorize
- * addresses.
- */
+
+/// @title EtherVault
+/// @notice This contract is initialized with 2^128 Ether and allows authorized
+/// addresses to release Ether.
+/// @dev Only the contract owner can authorize or deauthorize addresses.
 contract EtherVault is EssentialContract, BridgeErrors {
     using LibAddress for address;
 
@@ -40,11 +38,8 @@ contract EtherVault is EssentialContract, BridgeErrors {
         _;
     }
 
-    /**
-     * @notice Function to receive Ether. Only authorized addresses can send
-     * Ether
-     * to the contract.
-     */
+    /// @notice Function to receive Ether.
+    /// @dev Only authorized addresses can send Ether to the contract.
     receive() external payable {
         // EthVault's balance must == 0 OR the sender isAuthorized.
         if (address(this).balance != 0 && !isAuthorized(msg.sender)) {
@@ -52,20 +47,24 @@ contract EtherVault is EssentialContract, BridgeErrors {
         }
     }
 
-    /**
-     * @notice Initialize the contract with an address manager.
-     * @param addressManager The address of the address manager.
-     */
+    /// @notice Initializes the contract with an {AddressManager}.
+    /// @param addressManager The address of the {AddressManager} contract.
     function init(address addressManager) external initializer {
         EssentialContract._init(addressManager);
     }
 
-    /**
-     * @notice Transfer Ether from EtherVault to a designated address, checking
-     * that the sender is authorized.
-     * @param recipient Address to receive Ether.
-     * @param amount Amount of Ether to send.
-     */
+    /// @notice Transfers Ether from EtherVault to the sender, checking that the
+    /// sender is authorized.
+    /// @param amount Amount of Ether to send.
+    function releaseEther(uint256 amount) public onlyAuthorized nonReentrant {
+        msg.sender.sendEther(amount);
+        emit EtherReleased(msg.sender, amount);
+    }
+
+    /// @notice Transfers Ether from EtherVault to a designated address, checking
+    /// that the sender is authorized.
+    /// @param recipient Address to receive Ether.
+    /// @param amount Amount of ether to send.
     function releaseEther(
         address recipient,
         uint256 amount
@@ -82,12 +81,11 @@ contract EtherVault is EssentialContract, BridgeErrors {
         emit EtherReleased(recipient, amount);
     }
 
-    /**
-     * @notice Set the authorized status of an address. Only the owner can call
-     * this.
-     * @param addr Address to set the authorized status of.
-     * @param authorized Authorized status to set.
-     */
+
+    /// @notice Sets the authorized status of an address, only the owner can call
+    /// this.
+    /// @param addr Address to set the authorized status of.
+    /// @param authorized Authorized status to set.
     function authorize(address addr, bool authorized) public onlyOwner {
         if (addr == address(0) || _authorizedAddrs[addr] == authorized) {
             revert B_EV_PARAM();
@@ -96,18 +94,14 @@ contract EtherVault is EssentialContract, BridgeErrors {
         emit Authorized(addr, authorized);
     }
 
-    /**
-     * @notice Get the authorized status of an address.
-     * @param addr Address to get the authorized status of.
-     * @return Returns true if the address is authorized, false otherwise.
-     */
+
+    /// @notice Gets the authorized status of an address.
+    /// @param addr Address to get the authorized status of.
     function isAuthorized(address addr) public view returns (bool) {
         return _authorizedAddrs[addr];
     }
 }
 
-/**
- * @title ProxiedEtherVault
- * @dev Proxied version of the EtherVault contract.
- */
+/// @title ProxiedEtherVault
+/// @notice Proxied version of the EtherVault contract.
 contract ProxiedEtherVault is Proxied, EtherVault { }

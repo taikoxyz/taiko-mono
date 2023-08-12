@@ -17,14 +17,9 @@ import { LibBridgeRetry } from "./libs/LibBridgeRetry.sol";
 import { LibBridgeSend } from "./libs/LibBridgeSend.sol";
 import { LibBridgeStatus } from "./libs/LibBridgeStatus.sol";
 
-/**
- * @title Bridge
- * @notice This contract is a Bridge contract deployed on both L1 and L2 chains.
- * The contract acts as a thin wrapper around the library implementations and
- * follows the IBridge interface. It enables the communication and management of
- * bridge messages between different chains.
- * @dev The code hash for the same address on L1 and L2 may differ.
- */
+/// @title Bridge
+/// @notice See the documentation for {IBridge}.
+/// @dev The code hash for the same address on L1 and L2 may be different.
 contract Bridge is EssentialContract, IBridge, BridgeErrors {
     using LibBridgeData for Message;
 
@@ -40,23 +35,16 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
 
     receive() external payable { }
 
-    /**
-     * @notice Initializes the contract after being deployed behind a proxy.
-     * @dev Initializer function to set up the EssentialContract.
-     * @param _addressManager The address of the AddressManager contract.
-     */
+    /// @notice Initializes the contract.
+    /// @param _addressManager The address of the {AddressManager} contract.
     function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
     }
 
-    /**
-     * @notice Sends a message from the current chain to the specified
-     * destination chain.
-     * @dev Calls the LibBridgeSend.sendMessage library function to send a
-     * message.
-     * @param message The message to be sent (See IBridge).
-     * @return msgHash The hash of the sent message.
-     */
+    /// @notice Sends a message from the current chain to the destination chain
+    /// specified in the message.
+    /// @param message The message to send. (See {IBridge})
+    /// @return msgHash The hash of the message that was sent.
     function sendMessage(Message calldata message)
         external
         payable
@@ -70,12 +58,10 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
-    /**
-     * @notice Recalls a failed message on its source chain.
-     * @dev Releases locked Ether or tokens and updates message status.
-     * @param message The message containing Ether details (See IBridge).
-     * @param proof The proof of the cross-chain transfer.
-     */
+    /// @notice Recalls a failed message on its source chain.
+    /// @param message The message containing the details of the Ether transfer.
+    /// (See {IBridge})
+    /// @param proof The proof of the cross-chain transfer.
     function recallMessage(
         IBridge.Message calldata message,
         bytes calldata proof
@@ -92,13 +78,9 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
-    /**
-     * @notice Processes a message received from another chain.
-     * @dev Calls the LibBridgeProcess.processMessage library function to
-     * process a message.
-     * @param message The message to be processed.
-     * @param proof The proof of the cross-chain transfer.
-     */
+    /// @notice Processes a message received from another chain.
+    /// @param message The message to process.
+    /// @param proof The proof of the cross-chain transfer.
     function processMessage(
         Message calldata message,
         bytes calldata proof
@@ -115,14 +97,10 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
-    /**
-     * @notice Retries sending a previously failed message.
-     * @dev Calls the LibBridgeRetry.retryMessage library function to retry
-     * sending a message.
-     * @param message The message to be retried.
-     * @param isLastAttempt Specifies whether this is the last attempt to send
-     * the message.
-     */
+    /// @notice Retries sending a message that previously failed to send.
+    /// @param message The message to retry.
+    /// @param isLastAttempt Specifies whether this is the last attempt to send
+    /// the message.
     function retryMessage(
         Message calldata message,
         bool isLastAttempt
@@ -138,12 +116,9 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         });
     }
 
-    /**
-     * @notice Checks, on the source chain, if the message with the given hash
-     * has been sent.
-     * @param msgHash The hash of the message.
-     * @return Returns true if the message has been sent, false otherwise.
-     */
+    /// @notice Checks if the message with the given hash has been sent.
+    /// @param msgHash The hash of the message.
+    /// @return Returns true if the message has been sent, false otherwise.
     function isMessageSent(bytes32 msgHash)
         public
         view
@@ -152,15 +127,12 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     {
         return LibBridgeSend.isMessageSent(AddressResolver(this), msgHash);
     }
-    /**
-     * @notice Checks, on the destination chain, whether the message with the
-     * given hash has been received.
-     * @param msgHash The hash of the message.
-     * @param srcChainId The source chain ID.
-     * @param proof The proof of message receipt.
-     * @return Returns true if the message has been received, false otherwise.
-     */
 
+    /// @notice Checks if the message with the given hash has been received.
+    /// @param msgHash The hash of the message.
+    /// @param srcChainId The source chain ID.
+    /// @param proof The proof of message receipt.
+    /// @return Returns true if the message has been received, false otherwise.
     function isMessageReceived(
         bytes32 msgHash,
         uint256 srcChainId,
@@ -179,15 +151,12 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
             proof: proof
         });
     }
-    /**
-     * @notice Checks, on the source chain, whether a bridge message has failed
-     * on its destination chain.
-     * @param msgHash The hash of the message.
-     * @param destChainId The destination chain ID.
-     * @param proof The proof of message failure.
-     * @return Returns true if the message has failed, false otherwise.
-     */
 
+    /// @notice Checks if the message with the given hash has failed.
+    /// @param msgHash The hash of the message.
+    /// @param destChainId The destination chain ID.
+    /// @param proof The proof of message failure.
+    /// @return Returns true if the message has failed, false otherwise.
     function isMessageFailed(
         bytes32 msgHash,
         uint256 destChainId,
@@ -206,12 +175,10 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
             proof: proof
         });
     }
-    /**
-     * @notice Get, on the desination chain, the status of a bridge message.
-     * @param msgHash The hash of the message.
-     * @return Returns the status of the message.
-     */
 
+    /// @notice Gets the status of the message with the given hash.
+    /// @param msgHash The hash of the message.
+    /// @return Returns the status of the message.
     function getMessageStatus(bytes32 msgHash)
         public
         view
@@ -220,32 +187,24 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
     {
         return LibBridgeStatus.getMessageStatus(msgHash);
     }
-    /**
-     * @notice Gets the current context
-     * @return Returns the current context.
-     */
 
+    /// @notice Gets the current context.
+    /// @return Returns the current context.
     function context() public view returns (Context memory) {
         return _state.ctx;
     }
 
-    /**
-     * @notice Checks if the Ether associated with a given message hash has been
-     * released.
-     * @param msgHash The hash of the message.
-     * @return Returns true if the message has been recalled.
-     */
+    /// @notice Checks if a failed message has been recalled on its source chain.
+    /// @param msgHash The hash of the message.
+    /// @return Returns true if the Ether has been released, false otherwise.
     function isMessageRecalled(bytes32 msgHash) public view returns (bool) {
-        return _state.recalls[msgHash];
+        return _state.etherReleased[msgHash];
     }
 
-    /**
-     * @notice Checks if the destination chain with the given ID is enabled.
-     * @param _chainId The ID of the chain.
-     * @return enabled Returns true if the destination chain is enabled, false
-     * otherwise.
-     */
-
+    /// @notice Checks if the destination chain with the given ID is enabled.
+    /// @param _chainId The ID of the chain.
+    /// @return enabled Returns true if the destination chain is enabled, false
+    /// otherwise.
     function isDestChainEnabled(uint256 _chainId)
         public
         view
@@ -255,11 +214,9 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
             LibBridgeSend.isDestChainEnabled(AddressResolver(this), _chainId);
     }
 
-    /**
-     * @notice Computes the hash of a given message.
-     * @param message The message to compute the hash for.
-     * @return Returns the hash of the message.
-     */
+    /// @notice Computes the hash of a given message.
+    /// @param message The message to compute the hash for.
+    /// @return Returns the hash of the message.
     function hashMessage(Message calldata message)
         public
         pure
@@ -268,11 +225,9 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         return LibBridgeData.hashMessage(message);
     }
 
-    /**
-     * @notice Gets the slot associated with a given message hash status.
-     * @param msgHash The hash of the message.
-     * @return Returns the slot associated with the given message hash status.
-     */
+    /// @notice Gets the slot associated with a given message hash status.
+    /// @param msgHash The hash of the message.
+    /// @return Returns the slot associated with the given message hash status.
     function getMessageStatusSlot(bytes32 msgHash)
         public
         pure
@@ -281,17 +236,13 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         return LibBridgeStatus.getMessageStatusSlot(msgHash);
     }
 
-    /**
-     * @notice Tells if we need to check real proof or it is a test.
-     * @return Returns true if this contract, or can be false if mock/test.
-     */
+/// @notice Tells if we need to check real proof or it is a test.
+/// @return Returns true if this contract, or can be false if mock/test.
     function shouldCheckProof() internal pure virtual returns (bool) {
         return true;
     }
 }
 
-/**
- * @title ProxiedBridge
- * @dev Proxied version of the Bridge contract.
- */
+/// @title ProxiedBridge
+/// @notice Proxied version of the Bridge contract.
 contract ProxiedBridge is Proxied, Bridge { }

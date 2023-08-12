@@ -10,32 +10,22 @@ import { LibFixedPointMath } from "../thirdparty/LibFixedPointMath.sol";
 import { SafeCastUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
-/**
- * @title Lib1559Math Library
- *
- * @dev This library provides a set of mathematical functions related to the
- * EIP-1559 implementation.
- * The logo at the top of the file represents branding or creative design but
- * does not serve a functional purpose.
- */
+/// @title Lib1559Math
+/// @dev This library provides utilities related to the L2 EIP-1559
+/// implementation.
 library Lib1559Math {
     using SafeCastUpgradeable for uint256;
 
-    // Errors definitions
     error L2_1559_UNEXPECTED_CHANGE(uint64 expected, uint64 actual);
     error L2_1559_OUT_OF_STOCK();
 
-    /**
-     * @dev Calculates xscale and yscale values used for pricing.
-     *
-     * @param xExcessMax The maximum excess value.
-     * @param price The current price.
-     * @param target The target gas value.
-     * @param ratio2x1x Expected ratio of gas price for two blocks.
-     *
-     * @return xscale Calculated x scale value.
-     * @return yscale Calculated y scale value.
-     */
+    /// @dev Calculates xscale and yscale values used for pricing.
+    /// @param xExcessMax The maximum excess value.
+    /// @param price The current price.
+    /// @param target The target gas value.
+    /// @param ratio2x1x Expected ratio of gas price for two blocks.
+    /// @return xscale Calculated x scale value.
+    /// @return yscale Calculated y scale value.
     function calculateScales(
         uint64 xExcessMax,
         uint64 price,
@@ -49,13 +39,14 @@ library Lib1559Math {
         assert(xExcessMax != 0);
         uint64 x = xExcessMax / 2;
 
-        // calculate xscale
+        // Calculate xscale
         xscale = LibFixedPointMath.MAX_EXP_INPUT / xExcessMax;
 
-        // calculate yscale
+        // Calculate yscale
         yscale = calculatePrice(xscale, price, x, target).toUint128();
 
-        // Verify the gas price ratio
+        // Verify the gas price ratio between two blocks, one has
+        // target * 2 gas and the other one has target gas.
         uint256 price1x = calculatePrice(xscale, yscale, x, target);
         uint256 price2x = calculatePrice(xscale, yscale, x, target * 2);
         uint64 ratio = uint64((price2x * 10_000) / price1x);
@@ -65,16 +56,12 @@ library Lib1559Math {
         }
     }
 
-    /**
-     * @dev Calculates the price based on provided scales.
-     *
-     * @param xscale The x scale value.
-     * @param yscale The y scale value.
-     * @param xExcess Current excess value.
-     * @param xPurchase Amount of gas purchased.
-     *
-     * @return The calculated price.
-     */
+    /// @dev Calculates the price based on provided scales.
+    /// @param xscale The x scale value.
+    /// @param yscale The y scale value.
+    /// @param xExcess Current excess value.
+    /// @param xPurchase Amount of gas purchased.
+    /// @return The calculated price.
     function calculatePrice(
         uint128 xscale,
         uint128 yscale,
@@ -92,15 +79,10 @@ library Lib1559Math {
         return (_after - _before) / _xPurchase / yscale;
     }
 
-    /**
-     * @dev Internal function to calculate Y based on provided x value and
-     * scale.
-     *
-     * @param x The x value.
-     * @param xscale The x scale value.
-     *
-     * @return The calculated y value.
-     */
+    /// @dev Internal function to calculate y value based on x value and scale.
+    /// @param x The x value.
+    /// @param xscale The x scale value.
+    /// @return The calculated y value.
     function _calcY(uint256 x, uint128 xscale) private pure returns (uint256) {
         uint256 _x = x * xscale;
         if (_x >= LibFixedPointMath.MAX_EXP_INPUT) {

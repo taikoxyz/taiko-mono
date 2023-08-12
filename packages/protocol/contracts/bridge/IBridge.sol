@@ -6,24 +6,18 @@
 
 pragma solidity ^0.8.20;
 
-import { LibBridgeData } from "./libs/LibBridgeData.sol";
-/**
- * @title IRecallableMessageSender
- * @notice An interface that all recallable message senders shall implement.
- */
+/// @title IRecallableMessageSender
+/// @notice An interface that all recallable message senders shall implement.
 interface IRecallableMessageSender {
     function onMessageRecalled(IBridge.Message calldata message)
         external
         payable;
 }
 
-/**
- * @title IBridge
- * @notice Bridge interface for cross-chain communication of messages and
- * assets.
- * Ether is held by Bridges on L1 and by the EtherVault on L2, not by token
- * vaults.
- */
+/// @title IBridge
+/// @notice The bridge used in conjunction with the {ISignalService}.
+/// @dev Ether is held by Bridges on L1 and by the EtherVault on L2,
+/// not by token vaults.
 interface IBridge {
     // Struct representing a message sent across the bridge.
     struct Message {
@@ -76,9 +70,7 @@ interface IBridge {
         returns (bytes32 msgHash);
 
     /**
-     * @notice Release Ether with a proof that the message processing on the
-     * destination
-     * chain has failed.
+     * @notice Recalls a failed messaeg on its source chain.
      * @param message The message to be recalled.
      * @param proof The proof of message processing failure.
      */

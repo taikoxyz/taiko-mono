@@ -1,6 +1,4 @@
 // SPDX-License-Identifier: MIT
-
-// ASCII art or logo representing the contract or library.
 //  _____     _ _         _         _
 // |_   _|_ _(_) |_____  | |   __ _| |__ ___
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
@@ -14,38 +12,8 @@ import { ICrossChainSync } from "../common/ICrossChainSync.sol";
 import { ISignalService } from "./ISignalService.sol";
 import { LibSecureMerkleTrie } from "../thirdparty/LibSecureMerkleTrie.sol";
 
-/**
- * @title SignalService
- *
- * @dev The SignalService contract serves as a cross-chain signaling mechanism,
- * allowing external entities to send and verify signals within the Ethereum
- * ecosystem. A "signal" in this context refers to a form of on-chain message or
- * flag that can be verified by other contracts or entities across different
- * chains. Such a mechanism is essential for cross-chain operations where
- * certain actions or states need to be validated across multiple blockchain
- * networks.
- *
- * Signals are persisted on-chain using the `sendSignal` method, which sets a
- * particular storage slot based on the sender's address and the signal itself.
- *
- * The contract also provides the ability to check whether a given signal was
- * sent by a specific address using the `isSignalSent` method. Moreover, it
- * offers cross-chain signal verification with the `isSignalReceived` method,
- * ensuring a signal sent from a source chain can be validated on a destination
- * chain.
- *
- * Internally, the SignalService contract utilizes Merkle trie proofs, provided
- * by `LibSecureMerkleTrie`, to verify the inclusion of signals.
- *
- * Note:
- * While sending and checking signals on the current chain is straightforward,
- * cross-chain signal verification requires a proof of the signal's existence on
- * the source chain.
- *
- * Important:
- * Before deploying or upgrading, always ensure you're aware of the contract's
- * nuances, and have appropriately set the security contact.
- */
+/// @title SignalService
+/// @notice See the documentation in {ISignalService} for more details.
 contract SignalService is ISignalService, EssentialContract {
     struct SignalProof {
         uint256 height;
@@ -76,6 +44,7 @@ contract SignalService is ISignalService, EssentialContract {
         EssentialContract._init(_addressManager);
     }
 
+    /// @inheritdoc ISignalService
     function sendSignal(bytes32 signal)
         public
         validSignal(signal)
@@ -87,6 +56,7 @@ contract SignalService is ISignalService, EssentialContract {
         }
     }
 
+    /// @inheritdoc ISignalService
     function isSignalSent(
         address app,
         bytes32 signal
@@ -105,6 +75,7 @@ contract SignalService is ISignalService, EssentialContract {
         return value == 1;
     }
 
+    /// @inheritdoc ISignalService
     function isSignalReceived(
         uint256 srcChainId,
         address app,
@@ -130,6 +101,11 @@ contract SignalService is ISignalService, EssentialContract {
         );
     }
 
+    /// @notice Get the storage slot of the signal.
+    /// @param app The address that initiated the signal.
+    /// @param signal The signal to get the storage slot of.
+    /// @return signalSlot The unique storage slot of the signal which is
+    /// created by encoding the sender address with the signal (message).
     function getSignalSlot(
         address app,
         bytes32 signal
@@ -138,18 +114,22 @@ contract SignalService is ISignalService, EssentialContract {
         pure
         returns (bytes32 signalSlot)
     {
+        // Equivalent to `keccak256(abi.encodePacked(app, signal))`
         assembly {
-            let ptr := mload(0x40) // Load the free memory pointer
+            // Load the free memory pointer
+            let ptr := mload(0x40)
+            // Store the app address and signal bytes32 value in the allocated
+            // memory
             mstore(ptr, app)
             mstore(add(ptr, 32), signal)
+            // Calculate the hash of the concatenated arguments using keccak256
             signalSlot := keccak256(add(ptr, 12), 52)
-            mstore(0x40, add(ptr, 64)) // Update free memory pointer
+            // Update free memory pointer
+            mstore(0x40, add(ptr, 64))
         }
     }
 }
 
-/**
- * @title ProxiedSignalService
- * @dev Proxied version of the SignalService contract.
- */
+/// @title ProxiedSignalService
+/// @notice Proxied version of the SignalService contract.
 contract ProxiedSignalService is Proxied, SignalService { }

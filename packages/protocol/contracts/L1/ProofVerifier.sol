@@ -13,33 +13,24 @@ import { LibZKPVerifier } from "./libs/verifiers/LibZKPVerifier.sol";
 import { IProofVerifier } from "./IProofVerifier.sol";
 import { LibBytesUtils } from "../thirdparty/LibBytesUtils.sol";
 
-/**
- * @title ProofVerifier
- * @dev Contract for verifying proofs in the rollup.
- */
+/// @title ProofVerifier
+/// @notice See the documentation in {IProofVerifier}.
 contract ProofVerifier is EssentialContract, IProofVerifier {
     uint256[50] private __gap;
 
     error L1_INVALID_PROOF();
 
-    /**
-     * @notice Initializes the contract with the provided address manager.
-     * @param _addressManager The address of the address manager contract.
-     */
+    /// @notice Initializes the contract with the provided address manager.
+    /// @param _addressManager The address of the address manager contract.
     function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
     }
 
-    /**
-     * @notice Verifies the provided proofs.
-     * @dev Throws an error if verification fails.
-     *
-     * @param blockProofs Raw bytes of proof(s).
-     * @param instance Hashed evidence & config data. If set to zero, proof is
-     * assumed to be from oracle/system prover.
-     */
+    /// @inheritdoc IProofVerifier
     function verifyProofs(
-        uint256, /*blockId*/
+        // blockId is unused now, but can be used later when supporting
+        // different types of proofs.
+        uint256,
         bytes calldata blockProofs,
         bytes32 instance
     )
@@ -79,8 +70,6 @@ contract ProofVerifier is EssentialContract, IProofVerifier {
     }
 }
 
-/**
- * @title ProxiedProofVerifier
- * @dev Proxied version of the ProofVerifier contract.
- */
+/// @title ProxiedProofVerifier
+/// @notice Proxied version of the ProofVerifier contract.
 contract ProxiedProofVerifier is Proxied, ProofVerifier { }
