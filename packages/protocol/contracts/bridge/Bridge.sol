@@ -41,8 +41,8 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
         EssentialContract._init(_addressManager);
     }
 
-    /// Sends a message to the destination chain and takes custody
-    /// of Ether required in this contract. All extra Ether will be refunded.
+    /// @notice Sends a message from the current chain to the destination chain
+    /// specified in the message.
     /// @inheritdoc IBridge
     function sendMessage(Message calldata message)
         external
