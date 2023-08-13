@@ -44,7 +44,7 @@ contract TaikoL1 is
         depositEtherToL2(address(0));
     }
 
-    /// @notice Initialize the rollup.
+    /// @notice Initializes the rollup.
     /// @param _addressManager The {AddressManager} address.
     /// @param _genesisBlockHash The block hash of the genesis block.
     /// @param _initFeePerGas Initial (reasonable) block fee value.
@@ -68,7 +68,7 @@ contract TaikoL1 is
         });
     }
 
-    /// @notice Propose a Taiko L2 block.
+    /// @notice Proposes a Taiko L2 block.
     /// @param input An abi-encoded BlockMetadataInput that the actual L2 block
     /// header must satisfy.
     /// @param txList A list of transactions in this block, encoded with RLP.
@@ -102,7 +102,7 @@ contract TaikoL1 is
         }
     }
 
-    /// @notice Prove a block with a zero-knowledge proof.
+    /// @notice Proves a block with a zero-knowledge proof.
     /// @param blockId The index of the block to prove. This is also used to
     /// select the right implementation version.
     /// @param input An abi-encoded {TaikoData.BlockEvidence} object.
@@ -131,7 +131,7 @@ contract TaikoL1 is
         }
     }
 
-    /// @notice Verify up to N blocks.
+    /// @notice Verifies up to N blocks.
     /// @param maxBlocks Max number of blocks to verify.
     function verifyBlocks(uint256 maxBlocks) external nonReentrant {
         if (maxBlocks == 0) revert L1_INVALID_PARAM();
@@ -143,7 +143,7 @@ contract TaikoL1 is
         });
     }
 
-    /// @notice Deposit Ether to Layer 2.
+    /// @notice Deposits Ether to Layer 2.
     /// @param recipient Address of the recipient for the deposited Ether on
     /// Layer 2.
     function depositEtherToL2(address recipient) public payable {
@@ -155,19 +155,19 @@ contract TaikoL1 is
         });
     }
 
-    /// @notice Deposit Taiko tokens to the contract.
+    /// @notice Deposits Taiko tokens to the contract.
     /// @param amount Amount of Taiko tokens to deposit.
     function depositTaikoToken(uint256 amount) public nonReentrant {
         LibTaikoToken.depositTaikoToken(state, AddressResolver(this), amount);
     }
 
-    /// @notice Withdraw Taiko tokens from the contract.
+    /// @notice Withdraws Taiko tokens from the contract.
     /// @param amount Amount of Taiko tokens to withdraw.
     function withdrawTaikoToken(uint256 amount) public nonReentrant {
         LibTaikoToken.withdrawTaikoToken(state, AddressResolver(this), amount);
     }
 
-    /// @notice Check if Ether deposit is allowed for Layer 2.
+    /// @notice Checks if Ether deposit is allowed for Layer 2.
     /// @param amount Amount of Ether to be deposited.
     /// @return true if Ether deposit is allowed, false otherwise.
     function canDepositEthToL2(uint256 amount) public view returns (bool) {
@@ -178,7 +178,7 @@ contract TaikoL1 is
         });
     }
 
-    /// @notice Get the block fee for a given gas limit.
+    /// @notice Gets the block fee for a given gas limit.
     /// @param gasLimit Gas limit for the block.
     /// @return The block fee in Taiko tokens.
     function getBlockFee(uint32 gasLimit) public view returns (uint64) {
@@ -189,14 +189,14 @@ contract TaikoL1 is
         });
     }
 
-    /// @notice Get the Taiko token balance for a specific address.
+    /// @notice Gets the Taiko token balance for a specific address.
     /// @param addr Address to check the Taiko token balance.
     /// @return The Taiko token balance of the address.
     function getTaikoTokenBalance(address addr) public view returns (uint256) {
         return state.taikoTokenBalances[addr];
     }
 
-    /// @notice Get the details of a block.
+    /// @notice Gets the details of a block.
     /// @param blockId Index of the block.
     /// @return _metaHash Metadata hash of the block.
     /// @return _gasLimit Gas limit of the block.
@@ -245,7 +245,7 @@ contract TaikoL1 is
         _proofWindow = blk.proofWindow;
     }
 
-    /// @notice Get the fork choice for a specific block.
+    /// @notice Gets the fork choice for a specific block.
     /// @param blockId Index of the block.
     /// @param parentHash Parent hash of the block.
     /// @param parentGasUsed Gas used by the parent block.
@@ -268,7 +268,7 @@ contract TaikoL1 is
         });
     }
 
-    /// @notice Get the block hash of the specified Layer 2 block.
+    /// @notice Gets the block hash of the specified Layer 2 block.
     /// @param blockId Index of the block.
     /// @return Block hash of the specified block.
     function getCrossChainBlockHash(uint256 blockId)
@@ -287,7 +287,7 @@ contract TaikoL1 is
             : bytes32(0);
     }
 
-    /// @notice Get the signal root of the specified Layer 2 block.
+    /// @notice Gets the signal root of the specified Layer 2 block.
     /// @param blockId Index of the block.
     /// @return Signal root of the specified block.
     function getCrossChainSignalRoot(uint256 blockId)
@@ -307,7 +307,7 @@ contract TaikoL1 is
             : bytes32(0);
     }
 
-    /// @notice Get the state variables of the TaikoL1 contract.
+    /// @notice Gets the state variables of the TaikoL1 contract.
     /// @return StateVariables struct containing state variables.
     function getStateVariables()
         public
@@ -317,7 +317,7 @@ contract TaikoL1 is
         return state.getStateVariables();
     }
 
-    /// @notice Get the configuration of the TaikoL1 contract.
+    /// @notice Gets the configuration of the TaikoL1 contract.
     /// @return Config struct containing configuration parameters.
     function getConfig()
         public
@@ -328,7 +328,7 @@ contract TaikoL1 is
         return TaikoConfig.getConfig();
     }
 
-    /// @notice Get the name of the proof verifier by ID.
+    /// @notice Gets the name of the proof verifier by ID.
     /// @param id ID of the verifier.
     /// @return Verifier name.
     function getVerifierName(uint16 id) public pure returns (bytes32) {
@@ -337,5 +337,5 @@ contract TaikoL1 is
 }
 
 /// @title TaikoL1
-/// @notice Proxied version of the TaikoL1 contract.
+/// @notice Proxied version of the parent contract.
 contract ProxiedTaikoL1 is Proxied, TaikoL1 { }

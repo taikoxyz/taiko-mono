@@ -26,35 +26,29 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
 import { LibAddress } from "../libs/LibAddress.sol";
 
-/**
- * @title ERC1155NameAndSymbol
- * @notice Interface for ERC1155 contracts that provide name() and symbol()
- * functions.
- * These functions may not be part of the official interface but are used by
- * some contracts.
- */
+/// @title ERC1155NameAndSymbol
+/// @notice Interface for ERC1155 contracts that provide name() and symbol()
+/// functions. These functions may not be part of the official interface but are
+/// used by
+/// some contracts.
 interface ERC1155NameAndSymbol {
     function name() external view returns (string memory);
     function symbol() external view returns (string memory);
 }
 
-/**
- * @title ERC1155Vault
- * @notice This vault holds all ERC1155 tokens that users have deposited.
- * It also manages the mapping between canonical tokens and their bridged
- * tokens.
- */
+/// @title ERC1155Vault
+/// @notice This vault holds all ERC1155 tokens that users have deposited.
+/// It also manages the mapping between canonical tokens and their bridged
+/// tokens.
 contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     using LibAddress for address;
 
     uint256[50] private __gap;
 
-    /**
-     * @notice Transfers ERC1155 tokens to this vault and sends a message to the
-     * destination chain so the user can receive the same (bridged) tokens
-     * by invoking the message call.
-     * @param opt Option for sending the ERC1155 token.
-     */
+    /// @notice Transfers ERC1155 tokens to this vault and sends a message to
+    /// the destination chain so the user can receive the same (bridged) tokens
+    /// by invoking the message call.
+    /// @param opt Option for sending the ERC1155 token.
     function sendToken(BridgeTransferOp memory opt)
         external
         payable
@@ -105,17 +99,15 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         });
     }
 
-    /**
-     * @notice This function can only be called by the bridge contract while
-     * invoking a message call. See sendToken, which sets the data to invoke
-     * this function.
-     * @param ctoken The canonical ERC1155 token which may or may not
-     * live on this chain. If not, a BridgedERC1155 contract will be deployed.
-     * @param from The source address.
-     * @param to The destination address.
-     * @param tokenIds The tokenIds to be sent.
-     * @param amounts The amounts to be sent.
-     */
+    /// @notice This function can only be called by the bridge contract while
+    /// invoking a message call. See sendToken, which sets the data to invoke
+    /// this function.
+    /// @param ctoken The canonical ERC1155 token which may or may not live on
+    /// this chain. If not, a BridgedERC1155 contract will be deployed.
+    /// @param from The source address.
+    /// @param to The destination address.
+    /// @param tokenIds The tokenIds to be sent.
+    /// @param amounts The amounts to be sent.
     function receiveToken(
         CanonicalNFT calldata ctoken,
         address from,
@@ -170,13 +162,11 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         });
     }
 
-    /**
-     * @notice Release deposited ERC1155 token(s) back to the user on the source
-     * chain with a proof that the message processing on the destination Bridge
-     * has failed.
-     * @param message The message that corresponds to the ERC1155 deposit on the
-     * source chain.
-     */
+    /// @notice Releases deposited ERC1155 token(s) back to the user on the
+    /// source chain with a proof that the message processing on the destination
+    /// Bridge has failed.
+    /// @param message The message that corresponds to the ERC1155 deposit on
+    /// the source chain.
     function onMessageRecalled(IBridge.Message calldata message)
         external
         payable
@@ -218,10 +208,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                 }
             }
         }
-
         // Send back Ether
         message.user.sendEther(message.value);
-
         // Emit TokenReleased event
         emit TokenReleased({
             msgHash: msgHash,
@@ -260,9 +248,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         return IERC1155Receiver.onERC1155Received.selector;
     }
 
-    /**
-     * @dev See {IERC165-supportsInterface}.
-     */
+    /// @dev See {IERC165-supportsInterface}.
     function supportsInterface(bytes4 interfaceId)
         public
         view
@@ -328,9 +314,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         );
     }
 
-    /**
-     * @dev Returns the contract address per given canonical token.
-     */
+    /// @dev Returns the contract address per given canonical token.
     function _getOrDeployBridgedToken(CanonicalNFT memory ctoken)
         private
         returns (address btoken)
@@ -341,10 +325,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         }
     }
 
-    /**
-     * @dev Deploys a new BridgedNFT contract and initializes it. This must be
-     * called before the first time a btoken is sent to this chain.
-     */
+    /// @dev Deploys a new BridgedNFT contract and initializes it. This must be
+    /// called before the first time a btoken is sent to this chain.
     function _deployBridgedToken(CanonicalNFT memory ctoken)
         private
         returns (address btoken)
@@ -377,4 +359,6 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     }
 }
 
+/// @title ProxiedERC1155Vault
+/// @notice Proxied version of the parent contract.
 contract ProxiedERC1155Vault is Proxied, ERC1155Vault { }

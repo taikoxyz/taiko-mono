@@ -13,13 +13,11 @@ import { LibBridgeData } from "./LibBridgeData.sol";
 import { LibBridgeStatus } from "./LibBridgeStatus.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 
-/**
- * @title LibBridgeRecall Library
- * @notice This library provides functions for releasing Ether and tokens
- * related to message execution on the Bridge.
- * The library allows recalling failed messages on their source chain, releasing
- * associated assets.
- */
+/// @title LibBridgeRecall
+/// @notice This library provides functions for releasing Ether and tokens
+/// related to message execution on the Bridge.
+/// The library allows recalling failed messages on their source chain,
+/// releasing associated assets.
 library LibBridgeRecall {
     using LibBridgeData for IBridge.Message;
     using LibAddress for address;
@@ -29,18 +27,16 @@ library LibBridgeRecall {
     error B_MSG_NOT_FAILED();
     error B_MSG_RECALLED_ALREADY();
 
-    /**
-     * @notice Recall a failed message on its source chain, releasing associated
-     * assets.
-     * @dev This function checks if the message failed on the source chain and
-     * releases associated Ether or tokens.
-     * @param state The current state of the Bridge.
-     * @param resolver The AddressResolver instance.
-     * @param message The message whose associated Ether should be released.
-     * @param proof The proof data.
-     * @param checkProof A flag indicating whether to check the proof (test
-     * version).
-     */
+    /// @notice Recalls a failed message on its source chain, releasing
+    /// associated assets.
+    /// @dev This function checks if the message failed on the source chain and
+    /// releases associated Ether or tokens.
+    /// @param state The current state of the Bridge.
+    /// @param resolver The AddressResolver instance.
+    /// @param message The message whose associated Ether should be released.
+    /// @param proof The proof data.
+    /// @param checkProof A flag indicating whether to check the proof (test
+    /// version).
     function recallMessage(
         LibBridgeData.State storage state,
         AddressResolver resolver,

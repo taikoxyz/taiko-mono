@@ -16,13 +16,11 @@ import { LibBridgeInvoke } from "./LibBridgeInvoke.sol";
 import { LibBridgeStatus } from "./LibBridgeStatus.sol";
 import { LibMath } from "../../libs/LibMath.sol";
 
-/**
- * @title LibBridgeProcess Library
- * @notice This library provides functions for processing bridge messages on the
- * destination chain.
- * The library handles the execution of bridge messages, status updates, and fee
- * refunds.
- */
+/// @title LibBridgeProcess Library
+/// @notice This library provides functions for processing bridge messages on
+/// the destination chain.
+/// The library handles the execution of bridge messages, status updates, and
+/// fee refunds.
 library LibBridgeProcess {
     using LibMath for uint256;
     using LibAddress for address;
@@ -34,22 +32,18 @@ library LibBridgeProcess {
     error B_STATUS_MISMATCH();
     error B_WRONG_CHAIN_ID();
 
-    /**
-     * @notice Process a bridge message on the destination chain. This function
-     * is callable by any address, including the `message.user`.
-     * @dev The process begins by hashing the message and checking the message
-     * status in the bridge state.
-     * If the status is "NEW", custody of Ether is taken from the EtherVault,
-     * and the message is invoked.
-     * The status is updated accordingly, and processing fees are refunded as
-     * needed.
-     * @param state The state of the bridge.
-     * @param resolver The address resolver.
-     * @param message The message to be processed.
-     * @param proof The proof of the message hash from the source chain.
-     * @param checkProof A boolean flag indicating whether to verify the signal
-     * receipt proof.
-     */
+    /// @notice Processes a bridge message on the destination chain. This
+    /// function is callable by any address, including the `message.user`.
+    /// @dev The process begins by hashing the message and checking the message
+    /// status in the bridge state. If the status is "NEW", custody of Ether is
+    /// taken from the EtherVault, and the message is invoked. The status is
+    /// updated accordingly, and processing fees are refunded as needed.
+    /// @param state The state of the bridge.
+    /// @param resolver The address resolver.
+    /// @param message The message to be processed.
+    /// @param proof The proof of the message hash from the source chain.
+    /// @param checkProof A boolean flag indicating whether to verify the signal
+    /// receipt proof.
     function processMessage(
         LibBridgeData.State storage state,
         AddressResolver resolver,

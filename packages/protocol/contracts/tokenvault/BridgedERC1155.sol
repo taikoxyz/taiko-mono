@@ -16,10 +16,8 @@ import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
-/**
- * @title BridgedERC1155
- * @notice Contract for bridging ERC1155 tokens across different chains.
- */
+/// @title BridgedERC1155
+/// @notice Contract for bridging ERC1155 tokens across different chains.
 contract BridgedERC1155 is
     EssentialContract,
     IERC1155Upgradeable,
@@ -41,18 +39,15 @@ contract BridgedERC1155 is
         uint256 amount
     );
 
-    // Errors that can be thrown by the contract.
     error BRIDGED_TOKEN_CANNOT_RECEIVE();
     error BRIDGED_TOKEN_INVALID_PARAMS();
 
-    /**
-     * @dev Initializer function to be called after deployment.
-     * @param _addressManager The address of the address manager.
-     * @param _srcToken Address of the source token.
-     * @param _srcChainId Source chain ID.
-     * @param _symbol Symbol of the bridged token.
-     * @param _name Name of the bridged token.
-     */
+    /// @dev Initializer function to be called after deployment.
+    /// @param _addressManager The address of the address manager.
+    /// @param _srcToken Address of the source token.
+    /// @param _srcChainId Source chain ID.
+    /// @param _symbol Symbol of the bridged token.
+    /// @param _name Name of the bridged token.
     function init(
         address _addressManager,
         address _srcToken,
@@ -79,12 +74,10 @@ contract BridgedERC1155 is
         name_ = _name;
     }
 
-    /**
-     * @dev Mint tokens.
-     * @param account Address to receive the minted tokens.
-     * @param tokenId ID of the token to mint.
-     * @param amount Amount of tokens to mint.
-     */
+    /// @dev Mints tokens.
+    /// @param account Address to receive the minted tokens.
+    /// @param tokenId ID of the token to mint.
+    /// @param amount Amount of tokens to mint.
     function mint(
         address account,
         uint256 tokenId,
@@ -97,12 +90,10 @@ contract BridgedERC1155 is
         emit Transfer(address(0), account, tokenId, amount);
     }
 
-    /**
-     * @dev Burn tokens.
-     * @param account Address from which tokens are burned.
-     * @param tokenId ID of the token to burn.
-     * @param amount Amount of tokens to burn.
-     */
+    /// @dev Burns tokens.
+    /// @param account Address from which tokens are burned.
+    /// @param tokenId ID of the token to burn.
+    /// @param amount Amount of tokens to burn.
     function burn(
         address account,
         uint256 tokenId,
@@ -115,14 +106,12 @@ contract BridgedERC1155 is
         emit Transfer(account, address(0), tokenId, amount);
     }
 
-    /**
-     * @dev Safely transfers tokens from one address to another.
-     * @param from Address from which tokens are transferred.
-     * @param to Address to which tokens are transferred.
-     * @param tokenId ID of the token to transfer.
-     * @param amount Amount of tokens to transfer.
-     * @param data Additional data.
-     */
+    /// @dev Safely transfers tokens from one address to another.
+    /// @param from Address from which tokens are transferred.
+    /// @param to Address to which tokens are transferred.
+    /// @param tokenId ID of the token to transfer.
+    /// @param amount Amount of tokens to transfer.
+    /// @param data Additional data.
     function safeTransferFrom(
         address from,
         address to,
@@ -140,14 +129,13 @@ contract BridgedERC1155 is
             ERC1155Upgradeable.safeTransferFrom(from, to, tokenId, amount, data);
     }
 
-    /**
-     * @notice Get the concatenated name of the bridged token.
-     * @return The concatenated name.
-     */
+    /// @notice Gets the concatenated name of the bridged token.
+    /// @return The concatenated name.
     function name() public view returns (string memory) {
         return string.concat(name_, unicode" ⭀", Strings.toString(srcChainId));
     }
 }
 
-// Contract for deploying BridgedERC1155 behind a proxy.
+/// @title ProxiedBridgedERC1155
+/// @notice Proxied version of the parent contract.
 contract ProxiedBridgedERC1155 is Proxied, BridgedERC1155 { }

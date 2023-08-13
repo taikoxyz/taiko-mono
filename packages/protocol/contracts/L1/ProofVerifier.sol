@@ -71,5 +71,5 @@ contract ProofVerifier is EssentialContract, IProofVerifier {
 }
 
 /// @title ProxiedProofVerifier
-/// @notice Proxied version of the ProofVerifier contract.
+/// @notice Proxied version of the parent contract.
 contract ProxiedProofVerifier is Proxied, ProofVerifier { }

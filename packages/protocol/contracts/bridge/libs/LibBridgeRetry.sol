@@ -14,15 +14,13 @@ import { LibBridgeData } from "./LibBridgeData.sol";
 import { LibBridgeInvoke } from "./LibBridgeInvoke.sol";
 import { LibBridgeStatus } from "./LibBridgeStatus.sol";
 
-/**
- * @title LibBridgeRetry Library
- * @notice This library provides functions for retrying bridge messages that are
- * marked as "RETRIABLE".
- * The library facilitates the process of invoking the messageCall after
- * releasing any associated Ether, allowing for retries. It handles the
- * transition of message status from "RETRIABLE" to "DONE" on success, and to
- * "FAILED" on the last attempt if unsuccessful.
- */
+/// @title LibBridgeRetry
+/// @notice This library provides functions for retrying bridge messages that
+/// are marked as "RETRIABLE".
+/// The library facilitates the process of invoking the messageCall after
+/// releasing any associated Ether, allowing for retries.
+/// It handles the transition of message status from "RETRIABLE" to "DONE" on
+/// success, and to "FAILED" on the last attempt if unsuccessful.
 library LibBridgeRetry {
     using LibAddress for address;
     using LibBridgeData for IBridge.Message;
@@ -31,19 +29,17 @@ library LibBridgeRetry {
     error B_DENIED();
     error B_MSG_NON_RETRIABLE();
 
-    /**
-     * @notice Retry to invoke the messageCall after releasing associated Ether
-     * and tokens.
-     * @dev This function can be called by any address, including the
-     * `message.user`.
-     * It attempts to invoke the messageCall and updates the message status
-     * accordingly.
-     * @param state The current state of the Bridge.
-     * @param resolver The address resolver.
-     * @param message The message to retry.
-     * @param isLastAttempt Specifies if this is the last attempt to retry the
-     * message.
-     */
+    /// @notice Retries to invoke the messageCall after releasing associated
+    /// Ether and tokens.
+    /// @dev This function can be called by any address, including the
+    /// `message.user`.
+    /// It attempts to invoke the messageCall and updates the message status
+    /// accordingly.
+    /// @param state The current state of the Bridge.
+    /// @param resolver The address resolver.
+    /// @param message The message to retry.
+    /// @param isLastAttempt Specifies if this is the last attempt to retry the
+    /// message.
     function retryMessage(
         LibBridgeData.State storage state,
         AddressResolver resolver,
@@ -98,7 +94,6 @@ library LibBridgeRetry {
             // Refund to the specified address, or the user if not specified.
             address refundTo =
                 message.refundTo == address(0) ? message.user : message.refundTo;
-
             refundTo.sendEther(message.value);
         } else {
             // Release Ether back to EtherVault if not the last attempt.

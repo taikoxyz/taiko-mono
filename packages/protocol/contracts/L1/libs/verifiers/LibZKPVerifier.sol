@@ -13,7 +13,6 @@ import { TaikoData } from "../../TaikoData.sol";
 /// @title LibZKPVerifier
 /// @notice A library for verifying ZK proofs in the Taiko protocol.
 library LibZKPVerifier {
-    // Custom error to signal an invalid proof.
     error L1_INVALID_PROOF();
 
     /// @dev Verifies the provided proof using the designated verifier.
