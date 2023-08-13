@@ -19,11 +19,9 @@ import { SafeCastUpgradeable } from
 /// @title TaikoL2
 /// @notice Taiko L2 is a smart contract that handles cross-layer message
 /// verification and manages EIP-1559 gas pricing for Layer 2 (L2) operations.
-///
 /// It is used to anchor the latest L1 block details to L2 for cross-layer
 /// communication, manage EIP-1559 parameters for gas pricing, and store
-/// verified
-/// L1 block information.
+/// verified L1 block information.
 contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     using SafeCastUpgradeable for uint256;
     using LibMath for uint256;
@@ -47,10 +45,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         uint32 gasIssuedPerSecond;
     }
 
-    /*//////////////////////////////////////////////////////////////
-                            STATE VARIABLES
-    //////////////////////////////////////////////////////////////*/
-
     // Mapping from L2 block numbers to their block hashes.
     // All L2 block hashes will be saved in this mapping.
     mapping(uint256 blockNumber => bytes32 blockHash) private _l2Hashes;
@@ -69,10 +63,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     uint256[45] private __gap;
 
-    /*//////////////////////////////////////////////////////////////
-                                 EVENTS
-    //////////////////////////////////////////////////////////////*/
-
     // Captures all block variables mentioned in
     // https://docs.soliditylang.org/en/v0.8.20/units-and-global-variables.html
     event Anchored(
@@ -86,10 +76,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
         uint32 chainid
     );
 
-    /*//////////////////////////////////////////////////////////////
-                             CUSTOM ERRORS
-    //////////////////////////////////////////////////////////////*/
-
     error L2_BASEFEE_MISMATCH(uint64 expected, uint64 actual);
     error L2_INVALID_1559_PARAMS();
     error L2_INVALID_CHAIN_ID();
@@ -98,10 +84,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     error L2_TOO_LATE();
     error L2_1559_UNEXPECTED_CHANGE(uint64 expected, uint64 actual);
     error L2_1559_OUT_OF_STOCK();
-
-    /*//////////////////////////////////////////////////////////////
-                         USER-FACING FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
 
     /// @notice Initializes the TaikoL2 contract.
     /// @param _addressManager Address of the {AddressManager} contract.
@@ -153,8 +135,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     }
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
-    /// message
-    /// verification.
+    /// message verification.
     /// @param l1Hash The latest L1 block hash when this block was proposed.
     /// @param l1SignalRoot The latest value of the L1 signal service storage
     /// root.
@@ -247,11 +228,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     /// @notice Retrieves the L1 block hash for the given L1 block number or the
     /// latest synced L1 block hash if the number is zero.
     /// @param number The L1 block number to retrieve the block hash for, or
-    /// zero
-    /// to fetch the latest synced L1 block hash.
+    /// zero to fetch the latest synced L1 block hash.
     /// @return The L1 block hash for the specified L1 block number or the
-    /// latest
-    /// synced L1 block hash.
+    /// latest synced L1 block hash.
     function getCrossChainBlockHash(uint256 number)
         public
         view
@@ -294,8 +273,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
 
     /// @notice Retrieves the current EIP-1559 configuration details.
     /// @return The current EIP-1559 configuration details, including the
-    /// yscale,
-    /// xscale, and gasIssuedPerSecond parameters.
+    /// yscale, xscale, and gasIssuedPerSecond parameters.
     function getEIP1559Config()
         public
         view
@@ -304,10 +282,6 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, ICrossChainSync {
     {
         return _eip1559Config;
     }
-
-    /*//////////////////////////////////////////////////////////////
-                           PRIVATE FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
 
     function _calcPublicInputHash(uint256 blockNumber)
         private

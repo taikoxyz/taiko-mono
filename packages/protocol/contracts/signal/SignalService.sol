@@ -131,5 +131,5 @@ contract SignalService is ISignalService, EssentialContract {
 }
 
 /// @title ProxiedSignalService
-/// @notice Proxied version of the SignalService contract.
+/// @notice Proxied version of the parent contract.
 contract ProxiedSignalService is Proxied, SignalService { }

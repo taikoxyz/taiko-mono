@@ -12,14 +12,12 @@ import { ISignalService } from "../../signal/ISignalService.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibBridgeData } from "./LibBridgeData.sol";
 
-/**
- * @title LibBridgeSend
- * @notice This library provides functions for sending bridge messages and
- * checking their status.
- * The library facilitates the process of sending messages to the Bridge,
- * validating input parameters, and managing Ether custody based on destination
- * chains.
- */
+/// @title LibBridgeSend
+/// @notice This library provides functions for sending bridge messages and
+/// checking their status.
+/// The library facilitates the process of sending messages to the Bridge,
+/// validating input parameters, and managing Ether custody based on destination
+/// chains.
 library LibBridgeSend {
     using LibAddress for address;
     using LibBridgeData for IBridge.Message;
@@ -29,18 +27,14 @@ library LibBridgeSend {
     error B_WRONG_CHAIN_ID();
     error B_WRONG_TO_ADDRESS();
 
-    /**
-     * @notice Send a message to the Bridge with the details of the request.
-     * @dev This function takes custody of the specified funds, sending them to
-     * the EtherVault on Taiko or storing them on the Bridge for processing on
-     * the destination chain.
-     * @param state The current state of the Bridge.
-     * @param resolver The address resolver.
-     * @param message The message to be sent, including value and fee details.
-     * @return msgHash The hash of the sent message. This hash indicates that a
-     * bridge message has been sent and is ready for processing on the
-     * destination chain.
-     */
+    /// @notice Sends a message to the Bridge with the details of the request.
+    /// @dev This function takes custody of the specified funds, sending them to
+    /// the EtherVault on Taiko or storing them on the Bridge for processing on
+    /// the destination chain.
+    /// @param state The current state of the Bridge.
+    /// @param resolver The address resolver.
+    /// @param message The message to be sent, including value and fee details.
+    /// @return msgHash The hash of the sent message.
     function sendMessage(
         LibBridgeData.State storage state,
         AddressResolver resolver,
@@ -55,14 +49,14 @@ library LibBridgeSend {
         }
 
         // Check if the destination chain is enabled.
-        (bool destChainEnabled, address destChain) =
+        (bool destChainEnabled, address destBridge) =
             isDestChainEnabled(resolver, message.destChainId);
 
         // Verify destination chain and to address.
         if (!destChainEnabled || message.destChainId == block.chainid) {
             revert B_WRONG_CHAIN_ID();
         }
-        if (message.to == address(0) || message.to == destChain) {
+        if (message.to == address(0) || message.to == destBridge) {
             revert B_WRONG_TO_ADDRESS();
         }
 
@@ -90,13 +84,11 @@ library LibBridgeSend {
         emit LibBridgeData.MessageSent(msgHash, message);
     }
 
-    /**
-     * Check if the destination chain is enabled.
-     * @param resolver The address resolver.
-     * @param chainId The destination chain ID.
-     * @return enabled True if the destination chain is enabled.
-     * @return destBridge The bridge of the destination chain.
-     */
+    /// @notice Checks if the destination chain is enabled.
+    /// @param resolver The address resolver.
+    /// @param chainId The destination chain ID.
+    /// @return enabled True if the destination chain is enabled.
+    /// @return destBridge The bridge of the destination chain.
     function isDestChainEnabled(
         AddressResolver resolver,
         uint256 chainId
@@ -109,12 +101,10 @@ library LibBridgeSend {
         enabled = destBridge != address(0);
     }
 
-    /**
-     * Check if the message was sent.
-     * @param resolver The address resolver.
-     * @param msgHash The hash of the sent message.
-     * @return True if the message was sent.
-     */
+    /// @notice Checks if the message was sent.
+    /// @param resolver The address resolver.
+    /// @param msgHash The hash of the sent message.
+    /// @return True if the message was sent.
     function isMessageSent(
         AddressResolver resolver,
         bytes32 msgHash
@@ -127,14 +117,12 @@ library LibBridgeSend {
             .isSignalSent({ app: address(this), signal: msgHash });
     }
 
-    /**
-     * Check if the message was received.
-     * @param resolver The address resolver.
-     * @param msgHash The hash of the received message.
-     * @param srcChainId The ID of the source chain.
-     * @param proof The proof of message receipt.
-     * @return True if the message was received.
-     */
+    /// @notice Checks if the message was received.
+    /// @param resolver The address resolver.
+    /// @param msgHash The hash of the received message.
+    /// @param srcChainId The ID of the source chain.
+    /// @param proof The proof of message receipt.
+    /// @return True if the message was received.
     function isMessageReceived(
         AddressResolver resolver,
         bytes32 msgHash,

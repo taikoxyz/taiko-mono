@@ -100,5 +100,5 @@ contract EtherVault is EssentialContract, BridgeErrors {
 }
 
 /// @title ProxiedEtherVault
-/// @notice Proxied version of the EtherVault contract.
+/// @notice Proxied version of the parent contract.
 contract ProxiedEtherVault is Proxied, EtherVault { }

@@ -25,13 +25,10 @@ import { LibAddress } from "../libs/LibAddress.sol";
 import { LibVaultUtils } from "./libs/LibVaultUtils.sol";
 import { EssentialContract } from "../common/EssentialContract.sol";
 
-/**
- * @title ERC20Vault
- * @notice This vault holds all ERC20 tokens (excluding Ether) that users have
- * deposited.
- * It also manages the mapping between canonical ERC20 tokens and their bridged
- * tokens.
- */
+/// @title ERC20Vault
+/// @notice This vault holds all ERC20 tokens (excluding Ether) that users have
+/// deposited. It also manages the mapping between canonical ERC20 tokens and
+/// their bridged tokens.
 contract ERC20Vault is
     EssentialContract,
     IERC165Upgradeable,
@@ -61,17 +58,14 @@ contract ERC20Vault is
     }
 
     // Tracks if a token on the current chain is a canonical or btoken.
-    mapping(address tokenAddress => bool isBridged) public isBridgedToken;
+    mapping(address => bool) public isBridgedToken;
 
     // Mappings from btokens to their canonical tokens.
-    mapping(address btoken => CanonicalERC20 canonicalErc20) public
-        bridgedToCanonical;
+    mapping(address => CanonicalERC20) public bridgedToCanonical;
 
-    // Mappings from canonical tokens to their btokens.
-    // Also storing chainId for tokens across other chains aside from Ethereum.
-    mapping(
-        uint256 chainId => mapping(address canonicalAddress => address btoken)
-    ) public canonicalToBridged;
+    // Mappings from canonical tokens to their btokens. Also storing chainId for
+    // tokens across other chains aside from Ethereum.
+    mapping(uint256 => mapping(address => address)) public canonicalToBridged;
 
     uint256[47] private __gap;
 
@@ -83,7 +77,6 @@ contract ERC20Vault is
         string ctokenName,
         uint8 ctokenDecimal
     );
-
     event TokenSent(
         bytes32 indexed msgHash,
         address indexed from,
@@ -92,14 +85,12 @@ contract ERC20Vault is
         address token,
         uint256 amount
     );
-
     event TokenReleased(
         bytes32 indexed msgHash,
         address indexed from,
         address token,
         uint256 amount
     );
-
     event TokenReceived(
         bytes32 indexed msgHash,
         address indexed from,
@@ -109,7 +100,6 @@ contract ERC20Vault is
         uint256 amount
     );
 
-    // Error messages
     error VAULT_INVALID_TO();
     error VAULT_INVALID_TOKEN();
     error VAULT_INVALID_AMOUNT();
@@ -128,27 +118,20 @@ contract ERC20Vault is
         if (to == address(0) || to == resolve(chainId, name, false)) {
             revert VAULT_INVALID_TO();
         }
-
         if (token == address(0)) revert VAULT_INVALID_TOKEN();
         _;
     }
 
-    /**
-     * @notice Initialize the contract with the address manager.
-     * @param addressManager Address manager contract address.
-     */
+    /// @notice Initializes the contract with the address manager.
+    /// @param addressManager Address manager contract address.
     function init(address addressManager) external initializer {
         EssentialContract._init(addressManager);
     }
 
-    // User-facing functions
-
-    /**
-     * @notice Transfers ERC20 tokens to this vault and sends a message to the
-     * destination chain so the user can receive the same amount of tokens
-     * by invoking the message call.
-     * @param opt Option for sending ERC20 tokens.
-     */
+    /// @notice Transfers ERC20 tokens to this vault and sends a message to the
+    /// destination chain so the user can receive the same amount of tokens by
+    /// invoking the message call.
+    /// @param opt Option for sending ERC20 tokens.
     function sendToken(BridgeTransferOp calldata opt)
         external
         payable
@@ -190,13 +173,11 @@ contract ERC20Vault is
         });
     }
 
-    /**
-     * @notice Receive bridged ERC20 tokens and handle them accordingly.
-     * @param ctoken Canonical ERC20 data for the token being received.
-     * @param from Source address.
-     * @param to Destination address.
-     * @param amount Amount of tokens being received.
-     */
+    /// @notice Receives bridged ERC20 tokens and handle them accordingly.
+    /// @param ctoken Canonical ERC20 data for the token being received.
+    /// @param from Source address.
+    /// @param to Destination address.
+    /// @param amount Amount of tokens being received.
     function receiveToken(
         CanonicalERC20 calldata ctoken,
         address from,
@@ -233,13 +214,11 @@ contract ERC20Vault is
         });
     }
 
-    /**
-     * @notice Release deposited ERC20 tokens back to the user on the source
-     * ERC20Vault with a proof that the message processing on the destination
-     * Bridge has failed.
-     * @param message The message that corresponds to the ERC20 deposit on the
-     * source chain.
-     */
+    /// @notice Releases deposited ERC20 tokens back to the user on the source
+    /// ERC20Vault with a proof that the message processing on the destination
+    /// Bridge has failed.
+    /// @param message The message that corresponds to the ERC20 deposit on the
+    /// source chain.
     function onMessageRecalled(IBridge.Message calldata message)
         external
         payable
@@ -259,14 +238,11 @@ contract ERC20Vault is
         if (amount > 0) {
             if (isBridgedToken[token] || token == resolve("taiko_token", true))
             {
-                IMintableERC20(token).mint(message.user, amount);
+                IMintableERC20(token).burn(address(this), amount);
             } else {
                 ERC20Upgradeable(token).safeTransfer(message.user, amount);
             }
         }
-
-        // Send back Ether
-        message.user.sendEther(message.value);
 
         emit TokenReleased({
             msgHash: msgHash,
@@ -276,11 +252,9 @@ contract ERC20Vault is
         });
     }
 
-    /**
-     * @notice Check if the contract supports the given interface.
-     * @param interfaceId The interface identifier.
-     * @return true if the contract supports the interface, false otherwise.
-     */
+    /// @notice Checks if the contract supports the given interface.
+    /// @param interfaceId The interface identifier.
+    /// @return true if the contract supports the interface, false otherwise.
     function supportsInterface(bytes4 interfaceId)
         public
         view
@@ -386,4 +360,6 @@ contract ERC20Vault is
     }
 }
 
+/// @title ProxiedERC20Vault
+/// @notice Proxied version of the parent contract.
 contract ProxiedERC20Vault is Proxied, ERC20Vault { }

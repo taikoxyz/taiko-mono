@@ -14,46 +14,17 @@ import { AddressResolver } from "../../common/AddressResolver.sol";
 library LibVaultUtils {
     uint256 public constant MAX_TOKEN_PER_TXN = 10;
 
-    /**
-     * Thrown when the sender in a message context is invalid.
-     * This could happen if the sender isn't the expected token vault on the
-     * source chain.
-     */
     error VAULT_INVALID_FROM();
-
-    /**
-     * Thrown when token contract is 0 address.
-     */
     error VAULT_INVALID_TOKEN();
-
-    /**
-     * Thrown when the 'to' is an invalid address.
-     */
     error VAULT_INVALID_TO();
-
-    /**
-     * Thrown when the length of the tokenIds array and the amounts
-     * array differs.
-     */
     error VAULT_TOKEN_ARRAY_MISMATCH();
-
-    /**
-     * Thrown when more tokens are about to be bridged than allowed.
-     */
     error VAULT_MAX_TOKEN_PER_TXN_EXCEEDED();
-
-    /**
-     * Thrown when the amount in a transaction is invalid.
-     * This could happen if the amount is zero or exceeds the sender's balance.
-     */
     error VAULT_INVALID_AMOUNT();
 
-    /**
-     * @dev Deploys a contract (via proxy)
-     * @param implementation The new implementation address
-     * @param owner The owner of the proxy admin contract
-     * @param initializationData Data for the initialization
-     */
+    /// @dev Deploys a contract (via proxy)
+    /// @param implementation The new implementation address
+    /// @param owner The owner of the proxy admin contract
+    /// @param initializationData Data for the initialization
     function deployProxy(
         address implementation,
         address owner,
@@ -68,11 +39,9 @@ library LibVaultUtils {
         );
     }
 
-    /**
-     * @dev Checks if context is valid
-     * @param validSender The valid sender to be allowed
-     * @param resolver The address of the resolver
-     */
+    /// @dev Checks if context is valid
+    /// @param validSender The valid sender to be allowed
+    /// @param resolver The address of the resolver
     function checkValidContext(
         bytes32 validSender,
         address resolver
@@ -92,12 +61,10 @@ library LibVaultUtils {
         }
     }
 
-    /**
-     * @dev Checks if token is invalid and returns the message hash
-     * @param message The bridged message struct data
-     * @param bridgeAddress The bridge contract
-     * @param tokenAddress The token address to be checked
-     */
+    /// @dev Checks if token is invalid and returns the message hash
+    /// @param message The bridged message struct data
+    /// @param bridgeAddress The bridge contract
+    /// @param tokenAddress The token address to be checked
     function hashAndCheckToken(
         IBridge.Message calldata message,
         address bridgeAddress,

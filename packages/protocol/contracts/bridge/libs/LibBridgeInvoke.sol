@@ -10,30 +10,26 @@ import { IBridge } from "../IBridge.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibBridgeData } from "./LibBridgeData.sol";
 
-/**
- * @title LibBridgeInvoke Library
- * @notice This library provides functions for handling the invocation of call
- * messages on the Bridge.
- * The library facilitates the interaction with messages sent across the bridge,
- * allowing for call execution and state updates.
- */
+/// @title LibBridgeInvoke
+/// @notice This library provides functions for handling the invocation of call
+/// messages on the Bridge.
+/// The library facilitates the interaction with messages sent across the
+/// bridge, allowing for call execution and state updates.
 library LibBridgeInvoke {
     using LibAddress for address;
     using LibBridgeData for IBridge.Message;
 
     error B_GAS_LIMIT();
 
-    /**
-     * @notice Invokes a call message on the Bridge.
-     * @param state The current state of the Bridge.
-     * @param message The call message to be invoked.
-     * @param msgHash The hash of the message.
-     * @param gasLimit The gas limit for the message call.
-     * @return success A boolean value indicating whether the message call was
-     * successful.
-     * @dev This function updates the context in the state before and after the
-     * message call.
-     */
+    /// @notice Invokes a call message on the Bridge.
+    /// @param state The current state of the Bridge.
+    /// @param message The call message to be invoked.
+    /// @param msgHash The hash of the message.
+    /// @param gasLimit The gas limit for the message call.
+    /// @return success A boolean value indicating whether the message call was
+    /// successful.
+    /// @dev This function updates the context in the state before and after the
+    /// message call.
     function invokeMessageCall(
         LibBridgeData.State storage state,
         IBridge.Message calldata message,
