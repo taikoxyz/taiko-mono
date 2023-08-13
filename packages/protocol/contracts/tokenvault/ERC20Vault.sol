@@ -160,7 +160,7 @@ contract ERC20Vault is
         uint256 _amount;
         IBridge.Message memory message;
 
-        (message.data, _amount) = _sendToken({
+        (message.data, _amount) = _encodeDestinationCall({
             user: message.user,
             token: opt.token,
             amount: opt.amount,
@@ -294,7 +294,7 @@ contract ERC20Vault is
         return interfaceId == type(IRecallableMessageSender).interfaceId;
     }
 
-    function _sendToken(
+    function _encodeDestinationCall(
         address user,
         address token,
         address to,

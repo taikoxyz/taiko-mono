@@ -62,7 +62,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
 
         IBridge.Message memory message;
         message.destChainId = opt.destChainId;
-        message.data = _sendToken(msg.sender, opt);
+        message.data = _encodeDestinationCall(msg.sender, opt);
         message.user = msg.sender;
         message.to = resolve(message.destChainId, "erc721_vault", false);
         message.gasLimit = opt.gasLimit;
@@ -235,7 +235,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
      * @param opt BridgeTransferOp data.
      * @return msgData Encoded message data.
      */
-    function _sendToken(
+    function _encodeDestinationCall(
         address user,
         BridgeTransferOp calldata opt
     )
