@@ -20,7 +20,6 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
 
     uint256[48] private __gap;
 
-    // Errors that can be thrown by the contract.
     error BRIDGED_TOKEN_CANNOT_RECEIVE();
     error BRIDGED_TOKEN_INVALID_PARAMS();
     error BRIDGED_TOKEN_INVALID_BURN();

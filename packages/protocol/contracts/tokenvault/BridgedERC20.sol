@@ -32,7 +32,6 @@ contract BridgedERC20 is
 
     uint256[47] private __gap;
 
-    // Custom error messages
     error BRIDGED_TOKEN_CANNOT_RECEIVE();
     error BRIDGED_TOKEN_INVALID_PARAMS();
 

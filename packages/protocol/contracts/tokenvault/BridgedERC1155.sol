@@ -39,7 +39,6 @@ contract BridgedERC1155 is
         uint256 amount
     );
 
-    // Errors that can be thrown by the contract.
     error BRIDGED_TOKEN_CANNOT_RECEIVE();
     error BRIDGED_TOKEN_INVALID_PARAMS();
 

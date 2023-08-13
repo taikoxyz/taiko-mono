@@ -100,7 +100,6 @@ contract ERC20Vault is
         uint256 amount
     );
 
-    // Error messages
     error VAULT_INVALID_TO();
     error VAULT_INVALID_TOKEN();
     error VAULT_INVALID_AMOUNT();
