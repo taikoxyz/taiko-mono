@@ -12,10 +12,8 @@ import { ERC721Upgradeable } from
 import { Proxied } from "../common/Proxied.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
-/**
- * @title BridgedERC721
- * @notice Contract for bridging ERC721 tokens across different chains.
- */
+/// @title BridgedERC721
+/// @notice Contract for bridging ERC721 tokens across different chains.
 contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     address public srcToken; // Address of the source token contract.
     uint256 public srcChainId; // Source chain ID where the token originates.
@@ -27,14 +25,12 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     error BRIDGED_TOKEN_INVALID_PARAMS();
     error BRIDGED_TOKEN_INVALID_BURN();
 
-    /**
-     * @dev Initializer function to be called after deployment.
-     * @param _addressManager The address of the address manager.
-     * @param _srcToken Address of the source token.
-     * @param _srcChainId Source chain ID.
-     * @param _symbol Symbol of the bridged token.
-     * @param _name Name of the bridged token.
-     */
+    /// @dev Initializer function to be called after deployment.
+    /// @param _addressManager The address of the address manager.
+    /// @param _srcToken Address of the source token.
+    /// @param _srcChainId Source chain ID.
+    /// @param _symbol Symbol of the bridged token.
+    /// @param _name Name of the bridged token.
     function init(
         address _addressManager,
         address _srcToken,
@@ -58,11 +54,9 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         srcChainId = _srcChainId;
     }
 
-    /**
-     * @dev Mint tokens.
-     * @param account Address to receive the minted token.
-     * @param tokenId ID of the token to mint.
-     */
+    /// @dev Mints tokens.
+    /// @param account Address to receive the minted token.
+    /// @param tokenId ID of the token to mint.
     function mint(
         address account,
         uint256 tokenId
@@ -74,11 +68,9 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         emit Transfer(address(0), account, tokenId);
     }
 
-    /**
-     * @dev Burn tokens.
-     * @param account Address from which the token is burned.
-     * @param tokenId ID of the token to burn.
-     */
+    /// @dev Burns tokens.
+    /// @param account Address from which the token is burned.
+    /// @param tokenId ID of the token to burn.
     function burn(
         address account,
         uint256 tokenId
@@ -95,12 +87,10 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         emit Transfer(account, address(0), tokenId);
     }
 
-    /**
-     * @dev Safely transfers tokens from one address to another.
-     * @param from Address from which the token is transferred.
-     * @param to Address to which the token is transferred.
-     * @param tokenId ID of the token to transfer.
-     */
+    /// @dev Safely transfers tokens from one address to another.
+    /// @param from Address from which the token is transferred.
+    /// @param to Address to which the token is transferred.
+    /// @param tokenId ID of the token to transfer.
     function transferFrom(
         address from,
         address to,
@@ -115,10 +105,8 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         return ERC721Upgradeable.transferFrom(from, to, tokenId);
     }
 
-    /**
-     * @notice Get the concatenated name of the bridged token.
-     * @return The concatenated name.
-     */
+    /// @notice Gets the concatenated name of the bridged token.
+    /// @return The concatenated name.
     function name()
         public
         view
@@ -130,19 +118,15 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
         );
     }
 
-    /**
-     * @notice Get the source token and source chain ID being bridged.
-     * @return Source token address and source chain ID.
-     */
+    /// @notice Gets the source token and source chain ID being bridged.
+    /// @return Source token address and source chain ID.
     function source() public view returns (address, uint256) {
         return (srcToken, srcChainId);
     }
 
-    /**
-     * @notice Returns an empty token URI.
-     * @param tokenId ID of the token.
-     * @return An empty string.
-     */
+    /// @notice Returns an empty token URI.
+    /// @param tokenId ID of the token.
+    /// @return An empty string.
     function tokenURI(uint256 tokenId)
         public
         pure
@@ -154,5 +138,6 @@ contract BridgedERC721 is EssentialContract, ERC721Upgradeable {
     }
 }
 
-// Contract for deploying BridgedERC721 behind a proxy.
+/// @title ProxiedBridgedERC721
+/// @notice Proxied version of the parent contract.
 contract ProxiedBridgedERC721 is Proxied, BridgedERC721 { }

@@ -17,11 +17,9 @@ import { EssentialContract } from "../common/EssentialContract.sol";
 import { Proxied } from "../common/Proxied.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
-/**
- * @title BridgedERC20
- * @notice An upgradeable ERC20 contract that represents tokens bridged from
- * another chain.
- */
+/// @title BridgedERC20
+/// @notice An upgradeable ERC20 contract that represents tokens bridged from
+/// another chain.
 contract BridgedERC20 is
     EssentialContract,
     IMintableERC20,
@@ -38,17 +36,15 @@ contract BridgedERC20 is
     error BRIDGED_TOKEN_CANNOT_RECEIVE();
     error BRIDGED_TOKEN_INVALID_PARAMS();
 
-    /**
-     * @notice Initializes the contract.
-     * @dev Different BridgedERC20 Contract is deployed per unique _srcToken
-     * (e.g., one for USDC, one for USDT, etc.).
-     * @param _addressManager The address manager.
-     * @param _srcToken The source token address.
-     * @param _srcChainId The source chain ID.
-     * @param _decimals The number of decimal places of the source token.
-     * @param _symbol The symbol of the token.
-     * @param _name The name of the token.
-     */
+    /// @notice Initializes the contract.
+    /// @dev Different BridgedERC20 Contract is deployed per unique _srcToken
+    /// (e.g., one for USDC, one for USDT, etc.).
+    /// @param _addressManager The address manager.
+    /// @param _srcToken The source token address.
+    /// @param _srcChainId The source chain ID.
+    /// @param _decimals The number of decimal places of the source token.
+    /// @param _symbol The symbol of the token.
+    /// @param _name The name of the token.
     function init(
         address _addressManager,
         address _srcToken,
@@ -79,12 +75,10 @@ contract BridgedERC20 is
         srcDecimals = _decimals;
     }
 
-    /**
-     * @notice Mints tokens to an account.
-     * @dev Only an ERC20Vault can call this function.
-     * @param account The account to mint tokens to.
-     * @param amount The amount of tokens to mint.
-     */
+    /// @notice Mints tokens to an account.
+    /// @dev Only an ERC20Vault can call this function.
+    /// @param account The account to mint tokens to.
+    /// @param amount The amount of tokens to mint.
     function mint(
         address account,
         uint256 amount
@@ -96,12 +90,10 @@ contract BridgedERC20 is
         emit Transfer(address(0), account, amount);
     }
 
-    /**
-     * @notice Burns tokens from an account.
-     * @dev Only an ERC20Vault can call this function.
-     * @param account The account to burn tokens from.
-     * @param amount The amount of tokens to burn.
-     */
+    /// @notice Burns tokens from an account.
+    /// @dev Only an ERC20Vault can call this function.
+    /// @param account The account to burn tokens from.
+    /// @param amount The amount of tokens to burn.
     function burn(
         address account,
         uint256 amount
@@ -113,13 +105,11 @@ contract BridgedERC20 is
         emit Transfer(account, address(0), amount);
     }
 
-    /**
-     * @notice Transfers tokens from the caller to another account.
-     * @dev Any address can call this. Caller must have at least 'amount' to
-     * call this.
-     * @param to The account to transfer tokens to.
-     * @param amount The amount of tokens to transfer.
-     */
+    /// @notice Transfers tokens from the caller to another account.
+    /// @dev Any address can call this. Caller must have at least 'amount' to
+    /// call this.
+    /// @param to The account to transfer tokens to.
+    /// @param amount The amount of tokens to transfer.
     function transfer(
         address to,
         uint256 amount
@@ -134,14 +124,12 @@ contract BridgedERC20 is
         return ERC20Upgradeable.transfer(to, amount);
     }
 
-    /**
-     * @notice Transfers tokens from one account to another account.
-     * @dev Any address can call this. Caller must have allowance of at least
-     * 'amount' for 'from's tokens.
-     * @param from The account to transfer tokens from.
-     * @param to The account to transfer tokens to.
-     * @param amount The amount of tokens to transfer.
-     */
+    /// @notice Transfers tokens from one account to another account.
+    /// @dev Any address can call this. Caller must have allowance of at least
+    /// 'amount' for 'from's tokens.
+    /// @param from The account to transfer tokens from.
+    /// @param to The account to transfer tokens to.
+    /// @param amount The amount of tokens to transfer.
     function transferFrom(
         address from,
         address to,
@@ -157,10 +145,8 @@ contract BridgedERC20 is
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }
 
-    /**
-     * @notice Gets the name of the token.
-     * @return The name of the token with the source chain ID appended.
-     */
+    /// @notice Gets the name of the token.
+    /// @return The name of the token with the source chain ID appended.
     function name()
         public
         view
@@ -172,10 +158,8 @@ contract BridgedERC20 is
         );
     }
 
-    /**
-     * @notice Gets the number of decimal places of the token.
-     * @return The number of decimal places of the token.
-     */
+    /// @notice Gets the number of decimal places of the token.
+    /// @return The number of decimal places of the token.
     function decimals()
         public
         view
@@ -185,17 +169,13 @@ contract BridgedERC20 is
         return srcDecimals;
     }
 
-    /**
-     * @notice Gets the canonical token's address and chain ID.
-     * @return The canonical token's address and chain ID.
-     */
+    /// @notice Gets the canonical token's address and chain ID.
+    /// @return The canonical token's address and chain ID.
     function canonical() public view returns (address, uint256) {
         return (srcToken, srcChainId);
     }
 }
 
-/**
- * @title ProxiedBridgedERC20
- * @dev Contract that extends Proxied and BridgedERC20.
- */
+/// @title ProxiedBridgedERC20
+/// @notice Proxied version of the parent contract.
 contract ProxiedBridgedERC20 is Proxied, BridgedERC20 { }

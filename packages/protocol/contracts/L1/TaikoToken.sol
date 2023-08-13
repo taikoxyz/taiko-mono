@@ -46,10 +46,6 @@ contract TaikoToken is
     error TKO_INVALID_PREMINT_PARAMS();
     error TKO_MINT_DISALLOWED();
 
-    /*//////////////////////////////////////////////////////////////
-                         USER-FACING FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-
     /// @notice Initializes the TaikoToken contract and mints initial tokens to
     /// specified recipients.
     /// @param _addressManager The {AddressManager} address.
@@ -162,10 +158,6 @@ contract TaikoToken is
     function decimals() public pure override returns (uint8) {
         return LibTaikoTokenConfig.DECIMALS;
     }
-
-    /*//////////////////////////////////////////////////////////////
-                           INTERNAL FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
 
     function _beforeTokenTransfer(
         address from,

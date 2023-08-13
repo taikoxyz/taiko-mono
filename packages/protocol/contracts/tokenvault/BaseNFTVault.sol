@@ -18,33 +18,44 @@ import { IERC165 } from
 import { Proxied } from "../common/Proxied.sol";
 import { IRecallableMessageSender, IBridge } from "../bridge/IBridge.sol";
 
-/**
- * @title BaseNFTVault
- * @notice Abstract contract for bridging NFTs across different chains.
- */
+/// @title BaseNFTVault
+/// @notice Abstract contract for bridging NFTs across different chains.
 abstract contract BaseNFTVault is
     EssentialContract,
     IRecallableMessageSender
 {
     // Struct representing the canonical NFT on another chain.
     struct CanonicalNFT {
-        uint256 chainId; // Chain ID of the NFT.
-        address addr; // Address of the NFT contract.
-        string symbol; // Symbol of the NFT.
-        string name; // Name of the NFT.
+        // Chain ID of the NFT.
+        uint256 chainId;
+        // Address of the NFT contract.
+        address addr;
+        // Symbol of the NFT.
+        string symbol;
+        // Name of the NFT.
+        string name;
     }
 
     // Struct representing the details of a bridged token transfer operation.
     struct BridgeTransferOp {
-        uint256 destChainId; // Destination chain ID.
-        address to; // Recipient address.
-        address token; // Address of the token.
-        uint256[] tokenIds; // IDs of the tokens to transfer.
-        uint256[] amounts; // Amounts of tokens to transfer.
-        uint256 gasLimit; // Gas limit for the operation.
-        uint256 fee; // Processing fee for the relayer.
-        address refundTo; // Address for refund, if needed.
-        string memo; // Optional memo.
+        // Destination chain ID.
+        uint256 destChainId;
+        // Recipient address.
+        address to;
+        // Address of the token.
+        address token;
+        // IDs of the tokens to transfer.
+        uint256[] tokenIds;
+        // Amounts of tokens to transfer.
+        uint256[] amounts;
+        // Gas limit for the operation.
+        uint256 gasLimit;
+        // Processing fee for the relayer.
+        uint256 fee;
+        // Address for refund, if needed.
+        address refundTo;
+        // Optional memo.
+        string memo;
     }
 
     // Constants for interface IDs.
@@ -52,14 +63,13 @@ abstract contract BaseNFTVault is
     bytes4 public constant ERC721_INTERFACE_ID = 0x80ac58cd;
 
     // Mapping to track bridged tokens.
-    mapping(address tokenAddress => bool isBridged) public isBridgedToken;
+    mapping(address => bool) public isBridgedToken;
 
     // Mapping to store bridged NFTs and their canonical counterparts.
-    mapping(address btoken => CanonicalNFT ctoken) public bridgedToCanonical;
+    mapping(address => CanonicalNFT) public bridgedToCanonical;
 
     // Mapping to store canonical NFTs and their bridged counterparts.
-    mapping(uint256 chainId => mapping(address ctokenAddress => address btoken))
-        public canonicalToBridged;
+    mapping(uint256 => mapping(address => address)) public canonicalToBridged;
 
     uint256[47] private __gap;
 
@@ -99,7 +109,6 @@ abstract contract BaseNFTVault is
         uint256[] amounts
     );
 
-    // Errors that can be thrown by the contract.
     error VAULT_INVALID_TO();
     error VAULT_INVALID_TOKEN();
     error VAULT_INVALID_AMOUNT();
@@ -112,10 +121,8 @@ abstract contract BaseNFTVault is
     error VAULT_TOKEN_ARRAY_MISMATCH();
     error VAULT_MAX_TOKEN_PER_TXN_EXCEEDED();
 
-    /**
-     * @notice Initialize the contract with an address manager.
-     * @param addressManager The address of the address manager.
-     */
+    /// @notice Initializes the contract with an address manager.
+    /// @param addressManager The address of the address manager.
     function init(address addressManager) external initializer {
         EssentialContract._init(addressManager);
     }

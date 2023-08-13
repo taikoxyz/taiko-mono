@@ -6,13 +6,9 @@
 
 pragma solidity ^0.8.20;
 
-/**
- * @title BridgeErrors
- * @dev This abstract contract defines custom errors that are used throughout
- * the Bridge contract.
- * These errors provide meaningful information about various exceptional
- * conditions that can occur during contract execution.
- */
+/// @title BridgeErrors
+/// @dev This abstract contract defines custom errors that are used throughout
+/// the Bridge contract.
 abstract contract BridgeErrors {
     error B_DENIED();
     error B_ERC20_CANNOT_RECEIVE();

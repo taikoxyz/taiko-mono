@@ -234,5 +234,5 @@ contract Bridge is EssentialContract, IBridge, BridgeErrors {
 }
 
 /// @title ProxiedBridge
-/// @notice Proxied version of the Bridge contract.
+/// @notice Proxied version of the parent contract.
 contract ProxiedBridge is Proxied, Bridge { }

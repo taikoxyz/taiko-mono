@@ -83,12 +83,7 @@ contract ProverPool is EssentialContract, IProverPool {
         EssentialContract._init(_addressManager);
     }
 
-    /// @notice Protocol specifies the current feePerGas and assigns a prover to
-    /// a block.
-    /// @param blockId The block id.
-    /// @param feePerGas The current fee per gas.
-    /// @return prover The address of the assigned prover.
-    /// @return rewardPerGas The reward per gas for the assigned prover.
+    /// @inheritdoc IProverPool
     function assignProver(
         uint64 blockId,
         uint32 feePerGas
@@ -116,8 +111,7 @@ contract ProverPool is EssentialContract, IProverPool {
         }
     }
 
-    /// @notice Increases the capacity of the prover by releasing a prover.
-    /// @param addr The address of the prover to release.
+    /// @inheritdoc IProverPool
     function releaseProver(address addr) external onlyFromProtocol {
         (Staker memory staker, Prover memory prover) = getStaker(addr);
 
@@ -129,10 +123,7 @@ contract ProverPool is EssentialContract, IProverPool {
         }
     }
 
-    /// @notice Slashes a prover.
-    /// @param addr The address of the prover to slash.
-    /// @param blockId The block id of the block which was not proved in time.
-    /// @param proofReward The reward that was set for the block's proof.
+    /// @inheritdoc IProverPool
     function slashProver(
         uint64 blockId,
         address addr,
@@ -473,5 +464,5 @@ contract ProverPool is EssentialContract, IProverPool {
 }
 
 /// @title ProxiedProverPool
-/// @notice Proxied version of the ProverPool contract.
+/// @notice Proxied version of the parent contract.
 contract ProxiedProverPool is Proxied, ProverPool { }

@@ -33,10 +33,6 @@ pragma solidity ^0.8.20;
  * @author Bakaoh (with modifications)
  */
 library LibRLPWriter {
-    /*//////////////////////////////////////////////////////////////
-                           INTERNAL FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-
     /**
      * RLP encodes a byte string.
      * @param _in The byte string to encode.
