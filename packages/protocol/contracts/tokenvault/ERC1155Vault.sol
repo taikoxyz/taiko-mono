@@ -83,6 +83,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         message.user = msg.sender;
         message.to = resolve(message.destChainId, "erc1155_vault", false);
         message.gasLimit = opt.gasLimit;
+        message.value = msg.value - opt.fee;
         message.fee = opt.fee;
         message.refundTo = opt.refundTo;
         message.memo = opt.memo;
@@ -123,6 +124,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         uint256[] memory amounts
     )
         external
+        payable
         nonReentrant
         onlyFromNamed("bridge")
     {
@@ -155,7 +157,8 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             }
         }
 
-        // Emit TokenReceived event
+        to.sendEther(msg.value);
+
         emit TokenReceived({
             msgHash: ctx.msgHash,
             from: from,

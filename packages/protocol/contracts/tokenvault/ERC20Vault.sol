@@ -171,10 +171,10 @@ contract ERC20Vault is
         message.user = msg.sender;
         message.to = resolve(opt.destChainId, "erc20_vault", false);
         message.gasLimit = opt.gasLimit;
+        message.value = msg.value - opt.fee;
         message.fee = opt.fee;
         message.refundTo = opt.refundTo;
         message.memo = opt.memo;
-        message.value = msg.value - opt.fee;
 
         bytes32 msgHash = IBridge(resolve("bridge", false)).sendMessage{
             value: msg.value
@@ -191,7 +191,7 @@ contract ERC20Vault is
     }
 
     /**
-     * @notice Receive bridged ERC20 tokens and handle them accordingly.
+     * @notice Receive bridged ERC20 tokens and Ether.
      * @param ctoken Canonical ERC20 data for the token being received.
      * @param from Source address.
      * @param to Destination address.
@@ -204,6 +204,7 @@ contract ERC20Vault is
         uint256 amount
     )
         external
+        payable
         nonReentrant
         onlyFromNamed("bridge")
     {
@@ -222,6 +223,8 @@ contract ERC20Vault is
             token = _getOrDeployBridgedToken(ctoken);
             IMintableERC20(token).mint(to, amount);
         }
+
+        to.sendEther(msg.value);
 
         emit TokenReceived({
             msgHash: ctx.msgHash,

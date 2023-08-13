@@ -66,6 +66,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
         message.user = msg.sender;
         message.to = resolve(message.destChainId, "erc721_vault", false);
         message.gasLimit = opt.gasLimit;
+        message.value = msg.value - opt.fee;
         message.fee = opt.fee;
         message.refundTo = opt.refundTo;
         message.memo = opt.memo;
@@ -99,6 +100,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
         uint256[] memory tokenIds
     )
         external
+        payable
         nonReentrant
         onlyFromNamed("bridge")
     {
@@ -123,6 +125,8 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
                 }
             }
         }
+
+        to.sendEther(msg.value);
 
         emit TokenReceived({
             msgHash: ctx.msgHash,
