@@ -148,6 +148,15 @@ const ecosystemData: EcosystemData[] = [
     isLive: true,
   },
   {
+    icon: "/images/ecosystem/omnikingdoms.png",
+    name: "OmniKingdoms",
+    link: "https://omnikingdoms.io",
+    description:
+      "MMORPG focused on state transitions and asset evolution. Train and level up in order to quest, craft and battle!",
+    filters: [],
+    isLive: true,
+  },
+  {
     icon: "/images/ecosystem/orally.png",
     name: "Orally",
     link: "https://orally.network",
