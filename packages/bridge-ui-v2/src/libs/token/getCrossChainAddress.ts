@@ -17,7 +17,6 @@ export async function getCrossChainAddress({
   srcChainId,
   destChainId,
 }: GetCrossChainAddressArgs): Promise<Address | null> {
-
   if (token.type === TokenType.ETH) return null; // ETH doesn't have an address
 
   let crossChainAddress: Address;
@@ -36,17 +35,23 @@ export async function getCrossChainAddress({
     address: srcChainTokenVaultAddress,
   });
 
-  // first we need to get the canonical address of the token 
+  // first we need to get the canonical address of the token
   const canonicalTokenInfo = await srcTokenVaultContract.read.bridgedToCanonical([srcChainTokenAddress]);
   const canonicalTokenAddress = canonicalTokenInfo[1]; // this will break if the contracts ever change the order of the return values
 
   // if the canonical address is 0x0, then the token is canonical
   if (canonicalTokenAddress === zeroAddress) {
     // let's check if it is bridged on the destination chain
-    crossChainAddress = await srcTokenVaultContract.read.canonicalToBridged([BigInt(destChainId), srcChainTokenAddress])
+    crossChainAddress = await srcTokenVaultContract.read.canonicalToBridged([
+      BigInt(destChainId),
+      srcChainTokenAddress,
+    ]);
   } else {
     // if we have a canonical, we get the bridged address on the destination chain by using this instead
-    crossChainAddress = await srcTokenVaultContract.read.canonicalToBridged([BigInt(destChainId), canonicalTokenAddress])
+    crossChainAddress = await srcTokenVaultContract.read.canonicalToBridged([
+      BigInt(destChainId),
+      canonicalTokenAddress,
+    ]);
   }
 
   return crossChainAddress;

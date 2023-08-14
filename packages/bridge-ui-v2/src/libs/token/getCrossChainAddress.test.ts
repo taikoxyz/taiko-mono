@@ -19,12 +19,12 @@ const MockToken: Token = {
   name: 'MockToken',
   addresses: {
     1: '0x123456',
-    2: '0x654321'
+    2: '0x654321',
   },
   symbol: 'MOCK',
   decimals: 18,
   type: TokenType.ERC20,
-}
+};
 
 const mockTokenVaultContract = {
   read: {
@@ -37,18 +37,16 @@ const mockTokenVaultContract = {
 vi.mock('$libs/chain', () => ({
   chainContractsMap: {
     1: {
-      tokenVaultAddress: '0x00001'
+      tokenVaultAddress: '0x00001',
     },
     2: {
-      tokenVaultAddress: '0x00002'
-    }
+      tokenVaultAddress: '0x00002',
+    },
     // ... other properties and methods
-  }
+  },
 }));
 
-
 describe('getCrossChainAddress', () => {
-
   const srcChainId = 1;
   const destChainId = 2;
 
@@ -68,7 +66,10 @@ describe('getCrossChainAddress', () => {
 
   it('should return the bridged address of the token on the destination chain', async () => {
     // Given
-    vi.mocked(mockTokenVaultContract.read.bridgedToCanonical).mockResolvedValue([destChainId, MockToken.addresses[destChainId]]);
+    vi.mocked(mockTokenVaultContract.read.bridgedToCanonical).mockResolvedValue([
+      destChainId,
+      MockToken.addresses[destChainId],
+    ]);
     vi.mocked(mockTokenVaultContract.read.canonicalToBridged).mockResolvedValue(MockToken.addresses[destChainId]);
 
     // When
@@ -81,7 +82,10 @@ describe('getCrossChainAddress', () => {
     // Then
     expect(result).toEqual(MockToken.addresses[destChainId]);
     expect(mockTokenVaultContract.read.bridgedToCanonical).toHaveBeenCalledWith([MockToken.addresses[srcChainId]]);
-    expect(mockTokenVaultContract.read.canonicalToBridged).toHaveBeenCalledWith([BigInt(destChainId), MockToken.addresses[destChainId]]);
+    expect(mockTokenVaultContract.read.canonicalToBridged).toHaveBeenCalledWith([
+      BigInt(destChainId),
+      MockToken.addresses[destChainId],
+    ]);
   });
 
   it('should return 0x0 if the token is not bridged on the destination chain', async () => {
@@ -99,12 +103,18 @@ describe('getCrossChainAddress', () => {
     // Then
     expect(result).toEqual(zeroAddress);
     expect(mockTokenVaultContract.read.bridgedToCanonical).toHaveBeenCalledWith([MockToken.addresses[srcChainId]]);
-    expect(mockTokenVaultContract.read.canonicalToBridged).toHaveBeenCalledWith([BigInt(destChainId), MockToken.addresses[srcChainId]]);
+    expect(mockTokenVaultContract.read.canonicalToBridged).toHaveBeenCalledWith([
+      BigInt(destChainId),
+      MockToken.addresses[srcChainId],
+    ]);
   });
 
   it('should return 0x0 if the token itself is bridged, but not to the destination chain', async () => {
     // Given
-    vi.mocked(mockTokenVaultContract.read.bridgedToCanonical).mockResolvedValue([destChainId, MockToken.addresses[srcChainId]]);
+    vi.mocked(mockTokenVaultContract.read.bridgedToCanonical).mockResolvedValue([
+      destChainId,
+      MockToken.addresses[srcChainId],
+    ]);
     vi.mocked(mockTokenVaultContract.read.canonicalToBridged).mockResolvedValue(zeroAddress);
 
     // When
@@ -117,7 +127,9 @@ describe('getCrossChainAddress', () => {
     // Then
     expect(result).toEqual(zeroAddress);
     expect(mockTokenVaultContract.read.bridgedToCanonical).toHaveBeenCalledWith([MockToken.addresses[srcChainId]]);
-    expect(mockTokenVaultContract.read.canonicalToBridged).toHaveBeenCalledWith([BigInt(destChainId), MockToken.addresses[srcChainId]]);
+    expect(mockTokenVaultContract.read.canonicalToBridged).toHaveBeenCalledWith([
+      BigInt(destChainId),
+      MockToken.addresses[srcChainId],
+    ]);
   });
-
 });
