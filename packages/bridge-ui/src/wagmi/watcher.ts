@@ -24,6 +24,8 @@ const setChain = (chainId: number) => {
 
     log(`Network switched to ${L2Chain.name}`);
   } else {
+    srcChain.set(null);
+    destChain.set(null);
     isSwitchChainModalOpen.set(true);
   }
 };
