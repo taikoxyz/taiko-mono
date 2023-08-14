@@ -58,10 +58,11 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
 
         IBridge.Message memory message;
         message.destChainId = opt.destChainId;
-        message.data = _sendToken(msg.sender, opt);
+        message.data = _encodeDestinationCall(msg.sender, opt);
         message.user = msg.sender;
         message.to = resolve(message.destChainId, "erc721_vault", false);
         message.gasLimit = opt.gasLimit;
+        message.value = msg.value - opt.fee;
         message.fee = opt.fee;
         message.refundTo = opt.refundTo;
         message.memo = opt.memo;
@@ -93,6 +94,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
         uint256[] memory tokenIds
     )
         external
+        payable
         nonReentrant
         onlyFromNamed("bridge")
     {
@@ -117,6 +119,8 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
                 }
             }
         }
+
+        to.sendEther(msg.value);
 
         emit TokenReceived({
             msgHash: ctx.msgHash,
@@ -214,11 +218,11 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
         return interfaceId == type(IRecallableMessageSender).interfaceId;
     }
 
-    /// @dev Send bridged or canonical ERC721 tokens to the user.
+    /// @dev Encodes sending bridged or canonical ERC721 tokens to the user.
     /// @param user The user's address.
     /// @param opt BridgeTransferOp data.
     /// @return msgData Encoded message data.
-    function _sendToken(
+    function _encodeDestinationCall(
         address user,
         BridgeTransferOp calldata opt
     )
