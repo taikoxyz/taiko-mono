@@ -99,7 +99,8 @@ contract PrankDestBridge {
         uint256[] memory tokenIds,
         bytes32 msgHash,
         address srcChainerc721Vault,
-        uint256 chainId
+        uint256 chainId,
+        uint256 mockLibInvokeMsgValue
     )
         public
     {
@@ -107,7 +108,12 @@ contract PrankDestBridge {
         ctx.msgHash = msgHash;
         ctx.chainId = chainId;
 
-        destERC721Vault.receiveToken(canonicalToken, from, to, tokenIds);
+        // We need this in order to 'mock' the LibBridgeInvoke's
+        //  (success,retVal) =
+        //     message.to.call{ value: message.value, gas: gasLimit }(message.data);
+        // The problem (with foundry) is that this way it is not able to deploy a contract
+        // most probably due to some deployment address nonce issue. (Seems a known issue).
+        destERC721Vault.receiveToken{value: mockLibInvokeMsgValue}(canonicalToken, from, to, tokenIds);
 
         ctx.sender = address(0);
         ctx.msgHash = bytes32(0);
@@ -190,6 +196,8 @@ contract ERC721VaultTest is Test {
     address public constant Bob = 0x50081b12838240B1bA02b3177153Bca678a86078;
     //Need +1 bc. and Amelia is the proxied bridge contracts owner
     address public constant Amelia = 0x60081B12838240B1BA02b3177153BCa678A86080;
+    // Dave has nothing so that we can check if he gets the ether (and NFTs)
+    address public constant Dave = 0x70081B12838240b1ba02B3177153bcA678a86090;
 
     function setUp() public {
         vm.startPrank(Amelia);
@@ -218,6 +226,8 @@ contract ERC721VaultTest is Test {
         destChainErc721Vault.init(address(addressManager));
 
         destChainIdBridge = new PrankDestBridge(destChainErc721Vault);
+        vm.deal(address(destChainIdBridge), 100 ether);
+
         srcPrankBridge = new PrankSrcBridge();
         srcPrankBridge.init(address(addressManager));
 
@@ -439,7 +449,8 @@ contract ERC721VaultTest is Test {
             tokenIds,
             bytes32(0),
             address(erc721Vault),
-            chainId
+            chainId,
+            0
         );
 
         // Query canonicalToBridged
@@ -505,7 +516,8 @@ contract ERC721VaultTest is Test {
             tokenIds,
             bytes32(0),
             address(erc721Vault),
-            chainId
+            chainId,
+            0
         );
 
         // Query canonicalToBridged
@@ -548,7 +560,8 @@ contract ERC721VaultTest is Test {
             tokenIds,
             bytes32(0),
             address(erc721Vault),
-            chainId
+            chainId,
+            0
         );
 
         // Query canonicalToBridged
@@ -557,6 +570,72 @@ contract ERC721VaultTest is Test {
         );
 
         assertEq(bridgedContract, deployedContract);
+    }
+
+
+    function test_receiveTokens_erc721_with_ether_to_dave(
+    )
+        public
+    {
+        vm.prank(Alice, Alice);
+        canonicalToken721.approve(address(erc721Vault), 1);
+
+        assertEq(canonicalToken721.ownerOf(1), Alice);
+
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 0;
+
+        uint256 etherValue = 0.1 ether;
+        BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
+            .BridgeTransferOp(
+            destChainId,
+            Dave,
+            address(canonicalToken721),
+            tokenIds,
+            amounts,
+            140_000,
+            140_000,
+            Alice,
+            ""
+        );
+        vm.prank(Alice, Alice);
+        erc721Vault.sendToken{ value: etherValue }(sendOpts);
+
+        assertEq(canonicalToken721.ownerOf(1), address(erc721Vault));
+
+        BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault
+            .CanonicalNFT({
+            chainId: 31_337,
+            addr: address(canonicalToken721),
+            symbol: "TT",
+            name: "TT"
+        });
+
+        uint256 chainId = block.chainid;
+        vm.chainId(destChainId);
+
+        destChainIdBridge.sendReceiveERC721ToERC721Vault(
+            canonicalToken,
+            Alice,
+            Dave,
+            tokenIds,
+            bytes32(0),
+            address(erc721Vault),
+            chainId,
+            etherValue
+        );
+
+        // Query canonicalToBridged
+        address deployedContract = destChainErc721Vault.canonicalToBridged(
+            chainId, address(canonicalToken721)
+        );
+
+        // Alice bridged over tokenId 1 and etherValue to Dave
+        assertEq(ERC721(deployedContract).ownerOf(1), Dave);
+        assertEq(etherValue, Dave.balance);
     }
 
     function test_onMessageRecalled_721() public {
@@ -673,7 +752,8 @@ contract ERC721VaultTest is Test {
             tokenIds,
             bytes32(0),
             address(erc721Vault),
-            srcChainId
+            srcChainId,
+            0
         );
 
         // Query canonicalToBridged
@@ -738,7 +818,8 @@ contract ERC721VaultTest is Test {
             tokenIds,
             bytes32(0),
             address(erc721Vault),
-            chainId
+            chainId,
+            0
         );
 
         // Query canonicalToBridged
@@ -792,7 +873,8 @@ contract ERC721VaultTest is Test {
             tokenIds,
             bytes32(0),
             address(erc721Vault),
-            chainId
+            chainId,
+            0
         );
 
         assertEq(canonicalToken721.ownerOf(1), Bob);
@@ -853,7 +935,8 @@ contract ERC721VaultTest is Test {
             tokenIds,
             bytes32(0),
             address(erc721Vault),
-            chainId
+            chainId,
+            0
         );
 
         // Query canonicalToBridged
@@ -944,7 +1027,8 @@ contract ERC721VaultTest is Test {
             tokenIds,
             bytes32(0),
             address(erc721Vault),
-            chainId
+            chainId,
+            0
         );
 
         // Query canonicalToBridged

@@ -79,7 +79,8 @@ contract PrankDestBridge {
         uint256[] memory amounts,
         bytes32 msgHash,
         address srcChainERC1155Vault,
-        uint256 srcChainId
+        uint256 srcChainId,
+        uint256 mockLibInvokeMsgValue
     )
         public
     {
@@ -87,7 +88,12 @@ contract PrankDestBridge {
         ctx.msgHash = msgHash;
         ctx.srcChainId = srcChainId;
 
-        destERC1155Vault.receiveToken(ctoken, from, to, tokenIds, amounts);
+        // We need this in order to 'mock' the LibBridgeInvoke's
+        //  (success,retVal) =
+        //     message.to.call{ value: message.value, gas: gasLimit }(message.data);
+        // The problem (with foundry) is that this way it is not able to deploy a contract
+        // most probably due to some deployment address nonce issue. (Seems a known issue).
+        destERC1155Vault.receiveToken{value: mockLibInvokeMsgValue}(ctoken, from, to, tokenIds, amounts);
 
         ctx.sender = address(0);
         ctx.msgHash = bytes32(0);
@@ -170,6 +176,8 @@ contract ERC1155VaultTest is Test {
     address public constant Bob = 0x50081b12838240B1bA02b3177153Bca678a86078;
     //Need +1 bc. and Amelia is the proxied bridge contracts owner
     address public constant Amelia = 0x60081B12838240B1BA02b3177153BCa678A86080;
+    // Dave has nothing so that we can check if he gets the ether (and NFTs)
+    address public constant Dave = 0x70081B12838240b1ba02B3177153bcA678a86090;
 
     function setUp() public {
         vm.startPrank(Amelia);
@@ -198,6 +206,8 @@ contract ERC1155VaultTest is Test {
         destChainErc1155Vault.init(address(addressManager));
 
         destChainIdBridge = new PrankDestBridge(destChainErc1155Vault);
+        vm.deal(address(destChainIdBridge), 100 ether);
+
         srcPrankBridge = new PrankSrcBridge();
         srcPrankBridge.init(address(addressManager));
 
@@ -429,7 +439,8 @@ contract ERC1155VaultTest is Test {
             amounts,
             bytes32(0),
             address(erc1155Vault),
-            srcChainId
+            srcChainId,
+            0
         );
 
         // Query canonicalToBridged
@@ -493,7 +504,8 @@ contract ERC1155VaultTest is Test {
             amounts,
             bytes32(0),
             address(erc1155Vault),
-            srcChainId
+            srcChainId,
+            0
         );
 
         // Query canonicalToBridged
@@ -537,7 +549,8 @@ contract ERC1155VaultTest is Test {
             amounts,
             bytes32(0),
             address(erc1155Vault),
-            srcChainId
+            srcChainId,
+            0
         );
 
         // Query canonicalToBridged
@@ -546,6 +559,75 @@ contract ERC1155VaultTest is Test {
         );
 
         assertEq(bridgedContract, deployedContract);
+    }
+
+    function test_receiveTokens_erc1155_with_ether_to_dave(
+    )
+        public
+    {
+        vm.prank(Alice, Alice);
+        ctoken1155.setApprovalForAll(address(erc1155Vault), true);
+
+        assertEq(ctoken1155.balanceOf(Alice, 1), 10);
+        assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 0);
+
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 2;
+
+        uint256 etherValue = 0.1 ether;
+
+        BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault
+            .BridgeTransferOp(
+            destChainId,
+            Dave,
+            address(ctoken1155),
+            tokenIds,
+            amounts,
+            140_000,
+            140_000,
+            Alice,
+            ""
+        );
+        vm.prank(Alice, Alice);
+        erc1155Vault.sendToken{ value: etherValue }(sendOpts);
+
+        assertEq(ctoken1155.balanceOf(Alice, 1), 8);
+        assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 2);
+
+        amounts[0] = 2;
+        BaseNFTVault.CanonicalNFT memory ctoken = BaseNFTVault.CanonicalNFT({
+            chainId: 31_337,
+            addr: address(ctoken1155),
+            symbol: "",
+            name: ""
+        });
+
+        uint256 srcChainId = block.chainid;
+        vm.chainId(destChainId);
+
+        destChainIdBridge.sendReceiveERC1155ToERC1155Vault(
+            ctoken,
+            Alice,
+            Dave,
+            tokenIds,
+            amounts,
+            bytes32(0),
+            address(erc1155Vault),
+            srcChainId,
+            etherValue
+        );
+
+        // Query canonicalToBridged
+        address deployedContract = destChainErc1155Vault.canonicalToBridged(
+            srcChainId, address(ctoken1155)
+        );
+
+        // Alice bridged over 2 items and etherValue to Dave
+        assertEq(ERC1155(deployedContract).balanceOf(Dave, 1), 2);
+        assertEq(Dave.balance, etherValue);
     }
 
     function test_onMessageRecalled_1155() public {
@@ -670,7 +752,8 @@ contract ERC1155VaultTest is Test {
             amounts,
             bytes32(0),
             address(erc1155Vault),
-            srcChainId
+            srcChainId,
+            0
         );
 
         // Query canonicalToBridged
@@ -735,7 +818,8 @@ contract ERC1155VaultTest is Test {
             amounts,
             bytes32(0),
             address(erc1155Vault),
-            chainId
+            chainId,
+            0
         );
 
         // Query canonicalToBridged
@@ -793,7 +877,8 @@ contract ERC1155VaultTest is Test {
             amounts,
             bytes32(0),
             address(erc1155Vault),
-            chainId
+            chainId,
+            0
         );
 
         assertEq(ctoken1155.balanceOf(Bob, 1), 1);
@@ -854,7 +939,8 @@ contract ERC1155VaultTest is Test {
             amounts,
             bytes32(0),
             address(erc1155Vault),
-            chainId
+            chainId,
+            0
         );
 
         // Query canonicalToBridged
@@ -943,7 +1029,8 @@ contract ERC1155VaultTest is Test {
             amounts,
             bytes32(0),
             address(erc1155Vault),
-            srcChainId
+            srcChainId,
+            0
         );
 
         // Query canonicalToBridged
