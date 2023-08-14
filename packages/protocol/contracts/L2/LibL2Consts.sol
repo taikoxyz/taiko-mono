@@ -6,6 +6,9 @@
 
 pragma solidity ^0.8.20;
 
+/// @title LibL2Consts
+/// @notice This library contains constants related to Layer 2 operations.
 library LibL2Consts {
-    uint32 public constant ANCHOR_GAS_COST = 180_000; // owner:david
+    // Gas cost associated with the anchor transaction.
+    uint32 public constant ANCHOR_GAS_COST = 180_000; // owner: david
 }

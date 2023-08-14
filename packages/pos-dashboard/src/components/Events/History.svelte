@@ -28,9 +28,7 @@
     if (!allEvents) return [];
     const start = (page - 1) * pageSize;
     const end = start + pageSize;
-    console.log('total items', totalItems);
     const ret = allEvents.slice(start, end);
-    console.log(ret);
     return ret;
   }
 

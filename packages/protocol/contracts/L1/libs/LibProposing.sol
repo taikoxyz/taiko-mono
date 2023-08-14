@@ -13,8 +13,6 @@ import { IProverPool } from "../ProverPool.sol";
 import { LibAddress } from "../../libs/LibAddress.sol";
 import { LibEthDepositing } from "./LibEthDepositing.sol";
 import { LibUtils } from "./LibUtils.sol";
-import { SafeCastUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import { TaikoData } from "../TaikoData.sol";
 
 library LibProposing {
@@ -22,7 +20,6 @@ library LibProposing {
     using LibAddress for address payable;
     using LibMath for uint256;
     using LibUtils for TaikoData.State;
-    using SafeCastUpgradeable for uint256;
 
     event BlockProposed(
         uint256 indexed blockId,

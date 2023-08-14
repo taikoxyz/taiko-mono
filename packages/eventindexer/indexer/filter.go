@@ -4,9 +4,10 @@ import (
 	"context"
 	"math/big"
 
+	"log/slog"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -143,11 +144,20 @@ func L1FilterFunc(
 		})
 	}
 
+	if svc.indexNfts {
+		wg.Go(func() error {
+			if err := svc.indexNFTTransfers(ctx, chainID, filterOpts.Start, *filterOpts.End); err != nil {
+				return errors.Wrap(err, "svc.indexNFTTransfers")
+			}
+			return nil
+		})
+	}
+
 	err := wg.Wait()
 
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			log.Error("context cancelled")
+			slog.Error("context cancelled")
 			return err
 		}
 
@@ -202,10 +212,19 @@ func L2FilterFunc(
 		})
 	}
 
+	if svc.indexNfts {
+		wg.Go(func() error {
+			if err := svc.indexNFTTransfers(ctx, chainID, filterOpts.Start, *filterOpts.End); err != nil {
+				return errors.Wrap(err, "svc.indexNFTTransfers")
+			}
+			return nil
+		})
+	}
+
 	err := wg.Wait()
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			log.Error("context cancelled")
+			slog.Error("context cancelled")
 			return err
 		}
 
