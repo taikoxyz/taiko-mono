@@ -270,8 +270,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver, IERC165Upgradeable {
 
     /// @dev Deploy a new BridgedNFT contract and initialize it.
     /// This must be called before the first time a bridged token is sent to
-    /// this
-    /// chain.
+    /// this chain.
     /// @param ctoken CanonicalNFT data.
     /// @return btoken Address of the deployed bridged token contract.
     function _deployBridgedToken(CanonicalNFT memory ctoken)
